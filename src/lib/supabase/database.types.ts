@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       audit_logs: {
@@ -912,6 +937,11 @@ export type Database = {
           shop_id: string
           shop_name: string
           shop_status: string
+          status_changed_at: string
+          status_changed_by_profile_id: string | null
+          status_reason_redacted: string | null
+          suspended_at: string | null
+          suspended_by_profile_id: string | null
           updated_at: string
         }
         Insert: {
@@ -923,6 +953,11 @@ export type Database = {
           shop_id?: string
           shop_name: string
           shop_status?: string
+          status_changed_at?: string
+          status_changed_by_profile_id?: string | null
+          status_reason_redacted?: string | null
+          suspended_at?: string | null
+          suspended_by_profile_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -934,6 +969,11 @@ export type Database = {
           shop_id?: string
           shop_name?: string
           shop_status?: string
+          status_changed_at?: string
+          status_changed_by_profile_id?: string | null
+          status_reason_redacted?: string | null
+          suspended_at?: string | null
+          suspended_by_profile_id?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -947,6 +987,20 @@ export type Database = {
           {
             foreignKeyName: "shops_created_by_profile_id_fkey"
             columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "shops_status_changed_by_profile_id_fkey"
+            columns: ["status_changed_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "shops_suspended_by_profile_id_fkey"
+            columns: ["suspended_by_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["profile_id"]
@@ -1047,6 +1101,31 @@ export type Database = {
       }
     }
     Functions: {
+      platform_create_shop: {
+        Args: {
+          p_owner_profile_id: string
+          p_reason: string
+          p_shop_code: string
+          p_shop_name: string
+        }
+        Returns: Json
+      }
+      platform_reactivate_shop: {
+        Args: { p_confirmation: string; p_reason: string; p_shop_id: string }
+        Returns: Json
+      }
+      platform_soft_delete_shop: {
+        Args: {
+          p_reason: string
+          p_shop_code_confirmation: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      platform_suspend_shop: {
+        Args: { p_confirmation: string; p_reason: string; p_shop_id: string }
+        Returns: Json
+      }
       record_sync_event: {
         Args: {
           p_batch_id?: string
@@ -1211,6 +1290,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },

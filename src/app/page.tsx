@@ -1,17 +1,37 @@
 import type { Metadata } from "next";
-import { PlatformPage } from "@/components/platform/PlatformPage";
-import { getPlatformSectionForRequest } from "@/server/platform-admin/platform-section-data";
+import { redirect } from "next/navigation";
+import { AccessState } from "@/components/auth/AccessState";
+import {
+  getAdminRouteDestination,
+  resolveCurrentAdminRouteAccess,
+} from "@/server/auth/admin-routing";
 
 export const metadata: Metadata = {
-  title: "Platform Overview | MerchandiseControl Admin Web",
+  title: "Admin Access | MerchandiseControl Admin Web",
   description:
-    "Read-only platform overview for MerchandiseControl Admin Web.",
+    "Server-side routing entrypoint for MerchandiseControl Admin Web.",
 };
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const section = await getPlatformSectionForRequest("overview");
+  const access = await resolveCurrentAdminRouteAccess();
+  const destination = getAdminRouteDestination(access);
 
-  return <PlatformPage section={section} />;
+  if (destination) {
+    redirect(destination);
+  }
+
+  if (access.status === "platform_admin" || access.status === "shop_admin") {
+    redirect(access.destination);
+  }
+
+  return (
+    <AccessState
+      area="Admin Web"
+      status={access.status}
+      reason={access.reason}
+      loginHref="/auth/login?next=/"
+    />
+  );
 }

@@ -56,6 +56,16 @@ test("package scripts wire the static security harness into verify", () => {
   assert.match(pkg.scripts.verify, /security:scan/);
 });
 
+test("typecheck regenerates Next route types before TypeScript validation", () => {
+  const pkg = JSON.parse(readProjectFile("package.json"));
+  const tsconfig = JSON.parse(readProjectFile("tsconfig.json"));
+
+  assert.match(pkg.scripts.typecheck, /next typegen/);
+  assert.match(pkg.scripts.typecheck, /tsc --noEmit/);
+  assert.ok(tsconfig.include.includes(".next/types/**/*.ts"));
+  assert.ok(tsconfig.include.includes(".next/dev/types/**/*.ts"));
+});
+
 test("server Supabase boundary remains server-side and service-role free", () => {
   const serverBoundary = readProjectFile("src/lib/supabase/server.ts");
 

@@ -358,7 +358,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Stato: `DONE`
 - File task: `docs/TASKS/TASK-005J-platform-admin-auth-live-ui-polish.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-005J/README.md`
-- Scopo: eseguire la pipeline gate-based approvata per risolvere bootstrap reale `platform_admin`, sessione browser live, eventuale Figma/UI polish e solo dopo eventuale CRUD controllato `TASK-006A`.
+- Scopo: eseguire la pipeline gate-based approvata per risolvere bootstrap reale `platform_admin`, sessione browser live, eventuale Figma/UI polish e solo dopo eventuale planning CRUD controllato ora ricondotto al task unico `TASK-006`.
 - Include:
   - pre-flight git senza lettura di `.env` reali;
   - verifica input runtime per bootstrap e browser live senza stampare valori;
@@ -368,7 +368,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - scelta arbitraria di utenti reali;
   - lettura o stampa di `.env` reali;
   - Figma/UI polish se Gate 1A non passa;
-  - CRUD o apertura `TASK-006A` se Gate 1A/1B non passano;
+  - CRUD o apertura di planning mutativo se Gate 1A/1B non passano;
   - commit.
 - Nota: Gate 1A risolto con fallback deterministico sull'unico utente `auth.users` remoto dev. Gate 1B risolto in `TASK-005K` con test live browser. Figma/UI e CRUD non sono stati eseguiti. `TASK-005L` conferma lo stato `DONE`.
 
@@ -386,7 +386,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - utente dev/test temporaneo creato e ripulito;
   - verifica route Platform autorizzate e logout;
   - remote checks Supabase finali;
-  - candidate planning `TASK-006A` solo documentale.
+  - candidate planning mutativo solo documentale, poi ricondotto al task unico `TASK-006`.
 - Non include:
   - commit;
   - CRUD o safe operations;
@@ -420,17 +420,121 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-006 - Platform Admin Controlled Actions
 
-- Stato: `PLANNED`
-- Scopo: introdurre prime azioni amministrative sicure server-side.
-- Include in futuro:
+- Stato: `READY_FOR_REVIEW`
+- File task: `docs/TASKS/TASK-006-platform-admin-controlled-actions.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-006/README.md`
+- Fase: `EXECUTION_HANDOFF`
+- Execution: `COMPLETED`
+- Scopo: implementare in un unico task completo le prime azioni amministrative sicure server-side.
+- Include nell'execution unica:
   - crea shop;
   - assegna owner iniziale;
   - sospendi shop;
   - riattiva shop;
   - cancellazione logica shop;
-  - audit log obbligatorio.
-- Tutte le azioni devono essere server-side, autorizzate e tracciate.
-- Nessuna service-role key nel client.
+  - audit log obbligatorio;
+  - UI Controlled Operations;
+  - server-side authorization;
+  - RLS/grants/policy coerenti;
+  - test SQL, foundation, Playwright e browser live;
+  - documentazione/evidence.
+- Non include:
+  - Shop Admin Console;
+  - Android/iOS/POS;
+  - service-role client/browser;
+  - hard delete;
+  - cancellazione audit;
+  - commit o push.
+- Nota: execution completata da Codex dopo autorizzazione esplicita utente. Review/fix correttiva eseguita il 2026-05-30 con UI rinominata `Controlled Operations`, risultati azione redatti, conferme shop code visibili e harness ESLint/security aggiornati. Review/fix integrativa Long Goal aggiunge `.sql` al secret scan generico e riesegue check locali freschi. `TASK-006` resta unico; non sono stati creati `TASK-006A`, `TASK-006B`, `TASK-006C`, `TASK-006D` o `TASK-006E`.
+- Evidence aggiornata in `docs/TASKS/EVIDENCE/TASK-006/README.md` e `docs/TASKS/EVIDENCE/LONG-GOAL/README.md`: migration applicata e local/remoto allineati, RPC verificate, tipi rigenerati, UI `/platform/operations` aggiornata, check locali/browser/live passati. Task pronto per review/conferma utente; non marcato `DONE`.
+
+### TASK-007 - Auth Routing and Route Protection
+
+- Stato: `READY_FOR_REVIEW`
+- File task: `docs/TASKS/TASK-007-auth-routing-route-protection.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-007/README.md`
+- Fase: `EXECUTION_HANDOFF`
+- Scopo: implementare routing post-login e protezione server-side per `/`, `/platform/*` e `/shop`.
+- Include:
+  - resolver server-only per ruolo corrente;
+  - `platform_admin` attivo verso `/platform`;
+  - `shop_owner` / `shop_manager` attivo verso `/shop`;
+  - stati no session, not configured, revoked/no access/no shop;
+  - nessun auth metadata come fonte autorizzativa;
+  - nessun client-side guard come protezione unica.
+- Non include:
+  - Shop Admin Console completa;
+  - CRUD shop-scoped;
+  - import/export;
+  - staff POS, PIN/password o dispositivi;
+  - nuove dipendenze;
+  - commit o push.
+- Nota: execution completata da Codex nella Long Goal milestone 1. Implementati resolver server-only, root routing, protezione `/platform/*`, entrypoint `/shop`, pagina login generica e harness aggiornati. Check locali, security, build, verify, Playwright smoke e browser in-app passati con warning non bloccanti documentati. Task pronto per review/conferma utente; non marcato `DONE`.
+
+### TASK-008 - Shop Admin Console Shell
+
+- Stato: `READY_FOR_REVIEW`
+- File task: `docs/TASKS/TASK-008-shop-admin-console-shell.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-008/README.md`
+- Fase: `EXECUTION_HANDOFF`
+- Scopo: creare la base navigabile della `Shop Admin Console`, protetta server-side, con layout e route placeholder dichiarate.
+- Include:
+  - layout `/shop` dedicato;
+  - sidebar/topbar Shop Admin distinte da Platform Admin;
+  - route candidate `/shop/overview`, `/shop/products`, `/shop/categories`, `/shop/suppliers`, `/shop/import-export`, `/shop/members`, `/shop/roles`, `/shop/staff`, `/shop/devices`, `/shop/settings`, `/shop/audit`;
+  - stati placeholder dichiarati e non spacciati per dati live;
+  - nessun nuovo schema o CRUD.
+- Non include:
+  - read model shop-scoped reale;
+  - CRUD prodotti/categorie/fornitori;
+  - import/export reale;
+  - gestione reale membri/ruoli/staff/devices/settings/audit;
+  - migration Supabase;
+  - nuove dipendenze;
+  - commit o push.
+- Nota: execution completata da Codex nella Long Goal milestone 2. Implementati layout protetto `/shop`, shell Shop Admin, route placeholder dichiarate e harness aggiornati. Check locali, security, build, verify, Playwright smoke e browser in-app passati con warning non bloccanti documentati. Task pronto per review/conferma utente; non marcato `DONE`.
+
+### TASK-009 - Shop Switcher
+
+- Stato: `READY_FOR_REVIEW`
+- File task: `docs/TASKS/TASK-009-shop-switcher.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-009/README.md`
+- Fase: `EXECUTION_HANDOFF`
+- Scopo: aggiungere switcher negozio nella Shop Admin Console usando solo membership attive verificate server-side.
+- Include:
+  - resolver server-only per lista shop autorizzati;
+  - switcher UI che riceve solo shop verificati dal server;
+  - query param `shop_id` come stato di navigazione, non come autorizzazione;
+  - nessun dato business shop-scoped ancora renderizzato.
+- Non include:
+  - read model business completo;
+  - CRUD;
+  - persistenza database/cookie della selezione;
+  - migration Supabase;
+  - nuove dipendenze;
+  - commit o push.
+- Nota: execution completata da Codex nella Long Goal milestone 3. Implementato resolver server-only per shop autorizzati, switcher UI con query param non autorizzativo e gate security/foundation dedicati. Check locali, security, build, verify, Playwright smoke e browser in-app passati con warning non bloccanti documentati. Task pronto per review/conferma utente; non marcato `DONE`.
+
+### TASK-010 - Shop Read Model Real Data
+
+- Stato: `PLANNED_NEXT`
+- File task: `TODO`
+- Evidence: `TODO`
+- Fase: `LONG_GOAL_MILESTONE_4`
+- Scopo: creare read model shop-scoped server-only per mostrare dati reali autorizzati del negozio selezionato.
+- Include previsto:
+  - selezione shop verificata server-side;
+  - lettura `shops`, `shop_members` e audit shop-scoped se disponibili;
+  - tutte le query filtrate per `shop_id`;
+  - stati `not_configured`, empty/error e no data;
+  - nessun dato finto spacciato per live.
+- Non include previsto:
+  - CRUD;
+  - prodotti/categorie/fornitori se schema non verificato;
+  - migration non necessarie;
+  - nuove dipendenze;
+  - commit o push.
+- Nota: non aperto in questa tranche per mantenere il diff Long Goal revisionabile dopo milestone 0-3.
 
 ## Tooling policy
 
@@ -445,14 +549,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `DONE_RECONCILED`
-- Ultimo completato: `TASK-005L - Global Review / DONE Reconciliation`
-- Task attivo: nessuno
-- File task: `docs/TASKS/TASK-005L-global-review-done-reconciliation.md`
-- Stato task: `DONE`
-- Fase: `DONE_RECONCILED`
-- Responsabile: `CODEX / GLOBAL_REVIEW_001`
-- Prossima azione consigliata: mantenere `TASK-006` in `PLANNED`; eventuale `TASK-006A` deve partire solo come planning separato e autorizzato.
+- Stato globale attuale: `LONG_GOAL_MILESTONE_3_READY_FOR_REVIEW`
+- Ultimo candidate completato: `TASK-008 - Shop Admin Console Shell`
+- Task attivo: `NONE - long goal tranche paused for reviewability`
+- File task: `docs/TASKS/TASK-009-shop-switcher.md`
+- Stato task: `READY_FOR_REVIEW`
+- Fase: `LONG_GOAL_MILESTONE_3_HANDOFF`
+- Responsabile: `CODEX / HANDOFF`
+- Prossima azione consigliata: review umana dei candidate `TASK-006`, `TASK-007`, `TASK-008` e `TASK-009`; poi aprire `TASK-010` per read model shop-scoped. Nessun task viene marcato `DONE` senza conferma esplicita utente.
 
 ## Regole di avanzamento
 

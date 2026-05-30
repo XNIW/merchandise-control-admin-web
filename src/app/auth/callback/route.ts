@@ -8,7 +8,7 @@ function isSafeInternalNextPath(value: string | null): value is string {
 }
 
 function safeNextPath(value: string | null) {
-  return isSafeInternalNextPath(value) ? value : "/platform";
+  return isSafeInternalNextPath(value) ? value : "/";
 }
 
 export async function GET(request: NextRequest) {

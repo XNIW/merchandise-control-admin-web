@@ -20,7 +20,7 @@ export function AppShell({ activeSection, children }: AppShellProps) {
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
         <Sidebar activeSection={activeSection} />
         <div className="flex min-w-0 flex-col">
-          <Topbar />
+          <Topbar activeSection={activeSection} />
           <main
             id="platform-content"
             tabIndex={-1}
@@ -84,7 +84,7 @@ function Sidebar({ activeSection }: { activeSection: PlatformSectionKey }) {
           </p>
           <p className="mt-2 text-sm text-slate-700">
             Server-side Supabase boundary for read-only Platform Admin views.
-            Mutating admin actions remain disabled.
+            Controlled operations require server-side authorization and audit.
           </p>
         </div>
       </div>
@@ -92,7 +92,9 @@ function Sidebar({ activeSection }: { activeSection: PlatformSectionKey }) {
   );
 }
 
-function Topbar() {
+function Topbar({ activeSection }: { activeSection: PlatformSectionKey }) {
+  const isControlledActions = activeSection === "operations";
+
   return (
     <header className="border-b border-slate-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -106,14 +108,16 @@ function Topbar() {
         </div>
         <div className="flex flex-wrap gap-2" aria-label="Platform status">
           <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
-            Read-only
+            {isControlledActions ? "Controlled actions" : "Read-only"}
           </span>
           <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
             Server boundary
           </span>
-          <span className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
-            Actions disabled
-          </span>
+          {!isControlledActions ? (
+            <span className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
+              Controlled actions
+            </span>
+          ) : null}
         </div>
       </div>
     </header>

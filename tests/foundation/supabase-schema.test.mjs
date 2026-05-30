@@ -59,6 +59,31 @@ test("TASK-005G generated Database types include admin tables", () => {
   }
 });
 
+test("TASK-006 generated Database types include controlled action fields and RPCs", () => {
+  assert.equal(existsSync(join(root, generatedTypesPath)), true);
+
+  const generatedTypes = readProjectFile(generatedTypesPath);
+
+  for (const columnName of [
+    "suspended_at",
+    "suspended_by_profile_id",
+    "status_reason_redacted",
+    "status_changed_at",
+    "status_changed_by_profile_id",
+  ]) {
+    assert.match(generatedTypes, new RegExp(`${columnName}:`));
+  }
+
+  for (const rpcName of [
+    "platform_create_shop",
+    "platform_suspend_shop",
+    "platform_reactivate_shop",
+    "platform_soft_delete_shop",
+  ]) {
+    assert.match(generatedTypes, new RegExp(`${rpcName}: \\{`));
+  }
+});
+
 test("TASK-005G server boundary uses SSR cookies and stays read-only", () => {
   const serverBoundary = readProjectFile("src/lib/supabase/server.ts");
   const readModel = readProjectFile("src/server/platform-admin/read-model.ts");
@@ -73,12 +98,26 @@ test("TASK-005G server boundary uses SSR cookies and stays read-only", () => {
 test("TASK-005G platform routes force request-time rendering", () => {
   const routePaths = [
     "src/app/page.tsx",
+    "src/app/platform/layout.tsx",
     "src/app/platform/page.tsx",
     "src/app/platform/users/page.tsx",
     "src/app/platform/shops/page.tsx",
     "src/app/platform/audit/page.tsx",
     "src/app/platform/system/page.tsx",
     "src/app/platform/operations/page.tsx",
+    "src/app/shop/layout.tsx",
+    "src/app/shop/page.tsx",
+    "src/app/shop/overview/page.tsx",
+    "src/app/shop/products/page.tsx",
+    "src/app/shop/categories/page.tsx",
+    "src/app/shop/suppliers/page.tsx",
+    "src/app/shop/import-export/page.tsx",
+    "src/app/shop/members/page.tsx",
+    "src/app/shop/roles/page.tsx",
+    "src/app/shop/staff/page.tsx",
+    "src/app/shop/devices/page.tsx",
+    "src/app/shop/settings/page.tsx",
+    "src/app/shop/audit/page.tsx",
   ];
 
   for (const routePath of routePaths) {

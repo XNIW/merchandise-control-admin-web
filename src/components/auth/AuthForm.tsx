@@ -22,7 +22,7 @@ export function AuthForm({ isConfigured }: AuthFormProps) {
   const nextPath = useMemo(() => {
     const requested = searchParams.get("next");
 
-    return isSafeInternalNextPath(requested) ? requested : "/platform";
+    return isSafeInternalNextPath(requested) ? requested : "/";
   }, [searchParams]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -67,7 +67,7 @@ export function AuthForm({ isConfigured }: AuthFormProps) {
     }
 
     setState("success");
-    setMessage("Signed in. Opening Platform Admin.");
+    setMessage("Signed in. Opening Admin Web.");
     router.replace(nextPath);
     router.refresh();
   }
@@ -76,7 +76,7 @@ export function AuthForm({ isConfigured }: AuthFormProps) {
     <form
       onSubmit={handleSubmit}
       className="grid gap-4"
-      aria-label="Platform Admin sign in"
+      aria-label="Admin sign in"
     >
       <div className="grid gap-1.5">
         <label htmlFor="email" className="text-sm font-medium text-slate-800">

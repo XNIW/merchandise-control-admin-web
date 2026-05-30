@@ -15,7 +15,7 @@ export type MembershipStatus = "active" | "invited" | "suspended";
 
 export type AuditSeverity = "info" | "warning" | "critical";
 
-export type AuditResult = "success" | "blocked" | "simulated";
+export type AuditResult = "success" | "blocked" | "simulated" | "failure";
 
 export type SystemStatusValue =
   | "operational"

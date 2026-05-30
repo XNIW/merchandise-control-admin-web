@@ -62,7 +62,7 @@ export const navigationItems: Array<{
   { key: "shops", label: "Shops", href: "/platform/shops" },
   { key: "audit", label: "Audit", href: "/platform/audit" },
   { key: "system", label: "System Status", href: "/platform/system" },
-  { key: "operations", label: "Safe Operations", href: "/platform/operations" },
+  { key: "operations", label: "Controlled Operations", href: "/platform/operations" },
 ];
 
 const profileNameById = new Map<string, string>(
@@ -351,22 +351,22 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   },
   operations: {
     key: "operations",
-    title: "Safe Operations",
-    eyebrow: "Controlled actions placeholder",
+    title: "Controlled Operations",
+    eyebrow: "Controlled actions",
     description:
-      "Disabled preview of future server-side platform actions. These controls are non-operational until authorization and audit logging are implemented.",
-    status: "Disabled",
+      "Audited Platform Admin controls for shop creation and lifecycle changes.",
+    status: "Controlled actions",
     stats: [
       {
         label: "Available actions",
-        value: "0",
-        detail: "No real admin actions",
-        tone: "good",
+        value: "4",
+        detail: "Create, suspend, reactivate, archive",
+        tone: "warning",
       },
       {
-        label: "Future actions",
-        value: "5",
-        detail: "Reserved for TASK-006",
+        label: "Boundary",
+        value: "Server",
+        detail: "RPC and audit required",
         tone: "warning",
       },
       {
@@ -385,19 +385,19 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
     rows: [
       {
         operation: "Create shop",
-        availability: "Disabled placeholder",
+        availability: "Server action",
         requirement: "Server-side authorization",
         task: "TASK-006",
       },
       {
         operation: "Assign owner",
-        availability: "Disabled placeholder",
+        availability: "Create shop only",
         requirement: "Audit log required",
         task: "TASK-006",
       },
       {
         operation: "Suspend shop",
-        availability: "Disabled placeholder",
+        availability: "State-scoped action",
         requirement: "Controlled action policy",
         task: "TASK-006",
       },

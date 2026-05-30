@@ -12,6 +12,7 @@ const textExtensions = new Set([
   ".jsx",
   ".md",
   ".mjs",
+  ".sql",
   ".ts",
   ".tsx",
 ]);
@@ -151,21 +152,428 @@ function checkClientBoundaries() {
 
 function checkReadOnlyContracts() {
   const serverFiles = [
+    ...listFiles("src/server/auth"),
+    ...listFiles("src/server/shop-admin"),
     ...listFiles("src/server/platform-admin"),
     ...listFiles("src/lib/supabase"),
   ];
-  const mutationPattern = /\.(insert|update|delete|upsert|rpc)\s*\(/;
+  const directMutationPattern = /\.(insert|update|delete|upsert)\s*\(/;
+  const rpcPattern = /\.rpc\s*\(\s*["']([^"']+)["']/g;
+  const allowedPlatformActionRpcs = new Set([
+    "platform_create_shop",
+    "platform_suspend_shop",
+    "platform_reactivate_shop",
+    "platform_soft_delete_shop",
+  ]);
 
   for (const file of serverFiles) {
     const contents = read(file);
 
-    if (mutationPattern.test(contents)) {
-      addFailure(`${file} contains a forbidden Supabase mutation-style call`);
+    if (directMutationPattern.test(contents)) {
+      addFailure(`${file} contains a forbidden direct Supabase mutation call`);
+    }
+
+    for (const match of contents.matchAll(rpcPattern)) {
+      const rpcName = match[1];
+      const isAllowedActionRpc =
+        file === "src/server/platform-admin/shop-actions.ts" &&
+        allowedPlatformActionRpcs.has(rpcName);
+
+      if (!isAllowedActionRpc) {
+        addFailure(`${file} contains an unapproved Supabase RPC call: ${rpcName}`);
+      }
     }
 
     if (/console\.(log|debug|info|warn|error)/.test(contents)) {
       addFailure(`${file} must not log potentially sensitive runtime errors`);
     }
+  }
+}
+
+function checkTask006ControlledActionArtifacts() {
+  const migrationPath =
+    "supabase/migrations/20260530120000_task_006_platform_admin_controlled_actions.sql";
+  const operationsPagePath = "src/app/platform/operations/page.tsx";
+  const serverActionsPath = "src/app/platform/operations/actions.ts";
+  const shopActionsPath = "src/server/platform-admin/shop-actions.ts";
+  const auditEventsPath = "src/server/platform-admin/audit-events.ts";
+  const platformDataPath = "src/components/platform/platformData.ts";
+
+  for (const requiredPath of [
+    migrationPath,
+    operationsPagePath,
+    serverActionsPath,
+    shopActionsPath,
+    auditEventsPath,
+    platformDataPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const migration = read(migrationPath);
+  const operationsPage = read(operationsPagePath);
+  const serverActions = read(serverActionsPath);
+  const shopActions = read(shopActionsPath);
+  const auditEvents = read(auditEventsPath);
+  const platformData = read(platformDataPath);
+
+  for (const rpcName of [
+    "platform_create_shop",
+    "platform_suspend_shop",
+    "platform_reactivate_shop",
+    "platform_soft_delete_shop",
+  ]) {
+    if (!new RegExp(`create or replace function public\\.${rpcName}`).test(migration)) {
+      addFailure(`${migrationPath} must create ${rpcName}`);
+    }
+
+    if (!new RegExp(`grant execute on function public\\.${rpcName}`).test(migration)) {
+      addFailure(`${migrationPath} must grant execute on ${rpcName}`);
+    }
+
+    if (!shopActions.includes(`.rpc("${rpcName}"`)) {
+      addFailure(`${shopActionsPath} must call approved RPC ${rpcName}`);
+    }
+  }
+
+  if (!/set search_path = public, app_private, pg_temp/i.test(migration)) {
+    addFailure(`${migrationPath} must control RPC search_path`);
+  }
+
+  if (!/app_private\.is_platform_admin\(\)/.test(migration)) {
+    addFailure(`${migrationPath} must authorize through app_private.is_platform_admin()`);
+  }
+
+  if (
+    /grant\s+(insert|update|delete|all).*on table public\.(profiles|shops|shop_members|platform_admins|shop_inventory_sources|audit_logs).*authenticated/i.test(
+      migration,
+    )
+  ) {
+    addFailure(`${migrationPath} must not grant direct table mutations to authenticated`);
+  }
+
+  if (/grant\s+\w+.*\s+to\s+anon/i.test(migration)) {
+    addFailure(`${migrationPath} must not grant TASK-006 access to anon`);
+  }
+
+  if (!/^["']use server["'];?/m.test(serverActions)) {
+    addFailure(`${serverActionsPath} must be a Server Actions module`);
+  }
+
+  if (!/revalidatePath\("\/platform\/operations"\)/.test(serverActions)) {
+    addFailure(`${serverActionsPath} must revalidate /platform/operations`);
+  }
+
+  if (!/redirect\(\s*`\/platform\/operations\?operation=\$\{operation\}&result=\$\{result\.code\}`/.test(serverActions)) {
+    addFailure(`${serverActionsPath} must redirect with a redacted action result`);
+  }
+
+  if (!/authorizeCurrentPlatformAdmin/.test(shopActions)) {
+    addFailure(`${shopActionsPath} must authorize the current Platform Admin`);
+  }
+
+  if (/console\.(log|debug|info|warn|error)/.test(`${serverActions}\n${shopActions}`)) {
+    addFailure("TASK-006 action files must not log runtime details");
+  }
+
+  for (const eventKey of [
+    "platform.shop.create.attempt",
+    "platform.shop.create.success",
+    "platform.shop.create.failure",
+    "platform.shop.owner.assign.attempt",
+    "platform.shop.owner.assign.success",
+    "platform.shop.owner.assign.failure",
+    "platform.shop.suspend.attempt",
+    "platform.shop.suspend.success",
+    "platform.shop.suspend.failure",
+    "platform.shop.reactivate.attempt",
+    "platform.shop.reactivate.success",
+    "platform.shop.reactivate.failure",
+    "platform.shop.soft_delete.attempt",
+    "platform.shop.soft_delete.success",
+    "platform.shop.soft_delete.failure",
+  ]) {
+    if (!auditEvents.includes(eventKey)) {
+      addFailure(`${auditEventsPath} must declare ${eventKey}`);
+    }
+  }
+
+  if (/Safe Operations/.test(`${operationsPage}\n${platformData}`)) {
+    addFailure("TASK-006 active UI must not label mutative controls as Safe Operations");
+  }
+
+  for (const requiredSnippet of [
+    "ActionResultBanner",
+    'aria-live="polite"',
+    "Type shop code to suspend",
+    "Type shop code to reactivate",
+    "Type shop code to archive",
+  ]) {
+    if (!operationsPage.includes(requiredSnippet)) {
+      addFailure(`${operationsPagePath} must include ${requiredSnippet}`);
+    }
+  }
+}
+
+function checkTask007AuthRoutingArtifacts() {
+  const resolverPath = "src/server/auth/admin-routing.ts";
+  const rootPagePath = "src/app/page.tsx";
+  const platformLayoutPath = "src/app/platform/layout.tsx";
+  const shopLayoutPath = "src/app/shop/layout.tsx";
+  const shopPagePath = "src/app/shop/page.tsx";
+  const accessStatePath = "src/components/auth/AccessState.tsx";
+  const authFormPath = "src/components/auth/AuthForm.tsx";
+  const callbackPath = "src/app/auth/callback/route.ts";
+
+  for (const requiredPath of [
+    resolverPath,
+    rootPagePath,
+    platformLayoutPath,
+    shopLayoutPath,
+    shopPagePath,
+    accessStatePath,
+    authFormPath,
+    callbackPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const resolver = read(resolverPath);
+  const rootPage = read(rootPagePath);
+  const platformLayout = read(platformLayoutPath);
+  const shopLayout = read(shopLayoutPath);
+  const shopPage = read(shopPagePath);
+  const accessState = read(accessStatePath);
+  const authForm = read(authFormPath);
+  const callback = read(callbackPath);
+
+  if (!/import "server-only"/.test(resolver)) {
+    addFailure(`${resolverPath} must be server-only`);
+  }
+
+  for (const requiredSnippet of [
+    "auth.getUser()",
+    '.from("platform_admins")',
+    '.from("shop_members")',
+    "shop_owner",
+    "shop_manager",
+    "viewer",
+    "revoked",
+  ]) {
+    if (!resolver.includes(requiredSnippet)) {
+      addFailure(`${resolverPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/user_metadata|raw_user_meta_data/.test(resolver)) {
+    addFailure(`${resolverPath} must not authorize from auth metadata`);
+  }
+
+  if (!/getAdminRouteDestination/.test(rootPage) || !/redirect\(destination\)/.test(rootPage)) {
+    addFailure(`${rootPagePath} must route valid admin roles server-side`);
+  }
+
+  if (!/status !== "platform_admin"/.test(platformLayout) || !/AccessState/.test(platformLayout)) {
+    addFailure(`${platformLayoutPath} must block non-Platform Admin access server-side`);
+  }
+
+  if (!/status !== "shop_admin"/.test(shopLayout) || !/AccessState/.test(shopLayout)) {
+    addFailure(`${shopLayoutPath} must block non-Shop Admin access server-side`);
+  }
+
+  if (!/ShopSectionPage/.test(shopPage)) {
+    addFailure(`${shopPagePath} must render the protected Shop Admin shell page`);
+  }
+
+  for (const statusName of [
+    "not_configured",
+    "no_session",
+    "revoked",
+    "viewer_only",
+    "no_shop",
+    "error",
+  ]) {
+    if (!accessState.includes(statusName)) {
+      addFailure(`${accessStatePath} must render ${statusName}`);
+    }
+  }
+
+  if (!authForm.includes('? requested : "/"')) {
+    addFailure(`${authFormPath} must default post-login routing to /`);
+  }
+
+  if (!callback.includes('? value : "/"')) {
+    addFailure(`${callbackPath} must default callback routing to /`);
+  }
+}
+
+function checkTask008ShopShellArtifacts() {
+  const shopLayoutPath = "src/app/shop/layout.tsx";
+  const shopShellPath = "src/components/shop/ShopShell.tsx";
+  const shopSectionPagePath = "src/components/shop/ShopSectionPage.tsx";
+  const shopSectionsPath = "src/components/shop/shopSections.ts";
+  const shopRoutePaths = [
+    "src/app/shop/page.tsx",
+    "src/app/shop/overview/page.tsx",
+    "src/app/shop/products/page.tsx",
+    "src/app/shop/categories/page.tsx",
+    "src/app/shop/suppliers/page.tsx",
+    "src/app/shop/import-export/page.tsx",
+    "src/app/shop/members/page.tsx",
+    "src/app/shop/roles/page.tsx",
+    "src/app/shop/staff/page.tsx",
+    "src/app/shop/devices/page.tsx",
+    "src/app/shop/settings/page.tsx",
+    "src/app/shop/audit/page.tsx",
+  ];
+  const requiredPaths = [
+    shopLayoutPath,
+    shopShellPath,
+    shopSectionPagePath,
+    shopSectionsPath,
+    ...shopRoutePaths,
+  ];
+  const shopComponentFiles = listFiles("src/components/shop");
+
+  for (const requiredPath of requiredPaths) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const layout = read(shopLayoutPath);
+  const shell = read(shopShellPath);
+  const sectionPage = read(shopSectionPagePath);
+  const sections = read(shopSectionsPath);
+
+  if (!/resolveCurrentShopAdminShellAccess/.test(layout) || !/status !== "shop_admin"/.test(layout)) {
+    addFailure(`${shopLayoutPath} must protect Shop Admin routes server-side`);
+  }
+
+  if (!/<ShopShell/.test(layout) || !/export const dynamic = ["']force-dynamic["']/.test(layout)) {
+    addFailure(`${shopLayoutPath} must render the ShopShell dynamically after authorization`);
+  }
+
+  if (!/^["']use client["'];?/m.test(shell) || !/usePathname/.test(shell)) {
+    addFailure(`${shopShellPath} must keep pathname-aware navigation in a client boundary`);
+  }
+
+  if (!/aria-label="Shop sections"/.test(shell) || !/Skip to shop content/.test(shell)) {
+    addFailure(`${shopShellPath} must expose accessible Shop Admin navigation`);
+  }
+
+  for (const file of shopComponentFiles) {
+    const contents = read(file);
+
+    if (/@\/server|src\/server|@supabase\//.test(contents)) {
+      addFailure(`${file} must not import server-only or Supabase modules into the Shop UI boundary`);
+    }
+  }
+
+  if (!/No live shop rows are rendered in TASK-008/.test(sectionPage)) {
+    addFailure(`${shopSectionPagePath} must label TASK-008 placeholders as non-live`);
+  }
+
+  for (const routePath of shopRoutePaths) {
+    const page = read(routePath);
+
+    if (!/export const dynamic = ["']force-dynamic["']/.test(page)) {
+      addFailure(`${routePath} must force dynamic rendering for auth-scoped Shop Admin UI`);
+    }
+  }
+
+  for (const href of [
+    "/shop/overview",
+    "/shop/products",
+    "/shop/categories",
+    "/shop/suppliers",
+    "/shop/import-export",
+    "/shop/members",
+    "/shop/roles",
+    "/shop/staff",
+    "/shop/devices",
+    "/shop/settings",
+    "/shop/audit",
+  ]) {
+    if (!sections.includes(`href: "${href}"`)) {
+      addFailure(`${shopSectionsPath} must include ${href}`);
+    }
+  }
+}
+
+function checkTask009ShopSwitcherArtifacts() {
+  const resolverPath = "src/server/shop-admin/shop-access.ts";
+  const shopLayoutPath = "src/app/shop/layout.tsx";
+  const shopShellPath = "src/components/shop/ShopShell.tsx";
+
+  for (const requiredPath of [resolverPath, shopLayoutPath, shopShellPath]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const resolver = read(resolverPath);
+  const layout = read(shopLayoutPath);
+  const shell = read(shopShellPath);
+
+  if (!/import "server-only"/.test(resolver)) {
+    addFailure(`${resolverPath} must be server-only`);
+  }
+
+  for (const requiredSnippet of [
+    "resolveCurrentAdminRouteAccess",
+    '.from("shop_members")',
+    '.from("shops")',
+    '.eq("membership_status", "active")',
+    "shop_owner",
+    "shop_manager",
+    "availableShops",
+    "selectedShop",
+  ]) {
+    if (!resolver.includes(requiredSnippet)) {
+      addFailure(`${resolverPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/user_metadata|raw_user_meta_data/.test(resolver)) {
+    addFailure(`${resolverPath} must not authorize from auth metadata`);
+  }
+
+  if (/Promise\.all\s*\(/.test(resolver)) {
+    addFailure(`${resolverPath} must avoid parallel remote Supabase reads`);
+  }
+
+  if (!/resolveCurrentShopAdminShellAccess/.test(layout)) {
+    addFailure(`${shopLayoutPath} must use the Shop Admin shell access resolver`);
+  }
+
+  if (!/availableShops=\{access\.availableShops\}/.test(layout)) {
+    addFailure(`${shopLayoutPath} must pass only server-authorized shops to ShopShell`);
+  }
+
+  for (const requiredSnippet of [
+    "availableShops",
+    "selectedShopId",
+    "useSearchParams",
+    "useRouter",
+    'aria-label="Switch shop"',
+    "shop_id",
+  ]) {
+    if (!shell.includes(requiredSnippet)) {
+      addFailure(`${shopShellPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/@\/server|src\/server|@supabase\//.test(shell)) {
+    addFailure(`${shopShellPath} must not import server-only or Supabase modules`);
   }
 }
 
@@ -330,12 +738,26 @@ function checkSupabaseExecutionArtifacts() {
 function checkPlatformRoutesStayDynamic() {
   const routePaths = [
     "src/app/page.tsx",
+    "src/app/platform/layout.tsx",
     "src/app/platform/page.tsx",
     "src/app/platform/users/page.tsx",
     "src/app/platform/shops/page.tsx",
     "src/app/platform/audit/page.tsx",
     "src/app/platform/system/page.tsx",
     "src/app/platform/operations/page.tsx",
+    "src/app/shop/layout.tsx",
+    "src/app/shop/page.tsx",
+    "src/app/shop/overview/page.tsx",
+    "src/app/shop/products/page.tsx",
+    "src/app/shop/categories/page.tsx",
+    "src/app/shop/suppliers/page.tsx",
+    "src/app/shop/import-export/page.tsx",
+    "src/app/shop/members/page.tsx",
+    "src/app/shop/roles/page.tsx",
+    "src/app/shop/staff/page.tsx",
+    "src/app/shop/devices/page.tsx",
+    "src/app/shop/settings/page.tsx",
+    "src/app/shop/audit/page.tsx",
   ];
 
   for (const routePath of routePaths) {
@@ -543,6 +965,10 @@ checkPlatformAdminBootstrapScript();
 checkSupabaseProxyLifecycle();
 checkPlatformLiveAuthHarness();
 checkAuthRedirectSafety();
+checkTask006ControlledActionArtifacts();
+checkTask007AuthRoutingArtifacts();
+checkTask008ShopShellArtifacts();
+checkTask009ShopSwitcherArtifacts();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

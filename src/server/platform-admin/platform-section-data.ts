@@ -307,12 +307,12 @@ function buildOperations(readModel: PlatformAdminLiveReadModel): PlatformSection
   return {
     ...base,
     description:
-      "Controlled actions remain disabled until a future mutation task defines audit-backed workflows.",
-    status: "Disabled",
+      "Audited controlled actions are handled by the dedicated operations page.",
+    status: "Controlled actions",
     stats: [
-      stat("Available actions", "0", "No mutations wired", "good"),
+      stat("Available actions", "4", "Server-side RPC boundary", "warning"),
       stat("Read model", readModel.status === "ready" ? "On" : "Off", readModel.reason),
-      stat("Audit gate", "Required", "Mandatory before activation", "warning"),
+      stat("Audit gate", "On", "Mandatory for every action", "warning"),
     ],
     rows: base.rows,
   };

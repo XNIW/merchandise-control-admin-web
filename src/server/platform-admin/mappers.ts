@@ -86,7 +86,7 @@ const platformRoleKeys = [
 ] as const;
 const platformScopes = ["global", "shop"] as const;
 const auditSeverities = ["info", "warning", "critical"] as const;
-const auditResults = ["success", "blocked", "simulated"] as const;
+const auditResults = ["success", "blocked", "simulated", "failure"] as const;
 
 function isKnownValue<T extends readonly string[]>(
   values: T,

@@ -3,8 +3,8 @@ import Link from "next/link";
 import { AuthForm } from "@/components/auth/AuthForm";
 
 export const metadata: Metadata = {
-  title: "Platform Admin Sign In | MerchandiseControl Admin Web",
-  description: "Sign in to the MerchandiseControl Platform Admin Console.",
+  title: "Admin Sign In | MerchandiseControl Admin Web",
+  description: "Sign in to MerchandiseControl Admin Web.",
 };
 
 export const dynamic = "force-dynamic";
@@ -30,9 +30,7 @@ export default function PlatformAdminLoginPage() {
               <p className="text-sm font-semibold text-slate-950">
                 MerchandiseControl
               </p>
-              <p className="text-sm text-slate-600">
-                Platform Admin Console
-              </p>
+              <p className="text-sm text-slate-600">Admin Web</p>
             </div>
           </div>
 
@@ -41,12 +39,11 @@ export default function PlatformAdminLoginPage() {
               Secure access
             </p>
             <h1 className="mt-3 text-3xl font-semibold tracking-normal text-slate-950 sm:text-4xl">
-              Platform Admin sign in
+              Admin sign in
             </h1>
             <p className="mt-4 text-base leading-7 text-slate-700">
-              Use a personal Platform Admin account. Data reads stay server-side
-              and controlled actions remain unavailable until audit-backed
-              workflows are enabled.
+              Use a personal admin account. Access is resolved server-side for
+              the right console after sign-in.
             </p>
           </div>
 
@@ -82,10 +79,10 @@ export default function PlatformAdminLoginPage() {
           ) : null}
 
           <Link
-            href="/platform"
+            href="/"
             className="mt-5 inline-flex text-sm font-medium text-slate-700 underline-offset-4 hover:text-slate-950 hover:underline"
           >
-            Return to Platform Admin
+            Return to Admin Web
           </Link>
         </section>
       </div>

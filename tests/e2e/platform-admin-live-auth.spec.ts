@@ -232,6 +232,8 @@ async function createTemporaryPlatformAdminCredentials() {
     },
     email,
     password,
+    supabase,
+    userId,
   };
 }
 
@@ -255,6 +257,7 @@ async function signInWithCredentials(
 async function expectAuthorizedReadOnlyPlatform(
   page: import("@playwright/test").Page,
   allowedHeaderStatus = "Read-only",
+  shellStatus = "Read-only",
 ) {
   const pageHeader = page.locator(
     'section[aria-labelledby="platform-page-title"]',
@@ -269,7 +272,7 @@ async function expectAuthorizedReadOnlyPlatform(
   await expect(
     page
       .getByLabel("Platform status")
-      .getByText("Read-only", { exact: true }),
+      .getByText(shellStatus, { exact: true }),
   ).toBeVisible();
 }
 
@@ -289,7 +292,7 @@ test.describe("Platform Admin live auth gate", () => {
 
     await page.goto("/auth/login");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Platform Admin sign in" }),
+      page.getByRole("heading", { level: 1, name: "Admin sign in" }),
     ).toBeVisible();
 
     const credentials = await createTemporaryPlatformAdminCredentials();
@@ -306,17 +309,154 @@ test.describe("Platform Admin live auth gate", () => {
       }
 
       await page.goto("/platform/operations");
-      await expectAuthorizedReadOnlyPlatform(page, "Disabled");
-      for (const label of ["Create shop", "Assign owner", "Suspend shop"]) {
-        await expect(page.getByRole("button", { name: label })).toBeDisabled();
-      }
+      await expectAuthorizedReadOnlyPlatform(
+        page,
+        "Live actions",
+        "Controlled actions",
+      );
+      await expect(page.getByRole("heading", { name: "Create shop" })).toBeVisible();
 
       await page.goto("/auth/logout");
       await page.goto("/platform");
       await expect(
-        page
-          .locator('section[aria-labelledby="platform-page-title"]')
-          .getByText("Unauthorized", { exact: true }),
+        page.getByRole("heading", {
+          level: 1,
+          name: "Platform Admin access required",
+        }),
+      ).toBeVisible();
+    } finally {
+      await credentials.cleanup();
+    }
+  });
+
+  test("runs TASK-006 controlled shop actions on synthetic data", async ({
+    page,
+  }) => {
+    test.skip(
+      process.env.CONFIRM_PLATFORM_ADMIN_TASK006_LIVE_TEST !== "yes",
+      "Set CONFIRM_PLATFORM_ADMIN_TASK006_LIVE_TEST=yes to run TASK-006 controlled actions.",
+    );
+
+    await page.goto("/auth/login");
+    const credentials = await createTemporaryPlatformAdminCredentials();
+    const nonce = Date.now().toString(36).toUpperCase();
+    const shopCode = `TASK006_TEST_${nonce}`;
+    const shopName = `TASK006_TEST Shop ${nonce}`;
+
+    try {
+      await signInWithCredentials(page, credentials.email, credentials.password);
+      await page.goto("/platform/operations");
+      await expectAuthorizedReadOnlyPlatform(
+        page,
+        "Live actions",
+        "Controlled actions",
+      );
+
+      const createSection = page
+        .locator("section")
+        .filter({ has: page.getByRole("heading", { name: "Create shop" }) });
+      await createSection.getByLabel("Shop name").fill(shopName);
+      await createSection.getByLabel("Shop code").fill(shopCode);
+      await createSection.getByLabel("Initial owner").selectOption(credentials.userId);
+      await createSection.getByLabel("Reason").fill("TASK-006 live create synthetic shop.");
+      await createSection.getByRole("button", { name: "Create shop" }).click();
+      await expect(page.getByRole("heading", { name: shopName })).toBeVisible({
+        timeout: 15_000,
+      });
+
+      const createdShop = await credentials.supabase
+        .from("shops")
+        .select("shop_id,shop_status")
+        .eq("shop_code", shopCode)
+        .maybeSingle();
+
+      if (createdShop.error || !createdShop.data) {
+        throw new Error("BLOCKED_TASK006_SHOP_CREATE_VERIFY_FAILED");
+      }
+
+      const shopId = createdShop.data.shop_id;
+
+      const createdMembership = await credentials.supabase
+        .from("shop_members")
+        .select("shop_member_id")
+        .eq("shop_id", shopId)
+        .eq("profile_id", credentials.userId)
+        .eq("role_key", "shop_owner")
+        .eq("membership_status", "active")
+        .maybeSingle();
+
+      if (createdMembership.error || !createdMembership.data) {
+        throw new Error("BLOCKED_TASK006_OWNER_MEMBERSHIP_VERIFY_FAILED");
+      }
+
+      let shopArticle = page.locator("article").filter({ hasText: shopCode });
+      await shopArticle
+        .locator("form")
+        .nth(0)
+        .getByLabel("Reason")
+        .fill("TASK-006 live suspend synthetic shop.");
+      await shopArticle.getByLabel("Type shop code to suspend").fill(shopCode);
+      await shopArticle.getByRole("button", { name: "Suspend shop" }).click();
+      await expect(shopArticle.getByText("Suspended")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      shopArticle = page.locator("article").filter({ hasText: shopCode });
+      await shopArticle
+        .locator("form")
+        .nth(1)
+        .getByLabel("Reason")
+        .fill("TASK-006 live reactivate synthetic shop.");
+      await shopArticle.getByLabel("Type shop code to reactivate").fill(shopCode);
+      await shopArticle.getByRole("button", { name: "Reactivate shop" }).click();
+      await expect(shopArticle.getByText("Active")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      shopArticle = page.locator("article").filter({ hasText: shopCode });
+      await shopArticle
+        .locator("form")
+        .nth(2)
+        .getByLabel("Reason")
+        .fill("TASK-006 live archive synthetic shop.");
+      await shopArticle.getByLabel("Type shop code to archive").fill(shopCode);
+      await shopArticle.getByRole("button", { name: "Soft delete shop" }).click();
+      await expect(shopArticle.getByText("Archived")).toBeVisible({
+        timeout: 15_000,
+      });
+
+      const archivedShop = await credentials.supabase
+        .from("shops")
+        .select("shop_status")
+        .eq("shop_id", shopId)
+        .maybeSingle();
+
+      if (archivedShop.error || archivedShop.data?.shop_status !== "archived") {
+        throw new Error("BLOCKED_TASK006_ARCHIVE_VERIFY_FAILED");
+      }
+
+      const auditEvents = await credentials.supabase
+        .from("audit_logs")
+        .select("event_key")
+        .eq("shop_id", shopId)
+        .in("event_key", [
+          "platform.shop.create.success",
+          "platform.shop.suspend.success",
+          "platform.shop.reactivate.success",
+          "platform.shop.soft_delete.success",
+        ]);
+
+      if (auditEvents.error || (auditEvents.data ?? []).length < 4) {
+        throw new Error("BLOCKED_TASK006_AUDIT_VERIFY_FAILED");
+      }
+
+      await page.goto("/auth/logout");
+      await page.goto("/platform/operations");
+      await expect(
+        page.getByRole("heading", {
+          level: 1,
+          name: "Platform Admin access required",
+        }),
       ).toBeVisible();
     } finally {
       await credentials.cleanup();

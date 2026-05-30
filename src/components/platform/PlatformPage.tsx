@@ -63,8 +63,8 @@ export function PlatformPage({ section }: PlatformPageProps) {
 
             {section.operations ? (
               <SectionCard
-                title="Disabled safe operations"
-                description="Non-operational controls reserved for TASK-006."
+                title="Controlled operations"
+                description="Audited controls are available only through the dedicated operations page."
               >
                 <div className="grid gap-3">
                   {section.operations.map((operation) => (
