@@ -83,7 +83,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-003 - Platform Admin Domain Types + Mock
 
-- Stato: `PLANNED`
+- Stato: `DONE`
 - Scopo: definire tipi TypeScript e mock sintetici dichiarati per `Platform Admin`.
 - Include:
   - `Profile`;
@@ -95,6 +95,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - `SystemStatus`;
   - dati mock separati dalla UI.
 - Non include Supabase reale.
+- Nota: chiuso su conferma esplicita dell'utente dopo review/fix con verdict `READY_FOR_DONE_CONFIRMATION`; nessun blocker reale.
 
 ### TASK-004 - Supabase Schema Discovery / Planning
 
@@ -149,7 +150,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `IDLE`
-- Ultimo completato: `TASK-002 - Platform Admin UI Shell`
+- Ultimo completato: `TASK-003 - Platform Admin Domain Types + Mock`
 - Task attivo: nessuno
 - File task: non applicabile
 - Stato task: non applicabile
