@@ -4,7 +4,7 @@
 
 - Stato task: `DONE`
 - Verdict tecnico: `PASS_WITH_NOTES`
-- `TASK-005`: resta `PLANNED_BLOCKED`
+- `TASK-005`: `DONE` dopo `TASK-005L`
 - Commit: `PENDING_USER_APPROVED_MAIN_MERGE`
 
 ## Evidence principale
@@ -74,4 +74,4 @@
 - Harness aggiornati: `security:scan` e `test:foundation` verificano `dynamic = "force-dynamic"` sulle route Platform Admin.
 - Check review: `supabase db advisors --linked --type security --level error --fail-on error` rieseguito con esito `PASS`.
 - User approval: conferma esplicita ricevuta il 2026-05-30 con review tecnica `PASS_WITH_NOTES`; `TASK-005H` autorizzato.
-- Stato governance: `TASK-005G` chiuso come `DONE` per conferma utente; `TASK-005` resta `PLANNED_BLOCKED`.
+- Stato governance: `TASK-005G` chiuso come `DONE` per conferma utente; `TASK-005` chiuso a `DONE` da `TASK-005L`.

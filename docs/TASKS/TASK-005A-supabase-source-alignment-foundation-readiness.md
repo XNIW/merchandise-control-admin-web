@@ -338,7 +338,7 @@ La review finale non ha trovato blocker documentali e l'utente ha confermato `TA
 
 - Admin Web risulta ancora senza runtime Supabase: nessun client, migration, template env, tipo `Database`, dipendenza `@supabase/*`, login/auth/CRUD o UI runtime collegata a dati reali.
 - Le fonti Supabase/Android/iOS restano evidence da riallineare, non schema Admin Web gia pronto.
-- `TASK-005` resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
 - Non sono stati introdotti schema, colonne, policy, query o definizione `platform_admin` inventati per Admin Web.
 - La raccomandazione resta aprire un nuovo task di decisione/mapping Admin Web Supabase prima di eseguire `TASK-005`.
 
@@ -351,3 +351,10 @@ Aprire `TASK-005B - Admin Web Supabase Domain Mapping / Boundary Decision` per d
 3. piano RLS/read model per letture globali read-only;
 4. env template e generazione tipi;
 5. solo dopo, rivalutazione di `TASK-005` per execution read-only.
+
+## TASK-005L global review reconciliation
+
+- Data review: 2026-05-30.
+- Esito globale: `PASS_WITH_NOTES`.
+- Nota storica aggiornata: `TASK-005B` e i task successivi sono stati eseguiti; i blocker di `TASK-005A` non restano attivi.
+- Stato finale confermato: `DONE`.

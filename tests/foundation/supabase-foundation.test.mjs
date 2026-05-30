@@ -73,3 +73,134 @@ test("owner source mapping keeps the TASK-005D initial 1:1 cardinality", () => {
   assert.match(mapper, /duplicate_active_owner/);
   assert.match(mapper, /duplicate_active_shop/);
 });
+
+test("TASK-005H bootstrap script is CLI-only, explicit, and redacted", () => {
+  const bootstrapPath = "scripts/supabase/bootstrap-platform-admin.mjs";
+
+  assert.equal(existsSync(join(root, bootstrapPath)), true);
+
+  const script = readProjectFile(bootstrapPath);
+
+  assert.match(script, /PLATFORM_ADMIN_BOOTSTRAP_PROFILE_ID/);
+  assert.match(script, /PLATFORM_ADMIN_BOOTSTRAP_REASON/);
+  assert.match(script, /CONFIRM_PLATFORM_ADMIN_BOOTSTRAP/);
+  assert.match(script, /BLOCKED_INPUT_REQUIRED/);
+  assert.match(script, /platform_admin\.bootstrap\.granted/);
+  assert.match(script, /rollback/);
+  assert.match(script, /commit/);
+  assert.doesNotMatch(script, /@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/);
+  assert.doesNotMatch(script, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
+  assert.doesNotMatch(script, /password\s*=/i);
+});
+
+test("TASK-005J bootstrap can resolve the only auth user without printing identity", () => {
+  const bootstrapPath = "scripts/supabase/bootstrap-platform-admin.mjs";
+  const script = readProjectFile(bootstrapPath);
+
+  assert.match(script, /PLATFORM_ADMIN_BOOTSTRAP_EMAIL/);
+  assert.match(script, /PLATFORM_ADMIN_TEST_EMAIL/);
+  assert.match(script, /Initial platform admin bootstrap approved by project owner/);
+  assert.match(script, /count\(\*\).*from auth\.users/s);
+  assert.match(script, /exactly one auth user/);
+  assert.match(script, /PROFILE_ID_SHA256_12/);
+  assert.doesNotMatch(script, /select\s+[^;]*(email|id::text)[^;]*from auth\.users[^;]*;/i);
+});
+
+test("TASK-005J live read model avoids parallel Supabase queries", () => {
+  const readModel = readProjectFile("src/server/platform-admin/read-model.ts");
+
+  assert.doesNotMatch(readModel, /Promise\.all\s*\(/);
+});
+
+test("TASK-005J auth UI keeps browser Supabase client scoped to auth", () => {
+  const clientPath = "src/lib/supabase/client.ts";
+  const loginPagePath = "src/app/auth/login/page.tsx";
+  const authFormPath = "src/components/auth/AuthForm.tsx";
+  const callbackPath = "src/app/auth/callback/route.ts";
+  const logoutPath = "src/app/auth/logout/route.ts";
+
+  for (const relativePath of [
+    clientPath,
+    loginPagePath,
+    authFormPath,
+    callbackPath,
+    logoutPath,
+  ]) {
+    assert.equal(existsSync(join(root, relativePath)), true, `${relativePath} is missing`);
+  }
+
+  const browserClient = readProjectFile(clientPath);
+  const authForm = readProjectFile(authFormPath);
+  const callbackRoute = readProjectFile(callbackPath);
+  const logoutRoute = readProjectFile(logoutPath);
+
+  assert.match(browserClient, /createBrowserClient/);
+  assert.match(browserClient, /NEXT_PUBLIC_SUPABASE_URL/);
+  assert.match(browserClient, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
+  assert.doesNotMatch(browserClient, /SERVICE_ROLE|service_role|SUPABASE_SERVICE_ROLE_KEY/i);
+  assert.match(authForm, /signInWithPassword/);
+  assert.doesNotMatch(authForm, /from\(["'][a-z_]+["']\)/);
+  assert.match(callbackRoute, /exchangeCodeForSession/);
+  assert.match(logoutRoute, /signOut/);
+  assert.doesNotMatch(`${authForm}\n${callbackRoute}\n${logoutRoute}`, /console\.(log|debug|info|warn|error)/);
+});
+
+test("TASK-005L auth redirects reject protocol-relative next paths", () => {
+  const authForm = readProjectFile("src/components/auth/AuthForm.tsx");
+  const callbackRoute = readProjectFile("src/app/auth/callback/route.ts");
+
+  for (const source of [authForm, callbackRoute]) {
+    assert.match(source, /isSafeInternalNextPath/);
+    assert.match(source, /startsWith\("\/\/"\)/);
+  }
+});
+
+test("TASK-005K live auth browser gate is opt-in and non-persistent", () => {
+  const pkg = JSON.parse(readProjectFile("package.json"));
+  const playwrightConfig = readProjectFile("playwright.config.ts");
+  const liveAuthTestPath = "tests/e2e/platform-admin-live-auth.spec.ts";
+
+  assert.equal(existsSync(join(root, liveAuthTestPath)), true);
+  assert.match(pkg.scripts["test:ui-live-auth"], /platform-admin-live-auth\.spec\.ts/);
+  assert.match(pkg.scripts["test:ui-live-auth"], /PLAYWRIGHT_REUSE_SERVER=0/);
+  assert.match(playwrightConfig, /PLAYWRIGHT_BASE_URL/);
+  assert.match(playwrightConfig, /PLAYWRIGHT_WEB_SERVER_COMMAND/);
+  assert.match(playwrightConfig, /PLAYWRIGHT_REUSE_SERVER/);
+
+  const liveAuthTest = readProjectFile(liveAuthTestPath);
+
+  assert.match(liveAuthTest, /CONFIRM_PLATFORM_ADMIN_LIVE_BROWSER_TEST/);
+  assert.match(liveAuthTest, /createUser/);
+  assert.match(liveAuthTest, /deleteUser/);
+  assert.match(liveAuthTest, /screenshot: "off"/);
+  assert.match(liveAuthTest, /trace: "off"/);
+  assert.match(liveAuthTest, /video: "off"/);
+  assert.doesNotMatch(liveAuthTest, /storageState/);
+  assert.doesNotMatch(liveAuthTest, /console\.(log|debug|info|warn|error)/);
+});
+
+test("TASK-005H Supabase SSR proxy refreshes sessions without authz decisions", () => {
+  const proxyEntryPath = "src/proxy.ts";
+  const proxyHelperPath = "src/lib/supabase/proxy.ts";
+
+  assert.equal(existsSync(join(root, proxyEntryPath)), true);
+  assert.equal(existsSync(join(root, proxyHelperPath)), true);
+
+  const proxyEntry = readProjectFile(proxyEntryPath);
+  const proxyHelper = readProjectFile(proxyHelperPath);
+
+  assert.match(proxyEntry, /export async function proxy/);
+  assert.match(proxyEntry, /updateSupabaseSession/);
+  assert.match(proxyEntry, /matcher/);
+  assert.match(proxyEntry, /_next\/static/);
+  assert.match(proxyEntry, /_next\/image/);
+  assert.match(proxyEntry, /favicon\.ico/);
+
+  assert.match(proxyHelper, /createServerClient/);
+  assert.match(proxyHelper, /NextResponse\.next/);
+  assert.match(proxyHelper, /auth\.getClaims\(\)/);
+  assert.match(proxyHelper, /request\.cookies\.set/);
+  assert.match(proxyHelper, /response\.cookies\.set/);
+  assert.doesNotMatch(proxyHelper, /platform_admins|is_platform_admin/);
+  assert.doesNotMatch(proxyHelper, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
+});

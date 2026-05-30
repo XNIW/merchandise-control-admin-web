@@ -66,7 +66,7 @@ Domande da chiudere:
 
 - `TASK-004`: `DONE`, scope discovery/planning.
 - `TASK-005A`: `DONE`, scope source alignment/foundation readiness.
-- `TASK-005`: resta `PLANNED_BLOCKED`; execution read-only live non autorizzata.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`; execution read-only live non autorizzata.
 
 ### Modello mobile/Supabase esistente
 
@@ -820,7 +820,7 @@ Stato alla chiusura: criteri soddisfatti su conferma esplicita utente. Codex non
 - `TASK-005B`: `DONE`.
 - Piano decisionale: completo e chiuso su conferma esplicita utente.
 - Execution runtime: `BLOCKED`.
-- `TASK-005`: resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
 
 ### File toccati
 
@@ -886,7 +886,7 @@ Chiarimento stati:
 
 - `TASK-005B` era `PLANNED_BLOCKED` come stato operativo durante la review perche non eseguiva runtime e dipendeva da decisione utente.
 - Il piano `TASK-005B` e passato da `READY_FOR_REVIEW` a `DONE` dopo conferma esplicita utente.
-- `TASK-005` resta `PLANNED_BLOCKED` e non passa a execution.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED` e non passava a execution.
 
 Miglioramenti integrati in review:
 
@@ -906,7 +906,7 @@ Esito:
 - `TASK-005B` era `PLANNED_BLOCKED` come task operativo durante il final gate.
 - Il piano e stato poi confermato e chiuso come `DONE`.
 - Execution runtime resta `BLOCKED`.
-- `TASK-005` resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
 - `TASK-005B` non chiude automaticamente le decisioni architetturali: le rende verificabili per approvazione utente/reviewer.
 
 Check final planning gate:
@@ -939,7 +939,7 @@ Esito review:
 - La raccomandazione Opzione C - Ibrida e accettabile come direzione prudente, non come autorizzazione a eseguire runtime.
 - Le decisioni `DEC-005B-01` -> `DEC-005B-10` sono sufficientemente chiare per review utente/reviewer.
 - `TASK-005B` puo passare a `DONE` solo con conferma esplicita utente.
-- `TASK-005` resta `PLANNED_BLOCKED` e non passa a execution.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED` e non passava a execution.
 - Nessun task viene marcato `DONE` da Codex.
 
 Motivazione:
@@ -982,6 +982,13 @@ Condizione finale:
 - Nessun login/auth/CRUD introdotto.
 - Nessuna modifica UI runtime introdotta.
 - Nessuna modifica Android/iOS introdotta.
-- `TASK-005` resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
 - `TASK-005` potra essere rivalutato solo dopo schema/boundary/RLS/env/tipi/`platform_admin` approvati e verificabili.
 - Prossimo passo consigliato: aprire un task successivo dedicato a mapping/schema/boundary approvato prima di rivalutare `TASK-005`.
+
+## TASK-005L global review reconciliation
+
+- Data review: 2026-05-30.
+- Esito globale: `PASS_WITH_NOTES`.
+- Nota storica aggiornata: schema, boundary, RLS, env/tipi e `platform_admin` sono stati implementati/verificati dai task successivi fino a `TASK-005K`.
+- Stato finale confermato: `DONE`.

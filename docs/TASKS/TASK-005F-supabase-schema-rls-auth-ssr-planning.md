@@ -4,17 +4,17 @@
 
 - ID: `TASK-005F`
 - Titolo: Supabase Schema / RLS / Auth SSR Planning
-- Stato: `READY_FOR_REVIEW`
+- Stato: `DONE_AS_SUPERSEDED`
 - Tipo: planning tecnico repo-grounded
 - Dipende da:
   - `TASK-005E` chiuso a `DONE`;
   - `TASK-005D` decisione schema/auth boundary;
   - `TASK-005` ancora `PLANNED_BLOCKED`.
 - File Master Plan: `docs/MASTER-PLAN.md`
-- Runtime live: `NOT_RUN`
-- Migration Supabase: `NOT_CREATED`
-- Query live Supabase: `NOT_RUN`
-- Tipi `Database`: `NOT_GENERATED`
+- Runtime live: `SUPERSEDED_BY_TASK_005G_005K`
+- Migration Supabase: `SUPERSEDED_BY_TASK_005G`
+- Query live Supabase: `SUPERSEDED_BY_TASK_005K`
+- Tipi `Database`: `SUPERSEDED_BY_TASK_005G`
 - Commit: `NOT_CREATED`
 
 ## 2. Obiettivo
@@ -31,7 +31,7 @@ Evidence:
 
 - `docs/TASKS/TASK-005E-supabase-foundation-execution.md` indica `Stato task: DONE`.
 - `docs/MASTER-PLAN.md` indica `TASK-005E` come `DONE`.
-- `TASK-005` resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
 
 Nota: `docs/TASKS/EVIDENCE/TASK-005E/README.md` resta un artifact di evidence con stato precedente `READY_FOR_DONE_CONFIRMATION`; non blocca `TASK-005F` perche il task file e il Master Plan sono stati chiusi a `DONE` dopo conferma esplicita utente.
 
@@ -947,5 +947,14 @@ Eseguiti in `TASK-005F`:
 
 - Verdict: `READY_FOR_REVIEW`.
 - `TASK-005F` resta planning tecnico.
-- `TASK-005` resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
 - Prossimo passo concreto: review di `TASK-005F`; se approvato, aprire `TASK-005G - Supabase Schema Migration Execution` per creare migration in ambiente controllato, non aprire ancora `TASK-005`.
+
+## 25. TASK-005L global review reconciliation
+
+- Data review: 2026-05-30.
+- Review globale: `TASK-005L - Global Review / DONE Reconciliation`.
+- Esito: `PASS_WITH_NOTES`.
+- Decisione: `TASK-005F` era planning tecnico e il piano e stato superato dall'execution verificata in `TASK-005G`, dai gate finali `TASK-005H`, e dalla sessione browser live `TASK-005K`.
+- Evidence corrente: `docs/TASKS/TASK-005L-global-review-done-reconciliation.md` e `docs/TASKS/EVIDENCE/TASK-005L/README.md`.
+- Stato finale: `DONE_AS_SUPERSEDED`.

@@ -112,7 +112,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-005 - Platform Admin Read-only Data
 
-- Stato: `PLANNED_BLOCKED`
+- Stato: `DONE`
 - Scopo: collegare la `Platform Admin Console` a letture dati reali solo dopo schema/auth/boundary verificati.
 - Include:
   - lettura profili;
@@ -122,7 +122,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - gestione loading/error/empty states.
 - Solo read-only.
 - Nessuna scrittura.
-- Nota: resta bloccato per execution finche schema/auth/RLS/boundary/env/tipi e decisione `platform_admin` server-side non saranno verificati o approvati.
+- Nota: gate read-only live completato in `TASK-005K` con sessione browser reale Platform Admin, read model server-side e safe operations disabilitate. Chiuso a `DONE` da `TASK-005L` dopo review globale, check locali/remoti/browser live e approvazione esplicita utente nel prompt `GLOBAL-REVIEW-001`.
 
 ### TASK-005A - Supabase Source Alignment / Foundation Readiness
 
@@ -142,7 +142,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - CRUD;
   - query live o dati reali;
   - modifiche UI/runtime.
-- Nota: chiuso su conferma esplicita dell'utente. `TASK-005` resta `PLANNED_BLOCKED`; prossimo passo e aprire `TASK-005B - Admin Web Supabase Domain Mapping / Boundary Decision`, non eseguire subito read-only sui dati reali.
+- Nota: chiuso su conferma esplicita dell'utente. Storicamente `TASK-005` restava `PLANNED_BLOCKED` e il prossimo passo era `TASK-005B`; questa catena e stata completata fino a `TASK-005L`.
 
 ### TASK-005B - Admin Web Supabase Domain Mapping / Boundary Decision
 
@@ -164,11 +164,11 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - query live o dati reali;
   - modifiche UI/runtime;
   - execution `TASK-005`.
-- Nota: chiuso su conferma esplicita dell'utente; scope limitato a decision/planning. Raccomandazione accettata = opzione ibrida con `shops` root Admin Web e mapping esplicito verso `owner_user_id`/inventory solo dopo decisione approvata. Nessun client Supabase, migration, dato reale UI, auth/login o CRUD introdotto. `TASK-005` resta `PLANNED_BLOCKED` finche schema/boundary/RLS/env/tipi e `platform_admin` non saranno approvati e verificabili.
+- Nota: chiuso su conferma esplicita dell'utente; scope limitato a decision/planning. Raccomandazione accettata = opzione ibrida con `shops` root Admin Web e mapping esplicito verso `owner_user_id`/inventory solo dopo decisione approvata. Nessun client Supabase, migration, dato reale UI, auth/login o CRUD introdotto in `TASK-005B`. I blocker storici di `TASK-005` sono stati poi superati dai task successivi fino a `TASK-005L`.
 
 ### TASK-005C - Admin Web Supabase Schema / Boundary Planning
 
-- Stato: `PLANNED_BLOCKED`
+- Stato: `DONE_AS_SUPERSEDED`
 - File task pianificato: `docs/TASKS/TASK-005C-admin-web-supabase-schema-boundary-planning.md`
 - Scopo: trasformare la decisione ibrida di `TASK-005B` in un piano verificabile per schema, mapping, boundary, RLS, env, tipi e test prima di qualunque execution runtime.
 - Include:
@@ -191,11 +191,11 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - modifiche UI/runtime;
   - modifiche Android/iOS;
   - execution `TASK-005`.
-- Nota: piano creato come handoff documentale e review documentale ricevuta con verdict `READY_FOR_REVIEW`. `TASK-005C` resta planning-only / `PLANNED_BLOCKED`; `TASK-005` resta `PLANNED_BLOCKED` finche schema/boundary/RLS/env/tipi e `platform_admin` non saranno approvati e verificabili.
+- Nota: piano creato come handoff documentale e review documentale ricevuta con verdict `READY_FOR_REVIEW`. Chiuso da `TASK-005L` come `DONE_AS_SUPERSEDED` perche i blocker planning sono stati superati da execution verificata in `TASK-005G`/`TASK-005K`.
 
 ### TASK-005D - Supabase Schema / Auth Boundary Decision
 
-- Stato: `PLANNED_BLOCKED`
+- Stato: `DONE_AS_SUPERSEDED`
 - File task pianificato: `docs/TASKS/TASK-005D-supabase-schema-auth-boundary-decision.md`
 - Scopo: chiudere una proposta decisionale documentale su schema candidate, auth/server boundary, `platform_admin`, mapping `owner_user_id` -> `shop_id`, env template futuro e harness richiesti prima di qualunque execution Supabase.
 - Include:
@@ -221,7 +221,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - modifiche UI/runtime;
   - modifiche Android/iOS/POS;
   - execution `TASK-005`.
-- Nota: piano decisionale creato come handoff documentale; review/fix finale nel file task con verdict `READY_FOR_REVIEW`. Il piano e usato come base per `TASK-005E`, senza dichiarare `TASK-005D` `DONE`. `TASK-005` resta `PLANNED_BLOCKED` finche schema/boundary/RLS/env/tipi/mapping e `platform_admin` non saranno approvati e verificabili.
+- Nota: piano decisionale creato come handoff documentale; review/fix finale nel file task con verdict `READY_FOR_REVIEW`. Chiuso da `TASK-005L` come `DONE_AS_SUPERSEDED` perche le decisioni sono state attuate e verificate nei task successivi.
 
 ### TASK-005E - Supabase Foundation Execution
 
@@ -251,11 +251,11 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - modifiche UI;
   - modifiche Android/iOS/POS;
   - execution `TASK-005`.
-- Nota: chiuso a `DONE` su conferma esplicita dell'utente dopo review/fix finale. L'incoerenza cardinalita owner/shop e stata corretta mantenendo la decisione `TASK-005D` 1:1 iniziale. `TASK-005` resta `PLANNED_BLOCKED` perche mancano ancora schema/migration, tipi `Database`, RLS reali, auth SSR funzionante, ruolo `platform_admin` verificato e approvazione esplicita a leggere dati live.
+- Nota: chiuso a `DONE` su conferma esplicita dell'utente dopo review/fix finale. L'incoerenza cardinalita owner/shop e stata corretta mantenendo la decisione `TASK-005D` 1:1 iniziale. Storicamente `TASK-005` restava bloccato per schema/migration/tipi/RLS/auth SSR/platform admin; questi gate sono stati completati fino a `TASK-005L`.
 
 ### TASK-005F - Supabase Schema / RLS / Auth SSR Planning
 
-- Stato: `READY_FOR_REVIEW`
+- Stato: `DONE_AS_SUPERSEDED`
 - File task: `docs/TASKS/TASK-005F-supabase-schema-rls-auth-ssr-planning.md`
 - Scopo: preparare un piano tecnico repo-grounded per schema candidate, RLS, grants/Data API, Auth SSR, tipi `Database`, mapping owner/shop 1:1, migration strategy, test data e harness futuri.
 - Include:
@@ -278,7 +278,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - UI live;
   - modifiche Android/iOS/POS;
   - execution `TASK-005`.
-- Nota: planning tecnico soltanto. `TASK-005` resta `PLANNED_BLOCKED`; prossimo passo consigliato dopo review e `TASK-005G - Supabase Schema Migration Execution`, non ancora read-only live.
+- Nota: planning tecnico soltanto, superato da `TASK-005G` migration execution e `TASK-005K` live browser gate. Chiuso da `TASK-005L` come `DONE_AS_SUPERSEDED`.
 
 ### TASK-005G - Supabase End-to-End Execution
 
@@ -304,29 +304,119 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - apertura `TASK-005`;
   - modifiche Android/iOS/POS;
   - commit automatico durante execution.
-- Nota: chiuso su conferma esplicita dell'utente del 2026-05-30 dopo review tecnica `PASS_WITH_NOTES`. La migration e stata validata in rollback e applicata via query diretta perche `supabase db push` e bloccato dalla migration history remota preesistente fuori repo. `TASK-005` resta `PLANNED_BLOCKED` finche migration history, bootstrap `platform_admin` e session lifecycle non saranno risolti/approvati in task separati.
+- Nota: chiuso su conferma esplicita dell'utente del 2026-05-30 dopo review tecnica `PASS_WITH_NOTES`. La migration e stata validata in rollback e applicata via query diretta perche `supabase db push` era bloccato dalla migration history remota preesistente fuori repo. I gate storici migration history, bootstrap `platform_admin` e session lifecycle sono stati risolti da `TASK-005H`/`TASK-005K` e confermati da `TASK-005L`.
 
-### TASK-005H - Supabase Migration Registry / Platform Admin Bootstrap Readiness
+### TASK-005H - Supabase Final Readiness / TASK-005 Unblock
 
-- Stato: `ACTIVE`
-- File task: `docs/TASKS/TASK-005H-supabase-migration-registry-platform-admin-bootstrap-readiness.md`
-- Scopo: preparare il passaggio controllato dopo `TASK-005G` per riconciliare migration history/registry e definire il bootstrap sicuro del primo `platform_admin` reale, senza aprire ancora `TASK-005`.
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-005H-supabase-final-readiness-task-005-unblock.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-005H/README.md`
+- Scopo: completare i gate finali dopo `TASK-005G` per migration registry, bootstrap `platform_admin`, session lifecycle SSR e rivalutazione di `TASK-005`.
 - Include:
-  - inventory non distruttivo della migration history remota e locale;
-  - strategia di riconciliazione registry prima di riabilitare `supabase db push` come gate standard;
-  - piano operativo per bootstrap del primo `platform_admin` reale;
-  - requisiti input utente per identificare profilo/user id senza hardcodare PII o secret;
-  - safety gate per service-role, client/browser, RLS, audit e rollback;
-  - criteri per decidere se il bootstrap puo essere execution o deve restare manuale.
+  - import non distruttivo delle migration canoniche gia applicate da remoto;
+  - verifica oggetti `TASK-005G` prima di repair registry;
+  - `supabase migration repair --status applied 20260530041048`;
+  - `supabase db push --linked --dry-run` come gate standard;
+  - script CLI controllato per bootstrap primo `platform_admin`;
+  - Next.js 16 Proxy per refresh session/cookie Supabase SSR;
+  - harness statici per bootstrap, proxy, no service-role client/browser, read-only e route dinamiche;
+  - documentazione dei blocker residui per `TASK-005`.
 - Non include:
+  - commit;
   - repair distruttivo o riscrittura cieca della migration history remota;
   - seed permanente non approvato;
-  - hardcode di email, user id, token, password o secret;
+  - hardcode di email, user id reale, token, password o secret;
   - service-role key nel client/browser;
-  - login UI o session lifecycle completo;
-  - apertura execution `TASK-005`;
-  - CRUD Admin Web.
-- Nota: autorizzato dall'utente il 2026-05-30 dopo approvazione tecnica di `TASK-005G`. Il task richiede ancora input espliciti per qualunque bootstrap reale di un utente `platform_admin`.
+  - login UI completa;
+  - CRUD Admin Web;
+  - apertura `TASK-006`.
+- Nota: migration registry riconciliato e session lifecycle SSR implementato. I blocker bootstrap/sessione live sono stati superati da `TASK-005J`/`TASK-005K`; `TASK-005L` conferma lo stato `DONE`.
+
+### TASK-005I - Platform Admin Read-only Data Completion / Live Gate Review
+
+- Stato: `DONE_AS_SUPERSEDED`
+- File task: `docs/TASKS/TASK-005I-platform-admin-read-only-data-completion.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-005I/README.md`
+- Scopo: rivalutare `TASK-005` dopo `TASK-005H` e completare solo cio che e verificabile senza inventare gate live.
+- Include:
+  - classificazione dell'esito reale di `TASK-005H`;
+  - handoff bloccante se restano gate critici;
+  - aggiornamento stato `TASK-005`;
+  - check locali sicuri;
+  - conferma che `TASK-006` resta fuori scope.
+- Non include:
+  - bootstrap reale senza `PLATFORM_ADMIN_BOOTSTRAP_PROFILE_ID`;
+  - sessione browser finta o mock come live;
+  - query Supabase remote non necessarie;
+  - migration, repair, db push o seed;
+  - CRUD o safe operations;
+  - commit.
+- Nota: handoff bloccante storico superato da `TASK-005J` e `TASK-005K`. Chiuso da `TASK-005L` come `DONE_AS_SUPERSEDED`.
+
+### TASK-005J - Platform Admin Auth Live Gates / UI Polish Gate
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-005J-platform-admin-auth-live-ui-polish.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-005J/README.md`
+- Scopo: eseguire la pipeline gate-based approvata per risolvere bootstrap reale `platform_admin`, sessione browser live, eventuale Figma/UI polish e solo dopo eventuale CRUD controllato `TASK-006A`.
+- Include:
+  - pre-flight git senza lettura di `.env` reali;
+  - verifica input runtime per bootstrap e browser live senza stampare valori;
+  - esecuzione dello script bootstrap esistente solo se input espliciti sono disponibili;
+  - stop immediato se Gate 1A o Gate 1B resta bloccato.
+- Non include:
+  - scelta arbitraria di utenti reali;
+  - lettura o stampa di `.env` reali;
+  - Figma/UI polish se Gate 1A non passa;
+  - CRUD o apertura `TASK-006A` se Gate 1A/1B non passano;
+  - commit.
+- Nota: Gate 1A risolto con fallback deterministico sull'unico utente `auth.users` remoto dev. Gate 1B risolto in `TASK-005K` con test live browser. Figma/UI e CRUD non sono stati eseguiti. `TASK-005L` conferma lo stato `DONE`.
+
+### TASK-005K - Platform Admin Live Browser Gate Completion
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-005K-platform-admin-live-browser-gate-completion.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-005K/README.md`
+- Scopo: completare il gate browser/sessione live rimasto aperto per chiudere il perimetro read-only di `TASK-005`.
+- Include:
+  - env runtime locale Supabase redatto;
+  - `.env.local` ignorato con soli valori pubblici;
+  - service-role process-only via Supabase CLI api-keys;
+  - test live browser auth opt-in;
+  - utente dev/test temporaneo creato e ripulito;
+  - verifica route Platform autorizzate e logout;
+  - remote checks Supabase finali;
+  - candidate planning `TASK-006A` solo documentale.
+- Non include:
+  - commit;
+  - CRUD o safe operations;
+  - TASK-006 execution;
+  - service-role nel browser/client;
+  - token/JWT/magic link salvati;
+  - modifiche Android/iOS/POS.
+- Nota: `TASK-005K` ha esito `PASS_LIVE_UI_WITH_NOTES`; `TASK-005L` ha rieseguito browser live e Supabase checks e conferma lo stato `DONE`.
+
+### TASK-005L - Global Review / DONE Reconciliation
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-005L-global-review-done-reconciliation.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-005L/README.md`
+- Scopo: audit globale di tutti i task creati finora, fix blocker sicuri e riconciliazione finale degli stati.
+- Include:
+  - inventario task/evidence;
+  - review sicurezza, performance, UI/accessibilita e Supabase live;
+  - browser live auth gate;
+  - fix auth redirect protocol-relative;
+  - chiusura task storici planning/blocker come `DONE_AS_SUPERSEDED`;
+  - conferma `TASK-006` non eseguito.
+- Non include:
+  - commit;
+  - push;
+  - CRUD o safe operations;
+  - execution `TASK-006`;
+  - Shop Admin Console;
+  - staff POS/PIN/password.
+- Nota: verdict globale `PASS_WITH_NOTES`; tutti i task da `TASK-001` a `TASK-005L` sono chiusi, `TASK-006` resta `PLANNED`.
 
 ### TASK-006 - Platform Admin Controlled Actions
 
@@ -355,14 +445,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `PLANNING`
-- Ultimo completato: `TASK-005G - Supabase End-to-End Execution`
-- Task attivo: `TASK-005H - Supabase Migration Registry / Platform Admin Bootstrap Readiness`
-- File task: `docs/TASKS/TASK-005H-supabase-migration-registry-platform-admin-bootstrap-readiness.md`
-- Stato task: `ACTIVE`
-- Fase: `PLANNING`
-- Responsabile: `USER / PLANNING`
-- Prossima azione consigliata: definire ed eseguire in modo non distruttivo `TASK-005H` per riconciliare migration history/registry e bootstrap controllato del primo `platform_admin`. Non aprire execution `TASK-005` finche migration history, bootstrap `platform_admin`, session lifecycle e mapping non sono approvati e verificabili.
+- Stato globale attuale: `DONE_RECONCILED`
+- Ultimo completato: `TASK-005L - Global Review / DONE Reconciliation`
+- Task attivo: nessuno
+- File task: `docs/TASKS/TASK-005L-global-review-done-reconciliation.md`
+- Stato task: `DONE`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `CODEX / GLOBAL_REVIEW_001`
+- Prossima azione consigliata: mantenere `TASK-006` in `PLANNED`; eventuale `TASK-006A` deve partire solo come planning separato e autorizzato.
 
 ## Regole di avanzamento
 
@@ -370,3 +460,4 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Codex prepara handoff a `REVIEW`, non marca `DONE`.
 - `DONE` richiede review positiva e conferma esplicita dell'utente.
 - Follow-up e automazioni mancanti vanno documentati come candidati separati, non attivati automaticamente.
+- Eccezione registrata: `GLOBAL-REVIEW-001` contiene approvazione esplicita utente a chiudere `DONE` quando review tecnica, check ed evidence sono positivi. `DONE_AS_SUPERSEDED` e uno stato chiuso equivalente a `DONE` per task storici planning/blocker superati da execution successiva.

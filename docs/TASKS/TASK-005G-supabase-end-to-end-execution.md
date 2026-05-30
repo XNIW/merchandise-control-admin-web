@@ -9,7 +9,7 @@
   - `TASK-005D - Supabase Schema / Auth Boundary Decision`
   - `TASK-005E - Supabase Foundation Execution`
   - `TASK-005F - Supabase Schema / RLS / Auth SSR Planning`
-- Stato `TASK-005`: resta `PLANNED_BLOCKED`
+- Stato `TASK-005`: `DONE` dopo `TASK-005L`
 - Commit: `PENDING_USER_APPROVED_MAIN_MERGE`
 
 ## Obiettivo
@@ -229,7 +229,7 @@ Comportamento:
 
 ## Safety gate aggiornati
 
-- `TASK-005` resta `PLANNED_BLOCKED`.
+- Nota storica: al momento di `TASK-005G`, `TASK-005` restava `PLANNED_BLOCKED`; `TASK-005L` lo ha chiuso a `DONE`.
 - Nessuna service-role key nel client/browser.
 - Nessun secret inserito nel repository.
 - `.env.example` resta senza valori.
@@ -250,7 +250,7 @@ Comportamento:
 ## Stato finale
 
 - `TASK-005G`: `DONE`
-- `TASK-005`: `PLANNED_BLOCKED`
+- `TASK-005`: `DONE` dopo `TASK-005L`
 - Commit: `PENDING_USER_APPROVED_MAIN_MERGE`
 
 ## Review addendum
@@ -262,8 +262,14 @@ Review sicurezza-first post-handoff:
 - Fix applicato: messaggi stale legati a `TASK-005E` sostituiti con wording coerente con `TASK-005G`.
 - Check review: `supabase db advisors --linked --type security --level error --fail-on error` rieseguito con esito `PASS`.
 - User approval: conferma esplicita ricevuta il 2026-05-30 con review tecnica `PASS_WITH_NOTES`; `TASK-005H` autorizzato.
-- Stato finale: `TASK-005G` chiuso come `DONE` per conferma utente; `TASK-005` resta `PLANNED_BLOCKED`.
+- Stato finale: `TASK-005G` chiuso come `DONE` per conferma utente; nota storica aggiornata da `TASK-005L`, che ha chiuso `TASK-005` a `DONE`.
 
 ## Prossimo passo consigliato
 
 Eseguire `TASK-005H` per riconciliare migration history/registry e definire bootstrap controllato del primo `platform_admin` reale prima di rivalutare `TASK-005`.
+
+## TASK-005L global review reconciliation
+
+- Data review: 2026-05-30.
+- Esito globale: `PASS_WITH_NOTES`.
+- `TASK-005G` confermato `DONE`; migration/RLS/grants/tipi/read model restano validi dopo rerun Supabase live.

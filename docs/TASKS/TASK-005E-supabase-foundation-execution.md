@@ -5,7 +5,7 @@
 - Stato task: `DONE`
 - Tipo: execution fondazionale controllata
 - Deriva da: `TASK-005D - Supabase Schema / Auth Boundary Decision`
-- Stato `TASK-005`: resta `PLANNED_BLOCKED`
+- Stato `TASK-005`: `DONE` dopo `TASK-005L`
 - Runtime live: `DISABLED`
 - Migration Supabase: `NOT_CREATED`
 - Query live Supabase: `NOT_RUN`
@@ -156,4 +156,11 @@ Risultati finali registrati in `docs/TASKS/EVIDENCE/TASK-005E/README.md`:
 
 - Verdict finale: `DONE`.
 - Conferma utente per `DONE`: ricevuta.
-- `TASK-005` resta `PLANNED_BLOCKED`.
+- Nota storica: al momento di `TASK-005E`, `TASK-005` restava `PLANNED_BLOCKED`; `TASK-005L` lo ha chiuso a `DONE` dopo execution e gate live successivi.
+
+## TASK-005L global review reconciliation
+
+- Data review: 2026-05-30.
+- Esito globale: `PASS_WITH_NOTES`.
+- Foundation confermata senza regressioni.
+- Stato finale confermato: `DONE`.

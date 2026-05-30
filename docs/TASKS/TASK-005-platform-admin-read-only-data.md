@@ -5,16 +5,17 @@
 - ID: `TASK-005`
 - Titolo: Platform Admin Read-only Data
 - Stato iniziale: `PLANNED_BLOCKED`
-- Fase attuale: `PLANNING`
-- Responsabile attuale: `CODEX / PLANNING HANDOFF`
-- Dipendenza completata: `TASK-004 - Supabase Schema Discovery / Planning` e `DONE` su conferma esplicita utente. Execution resta bloccata dai prerequisiti Supabase reali mancanti.
+- Stato attuale: `DONE`
+- Fase attuale: `DONE_RECONCILED`
+- Responsabile attuale: `CODEX / GLOBAL_REVIEW_001`
+- Dipendenza completata: `TASK-004 - Supabase Schema Discovery / Planning` e `DONE` su conferma esplicita utente. I prerequisiti Supabase/live sono stati completati fino a `TASK-005K`; `TASK-005L` ha rieseguito la review globale e chiuso `TASK-005` a `DONE` con approvazione esplicita utente nel prompt `GLOBAL-REVIEW-001`.
 - File Master Plan: `docs/MASTER-PLAN.md`
 
 ## Scopo
 
-Collegare in futuro la `Platform Admin Console` a letture dati reali read-only, solo dopo prerequisiti reali su schema Supabase, auth, RLS, client/server boundary, env template e tipi `Database`.
+Collegare la `Platform Admin Console` a letture dati reali read-only, solo dopo prerequisiti reali su schema Supabase, auth, RLS, client/server boundary, env template e tipi `Database`.
 
-Questo piano non autorizza execution runtime. Non crea client Supabase, migration, CRUD, login, server actions operative o collegamenti a dati reali.
+Questo piano originario non autorizzava execution runtime. Gli addendum fino a `TASK-005K` documentano l'execution autorizzata e verificata; non autorizzano CRUD, safe operation o `TASK-006`.
 
 ## Stato iniziale repo-grounded
 
@@ -396,3 +397,78 @@ La futura execution puo partire solo se:
 - Nessuna scrittura, CRUD, safe operation o azione `TASK-006` introdotta.
 - Supabase live/migration/seed: `NOT_RUN`, prerequisiti reali e autorizzazione assenti.
 - Prossimo passo operativo: aprire o approvare un task ridotto `TASK-005A - Supabase Foundation Readiness`, oppure fornire schema/auth/RLS/boundary/env/tipi approvati per sbloccare `TASK-005`.
+
+### TASK-005I live gate review addendum
+
+- TASK-005I aperto dopo `TASK-005H` per valutare se il read-only data scope puo diventare reviewabile.
+- Esito ingresso da `TASK-005H`: `PASS_WITH_NOTES`, ma con gate critici ancora aperti.
+- Gate gia superati da `TASK-005H`: migration registry, `supabase db push --linked --dry-run`, RLS/grants, session lifecycle SSR via Next.js 16 Proxy, read-only/static harness.
+- Gate ancora bloccanti:
+  - bootstrap reale del primo `platform_admin`: `BLOCKED_INPUT_REQUIRED`;
+  - sessione browser reale Platform Admin: `BLOCKED_MANUAL_BROWSER_SESSION`;
+  - audit persistente post-bootstrap: `BLOCKED_INPUT_REQUIRED`.
+- Decisione: `TASK-005` resta `PLANNED_BLOCKED`.
+- Verdict massimo attuale: `PASS_SERVER_ONLY_WITH_BLOCKERS`, non `PASS_LIVE_UI`.
+- `TASK-005I` non ha eseguito completion UI/live, non ha scelto utenti reali, non ha creato dati o seed e non ha eseguito `TASK-006`.
+
+### TASK-005J auth live gate addendum
+
+- TASK-005J aperto per la pipeline sequenziale approvata: bootstrap reale `platform_admin`, sessione browser live, Figma/UI polish e solo dopo eventuale `TASK-006A`.
+- Pre-flight git eseguito senza leggere `.env` reali.
+- Verifica env runtime eseguita stampando solo `SET`/`MISSING`: assenti `PLATFORM_ADMIN_BOOTSTRAP_PROFILE_ID`, `PLATFORM_ADMIN_BOOTSTRAP_EMAIL`, `PLATFORM_ADMIN_BOOTSTRAP_REASON`, `CONFIRM_PLATFORM_ADMIN_BOOTSTRAP`, credenziali browser e valori runtime Supabase.
+- `npm run supabase:bootstrap-platform-admin` eseguito senza env ha restituito `BLOCKED_INPUT_REQUIRED` con exit code `2`.
+- Decisione: Gate 1A resta `BLOCKED_INPUT_REQUIRED`; non e stato scelto alcun utente reale e non e stata eseguita alcuna mutazione remota.
+- Gate 1B browser session: `NOT_RUN`, perche Gate 1A non passa e mancano credenziali browser env.
+- Figma/UI polish: `NOT_RUN`, vietato senza Gate 1A/1B `PASS`.
+- `TASK-006A`: `NOT_RUN` e non aperto, vietato senza read-only live verificato.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`; verdict massimo attuale: `BLOCKED`, non `PASS_LIVE_UI`.
+
+### TASK-005J retry addendum
+
+- Retry autorizzato con uso sicuro del Supabase remoto dev collegato e lettura interna di `.env*` senza stampare valori.
+- Pre-flight: `git status --short`, `git diff --stat`, `git diff --check` eseguiti.
+- Env runtime dopo processo + `.env*`: mancanti `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `PLATFORM_ADMIN_TEST_EMAIL`, `PLATFORM_ADMIN_TEST_PASSWORD`, `SUPABASE_SERVICE_ROLE_KEY` e input bootstrap espliciti.
+- Query remota sequenziale su `auth.users`: esattamente 1 utente; identity redatta con fingerprint, nessuna email/UUID completo stampato.
+- Bootstrap script aggiornato per fallback deterministico sull'unico `auth.users`, default reason redatta e output senza identita completa.
+- Dry-run bootstrap con rollback: `PASS`.
+- Apply bootstrap reale: `APPLIED`.
+- Post-bootstrap SQL catalog verification: profilo/admin/auth user presenti, audit bootstrap presente, RLS su 6 tabelle, 6 policy SELECT, audit triggers 2, anon grants 0, grants mutativi `authenticated` 0, helper `is_platform_admin` filtra `revoked_at is null`.
+- Read model aggiornato per evitare `Promise.all` e rispettare il divieto di query Supabase parallele.
+- Auth UI/callback/logout implementati:
+  - `src/lib/supabase/client.ts`
+  - `src/components/auth/AuthForm.tsx`
+  - `src/app/auth/login/page.tsx`
+  - `src/app/auth/callback/route.ts`
+  - `src/app/auth/logout/route.ts`
+- Gate 1B resta `BLOCKED_MANUAL_BROWSER_SESSION`: mancano credenziali browser test, service-role env e runtime Supabase app; nessuna sessione browser live e stata verificata.
+- Figma/UI polish: `NOT_RUN`, vietato senza `PASS_LIVE_UI`.
+- `TASK-006A`: `NOT_RUN`, vietato senza read-only live verificato.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`; verdict massimo attuale: `PASS_SERVER_ONLY_WITH_MANUAL_UI_BLOCKER`, non `PASS_LIVE_UI`.
+
+### TASK-005K live browser completion addendum
+
+- TASK-005K ha completato il gate browser/sessione live rimasto aperto.
+- Env runtime Supabase locale: `PRESENT`, con valori pubblici scritti solo in `.env.local` ignorato e service-role usato solo process/test runtime.
+- Bootstrap platform_admin esistente: `ALREADY_ACTIVE`.
+- Sessione browser live: `PASS_LIVE_UI`.
+- Metodo browser: utente dev/test temporaneo creato via Auth Admin, bootstrap platform_admin redatto, login reale su `/auth/login`, verifica route Platform e cleanup utente a fine test.
+- Route verificate: `/auth/login`, `/platform`, `/platform/users`, `/platform/shops`, `/platform/audit`, `/platform/operations`, `/auth/logout`, `/platform` post-logout.
+- Read model: ancora read-only, nessuna mutazione Admin Web.
+- Safe operations: restano disabilitate.
+- Supabase remote checks: migration list, db push dry-run, db lint, security advisors e SQL catalog verification passati.
+- Decisione: `TASK-005` passa da `PLANNED_BLOCKED` a `READY_FOR_REVIEW`.
+- Nota governance: `DONE` richiede review positiva e conferma esplicita dell'utente.
+
+### TASK-005L global review reconciliation addendum
+
+- Data review: 2026-05-30.
+- Review globale: `TASK-005L - Global Review / DONE Reconciliation`.
+- Esito: `PASS_WITH_NOTES`.
+- Fix applicato: hardening redirect auth `next` per bloccare path protocol-relative `//...`.
+- Check rieseguiti in `TASK-005L`: `git diff --check`, `npm run test:foundation`, `npm run security:scan`, `npm run lint`, `npm run typecheck`, `npm run build`, `npm run verify`, `npm run test:ui-smoke`, `CONFIRM_PLATFORM_ADMIN_LIVE_BROWSER_TEST=yes npm run test:ui-live-auth`, `npm audit`, Supabase migration list, db push dry-run, db lint, security advisors e SQL catalog verification read-only.
+- Gate read-only live: `PASS`.
+- Read model: ancora read-only; solo `.select()` con limiti server-side.
+- Auth/RLS: platform admin verificato server-side; RLS/grants Admin Web verificati da catalogo remoto.
+- Sicurezza: nessun secret salvato, nessun service-role client/browser, nessun mock dichiarato live.
+- Scope: nessun CRUD, nessuna safe operation, nessuna execution `TASK-006`.
+- Stato finale: `DONE`.

@@ -131,8 +131,17 @@ function checkClientBoundaries() {
 
   for (const file of clientFiles) {
     const contents = read(file);
+    const authClientBoundary = file.startsWith("src/components/auth/");
 
     for (const pattern of forbiddenPatterns) {
+      if (
+        authClientBoundary &&
+        pattern.source === "@\\\/lib\\\/supabase" &&
+        /@\/lib\/supabase\/client/.test(contents)
+      ) {
+        continue;
+      }
+
       if (pattern.test(contents)) {
         addFailure(`${file} crosses the Supabase server-only boundary`);
       }
@@ -343,6 +352,184 @@ function checkPlatformRoutesStayDynamic() {
   }
 }
 
+function checkPlatformAdminBootstrapScript() {
+  const bootstrapPath = "scripts/supabase/bootstrap-platform-admin.mjs";
+  const packagePath = "package.json";
+
+  if (!existsSync(join(root, bootstrapPath))) {
+    addFailure(`${bootstrapPath} is missing`);
+    return;
+  }
+
+  const bootstrap = read(bootstrapPath);
+  const pkg = JSON.parse(read(packagePath));
+
+  if (
+    pkg.scripts["supabase:bootstrap-platform-admin"] !==
+    "node scripts/supabase/bootstrap-platform-admin.mjs"
+  ) {
+    addFailure("package.json must expose supabase:bootstrap-platform-admin");
+  }
+
+  for (const envName of [
+    "PLATFORM_ADMIN_BOOTSTRAP_PROFILE_ID",
+    "PLATFORM_ADMIN_BOOTSTRAP_REASON",
+    "CONFIRM_PLATFORM_ADMIN_BOOTSTRAP",
+  ]) {
+    if (!bootstrap.includes(envName)) {
+      addFailure(`${bootstrapPath} must require ${envName}`);
+    }
+  }
+
+  if (!/BLOCKED_INPUT_REQUIRED/.test(bootstrap)) {
+    addFailure(`${bootstrapPath} must block when required input is absent`);
+  }
+
+  if (!/platform_admin\.bootstrap\.granted/.test(bootstrap)) {
+    addFailure(`${bootstrapPath} must write a redacted bootstrap audit event`);
+  }
+
+  if (!/rollback/.test(bootstrap) || !/commit/.test(bootstrap)) {
+    addFailure(`${bootstrapPath} must support rollback dry-run and confirmed apply`);
+  }
+
+  if (/@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(bootstrap)) {
+    addFailure(`${bootstrapPath} must not hardcode email addresses`);
+  }
+
+  if (/SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(bootstrap)) {
+    addFailure(`${bootstrapPath} must not depend on service-role secrets`);
+  }
+
+  if (/password\s*=/i.test(bootstrap)) {
+    addFailure(`${bootstrapPath} must not hardcode passwords`);
+  }
+}
+
+function checkSupabaseProxyLifecycle() {
+  const proxyEntryPath = "src/proxy.ts";
+  const proxyHelperPath = "src/lib/supabase/proxy.ts";
+
+  for (const requiredPath of [proxyEntryPath, proxyHelperPath]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const proxyEntry = read(proxyEntryPath);
+  const proxyHelper = read(proxyHelperPath);
+
+  if (!/export async function proxy/.test(proxyEntry)) {
+    addFailure(`${proxyEntryPath} must export the Next.js 16 proxy function`);
+  }
+
+  if (!/matcher/.test(proxyEntry) || !/_next\/static/.test(proxyEntry) || !/_next\/image/.test(proxyEntry)) {
+    addFailure(`${proxyEntryPath} must avoid static Next.js internals`);
+  }
+
+  if (!/favicon\.ico/.test(proxyEntry)) {
+    addFailure(`${proxyEntryPath} must avoid favicon requests`);
+  }
+
+  if (!/createServerClient/.test(proxyHelper) || !/auth\.getClaims\(\)/.test(proxyHelper)) {
+    addFailure(`${proxyHelperPath} must refresh Supabase SSR sessions through getClaims`);
+  }
+
+  if (!/request\.cookies\.set/.test(proxyHelper) || !/response\.cookies\.set/.test(proxyHelper)) {
+    addFailure(`${proxyHelperPath} must sync refreshed cookies to request and response`);
+  }
+
+  if (/platform_admins|is_platform_admin/.test(proxyHelper)) {
+    addFailure(`${proxyHelperPath} must not decide Platform Admin authorization`);
+  }
+
+  if (/SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE|service_role/i.test(proxyHelper)) {
+    addFailure(`${proxyHelperPath} must not use service-role secrets`);
+  }
+}
+
+function checkPlatformLiveAuthHarness() {
+  const packagePath = "package.json";
+  const configPath = "playwright.config.ts";
+  const liveAuthTestPath = "tests/e2e/platform-admin-live-auth.spec.ts";
+
+  for (const requiredPath of [packagePath, configPath, liveAuthTestPath]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const pkg = JSON.parse(read(packagePath));
+  const config = read(configPath);
+  const liveAuthTest = read(liveAuthTestPath);
+  const liveScript = pkg.scripts["test:ui-live-auth"] ?? "";
+
+  if (!/platform-admin-live-auth\.spec\.ts/.test(liveScript)) {
+    addFailure("package.json must expose test:ui-live-auth for the live auth gate");
+  }
+
+  if (!/PLAYWRIGHT_REUSE_SERVER=0/.test(liveScript)) {
+    addFailure("test:ui-live-auth must force a fresh dev server");
+  }
+
+  for (const envName of [
+    "PLAYWRIGHT_BASE_URL",
+    "PLAYWRIGHT_WEB_SERVER_COMMAND",
+    "PLAYWRIGHT_REUSE_SERVER",
+  ]) {
+    if (!config.includes(envName)) {
+      addFailure(`${configPath} must support ${envName}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "CONFIRM_PLATFORM_ADMIN_LIVE_BROWSER_TEST",
+    "createUser",
+    "deleteUser",
+    "screenshot: \"off\"",
+    "trace: \"off\"",
+    "video: \"off\"",
+  ]) {
+    if (!liveAuthTest.includes(requiredSnippet)) {
+      addFailure(`${liveAuthTestPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/storageState/.test(liveAuthTest)) {
+    addFailure(`${liveAuthTestPath} must not persist auth storageState`);
+  }
+
+  if (/console\.(log|debug|info|warn|error)/.test(liveAuthTest)) {
+    addFailure(`${liveAuthTestPath} must not log live auth details`);
+  }
+}
+
+function checkAuthRedirectSafety() {
+  const authFormPath = "src/components/auth/AuthForm.tsx";
+  const callbackPath = "src/app/auth/callback/route.ts";
+
+  for (const requiredPath of [authFormPath, callbackPath]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  for (const file of [authFormPath, callbackPath]) {
+    const contents = read(file);
+
+    if (!/isSafeInternalNextPath/.test(contents)) {
+      addFailure(`${file} must validate auth redirect next paths`);
+    }
+
+    if (!/startsWith\("\/\/"\)/.test(contents)) {
+      addFailure(`${file} must reject protocol-relative auth redirects`);
+    }
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -352,6 +539,10 @@ checkRedactionHelper();
 checkOwnerMappingCardinality();
 checkSupabaseExecutionArtifacts();
 checkPlatformRoutesStayDynamic();
+checkPlatformAdminBootstrapScript();
+checkSupabaseProxyLifecycle();
+checkPlatformLiveAuthHarness();
+checkAuthRedirectSafety();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

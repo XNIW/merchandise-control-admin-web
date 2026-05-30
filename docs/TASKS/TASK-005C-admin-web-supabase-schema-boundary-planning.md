@@ -4,9 +4,9 @@
 
 - ID: `TASK-005C`
 - Titolo: Admin Web Supabase Schema / Boundary Planning
-- Stato: `PLANNED_BLOCKED`
-- Fase attuale: `PLANNING_HANDOFF`
-- Responsabile attuale: `USER / REVIEW`
+- Stato: `DONE_AS_SUPERSEDED`
+- Fase attuale: `DONE_RECONCILED`
+- Responsabile attuale: `CODEX / GLOBAL_REVIEW_001`
 - Dipende da:
   - `TASK-005B` DONE;
   - Opzione C - Ibrida accettata come direzione prudente;
@@ -468,7 +468,7 @@ La futura UI read-only deve rendere evidente la provenienza e lo stato del dato:
 - entita candidate e mapping sono espliciti;
 - boundary server/client e RLS sono pianificati;
 - env/tipi/test/safety gate sono documentati;
-- `TASK-005` resta `PLANNED_BLOCKED`;
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`;
 - check documentali richiesti passano.
 
 Stato del piano dopo creazione:
@@ -476,7 +476,7 @@ Stato del piano dopo creazione:
 - Piano documentale: `READY_FOR_REVIEW`.
 - Stato task: `PLANNED_BLOCKED`.
 - Execution runtime: `BLOCKED`.
-- `TASK-005`: resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
 
 ## 22. Prossimo passo consigliato
 
@@ -494,7 +494,7 @@ Review del piano `TASK-005C`. Se approvato, aprire un task successivo di decisio
 - Nessun secret inserito.
 - Nessuna service-role key esposta.
 - Nessuna modifica Android/iOS.
-- `TASK-005` resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
 
 ## 24. Addendum review Codex planning-only
 
@@ -564,4 +564,13 @@ Review eseguita in modalita `PLANNING_REVIEW_ONLY` sui documenti e sullo stato r
 - Piano `TASK-005C`: `READY_FOR_REVIEW`.
 - Stato task: `PLANNED_BLOCKED`.
 - Execution runtime: `BLOCKED`.
-- `TASK-005`: resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
+
+## 25. TASK-005L global review reconciliation
+
+- Data review: 2026-05-30.
+- Review globale: `TASK-005L - Global Review / DONE Reconciliation`.
+- Esito: `PASS_WITH_NOTES`.
+- Decisione: `TASK-005C` era planning-only e i blocker storici sono stati superati da `TASK-005G`, `TASK-005H`, `TASK-005J` e `TASK-005K`.
+- Evidence corrente: `docs/TASKS/TASK-005L-global-review-done-reconciliation.md` e `docs/TASKS/EVIDENCE/TASK-005L/README.md`.
+- Stato finale: `DONE_AS_SUPERSEDED`.

@@ -4,9 +4,9 @@
 
 - ID: `TASK-005D`
 - Titolo: Supabase Schema / Auth Boundary Decision
-- Stato: `PLANNED_BLOCKED`
-- Fase attuale: `PLANNING_HANDOFF`
-- Responsabile attuale: `USER / REVIEW`
+- Stato: `DONE_AS_SUPERSEDED`
+- Fase attuale: `DONE_RECONCILED`
+- Responsabile attuale: `CODEX / GLOBAL_REVIEW_001`
 - Dipende da:
   - `TASK-005C` reviewato con verdict `READY_FOR_REVIEW`;
   - `TASK-005B` DONE;
@@ -440,7 +440,7 @@ Una execution Supabase puo essere aperta solo se:
 - Piano `TASK-005D`: `READY_FOR_REVIEW`.
 - Stato task: `PLANNED_BLOCKED`.
 - Execution runtime: `BLOCKED`.
-- `TASK-005`: resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
 
 ## 22. Prossimo passo consigliato
 
@@ -460,7 +460,7 @@ Review documentale di `TASK-005D`. Se approvato, aprire un task successivo separ
 - Nessuna service-role key esposta.
 - Nessuna modifica runtime/UI.
 - Nessuna modifica Android/iOS/POS.
-- `TASK-005` resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
 
 ## 24. Addendum review Codex planning-only
 
@@ -472,7 +472,7 @@ Review eseguita in modalita `PLANNING_REVIEW_ONLY` sul piano `TASK-005D`, sul Ma
 - Motivo: il piano resta planning-only, non introduce runtime e copre le decisioni bloccanti richieste. I gap trovati erano documentali e sono stati integrati in questo addendum: evidence `rg`, rischi espliciti, harness addizionali, UX futura, performance/manutenzione e note Supabase security correnti.
 - Stato task: `PLANNED_BLOCKED`.
 - Execution runtime: `BLOCKED`.
-- `TASK-005`: resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
 
 ### File riletti per review
 
@@ -669,7 +669,7 @@ Implicazioni per `TASK-005D`:
 - Nessuna service-role key esposta.
 - Nessuna modifica runtime/UI.
 - Nessuna modifica Android/iOS/POS.
-- `TASK-005` resta `PLANNED_BLOCKED`.
+- Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
 
 ## 25. Final review/fix gate
 
@@ -735,3 +735,12 @@ Nessuna regressione runtime verificabile perche nessun codice e stato modificato
 - Execution runtime: `BLOCKED`.
 - `TASK-005`: `PLANNED_BLOCKED`.
 - Commit: `NOT_RUN`.
+
+## 26. TASK-005L global review reconciliation
+
+- Data review: 2026-05-30.
+- Review globale: `TASK-005L - Global Review / DONE Reconciliation`.
+- Esito: `PASS_WITH_NOTES`.
+- Decisione: `TASK-005D` era decision/planning-only e le decisioni sono state attuate e verificate da `TASK-005E`, `TASK-005F`, `TASK-005G`, `TASK-005H`, `TASK-005J` e `TASK-005K`.
+- Evidence corrente: `docs/TASKS/TASK-005L-global-review-done-reconciliation.md` e `docs/TASKS/EVIDENCE/TASK-005L/README.md`.
+- Stato finale: `DONE_AS_SUPERSEDED`.

@@ -1,12 +1,20 @@
 # TASK-005H - Supabase Migration Registry / Platform Admin Bootstrap Readiness
 
+## Stato documento
+
+Questo documento e stato superato dal task operativo esteso:
+
+- `docs/TASKS/TASK-005H-supabase-final-readiness-task-005-unblock.md`
+
+Motivo: il nuovo handoff utente ha ampliato `TASK-005H` includendo anche session lifecycle Supabase SSR, bootstrap CLI controllato e rivalutazione esplicita di `TASK-005`.
+
 ## Informazioni generali
 
 - ID: `TASK-005H`
 - Titolo: Supabase Migration Registry / Platform Admin Bootstrap Readiness
-- Stato: `ACTIVE`
-- Fase attuale: `PLANNING`
-- Responsabile attuale: `USER / PLANNING`
+- Stato: `DONE_AS_SUPERSEDED`
+- Fase attuale: `DONE_RECONCILED`
+- Responsabile attuale: `CODEX / GLOBAL_REVIEW_001`
 - Data apertura: 2026-05-30
 - File Master Plan: `docs/MASTER-PLAN.md`
 
@@ -100,7 +108,7 @@ In parallelo, la console live richiede un primo `platform_admin` reale, ma quel 
 
 - Decisioni gia prese:
   - `TASK-005G` e approvato tecnicamente con review `PASS_WITH_NOTES`.
-  - `TASK-005` resta `PLANNED_BLOCKED`.
+  - Nota storica: `TASK-005` restava `PLANNED_BLOCKED`.
   - Il bootstrap `platform_admin` deve essere server-managed e non client-side.
 - Alternative escluse:
   - riparare la history remota alla cieca;
@@ -163,9 +171,13 @@ In parallelo, la console live richiede un primo `platform_admin` reale, ma quel 
 
 ## Chiusura
 
-Da compilare solo dopo review positiva e conferma esplicita dell'utente.
+- Stato finale: `DONE_AS_SUPERSEDED`
+- Conferma utente: inclusa nel prompt `GLOBAL-REVIEW-001`.
+- Data chiusura: 2026-05-30.
+- Follow-up aperti: nessuno in questo documento; usare `TASK-005H` operativo e `TASK-005L` come evidence corrente.
 
-- Stato finale: `PENDING`
-- Conferma utente: `PENDING`
-- Data chiusura: `PENDING`
-- Follow-up aperti: `PENDING`
+## TASK-005L global review reconciliation
+
+- Review globale: `TASK-005L - Global Review / DONE Reconciliation`.
+- Esito: `PASS_WITH_NOTES`.
+- Decisione: questo documento resta storico e superato dal task operativo `TASK-005H-supabase-final-readiness-task-005-unblock.md`, ora chiuso a `DONE`.

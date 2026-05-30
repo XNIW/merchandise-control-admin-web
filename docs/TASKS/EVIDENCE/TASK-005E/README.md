@@ -2,9 +2,9 @@
 
 ## Stato
 
-- Stato evidence: `READY_FOR_DONE_CONFIRMATION`
+- Stato evidence: `DONE`
 - Task: `TASK-005E - Supabase Foundation Execution`
-- `TASK-005`: resta `PLANNED_BLOCKED`
+- `TASK-005`: `DONE` dopo `TASK-005L`
 - Commit: `NOT_CREATED`
 
 ## Review/fix finale
@@ -203,6 +203,13 @@ Risultato:
 
 ## Stato handoff
 
+## TASK-005L global review reconciliation
+
+- Data review: 2026-05-30.
+- Esito globale: `PASS_WITH_NOTES`.
+- `TASK-005E` resta `DONE`; la foundation e stata superata da `TASK-005G`/`TASK-005K` senza regressioni.
+- Evidence corrente aggiuntiva: `docs/TASKS/TASK-005L-global-review-done-reconciliation.md`.
+
 - `TASK-005E`: `READY_FOR_DONE_CONFIRMATION`.
-- `TASK-005`: resta `PLANNED_BLOCKED`.
+- Nota storica: al momento di `TASK-005E`, `TASK-005` restava `PLANNED_BLOCKED`; `TASK-005L` lo ha chiuso a `DONE`.
 - Commit: `NOT_CREATED`.

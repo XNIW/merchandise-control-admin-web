@@ -408,3 +408,10 @@ Questa tabella registra check eseguiti durante l'handoff iniziale di `TASK-004`.
 - Nessun dato reale collegato alla UI.
 - `TASK-005` resta bloccato per execution finche schema/auth/RLS/boundary/env/tipi non saranno verificati o approvati.
 - Prossimo passo: pianificare/revieware `TASK-005`, non eseguirlo subito sui dati reali.
+
+### TASK-005L global review reconciliation
+
+- Data review: 2026-05-30.
+- Esito globale: `PASS_WITH_NOTES`.
+- Nota storica aggiornata: i blocker citati sopra erano validi al momento di `TASK-004`, ma sono stati superati dai task successivi fino a `TASK-005K`.
+- Stato finale confermato: `DONE`.

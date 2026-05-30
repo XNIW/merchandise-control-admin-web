@@ -104,6 +104,21 @@ test.describe("Platform Admin smoke", () => {
     }
   });
 
+  test("auth login page renders without exposing Platform data", async ({ page }) => {
+    await page.goto("/auth/login");
+
+    await expect(page).toHaveTitle(
+      "Platform Admin Sign In | MerchandiseControl Admin Web",
+    );
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Platform Admin sign in" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("form", { name: "Platform Admin sign in" }),
+    ).toBeVisible();
+    await expect(page.getByText("No service key in browser")).toBeVisible();
+  });
+
   test("skip link moves keyboard focus to main content", async ({ page }) => {
     await page.goto("/platform");
 

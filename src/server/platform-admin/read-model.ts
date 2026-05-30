@@ -142,46 +142,37 @@ export async function getPlatformAdminReadModel(
     };
   }
 
-  const [
-    profilesResult,
-    shopsResult,
-    membersResult,
-    platformAdminsResult,
-    inventorySourcesResult,
-    auditLogsResult,
-  ] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(100),
-    supabase
-      .from("shops")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(100),
-    supabase
-      .from("shop_members")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(250),
-    supabase
-      .from("platform_admins")
-      .select("*")
-      .eq("status", "active")
-      .is("revoked_at", null)
-      .limit(100),
-    supabase
-      .from("shop_inventory_sources")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(250),
-    supabase
-      .from("audit_logs")
-      .select("*")
-      .order("created_at", { ascending: false })
-      .limit(100),
-  ]);
+  const profilesResult = await supabase
+    .from("profiles")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  const shopsResult = await supabase
+    .from("shops")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  const membersResult = await supabase
+    .from("shop_members")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(250);
+  const platformAdminsResult = await supabase
+    .from("platform_admins")
+    .select("*")
+    .eq("status", "active")
+    .is("revoked_at", null)
+    .limit(100);
+  const inventorySourcesResult = await supabase
+    .from("shop_inventory_sources")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(250);
+  const auditLogsResult = await supabase
+    .from("audit_logs")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(100);
 
   const failedResult = [
     profilesResult,
