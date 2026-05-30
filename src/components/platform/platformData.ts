@@ -1,3 +1,12 @@
+import {
+  mockPlatformAuditLogs,
+  mockPlatformProfiles,
+  mockPlatformRoles,
+  mockPlatformShopMembers,
+  mockPlatformShops,
+  mockPlatformSystemStatuses,
+} from "@/domain/platform-admin";
+
 export type PlatformSectionKey =
   | "overview"
   | "users"
@@ -56,6 +65,46 @@ export const navigationItems: Array<{
   { key: "operations", label: "Safe Operations", href: "/platform/operations" },
 ];
 
+const profileNameById = new Map<string, string>(
+  mockPlatformProfiles.map((profile) => [
+    profile.profile_id,
+    profile.display_name,
+  ]),
+);
+
+const roleById = new Map<string, (typeof mockPlatformRoles)[number]>(
+  mockPlatformRoles.map((role) => [role.role_id, role]),
+);
+
+const shopById = new Map<string, (typeof mockPlatformShops)[number]>(
+  mockPlatformShops.map((shop) => [shop.shop_id, shop]),
+);
+
+const formatToken = (value: string) =>
+  value
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+
+const getProfileName = (profileId?: string) =>
+  profileId ? (profileNameById.get(profileId) ?? "Platform User") : "System Event";
+
+const getShopName = (shopId?: string) =>
+  shopId ? (shopById.get(shopId)?.shop_name ?? "Demo Shop") : "Global";
+
+const getRoleKey = (roleId?: string) =>
+  roleId ? (roleById.get(roleId)?.role_key ?? "viewer") : "viewer";
+
+const countRolesByScope = (scope: "global" | "shop") =>
+  mockPlatformRoles.filter((role) => role.scope === scope).length;
+
+const countShopsByStatus = (status: string) =>
+  mockPlatformShops.filter((shop) => shop.shop_status === status).length;
+
+const countSystemStatusesNotOperational = () =>
+  mockPlatformSystemStatuses.filter((item) => item.status !== "operational")
+    .length;
+
 export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   overview: {
     key: "overview",
@@ -67,25 +116,25 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
     stats: [
       {
         label: "Demo shops",
-        value: "12",
-        detail: "Placeholder count for layout validation",
+        value: String(mockPlatformShops.length),
+        detail: "Synthetic domain mock count",
         tone: "neutral",
       },
       {
         label: "Platform users",
-        value: "48",
+        value: String(mockPlatformProfiles.length),
         detail: "Synthetic profiles, no real accounts",
         tone: "good",
       },
       {
         label: "Audit events",
-        value: "126",
+        value: String(mockPlatformAuditLogs.length),
         detail: "Static activity preview",
         tone: "muted",
       },
       {
         label: "Setup items",
-        value: "3",
+        value: String(countSystemStatusesNotOperational()),
         detail: "Pending future schema planning",
         tone: "warning",
       },
@@ -127,19 +176,19 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
     stats: [
       {
         label: "Profile rows",
-        value: "4",
+        value: String(mockPlatformProfiles.length),
         detail: "Synthetic table preview",
         tone: "neutral",
       },
       {
         label: "Global roles",
-        value: "1",
+        value: String(countRolesByScope("global")),
         detail: "Platform Admin placeholder",
         tone: "good",
       },
       {
         label: "Shop-scoped roles",
-        value: "3",
+        value: String(countRolesByScope("shop")),
         detail: "Reserved for TASK-003",
         tone: "muted",
       },
@@ -150,26 +199,22 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
       { key: "scope", label: "Scope" },
       { key: "state", label: "State" },
     ],
-    rows: [
-      {
-        profile: "Platform User A",
-        role: "platform_admin",
-        scope: "Global",
-        state: "Demo active",
-      },
-      {
-        profile: "Platform User B",
-        role: "viewer",
-        scope: "Global preview",
-        state: "Demo review",
-      },
-      {
-        profile: "Platform User C",
-        role: "shop_owner",
-        scope: "Demo Shop",
-        state: "Shop-scoped",
-      },
-    ],
+    rows: mockPlatformProfiles.slice(0, 3).map((profile) => {
+      const membership = mockPlatformShopMembers.find(
+        (member) => member.profile_id === profile.profile_id,
+      );
+      const roleKey =
+        profile.profile_id === "demo_profile_001"
+          ? "platform_admin"
+          : getRoleKey(membership?.role_id);
+
+      return {
+        profile: profile.display_name,
+        role: roleKey,
+        scope: membership ? getShopName(membership.shop_id) : "Global",
+        state: `Demo ${formatToken(profile.profile_status).toLowerCase()}`,
+      };
+    }),
   },
   shops: {
     key: "shops",
@@ -181,19 +226,19 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
     stats: [
       {
         label: "Demo shops",
-        value: "12",
+        value: String(mockPlatformShops.length),
         detail: "Synthetic roots",
         tone: "neutral",
       },
       {
         label: "Pending setup",
-        value: "2",
+        value: String(countShopsByStatus("pending_setup")),
         detail: "Non-operational placeholders",
         tone: "warning",
       },
       {
         label: "Archived",
-        value: "0",
+        value: String(countShopsByStatus("archived")),
         detail: "No real lifecycle action",
         tone: "muted",
       },
@@ -204,26 +249,20 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
       { key: "owner", label: "Owner placeholder" },
       { key: "state", label: "State" },
     ],
-    rows: [
-      {
-        shop: "Demo Shop North",
-        code: "DEMO-001",
-        owner: "Platform User C",
-        state: "Pending Setup",
-      },
-      {
-        shop: "Demo Shop Central",
-        code: "DEMO-002",
-        owner: "Platform User D",
-        state: "Static active",
-      },
-      {
-        shop: "Demo Shop South",
-        code: "DEMO-003",
-        owner: "Unassigned placeholder",
-        state: "Needs TASK-006",
-      },
-    ],
+    rows: mockPlatformShops.map((shop) => {
+      const member = mockPlatformShopMembers.find(
+        (membership) => membership.shop_id === shop.shop_id,
+      );
+
+      return {
+        shop: shop.shop_name,
+        code: shop.shop_code,
+        owner: member
+          ? getProfileName(member.profile_id)
+          : "Unassigned placeholder",
+        state: formatToken(shop.shop_status),
+      };
+    }),
   },
   audit: {
     key: "audit",
@@ -235,7 +274,7 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
     stats: [
       {
         label: "Audit events",
-        value: "126",
+        value: String(mockPlatformAuditLogs.length),
         detail: "Static preview only",
         tone: "neutral",
       },
@@ -258,26 +297,17 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
       { key: "scope", label: "Scope" },
       { key: "result", label: "Result" },
     ],
-    rows: [
-      {
-        event: "Audit Event: profile view",
-        actor: "Platform User A",
-        scope: "Global",
-        result: "Synthetic success",
-      },
-      {
-        event: "Audit Event: shop review",
-        actor: "Platform User B",
-        scope: "Demo Shop",
-        result: "Synthetic recorded",
-      },
-      {
-        event: "Audit Event: system check",
-        actor: "System Event",
-        scope: "Platform",
-        result: "Static preview",
-      },
-    ],
+    rows: mockPlatformAuditLogs.map((log) => {
+      const actorProfileId =
+        "actor_profile_id" in log ? log.actor_profile_id : undefined;
+
+      return {
+        event: log.event,
+        actor: getProfileName(actorProfileId),
+        scope: log.scope === "shop" ? getShopName(log.shop_id) : "Global",
+        result: `Synthetic ${formatToken(log.result).toLowerCase()}`,
+      };
+    }),
   },
   system: {
     key: "system",
@@ -312,26 +342,12 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
       { key: "source", label: "Source" },
       { key: "note", label: "Note" },
     ],
-    rows: [
-      {
-        service: "Admin Web",
-        state: "Static shell",
-        source: "TASK-002",
-        note: "No runtime integration",
-      },
-      {
-        service: "Data boundary",
-        state: "Not connected",
-        source: "TASK-004",
-        note: "Schema planning required",
-      },
-      {
-        service: "Audit backend",
-        state: "Not connected",
-        source: "TASK-004",
-        note: "Policy planning required",
-      },
-    ],
+    rows: mockPlatformSystemStatuses.slice(0, 3).map((item) => ({
+      service: formatToken(item.area),
+      state: formatToken(item.status),
+      source: item.area === "ui_shell" ? "TASK-002" : "TASK-004",
+      note: item.message,
+    })),
   },
   operations: {
     key: "operations",
