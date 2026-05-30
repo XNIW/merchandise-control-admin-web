@@ -10,7 +10,7 @@ export function DataTable({ columns, rows }: DataTableProps) {
     <div className="overflow-x-auto">
       <table className="min-w-full border-separate border-spacing-0 text-left text-sm">
         <caption className="sr-only">
-          Static platform placeholder table. Rows are synthetic and not fetched.
+          Platform Admin read-only table rendered from server-provided rows.
         </caption>
         <thead>
           <tr>
@@ -41,7 +41,7 @@ export function DataTable({ columns, rows }: DataTableProps) {
         </tbody>
       </table>
       <p className="mt-3 text-xs text-slate-500">
-        Pagination controls are intentionally not implemented in TASK-002.
+        Rows are server-limited for the current read-only boundary.
       </p>
     </div>
   );

@@ -31,31 +31,31 @@ export function PlatformPage({ section }: PlatformPageProps) {
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
           <SectionCard
             title={`${section.title} table`}
-            description="Static, privacy-safe rows. Layout is ready for future pagination, but no fetch or live data is implemented."
+            description="Server-side read-only rows when authorized; empty state otherwise. Mutating actions are not available."
           >
             <DataTable columns={section.columns} rows={section.rows} />
           </SectionCard>
 
           <div className="grid gap-5">
             <SectionCard
-              title="State patterns"
-              description="Shared placeholder states for future loading, empty, error, and disabled flows."
+              title="Read state"
+              description="The page renders only rows returned through the server boundary and RLS."
             >
               <div className="grid gap-3">
                 <EmptyState
                   title={section.emptyState?.title ?? "Placeholder ready"}
                   description={
                     section.emptyState?.description ??
-                    "This area is intentionally static until domain types, mock data, and Supabase planning are approved in future tasks."
+                    "No additional read state is available for this section."
                   }
                 />
                 <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
                   <p className="text-sm font-semibold text-slate-800">
-                    Loading / error pattern
+                    Boundary status
                   </p>
                   <p className="mt-1 text-sm text-slate-600">
-                    Reserved as a visual pattern only. No runtime fetch is
-                    performed in TASK-002.
+                    No browser-side Supabase client or service-role key is used
+                    by these views.
                   </p>
                 </div>
               </div>

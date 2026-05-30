@@ -1,13 +1,17 @@
 import type { Metadata } from "next";
 import { PlatformPage } from "@/components/platform/PlatformPage";
-import { platformSections } from "@/components/platform/platformData";
+import { getPlatformSectionForRequest } from "@/server/platform-admin/platform-section-data";
 
 export const metadata: Metadata = {
   title: "System Status | MerchandiseControl Admin Web",
   description:
-    "Static system status placeholder for the Platform Admin Console.",
+    "Read-only system status for the Platform Admin Console.",
 };
 
-export default function PlatformSystemPage() {
-  return <PlatformPage section={platformSections.system} />;
+export const dynamic = "force-dynamic";
+
+export default async function PlatformSystemPage() {
+  const section = await getPlatformSectionForRequest("system");
+
+  return <PlatformPage section={section} />;
 }

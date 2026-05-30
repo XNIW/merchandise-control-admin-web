@@ -46,7 +46,11 @@ async function expectPlatformShell(page: import("@playwright/test").Page) {
   ).toBeVisible();
   await expect(page.getByRole("main")).toBeVisible();
   await expect(page.getByText("Master console", { exact: true })).toBeVisible();
-  await expect(page.getByText("Static UI")).toBeVisible();
+  await expect(
+    page
+      .getByLabel("Platform status")
+      .getByText("Read-only", { exact: true }),
+  ).toBeVisible();
 }
 
 test.describe("Platform Admin smoke", () => {

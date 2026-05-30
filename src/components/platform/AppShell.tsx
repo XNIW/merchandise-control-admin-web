@@ -83,8 +83,8 @@ function Sidebar({ activeSection }: { activeSection: PlatformSectionKey }) {
             Scope
           </p>
           <p className="mt-2 text-sm text-slate-700">
-            Static platform shell only. No login, database, Supabase, or live
-            admin actions.
+            Server-side Supabase boundary for read-only Platform Admin views.
+            Mutating admin actions remain disabled.
           </p>
         </div>
       </div>
@@ -104,12 +104,12 @@ function Topbar() {
             Global ecosystem, users, shops, audit, system status
           </p>
         </div>
-        <div className="flex flex-wrap gap-2" aria-label="Static shell status">
+        <div className="flex flex-wrap gap-2" aria-label="Platform status">
           <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
-            Static UI
+            Read-only
           </span>
           <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
-            Privacy-safe placeholders
+            Server boundary
           </span>
           <span className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
             Actions disabled
