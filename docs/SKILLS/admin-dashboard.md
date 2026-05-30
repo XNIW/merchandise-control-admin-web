@@ -13,6 +13,9 @@ Usare queste linee guida per task che riguardano layout dashboard, navigazione, 
 - Prevedere stati vuoti, loading, errore e disabled.
 - Considerare desktop e tablet come target principali.
 - Mantenere accessibilita base: landmark chiari, contrasto, focus visibile, label comprensibili.
+- La UI puo ispirarsi funzionalmente a gestionali/POS di riferimento, ma non deve copiarli 1:1.
+- Distinguere chiaramente `Platform Admin Console` e `Shop Admin Console`.
+- Prevedere switch negozio per utenti con accesso a piu shop.
 
 ## Architettura frontend futura
 
@@ -21,12 +24,15 @@ Usare queste linee guida per task che riguardano layout dashboard, navigazione, 
 - Separare mock data, domain types e componenti UI.
 - Non accoppiare la UI direttamente a Supabase finche schema e auth non sono pianificati.
 - Non accoppiare Admin Web e POS Windows.
+- `POS/Staff` deve essere progettato come modulo interno alla `Shop Admin Console`, non come terza console.
 
 ## Dominio
 
 - `shops` e la root business.
 - `shop_id`/`shop_code` guidano ownership dei dati.
 - Account personale e staff POS restano separati.
+- Staff POS, ruoli operativi, permessi e dispositivi sono shop-scoped.
+- Il platform admin gestisce il sistema globale; il cliente/proprietario del negozio gestisce lo staff del proprio shop.
 - Audit log va trattato come modulo autonomo.
 
 ## Performance e manutenzione

@@ -3,11 +3,11 @@ import { PlatformPage } from "@/components/platform/PlatformPage";
 import { platformSections } from "@/components/platform/platformData";
 
 export const metadata: Metadata = {
-  title: "Platform Overview | MerchandiseControl Admin Web",
+  title: "Shops | MerchandiseControl Admin Web",
   description:
-    "Static platform overview shell for MerchandiseControl Admin Web.",
+    "Static shops placeholder using shops as the root business model.",
 };
 
-export default function Home() {
-  return <PlatformPage section={platformSections.overview} />;
+export default function PlatformShopsPage() {
+  return <PlatformPage section={platformSections.shops} />;
 }

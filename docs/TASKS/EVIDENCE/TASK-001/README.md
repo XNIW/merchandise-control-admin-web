@@ -2,7 +2,7 @@
 
 ## Stato
 
-- Fase evidence: `REVIEW`
+- Fase evidence: `DONE`
 - Task: `docs/TASKS/TASK-001-bootstrap-governance.md`
 - Nota: questo file registra solo risultati realmente eseguiti. Nessun `PASS` viene dichiarato senza output o verifica.
 
@@ -44,6 +44,16 @@
 | Repo iOS/Android/Cash Register | `NOT_AVAILABLE` | Non rilevati localmente nel workspace ispezionato. |
 | Repo Win7 POS | `PASS_WITH_NOTES` | Repo sibling `../Win7POS` presente su branch `main`, status pulito; nessuna build eseguita perche fuori scope. |
 
+## Review/Fix Platform/Shop Admin
+
+| Check | Stato | Evidence sintetica |
+|---|---|---|
+| Chiarimento Platform/Shop | `PASS` | Master Plan, Domain Model, ADR, admin dashboard skill, Supabase security skill, README, task ed evidence allineano Platform Admin Console, Shop Admin Console e POS/Staff shop-scoped. |
+| `npm run verify` | `PASS_WITH_NOTES` | Exit code 0; include lint, typecheck e build; build con warning Node `DEP0205` non bloccante. |
+| `git diff --check` | `PASS` | Exit code 0; nessun output. |
+| Secret scan richiesto | `PASS` | Exit code 0; nessun output. |
+| `git status --short --untracked-files=all` | `PASS_WITH_NOTES` | Mostra solo modifiche documentali attese. |
+
 ## File creati/modificati osservati
 
 - `AGENTS.md`
@@ -59,10 +69,19 @@
 - `docs/SKILLS/supabase-security.md`
 - `docs/TASKS/EVIDENCE/TASK-001/README.md`
 
-## Handoff
+## Handoff storico
 
-- Prossima fase: `REVIEW`
+- Prossima fase storica: `REVIEW`
 - Prossimo agente: `CLAUDE / ChatGPT`
 - Azione consigliata: verificare governance, naming, evidence, check, no secret, no scope creep.
 - Stato finale Codex: handoff preparato, non `DONE`.
-- Stato review/fix: verdict tecnico `PASS_WITH_NOTES`; attende conferma utente per eventuale `DONE`.
+- Stato review/fix: verdict tecnico `PASS_WITH_NOTES`; conferma utente ricevuta successivamente e task chiuso in `DONE`.
+
+## Chiusura TASK-001
+
+| Campo | Stato | Evidence sintetica |
+|---|---|---|
+| Conferma utente | `PASS` | Conferma esplicita ricevuta nel prompt "Review planning TASK-002 e chiusura TASK-001". |
+| Gate documentali | `PASS_WITH_NOTES` | Governance, Master Plan, Domain Model, ADR, skills locali ed evidence presenti; rischi residui gia documentati e non bloccanti. |
+| Check runtime nuovi | `NOT_RUN` | Chiusura documentale; nessun codice runtime modificato in questa fase. |
+| Stato finale | `DONE` | `TASK-001` chiuso su conferma utente dopo review documentale senza blocker reali. |

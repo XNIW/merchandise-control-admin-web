@@ -10,7 +10,9 @@ Usare queste linee guida quando un task futuro pianifica o implementa Supabase, 
 - Segreti solo server-side.
 - Nessuna chiave privilegiata nel client/browser.
 - Platform admin verificato lato server.
+- Operazioni globali del platform admin solo server-side.
 - Audit log per azioni sensibili.
+- Audit log obbligatorio per azioni globali e interventi sui dati shop.
 - Dati test sintetici e privacy-safe.
 - Nessun token o credenziale nel repository.
 
@@ -19,6 +21,8 @@ Usare queste linee guida quando un task futuro pianifica o implementa Supabase, 
 - Client: UI e chiamate consentite con sessione utente.
 - Server: policy sensibili, privilegi amministrativi, validazioni finali.
 - Database: RLS, vincoli, ownership su `shop_id`.
+- Shop-scoped: staff POS, ruoli operativi, permessi e dispositivi devono essere autorizzati rispetto allo shop corrente.
+- Global-scoped: azioni platform devono essere limitate, server-side e tracciate.
 
 ## Planning prima del codice
 

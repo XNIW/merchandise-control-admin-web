@@ -26,4 +26,6 @@ Non introdurre per ora un modello `merchant -> stores`.
 
 - Ogni shop ha `shop_code`, ruoli, staff, dispositivi e futuro POS.
 - I dati business futuri devono riferirsi allo shop.
+- I moduli POS/Staff, i ruoli operativi e i dispositivi futuri stanno sotto lo shop e sotto la `Shop Admin Console`.
+- La `Platform Admin Console` resta area globale e non sostituisce la gestione ordinaria shop-scoped.
 - Se servira un livello aziendale superiore, verra introdotto con una nuova ADR e migration pianificata.

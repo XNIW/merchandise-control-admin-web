@@ -4,9 +4,9 @@
 
 - ID: `TASK-001`
 - Titolo: Bootstrap governance Admin Web
-- Stato: `ACTIVE`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `CLAUDE / ChatGPT`
+- Stato: `DONE`
+- Fase attuale: `DONE`
+- Responsabile attuale: `USER / REVIEW APPROVED`
 - File Master Plan: `docs/MASTER-PLAN.md`
 
 ## Scopo
@@ -208,6 +208,37 @@ Completare un bootstrap documentale limitato per risolvere `BLOCKED_PLANNING_MIS
   - i riferimenti ai path legacy (`docs/MASTER_PLAN.md`, `docs/tasks`, `docs/skills`) restano solo come inventario storico dei file normalizzati;
   - `DONE` richiede conferma esplicita dell'utente.
 
+### Review/Fix prodotto Platform/Shop
+
+- Chiarimento aggiunto: il prodotto distingue `Platform Admin Console` e `Shop Admin Console`.
+- `POS/Staff` e documentato come modulo interno shop-scoped della `Shop Admin Console`, non come terza console autonoma.
+- Responsabilita aggiornate:
+  - `platform_admin`: ecosistema globale, utenti, negozi, stato sistema, audit globale e operazioni amministrative sicure;
+  - `shop_owner` / `shop_manager`: gestione shop, staff POS, ruoli, permessi, dispositivi, prodotti, fornitori, categorie e import/export;
+  - `cashier` / staff POS: operativita limitata dentro uno shop.
+- File aggiornati: Master Plan, Domain Model, ADR, admin dashboard skill, Supabase security skill, README, task ed evidence.
+- Check eseguiti per questo fix:
+  - `npm run verify`: `PASS_WITH_NOTES`;
+  - `git diff --check`: `PASS`;
+  - secret scan richiesto: `PASS`;
+  - `git status --short --untracked-files=all`: `PASS_WITH_NOTES`.
+- Stato storico: restava `REVIEW` in attesa di conferma utente; chiuso ora in `DONE` dopo conferma esplicita.
+
 ## Chiusura
 
-Non compilare in questo task execution. `DONE` richiede review positiva e conferma esplicita dell'utente.
+- Stato finale: `DONE`
+- Conferma utente: conferma esplicita ricevuta nel prompt "Review planning TASK-002 e chiusura TASK-001".
+- Data chiusura: `2026-05-29`
+- Condizioni verificate:
+  - governance creata;
+  - Master Plan presente;
+  - Domain Model presente;
+  - ADR presente;
+  - skills locali presenti;
+  - evidence presente;
+  - `npm run verify` gia registrato in evidence precedente;
+  - nessun blocker aperto rilevato nella review documentale;
+  - rischi residui non bloccanti gia documentati.
+- Follow-up aperti:
+  - `TASK-002 - Platform Admin UI Shell` resta `PLANNED` / `PLANNING`;
+  - eventuali script secret scan dedicati, CI, Playwright o automazioni restano task futuri separati.

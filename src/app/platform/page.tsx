@@ -8,6 +8,6 @@ export const metadata: Metadata = {
     "Static platform overview shell for MerchandiseControl Admin Web.",
 };
 
-export default function Home() {
+export default function PlatformOverviewPage() {
   return <PlatformPage section={platformSections.overview} />;
 }
