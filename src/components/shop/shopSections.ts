@@ -72,9 +72,9 @@ export const shopNavigationItems: Array<{
 
 const shellMetrics: ShopSectionMetric[] = [
   {
-    label: "Data source",
-    value: "Not connected",
-    detail: "Schema verification is still pending",
+    label: "Live data",
+    value: "Not available",
+    detail: "Waiting for a verified shop schema",
     tone: "warning",
   },
   {
@@ -92,9 +92,9 @@ const shellMetrics: ShopSectionMetric[] = [
 ];
 
 const sharedGuardrails = [
-  "Every future read must be scoped by shop_id and active membership.",
-  "No placeholder rows are presented as live shop data.",
-  "Staff POS remains separate from personal auth accounts.",
+  "Rows must stay limited to this shop and active membership.",
+  "Planned pages do not show placeholder rows as live data.",
+  "POS staff stays separate from personal admin accounts.",
 ];
 
 export const shopSections: Record<ShopSectionKey, ShopSection> = {

@@ -1083,6 +1083,232 @@ function checkAuthRedirectSafety() {
   }
 }
 
+function checkTask012PosStaffCredentialPlanning() {
+  const taskPath = "docs/TASKS/TASK-012-pos-staff-credential-planning.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-012/README.md";
+  const masterPlanPath = "docs/MASTER-PLAN.md";
+  const staffPagePath = "src/app/shop/staff/page.tsx";
+  const typesPath = "src/lib/supabase/database.types.ts";
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    masterPlanPath,
+    staffPagePath,
+    typesPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const masterPlan = read(masterPlanPath);
+  const staffPage = read(staffPagePath);
+  const generatedTypes = read(typesPath);
+  const taskAndEvidence = `${task}\n${evidence}`;
+  const migrations = listFiles("supabase/migrations")
+    .filter((file) => file.endsWith(".sql"))
+    .map((file) => read(file))
+    .join("\n");
+  const serverShopAdmin = listFiles("src/server/shop-admin")
+    .map((file) => read(file))
+    .join("\n");
+  const clientStaffUi = `${staffPage}\n${read("src/components/shop/shopSections.ts")}`;
+
+  for (const requiredSnippet of [
+    "Stato: `DONE`",
+    "Fase attuale: `DONE_RECONCILED`",
+    "Nessun login POS reale",
+    "Nessun PIN/password reale",
+    "Nessuna migration esecutiva",
+    "Argon2id",
+    "scrypt",
+    "pgcrypto",
+    "unique (shop_id, staff_code)",
+    "credential_hash non deve essere selezionabile",
+    "<TEMP_CREDENTIAL_SHOWN_ONCE>",
+    "<NOT_STORED>",
+    "<REDACTED>",
+    "Account personale web e staff POS restano identita separate",
+    "modulo interno della Shop Admin Console",
+    "must_change_credential",
+    "failed_attempts",
+    "locked_until",
+  ]) {
+    if (!task.includes(requiredSnippet)) {
+      addFailure(`${taskPath} must document ${requiredSnippet}`);
+    }
+  }
+
+  if (!/DONE_RECONCILED/.test(evidence)) {
+    addFailure(`${evidencePath} must record the TASK-012 DONE reconciliation`);
+  }
+
+  if (!/TASK-012 - POS Staff Credential Planning \/ Schema Discovery[\s\S]*Stato: `DONE`/.test(masterPlan)) {
+    addFailure(`${masterPlanPath} must keep TASK-012 reconciled as DONE`);
+  }
+
+  const weakCredentialAlternation = [
+    "12" + "34",
+    "00" + "00",
+    "pass" + "word",
+    "ad" + "min",
+  ].join("|");
+  const unsafeCredentialExamplePatterns = [
+    new RegExp(
+      `(?:pin|password|credential|credenziale)\\s*(?:=|:|is|e|è)\\s*["'\`]?(?:${weakCredentialAlternation})["'\`]?`,
+      "i",
+    ),
+    new RegExp(
+      `["'\`](?:${weakCredentialAlternation})["'\`]\\s*(?:as|come)\\s*(?:pin|password|credential|credenziale)`,
+      "i",
+    ),
+    new RegExp(
+      `(?:pin|password|credential|credenziale)\\s+di\\s+esempio\\s+["'\`]?(?:${weakCredentialAlternation})["'\`]?`,
+      "i",
+    ),
+  ];
+
+  for (const pattern of unsafeCredentialExamplePatterns) {
+    if (pattern.test(taskAndEvidence)) {
+      addFailure(`${taskPath} and ${evidencePath} must use redacted placeholders instead of dangerous credential examples`);
+    }
+  }
+
+  const hardcodedStaffCredentialPatterns = [
+    new RegExp(
+      `(?:pin|staffPin|staff_pin|password|credential|staffCredential|staff_credential)\\s*[:=]\\s*["'\`](?:${weakCredentialAlternation})["'\`]`,
+      "i",
+    ),
+    /formData\.get\(["'](?:pin|staff_pin|staffPassword|staffCredential|credential)["']\)/i,
+  ];
+
+  for (const sourcePath of listFiles("src")) {
+    const source = read(sourcePath);
+
+    for (const pattern of hardcodedStaffCredentialPatterns) {
+      if (pattern.test(source)) {
+        addFailure(`${sourcePath} appears to introduce staff credential runtime handling during TASK-012 planning`);
+      }
+    }
+  }
+
+  if (/staff_accounts:\s*\{/.test(generatedTypes)) {
+    addFailure(`${typesPath} must not include staff_accounts during TASK-012 planning`);
+  }
+
+  if (/create\s+table\s+(if\s+not\s+exists\s+)?public\.staff_accounts/i.test(migrations)) {
+    addFailure("TASK-012 must not create public.staff_accounts");
+  }
+
+  if (/credential_hash/i.test(migrations)) {
+    addFailure("TASK-012 must not introduce credential_hash in migrations");
+  }
+
+  if (/action=|formAction|createStaff|resetCredential/i.test(staffPage)) {
+    addFailure(`${staffPagePath} must remain a non-mutative placeholder in TASK-012`);
+  }
+
+  if (/staff_accounts|staff_code|credential_hash|pin_hash|password_hash|shop_staff_/i.test(serverShopAdmin)) {
+    addFailure("TASK-012 must not introduce staff credential runtime code under src/server/shop-admin");
+  }
+
+  if (/credential_hash|pin_hash|password_hash/i.test(clientStaffUi)) {
+    addFailure("TASK-012 must not expose credential hash fields through Shop Admin UI placeholders");
+  }
+}
+
+function checkTask013UiPolishArtifacts() {
+  const taskPath = "docs/TASKS/TASK-013-admin-web-ui-ux-professional-polish.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-013/README.md";
+  const masterPlanPath = "docs/MASTER-PLAN.md";
+  const shopShellPath = "src/components/shop/ShopShell.tsx";
+  const shopSectionPagePath = "src/components/shop/ShopSectionPage.tsx";
+  const platformOperationsPath = "src/app/platform/operations/page.tsx";
+  const platformTablePath = "src/components/platform/components/DataTable.tsx";
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    masterPlanPath,
+    shopShellPath,
+    shopSectionPagePath,
+    platformOperationsPath,
+    platformTablePath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const masterPlan = read(masterPlanPath);
+  const shopShell = read(shopShellPath);
+  const shopSectionPage = read(shopSectionPagePath);
+  const platformOperations = read(platformOperationsPath);
+  const platformTable = read(platformTablePath);
+
+  for (const requiredSnippet of [
+    "UI/UX audit matrix",
+    "Stato: `DONE`",
+    "Fase attuale: `DONE_RECONCILED`",
+    "Nessun commit",
+    "Nessun push",
+  ]) {
+    if (!task.includes(requiredSnippet)) {
+      addFailure(`${taskPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/https:\/\/www\.figma\.com\/design\/nw9wx6Q7jutwLGPHatGlWq/.test(evidence)) {
+    addFailure(`${evidencePath} must include the TASK-013 Figma file link`);
+  }
+
+  if (!/TASK-013 - Admin Web UI\/UX Professional Audit & Polish[\s\S]*Stato: `DONE`/.test(masterPlan)) {
+    addFailure(`${masterPlanPath} must keep TASK-013 reconciled as DONE`);
+  }
+
+  if (!/Stato globale attuale: `IDLE`/.test(masterPlan) || !/Task attivo: `NONE`/.test(masterPlan)) {
+    addFailure(`${masterPlanPath} must return tracking to IDLE with no active task after TASK-013`);
+  }
+
+  for (const requiredSnippet of [
+    'role="group"',
+    'aria-labelledby="selected-shop-context-label selected-shop-summary"',
+    'id="selected-shop-summary"',
+    "selectedShop.shopName",
+    "selectedShop.shopCode",
+    "overflow-x-auto",
+    "lg:grid",
+    "whitespace-nowrap",
+  ]) {
+    if (!shopShell.includes(requiredSnippet)) {
+      addFailure(`${shopShellPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/Planned state/.test(shopSectionPage) || !/break-words/.test(shopSectionPage)) {
+    addFailure(`${shopSectionPagePath} must make placeholder state and long table values clearer`);
+  }
+
+  if (!/break-words/.test(platformTable)) {
+    addFailure(`${platformTablePath} must wrap long table values`);
+  }
+
+  if (!/Use development-safe test shops only/.test(platformOperations)) {
+    addFailure(`${platformOperationsPath} must keep operation warning copy clear`);
+  }
+
+  if (/TASK006_TEST_/.test(platformOperations)) {
+    addFailure(`${platformOperationsPath} must not expose task-internal test prefixes in UI copy`);
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -1101,6 +1327,8 @@ checkTask007AuthRoutingArtifacts();
 checkTask008ShopShellArtifacts();
 checkTask009ShopSwitcherArtifacts();
 checkTask010ShopReadModelArtifacts();
+checkTask012PosStaffCredentialPlanning();
+checkTask013UiPolishArtifacts();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

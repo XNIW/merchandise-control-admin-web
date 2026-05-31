@@ -4,10 +4,110 @@
 
 - Goal: `Esegui allegato`
 - Data: 2026-05-30
-- Fase corrente: `LONG_GOAL_MILESTONE_5_DONE_RECONCILED`
-- Stato corrente: `TASK_006_TO_011_DONE_RECONCILED`
+- Fase corrente: `IDLE`
+- Stato corrente: `TASK_013_DONE_RECONCILED`
 - Commit: `NOT_CREATED` (richiesto no commit)
 - Push: `NOT_RUN` (richiesto no push)
+
+## Addendum TASK-012 / planning handoff 2026-05-30
+
+- Verdict Codex: `READY_FOR_REVIEW`.
+- Task aperto: `TASK-012 - POS Staff Credential Planning / Schema Discovery`.
+- File task: `docs/TASKS/TASK-012-pos-staff-credential-planning.md`.
+- Evidence: `docs/TASKS/EVIDENCE/TASK-012/README.md`.
+- Branch: `codex/task-012-pos-staff-credential-planning`.
+- Pre-flight:
+  - `git status --short`: `PASS`, working tree pulito prima di TASK-012.
+  - `git diff --stat`: `PASS`, nessun output prima di TASK-012.
+  - `git diff --check`: `PASS`.
+  - TASK-011: commit locale `e5be968 Complete shop onboarding live gate`; branch TASK-011 senza upstream/push.
+- Supabase linked:
+  - `supabase --version`: `PASS`, `2.102.0`.
+  - `supabase migration list --linked`: `PASS`, local/remoto allineati fino a `20260530120000`.
+  - `supabase db push --linked --dry-run`: `PASS`, remote database up to date.
+  - `supabase db lint --linked --schema public,app_private --level error --fail-on error`: `PASS`, no schema errors.
+  - `supabase db advisors --linked --type security --level error --fail-on error`: `PASS`, no issues found.
+  - `information_schema` mirato: nessuna tabella `staff_accounts`, `devices` o credential staff; match solo sync legacy `source_device_id` e un falso positivo `mapping_state`.
+- Discovery:
+  - `/shop/staff` resta placeholder protetto.
+  - `src/lib/supabase/database.types.ts` non contiene `staff_accounts`.
+  - migration Admin Web non contengono `credential_hash`, `staff_code`, `pin_hash` o `password_hash` staff.
+  - Win7POS contiene modello locale username + PIN con PBKDF2, lockout, ruoli/permessi e audit, usato solo come contesto.
+- Decisione proposta:
+  - futuro `public.staff_accounts` separato da `profiles` e `shop_members`;
+  - `shop_id` come FK autorevole;
+  - login futuro con `shop_code + staff_code + credential`;
+  - `staff_code` unico per shop via `(shop_id, staff_code)`;
+  - hashing server-side adattivo, preferendo Argon2id se dipendenza approvata, altrimenti scrypt Node o `pgcrypto` solo come fallback motivato;
+  - `credential_hash` mai selezionabile dalla UI.
+- Harness TASK-012:
+  - aggiunto `tests/foundation/pos-staff-credential-planning.test.mjs`;
+  - rafforzato `scripts/security-checks.mjs` con `checkTask012PosStaffCredentialPlanning`.
+- Non fatto: nessun login POS, nessun staff account reale, nessun PIN/password reale, nessuna migration staff, nessuna RPC/Server Action staff, nessuna modifica Win7POS, nessuna nuova dipendenza, nessun commit, nessun push.
+
+## Addendum TASK-012 / DONE reconciliation 2026-05-30
+
+- Verdict finale: `DONE_RECONCILED`.
+- Task chiuso a `DONE`: `TASK-012 - POS Staff Credential Planning / Schema Discovery`.
+- Riconciliazione richiesta esplicitamente dall'utente nel prompt `Review finale TASK-012 - POS Staff Credential Planning / DONE reconciliation`.
+- Review repo-grounded:
+  - planning confermato come documentale/discovery;
+  - nessun login POS, staff account reale, PIN/password reale, migration, RPC staff o Server Action staff;
+  - account personale web e staff POS restano separati;
+  - POS/Staff resta modulo interno della Shop Admin Console;
+  - `/shop/staff` resta placeholder protetto e non mutativo;
+  - `staff_accounts`, `staff_code`, `credential_hash`, `pin_hash`, `password_hash` assenti da migration/tipi reali;
+  - riferimenti Win7POS solo come contesto funzionale.
+- Fix review:
+  - aggiunti placeholder sicuri `<TEMP_CREDENTIAL_SHOWN_ONCE>`, `<NOT_STORED>`, `<REDACTED>`;
+  - rafforzato `tests/foundation/pos-staff-credential-planning.test.mjs`;
+  - rafforzato `scripts/security-checks.mjs` contro esempi credential pericolosi, `credential_hash` in UI/client e runtime staff credential in `src/server/shop-admin`.
+- Fonti esterne riesaminate: OWASP Password Storage, OWASP Authentication, Supabase RLS, Supabase API keys/secrets, PostgreSQL `pgcrypto`; coerenti con il planning.
+- Check review finali:
+  - `npm run typecheck`: `PASS`.
+  - `npm run lint`: `PASS`.
+  - `npm run test:foundation`: `PASS`, 41 test passati.
+  - `npm run security:scan`: `PASS`, `Security scan passed.`
+  - `npm run build`: `PASS_WITH_WARNINGS`, warning Node `DEP0205` non bloccante.
+  - `npm run verify`: `PASS_WITH_WARNINGS`, warning Node `DEP0205` non bloccante.
+  - `git diff --check`: `PASS`.
+  - `supabase db push --linked --dry-run`: `PASS`, remote database up to date.
+  - `supabase migration list --linked`: `PASS_AFTER_RETRY`, un rerun parallelo ha attivato temporaneamente `ECIRCUITBREAKER`; rerun seriale passato con local/remoto allineati fino a `20260530120000`.
+  - `supabase db lint --linked --schema public,app_private --level error --fail-on error`: `PASS_AFTER_RETRY`, rerun seriale con `No schema errors found`.
+  - `supabase db advisors --linked --type security --level error --fail-on error`: `PASS_AFTER_RETRY`, rerun seriale con `No issues found`.
+  - `npm run test:ui-smoke`: `NOT_RUN_NOT_NEEDED`, nessuna modifica a componenti, routing o UI runtime.
+- Non fatto: nessun commit, nessun push, nessuna migration, nessuna nuova dipendenza, nessun login POS, nessuna credenziale reale.
+
+## Addendum TASK-013 / DONE reconciliation 2026-05-31
+
+- Verdict finale: `DONE_RECONCILED`.
+- Task chiuso a `DONE`: `TASK-013 - Admin Web UI/UX Professional Audit & Polish`.
+- Riconciliazione richiesta esplicitamente dall'utente nel prompt `Review finale / DONE reconciliation`.
+- Review repo-grounded:
+  - UI/UX polish confermato come scoped a Platform Admin Console e Shop Admin Console;
+  - nessuna nuova funzionalita business, CRUD, import/export, POS login, staff account, migration o nuova dipendenza;
+  - selected shop context piu evidente;
+  - navigazione mobile/tablet migliorata;
+  - tabelle e empty state piu robusti;
+  - placeholder Shop Admin chiaramente dichiarati;
+  - UI Platform Operations senza copy interno `TASK006_TEST_`.
+- Evidence:
+  - Figma file <https://www.figma.com/design/nw9wx6Q7jutwLGPHatGlWq>;
+  - screenshot browser non autenticati in `docs/TASKS/EVIDENCE/TASK-013/`;
+  - QA autenticata completa classificata come limite non bloccante per assenza di fixture/sessione sicura.
+- Check review finali:
+  - `npm run lint`: `PASS`.
+  - `npm run typecheck`: `PASS`.
+  - `npm run test:foundation`: `PASS`, 44 test passati.
+  - `npm run security:scan`: `PASS`.
+  - `npm run build`: `PASS_WITH_WARNINGS`, warning Node `DEP0205` non bloccante.
+  - `npm run verify`: `PASS_WITH_WARNINGS`, warning Node `DEP0205` non bloccante.
+  - `npm run test:ui-smoke`: `PASS_WITH_WARNINGS`, 44 test passati; warning `DEP0205` e `NO_COLOR`/`FORCE_COLOR` non bloccanti.
+  - `node --test tests/foundation/admin-web-ui-polish.test.mjs`: `PASS`, 3 test passati.
+  - `node --test tests/foundation/pos-staff-credential-planning.test.mjs`: `PASS`, 5 test passati.
+  - `node --test tests/foundation/shop-admin-shell.test.mjs`: `PASS`, 3 test passati.
+  - `git diff --check`: `PASS`.
+- Non fatto: nessun commit, nessun push, nessuno stage, nessuna scrittura Supabase, nessuna modifica Android/iOS/POS.
 
 ## Review finale / DONE reconciliation 2026-05-30
 

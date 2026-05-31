@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "MerchandiseControl Admin Web",
-  description: "Static Platform Admin Console shell for MerchandiseControl.",
+  description: "Admin Web for MerchandiseControl Platform and Shop consoles.",
 };
 
 export default function RootLayout({

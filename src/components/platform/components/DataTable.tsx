@@ -26,18 +26,29 @@ export function DataTable({ columns, rows }: DataTableProps) {
           </tr>
         </thead>
         <tbody>
-          {rows.map((row, rowIndex) => (
-            <tr key={`${rowIndex}-${columns[0]?.key ?? "row"}`}>
-              {columns.map((column) => (
-                <td
-                  key={column.key}
-                  className="border-b border-slate-100 px-3 py-3 text-slate-700 first:pl-0 last:pr-0"
-                >
-                  {row[column.key]}
-                </td>
-              ))}
+          {rows.length > 0 ? (
+            rows.map((row, rowIndex) => (
+              <tr key={`${rowIndex}-${columns[0]?.key ?? "row"}`}>
+                {columns.map((column) => (
+                  <td
+                    key={column.key}
+                    className="break-words border-b border-slate-100 px-3 py-3 text-slate-700 first:pl-0 last:pr-0"
+                  >
+                    {row[column.key]}
+                  </td>
+                ))}
+              </tr>
+            ))
+          ) : (
+            <tr>
+              <td
+                colSpan={columns.length}
+                className="border-b border-slate-100 px-3 py-6 text-sm text-slate-500 first:pl-0 last:pr-0"
+              >
+                No rows returned through the server boundary.
+              </td>
             </tr>
-          ))}
+          )}
         </tbody>
       </table>
       <p className="mt-3 text-xs text-slate-500">

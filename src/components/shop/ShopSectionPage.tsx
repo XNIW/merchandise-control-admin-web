@@ -71,7 +71,7 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
             id={`${section.key}-status-title`}
             className="text-lg font-semibold text-zinc-950"
           >
-            {liveData ? liveData.title : "Section status"}
+            {liveData ? liveData.title : "Planned state"}
           </h2>
           <p className="mt-2 text-sm leading-6 text-zinc-600">
             {liveData
@@ -85,7 +85,11 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
                   <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
                     <tr>
                       {liveData.columns.map((column) => (
-                        <th key={column.key} scope="col" className="px-3 py-2">
+                        <th
+                          key={column.key}
+                          scope="col"
+                          className="px-3 py-2 align-bottom"
+                        >
                           {column.label}
                         </th>
                       ))}
@@ -97,7 +101,7 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
                         {liveData.columns.map((column) => (
                           <td
                             key={column.key}
-                            className="max-w-72 px-3 py-3 text-zinc-700"
+                            className="max-w-72 break-words px-3 py-3 text-zinc-700"
                           >
                             {row[column.key] ?? ""}
                           </td>
@@ -122,7 +126,7 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
               {section.plannedWork.map((item) => (
                 <div
                   key={item}
-                  className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
+                  className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm leading-6 text-zinc-700"
                 >
                   {item}
                 </div>
@@ -139,7 +143,7 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
             id={`${section.key}-guardrails-title`}
             className="text-lg font-semibold text-zinc-950"
           >
-            Guardrails
+            Safety rules
           </h2>
           <div className="mt-4 grid gap-3">
             {section.guardrails.map((guardrail) => (

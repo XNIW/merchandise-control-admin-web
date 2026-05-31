@@ -56,7 +56,10 @@ function Sidebar({ activeSection }: { activeSection: PlatformSectionKey }) {
           </div>
         </div>
 
-        <nav aria-label="Platform sections" className="grid gap-1">
+        <nav
+          aria-label="Platform sections"
+          className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:overflow-visible lg:px-0 lg:pb-0"
+        >
           {navigationItems.map((item) => {
             const isActive = item.key === activeSection;
             return (
@@ -65,7 +68,7 @@ function Sidebar({ activeSection }: { activeSection: PlatformSectionKey }) {
                 href={item.href}
                 aria-current={isActive ? "page" : undefined}
                 className={[
-                  "rounded-md px-3 py-2 text-sm font-medium outline-none transition",
+                  "shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium outline-none transition",
                   "focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2",
                   isActive
                     ? "bg-slate-950 text-white"
