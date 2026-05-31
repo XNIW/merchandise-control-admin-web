@@ -30,8 +30,8 @@ export function PlatformPage({ section }: PlatformPageProps) {
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
           <SectionCard
-            title={`${section.title} table`}
-            description="Server-side read-only rows when authorized; empty state otherwise. Mutating actions are not available."
+            title={`${section.title} rows`}
+            description="Rows come from the server read model when available; empty states explain the current boundary."
           >
             <DataTable columns={section.columns} rows={section.rows} />
           </SectionCard>
@@ -39,7 +39,7 @@ export function PlatformPage({ section }: PlatformPageProps) {
           <div className="grid gap-5">
             <SectionCard
               title="Read state"
-              description="The page renders only rows returned through the server boundary and RLS."
+              description="The page renders only rows returned through the server boundary."
             >
               <div className="grid gap-3">
                 <EmptyState

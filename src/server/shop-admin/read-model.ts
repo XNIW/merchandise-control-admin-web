@@ -209,10 +209,7 @@ export async function getShopAdminReadModel(
       ...emptyRows,
       readOnly: true,
       source: "supabase_server",
-      reason:
-        access.status === "platform_admin"
-          ? "This account is authorized for Platform Admin, not Shop Admin."
-          : access.reason,
+      reason: access.reason,
     };
   }
 

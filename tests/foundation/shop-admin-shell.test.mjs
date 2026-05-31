@@ -55,7 +55,7 @@ test("TASK-008 route placeholders cover the Shop Admin sections", () => {
 
   assert.match(rootPage, /getShopSectionForRequest\(\s*"overview"/);
   assert.match(rootPage, /ShopSectionPage/);
-  assert.match(sectionPage, /Section status/);
+  assert.match(sectionPage, /Planned state/);
   assert.match(sectionPage, /No live shop rows are available in this section yet/);
   assert.doesNotMatch(sectionPage, /TASK-008|TASK-010/);
 

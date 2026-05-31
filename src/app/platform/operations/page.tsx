@@ -237,7 +237,8 @@ export default async function PlatformOperationsPage({
           className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
         >
           Every operation is checked on the server and written to the audit log.
-          Do not use customer data for testing; use synthetic TASK006_TEST_ shops.
+          Use development-safe test shops only; do not use customer data for
+          testing.
         </section>
 
         {!ready ? (
@@ -254,8 +255,8 @@ export default async function PlatformOperationsPage({
               description="Creates the shop and assigns the initial owner in a single audited operation."
             >
               <form action={createPlatformShopAction} className="grid gap-4 lg:grid-cols-2">
-                <TextInput label="Shop name" name="shopName" placeholder="TASK006_TEST Shop" />
-                <TextInput label="Shop code" name="shopCode" placeholder="TASK006_TEST_001" />
+                <TextInput label="Shop name" name="shopName" placeholder="Development Test Shop" />
+                <TextInput label="Shop code" name="shopCode" placeholder="DEV_TEST_001" />
                 <label className="grid gap-1.5 text-sm font-medium text-slate-800 lg:col-span-2">
                   <span>Initial owner</span>
                   <select

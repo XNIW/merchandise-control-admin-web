@@ -98,7 +98,10 @@ export function ShopShell({
               </div>
             </div>
 
-            <nav aria-label="Shop sections" className="grid gap-1">
+            <nav
+              aria-label="Shop sections"
+              className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:overflow-visible lg:px-0 lg:pb-0"
+            >
               {shopNavigationItems.map((item) => {
                 const isActive = isActivePath(pathname, item.href);
 
@@ -108,7 +111,7 @@ export function ShopShell({
                     href={buildShopHref(item.href)}
                     aria-current={isActive ? "page" : undefined}
                     className={[
-                      "rounded-md px-3 py-2 text-sm font-medium outline-none transition",
+                      "shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium outline-none transition",
                       "focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
                       isActive
                         ? "bg-emerald-700 text-white"
@@ -136,12 +139,26 @@ export function ShopShell({
         <div className="flex min-w-0 flex-col">
           <header className="border-b border-zinc-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div>
-                <p className="text-xs font-semibold uppercase text-zinc-500">
+              <div
+                role="group"
+                aria-labelledby="selected-shop-context-label selected-shop-summary"
+              >
+                <p
+                  id="selected-shop-context-label"
+                  className="text-xs font-semibold uppercase text-zinc-500"
+                >
                   Shop workspace
                 </p>
-                <p className="text-sm text-zinc-700">
-                  Current shop is selected from server-verified memberships.
+                <p
+                  id="selected-shop-summary"
+                  className="mt-1 text-sm font-semibold text-zinc-950"
+                >
+                  {selectedShop
+                    ? `${selectedShop.shopName} · ${selectedShop.shopCode}`
+                    : "No shop selected"}
+                </p>
+                <p className="mt-1 text-sm text-zinc-700">
+                  Shop and role are resolved from server-verified memberships.
                 </p>
               </div>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

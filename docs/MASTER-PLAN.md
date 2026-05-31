@@ -537,6 +537,94 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - commit o push.
 - Nota: execution completata da Codex il 2026-05-30. Il read model parte da `resolveCurrentShopAdminShellAccess`, tratta `shop_id` query param come navigazione non autorizzativa, filtra `shops`, `shop_members` e `audit_logs` con `selectedShop.shopId`, e lascia le altre sezioni Shop Admin come placeholder dichiarati. Review/fix finale rimossa copia interna da UI, aggiunta `rowKey` stabile, rafforzati foundation/security gate, eseguiti check locali/build/smoke e Supabase linked. Task marcato `DONE` su autorizzazione esplicita utente nella review finale TASK-010.
 
+### TASK-011 - Shop Onboarding Live Gate
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-011-shop-onboarding-live-gate.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-011/README.md`
+- Fase: `DONE_RECONCILED`
+- Execution: `PASS`
+- Scopo: verificare live il flusso Platform Admin -> create shop -> assign account Google owner come `shop_owner` -> login/verifica owner -> Shop Admin read model -> cross-shop leak checks.
+- Include:
+  - pre-flight repo;
+  - verifica TASK-010 gia committato/pushato;
+  - discovery Supabase linked redatta;
+  - verifica owner in `profiles` / auth prima di creare dati;
+  - documentazione PASS, warnings non bloccanti e retry motivati;
+  - POS/staff credential discovery senza creare credenziali.
+- Non include:
+  - CRUD prodotti/categorie/fornitori;
+  - import/export Excel;
+  - POS login reale;
+  - staff account reale;
+  - PIN/password staff;
+  - migration;
+  - nuove dipendenze;
+  - commit o push;
+  - hard delete o cancellazione audit.
+- Nota: execution avviata da Codex il 2026-05-30 e ripresa su richiesta utente per correggere il caso dual-role. L'account Google owner e stato identificato in modo sicuro come profilo attivo `6425adb0...`, visibile nel read model Platform Admin e con grant `platform_admin` attivo. Fix applicato: `/shop` risolve l'accesso direttamente da membership attive `shop_owner` / `shop_manager`, senza riusare il resolver generale che mantiene la priorita Platform Admin per `/` e `/platform`. Gate live finale passato con shop sintetico `TASK011_TEST_MPT7XWN3ECF5`, read model `/shop/overview`, `/shop/members`, `/shop/audit`, negative `shop_id` falso e cleanup soft delete verificati. Task marcato `DONE` per autorizzazione esplicita nel resume TASK-011 e check/evidence positivi.
+
+### TASK-012 - POS Staff Credential Planning / Schema Discovery
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-012-pos-staff-credential-planning.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-012/README.md`
+- Fase: `DONE_RECONCILED`
+- Scopo: pianificare in modo sicuro il futuro modulo POS/Staff Credentials prima di login POS, credenziali reali o migration staff.
+- Include:
+  - discovery schema reale locale e linked Supabase;
+  - verifica assenza/presenza di `staff_accounts`, `staff_code`, credential hash, ruoli POS, dispositivi e audit staff;
+  - lettura `/shop/staff` e boundary Shop Admin corrente;
+  - contesto Win7POS legacy solo in lettura;
+  - fonti esterne OWASP/Supabase/PostgreSQL;
+  - decisione tecnica proposta;
+  - piano schema/RLS/grants;
+  - piano hashing PIN/password;
+  - piano reset/rotazione;
+  - piano audit;
+  - piano UI Shop Admin;
+  - piano test e live gate futuro;
+  - gate statico foundation/security per mantenere TASK-012 planning-only.
+- Non include:
+  - login POS reale;
+  - staff account reale;
+  - PIN/password reale;
+  - migration staff;
+  - RPC o Server Actions mutative staff;
+  - form funzionanti di creazione staff;
+  - modifiche Android/iOS/POS/Win7POS;
+  - nuove dipendenze;
+  - commit o push.
+- Nota: planning aperto da Codex il 2026-05-30 su richiesta `Procedi`. Discovery linked conferma local/remoto allineati fino a `20260530120000`, nessuna tabella `staff_accounts`, nessun `staff_code`, nessun credential hash staff e nessun device model autorizzativo. Decisione proposta: futuro `staff_accounts` separato da `profiles`/`shop_members`, shop-scoped su `shop_id`, unique `(shop_id, staff_code)`, hashing server-side adattivo e RLS/grants severi. Review finale/DONE reconciliation richiesta esplicitamente dall'utente: harness rafforzato contro esempi credential pericolosi, runtime staff credential fuori scope e hash credential in UI; check locali e Supabase passati. Nessun login POS, migration, credenziale reale, nuova dipendenza, commit o push.
+
+### TASK-013 - Admin Web UI/UX Professional Audit & Polish
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-013-admin-web-ui-ux-professional-polish.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-013/README.md`
+- Fase: `DONE_RECONCILED`
+- Scopo: audit UI/UX repo-grounded e polish professionale scoped su Platform Admin Console e Shop Admin Console.
+- Include:
+  - inventario route UI principali;
+  - audit matrix con severita;
+  - Figma design direction/wireframe;
+  - chiarimento selected shop nella Shop Admin Console;
+  - miglioramento navigazione mobile/tablet;
+  - copy placeholder/live piu chiaro;
+  - table wrapping ed empty state;
+  - harness foundation/security aggiornati;
+  - evidence completa.
+- Non include:
+  - nuove funzionalita business;
+  - CRUD prodotti/categorie/fornitori;
+  - import/export;
+  - POS login;
+  - staff account, PIN/password/hash credential;
+  - migration Supabase;
+  - nuove dipendenze;
+  - commit o push.
+- Nota: execution aperta da Codex il 2026-05-31 dal brief allegato `TASK-013 - Admin Web UI/UX Professional Audit & Polish`. Figma usato nel file <https://www.figma.com/design/nw9wx6Q7jutwLGPHatGlWq>. Polish applicato senza schema change o nuove feature: selected shop context esplicito, nav responsive, copy placeholder piu chiaro, tabelle piu robuste, rimozione copy interna `TASK006_TEST_` dalla UI. Review finale / DONE reconciliation richiesta esplicitamente dall'utente il 2026-05-31: gate critici passati, harness riallineato a `DONE_RECONCILED`, browser smoke non autenticato aggiornato, QA autenticata classificata come limite non bloccante per assenza di fixture/sessione sicura. Nessun commit, push o stage.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -550,14 +638,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `TASK-010_DONE_RECONCILED`
-- Ultimo candidate completato: `TASK-010 - Shop Read Model Real Data`
+- Stato globale attuale: `IDLE`
+- Ultimo task completato: `TASK-013 - Admin Web UI/UX Professional Audit & Polish`
 - Task attivo: `NONE`
-- File task: `docs/TASKS/TASK-010-shop-read-model-real-data.md`
-- Stato task: `DONE`
-- Fase: `DONE_RECONCILED`
-- Responsabile: `CODEX / DONE_RECONCILIATION`
-- Prossima azione consigliata: pianificare `TASK-011` separato, probabilmente Shop Members / Permissions oppure Shop Products Read Model, dopo commit/push della tranche corrente. Non aprire `TASK-011` in questa reconciliation.
+- File task: `NONE`
+- Stato task: `NONE`
+- Fase: `IDLE`
+- Responsabile: `USER / NEXT_TASK_SELECTION`
+- Prossima azione consigliata: aprire un task separato per il prossimo incremento, ad esempio design system/components o QA autenticata con fixture sicura.
 
 ## Regole di avanzamento
 

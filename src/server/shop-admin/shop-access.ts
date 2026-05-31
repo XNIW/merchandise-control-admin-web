@@ -5,11 +5,7 @@ import {
   resolveSupabaseServerConfig,
   type SupabaseServerClient,
 } from "@/lib/supabase/server";
-import {
-  resolveCurrentAdminRouteAccess,
-  type AdminRouteAccess,
-  type ShopScopedAdminRole,
-} from "@/server/auth/admin-routing";
+import type { ShopScopedAdminRole } from "@/server/auth/admin-routing";
 
 export type ShopAdminShellShop = {
   shopId: string;
@@ -26,7 +22,16 @@ export type ShopAdminShellAccess =
       availableShops: ShopAdminShellShop[];
       selectedShop: ShopAdminShellShop;
     }
-  | Exclude<AdminRouteAccess, { status: "shop_admin" }>;
+  | {
+      status:
+        | "not_configured"
+        | "no_session"
+        | "viewer_only"
+        | "no_shop"
+        | "error";
+      reason: string;
+      userId?: string;
+    };
 
 const shopAdminRoles = new Set<string>(["shop_owner", "shop_manager"]);
 
@@ -58,16 +63,20 @@ export async function resolveCurrentShopAdminShellAccess(
     };
   }
 
-  const routeAccess = await resolveCurrentAdminRouteAccess(supabase);
+  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const userId = userData.user?.id;
 
-  if (routeAccess.status !== "shop_admin") {
-    return routeAccess;
+  if (userError || !userId) {
+    return {
+      status: "no_session",
+      reason: "Sign in with a personal account to open the Shop Admin console.",
+    };
   }
 
   const membershipsResult = await supabase
     .from("shop_members")
     .select("shop_id,role_key,membership_status")
-    .eq("profile_id", routeAccess.userId)
+    .eq("profile_id", userId)
     .eq("membership_status", "active")
     .order("created_at", { ascending: true })
     .limit(50);
@@ -76,11 +85,12 @@ export async function resolveCurrentShopAdminShellAccess(
     return {
       status: "error",
       reason: "Shop membership list could not be resolved.",
-      userId: routeAccess.userId,
+      userId,
     };
   }
 
-  const memberships = (membershipsResult.data ?? [])
+  const activeMemberships = membershipsResult.data ?? [];
+  const memberships = activeMemberships
     .map((membership) => ({
       role: toShopAdminRole(membership.role_key),
       shopId: membership.shop_id,
@@ -94,10 +104,16 @@ export async function resolveCurrentShopAdminShellAccess(
   );
 
   if (shopIds.length === 0) {
+    const hasViewerMembership = activeMemberships.some(
+      (membership) => membership.role_key === "viewer",
+    );
+
     return {
-      status: "no_shop",
-      reason: "No active shop owner or manager membership is available.",
-      userId: routeAccess.userId,
+      status: hasViewerMembership ? "viewer_only" : "no_shop",
+      reason: hasViewerMembership
+        ? "This account has viewer access only and cannot open Shop Admin."
+        : "No active shop owner or manager membership is available.",
+      userId,
     };
   }
 
@@ -112,7 +128,7 @@ export async function resolveCurrentShopAdminShellAccess(
     return {
       status: "error",
       reason: "Authorized shop list could not be resolved.",
-      userId: routeAccess.userId,
+      userId,
     };
   }
 
@@ -138,20 +154,20 @@ export async function resolveCurrentShopAdminShellAccess(
     .filter((shop): shop is ShopAdminShellShop => Boolean(shop))
     .filter((shop) => shop.shopStatus !== "archived");
   const selectedShop =
-    availableShops.find((shop) => shop.shopId === routeAccess.primaryShopId) ??
+    availableShops.find((shop) => shop.shopId === memberships[0]?.shopId) ??
     availableShops[0];
 
   if (!selectedShop) {
     return {
       status: "no_shop",
       reason: "No active shop owner or manager membership is available.",
-      userId: routeAccess.userId,
+      userId,
     };
   }
 
   return {
     status: "shop_admin",
-    userId: routeAccess.userId,
+    userId,
     availableShops,
     selectedShop,
   };
