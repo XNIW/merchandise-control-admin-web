@@ -12,6 +12,55 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  app_private: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      is_active_shop_member: {
+        Args: { target_shop_id: string }
+        Returns: boolean
+      }
+      is_active_shop_staff_admin_member: {
+        Args: { target_shop_id: string }
+        Returns: boolean
+      }
+      is_platform_admin: { Args: never; Returns: boolean }
+      platform_action_result: {
+        Args: {
+          p_audit_event_id?: string
+          p_code: string
+          p_ok: boolean
+          p_shop_id?: string
+        }
+        Returns: Json
+      }
+      write_platform_shop_audit: {
+        Args: {
+          p_actor_profile_id: string
+          p_code: string
+          p_event_key: string
+          p_reason: string
+          p_result: string
+          p_scope: string
+          p_severity: string
+          p_shop_id: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: string
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -1007,6 +1056,91 @@ export type Database = {
           },
         ]
       }
+      staff_accounts: {
+        Row: {
+          created_at: string
+          created_by_profile_id: string | null
+          credential_expires_at: string | null
+          credential_hash: string | null
+          credential_kind: string | null
+          credential_updated_at: string | null
+          display_name: string
+          failed_attempts: number
+          last_login_at: string | null
+          locked_until: string | null
+          must_change_credential: boolean
+          role_key: string
+          shop_id: string
+          staff_code: string
+          staff_id: string
+          status: string
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by_profile_id?: string | null
+          credential_expires_at?: string | null
+          credential_hash?: string | null
+          credential_kind?: string | null
+          credential_updated_at?: string | null
+          display_name: string
+          failed_attempts?: number
+          last_login_at?: string | null
+          locked_until?: string | null
+          must_change_credential?: boolean
+          role_key: string
+          shop_id: string
+          staff_code: string
+          staff_id?: string
+          status?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by_profile_id?: string | null
+          credential_expires_at?: string | null
+          credential_hash?: string | null
+          credential_kind?: string | null
+          credential_updated_at?: string | null
+          display_name?: string
+          failed_attempts?: number
+          last_login_at?: string | null
+          locked_until?: string | null
+          must_change_credential?: boolean
+          role_key?: string
+          shop_id?: string
+          staff_code?: string
+          staff_id?: string
+          status?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_accounts_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "staff_accounts_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "staff_accounts_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
       suppliers: {
         Row: {
           id: number
@@ -1098,6 +1232,68 @@ export type Database = {
           productid?: number | null
         }
         Relationships: []
+      }
+      staff_accounts_safe: {
+        Row: {
+          created_at: string | null
+          credential_expires_at: string | null
+          credential_kind: string | null
+          credential_updated_at: string | null
+          display_name: string | null
+          failed_attempts: number | null
+          last_login_at: string | null
+          locked_until: string | null
+          must_change_credential: boolean | null
+          role_key: string | null
+          shop_id: string | null
+          staff_code: string | null
+          staff_id: string | null
+          status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          credential_expires_at?: string | null
+          credential_kind?: string | null
+          credential_updated_at?: string | null
+          display_name?: string | null
+          failed_attempts?: number | null
+          last_login_at?: string | null
+          locked_until?: string | null
+          must_change_credential?: boolean | null
+          role_key?: string | null
+          shop_id?: string | null
+          staff_code?: string | null
+          staff_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          credential_expires_at?: string | null
+          credential_kind?: string | null
+          credential_updated_at?: string | null
+          display_name?: string | null
+          failed_attempts?: number | null
+          last_login_at?: string | null
+          locked_until?: string | null
+          must_change_credential?: boolean | null
+          role_key?: string | null
+          shop_id?: string | null
+          staff_code?: string | null
+          staff_id?: string | null
+          status?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_accounts_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
       }
     }
     Functions: {
@@ -1290,6 +1486,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  app_private: {
+    Enums: {},
+  },
   graphql_public: {
     Enums: {},
   },

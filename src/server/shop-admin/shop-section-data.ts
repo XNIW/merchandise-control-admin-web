@@ -13,6 +13,11 @@ import {
   type ShopAdminReadModelAuditLog,
   type ShopAdminReadModelMember,
 } from "./read-model";
+import {
+  getShopStaffReadModel,
+  type ShopStaffReadModel,
+  type ShopStaffReadModelStaffAccount,
+} from "./staff-read-model";
 
 const formatToken = (value: string) =>
   value
@@ -246,12 +251,127 @@ export function buildAuditSection(readModel: ShopAdminReadModel): ShopSection {
   };
 }
 
+function staffRow(
+  staff: ShopStaffReadModelStaffAccount,
+): ShopSectionTableRow {
+  return {
+    rowKey: staff.staffId,
+    code: staff.staffCode,
+    name: staff.displayName,
+    role: formatToken(staff.roleKey),
+    status: formatToken(staff.status),
+    credential:
+      staff.credentialKind && staff.credentialUpdatedAt
+        ? `${formatToken(staff.credentialKind)} updated ${formatDateTime(
+            staff.credentialUpdatedAt,
+          )}`
+        : "Pending setup",
+    lockout: staff.lockedUntil
+      ? `Locked until ${formatDateTime(staff.lockedUntil)}`
+      : "Not locked",
+    updated: formatDateTime(staff.updatedAt),
+  };
+}
+
+export function buildStaffSection(readModel: ShopStaffReadModel): ShopSection {
+  if (readModel.status !== "ready" || !readModel.selectedShop) {
+    const base = shopSections.staff;
+    const statusByReadModel: Record<ShopStaffReadModel["status"], string> = {
+      not_configured: "Not configured",
+      unauthorized: "Unauthorized",
+      empty: "No rows visible",
+      error: "Read blocked",
+      ready: "Read-only",
+    };
+
+    return {
+      ...base,
+      description: readModel.reason,
+      status: statusByReadModel[readModel.status],
+      metrics: [
+        metric("Staff", "0", "No staff rows are rendered", "muted"),
+        metric("Credential hashes", "Hidden", "Safe view excludes hashes", "good"),
+        metric("Writes", "Off", "No staff mutations in TASK-014", "warning"),
+      ],
+      liveData: {
+        title: "Staff credential-safe read model",
+        description:
+          "The safe staff view is read-only and excludes stored credential hashes.",
+        columns: [
+          { key: "field", label: "Field" },
+          { key: "value", label: "Value" },
+        ],
+        rows: [],
+        emptyState: {
+          title: "No staff rows are visible",
+          description: readModel.reason,
+        },
+      },
+    };
+  }
+
+  const active = readModel.staffAccounts.filter(
+    (staff) => staff.status === "active",
+  ).length;
+  const pending = readModel.staffAccounts.filter(
+    (staff) => staff.status === "pending_credential",
+  ).length;
+  const locked = readModel.staffAccounts.filter((staff) =>
+    Boolean(staff.lockedUntil),
+  ).length;
+
+  return {
+    ...shopSections.staff,
+    description:
+      "Read-only POS staff list for the verified selected shop. Credential hashes and plaintext credentials are never returned to the UI.",
+    status:
+      readModel.staffAccounts.length > 0 ? "Read-only" : "Staff empty",
+    metrics: [
+      metric("Staff", String(readModel.staffAccounts.length), "Safe rows"),
+      metric("Active", String(active), "Credential-ready accounts", "good"),
+      metric("Pending", String(pending), "Awaiting credential setup"),
+      metric("Locked", String(locked), "Temporary lockouts", "warning"),
+    ],
+    liveData: {
+      title: "Staff credential-safe read model",
+      description:
+        "The safe staff view is read-only and excludes stored credential hashes.",
+      columns: [
+        { key: "code", label: "Staff code" },
+        { key: "name", label: "Name" },
+        { key: "role", label: "Role" },
+        { key: "status", label: "Status" },
+        { key: "credential", label: "Credential state" },
+        { key: "lockout", label: "Lockout" },
+        { key: "updated", label: "Updated" },
+      ],
+      rows: readModel.staffAccounts.map(staffRow),
+      emptyState: {
+        title: "No staff accounts are visible",
+        description:
+          "The staff schema is available, but no credential-safe staff rows are visible for this shop.",
+      },
+    },
+  };
+}
+
 export async function getShopSectionForRequest(
   key: ShopSectionKey,
   requestedShopId?: string | null,
 ): Promise<ShopSection> {
-  if (key !== "overview" && key !== "members" && key !== "audit") {
+  if (
+    key !== "overview" &&
+    key !== "members" &&
+    key !== "audit" &&
+    key !== "staff"
+  ) {
     return shopSections[key];
+  }
+
+  if (key === "staff") {
+    const staffReadModel = await getShopStaffReadModel({ requestedShopId });
+
+    return buildStaffSection(staffReadModel);
   }
 
   const readModel = await getShopAdminReadModel({ requestedShopId });

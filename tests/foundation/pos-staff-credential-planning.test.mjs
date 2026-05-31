@@ -97,6 +97,8 @@ test("TASK-012 avoids dangerous credential examples and keeps placeholders redac
 });
 
 test("TASK-012 remains planning-only with no runtime staff credential implementation", () => {
+  const task014Path = "docs/TASKS/TASK-014-integrated-auth-qa-design-pos-staff-foundation.md";
+  const task014Present = existsSync(join(root, task014Path));
   const generatedTypes = readProjectFile("src/lib/supabase/database.types.ts");
   const migrations = readAllMigrations();
   const staffPage = readProjectFile("src/app/shop/staff/page.tsx");
@@ -106,13 +108,20 @@ test("TASK-012 remains planning-only with no runtime staff credential implementa
     .join("\n");
   const clientStaffUi = `${staffPage}\n${readProjectFile("src/components/shop/shopSections.ts")}`;
 
-  assert.doesNotMatch(generatedTypes, /staff_accounts:\s*\{/);
-  assert.doesNotMatch(migrations, /create\s+table\s+(if\s+not\s+exists\s+)?public\.staff_accounts/i);
-  assert.doesNotMatch(migrations, /credential_hash/i);
+  if (task014Present) {
+    assert.match(generatedTypes, /staff_accounts:\s*\{/);
+    assert.match(migrations, /task_014_pos_staff_foundation/);
+    assert.doesNotMatch(serverShopFiles, /pin_hash|password_hash|shop_staff_|pos.*login|login.*pos/i);
+  } else {
+    assert.doesNotMatch(generatedTypes, /staff_accounts:\s*\{/);
+    assert.doesNotMatch(migrations, /create\s+table\s+(if\s+not\s+exists\s+)?public\.staff_accounts/i);
+    assert.doesNotMatch(migrations, /credential_hash/i);
+    assert.doesNotMatch(serverShopFiles, /staff_accounts|staff_code|credential_hash|pin_hash|password_hash|shop_staff_/i);
+  }
+
   assert.match(staffPage, /ShopSectionPage/);
-  assert.match(staffPage, /shopSections\.staff/);
+  assert.match(staffPage, /shopSections\.staff|getShopSectionForRequest\(\s*"staff"/);
   assert.doesNotMatch(staffPage, /action=|formAction|createStaff|resetCredential/i);
-  assert.doesNotMatch(serverShopFiles, /staff_accounts|staff_code|credential_hash|pin_hash|password_hash|shop_staff_/i);
   assert.doesNotMatch(clientStaffUi, /credential_hash|pin_hash|password_hash/i);
 });
 

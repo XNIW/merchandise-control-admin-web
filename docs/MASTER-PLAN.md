@@ -625,6 +625,31 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - commit o push.
 - Nota: execution aperta da Codex il 2026-05-31 dal brief allegato `TASK-013 - Admin Web UI/UX Professional Audit & Polish`. Figma usato nel file <https://www.figma.com/design/nw9wx6Q7jutwLGPHatGlWq>. Polish applicato senza schema change o nuove feature: selected shop context esplicito, nav responsive, copy placeholder piu chiaro, tabelle piu robuste, rimozione copy interna `TASK006_TEST_` dalla UI. Review finale / DONE reconciliation richiesta esplicitamente dall'utente il 2026-05-31: gate critici passati, harness riallineato a `DONE_RECONCILED`, browser smoke non autenticato aggiornato, QA autenticata classificata come limite non bloccante per assenza di fixture/sessione sicura. Nessun commit, push o stage.
 
+### TASK-014 - Integrated Authenticated QA, Design System, POS Staff Foundation
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-014-integrated-auth-qa-design-pos-staff-foundation.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-014/README.md`
+- Fase: `DONE_RECONCILED`
+- Scopo: mega-task sperimentale che unisce authenticated visual QA fixture, piccoli componenti Admin Web condivisi e foundation schema/sicurezza per POS Staff Credentials.
+- Include:
+  - harness QA autenticata opt-in sicuro o blocco documentato senza bypass;
+  - componenti UI condivisi piccoli applicati in modo scoped;
+  - migration/read model/hash boundary POS Staff foundation solo dopo discovery e gate Supabase;
+  - scanner e test foundation aggiornati;
+  - evidence, screenshot e handoff finale riconciliato.
+- Non include:
+  - login POS reale;
+  - sessione POS;
+  - staff account reale;
+  - PIN/password reale;
+  - UI mutativa staff funzionante;
+  - esposizione `credential_hash`;
+  - service-role nel client/browser;
+  - modifiche Android/iOS/POS;
+  - commit, git push o stage finale.
+- Nota: execution aperta da Codex il 2026-05-31 dal brief allegato `TASK-014 - Integrated Authenticated QA, Design System Components, POS Staff Foundation`. Review finale / DONE reconciliation richiesta esplicitamente dall'utente il 2026-05-31: migration `20260531050837_task_014_pos_staff_foundation.sql` applicata al linked dev dopo dry-run/lint/advisors positivi, tipi Supabase rigenerati dal linked schema, hash boundary rafforzato con test runtime, live auth opt-in passato (`2 passed`, `1 skipped` TASK-006), smoke UI passato, build/verify/security/foundation passati. Figma resta `BLOCKED_TOOL_LIMIT` non bloccante. Nessun commit, nessun git push, nessuno stage finale.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -639,13 +664,13 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `IDLE`
-- Ultimo task completato: `TASK-013 - Admin Web UI/UX Professional Audit & Polish`
+- Ultimo task completato: `TASK-014 - Integrated Authenticated QA, Design System, POS Staff Foundation`
 - Task attivo: `NONE`
 - File task: `NONE`
-- Stato task: `NONE`
+- Stato task: `DONE`
 - Fase: `IDLE`
-- Responsabile: `USER / NEXT_TASK_SELECTION`
-- Prossima azione consigliata: aprire un task separato per il prossimo incremento, ad esempio design system/components o QA autenticata con fixture sicura.
+- Responsabile: `USER / NEXT`
+- Prossima azione consigliata: aprire un nuovo task separato per la prossima feature o follow-up non critico.
 
 ## Regole di avanzamento
 

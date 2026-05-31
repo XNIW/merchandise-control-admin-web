@@ -65,7 +65,12 @@ test("TASK-008 route placeholders cover the Shop Admin sections", () => {
     const page = readProjectFile(path);
 
     assert.match(page, /export const dynamic = ["']force-dynamic["']/);
-    if (key === "overview" || key === "members" || key === "audit") {
+    if (
+      key === "overview" ||
+      key === "members" ||
+      key === "audit" ||
+      key === "staff"
+    ) {
       assert.match(page, new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`));
     } else {
       assert.match(page, new RegExp(`shopSections\\.${key}`));
