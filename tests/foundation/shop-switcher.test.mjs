@@ -46,10 +46,19 @@ test("TASK-009 ShopShell renders switcher from server-provided shops only", () =
   assert.doesNotMatch(shell, /@\/server|src\/server|@supabase\//);
 });
 
+test("TASK-009 ShopShell preserves selected shop while navigating sections", () => {
+  const shell = readProjectFile("src/components/shop/ShopShell.tsx");
+
+  assert.match(shell, /function buildShopHref/);
+  assert.match(shell, /nextSearchParams\.set\("shop_id", selectedShop\.shopId\)/);
+  assert.match(shell, /href=\{buildShopHref\(item\.href\)\}/);
+});
+
 test("TASK-009 security scan locks shop switcher artifacts", () => {
   const securityChecks = readProjectFile("scripts/security-checks.mjs");
 
   assert.match(securityChecks, /listFiles\("src\/server\/shop-admin"\)/);
   assert.match(securityChecks, /function checkTask009ShopSwitcherArtifacts/);
+  assert.match(securityChecks, /buildShopHref/);
   assert.match(securityChecks, /checkTask009ShopSwitcherArtifacts\(\)/);
 });

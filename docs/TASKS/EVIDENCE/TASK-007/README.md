@@ -3,11 +3,28 @@
 ## Stato
 
 - Task: `TASK-007 - Auth Routing and Route Protection`
-- Fase: `LONG_GOAL_MILESTONE_1`
-- Stato corrente: `READY_FOR_REVIEW`
+- Fase: `DONE_RECONCILED`
+- Stato corrente: `DONE`
+- Verdict finale reconciliation: `DONE_RECONCILED`
 - Data: 2026-05-30
 - Commit: `NOT_CREATED` (richiesto no commit)
 - Push: `NOT_RUN` (richiesto no push)
+
+## Review finale / DONE reconciliation 2026-05-30
+
+- Verdict: `DONE_RECONCILED`.
+- Fix applicati in questa review: nessuno specifico TASK-007.
+- Check freschi:
+  - `npm run typecheck`: `PASS`.
+  - `npm run lint`: `PASS`.
+  - `npm run test:foundation`: `PASS`, 32 test passati.
+  - `npm run security:scan`: `PASS`, `Security scan passed.`
+  - `npm run build`: `PASS_WITH_WARNINGS`, solo warning Node `DEP0205`.
+  - `npm run test:ui-smoke`: `PASS_WITH_WARNINGS`, 44 test passati con `next start` production su `127.0.0.1:3106`.
+  - `git diff --check`: `PASS`.
+- Supabase linked freschi: migration list/dry-run/lint/advisors security `PASS`.
+- Rischi residui accettati: nessun test live dedicato a vero `shop_owner` / `shop_manager`; richiede fixture sicura separata.
+- Commit/push: `NOT_CREATED` / `NOT_RUN`.
 
 ## Letture obbligatorie
 
@@ -31,7 +48,7 @@
 ## Pre-flight
 
 - Worktree gia contiene la execution `TASK-006` piu fix integrativo Long Goal.
-- `TASK-006` resta `READY_FOR_REVIEW`, non `DONE`.
+- Stato storico a inizio milestone: `TASK-006` era `READY_FOR_REVIEW`; reconciliation finale 2026-05-30: `DONE`.
 - `TASK-007` e l'unico task nuovo in `EXECUTION`.
 
 ## Implementazione
@@ -108,5 +125,5 @@
 
 ## Handoff
 
-- Stato consigliato: `READY_FOR_REVIEW`.
-- Non marcare `DONE` senza review e conferma esplicita dell'utente.
+- Stato finale: `DONE`.
+- Chiuso nella reconciliation finale autorizzata dall'utente; `TASK-010` resta da aprire separatamente.

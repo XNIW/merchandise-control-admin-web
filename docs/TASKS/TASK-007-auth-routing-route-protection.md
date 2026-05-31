@@ -4,14 +4,31 @@
 
 - ID: `TASK-007`
 - Titolo: Auth Routing and Route Protection
-- Stato: `READY_FOR_REVIEW`
-- Fase attuale: `EXECUTION_HANDOFF`
-- Responsabile attuale: `CODEX / HANDOFF`
+- Stato: `DONE`
+- Fase attuale: `DONE_RECONCILED`
+- Responsabile attuale: `CODEX / DONE_RECONCILIATION`
 - Data apertura: 2026-05-30
 - File Master Plan: `docs/MASTER-PLAN.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-007/README.md`
 - Commit: `NOT_CREATED` (richiesto no commit)
 - Push: `NOT_RUN` (richiesto no push)
+
+## Review finale / DONE reconciliation - 2026-05-30
+
+- Verdict finale: `DONE_RECONCILED`.
+- Fix applicati durante la review finale: nessun fix specifico TASK-007; confermata protezione server-side e redirect post-login.
+- Check freschi:
+  - `npm run typecheck`: `PASS`.
+  - `npm run lint`: `PASS`.
+  - `npm run test:foundation`: `PASS`, 32 test passati.
+  - `npm run security:scan`: `PASS`.
+  - `npm run build`: `PASS_WITH_WARNINGS`, solo warning Node `DEP0205` gia noto.
+  - `npm run test:ui-smoke` con `next start` production su `127.0.0.1:3106`: `PASS_WITH_WARNINGS`, 44 test passati.
+  - `git diff --check`: `PASS`.
+- Supabase linked: migration list/dry-run/lint/advisors security `PASS`; nessun secret stampato o salvato.
+- Acceptance criteria finali: `PASS`; nessun blocker critico aperto.
+- Rischi residui accettati: test live shop-owner/shop-manager non rieseguito per assenza fixture dedicata; copertura smoke non autorizzata e resolver statici restano sufficienti per questo scope.
+- Non fatto: nessun commit, nessun push, nessun TASK-010 aperto.
 
 ## Scopo
 
@@ -104,6 +121,6 @@ Risultati principali:
 - `/shop` e solo entrypoint minimale; la shell completa Shop Admin e le pagine figlie sono scope della milestone successiva.
 - Nessuna migration Supabase creata in questo task.
 
-## Handoff atteso
+## Handoff finale
 
-Codex non marca `DONE`. A fine execution il task va a `READY_FOR_REVIEW` con evidence aggiornata, rischi residui e check reali.
+TASK-007 e chiuso a `DONE` nella reconciliation finale autorizzata dall'utente. Prossimo passo consigliato: aprire `TASK-010 - Shop Read Model Real Data` come task separato.

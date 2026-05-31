@@ -50,6 +50,17 @@ export function ShopShell({
     availableShops.find((shop) => shop.shopId === selectedShopId) ??
     availableShops[0];
 
+  function buildShopHref(href: string) {
+    if (!selectedShop) {
+      return href;
+    }
+
+    const nextSearchParams = new URLSearchParams(searchParams.toString());
+
+    nextSearchParams.set("shop_id", selectedShop.shopId);
+    return `${href}?${nextSearchParams.toString()}`;
+  }
+
   function handleShopChange(event: ChangeEvent<HTMLSelectElement>) {
     const nextShopId = event.target.value;
     const nextSearchParams = new URLSearchParams(searchParams.toString());
@@ -94,7 +105,7 @@ export function ShopShell({
                 return (
                   <Link
                     key={item.key}
-                    href={item.href}
+                    href={buildShopHref(item.href)}
                     aria-current={isActive ? "page" : undefined}
                     className={[
                       "rounded-md px-3 py-2 text-sm font-medium outline-none transition",

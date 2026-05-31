@@ -3,11 +3,35 @@
 ## Stato
 
 - Task: `TASK-009 - Shop Switcher`
-- Fase: `LONG_GOAL_MILESTONE_3`
-- Stato corrente: `READY_FOR_REVIEW`
+- Fase: `DONE_RECONCILED`
+- Stato corrente: `DONE`
+- Verdict finale reconciliation: `DONE_RECONCILED`
 - Data: 2026-05-30
 - Commit: `NOT_CREATED` (richiesto no commit)
 - Push: `NOT_RUN` (richiesto no push)
+
+## Review finale / DONE reconciliation 2026-05-30
+
+- Verdict: `DONE_RECONCILED`.
+- Fix applicato in questa review: `ShopShell` preserva `shop_id` nei link di sezione tramite `buildShopHref`, mantenendo la selezione corrente durante la navigazione tra pagine Shop Admin.
+- File modificati per il fix:
+  - `src/components/shop/ShopShell.tsx`
+  - `tests/foundation/shop-switcher.test.mjs`
+  - `scripts/security-checks.mjs`
+- TDD evidence:
+  - RED: `node --test tests/foundation/shop-switcher.test.mjs` fallito sul nuovo caso `ShopShell preserves selected shop while navigating sections`.
+  - GREEN: `node --test tests/foundation/shop-switcher.test.mjs` `PASS`, 4 test passati.
+- Check freschi:
+  - `npm run typecheck`: `PASS`.
+  - `npm run lint`: `PASS`.
+  - `npm run test:foundation`: `PASS`, 32 test passati.
+  - `npm run security:scan`: `PASS`, `Security scan passed.`
+  - `npm run build`: `PASS_WITH_WARNINGS`, solo warning Node `DEP0205`.
+  - `npm run test:ui-smoke`: `PASS_WITH_WARNINGS`, 44 test passati con `next start` production su `127.0.0.1:3106`.
+  - `git diff --check`: `PASS`.
+- Supabase linked freschi: migration list/dry-run/lint/advisors security `PASS`; nessuna persistenza cookie/database introdotta.
+- Rischi residui accettati: switcher autorizzato non verificato con sessione reale multi-shop; nessun read model business shop-scoped renderizzato.
+- Commit/push: `NOT_CREATED` / `NOT_RUN`.
 
 ## Letture obbligatorie
 
@@ -27,7 +51,7 @@
 
 ## Pre-flight
 
-- `TASK-006`, `TASK-007` e `TASK-008` restano `READY_FOR_REVIEW`, non `DONE`.
+- Stato storico a inizio milestone: `TASK-006`, `TASK-007` e `TASK-008` erano `READY_FOR_REVIEW`; reconciliation finale 2026-05-30: tutti `DONE`.
 - `TASK-009` e l'unico task nuovo in `EXECUTION`.
 
 ## Evidence runtime
@@ -42,14 +66,14 @@
 
 - `src/server/shop-admin/shop-access.ts`: resolver server-only per Shop Admin shell access.
 - `src/app/shop/layout.tsx`: usa `resolveCurrentShopAdminShellAccess`, passa solo shop autorizzati alla shell.
-- `src/components/shop/ShopShell.tsx`: switcher `Switch shop`, `shop_id` in query string, fallback a `selectedShopId` server-side se query non autorizzata.
+- `src/components/shop/ShopShell.tsx`: switcher `Switch shop`, `shop_id` in query string, fallback a `selectedShopId` server-side se query non autorizzata, preservazione dello `shop_id` selezionato nei link di sezione.
 - `scripts/security-checks.mjs`: aggiunto `src/server/shop-admin` ai contratti read-only e gate `checkTask009ShopSwitcherArtifacts`.
 
 ## Check completi
 
 | Comando | Risultato | Evidence sintetica |
 | --- | --- | --- |
-| `node --test tests/foundation/shop-switcher.test.mjs` | `PASS` | 3 test passati, 0 falliti. |
+| `node --test tests/foundation/shop-switcher.test.mjs` | `PASS` | 4 test passati, 0 falliti dopo fix reconciliation. |
 | `node --test tests/foundation/auth-routing.test.mjs tests/foundation/shop-admin-shell.test.mjs tests/foundation/shop-switcher.test.mjs` | `PASS` | 10 test passati, 0 falliti. |
 | `npm run typecheck` | `PASS` | `next typegen && tsc --noEmit`; exit code 0. |
 | `npm run security:scan` | `PASS` | Output `Security scan passed.` |
@@ -84,10 +108,10 @@
 ## Rischi residui
 
 - Switcher autorizzato non verificato in browser con utente multi-shop reale.
-- `shop_id` in query string non persiste oltre la navigazione corrente.
+- `shop_id` in query string non persiste oltre navigazione/URL corrente e non viene salvato server-side.
 - Il read model business shop-scoped resta alla milestone successiva.
 
 ## Handoff
 
-- Stato consigliato: `READY_FOR_REVIEW`.
-- Non marcare `DONE` senza review e conferma esplicita dell'utente.
+- Stato finale: `DONE`.
+- Chiuso nella reconciliation finale autorizzata dall'utente; `TASK-010` resta da aprire separatamente.

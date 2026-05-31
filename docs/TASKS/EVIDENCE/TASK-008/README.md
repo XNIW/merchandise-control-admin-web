@@ -3,11 +3,28 @@
 ## Stato
 
 - Task: `TASK-008 - Shop Admin Console Shell`
-- Fase: `LONG_GOAL_MILESTONE_2`
-- Stato corrente: `READY_FOR_REVIEW`
+- Fase: `DONE_RECONCILED`
+- Stato corrente: `DONE`
+- Verdict finale reconciliation: `DONE_RECONCILED`
 - Data: 2026-05-30
 - Commit: `NOT_CREATED` (richiesto no commit)
 - Push: `NOT_RUN` (richiesto no push)
+
+## Review finale / DONE reconciliation 2026-05-30
+
+- Verdict: `DONE_RECONCILED`.
+- Fix applicati in questa review: nessuno specifico TASK-008.
+- Check freschi:
+  - `npm run typecheck`: `PASS`.
+  - `npm run lint`: `PASS`.
+  - `npm run test:foundation`: `PASS`, 32 test passati.
+  - `npm run security:scan`: `PASS`, `Security scan passed.`
+  - `npm run build`: `PASS_WITH_WARNINGS`, tutte le route `/shop/*` dynamic; solo warning Node `DEP0205`.
+  - `npm run test:ui-smoke`: `PASS_WITH_WARNINGS`, 44 test passati con `next start` production su `127.0.0.1:3106`.
+  - `git diff --check`: `PASS`.
+- Supabase linked freschi: migration list/dry-run/lint/advisors security `PASS`.
+- Rischi residui accettati: shell autorizzata non verificata con sessione reale `shop_owner` / `shop_manager`; placeholder intenzionali e dichiarati.
+- Commit/push: `NOT_CREATED` / `NOT_RUN`.
 
 ## Letture obbligatorie
 
@@ -30,8 +47,7 @@
 
 ## Pre-flight
 
-- `TASK-006` resta `READY_FOR_REVIEW`, non `DONE`.
-- `TASK-007` e stato portato a `READY_FOR_REVIEW`, non `DONE`.
+- Stato storico a inizio milestone: `TASK-006` e `TASK-007` erano `READY_FOR_REVIEW`; reconciliation finale 2026-05-30: entrambi `DONE`.
 - `TASK-008` e l'unico task nuovo in `EXECUTION`.
 
 ## Evidence runtime
@@ -118,5 +134,5 @@
 
 ## Handoff
 
-- Stato consigliato: `READY_FOR_REVIEW`.
-- Non marcare `DONE` senza review e conferma esplicita dell'utente.
+- Stato finale: `DONE`.
+- Chiuso nella reconciliation finale autorizzata dall'utente; `TASK-010` resta da aprire separatamente.

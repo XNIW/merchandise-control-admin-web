@@ -4,10 +4,34 @@
 
 - Goal: `Esegui allegato`
 - Data: 2026-05-30
-- Fase corrente: `LONG_GOAL_TRANCHE_HANDOFF`
-- Stato corrente: `MILESTONE_0_TO_3_READY_FOR_REVIEW`
+- Fase corrente: `LONG_GOAL_MILESTONE_3_DONE_RECONCILED`
+- Stato corrente: `TASK_006_TO_009_DONE_RECONCILED`
 - Commit: `NOT_CREATED` (richiesto no commit)
 - Push: `NOT_RUN` (richiesto no push)
+
+## Review finale / DONE reconciliation 2026-05-30
+
+- Verdict finale: `DONE_RECONCILED`.
+- Task chiusi a `DONE`: `TASK-006`, `TASK-007`, `TASK-008`, `TASK-009`.
+- Fix applicato durante la review finale: `TASK-009` preserva lo `shop_id` selezionato nei link di sezione Shop Admin (`src/components/shop/ShopShell.tsx`) e aggiunge gate in `tests/foundation/shop-switcher.test.mjs` e `scripts/security-checks.mjs`.
+- TDD fix TASK-009:
+  - RED: `node --test tests/foundation/shop-switcher.test.mjs` fallito sul nuovo caso di preservazione `shop_id`.
+  - GREEN: `node --test tests/foundation/shop-switcher.test.mjs` `PASS`, 4 test passati.
+- Check freschi reconciliation:
+  - `npm run typecheck`: `PASS`.
+  - `npm run lint`: `PASS`.
+  - `npm run test:foundation`: `PASS`, 32 test passati.
+  - `npm run security:scan`: `PASS`, `Security scan passed.`
+  - `npm run build`: `PASS_WITH_WARNINGS`, warning Node `DEP0205` non bloccante.
+  - `npm run test:ui-smoke` con `next start` production su `127.0.0.1:3106`: `PASS_WITH_WARNINGS`, 44 test passati; warning `DEP0205` e `NO_COLOR`/`FORCE_COLOR` non bloccanti.
+  - `git diff --check`: `PASS`.
+- Supabase linked freschi:
+  - `supabase migration list --linked`: `PASS`, local/remoto allineati fino a `20260530120000`.
+  - `supabase db push --linked --dry-run`: `PASS`, remote database up to date.
+  - `supabase db lint --linked --schema public,app_private --level error --fail-on error`: `PASS`, no schema errors.
+  - `supabase db advisors --linked --type security --level error --fail-on error`: `PASS`, no issues found.
+- Rischi residui accettati: test live shop-owner/shop-manager e multi-shop non rieseguiti per assenza fixture sicura; nessun read model business shop-scoped ancora renderizzato; warning runtime non bloccanti.
+- Non fatto: nessun commit, nessun push, nessun `TASK-010` aperto o implementato.
 
 ## Pre-flight iniziale
 
@@ -56,7 +80,7 @@
 
 - Task aperto: `docs/TASKS/TASK-007-auth-routing-route-protection.md`.
 - Evidence: `docs/TASKS/EVIDENCE/TASK-007/README.md`.
-- Stato finale milestone: `READY_FOR_REVIEW`, non `DONE`.
+- Stato finale milestone storico: `READY_FOR_REVIEW`; reconciliation finale 2026-05-30: `DONE`.
 - Implementato resolver server-only `src/server/auth/admin-routing.ts` basato su `auth.getUser()`, `platform_admins` e `shop_members`.
 - Implementata root `/` come entrypoint server-side verso `/platform` o `/shop`.
 - Protetto `/platform/*` con `src/app/platform/layout.tsx`.
@@ -91,7 +115,7 @@
 
 - Task aperto: `docs/TASKS/TASK-008-shop-admin-console-shell.md`.
 - Evidence: `docs/TASKS/EVIDENCE/TASK-008/README.md`.
-- Stato finale milestone: `READY_FOR_REVIEW`, non `DONE`.
+- Stato finale milestone storico: `READY_FOR_REVIEW`; reconciliation finale 2026-05-30: `DONE`.
 - Implementato layout protetto `src/app/shop/layout.tsx`.
 - Implementata shell dedicata `src/components/shop/ShopShell.tsx`.
 - Aggiunte sezioni placeholder dichiarate in `src/components/shop/shopSections.ts`.
@@ -120,7 +144,7 @@
 
 - Task aperto: `docs/TASKS/TASK-009-shop-switcher.md`.
 - Evidence: `docs/TASKS/EVIDENCE/TASK-009/README.md`.
-- Stato finale milestone: `READY_FOR_REVIEW`, non `DONE`.
+- Stato finale milestone storico: `READY_FOR_REVIEW`; reconciliation finale 2026-05-30: `DONE`.
 - Implementato resolver server-only `src/server/shop-admin/shop-access.ts`.
 - Il layout `/shop` passa alla shell solo shop autorizzati dal server.
 - Lo switcher usa `shop_id` come stato di navigazione, non come fonte autorizzativa.
@@ -147,11 +171,11 @@
 ## Stop controllato della tranche
 
 - Motivo: reviewability. La tranche include review/fix TASK-006 piu tre milestone nuove (`TASK-007`, `TASK-008`, `TASK-009`) con check verdi; aprire anche il read model reale (`TASK-010`) aumenterebbe troppo il batch da revisionare nello stesso handoff.
-- Stato finale consigliato della tranche: `PASS_WITH_NOTES`.
+- Stato finale della tranche: `DONE_RECONCILED`.
 - Stato task:
-  - `TASK-006`: `READY_FOR_REVIEW`, non `DONE`.
-  - `TASK-007`: `READY_FOR_REVIEW`, non `DONE`.
-  - `TASK-008`: `READY_FOR_REVIEW`, non `DONE`.
-  - `TASK-009`: `READY_FOR_REVIEW`, non `DONE`.
+  - `TASK-006`: `DONE`.
+  - `TASK-007`: `DONE`.
+  - `TASK-008`: `DONE`.
+  - `TASK-009`: `DONE`.
   - `TASK-010`: `PLANNED_NEXT`, non aperto in execution.
-- Prossimo passo consigliato: review umana dei candidate e apertura mirata di `TASK-010 - Shop Read Model Real Data` nella prossima tranche.
+- Prossimo passo consigliato: apertura mirata di `TASK-010 - Shop Read Model Real Data` nella prossima tranche, senza implementarlo in questa reconciliation.

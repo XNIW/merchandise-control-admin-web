@@ -420,10 +420,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-006 - Platform Admin Controlled Actions
 
-- Stato: `READY_FOR_REVIEW`
+- Stato: `DONE`
 - File task: `docs/TASKS/TASK-006-platform-admin-controlled-actions.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-006/README.md`
-- Fase: `EXECUTION_HANDOFF`
+- Fase: `DONE_RECONCILED`
 - Execution: `COMPLETED`
 - Scopo: implementare in un unico task completo le prime azioni amministrative sicure server-side.
 - Include nell'execution unica:
@@ -446,14 +446,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - cancellazione audit;
   - commit o push.
 - Nota: execution completata da Codex dopo autorizzazione esplicita utente. Review/fix correttiva eseguita il 2026-05-30 con UI rinominata `Controlled Operations`, risultati azione redatti, conferme shop code visibili e harness ESLint/security aggiornati. Review/fix integrativa Long Goal aggiunge `.sql` al secret scan generico e riesegue check locali freschi. `TASK-006` resta unico; non sono stati creati `TASK-006A`, `TASK-006B`, `TASK-006C`, `TASK-006D` o `TASK-006E`.
-- Evidence aggiornata in `docs/TASKS/EVIDENCE/TASK-006/README.md` e `docs/TASKS/EVIDENCE/LONG-GOAL/README.md`: migration applicata e local/remoto allineati, RPC verificate, tipi rigenerati, UI `/platform/operations` aggiornata, check locali/browser/live passati. Task pronto per review/conferma utente; non marcato `DONE`.
+- Evidence aggiornata in `docs/TASKS/EVIDENCE/TASK-006/README.md` e `docs/TASKS/EVIDENCE/LONG-GOAL/README.md`: migration applicata e local/remoto allineati, RPC verificate, tipi rigenerati, UI `/platform/operations` aggiornata, check locali/browser/live passati. Review finale del 2026-05-30 con check freschi e Supabase linked passati; task marcato `DONE` su autorizzazione esplicita utente per la reconciliation `TASK-006`..`TASK-009`.
 
 ### TASK-007 - Auth Routing and Route Protection
 
-- Stato: `READY_FOR_REVIEW`
+- Stato: `DONE`
 - File task: `docs/TASKS/TASK-007-auth-routing-route-protection.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-007/README.md`
-- Fase: `EXECUTION_HANDOFF`
+- Fase: `DONE_RECONCILED`
 - Scopo: implementare routing post-login e protezione server-side per `/`, `/platform/*` e `/shop`.
 - Include:
   - resolver server-only per ruolo corrente;
@@ -469,14 +469,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - staff POS, PIN/password o dispositivi;
   - nuove dipendenze;
   - commit o push.
-- Nota: execution completata da Codex nella Long Goal milestone 1. Implementati resolver server-only, root routing, protezione `/platform/*`, entrypoint `/shop`, pagina login generica e harness aggiornati. Check locali, security, build, verify, Playwright smoke e browser in-app passati con warning non bloccanti documentati. Task pronto per review/conferma utente; non marcato `DONE`.
+- Nota: execution completata da Codex nella Long Goal milestone 1. Implementati resolver server-only, root routing, protezione `/platform/*`, entrypoint `/shop`, pagina login generica e harness aggiornati. Review finale del 2026-05-30 con check freschi e Supabase linked passati; task marcato `DONE` su autorizzazione esplicita utente per la reconciliation `TASK-006`..`TASK-009`.
 
 ### TASK-008 - Shop Admin Console Shell
 
-- Stato: `READY_FOR_REVIEW`
+- Stato: `DONE`
 - File task: `docs/TASKS/TASK-008-shop-admin-console-shell.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-008/README.md`
-- Fase: `EXECUTION_HANDOFF`
+- Fase: `DONE_RECONCILED`
 - Scopo: creare la base navigabile della `Shop Admin Console`, protetta server-side, con layout e route placeholder dichiarate.
 - Include:
   - layout `/shop` dedicato;
@@ -492,14 +492,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - migration Supabase;
   - nuove dipendenze;
   - commit o push.
-- Nota: execution completata da Codex nella Long Goal milestone 2. Implementati layout protetto `/shop`, shell Shop Admin, route placeholder dichiarate e harness aggiornati. Check locali, security, build, verify, Playwright smoke e browser in-app passati con warning non bloccanti documentati. Task pronto per review/conferma utente; non marcato `DONE`.
+- Nota: execution completata da Codex nella Long Goal milestone 2. Implementati layout protetto `/shop`, shell Shop Admin, route placeholder dichiarate e harness aggiornati. Review finale del 2026-05-30 con check freschi e Supabase linked passati; task marcato `DONE` su autorizzazione esplicita utente per la reconciliation `TASK-006`..`TASK-009`.
 
 ### TASK-009 - Shop Switcher
 
-- Stato: `READY_FOR_REVIEW`
+- Stato: `DONE`
 - File task: `docs/TASKS/TASK-009-shop-switcher.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-009/README.md`
-- Fase: `EXECUTION_HANDOFF`
+- Fase: `DONE_RECONCILED`
 - Scopo: aggiungere switcher negozio nella Shop Admin Console usando solo membership attive verificate server-side.
 - Include:
   - resolver server-only per lista shop autorizzati;
@@ -513,7 +513,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - migration Supabase;
   - nuove dipendenze;
   - commit o push.
-- Nota: execution completata da Codex nella Long Goal milestone 3. Implementato resolver server-only per shop autorizzati, switcher UI con query param non autorizzativo e gate security/foundation dedicati. Check locali, security, build, verify, Playwright smoke e browser in-app passati con warning non bloccanti documentati. Task pronto per review/conferma utente; non marcato `DONE`.
+- Nota: execution completata da Codex nella Long Goal milestone 3. Implementato resolver server-only per shop autorizzati, switcher UI con query param non autorizzativo e gate security/foundation dedicati. Review finale del 2026-05-30 ha preservato `shop_id` nei link di sezione Shop Admin e ha aggiunto gate foundation/security; check freschi e Supabase linked passati. Task marcato `DONE` su autorizzazione esplicita utente per la reconciliation `TASK-006`..`TASK-009`.
 
 ### TASK-010 - Shop Read Model Real Data
 
@@ -549,14 +549,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `LONG_GOAL_MILESTONE_3_READY_FOR_REVIEW`
-- Ultimo candidate completato: `TASK-008 - Shop Admin Console Shell`
-- Task attivo: `NONE - long goal tranche paused for reviewability`
+- Stato globale attuale: `LONG_GOAL_MILESTONE_3_DONE_RECONCILED`
+- Ultimo candidate completato: `TASK-009 - Shop Switcher`
+- Task attivo: `NONE`
 - File task: `docs/TASKS/TASK-009-shop-switcher.md`
-- Stato task: `READY_FOR_REVIEW`
-- Fase: `LONG_GOAL_MILESTONE_3_HANDOFF`
-- Responsabile: `CODEX / HANDOFF`
-- Prossima azione consigliata: review umana dei candidate `TASK-006`, `TASK-007`, `TASK-008` e `TASK-009`; poi aprire `TASK-010` per read model shop-scoped. Nessun task viene marcato `DONE` senza conferma esplicita utente.
+- Stato task: `DONE`
+- Fase: `LONG_GOAL_MILESTONE_3_DONE_RECONCILED`
+- Responsabile: `CODEX / DONE_RECONCILIATION`
+- Prossima azione consigliata: aprire `TASK-010 - Shop Read Model Real Data` come task separato; non aprirlo o implementarlo dentro questa reconciliation.
 
 ## Regole di avanzamento
 

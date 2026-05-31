@@ -3,13 +3,34 @@
 ## Stato
 
 - Task: `TASK-006 - Platform Admin Controlled Actions`
-- Fase: `EXECUTION_HANDOFF`
+- Fase: `DONE_RECONCILED`
 - Execution: `COMPLETED`
-- Stato finale Codex: `READY_FOR_REVIEW`
+- Stato finale: `DONE`
 - Verdict review/fix: `PASS_WITH_NOTES`
+- Verdict finale reconciliation: `DONE_RECONCILED`
 - Data: 2026-05-30
 - Commit: `NOT_CREATED` (richiesto no commit)
 - Push: `NOT_RUN` (richiesto no push)
+
+## Review finale / DONE reconciliation 2026-05-30
+
+- Verdict: `DONE_RECONCILED`.
+- Fix applicati in questa review: nessuno specifico TASK-006; confermati i fix precedenti su UI `Controlled Operations`, risultati redatti, conferme shop code e scanner `.sql`.
+- Check freschi:
+  - `npm run typecheck`: `PASS`.
+  - `npm run lint`: `PASS`.
+  - `npm run test:foundation`: `PASS`, 32 test passati.
+  - `npm run security:scan`: `PASS`, `Security scan passed.`
+  - `npm run build`: `PASS_WITH_WARNINGS`, solo warning Node `DEP0205`.
+  - `npm run test:ui-smoke`: `PASS_WITH_WARNINGS`, 44 test passati con `next start` production su `127.0.0.1:3106`; warning `DEP0205` e `NO_COLOR`/`FORCE_COLOR`.
+  - `git diff --check`: `PASS`.
+- Supabase linked freschi:
+  - `supabase migration list --linked`: `PASS`, local/remoto allineati fino a `20260530120000`.
+  - `supabase db push --linked --dry-run`: `PASS`, remote database up to date.
+  - `supabase db lint --linked --schema public,app_private --level error --fail-on error`: `PASS`, no schema errors.
+  - `supabase db advisors --linked --type security --level error --fail-on error`: `PASS`, no issues found.
+- Rischi residui accettati: warning runtime non bloccanti e record sintetici TASK-006 archiviati per audit trail.
+- Commit/push: `NOT_CREATED` / `NOT_RUN`.
 
 ## File creati/modificati
 
@@ -112,7 +133,7 @@
 - Nessuna modifica Android/iOS/POS.
 - Nessun commit.
 - Nessun push.
-- Task non marcato `DONE`.
+- Task marcato `DONE` solo nella reconciliation finale autorizzata dall'utente.
 
 ## Rischi residui
 

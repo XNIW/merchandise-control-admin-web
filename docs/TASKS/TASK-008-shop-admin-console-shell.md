@@ -4,14 +4,31 @@
 
 - ID: `TASK-008`
 - Titolo: Shop Admin Console Shell
-- Stato: `READY_FOR_REVIEW`
-- Fase attuale: `EXECUTION_HANDOFF`
-- Responsabile attuale: `CODEX / HANDOFF`
+- Stato: `DONE`
+- Fase attuale: `DONE_RECONCILED`
+- Responsabile attuale: `CODEX / DONE_RECONCILIATION`
 - Data apertura: 2026-05-30
 - File Master Plan: `docs/MASTER-PLAN.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-008/README.md`
 - Commit: `NOT_CREATED` (richiesto no commit)
 - Push: `NOT_RUN` (richiesto no push)
+
+## Review finale / DONE reconciliation - 2026-05-30
+
+- Verdict finale: `DONE_RECONCILED`.
+- Fix applicati durante la review finale: nessun fix specifico TASK-008; confermata shell placeholder protetta e distinta da Platform Admin.
+- Check freschi:
+  - `npm run typecheck`: `PASS`.
+  - `npm run lint`: `PASS`.
+  - `npm run test:foundation`: `PASS`, 32 test passati.
+  - `npm run security:scan`: `PASS`.
+  - `npm run build`: `PASS_WITH_WARNINGS`, tutte le route `/shop/*` dynamic; solo warning Node `DEP0205` gia noto.
+  - `npm run test:ui-smoke` con `next start` production su `127.0.0.1:3106`: `PASS_WITH_WARNINGS`, 44 test passati.
+  - `git diff --check`: `PASS`.
+- Supabase linked: migration list/dry-run/lint/advisors security `PASS`; nessuna migration nuova introdotta in TASK-008.
+- Acceptance criteria finali: `PASS`; nessun blocker critico aperto.
+- Rischi residui accettati: shell autorizzata non verificata con utente reale shop_owner/shop_manager; placeholder intenzionali e dichiarati.
+- Non fatto: nessun read model shop-scoped reale, nessun CRUD/import/export/staff POS/devices reali, nessun commit, nessun push, nessun TASK-010 aperto.
 
 ## Scopo
 
@@ -106,6 +123,6 @@ Risultati principali:
 - Le pagine Shop Admin sono placeholder dichiarati; read model, switcher, CRUD, import/export, membri, staff, devices, settings e audit reale restano fuori scope.
 - Nessuna migration Supabase introdotta in questo task.
 
-## Handoff atteso
+## Handoff finale
 
-Codex non marca `DONE`. A fine execution il task va a `READY_FOR_REVIEW` con evidence aggiornata, rischi residui e check reali.
+TASK-008 e chiuso a `DONE` nella reconciliation finale autorizzata dall'utente. Prossimo passo consigliato: aprire `TASK-010 - Shop Read Model Real Data` come task separato.

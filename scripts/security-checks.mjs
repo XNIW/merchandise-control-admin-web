@@ -562,6 +562,7 @@ function checkTask009ShopSwitcherArtifacts() {
   for (const requiredSnippet of [
     "availableShops",
     "selectedShopId",
+    "buildShopHref",
     "useSearchParams",
     "useRouter",
     'aria-label="Switch shop"',
@@ -570,6 +571,10 @@ function checkTask009ShopSwitcherArtifacts() {
     if (!shell.includes(requiredSnippet)) {
       addFailure(`${shopShellPath} must include ${requiredSnippet}`);
     }
+  }
+
+  if (!/href=\{buildShopHref\(item\.href\)\}/.test(shell)) {
+    addFailure(`${shopShellPath} must preserve selected shop_id across section links`);
   }
 
   if (/@\/server|src\/server|@supabase\//.test(shell)) {

@@ -4,10 +4,10 @@
 
 - ID: `TASK-006`
 - Titolo: Platform Admin Controlled Actions
-- Stato: `READY_FOR_REVIEW`
-- Fase attuale: `EXECUTION_HANDOFF`
+- Stato: `DONE`
+- Fase attuale: `DONE_RECONCILED`
 - Execution: `COMPLETED`
-- Responsabile attuale: `CODEX / EXECUTION`
+- Responsabile attuale: `CODEX / DONE_RECONCILIATION`
 - Data apertura planning: 2026-05-30
 - File Master Plan: `docs/MASTER-PLAN.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-006/README.md`
@@ -15,6 +15,7 @@
 - Push: `NOT_RUN` (richiesto esplicitamente no push)
 - Review/fix correttiva: `COMPLETED` il 2026-05-30
 - Verdict review/fix Codex: `PASS_WITH_NOTES`
+- Review finale / DONE reconciliation: `DONE_RECONCILED` il 2026-05-30
 
 ## Guardrail del task
 
@@ -22,7 +23,28 @@ Execution autorizzata dall'utente via allegato e completata come `TASK-006` unic
 
 Non sono stati creati `TASK-006A`, `TASK-006B`, `TASK-006C`, `TASK-006D` o `TASK-006E`.
 Non sono stati introdotti service-role client/browser, segreti nel repository, hard delete, cancellazione audit, modifiche mobile o route handler mutativi paralleli.
-Il task non viene marcato `DONE`: passa a review/handoff e richiede conferma esplicita utente.
+Il task e stato marcato `DONE` solo nella review finale del 2026-05-30, dopo autorizzazione esplicita dell'utente alla reconciliation automatica di `TASK-006`..`TASK-009`.
+
+## Review finale / DONE reconciliation - 2026-05-30
+
+- Verdict finale: `DONE_RECONCILED`.
+- Fix applicati durante la review finale: nessun fix specifico TASK-006; confermata la review/fix precedente su `Controlled Operations`, redazione risultati e scanner `.sql`.
+- Check locali freschi:
+  - `npm run typecheck`: `PASS`.
+  - `npm run lint`: `PASS`.
+  - `npm run test:foundation`: `PASS`, 32 test passati.
+  - `npm run security:scan`: `PASS`.
+  - `npm run build`: `PASS_WITH_WARNINGS`, solo warning Node `DEP0205` gia noto.
+  - `npm run test:ui-smoke` con `next start` production su `127.0.0.1:3106`: `PASS_WITH_WARNINGS`, 44 test passati; warning `DEP0205` e `NO_COLOR`/`FORCE_COLOR` non bloccanti.
+  - `git diff --check`: `PASS`.
+- Check Supabase linked freschi:
+  - `supabase migration list --linked`: `PASS`, local/remoto allineati fino a `20260530120000`.
+  - `supabase db push --linked --dry-run`: `PASS`, remote database up to date.
+  - `supabase db lint --linked --schema public,app_private --level error --fail-on error`: `PASS`, no schema errors.
+  - `supabase db advisors --linked --type security --level error --fail-on error`: `PASS`, no issues found.
+- Acceptance criteria finali: `PASS`; nessun blocker critico aperto.
+- Rischi residui accettati: warning Node/Playwright non bloccanti; record sintetici TASK-006 archiviati restano per audit trail; nessuna pulizia fisica perche fuori scope.
+- Non fatto: nessun commit, nessun push, nessun TASK-010 aperto, nessun hard delete, nessun service-role client/browser.
 
 ## Summary execution
 
@@ -52,7 +74,7 @@ Il task non viene marcato `DONE`: passa a review/handoff e richiede conferma esp
 - `shops.shop_status='archived'` rappresenta la cancellazione logica di `TASK-006`; non si introduce `deleted_at` e non si introduce un livello `merchant -> stores`.
 - `assign initial owner` resta incorporato in create shop; il trasferimento owner separato e fuori scope.
 - Create shop non deve creare automaticamente `shop_inventory_sources not_configured` in `TASK-006`; il mapping inventory/mobile resta futuro e separato, salvo review execution che dimostri un uso UI/read-model indispensabile.
-- Verdict planning review storico: `PASS_WITH_NOTES`; la execution e la review/fix correttiva sono state completate successivamente. Il task non viene marcato `DONE` senza conferma esplicita utente.
+- Verdict planning review storico: `PASS_WITH_NOTES`; la execution e la review/fix correttiva sono state completate successivamente. La conferma/autorizzazione esplicita utente per la reconciliation finale e arrivata prima del passaggio a `DONE`.
 
 ## Stato iniziale repo-grounded
 
@@ -586,7 +608,7 @@ Il prompt execution doveva imporre:
 | `PLANNING_DONE` | Solo dopo review positiva del planning. |
 | `READY_FOR_EXECUTION_APPROVAL` | Stato storico del planning, superato dall'execution autorizzata. |
 
-`TASK-006` non viene marcato `DONE` da Codex. Il passaggio a `DONE` richiede review positiva e conferma esplicita utente.
+`TASK-006` e stato marcato `DONE` nella review finale del 2026-05-30, dopo review positiva e conferma/autorizzazione esplicita dell'utente alla reconciliation automatica.
 
 ## Acceptance criteria
 
@@ -610,14 +632,13 @@ Il prompt execution doveva imporre:
 | CA-16 | Safety gates definiti ed eseguiti | `PASS` |
 | CA-17 | Ready for execution approval documentale | `SUPERSEDED_BY_EXECUTION` |
 
-## Handoff per review
+## Handoff finale
 
 - Verdict execution/review-fix: `PASS_WITH_NOTES`.
-- Stato finale TASK-006: `READY_FOR_REVIEW`.
+- Verdict finale reconciliation: `DONE_RECONCILED`.
+- Stato finale TASK-006: `DONE`.
 - Review/fix integrativa Long Goal: `PASS_WITH_NOTES`, con fix piccolo allo scanner `.sql` e check locali freschi.
-- Fase: `EXECUTION_HANDOFF`.
+- Fase: `DONE_RECONCILED`.
 - Execution: `COMPLETED`.
-- Decisioni rimaste aperte per review:
-  - nessuna decisione bloccante nota;
-  - `DONE` resta riservato a review positiva e conferma esplicita utente secondo `AGENTS.md`.
-- Prossimo passo consigliato: review umana/Claude-ChatGPT del task eseguito e conferma esplicita utente prima di qualunque passaggio a `DONE`.
+- Decisioni rimaste aperte per review: nessuna decisione bloccante nota.
+- Prossimo passo consigliato: aprire `TASK-010 - Shop Read Model Real Data` come task separato, senza implementarlo in questa reconciliation.
