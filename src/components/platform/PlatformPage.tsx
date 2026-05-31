@@ -39,10 +39,12 @@ export function PlatformPage({ section }: PlatformPageProps) {
               caption="Platform Admin read-only table rendered from server-provided rows."
               columns={section.columns}
               rows={section.rows}
-              emptyState={{
-                title: "No rows returned",
-                description: "No rows returned through the server boundary.",
-              }}
+              emptyState={
+                section.emptyState ?? {
+                  title: "No rows returned",
+                  description: "No rows returned through the server boundary.",
+                }
+              }
               footer="Rows are server-limited for the current read-only boundary."
             />
           </SectionCard>
@@ -54,7 +56,7 @@ export function PlatformPage({ section }: PlatformPageProps) {
             >
               <div className="grid gap-3">
                 <EmptyState
-                  title={section.emptyState?.title ?? "Placeholder ready"}
+                  title={section.emptyState?.title ?? "Read state available"}
                   description={
                     section.emptyState?.description ??
                     "No additional read state is available for this section."
@@ -62,9 +64,11 @@ export function PlatformPage({ section }: PlatformPageProps) {
                 />
                 <GuardrailNotice
                   title="Boundary status"
-                  items={[
-                    "No browser-side Supabase client or service-role key is used by these views.",
-                  ]}
+                  items={
+                    section.guardrails ?? [
+                      "No browser-side Supabase client or service-role key is used by these views.",
+                    ]
+                  }
                 />
               </div>
             </SectionCard>

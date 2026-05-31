@@ -24,17 +24,37 @@ export type Database = {
         Args: { target_shop_id: string }
         Returns: boolean
       }
+      is_active_shop_owner_member: {
+        Args: { target_shop_id: string }
+        Returns: boolean
+      }
       is_active_shop_staff_admin_member: {
         Args: { target_shop_id: string }
         Returns: boolean
       }
       is_platform_admin: { Args: never; Returns: boolean }
+      normalize_admin_label: { Args: { p_value: string }; Returns: string }
       platform_action_result: {
         Args: {
           p_audit_event_id?: string
           p_code: string
           p_ok: boolean
           p_shop_id?: string
+        }
+        Returns: Json
+      }
+      resolve_shop_inventory_owner: {
+        Args: { target_shop_id: string }
+        Returns: string
+      }
+      shop_admin_action_result: {
+        Args: {
+          p_audit_event_id?: string
+          p_code: string
+          p_ok: boolean
+          p_payload?: Json
+          p_shop_id?: string
+          p_target_id?: string
         }
         Returns: Json
       }
@@ -46,6 +66,19 @@ export type Database = {
           p_reason: string
           p_result: string
           p_scope: string
+          p_severity: string
+          p_shop_id: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: string
+      }
+      write_shop_admin_audit: {
+        Args: {
+          p_code: string
+          p_event_key: string
+          p_metadata?: Json
+          p_result: string
           p_severity: string
           p_shop_id: string
           p_target_id: string
@@ -652,6 +685,80 @@ export type Database = {
           },
         ]
       }
+      platform_owner_invites: {
+        Row: {
+          accepted_profile_id: string | null
+          audit_log_id: string | null
+          created_at: string
+          expires_at: string
+          owner_contact_digest: string
+          owner_contact_redacted: string
+          platform_owner_invite_id: string
+          requested_by_profile_id: string | null
+          resolved_at: string | null
+          shop_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_profile_id?: string | null
+          audit_log_id?: string | null
+          created_at?: string
+          expires_at?: string
+          owner_contact_digest: string
+          owner_contact_redacted: string
+          platform_owner_invite_id?: string
+          requested_by_profile_id?: string | null
+          resolved_at?: string | null
+          shop_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_profile_id?: string | null
+          audit_log_id?: string | null
+          created_at?: string
+          expires_at?: string
+          owner_contact_digest?: string
+          owner_contact_redacted?: string
+          platform_owner_invite_id?: string
+          requested_by_profile_id?: string | null
+          resolved_at?: string | null
+          shop_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "platform_owner_invites_accepted_profile_id_fkey"
+            columns: ["accepted_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "platform_owner_invites_audit_log_id_fkey"
+            columns: ["audit_log_id"]
+            isOneToOne: false
+            referencedRelation: "audit_logs"
+            referencedColumns: ["audit_log_id"]
+          },
+          {
+            foreignKeyName: "platform_owner_invites_requested_by_profile_id_fkey"
+            columns: ["requested_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "platform_owner_invites_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
       product_prices: {
         Row: {
           createdat: string
@@ -836,6 +943,102 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      shop_devices: {
+        Row: {
+          app_version: string | null
+          created_at: string
+          created_by_profile_id: string | null
+          device_identifier: string
+          device_type: string
+          display_name: string
+          last_seen_at: string | null
+          metadata_redacted: Json
+          reactivated_at: string | null
+          reactivated_by_profile_id: string | null
+          revoked_at: string | null
+          revoked_by_profile_id: string | null
+          shop_device_id: string
+          shop_id: string
+          status: string
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          created_at?: string
+          created_by_profile_id?: string | null
+          device_identifier: string
+          device_type?: string
+          display_name: string
+          last_seen_at?: string | null
+          metadata_redacted?: Json
+          reactivated_at?: string | null
+          reactivated_by_profile_id?: string | null
+          revoked_at?: string | null
+          revoked_by_profile_id?: string | null
+          shop_device_id?: string
+          shop_id: string
+          status?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          created_at?: string
+          created_by_profile_id?: string | null
+          device_identifier?: string
+          device_type?: string
+          display_name?: string
+          last_seen_at?: string | null
+          metadata_redacted?: Json
+          reactivated_at?: string | null
+          reactivated_by_profile_id?: string | null
+          revoked_at?: string | null
+          revoked_by_profile_id?: string | null
+          shop_device_id?: string
+          shop_id?: string
+          status?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shop_devices_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "shop_devices_reactivated_by_profile_id_fkey"
+            columns: ["reactivated_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "shop_devices_revoked_by_profile_id_fkey"
+            columns: ["revoked_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "shop_devices_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "shop_devices_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
       }
       shop_inventory_sources: {
         Row: {
@@ -1306,8 +1509,41 @@ export type Database = {
         }
         Returns: Json
       }
+      platform_create_shop_with_pending_owner_invite: {
+        Args: {
+          p_owner_email: string
+          p_reason: string
+          p_shop_code: string
+          p_shop_name: string
+        }
+        Returns: Json
+      }
+      platform_emergency_revoke_device: {
+        Args: {
+          p_confirmation: string
+          p_reason: string
+          p_shop_device_id: string
+        }
+        Returns: Json
+      }
+      platform_grant_platform_admin: {
+        Args: { p_confirmation: string; p_profile_id: string; p_reason: string }
+        Returns: Json
+      }
       platform_reactivate_shop: {
         Args: { p_confirmation: string; p_reason: string; p_shop_id: string }
+        Returns: Json
+      }
+      platform_restore_shop: {
+        Args: {
+          p_reason: string
+          p_shop_code_confirmation: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      platform_revoke_platform_admin: {
+        Args: { p_confirmation: string; p_profile_id: string; p_reason: string }
         Returns: Json
       }
       platform_soft_delete_shop: {
@@ -1357,6 +1593,152 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      shop_admin_audit_event: {
+        Args: {
+          p_code: string
+          p_event_key: string
+          p_metadata?: Json
+          p_result: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      shop_catalog_archive_category: {
+        Args: { p_category_id: string; p_reason?: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_archive_product: {
+        Args: { p_product_id: string; p_reason?: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_archive_supplier: {
+        Args: { p_reason?: string; p_shop_id: string; p_supplier_id: string }
+        Returns: Json
+      }
+      shop_catalog_create_category: {
+        Args: { p_name: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_create_product: {
+        Args: {
+          p_barcode: string
+          p_category_id?: string
+          p_item_number?: string
+          p_product_name?: string
+          p_purchase_price?: number
+          p_retail_price?: number
+          p_second_product_name?: string
+          p_shop_id: string
+          p_stock_quantity?: number
+          p_supplier_id?: string
+        }
+        Returns: Json
+      }
+      shop_catalog_create_supplier: {
+        Args: { p_name: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_update_category: {
+        Args: { p_category_id: string; p_name: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_update_product: {
+        Args: {
+          p_barcode: string
+          p_category_id?: string
+          p_item_number?: string
+          p_product_id: string
+          p_product_name?: string
+          p_purchase_price?: number
+          p_retail_price?: number
+          p_second_product_name?: string
+          p_shop_id: string
+          p_stock_quantity?: number
+          p_supplier_id?: string
+        }
+        Returns: Json
+      }
+      shop_catalog_update_supplier: {
+        Args: { p_name: string; p_shop_id: string; p_supplier_id: string }
+        Returns: Json
+      }
+      shop_device_reactivate: {
+        Args: { p_reason?: string; p_shop_device_id: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_device_register: {
+        Args: {
+          p_app_version?: string
+          p_device_identifier: string
+          p_device_type?: string
+          p_display_name?: string
+          p_metadata?: Json
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      shop_device_rename: {
+        Args: {
+          p_display_name: string
+          p_shop_device_id: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      shop_device_revoke: {
+        Args: { p_reason?: string; p_shop_device_id: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_member_invite_profile: {
+        Args: { p_profile_id: string; p_role_key: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_member_remove: {
+        Args: { p_reason?: string; p_shop_id: string; p_shop_member_id: string }
+        Returns: Json
+      }
+      shop_member_update_role: {
+        Args: {
+          p_role_key: string
+          p_shop_id: string
+          p_shop_member_id: string
+        }
+        Returns: Json
+      }
+      shop_staff_archive: {
+        Args: { p_reason?: string; p_shop_id: string; p_staff_id: string }
+        Returns: Json
+      }
+      shop_staff_create: {
+        Args: {
+          p_credential_expires_at?: string
+          p_credential_hash: string
+          p_credential_kind: string
+          p_display_name: string
+          p_role_key: string
+          p_shop_id: string
+          p_staff_code: string
+        }
+        Returns: Json
+      }
+      shop_staff_reactivate: {
+        Args: { p_reason?: string; p_shop_id: string; p_staff_id: string }
+        Returns: Json
+      }
+      shop_staff_reset_credential: {
+        Args: {
+          p_credential_expires_at?: string
+          p_credential_hash: string
+          p_credential_kind: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      shop_staff_suspend: {
+        Args: { p_reason?: string; p_shop_id: string; p_staff_id: string }
+        Returns: Json
       }
     }
     Enums: {

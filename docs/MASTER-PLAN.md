@@ -650,6 +650,139 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - commit, git push o stage finale.
 - Nota: execution aperta da Codex il 2026-05-31 dal brief allegato `TASK-014 - Integrated Authenticated QA, Design System Components, POS Staff Foundation`. Review finale / DONE reconciliation richiesta esplicitamente dall'utente il 2026-05-31: migration `20260531050837_task_014_pos_staff_foundation.sql` applicata al linked dev dopo dry-run/lint/advisors positivi, tipi Supabase rigenerati dal linked schema, hash boundary rafforzato con test runtime, live auth opt-in passato (`2 passed`, `1 skipped` TASK-006), smoke UI passato, build/verify/security/foundation passati. Figma resta `BLOCKED_TOOL_LIMIT` non bloccante. Nessun commit, nessun git push, nessuno stage finale.
 
+### TASK-015 - Complete Shop Admin Console: Inventory, Excel, Mobile History, Staff and Devices
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-015-complete-shop-admin-console.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-015/README.md`
+- Fase: `DONE_RECONCILED`
+- Verdict planning: `READY_FOR_EXECUTION_WITH_NOTES`
+- Execution: `COMPLETED_READY_FOR_DONE_CONFIRMATION_WITH_NOTES`
+- Verdict execution: `REVIEW_WITH_BLOCKERS`
+- Verdict final review: `PASS_WITH_NOTES`
+- Verdict final completion: `READY_FOR_DONE_CONFIRMATION_WITH_NOTES`
+- Verdict finale: `DONE_WITH_NOTES`
+- Scopo: completare in un unico task la `Shop Admin Console` come console operativa shop-scoped per inventory, import/export Excel, history entry mobile, staff POS, ruoli/permessi, devices, settings e audit.
+- Include:
+  - discovery schema reale Admin Web, Supabase linked e repo mobile/POS se disponibili;
+  - prodotti, categorie e fornitori con CRUD shop-scoped, soft delete, validazione e audit;
+  - import Excel con preview/apply controllato ed export Excel;
+  - history entry mobile con lista, dettaglio e tabelle coinvolte;
+  - staff POS management dentro `/shop/staff`, senza esporre hash/PIN/password;
+  - ruoli/permessi shop-scoped minimi con enforcement server-side;
+  - dispositivi mobile/POS autorizzati con stato, dettaglio, revoca/riattivazione se supportata e audit;
+  - settings shop sicure e audit Shop Admin completo;
+  - read model/server actions/RPC/helper separati da UI;
+  - migration Supabase additive solo se necessarie e verificate;
+  - test/evidence per no cross-shop leak, no secret leakage, no service-role client/browser e no `credential_hash` in UI/DTO.
+- Non include:
+  - commit;
+  - git push;
+  - stage finale;
+  - schema mobile inventato se Android/iOS non sono leggibili;
+  - dati mock spacciati per live;
+  - uso di `shop_id` query param come autorizzazione unica;
+  - hard delete di dati business/audit;
+  - service-role key nel client/browser;
+  - lettura o stampa di `.env` reali;
+  - trasformare POS/Staff in console separata;
+  - introdurre `merchant -> stores`;
+  - marcare `DONE` senza review positiva e conferma esplicita utente.
+- Nota: task creato in pianificazione dal brief allegato utente del 2026-05-31. Execution avviata da Codex il 2026-05-31 su branch dedicato `codex/task-015-complete-shop-admin-console` dopo conferma utente. Codex puo usare fasi interne, ma il tracking ufficiale resta `TASK-015` e lo stato massimo a fine execution e `REVIEW`.
+- Review planning integrata il 2026-05-31 dal secondo brief allegato: aggiunti stop condition, definizioni esiti, finding statici repo-grounded su inventory owner-scoped, sync/history, staff foundation TASK-014, devices, dipendenze Excel, performance, redaction, dati test e template evidence. Verdict planning: `READY_FOR_EXECUTION_WITH_NOTES`; progetto resta `IDLE`, nessuna execution avviata.
+- Final hardening planning integrato il 2026-05-31 dal terzo brief allegato: confermate condizioni prodotto/sicurezza, aggiunti vincoli su lettura docs Next locali prima del codice, milestone evidence incrementale, timeout/fallback per operazioni lunghe, rollback/fallback migration non distruttivo, condizioni future esplicite per `REVIEW` e `DONE`. Verdict invariato: `READY_FOR_EXECUTION_WITH_NOTES`.
+- Planning freeze audit integrato il 2026-05-31 dal quarto brief allegato: audit solo statico/read-only, nessuna lacuna bloccante residua, harness TASK-015 chiarito come scoped ai nuovi moduli e ai moduli Shop Admin toccati per evitare falsi fail da baseline fuori scope. Verdict freeze: `READY_FOR_EXECUTION_WITH_NOTES_CONFIRMED`.
+- Completion finale avviata da Codex il 2026-05-31 e portata a `READY_FOR_DONE_CONFIRMATION_WITH_NOTES`: applicata migration additiva `20260531171726_task_015_shop_admin_completion.sql`, rigenerati i tipi Supabase, implementati CRUD catalogo via RPC auditabili, import/export Excel reale con `read-excel-file`/`write-excel-file`, mutazioni staff POS auditabili, registry `shop_devices` con revoke/reactivate server-side, Server Actions e pannelli UI reali, harness TASK-015 e security scan aggiornati. Supabase linked checks pre/post migration passano in sequenza; check finali locali passano, con build/verify solo `DEP0205`, UI smoke `48 passed` e live auth riusato su `localhost:3000` con `2 passed`, `1 skipped`. Resta solo nota `MOBILE_POS_ENFORCEMENT_FOLLOW_UP`: Android/iOS/POS devono consumare `shop_devices.status` per enforcement client della revoca. Nessun commit, push o stage finale.
+- DONE reconciliation 2026-05-31: TASK-015 chiuso a `DONE_WITH_NOTES` su conferma esplicita dell'utente. Gate freschi di chiusura passati: security scan, foundation, verify, UI smoke, git diff check e Supabase linked checks sequenziali. Stato TASK-015: `DONE`; fase TASK-015: `DONE_RECONCILED`.
+
+### TASK-016 - Complete Platform Admin Console: Users, Shops, Provisioning, Global Security, Audit and System Operations
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-016-complete-platform-admin-console.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-016/README.md`
+- Fase: `DONE_RECONCILED`
+- Verdict planning: `READY_FOR_EXECUTION_WITH_NOTES`
+- Execution: `COMPLETED`
+- Review: `COMPLETED`
+- Verdict finale: `DONE`
+- Scopo: completare la `Platform Admin Console` come pannello master globale per users, shops, provisioning iniziale, platform admins, global audit, system/data health, device security overview, sync/history overview, safe operations e support diagnostics.
+- Include:
+  - dashboard platform globale con metriche reali o stati safe;
+  - users/profiles globali con ricerca, filtri, dettaglio, membership e audit;
+  - shops globali con lista, dettaglio, owner/members summary, data health e azioni controllate;
+  - provisioning wizard per creare shop, assegnare owner iniziale e opzionale bootstrap POS admin solo se sicuro;
+  - platform admins con grant/revoke solo se schema e policy sono sicuri;
+  - global audit con filtri, detail e metadata redatti;
+  - system/data health senza secret o `.env` reali;
+  - global device security overview read-only di default, con emergency revoke solo se schema autorizzativo reale esiste;
+  - global sync/history overview redatta, distinta da `audit_logs`;
+  - safe operations server-side, confermate, motivate e auditate;
+  - support diagnostics read-only, senza impersonation;
+  - harness e test futuri per boundary platform, provisioning, audit, devices, health e security.
+- Non include:
+  - gestione quotidiana prodotti/categorie/fornitori/import Excel;
+  - gestione quotidiana staff POS;
+  - login POS completo;
+  - modifiche Android/iOS/POS;
+  - deploy Vercel;
+  - hard delete;
+  - impersonation;
+  - commit;
+  - git push;
+  - stage finale;
+  - secret;
+  - service-role client/browser;
+  - dati mock spacciati per live;
+  - marcare `DONE` senza review positiva e conferma esplicita utente.
+- Nota: task creato in pianificazione dal brief allegato utente del 2026-05-31. Execution avviata da Codex il 2026-05-31 dopo chiusura `TASK-015` a `DONE_WITH_NOTES`. `TASK-016` copre la parte Platform Admin globale e deve mantenere la separazione prodotto: Platform governa l'ecosistema, Shop Admin gestisce il negozio.
+- Review planning repo-grounded integrata il 2026-05-31 dal secondo brief allegato: aggiunti boundary esplicito con `TASK-015`, finding statici su route Platform mancanti, read model Platform con `.select("*")` baseline, controlled operations TASK-006 gia presenti, assenza statica device authorization table, distinzione `sync_events.source_device_id`, staff foundation TASK-014, harness TASK-016 futuri, test data `TASK016_TEST_`, condizioni reali per `REVIEW`/`DONE` e verdict `READY_FOR_EXECUTION_WITH_NOTES`. Progetto resta `IDLE`, nessuna execution avviata.
+- Execution completata da Codex il 2026-05-31 e poi sbloccata nella completion finale a `READY_FOR_DONE_CONFIRMATION_WITH_NOTES` / `REVIEW_READY_FOR_DONE_CONFIRMATION`: implementate route Platform globali, read model server-only con select esplicite, provisioning owner esistente e pending owner invite redatto, detail users/shops/audit, grant/revoke Platform Admin con anti self-lockout e audit, system/data health, global devices, sync/history, support diagnostics, Safe Operations Center con restore shop e migration additive `20260531190000_task_016_platform_admin_console.sql` + `20260531210000_task_016_platform_completion.sql`. Supabase linked push applicato e tipi rigenerati. Gate locali, Supabase e Playwright passano; live auth nominale ora usa `next start` su porta 3002 e passa `2 passed`, `1 skipped`. Resta nota non bloccante `PASS_WITH_NOTES_EMAIL_DELIVERY` per collegare delivery esterna del pending owner invite senza secret. Nessun commit, push o stage finale.
+- Review/fix finale 2026-05-31: confermato `READY_FOR_DONE_CONFIRMATION_WITH_NOTES` senza marcare `DONE`. Fixati copy obsoleti nella superficie Platform che descrivevano grant/revoke Platform Admin e restore shop come bloccati, aggiunto link sidebar `/platform/history`, rimosso fallback empty-state ambiguo e rafforzato harness `task-016-platform-admins`. Check freschi passati: security scan, foundation `83/83`, typecheck, lint, build, verify, UI smoke `70/70`, TASK-016 smoke `24/24`, live auth `2 passed`/`1 skipped`, Supabase linked checks sequenziali, `git diff --check` e no stage. Resta solo `PASS_WITH_NOTES_EMAIL_DELIVERY`.
+- Final reconciliation 2026-05-31: su richiesta esplicita dell'utente, TASK-016 riconciliato a `DONE_RECONCILED` / `DONE` dopo review repo-grounded finale. Nessun blocker applicativo, security o Supabase trovato; nessuna nuova migration creata. Ricontrollati separazione Platform/Shop, route Platform, azioni server-side, RPC Platform Admin, audit, redazione metadata, no secret/service-role client, Supabase linked `migration list`, dry-run, lint e advisors security. Gate freschi passati: security scan, foundation `89/89`, TASK-016 subset `14/14`, typecheck, lint, build, verify, UI smoke `86/86`, TASK-016 smoke `24/24`, live auth `2 passed`/`1 skipped`. Warning non bloccanti: Node `DEP0205` e Playwright `NO_COLOR`/`FORCE_COLOR`. TASK-015 e TASK-017 restano `DONE`; il progetto non viene dichiarato production-ready globale.
+
+### TASK-017 - Shop Business Completion
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-017-shop-business-completion.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-017/README.md`
+- Fase: `DONE_RECONCILED`
+- Execution: `COMPLETED`
+- Review: `COMPLETED`
+- Verdict corrente: `DONE`
+- Scopo: completare la `Shop Admin Console` come gestionale operativo shop-scoped con dashboard, catalogo, import/export, membri, ruoli, staff POS amministrativo, devices, audit e Sync Center, senza integrazioni Android/iOS/POS reali.
+- Include:
+  - dashboard shop con metriche operative, stato dati, ultimi eventi e ultimi audit;
+  - categorie, fornitori e prodotti con lista, dettaglio, ricerca/filtri e azioni create/update/archive shop-scoped;
+  - Excel import/export foundation nei limiti reali dello schema e del workflow esistente;
+  - gestione membri shop con lista, detail, invito profilo esistente, cambio ruolo e rimozione/sospensione;
+  - roles & permissions shop con enforcement server-side e separazione da Platform Admin;
+  - POS Staff come modulo Shop Admin, non console separata;
+  - devices autorizzati shop-scoped con dettaglio e audit collegato;
+  - audit log shop con filtri, detail, metadata redatti e navigazione cronologica;
+  - Sync Center read-only con stati `pending`, `success`, `failed`;
+  - migration Supabase additiva solo per RPC membri se i check la confermano;
+  - harness TASK-017, security scanner ed evidence.
+- Non include:
+  - commit;
+  - git push;
+  - stage finale;
+  - login Google/Apple/WeChat;
+  - impersonation;
+  - realtime;
+  - integrazione Android;
+  - integrazione iOS;
+  - integrazione POS;
+  - autenticazione POS reale;
+  - PIN/password POS reali;
+  - service-role lato client/browser;
+  - secret o token;
+  - dati mock spacciati per live;
+  - modello `merchant -> stores`;
+  - accesso cross-shop;
+  - funzionalita Platform dentro Shop Admin;
+  - marcare `DONE` senza review positiva e conferma esplicita utente.
+- Nota: task aperto in execution dal brief utente del 2026-05-31 mentre `TASK-016` era ancora `READY_FOR_DONE_CONFIRMATION_WITH_NOTES` e non era stato marcato `DONE`. Codex ha completato implementation e check, applicato la migration additiva `20260531230000_task_017_shop_business_completion.sql` al linked dev, rigenerato i tipi Supabase e preparato handoff a `REVIEW`. Review finale/reconciliation richiesta esplicitamente dall'utente il 2026-05-31: trovato e corretto un gap reale sugli RPC membri, che erano owner-only nel server web ma piu larghi nel DB; aggiunta e applicata `20260531233000_task_017_member_owner_enforcement.sql` con helper `app_private.is_active_shop_owner_member`, reason obbligatoria per remove e audit reason redatto. Gate finali: foundation `89/89`, typecheck, lint, build, verify, UI smoke `86/86`, security scan, Supabase linked checks post-push, `git diff --check`; warning non bloccanti Node `DEP0205` e Playwright colori. Residui: invito membri solo per profili esistenti, niente email/magic link, niente auth POS reale, Sync Center read-only. Stato finale: `DONE_RECONCILED`. `TASK-016` e stato poi riconciliato separatamente a `DONE_RECONCILED`.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -664,13 +797,29 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `IDLE`
-- Ultimo task completato: `TASK-014 - Integrated Authenticated QA, Design System, POS Staff Foundation`
+- Ultimo task completato: `TASK-016 - Complete Platform Admin Console`
+- Stato TASK-015: `DONE`
+- Fase TASK-015: `DONE_RECONCILED`
+- Stato TASK-017: `DONE`
+- Fase TASK-017: `DONE_RECONCILED`
+- Task in review non chiuso: `NONE`
+- Stato TASK-016: `DONE`
+- Fase TASK-016: `DONE_RECONCILED`
 - Task attivo: `NONE`
-- File task: `NONE`
-- Stato task: `DONE`
+- File task: `NOT_APPLICABLE`
+- Stato task: `NOT_APPLICABLE`
 - Fase: `IDLE`
-- Responsabile: `USER / NEXT`
-- Prossima azione consigliata: aprire un nuovo task separato per la prossima feature o follow-up non critico.
+- Responsabile: `NONE`
+- Branch execution: `codex/task-015-complete-shop-admin-console`
+- Prossimo task candidato: `NONE`
+- File task candidato: `NOT_APPLICABLE`
+- Stato task candidato: `NOT_APPLICABLE`
+- Verdict planning candidato: `NOT_APPLICABLE`
+- Task planning successivo gia creato: `NONE`
+- File task planning successivo: `NOT_APPLICABLE`
+- Stato task planning successivo: `NOT_APPLICABLE`
+- Verdict planning task successivo: `NOT_APPLICABLE`
+- Prossima azione consigliata: aprire un nuovo task scoped per il prossimo incremento. Candidati naturali: collegare delivery email per pending owner invite, oppure pianificare il follow-up mobile/POS enforcement gia documentato; non dichiarare production-ready globale senza una release task dedicata.
 
 ## Regole di avanzamento
 

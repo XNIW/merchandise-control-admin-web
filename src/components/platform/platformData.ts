@@ -1,19 +1,17 @@
-import {
-  mockPlatformAuditLogs,
-  mockPlatformProfiles,
-  mockPlatformRoles,
-  mockPlatformShopMembers,
-  mockPlatformShops,
-  mockPlatformSystemStatuses,
-} from "@/domain/platform-admin";
-
 export type PlatformSectionKey =
   | "overview"
   | "users"
   | "shops"
+  | "provisioning"
+  | "admins"
   | "audit"
   | "system"
-  | "operations";
+  | "data"
+  | "devices"
+  | "sync"
+  | "history"
+  | "operations"
+  | "support";
 
 export type StatItem = {
   label: string;
@@ -27,7 +25,9 @@ export type TableColumn = {
   label: string;
 };
 
-export type TableRow = Record<string, string>;
+export type TableRow = Record<string, string> & {
+  rowKey?: string;
+};
 
 export type EmptyStateContent = {
   title: string;
@@ -50,6 +50,7 @@ export type PlatformSection = {
   rows: TableRow[];
   emptyState?: EmptyStateContent;
   operations?: OperationItem[];
+  guardrails?: string[];
 };
 
 export const navigationItems: Array<{
@@ -58,366 +59,173 @@ export const navigationItems: Array<{
   href: string;
 }> = [
   { key: "overview", label: "Overview", href: "/platform" },
-  { key: "users", label: "Users / Profiles", href: "/platform/users" },
+  { key: "users", label: "Users", href: "/platform/users" },
   { key: "shops", label: "Shops", href: "/platform/shops" },
+  { key: "provisioning", label: "Provisioning", href: "/platform/provisioning" },
+  { key: "admins", label: "Admins", href: "/platform/admins" },
   { key: "audit", label: "Audit", href: "/platform/audit" },
-  { key: "system", label: "System Status", href: "/platform/system" },
-  { key: "operations", label: "Controlled Operations", href: "/platform/operations" },
+  { key: "system", label: "System", href: "/platform/system" },
+  { key: "data", label: "Data", href: "/platform/data" },
+  { key: "devices", label: "Devices", href: "/platform/devices" },
+  { key: "sync", label: "Sync", href: "/platform/sync" },
+  { key: "history", label: "History", href: "/platform/history" },
+  { key: "operations", label: "Operations", href: "/platform/operations" },
+  { key: "support", label: "Support", href: "/platform/support" },
 ];
 
-const profileNameById = new Map<string, string>(
-  mockPlatformProfiles.map((profile) => [
-    profile.profile_id,
-    profile.display_name,
-  ]),
-);
+const baseColumns = [
+  { key: "area", label: "Area" },
+  { key: "signal", label: "Signal" },
+  { key: "state", label: "State" },
+  { key: "next", label: "Next" },
+];
 
-const roleById = new Map<string, (typeof mockPlatformRoles)[number]>(
-  mockPlatformRoles.map((role) => [role.role_id, role]),
-);
-
-const shopById = new Map<string, (typeof mockPlatformShops)[number]>(
-  mockPlatformShops.map((shop) => [shop.shop_id, shop]),
-);
-
-const formatToken = (value: string) =>
-  value
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-
-const getProfileName = (profileId?: string) =>
-  profileId ? (profileNameById.get(profileId) ?? "Platform User") : "System Event";
-
-const getShopName = (shopId?: string) =>
-  shopId ? (shopById.get(shopId)?.shop_name ?? "Demo Shop") : "Global";
-
-const getRoleKey = (roleId?: string) =>
-  roleId ? (roleById.get(roleId)?.role_key ?? "viewer") : "viewer";
-
-const countRolesByScope = (scope: "global" | "shop") =>
-  mockPlatformRoles.filter((role) => role.scope === scope).length;
-
-const countShopsByStatus = (status: string) =>
-  mockPlatformShops.filter((shop) => shop.shop_status === status).length;
-
-const countSystemStatusesNotOperational = () =>
-  mockPlatformSystemStatuses.filter((item) => item.status !== "operational")
-    .length;
+const baseSection = (
+  key: PlatformSectionKey,
+  title: string,
+  eyebrow: string,
+  description: string,
+  columns: TableColumn[] = baseColumns,
+): PlatformSection => ({
+  key,
+  title,
+  eyebrow,
+  description,
+  status: "Server boundary",
+  stats: [],
+  columns,
+  rows: [],
+  emptyState: {
+    title: "No rows returned",
+    description:
+      "Rows are shown only when the server-side Platform Admin boundary returns safe DTOs.",
+  },
+});
 
 export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
-  overview: {
-    key: "overview",
-    title: "Platform Overview",
-    eyebrow: "Platform Admin Console",
-    description:
-      "Synthetic overview of the master console for platform health, shops, profiles, audit visibility, and controlled operations.",
-    status: "Static shell",
-    stats: [
-      {
-        label: "Demo shops",
-        value: String(mockPlatformShops.length),
-        detail: "Synthetic domain mock count",
-        tone: "neutral",
-      },
-      {
-        label: "Platform users",
-        value: String(mockPlatformProfiles.length),
-        detail: "Synthetic profiles, no real accounts",
-        tone: "good",
-      },
-      {
-        label: "Audit events",
-        value: String(mockPlatformAuditLogs.length),
-        detail: "Static activity preview",
-        tone: "muted",
-      },
-      {
-        label: "Setup items",
-        value: String(countSystemStatusesNotOperational()),
-        detail: "Pending future schema planning",
-        tone: "warning",
-      },
-    ],
-    columns: [
-      { key: "area", label: "Area" },
-      { key: "signal", label: "Signal" },
-      { key: "state", label: "State" },
-      { key: "next", label: "Next step" },
-    ],
-    rows: [
-      {
-        area: "Users / Profiles",
-        signal: "Platform User access model",
-        state: "Placeholder",
-        next: "TASK-003 types",
-      },
-      {
-        area: "Shops",
-        signal: "Demo Shop inventory",
-        state: "Placeholder",
-        next: "TASK-003 mock",
-      },
-      {
-        area: "Audit",
-        signal: "Audit Event stream",
-        state: "Placeholder",
-        next: "TASK-004 planning",
-      },
-    ],
-  },
-  users: {
-    key: "users",
-    title: "Users / Profiles",
-    eyebrow: "Identity overview",
-    description:
-      "Static profile directory preview for future platform-level account visibility. No auth, login, API, or real user data is connected.",
-    status: "Placeholder data",
-    stats: [
-      {
-        label: "Profile rows",
-        value: String(mockPlatformProfiles.length),
-        detail: "Synthetic table preview",
-        tone: "neutral",
-      },
-      {
-        label: "Global roles",
-        value: String(countRolesByScope("global")),
-        detail: "Platform Admin placeholder",
-        tone: "good",
-      },
-      {
-        label: "Shop-scoped roles",
-        value: String(countRolesByScope("shop")),
-        detail: "Reserved for TASK-003",
-        tone: "muted",
-      },
-    ],
-    columns: [
+  overview: baseSection(
+    "overview",
+    "Platform Overview",
+    "Platform Admin Console",
+    "Global ecosystem summary for shops, profiles, audit, device, sync, and data health.",
+  ),
+  users: baseSection(
+    "users",
+    "Users / Profiles",
+    "Identity overview",
+    "Global profile directory with memberships, platform role state, access status, and recent audit.",
+    [
       { key: "profile", label: "Profile" },
-      { key: "role", label: "Role" },
-      { key: "scope", label: "Scope" },
+      { key: "platformRole", label: "Platform role" },
+      { key: "memberships", label: "Memberships" },
       { key: "state", label: "State" },
     ],
-    rows: mockPlatformProfiles.slice(0, 3).map((profile) => {
-      const membership = mockPlatformShopMembers.find(
-        (member) => member.profile_id === profile.profile_id,
-      );
-      const roleKey =
-        profile.profile_id === "demo_profile_001"
-          ? "platform_admin"
-          : getRoleKey(membership?.role_id);
-
-      return {
-        profile: profile.display_name,
-        role: roleKey,
-        scope: membership ? getShopName(membership.shop_id) : "Global",
-        state: `Demo ${formatToken(profile.profile_status).toLowerCase()}`,
-      };
-    }),
-  },
-  shops: {
-    key: "shops",
-    title: "Shops",
-    eyebrow: "Shop root model",
-    description:
-      "Static shop registry preview using shops as the business root. No merchant-to-store hierarchy is introduced.",
-    status: "Shop root",
-    stats: [
-      {
-        label: "Demo shops",
-        value: String(mockPlatformShops.length),
-        detail: "Synthetic roots",
-        tone: "neutral",
-      },
-      {
-        label: "Pending setup",
-        value: String(countShopsByStatus("pending_setup")),
-        detail: "Non-operational placeholders",
-        tone: "warning",
-      },
-      {
-        label: "Archived",
-        value: String(countShopsByStatus("archived")),
-        detail: "No real lifecycle action",
-        tone: "muted",
-      },
-    ],
-    columns: [
+  ),
+  shops: baseSection(
+    "shops",
+    "Shops",
+    "Shop root model",
+    "Global shop registry with owner, member, data health, device, sync, and audit summaries.",
+    [
       { key: "shop", label: "Shop" },
-      { key: "code", label: "Shop code" },
-      { key: "owner", label: "Owner placeholder" },
+      { key: "code", label: "Code" },
+      { key: "owner", label: "Owner" },
       { key: "state", label: "State" },
+      { key: "health", label: "Health" },
     ],
-    rows: mockPlatformShops.map((shop) => {
-      const member = mockPlatformShopMembers.find(
-        (membership) => membership.shop_id === shop.shop_id,
-      );
-
-      return {
-        shop: shop.shop_name,
-        code: shop.shop_code,
-        owner: member
-          ? getProfileName(member.profile_id)
-          : "Unassigned placeholder",
-        state: formatToken(shop.shop_status),
-      };
-    }),
-  },
-  audit: {
-    key: "audit",
-    title: "Audit",
-    eyebrow: "Global traceability",
-    description:
-      "Static audit surface for future sensitive-action visibility. Events are synthetic and do not represent real activity.",
-    status: "Synthetic log",
-    stats: [
-      {
-        label: "Audit events",
-        value: String(mockPlatformAuditLogs.length),
-        detail: "Static preview only",
-        tone: "neutral",
-      },
-      {
-        label: "Sensitive actions",
-        value: "0",
-        detail: "No real actions wired",
-        tone: "good",
-      },
-      {
-        label: "Retention policy",
-        value: "Planned",
-        detail: "Future TASK-004 planning",
-        tone: "muted",
-      },
+  ),
+  provisioning: baseSection(
+    "provisioning",
+    "Provisioning",
+    "Shop onboarding",
+    "Create a shop with an existing active owner through the audited controlled operation.",
+  ),
+  admins: baseSection(
+    "admins",
+    "Platform Admins",
+    "Global access",
+    "Platform Admin grant visibility with audited grant and revoke actions behind anti-lockout RPCs.",
+    [
+      { key: "profile", label: "Profile" },
+      { key: "status", label: "Status" },
+      { key: "granted", label: "Granted" },
+      { key: "review", label: "Review" },
     ],
-    columns: [
+  ),
+  audit: baseSection(
+    "audit",
+    "Audit",
+    "Global traceability",
+    "Global audit list with actor, shop, action, target, date, severity, result, and redacted metadata.",
+    [
       { key: "event", label: "Event" },
       { key: "actor", label: "Actor" },
       { key: "scope", label: "Scope" },
-      { key: "result", label: "Result" },
+      { key: "target", label: "Target" },
+      { key: "severity", label: "Severity" },
+      { key: "date", label: "Date" },
     ],
-    rows: mockPlatformAuditLogs.map((log) => {
-      const actorProfileId =
-        "actor_profile_id" in log ? log.actor_profile_id : undefined;
-
-      return {
-        event: log.event,
-        actor: getProfileName(actorProfileId),
-        scope: log.scope === "shop" ? getShopName(log.shop_id) : "Global",
-        result: `Synthetic ${formatToken(log.result).toLowerCase()}`,
-      };
-    }),
-  },
-  system: {
-    key: "system",
-    title: "System Status",
-    eyebrow: "Platform health",
-    description:
-      "Static health dashboard for operational scanning. No monitoring service, API, or live infrastructure is connected.",
-    status: "Static health",
-    stats: [
-      {
-        label: "Web shell",
-        value: "Ready",
-        detail: "Static App Router page",
-        tone: "good",
-      },
-      {
-        label: "Supabase",
-        value: "Out",
-        detail: "Reserved for TASK-004",
-        tone: "muted",
-      },
-      {
-        label: "Actions",
-        value: "Off",
-        detail: "Reserved for TASK-006",
-        tone: "warning",
-      },
-    ],
-    columns: [
-      { key: "service", label: "Service" },
+  ),
+  system: baseSection(
+    "system",
+    "System Status",
+    "Platform health",
+    "Runtime, auth SSR, route protection, RLS/grants, migration, and check status with redacted configuration.",
+  ),
+  data: baseSection(
+    "data",
+    "Data Health",
+    "Supabase health",
+    "Data quality checks for owners, memberships, mappings, audit coverage, devices, staff schema, and sync history.",
+  ),
+  devices: baseSection(
+    "devices",
+    "Global Devices",
+    "Device security overview",
+    "Global read-only device registry and sync source activity, with emergency actions only through audited RPCs.",
+    [
+      { key: "shop", label: "Shop" },
+      { key: "device", label: "Device" },
+      { key: "type", label: "Type" },
       { key: "state", label: "State" },
+      { key: "lastSeen", label: "Last seen" },
+    ],
+  ),
+  sync: baseSection(
+    "sync",
+    "Global Sync",
+    "Mobile history overview",
+    "Global sync/history summary separated from audit logs, with redacted and limited details.",
+    [
+      { key: "shop", label: "Shop" },
       { key: "source", label: "Source" },
-      { key: "note", label: "Note" },
+      { key: "domain", label: "Domain" },
+      { key: "event", label: "Event" },
+      { key: "date", label: "Date" },
     ],
-    rows: mockPlatformSystemStatuses.slice(0, 3).map((item) => ({
-      service: formatToken(item.area),
-      state: formatToken(item.status),
-      source: item.area === "ui_shell" ? "TASK-002" : "TASK-004",
-      note: item.message,
-    })),
-  },
-  operations: {
-    key: "operations",
-    title: "Controlled Operations",
-    eyebrow: "Controlled actions",
-    description:
-      "Audited Platform Admin controls for shop creation and lifecycle changes.",
-    status: "Controlled actions",
-    stats: [
-      {
-        label: "Available actions",
-        value: "4",
-        detail: "Create, suspend, reactivate, archive",
-        tone: "warning",
-      },
-      {
-        label: "Boundary",
-        value: "Server",
-        detail: "RPC and audit required",
-        tone: "warning",
-      },
-      {
-        label: "Audit requirement",
-        value: "On",
-        detail: "Mandatory before activation",
-        tone: "neutral",
-      },
-    ],
-    columns: [
+  ),
+  history: baseSection(
+    "history",
+    "Global History",
+    "Mobile history overview",
+    "Alias view for global sync/history events, distinct from admin audit logs.",
+  ),
+  operations: baseSection(
+    "operations",
+    "Controlled Operations",
+    "Safe operations",
+    "Audited Platform Admin controls for shop provisioning, lifecycle, diagnostics, and emergency device actions.",
+    [
       { key: "operation", label: "Operation" },
       { key: "availability", label: "Availability" },
       { key: "requirement", label: "Requirement" },
-      { key: "task", label: "Task" },
+      { key: "state", label: "State" },
     ],
-    rows: [
-      {
-        operation: "Create shop",
-        availability: "Server action",
-        requirement: "Server-side authorization",
-        task: "TASK-006",
-      },
-      {
-        operation: "Assign owner",
-        availability: "Create shop only",
-        requirement: "Audit log required",
-        task: "TASK-006",
-      },
-      {
-        operation: "Suspend shop",
-        availability: "State-scoped action",
-        requirement: "Controlled action policy",
-        task: "TASK-006",
-      },
-    ],
-    operations: [
-      {
-        label: "Create shop",
-        description:
-          "Available in TASK-006 after server-side authorization and audit log.",
-      },
-      {
-        label: "Assign owner",
-        description:
-          "Available in TASK-006 after ownership rules and audit log.",
-      },
-      {
-        label: "Suspend shop",
-        description:
-          "Available in TASK-006 after controlled action policy.",
-      },
-    ],
-  },
+  ),
+  support: baseSection(
+    "support",
+    "Support Diagnostics",
+    "Read-only diagnostics",
+    "Search-oriented support view for shop/profile access, memberships, recent audit, devices, sync, and configuration warnings.",
+  ),
 };

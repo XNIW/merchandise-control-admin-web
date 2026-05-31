@@ -40,9 +40,12 @@ test("TASK-014 governance artifacts are active", () => {
   assert.match(evidence, /TASK-014/);
   assert.match(
     masterPlan,
-    /Task attivo: `TASK-014 - Integrated Authenticated QA, Design System, POS Staff Foundation`|Task attivo: `NONE`/,
+    /Task attivo: `TASK-014 - Integrated Authenticated QA, Design System, POS Staff Foundation`|Task attivo: `TASK-015 - Complete Shop Admin Console: Inventory, Excel, Mobile History, Staff and Devices`|Task attivo: `TASK-016 - Complete Platform Admin Console`|Task attivo: `TASK-017 - Shop Business Completion`|Task attivo: `NONE`/,
   );
-  assert.match(masterPlan, /Fase: `(EXECUTION|REVIEW|IDLE)`/);
+  assert.match(
+    masterPlan,
+    /Fase: `(EXECUTION|REVIEW|IDLE|REVIEW_READY_FOR_DONE_CONFIRMATION)`/,
+  );
 });
 
 test("TASK-014 migration defines safe staff_accounts foundation", () => {

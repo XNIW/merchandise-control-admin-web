@@ -96,9 +96,11 @@ test("TASK-012 avoids dangerous credential examples and keeps placeholders redac
   }
 });
 
-test("TASK-012 remains planning-only with no runtime staff credential implementation", () => {
+test("TASK-012 planning stays redacted as later staff runtime tasks land", () => {
   const task014Path = "docs/TASKS/TASK-014-integrated-auth-qa-design-pos-staff-foundation.md";
+  const task015Path = "docs/TASKS/TASK-015-complete-shop-admin-console.md";
   const task014Present = existsSync(join(root, task014Path));
+  const task015Present = existsSync(join(root, task015Path));
   const generatedTypes = readProjectFile("src/lib/supabase/database.types.ts");
   const migrations = readAllMigrations();
   const staffPage = readProjectFile("src/app/shop/staff/page.tsx");
@@ -106,12 +108,29 @@ test("TASK-012 remains planning-only with no runtime staff credential implementa
     .filter((file) => file.endsWith(".ts"))
     .map((file) => readFileSync(join(root, "src/server/shop-admin", file), "utf8"))
     .join("\n");
+  const staffMutations = existsSync(
+    join(root, "src/server/shop-admin/staff-mutations.ts"),
+  )
+    ? readProjectFile("src/server/shop-admin/staff-mutations.ts")
+    : "";
   const clientStaffUi = `${staffPage}\n${readProjectFile("src/components/shop/shopSections.ts")}`;
 
   if (task014Present) {
     assert.match(generatedTypes, /staff_accounts:\s*\{/);
     assert.match(migrations, /task_014_pos_staff_foundation/);
-    assert.doesNotMatch(serverShopFiles, /pin_hash|password_hash|shop_staff_|pos.*login|login.*pos/i);
+    assert.doesNotMatch(serverShopFiles, /pin_hash|password_hash|pos.*login|login.*pos/i);
+
+    if (task015Present) {
+      assert.match(migrations, /TASK-015: Shop Admin completion/);
+      assert.match(serverShopFiles, /shop_staff_create/);
+      assert.match(serverShopFiles, /staff\.manage/);
+      assert.doesNotMatch(staffMutations, /\.(insert|update|delete|upsert)\s*\(/);
+    } else {
+      assert.doesNotMatch(
+        serverShopFiles.replaceAll("SHOP_STAFF_PERMISSION_MATRIX", ""),
+        /shop_staff_/i,
+      );
+    }
   } else {
     assert.doesNotMatch(generatedTypes, /staff_accounts:\s*\{/);
     assert.doesNotMatch(migrations, /create\s+table\s+(if\s+not\s+exists\s+)?public\.staff_accounts/i);
@@ -121,7 +140,11 @@ test("TASK-012 remains planning-only with no runtime staff credential implementa
 
   assert.match(staffPage, /ShopSectionPage/);
   assert.match(staffPage, /shopSections\.staff|getShopSectionForRequest\(\s*"staff"/);
-  assert.doesNotMatch(staffPage, /action=|formAction|createStaff|resetCredential/i);
+  if (task015Present) {
+    assert.match(staffPage, /StaffActionPanel/);
+  } else {
+    assert.doesNotMatch(staffPage, /action=|formAction|createStaff|resetCredential/i);
+  }
   assert.doesNotMatch(clientStaffUi, /credential_hash|pin_hash|password_hash/i);
 });
 

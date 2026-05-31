@@ -4,7 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect, RedirectType } from "next/navigation";
 import {
   createPlatformShop,
+  createPlatformPendingOwnerInvite,
+  emergencyRevokePlatformDevice,
   reactivatePlatformShop,
+  restorePlatformShop,
   softDeletePlatformShop,
   suspendPlatformShop,
 } from "@/server/platform-admin/shop-actions";
@@ -18,10 +21,18 @@ function value(formData: FormData, key: string) {
 function revalidatePlatformOperations() {
   revalidatePath("/platform/operations");
   revalidatePath("/platform/shops");
+  revalidatePath("/platform/devices");
 }
 
 function redirectWithActionResult(
-  operation: "create" | "suspend" | "reactivate" | "soft_delete",
+  operation:
+    | "create"
+    | "pending_owner_invite"
+    | "suspend"
+    | "reactivate"
+    | "restore"
+    | "soft_delete"
+    | "device_revoke",
   result: Awaited<ReturnType<typeof createPlatformShop>>,
 ) {
   revalidatePlatformOperations();
@@ -40,6 +51,17 @@ export async function createPlatformShopAction(formData: FormData) {
   });
 
   redirectWithActionResult("create", result);
+}
+
+export async function createPlatformPendingOwnerInviteAction(formData: FormData) {
+  const result = await createPlatformPendingOwnerInvite({
+    ownerContact: value(formData, "ownerEmail"),
+    reason: value(formData, "reason"),
+    shopCode: value(formData, "shopCode"),
+    shopName: value(formData, "shopName"),
+  });
+
+  redirectWithActionResult("pending_owner_invite", result);
 }
 
 export async function suspendPlatformShopAction(formData: FormData) {
@@ -70,4 +92,24 @@ export async function softDeletePlatformShopAction(formData: FormData) {
   });
 
   redirectWithActionResult("soft_delete", result);
+}
+
+export async function restorePlatformShopAction(formData: FormData) {
+  const result = await restorePlatformShop({
+    reason: value(formData, "reason"),
+    shopCodeConfirmation: value(formData, "shopCodeConfirmation"),
+    shopId: value(formData, "shopId"),
+  });
+
+  redirectWithActionResult("restore", result);
+}
+
+export async function emergencyRevokePlatformDeviceAction(formData: FormData) {
+  const result = await emergencyRevokePlatformDevice({
+    confirmation: value(formData, "confirmation"),
+    reason: value(formData, "reason"),
+    shopDeviceId: value(formData, "shopDeviceId"),
+  });
+
+  redirectWithActionResult("device_revoke", result);
 }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
-import { shopSections } from "@/components/shop/shopSections";
+import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
   title: "Settings | MerchandiseControl Admin Web",
@@ -9,6 +9,26 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function ShopSettingsPage() {
-  return <ShopSectionPage section={shopSections.settings} />;
+type ShopPageSearchParams = Promise<{
+  shop_id?: string | string[];
+}>;
+
+function getRequestedShopId(searchParams: { shop_id?: string | string[] }) {
+  const value = searchParams.shop_id;
+
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function ShopSettingsPage({
+  searchParams,
+}: {
+  searchParams: ShopPageSearchParams;
+}) {
+  const params = await searchParams;
+  const section = await getShopSectionForRequest(
+    "settings",
+    getRequestedShopId(params),
+  );
+
+  return <ShopSectionPage section={section} />;
 }
