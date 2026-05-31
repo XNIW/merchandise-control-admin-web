@@ -1117,6 +1117,9 @@ function checkTask012PosStaffCredentialPlanning() {
     .map((file) => read(file))
     .join("\n");
   const clientStaffUi = `${staffPage}\n${read("src/components/shop/shopSections.ts")}`;
+  const task014FoundationPresent = existsSync(
+    join(root, "docs/TASKS/TASK-014-integrated-auth-qa-design-pos-staff-foundation.md"),
+  );
 
   for (const requiredSnippet of [
     "Stato: `DONE`",
@@ -1196,28 +1199,30 @@ function checkTask012PosStaffCredentialPlanning() {
     }
   }
 
-  if (/staff_accounts:\s*\{/.test(generatedTypes)) {
-    addFailure(`${typesPath} must not include staff_accounts during TASK-012 planning`);
-  }
-
-  if (/create\s+table\s+(if\s+not\s+exists\s+)?public\.staff_accounts/i.test(migrations)) {
-    addFailure("TASK-012 must not create public.staff_accounts");
-  }
-
-  if (/credential_hash/i.test(migrations)) {
-    addFailure("TASK-012 must not introduce credential_hash in migrations");
-  }
-
   if (/action=|formAction|createStaff|resetCredential/i.test(staffPage)) {
-    addFailure(`${staffPagePath} must remain a non-mutative placeholder in TASK-012`);
+    addFailure(`${staffPagePath} must remain non-mutative after TASK-012/TASK-014`);
   }
 
-  if (/staff_accounts|staff_code|credential_hash|pin_hash|password_hash|shop_staff_/i.test(serverShopAdmin)) {
-    addFailure("TASK-012 must not introduce staff credential runtime code under src/server/shop-admin");
+  if (!task014FoundationPresent) {
+    if (/staff_accounts:\s*\{/.test(generatedTypes)) {
+      addFailure(`${typesPath} must not include staff_accounts during TASK-012 planning`);
+    }
+
+    if (/create\s+table\s+(if\s+not\s+exists\s+)?public\.staff_accounts/i.test(migrations)) {
+      addFailure("TASK-012 must not create public.staff_accounts");
+    }
+
+    if (/credential_hash/i.test(migrations)) {
+      addFailure("TASK-012 must not introduce credential_hash in migrations");
+    }
+
+    if (/staff_accounts|staff_code|credential_hash|pin_hash|password_hash|shop_staff_/i.test(serverShopAdmin)) {
+      addFailure("TASK-012 must not introduce staff credential runtime code under src/server/shop-admin");
+    }
   }
 
   if (/credential_hash|pin_hash|password_hash/i.test(clientStaffUi)) {
-    addFailure("TASK-012 must not expose credential hash fields through Shop Admin UI placeholders");
+    addFailure("Shop Admin UI must not expose credential hash fields");
   }
 }
 
@@ -1273,8 +1278,13 @@ function checkTask013UiPolishArtifacts() {
     addFailure(`${masterPlanPath} must keep TASK-013 reconciled as DONE`);
   }
 
-  if (!/Stato globale attuale: `IDLE`/.test(masterPlan) || !/Task attivo: `NONE`/.test(masterPlan)) {
-    addFailure(`${masterPlanPath} must return tracking to IDLE with no active task after TASK-013`);
+  if (
+    !/Stato globale attuale: `IDLE`/.test(masterPlan) &&
+    !/Task attivo: `TASK-014 - Integrated Authenticated QA, Design System, POS Staff Foundation`/.test(
+      masterPlan,
+    )
+  ) {
+    addFailure(`${masterPlanPath} must either be IDLE after TASK-013 or track TASK-014 as active`);
   }
 
   for (const requiredSnippet of [
@@ -1292,7 +1302,10 @@ function checkTask013UiPolishArtifacts() {
     }
   }
 
-  if (!/Planned state/.test(shopSectionPage) || !/break-words/.test(shopSectionPage)) {
+  if (
+    !/Planned state/.test(shopSectionPage) ||
+    !/break-words/.test(`${shopSectionPage}\n${platformTable}\n${read("src/components/admin/AdminDataTable.tsx")}`)
+  ) {
     addFailure(`${shopSectionPagePath} must make placeholder state and long table values clearer`);
   }
 
@@ -1306,6 +1319,269 @@ function checkTask013UiPolishArtifacts() {
 
   if (/TASK006_TEST_/.test(platformOperations)) {
     addFailure(`${platformOperationsPath} must not expose task-internal test prefixes in UI copy`);
+  }
+}
+
+function findTask014MigrationPath() {
+  return listFiles("supabase/migrations")
+    .filter((file) => file.endsWith(".sql"))
+    .find((file) => file.endsWith("_task_014_pos_staff_foundation.sql"));
+}
+
+function checkTask014DesignSystem() {
+  const componentPaths = [
+    "src/components/admin/PageHeader.tsx",
+    "src/components/admin/SectionCard.tsx",
+    "src/components/admin/EmptyState.tsx",
+    "src/components/admin/StatusBadge.tsx",
+    "src/components/admin/AdminDataTable.tsx",
+    "src/components/admin/GuardrailNotice.tsx",
+  ];
+  const platformPagePath = "src/components/platform/PlatformPage.tsx";
+  const shopPagePath = "src/components/shop/ShopSectionPage.tsx";
+
+  for (const requiredPath of [
+    ...componentPaths,
+    platformPagePath,
+    shopPagePath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const sharedUi = componentPaths.map((file) => read(file)).join("\n");
+  const platformPage = read(platformPagePath);
+  const shopPage = read(shopPagePath);
+
+  for (const requiredSnippet of [
+    "caption",
+    "break-words",
+    "emptyState",
+    "aria-labelledby",
+    "StatusBadge",
+    "GuardrailNotice",
+  ]) {
+    if (!sharedUi.includes(requiredSnippet)) {
+      addFailure(`TASK-014 shared Admin components must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredImport of [
+    "@/components/admin/PageHeader",
+    "@/components/admin/SectionCard",
+    "@/components/admin/AdminDataTable",
+  ]) {
+    if (!platformPage.includes(requiredImport)) {
+      addFailure(`${platformPagePath} must use ${requiredImport}`);
+    }
+
+    if (!shopPage.includes(requiredImport)) {
+      addFailure(`${shopPagePath} must use ${requiredImport}`);
+    }
+  }
+
+  if (/^["']use client["'];?/m.test(sharedUi)) {
+    addFailure("TASK-014 shared Admin components must stay server-safe");
+  }
+
+  if (/@supabase\/|@\/server\/|src\/server\//.test(sharedUi)) {
+    addFailure("TASK-014 shared Admin components must not import Supabase or server modules");
+  }
+}
+
+function checkTask014PosStaffFoundation() {
+  const taskPath =
+    "docs/TASKS/TASK-014-integrated-auth-qa-design-pos-staff-foundation.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-014/README.md";
+  const credentialModulePath = "src/server/shop-admin/staff-credentials.ts";
+  const readModelPath = "src/server/shop-admin/staff-read-model.ts";
+  const sectionDataPath = "src/server/shop-admin/shop-section-data.ts";
+  const staffPagePath = "src/app/shop/staff/page.tsx";
+  const typesPath = "src/lib/supabase/database.types.ts";
+  const migrationPath = findTask014MigrationPath();
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    credentialModulePath,
+    readModelPath,
+    sectionDataPath,
+    staffPagePath,
+    typesPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  if (!migrationPath) {
+    addFailure("TASK-014 staff foundation migration is missing");
+    return;
+  }
+
+  const task = read(taskPath);
+  const migration = read(migrationPath);
+  const credentialModule = read(credentialModulePath);
+  const readModel = read(readModelPath);
+  const sectionData = read(sectionDataPath);
+  const staffPage = read(staffPagePath);
+  const types = read(typesPath);
+  const clientStaffUi = [
+    staffPagePath,
+    "src/components/shop/ShopSectionPage.tsx",
+    "src/components/shop/shopSections.ts",
+  ]
+    .map((file) => read(file))
+    .join("\n");
+
+  for (const requiredSnippet of [
+    "Nessun login POS reale",
+    "Nessuno staff account reale creato",
+    "Nessuna esposizione di `credential_hash`",
+    "Node `crypto.scrypt`",
+  ]) {
+    if (!task.includes(requiredSnippet)) {
+      addFailure(`${taskPath} must document ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSql of [
+    "create table if not exists public.staff_accounts",
+    "alter table public.staff_accounts enable row level security",
+    "create view public.staff_accounts_safe",
+    "with (security_invoker = true)",
+    "app_private.is_active_shop_staff_admin_member",
+    "role_key in ('cashier', 'manager', 'viewer')",
+    "status in ('pending_credential', 'active', 'suspended', 'archived')",
+  ]) {
+    if (!migration.includes(requiredSql)) {
+      addFailure(`${migrationPath} must include ${requiredSql}`);
+    }
+  }
+
+  const safeViewDefinition = migration.split("create view public.staff_accounts_safe")[1] ?? "";
+
+  if (/credential_hash/i.test(safeViewDefinition)) {
+    addFailure(`${migrationPath} must not expose credential_hash through staff_accounts_safe`);
+  }
+
+  if (/grant\s+(insert|update|delete|all)[\s\S]*on table public\.staff_accounts[\s\S]*to authenticated/i.test(migration)) {
+    addFailure(`${migrationPath} must not grant direct staff mutations to authenticated`);
+  }
+
+  if (/grant\s+.*on (table )?public\.staff_accounts[\s\S]*to anon/i.test(migration)) {
+    addFailure(`${migrationPath} must not grant staff table access to anon`);
+  }
+
+  for (const requiredSnippet of [
+    'import "server-only"',
+    "scrypt",
+    "timingSafeEqual",
+    "hashStaffCredential",
+    "verifyStaffCredential",
+    "needsStaffCredentialRehash",
+    "STAFF_CREDENTIAL_SCHEME",
+  ]) {
+    if (!credentialModule.includes(requiredSnippet)) {
+      addFailure(`${credentialModulePath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/console\.(log|debug|info|warn|error)/.test(credentialModule)) {
+    addFailure(`${credentialModulePath} must not log credential details`);
+  }
+
+  if (/["'`](?:1234|0000|password|test123|admin)["'`]/i.test(credentialModule)) {
+    addFailure(`${credentialModulePath} must not hardcode dangerous credential examples`);
+  }
+
+  for (const requiredSnippet of [
+    'import "server-only"',
+    '.from("staff_accounts_safe")',
+    '.eq("shop_id", selectedShop.shopId)',
+  ]) {
+    if (!readModel.includes(requiredSnippet)) {
+      addFailure(`${readModelPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/credential_hash|select\("\*"\)|\.(insert|update|delete|upsert|rpc)\s*\(/.test(readModel)) {
+    addFailure(`${readModelPath} must read only safe staff fields`);
+  }
+
+  if (!sectionData.includes("buildStaffSection") || !sectionData.includes("getShopStaffReadModel")) {
+    addFailure(`${sectionDataPath} must build staff UI from the safe read model`);
+  }
+
+  if (!/getShopSectionForRequest\(\s*"staff"/.test(staffPage)) {
+    addFailure(`${staffPagePath} must load staff through getShopSectionForRequest`);
+  }
+
+  if (!/staff_accounts:\s*\{/.test(types) || !/staff_accounts_safe:\s*\{/.test(types)) {
+    addFailure(`${typesPath} must include staff_accounts and staff_accounts_safe`);
+  }
+
+  if (/credential_hash|pin_hash|password_hash|hashStaffCredential|verifyStaffCredential/.test(clientStaffUi)) {
+    addFailure("Shop Staff UI must not expose credential hashes or hashing functions");
+  }
+
+  if (/pos.*login|login.*pos/i.test(read("src/app/shop/staff/page.tsx"))) {
+    addFailure("TASK-014 must not implement POS login UI");
+  }
+}
+
+function checkTask014AuthenticatedQaHarness() {
+  const specPath = "tests/e2e/platform-admin-live-auth.spec.ts";
+  const packagePath = "package.json";
+
+  for (const requiredPath of [specPath, packagePath]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const spec = read(specPath);
+  const pkg = JSON.parse(read(packagePath));
+
+  if (!/platform-admin-live-auth\.spec\.ts/.test(pkg.scripts["test:ui-live-auth"] ?? "")) {
+    addFailure("package.json must keep test:ui-live-auth wired to platform-admin-live-auth.spec.ts");
+  }
+
+  for (const requiredSnippet of [
+    "CONFIRM_PLATFORM_ADMIN_LIVE_BROWSER_TEST",
+    "createTemporaryPlatformAdminCredentials",
+    "createTemporaryShopAdminFixture",
+    "deleteUser",
+    "cleanup",
+    'screenshot: "off"',
+    'trace: "off"',
+    'video: "off"',
+    "/platform/users",
+    "/shop/overview",
+    "/shop/staff",
+    "browser-platform-authenticated.png",
+    "browser-shop-overview-authenticated.png",
+    "browser-shop-staff-authenticated.png",
+  ]) {
+    if (!spec.includes(requiredSnippet)) {
+      addFailure(`${specPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/storageState/.test(spec)) {
+    addFailure(`${specPath} must not persist auth storageState`);
+  }
+
+  if (/console\.(log|debug|info|warn|error)/.test(spec)) {
+    addFailure(`${specPath} must not log live auth details`);
+  }
+
+  if (/magic link|access_token|refresh_token/i.test(spec)) {
+    addFailure(`${specPath} must not print or store auth tokens or magic links`);
   }
 }
 
@@ -1329,6 +1605,9 @@ checkTask009ShopSwitcherArtifacts();
 checkTask010ShopReadModelArtifacts();
 checkTask012PosStaffCredentialPlanning();
 checkTask013UiPolishArtifacts();
+checkTask014DesignSystem();
+checkTask014PosStaffFoundation();
+checkTask014AuthenticatedQaHarness();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

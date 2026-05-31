@@ -1,8 +1,9 @@
 import { ActionButton } from "./components/ActionButton";
-import { DataTable } from "./components/DataTable";
-import { EmptyState } from "./components/EmptyState";
-import { PageHeader } from "./components/PageHeader";
-import { SectionCard } from "./components/SectionCard";
+import { AdminDataTable } from "@/components/admin/AdminDataTable";
+import { EmptyState } from "@/components/admin/EmptyState";
+import { GuardrailNotice } from "@/components/admin/GuardrailNotice";
+import { PageHeader } from "@/components/admin/PageHeader";
+import { SectionCard } from "@/components/admin/SectionCard";
 import { StatCard } from "./components/StatCard";
 import { AppShell } from "./AppShell";
 import type { PlatformSection } from "./platformData";
@@ -20,6 +21,7 @@ export function PlatformPage({ section }: PlatformPageProps) {
           title={section.title}
           description={section.description}
           status={section.status}
+          titleId="platform-page-title"
         />
 
         <section aria-label={`${section.title} metrics`} className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
@@ -33,7 +35,16 @@ export function PlatformPage({ section }: PlatformPageProps) {
             title={`${section.title} rows`}
             description="Rows come from the server read model when available; empty states explain the current boundary."
           >
-            <DataTable columns={section.columns} rows={section.rows} />
+            <AdminDataTable
+              caption="Platform Admin read-only table rendered from server-provided rows."
+              columns={section.columns}
+              rows={section.rows}
+              emptyState={{
+                title: "No rows returned",
+                description: "No rows returned through the server boundary.",
+              }}
+              footer="Rows are server-limited for the current read-only boundary."
+            />
           </SectionCard>
 
           <div className="grid gap-5">
@@ -49,15 +60,12 @@ export function PlatformPage({ section }: PlatformPageProps) {
                     "No additional read state is available for this section."
                   }
                 />
-                <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
-                  <p className="text-sm font-semibold text-slate-800">
-                    Boundary status
-                  </p>
-                  <p className="mt-1 text-sm text-slate-600">
-                    No browser-side Supabase client or service-role key is used
-                    by these views.
-                  </p>
-                </div>
+                <GuardrailNotice
+                  title="Boundary status"
+                  items={[
+                    "No browser-side Supabase client or service-role key is used by these views.",
+                  ]}
+                />
               </div>
             </SectionCard>
 

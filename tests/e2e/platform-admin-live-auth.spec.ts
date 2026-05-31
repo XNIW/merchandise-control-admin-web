@@ -237,6 +237,72 @@ async function createTemporaryPlatformAdminCredentials() {
   };
 }
 
+async function createTemporaryShopAdminFixture() {
+  const credentials = await createTemporaryPlatformAdminCredentials();
+  const nonce = randomBytes(5).toString("hex").toUpperCase();
+  const shopCode = `TASK014QA_${nonce}`;
+  const shopName = `Authenticated QA Shop ${nonce}`;
+
+  const { data: createdShop, error: shopError } = await credentials.supabase
+    .from("shops")
+    .insert({
+      created_by_profile_id: credentials.userId,
+      shop_code: shopCode,
+      shop_name: shopName,
+      shop_status: "active",
+      status_changed_by_profile_id: credentials.userId,
+    })
+    .select("shop_id")
+    .single();
+
+  const shopId = createdShop?.shop_id;
+
+  if (shopError || !shopId) {
+    await credentials.cleanup();
+    throw new Error("BLOCKED_DEV_TEST_SHOP_CREATE_FAILED");
+  }
+
+  const { error: membershipError } = await credentials.supabase
+    .from("shop_members")
+    .insert({
+      invited_by_profile_id: credentials.userId,
+      membership_status: "active",
+      profile_id: credentials.userId,
+      role_key: "shop_owner",
+      shop_id: shopId,
+    });
+
+  if (membershipError) {
+    await credentials.supabase.from("shops").delete().eq("shop_id", shopId);
+    await credentials.cleanup();
+    throw new Error("BLOCKED_DEV_TEST_SHOP_MEMBER_CREATE_FAILED");
+  }
+
+  return {
+    ...credentials,
+    cleanup: async () => {
+      const membershipDelete = await credentials.supabase
+        .from("shop_members")
+        .delete()
+        .eq("shop_id", shopId)
+        .eq("profile_id", credentials.userId);
+      const shopDelete = await credentials.supabase
+        .from("shops")
+        .delete()
+        .eq("shop_id", shopId);
+
+      await credentials.cleanup();
+
+      if (membershipDelete.error || shopDelete.error) {
+        throw new Error("BLOCKED_DEV_TEST_SHOP_FIXTURE_CLEANUP_FAILED");
+      }
+    },
+    shopCode,
+    shopId,
+    shopName,
+  };
+}
+
 async function signInWithCredentials(
   page: import("@playwright/test").Page,
   email: string,
@@ -326,6 +392,77 @@ test.describe("Platform Admin live auth gate", () => {
       ).toBeVisible();
     } finally {
       await credentials.cleanup();
+    }
+  });
+
+  test("uses a real session for Platform and Shop authenticated screenshots", async ({
+    page,
+  }) => {
+    await page.goto("/auth/login");
+    const fixture = await createTemporaryShopAdminFixture();
+
+    try {
+      await signInWithCredentials(page, fixture.email, fixture.password);
+
+      await page.goto("/platform");
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Platform Overview" }),
+      ).toBeVisible();
+      await expectAuthorizedReadOnlyPlatform(page);
+      await page.screenshot({
+        fullPage: true,
+        path: "docs/TASKS/EVIDENCE/TASK-014/browser-platform-authenticated.png",
+      });
+
+      await page.goto("/platform/users");
+      await expectAuthorizedReadOnlyPlatform(page);
+
+      await page.goto(`/shop?shop_id=${fixture.shopId}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Shop Overview" }),
+      ).toBeVisible();
+
+      await page.goto(`/shop/overview?shop_id=${fixture.shopId}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Shop Overview" }),
+      ).toBeVisible();
+      await expect(
+        page
+          .getByLabel("Shop Overview status")
+          .getByText(fixture.shopCode, { exact: true }),
+      ).toBeVisible();
+      await page.screenshot({
+        fullPage: true,
+        path: "docs/TASKS/EVIDENCE/TASK-014/browser-shop-overview-authenticated.png",
+      });
+
+      await page.goto(`/shop/staff?shop_id=${fixture.shopId}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "POS / Staff" }),
+      ).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Staff credential-safe read model" }),
+      ).toBeVisible();
+      await page.screenshot({
+        fullPage: true,
+        path: "docs/TASKS/EVIDENCE/TASK-014/browser-shop-staff-authenticated.png",
+      });
+
+      await page.goto(`/shop/products?shop_id=${fixture.shopId}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Products" }),
+      ).toBeVisible();
+
+      await page.goto("/auth/logout");
+      await page.goto("/shop");
+      await expect(
+        page.getByRole("heading", {
+          level: 1,
+          name: "Shop Admin access required",
+        }),
+      ).toBeVisible();
+    } finally {
+      await fixture.cleanup();
     }
   });
 

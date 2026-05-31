@@ -30,8 +30,11 @@ test("TASK-013 UI/UX polish is reconciled to DONE", () => {
   assert.match(evidence, /https:\/\/www\.figma\.com\/design\/nw9wx6Q7jutwLGPHatGlWq/);
   assert.match(masterPlan, /### TASK-013 - Admin Web UI\/UX Professional Audit & Polish/);
   assert.match(masterPlan, /TASK-013 - Admin Web UI\/UX Professional Audit & Polish[\s\S]*Stato: `DONE`/);
-  assert.match(masterPlan, /Task attivo: `NONE`/);
-  assert.match(masterPlan, /Fase: `IDLE`/);
+  assert.match(
+    masterPlan,
+    /Task attivo: `NONE`|Task attivo: `TASK-014 - Integrated Authenticated QA, Design System, POS Staff Foundation`/,
+  );
+  assert.match(masterPlan, /Fase: `IDLE`|Fase: `EXECUTION`|Fase: `REVIEW`/);
 });
 
 test("TASK-013 Shop Admin shell makes selected shop context explicit", () => {
@@ -51,9 +54,10 @@ test("TASK-013 placeholders, tables, and operation copy are polished", () => {
   const shopSectionPage = readProjectFile("src/components/shop/ShopSectionPage.tsx");
   const platformOperations = readProjectFile("src/app/platform/operations/page.tsx");
   const platformTable = readProjectFile("src/components/platform/components/DataTable.tsx");
+  const sharedTable = readProjectFile("src/components/admin/AdminDataTable.tsx");
 
   assert.match(shopSectionPage, /Planned state/);
-  assert.match(shopSectionPage, /break-words/);
+  assert.match(`${shopSectionPage}\n${sharedTable}`, /break-words/);
   assert.match(platformTable, /break-words/);
   assert.match(platformOperations, /Use development-safe test shops only/);
   assert.doesNotMatch(platformOperations, /TASK006_TEST_/);
