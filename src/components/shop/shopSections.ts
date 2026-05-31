@@ -18,6 +18,26 @@ export type ShopSectionMetric = {
   tone: "neutral" | "good" | "warning" | "muted";
 };
 
+export type ShopSectionTableColumn = {
+  key: string;
+  label: string;
+};
+
+export type ShopSectionTableRow = Record<string, string> & {
+  rowKey: string;
+};
+
+export type ShopSectionLiveData = {
+  title: string;
+  description: string;
+  columns: ShopSectionTableColumn[];
+  rows: ShopSectionTableRow[];
+  emptyState: {
+    title: string;
+    description: string;
+  };
+};
+
 export type ShopSection = {
   key: ShopSectionKey;
   label: string;
@@ -29,6 +49,7 @@ export type ShopSection = {
   metrics: ShopSectionMetric[];
   plannedWork: string[];
   guardrails: string[];
+  liveData?: ShopSectionLiveData;
 };
 
 export const shopNavigationItems: Array<{
@@ -53,7 +74,7 @@ const shellMetrics: ShopSectionMetric[] = [
   {
     label: "Data source",
     value: "Not connected",
-    detail: "Read model starts in a later milestone",
+    detail: "Schema verification is still pending",
     tone: "warning",
   },
   {
@@ -65,7 +86,7 @@ const shellMetrics: ShopSectionMetric[] = [
   {
     label: "Writes",
     value: "Unavailable",
-    detail: "No shop-scoped mutation exists in TASK-008",
+    detail: "No changes are available in this section",
     tone: "muted",
   },
 ];

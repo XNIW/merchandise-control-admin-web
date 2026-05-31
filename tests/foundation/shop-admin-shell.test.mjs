@@ -53,10 +53,11 @@ test("TASK-008 route placeholders cover the Shop Admin sections", () => {
   const sections = readProjectFile("src/components/shop/shopSections.ts");
   const sectionPage = readProjectFile("src/components/shop/ShopSectionPage.tsx");
 
-  assert.match(rootPage, /shopSections\.overview/);
+  assert.match(rootPage, /getShopSectionForRequest\(\s*"overview"/);
   assert.match(rootPage, /ShopSectionPage/);
-  assert.match(sectionPage, /Implementation status/);
-  assert.match(sectionPage, /No live shop rows are rendered in TASK-008/);
+  assert.match(sectionPage, /Section status/);
+  assert.match(sectionPage, /No live shop rows are available in this section yet/);
+  assert.doesNotMatch(sectionPage, /TASK-008|TASK-010/);
 
   for (const { key, path } of shopRoutes) {
     assert.equal(existsSync(join(root, path)), true, `${path} is missing`);
@@ -64,7 +65,11 @@ test("TASK-008 route placeholders cover the Shop Admin sections", () => {
     const page = readProjectFile(path);
 
     assert.match(page, /export const dynamic = ["']force-dynamic["']/);
-    assert.match(page, new RegExp(`shopSections\\.${key}`));
+    if (key === "overview" || key === "members" || key === "audit") {
+      assert.match(page, new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`));
+    } else {
+      assert.match(page, new RegExp(`shopSections\\.${key}`));
+    }
     assert.match(sections, new RegExp(`key: "${key}"`));
   }
 

@@ -12,6 +12,8 @@ const metricToneClasses: Record<ShopSectionMetric["tone"], string> = {
 };
 
 export function ShopSectionPage({ section }: ShopSectionPageProps) {
+  const liveData = section.liveData;
+
   return (
     <div className="mx-auto flex max-w-7xl flex-col gap-5">
       <section
@@ -40,7 +42,7 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
       </section>
 
       <section
-        aria-label={`${section.title} implementation status`}
+        aria-label={`${section.title} status`}
         className="grid gap-3 md:grid-cols-3"
       >
         {section.metrics.map((metric) => (
@@ -69,22 +71,64 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
             id={`${section.key}-status-title`}
             className="text-lg font-semibold text-zinc-950"
           >
-            Implementation status
+            {liveData ? liveData.title : "Section status"}
           </h2>
           <p className="mt-2 text-sm leading-6 text-zinc-600">
-            No live shop rows are rendered in TASK-008. This page is a guarded
-            shell placeholder until the shop read model is implemented.
+            {liveData
+              ? liveData.description
+              : "No live shop rows are available in this section yet. This page remains a guarded placeholder until its schema is verified."}
           </p>
-          <div className="mt-5 grid gap-3">
-            {section.plannedWork.map((item) => (
-              <div
-                key={item}
-                className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
-              >
-                {item}
+          {liveData ? (
+            liveData.rows.length > 0 ? (
+              <div className="mt-5 overflow-x-auto">
+                <table className="min-w-full text-left text-sm">
+                  <thead className="border-b border-zinc-200 text-xs uppercase text-zinc-500">
+                    <tr>
+                      {liveData.columns.map((column) => (
+                        <th key={column.key} scope="col" className="px-3 py-2">
+                          {column.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-zinc-100">
+                    {liveData.rows.map((row) => (
+                      <tr key={row.rowKey} className="align-top">
+                        {liveData.columns.map((column) => (
+                          <td
+                            key={column.key}
+                            className="max-w-72 px-3 py-3 text-zinc-700"
+                          >
+                            {row[column.key] ?? ""}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            ))}
-          </div>
+            ) : (
+              <div className="mt-5 rounded-md border border-zinc-200 bg-zinc-50 p-4">
+                <p className="text-sm font-semibold text-zinc-900">
+                  {liveData.emptyState.title}
+                </p>
+                <p className="mt-1 text-sm leading-6 text-zinc-600">
+                  {liveData.emptyState.description}
+                </p>
+              </div>
+            )
+          ) : (
+            <div className="mt-5 grid gap-3">
+              {section.plannedWork.map((item) => (
+                <div
+                  key={item}
+                  className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-700"
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+          )}
         </section>
 
         <section

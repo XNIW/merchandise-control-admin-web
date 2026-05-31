@@ -477,8 +477,8 @@ function checkTask008ShopShellArtifacts() {
     }
   }
 
-  if (!/No live shop rows are rendered in TASK-008/.test(sectionPage)) {
-    addFailure(`${shopSectionPagePath} must label TASK-008 placeholders as non-live`);
+  if (!/No live shop rows are available in this section yet/.test(sectionPage)) {
+    addFailure(`${shopSectionPagePath} must label placeholders as non-live`);
   }
 
   for (const routePath of shopRoutePaths) {
@@ -579,6 +579,127 @@ function checkTask009ShopSwitcherArtifacts() {
 
   if (/@\/server|src\/server|@supabase\//.test(shell)) {
     addFailure(`${shopShellPath} must not import server-only or Supabase modules`);
+  }
+}
+
+function checkTask010ShopReadModelArtifacts() {
+  const readModelPath = "src/server/shop-admin/read-model.ts";
+  const sectionDataPath = "src/server/shop-admin/shop-section-data.ts";
+  const sectionPagePath = "src/components/shop/ShopSectionPage.tsx";
+  const shopPagePath = "src/app/shop/page.tsx";
+  const overviewPagePath = "src/app/shop/overview/page.tsx";
+  const membersPagePath = "src/app/shop/members/page.tsx";
+  const auditPagePath = "src/app/shop/audit/page.tsx";
+  const shellPath = "src/components/shop/ShopShell.tsx";
+
+  for (const requiredPath of [
+    readModelPath,
+    sectionDataPath,
+    sectionPagePath,
+    shopPagePath,
+    overviewPagePath,
+    membersPagePath,
+    auditPagePath,
+    shellPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const readModel = read(readModelPath);
+  const sectionData = read(sectionDataPath);
+  const sectionPage = read(sectionPagePath);
+  const shopPage = read(shopPagePath);
+  const overviewPage = read(overviewPagePath);
+  const membersPage = read(membersPagePath);
+  const auditPage = read(auditPagePath);
+  const shell = read(shellPath);
+
+  for (const requiredSnippet of [
+    'import "server-only"',
+    "createSupabaseServerClient",
+    "resolveCurrentShopAdminShellAccess",
+    'status: "not_configured"',
+    'status: "unauthorized"',
+    'status: "empty"',
+    'status: "error"',
+    '.from("shops")',
+    '.from("shop_members")',
+    '.from("audit_logs")',
+    '.eq("shop_id", selectedShop.shopId)',
+    '.eq("scope", "shop")',
+  ]) {
+    if (!readModel.includes(requiredSnippet)) {
+      addFailure(`${readModelPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/user_metadata|raw_user_meta_data/.test(readModel)) {
+    addFailure(`${readModelPath} must not authorize from auth metadata`);
+  }
+
+  if (/Promise\.all\s*\(/.test(readModel)) {
+    addFailure(`${readModelPath} must avoid parallel remote Supabase reads`);
+  }
+
+  if (/\.(insert|update|delete|upsert|rpc)\s*\(/.test(readModel)) {
+    addFailure(`${readModelPath} must stay read-only`);
+  }
+
+  if (/\.eq\("shop_id",\s*(requestedShopId|selectedShopId)\)/.test(readModel)) {
+    addFailure(`${readModelPath} must not authorize directly from shop_id query params`);
+  }
+
+  if (!/availableShops\.find/.test(readModel) || !/access\.selectedShop/.test(readModel)) {
+    addFailure(`${readModelPath} must select shops from server-authorized memberships`);
+  }
+
+  for (const requiredSnippet of [
+    "getShopAdminReadModel",
+    "buildOverviewSection",
+    "buildMembersSection",
+    "buildAuditSection",
+    "No live shop rows are visible",
+  ]) {
+    if (!sectionData.includes(requiredSnippet)) {
+      addFailure(`${sectionDataPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    !/Live shop data/.test(`${sectionData}\n${sectionPage}`) ||
+    !/Live rows for the selected shop/.test(`${sectionData}\n${sectionPage}`)
+  ) {
+    addFailure(`${sectionDataPath} and ${sectionPagePath} must render live data or declared empty states`);
+  }
+
+  if (/TASK-010|TASK-008/.test(`${sectionData}\n${sectionPage}`)) {
+    addFailure(`${sectionDataPath} and ${sectionPagePath} must not render task IDs in Shop Admin UI copy`);
+  }
+
+  for (const [pagePath, contents, sectionKey] of [
+    [shopPagePath, shopPage, "overview"],
+    [overviewPagePath, overviewPage, "overview"],
+    [membersPagePath, membersPage, "members"],
+    [auditPagePath, auditPage, "audit"],
+  ]) {
+    if (!contents.includes("searchParams")) {
+      addFailure(`${pagePath} must accept searchParams as navigation state only`);
+    }
+
+    if (!contents.includes(`getShopSectionForRequest(\n    "${sectionKey}"`)) {
+      addFailure(`${pagePath} must load the ${sectionKey} section through the server read model`);
+    }
+  }
+
+  if (/@\/server|src\/server|@supabase\//.test(shell)) {
+    addFailure(`${shellPath} must not import server-only or Supabase modules`);
+  }
+
+  if (/mock|fake|demo/i.test(`${readModel}\n${sectionData}\n${sectionPage}`)) {
+    addFailure("TASK-010 read surfaces must not present fake data as live data");
   }
 }
 
@@ -974,6 +1095,7 @@ checkTask006ControlledActionArtifacts();
 checkTask007AuthRoutingArtifacts();
 checkTask008ShopShellArtifacts();
 checkTask009ShopSwitcherArtifacts();
+checkTask010ShopReadModelArtifacts();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

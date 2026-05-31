@@ -517,24 +517,25 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-010 - Shop Read Model Real Data
 
-- Stato: `PLANNED_NEXT`
-- File task: `TODO`
-- Evidence: `TODO`
-- Fase: `LONG_GOAL_MILESTONE_4`
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-010-shop-read-model-real-data.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-010/README.md`
+- Fase: `DONE_RECONCILED`
 - Scopo: creare read model shop-scoped server-only per mostrare dati reali autorizzati del negozio selezionato.
-- Include previsto:
+- Include:
   - selezione shop verificata server-side;
-  - lettura `shops`, `shop_members` e audit shop-scoped se disponibili;
+  - lettura reale `shops`, `shop_members` e `audit_logs` shop-scoped se disponibili;
   - tutte le query filtrate per `shop_id`;
   - stati `not_configured`, empty/error e no data;
+  - overview, members e audit collegate a dati reali o empty state dichiarati;
   - nessun dato finto spacciato per live.
-- Non include previsto:
+- Non include:
   - CRUD;
   - prodotti/categorie/fornitori se schema non verificato;
   - migration non necessarie;
   - nuove dipendenze;
   - commit o push.
-- Nota: non aperto in questa tranche per mantenere il diff Long Goal revisionabile dopo milestone 0-3.
+- Nota: execution completata da Codex il 2026-05-30. Il read model parte da `resolveCurrentShopAdminShellAccess`, tratta `shop_id` query param come navigazione non autorizzativa, filtra `shops`, `shop_members` e `audit_logs` con `selectedShop.shopId`, e lascia le altre sezioni Shop Admin come placeholder dichiarati. Review/fix finale rimossa copia interna da UI, aggiunta `rowKey` stabile, rafforzati foundation/security gate, eseguiti check locali/build/smoke e Supabase linked. Task marcato `DONE` su autorizzazione esplicita utente nella review finale TASK-010.
 
 ## Tooling policy
 
@@ -549,14 +550,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `LONG_GOAL_MILESTONE_3_DONE_RECONCILED`
-- Ultimo candidate completato: `TASK-009 - Shop Switcher`
+- Stato globale attuale: `TASK-010_DONE_RECONCILED`
+- Ultimo candidate completato: `TASK-010 - Shop Read Model Real Data`
 - Task attivo: `NONE`
-- File task: `docs/TASKS/TASK-009-shop-switcher.md`
+- File task: `docs/TASKS/TASK-010-shop-read-model-real-data.md`
 - Stato task: `DONE`
-- Fase: `LONG_GOAL_MILESTONE_3_DONE_RECONCILED`
+- Fase: `DONE_RECONCILED`
 - Responsabile: `CODEX / DONE_RECONCILIATION`
-- Prossima azione consigliata: aprire `TASK-010 - Shop Read Model Real Data` come task separato; non aprirlo o implementarlo dentro questa reconciliation.
+- Prossima azione consigliata: pianificare `TASK-011` separato, probabilmente Shop Members / Permissions oppure Shop Products Read Model, dopo commit/push della tranche corrente. Non aprire `TASK-011` in questa reconciliation.
 
 ## Regole di avanzamento
 

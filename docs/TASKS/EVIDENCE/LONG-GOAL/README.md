@@ -4,8 +4,8 @@
 
 - Goal: `Esegui allegato`
 - Data: 2026-05-30
-- Fase corrente: `LONG_GOAL_MILESTONE_3_DONE_RECONCILED`
-- Stato corrente: `TASK_006_TO_009_DONE_RECONCILED`
+- Fase corrente: `LONG_GOAL_MILESTONE_4_DONE_RECONCILED`
+- Stato corrente: `TASK_006_TO_010_DONE_RECONCILED`
 - Commit: `NOT_CREATED` (richiesto no commit)
 - Push: `NOT_RUN` (richiesto no push)
 
@@ -31,7 +31,37 @@
   - `supabase db lint --linked --schema public,app_private --level error --fail-on error`: `PASS`, no schema errors.
   - `supabase db advisors --linked --type security --level error --fail-on error`: `PASS`, no issues found.
 - Rischi residui accettati: test live shop-owner/shop-manager e multi-shop non rieseguiti per assenza fixture sicura; nessun read model business shop-scoped ancora renderizzato; warning runtime non bloccanti.
-- Non fatto: nessun commit, nessun push, nessun `TASK-010` aperto o implementato.
+- Non fatto in quella tranche: nessun commit e nessun push.
+
+## Addendum TASK-010 / DONE reconciliation 2026-05-30
+
+- Verdict finale: `DONE_RECONCILED`.
+- Task chiuso a `DONE`: `TASK-010 - Shop Read Model Real Data`.
+- Implementato read model Shop Admin server-only:
+  - `shops` filtrata con `selectedShop.shopId`;
+  - `shop_members` filtrata con `selectedShop.shopId`;
+  - `audit_logs` filtrata con `selectedShop.shopId` e `scope = 'shop'`.
+- `shop_id` query param resta stato di navigazione: il read model accetta solo shop presenti in `availableShops` gia verificati server-side.
+- Fix finale applicato:
+  - rimossa copia interna da UI Shop Admin;
+  - aggiunto `rowKey` stabile alle righe tabellari live;
+  - rafforzati `tests/foundation/shop-read-model.test.mjs`, `tests/foundation/shop-admin-shell.test.mjs` e `scripts/security-checks.mjs`.
+- Check freschi TASK-010:
+  - `npm run typecheck`: `PASS`.
+  - `npm run lint`: `PASS`.
+  - `npm run test:foundation`: `PASS`, 36 test passati.
+  - `npm run security:scan`: `PASS`.
+  - `npm run build`: `PASS_WITH_WARNINGS`, warning Node `DEP0205` non bloccante.
+  - `npm run verify`: `PASS_WITH_WARNINGS`, stesso warning non bloccante.
+  - `npm run test:ui-smoke`: `PASS_WITH_WARNINGS`, 44 test passati; warning runtime non bloccanti.
+  - `git diff --check`: `PASS`.
+- Supabase linked TASK-010:
+  - `supabase migration list --linked`: `PASS`, local/remoto allineati fino a `20260530120000`.
+  - `supabase db push --linked --dry-run`: `PASS`, remote database up to date.
+  - `supabase db lint --linked --schema public,app_private --level error --fail-on error`: `PASS`, no schema errors.
+  - `supabase db advisors --linked --type security --level error --fail-on error`: primo run `BLOCKED_WITH_REASON` per password DB richiesta; rerun con password fornita dall'utente come variabile process-only `PASS`, output `No issues found`.
+- Rischi residui accettati: browser live `shop_owner` / `shop_manager` non eseguito per assenza fixture sicura dedicata; members mostra `profile_id` abbreviato invece di nomi profilo; audit puo essere empty per shop senza eventi.
+- Non fatto: nessun commit, nessun push, nessun `TASK-011` aperto, nessun CRUD, nessuna migration, nessuna dipendenza nuova.
 
 ## Pre-flight iniziale
 

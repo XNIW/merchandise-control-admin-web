@@ -127,7 +127,7 @@ export function ShopShell({
               </p>
               <p className="mt-2 text-sm leading-6 text-emerald-950">
                 Access is resolved server-side from active shop membership.
-                Live shop data starts only after the shop read model milestone.
+                Read-only rows stay limited to the selected shop.
               </p>
             </div>
           </div>
@@ -172,7 +172,7 @@ export function ShopShell({
                     Server verified
                   </span>
                   <span className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700">
-                    Shell only
+                    Read-only
                   </span>
                 </div>
               </div>
