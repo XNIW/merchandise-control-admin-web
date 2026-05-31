@@ -10,43 +10,72 @@ Il prodotto distingue:
 
 Per governance e roadmap leggere `docs/MASTER-PLAN.md`.
 
-## Getting Started
+## Prerequisiti
 
-First, run the development server:
+- Node.js 20.x.
+- npm con lockfile `package-lock.json`.
+- Chromium Playwright per gli smoke test UI (`npm run playwright:install` o install gestita dalla CI).
+- Configurazione Supabase locale/linkata solo per check manuali Supabase; non e richiesta dalla CI base.
+
+## Variabili ambiente
+
+Usare `.env.example` come template. I nomi previsti sono:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_PROJECT_REF`
+
+Il repository non deve contenere valori reali, secret, service-role key, token o password.
+
+## Sviluppo locale
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Aprire [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `src/app/page.tsx`. The page auto-updates as you edit the file.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Project checks
+## Check progetto
 
 ```bash
+npm run security:scan
+npm run test:foundation
+npm run typecheck
+npm run lint
+npm run build
 npm run verify
+npm run test:ui-smoke
 ```
 
-## Deploy on Vercel
+Per smoke test compatibile con CI, dopo `npm run build`:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+npm run test:ui-smoke:ci
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## CI
+
+La pipeline GitHub Actions in `.github/workflows/ci.yml` esegue:
+
+- installazione dipendenze con `npm ci`;
+- cache build Next.js;
+- `security:scan`;
+- foundation tests;
+- typecheck;
+- lint;
+- build;
+- smoke UI CI su Chromium desktop;
+- `git diff --check`.
+
+Non configura deploy automatici e non richiede secret.
+
+## Limiti attuali
+
+- Nessun deploy production configurato.
+- Nessun email provider collegato.
+- Sync Center ancora read-only.
+- Nessuna autenticazione POS reale.
+- Nessuna integrazione Android/iOS/POS reale.
+- Nessun login Google, Apple o WeChat.
+
+Per modifiche Next.js leggere prima le guide pertinenti in `node_modules/next/dist/docs/`, come richiesto da `AGENTS.md`.

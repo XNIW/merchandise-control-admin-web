@@ -1376,6 +1376,9 @@ function checkTask013UiPolishArtifacts() {
     ) &&
     !/Task attivo: `TASK-017 - Shop Business Completion`/.test(
       masterPlan,
+    ) &&
+    !/Task attivo: `TASK-018 - Infrastructure, Security Hardening and POS Foundation`/.test(
+      masterPlan,
     )
   ) {
     addFailure(`${masterPlanPath} must either be IDLE after TASK-013 or track a later active task`);
@@ -2410,6 +2413,204 @@ function checkTask017ShopBusinessCompletionArtifacts() {
   }
 }
 
+function checkTask018InfrastructureSecurityPosFoundation() {
+  const workflowPath = ".github/workflows/ci.yml";
+  const taskPath =
+    "docs/TASKS/TASK-018-infrastructure-security-hardening-pos-foundation.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-018/README.md";
+  const enforcementPath =
+    "docs/ARCHITECTURE/MOBILE-POS-ENFORCEMENT-DESIGN.md";
+  const posAuthPath = "docs/ARCHITECTURE/POS-AUTH-FOUNDATION.md";
+  const migrationPath =
+    "supabase/migrations/20260531234500_task_018_backup_table_lockdown.sql";
+  const triggerHardeningMigrationPath =
+    "supabase/migrations/20260531235000_task_018_trigger_search_path_hardening.sql";
+  const memberInviteLintCleanupMigrationPath =
+    "supabase/migrations/20260531235500_task_018_member_invite_lint_cleanup.sql";
+  const foundationTestPath =
+    "tests/foundation/task-018-infrastructure-security-pos-foundation.test.mjs";
+
+  for (const requiredPath of [
+    workflowPath,
+    taskPath,
+    evidencePath,
+    enforcementPath,
+    posAuthPath,
+    migrationPath,
+    triggerHardeningMigrationPath,
+    memberInviteLintCleanupMigrationPath,
+    foundationTestPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const workflow = read(workflowPath);
+  const packageJson = JSON.parse(read("package.json"));
+  const migration = read(migrationPath);
+  const triggerHardeningMigration = read(triggerHardeningMigrationPath);
+  const memberInviteLintCleanupMigration = read(memberInviteLintCleanupMigrationPath);
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const enforcement = read(enforcementPath);
+  const posAuth = read(posAuthPath);
+  const foundationTest = read(foundationTestPath);
+  const masterPlan = read("docs/MASTER-PLAN.md");
+
+  for (const required of [
+    "pull_request:",
+    "push:",
+    "workflow_dispatch:",
+    "permissions:",
+    "contents: read",
+    "npm ci",
+    "npm run security:scan",
+    "npm run test:foundation",
+    "npm run typecheck",
+    "npm run lint",
+    "npm run build",
+    "npm run test:ui-smoke:ci",
+    "git diff --check",
+  ]) {
+    if (!workflow.includes(required)) {
+      addFailure(`${workflowPath} must include ${required}`);
+    }
+  }
+
+  if (/SUPABASE_SERVICE_ROLE|service_role|vercel|netlify/i.test(workflow)) {
+    addFailure(`${workflowPath} must not configure service-role secrets or deploy providers`);
+  }
+
+  const smokeScript = packageJson.scripts?.["test:ui-smoke:ci"] ?? "";
+
+  if (
+    !/PLAYWRIGHT_BASE_URL=http:\/\/127\.0\.0\.1:3003/.test(smokeScript) ||
+    !/PLAYWRIGHT_WEB_SERVER_COMMAND=/.test(smokeScript) ||
+    !/npm run start -- --hostname 127\.0\.0\.1 --port 3003/.test(smokeScript) ||
+    !/PLAYWRIGHT_REUSE_SERVER=0/.test(smokeScript) ||
+    !/--project=chromium-desktop/.test(smokeScript)
+  ) {
+    addFailure("TASK-018 CI smoke script must run the built app through next start");
+  }
+
+  for (const backupTable of [
+    "backup_task108_inventory_suppliers_20260514173049",
+    "backup_task108_inventory_categories_20260514173049",
+    "backup_task108_inventory_products_20260514173049",
+    "backup_task108_inventory_product_prices_20260514173049",
+    "backup_task108_shared_sheet_sessions_20260514173049",
+    "backup_task108_sync_events_20260514173049",
+  ]) {
+    if (!migration.includes(backupTable)) {
+      addFailure(`${migrationPath} must lock down ${backupTable}`);
+    }
+  }
+
+  for (const requiredPattern of [
+    /enable row level security/i,
+    /force row level security/i,
+    /revoke all on table/i,
+    /from public/i,
+    /from anon/i,
+    /from authenticated/i,
+  ]) {
+    if (!requiredPattern.test(migration)) {
+      addFailure(`${migrationPath} is missing ${requiredPattern}`);
+    }
+  }
+
+  if (/drop table|delete from|truncate/i.test(migration)) {
+    addFailure(`${migrationPath} must stay non-destructive`);
+  }
+
+  if (
+    !/create or replace function public\.set_shared_sheet_sessions_updated_at/.test(
+      triggerHardeningMigration,
+    ) ||
+    !/set search_path = public, pg_temp/i.test(triggerHardeningMigration)
+  ) {
+    addFailure(`${triggerHardeningMigrationPath} must harden trigger function search_path`);
+  }
+
+  if (/drop table|delete from|truncate/i.test(triggerHardeningMigration)) {
+    addFailure(`${triggerHardeningMigrationPath} must stay non-destructive`);
+  }
+
+  if (
+    !/create or replace function public\.shop_member_invite_profile/.test(
+      memberInviteLintCleanupMigration,
+    ) ||
+    !/perform 1[\s\S]*from public\.profiles/i.test(memberInviteLintCleanupMigration) ||
+    /v_profile/i.test(memberInviteLintCleanupMigration) ||
+    !/grant execute on function public\.shop_member_invite_profile/.test(
+      memberInviteLintCleanupMigration,
+    )
+  ) {
+    addFailure(`${memberInviteLintCleanupMigrationPath} must clean the member invite lint warning without changing grants`);
+  }
+
+  if (/drop table|delete from|truncate/i.test(memberInviteLintCleanupMigration)) {
+    addFailure(`${memberInviteLintCleanupMigrationPath} must stay non-destructive`);
+  }
+
+  for (const required of [
+    "Device authorization",
+    "Device revocation",
+    "Staff suspension",
+    "Shop suspension",
+    "Emergency revoke",
+    "shop_devices.status",
+    "staff_accounts.status",
+  ]) {
+    if (!enforcement.includes(required)) {
+      addFailure(`${enforcementPath} must document ${required}`);
+    }
+  }
+
+  for (const required of [
+    "shop_code",
+    "staff_code",
+    "PIN/password",
+    "credential_hash",
+    "Lockout",
+    "Rate limit",
+    "Device binding",
+    "Device revoke",
+    "Fuori scope",
+  ]) {
+    if (!posAuth.includes(required)) {
+      addFailure(`${posAuthPath} must document ${required}`);
+    }
+  }
+
+  if (
+    /endpoint[\s\S]{0,80}implementat|JWT[\s\S]{0,80}implementat|sessione POS[\s\S]{0,80}implementat/i.test(
+      posAuth,
+    )
+  ) {
+    addFailure(`${posAuthPath} must remain design-only and must not implement POS auth`);
+  }
+
+  if (!/TASK-018 - Infrastructure, Security Hardening and POS Foundation/.test(masterPlan)) {
+    addFailure("MASTER-PLAN must track TASK-018");
+  }
+
+  if (
+    !/Stato: `(REVIEW|DONE)`/.test(task) ||
+    !/Fase: `(REVIEW|DONE_RECONCILED)`/.test(task) ||
+    !/(Verdict handoff Codex: `PASS_WITH_NOTES`|Verdict finale: `DONE`)/.test(task) ||
+    !/(Verdict Codex: `PASS_WITH_NOTES`|Verdict finale: `DONE`)/.test(evidence)
+  ) {
+    addFailure("TASK-018 docs must be either in REVIEW handoff or DONE reconciliation state");
+  }
+
+  if (!/checkTask018InfrastructureSecurityPosFoundation/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert the TASK-018 security scanner gate`);
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -2436,6 +2637,7 @@ checkTask014AuthenticatedQaHarness();
 checkTask015ShopAdminConsole();
 checkTask016PlatformAdminConsole();
 checkTask017ShopBusinessCompletionArtifacts();
+checkTask018InfrastructureSecurityPosFoundation();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

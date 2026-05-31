@@ -783,6 +783,45 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - marcare `DONE` senza review positiva e conferma esplicita utente.
 - Nota: task aperto in execution dal brief utente del 2026-05-31 mentre `TASK-016` era ancora `READY_FOR_DONE_CONFIRMATION_WITH_NOTES` e non era stato marcato `DONE`. Codex ha completato implementation e check, applicato la migration additiva `20260531230000_task_017_shop_business_completion.sql` al linked dev, rigenerato i tipi Supabase e preparato handoff a `REVIEW`. Review finale/reconciliation richiesta esplicitamente dall'utente il 2026-05-31: trovato e corretto un gap reale sugli RPC membri, che erano owner-only nel server web ma piu larghi nel DB; aggiunta e applicata `20260531233000_task_017_member_owner_enforcement.sql` con helper `app_private.is_active_shop_owner_member`, reason obbligatoria per remove e audit reason redatto. Gate finali: foundation `89/89`, typecheck, lint, build, verify, UI smoke `86/86`, security scan, Supabase linked checks post-push, `git diff --check`; warning non bloccanti Node `DEP0205` e Playwright colori. Residui: invito membri solo per profili esistenti, niente email/magic link, niente auth POS reale, Sync Center read-only. Stato finale: `DONE_RECONCILED`. `TASK-016` e stato poi riconciliato separatamente a `DONE_RECONCILED`.
 
+### TASK-018 - Infrastructure, Security Hardening and POS Foundation
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-018-infrastructure-security-hardening-pos-foundation.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-018/README.md`
+- Fase: `DONE_RECONCILED`
+- Execution: `COMPLETED_BY_CODEX`
+- Review: `COMPLETED`
+- Verdict corrente: `DONE`
+- Scopo: consolidare infrastruttura, sicurezza, automazioni e fondazioni POS prima di nuove funzionalita business o integrazioni Android/iOS/POS.
+- Include:
+  - CI GitHub Actions minimale senza deploy;
+  - build, typecheck, lint, security scan, foundation tests, smoke UI CI e `git diff --check`;
+  - audit Supabase di RPC/helper/grants/RLS/SECURITY DEFINER/search_path;
+  - hardening non distruttivo delle backup table legacy TASK-108;
+  - hardening non distruttivo del `search_path` della funzione trigger legacy `set_shared_sheet_sessions_updated_at`;
+  - cleanup lint non distruttivo di `shop_member_invite_profile`;
+  - design di enforcement mobile/POS per device revocation, device authorization, staff suspension, shop suspension ed emergency revoke;
+  - design di POS auth foundation per `shop_code + staff_code + PIN/password`;
+  - consolidamento README, task, evidence e roadmap.
+- Non include:
+  - commit;
+  - git push;
+  - stage finale;
+  - deploy automatico o production;
+  - email delivery;
+  - sync reale;
+  - Android sync;
+  - iOS sync;
+  - POS sync;
+  - autenticazione POS completa;
+  - endpoint pubblici POS;
+  - login Google, Apple o WeChat;
+  - modifiche Android/iOS/POS;
+  - nuove dipendenze inutili;
+  - schema Supabase inventato;
+  - marcare `DONE` senza review positiva e conferma esplicita utente.
+- Nota: task aperto dal brief utente del 2026-05-31 dopo riconciliazione di TASK-015, TASK-016 e TASK-017 su main. Codex ha preparato handoff a `REVIEW` con CI, migration additive `20260531234500_task_018_backup_table_lockdown.sql` e `20260531235000_task_018_trigger_search_path_hardening.sql`, security scanner/task foundation test aggiornati e design docs `MOBILE-POS-ENFORCEMENT-DESIGN` / `POS-AUTH-FOUNDATION`. Review/reconciliation finale richiesta esplicitamente dall'utente il 2026-05-31: corretto anche il warning lint `v_profile` con `20260531235500_task_018_member_invite_lint_cleanup.sql`, rafforzati i design docs su rate limit/device binding/offline edge cases e aggiornati i gate per consentire `DONE_RECONCILED`. Gate locali, UI smoke e Supabase linked passano; residui non bloccanti: warning advisors su RPC `SECURITY DEFINER` intenzionali e Auth leaked-password protection provider-side. Nessun commit, push o stage.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -797,7 +836,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `IDLE`
-- Ultimo task completato: `TASK-016 - Complete Platform Admin Console`
+- Ultimo task completato: `TASK-018 - Infrastructure, Security Hardening and POS Foundation`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -805,12 +844,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Task in review non chiuso: `NONE`
 - Stato TASK-016: `DONE`
 - Fase TASK-016: `DONE_RECONCILED`
+- Stato TASK-018: `DONE`
+- Fase TASK-018: `DONE_RECONCILED`
 - Task attivo: `NONE`
 - File task: `NOT_APPLICABLE`
 - Stato task: `NOT_APPLICABLE`
 - Fase: `IDLE`
 - Responsabile: `NONE`
-- Branch execution: `codex/task-015-complete-shop-admin-console`
+- Branch execution: `main`
 - Prossimo task candidato: `NONE`
 - File task candidato: `NOT_APPLICABLE`
 - Stato task candidato: `NOT_APPLICABLE`
@@ -819,7 +860,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - File task planning successivo: `NOT_APPLICABLE`
 - Stato task planning successivo: `NOT_APPLICABLE`
 - Verdict planning task successivo: `NOT_APPLICABLE`
-- Prossima azione consigliata: aprire un nuovo task scoped per il prossimo incremento. Candidati naturali: collegare delivery email per pending owner invite, oppure pianificare il follow-up mobile/POS enforcement gia documentato; non dichiarare production-ready globale senza una release task dedicata.
+- Prossima azione consigliata: aprire task separato scoped per uno dei follow-up: delivery email pending owner invite, enforcement mobile/POS implementativo, POS auth implementation, oppure hardening Auth provider. Non dichiarare production-ready globale senza release task dedicata.
 
 ## Regole di avanzamento
 
