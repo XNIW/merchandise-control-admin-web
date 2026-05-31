@@ -537,6 +537,33 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - commit o push.
 - Nota: execution completata da Codex il 2026-05-30. Il read model parte da `resolveCurrentShopAdminShellAccess`, tratta `shop_id` query param come navigazione non autorizzativa, filtra `shops`, `shop_members` e `audit_logs` con `selectedShop.shopId`, e lascia le altre sezioni Shop Admin come placeholder dichiarati. Review/fix finale rimossa copia interna da UI, aggiunta `rowKey` stabile, rafforzati foundation/security gate, eseguiti check locali/build/smoke e Supabase linked. Task marcato `DONE` su autorizzazione esplicita utente nella review finale TASK-010.
 
+### TASK-011 - Shop Onboarding Live Gate
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-011-shop-onboarding-live-gate.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-011/README.md`
+- Fase: `DONE_RECONCILED`
+- Execution: `PASS`
+- Scopo: verificare live il flusso Platform Admin -> create shop -> assign account Google owner come `shop_owner` -> login/verifica owner -> Shop Admin read model -> cross-shop leak checks.
+- Include:
+  - pre-flight repo;
+  - verifica TASK-010 gia committato/pushato;
+  - discovery Supabase linked redatta;
+  - verifica owner in `profiles` / auth prima di creare dati;
+  - documentazione PASS, warnings non bloccanti e retry motivati;
+  - POS/staff credential discovery senza creare credenziali.
+- Non include:
+  - CRUD prodotti/categorie/fornitori;
+  - import/export Excel;
+  - POS login reale;
+  - staff account reale;
+  - PIN/password staff;
+  - migration;
+  - nuove dipendenze;
+  - commit o push;
+  - hard delete o cancellazione audit.
+- Nota: execution avviata da Codex il 2026-05-30 e ripresa su richiesta utente per correggere il caso dual-role. L'account Google owner e stato identificato in modo sicuro come profilo attivo `6425adb0...`, visibile nel read model Platform Admin e con grant `platform_admin` attivo. Fix applicato: `/shop` risolve l'accesso direttamente da membership attive `shop_owner` / `shop_manager`, senza riusare il resolver generale che mantiene la priorita Platform Admin per `/` e `/platform`. Gate live finale passato con shop sintetico `TASK011_TEST_MPT7XWN3ECF5`, read model `/shop/overview`, `/shop/members`, `/shop/audit`, negative `shop_id` falso e cleanup soft delete verificati. Task marcato `DONE` per autorizzazione esplicita nel resume TASK-011 e check/evidence positivi.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -550,14 +577,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `TASK-010_DONE_RECONCILED`
-- Ultimo candidate completato: `TASK-010 - Shop Read Model Real Data`
+- Stato globale attuale: `TASK-011_DONE_RECONCILED`
+- Ultimo candidate completato: `TASK-011 - Shop Onboarding Live Gate`
 - Task attivo: `NONE`
-- File task: `docs/TASKS/TASK-010-shop-read-model-real-data.md`
+- File task: `docs/TASKS/TASK-011-shop-onboarding-live-gate.md`
 - Stato task: `DONE`
 - Fase: `DONE_RECONCILED`
 - Responsabile: `CODEX / DONE_RECONCILIATION`
-- Prossima azione consigliata: pianificare `TASK-011` separato, probabilmente Shop Members / Permissions oppure Shop Products Read Model, dopo commit/push della tranche corrente. Non aprire `TASK-011` in questa reconciliation.
+- Prossima azione consigliata: review/commit della tranche corrente, poi pianificare il prossimo task separato. Nessun task attivo dopo TASK-011.
 
 ## Regole di avanzamento
 

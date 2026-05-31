@@ -529,9 +529,10 @@ function checkTask009ShopSwitcherArtifacts() {
   }
 
   for (const requiredSnippet of [
-    "resolveCurrentAdminRouteAccess",
+    "auth.getUser()",
     '.from("shop_members")',
     '.from("shops")',
+    '.eq("profile_id", userId)',
     '.eq("membership_status", "active")',
     "shop_owner",
     "shop_manager",
@@ -545,6 +546,10 @@ function checkTask009ShopSwitcherArtifacts() {
 
   if (/user_metadata|raw_user_meta_data/.test(resolver)) {
     addFailure(`${resolverPath} must not authorize from auth metadata`);
+  }
+
+  if (/resolveCurrentAdminRouteAccess|\.from\("platform_admins"\)/.test(resolver)) {
+    addFailure(`${resolverPath} must resolve Shop Admin membership independently from Platform Admin routing`);
   }
 
   if (/Promise\.all\s*\(/.test(resolver)) {

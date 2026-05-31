@@ -17,14 +17,17 @@ test("TASK-009 Shop Admin access resolver is server-only and membership scoped",
   const resolver = readProjectFile(resolverPath);
 
   assert.match(resolver, /import "server-only"/);
-  assert.match(resolver, /resolveCurrentAdminRouteAccess/);
+  assert.match(resolver, /auth\.getUser\(\)/);
   assert.match(resolver, /\.from\("shop_members"\)/);
   assert.match(resolver, /\.from\("shops"\)/);
+  assert.match(resolver, /\.eq\("profile_id", userId\)/);
   assert.match(resolver, /\.eq\("membership_status", "active"\)/);
   assert.match(resolver, /shop_owner/);
   assert.match(resolver, /shop_manager/);
   assert.match(resolver, /availableShops/);
   assert.match(resolver, /selectedShop/);
+  assert.doesNotMatch(resolver, /resolveCurrentAdminRouteAccess/);
+  assert.doesNotMatch(resolver, /\.from\("platform_admins"\)/);
   assert.doesNotMatch(resolver, /user_metadata|raw_user_meta_data/);
   assert.doesNotMatch(resolver, /Promise\.all\s*\(/);
 });

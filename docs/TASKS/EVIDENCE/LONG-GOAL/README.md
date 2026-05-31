@@ -4,8 +4,8 @@
 
 - Goal: `Esegui allegato`
 - Data: 2026-05-30
-- Fase corrente: `LONG_GOAL_MILESTONE_4_DONE_RECONCILED`
-- Stato corrente: `TASK_006_TO_010_DONE_RECONCILED`
+- Fase corrente: `LONG_GOAL_MILESTONE_5_DONE_RECONCILED`
+- Stato corrente: `TASK_006_TO_011_DONE_RECONCILED`
 - Commit: `NOT_CREATED` (richiesto no commit)
 - Push: `NOT_RUN` (richiesto no push)
 
@@ -62,6 +62,47 @@
   - `supabase db advisors --linked --type security --level error --fail-on error`: primo run `BLOCKED_WITH_REASON` per password DB richiesta; rerun con password fornita dall'utente come variabile process-only `PASS`, output `No issues found`.
 - Rischi residui accettati: browser live `shop_owner` / `shop_manager` non eseguito per assenza fixture sicura dedicata; members mostra `profile_id` abbreviato invece di nomi profilo; audit puo essere empty per shop senza eventi.
 - Non fatto: nessun commit, nessun push, nessun `TASK-011` aperto, nessun CRUD, nessuna migration, nessuna dipendenza nuova.
+
+## Addendum TASK-011 / DONE reconciliation 2026-05-30
+
+- Verdict finale: `DONE_RECONCILED`.
+- Task chiuso a `DONE`: `TASK-011 - Shop Onboarding Live Gate`.
+- File task: `docs/TASKS/TASK-011-shop-onboarding-live-gate.md`.
+- Evidence: `docs/TASKS/EVIDENCE/TASK-011/README.md`.
+- Branch: `codex/task-011-shop-onboarding-live-gate`.
+- Dual-role fix:
+  - `src/server/shop-admin/shop-access.ts` ora risolve Shop Admin direttamente con `auth.getUser()` + `shop_members`;
+  - non riusa piu `resolveCurrentAdminRouteAccess`;
+  - non interroga `platform_admins`;
+  - `/` e `/platform` mantengono la priorita Platform Admin esistente;
+  - `shop_id` resta solo navigazione, non autorizzazione.
+- TDD:
+  - RED: `node --test tests/foundation/shop-switcher.test.mjs` fallito su `auth.getUser()` mancante e dipendenza dal resolver generale.
+  - GREEN: `node --test tests/foundation/shop-switcher.test.mjs` `PASS`, 4 test passati.
+- Supabase/account:
+  - account Google indicato dall'utente: `PASS`, 1 candidato, profile prefix `6425adb0`, email hash `50094971cb3a`, profilo attivo, email confermata, grant `platform_admin` attivo.
+  - `supabase migration list --linked`: `PASS_AFTER_RETRY`, local/remoto allineati fino a `20260530120000`.
+  - `supabase db push --linked --dry-run`: `PASS`, remote database up to date.
+  - `supabase db lint --linked --schema public,app_private --level error --fail-on error`: `PASS`, no schema errors.
+  - `supabase db advisors --linked --type security --level error --fail-on error`: `PASS`, no issues found.
+- Live gate finale:
+  - `/platform/operations`: `PASS` con sessione owner.
+  - `/platform/users`: `PASS_WITH_NOTES`, profilo visibile come `Platform Admin`; UI non mostra email/id completo.
+  - create shop: `PASS`, `TASK011_TEST_MPT7XWN3ECF5`, shop prefix `5c350e09`.
+  - membership owner `shop_owner`: `PASS`, 1 membership attiva.
+  - audit create/owner assign: `PASS`, 2 eventi.
+  - `/shop`, `/shop/overview`, `/shop/members`, `/shop/audit`: `PASS` con account dual-role.
+  - negative `shop_id` falso: `PASS`, fake id non renderizzato.
+  - cleanup: `PASS`, shop archiviato via soft delete e audit cleanup presente.
+  - query redatta ultimi shop TASK011: `PASS`, tutti archiviati.
+- Check finali:
+  - `git diff --check`: `PASS`.
+  - `npm run test:foundation`: `PASS`, 36 test.
+  - `npm run verify`: `PASS_WITH_WARNINGS`, warning Node `DEP0205` non bloccante.
+  - `npm run test:ui-smoke`: `PASS_WITH_WARNINGS`, 22 test.
+  - TASK-011 live gate opt-in: `PASS_WITH_WARNINGS`, 1 test.
+- POS/staff: nessun modello completo `staff_accounts`, `staff_code` o PIN/password POS trovato nello schema letto; nessuna credenziale POS creata.
+- Non fatto: nessun commit, nessun push, nessun hard delete, nessuna cancellazione audit, nessuna migration, nessuna nuova dipendenza.
 
 ## Pre-flight iniziale
 
