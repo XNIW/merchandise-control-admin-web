@@ -20,6 +20,7 @@ const shopRoutes = [
   { key: "staff", path: "src/app/shop/staff/page.tsx" },
   { key: "devices", path: "src/app/shop/devices/page.tsx" },
   { key: "settings", path: "src/app/shop/settings/page.tsx" },
+  { key: "history", path: "src/app/shop/history/page.tsx" },
   { key: "audit", path: "src/app/shop/audit/page.tsx" },
 ];
 
@@ -65,16 +66,7 @@ test("TASK-008 route placeholders cover the Shop Admin sections", () => {
     const page = readProjectFile(path);
 
     assert.match(page, /export const dynamic = ["']force-dynamic["']/);
-    if (
-      key === "overview" ||
-      key === "members" ||
-      key === "audit" ||
-      key === "staff"
-    ) {
-      assert.match(page, new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`));
-    } else {
-      assert.match(page, new RegExp(`shopSections\\.${key}`));
-    }
+    assert.match(page, new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`));
     assert.match(sections, new RegExp(`key: "${key}"`));
   }
 
@@ -89,6 +81,7 @@ test("TASK-008 route placeholders cover the Shop Admin sections", () => {
     "/shop/staff",
     "/shop/devices",
     "/shop/settings",
+    "/shop/history",
     "/shop/audit",
   ]) {
     assert.match(sections, new RegExp(`href: "${href}"`));

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
+import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
+import { CatalogActionPanel } from "@/app/shop/_components/CatalogActionPanel";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
-import { shopSections } from "@/components/shop/shopSections";
+import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
   title: "Suppliers | MerchandiseControl Admin Web",
@@ -9,6 +11,41 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function ShopSuppliersPage() {
-  return <ShopSectionPage section={shopSections.suppliers} />;
+type ShopPageSearchParams = Promise<{
+  action?: string | string[];
+  result?: string | string[];
+  shop_id?: string | string[];
+}>;
+
+function getParam(
+  searchParams: Record<string, string | string[] | undefined>,
+  key: string,
+) {
+  const value = searchParams[key];
+
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function ShopSuppliersPage({
+  searchParams,
+}: {
+  searchParams: ShopPageSearchParams;
+}) {
+  const params = await searchParams;
+  const requestedShopId = getParam(params, "shop_id");
+  const section = await getShopSectionForRequest(
+    "suppliers",
+    requestedShopId,
+  );
+
+  return (
+    <div className="grid gap-5">
+      <ShopSectionPage section={section} />
+      <ActionResultBanner
+        action={getParam(params, "action")}
+        result={getParam(params, "result")}
+      />
+      <CatalogActionPanel scope="suppliers" selectedShopId={requestedShopId} />
+    </div>
+  );
 }

@@ -4,6 +4,8 @@ export type ShopSectionKey =
   | "categories"
   | "suppliers"
   | "importExport"
+  | "sync"
+  | "history"
   | "members"
   | "roles"
   | "staff"
@@ -62,6 +64,8 @@ export const shopNavigationItems: Array<{
   { key: "categories", label: "Categories", href: "/shop/categories" },
   { key: "suppliers", label: "Suppliers", href: "/shop/suppliers" },
   { key: "importExport", label: "Import / Export", href: "/shop/import-export" },
+  { key: "sync", label: "Sync Center", href: "/shop/sync" },
+  { key: "history", label: "History", href: "/shop/history" },
   { key: "members", label: "Members", href: "/shop/members" },
   { key: "roles", label: "Roles", href: "/shop/roles" },
   { key: "staff", label: "POS / Staff", href: "/shop/staff" },
@@ -180,6 +184,40 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Check available spreadsheet libraries before adding dependencies",
       "Prefer CSV export/import fallback if sufficient",
       "Validate imports before any apply step",
+    ],
+    guardrails: sharedGuardrails,
+  },
+  sync: {
+    key: "sync",
+    label: "Sync Center",
+    href: "/shop/sync",
+    title: "Sync Center",
+    eyebrow: "Mobile sync",
+    description:
+      "Administrative view of sync events for the selected shop. No synchronization is started from Admin Web.",
+    status: "Read-only pending",
+    metrics: shellMetrics,
+    plannedWork: [
+      "Resolve shop_inventory_sources before reading owner-scoped sync events",
+      "Classify pending, success and failed activity without mutating sync state",
+      "Keep sync activity separate from shop audit logs",
+    ],
+    guardrails: sharedGuardrails,
+  },
+  history: {
+    key: "history",
+    label: "History",
+    href: "/shop/history",
+    title: "Mobile History",
+    eyebrow: "Mobile sync",
+    description:
+      "Mobile history and sync activity surface for a mapped shop inventory source.",
+    status: "Read model pending",
+    metrics: shellMetrics,
+    plannedWork: [
+      "Resolve shop_inventory_sources before reading owner-scoped history",
+      "Summarize sync payloads with recursive redaction",
+      "Keep mobile sync activity distinct from web audit logs",
     ],
     guardrails: sharedGuardrails,
   },

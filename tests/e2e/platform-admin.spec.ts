@@ -18,9 +18,34 @@ const protectedPlatformRoutes = [
     title: "Users / Profiles | MerchandiseControl Admin Web",
   },
   {
+    path: "/platform/users/00000000-0000-0000-0000-000000000000",
+    heading: "Platform Admin access required",
+    title: "User Detail | MerchandiseControl Admin Web",
+  },
+  {
     path: "/platform/shops",
     heading: "Platform Admin access required",
     title: "Shops | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/platform/shops/new",
+    heading: "Platform Admin access required",
+    title: "Provision Shop | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/platform/shops/00000000-0000-0000-0000-000000000000",
+    heading: "Platform Admin access required",
+    title: "Shop Detail | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/platform/provisioning",
+    heading: "Platform Admin access required",
+    title: "Provisioning | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/platform/admins",
+    heading: "Platform Admin access required",
+    title: "Platform Admins | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/audit",
@@ -28,14 +53,44 @@ const protectedPlatformRoutes = [
     title: "Audit | MerchandiseControl Admin Web",
   },
   {
+    path: "/platform/audit/00000000-0000-0000-0000-000000000000",
+    heading: "Platform Admin access required",
+    title: "Audit Detail | MerchandiseControl Admin Web",
+  },
+  {
     path: "/platform/system",
     heading: "Platform Admin access required",
     title: "System Status | MerchandiseControl Admin Web",
   },
   {
+    path: "/platform/data",
+    heading: "Platform Admin access required",
+    title: "Data Health | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/platform/devices",
+    heading: "Platform Admin access required",
+    title: "Global Devices | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/platform/sync",
+    heading: "Platform Admin access required",
+    title: "Global Sync | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/platform/history",
+    heading: "Platform Admin access required",
+    title: "Global History | MerchandiseControl Admin Web",
+  },
+  {
     path: "/platform/operations",
     heading: "Platform Admin access required",
     title: "Controlled Operations | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/platform/support",
+    heading: "Platform Admin access required",
+    title: "Support Diagnostics | MerchandiseControl Admin Web",
   },
 ];
 
@@ -57,14 +112,29 @@ const protectedShopRoutes = [
     title: "Products | MerchandiseControl Admin Web",
   },
   {
+    path: "/shop/products/product:1",
+    heading: "Shop Admin access required",
+    title: "Product Detail | MerchandiseControl Admin Web",
+  },
+  {
     path: "/shop/categories",
     heading: "Shop Admin access required",
     title: "Categories | MerchandiseControl Admin Web",
   },
   {
+    path: "/shop/categories/category:1",
+    heading: "Shop Admin access required",
+    title: "Category Detail | MerchandiseControl Admin Web",
+  },
+  {
     path: "/shop/suppliers",
     heading: "Shop Admin access required",
     title: "Suppliers | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/shop/suppliers/supplier:1",
+    heading: "Shop Admin access required",
+    title: "Supplier Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/import-export",
@@ -77,6 +147,11 @@ const protectedShopRoutes = [
     title: "Members | MerchandiseControl Admin Web",
   },
   {
+    path: "/shop/members/00000000-0000-0000-0000-000000000000",
+    heading: "Shop Admin access required",
+    title: "Member Detail | MerchandiseControl Admin Web",
+  },
+  {
     path: "/shop/roles",
     heading: "Shop Admin access required",
     title: "Roles | MerchandiseControl Admin Web",
@@ -87,9 +162,19 @@ const protectedShopRoutes = [
     title: "POS / Staff | MerchandiseControl Admin Web",
   },
   {
+    path: "/shop/staff/00000000-0000-0000-0000-000000000000",
+    heading: "Shop Admin access required",
+    title: "Staff Detail | MerchandiseControl Admin Web",
+  },
+  {
     path: "/shop/devices",
     heading: "Shop Admin access required",
     title: "Devices | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/shop/devices/00000000-0000-0000-0000-000000000000",
+    heading: "Shop Admin access required",
+    title: "Device Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/settings",
@@ -97,9 +182,29 @@ const protectedShopRoutes = [
     title: "Settings | MerchandiseControl Admin Web",
   },
   {
+    path: "/shop/history",
+    heading: "Shop Admin access required",
+    title: "Mobile History | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/shop/history/sync:1",
+    heading: "Shop Admin access required",
+    title: "History Detail | MerchandiseControl Admin Web",
+  },
+  {
     path: "/shop/audit",
     heading: "Shop Admin access required",
     title: "Shop Audit | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/shop/audit/00000000-0000-0000-0000-000000000000",
+    heading: "Shop Admin access required",
+    title: "Audit Event Detail | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/shop/sync",
+    heading: "Shop Admin access required",
+    title: "Sync Center | MerchandiseControl Admin Web",
   },
 ];
 

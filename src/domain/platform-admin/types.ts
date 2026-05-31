@@ -77,7 +77,65 @@ export type AuditLog = {
   event: string;
   severity: AuditSeverity;
   result: AuditResult;
+  target_type?: string;
+  target_id?: string;
+  metadata_summary?: string;
   created_at: string;
+};
+
+export type PlatformAdminRecord = {
+  platform_admin_id: string;
+  profile_id: string;
+  status: "active" | "revoked";
+  granted_at: string;
+  revoked_at?: string;
+  last_reviewed_at?: string;
+  reason_redacted?: string;
+};
+
+export type PlatformDeviceOverview = {
+  shop_device_id: string;
+  shop_id: string;
+  device_identifier: string;
+  display_name: string;
+  device_type: string;
+  status: string;
+  app_version?: string;
+  last_seen_at?: string;
+  updated_at: string;
+};
+
+export type PlatformSyncOverview = {
+  sync_event_id: string;
+  owner_user_id: string;
+  store_id?: string;
+  source?: string;
+  source_device_id?: string;
+  domain: string;
+  event_type: string;
+  changed_count: number;
+  metadata_summary: string;
+  created_at: string;
+};
+
+export type PlatformHealthStatus =
+  | "PASS"
+  | "PASS_WITH_NOTES"
+  | "NOT_RUN"
+  | "BLOCKED"
+  | "not_configured";
+
+export type PlatformDataHealth = {
+  shops_without_owner: number;
+  profiles_without_membership: number;
+  orphaned_memberships: number;
+  suspended_shops_with_recent_activity: number;
+  audit_coverage: PlatformHealthStatus;
+  inventory_mapping_status: PlatformHealthStatus;
+  sync_history_mapping_status: PlatformHealthStatus;
+  device_schema_status: PlatformHealthStatus;
+  staff_schema_status: PlatformHealthStatus;
+  migration_drift_status: PlatformHealthStatus;
 };
 
 export type SystemStatus = {
