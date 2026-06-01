@@ -850,7 +850,72 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - console POS separata;
   - secret, service-role client/browser, PIN/password in chiaro o `credential_hash` in UI/DTO/read model safe;
   - commit/push TASK-019 senza richiesta successiva.
-- Nota: execution aperta da Codex il 2026-05-31 dopo commit/push TASK-018 su `main`. Codex ha creato e applicato la migration additiva `20260531235900_task_019_pos_auth_foundation.sql`, esteso le RPC staff credential management con reason obbligatoria, audit metadata redatto e marker `session_invalidated_at`, aggiornato Shop Admin `/shop/staff`, scanner, foundation test e documentazione. Final review/reconciliation richiesta esplicitamente dall'utente il 2026-05-31: trovato e corretto un gap reale di grant colonnari per `staff_accounts_safe` con `security_invoker`, aggiunta e applicata `20260601000500_task_019_staff_safe_view_grants.sql`, riallineato `credential_status` su lockout per reactivate/force rotation, normalizzati `staffId`/`reason` server-side e rafforzati harness. Gate locali, UI smoke e Supabase linked passano; residui non bloccanti: warning advisors su RPC `SECURITY DEFINER` intenzionali e Auth leaked-password protection provider-side. Nessun commit, push o stage.
+- Nota: execution aperta da Codex il 2026-05-31 dopo commit/push TASK-018 su `main`. Codex ha creato e applicato la migration additiva `20260531235900_task_019_pos_auth_foundation.sql`, esteso le RPC staff credential management con reason obbligatoria, audit metadata redatto e marker `session_invalidated_at`, aggiornato Shop Admin `/shop/staff`, scanner, foundation test e documentazione. Final review/reconciliation richiesta esplicitamente dall'utente il 2026-05-31: trovato e corretto un gap reale di grant colonnari per `staff_accounts_safe` con `security_invoker`, aggiunta e applicata `20260601000500_task_019_staff_safe_view_grants.sql`, riallineato `credential_status` su lockout per reactivate/force rotation, normalizzati `staffId`/`reason` server-side e rafforzati harness. Gate locali, UI smoke e Supabase linked passano; residui non bloccanti: warning advisors su RPC `SECURITY DEFINER` intenzionali e Auth leaked-password protection provider-side. Commit/push richiesto e completato su `main` in FASE 1 del task successivo con commit `73042d6` (`feat: add POS staff auth foundation`).
+
+### TASK-020 - Win7POS Integration Planning
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-020-win7pos-integration-planning.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-020/README.md`
+- Fase: `DONE_RECONCILED`
+- Execution: `COMPLETED_PLANNING_ONLY`
+- Review: `COMPLETED`
+- Verdict planning: `APPROVED`
+- Verdict corrente: `DONE`
+- Scopo: pianificare in modo repo-grounded l'integrazione reale tra Admin Web/Supabase e Win7POS, senza implementare codice runtime.
+- Include:
+  - discovery Admin Web su `shops`, `staff_accounts`, `shop_devices`, `audit_logs`, `sync_events` e read model Shop Admin;
+  - discovery Win7POS dalla copia locale `/Users/minxiang/Projects/Win7POS` e da clone temporaneo `https://github.com/XNIW/Win7POS.git`;
+  - flusso first login POS con `shop_code + staff_code + PIN/password`;
+  - trusted device, heartbeat, revoca device, sospensione staff e sospensione shop;
+  - comportamento online/offline e offline queue;
+  - modello backend futuro per sessioni POS, device token, sales sync, payment totals e audit;
+  - proposta dashboard futura per vendite per dispositivo e totale shop;
+  - roadmap TASK-021/TASK-022/TASK-023/TASK-024/TASK-025;
+  - foundation test statico planning-only.
+- Non include:
+  - login POS reale;
+  - endpoint pubblico POS;
+  - modifiche Win7POS;
+  - modifiche Android/iOS;
+  - sync vendite implementato;
+  - dashboard live;
+  - migration TASK-020 creata o applicata;
+  - commit/push TASK-020 senza review successiva;
+  - dichiarazione production-ready.
+- Nota: TASK-020 creato come planning dopo commit/push TASK-019 (`73042d6`) su `main`. Win7POS e stato trovato anche localmente in `/Users/minxiang/Projects/Win7POS`, repo clean `## main...origin/main`, origin `https://github.com/XNIW/Win7POS.git`, commit `aa545fc Sconto`; il clone temporaneo `/tmp/win7pos-task-020-73042d6` e stato usato solo come controverifica read-only. Discovery conferma Win7POS WPF `net48` x86 con SQLite locale, first-run admin, login username/PIN locale, lockout, vendite/refund/void e pagamenti cash/card; non trova networking/API Supabase, `shop_code`, `staff_code` remoto, trusted device o sync vendite. Admin Web ha foundation staff/device/audit, ma non ha ancora POS session store, device token runtime, heartbeat POS o schema vendite POS. Final review/reconciliation del 2026-06-01: piano confermato corretto, harness rafforzato con check security scanner TASK-020, gate critici passati, nessun runtime POS implementato, nessuna migration TASK-020, nessun endpoint pubblico POS, nessuna modifica Win7POS. TASK-020 riconciliato a `DONE_RECONCILED`; non committato/pushato/staged per richiesta esplicita dell'utente.
+
+### TASK-021 - POS backend session/device endpoints
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-021-pos-backend-session-device-endpoints.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-021/README.md`
+- Fase: `DONE_RECONCILED`
+- Execution: `COMPLETED`
+- Review: `COMPLETED`
+- Verdict corrente: `DONE_RECONCILED`
+- Scopo: implementare foundation backend server-side per first login POS, trusted device token hash, sessione POS, heartbeat/refresh e revoca enforcement.
+- Include:
+  - verifica schema reale prima di creare nuove tabelle;
+  - migration minima per `pos_device_credentials` e `pos_sessions`;
+  - token trusted device e session token salvati backend solo come hash;
+  - Route Handler Next.js server-side per `POST /api/pos/auth/first-login` e `POST /api/pos/session/heartbeat`;
+  - Data access layer `server-only` con service-role solo server-side;
+  - enforcement su `shops.shop_status`, `staff_accounts.status`, `staff_accounts.credential_status`, `shop_devices.status`, lockout e `session_invalidated_at`;
+  - revoca device che invalida credential/sessioni POS;
+  - audit log redatto per eventi sensibili;
+  - foundation/security test TASK-021.
+- Non include:
+  - dashboard TASK-022;
+  - modifiche Win7POS;
+  - client HTTP Win7POS;
+  - sales sync;
+  - dati finti o seed;
+  - service-role key lato client/browser;
+  - salvataggio PIN/password/token raw;
+  - commit/push senza richiesta successiva;
+  - dichiarazione `DONE`.
+- Nota: TASK-021 aperto da Codex il 2026-06-01 su richiesta esplicita utente dopo TASK-020 `DONE_RECONCILED`. Decisione tecnica: usare Route Handler Next.js piu moduli `server-only`, non RPC pubbliche Supabase per first login, perche la verifica `scrypt-v1` delle credential staff e Node-side. Implementata e applicata la migration `20260601120000_task_021_pos_sessions_devices.sql` con `pos_device_credentials`, `pos_sessions` e trigger di revoca device; aggiunti endpoint `POST /api/pos/auth/first-login` e `POST /api/pos/session/heartbeat`; tipi Supabase rigenerati. Review/reconciliation finale richiesta esplicitamente dall'utente via allegato il 2026-06-01: trovati e corretti lockout POS scaduto non recuperabile, cleanup first-login incompleto su failure session/audit, audit trusted-device non richiesto, token mismatch heartbeat che poteva bloccare sessioni valide e limiti input mancanti. Gate locali e Supabase passano; scope limitato a session/device backend, nessuna dashboard, nessun client Win7POS, nessun sales sync, nessun dato finto, nessun commit/push/stage.
 
 ## Tooling policy
 
@@ -866,7 +931,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `IDLE`
-- Ultimo task completato: `TASK-019 - POS Auth Foundation Implementation`
+- Ultimo task completato: `TASK-021 - POS backend session/device endpoints`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -878,21 +943,25 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-018: `DONE_RECONCILED`
 - Stato TASK-019: `DONE`
 - Fase TASK-019: `DONE_RECONCILED`
+- Stato TASK-020: `DONE`
+- Fase TASK-020: `DONE_RECONCILED`
+- Stato TASK-021: `DONE`
+- Fase TASK-021: `DONE_RECONCILED`
 - Task attivo: `NONE`
-- File task: `NOT_APPLICABLE`
-- Stato task: `NOT_APPLICABLE`
-- Fase: `IDLE`
-- Responsabile: `NONE`
+- File task: `docs/TASKS/TASK-021-pos-backend-session-device-endpoints.md`
+- Stato task: `DONE`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `CODEX_FINAL_REVIEW`
 - Branch execution: `main`
-- Prossimo task candidato: `NONE`
-- File task candidato: `NOT_APPLICABLE`
-- Stato task candidato: `NOT_APPLICABLE`
+- Prossimo task candidato: `TASK-022 - Admin Web POS live dashboard`
+- File task candidato: `NOT_CREATED`
+- Stato task candidato: `NOT_STARTED`
 - Verdict planning candidato: `NOT_APPLICABLE`
 - Task planning successivo gia creato: `NONE`
 - File task planning successivo: `NOT_APPLICABLE`
 - Stato task planning successivo: `NOT_APPLICABLE`
 - Verdict planning task successivo: `NOT_APPLICABLE`
-- Prossima azione consigliata: decidere esplicitamente se committare/pushare TASK-019, oppure aprire task separato per POS auth runtime reale, client Android/iOS/POS enforcement, email delivery o hardening Auth provider. Non dichiarare production-ready globale senza release task dedicata.
+- Prossima azione consigliata: aprire `TASK-022` o `TASK-023` come task separato; non implementare Win7POS client, sales sync o dashboard live dentro TASK-021.
 
 ## Regole di avanzamento
 

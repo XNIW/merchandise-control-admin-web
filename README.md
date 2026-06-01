@@ -24,6 +24,7 @@ Usare `.env.example` come template. I nomi previsti sono:
 - `NEXT_PUBLIC_SUPABASE_URL`
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_PROJECT_REF`
+- `SUPABASE_SERVICE_ROLE_KEY` solo per runtime server-side degli endpoint POS; mai nel client/browser.
 
 Il repository non deve contenere valori reali, secret, service-role key, token o password.
 
@@ -74,8 +75,9 @@ Non configura deploy automatici e non richiede secret.
 - Nessun deploy production configurato.
 - Nessun email provider collegato.
 - Sync Center ancora read-only.
-- Nessuna autenticazione POS reale.
-- Nessuna integrazione Android/iOS/POS reale.
+- Foundation backend POS per sessioni/dispositivi presente; nessun client POS reale ancora collegato.
+- Nessuna integrazione Android/iOS/POS reale end-to-end.
+- Nessun sales sync POS.
 - Nessun login Google, Apple o WeChat.
 
 Per modifiche Next.js leggere prima le guide pertinenti in `node_modules/next/dist/docs/`, come richiesto da `AGENTS.md`.

@@ -90,6 +90,7 @@ function checkEnvTemplate() {
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
     "SUPABASE_PROJECT_REF",
+    "SUPABASE_SERVICE_ROLE_KEY",
   ];
 
   for (const name of requiredNames) {
@@ -1383,6 +1384,12 @@ function checkTask013UiPolishArtifacts() {
       masterPlan,
     ) &&
     !/Task attivo: `TASK-019 - POS Auth Foundation Implementation`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-020 - Win7POS Integration Planning`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-021 - POS backend session\/device endpoints`/.test(
       masterPlan,
     )
   ) {
@@ -2824,12 +2831,339 @@ function checkTask019PosAuthFoundationImplementation() {
     addFailure("TASK-019 client surfaces must not expose service-role material");
   }
 
-  if (appRoutes.some((file) => /^src\/app\/(?:api\/)?pos\//i.test(file))) {
+  const task021Exists = existsSync(
+    join(root, "docs/TASKS/TASK-021-pos-backend-session-device-endpoints.md"),
+  );
+  const allowedTask021PosRoutes = new Set([
+    "src/app/api/pos/auth/first-login/route.ts",
+    "src/app/api/pos/session/heartbeat/route.ts",
+  ]);
+  const unexpectedPosRoutes = appRoutes.filter(
+    (file) =>
+      /^src\/app\/(?:api\/)?pos(?:\/|$)/i.test(file) &&
+      !allowedTask021PosRoutes.has(file),
+  );
+
+  if (!task021Exists && appRoutes.some((file) => /^src\/app\/(?:api\/)?pos\//i.test(file))) {
     addFailure("TASK-019 must not create a public POS login endpoint or separate POS console");
+  }
+
+  if (task021Exists && unexpectedPosRoutes.length > 0) {
+    addFailure(
+      `TASK-019/TASK-021 allow only scoped POS backend endpoints, found: ${unexpectedPosRoutes.join(", ")}`,
+    );
   }
 
   if (!/checkTask019PosAuthFoundationImplementation/.test(foundationTest)) {
     addFailure(`${foundationTestPath} must assert the TASK-019 security scanner gate`);
+  }
+}
+
+function checkTask020Win7PosIntegrationPlanning() {
+  const taskPath = "docs/TASKS/TASK-020-win7pos-integration-planning.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-020/README.md";
+  const foundationTestPath =
+    "tests/foundation/task-020-win7pos-integration-planning.test.mjs";
+
+  for (const requiredPath of [taskPath, evidencePath, foundationTestPath]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const masterPlan = read("docs/MASTER-PLAN.md");
+  const foundationTest = read(foundationTestPath);
+  const migrations = listFiles("supabase/migrations");
+  const appRoutes = listFiles("src/app");
+
+  for (const requiredSnippet of [
+    "Stato: `DONE`",
+    "Fase: `DONE_RECONCILED`",
+    "Verdict finale: `DONE`",
+    "/Users/minxiang/Projects/Win7POS",
+    "aa545fc",
+    "Non implementare login POS reale",
+    "Nessuna migration TASK-020 creata o applicata",
+    "Nessun endpoint pubblico POS creato",
+    "Nessuna modifica Win7POS, Android o iOS",
+  ]) {
+    if (!task.includes(requiredSnippet)) {
+      addFailure(`${taskPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "Stato task: `DONE`",
+    "Fase: `DONE_RECONCILED`",
+    "Verdict finale: `DONE`",
+    "Nessun login POS reale: `CONFIRMED`",
+    "Nessun endpoint pubblico POS: `CONFIRMED`",
+    "Nessuna modifica Win7POS: `CONFIRMED`",
+    "Nessuna migration TASK-020 applicata: `CONFIRMED`",
+  ]) {
+    if (!evidence.includes(requiredSnippet)) {
+      addFailure(`${evidencePath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/TASK-020 - Win7POS Integration Planning/.test(masterPlan)) {
+    addFailure("MASTER-PLAN must track TASK-020");
+  }
+
+  if (!/Stato TASK-020: `DONE`/.test(masterPlan) || !/Fase TASK-020: `DONE_RECONCILED`/.test(masterPlan)) {
+    addFailure("MASTER-PLAN must reconcile TASK-020 to DONE");
+  }
+
+  if (
+    !/Task attivo: `NONE`/.test(masterPlan) &&
+    !/Task attivo: `TASK-021 - POS backend session\/device endpoints`/.test(masterPlan)
+  ) {
+    addFailure("MASTER-PLAN must return to no active task after TASK-020 reconciliation or track TASK-021");
+  }
+
+  if (migrations.some((file) => /task_020|task-020/i.test(file))) {
+    addFailure("TASK-020 must not create a migration");
+  }
+
+  const task021Exists = existsSync(
+    join(root, "docs/TASKS/TASK-021-pos-backend-session-device-endpoints.md"),
+  );
+  const allowedTask021PosRoutes = new Set([
+    "src/app/api/pos/auth/first-login/route.ts",
+    "src/app/api/pos/session/heartbeat/route.ts",
+  ]);
+  const unexpectedPosRoutes = appRoutes.filter(
+    (file) =>
+      /^src\/app\/(?:api\/)?pos(?:\/|$)/i.test(file) &&
+      !allowedTask021PosRoutes.has(file),
+  );
+
+  if (!task021Exists && appRoutes.some((file) => /^src\/app\/(?:api\/)?pos(?:\/|$)/i.test(file))) {
+    addFailure("TASK-020 must not create a public POS endpoint or POS route");
+  }
+
+  if (task021Exists && unexpectedPosRoutes.length > 0) {
+    addFailure(
+      `TASK-020/TASK-021 allow only scoped POS backend endpoints, found: ${unexpectedPosRoutes.join(", ")}`,
+    );
+  }
+
+  if (existsSync(join(root, "Win7POS")) || existsSync(join(root, "src/Win7POS"))) {
+    addFailure("TASK-020 must not vendor or modify Win7POS inside Admin Web");
+  }
+
+  if (!/checkTask020Win7PosIntegrationPlanning/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert the TASK-020 security scanner gate`);
+  }
+}
+
+function checkTask021PosBackendSessionDeviceEndpoints() {
+  const taskPath = "docs/TASKS/TASK-021-pos-backend-session-device-endpoints.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-021/README.md";
+  const foundationTestPath =
+    "tests/foundation/task-021-pos-backend-session-device.test.mjs";
+  const migrationPath =
+    "supabase/migrations/20260601120000_task_021_pos_sessions_devices.sql";
+  const adminClientPath = "src/lib/supabase/admin.ts";
+  const tokenPath = "src/server/pos-auth/tokens.ts";
+  const servicePath = "src/server/pos-auth/service.ts";
+  const firstLoginRoutePath = "src/app/api/pos/auth/first-login/route.ts";
+  const heartbeatRoutePath = "src/app/api/pos/session/heartbeat/route.ts";
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    foundationTestPath,
+    migrationPath,
+    adminClientPath,
+    tokenPath,
+    servicePath,
+    firstLoginRoutePath,
+    heartbeatRoutePath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const migration = read(migrationPath);
+  const adminClient = read(adminClientPath);
+  const tokens = read(tokenPath);
+  const service = read(servicePath);
+  const foundationTest = read(foundationTestPath);
+  const firstLoginRoute = read(firstLoginRoutePath);
+  const heartbeatRoute = read(heartbeatRoutePath);
+  const clientSurface = [
+    ...listFiles("src/components"),
+    ...listFiles("public"),
+    "src/lib/supabase/client.ts",
+  ]
+    .filter((file) => existsSync(join(root, file)))
+    .map(read)
+    .join("\n");
+  const appRoutes = listFiles("src/app");
+  const allowedPosRoutes = new Set([firstLoginRoutePath, heartbeatRoutePath]);
+  const unexpectedPosRoutes = appRoutes.filter(
+    (file) =>
+      /^src\/app\/(?:api\/)?pos(?:\/|$)/i.test(file) &&
+      !allowedPosRoutes.has(file),
+  );
+  const runtimeSource = [
+    migration,
+    adminClient,
+    tokens,
+    service,
+    firstLoginRoute,
+    heartbeatRoute,
+  ].join("\n");
+
+  for (const requiredSnippet of [
+    "Route Handler Next.js",
+    "server-only",
+    "service-role solo server-side",
+    "trusted device token hash",
+    "heartbeat",
+    "revoca device",
+    "No sales sync",
+  ]) {
+    if (!task.includes(requiredSnippet) && !evidence.includes(requiredSnippet)) {
+      addFailure(`TASK-021 docs must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/Stato: `DONE`/.test(task) || /Stato task: `DONE`/.test(evidence)) {
+    if (!/Fase: `DONE_RECONCILED`/.test(task) || !/Fase: `DONE_RECONCILED`/.test(evidence)) {
+      addFailure("TASK-021 DONE state must be reconciled with explicit review evidence");
+    }
+
+    if (!/Review\/reconciliation finale/.test(task) || !/Review\/reconciliation finale/.test(evidence)) {
+      addFailure("TASK-021 DONE state must document final review/reconciliation");
+    }
+  }
+
+  for (const requiredSnippet of [
+    "create table if not exists public.pos_device_credentials",
+    "create table if not exists public.pos_sessions",
+    "token_hash text not null",
+    "session_token_hash text not null",
+    "alter table public.pos_device_credentials enable row level security",
+    "alter table public.pos_sessions enable row level security",
+    "app_private.revoke_pos_auth_on_shop_device_revoked",
+  ]) {
+    if (!migration.includes(requiredSnippet)) {
+      addFailure(`${migrationPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    /grant\s+(select|insert|update|delete|all)[\s\S]*on table public\.pos_(device_credentials|sessions)[\s\S]*to\s+(anon|authenticated)/i.test(
+      migration,
+    )
+  ) {
+    addFailure(`${migrationPath} must not grant POS runtime tables to anon/authenticated`);
+  }
+
+  if (/\b(device_token|trusted_token|session_token|refresh_token)\s+text\b/i.test(migration)) {
+    addFailure(`${migrationPath} must not store raw POS token columns`);
+  }
+
+  if (!/import "server-only"/.test(adminClient) || !/SUPABASE_SERVICE_ROLE_KEY/.test(adminClient)) {
+    addFailure(`${adminClientPath} must be server-only and resolve the service-role env name`);
+  }
+
+  if (!/hashPosSecret/.test(tokens) || !/timingSafeEqual/.test(tokens)) {
+    addFailure(`${tokenPath} must hash and compare POS secrets safely`);
+  }
+
+  for (const requiredSnippet of [
+    "verifyStaffCredential",
+    "hashPosSecret",
+    "MAX_CREDENTIAL_LENGTH",
+    "MAX_POS_SECRET_LENGTH",
+    "isStaffLockoutActive",
+    "cleanupFailedFirstLogin",
+    "sessionTokenValid",
+    "deviceTokenValid",
+    "pos.auth.first_login.success",
+    "pos.auth.first_login.failure",
+    "pos.device.trusted",
+    "pos.session.heartbeat.success",
+    "pos.session.heartbeat.failure",
+    "pos.device.revoked_enforced",
+  ]) {
+    if (!service.includes(requiredSnippet)) {
+      addFailure(`${servicePath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/credential_status: "active"/.test(service)) {
+    addFailure(`${servicePath} must reactivate expired lockout state after successful credential verification`);
+  }
+
+  if (!/const auditOk = await writePosAudit/.test(service) || !/if \(!auditOk\) \{/.test(service)) {
+    addFailure(`${servicePath} must fail closed when required audit writes fail`);
+  }
+
+  if (!/const trustedAuditOk = await writePosAudit/.test(service) || !/const firstLoginAuditOk = await writePosAudit/.test(service)) {
+    addFailure(`${servicePath} must require both trusted-device and first-login success audits`);
+  }
+
+  if (/!verifyPosSecret\(parsed\.sessionToken[\s\S]{0,260}markSessionDenied/.test(service)) {
+    addFailure(`${servicePath} must not permanently block a session solely because a heartbeat token is wrong`);
+  }
+
+  if (/select\(["']\*["']\)/.test(service)) {
+    addFailure(`${servicePath} must not use select("*")`);
+  }
+
+  if (/console\.(log|debug|info|warn|error)/.test(runtimeSource)) {
+    addFailure("TASK-021 runtime source must not log sensitive details");
+  }
+
+  if (/pin_plain|password_plain|plain_pin|plain_password/i.test(runtimeSource)) {
+    addFailure("TASK-021 runtime source must not name plaintext credential storage");
+  }
+
+  if (/pos_sales_sync|pos_sync_batches|src\/app\/api\/pos\/sales/i.test(runtimeSource)) {
+    addFailure("TASK-021 must not implement sales sync");
+  }
+
+  if (/SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(clientSurface)) {
+    addFailure("TASK-021 client/browser surface must not expose service-role material");
+  }
+
+  for (const route of [firstLoginRoute, heartbeatRoute]) {
+    if (!/export const dynamic = "force-dynamic"/.test(route)) {
+      addFailure("TASK-021 POS routes must be dynamic");
+    }
+
+    if (!/export const runtime = "nodejs"/.test(route)) {
+      addFailure("TASK-021 POS routes must run on nodejs runtime");
+    }
+
+    if (!/export async function POST/.test(route) || /export async function GET/.test(route)) {
+      addFailure("TASK-021 POS routes must expose POST only");
+    }
+
+    if (/SUPABASE_SERVICE_ROLE_KEY|credential_hash|service_role/i.test(route)) {
+      addFailure("TASK-021 POS routes must delegate privileged logic to server-only modules");
+    }
+  }
+
+  if (unexpectedPosRoutes.length > 0) {
+    addFailure(
+      `TASK-021 allows only first-login and heartbeat POS routes, found: ${unexpectedPosRoutes.join(", ")}`,
+    );
+  }
+
+  if (!/checkTask021PosBackendSessionDeviceEndpoints/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert the TASK-021 security scanner gate`);
   }
 }
 
@@ -2861,6 +3195,8 @@ checkTask016PlatformAdminConsole();
 checkTask017ShopBusinessCompletionArtifacts();
 checkTask018InfrastructureSecurityPosFoundation();
 checkTask019PosAuthFoundationImplementation();
+checkTask020Win7PosIntegrationPlanning();
+checkTask021PosBackendSessionDeviceEndpoints();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

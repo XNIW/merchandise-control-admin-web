@@ -32,11 +32,11 @@ test("TASK-013 UI/UX polish is reconciled to DONE", () => {
   assert.match(masterPlan, /TASK-013 - Admin Web UI\/UX Professional Audit & Polish[\s\S]*Stato: `DONE`/);
   assert.match(
     masterPlan,
-    /Task attivo: `NONE`|Task attivo: `TASK-014 - Integrated Authenticated QA, Design System, POS Staff Foundation`|Task attivo: `TASK-015 - Complete Shop Admin Console: Inventory, Excel, Mobile History, Staff and Devices`|Task attivo: `TASK-016 - Complete Platform Admin Console`|Task attivo: `TASK-017 - Shop Business Completion`|Task attivo: `TASK-018 - Infrastructure, Security Hardening and POS Foundation`|Task attivo: `TASK-019 - POS Auth Foundation Implementation`/,
+    /Task attivo: `NONE`|Task attivo: `TASK-014 - Integrated Authenticated QA, Design System, POS Staff Foundation`|Task attivo: `TASK-015 - Complete Shop Admin Console: Inventory, Excel, Mobile History, Staff and Devices`|Task attivo: `TASK-016 - Complete Platform Admin Console`|Task attivo: `TASK-017 - Shop Business Completion`|Task attivo: `TASK-018 - Infrastructure, Security Hardening and POS Foundation`|Task attivo: `TASK-019 - POS Auth Foundation Implementation`|Task attivo: `TASK-020 - Win7POS Integration Planning`|Task attivo: `TASK-021 - POS backend session\/device endpoints`/,
   );
   assert.match(
     masterPlan,
-    /Fase: `IDLE`|Fase: `EXECUTION`|Fase: `REVIEW`|Fase: `REVIEW_READY_FOR_DONE_CONFIRMATION`/,
+    /Fase: `IDLE`|Fase: `EXECUTION`|Fase: `REVIEW`|Fase: `REVIEW_READY_FOR_DONE_CONFIRMATION`|Fase: `DONE_RECONCILED`/,
   );
 });
 

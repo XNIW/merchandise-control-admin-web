@@ -760,6 +760,188 @@ export type Database = {
           },
         ]
       }
+      pos_device_credentials: {
+        Row: {
+          created_at: string
+          expires_at: string
+          issued_at: string
+          last_used_at: string | null
+          metadata_redacted: Json
+          pos_device_credential_id: string
+          revoked_at: string | null
+          revoked_reason: string | null
+          shop_device_id: string
+          shop_id: string
+          staff_credential_version: number
+          staff_id: string
+          status: string
+          token_hash: string
+          token_version: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          issued_at?: string
+          last_used_at?: string | null
+          metadata_redacted?: Json
+          pos_device_credential_id?: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          shop_device_id: string
+          shop_id: string
+          staff_credential_version: number
+          staff_id: string
+          status?: string
+          token_hash: string
+          token_version?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          issued_at?: string
+          last_used_at?: string | null
+          metadata_redacted?: Json
+          pos_device_credential_id?: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          shop_device_id?: string
+          shop_id?: string
+          staff_credential_version?: number
+          staff_id?: string
+          status?: string
+          token_hash?: string
+          token_version?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_device_credentials_shop_device_id_fkey"
+            columns: ["shop_device_id"]
+            isOneToOne: false
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "pos_device_credentials_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "pos_device_credentials_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pos_device_credentials_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
+      pos_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          heartbeat_count: number
+          issued_at: string
+          last_seen_at: string | null
+          metadata_redacted: Json
+          pos_device_credential_id: string
+          pos_session_id: string
+          revoked_at: string | null
+          revoked_reason: string | null
+          session_token_hash: string
+          shop_device_id: string
+          shop_id: string
+          staff_credential_version: number
+          staff_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          heartbeat_count?: number
+          issued_at?: string
+          last_seen_at?: string | null
+          metadata_redacted?: Json
+          pos_device_credential_id: string
+          pos_session_id?: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          session_token_hash: string
+          shop_device_id: string
+          shop_id: string
+          staff_credential_version: number
+          staff_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          heartbeat_count?: number
+          issued_at?: string
+          last_seen_at?: string | null
+          metadata_redacted?: Json
+          pos_device_credential_id?: string
+          pos_session_id?: string
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          session_token_hash?: string
+          shop_device_id?: string
+          shop_id?: string
+          staff_credential_version?: number
+          staff_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sessions_pos_device_credential_id_fkey"
+            columns: ["pos_device_credential_id"]
+            isOneToOne: false
+            referencedRelation: "pos_device_credentials"
+            referencedColumns: ["pos_device_credential_id"]
+          },
+          {
+            foreignKeyName: "pos_sessions_shop_device_id_fkey"
+            columns: ["shop_device_id"]
+            isOneToOne: false
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "pos_sessions_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "pos_sessions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pos_sessions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
       product_prices: {
         Row: {
           createdat: string
