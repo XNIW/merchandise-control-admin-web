@@ -34,7 +34,7 @@ test("TASK-020 planning artifacts exist and are reconciled to DONE", () => {
   assert.match(masterPlan, /Stato globale attuale: `(IDLE|EXECUTION|REVIEW)`/);
   assert.match(
     masterPlan,
-    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-021 - POS backend session\/device endpoints`|Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`|Task attivo: `TASK-026 - Shop Admin product catalog foundation`|Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`/,
+    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-021 - POS backend session\/device endpoints`|Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`|Task attivo: `TASK-026 - Shop Admin product catalog foundation`|Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`/,
   );
 });
 

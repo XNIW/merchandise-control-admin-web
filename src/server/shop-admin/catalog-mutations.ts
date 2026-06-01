@@ -293,3 +293,19 @@ export async function archiveProduct(
     }),
   );
 }
+
+export async function restoreProduct(
+  input: CatalogArchiveInput,
+): Promise<ShopAdminActionResult> {
+  if (!input.id) {
+    return shopAdminActionResult("validation_failed", { ok: false });
+  }
+
+  return rpcResult(input.requestedShopId, "products.write", (context) =>
+    context.supabase.rpc("shop_catalog_restore_product", {
+      p_product_id: input.id,
+      p_reason: input.reason,
+      p_shop_id: context.selectedShop.shopId,
+    }),
+  );
+}

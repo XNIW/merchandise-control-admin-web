@@ -780,6 +780,8 @@ function productRow(
 ): ShopSectionTableRow {
   return {
     rowKey: product.productId,
+    productId: product.productId,
+    state: product.deletedAt ? "Archived" : "Active",
     barcode: product.barcode,
     name: product.productName ?? "Unnamed",
     retail: product.retailPrice === null ? "Not set" : String(product.retailPrice),
@@ -793,6 +795,7 @@ function productRow(
     category: product.categoryId
       ? (categories.get(product.categoryId)?.name ?? "Unknown")
       : "None",
+    archived: product.deletedAt ? formatDateTime(product.deletedAt) : "No",
     updated: formatDateTime(product.updatedAt),
   };
 }
@@ -856,7 +859,11 @@ export function buildProductsSection(
   const suppliers = new Map(
     readModel.suppliers.map((supplier) => [supplier.supplierId, supplier]),
   );
-  const filteredProducts = applyCatalogFilters(readModel.products, filters);
+  const activeProducts = readModel.products;
+  const archivedProducts = readModel.archivedProducts;
+  const filteredProducts = applyCatalogFilters(activeProducts, filters);
+  const filteredArchivedProducts = applyCatalogFilters(archivedProducts, filters);
+  const visibleProducts = [...filteredProducts, ...filteredArchivedProducts];
   const activeFilters = Object.values(filters).filter((value) =>
     Boolean(value?.trim()),
   ).length;
@@ -864,19 +871,22 @@ export function buildProductsSection(
   return {
     ...shopSections.products,
     description:
-      "Mapped inventory products for the verified selected shop. Create, update and archive use audited catalog RPCs.",
-    status: readModel.products.length > 0 ? "Live actions" : "Products empty",
+      "Mapped inventory products for the verified selected shop. Create, update, archive and restore use audited catalog RPCs.",
+    status: activeProducts.length > 0 ? "Live actions" : "Products empty",
     metrics: [
-      metric("Products", String(filteredProducts.length), "Filtered mapped rows"),
+      metric("Products", String(filteredProducts.length), "Filtered active rows"),
+      metric("Archived products", String(filteredArchivedProducts.length), "Restore requires confirmation"),
       metric("Prices", String(readModel.prices.length), "Recent price rows"),
       metric("Filters", String(activeFilters), "Search/category/supplier"),
-      metric("Writes", "Enabled", "Audited create/update/archive", "good"),
+      metric("Writes", "Enabled", "Audited create/update/archive/restore", "good"),
     ],
     liveData: {
       title: "Mapped inventory data",
       description:
-        "Products are read through the selected shop mapping and mutated only through server-side RPCs.",
+        "Active and archived products are read through the selected shop mapping and mutated only through server-side RPCs.",
       columns: [
+        { key: "productId", label: "Product id" },
+        { key: "state", label: "State" },
         { key: "barcode", label: "Barcode" },
         { key: "name", label: "Name" },
         { key: "retail", label: "Retail" },
@@ -884,15 +894,16 @@ export function buildProductsSection(
         { key: "stock", label: "Stock" },
         { key: "supplier", label: "Supplier" },
         { key: "category", label: "Category" },
+        { key: "archived", label: "Archived at" },
         { key: "updated", label: "Updated" },
       ],
-      rows: filteredProducts.map((product) =>
+      rows: visibleProducts.map((product) =>
         productRow(product, categories, suppliers),
       ),
       emptyState: {
         title: "No mapped products are visible",
         description:
-          "The mapping is present, but no active product rows are visible through current RLS.",
+          "The mapping is present, but no active or archived product rows match the current filters.",
       },
     },
   };

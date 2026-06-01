@@ -186,6 +186,7 @@ function checkReadOnlyContracts() {
         "shop_catalog_create_product",
         "shop_catalog_update_product",
         "shop_catalog_archive_product",
+        "shop_catalog_restore_product",
         "shop_catalog_create_category",
         "shop_catalog_update_category",
         "shop_catalog_archive_category",
@@ -1402,6 +1403,9 @@ function checkTask013UiPolishArtifacts() {
       masterPlan,
     ) &&
     !/Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`/.test(
       masterPlan,
     )
   ) {
@@ -2935,7 +2939,8 @@ function checkTask020Win7PosIntegrationPlanning() {
     !/Task attivo: `TASK-021 - POS backend session\/device endpoints`/.test(masterPlan) &&
     !/Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/.test(masterPlan) &&
     !/Task attivo: `TASK-026 - Shop Admin product catalog foundation`/.test(masterPlan) &&
-    !/Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`/.test(masterPlan)
+    !/Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`/.test(masterPlan) &&
+    !/Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`/.test(masterPlan)
   ) {
     addFailure("MASTER-PLAN must return to no active task after reconciliation or track an active POS/catalog task");
   }

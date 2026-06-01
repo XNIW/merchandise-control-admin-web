@@ -34,6 +34,7 @@ type ProductRow = Pick<
   | "stock_quantity"
   | "supplier_id"
   | "category_id"
+  | "deleted_at"
   | "updated_at"
 >;
 type CategoryRow = Pick<Tables<"inventory_categories">, "id" | "name" | "updated_at">;
@@ -65,6 +66,7 @@ export type ShopInventoryProduct = {
   stockQuantity: number | null;
   supplierId: string | null;
   categoryId: string | null;
+  deletedAt: string | null;
   updatedAt: string;
 };
 
@@ -95,6 +97,7 @@ export type ShopInventoryReadModel = {
   selectedShop: ShopAdminShellShop | null;
   mapping: ShopInventoryMapping | null;
   products: readonly ShopInventoryProduct[];
+  archivedProducts: readonly ShopInventoryProduct[];
   categories: readonly ShopInventoryCategory[];
   suppliers: readonly ShopInventorySupplier[];
   prices: readonly ShopInventoryPrice[];
@@ -113,6 +116,7 @@ const emptyRows = {
   selectedShop: null,
   mapping: null,
   products: [],
+  archivedProducts: [],
   categories: [],
   suppliers: [],
   prices: [],
@@ -153,6 +157,7 @@ function mapProduct(row: ProductRow): ShopInventoryProduct {
     stockQuantity: row.stock_quantity,
     supplierId: row.supplier_id,
     categoryId: row.category_id,
+    deletedAt: row.deleted_at,
     updatedAt: row.updated_at,
   };
 }
@@ -184,6 +189,9 @@ function mapPrice(row: PriceRow): ShopInventoryPrice {
     createdAt: row.created_at,
   };
 }
+
+const productSelect =
+  "id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,deleted_at,updated_at";
 
 export async function getShopInventoryReadModel(
   options: GetShopInventoryReadModelOptions = {},
@@ -256,6 +264,7 @@ export async function getShopInventoryReadModel(
       selectedShop,
       mapping: null,
       products: [],
+      archivedProducts: [],
       categories: [],
       suppliers: [],
       prices: [],
@@ -274,6 +283,7 @@ export async function getShopInventoryReadModel(
       selectedShop,
       mapping: null,
       products: [],
+      archivedProducts: [],
       categories: [],
       suppliers: [],
       prices: [],
@@ -286,9 +296,7 @@ export async function getShopInventoryReadModel(
 
   const productsResult = await supabase
     .from("inventory_products")
-    .select(
-      "id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,updated_at",
-    )
+    .select(productSelect)
     .eq("owner_user_id", mapping.ownerUserId)
     .is("deleted_at", null)
     .order("updated_at", { ascending: false })
@@ -300,6 +308,7 @@ export async function getShopInventoryReadModel(
       selectedShop,
       mapping,
       products: [],
+      archivedProducts: [],
       categories: [],
       suppliers: [],
       prices: [],
@@ -307,6 +316,32 @@ export async function getShopInventoryReadModel(
       source: "supabase_server",
       reason: "Mapped inventory products could not be loaded through RLS.",
       error: redactInventoryReadModelError(productsResult.error),
+    };
+  }
+
+  const archivedProductsResult = await supabase
+    .from("inventory_products")
+    .select(productSelect)
+    .eq("owner_user_id", mapping.ownerUserId)
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false })
+    .limit(100);
+
+  if (archivedProductsResult.error) {
+    return {
+      status: "error",
+      selectedShop,
+      mapping,
+      products: (productsResult.data ?? []).map(mapProduct),
+      archivedProducts: [],
+      categories: [],
+      suppliers: [],
+      prices: [],
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Mapped archived inventory products could not be loaded through RLS.",
+      error: redactInventoryReadModelError(archivedProductsResult.error),
     };
   }
 
@@ -324,6 +359,7 @@ export async function getShopInventoryReadModel(
       selectedShop,
       mapping,
       products: (productsResult.data ?? []).map(mapProduct),
+      archivedProducts: (archivedProductsResult.data ?? []).map(mapProduct),
       categories: [],
       suppliers: [],
       prices: [],
@@ -348,6 +384,7 @@ export async function getShopInventoryReadModel(
       selectedShop,
       mapping,
       products: (productsResult.data ?? []).map(mapProduct),
+      archivedProducts: (archivedProductsResult.data ?? []).map(mapProduct),
       categories: (categoriesResult.data ?? []).map(mapCategory),
       suppliers: [],
       prices: [],
@@ -371,6 +408,7 @@ export async function getShopInventoryReadModel(
       selectedShop,
       mapping,
       products: (productsResult.data ?? []).map(mapProduct),
+      archivedProducts: (archivedProductsResult.data ?? []).map(mapProduct),
       categories: (categoriesResult.data ?? []).map(mapCategory),
       suppliers: (suppliersResult.data ?? []).map(mapSupplier),
       prices: [],
@@ -386,6 +424,7 @@ export async function getShopInventoryReadModel(
     selectedShop,
     mapping,
     products: (productsResult.data ?? []).map(mapProduct),
+    archivedProducts: (archivedProductsResult.data ?? []).map(mapProduct),
     categories: (categoriesResult.data ?? []).map(mapCategory),
     suppliers: (suppliersResult.data ?? []).map(mapSupplier),
     prices: (pricesResult.data ?? []).map(mapPrice),

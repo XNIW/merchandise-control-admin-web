@@ -28,6 +28,15 @@ import {
   sanitizeSpreadsheetCell,
 } from "./import-export-readiness";
 import {
+  detectCatalogImportHeaderRow,
+  mergeProductImportForApply,
+  normalizeCatalogImportHeader,
+  validateCatalogImportRows,
+  type CatalogImportExistingRows,
+  type CatalogImportField,
+  type CatalogImportProductRow,
+} from "./catalog-import-contract";
+import {
   getShopInventoryReadModel,
   type ShopInventoryCategory,
   type ShopInventoryProduct,
@@ -63,7 +72,7 @@ type ParsedCategoryRow = {
   rowNumber: number;
 };
 
-type ParsedProductRow = ProductMutationInput & {
+type ParsedProductRow = ProductMutationInput & CatalogImportProductRow & {
   categoryName?: string;
   productId?: string;
   rowNumber: number;
@@ -133,53 +142,40 @@ function validateWorkbookFile(input: CatalogWorkbookInput) {
   return null;
 }
 
-function normalizeHeader(value: unknown) {
-  return String(value ?? "")
-    .trim()
-    .toLowerCase()
-    .replace(/[\s-]+/g, "_");
-}
-
 function normalizeLabel(value: unknown) {
   return sanitizeSpreadsheetCell(String(value ?? "").replace(/\s+/g, " ").trim());
 }
 
-function cellValue(
-  headers: Map<string, number>,
+function productCellValue(
+  headers: ReadonlyMap<CatalogImportField, number>,
   row: readonly unknown[],
-  aliases: readonly string[],
+  field: CatalogImportField,
 ) {
-  for (const alias of aliases) {
-    const index = headers.get(alias);
+  const index = headers.get(field);
 
-    if (index !== undefined) {
-      return row[index];
-    }
-  }
-
-  return undefined;
+  return index === undefined ? undefined : row[index];
 }
 
-function textValue(
-  headers: Map<string, number>,
+function productTextValue(
+  headers: ReadonlyMap<CatalogImportField, number>,
   row: readonly unknown[],
-  aliases: readonly string[],
+  field: CatalogImportField,
 ) {
-  const value = cellValue(headers, row, aliases);
+  const value = productCellValue(headers, row, field);
 
   return normalizeLabel(value);
 }
 
-function numberValue(
-  headers: Map<string, number>,
+function productNumberValue(
+  headers: ReadonlyMap<CatalogImportField, number>,
   row: readonly unknown[],
-  aliases: readonly string[],
+  sourceField: CatalogImportField,
   sheet: string,
   rowNumber: number,
   field: string,
   rowErrors: WorkbookRowError[],
 ) {
-  const value = cellValue(headers, row, aliases);
+  const value = productCellValue(headers, row, sourceField);
   const normalized = normalizeLabel(value);
 
   if (!normalized) {
@@ -202,8 +198,18 @@ function numberValue(
   return numeric;
 }
 
-function getSheetRows(sheets: readonly { data: SheetData; sheet: string }[], sheet: string) {
-  return sheets.find((entry) => entry.sheet === sheet)?.data ?? [];
+function getSheetRows(
+  sheets: readonly { data: SheetData; sheet: string }[],
+  sheet: string,
+  options: { fallbackToFirstSheet?: boolean } = {},
+) {
+  const exact = sheets.find((entry) => entry.sheet === sheet)?.data;
+
+  if (exact) {
+    return exact;
+  }
+
+  return options.fallbackToFirstSheet ? (sheets[0]?.data ?? []) : [];
 }
 
 function headerMap(rows: SheetData) {
@@ -211,7 +217,7 @@ function headerMap(rows: SheetData) {
   const headers = new Map<string, number>();
 
   for (const [index, cell] of (headerRow ?? []).entries()) {
-    const key = normalizeHeader(cell);
+    const key = normalizeCatalogImportHeader(cell);
 
     if (key) {
       headers.set(key, index);
@@ -221,13 +227,29 @@ function headerMap(rows: SheetData) {
   return headers;
 }
 
-function nonEmptyRows(rows: SheetData) {
+function nonEmptyRows(rows: SheetData, startRowIndex = 1) {
   return rows
-    .slice(1)
-    .map((row, index) => ({ row, rowNumber: index + 2 }))
+    .slice(startRowIndex)
+    .map((row, index) => ({ row, rowNumber: startRowIndex + index + 1 }))
     .filter(({ row }) =>
       row.some((cell) => String(cell ?? "").trim().length > 0),
     );
+}
+
+function textValue(
+  headers: Map<string, number>,
+  row: readonly unknown[],
+  aliases: readonly string[],
+) {
+  for (const alias of aliases) {
+    const index = headers.get(normalizeCatalogImportHeader(alias));
+
+    if (index !== undefined) {
+      return normalizeLabel(row[index]);
+    }
+  }
+
+  return "";
 }
 
 function parseSuppliers(rows: SheetData, rowErrors: WorkbookRowError[]) {
@@ -278,17 +300,54 @@ function parseCategories(rows: SheetData, rowErrors: WorkbookRowError[]) {
   return parsed;
 }
 
+function isProductSummaryRow(row: readonly unknown[]) {
+  const summaryLabels = new Set([
+    "total",
+    "totales",
+    "valor_total",
+    "总数",
+    "總數",
+    "总价",
+    "總價",
+  ]);
+
+  return row.some((cell) => summaryLabels.has(normalizeCatalogImportHeader(cell)));
+}
+
 function parseProducts(rows: SheetData, rowErrors: WorkbookRowError[]) {
-  const headers = headerMap(rows);
+  if (rows.length === 0) {
+    return [];
+  }
+
+  const detection = detectCatalogImportHeaderRow(rows);
   const parsed: ParsedProductRow[] = [];
 
-  for (const { row, rowNumber } of nonEmptyRows(rows)) {
-    const barcode = textValue(headers, row, ["barcode", "code"]);
-    const productName = textValue(headers, row, [
-      "product_name",
-      "product",
-      "name",
-    ]);
+  if (!detection) {
+    rowErrors.push({
+      field: "header",
+      message:
+        "Products sheet must include recognizable barcode and product columns.",
+      row: 1,
+      sheet: "Products",
+    });
+
+    return parsed;
+  }
+
+  for (const { row, rowNumber } of nonEmptyRows(
+    rows,
+    detection.headerRowIndex + 1,
+  )) {
+    if (isProductSummaryRow(row)) {
+      continue;
+    }
+
+    const barcode = productTextValue(detection.headers, row, "barcode");
+    const productName = productTextValue(
+      detection.headers,
+      row,
+      "productName",
+    );
 
     if (!barcode) {
       rowErrors.push({
@@ -311,25 +370,27 @@ function parseProducts(rows: SheetData, rowErrors: WorkbookRowError[]) {
     parsed.push({
       barcode,
       categoryId:
-        textValue(headers, row, ["category_id"]) || undefined,
+        productTextValue(detection.headers, row, "categoryId") || undefined,
       categoryName:
-        textValue(headers, row, ["category_name", "category"]) || undefined,
-      itemNumber: textValue(headers, row, ["item_number", "item"]) || undefined,
-      productId: textValue(headers, row, ["product_id", "id"]) || undefined,
+        productTextValue(detection.headers, row, "categoryName") || undefined,
+      itemNumber:
+        productTextValue(detection.headers, row, "itemNumber") || undefined,
+      productId:
+        productTextValue(detection.headers, row, "productId") || undefined,
       productName,
-      purchasePrice: numberValue(
-        headers,
+      purchasePrice: productNumberValue(
+        detection.headers,
         row,
-        ["purchase_price", "purchase"],
+        "purchasePrice",
         "Products",
         rowNumber,
         "purchasePrice",
         rowErrors,
       ),
-      retailPrice: numberValue(
-        headers,
+      retailPrice: productNumberValue(
+        detection.headers,
         row,
-        ["retail_price", "retail"],
+        "retailPrice",
         "Products",
         rowNumber,
         "retailPrice",
@@ -337,21 +398,21 @@ function parseProducts(rows: SheetData, rowErrors: WorkbookRowError[]) {
       ),
       rowNumber,
       secondProductName:
-        textValue(headers, row, ["second_product_name", "second_name"]) ||
+        productTextValue(detection.headers, row, "secondProductName") ||
         undefined,
-      stockQuantity: numberValue(
-        headers,
+      stockQuantity: productNumberValue(
+        detection.headers,
         row,
-        ["stock_quantity", "stock"],
+        "stockQuantity",
         "Products",
         rowNumber,
         "stockQuantity",
         rowErrors,
       ),
       supplierId:
-        textValue(headers, row, ["supplier_id"]) || undefined,
+        productTextValue(detection.headers, row, "supplierId") || undefined,
       supplierName:
-        textValue(headers, row, ["supplier_name", "supplier"]) || undefined,
+        productTextValue(detection.headers, row, "supplierName") || undefined,
     });
   }
 
@@ -377,7 +438,10 @@ async function parseWorkbook(input: CatalogWorkbookInput): Promise<ParsedWorkboo
 
   const rowErrors: WorkbookRowError[] = [];
   const rowWarnings: WorkbookRowError[] = [];
-  const products = parseProducts(getSheetRows(sheets, "Products"), rowErrors);
+  const products = parseProducts(
+    getSheetRows(sheets, "Products", { fallbackToFirstSheet: true }),
+    rowErrors,
+  );
   const suppliers = parseSuppliers(getSheetRows(sheets, "Suppliers"), rowErrors);
   const categories = parseCategories(getSheetRows(sheets, "Categories"), rowErrors);
 
@@ -448,14 +512,45 @@ function findCategory(
   );
 }
 
+function readModelAsExistingRows(
+  readModel: Pick<
+    Awaited<ReturnType<typeof getShopInventoryReadModel>>,
+    "categories" | "products" | "suppliers"
+  >,
+): CatalogImportExistingRows {
+  return {
+    categories: readModel.categories.map((category) => ({
+      categoryId: category.categoryId,
+      name: category.name,
+    })),
+    products: readModel.products.map((product) => ({
+      barcode: product.barcode,
+      categoryId: product.categoryId,
+      itemNumber: product.itemNumber,
+      productId: product.productId,
+      productName: product.productName,
+      purchasePrice: product.purchasePrice,
+      retailPrice: product.retailPrice,
+      secondProductName: product.secondProductName,
+      stockQuantity: product.stockQuantity,
+      supplierId: product.supplierId,
+    })),
+    suppliers: readModel.suppliers.map((supplier) => ({
+      name: supplier.name,
+      supplierId: supplier.supplierId,
+    })),
+  };
+}
+
 async function auditImportExport(
   requestedShopId: string | undefined,
+  permission: "catalog.import" | "catalog.export",
   eventKey: string,
   result: "success" | "blocked" | "failure",
   code: string,
   metadata: Json,
 ) {
-  const context = await resolveShopActionContext(requestedShopId, "catalog.export");
+  const context = await resolveShopActionContext(requestedShopId, permission);
 
   if (context.status !== "ready") {
     return context.result;
@@ -507,40 +602,45 @@ export async function parseCatalogWorkbookPreview(
     });
   }
 
-  const updatedProducts = parsed.products.filter((row) =>
-    Boolean(findProduct(readModel.products, row)),
-  ).length;
-  const newProducts = parsed.products.length - updatedProducts;
+  const validation = validateCatalogImportRows(
+    parsed,
+    readModelAsExistingRows(readModel),
+  );
+  const rowErrors = [...parsed.rowErrors, ...validation.rowErrors];
+  const rowWarnings = [...parsed.rowWarnings, ...validation.rowWarnings];
 
-  await auditImportExport(
+  const auditResult = await auditImportExport(
     context.selectedShop.shopId,
+    "catalog.import",
     "shop.catalog.import.preview",
-    parsed.rowErrors.length > 0 ? "blocked" : "success",
-    parsed.rowErrors.length > 0 ? "validation_failed" : "success",
+    rowErrors.length > 0 ? "blocked" : "success",
+    rowErrors.length > 0 ? "validation_failed" : "success",
     {
       digest: parsed.digest,
-      errors: parsed.rowErrors.length,
+      errors: rowErrors.length,
+      "no_purge": true,
       products: parsed.products.length,
-      warnings: parsed.rowWarnings.length,
+      "preview.valid": rowErrors.length === 0,
+      warnings: rowWarnings.length,
     },
   );
 
+  if (!auditResult.ok) {
+    return auditResult;
+  }
+
   return {
     ...shopAdminActionResult(
-      parsed.rowErrors.length > 0 ? "validation_failed" : "success",
-      { ok: parsed.rowErrors.length === 0, shopId: context.selectedShop.shopId },
+      rowErrors.length > 0 ? "validation_failed" : "success",
+      { ok: rowErrors.length === 0, shopId: context.selectedShop.shopId },
     ),
     previewDigest: parsed.digest,
-    rowErrors: parsed.rowErrors,
-    rowWarnings: parsed.rowWarnings,
+    rowErrors,
+    rowWarnings,
     summary: {
-      categories: parsed.categories.length,
-      errors: parsed.rowErrors.length,
-      newProducts,
-      products: parsed.products.length,
-      suppliers: parsed.suppliers.length,
-      updatedProducts,
-      warnings: parsed.rowWarnings.length,
+      ...validation.summary,
+      errors: rowErrors.length,
+      warnings: rowWarnings.length,
     },
   };
 }
@@ -601,6 +701,23 @@ export async function applyCatalogWorkbookImport(
       ok: false,
       shopId: context.selectedShop.shopId,
     });
+  }
+
+  const validation = validateCatalogImportRows(
+    parsed,
+    readModelAsExistingRows(readModel),
+  );
+  const rowErrors = [...parsed.rowErrors, ...validation.rowErrors];
+
+  if (rowErrors.length > 0) {
+    return {
+      ...shopAdminActionResult("validation_failed", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      }),
+      previewDigest: parsed.digest,
+      rowErrors,
+    };
   }
 
   const supplierIdsByName = new Map(
@@ -665,24 +782,11 @@ export async function applyCatalogWorkbookImport(
   for (const row of parsed.products) {
     const existing = findProduct(readModel.products, row);
     const productInput: ProductMutationInput = {
-      barcode: row.barcode,
-      categoryId:
-        row.categoryId ??
-        (row.categoryName
-          ? categoryIdsByName.get(row.categoryName.toLowerCase())
-          : undefined),
-      itemNumber: row.itemNumber,
-      productName: row.productName,
-      purchasePrice: row.purchasePrice,
+      ...mergeProductImportForApply(row, existing, {
+        categoryIdsByName,
+        supplierIdsByName,
+      }),
       requestedShopId: context.selectedShop.shopId,
-      retailPrice: row.retailPrice,
-      secondProductName: row.secondProductName,
-      stockQuantity: row.stockQuantity,
-      supplierId:
-        row.supplierId ??
-        (row.supplierName
-          ? supplierIdsByName.get(row.supplierName.toLowerCase())
-          : undefined),
     };
     const result = existing
       ? await updateProduct({
@@ -698,8 +802,9 @@ export async function applyCatalogWorkbookImport(
     }
   }
 
-  await auditImportExport(
+  const auditResult = await auditImportExport(
     context.selectedShop.shopId,
+    "catalog.import",
     "shop.catalog.import.apply",
     failedRows > 0 ? "failure" : "success",
     failedRows > 0 ? "partial_failure" : "success",
@@ -707,10 +812,27 @@ export async function applyCatalogWorkbookImport(
       categoriesApplied,
       digest: parsed.digest,
       failedRows,
+      "no_purge": true,
       productsApplied,
+      "preview.valid": true,
       suppliersApplied,
     },
   );
+
+  const summary = {
+    categoriesApplied,
+    failedRows,
+    productsApplied,
+    suppliersApplied,
+  };
+
+  if (!auditResult.ok) {
+    return {
+      ...auditResult,
+      previewDigest: parsed.digest,
+      summary,
+    };
+  }
 
   return {
     ...shopAdminActionResult(failedRows > 0 ? "db_failure" : "success", {
@@ -718,12 +840,7 @@ export async function applyCatalogWorkbookImport(
       shopId: context.selectedShop.shopId,
     }),
     previewDigest: parsed.digest,
-    summary: {
-      categoriesApplied,
-      failedRows,
-      productsApplied,
-      suppliersApplied,
-    },
+    summary,
   };
 }
 
@@ -825,8 +942,9 @@ export async function buildCatalogWorkbookExport(
     },
   ]).toBuffer();
 
-  await auditImportExport(
+  const auditResult = await auditImportExport(
     context.selectedShop.shopId,
+    "catalog.export",
     "shop.catalog.export",
     "success",
     "success",
@@ -836,6 +954,10 @@ export async function buildCatalogWorkbookExport(
       suppliers: readModel.suppliers.length,
     },
   );
+
+  if (!auditResult.ok) {
+    return auditResult;
+  }
 
   return {
     ...shopAdminActionResult("success", {

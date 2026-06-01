@@ -3,8 +3,8 @@
 ## Stato
 
 - Task origine: `TASK-026`
-- Ultimo aggiornamento: `TASK-027`
-- Stato: `DONE_RECONCILED`
+- Ultimo aggiornamento: `TASK-028`
+- Stato: `REVIEW`
 - Data: `2026-06-01`
 - Ambito: catalogo prodotti Shop Admin verso Win7POS.
 
@@ -20,6 +20,7 @@
 - Nel primo pull vengono inviate solo righe attive. Nel delta vengono inviate righe attive aggiornate e tombstone per righe con `deleted_at`.
 - Il `sync cursor` e reale: timestamp ISO quando la pagina e completa, cursor opaco `catalog-v1:*` quando `hasMore = true`.
 - Win7POS deve reinviare il cursor salvato nel campo `syncCursor`; `updated_since`/`updatedSince` resta solo input timestamp compatibile con client legacy o cursor timestamp.
+- TASK-028 consente a Win7POS di applicare tombstone prodotto come stato locale non distruttivo (`is_active = 0`, `remote_deleted_at`) usando `remote_product_id`; nessun purge o `DELETE` fisico e richiesto dal pull.
 
 ### Win7POS -> Supabase
 
@@ -31,13 +32,14 @@
 
 - Editing catalogo da POS: `DEFERRED`.
 - Il database SQLite locale Win7POS e una cache operativa del catalogo autorizzato, non la sorgente di verita.
-- Creazione, modifica e archiviazione di prodotti/categorie/fornitori restano in Admin Web tramite Server Actions e RPC auditabili `shop_catalog_*`.
+- Creazione, modifica, archiviazione e restore di prodotti/categorie/fornitori restano in Admin Web tramite Server Actions e RPC auditabili `shop_catalog_*`.
 - Conflitti: vince Admin Web/Supabase. Il POS deve applicare il pull successivo, non risolvere conflitti localmente.
 
 ## Cancellazioni e versioning
 
 - Admin Web usa soft delete tramite `deleted_at` su prodotti/categorie/fornitori.
 - Il pull full refresh esclude righe archiviate. Il pull delta include tombstone non distruttive per consentire al client di segnare/ignorare righe non piu attive senza svuotare il catalogo locale.
+- Il restore Admin Web e un'azione esplicita e auditata. Non e una resurrezione implicita da import o pull POS.
 - Ogni evoluzione payload dovra incrementare `schema_version`/`schemaVersion` e mantenere compatibilita Win7POS o un percorso di migrazione.
 - Il `sync cursor` non deve essere usato per saltare righe se il server dichiara `full_refresh`; in `delta` il lower bound e inclusivo per tollerare collisioni timestamp con upsert idempotente.
 

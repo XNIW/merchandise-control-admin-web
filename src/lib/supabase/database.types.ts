@@ -1813,6 +1813,10 @@ export type Database = {
         Args: { p_product_id: string; p_reason?: string; p_shop_id: string }
         Returns: Json
       }
+      shop_catalog_restore_product: {
+        Args: { p_product_id: string; p_reason?: string; p_shop_id: string }
+        Returns: Json
+      }
       shop_catalog_archive_supplier: {
         Args: { p_reason?: string; p_shop_id: string; p_supplier_id: string }
         Returns: Json

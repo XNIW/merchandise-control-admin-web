@@ -1031,6 +1031,35 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Review/fix 2026-06-01: corretti tre gap trovati durante la review dell'allegato: cursor opaco `catalog-v1:*` ora respinto se futuro o incoerente, audit catalog pull ora salva solo `sync_cursor_preview`/presenza e non il cursor completo, Win7POS ora reinvia il cursor salvato via `syncCursor` invece di `updated_since`. Codex Security diff scan completato su Admin Web e Win7POS con report locali in `/tmp/codex-security-scans/.../report.md`; nessun finding reportable non risolto dopo fix/validation/attack-path.
 - Finalization 2026-06-01: su conferma esplicita utente, TASK-027 chiuso a `DONE_RECONCILED_WITH_NOTES`. Cleanup artefatti verificato: nessuna cartella `/tmp/codex-security-scans/...` o scan id dentro i repo; solo `docs/TASKS/EVIDENCE/TASK-027/README.md` mantenuto come evidence utile. Commit e push separati richiesti per Admin Web e Win7POS.
 
+### TASK-028 - Catalog CRUD, Excel import/export, and Win7POS catalog pull E2E
+
+- Stato: `REVIEW`
+- File task: `docs/TASKS/TASK-028-catalog-crud-import-export-win7pos-e2e.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-028/README.md`
+- Fase: `REVIEW`
+- Execution: `COMPLETED_BY_CODEX`
+- Review: `PENDING_USER_REVIEW`
+- Verdict corrente: `READY_FOR_DONE_CONFIRMATION`
+- Scopo: completare il catalogo Shop Admin con restore controllato, import/export Excel preview-first e applicazione Win7POS dei tombstone come soft state locale, mantenendo Admin Web/Supabase come sorgente autoritativa.
+- Include:
+  - RPC auditata `shop_catalog_restore_product`;
+  - read model con `deletedAt` e `archivedProducts`;
+  - import Excel con validazione duplicati/conflitti, digest preview/apply e merge conservativo;
+  - riconoscimento colonne per campioni Drive fornitori con header dopo metadata e alias spagnoli/cinesi;
+  - audit import/export con permessi separati `catalog.import` / `catalog.export` e fallimento chiuso;
+  - guard limite upload multipart prima del parsing body;
+  - Win7POS con `remote_product_id`, `remote_deleted_at`, `is_active`, diagnostica catalog pull e tombstone senza delete fisico;
+  - test foundation TASK-028 e documentazione/evidence.
+- Non include:
+  - TASK-024 sales sync;
+  - sync bidirezionale catalogo;
+  - editing catalogo da POS;
+  - modifiche iOS/Android;
+  - nuove dipendenze;
+  - commit/push/stage.
+- Nota: execution avviata da Codex il 2026-06-01 su richiesta esplicita utente tramite allegato. L'utente ha fornito anche una cartella Drive con file fornitori; sono stati ispezionati campioni `.xlsx` reali e usati per estendere il riconoscimento colonne. Handoff preparato a `REVIEW`; Codex non marca mai `DONE`.
+- Review/fix 2026-06-01: corretti audit import/export con permessi `catalog.import`/`catalog.export` e controllo esplicito esito audit, guard `Content-Length` prima di `formData()` su preview/apply, tabella prodotti con `Product id`, `State`, `Archived at` e righe archiviate visibili. Gate finali: `npm run test:foundation` PASS (`128/128`), `npm run verify` PASS con warning toolchain `[DEP0205]`, `npm run security:scan` PASS, Win7POS scanner ALL PASS, build WPF x86 PASS (`Avvisi: 0`, `Errori: 0`). Supabase migration non applicata su DB locale/live per container locale assente; no apply remoto. Codex Security diff scan Admin Web/Win7POS senza finding reportable, report in `/tmp/codex-security-scans/.../report.md`. Verdict tecnico aggiornato a `READY_FOR_DONE_CONFIRMATION`, mantenendo fase `REVIEW`.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -1044,7 +1073,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `IDLE`
+- Stato globale attuale: `REVIEW`
 - Ultimo task completato: `TASK-027 - Catalog pull delta sync and POS catalog hardening`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
@@ -1061,17 +1090,18 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-020: `DONE_RECONCILED`
 - Stato TASK-021: `DONE`
 - Fase TASK-021: `DONE_RECONCILED`
-- Task attivo: `NESSUNO`
-- File task: `docs/TASKS/TASK-027-catalog-pull-delta-sync-and-pos-catalog-hardening.md`
-- Stato task: `DONE`
-- Fase: `DONE_RECONCILED`
-- Responsabile: `USER_CONFIRMED_DONE`
+- Task attivo: `TASK-028 - Catalog CRUD, Excel import/export, and Win7POS catalog pull E2E`
+- File task: `docs/TASKS/TASK-028-catalog-crud-import-export-win7pos-e2e.md`
+- Stato task: `REVIEW`
+- Fase: `REVIEW`
+- Responsabile: `USER_REVIEW`
 - Branch execution: `main`
 - Task parcheggiato: `TASK-022_023 - POS live dashboard + Win7POS first login trusted device`
 - Stato task parcheggiato: `PARKED_E2E_PENDING`
 - Verdict TASK-026: `DONE_WITH_NOTES`
 - Verdict TASK-027: `DONE_RECONCILED_WITH_NOTES`
-- Prossima azione consigliata: progetto in `IDLE`; TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
+- Verdict TASK-028: `READY_FOR_DONE_CONFIRMATION`
+- Prossima azione consigliata: review utente TASK-028; TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
 
 ## Regole di avanzamento
 

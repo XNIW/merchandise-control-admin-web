@@ -9,6 +9,7 @@ import {
   createCategory,
   createProduct,
   createSupplier,
+  restoreProduct,
   updateCategory,
   updateProduct,
   updateSupplier,
@@ -118,6 +119,24 @@ export async function archiveProductAction(formData: FormData) {
   resultRedirect(
     "/shop/products",
     await archiveProduct({
+      id: formString(formData, "productId"),
+      reason: optionalFormString(formData, "reason"),
+      requestedShopId: requestedShopId(formData),
+    }),
+  );
+}
+
+export async function restoreProductAction(formData: FormData) {
+  if (!confirmed(formData, "RESTORE")) {
+    resultRedirect(
+      "/shop/products",
+      shopAdminActionResult("validation_failed", { ok: false }),
+    );
+  }
+
+  resultRedirect(
+    "/shop/products",
+    await restoreProduct({
       id: formString(formData, "productId"),
       reason: optionalFormString(formData, "reason"),
       requestedShopId: requestedShopId(formData),

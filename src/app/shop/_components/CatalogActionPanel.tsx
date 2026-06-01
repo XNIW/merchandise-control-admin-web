@@ -5,6 +5,7 @@ import {
   createCategoryAction,
   createProductAction,
   createSupplierAction,
+  restoreProductAction,
   updateCategoryAction,
   updateProductAction,
   updateSupplierAction,
@@ -106,6 +107,18 @@ function ProductForms({ selectedShopId }: { selectedShopId?: string }) {
           <TextInput label="Type ARCHIVE as confirmation" name="confirmation" required />
           <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
             Archive product
+          </button>
+        </form>
+      </ActionShell>
+
+      <ActionShell title="Archived products">
+        <form action={restoreProductAction} className="grid gap-3">
+          <HiddenShopInput selectedShopId={selectedShopId} />
+          <TextInput label="Product id" name="productId" required />
+          <TextInput label="Reason" name="reason" />
+          <TextInput label="Type RESTORE as confirmation" name="confirmation" required />
+          <button className="rounded-md border border-emerald-500 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-950">
+            Restore product
           </button>
         </form>
       </ActionShell>
