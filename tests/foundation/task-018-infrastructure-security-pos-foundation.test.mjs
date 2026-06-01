@@ -159,6 +159,6 @@ test("TASK-018 is enforced by the security scanner and tracked in the master pla
   assert.match(masterPlan, /TASK-018 - Infrastructure, Security Hardening and POS Foundation/);
   assert.match(
     masterPlan,
-    /Task attivo: `TASK-018 - Infrastructure, Security Hardening and POS Foundation`|Task attivo: `NONE`/,
+    /Task attivo: `TASK-018 - Infrastructure, Security Hardening and POS Foundation`|Task attivo: `TASK-019 - POS Auth Foundation Implementation`|Task attivo: `NONE`/,
   );
 });

@@ -516,7 +516,9 @@ function staffRow(
     status: formatToken(staff.status),
     credential:
       staff.credentialKind && staff.credentialUpdatedAt
-        ? `${formatToken(staff.credentialKind)} updated ${formatDateTime(
+        ? `${formatToken(staff.credentialKind)} ${formatToken(
+            staff.credentialStatus,
+          )} v${staff.credentialVersion} updated ${formatDateTime(
             staff.credentialUpdatedAt,
           )}`
         : "Pending setup",
@@ -1520,11 +1522,14 @@ export function buildStaffDetailSection(
             { field: "Display name", value: staff.displayName },
             { field: "Role", value: formatToken(staff.roleKey) },
             { field: "Status", value: formatToken(staff.status) },
+            { field: "Credential status", value: formatToken(staff.credentialStatus) },
+            { field: "Credential version", value: `v${staff.credentialVersion}` },
             { field: "Credential kind", value: staff.credentialKind ? formatToken(staff.credentialKind) : "Pending setup" },
             { field: "Must change credential", value: staff.mustChangeCredential ? "Yes" : "No" },
             { field: "Failed attempts", value: String(staff.failedAttempts) },
             { field: "Locked until", value: formatDateTime(staff.lockedUntil) },
             { field: "Last login", value: formatDateTime(staff.lastLoginAt) },
+            { field: "Session invalidated", value: formatDateTime(staff.sessionInvalidatedAt) },
             { field: "Updated", value: formatDateTime(staff.updatedAt) },
           ])
         : [],

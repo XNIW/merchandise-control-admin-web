@@ -24,6 +24,7 @@ export type ShopAdminActionCode =
   | "invalid_state_or_not_found"
   | "invalid_supplier"
   | "invalid_category"
+  | "reason_required"
   | "file_too_large"
   | "row_limit_exceeded"
   | "invalid_file_type"
@@ -67,6 +68,7 @@ const messages: Record<ShopAdminActionCode, string> = {
     "The target row was not found or is not in a valid state.",
   invalid_supplier: "The selected supplier does not belong to this shop source.",
   invalid_category: "The selected category does not belong to this shop source.",
+  reason_required: "A reason is required for this sensitive action.",
   file_too_large: "The workbook is larger than the allowed import limit.",
   row_limit_exceeded: "The workbook contains more rows than allowed.",
   invalid_file_type: "Upload a .xlsx workbook.",
@@ -143,6 +145,7 @@ function mapRpcCode(value: unknown): ShopAdminActionCode {
     "invalid_state_or_not_found",
     "invalid_supplier",
     "invalid_category",
+    "reason_required",
     "db_failure",
   ]);
 

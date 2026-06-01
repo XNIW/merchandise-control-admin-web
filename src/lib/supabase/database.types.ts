@@ -58,6 +58,7 @@ export type Database = {
         }
         Returns: Json
       }
+      shop_admin_reason_metadata: { Args: { p_reason: string }; Returns: Json }
       write_platform_shop_audit: {
         Args: {
           p_actor_profile_id: string
@@ -1266,13 +1267,16 @@ export type Database = {
           credential_expires_at: string | null
           credential_hash: string | null
           credential_kind: string | null
+          credential_status: string
           credential_updated_at: string | null
+          credential_version: number
           display_name: string
           failed_attempts: number
           last_login_at: string | null
           locked_until: string | null
           must_change_credential: boolean
           role_key: string
+          session_invalidated_at: string | null
           shop_id: string
           staff_code: string
           staff_id: string
@@ -1286,13 +1290,16 @@ export type Database = {
           credential_expires_at?: string | null
           credential_hash?: string | null
           credential_kind?: string | null
+          credential_status?: string
           credential_updated_at?: string | null
+          credential_version?: number
           display_name: string
           failed_attempts?: number
           last_login_at?: string | null
           locked_until?: string | null
           must_change_credential?: boolean
           role_key: string
+          session_invalidated_at?: string | null
           shop_id: string
           staff_code: string
           staff_id?: string
@@ -1306,13 +1313,16 @@ export type Database = {
           credential_expires_at?: string | null
           credential_hash?: string | null
           credential_kind?: string | null
+          credential_status?: string
           credential_updated_at?: string | null
+          credential_version?: number
           display_name?: string
           failed_attempts?: number
           last_login_at?: string | null
           locked_until?: string | null
           must_change_credential?: boolean
           role_key?: string
+          session_invalidated_at?: string | null
           shop_id?: string
           staff_code?: string
           staff_id?: string
@@ -1441,13 +1451,16 @@ export type Database = {
           created_at: string | null
           credential_expires_at: string | null
           credential_kind: string | null
+          credential_status: string | null
           credential_updated_at: string | null
+          credential_version: number | null
           display_name: string | null
           failed_attempts: number | null
           last_login_at: string | null
           locked_until: string | null
           must_change_credential: boolean | null
           role_key: string | null
+          session_invalidated_at: string | null
           shop_id: string | null
           staff_code: string | null
           staff_id: string | null
@@ -1458,13 +1471,16 @@ export type Database = {
           created_at?: string | null
           credential_expires_at?: string | null
           credential_kind?: string | null
+          credential_status?: string | null
           credential_updated_at?: string | null
+          credential_version?: number | null
           display_name?: string | null
           failed_attempts?: number | null
           last_login_at?: string | null
           locked_until?: string | null
           must_change_credential?: boolean | null
           role_key?: string | null
+          session_invalidated_at?: string | null
           shop_id?: string | null
           staff_code?: string | null
           staff_id?: string | null
@@ -1475,13 +1491,16 @@ export type Database = {
           created_at?: string | null
           credential_expires_at?: string | null
           credential_kind?: string | null
+          credential_status?: string | null
           credential_updated_at?: string | null
+          credential_version?: number | null
           display_name?: string | null
           failed_attempts?: number | null
           last_login_at?: string | null
           locked_until?: string | null
           must_change_credential?: boolean | null
           role_key?: string | null
+          session_invalidated_at?: string | null
           shop_id?: string | null
           staff_code?: string | null
           staff_id?: string | null
@@ -1710,6 +1729,10 @@ export type Database = {
         Args: { p_reason?: string; p_shop_id: string; p_staff_id: string }
         Returns: Json
       }
+      shop_staff_clear_lockout: {
+        Args: { p_reason: string; p_shop_id: string; p_staff_id: string }
+        Returns: Json
+      }
       shop_staff_create: {
         Args: {
           p_credential_expires_at?: string
@@ -1722,6 +1745,10 @@ export type Database = {
         }
         Returns: Json
       }
+      shop_staff_force_credential_rotation: {
+        Args: { p_reason: string; p_shop_id: string; p_staff_id: string }
+        Returns: Json
+      }
       shop_staff_reactivate: {
         Args: { p_reason?: string; p_shop_id: string; p_staff_id: string }
         Returns: Json
@@ -1731,6 +1758,7 @@ export type Database = {
           p_credential_expires_at?: string
           p_credential_hash: string
           p_credential_kind: string
+          p_reason: string
           p_shop_id: string
           p_staff_id: string
         }

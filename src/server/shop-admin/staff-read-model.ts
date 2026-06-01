@@ -24,12 +24,15 @@ export type ShopStaffReadModelStaffAccount = {
   roleKey: string;
   status: string;
   credentialKind: string | null;
+  credentialStatus: string;
   credentialUpdatedAt: string | null;
   credentialExpiresAt: string | null;
+  credentialVersion: number;
   mustChangeCredential: boolean;
   failedAttempts: number;
   lockedUntil: string | null;
   lastLoginAt: string | null;
+  sessionInvalidatedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -77,9 +80,13 @@ function isCompleteStaffSafeRow(
   staff_id: string;
   status: string;
   updated_at: string;
+  credential_status: string;
+  credential_version: number;
 } {
   return Boolean(
     row.created_at &&
+      row.credential_status &&
+      typeof row.credential_version === "number" &&
       row.display_name &&
       typeof row.failed_attempts === "number" &&
       typeof row.must_change_credential === "boolean" &&
@@ -107,12 +114,15 @@ function mapStaffSafeRow(
     roleKey: row.role_key,
     status: row.status,
     credentialKind: row.credential_kind,
+    credentialStatus: row.credential_status,
     credentialUpdatedAt: row.credential_updated_at,
     credentialExpiresAt: row.credential_expires_at,
+    credentialVersion: row.credential_version,
     mustChangeCredential: row.must_change_credential,
     failedAttempts: row.failed_attempts,
     lockedUntil: row.locked_until,
     lastLoginAt: row.last_login_at,
+    sessionInvalidatedAt: row.session_invalidated_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -176,7 +186,7 @@ export async function getShopStaffReadModel(
   const staffResult = await supabase
     .from("staff_accounts_safe")
     .select(
-      "staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,credential_updated_at,credential_expires_at,must_change_credential,failed_attempts,locked_until,last_login_at,created_at,updated_at",
+      "staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,credential_status,credential_updated_at,credential_expires_at,credential_version,must_change_credential,failed_attempts,locked_until,last_login_at,session_invalidated_at,created_at,updated_at",
     )
     .eq("shop_id", selectedShop.shopId)
     .order("staff_code", { ascending: true })

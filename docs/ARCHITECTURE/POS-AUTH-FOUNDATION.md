@@ -2,10 +2,11 @@
 
 ## Stato
 
-- Task: `TASK-018`
-- Stato: `DESIGNED_ONLY`
-- Obiettivo: definire architettura futura per login POS con `shop_code`, `staff_code` e PIN/password.
-- Fuori scope: login reale, endpoint pubblici, sessioni POS, provider social, email delivery e sync reale.
+- Task origine design: `TASK-018`
+- Task foundation implementation: `TASK-019`
+- Stato: `FOUNDATION_IMPLEMENTED_WITHOUT_POS_LOGIN`
+- Obiettivo: definire e avviare la foundation backend/admin per login POS futuro con `shop_code`, `staff_code` e PIN/password.
+- Fuori scope: login reale, endpoint pubblici, sessioni POS runtime complete, provider social, email delivery e sync reale.
 
 ## Boundary sicurezza
 
@@ -24,7 +25,18 @@
 | Audit | `audit_logs` | eventi redatti e shop-scoped. |
 | Web user | `profiles`, `shop_members` | resta separato dagli staff POS. |
 
-`staff_accounts` contiene gia colonne per `credential_hash`, `credential_kind`, `must_change_credential`, `failed_attempts`, `locked_until`, `last_login_at`, `suspended_at` e `archived_at`. La UI Admin Web deve continuare a usare read model safe che non selezionano o espongono `credential_hash`.
+`staff_accounts` contiene colonne per `credential_hash`, `credential_kind`, `must_change_credential`, `failed_attempts`, `locked_until`, `last_login_at`, `suspended_at`, `archived_at`, `credential_version`, `credential_status` e `session_invalidated_at`. La UI Admin Web deve continuare a usare read model safe che non selezionano o espongono `credential_hash`.
+
+## Foundation implementata in TASK-019
+
+- `credential_version` traccia le rotazioni credential lato staff account.
+- `credential_status` espone solo stato safe (`pending_setup`, `active`, `rotation_required`, `locked`) via `staff_accounts_safe`.
+- `session_invalidated_at` e un marker foundation per refresh/heartbeat futuri; non e ancora uno store sessioni POS runtime.
+- Le RPC staff credential management sono shop-scoped, DB-authorized tramite membership owner/manager, con `search_path` controllato.
+- Reset credential, suspend, reactivate, archive, force rotation e clear lockout richiedono reason server-side.
+- Audit metadata salva indicatori redatti (`reason_provided`, `reason_length`) e non salva reason raw, PIN/password o hash.
+- Shop Admin `/shop/staff` puo gestire stato credential e azioni sensibili, ma non espone una schermata login POS.
+- `staff_accounts_safe` resta `security_invoker`; le colonne safe aggiunte in TASK-019 hanno grant colonnari espliciti su `staff_accounts` per mantenere la view leggibile senza concedere mutazioni o `credential_hash`.
 
 ## Flusso login futuro
 

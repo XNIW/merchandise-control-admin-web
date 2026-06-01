@@ -33,14 +33,22 @@ type ResetCredentialInput = StaffTargetInput & {
   credentialKind?: string;
 };
 
+function normalizeStaffTarget(input: StaffTargetInput) {
+  return {
+    reason: input.reason?.trim(),
+    requestedShopId: input.requestedShopId,
+    staffId: input.staffId.trim(),
+  };
+}
+
 function normalizeCredentialKind(value: string | undefined): StaffCredentialKind {
   return value === "pin" ? "pin" : "password";
 }
 
 export function generateTemporaryStaffCredential(kind: StaffCredentialKind) {
   if (kind === "pin") {
-    const digits = String(randomBytes(4).readUInt32BE(0) % 1000000).padStart(
-      6,
+    const digits = String(randomBytes(4).readUInt32BE(0) % 100000000).padStart(
+      8,
       "0",
     );
 
@@ -55,6 +63,19 @@ async function staffCredentialHash(kind: StaffCredentialKind) {
   const credentialHash = await hashStaffCredential(temporaryCredential);
 
   return { credentialHash, temporaryCredential };
+}
+
+function reasonRequired(value: string | undefined): value is string {
+  return typeof value === "string" && value.trim().length > 0;
+}
+
+function sensitiveReasonError() {
+  return shopAdminActionResult("reason_required", {
+    fieldErrors: {
+      reason: "A reason is required for staff credential and status actions.",
+    },
+    ok: false,
+  });
 }
 
 async function staffRpcResult(
@@ -124,20 +145,27 @@ export async function createStaff(
 export async function resetStaffCredential(
   input: ResetCredentialInput,
 ): Promise<StaffMutationResult> {
+  const target = normalizeStaffTarget(input);
   const credentialKind = normalizeCredentialKind(input.credentialKind);
 
-  if (!input.staffId.trim()) {
+  if (!target.staffId) {
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
+  if (!reasonRequired(target.reason)) {
+    return sensitiveReasonError();
+  }
+  const reason = target.reason;
+
   const { credentialHash, temporaryCredential } =
     await staffCredentialHash(credentialKind);
-  const result = await staffRpcResult(input.requestedShopId, (context) =>
+  const result = await staffRpcResult(target.requestedShopId, (context) =>
     context.supabase.rpc("shop_staff_reset_credential", {
       p_credential_hash: credentialHash,
       p_credential_kind: credentialKind,
+      p_reason: reason,
       p_shop_id: context.selectedShop.shopId,
-      p_staff_id: input.staffId,
+      p_staff_id: target.staffId,
     }),
   );
 
@@ -147,15 +175,22 @@ export async function resetStaffCredential(
 export async function suspendStaff(
   input: StaffTargetInput,
 ): Promise<ShopAdminActionResult> {
-  if (!input.staffId.trim()) {
+  const target = normalizeStaffTarget(input);
+
+  if (!target.staffId) {
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
-  return staffRpcResult(input.requestedShopId, (context) =>
+  if (!reasonRequired(target.reason)) {
+    return sensitiveReasonError();
+  }
+  const reason = target.reason;
+
+  return staffRpcResult(target.requestedShopId, (context) =>
     context.supabase.rpc("shop_staff_suspend", {
-      p_reason: input.reason,
+      p_reason: reason,
       p_shop_id: context.selectedShop.shopId,
-      p_staff_id: input.staffId,
+      p_staff_id: target.staffId,
     }),
   );
 }
@@ -163,15 +198,22 @@ export async function suspendStaff(
 export async function reactivateStaff(
   input: StaffTargetInput,
 ): Promise<ShopAdminActionResult> {
-  if (!input.staffId.trim()) {
+  const target = normalizeStaffTarget(input);
+
+  if (!target.staffId) {
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
-  return staffRpcResult(input.requestedShopId, (context) =>
+  if (!reasonRequired(target.reason)) {
+    return sensitiveReasonError();
+  }
+  const reason = target.reason;
+
+  return staffRpcResult(target.requestedShopId, (context) =>
     context.supabase.rpc("shop_staff_reactivate", {
-      p_reason: input.reason,
+      p_reason: reason,
       p_shop_id: context.selectedShop.shopId,
-      p_staff_id: input.staffId,
+      p_staff_id: target.staffId,
     }),
   );
 }
@@ -179,15 +221,68 @@ export async function reactivateStaff(
 export async function archiveStaff(
   input: StaffTargetInput,
 ): Promise<ShopAdminActionResult> {
-  if (!input.staffId.trim()) {
+  const target = normalizeStaffTarget(input);
+
+  if (!target.staffId) {
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
-  return staffRpcResult(input.requestedShopId, (context) =>
+  if (!reasonRequired(target.reason)) {
+    return sensitiveReasonError();
+  }
+  const reason = target.reason;
+
+  return staffRpcResult(target.requestedShopId, (context) =>
     context.supabase.rpc("shop_staff_archive", {
-      p_reason: input.reason,
+      p_reason: reason,
       p_shop_id: context.selectedShop.shopId,
-      p_staff_id: input.staffId,
+      p_staff_id: target.staffId,
+    }),
+  );
+}
+
+export async function forceStaffCredentialRotation(
+  input: StaffTargetInput,
+): Promise<ShopAdminActionResult> {
+  const target = normalizeStaffTarget(input);
+
+  if (!target.staffId) {
+    return shopAdminActionResult("validation_failed", { ok: false });
+  }
+
+  if (!reasonRequired(target.reason)) {
+    return sensitiveReasonError();
+  }
+  const reason = target.reason;
+
+  return staffRpcResult(target.requestedShopId, (context) =>
+    context.supabase.rpc("shop_staff_force_credential_rotation", {
+      p_reason: reason,
+      p_shop_id: context.selectedShop.shopId,
+      p_staff_id: target.staffId,
+    }),
+  );
+}
+
+export async function clearStaffLockout(
+  input: StaffTargetInput,
+): Promise<ShopAdminActionResult> {
+  const target = normalizeStaffTarget(input);
+
+  if (!target.staffId) {
+    return shopAdminActionResult("validation_failed", { ok: false });
+  }
+
+  if (!reasonRequired(target.reason)) {
+    return sensitiveReasonError();
+  }
+  const reason = target.reason;
+
+  return staffRpcResult(target.requestedShopId, (context) =>
+    context.supabase.rpc("shop_staff_clear_lockout", {
+      p_reason: reason,
+      p_shop_id: context.selectedShop.shopId,
+      p_staff_id: target.staffId,
     }),
   );
 }

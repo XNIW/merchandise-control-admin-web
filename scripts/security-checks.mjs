@@ -201,6 +201,8 @@ function checkReadOnlyContracts() {
         "shop_staff_suspend",
         "shop_staff_reactivate",
         "shop_staff_archive",
+        "shop_staff_force_credential_rotation",
+        "shop_staff_clear_lockout",
       ]),
     ],
     [
@@ -1379,6 +1381,9 @@ function checkTask013UiPolishArtifacts() {
     ) &&
     !/Task attivo: `TASK-018 - Infrastructure, Security Hardening and POS Foundation`/.test(
       masterPlan,
+    ) &&
+    !/Task attivo: `TASK-019 - POS Auth Foundation Implementation`/.test(
+      masterPlan,
     )
   ) {
     addFailure(`${masterPlanPath} must either be IDLE after TASK-013 or track a later active task`);
@@ -1923,6 +1928,8 @@ function checkTask015ShopAdminConsole() {
     "shop_staff_suspend",
     "shop_staff_reactivate",
     "shop_staff_archive",
+    "shop_staff_force_credential_rotation",
+    "shop_staff_clear_lockout",
     "hashStaffCredential",
     "temporaryCredential",
     "staff.manage",
@@ -2611,6 +2618,221 @@ function checkTask018InfrastructureSecurityPosFoundation() {
   }
 }
 
+function checkTask019PosAuthFoundationImplementation() {
+  const taskPath = "docs/TASKS/TASK-019-pos-auth-foundation-implementation.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-019/README.md";
+  const migrationPaths = listFiles("supabase/migrations").filter((file) =>
+    file.includes("_task_019_"),
+  );
+  const baseMigrationPath = migrationPaths.find((file) =>
+    file.endsWith("_task_019_pos_auth_foundation.sql"),
+  );
+  const readModelPath = "src/server/shop-admin/staff-read-model.ts";
+  const mutationsPath = "src/server/shop-admin/staff-mutations.ts";
+  const actionsPath = "src/app/shop/actions.ts";
+  const panelPath = "src/app/shop/_components/StaffActionPanel.tsx";
+  const sectionDataPath = "src/server/shop-admin/shop-section-data.ts";
+  const foundationTestPath =
+    "tests/foundation/task-019-pos-auth-foundation.test.mjs";
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    readModelPath,
+    mutationsPath,
+    actionsPath,
+    panelPath,
+    sectionDataPath,
+    foundationTestPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  if (!baseMigrationPath || migrationPaths.length === 0) {
+    addFailure("TASK-019 POS auth foundation migration is missing");
+    return;
+  }
+
+  const task = read(taskPath);
+  const masterPlan = read("docs/MASTER-PLAN.md");
+  const migration = migrationPaths.sort().map((file) => read(file)).join("\n");
+  const readModel = read(readModelPath);
+  const mutations = read(mutationsPath);
+  const actions = read(actionsPath);
+  const panel = read(panelPath);
+  const sectionData = read(sectionDataPath);
+  const foundationTest = read(foundationTestPath);
+  const clientSurface = [
+    panelPath,
+    "src/app/shop/staff/page.tsx",
+    "src/app/shop/staff/[staffId]/page.tsx",
+    "src/components/shop/ShopSectionPage.tsx",
+    "src/components/shop/shopSections.ts",
+  ]
+    .map((file) => read(file))
+    .join("\n");
+  const appRoutes = listFiles("src/app");
+
+  if (!/Stato: `(IN_PROGRESS|REVIEW|DONE)`/.test(task)) {
+    addFailure(`${taskPath} must stay IN_PROGRESS, REVIEW or DONE after reconciliation`);
+  }
+
+  if (!/Fase: `(EXECUTION|REVIEW|DONE_RECONCILED)`/.test(task)) {
+    addFailure(`${taskPath} must track a valid TASK-019 phase`);
+  }
+
+  if (!/TASK-019 - POS Auth Foundation Implementation/.test(masterPlan)) {
+    addFailure("MASTER-PLAN must track TASK-019");
+  }
+
+  for (const requiredSnippet of [
+    "credential_version",
+    "credential_status",
+    "session_invalidated_at",
+    "staff_accounts_safe",
+    "staff_accounts_credential_version_positive",
+    "staff_accounts_credential_status_check",
+  ]) {
+    if (!migration.includes(requiredSnippet)) {
+      addFailure(`TASK-019 migrations must include ${requiredSnippet}`);
+    }
+  }
+
+  const safeViewDefinition =
+    migration.match(
+      /create or replace view public\.staff_accounts_safe[\s\S]*?from public\.staff_accounts;/,
+    )?.[0] ?? "";
+
+  if (/credential_hash|pin_hash|password_hash/i.test(safeViewDefinition)) {
+    addFailure("TASK-019 migrations must not expose credential hashes in staff_accounts_safe");
+  }
+
+  if (/drop table|delete from|truncate/i.test(migration)) {
+    addFailure("TASK-019 migrations must stay non-destructive for data tables");
+  }
+
+  if (
+    /grant\s+(insert|update|delete|all)[\s\S]*on table public\.staff_accounts[\s\S]*to authenticated/i.test(
+      migration,
+    )
+  ) {
+    addFailure("TASK-019 migrations must not grant direct staff table mutations");
+  }
+
+  if (
+    !/grant select\s*\([\s\S]*credential_version[\s\S]*credential_status[\s\S]*session_invalidated_at[\s\S]*\)\s*on table public\.staff_accounts to authenticated/i.test(
+      migration,
+    )
+  ) {
+    addFailure("TASK-019 must grant authenticated SELECT on safe new staff columns for the security_invoker view");
+  }
+
+  for (const rpcName of [
+    "shop_staff_reset_credential",
+    "shop_staff_suspend",
+    "shop_staff_reactivate",
+    "shop_staff_archive",
+    "shop_staff_force_credential_rotation",
+    "shop_staff_clear_lockout",
+  ]) {
+    if (!new RegExp(`create or replace function public\\.${rpcName}`).test(migration)) {
+      addFailure(`TASK-019 migrations must create ${rpcName}`);
+    }
+
+    if (!new RegExp(`grant execute on function public\\.${rpcName}`).test(migration)) {
+      addFailure(`TASK-019 migrations must grant execute on ${rpcName}`);
+    }
+
+    if (!mutations.includes(`.rpc("${rpcName}"`)) {
+      addFailure(`${mutationsPath} must call ${rpcName}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "app_private.is_active_shop_staff_admin_member",
+    "set search_path = public, app_private, pg_temp",
+    "reason_required",
+    "reason_provided",
+    "reason_length",
+    "session_invalidated_at = now()",
+    "locked_until is not null and locked_until > now() then 'locked'",
+  ]) {
+    if (!migration.includes(requiredSnippet)) {
+      addFailure(`TASK-019 migrations must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/reason_redacted/i.test(migration)) {
+    addFailure("TASK-019 migrations must not persist raw reason text");
+  }
+
+  for (const requiredSnippet of [
+    "credentialVersion",
+    "credentialStatus",
+    "sessionInvalidatedAt",
+    "credential_version",
+    "credential_status",
+    "session_invalidated_at",
+  ]) {
+    if (!readModel.includes(requiredSnippet)) {
+      addFailure(`${readModelPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "reasonRequired",
+    "shop_staff_force_credential_rotation",
+    "shop_staff_clear_lockout",
+  ]) {
+    if (!mutations.includes(requiredSnippet)) {
+      addFailure(`${mutationsPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "forceStaffCredentialRotationAction",
+    "clearStaffLockoutAction",
+  ]) {
+    if (!actions.includes(requiredSnippet)) {
+      addFailure(`${actionsPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "Force credential rotation",
+    "Clear lockout",
+    'name="reason"',
+    "required",
+  ]) {
+    if (!panel.includes(requiredSnippet)) {
+      addFailure(`${panelPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/credentialStatus|credentialVersion|sessionInvalidatedAt/.test(sectionData)) {
+    addFailure(`${sectionDataPath} must render credential-safe status metadata`);
+  }
+
+  if (/credential_hash|pin_hash|password_hash|hashStaffCredential|verifyStaffCredential/.test(clientSurface)) {
+    addFailure("TASK-019 client surfaces must not expose credential hashes or hashing functions");
+  }
+
+  if (/SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE|service_role/i.test(clientSurface)) {
+    addFailure("TASK-019 client surfaces must not expose service-role material");
+  }
+
+  if (appRoutes.some((file) => /^src\/app\/(?:api\/)?pos\//i.test(file))) {
+    addFailure("TASK-019 must not create a public POS login endpoint or separate POS console");
+  }
+
+  if (!/checkTask019PosAuthFoundationImplementation/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert the TASK-019 security scanner gate`);
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -2638,6 +2860,7 @@ checkTask015ShopAdminConsole();
 checkTask016PlatformAdminConsole();
 checkTask017ShopBusinessCompletionArtifacts();
 checkTask018InfrastructureSecurityPosFoundation();
+checkTask019PosAuthFoundationImplementation();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

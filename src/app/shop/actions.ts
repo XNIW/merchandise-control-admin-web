@@ -22,7 +22,9 @@ import {
 } from "@/server/shop-admin/action-context";
 import {
   archiveStaff,
+  clearStaffLockout,
   createStaff,
+  forceStaffCredentialRotation,
   reactivateStaff,
   resetStaffCredential,
   suspendStaff,
@@ -236,6 +238,7 @@ export async function resetStaffCredentialAction(
 
   const result = await resetStaffCredential({
     credentialKind: optionalFormString(formData, "credentialKind"),
+    reason: optionalFormString(formData, "reason"),
     requestedShopId: requestedShopId(formData),
     staffId: formString(formData, "staffId"),
   });
@@ -290,6 +293,42 @@ export async function archiveStaffAction(formData: FormData) {
   resultRedirect(
     "/shop/staff",
     await archiveStaff({
+      reason: optionalFormString(formData, "reason"),
+      requestedShopId: requestedShopId(formData),
+      staffId: formString(formData, "staffId"),
+    }),
+  );
+}
+
+export async function forceStaffCredentialRotationAction(formData: FormData) {
+  if (!confirmed(formData, "ROTATE")) {
+    resultRedirect(
+      "/shop/staff",
+      shopAdminActionResult("validation_failed", { ok: false }),
+    );
+  }
+
+  resultRedirect(
+    "/shop/staff",
+    await forceStaffCredentialRotation({
+      reason: optionalFormString(formData, "reason"),
+      requestedShopId: requestedShopId(formData),
+      staffId: formString(formData, "staffId"),
+    }),
+  );
+}
+
+export async function clearStaffLockoutAction(formData: FormData) {
+  if (!confirmed(formData, "CLEAR")) {
+    resultRedirect(
+      "/shop/staff",
+      shopAdminActionResult("validation_failed", { ok: false }),
+    );
+  }
+
+  resultRedirect(
+    "/shop/staff",
+    await clearStaffLockout({
       reason: optionalFormString(formData, "reason"),
       requestedShopId: requestedShopId(formData),
       staffId: formString(formData, "staffId"),
