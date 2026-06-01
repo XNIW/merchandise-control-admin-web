@@ -1400,6 +1400,9 @@ function checkTask013UiPolishArtifacts() {
     ) &&
     !/Task attivo: `TASK-026 - Shop Admin product catalog foundation`/.test(
       masterPlan,
+    ) &&
+    !/Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`/.test(
+      masterPlan,
     )
   ) {
     addFailure(`${masterPlanPath} must either be IDLE after TASK-013 or track a later active task`);
@@ -2860,7 +2863,7 @@ function checkTask019PosAuthFoundationImplementation() {
 
   if (task021Exists && unexpectedPosRoutes.length > 0) {
     addFailure(
-      `TASK-019/TASK-021/TASK-026 allow only scoped POS backend endpoints, found: ${unexpectedPosRoutes.join(", ")}`,
+      `TASK-019/TASK-021/TASK-026/TASK-027 allow only scoped POS backend endpoints, found: ${unexpectedPosRoutes.join(", ")}`,
     );
   }
 
@@ -2928,12 +2931,13 @@ function checkTask020Win7PosIntegrationPlanning() {
   }
 
   if (
-    !/Task attivo: `NONE`/.test(masterPlan) &&
+    !/Task attivo: `(NONE|NESSUNO)`/.test(masterPlan) &&
     !/Task attivo: `TASK-021 - POS backend session\/device endpoints`/.test(masterPlan) &&
     !/Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/.test(masterPlan) &&
-    !/Task attivo: `TASK-026 - Shop Admin product catalog foundation`/.test(masterPlan)
+    !/Task attivo: `TASK-026 - Shop Admin product catalog foundation`/.test(masterPlan) &&
+    !/Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`/.test(masterPlan)
   ) {
-    addFailure("MASTER-PLAN must return to no active task after TASK-020 reconciliation or track TASK-021");
+    addFailure("MASTER-PLAN must return to no active task after reconciliation or track an active POS/catalog task");
   }
 
   if (migrations.some((file) => /task_020|task-020/i.test(file))) {
@@ -2960,7 +2964,7 @@ function checkTask020Win7PosIntegrationPlanning() {
 
   if (task021Exists && unexpectedPosRoutes.length > 0) {
     addFailure(
-      `TASK-020/TASK-021/TASK-026 allow only scoped POS backend endpoints, found: ${unexpectedPosRoutes.join(", ")}`,
+      `TASK-020/TASK-021/TASK-026/TASK-027 allow only scoped POS backend endpoints, found: ${unexpectedPosRoutes.join(", ")}`,
     );
   }
 
@@ -3198,7 +3202,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
 
   if (unexpectedPosRoutes.length > 0) {
     addFailure(
-      `TASK-021/TASK-026 allow only scoped POS routes, found: ${unexpectedPosRoutes.join(", ")}`,
+      `TASK-021/TASK-026/TASK-027 allow only scoped POS routes, found: ${unexpectedPosRoutes.join(", ")}`,
     );
   }
 
@@ -3451,6 +3455,127 @@ function checkTask022023PosDashboardWin7PosClient() {
   }
 }
 
+function checkTask027CatalogPullDeltaSync() {
+  const win7PosRoot = "/Users/minxiang/Projects/Win7POS";
+  const taskPath =
+    "docs/TASKS/TASK-027-catalog-pull-delta-sync-and-pos-catalog-hardening.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-027/README.md";
+  const helperPath = "src/server/pos-auth/catalog-sync-contract.ts";
+  const servicePath = "src/server/pos-auth/catalog-pull.ts";
+  const readModelPath = "src/server/shop-admin/pos-live-read-model.ts";
+  const sectionDataPath = "src/server/shop-admin/shop-section-data.ts";
+  const foundationTestPath =
+    "tests/foundation/task-027-catalog-pull-delta-sync.test.mjs";
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    helperPath,
+    servicePath,
+    readModelPath,
+    sectionDataPath,
+    foundationTestPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const helper = read(helperPath);
+  const service = read(servicePath);
+  const readModel = read(readModelPath);
+  const sectionData = read(sectionDataPath);
+  const foundationTest = read(foundationTestPath);
+  const combined = `${task}\n${evidence}\n${helper}\n${service}\n${readModel}\n${sectionData}`;
+
+  for (const requiredSnippet of [
+    "updated_since",
+    "syncCursor",
+    "catalogVersion",
+    "serverTime",
+    "hasMore",
+    "tombstones",
+    "no purge distruttivo",
+    "DONE_RECONCILED_WITH_NOTES",
+  ]) {
+    if (!combined.includes(requiredSnippet)) {
+      addFailure(`TASK-027 artifacts must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "parseCatalogSyncOptions",
+    "buildNextCatalogSyncCursor",
+    "splitCatalogTombstones",
+    "computeCatalogVersion",
+    "CatalogPullWithRetryAsync",
+  ]) {
+    if (!`${combined}\n${foundationTest}`.includes(requiredSnippet)) {
+      addFailure(`TASK-027 code/tests must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/\.eq\("owner_user_id", ownerUserId\)/.test(service)) {
+    addFailure("TASK-027 catalog pull must remain owner/shop scoped");
+  }
+
+  if (!/\.gte\("updated_at", syncOptions\.lowerBound\)/.test(service) || !/\.range\(/.test(service)) {
+    addFailure("TASK-027 catalog pull must use updated_at lower bound and pagination");
+  }
+
+  if (/\.(delete|upsert)\s*\(/.test(service) || /truncate|purge|replace_all/i.test(service)) {
+    addFailure("TASK-027 catalog pull must not perform destructive purge/write behavior");
+  }
+
+  if (/sale_lines|sales_sync|payment|cash_close|bidirectional/i.test(`${helper}\n${service}`)) {
+    addFailure("TASK-027 must not introduce sales sync or bidirectional catalog sync");
+  }
+
+  if (!/metadata_redacted/.test(readModel) || !/Catalog sync/.test(sectionData)) {
+    addFailure("TASK-027 must expose real catalog pull diagnostics from audit metadata");
+  }
+
+  if (!/sync_cursor_preview/.test(`${service}\n${readModel}`) || /sync_cursor:\s*syncCursor/.test(service)) {
+    addFailure("TASK-027 audit metadata must redact catalog cursors before diagnostics");
+  }
+
+  if (existsSync(win7PosRoot)) {
+    const win7Client = readFileSync(
+      join(win7PosRoot, "src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs"),
+      "utf8",
+    );
+    const win7Service = readFileSync(
+      join(win7PosRoot, "src/Win7POS.Wpf/Pos/Online/PosCatalogPullService.cs"),
+      "utf8",
+    );
+
+    for (const requiredSnippet of [
+      "pos.catalog.last_sync_cursor",
+      "CatalogPullWithRetryAsync",
+      "Task.Delay",
+      "SyncCursor = await LoadLastCursorAsync",
+      'DataMember(Name = "syncCursor"',
+      'DataMember(Name = "updated_since"',
+      'DataMember(Name = "tombstones"',
+    ]) {
+      if (!`${win7Client}\n${win7Service}`.includes(requiredSnippet)) {
+        addFailure(`Win7POS TASK-027 catalog pull must include ${requiredSnippet}`);
+      }
+    }
+
+    if (/pos_sales|sales_sync|sync_batch|api\/pos\/sales/i.test(`${win7Client}\n${win7Service}`)) {
+      addFailure("TASK-027 Win7POS changes must not introduce sales sync");
+    }
+  }
+
+  if (!/checkTask027CatalogPullDeltaSync/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert the TASK-027 security scanner gate`);
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -3482,6 +3607,7 @@ checkTask019PosAuthFoundationImplementation();
 checkTask020Win7PosIntegrationPlanning();
 checkTask021PosBackendSessionDeviceEndpoints();
 checkTask022023PosDashboardWin7PosClient();
+checkTask027CatalogPullDeltaSync();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

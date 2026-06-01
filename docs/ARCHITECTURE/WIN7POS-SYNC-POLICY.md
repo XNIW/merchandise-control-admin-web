@@ -3,7 +3,8 @@
 ## Stato
 
 - Task origine: `TASK-026`
-- Stato: `DONE_WITH_NOTES`
+- Ultimo aggiornamento: `TASK-027`
+- Stato: `DONE_RECONCILED`
 - Data: `2026-06-01`
 - Ambito: catalogo prodotti Shop Admin verso Win7POS.
 
@@ -13,10 +14,12 @@
 
 - Il catalogo prodotti e autoritativo in Admin Web/Supabase.
 - Win7POS puo fare pull read-only da `POST /api/pos/catalog/pull` dopo first login trusted device e heartbeat valido.
-- Il pull usa `syncMode: "full_refresh"` e `schemaVersion` nella risposta JSON. La policy documentale usa il nome wire `schema_version` per indicare il contratto versione schema da mantenere quando si evolvera il payload.
+- Il pull usa `syncMode: "full_refresh"` senza cursor e `syncMode: "delta"` quando il client invia `updated_since`/`updatedSince` o `syncCursor`.
+- La risposta espone `schemaVersion`, `catalogVersion`, `serverTime`, `syncCursor`, `hasMore` e `catalog.tombstones`. La policy documentale usa anche i nomi wire `schema_version` e `catalog_version` per indicare il contratto versione da mantenere quando si evolve il payload.
 - La sorgente catalogo viene risolta solo tramite `shop_inventory_sources.shop_id -> owner_user_id`.
-- Le righe con `deleted_at` non vengono inviate: il catalogo applica soft delete lato Admin Web.
-- Il `sync cursor` iniziale e il massimo `updated_at` del catalogo inviato; serve come base per un futuro delta sync, non come garanzia di incremental sync gia attiva.
+- Nel primo pull vengono inviate solo righe attive. Nel delta vengono inviate righe attive aggiornate e tombstone per righe con `deleted_at`.
+- Il `sync cursor` e reale: timestamp ISO quando la pagina e completa, cursor opaco `catalog-v1:*` quando `hasMore = true`.
+- Win7POS deve reinviare il cursor salvato nel campo `syncCursor`; `updated_since`/`updatedSince` resta solo input timestamp compatibile con client legacy o cursor timestamp.
 
 ### Win7POS -> Supabase
 
@@ -34,9 +37,9 @@
 ## Cancellazioni e versioning
 
 - Admin Web usa soft delete tramite `deleted_at` su prodotti/categorie/fornitori.
-- Il pull full refresh esclude righe archiviate; Win7POS non riceve istruzioni distruttive separate in TASK-026.
+- Il pull full refresh esclude righe archiviate. Il pull delta include tombstone non distruttive per consentire al client di segnare/ignorare righe non piu attive senza svuotare il catalogo locale.
 - Ogni evoluzione payload dovra incrementare `schema_version`/`schemaVersion` e mantenere compatibilita Win7POS o un percorso di migrazione.
-- Il `sync cursor` non deve essere usato per saltare righe se il server dichiara `full_refresh`.
+- Il `sync cursor` non deve essere usato per saltare righe se il server dichiara `full_refresh`; in `delta` il lower bound e inclusivo per tollerare collisioni timestamp con upsert idempotente.
 
 ## Esclusioni
 
@@ -48,5 +51,5 @@
 ## Audit e sicurezza
 
 - L'endpoint catalog pull scrive audit `pos.catalog.pull.success` o `pos.catalog.pull.failure`.
-- I metadata audit sono redatti e non includono token.
+- I metadata audit sono redatti e non includono token o cursor opachi completi; la diagnostica puo esporre solo una preview.
 - Le verifiche trusted device restano server-side: sessione POS, device credential, staff, shop attivo e mapping inventory devono essere coerenti.

@@ -10,7 +10,7 @@ import {
   resolveSupabaseServerConfig,
   type SupabaseServerClient,
 } from "@/lib/supabase/server";
-import type { Database, Tables } from "@/lib/supabase/database.types";
+import type { Database, Json, Tables } from "@/lib/supabase/database.types";
 import { resolveCurrentShopAdminShellAccess } from "./shop-access";
 import type { ShopAdminShellShop } from "./shop-access";
 import type {
@@ -81,6 +81,7 @@ type PosAuditRow = Pick<
   | "audit_log_id"
   | "created_at"
   | "event_key"
+  | "metadata_redacted"
   | "result"
   | "severity"
   | "target_id"
@@ -116,7 +117,12 @@ export type ShopPosLiveDeviceRow = {
 
 export type ShopPosLiveSummary = {
   activeSessions: number;
+  catalogSyncErrors: number;
+  catalogSyncHasMore: boolean;
   expiredSessions: number;
+  latestCatalogCursor: string | null;
+  latestCatalogSyncAt: string | null;
+  latestCatalogVersion: string | null;
   latestHeartbeatAt: string | null;
   linkedStaff: number;
   registeredDevices: number;
@@ -143,7 +149,12 @@ type GetShopPosLiveReadModelOptions = {
 
 const emptySummary: ShopPosLiveSummary = {
   activeSessions: 0,
+  catalogSyncErrors: 0,
+  catalogSyncHasMore: false,
   expiredSessions: 0,
+  latestCatalogCursor: null,
+  latestCatalogSyncAt: null,
+  latestCatalogVersion: null,
   latestHeartbeatAt: null,
   linkedStaff: 0,
   registeredDevices: 0,
@@ -191,6 +202,25 @@ function latestTimestamp(values: Array<string | null | undefined>) {
   return values
     .filter((value): value is string => Boolean(value))
     .sort((left, right) => Date.parse(right) - Date.parse(left))[0] ?? null;
+}
+
+function jsonRecord(value: Json): Record<string, Json> | null {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value))
+    ? (value as Record<string, Json>)
+    : null;
+}
+
+function metadataString(row: PosAuditRow | null, key: string) {
+  const metadata = row ? jsonRecord(row.metadata_redacted) : null;
+  const value = metadata?.[key];
+
+  return typeof value === "string" ? value : null;
+}
+
+function metadataBoolean(row: PosAuditRow | null, key: string) {
+  const metadata = row ? jsonRecord(row.metadata_redacted) : null;
+
+  return metadata?.[key] === true;
 }
 
 function groupByDevice<T extends { shop_device_id: string }>(rows: readonly T[]) {
@@ -272,22 +302,41 @@ function mapPosLiveRows(input: {
   });
 }
 
-function summarize(rows: readonly ShopPosLiveDeviceRow[]): ShopPosLiveSummary {
+function summarize(
+  rows: readonly ShopPosLiveDeviceRow[],
+  auditRows: readonly PosAuditRow[],
+): ShopPosLiveSummary {
   const linkedStaffIds = new Set(
     rows
       .map((row) => row.staffId)
       .filter((staffId): staffId is string => Boolean(staffId)),
   );
+  const latestCatalogSuccess =
+    auditRows.find(
+      (row) =>
+        row.event_key === "pos.catalog.pull.success" &&
+        row.result === "success",
+    ) ?? null;
+  const catalogSyncErrors = auditRows.filter(
+    (row) =>
+      row.event_key === "pos.catalog.pull.failure" ||
+      (row.event_key === "pos.catalog.pull.success" && row.result !== "success"),
+  ).length;
 
   return {
     activeSessions: rows.filter(
       (row) => row.sessionStatus === "active" && isFutureTimestamp(row.sessionExpiresAt),
     ).length,
+    catalogSyncErrors,
+    catalogSyncHasMore: metadataBoolean(latestCatalogSuccess, "has_more"),
     expiredSessions: rows.filter(
       (row) =>
         row.sessionStatus === "expired" ||
         (row.sessionStatus === "active" && !isFutureTimestamp(row.sessionExpiresAt)),
     ).length,
+    latestCatalogCursor: metadataString(latestCatalogSuccess, "sync_cursor_preview"),
+    latestCatalogSyncAt: latestCatalogSuccess?.created_at ?? null,
+    latestCatalogVersion: metadataString(latestCatalogSuccess, "catalog_version"),
     latestHeartbeatAt: latestTimestamp(rows.map((row) => row.sessionLastSeenAt ?? row.lastSeenAt)),
     linkedStaff: linkedStaffIds.size,
     registeredDevices: rows.length,
@@ -437,7 +486,7 @@ export async function getShopPosLiveReadModel(
     adminClient
       .from("audit_logs")
       .select(
-        "audit_log_id,event_key,severity,result,target_type,target_id,created_at",
+        "audit_log_id,event_key,severity,result,target_type,target_id,created_at,metadata_redacted",
       )
       .eq("scope", "shop")
       .eq("shop_id", selectedShop.shopId)
@@ -483,7 +532,7 @@ export async function getShopPosLiveReadModel(
     status: "ready",
     selectedShop,
     devices,
-    summary: summarize(devices),
+    summary: summarize(devices, auditResult.data ?? []),
     readOnly: true,
     source: "supabase_admin_server",
     reason:

@@ -919,10 +919,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-022_023 - POS live dashboard + Win7POS first login trusted device
 
-- Stato: `REVIEW`
+- Stato: `DONE`
 - File task: `docs/TASKS/TASK-022-023-pos-dashboard-win7pos-client.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-022-023/README.md`
-- Fase: `REVIEW`
+- Fase: `DONE_RECONCILED`
 - Execution: `COMPLETED`
 - Review: `PARKED_FOR_LIVE_E2E`
 - Verdict corrente: `PASS_WITH_NOTES_READY_FOR_REVIEW`
@@ -999,6 +999,38 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - commit/push/stage.
 - Nota: execution avviata da Codex il 2026-06-01 su richiesta esplicita utente tramite allegato. Review finale positiva e chiusura documentale richiesta esplicitamente dall'utente il 2026-06-01 con verdict `DONE_WITH_NOTES`: nessun blocker, catalog pull server-only/no-store/trusted-session/device scoped, Win7POS pull read-only, nessun sales sync e nessun editing catalogo da POS. Note residue non bloccanti: E2E live non eseguito, pull `full_refresh` non delta, prezzi/stock da validare con dataset reale.
 
+### TASK-027 - Catalog pull delta sync and POS catalog hardening
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-027-catalog-pull-delta-sync-and-pos-catalog-hardening.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-027/README.md`
+- Fase: `DONE_RECONCILED`
+- Execution: `COMPLETED_BY_CODEX`
+- Review: `COMPLETED_BY_USER_CONFIRMATION`
+- Verdict corrente: `DONE_RECONCILED_WITH_NOTES`
+- Scopo: consolidare il pull catalogo POS/Win7POS con delta sync reale, cursor, `updated_since`, tombstone, versioning per risposta e diagnostica minima Shop Admin, senza sync bidirezionale e senza purge distruttivo.
+- Include:
+  - helper server-side testabile per parsing `updated_since`, `syncCursor`, limite e paginazione;
+  - endpoint `POST /api/pos/catalog/pull` con `syncMode`, `serverTime`, `hasMore`, `catalogVersion`, `syncCursor`, `updatedSince` e `catalog.tombstones`;
+  - gestione `deleted_at` per prodotti/categorie/fornitori gia presente nello schema reale;
+  - isolamento shop confermato tramite trusted POS session e mapping `shop_inventory_sources.shop_id -> owner_user_id`;
+  - diagnostica reale `/shop/pos` basata su audit `pos.catalog.pull.*`;
+  - Win7POS esistente aggiornato con cursor salvato e retry/backoff leggero;
+  - test foundation TASK-027 e documentazione/evidence.
+- Non include:
+  - sync bidirezionale catalogo;
+  - editing catalogo dal POS;
+  - TASK-024 sales sync;
+  - login POS completo;
+  - purge locale/remoto;
+  - nuova migration Supabase;
+  - nuove dipendenze;
+  - dashboard finte o dati fake;
+  - commit/push/stage.
+- Nota: execution avviata da Codex il 2026-06-01 su richiesta esplicita utente tramite allegato. Handoff iniziale preparato a `REVIEW` con verdict Codex `PASS_WITH_NOTES`: manca E2E live Supabase/Admin Web/Win7POS con dataset reale; `catalogVersion` e per risposta sync e non ancora persistente per shop; tombstone Win7POS ricevute ma non applicate come cancellazione locale per evitare purge distruttivo senza modello locale soft-delete.
+- Review/fix 2026-06-01: corretti tre gap trovati durante la review dell'allegato: cursor opaco `catalog-v1:*` ora respinto se futuro o incoerente, audit catalog pull ora salva solo `sync_cursor_preview`/presenza e non il cursor completo, Win7POS ora reinvia il cursor salvato via `syncCursor` invece di `updated_since`. Codex Security diff scan completato su Admin Web e Win7POS con report locali in `/tmp/codex-security-scans/.../report.md`; nessun finding reportable non risolto dopo fix/validation/attack-path.
+- Finalization 2026-06-01: su conferma esplicita utente, TASK-027 chiuso a `DONE_RECONCILED_WITH_NOTES`. Cleanup artefatti verificato: nessuna cartella `/tmp/codex-security-scans/...` o scan id dentro i repo; solo `docs/TASKS/EVIDENCE/TASK-027/README.md` mantenuto come evidence utile. Commit e push separati richiesti per Admin Web e Win7POS.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -1013,7 +1045,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `IDLE`
-- Ultimo task completato: `TASK-026 - Shop Admin product catalog foundation`
+- Ultimo task completato: `TASK-027 - Catalog pull delta sync and POS catalog hardening`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -1029,16 +1061,17 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-020: `DONE_RECONCILED`
 - Stato TASK-021: `DONE`
 - Fase TASK-021: `DONE_RECONCILED`
-- Task attivo: `NONE`
-- File task: `NOT_APPLICABLE`
-- Stato task: `IDLE`
-- Fase: `IDLE`
-- Responsabile: `PLANNER`
+- Task attivo: `NESSUNO`
+- File task: `docs/TASKS/TASK-027-catalog-pull-delta-sync-and-pos-catalog-hardening.md`
+- Stato task: `DONE`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `USER_CONFIRMED_DONE`
 - Branch execution: `main`
 - Task parcheggiato: `TASK-022_023 - POS live dashboard + Win7POS first login trusted device`
 - Stato task parcheggiato: `PARKED_E2E_PENDING`
 - Verdict TASK-026: `DONE_WITH_NOTES`
-- Prossima azione consigliata: scegliere il prossimo task non-POS o riprendere esplicitamente il gate E2E live di TASK-022_023. TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
+- Verdict TASK-027: `DONE_RECONCILED_WITH_NOTES`
+- Prossima azione consigliata: progetto in `IDLE`; TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
 
 ## Regole di avanzamento
 

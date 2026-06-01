@@ -611,6 +611,9 @@ export function buildPosLiveSection(readModel: ShopPosLiveReadModel): ShopSectio
       metric("Expired sessions", String(summary.expiredSessions), "Expired or past TTL", summary.expiredSessions > 0 ? "warning" : "good"),
       metric("Linked staff", String(summary.linkedStaff), "Credential-safe staff rows"),
       metric("Last heartbeat", formatDateTime(summary.latestHeartbeatAt), "Latest POS session/device activity"),
+      metric("Catalog sync", formatDateTime(summary.latestCatalogSyncAt), summary.latestCatalogVersion ?? "No successful catalog pull", summary.latestCatalogSyncAt ? "good" : "muted"),
+      metric("Catalog errors", String(summary.catalogSyncErrors), "Latest POS catalog pull failures", summary.catalogSyncErrors > 0 ? "warning" : "good"),
+      metric("Catalog cursor", summary.latestCatalogCursor ? shortId(summary.latestCatalogCursor) : "Not set", summary.catalogSyncHasMore ? "More catalog rows pending" : (summary.latestCatalogVersion ?? "No catalog cursor")),
     ],
     liveData: {
       title: "POS devices and sessions",

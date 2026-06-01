@@ -40,7 +40,7 @@ test("TASK-014 governance artifacts are active", () => {
   assert.match(evidence, /TASK-014/);
   assert.match(
     masterPlan,
-    /Task attivo: `TASK-014 - Integrated Authenticated QA, Design System, POS Staff Foundation`|Task attivo: `TASK-015 - Complete Shop Admin Console: Inventory, Excel, Mobile History, Staff and Devices`|Task attivo: `TASK-016 - Complete Platform Admin Console`|Task attivo: `TASK-017 - Shop Business Completion`|Task attivo: `TASK-018 - Infrastructure, Security Hardening and POS Foundation`|Task attivo: `TASK-019 - POS Auth Foundation Implementation`|Task attivo: `TASK-020 - Win7POS Integration Planning`|Task attivo: `TASK-021 - POS backend session\/device endpoints`|Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`|Task attivo: `TASK-026 - Shop Admin product catalog foundation`|Task attivo: `NONE`/,
+    /Task attivo: `TASK-014 - Integrated Authenticated QA, Design System, POS Staff Foundation`|Task attivo: `TASK-015 - Complete Shop Admin Console: Inventory, Excel, Mobile History, Staff and Devices`|Task attivo: `TASK-016 - Complete Platform Admin Console`|Task attivo: `TASK-017 - Shop Business Completion`|Task attivo: `TASK-018 - Infrastructure, Security Hardening and POS Foundation`|Task attivo: `TASK-019 - POS Auth Foundation Implementation`|Task attivo: `TASK-020 - Win7POS Integration Planning`|Task attivo: `TASK-021 - POS backend session\/device endpoints`|Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`|Task attivo: `TASK-026 - Shop Admin product catalog foundation`|Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`|Task attivo: `(NONE|NESSUNO)`/,
   );
   assert.match(
     masterPlan,

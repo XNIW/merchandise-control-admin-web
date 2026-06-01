@@ -6,6 +6,19 @@ import {
   type SupabaseAdminClient,
 } from "@/lib/supabase/admin";
 import type { Json, Tables } from "@/lib/supabase/database.types";
+import {
+  buildNextCatalogSyncCursor,
+  catalogPriceTimestampFor,
+  catalogRangeFor,
+  computeCatalogVersion,
+  hasMoreCatalogRows,
+  pageCatalogRows,
+  parseCatalogSyncOptions,
+  splitCatalogTombstones,
+  type CatalogPageState,
+  type CatalogSyncEntity,
+  type CatalogSyncOptions,
+} from "./catalog-sync-contract";
 import { verifyPosSecret } from "./tokens";
 
 type ShopRow = Pick<
@@ -59,6 +72,7 @@ type ProductRow = Pick<
   Tables<"inventory_products">,
   | "barcode"
   | "category_id"
+  | "deleted_at"
   | "id"
   | "item_number"
   | "product_name"
@@ -69,8 +83,14 @@ type ProductRow = Pick<
   | "supplier_id"
   | "updated_at"
 >;
-type CategoryRow = Pick<Tables<"inventory_categories">, "id" | "name" | "updated_at">;
-type SupplierRow = Pick<Tables<"inventory_suppliers">, "id" | "name" | "updated_at">;
+type CategoryRow = Pick<
+  Tables<"inventory_categories">,
+  "deleted_at" | "id" | "name" | "updated_at"
+>;
+type SupplierRow = Pick<
+  Tables<"inventory_suppliers">,
+  "deleted_at" | "id" | "name" | "updated_at"
+>;
 type PriceRow = Pick<
   Tables<"inventory_product_prices">,
   "created_at" | "effective_at" | "id" | "price" | "product_id" | "source" | "type"
@@ -128,18 +148,39 @@ type PosCatalogEndpointResult =
             supplierId: string;
             updatedAt: string;
           }>;
+          tombstones: {
+            categories: Array<{
+              categoryId: string;
+              deletedAt: string;
+              updatedAt: string;
+            }>;
+            products: Array<{
+              deletedAt: string;
+              productId: string;
+              updatedAt: string;
+            }>;
+            suppliers: Array<{
+              deletedAt: string;
+              supplierId: string;
+              updatedAt: string;
+            }>;
+          };
         };
+        catalogVersion: string;
         code: "success";
         generatedAt: string;
+        hasMore: boolean;
         ok: true;
-        schemaVersion: 1;
+        schemaVersion: 2;
+        serverTime: string;
         shop: {
           shopCode: string;
           shopId: string;
           shopName: string;
         };
-        syncCursor: string | null;
-        syncMode: "full_refresh";
+        syncCursor: string;
+        syncMode: "delta" | "full_refresh";
+        updatedSince: string | null;
       };
       status: 200;
     };
@@ -154,12 +195,12 @@ type ParsedCatalogPullInput = {
   posSessionId: string;
   sessionToken: string;
   shopDeviceId: string;
+  syncOptions: CatalogSyncOptions;
 };
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_POS_SECRET_LENGTH = 256;
-const MAX_CATALOG_ROWS = 5_000;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -216,7 +257,10 @@ function failure(
   };
 }
 
-function parseCatalogPullInput(input: unknown): ParsedCatalogPullInput | null {
+function parseCatalogPullInput(
+  input: unknown,
+  serverTime: string,
+): ParsedCatalogPullInput | null {
   if (!isRecord(input)) {
     return null;
   }
@@ -240,21 +284,34 @@ function parseCatalogPullInput(input: unknown): ParsedCatalogPullInput | null {
     return null;
   }
 
+  const syncOptions = parseCatalogSyncOptions(input, serverTime);
+
+  if (!syncOptions.ok) {
+    return null;
+  }
+
   return {
     appVersion,
     deviceToken,
     posSessionId,
     sessionToken,
     shopDeviceId,
+    syncOptions: syncOptions.options,
   };
 }
 
 function requestMetadata(meta: PosCatalogPullRequestMeta): JsonRecord {
   return {
-    source: "TASK-026",
+    source: "TASK-027",
     user_agent_length: meta.userAgent?.length ?? 0,
     user_agent_present: Boolean(meta.userAgent),
   };
+}
+
+function previewSyncCursor(syncCursor: string) {
+  return syncCursor.startsWith("catalog-v1:")
+    ? `${syncCursor.slice(0, 24)}...`
+    : syncCursor;
 }
 
 async function getSupabaseForPosCatalog() {
@@ -338,29 +395,18 @@ function isStaffUsable(staff: StaffAccountRow | null) {
   );
 }
 
-function maxUpdatedAt(...collections: Array<readonly { updated_at?: string }[]>) {
-  const values = collections
-    .flatMap((collection) => collection.map((row) => row.updated_at))
-    .filter((value): value is string => Boolean(value));
-
-  return values.length > 0
-    ? values.reduce((latest, value) =>
-        Date.parse(value) > Date.parse(latest) ? value : latest,
-      )
-    : null;
-}
-
 export async function handlePosCatalogPull(
   input: unknown,
   meta: PosCatalogPullRequestMeta = {},
 ): Promise<PosCatalogEndpointResult> {
+  const serverTime = nowIso();
   const supabase = await getSupabaseForPosCatalog();
 
   if (!supabase) {
     return failure("not_configured", 503);
   }
 
-  const parsed = parseCatalogPullInput(input);
+  const parsed = parseCatalogPullInput(input, serverTime);
 
   if (!parsed) {
     return auditedFailure(supabase, {
@@ -531,37 +577,71 @@ export async function handlePosCatalogPull(
     });
   }
 
+  const syncOptions = parsed.syncOptions;
+  const productRange = catalogRangeFor(syncOptions, "products");
+  const categoryRange = catalogRangeFor(syncOptions, "categories");
+  const supplierRange = catalogRangeFor(syncOptions, "suppliers");
+  const priceRange = catalogRangeFor(syncOptions, "prices");
+  const priceUpperBound = catalogPriceTimestampFor(syncOptions.upperBound);
+  const priceLowerBound = catalogPriceTimestampFor(syncOptions.lowerBound);
+
+  let productsQuery = supabase
+    .from("inventory_products")
+    .select(
+      "id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,updated_at,deleted_at",
+    )
+    .eq("owner_user_id", ownerUserId)
+    .lte("updated_at", syncOptions.upperBound)
+    .order("updated_at", { ascending: true })
+    .order("id", { ascending: true });
+
+  let categoriesQuery = supabase
+    .from("inventory_categories")
+    .select("id,name,updated_at,deleted_at")
+    .eq("owner_user_id", ownerUserId)
+    .lte("updated_at", syncOptions.upperBound)
+    .order("updated_at", { ascending: true })
+    .order("id", { ascending: true });
+
+  let suppliersQuery = supabase
+    .from("inventory_suppliers")
+    .select("id,name,updated_at,deleted_at")
+    .eq("owner_user_id", ownerUserId)
+    .lte("updated_at", syncOptions.upperBound)
+    .order("updated_at", { ascending: true })
+    .order("id", { ascending: true });
+
+  let pricesQuery = supabase
+    .from("inventory_product_prices")
+    .select("id,product_id,type,price,effective_at,source,created_at")
+    .eq("owner_user_id", ownerUserId)
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (syncOptions.lowerBound) {
+    productsQuery = productsQuery.gte("updated_at", syncOptions.lowerBound);
+    categoriesQuery = categoriesQuery.gte("updated_at", syncOptions.lowerBound);
+    suppliersQuery = suppliersQuery.gte("updated_at", syncOptions.lowerBound);
+
+    if (priceLowerBound) {
+      pricesQuery = pricesQuery.gte("created_at", priceLowerBound);
+    }
+  } else {
+    productsQuery = productsQuery.is("deleted_at", null);
+    categoriesQuery = categoriesQuery.is("deleted_at", null);
+    suppliersQuery = suppliersQuery.is("deleted_at", null);
+  }
+
+  if (priceUpperBound) {
+    pricesQuery = pricesQuery.lte("created_at", priceUpperBound);
+  }
+
   const [productsResult, categoriesResult, suppliersResult, pricesResult] =
     await Promise.all([
-      supabase
-        .from("inventory_products")
-        .select(
-          "id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,updated_at",
-        )
-        .eq("owner_user_id", ownerUserId)
-        .is("deleted_at", null)
-        .order("updated_at", { ascending: false })
-        .limit(MAX_CATALOG_ROWS),
-      supabase
-        .from("inventory_categories")
-        .select("id,name,updated_at")
-        .eq("owner_user_id", ownerUserId)
-        .is("deleted_at", null)
-        .order("name", { ascending: true })
-        .limit(MAX_CATALOG_ROWS),
-      supabase
-        .from("inventory_suppliers")
-        .select("id,name,updated_at")
-        .eq("owner_user_id", ownerUserId)
-        .is("deleted_at", null)
-        .order("name", { ascending: true })
-        .limit(MAX_CATALOG_ROWS),
-      supabase
-        .from("inventory_product_prices")
-        .select("id,product_id,type,price,effective_at,source,created_at")
-        .eq("owner_user_id", ownerUserId)
-        .order("created_at", { ascending: false })
-        .limit(MAX_CATALOG_ROWS),
+      productsQuery.range(productRange.from, productRange.to),
+      categoriesQuery.range(categoryRange.from, categoryRange.to),
+      suppliersQuery.range(supplierRange.from, supplierRange.to),
+      pricesQuery.range(priceRange.from, priceRange.to),
     ]);
 
   if (
@@ -580,20 +660,75 @@ export async function handlePosCatalogPull(
     });
   }
 
-  const products = (productsResult.data ?? []) as ProductRow[];
-  const categories = (categoriesResult.data ?? []) as CategoryRow[];
-  const suppliers = (suppliersResult.data ?? []) as SupplierRow[];
-  const prices = (pricesResult.data ?? []) as PriceRow[];
+  const productPage = pageCatalogRows(
+    (productsResult.data ?? []) as ProductRow[],
+    syncOptions.limit,
+  );
+  const categoryPage = pageCatalogRows(
+    (categoriesResult.data ?? []) as CategoryRow[],
+    syncOptions.limit,
+  );
+  const supplierPage = pageCatalogRows(
+    (suppliersResult.data ?? []) as SupplierRow[],
+    syncOptions.limit,
+  );
+  const pricePage = pageCatalogRows(
+    (pricesResult.data ?? []) as PriceRow[],
+    syncOptions.limit,
+  );
+  const { active: products, tombstones: productTombstones } =
+    splitCatalogTombstones(productPage.rows);
+  const { active: categories, tombstones: categoryTombstones } =
+    splitCatalogTombstones(categoryPage.rows);
+  const { active: suppliers, tombstones: supplierTombstones } =
+    splitCatalogTombstones(supplierPage.rows);
+  const prices = pricePage.rows;
+  const pageState: Record<CatalogSyncEntity, CatalogPageState> = {
+    categories: {
+      hasMore: categoryPage.hasMore,
+      returned: categoryPage.returned,
+    },
+    prices: {
+      hasMore: pricePage.hasMore,
+      returned: pricePage.returned,
+    },
+    products: {
+      hasMore: productPage.hasMore,
+      returned: productPage.returned,
+    },
+    suppliers: {
+      hasMore: supplierPage.hasMore,
+      returned: supplierPage.returned,
+    },
+  };
+  const hasMore = hasMoreCatalogRows(pageState);
+  const syncCursor = buildNextCatalogSyncCursor(syncOptions, pageState);
+  const catalogVersion = computeCatalogVersion({
+    categories: categoryPage.rows,
+    prices,
+    products: productPage.rows,
+    suppliers: supplierPage.rows,
+  });
   const auditOk = await writePosCatalogAudit(supabase, {
     code: "success",
     metadata: {
       ...requestMetadata(meta),
       app_version_present: Boolean(parsed.appVersion),
+      catalog_version: catalogVersion,
       categories: categories.length,
+      category_tombstones: categoryTombstones.length,
+      cursor_source: syncOptions.cursorSource,
+      has_more: hasMore,
       prices: prices.length,
       products: products.length,
+      product_tombstones: productTombstones.length,
+      server_time: syncOptions.upperBound,
+      supplier_tombstones: supplierTombstones.length,
       suppliers: suppliers.length,
-      sync_mode: "full_refresh",
+      sync_cursor_present: Boolean(syncCursor),
+      sync_cursor_preview: previewSyncCursor(syncCursor),
+      sync_mode: syncOptions.mode,
+      updated_since: syncOptions.lowerBound,
     },
     result: "success",
     severity: "info",
@@ -640,18 +775,39 @@ export async function handlePosCatalogPull(
           supplierId: supplier.id,
           updatedAt: supplier.updated_at,
         })),
+        tombstones: {
+          categories: categoryTombstones.map((category) => ({
+            categoryId: category.id,
+            deletedAt: category.deleted_at ?? category.updated_at,
+            updatedAt: category.updated_at,
+          })),
+          products: productTombstones.map((product) => ({
+            deletedAt: product.deleted_at ?? product.updated_at,
+            productId: product.id,
+            updatedAt: product.updated_at,
+          })),
+          suppliers: supplierTombstones.map((supplier) => ({
+            deletedAt: supplier.deleted_at ?? supplier.updated_at,
+            supplierId: supplier.id,
+            updatedAt: supplier.updated_at,
+          })),
+        },
       },
+      catalogVersion,
       code: "success",
-      generatedAt: nowIso(),
+      generatedAt: serverTime,
+      hasMore,
       ok: true,
-      schemaVersion: 1,
+      schemaVersion: 2,
+      serverTime: syncOptions.upperBound,
       shop: {
         shopCode: shop.shop_code,
         shopId: shop.shop_id,
         shopName: shop.shop_name,
       },
-      syncCursor: maxUpdatedAt(products, categories, suppliers),
-      syncMode: "full_refresh",
+      syncCursor,
+      syncMode: syncOptions.mode,
+      updatedSince: syncOptions.lowerBound,
     },
     status: 200,
   };

@@ -53,7 +53,7 @@ test("TASK-026 Admin Web exposes a trusted POS catalog pull endpoint without sal
   assert.match(service, /\.from\("inventory_products"\)/);
   assert.match(service, /\.from\("inventory_categories"\)/);
   assert.match(service, /\.from\("inventory_suppliers"\)/);
-  assert.match(service, /syncMode: "full_refresh"/);
+  assert.match(service, /syncMode: syncOptions\.mode|syncMode: "full_refresh"/);
   assert.match(service, /pos\.catalog\.pull/);
   assert.doesNotMatch(combined, /sale_lines|sales_sync|payment|cash_close|bidirectional/i);
   assert.doesNotMatch(combined, /trustedDeviceToken/i);
