@@ -917,6 +917,37 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - dichiarazione `DONE`.
 - Nota: TASK-021 aperto da Codex il 2026-06-01 su richiesta esplicita utente dopo TASK-020 `DONE_RECONCILED`. Decisione tecnica: usare Route Handler Next.js piu moduli `server-only`, non RPC pubbliche Supabase per first login, perche la verifica `scrypt-v1` delle credential staff e Node-side. Implementata e applicata la migration `20260601120000_task_021_pos_sessions_devices.sql` con `pos_device_credentials`, `pos_sessions` e trigger di revoca device; aggiunti endpoint `POST /api/pos/auth/first-login` e `POST /api/pos/session/heartbeat`; tipi Supabase rigenerati. Review/reconciliation finale richiesta esplicitamente dall'utente via allegato il 2026-06-01: trovati e corretti lockout POS scaduto non recuperabile, cleanup first-login incompleto su failure session/audit, audit trusted-device non richiesto, token mismatch heartbeat che poteva bloccare sessioni valide e limiti input mancanti. Gate locali e Supabase passano; scope limitato a session/device backend, nessuna dashboard, nessun client Win7POS, nessun sales sync, nessun dato finto, nessun commit/push/stage.
 
+### TASK-022_023 - POS live dashboard + Win7POS first login trusted device
+
+- Stato: `REVIEW`
+- File task: `docs/TASKS/TASK-022-023-pos-dashboard-win7pos-client.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-022-023/README.md`
+- Fase: `REVIEW`
+- Execution: `COMPLETED`
+- Review: `NOT_STARTED`
+- Verdict corrente: `PASS_READY_FOR_REVIEW`
+- Scopo: implementare la prima integrazione reale POS tra Admin Web e Win7POS, tenendo phase gate separati per client Win7POS e dashboard POS live.
+- Include:
+  - Win7POS first login online con `shop_code`, `staff_code` e PIN/password;
+  - trusted device client con device identifier stabile non invasivo;
+  - salvataggio token device/session con DPAPI o equivalente compatibile Windows 7;
+  - heartbeat/session refresh verso endpoint TASK-021;
+  - configurazione Admin Web base URL senza URL produzione hardcoded;
+  - dashboard POS live read-only dentro Shop Admin;
+  - read model server-only basato su `shop_devices`, `pos_device_credentials`, `pos_sessions`, `staff_accounts_safe` e audit POS;
+  - harness statici/security per no secret, no token/PIN/password in chiaro e no sales sync.
+- Non include:
+  - TASK-024 sales sync;
+  - import/export vendite;
+  - tabelle vendite POS;
+  - CRUD vendite;
+  - dashboard con metriche inventate;
+  - dati finti;
+  - refactor grande Win7POS;
+  - modifiche iOS/Android/Cash Register System;
+  - commit/push/stage.
+- Nota: TASK-022_023 aperto da Codex il 2026-06-01 su richiesta esplicita utente tramite allegato dopo TASK-021 `DONE_RECONCILED`. Il task unisce TASK-022 e TASK-023 ma resta phase-gated: prima Win7POS client minimo contro endpoint TASK-021, poi dashboard POS live Shop Admin. Execution completata da Codex il 2026-06-01: Win7POS client/DPAPI/heartbeat implementati, dashboard `/shop/pos` read-only implementata, scanner/foundation aggiornati, Admin Web verify e Win7POS build x86 passati. Review/reconciliation Codex richiesta via allegato il 2026-06-01: corretti hardening binding heartbeat e scanner log sensibili Win7POS; Supabase linked migration/dry-run/typegen passati; E2E live non eseguito per mancanza di service-role locale e dataset/harness test con cleanup. Verdict corrente `PASS_WITH_NOTES_READY_FOR_REVIEW`. Handoff a `REVIEW`; non chiuso a `DONE`.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -930,13 +961,13 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `IDLE`
+- Stato globale attuale: `REVIEW`
 - Ultimo task completato: `TASK-021 - POS backend session/device endpoints`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
 - Fase TASK-017: `DONE_RECONCILED`
-- Task in review non chiuso: `NONE`
+- Task in review non chiuso: `TASK-022_023 - POS live dashboard + Win7POS first login trusted device`
 - Stato TASK-016: `DONE`
 - Fase TASK-016: `DONE_RECONCILED`
 - Stato TASK-018: `DONE`
@@ -947,13 +978,13 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-020: `DONE_RECONCILED`
 - Stato TASK-021: `DONE`
 - Fase TASK-021: `DONE_RECONCILED`
-- Task attivo: `NONE`
-- File task: `docs/TASKS/TASK-021-pos-backend-session-device-endpoints.md`
-- Stato task: `DONE`
-- Fase: `DONE_RECONCILED`
-- Responsabile: `CODEX_FINAL_REVIEW`
+- Task attivo: `TASK-022_023 - POS live dashboard + Win7POS first login trusted device`
+- File task: `docs/TASKS/TASK-022-023-pos-dashboard-win7pos-client.md`
+- Stato task: `REVIEW`
+- Fase: `REVIEW`
+- Responsabile: `REVIEWER`
 - Branch execution: `main`
-- Prossimo task candidato: `TASK-022 - Admin Web POS live dashboard`
+- Prossimo task candidato: `TASK-024 - Win7POS sales sync`
 - File task candidato: `NOT_CREATED`
 - Stato task candidato: `NOT_STARTED`
 - Verdict planning candidato: `NOT_APPLICABLE`
@@ -961,7 +992,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - File task planning successivo: `NOT_APPLICABLE`
 - Stato task planning successivo: `NOT_APPLICABLE`
 - Verdict planning task successivo: `NOT_APPLICABLE`
-- Prossima azione consigliata: aprire `TASK-022` o `TASK-023` come task separato; non implementare Win7POS client, sales sync o dashboard live dentro TASK-021.
+- Prossima azione consigliata: review tecnica TASK-022_023 e conferma utente prima di qualsiasi chiusura; non implementare sales sync dentro questo task.
 
 ## Regole di avanzamento
 

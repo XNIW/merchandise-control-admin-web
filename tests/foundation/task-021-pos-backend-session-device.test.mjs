@@ -160,6 +160,7 @@ test("TASK-021 updates security scanner and keeps sales sync out of scope", () =
 
   assert.match(scanner, /checkTask021PosBackendSessionDeviceEndpoints/);
   assert.match(scanner, /checkTask021PosBackendSessionDeviceEndpoints\(\)/);
+  assert.match(scanner, /credentialMatchesSession/);
   assert.doesNotMatch(runtimeSource, /src\/app\/api\/pos\/sales|pos_sales_sync|pos_sync_batches/i);
 });
 
@@ -180,6 +181,11 @@ test("TASK-021 hardens lockout expiry, audit requirements and token failure hand
   assert.match(service, /const firstLoginAuditOk = await writePosAudit/);
   assert.match(service, /const sessionTokenValid = verifyPosSecret/);
   assert.match(service, /const deviceTokenValid =/);
+  assert.match(service, /const credentialMatchesSession =/);
+  assert.match(service, /credential\.shop_id === session\.shop_id/);
+  assert.match(service, /credential\.shop_device_id === session\.shop_device_id/);
+  assert.match(service, /credential\.staff_id === session\.staff_id/);
+  assert.match(service, /!credentialMatchesSession/);
   assert.doesNotMatch(
     service,
     /!verifyPosSecret\(parsed\.sessionToken[\s\S]{0,260}markSessionDenied/,

@@ -9,6 +9,7 @@ export type ShopSectionKey =
   | "members"
   | "roles"
   | "staff"
+  | "pos"
   | "devices"
   | "settings"
   | "audit";
@@ -69,6 +70,7 @@ export const shopNavigationItems: Array<{
   { key: "members", label: "Members", href: "/shop/members" },
   { key: "roles", label: "Roles", href: "/shop/roles" },
   { key: "staff", label: "POS / Staff", href: "/shop/staff" },
+  { key: "pos", label: "POS Live", href: "/shop/pos" },
   { key: "devices", label: "Devices", href: "/shop/devices" },
   { key: "settings", label: "Settings", href: "/shop/settings" },
   { key: "audit", label: "Audit", href: "/shop/audit" },
@@ -271,6 +273,27 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Allow staff records without active credentials if hashing is not ready",
     ],
     guardrails: sharedGuardrails,
+  },
+  pos: {
+    key: "pos",
+    label: "POS Live",
+    href: "/shop/pos",
+    title: "POS Live",
+    eyebrow: "Operations",
+    description:
+      "Read-only live view for trusted POS devices and sessions registered against this shop.",
+    status: "Read model pending",
+    metrics: shellMetrics,
+    plannedWork: [
+      "Read trusted POS devices and sessions for the selected shop",
+      "Show staff and heartbeat state without exposing tokens",
+      "Keep sales synchronization outside this dashboard",
+    ],
+    guardrails: [
+      "Rows must stay limited to this shop and active membership.",
+      "Token hashes and raw tokens must never be rendered.",
+      "Sales sync and sales metrics are outside this section.",
+    ],
   },
   devices: {
     key: "devices",

@@ -1001,11 +1001,19 @@ export async function handlePosHeartbeat(
   const credentialExpired = Boolean(
     credential && !isFutureTimestamp(credential.expires_at),
   );
+  const credentialMatchesSession = Boolean(
+    credential &&
+      credential.pos_device_credential_id === session.pos_device_credential_id &&
+      credential.shop_id === session.shop_id &&
+      credential.shop_device_id === session.shop_device_id &&
+      credential.staff_id === session.staff_id,
+  );
   const deviceTokenValid = credential
     ? verifyPosSecret(parsed.deviceToken, credential.token_hash)
     : false;
   const runtimeInvalid =
     !credential ||
+    !credentialMatchesSession ||
     shop?.shop_status !== "active" ||
     !staff ||
     device?.status !== "active" ||

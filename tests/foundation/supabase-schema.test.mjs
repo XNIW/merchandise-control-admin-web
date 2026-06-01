@@ -115,6 +115,7 @@ test("TASK-005G platform routes force request-time rendering", () => {
     "src/app/shop/members/page.tsx",
     "src/app/shop/roles/page.tsx",
     "src/app/shop/staff/page.tsx",
+    "src/app/shop/pos/page.tsx",
     "src/app/shop/devices/page.tsx",
     "src/app/shop/settings/page.tsx",
     "src/app/shop/audit/page.tsx",

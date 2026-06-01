@@ -44,6 +44,11 @@ import {
   SHOP_STAFF_PERMISSION_MATRIX,
 } from "./permissions";
 import {
+  getShopPosLiveReadModel,
+  type ShopPosLiveDeviceRow,
+  type ShopPosLiveReadModel,
+} from "./pos-live-read-model";
+import {
   getShopAdminReadModel,
   type ShopAdminReadModel,
   type ShopAdminReadModelMember,
@@ -526,6 +531,108 @@ function staffRow(
       ? `Locked until ${formatDateTime(staff.lockedUntil)}`
       : "Not locked",
     updated: formatDateTime(staff.updatedAt),
+  };
+}
+
+function posStateLabel(value: string | null | undefined) {
+  return value ? formatToken(value) : "Not set";
+}
+
+function posDeviceRow(device: ShopPosLiveDeviceRow): ShopSectionTableRow {
+  const staff = device.staffCode
+    ? `${device.staffDisplayName ?? "Staff"} (${device.staffCode})`
+    : "No staff linked";
+  const sessionDetail =
+    device.sessionStatus === "active"
+      ? `Active until ${formatDateTime(device.sessionExpiresAt)}`
+      : posStateLabel(device.sessionStatus);
+  const trustedDetail =
+    device.credentialStatus === "active"
+      ? `Trusted until ${formatDateTime(device.credentialExpiresAt)}`
+      : posStateLabel(device.credentialStatus);
+
+  return {
+    rowKey: device.shopDeviceId,
+    device: device.displayName,
+    status: `${posStateLabel(device.status)} / ${trustedDetail}`,
+    session: `${sessionDetail}; ${device.heartbeatCount} heartbeat`,
+    staff,
+    heartbeat: formatDateTime(device.sessionLastSeenAt ?? device.lastSeenAt),
+    app: device.appVersion ?? "Not set",
+    audit: device.latestAuditEvent
+      ? `${device.latestAuditEvent} (${posStateLabel(device.latestAuditResult)})`
+      : "No POS audit event",
+    updated: formatDateTime(device.updatedAt),
+  };
+}
+
+export function buildPosLiveSection(readModel: ShopPosLiveReadModel): ShopSection {
+  if (readModel.status !== "ready" || !readModel.selectedShop) {
+    const status = readModelStatusLabel(readModel.status);
+
+    return {
+      ...shopSections.pos,
+      description: readModel.reason,
+      status,
+      metrics: [
+        metric("POS devices", "0", "No POS rows are rendered", "muted"),
+        metric("Sessions", "0", "No fallback session rows", "muted"),
+        metric("Scope", status, "Server-side shop access", "warning"),
+      ],
+      liveData: {
+        title: "POS live dashboard",
+        description:
+          "POS devices and sessions are shown only after Shop Admin authorization.",
+        columns: [
+          { key: "field", label: "Field" },
+          { key: "value", label: "Value" },
+        ],
+        rows: [],
+        emptyState: {
+          title: "POS live data is not available",
+          description: readModel.reason,
+        },
+      },
+    };
+  }
+
+  const summary = readModel.summary;
+
+  return {
+    ...shopSections.pos,
+    description:
+      "Trusted POS devices, sessions and staff links for the verified selected shop. This view is read-only and does not include sales synchronization.",
+    status: readModel.devices.length > 0 ? "Read-only live" : "POS empty",
+    metrics: [
+      metric("Devices", String(summary.registeredDevices), "Registered POS devices"),
+      metric("Trusted", String(summary.trustedActiveDevices), "Active device credentials", "good"),
+      metric("Revoked", String(summary.revokedDevices), "Device registry state", summary.revokedDevices > 0 ? "warning" : "good"),
+      metric("Active sessions", String(summary.activeSessions), "Not expired", "good"),
+      metric("Expired sessions", String(summary.expiredSessions), "Expired or past TTL", summary.expiredSessions > 0 ? "warning" : "good"),
+      metric("Linked staff", String(summary.linkedStaff), "Credential-safe staff rows"),
+      metric("Last heartbeat", formatDateTime(summary.latestHeartbeatAt), "Latest POS session/device activity"),
+    ],
+    liveData: {
+      title: "POS devices and sessions",
+      description:
+        "Rows are assembled from real device, trusted credential, session, staff and audit records for this shop.",
+      columns: [
+        { key: "device", label: "Device" },
+        { key: "status", label: "Device / trust" },
+        { key: "session", label: "Session" },
+        { key: "staff", label: "Staff" },
+        { key: "heartbeat", label: "Last heartbeat" },
+        { key: "app", label: "App version" },
+        { key: "audit", label: "Latest POS audit" },
+        { key: "updated", label: "Updated" },
+      ],
+      rows: readModel.devices.map(posDeviceRow),
+      emptyState: {
+        title: "No POS devices are visible",
+        description:
+          "No trusted POS device has registered for the selected shop yet.",
+      },
+    },
   };
 }
 
@@ -1788,6 +1895,12 @@ export async function getShopSectionForRequest(
     const staffReadModel = await getShopStaffReadModel({ requestedShopId });
 
     return buildStaffSection(staffReadModel);
+  }
+
+  if (key === "pos") {
+    const posLiveReadModel = await getShopPosLiveReadModel({ requestedShopId });
+
+    return buildPosLiveSection(posLiveReadModel);
   }
 
   if (key === "products" || key === "categories" || key === "suppliers") {

@@ -495,6 +495,7 @@ function checkTask008ShopShellArtifacts() {
     "src/app/shop/members/page.tsx",
     "src/app/shop/roles/page.tsx",
     "src/app/shop/staff/page.tsx",
+    "src/app/shop/pos/page.tsx",
     "src/app/shop/devices/page.tsx",
     "src/app/shop/settings/page.tsx",
     "src/app/shop/history/page.tsx",
@@ -566,6 +567,7 @@ function checkTask008ShopShellArtifacts() {
     "/shop/members",
     "/shop/roles",
     "/shop/staff",
+    "/shop/pos",
     "/shop/devices",
     "/shop/settings",
     "/shop/history",
@@ -967,6 +969,7 @@ function checkPlatformRoutesStayDynamic() {
     "src/app/shop/members/page.tsx",
     "src/app/shop/roles/page.tsx",
     "src/app/shop/staff/page.tsx",
+    "src/app/shop/pos/page.tsx",
     "src/app/shop/devices/page.tsx",
     "src/app/shop/settings/page.tsx",
     "src/app/shop/history/page.tsx",
@@ -1390,6 +1393,9 @@ function checkTask013UiPolishArtifacts() {
       masterPlan,
     ) &&
     !/Task attivo: `TASK-021 - POS backend session\/device endpoints`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/.test(
       masterPlan,
     )
   ) {
@@ -2919,7 +2925,8 @@ function checkTask020Win7PosIntegrationPlanning() {
 
   if (
     !/Task attivo: `NONE`/.test(masterPlan) &&
-    !/Task attivo: `TASK-021 - POS backend session\/device endpoints`/.test(masterPlan)
+    !/Task attivo: `TASK-021 - POS backend session\/device endpoints`/.test(masterPlan) &&
+    !/Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/.test(masterPlan)
   ) {
     addFailure("MASTER-PLAN must return to no active task after TASK-020 reconciliation or track TASK-021");
   }
@@ -3118,6 +3125,19 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     addFailure(`${servicePath} must not permanently block a session solely because a heartbeat token is wrong`);
   }
 
+  for (const requiredSnippet of [
+    "const credentialMatchesSession =",
+    "credential.pos_device_credential_id === session.pos_device_credential_id",
+    "credential.shop_id === session.shop_id",
+    "credential.shop_device_id === session.shop_device_id",
+    "credential.staff_id === session.staff_id",
+    "!credentialMatchesSession",
+  ]) {
+    if (!service.includes(requiredSnippet)) {
+      addFailure(`${servicePath} must bind heartbeat credentials to the same session/shop/device/staff`);
+    }
+  }
+
   if (/select\(["']\*["']\)/.test(service)) {
     addFailure(`${servicePath} must not use select("*")`);
   }
@@ -3167,6 +3187,250 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   }
 }
 
+function listExternalFiles(start, extensions) {
+  if (!existsSync(start)) {
+    return [];
+  }
+
+  const entries = readdirSync(start);
+  const files = [];
+
+  for (const entry of entries) {
+    const absolutePath = join(start, entry);
+    const stats = statSync(absolutePath);
+
+    if (stats.isDirectory()) {
+      if (!excludedDirectories.has(entry) && entry !== "bin" && entry !== "obj") {
+        files.push(...listExternalFiles(absolutePath, extensions));
+      }
+      continue;
+    }
+
+    if (stats.isFile() && extensions.some((extension) => entry.endsWith(extension))) {
+      files.push(absolutePath);
+    }
+  }
+
+  return files;
+}
+
+function checkTask022023PosDashboardWin7PosClient() {
+  const win7PosRoot = "/Users/minxiang/Projects/Win7POS";
+  const win7ConfigFileName = "pos-admin-web.config";
+  const taskPath = "docs/TASKS/TASK-022-023-pos-dashboard-win7pos-client.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-022-023/README.md";
+  const dashboardRoutePath = "src/app/shop/pos/page.tsx";
+  const readModelPath = "src/server/shop-admin/pos-live-read-model.ts";
+  const sectionDataPath = "src/server/shop-admin/shop-section-data.ts";
+  const sectionsPath = "src/components/shop/shopSections.ts";
+  const foundationTestPath =
+    "tests/foundation/task-022-023-pos-dashboard-win7pos-client.test.mjs";
+  const win7RequiredPaths = [
+    "src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs",
+    "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",
+    "src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs",
+    "src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs",
+    "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml",
+    "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs",
+    "scripts/check-pos-online-client.ps1",
+  ];
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    dashboardRoutePath,
+    readModelPath,
+    sectionDataPath,
+    sectionsPath,
+    foundationTestPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing`);
+      return;
+    }
+  }
+
+  if (!existsSync(win7PosRoot)) {
+    addFailure("Win7POS repo is missing at /Users/minxiang/Projects/Win7POS");
+    return;
+  }
+
+  for (const relativePath of win7RequiredPaths) {
+    if (!existsSync(join(win7PosRoot, relativePath))) {
+      addFailure(`Win7POS ${relativePath} is missing`);
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const route = read(dashboardRoutePath);
+  const readModel = read(readModelPath);
+  const sectionData = read(sectionDataPath);
+  const sections = read(sectionsPath);
+  const foundationTest = read(foundationTestPath);
+  const dashboardSource = `${route}\n${readModel}\n${sectionData}\n${sections}`;
+  const clientSurface = [
+    ...listFiles("src/components"),
+    dashboardRoutePath,
+    sectionsPath,
+  ]
+    .map((file) => read(file))
+    .join("\n");
+  const win7Source = listExternalFiles(join(win7PosRoot, "src"), [
+    ".cs",
+    ".xaml",
+    ".csproj",
+  ])
+    .map((file) => readFileSync(file, "utf8"))
+    .join("\n");
+  const win7Client = readFileSync(
+    join(win7PosRoot, "src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs"),
+    "utf8",
+  );
+  const win7Store = readFileSync(
+    join(win7PosRoot, "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs"),
+    "utf8",
+  );
+  const win7Options = readFileSync(
+    join(win7PosRoot, "src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs"),
+    "utf8",
+  );
+  const win7OperatorDialog = readFileSync(
+    join(win7PosRoot, "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml.cs"),
+    "utf8",
+  );
+  const win7MainWindow = readFileSync(
+    join(win7PosRoot, "src/Win7POS.Wpf/MainWindow.xaml.cs"),
+    "utf8",
+  );
+  const win7IntegrationSource = [
+    "src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs",
+    "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",
+    "src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs",
+    "src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs",
+    "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml",
+    "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs",
+    "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml",
+    "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml.cs",
+    "src/Win7POS.Wpf/MainWindow.xaml.cs",
+  ]
+    .map((relativePath) => readFileSync(join(win7PosRoot, relativePath), "utf8"))
+    .join("\n");
+
+  for (const required of [
+    "TASK-022",
+    "TASK-023",
+    "Win7POS",
+    "No sales sync",
+    "trusted device",
+    "heartbeat",
+  ]) {
+    if (!new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(`${task}\n${evidence}`)) {
+      addFailure(`${taskPath} and evidence must mention ${required}`);
+    }
+  }
+
+  if (!/Stato: `(IN_PROGRESS|REVIEW)`/.test(task) || /DONE_RECONCILED/.test(task)) {
+    addFailure(`${taskPath} must stay IN_PROGRESS or REVIEW until user confirmation`);
+  }
+
+  if (!/export const dynamic = "force-dynamic"/.test(route) || !/getShopSectionForRequest\(\s*"pos"/.test(route)) {
+    addFailure(`${dashboardRoutePath} must render the POS section dynamically`);
+  }
+
+  for (const requiredSnippet of [
+    'import "server-only"',
+    "createSupabaseAdminClient",
+    "resolveCurrentShopAdminShellAccess",
+    '.from("shop_devices")',
+    '.from("pos_device_credentials")',
+    '.from("pos_sessions")',
+    '.from("staff_accounts_safe")',
+    '.from("audit_logs")',
+    '.eq("shop_id", selectedShop.shopId)',
+  ]) {
+    if (!readModel.includes(requiredSnippet)) {
+      addFailure(`${readModelPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/select\(["']\*["']\)/.test(readModel)) {
+    addFailure(`${readModelPath} must not use select("*")`);
+  }
+
+  if (/\.(insert|update|delete|upsert|rpc)\s*\(/.test(readModel)) {
+    addFailure(`${readModelPath} must stay read-only`);
+  }
+
+  if (/token_hash|session_token_hash|trustedDeviceToken|deviceToken|sessionToken/.test(readModel)) {
+    addFailure(`${readModelPath} must not select or expose POS secret fields`);
+  }
+
+  if (!/key: "pos"/.test(sections) || !/href: "\/shop\/pos"/.test(sections)) {
+    addFailure(`${sectionsPath} must register the POS Live Shop Admin section`);
+  }
+
+  if (!/buildPosLiveSection/.test(sectionData) || !/getShopPosLiveReadModel/.test(sectionData)) {
+    addFailure(`${sectionDataPath} must build the POS live section from the POS read model`);
+  }
+
+  if (/sales today|revenue|orders|pos_sales|sales_sync|sync_batch/i.test(dashboardSource)) {
+    addFailure("TASK-022 dashboard must not render sales/sync metrics outside scope");
+  }
+
+  if (/mock|fake|demo/i.test(dashboardSource)) {
+    addFailure("TASK-022 dashboard must not label fake data as live data");
+  }
+
+  if (/SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(clientSurface)) {
+    addFailure("TASK-022 client/browser surface must not expose service-role material");
+  }
+
+  for (const requiredSnippet of [
+    "HttpClient",
+    "SecurityProtocolType.Tls12",
+    "Timeout =",
+    "/api/pos/auth/first-login",
+    "/api/pos/session/heartbeat",
+  ]) {
+    if (!win7Client.includes(requiredSnippet)) {
+      addFailure(`Win7POS PosAdminWebClient.cs must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/ProtectedData\.Protect/.test(win7Store) || !/ProtectedData\.Unprotect/.test(win7Store)) {
+    addFailure("Win7POS trusted device store must use DPAPI ProtectedData");
+  }
+
+  if (!/WIN7POS_ADMIN_WEB_BASE_URL/.test(win7Options) || !new RegExp(win7ConfigFileName.replace(".", "\\.")).test(win7Options)) {
+    addFailure("Win7POS Admin Web base URL must come from env/config file");
+  }
+
+  if (!/PosOnlineFirstLoginDialog/.test(win7OperatorDialog) || !/TryRefreshTrustedPosSessionAsync/.test(win7MainWindow)) {
+    addFailure("Win7POS must expose first login UI and startup heartbeat");
+  }
+
+  if (/SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(win7Source)) {
+    addFailure("Win7POS must not reference service-role material");
+  }
+
+  if (/mcpos_(device|session)_[A-Za-z0-9_-]+/.test(win7Source)) {
+    addFailure("Win7POS must not hardcode POS tokens");
+  }
+
+  if (/https:\/\/(?!localhost|127\.0\.0\.1)/i.test(win7IntegrationSource)) {
+    addFailure("Win7POS must not hardcode production HTTPS URLs");
+  }
+
+  if (/pos_sales|sales_sync|sync_batch|api\/pos\/sales/i.test(win7Source)) {
+    addFailure("TASK-023 must not implement sales sync");
+  }
+
+  if (!/checkTask022023PosDashboardWin7PosClient/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert the TASK-022_023 security scanner gate`);
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -3197,6 +3461,7 @@ checkTask018InfrastructureSecurityPosFoundation();
 checkTask019PosAuthFoundationImplementation();
 checkTask020Win7PosIntegrationPlanning();
 checkTask021PosBackendSessionDeviceEndpoints();
+checkTask022023PosDashboardWin7PosClient();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");
