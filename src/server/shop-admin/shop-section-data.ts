@@ -826,6 +826,19 @@ export function applyCatalogFilters(
   });
 }
 
+export function applyNamedCatalogFilter<T extends { name: string }>(
+  rows: readonly T[],
+  filters: CatalogFilters = {},
+) {
+  const query = filters.query?.trim().toLowerCase();
+
+  if (!query) {
+    return [...rows];
+  }
+
+  return rows.filter((row) => row.name.toLowerCase().includes(query));
+}
+
 export function buildProductsSection(
   readModel: ShopInventoryReadModel,
   filters: CatalogFilters = {},
@@ -884,10 +897,19 @@ export function buildProductsSection(
 
 export function buildCategoriesSection(
   readModel: ShopInventoryReadModel,
+  filters: CatalogFilters = {},
 ): ShopSection {
   if (readModel.status !== "ready") {
     return inventoryFallbackSection("categories", readModel);
   }
+
+  const filteredCategories = applyNamedCatalogFilter(
+    readModel.categories,
+    filters,
+  );
+  const activeFilters = Object.values(filters).filter((value) =>
+    Boolean(value?.trim()),
+  ).length;
 
   return {
     ...shopSections.categories,
@@ -896,8 +918,9 @@ export function buildCategoriesSection(
     status:
       readModel.categories.length > 0 ? "Live actions" : "Categories empty",
     metrics: [
-      metric("Categories", String(readModel.categories.length), "Mapped rows"),
+      metric("Categories", String(filteredCategories.length), "Filtered mapped rows"),
       metric("Products", String(readModel.products.length), "Products loaded"),
+      metric("Filters", String(activeFilters), "Search"),
       metric("Writes", "Enabled", "Audited create/update/archive", "good"),
     ],
     liveData: {
@@ -907,7 +930,7 @@ export function buildCategoriesSection(
         { key: "name", label: "Name" },
         { key: "updated", label: "Updated" },
       ],
-      rows: readModel.categories.map((category) => ({
+      rows: filteredCategories.map((category) => ({
         rowKey: category.categoryId,
         name: category.name,
         updated: formatDateTime(category.updatedAt),
@@ -923,10 +946,16 @@ export function buildCategoriesSection(
 
 export function buildSuppliersSection(
   readModel: ShopInventoryReadModel,
+  filters: CatalogFilters = {},
 ): ShopSection {
   if (readModel.status !== "ready") {
     return inventoryFallbackSection("suppliers", readModel);
   }
+
+  const filteredSuppliers = applyNamedCatalogFilter(readModel.suppliers, filters);
+  const activeFilters = Object.values(filters).filter((value) =>
+    Boolean(value?.trim()),
+  ).length;
 
   return {
     ...shopSections.suppliers,
@@ -935,8 +964,9 @@ export function buildSuppliersSection(
     status:
       readModel.suppliers.length > 0 ? "Live actions" : "Suppliers empty",
     metrics: [
-      metric("Suppliers", String(readModel.suppliers.length), "Mapped rows"),
+      metric("Suppliers", String(filteredSuppliers.length), "Filtered mapped rows"),
       metric("Products", String(readModel.products.length), "Products loaded"),
+      metric("Filters", String(activeFilters), "Search"),
       metric("Writes", "Enabled", "Audited create/update/archive", "good"),
     ],
     liveData: {
@@ -946,7 +976,7 @@ export function buildSuppliersSection(
         { key: "name", label: "Name" },
         { key: "updated", label: "Updated" },
       ],
-      rows: readModel.suppliers.map((supplier) => ({
+      rows: filteredSuppliers.map((supplier) => ({
         rowKey: supplier.supplierId,
         name: supplier.name,
         updated: formatDateTime(supplier.updatedAt),
@@ -1913,10 +1943,10 @@ export async function getShopSectionForRequest(
     }
 
     if (key === "categories") {
-      return buildCategoriesSection(inventoryReadModel);
+      return buildCategoriesSection(inventoryReadModel, options.catalogFilters);
     }
 
-    return buildSuppliersSection(inventoryReadModel);
+    return buildSuppliersSection(inventoryReadModel, options.catalogFilters);
   }
 
   if (key === "importExport") {

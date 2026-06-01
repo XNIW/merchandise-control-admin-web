@@ -208,3 +208,27 @@ Verdict: `PASS_WITH_NOTES_READY_FOR_REVIEW`.
 - Nessun token/PIN/password hardcoded o loggato: `CONFIRMED_BY_STATIC_CHECKS`
 - Nessun service-role client/browser: `CONFIRMED_BY_SECURITY_SCAN`
 - Task pronto per review, non chiuso a `DONE`: `CONFIRMED_PASS_WITH_NOTES`
+
+## Project checkpoint 2026-06-01 - parking E2E live
+
+Verdict checkpoint: `PARKED_E2E_PENDING`.
+
+TASK-022_023 resta `PASS_WITH_NOTES_READY_FOR_REVIEW`. Il residuo bloccato e il gate E2E live Supabase + Admin Web locale + Win7POS + dataset test + cleanup. Questo checkpoint non identifica un bug codice noto e non riprende il gate live.
+
+### Check checkpoint
+
+| Repo | Comando | Esito | Evidence sintetica |
+| --- | --- | --- | --- |
+| Admin Web | `git status --short` | `PASS_WITH_EXISTING_CHANGE` | Solo `.env.example` modificato prima del checkpoint. |
+| Admin Web | `git diff --check` | `PASS` | Nessun output. |
+| Win7POS | `git status --short` | `PASS` | Nessun output; repo pulito nel checkpoint. |
+| Win7POS | `git diff --check` | `PASS` | Nessun output. |
+
+### Decisione checkpoint
+
+- E2E live TASK-022_023: `PARKED`, da riprendere solo con nuovo handoff esplicito.
+- TASK-024 sales sync: `DEFERRED`, non implementato e non avviato.
+- Prossimo sviluppo consigliato: `TASK-026 - Shop Admin product catalog foundation`.
+- Dati test live: `NOT_CREATED`.
+- Cleanup dati test live: `NOT_REQUIRED`.
+- Commit/push/stage: `NOT_RUN`.

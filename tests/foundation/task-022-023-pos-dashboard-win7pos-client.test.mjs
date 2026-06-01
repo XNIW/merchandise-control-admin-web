@@ -83,7 +83,11 @@ test("TASK-022_023 governance artifacts track execution without marking DONE", (
   assert.match(task, /Fase: `(EXECUTION|REVIEW)`/);
   assert.doesNotMatch(task, /DONE_RECONCILED/);
   assert.match(masterPlan, /TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device/);
-  assert.match(masterPlan, /Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/);
+  assert.match(
+    masterPlan,
+    /Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`|Task attivo: `TASK-026 - Shop Admin product catalog foundation`|Task attivo: `NONE`/,
+  );
+  assert.match(masterPlan, /Task parcheggiato(?: non chiuso)?: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/);
 });
 
 test("Admin Web POS live dashboard is Shop Admin read-only and uses real POS tables only", () => {

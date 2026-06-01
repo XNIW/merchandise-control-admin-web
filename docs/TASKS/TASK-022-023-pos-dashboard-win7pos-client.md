@@ -198,3 +198,13 @@ Implementare la prima integrazione POS reale tra Admin Web e Win7POS:
 - Verdict execution: `PASS_WITH_NOTES_READY_FOR_REVIEW`
 - Evidence completa: `docs/TASKS/EVIDENCE/TASK-022-023/README.md`
 - Condizione di chiusura: review positiva e conferma esplicita utente.
+
+## Project checkpoint 2026-06-01
+
+- Stato checkpoint: `PARKED_E2E_PENDING`.
+- Verdict invariato: `PASS_WITH_NOTES_READY_FOR_REVIEW`.
+- Motivo parking: il gate E2E live Supabase + Admin Web locale + Win7POS + dataset test + cleanup resta mancante.
+- Classificazione: blocco di ambiente/gate live, non bug codice noto.
+- TASK-024 sales sync: `DEFERRED`, non implementare dentro o subito dopo questo task senza nuovo handoff esplicito.
+- Prossimo sviluppo consigliato: `TASK-026 - Shop Admin product catalog foundation`, sviluppo Admin Web non-POS.
+- Vincoli confermati: nessun E2E live ripreso in questo checkpoint, nessun dato test creato, nessun cleanup necessario, nessuna modifica Win7POS/iOS/Android/Cash Register, nessun commit/push/stage.

@@ -1397,6 +1397,9 @@ function checkTask013UiPolishArtifacts() {
     ) &&
     !/Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/.test(
       masterPlan,
+    ) &&
+    !/Task attivo: `TASK-026 - Shop Admin product catalog foundation`/.test(
+      masterPlan,
     )
   ) {
     addFailure(`${masterPlanPath} must either be IDLE after TASK-013 or track a later active task`);
@@ -2842,6 +2845,7 @@ function checkTask019PosAuthFoundationImplementation() {
   );
   const allowedTask021PosRoutes = new Set([
     "src/app/api/pos/auth/first-login/route.ts",
+    "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
   const unexpectedPosRoutes = appRoutes.filter(
@@ -2856,7 +2860,7 @@ function checkTask019PosAuthFoundationImplementation() {
 
   if (task021Exists && unexpectedPosRoutes.length > 0) {
     addFailure(
-      `TASK-019/TASK-021 allow only scoped POS backend endpoints, found: ${unexpectedPosRoutes.join(", ")}`,
+      `TASK-019/TASK-021/TASK-026 allow only scoped POS backend endpoints, found: ${unexpectedPosRoutes.join(", ")}`,
     );
   }
 
@@ -2926,7 +2930,8 @@ function checkTask020Win7PosIntegrationPlanning() {
   if (
     !/Task attivo: `NONE`/.test(masterPlan) &&
     !/Task attivo: `TASK-021 - POS backend session\/device endpoints`/.test(masterPlan) &&
-    !/Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/.test(masterPlan)
+    !/Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/.test(masterPlan) &&
+    !/Task attivo: `TASK-026 - Shop Admin product catalog foundation`/.test(masterPlan)
   ) {
     addFailure("MASTER-PLAN must return to no active task after TASK-020 reconciliation or track TASK-021");
   }
@@ -2940,6 +2945,7 @@ function checkTask020Win7PosIntegrationPlanning() {
   );
   const allowedTask021PosRoutes = new Set([
     "src/app/api/pos/auth/first-login/route.ts",
+    "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
   const unexpectedPosRoutes = appRoutes.filter(
@@ -2954,7 +2960,7 @@ function checkTask020Win7PosIntegrationPlanning() {
 
   if (task021Exists && unexpectedPosRoutes.length > 0) {
     addFailure(
-      `TASK-020/TASK-021 allow only scoped POS backend endpoints, found: ${unexpectedPosRoutes.join(", ")}`,
+      `TASK-020/TASK-021/TASK-026 allow only scoped POS backend endpoints, found: ${unexpectedPosRoutes.join(", ")}`,
     );
   }
 
@@ -2977,7 +2983,9 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const adminClientPath = "src/lib/supabase/admin.ts";
   const tokenPath = "src/server/pos-auth/tokens.ts";
   const servicePath = "src/server/pos-auth/service.ts";
+  const catalogPullServicePath = "src/server/pos-auth/catalog-pull.ts";
   const firstLoginRoutePath = "src/app/api/pos/auth/first-login/route.ts";
+  const catalogPullRoutePath = "src/app/api/pos/catalog/pull/route.ts";
   const heartbeatRoutePath = "src/app/api/pos/session/heartbeat/route.ts";
 
   for (const requiredPath of [
@@ -3003,8 +3011,14 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const adminClient = read(adminClientPath);
   const tokens = read(tokenPath);
   const service = read(servicePath);
+  const catalogPullService = existsSync(join(root, catalogPullServicePath))
+    ? read(catalogPullServicePath)
+    : "";
   const foundationTest = read(foundationTestPath);
   const firstLoginRoute = read(firstLoginRoutePath);
+  const catalogPullRoute = existsSync(join(root, catalogPullRoutePath))
+    ? read(catalogPullRoutePath)
+    : "";
   const heartbeatRoute = read(heartbeatRoutePath);
   const clientSurface = [
     ...listFiles("src/components"),
@@ -3015,7 +3029,11 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     .map(read)
     .join("\n");
   const appRoutes = listFiles("src/app");
-  const allowedPosRoutes = new Set([firstLoginRoutePath, heartbeatRoutePath]);
+  const allowedPosRoutes = new Set([
+    firstLoginRoutePath,
+    catalogPullRoutePath,
+    heartbeatRoutePath,
+  ]);
   const unexpectedPosRoutes = appRoutes.filter(
     (file) =>
       /^src\/app\/(?:api\/)?pos(?:\/|$)/i.test(file) &&
@@ -3026,7 +3044,9 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     adminClient,
     tokens,
     service,
+    catalogPullService,
     firstLoginRoute,
+    catalogPullRoute,
     heartbeatRoute,
   ].join("\n");
 
@@ -3158,7 +3178,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     addFailure("TASK-021 client/browser surface must not expose service-role material");
   }
 
-  for (const route of [firstLoginRoute, heartbeatRoute]) {
+  for (const route of [firstLoginRoute, catalogPullRoute, heartbeatRoute].filter(Boolean)) {
     if (!/export const dynamic = "force-dynamic"/.test(route)) {
       addFailure("TASK-021 POS routes must be dynamic");
     }
@@ -3178,7 +3198,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
 
   if (unexpectedPosRoutes.length > 0) {
     addFailure(
-      `TASK-021 allows only first-login and heartbeat POS routes, found: ${unexpectedPosRoutes.join(", ")}`,
+      `TASK-021/TASK-026 allow only scoped POS routes, found: ${unexpectedPosRoutes.join(", ")}`,
     );
   }
 

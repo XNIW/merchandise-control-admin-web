@@ -924,8 +924,9 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Evidence: `docs/TASKS/EVIDENCE/TASK-022-023/README.md`
 - Fase: `REVIEW`
 - Execution: `COMPLETED`
-- Review: `NOT_STARTED`
-- Verdict corrente: `PASS_READY_FOR_REVIEW`
+- Review: `PARKED_FOR_LIVE_E2E`
+- Verdict corrente: `PASS_WITH_NOTES_READY_FOR_REVIEW`
+- Parking: `PARKED_E2E_PENDING`
 - Scopo: implementare la prima integrazione reale POS tra Admin Web e Win7POS, tenendo phase gate separati per client Win7POS e dashboard POS live.
 - Include:
   - Win7POS first login online con `shop_code`, `staff_code` e PIN/password;
@@ -947,6 +948,56 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - modifiche iOS/Android/Cash Register System;
   - commit/push/stage.
 - Nota: TASK-022_023 aperto da Codex il 2026-06-01 su richiesta esplicita utente tramite allegato dopo TASK-021 `DONE_RECONCILED`. Il task unisce TASK-022 e TASK-023 ma resta phase-gated: prima Win7POS client minimo contro endpoint TASK-021, poi dashboard POS live Shop Admin. Execution completata da Codex il 2026-06-01: Win7POS client/DPAPI/heartbeat implementati, dashboard `/shop/pos` read-only implementata, scanner/foundation aggiornati, Admin Web verify e Win7POS build x86 passati. Review/reconciliation Codex richiesta via allegato il 2026-06-01: corretti hardening binding heartbeat e scanner log sensibili Win7POS; Supabase linked migration/dry-run/typegen passati; E2E live non eseguito per mancanza di service-role locale e dataset/harness test con cleanup. Verdict corrente `PASS_WITH_NOTES_READY_FOR_REVIEW`. Handoff a `REVIEW`; non chiuso a `DONE`.
+- Checkpoint 2026-06-01: su richiesta utente il gate E2E live Supabase + Admin Web + Win7POS + dataset test + cleanup viene parcheggiato. TASK-022_023 resta `PASS_WITH_NOTES_READY_FOR_REVIEW` / `PARKED_E2E_PENDING`: il blocco residuo e il gate live mancante, non un bug codice noto. Nessun dato test live e nessun cleanup E2E sono stati eseguiti in questo checkpoint. `TASK-024` sales sync resta differito e non va implementato mentre il progetto procede su sviluppo Admin Web non-POS.
+
+### TASK-024 - Win7POS sales sync
+
+- Stato: `DEFERRED`
+- File task: `NOT_CREATED`
+- Evidence: `NOT_CREATED`
+- Fase: `DEFERRED`
+- Execution: `NOT_STARTED`
+- Review: `NOT_STARTED`
+- Verdict corrente: `DEFERRED_BY_USER`
+- Scopo: sincronizzare vendite Win7POS verso backend/Admin Web in un task futuro separato.
+- Non include ora:
+  - implementazione sales sync;
+  - schema vendite POS;
+  - modifiche Win7POS;
+  - dashboard vendite;
+  - dati finti;
+  - avvio mentre TASK-022_023 E2E live resta parcheggiato.
+- Nota: differito esplicitamente dal checkpoint 2026-06-01. Il prossimo sviluppo raccomandato non e POS e non deve introdurre sales sync.
+
+### TASK-026 - Shop Admin product catalog foundation
+
+- Stato: `DONE_WITH_NOTES`
+- File task: `docs/TASKS/TASK-026-shop-admin-product-catalog-foundation.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-026/README.md`
+- Fase: `DONE_WITH_NOTES`
+- Execution: `COMPLETED_BY_CODEX`
+- Review: `COMPLETED`
+- Verdict corrente: `DONE_WITH_NOTES`
+- Scopo: consolidare la foundation catalogo prodotti Shop Admin partendo dallo schema Supabase reale e dalla base esistente, aggiungendo solo il pull catalogo read-only Win7POS trusted device. Nessun sales sync.
+- Include:
+  - discovery schema reale e tipi correnti per `shop_inventory_sources`, `inventory_products`, `inventory_categories`, `inventory_suppliers`, `inventory_product_prices` e RPC `shop_catalog_*`;
+  - verifica dei read model server-only e delle pagine `/shop/products`, `/shop/categories`, `/shop/suppliers`;
+  - filtri catalogo base su prodotti/categorie/fornitori;
+  - verifica/hardening dei boundary mutativi catalogo esistenti;
+  - endpoint `POST /api/pos/catalog/pull` e client Win7POS read-only su DB locale;
+  - policy `docs/ARCHITECTURE/WIN7POS-SYNC-POLICY.md`;
+  - evidence su mapping shop -> owner inventory, no cross-shop leak, no dati finti, no secret e no service-role client/browser;
+  - check locali e Supabase appropriati allo scope effettivo.
+- Non include:
+  - E2E POS live TASK-022_023;
+  - TASK-024 sales sync;
+  - editing catalogo da Win7POS verso Supabase;
+  - modifiche iOS/Android/Cash Register;
+  - nuove tabelle Supabase senza discovery e decisione esplicita;
+  - nuove dipendenze;
+  - dashboard finte o dati mock spacciati per live;
+  - commit/push/stage.
+- Nota: execution avviata da Codex il 2026-06-01 su richiesta esplicita utente tramite allegato. Review finale positiva e chiusura documentale richiesta esplicitamente dall'utente il 2026-06-01 con verdict `DONE_WITH_NOTES`: nessun blocker, catalog pull server-only/no-store/trusted-session/device scoped, Win7POS pull read-only, nessun sales sync e nessun editing catalogo da POS. Note residue non bloccanti: E2E live non eseguito, pull `full_refresh` non delta, prezzi/stock da validare con dataset reale.
 
 ## Tooling policy
 
@@ -961,13 +1012,13 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `REVIEW`
-- Ultimo task completato: `TASK-021 - POS backend session/device endpoints`
+- Stato globale attuale: `IDLE`
+- Ultimo task completato: `TASK-026 - Shop Admin product catalog foundation`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
 - Fase TASK-017: `DONE_RECONCILED`
-- Task in review non chiuso: `TASK-022_023 - POS live dashboard + Win7POS first login trusted device`
+- Task parcheggiato non chiuso: `TASK-022_023 - POS live dashboard + Win7POS first login trusted device`
 - Stato TASK-016: `DONE`
 - Fase TASK-016: `DONE_RECONCILED`
 - Stato TASK-018: `DONE`
@@ -978,21 +1029,16 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-020: `DONE_RECONCILED`
 - Stato TASK-021: `DONE`
 - Fase TASK-021: `DONE_RECONCILED`
-- Task attivo: `TASK-022_023 - POS live dashboard + Win7POS first login trusted device`
-- File task: `docs/TASKS/TASK-022-023-pos-dashboard-win7pos-client.md`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
-- Responsabile: `REVIEWER`
+- Task attivo: `NONE`
+- File task: `NOT_APPLICABLE`
+- Stato task: `IDLE`
+- Fase: `IDLE`
+- Responsabile: `PLANNER`
 - Branch execution: `main`
-- Prossimo task candidato: `TASK-024 - Win7POS sales sync`
-- File task candidato: `NOT_CREATED`
-- Stato task candidato: `NOT_STARTED`
-- Verdict planning candidato: `NOT_APPLICABLE`
-- Task planning successivo gia creato: `NONE`
-- File task planning successivo: `NOT_APPLICABLE`
-- Stato task planning successivo: `NOT_APPLICABLE`
-- Verdict planning task successivo: `NOT_APPLICABLE`
-- Prossima azione consigliata: review tecnica TASK-022_023 e conferma utente prima di qualsiasi chiusura; non implementare sales sync dentro questo task.
+- Task parcheggiato: `TASK-022_023 - POS live dashboard + Win7POS first login trusted device`
+- Stato task parcheggiato: `PARKED_E2E_PENDING`
+- Verdict TASK-026: `DONE_WITH_NOTES`
+- Prossima azione consigliata: scegliere il prossimo task non-POS o riprendere esplicitamente il gate E2E live di TASK-022_023. TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
 
 ## Regole di avanzamento
 
