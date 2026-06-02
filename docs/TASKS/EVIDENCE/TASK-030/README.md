@@ -13,7 +13,7 @@
 - Commit iniziale Admin Web: `274deff TASK-029 prepare vercel preview path`
 - Branch finale Admin Web: `main`
 - Push main: `PASS`
-- Commit main verificato: `71316e7 docs: record TASK-030 main push result`
+- Commit main pre-review verificato: `71316e7 docs: record TASK-030 main push result`
 
 ## Pre-flight
 
@@ -107,9 +107,9 @@ Verdict: `DONE_RECONCILED_WITH_NOTES`.
 | Area | Comando/check | Esito | Evidence sintetica |
 | --- | --- | --- | --- |
 | Git | `git fetch origin main --prune` | `PASS` | Fetch read-only completato; `origin/main` aggiornato. |
-| Git | `git branch --show-current && git rev-parse --short HEAD && git rev-parse --short origin/main && git status --short --branch` | `PASS` | Branch `main`; `HEAD=71316e7`; `origin/main=71316e7`; status `## main...origin/main`. |
+| Git | `git branch --show-current && git rev-parse --short HEAD && git rev-parse --short origin/main && git status --short --branch` | `PASS` | Check pre-review documentale: branch `main`; `HEAD=71316e7`; `origin/main=71316e7`; status `## main...origin/main`. |
 | Git | `git diff --cached --name-status && git diff --stat && git diff --name-only` | `PASS` | Nessun output: nessun staged file, nessun diff locale. |
-| Git | `git show --stat --oneline --decorate --no-renames HEAD` | `PASS` | Ultimo commit pushato `71316e7 docs: record TASK-030 main push result`; solo documentazione TASK-030/Master Plan. |
+| Git | `git show --stat --oneline --decorate --no-renames HEAD` | `PASS` | Commit pre-review esaminato `71316e7 docs: record TASK-030 main push result`; solo documentazione TASK-030/Master Plan. |
 | Vercel | `vercel ls --scope xniw97-9857s-projects` | `PASS` | `No deployments found under xniw97-9857s-projects.` |
 | Vercel | `vercel alias ls --scope xniw97-9857s-projects` | `PASS` | Nessun alias elencato. |
 | Vercel | Project API filtered | `PASS` | `link=null`, `gitRepository=null`, `productionBranch=null`, `live=false`, `hasDeployments=false`, `latestDeployments=0`, `targets={}`. |

@@ -14,7 +14,7 @@
 - Branch iniziale: `codex/task-029c-vercel-preview-e2e`
 - Commit iniziale: `274deff TASK-029 prepare vercel preview path`
 - Branch finale: `main`
-- Commit main verificato: `71316e7 docs: record TASK-030 main push result`
+- Commit main pre-review verificato: `71316e7 docs: record TASK-030 main push result`
 
 ## Scope
 
@@ -82,7 +82,7 @@ I risultati sono registrati in `docs/TASKS/EVIDENCE/TASK-030/README.md`.
 
 TASK-030 e stato verificato dopo il push su `main`:
 
-- `main` allineato a `origin/main` su `71316e7`;
+- `main` allineato a `origin/main` su `71316e7` prima del commit documentale di review finale;
 - working tree Admin Web pulito, nessun file staged e nessun diff inatteso;
 - Vercel Git Integration ancora scollegata: `link=null`, `gitRepository=null`;
 - Vercel senza deployment attivi e senza alias;
