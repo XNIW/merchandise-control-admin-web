@@ -256,6 +256,43 @@ Implementato:
 
 Classificazione aggiornata da TASK-031: `BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION`. TASK-029 resta senza URL Preview/non-production e senza smoke staging.
 
+## Win7POS scanner/bootstrap reconciliation follow-up 2026-06-02
+
+Verdict: `WIN7POS_SCANNERS_RECONCILED_STAGING_STILL_BLOCKED`.
+
+Root cause del failure legacy:
+
+- `scripts/check-pos-online-client.ps1` pretendeva ancora che `PosOnlineFirstLoginDialog` chiamasse direttamente `PosAdminWebClient.FirstLoginAsync`;
+- dopo TASK-029 il flusso corretto e `PosOnlineFirstLoginDialog` -> `PosOnlineBootstrapService` -> `PosAdminWebClient.FirstLoginAsync`;
+- il runtime Win7POS risultava coerente con il design bootstrap, quindi non e stato necessario cambiare il runtime per questo follow-up.
+
+Fix scanner:
+
+- `scripts/check-pos-online-client.ps1` ora verifica il chain dialog -> bootstrap service -> online client;
+- verifica pulizia PIN/password in `finally`;
+- verifica salvataggio token/sessione via DPAPI/trusted-device store senza campi token raw persistiti;
+- verifica hashing locale credential mirror staff con `PinHelper`;
+- verifica assenza di log sensibili e assenza di Base URL Admin Web production hardcoded.
+
+Check Win7POS follow-up:
+
+| Comando | Esito | Evidence sintetica |
+| --- | --- | --- |
+| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-bootstrap.ps1` | `PASS` | `=== RESULT: ALL PASS ===`. |
+| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-client.ps1` | `PASS` | Include `first-login dialog uses bootstrap service`, `bootstrap service calls first-login through online client`, `trusted tokens saved through protected store`, `remote staff credential hashed for local mirror`, `no production Admin Web URL hardcoded`, `no sensitive POS online logs`. |
+| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-catalog-pull.ps1` | `PASS` | `=== RESULT: ALL PASS ===`. |
+| `dotnet build src/Win7POS.Wpf/Win7POS.Wpf.csproj -c Debug -p:Platform=x86` | `PASS` | `Compilazione completata. Avvisi: 0, Errori: 0`. |
+| `git diff --check` | `PASS` | Nessun output. |
+| `git status --short --branch` post-push | `PASS` | `## main...origin/main`. |
+
+Commit/push Win7POS: `d2c3d4b TASK-029 reconcile Win7POS online bootstrap`, push `main -> main`.
+
+Impatto stato:
+
+- TASK-029 resta `BLOCKED`: nessuna URL Preview/non-production, smoke staging e Win7POS staging E2E ancora `NOT_RUN_BLOCKED`;
+- TASK-022_023 resta `REVIEW` / `PASS_WITH_NOTES_READY_FOR_REVIEW` con `PARKED_E2E_PENDING`;
+- TASK-024 resta `DEFERRED`.
+
 ## Rischi residui
 
 - Staging pubblico HTTPS Preview/non-production non disponibile: smoke staging e Win7POS staging E2E non eseguiti.

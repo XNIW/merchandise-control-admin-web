@@ -241,6 +241,32 @@ TASK-022_023 non ha un bug codice noto e i gate locali/restanti scanner sono sol
 
 Check corrente aggiuntivo:
 
-- `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-client.ps1`: `FAIL_CURRENT_SCANNER_NEEDS_RECONCILIATION`; fallisce su `first-login dialog does not call client` perche il flusso TASK-029 passa dal `PosOnlineBootstrapService` invece che dal dialog diretto TASK-022_023. Scanner bootstrap TASK-029, scanner catalog pull e build x86 restano PASS.
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-client.ps1`: `FAIL_CURRENT_SCANNER_NEEDS_RECONCILIATION` prima del follow-up; falliva su `first-login dialog does not call client` perche il flusso TASK-029 passa dal `PosOnlineBootstrapService` invece che dal dialog diretto TASK-022_023.
 
-Decisione consigliata: mantenere `REVIEW` / `PASS_WITH_NOTES_READY_FOR_REVIEW` finche il gate live non viene eseguito oppure finche l'utente non declassa esplicitamente quel gate come nota non bloccante per `DONE_WITH_NOTES` e si riconcilia il vecchio scanner `check-pos-online-client.ps1` con il flusso bootstrap corrente.
+## Win7POS scanner reconciliation 2026-06-02
+
+Verdict: `SCANNER_RECONCILED_E2E_STILL_PARKED`.
+
+Il vecchio scanner `scripts/check-pos-online-client.ps1` e stato riallineato al flusso TASK-029:
+
+- il dialog deve usare `PosOnlineBootstrapService`;
+- `PosOnlineBootstrapService` deve chiamare `PosAdminWebClient.FirstLoginAsync`;
+- PIN/password devono essere puliti in `finally`;
+- trusted device token e session token devono passare dal DPAPI/trusted-device store;
+- il mirror staff locale deve hashare la credential con `PinHelper`;
+- token/PIN/password non devono essere loggati;
+- la Base URL Admin Web non deve essere hardcoded a produzione.
+
+Evidence Win7POS:
+
+| Comando | Esito | Evidence sintetica |
+| --- | --- | --- |
+| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-bootstrap.ps1` | `PASS` | `=== RESULT: ALL PASS ===`. |
+| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-client.ps1` | `PASS` | Scanner legacy riconciliato: dialog -> bootstrap service -> online client, DPAPI, hashing locale, no log sensibili, no Base URL production hardcoded. |
+| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-catalog-pull.ps1` | `PASS` | `=== RESULT: ALL PASS ===`. |
+| `dotnet build src/Win7POS.Wpf/Win7POS.Wpf.csproj -c Debug -p:Platform=x86` | `PASS` | `Compilazione completata. Avvisi: 0, Errori: 0`. |
+| `git diff --check` | `PASS` | Nessun output. |
+
+Commit Win7POS: `d2c3d4b TASK-029 reconcile Win7POS online bootstrap`, push `main -> main`.
+
+Decisione consigliata: mantenere `REVIEW` / `PASS_WITH_NOTES_READY_FOR_REVIEW`. Lo scanner legacy non e piu un blocker locale, ma il gate E2E live Supabase + Admin Web + Win7POS + dataset test + cleanup resta `PARKED_E2E_PENDING` finche non viene eseguito o declassato esplicitamente dall'utente.
