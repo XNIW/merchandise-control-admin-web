@@ -941,11 +941,13 @@ export function buildCategoriesSection(
       title: "Mapped inventory data",
       description: "Categories are read through the selected shop mapping.",
       columns: [
+        { key: "categoryId", label: "Category id" },
         { key: "name", label: "Name" },
         { key: "updated", label: "Updated" },
       ],
       rows: filteredCategories.map((category) => ({
         rowKey: category.categoryId,
+        categoryId: category.categoryId,
         name: category.name,
         updated: formatDateTime(category.updatedAt),
       })),
@@ -987,11 +989,13 @@ export function buildSuppliersSection(
       title: "Mapped inventory data",
       description: "Suppliers are read through the selected shop mapping.",
       columns: [
+        { key: "supplierId", label: "Supplier id" },
         { key: "name", label: "Name" },
         { key: "updated", label: "Updated" },
       ],
       rows: filteredSuppliers.map((supplier) => ({
         rowKey: supplier.supplierId,
+        supplierId: supplier.supplierId,
         name: supplier.name,
         updated: formatDateTime(supplier.updatedAt),
       })),

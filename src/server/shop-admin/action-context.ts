@@ -8,6 +8,7 @@ import {
 import { canShopAdmin, type ShopAdminPermission } from "./permissions";
 import {
   resolveCurrentShopAdminShellAccess,
+  type ShopAdminShellAccess,
   type ShopAdminShellShop,
 } from "./shop-access";
 
@@ -167,6 +168,20 @@ export function mapShopAdminRpcResult(data: unknown): ShopAdminActionResult {
   });
 }
 
+function selectShopForAction(
+  access: Extract<ShopAdminShellAccess, { status: "shop_admin" }>,
+  requestedShopId: string | undefined,
+) {
+  if (!requestedShopId) {
+    return access.selectedShop;
+  }
+
+  return (
+    access.availableShops.find((shop) => shop.shopId === requestedShopId) ??
+    null
+  );
+}
+
 export async function resolveShopActionContext(
   requestedShopId: string | undefined,
   permission: ShopAdminPermission,
@@ -198,9 +213,14 @@ export async function resolveShopActionContext(
     };
   }
 
-  const selectedShop =
-    access.availableShops.find((shop) => shop.shopId === requestedShopId) ??
-    access.selectedShop;
+  const selectedShop = selectShopForAction(access, requestedShopId);
+
+  if (!selectedShop) {
+    return {
+      status: "blocked",
+      result: shopAdminActionResult("unauthorized", { ok: false }),
+    };
+  }
 
   if (!canShopAdmin(selectedShop.role, permission)) {
     return {

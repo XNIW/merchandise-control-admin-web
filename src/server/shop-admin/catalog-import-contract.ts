@@ -1,6 +1,7 @@
 export type CatalogImportRowIssueCode =
   | "duplicate_category_name"
   | "duplicate_product_barcode"
+  | "duplicate_product_sku"
   | "duplicate_supplier_name"
   | "product_barcode_conflict"
   | "unknown_category"
@@ -376,6 +377,10 @@ export function validateCatalogImportRows(
     parsed.products,
     (product) => product.barcode,
   );
+  const duplicateProductsBySku = duplicateRows(
+    parsed.products,
+    (product) => product.itemNumber,
+  );
 
   for (const product of duplicateProductsByBarcode) {
     rowErrors.push(
@@ -385,6 +390,18 @@ export function validateCatalogImportRows(
         product.rowNumber,
         "barcode",
         "Product barcode appears more than once in the workbook.",
+      ),
+    );
+  }
+
+  for (const product of duplicateProductsBySku) {
+    rowErrors.push(
+      issue(
+        "duplicate_product_sku",
+        "Products",
+        product.rowNumber,
+        "itemNumber",
+        "Product SKU appears more than once in the workbook.",
       ),
     );
   }
@@ -439,7 +456,10 @@ export function validateCatalogImportRows(
       );
     }
 
-    if (!duplicateProductsByBarcode.has(product)) {
+    if (
+      !duplicateProductsByBarcode.has(product) &&
+      !duplicateProductsBySku.has(product)
+    ) {
       const target = existingByBarcode ?? existingById;
 
       if (target) {
@@ -514,8 +534,11 @@ export function validateCatalogImportRows(
     }
   }
 
-  const effectiveProductRows =
-    parsed.products.length - duplicateProductsByBarcode.size;
+  const duplicateProductRows = new Set([
+    ...duplicateProductsByBarcode,
+    ...duplicateProductsBySku,
+  ]);
+  const effectiveProductRows = parsed.products.length - duplicateProductRows.size;
 
   return {
     rowErrors,

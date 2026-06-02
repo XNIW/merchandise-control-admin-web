@@ -370,7 +370,7 @@ test("TASK-027 governance artifacts document contract, evidence and DONE reconci
   assert.match(masterPlan, /TASK-027 - Catalog pull delta sync and POS catalog hardening/);
   assert.match(
     masterPlan,
-    /Task attivo: `NESSUNO`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`|Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`/,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`|Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`|Task attivo: `TASK-032 - Full project progression mega-task`/,
   );
-  assert.match(masterPlan, /Fase: `DONE_RECONCILED`|Fase: `REVIEW`/);
+  assert.match(masterPlan, /Fase: `DONE_RECONCILED`|Fase: `REVIEW`|Fase: `EXECUTION`/);
 });
