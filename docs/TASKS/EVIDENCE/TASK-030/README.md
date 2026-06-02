@@ -3,15 +3,17 @@
 ## Stato corrente
 
 - Task: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
+- Stato task: `DONE_WITH_NOTES`
+- Fase: `DONE_RECONCILED`
 - Data execution: `2026-06-02`
 - Execution: `COMPLETED_BY_CODEX`
-- Verdict corrente: `PASS_WITH_NOTES_MAIN_PUSHED`
+- Review finale: `COMPLETED_BY_CODEX_REVIEW`
+- Verdict corrente: `DONE_RECONCILED_WITH_NOTES`
 - Branch iniziale Admin Web: `codex/task-029c-vercel-preview-e2e`
 - Commit iniziale Admin Web: `274deff TASK-029 prepare vercel preview path`
 - Branch finale Admin Web: `main`
 - Push main: `PASS`
+- Commit main verificato: `71316e7 docs: record TASK-030 main push result`
 
 ## Pre-flight
 
@@ -98,9 +100,41 @@ Stato corrente: `PASS_WITH_NOTES_MAIN_PUSHED`.
 | Vercel | Post-push project check | `PASS` | `link=null`, `gitRepository=null`, `productionBranch=null`, `live=false`, `hasDeployments=false`, `latestDeployments=[]`. |
 | Vercel | Post-push deployments/aliases | `PASS` | Nessun deployment e nessun alias; MCP deployments `count=0`. |
 
+## Review finale 2026-06-02
+
+Verdict: `DONE_RECONCILED_WITH_NOTES`.
+
+| Area | Comando/check | Esito | Evidence sintetica |
+| --- | --- | --- | --- |
+| Git | `git fetch origin main --prune` | `PASS` | Fetch read-only completato; `origin/main` aggiornato. |
+| Git | `git branch --show-current && git rev-parse --short HEAD && git rev-parse --short origin/main && git status --short --branch` | `PASS` | Branch `main`; `HEAD=71316e7`; `origin/main=71316e7`; status `## main...origin/main`. |
+| Git | `git diff --cached --name-status && git diff --stat && git diff --name-only` | `PASS` | Nessun output: nessun staged file, nessun diff locale. |
+| Git | `git show --stat --oneline --decorate --no-renames HEAD` | `PASS` | Ultimo commit pushato `71316e7 docs: record TASK-030 main push result`; solo documentazione TASK-030/Master Plan. |
+| Vercel | `vercel ls --scope xniw97-9857s-projects` | `PASS` | `No deployments found under xniw97-9857s-projects.` |
+| Vercel | `vercel alias ls --scope xniw97-9857s-projects` | `PASS` | Nessun alias elencato. |
+| Vercel | Project API filtered | `PASS` | `link=null`, `gitRepository=null`, `productionBranch=null`, `live=false`, `hasDeployments=false`, `latestDeployments=0`, `targets={}`. |
+| Vercel | Deployments API filtered | `PASS` | `count=0`, `deployments=[]`. |
+| Vercel | Env API filtered | `PASS_WITH_NOTES` | `19` env osservate solo come `key`, `target`, `type`, `gitBranch`, `configurationId`, `createdAt`; nessun valore letto o salvato; nessuna env rimossa. |
+| Config | `node -e ... vercel.json` | `PASS` | `git.deploymentEnabled=false`, schema `https://openapi.vercel.sh/vercel.json`. |
+| Admin Web | `npm run security:scan` | `PASS` | `Security scan passed.` |
+| Admin Web | `npm run test:foundation` | `PASS` | `tests 134`, `pass 134`, `fail 0`. |
+| Admin Web | `npm run verify` | `PASS_WITH_WARNING` | `lint`, `typecheck`, `security:scan`, `build` passati; warning toolchain `[DEP0205] module.register()`. |
+| Admin Web | `git diff --check` | `PASS` | Nessun output. |
+| Win7POS | `git status --short --branch && git diff --check` | `PASS_WITH_NOTES` | Branch `main...origin/main`; modifiche TASK-029 locali note, nessun staged file, `git diff --check` senza output. |
+| Win7POS | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-bootstrap.ps1` | `PASS` | `=== RESULT: ALL PASS ===`. |
+| Win7POS | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-catalog-pull.ps1` | `PASS` | `=== RESULT: ALL PASS ===`. |
+| Win7POS | `dotnet build src/Win7POS.Wpf/Win7POS.Wpf.csproj -c Debug -p:Platform=x86` | `PASS` | `Compilazione completata. Avvisi: 0, Errori: 0`. |
+| Win7POS legacy | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-client.ps1` | `FAIL_EXPECTED_NEEDS_RECONCILIATION` | Fallisce su `first-login dialog does not call client`; residuo TASK-022_023 gia documentato per il passaggio al flusso TASK-029 `PosOnlineBootstrapService`. |
+
+Stati correlati confermati:
+
+- `TASK-029`: resta `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`; nessuna URL Preview/non-production, nessuno smoke staging, nessun Win7POS E2E HTTPS.
+- `TASK-022_023`: resta `REVIEW` / `PASS_WITH_NOTES_READY_FOR_REVIEW` con `PARKED_E2E_PENDING`; non viene marcato `DONE`.
+- `TASK-024`: resta `DEFERRED`; nessun sales sync implementato.
+
 ## Classificazione finale
 
-`PASS_WITH_NOTES_MAIN_PUSHED`
+`DONE_RECONCILED_WITH_NOTES`
 
 ## Rischi residui
 

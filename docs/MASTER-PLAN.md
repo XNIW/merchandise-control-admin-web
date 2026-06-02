@@ -1096,13 +1096,13 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation
 
-- Stato: `REVIEW`
+- Stato: `DONE_WITH_NOTES`
 - File task: `docs/TASKS/TASK-030-vercel-deployment-configuration-diagnosis-main-reconciliation.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-030/README.md`
-- Fase: `REVIEW`
+- Fase: `DONE_RECONCILED`
 - Execution: `COMPLETED_BY_CODEX`
-- Review: `PENDING_USER_REVIEW`
-- Verdict corrente: `PASS_WITH_NOTES_MAIN_PUSHED`
+- Review: `COMPLETED_BY_CODEX_REVIEW`
+- Verdict corrente: `DONE_RECONCILED_WITH_NOTES`
 - Scopo: diagnosticare la configurazione Vercel/Git Integration che genera `Production` da percorsi non-production, neutralizzare il rischio di auto-deploy e riconciliare Admin Web su `main` solo se il gate anti-production e soddisfatto.
 - Include:
   - diagnosi Vercel read-only;
@@ -1119,6 +1119,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - runtime POS, catalogo o Win7POS;
   - TASK-024 sales sync.
 - Nota: avviato da Codex il 2026-06-02 da handoff allegato utente. Prima azione remota applicata: `vercel git disconnect --scope xniw97-9857s-projects`, verificata con `link=null`, `live=false`, `hasDeployments=false`, deployment/alias vuoti. Aggiunto guardrail versionato `vercel.json` con `git.deploymentEnabled=false`. Merge controllato su `main`, check Admin Web e Win7POS passati, push su `main` completato e verifica Vercel post-push conferma nessun deployment/alias. TASK-029 resta bloccato per assenza di vera Preview/non-production; TASK-022_023 resta `PARKED_E2E_PENDING`; TASK-024 resta `DEFERRED`.
+- Review finale 2026-06-02: TASK-030 riconciliato a `DONE_RECONCILED_WITH_NOTES` dopo verifica repo-grounded post-push. `main` e `origin/main` allineati su `71316e7`, working tree Admin Web pulito, Vercel ancora scollegato da Git (`link=null`, `gitRepository=null`), nessun deployment/alias, `vercel.json` con `git.deploymentEnabled=false`. Check freschi: Admin Web `security:scan` PASS, `test:foundation` PASS (`134/134`), `verify` PASS con warning `[DEP0205]`, `git diff --check` PASS; Win7POS `git diff --check`, scanner bootstrap/catalog e build x86 PASS. Scanner legacy `check-pos-online-client.ps1` resta da riconciliare con il flusso TASK-029 `PosOnlineBootstrapService`.
 
 ## Tooling policy
 
@@ -1134,7 +1135,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `REVIEW`
-- Ultimo task completato: `TASK-028 - Catalog CRUD, Excel import/export, and Win7POS catalog pull E2E`
+- Ultimo task completato: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -1162,8 +1163,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-027: `DONE_RECONCILED_WITH_NOTES`
 - Verdict TASK-028: `DONE_RECONCILED_WITH_NOTES`
 - Verdict TASK-029: `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
-- Verdict TASK-030: `PASS_WITH_NOTES_MAIN_PUSHED`
-- Prossima azione consigliata: review utente di TASK-030. Per sbloccare TASK-029 serve ancora una vera URL Preview/non-production o hosting HTTPS alternativo; TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
+- Verdict TASK-030: `DONE_RECONCILED_WITH_NOTES`
+- Prossima azione consigliata: aprire un task dedicato per ottenere una vera URL Preview/non-production o hosting HTTPS alternativo se si vuole sbloccare TASK-029; altrimenti riprendere sviluppo Admin Web non-deploy. TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
 
 ## Regole di avanzamento
 

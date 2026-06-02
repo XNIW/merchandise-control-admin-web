@@ -4,15 +4,17 @@
 
 - ID: `TASK-030`
 - Titolo: `Vercel deployment configuration diagnosis and safe main reconciliation`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `USER_REVIEW`
+- Stato: `DONE_WITH_NOTES`
+- Fase attuale: `DONE_RECONCILED`
+- Responsabile attuale: `COMPLETE`
 - Data apertura: `2026-06-02`
 - Execution: `COMPLETED_BY_CODEX`
-- Verdict corrente: `PASS_WITH_NOTES_MAIN_PUSHED`
+- Review finale: `COMPLETED_BY_CODEX_REVIEW`
+- Verdict corrente: `DONE_RECONCILED_WITH_NOTES`
 - Branch iniziale: `codex/task-029c-vercel-preview-e2e`
 - Commit iniziale: `274deff TASK-029 prepare vercel preview path`
 - Branch finale: `main`
+- Commit main verificato: `71316e7 docs: record TASK-030 main push result`
 
 ## Scope
 
@@ -76,8 +78,24 @@ Prima di ricollegare, rimuovere o modificare consapevolmente `git.deploymentEnab
 
 I risultati sono registrati in `docs/TASKS/EVIDENCE/TASK-030/README.md`.
 
+## Review finale 2026-06-02
+
+TASK-030 e stato verificato dopo il push su `main`:
+
+- `main` allineato a `origin/main` su `71316e7`;
+- working tree Admin Web pulito, nessun file staged e nessun diff inatteso;
+- Vercel Git Integration ancora scollegata: `link=null`, `gitRepository=null`;
+- Vercel senza deployment attivi e senza alias;
+- `vercel.json` valido con `git.deploymentEnabled=false`;
+- env Vercel osservate solo per nome/target/tipo, senza valori e senza rimozioni;
+- check Admin Web passati: `security:scan`, `test:foundation`, `verify`, `git diff --check`;
+- check Win7POS non invasivi passati: `git diff --check`, scanner bootstrap/catalog e build x86;
+- scanner legacy `check-pos-online-client.ps1` ancora da riconciliare con il flusso TASK-029 basato su `PosOnlineBootstrapService`.
+
+TASK-030 puo quindi essere chiuso con note. Questo non sblocca TASK-029: non esiste ancora una URL Preview/non-production e smoke staging / Win7POS E2E HTTPS restano non eseguiti.
+
 ## Handoff
 
-- Prossima fase: `REVIEW`.
-- Classificazione finale: `PASS_WITH_NOTES_MAIN_PUSHED`.
-- Codex non marca il task `DONE`.
+- Prossima fase: `COMPLETE`.
+- Classificazione finale: `DONE_RECONCILED_WITH_NOTES`.
+- Note residue: Git Integration Vercel resta scollegata intenzionalmente; TASK-029 resta bloccato, TASK-022_023 resta parcheggiato, TASK-024 resta differito.
