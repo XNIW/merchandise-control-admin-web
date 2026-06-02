@@ -85,7 +85,7 @@ test("TASK-022_023 governance artifacts track execution without marking DONE", (
   assert.match(masterPlan, /TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device/);
   assert.match(
     masterPlan,
-    /Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`|Task attivo: `TASK-026 - Shop Admin product catalog foundation`|Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`|Task attivo: `(NONE|NESSUNO)`/,
+    /Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`|Task attivo: `TASK-026 - Shop Admin product catalog foundation`|Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`|Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `(NONE|NESSUNO)`/,
   );
   assert.match(masterPlan, /Task parcheggiato(?: non chiuso)?: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/);
 });
@@ -144,6 +144,7 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
     "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",
     "src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs",
     "src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs",
+    "src/Win7POS.Wpf/Pos/Online/PosOnlineBootstrapService.cs",
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml",
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs",
   ];
@@ -160,6 +161,7 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
   const store = readWin7PosFile("src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs");
   const options = readWin7PosFile("src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs");
   const identity = readWin7PosFile("src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs");
+  const bootstrap = readWin7PosFile("src/Win7POS.Wpf/Pos/Online/PosOnlineBootstrapService.cs");
   const loginDialog = readWin7PosFile("src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs");
   const operatorDialog = readWin7PosFile("src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml.cs");
   const mainWindow = readWin7PosFile("src/Win7POS.Wpf/MainWindow.xaml.cs");
@@ -184,7 +186,7 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
   assert.doesNotMatch(options, /https:\/\/(?!localhost|127\.0\.0\.1)/i);
 
   assert.match(identity, /Guid\.NewGuid/);
-  assert.match(loginDialog, /FirstLoginAsync/);
+  assert.match(`${loginDialog}\n${bootstrap}`, /FirstLoginAsync/);
   assert.match(operatorDialog, /PosOnlineFirstLoginDialog/);
   assert.match(mainWindow, /TryRefreshTrustedPosSessionAsync/);
 

@@ -3,7 +3,7 @@
 ## Stato
 
 - Task origine: `TASK-026`
-- Ultimo aggiornamento: `TASK-028`
+- Ultimo aggiornamento: `TASK-029`
 - Stato: `REVIEW`
 - Data: `2026-06-01`
 - Ambito: catalogo prodotti Shop Admin verso Win7POS.
@@ -13,6 +13,7 @@
 ### Admin Web/Supabase -> Win7POS
 
 - Il catalogo prodotti e autoritativo in Admin Web/Supabase.
+- Win7POS comunica solo con Admin Web POS API HTTPS. Admin Web resta il backend/firewall boundary verso Supabase server-side.
 - Win7POS puo fare pull read-only da `POST /api/pos/catalog/pull` dopo first login trusted device e heartbeat valido.
 - Il pull usa `syncMode: "full_refresh"` senza cursor e `syncMode: "delta"` quando il client invia `updated_since`/`updatedSince` o `syncCursor`.
 - La risposta espone `schemaVersion`, `catalogVersion`, `serverTime`, `syncCursor`, `hasMore` e `catalog.tombstones`. La policy documentale usa anche i nomi wire `schema_version` e `catalog_version` per indicare il contratto versione da mantenere quando si evolve il payload.
@@ -25,8 +26,20 @@
 ### Win7POS -> Supabase
 
 - In TASK-026 Win7POS invia solo richieste di autenticazione/heartbeat/catalog pull usando i token trusted gia emessi da Admin Web.
+- Win7POS non comunica direttamente con Supabase e non contiene Supabase URL, publishable/anon key, service-role o secret Admin Web.
 - Win7POS non invia modifiche catalogo verso Supabase.
 - Il futuro invio di vendite o eventi fiscali richiedera un task separato, payload dedicati e `idempotency key` obbligatoria per ogni batch/evento.
+
+## Bootstrap online fresh install
+
+- Da TASK-029, su DB SQLite vuoto Win7POS tenta il bootstrap online prima del wizard locale.
+- Il flusso cliente normale usa `POST /api/pos/auth/first-login` con `shopCode`, `staffCode`, PIN/password e nome dispositivo verso Admin Web POS API.
+- Se manca l'Admin Web Base URL, il dialog lo presenta all'operatore come `Indirizzo pannello` e lo salva localmente in `pos-admin-web.config`.
+- Il trusted device token e il session token sono salvati nel file trusted-device protetti con DPAPI Windows.
+- Il PIN/password non viene salvato in chiaro; viene riusato solo per creare un hash/salt locale tramite il meccanismo PIN esistente, cosi il POS puo lavorare offline dopo il bootstrap.
+- Il mirror locale staff salva solo mapping e metadata non segreti: shop/staff id/code, role key, credential version e sync metadata.
+- `FirstRunSetupDialog` resta disponibile come recovery/dev, non come flusso cliente normale.
+- Il client Win7POS limita la lettura del response body Admin Web per evitare memoria non bounded su risposte anomale.
 
 ## Editing catalogo da POS
 

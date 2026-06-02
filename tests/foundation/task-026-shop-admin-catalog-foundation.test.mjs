@@ -33,17 +33,20 @@ test("TASK-026 catalog lists expose search/filter controls for products, categor
 test("TASK-026 Admin Web exposes a trusted POS catalog pull endpoint without sales sync", () => {
   const routePath = "src/app/api/pos/catalog/pull/route.ts";
   const servicePath = "src/server/pos-auth/catalog-pull.ts";
+  const routeSecurityPath = "src/app/api/pos/_shared/pos-route-security.ts";
 
   assert.equal(existsSync(join(root, routePath)), true, `${routePath} is missing`);
   assert.equal(existsSync(join(root, servicePath)), true, `${servicePath} is missing`);
+  assert.equal(existsSync(join(root, routeSecurityPath)), true, `${routeSecurityPath} is missing`);
 
   const route = readProjectFile(routePath);
   const service = readProjectFile(servicePath);
-  const combined = `${route}\n${service}`;
+  const routeSecurity = readProjectFile(routeSecurityPath);
+  const combined = `${route}\n${service}\n${routeSecurity}`;
 
   assert.match(route, /handlePosCatalogPull/);
-  assert.match(route, /Cache-Control/);
-  assert.match(route, /no-store/);
+  assert.match(combined, /Cache-Control/);
+  assert.match(combined, /no-store/);
   assert.match(service, /import "server-only"/);
   assert.match(service, /verifyPosSecret/);
   assert.match(service, /\.from\("pos_sessions"\)/);

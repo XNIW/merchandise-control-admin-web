@@ -1033,13 +1033,13 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-028 - Catalog CRUD, Excel import/export, and Win7POS catalog pull E2E
 
-- Stato: `REVIEW`
+- Stato: `DONE_RECONCILED_WITH_NOTES`
 - File task: `docs/TASKS/TASK-028-catalog-crud-import-export-win7pos-e2e.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-028/README.md`
-- Fase: `REVIEW`
+- Fase: `DONE_RECONCILED`
 - Execution: `COMPLETED_BY_CODEX`
-- Review: `PENDING_USER_REVIEW`
-- Verdict corrente: `READY_FOR_DONE_CONFIRMATION`
+- Review: `USER_CONFIRMED_DONE`
+- Verdict corrente: `DONE_RECONCILED_WITH_NOTES`
 - Scopo: completare il catalogo Shop Admin con restore controllato, import/export Excel preview-first e applicazione Win7POS dei tombstone come soft state locale, mantenendo Admin Web/Supabase come sorgente autoritativa.
 - Include:
   - RPC auditata `shop_catalog_restore_product`;
@@ -1059,6 +1059,38 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - commit/push/stage.
 - Nota: execution avviata da Codex il 2026-06-01 su richiesta esplicita utente tramite allegato. L'utente ha fornito anche una cartella Drive con file fornitori; sono stati ispezionati campioni `.xlsx` reali e usati per estendere il riconoscimento colonne. Handoff preparato a `REVIEW`; Codex non marca mai `DONE`.
 - Review/fix 2026-06-01: corretti audit import/export con permessi `catalog.import`/`catalog.export` e controllo esplicito esito audit, guard `Content-Length` prima di `formData()` su preview/apply, tabella prodotti con `Product id`, `State`, `Archived at` e righe archiviate visibili. Gate finali: `npm run test:foundation` PASS (`128/128`), `npm run verify` PASS con warning toolchain `[DEP0205]`, `npm run security:scan` PASS, Win7POS scanner ALL PASS, build WPF x86 PASS (`Avvisi: 0`, `Errori: 0`). Supabase migration non applicata su DB locale/live per container locale assente; no apply remoto. Codex Security diff scan Admin Web/Win7POS senza finding reportable, report in `/tmp/codex-security-scans/.../report.md`. Verdict tecnico aggiornato a `READY_FOR_DONE_CONFIRMATION`, mantenendo fase `REVIEW`.
+- Review live Supabase + Win7POS E2E 2026-06-01: produzione/remoto `NOT_USED`; `.env.local` remota esclusa. Stack locale gia attivo ispezionato ma non modificato per migration history divergente; E2E eseguito su stack Supabase isolato `/tmp/mc-task028-supabase.6OZZEG` (`mc-task028-e2e`, API `127.0.0.1:55431`, DB `127.0.0.1:55432`). Migration complete fino a `20260601160000_task_028_catalog_restore_product.sql`; file SQL TASK-028 originale rieseguito con `psql` senza errori. E2E sintetico PASS: import `.xlsx` preview/apply Admin Web, POS first-login, catalog full pull, archive via UI/Server Action, delta tombstone, soft tombstone Win7POS SQLite (`isActive 1 -> 0`), restore via UI/Server Action, delta restore e re-activate Win7POS (`isActive 0 -> 1`). Check rieseguiti: Admin Web `test:foundation` PASS (`128/128`), `verify` PASS con warning `[DEP0205]`, `security:scan` PASS, `git diff --check` PASS; Win7POS scanner ALL PASS, build WPF x86 PASS (`Avvisi: 0`, `Errori: 0`), `git diff --check` PASS. Residuo: fresh reset Supabase non patchato resta bloccato prima di TASK-028 dalla migration storica `20260515161500_task110_history_tombstone_grants.sql` su `public.product_prices` assente; workaround applicato solo alla copia `/tmp`, non alla repo.
+- DONE reconciliation 2026-06-01: su conferma esplicita dell'utente nel brief `TASK-029`, TASK-028 chiuso a `DONE_RECONCILED_WITH_NOTES`. Note residue mantenute: drift storico TASK-110 trattato in TASK-029, `.xls` legacy fuori scope, Android/iOS non toccati, TASK-024 sales sync deferred. Nessuna dichiarazione di readiness globale.
+
+### TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening
+
+- Stato: `REVIEW`
+- File task: `docs/TASKS/TASK-029-production-path-staging-win7pos-bootstrap.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-029/README.md`
+- Fase: `REVIEW`
+- Execution: `COMPLETED_BY_CODEX`
+- Review: `PENDING_USER_REVIEW`
+- Verdict corrente: `BLOCKED_VERCEL_PREVIEW_DEPLOY_REQUIRES_NON_PRODUCTION_PATH`
+- Scopo: chiudere TASK-028, correggere fresh reset Supabase/TASK-110, preparare staging, implementare bootstrap online Win7POS fresh install e hardening minimo API POS.
+- Include:
+  - patch idempotente della migration storica TASK-110 per `public.product_prices` assente;
+  - documentazione staging e blocker credenziali/provider;
+  - helper POS route security con JSON `Content-Type`, body limit e `no-store`;
+  - Win7POS online bootstrap prima del wizard locale su DB vuoto;
+  - mirror locale staff remoto con hash/salt locale e metadati remoti non segreti;
+  - FirstRunSetupDialog mantenuto come recovery/dev.
+- Non include:
+  - deploy production;
+  - dati clienti reali;
+  - secret nel repository;
+  - Supabase diretto da Win7POS;
+  - sales sync;
+  - editing catalogo da POS;
+  - modifiche Android/iOS;
+  - commit/push/stage.
+- Nota: execution avviata da Codex il 2026-06-01 su richiesta esplicita utente. Staging pubblico HTTPS non eseguito per assenza `.vercel`, `vercel.json`, `netlify.toml` e CLI `vercel`; stato fase staging `BLOCKED_STAGING_CREDENTIALS`. Produzione non usata.
+- Review/fix 2026-06-01: Codex ha ricontrollato TASK-028 closure, TASK-110 fresh reset, API POS hardening, Win7POS bootstrap, staging discovery e docs/evidence. Fix scoped applicati: test comportamento helper POS JSON, scanner bootstrap rafforzato, copy Win7POS bootstrap/recovery piu orientato a operatore, pulizia PIN/password in `finally`, popup toccati senza `ex.Message`, response body Admin Web client limitato. Fresh reset Supabase isolato PASS fino a TASK-028 con `public.product_prices = NULL`, RPC restore presente e schema POS completo. Check locali Admin Web/Win7POS PASS; `build`/`verify` con solo warning `[DEP0205]`. Staging resta `BLOCKED_STAGING_CREDENTIALS`, nessuna produzione usata.
+- TASK-029B update 2026-06-01: Vercel CLI installata/autenticata, progetto `xniw97-9857s-projects/merchandise-control-admin-web` linkato, GitHub `XNIW/merchandise-control-admin-web` collegato, env Vercel Preview configurate senza valori in repo/evidence, Supabase remoto dev `merchandisecontrol-dev` verificato e RPC restore TASK-028 applicata/verificata. I deploy manuali Vercel CLI da worktree locale, anche con `--target=preview` e branch locale non-main, hanno prodotto `target=production`; i deployment `dpl_EBv8HEroVsKQk5YaQrapyWZxqbGf`, `dpl_FVvS6QYv6FEiXutJrgLMJMM8qtz4`, `dpl_6bGHetzA2uduq4hy8zMdiYrV2XYJ` e `dpl_99aoNgtAJnCw3zTzKCcqQwBMP2ss` sono stati cancellati subito e lo stato finale Vercel non ha deployment attivi. Staging resta bloccato finche non viene autorizzato un percorso preview/non-production reale, ad esempio branch non-`main` pushato oppure hosting HTTPS non-production alternativo.
 
 ## Tooling policy
 
@@ -1074,7 +1106,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `REVIEW`
-- Ultimo task completato: `TASK-027 - Catalog pull delta sync and POS catalog hardening`
+- Ultimo task completato: `TASK-028 - Catalog CRUD, Excel import/export, and Win7POS catalog pull E2E`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -1090,8 +1122,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-020: `DONE_RECONCILED`
 - Stato TASK-021: `DONE`
 - Fase TASK-021: `DONE_RECONCILED`
-- Task attivo: `TASK-028 - Catalog CRUD, Excel import/export, and Win7POS catalog pull E2E`
-- File task: `docs/TASKS/TASK-028-catalog-crud-import-export-win7pos-e2e.md`
+- Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
+- File task: `docs/TASKS/TASK-029-production-path-staging-win7pos-bootstrap.md`
 - Stato task: `REVIEW`
 - Fase: `REVIEW`
 - Responsabile: `USER_REVIEW`
@@ -1100,8 +1132,9 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Stato task parcheggiato: `PARKED_E2E_PENDING`
 - Verdict TASK-026: `DONE_WITH_NOTES`
 - Verdict TASK-027: `DONE_RECONCILED_WITH_NOTES`
-- Verdict TASK-028: `READY_FOR_DONE_CONFIRMATION`
-- Prossima azione consigliata: review utente TASK-028; TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
+- Verdict TASK-028: `DONE_RECONCILED_WITH_NOTES`
+- Verdict TASK-029: `BLOCKED_VERCEL_PREVIEW_DEPLOY_REQUIRES_NON_PRODUCTION_PATH`
+- Prossima azione consigliata: autorizzare un percorso preview/staging HTTPS reale non-production, preferibilmente push di branch non-`main` verso GitHub/Vercel oppure hosting alternativo; poi rieseguire smoke POS API e Win7POS E2E staging. TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
 
 ## Regole di avanzamento
 

@@ -4,13 +4,13 @@
 
 - ID: `TASK-028`
 - Titolo: `Catalog CRUD, Excel import/export, and Win7POS catalog pull E2E`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `USER_REVIEW`
+- Stato: `DONE_RECONCILED_WITH_NOTES`
+- Fase attuale: `DONE_RECONCILED`
+- Responsabile attuale: `NONE`
 - Data apertura: `2026-06-01`
 - Execution: `COMPLETED_BY_CODEX`
-- Review: `PENDING_USER_REVIEW`
-- Verdict corrente: `READY_FOR_DONE_CONFIRMATION`
+- Review: `USER_CONFIRMED_DONE`
+- Verdict corrente: `DONE_RECONCILED_WITH_NOTES`
 - Commit: `NOT_REQUESTED`
 - Git push: `NOT_REQUESTED`
 - Stage: `NOT_REQUESTED`
@@ -116,16 +116,39 @@ I check finali sono registrati in `docs/TASKS/EVIDENCE/TASK-028/README.md`.
 - Rafforzata UI/read model prodotti: tabella con `Product id`, `State` e `Archived at`, includendo prodotti attivi e archiviati filtrati separatamente.
 - Codex Security diff scan eseguito su Admin Web e Win7POS: nessun finding reportable sopravvissuto alla discovery; report locali in `/tmp/codex-security-scans/merchandise-control-admin-web/df6c2dc_20260601T145639Z_task028/report.md` e `/tmp/codex-security-scans/Win7POS/6efc672_20260601T145639Z_task028/report.md`.
 
+## Review live Supabase + Win7POS E2E 2026-06-01
+
+- Produzione/remoto: `NOT_USED`. La `.env.local` Admin Web punta a un URL Supabase remoto ed e stata esclusa dal run E2E.
+- Stack locale gia attivo `MerchandiseControlSupabase`: ispezionato ma non modificato perche la migration history e divergente (`20260417` legacy nel DB contro `20260417000000` nella repo).
+- Stack E2E isolato: `/tmp/mc-task028-supabase.6OZZEG`, `project_id = mc-task028-e2e`, API `http://127.0.0.1:55431`, DB `127.0.0.1:55432`.
+- Fresh stack: migration complete fino a `20260601160000_task_028_catalog_restore_product.sql` dopo workaround temporaneo solo nella copia `/tmp` per rendere idempotente la migration storica `20260515161500_task110_history_tombstone_grants.sql` quando `public.product_prices` non esiste. Nessun file repo e stato modificato per quel workaround.
+- TASK-028 SQL originale: rieseguito con `psql "$DB_URL" -v ON_ERROR_STOP=1 -f supabase/migrations/20260601160000_task_028_catalog_restore_product.sql`; esito `PASS` (`BEGIN`, `CREATE FUNCTION` x3, `REVOKE`, `GRANT`, `NOTIFY`, `COMMIT`).
+- Dataset sintetico locale: shop `bb734062-8421-4a70-968b-f6d7b9cc463e` / `T28MPVIGZPH`, staff POS `POS028`, prodotto `9e09c29c-de7e-4324-aaa6-5a7e724e4c52` barcode `8800000000281`.
+- Admin Web import `.xlsx` preview/apply: `PASS`, route reali su Admin Web temporaneo `127.0.0.1:3007`; preview `products 1`, `newProducts 1`, `errors 0`; apply `productsApplied 1`, `failedRows 0`.
+- POS first login + catalog full pull: `PASS`; first login `status 200`; pull `syncMode full_refresh`, `schemaVersion 2`, `products 1`, `productTombstones 0`, `hasMore false`.
+- Archive via UI/Server Action Admin Web: `PASS`; form `Archive product`, conferma `ARCHIVE`, redirect `action=success&result=success`, DB `deleted_at = 2026-06-01T18:01:38.932169+00:00`.
+- POS delta tombstone + Win7POS soft state: `PASS`; pull `syncMode delta`, `products 0`, `productTombstones 1`; harness temporaneo Win7POS su SQLite `/tmp/mc-task028-win7pos-data/pos.db` ha applicato `tombstoneApplied true`, passando da `isActive 1` a `isActive 0` con `remoteDeletedAt` valorizzato.
+- Restore via UI/Server Action Admin Web: `PASS`; form `Restore product`, conferma `RESTORE`, redirect `action=success&result=success`, DB `deleted_at = null`, `updated_at = 2026-06-01T18:05:08.410746+00:00`.
+- POS delta dopo restore + Win7POS re-activate: `PASS`; pull `syncMode delta`, `products 1`, `productTombstones 0`; upsert Win7POS riporta `isActive 1` e `remoteDeletedAt null`.
+
 ## Rischi residui
 
-- E2E live Supabase/Admin Web/Win7POS con dataset reale e cleanup non eseguito.
-- Migrazione Supabase non applicata/verificata su DB locale o live: CLI presente (`2.102.0`), ma `supabase status` fallisce per container locale assente `supabase_db_merchandise-control-admin-web`; nessun apply remoto eseguito.
+- Produzione/live remoto non usati; il run E2E e locale isolato con dati sintetici.
+- Fresh reset Supabase non patchato dalla repo restava bloccato prima di TASK-028 dalla migration storica `20260515161500_task110_history_tombstone_grants.sql` (`public.product_prices` assente). La correzione e stata spostata e trattata in `TASK-029`.
 - File `.xls` legacy osservati nel Drive: lo scope implementato usa il parser `.xlsx` esistente; conversione o supporto `.xls` nativo richiede decisione/dipendenza separata.
 - iOS: `NOT_TOUCHED / NOT_RUN`.
 - Android: `NOT_TOUCHED / NOT_RUN`.
+- TASK-024 sales sync resta deferred.
+
+## DONE reconciliation 2026-06-01
+
+- Chiusura eseguita su conferma esplicita dell'utente dopo verifica live PASS con Supabase isolato, Admin Web e Win7POS.
+- Stato finale: `DONE_RECONCILED_WITH_NOTES`.
+- Note residue mantenute: drift storico TASK-110 trattato in `TASK-029`, `.xls` legacy fuori scope, Android/iOS non toccati, sales sync deferred.
+- Nessuna dichiarazione di readiness globale.
 
 ## Handoff
 
-- Prossima fase: `REVIEW`.
-- Verdict corrente: `READY_FOR_DONE_CONFIRMATION`.
-- Codex non marca mai `DONE`; `DONE` richiede review positiva e conferma esplicita dell'utente.
+- Prossima fase: `DONE_RECONCILED`.
+- Verdict corrente: `DONE_RECONCILED_WITH_NOTES`.
+- Conferma esplicita utente registrata nel brief `TASK-029`.
