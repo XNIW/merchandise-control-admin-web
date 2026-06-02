@@ -264,7 +264,14 @@ Root cause del failure legacy:
 
 - `scripts/check-pos-online-client.ps1` pretendeva ancora che `PosOnlineFirstLoginDialog` chiamasse direttamente `PosAdminWebClient.FirstLoginAsync`;
 - dopo TASK-029 il flusso corretto e `PosOnlineFirstLoginDialog` -> `PosOnlineBootstrapService` -> `PosAdminWebClient.FirstLoginAsync`;
-- il runtime Win7POS risultava coerente con il design bootstrap, quindi non e stato necessario cambiare il runtime per questo follow-up.
+- il runtime Win7POS risultava coerente con il design bootstrap per questo failure legacy.
+
+Hardening aggiuntivo trovato in review TASK-031:
+
+- `PosOnlineBootstrapService` validava solo `Staff`/`Shop`/`Device` non null prima del mirror locale;
+- una risposta first-login formalmente `success` ma priva di trusted-device token/sessione poteva creare/sincronizzare il mirror locale prima del fallimento del DPAPI/trusted-device save;
+- fix piccolo in Win7POS: validazione esplicita di trusted-device token, session token/id, shop device id, staff id/code e shop code prima di `UpsertRemoteStaffMirrorAsync`;
+- scanner `check-pos-online-bootstrap.ps1` aggiornato per bloccare regressioni su ordering e field coverage.
 
 Fix scanner:
 
@@ -273,19 +280,25 @@ Fix scanner:
 - verifica salvataggio token/sessione via DPAPI/trusted-device store senza campi token raw persistiti;
 - verifica hashing locale credential mirror staff con `PinHelper`;
 - verifica assenza di log sensibili e assenza di Base URL Admin Web production hardcoded.
+- `scripts/check-pos-online-bootstrap.ps1` verifica inoltre che la risposta first-login venga validata prima del mirror locale e che la validazione copra token/sessione/device/staff/shop.
 
 Check Win7POS follow-up:
 
 | Comando | Esito | Evidence sintetica |
 | --- | --- | --- |
-| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-bootstrap.ps1` | `PASS` | `=== RESULT: ALL PASS ===`. |
+| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-bootstrap.ps1` | `PASS` | Include `bootstrap validates trusted/session payload before local staff mirror` e `bootstrap first-login validation covers required fields`; `=== RESULT: ALL PASS ===`. |
 | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-client.ps1` | `PASS` | Include `first-login dialog uses bootstrap service`, `bootstrap service calls first-login through online client`, `trusted tokens saved through protected store`, `remote staff credential hashed for local mirror`, `no production Admin Web URL hardcoded`, `no sensitive POS online logs`. |
 | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-catalog-pull.ps1` | `PASS` | `=== RESULT: ALL PASS ===`. |
 | `dotnet build src/Win7POS.Wpf/Win7POS.Wpf.csproj -c Debug -p:Platform=x86` | `PASS` | `Compilazione completata. Avvisi: 0, Errori: 0`. |
 | `git diff --check` | `PASS` | Nessun output. |
 | `git status --short --branch` post-push | `PASS` | `## main...origin/main`. |
 
-Commit/push Win7POS: `d2c3d4b TASK-029 reconcile Win7POS online bootstrap`, push `main -> main`.
+Commit/push Win7POS:
+
+- `d2c3d4b TASK-029 reconcile Win7POS online bootstrap`, push `main -> main`;
+- `5e35a37 TASK-029 harden Win7POS bootstrap validation`, push `main -> main`.
+
+Security review artifacts: `/tmp/codex-security-scans/task-031-win7pos-reconciliation/20260602_admin2026166_win7posd2c3d4b_localfix/report.md` e `report.html`; nessun finding aperto, candidato `CAND-001` chiuso come `fixed_validated`.
 
 Impatto stato:
 

@@ -257,16 +257,18 @@ Il vecchio scanner `scripts/check-pos-online-client.ps1` e stato riallineato al 
 - token/PIN/password non devono essere loggati;
 - la Base URL Admin Web non deve essere hardcoded a produzione.
 
+Hardening follow-up: `5e35a37 TASK-029 harden Win7POS bootstrap validation` aggiunge la validazione completa della risposta first-login prima del mirror locale e aggiorna `check-pos-online-bootstrap.ps1` per coprire ordering e campi token/sessione/device/staff/shop.
+
 Evidence Win7POS:
 
 | Comando | Esito | Evidence sintetica |
 | --- | --- | --- |
-| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-bootstrap.ps1` | `PASS` | `=== RESULT: ALL PASS ===`. |
+| `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-bootstrap.ps1` | `PASS` | Include validazione trusted/session payload prima del mirror locale; `=== RESULT: ALL PASS ===`. |
 | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-client.ps1` | `PASS` | Scanner legacy riconciliato: dialog -> bootstrap service -> online client, DPAPI, hashing locale, no log sensibili, no Base URL production hardcoded. |
 | `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-catalog-pull.ps1` | `PASS` | `=== RESULT: ALL PASS ===`. |
 | `dotnet build src/Win7POS.Wpf/Win7POS.Wpf.csproj -c Debug -p:Platform=x86` | `PASS` | `Compilazione completata. Avvisi: 0, Errori: 0`. |
 | `git diff --check` | `PASS` | Nessun output. |
 
-Commit Win7POS: `d2c3d4b TASK-029 reconcile Win7POS online bootstrap`, push `main -> main`.
+Commit Win7POS: `d2c3d4b TASK-029 reconcile Win7POS online bootstrap` e `5e35a37 TASK-029 harden Win7POS bootstrap validation`, push `main -> main`.
 
 Decisione consigliata: mantenere `REVIEW` / `PASS_WITH_NOTES_READY_FOR_REVIEW`. Lo scanner legacy non e piu un blocker locale, ma il gate E2E live Supabase + Admin Web + Win7POS + dataset test + cleanup resta `PARKED_E2E_PENDING` finche non viene eseguito o declassato esplicitamente dall'utente.
