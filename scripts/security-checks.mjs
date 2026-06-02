@@ -1410,6 +1410,9 @@ function checkTask013UiPolishArtifacts() {
     ) &&
     !/Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`/.test(
       masterPlan,
+    ) &&
+    !/Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`/.test(
+      masterPlan,
     )
   ) {
     addFailure(`${masterPlanPath} must either be IDLE after TASK-013 or track a later active task`);
@@ -2945,7 +2948,8 @@ function checkTask020Win7PosIntegrationPlanning() {
     !/Task attivo: `TASK-026 - Shop Admin product catalog foundation`/.test(masterPlan) &&
     !/Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`/.test(masterPlan) &&
     !/Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`/.test(masterPlan) &&
-    !/Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`/.test(masterPlan)
+    !/Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`/.test(masterPlan) &&
+    !/Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`/.test(masterPlan)
   ) {
     addFailure("MASTER-PLAN must return to no active task after reconciliation or track an active POS/catalog task");
   }

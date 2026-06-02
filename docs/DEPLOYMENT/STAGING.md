@@ -3,9 +3,10 @@
 ## Stato
 
 - Task origine: `TASK-029`
-- Data: `2026-06-01`
-- Stato deploy pubblico HTTPS: `BLOCKED_VERCEL_PREVIEW_DEPLOY_REQUIRES_NON_PRODUCTION_PATH`
+- Data: `2026-06-02`
+- Stato deploy pubblico HTTPS: `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
 - No production: nessun deploy production deve essere eseguito da questo task.
+- Guardrail corrente: Git Integration Vercel disconnessa e `vercel.json` con `git.deploymentEnabled=false`.
 
 ## Blocker corrente
 
@@ -27,9 +28,21 @@ Resta bloccato il deploy staging HTTPS perche i deploy manuali Vercel CLI da wor
 
 Stato deployment attivi Vercel dopo cleanup: nessun deployment elencato dal progetto.
 
-Per ottenere uno staging/preview reale senza production serve uno di questi percorsi:
+TASK-029C update 2026-06-02:
 
-- push autorizzato di un branch non-`main`, cosi GitHub/Vercel creano una Preview Deployment reale;
+- branch non-main Admin Web creato: `codex/task-029c-vercel-preview-e2e`;
+- commit/push non-main per Vercel Git Integration: `274deff TASK-029 prepare vercel preview path`;
+- `vercel ls --scope xniw97-9857s-projects` ha creato/osservato `https://merchandise-control-admin-gmip02vp7-xniw97-9857s-projects.vercel.app` come `Environment Production`;
+- deployment cancellata subito con `vercel remove ... --yes --scope xniw97-9857s-projects`;
+- verifica finale `vercel ls --scope xniw97-9857s-projects`: nessun deployment attivo;
+- branch remoto `origin/codex/task-029c-vercel-preview-e2e` cancellato in review con `git push origin --delete codex/task-029c-vercel-preview-e2e`;
+- progetto ancora collegato a GitHub `XNIW/merchandise-control-admin-web` con `productionBranch=main`, ma il percorso branch non-main non ha prodotto Preview;
+- env Preview richieste presenti per nome; valori non riportati;
+- env Production create automaticamente da Vercel/Supabase durante il tentativo osservate per nome/target e non rimosse senza decisione esplicita.
+
+Per ottenere uno staging/preview reale senza production serve ora uno di questi percorsi:
+
+- correggere configurazione Vercel/Git Integration che fa generare `Production` anche da branch non-`main`;
 - altro provider/ambiente HTTPS non-production;
 - piano/feature Vercel che consenta custom environment staging sul progetto.
 
@@ -40,7 +53,16 @@ Discovery iniziale storica:
 - `netlify.toml`: assente;
 - CLI `vercel`: inizialmente non disponibile nel PATH (`command not found`), poi installata globalmente.
 
-Senza un percorso Preview/non-production verificabile non e possibile produrre una URL HTTPS staging accettabile senza violare il vincolo no production.
+Senza un percorso Preview/non-production verificabile non e possibile produrre una URL HTTPS staging accettabile senza violare il vincolo no production. Il push di branch non-`main`, che era il percorso raccomandato dopo TASK-029B, e ora anch'esso bloccato perche genera `Production`.
+
+TASK-030 neutralizzazione 2026-06-02:
+
+- diagnosi read-only: project `live=false`, `hasDeployments=false`, deployment list vuota, alias list vuota;
+- prima della neutralizzazione il project API mostrava `link.type=github`, repo `XNIW/merchandise-control-admin-web`, `link.productionBranch=main`, ma `productionBranch` top-level `null`;
+- `vercel git disconnect --scope xniw97-9857s-projects` eseguito per impedire deployment automatici da push Git;
+- verifica post-disconnect: `link=null`, `gitRepository=null`, `live=false`, `hasDeployments=false`, `latestDeployments=[]`;
+- aggiunto `vercel.json` con `git.deploymentEnabled=false` come guardrail versionato se la Git Integration verra ricollegata;
+- nessuna env e stata rimossa; valori env non letti e non salvati.
 
 Review/fix 2026-06-01:
 
@@ -59,7 +81,17 @@ TASK-029B update 2026-06-01:
 - `vercel api /v10/projects/merchandise-control-admin-web/env`: 3 env `preview` presenti, senza branch scope;
 - `vercel api /v7/deployments?projectId=merchandise-control-admin-web`: nessun deployment attivo dopo cleanup;
 - URL HTTPS staging: `NOT_AVAILABLE`;
-- smoke staging e Win7POS staging E2E: `NOT_RUN / BLOCKED_VERCEL_PREVIEW_DEPLOY_REQUIRES_NON_PRODUCTION_PATH`.
+- smoke staging e Win7POS staging E2E: `NOT_RUN / BLOCKED_VERCEL_PREVIEW_DEPLOY_REQUIRES_NON_PRODUCTION_PATH` storico, poi superseded da `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`.
+
+TASK-029C update 2026-06-02:
+
+- `git push -u origin codex/task-029c-vercel-preview-e2e`: branch remoto creato;
+- Vercel deployment da branch non-main: `BLOCKED_PRODUCTION_TARGET_DELETED`;
+- URL prodotta e cancellata: `https://merchandise-control-admin-gmip02vp7-xniw97-9857s-projects.vercel.app`;
+- branch remoto temporaneo: `DELETED`;
+- `vercel ls --scope xniw97-9857s-projects`: nessun deployment attivo dopo cleanup;
+- URL HTTPS Preview staging: `NOT_AVAILABLE`;
+- smoke staging e Win7POS staging E2E: `NOT_RUN / BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`.
 
 ## Variabili richieste
 
@@ -85,7 +117,7 @@ npm run build
 vercel deploy
 ```
 
-Usare solo preview/staging. Non usare `vercel --prod` in questo task. Su questo progetto, i deploy CLI manuali da worktree locale sono stati osservati come `target: production`; non ripetere quel percorso senza un guardrail non-production verificato.
+Usare solo preview/staging. Non usare `vercel --prod` in questo task. Su questo progetto, i deploy CLI manuali da worktree locale e il push di branch Git non-main sono stati osservati come `Production`; non ripetere questi percorsi senza un guardrail non-production verificato. Attualmente i deploy automatici da Git sono neutralizzati perche la Git Integration e disconnessa e il repo contiene `git.deploymentEnabled=false`.
 
 ## Checklist sicurezza
 

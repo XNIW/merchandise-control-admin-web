@@ -81,8 +81,11 @@ test("TASK-028 governance artifacts close after explicit DONE reconciliation", (
   }
 
   assertContains(masterPlan, "### TASK-028 - Catalog CRUD, Excel import/export, and Win7POS catalog pull E2E");
-  assertContains(masterPlan, "Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`");
-  assertContains(masterPlan, "Stato task: `REVIEW`");
+  assert.match(
+    masterPlan,
+    /Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`/,
+  );
+  assert.match(masterPlan, /Stato task: `REVIEW`|Stato task: `EXECUTION`/);
   assert.match(task, /Stato:\s*`DONE_RECONCILED_WITH_NOTES`/);
   assert.match(evidence, /Verdict corrente:\s*`DONE_RECONCILED_WITH_NOTES`/);
 });

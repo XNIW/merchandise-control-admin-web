@@ -10,10 +10,10 @@
 - Data apertura: `2026-06-01`
 - Execution: `COMPLETED_BY_CODEX`
 - Review/fix: `COMPLETED_BY_CODEX`
-- Verdict corrente: `BLOCKED_VERCEL_PREVIEW_DEPLOY_REQUIRES_NON_PRODUCTION_PATH`
-- Commit: `NOT_REQUESTED`
-- Git push: `NOT_REQUESTED`
-- Stage: `NOT_REQUESTED`
+- Verdict corrente: `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
+- Commit: `274deff` su branch non-main per tentativo Vercel Preview
+- Git push: `origin/codex/task-029c-vercel-preview-e2e` per tentativo Vercel Preview; branch remoto rimosso in review
+- Stage: `NOT_STAGED_FINAL`
 
 ## Scope
 
@@ -45,7 +45,7 @@ Fix: patch minima e idempotente nella migration storica, con `to_regclass('publi
 
 ## Staging
 
-Stato: `BLOCKED_VERCEL_PREVIEW_DEPLOY_REQUIRES_NON_PRODUCTION_PATH`.
+Stato: `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`.
 
 Evidence:
 
@@ -127,15 +127,45 @@ Hardening implementato sui Route Handler POS:
 - Deployment creati per errore: `dpl_EBv8HEroVsKQk5YaQrapyWZxqbGf`, `dpl_FVvS6QYv6FEiXutJrgLMJMM8qtz4`, `dpl_6bGHetzA2uduq4hy8zMdiYrV2XYJ`, `dpl_99aoNgtAJnCw3zTzKCcqQwBMP2ss`; tutti cancellati con `state=DELETED`.
 - Stato finale: nessun deployment attivo, nessuna URL staging, nessun smoke staging, nessun Win7POS E2E staging.
 
+## TASK-029C update 2026-06-02
+
+Percorso branch Git non-main provato e bloccato:
+
+- Branch Admin Web creato: `codex/task-029c-vercel-preview-e2e`.
+- Commit preview Admin Web creato sul branch non-main: `274deff TASK-029 prepare vercel preview path`.
+- Branch remoto pushato a `origin/codex/task-029c-vercel-preview-e2e` solo per attivare Vercel Git Integration.
+- `vercel ls --scope xniw97-9857s-projects` ha mostrato la deployment `https://merchandise-control-admin-gmip02vp7-xniw97-9857s-projects.vercel.app` con `Environment Production`.
+- La deployment production inattesa e stata cancellata subito con `vercel remove ... --yes --scope xniw97-9857s-projects`.
+- Verifica finale `vercel ls --scope xniw97-9857s-projects`: nessun deployment attivo.
+- Review cleanup: il branch remoto `origin/codex/task-029c-vercel-preview-e2e` e stato cancellato con `git push origin --delete codex/task-029c-vercel-preview-e2e`; l'upstream locale e stato rimosso con `git branch --unset-upstream`.
+- Configurazione progetto verificata: GitHub link `XNIW/merchandise-control-admin-web`, `productionBranch` ancora `main`, ma il branch non-main ha comunque generato `Production`.
+- Env Preview richieste ancora presenti per nome: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`; valori non registrati in repo/evidence.
+- `vercel env ls` mostra anche env `Production` create da Vercel/Supabase intorno al deploy fallito; i valori non sono stati letti o salvati. Non sono state rimosse perche la rimozione di configurazione remota production e distruttiva e richiede decisione esplicita.
+
+Gate staging: `BLOCKED`. Nessuna URL Preview valida e stata ottenuta. Smoke API staging, dataset staging sintetico e Win7POS E2E staging non sono stati eseguiti perche l'unica URL prodotta era production e non puo essere usata come staging.
+
+## TASK-030 follow-up 2026-06-02
+
+TASK-030 ha diagnosticato e neutralizzato il rischio di deployment automatico prima della riconciliazione su `main`:
+
+- project Vercel `live=false`, `hasDeployments=false`, deployment list e alias list vuote;
+- Git Integration scollegata con `vercel git disconnect --scope xniw97-9857s-projects`;
+- verifica post-disconnect: `link=null`, `gitRepository=null`, `productionBranch=null`;
+- aggiunto `vercel.json` con `git.deploymentEnabled=false` come guardrail versionato;
+- env Vercel viste solo per nome/target/tipo, senza valori; env Production non rimosse.
+
+Questo rende controllato il rischio di push su `main`, ma non sblocca staging: TASK-029 resta bloccato finche non viene ottenuta una vera URL Preview/non-production o un hosting HTTPS alternativo.
+
 ## Check
 
 I risultati finali sono registrati in `docs/TASKS/EVIDENCE/TASK-029/README.md`.
 
 ## Rischi residui
 
-- Staging pubblico HTTPS non eseguito perche il percorso CLI locale genera deployment production; serve preview da branch Git non-main pushato/autorizzato o altro ambiente HTTPS non-production.
-- Smoke staging e Win7POS contro staging pubblico non eseguiti per assenza URL.
+- Staging pubblico HTTPS non eseguito perche sia il percorso CLI locale sia il branch Git non-main pushato generano deployment `Production`; TASK-030 ha neutralizzato l'auto-deploy Git, ma serve ancora ottenere una vera Preview/non-production o usare altro ambiente HTTPS non-production.
+- Smoke staging e Win7POS contro staging pubblico non eseguiti per assenza URL Preview/non-production.
 - Dataset staging test non creato.
+- Env `Production` Vercel create automaticamente dal tentativo fallito sono state osservate solo per nome/target e non rimosse senza approvazione esplicita.
 - TASK-024 sales sync resta deferred.
 - Android/iOS non toccati.
 
