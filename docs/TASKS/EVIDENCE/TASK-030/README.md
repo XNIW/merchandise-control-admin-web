@@ -3,13 +3,15 @@
 ## Stato corrente
 
 - Task: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`
-- Stato task: `EXECUTION`
-- Fase: `EXECUTION`
+- Stato task: `REVIEW`
+- Fase: `REVIEW`
 - Data execution: `2026-06-02`
-- Verdict corrente: `PENDING_MAIN_RECONCILIATION`
+- Execution: `COMPLETED_BY_CODEX`
+- Verdict corrente: `PASS_WITH_NOTES_MAIN_PUSHED`
 - Branch iniziale Admin Web: `codex/task-029c-vercel-preview-e2e`
 - Commit iniziale Admin Web: `274deff TASK-029 prepare vercel preview path`
-- Push main: `PENDING`
+- Branch finale Admin Web: `main`
+- Push main: `PASS`
 
 ## Pre-flight
 
@@ -75,17 +77,30 @@ Gate provvisorio:
 
 ## Main reconciliation
 
-Stato corrente: `PENDING`.
+Stato corrente: `PASS_WITH_NOTES_MAIN_PUSHED`.
 
-Procedura prevista:
+| Area | Comando | Esito | Evidence sintetica |
+| --- | --- | --- | --- |
+| Git | `git switch main` | `PASS` | Branch finale `main`. |
+| Git | `git pull --ff-only origin main` | `PASS` | `Already up to date.` |
+| Git | `git merge --no-ff codex/task-029c-vercel-preview-e2e` | `PASS` | Merge commit creato senza conflitti: `Merge TASK-030 Vercel deployment safeguards`. |
+| Admin Web | `git status --short --branch` pre-push | `PASS_WITH_NOTES` | `main...origin/main [ahead 3]`. |
+| Admin Web | `git diff --check` pre-push | `PASS` | Nessun output. |
+| Admin Web | `git diff --stat HEAD` pre-push | `PASS` | Nessun output. |
+| Vercel | Pre-push project check | `PASS` | `link=null`, `gitRepository=null`, `live=false`, `hasDeployments=false`, `latestDeployments=[]`. |
+| Vercel | Pre-push deployments/aliases | `PASS` | Nessun deployment e nessun alias. |
+| Admin Web | `npm run security:scan` su `main` | `PASS` | `Security scan passed.` |
+| Admin Web | `npm run test:foundation` su `main` | `PASS` | `tests 134`, `pass 134`, `fail 0`. |
+| Admin Web | `npm run verify` su `main` | `PASS_WITH_WARNING` | `lint`, `typecheck`, `security:scan`, `build` passati; warning toolchain `[DEP0205] module.register()`. |
+| Git | Secret/file-name pre-push scan | `PASS` | Nessun match su `.env`, `.vercel`, `secret`, `token`, `password`, `service-role`, `service_role` nei file del merge commit. |
+| Git | `git push origin main` | `PASS` | Push completato: `main -> main`. |
+| Git | `git status --short --branch` post-push | `PASS` | `main...origin/main`. |
+| Vercel | Post-push project check | `PASS` | `link=null`, `gitRepository=null`, `productionBranch=null`, `live=false`, `hasDeployments=false`, `latestDeployments=[]`. |
+| Vercel | Post-push deployments/aliases | `PASS` | Nessun deployment e nessun alias; MCP deployments `count=0`. |
 
-- commit locale del branch `codex/task-029c-vercel-preview-e2e`;
-- `git switch main`;
-- `git pull --ff-only origin main`;
-- `git merge --no-ff codex/task-029c-vercel-preview-e2e`;
-- riesecuzione check critici su `main`;
-- `git push origin main`;
-- verifica Vercel deployment/alias post-push.
+## Classificazione finale
+
+`PASS_WITH_NOTES_MAIN_PUSHED`
 
 ## Rischi residui
 

@@ -1096,13 +1096,13 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation
 
-- Stato: `EXECUTION`
+- Stato: `REVIEW`
 - File task: `docs/TASKS/TASK-030-vercel-deployment-configuration-diagnosis-main-reconciliation.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-030/README.md`
-- Fase: `EXECUTION`
-- Execution: `IN_PROGRESS_BY_CODEX`
-- Review: `NOT_STARTED`
-- Verdict corrente: `PENDING_MAIN_RECONCILIATION`
+- Fase: `REVIEW`
+- Execution: `COMPLETED_BY_CODEX`
+- Review: `PENDING_USER_REVIEW`
+- Verdict corrente: `PASS_WITH_NOTES_MAIN_PUSHED`
 - Scopo: diagnosticare la configurazione Vercel/Git Integration che genera `Production` da percorsi non-production, neutralizzare il rischio di auto-deploy e riconciliare Admin Web su `main` solo se il gate anti-production e soddisfatto.
 - Include:
   - diagnosi Vercel read-only;
@@ -1118,7 +1118,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - Supabase schema/migration/RLS/tipi;
   - runtime POS, catalogo o Win7POS;
   - TASK-024 sales sync.
-- Nota: avviato da Codex il 2026-06-02 da handoff allegato utente. Prima azione remota applicata: `vercel git disconnect --scope xniw97-9857s-projects`, verificata con `link=null`, `live=false`, `hasDeployments=false`, deployment/alias vuoti. Aggiunto guardrail versionato `vercel.json` con `git.deploymentEnabled=false`. TASK-029 resta bloccato per assenza di vera Preview/non-production; TASK-022_023 resta `PARKED_E2E_PENDING`; TASK-024 resta `DEFERRED`.
+- Nota: avviato da Codex il 2026-06-02 da handoff allegato utente. Prima azione remota applicata: `vercel git disconnect --scope xniw97-9857s-projects`, verificata con `link=null`, `live=false`, `hasDeployments=false`, deployment/alias vuoti. Aggiunto guardrail versionato `vercel.json` con `git.deploymentEnabled=false`. Merge controllato su `main`, check Admin Web e Win7POS passati, push su `main` completato e verifica Vercel post-push conferma nessun deployment/alias. TASK-029 resta bloccato per assenza di vera Preview/non-production; TASK-022_023 resta `PARKED_E2E_PENDING`; TASK-024 resta `DEFERRED`.
 
 ## Tooling policy
 
@@ -1152,18 +1152,18 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-021: `DONE_RECONCILED`
 - Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`
 - File task: `docs/TASKS/TASK-030-vercel-deployment-configuration-diagnosis-main-reconciliation.md`
-- Stato task: `EXECUTION`
-- Fase: `EXECUTION`
-- Responsabile: `CODEX`
-- Branch execution: `codex/task-029c-vercel-preview-e2e` locale per tentativo Preview; branch remoto temporaneo rimosso; nessun commit TASK-029C su `main`
+- Stato task: `REVIEW`
+- Fase: `REVIEW`
+- Responsabile: `USER_REVIEW`
+- Branch execution: `main`
 - Task parcheggiato: `TASK-022_023 - POS live dashboard + Win7POS first login trusted device`
 - Stato task parcheggiato: `PARKED_E2E_PENDING`
 - Verdict TASK-026: `DONE_WITH_NOTES`
 - Verdict TASK-027: `DONE_RECONCILED_WITH_NOTES`
 - Verdict TASK-028: `DONE_RECONCILED_WITH_NOTES`
 - Verdict TASK-029: `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
-- Verdict TASK-030: `PENDING_MAIN_RECONCILIATION`
-- Prossima azione consigliata: completare i check TASK-030 e riconciliare su `main` solo se il gate anti-production resta soddisfatto. Per sbloccare TASK-029 serve ancora una vera URL Preview/non-production o hosting HTTPS alternativo; TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
+- Verdict TASK-030: `PASS_WITH_NOTES_MAIN_PUSHED`
+- Prossima azione consigliata: review utente di TASK-030. Per sbloccare TASK-029 serve ancora una vera URL Preview/non-production o hosting HTTPS alternativo; TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
 
 ## Regole di avanzamento
 

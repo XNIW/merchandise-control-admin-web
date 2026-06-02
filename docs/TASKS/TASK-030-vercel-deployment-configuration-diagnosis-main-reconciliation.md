@@ -4,13 +4,15 @@
 
 - ID: `TASK-030`
 - Titolo: `Vercel deployment configuration diagnosis and safe main reconciliation`
-- Stato: `EXECUTION`
-- Fase attuale: `EXECUTION`
-- Responsabile attuale: `CODEX`
+- Stato: `REVIEW`
+- Fase attuale: `REVIEW`
+- Responsabile attuale: `USER_REVIEW`
 - Data apertura: `2026-06-02`
-- Verdict corrente: `PENDING_MAIN_RECONCILIATION`
+- Execution: `COMPLETED_BY_CODEX`
+- Verdict corrente: `PASS_WITH_NOTES_MAIN_PUSHED`
 - Branch iniziale: `codex/task-029c-vercel-preview-e2e`
 - Commit iniziale: `274deff TASK-029 prepare vercel preview path`
+- Branch finale: `main`
 
 ## Scope
 
@@ -76,5 +78,6 @@ I risultati sono registrati in `docs/TASKS/EVIDENCE/TASK-030/README.md`.
 
 ## Handoff
 
-- Prossima fase prevista: `REVIEW`.
+- Prossima fase: `REVIEW`.
+- Classificazione finale: `PASS_WITH_NOTES_MAIN_PUSHED`.
 - Codex non marca il task `DONE`.
