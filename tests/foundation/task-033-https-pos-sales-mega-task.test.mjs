@@ -1,0 +1,146 @@
+import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import test from "node:test";
+
+const root = process.cwd();
+
+function readProjectFile(relativePath) {
+  return readFileSync(join(root, relativePath), "utf8");
+}
+
+function assertContains(source, required, label = required) {
+  assert.match(source, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), label);
+}
+
+test("TASK-033 governance artifacts exist and gate the mega-task without DONE claims", () => {
+  const taskPath =
+    "docs/TASKS/TASK-033-controlled-task-032-review-https-pos-sales.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-033/README.md";
+
+  assert.equal(existsSync(join(root, taskPath)), true, `${taskPath} is missing`);
+  assert.equal(existsSync(join(root, evidencePath)), true, `${evidencePath} is missing`);
+
+  const task = readProjectFile(taskPath);
+  const evidence = readProjectFile(evidencePath);
+  const masterPlan = readProjectFile("docs/MASTER-PLAN.md");
+  const combined = `${task}\n${evidence}\n${masterPlan}`;
+
+  for (const required of [
+    "TASK-033",
+    "codex/task-033-https-pos-sales-mega-task",
+    "Controlled TASK-032 review",
+    "HTTPS non-production",
+    "Win7POS live E2E",
+    "POS reconciliation",
+    "sales sync planning",
+    "sales sync foundation",
+    "TASK-029",
+    "TASK-031",
+    "TASK-022_023",
+    "TASK-024",
+    "Win7POS deve comunicare solo con Admin Web POS API",
+    "Vercel resta parcheggiato",
+    "git.deploymentEnabled=false",
+    "shops",
+    "shop_id",
+    "shop_code",
+    "REVIEW_WITH_BLOCKERS",
+    "BLOCKED_",
+  ]) {
+    assertContains(combined, required);
+  }
+
+  assert.match(masterPlan, /Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`/);
+  assert.match(task, /Stato: `(EXECUTION|REVIEW|REVIEW_WITH_BLOCKERS|BLOCKED_[A-Z0-9_]+)`/);
+  assert.match(task, /Fase attuale: `(EXECUTION|REVIEW|REVIEW_WITH_BLOCKERS|BLOCKED_[A-Z0-9_]+)`/);
+  assert.match(task, /DONE` resta decisione dell'utente/);
+  assert.doesNotMatch(task, /Stato: `DONE`/);
+  assert.doesNotMatch(task, /Fase attuale: `DONE`/);
+});
+
+test("TASK-033 evidence records real gates or explicit blockers for HTTPS, POS and sales sync", () => {
+  const evidence = readProjectFile("docs/TASKS/EVIDENCE/TASK-033/README.md");
+
+  for (const required of [
+    "Baseline Admin Web",
+    "TASK-032 merge/review",
+    "Endpoint HTTPS non-production reale",
+    "Admin Web POS API smoke HTTPS",
+    "Win7POS live E2E",
+    "Dashboard POS Shop Admin",
+    "TASK-029 reconciliation",
+    "TASK-022_023 reconciliation",
+    "Sales sync planning",
+    "Sales sync foundation",
+    "Dashboard vendite Shop Admin",
+  ]) {
+    assertContains(evidence, required);
+  }
+
+  assert.match(evidence, /`(PASS|PASS_WITH_NOTES|BLOCKED_[A-Z0-9_]+|NOT_RUN_[A-Z0-9_]+|DEFERRED_[A-Z0-9_]+)`/);
+  assert.doesNotMatch(evidence, /PASS_INVENTED|E2E passed|sales-sync-ready|staging-ready|production-ready/i);
+});
+
+test("TASK-033 security scanner permits only the explicit active task and keeps POS/catalog gates recognized", () => {
+  const scanner = readProjectFile("scripts/security-checks.mjs");
+  const masterPlan = readProjectFile("docs/MASTER-PLAN.md");
+
+  assert.match(scanner, /TASK-033 - Controlled TASK-032 review/);
+  assert.match(scanner, /TASK-033/);
+  assert.match(masterPlan, /Verdict TASK-033:/);
+  assert.match(masterPlan, /Prossima azione consigliata:/);
+});
+
+test("TASK-033 POS harness can opt into approved HTTPS non-production tunnels without Vercel", () => {
+  const harness = readProjectFile("scripts/pos-local-e2e-harness.mjs");
+
+  for (const required of [
+    "TASK033_POS_E2E_ALLOW_HTTPS_NON_PRODUCTION",
+    "isHttpsNonProductionUrl",
+    "loca.lt",
+    "trycloudflare.com",
+    "ngrok",
+    "localhost.run",
+    "vercel.app",
+  ]) {
+    assertContains(harness, required);
+  }
+
+  assert.match(harness, /Admin Web base URL must be localhost or 127\.0\.0\.1 unless TASK033/);
+  assert.match(harness, /protocol !== "https:"/);
+  assert.match(harness, /hostname\.endsWith\("vercel\.app"\)/);
+});
+
+test("TASK-033 sales sync planning is complete but blocks foundation until live Win7POS is executable", () => {
+  const planPath = "docs/TASKS/EVIDENCE/TASK-033/sales-sync-planning.md";
+
+  assert.equal(existsSync(join(root, planPath)), true, `${planPath} is missing`);
+
+  const plan = readProjectFile(planPath);
+  const task = readProjectFile(
+    "docs/TASKS/TASK-033-controlled-task-032-review-https-pos-sales.md",
+  );
+  const evidence = readProjectFile("docs/TASKS/EVIDENCE/TASK-033/README.md");
+
+  for (const required of [
+    "pos_sales",
+    "pos_sale_lines",
+    "pos_sale_payments",
+    "pos_sales_sync_batches",
+    "POST /api/pos/sales/sync",
+    "idempotencyKey",
+    "clientSaleId",
+    "offline queue",
+    "at-least-once",
+    "exactly-once persistence",
+    "Win7POS net48 WPF",
+    "BLOCKED_WIN7POS_RUNTIME_UNAVAILABLE",
+    "SALES_SYNC_PLANNED_ONLY",
+  ]) {
+    assertContains(`${plan}\n${task}\n${evidence}`, required);
+  }
+
+  assert.doesNotMatch(plan, /create table .*pos_sales/i);
+  assert.doesNotMatch(plan, /export async function POST/);
+});

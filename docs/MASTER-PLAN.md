@@ -1147,6 +1147,61 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - modifiche runtime Admin Web/POS/Supabase/Win7POS.
 - Nota: retry eseguito da Codex il 2026-06-02 dopo link utente alla doc Vercel Preview Environment. La doc conferma che CLI senza `-prod` e REST `target` omesso dovrebbero produrre Preview, ma il progetto con `hasDeployments=false` ha restituito sempre `target:"production"` e OIDC `environment:"production"`, anche su branch remoto non-main e anche con `target:"staging"`. Tutti i deployment inattesi sono stati cancellati subito; Vercel finale resta senza deployment e senza alias. Custom environments non disponibili (`accountLimit.total=0`, piano Hobby). Ipotesi residua: Vercel forza il primo deployment del progetto a Production baseline; verificarlo richiede autorizzazione esplicita per lasciare temporaneamente un deployment Production, quindi TASK-031 resta `REVIEW_BLOCKED`.
 
+### TASK-032 - Full project progression mega-task
+
+- Stato: `REVIEW`
+- File task: `docs/TASKS/TASK-032-full-project-progression-mega-task.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-032/README.md`
+- Fase: `REVIEW`
+- Milestone interna: `FASE_6_HTTPS_NON_PRODUCTION_BLOCKED`
+- Responsabile: `USER_REVIEW`
+- Verdict corrente: `PASS_WITH_NOTES_PHASE_5_COMPLETE_PHASE_6_BLOCKED`
+- Scopo: mega-task unico richiesto esplicitamente dall'utente per avanzare baseline/handoff, Shop Admin polish, Excel hardening, permissions, local POS E2E, HTTPS non-production alternativo, riconciliazione TASK-029/TASK-022_023, planning sales sync e foundation sales sync solo se i gate lo rendono sicuro.
+- Include:
+  - pre-flight Admin Web, Win7POS e Vercel read-only;
+  - apertura task/evidence ufficiali TASK-032;
+  - gate base Admin Web e Win7POS;
+  - fasi interne documentate senza creare task ufficiali separati;
+  - handoff finale a `REVIEW`.
+- Non include:
+  - production usata come staging;
+  - ricollegare Git Integration Vercel corrente senza gate;
+  - leggere o salvare secret;
+  - service-role nel browser o in Win7POS;
+  - dati clienti reali;
+  - sync bidirezionale catalogo o editing catalogo dal POS;
+  - modifiche Android/iOS runtime senza necessita esplicita.
+- Nota: execution avviata da Codex il 2026-06-02 da allegato utente. Baseline iniziale: Admin Web `main` pulito e allineato a `origin/main` su `18116bc`; Win7POS `main` pulito e allineato a `origin/main` su `5e35a37`; Vercel Git Integration scollegata (`link=null`, `gitRepository=null`), nessun deployment, nessun alias, `vercel.json` con `git.deploymentEnabled=false`. Branch Admin Web creato per l'execution: `codex/task-032-full-project-progression`. Fase 1 gate base passati dopo fix mirato delle whitelist governance per riconoscere TASK-032: Admin Web `security:scan`, `test:foundation` (`134/134`) e `git diff --check` PASS; Win7POS `git diff --check` e scanner bootstrap/client/catalog PASS. Fase 2 Shop Admin polish passata con note: `test:foundation` `137/137`, `security:scan`, `typecheck`, `lint`, `build`, `verify` e `git diff --check` PASS/PASS_WITH_WARNING; browser smoke autenticato `BLOCKED_NO_AUTH_SESSION` su route shop locali. Fase 3 Excel hardening passata con note: validazione `duplicate_product_sku`, test sintetici header spostati/alias cinesi-spagnoli/formula injection/numeri, Drive discovery read-only dei campioni fornitori, `test:foundation` `140/140`, `security:scan`, `verify` e `git diff --check` PASS/PASS_WITH_WARNING. Fase 4 permissions hardening passata con note: `resolveShopActionContext` nega `shop_id` non autorizzati invece di fallback, test matrix owner/manager/viewer/POS staff, `test:foundation` `144/144`, `security:scan`, `verify` e `git diff --check` PASS/PASS_WITH_WARNING. Fase 5 Local POS E2E passata con cleanup: stack Supabase temporaneo isolato, migration locali applicate, dataset sintetico `TASK032_*`, POS first-login/trusted device/heartbeat/catalog full/tombstone/restore passati, cleanup verificato con zero residui attivi, Admin Web `test:foundation` `147/147`, `security:scan`, `verify` e `git diff --check` PASS/PASS_WITH_WARNING; Win7POS scanner bootstrap/client/catalog e `git diff --check` PASS. Review/fix finale Codex: diff security scan completato in `/tmp/codex-security-scans/merchandise-control-admin-web/18116bc_20260601235207/report.md`, trovato e corretto finding locale `TASK032-URL-CREDS-LEAK` nel harness POS (`TASK032_POS_E2E_BASE_URL` con userinfo non viene piu stampato su startup failure), regression test dedicato aggiunto. Check finali freschi: Admin Web `security:scan` PASS, `test:foundation` PASS (`148/148`), `verify` PASS con warning `[DEP0205]`, `git diff --check` PASS; browser smoke locale conferma blocco auth su prodotti/categorie/fornitori; Win7POS `git diff --check` e scanner bootstrap/client/catalog PASS; Vercel read-only conferma zero deployment, zero alias, Git Integration scollegata e env solo come `Encrypted`. TASK-032 passa a handoff `REVIEW` con Fase 6 bloccata; TASK-029, TASK-031 e TASK-022_023 restano non chiusi finche i relativi gate HTTPS/non-production e Win7POS live non passano. TASK-033 ha poi integrato il commit TASK-032 `2fa1feb` sul branch `codex/task-033-https-pos-sales-mega-task` per review controllata e prosecuzione del gate HTTPS.
+
+### TASK-033 - Controlled TASK-032 review + HTTPS non-production + Win7POS live E2E + POS reconciliation + sales sync foundation
+
+- Stato: `REVIEW_WITH_BLOCKERS`
+- File task: `docs/TASKS/TASK-033-controlled-task-032-review-https-pos-sales.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-033/README.md`
+- Fase: `REVIEW_WITH_BLOCKERS`
+- Milestone interna: `HANDOFF_REVIEW_WITH_BLOCKERS`
+- Responsabile: `USER_REVIEW`
+- Branch execution: Admin Web su `codex/task-033-https-pos-sales-mega-task`
+- Verdict corrente: `REVIEW_WITH_BLOCKERS`
+- Scopo: proseguire in task unico con review controllata di TASK-032, ambiente HTTPS non-production alternativo, Admin Web POS API smoke HTTPS, Win7POS live E2E, dashboard POS read-only con dati sintetici reali, riconciliazione TASK-029/TASK-022_023 solo dopo gate reali, sales sync planning e foundation solo se schema/endpoint/idempotency/offline/test sono sicuri.
+- Include:
+  - Controlled TASK-032 review;
+  - HTTPS non-production senza Vercel Production e senza ricollegare Git Integration;
+  - POS API smoke e Win7POS live E2E con dati sintetici;
+  - POS reconciliation di TASK-029 e TASK-022_023 solo se i gate passano;
+  - sales sync planning;
+  - eventuale sales sync foundation e dashboard vendite solo se i gate sono verificati.
+- Non include:
+  - `DONE`;
+  - uso Production come staging;
+  - Vercel Git Integration ricollegata;
+  - service role o secret nel client/browser/Win7POS;
+  - dati reali hardcoded;
+  - `merchant -> stores`;
+  - dichiarazioni di readiness senza evidence reale.
+- Nota: aperto da Codex il 2026-06-02 da brief utente. Branch dedicato creato da `main`; TASK-032 integrato via fast-forward controllato da `18116bc` a `2fa1feb`; check base Admin Web `security:scan` e `test:foundation` (`148/148`) passati. `cloudflared` installato e usato per Quick Tunnel HTTPS non-production `trycloudflare.com`; Admin Web POS API smoke HTTPS e harness positivo passati con dati sintetici e cleanup verificato. Check finali Admin Web: `security:scan` PASS, `test:foundation` PASS (`153/153` dopo fix regex governance), `verify` PASS con warning noto `[DEP0205]`, `git diff --check` PASS. Win7POS repo pulito, scanner bootstrap/client/catalog PASS e build WPF x86 PASS con `Avvisi: 0`, `Errori: 0`; il client WPF net48 non e pero eseguibile su questa macchina macOS senza Windows/Wine/Mono: TASK-033 va a `REVIEW_WITH_BLOCKERS`. Vercel resta parcheggiato con `git.deploymentEnabled=false`, zero deployment e zero alias; TASK-029 e TASK-022_023 non riconciliati; sales sync resta planning-only.
+- Review/fix Codex 2026-06-02: review completa dell'allegato eseguita senza dichiarare `DONE`. Codex Security diff scan TASK-033 completato in `/tmp/codex-security-scans/merchandise-control-admin-web/2fa1feb_20260602051839/report.md` e `report.html`, `15/15` righe coperte e nessun finding reportable. Check freschi Admin Web `security:scan`, test TASK-033, `test:foundation` (`153/153`), `typecheck`, `lint`, `build`, `verify` e `git diff --check` passano, con solo warning noto `[DEP0205]` in build/verify. Browser smoke `/shop/pos` conferma guardia `Shop Admin access required` / `No active session`. Win7POS scanner bootstrap/client/catalog, build WPF x86 e `git diff --check` passano; live E2E resta `BLOCKED_WIN7POS_LIVE_ENV_NOT_AVAILABLE` su macOS arm64 senza Windows/Wine/Mono. Vercel read-only conferma zero deployment/alias e `git.deploymentEnabled=false`; Cloudflare/server/container temporanei chiusi. TASK-029 e TASK-022_023 restano non riconciliati; sales sync foundation e dashboard vendite restano non implementate.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -1160,7 +1215,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `REVIEW`
+- Stato globale attuale: `REVIEW_WITH_BLOCKERS`
 - Ultimo task completato: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
@@ -1177,12 +1232,15 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-020: `DONE_RECONCILED`
 - Stato TASK-021: `DONE`
 - Fase TASK-021: `DONE_RECONCILED`
-- Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
-- File task: `docs/TASKS/TASK-029-production-path-staging-win7pos-bootstrap.md`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
+- Task attivo: `TASK-033 - Controlled TASK-032 review + HTTPS non-production + Win7POS live E2E + POS reconciliation + sales sync foundation`
+- File task: `docs/TASKS/TASK-033-controlled-task-032-review-https-pos-sales.md`
+- Stato task: `REVIEW_WITH_BLOCKERS`
+- Fase: `REVIEW_WITH_BLOCKERS`
+- Milestone interna: `HANDOFF_REVIEW_WITH_BLOCKERS`
 - Responsabile: `USER_REVIEW`
-- Branch execution: Admin Web docs su `codex/task-031-vercel-preview-diagnosis`; Win7POS pushato su `main` con commit `d2c3d4b`
+- Branch execution: Admin Web su `codex/task-033-https-pos-sales-mega-task`; Win7POS non modificato e su `main`
+- Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
+- Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
 - Task Vercel parcheggiato: `TASK-031 - Vercel Preview retry after environment docs`
 - Task parcheggiato: `TASK-022_023 - POS live dashboard + Win7POS first login trusted device`
 - Stato task parcheggiato: `PARKED_E2E_PENDING`
@@ -1192,8 +1250,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-029: `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
 - Verdict TASK-030: `DONE_RECONCILED_WITH_NOTES`
 - Verdict TASK-031: `BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION`
+- Verdict TASK-032: `PASS_WITH_NOTES_PHASE_5_COMPLETE_PHASE_6_BLOCKED`
+- Verdict TASK-033: `REVIEW_WITH_BLOCKERS`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
-- Prossima azione consigliata: decisione utente su uno tra supporto Vercel con evidence TASK-031, baseline Production temporanea esplicitamente autorizzata per verificare se il secondo deployment diventa Preview, oppure hosting HTTPS non-production alternativo. TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
+- Prossima azione consigliata: eseguire Win7POS live su runner Windows/WPF compatibile contro un endpoint HTTPS non-production equivalente; solo dopo quel gate reale riconciliare TASK-029/TASK-022_023 e valutare sales sync foundation/dashboard vendite.
 
 ## Regole di avanzamento
 
