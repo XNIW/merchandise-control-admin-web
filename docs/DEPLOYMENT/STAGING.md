@@ -64,6 +64,17 @@ TASK-030 neutralizzazione 2026-06-02:
 - aggiunto `vercel.json` con `git.deploymentEnabled=false` come guardrail versionato se la Git Integration verra ricollegata;
 - nessuna env e stata rimossa; valori env non letti e non salvati.
 
+TASK-031 retry 2026-06-02:
+
+- la documentazione Vercel Preview Environment indicata dall'utente conferma che `vercel` / `vercel deploy` senza `-prod` dovrebbe creare Preview;
+- la documentazione REST create-deployment conferma che `target` omesso dovrebbe creare Preview, indicata in risposta come `target=null`;
+- il progetto Vercel corrente continua invece a restituire `target="production"` e OIDC `environment="production"` per CLI senza `--prod`, CLI con `--target=preview`, REST `target` omesso su `main`, REST `target` omesso su branch remoto non-main e REST `target="staging"`;
+- tutti i deployment Production inattesi del retry sono stati rimossi subito;
+- custom environments non disponibili sul piano corrente (`accountLimit.total=0`, nessun ambiente custom);
+- stato finale Vercel: nessun deployment attivo e nessun alias;
+- classificazione aggiornata: `BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION`;
+- ipotesi residua non verificata per vincolo no-production: Vercel potrebbe richiedere un primo deployment Production baseline prima di generare Preview successive. Serve autorizzazione esplicita dell'utente o hosting HTTPS non-production alternativo.
+
 Review/fix 2026-06-01:
 
 - `test -d .vercel`: exit `1`;

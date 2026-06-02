@@ -1121,6 +1121,30 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Nota: avviato da Codex il 2026-06-02 da handoff allegato utente. Prima azione remota applicata: `vercel git disconnect --scope xniw97-9857s-projects`, verificata con `link=null`, `live=false`, `hasDeployments=false`, deployment/alias vuoti. Aggiunto guardrail versionato `vercel.json` con `git.deploymentEnabled=false`. Merge controllato su `main`, check Admin Web e Win7POS passati, push su `main` completato e verifica Vercel post-push conferma nessun deployment/alias. TASK-029 resta bloccato per assenza di vera Preview/non-production; TASK-022_023 resta `PARKED_E2E_PENDING`; TASK-024 resta `DEFERRED`.
 - Review finale 2026-06-02: TASK-030 riconciliato a `DONE_RECONCILED_WITH_NOTES` dopo verifica repo-grounded post-push. Check pre-review documentale su `main` e `origin/main` allineati a `71316e7`, working tree Admin Web pulito, Vercel ancora scollegato da Git (`link=null`, `gitRepository=null`), nessun deployment/alias, `vercel.json` con `git.deploymentEnabled=false`. Check freschi: Admin Web `security:scan` PASS, `test:foundation` PASS (`134/134`), `verify` PASS con warning `[DEP0205]`, `git diff --check` PASS; Win7POS `git diff --check`, scanner bootstrap/catalog e build x86 PASS. Scanner legacy `check-pos-online-client.ps1` resta da riconciliare con il flusso TASK-029 `PosOnlineBootstrapService`.
 
+### TASK-031 - Vercel Preview retry after environment docs
+
+- Stato: `REVIEW_BLOCKED`
+- File task: `docs/TASKS/TASK-031-vercel-preview-retry.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-031/README.md`
+- Fase: `REVIEW`
+- Execution: `COMPLETED_BY_CODEX`
+- Review: `PENDING_USER_REVIEW`
+- Verdict corrente: `BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION`
+- Scopo: ritentare una vera Preview/non-production Vercel usando la documentazione ufficiale indicata dall'utente su Preview Environment e REST create-deployment.
+- Include:
+  - verifica doc Vercel Preview CLI senza `-prod`;
+  - verifica REST API con `target` omesso;
+  - verifica REST/API con branch remoto non-main;
+  - verifica disponibilita Custom Environments;
+  - cleanup immediato di ogni deployment Production inatteso.
+- Non include:
+  - uso Production come staging;
+  - mantenere deployment Production attivi;
+  - rimozione env Production Vercel;
+  - lettura valori env/secret;
+  - modifiche runtime Admin Web/POS/Supabase/Win7POS.
+- Nota: retry eseguito da Codex il 2026-06-02 dopo link utente alla doc Vercel Preview Environment. La doc conferma che CLI senza `-prod` e REST `target` omesso dovrebbero produrre Preview, ma il progetto con `hasDeployments=false` ha restituito sempre `target:"production"` e OIDC `environment:"production"`, anche su branch remoto non-main e anche con `target:"staging"`. Tutti i deployment inattesi sono stati cancellati subito; Vercel finale resta senza deployment e senza alias. Custom environments non disponibili (`accountLimit.total=0`, piano Hobby). Ipotesi residua: Vercel forza il primo deployment del progetto a Production baseline; verificarlo richiede autorizzazione esplicita per lasciare temporaneamente un deployment Production, quindi TASK-031 resta `REVIEW_BLOCKED`.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -1151,12 +1175,12 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-020: `DONE_RECONCILED`
 - Stato TASK-021: `DONE`
 - Fase TASK-021: `DONE_RECONCILED`
-- Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`
-- File task: `docs/TASKS/TASK-030-vercel-deployment-configuration-diagnosis-main-reconciliation.md`
-- Stato task: `REVIEW`
+- Task attivo: `TASK-031 - Vercel Preview retry after environment docs`
+- File task: `docs/TASKS/TASK-031-vercel-preview-retry.md`
+- Stato task: `REVIEW_BLOCKED`
 - Fase: `REVIEW`
 - Responsabile: `USER_REVIEW`
-- Branch execution: `main`
+- Branch execution: `codex/task-031-vercel-preview-diagnosis`
 - Task parcheggiato: `TASK-022_023 - POS live dashboard + Win7POS first login trusted device`
 - Stato task parcheggiato: `PARKED_E2E_PENDING`
 - Verdict TASK-026: `DONE_WITH_NOTES`
@@ -1164,7 +1188,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-028: `DONE_RECONCILED_WITH_NOTES`
 - Verdict TASK-029: `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
 - Verdict TASK-030: `DONE_RECONCILED_WITH_NOTES`
-- Prossima azione consigliata: aprire un task dedicato per ottenere una vera URL Preview/non-production o hosting HTTPS alternativo se si vuole sbloccare TASK-029; altrimenti riprendere sviluppo Admin Web non-deploy. TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
+- Verdict TASK-031: `BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION`
+- Prossima azione consigliata: decisione utente su uno tra supporto Vercel con evidence TASK-031, baseline Production temporanea esplicitamente autorizzata per verificare se il secondo deployment diventa Preview, oppure hosting HTTPS non-production alternativo. TASK-024 sales sync resta differito e non va implementato senza nuovo handoff esplicito.
 
 ## Regole di avanzamento
 

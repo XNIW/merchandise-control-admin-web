@@ -244,10 +244,22 @@ Implementato:
 | Admin Web | `vercel.json` | `PENDING_TASK_030_CHECKS` | Guardrail aggiunto con `git.deploymentEnabled=false`; check finali TASK-030 da registrare nella relativa evidence. |
 | Env | Env Vercel | `PASS_WITH_NOTES` | Letti solo nome/target/tipo; nessun valore letto o salvato; env Production osservate non rimosse. |
 
+## TASK-031 Vercel Preview retry follow-up 2026-06-02
+
+| Area | Comando/Azione | Esito | Evidence sintetica |
+| --- | --- | --- | --- |
+| Vercel docs | Preview Environment / REST create-deployment | `PASS_WITH_NOTES` | Doc ufficiale conferma Preview attesa per CLI senza `-prod` e REST `target` omesso. |
+| Vercel | CLI senza `--prod` / `--target` | `BLOCKED_PRODUCTION_DELETED` | Il progetto ha comunque restituito `target:"production"`; deployment cancellati subito. |
+| Vercel | REST `target` omesso su branch remoto non-main | `BLOCKED_PRODUCTION_DELETED` | Branch remoto diagnostico creato; risposta ancora `target:"production"` e OIDC `environment:"production"`; deployment cancellato subito. |
+| Vercel | REST `target:"staging"` | `BLOCKED_PRODUCTION_DELETED` | Risposta ancora `target:"production"`, `customEnvironment=null`; deployment cancellato subito. |
+| Vercel | Cleanup finale | `PASS` | Nessun deployment attivo e nessun alias finale. |
+
+Classificazione aggiornata da TASK-031: `BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION`. TASK-029 resta senza URL Preview/non-production e senza smoke staging.
+
 ## Rischi residui
 
 - Staging pubblico HTTPS Preview/non-production non disponibile: smoke staging e Win7POS staging E2E non eseguiti.
-- TASK-030 ha neutralizzato l'auto-deploy Git ma non ha prodotto una URL Preview/non-production.
+- TASK-030 ha neutralizzato l'auto-deploy Git ma non ha prodotto una URL Preview/non-production; TASK-031 ha confermato che anche CLI doc-compliant e REST API non ottengono Preview sul progetto corrente.
 - Branch Git non-main pushato ha generato deployment `Production` nonostante `productionBranch=main`; deployment rimossa subito.
 - Branch remoto temporaneo rimosso; branch locale resta presente per contenere commit e modifiche review non pushate.
 - Env `Production` create da Vercel/Supabase durante il tentativo sono state osservate solo per nome/target e non rimosse senza approvazione esplicita.

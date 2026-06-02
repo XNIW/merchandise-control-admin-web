@@ -156,6 +156,18 @@ TASK-030 ha diagnosticato e neutralizzato il rischio di deployment automatico pr
 
 Questo rende controllato il rischio di push su `main`, ma non sblocca staging: TASK-029 resta bloccato finche non viene ottenuta una vera URL Preview/non-production o un hosting HTTPS alternativo.
 
+## TASK-031 retry 2026-06-02
+
+TASK-031 ha ritentato il percorso Preview seguendo la documentazione Vercel indicata dall'utente:
+
+- `vercel` / `vercel deploy` senza `-prod`;
+- REST create-deployment con `target` omesso;
+- REST create-deployment con branch remoto non-main;
+- REST create-deployment con `target="staging"`;
+- verifica custom environments.
+
+Tutti i percorsi hanno restituito deployment `target: production` e OIDC `environment: production`; ogni deployment e stato cancellato subito. Custom environments non disponibili sul piano corrente. TASK-029 resta quindi bloccato con classificazione aggiornata in TASK-031: `BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION`.
+
 ## Check
 
 I risultati finali sono registrati in `docs/TASKS/EVIDENCE/TASK-029/README.md`.
