@@ -1407,6 +1407,12 @@ function checkTask013UiPolishArtifacts() {
     ) &&
     !/Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`/.test(
       masterPlan,
+    ) &&
+    !/Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`/.test(
+      masterPlan,
     )
   ) {
     addFailure(`${masterPlanPath} must either be IDLE after TASK-013 or track a later active task`);
@@ -2851,6 +2857,7 @@ function checkTask019PosAuthFoundationImplementation() {
     join(root, "docs/TASKS/TASK-021-pos-backend-session-device-endpoints.md"),
   );
   const allowedTask021PosRoutes = new Set([
+    "src/app/api/pos/_shared/pos-route-security.ts",
     "src/app/api/pos/auth/first-login/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
@@ -2940,7 +2947,9 @@ function checkTask020Win7PosIntegrationPlanning() {
     !/Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/.test(masterPlan) &&
     !/Task attivo: `TASK-026 - Shop Admin product catalog foundation`/.test(masterPlan) &&
     !/Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`/.test(masterPlan) &&
-    !/Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`/.test(masterPlan)
+    !/Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`/.test(masterPlan) &&
+    !/Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`/.test(masterPlan) &&
+    !/Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`/.test(masterPlan)
   ) {
     addFailure("MASTER-PLAN must return to no active task after reconciliation or track an active POS/catalog task");
   }
@@ -2953,6 +2962,7 @@ function checkTask020Win7PosIntegrationPlanning() {
     join(root, "docs/TASKS/TASK-021-pos-backend-session-device-endpoints.md"),
   );
   const allowedTask021PosRoutes = new Set([
+    "src/app/api/pos/_shared/pos-route-security.ts",
     "src/app/api/pos/auth/first-login/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
@@ -2993,6 +3003,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const tokenPath = "src/server/pos-auth/tokens.ts";
   const servicePath = "src/server/pos-auth/service.ts";
   const catalogPullServicePath = "src/server/pos-auth/catalog-pull.ts";
+  const posRouteSecurityPath = "src/app/api/pos/_shared/pos-route-security.ts";
   const firstLoginRoutePath = "src/app/api/pos/auth/first-login/route.ts";
   const catalogPullRoutePath = "src/app/api/pos/catalog/pull/route.ts";
   const heartbeatRoutePath = "src/app/api/pos/session/heartbeat/route.ts";
@@ -3005,6 +3016,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     adminClientPath,
     tokenPath,
     servicePath,
+    posRouteSecurityPath,
     firstLoginRoutePath,
     heartbeatRoutePath,
   ]) {
@@ -3023,6 +3035,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const catalogPullService = existsSync(join(root, catalogPullServicePath))
     ? read(catalogPullServicePath)
     : "";
+  const posRouteSecurity = read(posRouteSecurityPath);
   const foundationTest = read(foundationTestPath);
   const firstLoginRoute = read(firstLoginRoutePath);
   const catalogPullRoute = existsSync(join(root, catalogPullRoutePath))
@@ -3039,6 +3052,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     .join("\n");
   const appRoutes = listFiles("src/app");
   const allowedPosRoutes = new Set([
+    posRouteSecurityPath,
     firstLoginRoutePath,
     catalogPullRoutePath,
     heartbeatRoutePath,
@@ -3054,6 +3068,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     tokens,
     service,
     catalogPullService,
+    posRouteSecurity,
     firstLoginRoute,
     catalogPullRoute,
     heartbeatRoute,
@@ -3175,6 +3190,20 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     addFailure("TASK-021 runtime source must not log sensitive details");
   }
 
+  for (const requiredSnippet of [
+    "MAX_POS_JSON_BODY_BYTES",
+    "application/json",
+    "content-length",
+    "getReader",
+    "JSON.parse",
+    "Cache-Control",
+    "no-store",
+  ]) {
+    if (!posRouteSecurity.includes(requiredSnippet)) {
+      addFailure(`${posRouteSecurityPath} must include ${requiredSnippet}`);
+    }
+  }
+
   if (/pin_plain|password_plain|plain_pin|plain_password/i.test(runtimeSource)) {
     addFailure("TASK-021 runtime source must not name plaintext credential storage");
   }
@@ -3202,6 +3231,10 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
 
     if (/SUPABASE_SERVICE_ROLE_KEY|credential_hash|service_role/i.test(route)) {
       addFailure("TASK-021 POS routes must delegate privileged logic to server-only modules");
+    }
+
+    if (!/readPosJsonBody/.test(route) || !/posJsonResponse/.test(route)) {
+      addFailure("TASK-021 POS routes must use shared POS JSON hardening helper");
     }
   }
 

@@ -227,10 +227,12 @@ test("TASK-027 catalog sync helper maps active rows, tombstones and catalog vers
 test("TASK-027 POS catalog pull service supports delta contract without destructive purge", () => {
   const servicePath = "src/server/pos-auth/catalog-pull.ts";
   const routePath = "src/app/api/pos/catalog/pull/route.ts";
+  const routeSecurityPath = "src/app/api/pos/_shared/pos-route-security.ts";
   const service = readProjectFile(servicePath);
   const route = readProjectFile(routePath);
+  const routeSecurity = readProjectFile(routeSecurityPath);
   const scanner = readProjectFile("scripts/security-checks.mjs");
-  const combined = `${service}\n${route}`;
+  const combined = `${service}\n${route}\n${routeSecurity}`;
 
   for (const required of [
     "parseCatalogSyncOptions",
@@ -368,7 +370,7 @@ test("TASK-027 governance artifacts document contract, evidence and DONE reconci
   assert.match(masterPlan, /TASK-027 - Catalog pull delta sync and POS catalog hardening/);
   assert.match(
     masterPlan,
-    /Task attivo: `NESSUNO`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`/,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`|Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`/,
   );
   assert.match(masterPlan, /Fase: `DONE_RECONCILED`|Fase: `REVIEW`/);
 });

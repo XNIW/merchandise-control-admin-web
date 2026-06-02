@@ -52,7 +52,7 @@ function loadTypeScriptModule(relativePath) {
   return cjsModule.exports;
 }
 
-test("TASK-028 governance artifacts open catalog execution without marking DONE", () => {
+test("TASK-028 governance artifacts close after explicit DONE reconciliation", () => {
   const taskPath =
     "docs/TASKS/TASK-028-catalog-crud-import-export-win7pos-e2e.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-028/README.md";
@@ -73,18 +73,21 @@ test("TASK-028 governance artifacts open catalog execution without marking DONE"
     "Baseline TASK-027",
     "Admin Web: `git status --short` -> clean",
     "Win7POS: `git status --short` -> clean",
-    "Fase attuale: `REVIEW`",
-    "Verdict corrente: `READY_FOR_DONE_CONFIRMATION`",
-    "Codex non marca mai `DONE`",
+    "Fase attuale: `DONE_RECONCILED`",
+    "Verdict corrente: `DONE_RECONCILED_WITH_NOTES`",
+    "conferma esplicita",
   ]) {
     assertContains(`${task}\n${evidence}`, required);
   }
 
   assertContains(masterPlan, "### TASK-028 - Catalog CRUD, Excel import/export, and Win7POS catalog pull E2E");
-  assertContains(masterPlan, "Task attivo: `TASK-028 - Catalog CRUD, Excel import/export, and Win7POS catalog pull E2E`");
-  assertContains(masterPlan, "Stato task: `REVIEW`");
-  assert.doesNotMatch(task, /Stato:\s*`DONE`/);
-  assert.doesNotMatch(evidence, /Verdict finale:\s*`DONE`/);
+  assert.match(
+    masterPlan,
+    /Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`/,
+  );
+  assert.match(masterPlan, /Stato task: `REVIEW`|Stato task: `EXECUTION`/);
+  assert.match(task, /Stato:\s*`DONE_RECONCILED_WITH_NOTES`/);
+  assert.match(evidence, /Verdict corrente:\s*`DONE_RECONCILED_WITH_NOTES`/);
 });
 
 test("TASK-028 import contract validates duplicates, conflicts and non-destructive update merges", () => {

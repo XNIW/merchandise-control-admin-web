@@ -20,10 +20,12 @@ revoke all on table public.shared_sheet_sessions from anon;
 grant select, insert, update, delete on table public.shared_sheet_sessions to authenticated;
 grant select, insert, update, delete on table public.shared_sheet_sessions to service_role;
 
-revoke all on table public.product_prices from anon;
-
 do $$
 begin
+  if to_regclass('public.product_prices') is not null then
+    revoke all on table public.product_prices from anon;
+  end if;
+
   if to_regclass('public.product_prices_id_seq') is not null then
     revoke all on sequence public.product_prices_id_seq from anon;
   end if;

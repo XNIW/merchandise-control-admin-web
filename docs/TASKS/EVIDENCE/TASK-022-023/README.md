@@ -232,3 +232,15 @@ TASK-022_023 resta `PASS_WITH_NOTES_READY_FOR_REVIEW`. Il residuo bloccato e il 
 - Dati test live: `NOT_CREATED`.
 - Cleanup dati test live: `NOT_REQUIRED`.
 - Commit/push/stage: `NOT_RUN`.
+
+## DONE readiness check 2026-06-02
+
+Verdict: `NOT_READY_FOR_DONE`.
+
+TASK-022_023 non ha un bug codice noto e i gate locali/restanti scanner sono solidi, ma il criterio live parcheggiato non e stato sbloccato: E2E live Supabase + Admin Web + Win7POS + dataset test + cleanup resta `PARKED_E2E_PENDING`. TASK-029C non ha fornito una URL HTTPS Preview/non-production, quindi non ha prodotto nuova evidence E2E utilizzabile per chiudere TASK-022_023.
+
+Check corrente aggiuntivo:
+
+- `pwsh -NoProfile -ExecutionPolicy Bypass -File scripts/check-pos-online-client.ps1`: `FAIL_CURRENT_SCANNER_NEEDS_RECONCILIATION`; fallisce su `first-login dialog does not call client` perche il flusso TASK-029 passa dal `PosOnlineBootstrapService` invece che dal dialog diretto TASK-022_023. Scanner bootstrap TASK-029, scanner catalog pull e build x86 restano PASS.
+
+Decisione consigliata: mantenere `REVIEW` / `PASS_WITH_NOTES_READY_FOR_REVIEW` finche il gate live non viene eseguito oppure finche l'utente non declassa esplicitamente quel gate come nota non bloccante per `DONE_WITH_NOTES` e si riconcilia il vecchio scanner `check-pos-online-client.ps1` con il flusso bootstrap corrente.
