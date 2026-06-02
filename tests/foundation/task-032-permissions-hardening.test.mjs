@@ -156,6 +156,9 @@ test("TASK-032 permissions evidence remains tied to the active mega-task", () =>
     "docs/TASKS/TASK-032-full-project-progression-mega-task.md",
   );
 
-  assert.match(masterPlan, /Task attivo: `TASK-032 - Full project progression mega-task`/);
+  assert.match(
+    masterPlan,
+    /Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`/,
+  );
   assert.match(task, /4 - Permissions hardening/);
 });

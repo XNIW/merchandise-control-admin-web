@@ -7,6 +7,13 @@ import { createClient } from "@supabase/supabase-js";
 const DEFAULT_BASE_URL = "http://127.0.0.1:3005";
 const MAX_POS_JSON_BODY_BYTES = 16 * 1024;
 const LOCAL_HOSTNAMES = new Set(["127.0.0.1", "localhost", "::1"]);
+const HTTPS_NON_PRODUCTION_TUNNEL_HOST_SUFFIXES = [
+  "loca.lt",
+  "trycloudflare.com",
+  "ngrok-free.app",
+  "ngrok.io",
+  "localhost.run",
+];
 const POSITIVE_ENV_KEYS = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
@@ -123,6 +130,31 @@ function isLocalUrl(value) {
   }
 }
 
+function isHttpsNonProductionUrl(value) {
+  try {
+    const url = new URL(value);
+    const hostname = url.hostname.toLowerCase();
+
+    if (url.protocol !== "https:") {
+      return false;
+    }
+
+    if (url.username || url.password) {
+      return false;
+    }
+
+    if (hostname.endsWith("vercel.app")) {
+      return false;
+    }
+
+    return HTTPS_NON_PRODUCTION_TUNNEL_HOST_SUFFIXES.some(
+      (suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`),
+    );
+  } catch {
+    return false;
+  }
+}
+
 function redactError(error) {
   if (!error) {
     return undefined;
@@ -176,7 +208,14 @@ function validatePositiveConfig() {
   }
 
   if (!isLocalUrl(baseUrl.toString())) {
-    return datasetBlocked("Admin Web base URL must be localhost or 127.0.0.1.");
+    const task033HttpsAllowed =
+      envValue("TASK033_POS_E2E_ALLOW_HTTPS_NON_PRODUCTION") === "yes";
+
+    if (!task033HttpsAllowed || !isHttpsNonProductionUrl(baseUrl.toString())) {
+      return datasetBlocked(
+        "Admin Web base URL must be localhost or 127.0.0.1 unless TASK033 uses an approved HTTPS non-production tunnel.",
+      );
+    }
   }
 
   const supabaseUrl = envValue("NEXT_PUBLIC_SUPABASE_URL");
