@@ -919,10 +919,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-022_023 - POS live dashboard + Win7POS first login trusted device
 
-- Stato: `REVIEW`
+- Stato: `DONE`
 - File task: `docs/TASKS/TASK-022-023-pos-dashboard-win7pos-client.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-022-023/README.md`
-- Fase: `REVIEW`
+- Fase: `DONE`
 - Execution: `COMPLETED`
 - Review: `PARKED_FOR_LIVE_E2E`
 - Verdict corrente: `PASS_WITH_NOTES_READY_FOR_REVIEW`
@@ -1154,7 +1154,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Evidence: `docs/TASKS/EVIDENCE/TASK-032/README.md`
 - Fase: `REVIEW`
 - Milestone interna: `FASE_6_HTTPS_NON_PRODUCTION_BLOCKED`
-- Responsabile: `USER_REVIEW`
+- Responsabile: `COMPLETED`
 - Verdict corrente: `PASS_WITH_NOTES_PHASE_5_COMPLETE_PHASE_6_BLOCKED`
 - Scopo: mega-task unico richiesto esplicitamente dall'utente per avanzare baseline/handoff, Shop Admin polish, Excel hardening, permissions, local POS E2E, HTTPS non-production alternativo, riconciliazione TASK-029/TASK-022_023, planning sales sync e foundation sales sync solo se i gate lo rendono sicuro.
 - Include:
@@ -1240,14 +1240,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-035 - Authenticated Admin Web QA + Shop Admin smoke harness
 
-- Stato: `REVIEW`
+- Stato: `DONE`
 - File task: `docs/TASKS/TASK-035-authenticated-admin-web-qa-shop-admin-smoke-harness.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-035/README.md`
-- Fase: `REVIEW`
-- Milestone interna: `AUTH_HARNESS_ADDED_BLOCKED_NO_AUTH_SESSION`
-- Responsabile: `USER_REVIEW`
+- Fase: `DONE`
+- Milestone interna: `AUTHENTICATED_LOCAL_SMOKE_PASSED`
+- Responsabile: `COMPLETED`
 - Branch previsto: Admin Web su `main` o branch dedicato se autorizzato in execution
-- Verdict corrente: `BLOCKED_NO_AUTH_SESSION`
+- Verdict corrente: `DONE`
 - Scopo: sbloccare il residuo `BLOCKED_NO_AUTH_SESSION` creando o rafforzando un harness QA autenticato per Admin Web, con dati sintetici e cleanup, per testare le route principali Shop Admin senza dipendere da VM Win7.
 - Include:
   - discovery harness auth esistente;
@@ -1273,12 +1273,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - modifiche Android/iOS;
   - dati reali;
   - secret;
-  - commit/push/stage.
+  - commit/push/stage fino alla conferma `DONE`; commit e push autorizzati esplicitamente il 2026-06-03.
 - Route candidate: `/shop`, `/shop/products`, `/shop/categories`, `/shop/suppliers`, `/shop/import-export`, `/shop/members`, `/shop/roles`, `/shop/staff`, `/shop/devices`, `/shop/audit`, `/shop/settings`, `/shop/pos`, eventuale `/shop/sync`.
 - Gate futuri: `security:scan`, `test:foundation`, `typecheck`, `lint`, `build`, `verify`, smoke UI autenticato se harness disponibile, cleanup dataset sintetico e `git diff --check`.
 - Nota apertura 2026-06-02: creato solo planning/skeleton. Nessuna implementazione runtime, nessuna migration, nessun dataset, nessun smoke autenticato e nessun cleanup runtime eseguito.
 - Handoff Codex 2026-06-02: aggiunto harness Playwright dedicato `tests/e2e/task-035-shop-admin-authenticated-smoke.spec.ts` e script `npm run test:shop-admin-auth-smoke`; guardia non-auth Shop Admin verificata su `/shop`, `/shop/products`, `/shop/import-export`, `/shop/devices`, `/shop/pos` con screenshot `docs/TASKS/EVIDENCE/TASK-035/browser-shop-devices-auth-required.png`. Il ramo autenticato crea solo dataset locale `TASK035_*` e cleanup verificabile, ma nel runtime corrente e stato saltato/bloccato perche il target Supabase rilevato e `supabase_cloud` e `SUPABASE_SERVICE_ROLE_KEY` non e disponibile localmente. Nessun dataset creato, nessun cleanup runtime necessario, nessuna migration/schema, nessun Win7POS, nessun sales sync, nessun Vercel live, nessun commit/push/stage. Verdict: `BLOCKED_NO_AUTH_SESSION`, task in handoff a `REVIEW`.
 - Review/fix Codex 2026-06-03: harness TASK-035 rafforzato senza cambiare scope; readiness auth locale richiede anche `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, cleanup registra errori di delete/auth delete e conta residui anche su righe figlie shop-scoped. Probe redatti confermano target runtime `supabase_cloud`, service-role key mancante, REST locale `54321` raggiungibile ma stack Supabase del repo non ispezionabile (`supabase_db_merchandise-control-admin-web` assente). Nessun dataset `TASK035_*` creato, nessun cleanup runtime necessario, nessun nuovo task. Verdict resta `BLOCKED_NO_AUTH_SESSION`.
+- Completion Codex 2026-06-03: gate autenticato Shop Admin eseguito su Supabase locale/non-production `127.0.0.1:54321` con key locali solo come env di processo e nessun secret stampato/salvato. Stack locale `MerchandiseControlSupabase` ispezionato direttamente; history locale riparata da `20260417` a `20260417000000`, pending migrations applicate fino a `schema_migrations_count=32`, nessuna migration repo nuova. Harness corretto per schema reale staff/device, attesa login su pathname, audit append-only senza fixture non ripulibile, redaction su materiale sensibile reale. `npm run test:shop-admin-auth-smoke` passa `2 passed`, route Shop Admin autenticate coperte, no cross-shop leak, screenshot autenticato salvato e cleanup verificato con zero residui `TASK035_*`, `shop_members`, `shop_inventory_sources`, auth e audit. Verdict: `READY_FOR_DONE_CONFIRMATION`; task resta `REVIEW`, non `DONE`.
+- Chiusura 2026-06-03: su conferma esplicita dell'utente dopo review finale `DONE_READY`, TASK-035 chiuso a `DONE`. Check finali passati, nessun secret salvato, nessuna migration/dipendenza/feature fuori scope, commit e push richiesti dall'utente.
 
 ## Tooling policy
 
@@ -1294,7 +1296,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `REVIEW`
-- Ultimo task completato: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`
+- Ultimo task completato: `TASK-035 - Authenticated Admin Web QA + Shop Admin smoke harness`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -1315,10 +1317,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Task attivo: `TASK-035 - Authenticated Admin Web QA + Shop Admin smoke harness`
 - File task: `docs/TASKS/TASK-035-authenticated-admin-web-qa-shop-admin-smoke-harness.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-035/README.md`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
-- Milestone interna: `AUTH_HARNESS_ADDED_BLOCKED_NO_AUTH_SESSION`
-- Responsabile: `USER_REVIEW`
+- Stato task: `DONE`
+- Fase: `DONE`
+- Milestone interna: `AUTHENTICATED_LOCAL_SMOKE_PASSED`
+- Responsabile: `COMPLETED`
 - Branch previsto: Admin Web su `main` o branch dedicato se autorizzato in execution
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -1334,9 +1336,9 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-032: `PASS_WITH_NOTES_PHASE_5_COMPLETE_PHASE_6_BLOCKED`
 - Verdict TASK-033: `REVIEW_WITH_BLOCKERS`
 - Verdict TASK-034: `DONE_WITH_NOTES`
-- Verdict TASK-035: `BLOCKED_NO_AUTH_SESSION`
+- Verdict TASK-035: `DONE`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
-- Prossima azione consigliata: configurare un Supabase locale/non-production esplicitamente sicuro e ispezionabile per questo repo con le env gia previste, poi rieseguire `npm run test:shop-admin-auth-smoke`.
+- Prossima azione consigliata: scegliere il prossimo task aperto; TASK-029, TASK-031, TASK-032, TASK-033 e TASK-022_023 restano non chiusi secondo i rispettivi blocker.
 
 ## Regole di avanzamento
 

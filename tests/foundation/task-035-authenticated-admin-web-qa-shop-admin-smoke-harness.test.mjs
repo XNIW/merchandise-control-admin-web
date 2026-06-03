@@ -13,7 +13,7 @@ function assertContains(source, required, label = required) {
   assert.match(source, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), label);
 }
 
-test("TASK-035 artifacts define authenticated Shop Admin QA scope and blocked-session handoff", () => {
+test("TASK-035 artifacts define authenticated Shop Admin QA scope and DONE handoff", () => {
   const taskPath =
     "docs/TASKS/TASK-035-authenticated-admin-web-qa-shop-admin-smoke-harness.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-035/README.md";
@@ -29,17 +29,22 @@ test("TASK-035 artifacts define authenticated Shop Admin QA scope and blocked-se
   for (const required of [
     "TASK-035",
     "Authenticated Admin Web QA + Shop Admin smoke harness",
-    "REVIEW",
-    "AUTH_HARNESS_ADDED_BLOCKED_NO_AUTH_SESSION",
+    "DONE",
+    "AUTHENTICATED_LOCAL_SMOKE_PASSED",
     "BLOCKED_NO_AUTH_SESSION",
+    "DONE_READY",
     "TASK035_*",
     "test:shop-admin-auth-smoke",
     "browser-shop-devices-auth-required.png",
+    "browser-shop-overview-authenticated.png",
     "cleanup verificabile",
     "Shop Admin access guard",
     "reason obbligatoria",
     "no cross-shop leak",
+    "PASS_VERIFIED_ZERO_RESIDUALS",
+    "PUSHED_BY_USER_REQUEST",
     "No secret/PIN/password/token/hash",
+    "127.0.0.1:54321",
     "/shop/products",
     "/shop/import-export",
     "/shop/devices",
@@ -52,10 +57,12 @@ test("TASK-035 artifacts define authenticated Shop Admin QA scope and blocked-se
     masterPlan,
     /Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`/,
   );
-  assert.match(masterPlan, /Ultimo task completato: `TASK-034/);
+  assert.match(masterPlan, /Ultimo task completato: `TASK-035/);
   assert.match(masterPlan, /Stato TASK-034: `DONE_RECONCILED_WITH_NOTES`/);
-  assert.match(task, /Stato: `REVIEW`/);
-  assert.match(task, /Fase attuale: `REVIEW`/);
+  assert.match(task, /Stato: `DONE`/);
+  assert.match(task, /Fase attuale: `DONE`/);
+  assert.match(evidence, /Stato task: `DONE`/);
+  assert.match(evidence, /Verdict corrente: `DONE`/);
   assert.match(evidence, /Target Supabase \| `supabase_cloud`/);
   assert.doesNotMatch(`${task}\n${evidence}`, /create table|export async function POST|supabase\/migrations/i);
 });
@@ -82,16 +89,25 @@ test("TASK-035 exposes a guarded Shop Admin authenticated smoke harness", () => 
     "cleanup",
     "cleanupErrors",
     "BLOCKED_TASK035_CLEANUP_FAILED",
+    'credential_status: "pending_setup"',
+    'status: "pending_credential"',
+    'device_type: "pos"',
+    'url.pathname === "/shop"',
     "/shop",
     "/shop/products",
     "/shop/import-export",
     "/shop/devices",
     "/shop/pos",
-    "access[_ -]?token",
-    "credential[_ -]?hash",
+    "access_token|refresh_token|service_role|credential_hash|password_hash|pin_hash",
+    "eyJ[A-Za-z0-9_-]+",
+    "body.includes(value)",
+    "runtime.publishableKey",
+    "runtime.serviceRoleKey",
   ]) {
     assertContains(harness, required);
   }
 
-  assert.doesNotMatch(harness, /TASK014QA_|TASK032_TEST_|SUPABASE_SERVICE_ROLE_KEY\\s*=|access_token|refresh_token/i);
+  assert.doesNotMatch(harness, /TASK014QA_|TASK032_TEST_|SUPABASE_SERVICE_ROLE_KEY\\s*=/i);
+  assert.doesNotMatch(harness, /credential_status:\s*"pending_credential"/);
+  assert.doesNotMatch(harness, /device_type:\s*"pos_terminal"/);
 });

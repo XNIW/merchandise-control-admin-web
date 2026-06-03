@@ -4,17 +4,17 @@
 
 - ID: `TASK-035`
 - Titolo: `Authenticated Admin Web QA + Shop Admin smoke harness`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
-- Milestone interna: `AUTH_HARNESS_ADDED_BLOCKED_NO_AUTH_SESSION`
-- Responsabile attuale: `USER_REVIEW`
+- Stato: `DONE`
+- Fase attuale: `DONE`
+- Milestone interna: `AUTHENTICATED_LOCAL_SMOKE_PASSED`
+- Responsabile attuale: `COMPLETED`
 - Data apertura: `2026-06-02`
 - Branch Admin Web: `main`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-035/README.md`
-- Stage: `NOT_STAGED`
-- Commit: `NOT_COMMITTED`
-- Push: `NOT_PUSHED`
-- Verdict corrente: `BLOCKED_NO_AUTH_SESSION`
+- Stage: `COMMITTED_BY_USER_REQUEST`
+- Commit: `COMMITTED_BY_USER_REQUEST`
+- Push: `PUSHED_BY_USER_REQUEST`
+- Verdict corrente: `DONE`
 
 ## Scopo
 
@@ -57,7 +57,7 @@ Sbloccare il residuo `BLOCKED_NO_AUTH_SESSION` creando o rafforzando un harness 
 - Modifiche Android/iOS.
 - Dati reali.
 - Secret.
-- Commit/push/stage.
+- Commit/push/stage fino alla conferma `DONE`; commit e push autorizzati esplicitamente il 2026-06-03.
 
 ## Route candidate
 
@@ -230,11 +230,49 @@ Verdict dopo review/fix: `BLOCKED_NO_AUTH_SESSION`.
 | `git status --short --untracked-files=all` | `PASS_WITH_DIRTY_WORKTREE` | Worktree dirty documentato; nessun revert. |
 | `git diff --cached --name-status` | `PASS` | Nessun file staged. |
 
+### Completion local Supabase gate - 2026-06-03
+
+Gate autenticato Shop Admin eseguito in ambiente locale/non-production con Supabase locale su `127.0.0.1:54321`. Le key locali sono state lette solo come env di processo dai container Supabase locali e non sono state stampate o salvate.
+
+Preparazione locale verificata:
+
+- `git status --short --branch`: `main...origin/main` prima dei fix; worktree dirty solo per file TASK-035/evidence dopo i fix.
+- CLI Supabase disponibile: `2.104.0`.
+- Stack locale Docker rilevato: container Supabase locali `MerchandiseControlSupabase`.
+- `supabase status -o env` dal repo resta non ispezionabile per mismatch project id (`supabase_db_merchandise-control-admin-web` assente), ma il DB locale `supabase_db_MerchandiseControlSupabase` e stato ispezionato direttamente.
+- Migration locali portate a `schema_migrations_count=32`; riparata solo la history locale del DB test da `20260417` a `20260417000000` prima di applicare le pending migration. Nessuna migration repo nuova introdotta.
+- Tabelle Shop Admin richieste presenti: `profiles`, `shops`, `shop_members`, `shop_inventory_sources`, `staff_accounts`, `shop_devices`, `audit_logs`, `inventory_products`, `inventory_categories`, `inventory_suppliers`, `pos_sessions`, `pos_device_credentials`.
+
+Fix applicati al solo harness TASK-035:
+
+- Fixture staff allineata allo schema reale: `status = pending_credential`, `credential_status = pending_setup`.
+- Fixture device allineata allo schema reale: `device_type = pos`.
+- Login Playwright attende `url.pathname === "/shop"` per evitare falso positivo su `/auth/login?next=/shop`.
+- La fixture non crea piu audit row sintetiche perche `audit_logs` e append-only; `/shop/audit` viene testata sull'empty state autenticato e il cleanup continua a conteggiare eventuali residui audit child.
+- Redaction check ristretto a valori/materiale sensibile reale (`*_token`, `*_hash`, JWT, password sintetica fixture e valori env locali in memoria), senza fallire su label UI legittime `Password` / `PIN`.
+
+Smoke autenticato verificato:
+
+- Dataset sintetico creato durante il test: auth user temporaneo `task035-*.example.invalid`, `profiles`, shop autorizzato `TASK035_SHOP_*`, shop non autorizzato `TASK035_BLOCKED_*`, membership owner solo sullo shop autorizzato, mapping `shop_inventory_sources`, supplier/category/product `TASK035_*`, staff `TASK035_STAFF_*`, device `TASK035_DEVICE_*`.
+- Route autenticate coperte: `/shop`, `/shop/products`, `/shop/categories`, `/shop/suppliers`, `/shop/import-export`, `/shop/members`, `/shop/roles`, `/shop/staff`, `/shop/devices`, `/shop/audit`, `/shop/settings`, `/shop/pos`, `/shop/sync`.
+- Cross-shop leak verificato: navigazione con `shop_id` non autorizzato non mostra `TASK035_BLOCKED_*` e resta sullo shop autorizzato.
+- Screenshot autenticato salvato: `docs/TASKS/EVIDENCE/TASK-035/browser-shop-overview-authenticated.png`.
+- Cleanup verificato dal test: `cleanupErrors = []`, `userDeleted = true`, `residualRows = 0`.
+- Probe DB post-smoke: `shops=0, profiles=0, products=0, categories=0, suppliers=0, staff=0, devices=0, shop_members=0, inventory_sources=0, audit=0, auth_users=0`.
+
+Esito smoke:
+
+```bash
+npm run test:shop-admin-auth-smoke
+```
+
+Risultato: `2 passed`. Warning osservati non bloccanti: `[DEP0205]` e `NO_COLOR`/`FORCE_COLOR`.
+
 ### Verdict execution
 
-`BLOCKED_NO_AUTH_SESSION`.
+`READY_FOR_DONE_CONFIRMATION`.
 
-Motivo: harness TASK-035 e disponibile e il smoke non-auth passa, ma il runtime corrente non offre una sessione test sicura per smoke autenticato senza rischio di toccare un target Supabase cloud/non qualificato.
+Motivo: il gate autenticato Shop Admin e stato eseguito su Supabase locale/non-production con dataset sintetico `TASK035_*`, route principali autenticate, no cross-shop leak e cleanup verificato a zero residui. Il task resta in `REVIEW` e non viene marcato `DONE` senza conferma esplicita dell'utente.
 
 ### Check finali execution
 
@@ -246,10 +284,18 @@ Motivo: harness TASK-035 e disponibile e il smoke non-auth passa, ma il runtime 
 | `npm run lint` | `PASS` | `eslint` exit `0`. |
 | `npm run build` | `PASS_WITH_WARNING` | Solo warning noto `[DEP0205]`. |
 | `npm run verify` | `PASS_WITH_WARNING` | Solo warning noto `[DEP0205]`. |
-| `npm run test:shop-admin-auth-smoke` | `PASS_WITH_BLOCKED_AUTH` | `1 passed`, `1 skipped`; autenticato bloccato. |
+| `npm run test:shop-admin-auth-smoke` | `PASS` | `2 passed`; guardia non-auth e smoke autenticato locale passano con cleanup zero. |
 | `git diff --check` | `PASS` | Nessun whitespace error. |
 | `git status --short --untracked-files=all` | `PASS_WITH_DIRTY_WORKTREE` | Worktree dirty documentato, nessun revert. |
 | `git diff --cached --name-status` | `PASS` | Nessun file staged. |
+
+### Chiusura DONE - 2026-06-03
+
+Conferma esplicita utente ricevuta il 2026-06-03: `Metti in DONE e poi fai commit e push`.
+
+Verdict finale: `DONE`.
+
+Motivo: review finale TASK-035 completata con verdict `DONE_READY`; gate autenticato Shop Admin passato su Supabase locale/non-production, dataset sintetico `TASK035_*` ripulito con zero residui, guardrail secret/redaction rafforzati e check finali passati.
 
 ## Strategia planning iniziale
 
@@ -278,15 +324,16 @@ Se una sessione autenticata sicura non e disponibile, il task deve:
 - `PASS_WITH_NOTES_READY_FOR_REVIEW`
 - `BLOCKED_NO_AUTH_SESSION`
 - `READY_FOR_DONE_CONFIRMATION`
+- `DONE`
 
-`DONE` non e ammesso senza conferma esplicita dell'utente.
+`DONE` e ammesso solo con review positiva e conferma esplicita dell'utente; conferma ricevuta il 2026-06-03.
 
 ## Stato apertura
 
 TASK-035 e aperto solo come planning/skeleton. Nessuna implementazione runtime, migration, smoke autenticato o cleanup dataset e stata eseguita in questa apertura.
 
-## Handoff verso REVIEW
+## Handoff finale
 
-TASK-035 e pronto per review con verdict `BLOCKED_NO_AUTH_SESSION`.
+TASK-035 e chiuso con verdict `DONE`.
 
-Non e `DONE` e non e production-ready: serve una configurazione Supabase locale/non-production esplicitamente sicura prima di eseguire il ramo autenticato con dataset `TASK035_*` e cleanup verificato.
+Il gate autenticato locale/non-production e passato con dataset `TASK035_*`, cleanup verificato e review finale positiva. Commit e push sono richiesti esplicitamente dall'utente.

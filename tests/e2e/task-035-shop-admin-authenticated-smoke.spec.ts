@@ -45,8 +45,6 @@ type Runtime =
       supabaseUrl: string;
     };
 
-const safeAuditFixtureLabel = "redacted_auth_material";
-
 const guardedShopRoutes = [
   "/shop",
   "/shop/products",
@@ -73,9 +71,9 @@ const authenticatedSmokeRoutes: Array<{
   { heading: "Roles", path: "/shop/roles", assertText: () => "Shop Owner" },
   { heading: "POS / Staff", path: "/shop/staff", assertText: (fixture) => fixture.staffCode },
   { heading: "Devices", path: "/shop/devices", assertText: () => "Reason" },
-  { heading: "Shop Audit", path: "/shop/audit", assertText: () => "shop.task035.bootstrap" },
+  { heading: "Audit", path: "/shop/audit", assertText: () => "No shop audit rows are visible" },
   { heading: "Settings", path: "/shop/settings", assertText: () => "Server verified" },
-  { heading: "POS Live", path: "/shop/pos", assertText: () => "POS live dashboard" },
+  { heading: "POS Live", path: "/shop/pos", assertText: () => "TASK035_SMOKE" },
   { heading: "Sync Center", path: "/shop/sync", assertText: () => "without triggering synchronization" },
 ];
 
@@ -459,12 +457,12 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
       "STAFF_CREATE",
       supabase.from("staff_accounts").insert({
         created_by_profile_id: userId,
-        credential_status: "pending_credential",
+        credential_status: "pending_setup",
         display_name: `TASK035 Staff ${nonce}`,
         role_key: "cashier",
         shop_id: authorizedShopId,
         staff_code: staffCode,
-        status: "active",
+        status: "pending_credential",
         updated_by_profile_id: userId,
       }),
     );
@@ -474,7 +472,7 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
         app_version: "TASK035_SMOKE",
         created_by_profile_id: userId,
         device_identifier: task035Code(nonce, "DEVICE"),
-        device_type: "pos_terminal",
+        device_type: "pos",
         display_name: `TASK035 Device ${nonce}`,
         metadata_redacted: { source: "TASK035_smoke" },
         shop_id: authorizedShopId,
@@ -482,24 +480,6 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
         updated_by_profile_id: userId,
       }),
     );
-    await must(
-      "AUDIT_CREATE",
-      supabase.from("audit_logs").insert({
-        actor_profile_id: userId,
-        event_key: "shop.task035.bootstrap",
-        metadata_redacted: {
-          dataset: "TASK035_*",
-          safety: safeAuditFixtureLabel,
-        },
-        result: "success",
-        scope: "shop",
-        severity: "info",
-        shop_id: authorizedShopId,
-        target_id: authorizedShopId,
-        target_type: "shop",
-      }),
-    );
-
     return {
       blockedShopCode,
       blockedShopId,
@@ -604,16 +584,25 @@ async function signInWithTask035Credentials(
   await page.getByLabel("Password").fill(fixture.password);
 
   await Promise.all([
-    page.waitForURL(/\/shop(?:\?|$)/, { timeout: 15_000 }),
+    page.waitForURL((url) => url.pathname === "/shop", { timeout: 15_000 }),
     page.getByRole("button", { name: "Sign in" }).click(),
   ]);
 }
 
-async function assertNoSensitiveText(page: import("@playwright/test").Page) {
+async function assertNoSensitiveText(
+  page: import("@playwright/test").Page,
+  sensitiveValues: readonly string[] = [],
+) {
   const body = await page.locator("body").innerText();
 
-  expect(body).not.toMatch(/access[_ -]?token|refresh[_ -]?token|service[_ -]?role|credential[_ -]?hash/i);
-  expect(body).not.toMatch(/password|pin/i);
+  expect(body).not.toMatch(/\b(access_token|refresh_token|service_role|credential_hash|password_hash|pin_hash)\b/i);
+  expect(body).not.toMatch(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
+
+  for (const value of sensitiveValues) {
+    if (value) {
+      expect(body.includes(value)).toBe(false);
+    }
+  }
 }
 
 test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
@@ -662,7 +651,11 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
           await expect(page.getByText(route.assertText(fixture)).first()).toBeVisible();
         }
 
-        await assertNoSensitiveText(page);
+        await assertNoSensitiveText(page, [
+          fixture.password,
+          runtime.publishableKey,
+          runtime.serviceRoleKey,
+        ]);
       }
 
       await page.goto(`/shop?shop_id=${fixture.blockedShopId}`);
