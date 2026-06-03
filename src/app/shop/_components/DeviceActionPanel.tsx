@@ -73,7 +73,7 @@ export function DeviceActionPanel({ selectedShopId }: DeviceActionPanelProps) {
         <form action={revokeDeviceAction} className="mt-3 grid gap-3">
           <HiddenShopInput selectedShopId={selectedShopId} />
           <TextInput label="Device row id" name="deviceId" required />
-          <TextInput label="Reason" name="reason" />
+          <TextInput label="Reason" name="reason" required />
           <TextInput label="Type REVOKE as confirmation" name="confirmation" required />
           <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
             Revoke device
@@ -88,7 +88,7 @@ export function DeviceActionPanel({ selectedShopId }: DeviceActionPanelProps) {
         <form action={reactivateDeviceAction} className="mt-3 grid gap-3">
           <HiddenShopInput selectedShopId={selectedShopId} />
           <TextInput label="Device row id" name="deviceId" required />
-          <TextInput label="Reason" name="reason" />
+          <TextInput label="Reason" name="reason" required />
           <TextInput
             label="Type REACTIVATE as confirmation"
             name="confirmation"

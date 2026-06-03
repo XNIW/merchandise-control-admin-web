@@ -370,10 +370,10 @@ test("TASK-027 governance artifacts document contract, evidence and DONE reconci
   assert.match(masterPlan, /TASK-027 - Catalog pull delta sync and POS catalog hardening/);
   assert.match(
     masterPlan,
-    /Task attivo: `NESSUNO`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`|Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`/,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`|Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`/,
   );
   assert.match(
     masterPlan,
-    /Fase: `DONE_RECONCILED`|Fase: `REVIEW`|Fase: `EXECUTION`|Fase: `REVIEW_WITH_BLOCKERS`/,
+    /Fase: `DONE_RECONCILED`|Fase: `PLANNING`|Fase: `REVIEW`|Fase: `EXECUTION`|Fase: `REVIEW_WITH_BLOCKERS`/,
   );
 });

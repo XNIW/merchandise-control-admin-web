@@ -51,7 +51,7 @@ test("TASK-033 governance artifacts exist and gate the mega-task without DONE cl
     assertContains(combined, required);
   }
 
-  assert.match(masterPlan, /Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`/);
+  assert.match(masterPlan, /Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`/);
   assert.match(task, /Stato: `(EXECUTION|REVIEW|REVIEW_WITH_BLOCKERS|BLOCKED_[A-Z0-9_]+)`/);
   assert.match(task, /Fase attuale: `(EXECUTION|REVIEW|REVIEW_WITH_BLOCKERS|BLOCKED_[A-Z0-9_]+)`/);
   assert.match(task, /DONE` resta decisione dell'utente/);

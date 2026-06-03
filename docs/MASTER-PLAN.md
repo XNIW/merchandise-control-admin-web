@@ -1202,6 +1202,84 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Nota: aperto da Codex il 2026-06-02 da brief utente. Branch dedicato creato da `main`; TASK-032 integrato via fast-forward controllato da `18116bc` a `2fa1feb`; check base Admin Web `security:scan` e `test:foundation` (`148/148`) passati. `cloudflared` installato e usato per Quick Tunnel HTTPS non-production `trycloudflare.com`; Admin Web POS API smoke HTTPS e harness positivo passati con dati sintetici e cleanup verificato. Check finali Admin Web: `security:scan` PASS, `test:foundation` PASS (`153/153` dopo fix regex governance), `verify` PASS con warning noto `[DEP0205]`, `git diff --check` PASS. Win7POS repo pulito, scanner bootstrap/client/catalog PASS e build WPF x86 PASS con `Avvisi: 0`, `Errori: 0`; il client WPF net48 non e pero eseguibile su questa macchina macOS senza Windows/Wine/Mono: TASK-033 va a `REVIEW_WITH_BLOCKERS`. Vercel resta parcheggiato con `git.deploymentEnabled=false`, zero deployment e zero alias; TASK-029 e TASK-022_023 non riconciliati; sales sync resta planning-only.
 - Review/fix Codex 2026-06-02: review completa dell'allegato eseguita senza dichiarare `DONE`. Codex Security diff scan TASK-033 completato in `/tmp/codex-security-scans/merchandise-control-admin-web/2fa1feb_20260602051839/report.md` e `report.html`, `15/15` righe coperte e nessun finding reportable. Check freschi Admin Web `security:scan`, test TASK-033, `test:foundation` (`153/153`), `typecheck`, `lint`, `build`, `verify` e `git diff --check` passano, con solo warning noto `[DEP0205]` in build/verify. Browser smoke `/shop/pos` conferma guardia `Shop Admin access required` / `No active session`. Win7POS scanner bootstrap/client/catalog, build WPF x86 e `git diff --check` passano; live E2E resta `BLOCKED_WIN7POS_LIVE_ENV_NOT_AVAILABLE` su macOS arm64 senza Windows/Wine/Mono. Vercel read-only conferma zero deployment/alias e `git.deploymentEnabled=false`; Cloudflare/server/container temporanei chiusi. TASK-029 e TASK-022_023 restano non riconciliati; sales sync foundation e dashboard vendite restano non implementate.
 
+### TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning
+
+- Stato: `DONE_RECONCILED_WITH_NOTES`
+- File task: `docs/TASKS/TASK-034-unified-project-progression.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-034/README.md`
+- Fase: `DONE_RECONCILED`
+- Milestone interna: `FINAL_RECONCILED_WITH_NOTES`
+- Responsabile: `USER_CONFIRMED_RECONCILIATION`
+- Branch execution: Admin Web su `main`; Win7POS su `main` se usato
+- Verdict corrente: `DONE_WITH_NOTES`
+- Verdict finale: `DONE_WITH_NOTES`
+- Scopo: avanzare il progetto senza dipendere da VM/UTM/Win7 live, con phase gate rigidi su reconciliation VM pause, Admin Web UX/Product polish, Shop Admin operational hardening, Win7POS non-VM hardening, sales sync planning only e resume plan Win7 live E2E.
+- Include:
+  - reconciliation di TASK-029/TASK-031/TASK-032/TASK-033 senza chiuderli a `DONE`;
+  - pausa esplicita VM/UTM/Win7 live testing come `PAUSED_VM_SETUP_REQUIRED`;
+  - polish UI/UX Admin Web e hardening Shop Admin solo con fix piccoli, scoped e verificabili;
+  - hardening Win7POS solo non-VM, scanner/docs/config/logging/bootstrap/catalog pull;
+  - sales sync planning only in `docs/ARCHITECTURE/POS-SALES-SYNC-PLAN.md`;
+  - resume checklist Win7 live E2E quando VM e drop saranno pronti.
+- Non include:
+  - commit, push o stage finale;
+  - `DONE`;
+  - riapertura UTM/VM, download ISO o creazione VM;
+  - uso Production come staging;
+  - ricollegare Vercel Git Integration;
+  - secret/service-role nel browser o in Win7POS;
+  - dati reali;
+  - runtime sales sync, migration sales, endpoint sales o dashboard vendite fake;
+  - Android/iOS;
+  - `merchant -> stores`.
+- Nota iniziale 2026-06-02: Admin Web pre-flight pulito su `main`, `git diff --check` PASS; Win7POS disponibile su `main` con modifiche VM/docs/script preesistenti non revertite e `git diff --check` PASS. TASK-029 resta bloccato da staging/Win7 live gate, TASK-031 da comportamento Vercel Preview/Production, TASK-032 resta `REVIEW`, TASK-033 resta `REVIEW_WITH_BLOCKERS`. VM/UTM/Win7 live testing e messo in pausa. Sales sync resta `PLANNING_ONLY`; resume plan Win7 live E2E pronto ma non eseguito.
+- Handoff Codex 2026-06-02: Admin Web UX polish e Shop Admin hardening completati con note: import/export copy preview-first, device revoke/reactivate con reason obbligatoria in UI e server boundary, test TASK-034 aggiunti. Win7POS non-VM hardening completato con scanner bootstrap/client/catalog PASS e note `PAUSED_VM_SETUP_REQUIRED` nei documenti VM; build WPF e smoke Win7 reale non eseguiti per pausa VM. Sales sync planning creato in `docs/ARCHITECTURE/POS-SALES-SYNC-PLAN.md`, senza migration/endpoint/dashboard runtime. Check Admin Web freschi: `security:scan` PASS, `test:foundation` PASS (`157/157`), `typecheck` PASS dopo fix, `lint` PASS, `build` PASS_WITH_WARNING `[DEP0205]`, `verify` PASS_WITH_WARNING `[DEP0205]`; browser in-app `BLOCKED_BROWSER_ATTACH_TIMEOUT`, fallback Playwright conferma guardia auth su `/shop/import-export` e `/shop/devices`.
+- Review DONE-readiness 2026-06-02: review repo-grounded completata senza dichiarare `DONE`. Fix documentali scoped applicati a TASK-034/evidence/Master Plan e planning sales sync normalizzato. Supabase check classificato `SUPABASE_CHECK_PASS_WITH_NOTES`: CLI/local/linked migration list disponibili, con divergenza remota nota su `20260601160000` non peggiorata e nessuna migration/tipo modificato da TASK-034. UI autenticata resta `BLOCKED_NO_AUTH_SESSION`; smoke non-auth su `/shop/devices` e `/shop/import-export` conferma guardia auth e screenshot review salvato in evidence. VM/UTM/Win7 live E2E resta `PAUSED_VM_SETUP_REQUIRED`; iOS/Android `NOT_RUN_NOT_IN_SCOPE`; Vercel resta parcheggiato con `git.deploymentEnabled=false`. Verdict aggiornato a `PASS_WITH_NOTES_READY_FOR_DONE_CONFIRMATION`.
+- Reconciliation finale 2026-06-02: su decisione esplicita dell'utente, TASK-034 chiuso documentamente a `DONE_RECONCILED_WITH_NOTES` / `DONE_WITH_NOTES`. Note residue mantenute: `BLOCKED_NO_AUTH_SESSION` per QA UI autenticata completa, `PAUSED_VM_SETUP_REQUIRED` per VM/UTM/Win7 live E2E, Vercel Preview/non-production bloccato, Supabase migration history divergence nota `20260601160000`, warning build/verify `[DEP0205]`, iOS/Android `NOT_RUN_NOT_IN_SCOPE`. TASK-029, TASK-031, TASK-032, TASK-033 e TASK-022_023 restano non chiusi. Nessuna migration Supabase, nessun runtime sales sync, nessun dato reale, nessun secret, nessun commit/push/stage e nessuna dichiarazione di readiness globale.
+- Addendum Win7 live E2E resume 2026-06-02/03: su richiesta utente, ripreso il gate VM/UTM/Win7 live collegato a TASK-034 senza creare nuova task e senza collegarlo a TASK-035. `utmctl list` vede VM `Windows 7` UUID `B63440F6-8BFD-4E99-AB79-5465AC323398`; ISO Windows gia fuori dal CD/DVD osservabile e UTM Guest Tools ISO `/Users/minxiang/Downloads/utm-guest-tools-0.1.271.iso` montata. Shared folder host preparata in `/Users/minxiang/Projects/Win7POS/.win7pos-vm/shared-win7`; file sentinella, installer .NET 4.8 offline ufficiale, drop Win7POS e `run-pos-smoke.bat` copiati nella share host. Screenshot guest mostrano `Spice client (Z:)`, `map-drive.bat` con `Y:` mappato a `http://localhost:9843/` e contenuti host visibili da `Z:` (`host-share-check-task034.txt`, `Win7POS`, `run-pos-smoke.bat`, `NDP48-x86-x64-AllOS-ENU.exe`); `\\spice-webdavd\DavWWWRoot` non risolve ma non blocca la share. UTM mostra memoria VM a `4096 MiB` / `4 GB`, quindi non serve reinstallare Windows per cambiare RAM. La copia dell'installer .NET da WebDAV a `C:` e stata bloccata prima dal limite file del client WebDAV Windows, poi il restart `WebClient` ha richiesto rimappatura di `Z:`; screenshot guest mostra anche `C:` quasi pieno (`1,30 GB disponibile su 19,7 GB`). `qemu-img info` conferma disco virtuale `qcow2` da `20 GiB`; resize/extend di `C:` e possibile senza reinstallazione. Screenshot utente in chat mostra `.NET Framework 4.8` installato e verificato con `Release REG_DWORD 0x80eb1`; drop copiato in `C:\Win7POSTest\drop\Win7POS` con `38 File copiati` e `run-pos-smoke.bat` copiato localmente. `run-pos-smoke.bat` e stato eseguito manualmente e il launcher stampa `Starting Win7POS...` con ritorno al prompt senza errore batch; il gate passa a `WIN7_LIVE_RESUME_SMOKE_LAUNCHER_EXECUTED_APP_EVIDENCE_PENDING` finche non arrivano screenshot app, processo o log. Drop validato da `validate-drop.sh` su `src/Win7POS.Wpf/bin/x86/Release/net48` con warning su DLL SQLite nativa non trovata. Guest agent non risponde ancora a `utmctl ip-address`/`exec`, quindi controllo cmd remoto da Mac non disponibile.
+
+### TASK-035 - Authenticated Admin Web QA + Shop Admin smoke harness
+
+- Stato: `REVIEW`
+- File task: `docs/TASKS/TASK-035-authenticated-admin-web-qa-shop-admin-smoke-harness.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-035/README.md`
+- Fase: `REVIEW`
+- Milestone interna: `AUTH_HARNESS_ADDED_BLOCKED_NO_AUTH_SESSION`
+- Responsabile: `USER_REVIEW`
+- Branch previsto: Admin Web su `main` o branch dedicato se autorizzato in execution
+- Verdict corrente: `BLOCKED_NO_AUTH_SESSION`
+- Scopo: sbloccare il residuo `BLOCKED_NO_AUTH_SESSION` creando o rafforzando un harness QA autenticato per Admin Web, con dati sintetici e cleanup, per testare le route principali Shop Admin senza dipendere da VM Win7.
+- Include:
+  - discovery harness auth esistente;
+  - scelta strategia auth test piu sicura;
+  - dataset sintetico `TASK035_*`;
+  - cleanup verificabile;
+  - Playwright o harness equivalente se gia presente;
+  - smoke route Shop Admin autenticate;
+  - access guard Shop Admin;
+  - catalogo, import/export, staff, devices, audit e POS read-only dove possibile;
+  - reason obbligatoria per device revoke/reactivate;
+  - no cross-shop leak;
+  - no secret/PIN/password/token/hash in UI/log;
+  - screenshot/evidence ripetibili.
+- Non include:
+  - VM/UTM/Win7 live E2E;
+  - sales sync runtime;
+  - dashboard vendite fake;
+  - Vercel Production come staging;
+  - Vercel Git Integration;
+  - nuove migration Supabase non necessarie;
+  - login Google/Apple/WeChat;
+  - modifiche Android/iOS;
+  - dati reali;
+  - secret;
+  - commit/push/stage.
+- Route candidate: `/shop`, `/shop/products`, `/shop/categories`, `/shop/suppliers`, `/shop/import-export`, `/shop/members`, `/shop/roles`, `/shop/staff`, `/shop/devices`, `/shop/audit`, `/shop/settings`, `/shop/pos`, eventuale `/shop/sync`.
+- Gate futuri: `security:scan`, `test:foundation`, `typecheck`, `lint`, `build`, `verify`, smoke UI autenticato se harness disponibile, cleanup dataset sintetico e `git diff --check`.
+- Nota apertura 2026-06-02: creato solo planning/skeleton. Nessuna implementazione runtime, nessuna migration, nessun dataset, nessun smoke autenticato e nessun cleanup runtime eseguito.
+- Handoff Codex 2026-06-02: aggiunto harness Playwright dedicato `tests/e2e/task-035-shop-admin-authenticated-smoke.spec.ts` e script `npm run test:shop-admin-auth-smoke`; guardia non-auth Shop Admin verificata su `/shop`, `/shop/products`, `/shop/import-export`, `/shop/devices`, `/shop/pos` con screenshot `docs/TASKS/EVIDENCE/TASK-035/browser-shop-devices-auth-required.png`. Il ramo autenticato crea solo dataset locale `TASK035_*` e cleanup verificabile, ma nel runtime corrente e stato saltato/bloccato perche il target Supabase rilevato e `supabase_cloud` e `SUPABASE_SERVICE_ROLE_KEY` non e disponibile localmente. Nessun dataset creato, nessun cleanup runtime necessario, nessuna migration/schema, nessun Win7POS, nessun sales sync, nessun Vercel live, nessun commit/push/stage. Verdict: `BLOCKED_NO_AUTH_SESSION`, task in handoff a `REVIEW`.
+- Review/fix Codex 2026-06-03: harness TASK-035 rafforzato senza cambiare scope; readiness auth locale richiede anche `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, cleanup registra errori di delete/auth delete e conta residui anche su righe figlie shop-scoped. Probe redatti confermano target runtime `supabase_cloud`, service-role key mancante, REST locale `54321` raggiungibile ma stack Supabase del repo non ispezionabile (`supabase_db_merchandise-control-admin-web` assente). Nessun dataset `TASK035_*` creato, nessun cleanup runtime necessario, nessun nuovo task. Verdict resta `BLOCKED_NO_AUTH_SESSION`.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -1215,8 +1293,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `REVIEW_WITH_BLOCKERS`
-- Ultimo task completato: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`
+- Stato globale attuale: `REVIEW`
+- Ultimo task completato: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -1232,13 +1310,16 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-020: `DONE_RECONCILED`
 - Stato TASK-021: `DONE`
 - Fase TASK-021: `DONE_RECONCILED`
-- Task attivo: `TASK-033 - Controlled TASK-032 review + HTTPS non-production + Win7POS live E2E + POS reconciliation + sales sync foundation`
-- File task: `docs/TASKS/TASK-033-controlled-task-032-review-https-pos-sales.md`
-- Stato task: `REVIEW_WITH_BLOCKERS`
-- Fase: `REVIEW_WITH_BLOCKERS`
-- Milestone interna: `HANDOFF_REVIEW_WITH_BLOCKERS`
+- Stato TASK-034: `DONE_RECONCILED_WITH_NOTES`
+- Fase TASK-034: `DONE_RECONCILED`
+- Task attivo: `TASK-035 - Authenticated Admin Web QA + Shop Admin smoke harness`
+- File task: `docs/TASKS/TASK-035-authenticated-admin-web-qa-shop-admin-smoke-harness.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-035/README.md`
+- Stato task: `REVIEW`
+- Fase: `REVIEW`
+- Milestone interna: `AUTH_HARNESS_ADDED_BLOCKED_NO_AUTH_SESSION`
 - Responsabile: `USER_REVIEW`
-- Branch execution: Admin Web su `codex/task-033-https-pos-sales-mega-task`; Win7POS non modificato e su `main`
+- Branch previsto: Admin Web su `main` o branch dedicato se autorizzato in execution
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
 - Task Vercel parcheggiato: `TASK-031 - Vercel Preview retry after environment docs`
@@ -1252,8 +1333,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-031: `BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION`
 - Verdict TASK-032: `PASS_WITH_NOTES_PHASE_5_COMPLETE_PHASE_6_BLOCKED`
 - Verdict TASK-033: `REVIEW_WITH_BLOCKERS`
+- Verdict TASK-034: `DONE_WITH_NOTES`
+- Verdict TASK-035: `BLOCKED_NO_AUTH_SESSION`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
-- Prossima azione consigliata: eseguire Win7POS live su runner Windows/WPF compatibile contro un endpoint HTTPS non-production equivalente; solo dopo quel gate reale riconciliare TASK-029/TASK-022_023 e valutare sales sync foundation/dashboard vendite.
+- Prossima azione consigliata: configurare un Supabase locale/non-production esplicitamente sicuro e ispezionabile per questo repo con le env gia previste, poi rieseguire `npm run test:shop-admin-auth-smoke`.
 
 ## Regole di avanzamento
 

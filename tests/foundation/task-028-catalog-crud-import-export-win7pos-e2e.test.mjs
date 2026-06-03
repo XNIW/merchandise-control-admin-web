@@ -83,11 +83,11 @@ test("TASK-028 governance artifacts close after explicit DONE reconciliation", (
   assertContains(masterPlan, "### TASK-028 - Catalog CRUD, Excel import/export, and Win7POS catalog pull E2E");
   assert.match(
     masterPlan,
-    /Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`/,
+    /Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`/,
   );
   assert.match(
     masterPlan,
-    /Stato task: `REVIEW`|Stato task: `EXECUTION`|Stato task: `REVIEW_WITH_BLOCKERS`/,
+    /Stato task: `PLANNED`|Stato task: `REVIEW`|Stato task: `EXECUTION`|Stato task: `REVIEW_WITH_BLOCKERS`/,
   );
   assert.match(task, /Stato:\s*`DONE_RECONCILED_WITH_NOTES`/);
   assert.match(evidence, /Verdict corrente:\s*`DONE_RECONCILED_WITH_NOTES`/);

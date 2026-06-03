@@ -25,6 +25,9 @@ export function ImportExportActionPanel({
         <h2 className="text-base font-semibold text-zinc-950">
           Preview workbook
         </h2>
+        <p className="mt-2 text-sm leading-6 text-zinc-600">
+          Preview first. No catalog rows are changed in preview.
+        </p>
         <form
           action="/shop/import-export/preview"
           className="mt-3 grid gap-3"
@@ -49,6 +52,9 @@ export function ImportExportActionPanel({
         <h2 className="text-base font-semibold text-zinc-950">
           Apply confirmed import
         </h2>
+        <p className="mt-2 text-sm leading-6 text-zinc-600">
+          Use the preview digest returned by the preview step. APPLY only after reviewing errors, warnings and counts.
+        </p>
         <form
           action="/shop/import-export/apply"
           className="mt-3 grid gap-3"

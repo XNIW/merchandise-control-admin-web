@@ -26,6 +26,19 @@ type RenameDeviceInput = DeviceTargetInput & {
   displayName: string;
 };
 
+function reasonRequired(value: string | undefined): value is string {
+  return Boolean(value?.trim());
+}
+
+function deviceReasonRequiredResult() {
+  return shopAdminActionResult("reason_required", {
+    fieldErrors: {
+      reason: "A reason is required for device status actions.",
+    },
+    ok: false,
+  });
+}
+
 async function deviceRpcResult(
   requestedShopId: string | undefined,
   call: (
@@ -98,9 +111,15 @@ export async function revokeDevice(
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
+  if (!reasonRequired(input.reason)) {
+    return deviceReasonRequiredResult();
+  }
+
+  const reason = input.reason.trim();
+
   return deviceRpcResult(input.requestedShopId, (context) =>
     context.supabase.rpc("shop_device_revoke", {
-      p_reason: input.reason,
+      p_reason: reason,
       p_shop_device_id: input.deviceId,
       p_shop_id: context.selectedShop.shopId,
     }),
@@ -114,9 +133,15 @@ export async function reactivateDevice(
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
+  if (!reasonRequired(input.reason)) {
+    return deviceReasonRequiredResult();
+  }
+
+  const reason = input.reason.trim();
+
   return deviceRpcResult(input.requestedShopId, (context) =>
     context.supabase.rpc("shop_device_reactivate", {
-      p_reason: input.reason,
+      p_reason: reason,
       p_shop_device_id: input.deviceId,
       p_shop_id: context.selectedShop.shopId,
     }),
