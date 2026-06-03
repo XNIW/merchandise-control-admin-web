@@ -55,6 +55,21 @@ function nonNegativeFields(input: ProductMutationInput) {
   ].every((value) => value === undefined || value >= 0);
 }
 
+function catalogReasonRequired(input: CatalogArchiveInput) {
+  const reason = input.reason?.trim();
+
+  if (!reason) {
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors: {
+        reason: "A reason is required for catalog archive or restore actions.",
+      },
+      ok: false,
+    });
+  }
+
+  return reason.slice(0, 240);
+}
+
 async function rpcResult(
   requestedShopId: string | undefined,
   permission: "products.write" | "categories.write" | "suppliers.write",
@@ -127,9 +142,15 @@ export async function archiveSupplier(
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
+  const reason = catalogReasonRequired(input);
+
+  if (typeof reason !== "string") {
+    return reason;
+  }
+
   return rpcResult(input.requestedShopId, "suppliers.write", (context) =>
     context.supabase.rpc("shop_catalog_archive_supplier", {
-      p_reason: input.reason,
+      p_reason: reason,
       p_shop_id: context.selectedShop.shopId,
       p_supplier_id: input.id,
     }),
@@ -180,10 +201,16 @@ export async function archiveCategory(
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
+  const reason = catalogReasonRequired(input);
+
+  if (typeof reason !== "string") {
+    return reason;
+  }
+
   return rpcResult(input.requestedShopId, "categories.write", (context) =>
     context.supabase.rpc("shop_catalog_archive_category", {
       p_category_id: input.id,
-      p_reason: input.reason,
+      p_reason: reason,
       p_shop_id: context.selectedShop.shopId,
     }),
   );
@@ -285,10 +312,16 @@ export async function archiveProduct(
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
+  const reason = catalogReasonRequired(input);
+
+  if (typeof reason !== "string") {
+    return reason;
+  }
+
   return rpcResult(input.requestedShopId, "products.write", (context) =>
     context.supabase.rpc("shop_catalog_archive_product", {
       p_product_id: input.id,
-      p_reason: input.reason,
+      p_reason: reason,
       p_shop_id: context.selectedShop.shopId,
     }),
   );
@@ -301,10 +334,16 @@ export async function restoreProduct(
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
+  const reason = catalogReasonRequired(input);
+
+  if (typeof reason !== "string") {
+    return reason;
+  }
+
   return rpcResult(input.requestedShopId, "products.write", (context) =>
     context.supabase.rpc("shop_catalog_restore_product", {
       p_product_id: input.id,
-      p_reason: input.reason,
+      p_reason: reason,
       p_shop_id: context.selectedShop.shopId,
     }),
   );

@@ -65,6 +65,13 @@ type CatalogFilters = {
   supplierId?: string | null;
 };
 
+type SyncFilters = {
+  domain?: string | null;
+  query?: string | null;
+  source?: string | null;
+  status?: string | null;
+};
+
 type GetShopSectionForRequestOptions = {
   auditFilters?: {
     eventQuery?: string | null;
@@ -73,7 +80,10 @@ type GetShopSectionForRequestOptions = {
     targetId?: string | null;
   };
   catalogFilters?: CatalogFilters;
+  syncFilters?: SyncFilters;
 };
+
+const SYNC_FILTER_MAX_LENGTH = 160;
 
 const formatToken = (value: string) =>
   value
@@ -1379,11 +1389,76 @@ function syncStatusRow(status: "pending" | "success" | "failed", count: number) 
     state: status,
     source: "Status summary",
     changed: String(count),
+    diagnostic: "Filtered result set",
     updated: "Current result set",
   };
 }
 
-export function buildSyncSection(readModel: ShopHistoryReadModel): ShopSection {
+function normalizedSyncStatus(value?: string | null) {
+  const normalized = normalizeSyncFilter(value);
+
+  return normalized === "pending" ||
+    normalized === "success" ||
+    normalized === "failed"
+    ? normalized
+    : null;
+}
+
+function normalizeSyncFilter(value?: string | null) {
+  const trimmed = value?.trim();
+
+  return trimmed ? trimmed.slice(0, SYNC_FILTER_MAX_LENGTH).toLowerCase() : null;
+}
+
+function includesText(value: string | null | undefined, query: string) {
+  return value?.toLowerCase().includes(query) ?? false;
+}
+
+export function applySyncFilters(
+  events: readonly ShopSyncEventActivity[],
+  filters: SyncFilters = {},
+) {
+  const query = normalizeSyncFilter(filters.query);
+  const domain = normalizeSyncFilter(filters.domain);
+  const source = normalizeSyncFilter(filters.source);
+  const status = normalizedSyncStatus(filters.status);
+
+  return events.filter((event) => {
+    if (status && event.status !== status) {
+      return false;
+    }
+
+    if (domain && !event.domain.toLowerCase().includes(domain)) {
+      return false;
+    }
+
+    if (
+      source &&
+      !includesText(event.source, source) &&
+      !includesText(event.sourceDeviceId, source)
+    ) {
+      return false;
+    }
+
+    if (!query) {
+      return true;
+    }
+
+    return [
+      event.domain,
+      event.eventType,
+      event.source,
+      event.sourceDeviceId,
+      event.entitySummary,
+      event.metadataSummary,
+    ].some((value) => includesText(value, query));
+  });
+}
+
+export function buildSyncSection(
+  readModel: ShopHistoryReadModel,
+  filters: SyncFilters = {},
+): ShopSection {
   if (readModel.status !== "ready") {
     const status = historyStatusLabel(readModel.status);
 
@@ -1413,15 +1488,30 @@ export function buildSyncSection(readModel: ShopHistoryReadModel): ShopSection {
     };
   }
 
-  const pending = readModel.syncEvents.filter(
+  const filteredEvents = applySyncFilters(readModel.syncEvents, filters);
+  const statusFilter = normalizedSyncStatus(filters.status);
+  const activeFilters = [
+    normalizeSyncFilter(filters.query),
+    normalizeSyncFilter(filters.domain),
+    normalizeSyncFilter(filters.source),
+    statusFilter,
+  ].filter(Boolean).length;
+  const pending = filteredEvents.filter(
     (event) => event.status === "pending",
   ).length;
-  const success = readModel.syncEvents.filter(
+  const success = filteredEvents.filter(
     (event) => event.status === "success",
   ).length;
-  const failed = readModel.syncEvents.filter(
+  const failed = filteredEvents.filter(
     (event) => event.status === "failed",
   ).length;
+  const latestEvent = filteredEvents[0];
+  const latestFailedEvent = filteredEvents.find(
+    (event) => event.status === "failed",
+  );
+  const sourceCount = new Set(
+    filteredEvents.map((event) => event.sourceDeviceId ?? event.source ?? "Unknown"),
+  ).size;
 
   return {
     ...shopSections.sync,
@@ -1432,37 +1522,56 @@ export function buildSyncSection(readModel: ShopHistoryReadModel): ShopSection {
       metric("Pending", String(pending), "Events marked pending"),
       metric("Success", String(success), "Events without failure metadata", "good"),
       metric("Failed", String(failed), "Events with failure metadata", failed > 0 ? "warning" : "good"),
+      metric("Events shown", String(filteredEvents.length), `${readModel.syncEvents.length} total mapped rows`),
+      metric("Sources", String(sourceCount), "Source/device values in current result"),
+      metric(
+        "Latest error",
+        latestFailedEvent
+          ? `${latestFailedEvent.domain}:${latestFailedEvent.eventType}`
+          : "None",
+        latestFailedEvent
+          ? formatDateTime(latestFailedEvent.createdAt)
+          : "No failed event in current result",
+        latestFailedEvent ? "warning" : "good",
+      ),
+      metric("Filters", String(activeFilters), "Server-side query params"),
     ],
     liveData: {
       title: "Sync events",
       description:
-        "Sync activity is separate from shop audit. Pending, success and failed are derived from the event payload when available.",
+        latestEvent
+          ? `Latest visible event: ${latestEvent.domain}:${latestEvent.eventType} at ${formatDateTime(latestEvent.createdAt)}. Sync activity is separate from shop audit.`
+          : "Sync activity is separate from shop audit. Pending, success and failed are derived from the event payload when available.",
       columns: [
         { key: "event", label: "Event" },
         { key: "domain", label: "Domain" },
         { key: "state", label: "State" },
         { key: "source", label: "Source" },
         { key: "changed", label: "Changed" },
+        { key: "diagnostic", label: "Diagnostic" },
         { key: "updated", label: "Updated" },
       ],
       rows: [
         syncStatusRow("pending", pending),
         syncStatusRow("success", success),
         syncStatusRow("failed", failed),
-        ...readModel.syncEvents.map((event) => ({
+        ...filteredEvents.map((event) => ({
           rowKey: `sync:${event.eventId}`,
           event: event.eventType,
           domain: event.domain,
           state: event.status,
           source: event.sourceDeviceId ?? event.source ?? "Unknown",
           changed: String(event.changedCount),
+          diagnostic: `${event.entitySummary}; ${event.metadataSummary}`,
           updated: formatDateTime(event.createdAt),
         })),
       ],
       emptyState: {
         title: "No sync events are visible",
         description:
-          "The mapping is present, but no sync rows are visible through current RLS.",
+          activeFilters > 0
+            ? "The mapping is present, but no sync rows match the current filters."
+            : "The mapping is present, but no sync rows are visible through current RLS.",
       },
     },
   };
@@ -1980,7 +2089,7 @@ export async function getShopSectionForRequest(
   if (key === "sync") {
     const historyReadModel = await getShopHistoryReadModel({ requestedShopId });
 
-    return buildSyncSection(historyReadModel);
+    return buildSyncSection(historyReadModel, options.syncFilters);
   }
 
   if (key === "devices") {

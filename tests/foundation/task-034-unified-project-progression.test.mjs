@@ -56,7 +56,7 @@ test("TASK-034 governance artifacts record final reconciliation with notes", () 
 
   assert.match(
     masterPlan,
-    /Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`/,
+    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/,
   );
   assert.match(task, /Stato: `DONE_RECONCILED_WITH_NOTES`/);
   assert.match(task, /Fase attuale: `DONE_RECONCILED`/);

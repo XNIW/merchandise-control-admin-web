@@ -1282,6 +1282,38 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Completion Codex 2026-06-03: gate autenticato Shop Admin eseguito su Supabase locale/non-production `127.0.0.1:54321` con key locali solo come env di processo e nessun secret stampato/salvato. Stack locale `MerchandiseControlSupabase` ispezionato direttamente; history locale riparata da `20260417` a `20260417000000`, pending migrations applicate fino a `schema_migrations_count=32`, nessuna migration repo nuova. Harness corretto per schema reale staff/device, attesa login su pathname, audit append-only senza fixture non ripulibile, redaction su materiale sensibile reale. `npm run test:shop-admin-auth-smoke` passa `2 passed`, route Shop Admin autenticate coperte, no cross-shop leak, screenshot autenticato salvato e cleanup verificato con zero residui `TASK035_*`, `shop_members`, `shop_inventory_sources`, auth e audit. Verdict: `READY_FOR_DONE_CONFIRMATION`; task resta `REVIEW`, non `DONE`.
 - Chiusura 2026-06-03: su conferma esplicita dell'utente dopo review finale `DONE_READY`, TASK-035 chiuso a `DONE`. Check finali passati, nessun secret salvato, nessuna migration/dipendenza/feature fuori scope, commit e push richiesti dall'utente.
 
+### TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-036-admin-web-web-readiness-local-dev-cloudflared-shop-sync-production-hardening.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-036/README.md`
+- Fase: `DONE`
+- Milestone interna: `TASK_036_DONE_CONFIRMED`
+- Responsabile: `COMPLETED`
+- Branch previsto: Admin Web su `main`
+- Verdict corrente: `DONE`
+- Scopo: migliorare la readiness del solo sito Admin Web senza dipendere da Win7, Vercel Production, Android/iOS o Sales Sync.
+- Include:
+  - Cloudflared Quick Tunnel come HTTPS temporaneo/non-production;
+  - Supabase local/dev runbook e check redatti;
+  - Shop Admin polish operativo piccolo e verificabile;
+  - Sync Center read-only piu utile lato web;
+  - production readiness checklist senza dichiarare production-ready globale;
+  - foundation/security/regression checks.
+- Non include:
+  - commit, push o stage finale durante l'execution iniziale;
+  - Vercel Production come staging;
+  - ricollegare Vercel Git Integration;
+  - Supabase production;
+  - nuove migration Supabase;
+  - Win7POS/Android/iOS/Cash Register;
+  - TASK-024 Sales Sync runtime;
+  - dashboard vendite fake;
+  - secret o dati reali.
+- Handoff Codex 2026-06-03: aperto TASK-036 dopo TASK-035 `DONE`; repo iniziale pulito su `main...origin/main`. Aggiunti runbook `docs/DEPLOYMENT/CLOUDFLARED-NON-PRODUCTION.md`, `docs/DEVELOPMENT/SUPABASE-LOCAL-DEV.md`, checklist `docs/DEPLOYMENT/PRODUCTION-READINESS-CHECKLIST.md`, script `dev:tunnel`, `dev:db:check`, `dev:db:status`, Sync Center con filtri read-only query/domain/source/status e diagnostica redatta, reason obbligatoria per archive/restore catalogo, foundation test TASK-036 e guardrail security per task attivo. Supabase locale osservato con mismatch noto `supabase_db_merchandise-control-admin-web` vs `supabase_db_MerchandiseControlSupabase`; `dev:db:check` fallisce chiuso su target `supabase_cloud`/mismatch senza stampare secret; nessun reset distruttivo. Check finali passano: `security:scan`, `test:foundation` (`163/163`), `typecheck`, `lint`, `build` con warning noto `[DEP0205]`, `verify` dopo rerun isolato, `git diff --check`; `test:shop-admin-auth-smoke` passa guardia non-auth e salta il ramo autenticato per ambiente corrente non locale/sicuro. Vercel resta parcheggiato con `git.deploymentEnabled=false`; Cloudflared resta solo HTTPS temporaneo/non-production; Win7POS live E2E e TASK-024 Sales Sync restano parcheggiati/deferred. TASK-036 va a `REVIEW`, non `DONE`.
+- Review finale Codex 2026-06-03: hard review su diff TASK-036 con Codex Security diff-scan in `/tmp/codex-security-scans/merchandise-control-admin-web/9586993_20260603_task036/`, verdict no findings. Fix scoped applicati: cap render-side/server-side 160 sui filtri Sync Center, status filter normalizzato, reason catalog trim/cap server-side e hint audit UI, check Supabase CLI senza `which`, guardrail TASK-036 rafforzato. `npm run dev:db:check` resta `PASS_FAIL_CLOSED` su `.env.local` cloud e mismatch container, come guardrail. Smoke autenticato Shop Admin eseguito con Supabase locale `127.0.0.1:54321`, key generate solo come env di processo da `GOTRUE_JWT_SECRET` del container Auth locale e nessun secret stampato/salvato; primo probe con secret PostgREST fallisce `bad_jwt` come diagnostica, probe corretto GoTrue passa. Build con env locali process-only passa con warning noto `[DEP0205]`; `npm run test:shop-admin-auth-smoke` passa `2 passed`; cleanup DB post-smoke zero su `TASK035_*` e auth user. Production-ready globale non dichiarato, Cloudflared resta temporaneo, Vercel resta parcheggiato, Sales Sync resta `DEFERRED`, Win7POS live E2E resta parked. TASK-036 resta `REVIEW` e passa a `READY_FOR_DONE_CONFIRMATION`; Codex non marca `DONE` senza conferma utente.
+- Chiusura 2026-06-03: conferma esplicita utente ricevuta per marcare TASK-036 `DONE`. Le note non bloccanti restano vincolanti: Cloudflared e temporaneo/non-production, Vercel resta parcheggiato con `git.deploymentEnabled=false`, `dev:db:check` fallisce chiuso su `.env.local` cloud/mismatch container, warning `[DEP0205]` non bloccante, Win7POS live E2E resta `PARKED_NOT_IN_SCOPE`, TASK-024 Sales Sync resta `DEFERRED`, progetto non dichiarato production-ready globale.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -1295,8 +1327,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `REVIEW`
-- Ultimo task completato: `TASK-035 - Authenticated Admin Web QA + Shop Admin smoke harness`
+- Stato globale attuale: `IDLE`
+- Ultimo task completato: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -1314,12 +1346,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-021: `DONE_RECONCILED`
 - Stato TASK-034: `DONE_RECONCILED_WITH_NOTES`
 - Fase TASK-034: `DONE_RECONCILED`
-- Task attivo: `TASK-035 - Authenticated Admin Web QA + Shop Admin smoke harness`
-- File task: `docs/TASKS/TASK-035-authenticated-admin-web-qa-shop-admin-smoke-harness.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-035/README.md`
+- Stato TASK-036: `DONE`
+- Fase TASK-036: `DONE`
+- Task attivo: `NESSUNO`
+- File task: `docs/TASKS/TASK-036-admin-web-web-readiness-local-dev-cloudflared-shop-sync-production-hardening.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-036/README.md`
 - Stato task: `DONE`
 - Fase: `DONE`
-- Milestone interna: `AUTHENTICATED_LOCAL_SMOKE_PASSED`
+- Milestone interna: `TASK_036_DONE_CONFIRMED`
 - Responsabile: `COMPLETED`
 - Branch previsto: Admin Web su `main` o branch dedicato se autorizzato in execution
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
@@ -1337,8 +1371,9 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-033: `REVIEW_WITH_BLOCKERS`
 - Verdict TASK-034: `DONE_WITH_NOTES`
 - Verdict TASK-035: `DONE`
+- Verdict TASK-036: `DONE`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
-- Prossima azione consigliata: scegliere il prossimo task aperto; TASK-029, TASK-031, TASK-032, TASK-033 e TASK-022_023 restano non chiusi secondo i rispettivi blocker.
+- Prossima azione consigliata: stato `IDLE`; scegliere il prossimo task aperto senza aprire automaticamente Sales Sync. TASK-029, TASK-031, TASK-032, TASK-033 e TASK-022_023 restano non chiusi secondo i rispettivi blocker.
 
 ## Regole di avanzamento
 

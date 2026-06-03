@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:tunnel": "cloudflared tunnel --url http://127.0.0.1:3000 --no-autoupdate",
+    "dev:db:check": "node scripts/dev-supabase-check.mjs",
+    "dev:db:status": "node scripts/dev-supabase-check.mjs --status",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

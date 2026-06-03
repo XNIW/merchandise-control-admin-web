@@ -23,12 +23,16 @@ function HiddenShopInput({ selectedShopId }: { selectedShopId?: string }) {
 }
 
 function TextInput({
+  description,
   label,
+  maxLength,
   name,
   required,
   type = "text",
 }: {
+  description?: string;
   label: string;
+  maxLength?: number;
   name: string;
   required?: boolean;
   type?: string;
@@ -38,10 +42,14 @@ function TextInput({
       {label}
       <input
         className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+        maxLength={maxLength}
         name={name}
         required={required}
         type={type}
       />
+      {description ? (
+        <span className="text-xs font-normal text-zinc-500">{description}</span>
+      ) : null}
     </label>
   );
 }
@@ -62,6 +70,7 @@ function ActionShell({
 }
 
 function ProductForms({ selectedShopId }: { selectedShopId?: string }) {
+  const auditReasonDescription = "Required for the audit trail.";
   const productFields = (
     <>
       <TextInput label="Barcode" name="barcode" required />
@@ -103,7 +112,13 @@ function ProductForms({ selectedShopId }: { selectedShopId?: string }) {
         <form action={archiveProductAction} className="grid gap-3">
           <HiddenShopInput selectedShopId={selectedShopId} />
           <TextInput label="Product id" name="productId" required />
-          <TextInput label="Reason" name="reason" />
+          <TextInput
+            description={auditReasonDescription}
+            label="Reason"
+            maxLength={240}
+            name="reason"
+            required
+          />
           <TextInput label="Type ARCHIVE as confirmation" name="confirmation" required />
           <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
             Archive product
@@ -115,7 +130,13 @@ function ProductForms({ selectedShopId }: { selectedShopId?: string }) {
         <form action={restoreProductAction} className="grid gap-3">
           <HiddenShopInput selectedShopId={selectedShopId} />
           <TextInput label="Product id" name="productId" required />
-          <TextInput label="Reason" name="reason" />
+          <TextInput
+            description={auditReasonDescription}
+            label="Reason"
+            maxLength={240}
+            name="reason"
+            required
+          />
           <TextInput label="Type RESTORE as confirmation" name="confirmation" required />
           <button className="rounded-md border border-emerald-500 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-950">
             Restore product
@@ -127,6 +148,8 @@ function ProductForms({ selectedShopId }: { selectedShopId?: string }) {
 }
 
 function CategoryForms({ selectedShopId }: { selectedShopId?: string }) {
+  const auditReasonDescription = "Required for the audit trail.";
+
   return (
     <>
       <ActionShell title="Create category">
@@ -154,7 +177,13 @@ function CategoryForms({ selectedShopId }: { selectedShopId?: string }) {
         <form action={archiveCategoryAction} className="grid gap-3">
           <HiddenShopInput selectedShopId={selectedShopId} />
           <TextInput label="Category id" name="categoryId" required />
-          <TextInput label="Reason" name="reason" />
+          <TextInput
+            description={auditReasonDescription}
+            label="Reason"
+            maxLength={240}
+            name="reason"
+            required
+          />
           <TextInput label="Type ARCHIVE as confirmation" name="confirmation" required />
           <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
             Archive category
@@ -166,6 +195,8 @@ function CategoryForms({ selectedShopId }: { selectedShopId?: string }) {
 }
 
 function SupplierForms({ selectedShopId }: { selectedShopId?: string }) {
+  const auditReasonDescription = "Required for the audit trail.";
+
   return (
     <>
       <ActionShell title="Create supplier">
@@ -193,7 +224,13 @@ function SupplierForms({ selectedShopId }: { selectedShopId?: string }) {
         <form action={archiveSupplierAction} className="grid gap-3">
           <HiddenShopInput selectedShopId={selectedShopId} />
           <TextInput label="Supplier id" name="supplierId" required />
-          <TextInput label="Reason" name="reason" />
+          <TextInput
+            description={auditReasonDescription}
+            label="Reason"
+            maxLength={240}
+            name="reason"
+            required
+          />
           <TextInput label="Type ARCHIVE as confirmation" name="confirmation" required />
           <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
             Archive supplier
