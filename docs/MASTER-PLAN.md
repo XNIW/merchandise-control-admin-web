@@ -1504,6 +1504,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Evidence: `docs/TASKS/EVIDENCE/TASK-040/README.md`
 - Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`
 - Responsabile: `REVIEWER`
+- Sostituzione tracking: `SUPERSEDED_BY_TASK-041`
+- Decisione TASK-041: `TASK-040_SHOULD_REMAIN_REVIEW_WITH_EXTERNAL_BLOCKERS`
 - Branch previsto: Admin Web su `main`
 - Milestone interna corrente: `PARTIAL_PASS_WITH_BLOCKERS`
 - Verdict corrente: `PARTIAL_PASS_WITH_BLOCKERS`
@@ -1521,7 +1523,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - `.env.local` classificato `supabase_cloud`, con `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` presenti redatti, `SUPABASE_PROJECT_REF` e `SUPABASE_SERVICE_ROLE_KEY` assenti;
   - `supabase --version` PASS con `2.104.0` dopo rerun con telemetry disabilitata;
   - `npm run dev:db:status` exit `2`: `BLOCKED_LOCAL_SUPABASE_ENV`, `.env.local` cloud, service-role assente e container mismatch;
-  - Docker espone stack `supabase_db_MerchandiseControlSupabase`, ma il progetto corrente attende `supabase_db_merchandise-control-admin-web`: `BLOCKED_SUPABASE_CONTAINER_MISMATCH`;
+  - TASK-041 final review/fix ha allineato `supabase/config.toml` allo stack locale `MerchandiseControlSupabase`; `supabase status`, local dry-run, lint e typegen locale verso `/tmp` passano dal repo, quindi `BLOCKED_SUPABASE_CONTAINER_MISMATCH` e rimosso per TASK-041; nello stesso passaggio `scripts/dev-supabase-check.mjs` e stato rafforzato per redigere l'output tabellare Supabase CLI;
   - `supabase migration list --local` mostra `20260604120000` local presente e remote/history vuota: `MIGRATION_PENDING_NOT_APPLIED`;
   - `supabase db lint --local --schema public,app_private --fail-on error` PASS con `No schema errors found`;
   - migration TASK-039 e additiva (`actor_staff_id`, `web_access_revoked_*`, view `staff_accounts_safe`, function audit staff);
@@ -1574,6 +1576,67 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - `TASK-022_023`: resta `PARKED_E2E_PENDING`;
   - nessun task storico marcato `DONE` da TASK-040.
 
+### TASK-041 - Runtime Completion: Supabase, Cloudflare/OpenNext Staging, Sales Sync and Win7POS E2E
+
+- Stato: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- File task: `docs/TASKS/TASK-041-runtime-completion-supabase-cloudflare-sales-sync-win7pos-e2e.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-041/README.md`
+- Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Responsabile: `REVIEWER`
+- Branch previsto: `codex/task-041-runtime-completion`
+- Milestone interna corrente: `PASS_WITH_NOTES_AND_EXTERNAL_BLOCKERS`
+- Verdict corrente: `PASS_WITH_NOTES_READY_FOR_DONE_CONFIRMATION_ADMIN_WEB_RUNTIME_ONLY`
+- Scopo: sostituire il tracking attivo di `TASK-040` con un task runtime completion piu stretto, sbloccando i gate runtime sicuri senza dichiarare `TASK-040 DONE` se restano blocker esterni.
+- Decisione TASK-040:
+  - `TASK-040_SHOULD_REMAIN_REVIEW_WITH_EXTERNAL_BLOCKERS`;
+  - `TASK-040_SUPERSEDED_BY_TASK-041`;
+  - `SUPERSEDED_BY_TASK-041`.
+- Governance 2026-06-04:
+  - branch `codex/task-041-runtime-completion` creato;
+  - task/evidence TASK-041 creati;
+  - `docs/MASTER-PLAN.md` aggiornato per avere un solo task attivo;
+  - `scripts/security-checks.mjs` e foundation test aggiornati per bloccare regressioni sul tracking TASK-041;
+  - `scripts/dev-supabase-check.mjs` aggiornato con mode redatti `local`, `ci`, `cloud`, `staging`, `production` e fail-closed su production.
+- Supabase runtime gate:
+  - status: `PASS_SUPABASE_DEV_APPLIED` / `PASS_WITH_NOTES_LOCAL_CLI_CONTAINER_MISMATCH`;
+  - migration TASK-039 verificata/applicata: `supabase/migrations/20260604120000_task_039_staff_aware_shop_admin.sql`;
+  - migration TASK-041 Sales Sync foundation creata/applicata: `supabase/migrations/20260604214112_task_041_pos_sales_sync_foundation.sql`;
+  - local e linked dev non-production allineati fino a `20260604214112`;
+  - lint local/linked `public,app_private`: `PASS`, `No schema errors found`;
+  - linked schema dump redatto: tabelle Sales Sync, RLS forced, grants, unique constraints e indici confermati;
+  - typegen refresh da linked dev: `PASS`, `src/lib/supabase/database.types.ts` aggiornato;
+  - production apply: `NOT_RUN_PRODUCTION_FORBIDDEN`;
+  - nota residua: `supabase status` e local typegen restano limitati dal mismatch nomi container/progetto storico.
+- Cloudflare/OpenNext gate:
+  - status: `PASS_CLOUDFLARE_OPENNEXT_PREVIEW`;
+  - introdotti `@opennextjs/cloudflare`, `wrangler`, `open-next.config.ts`, `wrangler.jsonc`, script `cf:build` e `cf:preview`;
+  - `src/proxy.ts` rimosso e sostituito da `src/middleware.ts` per compatibilita OpenNext Cloudflare, con deprecation note Next 16 documentata;
+  - local preview `127.0.0.1:8788` smoke: `/` HTTP 200, `/shop` HTTP 200 auth guard, GET `/api/pos/sales/sync` HTTP 405 atteso;
+  - production deploy: `NOT_RUN_PRODUCTION_FORBIDDEN`.
+- Sales Sync gate:
+  - status: `PASS_SALES_SYNC_FOUNDATION`;
+  - schema v1 creato con `pos_sales_sync_batches`, `pos_sales`, `pos_sale_lines`;
+  - RLS forced, grants revocati da `public`/`anon`/`authenticated`, service-role server-side;
+  - idempotency DB-level, duplicate/conflict handling, body bounded e audit `metadata_redacted`;
+  - route `POST /api/pos/sales/sync` implementata con `runtime = "nodejs"` e auth POS esistente;
+  - review/fix finale: duplicate intra-payload, line total mismatch, sale total mismatch, business date invalida, parsing numerico fragile, control chars e cleanup best-effort post batch corretti;
+  - dashboard vendite fake: `NOT_CREATED_FORBIDDEN`;
+  - Win7POS live sale sync: `NOT_RUN_WIN7_RUNTIME_NOT_AVAILABLE`.
+- Win7POS E2E gate:
+  - nuovi artefatti TASK-041 usano `WIN7POS_REPO_PATH`;
+  - nei nuovi file TASK-041 non vengono salvati path hardcoded locali;
+  - host check: `dotnet 10.0.300`, `pwsh 7.6.2`, `Darwin arm64`;
+  - manual Windows 7 live run: `NOT_RUN_MANUAL_ENV_NOT_AVAILABLE`;
+  - sync Admin Web verification: `NOT_RUN_WIN7_RUNTIME_NOT_AVAILABLE`;
+  - status: `PASS_WITH_MANUAL_WIN7_STEPS`.
+- Condizioni REVIEW:
+  - tutti i gate hanno evidence o blocker motivato;
+  - check finali freschi PASS/PASS_WITH_WARNINGS: `security:scan`, `test:foundation`, `typecheck`, `lint`, `build`, `verify`, `cf:build`, `git diff --check`;
+  - no secret, no production deploy, no production apply, no dashboard vendite finta.
+- Condizioni DONE:
+  - solo dopo review approvata e conferma esplicita utente;
+  - non ammesso da Codex e non ammesso se restano blocker critici su Win7POS live/manual E2E o production/staging non autorizzati.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -1615,14 +1678,16 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-039: `DONE_RECONCILED`
 - Stato TASK-040: `REVIEW_WITH_EXTERNAL_BLOCKERS`
 - Fase TASK-040: `REVIEW_WITH_EXTERNAL_BLOCKERS`
-- Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`
-- File task: `docs/TASKS/TASK-040-runtime-readiness-supabase-staging-win7pos-sales-sync.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-040/README.md`
+- Stato TASK-041: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Fase TASK-041: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare/OpenNext Staging, Sales Sync and Win7POS E2E`
+- File task: `docs/TASKS/TASK-041-runtime-completion-supabase-cloudflare-sales-sync-win7pos-e2e.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-041/README.md`
 - Stato task: `REVIEW_WITH_EXTERNAL_BLOCKERS`
 - Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`
-- Milestone interna: `PARTIAL_PASS_WITH_BLOCKERS`
+- Milestone interna: `PASS_WITH_NOTES_AND_EXTERNAL_BLOCKERS`
 - Responsabile: `REVIEWER`
-- Branch previsto: Admin Web su `main` o branch dedicato se autorizzato in execution
+- Branch previsto: `codex/task-041-runtime-completion`
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
 - Task Vercel parcheggiato: `TASK-031 - Vercel Preview retry after environment docs`
@@ -1643,8 +1708,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-038: `DONE`
 - Verdict TASK-039: `DONE_RECONCILED`
 - Verdict TASK-040: `PARTIAL_PASS_WITH_BLOCKERS`
+- Verdict TASK-041: `PASS_WITH_NOTES_AND_EXTERNAL_BLOCKERS`
+- Verdict finale review/fix TASK-041: `PASS_WITH_NOTES_READY_FOR_DONE_CONFIRMATION_ADMIN_WEB_RUNTIME_ONLY`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
-- Prossima azione consigliata: review umana/Claude su TASK-040. Non aprire Sales Sync runtime finche schema/API/apply Supabase/staging stabile/Win7POS live restano bloccati. TASK-029, TASK-031, TASK-032, TASK-033 e TASK-022_023 restano non chiusi secondo i rispettivi blocker; ex `TASK-043`, ex `TASK-044`, ex `TASK-045` ed ex `TASK-046` sono `FOLDED_INTO_TASK-040`.
+- Prossima azione consigliata: review umana/Claude su TASK-041 e, se autorizzato, run manuale Win7POS con `WIN7POS_REPO_PATH`. Non marcare `TASK-040 DONE`; mantenerlo `REVIEW_WITH_EXTERNAL_BLOCKERS / SUPERSEDED_BY_TASK-041` finche una review futura non chiude i blocker con evidence reale.
 
 ## Regole di avanzamento
 

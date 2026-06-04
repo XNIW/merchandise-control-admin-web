@@ -4,11 +4,11 @@
 
 Rendere ripetibile il flusso locale/non-production per Admin Web senza stampare secret e senza toccare Supabase production.
 
-Questo documento registra il mismatch osservato in TASK-035/TASK-036:
+Questo documento registrava il mismatch osservato in TASK-035/TASK-036 e corretto in TASK-041:
 
-- `supabase/config.toml` usa `project_id = "merchandise-control-admin-web"`.
-- `supabase status` dal repo cerca `supabase_db_merchandise-control-admin-web`.
-- Lo stack Docker attivo osservato in TASK-036 e `MerchandiseControlSupabase`, con DB `supabase_db_MerchandiseControlSupabase`.
+- `supabase/config.toml` usa `project_id = "MerchandiseControlSupabase"`.
+- `supabase status` dal repo cerca ora `supabase_db_MerchandiseControlSupabase`.
+- Lo stack Docker attivo osservato in TASK-036/TASK-041 e `MerchandiseControlSupabase`, con DB `supabase_db_MerchandiseControlSupabase`.
 
 Non fare reset distruttivi finche non e chiaro quale stack contiene dati test da preservare.
 
@@ -25,7 +25,7 @@ Gli script:
 - classificano `NEXT_PUBLIC_SUPABASE_URL` come `local`, `supabase_cloud`, `custom_remote`, `invalid` o `missing`;
 - redigono eventuale output di `supabase status`;
 - falliscono chiuso se `.env.local` punta a cloud/remoto;
-- evidenziano mismatch tra `project_id` e container Docker.
+- evidenziano mismatch tra `project_id` e container Docker se ricompare.
 
 ## Avvio locale consigliato
 
@@ -35,7 +35,7 @@ Gli script:
    npm run dev:db:check
    ```
 
-2. Se non ci sono container utili o il target e sbagliato, decidere prima se fermare lo stack non allineato. Non usare `supabase db reset` alla cieca.
+2. Se non ci sono container utili o il target e sbagliato, decidere prima se fermare uno stack non allineato. Non usare `supabase db reset` alla cieca.
 
 3. Avviare Supabase locale dal repo solo quando lo stack e allineato o isolato:
 

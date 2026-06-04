@@ -111,6 +111,16 @@ function read(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
 }
 
+function isTask041RuntimeCompletionActive(
+  masterPlan = existsSync(join(root, "docs/MASTER-PLAN.md"))
+    ? read("docs/MASTER-PLAN.md")
+    : "",
+) {
+  return /Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
+    masterPlan,
+  );
+}
+
 function checkEnvTemplate() {
   const envPath = ".env.example";
 
@@ -1108,7 +1118,9 @@ function checkPlatformAdminBootstrapScript() {
 }
 
 function checkSupabaseProxyLifecycle() {
-  const proxyEntryPath = "src/proxy.ts";
+  const proxyEntryPath = isTask041RuntimeCompletionActive()
+    ? "src/middleware.ts"
+    : "src/proxy.ts";
   const proxyHelperPath = "src/lib/supabase/proxy.ts";
 
   for (const requiredPath of [proxyEntryPath, proxyHelperPath]) {
@@ -1121,8 +1133,12 @@ function checkSupabaseProxyLifecycle() {
   const proxyEntry = read(proxyEntryPath);
   const proxyHelper = read(proxyHelperPath);
 
-  if (!/export async function proxy/.test(proxyEntry)) {
-    addFailure(`${proxyEntryPath} must export the Next.js 16 proxy function`);
+  if (
+    proxyEntryPath === "src/middleware.ts"
+      ? !/export async function middleware/.test(proxyEntry)
+      : !/export async function proxy/.test(proxyEntry)
+  ) {
+    addFailure(`${proxyEntryPath} must export the Supabase SSR request lifecycle function`);
   }
 
   if (!/matcher/.test(proxyEntry) || !/_next\/static/.test(proxyEntry) || !/_next\/image/.test(proxyEntry)) {
@@ -1494,7 +1510,7 @@ function checkTask013UiPolishArtifacts() {
     !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(
       masterPlan,
     ) &&
-    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/.test(
+    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
       masterPlan,
     )
   ) {
@@ -2945,6 +2961,9 @@ function checkTask019PosAuthFoundationImplementation() {
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
+  if (isTask041RuntimeCompletionActive()) {
+    allowedTask021PosRoutes.add("src/app/api/pos/sales/sync/route.ts");
+  }
   const unexpectedPosRoutes = appRoutes.filter(
     (file) =>
       /^src\/app\/(?:api\/)?pos(?:\/|$)/i.test(file) &&
@@ -3039,7 +3058,7 @@ function checkTask020Win7PosIntegrationPlanning() {
     !/Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`/.test(masterPlan) &&
     !/Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/.test(masterPlan) &&
     !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(masterPlan) &&
-    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/.test(masterPlan)
+    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(masterPlan)
   ) {
     addFailure("MASTER-PLAN must return to no active task after reconciliation or track an active POS/catalog task");
   }
@@ -3057,6 +3076,9 @@ function checkTask020Win7PosIntegrationPlanning() {
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
+  if (isTask041RuntimeCompletionActive()) {
+    allowedTask021PosRoutes.add("src/app/api/pos/sales/sync/route.ts");
+  }
   const unexpectedPosRoutes = appRoutes.filter(
     (file) =>
       /^src\/app\/(?:api\/)?pos(?:\/|$)/i.test(file) &&
@@ -3147,6 +3169,9 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     catalogPullRoutePath,
     heartbeatRoutePath,
   ]);
+  if (isTask041RuntimeCompletionActive()) {
+    allowedPosRoutes.add("src/app/api/pos/sales/sync/route.ts");
+  }
   const unexpectedPosRoutes = appRoutes.filter(
     (file) =>
       /^src\/app\/(?:api\/)?pos(?:\/|$)/i.test(file) &&
@@ -3298,7 +3323,10 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     addFailure("TASK-021 runtime source must not name plaintext credential storage");
   }
 
-  if (/pos_sales_sync|pos_sync_batches|src\/app\/api\/pos\/sales/i.test(runtimeSource)) {
+  if (
+    !isTask041RuntimeCompletionActive() &&
+    /pos_sales_sync|pos_sync_batches|src\/app\/api\/pos\/sales/i.test(runtimeSource)
+  ) {
     addFailure("TASK-021 must not implement sales sync");
   }
 
@@ -3583,7 +3611,10 @@ function checkTask022023PosDashboardWin7PosClient() {
     addFailure("Win7POS must not hardcode production HTTPS URLs");
   }
 
-  if (/pos_sales|sales_sync|sync_batch|api\/pos\/sales/i.test(win7Source)) {
+  if (
+    !isTask041RuntimeCompletionActive() &&
+    /pos_sales|sales_sync|sync_batch|api\/pos\/sales/i.test(win7Source)
+  ) {
     addFailure("TASK-023 must not implement sales sync");
   }
 
@@ -4145,11 +4176,11 @@ function checkTask039StaffAwareShopAdminCompletion() {
   }
 
   if (
-    !/Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/.test(
+    !/Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
       masterPlan,
     )
   ) {
-    addFailure("MASTER-PLAN must track TASK-040 as the active task after TASK-039 closure");
+    addFailure("MASTER-PLAN must track TASK-040 or its TASK-041 superseding runtime task after TASK-039 closure");
   }
 
   if (!/canStaffWebPerformShopAdminAction/.test(actionContext)) {
@@ -4240,7 +4271,10 @@ function checkTask039StaffAwareShopAdminCompletion() {
     addFailure("TASK-039 must include the staff-aware audit migration");
   }
 
-  if (existsSync(join(root, "src/app/api/pos/sales"))) {
+  if (
+    !isTask041RuntimeCompletionActive() &&
+    existsSync(join(root, "src/app/api/pos/sales"))
+  ) {
     addFailure("TASK-039 audit phase must not introduce POS sales runtime routes");
   }
 
@@ -4301,11 +4335,20 @@ function checkTask040RuntimeReadiness() {
   }
 
   if (
-    !/Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/.test(
+    !/Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
       masterPlan,
     )
   ) {
-    addFailure("MASTER-PLAN must track TASK-040 as the active task");
+    addFailure("MASTER-PLAN must track TASK-040 or its TASK-041 superseding runtime task");
+  }
+
+  if (
+    /Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
+      masterPlan,
+    ) &&
+    !/SUPERSEDED_BY_TASK-041/.test(combinedDocs)
+  ) {
+    addFailure("TASK-040 must be explicitly marked SUPERSEDED_BY_TASK-041 when TASK-041 is active");
   }
 
   if (!/Stato TASK-039: `DONE`/.test(masterPlan) || !/Fase TASK-039: `DONE_RECONCILED`/.test(masterPlan)) {
@@ -4320,12 +4363,245 @@ function checkTask040RuntimeReadiness() {
     addFailure("TASK-040 must not declare blocked runtime gates as DONE/PASS");
   }
 
-  if (existsSync(join(root, "src/app/api/pos/sales"))) {
+  if (
+    !isTask041RuntimeCompletionActive() &&
+    existsSync(join(root, "src/app/api/pos/sales"))
+  ) {
     addFailure("TASK-040 must not add POS sales runtime routes while gates are blocked");
   }
 
   if (!/checkTask040RuntimeReadiness/.test(foundationTest)) {
     addFailure(`${foundationTestPath} must assert the TASK-040 security scanner gate`);
+  }
+}
+
+function checkTask041RuntimeCompletion() {
+  const taskPath =
+    "docs/TASKS/TASK-041-runtime-completion-supabase-cloudflare-sales-sync-win7pos-e2e.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-041/README.md";
+  const foundationTestPath = "tests/foundation/task-041-runtime-completion.test.mjs";
+  const salesRoutePath = "src/app/api/pos/sales/sync/route.ts";
+  const salesServicePath = "src/server/pos-auth/sales-sync.ts";
+  const posRouteSecurityPath = "src/app/api/pos/_shared/pos-route-security.ts";
+  const databaseTypesPath = "src/lib/supabase/database.types.ts";
+  const masterPlan = read("docs/MASTER-PLAN.md");
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    foundationTestPath,
+    salesRoutePath,
+    salesServicePath,
+    posRouteSecurityPath,
+    databaseTypesPath,
+    "wrangler.jsonc",
+    "open-next.config.ts",
+    "src/middleware.ts",
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing for TASK-041`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const foundationTest = read(foundationTestPath);
+  const devSupabaseCheck = read("scripts/dev-supabase-check.mjs");
+  const salesRoute = read(salesRoutePath);
+  const salesService = read(salesServicePath);
+  const posRouteSecurity = read(posRouteSecurityPath);
+  const databaseTypes = read(databaseTypesPath);
+  const wranglerConfig = read("wrangler.jsonc");
+  const openNextConfig = read("open-next.config.ts");
+  const packageJson = JSON.parse(read("package.json"));
+  const salesMigration = listFiles("supabase/migrations").find((file) =>
+    /task_041_pos_sales_sync_foundation/i.test(file),
+  );
+
+  if (!salesMigration) {
+    addFailure("TASK-041 Sales Sync migration is missing");
+    return;
+  }
+
+  const salesMigrationSource = read(salesMigration);
+  const combinedDocs = `${task}\n${evidence}\n${masterPlan}`;
+  const combinedTask041Artifacts = `${task}\n${evidence}\n${foundationTest}`;
+
+  for (const requiredSnippet of [
+    "TASK-041",
+    "Runtime Completion: Supabase, Cloudflare/OpenNext Staging, Sales Sync and Win7POS E2E",
+    "PASS_WITH_NOTES_AND_EXTERNAL_BLOCKERS",
+    "REVIEW_WITH_EXTERNAL_BLOCKERS",
+    "TASK-040_SHOULD_REMAIN_REVIEW_WITH_EXTERNAL_BLOCKERS",
+    "TASK-040_SUPERSEDED_BY_TASK-041",
+    "SUPERSEDED_BY_TASK-041",
+    "PASS_SUPABASE_DEV_APPLIED",
+    "PASS_CLOUDFLARE_OPENNEXT_PREVIEW",
+    "PASS_SALES_SYNC_FOUNDATION",
+    "PASS_WITH_MANUAL_WIN7_STEPS",
+    "NOT_RUN_PRODUCTION_FORBIDDEN",
+    "WIN7POS_REPO_PATH",
+  ]) {
+    if (!combinedDocs.includes(requiredSnippet)) {
+      addFailure(`TASK-041 docs must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    !/Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
+      masterPlan,
+    )
+  ) {
+    addFailure("MASTER-PLAN must track TASK-041 as the active runtime completion task");
+  }
+
+  if (!/Stato TASK-040: `REVIEW_WITH_EXTERNAL_BLOCKERS`/.test(masterPlan)) {
+    addFailure("MASTER-PLAN must keep TASK-040 in REVIEW_WITH_EXTERNAL_BLOCKERS");
+  }
+
+  if (
+    /TASK-040_CAN_BE_DONE|Stato TASK-040: `DONE`|Migration Supabase: `APPLIED`|Sales Sync: `DONE`|Win7POS E2E: `PASS_LIVE`/.test(
+      combinedDocs,
+    )
+  ) {
+    addFailure("TASK-041 must not declare TASK-040 or blocked runtime gates done");
+  }
+
+  for (const requiredSnippet of [
+    "export const dynamic = \"force-dynamic\"",
+    "export const runtime = \"nodejs\"",
+    "export async function POST",
+    "readPosJsonBody",
+    "MAX_POS_SALES_SYNC_JSON_BODY_BYTES",
+    "handlePosSalesSync",
+  ]) {
+    if (!salesRoute.includes(requiredSnippet)) {
+      addFailure(`${salesRoutePath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/export async function GET/.test(salesRoute)) {
+    addFailure(`${salesRoutePath} must expose POST only`);
+  }
+
+  for (const requiredSnippet of [
+    "MAX_POS_SALES_SYNC_JSON_BODY_BYTES = 256 * 1024",
+    "MAX_SYNC_SALES = 100",
+    "MAX_SYNC_LINES = 1000",
+    "verifyPosSecret",
+    "idempotencyKey",
+    "payload_hash",
+    "hasDuplicateValues",
+    "saleTotalsAreConsistent",
+    "cleanupPosSalesBatch",
+    "quantity * unitPrice",
+    "businessDateRaw.length > 0",
+    "pos_sales_sync_batches",
+    "pos_sales",
+    "pos_sale_lines",
+    "metadata_redacted",
+    "actor_staff_id",
+    "duplicate",
+    "conflict",
+    "cleanup_ok",
+    "source: \"TASK-041\"",
+  ]) {
+    if (!salesService.includes(requiredSnippet)) {
+      addFailure(`${salesServicePath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(salesRoute)) {
+    addFailure(`${salesRoutePath} must not reference service-role material`);
+  }
+
+  if (/fakeRevenue|sampleSales|demoSales|mockRevenue/i.test(`${salesRoute}\n${salesService}`)) {
+    addFailure("TASK-041 Sales Sync must not introduce fake revenue or demo sales data");
+  }
+
+  for (const requiredSnippet of [
+    "create table if not exists public.pos_sales_sync_batches",
+    "create table if not exists public.pos_sales",
+    "create table if not exists public.pos_sale_lines",
+    "enable row level security",
+    "force row level security",
+    "revoke all on table public.pos_sales_sync_batches from anon",
+    "revoke all on table public.pos_sales from authenticated",
+    "revoke all on table public.pos_sale_lines from authenticated",
+    "pos_sales_idempotency_unique",
+    "pos_sales_client_sale_unique",
+    "pos_sales_sync_batches_idempotency_unique",
+    "pos_sales_shop_created_idx",
+    "pos_sale_lines_shop_idx",
+    "metadata_redacted",
+  ]) {
+    if (!salesMigrationSource.includes(requiredSnippet)) {
+      addFailure(`${salesMigration} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/sale_payments|payment_methods|receipts/i.test(salesMigrationSource)) {
+    addFailure(`${salesMigration} must keep payments/receipts out of Sales Sync v1`);
+  }
+
+  for (const requiredSnippet of [
+    "pos_sales_sync_batches",
+    "pos_sales",
+    "pos_sale_lines",
+  ]) {
+    if (!databaseTypes.includes(requiredSnippet)) {
+      addFailure(`${databaseTypesPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    packageJson.devDependencies?.["@opennextjs/cloudflare"] !== "^1.19.11" ||
+    !packageJson.devDependencies?.wrangler ||
+    !packageJson.scripts?.["cf:build"] ||
+    !packageJson.scripts?.["cf:preview"]
+  ) {
+    addFailure("TASK-041 must include Cloudflare/OpenNext dev deps and non-production build/preview scripts");
+  }
+
+  if (/opennextjs-cloudflare deploy|wrangler deploy|--prod/.test(JSON.stringify(packageJson.scripts))) {
+    addFailure("TASK-041 package scripts must not add production deploy commands");
+  }
+
+  for (const requiredSnippet of [
+    "nodejs_compat",
+    "global_fetch_strictly_public",
+    ".open-next/worker.js",
+    ".open-next/assets",
+    "merchandise-control-admin-web-staging",
+  ]) {
+    if (!wranglerConfig.includes(requiredSnippet)) {
+      addFailure(`wrangler.jsonc must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/defineCloudflareConfig/.test(openNextConfig)) {
+    addFailure("open-next.config.ts must define the Cloudflare adapter config");
+  }
+
+  if (existsSync(join(root, "src/proxy.ts"))) {
+    addFailure("TASK-041 Cloudflare build must avoid Next 16 Node-only src/proxy.ts");
+  }
+
+  if (!/maxBytes/.test(posRouteSecurity) || !/MAX_POS_JSON_BODY_BYTES/.test(posRouteSecurity)) {
+    addFailure(`${posRouteSecurityPath} must preserve default body limit and support bounded overrides`);
+  }
+
+  if (!/--mode=/.test(devSupabaseCheck) || !/production mode is intentionally unsupported/.test(devSupabaseCheck)) {
+    addFailure("scripts/dev-supabase-check.mjs must expose redacted modes and fail closed for production");
+  }
+
+  if (/\/Users\/minxiang\/Projects\/Win7POS/.test(combinedTask041Artifacts)) {
+    addFailure("TASK-041 artifacts must use WIN7POS_REPO_PATH instead of hardcoded local Win7POS paths");
+  }
+
+  if (!/checkTask041RuntimeCompletion/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert the TASK-041 security scanner gate`);
   }
 }
 
@@ -4365,6 +4641,7 @@ checkTask037ShopAdminDualAccessModel();
 checkTask038PosManagerWebLogin();
 checkTask039StaffAwareShopAdminCompletion();
 checkTask040RuntimeReadiness();
+checkTask041RuntimeCompletion();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");
