@@ -132,17 +132,27 @@ Decisione: TASK-040 resta `REVIEW_WITH_EXTERNAL_BLOCKERS` / `PARTIAL_PASS_WITH_B
 
 Problema GitHub Actions rilevato: `npm run security:scan` falliva nello step Verify perche richiedeva il repo Win7POS in `/Users/minxiang/Projects/Win7POS`, path assoluto valido solo sul Mac locale.
 
+Secondo problema GitHub Actions rilevato dopo il primo fix: lo step Verify/Foundation tests falliva con `tests 180`, `pass 176`, `fail 4`. I fail erano i test Win7POS diretti di TASK-027, TASK-028, TASK-029 e TASK-032, ancora legati al path assoluto locale.
+
 Fix applicato:
 
 - Admin Web CI resta self-contained: se Win7POS non esiste, i controlli esterni vengono marcati `SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE` e lo scanner puo passare.
 - `WIN7POS_REPO_PATH` consente di indicare un checkout Win7POS alternativo.
 - `REQUIRE_WIN7POS_REPO=1` rende Win7POS obbligatorio e fa fallire lo scanner se il repo manca.
 - Test regression aggiunto in `tests/foundation/task-022-023-pos-dashboard-win7pos-client.test.mjs`.
+- I test foundation TASK-027, TASK-028, TASK-029 e TASK-032 ora rispettano `WIN7POS_REPO_PATH` e marcano skipped il controllo esterno quando Win7POS non e disponibile e `REQUIRE_WIN7POS_REPO` non e `1`.
 
 Check mirati:
 
 - `WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture npm run security:scan`: `PASS_WITH_SKIP`, output include `SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE`.
 - `REQUIRE_WIN7POS_REPO=1 WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture npm run security:scan`: `FAIL_EXPECTED`, output include `Win7POS repo is missing`.
+- `WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture node --test tests/foundation/task-027-catalog-pull-delta-sync.test.mjs tests/foundation/task-028-catalog-crud-import-export-win7pos-e2e.test.mjs tests/foundation/task-029-production-path-staging-win7pos-bootstrap.test.mjs tests/foundation/task-032-local-pos-e2e-harness.test.mjs`: `PASS_WITH_SKIPS`, `17 pass`, `4 skipped`, `0 fail`.
+- `REQUIRE_WIN7POS_REPO=1 WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture node --test tests/foundation/task-027-catalog-pull-delta-sync.test.mjs tests/foundation/task-028-catalog-crud-import-export-win7pos-e2e.test.mjs tests/foundation/task-029-production-path-staging-win7pos-bootstrap.test.mjs tests/foundation/task-032-local-pos-e2e-harness.test.mjs`: `FAIL_EXPECTED`, `4 fail`, output include `Win7POS repo is missing`.
+- `WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture npm run test:foundation`: `PASS_WITH_SKIPS`, `tests 180`, `pass 176`, `skipped 4`, `fail 0`.
+- `npm run security:scan`: `PASS`.
+- `npm run test:foundation`: `PASS`, `tests 180`, `pass 180`, `fail 0`.
+- `npm run verify`: `PASS_WITH_TOOLCHAIN_WARNING`, warning noto `[DEP0205]`.
+- `git diff --check`: `PASS`.
 
 ## Fase 2 - Supabase local/non-production apply validation
 

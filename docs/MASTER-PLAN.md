@@ -1548,7 +1548,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - `npm run security:scan` e i foundation guardrail non falliscono piu in GitHub Actions solo per assenza del repo sibling assoluto `/Users/minxiang/Projects/Win7POS`;
   - `WIN7POS_REPO_PATH` puo puntare a un checkout Win7POS alternativo;
   - `REQUIRE_WIN7POS_REPO=1` rende di nuovo il repo Win7POS obbligatorio e fallisce se manca;
-  - default CI Admin Web: `SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE` per i controlli esterni, con scanner ancora `PASS` per lo scope self-contained.
+  - default CI Admin Web: `SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE` per i controlli esterni, con scanner ancora `PASS` per lo scope self-contained;
+  - follow-up CI fix: i foundation test Win7POS diretti di TASK-027, TASK-028, TASK-029 e TASK-032 rispettano `WIN7POS_REPO_PATH`, fanno `skipped` quando il repo esterno non e disponibile e tornano a fallire se `REQUIRE_WIN7POS_REPO=1`;
+  - check CI-like: `WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture npm run test:foundation` PASS_WITH_SKIPS (`tests 180`, `pass 176`, `skipped 4`, `fail 0`);
+  - check finali locali: `security:scan` PASS, `test:foundation` PASS (`180/180`), `verify` PASS con warning noto `[DEP0205]`, `git diff --check` PASS.
 - Win7POS live E2E 2026-06-04:
   - repo `/Users/minxiang/Projects/Win7POS` trovato;
   - baseline `git status --short --branch`: `main...origin/main`, dirty preesistente `.gitignore`, `docs/dev/`, `scripts/win7pos/`;

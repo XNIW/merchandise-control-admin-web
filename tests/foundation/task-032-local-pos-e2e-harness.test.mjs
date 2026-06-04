@@ -5,7 +5,10 @@ import { spawnSync } from "node:child_process";
 import test from "node:test";
 
 const root = process.cwd();
-const win7PosRoot = "/Users/minxiang/Projects/Win7POS";
+const defaultWin7PosRoot = "/Users/minxiang/Projects/Win7POS";
+const win7PosRoot =
+  process.env.WIN7POS_REPO_PATH?.trim() || defaultWin7PosRoot;
+const requireWin7PosRepo = process.env.REQUIRE_WIN7POS_REPO === "1";
 
 function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
@@ -13,6 +16,10 @@ function readProjectFile(relativePath) {
 
 function readWin7PosFile(relativePath) {
   return readFileSync(join(win7PosRoot, relativePath), "utf8");
+}
+
+function shouldSkipMissingWin7PosRepo() {
+  return !existsSync(win7PosRoot) && !requireWin7PosRepo;
 }
 
 test("TASK-032 local POS harness is scriptable, negative-safe and dataset-gated", () => {
@@ -61,7 +68,12 @@ test("TASK-032 local POS harness is scriptable, negative-safe and dataset-gated"
   );
 });
 
-test("TASK-032 local POS harness keeps Win7POS malformed first-login handling in scope", () => {
+test("TASK-032 local POS harness keeps Win7POS malformed first-login handling in scope", (t) => {
+  if (shouldSkipMissingWin7PosRepo()) {
+    t.skip("SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE: Win7POS repo is not available");
+    return;
+  }
+
   assert.equal(existsSync(win7PosRoot), true, "Win7POS repo is missing");
 
   const bootstrapScanner = readWin7PosFile("scripts/check-pos-online-bootstrap.ps1");

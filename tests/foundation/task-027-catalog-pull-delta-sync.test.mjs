@@ -7,7 +7,10 @@ import test from "node:test";
 import ts from "typescript";
 
 const root = process.cwd();
-const win7PosRoot = "/Users/minxiang/Projects/Win7POS";
+const defaultWin7PosRoot = "/Users/minxiang/Projects/Win7POS";
+const win7PosRoot =
+  process.env.WIN7POS_REPO_PATH?.trim() || defaultWin7PosRoot;
+const requireWin7PosRepo = process.env.REQUIRE_WIN7POS_REPO === "1";
 const requireForTranspiledModule = createRequire(import.meta.url);
 
 function readProjectFile(relativePath) {
@@ -20,6 +23,10 @@ function escapeRegExp(value) {
 
 function readWin7PosFile(relativePath) {
   return readFileSync(join(win7PosRoot, relativePath), "utf8");
+}
+
+function shouldSkipMissingWin7PosRepo() {
+  return !existsSync(win7PosRoot) && !requireWin7PosRepo;
 }
 
 function loadTypeScriptModule(relativePath) {
@@ -297,7 +304,12 @@ test("TASK-027 Shop Admin diagnostics expose real catalog pull audit state", () 
   }
 });
 
-test("TASK-027 existing Win7POS catalog client uses saved cursor and light retry", () => {
+test("TASK-027 existing Win7POS catalog client uses saved cursor and light retry", (t) => {
+  if (shouldSkipMissingWin7PosRepo()) {
+    t.skip("SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE: Win7POS repo is not available");
+    return;
+  }
+
   assert.equal(existsSync(win7PosRoot), true, "Win7POS repo is missing");
 
   const client = readWin7PosFile(
