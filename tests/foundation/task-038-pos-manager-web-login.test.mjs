@@ -57,7 +57,7 @@ test("TASK-038 governance records DONE scope without opening sales sync", () => 
 
   assert.match(
     readProjectFile("docs/MASTER-PLAN.md"),
-    /Task attivo: `(NONE|NESSUNO)`/,
+    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/,
   );
   assert.match(readProjectFile("docs/MASTER-PLAN.md"), /Stato TASK-038: `DONE`/);
   assert.match(readProjectFile("docs/MASTER-PLAN.md"), /Fase TASK-038: `DONE`/);

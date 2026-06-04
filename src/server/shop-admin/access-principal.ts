@@ -6,6 +6,7 @@ import {
   type ShopAdminShellAccess,
   type ShopAdminShellShop,
 } from "./shop-access";
+import { isShopStaffWebPermission } from "./staff-web-permissions";
 
 export const POS_STAFF_WEB_REQUIRED_PERMISSION = "shop_admin.full_access" as const;
 export const STAFF_WEB_LOGIN_NOT_IMPLEMENTED =
@@ -32,7 +33,7 @@ export type ShopAdminPersonalAccountPrincipal = {
 export type ShopAdminPosStaffManagerPrincipal = {
   credentialStatus: "active";
   kind: "pos_staff_manager";
-  permissions: readonly [typeof POS_STAFF_WEB_REQUIRED_PERMISSION, ...string[]];
+  permissions: readonly string[];
   roleKey: PosStaffWebCurrentRoleKey;
   shop: {
     shopCode: string;
@@ -94,6 +95,13 @@ function hasFullWebPermission(input: PosStaffWebEligibilityInput) {
   );
 }
 
+function hasRecognizedWebPermission(input: PosStaffWebEligibilityInput) {
+  return (
+    input.permissions?.some((permission) => isShopStaffWebPermission(permission)) ??
+    false
+  );
+}
+
 export function isPosStaffEligibleForShopAdminWeb(
   input: PosStaffWebEligibilityInput,
 ) {
@@ -103,7 +111,7 @@ export function isPosStaffEligibleForShopAdminWeb(
     input.credentialStatus === "active" &&
     input.mustChangeCredential !== true &&
     !isFutureTimestamp(input.lockedUntil) &&
-    hasFullWebPermission(input)
+    (hasFullWebPermission(input) || hasRecognizedWebPermission(input))
   );
 }
 
@@ -144,7 +152,7 @@ export function resolvePosStaffManagerWebPrincipal(
   if (!isPosStaffEligibleForShopAdminWeb(input)) {
     return {
       reason:
-        "POS staff web access requires an active current-schema manager credential and explicit full web permission.",
+        "POS staff web access requires an active current-schema manager credential and an explicit staff web permission.",
       status: "unauthorized",
     };
   }
@@ -162,14 +170,15 @@ export function resolvePosStaffManagerWebPrincipal(
       (input.permissions ?? []).filter(
         (permission) =>
           permission.length > 0 &&
+          isShopStaffWebPermission(permission) &&
           permission !== POS_STAFF_WEB_REQUIRED_PERMISSION,
       ),
     ),
   );
-  const permissions: ShopAdminPosStaffManagerPrincipal["permissions"] = [
-    POS_STAFF_WEB_REQUIRED_PERMISSION,
-    ...additionalPermissions,
-  ];
+  const permissions: ShopAdminPosStaffManagerPrincipal["permissions"] =
+    hasFullWebPermission(input)
+      ? [POS_STAFF_WEB_REQUIRED_PERMISSION, ...additionalPermissions]
+      : additionalPermissions;
 
   return {
     principal: {

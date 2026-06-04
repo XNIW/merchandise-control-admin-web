@@ -2013,12 +2013,12 @@ export function buildSettingsSection(readModel: ShopAdminReadModel): ShopSection
   return {
     ...shopSections.settings,
     description:
-      "Read-only shop profile and operational settings. Profile updates are blocked until an audited settings mutation boundary is available.",
-    status: "Read-only",
+      "Shop profile and operational settings through the audited server boundary.",
+    status: "Guarded",
     metrics: [
       metric("Shop", shop.shopCode, shop.shopName, "good"),
       metric("Status", formatToken(shop.shopStatus), "Current shop state"),
-      metric("Writes", "Blocked", "Settings RPC boundary required", "warning"),
+      metric("Writes", "Guarded", "Requires settings.write permission", "warning"),
     ],
     liveData: {
       title: "Shop profile",

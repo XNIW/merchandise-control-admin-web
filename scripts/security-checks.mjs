@@ -232,6 +232,8 @@ function checkReadOnlyContracts() {
   const allowedDirectMutationPatternFiles = new Set([
     "src/server/shop-admin/import-export-workbook.ts",
     "src/server/shop-admin/staff-web-auth.ts",
+    "src/server/shop-admin/settings-mutations.ts",
+    "src/server/shop-admin/staff-aware-mutations.ts",
     "src/server/platform-admin/staff-manager-provisioning.ts",
   ]);
 
@@ -1458,7 +1460,7 @@ function checkTask013UiPolishArtifacts() {
     !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(
       masterPlan,
     ) &&
-    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`/.test(
+    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/.test(
       masterPlan,
     )
   ) {
@@ -2683,8 +2685,8 @@ function checkTask018InfrastructureSecurityPosFoundation() {
   if (
     !/Stato: `(REVIEW|DONE)`/.test(task) ||
     !/Fase: `(REVIEW|DONE_RECONCILED)`/.test(task) ||
-    !/(Verdict handoff Codex: `PASS_WITH_NOTES`|Verdict finale: `DONE`)/.test(task) ||
-    !/(Verdict Codex: `PASS_WITH_NOTES`|Verdict finale: `DONE`)/.test(evidence)
+    !/(Verdict handoff Codex: `PASS_WITH_NOTES`|Verdict finale: `DONE`|Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`)/.test(task) ||
+    !/(Verdict Codex: `PASS_WITH_NOTES`|Verdict finale: `DONE`|Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`)/.test(evidence)
   ) {
     addFailure("TASK-018 docs must be either in REVIEW handoff or DONE reconciliation state");
   }
@@ -3003,7 +3005,7 @@ function checkTask020Win7PosIntegrationPlanning() {
     !/Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`/.test(masterPlan) &&
     !/Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/.test(masterPlan) &&
     !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(masterPlan) &&
-    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`/.test(masterPlan)
+    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/.test(masterPlan)
   ) {
     addFailure("MASTER-PLAN must return to no active task after reconciliation or track an active POS/catalog task");
   }
@@ -4009,6 +4011,278 @@ function checkTask038PosManagerWebLogin() {
   }
 }
 
+function checkTask039StaffAwareShopAdminCompletion() {
+  const taskPath = "docs/TASKS/TASK-039-staff-aware-shop-admin-completion.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-039/README.md";
+  const foundationTestPath =
+    "tests/foundation/task-039-staff-aware-shop-admin-completion.test.mjs";
+  const actionContextPath = "src/server/shop-admin/action-context.ts";
+  const dataAccessPath = "src/server/shop-admin/data-access.ts";
+  const accessPrincipalPath = "src/server/shop-admin/access-principal.ts";
+  const staffWebPermissionsPath =
+    "src/server/shop-admin/staff-web-permissions.ts";
+  const staffAwareMutationsPath = "src/server/shop-admin/staff-aware-mutations.ts";
+  const settingsMutationsPath = "src/server/shop-admin/settings-mutations.ts";
+  const databaseTypesPath = "src/lib/supabase/database.types.ts";
+  const gatedPagePaths = [
+    "src/app/shop/staff/page.tsx",
+    "src/app/shop/settings/page.tsx",
+    "src/app/shop/products/page.tsx",
+    "src/app/shop/categories/page.tsx",
+    "src/app/shop/suppliers/page.tsx",
+    "src/app/shop/devices/page.tsx",
+    "src/app/shop/import-export/page.tsx",
+    "src/app/shop/members/page.tsx",
+  ];
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    foundationTestPath,
+    actionContextPath,
+    dataAccessPath,
+    accessPrincipalPath,
+    staffWebPermissionsPath,
+    staffAwareMutationsPath,
+    settingsMutationsPath,
+    databaseTypesPath,
+    ...gatedPagePaths,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing for TASK-039`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const masterPlan = read("docs/MASTER-PLAN.md");
+  const actionContext = read(actionContextPath);
+  const dataAccess = read(dataAccessPath);
+  const accessPrincipal = read(accessPrincipalPath);
+  const staffWebPermissions = read(staffWebPermissionsPath);
+  const staffAwareMutations = read(staffAwareMutationsPath);
+  const settingsMutations = read(settingsMutationsPath);
+  const databaseTypes = read(databaseTypesPath);
+  const foundationTest = read(foundationTestPath);
+  const gatedPages = gatedPagePaths.map((pagePath) => read(pagePath)).join("\n");
+  const combinedDocs = `${task}\n${evidence}\n${masterPlan}`;
+
+  for (const requiredSnippet of [
+    "TASK-039",
+    "Staff-aware Shop Admin completion",
+    "DONE_RECONCILED",
+    "READY_FOR_DONE_CONFIRMATION",
+    "resolveShopActionContext",
+    "resolveShopAdminDataAccess",
+    "pos_staff_manager",
+    "personal_account",
+    "staff_role_permissions",
+    "shop_admin.full_access",
+    "actor_staff_id",
+    "auth.uid()",
+    "shop_members",
+    "REVENUE_DASHBOARD_BLOCKED_NO_REAL_SALES_DATA",
+    "PARKED_E2E_PENDING",
+    "BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION",
+    "BLOCKED_LOCAL_SUPABASE_ENV",
+    "FOLDED_INTO_TASK-040",
+    "TASK-043",
+    "TASK-044",
+    "TASK-045",
+    "TASK-046",
+    "No commit eseguito",
+  ]) {
+    if (!combinedDocs.includes(requiredSnippet)) {
+      addFailure(`TASK-039 docs must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    !/Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/.test(
+      masterPlan,
+    )
+  ) {
+    addFailure("MASTER-PLAN must track TASK-040 as the active task after TASK-039 closure");
+  }
+
+  if (!/canStaffWebPerformShopAdminAction/.test(actionContext)) {
+    addFailure(`${actionContextPath} must authorize staff web mutators through granular permissions`);
+  }
+
+  if (!/resolveShopAdminDataAccess/.test(dataAccess) || !/pos_staff_manager/.test(dataAccess)) {
+    addFailure(`${dataAccessPath} must retain dual read-model actor resolution`);
+  }
+
+  if (
+    !/hasRecognizedWebPermission/.test(accessPrincipal) ||
+    !/isShopStaffWebPermission\(permission\)/.test(accessPrincipal)
+  ) {
+    addFailure(`${accessPrincipalPath} must whitelist recognized staff web permissions during principal eligibility`);
+  }
+
+  if (
+    !/SHOP_STAFF_WEB_PERMISSION_TREE/.test(staffWebPermissions) ||
+    !/SHOP_STAFF_WEB_ROLE_TEMPLATES/.test(staffWebPermissions) ||
+    !/canStaffWebPerformShopAdminAction/.test(staffWebPermissions) ||
+    !/catalog\.write/.test(staffWebPermissions) ||
+    !/sync\.read/.test(staffWebPermissions)
+  ) {
+    addFailure(`${staffWebPermissionsPath} must keep the granular staff web permission tree`);
+  }
+
+  if (!/actor_profile_id/.test(databaseTypes) || !/actor_staff_id/.test(databaseTypes)) {
+    addFailure(`${databaseTypesPath} must expose personal and staff audit actors`);
+  }
+
+  if (
+    !/runStaffAwareShopAdminMutation/.test(staffAwareMutations) ||
+    !/write_staff_shop_admin_audit/.test(staffAwareMutations) ||
+    !/actorStaffId/.test(staffAwareMutations) ||
+    !/replaceStaffRolePermissions/.test(staffAwareMutations) ||
+    !/staleStaffWebPermissions/.test(staffAwareMutations) ||
+    !/\.upsert\(/.test(staffAwareMutations) ||
+    !/onConflict: "shop_id,role_key,permission_key"/.test(staffAwareMutations) ||
+    !/hasStaffFullShopAdminWebAccess\(context\.staffPermissions\)/.test(staffAwareMutations) ||
+    !/code: "unauthorized"/.test(staffAwareMutations)
+  ) {
+    addFailure(`${staffAwareMutationsPath} must implement the staff-aware mutation/audit boundary`);
+  }
+
+  if (
+    /\.from\("staff_role_permissions"\)[\s\S]{0,240}\.delete\(\)[\s\S]{0,240}\.insert\(/.test(
+      staffAwareMutations,
+    )
+  ) {
+    addFailure(`${staffAwareMutationsPath} must not delete all role permissions before insert`);
+  }
+
+  if (
+    !/adminConfig\.status !== "configured"/.test(settingsMutations) ||
+    !/adminConfig\.status !== "configured"[\s\S]{0,260}shopAdminActionResult\("not_configured"/.test(
+      settingsMutations,
+    ) ||
+    !/writeSettingsAudit\(adminClient, context/.test(settingsMutations)
+  ) {
+    addFailure(`${settingsMutationsPath} must fail closed before using admin client and write settings audit with the server-side admin client`);
+  }
+
+  for (const requiredPermission of [
+    "staff.manage",
+    "settings.write",
+    "products.write",
+    "categories.write",
+    "suppliers.write",
+    "devices.manage",
+    "catalog.import",
+    "catalog.export",
+    "members.manage",
+  ]) {
+    if (
+      !gatedPages.includes("resolveShopActionContext") ||
+      !gatedPages.includes(requiredPermission)
+    ) {
+      addFailure(`TASK-039 Shop Admin UI pages must preflight ${requiredPermission}`);
+    }
+  }
+
+  if (
+    !listFiles("supabase/migrations").some((file) =>
+      /task_039_staff_aware_shop_admin/i.test(file),
+    )
+  ) {
+    addFailure("TASK-039 must include the staff-aware audit migration");
+  }
+
+  if (existsSync(join(root, "src/app/api/pos/sales"))) {
+    addFailure("TASK-039 audit phase must not introduce POS sales runtime routes");
+  }
+
+  if (!/checkTask039StaffAwareShopAdminCompletion/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert the TASK-039 security scanner gate`);
+  }
+}
+
+function checkTask040RuntimeReadiness() {
+  const taskPath =
+    "docs/TASKS/TASK-040-runtime-readiness-supabase-staging-win7pos-sales-sync.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-040/README.md";
+  const foundationTestPath = "tests/foundation/task-040-runtime-readiness.test.mjs";
+  const masterPlan = read("docs/MASTER-PLAN.md");
+
+  for (const requiredPath of [taskPath, evidencePath, foundationTestPath]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing for TASK-040`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const foundationTest = read(foundationTestPath);
+  const combinedDocs = `${task}\n${evidence}\n${masterPlan}`;
+
+  for (const requiredSnippet of [
+    "TASK-040",
+    "Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation",
+    "PARTIAL_PASS_WITH_BLOCKERS",
+    "REVIEW_WITH_EXTERNAL_BLOCKERS",
+    "FOLDED_INTO_TASK-040",
+    "ex TASK-043",
+    "ex TASK-044",
+    "ex TASK-045",
+    "ex TASK-046",
+    "TASK-029",
+    "TASK-031",
+    "TASK-032",
+    "TASK-033",
+    "TASK-022_023",
+    "BLOCKED_LOCAL_SUPABASE_ENV",
+    "BLOCKED_SUPABASE_CONTAINER_MISMATCH",
+    "BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION",
+    "BLOCKED_WIN7POS_LIVE_ENV_NOT_AVAILABLE",
+    "BLOCKED_NO_ADMIN_WEB_SALES_SCHEMA",
+    "REVENUE_DASHBOARD_BLOCKED_NO_REAL_SALES_DATA",
+    "MIGRATION_PENDING_NOT_APPLIED",
+    "APPLY_NOT_RUN_BLOCKED_ENV_MISMATCH",
+    "No commit eseguito",
+    "No push eseguito",
+    "No stage finale",
+  ]) {
+    if (!combinedDocs.includes(requiredSnippet)) {
+      addFailure(`TASK-040 docs must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    !/Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/.test(
+      masterPlan,
+    )
+  ) {
+    addFailure("MASTER-PLAN must track TASK-040 as the active task");
+  }
+
+  if (!/Stato TASK-039: `DONE`/.test(masterPlan) || !/Fase TASK-039: `DONE_RECONCILED`/.test(masterPlan)) {
+    addFailure("MASTER-PLAN must close TASK-039 after explicit confirmation");
+  }
+
+  if (
+    /Sales Sync: `DONE`|Staging: `DONE`|Win7POS E2E: `PASS_LIVE`|Migration Supabase: `APPLIED`/.test(
+      combinedDocs,
+    )
+  ) {
+    addFailure("TASK-040 must not declare blocked runtime gates as DONE/PASS");
+  }
+
+  if (existsSync(join(root, "src/app/api/pos/sales"))) {
+    addFailure("TASK-040 must not add POS sales runtime routes while gates are blocked");
+  }
+
+  if (!/checkTask040RuntimeReadiness/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert the TASK-040 security scanner gate`);
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -4043,6 +4317,8 @@ checkTask022023PosDashboardWin7PosClient();
 checkTask027CatalogPullDeltaSync();
 checkTask037ShopAdminDualAccessModel();
 checkTask038PosManagerWebLogin();
+checkTask039StaffAwareShopAdminCompletion();
+checkTask040RuntimeReadiness();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

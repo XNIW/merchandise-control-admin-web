@@ -1,6 +1,7 @@
 import "server-only";
 
 import type { SupabaseAdminClient } from "@/lib/supabase/admin";
+import type { ShopAdminPermission } from "./permissions";
 
 export const STAFF_WEB_FULL_ACCESS_PERMISSION = "shop_admin.full_access" as const;
 
@@ -65,6 +66,45 @@ export type ShopStaffWebPermission =
 
 export type ShopStaffWebRoleKey = "cashier" | "manager" | "viewer";
 
+export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
+  shop_manager_full: [
+    STAFF_WEB_FULL_ACCESS_PERMISSION,
+    "catalog.read",
+    "catalog.write",
+    "catalog.import",
+    "catalog.export",
+    "staff.read",
+    "staff.write",
+    "devices.read",
+    "devices.write",
+    "audit.read",
+    "settings.read",
+    "settings.write",
+    "pos.dashboard.read",
+    "sync.read",
+  ],
+  catalog_manager: [
+    "catalog.read",
+    "catalog.write",
+    "catalog.import",
+    "catalog.export",
+    "sync.read",
+  ],
+  staff_manager: ["staff.read", "staff.write", "audit.read"],
+  viewer: [
+    "catalog.read",
+    "staff.read",
+    "devices.read",
+    "audit.read",
+    "settings.read",
+    "pos.dashboard.read",
+    "sync.read",
+  ],
+} as const satisfies Record<string, readonly ShopStaffWebPermission[]>;
+
+export type ShopStaffWebRoleTemplateKey =
+  keyof typeof SHOP_STAFF_WEB_ROLE_TEMPLATES;
+
 const permissionSet = new Set<string>(
   SHOP_STAFF_WEB_PERMISSION_TREE.flatMap((group) =>
     group.permissions.map((permission) => permission.key),
@@ -117,4 +157,81 @@ export function hasStaffFullShopAdminWebAccess(
   permissions: readonly string[],
 ) {
   return permissions.includes(STAFF_WEB_FULL_ACCESS_PERMISSION);
+}
+
+export function hasAnyStaffShopAdminWebAccess(permissions: readonly string[]) {
+  return permissions.some((permission) => isShopStaffWebPermission(permission));
+}
+
+function staffPermissionForShopAdminPermission(
+  permission: ShopAdminPermission,
+): ShopStaffWebPermission | null {
+  if (
+    permission === "catalog.manage" ||
+    permission === "products.write" ||
+    permission === "categories.write" ||
+    permission === "suppliers.write"
+  ) {
+    return "catalog.write";
+  }
+
+  if (
+    permission === "catalog.view" ||
+    permission === "products.read" ||
+    permission === "categories.read" ||
+    permission === "suppliers.read"
+  ) {
+    return "catalog.read";
+  }
+
+  if (permission === "catalog.import" || permission === "catalog.export") {
+    return permission;
+  }
+
+  if (permission === "staff.manage") {
+    return "staff.write";
+  }
+
+  if (permission === "staff.view") {
+    return "staff.read";
+  }
+
+  if (permission === "devices.manage") {
+    return "devices.write";
+  }
+
+  if (permission === "devices.read" || permission === "devices.view_activity") {
+    return "devices.read";
+  }
+
+  if (permission === "settings.manage" || permission === "settings.write") {
+    return "settings.write";
+  }
+
+  if (permission === "settings.view" || permission === "settings.read") {
+    return "settings.read";
+  }
+
+  if (permission === "audit.view" || permission === "audit.read") {
+    return "audit.read";
+  }
+
+  if (permission === "history.view" || permission === "history.read") {
+    return "sync.read";
+  }
+
+  return null;
+}
+
+export function canStaffWebPerformShopAdminAction(
+  permissions: readonly string[],
+  permission: ShopAdminPermission,
+) {
+  if (hasStaffFullShopAdminWebAccess(permissions)) {
+    return true;
+  }
+
+  const staffPermission = staffPermissionForShopAdminPermission(permission);
+
+  return staffPermission ? permissions.includes(staffPermission) : false;
 }

@@ -1406,6 +1406,166 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Review finale 2026-06-04: corretti audit failure staff web troppo informativi (`shop_resolved`/`staff_resolved` rimossi), pending state/copy one-time nel Platform provisioning panel e documentazione allineata al manual smoke reale `/shop/staff-login` + `/shop/staff-logout` con manager success, logout revocato, cashier/viewer denied, wrong credential generic e cleanup zero. Verdict aggiornato a `DONE_READY`.
 - Finalizzazione 2026-06-04: conferma esplicita utente ricevuta, TASK-038 marcato `DONE`; commit/push richiesti nella finalizzazione. Non include Supabase production, Vercel Production, Sales Sync, dashboard vendite fake, Win7POS/Android/iOS/Cash Register changes, email invite, social login o fusione `profiles`/`staff_accounts`.
 
+### TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-039-staff-aware-shop-admin-completion.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-039/README.md`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `USER_CONFIRMED`
+- Branch previsto: Admin Web su `main`
+- Milestone interna corrente: `DONE_RECONCILED`
+- Verdict corrente: `DONE_RECONCILED`
+- Scopo: completare il follow-up staff-aware di TASK-038 senza inventare schema, dati vendite, staging o Win7POS E2E non verificati.
+- Audit iniziale 2026-06-04:
+  - Next.js App Router `src/app` con Next `16.2.6`;
+  - `/shop` usa due principal: `personal_account` via Supabase Auth/`shop_members` e `pos_staff_manager` via `staff_web_sessions`;
+  - read model Shop Admin principali passano da `resolveShopAdminDataAccess`;
+  - baseline iniziale: mutazioni Shop Admin personal-account-only perche `resolveShopActionContext` bloccava `pos_staff_manager`;
+  - RPC catalogo, staff, device, member e import/export correnti dipendono da `auth.uid()` e membership `shop_members`;
+  - baseline iniziale: `audit_logs` esponeva solo `actor_profile_id`, senza `actor_staff_id`;
+  - baseline iniziale: `staff_role_permissions` e `SHOP_STAFF_WEB_PERMISSION_TREE` esistevano con `shop_admin.full_access` e permessi granulari, ma enforcement mutativo e UI template non erano completi;
+  - baseline iniziale: lifecycle staff POS aveva create/reset/suspend/reactivate/archive/force rotation/clear lockout, ma non revoke web access/sessioni o permission edit;
+  - baseline iniziale: `/shop/settings` era read-only; nessuna settings mutation auditata trovata;
+  - baseline iniziale: account personale aveva login/logout ma non pagina profilo/cambio password sicuro;
+  - staging stabile resta bloccato da `BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION`; Cloudflared resta solo HTTPS effimero/non-production;
+  - Win7POS locale e disponibile ma con modifiche preesistenti non toccate; live E2E resta `PARKED_E2E_PENDING`;
+  - Win7POS ha schema vendite locale reale (`sales`, `sale_lines`), ma Admin Web non ha schema/API Sales Sync, quindi `REVENUE_DASHBOARD_BLOCKED_NO_REAL_SALES_DATA` resta valido.
+- Execution 2026-06-04:
+  - migration `20260604120000_task_039_staff_aware_shop_admin.sql` aggiunge `audit_logs.actor_staff_id`, helper audit staff e campi `web_access_revoked_*`;
+  - `src/server/shop-admin/action-context.ts` abilita `pos_staff_manager` alle mutazioni autorizzate con `canStaffWebPerformShopAdminAction`;
+  - `src/server/shop-admin/staff-aware-mutations.ts` implementa staff-aware mutation foundation server-only per catalogo, staff lifecycle, dispositivi, session revoke e role permissions;
+  - `personal_account` conserva le RPC storiche basate su `auth.uid()`/`shop_members` dove esistono e usa un path server-only auditato per i nuovi controlli web staff;
+  - `pos_staff_manager` usa admin client solo server-side, shop-scoped dalla sessione staff, con audit `actor_staff_id`;
+  - `SHOP_STAFF_WEB_ROLE_TEMPLATES` e permission enforcement granulare coprono catalog, staff, devices, settings, import/export, dashboard/read e sync/read;
+  - `/shop/staff` espone revoke web access, revoke sessions e permission template/editing;
+  - `/shop/settings` espone update shop name auditato con reason e conferma;
+  - `/account/profile` espone session status e password reset email tramite Supabase Auth, senza flusso finto;
+  - nessun runtime Sales Sync, route `src/app/api/pos/sales` o dashboard vendite fake introdotti.
+- Review/fix 2026-06-04:
+  - corretto privilege-escalation risk sui template `staff_role_permissions`: staff actor senza `shop_admin.full_access` non puo applicare permessi ruolo e riceve audit `unauthorized`;
+  - sostituito il vecchio replace delete-all/insert dei permessi ruolo con delete mirato dei permessi stale e `upsert` su `shop_id,role_key,permission_key`;
+  - irrigidita eligibility staff web: solo permessi riconosciuti dalla registry centrale contano come accesso web;
+  - aggiunti preflight UI server-side su catalogo, staff, role permissions, devices, members, import/export e settings per non mostrare pannelli action se il server negherebbe la mutazione;
+  - import/export separa render di `catalog.import` e `catalog.export`;
+  - reset password profilo non usa piu una `redirectTo` relativa e resta nel flusso configurato di Supabase Auth;
+  - review/fix finale da TASK-040 ha corretto `settings-mutations.ts`: il path personal account fallisce esplicitamente se la admin env non e configurata e l'audit settings usa lo stesso admin client server-side dell'update, evitando update riuscito senza audit sotto RLS;
+  - test TASK-039 e scanner sicurezza aggiornati per bloccare regressioni su questi guardrail.
+- Scope closure 2026-06-04:
+  - code scope TASK-039 arriva a `READY_FOR_DONE_CONFIRMATION`, non `DONE`;
+  - staging stabile resta `BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION` ma viene separato in `TASK-043`;
+  - Win7POS live E2E resta `PARKED_E2E_PENDING` ma viene separato in `TASK-044`;
+  - Sales Sync foundation resta `BLOCKED_NO_ADMIN_WEB_SALES_SCHEMA` / `REVENUE_DASHBOARD_BLOCKED_NO_REAL_SALES_DATA` ma viene separato in `TASK-045`;
+  - Supabase local/apply validation resta `BLOCKED_LOCAL_SUPABASE_ENV` nel runtime corrente e viene separato in `TASK-046`;
+  - questi task futuri non sono dichiarati `PASS` e non bloccano il DONE del code scope TASK-039 perche non sono runtime introdotti o modificati da TASK-039.
+- Chiusura formale 2026-06-04:
+  - conferma esplicita utente ricevuta nell'allegato `TASK-040`: se i check freschi confermano lo stato gia documentato, TASK-039 puo essere marcato `DONE` per il suo code scope;
+  - check freschi eseguiti da Codex nello stesso pass: `git diff --check`, test mirato TASK-039, `security:scan`, `test:foundation`, `typecheck`, `lint`, `build`, `verify`;
+  - risultati freschi: test mirato `4/4`, foundation `179/179`, build/verify exit 0 con solo warning noto `[DEP0205]`;
+  - TASK-039 marcato `DONE` / `DONE_RECONCILED` per il solo code scope;
+  - i follow-up ex `TASK-043`, ex `TASK-044`, ex `TASK-045` ed ex `TASK-046` non restano task attivi separati: sono `FOLDED_INTO_TASK-040`;
+  - no commit eseguito, no push, no stage finale.
+- Check closure finali 2026-06-04:
+  - `node --test tests/foundation/task-039-staff-aware-shop-admin-completion.test.mjs` PASS `4/4`;
+  - `npm run security:scan` PASS;
+  - `npm run typecheck` PASS;
+  - `npm run lint` PASS;
+  - `npm run test:foundation` PASS `179/179`;
+  - `npm run build` PASS con warning noto `[DEP0205]`;
+  - `npm run verify` PASS con warning noto `[DEP0205]`;
+  - `npm run test:shop-admin-auth-smoke` PASS_WITH_SKIPS (`1 passed`, `2 skipped`);
+  - Browser in-app locale su `http://127.0.0.1:3040` PASS su `/account/profile`, `/shop/staff-login` e `/shop/settings`: render/gate corretti, console error `0`, screenshot evidence `/tmp/codex-security-scans/merchandise-control-admin-web/localpatch_20260604145545/artifacts/browser/staff-login.png`;
+  - `npm run dev:db:status` resta `BLOCKED_LOCAL_SUPABASE_ENV` per `.env.local` cloud, service-role assente, container mismatch e `supabase status` non completato;
+  - `git diff --check` PASS e `git diff --cached --name-status` vuoto.
+- Fasi correnti:
+  - Fase 0 audit: `PASS`;
+  - Fase 1 staff-aware mutations: `PASS_READY_FOR_DONE_CONFIRMATION`;
+  - Fase 2 permission tree granulare: `PASS_READY_FOR_DONE_CONFIRMATION`;
+  - Fase 3 lifecycle: `PASS_READY_FOR_DONE_CONFIRMATION_WITH_NOTE`;
+  - Fase 4 account/profile UX: `PASS_READY_FOR_DONE_CONFIRMATION`;
+  - Fase 5 staging stabile: `SPLIT_TO_TASK-043_NOT_BLOCKING_TASK_039_CODE_SCOPE`;
+  - Fase 6 Win7POS live E2E: `SPLIT_TO_TASK-044_NOT_BLOCKING_TASK_039_CODE_SCOPE`;
+  - Fase 7 Sales Sync foundation: `SPLIT_TO_TASK-045_NOT_BLOCKING_TASK_039_CODE_SCOPE`;
+  - Fase 8 UI/UX cleanup: `PASS_READY_FOR_DONE_CONFIRMATION`;
+  - Fase 9 test/security: `PASS_READY_FOR_DONE_CONFIRMATION`.
+- Conferme negative: no commit eseguito, no push, no stage intenzionale, nessun deploy reale, nessuna modifica Win7POS, nessun Sales Sync runtime, nessuna dashboard vendite fake, nessun secret hardcoded.
+
+### Roadmap futura separata da TASK-039
+
+- `TASK-043 - Staging stabile non-production`: `FOLDED_INTO_TASK-040`; ex TASK-043; scope Vercel/non-production HTTPS stabile; blocker corrente `BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION`.
+- `TASK-044 - Win7POS live E2E`: `FOLDED_INTO_TASK-040`; ex TASK-044; scope ambiente Windows/WPF, dataset sintetico live, run Win7POS, cleanup e evidence; blocker corrente `BLOCKED_WIN7POS_LIVE_ENV_NOT_AVAILABLE`.
+- `TASK-045 - Sales Sync foundation`: `FOLDED_INTO_TASK-040`; ex TASK-045; scope schema/API/idempotency/dashboard incassi reale solo con dati reali o sintetici controllati; blocker corrente `BLOCKED_NO_ADMIN_WEB_SALES_SCHEMA` / `REVENUE_DASHBOARD_BLOCKED_NO_REAL_SALES_DATA`.
+- `TASK-046 - Supabase environment/apply validation`: `FOLDED_INTO_TASK-040`; ex TASK-046; scope ambiente Supabase locale coerente, migration apply non-production autorizzato e typegen da DB; blocker corrente `BLOCKED_LOCAL_SUPABASE_ENV` / `BLOCKED_SUPABASE_CONTAINER_MISMATCH`.
+
+### TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation
+
+- Stato: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- File task: `docs/TASKS/TASK-040-runtime-readiness-supabase-staging-win7pos-sales-sync.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-040/README.md`
+- Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Responsabile: `REVIEWER`
+- Branch previsto: Admin Web su `main`
+- Milestone interna corrente: `PARTIAL_PASS_WITH_BLOCKERS`
+- Verdict corrente: `PARTIAL_PASS_WITH_BLOCKERS`
+- Scopo: assorbire in un unico task i follow-up runtime lasciati da TASK-039 e i gap storici collegati a `TASK-029`, `TASK-031`, `TASK-032`, `TASK-033` e `TASK-022_023`.
+- Assorbimenti formali:
+  - ex `TASK-046`: Supabase local/apply validation -> `FOLDED_INTO_TASK-040`;
+  - ex `TASK-043`: staging stabile non-production -> `FOLDED_INTO_TASK-040`;
+  - ex `TASK-044`: Win7POS live E2E -> `FOLDED_INTO_TASK-040`;
+  - ex `TASK-045`: Sales Sync reale POS -> Admin Web -> `FOLDED_INTO_TASK-040`.
+- Baseline Admin Web 2026-06-04:
+  - `git status --short --branch --untracked-files=all`: branch `main...origin/main`, dirty/untracked TASK-039 gia presente, nessun file staged;
+  - `git diff --check`: PASS;
+  - no commit eseguito, no push, no stage finale.
+- Supabase local/non-production 2026-06-04:
+  - `.env.local` classificato `supabase_cloud`, con `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` presenti redatti, `SUPABASE_PROJECT_REF` e `SUPABASE_SERVICE_ROLE_KEY` assenti;
+  - `supabase --version` PASS con `2.104.0` dopo rerun con telemetry disabilitata;
+  - `npm run dev:db:status` exit `2`: `BLOCKED_LOCAL_SUPABASE_ENV`, `.env.local` cloud, service-role assente e container mismatch;
+  - Docker espone stack `supabase_db_MerchandiseControlSupabase`, ma il progetto corrente attende `supabase_db_merchandise-control-admin-web`: `BLOCKED_SUPABASE_CONTAINER_MISMATCH`;
+  - `supabase migration list --local` mostra `20260604120000` local presente e remote/history vuota: `MIGRATION_PENDING_NOT_APPLIED`;
+  - `supabase db lint --local --schema public,app_private --fail-on error` PASS con `No schema errors found`;
+  - migration TASK-039 e additiva (`actor_staff_id`, `web_access_revoked_*`, view `staff_accounts_safe`, function audit staff);
+  - apply status: `APPLY_NOT_RUN_BLOCKED_ENV_MISMATCH`;
+  - types status: `src/lib/supabase/database.types.ts` contiene `actor_staff_id`, `web_access_revoked_*` e `write_staff_shop_admin_audit`, ma typegen live post-apply non eseguito.
+- Staging stabile non-production 2026-06-04:
+  - `vercel --version`: `Vercel CLI 54.7.1`;
+  - `vercel whoami`: account verificato;
+  - `.vercel/project.json` presente per project `merchandise-control-admin-web`, framework `nextjs`, Node Vercel `24.x`;
+  - `vercel.json` mantiene `git.deploymentEnabled=false`;
+  - `vercel ls --scope xniw97-9857s-projects`: `No deployments found`;
+  - `vercel alias ls --scope xniw97-9857s-projects`: nessun alias;
+  - nessun deploy eseguito perche i percorsi storici generano `Production`;
+  - staging status: `BLOCKED_VERCEL_FORCES_FIRST_DEPLOYMENT_TO_PRODUCTION`.
+- Review/fix finale TASK-040 2026-06-04:
+  - problemi repo-controllabili trovati e corretti in `src/server/shop-admin/settings-mutations.ts`: guard esplicito `adminConfig.status !== "configured"` e audit settings scritto tramite admin client server-side;
+  - test/scanner aggiornati in `tests/foundation/task-039-staff-aware-shop-admin-completion.test.mjs` e `scripts/security-checks.mjs`;
+  - check freschi Admin Web: test mirato TASK-039 `4/4`, `security:scan` PASS, `test:foundation` PASS `179/179`, `typecheck` PASS, `lint` PASS, `build` PASS con warning `[DEP0205]`, `verify` PASS con warning `[DEP0205]`, `test:shop-admin-auth-smoke` PASS_WITH_SKIPS (`1 passed`, `2 skipped`);
+  - Browser in-app locale: `/account/profile`, `/shop/staff-login` e `/shop/settings` render/gate PASS, console error `0`;
+  - iOS/Android: nessun progetto mobile trovato nello workspace con discovery locale read-only; status `NOT_PRESENT_IN_CURRENT_WORKSPACE`;
+  - Codex Security diff scan locale completato in `/tmp/codex-security-scans/merchandise-control-admin-web/localpatch_20260604145545/report.md` e `.html`, nessun finding reportable aperto dopo fix;
+  - verdict TASK-040 invariato: `PARTIAL_PASS_WITH_BLOCKERS`, perche Supabase apply, staging stabile, Win7POS live E2E e Sales Sync reale restano bloccati.
+- Win7POS live E2E 2026-06-04:
+  - repo `/Users/minxiang/Projects/Win7POS` trovato;
+  - baseline `git status --short --branch`: `main...origin/main`, dirty preesistente `.gitignore`, `docs/dev/`, `scripts/win7pos/`;
+  - `git diff --check`: PASS;
+  - scanner `check-dialog-standards.ps1`, `check-pos-online-bootstrap.ps1`, `check-pos-online-client.ps1`, `check-pos-catalog-pull.ps1`: ALL PASS;
+  - `dotnet build src/Win7POS.Wpf/Win7POS.Wpf.csproj -c Release -p:Platform=x86 -p:PlatformTarget=x86`: PASS, `Win7POS.Wpf -> .../net48/Win7POS.Wpf.exe`, `Avvisi: 0`, `Errori: 0`;
+  - host corrente `Darwin ... arm64`, `wine`, `mono` e `qemu-system-x86_64` non disponibili;
+  - live E2E status: `BLOCKED_WIN7POS_LIVE_ENV_NOT_AVAILABLE`.
+- Sales Sync reale POS -> Admin Web 2026-06-04:
+  - Admin Web `src/app/api/pos/sales`: `NOT_FOUND`;
+  - nessuna migration runtime `pos_sales` / `pos_sale_lines` presente;
+  - Win7POS contiene modello vendite locale reale (`sales`, `sale_lines`, `Sale`, `SaleLine`, `SaleKind`, `SaleRepository`, refund/void);
+  - foundation non implementata perche mancano apply Supabase coerente, staging stabile e live E2E Win7POS;
+  - Sales Sync: `BLOCKED_NO_ADMIN_WEB_SALES_SCHEMA` / `REVENUE_DASHBOARD_BLOCKED_NO_REAL_SALES_DATA`.
+- Riconciliazione gap:
+  - `TASK-029`: ancora blocked da staging non-production e smoke/E2E staging mancanti;
+  - `TASK-031`: ancora blocked da Vercel che forza Production;
+  - `TASK-032`: fase HTTPS non-production stabile e riconciliazione live ancora blocked;
+  - `TASK-033`: resta `REVIEW_WITH_BLOCKERS` per Win7POS runtime/live E2E;
+  - `TASK-022_023`: resta `PARKED_E2E_PENDING`;
+  - nessun task storico marcato `DONE` da TASK-040.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -1419,8 +1579,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `IDLE`
-- Ultimo task completato: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`
+- Stato globale attuale: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Ultimo task completato: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -1443,13 +1603,17 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-037: `DONE`
 - Stato TASK-038: `DONE`
 - Fase TASK-038: `DONE`
-- Task attivo: `NESSUNO`
-- File task: `docs/TASKS/TASK-038-pos-manager-web-login-platform-provisioning-permissions-revenue-gate.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-038/README.md`
-- Stato task: `DONE`
-- Fase: `DONE`
-- Milestone interna: `TASK_038_DONE_CONFIRMED`
-- Responsabile: `CODEX`
+- Stato TASK-039: `DONE`
+- Fase TASK-039: `DONE_RECONCILED`
+- Stato TASK-040: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Fase TASK-040: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`
+- File task: `docs/TASKS/TASK-040-runtime-readiness-supabase-staging-win7pos-sales-sync.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-040/README.md`
+- Stato task: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Milestone interna: `PARTIAL_PASS_WITH_BLOCKERS`
+- Responsabile: `REVIEWER`
 - Branch previsto: Admin Web su `main` o branch dedicato se autorizzato in execution
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -1469,8 +1633,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-036: `DONE`
 - Verdict TASK-037: `DONE`
 - Verdict TASK-038: `DONE`
+- Verdict TASK-039: `DONE_RECONCILED`
+- Verdict TASK-040: `PARTIAL_PASS_WITH_BLOCKERS`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
-- Prossima azione consigliata: follow-up dedicato solo per mutazioni Shop Admin staff-aware o per formalizzare il boundary staff web read-only; non aprire Sales Sync. TASK-029, TASK-031, TASK-032, TASK-033 e TASK-022_023 restano non chiusi secondo i rispettivi blocker.
+- Prossima azione consigliata: review umana/Claude su TASK-040. Non aprire Sales Sync runtime finche schema/API/apply Supabase/staging stabile/Win7POS live restano bloccati. TASK-029, TASK-031, TASK-032, TASK-033 e TASK-022_023 restano non chiusi secondo i rispettivi blocker; ex `TASK-043`, ex `TASK-044`, ex `TASK-045` ed ex `TASK-046` sono `FOLDED_INTO_TASK-040`.
 
 ## Regole di avanzamento
 

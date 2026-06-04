@@ -56,7 +56,7 @@ test("TASK-034 governance artifacts record final reconciliation with notes", () 
 
   assert.match(
     masterPlan,
-    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`/,
+    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/,
   );
   assert.match(task, /Stato: `DONE_RECONCILED_WITH_NOTES`/);
   assert.match(task, /Fase attuale: `DONE_RECONCILED`/);

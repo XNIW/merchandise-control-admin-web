@@ -82,6 +82,20 @@ export type Database = {
         }
         Returns: string
       }
+      write_staff_shop_admin_audit: {
+        Args: {
+          p_actor_staff_id: string
+          p_code: string
+          p_event_key: string
+          p_metadata?: Json
+          p_result: string
+          p_severity: string
+          p_shop_id: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
@@ -95,6 +109,7 @@ export type Database = {
       audit_logs: {
         Row: {
           actor_profile_id: string | null
+          actor_staff_id: string | null
           audit_log_id: string
           created_at: string
           event_key: string
@@ -108,6 +123,7 @@ export type Database = {
         }
         Insert: {
           actor_profile_id?: string | null
+          actor_staff_id?: string | null
           audit_log_id?: string
           created_at?: string
           event_key: string
@@ -121,6 +137,7 @@ export type Database = {
         }
         Update: {
           actor_profile_id?: string | null
+          actor_staff_id?: string | null
           audit_log_id?: string
           created_at?: string
           event_key?: string
@@ -139,6 +156,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "audit_logs_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "audit_logs_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "audit_logs_shop_id_fkey"
@@ -1264,6 +1295,9 @@ export type Database = {
           status: string
           updated_at: string
           updated_by_profile_id: string | null
+          web_access_revoked_at: string | null
+          web_access_revoked_by_staff_id: string | null
+          web_access_revoked_reason: string | null
         }
         Insert: {
           created_at?: string
@@ -1287,6 +1321,9 @@ export type Database = {
           status?: string
           updated_at?: string
           updated_by_profile_id?: string | null
+          web_access_revoked_at?: string | null
+          web_access_revoked_by_staff_id?: string | null
+          web_access_revoked_reason?: string | null
         }
         Update: {
           created_at?: string
@@ -1310,6 +1347,9 @@ export type Database = {
           status?: string
           updated_at?: string
           updated_by_profile_id?: string | null
+          web_access_revoked_at?: string | null
+          web_access_revoked_by_staff_id?: string | null
+          web_access_revoked_reason?: string | null
         }
         Relationships: [
           {
@@ -1332,6 +1372,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "staff_accounts_web_access_revoked_by_staff_id_fkey"
+            columns: ["web_access_revoked_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "staff_accounts_web_access_revoked_by_staff_id_fkey"
+            columns: ["web_access_revoked_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
           },
         ]
       }
@@ -1562,6 +1616,7 @@ export type Database = {
           staff_id: string | null
           status: string | null
           updated_at: string | null
+          web_access_revoked_at: string | null
         }
         Insert: {
           created_at?: string | null
@@ -1582,6 +1637,7 @@ export type Database = {
           staff_id?: string | null
           status?: string | null
           updated_at?: string | null
+          web_access_revoked_at?: string | null
         }
         Update: {
           created_at?: string | null
@@ -1602,6 +1658,7 @@ export type Database = {
           staff_id?: string | null
           status?: string | null
           updated_at?: string | null
+          web_access_revoked_at?: string | null
         }
         Relationships: [
           {

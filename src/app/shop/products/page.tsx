@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
 import { CatalogActionPanel } from "@/app/shop/_components/CatalogActionPanel";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
+import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
@@ -62,6 +63,9 @@ export default async function ShopProductsPage({
       },
     },
   );
+  const canManageProducts =
+    (await resolveShopActionContext(requestedShopId, "products.write"))
+      .status === "ready";
 
   return (
     <div className="grid gap-5">
@@ -132,7 +136,9 @@ export default async function ShopProductsPage({
         action={getParam(params, "action")}
         result={getParam(params, "result")}
       />
-      <CatalogActionPanel scope="products" selectedShopId={requestedShopId} />
+      {canManageProducts ? (
+        <CatalogActionPanel scope="products" selectedShopId={requestedShopId} />
+      ) : null}
     </div>
   );
 }

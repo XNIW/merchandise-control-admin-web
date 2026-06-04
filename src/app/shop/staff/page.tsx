@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
 import { StaffActionPanel } from "@/app/shop/_components/StaffActionPanel";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
+import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
+import { hasStaffFullShopAdminWebAccess } from "@/server/shop-admin/staff-web-permissions";
 
 export const metadata: Metadata = {
   title: "POS / Staff | MerchandiseControl Admin Web",
@@ -37,6 +39,15 @@ export default async function ShopStaffPage({
     "staff",
     requestedShopId,
   );
+  const staffActionContext = await resolveShopActionContext(
+    requestedShopId,
+    "staff.manage",
+  );
+  const canManageStaff = staffActionContext.status === "ready";
+  const canManageRolePermissions =
+    staffActionContext.status === "ready" &&
+    (staffActionContext.principalKind === "personal_account" ||
+      hasStaffFullShopAdminWebAccess(staffActionContext.staffPermissions));
 
   return (
     <div className="grid gap-5">
@@ -45,7 +56,12 @@ export default async function ShopStaffPage({
         action={getParam(params, "action")}
         result={getParam(params, "result")}
       />
-      <StaffActionPanel selectedShopId={requestedShopId} />
+      {canManageStaff ? (
+        <StaffActionPanel
+          canManageRolePermissions={canManageRolePermissions}
+          selectedShopId={requestedShopId}
+        />
+      ) : null}
     </div>
   );
 }

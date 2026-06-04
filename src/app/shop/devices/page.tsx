@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
 import { DeviceActionPanel } from "@/app/shop/_components/DeviceActionPanel";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
+import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
@@ -37,6 +38,9 @@ export default async function ShopDevicesPage({
     "devices",
     requestedShopId,
   );
+  const canManageDevices =
+    (await resolveShopActionContext(requestedShopId, "devices.manage"))
+      .status === "ready";
 
   return (
     <div className="grid gap-5">
@@ -45,7 +49,9 @@ export default async function ShopDevicesPage({
         action={getParam(params, "action")}
         result={getParam(params, "result")}
       />
-      <DeviceActionPanel selectedShopId={requestedShopId} />
+      {canManageDevices ? (
+        <DeviceActionPanel selectedShopId={requestedShopId} />
+      ) : null}
     </div>
   );
 }

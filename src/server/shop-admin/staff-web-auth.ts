@@ -15,6 +15,7 @@ import {
 import { verifyStaffCredential } from "./staff-credentials";
 import {
   getEnabledStaffRolePermissions,
+  hasAnyStaffShopAdminWebAccess,
   hasStaffFullShopAdminWebAccess,
 } from "./staff-web-permissions";
 
@@ -40,6 +41,7 @@ type StaffAccountRow = Pick<
   | "staff_code"
   | "staff_id"
   | "status"
+  | "web_access_revoked_at"
 >;
 type StaffWebSessionRow = Pick<
   Tables<"staff_web_sessions">,
@@ -327,6 +329,7 @@ function isStaffWebCredentialUsable(staff: StaffAccountRow) {
     staff.status === "active" &&
     staff.credential_status === "active" &&
     staff.must_change_credential !== true &&
+    !staff.web_access_revoked_at &&
     !isFutureTimestamp(staff.locked_until) &&
     Boolean(staff.credential_hash)
   );
@@ -342,7 +345,8 @@ function isStaffEligibleForWebLogin(
 
   return (
     isStaffWebCredentialUsable(staff) &&
-    hasStaffFullShopAdminWebAccess(permissions)
+    (hasStaffFullShopAdminWebAccess(permissions) ||
+      hasAnyStaffShopAdminWebAccess(permissions))
   );
 }
 
@@ -442,7 +446,7 @@ export async function authenticateStaffManagerWebLogin(
   const staffResult = await supabase
     .from("staff_accounts")
     .select(
-      "staff_id,shop_id,staff_code,display_name,role_key,status,credential_hash,credential_version,credential_status,failed_attempts,locked_until,must_change_credential,last_login_at,session_invalidated_at",
+      "staff_id,shop_id,staff_code,display_name,role_key,status,credential_hash,credential_version,credential_status,failed_attempts,locked_until,must_change_credential,last_login_at,session_invalidated_at,web_access_revoked_at",
     )
     .eq("shop_id", shop.shop_id)
     .eq("staff_code", parsed.staffCode)
@@ -631,7 +635,7 @@ export async function resolveStaffWebSessionPrincipal(): Promise<ShopAdminPrinci
     supabase
       .from("staff_accounts")
       .select(
-        "staff_id,shop_id,staff_code,display_name,role_key,status,credential_hash,credential_version,credential_status,failed_attempts,locked_until,must_change_credential,last_login_at,session_invalidated_at",
+        "staff_id,shop_id,staff_code,display_name,role_key,status,credential_hash,credential_version,credential_status,failed_attempts,locked_until,must_change_credential,last_login_at,session_invalidated_at,web_access_revoked_at",
       )
       .eq("staff_id", session.staff_id)
       .eq("shop_id", session.shop_id)
@@ -655,6 +659,7 @@ export async function resolveStaffWebSessionPrincipal(): Promise<ShopAdminPrinci
   if (
     rolePermissions.status === "error" ||
     shop.shop_status !== "active" ||
+    Boolean(staff.web_access_revoked_at) ||
     staff.credential_version !== session.staff_credential_version ||
     isAfterTimestamp(staff.session_invalidated_at, session.issued_at)
   ) {

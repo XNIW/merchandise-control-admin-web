@@ -29,6 +29,7 @@ export type ShopStaffReadModelStaffAccount = {
   lockedUntil: string | null;
   lastLoginAt: string | null;
   sessionInvalidatedAt: string | null;
+  webAccessRevokedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -119,6 +120,7 @@ function mapStaffSafeRow(
     lockedUntil: row.locked_until,
     lastLoginAt: row.last_login_at,
     sessionInvalidatedAt: row.session_invalidated_at,
+    webAccessRevokedAt: row.web_access_revoked_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -147,7 +149,7 @@ export async function getShopStaffReadModel(
   const staffResult = await supabase
     .from("staff_accounts_safe")
     .select(
-      "staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,credential_status,credential_updated_at,credential_expires_at,credential_version,must_change_credential,failed_attempts,locked_until,last_login_at,session_invalidated_at,created_at,updated_at",
+      "staff_id,shop_id,staff_code,display_name,role_key,status,credential_kind,credential_status,credential_updated_at,credential_expires_at,credential_version,must_change_credential,failed_attempts,locked_until,last_login_at,session_invalidated_at,web_access_revoked_at,created_at,updated_at",
     )
     .eq("shop_id", selectedShop.shopId)
     .order("staff_code", { ascending: true })

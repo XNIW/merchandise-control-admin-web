@@ -100,7 +100,7 @@ test("TASK-032 action context denies unknown requested shop ids instead of falli
 
   assert.match(actionContext, /requestedShopId/);
   assert.match(actionContext, /strictRequestedShop: true/);
-  assert.match(actionContext, /principalKind !== "personal_account"/);
+  assert.match(actionContext, /canStaffWebPerformShopAdminAction/);
   assert.match(dataAccess, /availableShops\.find/);
   assert.match(dataAccess, /strictRequestedShop/);
   assert.doesNotMatch(
@@ -160,7 +160,7 @@ test("TASK-032 permissions evidence remains tied to the active mega-task", () =>
 
   assert.match(
     masterPlan,
-    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`/,
+    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/,
   );
   assert.match(task, /4 - Permissions hardening/);
 });

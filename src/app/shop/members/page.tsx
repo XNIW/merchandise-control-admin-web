@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
 import { MemberActionPanel } from "@/app/shop/_components/MemberActionPanel";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
+import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
@@ -37,6 +38,9 @@ export default async function ShopMembersPage({
     "members",
     requestedShopId,
   );
+  const canManageMembers =
+    (await resolveShopActionContext(requestedShopId, "members.manage"))
+      .status === "ready";
 
   return (
     <div className="grid gap-5">
@@ -45,7 +49,9 @@ export default async function ShopMembersPage({
         action={getParam(params, "action")}
         result={getParam(params, "result")}
       />
-      <MemberActionPanel selectedShopId={requestedShopId} />
+      {canManageMembers ? (
+        <MemberActionPanel selectedShopId={requestedShopId} />
+      ) : null}
     </div>
   );
 }

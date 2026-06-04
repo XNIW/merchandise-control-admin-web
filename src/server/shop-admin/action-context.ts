@@ -1,9 +1,11 @@
 import "server-only";
 
 import type { SupabaseServerClient } from "@/lib/supabase/server";
+import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import { resolveShopAdminDataAccess } from "./data-access";
 import { canShopAdmin, type ShopAdminPermission } from "./permissions";
 import type { ShopAdminShellShop } from "./shop-access";
+import { canStaffWebPerformShopAdminAction } from "./staff-web-permissions";
 
 export type ShopAdminActionCode =
   | "success"
@@ -38,9 +40,19 @@ export type ShopAdminActionResult = {
 
 export type ShopAdminActionContext =
   | {
+      actorProfileId: string;
+      principalKind: "personal_account";
       status: "ready";
       selectedShop: ShopAdminShellShop;
       supabase: SupabaseServerClient;
+    }
+  | {
+      actorStaffId: string;
+      principalKind: "pos_staff_manager";
+      staffPermissions: readonly string[];
+      status: "ready";
+      selectedShop: ShopAdminShellShop;
+      supabase: SupabaseAdminClient;
     }
   | {
       status: "blocked";
@@ -180,19 +192,12 @@ export async function resolveShopActionContext(
     };
   }
 
-  if (access.principalKind !== "personal_account") {
-    return {
-      status: "blocked",
-      result: shopAdminActionResult("unauthorized", {
-        ok: false,
-        shopId: access.selectedShop.shopId,
-      }),
-    };
-  }
-
   const selectedShop = access.selectedShop;
 
-  if (!canShopAdmin(selectedShop.role, permission)) {
+  if (
+    access.principalKind === "personal_account" &&
+    !canShopAdmin(selectedShop.role, permission)
+  ) {
     return {
       status: "blocked",
       result: shopAdminActionResult("unauthorized", {
@@ -202,7 +207,36 @@ export async function resolveShopActionContext(
     };
   }
 
+  if (
+    access.principalKind === "pos_staff_manager" &&
+    !canStaffWebPerformShopAdminAction(
+      access.principal.permissions,
+      permission,
+    )
+  ) {
+    return {
+      status: "blocked",
+      result: shopAdminActionResult("unauthorized", {
+        ok: false,
+        shopId: selectedShop.shopId,
+      }),
+    };
+  }
+
+  if (access.principalKind === "personal_account") {
+    return {
+      actorProfileId: access.principal.userId,
+      principalKind: "personal_account",
+      status: "ready",
+      selectedShop,
+      supabase: access.supabase,
+    };
+  }
+
   return {
+    actorStaffId: access.principal.staff.staffId,
+    principalKind: "pos_staff_manager",
+    staffPermissions: access.principal.permissions,
     status: "ready",
     selectedShop,
     supabase: access.supabase,

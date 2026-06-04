@@ -11,6 +11,10 @@ import {
   type SupabaseServerClient,
 } from "@/lib/supabase/server";
 import { resolveCurrentShopAdminPrincipal } from "./access-principal";
+import type {
+  ShopAdminPersonalAccountPrincipal,
+  ShopAdminPosStaffManagerPrincipal,
+} from "./access-principal";
 import { resolveStaffWebSessionPrincipal } from "./staff-web-auth";
 import type { ShopAdminShellShop } from "./shop-access";
 
@@ -19,12 +23,14 @@ export type ShopAdminDataClient = SupabaseAdminClient | SupabaseServerClient;
 export type ShopAdminDataAccess =
   | {
       principalKind: "personal_account";
+      principal: ShopAdminPersonalAccountPrincipal;
       selectedShop: ShopAdminShellShop;
       status: "ready";
       supabase: SupabaseServerClient;
     }
   | {
       principalKind: "pos_staff_manager";
+      principal: ShopAdminPosStaffManagerPrincipal;
       selectedShop: ShopAdminShellShop;
       status: "ready";
       supabase: SupabaseAdminClient;
@@ -113,6 +119,7 @@ export async function resolveShopAdminDataAccess(
 
       return {
         principalKind: "personal_account",
+        principal: personalResolution.principal,
         selectedShop: requestedShop ?? personalResolution.principal.selectedShop,
         status: "ready",
         supabase: serverClient,
@@ -173,6 +180,7 @@ export async function resolveShopAdminDataAccess(
 
   return {
     principalKind: "pos_staff_manager",
+    principal: staffResolution.principal,
     selectedShop: staffShellShop(staffShop),
     status: "ready",
     supabase: adminClient,

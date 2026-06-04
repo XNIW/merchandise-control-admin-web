@@ -7,6 +7,12 @@ import {
   shopAdminActionResult,
   type ShopAdminActionResult,
 } from "./action-context";
+import {
+  registerDeviceAsStaff,
+  renameDeviceAsStaff,
+  runStaffAwareShopAdminMutation,
+  setDeviceStatusAsStaff,
+} from "./staff-aware-mutations";
 
 type RegisterDeviceInput = {
   appVersion?: string;
@@ -41,6 +47,12 @@ function deviceReasonRequiredResult() {
 
 async function deviceRpcResult(
   requestedShopId: string | undefined,
+  staffCall: (
+    context: Extract<
+      Awaited<ReturnType<typeof resolveShopActionContext>>,
+      { principalKind: "pos_staff_manager"; status: "ready" }
+    >,
+  ) => Promise<ShopAdminActionResult>,
   call: (
     context: Extract<
       Awaited<ReturnType<typeof resolveShopActionContext>>,
@@ -55,6 +67,12 @@ async function deviceRpcResult(
 
   if (context.status !== "ready") {
     return context.result;
+  }
+
+  const staffResult = await runStaffAwareShopAdminMutation(context, staffCall);
+
+  if (staffResult) {
+    return staffResult;
   }
 
   const { data, error } = await call(context);
@@ -76,15 +94,18 @@ export async function registerDevice(
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
-  return deviceRpcResult(input.requestedShopId, (context) =>
-    context.supabase.rpc("shop_device_register", {
-      p_app_version: input.appVersion,
-      p_device_identifier: input.deviceIdentifier,
-      p_device_type: input.deviceType,
-      p_display_name: input.displayName,
-      p_metadata: {} satisfies Json,
-      p_shop_id: context.selectedShop.shopId,
-    }),
+  return deviceRpcResult(
+    input.requestedShopId,
+    (context) => registerDeviceAsStaff(context, input),
+    (context) =>
+      context.supabase.rpc("shop_device_register", {
+        p_app_version: input.appVersion,
+        p_device_identifier: input.deviceIdentifier,
+        p_device_type: input.deviceType,
+        p_display_name: input.displayName,
+        p_metadata: {} satisfies Json,
+        p_shop_id: context.selectedShop.shopId,
+      }),
   );
 }
 
@@ -95,12 +116,15 @@ export async function renameDevice(
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
-  return deviceRpcResult(input.requestedShopId, (context) =>
-    context.supabase.rpc("shop_device_rename", {
-      p_display_name: input.displayName,
-      p_shop_device_id: input.deviceId,
-      p_shop_id: context.selectedShop.shopId,
-    }),
+  return deviceRpcResult(
+    input.requestedShopId,
+    (context) => renameDeviceAsStaff(context, input),
+    (context) =>
+      context.supabase.rpc("shop_device_rename", {
+        p_display_name: input.displayName,
+        p_shop_device_id: input.deviceId,
+        p_shop_id: context.selectedShop.shopId,
+      }),
   );
 }
 
@@ -117,12 +141,20 @@ export async function revokeDevice(
 
   const reason = input.reason.trim();
 
-  return deviceRpcResult(input.requestedShopId, (context) =>
-    context.supabase.rpc("shop_device_revoke", {
-      p_reason: reason,
-      p_shop_device_id: input.deviceId,
-      p_shop_id: context.selectedShop.shopId,
-    }),
+  return deviceRpcResult(
+    input.requestedShopId,
+    (context) =>
+      setDeviceStatusAsStaff(context, {
+        ...input,
+        nextStatus: "revoked",
+        reason,
+      }),
+    (context) =>
+      context.supabase.rpc("shop_device_revoke", {
+        p_reason: reason,
+        p_shop_device_id: input.deviceId,
+        p_shop_id: context.selectedShop.shopId,
+      }),
   );
 }
 
@@ -139,11 +171,19 @@ export async function reactivateDevice(
 
   const reason = input.reason.trim();
 
-  return deviceRpcResult(input.requestedShopId, (context) =>
-    context.supabase.rpc("shop_device_reactivate", {
-      p_reason: reason,
-      p_shop_device_id: input.deviceId,
-      p_shop_id: context.selectedShop.shopId,
-    }),
+  return deviceRpcResult(
+    input.requestedShopId,
+    (context) =>
+      setDeviceStatusAsStaff(context, {
+        ...input,
+        nextStatus: "active",
+        reason,
+      }),
+    (context) =>
+      context.supabase.rpc("shop_device_reactivate", {
+        p_reason: reason,
+        p_shop_device_id: input.deviceId,
+        p_shop_id: context.selectedShop.shopId,
+      }),
   );
 }

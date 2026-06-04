@@ -6,6 +6,19 @@ import {
   shopAdminActionResult,
   type ShopAdminActionResult,
 } from "./action-context";
+import {
+  archiveCategoryAsStaff,
+  archiveProductAsStaff,
+  archiveSupplierAsStaff,
+  createCategoryAsStaff,
+  createProductAsStaff,
+  createSupplierAsStaff,
+  restoreProductAsStaff,
+  runStaffAwareShopAdminMutation,
+  updateCategoryAsStaff,
+  updateProductAsStaff,
+  updateSupplierAsStaff,
+} from "./staff-aware-mutations";
 
 type CatalogEntityInput = {
   name: string;
@@ -73,6 +86,12 @@ function catalogReasonRequired(input: CatalogArchiveInput) {
 async function rpcResult(
   requestedShopId: string | undefined,
   permission: "products.write" | "categories.write" | "suppliers.write",
+  staffCall: (
+    context: Extract<
+      Awaited<ReturnType<typeof resolveShopActionContext>>,
+      { principalKind: "pos_staff_manager"; status: "ready" }
+    >,
+  ) => Promise<ShopAdminActionResult>,
   call: (
     context: Extract<
       Awaited<ReturnType<typeof resolveShopActionContext>>,
@@ -84,6 +103,12 @@ async function rpcResult(
 
   if (context.status !== "ready") {
     return context.result;
+  }
+
+  const staffResult = await runStaffAwareShopAdminMutation(context, staffCall);
+
+  if (staffResult) {
+    return staffResult;
   }
 
   const { data, error } = await call(context);
@@ -108,11 +133,15 @@ export async function createSupplier(
     });
   }
 
-  return rpcResult(input.requestedShopId, "suppliers.write", (context) =>
-    context.supabase.rpc("shop_catalog_create_supplier", {
-      p_name: input.name,
-      p_shop_id: context.selectedShop.shopId,
-    }),
+  return rpcResult(
+    input.requestedShopId,
+    "suppliers.write",
+    (context) => createSupplierAsStaff(context, { name: input.name }),
+    (context) =>
+      context.supabase.rpc("shop_catalog_create_supplier", {
+        p_name: input.name,
+        p_shop_id: context.selectedShop.shopId,
+      }),
   );
 }
 
@@ -126,12 +155,16 @@ export async function updateSupplier(
     });
   }
 
-  return rpcResult(input.requestedShopId, "suppliers.write", (context) =>
-    context.supabase.rpc("shop_catalog_update_supplier", {
-      p_name: input.name,
-      p_shop_id: context.selectedShop.shopId,
-      p_supplier_id: input.id,
-    }),
+  return rpcResult(
+    input.requestedShopId,
+    "suppliers.write",
+    (context) => updateSupplierAsStaff(context, { id: input.id, name: input.name }),
+    (context) =>
+      context.supabase.rpc("shop_catalog_update_supplier", {
+        p_name: input.name,
+        p_shop_id: context.selectedShop.shopId,
+        p_supplier_id: input.id,
+      }),
   );
 }
 
@@ -148,12 +181,17 @@ export async function archiveSupplier(
     return reason;
   }
 
-  return rpcResult(input.requestedShopId, "suppliers.write", (context) =>
-    context.supabase.rpc("shop_catalog_archive_supplier", {
-      p_reason: reason,
-      p_shop_id: context.selectedShop.shopId,
-      p_supplier_id: input.id,
-    }),
+  return rpcResult(
+    input.requestedShopId,
+    "suppliers.write",
+    (context) =>
+      archiveSupplierAsStaff(context, { id: input.id, reason }),
+    (context) =>
+      context.supabase.rpc("shop_catalog_archive_supplier", {
+        p_reason: reason,
+        p_shop_id: context.selectedShop.shopId,
+        p_supplier_id: input.id,
+      }),
   );
 }
 
@@ -167,11 +205,15 @@ export async function createCategory(
     });
   }
 
-  return rpcResult(input.requestedShopId, "categories.write", (context) =>
-    context.supabase.rpc("shop_catalog_create_category", {
-      p_name: input.name,
-      p_shop_id: context.selectedShop.shopId,
-    }),
+  return rpcResult(
+    input.requestedShopId,
+    "categories.write",
+    (context) => createCategoryAsStaff(context, { name: input.name }),
+    (context) =>
+      context.supabase.rpc("shop_catalog_create_category", {
+        p_name: input.name,
+        p_shop_id: context.selectedShop.shopId,
+      }),
   );
 }
 
@@ -185,12 +227,16 @@ export async function updateCategory(
     });
   }
 
-  return rpcResult(input.requestedShopId, "categories.write", (context) =>
-    context.supabase.rpc("shop_catalog_update_category", {
-      p_category_id: input.id,
-      p_name: input.name,
-      p_shop_id: context.selectedShop.shopId,
-    }),
+  return rpcResult(
+    input.requestedShopId,
+    "categories.write",
+    (context) => updateCategoryAsStaff(context, { id: input.id, name: input.name }),
+    (context) =>
+      context.supabase.rpc("shop_catalog_update_category", {
+        p_category_id: input.id,
+        p_name: input.name,
+        p_shop_id: context.selectedShop.shopId,
+      }),
   );
 }
 
@@ -207,12 +253,17 @@ export async function archiveCategory(
     return reason;
   }
 
-  return rpcResult(input.requestedShopId, "categories.write", (context) =>
-    context.supabase.rpc("shop_catalog_archive_category", {
-      p_category_id: input.id,
-      p_reason: reason,
-      p_shop_id: context.selectedShop.shopId,
-    }),
+  return rpcResult(
+    input.requestedShopId,
+    "categories.write",
+    (context) =>
+      archiveCategoryAsStaff(context, { id: input.id, reason }),
+    (context) =>
+      context.supabase.rpc("shop_catalog_archive_category", {
+        p_category_id: input.id,
+        p_reason: reason,
+        p_shop_id: context.selectedShop.shopId,
+      }),
   );
 }
 
@@ -256,19 +307,28 @@ export async function createProduct(
     });
   }
 
-  return rpcResult(input.requestedShopId, "products.write", (context) =>
-    context.supabase.rpc("shop_catalog_create_product", {
-      p_barcode: input.barcode,
-      p_category_id: cleanUuid(input.categoryId),
-      p_item_number: input.itemNumber,
-      p_product_name: input.productName,
-      p_purchase_price: input.purchasePrice,
-      p_retail_price: input.retailPrice,
-      p_second_product_name: input.secondProductName,
-      p_shop_id: context.selectedShop.shopId,
-      p_stock_quantity: input.stockQuantity,
-      p_supplier_id: cleanUuid(input.supplierId),
-    }),
+  return rpcResult(
+    input.requestedShopId,
+    "products.write",
+    (context) =>
+      createProductAsStaff(context, {
+        ...input,
+        categoryId: cleanUuid(input.categoryId),
+        supplierId: cleanUuid(input.supplierId),
+      }),
+    (context) =>
+      context.supabase.rpc("shop_catalog_create_product", {
+        p_barcode: input.barcode,
+        p_category_id: cleanUuid(input.categoryId),
+        p_item_number: input.itemNumber,
+        p_product_name: input.productName,
+        p_purchase_price: input.purchasePrice,
+        p_retail_price: input.retailPrice,
+        p_second_product_name: input.secondProductName,
+        p_shop_id: context.selectedShop.shopId,
+        p_stock_quantity: input.stockQuantity,
+        p_supplier_id: cleanUuid(input.supplierId),
+      }),
   );
 }
 
@@ -288,20 +348,29 @@ export async function updateProduct(
     });
   }
 
-  return rpcResult(input.requestedShopId, "products.write", (context) =>
-    context.supabase.rpc("shop_catalog_update_product", {
-      p_barcode: input.barcode,
-      p_category_id: cleanUuid(input.categoryId),
-      p_item_number: input.itemNumber,
-      p_product_id: input.productId,
-      p_product_name: input.productName,
-      p_purchase_price: input.purchasePrice,
-      p_retail_price: input.retailPrice,
-      p_second_product_name: input.secondProductName,
-      p_shop_id: context.selectedShop.shopId,
-      p_stock_quantity: input.stockQuantity,
-      p_supplier_id: cleanUuid(input.supplierId),
-    }),
+  return rpcResult(
+    input.requestedShopId,
+    "products.write",
+    (context) =>
+      updateProductAsStaff(context, {
+        ...input,
+        categoryId: cleanUuid(input.categoryId),
+        supplierId: cleanUuid(input.supplierId),
+      }),
+    (context) =>
+      context.supabase.rpc("shop_catalog_update_product", {
+        p_barcode: input.barcode,
+        p_category_id: cleanUuid(input.categoryId),
+        p_item_number: input.itemNumber,
+        p_product_id: input.productId,
+        p_product_name: input.productName,
+        p_purchase_price: input.purchasePrice,
+        p_retail_price: input.retailPrice,
+        p_second_product_name: input.secondProductName,
+        p_shop_id: context.selectedShop.shopId,
+        p_stock_quantity: input.stockQuantity,
+        p_supplier_id: cleanUuid(input.supplierId),
+      }),
   );
 }
 
@@ -318,12 +387,16 @@ export async function archiveProduct(
     return reason;
   }
 
-  return rpcResult(input.requestedShopId, "products.write", (context) =>
-    context.supabase.rpc("shop_catalog_archive_product", {
-      p_product_id: input.id,
-      p_reason: reason,
-      p_shop_id: context.selectedShop.shopId,
-    }),
+  return rpcResult(
+    input.requestedShopId,
+    "products.write",
+    (context) => archiveProductAsStaff(context, { id: input.id, reason }),
+    (context) =>
+      context.supabase.rpc("shop_catalog_archive_product", {
+        p_product_id: input.id,
+        p_reason: reason,
+        p_shop_id: context.selectedShop.shopId,
+      }),
   );
 }
 
@@ -340,11 +413,15 @@ export async function restoreProduct(
     return reason;
   }
 
-  return rpcResult(input.requestedShopId, "products.write", (context) =>
-    context.supabase.rpc("shop_catalog_restore_product", {
-      p_product_id: input.id,
-      p_reason: reason,
-      p_shop_id: context.selectedShop.shopId,
-    }),
+  return rpcResult(
+    input.requestedShopId,
+    "products.write",
+    (context) => restoreProductAsStaff(context, { id: input.id, reason }),
+    (context) =>
+      context.supabase.rpc("shop_catalog_restore_product", {
+        p_product_id: input.id,
+        p_reason: reason,
+        p_shop_id: context.selectedShop.shopId,
+      }),
   );
 }

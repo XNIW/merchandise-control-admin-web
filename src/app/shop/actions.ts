@@ -27,8 +27,11 @@ import {
   createStaff,
   forceStaffCredentialRotation,
   reactivateStaff,
+  revokeStaffWebAccess,
+  revokeStaffWebSessions,
   resetStaffCredential,
   suspendStaff,
+  updateStaffRolePermissions,
   type StaffMutationResult,
 } from "@/server/shop-admin/staff-mutations";
 import {
@@ -42,6 +45,7 @@ import {
   removeShopMember,
   updateShopMemberRole,
 } from "@/server/shop-admin/member-mutations";
+import { updateShopSettings } from "@/server/shop-admin/settings-mutations";
 
 export type ShopAdminActionState = ShopAdminActionResult & {
   temporaryCredential?: string;
@@ -355,6 +359,65 @@ export async function clearStaffLockoutAction(formData: FormData) {
   );
 }
 
+export async function revokeStaffWebAccessAction(formData: FormData) {
+  if (!confirmed(formData, "REVOKE")) {
+    resultRedirect(
+      "/shop/staff",
+      shopAdminActionResult("validation_failed", { ok: false }),
+    );
+  }
+
+  resultRedirect(
+    "/shop/staff",
+    await revokeStaffWebAccess({
+      reason: optionalFormString(formData, "reason"),
+      requestedShopId: requestedShopId(formData),
+      staffId: formString(formData, "staffId"),
+    }),
+  );
+}
+
+export async function revokeStaffWebSessionsAction(formData: FormData) {
+  if (!confirmed(formData, "SESSIONS")) {
+    resultRedirect(
+      "/shop/staff",
+      shopAdminActionResult("validation_failed", { ok: false }),
+    );
+  }
+
+  resultRedirect(
+    "/shop/staff",
+    await revokeStaffWebSessions({
+      reason: optionalFormString(formData, "reason"),
+      requestedShopId: requestedShopId(formData),
+      staffId: formString(formData, "staffId"),
+    }),
+  );
+}
+
+export async function updateStaffRolePermissionsAction(formData: FormData) {
+  const permissions = formData
+    .getAll("permissions")
+    .filter((value): value is string => typeof value === "string");
+
+  if (!confirmed(formData, "PERMISSIONS")) {
+    resultRedirect(
+      "/shop/staff",
+      shopAdminActionResult("validation_failed", { ok: false }),
+    );
+  }
+
+  resultRedirect(
+    "/shop/staff",
+    await updateStaffRolePermissions({
+      permissions,
+      requestedShopId: requestedShopId(formData),
+      roleKey: formString(formData, "roleKey"),
+      templateKey: optionalFormString(formData, "templateKey"),
+    }),
+  );
+}
+
 export async function registerDeviceAction(formData: FormData) {
   resultRedirect(
     "/shop/devices",
@@ -469,6 +532,28 @@ export async function removeShopMemberAction(formData: FormData) {
       memberId: formString(formData, "memberId"),
       reason: optionalFormString(formData, "reason"),
       requestedShopId: shopId,
+    }),
+    shopId,
+  );
+}
+
+export async function updateShopSettingsAction(formData: FormData) {
+  const shopId = requestedShopId(formData);
+
+  if (!confirmed(formData, "SETTINGS")) {
+    resultRedirect(
+      "/shop/settings",
+      shopAdminActionResult("validation_failed", { ok: false }),
+      shopId,
+    );
+  }
+
+  resultRedirect(
+    "/shop/settings",
+    await updateShopSettings({
+      reason: optionalFormString(formData, "reason"),
+      requestedShopId: shopId,
+      shopName: formString(formData, "shopName"),
     }),
     shopId,
   );

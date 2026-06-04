@@ -8,6 +8,21 @@ import {
   type ShopAdminActionResult,
 } from "./action-context";
 import { hashStaffCredential } from "./staff-credentials";
+import {
+  clearStaffLockoutAsStaff,
+  createStaffAsStaff,
+  forceStaffCredentialRotationAsStaff,
+  resetStaffCredentialAsStaff,
+  revokeStaffWebAccessAsStaff,
+  revokeStaffWebSessionsAsStaff,
+  revokeStaffWebAccessAsPersonalAccount,
+  revokeStaffWebSessionsAsPersonalAccount,
+  runStaffAwareShopAdminMutation,
+  runStaffWebLifecycleShopAdminMutation,
+  setStaffStatusAsStaff,
+  updateStaffRolePermissionsAsStaff,
+  updateStaffRolePermissionsAsPersonalAccount,
+} from "./staff-aware-mutations";
 
 export type StaffCredentialKind = "password" | "pin";
 
@@ -28,6 +43,23 @@ type StaffTargetInput = {
   requestedShopId?: string;
   staffId: string;
 };
+
+type UpdateStaffRolePermissionsInput = {
+  permissions?: readonly string[];
+  requestedShopId?: string;
+  roleKey: string;
+  templateKey?: string;
+};
+
+type ReadyStaffMutationContext = Extract<
+  Awaited<ReturnType<typeof resolveShopActionContext>>,
+  { status: "ready" }
+>;
+
+type StaffManagerMutationContext = Extract<
+  ReadyStaffMutationContext,
+  { principalKind: "pos_staff_manager" }
+>;
 
 type ResetCredentialInput = StaffTargetInput & {
   credentialKind?: string;
@@ -80,17 +112,23 @@ function sensitiveReasonError() {
 
 async function staffRpcResult(
   requestedShopId: string | undefined,
+  staffCall: (
+    context: StaffManagerMutationContext,
+  ) => Promise<ShopAdminActionResult>,
   call: (
-    context: Extract<
-      Awaited<ReturnType<typeof resolveShopActionContext>>,
-      { status: "ready" }
-    >,
+    context: ReadyStaffMutationContext,
   ) => PromiseLike<{ data: unknown; error: unknown }>,
 ): Promise<ShopAdminActionResult> {
   const context = await resolveShopActionContext(requestedShopId, "staff.manage");
 
   if (context.status !== "ready") {
     return context.result;
+  }
+
+  const staffResult = await runStaffAwareShopAdminMutation(context, staffCall);
+
+  if (staffResult) {
+    return staffResult;
   }
 
   const { data, error } = await call(context);
@@ -128,15 +166,25 @@ export async function createStaff(
 
   const { credentialHash, temporaryCredential } =
     await staffCredentialHash(credentialKind);
-  const result = await staffRpcResult(input.requestedShopId, (context) =>
-    context.supabase.rpc("shop_staff_create", {
-      p_credential_hash: credentialHash,
-      p_credential_kind: credentialKind,
-      p_display_name: displayName,
-      p_role_key: roleKey,
-      p_shop_id: context.selectedShop.shopId,
-      p_staff_code: staffCode,
-    }),
+  const result = await staffRpcResult(
+    input.requestedShopId,
+    (context) =>
+      createStaffAsStaff(context, {
+        credentialHash,
+        credentialKind,
+        displayName,
+        roleKey,
+        staffCode,
+      }),
+    (context) =>
+      context.supabase.rpc("shop_staff_create", {
+        p_credential_hash: credentialHash,
+        p_credential_kind: credentialKind,
+        p_display_name: displayName,
+        p_role_key: roleKey,
+        p_shop_id: context.selectedShop.shopId,
+        p_staff_code: staffCode,
+      }),
   );
 
   return result.ok ? { ...result, temporaryCredential } : result;
@@ -159,14 +207,23 @@ export async function resetStaffCredential(
 
   const { credentialHash, temporaryCredential } =
     await staffCredentialHash(credentialKind);
-  const result = await staffRpcResult(target.requestedShopId, (context) =>
-    context.supabase.rpc("shop_staff_reset_credential", {
-      p_credential_hash: credentialHash,
-      p_credential_kind: credentialKind,
-      p_reason: reason,
-      p_shop_id: context.selectedShop.shopId,
-      p_staff_id: target.staffId,
-    }),
+  const result = await staffRpcResult(
+    target.requestedShopId,
+    (context) =>
+      resetStaffCredentialAsStaff(context, {
+        credentialHash,
+        credentialKind,
+        reason,
+        staffId: target.staffId,
+      }),
+    (context) =>
+      context.supabase.rpc("shop_staff_reset_credential", {
+        p_credential_hash: credentialHash,
+        p_credential_kind: credentialKind,
+        p_reason: reason,
+        p_shop_id: context.selectedShop.shopId,
+        p_staff_id: target.staffId,
+      }),
   );
 
   return result.ok ? { ...result, temporaryCredential } : result;
@@ -186,12 +243,21 @@ export async function suspendStaff(
   }
   const reason = target.reason;
 
-  return staffRpcResult(target.requestedShopId, (context) =>
-    context.supabase.rpc("shop_staff_suspend", {
-      p_reason: reason,
-      p_shop_id: context.selectedShop.shopId,
-      p_staff_id: target.staffId,
-    }),
+  return staffRpcResult(
+    target.requestedShopId,
+    (context) =>
+      setStaffStatusAsStaff(context, {
+        eventBase: "shop.staff.suspend",
+        nextStatus: "suspended",
+        reason,
+        staffId: target.staffId,
+      }),
+    (context) =>
+      context.supabase.rpc("shop_staff_suspend", {
+        p_reason: reason,
+        p_shop_id: context.selectedShop.shopId,
+        p_staff_id: target.staffId,
+      }),
   );
 }
 
@@ -209,12 +275,21 @@ export async function reactivateStaff(
   }
   const reason = target.reason;
 
-  return staffRpcResult(target.requestedShopId, (context) =>
-    context.supabase.rpc("shop_staff_reactivate", {
-      p_reason: reason,
-      p_shop_id: context.selectedShop.shopId,
-      p_staff_id: target.staffId,
-    }),
+  return staffRpcResult(
+    target.requestedShopId,
+    (context) =>
+      setStaffStatusAsStaff(context, {
+        eventBase: "shop.staff.reactivate",
+        nextStatus: "active",
+        reason,
+        staffId: target.staffId,
+      }),
+    (context) =>
+      context.supabase.rpc("shop_staff_reactivate", {
+        p_reason: reason,
+        p_shop_id: context.selectedShop.shopId,
+        p_staff_id: target.staffId,
+      }),
   );
 }
 
@@ -232,12 +307,21 @@ export async function archiveStaff(
   }
   const reason = target.reason;
 
-  return staffRpcResult(target.requestedShopId, (context) =>
-    context.supabase.rpc("shop_staff_archive", {
-      p_reason: reason,
-      p_shop_id: context.selectedShop.shopId,
-      p_staff_id: target.staffId,
-    }),
+  return staffRpcResult(
+    target.requestedShopId,
+    (context) =>
+      setStaffStatusAsStaff(context, {
+        eventBase: "shop.staff.archive",
+        nextStatus: "archived",
+        reason,
+        staffId: target.staffId,
+      }),
+    (context) =>
+      context.supabase.rpc("shop_staff_archive", {
+        p_reason: reason,
+        p_shop_id: context.selectedShop.shopId,
+        p_staff_id: target.staffId,
+      }),
   );
 }
 
@@ -255,12 +339,19 @@ export async function forceStaffCredentialRotation(
   }
   const reason = target.reason;
 
-  return staffRpcResult(target.requestedShopId, (context) =>
-    context.supabase.rpc("shop_staff_force_credential_rotation", {
-      p_reason: reason,
-      p_shop_id: context.selectedShop.shopId,
-      p_staff_id: target.staffId,
-    }),
+  return staffRpcResult(
+    target.requestedShopId,
+    (context) =>
+      forceStaffCredentialRotationAsStaff(context, {
+        reason,
+        staffId: target.staffId,
+      }),
+    (context) =>
+      context.supabase.rpc("shop_staff_force_credential_rotation", {
+        p_reason: reason,
+        p_shop_id: context.selectedShop.shopId,
+        p_staff_id: target.staffId,
+      }),
   );
 }
 
@@ -278,11 +369,116 @@ export async function clearStaffLockout(
   }
   const reason = target.reason;
 
-  return staffRpcResult(target.requestedShopId, (context) =>
-    context.supabase.rpc("shop_staff_clear_lockout", {
-      p_reason: reason,
-      p_shop_id: context.selectedShop.shopId,
-      p_staff_id: target.staffId,
-    }),
+  return staffRpcResult(
+    target.requestedShopId,
+    (context) =>
+      clearStaffLockoutAsStaff(context, {
+        reason,
+        staffId: target.staffId,
+      }),
+    (context) =>
+      context.supabase.rpc("shop_staff_clear_lockout", {
+        p_reason: reason,
+        p_shop_id: context.selectedShop.shopId,
+        p_staff_id: target.staffId,
+      }),
+  );
+}
+
+async function staffWebLifecycleResult(
+  requestedShopId: string | undefined,
+  staffCall: (
+    context: StaffManagerMutationContext,
+  ) => Promise<ShopAdminActionResult>,
+  personalCall: Parameters<typeof runStaffWebLifecycleShopAdminMutation>[2],
+) {
+  const context = await resolveShopActionContext(requestedShopId, "staff.manage");
+
+  if (context.status !== "ready") {
+    return context.result;
+  }
+
+  return runStaffWebLifecycleShopAdminMutation(
+    context,
+    staffCall,
+    personalCall,
+  );
+}
+
+export async function revokeStaffWebAccess(
+  input: StaffTargetInput,
+): Promise<ShopAdminActionResult> {
+  const target = normalizeStaffTarget(input);
+
+  if (!target.staffId) {
+    return shopAdminActionResult("validation_failed", { ok: false });
+  }
+
+  if (!reasonRequired(target.reason)) {
+    return sensitiveReasonError();
+  }
+  const reason = target.reason;
+
+  return staffWebLifecycleResult(
+    target.requestedShopId,
+    (context) =>
+      revokeStaffWebAccessAsStaff(context, {
+        reason,
+        staffId: target.staffId,
+      }),
+    (context, supabase) =>
+      revokeStaffWebAccessAsPersonalAccount(context, supabase, {
+        reason,
+        staffId: target.staffId,
+      }),
+  );
+}
+
+export async function revokeStaffWebSessions(
+  input: StaffTargetInput,
+): Promise<ShopAdminActionResult> {
+  const target = normalizeStaffTarget(input);
+
+  if (!target.staffId) {
+    return shopAdminActionResult("validation_failed", { ok: false });
+  }
+
+  if (!reasonRequired(target.reason)) {
+    return sensitiveReasonError();
+  }
+  const reason = target.reason;
+
+  return staffWebLifecycleResult(
+    target.requestedShopId,
+    (context) =>
+      revokeStaffWebSessionsAsStaff(context, {
+        reason,
+        staffId: target.staffId,
+      }),
+    (context, supabase) =>
+      revokeStaffWebSessionsAsPersonalAccount(context, supabase, {
+        reason,
+        staffId: target.staffId,
+      }),
+  );
+}
+
+export async function updateStaffRolePermissions(
+  input: UpdateStaffRolePermissionsInput,
+): Promise<ShopAdminActionResult> {
+  if (!input.roleKey.trim()) {
+    return shopAdminActionResult("validation_failed", { ok: false });
+  }
+
+  return staffWebLifecycleResult(
+    input.requestedShopId,
+    (context) =>
+      updateStaffRolePermissionsAsStaff(context, {
+        permissions: input.permissions,
+        roleKey: input.roleKey,
+        templateKey: input.templateKey,
+      }),
+    (context, supabase) =>
+      updateStaffRolePermissionsAsPersonalAccount(context, supabase, input),
   );
 }
