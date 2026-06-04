@@ -190,7 +190,9 @@ test("TASK-005K live auth browser gate is opt-in and non-persistent", () => {
 });
 
 test("TASK-005H Supabase SSR proxy refreshes sessions without authz decisions", () => {
-  const proxyEntryPath = "src/proxy.ts";
+  const proxyEntryPath = existsSync(join(root, "src/proxy.ts"))
+    ? "src/proxy.ts"
+    : "src/middleware.ts";
   const proxyHelperPath = "src/lib/supabase/proxy.ts";
 
   assert.equal(existsSync(join(root, proxyEntryPath)), true);
@@ -199,7 +201,7 @@ test("TASK-005H Supabase SSR proxy refreshes sessions without authz decisions", 
   const proxyEntry = readProjectFile(proxyEntryPath);
   const proxyHelper = readProjectFile(proxyHelperPath);
 
-  assert.match(proxyEntry, /export async function proxy/);
+  assert.match(proxyEntry, /export async function (proxy|middleware)/);
   assert.match(proxyEntry, /updateSupabaseSession/);
   assert.match(proxyEntry, /matcher/);
   assert.match(proxyEntry, /_next\/static/);

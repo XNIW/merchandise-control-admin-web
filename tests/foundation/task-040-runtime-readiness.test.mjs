@@ -64,8 +64,9 @@ test("TASK-040 opens one runtime readiness umbrella and folds former follow-ups"
 
   assert.match(
     masterPlan,
-    /Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/,
+    /Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/,
   );
+  assert.match(masterPlan, /SUPERSEDED_BY_TASK-041/);
   assert.match(masterPlan, /Stato TASK-039: `DONE`/);
   assert.match(masterPlan, /Fase TASK-039: `DONE_RECONCILED`/);
   assert.match(masterPlan, /Stato TASK-040: `REVIEW_WITH_EXTERNAL_BLOCKERS`/);
@@ -77,6 +78,7 @@ test("TASK-040 records real runtime gates without fake Sales Sync or production 
     "docs/TASKS/TASK-040-runtime-readiness-supabase-staging-win7pos-sales-sync.md",
   );
   const evidence = readProjectFile("docs/TASKS/EVIDENCE/TASK-040/README.md");
+  const masterPlan = readProjectFile("docs/MASTER-PLAN.md");
   const scanner = readProjectFile("scripts/security-checks.mjs");
   const combined = `${task}\n${evidence}`;
 
@@ -107,5 +109,15 @@ test("TASK-040 records real runtime gates without fake Sales Sync or production 
     combined,
     /Sales Sync: `DONE`|Staging: `DONE`|Win7POS E2E: `PASS_LIVE`|Migration Supabase: `APPLIED`/,
   );
-  assert.equal(existsSync(join(root, "src/app/api/pos/sales")), false);
+  if (
+    /Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
+      masterPlan,
+    )
+  ) {
+    assert.equal(existsSync(join(root, "src/app/api/pos/sales")), true);
+    assert.match(masterPlan, /SUPERSEDED_BY_TASK-041/);
+    assert.match(masterPlan, /PASS_SALES_SYNC_FOUNDATION/);
+  } else {
+    assert.equal(existsSync(join(root, "src/app/api/pos/sales")), false);
+  }
 });

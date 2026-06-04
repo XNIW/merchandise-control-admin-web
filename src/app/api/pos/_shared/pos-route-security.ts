@@ -13,7 +13,7 @@ function hasJsonContentType(request: Request) {
   return mediaType === "application/json";
 }
 
-function hasAllowedContentLength(request: Request) {
+function hasAllowedContentLength(request: Request, maxBytes: number) {
   const rawLength = request.headers.get("content-length");
 
   if (!rawLength) {
@@ -25,11 +25,11 @@ function hasAllowedContentLength(request: Request) {
   return (
     Number.isFinite(contentLength) &&
     contentLength >= 0 &&
-    contentLength <= MAX_POS_JSON_BODY_BYTES
+    contentLength <= maxBytes
   );
 }
 
-async function readLimitedBodyText(request: Request) {
+async function readLimitedBodyText(request: Request, maxBytes: number) {
   if (!request.body) {
     return "";
   }
@@ -51,7 +51,7 @@ async function readLimitedBodyText(request: Request) {
 
     receivedBytes += value.byteLength;
 
-    if (receivedBytes > MAX_POS_JSON_BODY_BYTES) {
+    if (receivedBytes > maxBytes) {
       await reader.cancel();
       return null;
     }
@@ -70,12 +70,17 @@ async function readLimitedBodyText(request: Request) {
   return new TextDecoder().decode(bodyBytes);
 }
 
-export async function readPosJsonBody(request: Request) {
-  if (!hasJsonContentType(request) || !hasAllowedContentLength(request)) {
+export async function readPosJsonBody(
+  request: Request,
+  options: { maxBytes?: number } = {},
+) {
+  const maxBytes = options.maxBytes ?? MAX_POS_JSON_BODY_BYTES;
+
+  if (!hasJsonContentType(request) || !hasAllowedContentLength(request, maxBytes)) {
     return null;
   }
 
-  const text = await readLimitedBodyText(request);
+  const text = await readLimitedBodyText(request, maxBytes);
 
   if (text === null || text.trim().length === 0) {
     return null;

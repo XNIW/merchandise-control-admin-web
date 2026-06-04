@@ -75,7 +75,7 @@ test("TASK-039 closes code scope with repo-grounded audit and explicit DONE reco
 
   assert.match(
     masterPlan,
-    /Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`/,
+    /Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/,
   );
   assert.match(task, /Stato: `DONE`/);
   assert.match(task, /Fase attuale: `DONE_RECONCILED`/);

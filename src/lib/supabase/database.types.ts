@@ -7,6 +7,11 @@ export type Json =
   | Json[]
 
 export type Database = {
+  // Allows to automatically instantiate createClient with right options
+  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
+  __InternalSupabase: {
+    PostgrestVersion: "14.5"
+  }
   app_private: {
     Tables: {
       [_ in never]: never
@@ -95,6 +100,31 @@ export type Database = {
           p_target_type: string
         }
         Returns: string
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
       }
     }
     Enums: {
@@ -402,6 +432,75 @@ export type Database = {
           source?: string | null
           source_device_id?: string | null
           store_id?: string | null
+        }
+        Relationships: []
+      }
+      categories: {
+        Row: {
+          id: number
+          name: string
+        }
+        Insert: {
+          id?: number
+          name: string
+        }
+        Update: {
+          id?: number
+          name?: string
+        }
+        Relationships: []
+      }
+      history_entries: {
+        Row: {
+          category: string
+          complete: string
+          data: string
+          editable: string
+          id: string
+          ismanualentry: boolean
+          missingitems: number
+          ordertotal: number
+          paymenttotal: number
+          supplier: string
+          syncstatus: string
+          timestamp: string
+          totalitems: number
+          uid: number
+          wasexported: boolean
+        }
+        Insert: {
+          category?: string
+          complete: string
+          data: string
+          editable: string
+          id: string
+          ismanualentry?: boolean
+          missingitems?: number
+          ordertotal?: number
+          paymenttotal?: number
+          supplier?: string
+          syncstatus?: string
+          timestamp: string
+          totalitems?: number
+          uid?: number
+          wasexported?: boolean
+        }
+        Update: {
+          category?: string
+          complete?: string
+          data?: string
+          editable?: string
+          id?: string
+          ismanualentry?: boolean
+          missingitems?: number
+          ordertotal?: number
+          paymenttotal?: number
+          supplier?: string
+          syncstatus?: string
+          timestamp?: string
+          totalitems?: number
+          uid?: number
+          wasexported?: boolean
         }
         Relationships: []
       }
@@ -778,6 +877,303 @@ export type Database = {
           },
         ]
       }
+      pos_sale_lines: {
+        Row: {
+          barcode: string | null
+          client_line_id: string
+          created_at: string
+          item_number: string | null
+          line_position: number
+          line_total: number
+          metadata_redacted: Json
+          pos_sale_id: string
+          pos_sale_line_id: string
+          pos_sales_sync_batch_id: string
+          product_id: string | null
+          product_name: string | null
+          quantity: number
+          shop_id: string
+          unit_price: number
+        }
+        Insert: {
+          barcode?: string | null
+          client_line_id: string
+          created_at?: string
+          item_number?: string | null
+          line_position: number
+          line_total: number
+          metadata_redacted?: Json
+          pos_sale_id: string
+          pos_sale_line_id?: string
+          pos_sales_sync_batch_id: string
+          product_id?: string | null
+          product_name?: string | null
+          quantity: number
+          shop_id: string
+          unit_price: number
+        }
+        Update: {
+          barcode?: string | null
+          client_line_id?: string
+          created_at?: string
+          item_number?: string | null
+          line_position?: number
+          line_total?: number
+          metadata_redacted?: Json
+          pos_sale_id?: string
+          pos_sale_line_id?: string
+          pos_sales_sync_batch_id?: string
+          product_id?: string | null
+          product_name?: string | null
+          quantity?: number
+          shop_id?: string
+          unit_price?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sale_lines_pos_sale_id_fkey"
+            columns: ["pos_sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["pos_sale_id"]
+          },
+          {
+            foreignKeyName: "pos_sale_lines_pos_sales_sync_batch_id_fkey"
+            columns: ["pos_sales_sync_batch_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales_sync_batches"
+            referencedColumns: ["pos_sales_sync_batch_id"]
+          },
+          {
+            foreignKeyName: "pos_sale_lines_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sale_lines_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      pos_sales: {
+        Row: {
+          business_date: string | null
+          client_sale_id: string
+          created_at: string
+          currency: string
+          discount_total: number
+          idempotency_key: string
+          metadata_redacted: Json
+          occurred_at: string
+          payload_hash: string
+          pos_sale_id: string
+          pos_sales_sync_batch_id: string
+          pos_session_id: string
+          sale_number: string | null
+          shop_code: string
+          shop_device_id: string
+          shop_id: string
+          staff_id: string
+          status: string
+          subtotal: number
+          tax_total: number
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          business_date?: string | null
+          client_sale_id: string
+          created_at?: string
+          currency?: string
+          discount_total?: number
+          idempotency_key: string
+          metadata_redacted?: Json
+          occurred_at: string
+          payload_hash: string
+          pos_sale_id?: string
+          pos_sales_sync_batch_id: string
+          pos_session_id: string
+          sale_number?: string | null
+          shop_code: string
+          shop_device_id: string
+          shop_id: string
+          staff_id: string
+          status?: string
+          subtotal?: number
+          tax_total?: number
+          total: number
+          updated_at?: string
+        }
+        Update: {
+          business_date?: string | null
+          client_sale_id?: string
+          created_at?: string
+          currency?: string
+          discount_total?: number
+          idempotency_key?: string
+          metadata_redacted?: Json
+          occurred_at?: string
+          payload_hash?: string
+          pos_sale_id?: string
+          pos_sales_sync_batch_id?: string
+          pos_session_id?: string
+          sale_number?: string | null
+          shop_code?: string
+          shop_device_id?: string
+          shop_id?: string
+          staff_id?: string
+          status?: string
+          subtotal?: number
+          tax_total?: number
+          total?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sales_pos_sales_sync_batch_id_fkey"
+            columns: ["pos_sales_sync_batch_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales_sync_batches"
+            referencedColumns: ["pos_sales_sync_batch_id"]
+          },
+          {
+            foreignKeyName: "pos_sales_pos_session_id_fkey"
+            columns: ["pos_session_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sessions"
+            referencedColumns: ["pos_session_id"]
+          },
+          {
+            foreignKeyName: "pos_sales_shop_device_id_fkey"
+            columns: ["shop_device_id"]
+            isOneToOne: false
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "pos_sales_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "pos_sales_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pos_sales_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
+      pos_sales_sync_batches: {
+        Row: {
+          client_batch_id: string
+          conflict_count: number
+          created_at: string
+          idempotency_key: string
+          line_count: number
+          metadata_redacted: Json
+          payload_hash: string
+          pos_sales_sync_batch_id: string
+          pos_session_id: string
+          received_at: string
+          sale_count: number
+          shop_code: string
+          shop_device_id: string
+          shop_id: string
+          staff_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_batch_id: string
+          conflict_count?: number
+          created_at?: string
+          idempotency_key: string
+          line_count?: number
+          metadata_redacted?: Json
+          payload_hash: string
+          pos_sales_sync_batch_id?: string
+          pos_session_id: string
+          received_at?: string
+          sale_count?: number
+          shop_code: string
+          shop_device_id: string
+          shop_id: string
+          staff_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_batch_id?: string
+          conflict_count?: number
+          created_at?: string
+          idempotency_key?: string
+          line_count?: number
+          metadata_redacted?: Json
+          payload_hash?: string
+          pos_sales_sync_batch_id?: string
+          pos_session_id?: string
+          received_at?: string
+          sale_count?: number
+          shop_code?: string
+          shop_device_id?: string
+          shop_id?: string
+          staff_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sales_sync_batches_pos_session_id_fkey"
+            columns: ["pos_session_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sessions"
+            referencedColumns: ["pos_session_id"]
+          },
+          {
+            foreignKeyName: "pos_sales_sync_batches_shop_device_id_fkey"
+            columns: ["shop_device_id"]
+            isOneToOne: false
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "pos_sales_sync_batches_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "pos_sales_sync_batches_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pos_sales_sync_batches_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
       pos_sessions: {
         Row: {
           created_at: string
@@ -871,6 +1267,108 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff_accounts_safe"
             referencedColumns: ["staff_id"]
+          },
+        ]
+      }
+      product_prices: {
+        Row: {
+          createdat: string
+          effectiveat: string
+          id: number
+          note: string | null
+          price: number
+          productid: number
+          source: string | null
+          type: string
+        }
+        Insert: {
+          createdat: string
+          effectiveat: string
+          id?: number
+          note?: string | null
+          price: number
+          productid: number
+          source?: string | null
+          type: string
+        }
+        Update: {
+          createdat?: string
+          effectiveat?: string
+          id?: number
+          note?: string | null
+          price?: number
+          productid?: number
+          source?: string | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_prices_productid_fkey"
+            columns: ["productid"]
+            isOneToOne: false
+            referencedRelation: "product_price_summary"
+            referencedColumns: ["productid"]
+          },
+          {
+            foreignKeyName: "product_prices_productid_fkey"
+            columns: ["productid"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      products: {
+        Row: {
+          barcode: string
+          categoryid: number | null
+          id: number
+          itemnumber: string | null
+          productname: string | null
+          purchaseprice: number | null
+          retailprice: number | null
+          secondproductname: string | null
+          stockquantity: number | null
+          supplierid: number | null
+        }
+        Insert: {
+          barcode: string
+          categoryid?: number | null
+          id?: number
+          itemnumber?: string | null
+          productname?: string | null
+          purchaseprice?: number | null
+          retailprice?: number | null
+          secondproductname?: string | null
+          stockquantity?: number | null
+          supplierid?: number | null
+        }
+        Update: {
+          barcode?: string
+          categoryid?: number | null
+          id?: number
+          itemnumber?: string | null
+          productname?: string | null
+          purchaseprice?: number | null
+          retailprice?: number | null
+          secondproductname?: string | null
+          stockquantity?: number | null
+          supplierid?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "products_categoryid_fkey"
+            columns: ["categoryid"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "products_supplierid_fkey"
+            columns: ["supplierid"]
+            isOneToOne: false
+            referencedRelation: "suppliers"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1543,6 +2041,21 @@ export type Database = {
           },
         ]
       }
+      suppliers: {
+        Row: {
+          id: number
+          name: string
+        }
+        Insert: {
+          id?: number
+          name: string
+        }
+        Update: {
+          id?: number
+          name?: string
+        }
+        Relationships: []
+      }
       sync_events: {
         Row: {
           batch_id: string | null
@@ -1596,6 +2109,30 @@ export type Database = {
       }
     }
     Views: {
+      product_price_summary: {
+        Row: {
+          lastpurchase: number | null
+          lastretail: number | null
+          prevpurchase: number | null
+          prevretail: number | null
+          productid: number | null
+        }
+        Insert: {
+          lastpurchase?: never
+          lastretail?: never
+          prevpurchase?: never
+          prevretail?: never
+          productid?: number | null
+        }
+        Update: {
+          lastpurchase?: never
+          lastretail?: never
+          prevpurchase?: never
+          prevretail?: never
+          productid?: number | null
+        }
+        Relationships: []
+      }
       staff_accounts_safe: {
         Row: {
           created_at: string | null
@@ -2054,6 +2591,9 @@ export type CompositeTypes<
 
 export const Constants = {
   app_private: {
+    Enums: {},
+  },
+  graphql_public: {
     Enums: {},
   },
   public: {

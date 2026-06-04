@@ -146,6 +146,7 @@ test("TASK-021 POS endpoint modules stay server-side and redact credentials", ()
 });
 
 test("TASK-021 updates security scanner and keeps sales sync out of scope", () => {
+  const masterPlan = readProjectFile("docs/MASTER-PLAN.md");
   const scanner = readProjectFile("scripts/security-checks.mjs");
   const runtimeSource = [
     ...["src", "supabase"].flatMap((topLevel) =>
@@ -161,7 +162,22 @@ test("TASK-021 updates security scanner and keeps sales sync out of scope", () =
   assert.match(scanner, /checkTask021PosBackendSessionDeviceEndpoints/);
   assert.match(scanner, /checkTask021PosBackendSessionDeviceEndpoints\(\)/);
   assert.match(scanner, /credentialMatchesSession/);
-  assert.doesNotMatch(runtimeSource, /src\/app\/api\/pos\/sales|pos_sales_sync|pos_sync_batches/i);
+
+  if (
+    /Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
+      masterPlan,
+    )
+  ) {
+    assert.match(scanner, /checkTask041RuntimeCompletion/);
+    assert.match(
+      readProjectFile(
+        "docs/TASKS/TASK-041-runtime-completion-supabase-cloudflare-sales-sync-win7pos-e2e.md",
+      ),
+      /PASS_SALES_SYNC_FOUNDATION/,
+    );
+  } else {
+    assert.doesNotMatch(runtimeSource, /src\/app\/api\/pos\/sales|pos_sales_sync|pos_sync_batches/i);
+  }
 });
 
 test("TASK-021 hardens lockout expiry, audit requirements and token failure handling", () => {

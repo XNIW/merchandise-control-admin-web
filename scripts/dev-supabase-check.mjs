@@ -6,6 +6,11 @@ import { join } from "node:path";
 const root = process.cwd();
 const args = new Set(process.argv.slice(2));
 const statusMode = args.has("--status");
+const modeArg = process.argv
+  .slice(2)
+  .find((arg) => arg.startsWith("--mode="));
+const mode = modeArg ? modeArg.slice("--mode=".length) : "local";
+const allowedModes = new Set(["local", "ci", "cloud", "staging", "production"]);
 const requiredEnvNames = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
@@ -36,6 +41,12 @@ function run(command, commandArgs, options = {}) {
         encoding: "utf8",
         stdio: ["ignore", "pipe", "pipe"],
         ...options,
+        env: {
+          ...process.env,
+          ...(options.env ?? {}),
+          SUPABASE_TELEMETRY_DISABLED: "1",
+          DO_NOT_TRACK: "1",
+        },
       }),
     };
   } catch (error) {
@@ -145,8 +156,20 @@ function checkEnvFiles() {
     const target = classifySupabaseUrl(relativePath);
     log(`${relativePath}:NEXT_PUBLIC_SUPABASE_URL_TARGET=${target}`);
 
-    if (relativePath !== ".env.example" && ["supabase_cloud", "custom_remote"].includes(target)) {
+    if (
+      ["local", "ci"].includes(mode) &&
+      relativePath !== ".env.example" &&
+      ["supabase_cloud", "custom_remote"].includes(target)
+    ) {
       fail(`${relativePath} points at ${target}; local/dev checks fail closed`);
+    }
+
+    if (
+      ["cloud", "staging"].includes(mode) &&
+      relativePath !== ".env.example" &&
+      ["missing_file", "missing", "invalid", "local"].includes(target)
+    ) {
+      fail(`${relativePath} is not configured for a redacted cloud/staging target`);
     }
   }
 }
@@ -191,13 +214,24 @@ function checkDockerContainers(projectId) {
 function redactSupabaseStatus(output) {
   return output
     .split(/\r?\n/)
-    .map((line) =>
-      /(?:anon key|service[_ -]?role key|jwt secret|db url|api url|graphql url|s3 access key|s3 secret key)/i.test(
-        line,
-      )
-        ? line.replace(/:.*/, ": [redacted]")
-        : line,
-    )
+    .map((line) => {
+      if (
+        /(?:anon key|publishable|service[_ -]?role key|secret(?:\s+key)?|jwt secret|db url|database url|postgres(?:ql)?:\/\/|s3 access key|s3 secret key|access key)/i.test(
+          line,
+        )
+      ) {
+        return line
+          .replace(/sb_(?:publishable|secret)_[A-Za-z0-9_-]+/g, "[redacted]")
+          .replace(/postgres(?:ql)?:\/\/[^ │]+/gi, "[redacted]")
+          .replace(
+            /(│\s*(?:Publishable|Secret|Access Key|Secret Key|URL)\s*│)\s*[^│]+/gi,
+            "$1 [redacted] ",
+          )
+          .replace(/:.*/, ": [redacted]");
+      }
+
+      return line;
+    })
     .join("\n");
 }
 
@@ -216,16 +250,29 @@ function printRedactedStatus() {
   }
 }
 
+if (!allowedModes.has(mode)) {
+  fail(`unsupported mode ${mode}; expected local, ci, cloud, staging, or production`);
+}
+
+if (mode === "production") {
+  fail("production mode is intentionally unsupported by this development checker");
+}
+
+log(`mode=${mode}`);
 checkSupabaseCli();
 const projectId = parseProjectId();
 checkEnvFiles();
 
-if (projectId) {
+if (projectId && mode === "local") {
   checkDockerContainers(projectId);
+} else if (projectId) {
+  log(`SKIP local Supabase DB container check in ${mode} mode`);
 }
 
-if (statusMode) {
+if (statusMode && mode === "local") {
   printRedactedStatus();
+} else if (statusMode) {
+  log(`SKIP supabase status in ${mode} mode`);
 }
 
 if (failures > 0) {
