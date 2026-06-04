@@ -1314,6 +1314,48 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Review finale Codex 2026-06-03: hard review su diff TASK-036 con Codex Security diff-scan in `/tmp/codex-security-scans/merchandise-control-admin-web/9586993_20260603_task036/`, verdict no findings. Fix scoped applicati: cap render-side/server-side 160 sui filtri Sync Center, status filter normalizzato, reason catalog trim/cap server-side e hint audit UI, check Supabase CLI senza `which`, guardrail TASK-036 rafforzato. `npm run dev:db:check` resta `PASS_FAIL_CLOSED` su `.env.local` cloud e mismatch container, come guardrail. Smoke autenticato Shop Admin eseguito con Supabase locale `127.0.0.1:54321`, key generate solo come env di processo da `GOTRUE_JWT_SECRET` del container Auth locale e nessun secret stampato/salvato; primo probe con secret PostgREST fallisce `bad_jwt` come diagnostica, probe corretto GoTrue passa. Build con env locali process-only passa con warning noto `[DEP0205]`; `npm run test:shop-admin-auth-smoke` passa `2 passed`; cleanup DB post-smoke zero su `TASK035_*` e auth user. Production-ready globale non dichiarato, Cloudflared resta temporaneo, Vercel resta parcheggiato, Sales Sync resta `DEFERRED`, Win7POS live E2E resta parked. TASK-036 resta `REVIEW` e passa a `READY_FOR_DONE_CONFIRMATION`; Codex non marca `DONE` senza conferma utente.
 - Chiusura 2026-06-03: conferma esplicita utente ricevuta per marcare TASK-036 `DONE`. Le note non bloccanti restano vincolanti: Cloudflared e temporaneo/non-production, Vercel resta parcheggiato con `git.deploymentEnabled=false`, `dev:db:check` fallisce chiuso su `.env.local` cloud/mismatch container, warning `[DEP0205]` non bloccante, Win7POS live E2E resta `PARKED_NOT_IN_SCOPE`, TASK-024 Sales Sync resta `DEFERRED`, progetto non dichiarato production-ready globale.
 
+### TASK-037 - Shop Admin dual access model: personal account and POS manager login
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-037-shop-admin-dual-access-model.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-037/README.md`
+- Architecture doc: `docs/ARCHITECTURE/SHOP-ADMIN-DUAL-ACCESS-MODEL.md`
+- Fase: `DONE`
+- Responsabile: `COMPLETED`
+- Branch previsto: Admin Web su `main`
+- Verdict corrente: `DONE`
+- Scopo: verificare, documentare e preparare il modello dual access della Shop Admin Console senza implementare Sales Sync, email invite, social login o integrazioni Win7 live.
+- Decisione prodotto:
+  - `personal_account`: account personale web, multi-shop, collegato agli shop tramite `shop_members`;
+  - `pos_staff_manager`: futuro accesso staff POS manager/admin, single-shop, con `shop_code + staff_code + credential`;
+  - `profiles` e `staff_accounts` restano separati;
+  - `cashier/operator` e staff ordinario non accedono alla Shop Admin web.
+- Stato attuale repo-grounded:
+  - `/shop` oggi e basato su Supabase Auth personale + `shop_members`;
+  - shop switcher usa `shop_id` solo come navigazione tra shop gia autorizzati;
+  - `staff_accounts`, `staff_accounts_safe`, `credential_status`, `shop_devices`, `pos_device_credentials`, `pos_sessions` e `audit_logs` sono presenti;
+  - `staff_accounts.role_key` supporta `cashier`, `manager`, `viewer`;
+  - `admin` role_key staff e `shop_admin.full_access` non sono ancora schema/runtime verificati.
+  - Current schema staff web role: `manager` only; `admin` resta target prodotto/follow-up e non e accettato dalla foundation attuale.
+- Implementation TASK-037:
+  - aggiunto `src/server/shop-admin/access-principal.ts` come foundation server-only;
+  - formalizzati i principal `personal_account` e `pos_staff_manager`;
+  - `resolveCurrentShopAdminPrincipal` avvolge l'accesso personale esistente;
+  - `resolvePosStaffManagerWebPrincipal` resta conservativo e richiede input staff gia verificato, ruolo schema corrente `manager` e permesso `shop_admin.full_access`;
+  - aggiunti doc access model, task/evidence, foundation test e guardrail security scanner.
+- Non include:
+  - login staff web completo;
+  - nuove migration Supabase;
+  - Sales Sync;
+  - email invite;
+  - Google/Apple/WeChat login;
+  - modifiche Win7POS/Android/iOS/Cash Register;
+  - Supabase production o Vercel Production;
+  - secret, service-role client/browser, PIN/password/token/hash in UI/log/evidence.
+- Handoff Codex 2026-06-03: TASK-037 va a `REVIEW` con foundation minima server-side e decisione prodotto registrata. Login staff manager web completo resta task futuro perche richiede schema/permessi staff web, cookie HTTP-only, rate limit/lockout e audit login/logout.
+- Review finale Codex 2026-06-03: hard review sul modello TASK-037 e security diff scan locale in `/tmp/codex-security-scans/merchandise-control-admin-web/ea1f0b8_20260604_task037_final/`, no findings reportable dopo fix. Corretto il guardrail staff web per non accettare `admin` come ruolo corrente quando lo schema verifica solo `manager`; `POS_STAFF_WEB_FUTURE_ADMIN_ROLE_KEY = admin` resta target/follow-up. Rimossi helper autorizzativi staff web non integrati e rafforzati foundation test/security scanner contro il pattern permissivo `manager/admin`. Check finali freschi passano: `security:scan`, `test:foundation` (`167/167`), `typecheck`, `lint`, `build`, `verify`, `test:shop-admin-auth-smoke`, `git diff --check`, `git status` e `git diff --cached --name-status`; solo warning noto `[DEP0205]`, smoke autenticato `PASS_WITH_SKIP` su ambiente non locale/sicuro, `dev:db:check` fail-closed su `.env.local` cloud/mismatch container. In quella fase TASK-037 restava `REVIEW` e passava a `READY_FOR_DONE_CONFIRMATION`; Codex non marcava `DONE` senza conferma utente.
+- Chiusura 2026-06-03: conferma esplicita utente ricevuta per marcare TASK-037 `DONE`, commit e push su `main`. Le note residue restano vincolanti: login staff web completo non implementato, schema staff corrente solo `cashier`/`manager`/`viewer`, `admin` e `shop_admin.full_access` sono follow-up, nessuna migration TASK-037, Sales Sync resta `DEFERRED`, nessuna modifica Win7POS/Android/iOS e nessuna dichiarazione production-ready globale.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -1328,7 +1370,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `IDLE`
-- Ultimo task completato: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`
+- Ultimo task completato: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -1348,12 +1390,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-034: `DONE_RECONCILED`
 - Stato TASK-036: `DONE`
 - Fase TASK-036: `DONE`
+- Stato TASK-037: `DONE`
+- Fase TASK-037: `DONE`
 - Task attivo: `NESSUNO`
-- File task: `docs/TASKS/TASK-036-admin-web-web-readiness-local-dev-cloudflared-shop-sync-production-hardening.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-036/README.md`
+- File task: `docs/TASKS/TASK-037-shop-admin-dual-access-model.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-037/README.md`
 - Stato task: `DONE`
 - Fase: `DONE`
-- Milestone interna: `TASK_036_DONE_CONFIRMED`
+- Milestone interna: `TASK_037_DONE_CONFIRMED`
 - Responsabile: `COMPLETED`
 - Branch previsto: Admin Web su `main` o branch dedicato se autorizzato in execution
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
@@ -1372,8 +1416,9 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-034: `DONE_WITH_NOTES`
 - Verdict TASK-035: `DONE`
 - Verdict TASK-036: `DONE`
+- Verdict TASK-037: `DONE`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
-- Prossima azione consigliata: stato `IDLE`; scegliere il prossimo task aperto senza aprire automaticamente Sales Sync. TASK-029, TASK-031, TASK-032, TASK-033 e TASK-022_023 restano non chiusi secondo i rispettivi blocker.
+- Prossima azione consigliata: decidere un task separato per eventuale schema/auth staff manager web. Non aprire automaticamente Sales Sync. TASK-029, TASK-031, TASK-032, TASK-033 e TASK-022_023 restano non chiusi secondo i rispettivi blocker.
 
 ## Regole di avanzamento
 

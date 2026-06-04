@@ -1428,6 +1428,9 @@ function checkTask013UiPolishArtifacts() {
     ) &&
     !/Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/.test(
       masterPlan,
+    ) &&
+    !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(
+      masterPlan,
     )
   ) {
     addFailure(`${masterPlanPath} must either be IDLE after TASK-013 or track a later active task`);
@@ -2969,7 +2972,8 @@ function checkTask020Win7PosIntegrationPlanning() {
     !/Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`/.test(masterPlan) &&
     !/Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`/.test(masterPlan) &&
     !/Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`/.test(masterPlan) &&
-    !/Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/.test(masterPlan)
+    !/Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/.test(masterPlan) &&
+    !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(masterPlan)
   ) {
     addFailure("MASTER-PLAN must return to no active task after reconciliation or track an active POS/catalog task");
   }
@@ -3634,6 +3638,112 @@ function checkTask027CatalogPullDeltaSync() {
   }
 }
 
+function checkTask037ShopAdminDualAccessModel() {
+  const taskPath = "docs/TASKS/TASK-037-shop-admin-dual-access-model.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-037/README.md";
+  const architecturePath = "docs/ARCHITECTURE/SHOP-ADMIN-DUAL-ACCESS-MODEL.md";
+  const principalPath = "src/server/shop-admin/access-principal.ts";
+  const foundationTestPath = "tests/foundation/task-037-dual-access-model.test.mjs";
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    architecturePath,
+    principalPath,
+    foundationTestPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing for TASK-037`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const architecture = read(architecturePath);
+  const principal = read(principalPath);
+  const foundationTest = read(foundationTestPath);
+  const masterPlan = read("docs/MASTER-PLAN.md");
+  const combinedDocs = `${task}\n${evidence}\n${architecture}\n${masterPlan}`;
+  const migrationNames = listFiles("supabase/migrations").map((file) =>
+    file.split("/").pop() ?? file,
+  );
+  const appRouteFiles = listFiles("src/app");
+
+  for (const requiredSnippet of [
+    "personal_account",
+    "pos_staff_manager",
+    "shop_members",
+    "staff_accounts",
+    "staff_accounts_safe",
+    "credential_status",
+    "single-shop",
+    "multi-shop",
+    "cashier/operator",
+    "No Sales Sync",
+    "No Google/Apple/WeChat",
+    "No email invite",
+    "No Win7POS/Android/iOS changes",
+    "DONE",
+    "`admin` role_key: `NOT_PRESENT_IN_SCHEMA`",
+    "Current schema staff web role: `manager` only",
+    "staff manager web login completo: `PLANNED_NOT_IMPLEMENTED`",
+  ]) {
+    if (!combinedDocs.includes(requiredSnippet)) {
+      addFailure(`TASK-037 docs must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    'import "server-only"',
+    "ShopAdminPersonalAccountPrincipal",
+    "ShopAdminPosStaffManagerPrincipal",
+    "resolveCurrentShopAdminPrincipal",
+    "resolvePosStaffManagerWebPrincipal",
+    "isPosStaffEligibleForShopAdminWeb",
+    "POS_STAFF_WEB_REQUIRED_PERMISSION",
+    "POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY",
+    "POS_STAFF_WEB_FUTURE_ADMIN_ROLE_KEY",
+    "shop_admin.full_access",
+    "pos_staff_web_session_planned",
+    "staff_web_login_not_implemented",
+  ]) {
+    if (!principal.includes(requiredSnippet)) {
+      addFailure(`${principalPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/createSupabaseAdminClient|SUPABASE_SERVICE_ROLE_KEY|credential_hash|pin_plain|password_plain|plain_pin|plain_password/i.test(principal)) {
+    addFailure(`${principalPath} must not handle service-role or raw staff credentials`);
+  }
+
+  if (!/input\.roleKey === POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY/.test(principal)) {
+    addFailure(`${principalPath} must restrict current staff web eligibility to the verified manager role`);
+  }
+
+  if (/new Set\(\["manager", "admin"\]\)|posStaffWebRoleKeys\.has|principalCanSelectShop|principalShopRole/.test(principal)) {
+    addFailure(`${principalPath} must not accept future admin role or expose unused authorization helpers`);
+  }
+
+  if (migrationNames.some((file) => /task_037|task-037/i.test(file))) {
+    addFailure("TASK-037 must not create a Supabase migration");
+  }
+
+  const unexpectedStaffLoginRoutes = appRouteFiles.filter((file) =>
+    /staff.*login|login.*staff|pos.*manager.*login/i.test(file),
+  );
+
+  if (unexpectedStaffLoginRoutes.length > 0) {
+    addFailure(
+      `TASK-037 must not add staff web login routes: ${unexpectedStaffLoginRoutes.join(", ")}`,
+    );
+  }
+
+  if (!/checkTask037ShopAdminDualAccessModel/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert the TASK-037 security scanner gate`);
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -3666,6 +3776,7 @@ checkTask020Win7PosIntegrationPlanning();
 checkTask021PosBackendSessionDeviceEndpoints();
 checkTask022023PosDashboardWin7PosClient();
 checkTask027CatalogPullDeltaSync();
+checkTask037ShopAdminDualAccessModel();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

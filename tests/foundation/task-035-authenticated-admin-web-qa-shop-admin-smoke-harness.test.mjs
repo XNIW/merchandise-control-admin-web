@@ -57,7 +57,10 @@ test("TASK-035 artifacts define authenticated Shop Admin QA scope and DONE hando
     masterPlan,
     /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/,
   );
-  assert.match(masterPlan, /Ultimo task completato: `TASK-035|Ultimo task completato: `TASK-036/);
+  assert.match(
+    masterPlan,
+    /Ultimo task completato: `TASK-035|Ultimo task completato: `TASK-036|Ultimo task completato: `TASK-037/,
+  );
   assert.match(masterPlan, /Stato TASK-034: `DONE_RECONCILED_WITH_NOTES`/);
   assert.match(task, /Stato: `DONE`/);
   assert.match(task, /Fase attuale: `DONE`/);
