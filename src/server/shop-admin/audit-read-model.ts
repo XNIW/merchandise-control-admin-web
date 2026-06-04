@@ -1,17 +1,13 @@
 import "server-only";
 
-import {
-  createSupabaseServerClient,
-  resolveSupabaseServerConfig,
-  type SupabaseServerClient,
-} from "@/lib/supabase/server";
+import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import { redactShopAdminJson, stringifyRedactedJson } from "./history-read-model";
+import { resolveShopAdminDataAccess, type ShopAdminDataClient } from "./data-access";
 import type {
   ShopAdminReadModelError,
   ShopAdminReadModelStatus,
 } from "./read-model";
-import { resolveCurrentShopAdminShellAccess } from "./shop-access";
 import type { ShopAdminShellShop } from "./shop-access";
 
 type AuditLogRow = Pick<
@@ -132,39 +128,13 @@ async function resolveAuditAccess(
 ): Promise<
   | {
       selectedShop: ShopAdminShellShop;
-      supabase: SupabaseServerClient;
+      supabase: ShopAdminDataClient;
     }
   | ShopAuditReadModel
 > {
-  const config = resolveSupabaseServerConfig();
+  const access = await resolveShopAdminDataAccess(options);
 
-  if (config.status !== "configured") {
-    return {
-      status: "not_configured",
-      ...emptyRows,
-      filters: {},
-      readOnly: true,
-      source: "supabase_server",
-      reason: "Supabase runtime env is not configured for shop audit reads.",
-    };
-  }
-
-  const supabase = options.client ?? (await createSupabaseServerClient(config));
-
-  if (!supabase) {
-    return {
-      status: "not_configured",
-      ...emptyRows,
-      filters: {},
-      readOnly: true,
-      source: "supabase_server",
-      reason: "Supabase server client is unavailable for shop audit reads.",
-    };
-  }
-
-  const access = await resolveCurrentShopAdminShellAccess(supabase);
-
-  if (access.status !== "shop_admin") {
+  if (access.status !== "ready") {
     return {
       status:
         access.status === "not_configured" || access.status === "error"
@@ -179,11 +149,8 @@ async function resolveAuditAccess(
   }
 
   return {
-    selectedShop:
-      access.availableShops.find(
-        (shop) => shop.shopId === options.requestedShopId,
-      ) ?? access.selectedShop,
-    supabase,
+    selectedShop: access.selectedShop,
+    supabase: access.supabase,
   };
 }
 

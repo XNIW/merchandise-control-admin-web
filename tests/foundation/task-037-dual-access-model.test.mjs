@@ -134,6 +134,10 @@ test("TASK-037 keeps schema facts explicit and does not add staff web login rout
     readProjectFile("docs/TASKS/EVIDENCE/TASK-037/README.md"),
     readProjectFile("docs/ARCHITECTURE/SHOP-ADMIN-DUAL-ACCESS-MODEL.md"),
   ].join("\n");
+  const masterPlan = readProjectFile("docs/MASTER-PLAN.md");
+  const task038Opened = /TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate/.test(
+    masterPlan,
+  );
 
   assert.match(migrationText, /role_key in \('cashier', 'manager', 'viewer'\)/);
   assert.match(migrationText, /credential_status in \('pending_setup', 'active', 'rotation_required', 'locked'\)/);
@@ -146,7 +150,8 @@ test("TASK-037 keeps schema facts explicit and does not add staff web login rout
 
   assert.equal(migrations.some((file) => /task_037|task-037/i.test(file)), false);
   assert.equal(
-    appFiles.some((file) => /staff.*login|login.*staff|pos.*manager.*login/i.test(file)),
+    appFiles.some((file) => /staff.*login|login.*staff|pos.*manager.*login/i.test(file)) &&
+      !task038Opened,
     false,
   );
 });

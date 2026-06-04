@@ -231,6 +231,8 @@ function checkReadOnlyContracts() {
   ]);
   const allowedDirectMutationPatternFiles = new Set([
     "src/server/shop-admin/import-export-workbook.ts",
+    "src/server/shop-admin/staff-web-auth.ts",
+    "src/server/platform-admin/staff-manager-provisioning.ts",
   ]);
 
   for (const file of serverFiles) {
@@ -451,7 +453,12 @@ function checkTask007AuthRoutingArtifacts() {
     addFailure(`${platformLayoutPath} must block non-Platform Admin access server-side`);
   }
 
-  if (!/status !== "shop_admin"/.test(shopLayout) || !/AccessState/.test(shopLayout)) {
+  if (
+    !/resolveCurrentShopAdminPrincipal/.test(shopLayout) ||
+    !/resolveStaffWebSessionPrincipal/.test(shopLayout) ||
+    !/resolution\.status !== "ready"/.test(shopLayout) ||
+    !/AccessState/.test(shopLayout)
+  ) {
     addFailure(`${shopLayoutPath} must block non-Shop Admin access server-side`);
   }
 
@@ -523,7 +530,12 @@ function checkTask008ShopShellArtifacts() {
   const sectionPage = read(shopSectionPagePath);
   const sections = read(shopSectionsPath);
 
-  if (!/resolveCurrentShopAdminShellAccess/.test(layout) || !/status !== "shop_admin"/.test(layout)) {
+  if (
+    !/resolveCurrentShopAdminPrincipal/.test(layout) ||
+    !/resolveStaffWebSessionPrincipal/.test(layout) ||
+    !/resolution\.status !== "ready"/.test(layout) ||
+    !/principal\.kind/.test(layout)
+  ) {
     addFailure(`${shopLayoutPath} must protect Shop Admin routes server-side`);
   }
 
@@ -628,11 +640,11 @@ function checkTask009ShopSwitcherArtifacts() {
     addFailure(`${resolverPath} must avoid parallel remote Supabase reads`);
   }
 
-  if (!/resolveCurrentShopAdminShellAccess/.test(layout)) {
-    addFailure(`${shopLayoutPath} must use the Shop Admin shell access resolver`);
+  if (!/resolveCurrentShopAdminPrincipal/.test(layout) || !/principal\.kind/.test(layout)) {
+    addFailure(`${shopLayoutPath} must use the Shop Admin principal resolver`);
   }
 
-  if (!/availableShops=\{access\.availableShops\}/.test(layout)) {
+  if (!/availableShops=\{availableShops\}/.test(layout)) {
     addFailure(`${shopLayoutPath} must pass only server-authorized shops to ShopShell`);
   }
 
@@ -686,6 +698,7 @@ function checkTask010ShopReadModelArtifacts() {
   }
 
   const readModel = read(readModelPath);
+  const dataAccess = read("src/server/shop-admin/data-access.ts");
   const sectionData = read(sectionDataPath);
   const sectionPage = read(sectionPagePath);
   const shopPage = read(shopPagePath);
@@ -696,10 +709,9 @@ function checkTask010ShopReadModelArtifacts() {
 
   for (const requiredSnippet of [
     'import "server-only"',
-    "createSupabaseServerClient",
-    "resolveCurrentShopAdminShellAccess",
-    'status: "not_configured"',
-    'status: "unauthorized"',
+    "resolveShopAdminDataAccess",
+    '"not_configured"',
+    '"unauthorized"',
     'status: "empty"',
     'status: "error"',
     '.from("shops")',
@@ -710,6 +722,20 @@ function checkTask010ShopReadModelArtifacts() {
   ]) {
     if (!readModel.includes(requiredSnippet)) {
       addFailure(`${readModelPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    'import "server-only"',
+    "createSupabaseServerClient",
+    "resolveCurrentShopAdminPrincipal",
+    "resolveStaffWebSessionPrincipal",
+    "strictRequestedShop",
+    "availableShops.find",
+    "principal.selectedShop",
+  ]) {
+    if (!dataAccess.includes(requiredSnippet)) {
+      addFailure(`src/server/shop-admin/data-access.ts must include ${requiredSnippet}`);
     }
   }
 
@@ -729,8 +755,8 @@ function checkTask010ShopReadModelArtifacts() {
     addFailure(`${readModelPath} must not authorize directly from shop_id query params`);
   }
 
-  if (!/availableShops\.find/.test(readModel) || !/access\.selectedShop/.test(readModel)) {
-    addFailure(`${readModelPath} must select shops from server-authorized memberships`);
+  if (!/availableShops\.find/.test(dataAccess) || !/principal\.selectedShop/.test(dataAccess)) {
+    addFailure("src/server/shop-admin/data-access.ts must select shops from server-authorized memberships");
   }
 
   for (const requiredSnippet of [
@@ -1430,6 +1456,9 @@ function checkTask013UiPolishArtifacts() {
       masterPlan,
     ) &&
     !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`/.test(
       masterPlan,
     )
   ) {
@@ -2973,7 +3002,8 @@ function checkTask020Win7PosIntegrationPlanning() {
     !/Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`/.test(masterPlan) &&
     !/Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`/.test(masterPlan) &&
     !/Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/.test(masterPlan) &&
-    !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(masterPlan)
+    !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(masterPlan) &&
+    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`/.test(masterPlan)
   ) {
     addFailure("MASTER-PLAN must return to no active task after reconciliation or track an active POS/catalog task");
   }
@@ -3427,7 +3457,7 @@ function checkTask022023PosDashboardWin7PosClient() {
   for (const requiredSnippet of [
     'import "server-only"',
     "createSupabaseAdminClient",
-    "resolveCurrentShopAdminShellAccess",
+    "resolveShopAdminDataAccess",
     '.from("shop_devices")',
     '.from("pos_device_credentials")',
     '.from("pos_sessions")',
@@ -3733,7 +3763,11 @@ function checkTask037ShopAdminDualAccessModel() {
     /staff.*login|login.*staff|pos.*manager.*login/i.test(file),
   );
 
-  if (unexpectedStaffLoginRoutes.length > 0) {
+  const task038Opened = /TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate/.test(
+    masterPlan,
+  );
+
+  if (unexpectedStaffLoginRoutes.length > 0 && !task038Opened) {
     addFailure(
       `TASK-037 must not add staff web login routes: ${unexpectedStaffLoginRoutes.join(", ")}`,
     );
@@ -3741,6 +3775,237 @@ function checkTask037ShopAdminDualAccessModel() {
 
   if (!/checkTask037ShopAdminDualAccessModel/.test(foundationTest)) {
     addFailure(`${foundationTestPath} must assert the TASK-037 security scanner gate`);
+  }
+}
+
+function checkTask038PosManagerWebLogin() {
+  const taskPath =
+    "docs/TASKS/TASK-038-pos-manager-web-login-platform-provisioning-permissions-revenue-gate.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-038/README.md";
+  const architecturePath = "docs/ARCHITECTURE/SHOP-ADMIN-DUAL-ACCESS-MODEL.md";
+  const authPath = "src/server/shop-admin/staff-web-auth.ts";
+  const permissionsPath = "src/server/shop-admin/staff-web-permissions.ts";
+  const loginPagePath = "src/app/(staff-auth)/shop/staff-login/page.tsx";
+  const loginActionsPath = "src/app/(staff-auth)/shop/staff-login/actions.ts";
+  const logoutRoutePath = "src/app/shop/staff-logout/route.ts";
+  const platformProvisioningPath =
+    "src/server/platform-admin/staff-manager-provisioning.ts";
+  const platformProvisioningActionsPath =
+    "src/app/platform/provisioning/actions.ts";
+  const platformProvisioningPanelPath =
+    "src/app/platform/provisioning/StaffManagerProvisioningPanel.tsx";
+  const platformProvisioningPagePath = "src/app/platform/provisioning/page.tsx";
+  const foundationTestPath = "tests/foundation/task-038-pos-manager-web-login.test.mjs";
+  const migrationName = listFiles("supabase/migrations")
+    .map((file) => file.split("/").pop() ?? file)
+    .find((file) => /task_038_pos_manager_web_login/i.test(file));
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    architecturePath,
+    authPath,
+    permissionsPath,
+    loginPagePath,
+    loginActionsPath,
+    logoutRoutePath,
+    platformProvisioningPath,
+    platformProvisioningActionsPath,
+    platformProvisioningPanelPath,
+    platformProvisioningPagePath,
+    foundationTestPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing for TASK-038`);
+      return;
+    }
+  }
+
+  if (!migrationName) {
+    addFailure("TASK-038 migration is missing");
+    return;
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const architecture = read(architecturePath);
+  const migration = read(`supabase/migrations/${migrationName}`);
+  const auth = read(authPath);
+  const permissions = read(permissionsPath);
+  const loginPage = read(loginPagePath);
+  const loginActions = read(loginActionsPath);
+  const logoutRoute = read(logoutRoutePath);
+  const platformProvisioning = read(platformProvisioningPath);
+  const platformProvisioningActions = read(platformProvisioningActionsPath);
+  const platformProvisioningPanel = read(platformProvisioningPanelPath);
+  const platformProvisioningPage = read(platformProvisioningPagePath);
+  const shopLayout = read("src/app/shop/layout.tsx");
+  const foundationTest = read(foundationTestPath);
+  const combinedDocs = `${task}\n${evidence}\n${architecture}\n${read("docs/MASTER-PLAN.md")}`;
+
+  for (const requiredSnippet of [
+    "TASK-038",
+    "personal_account",
+    "pos_staff_manager",
+    "staff_web_sessions",
+    "staff_web_login_attempts",
+    "staff_role_permissions",
+    "shop_admin.full_access",
+    "REVENUE_DASHBOARD_BLOCKED_NO_REAL_SALES_DATA",
+    "Revenue dashboard requires real sales sync data",
+    "No Sales Sync",
+    "No dashboard vendite fake",
+    "No Win7POS/Android/iOS",
+  ]) {
+    if (!combinedDocs.includes(requiredSnippet)) {
+      addFailure(`TASK-038 docs must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "create table if not exists public.staff_web_sessions",
+    "create table if not exists public.staff_web_login_attempts",
+    "create table if not exists public.staff_role_permissions",
+    "session_token_hash text not null",
+    "attempt_key_hash text primary key",
+    "permission_key text not null",
+    "shop_admin.full_access",
+    "enable row level security",
+    "revoke all on table public.staff_web_sessions from anon",
+    "revoke all on table public.staff_web_login_attempts from anon",
+    "revoke all on table public.staff_role_permissions from anon",
+  ]) {
+    if (!migration.includes(requiredSnippet)) {
+      addFailure(`TASK-038 migration must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/\b(session_token|raw_token|credential|password|pin)\s+text\b/i.test(migration)) {
+    addFailure("TASK-038 migration must store only hashed staff web secrets");
+  }
+
+  if (/pos_sales|sales_sync|sale_payments|receipts/i.test(migration)) {
+    addFailure("TASK-038 migration must not introduce Sales Sync or revenue tables");
+  }
+
+  for (const requiredSnippet of [
+    'import "server-only"',
+    "STAFF_WEB_SESSION_COOKIE",
+    "httpOnly: true",
+    'sameSite: "lax"',
+    "secure: isSecureStaffWebCookie",
+    "hashStaffWebSecret",
+    "verifyStaffCredential",
+    "staff_web_sessions",
+    "staff_web_login_attempts",
+    'staff.role_key !== "manager"',
+    "hasStaffFullShopAdminWebAccess",
+    "staff.web.login.success",
+    "staff.web.login.failure",
+    "staff.web.logout",
+  ]) {
+    if (!auth.includes(requiredSnippet)) {
+      addFailure(`${authPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    /localStorage|sessionStorage|console\.(log|debug|info|warn|error)/.test(
+      `${auth}\n${loginPage}\n${loginActions}\n${logoutRoute}`,
+    )
+  ) {
+    addFailure("TASK-038 staff web runtime must not use browser storage or runtime logging");
+  }
+
+  if (/SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash/i.test(`${loginPage}\n${loginActions}\n${logoutRoute}`)) {
+    addFailure("TASK-038 staff web routes must not expose service-role, credential hashes or token hashes");
+  }
+
+  for (const requiredSnippet of [
+    "SHOP_STAFF_WEB_PERMISSION_TREE",
+    "STAFF_WEB_FULL_ACCESS_PERMISSION",
+    "shop_admin.full_access",
+    "getEnabledStaffRolePermissions",
+  ]) {
+    if (!permissions.includes(requiredSnippet)) {
+      addFailure(`${permissionsPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/"use server"/.test(loginActions)) {
+    addFailure(`${loginActionsPath} must be a Server Actions module`);
+  }
+
+  for (const requiredSnippet of ["shopCode", "staffCode", "credential"]) {
+    if (!loginPage.includes(requiredSnippet)) {
+      addFailure(`${loginPagePath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/logoutStaffWebSession/.test(logoutRoute)) {
+    addFailure(`${logoutRoutePath} must call logoutStaffWebSession`);
+  }
+
+  for (const requiredSnippet of [
+    'import "server-only"',
+    "authorizeCurrentPlatformAdmin",
+    "createSupabaseAdminClient",
+    "hashStaffCredential",
+    "staff_accounts",
+    "staff_role_permissions",
+    "shop_admin.full_access",
+    "platform.staff_manager_web.provision.success",
+    "platform.staff_manager_web.provision.failure",
+    "oneTimeSignInValue",
+  ]) {
+    if (!platformProvisioning.includes(requiredSnippet)) {
+      addFailure(`${platformProvisioningPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/"use server"/.test(platformProvisioningActions)) {
+    addFailure(`${platformProvisioningActionsPath} must be a Server Actions module`);
+  }
+
+  for (const requiredSnippet of [
+    "provisionPlatformStaffManagerAction",
+    "StaffManagerProvisioningPanel",
+    "shopId",
+    "staffCode",
+    "displayName",
+    "reason",
+  ]) {
+    if (!`${platformProvisioningActions}\n${platformProvisioningPanel}\n${platformProvisioningPage}`.includes(requiredSnippet)) {
+      addFailure(`Platform staff manager provisioning UI must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    /SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash|hashStaffCredential/i.test(
+      platformProvisioningActions,
+    )
+  ) {
+    addFailure(`${platformProvisioningActionsPath} must not expose stored secret fields`);
+  }
+
+  if (
+    /SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash|hashStaffCredential/i.test(
+      `${platformProvisioningPanel}\n${platformProvisioningPage}`,
+    )
+  ) {
+    addFailure("Platform provisioning page surface must not expose stored secret fields");
+  }
+
+  if (/@\/server\//.test(platformProvisioningPanel)) {
+    addFailure(`${platformProvisioningPanelPath} must not import server modules`);
+  }
+
+  if (!/resolveCurrentShopAdminPrincipal/.test(shopLayout) || !/principal\.kind/.test(shopLayout)) {
+    addFailure("Shop Admin layout must resolve explicit TASK-038 principal kinds");
+  }
+
+  if (!/checkTask038PosManagerWebLogin/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert the TASK-038 security scanner gate`);
   }
 }
 
@@ -3777,6 +4042,7 @@ checkTask021PosBackendSessionDeviceEndpoints();
 checkTask022023PosDashboardWin7PosClient();
 checkTask027CatalogPullDeltaSync();
 checkTask037ShopAdminDualAccessModel();
+checkTask038PosManagerWebLogin();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

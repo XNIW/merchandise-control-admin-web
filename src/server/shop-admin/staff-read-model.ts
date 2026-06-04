@@ -1,12 +1,8 @@
 import "server-only";
 
-import {
-  createSupabaseServerClient,
-  resolveSupabaseServerConfig,
-  type SupabaseServerClient,
-} from "@/lib/supabase/server";
+import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
-import { resolveCurrentShopAdminShellAccess } from "./shop-access";
+import { resolveShopAdminDataAccess } from "./data-access";
 import type { ShopAdminShellShop } from "./shop-access";
 import type {
   ShopAdminReadModelError,
@@ -131,46 +127,14 @@ function mapStaffSafeRow(
 export async function getShopStaffReadModel(
   options: GetShopStaffReadModelOptions = {},
 ): Promise<ShopStaffReadModel> {
-  const config = resolveSupabaseServerConfig();
+  const access = await resolveShopAdminDataAccess(options);
 
-  if (config.status !== "configured") {
+  if (access.status !== "ready") {
     return {
-      status: "not_configured",
-      ...emptyRows,
-      readOnly: true,
-      source: "supabase_server",
-      reason:
-        "Supabase runtime env is not configured for Shop Staff read-only access.",
-    };
-  }
-
-  const supabase = options.client ?? (await createSupabaseServerClient(config));
-
-  if (!supabase) {
-    return {
-      status: "not_configured",
-      ...emptyRows,
-      readOnly: true,
-      source: "supabase_server",
-      reason: "Supabase server client is unavailable for Shop Staff reads.",
-    };
-  }
-
-  const access = await resolveCurrentShopAdminShellAccess(supabase);
-
-  if (access.status !== "shop_admin") {
-    if (access.status === "not_configured" || access.status === "error") {
-      return {
-        status: access.status,
-        ...emptyRows,
-        readOnly: true,
-        source: "supabase_server",
-        reason: access.reason,
-      };
-    }
-
-    return {
-      status: "unauthorized",
+      status:
+        access.status === "not_configured" || access.status === "error"
+          ? access.status
+          : "unauthorized",
       ...emptyRows,
       readOnly: true,
       source: "supabase_server",
@@ -178,10 +142,7 @@ export async function getShopStaffReadModel(
     };
   }
 
-  const selectedShop =
-    access.availableShops.find(
-      (shop) => shop.shopId === options.requestedShopId,
-    ) ?? access.selectedShop;
+  const { selectedShop, supabase } = access;
 
   const staffResult = await supabase
     .from("staff_accounts_safe")

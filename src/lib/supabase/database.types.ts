@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   app_private: {
     Tables: {
       [_ in never]: never
@@ -86,31 +81,6 @@ export type Database = {
           p_target_type: string
         }
         Returns: string
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
-  graphql_public: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      graphql: {
-        Args: {
-          extensions?: Json
-          operationName?: string
-          query?: string
-          variables?: Json
-        }
-        Returns: Json
       }
     }
     Enums: {
@@ -401,75 +371,6 @@ export type Database = {
           source?: string | null
           source_device_id?: string | null
           store_id?: string | null
-        }
-        Relationships: []
-      }
-      categories: {
-        Row: {
-          id: number
-          name: string
-        }
-        Insert: {
-          id?: number
-          name: string
-        }
-        Update: {
-          id?: number
-          name?: string
-        }
-        Relationships: []
-      }
-      history_entries: {
-        Row: {
-          category: string
-          complete: string
-          data: string
-          editable: string
-          id: string
-          ismanualentry: boolean
-          missingitems: number
-          ordertotal: number
-          paymenttotal: number
-          supplier: string
-          syncstatus: string
-          timestamp: string
-          totalitems: number
-          uid: number
-          wasexported: boolean
-        }
-        Insert: {
-          category?: string
-          complete: string
-          data: string
-          editable: string
-          id: string
-          ismanualentry?: boolean
-          missingitems?: number
-          ordertotal?: number
-          paymenttotal?: number
-          supplier?: string
-          syncstatus?: string
-          timestamp: string
-          totalitems?: number
-          uid?: number
-          wasexported?: boolean
-        }
-        Update: {
-          category?: string
-          complete?: string
-          data?: string
-          editable?: string
-          id?: string
-          ismanualentry?: boolean
-          missingitems?: number
-          ordertotal?: number
-          paymenttotal?: number
-          supplier?: string
-          syncstatus?: string
-          timestamp?: string
-          totalitems?: number
-          uid?: number
-          wasexported?: boolean
         }
         Relationships: []
       }
@@ -939,108 +840,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "staff_accounts_safe"
             referencedColumns: ["staff_id"]
-          },
-        ]
-      }
-      product_prices: {
-        Row: {
-          createdat: string
-          effectiveat: string
-          id: number
-          note: string | null
-          price: number
-          productid: number
-          source: string | null
-          type: string
-        }
-        Insert: {
-          createdat: string
-          effectiveat: string
-          id?: number
-          note?: string | null
-          price: number
-          productid: number
-          source?: string | null
-          type: string
-        }
-        Update: {
-          createdat?: string
-          effectiveat?: string
-          id?: number
-          note?: string | null
-          price?: number
-          productid?: number
-          source?: string | null
-          type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_prices_productid_fkey"
-            columns: ["productid"]
-            isOneToOne: false
-            referencedRelation: "product_price_summary"
-            referencedColumns: ["productid"]
-          },
-          {
-            foreignKeyName: "product_prices_productid_fkey"
-            columns: ["productid"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      products: {
-        Row: {
-          barcode: string
-          categoryid: number | null
-          id: number
-          itemnumber: string | null
-          productname: string | null
-          purchaseprice: number | null
-          retailprice: number | null
-          secondproductname: string | null
-          stockquantity: number | null
-          supplierid: number | null
-        }
-        Insert: {
-          barcode: string
-          categoryid?: number | null
-          id?: number
-          itemnumber?: string | null
-          productname?: string | null
-          purchaseprice?: number | null
-          retailprice?: number | null
-          secondproductname?: string | null
-          stockquantity?: number | null
-          supplierid?: number | null
-        }
-        Update: {
-          barcode?: string
-          categoryid?: number | null
-          id?: number
-          itemnumber?: string | null
-          productname?: string | null
-          purchaseprice?: number | null
-          retailprice?: number | null
-          secondproductname?: string | null
-          stockquantity?: number | null
-          supplierid?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "products_categoryid_fkey"
-            columns: ["categoryid"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "products_supplierid_fkey"
-            columns: ["supplierid"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -1536,20 +1335,159 @@ export type Database = {
           },
         ]
       }
-      suppliers: {
+      staff_role_permissions: {
         Row: {
-          id: number
-          name: string
+          created_at: string
+          enabled: boolean
+          permission_key: string
+          role_key: string
+          shop_id: string
+          staff_role_permission_id: string
+          updated_at: string
+          updated_by_profile_id: string | null
         }
         Insert: {
-          id?: number
-          name: string
+          created_at?: string
+          enabled?: boolean
+          permission_key: string
+          role_key: string
+          shop_id: string
+          staff_role_permission_id?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
         }
         Update: {
-          id?: number
-          name?: string
+          created_at?: string
+          enabled?: boolean
+          permission_key?: string
+          role_key?: string
+          shop_id?: string
+          staff_role_permission_id?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_role_permissions_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "staff_role_permissions_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      staff_web_login_attempts: {
+        Row: {
+          attempt_key_hash: string
+          created_at: string
+          failed_attempts: number
+          last_failed_at: string | null
+          last_success_at: string | null
+          locked_until: string | null
+          metadata_redacted: Json
+          updated_at: string
+        }
+        Insert: {
+          attempt_key_hash: string
+          created_at?: string
+          failed_attempts?: number
+          last_failed_at?: string | null
+          last_success_at?: string | null
+          locked_until?: string | null
+          metadata_redacted?: Json
+          updated_at?: string
+        }
+        Update: {
+          attempt_key_hash?: string
+          created_at?: string
+          failed_attempts?: number
+          last_failed_at?: string | null
+          last_success_at?: string | null
+          locked_until?: string | null
+          metadata_redacted?: Json
+          updated_at?: string
         }
         Relationships: []
+      }
+      staff_web_sessions: {
+        Row: {
+          created_at: string
+          expires_at: string
+          issued_at: string
+          last_seen_at: string | null
+          metadata_redacted: Json
+          revoked_at: string | null
+          revoked_reason: string | null
+          session_token_hash: string
+          shop_id: string
+          staff_credential_version: number
+          staff_id: string
+          staff_web_session_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          issued_at?: string
+          last_seen_at?: string | null
+          metadata_redacted?: Json
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          session_token_hash: string
+          shop_id: string
+          staff_credential_version: number
+          staff_id: string
+          staff_web_session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          issued_at?: string
+          last_seen_at?: string | null
+          metadata_redacted?: Json
+          revoked_at?: string | null
+          revoked_reason?: string | null
+          session_token_hash?: string
+          shop_id?: string
+          staff_credential_version?: number
+          staff_id?: string
+          staff_web_session_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_web_sessions_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "staff_web_sessions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "staff_web_sessions_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
+          },
+        ]
       }
       sync_events: {
         Row: {
@@ -1604,30 +1542,6 @@ export type Database = {
       }
     }
     Views: {
-      product_price_summary: {
-        Row: {
-          lastpurchase: number | null
-          lastretail: number | null
-          prevpurchase: number | null
-          prevretail: number | null
-          productid: number | null
-        }
-        Insert: {
-          lastpurchase?: never
-          lastretail?: never
-          prevpurchase?: never
-          prevretail?: never
-          productid?: number | null
-        }
-        Update: {
-          lastpurchase?: never
-          lastretail?: never
-          prevpurchase?: never
-          prevretail?: never
-          productid?: number | null
-        }
-        Relationships: []
-      }
       staff_accounts_safe: {
         Row: {
           created_at: string | null
@@ -1813,10 +1727,6 @@ export type Database = {
         Args: { p_product_id: string; p_reason?: string; p_shop_id: string }
         Returns: Json
       }
-      shop_catalog_restore_product: {
-        Args: { p_product_id: string; p_reason?: string; p_shop_id: string }
-        Returns: Json
-      }
       shop_catalog_archive_supplier: {
         Args: { p_reason?: string; p_shop_id: string; p_supplier_id: string }
         Returns: Json
@@ -1842,6 +1752,10 @@ export type Database = {
       }
       shop_catalog_create_supplier: {
         Args: { p_name: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_restore_product: {
+        Args: { p_product_id: string; p_reason?: string; p_shop_id: string }
         Returns: Json
       }
       shop_catalog_update_category: {
@@ -2083,9 +1997,6 @@ export type CompositeTypes<
 
 export const Constants = {
   app_private: {
-    Enums: {},
-  },
-  graphql_public: {
     Enums: {},
   },
   public: {

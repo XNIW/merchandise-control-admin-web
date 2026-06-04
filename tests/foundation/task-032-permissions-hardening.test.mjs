@@ -96,13 +96,15 @@ test("TASK-032 permissions matrix keeps owner, manager, viewer and POS staff bou
 
 test("TASK-032 action context denies unknown requested shop ids instead of falling back", () => {
   const actionContext = readProjectFile("src/server/shop-admin/action-context.ts");
+  const dataAccess = readProjectFile("src/server/shop-admin/data-access.ts");
 
-  assert.match(actionContext, /selectShopForAction/);
   assert.match(actionContext, /requestedShopId/);
-  assert.match(actionContext, /availableShops\.find/);
-  assert.match(actionContext, /if \(!selectedShop\)/);
+  assert.match(actionContext, /strictRequestedShop: true/);
+  assert.match(actionContext, /principalKind !== "personal_account"/);
+  assert.match(dataAccess, /availableShops\.find/);
+  assert.match(dataAccess, /strictRequestedShop/);
   assert.doesNotMatch(
-    actionContext,
+    dataAccess,
     /availableShops\.find\([\s\S]*\?\?\s*access\.selectedShop/,
   );
 });
@@ -158,7 +160,7 @@ test("TASK-032 permissions evidence remains tied to the active mega-task", () =>
 
   assert.match(
     masterPlan,
-    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/,
+    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`/,
   );
   assert.match(task, /4 - Permissions hardening/);
 });

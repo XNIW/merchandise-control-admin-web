@@ -55,11 +55,11 @@ test("TASK-035 artifacts define authenticated Shop Admin QA scope and DONE hando
 
   assert.match(
     masterPlan,
-    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/,
+    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`/,
   );
   assert.match(
     masterPlan,
-    /Ultimo task completato: `TASK-035|Ultimo task completato: `TASK-036|Ultimo task completato: `TASK-037/,
+    /Ultimo task completato: `TASK-035|Ultimo task completato: `TASK-036|Ultimo task completato: `TASK-037|Ultimo task completato: `TASK-038/,
   );
   assert.match(masterPlan, /Stato TASK-034: `DONE_RECONCILED_WITH_NOTES`/);
   assert.match(task, /Stato: `DONE`/);
@@ -92,8 +92,13 @@ test("TASK-035 exposes a guarded Shop Admin authenticated smoke harness", () => 
     "cleanup",
     "cleanupErrors",
     "BLOCKED_TASK035_CLEANUP_FAILED",
-    'credential_status: "pending_setup"',
-    'status: "pending_credential"',
+    'credential_status: "active"',
+    'status: "active"',
+    "staff_web_sessions",
+    "staff_role_permissions",
+    "shop_admin.full_access",
+    "mc_staff_web_session",
+    "cashier denial",
     'device_type: "pos"',
     'url.pathname === "/shop"',
     "/shop",

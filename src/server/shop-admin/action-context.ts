@@ -1,16 +1,9 @@
 import "server-only";
 
-import {
-  createSupabaseServerClient,
-  resolveSupabaseServerConfig,
-  type SupabaseServerClient,
-} from "@/lib/supabase/server";
+import type { SupabaseServerClient } from "@/lib/supabase/server";
+import { resolveShopAdminDataAccess } from "./data-access";
 import { canShopAdmin, type ShopAdminPermission } from "./permissions";
-import {
-  resolveCurrentShopAdminShellAccess,
-  type ShopAdminShellAccess,
-  type ShopAdminShellShop,
-} from "./shop-access";
+import type { ShopAdminShellShop } from "./shop-access";
 
 export type ShopAdminActionCode =
   | "success"
@@ -168,59 +161,36 @@ export function mapShopAdminRpcResult(data: unknown): ShopAdminActionResult {
   });
 }
 
-function selectShopForAction(
-  access: Extract<ShopAdminShellAccess, { status: "shop_admin" }>,
-  requestedShopId: string | undefined,
-) {
-  if (!requestedShopId) {
-    return access.selectedShop;
-  }
-
-  return (
-    access.availableShops.find((shop) => shop.shopId === requestedShopId) ??
-    null
-  );
-}
-
 export async function resolveShopActionContext(
   requestedShopId: string | undefined,
   permission: ShopAdminPermission,
 ): Promise<ShopAdminActionContext> {
-  const config = resolveSupabaseServerConfig();
+  const access = await resolveShopAdminDataAccess({
+    requestedShopId,
+    strictRequestedShop: true,
+  });
 
-  if (config.status !== "configured") {
+  if (access.status !== "ready") {
     return {
       status: "blocked",
-      result: shopAdminActionResult("not_configured", { ok: false }),
+      result: shopAdminActionResult(
+        access.status === "not_configured" ? "not_configured" : "unauthorized",
+        { ok: false },
+      ),
     };
   }
 
-  const supabase = await createSupabaseServerClient(config);
-
-  if (!supabase) {
+  if (access.principalKind !== "personal_account") {
     return {
       status: "blocked",
-      result: shopAdminActionResult("not_configured", { ok: false }),
+      result: shopAdminActionResult("unauthorized", {
+        ok: false,
+        shopId: access.selectedShop.shopId,
+      }),
     };
   }
 
-  const access = await resolveCurrentShopAdminShellAccess(supabase);
-
-  if (access.status !== "shop_admin") {
-    return {
-      status: "blocked",
-      result: shopAdminActionResult("unauthorized", { ok: false }),
-    };
-  }
-
-  const selectedShop = selectShopForAction(access, requestedShopId);
-
-  if (!selectedShop) {
-    return {
-      status: "blocked",
-      result: shopAdminActionResult("unauthorized", { ok: false }),
-    };
-  }
+  const selectedShop = access.selectedShop;
 
   if (!canShopAdmin(selectedShop.role, permission)) {
     return {
@@ -235,6 +205,6 @@ export async function resolveShopActionContext(
   return {
     status: "ready",
     selectedShop,
-    supabase,
+    supabase: access.supabase,
   };
 }

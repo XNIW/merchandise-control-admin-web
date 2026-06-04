@@ -6,7 +6,9 @@ type AccessStateStatus =
   | "revoked"
   | "viewer_only"
   | "no_shop"
-  | "error";
+  | "error"
+  | "unauthorized"
+  | "staff_web_login_not_implemented";
 
 type AccessStateProps = {
   area: string;
@@ -22,6 +24,8 @@ const titleByStatus: Record<AccessStateStatus, string> = {
   viewer_only: "Admin access required",
   no_shop: "No shop access",
   error: "Access check failed",
+  unauthorized: "Access denied",
+  staff_web_login_not_implemented: "Staff web login unavailable",
 };
 
 function formatArea(area: string) {

@@ -51,7 +51,7 @@ test("TASK-033 governance artifacts exist and gate the mega-task without DONE cl
     assertContains(combined, required);
   }
 
-  assert.match(masterPlan, /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/);
+  assert.match(masterPlan, /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`/);
   assert.match(task, /Stato: `(EXECUTION|REVIEW|REVIEW_WITH_BLOCKERS|BLOCKED_[A-Z0-9_]+)`/);
   assert.match(task, /Fase attuale: `(EXECUTION|REVIEW|REVIEW_WITH_BLOCKERS|BLOCKED_[A-Z0-9_]+)`/);
   assert.match(task, /DONE` resta decisione dell'utente/);

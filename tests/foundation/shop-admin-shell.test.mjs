@@ -38,8 +38,10 @@ test("TASK-008 Shop Admin shell artifacts exist and stay boundary-safe", () => {
   const layout = readProjectFile("src/app/shop/layout.tsx");
   const shell = readProjectFile("src/components/shop/ShopShell.tsx");
 
-  assert.match(layout, /resolveCurrentShopAdminShellAccess/);
-  assert.match(layout, /status !== "shop_admin"/);
+  assert.match(layout, /resolveCurrentShopAdminPrincipal/);
+  assert.match(layout, /resolveStaffWebSessionPrincipal/);
+  assert.match(layout, /resolution\.status !== "ready"/);
+  assert.match(layout, /principal\.kind/);
   assert.match(layout, /<ShopShell/);
   assert.match(layout, /export const dynamic = ["']force-dynamic["']/);
 

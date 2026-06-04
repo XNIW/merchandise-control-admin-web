@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes, scrypt } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import type { Database } from "../../src/lib/supabase/database.types";
 
@@ -21,6 +21,7 @@ type CleanupSummary = {
 type Task035Fixture = {
   blockedShopCode: string;
   blockedShopId: string;
+  cashierCredential: string;
   cleanup: () => Promise<CleanupSummary>;
   email: string;
   password: string;
@@ -28,6 +29,11 @@ type Task035Fixture = {
   shopCode: string;
   shopId: string;
   staffCode: string;
+  staffId: string;
+  staffManagerCode: string;
+  staffManagerCredential: string;
+  staffManagerId: string;
+  staffWebAttemptKeyHash: string;
   userId: string;
 };
 
@@ -52,6 +58,15 @@ const guardedShopRoutes = [
   "/shop/devices",
   "/shop/pos",
 ] as const;
+const STAFF_CREDENTIAL_SCHEME = "scrypt-v1";
+const STAFF_KEY_LENGTH = 64;
+const STAFF_SALT_BYTES = 16;
+const STAFF_SCRYPT_PARAMS = {
+  N: 16384,
+  p: 1,
+  r: 8,
+};
+const STAFF_SCRYPT_MAXMEM = 64 * 1024 * 1024;
 
 const authenticatedSmokeRoutes: Array<{
   assertText?: (fixture: Task035Fixture) => string;
@@ -221,6 +236,60 @@ function task035Code(nonce: string, suffix: string) {
   return `TASK035_${suffix}_${nonce}`;
 }
 
+function staffHashParams() {
+  return [
+    `n=${STAFF_SCRYPT_PARAMS.N}`,
+    `r=${STAFF_SCRYPT_PARAMS.r}`,
+    `p=${STAFF_SCRYPT_PARAMS.p}`,
+    `l=${STAFF_KEY_LENGTH}`,
+  ].join(",");
+}
+
+function deriveStaffScrypt(plaintext: string, salt: Buffer) {
+  return new Promise<Buffer>((resolve, reject) => {
+    scrypt(
+      plaintext,
+      salt,
+      STAFF_KEY_LENGTH,
+      {
+        ...STAFF_SCRYPT_PARAMS,
+        maxmem: STAFF_SCRYPT_MAXMEM,
+      },
+      (error, derivedKey) => {
+        if (error) {
+          reject(error);
+          return;
+        }
+
+        resolve(derivedKey);
+      },
+    );
+  });
+}
+
+async function hashStaffCredential(plaintext: string) {
+  const salt = randomBytes(STAFF_SALT_BYTES);
+  const key = await deriveStaffScrypt(plaintext, salt);
+
+  return [
+    "",
+    STAFF_CREDENTIAL_SCHEME,
+    staffHashParams(),
+    salt.toString("base64url"),
+    key.toString("base64url"),
+  ].join("$");
+}
+
+function hashStaffWebAttemptKey(shopCode: string, staffCode: string) {
+  return `sha256:${createHash("sha256")
+    .update(`${shopCode}:${staffCode}`, "utf8")
+    .digest("hex")}`;
+}
+
+function hashStaffWebSecret(secret: string) {
+  return `sha256:${createHash("sha256").update(secret, "utf8").digest("hex")}`;
+}
+
 async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" }>) {
   const supabase = createClient<Database>(runtime.supabaseUrl, runtime.serviceRoleKey, {
     auth: {
@@ -238,6 +307,13 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
   const supplierName = `TASK035_Supplier_${nonce}`;
   const productName = `TASK035_Product_${nonce}`;
   const staffCode = task035Code(nonce, "STAFF");
+  const cashierCredential = `task035_cashier_${randomBytes(18).toString("base64url")}`;
+  const staffManagerCode = task035Code(nonce, "MANAGER");
+  const staffManagerCredential = `task035_manager_${randomBytes(18).toString("base64url")}`;
+  const staffWebAttemptKeyHash = hashStaffWebAttemptKey(
+    shopCode,
+    staffManagerCode,
+  );
   const now = new Date().toISOString();
 
   const createdUser = await supabase.auth.admin.createUser({
@@ -280,6 +356,14 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
         supabase.from("shop_devices").delete().in("shop_id", shopIds),
       );
       await recordCleanup(
+        "STAFF_WEB_SESSION_DELETE",
+        supabase.from("staff_web_sessions").delete().in("shop_id", shopIds),
+      );
+      await recordCleanup(
+        "STAFF_ROLE_PERMISSION_DELETE",
+        supabase.from("staff_role_permissions").delete().in("shop_id", shopIds),
+      );
+      await recordCleanup(
         "STAFF_DELETE",
         supabase.from("staff_accounts").delete().in("shop_id", shopIds),
       );
@@ -296,6 +380,14 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
         supabase.from("shops").delete().in("shop_id", shopIds),
       );
     }
+
+    await recordCleanup(
+      "STAFF_WEB_LOGIN_ATTEMPT_DELETE",
+      supabase
+        .from("staff_web_login_attempts")
+        .delete()
+        .eq("attempt_key_hash", staffWebAttemptKeyHash),
+    );
 
     await recordCleanup(
       "PRODUCT_DELETE",
@@ -335,6 +427,7 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
       blockedShopCode,
       shopCode,
       shopIds,
+      staffWebAttemptKeyHash,
       userId,
     });
     if (residualRows > 0) {
@@ -453,18 +546,67 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
         supplier_id: supplier.id,
       }),
     );
-    await must(
+    const cashierCredentialHash = await hashStaffCredential(cashierCredential);
+    const managerCredentialHash = await hashStaffCredential(staffManagerCredential);
+
+    const cashierStaff = await mustSingle<{ staff_id: string }>(
       "STAFF_CREATE",
-      supabase.from("staff_accounts").insert({
-        created_by_profile_id: userId,
-        credential_status: "pending_setup",
-        display_name: `TASK035 Staff ${nonce}`,
-        role_key: "cashier",
-        shop_id: authorizedShopId,
-        staff_code: staffCode,
-        status: "pending_credential",
-        updated_by_profile_id: userId,
-      }),
+      supabase
+        .from("staff_accounts")
+        .insert({
+          created_by_profile_id: userId,
+          credential_hash: cashierCredentialHash,
+          credential_kind: "password",
+          credential_status: "active",
+          credential_updated_at: now,
+          credential_version: 1,
+          display_name: `TASK035 Staff ${nonce}`,
+          failed_attempts: 0,
+          must_change_credential: false,
+          role_key: "cashier",
+          shop_id: authorizedShopId,
+          staff_code: staffCode,
+          status: "active",
+          updated_by_profile_id: userId,
+        })
+        .select("staff_id")
+        .single(),
+    );
+    await must(
+      "STAFF_MANAGER_PERMISSION_CREATE",
+      supabase.from("staff_role_permissions").upsert(
+        {
+          enabled: true,
+          permission_key: "shop_admin.full_access",
+          role_key: "manager",
+          shop_id: authorizedShopId,
+          updated_by_profile_id: userId,
+        },
+        { onConflict: "shop_id,role_key,permission_key" },
+      ),
+    );
+    const managerStaff = await mustSingle<{ staff_id: string }>(
+      "STAFF_MANAGER_CREATE",
+      supabase
+        .from("staff_accounts")
+        .insert({
+          created_by_profile_id: userId,
+          credential_hash: managerCredentialHash,
+          credential_kind: "password",
+          credential_status: "active",
+          credential_updated_at: now,
+          credential_version: 1,
+          display_name: `TASK035 Manager ${nonce}`,
+          failed_attempts: 0,
+          must_change_credential: false,
+          role_key: "manager",
+          shop_id: authorizedShopId,
+          staff_code: staffManagerCode,
+          status: "active",
+          updated_by_profile_id: userId,
+        })
+        .select("staff_id")
+        .single(),
     );
     await must(
       "DEVICE_CREATE",
@@ -489,7 +631,13 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
       productName,
       shopCode,
       shopId: authorizedShopId,
+      cashierCredential,
       staffCode,
+      staffId: cashierStaff.staff_id,
+      staffManagerCode,
+      staffManagerCredential,
+      staffManagerId: managerStaff.staff_id,
+      staffWebAttemptKeyHash,
       userId,
     };
   } catch (error) {
@@ -504,6 +652,7 @@ async function countTask035ResidualRows(
     blockedShopCode: string;
     shopCode: string;
     shopIds: readonly string[];
+    staffWebAttemptKeyHash: string;
     userId: string;
   },
 ) {
@@ -521,6 +670,14 @@ async function countTask035ResidualRows(
           supabase
             .from("staff_accounts")
             .select("staff_id", { count: "exact", head: true })
+            .in("shop_id", input.shopIds),
+          supabase
+            .from("staff_role_permissions")
+            .select("staff_role_permission_id", { count: "exact", head: true })
+            .in("shop_id", input.shopIds),
+          supabase
+            .from("staff_web_sessions")
+            .select("staff_web_session_id", { count: "exact", head: true })
             .in("shop_id", input.shopIds),
           supabase
             .from("shop_inventory_sources")
@@ -557,6 +714,10 @@ async function countTask035ResidualRows(
       .from("profiles")
       .select("profile_id", { count: "exact", head: true })
       .eq("profile_id", input.userId),
+    supabase
+      .from("staff_web_login_attempts")
+      .select("attempt_key_hash", { count: "exact", head: true })
+      .eq("attempt_key_hash", input.staffWebAttemptKeyHash),
     ...childTableCounts,
   ]);
   const countResults = [shops, products, categories, suppliers, profile, ...children];
@@ -586,6 +747,55 @@ async function signInWithTask035Credentials(
   await Promise.all([
     page.waitForURL((url) => url.pathname === "/shop", { timeout: 15_000 }),
     page.getByRole("button", { name: "Sign in" }).click(),
+  ]);
+}
+
+async function createTask035StaffWebSession(
+  runtime: Extract<Runtime, { status: "ready" }>,
+  fixture: Task035Fixture,
+  staffId: string,
+) {
+  const supabase = createClient<Database>(runtime.supabaseUrl, runtime.serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+  });
+  const rawSession = `mcstaff_web_${randomBytes(32).toString("base64url")}`;
+  const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+
+  await must(
+    "STAFF_WEB_SESSION_CREATE",
+    supabase.from("staff_web_sessions").insert({
+      expires_at: expiresAt,
+      metadata_redacted: {
+        source: "TASK035_staff_web_session_smoke",
+      },
+      session_token_hash: hashStaffWebSecret(rawSession),
+      shop_id: fixture.shopId,
+      staff_credential_version: 1,
+      staff_id: staffId,
+      status: "active",
+    }),
+  );
+
+  return rawSession;
+}
+
+async function setTask035StaffWebCookie(
+  page: import("@playwright/test").Page,
+  rawSession: string,
+) {
+  await page.context().addCookies([
+    {
+      httpOnly: true,
+      name: "mc_staff_web_session",
+      sameSite: "Lax",
+      secure: false,
+      url: process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3036",
+      value: rawSession,
+    },
   ]);
 }
 
@@ -652,7 +862,9 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         }
 
         await assertNoSensitiveText(page, [
+          fixture.cashierCredential,
           fixture.password,
+          fixture.staffManagerCredential,
           runtime.publishableKey,
           runtime.serviceRoleKey,
         ]);
@@ -678,6 +890,95 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
           name: "Shop Admin access required",
         }),
       ).toBeVisible();
+    } finally {
+      const cleanup = await fixture.cleanup();
+
+      expect(cleanup.cleanupErrors).toEqual([]);
+      expect(cleanup.userDeleted).toBe(true);
+      expect(cleanup.residualRows).toBe(0);
+    }
+  });
+
+  test("uses TASK035_* local synthetic data for staff manager web session and cashier denial", async ({
+    page,
+  }) => {
+    if (runtime.status !== "ready") {
+      test.skip(true, runtime.reason);
+      return;
+    }
+
+    const fixture = await createTask035Fixture(runtime);
+
+    try {
+      const managerSession = await createTask035StaffWebSession(
+        runtime,
+        fixture,
+        fixture.staffManagerId,
+      );
+
+      await setTask035StaffWebCookie(page, managerSession);
+      await page.goto("/shop");
+
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Shop Overview" }),
+      ).toBeVisible();
+      await expect(page.getByText(fixture.shopCode).first()).toBeVisible();
+
+      for (const route of [
+        { heading: "Products", path: "/shop/products", text: fixture.productName },
+        { heading: "POS / Staff", path: "/shop/staff", text: fixture.staffManagerCode },
+        { heading: "POS Live", path: "/shop/pos", text: "TASK035_SMOKE" },
+      ]) {
+        await page.goto(`${route.path}?shop_id=${fixture.shopId}`);
+        await expect(
+          page.getByRole("heading", { level: 1, name: route.heading }),
+        ).toBeVisible();
+        await expect(page.getByText(route.text).first()).toBeVisible();
+        await assertNoSensitiveText(page, [
+          fixture.cashierCredential,
+          fixture.password,
+          fixture.staffManagerCredential,
+          runtime.publishableKey,
+          runtime.serviceRoleKey,
+        ]);
+      }
+
+      await page.goto(`/shop?shop_id=${fixture.blockedShopId}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Shop Overview" }),
+      ).toBeVisible();
+      await expect(page.getByText(fixture.shopCode).first()).toBeVisible();
+      await expect(page.getByText(fixture.blockedShopCode)).toHaveCount(0);
+
+      await page.context().clearCookies();
+      await page.goto("/shop");
+      await expect(
+        page.getByRole("heading", {
+          level: 1,
+          name: "Shop Admin access required",
+        }),
+      ).toBeVisible();
+
+      const cashierSession = await createTask035StaffWebSession(
+        runtime,
+        fixture,
+        fixture.staffId,
+      );
+      await setTask035StaffWebCookie(page, cashierSession);
+      await page.goto("/shop");
+      await expect(
+        page.getByRole("heading", {
+          level: 1,
+          name: "Shop Admin access required",
+        }),
+      ).toBeVisible();
+      await assertNoSensitiveText(page, [
+        fixture.cashierCredential,
+        fixture.password,
+        fixture.staffManagerCredential,
+        runtime.publishableKey,
+        runtime.serviceRoleKey,
+      ]);
     } finally {
       const cleanup = await fixture.cleanup();
 

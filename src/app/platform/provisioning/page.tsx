@@ -8,6 +8,7 @@ import {
   createPlatformPendingOwnerInviteAction,
   createPlatformShopAction,
 } from "../operations/actions";
+import { StaffManagerProvisioningPanel } from "./StaffManagerProvisioningPanel";
 
 export const metadata: Metadata = {
   title: "Provisioning | MerchandiseControl Admin Web",
@@ -29,6 +30,12 @@ export default async function PlatformProvisioningPage() {
   const activeProfiles = readModel.profiles.filter(
     (profile) => profile.profile_status === "active",
   );
+  const activeShopOptions = readModel.shops
+    .filter((shop) => shop.shop_status === "active")
+    .map((shop) => ({
+      label: `${shop.shop_name} (${shop.shop_code})`,
+      shopId: shop.shop_id,
+    }));
 
   return (
     <AppShell activeSection="provisioning">
@@ -156,6 +163,13 @@ export default async function PlatformProvisioningPage() {
                   </button>
                 </div>
               </form>
+            </SectionCard>
+
+            <SectionCard
+              title="Provision POS manager web access"
+              description="Creates a shop-scoped manager staff account and enables shop_admin.full_access for the manager role through a server-only Platform Admin boundary."
+            >
+              <StaffManagerProvisioningPanel shops={activeShopOptions} />
             </SectionCard>
           </div>
         )}

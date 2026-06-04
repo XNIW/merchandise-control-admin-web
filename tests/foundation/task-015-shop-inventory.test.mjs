@@ -24,7 +24,7 @@ test("TASK-015 inventory read model is server-only, mapped, and read-only", () =
   const readModel = readProjectFile(readModelPath);
 
   assert.match(readModel, /import "server-only"/);
-  assert.match(readModel, /resolveCurrentShopAdminShellAccess/);
+  assert.match(readModel, /resolveShopAdminDataAccess/);
   assert.match(readModel, /\.from\("shop_inventory_sources"\)/);
   assert.match(readModel, /\.eq\("shop_id", selectedShop\.shopId\)/);
   assert.match(readModel, /\.eq\("mapping_state", "mapped"\)/);

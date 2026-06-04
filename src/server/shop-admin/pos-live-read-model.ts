@@ -5,13 +5,9 @@ import {
   resolveSupabaseAdminConfig,
   type SupabaseAdminClient,
 } from "@/lib/supabase/admin";
-import {
-  createSupabaseServerClient,
-  resolveSupabaseServerConfig,
-  type SupabaseServerClient,
-} from "@/lib/supabase/server";
+import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Database, Json, Tables } from "@/lib/supabase/database.types";
-import { resolveCurrentShopAdminShellAccess } from "./shop-access";
+import { resolveShopAdminDataAccess } from "./data-access";
 import type { ShopAdminShellShop } from "./shop-access";
 import type {
   ShopAdminReadModelError,
@@ -358,33 +354,9 @@ async function resolvePosLiveAccess(
     }
   | ShopPosLiveReadModel
 > {
-  const config = resolveSupabaseServerConfig();
+  const access = await resolveShopAdminDataAccess(options);
 
-  if (config.status !== "configured") {
-    return {
-      status: "not_configured",
-      ...emptyRows,
-      readOnly: true,
-      source: "supabase_admin_server",
-      reason: "Supabase runtime env is not configured for Shop Admin authorization.",
-    };
-  }
-
-  const supabase = options.client ?? (await createSupabaseServerClient(config));
-
-  if (!supabase) {
-    return {
-      status: "not_configured",
-      ...emptyRows,
-      readOnly: true,
-      source: "supabase_admin_server",
-      reason: "Supabase server client is unavailable for POS live authorization.",
-    };
-  }
-
-  const access = await resolveCurrentShopAdminShellAccess(supabase);
-
-  if (access.status !== "shop_admin") {
+  if (access.status !== "ready") {
     return {
       status:
         access.status === "not_configured" || access.status === "error"
@@ -398,10 +370,7 @@ async function resolvePosLiveAccess(
   }
 
   return {
-    selectedShop:
-      access.availableShops.find(
-        (shop) => shop.shopId === options.requestedShopId,
-      ) ?? access.selectedShop,
+    selectedShop: access.selectedShop,
   };
 }
 

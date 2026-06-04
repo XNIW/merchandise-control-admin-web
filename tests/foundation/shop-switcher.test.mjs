@@ -36,9 +36,10 @@ test("TASK-009 ShopShell renders switcher from server-provided shops only", () =
   const layout = readProjectFile("src/app/shop/layout.tsx");
   const shell = readProjectFile("src/components/shop/ShopShell.tsx");
 
-  assert.match(layout, /resolveCurrentShopAdminShellAccess/);
-  assert.match(layout, /availableShops=\{access\.availableShops\}/);
-  assert.match(layout, /selectedShopId=\{access\.selectedShop\.shopId\}/);
+  assert.match(layout, /resolveCurrentShopAdminPrincipal/);
+  assert.match(layout, /availableShops=\{availableShops\}/);
+  assert.match(layout, /selectedShopId=\{selectedShopId\}/);
+  assert.match(layout, /principal\.kind === "personal_account"/);
 
   assert.match(shell, /availableShops/);
   assert.match(shell, /selectedShopId/);

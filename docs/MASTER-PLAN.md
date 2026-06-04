@@ -1356,6 +1356,56 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Review finale Codex 2026-06-03: hard review sul modello TASK-037 e security diff scan locale in `/tmp/codex-security-scans/merchandise-control-admin-web/ea1f0b8_20260604_task037_final/`, no findings reportable dopo fix. Corretto il guardrail staff web per non accettare `admin` come ruolo corrente quando lo schema verifica solo `manager`; `POS_STAFF_WEB_FUTURE_ADMIN_ROLE_KEY = admin` resta target/follow-up. Rimossi helper autorizzativi staff web non integrati e rafforzati foundation test/security scanner contro il pattern permissivo `manager/admin`. Check finali freschi passano: `security:scan`, `test:foundation` (`167/167`), `typecheck`, `lint`, `build`, `verify`, `test:shop-admin-auth-smoke`, `git diff --check`, `git status` e `git diff --cached --name-status`; solo warning noto `[DEP0205]`, smoke autenticato `PASS_WITH_SKIP` su ambiente non locale/sicuro, `dev:db:check` fail-closed su `.env.local` cloud/mismatch container. In quella fase TASK-037 restava `REVIEW` e passava a `READY_FOR_DONE_CONFIRMATION`; Codex non marcava `DONE` senza conferma utente.
 - Chiusura 2026-06-03: conferma esplicita utente ricevuta per marcare TASK-037 `DONE`, commit e push su `main`. Le note residue restano vincolanti: login staff web completo non implementato, schema staff corrente solo `cashier`/`manager`/`viewer`, `admin` e `shop_admin.full_access` sono follow-up, nessuna migration TASK-037, Sales Sync resta `DEFERRED`, nessuna modifica Win7POS/Android/iOS e nessuna dichiarazione production-ready globale.
 
+### TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-038-pos-manager-web-login-platform-provisioning-permissions-revenue-gate.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-038/README.md`
+- Fase: `DONE`
+- Responsabile: `CODEX`
+- Branch previsto: Admin Web su `main`
+- Verdict corrente: `DONE`
+- Scopo: implementare o bloccare in modo repo-grounded il login web staff POS manager, il provisioning Platform, un permission tree shop-scoped e il gate dashboard incassi senza fake data.
+- Prerequisito: TASK-037 verificato `DONE`, committato e pushato in `0b54d09`.
+- Decisioni iniziali:
+  - `pos_staff_manager` resta single-shop e separato da `profiles`;
+  - `pos_sessions` non viene riusata come browser staff web session perche e device-bound;
+  - staff ordinario/cashier/operator/viewer resta escluso dalla Shop Admin web;
+  - dashboard incassi resta bloccata se non esistono tabelle vendite reali;
+  - Sales Sync non viene aperto.
+- Discovery iniziale:
+  - presenti `staff_accounts`, `staff_accounts_safe`, `credential_status`, `pos_sessions`, `shop_devices`, `pos_device_credentials`, `audit_logs`, `sync_events`;
+  - mancanti staff web session table e storage verificato per `shop_admin.full_access` nella baseline; TASK-038 li introduce con migration additiva;
+  - `staff_accounts.role_key` corrente supporta `cashier`, `manager`, `viewer`;
+  - `admin` role staff e tabelle vendite/incassi reali non trovati staticamente.
+- Note runtime: `npm run dev:db:check` fallisce chiuso su `.env.local` cloud e container locale mismatch; nessun uso Supabase production.
+- Implementation TASK-038:
+  - migration additiva `20260604035308_task_038_pos_manager_web_login.sql` creata per `staff_web_sessions`, `staff_web_login_attempts` e `staff_role_permissions`;
+  - migration applicata su Supabase locale non-production e typegen reale rigenerato da DB locale;
+  - runtime staff manager web server-only creato con cookie HTTP-only, token hash, credential verify, lockout, audit login/logout e logout route;
+  - route login staff manager web creata in route group `/shop/staff-login`, senza service role lato browser e senza storage client;
+  - shell `/shop` ora usa principal espliciti `personal_account` e `pos_staff_manager`, mantenendo personal account multi-shop e staff single-shop;
+  - read model Shop Admin principali passano da `resolveShopAdminDataAccess`, con account personale SSR/RLS e staff manager admin-client server-only filtrato per shop;
+  - Platform provisioning staff manager web implementato server-side con insert `staff_accounts`, upsert `staff_role_permissions`, credential one-time e audit redatto;
+  - action context Shop Admin blocca `pos_staff_manager` sui mutator esistenti per non riusare RPC personali basati su `auth.uid()`;
+  - permission tree server-side creato con `shop_admin.full_access`;
+  - revenue dashboard resta bloccata con `REVENUE_DASHBOARD_BLOCKED_NO_REAL_SALES_DATA`; Revenue dashboard requires real sales sync data.
+- Gap residui TASK-038:
+  - mutazioni Shop Admin staff web non implementate; restano follow-up dedicato o boundary read-only intenzionale;
+  - `npm run test:shop-admin-auth-smoke` usa sessione staff sintetica per evitare audit append-only nel dataset `TASK035_*`; submit login/logout reale verificato separatamente con manual smoke locale `TASK038_*`, logout revocato e cleanup zero;
+  - `admin` staff role non introdotto; schema corrente resta `cashier`/`manager`/`viewer`;
+  - nessun Sales Sync, nessun dashboard vendite fake, nessuna modifica Win7POS/Android/iOS.
+- Check TASK-038:
+  - `security:scan` PASS;
+  - `test:foundation` PASS `173/173`;
+  - `typecheck` PASS;
+  - `lint` PASS;
+  - `build` PASS con warning noto `[DEP0205]`;
+  - `verify` PASS con warning noto `[DEP0205]`;
+  - `test:shop-admin-auth-smoke` PASS locale non-production (`3 passed`, include staff manager web session e cashier denial).
+- Review finale 2026-06-04: corretti audit failure staff web troppo informativi (`shop_resolved`/`staff_resolved` rimossi), pending state/copy one-time nel Platform provisioning panel e documentazione allineata al manual smoke reale `/shop/staff-login` + `/shop/staff-logout` con manager success, logout revocato, cashier/viewer denied, wrong credential generic e cleanup zero. Verdict aggiornato a `DONE_READY`.
+- Finalizzazione 2026-06-04: conferma esplicita utente ricevuta, TASK-038 marcato `DONE`; commit/push richiesti nella finalizzazione. Non include Supabase production, Vercel Production, Sales Sync, dashboard vendite fake, Win7POS/Android/iOS/Cash Register changes, email invite, social login o fusione `profiles`/`staff_accounts`.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -1370,12 +1420,11 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `IDLE`
-- Ultimo task completato: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`
+- Ultimo task completato: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
 - Fase TASK-017: `DONE_RECONCILED`
-- Task parcheggiato non chiuso: `TASK-022_023 - POS live dashboard + Win7POS first login trusted device`
 - Stato TASK-016: `DONE`
 - Fase TASK-016: `DONE_RECONCILED`
 - Stato TASK-018: `DONE`
@@ -1392,13 +1441,15 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-036: `DONE`
 - Stato TASK-037: `DONE`
 - Fase TASK-037: `DONE`
+- Stato TASK-038: `DONE`
+- Fase TASK-038: `DONE`
 - Task attivo: `NESSUNO`
-- File task: `docs/TASKS/TASK-037-shop-admin-dual-access-model.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-037/README.md`
+- File task: `docs/TASKS/TASK-038-pos-manager-web-login-platform-provisioning-permissions-revenue-gate.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-038/README.md`
 - Stato task: `DONE`
 - Fase: `DONE`
-- Milestone interna: `TASK_037_DONE_CONFIRMED`
-- Responsabile: `COMPLETED`
+- Milestone interna: `TASK_038_DONE_CONFIRMED`
+- Responsabile: `CODEX`
 - Branch previsto: Admin Web su `main` o branch dedicato se autorizzato in execution
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -1417,8 +1468,9 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-035: `DONE`
 - Verdict TASK-036: `DONE`
 - Verdict TASK-037: `DONE`
+- Verdict TASK-038: `DONE`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
-- Prossima azione consigliata: decidere un task separato per eventuale schema/auth staff manager web. Non aprire automaticamente Sales Sync. TASK-029, TASK-031, TASK-032, TASK-033 e TASK-022_023 restano non chiusi secondo i rispettivi blocker.
+- Prossima azione consigliata: follow-up dedicato solo per mutazioni Shop Admin staff-aware o per formalizzare il boundary staff web read-only; non aprire Sales Sync. TASK-029, TASK-031, TASK-032, TASK-033 e TASK-022_023 restano non chiusi secondo i rispettivi blocker.
 
 ## Regole di avanzamento
 

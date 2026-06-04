@@ -16,7 +16,7 @@ type ShopShellShop = {
 };
 
 type ShopShellProps = {
-  availableShops: ShopShellShop[];
+  availableShops: readonly ShopShellShop[];
   children: ReactNode;
   selectedShopId: string;
 };

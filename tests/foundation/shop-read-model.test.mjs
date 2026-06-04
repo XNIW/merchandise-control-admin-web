@@ -15,12 +15,15 @@ test("TASK-010 Shop Admin read model is server-only and shop-scoped", () => {
   assert.equal(existsSync(join(root, readModelPath)), true, `${readModelPath} is missing`);
 
   const readModel = readProjectFile(readModelPath);
+  const dataAccess = readProjectFile("src/server/shop-admin/data-access.ts");
 
   assert.match(readModel, /import "server-only"/);
-  assert.match(readModel, /createSupabaseServerClient/);
-  assert.match(readModel, /resolveCurrentShopAdminShellAccess/);
-  assert.match(readModel, /status: "not_configured"/);
-  assert.match(readModel, /status: "unauthorized"/);
+  assert.match(readModel, /resolveShopAdminDataAccess/);
+  assert.match(dataAccess, /createSupabaseServerClient/);
+  assert.match(dataAccess, /resolveCurrentShopAdminPrincipal/);
+  assert.match(dataAccess, /resolveStaffWebSessionPrincipal/);
+  assert.match(readModel, /"not_configured"/);
+  assert.match(readModel, /"unauthorized"/);
   assert.match(readModel, /status: "empty"/);
   assert.match(readModel, /status: "error"/);
   assert.match(readModel, /\.from\("shops"\)/);
@@ -35,13 +38,15 @@ test("TASK-010 Shop Admin read model is server-only and shop-scoped", () => {
 
 test("TASK-010 selected shop query param is never an authorization source", () => {
   const readModel = readProjectFile("src/server/shop-admin/read-model.ts");
+  const dataAccess = readProjectFile("src/server/shop-admin/data-access.ts");
   const sectionData = readProjectFile("src/server/shop-admin/shop-section-data.ts");
   const overviewPage = readProjectFile("src/app/shop/overview/page.tsx");
   const rootShopPage = readProjectFile("src/app/shop/page.tsx");
 
   assert.match(readModel, /requestedShopId/);
-  assert.match(readModel, /availableShops\.find/);
-  assert.match(readModel, /access\.selectedShop/);
+  assert.match(dataAccess, /availableShops\.find/);
+  assert.match(dataAccess, /principal\.selectedShop/);
+  assert.match(dataAccess, /strictRequestedShop/);
   assert.doesNotMatch(readModel, /\.eq\("shop_id", requestedShopId\)/);
   assert.doesNotMatch(readModel, /\.eq\("shop_id", selectedShopId\)/);
   assert.match(sectionData, /getShopAdminReadModel/);
