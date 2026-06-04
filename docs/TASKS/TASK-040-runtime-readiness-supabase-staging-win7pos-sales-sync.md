@@ -128,6 +128,22 @@ Check freschi:
 
 Decisione: TASK-040 resta `REVIEW_WITH_EXTERNAL_BLOCKERS` / `PARTIAL_PASS_WITH_BLOCKERS`. I fix chiudono solo problemi repo-controllabili; non sbloccano Supabase apply, staging stabile, Win7POS live E2E o Sales Sync reale.
 
+## CI fix 2026-06-04
+
+Problema GitHub Actions rilevato: `npm run security:scan` falliva nello step Verify perche richiedeva il repo Win7POS in `/Users/minxiang/Projects/Win7POS`, path assoluto valido solo sul Mac locale.
+
+Fix applicato:
+
+- Admin Web CI resta self-contained: se Win7POS non esiste, i controlli esterni vengono marcati `SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE` e lo scanner puo passare.
+- `WIN7POS_REPO_PATH` consente di indicare un checkout Win7POS alternativo.
+- `REQUIRE_WIN7POS_REPO=1` rende Win7POS obbligatorio e fa fallire lo scanner se il repo manca.
+- Test regression aggiunto in `tests/foundation/task-022-023-pos-dashboard-win7pos-client.test.mjs`.
+
+Check mirati:
+
+- `WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture npm run security:scan`: `PASS_WITH_SKIP`, output include `SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE`.
+- `REQUIRE_WIN7POS_REPO=1 WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture npm run security:scan`: `FAIL_EXPECTED`, output include `Win7POS repo is missing`.
+
 ## Fase 2 - Supabase local/non-production apply validation
 
 ### Environment discovery

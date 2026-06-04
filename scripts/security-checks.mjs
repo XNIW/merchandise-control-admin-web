@@ -4,6 +4,7 @@ import { join, relative } from "node:path";
 
 const root = process.cwd();
 const failures = [];
+const skips = [];
 const textExtensions = new Set([
   ".cjs",
   ".css",
@@ -29,6 +30,39 @@ const excludedDirectories = new Set([
 
 function addFailure(message) {
   failures.push(message);
+}
+
+function addSkip(message) {
+  skips.push(message);
+}
+
+function resolveExternalRepoPath(envName, fallbackPath) {
+  return process.env[envName]?.trim() || fallbackPath;
+}
+
+function isRequiredExternalRepo(envName) {
+  return process.env[envName] === "1";
+}
+
+function skipOrFailMissingExternalRepo({
+  envName,
+  label,
+  path,
+  requiredEnvName,
+}) {
+  if (existsSync(path)) {
+    return false;
+  }
+
+  if (isRequiredExternalRepo(requiredEnvName)) {
+    addFailure(`${label} repo is missing at ${path}`);
+  } else {
+    addSkip(
+      `SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE ${label}: repo is missing at ${path}; set ${envName} to override or ${requiredEnvName}=1 to require it.`,
+    );
+  }
+
+  return true;
 }
 
 function listFiles(start, includeEnvTemplates = false) {
@@ -3333,7 +3367,10 @@ function listExternalFiles(start, extensions) {
 }
 
 function checkTask022023PosDashboardWin7PosClient() {
-  const win7PosRoot = "/Users/minxiang/Projects/Win7POS";
+  const win7PosRoot = resolveExternalRepoPath(
+    "WIN7POS_REPO_PATH",
+    "/Users/minxiang/Projects/Win7POS",
+  );
   const win7ConfigFileName = "pos-admin-web.config";
   const taskPath = "docs/TASKS/TASK-022-023-pos-dashboard-win7pos-client.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-022-023/README.md";
@@ -3368,8 +3405,14 @@ function checkTask022023PosDashboardWin7PosClient() {
     }
   }
 
-  if (!existsSync(win7PosRoot)) {
-    addFailure("Win7POS repo is missing at /Users/minxiang/Projects/Win7POS");
+  if (
+    skipOrFailMissingExternalRepo({
+      envName: "WIN7POS_REPO_PATH",
+      label: "Win7POS",
+      path: win7PosRoot,
+      requiredEnvName: "REQUIRE_WIN7POS_REPO",
+    })
+  ) {
     return;
   }
 
@@ -3550,7 +3593,10 @@ function checkTask022023PosDashboardWin7PosClient() {
 }
 
 function checkTask027CatalogPullDeltaSync() {
-  const win7PosRoot = "/Users/minxiang/Projects/Win7POS";
+  const win7PosRoot = resolveExternalRepoPath(
+    "WIN7POS_REPO_PATH",
+    "/Users/minxiang/Projects/Win7POS",
+  );
   const taskPath =
     "docs/TASKS/TASK-027-catalog-pull-delta-sync-and-pos-catalog-hardening.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-027/README.md";
@@ -4326,6 +4372,13 @@ if (failures.length > 0) {
     console.error(`- ${failure}`);
   }
   process.exit(1);
+}
+
+if (skips.length > 0) {
+  console.log("Security scan skipped external checks:");
+  for (const skip of skips) {
+    console.log(`- ${skip}`);
+  }
 }
 
 console.log("Security scan passed.");

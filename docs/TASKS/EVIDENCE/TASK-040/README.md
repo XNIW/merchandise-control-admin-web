@@ -172,6 +172,27 @@ Screenshot browser evidence: `/tmp/codex-security-scans/merchandise-control-admi
 - Nessuna automazione esterna creata.
 - Harness migliorati: test TASK-039 e security scanner includono i nuovi guardrail settings.
 
+## CI fix GitHub Actions 2026-06-04
+
+### Problema
+
+GitHub Actions falliva nello step Verify/Security scan con `Win7POS repo is missing at /Users/minxiang/Projects/Win7POS`. Il path e un sibling locale del Mac e non esiste sul runner GitHub.
+
+### Fix
+
+- `scripts/security-checks.mjs` usa `WIN7POS_REPO_PATH` per override del repo Win7POS.
+- Se Win7POS manca e `REQUIRE_WIN7POS_REPO` non e `1`, lo scanner stampa `SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE` e continua.
+- Se `REQUIRE_WIN7POS_REPO=1`, lo scanner fallisce come guardrail obbligatorio.
+- I foundation test TASK-022_023 non falliscono piu in CI solo per assenza del repo sibling, ma continuano a controllare il repo quando disponibile o richiesto.
+
+### Evidence
+
+| Comando | Esito |
+| --- | --- |
+| `node --test tests/foundation/task-022-023-pos-dashboard-win7pos-client.test.mjs` | `PASS`, `tests 5`, `pass 5` |
+| `WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture npm run security:scan` | `PASS_WITH_SKIP`, output include `SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE` |
+| `REQUIRE_WIN7POS_REPO=1 WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture npm run security:scan` | `FAIL_EXPECTED`, output include `Win7POS repo is missing` |
+
 ## Supabase status
 
 ### Environment redatto

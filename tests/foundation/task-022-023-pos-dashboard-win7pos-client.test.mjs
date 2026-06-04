@@ -1,10 +1,14 @@
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
 const root = process.cwd();
-const win7PosRoot = "/Users/minxiang/Projects/Win7POS";
+const defaultWin7PosRoot = "/Users/minxiang/Projects/Win7POS";
+const win7PosRoot =
+  process.env.WIN7POS_REPO_PATH?.trim() || defaultWin7PosRoot;
+const requireWin7PosRepo = process.env.REQUIRE_WIN7POS_REPO === "1";
 
 function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
@@ -137,6 +141,14 @@ test("Admin Web POS live dashboard is Shop Admin read-only and uses real POS tab
 });
 
 test("Win7POS client implements first login, trusted token storage and heartbeat safely", () => {
+  if (!existsSync(win7PosRoot) && !requireWin7PosRepo) {
+    const scanner = readProjectFile("scripts/security-checks.mjs");
+
+    assert.match(scanner, /SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE/);
+    assert.match(scanner, /REQUIRE_WIN7POS_REPO/);
+    return;
+  }
+
   assert.equal(existsSync(win7PosRoot), true, "Win7POS repo is missing");
 
   const requiredPaths = [
@@ -198,15 +210,56 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
 
 test("TASK-022_023 security scanner covers Admin Web and Win7POS constraints", () => {
   const scanner = readProjectFile("scripts/security-checks.mjs");
-  const win7Scanner = readWin7PosFile("scripts/check-pos-online-client.ps1");
 
   assert.match(scanner, /checkTask022023PosDashboardWin7PosClient/);
   assert.match(scanner, /checkTask022023PosDashboardWin7PosClient\(\)/);
+  assert.match(scanner, /WIN7POS_REPO_PATH/);
+  assert.match(scanner, /REQUIRE_WIN7POS_REPO/);
+  assert.match(scanner, /SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE/);
   assert.match(scanner, /Win7POS/);
   assert.match(scanner, /ProtectedData/);
   assert.match(scanner, /SecurityProtocolType\.Tls12/);
   assert.match(scanner, /pos-admin-web\.config/);
+
+  if (!existsSync(win7PosRoot) && !requireWin7PosRepo) {
+    return;
+  }
+
+  const win7Scanner = readWin7PosFile("scripts/check-pos-online-client.ps1");
+
   assert.match(win7Scanner, /sensitiveLogPattern/);
   assert.match(win7Scanner, /Log\(\?:Info\|Warning\|Error\)/);
   assert.match(win7Scanner, /trustedDeviceToken\|sessionToken\|deviceToken/);
+});
+
+test("security scanner skips missing Win7POS sibling unless explicitly required", () => {
+  const missingWin7PosPath = join(
+    root,
+    ".tmp-missing-win7pos-security-scan-fixture",
+  );
+  const optional = spawnSync("node", ["scripts/security-checks.mjs"], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      REQUIRE_WIN7POS_REPO: "",
+      WIN7POS_REPO_PATH: missingWin7PosPath,
+    },
+  });
+
+  assert.equal(optional.status, 0, optional.stderr || optional.stdout);
+  assert.match(optional.stdout, /SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE/);
+
+  const required = spawnSync("node", ["scripts/security-checks.mjs"], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      REQUIRE_WIN7POS_REPO: "1",
+      WIN7POS_REPO_PATH: missingWin7PosPath,
+    },
+  });
+
+  assert.notEqual(required.status, 0, "required missing Win7POS should fail");
+  assert.match(required.stderr, /Win7POS repo is missing/);
 });

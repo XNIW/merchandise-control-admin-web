@@ -1544,6 +1544,11 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - iOS/Android: nessun progetto mobile trovato nello workspace con discovery locale read-only; status `NOT_PRESENT_IN_CURRENT_WORKSPACE`;
   - Codex Security diff scan locale completato in `/tmp/codex-security-scans/merchandise-control-admin-web/localpatch_20260604145545/report.md` e `.html`, nessun finding reportable aperto dopo fix;
   - verdict TASK-040 invariato: `PARTIAL_PASS_WITH_BLOCKERS`, perche Supabase apply, staging stabile, Win7POS live E2E e Sales Sync reale restano bloccati.
+- CI fix 2026-06-04:
+  - `npm run security:scan` e i foundation guardrail non falliscono piu in GitHub Actions solo per assenza del repo sibling assoluto `/Users/minxiang/Projects/Win7POS`;
+  - `WIN7POS_REPO_PATH` puo puntare a un checkout Win7POS alternativo;
+  - `REQUIRE_WIN7POS_REPO=1` rende di nuovo il repo Win7POS obbligatorio e fallisce se manca;
+  - default CI Admin Web: `SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE` per i controlli esterni, con scanner ancora `PASS` per lo scope self-contained.
 - Win7POS live E2E 2026-06-04:
   - repo `/Users/minxiang/Projects/Win7POS` trovato;
   - baseline `git status --short --branch`: `main...origin/main`, dirty preesistente `.gitignore`, `docs/dev/`, `scripts/win7pos/`;
