@@ -11,7 +11,7 @@ import {
 
 export const metadata: Metadata = {
   title: "Provision Shop | MerchandiseControl Admin Web",
-  description: "Provision a shop from the Platform Admin Console.",
+  description: "Provision a shop from the Master Console.",
 };
 
 export const dynamic = "force-dynamic";
@@ -36,14 +36,14 @@ export default async function PlatformNewShopPage() {
         <PageHeader
           eyebrow="Shop onboarding"
           title="Provision Shop"
-          description="Create a shop with an existing owner or a pending owner invite through audited Platform Admin boundaries."
+          description="Create a shop with an existing owner or a pending owner invite through audited Master Console boundaries."
           status={ready ? "Safe provisioning" : formatToken(readModel.status)}
         />
 
         {!ready ? (
           <SectionCard
             title="Provisioning unavailable"
-            description="A valid Platform Admin server session is required before provisioning can run."
+            description="A valid Master Console server session is required before provisioning can run."
           >
             <EmptyState title={formatToken(readModel.status)} description={readModel.reason} />
           </SectionCard>

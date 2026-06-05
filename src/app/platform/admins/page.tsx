@@ -48,7 +48,7 @@ const resultMessages: Record<ResultCode, string> = {
   last_admin_blocked: "At least one active Platform Admin must remain.",
   already_active: "The selected Platform Admin grant is already active.",
   conflict: "The operation could not be completed because of a conflict.",
-  db_failure: "Request could not be completed.",
+  db_failure: "The controlled database action failed without exposing internal details.",
 };
 
 function firstParam(value: string | string[] | undefined) {

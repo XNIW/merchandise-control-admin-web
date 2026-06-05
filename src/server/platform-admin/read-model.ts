@@ -34,6 +34,13 @@ type Tables = Database["public"]["Tables"];
 
 type PlatformReadStatus = "ready" | "not_configured" | "unauthorized" | "error";
 
+type PlatformReadIssue = {
+  area: "staff_accounts_safe";
+  code: string;
+  message: string;
+  severity: "warning";
+};
+
 type StaffSafeSummary = {
   last_login_at: string | null;
   role_key: string | null;
@@ -62,6 +69,7 @@ export type PlatformAdminLiveReadModel = PlatformAdminReadModelFoundation & {
   shopDevices: readonly PlatformDeviceOverview[];
   syncEvents: readonly PlatformSyncOverview[];
   staffSafeRows: readonly StaffSafeSummary[];
+  readIssues: readonly PlatformReadIssue[];
   dataHealth: PlatformDataHealth;
 };
 
@@ -102,6 +110,7 @@ function emptyModel(
     platformAdminProfileIds: [],
     platformAdmins: [],
     profiles: [],
+    readIssues: [],
     shopDevices: [],
     shopMembers: [],
     shopOwnerMappings: [],
@@ -225,6 +234,7 @@ function buildDataHealth(input: {
   shops: readonly Shop[];
   staffSafeRows: readonly StaffSafeSummary[];
   syncEvents: readonly PlatformSyncOverview[];
+  readIssues: readonly PlatformReadIssue[];
 }): PlatformDataHealth {
   const activeOwnerShopIds = new Set(
     input.shopMembers
@@ -282,8 +292,13 @@ function buildDataHealth(input: {
         shop.shop_status !== "pending_setup" &&
         !activeOwnerShopIds.has(shop.shop_id),
     ).length,
-    staff_schema_status:
-      input.staffSafeRows.length > 0 ? "PASS" : "PASS_WITH_NOTES",
+    staff_schema_status: input.readIssues.some(
+      (issue) => issue.area === "staff_accounts_safe",
+    )
+      ? "BLOCKED"
+      : input.staffSafeRows.length > 0
+        ? "PASS"
+        : "PASS_WITH_NOTES",
     suspended_shops_with_recent_activity: input.shops.filter(
       (shop) =>
         shop.shop_status === "suspended" && recentSyncShopIds.has(shop.shop_id),
@@ -294,65 +309,79 @@ function buildDataHealth(input: {
 }
 
 async function loadRows(supabase: SupabaseServerClient) {
-  const profilesResult = await supabase
-    .from("profiles")
-    .select("profile_id,display_name,profile_status,created_at,updated_at,disabled_at")
-    .order("created_at", { ascending: false })
-    .limit(200);
-  const shopsResult = await supabase
-    .from("shops")
-    .select(
-      "shop_id,shop_code,shop_name,shop_status,created_at,updated_at,archived_at,suspended_at,status_changed_at,status_reason_redacted",
-    )
-    .order("created_at", { ascending: false })
-    .limit(200);
-  const membersResult = await supabase
-    .from("shop_members")
-    .select(
-      "shop_member_id,profile_id,shop_id,role_key,membership_status,created_at,updated_at",
-    )
-    .order("created_at", { ascending: false })
-    .limit(500);
-  const platformAdminsResult = await supabase
-    .from("platform_admins")
-    .select(
-      "platform_admin_id,profile_id,status,granted_at,revoked_at,last_reviewed_at,reason_redacted",
-    )
-    .order("granted_at", { ascending: false })
-    .limit(100);
-  const mappingsResult = await supabase
-    .from("shop_inventory_sources")
-    .select(
-      "shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind,created_at,verified_at,disabled_at",
-    )
-    .order("created_at", { ascending: false })
-    .limit(500);
-  const auditResult = await supabase
-    .from("audit_logs")
-    .select(
-      "audit_log_id,actor_profile_id,scope,shop_id,event_key,severity,result,target_type,target_id,metadata_redacted,created_at",
-    )
-    .order("created_at", { ascending: false })
-    .limit(200);
-  const devicesResult = await supabase
-    .from("shop_devices")
-    .select(
-      "shop_device_id,shop_id,device_identifier,display_name,device_type,status,app_version,last_seen_at,updated_at",
-    )
-    .order("updated_at", { ascending: false })
-    .limit(300);
-  const syncResult = await supabase
-    .from("sync_events")
-    .select(
-      "id,owner_user_id,store_id,source,source_device_id,domain,event_type,changed_count,metadata,created_at",
-    )
-    .order("created_at", { ascending: false })
-    .limit(300);
-  const staffResult = await supabase
-    .from("staff_accounts_safe")
-    .select("staff_id,shop_id,status,role_key,updated_at,last_login_at")
-    .order("updated_at", { ascending: false })
-    .limit(200);
+  const [
+    profilesResult,
+    shopsResult,
+    membersResult,
+    platformAdminsResult,
+    mappingsResult,
+    auditResult,
+    devicesResult,
+    syncResult,
+    staffResult,
+  ] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select(
+        "profile_id,display_name,profile_status,created_at,updated_at,disabled_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("shops")
+      .select(
+        "shop_id,shop_code,shop_name,shop_status,created_at,updated_at,archived_at,suspended_at,status_changed_at,status_reason_redacted",
+      )
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("shop_members")
+      .select(
+        "shop_member_id,profile_id,shop_id,role_key,membership_status,created_at,updated_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(500),
+    supabase
+      .from("platform_admins")
+      .select(
+        "platform_admin_id,profile_id,status,granted_at,revoked_at,last_reviewed_at,reason_redacted",
+      )
+      .order("granted_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("shop_inventory_sources")
+      .select(
+        "shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind,created_at,verified_at,disabled_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(500),
+    supabase
+      .from("audit_logs")
+      .select(
+        "audit_log_id,actor_profile_id,scope,shop_id,event_key,severity,result,target_type,target_id,metadata_redacted,created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(200),
+    supabase
+      .from("shop_devices")
+      .select(
+        "shop_device_id,shop_id,device_identifier,display_name,device_type,status,app_version,last_seen_at,updated_at",
+      )
+      .order("updated_at", { ascending: false })
+      .limit(300),
+    supabase
+      .from("sync_events")
+      .select(
+        "id,owner_user_id,store_id,source,source_device_id,domain,event_type,changed_count,metadata,created_at",
+      )
+      .order("created_at", { ascending: false })
+      .limit(300),
+    supabase
+      .from("staff_accounts_safe")
+      .select("staff_id,shop_id,status,role_key,updated_at,last_login_at")
+      .order("updated_at", { ascending: false })
+      .limit(200),
+  ]);
 
   const firstError = [
     profilesResult.error,
@@ -363,11 +392,25 @@ async function loadRows(supabase: SupabaseServerClient) {
     auditResult.error,
     devicesResult.error,
     syncResult.error,
-    staffResult.error,
   ].find(Boolean);
 
   if (firstError) {
     return { error: firstError };
+  }
+
+  const readIssues: PlatformReadIssue[] = [];
+
+  if (staffResult.error) {
+    readIssues.push({
+      area: "staff_accounts_safe",
+      code:
+        typeof staffResult.error.code === "string"
+          ? staffResult.error.code
+          : "staff_accounts_safe_read_blocked",
+      message:
+        "Staff safe read model is unavailable through the current RLS/grant boundary.",
+      severity: "warning",
+    });
   }
 
   const profiles = (profilesResult.data ?? []).map((row) =>
@@ -394,7 +437,9 @@ async function loadRows(supabase: SupabaseServerClient) {
   const syncEvents = (syncResult.data ?? []).map((row) =>
     mapSyncRow(row as Tables["sync_events"]["Row"]),
   );
-  const staffSafeRows = (staffResult.data ?? []) as StaffSafeSummary[];
+  const staffSafeRows = staffResult.error
+    ? []
+    : ((staffResult.data ?? []) as StaffSafeSummary[]);
 
   return {
     data: {
@@ -409,12 +454,14 @@ async function loadRows(supabase: SupabaseServerClient) {
         shops,
         staffSafeRows,
         syncEvents,
+        readIssues,
       }),
       platformAdminProfileIds: platformAdmins
         .filter((admin) => admin.status === "active")
         .map((admin) => admin.profile_id),
       platformAdmins,
       profiles,
+      readIssues,
       shopDevices,
       shopMembers,
       shopOwnerMappings,

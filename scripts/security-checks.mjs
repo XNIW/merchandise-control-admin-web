@@ -116,7 +116,7 @@ function isTask041RuntimeCompletionActive(
     ? read("docs/MASTER-PLAN.md")
     : "",
 ) {
-  return /Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
+  return /Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`/.test(
     masterPlan,
   );
 }
@@ -383,7 +383,11 @@ function checkTask006ControlledActionArtifacts() {
     addFailure(`${serverActionsPath} must revalidate /platform/operations`);
   }
 
-  if (!/redirect\(\s*`\/platform\/operations\?operation=\$\{operation\}&result=\$\{result\.code\}`/.test(serverActions)) {
+  if (
+    !/redirect\(\s*`\$\{safeReturnTo\(formData\)\}\?operation=\$\{operation\}&result=\$\{result\.code\}`/.test(
+      serverActions,
+    )
+  ) {
     addFailure(`${serverActionsPath} must redirect with a redacted action result`);
   }
 
@@ -1510,7 +1514,7 @@ function checkTask013UiPolishArtifacts() {
     !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(
       masterPlan,
     ) &&
-    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
+    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`/.test(
       masterPlan,
     )
   ) {
@@ -3058,7 +3062,7 @@ function checkTask020Win7PosIntegrationPlanning() {
     !/Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`/.test(masterPlan) &&
     !/Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/.test(masterPlan) &&
     !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(masterPlan) &&
-    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(masterPlan)
+    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`/.test(masterPlan)
   ) {
     addFailure("MASTER-PLAN must return to no active task after reconciliation or track an active POS/catalog task");
   }
@@ -4176,7 +4180,7 @@ function checkTask039StaffAwareShopAdminCompletion() {
   }
 
   if (
-    !/Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
+    !/Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`/.test(
       masterPlan,
     )
   ) {
@@ -4335,7 +4339,7 @@ function checkTask040RuntimeReadiness() {
   }
 
   if (
-    !/Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
+    !/Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`/.test(
       masterPlan,
     )
   ) {
@@ -4343,7 +4347,7 @@ function checkTask040RuntimeReadiness() {
   }
 
   if (
-    /Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
+    /Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`/.test(
       masterPlan,
     ) &&
     !/SUPERSEDED_BY_TASK-041/.test(combinedDocs)
@@ -4449,11 +4453,11 @@ function checkTask041RuntimeCompletion() {
   }
 
   if (
-    !/Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`/.test(
+    !/Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`/.test(
       masterPlan,
     )
   ) {
-    addFailure("MASTER-PLAN must track TASK-041 as the active runtime completion task");
+    addFailure("MASTER-PLAN must track TASK-041, TASK-042, or TASK-043 as the active runtime completion task");
   }
 
   if (!/Stato TASK-040: `REVIEW_WITH_EXTERNAL_BLOCKERS`/.test(masterPlan)) {
@@ -4605,6 +4609,770 @@ function checkTask041RuntimeCompletion() {
   }
 }
 
+function checkTask042ReviewCiWin7PosBridge() {
+  const taskPath =
+    "docs/TASKS/TASK-042-task-041-review-ci-retry-win7pos-physical-e2e-bridge.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-042/README.md";
+  const foundationTestPath =
+    "tests/foundation/task-042-review-ci-win7pos-bridge.test.mjs";
+  const parityReportPath =
+    "docs/TASKS/EVIDENCE/TASK-042/TASK-042B-build-parity-diagnosis.md";
+  const compareSummaryPath =
+    "docs/TASKS/EVIDENCE/TASK-042/TASK-042B-build-compare/build-compare-summary.md";
+  const compareCsvPath =
+    "docs/TASKS/EVIDENCE/TASK-042/TASK-042B-build-compare/build-compare-files.csv";
+  const missingReportPath =
+    "docs/TASKS/EVIDENCE/TASK-042/TASK-042B-build-compare/missing-from-codex.md";
+  const extraReportPath =
+    "docs/TASKS/EVIDENCE/TASK-042/TASK-042B-build-compare/extra-in-codex.md";
+  const differentReportPath =
+    "docs/TASKS/EVIDENCE/TASK-042/TASK-042B-build-compare/different-hashes.md";
+  const compareScriptPath = "scripts/win7pos/compare-build-folders.sh";
+  const fetchScriptPath =
+    "scripts/win7pos/fetch-github-release-pack-to-bridge.sh";
+  const adminWebRunbookPath =
+    "docs/TASKS/EVIDENCE/TASK-042/ADMIN-WEB-MANUAL-TEST-RUNBOOK.md";
+  const masterPlan = read("docs/MASTER-PLAN.md");
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    foundationTestPath,
+    adminWebRunbookPath,
+    parityReportPath,
+    compareSummaryPath,
+    compareCsvPath,
+    missingReportPath,
+    extraReportPath,
+    differentReportPath,
+    compareScriptPath,
+    fetchScriptPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing for TASK-042`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const foundationTest = read(foundationTestPath);
+  const parityReport = read(parityReportPath);
+  const compareSummary = read(compareSummaryPath);
+  const compareCsv = read(compareCsvPath);
+  const compareScript = read(compareScriptPath);
+  const fetchScript = read(fetchScriptPath);
+  const adminWebRunbook = read(adminWebRunbookPath);
+  const combined = `${task}\n${evidence}\n${adminWebRunbook}\n${parityReport}\n${compareSummary}\n${compareCsv}\n${masterPlan}`;
+
+  for (const requiredSnippet of [
+    "TASK-042",
+    "TASK-041 Review, CI retry and Win7POS physical E2E bridge",
+    "READY_FOR_WIN7_MANUAL_TEST",
+    "TASK-041_REMAINS_REVIEW_WITH_EXTERNAL_BLOCKERS",
+    "TASK-040_REMAINS_REVIEW_WITH_EXTERNAL_BLOCKERS_SUPERSEDED_BY_TASK-041",
+    "CI_GITHUB_ACTIONS_GREEN",
+    "26983953492",
+    "WIN7POS_REPO_PATH",
+    "REQUIRE_WIN7POS_REPO",
+    "SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE",
+    "Win7POSBridge/outbox/TASK-042-win7pos-physical-e2e-20260604-190038",
+    "RUNBOOK-WIN7POS-PHYSICAL-SMOKE.md",
+    "MANUAL-RESULT-TEMPLATE.md",
+    "No commit eseguito",
+    "No push eseguito",
+    "No stage finale",
+    "TASK-042B",
+    "Win7POS Build Parity Diagnosis",
+    "TASK-042B-build-compare",
+    "build-compare-files.csv",
+    "missing-from-codex.md",
+    "extra-in-codex.md",
+    "different-hashes.md",
+    "Win7POS-ReleasePack-x86",
+    "26795001032",
+    "e_sqlite3.dll",
+    "TASK-042B-github-release-pack-20260604-223656",
+    "fetch-github-release-pack-to-bridge.sh",
+    "compare-build-folders.sh",
+    "containsESqlite3Dll",
+    "Different SHA-256: `0`",
+    "TASK-042C",
+    "ADMIN-WEB-MANUAL-TEST-RUNBOOK.md",
+    "PASS_LOCAL_WIN7_MANUAL_SYNCED_WITH_NOTES",
+    "WIN7POS_PRODUCT_DIALOG_FIX_READY_FOR_PHYSICAL_RETEST",
+    "PASS_LAUNCHES_ON_WIN7",
+    "PASS_LOCAL_OPERATOR_LOGIN",
+    "PASS_MENU_UI",
+    "PASS_LOCAL_CART_BASIC",
+    "PASS_LOCAL_PRODUCT_CREATE",
+    "PASS_LOCAL_DISCOUNT",
+    "PASS_LOCAL_QTY_EDIT",
+    "PASS_LOCAL_PAYMENT_SCREEN_OPEN",
+    "PASS_LOCAL_REGISTER_OPEN",
+    "NOT_RUN_ADMIN_WEB_MANUAL_TEST_PENDING",
+    "NOT_RUN_POS_ONLINE_CONNECTION_PENDING",
+    "NOT_RUN_SALES_SYNC_LIVE_PENDING",
+    "ProductEditDialog",
+    "ProductEditViewModel",
+    "ProductRepository",
+    "check-product-dialog-free-text.ps1",
+    "PHYSICAL_TEST_REQUIRES_GITHUB_RELEASE_ARTIFACT_AFTER_COMMIT",
+    "Win7POSBridge\\outbox\\TASK-042B-github-release-pack-20260604-223656\\app",
+  ]) {
+    if (!combined.includes(requiredSnippet)) {
+      addFailure(`TASK-042 docs must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "npm run dev -- --hostname 127.0.0.1 --port 3000",
+    "npm run dev:tunnel",
+    "npm run dev:db:check",
+    "npm run supabase:bootstrap-platform-admin",
+    "/platform/provisioning",
+    "/shop/staff",
+    "/shop/pos",
+    "TASK042_*",
+    "shop_code",
+    "staff_code",
+    "credential one-time",
+  ]) {
+    if (!adminWebRunbook.includes(requiredSnippet)) {
+      addFailure(`${adminWebRunbookPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "--bad <path>",
+    "--good <path>",
+    "--out <path>",
+    "build-compare-summary.md",
+    "build-compare-files.csv",
+  ]) {
+    if (!compareScript.includes(requiredSnippet)) {
+      addFailure(`${compareScriptPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "gh auth status",
+    "gh run list",
+    "gh run download",
+    "Win7POS-ReleasePack-x86",
+    "TASK-042B-github-release-pack",
+    "containsESqlite3Dll",
+  ]) {
+    if (!fetchScript.includes(requiredSnippet)) {
+      addFailure(`${fetchScriptPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/GH_TOKEN|GITHUB_TOKEN|ghp_|github_pat_/.test(`${compareScript}\n${fetchScript}`)) {
+    addFailure("TASK-042B scripts must not hardcode GitHub tokens");
+  }
+
+  if (
+    !/Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`/.test(
+      masterPlan,
+    )
+  ) {
+    addFailure("MASTER-PLAN must track TASK-042 or TASK-043 as the active review/runtime task");
+  }
+
+  if (!/Stato TASK-041: `REVIEW_WITH_EXTERNAL_BLOCKERS`/.test(masterPlan)) {
+    addFailure("MASTER-PLAN must keep TASK-041 in REVIEW_WITH_EXTERNAL_BLOCKERS");
+  }
+
+  if (
+    /Stato:\s*`DONE`|Verdict finale:\s*`DONE`|Win7POS live E2E:\s*`PASS`|Sales Sync live:\s*`PASS`/.test(
+      `${task}\n${evidence}`,
+    )
+  ) {
+    addFailure("TASK-042 must not declare DONE or live Win7POS/Sales Sync PASS before manual evidence");
+  }
+
+  if (!/checkTask042ReviewCiWin7PosBridge/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert the TASK-042 security scanner gate`);
+  }
+}
+
+function checkTask043PlatformAdminRuntimeFixes() {
+  const taskPath = "docs/TASKS/TASK-043-platform-admin-runtime-fixes.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-043/README.md";
+  const foundationTestPath =
+    "tests/foundation/task-043-platform-admin-runtime-fixes.test.mjs";
+  const e2eTestPath = "tests/e2e/task-043-platform-admin-runtime.spec.ts";
+  const readModelPath = "src/server/platform-admin/read-model.ts";
+  const sectionDataPath = "src/server/platform-admin/platform-section-data.ts";
+  const appShellPath = "src/components/platform/AppShell.tsx";
+  const provisioningPagePath = "src/app/platform/provisioning/page.tsx";
+  const loadingPath = "src/app/platform/loading.tsx";
+  const logoutRoutePath = "src/app/auth/logout/route.ts";
+  const masterPlan = read("docs/MASTER-PLAN.md");
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    foundationTestPath,
+    e2eTestPath,
+    readModelPath,
+    sectionDataPath,
+    appShellPath,
+    provisioningPagePath,
+    loadingPath,
+    logoutRoutePath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing for TASK-043`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const foundationTest = read(foundationTestPath);
+  const e2eTest = read(e2eTestPath);
+  const readModel = read(readModelPath);
+  const sectionData = read(sectionDataPath);
+  const appShell = read(appShellPath);
+  const provisioningPage = read(provisioningPagePath);
+  const loading = read(loadingPath);
+  const logoutRoute = read(logoutRoutePath);
+  const combinedDocs = `${task}\n${evidence}\n${masterPlan}`;
+
+  for (const requiredSnippet of [
+    "TASK-043",
+    "Platform Admin runtime fixes",
+    "DONE_RECONCILED",
+    "TASK-045",
+    "CONFIRM_TASK045_PLATFORM_FINAL_REVIEW_TEST",
+    "AUTO_RECONCILED_TASK045",
+    "staff_accounts_safe",
+    "42501",
+    "Read blocked",
+    "Provisioning",
+    "Logout",
+    "No commit",
+    "No push",
+    "NOT_STAGED",
+  ]) {
+    if (!combinedDocs.includes(requiredSnippet)) {
+      addFailure(`TASK-043 docs must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    !/Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`/.test(masterPlan) ||
+    !/Stato TASK-043: `DONE_RECONCILED`/.test(masterPlan) ||
+    !/Fase TASK-043: `DONE_RECONCILED`/.test(masterPlan)
+  ) {
+    addFailure("MASTER-PLAN must reconcile TASK-043 as DONE_RECONCILED through TASK-045 evidence");
+  }
+
+  if (
+    /Stato TASK-043:\s*`DONE`(?!_RECONCILED)|Fase TASK-043:\s*`DONE`(?!_RECONCILED)/.test(
+      masterPlan,
+    ) ||
+    /Stato:\s*`DONE`(?!_RECONCILED)|Stato task:\s*`DONE`(?!_RECONCILED)|Fase attuale:\s*`DONE`(?!_RECONCILED)|Verdict finale:\s*`DONE`(?!_RECONCILED)/.test(
+      `${task}\n${evidence}`,
+    )
+  ) {
+    addFailure("TASK-043 must use DONE_RECONCILED, not plain DONE");
+  }
+
+  if (
+    /const firstError = \[[\s\S]*staffResult\.error[\s\S]*\]\.find\(Boolean\)/.test(
+      readModel,
+    )
+  ) {
+    addFailure(`${readModelPath} must not treat staff_accounts_safe as a fatal core read error`);
+  }
+
+  for (const requiredSnippet of [
+    "Promise.all",
+    "readIssues",
+    "staff_accounts_safe",
+    "staff_schema_status",
+    "BLOCKED",
+    "Server-side Platform Admin read model loaded through RLS",
+  ]) {
+    if (!readModel.includes(requiredSnippet)) {
+      addFailure(`${readModelPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/staffSafeReadIssue/.test(sectionData) || !/Staff safe read model/.test(sectionData)) {
+    addFailure(`${sectionDataPath} must surface non-fatal staff safe read diagnostics`);
+  }
+
+  if (!/href="\/auth\/logout"/.test(appShell) || !/>\s*Logout\s*</.test(appShell)) {
+    addFailure(`${appShellPath} must expose visible Logout to /auth/logout`);
+  }
+
+  if (!/signOut\(\)/.test(logoutRoute) || !/NextResponse\.redirect/.test(logoutRoute)) {
+    addFailure(`${logoutRoutePath} must sign out server-side and redirect`);
+  }
+
+  if (
+    /A valid Platform Admin server session is required before provisioning can run\./.test(
+      provisioningPage,
+    ) ||
+    !/readModel\.reason/.test(provisioningPage)
+  ) {
+    addFailure(`${provisioningPagePath} must use readModel.reason instead of the generic provisioning blocker`);
+  }
+
+  if (!/aria-busy="true"/.test(loading) || /activeSection="overview"/.test(loading)) {
+    addFailure(`${loadingPath} must provide a neutral Platform loading state without forcing Overview active`);
+  }
+
+  for (const requiredSnippet of [
+    "CONFIRM_TASK043_PLATFORM_RUNTIME_TEST",
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "createTemporaryPlatformAdmin",
+    "cleanup",
+    "TASK043_NAV_LATENCY",
+    "task043_nav_marker",
+    "Logout",
+  ]) {
+    if (!e2eTest.includes(requiredSnippet)) {
+      addFailure(`${e2eTestPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/checkTask043|TASK-043 runtime evidence/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert TASK-043 artifacts`);
+  }
+}
+
+function checkTask044PlatformProvisioningUxRuntime() {
+  const taskPath = "docs/TASKS/TASK-044-platform-provisioning-ux-runtime-fixes.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-044/README.md";
+  const foundationTestPath =
+    "tests/foundation/task-044-platform-provisioning-ux-runtime.test.mjs";
+  const e2eTestPath =
+    "tests/e2e/task-044-platform-provisioning-ux-runtime.spec.ts";
+  const pendingButtonPath = "src/components/platform/PendingSubmitButton.tsx";
+  const sidebarNavPath = "src/components/platform/PlatformSidebarNav.tsx";
+  const appShellPath = "src/components/platform/AppShell.tsx";
+  const loadingPath = "src/app/platform/loading.tsx";
+  const provisioningPagePath = "src/app/platform/provisioning/page.tsx";
+  const operationsPagePath = "src/app/platform/operations/page.tsx";
+  const operationsActionsPath = "src/app/platform/operations/actions.ts";
+  const staffProvisioningPath =
+    "src/server/platform-admin/staff-manager-provisioning.ts";
+  const staffPanelPath =
+    "src/app/platform/provisioning/StaffManagerProvisioningPanel.tsx";
+  const platformDataPath = "src/components/platform/platformData.ts";
+  const masterPlan = read("docs/MASTER-PLAN.md");
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    foundationTestPath,
+    e2eTestPath,
+    pendingButtonPath,
+    sidebarNavPath,
+    appShellPath,
+    loadingPath,
+    provisioningPagePath,
+    operationsPagePath,
+    operationsActionsPath,
+    staffProvisioningPath,
+    staffPanelPath,
+    platformDataPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing for TASK-044`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const foundationTest = read(foundationTestPath);
+  const e2eTest = read(e2eTestPath);
+  const pendingButton = read(pendingButtonPath);
+  const sidebarNav = read(sidebarNavPath);
+  const appShell = read(appShellPath);
+  const loading = read(loadingPath);
+  const provisioningPage = read(provisioningPagePath);
+  const operationsPage = read(operationsPagePath);
+  const operationsActions = read(operationsActionsPath);
+  const staffProvisioning = read(staffProvisioningPath);
+  const staffPanel = read(staffPanelPath);
+  const platformData = read(platformDataPath);
+  const combinedDocs = `${task}\n${evidence}\n${masterPlan}`;
+
+  for (const requiredSnippet of [
+    "TASK-044",
+    "Platform provisioning UX, runtime and Operations cleanup",
+    "DONE_RECONCILED",
+    "TASK-045",
+    "CONFIRM_TASK045_PLATFORM_FINAL_REVIEW_TEST",
+    "AUTO_RECONCILED_TASK045",
+    "No commit",
+    "No push",
+    "NOT_STAGED",
+    "CONFIRM_TASK044_PLATFORM_RUNTIME_TEST",
+    "security:scan",
+    "test:foundation",
+    "git diff --check",
+  ]) {
+    if (!combinedDocs.includes(requiredSnippet)) {
+      addFailure(`TASK-044 docs must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    !/Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`/.test(
+      masterPlan,
+    ) ||
+    !/Stato TASK-044: `DONE_RECONCILED`/.test(masterPlan) ||
+    !/Fase TASK-044: `DONE_RECONCILED`/.test(masterPlan)
+  ) {
+    addFailure("MASTER-PLAN must reconcile TASK-044 as DONE_RECONCILED through TASK-045 evidence");
+  }
+
+  if (
+    /Stato TASK-044:\s*`DONE`(?!_RECONCILED)|Fase TASK-044:\s*`DONE`(?!_RECONCILED)|Verdict finale TASK-044:\s*`DONE`(?!_RECONCILED)/.test(
+      masterPlan,
+    ) ||
+    /Stato:\s*`DONE`(?!_RECONCILED)|Stato task:\s*`DONE`(?!_RECONCILED)|Fase attuale:\s*`DONE`(?!_RECONCILED)|Verdict finale:\s*`DONE`(?!_RECONCILED)/.test(
+      `${task}\n${evidence}`,
+    )
+  ) {
+    addFailure("TASK-044 must use DONE_RECONCILED, not plain DONE");
+  }
+
+  if (!/useFormStatus/.test(pendingButton) || !/disabled={isDisabled}/.test(pendingButton)) {
+    addFailure(`${pendingButtonPath} must use useFormStatus to disable pending submits`);
+  }
+
+  if (!/usePathname/.test(sidebarNav) || !/setOptimisticActive/.test(sidebarNav)) {
+    addFailure(`${sidebarNavPath} must keep Platform navigation active state client-aware`);
+  }
+
+  if (!/PlatformSidebarNav/.test(appShell)) {
+    addFailure(`${appShellPath} must render PlatformSidebarNav`);
+  }
+
+  if (/activeSection="overview"/.test(loading) || /Rendering\.\.\./.test(loading)) {
+    addFailure(`${loadingPath} must not force Overview active or render a stuck Rendering label`);
+  }
+
+  for (const requiredSnippet of [
+    "PendingSubmitButton",
+    "pendingLabel=\"Creating shop\"",
+    "pendingLabel=\"Creating pending invite\"",
+    "name=\"returnTo\" value=\"/platform/provisioning\"",
+    "ActionResultBanner",
+    "Shop created.",
+    "Pending owner invite created.",
+  ]) {
+    if (!provisioningPage.includes(requiredSnippet)) {
+      addFailure(`${provisioningPagePath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/safeReturnTo/.test(operationsActions) || !/revalidatePath\("\/platform\/provisioning"\)/.test(operationsActions)) {
+    addFailure(`${operationsActionsPath} must allow provisioning actions to redirect back to provisioning`);
+  }
+
+  for (const forbiddenSnippet of [
+    "createPlatformShopAction",
+    "createPlatformPendingOwnerInviteAction",
+    "grantPlatformAdminAction",
+    "revokePlatformAdminAction",
+    "title=\"Create shop\"",
+    "title=\"Platform Admin grants\"",
+    "pending_owner_invite",
+    "admin_grant",
+    "admin_revoke",
+  ]) {
+    if (operationsPage.includes(forbiddenSnippet)) {
+      addFailure(`${operationsPagePath} must not include duplicated ${forbiddenSnippet}`);
+    }
+  }
+
+  if (!/Lifecycle operations/.test(platformData)) {
+    addFailure(`${platformDataPath} must describe Operations as lifecycle-focused`);
+  }
+
+  if (/db_failure/.test(staffProvisioning)) {
+    addFailure(`${staffProvisioningPath} must not collapse manager failures into db_failure`);
+  }
+
+  for (const requiredSnippet of [
+    "shop_read_failed",
+    "staff_read_failed",
+    "permission_write_failed",
+    "staff_write_failed",
+    "audit_write_failed",
+  ]) {
+    if (!staffProvisioning.includes(requiredSnippet)) {
+      addFailure(`${staffProvisioningPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/role={state\.ok \? "status" : "alert"}/.test(staffPanel) || !/aria-disabled/.test(staffPanel)) {
+    addFailure(`${staffPanelPath} must expose clear success/error status and disabled state`);
+  }
+
+  for (const requiredSnippet of [
+    "CONFIRM_TASK044_PLATFORM_RUNTIME_TEST",
+    "createTemporaryPlatformAdmin",
+    "cleanupCreatedShops",
+    "Provision manager access",
+    "Rendering...",
+    "mcstaff_mgr_",
+    "manager",
+    "shop_admin.full_access",
+  ]) {
+    if (!e2eTest.includes(requiredSnippet)) {
+      addFailure(`${e2eTestPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/TASK-044 provisioning forms prevent double submit/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert TASK-044 provisioning UX`);
+  }
+}
+
+function checkTask045PlatformMasterConsoleFinalReview() {
+  const taskPath = "docs/TASKS/TASK-045-platform-master-console-final-review-done-reconciliation.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-045/README.md";
+  const foundationTestPath =
+    "tests/foundation/task-045-platform-master-console-final-review.test.mjs";
+  const e2eTestPath =
+    "tests/e2e/task-045-platform-master-console-final-review.spec.ts";
+  const masterPlanPath = "docs/MASTER-PLAN.md";
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    foundationTestPath,
+    e2eTestPath,
+    masterPlanPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing for TASK-045 final review`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const foundationTest = read(foundationTestPath);
+  const e2eTest = read(e2eTestPath);
+  const masterPlan = read(masterPlanPath);
+  const combinedDocs = `${task}\n${evidence}\n${masterPlan}`;
+
+  for (const requiredSnippet of [
+    "TASK-045",
+    "Platform Master Console final automated review",
+    "DONE_RECONCILED",
+    "AUTO_RECONCILED_TASK045",
+    "CONFIRM_TASK045_PLATFORM_FINAL_REVIEW_TEST",
+    "tests/e2e/task-045-platform-master-console-final-review.spec.ts",
+    "archiveShopThroughOperations",
+    "auditLogsRetained",
+    "No commit",
+    "No push",
+    "NOT_STAGED",
+  ]) {
+    if (!`${combinedDocs}\n${e2eTest}`.includes(requiredSnippet)) {
+      addFailure(`TASK-045 artifacts must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "createTemporaryPlatformAdmin",
+    "runtimeEnv",
+    "BLOCKED_TASK045_REQUIRES_LOCAL_SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "platform.shop.pending_owner_invite.success",
+    "platform.staff_manager_web.provision.success",
+    "shop_admin.full_access",
+    "Master Console access required",
+  ]) {
+    if (!e2eTest.includes(requiredSnippet)) {
+      addFailure(`${e2eTestPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    !/Stato TASK-043: `DONE_RECONCILED`/.test(masterPlan) ||
+    !/Fase TASK-043: `DONE_RECONCILED`/.test(masterPlan) ||
+    !/Stato TASK-044: `DONE_RECONCILED`/.test(masterPlan) ||
+    !/Fase TASK-044: `DONE_RECONCILED`/.test(masterPlan)
+  ) {
+    addFailure("MASTER-PLAN must reconcile TASK-043 and TASK-044 via TASK-045");
+  }
+
+  if (!/Stato TASK-041: `REVIEW_WITH_EXTERNAL_BLOCKERS`/.test(masterPlan)) {
+    addFailure("TASK-045 must keep TASK-041 external blockers explicit");
+  }
+
+  if (!/Stato TASK-042: `READY_FOR_WIN7_MANUAL_TEST`/.test(masterPlan)) {
+    addFailure("TASK-045 must keep TASK-042 ready for Win7 manual test");
+  }
+
+  if (
+    /Win7POS live E2E:\s*`PASS`|Sales Sync live:\s*`PASS`|Win7POS E2E:\s*`PASS_LIVE`|Sales Sync:\s*`DONE`/.test(
+      combinedDocs,
+    )
+  ) {
+    addFailure("TASK-045 must not declare Win7POS live or Sales Sync live PASS/DONE");
+  }
+
+  if (!/TASK-045 final review artifacts/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert TASK-045 final review artifacts`);
+  }
+}
+
+function checkTask046TestTargetSeparation() {
+  const taskPath = "docs/TASKS/TASK-046-test-target-separation-local-vs-staging.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-046/README.md";
+  const foundationTestPath =
+    "tests/foundation/task-046-test-target-separation.test.mjs";
+  const packagePath = "package.json";
+  const localStatusPath = "scripts/db/local-status.mjs";
+  const stagingStatusPath = "scripts/db/staging-status.mjs";
+  const guardrailsPath = "scripts/testing/target-guardrails.mjs";
+  const runnerPath = "scripts/testing/run-playwright-target.mjs";
+  const stagingSpecPath = "tests/e2e/staging/platform-staging-smoke.spec.ts";
+  const playwrightConfigPath = "playwright.config.ts";
+  const masterPlanPath = "docs/MASTER-PLAN.md";
+
+  for (const requiredPath of [
+    taskPath,
+    evidencePath,
+    foundationTestPath,
+    packagePath,
+    localStatusPath,
+    stagingStatusPath,
+    guardrailsPath,
+    runnerPath,
+    stagingSpecPath,
+    playwrightConfigPath,
+    masterPlanPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing for TASK-046`);
+      return;
+    }
+  }
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const foundationTest = read(foundationTestPath);
+  const packageJson = JSON.parse(read(packagePath));
+  const guardrails = read(guardrailsPath);
+  const runner = read(runnerPath);
+  const stagingSpec = read(stagingSpecPath);
+  const playwrightConfig = read(playwrightConfigPath);
+  const masterPlan = read(masterPlanPath);
+
+  for (const scriptName of [
+    "db:local:status",
+    "db:staging:status",
+    "test:e2e:local",
+    "test:e2e:staging",
+    "test:platform:local",
+    "test:platform:staging",
+    "test:shop:local",
+    "smoke:staging",
+  ]) {
+    const script = packageJson.scripts?.[scriptName] ?? "";
+
+    if (!script) {
+      addFailure(`package.json must define ${scriptName}`);
+    }
+
+    if (/cross-env/.test(script)) {
+      addFailure(`${scriptName} must use the Node wrapper instead of cross-env`);
+    }
+  }
+
+  for (const safeScriptName of [
+    "security:scan",
+    "test:foundation",
+    "typecheck",
+    "lint",
+    "build",
+    "verify",
+  ]) {
+    const script = packageJson.scripts?.[safeScriptName] ?? "";
+
+    if (/TEST_TARGET|playwright|supabase status/.test(script)) {
+      addFailure(`${safeScriptName} must remain target-independent`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "TEST_TARGET",
+    "BLOCKED_TEST_TARGET_REQUIRED",
+    "BLOCKED_LOCAL_SUPABASE_URL_REQUIRED",
+    "BLOCKED_STAGING_CONFIRMATION_REQUIRED",
+    "BLOCKED_STAGING_PROJECT_REF_NOT_ALLOWLISTED",
+    "BLOCKED_PRODUCTION_PROJECT_REF_FORBIDDEN",
+    "ALLOW_STAGING_E2E",
+    "CONFIRM_STAGING_E2E",
+    "ALLOWED_STAGING_SUPABASE_PROJECT_REFS",
+    "SUPABASE_PRODUCTION_PROJECT_REF",
+    "PRODUCTION_SUPABASE_PROJECT_REFS",
+  ]) {
+    if (!guardrails.includes(requiredSnippet)) {
+      addFailure(`${guardrailsPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "supabase",
+    "status",
+    "--output",
+    "env",
+    "CONFIRM_TASK043_PLATFORM_RUNTIME_TEST",
+    "CONFIRM_TASK044_PLATFORM_RUNTIME_TEST",
+    "CONFIRM_TASK045_PLATFORM_FINAL_REVIEW_TEST",
+    "PLAYWRIGHT_DISABLE_WEB_SERVER",
+  ]) {
+    if (!runner.includes(requiredSnippet)) {
+      addFailure(`${runnerPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/PLAYWRIGHT_DISABLE_WEB_SERVER/.test(playwrightConfig) || !/useWebServer/.test(playwrightConfig)) {
+    addFailure(`${playwrightConfigPath} must allow staging to disable the local web server`);
+  }
+
+  if (!/STAGING_TASK045_/.test(stagingSpec) || /delete\(\)|service_role|SUPABASE_SERVICE_ROLE_KEY/.test(stagingSpec)) {
+    addFailure(`${stagingSpecPath} must be staging-safe and non-destructive`);
+  }
+
+  for (const requiredSnippet of [
+    "TASK-046",
+    "Test target separation: local vs staging",
+    "REVIEW",
+    "TEST_TARGET=local",
+    "TEST_TARGET=staging",
+    "No commit",
+    "No push",
+    "NOT_STAGED",
+  ]) {
+    if (!`${task}\n${evidence}\n${masterPlan}`.includes(requiredSnippet)) {
+      addFailure(`TASK-046 docs must include ${requiredSnippet}`);
+    }
+  }
+
+  if (!/TASK-046 wrappers enforce local and staging target guardrails/.test(foundationTest)) {
+    addFailure(`${foundationTestPath} must assert TASK-046 guardrails`);
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -4642,6 +5410,11 @@ checkTask038PosManagerWebLogin();
 checkTask039StaffAwareShopAdminCompletion();
 checkTask040RuntimeReadiness();
 checkTask041RuntimeCompletion();
+checkTask042ReviewCiWin7PosBridge();
+checkTask043PlatformAdminRuntimeFixes();
+checkTask044PlatformProvisioningUxRuntime();
+checkTask045PlatformMasterConsoleFinalReview();
+checkTask046TestTargetSeparation();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

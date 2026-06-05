@@ -4,8 +4,9 @@ const baseURL = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3000";
 const webServerCommand =
   process.env.PLAYWRIGHT_WEB_SERVER_COMMAND ?? "npm run dev";
 const reuseExistingServer = process.env.PLAYWRIGHT_REUSE_SERVER !== "0";
+const useWebServer = process.env.PLAYWRIGHT_DISABLE_WEB_SERVER !== "1";
 
-export default defineConfig({
+const config = defineConfig({
   testDir: "./tests/e2e",
   timeout: 30_000,
   expect: {
@@ -18,12 +19,16 @@ export default defineConfig({
     trace: "retain-on-failure",
     video: "off",
   },
-  webServer: {
-    command: webServerCommand,
-    url: baseURL,
-    reuseExistingServer,
-    timeout: 120_000,
-  },
+  ...(useWebServer
+    ? {
+        webServer: {
+          command: webServerCommand,
+          url: baseURL,
+          reuseExistingServer,
+          timeout: 120_000,
+        },
+      }
+    : {}),
   projects: [
     {
       name: "chromium-desktop",
@@ -41,3 +46,5 @@ export default defineConfig({
     },
   ],
 });
+
+export default config;

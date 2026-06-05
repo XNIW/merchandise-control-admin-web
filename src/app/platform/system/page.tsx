@@ -4,8 +4,7 @@ import { getPlatformSectionForRequest } from "@/server/platform-admin/platform-s
 
 export const metadata: Metadata = {
   title: "System Status | MerchandiseControl Admin Web",
-  description:
-    "Read-only system status for the Platform Admin Console.",
+  description: "Read-only system status for the Master Console.",
 };
 
 export const dynamic = "force-dynamic";

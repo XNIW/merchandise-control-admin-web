@@ -1,7 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import type { PlatformSectionKey } from "./platformData";
-import { navigationItems } from "./platformData";
+import { PlatformSidebarNav } from "./PlatformSidebarNav";
 
 type AppShellProps = {
   activeSection: PlatformSectionKey;
@@ -19,7 +19,7 @@ export function AppShell({ activeSection, children }: AppShellProps) {
       </a>
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
         <Sidebar activeSection={activeSection} />
-        <div className="flex min-w-0 flex-col">
+        <div className="flex min-w-0 flex-col lg:min-h-0">
           <Topbar activeSection={activeSection} />
           <main
             id="platform-content"
@@ -38,9 +38,9 @@ function Sidebar({ activeSection }: { activeSection: PlatformSectionKey }) {
   return (
     <aside
       aria-label="Platform navigation"
-      className="border-b border-slate-200 bg-white lg:border-b-0 lg:border-r"
+      className="border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r"
     >
-      <div className="flex h-full flex-col gap-6 px-4 py-5">
+      <div className="flex min-h-full flex-col gap-6 px-4 py-5 lg:min-h-0">
         <div className="flex items-center gap-3 px-2">
           <div
             aria-hidden="true"
@@ -52,41 +52,18 @@ function Sidebar({ activeSection }: { activeSection: PlatformSectionKey }) {
             <p className="text-sm font-semibold text-slate-950">
               MerchandiseControl
             </p>
-            <p className="text-xs text-slate-500">Platform Admin Console</p>
+            <p className="text-xs text-slate-500">Master Console</p>
           </div>
         </div>
 
-        <nav
-          aria-label="Platform sections"
-          className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:overflow-visible lg:px-0 lg:pb-0"
-        >
-          {navigationItems.map((item) => {
-            const isActive = item.key === activeSection;
-            return (
-              <Link
-                key={item.key}
-                href={item.href}
-                aria-current={isActive ? "page" : undefined}
-                className={[
-                  "shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium outline-none transition",
-                  "focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2",
-                  isActive
-                    ? "bg-slate-950 text-white"
-                    : "text-slate-600 hover:bg-slate-100 hover:text-slate-950",
-                ].join(" ")}
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <PlatformSidebarNav activeSection={activeSection} />
 
         <div className="mt-auto rounded-md border border-slate-200 bg-slate-50 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             Scope
           </p>
           <p className="mt-2 text-sm text-slate-700">
-            Server-side Supabase boundary for read-only Platform Admin views.
+            Server-side Supabase boundary for read-only Master Console views.
             Controlled operations require server-side authorization and audit.
           </p>
         </div>
@@ -121,6 +98,12 @@ function Topbar({ activeSection }: { activeSection: PlatformSectionKey }) {
               Controlled actions
             </span>
           ) : null}
+          <Link
+            href="/auth/logout"
+            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 outline-none transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+          >
+            Logout
+          </Link>
         </div>
       </div>
     </header>

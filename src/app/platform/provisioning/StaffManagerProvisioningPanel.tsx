@@ -96,6 +96,7 @@ export function StaffManagerProvisioningPanel({
       <div className="flex flex-col gap-3 lg:col-span-2">
         <button
           type="submit"
+          aria-disabled={!hasShops || pending}
           disabled={!hasShops || pending}
           className="min-h-10 rounded-md border border-slate-950 bg-slate-950 px-3 py-2 text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-500"
         >
@@ -109,7 +110,7 @@ export function StaffManagerProvisioningPanel({
                 ? "border-emerald-200 bg-emerald-50 text-emerald-950"
                 : "border-red-200 bg-red-50 text-red-950"
             }`}
-            role="status"
+            role={state.ok ? "status" : "alert"}
           >
             <span className="block font-medium">{state.message}</span>
             {state.oneTimeSignInValue ? (

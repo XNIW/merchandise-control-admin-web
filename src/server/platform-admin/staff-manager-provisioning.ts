@@ -16,11 +16,15 @@ import { authorizeCurrentPlatformAdmin } from "./authz";
 
 export type PlatformStaffManagerProvisionCode =
   | "success"
+  | "audit_write_failed"
   | "conflict"
-  | "db_failure"
   | "invalid_state"
   | "not_configured"
+  | "permission_write_failed"
+  | "shop_read_failed"
   | "shop_not_found"
+  | "staff_read_failed"
+  | "staff_write_failed"
   | "unauthorized"
   | "validation_failed";
 
@@ -61,11 +65,15 @@ type PlatformProvisionBoundary =
     };
 
 const messageByCode: Record<PlatformStaffManagerProvisionCode, string> = {
+  audit_write_failed: "Audit write failed for the manager provisioning action.",
   conflict: "A staff account with this code already exists for the shop.",
-  db_failure: "Request could not be completed.",
   invalid_state: "The selected shop is not eligible for staff manager web access.",
   not_configured: "Platform Admin runtime is not configured.",
+  permission_write_failed: "Manager permission write failed at the database boundary.",
+  shop_read_failed: "Shop lookup failed at the database boundary.",
   shop_not_found: "The selected shop could not be found.",
+  staff_read_failed: "Staff account lookup failed at the database boundary.",
+  staff_write_failed: "Staff account write failed at the database boundary.",
   success: "Staff manager web access was provisioned.",
   unauthorized: "You are not authorized to perform this operation.",
   validation_failed: "Check the required fields and try again.",
@@ -190,7 +198,7 @@ async function writePlatformStaffManagerAudit(
     staffCodeLength: number;
     staffId?: string;
   },
-) {
+): Promise<{ auditEventId?: string; ok: boolean }> {
   const { data, error } = await adminClient
     .from("audit_logs")
     .insert({
@@ -216,10 +224,10 @@ async function writePlatformStaffManagerAudit(
     .maybeSingle();
 
   if (error) {
-    return undefined;
+    return { ok: false };
   }
 
-  return data?.audit_log_id;
+  return { auditEventId: data?.audit_log_id, ok: true };
 }
 
 function isUniqueConflict(error: { code?: string } | null) {
@@ -252,7 +260,7 @@ export async function provisionPlatformStaffManager(
     .maybeSingle();
 
   if (shopResult.error) {
-    return result("db_failure", { ok: false, shopId: normalized.shopId });
+    return result("shop_read_failed", { ok: false, shopId: normalized.shopId });
   }
 
   if (!shopResult.data) {
@@ -263,7 +271,7 @@ export async function provisionPlatformStaffManager(
     shopResult.data.shop_status !== "active" ||
     shopResult.data.archived_at !== null
   ) {
-    const auditEventId = await writePlatformStaffManagerAudit(adminClient, {
+    const audit = await writePlatformStaffManagerAudit(adminClient, {
       actorProfileId,
       code: "invalid_state",
       displayNameLength: normalized.displayName.length,
@@ -274,8 +282,15 @@ export async function provisionPlatformStaffManager(
       staffCodeLength: normalized.staffCode.length,
     });
 
+    if (!audit.ok) {
+      return result("audit_write_failed", {
+        ok: false,
+        shopId: normalized.shopId,
+      });
+    }
+
     return result("invalid_state", {
-      auditEventId,
+      auditEventId: audit.auditEventId,
       ok: false,
       shopId: normalized.shopId,
     });
@@ -289,11 +304,11 @@ export async function provisionPlatformStaffManager(
     .maybeSingle();
 
   if (existingStaff.error) {
-    return result("db_failure", { ok: false, shopId: normalized.shopId });
+    return result("staff_read_failed", { ok: false, shopId: normalized.shopId });
   }
 
   if (existingStaff.data) {
-    const auditEventId = await writePlatformStaffManagerAudit(adminClient, {
+    const audit = await writePlatformStaffManagerAudit(adminClient, {
       actorProfileId,
       code: "conflict",
       displayNameLength: normalized.displayName.length,
@@ -305,8 +320,16 @@ export async function provisionPlatformStaffManager(
       staffId: existingStaff.data.staff_id,
     });
 
+    if (!audit.ok) {
+      return result("audit_write_failed", {
+        ok: false,
+        shopId: normalized.shopId,
+        staffId: existingStaff.data.staff_id,
+      });
+    }
+
     return result("conflict", {
-      auditEventId,
+      auditEventId: audit.auditEventId,
       ok: false,
       shopId: normalized.shopId,
       staffId: existingStaff.data.staff_id,
@@ -326,7 +349,22 @@ export async function provisionPlatformStaffManager(
   );
 
   if (permissionResult.error) {
-    return result("db_failure", { ok: false, shopId: normalized.shopId });
+    const audit = await writePlatformStaffManagerAudit(adminClient, {
+      actorProfileId,
+      code: "permission_write_failed",
+      displayNameLength: normalized.displayName.length,
+      eventKey: "platform.staff_manager_web.provision.failure",
+      reasonLength: normalized.reason.length,
+      result: "failure",
+      shopId: normalized.shopId,
+      staffCodeLength: normalized.staffCode.length,
+    });
+
+    return result(audit.ok ? "permission_write_failed" : "audit_write_failed", {
+      auditEventId: audit.auditEventId,
+      ok: false,
+      shopId: normalized.shopId,
+    });
   }
 
   const oneTimeSignInValue = generateManagerCredential();
@@ -353,17 +391,45 @@ export async function provisionPlatformStaffManager(
     .maybeSingle();
 
   if (staffResult.error) {
-    return result(isUniqueConflict(staffResult.error) ? "conflict" : "db_failure", {
+    const code = isUniqueConflict(staffResult.error) ? "conflict" : "staff_write_failed";
+    const audit = await writePlatformStaffManagerAudit(adminClient, {
+      actorProfileId,
+      code,
+      displayNameLength: normalized.displayName.length,
+      eventKey: "platform.staff_manager_web.provision.failure",
+      reasonLength: normalized.reason.length,
+      result: "failure",
+      shopId: normalized.shopId,
+      staffCodeLength: normalized.staffCode.length,
+    });
+
+    return result(audit.ok ? code : "audit_write_failed", {
+      auditEventId: audit.auditEventId,
       ok: false,
       shopId: normalized.shopId,
     });
   }
 
   if (!staffResult.data) {
-    return result("db_failure", { ok: false, shopId: normalized.shopId });
+    const audit = await writePlatformStaffManagerAudit(adminClient, {
+      actorProfileId,
+      code: "staff_write_failed",
+      displayNameLength: normalized.displayName.length,
+      eventKey: "platform.staff_manager_web.provision.failure",
+      reasonLength: normalized.reason.length,
+      result: "failure",
+      shopId: normalized.shopId,
+      staffCodeLength: normalized.staffCode.length,
+    });
+
+    return result(audit.ok ? "staff_write_failed" : "audit_write_failed", {
+      auditEventId: audit.auditEventId,
+      ok: false,
+      shopId: normalized.shopId,
+    });
   }
 
-  const auditEventId = await writePlatformStaffManagerAudit(adminClient, {
+  const audit = await writePlatformStaffManagerAudit(adminClient, {
     actorProfileId,
     code: "success",
     displayNameLength: normalized.displayName.length,
@@ -375,8 +441,16 @@ export async function provisionPlatformStaffManager(
     staffId: staffResult.data.staff_id,
   });
 
+  if (!audit.ok) {
+    return result("audit_write_failed", {
+      ok: false,
+      shopId: staffResult.data.shop_id,
+      staffId: staffResult.data.staff_id,
+    });
+  }
+
   return result("success", {
-    auditEventId,
+    auditEventId: audit.auditEventId,
     oneTimeSignInValue,
     shopId: staffResult.data.shop_id,
     staffId: staffResult.data.staff_id,

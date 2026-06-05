@@ -1,0 +1,11 @@
+# Different Hashes
+
+| Relative path | Bad bytes | Good bytes | Bad SHA-256 | Good SHA-256 |
+| --- | ---: | ---: | --- | --- |
+| `Win7POS.Core.dll` | 94720 | 94720 | `8762ff45daf2e3d570b7c642b3c98b3a3e5ae418d5ba4a52deae7450f3eafce7` | `1e6da545581b56bb4030f42edce61355f9c992ab8a6be36485c9e0e6f5f28f02` |
+| `Win7POS.Core.pdb` | 41824 | 41748 | `3522908405c7350ddb4fae4bf0d72e50b873bef0697ba0839ec97c6682c07d2c` | `c4d53a58a6d687d7cb9380943f85dea7f9d42decb0ccde1cfb345d9819d2a790` |
+| `Win7POS.Data.dll` | 256000 | 257536 | `b501f65f176f22d4e5e53f28410896c9bd802d4b22190a8b6b91038bab2fdc59` | `b2cd6577085b50eec38ed585fb01f858ab20fec0bebe31b20dc2e73e42016efa` |
+| `Win7POS.Data.pdb` | 46328 | 46420 | `f04440dba1d43a02c31c86ac856390daf4f383496c49d2ff834bcfc5077e61ef` | `a0a46b70e6daec65aa569455732ca173bc132af510404ad524426d4b1fe54c19` |
+| `Win7POS.Wpf.exe` | 856064 | 856064 | `960de0b63ca4231d887ed3036894ff538d7f1703a4bbb74a0bdc9583d3f26802` | `fa2d86b21d535b492f176bc6fc570a7861ebf7c431c2cade5ef6f30b5e75b3fc` |
+| `Win7POS.Wpf.exe.config` | 1835 | 1872 | `b2130e64d2e79cd9abb862e6bd45a1099f23adf23c4027f453a3dbf23e4c08a1` | `a0ee7ea8fcd15344b13da424a9095f10d4d6446d6746af4f63c06decd801d8dc` |
+| `Win7POS.Wpf.pdb` | 299656 | 300072 | `aa1debecb7f66d41d5e18fa22ecd50bf9dd43f27d5e5a43498b11a7a1dd5cd70` | `cbb65f739e97eac4d31e0598bede656e7375997fb236b4024725ab2b1399775c` |

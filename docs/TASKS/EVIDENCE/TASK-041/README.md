@@ -22,6 +22,17 @@
 
 Motivazione: `TASK-041` sblocca parte dei blocker runtime ma non sostituisce la review umana ne la conferma utente richiesta per `DONE`. `TASK-040` resta storico con blocker esterni e non viene marcato `DONE`.
 
+## Riconciliazione limitata TASK-045
+
+- Data: `2026-06-05`.
+- Platform Master Console: `PASS_AUTOMATED_PLATFORM_MASTER_CONSOLE`.
+- Evidence: `docs/TASKS/EVIDENCE/TASK-045/README.md`.
+- Stato `TASK-041`: resta `REVIEW_WITH_EXTERNAL_BLOCKERS`.
+- Win7POS live E2E: `NOT_RUN`.
+- Sales Sync live Win7POS -> Admin Web: `NOT_RUN`.
+- Production deploy/apply: `NOT_RUN_PRODUCTION_FORBIDDEN`.
+- Nessun `PASS_LIVE` o `DONE` globale dichiarato per blocker esterni.
+
 ## Gate summary
 
 | Gate | Stato | Evidence sintetica |
@@ -224,3 +235,33 @@ Checklist manuale live:
 
 1. Win7POS live/manual E2E passa con evidence su Windows 7 reale/VM, vendita sintetica, sync, log/screenshot redatti e cleanup.
 2. La review accetta esplicitamente un `DONE` limitato a `Admin Web runtime completion`, mantenendo Win7POS live E2E come external/manual follow-up e senza dichiarare production-ready globale.
+
+## Follow-up TASK-042
+
+`TASK-042` e stato aperto come task attivo di review/bridge per chiudere i gate pratici rimasti da `TASK-041`.
+
+Evidence aggiunta da `TASK-042`:
+
+- `TASK-041_REMAINS_REVIEW_WITH_EXTERNAL_BLOCKERS`.
+- CI GitHub Actions finale `26983953492`: `success`.
+- Job `Verify`: security scan, foundation tests, typecheck, lint, build, UI smoke e diff whitespace check `success`.
+- Vecchio failure `26974280617`: errore su repo Win7POS locale mancante, dettagliato in `TASK-042`.
+- Failure intermedio `26975644156`: foundation tests con 4 test Win7POS mancanti.
+- Run successivo `26976116947`: `success`.
+- Simulazioni locali:
+  - `WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture npm run security:scan`: `PASS_WITH_SKIP`.
+  - `REQUIRE_WIN7POS_REPO=1 WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture npm run security:scan`: `FAIL_EXPECTED`.
+  - `WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture npm run test:foundation`: `PASS_WITH_SKIPS`.
+- Win7POS scanner: all `PASS`.
+- Win7POS WPF Release x86 build: `PASS`, `Avvisi: 0`, `Errori: 0`.
+- Pacchetto bridge: `Win7POSBridge/outbox/TASK-042-win7pos-physical-e2e-20260604-190038`.
+- Runbook manuale e template risultato creati.
+
+Stato ancora aperto:
+
+- Windows 7 physical smoke: `NOT_RUN_MANUAL_WIN7_PENDING`.
+- Login POS reale: `NOT_RUN_MANUAL_WIN7_PENDING`.
+- Heartbeat reale: `NOT_RUN_MANUAL_WIN7_PENDING`.
+- Catalog pull reale: `NOT_RUN_MANUAL_WIN7_PENDING`.
+- Vendita sintetica Win7POS: `NOT_RUN_MANUAL_WIN7_PENDING`.
+- Sales Sync live: `NOT_RUN_WIN7_MANUAL_PENDING`.

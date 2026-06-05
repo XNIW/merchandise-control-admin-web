@@ -3,9 +3,9 @@ import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
-  title: "Shop Admin | MerchandiseControl Admin Web",
+  title: "Admin Console | MerchandiseControl Admin Web",
   description:
-    "Protected Shop Admin entrypoint for MerchandiseControl Admin Web.",
+    "Protected Admin Console entrypoint for MerchandiseControl.",
 };
 
 export const dynamic = "force-dynamic";

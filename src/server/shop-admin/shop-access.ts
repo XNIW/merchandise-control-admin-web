@@ -50,7 +50,7 @@ export async function resolveCurrentShopAdminShellAccess(
     return {
       status: "not_configured",
       reason:
-        "Supabase runtime env is not configured for Shop Admin authorization.",
+        "Supabase runtime env is not configured for Admin Console authorization.",
     };
   }
 
@@ -59,7 +59,7 @@ export async function resolveCurrentShopAdminShellAccess(
   if (!supabase) {
     return {
       status: "not_configured",
-      reason: "Supabase server client is unavailable for Shop Admin authorization.",
+      reason: "Supabase server client is unavailable for Admin Console authorization.",
     };
   }
 
@@ -69,7 +69,7 @@ export async function resolveCurrentShopAdminShellAccess(
   if (userError || !userId) {
     return {
       status: "no_session",
-      reason: "Sign in with a personal account to open the Shop Admin console.",
+      reason: "Sign in with a personal account to open the Admin Console.",
     };
   }
 
@@ -111,7 +111,7 @@ export async function resolveCurrentShopAdminShellAccess(
     return {
       status: hasViewerMembership ? "viewer_only" : "no_shop",
       reason: hasViewerMembership
-        ? "This account has viewer access only and cannot open Shop Admin."
+        ? "This account has viewer access only and cannot open Admin Console."
         : "No active shop owner or manager membership is available.",
       userId,
     };

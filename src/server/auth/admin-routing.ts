@@ -65,7 +65,7 @@ export async function resolveCurrentAdminRouteAccess(
     return {
       status: "not_configured",
       reason:
-        "Supabase runtime env is not configured for Admin Web route authorization.",
+        "Supabase runtime env is not configured for console route authorization.",
     };
   }
 
@@ -98,7 +98,7 @@ export async function resolveCurrentAdminRouteAccess(
   if (platformResult.error) {
     return {
       status: "error",
-      reason: "Platform Admin authorization could not be resolved.",
+      reason: "Master Console authorization could not be resolved.",
       userId,
     };
   }
@@ -160,7 +160,7 @@ export async function resolveCurrentAdminRouteAccess(
   if (hasRevokedPlatformAdmin) {
     return {
       status: "revoked",
-      reason: "Platform Admin access has been revoked for this account.",
+      reason: "Master Console access has been revoked for this account.",
       userId,
     };
   }

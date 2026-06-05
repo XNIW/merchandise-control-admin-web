@@ -116,10 +116,13 @@ test("TASK-005J bootstrap can resolve the only auth user without printing identi
   assert.doesNotMatch(script, /select\s+[^;]*(email|id::text)[^;]*from auth\.users[^;]*;/i);
 });
 
-test("TASK-005J live read model avoids parallel Supabase queries", () => {
+test("TASK-043 live read model batches independent Supabase reads for navigation latency", () => {
   const readModel = readProjectFile("src/server/platform-admin/read-model.ts");
 
-  assert.doesNotMatch(readModel, /Promise\.all\s*\(/);
+  assert.match(readModel, /Promise\.all\s*\(/);
+  assert.match(readModel, /\.from\("profiles"\)[\s\S]*\.limit\(200\)/);
+  assert.match(readModel, /\.from\("shops"\)[\s\S]*\.limit\(200\)/);
+  assert.match(readModel, /\.from\("staff_accounts_safe"\)[\s\S]*\.limit\(200\)/);
 });
 
 test("TASK-005J auth UI keeps browser Supabase client scoped to auth", () => {
@@ -149,6 +152,7 @@ test("TASK-005J auth UI keeps browser Supabase client scoped to auth", () => {
   assert.match(browserClient, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(browserClient, /SERVICE_ROLE|service_role|SUPABASE_SERVICE_ROLE_KEY/i);
   assert.match(authForm, /signInWithPassword/);
+  assert.match(authForm, /method="post"/);
   assert.doesNotMatch(authForm, /from\(["'][a-z_]+["']\)/);
   assert.match(callbackRoute, /exchangeCodeForSession/);
   assert.match(logoutRoute, /signOut/);

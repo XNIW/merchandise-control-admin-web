@@ -94,7 +94,7 @@ export function ShopShell({
                 <p className="text-sm font-semibold text-zinc-950">
                   MerchandiseControl
                 </p>
-                <p className="text-xs text-zinc-500">Shop Admin Console</p>
+                <p className="text-xs text-zinc-500">Admin Console</p>
               </div>
             </div>
 
@@ -183,7 +183,7 @@ export function ShopShell({
                 </select>
                 <div className="flex flex-wrap gap-2" aria-label="Shop status">
                   <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                    {selectedShop ? formatRole(selectedShop.role) : "Shop Admin"}
+                    {selectedShop ? formatRole(selectedShop.role) : "Admin Console"}
                   </span>
                   <span className="rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">
                     Server verified

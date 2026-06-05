@@ -32,6 +32,15 @@ Portare a review i gate runtime rimasti aperti da `TASK-040`, sbloccando automat
 
 Motivo: `TASK-041` ha sbloccato una parte sostanziale dei blocker runtime, ma restano ancora limiti reali su Win7POS live/manual E2E e sul final sweep linked senza password process-only. La chiusura `DONE` richiede review e conferma utente esplicita.
 
+## Riconciliazione limitata 2026-06-05
+
+- Platform Master Console: verificata via `TASK-045`, `PASS`, Supabase locale process-only.
+- Scope Admin Web runtime: `PASS_AUTOMATED_PLATFORM_MASTER_CONSOLE`.
+- Stato `TASK-041`: resta `REVIEW_WITH_EXTERNAL_BLOCKERS`.
+- Win7POS live E2E: `NOT_RUN`, blocker esterno parcheggiato.
+- Sales Sync live Win7POS -> Admin Web: `NOT_RUN`, blocker esterno parcheggiato.
+- Nessun `PASS_LIVE` o `DONE` globale dichiarato per Win7POS/Sales Sync.
+
 ## Scope
 
 - Supabase runtime unblock su local e Supabase Cloud dev non-production.
@@ -286,6 +295,24 @@ git status --short --branch
 - Sales Sync e foundation reale, ma non ancora validata end-to-end da Win7POS live.
 - Supabase production non e stata toccata per policy.
 
+## Review bridge TASK-042
+
+`TASK-042` e stato aperto come task attivo di review/bridge senza chiudere `TASK-041`.
+
+Stato dopo `TASK-042`:
+
+- `TASK-041_REMAINS_REVIEW_WITH_EXTERNAL_BLOCKERS`.
+- CI GitHub Actions post-fix confermata verde sul run `26983953492`.
+- Vecchio errore CI su repo Win7POS locale mancante confermato come storico e superato; il dettaglio del path e nel report `TASK-042`.
+- Simulazioni locali `WIN7POS_REPO_PATH` / `REQUIRE_WIN7POS_REPO`: `PASS_WITH_SKIP`, `FAIL_EXPECTED`, `PASS_WITH_SKIPS`.
+- Win7POS WPF Release x86 build: `PASS`, `Avvisi: 0`, `Errori: 0`.
+- Pacchetto fisico copiato in `Win7POSBridge/outbox/TASK-042-win7pos-physical-e2e-20260604-190038`.
+- Runbook/manual result template creati nel pacchetto.
+- Windows 7 live run: `NOT_RUN_MANUAL_WIN7_PENDING`.
+- Sales Sync live Win7POS -> Admin Web -> Supabase: `NOT_RUN_WIN7_MANUAL_PENDING`.
+
+Decisione: `TASK-041` resta in `REVIEW_WITH_EXTERNAL_BLOCKERS` finche il test fisico Windows 7 e, se possibile, la vendita sintetica Sales Sync live non producono evidence reale.
+
 ## Prossima fase
 
-`REVIEW`: validare evidence e decidere se accettare `PASS_WITH_NOTES_READY_FOR_DONE_CONFIRMATION_ADMIN_WEB_RUNTIME_ONLY` oppure autorizzare il run manuale Win7POS con `WIN7POS_REPO_PATH`. Non marcare `TASK-040 DONE`; mantenerlo `REVIEW_WITH_EXTERNAL_BLOCKERS / SUPERSEDED_BY_TASK-041`.
+`REVIEW`: usare `TASK-042` come bridge manuale. Eseguire il runbook Windows 7 dal pacchetto `Win7POSBridge/outbox/TASK-042-win7pos-physical-e2e-20260604-190038`, poi aggiornare evidence con risultati reali. Non marcare `TASK-040 DONE` o `TASK-041 DONE` finche una review futura non chiude i blocker con evidence reale o accetta esplicitamente un DONE limitato.

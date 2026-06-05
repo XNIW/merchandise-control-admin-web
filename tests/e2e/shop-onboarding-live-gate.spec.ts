@@ -431,7 +431,7 @@ test.describe("TASK-011 shop onboarding live gate", () => {
 
       if (
         (await page
-          .getByRole("heading", { name: "Shop Admin access required" })
+          .getByRole("heading", { name: "Admin Console access required" })
           .count()) > 0
       ) {
         ownerGateFailure = owner.isPlatformAdmin

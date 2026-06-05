@@ -4,14 +4,26 @@ import { getPlatformSectionForRequest } from "@/server/platform-admin/platform-s
 
 export const metadata: Metadata = {
   title: "Users / Profiles | MerchandiseControl Admin Web",
-  description:
-    "Read-only users and profiles for the Platform Admin Console.",
+  description: "Read-only users and profiles for the Master Console.",
 };
 
 export const dynamic = "force-dynamic";
 
-export default async function PlatformUsersPage() {
+type UsersSearchParams = Promise<{
+  selected?: string | string[];
+}>;
+
+function firstParam(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+export default async function PlatformUsersPage({
+  searchParams,
+}: {
+  searchParams?: UsersSearchParams;
+}) {
+  const params = searchParams ? await searchParams : {};
   const section = await getPlatformSectionForRequest("users");
 
-  return <PlatformPage section={section} />;
+  return <PlatformPage section={section} selectedRowKey={firstParam(params.selected)} />;
 }

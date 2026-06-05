@@ -67,16 +67,17 @@ export function AuthForm({ isConfigured }: AuthFormProps) {
     }
 
     setState("success");
-    setMessage("Signed in. Opening Admin Web.");
+    setMessage("Signed in. Opening requested console.");
     router.replace(nextPath);
     router.refresh();
   }
 
   return (
     <form
+      method="post"
       onSubmit={handleSubmit}
       className="grid gap-4"
-      aria-label="Admin sign in"
+      aria-label="Admin account sign in"
     >
       <div className="grid gap-1.5">
         <label htmlFor="email" className="text-sm font-medium text-slate-800">

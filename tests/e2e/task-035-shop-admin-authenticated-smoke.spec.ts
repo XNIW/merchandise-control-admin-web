@@ -739,7 +739,7 @@ async function signInWithTask035Credentials(
 ) {
   await page.goto("/auth/login?next=/shop");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Admin sign in" }),
+    page.getByRole("heading", { level: 1, name: "Admin account sign in" }),
   ).toBeVisible();
   await page.getByLabel("Email").fill(fixture.email);
   await page.getByLabel("Password").fill(fixture.password);
@@ -824,7 +824,7 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       await expect(
         page.getByRole("heading", {
           level: 1,
-          name: "Shop Admin access required",
+          name: "Admin Console access required",
         }),
       ).toBeVisible();
       await expect(page.getByText("No active session")).toBeVisible();
@@ -887,7 +887,7 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       await expect(
         page.getByRole("heading", {
           level: 1,
-          name: "Shop Admin access required",
+          name: "Admin Console access required",
         }),
       ).toBeVisible();
     } finally {
@@ -955,7 +955,7 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       await expect(
         page.getByRole("heading", {
           level: 1,
-          name: "Shop Admin access required",
+          name: "Admin Console access required",
         }),
       ).toBeVisible();
 
@@ -969,7 +969,7 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       await expect(
         page.getByRole("heading", {
           level: 1,
-          name: "Shop Admin access required",
+          name: "Admin Console access required",
         }),
       ).toBeVisible();
       await assertNoSensitiveText(page, [

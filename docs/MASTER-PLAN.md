@@ -1637,6 +1637,315 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - solo dopo review approvata e conferma esplicita utente;
   - non ammesso da Codex e non ammesso se restano blocker critici su Win7POS live/manual E2E o production/staging non autorizzati.
 
+### TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge
+
+- Stato: `READY_FOR_WIN7_MANUAL_TEST`
+- File task: `docs/TASKS/TASK-042-task-041-review-ci-retry-win7pos-physical-e2e-bridge.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-042/README.md`
+- Fase: `REVIEW`
+- Responsabile: `REVIEWER`
+- Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
+- Milestone interna corrente: `READY_FOR_WIN7_MANUAL_TEST`
+- Verdict corrente: `READY_FOR_WIN7_MANUAL_TEST`
+- Scopo: chiudere la review pratica di `TASK-041` verificando CI GitHub Actions, fix `WIN7POS_REPO_PATH`, build Win7POS WPF Release x86 e preparazione del bridge fisico Windows 7 tramite cartella condivisa.
+- Decisioni di tracking:
+  - `TASK-041_REMAINS_REVIEW_WITH_EXTERNAL_BLOCKERS`;
+  - `TASK-040_REMAINS_REVIEW_WITH_EXTERNAL_BLOCKERS_SUPERSEDED_BY_TASK-041`;
+  - `TASK-042_IS_ACTIVE_REVIEW_BRIDGE`;
+  - `CI_GITHUB_ACTIONS_GREEN`;
+  - `WIN7POS_PHYSICAL_PACKAGE_READY`;
+  - `WIN7POS_GITHUB_RELEASE_PACK_READY`.
+- CI GitHub Actions:
+  - ultimo run `26983953492` su `main`, commit `6d958c64ef016c634740eab66a496af75d95746c`, conclusion `success`;
+  - job `Verify` verde per security scan, foundation tests, typecheck, lint, build, UI smoke e diff whitespace check;
+  - errore storico `Win7POS repo is missing at /Users/minxiang/Projects/Win7POS` confermato nel run `26974280617` e superato dai run successivi;
+  - simulazioni locali `WIN7POS_REPO_PATH=/tmp/missing-win7pos-ci-fixture` passano con `SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE`, mentre `REQUIRE_WIN7POS_REPO=1` fallisce come atteso.
+- Win7POS:
+  - `WIN7POS_REPO_PATH` non era impostato ma il repo e stato rilevato localmente in `/Users/minxiang/Projects/Win7POS`;
+  - baseline Win7POS: branch `main`, dirty preesistente su `.gitignore`, `docs/dev/`, `scripts/win7pos/`;
+  - `git diff --check`: `PASS`;
+  - scanner `check-dialog-standards.ps1`, `check-pos-online-bootstrap.ps1`, `check-pos-online-client.ps1`, `check-pos-catalog-pull.ps1`: `PASS`;
+  - `dotnet build src/Win7POS.Wpf/Win7POS.Wpf.csproj -c Release -p:Platform=x86 -p:PlatformTarget=x86`: `PASS`, `Avvisi: 0`, `Errori: 0`;
+  - output Release/x86: `/Users/minxiang/Projects/Win7POS/src/Win7POS.Wpf/bin/x86/Release/net48/Win7POS.Wpf.exe`.
+- Win7POSBridge:
+  - `WIN7POS_BRIDGE_ROOT` non era impostato ma la bridge e stata rilevata localmente in `/Users/minxiang/Projects/Win7POSBridge`;
+  - sottocartelle `outbox`, `inbox`, `logs`, `screenshots`, `done`, `failed`, `drop` verificate/create;
+  - pacchetto copiato in `Win7POSBridge/outbox/TASK-042-win7pos-physical-e2e-20260604-190038`;
+  - cartella `app/` contiene l'intero output Release/x86/net48, non solo `Win7POS.Wpf.exe`;
+  - creati `manifest.json`, `checksums/SHA256SUMS.txt`, `checksums/APP-FILES.txt`, `checksums/ZIP-SHA256SUM.txt`, zip e documenti manuali;
+  - zip `TASK-042-win7pos-physical-e2e-20260604-190038.zip`: `zip -T` OK, SHA-256 `4175ca9e18a422bb696b323812d64a55b78a2a58f8e47545d6a55a4a1600944b`.
+- TASK-042B build parity diagnosis:
+  - esito reale Windows 7 sul pacchetto Codex locale: doppio click su `Win7POS.Wpf.exe` non apre UI visibile;
+  - esito reale Windows 7 sul package GitHub manuale `/Users/minxiang/Downloads/Win7POS_20260602_0242`: UI visibile e login operatore aperto;
+  - report generati in `docs/TASKS/EVIDENCE/TASK-042/TASK-042B-build-compare/` e `docs/TASKS/EVIDENCE/TASK-042/TASK-042B-build-parity-diagnosis.md`;
+  - Bad/Codex: `38` file, `13,831,941` byte; Good/GitHub: `96` file, `95,369,218` byte;
+  - missing from Codex: `58`; extra in Codex: `0`; same relative path, different SHA-256: `7`;
+  - root cause package: TASK-042 ha copiato raw output locale `dotnet build` invece del Release Pack GitHub; il Bad manca `e_sqlite3.dll`, `cli/`, `VERSION.txt`, `README_RUN.txt`, `RELEASE_CHECKLIST.txt`;
+  - commit Win7POS uguale tra Bad e Good: `5e35a37af7cd4ca7b39edf9fb9f9eb5cdcb5dcc1`; toolchain diversa: locale macOS `dotnet 10.0.300`, GitHub `windows-latest` con `dotnet 8.0.x`;
+  - script aggiunti: `scripts/win7pos/compare-build-folders.sh` e `scripts/win7pos/fetch-github-release-pack-to-bridge.sh`;
+  - diagnostica Windows 7 creata in `Win7POSBridge/outbox/TASK-042-build-compare-diagnostics/`;
+  - nuovo package corretto creato da artifact GitHub `Win7POS-ReleasePack-x86`, run `26795001032`: `Win7POSBridge/outbox/TASK-042B-github-release-pack-20260604-223656`;
+  - nuovo package verificato contro Good manuale: `96` file vs `96`, `95,369,218` byte vs `95,369,218`, `0` missing, `0` extra, `0` hash differenti;
+  - check finali TASK-042B: `npm run security:scan` PASS, `npm run test:foundation` PASS (`tests 184`, `pass 184`, `fail 0`), `git diff --check` PASS con output vuoto;
+  - verifica puntuale package: `Win7POS.Wpf.exe`, `e_sqlite3.dll`, `README_RUN.txt` e `VERSION.txt` presenti in `Win7POSBridge/outbox/TASK-042B-github-release-pack-20260604-223656/app`;
+  - prossimo test fisico deve usare il nuovo package GitHub Release Pack, non il vecchio raw package TASK-042.
+- TASK-042C manual Win7 sync e Product dialog UX:
+  - package provato su Windows 7: `Win7POSBridge\outbox\TASK-042B-github-release-pack-20260604-223656\app`;
+  - risultati locali utente: `PASS_LAUNCHES_ON_WIN7`, `PASS_LOCAL_OPERATOR_LOGIN`, `PASS_MENU_UI`, `PASS_LOCAL_CART_BASIC`, `PASS_LOCAL_PRODUCT_CREATE`, `PASS_LOCAL_DISCOUNT`, `PASS_LOCAL_QTY_EDIT`, `PASS_LOCAL_PAYMENT_SCREEN_OPEN`, `PASS_LOCAL_REGISTER_OPEN`;
+  - nessun crash osservato nello smoke locale Windows 7;
+  - Admin Web manual test, POS online connection/catalog pull e Sales Sync live restano `NOT_RUN_ADMIN_WEB_MANUAL_TEST_PENDING`, `NOT_RUN_POS_ONLINE_CONNECTION_PENDING`, `NOT_RUN_SALES_SYNC_LIVE_PENDING`;
+  - fix Win7POS implementato in `ProductEditDialog`, `ProductEditViewModel` e `ProductRepository`: `Fornitore`/`Categoria` editabili, input libero, dedup trim/case-insensitive e create/update atomico supplier/category + prodotto;
+  - scanner Win7POS dedicato: `scripts/check-product-dialog-free-text.ps1`;
+  - runbook Admin Web creato in `docs/TASKS/EVIDENCE/TASK-042/ADMIN-WEB-MANUAL-TEST-RUNBOOK.md`;
+  - check finali TASK-042C: Admin Web `security:scan` PASS, `test:foundation` PASS (`tests 184`, `pass 184`, `fail 0`), `git diff --check` PASS; Win7POS scanner nuovo/dialog/bootstrap/client/catalog PASS, build WPF Release x86 PASS (`Avvisi: 0`, `Errori: 0`), `git diff --check` PASS;
+  - verifica package `TASK-042B`: `Win7POS.Wpf.exe`, `e_sqlite3.dll`, `README_RUN.txt`, `VERSION.txt` presenti in `Win7POSBridge\outbox\TASK-042B-github-release-pack-20260604-223656\app`, `96` file, `91M`, manifest `containsESqlite3Dll=true`, `containsSecrets=false`;
+  - il fix UX non e nel package storico `TASK-042B`; per retest fisico serve un nuovo GitHub Release Pack dopo commit/push autorizzati, stato `PHYSICAL_TEST_REQUIRES_GITHUB_RELEASE_ARTIFACT_AFTER_COMMIT`;
+  - verdict TASK-042C: `PASS_LOCAL_WIN7_MANUAL_SYNCED_WITH_NOTES` e `WIN7POS_PRODUCT_DIALOG_FIX_READY_FOR_PHYSICAL_RETEST`.
+- TASK-042C Admin Web runtime prep 2026-06-05:
+  - target locale/non-production preparato per master Platform Console;
+  - account test `platform_admin` sintetico creato/ruotato in Supabase Auth locale, credential condivisa solo in chat runtime e non salvata in repository;
+  - `.env.local` non modificato e ancora fail-closed su `supabase_cloud`; runtime manuale avviato con env process-only;
+  - Admin Web locale e accesso remoto temporaneo verificati con doppio tunnel Cloudflare non-production per Admin Web e Supabase locale;
+  - hardening login: `AuthForm` usa `method="post"` e regression foundation copre il form;
+  - Playwright login locale e tunnel: `PASS`, redirect `/platform`;
+  - stati residui invariati: Admin Web manual smoke utente, POS online connection/catalog pull e Sales Sync live restano `NOT_RUN`.
+- Documenti manuali creati nel pacchetto:
+  - `RUNBOOK-WIN7POS-PHYSICAL-SMOKE.md`;
+  - `EXPECTED-RESULTS.md`;
+  - `MANUAL-RESULT-TEMPLATE.md`;
+  - `TROUBLESHOOTING-WIN7.md`.
+- Stati non completati:
+  - Admin Web manual test: `NOT_RUN_ADMIN_WEB_MANUAL_TEST_PENDING`;
+  - POS online connection/login: `NOT_RUN_POS_ONLINE_CONNECTION_PENDING`;
+  - heartbeat reale online: `NOT_RUN_POS_ONLINE_CONNECTION_PENDING`;
+  - catalog pull online: `NOT_RUN_POS_ONLINE_CONNECTION_PENDING`;
+  - vendita sintetica Win7POS online: `NOT_RUN_POS_ONLINE_CONNECTION_PENDING`;
+  - Sales Sync live Win7POS -> Admin Web -> Supabase: `NOT_RUN_SALES_SYNC_LIVE_PENDING`.
+- Condizioni REVIEW:
+  - evidence `TASK-042` aggiornata;
+  - pacchetto bridge pronto;
+  - prossimo passo manuale chiaro per Windows 7.
+- Condizioni DONE:
+  - non dichiarabile da Codex in `TASK-042`;
+  - richiede CI confermata, run Windows 7 fisico/VM equivalente, login/heartbeat/catalog pull se disponibili, Sales Sync live verificato e conferma esplicita utente.
+
+### TASK-043 - Platform Admin runtime fixes
+
+- Stato: `DONE_RECONCILED`
+- File task: `docs/TASKS/TASK-043-platform-admin-runtime-fixes.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-043/README.md`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `REVIEWER`
+- Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
+- Milestone interna corrente: `PLATFORM_ADMIN_RUNTIME_DONE_RECONCILED`
+- Verdict corrente: `AUTO_RECONCILED_TASK045`
+- Scopo: risolvere i blocchi runtime della Master Platform Console su `/platform`, `/platform/users`, `/platform/shops`, `/platform/provisioning`, `/platform/audit` e `/platform/system`.
+- Root cause confermata:
+  - la sessione server `platform_admin` e la role check erano valide;
+  - le query core RLS passavano;
+  - `staff_accounts_safe` falliva con `42501 permission denied for table staff_accounts`;
+  - quel failure opzionale veniva trattato come errore fatale e causava `Read blocked` globale.
+- Fix implementati:
+  - `staff_accounts_safe` convertita in `readIssues` diagnostico non fatale;
+  - query core Platform Admin ancora fail-closed;
+  - `staff_schema_status` espone `BLOCKED` senza bloccare overview/users/shops/audit/system/provisioning;
+  - `/platform/system` e `/platform/data` mostrano la diagnostica safe staff;
+  - `/platform/provisioning` usa `readModel.reason` negli stati non-ready ed elimina il messaggio generico;
+  - Platform shell espone `Logout` verso `/auth/logout`;
+  - query indipendenti del read model Platform eseguite in batch con `Promise.all` e limiti espliciti;
+  - aggiunto `src/app/platform/loading.tsx` per feedback immediato durante navigazione App Router;
+  - `AuthForm` resta `method="post"`.
+- Test/harness:
+  - `tests/foundation/task-043-platform-admin-runtime-fixes.test.mjs`;
+  - `tests/e2e/task-043-platform-admin-runtime.spec.ts`, eseguibile solo con `CONFIRM_TASK043_PLATFORM_RUNTIME_TEST=yes` e Supabase locale process-only;
+  - `tests/e2e/task-045-platform-master-console-final-review.spec.ts`, eseguibile solo con `CONFIRM_TASK045_PLATFORM_FINAL_REVIEW_TEST=yes`.
+- Check finali:
+  - Playwright runtime TASK-043 con Supabase locale process-only: `PASS`, `1 passed`;
+  - Playwright TASK-045 final review: `PASS`, `1 passed`;
+  - `AUTO_RECONCILED_TASK045`.
+- Follow-up:
+  - grant/RLS completa per `staff_accounts_safe`: `FOLLOW_UP_RECOMMENDED`;
+  - production deploy: `NOT_RUN_PRODUCTION_FORBIDDEN`.
+
+### TASK-044 - Platform provisioning UX, runtime and Operations cleanup
+
+- Stato: `DONE_RECONCILED`
+- File task: `docs/TASKS/TASK-044-platform-provisioning-ux-runtime-fixes.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-044/README.md`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `REVIEWER`
+- Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
+- Milestone interna corrente: `PLATFORM_PROVISIONING_UX_RUNTIME_DONE_RECONCILED`
+- Verdict corrente: `AUTO_RECONCILED_TASK045`
+- Scopo: risolvere doppio submit, stuck rendering, errori generici, flicker sidebar e duplicazioni Operations nella Master Platform Console.
+- Root cause confermata:
+  - i form Provisioning create shop / pending owner invite non avevano pending state client-side;
+  - `src/app/platform/loading.tsx` forzava `AppShell activeSection="overview"`;
+  - Operations duplicava Provisioning e Admins;
+  - POS manager provisioning collassava failure DB diversi in `db_failure`; Playwright locale ha poi confermato schema pronto per ruolo `manager` e permesso `shop_admin.full_access`, quindi la failure manuale non era riprodotta come mismatch schema/ruolo;
+  - create shop / pending invite redirigevano sempre a `/platform/operations`.
+- Fix implementati:
+  - `PendingSubmitButton` con `useFormStatus`;
+  - result banner e `returnTo=/platform/provisioning` allowlistato;
+  - `PlatformSidebarNav` con `usePathname` e active state ottimistico derivato dall'origin pathname;
+  - loading neutro senza Overview forzato e senza `Rendering...`;
+  - Operations focalizzata su lifecycle, restore, emergency device e audit preview;
+  - errori POS manager redatti e specifici: `shop_read_failed`, `staff_read_failed`, `permission_write_failed`, `staff_write_failed`, `audit_write_failed`;
+  - test foundation e Playwright gated `CONFIRM_TASK044_PLATFORM_RUNTIME_TEST=yes`.
+- Check finali:
+  - `node --test tests/foundation/task-044-platform-provisioning-ux-runtime.test.mjs`: `PASS`, `tests 5`, `pass 5`, `fail 0`;
+  - `npm run security:scan`: `PASS`;
+  - `npm run test:foundation`: `PASS`, `tests 193`, `pass 193`, `fail 0`;
+  - `npm run lint`: `PASS`;
+  - `npm run typecheck`: `PASS`;
+  - `npm run build`: `PASS`, warning noti Next `middleware`/`proxy` e Node `DEP0205`;
+  - `npm run verify`: `PASS`;
+  - `git diff --check`: `PASS`, output vuoto;
+  - Playwright TASK-044 runtime: `PASS`, `2 passed`, eseguito con `CONFIRM_TASK044_PLATFORM_RUNTIME_TEST=yes`, Supabase locale process-only;
+  - Playwright TASK-045 final review: `PASS`, `1 passed`, eseguito con `CONFIRM_TASK045_PLATFORM_FINAL_REVIEW_TEST=yes`, Supabase locale process-only.
+- Riconciliazione:
+  - `AUTO_RECONCILED_TASK045`;
+  - `TASK-044` e `DONE_RECONCILED`;
+  - nessun commit, nessun push, stato finale `NOT_STAGED`;
+  - Win7POS live E2E e Sales Sync live restano `NOT_RUN`.
+
+### TASK-045 - Platform Master Console final automated review and DONE reconciliation
+
+- Stato: `DONE_RECONCILED`
+- File task: `docs/TASKS/TASK-045-platform-master-console-final-review-done-reconciliation.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-045/README.md`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `REVIEWER`
+- Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
+- Milestone interna corrente: `PLATFORM_MASTER_CONSOLE_AUTO_REVIEW_DONE`
+- Verdict corrente: `AUTO_RECONCILED_TASK045`
+- Scopo: chiudere la review automatizzata finale della Master Platform Console e riconciliare `TASK-043`/`TASK-044` a `DONE_RECONCILED` senza promuovere blocker esterni Win7POS/Sales Sync.
+- Evidence:
+  - `tests/e2e/task-045-platform-master-console-final-review.spec.ts`;
+  - `CONFIRM_TASK045_PLATFORM_FINAL_REVIEW_TEST=yes`;
+  - Playwright TASK-045: `PASS`, `1 passed`;
+  - Supabase locale process-only;
+  - route Platform Master Console, Provisioning, Admins, Operations, duplicate shop code, pending owner invite, POS manager web access, sidebar navigation, logout e cleanup operativa verificati.
+- Cleanup:
+  - staff/permissions/sessioni/mapping/invite/POS temp rows a zero;
+  - shop `TASK045_*` archiviati;
+  - audit append-only trattenuti per design;
+  - admin temporaneo revocato e profilo disabilitato.
+- Blocchi esterni preservati:
+  - `TASK-041`: `REVIEW_WITH_EXTERNAL_BLOCKERS`;
+  - `TASK-042`: `READY_FOR_WIN7_MANUAL_TEST`;
+  - Win7POS live E2E: `NOT_RUN`;
+  - Sales Sync live: `NOT_RUN`.
+
+### TASK-046 - Test target separation: local vs staging
+
+- Stato: `REVIEW`
+- File task: `docs/TASKS/TASK-046-test-target-separation-local-vs-staging.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-046/README.md`
+- Fase: `REVIEW`
+- Responsabile: `REVIEWER`
+- Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
+- Milestone interna corrente: `TEST_TARGET_SEPARATION_READY_FOR_REVIEW`
+- Verdict corrente: `REVIEW`
+- Scopo: separare test sempre sicuri, test automatici locali e test cloud staging/dev senza dedurre il target da `.env.local`.
+- Implementato:
+  - `TEST_TARGET=local|staging` nei wrapper Node;
+  - `db:local:status` e `db:staging:status`;
+  - `test:e2e:local`, `test:e2e:staging`, `test:platform:local`, `test:platform:staging`, `test:shop:local`, `smoke:staging`;
+  - guardrail locale su Supabase `127.0.0.1:54321`/`localhost:54321`;
+  - guardrail staging su URL `https://*.supabase.co`, allowlist project ref, conferme staging e ref production vietati;
+  - staging Playwright senza dev server locale;
+  - staging smoke read-only;
+  - setup locale Platform Master Console con `platform:local:seed`, `platform:local:dev`, `platform:local:status`, `platform:local:cleanup` e runbook `docs/RUNBOOKS/platform-master-console-local-login.md`;
+  - smoke locale Platform login `test:platform:local-login`, gated da `CONFIRM_TASK046_PLATFORM_LOCAL_LOGIN_TEST=yes`.
+- Evidence:
+  - foundation TASK-046 red/green;
+  - `npm run security:scan`: `PASS`;
+  - `npm run test:foundation`: `PASS`, `tests 198`, `pass 198`, `fail 0`;
+  - `npm run typecheck`: `PASS`;
+  - `npm run lint`: `PASS`;
+  - `npm run build`: `PASS`, warning noti Next `middleware`/`proxy` e Node `DEP0205`;
+  - `npm run verify`: `PASS`;
+  - `npm run test:platform:local`: `PASS`, `1 passed`;
+  - `npm run db:local:status`: `FAIL_EXPECTED_FAIL_CLOSED_ENV_LOCAL_POINTS_CLOUD`, output redatto;
+  - `npm run db:staging:status`: `FAIL_EXPECTED_BLOCKED_STAGING_SUPABASE_URL_REQUIRED` senza env staging esplicita;
+  - staging status positivo con URL cloud e project ref allowlistato: `PASS`;
+  - foundation Platform local login environment: `PASS`, `tests 2`, `pass 2`;
+  - `npm run platform:local:status`: `PASS`, account locale assente prima del seed;
+  - `CONFIRM_TASK046_PLATFORM_LOCAL_LOGIN_TEST=yes DEV_PLATFORM_ADMIN_PASSWORD=<runtime-generated> npm run test:platform:local-login`: `PASS`, `1 passed`;
+  - `npm run platform:local:cleanup`: `PASS`, auth user locale cancellato, audit append-only trattenuti.
+- Stato:
+  - handoff a `REVIEW`;
+  - nessun commit, push o stage.
+
+### TASK-047 - Align Master Console and Admin Console access model
+
+- Stato: `REVIEW`
+- File task: `docs/TASKS/TASK-047-align-master-console-admin-console-access-model.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-047/README.md`
+- Fase: `REVIEW`
+- Responsabile: `REVIEWER`
+- Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
+- Milestone interna corrente: `MASTER_ADMIN_ACCESS_MODEL_READY_FOR_REVIEW`
+- Verdict corrente: `REVIEW`
+- Scopo: allineare naming, copy, guard e runbook alla decisione prodotto Master Console / Admin Console, mantenendo route tecniche `/platform`, `/shop` e `/shop/staff-login`.
+- Decisione prodotto:
+  - `Master Console`: nome breve della console globale su `/platform`, riservata al principal tecnico `platform_admin`;
+  - `Admin Console`: nome breve della console shop-scoped su `/shop`;
+  - Admin Console via `personal_account`: Supabase Auth personale, `profiles`, `shop_members`, multi-shop quando autorizzato;
+  - Admin Console via shop-code/staff-code: `pos_staff_manager`, `staff_accounts`, `staff_web_sessions`, single-shop;
+  - principal personale e staff account restano separati ma permission-equivalent nello stesso shop quando il permission tree concede le stesse operazioni;
+  - Win7POS usa shop-code/staff-code e non personal account;
+  - Android/iOS usano personal account e possono essere multi-shop;
+  - uno shop puo essere creato da provisioning master o da flussi futuri POS-first shop, senza dedurre il tipo di test/accesso da `.env.local`.
+- Implementato:
+  - `/` trasformata in console selection esplicita;
+  - `/auth/login` rinominata come Admin account sign in e linkata a Shop code sign in;
+  - `/shop/staff-login` rinominata come Shop code sign in per Admin Console single-shop;
+  - guard `/platform` e shell Platform riallineati a Master Console;
+  - guard `/shop` e shell Shop riallineati a Admin Console;
+  - architettura dual access aggiornata;
+  - runbook Admin Console personal account e Shop code aggiunti;
+  - runbook Master Console locale aggiornato.
+  - review UX Master Console 2026-06-05: liste `Users` e `Shops` aggiornate
+    con righe selezionabili e pannello dettaglio contestuale; Users mostra ID
+    breve, membership/shop access e origine account `Not captured`; Shops mostra
+    owner multipli e membership attive/totali senza aggiungere secret auth o
+    service-role lato browser.
+  - correzione UX master-detail 2026-06-05: il pannello dettaglio non resta piu
+    vuoto durante lo scroll, le pagine User/Shop Detail hanno `Back to Users` /
+    `Back to Shops`, e il ritorno preserva la riga selezionata tramite
+    `?selected=<rowId>`; la vista `Shops` usa layout piu largo per evitare righe
+    tagliate.
+  - review runtime locale 2026-06-05: `platform:local:dev` ora evita
+    `EADDRINUSE` su `3000` scegliendo una porta locale alternativa e stampando
+    l'URL corretto da aprire; usa `next dev --webpack` per default per evitare
+    loop del dev indicator `Compiling` durante i test manuali locali.
+  - follow-up UX polish Users/Shops 2026-06-05: liste Master Console rese piu
+    operative con search/filtri locali, celle a piu righe controllate, badge
+    stato colorati, inspector a sezioni, full detail sezionati, diagnostica
+    normale collassata e `Open full detail` che apre la pagina dettaglio in cima
+    mantenendo il ritorno lista con `?selected=<id>`.
+  - final micro-polish 2026-06-05: sidebar Master Console sticky su desktop,
+    inspector con header/action raggiungibili, copy meno tecnico, shop code copy
+    verificato e riga selezionata piu evidente con bordo/ARIA.
+- Guardrail:
+  - no production;
+  - no service-role lato browser;
+  - no dati reali o secret;
+  - no reset DB;
+  - nessuna migration;
+  - nessun commit, push o stage.
+- Evidence:
+  - foundation TASK-047 red confermato prima dell'implementazione;
+  - terminale manuale utente conferma `.env.local` classificato
+    `supabase_cloud`, Supabase locale attivo, e blocco `EADDRINUSE` su
+    `127.0.0.1:3000`;
+  - check finali da registrare in `docs/TASKS/EVIDENCE/TASK-047/README.md`.
+- Stato:
+  - handoff a `REVIEW`;
+  - non marcare `DONE` senza conferma utente esplicita.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -1650,7 +1959,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Stato globale attuale: `MASTER_ADMIN_ACCESS_MODEL_READY_FOR_REVIEW`
 - Ultimo task completato: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
@@ -1680,14 +1989,26 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-040: `REVIEW_WITH_EXTERNAL_BLOCKERS`
 - Stato TASK-041: `REVIEW_WITH_EXTERNAL_BLOCKERS`
 - Fase TASK-041: `REVIEW_WITH_EXTERNAL_BLOCKERS`
-- Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare/OpenNext Staging, Sales Sync and Win7POS E2E`
-- File task: `docs/TASKS/TASK-041-runtime-completion-supabase-cloudflare-sales-sync-win7pos-e2e.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-041/README.md`
-- Stato task: `REVIEW_WITH_EXTERNAL_BLOCKERS`
-- Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`
-- Milestone interna: `PASS_WITH_NOTES_AND_EXTERNAL_BLOCKERS`
+- Stato TASK-042: `READY_FOR_WIN7_MANUAL_TEST`
+- Fase TASK-042: `REVIEW`
+- Stato TASK-043: `DONE_RECONCILED`
+- Fase TASK-043: `DONE_RECONCILED`
+- Stato TASK-044: `DONE_RECONCILED`
+- Fase TASK-044: `DONE_RECONCILED`
+- Stato TASK-045: `DONE_RECONCILED`
+- Fase TASK-045: `DONE_RECONCILED`
+- Stato TASK-046: `REVIEW`
+- Fase TASK-046: `REVIEW`
+- Stato TASK-047: `REVIEW`
+- Fase TASK-047: `REVIEW`
+- Task attivo: `TASK-047 - Align Master Console and Admin Console access model`
+- File task: `docs/TASKS/TASK-047-align-master-console-admin-console-access-model.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-047/README.md`
+- Stato task: `REVIEW`
+- Fase: `REVIEW`
+- Milestone interna: `MASTER_ADMIN_ACCESS_MODEL_READY_FOR_REVIEW`
 - Responsabile: `REVIEWER`
-- Branch previsto: `codex/task-041-runtime-completion`
+- Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
 - Task Vercel parcheggiato: `TASK-031 - Vercel Preview retry after environment docs`
@@ -1710,8 +2031,15 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-040: `PARTIAL_PASS_WITH_BLOCKERS`
 - Verdict TASK-041: `PASS_WITH_NOTES_AND_EXTERNAL_BLOCKERS`
 - Verdict finale review/fix TASK-041: `PASS_WITH_NOTES_READY_FOR_DONE_CONFIRMATION_ADMIN_WEB_RUNTIME_ONLY`
+- Verdict TASK-042: `READY_FOR_WIN7_MANUAL_TEST`
+- Verdict TASK-042C: `PASS_LOCAL_WIN7_MANUAL_SYNCED_WITH_NOTES` / `WIN7POS_PRODUCT_DIALOG_FIX_READY_FOR_PHYSICAL_RETEST`
+- Verdict TASK-043: `AUTO_RECONCILED_TASK045`
+- Verdict TASK-044: `AUTO_RECONCILED_TASK045`
+- Verdict TASK-045: `AUTO_RECONCILED_TASK045`
+- Verdict TASK-046: `REVIEW`
+- Verdict TASK-047: `REVIEW`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
-- Prossima azione consigliata: review umana/Claude su TASK-041 e, se autorizzato, run manuale Win7POS con `WIN7POS_REPO_PATH`. Non marcare `TASK-040 DONE`; mantenerlo `REVIEW_WITH_EXTERNAL_BLOCKERS / SUPERSEDED_BY_TASK-041` finche una review futura non chiude i blocker con evidence reale.
+- Prossima azione consigliata: per Win7POS resta da aprire su Windows 7 la cartella `Win7POSBridge\outbox\TASK-042B-github-release-pack-20260604-223656\app` per il package gia verificato; per retest fisico del fix UX `Fornitore`/`Categoria`, creare prima un nuovo GitHub Release Pack dopo commit/push autorizzati. Non marcare `TASK-041 DONE` o `TASK-040 DONE` e non dichiarare Win7POS live/Sales Sync live `PASS` finche mancano run reali/evidence.
 
 ## Regole di avanzamento
 

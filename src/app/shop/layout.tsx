@@ -18,7 +18,7 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
   if (resolution.status !== "ready") {
     return (
       <AccessState
-        area="Shop Admin"
+        area="Admin Console"
         status={resolution.status}
         reason={resolution.reason}
         loginHref="/auth/login?next=/shop"

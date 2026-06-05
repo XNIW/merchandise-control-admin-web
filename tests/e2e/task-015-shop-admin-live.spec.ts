@@ -23,7 +23,7 @@ test.describe("TASK-015 Shop Admin protected readiness", () => {
 
       await expect(page.getByRole("main")).toBeVisible();
       await expect(
-        page.getByRole("heading", { level: 1, name: "Shop Admin access required" }),
+        page.getByRole("heading", { level: 1, name: "Admin Console access required" }),
       ).toBeVisible();
       await expect(
         page.getByRole("navigation", { name: "Shop sections" }),

@@ -29,6 +29,45 @@ export type TableRow = Record<string, string> & {
   rowKey?: string;
 };
 
+export type RowDetailField = {
+  label: string;
+  value: string;
+};
+
+export type RowDetailGroup = {
+  title: string;
+  fields: RowDetailField[];
+  notes?: string[];
+};
+
+export type RowDetailPanel = {
+  rowKey: string;
+  title: string;
+  subtitle: string;
+  href?: string;
+  fields?: RowDetailField[];
+  groups?: RowDetailGroup[];
+  notes?: string[];
+};
+
+export type PlatformFilterOption = {
+  label: string;
+  value: string;
+};
+
+export type PlatformFilter = {
+  key: string;
+  label: string;
+  options: PlatformFilterOption[];
+};
+
+export type PlatformDetailSection = {
+  title: string;
+  description?: string;
+  fields: RowDetailField[];
+  notes?: string[];
+};
+
 export type EmptyStateContent = {
   title: string;
   description: string;
@@ -45,9 +84,15 @@ export type PlatformSection = {
   eyebrow: string;
   description: string;
   status: string;
+  backHref?: string;
+  backLabel?: string;
   stats: StatItem[];
   columns: TableColumn[];
   rows: TableRow[];
+  filters?: PlatformFilter[];
+  searchPlaceholder?: string;
+  detailSections?: PlatformDetailSection[];
+  rowDetails?: RowDetailPanel[];
   emptyState?: EmptyStateContent;
   operations?: OperationItem[];
   guardrails?: string[];
@@ -98,7 +143,7 @@ const baseSection = (
   emptyState: {
     title: "No rows returned",
     description:
-      "Rows are shown only when the server-side Platform Admin boundary returns safe DTOs.",
+      "Rows are shown only when the server-side Master Console boundary returns safe DTOs.",
   },
 });
 
@@ -106,7 +151,7 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   overview: baseSection(
     "overview",
     "Platform Overview",
-    "Platform Admin Console",
+    "Master Console",
     "Global ecosystem summary for shops, profiles, audit, device, sync, and data health.",
   ),
   users: baseSection(
@@ -116,8 +161,9 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
     "Global profile directory with memberships, platform role state, access status, and recent audit.",
     [
       { key: "profile", label: "Profile" },
-      { key: "platformRole", label: "Platform role" },
-      { key: "memberships", label: "Memberships" },
+      { key: "origin", label: "Origin" },
+      { key: "access", label: "Access" },
+      { key: "shops", label: "Shops" },
       { key: "state", label: "State" },
     ],
   ),
@@ -129,8 +175,9 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
     [
       { key: "shop", label: "Shop" },
       { key: "code", label: "Code" },
-      { key: "owner", label: "Owner" },
-      { key: "state", label: "State" },
+      { key: "owners", label: "Owners" },
+      { key: "members", label: "Members" },
+      { key: "devices", label: "Devices" },
       { key: "health", label: "Health" },
     ],
   ),
@@ -213,8 +260,8 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   operations: baseSection(
     "operations",
     "Controlled Operations",
-    "Safe operations",
-    "Audited Platform Admin controls for shop provisioning, lifecycle, diagnostics, and emergency device actions.",
+    "Lifecycle operations",
+    "Audited Platform Admin controls for shop lifecycle, restore, diagnostics, and emergency device actions.",
     [
       { key: "operation", label: "Operation" },
       { key: "availability", label: "Availability" },

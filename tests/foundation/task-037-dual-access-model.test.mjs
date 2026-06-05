@@ -111,7 +111,8 @@ test("TASK-037 server foundation defines explicit principals without implementin
   assertContains(shopAccess, ".from(\"shop_members\")");
   assertContains(shopAccess, "shop_owner");
   assertContains(shopAccess, "shop_manager");
-  assertContains(authLogin, "Use a personal admin account.");
+  assertContains(authLogin, "Use a personal account for Master Console");
+  assertContains(authLogin, "Admin Console shop membership");
 
   assert.doesNotMatch(principal, /createSupabaseAdminClient|SUPABASE_SERVICE_ROLE_KEY|cookies\(\)\.set|NextResponse/);
   assert.doesNotMatch(principal, /credential_hash|pin_plain|password_plain|plain_pin|plain_password/i);

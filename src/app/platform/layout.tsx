@@ -15,12 +15,12 @@ export default async function PlatformLayout({
     const blockedStatus = access.status === "shop_admin" ? "no_shop" : access.status;
     const reason =
       access.status === "shop_admin"
-        ? "This account is authorized for Shop Admin, not Platform Admin."
+        ? "This account is authorized for Admin Console, not Master Console."
         : access.reason;
 
     return (
       <AccessState
-        area="Platform Admin"
+        area="Master Console"
         status={blockedStatus}
         reason={reason}
         loginHref="/auth/login?next=/platform"

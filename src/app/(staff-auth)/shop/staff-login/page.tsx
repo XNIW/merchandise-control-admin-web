@@ -3,8 +3,9 @@ import Link from "next/link";
 import { staffManagerWebLoginAction } from "./actions";
 
 export const metadata: Metadata = {
-  title: "Staff Manager Sign In | MerchandiseControl Admin Web",
-  description: "Sign in to Shop Admin with POS manager staff credentials.",
+  title: "Shop Code Sign In | MerchandiseControl Admin Web",
+  description:
+    "Sign in to Admin Console with Shop code and Staff code credentials.",
 };
 
 export const dynamic = "force-dynamic";
@@ -23,7 +24,7 @@ function statusMessage(result: string | undefined) {
   }
 
   if (result === "not_configured") {
-    return "Staff manager access is not configured in this runtime.";
+    return "Shop-code staff access is not configured in this runtime.";
   }
 
   if (result === "locked") {
@@ -56,20 +57,21 @@ export default async function StaffManagerWebLoginPage({
               <p className="text-sm font-semibold text-zinc-950">
                 MerchandiseControl
               </p>
-              <p className="text-sm text-zinc-600">Shop Admin Console</p>
+              <p className="text-sm text-zinc-600">Admin Console</p>
             </div>
           </div>
 
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase text-zinc-500">
-              Staff manager access
+              Shop-code staff access
             </p>
             <h1 className="mt-3 text-3xl font-semibold tracking-normal text-zinc-950 sm:text-4xl">
-              POS manager sign in
+              Shop code sign in
             </h1>
             <p className="mt-4 text-base leading-7 text-zinc-700">
-              Use the shop code, staff code and assigned credential for one
-              shop. Personal admin accounts continue to use the regular sign in.
+              Use Shop code, Staff code and assigned credential for one
+              single-shop Admin Console session. Admin accounts continue to use
+              the account sign-in path.
             </p>
           </div>
 
@@ -78,7 +80,7 @@ export default async function StaffManagerWebLoginPage({
               HTTP-only cookie
             </span>
             <span className="rounded-md border border-zinc-200 bg-white px-2.5 py-1 text-xs font-medium text-zinc-700">
-              Single shop
+              single-shop
             </span>
             <span className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
               Manager only
@@ -89,7 +91,7 @@ export default async function StaffManagerWebLoginPage({
         <section className="rounded-md border border-zinc-200 bg-white p-5 shadow-sm">
           <div className="mb-5">
             <h2 className="text-lg font-semibold text-zinc-950">
-              Staff credentials
+              Shop code credentials
             </h2>
             <p className="mt-1 text-sm text-zinc-600">
               Access is verified server-side and never creates a personal profile.
@@ -155,12 +157,20 @@ export default async function StaffManagerWebLoginPage({
             </p>
           ) : null}
 
-          <Link
-            href="/auth/login?next=/shop"
-            className="mt-5 inline-flex text-sm font-medium text-zinc-700 underline-offset-4 hover:text-zinc-950 hover:underline"
-          >
-            Use personal account sign in
-          </Link>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              href="/auth/login?next=/shop"
+              className="inline-flex text-sm font-medium text-zinc-700 underline-offset-4 hover:text-zinc-950 hover:underline"
+            >
+              Use Admin account sign in
+            </Link>
+            <Link
+              href="/"
+              className="inline-flex text-sm font-medium text-zinc-700 underline-offset-4 hover:text-zinc-950 hover:underline"
+            >
+              Back to console selection
+            </Link>
+          </div>
         </section>
       </div>
     </main>

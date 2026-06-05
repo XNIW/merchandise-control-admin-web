@@ -109,7 +109,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "Overview",
     href: "/shop/overview",
     title: "Shop Overview",
-    eyebrow: "Shop Admin Console",
+    eyebrow: "Admin Console",
     description:
       "Workspace shell for shop owners and managers. Live shop summaries are intentionally deferred until the shop-scoped read model is implemented.",
     status: "Shell placeholder",

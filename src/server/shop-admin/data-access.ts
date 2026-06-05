@@ -138,7 +138,7 @@ export async function resolveShopAdminDataAccess(
     return {
       reason:
         staffResolution.reason ??
-        "No personal account or staff web session is authorized for Shop Admin.",
+        "No personal account or staff web session is authorized for Admin Console.",
       status: fallbackStatus,
     };
   }
@@ -164,7 +164,7 @@ export async function resolveShopAdminDataAccess(
   if (adminConfig.status !== "configured") {
     return {
       reason:
-        "Supabase admin runtime is required for staff web Shop Admin data access.",
+        "Supabase admin runtime is required for staff web Admin Console data access.",
       status: "not_configured",
     };
   }

@@ -94,7 +94,7 @@ const messageByCode: Record<PlatformShopActionCode, string> = {
   shop_not_found: "The selected shop could not be found.",
   device_not_found: "The selected device could not be found.",
   conflict: "The operation could not be completed because of a conflict.",
-  db_failure: "Request could not be completed.",
+  db_failure: "The controlled database action failed without exposing internal details.",
 };
 
 export function platformShopActionResult(

@@ -1,11 +1,24 @@
 # Shop Admin Dual Access Model
 
+## Terminologia prodotto TASK-047
+
+- `Master Console`: nome breve della console globale. Route tecnica: `/platform`. Principal ammesso: account personale con ruolo tecnico `platform_admin`.
+- `Admin Console`: nome breve della console shop-scoped. Route tecnica: `/shop`.
+- `Admin account`: account personale Supabase Auth con `profiles` e `shop_members`, adatto a uso multi-shop.
+- `Shop code`: accesso staff shop-scoped con shop-code/staff-code, `staff_accounts` e `staff_web_sessions`, sempre single-shop.
+
+Il nome storico `Shop Admin Console` resta solo come contesto storico del documento. Nel copy nuovo e nei runbook operativi si usa `Admin Console`. Il nome storico `Platform Admin Console` viene sostituito da `Master Console`, mentre `platform_admin` resta il role key tecnico.
+
+La Admin Console puo essere aperta da un account personale o da uno staff account. I due principal restano separati, ma sono permission-equivalent dentro lo stesso shop quando il permission tree concede le stesse operazioni. Le differenze non spariscono: identita, sessione, audit actor e capacita multi-shop restano distinte.
+
+Win7POS usa shop-code/staff-code e non personal account. Android/iOS usano personal account e possono essere multi-shop. Uno shop puo essere creato da provisioning master o da flussi futuri POS-first shop, ma la scelta del principal di accesso resta esplicita e non dipende da `.env.local`. Guardrail: no production.
+
 ## Decisione prodotto
 
-La Shop Admin Console supporta due principal distinti:
+La Admin Console supporta due principal distinti:
 
 1. `personal_account`: account personale web basato su Supabase Auth e membership `shop_members`.
-2. `pos_staff_manager`: accesso web staff POS basato su `shop_code + staff_code + credential`, separato da `profiles`; TASK-038 introduce runtime server-side, sessione web separata, permission tree e accesso read-only ai read model Shop Admin.
+2. `pos_staff_manager`: accesso web staff POS basato su shop-code/staff-code e credential, separato da `profiles`; TASK-038 introduce runtime server-side, sessione web separata, permission tree e accesso read-only ai read model Admin Console.
 
 Questa decisione non fonde `profiles` e `staff_accounts`.
 

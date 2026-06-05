@@ -60,7 +60,7 @@ test.describe("TASK-016 Platform Admin smoke", () => {
       await expect(
         page.getByRole("heading", {
           level: 1,
-          name: "Platform Admin access required",
+          name: "Master Console access required",
         }),
       ).toBeVisible();
       await expect(

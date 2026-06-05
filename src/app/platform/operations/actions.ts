@@ -20,8 +20,15 @@ function value(formData: FormData, key: string) {
 
 function revalidatePlatformOperations() {
   revalidatePath("/platform/operations");
+  revalidatePath("/platform/provisioning");
   revalidatePath("/platform/shops");
   revalidatePath("/platform/devices");
+}
+
+function safeReturnTo(formData?: FormData) {
+  const returnTo = formData ? value(formData, "returnTo") : "";
+
+  return returnTo === "/platform/provisioning" ? returnTo : "/platform/operations";
 }
 
 function redirectWithActionResult(
@@ -34,10 +41,11 @@ function redirectWithActionResult(
     | "soft_delete"
     | "device_revoke",
   result: Awaited<ReturnType<typeof createPlatformShop>>,
+  formData?: FormData,
 ) {
   revalidatePlatformOperations();
   redirect(
-    `/platform/operations?operation=${operation}&result=${result.code}`,
+    `${safeReturnTo(formData)}?operation=${operation}&result=${result.code}`,
     RedirectType.replace,
   );
 }
@@ -50,7 +58,7 @@ export async function createPlatformShopAction(formData: FormData) {
     shopName: value(formData, "shopName"),
   });
 
-  redirectWithActionResult("create", result);
+  redirectWithActionResult("create", result, formData);
 }
 
 export async function createPlatformPendingOwnerInviteAction(formData: FormData) {
@@ -61,7 +69,7 @@ export async function createPlatformPendingOwnerInviteAction(formData: FormData)
     shopName: value(formData, "shopName"),
   });
 
-  redirectWithActionResult("pending_owner_invite", result);
+  redirectWithActionResult("pending_owner_invite", result, formData);
 }
 
 export async function suspendPlatformShopAction(formData: FormData) {

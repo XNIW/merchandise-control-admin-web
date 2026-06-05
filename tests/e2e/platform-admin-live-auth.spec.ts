@@ -358,7 +358,7 @@ test.describe("Platform Admin live auth gate", () => {
 
     await page.goto("/auth/login");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Admin sign in" }),
+      page.getByRole("heading", { level: 1, name: "Admin account sign in" }),
     ).toBeVisible();
 
     const credentials = await createTemporaryPlatformAdminCredentials();
@@ -387,7 +387,7 @@ test.describe("Platform Admin live auth gate", () => {
       await expect(
         page.getByRole("heading", {
           level: 1,
-          name: "Platform Admin access required",
+          name: "Master Console access required",
         }),
       ).toBeVisible();
     } finally {
@@ -458,7 +458,7 @@ test.describe("Platform Admin live auth gate", () => {
       await expect(
         page.getByRole("heading", {
           level: 1,
-          name: "Shop Admin access required",
+          name: "Admin Console access required",
         }),
       ).toBeVisible();
     } finally {
@@ -592,7 +592,7 @@ test.describe("Platform Admin live auth gate", () => {
       await expect(
         page.getByRole("heading", {
           level: 1,
-          name: "Platform Admin access required",
+          name: "Master Console access required",
         }),
       ).toBeVisible();
     } finally {

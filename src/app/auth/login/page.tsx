@@ -3,8 +3,9 @@ import Link from "next/link";
 import { AuthForm } from "@/components/auth/AuthForm";
 
 export const metadata: Metadata = {
-  title: "Admin Sign In | MerchandiseControl Admin Web",
-  description: "Sign in to MerchandiseControl Admin Web.",
+  title: "Admin Account Sign In | MerchandiseControl Admin Web",
+  description:
+    "Sign in with a personal account for Master Console or Admin Console.",
 };
 
 export const dynamic = "force-dynamic";
@@ -30,20 +31,23 @@ export default function PlatformAdminLoginPage() {
               <p className="text-sm font-semibold text-slate-950">
                 MerchandiseControl
               </p>
-              <p className="text-sm text-slate-600">Admin Web</p>
+              <p className="text-sm text-slate-600">
+                Master Console / Admin Console
+              </p>
             </div>
           </div>
 
           <div className="max-w-2xl">
             <p className="text-xs font-semibold uppercase text-slate-500">
-              Secure access
+              Admin account
             </p>
             <h1 className="mt-3 text-3xl font-semibold tracking-normal text-slate-950 sm:text-4xl">
-              Admin sign in
+              Admin account sign in
             </h1>
             <p className="mt-4 text-base leading-7 text-slate-700">
-              Use a personal admin account. Access is resolved server-side for
-              the right console after sign-in.
+              Use a personal account for Master Console platform ownership or
+              Admin Console shop membership. Shop-code staff managers use the
+              Shop code sign-in path instead.
             </p>
           </div>
 
@@ -63,10 +67,11 @@ export default function PlatformAdminLoginPage() {
         <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
           <div className="mb-5">
             <h2 className="text-lg font-semibold text-slate-950">
-              Account credentials
+              Admin account credentials
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              The session is stored through Supabase SSR cookies.
+              The Supabase SSR session opens only the console authorized
+              server-side for this account.
             </p>
           </div>
 
@@ -78,12 +83,20 @@ export default function PlatformAdminLoginPage() {
             </p>
           ) : null}
 
-          <Link
-            href="/"
-            className="mt-5 inline-flex text-sm font-medium text-slate-700 underline-offset-4 hover:text-slate-950 hover:underline"
-          >
-            Return to Admin Web
-          </Link>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <Link
+              href="/"
+              className="inline-flex text-sm font-medium text-slate-700 underline-offset-4 hover:text-slate-950 hover:underline"
+            >
+              Back to console selection
+            </Link>
+            <Link
+              href="/shop/staff-login"
+              className="inline-flex text-sm font-medium text-slate-700 underline-offset-4 hover:text-slate-950 hover:underline"
+            >
+              Use Shop code sign in
+            </Link>
+          </div>
         </section>
       </div>
     </main>

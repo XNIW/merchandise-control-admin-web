@@ -1,23 +1,18 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/platform/AppShell";
+import { PendingSubmitButton } from "@/components/platform/PendingSubmitButton";
 import { EmptyState } from "@/components/platform/components/EmptyState";
 import { PageHeader } from "@/components/platform/components/PageHeader";
 import { SectionCard } from "@/components/platform/components/SectionCard";
 import type { AuditLog, Profile, Shop, ShopMember } from "@/domain/platform-admin/types";
 import { getPlatformAdminReadModel } from "@/server/platform-admin/read-model";
 import {
-  createPlatformPendingOwnerInviteAction,
-  createPlatformShopAction,
   emergencyRevokePlatformDeviceAction,
   reactivatePlatformShopAction,
   restorePlatformShopAction,
   softDeletePlatformShopAction,
   suspendPlatformShopAction,
 } from "./actions";
-import {
-  grantPlatformAdminAction,
-  revokePlatformAdminAction,
-} from "../admins/actions";
 
 export const metadata: Metadata = {
   title: "Controlled Operations | MerchandiseControl Admin Web",
@@ -33,30 +28,17 @@ type PlatformOperationsSearchParams = Promise<{
 }>;
 
 type OperationKey =
-  | "create"
-  | "pending_owner_invite"
   | "suspend"
   | "reactivate"
   | "restore"
   | "soft_delete"
-  | "device_revoke"
-  | "admin_grant"
-  | "admin_revoke";
+  | "device_revoke";
 
 type OperationResultCode =
   | "success"
   | "unauthorized"
   | "not_configured"
   | "validation_failed"
-  | "duplicate_shop_code"
-  | "owner_not_found"
-  | "owner_not_active"
-  | "profile_not_found"
-  | "profile_not_active"
-  | "admin_not_found"
-  | "self_lockout_blocked"
-  | "last_admin_blocked"
-  | "already_active"
   | "invalid_state"
   | "shop_not_found"
   | "device_not_found"
@@ -74,32 +56,20 @@ const resultMessages: Record<OperationResultCode, string> = {
   unauthorized: "You are not authorized to perform this operation.",
   not_configured: "Platform Admin runtime is not configured.",
   validation_failed: "Check the required fields and try again.",
-  duplicate_shop_code: "A shop with this code already exists.",
-  owner_not_found: "The selected owner could not be used.",
-  owner_not_active: "The selected owner could not be used.",
-  profile_not_found: "The selected profile could not be used.",
-  profile_not_active: "The selected profile could not be used.",
-  admin_not_found: "The selected Platform Admin grant could not be found.",
-  self_lockout_blocked: "The operation was blocked to prevent self-lockout.",
-  last_admin_blocked: "At least one active Platform Admin must remain.",
-  already_active: "The selected Platform Admin grant is already active.",
   invalid_state: "This operation is not available for the current shop state.",
   shop_not_found: "The selected shop could not be found.",
   device_not_found: "The selected device could not be found.",
   conflict: "The operation could not be completed because of a conflict.",
-  db_failure: "Request could not be completed.",
+  db_failure:
+    "The controlled database action failed. Retry or review system health.",
 };
 
 const operationLabels: Record<OperationKey, string> = {
-  create: "Create shop",
-  pending_owner_invite: "Pending owner invite",
   suspend: "Suspend shop",
   reactivate: "Reactivate shop",
   restore: "Restore shop",
   soft_delete: "Soft delete shop",
   device_revoke: "Emergency device action",
-  admin_grant: "Grant Platform Admin",
-  admin_revoke: "Revoke Platform Admin",
 };
 
 function firstParam(value: string | string[] | undefined) {
@@ -107,15 +77,11 @@ function firstParam(value: string | string[] | undefined) {
 }
 
 function asOperationKey(value: string | undefined): OperationKey | null {
-  return value === "create" ||
-    value === "pending_owner_invite" ||
-    value === "suspend" ||
+  return value === "suspend" ||
     value === "reactivate" ||
     value === "restore" ||
     value === "soft_delete" ||
-    value === "device_revoke" ||
-    value === "admin_grant" ||
-    value === "admin_revoke"
+    value === "device_revoke"
     ? value
     : null;
 }
@@ -194,26 +160,21 @@ function SubmitButton({
   children,
   danger = false,
   disabled = false,
+  pendingLabel,
 }: {
   children: string;
   danger?: boolean;
   disabled?: boolean;
+  pendingLabel?: string;
 }) {
   return (
-    <button
-      type="submit"
+    <PendingSubmitButton
+      danger={danger}
       disabled={disabled}
-      className={[
-        "min-h-10 rounded-md px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
-        disabled
-          ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
-          : danger
-            ? "border border-rose-700 bg-rose-700 text-white focus-visible:ring-rose-700"
-            : "border border-slate-950 bg-slate-950 text-white focus-visible:ring-slate-950",
-      ].join(" ")}
+      pendingLabel={pendingLabel ?? `${children}...`}
     >
       {children}
-    </button>
+    </PendingSubmitButton>
   );
 }
 
@@ -253,18 +214,8 @@ export default async function PlatformOperationsPage({
   const result = asResultCode(firstParam(params.result));
   const readModel = await getPlatformAdminReadModel();
   const ready = readModel.status === "ready";
-  const activeProfiles = readModel.profiles.filter(
-    (profile) => profile.profile_status === "active",
-  );
   const visibleShops = readModel.shops.slice(0, 100);
   const visibleDevices = readModel.shopDevices.slice(0, 100);
-  const activeAdminIds = new Set(readModel.platformAdminProfileIds);
-  const activeAdminProfiles = readModel.profiles.filter((profile) =>
-    activeAdminIds.has(profile.profile_id),
-  );
-  const grantableProfiles = activeProfiles.filter(
-    (profile) => !activeAdminIds.has(profile.profile_id),
-  );
 
   return (
     <AppShell activeSection="operations">
@@ -272,7 +223,7 @@ export default async function PlatformOperationsPage({
         <PageHeader
           eyebrow="Controlled actions"
           title="Controlled Operations"
-          description="Create shops, assign owners, control lifecycle, manage Platform Admin grants, and run emergency actions through server-side authorization and audit."
+          description="Control shop lifecycle, restore archived shops, revoke devices in emergencies, and review recent audit through server-side authorization."
           status={ready ? "Live actions" : formatToken(readModel.status)}
         />
 
@@ -298,65 +249,6 @@ export default async function PlatformOperationsPage({
           </SectionCard>
         ) : (
           <>
-            <SectionCard
-              title="Create shop"
-              description="Creates a shop with either an existing active owner or a pending owner invite without exposing auth delivery artifacts."
-            >
-              <form action={createPlatformShopAction} className="grid gap-4 lg:grid-cols-2">
-                <TextInput label="Shop name" name="shopName" placeholder="Development Test Shop" />
-                <TextInput label="Shop code" name="shopCode" placeholder="DEV_TEST_001" />
-                <label className="grid gap-1.5 text-sm font-medium text-slate-800 lg:col-span-2">
-                  <span>Initial owner</span>
-                  <select
-                    name="ownerProfileId"
-                    required
-                    className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
-                  >
-                    <option value="">Select active profile</option>
-                    {activeProfiles.map((profile) => (
-                      <option key={profile.profile_id} value={profile.profile_id}>
-                        {profile.display_name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <div className="lg:col-span-2">
-                  <ReasonInput />
-                </div>
-                <div className="lg:col-span-2">
-                  <SubmitButton>Create shop</SubmitButton>
-                </div>
-              </form>
-              <div className="mt-5 border-t border-slate-200 pt-5">
-                <h3 className="text-sm font-semibold text-slate-950">
-                  Pending owner invite
-                </h3>
-                <p className="mt-1 text-sm text-slate-600">
-                  Creates a pending setup shop and tracks the owner invite without
-                  storing delivery artifacts. Email delivery is a documented
-                  PASS_WITH_NOTES_EMAIL_DELIVERY follow-up.
-                </p>
-                <form
-                  action={createPlatformPendingOwnerInviteAction}
-                  className="mt-4 grid gap-4 lg:grid-cols-2"
-                >
-                  <TextInput label="Shop name" name="shopName" placeholder="Development Test Shop" />
-                  <TextInput label="Shop code" name="shopCode" placeholder="DEV_TEST_002" />
-                  <TextInput
-                    label="Owner email"
-                    name="ownerEmail"
-                    placeholder="owner@example.invalid"
-                  />
-                  <div className="lg:col-span-2">
-                    <ReasonInput />
-                  </div>
-                  <div className="lg:col-span-2">
-                    <SubmitButton>Create pending invite</SubmitButton>
-                  </div>
-                </form>
-              </div>
-            </SectionCard>
-
             <SectionCard
               title="Shop actions"
               description="Lifecycle controls are enabled only when the current shop state allows the transition."
@@ -478,63 +370,6 @@ export default async function PlatformOperationsPage({
                   })}
                 </div>
               )}
-            </SectionCard>
-
-            <SectionCard
-              title="Platform Admin grants"
-              description="Grant and revoke global admin access through anti self-lockout RPCs with reason and confirmation."
-            >
-              <div className="grid gap-5 lg:grid-cols-2">
-                <form action={grantPlatformAdminAction} className="grid gap-3">
-                  <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-                    <span>Profile</span>
-                    <select
-                      name="profileId"
-                      required
-                      className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
-                    >
-                      <option value="">Select active profile</option>
-                      {grantableProfiles.map((profile) => (
-                        <option key={profile.profile_id} value={profile.profile_id}>
-                          {profile.display_name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <ReasonInput />
-                  <TextInput label="Type GRANT to confirm" name="confirmation" />
-                  <SubmitButton disabled={grantableProfiles.length === 0}>
-                    Grant admin
-                  </SubmitButton>
-                </form>
-
-                <div className="grid gap-3">
-                  {activeAdminProfiles.length === 0 ? (
-                    <EmptyState
-                      title="No active admin rows"
-                      description="No active Platform Admin grants are visible through RLS."
-                    />
-                  ) : (
-                    activeAdminProfiles.map((profile) => (
-                      <form
-                        key={profile.profile_id}
-                        action={revokePlatformAdminAction}
-                        className="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3"
-                      >
-                        <input type="hidden" name="profileId" value={profile.profile_id} />
-                        <p className="text-sm font-semibold text-slate-950">
-                          {profile.display_name}
-                        </p>
-                        <ReasonInput />
-                        <TextInput label="Type REVOKE to confirm" name="confirmation" />
-                        <SubmitButton danger disabled={activeAdminProfiles.length <= 1}>
-                          Revoke admin
-                        </SubmitButton>
-                      </form>
-                    ))
-                  )}
-                </div>
-              </div>
             </SectionCard>
 
             <SectionCard

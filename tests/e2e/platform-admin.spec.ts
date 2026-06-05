@@ -2,208 +2,208 @@ import { expect, test } from "@playwright/test";
 
 const entryRoute = {
   path: "/",
-  heading: "Admin Web access required",
-  title: "Admin Access | MerchandiseControl Admin Web",
+  heading: "Console access",
+  title: "Console Access | MerchandiseControl Admin Web",
 };
 
 const protectedPlatformRoutes = [
   {
     path: "/platform",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Platform Overview | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/users",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Users / Profiles | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/users/00000000-0000-0000-0000-000000000000",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "User Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/shops",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Shops | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/shops/new",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Provision Shop | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/shops/00000000-0000-0000-0000-000000000000",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Shop Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/provisioning",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Provisioning | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/admins",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Platform Admins | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/audit",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Audit | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/audit/00000000-0000-0000-0000-000000000000",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Audit Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/system",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "System Status | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/data",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Data Health | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/devices",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Global Devices | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/sync",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Global Sync | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/history",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Global History | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/operations",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Controlled Operations | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/support",
-    heading: "Platform Admin access required",
+    heading: "Master Console access required",
     title: "Support Diagnostics | MerchandiseControl Admin Web",
   },
 ];
 
 const shopRoute = {
   path: "/shop",
-  heading: "Shop Admin access required",
-  title: "Shop Admin | MerchandiseControl Admin Web",
+  heading: "Admin Console access required",
+  title: "Admin Console | MerchandiseControl Admin Web",
 };
 
 const protectedShopRoutes = [
   {
     path: "/shop/overview",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Shop Overview | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/products",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Products | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/products/product:1",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Product Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/categories",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Categories | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/categories/category:1",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Category Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/suppliers",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Suppliers | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/suppliers/supplier:1",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Supplier Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/import-export",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Import / Export | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/members",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Members | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/members/00000000-0000-0000-0000-000000000000",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Member Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/roles",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Roles | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/staff",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "POS / Staff | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/staff/00000000-0000-0000-0000-000000000000",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Staff Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/devices",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Devices | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/devices/00000000-0000-0000-0000-000000000000",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Device Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/settings",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Settings | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/history",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Mobile History | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/history/sync:1",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "History Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/audit",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Shop Audit | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/audit/00000000-0000-0000-0000-000000000000",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Audit Event Detail | MerchandiseControl Admin Web",
   },
   {
     path: "/shop/sync",
-    heading: "Shop Admin access required",
+    heading: "Admin Console access required",
     title: "Sync Center | MerchandiseControl Admin Web",
   },
 ];
@@ -220,7 +220,7 @@ async function expectAccessState(page: import("@playwright/test").Page) {
 }
 
 test.describe("Admin Web smoke", () => {
-  test("routes the root entrypoint through server-side access state", async ({
+  test("renders the root console selection without exposing admin data", async ({
     page,
   }) => {
     await page.goto(entryRoute.path);
@@ -230,6 +230,20 @@ test.describe("Admin Web smoke", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: entryRoute.heading }),
     ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Master Console" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Admin Console" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Open Master Console" })).toHaveAttribute(
+      "href",
+      "/auth/login?next=/platform",
+    );
+    await expect(page.getByRole("link", { name: "Use Admin account" })).toHaveAttribute(
+      "href",
+      "/auth/login?next=/shop",
+    );
+    await expect(page.getByRole("link", { name: "Use Shop code" })).toHaveAttribute(
+      "href",
+      "/shop/staff-login",
+    );
   });
 
   for (const route of protectedPlatformRoutes) {
@@ -279,11 +293,11 @@ test.describe("Admin Web smoke", () => {
   test("auth login page renders without exposing admin data", async ({ page }) => {
     await page.goto("/auth/login");
 
-    await expect(page).toHaveTitle("Admin Sign In | MerchandiseControl Admin Web");
+    await expect(page).toHaveTitle("Admin Account Sign In | MerchandiseControl Admin Web");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Admin sign in" }),
+      page.getByRole("heading", { level: 1, name: "Admin account sign in" }),
     ).toBeVisible();
-    await expect(page.getByRole("form", { name: "Admin sign in" })).toBeVisible();
+    await expect(page.getByRole("form", { name: "Admin account sign in" })).toBeVisible();
     await expect(page.getByText("No service key in browser")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Create shop" })).toHaveCount(0);
   });
