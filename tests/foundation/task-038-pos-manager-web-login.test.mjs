@@ -57,7 +57,7 @@ test("TASK-038 governance records DONE scope without opening sales sync", () => 
 
   assert.match(
     readProjectFile("docs/MASTER-PLAN.md"),
-    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`/,
+    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/,
   );
   assert.match(readProjectFile("docs/MASTER-PLAN.md"), /Stato TASK-038: `DONE`/);
   assert.match(readProjectFile("docs/MASTER-PLAN.md"), /Fase TASK-038: `DONE`/);
@@ -178,14 +178,18 @@ test("TASK-038 Platform provisioning creates staff manager web access server-sid
   }
 
   assertContains(actions, "\"use server\"");
-  assertContains(actions, "provisionPlatformStaffManagerAction");
+  assertContains(actions, "recoverInitialManager1001Action");
   assertContains(panel, "useActionState");
   assertContains(panel, "shopId");
-  assertContains(panel, "staffCode");
-  assertContains(panel, "displayName");
+  assertContains(panel, "Recover initial manager 1001");
+  assertContains(panel, "Recover manager 1001");
+  assertContains(panel, "New manager display name: manager");
+  assertContains(panel, "Manager state");
   assertContains(panel, "reason");
   assertContains(panel, "pending");
   assertContains(panel, "Shown once in this response");
+  assert.doesNotMatch(panel, /name="staffCode"|Recovery action|Advanced options/);
+  assert.doesNotMatch(panel, /name="displayName"/);
   assertContains(page, "StaffManagerProvisioningPanel");
   assert.doesNotMatch(actions, /SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash|hashStaffCredential/i);
   assert.doesNotMatch(`${panel}\n${page}`, /SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash|hashStaffCredential/i);

@@ -675,7 +675,7 @@ test.describe("TASK-045 Platform Master Console final review", () => {
         .getByLabel("Reason")
         .fill("TASK-045 POS manager web access proof.");
       await managerSection
-        .getByRole("button", { name: "Provision manager access" })
+        .getByRole("button", { name: "Recover manager 1001" })
         .click();
       await expect(
         managerSection.getByText("Staff manager web access was provisioned."),

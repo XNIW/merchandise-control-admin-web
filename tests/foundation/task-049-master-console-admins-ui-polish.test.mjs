@@ -90,7 +90,7 @@ test("TASK-049 Admins page is compact and keeps destructive revoke controls coll
 test("TASK-049 Audit, Provisioning, Operations, and topbar use compact safe layout", () => {
   const appShell = readProjectFile("src/components/platform/AppShell.tsx");
   const adminDataTable = readProjectFile("src/components/admin/AdminDataTable.tsx");
-  const provisioningPage = readProjectFile("src/app/platform/provisioning/page.tsx");
+  const provisioningPage = `${readProjectFile("src/app/platform/provisioning/page.tsx")}\n${readProjectFile("src/app/platform/provisioning/ShopProvisioningForms.tsx")}`;
   const platformMasterDetail = readProjectFile("src/components/platform/PlatformMasterDetail.tsx");
   const platformPage = readProjectFile("src/components/platform/PlatformPage.tsx");
   const sectionData = readProjectFile("src/server/platform-admin/platform-section-data.ts");
@@ -148,14 +148,16 @@ test("TASK-049 Audit, Provisioning, Operations, and topbar use compact safe layo
   }
 
   for (const required of [
-    "Platform Console does safe, audited provisioning. Daily POS/staff management stays in Shop Admin.",
+    "Shop Provisioning",
+    "Fiscal / Boleta identity",
     "placeholder=\"Acme Santiago\"",
-    "placeholder=\"ACME-SCL\"",
-    "placeholder=\"Why this shop should be provisioned\"",
-    "aria-describedby=\"create-shop-result\"",
-    "max-w-3xl",
-    "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]",
-    "max-w-xl",
+    "placeholder=\"761234567\"",
+    "Use Company RUT as Shop code",
+    "placeholder=\"Why this provisioning action is approved\"",
+    "Create POS-first shop",
+    "Record pending owner email",
+    "Temporary credential. It is shown once after creation and should be changed after first access.",
+    "max-w-5xl",
   ]) {
     assertContains(provisioningPage, required, `provisioning page must contain ${required}`);
   }
@@ -217,7 +219,7 @@ test("TASK-049 docs and evidence record DONE reconciliation without external PAS
 
   for (const required of [
     "TASK-049 - Master Console Admins UI/UX polish",
-    "Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`",
+    "Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`",
     "Stato TASK-049: `DONE_RECONCILED`",
     "Fase TASK-049: `DONE_RECONCILED`",
     "Devices and Sync remain outside the primary Master Console sidebar.",

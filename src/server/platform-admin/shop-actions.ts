@@ -1,13 +1,20 @@
 import "server-only";
 
+import { randomBytes } from "node:crypto";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { hashStaffCredential } from "@/server/shop-admin/staff-credentials";
 import { authorizeCurrentPlatformAdmin } from "./authz";
 import {
+  INITIAL_MANAGER_DISPLAY_NAME,
   platformShopActionResult,
+  type CreatePosFirstShopInput,
   type CreateShopInput,
+  type CreateShopWithOwnerBootstrapInput,
   type EmergencyRevokeDeviceInput,
   type PendingOwnerInviteInput,
+  type PendingOwnerInviteWithFiscalInput,
   type PlatformShopActionCode,
+  type PlatformShopProvisioningResult,
   type PlatformShopActionResult,
   type RestoreShopInput,
   type ShopStatusActionInput,
@@ -15,8 +22,11 @@ import {
 } from "./action-types";
 import {
   validateCreateShopInput,
+  validateCreatePosFirstShopInput,
+  validateCreateShopWithOwnerBootstrapInput,
   validateEmergencyRevokeDeviceInput,
   validatePendingOwnerInviteInput,
+  validatePendingOwnerInviteWithFiscalInput,
   validateRestoreShopInput,
   validateShopStatusActionInput,
   validateSoftDeleteShopInput,
@@ -25,9 +35,20 @@ import {
 type RpcResult = {
   audit_event_id?: unknown;
   code?: unknown;
+  company_rut?: unknown;
   ok?: unknown;
   shop_id?: unknown;
+  shop_code?: unknown;
+  staff_code?: unknown;
+  staff_id?: unknown;
 };
+
+type UntypedRpcCaller = (
+  fn: string,
+  args: Record<string, unknown>,
+) => Promise<{ data: unknown; error: { code?: string; message?: string } | null }>;
+
+export const INITIAL_MANAGER_STAFF_CODE = "1001" as const;
 
 function mapRpcCode(value: unknown): PlatformShopActionCode {
   const code = typeof value === "string" ? value : "db_failure";
@@ -39,6 +60,7 @@ function mapRpcCode(value: unknown): PlatformShopActionCode {
       "not_configured",
       "validation_failed",
       "duplicate_shop_code",
+      "duplicate_company_rut",
       "owner_not_found",
       "owner_not_active",
       "profile_not_found",
@@ -70,6 +92,45 @@ function mapRpcResult(data: unknown): PlatformShopActionResult {
     ok: result.ok === true,
     shopId: typeof result.shop_id === "string" ? result.shop_id : undefined,
   });
+}
+
+function mapProvisioningRpcResult(
+  data: unknown,
+  options: {
+    credentialGenerated?: boolean;
+    temporaryCredential?: string;
+  } = {},
+): PlatformShopProvisioningResult {
+  const result = data && typeof data === "object" ? (data as RpcResult) : {};
+  const base = mapRpcResult(data);
+
+  return {
+    ...base,
+    companyRut:
+      typeof result.company_rut === "string" ? result.company_rut : undefined,
+    credentialGenerated: options.credentialGenerated,
+    shopCode: typeof result.shop_code === "string" ? result.shop_code : undefined,
+    staffCode:
+      typeof result.staff_code === "string" ? result.staff_code : undefined,
+    staffId: typeof result.staff_id === "string" ? result.staff_id : undefined,
+    temporaryCredential: base.ok ? options.temporaryCredential : undefined,
+  };
+}
+
+async function callUntypedRpc(
+  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
+  fn: string,
+  args: Record<string, unknown>,
+) {
+  if (!supabase) {
+    return { data: null, error: { message: "Supabase client unavailable" } };
+  }
+
+  return (supabase.rpc as unknown as UntypedRpcCaller)(fn, args);
+}
+
+export function generateTemporaryStaffCredential() {
+  return `mcstaff_mgr_${randomBytes(24).toString("base64url")}`;
 }
 
 async function getAuthorizedSupabase() {
@@ -124,6 +185,175 @@ export async function createPlatformShop(
   }
 
   return mapRpcResult(data);
+}
+
+export async function createPlatformShopWithOwnerBootstrap(
+  input: CreateShopWithOwnerBootstrapInput,
+): Promise<PlatformShopProvisioningResult> {
+  const { fieldErrors, normalized } =
+    validateCreateShopWithOwnerBootstrapInput(input);
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return {
+      ...platformShopActionResult("validation_failed", {
+        fieldErrors,
+        ok: false,
+      }),
+      credentialGenerated: false,
+    };
+  }
+
+  const { result, supabase } = await getAuthorizedSupabase();
+
+  if (!supabase) {
+    return {
+      ...result,
+      credentialGenerated: false,
+    };
+  }
+
+  const temporaryCredential = generateTemporaryStaffCredential();
+  const credentialHash = await hashStaffCredential(temporaryCredential);
+  const { data, error } = await callUntypedRpc(
+    supabase,
+    "platform_create_shop_with_owner_bootstrap",
+    {
+      p_business_address: normalized.businessAddress,
+      p_business_city: normalized.businessCity,
+      p_business_giro: normalized.businessGiro,
+      p_company_rut: normalized.companyRut,
+      p_legal_representative_rut: normalized.legalRepresentativeRut,
+      p_owner_profile_id: normalized.ownerProfileId,
+      p_reason: normalized.reason,
+      p_shop_code: normalized.shopCode,
+      p_shop_name: normalized.shopName,
+      p_staff_credential_hash: credentialHash,
+      p_staff_display_name:
+        normalized.staffDisplayName ?? INITIAL_MANAGER_DISPLAY_NAME,
+    },
+  );
+
+  if (error) {
+    return {
+      ...platformShopActionResult("db_failure", { ok: false }),
+      credentialGenerated: false,
+    };
+  }
+
+  return mapProvisioningRpcResult(data, {
+    credentialGenerated: true,
+    temporaryCredential,
+  });
+}
+
+export async function createPlatformPosFirstShop(
+  input: CreatePosFirstShopInput,
+): Promise<PlatformShopProvisioningResult> {
+  const { fieldErrors, normalized } = validateCreatePosFirstShopInput(input);
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return {
+      ...platformShopActionResult("validation_failed", {
+        fieldErrors,
+        ok: false,
+      }),
+      credentialGenerated: false,
+    };
+  }
+
+  const { result, supabase } = await getAuthorizedSupabase();
+
+  if (!supabase) {
+    return {
+      ...result,
+      credentialGenerated: false,
+    };
+  }
+
+  const temporaryCredential = generateTemporaryStaffCredential();
+  const credentialHash = await hashStaffCredential(temporaryCredential);
+  const { data, error } = await callUntypedRpc(
+    supabase,
+    "platform_create_pos_first_shop",
+    {
+      p_business_address: normalized.businessAddress,
+      p_business_city: normalized.businessCity,
+      p_business_giro: normalized.businessGiro,
+      p_company_rut: normalized.companyRut,
+      p_legal_representative_rut: normalized.legalRepresentativeRut,
+      p_reason: normalized.reason,
+      p_shop_code: normalized.shopCode,
+      p_shop_name: normalized.shopName,
+      p_staff_credential_hash: credentialHash,
+      p_staff_display_name:
+        normalized.staffDisplayName ?? INITIAL_MANAGER_DISPLAY_NAME,
+    },
+  );
+
+  if (error) {
+    return {
+      ...platformShopActionResult("db_failure", { ok: false }),
+      credentialGenerated: false,
+    };
+  }
+
+  return mapProvisioningRpcResult(data, {
+    credentialGenerated: true,
+    temporaryCredential,
+  });
+}
+
+export async function createPlatformPendingOwnerInviteWithFiscal(
+  input: PendingOwnerInviteWithFiscalInput,
+): Promise<PlatformShopProvisioningResult> {
+  const { fieldErrors, normalized } =
+    validatePendingOwnerInviteWithFiscalInput(input);
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return {
+      ...platformShopActionResult("validation_failed", {
+        fieldErrors,
+        ok: false,
+      }),
+      credentialGenerated: false,
+    };
+  }
+
+  const { result, supabase } = await getAuthorizedSupabase();
+
+  if (!supabase) {
+    return {
+      ...result,
+      credentialGenerated: false,
+    };
+  }
+
+  const { data, error } = await callUntypedRpc(
+    supabase,
+    "platform_create_shop_with_pending_owner_invite",
+    {
+      p_business_address: normalized.businessAddress,
+      p_business_city: normalized.businessCity,
+      p_business_giro: normalized.businessGiro,
+      p_company_rut: normalized.companyRut,
+      p_legal_representative_rut: normalized.legalRepresentativeRut,
+      p_owner_email: normalized.ownerContact,
+      p_reason: normalized.reason,
+      p_shop_code: normalized.shopCode,
+      p_shop_name: normalized.shopName,
+    },
+  );
+
+  if (error) {
+    return {
+      ...platformShopActionResult("db_failure", { ok: false }),
+      credentialGenerated: false,
+    };
+  }
+
+  return mapProvisioningRpcResult(data, {
+    credentialGenerated: false,
+  });
 }
 
 export async function createPlatformPendingOwnerInvite(

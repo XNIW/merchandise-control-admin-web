@@ -2009,11 +2009,22 @@ export function buildSettingsSection(readModel: ShopAdminReadModel): ShopSection
   }
 
   const shop = readModel.selectedShop;
+  const fiscalRows = [
+    { rowKey: "company-rut", field: "Company RUT / shop code", value: shop.companyRut ?? shop.shopCode },
+    { rowKey: "giro", field: "Giro", value: shop.businessGiro ?? "Not configured" },
+    { rowKey: "address", field: "Address", value: shop.businessAddress ?? "Not configured" },
+    { rowKey: "city", field: "City", value: shop.businessCity ?? "Not configured" },
+    {
+      rowKey: "legal-representative",
+      field: "Legal representative RUT",
+      value: shop.legalRepresentativeRut ?? "Not configured",
+    },
+  ];
 
   return {
     ...shopSections.settings,
     description:
-      "Shop profile and operational settings through the audited server boundary.",
+      "Shop profile and operational settings through the audited server boundary. Fiscal/boleta identity is managed by Master Console.",
     status: "Guarded",
     metrics: [
       metric("Shop", shop.shopCode, shop.shopName, "good"),
@@ -2021,8 +2032,9 @@ export function buildSettingsSection(readModel: ShopAdminReadModel): ShopSection
       metric("Writes", "Guarded", "Requires settings.write permission", "warning"),
     ],
     liveData: {
-      title: "Shop profile",
-      description: "Verified shop profile fields visible through the server boundary.",
+      title: "Shop profile and fiscal identity",
+      description:
+        "Verified shop profile fields visible through the server boundary. Fiscal/boleta identity is managed by Master Console.",
       columns: [
         { key: "field", label: "Field" },
         { key: "value", label: "Value" },
@@ -2033,6 +2045,8 @@ export function buildSettingsSection(readModel: ShopAdminReadModel): ShopSection
         { rowKey: "status", field: "Status", value: formatToken(shop.shopStatus) },
         { rowKey: "role", field: "Current role", value: formatToken(shop.role) },
         { rowKey: "updated", field: "Updated", value: formatDateTime(shop.updatedAt) },
+        { rowKey: "fiscal-boundary", field: "Fiscal boundary", value: "Read-only in Admin Console" },
+        ...fiscalRows,
       ],
       emptyState: {
         title: "No shop profile is visible",

@@ -49,6 +49,11 @@ export default async function ShopSettingsPage({
         action={getParam(params, "action")}
         result={getParam(params, "result")}
       />
+      <section className="mx-auto w-full max-w-7xl rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+        Fiscal/boleta identity is managed by Master Console. Admin Console can
+        view company RUT, giro, address, city, and legal representative RUT, but
+        cannot edit those fields.
+      </section>
       {canUpdateSettings ? (
         <form
           action={updateShopSettingsAction}

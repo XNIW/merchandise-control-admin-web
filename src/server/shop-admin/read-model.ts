@@ -18,7 +18,14 @@ type ShopReadRow = Pick<
   | "status_changed_at"
   | "suspended_at"
   | "archived_at"
->;
+> & {
+  business_address?: string | null;
+  business_city?: string | null;
+  business_giro?: string | null;
+  company_rut?: string | null;
+  fiscal_identity_locked_by_platform?: boolean | null;
+  legal_representative_rut?: string | null;
+};
 type ShopMemberReadRow = Pick<
   ShopMemberRow,
   | "shop_member_id"
@@ -53,6 +60,12 @@ export type ShopAdminReadModelError = {
 };
 
 export type ShopAdminReadModelShop = {
+  businessAddress?: string;
+  businessCity?: string;
+  businessGiro?: string;
+  companyRut?: string;
+  fiscalIdentityLockedByPlatform?: boolean;
+  legalRepresentativeRut?: string;
   shopId: string;
   shopCode: string;
   shopName: string;
@@ -122,6 +135,13 @@ function mapShopRow(
   role: ShopAdminReadModelShop["role"],
 ): ShopAdminReadModelShop {
   return {
+    businessAddress: row.business_address ?? undefined,
+    businessCity: row.business_city ?? undefined,
+    businessGiro: row.business_giro ?? undefined,
+    companyRut: row.company_rut ?? undefined,
+    fiscalIdentityLockedByPlatform:
+      row.fiscal_identity_locked_by_platform ?? undefined,
+    legalRepresentativeRut: row.legal_representative_rut ?? undefined,
     shopId: row.shop_id,
     shopCode: row.shop_code,
     shopName: row.shop_name,
@@ -133,6 +153,31 @@ function mapShopRow(
     suspendedAt: row.suspended_at,
     archivedAt: row.archived_at,
   };
+}
+
+async function loadSelectedShop(
+  supabase: SupabaseServerClient,
+  shopId: string,
+) {
+  const fiscalSelect =
+    "shop_id,shop_code,shop_name,shop_status,company_rut,business_giro,business_address,business_city,legal_representative_rut,fiscal_identity_locked_by_platform,created_at,updated_at,status_changed_at,suspended_at,archived_at";
+  const baseSelect =
+    "shop_id,shop_code,shop_name,shop_status,created_at,updated_at,status_changed_at,suspended_at,archived_at";
+  const result = await supabase
+    .from("shops")
+    .select(fiscalSelect)
+    .eq("shop_id", shopId)
+    .maybeSingle();
+
+  if (!result.error) {
+    return result;
+  }
+
+  return supabase
+    .from("shops")
+    .select(baseSelect)
+    .eq("shop_id", shopId)
+    .maybeSingle();
 }
 
 function mapMemberRow(row: ShopMemberReadRow): ShopAdminReadModelMember {
@@ -179,13 +224,7 @@ export async function getShopAdminReadModel(
 
   const { selectedShop, supabase } = access;
 
-  const shopResult = await supabase
-    .from("shops")
-    .select(
-      "shop_id,shop_code,shop_name,shop_status,created_at,updated_at,status_changed_at,suspended_at,archived_at",
-    )
-    .eq("shop_id", selectedShop.shopId)
-    .maybeSingle();
+  const shopResult = await loadSelectedShop(supabase, selectedShop.shopId);
 
   if (shopResult.error) {
     return {
@@ -205,9 +244,11 @@ export async function getShopAdminReadModel(
       readOnly: true,
       source: "supabase_server",
       reason:
-        "No live shop rows are visible for the server-verified selected shop.",
+      "No live shop rows are visible for the server-verified selected shop.",
     };
   }
+
+  const selectedShopRow = shopResult.data as ShopReadRow;
 
   const membersResult = await supabase
     .from("shop_members")
@@ -221,7 +262,7 @@ export async function getShopAdminReadModel(
   if (membersResult.error) {
     return {
       status: "error",
-      selectedShop: mapShopRow(shopResult.data, selectedShop.role),
+      selectedShop: mapShopRow(selectedShopRow, selectedShop.role),
       members: [],
       auditLogs: [],
       readOnly: true,
@@ -244,7 +285,7 @@ export async function getShopAdminReadModel(
   if (auditLogsResult.error) {
     return {
       status: "error",
-      selectedShop: mapShopRow(shopResult.data, selectedShop.role),
+      selectedShop: mapShopRow(selectedShopRow, selectedShop.role),
       members: (membersResult.data ?? []).map(mapMemberRow),
       auditLogs: [],
       readOnly: true,
@@ -256,7 +297,7 @@ export async function getShopAdminReadModel(
 
   return {
     status: "ready",
-    selectedShop: mapShopRow(shopResult.data, selectedShop.role),
+    selectedShop: mapShopRow(selectedShopRow, selectedShop.role),
     members: (membersResult.data ?? []).map(mapMemberRow),
     auditLogs: (auditLogsResult.data ?? []).map(mapAuditLogRow),
     readOnly: true,

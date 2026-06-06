@@ -223,7 +223,7 @@ test.describe("TASK-044 Platform provisioning UX runtime", () => {
         .getByLabel("Reason")
         .fill("TASK-044 manager web access proof.");
       await managerSection
-        .getByRole("button", { name: "Provision manager access" })
+        .getByRole("button", { name: "Recover manager 1001" })
         .click();
       await expect(
         managerSection.getByText("Staff manager web access was provisioned."),

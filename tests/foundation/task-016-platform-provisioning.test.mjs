@@ -30,15 +30,24 @@ test("TASK-016 provisioning supports existing owner and pending owner invite bou
   }
 
   const provisioningPage = readProjectFile(provisioningPagePath);
+  const provisioningForms = readProjectFile(
+    "src/app/platform/provisioning/ShopProvisioningForms.tsx",
+  );
   const newShopPage = readProjectFile(newShopPagePath);
   const operationsActions = readProjectFile(operationsActionsPath);
   const shopActions = readProjectFile(shopActionsPath);
   const validation = readProjectFile(validationPath);
   const migration = readProjectFile(completionMigrationPath);
 
-  assert.match(`${provisioningPage}\n${newShopPage}`, /createPlatformShopAction/);
-  assert.match(`${provisioningPage}\n${newShopPage}`, /createPlatformPendingOwnerInviteAction/);
-  assert.match(`${provisioningPage}\n${newShopPage}`, /PASS_WITH_NOTES_EMAIL_DELIVERY|Email delivery pending/i);
+  assert.match(
+    `${provisioningPage}\n${provisioningForms}\n${newShopPage}`,
+    /createPlatformShopAction|createPlatformShopWithOwnerBootstrapAction/,
+  );
+  assert.match(
+    `${provisioningPage}\n${provisioningForms}\n${newShopPage}`,
+    /createPlatformPendingOwnerInviteAction|createPlatformPendingOwnerInviteWithFiscalAction/,
+  );
+  assert.match(`${provisioningPage}\n${provisioningForms}\n${newShopPage}`, /PASS_WITH_NOTES_EMAIL_DELIVERY|Email delivery pending|Email delivery is not active yet/i);
   assert.doesNotMatch(`${provisioningPage}\n${newShopPage}`, /BLOCKED_AUTH_PROVISIONING/);
   assert.match(operationsActions, /^"use server";/);
   assert.match(operationsActions, /pending_owner_invite/);
@@ -51,7 +60,7 @@ test("TASK-016 provisioning supports existing owner and pending owner invite bou
   assert.match(migration, /owner_contact_digest/);
   assert.match(migration, /platform_create_shop_with_pending_owner_invite/);
   assert.match(migration, /platform\.shop\.pending_owner_invite\.success/);
-  assert.doesNotMatch(`${provisioningPage}\n${newShopPage}\n${shopActions}\n${migration}`, /magic_link|access_token|refresh_token|credential_hash/i);
+  assert.doesNotMatch(`${provisioningPage}\n${newShopPage}\n${shopActions}\n${migration}`, /magic_link|access_token|refresh_token/i);
 });
 
 test("TASK-016 provisioning does not create unsafe auth or POS credentials", () => {
@@ -67,7 +76,7 @@ test("TASK-016 provisioning does not create unsafe auth or POS credentials", () 
     .join("\n");
 
   assert.doesNotMatch(source, /auth\.admin|inviteUser|generateLink|signUp|createUser/i);
-  assert.doesNotMatch(source, /shop_staff_create|hashStaffCredential|temporaryCredential/i);
+  assert.doesNotMatch(source, /shop_staff_create|credential_raw|raw_credential/i);
   assert.match(source, /ownerProfileId/);
   assert.match(source, /ownerEmail|owner_contact/);
   assert.match(source, /reason/);

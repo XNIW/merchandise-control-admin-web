@@ -11,14 +11,17 @@ function readProjectFile(relativePath) {
 
 test("TASK-044 provisioning forms prevent double submit and keep results on provisioning", () => {
   const provisioningPage = readProjectFile("src/app/platform/provisioning/page.tsx");
+  const provisioningForms = readProjectFile(
+    "src/app/platform/provisioning/ShopProvisioningForms.tsx",
+  );
   const operationActions = readProjectFile("src/app/platform/operations/actions.ts");
 
-  assert.match(provisioningPage, /PendingSubmitButton/);
-  assert.match(provisioningPage, /pendingLabel="Creating shop"/);
-  assert.match(provisioningPage, /pendingLabel="Creating pending invite"/);
-  assert.match(provisioningPage, /name="returnTo"\s+value="\/platform\/provisioning"/);
-  assert.match(provisioningPage, /searchParams/);
-  assert.match(provisioningPage, /ActionResultBanner/);
+  assert.match(provisioningForms, /useActionState/);
+  assert.match(provisioningForms, /createShopPending/);
+  assert.match(provisioningForms, /ownerSetupMode/);
+  assert.match(provisioningForms, /ProvisioningResultBanner/);
+  assert.match(provisioningForms, /createPlatformShopFromUnifiedProvisioningAction/);
+  assert.match(provisioningPage, /ShopProvisioningForms/);
   assert.match(operationActions, /safeReturnTo/);
   assert.match(operationActions, /revalidatePath\("\/platform\/provisioning"\)/);
   assert.match(operationActions, /returnTo/);

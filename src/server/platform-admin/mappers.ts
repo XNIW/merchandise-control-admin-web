@@ -23,7 +23,16 @@ type Tables = Database["public"]["Tables"];
 
 export type ProfileRowCandidate = Tables["profiles"]["Row"];
 
-export type ShopRowCandidate = Tables["shops"]["Row"];
+type FiscalShopColumns = {
+  business_address?: string | null;
+  business_city?: string | null;
+  business_giro?: string | null;
+  company_rut?: string | null;
+  fiscal_identity_locked_by_platform?: boolean | null;
+  legal_representative_rut?: string | null;
+};
+
+export type ShopRowCandidate = Tables["shops"]["Row"] & FiscalShopColumns;
 
 export type ShopMemberRowCandidate = Tables["shop_members"]["Row"] & {
   role_id?: string;
@@ -134,6 +143,13 @@ export function mapProfileRow(row: ProfileRowCandidate): Profile {
 
 export function mapShopRow(row: ShopRowCandidate): Shop {
   return {
+    business_address: row.business_address ?? undefined,
+    business_city: row.business_city ?? undefined,
+    business_giro: row.business_giro ?? undefined,
+    company_rut: row.company_rut ?? undefined,
+    fiscal_identity_locked_by_platform:
+      row.fiscal_identity_locked_by_platform ?? undefined,
+    legal_representative_rut: row.legal_representative_rut ?? undefined,
     shop_id: row.shop_id,
     shop_code: row.shop_code,
     shop_name: row.shop_name,

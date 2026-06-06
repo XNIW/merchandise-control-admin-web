@@ -34,7 +34,7 @@ test("TASK-050 records the active review reconciliation task and preserves block
 
   for (const required of [
     "TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049",
-    "Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`",
+    "Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`",
     "Stato TASK-050: `DONE_RECONCILED`",
     "Fase TASK-050: `DONE_RECONCILED`",
     "TASK-040",

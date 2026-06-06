@@ -2196,13 +2196,15 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-049: `DONE_RECONCILED`
 - Stato TASK-050: `DONE_RECONCILED`
 - Fase TASK-050: `DONE_RECONCILED`
-- Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`
-- File task: `docs/TASKS/TASK-050-review-done-reconciliation-task-040-049.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-050/README.md`
-- Stato task: `DONE_RECONCILED`
-- Fase: `DONE_RECONCILED`
-- Milestone interna: `TASK_040_049_DONE_RECONCILED_WITH_EXTERNAL_BLOCKERS`
-- Responsabile: `USER_CONFIRMED_RECONCILIATION`
+- Stato TASK-051: `REVIEW`
+- Fase TASK-051: `REVIEW`
+- Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`
+- File task: `docs/TASKS/TASK-051-platform-provisioning-fiscal-pos-first-bootstrap.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-051/README.md`
+- Stato task: `REVIEW`
+- Fase: `REVIEW`
+- Milestone interna: `TASK_051_PLATFORM_PROVISIONING_FISCAL_POS_FIRST`
+- Responsabile: `CLAUDE_REVIEW`
 - Branch previsto: `main`
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -2236,9 +2238,18 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-048: `DONE_RECONCILED`
 - Verdict TASK-049: `DONE_RECONCILED`
 - Verdict TASK-050: `DONE_RECONCILED`
+- Verdict TASK-051: `PASS_WITH_NOTES_READY_FOR_REVIEW`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
 - DONE reconciliation 2026-06-06: su conferma esplicita utente, TASK-046..TASK-050 chiusi a `DONE_RECONCILED`; TASK-040 e TASK-041 restano `REVIEW_WITH_EXTERNAL_BLOCKERS`, TASK-042 resta `READY_FOR_WIN7_MANUAL_TEST`. Commit/push finale su `main` richiesti dall'utente.
-- Prossima azione consigliata: per Win7POS resta da aprire su Windows 7 la cartella `Win7POSBridge\outbox\TASK-042B-github-release-pack-20260604-223656\app` per il package gia verificato; per retest fisico del fix UX `Fornitore`/`Categoria`, creare prima un nuovo GitHub Release Pack dopo commit/push autorizzati. Non marcare `TASK-041 DONE` o `TASK-040 DONE` e non dichiarare Win7POS live/Sales Sync live `PASS` finche mancano run reali/evidence.
+- TASK-051 aperto in execution il 2026-06-06 da brief allegato: provisioning fiscal identity, POS-first bootstrap, manager staff `1001`, temporary credential server-side, Admin Console fiscal identity read-only. `shop_code` resta tecnico e `company_rut` separato per compatibilita RUT cileno. Non applicare migration su production e non dichiarare raw credential/audit/log/evidence.
+- Handoff Codex TASK-051 2026-06-06: execution completata e pronta per `REVIEW`, senza marcare `DONE`. Migration TASK-051 applicata solo al database locale con `supabase migration up --local`; no production apply. Check freschi: TASK-051 targeted PASS, `security:scan` PASS, `test:foundation` PASS (`217/217`), `verify` PASS, `test:ui-smoke:ci` PASS (`43/43`), Supabase local migration/lint PASS, `git diff --check` PASS. `npm run db:local:status` resta `FAIL_CLOSED` per `.env.local` puntato a `supabase_cloud`.
+- Review-fix Codex TASK-051 2026-06-06: `/platform/provisioning` semplificata in un unico `Create shop` form con owner setup mode interno (`POS-first`, owner personale esistente, pending owner email) e `Add POS manager` spostato in `Advanced recovery` collassato. Rimossi input editabili display name; default server-side `display_name = "manager"`. Nessuna nuova migration, nessun cambio schema, no commit/push/stage.
+- Review-fix Codex TASK-051 2026-06-06: Company RUT resta formato fiscale leggibile e il `shop_code` tecnico puo essere derivato dal RUT senza separatori; recovery manager non mostra credenziali esistenti e genera sempre una nuova temporary credential one-time con reason/audit. Nessuna nuova migration, nessun cambio schema, no commit/push/stage.
+- Review-fix Codex TASK-051 2026-06-06: visual fix su screenshot review; nel `Create shop` l'ordine e ora `Shop name`, `Company RUT`, toggle `Use Company RUT as Shop code`, `Shop code`, con `Shop name` come input single-line normale.
+- Review-fix Codex TASK-051 2026-06-06: final UX/safety hardening; credential copy ora dice che la temporary credential e mostrata una volta e dovrebbe essere cambiata dopo il primo accesso; success result include shop name, company RUT, shop code, owner mode, staff code `1001`, copy button e warning one-time. Force rotation resta follow-up perche i runtime staff web/POS correnti bloccano login con `must_change_credential = true` senza flusso first-access credential change.
+- Review-fix Codex TASK-051 2026-06-06: recovery semplificata in `Emergency recovery: recover initial manager 1001`; il pannello standard mostra search/target shop, manager state read-only, reason e submit `Recover manager 1001`. Rimosse radio option multiple, `Advanced options` e staff code editabile dalla recovery principale. `recoverInitialManager1001Action`/server boundary usano sempre `staff_code = 1001` e ignorano eventuali `staffCode` client. 1001 attivo viene resettato, sospeso/archiviato/disabled/non utilizzabile viene riattivato e resettato, mancante viene ricreato come manager `1001`; duplicati anomali falliscono chiuso senza generare credential. Guardrail ultimo manager full-access non trovato in Admin Console; follow-up: `Block removing the last full-access shop manager in Admin Console.`
+- Review-fix Codex TASK-051 2026-06-06: entity pickers unificati in `/platform/provisioning` con componente `SearchableEntityPicker`; `Initial owner` e recovery `Target shop` usano search + lista selezionabile + selected summary + hidden input, senza select nativo per entita database. Owner mostra display name/short profile id/status e resta validato server-side come `shop_owner`; target shop mostra shop name/shop code/status e recovery resta sempre manager `1001`.
+- Prossima azione consigliata: review TASK-051 e conferma utente; follow-up separati restano Catalog migration/import preview e Win7POS uso dei dati boleta. Non marcare `TASK-041 DONE` o `TASK-040 DONE` e non dichiarare Win7POS live/Sales Sync live `PASS` finche mancano run reali/evidence.
 
 ## Regole di avanzamento
 

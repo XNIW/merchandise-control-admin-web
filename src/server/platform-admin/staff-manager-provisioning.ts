@@ -18,6 +18,7 @@ export type PlatformStaffManagerProvisionCode =
   | "success"
   | "audit_write_failed"
   | "conflict"
+  | "duplicate_initial_manager"
   | "invalid_state"
   | "not_configured"
   | "permission_write_failed"
@@ -35,12 +36,15 @@ export type PlatformStaffManagerProvisionResult = {
   message: string;
   ok: boolean;
   oneTimeSignInValue?: string;
+  operationResult?: "credential_reset" | "reactivated_reset" | "recreated";
+  shopCode?: string;
   shopId?: string;
+  shopName?: string;
   staffId?: string;
 };
 
 type ProvisionPlatformStaffManagerInput = {
-  displayName: string;
+  displayName?: string;
   reason: string;
   shopId: string;
   staffCode: string;
@@ -67,6 +71,8 @@ type PlatformProvisionBoundary =
 const messageByCode: Record<PlatformStaffManagerProvisionCode, string> = {
   audit_write_failed: "Audit write failed for the manager provisioning action.",
   conflict: "A staff account with this code already exists for the shop.",
+  duplicate_initial_manager:
+    "Initial manager recovery found duplicate manager 1001 rows. Manual review is required.",
   invalid_state: "The selected shop is not eligible for staff manager web access.",
   not_configured: "Platform Admin runtime is not configured.",
   permission_write_failed: "Manager permission write failed at the database boundary.",
@@ -82,6 +88,8 @@ const messageByCode: Record<PlatformStaffManagerProvisionCode, string> = {
 const STAFF_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,31}$/;
 const PLATFORM_STAFF_MANAGER_WEB_PERMISSION: typeof POS_STAFF_WEB_REQUIRED_PERMISSION =
   "shop_admin.full_access";
+export const DEFAULT_MANAGER_DISPLAY_NAME = "manager" as const;
+export const INITIAL_MANAGER_RECOVERY_STAFF_CODE = "1001" as const;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -107,8 +115,9 @@ function normalizeInput(
   fieldErrors: Record<string, string>;
   normalized: NormalizedProvisionInput;
 } {
+  const displayName = input.displayName?.trim() || DEFAULT_MANAGER_DISPLAY_NAME;
   const normalized = {
-    displayName: input.displayName.trim().slice(0, 120),
+    displayName: displayName.slice(0, 120),
     reason: input.reason.trim().slice(0, 500),
     shopId: input.shopId.trim(),
     staffCode: input.staffCode.trim().toUpperCase().slice(0, 32),
@@ -121,10 +130,6 @@ function normalizeInput(
 
   if (!STAFF_CODE_PATTERN.test(normalized.staffCode)) {
     fieldErrors.staffCode = "Use 2-32 uppercase letters, numbers, dash or underscore.";
-  }
-
-  if (normalized.displayName.length < 2) {
-    fieldErrors.displayName = "Display name is required.";
   }
 
   if (normalized.reason.length < 8) {
@@ -190,11 +195,19 @@ async function writePlatformStaffManagerAudit(
   input: {
     actorProfileId: string;
     code: PlatformStaffManagerProvisionCode;
+    credentialGenerated?: boolean;
     displayNameLength: number;
     eventKey: string;
+    operationResult?:
+      | "credential_reset"
+      | "duplicate_initial_manager"
+      | "failure"
+      | "reactivated_reset"
+      | "recreated";
     reasonLength: number;
     result: "failure" | "success";
     shopId?: string;
+    staffCode?: string;
     staffCodeLength: number;
     staffId?: string;
   },
@@ -206,11 +219,15 @@ async function writePlatformStaffManagerAudit(
       event_key: input.eventKey,
       metadata_redacted: {
         code: input.code,
+        credential_generated: input.credentialGenerated ?? false,
         display_name_length: input.displayNameLength,
+        operation_result: input.operationResult ?? input.result,
         permission_key: PLATFORM_STAFF_MANAGER_WEB_PERMISSION,
         reason_length: input.reasonLength,
         role_key: POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY,
-        source: "TASK-038",
+        shop_id: input.shopId ?? null,
+        source: "TASK-051",
+        staff_code: input.staffCode ?? null,
         staff_code_length: input.staffCodeLength,
       },
       result: input.result,
@@ -234,8 +251,25 @@ function isUniqueConflict(error: { code?: string } | null) {
   return error?.code === "23505";
 }
 
-export async function provisionPlatformStaffManager(
+function isUsableInitialManager(staff: {
+  credential_status: string;
+  must_change_credential: boolean;
+  status: string;
+  web_access_revoked_at: string | null;
+}) {
+  return (
+    staff.status === "active" &&
+    staff.credential_status === "active" &&
+    staff.must_change_credential !== true &&
+    !staff.web_access_revoked_at
+  );
+}
+
+type ProvisionPlatformStaffManagerMode = "initial_recovery" | "provision";
+
+async function provisionPlatformStaffManagerInternal(
   input: ProvisionPlatformStaffManagerInput,
+  mode: ProvisionPlatformStaffManagerMode,
 ): Promise<PlatformStaffManagerProvisionResult> {
   const { fieldErrors, normalized } = normalizeInput(input);
 
@@ -255,7 +289,7 @@ export async function provisionPlatformStaffManager(
   const { actorProfileId, adminClient } = boundary;
   const shopResult = await adminClient
     .from("shops")
-    .select("shop_id,shop_code,shop_status,archived_at")
+    .select("shop_id,shop_code,shop_name,shop_status,archived_at")
     .eq("shop_id", normalized.shopId)
     .maybeSingle();
 
@@ -274,11 +308,17 @@ export async function provisionPlatformStaffManager(
     const audit = await writePlatformStaffManagerAudit(adminClient, {
       actorProfileId,
       code: "invalid_state",
+      credentialGenerated: false,
       displayNameLength: normalized.displayName.length,
-      eventKey: "platform.staff_manager_web.provision.failure",
+      eventKey:
+        mode === "initial_recovery"
+          ? "platform.staff_manager.initial_recovery.failure"
+          : "platform.staff_manager_web.provision.failure",
+      operationResult: "failure",
       reasonLength: normalized.reason.length,
       result: "failure",
       shopId: normalized.shopId,
+      staffCode: normalized.staffCode,
       staffCodeLength: normalized.staffCode.length,
     });
 
@@ -296,45 +336,49 @@ export async function provisionPlatformStaffManager(
     });
   }
 
-  const existingStaff = await adminClient
+  const existingStaffResult = await adminClient
     .from("staff_accounts")
-    .select("staff_id")
+    .select(
+      "staff_id,shop_id,credential_version,status,credential_status,must_change_credential,web_access_revoked_at",
+    )
     .eq("shop_id", normalized.shopId)
     .eq("staff_code", normalized.staffCode)
-    .maybeSingle();
+    .limit(2);
 
-  if (existingStaff.error) {
+  if (existingStaffResult.error) {
     return result("staff_read_failed", { ok: false, shopId: normalized.shopId });
   }
 
-  if (existingStaff.data) {
+  const existingStaffRows = existingStaffResult.data ?? [];
+
+  if (existingStaffRows.length > 1) {
     const audit = await writePlatformStaffManagerAudit(adminClient, {
       actorProfileId,
-      code: "conflict",
+      code: "duplicate_initial_manager",
+      credentialGenerated: false,
       displayNameLength: normalized.displayName.length,
-      eventKey: "platform.staff_manager_web.provision.failure",
+      eventKey:
+        mode === "initial_recovery"
+          ? "platform.staff_manager.initial_recovery.failure"
+          : "platform.staff_manager_web.provision.failure",
+      operationResult: "duplicate_initial_manager",
       reasonLength: normalized.reason.length,
       result: "failure",
       shopId: normalized.shopId,
+      staffCode: normalized.staffCode,
       staffCodeLength: normalized.staffCode.length,
-      staffId: existingStaff.data.staff_id,
     });
 
-    if (!audit.ok) {
-      return result("audit_write_failed", {
-        ok: false,
-        shopId: normalized.shopId,
-        staffId: existingStaff.data.staff_id,
-      });
-    }
-
-    return result("conflict", {
+    return result(audit.ok ? "duplicate_initial_manager" : "audit_write_failed", {
       auditEventId: audit.auditEventId,
       ok: false,
+      shopCode: shopResult.data.shop_code,
       shopId: normalized.shopId,
-      staffId: existingStaff.data.staff_id,
+      shopName: shopResult.data.shop_name,
     });
   }
+
+  const existingStaff = existingStaffRows[0];
 
   const permissionResult = await adminClient.from("staff_role_permissions").upsert(
     {
@@ -352,11 +396,17 @@ export async function provisionPlatformStaffManager(
     const audit = await writePlatformStaffManagerAudit(adminClient, {
       actorProfileId,
       code: "permission_write_failed",
+      credentialGenerated: false,
       displayNameLength: normalized.displayName.length,
-      eventKey: "platform.staff_manager_web.provision.failure",
+      eventKey:
+        mode === "initial_recovery"
+          ? "platform.staff_manager.initial_recovery.failure"
+          : "platform.staff_manager_web.provision.failure",
+      operationResult: "failure",
       reasonLength: normalized.reason.length,
       result: "failure",
       shopId: normalized.shopId,
+      staffCode: normalized.staffCode,
       staffCodeLength: normalized.staffCode.length,
     });
 
@@ -369,6 +419,103 @@ export async function provisionPlatformStaffManager(
 
   const oneTimeSignInValue = generateManagerCredential();
   const credentialHash = await hashStaffCredential(oneTimeSignInValue);
+
+  if (existingStaff) {
+    const now = nowIso();
+    const operationResult = isUsableInitialManager(existingStaff)
+      ? "credential_reset"
+      : "reactivated_reset";
+    const nextCredentialVersion =
+      typeof existingStaff.credential_version === "number"
+        ? existingStaff.credential_version + 1
+        : 1;
+    const staffResult = await adminClient
+      .from("staff_accounts")
+      .update({
+        credential_expires_at: null,
+        credential_hash: credentialHash,
+        credential_kind: "password",
+        credential_status: "active",
+        credential_updated_at: now,
+        credential_version: nextCredentialVersion,
+        failed_attempts: 0,
+        locked_until: null,
+        must_change_credential: false,
+        session_invalidated_at: now,
+        status: "active",
+        updated_by_profile_id: actorProfileId,
+        web_access_revoked_at: null,
+        web_access_revoked_by_staff_id: null,
+        web_access_revoked_reason: null,
+      })
+      .eq("staff_id", existingStaff.staff_id)
+      .select("staff_id,shop_id")
+      .maybeSingle();
+
+    if (staffResult.error || !staffResult.data) {
+      const audit = await writePlatformStaffManagerAudit(adminClient, {
+        actorProfileId,
+        code: "staff_write_failed",
+        credentialGenerated: false,
+        displayNameLength: normalized.displayName.length,
+        eventKey:
+          mode === "initial_recovery"
+            ? "platform.staff_manager.initial_recovery.failure"
+            : "platform.staff_manager_web.recovery.failure",
+        operationResult: "failure",
+        reasonLength: normalized.reason.length,
+        result: "failure",
+        shopId: normalized.shopId,
+        staffCode: normalized.staffCode,
+        staffCodeLength: normalized.staffCode.length,
+        staffId: existingStaff.staff_id,
+      });
+
+      return result(audit.ok ? "staff_write_failed" : "audit_write_failed", {
+        auditEventId: audit.auditEventId,
+        ok: false,
+        shopId: normalized.shopId,
+        staffId: existingStaff.staff_id,
+      });
+    }
+
+    const audit = await writePlatformStaffManagerAudit(adminClient, {
+      actorProfileId,
+      code: "success",
+      credentialGenerated: true,
+      displayNameLength: normalized.displayName.length,
+      eventKey:
+        mode === "initial_recovery"
+          ? "platform.staff_manager.initial_recovery.success"
+          : "platform.staff_manager_web.recovery.success",
+      operationResult,
+      reasonLength: normalized.reason.length,
+      result: "success",
+      shopId: normalized.shopId,
+      staffCode: normalized.staffCode,
+      staffCodeLength: normalized.staffCode.length,
+      staffId: staffResult.data.staff_id,
+    });
+
+    if (!audit.ok) {
+      return result("audit_write_failed", {
+        ok: false,
+        shopId: staffResult.data.shop_id,
+        staffId: staffResult.data.staff_id,
+      });
+    }
+
+    return result("success", {
+      auditEventId: audit.auditEventId,
+      oneTimeSignInValue,
+      operationResult,
+      shopCode: shopResult.data.shop_code,
+      shopId: staffResult.data.shop_id,
+      shopName: shopResult.data.shop_name,
+      staffId: staffResult.data.staff_id,
+    });
+  }
+
   const staffResult = await adminClient
     .from("staff_accounts")
     .insert({
@@ -395,11 +542,17 @@ export async function provisionPlatformStaffManager(
     const audit = await writePlatformStaffManagerAudit(adminClient, {
       actorProfileId,
       code,
+      credentialGenerated: false,
       displayNameLength: normalized.displayName.length,
-      eventKey: "platform.staff_manager_web.provision.failure",
+      eventKey:
+        mode === "initial_recovery"
+          ? "platform.staff_manager.initial_recovery.failure"
+          : "platform.staff_manager_web.provision.failure",
+      operationResult: "failure",
       reasonLength: normalized.reason.length,
       result: "failure",
       shopId: normalized.shopId,
+      staffCode: normalized.staffCode,
       staffCodeLength: normalized.staffCode.length,
     });
 
@@ -414,11 +567,17 @@ export async function provisionPlatformStaffManager(
     const audit = await writePlatformStaffManagerAudit(adminClient, {
       actorProfileId,
       code: "staff_write_failed",
+      credentialGenerated: false,
       displayNameLength: normalized.displayName.length,
-      eventKey: "platform.staff_manager_web.provision.failure",
+      eventKey:
+        mode === "initial_recovery"
+          ? "platform.staff_manager.initial_recovery.failure"
+          : "platform.staff_manager_web.provision.failure",
+      operationResult: "failure",
       reasonLength: normalized.reason.length,
       result: "failure",
       shopId: normalized.shopId,
+      staffCode: normalized.staffCode,
       staffCodeLength: normalized.staffCode.length,
     });
 
@@ -432,11 +591,17 @@ export async function provisionPlatformStaffManager(
   const audit = await writePlatformStaffManagerAudit(adminClient, {
     actorProfileId,
     code: "success",
+    credentialGenerated: true,
     displayNameLength: normalized.displayName.length,
-    eventKey: "platform.staff_manager_web.provision.success",
+    eventKey:
+      mode === "initial_recovery"
+        ? "platform.staff_manager.initial_recovery.success"
+        : "platform.staff_manager_web.provision.success",
+    operationResult: "recreated",
     reasonLength: normalized.reason.length,
     result: "success",
     shopId: normalized.shopId,
+    staffCode: normalized.staffCode,
     staffCodeLength: normalized.staffCode.length,
     staffId: staffResult.data.staff_id,
   });
@@ -452,7 +617,30 @@ export async function provisionPlatformStaffManager(
   return result("success", {
     auditEventId: audit.auditEventId,
     oneTimeSignInValue,
+    operationResult: "recreated",
+    shopCode: shopResult.data.shop_code,
     shopId: staffResult.data.shop_id,
+    shopName: shopResult.data.shop_name,
     staffId: staffResult.data.staff_id,
   });
+}
+
+export async function provisionPlatformStaffManager(
+  input: ProvisionPlatformStaffManagerInput,
+): Promise<PlatformStaffManagerProvisionResult> {
+  return provisionPlatformStaffManagerInternal(input, "provision");
+}
+
+export async function recoverInitialManager1001(
+  input: Omit<ProvisionPlatformStaffManagerInput, "staffCode"> & {
+    staffCode?: string;
+  },
+): Promise<PlatformStaffManagerProvisionResult> {
+  return provisionPlatformStaffManagerInternal(
+    {
+      ...input,
+      staffCode: INITIAL_MANAGER_RECOVERY_STAFF_CODE,
+    },
+    "initial_recovery",
+  );
 }

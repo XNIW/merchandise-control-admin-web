@@ -39,6 +39,12 @@ export type Profile = {
 };
 
 export type Shop = {
+  business_address?: string;
+  business_city?: string;
+  business_giro?: string;
+  company_rut?: string;
+  fiscal_identity_locked_by_platform?: boolean;
+  legal_representative_rut?: string;
   shop_id: string;
   shop_code: string;
   shop_name: string;

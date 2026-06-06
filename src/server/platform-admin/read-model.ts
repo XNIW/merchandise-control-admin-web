@@ -308,6 +308,28 @@ function buildDataHealth(input: {
   };
 }
 
+async function loadPlatformShopRows(supabase: SupabaseServerClient) {
+  const fiscalSelect =
+    "shop_id,shop_code,shop_name,shop_status,company_rut,business_giro,business_address,business_city,legal_representative_rut,fiscal_identity_locked_by_platform,created_at,updated_at,archived_at,suspended_at,status_changed_at,status_reason_redacted";
+  const baseSelect =
+    "shop_id,shop_code,shop_name,shop_status,created_at,updated_at,archived_at,suspended_at,status_changed_at,status_reason_redacted";
+  const result = await supabase
+    .from("shops")
+    .select(fiscalSelect)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (!result.error) {
+    return result;
+  }
+
+  return supabase
+    .from("shops")
+    .select(baseSelect)
+    .order("created_at", { ascending: false })
+    .limit(200);
+}
+
 async function loadRows(supabase: SupabaseServerClient) {
   const [
     profilesResult,
@@ -327,13 +349,7 @@ async function loadRows(supabase: SupabaseServerClient) {
       )
       .order("created_at", { ascending: false })
       .limit(200),
-    supabase
-      .from("shops")
-      .select(
-        "shop_id,shop_code,shop_name,shop_status,created_at,updated_at,archived_at,suspended_at,status_changed_at,status_reason_redacted",
-      )
-      .order("created_at", { ascending: false })
-      .limit(200),
+    loadPlatformShopRows(supabase),
     supabase
       .from("shop_members")
       .select(

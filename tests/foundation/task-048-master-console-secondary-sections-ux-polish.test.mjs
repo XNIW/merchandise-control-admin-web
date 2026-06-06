@@ -206,7 +206,7 @@ test("TASK-048 docs and evidence record DONE reconciliation without external PAS
     "TASK-048 - Master Console secondary sections clarity and UX polish",
     "Stato TASK-048: `DONE_RECONCILED`",
     "Fase TASK-048: `DONE_RECONCILED`",
-    "Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`",
+    "Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`",
     "Devices and Sync are not top-level Master Console sidebar entries.",
     "`/platform/devices` and `/platform/sync` remain internal read-only diagnostics/deep links.",
     "TASK-047: `DONE_RECONCILED`",
