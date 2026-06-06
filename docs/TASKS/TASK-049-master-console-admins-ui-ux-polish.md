@@ -1,0 +1,112 @@
+# TASK-049 - Master Console Admins UI/UX polish
+
+## Stato
+
+- Stato TASK-049: `REVIEW`
+- Fase TASK-049: `REVIEW`
+- Responsabile corrente: `REVIEWER`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-049/README.md`
+- Dipendenza: `TASK-048` resta in `REVIEW`.
+- Commit durante execution: `NOT_RUN`
+- Push durante execution: `NOT_RUN`
+- Repository handoff post-review: `COMMIT_PUSH_AUTHORIZED_BY_USER_2026-06-05`
+- Stage finale prima dell'handoff git: `NOT_STAGED`
+
+## Obiettivo
+
+Polish piccolo e verificabile della Master Console, con priorita alla pagina
+`/platform/admins`. La UI deve ridurre rumore visivo e rischio percepito senza
+modificare backend, schema Supabase, RPC, RLS, permessi o azioni server.
+
+Devices and Sync remain outside the primary Master Console sidebar.
+`/platform/devices` e `/platform/sync` restano deep link diagnostici diretti con
+titoli `Device Signals` e `Sync Signals`.
+
+## Scope
+
+- Admins: lista attiva piu compatta, summary area, controlli revoke dentro
+  pannello espandibile per singolo admin.
+- Audit: layout tabella piu robusto, con scroll orizzontale e date non spezzate.
+- Provisioning: sezioni piu compatte e copy sul confine Platform Console / Shop Admin.
+- Operations: card shop robuste con codici lunghi.
+- Header Master Console: chip nello stesso ordine.
+- Test foundation e smoke UI locali.
+- Aggiornamento Master Plan ed evidence.
+
+## Fuori Scope
+
+- No schema changes.
+- No RPC changes.
+- No RLS changes.
+- No nuove dipendenze.
+- No nuove feature operative.
+- No login/auth flow.
+- No email reale o invio reale.
+- No raw metadata, secret, token o service-role key nel client/browser.
+- No ripristino Devices/Sync nella sidebar primaria.
+- No commit.
+- No push.
+- No final stage.
+
+## Implementazione
+
+### Admins
+
+- Summary area con active admins, server-side audit boundary,
+  self-lockout protection e metadata/redaction boundary.
+- `Grant Platform Admin` resta una form singola e compatta.
+- `Active Platform Admins` mostra status, grant date e identificatori lunghi con
+  wrapping/truncation sicuri.
+- Reason, `Type REVOKE to confirm` e pulsante rosso `Revoke admin` stanno dentro
+  una danger zone espandibile.
+- Copy preservata: `Server blocks self-lockout and last-admin removal.`
+
+### Audit
+
+- La tabella usa min-width e scroll orizzontale.
+- Le colonne data non vanno a capo.
+- Raw metadata non redatto resta non esposto.
+
+### Provisioning
+
+- Layout desktop piu compatto.
+- Copy esplicita: Platform Console fa provisioning sicuro/auditato; la gestione
+  quotidiana POS/staff resta in Shop Admin.
+- Nessuna email reale, nuova RPC o auth flow.
+
+### Operations
+
+- Shop card con `min-w-0`, wrapping e title per valori lunghi.
+- Copy TASK-048 su device revoke come eccezione globale resta visibile.
+
+## Criteri di Accettazione
+
+- Devices/Sync non sono nella sidebar primaria.
+- `/platform/devices` e `/platform/sync` restano deep link diagnostici.
+- Admins non mostra controlli distruttivi sempre aperti per ogni admin.
+- Admins conserva copy e protezione server-side self-lockout/last-admin.
+- Audit non taglia colonne a destra.
+- Provisioning resta auditato e non introduce operazioni fuori scope.
+- Operations gestisce shop code lunghi senza scrollbar orizzontale locale.
+- Task finale resta `REVIEW`; non `DONE`.
+
+## Check Richiesti
+
+- `node --test tests/foundation/task-048-master-console-secondary-sections-ux-polish.test.mjs`
+- `node --test tests/foundation/task-049-master-console-admins-ui-polish.test.mjs`
+- `npm run security:scan`
+- `npm run test:foundation`
+- `npm run typecheck`
+- `npm run lint`
+- `npm run build`
+- `npm run verify`
+- `npm run test:ui-smoke:ci`
+- `git diff --check`
+- `git diff --cached --name-status`
+- `git status --short --branch`
+
+## Stato Finale Atteso
+
+- Handoff a `REVIEW`.
+- Durante l'execution TASK-049: nessun commit, nessun push, nessun file staged.
+- Post-handoff: commit/push su `main` autorizzati dall'utente il 2026-06-05.

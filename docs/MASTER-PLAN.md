@@ -1946,6 +1946,134 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - handoff a `REVIEW`;
   - non marcare `DONE` senza conferma utente esplicita.
 
+### TASK-048 - Master Console secondary sections clarity and UX polish
+
+- Stato: `REVIEW`
+- File task: `docs/TASKS/TASK-048-master-console-secondary-sections-ux-polish.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-048/README.md`
+- Fase: `REVIEW`
+- Responsabile: `REVIEWER`
+- Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
+- Milestone interna corrente: `MASTER_CONSOLE_SECONDARY_UX_READY_FOR_REVIEW`
+- Verdict corrente: `REVIEW`
+- Dipendenza: `TASK-047` resta in `REVIEW`; TASK-047 remains in REVIEW and is a dependency, not automatically DONE.
+- Scopo: polish UX mirato delle schede secondarie Master Console
+  `/platform/devices`, `/platform/sync`, `/platform/history`,
+  `/platform/support` e `/platform/operations`, senza cambiare schema,
+  migration, dati o sicurezza.
+- Implementato:
+  - Devices and Sync are not top-level Master Console sidebar entries.
+  - `/platform/devices` and `/platform/sync` remain internal read-only diagnostics/deep links.
+  - pattern comune `Use this page to` con purpose items, metriche, empty state,
+    diagnostics secondaria e next action;
+  - Devices come diagnostica interna read-only `Device Signals`, senza usare
+    `sync_events` come righe device e con gestione quotidiana rimandata ad
+    Admin Console;
+  - Sync come diagnostica interna read-only `Sync Signals`, con nota che Sales
+    Sync foundation esiste ma Win7POS sales sync live non e verificato e con
+    troubleshooting shop-level rimandato ad Admin Console;
+  - History distinto da Sync e Audit;
+  - Support come diagnostics read-only con colonne `Subject`, `Signal`, `State`
+    e `Suggested next step`, piu link verso Users, Shops, Data, Provisioning e
+    Operations;
+  - Data/System con blocco read-only `Device/sync data health`;
+  - Operations ricomposta come workflow target shop -> action -> reason -> shop
+    code confirmation -> submit, usando le Server Actions esistenti, e copy che
+    limita le operazioni device a eccezioni globali/emergenziali.
+- Guardrail:
+  - No schema changes;
+  - No mock rows;
+  - No Sales Sync live claim;
+  - No Win7POS live E2E claim;
+  - no production;
+  - no service-role lato browser;
+  - no dati reali o secret;
+  - no migration;
+  - no impersonation;
+  - no commit;
+  - no push;
+  - no final stage.
+- Repository handoff 2026-06-05:
+  - commit/push su `main` autorizzati dall'utente dopo check freschi;
+  - stato TASK-048 resta `REVIEW`, non `DONE`.
+- Evidence:
+  - foundation TASK-048 red confermato prima dell'implementazione;
+  - foundation TASK-048 green: `tests 3`, `pass 3`;
+  - `security:scan`: `PASS`;
+  - `test:foundation`: `PASS`, `tests 205`, `pass 205`;
+  - `typecheck`: `PASS`;
+  - `lint`: `PASS`;
+  - `build`: `PASS_WITH_WARNING`, warning noti Next `middleware` -> `proxy`
+    e Node `[DEP0205]`;
+  - `verify`: `PASS_WITH_WARNING`, stessi warning build;
+  - `test:ui-smoke:ci`: `PASS_WITH_WARNING`, Playwright protected-route
+    smoke locale `43 passed`;
+  - `git diff --check`: `PASS`;
+  - `git diff --cached --name-status`: `PASS_NOT_STAGED`.
+- Stato:
+  - handoff a `REVIEW`;
+  - non marcare `DONE` senza conferma utente esplicita.
+
+### TASK-049 - Master Console Admins UI/UX polish
+
+- Stato: `REVIEW`
+- File task: `docs/TASKS/TASK-049-master-console-admins-ui-ux-polish.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-049/README.md`
+- Fase: `REVIEW`
+- Responsabile: `REVIEWER`
+- Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
+- Milestone interna corrente: `MASTER_CONSOLE_ADMINS_UI_READY_FOR_REVIEW`
+- Verdict corrente: `REVIEW`
+- Dipendenza: `TASK-048` resta in `REVIEW`; non riaprire Devices/Sync come
+  navigazione primaria.
+- Scopo: polish UI/UX piccolo e verificabile della Master Console, con priorita
+  alla pagina `/platform/admins` e micro-fix layout per Audit, Provisioning e
+  Operations, senza cambiare backend, schema, RPC, RLS, permessi o azioni server.
+- Implementato:
+  - Admins con summary area, card grant compatta e lista active admins piu
+    leggibile;
+  - controlli revoke admin dentro danger zone espandibile per singolo admin;
+  - copy preservata: `Server blocks self-lockout and last-admin removal.`;
+  - tabella read-only con min-width, scroll orizzontale e date non spezzate;
+  - Provisioning piu compatto con copy sul confine Platform Console / Shop Admin;
+  - Operations robuste per shop code lunghi;
+  - header chip nello stesso ordine: Read-only, Server boundary, Controlled
+    actions, Logout;
+  - Devices and Sync remain outside the primary Master Console sidebar.
+- Guardrail:
+  - No schema changes;
+  - No RPC changes;
+  - No RLS changes;
+  - no production;
+  - no service-role lato browser;
+  - no dati reali o secret;
+  - no migration;
+  - no nuove feature operative;
+  - no commit;
+  - no push;
+  - no final stage.
+- Repository handoff 2026-06-05:
+  - commit/push su `main` autorizzati dall'utente dopo check freschi;
+  - stato TASK-049 resta `REVIEW`, non `DONE`.
+- Evidence:
+  - foundation TASK-049 red confermato prima dell'implementazione;
+  - foundation TASK-048 regression: `tests 3`, `pass 3`;
+  - foundation TASK-049 green: `tests 4`, `pass 4`;
+  - `security:scan`: `PASS`;
+  - `test:foundation`: `PASS`, `tests 209`, `pass 209`;
+  - `typecheck`: `PASS`;
+  - `lint`: `PASS`;
+  - `build`: `PASS_WITH_WARNING`, warning noti Next `middleware` -> `proxy`
+    e Node `[DEP0205]`;
+  - `verify`: `PASS_WITH_WARNING`, stessi warning build;
+  - `test:ui-smoke:ci`: `PASS_WITH_WARNING`, Playwright protected-route
+    smoke locale `43 passed`;
+  - `git diff --check`: `PASS`;
+  - `git diff --cached --name-status`: `PASS_NOT_STAGED`.
+- Stato:
+  - handoff a `REVIEW`;
+  - non marcare `DONE` senza conferma utente esplicita.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -1959,7 +2087,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `MASTER_ADMIN_ACCESS_MODEL_READY_FOR_REVIEW`
+- Stato globale attuale: `MASTER_CONSOLE_ADMINS_UI_READY_FOR_REVIEW`
 - Ultimo task completato: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
@@ -2001,12 +2129,16 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-046: `REVIEW`
 - Stato TASK-047: `REVIEW`
 - Fase TASK-047: `REVIEW`
-- Task attivo: `TASK-047 - Align Master Console and Admin Console access model`
-- File task: `docs/TASKS/TASK-047-align-master-console-admin-console-access-model.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-047/README.md`
+- Stato TASK-048: `REVIEW`
+- Fase TASK-048: `REVIEW`
+- Stato TASK-049: `REVIEW`
+- Fase TASK-049: `REVIEW`
+- Task attivo: `TASK-049 - Master Console Admins UI/UX polish`
+- File task: `docs/TASKS/TASK-049-master-console-admins-ui-ux-polish.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-049/README.md`
 - Stato task: `REVIEW`
 - Fase: `REVIEW`
-- Milestone interna: `MASTER_ADMIN_ACCESS_MODEL_READY_FOR_REVIEW`
+- Milestone interna: `MASTER_CONSOLE_ADMINS_UI_READY_FOR_REVIEW`
 - Responsabile: `REVIEWER`
 - Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
@@ -2038,6 +2170,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-045: `AUTO_RECONCILED_TASK045`
 - Verdict TASK-046: `REVIEW`
 - Verdict TASK-047: `REVIEW`
+- Verdict TASK-048: `REVIEW`
+- Verdict TASK-049: `REVIEW`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
 - Prossima azione consigliata: per Win7POS resta da aprire su Windows 7 la cartella `Win7POSBridge\outbox\TASK-042B-github-release-pack-20260604-223656\app` per il package gia verificato; per retest fisico del fix UX `Fornitore`/`Categoria`, creare prima un nuovo GitHub Release Pack dopo commit/push autorizzati. Non marcare `TASK-041 DONE` o `TASK-040 DONE` e non dichiarare Win7POS live/Sales Sync live `PASS` finche mancano run reali/evidence.
 

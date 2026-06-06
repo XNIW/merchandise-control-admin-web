@@ -46,16 +46,21 @@ test("TASK-044 loading and sidebar do not reset active navigation to Overview", 
 
 test("TASK-044 Operations is lifecycle and emergency focused", () => {
   const operationsPage = readProjectFile("src/app/platform/operations/page.tsx");
+  const operationsWorkflow = readProjectFile(
+    "src/components/platform/operations/ControlledOperationsWorkflow.tsx",
+  );
   const platformData = readProjectFile("src/components/platform/platformData.ts");
+  const operationsUi = `${operationsPage}\n${operationsWorkflow}`;
 
-  assert.doesNotMatch(operationsPage, /createPlatformShopAction/);
-  assert.doesNotMatch(operationsPage, /createPlatformPendingOwnerInviteAction/);
-  assert.doesNotMatch(operationsPage, /grantPlatformAdminAction|revokePlatformAdminAction/);
-  assert.doesNotMatch(operationsPage, /title="Create shop"/);
-  assert.doesNotMatch(operationsPage, /title="Platform Admin grants"/);
-  assert.doesNotMatch(operationsPage, /pending_owner_invite|admin_grant|admin_revoke/);
-  assert.match(operationsPage, /title="Shop actions"/);
-  assert.match(operationsPage, /title="Emergency devices"/);
+  assert.doesNotMatch(operationsUi, /createPlatformShopAction/);
+  assert.doesNotMatch(operationsUi, /createPlatformPendingOwnerInviteAction/);
+  assert.doesNotMatch(operationsUi, /grantPlatformAdminAction|revokePlatformAdminAction/);
+  assert.doesNotMatch(operationsUi, /title="Create shop"/);
+  assert.doesNotMatch(operationsUi, /title="Platform Admin grants"/);
+  assert.doesNotMatch(operationsUi, /pending_owner_invite|admin_grant|admin_revoke/);
+  assert.match(operationsUi, /title="Choose target shop"/);
+  assert.match(operationsUi, /title="Choose action"/);
+  assert.match(operationsUi, /Emergency revoke device/);
   assert.match(platformData, /Provisioning/);
   assert.doesNotMatch(platformData, /Use \/platform\/shops\/new or \/platform\/operations/);
 });

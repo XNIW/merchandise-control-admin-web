@@ -21,6 +21,7 @@ export function PlatformPage({ section, selectedRowKey }: PlatformPageProps) {
   const hasDetailSections =
     section.detailSections !== undefined && section.detailSections.length > 0;
   const compactDiagnostics =
+    section.diagnosticsPriority === "secondary" ||
     section.status === "Read-only" || section.status.endsWith("detail");
   const diagnosticsContent = (
     <div className="grid gap-3">
@@ -68,6 +69,29 @@ export function PlatformPage({ section, selectedRowKey }: PlatformPageProps) {
           status={section.status}
           titleId="platform-page-title"
         />
+
+        {section.purposeItems && section.purposeItems.length > 0 ? (
+          <section
+            aria-label={`${section.title} purpose`}
+            className="rounded-md border border-slate-200 bg-white p-4"
+          >
+            <p className="text-sm font-semibold text-slate-950">
+              Use this page to
+            </p>
+            <dl className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+              {section.purposeItems.map((item) => (
+                <div key={item.label}>
+                  <dt className="text-xs font-semibold uppercase tracking-normal text-slate-500">
+                    {item.label}
+                  </dt>
+                  <dd className="mt-1 text-sm leading-5 text-slate-700">
+                    {item.detail}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </section>
+        ) : null}
 
         <section aria-label={`${section.title} metrics`} className="grid gap-3 md:grid-cols-3 xl:grid-cols-4">
           {section.stats.map((stat) => (
@@ -136,8 +160,8 @@ export function PlatformPage({ section, selectedRowKey }: PlatformPageProps) {
                 searchPlaceholder={section.searchPlaceholder}
                 emptyState={
                   section.emptyState ?? {
-                    title: "No rows returned",
-                    description: "No rows returned through the server boundary.",
+                    title: "No rows visible",
+                    description: "The server boundary did not return rows for this view.",
                   }
                 }
                 footer="Rows are server-limited for the current read-only boundary."
@@ -149,8 +173,8 @@ export function PlatformPage({ section, selectedRowKey }: PlatformPageProps) {
                 rows={section.rows}
                 emptyState={
                   section.emptyState ?? {
-                    title: "No rows returned",
-                    description: "No rows returned through the server boundary.",
+                    title: "No rows visible",
+                    description: "The server boundary did not return rows for this view.",
                   }
                 }
                 footer="Rows are server-limited for the current read-only boundary."
@@ -187,6 +211,30 @@ export function PlatformPage({ section, selectedRowKey }: PlatformPageProps) {
                       label={operation.label}
                       description={operation.description}
                     />
+                  ))}
+                </div>
+              </SectionCard>
+            ) : null}
+
+            {section.nextLinks && section.nextLinks.length > 0 ? (
+              <SectionCard
+                title="Next action"
+                description="Move to the page that owns the next operational step."
+              >
+                <div className="grid gap-3">
+                  {section.nextLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      className="rounded-md border border-slate-200 bg-slate-50 p-3 text-sm outline-none transition hover:border-slate-300 hover:bg-white focus-visible:ring-2 focus-visible:ring-slate-950"
+                    >
+                      <span className="font-semibold text-slate-950">
+                        {link.label}
+                      </span>
+                      <span className="mt-1 block leading-5 text-slate-600">
+                        {link.description}
+                      </span>
+                    </Link>
                   ))}
                 </div>
               </SectionCard>

@@ -135,13 +135,17 @@ export default async function PlatformProvisioningPage({
 
   return (
     <AppShell activeSection="provisioning">
-      <div className="mx-auto flex max-w-5xl flex-col gap-5">
+      <div className="mx-auto flex max-w-6xl flex-col gap-5">
         <PageHeader
           eyebrow="Shop onboarding"
           title="Provisioning"
           description="Create a shop with an existing owner or a pending owner invite through audited Platform Admin boundaries."
           status={ready ? "Safe provisioning" : formatToken(readModel.status)}
         />
+
+        <section className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-5 text-slate-700">
+          Platform Console does safe, audited provisioning. Daily POS/staff management stays in Shop Admin.
+        </section>
 
         {operation && result ? (
           <ActionResultBanner operation={operation} result={result} />
@@ -155,12 +159,15 @@ export default async function PlatformProvisioningPage({
             <EmptyState title={formatToken(readModel.status)} description={readModel.reason} />
           </SectionCard>
         ) : (
-          <div className="grid gap-5">
+          <div className="grid items-start gap-5 xl:grid-cols-2">
             <SectionCard
               title="Create shop with existing owner"
               description="Owner assignment uses an existing active profile and writes audit in the create-shop RPC."
             >
-              <form action={createPlatformShopAction} className="grid gap-4 lg:grid-cols-2">
+              <form
+                action={createPlatformShopAction}
+                className="grid max-w-3xl gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+              >
                 <input type="hidden" name="returnTo" value="/platform/provisioning" />
                 <label className="grid gap-1.5 text-sm font-medium text-slate-800">
                   <span>Shop name</span>
@@ -216,7 +223,7 @@ export default async function PlatformProvisioningPage({
             >
               <form
                 action={createPlatformPendingOwnerInviteAction}
-                className="grid gap-4 lg:grid-cols-2"
+                className="grid max-w-3xl gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
               >
                 <input type="hidden" name="returnTo" value="/platform/provisioning" />
                 <label className="grid gap-1.5 text-sm font-medium text-slate-800">
@@ -261,12 +268,16 @@ export default async function PlatformProvisioningPage({
               </form>
             </SectionCard>
 
-            <SectionCard
-              title="Provision POS manager web access"
-              description="Creates a shop-scoped manager staff account and enables shop_admin.full_access for the manager role through a server-only Platform Admin boundary."
-            >
-              <StaffManagerProvisioningPanel shops={activeShopOptions} />
-            </SectionCard>
+            <div className="xl:col-span-2">
+              <SectionCard
+                title="Provision POS manager web access"
+                description="Creates a shop-scoped manager staff account and enables shop_admin.full_access for the manager role through a server-only Platform Admin boundary."
+              >
+                <div className="max-w-xl">
+                  <StaffManagerProvisioningPanel shops={activeShopOptions} />
+                </div>
+              </SectionCard>
+            </div>
           </div>
         )}
       </div>

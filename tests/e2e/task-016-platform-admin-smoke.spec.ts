@@ -35,11 +35,11 @@ const protectedPlatformRoutes = [
   },
   {
     path: "/platform/devices",
-    title: "Global Devices | MerchandiseControl Admin Web",
+    title: "Device Signals | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/sync",
-    title: "Global Sync | MerchandiseControl Admin Web",
+    title: "Sync Signals | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/history",

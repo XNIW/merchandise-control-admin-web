@@ -72,12 +72,15 @@ test("TASK-016 restore shop uses audited lifecycle RPC when archived shops are s
   const migrationPath =
     "supabase/migrations/20260531210000_task_016_platform_completion.sql";
   const operationPagePath = "src/app/platform/operations/page.tsx";
+  const operationWorkflowPath =
+    "src/components/platform/operations/ControlledOperationsWorkflow.tsx";
   const operationActionsPath = "src/app/platform/operations/actions.ts";
   const shopActionsPath = "src/server/platform-admin/shop-actions.ts";
 
   for (const relativePath of [
     migrationPath,
     operationPagePath,
+    operationWorkflowPath,
     operationActionsPath,
     shopActionsPath,
   ]) {
@@ -86,14 +89,16 @@ test("TASK-016 restore shop uses audited lifecycle RPC when archived shops are s
 
   const migration = readProjectFile(migrationPath);
   const operationPage = readProjectFile(operationPagePath);
+  const operationWorkflow = readProjectFile(operationWorkflowPath);
   const operationActions = readProjectFile(operationActionsPath);
   const shopActions = readProjectFile(shopActionsPath);
+  const operationsUi = `${operationPage}\n${operationWorkflow}`;
 
   assert.match(migration, /create or replace function public\.platform_restore_shop/);
   assert.match(migration, /platform\.shop\.restore\.success/);
   assert.match(migration, /shop_status = 'archived'/);
   assert.match(operationActions, /restorePlatformShopAction/);
   assert.match(shopActions, /\.rpc\("platform_restore_shop"/);
-  assert.match(operationPage, /Restore shop/);
-  assert.match(operationPage, /Type shop code to restore/);
+  assert.match(operationsUi, /Restore shop/);
+  assert.match(operationsUi, /Type shop code to confirm/);
 });

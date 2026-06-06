@@ -70,12 +70,12 @@ const protectedPlatformRoutes = [
   {
     path: "/platform/devices",
     heading: "Master Console access required",
-    title: "Global Devices | MerchandiseControl Admin Web",
+    title: "Device Signals | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/sync",
     heading: "Master Console access required",
-    title: "Global Sync | MerchandiseControl Admin Web",
+    title: "Sync Signals | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/history",

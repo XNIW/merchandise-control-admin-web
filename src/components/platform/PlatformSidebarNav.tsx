@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
 import type { PlatformSectionKey } from "./platformData";
-import { navigationItems } from "./platformData";
+import { navigationItems, primaryNavigationItems } from "./platformData";
 
 type PlatformSidebarNavProps = {
   activeSection: PlatformSectionKey;
@@ -44,7 +44,7 @@ export function PlatformSidebarNav({ activeSection }: PlatformSidebarNavProps) {
       aria-label="Platform sections"
       className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:min-h-0 lg:overflow-y-auto lg:px-0 lg:pb-0"
     >
-      {navigationItems.map((item) => {
+      {primaryNavigationItems.map((item) => {
         const isActive = item.key === currentActive;
 
         return (

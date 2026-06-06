@@ -35,8 +35,6 @@ const platformRoutes = [
   { heading: "Audit", label: "Audit", path: "/platform/audit" },
   { heading: "System Status", label: "System", path: "/platform/system" },
   { heading: "Data Health", label: "Data", path: "/platform/data" },
-  { heading: "Global Devices", label: "Devices", path: "/platform/devices" },
-  { heading: "Global Sync", label: "Sync", path: "/platform/sync" },
   { heading: "Global History", label: "History", path: "/platform/history" },
   {
     heading: "Controlled Operations",
@@ -48,6 +46,11 @@ const platformRoutes = [
     label: "Support",
     path: "/platform/support",
   },
+] as const;
+
+const diagnosticDeepLinks = [
+  { heading: "Device Signals", hiddenLabel: "Devices", path: "/platform/devices" },
+  { heading: "Sync Signals", hiddenLabel: "Sync", path: "/platform/sync" },
 ] as const;
 
 function runtimeEnv() {
@@ -233,6 +236,22 @@ async function expectPlatformRoute(page: Page, heading: string, activeLabel: str
     "aria-current",
     "page",
   );
+}
+
+async function expectDiagnosticDeepLink(
+  page: Page,
+  heading: string,
+  hiddenLabel: string,
+) {
+  await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+  await expect(page.getByText("Read blocked")).toHaveCount(0);
+  await expect(page.getByText("Request could not be completed")).toHaveCount(0);
+  await expect(page.getByText("Rendering...")).toHaveCount(0);
+  await expect(
+    page.getByRole("navigation", { name: "Platform sections" }).getByRole("link", {
+      name: hiddenLabel,
+    }),
+  ).toHaveCount(0);
 }
 
 async function cleanupCreatedData(
@@ -486,6 +505,11 @@ test.describe("TASK-045 Platform Master Console final review", () => {
       for (const route of platformRoutes) {
         await page.goto(route.path);
         await expectPlatformRoute(page, route.heading, route.label);
+      }
+
+      for (const route of diagnosticDeepLinks) {
+        await page.goto(route.path);
+        await expectDiagnosticDeepLink(page, route.heading, route.hiddenLabel);
       }
 
       await page.goto("/platform/admins");

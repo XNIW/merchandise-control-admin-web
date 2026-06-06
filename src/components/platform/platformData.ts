@@ -78,6 +78,17 @@ export type OperationItem = {
   description: string;
 };
 
+export type PlatformPurposeItem = {
+  label: string;
+  detail: string;
+};
+
+export type PlatformNextLink = {
+  label: string;
+  href: string;
+  description: string;
+};
+
 export type PlatformSection = {
   key: PlatformSectionKey;
   title: string;
@@ -96,13 +107,19 @@ export type PlatformSection = {
   emptyState?: EmptyStateContent;
   operations?: OperationItem[];
   guardrails?: string[];
+  purposeItems?: PlatformPurposeItem[];
+  nextLinks?: PlatformNextLink[];
+  diagnosticsPriority?: "primary" | "secondary";
 };
 
-export const navigationItems: Array<{
+export type PlatformNavigationItem = {
   key: PlatformSectionKey;
   label: string;
   href: string;
-}> = [
+  showInPrimaryNav?: boolean;
+};
+
+export const navigationItems: PlatformNavigationItem[] = [
   { key: "overview", label: "Overview", href: "/platform" },
   { key: "users", label: "Users", href: "/platform/users" },
   { key: "shops", label: "Shops", href: "/platform/shops" },
@@ -111,12 +128,16 @@ export const navigationItems: Array<{
   { key: "audit", label: "Audit", href: "/platform/audit" },
   { key: "system", label: "System", href: "/platform/system" },
   { key: "data", label: "Data", href: "/platform/data" },
-  { key: "devices", label: "Devices", href: "/platform/devices" },
-  { key: "sync", label: "Sync", href: "/platform/sync" },
+  { key: "devices", label: "Devices", href: "/platform/devices", showInPrimaryNav: false },
+  { key: "sync", label: "Sync", href: "/platform/sync", showInPrimaryNav: false },
   { key: "history", label: "History", href: "/platform/history" },
   { key: "operations", label: "Operations", href: "/platform/operations" },
   { key: "support", label: "Support", href: "/platform/support" },
 ];
+
+export const primaryNavigationItems = navigationItems.filter(
+  (item) => item.showInPrimaryNav !== false,
+);
 
 const baseColumns = [
   { key: "area", label: "Area" },
@@ -141,7 +162,7 @@ const baseSection = (
   columns,
   rows: [],
   emptyState: {
-    title: "No rows returned",
+    title: "No rows visible",
     description:
       "Rows are shown only when the server-side Master Console boundary returns safe DTOs.",
   },
@@ -152,7 +173,7 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
     "overview",
     "Platform Overview",
     "Master Console",
-    "Global ecosystem summary for shops, profiles, audit, device, sync, and data health.",
+    "Global ecosystem summary for shops, profiles, audit, device/sync diagnostics, and data health.",
   ),
   users: baseSection(
     "users",
@@ -227,9 +248,9 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   ),
   devices: baseSection(
     "devices",
-    "Global Devices",
-    "Device security overview",
-    "Global read-only device registry and sync source activity, with emergency actions only through audited RPCs.",
+    "Device Signals",
+    "Internal diagnostic",
+    "Read-only diagnostic view for global device coverage and support signals. Daily device management belongs to Admin Console.",
     [
       { key: "shop", label: "Shop" },
       { key: "device", label: "Device" },
@@ -240,9 +261,9 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   ),
   sync: baseSection(
     "sync",
-    "Global Sync",
-    "Mobile history overview",
-    "Global sync/history summary separated from audit logs, with redacted and limited details.",
+    "Sync Signals",
+    "Internal diagnostic",
+    "Read-only diagnostic view for global sync signals. Shop-level sync troubleshooting belongs to Admin Console.",
     [
       { key: "shop", label: "Shop" },
       { key: "source", label: "Source" },
@@ -254,8 +275,15 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   history: baseSection(
     "history",
     "Global History",
-    "Mobile history overview",
-    "Alias view for global sync/history events, distinct from admin audit logs.",
+    "History overview",
+    "Read-only history view for mobile/inventory history and high-level sync history.",
+    [
+      { key: "shop", label: "Shop" },
+      { key: "history", label: "History signal" },
+      { key: "scope", label: "Scope" },
+      { key: "date", label: "Date" },
+      { key: "next", label: "Next" },
+    ],
   ),
   operations: baseSection(
     "operations",
@@ -273,6 +301,12 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
     "support",
     "Support Diagnostics",
     "Read-only diagnostics",
-    "Search-oriented support view for shop/profile access, memberships, recent audit, devices, sync, and configuration warnings.",
+    "Read-only diagnostic view for access, membership, shop setup, devices, sync, and recent audit signals.",
+    [
+      { key: "subject", label: "Subject" },
+      { key: "signal", label: "Signal" },
+      { key: "state", label: "State" },
+      { key: "suggestedNextStep", label: "Suggested next step" },
+    ],
   ),
 };

@@ -476,6 +476,10 @@ function shopRowDetail(
             value: devices[0]?.updated_at ?? "No devices visible",
           },
         ],
+        notes: [
+          "Device and sync values are support signals, not daily device management.",
+          "Open Admin Console for shop-level device management.",
+        ],
         title: "Devices",
       },
       {
@@ -491,8 +495,11 @@ function shopRowDetail(
         ],
         notes:
           latestSync || audits.length > 0
-            ? undefined
-            : ["Related data limited by current boundary."],
+            ? ["Device and sync values are support signals, not daily device management."]
+            : [
+                "Device and sync values are support signals, not daily device management.",
+                "Related data limited by current boundary.",
+              ],
         title: "Sync & audit",
       },
       {
@@ -510,6 +517,8 @@ function shopRowDetail(
     notes: [
       "This is the global shop registry, not product or staff operations for a single shop.",
       "Lifecycle changes remain on Controlled Operations with reason and audit.",
+      "Device and sync values are support signals, not daily device management.",
+      "Open Admin Console for shop-level device management.",
     ],
     rowKey: shop.shop_id,
     subtitle: `${shop.shop_code} / ${formatToken(shop.shop_status)}`,
@@ -636,7 +645,17 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
         { label: "Summary", value: shopDeviceSummary(shop, readModel) },
         { label: "Latest update", value: devices[0]?.updated_at ?? "No devices visible" },
       ],
-      notes: devices.length === 0 ? ["Related data limited by current boundary."] : undefined,
+      notes:
+        devices.length === 0
+          ? [
+              "Device and sync values are support signals, not daily device management.",
+              "Open Admin Console for shop-level device management.",
+              "Related data limited by current boundary.",
+            ]
+          : [
+              "Device and sync values are support signals, not daily device management.",
+              "Open Admin Console for shop-level device management.",
+            ],
       title: "Devices",
     },
     {
@@ -650,8 +669,11 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
         { label: "Latest audit", value: audits[0]?.event ?? "No audit event visible" },
       ],
       notes: relatedRowsVisible
-        ? undefined
-        : ["Some related rows are not visible through the current read boundary."],
+        ? ["Device and sync values are support signals, not daily device management."]
+        : [
+            "Device and sync values are support signals, not daily device management.",
+            "Some related rows are not visible through the current read boundary.",
+          ],
       title: "Sync/history",
     },
     {
@@ -731,7 +753,7 @@ function buildOverview(readModel: PlatformAdminLiveReadModel): PlatformSection {
     description:
       "Global Platform Admin overview loaded server-side through Supabase RLS.",
     guardrails: [
-      "Platform Admin governs ecosystem-level users, shops, audit, devices, sync, and diagnostics.",
+      "Platform Admin governs ecosystem-level users, shops, audit, device/sync diagnostic signals, and data health.",
       "Shop catalog, spreadsheet import/export, ordinary staff, and per-shop daily device management stay in Shop Admin.",
       "Warning rows are derived from visible server read models; no synthetic business data is used.",
     ],
@@ -761,13 +783,13 @@ function buildOverview(readModel: PlatformAdminLiveReadModel): PlatformSection {
         state: readModel.dataHealth.migration_drift_status,
       },
       {
-        area: "Devices",
+        area: "Device signals",
         next: `${revokedOrSuspiciousDevices} revoked or suspicious`,
         signal: `${readModel.shopDevices.length} visible devices`,
         state: readModel.dataHealth.device_schema_status,
       },
       {
-        area: "Sync",
+        area: "Sync signals",
         next: `${readModel.dataHealth.suspended_shops_with_recent_activity} suspended shops with recent activity`,
         signal: `${readModel.syncEvents.length} latest sync/history events`,
         state: readModel.dataHealth.sync_history_mapping_status,
@@ -910,6 +932,8 @@ function buildShops(readModel: PlatformAdminLiveReadModel): PlatformSection {
     guardrails: [
       "This is the global shop registry, not product or staff operations for a single shop.",
       "Lifecycle controls stay on Controlled Operations with reason and audit.",
+      "Device and sync values are support signals, not daily device management.",
+      "Open Admin Console for shop-level device management.",
       "Archived shops can be restored only through the audited restore RPC with shop code confirmation.",
     ],
     rowDetails: readModel.shops.map((shop) => shopRowDetail(shop, readModel)),
@@ -1096,6 +1120,13 @@ function buildSystem(readModel: PlatformAdminLiveReadModel): PlatformSection {
         state: readModel.dataHealth.staff_schema_status,
       },
       {
+        area: "Device/sync data health",
+        next: "Device signals are aggregated for support.",
+        signal:
+          "Sync signals are diagnostic; live Win7POS Sales Sync remains separately verified.",
+        state: "Read-only diagnostics",
+      },
+      {
         area: "Auth SSR health",
         next: "Layout blocks non Platform Admin sessions",
         signal: "resolveCurrentAdminRouteAccess",
@@ -1128,6 +1159,7 @@ function buildData(readModel: PlatformAdminLiveReadModel): PlatformSection {
       "Data health is computed from server aggregate inputs only.",
       "Migration drift is NOT_RUN in the UI unless the Supabase CLI gate has been executed.",
       "Blocked and not_configured states are distinct from empty data.",
+      "Device/sync data health is read-only and aggregated for support diagnostics.",
     ],
     rows: [
       {
@@ -1179,6 +1211,13 @@ function buildData(readModel: PlatformAdminLiveReadModel): PlatformSection {
         state: health.device_schema_status,
       },
       {
+        area: "Device/sync data health",
+        next: "Device signals are aggregated for support.",
+        signal:
+          "Sync signals are diagnostic; live Win7POS Sales Sync remains separately verified.",
+        state: "Read-only diagnostics",
+      },
+      {
         area: "staff schema status",
         next: staffIssue?.message ?? "Safe staff view only",
         signal: staffIssue ? staffIssue.code : String(readModel.staffSafeRows.length),
@@ -1220,33 +1259,83 @@ function deviceRow(
 
 function buildDevices(readModel: PlatformAdminLiveReadModel): PlatformSection {
   const base = platformSections.devices;
+  const authorized = readModel.shopDevices.filter(
+    (device) => device.status === "active",
+  ).length;
   const revoked = readModel.shopDevices.filter(
     (device) => device.status === "revoked",
   ).length;
   const suspicious = readModel.shopDevices.filter(
     (device) => device.status === "suspicious",
   ).length;
+  const syncSourceIds = new Set(
+    readModel.syncEvents
+      .map((event) => event.source_device_id)
+      .filter((sourceDeviceId): sourceDeviceId is string => Boolean(sourceDeviceId)),
+  );
 
   return {
     ...base,
+    title: "Device Signals",
+    eyebrow: "Internal diagnostic",
+    description:
+      "Read-only diagnostic view for global device coverage and support signals. Daily device management belongs to Admin Console.",
+    diagnosticsPriority: "secondary",
+    emptyState: {
+      title: "No device signals visible",
+      description:
+        "Device signals appear after POS or mobile registration. Sync source ids alone do not authorize a device.",
+    },
     guardrails: [
-      "Device authorization comes from shop_devices, not from sync activity.",
-      "source_device_id is treated as sync/history attribution only.",
+      "This route is an internal diagnostic deep link, not a top-level Master Console destination.",
+      "Device authorization comes from shop_devices.",
+      "source_device_id is sync/history attribution only.",
+      "Daily device management belongs to Admin Console.",
       "Emergency device action requires server RPC, reason, confirmation, and audit.",
     ],
-    rows:
-      readModel.shopDevices.length > 0
-        ? readModel.shopDevices.map((device) => deviceRow(device, readModel))
-        : readModel.syncEvents.slice(0, 12).map((event): TableRow => ({
-            device: event.source_device_id ?? "unreported source_device_id",
-            lastSeen: event.created_at,
-            rowKey: event.sync_event_id,
-            shop: event.store_id ?? "Mapped by owner",
-            state: "Sync activity only",
-            type: `${event.source ?? "unknown"} ${event.domain}`,
-          })),
+    nextLinks: [
+      {
+        description:
+          "Review the global shop registry with device and health support signals.",
+        href: "/platform/shops",
+        label: "Open Shops",
+      },
+      {
+        description:
+          "Use Support Diagnostics as the primary triage surface for device signals.",
+        href: "/platform/support",
+        label: "Open Support",
+      },
+      {
+        description:
+          "Use Operations only for audited emergency device revoke or lifecycle actions.",
+        href: "/platform/operations",
+        label: "Open Operations",
+      },
+    ],
+    purposeItems: [
+      {
+        detail: "Review aggregated device coverage and support signals across shops.",
+        label: "Shows",
+      },
+      {
+        detail:
+          "Use it when checking device authorization, revoked devices, or suspicious device state for support triage.",
+        label: "Use when",
+      },
+      {
+        detail:
+          "It does not authorize sync source ids and does not replace daily device management in Admin Console.",
+        label: "Not included",
+      },
+      {
+        detail: "Device signals appear after POS or mobile registration.",
+        label: "Empty state",
+      },
+    ],
+    rows: readModel.shopDevices.map((device) => deviceRow(device, readModel)),
     stats: [
-      stat("Devices", String(readModel.shopDevices.length), "shop_devices rows"),
+      stat("Authorized", String(authorized), "Active shop_devices rows", "good"),
       stat("Revoked", String(revoked), "Authorization disabled", revoked > 0 ? "warning" : "good"),
       stat(
         "Suspicious",
@@ -1254,8 +1343,14 @@ function buildDevices(readModel: PlatformAdminLiveReadModel): PlatformSection {
         "Requires support review",
         suspicious > 0 ? "warning" : "good",
       ),
+      stat(
+        "Sync source ids",
+        String(syncSourceIds.size),
+        "Attribution only, not authorization",
+        "muted",
+      ),
     ],
-    status: "Global device overview",
+    status: "Internal diagnostic",
   };
 }
 
@@ -1277,23 +1372,145 @@ function syncRow(
   };
 }
 
+function historyRow(
+  event: PlatformSyncOverview,
+  readModel: PlatformAdminLiveReadModel,
+): TableRow {
+  const shopId = readModel.shopOwnerMappings.find(
+    (mapping) => mapping.ownerUserId === event.owner_user_id,
+  )?.shopId;
+
+  return {
+    date: event.created_at,
+    history: `${formatToken(event.event_type)} / ${event.changed_count} changes`,
+    next: "Use Global Sync for technical event details",
+    rowKey: event.sync_event_id,
+    scope: `${event.domain} / ${event.source ?? "unknown"}`,
+    shop: shopNameById(readModel.shops, shopId),
+  };
+}
+
 function buildSyncLike(
   key: "sync" | "history",
   readModel: PlatformAdminLiveReadModel,
 ): PlatformSection {
   const base = platformSections[key];
   const domains = new Set(readModel.syncEvents.map((event) => event.domain));
+  const isSync = key === "sync";
 
   return {
     ...base,
-    guardrails: [
-      "Sync/history rows are operational replication activity and are distinct from audit_logs.",
-      "Raw JSON is summarized and limited by the server read model.",
-      "Filters are server-side by source, date, type, state, shop, and domain.",
-    ],
-    rows: readModel.syncEvents.map((event) => syncRow(event, readModel)),
+    title: isSync ? "Sync Signals" : base.title,
+    eyebrow: isSync ? "Internal diagnostic" : base.eyebrow,
+    description: isSync
+      ? "Read-only diagnostic view for global sync signals. Shop-level sync troubleshooting belongs to Admin Console."
+      : "Read-only history view for mobile/inventory history and high-level sync history.",
+    diagnosticsPriority: "secondary",
+    emptyState: isSync
+      ? {
+          title: "No sync signals visible",
+          description:
+            "Sync signals appear after mobile/POS/catalog sync events are written to the server read model. Shop-level sync troubleshooting belongs to Admin Console.",
+        }
+      : {
+          title: "No history events visible",
+          description:
+            "History rows appear only when the server read model exposes safe history DTOs.",
+        },
+    guardrails: isSync
+      ? [
+          "This route is an internal diagnostic deep link, not a top-level Master Console destination.",
+          "This is not admin audit and does not prove live Sales Sync.",
+          "Sales Sync foundation exists, but live Win7POS sales sync is not verified yet.",
+          "Shop-level sync troubleshooting belongs to Admin Console.",
+          "Raw JSON is summarized and limited by the server read model.",
+        ]
+      : [
+          "For technical sync events use Global Sync. For admin actions use Audit.",
+          "History rows are high-level mobile/inventory or sync-history signals.",
+          "Raw JSON is summarized and limited by the server read model.",
+        ],
+    nextLinks: isSync
+      ? [
+          {
+            description: "Review aggregate device and sync health in the data diagnostics page.",
+            href: "/platform/data",
+            label: "Open Data",
+          },
+          {
+            description:
+              "Use Support Diagnostics as the primary triage surface for sync signals.",
+            href: "/platform/support",
+            label: "Open Support",
+          },
+          {
+            description: "Review administrative actions and sensitive changes.",
+            href: "/platform/audit",
+            label: "Open Audit",
+          },
+        ]
+      : [
+          {
+            description: "Use technical sync events when debugging event-level replication.",
+            href: "/platform/sync",
+            label: "Open Sync",
+          },
+          {
+            description: "Use Audit for admin actions, results, actors, and targets.",
+            href: "/platform/audit",
+            label: "Open Audit",
+          },
+        ],
+    purposeItems: isSync
+      ? [
+          {
+            detail:
+              "Review global sync signals for POS, mobile, catalog, and future integrations.",
+            label: "Shows",
+          },
+          {
+            detail: "Use it when debugging global sync visibility before opening shop-level troubleshooting.",
+            label: "Use when",
+          },
+          {
+            detail:
+              "It is not administrative audit, not shop-level troubleshooting, and does not prove live Win7POS Sales Sync.",
+            label: "Not included",
+          },
+          {
+            detail:
+              "Rows appear when sync signals are written to the server read model.",
+            label: "Empty state",
+          },
+        ]
+      : [
+          {
+            detail:
+              "Review mobile/inventory history and high-level sync history from safe DTOs.",
+            label: "Shows",
+          },
+          {
+            detail: "Use it when Sync feels too technical for a support question.",
+            label: "Use when",
+          },
+          {
+            detail: "It is not technical sync detail and not admin audit.",
+            label: "Not included",
+          },
+          {
+            detail: "Rows appear only when safe history DTOs are exposed.",
+            label: "Empty state",
+          },
+        ],
+    rows: readModel.syncEvents.map((event) =>
+      isSync ? syncRow(event, readModel) : historyRow(event, readModel),
+    ),
     stats: [
-      stat("Events", String(readModel.syncEvents.length), "Latest sync/history"),
+      stat(
+        "Events",
+        String(readModel.syncEvents.length),
+        isSync ? "Latest sync events" : "History signals",
+      ),
       stat("Domains", String(domains.size), "Visible domains"),
       stat(
         "Suspended activity",
@@ -1303,8 +1520,14 @@ function buildSyncLike(
           ? "warning"
           : "good",
       ),
+      stat(
+        "Sales Sync live",
+        "Not verified",
+        "Win7POS live sales sync is not claimed",
+        "warning",
+      ),
     ],
-    status: key === "sync" ? "Global sync" : "Global history",
+    status: isSync ? "Internal diagnostic" : "Read-only",
   };
 }
 
@@ -1317,6 +1540,7 @@ function buildOperations(readModel: PlatformAdminLiveReadModel): PlatformSection
       "Every sensitive action requires server authorization, reason, confirmation, and audit.",
       "Double submit protection is handled by pending-aware submit controls and idempotent RPC state checks.",
       "Provisioning and Platform Admin grants stay on their dedicated pages.",
+      "Device emergency operations are global exceptions. Daily device management belongs to Admin Console.",
     ],
     operations: [
       {
@@ -1324,7 +1548,8 @@ function buildOperations(readModel: PlatformAdminLiveReadModel): PlatformSection
         label: "Shop lifecycle",
       },
       {
-        description: "Emergency device action uses platform_emergency_revoke_device.",
+        description:
+          "Emergency device action uses platform_emergency_revoke_device as a global exception. Daily device management belongs to Admin Console.",
         label: "Emergency device action",
       },
       {
@@ -1368,14 +1593,19 @@ function buildSupport(readModel: PlatformAdminLiveReadModel): PlatformSection {
     );
 
     return {
-      area: profile.display_name,
-      next: recentAudit?.event ?? "No recent audit",
       rowKey: profile.profile_id,
       signal:
         memberships.length > 0
           ? memberships.slice(0, 2).join(", ")
           : "No memberships",
       state: formatToken(profile.profile_status),
+      subject: profile.display_name,
+      suggestedNextStep:
+        memberships.length === 0
+          ? "Check profile membership"
+          : recentAudit
+            ? "Open user detail"
+            : "No action needed",
     };
   });
 
@@ -1390,28 +1620,108 @@ function buildSupport(readModel: PlatformAdminLiveReadModel): PlatformSection {
     );
 
     return {
-      area: shop.shop_name,
-      next: sync ? `${formatToken(sync.event_type)} ${sync.created_at}` : "No sync",
       rowKey: shop.shop_id,
       signal: `${activeOwnerForShop(shop, readModel.profiles, readModel.shopMembers)} / ${devices.length} devices`,
       state: formatToken(shop.shop_status),
+      subject: shop.shop_name,
+      suggestedNextStep:
+        activeOwnerForShop(shop, readModel.profiles, readModel.shopMembers) === "Unassigned"
+          ? "Use Provisioning"
+          : devices.length === 0
+            ? "Open Data"
+            : sync
+              ? "Open shop detail"
+              : "Open Data",
     };
   });
+  const accessIssues =
+    readModel.dataHealth.profiles_without_membership +
+    readModel.dataHealth.shops_without_owner +
+    readModel.readIssues.length;
 
   return {
     ...base,
+    columns: [
+      { key: "subject", label: "Subject" },
+      { key: "signal", label: "Signal" },
+      { key: "state", label: "State" },
+      { key: "suggestedNextStep", label: "Suggested next step" },
+    ],
+    description:
+      "Read-only diagnostic view for access, membership, shop setup, devices, sync, and recent audit signals.",
+    diagnosticsPriority: "secondary",
+    emptyState: {
+      title: "No support signals visible",
+      description:
+        "Support rows appear when safe profile, shop, membership, device, sync, or audit DTOs are returned by the server read model.",
+    },
     guardrails: [
       "Support diagnostics is read-only and does not impersonate users.",
       "Suggested actions link back to safe operations; diagnostics do not mutate data.",
       "Access status, memberships, audit, devices, sync, and configuration warnings are redacted summaries.",
     ],
+    nextLinks: [
+      {
+        description: "Review profile identity, memberships, and access state.",
+        href: "/platform/users",
+        label: "Open Users",
+      },
+      {
+        description: "Review shop setup, owners, members, devices, and health.",
+        href: "/platform/shops",
+        label: "Open Shops",
+      },
+      {
+        description:
+          "Review aggregate data health for device and sync diagnostic signals.",
+        href: "/platform/data",
+        label: "Open Data",
+      },
+      {
+        description: "Use Provisioning when a shop needs owner setup.",
+        href: "/platform/provisioning",
+        label: "Open Provisioning",
+      },
+      {
+        description: "Use Operations only for audited emergency or lifecycle actions.",
+        href: "/platform/operations",
+        label: "Open Operations",
+      },
+    ],
+    purposeItems: [
+      {
+        detail:
+          "Diagnose access, membership, shop setup, devices, sync, and recent audit signals.",
+        label: "Shows",
+      },
+      {
+        detail:
+          "Use it when a profile cannot enter, a shop is missing, or device/sync rows are not visible.",
+        label: "Use when",
+      },
+      {
+        detail: "It does not impersonate users and does not run mutative support actions.",
+        label: "Not included",
+      },
+      {
+        detail:
+          "Suggested next steps point to Users, Shops, Data, Provisioning, or Operations.",
+        label: "Next step",
+      },
+    ],
     rows: [...profileRows, ...shopRows],
     stats: [
       stat("Profiles checked", String(profileRows.length), "Support sample"),
       stat("Shops checked", String(shopRows.length), "Support sample"),
-      stat("Impersonation", "Out of scope", "Separate task required", "warning"),
+      stat(
+        "Access issues",
+        String(accessIssues),
+        "Membership, owner, or read warnings",
+        accessIssues > 0 ? "warning" : "good",
+      ),
+      stat("Impersonation: Out of scope", "No", "No mutative support action", "warning"),
     ],
-    status: "Read-only diagnostics",
+    status: "Read-only",
   };
 }
 

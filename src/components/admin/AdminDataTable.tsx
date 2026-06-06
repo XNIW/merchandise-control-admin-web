@@ -18,6 +18,8 @@ type AdminDataTableProps = {
   footer?: string;
 };
 
+const nowrapColumns = new Set(["date", "granted", "lastSeen"]);
+
 export function AdminDataTable({
   caption,
   columns,
@@ -27,7 +29,7 @@ export function AdminDataTable({
 }: AdminDataTableProps) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full border-separate border-spacing-0 text-left text-sm">
+      <table className="min-w-[56rem] border-separate border-spacing-0 text-left text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr>
@@ -49,7 +51,10 @@ export function AdminDataTable({
                 {columns.map((column) => (
                   <td
                     key={column.key}
-                    className="max-w-72 break-words border-b border-slate-100 px-3 py-3 text-slate-700 first:pl-0 last:pr-0"
+                    className={[
+                      "max-w-72 break-words border-b border-slate-100 px-3 py-3 align-top text-slate-700 first:pl-0 last:pr-0",
+                      nowrapColumns.has(column.key) ? "whitespace-nowrap" : "",
+                    ].join(" ")}
                   >
                     {row[column.key] ?? ""}
                   </td>

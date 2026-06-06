@@ -3,8 +3,9 @@ import { PlatformPage } from "@/components/platform/PlatformPage";
 import { getPlatformSectionForRequest } from "@/server/platform-admin/platform-section-data";
 
 export const metadata: Metadata = {
-  title: "Global Devices | MerchandiseControl Admin Web",
-  description: "Global device authorization overview.",
+  title: "Device Signals | MerchandiseControl Admin Web",
+  description:
+    "Internal diagnostic view for global device coverage and support signals.",
 };
 
 export const dynamic = "force-dynamic";

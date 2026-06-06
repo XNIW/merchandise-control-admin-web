@@ -186,81 +186,160 @@ export default async function PlatformAdminsPage({
             <EmptyState title={formatToken(readModel.status)} description={readModel.reason} />
           </SectionCard>
         ) : (
-          <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-            <SectionCard
-              title="Grant Platform Admin"
-              description="Select an active profile, provide a reason, and type GRANT to confirm."
+          <div className="grid gap-5">
+            <section
+              aria-label="Platform Admin safeguards"
+              className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
             >
-              <form action={grantPlatformAdminAction} className="grid gap-4">
-                <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-                  <span>Profile</span>
-                  <select
-                    name="profileId"
-                    required
-                    className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
-                  >
-                    <option value="">Select active profile</option>
-                    {grantableProfiles.map((profile) => (
-                      <option key={profile.profile_id} value={profile.profile_id}>
-                        {profile.display_name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <ReasonInput />
-                <ConfirmationInput label="Type GRANT to confirm" />
-                <SubmitButton disabled={grantableProfiles.length === 0}>
-                  Grant admin
-                </SubmitButton>
-              </form>
-            </SectionCard>
+              {[
+                {
+                  label: "Active admins",
+                  value: String(activeAdmins.length),
+                  detail: "Visible active grants",
+                },
+                {
+                  label: "Server-side audit boundary",
+                  value: "Required",
+                  detail: "Grant/revoke actions use audited RPCs",
+                },
+                {
+                  label: "Self-lockout protection",
+                  value: "Server enforced",
+                  detail: "Server blocks self-lockout and last-admin removal.",
+                },
+                {
+                  label: "Metadata/redaction boundary",
+                  value: "Redacted",
+                  detail: "No raw sensitive metadata is rendered",
+                },
+              ].map((item) => (
+                <div
+                  key={item.label}
+                  className="rounded-md border border-slate-200 bg-white p-4"
+                >
+                  <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
+                    {item.label}
+                  </p>
+                  <p className="mt-2 text-lg font-semibold text-slate-950">
+                    {item.value}
+                  </p>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">
+                    {item.detail}
+                  </p>
+                </div>
+              ))}
+            </section>
 
-            <SectionCard
-              title="Active Platform Admins"
-              description="Revocation requires a reason and REVOKE confirmation. The server blocks self-lockout and last-admin removal."
-            >
-              {activeAdmins.length === 0 ? (
-                <EmptyState
-                  title="No active grants"
-                  description="No active Platform Admin grants are visible through RLS."
-                />
-              ) : (
-                <div className="grid gap-3">
-                  {activeAdmins.map((admin) => (
-                    <article
-                      key={admin.platform_admin_id}
-                      className="rounded-md border border-slate-200 bg-slate-50 p-4"
+            <div className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)] xl:items-start">
+              <SectionCard
+                title="Grant Platform Admin"
+                description="Select an active profile, provide a reason, and type GRANT to confirm."
+              >
+                <form action={grantPlatformAdminAction} className="grid max-w-2xl gap-4">
+                  <label className="grid gap-1.5 text-sm font-medium text-slate-800">
+                    <span>Profile</span>
+                    <select
+                      name="profileId"
+                      required
+                      className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
                     >
-                      <div className="grid gap-3 lg:grid-cols-[minmax(0,1fr)_280px]">
-                        <div>
-                          <h3 className="text-base font-semibold text-slate-950">
-                            {profileNameById(readModel.profiles, admin.profile_id)}
-                          </h3>
+                      <option value="">Select active profile</option>
+                      {grantableProfiles.map((profile) => (
+                        <option key={profile.profile_id} value={profile.profile_id}>
+                          {profile.display_name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <ReasonInput />
+                  <ConfirmationInput label="Type GRANT to confirm" />
+                  <SubmitButton disabled={grantableProfiles.length === 0}>
+                    Grant admin
+                  </SubmitButton>
+                </form>
+              </SectionCard>
+
+              <SectionCard
+                title="Active Platform Admins"
+                description="Server blocks self-lockout and last-admin removal. Revoke controls are collapsed by default."
+              >
+                {activeAdmins.length === 0 ? (
+                  <EmptyState
+                    title="No active grants"
+                    description="No active Platform Admin grants are visible through RLS."
+                  />
+                ) : (
+                  <div className="grid gap-3">
+                    {activeAdmins.map((admin) => (
+                      <article
+                        key={admin.platform_admin_id}
+                        className="rounded-md border border-slate-200 bg-slate-50 p-4"
+                      >
+                        <div className="min-w-0">
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                            <div className="min-w-0">
+                              <h3
+                                title={admin.profile_id}
+                                className="break-words text-base font-semibold text-slate-950"
+                              >
+                                {profileNameById(readModel.profiles, admin.profile_id)}
+                              </h3>
+                              <p
+                                title={admin.profile_id}
+                                className="mt-1 break-all text-xs text-slate-500"
+                              >
+                                Profile {admin.profile_id}
+                              </p>
+                            </div>
+                            <span className="w-fit rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
+                              {formatToken(admin.status)}
+                            </span>
+                          </div>
+
                           <dl className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
                             <div>
-                              <dt className="font-semibold text-slate-500">Status</dt>
-                              <dd>{formatToken(admin.status)}</dd>
+                              <dt className="font-semibold text-slate-500">Grant ID</dt>
+                              <dd
+                                title={admin.platform_admin_id}
+                                className="break-all text-slate-800"
+                              >
+                                {admin.platform_admin_id}
+                              </dd>
                             </div>
                             <div>
                               <dt className="font-semibold text-slate-500">Granted</dt>
-                              <dd>{admin.granted_at}</dd>
+                              <dd
+                                title={admin.granted_at}
+                                className="whitespace-nowrap text-slate-800"
+                              >
+                                {admin.granted_at}
+                              </dd>
                             </div>
                           </dl>
                         </div>
-                        <form action={revokePlatformAdminAction} className="grid gap-2">
-                          <input type="hidden" name="profileId" value={admin.profile_id} />
-                          <ReasonInput />
-                          <ConfirmationInput label="Type REVOKE to confirm" />
-                          <SubmitButton danger disabled={activeAdmins.length <= 1}>
-                            Revoke admin
-                          </SubmitButton>
-                        </form>
-                      </div>
-                    </article>
-                  ))}
-                </div>
-              )}
-            </SectionCard>
+
+                        <details className="mt-4 rounded-md border border-rose-200 bg-white p-3">
+                          <summary className="cursor-pointer text-sm font-semibold text-rose-800 outline-none focus-visible:ring-2 focus-visible:ring-rose-700">
+                            Danger zone: Show revoke controls
+                          </summary>
+                          <p className="mt-3 text-sm leading-5 text-slate-600">
+                            Revoke controls are collapsed by default. Server blocks self-lockout and last-admin removal.
+                          </p>
+                          <form action={revokePlatformAdminAction} className="mt-3 grid gap-3">
+                            <input type="hidden" name="profileId" value={admin.profile_id} />
+                            <ReasonInput />
+                            <ConfirmationInput label="Type REVOKE to confirm" />
+                            <SubmitButton danger disabled={activeAdmins.length <= 1}>
+                              Revoke admin
+                            </SubmitButton>
+                          </form>
+                        </details>
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </SectionCard>
+            </div>
           </div>
         )}
       </div>
