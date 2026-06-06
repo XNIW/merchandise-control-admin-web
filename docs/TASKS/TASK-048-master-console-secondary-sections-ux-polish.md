@@ -2,16 +2,16 @@
 
 ## Stato
 
-- Stato: `REVIEW`
-- Fase: `REVIEW`
-- Responsabile corrente: `REVIEWER`
+- Stato: `DONE_RECONCILED`
+- Fase: `DONE_RECONCILED`
+- Responsabile corrente: `USER_CONFIRMED_RECONCILIATION`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-048/README.md`
 - Dipendenza: `TASK-047` resta in `REVIEW`.
 - Nota governance: TASK-047 remains in REVIEW and is a dependency, not automatically DONE.
-- Commit durante execution: `NOT_RUN`
-- Push durante execution: `NOT_RUN`
+- Commit durante execution: `NOT_RUN`; commit finale autorizzato il 2026-06-06
+- Push durante execution: `NOT_RUN`; push finale autorizzato il 2026-06-06
 - Repository handoff post-review: `COMMIT_PUSH_AUTHORIZED_BY_USER_2026-06-05`
-- Stage finale prima dell'handoff git: `NOT_STAGED`
+- Stage finale prima dell'handoff git originario: `NOT_STAGED`; stage finale autorizzato il 2026-06-06
 
 ## Obiettivo
 
@@ -54,9 +54,8 @@ Decisione review/fix: Devices and Sync are not top-level Master Console sidebar 
 - No azioni mutative da Support.
 - No spostamento della gestione quotidiana shop/staff/prodotti nella Master Console.
 - No rimozione di reason, confirmation o audit da Operations.
-- No commit.
-- No push.
-- No final stage.
+- No commit/push/stage durante l'execution originaria.
+- Commit/push finale su `main` autorizzati dall'utente il 2026-06-06.
 
 ## Implementazione
 
@@ -128,7 +127,7 @@ Decisione review/fix: Devices and Sync are not top-level Master Console sidebar 
 - Users/Shops non vengono rifatte o cambiate pesantemente.
 - Sidebar sticky resta preservata.
 - Nessun dato inventato.
-- Task finale resta `REVIEW`; non `DONE`.
+- Task finale riconciliato a `DONE_RECONCILED` su conferma esplicita utente del 2026-06-06.
 
 ## Check Richiesti
 
@@ -146,6 +145,13 @@ Decisione review/fix: Devices and Sync are not top-level Master Console sidebar 
 
 ## Stato Finale Atteso
 
-- Handoff a `REVIEW`.
+- Riconciliato a `DONE_RECONCILED` su conferma esplicita utente del 2026-06-06.
 - Durante l'execution TASK-048: nessun commit, nessun push, nessun file staged.
 - Post-handoff: commit/push su `main` autorizzati dall'utente il 2026-06-05.
+
+## Riconciliazione DONE 2026-06-06
+
+- Conferma esplicita utente ricevuta: `Metti in DONE tutte quelle che si può e poi fai merge nella main e poi commit push`.
+- Stato finale: `DONE_RECONCILED`.
+- La chiusura non promuove Win7POS live E2E, POS online/catalog pull, Sales Sync live o staging stabile: restano gate separati non eseguiti quando applicabile.
+- Commit/push finale su `main` autorizzati dall'utente il 2026-06-06.

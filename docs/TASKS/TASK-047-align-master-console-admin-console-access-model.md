@@ -2,9 +2,9 @@
 
 ## Stato
 
-- Stato: `REVIEW`
-- Fase: `REVIEW`
-- Responsabile corrente: `REVIEWER`
+- Stato: `DONE_RECONCILED`
+- Fase: `DONE_RECONCILED`
+- Responsabile corrente: `USER_CONFIRMED_RECONCILIATION`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-047/README.md`
 - Scope: naming/copy/routing guard/test/docs.
 
@@ -102,3 +102,10 @@ Gli account personali e gli staff account non vengono fusi. Quando il ruolo/perm
   scroll della lista, l'inspector mantiene `Open full detail` facile da
   raggiungere, e il bottone `Copy` dello shop code ha label accessibile e copia
   il codice senza nuove dipendenze.
+
+## Riconciliazione DONE 2026-06-06
+
+- Conferma esplicita utente ricevuta: `Metti in DONE tutte quelle che si può e poi fai merge nella main e poi commit push`.
+- Stato finale: `DONE_RECONCILED`.
+- La chiusura non promuove Win7POS live E2E, POS online/catalog pull, Sales Sync live o staging stabile: restano gate separati non eseguiti quando applicabile.
+- Commit/push finale su `main` autorizzati dall'utente il 2026-06-06.

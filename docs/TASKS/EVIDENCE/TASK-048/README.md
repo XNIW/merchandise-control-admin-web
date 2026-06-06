@@ -130,7 +130,7 @@ TASK-047 remains in REVIEW and is a dependency, not automatically DONE.
 
 ## Stato
 
-- Stato task: `REVIEW`
+- Stato task: `DONE_RECONCILED`
 - Durante l'execution TASK-048: nessun commit, nessun push, nessun file staged.
 - Post-handoff repository action: commit/push su `main` autorizzati dall'utente
   il 2026-06-05 dopo check freschi.
@@ -146,3 +146,10 @@ TASK-047 remains in REVIEW and is a dependency, not automatically DONE.
 ## Prossimo Passo Consigliato
 
 Review visiva delle cinque schede, poi conferma reviewer o fix puntuale.
+
+## Riconciliazione DONE 2026-06-06
+
+- Conferma esplicita utente ricevuta: `Metti in DONE tutte quelle che si può e poi fai merge nella main e poi commit push`.
+- Stato finale: `DONE_RECONCILED`.
+- La chiusura non promuove Win7POS live E2E, POS online/catalog pull, Sales Sync live o staging stabile: restano gate separati non eseguiti quando applicabile.
+- Commit/push finale su `main` autorizzati dall'utente il 2026-06-06.

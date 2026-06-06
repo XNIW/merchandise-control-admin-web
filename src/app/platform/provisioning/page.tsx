@@ -88,9 +88,11 @@ function resultMessage(
 }
 
 function ActionResultBanner({
+  id,
   operation,
   result,
 }: {
+  id: string;
   operation: ProvisioningOperationKey;
   result: PlatformShopActionCode;
 }) {
@@ -98,6 +100,7 @@ function ActionResultBanner({
 
   return (
     <section
+      id={id}
       aria-live="polite"
       role={isSuccess ? "status" : "alert"}
       className={[
@@ -147,10 +150,6 @@ export default async function PlatformProvisioningPage({
           Platform Console does safe, audited provisioning. Daily POS/staff management stays in Shop Admin.
         </section>
 
-        {operation && result ? (
-          <ActionResultBanner operation={operation} result={result} />
-        ) : null}
-
         {!ready ? (
           <SectionCard
             title={`Provisioning ${formatToken(readModel.status)}`}
@@ -164,8 +163,16 @@ export default async function PlatformProvisioningPage({
               title="Create shop with existing owner"
               description="Owner assignment uses an existing active profile and writes audit in the create-shop RPC."
             >
+              {operation === "create" && result ? (
+                <ActionResultBanner
+                  id="create-shop-result"
+                  operation={operation}
+                  result={result}
+                />
+              ) : null}
               <form
                 action={createPlatformShopAction}
+                aria-describedby="create-shop-result"
                 className="grid max-w-3xl gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
               >
                 <input type="hidden" name="returnTo" value="/platform/provisioning" />
@@ -173,6 +180,7 @@ export default async function PlatformProvisioningPage({
                   <span>Shop name</span>
                   <input
                     name="shopName"
+                    placeholder="Acme Santiago"
                     required
                     className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
                   />
@@ -181,6 +189,7 @@ export default async function PlatformProvisioningPage({
                   <span>Shop code</span>
                   <input
                     name="shopCode"
+                    placeholder="ACME-SCL"
                     required
                     className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
                   />
@@ -204,6 +213,7 @@ export default async function PlatformProvisioningPage({
                   <span>Reason</span>
                   <textarea
                     name="reason"
+                    placeholder="Why this shop should be provisioned"
                     required
                     rows={3}
                     className="min-h-20 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
@@ -221,8 +231,16 @@ export default async function PlatformProvisioningPage({
               title="Create pending owner invite"
               description="Creates a pending setup shop and stores only redacted owner contact state. Email delivery pending is tracked as PASS_WITH_NOTES_EMAIL_DELIVERY."
             >
+              {operation === "pending_owner_invite" && result ? (
+                <ActionResultBanner
+                  id="pending-owner-invite-result"
+                  operation={operation}
+                  result={result}
+                />
+              ) : null}
               <form
                 action={createPlatformPendingOwnerInviteAction}
+                aria-describedby="pending-owner-invite-result"
                 className="grid max-w-3xl gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
               >
                 <input type="hidden" name="returnTo" value="/platform/provisioning" />
@@ -230,6 +248,7 @@ export default async function PlatformProvisioningPage({
                   <span>Shop name</span>
                   <input
                     name="shopName"
+                    placeholder="Acme Santiago"
                     required
                     className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
                   />
@@ -238,6 +257,7 @@ export default async function PlatformProvisioningPage({
                   <span>Shop code</span>
                   <input
                     name="shopCode"
+                    placeholder="ACME-SCL"
                     required
                     className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
                   />
@@ -246,6 +266,7 @@ export default async function PlatformProvisioningPage({
                   <span>Owner email</span>
                   <input
                     name="ownerEmail"
+                    placeholder="owner@example.com"
                     required
                     type="email"
                     className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
@@ -255,6 +276,7 @@ export default async function PlatformProvisioningPage({
                   <span>Reason</span>
                   <textarea
                     name="reason"
+                    placeholder="Why this pending owner invite should be created"
                     required
                     rows={3}
                     className="min-h-20 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"

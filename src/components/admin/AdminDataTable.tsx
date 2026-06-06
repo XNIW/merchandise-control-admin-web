@@ -1,3 +1,8 @@
+import {
+  formatTimestampUtc,
+  isIsoTimestamp,
+} from "@/components/platform/displayFormat";
+
 export type AdminDataTableColumn = {
   key: string;
   label: string;
@@ -29,7 +34,7 @@ export function AdminDataTable({
 }: AdminDataTableProps) {
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-[56rem] border-separate border-spacing-0 text-left text-sm">
+      <table className="min-w-[64rem] border-separate border-spacing-0 text-left text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead>
           <tr>
@@ -48,17 +53,25 @@ export function AdminDataTable({
           {rows.length > 0 ? (
             rows.map((row, rowIndex) => (
               <tr key={row.rowKey ?? `${rowIndex}-${columns[0]?.key ?? "row"}`}>
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className={[
-                      "max-w-72 break-words border-b border-slate-100 px-3 py-3 align-top text-slate-700 first:pl-0 last:pr-0",
-                      nowrapColumns.has(column.key) ? "whitespace-nowrap" : "",
-                    ].join(" ")}
-                  >
-                    {row[column.key] ?? ""}
-                  </td>
-                ))}
+                {columns.map((column) => {
+                  const rawValue = row[column.key] ?? "";
+                  const value = isIsoTimestamp(rawValue)
+                    ? formatTimestampUtc(rawValue)
+                    : rawValue;
+
+                  return (
+                    <td
+                      key={column.key}
+                      title={rawValue}
+                      className={[
+                        "max-w-72 break-words border-b border-slate-100 px-3 py-3 align-top text-slate-700 first:pl-0 last:pr-0",
+                        nowrapColumns.has(column.key) ? "whitespace-nowrap" : "",
+                      ].join(" ")}
+                    >
+                      {value}
+                    </td>
+                  );
+                })}
               </tr>
             ))
           ) : (

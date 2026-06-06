@@ -3,6 +3,11 @@ import { AppShell } from "@/components/platform/AppShell";
 import { EmptyState } from "@/components/platform/components/EmptyState";
 import { PageHeader } from "@/components/platform/components/PageHeader";
 import { SectionCard } from "@/components/platform/components/SectionCard";
+import {
+  formatTimestampUtc,
+  formatToken,
+  shortIdentifier,
+} from "@/components/platform/displayFormat";
 import type { Profile } from "@/domain/platform-admin/types";
 import { getPlatformAdminReadModel } from "@/server/platform-admin/read-model";
 import {
@@ -57,13 +62,6 @@ function firstParam(value: string | string[] | undefined) {
 
 function asResultCode(value: string | undefined): ResultCode | null {
   return value && value in resultMessages ? (value as ResultCode) : null;
-}
-
-function formatToken(value: string) {
-  return value
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 }
 
 function profileNameById(profiles: readonly Profile[], profileId: string) {
@@ -286,9 +284,9 @@ export default async function PlatformAdminsPage({
                               </h3>
                               <p
                                 title={admin.profile_id}
-                                className="mt-1 break-all text-xs text-slate-500"
+                                className="mt-1 break-all font-mono text-xs text-slate-500"
                               >
-                                Profile {admin.profile_id}
+                                Profile {shortIdentifier(admin.profile_id)}
                               </p>
                             </div>
                             <span className="w-fit rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
@@ -301,9 +299,9 @@ export default async function PlatformAdminsPage({
                               <dt className="font-semibold text-slate-500">Grant ID</dt>
                               <dd
                                 title={admin.platform_admin_id}
-                                className="break-all text-slate-800"
+                                className="break-all font-mono text-slate-800"
                               >
-                                {admin.platform_admin_id}
+                                {shortIdentifier(admin.platform_admin_id)}
                               </dd>
                             </div>
                             <div>
@@ -312,17 +310,18 @@ export default async function PlatformAdminsPage({
                                 title={admin.granted_at}
                                 className="whitespace-nowrap text-slate-800"
                               >
-                                {admin.granted_at}
+                                {formatTimestampUtc(admin.granted_at)}
                               </dd>
                             </div>
                           </dl>
                         </div>
 
-                        <details className="mt-4 rounded-md border border-rose-200 bg-white p-3">
-                          <summary className="cursor-pointer text-sm font-semibold text-rose-800 outline-none focus-visible:ring-2 focus-visible:ring-rose-700">
-                            Danger zone: Show revoke controls
+                        <details className="mt-4 rounded-md border border-rose-100 bg-white">
+                          <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus-visible:ring-2 focus-visible:ring-rose-700">
+                            Show revoke controls
                           </summary>
-                          <p className="mt-3 text-sm leading-5 text-slate-600">
+                          <div className="border-t border-rose-100 bg-rose-50 p-3">
+                          <p className="text-sm leading-5 text-rose-950">
                             Revoke controls are collapsed by default. Server blocks self-lockout and last-admin removal.
                           </p>
                           <form action={revokePlatformAdminAction} className="mt-3 grid gap-3">
@@ -333,6 +332,7 @@ export default async function PlatformAdminsPage({
                               Revoke admin
                             </SubmitButton>
                           </form>
+                          </div>
                         </details>
                       </article>
                     ))}

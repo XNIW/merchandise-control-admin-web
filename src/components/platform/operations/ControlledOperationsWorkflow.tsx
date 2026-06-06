@@ -74,6 +74,37 @@ function ownerNameForShop(
   return owner ? profileNameById(profiles, owner.profile_id) : "Unassigned";
 }
 
+function shopStatusLabel(status: Shop["shop_status"]) {
+  const labels: Record<Shop["shop_status"], string> = {
+    active: "Active",
+    archived: "Archived",
+    pending_setup: "Pending setup",
+    suspended: "Suspended",
+  };
+
+  return labels[status] ?? formatToken(status);
+}
+
+function statusToneClassForShop(status: Shop["shop_status"], isSelected: boolean) {
+  if (isSelected) {
+    return "border-white/30 bg-white/10 text-white";
+  }
+
+  if (status === "active") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+
+  if (status === "suspended" || status === "pending_setup") {
+    return "border-amber-200 bg-amber-50 text-amber-900";
+  }
+
+  if (status === "archived") {
+    return "border-slate-300 bg-slate-100 text-slate-700";
+  }
+
+  return "border-slate-200 bg-white text-slate-700";
+}
+
 function firstAvailableAction(
   shop: Shop | undefined,
   shopDevices: readonly PlatformDeviceOverview[],
@@ -167,7 +198,21 @@ export function ControlledOperationsWorkflow({
   shops,
 }: ControlledOperationsWorkflowProps) {
   const [selectedShopId, setSelectedShopId] = useState(shops[0]?.shop_id ?? "");
+  const [shopSearchTerm, setShopSearchTerm] = useState("");
   const selectedShop = shops.find((shop) => shop.shop_id === selectedShopId);
+  const normalizedShopSearchTerm = shopSearchTerm.trim().toLocaleLowerCase();
+  const filteredShops = useMemo(
+    () =>
+      normalizedShopSearchTerm
+        ? shops.filter((shop) =>
+            [shop.shop_name, shop.shop_code, shop.shop_status]
+              .join(" ")
+              .toLocaleLowerCase()
+              .includes(normalizedShopSearchTerm),
+          )
+        : shops,
+    [normalizedShopSearchTerm, shops],
+  );
   const shopDevices = useMemo(
     () =>
       selectedShop
@@ -226,8 +271,23 @@ export function ControlledOperationsWorkflow({
         title="Choose target shop"
         description="Pick one shop before selecting the audited action."
       >
+        <label className="mb-3 grid gap-1 text-sm font-semibold text-slate-700">
+          Search target shops
+          <input
+            type="search"
+            value={shopSearchTerm}
+            onChange={(event) => setShopSearchTerm(event.target.value)}
+            placeholder="Name, code, or status"
+            className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
+          />
+        </label>
         <div className="grid max-h-[36rem] gap-2 overflow-y-auto pr-1">
-          {shops.map((shop) => {
+          {filteredShops.length === 0 ? (
+            <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600">
+              No shops match this search.
+            </div>
+          ) : null}
+          {filteredShops.map((shop) => {
             const isSelected = shop.shop_id === selectedShopId;
 
             return (
@@ -243,14 +303,27 @@ export function ControlledOperationsWorkflow({
                     : "border-slate-200 bg-slate-50 text-slate-800 hover:border-slate-300 hover:bg-white",
                 ].join(" ")}
               >
-                <span title={shop.shop_name} className="block break-words font-semibold">
-                  {shop.shop_name}
+                <span className="flex min-w-0 flex-wrap items-start justify-between gap-2">
+                  <span title={shop.shop_name} className="min-w-0 break-words font-semibold">
+                    {shop.shop_name}
+                  </span>
+                  <span
+                    className={[
+                      "shrink-0 rounded-md border px-2 py-0.5 text-xs font-semibold",
+                      statusToneClassForShop(shop.shop_status, isSelected),
+                    ].join(" ")}
+                  >
+                    {shopStatusLabel(shop.shop_status)}
+                  </span>
                 </span>
                 <span
                   title={shop.shop_code}
-                  className={isSelected ? "block break-all text-slate-200" : "block break-all text-slate-500"}
+                  className={[
+                    "mt-1 block break-all font-mono text-xs",
+                    isSelected ? "text-slate-200" : "text-slate-500",
+                  ].join(" ")}
                 >
-                  {shop.shop_code} / {formatToken(shop.shop_status)}
+                  {shop.shop_code}
                 </span>
                 <span className={isSelected ? "block text-slate-200" : "block text-slate-500"}>
                   Owner: {ownerNameForShop(shop, profiles, members)}

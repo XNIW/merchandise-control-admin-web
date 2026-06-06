@@ -1,6 +1,11 @@
 import "server-only";
 
 import {
+  formatTimestampUtc,
+  formatToken,
+  readableBoundaryStatus,
+} from "@/components/platform/displayFormat";
+import {
   platformSections,
   type PlatformSection,
   type PlatformSectionKey,
@@ -20,12 +25,6 @@ import {
   getPlatformAdminReadModel,
   type PlatformAdminLiveReadModel,
 } from "./read-model";
-
-const formatToken = (value: string) =>
-  value
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
 
 const shortId = (value?: string) => (value ? value.slice(0, 8) : "none");
 
@@ -413,7 +412,7 @@ function userRowDetail(
       "No auth secret fields are queried or rendered.",
     ],
     rowKey: profile.profile_id,
-    subtitle: `ID ${shortId(profile.profile_id)} / ${shopAccessSummaryForProfile(
+    subtitle: `Profile ID ${shortId(profile.profile_id)} / ${shopAccessSummaryForProfile(
       profile.profile_id,
       readModel.shops,
       readModel.shopMembers,
@@ -473,7 +472,9 @@ function shopRowDetail(
           { label: "Summary", value: shopDeviceSummary(shop, readModel) },
           {
             label: "Latest device update",
-            value: devices[0]?.updated_at ?? "No devices visible",
+            value: devices[0]?.updated_at
+              ? formatTimestampUtc(devices[0].updated_at)
+              : "No devices visible",
           },
         ],
         notes: [
@@ -487,7 +488,7 @@ function shopRowDetail(
           {
             label: "Latest sync",
             value: latestSync
-              ? `${formatToken(latestSync.event_type)} / ${latestSync.created_at}`
+              ? `${formatToken(latestSync.event_type)} / ${formatTimestampUtc(latestSync.created_at)}`
               : "No sync visible",
           },
           { label: "Audit count", value: String(audits.length) },
@@ -521,7 +522,7 @@ function shopRowDetail(
       "Open Admin Console for shop-level device management.",
     ],
     rowKey: shop.shop_id,
-    subtitle: `${shop.shop_code} / ${formatToken(shop.shop_status)}`,
+    subtitle: `Shop code ${shop.shop_code} / ${formatToken(shop.shop_status)}`,
     title: shop.shop_name,
   };
 }
@@ -643,7 +644,12 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
     {
       fields: [
         { label: "Summary", value: shopDeviceSummary(shop, readModel) },
-        { label: "Latest update", value: devices[0]?.updated_at ?? "No devices visible" },
+        {
+          label: "Latest update",
+          value: devices[0]?.updated_at
+            ? formatTimestampUtc(devices[0].updated_at)
+            : "No devices visible",
+        },
       ],
       notes:
         devices.length === 0
@@ -663,7 +669,7 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
         {
           label: "Latest sync",
           value: sync
-            ? `${formatToken(sync.event_type)} / ${sync.created_at}`
+            ? `${formatToken(sync.event_type)} / ${formatTimestampUtc(sync.created_at)}`
             : "No sync visible",
         },
         { label: "Latest audit", value: audits[0]?.event ?? "No audit event visible" },
@@ -880,7 +886,7 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
       return {
         origin: accountOriginForProfile(),
         access: accessSummaryForProfile(profile.profile_id, readModel),
-        profile: `${profile.display_name}\nID ${shortId(profile.profile_id)}\n${profileStatus}`,
+        profile: `${profile.display_name}\nProfile ID ${shortId(profile.profile_id)}\n${profileStatus}`,
         rowKey: profile.profile_id,
         shops: shopAccess,
         state: profileStatus,
@@ -947,7 +953,7 @@ function buildShops(readModel: PlatformAdminLiveReadModel): PlatformSection {
         members: memberSummaryForShop(shop.shop_id, readModel.shopMembers),
         owners: ownerSummaryForShop(shop, readModel.profiles, readModel.shopMembers),
         rowKey: shop.shop_id,
-        shop: `${shop.shop_name}\nID ${shortId(shop.shop_id)}\n${shopStatus}`,
+        shop: `${shop.shop_name}\nCode ${shop.shop_code}\nID ${shortId(shop.shop_id)}\n${shopStatus}`,
       };
     }),
     searchPlaceholder: "Search shops by name, code, or ID",
@@ -1098,26 +1104,34 @@ function buildSystem(readModel: PlatformAdminLiveReadModel): PlatformSection {
       {
         area: "Redacted runtime configuration",
         next: "Configured values are never printed",
-        signal: readModel.status === "ready" ? "configured" : "not_configured",
-        state: readModel.status === "ready" ? "PASS" : "not_configured",
+        signal: readModel.status === "ready" ? "Configured" : "Not configured",
+        state: readModel.status === "ready" ? readableBoundaryStatus("PASS") : readableBoundaryStatus("not_configured"),
       },
       {
         area: "Supabase connection health",
         next: readModel.reason,
         signal: `${readModel.profiles.length + readModel.shops.length} primary rows`,
-        state: "PASS",
+        state: readableBoundaryStatus("PASS"),
       },
       {
         area: "RLS/grants summary",
-        next: staffIssue?.message ?? "Selects pass through authenticated RLS only",
-        signal: "Profiles, shops, audit, devices, sync",
-        state: staffIssue ? staffIssue.code : "PASS_WITH_NOTES",
+        next: staffIssue
+          ? `${staffIssue.message}\nCode: ${staffIssue.code}`
+          : "Selects pass through authenticated RLS only",
+        signal: staffIssue ? "Permission boundary" : "Profiles, shops, audit, devices, sync",
+        state: staffIssue
+          ? readableBoundaryStatus(staffIssue.code)
+          : readableBoundaryStatus("PASS_WITH_NOTES"),
       },
       {
         area: "Staff safe read model",
-        next: staffIssue?.message ?? "Safe staff view is readable or empty",
-        signal: staffIssue ? staffIssue.code : `${readModel.staffSafeRows.length} rows`,
-        state: readModel.dataHealth.staff_schema_status,
+        next: staffIssue
+          ? `${staffIssue.message}\nCode: ${staffIssue.code}`
+          : "Safe staff view is readable or empty",
+        signal: staffIssue
+          ? "Permission boundary"
+          : `${readModel.staffSafeRows.length} rows`,
+        state: readableBoundaryStatus(readModel.dataHealth.staff_schema_status),
       },
       {
         area: "Device/sync data health",
@@ -1130,19 +1144,19 @@ function buildSystem(readModel: PlatformAdminLiveReadModel): PlatformSection {
         area: "Auth SSR health",
         next: "Layout blocks non Platform Admin sessions",
         signal: "resolveCurrentAdminRouteAccess",
-        state: "PASS",
+        state: readableBoundaryStatus("PASS"),
       },
       {
         area: "Migration drift",
         next: "Verified only by linked Supabase CLI checks",
         signal: "migration drift",
-        state: readModel.dataHealth.migration_drift_status,
+        state: readableBoundaryStatus(readModel.dataHealth.migration_drift_status),
       },
     ],
     stats: [
-      stat("Auth SSR", "PASS", "Server session boundary", "good"),
-      stat("Route protection", "PASS", "Server layout gate", "good"),
-      stat("Migration drift", "NOT_RUN", "CLI evidence required", "warning"),
+      stat("Auth SSR", readableBoundaryStatus("PASS"), "Server session boundary", "good"),
+      stat("Route protection", readableBoundaryStatus("PASS"), "Server layout gate", "good"),
+      stat("Migration drift", readableBoundaryStatus("NOT_RUN"), "CLI evidence required", "warning"),
     ],
     status: "System health",
   };
@@ -1166,49 +1180,55 @@ function buildData(readModel: PlatformAdminLiveReadModel): PlatformSection {
         area: "shops without owner",
         next: "Assign owner through safe operations",
         signal: String(health.shops_without_owner),
-        state: health.shops_without_owner > 0 ? "PASS_WITH_NOTES" : "PASS",
+        state: readableBoundaryStatus(
+          health.shops_without_owner > 0 ? "PASS_WITH_NOTES" : "PASS",
+        ),
       },
       {
         area: "profiles without membership",
         next: "Review support diagnostics",
         signal: String(health.profiles_without_membership),
-        state: health.profiles_without_membership > 0 ? "PASS_WITH_NOTES" : "PASS",
+        state: readableBoundaryStatus(
+          health.profiles_without_membership > 0 ? "PASS_WITH_NOTES" : "PASS",
+        ),
       },
       {
         area: "orphaned memberships",
         next: "Investigate referential integrity",
         signal: String(health.orphaned_memberships),
-        state: health.orphaned_memberships > 0 ? "BLOCKED" : "PASS",
+        state: readableBoundaryStatus(
+          health.orphaned_memberships > 0 ? "BLOCKED" : "PASS",
+        ),
       },
       {
         area: "audit coverage",
         next: "Sensitive operations must write audit",
         signal: String(readModel.auditLogs.length),
-        state: health.audit_coverage,
+        state: readableBoundaryStatus(health.audit_coverage),
       },
       {
         area: "migration drift",
         next: "Run linked Supabase CLI check",
         signal: "CLI-only",
-        state: health.migration_drift_status,
+        state: readableBoundaryStatus(health.migration_drift_status),
       },
       {
         area: "inventory mapping status",
         next: "Shop-root mapping summary",
         signal: String(readModel.shopOwnerMappings.length),
-        state: health.inventory_mapping_status,
+        state: readableBoundaryStatus(health.inventory_mapping_status),
       },
       {
         area: "sync/history mapping status",
         next: "Global sync overview",
         signal: String(readModel.syncEvents.length),
-        state: health.sync_history_mapping_status,
+        state: readableBoundaryStatus(health.sync_history_mapping_status),
       },
       {
         area: "device schema status",
         next: "Global device overview",
         signal: String(readModel.shopDevices.length),
-        state: health.device_schema_status,
+        state: readableBoundaryStatus(health.device_schema_status),
       },
       {
         area: "Device/sync data health",
@@ -1219,9 +1239,11 @@ function buildData(readModel: PlatformAdminLiveReadModel): PlatformSection {
       },
       {
         area: "staff schema status",
-        next: staffIssue?.message ?? "Safe staff view only",
-        signal: staffIssue ? staffIssue.code : String(readModel.staffSafeRows.length),
-        state: health.staff_schema_status,
+        next: staffIssue
+          ? `${staffIssue.message}\nCode: ${staffIssue.code}`
+          : "Safe staff view only",
+        signal: staffIssue ? "Permission boundary" : String(readModel.staffSafeRows.length),
+        state: readableBoundaryStatus(health.staff_schema_status),
       },
     ],
     stats: [
@@ -1237,7 +1259,12 @@ function buildData(readModel: PlatformAdminLiveReadModel): PlatformSection {
         "Membership integrity",
         health.orphaned_memberships > 0 ? "warning" : "good",
       ),
-      stat("Migration drift", health.migration_drift_status, "CLI-only", "warning"),
+      stat(
+        "Migration drift",
+        readableBoundaryStatus(health.migration_drift_status),
+        "CLI-only",
+        "warning",
+      ),
     ],
     status: "Data health",
   };
@@ -1812,7 +1839,7 @@ function buildUserDetail(
           {
             access: accessSummaryForProfile(profile.profile_id, readModel),
             origin: accountOriginForProfile(),
-            profile: `${profile.display_name}\nID ${shortId(profile.profile_id)}\n${formatToken(profile.profile_status)}`,
+            profile: `${profile.display_name}\nProfile ID ${shortId(profile.profile_id)}\n${formatToken(profile.profile_status)}`,
             rowKey: profile.profile_id,
             shops:
               memberships.length > 0
@@ -1838,9 +1865,7 @@ function buildUserDetail(
       stat("Audit events", String(audits.length), "Actor-linked audit"),
     ],
     status: "User detail",
-    title: profile
-      ? `${profile.display_name} / ID ${shortId(profile.profile_id)}`
-      : "User Detail",
+    title: profile ? profile.display_name : "User Detail",
   };
 }
 
@@ -1883,7 +1908,7 @@ function buildShopDetail(
             members: memberSummaryForShop(shop.shop_id, readModel.shopMembers),
             owners: ownerSummaryForShop(shop, readModel.profiles, readModel.shopMembers),
             rowKey: shop.shop_id,
-            shop: `${shop.shop_name}\nID ${shortId(shop.shop_id)}\n${formatToken(shop.shop_status)}`,
+            shop: `${shop.shop_name}\nCode ${shop.shop_code}\nID ${shortId(shop.shop_id)}\n${formatToken(shop.shop_status)}`,
           },
           {
             code: "Members",
@@ -1915,7 +1940,7 @@ function buildShopDetail(
       stat("Audit", String(audits.length), "Recent audit rows"),
     ],
     status: "Shop detail",
-    title: shop ? `${shop.shop_name} / ${shop.shop_code}` : "Shop Detail",
+    title: shop ? shop.shop_name : "Shop Detail",
   };
 }
 

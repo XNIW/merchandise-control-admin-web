@@ -3,16 +3,14 @@
 ## Stato
 
 - Task: `TASK-046 - Test target separation: local vs staging`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
+- Stato task: `DONE_RECONCILED`
+- Fase: `DONE_RECONCILED`
 - Data: `2026-06-05`
 - Branch Admin Web: `codex/task-042-review-ci-win7pos-bridge`
-- Commit: `NOT_RUN_USER_REQUESTED_NO_COMMIT`
-- Push: `NOT_RUN_USER_REQUESTED_NO_PUSH`
-- Stage: `NOT_STAGED`
-- No commit eseguito.
-- No push eseguito.
-- No stage finale.
+- Commit finale: `AUTHORIZED_BY_USER_2026-06-06`
+- Push finale: `AUTHORIZED_BY_USER_2026-06-06`
+- Stage pre-commit: `AUTHORIZED_BY_USER_2026-06-06`
+- No commit/push/stage durante l'execution originaria; commit/push finale autorizzati dall'utente il 2026-06-06.
 
 ## Separazione implementata
 
@@ -97,4 +95,11 @@ Setup login locale Platform Master Console:
 - Il dev server locale passa solo URL/key pubblica Supabase al browser, non la service-role key.
 - Staging non avvia dev server locale in Playwright.
 - Staging smoke e read-only e non contiene delete, reset o accesso privilegiato.
-- No commit, no push, no stage.
+- No commit/push/stage durante l'execution originaria; commit/push finale autorizzati dall'utente il 2026-06-06.
+
+## Riconciliazione DONE 2026-06-06
+
+- Conferma esplicita utente ricevuta: `Metti in DONE tutte quelle che si può e poi fai merge nella main e poi commit push`.
+- Stato finale: `DONE_RECONCILED`.
+- La chiusura non promuove Win7POS live E2E, POS online/catalog pull, Sales Sync live o staging stabile: restano gate separati non eseguiti quando applicabile.
+- Commit/push finale su `main` autorizzati dall'utente il 2026-06-06.

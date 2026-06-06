@@ -3,6 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import {
+  formatDisplayValue,
+  formatTimestampUtc,
+  isIsoTimestamp,
+  isLikelyIdentifier,
+  shortIdentifier,
+} from "./displayFormat";
 import type {
   PlatformFilter,
   RowDetailPanel,
@@ -98,6 +105,24 @@ function statusToneClassForSegment(value: string) {
   return "border-slate-200 bg-slate-100 text-slate-700";
 }
 
+function displayValueForSegment(value: string) {
+  if (isLikelyIdentifier(value)) {
+    return {
+      fullValue: value,
+      text: shortIdentifier(value),
+    };
+  }
+
+  if (isIsoTimestamp(value)) {
+    return {
+      fullValue: value,
+      text: formatTimestampUtc(value),
+    };
+  }
+
+  return formatDisplayValue(value);
+}
+
 function renderCellValue(value: string, columnKey: string) {
   const segments = value.split("\n").filter(Boolean);
 
@@ -108,27 +133,35 @@ function renderCellValue(value: string, columnKey: string) {
   return (
     <div className="grid min-w-0 gap-1">
       {segments.map((segment, index) => {
+        const { text, fullValue } = displayValueForSegment(segment);
         const isMeta =
           index > 0 ||
           segment.startsWith("ID ") ||
+          segment.startsWith("Profile ID ") ||
           segment.startsWith("Code ") ||
+          segment.startsWith("Shop code ") ||
           segment.startsWith("+");
-        const isCode = columnKey === "code" || segment.startsWith("Code ");
+        const isCode =
+          columnKey === "code" ||
+          segment.startsWith("Code ") ||
+          segment.startsWith("Shop code ");
 
         return (
           <span
             key={`${segment}-${index}`}
+            title={fullValue}
             className={[
               "min-w-0 break-words leading-5",
               index === 0 ? "font-medium text-slate-900" : "text-slate-600",
               isMeta ? "text-xs" : "",
               isCode ? "font-mono" : "",
+              isLikelyIdentifier(segment) ? "font-mono break-all" : "",
               isStatusSegment(segment)
                 ? `inline-flex w-fit rounded-md border px-2 py-0.5 text-xs font-semibold ${statusToneClassForSegment(segment)}`
                 : "",
             ].join(" ")}
           >
-            {segment}
+            {text}
           </span>
         );
       })}
@@ -157,9 +190,21 @@ function renderDetailGroups(detail: RowDetailPanel) {
             {group.fields.map((field) => (
               <div key={field.label}>
                 <dt className="font-semibold text-slate-500">{field.label}</dt>
-                <dd className="mt-0.5 break-words text-slate-800">
-                  {field.value}
-                </dd>
+                {(() => {
+                  const { text, fullValue } = displayValueForSegment(field.value);
+
+                  return (
+                    <dd
+                      title={fullValue}
+                      className={[
+                        "mt-0.5 break-words text-slate-800",
+                        isLikelyIdentifier(field.value) ? "font-mono break-all" : "",
+                      ].join(" ")}
+                    >
+                      {text}
+                    </dd>
+                  );
+                })()}
               </div>
             ))}
           </dl>

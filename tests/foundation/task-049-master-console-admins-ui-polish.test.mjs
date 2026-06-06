@@ -51,6 +51,7 @@ test("TASK-049 Admins page is compact and keeps destructive revoke controls coll
   const adminsPage = readProjectFile("src/app/platform/admins/page.tsx");
 
   for (const required of [
+    "@/components/platform/displayFormat",
     "Active admins",
     "Server-side audit boundary",
     "Self-lockout protection",
@@ -58,16 +59,24 @@ test("TASK-049 Admins page is compact and keeps destructive revoke controls coll
     "Server blocks self-lockout and last-admin removal.",
     "<details",
     "<summary",
-    "Danger zone",
     "Show revoke controls",
     "Revoke controls are collapsed by default",
     "title={admin.profile_id}",
+    "title={admin.platform_admin_id}",
+    "formatTimestampUtc(admin.granted_at)",
+    "shortIdentifier(admin.profile_id)",
+    "shortIdentifier(admin.platform_admin_id)",
     "break-all",
     "whitespace-nowrap",
   ]) {
     assertContains(adminsPage, required, `admins page must contain ${required}`);
   }
 
+  assert.doesNotMatch(
+    adminsPage,
+    /Danger zone: Show revoke controls/,
+    "closed admin revoke summary should be sober, not danger-led",
+  );
   assert.match(adminsPage, /grid gap-5 xl:grid-cols-\[minmax\(0,0\.9fr\)_minmax\(0,1\.4fr\)\]/);
   assert.match(adminsPage, /className="grid max-w-2xl gap-4"/);
   assert.match(adminsPage, /<details[\s\S]*<form action=\{revokePlatformAdminAction\}/);
@@ -82,6 +91,11 @@ test("TASK-049 Audit, Provisioning, Operations, and topbar use compact safe layo
   const appShell = readProjectFile("src/components/platform/AppShell.tsx");
   const adminDataTable = readProjectFile("src/components/admin/AdminDataTable.tsx");
   const provisioningPage = readProjectFile("src/app/platform/provisioning/page.tsx");
+  const platformMasterDetail = readProjectFile("src/components/platform/PlatformMasterDetail.tsx");
+  const platformPage = readProjectFile("src/components/platform/PlatformPage.tsx");
+  const sectionData = readProjectFile("src/server/platform-admin/platform-section-data.ts");
+  const displayFormat = readProjectFile("src/components/platform/displayFormat.ts");
+  const statusSources = `${sectionData}\n${displayFormat}`;
   const operationsWorkflow = readProjectFile(
     "src/components/platform/operations/ControlledOperationsWorkflow.tsx",
   );
@@ -94,16 +108,51 @@ test("TASK-049 Audit, Provisioning, Operations, and topbar use compact safe layo
   assert.doesNotMatch(appShell, /isControlledActions/);
 
   for (const required of [
-    "min-w-[56rem]",
+    "min-w-[64rem]",
     "nowrapColumns",
     "whitespace-nowrap",
     "break-words",
+    "formatTimestampUtc",
+    "isIsoTimestamp",
+    "title={rawValue}",
   ]) {
     assertContains(adminDataTable, required, `AdminDataTable must contain ${required}`);
   }
 
   for (const required of [
+    "formatDisplayValue",
+    "formatTimestampUtc",
+    "shortIdentifier",
+    "title={fullValue}",
+  ]) {
+    assertContains(platformMasterDetail, required, `PlatformMasterDetail must contain ${required}`);
+  }
+
+  for (const required of [
+    'section.diagnosticsPriority !== "primary"',
+    "Boundary details",
+    "px-3 py-2",
+  ]) {
+    assertContains(platformPage, required, `PlatformPage must contain ${required}`);
+  }
+
+  for (const required of [
+    "readableBoundaryStatus",
+    "Blocked by grants",
+    "Permission boundary",
+    "Not checked",
+    "Needs review",
+    "Code: ${staffIssue.code}",
+  ]) {
+    assertContains(statusSources, required, `status formatting must contain ${required}`);
+  }
+
+  for (const required of [
     "Platform Console does safe, audited provisioning. Daily POS/staff management stays in Shop Admin.",
+    "placeholder=\"Acme Santiago\"",
+    "placeholder=\"ACME-SCL\"",
+    "placeholder=\"Why this shop should be provisioned\"",
+    "aria-describedby=\"create-shop-result\"",
     "max-w-3xl",
     "lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]",
     "max-w-xl",
@@ -112,16 +161,50 @@ test("TASK-049 Audit, Provisioning, Operations, and topbar use compact safe layo
   }
 
   for (const required of [
+    "shopSearchTerm",
+    "filteredShops",
+    "Search target shops",
+    "No shops match this search",
     "title={shop.shop_code}",
     "break-all",
     "min-w-0",
+    "statusToneClassForShop",
+    "Active",
+    "Suspended",
+    "Archived",
     "Device emergency operations are global exceptions. Daily device management belongs to Admin Console.",
   ]) {
     assertContains(operationsWorkflow, required, `operations workflow must contain ${required}`);
   }
 });
 
-test("TASK-049 docs and evidence track REVIEW handoff without commit, push, or stage", () => {
+test("TASK-049 Users, Shops, System, and Data keep technical values readable", () => {
+  const sectionData = readProjectFile("src/server/platform-admin/platform-section-data.ts");
+  const platformMasterDetail = readProjectFile("src/components/platform/PlatformMasterDetail.tsx");
+
+  for (const required of [
+    "Profile ID ${shortId(profile.profile_id)}",
+    "Shop code ${shop.shop_code}",
+    "Code ${shop.shop_code}",
+    "formatTimestampUtc(devices[0].updated_at)",
+    "formatTimestampUtc(sync.created_at)",
+  ]) {
+    assertContains(sectionData, required, `section data must contain ${required}`);
+  }
+
+  assert.match(
+    platformMasterDetail,
+    /isLikelyIdentifier[\s\S]*font-mono[\s\S]*break-all/,
+    "detail/table ID rendering should use monospace and robust wrapping",
+  );
+  assert.doesNotMatch(
+    sectionData,
+    /state: staffIssue \? staffIssue\.code : "PASS_WITH_NOTES"/,
+    "System/Data primary state should not expose raw technical codes",
+  );
+});
+
+test("TASK-049 docs and evidence record DONE reconciliation without external PASS inflation", () => {
   const taskPath = "docs/TASKS/TASK-049-master-console-admins-ui-ux-polish.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-049/README.md";
   assertPathExists(taskPath);
@@ -134,18 +217,16 @@ test("TASK-049 docs and evidence track REVIEW handoff without commit, push, or s
 
   for (const required of [
     "TASK-049 - Master Console Admins UI/UX polish",
-    "Task attivo: `TASK-049 - Master Console Admins UI/UX polish`",
-    "Stato TASK-049: `REVIEW`",
-    "Fase TASK-049: `REVIEW`",
+    "Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`",
+    "Stato TASK-049: `DONE_RECONCILED`",
+    "Fase TASK-049: `DONE_RECONCILED`",
     "Devices and Sync remain outside the primary Master Console sidebar.",
     "No schema changes",
     "No RPC changes",
-    "No commit",
-    "No push",
-    "No final stage",
+    "Commit/push finale su `main` autorizzati",
   ]) {
     assertContains(docs, required, `TASK-049 docs must contain ${required}`);
   }
 
-  assert.doesNotMatch(docs, /Stato TASK-049: `DONE`/);
+  assert.match(docs, /Stato TASK-049: `DONE_RECONCILED`/);
 });

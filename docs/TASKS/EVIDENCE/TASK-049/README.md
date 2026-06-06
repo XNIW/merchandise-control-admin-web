@@ -17,8 +17,12 @@ titoli `Device Signals` e `Sync Signals`.
 - `src/app/platform/admins/page.tsx`
 - `src/app/platform/provisioning/page.tsx`
 - `src/components/admin/AdminDataTable.tsx`
+- `src/components/platform/displayFormat.ts`
 - `src/components/platform/AppShell.tsx`
+- `src/components/platform/PlatformMasterDetail.tsx`
+- `src/components/platform/PlatformPage.tsx`
 - `src/components/platform/operations/ControlledOperationsWorkflow.tsx`
+- `src/server/platform-admin/platform-section-data.ts`
 
 ### Governance e Tracking
 
@@ -80,6 +84,22 @@ titoli `Device Signals` e `Sync Signals`.
 - Shop card robuste con codici lunghi.
 - Copy device emergency di TASK-048 preservata.
 
+## Review Fix Visuale
+
+- Date Admins/Audit mostrate come `YYYY-MM-DD HH:mm UTC`; valore completo
+  preservato in `title` sui punti renderizzati dalla tabella/UI.
+- Grant ID, Profile ID, Shop ID e codici lunghi accorciati nel testo principale,
+  con full value in `title` e wrapping/monospace.
+- Admins mantiene `Server blocks self-lockout and last-admin removal.` e rende
+  i controlli revoke piu sobri da chiusi.
+- Diagnostics collassato in modo compatto quando non e contenuto principale.
+- System/Data mappano `42501`, `NOT_RUN` e `PASS_WITH_NOTES` a label leggibili,
+  lasciando i codici tecnici nei dettagli.
+- Users/Shops detail mostrano nome principale come titolo e ID/codici sotto.
+- Provisioning ha placeholder piu chiari e banner risultato vicino alla form
+  corrispondente.
+- Operations ha search/filter locale sui target shop e badge stato leggibili.
+
 ## Cosa NON e Cambiato
 
 - No schema changes.
@@ -100,10 +120,11 @@ titoli `Device Signals` e `Sync Signals`.
 | Comando | Esito | Note |
 | --- | --- | --- |
 | `node --test tests/foundation/task-049-master-console-admins-ui-polish.test.mjs` | `RED_CONFIRMED` | Prima run: `tests 4`, `pass 1`, `fail 3`; mancavano Admins compact/danger zone, layout micro-UI e docs TASK-049. |
+| `node --test tests/foundation/task-049-master-console-admins-ui-polish.test.mjs` review-fix | `RED_CONFIRMED` | Prima run review-fix: `tests 5`, `pass 2`, `fail 3`; mancavano helper date/ID/status, diagnostics compatte e search Operations. |
 | `node --test tests/foundation/task-048-master-console-secondary-sections-ux-polish.test.mjs` | `PASS` | `tests 3`, `pass 3`; regressione TASK-048 preservata. |
-| `node --test tests/foundation/task-049-master-console-admins-ui-polish.test.mjs` | `PASS` | `tests 4`, `pass 4`; polish Admins/layout/docs verificato. |
+| `node --test tests/foundation/task-049-master-console-admins-ui-polish.test.mjs` | `PASS` | `tests 5`, `pass 5`; review-fix visuale verificato. |
 | `npm run security:scan` | `PASS` | Nessun secret, service-role client o raw metadata fuori policy rilevato dallo scanner statico. |
-| `npm run test:foundation` | `PASS` | `tests 209`, `pass 209`. |
+| `npm run test:foundation` | `PASS` | `tests 210`, `pass 210`. |
 | `npm run typecheck` | `PASS` | `next typegen` e `tsc --noEmit` completati. |
 | `npm run lint` | `PASS` | `eslint` completato senza errori. |
 | `npm run build` | `PASS_WITH_WARNING` | Exit 0; warning noti: convenzione Next `middleware` deprecata verso `proxy`, Node `[DEP0205] module.register()`. |
@@ -113,10 +134,11 @@ titoli `Device Signals` e `Sync Signals`.
 | `git diff --cached --name-status` | `PASS_NOT_STAGED` | Nessun file staged. |
 | `git status --short --branch` | `PASS_WITH_DIRTY_WORKTREE` | Worktree sporco atteso per TASK-048/TASK-049; nessun commit/push/stage finale. |
 | Fresh pre-commit rerun 2026-06-05 | `PASS_WITH_WARNING` | `TASK-048` targeted `3/3`, `TASK-049` targeted `4/4`, `security:scan`, `test:foundation` `209/209`, `verify` e `test:ui-smoke:ci` `43 passed`; warning noti Next `middleware` -> `proxy`, Node `[DEP0205]` e Playwright `NO_COLOR`/`FORCE_COLOR`. |
+| Fresh review-fix rerun | `PASS_WITH_WARNING` | `TASK-048` targeted `3/3`, `TASK-049` targeted `5/5`, `security:scan`, `test:foundation` `210/210`, `typecheck`, `lint`, `build`, `verify` e `test:ui-smoke:ci` `43 passed`; warning noti Next `middleware` -> `proxy`, Node `[DEP0205]` e Playwright `NO_COLOR`/`FORCE_COLOR`. |
 
 ## Stato
 
-- Stato task: `REVIEW`
+- Stato task: `DONE_RECONCILED`
 - Durante l'execution TASK-049: nessun commit, nessun push, nessun file staged.
 - Post-handoff repository action: commit/push su `main` autorizzati dall'utente
   il 2026-06-05 dopo check freschi.
@@ -125,3 +147,10 @@ titoli `Device Signals` e `Sync Signals`.
 
 - Review visuale autenticata delle pagine Master Console resta consigliata.
 - Il polish non cambia i controlli server-side, che restano la protezione reale.
+
+## Riconciliazione DONE 2026-06-06
+
+- Conferma esplicita utente ricevuta: `Metti in DONE tutte quelle che si può e poi fai merge nella main e poi commit push`.
+- Stato finale: `DONE_RECONCILED`.
+- La chiusura non promuove Win7POS live E2E, POS online/catalog pull, Sales Sync live o staging stabile: restano gate separati non eseguiti quando applicabile.
+- Commit/push finale su `main` autorizzati dall'utente il 2026-06-06.

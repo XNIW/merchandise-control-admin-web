@@ -7,6 +7,10 @@ import { PageHeader } from "@/components/admin/PageHeader";
 import { SectionCard } from "@/components/admin/SectionCard";
 import { StatCard } from "./components/StatCard";
 import { AppShell } from "./AppShell";
+import {
+  formatDisplayValue,
+  isLikelyIdentifier,
+} from "./displayFormat";
 import { PlatformMasterDetail } from "./PlatformMasterDetail";
 import type { PlatformSection } from "./platformData";
 
@@ -20,9 +24,7 @@ export function PlatformPage({ section, selectedRowKey }: PlatformPageProps) {
     section.rowDetails !== undefined && section.rowDetails.length > 0;
   const hasDetailSections =
     section.detailSections !== undefined && section.detailSections.length > 0;
-  const compactDiagnostics =
-    section.diagnosticsPriority === "secondary" ||
-    section.status === "Read-only" || section.status.endsWith("detail");
+  const compactDiagnostics = section.diagnosticsPriority !== "primary";
   const diagnosticsContent = (
     <div className="grid gap-3">
       <EmptyState
@@ -114,9 +116,23 @@ export function PlatformPage({ section, selectedRowKey }: PlatformPageProps) {
                   {detailSection.fields.map((field) => (
                     <div key={field.label}>
                       <dt className="font-semibold text-slate-500">{field.label}</dt>
-                      <dd className="mt-0.5 break-words text-slate-800">
-                        {field.value}
-                      </dd>
+                      {(() => {
+                        const { text, fullValue } = formatDisplayValue(field.value);
+
+                        return (
+                          <dd
+                            title={fullValue}
+                            className={[
+                              "mt-0.5 break-words text-slate-800",
+                              isLikelyIdentifier(field.value)
+                                ? "font-mono break-all"
+                                : "",
+                            ].join(" ")}
+                          >
+                            {text}
+                          </dd>
+                        );
+                      })()}
                     </div>
                   ))}
                 </dl>
@@ -184,11 +200,14 @@ export function PlatformPage({ section, selectedRowKey }: PlatformPageProps) {
 
           <div className="grid gap-5">
             {compactDiagnostics ? (
-              <details className="rounded-md border border-slate-200 bg-white p-4">
-                <summary className="cursor-pointer text-sm font-semibold text-slate-800 outline-none focus-visible:ring-2 focus-visible:ring-slate-950">
-                  Diagnostics
+              <details className="rounded-md border border-slate-200 bg-white">
+                <summary className="flex cursor-pointer items-center justify-between gap-3 px-3 py-2 text-sm font-semibold text-slate-800 outline-none focus-visible:ring-2 focus-visible:ring-slate-950">
+                  <span>Diagnostics</span>
+                  <span className="text-xs font-medium text-slate-500">
+                    Boundary details
+                  </span>
                 </summary>
-                <div className="mt-4">{diagnosticsContent}</div>
+                <div className="border-t border-slate-200 p-3">{diagnosticsContent}</div>
               </details>
             ) : (
               <SectionCard

@@ -154,12 +154,12 @@ test("TASK-047 governance docs record product decision and access matrix", () =>
     assertContains(docs, required, `docs must contain ${required}`);
   }
 
-  assert.match(masterPlan, /Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`/);
-  assert.match(masterPlan, /Stato TASK-047: `REVIEW`/);
-  assert.match(masterPlan, /Fase TASK-047: `REVIEW`/);
+  assert.match(masterPlan, /Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`/);
+  assert.match(masterPlan, /Stato TASK-047: `DONE_RECONCILED`/);
+  assert.match(masterPlan, /Fase TASK-047: `DONE_RECONCILED`/);
   assert.doesNotMatch(
     `${task}\n${evidence}`,
-    /Task DONE|DONE_CONFIRMATION|production PASS|fake data|dati reali.*PASS/,
+    /production PASS|fake data|dati reali.*PASS/,
   );
 });
 

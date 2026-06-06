@@ -1839,14 +1839,14 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-046 - Test target separation: local vs staging
 
-- Stato: `REVIEW`
+- Stato: `DONE_RECONCILED`
 - File task: `docs/TASKS/TASK-046-test-target-separation-local-vs-staging.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-046/README.md`
-- Fase: `REVIEW`
-- Responsabile: `REVIEWER`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `USER_CONFIRMED_RECONCILIATION`
 - Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
-- Milestone interna corrente: `TEST_TARGET_SEPARATION_READY_FOR_REVIEW`
-- Verdict corrente: `REVIEW`
+- Milestone interna corrente: `DONE_RECONCILED`
+- Verdict corrente: `DONE_RECONCILED`
 - Scopo: separare test sempre sicuri, test automatici locali e test cloud staging/dev senza dedurre il target da `.env.local`.
 - Implementato:
   - `TEST_TARGET=local|staging` nei wrapper Node;
@@ -1875,19 +1875,21 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - `CONFIRM_TASK046_PLATFORM_LOCAL_LOGIN_TEST=yes DEV_PLATFORM_ADMIN_PASSWORD=<runtime-generated> npm run test:platform:local-login`: `PASS`, `1 passed`;
   - `npm run platform:local:cleanup`: `PASS`, auth user locale cancellato, audit append-only trattenuti.
 - Stato:
-  - handoff a `REVIEW`;
+  - riconciliato a `DONE_RECONCILED` su conferma esplicita utente del 2026-06-06;
   - nessun commit, push o stage.
+
+- DONE reconciliation 2026-06-06: conferma esplicita utente ricevuta; TASK-046 chiuso a `DONE_RECONCILED`.
 
 ### TASK-047 - Align Master Console and Admin Console access model
 
-- Stato: `REVIEW`
+- Stato: `DONE_RECONCILED`
 - File task: `docs/TASKS/TASK-047-align-master-console-admin-console-access-model.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-047/README.md`
-- Fase: `REVIEW`
-- Responsabile: `REVIEWER`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `USER_CONFIRMED_RECONCILIATION`
 - Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
-- Milestone interna corrente: `MASTER_ADMIN_ACCESS_MODEL_READY_FOR_REVIEW`
-- Verdict corrente: `REVIEW`
+- Milestone interna corrente: `DONE_RECONCILED`
+- Verdict corrente: `DONE_RECONCILED`
 - Scopo: allineare naming, copy, guard e runbook alla decisione prodotto Master Console / Admin Console, mantenendo route tecniche `/platform`, `/shop` e `/shop/staff-login`.
 - Decisione prodotto:
   - `Master Console`: nome breve della console globale su `/platform`, riservata al principal tecnico `platform_admin`;
@@ -1943,19 +1945,21 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
     `127.0.0.1:3000`;
   - check finali da registrare in `docs/TASKS/EVIDENCE/TASK-047/README.md`.
 - Stato:
-  - handoff a `REVIEW`;
+  - riconciliato a `DONE_RECONCILED` su conferma esplicita utente del 2026-06-06;
   - non marcare `DONE` senza conferma utente esplicita.
+
+- DONE reconciliation 2026-06-06: conferma esplicita utente ricevuta; TASK-047 chiuso a `DONE_RECONCILED`.
 
 ### TASK-048 - Master Console secondary sections clarity and UX polish
 
-- Stato: `REVIEW`
+- Stato: `DONE_RECONCILED`
 - File task: `docs/TASKS/TASK-048-master-console-secondary-sections-ux-polish.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-048/README.md`
-- Fase: `REVIEW`
-- Responsabile: `REVIEWER`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `USER_CONFIRMED_RECONCILIATION`
 - Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
-- Milestone interna corrente: `MASTER_CONSOLE_SECONDARY_UX_READY_FOR_REVIEW`
-- Verdict corrente: `REVIEW`
+- Milestone interna corrente: `DONE_RECONCILED`
+- Verdict corrente: `DONE_RECONCILED`
 - Dipendenza: `TASK-047` resta in `REVIEW`; TASK-047 remains in REVIEW and is a dependency, not automatically DONE.
 - Scopo: polish UX mirato delle schede secondarie Master Console
   `/platform/devices`, `/platform/sync`, `/platform/history`,
@@ -1995,7 +1999,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - no final stage.
 - Repository handoff 2026-06-05:
   - commit/push su `main` autorizzati dall'utente dopo check freschi;
-  - stato TASK-048 resta `REVIEW`, non `DONE`.
+  - stato TASK-048 poi riconciliato a `DONE_RECONCILED` su conferma esplicita utente del 2026-06-06.
 - Evidence:
   - foundation TASK-048 red confermato prima dell'implementazione;
   - foundation TASK-048 green: `tests 3`, `pass 3`;
@@ -2011,19 +2015,21 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - `git diff --check`: `PASS`;
   - `git diff --cached --name-status`: `PASS_NOT_STAGED`.
 - Stato:
-  - handoff a `REVIEW`;
+  - riconciliato a `DONE_RECONCILED` su conferma esplicita utente del 2026-06-06;
   - non marcare `DONE` senza conferma utente esplicita.
+
+- DONE reconciliation 2026-06-06: conferma esplicita utente ricevuta; TASK-048 chiuso a `DONE_RECONCILED`.
 
 ### TASK-049 - Master Console Admins UI/UX polish
 
-- Stato: `REVIEW`
+- Stato: `DONE_RECONCILED`
 - File task: `docs/TASKS/TASK-049-master-console-admins-ui-ux-polish.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-049/README.md`
-- Fase: `REVIEW`
-- Responsabile: `REVIEWER`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `USER_CONFIRMED_RECONCILIATION`
 - Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
-- Milestone interna corrente: `MASTER_CONSOLE_ADMINS_UI_READY_FOR_REVIEW`
-- Verdict corrente: `REVIEW`
+- Milestone interna corrente: `DONE_RECONCILED`
+- Verdict corrente: `DONE_RECONCILED`
 - Dipendenza: `TASK-048` resta in `REVIEW`; non riaprire Devices/Sync come
   navigazione primaria.
 - Scopo: polish UI/UX piccolo e verificabile della Master Console, con priorita
@@ -2039,6 +2045,9 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - Operations robuste per shop code lunghi;
   - header chip nello stesso ordine: Read-only, Server boundary, Controlled
     actions, Logout;
+  - review-fix visuale con date compatte UTC, ID corti con title completo,
+    diagnostics collassate, status System/Data leggibili, detail Users/Shops
+    meno pesanti, placeholder Provisioning e search/filter locale Operations;
   - Devices and Sync remain outside the primary Master Console sidebar.
 - Guardrail:
   - No schema changes;
@@ -2054,13 +2063,15 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - no final stage.
 - Repository handoff 2026-06-05:
   - commit/push su `main` autorizzati dall'utente dopo check freschi;
-  - stato TASK-049 resta `REVIEW`, non `DONE`.
+  - stato TASK-049 poi riconciliato a `DONE_RECONCILED` su conferma esplicita utente del 2026-06-06.
 - Evidence:
   - foundation TASK-049 red confermato prima dell'implementazione;
+  - foundation TASK-049 review-fix red confermato: `tests 5`, `pass 2`,
+    `fail 3`;
   - foundation TASK-048 regression: `tests 3`, `pass 3`;
-  - foundation TASK-049 green: `tests 4`, `pass 4`;
+  - foundation TASK-049 green: `tests 5`, `pass 5`;
   - `security:scan`: `PASS`;
-  - `test:foundation`: `PASS`, `tests 209`, `pass 209`;
+  - `test:foundation`: `PASS`, `tests 210`, `pass 210`;
   - `typecheck`: `PASS`;
   - `lint`: `PASS`;
   - `build`: `PASS_WITH_WARNING`, warning noti Next `middleware` -> `proxy`
@@ -2071,8 +2082,58 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - `git diff --check`: `PASS`;
   - `git diff --cached --name-status`: `PASS_NOT_STAGED`.
 - Stato:
-  - handoff a `REVIEW`;
+  - riconciliato a `DONE_RECONCILED` su conferma esplicita utente del 2026-06-06;
   - non marcare `DONE` senza conferma utente esplicita.
+
+- DONE reconciliation 2026-06-06: conferma esplicita utente ricevuta; TASK-049 chiuso a `DONE_RECONCILED`.
+
+### TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049
+
+- Stato: `DONE_RECONCILED`
+- File task: `docs/TASKS/TASK-050-review-done-reconciliation-task-040-049.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-050/README.md`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `USER_CONFIRMED_RECONCILIATION`
+- Branch previsto: `main`
+- Milestone interna corrente: `TASK_040_049_DONE_RECONCILED_WITH_EXTERNAL_BLOCKERS`
+- Verdict corrente: `DONE_RECONCILED`
+- Scopo: riconciliare in modo repo-grounded `TASK-040`..`TASK-049`,
+  preservando i blocker esterni non eseguiti e preparando handoff verso
+  conferma utente; commit/push finale su `main` autorizzati dall'utente il 2026-06-06.
+- Matrice riconciliazione:
+  - TASK-040: `REVIEW_WITH_EXTERNAL_BLOCKERS`;
+  - TASK-041: `REVIEW_WITH_EXTERNAL_BLOCKERS`;
+  - TASK-042: `READY_FOR_WIN7_MANUAL_TEST`;
+  - TASK-043: `DONE_RECONCILED`;
+  - TASK-044: `DONE_RECONCILED`;
+  - TASK-045: `DONE_RECONCILED`;
+  - TASK-046: `DONE_RECONCILED`;
+  - TASK-047: `DONE_RECONCILED`;
+  - TASK-048: `DONE_RECONCILED`;
+  - TASK-049: `DONE_RECONCILED`.
+- Blocker non promossi:
+  - Win7POS live E2E: `NOT_RUN`;
+  - POS online connection/catalog pull: `NOT_RUN`;
+  - Sales Sync live Win7POS -> Admin Web: `NOT_RUN`;
+  - stable non-production staging: `NOT_RUN`;
+  - production deploy/apply: `NOT_RUN_PRODUCTION_FORBIDDEN`.
+- Decisioni UI/UX preservate:
+  - Devices and Sync remain outside the primary Master Console sidebar.
+  - `/platform/devices` and `/platform/sync` remain diagnostic deep links.
+  - route diagnostiche: `Device Signals`, `Sync Signals`.
+- Stato:
+  - riconciliato a `DONE_RECONCILED` su conferma utente del 2026-06-06;
+  - `TASK-046`..`TASK-049` chiusi a `DONE_RECONCILED` su conferma utente del 2026-06-06;
+  - check finali TASK-050: `security:scan` PASS, `test:foundation` PASS
+    `212/212`, `typecheck` PASS, `lint` PASS, `build` PASS_WITH_WARNING,
+    `verify` PASS_WITH_WARNING, `test:ui-smoke:ci` PASS_WITH_WARNING
+    `43 passed`, `git diff --check` PASS, nessun file staged prima della richiesta finale di commit;
+  - target separation: `db:local:status` FAIL_EXPECTED su `.env.local` cloud,
+    `db:staging:status` FAIL_EXPECTED senza env staging esplicita,
+    `platform:local:status` PASS;
+  - Win7POS static scanners PASS, ma Win7POS live E2E/POS online/Sales Sync
+    live restano `NOT_RUN`;
+  - commit/push finale su `main` autorizzati dall'utente il 2026-06-06.
 
 ## Tooling policy
 
@@ -2087,7 +2148,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `MASTER_CONSOLE_ADMINS_UI_READY_FOR_REVIEW`
+- Stato globale attuale: `TASK_040_049_DONE_RECONCILED_WITH_EXTERNAL_BLOCKERS`
 - Ultimo task completato: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
@@ -2125,22 +2186,24 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-044: `DONE_RECONCILED`
 - Stato TASK-045: `DONE_RECONCILED`
 - Fase TASK-045: `DONE_RECONCILED`
-- Stato TASK-046: `REVIEW`
-- Fase TASK-046: `REVIEW`
-- Stato TASK-047: `REVIEW`
-- Fase TASK-047: `REVIEW`
-- Stato TASK-048: `REVIEW`
-- Fase TASK-048: `REVIEW`
-- Stato TASK-049: `REVIEW`
-- Fase TASK-049: `REVIEW`
-- Task attivo: `TASK-049 - Master Console Admins UI/UX polish`
-- File task: `docs/TASKS/TASK-049-master-console-admins-ui-ux-polish.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-049/README.md`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
-- Milestone interna: `MASTER_CONSOLE_ADMINS_UI_READY_FOR_REVIEW`
-- Responsabile: `REVIEWER`
-- Branch previsto: `codex/task-042-review-ci-win7pos-bridge`
+- Stato TASK-046: `DONE_RECONCILED`
+- Fase TASK-046: `DONE_RECONCILED`
+- Stato TASK-047: `DONE_RECONCILED`
+- Fase TASK-047: `DONE_RECONCILED`
+- Stato TASK-048: `DONE_RECONCILED`
+- Fase TASK-048: `DONE_RECONCILED`
+- Stato TASK-049: `DONE_RECONCILED`
+- Fase TASK-049: `DONE_RECONCILED`
+- Stato TASK-050: `DONE_RECONCILED`
+- Fase TASK-050: `DONE_RECONCILED`
+- Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`
+- File task: `docs/TASKS/TASK-050-review-done-reconciliation-task-040-049.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-050/README.md`
+- Stato task: `DONE_RECONCILED`
+- Fase: `DONE_RECONCILED`
+- Milestone interna: `TASK_040_049_DONE_RECONCILED_WITH_EXTERNAL_BLOCKERS`
+- Responsabile: `USER_CONFIRMED_RECONCILIATION`
+- Branch previsto: `main`
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
 - Task Vercel parcheggiato: `TASK-031 - Vercel Preview retry after environment docs`
@@ -2168,11 +2231,13 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-043: `AUTO_RECONCILED_TASK045`
 - Verdict TASK-044: `AUTO_RECONCILED_TASK045`
 - Verdict TASK-045: `AUTO_RECONCILED_TASK045`
-- Verdict TASK-046: `REVIEW`
-- Verdict TASK-047: `REVIEW`
-- Verdict TASK-048: `REVIEW`
-- Verdict TASK-049: `REVIEW`
+- Verdict TASK-046: `DONE_RECONCILED`
+- Verdict TASK-047: `DONE_RECONCILED`
+- Verdict TASK-048: `DONE_RECONCILED`
+- Verdict TASK-049: `DONE_RECONCILED`
+- Verdict TASK-050: `DONE_RECONCILED`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
+- DONE reconciliation 2026-06-06: su conferma esplicita utente, TASK-046..TASK-050 chiusi a `DONE_RECONCILED`; TASK-040 e TASK-041 restano `REVIEW_WITH_EXTERNAL_BLOCKERS`, TASK-042 resta `READY_FOR_WIN7_MANUAL_TEST`. Commit/push finale su `main` richiesti dall'utente.
 - Prossima azione consigliata: per Win7POS resta da aprire su Windows 7 la cartella `Win7POSBridge\outbox\TASK-042B-github-release-pack-20260604-223656\app` per il package gia verificato; per retest fisico del fix UX `Fornitore`/`Categoria`, creare prima un nuovo GitHub Release Pack dopo commit/push autorizzati. Non marcare `TASK-041 DONE` o `TASK-040 DONE` e non dichiarare Win7POS live/Sales Sync live `PASS` finche mancano run reali/evidence.
 
 ## Regole di avanzamento

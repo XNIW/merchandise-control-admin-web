@@ -191,7 +191,7 @@ test("TASK-048 Operations uses one selected target/action workflow without repea
   assert.match(actions, /emergencyRevokePlatformDeviceAction/);
 });
 
-test("TASK-048 docs and evidence keep the task in REVIEW without commit, push, or stage", () => {
+test("TASK-048 docs and evidence record DONE reconciliation without external PASS inflation", () => {
   const taskPath = "docs/TASKS/TASK-048-master-console-secondary-sections-ux-polish.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-048/README.md";
   assertPathExists(taskPath);
@@ -204,22 +204,20 @@ test("TASK-048 docs and evidence keep the task in REVIEW without commit, push, o
 
   for (const required of [
     "TASK-048 - Master Console secondary sections clarity and UX polish",
-    "Stato TASK-048: `REVIEW`",
-    "Fase TASK-048: `REVIEW`",
-    "Task attivo: `TASK-049 - Master Console Admins UI/UX polish`",
+    "Stato TASK-048: `DONE_RECONCILED`",
+    "Fase TASK-048: `DONE_RECONCILED`",
+    "Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`",
     "Devices and Sync are not top-level Master Console sidebar entries.",
     "`/platform/devices` and `/platform/sync` remain internal read-only diagnostics/deep links.",
-    "TASK-047 remains in REVIEW and is a dependency, not automatically DONE.",
+    "TASK-047: `DONE_RECONCILED`",
     "No schema changes",
     "No mock rows",
     "No Sales Sync live claim",
     "No Win7POS live E2E claim",
-    "No commit",
-    "No push",
-    "No final stage",
+    "Commit/push finale su `main` autorizzati",
   ]) {
     assertContains(docs, required, `docs must contain ${required}`);
   }
 
-  assert.doesNotMatch(docs, /Stato TASK-047: `DONE`/);
+  assert.match(docs, /Stato TASK-047: `DONE_RECONCILED`/);
 });

@@ -4,20 +4,18 @@
 
 - ID: `TASK-046`
 - Titolo: `Test target separation: local vs staging`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `REVIEWER`
+- Stato: `DONE_RECONCILED`
+- Fase attuale: `DONE_RECONCILED`
+- Responsabile attuale: `USER_CONFIRMED_RECONCILIATION`
 - Data apertura: `2026-06-05`
 - Ultimo aggiornamento: `2026-06-05`
 - File Master Plan: `docs/MASTER-PLAN.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-046/README.md`
 - Branch Admin Web: `codex/task-042-review-ci-win7pos-bridge`
-- Commit: `NOT_RUN_USER_REQUESTED_NO_COMMIT`
-- Push: `NOT_RUN_USER_REQUESTED_NO_PUSH`
-- Stage: `NOT_STAGED`
-- No commit eseguito.
-- No push eseguito.
-- No stage finale.
+- Commit finale: `AUTHORIZED_BY_USER_2026-06-06`
+- Push finale: `AUTHORIZED_BY_USER_2026-06-06`
+- Stage pre-commit: `AUTHORIZED_BY_USER_2026-06-06`
+- No commit/push/stage durante l'execution originaria; commit/push finale autorizzati dall'utente il 2026-06-06.
 
 ## Obiettivo
 
@@ -112,7 +110,14 @@ Su richiesta successiva e mantenendo `TASK-046` come task attivo, e stato aggiun
 
 ## Stato
 
-- Handoff a `REVIEW`.
-- Nessun commit, push o stage.
+- Riconciliato a `DONE_RECONCILED` su conferma esplicita utente del 2026-06-06.
+- Commit/push finale su `main` autorizzati dall'utente il 2026-06-06; nessun file deve restare staged dopo il commit.
 - Nessun deploy production.
 - Nessun dato reale usato.
+
+## Riconciliazione DONE 2026-06-06
+
+- Conferma esplicita utente ricevuta: `Metti in DONE tutte quelle che si può e poi fai merge nella main e poi commit push`.
+- Stato finale: `DONE_RECONCILED`.
+- La chiusura non promuove Win7POS live E2E, POS online/catalog pull, Sales Sync live o staging stabile: restano gate separati non eseguiti quando applicabile.
+- Commit/push finale su `main` autorizzati dall'utente il 2026-06-06.

@@ -312,6 +312,13 @@ error overlay, ma stabilizza il test manuale locale. Turbopack resta opt-in con
 
 ## Stato
 
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
-- Nessun commit, push o stage.
+- Stato task: `DONE_RECONCILED`
+- Fase: `DONE_RECONCILED`
+- Commit/push finale su `main` autorizzati dall'utente il 2026-06-06; nessun file deve restare staged dopo il commit.
+
+## Riconciliazione DONE 2026-06-06
+
+- Conferma esplicita utente ricevuta: `Metti in DONE tutte quelle che si può e poi fai merge nella main e poi commit push`.
+- Stato finale: `DONE_RECONCILED`.
+- La chiusura non promuove Win7POS live E2E, POS online/catalog pull, Sales Sync live o staging stabile: restano gate separati non eseguiti quando applicabile.
+- Commit/push finale su `main` autorizzati dall'utente il 2026-06-06.
