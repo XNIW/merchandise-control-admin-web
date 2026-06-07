@@ -125,8 +125,9 @@ test("TASK-043 live read model batches independent Supabase reads for navigation
   assert.match(readModel, /\.from\("staff_accounts_safe"\)[\s\S]*\.limit\(200\)/);
 });
 
-test("TASK-005J auth UI keeps browser Supabase client scoped to auth", () => {
+test("TASK-005J auth UI keeps Supabase sign-in scoped to auth boundaries", () => {
   const clientPath = "src/lib/supabase/client.ts";
+  const loginActionPath = "src/app/auth/login/actions.ts";
   const loginPagePath = "src/app/auth/login/page.tsx";
   const authFormPath = "src/components/auth/AuthForm.tsx";
   const callbackPath = "src/app/auth/callback/route.ts";
@@ -134,6 +135,7 @@ test("TASK-005J auth UI keeps browser Supabase client scoped to auth", () => {
 
   for (const relativePath of [
     clientPath,
+    loginActionPath,
     loginPagePath,
     authFormPath,
     callbackPath,
@@ -143,6 +145,7 @@ test("TASK-005J auth UI keeps browser Supabase client scoped to auth", () => {
   }
 
   const browserClient = readProjectFile(clientPath);
+  const loginAction = readProjectFile(loginActionPath);
   const authForm = readProjectFile(authFormPath);
   const callbackRoute = readProjectFile(callbackPath);
   const logoutRoute = readProjectFile(logoutPath);
@@ -151,19 +154,30 @@ test("TASK-005J auth UI keeps browser Supabase client scoped to auth", () => {
   assert.match(browserClient, /NEXT_PUBLIC_SUPABASE_URL/);
   assert.match(browserClient, /NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY/);
   assert.doesNotMatch(browserClient, /SERVICE_ROLE|service_role|SUPABASE_SERVICE_ROLE_KEY/i);
-  assert.match(authForm, /signInWithPassword/);
+  assert.match(loginAction, /"use server"/);
+  assert.match(loginAction, /createSupabaseServerClient/);
+  assert.match(loginAction, /signInWithPassword/);
+  assert.match(loginAction, /isSafeInternalNextPath/);
+  assert.match(loginAction, /startsWith\("\/\/"\)/);
+  assert.match(loginAction, /redirect\(nextPath, RedirectType\.replace\)/);
+  assert.doesNotMatch(loginAction, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
+  assert.match(authForm, /accountSignInAction/);
+  assert.match(authForm, /useActionState/);
+  assert.match(authForm, /name="next"/);
   assert.match(authForm, /method="post"/);
+  assert.doesNotMatch(authForm, /createSupabaseBrowserClient|signInWithPassword|router\.replace/);
   assert.doesNotMatch(authForm, /from\(["'][a-z_]+["']\)/);
   assert.match(callbackRoute, /exchangeCodeForSession/);
   assert.match(logoutRoute, /signOut/);
-  assert.doesNotMatch(`${authForm}\n${callbackRoute}\n${logoutRoute}`, /console\.(log|debug|info|warn|error)/);
+  assert.doesNotMatch(`${loginAction}\n${authForm}\n${callbackRoute}\n${logoutRoute}`, /console\.(log|debug|info|warn|error)/);
 });
 
 test("TASK-005L auth redirects reject protocol-relative next paths", () => {
   const authForm = readProjectFile("src/components/auth/AuthForm.tsx");
+  const loginAction = readProjectFile("src/app/auth/login/actions.ts");
   const callbackRoute = readProjectFile("src/app/auth/callback/route.ts");
 
-  for (const source of [authForm, callbackRoute]) {
+  for (const source of [authForm, loginAction, callbackRoute]) {
     assert.match(source, /isSafeInternalNextPath/);
     assert.match(source, /startsWith\("\/\/"\)/);
   }
@@ -214,7 +228,8 @@ test("TASK-005H Supabase SSR proxy refreshes sessions without authz decisions", 
 
   assert.match(proxyHelper, /createServerClient/);
   assert.match(proxyHelper, /NextResponse\.next/);
-  assert.match(proxyHelper, /auth\.getClaims\(\)/);
+  assert.match(proxyHelper, /request:\s*\{\s*headers:\s*new Headers\(request\.headers\)/);
+  assert.match(proxyHelper, /auth\.getSession\(\)/);
   assert.match(proxyHelper, /request\.cookies\.set/);
   assert.match(proxyHelper, /response\.cookies\.set/);
   assert.doesNotMatch(proxyHelper, /platform_admins|is_platform_admin/);

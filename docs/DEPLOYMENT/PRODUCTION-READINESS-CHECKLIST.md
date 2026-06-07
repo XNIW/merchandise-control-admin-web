@@ -20,8 +20,15 @@
 - [x] `vercel.json` mantiene `git.deploymentEnabled=false`.
 - [x] Vercel resta parcheggiato finche non esiste Preview/non-production sicura.
 - [x] Runbook Cloudflared temporaneo disponibile.
+- [x] Config Cloudflare/OpenNext con ambienti `staging` e `production`.
+- [x] Workflow Cloudflare separato con build su PR/main e deploy production solo
+  da `workflow_dispatch` con conferme manuali.
+- [x] Runbook Cloudflare migration/rollback disponibili.
 - [ ] Staging stabile HTTPS non-production con rollback.
-- [ ] Policy esplicita per promozione production.
+- [ ] Policy esplicita per promozione production. Stato:
+  `BLOCKED_GITHUB_PRODUCTION_ENVIRONMENT_APPROVAL_NOT_VERIFIED`; GitHub
+  environment `cloudflare-production` non trovato via API e required reviewers
+  non verificati.
 
 ## Database
 
@@ -35,7 +42,7 @@
 
 - [x] POS Route Handler storici usano guardrail `no-store` e validazioni payload dai task precedenti.
 - [x] TASK-036 aggiunge motivo obbligatorio per archive/restore catalogo lato UI e server boundary.
-- [ ] Rate limit infrastrutturale su login, POS API e mutazioni Shop Admin.
+- [ ] Rate limit infrastrutturale su login, POS API e mutazioni Shop Admin. Stato Cloudflare: `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED`.
 - [ ] Body limit verificato su ogni route upload/import.
 - [ ] Content-Type guard verificato su ogni endpoint mutativo custom.
 
@@ -57,7 +64,7 @@
 
 ## Rollback e incident
 
-- [ ] Runbook rollback deploy.
+- [x] Runbook rollback deploy Cloudflare creato.
 - [ ] Runbook restore DB.
 - [ ] Procedura revoca device/staff compromessi.
 - [ ] Procedura rotazione service-role e publishable key.
@@ -67,6 +74,8 @@
 
 - Vercel Preview/non-production resta bloccato/parcheggiato.
 - Cloudflared e effimero, non staging stabile.
+- Cloudflare staging remoto resta bloccato da
+  `BLOCKED_CLOUDFLARE_STAGING_IDENTITY_AND_TARGETS_NOT_VERIFIED`.
 - Rate limit e monitoring richiedono infrastruttura o provider esterno.
 - Win7POS live E2E resta parcheggiato per disponibilita ambiente.
 - TASK-024 Sales Sync resta `DEFERRED`; nessun runtime vendite e stato introdotto.

@@ -42,9 +42,10 @@ test("TASK-007 routes are protected server-side", () => {
   const shopPage = readProjectFile("src/app/shop/page.tsx");
   const accessState = readProjectFile("src/components/auth/AccessState.tsx");
 
-  assert.match(rootPage, /resolveCurrentAdminRouteAccess/);
-  assert.match(rootPage, /getAdminRouteDestination/);
-  assert.match(rootPage, /redirect\(destination\)/);
+  assert.match(rootPage, /redirect\("\/auth\/login\?next=\/shop&mode=admin-account"\)/);
+  assert.doesNotMatch(rootPage, /resolveCurrentAdminRouteAccess/);
+  assert.doesNotMatch(rootPage, /getAdminRouteDestination/);
+  assert.doesNotMatch(rootPage, /\/auth\/login\?next=\/platform/);
   assert.match(platformLayout, /resolveCurrentAdminRouteAccess/);
   assert.match(platformLayout, /status !== "platform_admin"/);
   assert.match(shopLayout, /resolveCurrentShopAdminPrincipal/);

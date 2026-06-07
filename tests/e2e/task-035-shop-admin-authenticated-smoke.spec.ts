@@ -739,7 +739,7 @@ async function signInWithTask035Credentials(
 ) {
   await page.goto("/auth/login?next=/shop");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Admin account sign in" }),
+    page.getByRole("heading", { level: 1, name: "Admin Console sign in" }),
   ).toBeVisible();
   await page.getByLabel("Email").fill(fixture.email);
   await page.getByLabel("Password").fill(fixture.password);

@@ -8,16 +8,16 @@
 - Data apertura: `2026-06-06`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-051/README.md`
 - Branch Admin Web: `main`
-- Commit: `NOT_REQUESTED`
-- Push: `NOT_REQUESTED`
-- Stage finale: `NOT_REQUESTED`
+- Commit: `REQUESTED_BY_USER_2026-06-07`
+- Push: `REQUESTED_BY_USER_2026-06-07`
+- Stage finale: `REQUESTED_BY_USER_2026-06-07`
 - Handoff Codex: `PASS_WITH_NOTES_READY_FOR_REVIEW`
 
 ## Obiettivo
 
 Evolvere `/platform/provisioning` per creare shop con identita fiscale/boleta,
 supportare bootstrap POS-first senza account personale e creare il primo manager
-POS/Admin Console con `staff_code = 1001` e temporary credential generata
+POS/Admin Console con `staff_code = 1001` e Temporary PIN generato
 server-side.
 
 ## Scope
@@ -34,16 +34,20 @@ server-side.
   trattino e spazi, esempio `761234567` o `76123456K`.
 - Staff manager iniziale `1001`, role `manager`, permission
   `shop_admin.full_access`.
-- Credential temporanea generata e hashata server-side; raw mostrato solo nella
+- Temporary manager PIN generato e hashato server-side; raw mostrato solo nella
   risposta immediata della Server Action.
-- Temporary credential e mostrata una sola volta; la UI indica che dovrebbe
-  essere cambiata dopo il primo accesso.
+- Temporary PIN e mostrato una sola volta; la UI indica che dovrebbe essere
+  cambiato dopo il primo accesso.
+- Temporary manager PIN e una scelta UX per primo accesso Admin Console /
+  Win7POS: formato esatto 5 cifre numeriche, generato server-side con
+  `crypto.randomInt(10000, 100000)`, hashato con il meccanismo staff credential
+  esistente e mai salvato raw.
 - Force rotation resta follow-up: i runtime staff web/POS correnti richiedono
   `credential_status = active` e `must_change_credential = false` per il login,
   quindi abilitarlo nel bootstrap bloccherebbe accesso senza flusso cambio
   credenziale first-access.
-- Recovery non mostra mai credenziali/PIN/password esistenti: genera una nuova
-  temporary credential one-time con reason/audit.
+- Recovery non mostra mai PIN/password esistenti: genera un nuovo Temporary PIN
+  one-time con reason/audit.
 - Pending owner invite chiarito come setup secondario senza email delivery.
 - Admin Console settings mostra fiscal identity read-only.
 
@@ -52,6 +56,9 @@ server-side.
 - No commit.
 - No push.
 - No stage finale.
+- Nota 2026-06-07: questi tre vincoli erano il perimetro originale di
+  execution/review; sono superati solo per stage/commit/push da richiesta
+  esplicita successiva dell'utente. TASK-051 resta in `REVIEW`, non `DONE`.
 - No production apply.
 - No service-role o secret nel client/browser.
 - No raw credential, PIN, password o token in repository, audit, log o evidence.
@@ -118,10 +125,10 @@ server-side.
 - Owner bootstrap collega solo `shop_owner`, non `platform_admin`.
 - Entrambi i bootstrap iniziali creano staff manager `1001` con
   `shop_admin.full_access`.
-- Temporary credential e mostrata una sola volta nello stato della Server Action.
-- Temporary credential copy chiarisce che e mostrata una volta e dovrebbe essere
-  cambiata dopo il primo accesso.
-- Recovery manager genera una nuova credential one-time; non mostra mai quella
+- Temporary PIN e mostrato una sola volta nello stato della Server Action.
+- Temporary PIN copy chiarisce che e mostrato una volta e dovrebbe essere
+  cambiato dopo il primo accesso.
+- Recovery manager genera un nuovo Temporary PIN one-time; non mostra mai quello
   vecchia.
 - Audit registra solo `credential_generated`, staff code/ID e permission safe.
 - Admin Console mostra fiscal identity read-only e dice che e gestita dalla
@@ -177,13 +184,12 @@ Win7POS uso dei dati boleta.
   RUT`, toggle `Use Company RUT as Shop code`, `Shop code`. `Shop name` resta un
   normale input single-line.
 - Il form mostra summary read-only per initial manager: staff code `1001`,
-  display name `manager`, full Admin Console access e temporary credential
-  mostrata una sola volta dopo la creazione; il copy dice `Temporary
-  credential. It is shown once after creation and should be changed after first
-  access.`
+  display name `manager`, full Admin Console access e Temporary PIN mostrato
+  una sola volta dopo la creazione; il copy dice `Temporary PIN. It is shown
+  once after creation and should be changed after first access.`
 - Il success result mostra shop name, company RUT, shop code, owner mode, staff
-  code `1001`, temporary credential/PIN shown once, copy button e warning `Save
-  this credential now. It will not be shown again.`
+  code `1001`, Temporary PIN shown once, copy button e warning `Save this PIN
+  now. It will not be shown again.`
 - `Add POS manager` e stato semplificato in `Emergency recovery: recover
   initial manager 1001` collassato. La recovery genera una nuova temporary
   credential e non mostra credenziali esistenti.
@@ -201,8 +207,8 @@ Win7POS uso dei dati boleta.
   shop, fallisce chiuso, non genera credential e scrive audit redatto con
   follow-up manuale.
 - Il result card recovery mostra shop name, shop code, staff code `1001`,
-  operation result, temporary credential/PIN one-time, copy button e warning
-  `Save this credential now. It will not be shown again.`
+  operation result, Temporary PIN one-time, copy button e warning `Save this
+  PIN now. It will not be shown again.`
 - Custom manager code resta follow-up documentato; non viene implementato nella
   recovery principale per evitare una UI che il server non supporta come flusso
   operativo primario.
@@ -218,6 +224,22 @@ Win7POS uso dei dati boleta.
   validare `shopId` e la recovery resta sempre su manager `1001`.
 - I select nativi restano fuori dai picker di entita database in
   `/platform/provisioning`; possono restare solo per liste piccole/statiche.
+- Shop name uppercase normalization: alla fine dell'inserimento il campo
+  `Shop name` normalizza il valore in maiuscolo nel client; le validazioni
+  server-side normalizzano comunque `shopName` in maiuscolo prima delle RPC,
+  cosi il dato salvato e il result banner restano coerenti anche se il client
+  viene bypassato.
+- Form value preservation/RUT review-fix: gli errori server-side del form
+  provisioning restituiscono `values` non sensibili e non forzano revalidate,
+  quindi `Shop name`, RUT, fiscal fields, owner mode/target e reason non vengono
+  cancellati; `Company RUT` e `Legal representative RUT` accettano digits-only e
+  vengono formattati su blur, mentre `shop_code` resta il RUT compatto tecnico.
+- Provisioning layout polish: `Shop identity` ora mostra `Shop name` e
+  `Company RUT` nella stessa riga logica desktop, toggle RUT in riga dedicata e
+  `Shop code` full width sotto; `Fiscal / Boleta identity` mostra `Business
+  giro`/`Address` e poi `City`/`Legal representative RUT` in due righe compatte.
+  Gli helper lunghi sotto i singoli RUT sono stati rimossi/ridotti a una sola
+  frase di sezione; gli errori field-level restano vicini ai campi.
 - Gli input editabili per manager display name sono stati rimossi dai bootstrap
   iniziali e dal provisioning manager su shop esistente.
 - Default server-side: `display_name = "manager"`; staff code, role e permission
@@ -230,3 +252,23 @@ Win7POS uso dei dati boleta.
   Follow-up: `Block removing the last full-access shop manager in Admin
   Console.`
 - Nessuna migration nuova, nessun cambio schema e nessun apply production.
+
+## Review Fix Temporary Manager PIN 2026-06-06
+
+- Il valore temporaneo lungo prefissato legacy e stato sostituito per
+  provisioning manager `1001` con `Temporary PIN`.
+- Generazione server-side: `generateTemporaryManagerPin()` usa
+  `crypto.randomInt(10000, 100000)` e restituisce sempre una stringa numerica di
+  5 cifre.
+- Scope applicato a creazione shop con owner, POS-first shop e recovery
+  `Recover manager 1001`; pending owner setup non crea manager iniziale nel
+  backend corrente e quindi non inventa PIN.
+- Il PIN raw viene hashato con `hashStaffCredential` prima delle RPC/update
+  staff e non viene scritto in DB, audit, log, evidence, URL o storage client.
+- UI/result card aggiornate a `Temporary PIN shown once`, copy `Copy PIN` e
+  warning `Save this PIN now. It will not be shown again.`
+- Copy first-access: `Use this PIN with shop code and staff code 1001 for the
+  first Admin Console / Win7POS access. The shop should change it after first
+  access.`
+- Nessuna modifica a Win7POS runtime, session token, device token, auth token,
+  schema o migration.

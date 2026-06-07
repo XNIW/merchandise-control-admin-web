@@ -1,14 +1,12 @@
 "use client";
 
-import { useMemo, useState, useActionState } from "react";
-import {
-  recoverInitialManager1001Action,
-  type PlatformStaffManagerProvisionState,
-} from "./actions";
+import { useMemo, useState, type FormEvent } from "react";
+import type { PlatformStaffManagerProvisionState } from "./actions";
 import {
   SearchableEntityPicker,
   type SearchableEntityPickerItem,
 } from "./SearchableEntityPicker";
+import { submitPlatformProvisioningForm } from "./platformProvisioningRequest";
 
 type StaffManagerProvisioningPanelProps = {
   shops: readonly {
@@ -26,9 +24,16 @@ const initialState: PlatformStaffManagerProvisionState = {
   ok: true,
 };
 
+const requestFailedState: PlatformStaffManagerProvisionState = {
+  code: "credential_update_database_error",
+  message:
+    "Recovery could not complete because the database boundary failed. Check server diagnostics.",
+  ok: false,
+};
+
 const operationResultLabel: Record<string, string> = {
-  credential_reset: "Credential reset",
-  reactivated_reset: "Manager reactivated and credential reset",
+  credential_reset: "PIN reset",
+  reactivated_reset: "Manager reactivated and PIN reset",
   recreated: "Manager recreated",
 };
 
@@ -46,7 +51,7 @@ function FieldError({
   ) : null;
 }
 
-function CopyCredentialButton({ value }: { value: string }) {
+function CopyPinButton({ value }: { value: string }) {
   const [copied, setCopied] = useState(false);
 
   return (
@@ -58,7 +63,7 @@ function CopyCredentialButton({ value }: { value: string }) {
       }}
       type="button"
     >
-      {copied ? "Copied" : "Copy credential"}
+      {copied ? "Copied" : "Copy PIN"}
     </button>
   );
 }
@@ -66,11 +71,12 @@ function CopyCredentialButton({ value }: { value: string }) {
 export function StaffManagerProvisioningPanel({
   shops,
 }: StaffManagerProvisioningPanelProps) {
+  const [shopCodeQuery, setShopCodeQuery] = useState("");
   const [selectedShopId, setSelectedShopId] = useState("");
-  const [state, formAction, pending] = useActionState(
-    recoverInitialManager1001Action,
-    initialState,
-  );
+  const [reason, setReason] = useState("");
+  const [state, setState] =
+    useState<PlatformStaffManagerProvisionState>(initialState);
+  const [pending, setPending] = useState(false);
   const hasResult = state.message !== initialState.message;
   const hasShops = shops.length > 0;
   const shopItems = useMemo(
@@ -93,9 +99,47 @@ export function StaffManagerProvisioningPanel({
   const operationResult = state.operationResult
     ? operationResultLabel[state.operationResult] ?? state.operationResult
     : null;
+  const selectedShop = useMemo(
+    () => shops.find((shop) => shop.shopId === selectedShopId),
+    [selectedShopId, shops],
+  );
+  const submittedShopCode = selectedShop?.shopCode ?? shopCodeQuery.trim();
+
+  async function handleRecoverSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    try {
+      const payload = new FormData();
+
+      payload.set("reason", reason);
+      payload.set("shopCode", submittedShopCode);
+      payload.set("shopId", selectedShopId);
+
+      const responsePromise = submitPlatformProvisioningForm(
+        "/platform/provisioning/recover-manager-1001",
+        payload,
+        document.cookie,
+      );
+
+      setPending(true);
+
+      const response = await responsePromise;
+
+      if (!response.ok) {
+        setState(requestFailedState);
+        return;
+      }
+
+      setState((await response.json()) as PlatformStaffManagerProvisionState);
+    } catch {
+      setState(requestFailedState);
+    } finally {
+      setPending(false);
+    }
+  }
 
   return (
-    <form action={formAction} className="grid gap-4 sm:grid-cols-2">
+    <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleRecoverSubmit}>
       <section
         aria-labelledby="manager-recovery-action-title"
         className="grid gap-1 rounded-md border border-slate-200 bg-white px-3 py-3 text-sm text-slate-700 sm:col-span-2"
@@ -118,6 +162,7 @@ export function StaffManagerProvisioningPanel({
           hiddenInputName="shopId"
           items={shopItems}
           label="Target shop"
+          onQueryChange={setShopCodeQuery}
           onSelect={setSelectedShopId}
           renderItemStatus={(shop) => shop.status}
           renderItemSubtitle={(shop) => shop.shopCode}
@@ -126,7 +171,9 @@ export function StaffManagerProvisioningPanel({
           selectedId={selectedShopId}
           selectedSummaryLabel="Selected shop"
         />
+        <input name="shopCode" type="hidden" value={submittedShopCode} />
         <FieldError field="shopId" state={state} />
+        <FieldError field="shopCode" state={state} />
       </div>
 
       <section
@@ -145,9 +192,9 @@ export function StaffManagerProvisioningPanel({
           model yet.
         </p>
         <p>
-          If manager 1001 exists and is usable, recovery resets its credential.
+          If manager 1001 exists and is usable, recovery resets its PIN.
           If manager 1001 is suspended, archived, disabled or otherwise not
-          usable, recovery reactivates it and resets its credential. If manager
+          usable, recovery reactivates it and resets its PIN. If manager
           1001 is missing, recovery recreates manager 1001 with full access.
         </p>
         <p>New manager display name: manager</p>
@@ -157,8 +204,10 @@ export function StaffManagerProvisioningPanel({
         <span>Reason</span>
         <textarea
           name="reason"
+          onChange={(event) => setReason(event.target.value)}
           required
           rows={3}
+          value={reason}
           className="min-h-20 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
         />
         <FieldError field="reason" state={state} />
@@ -207,16 +256,19 @@ export function StaffManagerProvisioningPanel({
             {state.oneTimeSignInValue ? (
               <>
                 <span className="mt-2 block text-xs text-emerald-900">
-                  Shown once in this response. Temporary credential / PIN. It will not be shown again.
+                  Temporary PIN. Shown once in this response. It will not be shown again.
                 </span>
-                <code className="mt-2 block break-all rounded bg-white px-2 py-1 text-slate-950">
+                <p className="mt-2 text-xs text-emerald-900">
+                  Use this PIN with shop code and staff code 1001 for the first Admin Console / Win7POS access. The shop should change it after first access.
+                </p>
+                <code className="mt-2 block rounded bg-white px-3 py-2 font-mono text-2xl font-semibold text-slate-950">
                   {state.oneTimeSignInValue}
                 </code>
                 <div className="mt-2">
-                  <CopyCredentialButton value={state.oneTimeSignInValue} />
+                  <CopyPinButton value={state.oneTimeSignInValue} />
                 </div>
                 <p className="mt-2 text-xs font-semibold text-emerald-950">
-                  Save this credential now. It will not be shown again.
+                  Save this PIN now. It will not be shown again.
                 </p>
               </>
             ) : null}

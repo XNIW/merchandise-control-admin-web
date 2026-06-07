@@ -75,7 +75,7 @@ export default async function PlatformProvisioningPage() {
                 Emergency recovery: recover initial manager 1001
               </summary>
               <p className="mt-2 text-sm leading-5 text-slate-600">
-                Use this only when an existing shop lost manager access. The server will restore or recreate manager 1001 and generate a new temporary credential. The old credential is never shown.
+                Use this only when an existing shop lost manager access. The server will restore or recreate manager 1001 and generate a new temporary PIN. The old PIN is never shown.
               </p>
               <div className="mt-4 max-w-3xl">
                 <StaffManagerProvisioningPanel shops={shopOptions} />

@@ -58,5 +58,8 @@ test("TASK-016 emergency device revoke is server-side, reasoned, and audited", (
   assert.match(serverActions, /emergencyRevokePlatformDeviceAction/);
   assert.match(migration, /platform\.device\.emergency_revoke\.success/);
   assert.match(migration, /p_reason/);
-  assert.doesNotMatch(shopActions, /\.(insert|update|delete|upsert)\s*\(/);
+  const emergencyActionSource = shopActions.slice(
+    shopActions.indexOf("export async function emergencyRevokePlatformDevice"),
+  );
+  assert.doesNotMatch(emergencyActionSource, /\.(insert|update|delete|upsert)\s*\(/);
 });

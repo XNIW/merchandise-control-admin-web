@@ -129,7 +129,7 @@ async function createTemporaryPlatformAdmin(): Promise<RuntimeFixture> {
 async function signIn(page: Page, fixture: RuntimeFixture) {
   await page.goto("/auth/login?next=/platform");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Admin account sign in" }),
+    page.getByRole("heading", { level: 1, name: "Master Console sign in" }),
   ).toBeVisible();
   await page.getByLabel("Email").fill(fixture.email);
   await page.getByLabel("Password").fill(fixture.password);

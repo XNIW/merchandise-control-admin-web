@@ -356,9 +356,9 @@ test.describe("Platform Admin live auth gate", () => {
       throw new Error("BLOCKED_BASE_URL_UNAVAILABLE");
     }
 
-    await page.goto("/auth/login");
+    await page.goto("/auth/login?next=/platform");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Admin account sign in" }),
+      page.getByRole("heading", { level: 1, name: "Master Console sign in" }),
     ).toBeVisible();
 
     const credentials = await createTemporaryPlatformAdminCredentials();
@@ -398,7 +398,7 @@ test.describe("Platform Admin live auth gate", () => {
   test("uses a real session for Platform and Shop authenticated screenshots", async ({
     page,
   }) => {
-    await page.goto("/auth/login");
+    await page.goto("/auth/login?next=/platform");
     const fixture = await createTemporaryShopAdminFixture();
 
     try {
@@ -474,7 +474,7 @@ test.describe("Platform Admin live auth gate", () => {
       "Set CONFIRM_PLATFORM_ADMIN_TASK006_LIVE_TEST=yes to run TASK-006 controlled actions.",
     );
 
-    await page.goto("/auth/login");
+    await page.goto("/auth/login?next=/platform");
     const credentials = await createTemporaryPlatformAdminCredentials();
     const nonce = Date.now().toString(36).toUpperCase();
     const shopCode = `TASK006_TEST_${nonce}`;

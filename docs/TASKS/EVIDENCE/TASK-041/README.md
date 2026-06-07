@@ -39,7 +39,7 @@ Motivazione: `TASK-041` sblocca parte dei blocker runtime ma non sostituisce la 
 | --- | --- | --- |
 | Governance e tracking | `PASS_WITH_NOTES` | TASK-041 attivo; TASK-040 resta `REVIEW_WITH_EXTERNAL_BLOCKERS / SUPERSEDED_BY_TASK-041`; nessun `DONE`. |
 | Supabase safety/migration | `PASS_SUPABASE_DEV_APPLIED` / `PASS_LOCAL_CONTAINER_ALIGNMENT` | Local e linked dev allineati fino a `20260604214112`; `supabase status` PASS dopo allineamento `project_id`; lint local/linked PASS; typegen da linked dev PASS; production `NOT_RUN_PRODUCTION_FORBIDDEN`. |
-| Cloudflare/OpenNext staging | `PASS_CLOUDFLARE_OPENNEXT_PREVIEW` | OpenNext/Wrangler configurati; local preview `127.0.0.1:8788` smoke PASS; no production deploy. |
+| Cloudflare/OpenNext staging | `PASS_CLOUDFLARE_OPENNEXT_PREVIEW` / `BLOCKED_CLOUDFLARE_STAGING_IDENTITY_AND_TARGETS_NOT_VERIFIED` | OpenNext/Wrangler configurati; local preview smoke PASS; staging remoto fermo per auth/account/zone/Supabase target non verificati; no production deploy. |
 | Sales Sync readiness | `PASS_SALES_SYNC_FOUNDATION` | Schema idempotente e route POST server-side implementati; RLS/grants verificati; no dashboard vendite fake. |
 | Win7POS E2E | `PASS_WITH_MANUAL_WIN7_STEPS` | `WIN7POS_REPO_PATH` non impostato; host tool presenti; live Windows 7 non eseguibile da Codex in questo runtime. |
 | Evidence e handoff | `REVIEW_WITH_EXTERNAL_BLOCKERS` | Evidence aggiornata; final checks freschi PASS/PASS_WITH_WARNINGS; `DONE` non dichiarato da Codex. |
@@ -99,7 +99,7 @@ Safety note: la password Supabase fornita dall'utente non e stata salvata o stam
 | `@opennextjs/cloudflare` in `package.json` | `PASS`, dev dependency presente |
 | `wrangler` in `package.json` | `PASS`, dev dependency presente |
 | `open-next.config.ts` | `PASS`, `defineCloudflareConfig` |
-| `wrangler.jsonc` | `PASS`, staging name e `nodejs_compat` |
+| `wrangler.jsonc` | `PASS`, ambienti `staging`/`production`, staging name e `nodejs_compat` |
 | `src/proxy.ts` | `REMOVED_FOR_CLOUDFLARE_COMPATIBILITY` |
 | `src/middleware.ts` | `PASS_WITH_DEPRECATION_NOTE`, conserva Supabase SSR guard |
 | `npm run cf:build` | `PASS_WITH_WARNINGS`, Next build e OpenNext build completati; warning deprecation/copy non bloccanti |
@@ -109,6 +109,98 @@ Safety note: la password Supabase fornita dall'utente non e stata salvata o stam
 | `curl http://127.0.0.1:8788/api/pos/sales/sync` | `PASS`, HTTP `405` atteso per GET su route POST-only |
 | `npm run cf:build` finale | `PASS_WITH_WARNINGS`, OpenNext build complete; warning deprecation/copy non bloccanti |
 | deploy production | `NOT_RUN_PRODUCTION_FORBIDDEN` |
+
+### Cloudflare hosting migration follow-up 2026-06-07
+
+| Check | Esito |
+| --- | --- |
+| Documentazione ufficiale Cloudflare Wrangler environments/secrets/GitHub Actions/custom domains consultata | `PASS` |
+| Documentazione OpenNext Cloudflare CLI consultata | `PASS` |
+| Documentazione Supabase Auth Redirect URLs consultata | `PASS` |
+| `wrangler.jsonc` env separati | `PASS`, presenti `env.staging` e `env.production` |
+| Worker staging previsto | `merchandise-control-admin-web-staging` |
+| Worker production previsto | `merchandise-control-admin-web` |
+| `node -e "JSON.parse(...wrangler.jsonc...)"` | `PASS`, JSON valido |
+| `npx wrangler --version` | `PASS`, `4.98.0` |
+| `npx wrangler whoami` | `BLOCKED_CLOUDFLARE_API_TOKEN_REQUIRED`, runtime non autenticato |
+| `npx wrangler deployments list --env staging` prima di `env.staging` | `FAIL_CONFIG_WITH_AUTH_BLOCKER`, Wrangler segnalava env staging mancante e poi token mancante |
+| `npx wrangler deployments list --env staging` dopo config env | `BLOCKED_CLOUDFLARE_API_TOKEN_REQUIRED`, nessun warning env staging mancante |
+| `.github/workflows/cloudflare.yml` | `PASS_CONFIGURED_WITH_PRODUCTION_CONFIRMATION_INPUTS`, build su PR/main/staging, deploy staging separato, production solo manual dispatch con conferme `confirm_staging_gates_passed` e `confirm_user_approved_production` |
+| Cloudflare staging deploy remoto | `NOT_RUN_BLOCKED_CLOUDFLARE_STAGING_READY_PREREQUISITES` |
+| Cloudflare staging smoke remoto | `NOT_RUN_BLOCKED_NO_REMOTE_STAGING_URL` |
+| Cloudflare production deploy | `NOT_RUN_PRODUCTION_FORBIDDEN` |
+| Custom domain/DNS | `BLOCKED_DOMAIN_UNKNOWN_AND_ZONE_NOT_VERIFIED` / `BLOCKED_DNS_OR_DOMAIN_PERMISSION_REQUIRED` |
+| Supabase Auth URL alignment | `BLOCKED_SUPABASE_AUTH_URLS_MANUAL_STEP` |
+| WAF/rate limit/Access rules | `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED` |
+| Vercel status | `PASS_PARKED`, `vercel.json` mantiene `git.deploymentEnabled=false` |
+
+### Cloudflare staging remoto decisione operativa 2026-06-07
+
+Verdict minimo corrente:
+`BLOCKED_CLOUDFLARE_STAGING_READY_PREREQUISITES`.
+
+| Check | Esito |
+| --- | --- |
+| Decisione prima fase | `PASS_RECORDED`, completare solo Cloudflare staging remoto prima di production/DNS |
+| Production deploy/DNS cutover | `NOT_RUN_FORBIDDEN_UNTIL_STAGING_PASS_AND_USER_CONFIRMATION` |
+| Dominio staging desiderato | `UNKNOWN` |
+| Dominio production desiderato | `UNKNOWN` |
+| Env process redatta | `PASS`, `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `PLAYWRIGHT_BASE_URL`, `SUPABASE_PROJECT_REF`, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY` risultano `MISSING` |
+| `npx wrangler whoami` | `BLOCKED_CLOUDFLARE_API_TOKEN_REQUIRED`, runtime non autenticato |
+| `wrangler.jsonc` account/route summary | `BLOCKED_CLOUDFLARE_ACCOUNT_AND_ZONE_NOT_CONFIGURED`, nessun `account_id`, nessuna `routes`, nessun custom domain |
+| `gh auth status` | `PASS_READ_ONLY`, autenticato come `XNIW` con token mascherato dalla CLI |
+| `gh api repos/XNIW/merchandise-control-admin-web/environments/cloudflare-staging` | `BLOCKED_GITHUB_ENVIRONMENT_NOT_FOUND`, HTTP `404` |
+| `gh api repos/XNIW/merchandise-control-admin-web/environments/cloudflare-production` | `BLOCKED_GITHUB_PRODUCTION_ENVIRONMENT_APPROVAL_NOT_VERIFIED`, HTTP `404` |
+| Supabase staging project | `BLOCKED_SUPABASE_STAGING_TARGET_NOT_CONFIRMED`, candidato storico non-production `merchandisecontrol-dev` / `jpgoimipbothfgkokyvm` da confermare prima dell'uso |
+| Supabase production project | `NOT_USED_PRODUCTION_CONFIRMATION_REQUIRED` |
+| Staging deploy remoto | `NOT_RUN_BLOCKED_BY_PREREQUISITES` |
+| Obiettivo minimo task | `BLOCKED_CLOUDFLARE_STAGING_READY_PREREQUISITES`, runbook completo in `docs/DEPLOYMENT/CLOUDFLARE-MIGRATION.md` |
+
+Check freschi dopo aggiornamento decisioni operative:
+
+| Comando/check | Esito |
+| --- | --- |
+| `ruby -e 'require "yaml"; YAML.load_file(".github/workflows/cloudflare.yml")'` | `PASS`, `YAML_OK` |
+| `node -e "JSON.parse(...wrangler.jsonc...)"` | `PASS`, `WRANGLER_JSON_OK` |
+| `npm run security:scan` | `PASS`, `Security scan passed.` |
+| `npm run test:foundation` | `PASS`, `tests 228`, `pass 228`, `fail 0` |
+| `git diff --check` | `PASS`, output vuoto |
+
+Runbook creati:
+
+- `docs/DEPLOYMENT/CLOUDFLARE-MIGRATION.md`;
+- `docs/DEPLOYMENT/CLOUDFLARE-ROLLBACK.md`.
+
+Secret/env status:
+
+- valori reali non letti, non stampati e non salvati;
+- `CLOUDFLARE_API_TOKEN` e `CLOUDFLARE_ACCOUNT_ID` non disponibili nel runtime corrente;
+- `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_PROJECT_REF` e `SUPABASE_SERVICE_ROLE_KEY` devono essere configurati per `staging` e `production` su Cloudflare prima dei deploy remoti;
+- `SUPABASE_SERVICE_ROLE_KEY` resta server-side only e non e stata aggiunta al workflow GitHub.
+
+Check finali Cloudflare follow-up 2026-06-07:
+
+| Comando/check | Esito |
+| --- | --- |
+| `npm run security:scan` | `PASS`, `Security scan passed.` |
+| `npm run test:foundation` | `PASS`, `tests 228`, `pass 228`, `fail 0` |
+| `npm run typecheck` | `PASS`, `next typegen` e `tsc --noEmit` completati |
+| `npm run lint` | `PASS`, exit `0` |
+| `npm run build` | `PASS_WITH_WARNINGS`, warning noti Next `middleware` deprecation e Node `[DEP0205]`; exit `0` |
+| `npm run verify` | `PASS_WITH_WARNINGS`, lint/typecheck/security/build exit `0`, stessi warning build |
+| `npm run cf:build` | `PASS_WITH_WARNINGS`, OpenNext build complete; warning copy package non bloccanti su `compress-commons`, `crc32-stream`, `zip-stream` |
+| `npm run cf:preview` | `PASS_WITH_WARNINGS`, preview locale pronta su `http://localhost:8787`; warning build come sopra |
+| Cloudflare preview `GET /` | `PASS`, HTTP `200`, redirect finale locale a `/auth/login?next=/shop&mode=admin-account` |
+| Cloudflare preview `GET /auth/login?next=/shop` | `PASS`, HTTP `200` |
+| Cloudflare preview `GET /auth/login?next=/platform` | `PASS`, HTTP `200` |
+| Cloudflare preview `GET /shop` | `PASS`, HTTP `200`, auth guard/no active session |
+| Cloudflare preview `GET /platform` | `PASS`, HTTP `200`, Platform auth guard |
+| Cloudflare preview `GET /api/pos/sales/sync` | `PASS`, HTTP `405` atteso su route POST-only |
+| Cloudflare preview POS POST invalid payload | `PASS`, `/api/pos/auth/first-login`, `/api/pos/session/heartbeat` e `/api/pos/catalog/pull` rispondono HTTP `400` con `Cache-Control: no-store` e body piccolo/redatto |
+| `npm run smoke:staging` senza URL remoto | `BLOCKED_NO_REMOTE_STAGING_URL`, guardrail: `Set PLAYWRIGHT_BASE_URL to the non-production staging Admin Web URL.` |
+| `git diff --check` | `PASS`, output vuoto |
+| `git diff --cached --name-status` | `PASS`, output vuoto |
+| `git status --short --branch --untracked-files=all` | `PASS_WITH_DIRTY_WORKTREE_EXPECTED`, branch `main...origin/main`, modifiche non staged preesistenti TASK-051/TASK-052/053/054 piu follow-up Cloudflare |
 
 ## Sales Sync evidence
 

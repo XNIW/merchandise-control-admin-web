@@ -1,84 +1,49 @@
 "use client";
 
-import { useRouter, useSearchParams } from "next/navigation";
-import { FormEvent, useMemo, useState } from "react";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { useSearchParams } from "next/navigation";
+import { useActionState, useMemo } from "react";
+import {
+  accountSignInAction,
+  type AccountSignInState,
+} from "@/app/auth/login/actions";
 
 type AuthFormProps = {
   isConfigured: boolean;
+  formLabel?: string;
 };
 
-type AuthState = "idle" | "pending" | "success" | "blocked";
+const initialState: AccountSignInState = {
+  message: "",
+  status: "idle",
+};
 
 function isSafeInternalNextPath(value: string | null): value is string {
   return Boolean(value?.startsWith("/") && !value.startsWith("//"));
 }
 
-export function AuthForm({ isConfigured }: AuthFormProps) {
-  const router = useRouter();
+export function AuthForm({
+  formLabel = "Admin account sign in",
+  isConfigured,
+}: AuthFormProps) {
   const searchParams = useSearchParams();
-  const [state, setState] = useState<AuthState>("idle");
-  const [message, setMessage] = useState("");
+  const [state, formAction, pending] = useActionState(
+    accountSignInAction,
+    initialState,
+  );
   const nextPath = useMemo(() => {
     const requested = searchParams.get("next");
 
     return isSafeInternalNextPath(requested) ? requested : "/";
   }, [searchParams]);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
-    if (!isConfigured) {
-      setState("blocked");
-      setMessage("Supabase runtime is not configured for browser sign-in.");
-      return;
-    }
-
-    const formData = new FormData(event.currentTarget);
-    const email = String(formData.get("email") ?? "").trim();
-    const password = String(formData.get("password") ?? "");
-
-    if (!email || !password) {
-      setState("blocked");
-      setMessage("Email and password are required.");
-      return;
-    }
-
-    const supabase = createSupabaseBrowserClient();
-
-    if (!supabase) {
-      setState("blocked");
-      setMessage("Supabase browser auth is unavailable.");
-      return;
-    }
-
-    setState("pending");
-    setMessage("");
-
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (error) {
-      setState("blocked");
-      setMessage("Sign-in was blocked. Check the account and try again.");
-      return;
-    }
-
-    setState("success");
-    setMessage("Signed in. Opening requested console.");
-    router.replace(nextPath);
-    router.refresh();
-  }
-
   return (
     <form
+      action={formAction}
       method="post"
-      onSubmit={handleSubmit}
       className="grid gap-4"
-      aria-label="Admin account sign in"
+      aria-label={formLabel}
     >
+      <input name="next" type="hidden" value={nextPath} />
       <div className="grid gap-1.5">
         <label htmlFor="email" className="text-sm font-medium text-slate-800">
           Email
@@ -112,24 +77,19 @@ export function AuthForm({ isConfigured }: AuthFormProps) {
 
       <button
         type="submit"
-        disabled={state === "pending" || !isConfigured}
+        disabled={pending || !isConfigured}
         className="inline-flex h-11 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-semibold text-white outline-none transition hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-300 disabled:text-slate-600"
       >
-        {state === "pending" ? "Signing in" : "Sign in"}
+        {pending ? "Signing in" : "Sign in"}
       </button>
 
-      {message ? (
+      {state.message ? (
         <p
           role="status"
           aria-live="polite"
-          className={[
-            "rounded-md border px-3 py-2 text-sm",
-            state === "success"
-              ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-              : "border-amber-200 bg-amber-50 text-amber-800",
-          ].join(" ")}
+          className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
         >
-          {message}
+          {state.message}
         </p>
       ) : null}
     </form>

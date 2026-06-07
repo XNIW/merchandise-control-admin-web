@@ -2,8 +2,9 @@ import { expect, test } from "@playwright/test";
 
 const entryRoute = {
   path: "/",
-  heading: "Console access",
-  title: "Console Access | MerchandiseControl Admin Web",
+  redirectPath: "/auth/login",
+  next: "/shop",
+  mode: "admin-account",
 };
 
 const protectedPlatformRoutes = [
@@ -220,29 +221,33 @@ async function expectAccessState(page: import("@playwright/test").Page) {
 }
 
 test.describe("Admin Web smoke", () => {
-  test("renders the root console selection without exposing admin data", async ({
+  test("redirects the root entrypoint to Admin Console account login", async ({
     page,
   }) => {
     await page.goto(entryRoute.path);
 
     await expectAccessState(page);
-    await expect(page).toHaveTitle(entryRoute.title);
+    await expect(page).toHaveURL(/\/auth\/login/);
+    const redirectedUrl = new URL(page.url());
+    expect(redirectedUrl.pathname).toBe(entryRoute.redirectPath);
+    expect(redirectedUrl.searchParams.get("next")).toBe(entryRoute.next);
+    expect(redirectedUrl.searchParams.get("mode")).toBe(entryRoute.mode);
     await expect(
-      page.getByRole("heading", { level: 1, name: entryRoute.heading }),
+      page.getByRole("heading", { level: 1, name: "Admin Console sign in" }),
     ).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Master Console" })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Admin Console" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Open Master Console" })).toHaveAttribute(
+    await expect(page.getByText("Admin Console access")).toHaveCount(0);
+    await expect(page.getByText("Master Console")).toHaveCount(0);
+    await expect(
+      page.getByRole("link", { name: /Master Console|Open Master Console/ }),
+    ).toHaveCount(0);
+    await expect(page.locator('a[href="/auth/login?next=/platform"]')).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Admin account" })).toHaveAttribute(
       "href",
-      "/auth/login?next=/platform",
+      "/auth/login?next=/shop&mode=admin-account",
     );
-    await expect(page.getByRole("link", { name: "Use Admin account" })).toHaveAttribute(
+    await expect(page.getByRole("tab", { name: "Shop code" })).toHaveAttribute(
       "href",
-      "/auth/login?next=/shop",
-    );
-    await expect(page.getByRole("link", { name: "Use Shop code" })).toHaveAttribute(
-      "href",
-      "/shop/staff-login",
+      "/auth/login?next=/shop&mode=shop-code",
     );
   });
 
@@ -290,16 +295,106 @@ test.describe("Admin Web smoke", () => {
     await expect(page.getByLabel("Platform status")).toHaveCount(0);
   });
 
-  test("auth login page renders without exposing admin data", async ({ page }) => {
+  test("auth login page defaults to Admin Console account tab", async ({ page }) => {
     await page.goto("/auth/login");
 
-    await expect(page).toHaveTitle("Admin Account Sign In | MerchandiseControl Admin Web");
     await expect(
-      page.getByRole("heading", { level: 1, name: "Admin account sign in" }),
+      page.getByRole("heading", { level: 1, name: "Admin Console sign in" }),
     ).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Admin account" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByRole("tab", { name: "Shop code" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    await expect(page.getByRole("form", { name: "Admin account sign in" })).toBeVisible();
+    await expect(page.getByLabel("Email")).toBeVisible();
+    await expect(page.getByLabel("Password")).toBeVisible();
+    await expect(page.getByLabel("Shop code")).toHaveCount(0);
+    await expect(page.getByText("No service key in browser")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Create shop" })).toHaveCount(0);
+  });
+
+  test("auth login page labels the Master Console direct bookmark", async ({ page }) => {
+    await page.goto("/auth/login?next=/platform");
+
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Master Console sign in" }),
+    ).toBeVisible();
+    await expect(page.getByText("Master Console credentials")).toBeVisible();
+    await expect(page.getByRole("form", { name: "Master Console sign in" })).toBeVisible();
+    await expect(page.getByRole("tablist")).toHaveCount(0);
+    await expect(page.getByRole("tab", { name: "Shop code" })).toHaveCount(0);
+    await expect(page.getByLabel("Shop code")).toHaveCount(0);
+    await expect(page.locator('a[href="/auth/login?next=/shop&mode=shop-code"]')).toHaveCount(
+      0,
+    );
+    await expect(page.locator('a[href="/shop/staff-login"]')).toHaveCount(0);
+    await expect(page.getByText("No service key in browser")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Create shop" })).toHaveCount(0);
+  });
+
+  test("auth login page labels Admin Console account tab when next points to shop", async ({
+    page,
+  }) => {
+    await page.goto("/auth/login?next=/shop");
+
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Admin Console sign in" }),
+    ).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Admin account" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByRole("tab", { name: "Shop code" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    await expect(page.getByText("Admin account credentials")).toBeVisible();
     await expect(page.getByRole("form", { name: "Admin account sign in" })).toBeVisible();
     await expect(page.getByText("No service key in browser")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Create shop" })).toHaveCount(0);
+  });
+
+  test("auth login page renders Shop code tab in the Admin Console card", async ({
+    page,
+  }) => {
+    await page.goto("/auth/login?next=/shop&mode=shop-code");
+
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Admin Console sign in" }),
+    ).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Admin account" })).toHaveAttribute(
+      "aria-selected",
+      "false",
+    );
+    await expect(page.getByRole("tab", { name: "Shop code" })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    await expect(page.getByText("Shop code credentials")).toBeVisible();
+    await expect(page.getByRole("form", { name: "Shop code sign in" })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Shop code" })).toBeVisible();
+    await expect(page.getByRole("textbox", { name: "Staff code" })).toBeVisible();
+    await expect(page.getByLabel("PIN / password")).toBeVisible();
+    await expect(page.getByLabel("Email")).toHaveCount(0);
+    await expect(page.getByText("No service key in browser")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Create shop" })).toHaveCount(0);
+  });
+
+  test("shop staff-login route redirects to the unified Shop code tab", async ({
+    page,
+  }) => {
+    await page.goto("/shop/staff-login");
+
+    await expect(page).toHaveURL(/\/auth\/login/);
+    const redirectedUrl = new URL(page.url());
+    expect(redirectedUrl.pathname).toBe("/auth/login");
+    expect(redirectedUrl.searchParams.get("next")).toBe("/shop");
+    expect(redirectedUrl.searchParams.get("mode")).toBe("shop-code");
+    await expect(page.getByRole("form", { name: "Shop code sign in" })).toBeVisible();
   });
 
   test("access state sign-in link preserves the requested console", async ({

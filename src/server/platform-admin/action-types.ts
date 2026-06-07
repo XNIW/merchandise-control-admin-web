@@ -28,6 +28,22 @@ export type PlatformShopActionResult = {
   shopId?: string;
   auditEventId?: string;
   fieldErrors?: Record<string, string>;
+  formError?: string;
+};
+
+export type PlatformShopProvisioningFormValues = {
+  businessAddress: string;
+  businessCity: string;
+  businessGiro: string;
+  companyRut: string;
+  legalRepresentativeRut: string;
+  ownerContact: string;
+  ownerProfileId: string;
+  ownerSetupMode: string;
+  reason: string;
+  shopCode: string;
+  shopName: string;
+  useCompanyRutAsShopCode: boolean;
 };
 
 export type PlatformShopProvisioningResult = PlatformShopActionResult & {
@@ -40,6 +56,7 @@ export type PlatformShopProvisioningResult = PlatformShopActionResult & {
   staffCode?: string;
   staffId?: string;
   temporaryCredential?: string;
+  values?: PlatformShopProvisioningFormValues;
 };
 
 export const INITIAL_MANAGER_DISPLAY_NAME = "manager" as const;
@@ -138,6 +155,7 @@ export function platformShopActionResult(
   options: {
     auditEventId?: string;
     fieldErrors?: Record<string, string>;
+    formError?: string;
     ok?: boolean;
     shopId?: string;
   } = {},
@@ -149,5 +167,6 @@ export function platformShopActionResult(
     shopId: options.shopId,
     auditEventId: options.auditEventId,
     fieldErrors: options.fieldErrors,
+    formError: options.formError,
   };
 }

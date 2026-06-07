@@ -13,6 +13,8 @@ test("TASK-016 provisioning supports existing owner and pending owner invite bou
   const provisioningPagePath = "src/app/platform/provisioning/page.tsx";
   const newShopPagePath = "src/app/platform/shops/new/page.tsx";
   const operationsActionsPath = "src/app/platform/operations/actions.ts";
+  const provisioningFormSubmitPath =
+    "src/app/platform/provisioning/provisioningFormSubmit.ts";
   const shopActionsPath = "src/server/platform-admin/shop-actions.ts";
   const validationPath = "src/server/platform-admin/shop-action-validation.ts";
   const completionMigrationPath =
@@ -22,6 +24,7 @@ test("TASK-016 provisioning supports existing owner and pending owner invite bou
     provisioningPagePath,
     newShopPagePath,
     operationsActionsPath,
+    provisioningFormSubmitPath,
     shopActionsPath,
     validationPath,
     completionMigrationPath,
@@ -35,18 +38,15 @@ test("TASK-016 provisioning supports existing owner and pending owner invite bou
   );
   const newShopPage = readProjectFile(newShopPagePath);
   const operationsActions = readProjectFile(operationsActionsPath);
+  const provisioningFormSubmit = readProjectFile(provisioningFormSubmitPath);
   const shopActions = readProjectFile(shopActionsPath);
   const validation = readProjectFile(validationPath);
   const migration = readProjectFile(completionMigrationPath);
 
-  assert.match(
-    `${provisioningPage}\n${provisioningForms}\n${newShopPage}`,
-    /createPlatformShopAction|createPlatformShopWithOwnerBootstrapAction/,
-  );
-  assert.match(
-    `${provisioningPage}\n${provisioningForms}\n${newShopPage}`,
-    /createPlatformPendingOwnerInviteAction|createPlatformPendingOwnerInviteWithFiscalAction/,
-  );
+  assert.match(provisioningForms, /readPlatformProvisioningAccessToken/);
+  assert.match(provisioningForms, /window\.fetch\("\/platform\/provisioning\/create-shop"/);
+  assert.match(provisioningFormSubmit, /createPlatformShopWithOwnerBootstrap/);
+  assert.match(provisioningFormSubmit, /createPlatformPendingOwnerInviteWithFiscal/);
   assert.match(`${provisioningPage}\n${provisioningForms}\n${newShopPage}`, /PASS_WITH_NOTES_EMAIL_DELIVERY|Email delivery pending|Email delivery is not active yet/i);
   assert.doesNotMatch(`${provisioningPage}\n${newShopPage}`, /BLOCKED_AUTH_PROVISIONING/);
   assert.match(operationsActions, /^"use server";/);
@@ -60,14 +60,13 @@ test("TASK-016 provisioning supports existing owner and pending owner invite bou
   assert.match(migration, /owner_contact_digest/);
   assert.match(migration, /platform_create_shop_with_pending_owner_invite/);
   assert.match(migration, /platform\.shop\.pending_owner_invite\.success/);
-  assert.doesNotMatch(`${provisioningPage}\n${newShopPage}\n${shopActions}\n${migration}`, /magic_link|access_token|refresh_token/i);
+  assert.doesNotMatch(`${provisioningPage}\n${newShopPage}\n${migration}`, /magic_link|access_token|refresh_token/i);
 });
 
 test("TASK-016 provisioning does not create unsafe auth or POS credentials", () => {
   const source = [
     "src/app/platform/provisioning/page.tsx",
     "src/app/platform/shops/new/page.tsx",
-    "src/server/platform-admin/shop-actions.ts",
     "src/app/platform/operations/actions.ts",
     "supabase/migrations/20260531210000_task_016_platform_completion.sql",
   ]

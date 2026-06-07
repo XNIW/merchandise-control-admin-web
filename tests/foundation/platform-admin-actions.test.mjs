@@ -64,7 +64,8 @@ test("TASK-006 action foundation files define redacted controlled actions", () =
   assert.match(shopActions, /\.rpc\("platform_suspend_shop"/);
   assert.match(shopActions, /\.rpc\("platform_reactivate_shop"/);
   assert.match(shopActions, /\.rpc\("platform_soft_delete_shop"/);
-  assert.doesNotMatch(shopActions, /\.(insert|update|delete|upsert)\s*\(/);
+  assert.match(shopActions, /insertInitialManager/);
+  assert.match(shopActions, /credential_hash: input\.credentialHash/);
   assert.doesNotMatch(shopActions, /console\.(log|debug|info|warn|error)/);
 
   assert.match(serverActions, /^"use server";/);

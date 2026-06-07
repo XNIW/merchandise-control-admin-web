@@ -104,12 +104,13 @@ Motivo: `TASK-041` ha sbloccato una parte sostanziale dei blocker runtime, ma re
 
 ### Gate 2 - Cloudflare/OpenNext staging
 
-- Stato: `PASS_CLOUDFLARE_OPENNEXT_PREVIEW`.
+- Stato: `PASS_CLOUDFLARE_OPENNEXT_PREVIEW` /
+  `BLOCKED_CLOUDFLARE_STAGING_IDENTITY_AND_TARGETS_NOT_VERIFIED`.
 - Implementato:
   - dev deps `@opennextjs/cloudflare` e `wrangler`;
   - script `cf:build` e `cf:preview`;
   - `open-next.config.ts`;
-  - `wrangler.jsonc` staging-only con `nodejs_compat`;
+  - `wrangler.jsonc` con ambienti Cloudflare `staging`/`production` e `nodejs_compat`;
   - output generati `.open-next/` e `.wrangler/` ignorati.
 - Compatibility audit:
   - Next.js 16 App Router e route handlers verificati;
@@ -124,6 +125,39 @@ Motivo: `TASK-041` ha sbloccato una parte sostanziale dei blocker runtime, ma re
   - `GET /shop`: HTTP 200 con auth guard;
   - `GET /api/pos/sales/sync`: HTTP 405 atteso.
 - Production deploy: `NOT_RUN_PRODUCTION_FORBIDDEN`.
+
+Aggiornamento Cloudflare hosting 2026-06-07:
+
+- `wrangler.jsonc` aggiornato con ambienti `staging` e `production`;
+- worker staging previsto: `merchandise-control-admin-web-staging`;
+- worker production previsto: `merchandise-control-admin-web`;
+- `npx wrangler deployments list --env staging`: `BLOCKED_CLOUDFLARE_API_TOKEN_REQUIRED`, runtime non autenticato e nessun `CLOUDFLARE_API_TOKEN` disponibile;
+- workflow Cloudflare separato aggiunto in `.github/workflows/cloudflare.yml`;
+- runbook aggiunti:
+  - `docs/DEPLOYMENT/CLOUDFLARE-MIGRATION.md`;
+  - `docs/DEPLOYMENT/CLOUDFLARE-ROLLBACK.md`;
+- staging remoto, production remoto, custom domain, DNS, WAF/rate limit e Supabase Auth URL alignment restano `BLOCKED/NOT_RUN` finche mancano credenziali Cloudflare, dominio confermato, secret e smoke remoto.
+
+Decisioni operative aggiuntive 2026-06-07:
+
+- Prima fase obbligatoria: completare solo Cloudflare staging remoto.
+- Production deploy e DNS cutover restano vietati finche tutti i gate staging
+  remoti non sono `PASS` e l'utente non conferma esplicitamente.
+- Il tentativo corrente si ferma a
+  `BLOCKED_CLOUDFLARE_STAGING_IDENTITY_AND_TARGETS_NOT_VERIFIED`:
+  `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, account/zone Cloudflare,
+  dominio staging, GitHub environments e target Supabase staging non sono
+  verificabili nel runtime corrente.
+- Dominio staging desiderato: `UNKNOWN`.
+- Dominio production desiderato: `UNKNOWN`.
+- Supabase staging project:
+  `UNKNOWN_FOR_THIS_TASK`; `merchandisecontrol-dev` /
+  `jpgoimipbothfgkokyvm` resta solo candidato storico non-production da
+  confermare prima di usarlo per secret Cloudflare.
+- Supabase production project: `NOT_USED_PRODUCTION_CONFIRMATION_REQUIRED`.
+- Workflow CI/CD: production deploy richiede `workflow_dispatch`, environment
+  `cloudflare-production` e conferme manuali; la GitHub environment approval
+  remota resta `BLOCKED_GITHUB_PRODUCTION_ENVIRONMENT_APPROVAL_NOT_VERIFIED`.
 
 ### Gate 3 - Sales Sync readiness/foundation
 

@@ -73,11 +73,18 @@ export type StaffWebRequestMeta = {
 
 export type StaffWebLoginCode =
   | "success"
-  | "denied"
+  | "credential_invalid"
+  | "database_error"
   | "locked"
   | "not_configured"
-  | "validation_failed"
-  | "db_failure";
+  | "server_admin_not_configured"
+  | "shop_inactive"
+  | "shop_not_found"
+  | "staff_inactive"
+  | "staff_not_allowed"
+  | "staff_not_found"
+  | "unknown_error"
+  | "validation_failed";
 
 export type StaffWebLoginResult = {
   code: StaffWebLoginCode;
@@ -385,7 +392,7 @@ export async function authenticateStaffManagerWebLogin(
   const supabase = await getSupabaseForStaffWeb();
 
   if (!supabase) {
-    return staffWebLoginResult("not_configured");
+    return staffWebLoginResult("server_admin_not_configured");
   }
 
   const metadata = requestMetadata(meta);
@@ -403,161 +410,261 @@ export async function authenticateStaffManagerWebLogin(
     return staffWebLoginResult("validation_failed");
   }
 
-  const attempt = await getLoginAttempt(supabase, parsed.attemptKeyHash);
+  try {
+    const attempt = await getLoginAttempt(supabase, parsed.attemptKeyHash);
 
-  if (isFutureTimestamp(attempt?.locked_until)) {
-    await writeStaffWebAudit(supabase, {
-      code: "locked",
-      eventKey: "staff.web.login.failure",
-      metadata,
-      result: "blocked",
-      severity: "warning",
-    });
+    if (isFutureTimestamp(attempt?.locked_until)) {
+      await writeStaffWebAudit(supabase, {
+        code: "locked",
+        eventKey: "staff.web.login.failure",
+        metadata,
+        result: "blocked",
+        severity: "warning",
+      });
 
-    return staffWebLoginResult("locked");
-  }
+      return staffWebLoginResult("locked");
+    }
 
-  const shopResult = await supabase
-    .from("shops")
-    .select("shop_id,shop_code,shop_name,shop_status")
-    .eq("shop_code", parsed.shopCode)
-    .maybeSingle<ShopRow>();
+    const shopResult = await supabase
+      .from("shops")
+      .select("shop_id,shop_code,shop_name,shop_status")
+      .eq("shop_code", parsed.shopCode)
+      .maybeSingle<ShopRow>();
 
-  if (shopResult.error) {
-    return staffWebLoginResult("db_failure");
-  }
+    if (shopResult.error) {
+      await writeStaffWebAudit(supabase, {
+        code: "database_error",
+        eventKey: "staff.web.login.failure",
+        metadata,
+        result: "failure",
+        severity: "critical",
+      });
 
-  const shop = shopResult.data;
+      return staffWebLoginResult("database_error");
+    }
 
-  if (!shop || shop.shop_status !== "active") {
-    await updateFailedLoginAttempt(supabase, attempt, parsed.attemptKeyHash, metadata);
-    await writeStaffWebAudit(supabase, {
-      code: "denied",
-      eventKey: "staff.web.login.failure",
-      metadata,
-      shopId: shop?.shop_id,
-      result: "blocked",
-      severity: "warning",
-    });
+    const shop = shopResult.data;
 
-    return staffWebLoginResult("denied");
-  }
+    if (!shop) {
+      await updateFailedLoginAttempt(supabase, attempt, parsed.attemptKeyHash, metadata);
+      await writeStaffWebAudit(supabase, {
+        code: "shop_not_found",
+        eventKey: "staff.web.login.failure",
+        metadata,
+        result: "blocked",
+        severity: "warning",
+      });
 
-  const staffResult = await supabase
-    .from("staff_accounts")
-    .select(
-      "staff_id,shop_id,staff_code,display_name,role_key,status,credential_hash,credential_version,credential_status,failed_attempts,locked_until,must_change_credential,last_login_at,session_invalidated_at,web_access_revoked_at",
-    )
-    .eq("shop_id", shop.shop_id)
-    .eq("staff_code", parsed.staffCode)
-    .maybeSingle<StaffAccountRow>();
+      return staffWebLoginResult("shop_not_found");
+    }
 
-  if (staffResult.error) {
-    return staffWebLoginResult("db_failure");
-  }
-
-  const staff = staffResult.data;
-  const rolePermissions = staff
-    ? await getEnabledStaffRolePermissions(supabase, {
-        roleKey: staff.role_key,
+    if (shop.shop_status !== "active") {
+      await updateFailedLoginAttempt(supabase, attempt, parsed.attemptKeyHash, metadata);
+      await writeStaffWebAudit(supabase, {
+        code: "shop_inactive",
+        eventKey: "staff.web.login.failure",
+        metadata,
+        result: "blocked",
+        severity: "warning",
         shopId: shop.shop_id,
-      })
-    : { permissions: [], status: "ready" as const };
+      });
 
-  if (rolePermissions.status === "error") {
-    return staffWebLoginResult("db_failure");
-  }
+      return staffWebLoginResult("shop_inactive");
+    }
 
-  if (!staff || !isStaffEligibleForWebLogin(staff, rolePermissions.permissions)) {
-    await updateFailedLoginAttempt(supabase, attempt, parsed.attemptKeyHash, metadata);
-    await writeStaffWebAudit(supabase, {
-      code: "denied",
-      eventKey: "staff.web.login.failure",
-      metadata,
-      result: "blocked",
-      severity: "warning",
+    const staffResult = await supabase
+      .from("staff_accounts")
+      .select(
+        "staff_id,shop_id,staff_code,display_name,role_key,status,credential_hash,credential_version,credential_status,failed_attempts,locked_until,must_change_credential,last_login_at,session_invalidated_at,web_access_revoked_at",
+      )
+      .eq("shop_id", shop.shop_id)
+      .eq("staff_code", parsed.staffCode)
+      .maybeSingle<StaffAccountRow>();
+
+    if (staffResult.error) {
+      await writeStaffWebAudit(supabase, {
+        code: "database_error",
+        eventKey: "staff.web.login.failure",
+        metadata,
+        result: "failure",
+        severity: "critical",
+        shopId: shop.shop_id,
+      });
+
+      return staffWebLoginResult("database_error");
+    }
+
+    const staff = staffResult.data;
+
+    if (!staff) {
+      await updateFailedLoginAttempt(supabase, attempt, parsed.attemptKeyHash, metadata);
+      await writeStaffWebAudit(supabase, {
+        code: "staff_not_found",
+        eventKey: "staff.web.login.failure",
+        metadata,
+        result: "blocked",
+        severity: "warning",
+        shopId: shop.shop_id,
+      });
+
+      return staffWebLoginResult("staff_not_found");
+    }
+
+    if (
+      staff.credential_status === "locked" ||
+      isFutureTimestamp(staff.locked_until)
+    ) {
+      await updateFailedLoginAttempt(supabase, attempt, parsed.attemptKeyHash, metadata);
+      await writeStaffWebAudit(supabase, {
+        code: "locked",
+        eventKey: "staff.web.login.failure",
+        metadata,
+        result: "blocked",
+        severity: "warning",
+        shopId: shop.shop_id,
+        targetId: staff.staff_id,
+        targetType: "staff",
+      });
+
+      return staffWebLoginResult("locked");
+    }
+
+    if (!isStaffWebCredentialUsable(staff)) {
+      await updateFailedLoginAttempt(supabase, attempt, parsed.attemptKeyHash, metadata);
+      await writeStaffWebAudit(supabase, {
+        code: "staff_inactive",
+        eventKey: "staff.web.login.failure",
+        metadata,
+        result: "blocked",
+        severity: "warning",
+        shopId: shop.shop_id,
+        targetId: staff.staff_id,
+        targetType: "staff",
+      });
+
+      return staffWebLoginResult("staff_inactive");
+    }
+
+    const rolePermissions = await getEnabledStaffRolePermissions(supabase, {
+      roleKey: staff.role_key,
       shopId: shop.shop_id,
-      targetId: staff?.staff_id,
-      targetType: staff ? "staff" : undefined,
     });
 
-    return staffWebLoginResult("denied");
-  }
+    if (rolePermissions.status === "error") {
+      await writeStaffWebAudit(supabase, {
+        code: "database_error",
+        eventKey: "staff.web.login.failure",
+        metadata,
+        result: "failure",
+        severity: "critical",
+        shopId: shop.shop_id,
+        targetId: staff.staff_id,
+        targetType: "staff",
+      });
 
-  if (!staff.credential_hash) {
-    return staffWebLoginResult("denied");
-  }
+      return staffWebLoginResult("database_error");
+    }
 
-  const credentialOk = await verifyStaffCredential(
-    parsed.credential,
-    staff.credential_hash,
-  );
+    if (!isStaffEligibleForWebLogin(staff, rolePermissions.permissions)) {
+      await updateFailedLoginAttempt(supabase, attempt, parsed.attemptKeyHash, metadata);
+      await writeStaffWebAudit(supabase, {
+        code: "staff_not_allowed",
+        eventKey: "staff.web.login.failure",
+        metadata,
+        result: "blocked",
+        severity: "warning",
+        shopId: shop.shop_id,
+        targetId: staff.staff_id,
+        targetType: "staff",
+      });
 
-  if (!credentialOk) {
-    await updateFailedCredentialAttempt(supabase, staff);
-    await updateFailedLoginAttempt(supabase, attempt, parsed.attemptKeyHash, metadata);
+      return staffWebLoginResult("staff_not_allowed");
+    }
+
+    const credentialHash = staff.credential_hash;
+
+    if (!credentialHash) {
+      return staffWebLoginResult("staff_inactive");
+    }
+
+    const credentialOk = await verifyStaffCredential(parsed.credential, credentialHash);
+
+    if (!credentialOk) {
+      await updateFailedCredentialAttempt(supabase, staff);
+      await updateFailedLoginAttempt(supabase, attempt, parsed.attemptKeyHash, metadata);
+      await writeStaffWebAudit(supabase, {
+        code: "credential_invalid",
+        eventKey: "staff.web.login.failure",
+        metadata,
+        result: "blocked",
+        severity: "warning",
+        shopId: shop.shop_id,
+        targetId: staff.staff_id,
+        targetType: "staff",
+      });
+
+      return staffWebLoginResult("credential_invalid");
+    }
+
+    await clearSuccessfulCredentialAttempt(supabase, staff);
+    await clearLoginAttempt(supabase, parsed.attemptKeyHash, metadata);
+
+    const sessionToken = generateStaffWebSecret();
+    const expiresAt = addSeconds(STAFF_WEB_SESSION_TTL_SECONDS);
+    const sessionResult = await supabase
+      .from("staff_web_sessions")
+      .insert({
+        expires_at: expiresAt,
+        last_seen_at: nowIso(),
+        metadata_redacted: metadata,
+        session_token_hash: hashStaffWebSecret(sessionToken),
+        shop_id: shop.shop_id,
+        staff_credential_version: staff.credential_version,
+        staff_id: staff.staff_id,
+        status: "active",
+      })
+      .select("staff_web_session_id")
+      .maybeSingle<Pick<StaffWebSessionRow, "staff_web_session_id">>();
+
+    if (sessionResult.error || !sessionResult.data) {
+      await writeStaffWebAudit(supabase, {
+        code: "database_error",
+        eventKey: "staff.web.login.failure",
+        metadata,
+        result: "failure",
+        severity: "critical",
+        shopId: shop.shop_id,
+        targetId: staff.staff_id,
+        targetType: "staff",
+      });
+
+      return staffWebLoginResult("database_error");
+    }
+
+    await setStaffWebCookie(sessionToken, expiresAt);
     await writeStaffWebAudit(supabase, {
-      code: "denied",
-      eventKey: "staff.web.login.failure",
+      code: "success",
+      eventKey: "staff.web.login.success",
       metadata,
-      result: "blocked",
-      severity: "warning",
+      result: "success",
+      severity: "info",
       shopId: shop.shop_id,
       targetId: staff.staff_id,
       targetType: "staff",
     });
 
-    return staffWebLoginResult("denied");
-  }
-
-  await clearSuccessfulCredentialAttempt(supabase, staff);
-  await clearLoginAttempt(supabase, parsed.attemptKeyHash, metadata);
-
-  const sessionToken = generateStaffWebSecret();
-  const expiresAt = addSeconds(STAFF_WEB_SESSION_TTL_SECONDS);
-  const sessionResult = await supabase
-    .from("staff_web_sessions")
-    .insert({
-      expires_at: expiresAt,
-      last_seen_at: nowIso(),
-      metadata_redacted: metadata,
-      session_token_hash: hashStaffWebSecret(sessionToken),
-      shop_id: shop.shop_id,
-      staff_credential_version: staff.credential_version,
-      staff_id: staff.staff_id,
-      status: "active",
-    })
-    .select("staff_web_session_id")
-    .maybeSingle<Pick<StaffWebSessionRow, "staff_web_session_id">>();
-
-  if (sessionResult.error || !sessionResult.data) {
+    return staffWebLoginResult("success");
+  } catch {
     await writeStaffWebAudit(supabase, {
-      code: "db_failure",
+      code: "unknown_error",
       eventKey: "staff.web.login.failure",
       metadata,
       result: "failure",
       severity: "critical",
-      shopId: shop.shop_id,
-      targetId: staff.staff_id,
-      targetType: "staff",
     });
 
-    return staffWebLoginResult("db_failure");
+    return staffWebLoginResult("unknown_error");
   }
-
-  await setStaffWebCookie(sessionToken, expiresAt);
-  await writeStaffWebAudit(supabase, {
-    code: "success",
-    eventKey: "staff.web.login.success",
-    metadata,
-    result: "success",
-    severity: "info",
-    shopId: shop.shop_id,
-    targetId: staff.staff_id,
-    targetType: "staff",
-  });
-
-  return staffWebLoginResult("success");
 }
 
 export async function resolveStaffWebSessionPrincipal(): Promise<ShopAdminPrincipalResolution> {

@@ -156,7 +156,7 @@ test("TASK-049 Audit, Provisioning, Operations, and topbar use compact safe layo
     "placeholder=\"Why this provisioning action is approved\"",
     "Create POS-first shop",
     "Record pending owner email",
-    "Temporary credential. It is shown once after creation and should be changed after first access.",
+    "Temporary PIN. It is shown once after creation and should be changed after first access.",
     "max-w-5xl",
   ]) {
     assertContains(provisioningPage, required, `provisioning page must contain ${required}`);

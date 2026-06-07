@@ -7,11 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  // Allows to automatically instantiate createClient with right options
-  // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
-  __InternalSupabase: {
-    PostgrestVersion: "14.5"
-  }
   app_private: {
     Tables: {
       [_ in never]: never
@@ -59,6 +54,42 @@ export type Database = {
         Returns: Json
       }
       shop_admin_reason_metadata: { Args: { p_reason: string }; Returns: Json }
+      task051_insert_initial_manager: {
+        Args: {
+          p_actor_profile_id: string
+          p_display_name: string
+          p_shop_id: string
+          p_staff_credential_hash: string
+        }
+        Returns: string
+      }
+      task051_normalize_rut: { Args: { p_value: string }; Returns: string }
+      task051_platform_audit: {
+        Args: {
+          p_actor_profile_id: string
+          p_code: string
+          p_event_key: string
+          p_metadata?: Json
+          p_reason: string
+          p_result: string
+          p_scope: string
+          p_severity: string
+          p_shop_id: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: string
+      }
+      task051_validate_fiscal_identity: {
+        Args: {
+          p_business_address: string
+          p_business_city: string
+          p_business_giro: string
+          p_company_rut: string
+          p_legal_representative_rut: string
+        }
+        Returns: boolean
+      }
       write_platform_shop_audit: {
         Args: {
           p_actor_profile_id: string
@@ -432,75 +463,6 @@ export type Database = {
           source?: string | null
           source_device_id?: string | null
           store_id?: string | null
-        }
-        Relationships: []
-      }
-      categories: {
-        Row: {
-          id: number
-          name: string
-        }
-        Insert: {
-          id?: number
-          name: string
-        }
-        Update: {
-          id?: number
-          name?: string
-        }
-        Relationships: []
-      }
-      history_entries: {
-        Row: {
-          category: string
-          complete: string
-          data: string
-          editable: string
-          id: string
-          ismanualentry: boolean
-          missingitems: number
-          ordertotal: number
-          paymenttotal: number
-          supplier: string
-          syncstatus: string
-          timestamp: string
-          totalitems: number
-          uid: number
-          wasexported: boolean
-        }
-        Insert: {
-          category?: string
-          complete: string
-          data: string
-          editable: string
-          id: string
-          ismanualentry?: boolean
-          missingitems?: number
-          ordertotal?: number
-          paymenttotal?: number
-          supplier?: string
-          syncstatus?: string
-          timestamp: string
-          totalitems?: number
-          uid?: number
-          wasexported?: boolean
-        }
-        Update: {
-          category?: string
-          complete?: string
-          data?: string
-          editable?: string
-          id?: string
-          ismanualentry?: boolean
-          missingitems?: number
-          ordertotal?: number
-          paymenttotal?: number
-          supplier?: string
-          syncstatus?: string
-          timestamp?: string
-          totalitems?: number
-          uid?: number
-          wasexported?: boolean
         }
         Relationships: []
       }
@@ -1270,108 +1232,6 @@ export type Database = {
           },
         ]
       }
-      product_prices: {
-        Row: {
-          createdat: string
-          effectiveat: string
-          id: number
-          note: string | null
-          price: number
-          productid: number
-          source: string | null
-          type: string
-        }
-        Insert: {
-          createdat: string
-          effectiveat: string
-          id?: number
-          note?: string | null
-          price: number
-          productid: number
-          source?: string | null
-          type: string
-        }
-        Update: {
-          createdat?: string
-          effectiveat?: string
-          id?: number
-          note?: string | null
-          price?: number
-          productid?: number
-          source?: string | null
-          type?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "product_prices_productid_fkey"
-            columns: ["productid"]
-            isOneToOne: false
-            referencedRelation: "product_price_summary"
-            referencedColumns: ["productid"]
-          },
-          {
-            foreignKeyName: "product_prices_productid_fkey"
-            columns: ["productid"]
-            isOneToOne: false
-            referencedRelation: "products"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      products: {
-        Row: {
-          barcode: string
-          categoryid: number | null
-          id: number
-          itemnumber: string | null
-          productname: string | null
-          purchaseprice: number | null
-          retailprice: number | null
-          secondproductname: string | null
-          stockquantity: number | null
-          supplierid: number | null
-        }
-        Insert: {
-          barcode: string
-          categoryid?: number | null
-          id?: number
-          itemnumber?: string | null
-          productname?: string | null
-          purchaseprice?: number | null
-          retailprice?: number | null
-          secondproductname?: string | null
-          stockquantity?: number | null
-          supplierid?: number | null
-        }
-        Update: {
-          barcode?: string
-          categoryid?: number | null
-          id?: number
-          itemnumber?: string | null
-          productname?: string | null
-          purchaseprice?: number | null
-          retailprice?: number | null
-          secondproductname?: string | null
-          stockquantity?: number | null
-          supplierid?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "products_categoryid_fkey"
-            columns: ["categoryid"]
-            isOneToOne: false
-            referencedRelation: "categories"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "products_supplierid_fkey"
-            columns: ["supplierid"]
-            isOneToOne: false
-            referencedRelation: "suppliers"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           created_at: string
@@ -1694,8 +1554,16 @@ export type Database = {
         Row: {
           archived_at: string | null
           archived_by_profile_id: string | null
+          business_address: string | null
+          business_city: string | null
+          business_giro: string | null
+          company_rut: string | null
           created_at: string
           created_by_profile_id: string | null
+          fiscal_identity_locked_by_platform: boolean
+          fiscal_identity_updated_at: string | null
+          fiscal_identity_updated_by_profile_id: string | null
+          legal_representative_rut: string | null
           shop_code: string
           shop_id: string
           shop_name: string
@@ -1710,8 +1578,16 @@ export type Database = {
         Insert: {
           archived_at?: string | null
           archived_by_profile_id?: string | null
+          business_address?: string | null
+          business_city?: string | null
+          business_giro?: string | null
+          company_rut?: string | null
           created_at?: string
           created_by_profile_id?: string | null
+          fiscal_identity_locked_by_platform?: boolean
+          fiscal_identity_updated_at?: string | null
+          fiscal_identity_updated_by_profile_id?: string | null
+          legal_representative_rut?: string | null
           shop_code: string
           shop_id?: string
           shop_name: string
@@ -1726,8 +1602,16 @@ export type Database = {
         Update: {
           archived_at?: string | null
           archived_by_profile_id?: string | null
+          business_address?: string | null
+          business_city?: string | null
+          business_giro?: string | null
+          company_rut?: string | null
           created_at?: string
           created_by_profile_id?: string | null
+          fiscal_identity_locked_by_platform?: boolean
+          fiscal_identity_updated_at?: string | null
+          fiscal_identity_updated_by_profile_id?: string | null
+          legal_representative_rut?: string | null
           shop_code?: string
           shop_id?: string
           shop_name?: string
@@ -1750,6 +1634,13 @@ export type Database = {
           {
             foreignKeyName: "shops_created_by_profile_id_fkey"
             columns: ["created_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "shops_fiscal_identity_updated_by_profile_id_fkey"
+            columns: ["fiscal_identity_updated_by_profile_id"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["profile_id"]
@@ -2041,21 +1932,6 @@ export type Database = {
           },
         ]
       }
-      suppliers: {
-        Row: {
-          id: number
-          name: string
-        }
-        Insert: {
-          id?: number
-          name: string
-        }
-        Update: {
-          id?: number
-          name?: string
-        }
-        Relationships: []
-      }
       sync_events: {
         Row: {
           batch_id: string | null
@@ -2109,30 +1985,6 @@ export type Database = {
       }
     }
     Views: {
-      product_price_summary: {
-        Row: {
-          lastpurchase: number | null
-          lastretail: number | null
-          prevpurchase: number | null
-          prevretail: number | null
-          productid: number | null
-        }
-        Insert: {
-          lastpurchase?: never
-          lastretail?: never
-          prevpurchase?: never
-          prevretail?: never
-          productid?: number | null
-        }
-        Update: {
-          lastpurchase?: never
-          lastretail?: never
-          prevpurchase?: never
-          prevretail?: never
-          productid?: number | null
-        }
-        Relationships: []
-      }
       staff_accounts_safe: {
         Row: {
           created_at: string | null
@@ -2209,6 +2061,21 @@ export type Database = {
       }
     }
     Functions: {
+      platform_create_pos_first_shop: {
+        Args: {
+          p_business_address: string
+          p_business_city: string
+          p_business_giro: string
+          p_company_rut: string
+          p_legal_representative_rut: string
+          p_reason: string
+          p_shop_code: string
+          p_shop_name: string
+          p_staff_credential_hash: string
+          p_staff_display_name: string
+        }
+        Returns: Json
+      }
       platform_create_shop: {
         Args: {
           p_owner_profile_id: string
@@ -2218,15 +2085,46 @@ export type Database = {
         }
         Returns: Json
       }
-      platform_create_shop_with_pending_owner_invite: {
+      platform_create_shop_with_owner_bootstrap: {
         Args: {
-          p_owner_email: string
+          p_business_address: string
+          p_business_city: string
+          p_business_giro: string
+          p_company_rut: string
+          p_legal_representative_rut: string
+          p_owner_profile_id: string
           p_reason: string
           p_shop_code: string
           p_shop_name: string
+          p_staff_credential_hash: string
+          p_staff_display_name: string
         }
         Returns: Json
       }
+      platform_create_shop_with_pending_owner_invite:
+        | {
+            Args: {
+              p_owner_email: string
+              p_reason: string
+              p_shop_code: string
+              p_shop_name: string
+            }
+            Returns: Json
+          }
+        | {
+            Args: {
+              p_business_address: string
+              p_business_city: string
+              p_business_giro: string
+              p_company_rut: string
+              p_legal_representative_rut: string
+              p_owner_email: string
+              p_reason: string
+              p_shop_code: string
+              p_shop_name: string
+            }
+            Returns: Json
+          }
       platform_emergency_revoke_device: {
         Args: {
           p_confirmation: string

@@ -18,6 +18,7 @@ const SCRYPT_PARAMS = {
 const MAXMEM = 64 * 1024 * 1024;
 
 type HashStaffCredentialOptions = {
+  allowTemporaryPin?: boolean;
   salt?: Buffer;
 };
 
@@ -33,7 +34,18 @@ type ParsedStaffCredentialHash = {
   key: Buffer;
 };
 
-function assertCredentialInput(plaintext: string) {
+function assertCredentialInput(
+  plaintext: string,
+  options: Pick<HashStaffCredentialOptions, "allowTemporaryPin"> = {},
+) {
+  if (options.allowTemporaryPin) {
+    if (!/^\d{5}$/.test(plaintext)) {
+      throw new Error("STAFF_TEMPORARY_PIN_INVALID");
+    }
+
+    return;
+  }
+
   if (!plaintext || plaintext.length < 8) {
     throw new Error("STAFF_CREDENTIAL_TOO_SHORT");
   }
@@ -154,7 +166,7 @@ export async function hashStaffCredential(
   plaintext: string,
   options: HashStaffCredentialOptions = {},
 ) {
-  assertCredentialInput(plaintext);
+  assertCredentialInput(plaintext, options);
 
   const salt = options.salt ?? randomBytes(SALT_BYTES);
   const key = await deriveStaffCredentialKey(plaintext, salt, {

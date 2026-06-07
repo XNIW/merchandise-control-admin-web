@@ -16,11 +16,13 @@ test("TASK-044 provisioning forms prevent double submit and keep results on prov
   );
   const operationActions = readProjectFile("src/app/platform/operations/actions.ts");
 
-  assert.match(provisioningForms, /useActionState/);
   assert.match(provisioningForms, /createShopPending/);
   assert.match(provisioningForms, /ownerSetupMode/);
   assert.match(provisioningForms, /ProvisioningResultBanner/);
-  assert.match(provisioningForms, /createPlatformShopFromUnifiedProvisioningAction/);
+  assert.match(provisioningForms, /readPlatformProvisioningAccessToken/);
+  assert.match(provisioningForms, /window\.fetch\("\/platform\/provisioning\/create-shop"/);
+  assert.match(provisioningForms, /onClick={handleCreateShop}/);
+  assert.match(provisioningForms, /type="button"/);
   assert.match(provisioningPage, /ShopProvisioningForms/);
   assert.match(operationActions, /safeReturnTo/);
   assert.match(operationActions, /revalidatePath\("\/platform\/provisioning"\)/);

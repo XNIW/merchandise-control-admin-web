@@ -113,7 +113,7 @@ test("TASK-046 local login scripts are local-only and do not depend on .env.loca
 
   assert.match(smoke, /CONFIRM_TASK046_PLATFORM_LOCAL_LOGIN_TEST/);
   assert.match(smoke, /DEV_PLATFORM_ADMIN_PASSWORD/);
-  assert.match(smoke, /Admin account sign in/);
+  assert.match(smoke, /Master Console sign in/);
   assert.match(smoke, /Platform Overview/);
 
   assert.doesNotMatch(`${setup}\n${dev}\n${smoke}`, /\.env\.local|bypass|NODE_ENV\s*===\s*["']production["']/i);

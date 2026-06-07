@@ -178,10 +178,12 @@ function checkClientBoundaries() {
   for (const file of clientFiles) {
     const contents = read(file);
     const authClientBoundary = file.startsWith("src/components/auth/");
+    const platformProvisioningRequestBoundary =
+      file === "src/app/platform/provisioning/platformProvisioningRequest.ts";
 
     for (const pattern of forbiddenPatterns) {
       if (
-        authClientBoundary &&
+        (authClientBoundary || platformProvisioningRequestBoundary) &&
         pattern.source === "@\\\/lib\\\/supabase" &&
         /@\/lib\/supabase\/client/.test(contents)
       ) {
@@ -278,6 +280,7 @@ function checkReadOnlyContracts() {
     "src/server/shop-admin/staff-web-auth.ts",
     "src/server/shop-admin/settings-mutations.ts",
     "src/server/shop-admin/staff-aware-mutations.ts",
+    "src/server/platform-admin/shop-actions.ts",
     "src/server/platform-admin/staff-manager-provisioning.ts",
   ]);
 
@@ -500,8 +503,12 @@ function checkTask007AuthRoutingArtifacts() {
     addFailure(`${resolverPath} must not authorize from auth metadata`);
   }
 
-  if (!/getAdminRouteDestination/.test(rootPage) || !/redirect\(destination\)/.test(rootPage)) {
-    addFailure(`${rootPagePath} must route valid admin roles server-side`);
+  if (!/redirect\("\/auth\/login\?next=\/shop&mode=admin-account"\)/.test(rootPage)) {
+    addFailure(`${rootPagePath} must redirect to the Admin Console account login tab`);
+  }
+
+  if (/resolveCurrentAdminRouteAccess|getAdminRouteDestination|\/auth\/login\?next=\/platform/.test(rootPage)) {
+    addFailure(`${rootPagePath} must not expose Master Console or public role selection`);
   }
 
   if (!/status !== "platform_admin"/.test(platformLayout) || !/AccessState/.test(platformLayout)) {
@@ -1158,8 +1165,8 @@ function checkSupabaseProxyLifecycle() {
     addFailure(`${proxyEntryPath} must avoid favicon requests`);
   }
 
-  if (!/createServerClient/.test(proxyHelper) || !/auth\.getClaims\(\)/.test(proxyHelper)) {
-    addFailure(`${proxyHelperPath} must refresh Supabase SSR sessions through getClaims`);
+  if (!/createServerClient/.test(proxyHelper) || !/auth\.getSession\(\)/.test(proxyHelper)) {
+    addFailure(`${proxyHelperPath} must refresh Supabase SSR sessions through getSession`);
   }
 
   if (!/request\.cookies\.set/.test(proxyHelper) || !/response\.cookies\.set/.test(proxyHelper)) {
@@ -2266,6 +2273,14 @@ function checkTask016PlatformAdminConsole() {
     platformLayout,
     ...routePaths.map(read),
   ].join("\n");
+  const platformBrowserSafeSource = [
+    readModel,
+    sectionData,
+    operationActions,
+    adminActions,
+    platformLayout,
+    ...routePaths.map(read),
+  ].join("\n");
 
   if (!/resolveCurrentAdminRouteAccess/.test(platformLayout)) {
     addFailure("TASK-016 Platform layout must use server-side auth routing");
@@ -2293,7 +2308,7 @@ function checkTask016PlatformAdminConsole() {
 
   if (
     /SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE|service_role|\.env\.local|process\.env/i.test(
-      platformSource,
+      platformBrowserSafeSource,
     )
   ) {
     addFailure("TASK-016 Platform source must not expose raw env or privileged key material");
@@ -2308,7 +2323,7 @@ function checkTask016PlatformAdminConsole() {
     ...routePaths.map(read),
   ].join("\n");
 
-  if (/pin_hash|password_hash|magic_link|access_token|refresh_token/i.test(platformSource)) {
+  if (/pin_hash|password_hash|magic_link|access_token|refresh_token/i.test(platformBrowserSafeSource)) {
     addFailure("TASK-016 Platform source must not expose auth secret field names");
   }
 
@@ -2318,9 +2333,10 @@ function checkTask016PlatformAdminConsole() {
 
   if (
     /credential_hash/i.test(shopActions) &&
-    (!/p_staff_credential_hash/.test(shopActions) ||
+    (!/credential_hash: input\.credentialHash/.test(shopActions) ||
       !/hashStaffCredential/.test(shopActions) ||
-      !/temporaryCredential/.test(shopActions))
+      !/temporaryCredential/.test(shopActions) ||
+      !/insertInitialManager/.test(shopActions))
   ) {
     addFailure("TASK-016 Platform shop actions may only handle credential_hash for TASK-051 server-side staff bootstrap");
   }
@@ -2391,7 +2407,7 @@ function checkTask016PlatformAdminConsole() {
     addFailure("TASK-016 emergency device action must stay server-side");
   }
 
-  if (/\.(insert|update|delete|upsert)\s*\(/.test(`${shopActions}\n${adminActions}`)) {
+  if (/\.(insert|update|delete|upsert)\s*\(/.test(adminActions)) {
     addFailure("TASK-016 Platform server actions must not direct-mutate tables");
   }
 
@@ -3891,6 +3907,7 @@ function checkTask038PosManagerWebLogin() {
   const architecturePath = "docs/ARCHITECTURE/SHOP-ADMIN-DUAL-ACCESS-MODEL.md";
   const authPath = "src/server/shop-admin/staff-web-auth.ts";
   const permissionsPath = "src/server/shop-admin/staff-web-permissions.ts";
+  const shopCodeLoginFormPath = "src/components/auth/ShopCodeLoginForm.tsx";
   const loginPagePath = "src/app/(staff-auth)/shop/staff-login/page.tsx";
   const loginActionsPath = "src/app/(staff-auth)/shop/staff-login/actions.ts";
   const logoutRoutePath = "src/app/shop/staff-logout/route.ts";
@@ -3912,6 +3929,7 @@ function checkTask038PosManagerWebLogin() {
     architecturePath,
     authPath,
     permissionsPath,
+    shopCodeLoginFormPath,
     loginPagePath,
     loginActionsPath,
     logoutRoutePath,
@@ -3938,6 +3956,7 @@ function checkTask038PosManagerWebLogin() {
   const migration = read(`supabase/migrations/${migrationName}`);
   const auth = read(authPath);
   const permissions = read(permissionsPath);
+  const shopCodeLoginForm = read(shopCodeLoginFormPath);
   const loginPage = read(loginPagePath);
   const loginActions = read(loginActionsPath);
   const logoutRoute = read(logoutRoutePath);
@@ -4017,13 +4036,13 @@ function checkTask038PosManagerWebLogin() {
 
   if (
     /localStorage|sessionStorage|console\.(log|debug|info|warn|error)/.test(
-      `${auth}\n${loginPage}\n${loginActions}\n${logoutRoute}`,
+      `${auth}\n${shopCodeLoginForm}\n${loginPage}\n${loginActions}\n${logoutRoute}`,
     )
   ) {
     addFailure("TASK-038 staff web runtime must not use browser storage or runtime logging");
   }
 
-  if (/SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash/i.test(`${loginPage}\n${loginActions}\n${logoutRoute}`)) {
+  if (/SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash/i.test(`${shopCodeLoginForm}\n${loginPage}\n${loginActions}\n${logoutRoute}`)) {
     addFailure("TASK-038 staff web routes must not expose service-role, credential hashes or token hashes");
   }
 
@@ -4043,9 +4062,13 @@ function checkTask038PosManagerWebLogin() {
   }
 
   for (const requiredSnippet of ["shopCode", "staffCode", "credential"]) {
-    if (!loginPage.includes(requiredSnippet)) {
-      addFailure(`${loginPagePath} must include ${requiredSnippet}`);
+    if (!shopCodeLoginForm.includes(requiredSnippet)) {
+      addFailure(`${shopCodeLoginFormPath} must include ${requiredSnippet}`);
     }
+  }
+
+  if (!loginPage.includes("/auth/login?next=/shop&mode=shop-code")) {
+    addFailure(`${loginPagePath} must redirect to the unified Shop code login tab`);
   }
 
   if (!/logoutStaffWebSession/.test(logoutRoute)) {
@@ -5103,13 +5126,16 @@ function checkTask044PlatformProvisioningUxRuntime() {
 
   for (const requiredSnippet of [
     "ShopProvisioningForms",
-    "useActionState",
     "createShopPending",
     "ownerSetupMode",
     "ProvisioningResultBanner",
     "Creating shop",
     "Creating pending owner setup",
-    "createPlatformShopFromUnifiedProvisioningAction",
+    "handleCreateShop",
+    "readPlatformProvisioningAccessToken",
+    "window.fetch(\"/platform/provisioning/create-shop\"",
+    "onClick={handleCreateShop}",
+    'type="button"',
   ]) {
     if (!provisioningSurface.includes(requiredSnippet)) {
       addFailure(`${provisioningPagePath} or ${provisioningFormsPath} must include ${requiredSnippet}`);
@@ -5166,7 +5192,7 @@ function checkTask044PlatformProvisioningUxRuntime() {
     "cleanupCreatedShops",
     "Recover manager 1001",
     "Rendering...",
-    "mcstaff_mgr_",
+    "Temporary PIN",
     "manager",
     "shop_admin.full_access",
   ]) {

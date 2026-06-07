@@ -1,6 +1,8 @@
 import { createBrowserClient } from "@supabase/ssr";
 import type { Database } from "./database.types";
 
+type SupabaseBrowserClient = ReturnType<typeof createBrowserClient<Database>>;
+
 type SupabaseBrowserConfig =
   | {
       status: "configured";
@@ -27,6 +29,8 @@ function resolveSupabaseBrowserConfig(): SupabaseBrowserConfig {
   };
 }
 
+let browserClient: SupabaseBrowserClient | null = null;
+
 export function createSupabaseBrowserClient() {
   const config = resolveSupabaseBrowserConfig();
 
@@ -34,11 +38,13 @@ export function createSupabaseBrowserClient() {
     return null;
   }
 
-  return createBrowserClient<Database>(config.url, config.publishableKey, {
+  browserClient ??= createBrowserClient<Database>(config.url, config.publishableKey, {
     global: {
       headers: {
         "X-Client-Info": "merchandise-control-admin-web/browser-auth",
       },
     },
   });
+
+  return browserClient;
 }

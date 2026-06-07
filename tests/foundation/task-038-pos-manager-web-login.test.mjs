@@ -96,6 +96,7 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
   const requiredPaths = [
     "src/server/shop-admin/staff-web-auth.ts",
     "src/server/shop-admin/staff-web-permissions.ts",
+    "src/components/auth/ShopCodeLoginForm.tsx",
     "src/app/(staff-auth)/shop/staff-login/page.tsx",
     "src/app/(staff-auth)/shop/staff-login/actions.ts",
     "src/app/shop/staff-logout/route.ts",
@@ -107,6 +108,7 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
 
   const auth = readProjectFile("src/server/shop-admin/staff-web-auth.ts");
   const permissions = readProjectFile("src/server/shop-admin/staff-web-permissions.ts");
+  const shopCodeLoginForm = readProjectFile("src/components/auth/ShopCodeLoginForm.tsx");
   const loginPage = readProjectFile("src/app/(staff-auth)/shop/staff-login/page.tsx");
   const loginActions = readProjectFile("src/app/(staff-auth)/shop/staff-login/actions.ts");
   const logoutRoute = readProjectFile("src/app/shop/staff-logout/route.ts");
@@ -133,15 +135,17 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
 
   assertContains(permissions, "SHOP_STAFF_WEB_PERMISSION_TREE");
   assertContains(permissions, "shop_admin.full_access");
-  assertContains(loginPage, "shopCode");
-  assertContains(loginPage, "staffCode");
-  assertContains(loginPage, "credential");
+  assertContains(shopCodeLoginForm, "shopCode");
+  assertContains(shopCodeLoginForm, "staffCode");
+  assertContains(shopCodeLoginForm, "credential");
+  assertContains(shopCodeLoginForm, "staffManagerWebLoginFormAction");
+  assertContains(loginPage, "/auth/login?next=/shop&mode=shop-code");
   assertContains(loginActions, "\"use server\"");
   assertContains(logoutRoute, "logoutStaffWebSession");
   assertContains(shopLayout, "resolveCurrentShopAdminPrincipal");
   assertContains(shopLayout, "principal.kind");
-  assert.doesNotMatch(`${auth}\n${loginPage}\n${loginActions}\n${logoutRoute}`, /localStorage|sessionStorage|console\.(log|debug|info|warn|error)/);
-  assert.doesNotMatch(`${loginPage}\n${loginActions}\n${logoutRoute}`, /SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash/i);
+  assert.doesNotMatch(`${auth}\n${shopCodeLoginForm}\n${loginPage}\n${loginActions}\n${logoutRoute}`, /localStorage|sessionStorage|console\.(log|debug|info|warn|error)/);
+  assert.doesNotMatch(`${shopCodeLoginForm}\n${loginPage}\n${loginActions}\n${logoutRoute}`, /SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash/i);
   assert.doesNotMatch(auth, /shop_resolved|staff_resolved/);
 });
 
@@ -179,7 +183,7 @@ test("TASK-038 Platform provisioning creates staff manager web access server-sid
 
   assertContains(actions, "\"use server\"");
   assertContains(actions, "recoverInitialManager1001Action");
-  assertContains(panel, "useActionState");
+  assertContains(panel, "submitPlatformProvisioningForm");
   assertContains(panel, "shopId");
   assertContains(panel, "Recover initial manager 1001");
   assertContains(panel, "Recover manager 1001");

@@ -19,7 +19,9 @@ import { INITIAL_MANAGER_DISPLAY_NAME as defaultInitialManagerDisplayName } from
 
 const shopCodePattern = /^[A-Z0-9][A-Z0-9_-]{2,31}$/;
 const ownerEmailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const rutPattern = /^[0-9]{1,8}-[0-9K]$/;
+const rutPattern = /^[0-9]{7,8}[0-9K]$/;
+const rutInputHelp =
+  "You can enter only numbers. We format the RUT automatically, for example 123456789 -> 12.345.678-9.";
 
 export function normalizeShopCode(value: string) {
   return value.trim().toUpperCase();
@@ -33,12 +35,70 @@ export function normalizeOwnerContact(value: string) {
   return value.trim().toLowerCase();
 }
 
+export function normalizeRutInput(raw: string) {
+  return raw.trim().replace(/[.\-\s]/g, "").toUpperCase();
+}
+
+export function deriveShopCodeFromRut(raw: string) {
+  return normalizeRutInput(raw);
+}
+
+export function formatRutForDisplay(raw: string) {
+  const compactRut = normalizeRutInput(raw);
+
+  if (
+    compactRut.length < 3 ||
+    !/^[0-9]{1,8}[0-9K]?$/.test(compactRut) ||
+    compactRut.slice(0, -1).includes("K")
+  ) {
+    return raw.trim().toUpperCase();
+  }
+
+  const body = compactRut.slice(0, -1);
+  const checkDigit = compactRut.slice(-1);
+  const formattedBody = body.replace(/\B(?=(\d{3})+(?!\d))/g, ".");
+
+  return `${formattedBody}-${checkDigit}`;
+}
+
+function formatRutForStorage(raw: string) {
+  const compactRut = normalizeRutInput(raw);
+
+  if (compactRut.length < 2) {
+    return compactRut;
+  }
+
+  return `${compactRut.slice(0, -1)}-${compactRut.slice(-1)}`;
+}
+
+export function validateRutFormat(raw: string) {
+  const compactRut = normalizeRutInput(raw);
+
+  if (!compactRut) {
+    return "RUT is required.";
+  }
+
+  if (/[^0-9K]/.test(compactRut) || compactRut.slice(0, -1).includes("K")) {
+    return "RUT can contain numbers and K only as the final check digit.";
+  }
+
+  if (!rutPattern.test(compactRut)) {
+    return `Enter a valid Chilean RUT. ${rutInputHelp}`;
+  }
+
+  return undefined;
+}
+
 export function normalizeRut(value: string) {
-  return value.trim().replaceAll(".", "").replace(/\s+/g, "").toUpperCase();
+  return formatRutForStorage(value);
 }
 
 function normalizeBusinessField(value: string, maxLength = 160) {
   return value.trim().replace(/\s+/g, " ").slice(0, maxLength);
+}
+
+export function normalizeShopName(value: string) {
+  return normalizeBusinessField(value, 160).toUpperCase();
 }
 
 export function isValidShopCode(value: string) {
@@ -55,8 +115,13 @@ function validateFiscalIdentityInput(input: FiscalIdentityInput) {
   };
   const fieldErrors: Record<string, string> = {};
 
-  if (!rutPattern.test(normalized.companyRut)) {
-    fieldErrors.companyRut = "Use Chilean RUT format without dots, for example 76123456-7.";
+  const companyRutError = validateRutFormat(input.companyRut);
+  const legalRepresentativeRutError = validateRutFormat(
+    input.legalRepresentativeRut,
+  );
+
+  if (companyRutError) {
+    fieldErrors.companyRut = companyRutError;
   }
 
   if (!normalized.businessGiro) {
@@ -71,9 +136,8 @@ function validateFiscalIdentityInput(input: FiscalIdentityInput) {
     fieldErrors.businessCity = "Business city is required.";
   }
 
-  if (!rutPattern.test(normalized.legalRepresentativeRut)) {
-    fieldErrors.legalRepresentativeRut =
-      "Use Chilean RUT format without dots, for example 12345678-9.";
+  if (legalRepresentativeRutError) {
+    fieldErrors.legalRepresentativeRut = legalRepresentativeRutError;
   }
 
   return {
@@ -104,8 +168,9 @@ export function canTransitionShopStatus(
 export function validateCreateShopInput(input: CreateShopInput) {
   const fieldErrors: Record<string, string> = {};
   const shopCode = normalizeShopCode(input.shopCode);
+  const shopName = normalizeShopName(input.shopName);
 
-  if (!input.shopName.trim()) {
+  if (!shopName) {
     fieldErrors.shopName = "Shop name is required.";
   }
 
@@ -126,7 +191,7 @@ export function validateCreateShopInput(input: CreateShopInput) {
     normalized: {
       ...input,
       shopCode,
-      shopName: input.shopName.trim(),
+      shopName,
       reason: input.reason.trim(),
     },
   };
@@ -155,7 +220,7 @@ export function validateCreateShopWithOwnerBootstrapInput(
 export function validateCreatePosFirstShopInput(input: CreatePosFirstShopInput) {
   const fiscal = validateFiscalIdentityInput(input);
   const shopCode = normalizeShopCode(input.shopCode);
-  const shopName = normalizeBusinessField(input.shopName, 160);
+  const shopName = normalizeShopName(input.shopName);
   const reason = input.reason.trim();
   const fieldErrors: Record<string, string> = {
     ...fiscal.fieldErrors,
@@ -188,9 +253,10 @@ export function validateCreatePosFirstShopInput(input: CreatePosFirstShopInput) 
 export function validatePendingOwnerInviteInput(input: PendingOwnerInviteInput) {
   const fieldErrors: Record<string, string> = {};
   const shopCode = normalizeShopCode(input.shopCode);
+  const shopName = normalizeShopName(input.shopName);
   const ownerContact = normalizeOwnerContact(input.ownerContact);
 
-  if (!input.shopName.trim()) {
+  if (!shopName) {
     fieldErrors.shopName = "Shop name is required.";
   }
 
@@ -213,7 +279,7 @@ export function validatePendingOwnerInviteInput(input: PendingOwnerInviteInput) 
       ownerContact,
       reason: input.reason.trim(),
       shopCode,
-      shopName: input.shopName.trim(),
+      shopName,
     },
   };
 }

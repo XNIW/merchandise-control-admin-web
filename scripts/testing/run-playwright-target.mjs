@@ -43,6 +43,7 @@ function loadLocalSupabaseEnv(env) {
     ...env,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: publishableKey,
     NEXT_PUBLIC_SUPABASE_URL: supabaseUrl,
+    SUPABASE_ANON_KEY: values.ANON_KEY || publishableKey,
     SUPABASE_PROJECT_REF: values.PROJECT_REF || readLinkedProjectRef() || "local",
     SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey,
   };

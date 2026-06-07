@@ -31,9 +31,13 @@ function resolveSupabaseProxyConfig(
 
 export async function updateSupabaseSession(request: NextRequest) {
   const config = resolveSupabaseProxyConfig();
-  let response = NextResponse.next({
-    request,
-  });
+  const nextResponse = () =>
+    NextResponse.next({
+      request: {
+        headers: new Headers(request.headers),
+      },
+    });
+  let response = nextResponse();
 
   if (config.status !== "configured") {
     return response;
@@ -52,9 +56,7 @@ export async function updateSupabaseSession(request: NextRequest) {
             request.cookies.set(name, value);
           });
 
-          response = NextResponse.next({
-            request,
-          });
+          response = nextResponse();
 
           cookiesToSet.forEach(({ name, value, options }) => {
             response.cookies.set(name, value, options);
@@ -69,7 +71,7 @@ export async function updateSupabaseSession(request: NextRequest) {
     },
   );
 
-  await supabase.auth.getClaims();
+  await supabase.auth.getSession();
 
   return response;
 }

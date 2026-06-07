@@ -8,6 +8,6 @@ test("staging Platform auth boundary responds without mutating data", async ({ p
 
   await page.goto("/platform");
   await expect(page.locator("body")).toContainText(
-    /Admin account sign in|Master Console access required|MerchandiseControl/i,
+    /Admin Console sign in|Master Console access required|MerchandiseControl/i,
   );
 });

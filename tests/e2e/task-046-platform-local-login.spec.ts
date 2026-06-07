@@ -49,7 +49,7 @@ test("TASK-046 local Platform Admin account opens Platform Master Console", asyn
 }) => {
   await page.goto("/auth/login?next=/platform");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Admin account sign in" }),
+    page.getByRole("heading", { level: 1, name: "Master Console sign in" }),
   ).toBeVisible();
 
   await page.getByLabel("Email").fill(email);

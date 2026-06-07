@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "merchandise-control-admin-web-staging",
+  "name": "merchandise-control-admin-web",
   "main": ".open-next/worker.js",
   "compatibility_date": "2026-06-04",
   "compatibility_flags": [
@@ -17,7 +17,29 @@
   "services": [
     {
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "merchandise-control-admin-web-staging"
+      "service": "merchandise-control-admin-web"
     }
-  ]
+  ],
+  "env": {
+    "staging": {
+      "name": "merchandise-control-admin-web-staging",
+      "workers_dev": true,
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "merchandise-control-admin-web-staging"
+        }
+      ]
+    },
+    "production": {
+      "name": "merchandise-control-admin-web",
+      "workers_dev": true,
+      "services": [
+        {
+          "binding": "WORKER_SELF_REFERENCE",
+          "service": "merchandise-control-admin-web"
+        }
+      ]
+    }
+  }
 }

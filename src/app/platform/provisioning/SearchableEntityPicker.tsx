@@ -13,6 +13,7 @@ type SearchableEntityPickerProps<TItem extends SearchableEntityPickerItem> = {
   hiddenInputName: string;
   items: readonly TItem[];
   label: string;
+  onQueryChange?: (query: string) => void;
   onSelect: (id: string) => void;
   renderItemStatus?: (item: TItem) => string;
   renderItemSubtitle?: (item: TItem) => string;
@@ -30,6 +31,7 @@ export function SearchableEntityPicker<TItem extends SearchableEntityPickerItem>
   hiddenInputName,
   items,
   label,
+  onQueryChange,
   onSelect,
   renderItemStatus,
   renderItemSubtitle,
@@ -61,7 +63,10 @@ export function SearchableEntityPicker<TItem extends SearchableEntityPickerItem>
         <span>{searchPlaceholder}</span>
         <input
           className={inputClassName}
-          onChange={(event) => setQuery(event.target.value)}
+          onChange={(event) => {
+            setQuery(event.target.value);
+            onQueryChange?.(event.target.value);
+          }}
           placeholder={searchPlaceholder}
           type="search"
           value={query}

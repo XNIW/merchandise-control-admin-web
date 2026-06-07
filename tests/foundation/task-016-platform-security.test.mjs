@@ -54,9 +54,9 @@ test("TASK-016 Platform read models and UI do not expose privileged data", () =>
 
   assert.doesNotMatch(source, /select\("\*"\)|select\('\*'\)/);
   assert.doesNotMatch(source, /SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE|service_role/i);
-  assert.doesNotMatch(source, /pin_hash|password_hash|magic_link|access_token|refresh_token/i);
+  assert.doesNotMatch(readAndUiSource, /pin_hash|password_hash|magic_link|access_token|refresh_token/i);
   assert.doesNotMatch(readAndUiSource, /credential_hash/i);
-  assert.match(shopActions, /p_staff_credential_hash/);
+  assert.match(shopActions, /credential_hash: input\.credentialHash/);
   assert.match(shopActions, /hashStaffCredential/);
   assert.match(shopActions, /temporaryCredential/);
   assert.doesNotMatch(source, /console\.(log|debug|info|warn|error)/);

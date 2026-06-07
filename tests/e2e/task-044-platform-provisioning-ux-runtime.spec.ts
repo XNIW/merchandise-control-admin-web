@@ -137,7 +137,7 @@ async function createTemporaryPlatformAdmin(): Promise<RuntimeFixture> {
 async function signIn(page: Page, fixture: RuntimeFixture) {
   await page.goto("/auth/login?next=/platform/provisioning");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Admin account sign in" }),
+    page.getByRole("heading", { level: 1, name: "Admin Console sign in" }),
   ).toBeVisible();
   await page.getByLabel("Email").fill(fixture.email);
   await page.getByLabel("Password").fill(fixture.password);
@@ -228,7 +228,8 @@ test.describe("TASK-044 Platform provisioning UX runtime", () => {
       await expect(
         managerSection.getByText("Staff manager web access was provisioned."),
       ).toBeVisible();
-      await expect(managerSection.locator("code")).toContainText("mcstaff_mgr_");
+      await expect(managerSection.getByText("Temporary PIN", { exact: false })).toBeVisible();
+      await expect(managerSection.locator("code")).toHaveText(/^[1-9][0-9]{4}$/);
 
       const { data: staffRows, error: staffError } = await fixture.supabase
         .from("staff_accounts")

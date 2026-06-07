@@ -5,6 +5,10 @@
 - Task origine: `TASK-029`
 - Data: `2026-06-02`
 - Stato deploy pubblico HTTPS: `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
+- Stato Cloudflare/OpenNext:
+  `BLOCKED_CLOUDFLARE_STAGING_IDENTITY_AND_TARGETS_NOT_VERIFIED` per staging
+  remoto; preview locale storica `PASS_CLOUDFLARE_OPENNEXT_PREVIEW` in
+  `TASK-041`.
 - No production: nessun deploy production deve essere eseguito da questo task.
 - Guardrail corrente: Git Integration Vercel disconnessa e `vercel.json` con `git.deploymentEnabled=false`.
 
@@ -43,8 +47,58 @@ TASK-029C update 2026-06-02:
 Per ottenere uno staging/preview reale senza production serve ora uno di questi percorsi:
 
 - correggere configurazione Vercel/Git Integration che fa generare `Production` anche da branch non-`main`;
-- altro provider/ambiente HTTPS non-production;
+- Cloudflare/OpenNext staging remoto con `CLOUDFLARE_API_TOKEN`, worker `merchandise-control-admin-web-staging`, secret staging e smoke remoto;
 - piano/feature Vercel che consenta custom environment staging sul progetto.
+
+## Percorso Cloudflare/OpenNext staging
+
+`wrangler.jsonc` ora contiene ambienti `staging` e `production`.
+
+Staging previsto:
+
+- worker: `merchandise-control-admin-web-staging`;
+- URL workers.dev/custom domain: `BLOCKED_NOT_DEPLOYED`;
+- dominio staging desiderato: `UNKNOWN`;
+- Cloudflare account/zone: `BLOCKED_NOT_VERIFIED`;
+- Supabase staging project: `UNKNOWN_FOR_THIS_TASK` (`merchandisecontrol-dev`
+  / `jpgoimipbothfgkokyvm` resta solo candidato storico non-production da
+  confermare);
+- comando previsto dopo autenticazione e secret:
+
+```bash
+npm run cf:build
+npx wrangler deploy --env staging
+```
+
+Blocker corrente:
+
+- `CLOUDFLARE_API_TOKEN`: `MISSING`;
+- `CLOUDFLARE_ACCOUNT_ID`: `MISSING`;
+- `npx wrangler whoami`: `BLOCKED_CLOUDFLARE_API_TOKEN_REQUIRED`, runtime non
+  autenticato;
+- `npx wrangler deployments list --env staging`:
+  `BLOCKED_CLOUDFLARE_API_TOKEN_REQUIRED`, perche il runtime corrente non e
+  autenticato e non ha `CLOUDFLARE_API_TOKEN`;
+- `wrangler.jsonc`: nessun `account_id`, `routes` o custom domain configurato;
+- `gh api .../environments/cloudflare-staging`:
+  `BLOCKED_GITHUB_ENVIRONMENT_NOT_FOUND`, HTTP `404`;
+- `gh api .../environments/cloudflare-production`:
+  `BLOCKED_GITHUB_PRODUCTION_ENVIRONMENT_APPROVAL_NOT_VERIFIED`, HTTP `404`;
+- custom domain: `BLOCKED_DOMAIN_UNKNOWN_AND_ZONE_NOT_VERIFIED`;
+- DNS: `BLOCKED_DNS_OR_DOMAIN_PERMISSION_REQUIRED`;
+- Supabase staging project:
+  `BLOCKED_SUPABASE_STAGING_TARGET_NOT_CONFIRMED`;
+- Supabase Auth URLs: `BLOCKED_SUPABASE_AUTH_URLS_MANUAL_STEP`;
+- staging remote smoke: `NOT_RUN_BLOCKED_NO_REMOTE_STAGING_URL`.
+
+Decisione operativa aggiunta 2026-06-07: la prima fase obbligatoria e solo
+Cloudflare staging remoto. Production deploy e DNS cutover sono fuori fase e
+richiedono tutti i gate staging `PASS` piu conferma esplicita dell'utente.
+Se permessi Cloudflare, GitHub o Supabase mancano, non tentare workaround:
+produrre checklist `BLOCKED`.
+
+Dettagli operativi: `docs/DEPLOYMENT/CLOUDFLARE-MIGRATION.md`.
+Rollback: `docs/DEPLOYMENT/CLOUDFLARE-ROLLBACK.md`.
 
 Discovery iniziale storica:
 
@@ -160,5 +214,6 @@ Verificare status controllato, `Cache-Control: no-store`, nessun leak di secret 
 ## Rollback manuale
 
 - Se staging e Vercel preview: promuovere o riaprire il deployment preview precedente noto buono.
+- Se staging usa Cloudflare: usare `docs/DEPLOYMENT/CLOUDFLARE-ROLLBACK.md`.
 - Se staging usa altro hosting: ripubblicare l'ultimo artefatto build verificato o ripristinare il deployment precedente dal pannello provider.
 - In caso di errore env: ruotare eventuali secret esposti e rimuovere il deployment affetto.

@@ -79,7 +79,18 @@ test("TASK-051 platform provisioning UI uses one create-shop form with owner set
     "src/app/platform/provisioning/StaffManagerProvisioningPanel.tsx",
   );
   const actions = readProjectFile("src/app/platform/provisioning/actions.ts");
-
+  const createShopRoute = readProjectFile(
+    "src/app/platform/provisioning/create-shop/route.ts",
+  );
+  const recoverRoute = readProjectFile(
+    "src/app/platform/provisioning/recover-manager-1001/route.ts",
+  );
+  const provisioningFormSubmit = readProjectFile(
+    "src/app/platform/provisioning/provisioningFormSubmit.ts",
+  );
+  const provisioningRequest = readProjectFile(
+    "src/app/platform/provisioning/platformProvisioningRequest.ts",
+  );
   for (const snippet of [
     "Shop Provisioning",
     "Create shop",
@@ -91,11 +102,8 @@ test("TASK-051 platform provisioning UI uses one create-shop form with owner set
     "Staff code: 1001",
     "Display name: manager",
     "Access: full Admin Console access",
-    "Temporary credential. It is shown once after creation and should be changed after first access.",
+    "Temporary PIN. It is shown once after creation and should be changed after first access.",
     "Use Company RUT as Shop code",
-    "Shop code is used for POS/Admin Console login. By default it uses Company RUT without dots or dash.",
-    "76.123.456-7 -> 761234567",
-    "76.123.456-K -> 76123456K",
     "Owner setup",
     "No personal owner now / POS-first",
     "Link existing personal owner",
@@ -109,15 +117,16 @@ test("TASK-051 platform provisioning UI uses one create-shop form with owner set
     "Company RUT",
     "Owner mode",
     "Staff code",
-    "Temporary credential/PIN shown once",
-    "Copy credential",
-    "Save this credential now. It will not be shown again.",
+    "Temporary PIN shown once",
+    "Copy PIN",
+    "Save this PIN now. It will not be shown again.",
+    "Use this PIN with shop code and staff code 1001 for the first Admin Console / Win7POS access. The shop should change it after first access.",
     "Owner status",
     "Personal owner linked",
     "No personal owner yet",
     "Pending owner setup recorded",
     "Emergency recovery: recover initial manager 1001",
-    "Use this only when an existing shop lost manager access. The server will restore or recreate manager 1001 and generate a new temporary credential. The old credential is never shown.",
+    "Use this only when an existing shop lost manager access. The server will restore or recreate manager 1001 and generate a new temporary PIN. The old PIN is never shown.",
   ]) {
     assertContains(`${page}\n${panel}`, snippet);
   }
@@ -152,11 +161,38 @@ test("TASK-051 platform provisioning UI uses one create-shop form with owner set
   assertContains(panel, "ownerSetupMode");
   assertContains(panel, "shopCodeFromCompanyRut");
   assertContains(panel, "formatRutForFiscalDisplay");
-  assertContains(panel, "setUseCompanyRutAsShopCode");
-  assertContains(panel, 'checked={useCompanyRutAsShopCode}');
+  assertContains(panel, "useCompanyRutAsShopCode");
+  assertContains(panel, 'checked={formValues.useCompanyRutAsShopCode}');
+  assertContains(panel, "normalizeShopNameForInput");
+  assertContains(panel, "normalizeRutInput");
+  assertContains(panel, "formatRutForDisplay");
+  assertContains(panel, "deriveShopCodeFromRut");
+  assertContains(panel, "validateRutFormat");
+  assertContains(panel, "onShopNameBlur");
+  assertContains(panel, "onLegalRepresentativeRutBlur");
+  assertContains(panel, "setFormValues((current) =>");
+  assertContains(panel, 'value={formValues.shopName}');
+  assertContains(panel, 'value={formValues.businessGiro}');
+  assertContains(panel, 'value={formValues.businessAddress}');
+  assertContains(panel, 'value={formValues.businessCity}');
+  assertContains(panel, 'value={formValues.legalRepresentativeRut}');
+  assertContains(panel, 'onBlur={onShopNameBlur}');
+  assertContains(panel, 'aria-invalid={fieldHasError("companyRut")}');
+  assertContains(panel, 'aria-describedby={fieldErrorId("companyRut")}');
+  assertContains(panel, 'ref={registerField("companyRut")}');
+  assertContains(panel, "focusFirstInvalidField");
   assertContains(panel, 'name="ownerEmail"');
   assertContains(panel, 'placeholder="76.123.456-7"');
   assertContains(panel, 'placeholder="761234567"');
+  assertContains(
+    panel,
+    "RUT can be typed with or without dots/dash. Shop code uses the compact RUT for login.",
+  );
+  assertContains(panel, 'data-layout="shop-identity-primary-row"');
+  assertContains(panel, 'data-layout="shop-code-toggle-row"');
+  assertContains(panel, 'data-layout="shop-code-row"');
+  assertContains(panel, 'data-layout="fiscal-primary-row"');
+  assertContains(panel, 'data-layout="fiscal-secondary-row"');
   assert.match(
     panel,
     /function ShopIdentityFields[\s\S]*Shop name[\s\S]*Company RUT[\s\S]*Use Company RUT as Shop code[\s\S]*Shop code/,
@@ -175,6 +211,21 @@ test("TASK-051 platform provisioning UI uses one create-shop form with owner set
   );
   assert.doesNotMatch(
     panel,
+    /function formatShortRutHelp|formatShortRutHelp\(\)|function formatCompanyRutHelp|formatCompanyRutHelp\(\)/,
+    "RUT helper copy must be compact and shared at section level instead of repeated under individual fields.",
+  );
+  assert.doesNotMatch(
+    panel,
+    /Example: 76\.123\.456-7 -> 761234567|76\.123\.456-K -> 76123456K/,
+    "Long RUT examples should not dominate the provisioning form UI.",
+  );
+  assert.doesNotMatch(
+    panel,
+    /<label className="grid gap-1\.5 text-sm font-medium text-slate-800 sm:col-span-2">\s*<span>Legal representative RUT/,
+    "Legal representative RUT must share the second fiscal row with City on desktop.",
+  );
+  assert.doesNotMatch(
+    panel,
     /<textarea[\s\S]{0,300}name="shopName"/,
     "Shop name must stay a normal single-line input.",
   );
@@ -190,8 +241,15 @@ test("TASK-051 platform provisioning UI uses one create-shop form with owner set
   assertContains(actions, "createPlatformPosFirstShop");
   assertContains(actions, "createPlatformShopWithOwnerBootstrap");
   assertContains(actions, "createPlatformPendingOwnerInviteWithFiscal");
-  assertContains(actions, "temporaryCredential");
+  assertContains(actions, "temporary manager PIN");
   assertContains(actions, "ownerMode");
+  assertContains(actions, "values");
+  assertContains(actions, "formValuesFromFormData");
+  assert.match(
+    actions,
+    /if \(result\.ok\) \{[\s\S]{0,120}revalidateProvisioning\(\);[\s\S]{0,120}\}/,
+    "Provisioning must not revalidate the route when validation fails and would remount/reset the form.",
+  );
   assertContains(actions, "shopName");
   assertContains(actions, "companyRut");
   assertContains(staffPanel, "Search target shops");
@@ -208,14 +266,59 @@ test("TASK-051 platform provisioning UI uses one create-shop form with owner set
   assertContains(staffPanel, "Recover initial manager 1001");
   assertContains(staffPanel, "Recover manager 1001");
   assertContains(staffPanel, "Operation result");
-  assertContains(staffPanel, "Credential reset");
-  assertContains(staffPanel, "Manager reactivated and credential reset");
+  assertContains(staffPanel, "PIN reset");
+  assertContains(staffPanel, "Manager reactivated and PIN reset");
   assertContains(staffPanel, "Manager recreated");
-  assertContains(staffPanel, "Temporary credential / PIN");
-  assertContains(staffPanel, "Copy credential");
-  assertContains(staffPanel, "Save this credential now. It will not be shown again.");
+  assertContains(staffPanel, "Temporary PIN");
+  assertContains(staffPanel, "Copy PIN");
+  assertContains(staffPanel, "Save this PIN now. It will not be shown again.");
+  assertContains(staffPanel, "Use this PIN with shop code and staff code 1001 for the first Admin Console / Win7POS access. The shop should change it after first access.");
   assertContains(staffPanel, "New manager display name: manager");
-  assertContains(staffPanel, "recoverInitialManager1001Action");
+  assertContains(staffPanel, "submitPlatformProvisioningForm");
+  assertContains(staffPanel, "/platform/provisioning/recover-manager-1001");
+  assertContains(panel, "/platform/provisioning/create-shop");
+  assertContains(panel, "async function handleCreateShop()");
+  assertContains(panel, "readPlatformProvisioningAccessToken");
+  assertContains(panel, "sessionExpiredResponse");
+  assertContains(panel, "window.fetch(\"/platform/provisioning/create-shop\"");
+  assertContains(panel, "credentials: \"same-origin\"");
+  assertContains(panel, "Accept: \"application/json\"");
+  assertContains(panel, "Authorization: `Bearer ${token}`");
+  assertContains(panel, "body: payload");
+  assertContains(panel, "onClick={handleCreateShop}");
+  assertContains(panel, 'type="button"');
+  assert.doesNotMatch(
+    panel,
+    /onSubmit=|type="submit"|formAction|useActionState/,
+    "Create shop must use the explicit button click fetch path, not form submit or Server Action wiring.",
+  );
+  assertContains(provisioningRequest, ".fetch(url");
+  assertContains(provisioningRequest, "credentials: \"same-origin\"");
+  assertContains(provisioningRequest, "Accept: \"application/json\"");
+  assertContains(provisioningRequest, "createSupabaseBrowserClient");
+  assertContains(provisioningRequest, "auth.getSession()");
+  assertContains(provisioningRequest, "readSupabaseAccessTokenFromCookie");
+  assertContains(provisioningRequest, "Master Console session expired. Refresh and sign in again.");
+  assertContains(provisioningRequest, "Authorization: `Bearer ${accessToken}`");
+  assertContains(createShopRoute, "submitUnifiedPlatformShopProvisioningForm");
+  assertContains(createShopRoute, "request.headers.get(\"authorization\")");
+  assertContains(provisioningFormSubmit, "createPlatformShopWithOwnerBootstrap");
+  assertContains(provisioningFormSubmit, "createPlatformPosFirstShop");
+  assertContains(provisioningFormSubmit, "createPlatformPendingOwnerInviteWithFiscal");
+  assertContains(createShopRoute, "await cookies()");
+  assertContains(createShopRoute, "NextResponse.json");
+  assertContains(createShopRoute, "\"Cache-Control\": \"no-store\"");
+  assertContains(recoverRoute, "submitInitialManager1001RecoveryForm");
+  assertContains(recoverRoute, "request.headers.get(\"authorization\")");
+  assertContains(provisioningFormSubmit, "recoverInitialManager1001");
+  assertContains(recoverRoute, "await cookies()");
+  assertContains(recoverRoute, "NextResponse.json");
+  assertContains(recoverRoute, "\"Cache-Control\": \"no-store\"");
+  assert.doesNotMatch(
+    `${panel}\n${staffPanel}\n${provisioningRequest}`,
+    /SUPABASE_SERVICE_ROLE_KEY|serviceRoleKey|createSupabaseAdminClient/,
+    "Client provisioning submit code must never import or expose service-role/admin runtime.",
+  );
   assertContains(staffPanel, "Shown once");
   assertContains(staffPanel, "It will not be shown again.");
   assert.match(
@@ -247,7 +350,12 @@ test("TASK-051 platform provisioning UI uses one create-shop form with owner set
   assert.doesNotMatch(
     `${page}\n${panel}`,
     /The credential remains valid until the shop changes it or an admin resets it\./,
-    "Provisioning copy must not overstate temporary credential validity.",
+    "Provisioning copy must not overstate temporary PIN validity.",
+  );
+  assert.doesNotMatch(
+    `${page}\n${panel}\n${staffPanel}`,
+    /Temporary credential|temporary credential|Copy credential|Save this credential/,
+    "Provisioning UI copy must use Temporary PIN terminology.",
   );
   assert.doesNotMatch(
     panel,
@@ -276,16 +384,61 @@ test("TASK-051 server actions generate credentials server-side and keep raw valu
   const staffProvisioning = readProjectFile(
     "src/server/platform-admin/staff-manager-provisioning.ts",
   );
+  const staffWebAuth = readProjectFile("src/server/shop-admin/staff-web-auth.ts");
+  const staffLoginActions = readProjectFile(
+    "src/app/(staff-auth)/shop/staff-login/actions.ts",
+  );
+  const shopCodeLoginForm = readProjectFile(
+    "src/components/auth/ShopCodeLoginForm.tsx",
+  );
+  const managerPin = readProjectFile(
+    "src/server/platform-admin/temporary-manager-pin.ts",
+  );
   const validation = readProjectFile("src/server/platform-admin/shop-action-validation.ts");
   const actionTypes = readProjectFile("src/server/platform-admin/action-types.ts");
   const actions = readProjectFile("src/app/platform/provisioning/actions.ts");
+  const createShopRoute = readProjectFile(
+    "src/app/platform/provisioning/create-shop/route.ts",
+  );
+  const recoverRoute = readProjectFile(
+    "src/app/platform/provisioning/recover-manager-1001/route.ts",
+  );
+  const provisioningFormSubmit = readProjectFile(
+    "src/app/platform/provisioning/provisioningFormSubmit.ts",
+  );
+  const provisioningRequest = readProjectFile(
+    "src/app/platform/provisioning/platformProvisioningRequest.ts",
+  );
+  const provisioningRequestAuth = readProjectFile(
+    "src/server/platform-admin/provisioning-request-auth.ts",
+  );
 
-  assertContains(shopActions, "generateTemporaryStaffCredential");
+  assertContains(shopActions, "generateTemporaryManagerPin");
+  assertContains(staffProvisioning, "generateTemporaryManagerPin");
+  assertContains(managerPin, "export function generateTemporaryManagerPin");
+  assertContains(managerPin, 'from "node:crypto"');
+  assertContains(managerPin, "randomInt(10000, 100000)");
+  assertContains(managerPin, ".toString()");
   assertContains(shopActions, "hashStaffCredential");
-  assertContains(shopActions, "platform_create_pos_first_shop");
-  assertContains(shopActions, "platform_create_shop_with_owner_bootstrap");
+  assertContains(shopActions, "getProvisioningBoundary");
+  assertContains(shopActions, "resolvePlatformAdminForRequest");
+  assertContains(shopActions, "PlatformProvisioningRequestAuthDiagnostics");
+  assertContains(provisioningRequestAuth, "resolvePlatformAdminForRequest");
+  assertContains(provisioningRequestAuth, "readBearerToken");
+  assertContains(provisioningRequestAuth, "/auth/v1/user");
+  assertContains(provisioningRequestAuth, "bearerVerificationTimeoutMs");
+  assertContains(provisioningRequestAuth, "SUPABASE_ANON_KEY");
+  assertContains(provisioningRequestAuth, "serverConfig.publishableKey");
+  assertContains(provisioningRequestAuth, "adminClient.auth.admin.getUserById");
+  assertContains(provisioningRequestAuth, "platform_admins");
+  assertContains(shopActions, "insertFiscalShop");
+  assertContains(shopActions, "insertInitialManager");
+  assertContains(shopActions, "staff_role_permissions");
+  assertContains(shopActions, "staff_accounts");
+  assertContains(shopActions, "writeTask051Audit");
   assertContains(shopActions, "temporaryCredential");
   assertContains(shopActions, "credentialGenerated");
+  assertContains(shopActions, "shopName: normalized.shopName");
   assertContains(shopActions, "INITIAL_MANAGER_STAFF_CODE");
   assertContains(shopActions, "INITIAL_MANAGER_DISPLAY_NAME");
   assertContains(shopActions, '"1001"');
@@ -293,7 +446,11 @@ test("TASK-051 server actions generate credentials server-side and keep raw valu
   assertContains(actionTypes, "ownerStatus");
   assertContains(actionTypes, "ownerMode");
   assertContains(actionTypes, "shopName");
-  assertContains(staffProvisioning, "generateManagerCredential");
+  assertContains(actionTypes, "PlatformShopProvisioningFormValues");
+  assertContains(actionTypes, "values?: PlatformShopProvisioningFormValues");
+  assertContains(actionTypes, "ownerSetupMode");
+  assertContains(actionTypes, "legalRepresentativeRut");
+  assertContains(actionTypes, "useCompanyRutAsShopCode");
   assertContains(staffProvisioning, "recoverInitialManager1001");
   assertContains(staffProvisioning, "INITIAL_MANAGER_RECOVERY_STAFF_CODE");
   assertContains(staffProvisioning, "platform.staff_manager.initial_recovery.success");
@@ -305,7 +462,49 @@ test("TASK-051 server actions generate credentials server-side and keep raw valu
   assertContains(staffProvisioning, "locked_until: null");
   assertContains(staffProvisioning, "must_change_credential: false");
   assertContains(staffProvisioning, "platform.staff_manager_web.recovery.success");
+  assertContains(staffProvisioning, "server_admin_not_configured");
+  assertContains(staffProvisioning, "shop_not_selected");
+  assertContains(staffProvisioning, "shop_inactive");
+  assertContains(staffProvisioning, "shop_lookup_database_error");
+  assertContains(staffProvisioning, "staff_lookup_database_error");
+  assertContains(staffProvisioning, "credential_update_database_error");
+  assertContains(staffProvisioning, "audit_database_error");
+  assertContains(staffProvisioning, "PlatformStaffManagerProvisionDiagnostics");
+  assertContains(staffProvisioning, "shopIdPresent");
+  assertContains(staffProvisioning, "shopCodePresent");
+  assertContains(staffProvisioning, "selectedShopCodePreview");
+  assertContains(staffProvisioning, "previewShopCode");
+  assertContains(staffProvisioning, "readRequestAuthorizationHeader");
+  assertContains(staffProvisioning, "readBearerToken");
+  assertContains(staffProvisioning, "serverClient.auth.getUser(accessToken)");
+  assertContains(
+    staffProvisioning,
+    "Server admin runtime is not configured. Recovery cannot update staff credentials in this runtime.",
+  );
+  assertContains(
+    staffProvisioning,
+    "Recovery could not complete because the database boundary failed. Check server diagnostics.",
+  );
+  assertContains(staffWebAuth, "server_admin_not_configured");
+  assertContains(staffLoginActions, "server_admin_not_configured");
+  assertContains(shopCodeLoginForm, "server_admin_not_configured");
+  assertContains(
+    `${staffLoginActions}\n${shopCodeLoginForm}`,
+    "Sign-in cannot be verified because the server admin runtime is not configured.",
+  );
   assertContains(validation, "normalizeRut");
+  assertContains(validation, "export function normalizeRutInput");
+  assertContains(validation, "export function formatRutForDisplay");
+  assertContains(validation, "export function deriveShopCodeFromRut");
+  assertContains(validation, "export function validateRutFormat");
+  assertContains(validation, "/^[0-9]{7,8}[0-9K]$/");
+  assertContains(validation, "123456789 -> 12.345.678-9");
+  assertContains(validation, "export function normalizeShopName");
+  assert.match(
+    validation,
+    /normalizeShopName[\s\S]{0,240}\.toUpperCase\(\)/,
+    "Server-side shop creation validation must normalize shop names to uppercase.",
+  );
   assertContains(validation, "businessGiro");
   assertContains(validation, "legalRepresentativeRut");
   assertContains(actions, "createPlatformShopFromUnifiedProvisioningAction");
@@ -318,6 +517,58 @@ test("TASK-051 server actions generate credentials server-side and keep raw valu
   assertContains(actions, "recoverInitialManager1001Action");
   assertContains(actions, "recoverInitialManager1001");
   assertContains(actions, 'staffCode: "1001"');
+  assertContains(createShopRoute, "submitUnifiedPlatformShopProvisioningForm");
+  assertContains(createShopRoute, "request.headers.get(\"authorization\")");
+  assertContains(provisioningFormSubmit, "submitUnifiedPlatformShopProvisioningForm");
+  assertContains(provisioningFormSubmit, "createPlatformShopWithOwnerBootstrap");
+  assertContains(provisioningFormSubmit, "createPlatformPosFirstShop");
+  assertContains(provisioningFormSubmit, "createPlatformPendingOwnerInviteWithFiscal");
+  assertContains(provisioningFormSubmit, "authorizationHeader");
+  assertContains(createShopRoute, "platformProvisioningDiagnosticsEnabled");
+  assertContains(createShopRoute, "createPlatformProvisioningAuthDiagnostics");
+  assertContains(provisioningRequestAuth, "authorizationHeaderPresent");
+  assertContains(provisioningRequestAuth, "authorizationHeaderLooksBearer");
+  assertContains(provisioningRequestAuth, "bearerLooksLikeJwt");
+  assertContains(provisioningRequestAuth, "bearerUserResolved");
+  assertContains(provisioningRequestAuth, "cookieUserResolved");
+  assertContains(provisioningRequestAuth, "platformAdminResolved");
+  assertContains(provisioningRequestAuth, "authSourceUsed");
+  assertContains(provisioningRequestAuth, "requestContentType");
+  assertContains(provisioningRequestAuth, "formMode");
+  assertContains(provisioningRequestAuth, "codeBranch");
+  assertContains(createShopRoute, "await cookies()");
+  assertContains(createShopRoute, "request.formData()");
+  assertContains(createShopRoute, "NextResponse.json");
+  assertContains(recoverRoute, "submitInitialManager1001RecoveryForm");
+  assertContains(recoverRoute, "request.headers.get(\"authorization\")");
+  assertContains(provisioningFormSubmit, "submitInitialManager1001RecoveryForm");
+  assertContains(provisioningFormSubmit, "recoverInitialManager1001");
+  assertContains(recoverRoute, "await cookies()");
+  assertContains(recoverRoute, "request.formData()");
+  assertContains(recoverRoute, "NextResponse.json");
+  assertContains(provisioningRequest, ".fetch(url");
+  assertContains(provisioningRequest, "credentials: \"same-origin\"");
+  assertContains(provisioningRequest, "Accept: \"application/json\"");
+  assertContains(provisioningRequest, "createSupabaseBrowserClient");
+  assertContains(provisioningRequest, "auth.getSession()");
+  assertContains(provisioningRequest, "readSupabaseAccessTokenFromCookie");
+  assertContains(provisioningRequest, "Master Console session expired. Refresh and sign in again.");
+  assertContains(provisioningRequest, "Authorization: `Bearer ${accessToken}`");
+  assert.doesNotMatch(
+    `${createShopRoute}\n${recoverRoute}\n${provisioningFormSubmit}\n${provisioningRequest}`,
+    /SUPABASE_SERVICE_ROLE_KEY|serviceRoleKey|createSupabaseAdminClient/,
+    "Route/client submit boundary must not move service-role access into browser code.",
+  );
+  assert.doesNotMatch(
+    `${shopActions}\n${staffProvisioning}\n${managerPin}`,
+    /mcstaff_mgr_|randomBytes|Math\.random/,
+    "TASK-051 manager PIN must be a 5-digit crypto random number, not a long token or Math.random output.",
+  );
+  assert.match(
+    actions,
+    /values: result\.ok \? undefined : submittedValues/,
+    "Server action errors must return submitted values so validation does not clear the form.",
+  );
   assert.doesNotMatch(
     actions,
     /recoverInitialManager1001Action[\s\S]{0,500}value\(formData,\s*"staffCode"\)/,
@@ -332,9 +583,44 @@ test("TASK-051 server actions generate credentials server-side and keep raw valu
     "Recovery must reset an existing staff credential instead of showing or failing on the old one.",
   );
   assert.doesNotMatch(
-    `${shopActions}\n${staffProvisioning}`,
+    `${shopActions}\n${staffProvisioning}\n${staffWebAuth}\n${staffLoginActions}\n${shopCodeLoginForm}`,
     /metadata_redacted:[\s\S]{0,500}(temporaryCredential|oneTimeSignInValue|credential:|credential_value)/,
     "Raw credential must not be inserted into audit metadata.",
+  );
+  assert.doesNotMatch(
+    `${shopActions}\n${staffProvisioning}\n${staffWebAuth}\n${staffLoginActions}\n${shopCodeLoginForm}`,
+    /metadata_redacted:[\s\S]{0,500}(temporaryPin|pin:|pin_value|one_time_pin)/i,
+    "Raw temporary PIN must not be inserted into audit metadata.",
+  );
+  assert.doesNotMatch(
+    `${staffProvisioning}\n${staffWebAuth}\n${staffLoginActions}`,
+    /console\.(log|debug|info|warn|error)/,
+    "Runtime diagnostics for TASK-051 must stay in redacted result/audit metadata, not server console output.",
+  );
+});
+
+test("TASK-051 manual runtime parity has a redacted local-only diagnostic harness", () => {
+  const script = readProjectFile("scripts/platform/task-051-runtime-parity-check.mjs");
+
+  assertContains(script, "TASK-051 runtime parity");
+  assertContains(script, "loadEnvConfig");
+  assertContains(script, "hasFlag(\"local\")");
+  assertContains(script, "supabase\", [\"status\", \"--output\", \"env\"]");
+  assertContains(script, "parseSupabaseStatusEnv");
+  assertContains(script, "assertTargetEnv(\"local\", env)");
+  assertContains(script, "redactSupabaseTarget");
+  assertContains(script, "TEST_TARGET: \"local\"");
+  assertContains(script, "NEXT_PUBLIC_SUPABASE_URL");
+  assertContains(script, "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
+  assertContains(script, "SUPABASE_SERVICE_ROLE_KEY");
+  assertContains(script, "shop_code_present");
+  assertContains(script, "staff_1001_present");
+  assertContains(script, "full_access_permission_present");
+  assertContains(script, "Refusing write checks against non-local Supabase");
+  assert.doesNotMatch(
+    script,
+    /console\.(log|error)\([^)]*(SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE_KEY|PUBLISHABLE_KEY|password|credential_hash|oneTimeSignInValue)/i,
+    "Runtime parity diagnostics must never print secrets or raw credentials.",
   );
 });
 
@@ -387,18 +673,22 @@ test("TASK-051 docs record discovery, checks, and follow-up boundaries without D
   assertContains(evidence, "one create shop form + owner setup mode + advanced recovery");
   assertContains(evidence, "RUT formatted for fiscal identity");
   assertContains(evidence, "shop_code derived without separators");
-  assertContains(evidence, "Never show existing credentials. Recovery always generates a new one-time temporary credential.");
+  assertContains(evidence, "Never show existing PINs. Recovery always generates a new one-time temporary manager PIN.");
   assertContains(evidence, "Force rotation follow-up");
   assertContains(evidence, "1001 active/suspended/archived/missing recovery case");
   assertContains(evidence, "Duplicate 1001 anomaly");
   assertContains(evidence, "platform.staff_manager.initial_recovery.success");
   assertContains(evidence, "Admin Console recovery: shop-scoped staff credential reset");
   assertContains(evidence, "Block removing the last full-access shop manager in Admin Console.");
-  assertContains(evidence, "credential raw non presente in audit/log/evidence");
+  assertContains(evidence, "Form value preservation");
+  assertContains(evidence, "RUT digits-only live formatting");
+  assertContains(evidence, "AUTHENTICATED_RUNTIME_NOT_RUN");
+  assertContains(evidence, "No password/PIN/token is preserved after validation errors");
+  assertContains(evidence, "temporary manager PIN raw non presente in DB/audit/log/evidence");
   assertContains(evidence, "Win7POS uso dei dati boleta");
   assert.doesNotMatch(`${task}\n${evidence}`, /Stato.*`DONE`|Fase.*`DONE`/);
   assert.doesNotMatch(
     `${task}\n${evidence}`,
-    /mcstaff_mgr_[A-Za-z0-9_-]+|credential_hash\s*[:=]\s*['"]/,
+    /mcstaff_mgr_[A-Za-z0-9_-]+|credential_hash\s*[:=]\s*['"]|temporary manager PIN raw:\s*[0-9]{5}/i,
   );
 });

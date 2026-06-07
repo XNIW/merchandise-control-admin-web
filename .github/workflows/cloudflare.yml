@@ -1,0 +1,148 @@
+name: Cloudflare
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - staging
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Cloudflare action to run"
+        required: true
+        default: build-only
+        type: choice
+        options:
+          - build-only
+          - staging
+          - production
+      confirm_staging_gates_passed:
+        description: "Required for production: staging deploy and smoke gates have passed"
+        required: false
+        default: false
+        type: boolean
+      confirm_user_approved_production:
+        description: "Required for production: user explicitly approved production deploy"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-${{ github.workflow }}-${{ github.ref }}-${{ github.event_name }}-${{ inputs.target || 'build' }}
+  cancel-in-progress: false
+
+env:
+  CI: true
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  cloudflare-build:
+    name: Cloudflare build
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Security scan
+        run: npm run security:scan
+
+      - name: Foundation tests
+        run: npm run test:foundation
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Next build
+        run: npm run build
+
+      - name: Cloudflare OpenNext build
+        run: npm run cf:build
+
+      - name: Diff whitespace check
+        run: git diff --check
+
+  deploy-staging:
+    name: Deploy staging
+    needs: cloudflare-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare-staging
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/staging') ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'staging')
+
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cloudflare OpenNext build
+        run: npm run cf:build
+
+      - name: Deploy Worker staging
+        run: npx wrangler deploy --env staging
+
+  deploy-production:
+    name: Deploy production
+    needs: cloudflare-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare-production
+    if: >-
+      github.event_name == 'workflow_dispatch' &&
+      inputs.target == 'production' &&
+      inputs.confirm_staging_gates_passed &&
+      inputs.confirm_user_approved_production
+
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Cloudflare OpenNext build
+        run: npm run cf:build
+
+      - name: Deploy Worker production
+        run: npx wrangler deploy --env production

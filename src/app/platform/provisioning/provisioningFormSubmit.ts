@@ -1,8 +1,7 @@
-"use server";
+import "server-only";
 
 import { revalidatePath } from "next/cache";
 import {
-  provisionPlatformStaffManager,
   recoverInitialManager1001,
   type PlatformStaffManagerProvisionResult,
 } from "@/server/platform-admin/staff-manager-provisioning";
@@ -22,18 +21,21 @@ import type {
   PlatformShopProvisioningFormValues,
   PlatformShopProvisioningResult,
 } from "@/server/platform-admin/action-types";
+import type { PlatformProvisioningRequestAuthDiagnostics } from "@/server/platform-admin/provisioning-request-auth";
 
-export type { PlatformShopProvisioningFormValues } from "@/server/platform-admin/action-types";
+export type PlatformProvisioningAuthContext = {
+  authorizationHeader?: string | null;
+  browserSupabaseHost?: string | null;
+  diagnostics?: PlatformProvisioningRequestAuthDiagnostics;
+  formMode?: string | null;
+  requestContentType?: string | null;
+};
 
 export type PlatformStaffManagerProvisionState =
   PlatformStaffManagerProvisionResult;
-
-// The temporary manager PIN is returned only through useActionState, never through URL params.
 export type PlatformShopProvisioningState = PlatformShopProvisioningResult;
+
 type OwnerSetupMode = "existing-owner" | "pending-email" | "pos-first";
-type PlatformProvisioningAuthContext = {
-  authorizationHeader?: string | null;
-};
 
 function value(formData: FormData, key: string) {
   const raw = formData.get(key);
@@ -57,6 +59,20 @@ function booleanValue(formData: FormData, key: string) {
 
 function displayRutValue(raw: string) {
   return formatRutForDisplay(raw);
+}
+
+function ownerSetupModeFromForm(formData: FormData): OwnerSetupMode | null {
+  const mode = value(formData, "ownerSetupMode");
+
+  if (
+    mode === "existing-owner" ||
+    mode === "pending-email" ||
+    mode === "pos-first"
+  ) {
+    return mode;
+  }
+
+  return null;
 }
 
 function formValuesFromFormData(
@@ -90,27 +106,6 @@ function formValuesFromFormData(
   };
 }
 
-function revalidateProvisioning() {
-  revalidatePath("/platform/provisioning");
-  revalidatePath("/platform/shops");
-  revalidatePath("/platform/users");
-  revalidatePath("/shop/settings");
-}
-
-function ownerSetupModeFromForm(formData: FormData): OwnerSetupMode | null {
-  const mode = value(formData, "ownerSetupMode");
-
-  if (
-    mode === "existing-owner" ||
-    mode === "pending-email" ||
-    mode === "pos-first"
-  ) {
-    return mode;
-  }
-
-  return null;
-}
-
 function ownerStatusForMode(mode: OwnerSetupMode) {
   if (mode === "existing-owner") {
     return "Personal owner linked";
@@ -135,8 +130,14 @@ function ownerModeForMode(mode: OwnerSetupMode) {
   return "POS-first";
 }
 
-export async function createPlatformShopFromUnifiedProvisioningAction(
-  _previousState: PlatformShopProvisioningState,
+function revalidateProvisioning() {
+  revalidatePath("/platform/provisioning");
+  revalidatePath("/platform/shops");
+  revalidatePath("/platform/users");
+  revalidatePath("/shop/settings");
+}
+
+export async function submitUnifiedPlatformShopProvisioningForm(
   formData: FormData,
   authContext: PlatformProvisioningAuthContext = {},
 ): Promise<PlatformShopProvisioningState> {
@@ -202,74 +203,7 @@ export async function createPlatformShopFromUnifiedProvisioningAction(
   };
 }
 
-export async function createPlatformShopWithOwnerBootstrapAction(
-  _previousState: PlatformShopProvisioningState,
-  formData: FormData,
-): Promise<PlatformShopProvisioningState> {
-  const result = await createPlatformShopWithOwnerBootstrap({
-    ...fiscalValues(formData),
-    ownerProfileId: value(formData, "ownerProfileId"),
-    reason: value(formData, "reason"),
-    shopCode: value(formData, "shopCode"),
-    shopName: value(formData, "shopName"),
-  });
-
-  revalidateProvisioning();
-
-  return result;
-}
-
-export async function createPlatformPosFirstShopAction(
-  _previousState: PlatformShopProvisioningState,
-  formData: FormData,
-): Promise<PlatformShopProvisioningState> {
-  const result = await createPlatformPosFirstShop({
-    ...fiscalValues(formData),
-    reason: value(formData, "reason"),
-    shopCode: value(formData, "shopCode"),
-    shopName: value(formData, "shopName"),
-  });
-
-  revalidateProvisioning();
-
-  return result;
-}
-
-export async function createPlatformPendingOwnerInviteWithFiscalAction(
-  _previousState: PlatformShopProvisioningState,
-  formData: FormData,
-): Promise<PlatformShopProvisioningState> {
-  const result = await createPlatformPendingOwnerInviteWithFiscal({
-    ...fiscalValues(formData),
-    ownerContact: value(formData, "ownerEmail"),
-    reason: value(formData, "reason"),
-    shopCode: value(formData, "shopCode"),
-    shopName: value(formData, "shopName"),
-  });
-
-  revalidateProvisioning();
-
-  return result;
-}
-
-export async function provisionPlatformStaffManagerAction(
-  _previousState: PlatformStaffManagerProvisionState,
-  formData: FormData,
-): Promise<PlatformStaffManagerProvisionState> {
-  const result = await provisionPlatformStaffManager({
-    reason: value(formData, "reason"),
-    shopCode: value(formData, "shopCode"),
-    shopId: value(formData, "shopId"),
-    staffCode: value(formData, "staffCode"),
-  });
-
-  revalidateProvisioning();
-
-  return result;
-}
-
-export async function recoverInitialManager1001Action(
-  _previousState: PlatformStaffManagerProvisionState,
+export async function submitInitialManager1001RecoveryForm(
   formData: FormData,
   authContext: PlatformProvisioningAuthContext = {},
 ): Promise<PlatformStaffManagerProvisionState> {

@@ -24,48 +24,55 @@ function assertPathExists(relativePath) {
 test("TASK-047 access entrypoints use Master Console and Admin Console terminology", () => {
   const home = readProjectFile("src/app/page.tsx");
   const loginPage = readProjectFile("src/app/auth/login/page.tsx");
+  const loginAction = readProjectFile("src/app/auth/login/actions.ts");
   const authForm = readProjectFile("src/components/auth/AuthForm.tsx");
   const staffLoginPage = readProjectFile(
     "src/app/(staff-auth)/shop/staff-login/page.tsx",
+  );
+  assertPathExists("src/components/auth/ShopCodeLoginForm.tsx");
+  const shopCodeLoginForm = readProjectFile(
+    "src/components/auth/ShopCodeLoginForm.tsx",
   );
   const platformLayout = readProjectFile("src/app/platform/layout.tsx");
   const platformShell = readProjectFile("src/components/platform/AppShell.tsx");
   const shopLayout = readProjectFile("src/app/shop/layout.tsx");
   const shopShell = readProjectFile("src/components/shop/ShopShell.tsx");
 
-  for (const required of [
-    "Master Console",
-    "Admin Console",
-    "/auth/login?next=/platform",
-    "/auth/login?next=/shop",
-    "/shop/staff-login",
-    "Shop code",
-  ]) {
+  for (const required of ["/auth/login?next=/shop&mode=admin-account", "redirect"]) {
     assertContains(home, required, `home must contain ${required}`);
   }
+
+  assert.doesNotMatch(home, /Master Console/);
+  assert.doesNotMatch(home, /\/auth\/login\?next=\/platform/);
+  assert.doesNotMatch(home, /Admin Console access/);
+  assert.doesNotMatch(home, /\/shop\/staff-login/);
 
   for (const required of [
     "Master Console",
     "Admin Console",
     "Admin account",
     "Shop code",
-    "/shop/staff-login",
+    "/auth/login?next=/shop&mode=admin-account",
+    "/auth/login?next=/shop&mode=shop-code",
   ]) {
     assertContains(loginPage, required, `account login must contain ${required}`);
   }
 
-  assertContains(authForm, "Opening requested console");
-  assertContains(staffLoginPage, "Admin Console");
-  assertContains(staffLoginPage, "Shop code");
-  assertContains(staffLoginPage, "Staff code");
-  assertContains(staffLoginPage, "single-shop");
+  assertContains(authForm, "accountSignInAction");
+  assertContains(loginAction, "redirect(nextPath, RedirectType.replace)");
+  assertContains(loginAction, "signInWithPassword");
+  assertContains(staffLoginPage, "/auth/login?next=/shop&mode=shop-code");
+  assertContains(`${loginPage}\n${shopCodeLoginForm}`, "Admin Console");
+  assertContains(shopCodeLoginForm, "Shop code");
+  assertContains(shopCodeLoginForm, "Staff code");
+  assertContains(`${loginPage}\n${shopCodeLoginForm}`, "single-shop");
   assertContains(platformLayout, 'area="Master Console"');
   assertContains(platformShell, "Master Console");
   assertContains(shopLayout, 'area="Admin Console"');
   assertContains(shopShell, "Admin Console");
 
   assert.doesNotMatch(
-    `${home}\n${loginPage}\n${authForm}`,
+    `${home}\n${loginPage}\n${authForm}\n${loginAction}`,
     /Return to Admin Web|Opening Admin Web|area="Admin Web"/,
   );
   assert.doesNotMatch(
@@ -73,7 +80,7 @@ test("TASK-047 access entrypoints use Master Console and Admin Console terminolo
     /Platform Admin Console|area="Platform Admin"|not Platform Admin/,
   );
   assert.doesNotMatch(
-    `${shopLayout}\n${shopShell}\n${staffLoginPage}`,
+    `${shopLayout}\n${shopShell}\n${shopCodeLoginForm}`,
     /Shop Admin Console|area="Shop Admin"/,
   );
 });
