@@ -10,15 +10,12 @@ import {
 import type {
   PlatformShopProvisioningFormValues,
   PlatformShopProvisioningState,
-} from "./actions";
+} from "./provisioningFormSubmit";
 import {
   SearchableEntityPicker,
   type SearchableEntityPickerItem,
 } from "./SearchableEntityPicker";
-import {
-  readPlatformProvisioningAccessToken,
-  sessionExpiredResponse,
-} from "./platformProvisioningRequest";
+import { submitPlatformProvisioningForm } from "./platformProvisioningRequest";
 
 type OwnerProfileOption = {
   displayName: string;
@@ -797,6 +794,7 @@ export function ShopProvisioningForms({
   ownerProfiles,
 }: ShopProvisioningFormsProps) {
   const fieldRefs = useRef<Partial<Record<string, RegisteredField>>>({});
+  const createShopPendingRef = useRef(false);
   const [formValues, setFormValues] =
     useState<PlatformShopProvisioningFormValues>(emptyFormValues);
   const [clientFieldErrors, setClientFieldErrors] = useState<FieldErrorMap>({});
@@ -973,6 +971,13 @@ export function ShopProvisioningForms({
   }
 
   async function handleCreateShop() {
+    if (createShopPendingRef.current) {
+      return;
+    }
+
+    createShopPendingRef.current = true;
+    setCreateShopPending(true);
+
     try {
       const payload = new FormData();
 
@@ -992,22 +997,10 @@ export function ShopProvisioningForms({
         formValues.useCompanyRutAsShopCode ? "true" : "false",
       );
 
-      const token = await readPlatformProvisioningAccessToken(document.cookie);
-      const responsePromise = token
-        ? window.fetch("/platform/provisioning/create-shop", {
-            method: "POST",
-            credentials: "same-origin",
-            headers: {
-              Accept: "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: payload,
-          })
-        : Promise.resolve(sessionExpiredResponse());
-
-      setCreateShopPending(true);
-
-      const response = await responsePromise;
+      const response = await submitPlatformProvisioningForm(
+        "/platform/provisioning/create-shop",
+        payload,
+      );
 
       if (!response.ok) {
         setState(requestFailedState);
@@ -1018,6 +1011,7 @@ export function ShopProvisioningForms({
     } catch {
       setState(requestFailedState);
     } finally {
+      createShopPendingRef.current = false;
       setCreateShopPending(false);
     }
   }

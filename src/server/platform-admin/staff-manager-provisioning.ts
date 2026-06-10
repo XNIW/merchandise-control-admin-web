@@ -1,22 +1,16 @@
 import "server-only";
 
-import {
-  createSupabaseAdminClient,
-  resolveSupabaseAdminConfig,
-  type SupabaseAdminClient,
-} from "@/lib/supabase/admin";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { headers } from "next/headers";
-import {
-  POS_STAFF_WEB_REQUIRED_PERMISSION,
-  POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY,
-} from "@/server/shop-admin/access-principal";
 import { hashStaffCredential } from "@/server/shop-admin/staff-credentials";
-import { authorizeCurrentPlatformAdmin } from "./authz";
+import {
+  resolvePlatformAdminForRequest,
+  type PlatformProvisioningRequestAuthDiagnostics,
+} from "./provisioning-request-auth";
+import { createPlatformProvisioningRpcClient } from "./provisioning-rpc-client";
 import { generateTemporaryManagerPin } from "./temporary-manager-pin";
 
 export type PlatformStaffManagerProvisionCode =
   | "success"
+  | "auth_mismatch"
   | "audit_database_error"
   | "audit_write_failed"
   | "conflict"
@@ -74,18 +68,9 @@ type NormalizedProvisionInput = {
   staffCode: string;
 };
 
-type TargetShopRow = {
-  archived_at: string | null;
-  shop_code: string;
-  shop_id: string;
-  shop_name: string;
-  shop_status: string;
-};
-
 type PlatformProvisionBoundary =
   | {
-      actorProfileId: string;
-      adminClient: SupabaseAdminClient;
+      rpcClient: NonNullable<ReturnType<typeof createPlatformProvisioningRpcClient>>;
       status: "ready";
     }
   | {
@@ -95,9 +80,25 @@ type PlatformProvisionBoundary =
 
 type PlatformProvisionAuthContext = {
   authorizationHeader?: string | null;
+  browserSupabaseHost?: string | null;
+  diagnostics?: PlatformProvisioningRequestAuthDiagnostics;
+  formMode?: string | null;
+  requestContentType?: string | null;
+};
+
+type RecoveryRpcResult = {
+  audit_event_id?: unknown;
+  code?: unknown;
+  ok?: unknown;
+  operation_result?: unknown;
+  shop_code?: unknown;
+  shop_id?: unknown;
+  shop_name?: unknown;
+  staff_id?: unknown;
 };
 
 const messageByCode: Record<PlatformStaffManagerProvisionCode, string> = {
+  auth_mismatch: "Master Console session changed. Refresh and sign in again.",
   audit_database_error:
     "Recovery could not complete because the database boundary failed. Check server diagnostics.",
   audit_write_failed: "Audit write failed for the manager provisioning action.",
@@ -128,10 +129,22 @@ const messageByCode: Record<PlatformStaffManagerProvisionCode, string> = {
 
 const STAFF_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,31}$/;
 const SHOP_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{2,31}$/;
-const PLATFORM_STAFF_MANAGER_WEB_PERMISSION: typeof POS_STAFF_WEB_REQUIRED_PERMISSION =
-  "shop_admin.full_access";
 export const DEFAULT_MANAGER_DISPLAY_NAME = "manager" as const;
 export const INITIAL_MANAGER_RECOVERY_STAFF_CODE = "1001" as const;
+export const TASK051_INITIAL_MANAGER_RECOVERY_RPC_CONTRACT = {
+  credential_expires_at: null,
+  credential_generated: true,
+  locked_until: null,
+  must_change_credential: false,
+  operation_result: "rpc_controlled",
+  permissionKey: "shop_admin.full_access",
+  primarySuccessEventKey: "platform.staff_manager.initial_recovery.success",
+  provisionFailureEventKey: "platform.staff_manager_web.provision.failure",
+  provisionSuccessEventKey: "platform.staff_manager_web.provision.success",
+  recoverySuccessEventKey: "platform.staff_manager_web.recovery.success",
+  staffAccountsTable: "staff_accounts",
+  staffRolePermissionsTable: "staff_role_permissions",
+} as const;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -145,30 +158,6 @@ function result(
     ok: options.ok ?? code === "success",
     ...options,
   };
-}
-
-function readBearerToken(authorization: string | null) {
-  const [scheme, token, extra] = (authorization ?? "").trim().split(/\s+/);
-
-  if (scheme?.toLowerCase() !== "bearer" || !token || extra) {
-    return null;
-  }
-
-  return token;
-}
-
-async function readRequestAuthorizationHeader() {
-  try {
-    const requestHeaders = await headers();
-
-    return requestHeaders.get("authorization");
-  } catch {
-    return null;
-  }
-}
-
-function nowIso() {
-  return new Date().toISOString();
 }
 
 function normalizeShopCode(value: string | undefined) {
@@ -227,6 +216,10 @@ function normalizeInput(
     fieldErrors.staffCode = "Use 2-32 uppercase letters, numbers, dash or underscore.";
   }
 
+  if (normalized.staffCode !== INITIAL_MANAGER_RECOVERY_STAFF_CODE) {
+    fieldErrors.staffCode = "Only manager 1001 can be recovered by this action.";
+  }
+
   if (normalized.reason.length < 8) {
     fieldErrors.reason = "A provisioning reason is required.";
   }
@@ -234,211 +227,79 @@ function normalizeInput(
   return { diagnostics, fieldErrors, normalized };
 }
 
-async function readTargetShop(
-  adminClient: SupabaseAdminClient,
-  normalized: NormalizedProvisionInput,
-) {
-  if (UUID_PATTERN.test(normalized.shopId)) {
-    const resultById = await adminClient
-      .from("shops")
-      .select("shop_id,shop_code,shop_name,shop_status,archived_at")
-      .eq("shop_id", normalized.shopId)
-      .maybeSingle<TargetShopRow>();
+function mapRpcCode(value: unknown): PlatformStaffManagerProvisionCode {
+  const code =
+    typeof value === "string" ? value : "credential_update_database_error";
 
-    if (
-      resultById.error ||
-      resultById.data ||
-      !SHOP_CODE_PATTERN.test(normalized.shopCode)
-    ) {
-      return resultById;
-    }
+  if (
+    [
+      "success",
+      "conflict",
+      "credential_update_database_error",
+      "duplicate_initial_manager",
+      "not_configured",
+      "shop_inactive",
+      "shop_not_found",
+      "unauthorized",
+      "validation_failed",
+    ].includes(code)
+  ) {
+    return code as PlatformStaffManagerProvisionCode;
   }
 
-  return adminClient
-    .from("shops")
-    .select("shop_id,shop_code,shop_name,shop_status,archived_at")
-    .eq("shop_code", normalized.shopCode)
-    .maybeSingle<TargetShopRow>();
+  return "credential_update_database_error";
+}
+
+function mapOperationResult(
+  value: unknown,
+): PlatformStaffManagerProvisionResult["operationResult"] | undefined {
+  if (
+    value === "credential_reset" ||
+    value === "reactivated_reset" ||
+    value === "recreated"
+  ) {
+    return value;
+  }
+
+  return undefined;
 }
 
 async function getProvisionBoundary(
   authContext: PlatformProvisionAuthContext = {},
 ): Promise<PlatformProvisionBoundary> {
-  const serverClient = await createSupabaseServerClient();
+  const auth = await resolvePlatformAdminForRequest(authContext);
 
-  if (!serverClient) {
+  if (auth.status !== "authorized") {
+    const code =
+      auth.code === "not_configured"
+        ? "not_configured"
+        : auth.code === "auth_mismatch"
+          ? "auth_mismatch"
+          : "unauthorized";
+
+    return {
+      result: result(code, { ok: false }),
+      status: "blocked",
+    };
+  }
+
+  const rpcClient = createPlatformProvisioningRpcClient(auth.actorAccessToken);
+
+  if (!rpcClient) {
     return {
       result: result("not_configured", { ok: false }),
       status: "blocked",
     };
   }
 
-  const authz = await authorizeCurrentPlatformAdmin(serverClient);
-  const adminConfig = resolveSupabaseAdminConfig();
-
-  if (adminConfig.status !== "configured") {
-    return {
-      result: result("server_admin_not_configured", { ok: false }),
-      status: "blocked",
-    };
-  }
-
-  const adminClient = createSupabaseAdminClient(adminConfig);
-
-  if (!adminClient) {
-    return {
-      result: result("server_admin_not_configured", { ok: false }),
-      status: "blocked",
-    };
-  }
-
-  let actorProfileId = authz.status === "authorized" ? authz.userId : null;
-
-  if (!actorProfileId) {
-    const claimsResult = await serverClient.auth.getClaims();
-    let userId: string | null =
-      typeof claimsResult.data?.claims?.sub === "string"
-        ? claimsResult.data.claims.sub
-        : null;
-
-    if (!userId) {
-      const sessionResult = await serverClient.auth.getSession();
-      const accessToken = sessionResult.data.session?.access_token;
-
-      if (accessToken) {
-        const userResult = await serverClient.auth.getUser(accessToken);
-
-        userId = userResult.data.user?.id ?? null;
-      }
-    }
-
-    if (!userId) {
-      const authorization =
-        authContext.authorizationHeader ?? (await readRequestAuthorizationHeader());
-      const accessToken = readBearerToken(authorization);
-
-      if (accessToken) {
-        const userResult = await serverClient.auth.getUser(accessToken);
-
-        userId = userResult.data.user?.id ?? null;
-      }
-    }
-
-    if (userId) {
-      const authUserResult = await adminClient.auth.admin.getUserById(userId);
-      const adminResult = authUserResult.error
-        ? { data: null, error: authUserResult.error }
-        : await adminClient
-            .from("platform_admins")
-            .select("profile_id")
-            .eq("profile_id", userId)
-            .eq("status", "active")
-            .is("revoked_at", null)
-            .maybeSingle();
-
-      if (!adminResult.error && adminResult.data) {
-        actorProfileId = userId;
-      }
-    }
-  }
-
-  if (!actorProfileId) {
-    return {
-      result: result(
-        authz.status === "not_configured" ? "not_configured" : "unauthorized",
-        { ok: false },
-      ),
-      status: "blocked",
-    };
-  }
-
   return {
-    actorProfileId,
-    adminClient,
+    rpcClient,
     status: "ready",
   };
 }
 
-async function writePlatformStaffManagerAudit(
-  adminClient: SupabaseAdminClient,
-  input: {
-    actorProfileId: string;
-    code: PlatformStaffManagerProvisionCode;
-    credentialGenerated?: boolean;
-    displayNameLength: number;
-    eventKey: string;
-    operationResult?:
-      | "credential_reset"
-      | "duplicate_initial_manager"
-      | "failure"
-      | "reactivated_reset"
-      | "recreated";
-    reasonLength: number;
-    result: "failure" | "success";
-    shopId?: string;
-    staffCode?: string;
-    staffCodeLength: number;
-    staffId?: string;
-  },
-): Promise<{ auditEventId?: string; ok: boolean }> {
-  const { data, error } = await adminClient
-    .from("audit_logs")
-    .insert({
-      actor_profile_id: input.actorProfileId,
-      event_key: input.eventKey,
-      metadata_redacted: {
-        code: input.code,
-        credential_generated: input.credentialGenerated ?? false,
-        display_name_length: input.displayNameLength,
-        operation_result: input.operationResult ?? input.result,
-        permission_key: PLATFORM_STAFF_MANAGER_WEB_PERMISSION,
-        reason_length: input.reasonLength,
-        role_key: POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY,
-        shop_id: input.shopId ?? null,
-        source: "TASK-051",
-        staff_code: input.staffCode ?? null,
-        staff_code_length: input.staffCodeLength,
-      },
-      result: input.result,
-      scope: input.shopId ? "shop" : "global",
-      severity: input.result === "success" ? "info" : "warning",
-      shop_id: input.shopId ?? null,
-      target_id: input.staffId ?? input.shopId,
-      target_type: input.staffId ? "staff_account" : "shop",
-    })
-    .select("audit_log_id")
-    .maybeSingle();
-
-  if (error) {
-    return { ok: false };
-  }
-
-  return { auditEventId: data?.audit_log_id, ok: true };
-}
-
-function isUniqueConflict(error: { code?: string } | null) {
-  return error?.code === "23505";
-}
-
-function isUsableInitialManager(staff: {
-  credential_status: string;
-  must_change_credential: boolean;
-  status: string;
-  web_access_revoked_at: string | null;
-}) {
-  return (
-    staff.status === "active" &&
-    staff.credential_status === "active" &&
-    staff.must_change_credential !== true &&
-    !staff.web_access_revoked_at
-  );
-}
-
-type ProvisionPlatformStaffManagerMode = "initial_recovery" | "provision";
-
 async function provisionPlatformStaffManagerInternal(
   input: ProvisionPlatformStaffManagerInput,
-  mode: ProvisionPlatformStaffManagerMode,
   authContext: PlatformProvisionAuthContext = {},
 ): Promise<PlatformStaffManagerProvisionResult> {
   const { diagnostics, fieldErrors, normalized } = normalizeInput(input);
@@ -472,365 +333,53 @@ async function provisionPlatformStaffManagerInternal(
     };
   }
 
-  const { actorProfileId, adminClient } = boundary;
-  const shopResult = await readTargetShop(adminClient, normalized);
-
-  if (shopResult.error) {
-    return finish("shop_lookup_database_error", {
-      ok: false,
-      shopCode: normalized.shopCode || undefined,
-      shopId: normalized.shopId || undefined,
-    });
-  }
-
-  if (!shopResult.data) {
-    return finish("shop_not_found", {
-      ok: false,
-      shopCode: normalized.shopCode || undefined,
-      shopId: normalized.shopId || undefined,
-    });
-  }
-
-  normalized.shopCode = shopResult.data.shop_code;
-  normalized.shopId = shopResult.data.shop_id;
-
-  if (
-    shopResult.data.shop_status !== "active" ||
-    shopResult.data.archived_at !== null
-  ) {
-    const audit = await writePlatformStaffManagerAudit(adminClient, {
-      actorProfileId,
-      code: "shop_inactive",
-      credentialGenerated: false,
-      displayNameLength: normalized.displayName.length,
-      eventKey:
-        mode === "initial_recovery"
-          ? "platform.staff_manager.initial_recovery.failure"
-          : "platform.staff_manager_web.provision.failure",
-      operationResult: "failure",
-      reasonLength: normalized.reason.length,
-      result: "failure",
-      shopId: normalized.shopId,
-      staffCode: normalized.staffCode,
-      staffCodeLength: normalized.staffCode.length,
-    });
-
-    if (!audit.ok) {
-      return finish("audit_database_error", {
-        ok: false,
-        shopId: normalized.shopId,
-      });
-    }
-
-    return finish("shop_inactive", {
-      auditEventId: audit.auditEventId,
-      ok: false,
-      shopId: normalized.shopId,
-    });
-  }
-
-  const existingStaffResult = await adminClient
-    .from("staff_accounts")
-    .select(
-      "staff_id,shop_id,credential_version,status,credential_status,must_change_credential,web_access_revoked_at",
-    )
-    .eq("shop_id", normalized.shopId)
-    .eq("staff_code", normalized.staffCode)
-    .limit(2);
-
-  if (existingStaffResult.error) {
-    return finish("staff_lookup_database_error", {
-      ok: false,
-      shopId: normalized.shopId,
-    });
-  }
-
-  const existingStaffRows = existingStaffResult.data ?? [];
-
-  if (existingStaffRows.length > 1) {
-    const audit = await writePlatformStaffManagerAudit(adminClient, {
-      actorProfileId,
-      code: "duplicate_initial_manager",
-      credentialGenerated: false,
-      displayNameLength: normalized.displayName.length,
-      eventKey:
-        mode === "initial_recovery"
-          ? "platform.staff_manager.initial_recovery.failure"
-          : "platform.staff_manager_web.provision.failure",
-      operationResult: "duplicate_initial_manager",
-      reasonLength: normalized.reason.length,
-      result: "failure",
-      shopId: normalized.shopId,
-      staffCode: normalized.staffCode,
-      staffCodeLength: normalized.staffCode.length,
-    });
-
-    return finish(audit.ok ? "duplicate_initial_manager" : "audit_database_error", {
-      auditEventId: audit.auditEventId,
-      ok: false,
-      shopCode: shopResult.data.shop_code,
-      shopId: normalized.shopId,
-      shopName: shopResult.data.shop_name,
-    });
-  }
-
-  const existingStaff = existingStaffRows[0];
-
-  const permissionResult = await adminClient.from("staff_role_permissions").upsert(
-    {
-      enabled: true,
-      permission_key: PLATFORM_STAFF_MANAGER_WEB_PERMISSION,
-      role_key: POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY,
-      shop_id: normalized.shopId,
-      updated_at: nowIso(),
-      updated_by_profile_id: actorProfileId,
-    },
-    { onConflict: "shop_id,role_key,permission_key" },
-  );
-
-  if (permissionResult.error) {
-    const audit = await writePlatformStaffManagerAudit(adminClient, {
-      actorProfileId,
-      code: "credential_update_database_error",
-      credentialGenerated: false,
-      displayNameLength: normalized.displayName.length,
-      eventKey:
-        mode === "initial_recovery"
-          ? "platform.staff_manager.initial_recovery.failure"
-          : "platform.staff_manager_web.provision.failure",
-      operationResult: "failure",
-      reasonLength: normalized.reason.length,
-      result: "failure",
-      shopId: normalized.shopId,
-      staffCode: normalized.staffCode,
-      staffCodeLength: normalized.staffCode.length,
-    });
-
-    return finish(
-      audit.ok ? "credential_update_database_error" : "audit_database_error",
-      {
-        auditEventId: audit.auditEventId,
-        ok: false,
-        shopId: normalized.shopId,
-      },
-    );
-  }
-
   const oneTimeSignInValue = generateTemporaryManagerPin();
   const credentialHash = await hashStaffCredential(oneTimeSignInValue, {
     allowTemporaryPin: true,
   });
 
-  if (existingStaff) {
-    const now = nowIso();
-    const operationResult = isUsableInitialManager(existingStaff)
-      ? "credential_reset"
-      : "reactivated_reset";
-    const nextCredentialVersion =
-      typeof existingStaff.credential_version === "number"
-        ? existingStaff.credential_version + 1
-        : 1;
-    const staffResult = await adminClient
-      .from("staff_accounts")
-      .update({
-        credential_expires_at: null,
-        credential_hash: credentialHash,
-        credential_kind: "password",
-        credential_status: "active",
-        credential_updated_at: now,
-        credential_version: nextCredentialVersion,
-        failed_attempts: 0,
-        locked_until: null,
-        must_change_credential: false,
-        session_invalidated_at: now,
-        status: "active",
-        updated_by_profile_id: actorProfileId,
-        web_access_revoked_at: null,
-        web_access_revoked_by_staff_id: null,
-        web_access_revoked_reason: null,
-      })
-      .eq("staff_id", existingStaff.staff_id)
-      .select("staff_id,shop_id")
-      .maybeSingle();
+  const { data, error } = await boundary.rpcClient.rpc(
+    "platform_recover_initial_manager_1001",
+    {
+      p_reason: normalized.reason,
+      p_shop_code: normalized.shopCode,
+      p_shop_id: UUID_PATTERN.test(normalized.shopId) ? normalized.shopId : null,
+      p_staff_credential_hash: credentialHash,
+      p_staff_display_name: normalized.displayName,
+    },
+  );
 
-    if (staffResult.error || !staffResult.data) {
-      const audit = await writePlatformStaffManagerAudit(adminClient, {
-        actorProfileId,
-        code: "credential_update_database_error",
-        credentialGenerated: false,
-        displayNameLength: normalized.displayName.length,
-        eventKey:
-          mode === "initial_recovery"
-            ? "platform.staff_manager.initial_recovery.failure"
-            : "platform.staff_manager_web.recovery.failure",
-        operationResult: "failure",
-        reasonLength: normalized.reason.length,
-        result: "failure",
-        shopId: normalized.shopId,
-        staffCode: normalized.staffCode,
-        staffCodeLength: normalized.staffCode.length,
-        staffId: existingStaff.staff_id,
-      });
-
-      return finish(
-        audit.ok ? "credential_update_database_error" : "audit_database_error",
-        {
-          auditEventId: audit.auditEventId,
-          ok: false,
-          shopId: normalized.shopId,
-          staffId: existingStaff.staff_id,
-        },
-      );
-    }
-
-    const audit = await writePlatformStaffManagerAudit(adminClient, {
-      actorProfileId,
-      code: "success",
-      credentialGenerated: true,
-      displayNameLength: normalized.displayName.length,
-      eventKey:
-        mode === "initial_recovery"
-          ? "platform.staff_manager.initial_recovery.success"
-          : "platform.staff_manager_web.recovery.success",
-      operationResult,
-      reasonLength: normalized.reason.length,
-      result: "success",
-      shopId: normalized.shopId,
-      staffCode: normalized.staffCode,
-      staffCodeLength: normalized.staffCode.length,
-      staffId: staffResult.data.staff_id,
-    });
-
-    if (!audit.ok) {
-      return finish("audit_database_error", {
-        ok: false,
-        shopId: staffResult.data.shop_id,
-        staffId: staffResult.data.staff_id,
-      });
-    }
-
-    return finish("success", {
-      auditEventId: audit.auditEventId,
-      oneTimeSignInValue,
-      operationResult,
-      shopCode: shopResult.data.shop_code,
-      shopId: staffResult.data.shop_id,
-      shopName: shopResult.data.shop_name,
-      staffId: staffResult.data.staff_id,
-    });
-  }
-
-  const staffResult = await adminClient
-    .from("staff_accounts")
-    .insert({
-      created_by_profile_id: actorProfileId,
-      credential_hash: credentialHash,
-      credential_kind: "password",
-      credential_status: "active",
-      credential_updated_at: nowIso(),
-      credential_version: 1,
-      display_name: normalized.displayName,
-      failed_attempts: 0,
-      must_change_credential: false,
-      role_key: POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY,
-      shop_id: normalized.shopId,
-      staff_code: normalized.staffCode,
-      status: "active",
-      updated_by_profile_id: actorProfileId,
-    })
-    .select("staff_id,shop_id")
-    .maybeSingle();
-
-  if (staffResult.error) {
-    const code = isUniqueConflict(staffResult.error)
-      ? "conflict"
-      : "credential_update_database_error";
-    const audit = await writePlatformStaffManagerAudit(adminClient, {
-      actorProfileId,
-      code,
-      credentialGenerated: false,
-      displayNameLength: normalized.displayName.length,
-      eventKey:
-        mode === "initial_recovery"
-          ? "platform.staff_manager.initial_recovery.failure"
-          : "platform.staff_manager_web.provision.failure",
-      operationResult: "failure",
-      reasonLength: normalized.reason.length,
-      result: "failure",
-      shopId: normalized.shopId,
-      staffCode: normalized.staffCode,
-      staffCodeLength: normalized.staffCode.length,
-    });
-
-    return finish(audit.ok ? code : "audit_database_error", {
-      auditEventId: audit.auditEventId,
+  if (error) {
+    return finish("credential_update_database_error", {
       ok: false,
-      shopId: normalized.shopId,
+      shopCode: normalized.shopCode || undefined,
+      shopId: normalized.shopId || undefined,
     });
   }
 
-  if (!staffResult.data) {
-    const audit = await writePlatformStaffManagerAudit(adminClient, {
-      actorProfileId,
-      code: "credential_update_database_error",
-      credentialGenerated: false,
-      displayNameLength: normalized.displayName.length,
-      eventKey:
-        mode === "initial_recovery"
-          ? "platform.staff_manager.initial_recovery.failure"
-          : "platform.staff_manager_web.provision.failure",
-      operationResult: "failure",
-      reasonLength: normalized.reason.length,
-      result: "failure",
-      shopId: normalized.shopId,
-      staffCode: normalized.staffCode,
-      staffCodeLength: normalized.staffCode.length,
-    });
+  const payload = data && typeof data === "object" ? (data as RecoveryRpcResult) : {};
+  const code = mapRpcCode(payload.code);
+  const ok = payload.ok === true && code === "success";
 
-    return finish(
-      audit.ok ? "credential_update_database_error" : "audit_database_error",
-      {
-        auditEventId: audit.auditEventId,
-        ok: false,
-        shopId: normalized.shopId,
-      },
-    );
-  }
-
-  const audit = await writePlatformStaffManagerAudit(adminClient, {
-    actorProfileId,
-    code: "success",
-    credentialGenerated: true,
-    displayNameLength: normalized.displayName.length,
-    eventKey:
-      mode === "initial_recovery"
-        ? "platform.staff_manager.initial_recovery.success"
-        : "platform.staff_manager_web.provision.success",
-    operationResult: "recreated",
-    reasonLength: normalized.reason.length,
-    result: "success",
-    shopId: normalized.shopId,
-    staffCode: normalized.staffCode,
-    staffCodeLength: normalized.staffCode.length,
-    staffId: staffResult.data.staff_id,
-  });
-
-  if (!audit.ok) {
-    return finish("audit_database_error", {
-      ok: false,
-      shopId: staffResult.data.shop_id,
-      staffId: staffResult.data.staff_id,
-    });
-  }
-
-  return finish("success", {
-    auditEventId: audit.auditEventId,
-    oneTimeSignInValue,
-    operationResult: "recreated",
-    shopCode: shopResult.data.shop_code,
-    shopId: staffResult.data.shop_id,
-    shopName: shopResult.data.shop_name,
-    staffId: staffResult.data.staff_id,
+  return finish(code, {
+    auditEventId:
+      typeof payload.audit_event_id === "string"
+        ? payload.audit_event_id
+        : undefined,
+    ok,
+    oneTimeSignInValue: ok ? oneTimeSignInValue : undefined,
+    operationResult: ok ? mapOperationResult(payload.operation_result) : undefined,
+    shopCode:
+      typeof payload.shop_code === "string"
+        ? payload.shop_code
+        : normalized.shopCode || undefined,
+    shopId:
+      typeof payload.shop_id === "string"
+        ? payload.shop_id
+        : normalized.shopId || undefined,
+    shopName:
+      typeof payload.shop_name === "string" ? payload.shop_name : undefined,
+    staffId: typeof payload.staff_id === "string" ? payload.staff_id : undefined,
   });
 }
 
@@ -838,7 +387,7 @@ export async function provisionPlatformStaffManager(
   input: ProvisionPlatformStaffManagerInput,
   authContext: PlatformProvisionAuthContext = {},
 ): Promise<PlatformStaffManagerProvisionResult> {
-  return provisionPlatformStaffManagerInternal(input, "provision", authContext);
+  return provisionPlatformStaffManagerInternal(input, authContext);
 }
 
 export async function recoverInitialManager1001(
@@ -852,7 +401,6 @@ export async function recoverInitialManager1001(
       ...input,
       staffCode: INITIAL_MANAGER_RECOVERY_STAFF_CODE,
     },
-    "initial_recovery",
     authContext,
   );
 }

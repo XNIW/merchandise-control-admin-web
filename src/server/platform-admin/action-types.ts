@@ -2,6 +2,7 @@ import type { ShopStatus } from "@/domain/platform-admin/types";
 
 export type PlatformShopActionCode =
   | "success"
+  | "auth_mismatch"
   | "unauthorized"
   | "not_configured"
   | "validation_failed"
@@ -130,6 +131,7 @@ export type ShopStatusTransition = {
 
 const messageByCode: Record<PlatformShopActionCode, string> = {
   success: "Operation completed.",
+  auth_mismatch: "Master Console session changed. Refresh and sign in again.",
   unauthorized: "You are not authorized to perform this operation.",
   not_configured: "Platform Admin runtime is not configured.",
   validation_failed: "Check the required fields and try again.",

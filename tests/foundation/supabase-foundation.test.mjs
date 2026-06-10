@@ -164,7 +164,7 @@ test("TASK-005J auth UI keeps Supabase sign-in scoped to auth boundaries", () =>
   assert.match(authForm, /accountSignInAction/);
   assert.match(authForm, /useActionState/);
   assert.match(authForm, /name="next"/);
-  assert.match(authForm, /method="post"/);
+  assert.doesNotMatch(authForm, /method="post"/);
   assert.doesNotMatch(authForm, /createSupabaseBrowserClient|signInWithPassword|router\.replace/);
   assert.doesNotMatch(authForm, /from\(["'][a-z_]+["']\)/);
   assert.match(callbackRoute, /exchangeCodeForSession/);

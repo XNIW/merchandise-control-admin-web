@@ -649,22 +649,14 @@ async function createPosFirstShop(page: Page) {
     ok?: unknown;
   };
 
-  expect(createShopRequestHeaders.authorization).toMatch(/^Bearer\s+\S+\.\S+\.\S+$/);
+  expect(createShopRequestHeaders.authorization).toBeUndefined();
   expect(createShopRequestHeaders["next-action"]).toBeUndefined();
-  expect(
-    redactedJwtClaimsFromAuthorization(createShopRequestHeaders.authorization),
-  ).toMatchObject({
-    aud: "authenticated",
-    parseOk: true,
-    role: "authenticated",
-    subPresent: true,
-  });
+  expect(createShopRequestHeaders.accept).toContain("application/json");
   expect(
     createShopResponseBody.ok,
     JSON.stringify({
-      bearerClaims: redactedJwtClaimsFromAuthorization(
-        createShopRequestHeaders.authorization,
-      ),
+      authorizationHeaderPresent: Boolean(createShopRequestHeaders.authorization),
+      nextActionHeaderPresent: Boolean(createShopRequestHeaders["next-action"]),
       provisioningFailure: redactedProvisioningFailure(createShopResponseBody),
     }),
   ).toBe(true);

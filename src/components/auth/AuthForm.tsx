@@ -39,7 +39,6 @@ export function AuthForm({
   return (
     <form
       action={formAction}
-      method="post"
       className="grid gap-4"
       aria-label={formLabel}
     >

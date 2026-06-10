@@ -3,16 +3,27 @@
 ## Stato
 
 - Task: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`
-- Stato task: `REVIEW`
+- Stato task: `READY_FOR_DONE_CONFIRMATION`
 - Fase: `REVIEW`
-- Data: `2026-06-06`
-- Commit: `REQUESTED_BY_USER_2026-06-07`
-- Push: `REQUESTED_BY_USER_2026-06-07`
-- Stage finale: `REQUESTED_BY_USER_2026-06-07`
-- Handoff Codex: `PASS_WITH_NOTES_READY_FOR_REVIEW`
+- Data: `2026-06-09`
+- Commit finale: `NOT_RUN_PER_USER_REQUEST_2026-06-09`
+- Push finale: `NOT_RUN_PER_USER_REQUEST_2026-06-09`
+- Stage finale: `NOT_RUN_PER_USER_REQUEST_2026-06-09`
+- Handoff Codex: `READY_FOR_DONE_CONFIRMATION_RUNTIME_REGRESSION_FIXED`
 
 Nota 2026-06-07: stage/commit/push sono stati richiesti esplicitamente
 dall'utente dopo l'handoff `REVIEW`. Questo non marca TASK-051 come `DONE`.
+
+Nota 2026-06-09: l'utente ha confermato esplicitamente la chiusura a `DONE` se
+la final review non trova blocker reali. La final review e passata; nessun
+commit, push o stage e stato eseguito in questa chiusura.
+
+Nota runtime regression 2026-06-09: la prova manuale utente successiva ha
+mostrato `You are not authorized to perform this operation.` sulle POST
+create-shop/recovery pur con GET `/platform/provisioning` autorizzata. La
+chiusura `DONE` precedente resta evidence storica, ma TASK-051 e stato riaperto
+in `REVIEW` e riportato a `READY_FOR_DONE_CONFIRMATION` dopo fix e test
+manual-regression.
 
 ## Schema reale verificato
 
@@ -48,8 +59,8 @@ dall'utente dopo l'handoff `REVIEW`. Questo non marca TASK-051 come `DONE`.
   - `Add POS manager` disponibile solo come recovery collassata.
 - Owner profile e target shop recovery usano un picker entita condiviso senza
   nuove dipendenze.
-- Guardrail statici TASK-016/TASK-044 aggiornati per il nuovo flusso
-  `useActionState`, mantenendo vietati token/hash in read model e UI.
+- Guardrail statici TASK-016/TASK-044 aggiornati per il flusso Route Handler,
+  mantenendo vietati token/hash in read model e UI.
 
 ## Review Fix UI 2026-06-06
 
@@ -98,7 +109,7 @@ dall'utente dopo l'handoff `REVIEW`. Questo non marca TASK-051 come `DONE`.
   `name="staffCode"` nella recovery standard.
 - `Reset credential for selected manager` e stato rimosso perche la read model
   dinamica dei manager non e disponibile in questo pannello.
-- `recoverInitialManager1001Action` e `recoverInitialManager1001` usano sempre
+- Il submit Route Handler recovery e `recoverInitialManager1001` usano sempre
   `staff_code = 1001`; eventuali valori `staffCode` inviati dal client vengono
   ignorati.
 - Custom manager code resta follow-up documentato; non viene implementato nella
@@ -196,8 +207,8 @@ dall'utente dopo l'handoff `REVIEW`. Questo non marca TASK-051 come `DONE`.
   `Reactivate and reset manager 1001`,
   `Create new manager access`.
 - Rimosso `Advanced options / Staff code` dalla recovery principale.
-- La Server Action `recoverInitialManager1001Action` non legge `staffCode` dal
-  form; chiama il server boundary con `staffCode: "1001"`.
+- Il submit server-side `submitInitialManager1001RecoveryForm` non legge
+  `staffCode` dal form; chiama il server boundary con `staffCode: "1001"`.
 - Il server boundary `recoverInitialManager1001` sovrascrive comunque il target
   con `INITIAL_MANAGER_RECOVERY_STAFF_CODE = "1001"`, quindi eventuali valori
   client-injected non possono cambiare il target recovery.
@@ -231,7 +242,7 @@ dall'utente dopo l'handoff `REVIEW`. Questo non marca TASK-051 come `DONE`.
   - righe selezionabili via button, con `role="option"` e selected state;
   - empty state chiaro;
   - selected summary;
-  - hidden input per la Server Action.
+  - hidden input per il submit Route Handler.
 - `Initial owner` mostra display name, short profile id, status e full profile
   id nel `title`; il server continua a validare `ownerProfileId`.
 - Owner bootstrap resta server-side `shop_owner`; non concede
@@ -259,7 +270,7 @@ dall'utente dopo l'handoff `REVIEW`. Questo non marca TASK-051 come `DONE`.
 ## Review Fix Form Value Preservation / RUT 2026-06-06
 
 - Form value preservation: il form `Create shop` ora usa un unico state
-  controllato `formValues`; se la Server Action fallisce con `fieldErrors`,
+  controllato `formValues`; se il Route Handler fallisce con `fieldErrors`,
   restituisce `values` non sensibili e non esegue `revalidatePath`, cosi i dati
   gia inseriti restano visibili.
 - RUT digits-only live formatting: `Company RUT` e `Legal representative RUT`
@@ -293,8 +304,7 @@ dall'utente dopo l'handoff `REVIEW`. Questo non marca TASK-051 come `DONE`.
 ## Review Fix Provisioning Layout Polish 2026-06-06
 
 - Layout polish applicato solo a `/platform/provisioning`, senza cambiare
-  Server Actions, validazione server-side, schema, migration, recovery o
-  credential handling.
+  schema, migration, recovery o credential handling.
 - `Shop identity` ora e compatta e ordinata in tre righe logiche:
   - prima riga: `Shop name` e `Company RUT`, entrambi input single-line con
     altezza coerente e griglia `items-start`;
@@ -345,6 +355,31 @@ dall'utente dopo l'handoff `REVIEW`. Questo non marca TASK-051 come `DONE`.
   access.`
 - Nessuna modifica a Win7POS runtime, schema, migration, session token, device
   token o auth token.
+
+## Review Hardening 2026-06-09
+
+- Rimosso il path legacy `src/app/platform/provisioning/actions.ts`; create-shop
+  non ha piu `useActionState`, `formAction`, `type="submit"` o Server Action
+  concorrenti nel componente client.
+- `ShopProvisioningForms` e `StaffManagerProvisioningPanel` importano solo tipi
+  dal boundary server-only `provisioningFormSubmit.ts` e inviano un solo POST ai
+  Route Handler same-origin.
+- Aggiunto `src/server/platform-admin/provisioning-route-guard.ts`:
+  content type ammessi `multipart/form-data` e
+  `application/x-www-form-urlencoded`, `Content-Length` obbligatorio e massimo
+  64 KiB, controllo `Origin`/`Host`, blocco `Sec-Fetch-Site: cross-site`, JSON
+  redatto e `Cache-Control: no-store`.
+- `/platform/provisioning/create-shop` e
+  `/platform/provisioning/recover-manager-1001` chiamano il guard prima di
+  leggere `request.formData()`.
+- Recovery manager `1001` usa `resolvePlatformAdminForRequest`, lo stesso
+  resolver server-only usato da create-shop; rimosso il resolver parallelo che
+  leggeva `headers()`, `getSession()` e `getClaims()` dal service recovery.
+- Aggiunti latch `useRef` ai due submit client per evitare POST concorrenti
+  prima che React aggiorni il pending state.
+- In questa fase non era ancora stata introdotta una nuova migration/RPC di
+  recovery: quel rischio e stato superato dal review-completion successivo con
+  RPC transazionali e full local E2E.
 
 ## Check
 
@@ -453,7 +488,7 @@ dall'utente dopo l'handoff `REVIEW`. Questo non marca TASK-051 come `DONE`.
 | `git diff --cached --name-status` visual-order review-fix | `PASS` | Nessun output; nulla staged. |
 | `git status --short --branch --untracked-files=all` visual-order review-fix | `PASS_WITH_NOTES` | Worktree su `main...origin/main` con modifiche/non tracciati TASK-051 non staged; no commit, no push, no stage. |
 | `node --test tests/foundation/task-051-platform-provisioning-fiscal-pos-first.test.mjs` recovery-1001 simplification | `PASS` | 5 test, 5 pass. Test scritto prima ha fallito su titolo/action server mancanti; dopo fix passa. |
-| `node --test tests/foundation/task-038-pos-manager-web-login.test.mjs tests/foundation/task-051-platform-provisioning-fiscal-pos-first.test.mjs` recovery-1001 simplification | `PASS` | 11 test, 11 pass. Guardrail TASK-038 aggiornato a `recoverInitialManager1001Action`. |
+| `node --test tests/foundation/task-038-pos-manager-web-login.test.mjs tests/foundation/task-051-platform-provisioning-fiscal-pos-first.test.mjs` recovery-1001 simplification | `PASS` | 11 test, 11 pass. Guardrail TASK-038 aggiornato al submit recovery manager `1001`. |
 | `npm run security:scan` recovery-1001 simplification | `PASS` | `Security scan passed.` |
 | `npm run test:foundation` recovery-1001 simplification | `PASS` | 217 test, 217 pass. |
 | `npm run typecheck` recovery-1001 simplification | `PASS` | `next typegen` e `tsc --noEmit` passati. |
@@ -510,24 +545,188 @@ dall'utente dopo l'handoff `REVIEW`. Questo non marca TASK-051 come `DONE`.
 | `npm run test:foundation` final evidence pass | `PASS` | 228 test, 228 pass dopo aggiornamento evidence. |
 | `npm run security:scan` final evidence pass | `PASS` | `Security scan passed.` dopo aggiornamento evidence. |
 | `git diff --check` final evidence pass | `PASS` | Nessun output. |
+| `node --test tests/foundation/task-051-platform-provisioning-fiscal-pos-first.test.mjs` review-hardening 2026-06-09 | `PASS` | 6 test, 6 pass. Copre rimozione `actions.ts`, Route Handler/no-store, guard content type/origin/body size con `Content-Length` mancante fail-closed, resolver condiviso recovery e latch anti doppio POST. |
+| `node --test tests/foundation/task-038-pos-manager-web-login.test.mjs tests/foundation/task-051-platform-provisioning-fiscal-pos-first.test.mjs tests/foundation/task-054-shop-code-recovery-diagnostics.test.mjs` review-hardening 2026-06-09 | `PASS` | 17 test, 17 pass. Conferma compatibilita TASK-038/TASK-054 e nessuna esposizione di service-role, hash, token o PIN raw. |
+| `npm run lint` review-hardening 2026-06-09 | `PASS` | `eslint` passato senza errori. |
+| `npm run typecheck` review-hardening 2026-06-09 | `PASS` | `next typegen` e `tsc --noEmit` passati. |
+| `npm run security:scan` review-hardening 2026-06-09 | `PASS` | `Security scan passed.` |
+| `npm run test:foundation` review-hardening 2026-06-09 | `PASS` | 228 test, 228 pass. |
+| `npm run build` review-hardening 2026-06-09 | `PASS_WITH_WARNINGS` | Build Next.js 16.2.6 passato. Warning non bloccanti: convenzione `middleware` deprecata, `[DEP0205] module.register()`. |
+| `npm run verify` review-hardening 2026-06-09 | `PASS_WITH_WARNINGS` | `lint`, `typecheck`, `security:scan`, `build` passati. Stessi warning non bloccanti del build. |
+| `npm run test:ui-smoke:ci` review-hardening 2026-06-09 | `PASS_WITH_WARNINGS` | 47 test Playwright, 47 pass su `127.0.0.1:3003`. Warning non bloccanti: `[DEP0205]` e `NO_COLOR` ignorato per `FORCE_COLOR`. |
+| `npm run db:local:status` review-hardening 2026-06-09 | `FAIL_CLOSED` | `mode=local`, Supabase CLI 2.105.0 presente; `.env.local:NEXT_PUBLIC_SUPABASE_URL_TARGET=supabase_cloud`, Docker daemon non raggiungibile e `supabase status` non completa. Nessun runtime locale dichiarato sicuro. |
+| `supabase migration list --local` review-hardening 2026-06-09 | `BLOCKED_LOCAL_SUPABASE` | Connessione locale rifiutata su `127.0.0.1:54322`; comando local-only, nessun target cloud usato. |
+| `supabase db lint --local --schema public,app_private --fail-on error` review-hardening 2026-06-09 | `BLOCKED_LOCAL_SUPABASE` | Connessione locale rifiutata su `127.0.0.1:54322`; comando local-only, nessun target cloud usato. |
+| `CONFIRM_TASK051_FULL_E2E=yes node scripts/testing/run-playwright-target.mjs local tests/e2e/task-051-platform-provisioning-shop-code-recovery.spec.ts --project=chromium-desktop` review-hardening 2026-06-09 | `BLOCKED_LOCAL_SUPABASE` | Runner local fail-closed prima di Playwright: `supabase status --output env failed; start local Supabase first.` |
+| `node scripts/platform/task-051-runtime-parity-check.mjs --local --shop-code=123456789 --staff-code=1001` review-hardening 2026-06-09 | `BLOCKED_LOCAL_SUPABASE` | Parity local fail-closed: Docker daemon non raggiungibile per `supabase status --output env`. |
+| `node scripts/platform/task-051-runtime-parity-check.mjs --shop-code=123456789 --staff-code=1001` review-hardening 2026-06-09 | `TARGET_MISMATCH_READ_ONLY` | Comando read-only senza `--local`; ha rilevato target redatto `cloud:jpgo...kyvm`, `write_checks_allowed=false`, shop/staff assenti. Non usato come evidence locale. |
+| `node --test tests/foundation/task-051-platform-provisioning-fiscal-pos-first.test.mjs` transactional RPC review-completion 2026-06-09 | `PASS` | 6 test, 6 pass. Verifica RPC transazionali per owner/POS-first/pending owner fiscalizzato, recovery `platform_recover_initial_manager_1001`, JWT user-scoped e assenza di insert/update/audit compensation Node-side. |
+| `supabase migration up --local` transactional RPC review-completion 2026-06-09 | `PASS` | Applicata localmente `20260609170549_task_051_transactional_provisioning_recovery.sql`; nessun apply production/cloud. |
+| `psql ... pg_proc` transactional RPC review-completion 2026-06-09 | `PASS` | Supabase locale espone `platform_create_shop_with_owner_bootstrap`, `platform_create_pos_first_shop`, tre overload `platform_create_shop_with_pending_owner_invite` incluso quello con `p_staff_display_name`/`p_staff_credential_hash`, e `platform_recover_initial_manager_1001`. |
+| `psql ... routine_privileges/security_type` transactional RPC review-completion 2026-06-09 | `PASS` | `platform_recover_initial_manager_1001` e overload pending owner fiscalizzato risultano `SECURITY DEFINER`; execute disponibile a `authenticated`. |
+| `supabase db lint --local --schema public,app_private --fail-on error` transactional RPC review-completion 2026-06-09 | `PASS` | `No schema errors found` su Supabase locale. |
+| `CONFIRM_TASK051_FULL_E2E=yes node scripts/testing/run-playwright-target.mjs local tests/e2e/task-051-platform-provisioning-shop-code-recovery.spec.ts --project=chromium-desktop` transactional RPC review-completion 2026-06-09 | `PASS_WITH_WARNINGS` | 1 test Playwright, 1 pass. Flusso locale completo: crea POS-first shop, verifica Admin account e Shop code access, recupera manager `1001`, login con nuovo Temporary PIN. Warning non bloccanti: deprecazione `middleware`, `[DEP0205]`, `NO_COLOR`/`FORCE_COLOR`, hydration warning form `method` lower/upper e warning React su `encType`/`method` con form action function. |
+| `node --test tests/foundation/platform-admin-actions.test.mjs tests/foundation/task-016-platform-security.test.mjs tests/foundation/task-038-pos-manager-web-login.test.mjs tests/foundation/task-051-platform-provisioning-fiscal-pos-first.test.mjs tests/foundation/task-054-shop-code-recovery-diagnostics.test.mjs` transactional RPC review-completion 2026-06-09 | `PASS` | 23 test, 23 pass. Guardrail aggiornati alle RPC transazionali e alla recovery `1001` senza reintrodurre direct credential update Node-side. |
+| `npm run security:scan` transactional RPC review-completion 2026-06-09 | `PASS` | `Security scan passed.` Allowlist aggiornata per RPC transazionali TASK-051. |
+| `npm run test:foundation` transactional RPC review-completion 2026-06-09 | `PASS` | 228 test, 228 pass. |
+| `npm run verify` transactional RPC review-completion 2026-06-09 | `PASS_WITH_WARNINGS` | `lint`, `typecheck`, `security:scan`, `build` passati. Warning non bloccanti: convenzione `middleware` deprecata e `[DEP0205] module.register()`. |
+| `npm run db:local:status` transactional RPC review-completion 2026-06-09 | `FAIL_CLOSED_WITH_LOCAL_DB_AVAILABLE` | `.env.local:NEXT_PUBLIC_SUPABASE_URL_TARGET=supabase_cloud`, quindi il comando fallisce chiuso; conferma comunque Supabase CLI 2.105.0, DB container locale coerente e `supabase status` redatto completato. Il full E2E locale usa env Supabase CLI via wrapper, non `.env.local`. |
+| `supabase migration list --local` transactional RPC review-completion 2026-06-09 | `PASS` | Storia migration locale include `20260609170549`; comando local-only. |
+| `git diff --check` transactional RPC review-completion 2026-06-09 | `PASS` | Nessun output. |
+| `git status --short --branch --untracked-files=all` transactional RPC review-completion 2026-06-09 | `PASS_WITH_NOTES` | Worktree su `main...origin/main`, modifiche TASK-051 non staged; no commit, no push, no stage. |
+
+## DONE confirmation 2026-06-09
+
+- Verdict finale: `DONE_ON_USER_CONFIRMATION`.
+- Conferma utente: ricevuta il 2026-06-09 per chiudere TASK-051 a `DONE` se
+  la final review non trova blocker reali.
+- Architettura verificata: client leggero -> Route Handler server-side ->
+  resolver Platform Admin unico -> service server-only -> RPC DB
+  transazionale/auditabile.
+- RPC create/recovery verificate: `platform_create_shop_with_owner_bootstrap`,
+  `platform_create_pos_first_shop`, overload fiscalizzato
+  `platform_create_shop_with_pending_owner_invite` e
+  `platform_recover_initial_manager_1001`.
+- Security boundary confermata: no service-role client/browser; Platform Admin
+  verificato server-side; RPC user-scoped con JWT dell'attore verificato;
+  credential raw mai inviata in SQL; DB riceve solo `p_staff_credential_hash`.
+- Product boundary confermata: shop owner riceve solo `shop_owner`, non
+  `platform_admin`; account personale e staff POS restano separati; POS/Staff
+  resta modulo Shop Admin; `shops` resta root business; nessun modello
+  `merchant -> stores`.
+- Full local E2E TASK-051: `PASS`, 1 test, 1 pass con wrapper local-only e
+  `CONFIRM_TASK051_FULL_E2E=yes`. Copre login Platform Admin/Master Console,
+  create shop POS-first, login Admin account, login Shop code, recovery manager
+  `1001`, vecchio PIN respinto e nuovo PIN accettato.
+- Check final review: `npm run typecheck` `PASS`; `npm run lint` `PASS`;
+  `npm run security:scan` `PASS`; `npm run test:foundation` `PASS` 228/228;
+  targeted TASK-051 `PASS` 6/6; targeted TASK-038 `PASS` 6/6; targeted
+  TASK-054 `PASS` 5/5; `npm run build` `PASS_WITH_WARNINGS`; `npm run verify`
+  `PASS_WITH_WARNINGS`; `npm run test:ui-smoke:ci` `PASS_WITH_WARNINGS` 47/47;
+  `supabase migration list --local` `PASS`; `supabase db lint --local --schema public,app_private --fail-on error`
+  `PASS`; `git diff --check` `PASS`; `git diff --cached --name-status` `PASS`;
+  `git status --short --branch --untracked-files=all` `PASS_WITH_NOTES`.
+- Warning non bloccanti osservati: convenzione Next `middleware` deprecata,
+  `[DEP0205] module.register()`, `NO_COLOR` ignorato per `FORCE_COLOR`,
+  piu warning React storico su `method`/`encType` con form action function,
+  poi corretto nel runtime regression fix rimuovendo `method="post"` da
+  `AuthForm`.
+- `npm run db:local:status` resta `FAIL_CLOSED` per `.env.local` puntato a
+  `supabase_cloud`, ma conferma Supabase CLI/container locali e `supabase
+  status` redatto. Non blocca il full E2E perche il wrapper usa env Supabase
+  CLI locale.
+- No production apply, no cloud apply, no dati reali, no secret/PIN/password/token
+  raw in evidence/log/audit/DB. Nessun commit, push o stage finale eseguito.
+
+## Runtime auth regression 2026-06-09
+
+- Verdict aggiornato: `READY_FOR_DONE_CONFIRMATION`.
+- Sintomo manuale: login con `platform.local@example.test`, pagina
+  `/platform/provisioning` visibile/autorizzata, ma submit create-shop e
+  recovery manager `1001` rispondevano con `You are not authorized to perform
+  this operation.`
+- Root cause reale completa:
+  - `bearer/cookie mismatch`: il client provisioning leggeva un access token
+    lato browser e inviava `Authorization: Bearer ...`; se quel bearer era
+    stale/invalid/non platform-admin, `resolvePlatformAdminForRequest` tornava
+    `unauthorized` senza usare il cookie SSR valido.
+  - GET/POST auth-path mismatch: la GET `/platform/provisioning` autorizzava
+    tramite cookie SSR/RLS, mentre le POST provisioning verificavano
+    `platform_admins` tramite path admin/service-role. Nel runtime manuale il
+    cookie user era risolto, ma il check admin-side non era allineato
+    all'ambiente locale e quindi bloccava le RPC.
+  - local-dev runtime env mismatch: il wrapper E2E caricava env locali
+    Supabase complete da CLI; `npm run platform:local:dev` caricava solo env
+    browser/publishable e rimuoveva la service-role server-only, causando
+    possibili `database_error` nei login staff/POS manuali dopo provisioning.
+- Perche il full E2E precedente era verde: usava un browser pulito e un
+  runtime locale process-only coerente. Non copriva il browser manuale
+  `platform.local@example.test` con bearer stale/invalid, non copriva il
+  resolver POST divergente dalla GET SSR/RLS e non copriva `platform:local:dev`
+  con env server-only incomplete.
+- Fix:
+  - `src/app/platform/provisioning/platformProvisioningRequest.ts` ora usa solo
+    cookie same-origin e non legge/parsa token Supabase lato browser;
+  - `src/app/platform/provisioning/ShopProvisioningForms.tsx` usa il submit
+    helper condiviso come la recovery;
+  - `src/server/platform-admin/provisioning-request-auth.ts` autorizza il
+    cookie con lo stesso client SSR/RLS del read boundary e ricava da quella
+    sessione il JWT attore passato alle RPC;
+  - se un bearer e presente, viene verificato con `/auth/v1/user` e controllato
+    su `platform_admins` con un client Supabase user-scoped/RLS, non con
+    mutation admin;
+  - se bearer e cookie risolvono due utenti diversi, il resolver fallisce
+    chiuso con `auth_mismatch`;
+  - `src/server/platform-admin/shop-actions.ts` usa
+    `platform_create_shop_with_owner_bootstrap`,
+    `platform_create_pos_first_shop` e
+    `platform_create_shop_with_pending_owner_invite` tramite RPC;
+  - `src/server/platform-admin/staff-manager-provisioning.ts` usa
+    `platform_recover_initial_manager_1001` tramite RPC;
+  - `src/server/platform-admin/action-types.ts` e
+    `src/server/platform-admin/staff-manager-provisioning.ts` propagano
+    `auth_mismatch` con messaggio redatto.
+  - `scripts/platform/local-dev-server.mjs` carica dal Supabase locale anche
+    `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_ANON_KEY` e `SUPABASE_PROJECT_REF`
+    come env server-only per login staff/POS manuale; nessuna di queste e
+    `NEXT_PUBLIC_*`.
+  - `src/components/auth/AuthForm.tsx` non imposta piu `method="post"` quando
+    `action` e una function server action, rimuovendo l'overlay Next 16/React.
+- Boundary confermata dopo il fix: client leggero -> Route Handler same-origin
+  -> resolver Platform Admin unico via cookie SSR/RLS -> service server-only ->
+  RPC DB transazionale/auditabile. Il service-role locale non sostituisce le
+  RPC TASK-051 e non viene esposto al browser.
+- Live browser Codex in-app 2026-06-09:
+  - recovery su `COMERCIALIZADORA TEST 1` / shop code `123456789`: `PASS`,
+    submit non autorizzato risolto e login Shop code manager `1001` accettato
+    con il nuovo Temporary PIN;
+  - create shop POS-first sintetico locale: `PASS`, shop creato via RPC e login
+    Shop code manager `1001` accettato;
+  - recovery manager `1001` sullo shop sintetico: `PASS`, vecchio PIN respinto
+    e nuovo PIN accettato.
+- Nuovo E2E:
+  `tests/e2e/task-051-platform-provisioning-manual-platform-admin-regression.spec.ts`.
+  Risultato: `PASS`, 1 test, 1 pass. Copre login UI reale
+  `platform.local@example.test`, GET `/platform/provisioning` autorizzata,
+  negative `auth_mismatch`, create-shop con bearer stale ma cookie valido,
+  login Shop code, recovery manager `1001`, vecchio PIN respinto e nuovo PIN
+  accettato.
+- Full E2E TASK-051 esistente rilanciato dopo aver aggiornato l'asserzione
+  request da `Authorization: Bearer` a cookie-only same-origin. Risultato:
+  `PASS_WITH_WARNINGS`, 1 test, 1 pass con
+  `CONFIRM_TASK051_FULL_E2E=yes node scripts/testing/run-playwright-target.mjs local tests/e2e/task-051-platform-provisioning-shop-code-recovery.spec.ts --project=chromium-desktop`.
+- Full E2E TASK-051 rilanciato dopo il fix finale resolver POST SSR/RLS e
+  local-dev env: `PASS`, 1 test, 1 pass. Copre login Platform Admin reale,
+  create shop, Admin account login quando owner mode e attivo, Shop code login,
+  recovery `1001`, vecchio PIN respinto e nuovo PIN accettato.
+- Manual Platform Admin regression E2E rilanciato dopo il fix finale:
+  `PASS`, 1 test, 1 pass.
+- Target env usato: Supabase locale via
+  `node scripts/testing/run-playwright-target.mjs local ...` con
+  `TEST_TARGET=local`; il wrapper verifica `http://127.0.0.1:54321` e non usa
+  production/cloud.
+- Warning non bloccanti osservati nel nuovo E2E/final checks: deprecazione Next
+  `middleware`, `[DEP0205] module.register()`, `NO_COLOR` ignorato per
+  `FORCE_COLOR`.
+- Sicurezza: nessun service-role nel client/browser, nessun raw PIN/password/
+  token in DB/log/audit/evidence, RPC user-scoped con actor JWT server-side,
+  Origin/CSRF/content-length guard invariato, owner non riceve
+  `platform_admin`, account personale e staff POS separati, nessuna direct
+  mutation Node-side per sostituire le RPC TASK-051.
+- Nessun stage, commit o push eseguito.
 
 ## Rischi residui
 
 - Migration preparata source-controlled e applicata al DB locale; applicazione
   dev/staging/production resta separata e richiede approvazione esplicita.
 - Runtime create shop richiede che le nuove RPC siano applicate al target usato
-  dall'app.
-- `Record pending owner email` conserva l'RPC pending setup esistente: registra
-  owner setup pending e fiscal identity, ma non inventa un Temporary PIN se il
-  backend non lo restituisce. Il result banner mostra il valore raw solo quando
-  viene generato e restituito dal server.
-- Recovery manager su Master Console resetta/genera un nuovo Temporary PIN per
-  lo staff code selezionato; non recupera ne mostra il precedente.
-- `.env.local` corrente punta a `supabase_cloud`; evitare di trattarlo come
-  runtime locale sicuro senza override/cleanup env. La verifica parity read-only
-  ha mostrato che lo shop manuale `123456789` e manager `1001` non esistono su
-  quel target redatto.
-- La prova Playwright completa con create/reset via Master Console UI richiede
-  una sessione SSR reale o un harness login locale dedicato; il tentativo con
-  cookie seminati dal test non e affidabile per i POST server action.
+  dall'app; `.env.local` corrente punta ancora a `supabase_cloud` e deve restare
+  fail-closed per i check locali diretti.
+- Warning non bloccanti osservati nei run: convenzione Next `middleware`
+  deprecata, `[DEP0205] module.register()`, `NO_COLOR` ignorato per
+  `FORCE_COLOR`.
+- Force rotation resta follow-up: i runtime staff web/POS correnti richiedono
+  `credential_status = active` e `must_change_credential = false` per il login,
+  quindi il Temporary PIN viene accettato subito e la rotazione first-access
+  richiede flusso separato.
 - Catalog import preview resta separato per evitare leak/duplicazioni cross-shop.

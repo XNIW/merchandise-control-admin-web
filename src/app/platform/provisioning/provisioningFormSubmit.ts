@@ -23,6 +23,8 @@ import type {
 } from "@/server/platform-admin/action-types";
 import type { PlatformProvisioningRequestAuthDiagnostics } from "@/server/platform-admin/provisioning-request-auth";
 
+export type { PlatformShopProvisioningFormValues } from "@/server/platform-admin/action-types";
+
 export type PlatformProvisioningAuthContext = {
   authorizationHeader?: string | null;
   browserSupabaseHost?: string | null;

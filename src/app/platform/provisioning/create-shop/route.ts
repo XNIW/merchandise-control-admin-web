@@ -1,15 +1,24 @@
-import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { submitUnifiedPlatformShopProvisioningForm } from "../provisioningFormSubmit";
 import {
   createPlatformProvisioningAuthDiagnostics,
   platformProvisioningDiagnosticsEnabled,
 } from "@/server/platform-admin/provisioning-request-auth";
+import {
+  guardPlatformProvisioningPostRequest,
+  noStoreJson,
+} from "@/server/platform-admin/provisioning-route-guard";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   await cookies();
+
+  const blockedRequest = guardPlatformProvisioningPostRequest(request);
+
+  if (blockedRequest) {
+    return blockedRequest;
+  }
 
   const authorizationHeader = request.headers.get("authorization");
   const formData = await request.formData();
@@ -35,9 +44,5 @@ export async function POST(request: Request) {
         }
       : result;
 
-  return NextResponse.json(responseBody, {
-    headers: {
-      "Cache-Control": "no-store",
-    },
-  });
+  return noStoreJson(responseBody);
 }

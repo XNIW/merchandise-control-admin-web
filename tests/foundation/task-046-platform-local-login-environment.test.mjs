@@ -109,7 +109,9 @@ test("TASK-046 local login scripts are local-only and do not depend on .env.loca
   assert.match(dev, /PLATFORM_LOCAL_DEV_BUNDLER/);
   assert.match(dev, /--webpack/);
   assert.match(dev, /--turbopack/);
-  assert.doesNotMatch(dev, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(dev, /SUPABASE_SERVICE_ROLE_KEY:\s*values\.SERVICE_ROLE_KEY/);
+  assert.match(dev, /BLOCKED_LOCAL_SERVICE_ROLE_KEY_REQUIRED/);
+  assert.doesNotMatch(dev, /NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY/);
 
   assert.match(smoke, /CONFIRM_TASK046_PLATFORM_LOCAL_LOGIN_TEST/);
   assert.match(smoke, /DEV_PLATFORM_ADMIN_PASSWORD/);

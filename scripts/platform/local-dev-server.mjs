@@ -39,6 +39,9 @@ function loadLocalBrowserEnv() {
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:
       values.PUBLISHABLE_KEY || values.ANON_KEY || "",
     NEXT_PUBLIC_SUPABASE_URL: values.API_URL || "",
+    SUPABASE_ANON_KEY: values.ANON_KEY || values.PUBLISHABLE_KEY || "",
+    SUPABASE_PROJECT_REF: values.PROJECT_REF || "local",
+    SUPABASE_SERVICE_ROLE_KEY: values.SERVICE_ROLE_KEY || "",
     TEST_TARGET: "local",
   };
 
@@ -52,6 +55,13 @@ function loadLocalBrowserEnv() {
     fail(
       "BLOCKED_LOCAL_PUBLISHABLE_KEY_REQUIRED",
       "Local Supabase publishable key is required for browser sign-in.",
+    );
+  }
+
+  if (!env.SUPABASE_SERVICE_ROLE_KEY) {
+    fail(
+      "BLOCKED_LOCAL_SERVICE_ROLE_KEY_REQUIRED",
+      "Local Supabase service-role key is required for server-only staff/POS login checks.",
     );
   }
 
@@ -108,9 +118,7 @@ const childEnv = { ...process.env, ...localEnv };
 const bundler = process.env.PLATFORM_LOCAL_DEV_BUNDLER?.trim() || "webpack";
 const bundlerFlag = bundler === "turbopack" || bundler === "turbo" ? "--turbopack" : "--webpack";
 
-delete childEnv["SUPABASE_" + "SERVICE_ROLE_KEY"];
-
-console.log("[platform-local-dev] PASS local Supabase browser env loaded");
+console.log("[platform-local-dev] PASS local Supabase runtime env loaded");
 console.log(`[platform-local-dev] URL http://127.0.0.1:${port}`);
 console.log(`[platform-local-dev] bundler=${bundlerFlag.slice(2)}`);
 

@@ -2125,6 +2125,22 @@ export type Database = {
             }
             Returns: Json
           }
+        | {
+            Args: {
+              p_business_address: string
+              p_business_city: string
+              p_business_giro: string
+              p_company_rut: string
+              p_legal_representative_rut: string
+              p_owner_email: string
+              p_reason: string
+              p_shop_code: string
+              p_shop_name: string
+              p_staff_credential_hash: string
+              p_staff_display_name: string
+            }
+            Returns: Json
+          }
       platform_emergency_revoke_device: {
         Args: {
           p_confirmation: string
@@ -2139,6 +2155,16 @@ export type Database = {
       }
       platform_reactivate_shop: {
         Args: { p_confirmation: string; p_reason: string; p_shop_id: string }
+        Returns: Json
+      }
+      platform_recover_initial_manager_1001: {
+        Args: {
+          p_reason: string
+          p_shop_code: string
+          p_shop_id: string | null
+          p_staff_credential_hash: string
+          p_staff_display_name: string
+        }
         Returns: Json
       }
       platform_restore_shop: {

@@ -1,8 +1,6 @@
 import "server-only";
 
 import { createClient } from "@supabase/supabase-js";
-import { createHash } from "node:crypto";
-import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { hashStaffCredential } from "@/server/shop-admin/staff-credentials";
@@ -10,6 +8,7 @@ import {
   resolvePlatformAdminForRequest,
   type PlatformProvisioningRequestAuthDiagnostics,
 } from "./provisioning-request-auth";
+import { createPlatformProvisioningRpcClient } from "./provisioning-rpc-client";
 import { authorizeCurrentPlatformAdmin } from "./authz";
 import {
   INITIAL_MANAGER_DISPLAY_NAME,
@@ -43,38 +42,24 @@ import { generateTemporaryManagerPin } from "./temporary-manager-pin";
 type RpcResult = {
   audit_event_id?: unknown;
   code?: unknown;
+  company_rut?: unknown;
   ok?: unknown;
   shop_id?: unknown;
+  shop_code?: unknown;
+  shop_name?: unknown;
+  staff_code?: unknown;
+  staff_id?: unknown;
 };
 
 type AuthorizedSupabaseServerClient = NonNullable<
   Awaited<ReturnType<typeof createSupabaseServerClient>>
 >;
 
-type FiscalShopWriteInput = {
-  businessAddress: string;
-  businessCity: string;
-  businessGiro: string;
-  companyRut: string;
-  legalRepresentativeRut: string;
-  reason: string;
-  shopCode: string;
-  shopName: string;
-};
-
-type CreatedFiscalShop = {
-  company_rut: string | null;
-  shop_code: string;
-  shop_id: string;
-  shop_name: string;
-};
-
 export const INITIAL_MANAGER_STAFF_CODE = "1001" as const;
 
 type PlatformProvisioningBoundary =
   | {
-      actorProfileId: string;
-      adminClient: SupabaseAdminClient;
+      rpcClient: NonNullable<ReturnType<typeof createPlatformProvisioningRpcClient>>;
       status: "ready";
     }
   | {
@@ -131,6 +116,47 @@ function mapRpcResult(data: unknown): PlatformShopActionResult {
       typeof result.audit_event_id === "string" ? result.audit_event_id : undefined,
     ok: result.ok === true,
     shopId: typeof result.shop_id === "string" ? result.shop_id : undefined,
+  });
+}
+
+function mapProvisioningRpcResult(
+  data: unknown,
+  options: {
+    ownerMode?: PlatformShopProvisioningResult["ownerMode"];
+    ownerStatus?: PlatformShopProvisioningResult["ownerStatus"];
+    shopName?: string;
+    temporaryCredential?: string;
+    values?: PlatformShopProvisioningResult["values"];
+  } = {},
+): PlatformShopProvisioningResult {
+  const payload = data && typeof data === "object" ? (data as RpcResult) : {};
+  const code = mapRpcCode(payload.code);
+  const ok = payload.ok === true && code === "success";
+
+  return provisioningActionResult(code, {
+    auditEventId:
+      typeof payload.audit_event_id === "string"
+        ? payload.audit_event_id
+        : undefined,
+    companyRut:
+      typeof payload.company_rut === "string" ? payload.company_rut : undefined,
+    credentialGenerated: ok && Boolean(options.temporaryCredential),
+    ok,
+    ownerMode: options.ownerMode,
+    ownerStatus: options.ownerStatus,
+    shopCode:
+      typeof payload.shop_code === "string" ? payload.shop_code : undefined,
+    shopId: typeof payload.shop_id === "string" ? payload.shop_id : undefined,
+    shopName:
+      typeof payload.shop_name === "string"
+        ? payload.shop_name
+        : options.shopName,
+    staffCode:
+      typeof payload.staff_code === "string" ? payload.staff_code : undefined,
+    staffId:
+      typeof payload.staff_id === "string" ? payload.staff_id : undefined,
+    temporaryCredential: ok ? options.temporaryCredential : undefined,
+    values: options.values,
   });
 }
 
@@ -232,236 +258,19 @@ async function getProvisioningBoundary(
     };
   }
 
+  const rpcClient = createPlatformProvisioningRpcClient(auth.actorAccessToken);
+
+  if (!rpcClient) {
+    return {
+      result: provisioningActionResult("not_configured", { ok: false }),
+      status: "blocked",
+    };
+  }
+
   return {
-    actorProfileId: auth.actorProfileId,
-    adminClient: auth.adminClient,
+    rpcClient,
     status: "ready",
   };
-}
-
-function isUniqueConflict(error: { code?: string } | null) {
-  return error?.code === "23505";
-}
-
-function addDays(days: number) {
-  return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
-}
-
-function pendingOwnerContactDigest(value: string) {
-  return createHash("sha256").update(value, "utf8").digest("hex");
-}
-
-function redactedOwnerContact(value: string) {
-  const [localPart, domain = ""] = value.split("@", 2);
-  const first = localPart?.slice(0, 1) || "*";
-
-  return `${first}***@${domain}`;
-}
-
-async function writeTask051Audit(
-  adminClient: SupabaseAdminClient,
-  input: {
-    actorProfileId: string;
-    code: PlatformShopActionCode | "attempt";
-    eventKey: string;
-    metadata?: Record<string, unknown>;
-    reason: string;
-    result: "blocked" | "failure" | "success";
-    scope: "global" | "shop";
-    severity: "critical" | "info" | "warning";
-    shopId?: string;
-    targetId?: string;
-    targetType: string;
-  },
-) {
-  const { data, error } = await adminClient
-    .from("audit_logs")
-    .insert({
-      actor_profile_id: input.actorProfileId,
-      event_key: input.eventKey,
-      metadata_redacted: {
-        code: input.code,
-        reason_redacted: input.reason.trim().slice(0, 240) || null,
-        source: "TASK-051",
-        ...(input.metadata ?? {}),
-      },
-      result: input.result,
-      scope: input.scope,
-      severity: input.severity,
-      shop_id: input.shopId ?? null,
-      target_id: input.targetId,
-      target_type: input.targetType,
-    })
-    .select("audit_log_id")
-    .maybeSingle();
-
-  if (error) {
-    return { auditEventId: undefined, ok: false };
-  }
-
-  return { auditEventId: data?.audit_log_id, ok: true };
-}
-
-async function duplicateShopCodeOrRut(
-  adminClient: SupabaseAdminClient,
-  input: {
-    companyRut: string;
-    shopCode: string;
-  },
-) {
-  const [shopCodeResult, companyRutResult] = await Promise.all([
-    adminClient
-      .from("shops")
-      .select("shop_id")
-      .eq("shop_code", input.shopCode)
-      .limit(1),
-    adminClient
-      .from("shops")
-      .select("shop_id")
-      .eq("company_rut", input.companyRut)
-      .limit(1),
-  ]);
-
-  if (shopCodeResult.error || companyRutResult.error) {
-    return { code: "db_failure" as const, status: "error" as const };
-  }
-
-  if ((shopCodeResult.data?.length ?? 0) > 0) {
-    return { code: "duplicate_shop_code" as const, status: "duplicate" as const };
-  }
-
-  if ((companyRutResult.data?.length ?? 0) > 0) {
-    return { code: "duplicate_company_rut" as const, status: "duplicate" as const };
-  }
-
-  return { status: "none" as const };
-}
-
-async function insertInitialManager(
-  adminClient: SupabaseAdminClient,
-  input: {
-    actorProfileId: string;
-    credentialHash: string;
-    displayName: string;
-    shopId: string;
-  },
-) {
-  const now = new Date().toISOString();
-  const permission = await adminClient.from("staff_role_permissions").upsert(
-    {
-      enabled: true,
-      permission_key: "shop_admin.full_access",
-      role_key: "manager",
-      shop_id: input.shopId,
-      updated_at: now,
-      updated_by_profile_id: input.actorProfileId,
-    },
-    { onConflict: "shop_id,role_key,permission_key" },
-  );
-
-  if (permission.error) {
-    return { ok: false, staffId: undefined };
-  }
-
-  const staff = await adminClient
-    .from("staff_accounts")
-    .insert({
-      created_by_profile_id: input.actorProfileId,
-      credential_expires_at: addDays(14),
-      credential_hash: input.credentialHash,
-      credential_kind: "password",
-      credential_status: "active",
-      credential_updated_at: now,
-      credential_version: 1,
-      display_name: input.displayName,
-      failed_attempts: 0,
-      must_change_credential: false,
-      role_key: "manager",
-      shop_id: input.shopId,
-      staff_code: INITIAL_MANAGER_STAFF_CODE,
-      status: "active",
-      updated_at: now,
-      updated_by_profile_id: input.actorProfileId,
-    })
-    .select("staff_id")
-    .maybeSingle();
-
-  if (staff.error || !staff.data) {
-    return { ok: false, staffId: undefined };
-  }
-
-  return { ok: true, staffId: staff.data.staff_id };
-}
-
-async function archiveIncompleteShop(
-  adminClient: SupabaseAdminClient,
-  input: {
-    actorProfileId: string;
-    shopId: string;
-  },
-) {
-  const now = new Date().toISOString();
-
-  await adminClient
-    .from("staff_role_permissions")
-    .delete()
-    .eq("shop_id", input.shopId);
-  await adminClient.from("staff_accounts").delete().eq("shop_id", input.shopId);
-  await adminClient
-    .from("shop_members")
-    .delete()
-    .eq("shop_id", input.shopId);
-  await adminClient
-    .from("platform_owner_invites")
-    .delete()
-    .eq("shop_id", input.shopId);
-  await adminClient
-    .from("shops")
-    .update({
-      archived_at: now,
-      archived_by_profile_id: input.actorProfileId,
-      shop_status: "archived",
-      status_changed_at: now,
-      status_changed_by_profile_id: input.actorProfileId,
-      status_reason_redacted:
-        "TASK-051 rollback archived incomplete provisioning attempt.",
-      updated_at: now,
-    })
-    .eq("shop_id", input.shopId);
-}
-
-async function insertFiscalShop(
-  adminClient: SupabaseAdminClient,
-  input: {
-    actorProfileId: string;
-    fiscalShop: FiscalShopWriteInput;
-    shopStatus: "active" | "pending_setup";
-  },
-) {
-  const now = new Date().toISOString();
-  const { fiscalShop } = input;
-
-  return adminClient
-    .from("shops")
-    .insert({
-      business_address: fiscalShop.businessAddress,
-      business_city: fiscalShop.businessCity,
-      business_giro: fiscalShop.businessGiro,
-      company_rut: fiscalShop.companyRut,
-      created_by_profile_id: input.actorProfileId,
-      fiscal_identity_locked_by_platform: true,
-      fiscal_identity_updated_at: now,
-      fiscal_identity_updated_by_profile_id: input.actorProfileId,
-      legal_representative_rut: fiscalShop.legalRepresentativeRut,
-      shop_code: fiscalShop.shopCode,
-      shop_name: fiscalShop.shopName,
-      shop_status: input.shopStatus,
-      status_changed_at: now,
-      status_changed_by_profile_id: input.actorProfileId,
-      status_reason_redacted: fiscalShop.reason.slice(0, 240),
-    })
-    .select("shop_id,shop_code,shop_name,company_rut")
-    .maybeSingle<CreatedFiscalShop>();
 }
 
 export async function createPlatformShop(
@@ -519,220 +328,40 @@ export async function createPlatformShopWithOwnerBootstrap(
     return boundary.result;
   }
 
-  const { actorProfileId, adminClient } = boundary;
-  const duplicate = await duplicateShopCodeOrRut(adminClient, normalized);
-
-  if (duplicate.status === "error") {
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code: "db_failure",
-      eventKey: "platform.shop.owner_bootstrap.failure",
-      metadata: { credential_generated: false },
-      reason: normalized.reason,
-      result: "failure",
-      scope: "global",
-      severity: "critical",
-      targetType: "shop",
-    });
-
-    return provisioningActionResult("db_failure", {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
-  if (duplicate.status === "duplicate") {
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code: duplicate.code,
-      eventKey: "platform.shop.owner_bootstrap.failure",
-      metadata: { credential_generated: false },
-      reason: normalized.reason,
-      result: "blocked",
-      scope: "global",
-      severity: "warning",
-      targetType: "shop",
-    });
-
-    return provisioningActionResult(duplicate.code, {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
-  const ownerResult = await adminClient
-    .from("profiles")
-    .select("profile_id,profile_status")
-    .eq("profile_id", normalized.ownerProfileId)
-    .eq("profile_status", "active")
-    .maybeSingle();
-
-  if (ownerResult.error || !ownerResult.data) {
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code: "owner_not_active",
-      eventKey: "platform.shop.owner_bootstrap.failure",
-      metadata: { credential_generated: false },
-      reason: normalized.reason,
-      result: "blocked",
-      scope: "global",
-      severity: "warning",
-      targetId: normalized.ownerProfileId,
-      targetType: "profile",
-    });
-
-    return provisioningActionResult("owner_not_active", {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
   const temporaryCredential = generateTemporaryManagerPin();
   const credentialHash = await hashStaffCredential(temporaryCredential, {
     allowTemporaryPin: true,
   });
 
-  const shopResult = await insertFiscalShop(adminClient, {
-    actorProfileId,
-    fiscalShop: normalized,
-    shopStatus: "active",
-  });
-
-  if (shopResult.error || !shopResult.data) {
-    const code = isUniqueConflict(shopResult.error) ? "conflict" : "db_failure";
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code,
-      eventKey: "platform.shop.owner_bootstrap.failure",
-      metadata: { credential_generated: false },
-      reason: normalized.reason,
-      result: code === "conflict" ? "blocked" : "failure",
-      scope: "global",
-      severity: code === "conflict" ? "warning" : "critical",
-      targetType: "shop",
-    });
-
-    return provisioningActionResult(code, {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
-  const shop = shopResult.data;
-  const memberResult = await adminClient.from("shop_members").insert({
-    invited_by_profile_id: actorProfileId,
-    membership_status: "active",
-    profile_id: normalized.ownerProfileId,
-    role_key: "shop_owner",
-    shop_id: shop.shop_id,
-  });
-
-  if (memberResult.error) {
-    await archiveIncompleteShop(adminClient, {
-      actorProfileId,
-      shopId: shop.shop_id,
-    });
-
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code: "db_failure",
-      eventKey: "platform.shop.owner_bootstrap.failure",
-      metadata: { credential_generated: false },
-      reason: normalized.reason,
-      result: "failure",
-      scope: "global",
-      severity: "critical",
-      targetId: shop.shop_id,
-      targetType: "shop",
-    });
-
-    return provisioningActionResult("db_failure", {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
-  const staffResult = await insertInitialManager(adminClient, {
-    actorProfileId,
-    credentialHash,
-    displayName: normalized.staffDisplayName ?? INITIAL_MANAGER_DISPLAY_NAME,
-    shopId: shop.shop_id,
-  });
-
-  if (!staffResult.ok || !staffResult.staffId) {
-    await archiveIncompleteShop(adminClient, {
-      actorProfileId,
-      shopId: shop.shop_id,
-    });
-
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code: "db_failure",
-      eventKey: "platform.shop.owner_bootstrap.failure",
-      metadata: { credential_generated: false },
-      reason: normalized.reason,
-      result: "failure",
-      scope: "global",
-      severity: "critical",
-      targetId: shop.shop_id,
-      targetType: "shop",
-    });
-
-    return provisioningActionResult("db_failure", {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
-  const audit = await writeTask051Audit(adminClient, {
-    actorProfileId,
-    code: "success",
-    eventKey: "platform.shop.owner_bootstrap.success",
-    metadata: {
-      company_rut_present: true,
-      credential_generated: true,
-      permission_key: "shop_admin.full_access",
-      staff_code: INITIAL_MANAGER_STAFF_CODE,
-      staff_id: staffResult.staffId,
+  const { data, error } = await boundary.rpcClient.rpc(
+    "platform_create_shop_with_owner_bootstrap",
+    {
+      p_business_address: normalized.businessAddress,
+      p_business_city: normalized.businessCity,
+      p_business_giro: normalized.businessGiro,
+      p_company_rut: normalized.companyRut,
+      p_legal_representative_rut: normalized.legalRepresentativeRut,
+      p_owner_profile_id: normalized.ownerProfileId,
+      p_reason: normalized.reason,
+      p_shop_code: normalized.shopCode,
+      p_shop_name: normalized.shopName,
+      p_staff_credential_hash: credentialHash,
+      p_staff_display_name:
+        normalized.staffDisplayName ?? INITIAL_MANAGER_DISPLAY_NAME,
     },
-    reason: normalized.reason,
-    result: "success",
-    scope: "shop",
-    severity: "info",
-    shopId: shop.shop_id,
-    targetId: shop.shop_id,
-    targetType: "shop",
-  });
+  );
 
-  if (!audit.ok) {
-    await archiveIncompleteShop(adminClient, {
-      actorProfileId,
-      shopId: shop.shop_id,
-    });
-
+  if (error) {
     return provisioningActionResult("db_failure", {
       credentialGenerated: false,
       ok: false,
-      shopId: shop.shop_id,
     });
   }
 
-  return provisioningActionResult("success", {
-    auditEventId: audit.auditEventId,
-    companyRut: shop.company_rut ?? normalized.companyRut,
-    credentialGenerated: true,
-    ok: true,
-    shopCode: shop.shop_code,
-    shopId: shop.shop_id,
+  return mapProvisioningRpcResult(data, {
+    ownerMode: "existing_owner",
+    ownerStatus: "active",
     shopName: normalized.shopName,
-    staffCode: INITIAL_MANAGER_STAFF_CODE,
-    staffId: staffResult.staffId,
     temporaryCredential,
   });
 }
@@ -759,157 +388,39 @@ export async function createPlatformPosFirstShop(
     return boundary.result;
   }
 
-  const { actorProfileId, adminClient } = boundary;
-  const duplicate = await duplicateShopCodeOrRut(adminClient, normalized);
-
-  if (duplicate.status === "error") {
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code: "db_failure",
-      eventKey: "platform.shop.pos_first.create.failure",
-      metadata: { credential_generated: false },
-      reason: normalized.reason,
-      result: "failure",
-      scope: "global",
-      severity: "critical",
-      targetType: "shop",
-    });
-
-    return provisioningActionResult("db_failure", {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
-  if (duplicate.status === "duplicate") {
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code: duplicate.code,
-      eventKey: "platform.shop.pos_first.create.failure",
-      metadata: { credential_generated: false },
-      reason: normalized.reason,
-      result: "blocked",
-      scope: "global",
-      severity: "warning",
-      targetType: "shop",
-    });
-
-    return provisioningActionResult(duplicate.code, {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
   const temporaryCredential = generateTemporaryManagerPin();
   const credentialHash = await hashStaffCredential(temporaryCredential, {
     allowTemporaryPin: true,
   });
-  const shopResult = await insertFiscalShop(adminClient, {
-    actorProfileId,
-    fiscalShop: normalized,
-    shopStatus: "active",
-  });
 
-  if (shopResult.error || !shopResult.data) {
-    const code = isUniqueConflict(shopResult.error) ? "conflict" : "db_failure";
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code,
-      eventKey: "platform.shop.pos_first.create.failure",
-      metadata: { credential_generated: false },
-      reason: normalized.reason,
-      result: code === "conflict" ? "blocked" : "failure",
-      scope: "global",
-      severity: code === "conflict" ? "warning" : "critical",
-      targetType: "shop",
-    });
-
-    return provisioningActionResult(code, {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
-  const shop = shopResult.data;
-  const staffResult = await insertInitialManager(adminClient, {
-    actorProfileId,
-    credentialHash,
-    displayName: normalized.staffDisplayName ?? INITIAL_MANAGER_DISPLAY_NAME,
-    shopId: shop.shop_id,
-  });
-
-  if (!staffResult.ok || !staffResult.staffId) {
-    await archiveIncompleteShop(adminClient, {
-      actorProfileId,
-      shopId: shop.shop_id,
-    });
-
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code: "db_failure",
-      eventKey: "platform.shop.pos_first.create.failure",
-      metadata: { credential_generated: false },
-      reason: normalized.reason,
-      result: "failure",
-      scope: "global",
-      severity: "critical",
-      targetId: shop.shop_id,
-      targetType: "shop",
-    });
-
-    return provisioningActionResult("db_failure", {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
-  const audit = await writeTask051Audit(adminClient, {
-    actorProfileId,
-    code: "success",
-    eventKey: "platform.shop.pos_first.create.success",
-    metadata: {
-      company_rut_present: true,
-      credential_generated: true,
-      permission_key: "shop_admin.full_access",
-      staff_code: INITIAL_MANAGER_STAFF_CODE,
-      staff_id: staffResult.staffId,
+  const { data, error } = await boundary.rpcClient.rpc(
+    "platform_create_pos_first_shop",
+    {
+      p_business_address: normalized.businessAddress,
+      p_business_city: normalized.businessCity,
+      p_business_giro: normalized.businessGiro,
+      p_company_rut: normalized.companyRut,
+      p_legal_representative_rut: normalized.legalRepresentativeRut,
+      p_reason: normalized.reason,
+      p_shop_code: normalized.shopCode,
+      p_shop_name: normalized.shopName,
+      p_staff_credential_hash: credentialHash,
+      p_staff_display_name:
+        normalized.staffDisplayName ?? INITIAL_MANAGER_DISPLAY_NAME,
     },
-    reason: normalized.reason,
-    result: "success",
-    scope: "shop",
-    severity: "info",
-    shopId: shop.shop_id,
-    targetId: shop.shop_id,
-    targetType: "shop",
-  });
+  );
 
-  if (!audit.ok) {
-    await archiveIncompleteShop(adminClient, {
-      actorProfileId,
-      shopId: shop.shop_id,
-    });
-
+  if (error) {
     return provisioningActionResult("db_failure", {
       credentialGenerated: false,
       ok: false,
-      shopId: shop.shop_id,
     });
   }
 
-  return provisioningActionResult("success", {
-    auditEventId: audit.auditEventId,
-    companyRut: shop.company_rut ?? normalized.companyRut,
-    credentialGenerated: true,
-    ok: true,
-    shopCode: shop.shop_code,
-    shopId: shop.shop_id,
+  return mapProvisioningRpcResult(data, {
+    ownerMode: "pos_first",
+    ownerStatus: "pending",
     shopName: normalized.shopName,
-    staffCode: INITIAL_MANAGER_STAFF_CODE,
-    staffId: staffResult.staffId,
     temporaryCredential,
   });
 }
@@ -937,175 +448,40 @@ export async function createPlatformPendingOwnerInviteWithFiscal(
     return boundary.result;
   }
 
-  const { actorProfileId, adminClient } = boundary;
-  const duplicate = await duplicateShopCodeOrRut(adminClient, normalized);
-
-  if (duplicate.status === "error") {
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code: "db_failure",
-      eventKey: "platform.shop.pending_owner_invite.failure",
-      metadata: { email_delivery_active: false },
-      reason: normalized.reason,
-      result: "failure",
-      scope: "global",
-      severity: "critical",
-      targetType: "owner_invite",
-    });
-
-    return provisioningActionResult("db_failure", {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
-  if (duplicate.status === "duplicate") {
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code: duplicate.code,
-      eventKey: "platform.shop.pending_owner_invite.failure",
-      metadata: { email_delivery_active: false },
-      reason: normalized.reason,
-      result: "blocked",
-      scope: "global",
-      severity: "warning",
-      targetType: "shop",
-    });
-
-    return provisioningActionResult(duplicate.code, {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
-  const shopResult = await insertFiscalShop(adminClient, {
-    actorProfileId,
-    fiscalShop: normalized,
-    shopStatus: "pending_setup",
+  const temporaryCredential = generateTemporaryManagerPin();
+  const credentialHash = await hashStaffCredential(temporaryCredential, {
+    allowTemporaryPin: true,
   });
 
-  if (shopResult.error || !shopResult.data) {
-    const code = isUniqueConflict(shopResult.error) ? "conflict" : "db_failure";
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code,
-      eventKey: "platform.shop.pending_owner_invite.failure",
-      metadata: { email_delivery_active: false },
-      reason: normalized.reason,
-      result: code === "conflict" ? "blocked" : "failure",
-      scope: "global",
-      severity: code === "conflict" ? "warning" : "critical",
-      targetType: "owner_invite",
-    });
-
-    return provisioningActionResult(code, {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
-  const shop = shopResult.data;
-  const inviteResult = await adminClient
-    .from("platform_owner_invites")
-    .insert({
-      owner_contact_digest: pendingOwnerContactDigest(normalized.ownerContact),
-      owner_contact_redacted: redactedOwnerContact(normalized.ownerContact),
-      requested_by_profile_id: actorProfileId,
-      shop_id: shop.shop_id,
-    })
-    .select("platform_owner_invite_id")
-    .maybeSingle();
-
-  if (inviteResult.error || !inviteResult.data) {
-    await archiveIncompleteShop(adminClient, {
-      actorProfileId,
-      shopId: shop.shop_id,
-    });
-
-    const audit = await writeTask051Audit(adminClient, {
-      actorProfileId,
-      code: "db_failure",
-      eventKey: "platform.shop.pending_owner_invite.failure",
-      metadata: { email_delivery_active: false },
-      reason: normalized.reason,
-      result: "failure",
-      scope: "global",
-      severity: "critical",
-      targetId: shop.shop_id,
-      targetType: "owner_invite",
-    });
-
-    return provisioningActionResult("db_failure", {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-    });
-  }
-
-  const inviteId = inviteResult.data.platform_owner_invite_id;
-  const audit = await writeTask051Audit(adminClient, {
-    actorProfileId,
-    code: "success",
-    eventKey: "platform.shop.pending_owner_invite.success",
-    metadata: {
-      company_rut_present: true,
-      email_delivery_active: false,
+  const { data, error } = await boundary.rpcClient.rpc(
+    "platform_create_shop_with_pending_owner_invite",
+    {
+      p_business_address: normalized.businessAddress,
+      p_business_city: normalized.businessCity,
+      p_business_giro: normalized.businessGiro,
+      p_company_rut: normalized.companyRut,
+      p_legal_representative_rut: normalized.legalRepresentativeRut,
+      p_owner_email: normalized.ownerContact,
+      p_reason: normalized.reason,
+      p_shop_code: normalized.shopCode,
+      p_shop_name: normalized.shopName,
+      p_staff_credential_hash: credentialHash,
+      p_staff_display_name: INITIAL_MANAGER_DISPLAY_NAME,
     },
-    reason: normalized.reason,
-    result: "success",
-    scope: "shop",
-    severity: "info",
-    shopId: shop.shop_id,
-    targetId: inviteId,
-    targetType: "owner_invite",
-  });
+  );
 
-  if (!audit.ok) {
-    await archiveIncompleteShop(adminClient, {
-      actorProfileId,
-      shopId: shop.shop_id,
-    });
-
+  if (error) {
     return provisioningActionResult("db_failure", {
       credentialGenerated: false,
       ok: false,
-      shopId: shop.shop_id,
     });
   }
 
-  const inviteAuditResult = await adminClient
-    .from("platform_owner_invites")
-    .update({
-      audit_log_id: audit.auditEventId,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("platform_owner_invite_id", inviteId);
-
-  if (inviteAuditResult.error) {
-    await archiveIncompleteShop(adminClient, {
-      actorProfileId,
-      shopId: shop.shop_id,
-    });
-
-    return provisioningActionResult("db_failure", {
-      auditEventId: audit.auditEventId,
-      credentialGenerated: false,
-      ok: false,
-      shopId: shop.shop_id,
-    });
-  }
-
-  return provisioningActionResult("success", {
-    auditEventId: audit.auditEventId,
-    companyRut: shop.company_rut ?? normalized.companyRut,
-    credentialGenerated: false,
-    ok: true,
-    shopCode: shop.shop_code,
-    shopId: shop.shop_id,
+  return mapProvisioningRpcResult(data, {
+    ownerMode: "pending_owner_invite",
+    ownerStatus: "pending_external_delivery",
     shopName: normalized.shopName,
+    temporaryCredential,
   });
 }
 

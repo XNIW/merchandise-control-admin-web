@@ -116,7 +116,7 @@ function isTask041RuntimeCompletionActive(
     ? read("docs/MASTER-PLAN.md")
     : "",
 ) {
-  return /Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
+  return /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
     masterPlan,
   );
 }
@@ -211,6 +211,8 @@ function checkReadOnlyContracts() {
       "src/server/platform-admin/shop-actions.ts",
       new Set([
         "platform_create_shop",
+        "platform_create_shop_with_owner_bootstrap",
+        "platform_create_pos_first_shop",
         "platform_create_shop_with_pending_owner_invite",
         "platform_suspend_shop",
         "platform_reactivate_shop",
@@ -218,6 +220,10 @@ function checkReadOnlyContracts() {
         "platform_soft_delete_shop",
         "platform_emergency_revoke_device",
       ]),
+    ],
+    [
+      "src/server/platform-admin/staff-manager-provisioning.ts",
+      new Set(["platform_recover_initial_manager_1001"]),
     ],
     [
       "src/server/platform-admin/admin-actions.ts",
@@ -1526,7 +1532,7 @@ function checkTask013UiPolishArtifacts() {
     !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(
       masterPlan,
     ) &&
-    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
+    !/Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
       masterPlan,
     )
   ) {
@@ -2333,10 +2339,12 @@ function checkTask016PlatformAdminConsole() {
 
   if (
     /credential_hash/i.test(shopActions) &&
-    (!/credential_hash: input\.credentialHash/.test(shopActions) ||
+    (!/p_staff_credential_hash: credentialHash/.test(shopActions) ||
       !/hashStaffCredential/.test(shopActions) ||
       !/temporaryCredential/.test(shopActions) ||
-      !/insertInitialManager/.test(shopActions))
+      !/platform_create_(shop_with_owner_bootstrap|pos_first_shop)/.test(
+        shopActions,
+      ))
   ) {
     addFailure("TASK-016 Platform shop actions may only handle credential_hash for TASK-051 server-side staff bootstrap");
   }
@@ -3913,8 +3921,8 @@ function checkTask038PosManagerWebLogin() {
   const logoutRoutePath = "src/app/shop/staff-logout/route.ts";
   const platformProvisioningPath =
     "src/server/platform-admin/staff-manager-provisioning.ts";
-  const platformProvisioningActionsPath =
-    "src/app/platform/provisioning/actions.ts";
+  const platformProvisioningSubmitPath =
+    "src/app/platform/provisioning/provisioningFormSubmit.ts";
   const platformProvisioningPanelPath =
     "src/app/platform/provisioning/StaffManagerProvisioningPanel.tsx";
   const platformProvisioningPagePath = "src/app/platform/provisioning/page.tsx";
@@ -3934,7 +3942,7 @@ function checkTask038PosManagerWebLogin() {
     loginActionsPath,
     logoutRoutePath,
     platformProvisioningPath,
-    platformProvisioningActionsPath,
+    platformProvisioningSubmitPath,
     platformProvisioningPanelPath,
     platformProvisioningPagePath,
     foundationTestPath,
@@ -3961,7 +3969,7 @@ function checkTask038PosManagerWebLogin() {
   const loginActions = read(loginActionsPath);
   const logoutRoute = read(logoutRoutePath);
   const platformProvisioning = read(platformProvisioningPath);
-  const platformProvisioningActions = read(platformProvisioningActionsPath);
+  const platformProvisioningSubmit = read(platformProvisioningSubmitPath);
   const platformProvisioningPanel = read(platformProvisioningPanelPath);
   const platformProvisioningPage = read(platformProvisioningPagePath);
   const shopLayout = read("src/app/shop/layout.tsx");
@@ -4077,8 +4085,7 @@ function checkTask038PosManagerWebLogin() {
 
   for (const requiredSnippet of [
     'import "server-only"',
-    "authorizeCurrentPlatformAdmin",
-    "createSupabaseAdminClient",
+    "resolvePlatformAdminForRequest",
     "hashStaffCredential",
     "staff_accounts",
     "staff_role_permissions",
@@ -4092,12 +4099,13 @@ function checkTask038PosManagerWebLogin() {
     }
   }
 
-  if (!/"use server"/.test(platformProvisioningActions)) {
-    addFailure(`${platformProvisioningActionsPath} must be a Server Actions module`);
+  if (!/server-only/.test(platformProvisioningSubmit)) {
+    addFailure(`${platformProvisioningSubmitPath} must be a server-only submit module`);
   }
 
   for (const requiredSnippet of [
-    "recoverInitialManager1001Action",
+    "submitInitialManager1001RecoveryForm",
+    "recoverInitialManager1001",
     "StaffManagerProvisioningPanel",
     "shopId",
     "Recover initial manager 1001",
@@ -4106,7 +4114,7 @@ function checkTask038PosManagerWebLogin() {
     "Manager state",
     "reason",
   ]) {
-    if (!`${platformProvisioningActions}\n${platformProvisioningPanel}\n${platformProvisioningPage}`.includes(requiredSnippet)) {
+    if (!`${platformProvisioningSubmit}\n${platformProvisioningPanel}\n${platformProvisioningPage}`.includes(requiredSnippet)) {
       addFailure(`Platform staff manager provisioning UI must include ${requiredSnippet}`);
     }
   }
@@ -4121,10 +4129,10 @@ function checkTask038PosManagerWebLogin() {
 
   if (
     /SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash|hashStaffCredential/i.test(
-      platformProvisioningActions,
+      platformProvisioningSubmit,
     )
   ) {
-    addFailure(`${platformProvisioningActionsPath} must not expose stored secret fields`);
+    addFailure(`${platformProvisioningSubmitPath} must not expose stored secret fields`);
   }
 
   if (
@@ -4236,7 +4244,7 @@ function checkTask039StaffAwareShopAdminCompletion() {
   }
 
   if (
-    !/Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
+    !/Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
       masterPlan,
     )
   ) {
@@ -4395,7 +4403,7 @@ function checkTask040RuntimeReadiness() {
   }
 
   if (
-    !/Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
+    !/Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
       masterPlan,
     )
   ) {
@@ -4509,7 +4517,7 @@ function checkTask041RuntimeCompletion() {
   }
 
   if (
-    !/Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
+    !/Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
       masterPlan,
     )
   ) {
@@ -4829,7 +4837,7 @@ function checkTask042ReviewCiWin7PosBridge() {
   }
 
   if (
-    !/Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
+    !/Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
       masterPlan,
     )
   ) {
@@ -4919,7 +4927,7 @@ function checkTask043PlatformAdminRuntimeFixes() {
   }
 
   if (
-    !/Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(masterPlan) ||
+    !/Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(masterPlan) ||
     !/Stato TASK-043: `DONE_RECONCILED`/.test(masterPlan) ||
     !/Fase TASK-043: `DONE_RECONCILED`/.test(masterPlan)
   ) {
@@ -5017,6 +5025,8 @@ function checkTask044PlatformProvisioningUxRuntime() {
   const provisioningPagePath = "src/app/platform/provisioning/page.tsx";
   const provisioningFormsPath =
     "src/app/platform/provisioning/ShopProvisioningForms.tsx";
+  const provisioningRequestPath =
+    "src/app/platform/provisioning/platformProvisioningRequest.ts";
   const operationsPagePath = "src/app/platform/operations/page.tsx";
   const operationsActionsPath = "src/app/platform/operations/actions.ts";
   const staffProvisioningPath =
@@ -5037,6 +5047,7 @@ function checkTask044PlatformProvisioningUxRuntime() {
     loadingPath,
     provisioningPagePath,
     provisioningFormsPath,
+    provisioningRequestPath,
     operationsPagePath,
     operationsActionsPath,
     staffProvisioningPath,
@@ -5059,7 +5070,8 @@ function checkTask044PlatformProvisioningUxRuntime() {
   const loading = read(loadingPath);
   const provisioningPage = read(provisioningPagePath);
   const provisioningForms = read(provisioningFormsPath);
-  const provisioningSurface = `${provisioningPage}\n${provisioningForms}`;
+  const provisioningRequest = read(provisioningRequestPath);
+  const provisioningSurface = `${provisioningPage}\n${provisioningForms}\n${provisioningRequest}`;
   const operationsPage = read(operationsPagePath);
   const operationsActions = read(operationsActionsPath);
   const staffProvisioning = read(staffProvisioningPath);
@@ -5088,7 +5100,7 @@ function checkTask044PlatformProvisioningUxRuntime() {
   }
 
   if (
-    !/Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
+    !/Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`/.test(
       masterPlan,
     ) ||
     !/Stato TASK-044: `DONE_RECONCILED`/.test(masterPlan) ||
@@ -5132,14 +5144,18 @@ function checkTask044PlatformProvisioningUxRuntime() {
     "Creating shop",
     "Creating pending owner setup",
     "handleCreateShop",
-    "readPlatformProvisioningAccessToken",
-    "window.fetch(\"/platform/provisioning/create-shop\"",
+    "submitPlatformProvisioningForm",
+    "same-origin cookie session",
     "onClick={handleCreateShop}",
     'type="button"',
   ]) {
     if (!provisioningSurface.includes(requiredSnippet)) {
       addFailure(`${provisioningPagePath} or ${provisioningFormsPath} must include ${requiredSnippet}`);
     }
+  }
+
+  if (/Authorization:\s*`Bearer \$\{/.test(provisioningSurface)) {
+    addFailure("Platform provisioning same-origin client must not send custom browser bearer headers");
   }
 
   if (!/safeReturnTo/.test(operationsActions) || !/revalidatePath\("\/platform\/provisioning"\)/.test(operationsActions)) {

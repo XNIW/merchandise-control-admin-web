@@ -152,7 +152,7 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
 test("TASK-038 Platform provisioning creates staff manager web access server-side", () => {
   const requiredPaths = [
     "src/server/platform-admin/staff-manager-provisioning.ts",
-    "src/app/platform/provisioning/actions.ts",
+    "src/app/platform/provisioning/provisioningFormSubmit.ts",
     "src/app/platform/provisioning/StaffManagerProvisioningPanel.tsx",
     "src/app/platform/provisioning/page.tsx",
   ];
@@ -162,14 +162,15 @@ test("TASK-038 Platform provisioning creates staff manager web access server-sid
   }
 
   const provisioning = readProjectFile("src/server/platform-admin/staff-manager-provisioning.ts");
-  const actions = readProjectFile("src/app/platform/provisioning/actions.ts");
+  const provisioningFormSubmit = readProjectFile(
+    "src/app/platform/provisioning/provisioningFormSubmit.ts",
+  );
   const panel = readProjectFile("src/app/platform/provisioning/StaffManagerProvisioningPanel.tsx");
   const page = readProjectFile("src/app/platform/provisioning/page.tsx");
 
   for (const required of [
     'import "server-only"',
-    "authorizeCurrentPlatformAdmin",
-    "createSupabaseAdminClient",
+    "resolvePlatformAdminForRequest",
     "hashStaffCredential",
     "staff_accounts",
     "staff_role_permissions",
@@ -181,8 +182,9 @@ test("TASK-038 Platform provisioning creates staff manager web access server-sid
     assertContains(provisioning, required);
   }
 
-  assertContains(actions, "\"use server\"");
-  assertContains(actions, "recoverInitialManager1001Action");
+  assertContains(provisioningFormSubmit, "server-only");
+  assertContains(provisioningFormSubmit, "submitInitialManager1001RecoveryForm");
+  assertContains(provisioningFormSubmit, "recoverInitialManager1001");
   assertContains(panel, "submitPlatformProvisioningForm");
   assertContains(panel, "shopId");
   assertContains(panel, "Recover initial manager 1001");
@@ -195,7 +197,10 @@ test("TASK-038 Platform provisioning creates staff manager web access server-sid
   assert.doesNotMatch(panel, /name="staffCode"|Recovery action|Advanced options/);
   assert.doesNotMatch(panel, /name="displayName"/);
   assertContains(page, "StaffManagerProvisioningPanel");
-  assert.doesNotMatch(actions, /SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash|hashStaffCredential/i);
+  assert.doesNotMatch(
+    provisioningFormSubmit,
+    /SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash|hashStaffCredential/i,
+  );
   assert.doesNotMatch(`${panel}\n${page}`, /SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash|hashStaffCredential/i);
   assert.doesNotMatch(panel, /@\/server\//);
 });

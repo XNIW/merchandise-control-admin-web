@@ -15,6 +15,8 @@ test("TASK-016 provisioning supports existing owner and pending owner invite bou
   const operationsActionsPath = "src/app/platform/operations/actions.ts";
   const provisioningFormSubmitPath =
     "src/app/platform/provisioning/provisioningFormSubmit.ts";
+  const provisioningRequestPath =
+    "src/app/platform/provisioning/platformProvisioningRequest.ts";
   const shopActionsPath = "src/server/platform-admin/shop-actions.ts";
   const validationPath = "src/server/platform-admin/shop-action-validation.ts";
   const completionMigrationPath =
@@ -25,6 +27,7 @@ test("TASK-016 provisioning supports existing owner and pending owner invite bou
     newShopPagePath,
     operationsActionsPath,
     provisioningFormSubmitPath,
+    provisioningRequestPath,
     shopActionsPath,
     validationPath,
     completionMigrationPath,
@@ -39,12 +42,18 @@ test("TASK-016 provisioning supports existing owner and pending owner invite bou
   const newShopPage = readProjectFile(newShopPagePath);
   const operationsActions = readProjectFile(operationsActionsPath);
   const provisioningFormSubmit = readProjectFile(provisioningFormSubmitPath);
+  const provisioningRequest = readProjectFile(provisioningRequestPath);
   const shopActions = readProjectFile(shopActionsPath);
   const validation = readProjectFile(validationPath);
   const migration = readProjectFile(completionMigrationPath);
 
-  assert.match(provisioningForms, /readPlatformProvisioningAccessToken/);
-  assert.match(provisioningForms, /window\.fetch\("\/platform\/provisioning\/create-shop"/);
+  assert.match(provisioningForms, /submitPlatformProvisioningForm/);
+  assert.match(provisioningForms, /"\/platform\/provisioning\/create-shop"/);
+  assert.match(provisioningRequest, /same-origin cookie session/);
+  assert.doesNotMatch(
+    `${provisioningForms}\n${provisioningRequest}`,
+    /Authorization:\s*`Bearer \$\{/,
+  );
   assert.match(provisioningFormSubmit, /createPlatformShopWithOwnerBootstrap/);
   assert.match(provisioningFormSubmit, /createPlatformPendingOwnerInviteWithFiscal/);
   assert.match(`${provisioningPage}\n${provisioningForms}\n${newShopPage}`, /PASS_WITH_NOTES_EMAIL_DELIVERY|Email delivery pending|Email delivery is not active yet/i);

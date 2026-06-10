@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
-import type { PlatformStaffManagerProvisionState } from "./actions";
+import { useMemo, useRef, useState, type FormEvent } from "react";
+import type { PlatformStaffManagerProvisionState } from "./provisioningFormSubmit";
 import {
   SearchableEntityPicker,
   type SearchableEntityPickerItem,
@@ -77,6 +77,7 @@ export function StaffManagerProvisioningPanel({
   const [state, setState] =
     useState<PlatformStaffManagerProvisionState>(initialState);
   const [pending, setPending] = useState(false);
+  const pendingRef = useRef(false);
   const hasResult = state.message !== initialState.message;
   const hasShops = shops.length > 0;
   const shopItems = useMemo(
@@ -108,6 +109,13 @@ export function StaffManagerProvisioningPanel({
   async function handleRecoverSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (pendingRef.current) {
+      return;
+    }
+
+    pendingRef.current = true;
+    setPending(true);
+
     try {
       const payload = new FormData();
 
@@ -118,10 +126,7 @@ export function StaffManagerProvisioningPanel({
       const responsePromise = submitPlatformProvisioningForm(
         "/platform/provisioning/recover-manager-1001",
         payload,
-        document.cookie,
       );
-
-      setPending(true);
 
       const response = await responsePromise;
 
@@ -134,6 +139,7 @@ export function StaffManagerProvisioningPanel({
     } catch {
       setState(requestFailedState);
     } finally {
+      pendingRef.current = false;
       setPending(false);
     }
   }

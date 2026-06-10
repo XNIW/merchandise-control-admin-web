@@ -14,13 +14,21 @@ test("TASK-044 provisioning forms prevent double submit and keep results on prov
   const provisioningForms = readProjectFile(
     "src/app/platform/provisioning/ShopProvisioningForms.tsx",
   );
+  const provisioningRequest = readProjectFile(
+    "src/app/platform/provisioning/platformProvisioningRequest.ts",
+  );
   const operationActions = readProjectFile("src/app/platform/operations/actions.ts");
 
   assert.match(provisioningForms, /createShopPending/);
   assert.match(provisioningForms, /ownerSetupMode/);
   assert.match(provisioningForms, /ProvisioningResultBanner/);
-  assert.match(provisioningForms, /readPlatformProvisioningAccessToken/);
-  assert.match(provisioningForms, /window\.fetch\("\/platform\/provisioning\/create-shop"/);
+  assert.match(provisioningForms, /submitPlatformProvisioningForm/);
+  assert.match(provisioningForms, /"\/platform\/provisioning\/create-shop"/);
+  assert.match(provisioningRequest, /same-origin cookie session/);
+  assert.doesNotMatch(
+    `${provisioningForms}\n${provisioningRequest}`,
+    /Authorization:\s*`Bearer \$\{/,
+  );
   assert.match(provisioningForms, /onClick={handleCreateShop}/);
   assert.match(provisioningForms, /type="button"/);
   assert.match(provisioningPage, /ShopProvisioningForms/);

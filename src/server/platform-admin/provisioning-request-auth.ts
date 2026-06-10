@@ -1,13 +1,12 @@
 import "server-only";
 
-import {
-  createSupabaseAdminClient,
-  resolveSupabaseAdminConfig,
-  type SupabaseAdminClient,
-} from "@/lib/supabase/admin";
+import { createClient } from "@supabase/supabase-js";
+import type { Database } from "@/lib/supabase/database.types";
 import {
   createSupabaseServerClient,
   resolveSupabaseServerConfig,
+  type SupabaseServerClient,
+  type SupabaseServerConfig,
 } from "@/lib/supabase/server";
 
 export type PlatformProvisioningAuthSource = "bearer" | "cookie" | "none";
@@ -43,14 +42,25 @@ type ResolvePlatformAdminForRequestInput = {
 
 type ResolvePlatformAdminForRequestResult =
   | {
+      actorAccessToken: string;
       actorProfileId: string;
-      adminClient: SupabaseAdminClient;
       diagnostics: PlatformProvisioningRequestAuthDiagnostics;
       status: "authorized";
     }
   | {
-      code: "not_configured" | "unauthorized";
+      code: "auth_mismatch" | "not_configured" | "unauthorized";
       diagnostics: PlatformProvisioningRequestAuthDiagnostics;
+      status: "blocked";
+    };
+
+type CookiePlatformAdminResolution =
+  | {
+      actorAccessToken: string;
+      actorProfileId: string;
+      status: "authorized";
+    }
+  | {
+      actorProfileId: string | null;
       status: "blocked";
     };
 
@@ -119,16 +129,10 @@ function looksLikeJwt(token: string | null) {
 const bearerVerificationTimeoutMs = 10_000;
 
 async function userIsActivePlatformAdmin(
-  adminClient: SupabaseAdminClient,
+  client: SupabaseServerClient,
   userId: string,
 ) {
-  const authUserResult = await adminClient.auth.admin.getUserById(userId);
-
-  if (authUserResult.error || !authUserResult.data.user) {
-    return false;
-  }
-
-  const adminResult = await adminClient
+  const adminResult = await client
     .from("platform_admins")
     .select("profile_id")
     .eq("profile_id", userId)
@@ -137,6 +141,26 @@ async function userIsActivePlatformAdmin(
     .maybeSingle();
 
   return !adminResult.error && Boolean(adminResult.data);
+}
+
+function createBearerSupabaseClient(
+  config: Extract<SupabaseServerConfig, { status: "configured" }>,
+  bearerToken: string,
+): SupabaseServerClient {
+  return createClient<Database>(config.url, config.publishableKey, {
+    auth: {
+      autoRefreshToken: false,
+      detectSessionInUrl: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        Authorization: `Bearer ${bearerToken}`,
+        "X-Client-Info":
+          "merchandise-control-admin-web/platform-provisioning-auth",
+      },
+    },
+  });
 }
 
 async function resolveBearerUserId(input: {
@@ -197,6 +221,42 @@ async function resolveBearerUserId(input: {
   }
 }
 
+async function resolveCookiePlatformAdmin(input: {
+  diagnostics: PlatformProvisioningRequestAuthDiagnostics;
+  serverClient: NonNullable<Awaited<ReturnType<typeof createSupabaseServerClient>>>;
+}): Promise<CookiePlatformAdminResolution> {
+  const cookieUserResult = await input.serverClient.auth.getUser();
+  const cookieUserId = cookieUserResult.data.user?.id ?? null;
+
+  input.diagnostics.cookieUserResolved = Boolean(cookieUserId);
+
+  if (
+    !cookieUserId ||
+    !(await userIsActivePlatformAdmin(input.serverClient, cookieUserId))
+  ) {
+    return {
+      actorProfileId: cookieUserId,
+      status: "blocked",
+    };
+  }
+
+  const sessionResult = await input.serverClient.auth.getSession();
+  const accessToken = sessionResult.data.session?.access_token ?? null;
+
+  if (!accessToken) {
+    return {
+      actorProfileId: cookieUserId,
+      status: "blocked",
+    };
+  }
+
+  return {
+    actorAccessToken: accessToken,
+    actorProfileId: cookieUserId,
+    status: "authorized",
+  };
+}
+
 export async function resolvePlatformAdminForRequest(
   input: ResolvePlatformAdminForRequestInput = {},
 ): Promise<ResolvePlatformAdminForRequestResult> {
@@ -208,7 +268,6 @@ export async function resolvePlatformAdminForRequest(
       formMode: input.formMode,
       requestContentType: input.requestContentType,
     });
-  const adminConfig = resolveSupabaseAdminConfig();
   const serverConfig = resolveSupabaseServerConfig();
   const serverClient =
     serverConfig.status === "configured"
@@ -223,7 +282,6 @@ export async function resolvePlatformAdminForRequest(
   diagnostics.serverSupabaseHost = supabaseHost(process.env.NEXT_PUBLIC_SUPABASE_URL);
 
   if (
-    adminConfig.status !== "configured" ||
     serverConfig.status !== "configured" ||
     !serverClient
   ) {
@@ -236,7 +294,6 @@ export async function resolvePlatformAdminForRequest(
     };
   }
 
-  const adminClient = createSupabaseAdminClient(adminConfig);
   const verificationApiKey = process.env.SUPABASE_ANON_KEY?.trim();
   const resolvedVerificationApiKey =
     verificationApiKey || serverConfig.publishableKey;
@@ -244,16 +301,6 @@ export async function resolvePlatformAdminForRequest(
   diagnostics.verificationApiKeySource = verificationApiKey
     ? "anon"
     : "publishable";
-
-  if (!adminClient) {
-    diagnostics.codeBranch = "platform-provisioning-auth-admin-client-missing";
-
-    return {
-      code: "not_configured",
-      diagnostics,
-      status: "blocked",
-    };
-  }
 
   const authorizationHeader = input.authorizationHeader ?? null;
   const bearerToken = readBearerToken(authorizationHeader);
@@ -265,22 +312,58 @@ export async function resolvePlatformAdminForRequest(
   if (bearerToken) {
     diagnostics.codeBranch = "platform-provisioning-auth-bearer";
 
-    const userId = await resolveBearerUserId({
+    const bearerUserId = await resolveBearerUserId({
       apiKey: resolvedVerificationApiKey,
       bearerToken,
       diagnostics,
       url: serverConfig.url,
     });
 
-    diagnostics.bearerUserResolved = Boolean(userId);
+    diagnostics.bearerUserResolved = Boolean(bearerUserId);
 
-    if (userId && (await userIsActivePlatformAdmin(adminClient, userId))) {
+    const bearerIsPlatformAdmin = Boolean(
+      bearerUserId &&
+        (await userIsActivePlatformAdmin(
+          createBearerSupabaseClient(serverConfig, bearerToken),
+          bearerUserId,
+        )),
+    );
+    const cookieResolution = await resolveCookiePlatformAdmin({
+      diagnostics,
+      serverClient,
+    });
+    const cookieUserId = cookieResolution.actorProfileId;
+
+    if (bearerUserId && cookieUserId && bearerUserId !== cookieUserId) {
+      diagnostics.codeBranch = "platform-provisioning-auth-mismatch";
+
+      return {
+        code: "auth_mismatch",
+        diagnostics,
+        status: "blocked",
+      };
+    }
+
+    if (bearerUserId && bearerIsPlatformAdmin) {
       diagnostics.authSourceUsed = "bearer";
       diagnostics.platformAdminResolved = true;
 
       return {
-        actorProfileId: userId,
-        adminClient,
+        actorAccessToken: bearerToken,
+        actorProfileId: bearerUserId,
+        diagnostics,
+        status: "authorized",
+      };
+    }
+
+    if (cookieResolution.status === "authorized") {
+      diagnostics.authSourceUsed = "cookie";
+      diagnostics.codeBranch = "platform-provisioning-auth-cookie-fallback";
+      diagnostics.platformAdminResolved = true;
+
+      return {
+        actorAccessToken: cookieResolution.actorAccessToken,
+        actorProfileId: cookieResolution.actorProfileId,
         diagnostics,
         status: "authorized",
       };
@@ -295,18 +378,18 @@ export async function resolvePlatformAdminForRequest(
 
   diagnostics.codeBranch = "platform-provisioning-auth-cookie";
 
-  const cookieUserResult = await serverClient.auth.getUser();
-  const cookieUserId = cookieUserResult.data.user?.id ?? null;
+  const cookieResolution = await resolveCookiePlatformAdmin({
+    diagnostics,
+    serverClient,
+  });
 
-  diagnostics.cookieUserResolved = Boolean(cookieUserId);
-
-  if (cookieUserId && (await userIsActivePlatformAdmin(adminClient, cookieUserId))) {
+  if (cookieResolution.status === "authorized") {
     diagnostics.authSourceUsed = "cookie";
     diagnostics.platformAdminResolved = true;
 
     return {
-      actorProfileId: cookieUserId,
-      adminClient,
+      actorAccessToken: cookieResolution.actorAccessToken,
+      actorProfileId: cookieResolution.actorProfileId,
       diagnostics,
       status: "authorized",
     };

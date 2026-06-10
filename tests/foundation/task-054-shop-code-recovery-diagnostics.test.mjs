@@ -130,7 +130,9 @@ test("TASK-054 Shop code form preserves non-secret fields and focuses PIN after 
 });
 
 test("TASK-054 initial manager recovery accepts selected shop_id and safe shop_code fallback", () => {
-  const actions = readProjectFile("src/app/platform/provisioning/actions.ts");
+  const provisioningFormSubmit = readProjectFile(
+    "src/app/platform/provisioning/provisioningFormSubmit.ts",
+  );
   const panel = readProjectFile(
     "src/app/platform/provisioning/StaffManagerProvisioningPanel.tsx",
   );
@@ -138,13 +140,14 @@ test("TASK-054 initial manager recovery accepts selected shop_id and safe shop_c
     "src/server/platform-admin/staff-manager-provisioning.ts",
   );
 
-  assertContains(actions, 'shopId: value(formData, "shopId")');
-  assertContains(actions, 'shopCode: value(formData, "shopCode")');
+  assertContains(provisioningFormSubmit, 'shopId: value(formData, "shopId")');
+  assertContains(provisioningFormSubmit, 'shopCode: value(formData, "shopCode")');
   assertContains(panel, 'name="shopCode"');
   assertContains(provisioning, "shopCode?: string");
   assertContains(provisioning, "normalizeShopCode");
   assertContains(provisioning, "shop_read_failed");
   assertContains(provisioning, "shop_not_found");
-  assert.match(provisioning, /\.eq\("shop_id", normalized\.shopId\)/);
-  assert.match(provisioning, /\.eq\("shop_code", normalized\.shopCode\)/);
+  assert.match(provisioning, /p_shop_id:\s*UUID_PATTERN\.test\(normalized\.shopId\)/);
+  assert.match(provisioning, /p_shop_code:\s*normalized\.shopCode/);
+  assertContains(provisioning, "platform_recover_initial_manager_1001");
 });
