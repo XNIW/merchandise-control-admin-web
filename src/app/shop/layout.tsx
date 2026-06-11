@@ -47,6 +47,7 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
   return (
     <ShopShell
       availableShops={availableShops}
+      principalKind={principal.kind}
       selectedShopId={selectedShopId}
     >
       {children}

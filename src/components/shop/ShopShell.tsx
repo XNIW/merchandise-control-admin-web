@@ -3,7 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ChangeEvent, ReactNode } from "react";
-import { shopNavigationItems } from "./shopSections";
+import {
+  shopNavigationSections,
+  type ShopNavigationSection,
+} from "./shopSections";
 
 type ShopRole = "shop_owner" | "shop_manager";
 
@@ -18,6 +21,7 @@ type ShopShellShop = {
 type ShopShellProps = {
   availableShops: readonly ShopShellShop[];
   children: ReactNode;
+  principalKind: "personal_account" | "pos_staff_manager";
   selectedShopId: string;
 };
 
@@ -33,18 +37,67 @@ function isActivePath(pathname: string, href: string) {
     return pathname === "/shop" || pathname === "/shop/overview";
   }
 
-  return pathname === href;
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
+function ShopNavigation({
+  pathname,
+  buildShopHref,
+}: {
+  pathname: string;
+  buildShopHref: (href: string) => string;
+}) {
+  return (
+    <nav
+      aria-label="Shop sections"
+      className="space-y-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
+    >
+      {shopNavigationSections.map((section: ShopNavigationSection) => (
+        <section key={section.key} className="space-y-2">
+          <p className="px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+            {section.label}
+          </p>
+          <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:gap-2 lg:px-0 lg:pb-0">
+            {section.items.map((item) => {
+              const isActive = isActivePath(pathname, item.href);
+
+              return (
+                <Link
+                  key={item.key}
+                  href={buildShopHref(item.href)}
+                  prefetch={false}
+                  aria-current={isActive ? "page" : undefined}
+                  className={[
+                    "shrink-0 rounded-md px-3 py-2 text-sm font-medium outline-none transition",
+                    "whitespace-nowrap",
+                    "focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
+                    isActive
+                      ? "bg-emerald-700 text-white"
+                      : "text-zinc-600 hover:bg-emerald-50 hover:text-emerald-900",
+                  ].join(" ")}
+                >
+                  {item.label}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+      ))}
+    </nav>
+  );
 }
 
 export function ShopShell({
   availableShops,
   children,
+  principalKind,
   selectedShopId,
 }: ShopShellProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedShopId = searchParams.get("shop_id");
+  const hasMultipleShops = availableShops.length > 1;
   const selectedShop =
     availableShops.find((shop) => shop.shopId === requestedShopId) ??
     availableShops.find((shop) => shop.shopId === selectedShopId) ??
@@ -80,9 +133,9 @@ export function ShopShell({
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
         <aside
           aria-label="Shop navigation"
-          className="border-b border-zinc-200 bg-white lg:border-b-0 lg:border-r"
+          className="border-b border-zinc-200 bg-white lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r"
         >
-          <div className="flex h-full flex-col gap-6 px-4 py-5">
+          <div className="flex min-h-full flex-col gap-6 px-4 py-5 lg:min-h-0">
             <div className="flex items-center gap-3 px-2">
               <div
                 aria-hidden="true"
@@ -98,31 +151,7 @@ export function ShopShell({
               </div>
             </div>
 
-            <nav
-              aria-label="Shop sections"
-              className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:overflow-visible lg:px-0 lg:pb-0"
-            >
-              {shopNavigationItems.map((item) => {
-                const isActive = isActivePath(pathname, item.href);
-
-                return (
-                  <Link
-                    key={item.key}
-                    href={buildShopHref(item.href)}
-                    aria-current={isActive ? "page" : undefined}
-                    className={[
-                      "shrink-0 whitespace-nowrap rounded-md px-3 py-2 text-sm font-medium outline-none transition",
-                      "focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
-                      isActive
-                        ? "bg-emerald-700 text-white"
-                        : "text-zinc-600 hover:bg-emerald-50 hover:text-emerald-900",
-                    ].join(" ")}
-                  >
-                    {item.label}
-                  </Link>
-                );
-              })}
-            </nav>
+            <ShopNavigation pathname={pathname} buildShopHref={buildShopHref} />
 
             <div className="mt-auto rounded-md border border-emerald-200 bg-emerald-50 p-3">
               <p className="text-xs font-semibold uppercase text-emerald-900">
@@ -130,7 +159,9 @@ export function ShopShell({
               </p>
               <p className="mt-2 text-sm leading-6 text-emerald-950">
                 Access is resolved server-side from active shop membership.
-                Read-only rows stay limited to the selected shop.
+              </p>
+              <p className="mt-1 text-sm leading-6 text-emerald-950">
+                This panel keeps data filtered by selected shop.
               </p>
             </div>
           </div>
@@ -151,46 +182,77 @@ export function ShopShell({
                 </p>
                 <p
                   id="selected-shop-summary"
-                  className="mt-1 text-sm font-semibold text-zinc-950"
+                  className="mt-1 text-sm font-semibold leading-6 text-zinc-950"
                 >
                   {selectedShop
-                    ? `${selectedShop.shopName} · ${selectedShop.shopCode}`
+                    ? `${selectedShop.shopName}`
                     : "No shop selected"}
                 </p>
-                <p className="mt-1 text-sm text-zinc-700">
-                  Shop and role are resolved from server-verified memberships.
+                <p className="text-sm leading-6 text-zinc-700">
+                  {selectedShop ? selectedShop.shopCode : "Select a shop"}
                 </p>
               </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <label
-                  htmlFor="shop-switcher"
-                  className="text-xs font-semibold uppercase text-zinc-500 sm:sr-only"
+
+              <div className="flex flex-col gap-2 lg:items-end">
+                <div
+                  className="flex flex-wrap items-center gap-2"
+                  aria-label="Shop selection"
                 >
-                  Switch shop
-                </label>
-                <select
-                  id="shop-switcher"
-                  aria-label="Switch shop"
-                  value={selectedShop?.shopId ?? ""}
-                  onChange={handleShopChange}
-                  className="h-10 min-w-56 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
-                >
-                  {availableShops.map((shop) => (
-                    <option key={shop.shopId} value={shop.shopId}>
-                      {shop.shopName} ({shop.shopCode})
-                    </option>
-                  ))}
-                </select>
+                  {hasMultipleShops ? (
+                    <>
+                      <label
+                        htmlFor="shop-switcher"
+                        className="text-xs font-semibold uppercase text-zinc-500"
+                      >
+                        Switch shop
+                      </label>
+                      <select
+                        id="shop-switcher"
+                        aria-label="Switch shop"
+                        value={selectedShop?.shopId ?? ""}
+                        onChange={handleShopChange}
+                        className="h-10 min-w-56 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
+                      >
+                        {availableShops.map((shop) => (
+                          <option key={shop.shopId} value={shop.shopId}>
+                            {shop.shopName} ({shop.shopCode})
+                          </option>
+                        ))}
+                      </select>
+                    </>
+                  ) : null}
+
+                  {!hasMultipleShops && selectedShop ? (
+                    <p className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700">
+                      Single shop workspace
+                    </p>
+                  ) : null}
+                </div>
+
                 <div className="flex flex-wrap gap-2" aria-label="Shop status">
                   <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                    {selectedShop ? formatRole(selectedShop.role) : "Admin Console"}
+                    {selectedShop
+                      ? formatRole(selectedShop.role)
+                      : "Admin Console"}
                   </span>
                   <span className="rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">
                     Server verified
                   </span>
-                  <span className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700">
-                    Read-only
-                  </span>
+                  <form
+                    action={
+                      principalKind === "pos_staff_manager"
+                        ? "/shop/staff-logout"
+                        : "/auth/logout"
+                    }
+                    method="get"
+                  >
+                    <button
+                      className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 outline-none transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2"
+                      type="submit"
+                    >
+                      Logout
+                    </button>
+                  </form>
                 </div>
               </div>
             </div>

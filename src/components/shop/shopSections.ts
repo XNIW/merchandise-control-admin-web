@@ -55,26 +55,72 @@ export type ShopSection = {
   liveData?: ShopSectionLiveData;
 };
 
-export const shopNavigationItems: Array<{
-  key: ShopSectionKey;
+export type ShopNavigationSection = {
+  key: string;
   label: string;
-  href: string;
-}> = [
-  { key: "overview", label: "Overview", href: "/shop/overview" },
-  { key: "products", label: "Products", href: "/shop/products" },
-  { key: "categories", label: "Categories", href: "/shop/categories" },
-  { key: "suppliers", label: "Suppliers", href: "/shop/suppliers" },
-  { key: "importExport", label: "Import / Export", href: "/shop/import-export" },
-  { key: "sync", label: "Sync Center", href: "/shop/sync" },
-  { key: "history", label: "History", href: "/shop/history" },
-  { key: "members", label: "Members", href: "/shop/members" },
-  { key: "roles", label: "Roles", href: "/shop/roles" },
-  { key: "staff", label: "POS / Staff", href: "/shop/staff" },
-  { key: "pos", label: "POS Live", href: "/shop/pos" },
-  { key: "devices", label: "Devices", href: "/shop/devices" },
-  { key: "settings", label: "Settings", href: "/shop/settings" },
-  { key: "audit", label: "Audit", href: "/shop/audit" },
+  items: Array<{
+    key: ShopSectionKey;
+    label: string;
+    href: string;
+  }>;
+};
+
+export const shopNavigationSections: ShopNavigationSection[] = [
+  {
+    key: "workspace",
+    label: "Workspace",
+    items: [{ key: "overview", label: "Overview", href: "/shop/overview" }],
+  },
+  {
+    key: "catalog",
+    label: "Catalog",
+    items: [
+      { key: "products", label: "Products", href: "/shop/products" },
+      { key: "categories", label: "Categories", href: "/shop/categories" },
+      { key: "suppliers", label: "Suppliers", href: "/shop/suppliers" },
+      {
+        key: "importExport",
+        label: "Import / Export",
+        href: "/shop/import-export",
+      },
+    ],
+  },
+  {
+    key: "access",
+    label: "Access",
+    items: [
+      { key: "members", label: "Members", href: "/shop/members" },
+      { key: "roles", label: "Roles", href: "/shop/roles" },
+    ],
+  },
+  {
+    key: "pos_staff",
+    label: "POS / Staff",
+    items: [
+      { key: "staff", label: "Staff", href: "/shop/staff" },
+      { key: "pos", label: "POS Live", href: "/shop/pos" },
+      { key: "devices", label: "Devices", href: "/shop/devices" },
+    ],
+  },
+  {
+    key: "data_diagnostics",
+    label: "Data",
+    items: [
+      { key: "sync", label: "Sync Center", href: "/shop/sync" },
+      { key: "history", label: "History", href: "/shop/history" },
+      { key: "audit", label: "Audit", href: "/shop/audit" },
+    ],
+  },
+  {
+    key: "settings",
+    label: "Settings",
+    items: [{ key: "settings", label: "Settings", href: "/shop/settings" }],
+  },
 ];
+
+export const shopNavigationItems = shopNavigationSections.flatMap(
+  (section) => section.items,
+);
 
 const shellMetrics: ShopSectionMetric[] = [
   {

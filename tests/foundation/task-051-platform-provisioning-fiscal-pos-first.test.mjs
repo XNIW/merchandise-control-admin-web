@@ -751,7 +751,7 @@ test("TASK-051 docs record runtime regression fix, checks, and follow-up boundar
   const evidence = readProjectFile("docs/TASKS/EVIDENCE/TASK-051/README.md");
 
   assertContains(masterPlan, "TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap");
-  assertContains(masterPlan, "Task attivo: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`");
+  assertContains(masterPlan, "Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`");
   assertContains(masterPlan, "Stato TASK-051: `READY_FOR_DONE_CONFIRMATION`");
   assertContains(masterPlan, "Fase TASK-051: `REVIEW`");
   assertContains(masterPlan, "Verdict TASK-051: `READY_FOR_DONE_CONFIRMATION`");

@@ -25,7 +25,9 @@ test("TASK-043 Platform shell exposes a visible safe logout control", () => {
   const appShell = readProjectFile("src/components/platform/AppShell.tsx");
   const logoutRoute = readProjectFile("src/app/auth/logout/route.ts");
 
-  assert.match(appShell, /href="\/auth\/logout"/);
+  assert.match(appShell, /action="\/auth\/logout"/);
+  assert.match(appShell, /method="get"/);
+  assert.match(appShell, /type="submit"/);
   assert.match(appShell, />\s*Logout\s*</);
   assert.match(logoutRoute, /signOut\(\)/);
   assert.match(logoutRoute, /NextResponse\.redirect/);

@@ -50,7 +50,7 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
         ))}
       </section>
 
-      <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="grid gap-5">
         <SectionCard
           title={liveData ? liveData.title : "Planned state"}
           description={
@@ -81,12 +81,20 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
           )}
         </SectionCard>
 
-        <SectionCard
-          title="Safety rules"
-          titleId={`${section.key}-guardrails-title`}
+        <details
+          aria-labelledby={`${section.key}-guardrails-title`}
+          className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm"
         >
-          <GuardrailNotice items={section.guardrails} />
-        </SectionCard>
+          <summary
+            id={`${section.key}-guardrails-title`}
+            className="cursor-pointer text-sm font-semibold text-zinc-950"
+          >
+            Diagnostics
+          </summary>
+          <div className="mt-3">
+            <GuardrailNotice items={section.guardrails} />
+          </div>
+        </details>
       </div>
     </div>
   );

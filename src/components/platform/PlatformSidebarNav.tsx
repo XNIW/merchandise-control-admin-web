@@ -51,6 +51,7 @@ export function PlatformSidebarNav({ activeSection }: PlatformSidebarNavProps) {
           <Link
             key={item.key}
             href={item.href}
+            prefetch={false}
             aria-current={isActive ? "page" : undefined}
             onClick={() =>
               setOptimisticActive({

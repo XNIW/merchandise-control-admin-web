@@ -1,4 +1,3 @@
-import Link from "next/link";
 import type { ReactNode } from "react";
 import type { PlatformSectionKey } from "./platformData";
 import { PlatformSidebarNav } from "./PlatformSidebarNav";
@@ -94,12 +93,14 @@ function Topbar() {
           <span className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
             Controlled actions
           </span>
-          <Link
-            href="/auth/logout"
-            className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 outline-none transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
-          >
-            Logout
-          </Link>
+          <form action="/auth/logout" method="get">
+            <button
+              className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 outline-none transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+              type="submit"
+            >
+              Logout
+            </button>
+          </form>
         </div>
       </div>
     </header>
