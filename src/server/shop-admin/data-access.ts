@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import {
   createSupabaseAdminClient,
   resolveSupabaseAdminConfig,
@@ -12,10 +13,14 @@ import {
 } from "@/lib/supabase/server";
 import { resolveCurrentShopAdminPrincipal } from "./access-principal";
 import type {
+  ShopAdminPrincipalResolution,
   ShopAdminPersonalAccountPrincipal,
   ShopAdminPosStaffManagerPrincipal,
 } from "./access-principal";
-import { resolveStaffWebSessionPrincipal } from "./staff-web-auth";
+import {
+  resolveStaffWebSessionPrincipal,
+  STAFF_WEB_SESSION_MISSING_REASON,
+} from "./staff-web-auth";
 import type { ShopAdminShellShop } from "./shop-access";
 
 export type ShopAdminDataClient = SupabaseAdminClient | SupabaseServerClient;
@@ -87,7 +92,16 @@ function staffShellShop(input: {
   };
 }
 
-export async function resolveShopAdminDataAccess(
+function toPersonalAccountBlockedAccess(
+  personalResolution: Exclude<ShopAdminPrincipalResolution, { status: "ready" }>,
+): BlockedShopAdminDataAccess {
+  return {
+    reason: personalResolution.reason,
+    status: statusForAccessState(personalResolution.status),
+  };
+}
+
+async function resolveShopAdminDataAccessUncached(
   options: ResolveShopAdminDataAccessOptions = {},
 ): Promise<ShopAdminDataAccess> {
   const serverConfig = resolveSupabaseServerConfig();
@@ -96,6 +110,21 @@ export async function resolveShopAdminDataAccess(
     (serverConfig.status === "configured"
       ? await createSupabaseServerClient(serverConfig)
       : null);
+  let personalAccountBlockedAccess: BlockedShopAdminDataAccess | null =
+    serverConfig.status === "not_configured"
+      ? {
+          reason:
+            "Supabase runtime env is not configured for Admin Console authorization.",
+          status: "not_configured",
+        }
+      : null;
+
+  if (serverConfig.status === "configured" && !serverClient) {
+    personalAccountBlockedAccess = {
+      reason: "Supabase server client is unavailable for Admin Console authorization.",
+      status: "not_configured",
+    };
+  }
 
   if (serverClient) {
     const personalResolution = await resolveCurrentShopAdminPrincipal(serverClient);
@@ -125,11 +154,27 @@ export async function resolveShopAdminDataAccess(
         supabase: serverClient,
       };
     }
+
+    personalAccountBlockedAccess =
+      personalResolution.status === "ready"
+        ? {
+            reason:
+              "Resolved personal account access did not produce a personal account principal.",
+            status: "unauthorized",
+          }
+        : toPersonalAccountBlockedAccess(personalResolution);
   }
 
   const staffResolution = await resolveStaffWebSessionPrincipal();
 
   if (staffResolution.status !== "ready") {
+    if (
+      personalAccountBlockedAccess &&
+      staffResolution.reason === STAFF_WEB_SESSION_MISSING_REASON
+    ) {
+      return personalAccountBlockedAccess;
+    }
+
     const fallbackStatus =
       serverConfig.status === "not_configured"
         ? "not_configured"
@@ -138,6 +183,7 @@ export async function resolveShopAdminDataAccess(
     return {
       reason:
         staffResolution.reason ??
+        personalAccountBlockedAccess?.reason ??
         "No personal account or staff web session is authorized for Admin Console.",
       status: fallbackStatus,
     };
@@ -185,4 +231,25 @@ export async function resolveShopAdminDataAccess(
     status: "ready",
     supabase: adminClient,
   };
+}
+
+const resolveShopAdminDataAccessForRequest = cache(
+  async (requestedShopId: string | null, strictRequestedShop: boolean) =>
+    resolveShopAdminDataAccessUncached({
+      requestedShopId,
+      strictRequestedShop,
+    }),
+);
+
+export async function resolveShopAdminDataAccess(
+  options: ResolveShopAdminDataAccessOptions = {},
+): Promise<ShopAdminDataAccess> {
+  if (options.client) {
+    return resolveShopAdminDataAccessUncached(options);
+  }
+
+  return resolveShopAdminDataAccessForRequest(
+    options.requestedShopId ?? null,
+    options.strictRequestedShop === true,
+  );
 }

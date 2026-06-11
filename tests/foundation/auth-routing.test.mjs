@@ -48,9 +48,8 @@ test("TASK-007 routes are protected server-side", () => {
   assert.doesNotMatch(rootPage, /\/auth\/login\?next=\/platform/);
   assert.match(platformLayout, /resolveCurrentAdminRouteAccess/);
   assert.match(platformLayout, /status !== "platform_admin"/);
-  assert.match(shopLayout, /resolveCurrentShopAdminPrincipal/);
-  assert.match(shopLayout, /resolveStaffWebSessionPrincipal/);
-  assert.match(shopLayout, /resolution\.status !== "ready"/);
+  assert.match(shopLayout, /resolveShopAdminDataAccess/);
+  assert.match(shopLayout, /access\.status !== "ready"/);
   assert.match(shopPage, /ShopSectionPage/);
   assert.match(accessState, /no_session/);
   assert.match(accessState, /not_configured/);

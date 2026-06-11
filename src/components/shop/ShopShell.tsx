@@ -2,10 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import type { ChangeEvent, ReactNode } from "react";
+import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import { GuardrailNotice } from "@/components/admin/GuardrailNotice";
 import {
   shopNavigationSections,
+  shopNavigationItems,
+  sharedShopGuardrails,
   type ShopNavigationSection,
+  type ShopSectionKey,
 } from "./shopSections";
 
 type ShopRole = "shop_owner" | "shop_manager";
@@ -40,26 +44,36 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
+function sectionFromPath(pathname: string): ShopSectionKey | null {
+  const matchingItem = [...shopNavigationItems]
+    .sort((left, right) => right.href.length - left.href.length)
+    .find((item) => isActivePath(pathname, item.href));
+
+  return matchingItem?.key ?? null;
+}
+
 function ShopNavigation({
-  pathname,
   buildShopHref,
+  currentActive,
+  onNavigate,
 }: {
-  pathname: string;
   buildShopHref: (href: string) => string;
+  currentActive: ShopSectionKey | null;
+  onNavigate: (key: ShopSectionKey) => void;
 }) {
   return (
     <nav
       aria-label="Shop sections"
-      className="space-y-4 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
+      className="space-y-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
     >
       {shopNavigationSections.map((section: ShopNavigationSection) => (
-        <section key={section.key} className="space-y-2">
-          <p className="px-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+        <section key={section.key} className="space-y-1.5">
+          <p className="px-2 text-[11px] font-semibold uppercase tracking-normal text-zinc-500">
             {section.label}
           </p>
-          <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:gap-2 lg:px-0 lg:pb-0">
+          <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:gap-1 lg:px-0 lg:pb-0">
             {section.items.map((item) => {
-              const isActive = isActivePath(pathname, item.href);
+              const isActive = item.key === currentActive;
 
               return (
                 <Link
@@ -67,6 +81,7 @@ function ShopNavigation({
                   href={buildShopHref(item.href)}
                   prefetch={false}
                   aria-current={isActive ? "page" : undefined}
+                  onClick={() => onNavigate(item.key)}
                   className={[
                     "shrink-0 rounded-md px-3 py-2 text-sm font-medium outline-none transition",
                     "whitespace-nowrap",
@@ -97,6 +112,15 @@ export function ShopShell({
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedShopId = searchParams.get("shop_id");
+  const [optimisticActive, setOptimisticActive] = useState<{
+    key: ShopSectionKey;
+    originPathname: string;
+  } | null>(null);
+  const pathnameActive = useMemo(() => sectionFromPath(pathname), [pathname]);
+  const currentActive =
+    optimisticActive?.originPathname === pathname
+      ? optimisticActive.key
+      : pathnameActive ?? "overview";
   const hasMultipleShops = availableShops.length > 1;
   const selectedShop =
     availableShops.find((shop) => shop.shopId === requestedShopId) ??
@@ -108,7 +132,7 @@ export function ShopShell({
       return href;
     }
 
-    const nextSearchParams = new URLSearchParams(searchParams.toString());
+    const nextSearchParams = new URLSearchParams();
 
     nextSearchParams.set("shop_id", selectedShop.shopId);
     return `${href}?${nextSearchParams.toString()}`;
@@ -116,7 +140,7 @@ export function ShopShell({
 
   function handleShopChange(event: ChangeEvent<HTMLSelectElement>) {
     const nextShopId = event.target.value;
-    const nextSearchParams = new URLSearchParams(searchParams.toString());
+    const nextSearchParams = new URLSearchParams();
 
     nextSearchParams.set("shop_id", nextShopId);
     router.push(`${pathname}?${nextSearchParams.toString()}`);
@@ -151,18 +175,27 @@ export function ShopShell({
               </div>
             </div>
 
-            <ShopNavigation pathname={pathname} buildShopHref={buildShopHref} />
+            <ShopNavigation
+              buildShopHref={buildShopHref}
+              currentActive={currentActive}
+              onNavigate={(key) =>
+                setOptimisticActive({
+                  key,
+                  originPathname: pathname,
+                })
+              }
+            />
 
             <div className="mt-auto rounded-md border border-emerald-200 bg-emerald-50 p-3">
-              <p className="text-xs font-semibold uppercase text-emerald-900">
-                Shop scope
+              <p className="text-xs font-semibold uppercase tracking-normal text-emerald-900">
+                Shop safety
               </p>
-              <p className="mt-2 text-sm leading-6 text-emerald-950">
-                Access is resolved server-side from active shop membership.
-              </p>
-              <p className="mt-1 text-sm leading-6 text-emerald-950">
-                This panel keeps data filtered by selected shop.
-              </p>
+              <div className="mt-3">
+                <GuardrailNotice
+                  title="Shared guardrails"
+                  items={sharedShopGuardrails}
+                />
+              </div>
             </div>
           </div>
         </aside>

@@ -143,10 +143,11 @@ const shellMetrics: ShopSectionMetric[] = [
   },
 ];
 
-const sharedGuardrails = [
+export const sharedShopGuardrails = [
   "Rows must stay limited to this shop and active membership.",
   "Planned pages do not show placeholder rows as live data.",
   "POS staff stays separate from personal admin accounts.",
+  "Credential hashes, PINs, passwords and raw tokens must never be rendered.",
 ];
 
 export const shopSections: Record<ShopSectionKey, ShopSection> = {
@@ -165,7 +166,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Add shop switcher for multi-shop accounts",
       "Surface operational summaries from authorized shop data",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
   products: {
     key: "products",
@@ -182,7 +183,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Render authorized product rows only",
       "Add controlled create/update/archive in a later milestone",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
   categories: {
     key: "categories",
@@ -199,7 +200,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Render empty/error states before CRUD",
       "Audit future category mutations",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
   suppliers: {
     key: "suppliers",
@@ -216,7 +217,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Keep contact fields redacted where needed",
       "Audit future supplier lifecycle changes",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
   importExport: {
     key: "importExport",
@@ -225,15 +226,15 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     title: "Import / Export",
     eyebrow: "Catalog transfer",
     description:
-      "Import/export placeholder. CSV fallback is preferred if Excel requires unnecessary dependencies.",
+      "Excel workbook import/export for live catalog transfer with preview before apply, server-only parsing/writing and audited catalog RPCs.",
     status: "Planning placeholder",
     metrics: shellMetrics,
     plannedWork: [
-      "Check available spreadsheet libraries before adding dependencies",
-      "Prefer CSV export/import fallback if sufficient",
-      "Validate imports before any apply step",
+      "Preview workbook rows before any apply step",
+      "Use the server-only workbook parser/writer already installed",
+      "Respect file and row limits before audited catalog RPCs",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
   sync: {
     key: "sync",
@@ -250,7 +251,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Classify pending, success and failed activity without mutating sync state",
       "Keep sync activity separate from shop audit logs",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
   history: {
     key: "history",
@@ -267,7 +268,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Summarize sync payloads with recursive redaction",
       "Keep mobile sync activity distinct from web audit logs",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
   members: {
     key: "members",
@@ -284,7 +285,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Prevent role escalation and unsafe owner changes",
       "Audit member lifecycle actions",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
   roles: {
     key: "roles",
@@ -293,7 +294,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     title: "Roles",
     eyebrow: "Permissions",
     description:
-      "Role and permission placeholder for shop_owner, shop_manager and viewer capabilities.",
+      "Read-only baseline permission matrix for shop_owner, shop_manager and POS staff roles; no granular role editor is implied.",
     status: "Planning placeholder",
     metrics: shellMetrics,
     plannedWork: [
@@ -301,7 +302,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Keep cashier and POS staff separate from personal members",
       "Document granular permissions before expanding scope",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
   staff: {
     key: "staff",
@@ -310,7 +311,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     title: "POS / Staff",
     eyebrow: "Operations",
     description:
-      "POS staff placeholder. Staff accounts remain shop-scoped and separate from personal admin login.",
+      "POS Staff inside Admin Console. Staff accounts remain shop-scoped and separate from personal admin login.",
     status: "Planning placeholder",
     metrics: shellMetrics,
     plannedWork: [
@@ -318,7 +319,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Never store PIN/password values in plain text",
       "Allow staff records without active credentials if hashing is not ready",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
   pos: {
     key: "pos",
@@ -335,11 +336,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Show staff and heartbeat state without exposing tokens",
       "Keep sales synchronization outside this dashboard",
     ],
-    guardrails: [
-      "Rows must stay limited to this shop and active membership.",
-      "Token hashes and raw tokens must never be rendered.",
-      "Sales sync and sales metrics are outside this section.",
-    ],
+    guardrails: sharedShopGuardrails,
   },
   devices: {
     key: "devices",
@@ -356,7 +353,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Redact fingerprints or device tokens",
       "Audit authorize/suspend/archive actions",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
   settings: {
     key: "settings",
@@ -373,7 +370,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Avoid shop_code changes without a dedicated plan",
       "Audit safe settings updates",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
   audit: {
     key: "audit",
@@ -390,6 +387,6 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Redact metadata before rendering",
       "Add filters after the base audit list is safe",
     ],
-    guardrails: sharedGuardrails,
+    guardrails: sharedShopGuardrails,
   },
 };

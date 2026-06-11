@@ -20,6 +20,8 @@ import {
 } from "./staff-web-permissions";
 
 export const STAFF_WEB_SESSION_COOKIE = "mc_staff_web_session";
+export const STAFF_WEB_SESSION_MISSING_REASON =
+  "No staff web session cookie is present.";
 
 type ShopRow = Pick<
   Tables<"shops">,
@@ -673,7 +675,7 @@ export async function resolveStaffWebSessionPrincipal(): Promise<ShopAdminPrinci
 
   if (!sessionToken) {
     return {
-      reason: "No staff web session cookie is present.",
+      reason: STAFF_WEB_SESSION_MISSING_REASON,
       status: "no_session",
     };
   }

@@ -899,6 +899,74 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
     }
   });
 
+  test("TASK-054 preserves personal account auth across Shop Admin sidebar navigation", async ({
+    page,
+  }) => {
+    if (runtime.status !== "ready") {
+      test.skip(true, runtime.reason);
+      return;
+    }
+
+    const fixture = await createTask035Fixture(runtime);
+
+    try {
+      await signInWithTask035Credentials(page, fixture);
+
+      await page.goto(
+        `/shop/products?${new URLSearchParams({
+          category_id: "leaked-category",
+          event: "leaked-event",
+          query: fixture.productName,
+          shop_id: fixture.shopId,
+          status: "failed",
+          supplier_id: "leaked-supplier",
+          target_id: "leaked-target",
+        }).toString()}`,
+      );
+
+      const navigation = page.getByRole("navigation", { name: "Shop sections" });
+      const flow = [
+        { heading: "Products", label: "Products", text: fixture.productName },
+        { heading: "Categories", label: "Categories", text: "TASK035_Category" },
+        { heading: "Suppliers", label: "Suppliers", text: "TASK035_Supplier" },
+        { heading: "POS / Staff", label: "Staff", text: fixture.staffCode },
+        { heading: "Devices", label: "Devices", text: "Reason" },
+        { heading: "Shop Overview", label: "Overview", text: fixture.shopCode },
+      ] as const;
+
+      for (const step of flow) {
+        await navigation.getByRole("link", { name: step.label }).click();
+        await expect(
+          page.getByRole("heading", { level: 1, name: step.heading }),
+        ).toBeVisible();
+        await expect(page.getByText(step.text).first()).toBeVisible();
+
+        const currentUrl = new URL(page.url());
+
+        expect(currentUrl.searchParams.get("shop_id")).toBe(fixture.shopId);
+        expect([...currentUrl.searchParams.keys()]).toEqual(["shop_id"]);
+        await expect(page.locator("body")).not.toContainText(
+          "No staff web session cookie is present",
+        );
+        await expect(page.locator("body")).not.toContainText("Unauthorized");
+      }
+
+      await assertNoSensitiveText(page, [
+        fixture.cashierCredential,
+        fixture.password,
+        fixture.staffManagerCredential,
+        runtime.publishableKey,
+        runtime.serviceRoleKey,
+      ]);
+    } finally {
+      const cleanup = await fixture.cleanup();
+
+      expect(cleanup.cleanupErrors).toEqual([]);
+      expect(cleanup.userDeleted).toBe(true);
+      expect(cleanup.residualRows).toBe(0);
+    }
+  });
+
   test("uses TASK035_* local synthetic data for staff manager web session and cashier denial", async ({
     page,
   }) => {

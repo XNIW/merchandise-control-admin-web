@@ -1,32 +1,25 @@
 import type { ReactNode } from "react";
 import { AccessState } from "@/components/auth/AccessState";
 import { ShopShell } from "@/components/shop/ShopShell";
-import { resolveCurrentShopAdminPrincipal } from "@/server/shop-admin/access-principal";
-import { resolveStaffWebSessionPrincipal } from "@/server/shop-admin/staff-web-auth";
+import { resolveShopAdminDataAccess } from "@/server/shop-admin/data-access";
 
 export const dynamic = "force-dynamic";
 
 export default async function ShopLayout({ children }: { children: ReactNode }) {
-  const personalResolution = await resolveCurrentShopAdminPrincipal();
-  const staffResolution =
-    personalResolution.status === "ready"
-      ? personalResolution
-      : await resolveStaffWebSessionPrincipal();
-  const resolution =
-    personalResolution.status === "ready" ? personalResolution : staffResolution;
+  const access = await resolveShopAdminDataAccess();
 
-  if (resolution.status !== "ready") {
+  if (access.status !== "ready") {
     return (
       <AccessState
         area="Admin Console"
-        status={resolution.status}
-        reason={resolution.reason}
+        status={access.status}
+        reason={access.reason}
         loginHref="/auth/login?next=/shop"
       />
     );
   }
 
-  const principal = resolution.principal;
+  const principal = access.principal;
   const availableShops =
     principal.kind === "personal_account"
       ? principal.availableShops
@@ -39,16 +32,12 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
             shopStatus: "active",
           },
         ];
-  const selectedShopId =
-    principal.kind === "personal_account"
-      ? principal.selectedShop.shopId
-      : principal.shop.shopId;
 
   return (
     <ShopShell
       availableShops={availableShops}
       principalKind={principal.kind}
-      selectedShopId={selectedShopId}
+      selectedShopId={access.selectedShop.shopId}
     >
       {children}
     </ShopShell>

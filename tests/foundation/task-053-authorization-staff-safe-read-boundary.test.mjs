@@ -52,7 +52,15 @@ test("TASK-053 documents the authorization architecture", () => {
 
   assert.match(task, /Soluzione A: `grants\/view`/);
   assert.match(evidence, /Scelta: Soluzione A, `grants\/view`/);
-  assert.match(masterPlan, /Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`/);
+  assert.match(masterPlan, /Stato TASK-053: `DONE`/);
+  assert.match(masterPlan, /Verdict TASK-053: `DONE`/);
+  assert.doesNotMatch(
+    masterPlan,
+    /Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`/,
+  );
+  assert.match(masterPlan, /Task attivo: `(NONE|NESSUNO)`/);
+  assert.match(masterPlan, /Stato TASK-054: `DONE`/);
+  assert.match(masterPlan, /Verdict TASK-054: `DONE_WITH_NOTES`/);
 });
 
 test("TASK-053 migration fixes only the missing safe staff view grant", () => {

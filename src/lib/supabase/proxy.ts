@@ -71,7 +71,7 @@ export async function updateSupabaseSession(request: NextRequest) {
     },
   );
 
-  await supabase.auth.getSession();
+  await supabase.auth.getClaims();
 
   return response;
 }

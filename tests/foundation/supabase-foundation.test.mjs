@@ -229,7 +229,8 @@ test("TASK-005H Supabase SSR proxy refreshes sessions without authz decisions", 
   assert.match(proxyHelper, /createServerClient/);
   assert.match(proxyHelper, /NextResponse\.next/);
   assert.match(proxyHelper, /request:\s*\{\s*headers:\s*new Headers\(request\.headers\)/);
-  assert.match(proxyHelper, /auth\.getSession\(\)/);
+  assert.match(proxyHelper, /auth\.getClaims\(\)/);
+  assert.doesNotMatch(proxyHelper, /auth\.getSession\(\)/);
   assert.match(proxyHelper, /request\.cookies\.set/);
   assert.match(proxyHelper, /response\.cookies\.set/);
   assert.doesNotMatch(proxyHelper, /platform_admins|is_platform_admin/);

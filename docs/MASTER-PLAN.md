@@ -2140,8 +2140,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Stato: `REVIEW`
 - File task: `docs/TASKS/TASK-052-admin-console-ux-polish-shell-parity.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-052/README.md`
-- Fase: `REVIEW`
-- Responsabile: `CODEX_HANDOFF_TO_REVIEW`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `CODEX_DONE_RECONCILIATION`
 - Branch previsto: `main`
 - Scopo: recovery/safe redo dopo un tentativo precedente di polish Shop Admin
   troppo ampio e non compilabile. Ripristina i pannelli operativi danneggiati
@@ -2158,7 +2158,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-053 - Authorization architecture and staff safe read boundary fix
 
-- Stato: `REVIEW`
+- Stato: `DONE`
 - File task: `docs/TASKS/TASK-053-authorization-architecture-staff-safe-read-boundary.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-053/README.md`
 - Fase: `REVIEW`
@@ -2177,7 +2177,65 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - service-role nel browser;
   - apply cloud/production;
   - commit, push o stage finale.
-- Verdict corrente: `REVIEW`.
+- Verdict corrente: `DONE`.
+
+### TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar/diagnostics
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-054-shop-admin-auth-navigation-sidebar-diagnostics.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-054/README.md`
+- Fase: `DONE`
+- Responsabile: `CODEX_DONE_RECONCILIATION`
+- Branch previsto: `main`
+- Scopo: stabilizzare la navigazione Shop Admin per account personali,
+  correggere il masking tra personal account e staff-web fallback, usare
+  `getClaims()` nel proxy Supabase, ripulire sidebar/diagnostics e impedire
+  regressioni con test foundation/E2E.
+- Implementazione:
+  - `resolveShopAdminDataAccess()` diventa il resolver unico del layout Shop;
+  - personal account valido vince sul fallback staff;
+  - il motivo `No staff web session cookie is present.` non maschera piu il
+    flusso Admin account;
+  - la sidebar Shop propaga solo `shop_id` e centralizza i guardrail in
+    `Shop safety`;
+  - Diagnostics ripetuti sono rimossi dalle pagine Shop;
+  - copy Import/Export, Roles, Staff/POS e mapping states aggiornato.
+- Non include:
+  - schema/RLS/migration/RPC;
+  - console POS separata;
+  - modifiche Win7POS, Android, iOS o Cash Register;
+  - deploy Cloudflare production;
+  - rimozione `vercel.json`;
+  - deploy production o cloud apply.
+- Verdict corrente: `DONE_WITH_NOTES`.
+- Follow-up `TASK-054C` 2026-06-11: Safari reale verificato su
+  `localhost:3054` e `127.0.0.1:3054` via `safaridriver` con Supabase locale e
+  fixture sintetica; login separati per host, sidebar `Products -> Import /
+  Export -> Overview`, solo `shop_id` propagato, assenti `No active session`,
+  `No staff web session cookie is present` e `Unauthorized`, cleanup
+  `cleanupErrors: []`.
+- Final review correttiva Codex 2026-06-11: trovato e corretto drift minore
+  dei guardrail `POS Live`, ora centralizzati in `sharedShopGuardrails` con
+  divieto esplicito di renderizzare credential hash, PIN, password e raw token.
+  Check freschi: `security:scan` PASS, TASK-054 targeted PASS 6/6,
+  `test:foundation` PASS 241/241, `typecheck` PASS, `lint` PASS, `build` e
+  `verify` PASS_WITH_WARNINGS, `test:shop:local` PASS 4/4 riusando server locale
+  su `127.0.0.1:3000`, Safari reale via `safaridriver` PASS su server dedicato
+  `3058` per `localhost` e `127.0.0.1` con cleanup sintetico a zero,
+  `cf:build` PASS_WITH_WARNINGS. `db:local:status` resta fail-closed per
+  `.env.local` puntato a `supabase_cloud`; `db:staging:status` non configurato.
+  Nessun stage, commit, push, migration, deploy o production/cloud apply.
+- Final DONE confirmation Codex 2026-06-11: su richiesta esplicita utente,
+  TASK-054 chiuso a `DONE` con verdict `DONE_WITH_NOTES`.
+  Gate freschi: `git diff --check` PASS, `security:scan` PASS, targeted
+  TASK-054 PASS 6/6, `test:foundation` PASS 241/241, `typecheck` PASS,
+  `lint` PASS, `build` e `verify` PASS_WITH_WARNINGS, `test:shop:local` PASS
+  4/4 su server locale esistente, Safari reale via `safaridriver` PASS su
+  server dedicato `3059` per `localhost` e `127.0.0.1` con solo `shop_id` in
+  URL e cleanup sintetico a zero, `cf:build` PASS_WITH_WARNINGS.
+  `db:local:status` e `db:staging:status` restano note ambientali fail-closed /
+  non configurate. Commit/push finali autorizzati esplicitamente dall'utente;
+  nessun migration, schema/RLS/RPC, deploy production, cloud apply o dato reale.
 
 ## Tooling policy
 
@@ -2192,8 +2250,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `TASK_053_AUTHORIZATION_STAFF_SAFE_READ_BOUNDARY_REVIEW`
-- Ultimo task completato: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`
+- Stato globale attuale: `IDLE`
+- Ultimo task completato: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar/diagnostics`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -2240,21 +2298,24 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-049: `DONE_RECONCILED`
 - Stato TASK-050: `DONE_RECONCILED`
 - Fase TASK-050: `DONE_RECONCILED`
+- Task TASK-051: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`
 - Stato TASK-051: `DONE`
 - Fase TASK-051: `REVIEW`
 - Stato TASK-052: `DONE`
 - Fase TASK-052: `REVIEW`
-- Stato TASK-053: `REVIEW`
+- Stato TASK-053: `DONE`
 - Fase TASK-053: `REVIEW`
-- Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`
-- Task precedente: `TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap`
-- Ultimo task chiuso: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`
-- File task: `docs/TASKS/TASK-053-authorization-architecture-staff-safe-read-boundary.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-053/README.md`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
-- Milestone interna: `TASK_053_AUTHORIZATION_STAFF_SAFE_READ_BOUNDARY`
-- Responsabile: `CODEX_HANDOFF_TO_REVIEW`
+- Stato TASK-054: `DONE`
+- Fase TASK-054: `DONE`
+- Task attivo: `NESSUNO`
+- Task precedente: `TASK-053 - Authorization architecture and staff safe read boundary fix`
+- Ultimo task chiuso: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar/diagnostics`
+- File task: `docs/TASKS/TASK-054-shop-admin-auth-navigation-sidebar-diagnostics.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-054/README.md`
+- Stato task: `DONE`
+- Fase: `DONE`
+- Milestone interna: `TASK_054_DONE`
+- Responsabile: `CODEX_DONE_RECONCILIATION`
 - Branch previsto: `main`
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -2290,7 +2351,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-050: `DONE_RECONCILED`
 - Verdict TASK-051: `DONE`
 - Verdict TASK-052: `DONE`
-- Verdict TASK-053: `REVIEW`
+- Verdict TASK-053: `DONE`
+- Verdict TASK-054: `DONE_WITH_NOTES`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
 - DONE reconciliation 2026-06-06: su conferma esplicita utente, TASK-046..TASK-050 chiusi a `DONE_RECONCILED`; TASK-040 e TASK-041 restano `REVIEW_WITH_EXTERNAL_BLOCKERS`, TASK-042 resta `READY_FOR_WIN7_MANUAL_TEST`. Commit/push finale su `main` richiesti dall'utente.
 - TASK-051 aperto in execution il 2026-06-06 da brief allegato: provisioning fiscal identity, POS-first bootstrap, manager staff `1001`, Temporary PIN server-side, Admin Console fiscal identity read-only. `shop_code` resta tecnico e `company_rut` separato per compatibilita RUT cileno. Non applicare migration su production e non dichiarare PIN raw/audit/log/evidence.
@@ -2313,7 +2375,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - TASK-052 recovery 2026-06-11: aperto per ripristinare stato compilabile dopo tentativo precedente di Shop/Admin UX polish non affidabile. Ripristinati da `HEAD` i pannelli operativi catalog/import-export/member/staff e le pagine contaminate dal tracking `actionsEnabled`; riapplicato solo polish piccolo su ShopShell, navigazione, Diagnostics e tracking. Non dichiarare `DONE`, non fare commit/push/stage e non creare dati locali o migration.
 - TASK-052 final review 2026-06-11: regressione completa rieseguita dopo fix `ShopShell` `prefetch={false}` su nav protetta e logout; browser laterale autenticato su `127.0.0.1:3049` con fixture locale `TASK052_REVIEW_*`; cleanup locale completata con residui a zero. Stato resta `DONE`, non `DONE`. Rischio residuo tracciato: smoke legacy TASK-035 passa 2/3 e resta bloccato solo sulla safe view shop-owner `/shop/staff` (`Read blocked`), non su perdita sessione.
 - TASK-053 aperto il 2026-06-11: fix architetturale del blocker `/shop/staff Read blocked`. La riproduzione locale ha confermato `42501 permission denied for table staff_accounts` su `staff_accounts_safe` per account personale autenticato, mentre la lettura diretta delle colonne safe gia grantate passava. Soluzione scelta: grant colonnare additivo `SELECT(web_access_revoked_at)` a `authenticated`, con RLS e `security_invoker=true` preservati; nessun service-role browser e nessun grant su `credential_hash`.
-- Prossima azione consigliata: prova manuale utente di TASK-051 su runtime locale con `platform.local@example.test`; se confermata senza blocker, l'utente puo chiudere TASK-051 a `DONE`. Follow-up separati restano Catalog migration/import preview, Win7POS uso dei dati boleta e guard ultimo manager full-access. Non marcare `TASK-041 DONE` o `TASK-040 DONE` e non dichiarare Win7POS live/Sales Sync live `PASS` finche mancano run reali/evidence.
+- TASK-054 aperto/allineato il 2026-06-11: stabilizzazione Shop Admin auth navigation e pulizia sidebar/diagnostics. Root cause: personal account failure/no-session poteva essere mascherato dal fallback staff-web con `No staff web session cookie is present.`; inoltre la sidebar propagava query param pagina-specifici tra sezioni. Fix: proxy Supabase passa a `getClaims()`, layout Shop usa `resolveShopAdminDataAccess()`, personal account valido vince sul fallback staff, staff-cookie missing non maschera il flusso Admin account, sidebar preserva solo `shop_id`, active state ottimistico, guardrail condivisi centralizzati in `Shop safety`, Diagnostics per-page rimossi, copy Shop Admin riallineato. Check eseguiti: targeted TASK-054 RED/GREEN, `test:foundation` 241/241, `security:scan`, `lint`, `typecheck`, `build`, `verify`, `test:shop:local` 4/4 con server esistente riusato, browser laterale e `cf:build` PASS_WITH_WARNINGS. Follow-up TASK-054C: processi Next stale su `3000`/`3049`/`3052`/`3053` fermati, host `localhost` e `127.0.0.1` testati separatamente, Safari reale verificato via `safaridriver` su `3054` con Supabase locale e cleanup sintetico a zero. Final review correttiva: drift guardrail `POS Live` corretto, Safari reale rieseguito su `3058`, E2E locale `test:shop:local` PASS 4/4, `verify` PASS_WITH_WARNINGS, `cf:build` PASS_WITH_WARNINGS, Supabase status locale/staging documentati come note ambientali. Final DONE confirmation: Safari reale rieseguito su `3059`, tutti i gate critici PASS/PASS_WITH_WARNINGS con warning non bloccanti, TASK-054 chiuso a `DONE` / `DONE_WITH_NOTES`. Commit/push finali autorizzati esplicitamente dall'utente; nessun migration, deploy production o cloud apply.
+- Prossima azione consigliata: selezionare un prossimo task esplicito da aprire in `PLANNING`/`EXECUTION`, mantenendo parcheggiati Vercel production, Win7POS live/Sales Sync live e Cloudflare production finche non esistono target, credenziali e conferma esplicita. Non marcare `TASK-041 DONE` o `TASK-040 DONE` e non dichiarare Win7POS live/Sales Sync live `PASS` finche mancano run reali/evidence.
 
 ## Regole di avanzamento
 

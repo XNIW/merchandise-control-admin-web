@@ -57,12 +57,15 @@ test("TASK-052 Shop navigation keeps POS and Staff inside Admin Console", () => 
   assert.doesNotMatch(sections, /rowKey:\s*["'](?:demo|mock|placeholder)/i);
 });
 
-test("TASK-052 Shop diagnostics are collapsed instead of a primary safety column", () => {
+test("TASK-052 Shop diagnostics are centralized in the sidebar instead of repeated per page", () => {
   const sectionPage = readProjectFile("src/components/shop/ShopSectionPage.tsx");
+  const shell = readProjectFile("src/components/shop/ShopShell.tsx");
 
-  assert.match(sectionPage, /<details/);
-  assert.match(sectionPage, />\s*Diagnostics\s*</);
-  assert.match(sectionPage, /GuardrailNotice/);
+  assert.doesNotMatch(sectionPage, /<details/);
+  assert.doesNotMatch(sectionPage, />\s*Diagnostics\s*</);
+  assert.doesNotMatch(sectionPage, /GuardrailNotice/);
+  assert.match(shell, /GuardrailNotice/);
+  assert.match(shell, />\s*Shop safety\s*</);
   assert.doesNotMatch(sectionPage, /title="Safety rules"/);
   assert.doesNotMatch(sectionPage, /xl:grid-cols-\[minmax\(0,1fr\)_340px\]/);
 });

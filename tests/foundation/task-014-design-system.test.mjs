@@ -38,6 +38,7 @@ test("TASK-014 shared Admin components exist", () => {
 test("TASK-014 applies shared components to Platform and Shop surfaces", () => {
   const platformPage = readProjectFile("src/components/platform/PlatformPage.tsx");
   const shopPage = readProjectFile("src/components/shop/ShopSectionPage.tsx");
+  const shopShell = readProjectFile("src/components/shop/ShopShell.tsx");
 
   assert.match(platformPage, /@\/components\/admin\/PageHeader/);
   assert.match(platformPage, /@\/components\/admin\/SectionCard/);
@@ -47,7 +48,7 @@ test("TASK-014 applies shared components to Platform and Shop surfaces", () => {
   assert.match(shopPage, /@\/components\/admin\/PageHeader/);
   assert.match(shopPage, /@\/components\/admin\/SectionCard/);
   assert.match(shopPage, /@\/components\/admin\/AdminDataTable/);
-  assert.match(shopPage, /@\/components\/admin\/GuardrailNotice/);
+  assert.match(shopShell, /@\/components\/admin\/GuardrailNotice/);
 });
 
 test("TASK-014 keeps shared components server-safe", () => {

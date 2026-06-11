@@ -762,6 +762,12 @@ function inventoryFallbackSection(
     description: readModel.reason,
     status,
     metrics: [
+      metric(
+        "Shop access",
+        readModel.selectedShop ? "Shop access verified" : status,
+        "Server-side principal check",
+        readModel.selectedShop ? "good" : "warning",
+      ),
       metric("Mapping", status, "shop_inventory_sources gate", "warning"),
       metric("Rows shown", "0", "No fallback rows are rendered", "muted"),
       metric("Writes", "Blocked", "Mutation boundary not verified", "warning"),

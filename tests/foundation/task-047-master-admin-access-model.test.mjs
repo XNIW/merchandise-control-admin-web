@@ -93,11 +93,12 @@ test("TASK-047 keeps route guards technical while documenting equivalent shop ac
 
   assertContains(platformLayout, 'access.status !== "platform_admin"');
   assertContains(platformLayout, 'loginHref="/auth/login?next=/platform"');
-  assertContains(shopLayout, "resolveCurrentShopAdminPrincipal");
-  assertContains(shopLayout, "resolveStaffWebSessionPrincipal");
+  assertContains(shopLayout, "resolveShopAdminDataAccess");
   assertContains(shopLayout, 'principal.kind === "personal_account"');
   assertContains(accessPrincipal, '"personal_account"');
   assertContains(accessPrincipal, '"pos_staff_manager"');
+  assertContains(dataAccess, "resolveCurrentShopAdminPrincipal");
+  assertContains(dataAccess, "resolveStaffWebSessionPrincipal");
   assertContains(dataAccess, 'principal.kind === "personal_account"');
   assertContains(dataAccess, 'principalKind: "pos_staff_manager"');
   assertContains(dataAccess, "adminClient");
@@ -161,7 +162,7 @@ test("TASK-047 governance docs record product decision and access matrix", () =>
     assertContains(docs, required, `docs must contain ${required}`);
   }
 
-  assert.match(masterPlan, /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`/);
+  assert.match(masterPlan, /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`/);
   assert.match(masterPlan, /Stato TASK-047: `DONE_RECONCILED`/);
   assert.match(masterPlan, /Fase TASK-047: `DONE_RECONCILED`/);
   assert.doesNotMatch(

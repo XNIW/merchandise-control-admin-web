@@ -1,0 +1,109 @@
+{
+  "verdict": "PASS",
+  "browser": "Safari real via safaridriver",
+  "date": "2026-06-11",
+  "port": 3059,
+  "supabaseTarget": "local",
+  "fixture": {
+    "kind": "synthetic",
+    "shopCodePrefix": "TASK054D_SHOP",
+    "shopId": "7fb19805-6709-46d7-b26e-2ef24bac1535",
+    "cleanup": {
+      "cleanupErrors": [],
+      "residualRows": 0,
+      "userDeleted": true
+    }
+  },
+  "hosts": {
+    "localhost": [
+      {
+        "path": "/shop/products",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Products"
+      },
+      {
+        "path": "/shop/categories",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Categories"
+      },
+      {
+        "path": "/shop/suppliers",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Suppliers"
+      },
+      {
+        "path": "/shop/import-export",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Import / Export"
+      },
+      {
+        "path": "/shop/staff",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "POS / Staff"
+      },
+      {
+        "path": "/shop/devices",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Devices"
+      },
+      {
+        "path": "/shop/settings",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Settings"
+      },
+      {
+        "path": "/shop/overview",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Shop Overview"
+      }
+    ],
+    "127.0.0.1": [
+      {
+        "path": "/shop/products",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Products"
+      },
+      {
+        "path": "/shop/categories",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Categories"
+      },
+      {
+        "path": "/shop/suppliers",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Suppliers"
+      },
+      {
+        "path": "/shop/import-export",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Import / Export"
+      },
+      {
+        "path": "/shop/staff",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "POS / Staff"
+      },
+      {
+        "path": "/shop/devices",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Devices"
+      },
+      {
+        "path": "/shop/settings",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Settings"
+      },
+      {
+        "path": "/shop/overview",
+        "query": "?shop_id=7fb19805-6709-46d7-b26e-2ef24bac1535",
+        "heading": "Shop Overview"
+      }
+    ]
+  },
+  "forbiddenTextAbsent": [
+    "Admin Console access required",
+    "No active session",
+    "No staff web session cookie is present",
+    "Unauthorized"
+  ]
+}

@@ -1,5 +1,4 @@
 import { AdminDataTable } from "@/components/admin/AdminDataTable";
-import { GuardrailNotice } from "@/components/admin/GuardrailNotice";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { SectionCard } from "@/components/admin/SectionCard";
 import type { ShopSection, ShopSectionMetric } from "./shopSections";
@@ -81,20 +80,6 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
           )}
         </SectionCard>
 
-        <details
-          aria-labelledby={`${section.key}-guardrails-title`}
-          className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm"
-        >
-          <summary
-            id={`${section.key}-guardrails-title`}
-            className="cursor-pointer text-sm font-semibold text-zinc-950"
-          >
-            Diagnostics
-          </summary>
-          <div className="mt-3">
-            <GuardrailNotice items={section.guardrails} />
-          </div>
-        </details>
       </div>
     </div>
   );
