@@ -78,6 +78,9 @@ test("TASK-036 npm scripts are safe local helpers and Vercel remains parked", ()
 
   for (const required of [
     "redactSupabaseStatus",
+    "sensitiveStatusEnvKeys",
+    "ANON_KEY",
+    "SERVICE_ROLE_KEY",
     "NEXT_PUBLIC_SUPABASE_URL_TARGET",
     "local/dev checks fail closed",
     "service[_ -]?role key",

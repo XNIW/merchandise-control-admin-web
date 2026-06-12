@@ -2419,14 +2419,16 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   autorizzato.
 - Review/fix finale TASK-057 2026-06-12: corretti guard same-origin/body/file
   sulle route import, detail prodotto archiviato, copy/no-store export e export
-  PriceHistory completo paginato. Check finali: TASK-057 targeted `19/19`,
-  TASK-028+057 targeted `25/25`, `test:foundation` `276/276`,
+  PriceHistory completo paginato. Check finali: TASK-057 targeted `21/21`,
+  TASK-028+057 targeted `27/27`, `test:foundation` `278/278`,
   `security:scan`, `typecheck`, `lint`, `build`, `verify`,
   `test:shop-admin-auth-smoke` `4/4` dopo riallineamento script al wrapper
   locale process-only, `test:platform:local` `1/1`,
-  `test:platform:local-login` `1/1`, Supabase local migration/list/lint,
-  QA Playwright autenticata, Dingli apply, Database apply/export
-  `PriceHistory 44295` e cleanup TASK057 residui zero. Verdict TASK-057:
+  `test:platform:local-login` `PASS_WITH_SKIP` gated da conferma/password
+  runtime, `db:local:status` `FAIL_CLOSED_EXPECTED` con output Supabase redatto,
+  Supabase local migration/list/lint, QA Browser in-app fail-closed,
+  preview redatta Dingli/Database e apply reale non rieseguito in review finale.
+  Aggiunto fix di redazione per `scripts/dev-supabase-check.mjs`. Verdict TASK-057:
   `READY_FOR_DONE_CONFIRMATION`; resta `REVIEW`, non `DONE`, finche manca la
   conferma utente esplicita.
 - Snapshot pre-TASK-055 2026-06-11: Stato globale attuale: `IDLE`;

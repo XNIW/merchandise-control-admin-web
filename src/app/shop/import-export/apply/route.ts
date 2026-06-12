@@ -36,9 +36,13 @@ export async function POST(request: Request) {
     bytes: Buffer.from(await file.arrayBuffer()),
     confirmApply: formString(formData, "confirmApply"),
     fileName: file.name,
+    importMode: formString(formData, "importMode") === "database"
+      ? "database"
+      : "supplier",
     mimeType: file.type,
     previewDigest: formString(formData, "previewDigest"),
     requestedShopId: formString(formData, "shop_id") || undefined,
+    rowAdjustments: formString(formData, "rowAdjustments"),
   });
 
   return Response.json(result, { status: result.ok ? 200 : 400 });

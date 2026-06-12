@@ -17,6 +17,16 @@ const requiredEnvNames = [
   "SUPABASE_PROJECT_REF",
   "SUPABASE_SERVICE_ROLE_KEY",
 ];
+const sensitiveStatusEnvKeys = new Set([
+  "ANON_KEY",
+  "DB_URL",
+  "JWT_SECRET",
+  "PUBLISHABLE_KEY",
+  "S3_PROTOCOL_ACCESS_KEY_ID",
+  "S3_PROTOCOL_ACCESS_KEY_SECRET",
+  "SECRET_KEY",
+  "SERVICE_ROLE_KEY",
+]);
 let failures = 0;
 
 function log(message) {
@@ -215,6 +225,26 @@ function redactSupabaseStatus(output) {
   return output
     .split(/\r?\n/)
     .map((line) => {
+      const jsonKeyValue = line.match(/^(\s*"([^"]+)"\s*:\s*)(.*?)(,?\s*)$/);
+      const envKeyValue = line.match(/^(\s*([A-Z0-9_]+)\s*=\s*)(.+?)(\s*)$/i);
+      const statusKey = jsonKeyValue?.[2] ?? envKeyValue?.[2] ?? "";
+      const normalizedStatusKey = statusKey.toUpperCase();
+
+      if (
+        sensitiveStatusEnvKeys.has(normalizedStatusKey) ||
+        /(?:SECRET|TOKEN|PASSWORD|SERVICE_ROLE|JWT|DB_URL|DATABASE_URL)/i.test(
+          normalizedStatusKey,
+        )
+      ) {
+        if (jsonKeyValue) {
+          return `${jsonKeyValue[1]}[redacted]${jsonKeyValue[4]}`;
+        }
+
+        if (envKeyValue) {
+          return `${envKeyValue[1]}[redacted]${envKeyValue[4]}`;
+        }
+      }
+
       if (
         /(?:anon key|publishable|service[_ -]?role key|secret(?:\s+key)?|jwt secret|db url|database url|postgres(?:ql)?:\/\/|s3 access key|s3 secret key|access key)/i.test(
           line,

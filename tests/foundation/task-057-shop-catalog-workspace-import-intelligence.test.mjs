@@ -128,6 +128,9 @@ test("TASK-057 Products workspace exposes named filters, state filter and full c
 test("TASK-057 catalog actions are toolbar buttons with accessible dialogs", () => {
   const catalogPanel = read("src/app/shop/_components/CatalogActionPanel.tsx");
   const productsPage = read("src/app/shop/products/page.tsx");
+  const importExportPanel = read(
+    "src/app/shop/_components/ImportExportActionPanel.tsx",
+  );
   const categoriesPage = read("src/app/shop/categories/page.tsx");
   const suppliersPage = read("src/app/shop/suppliers/page.tsx");
   const sectionPage = read("src/components/shop/ShopSectionPage.tsx");
@@ -137,16 +140,16 @@ test("TASK-057 catalog actions are toolbar buttons with accessible dialogs", () 
   assertContains(catalogPanel, "aria-modal=\"true\"");
   assertContains(catalogPanel, "catalogToolbarButtonClassName");
   assertContains(catalogPanel, "ProductPicker");
-  assertContains(catalogPanel, "CategoryPicker");
-  assertContains(catalogPanel, "SupplierPicker");
+  assertContains(catalogPanel, "CreatableCategoryField");
+  assertContains(catalogPanel, "CreatableSupplierField");
   assertContains(catalogPanel, "initialEntityId");
   assertContains(catalogPanel, "SelectedEntitySummary");
 
   for (const required of [
     "New product",
     "Import supplier Excel",
-    "Export catalog",
-    "Advanced database import/export",
+    "Export catalog Excel",
+    "Database transfer",
   ]) {
     assertContains(catalogPanel, required);
   }
@@ -175,7 +178,26 @@ test("TASK-057 catalog actions are toolbar buttons with accessible dialogs", () 
     assert.doesNotMatch(catalogPanel, forbidden);
   }
 
-  assertContains(productsPage, "ImportExportActionPanel");
+  assertContains(productsPage, "canImport={canImport}");
+  assertContains(productsPage, "canExport={canExport}");
+  assertContains(catalogPanel, "SupplierExcelImportWizard");
+  assertContains(catalogPanel, "CatalogExportPanel");
+  assertContains(catalogPanel, "DatabaseTransferPanel");
+  assertContains(importExportPanel, "data-catalog-flow");
+  assertContains(importExportPanel, "supplier-excel-wizard");
+  assertContains(importExportPanel, "catalog-export");
+  assertContains(importExportPanel, "database-transfer");
+  assertContains(importExportPanel, "<details");
+  assertContains(importExportPanel, "Download catalog export");
+  assertContains(importExportPanel, "selected shop only");
+  assertContains(importExportPanel, "Confirm {confirmationWord}");
+  assertContains(importExportPanel, "APPLY");
+  assertContains(importExportPanel, "IMPORT DATABASE");
+  assert.match(
+    importExportPanel,
+    /<SupplierExcelImportWizard[\s\S]*<CatalogExportPanel[\s\S]*<details[\s\S]*<DatabaseTransferPanel/,
+    "supplier import, export and advanced database transfer must render in that order",
+  );
   assertContains(productsPage, "ProductRowActions");
   assertContains(productsPage, "product_action");
   assertContains(productsPage, "product_id");
@@ -194,25 +216,145 @@ test("TASK-057 catalog actions are toolbar buttons with accessible dialogs", () 
     "toolbar must render before the live data table card",
   );
   assert.doesNotMatch(catalogPanel, /lg:grid-cols-3/);
+  assert.doesNotMatch(
+    catalogPanel,
+    /importExportPanel=\{children\}[\s\S]*title="Export catalog Excel"[\s\S]*\{importExportPanel\}/,
+    "Export catalog must not reuse the supplier import modal body",
+  );
 });
 
-test("TASK-057 import export is embedded in Products and compatibility route does not duplicate logic", () => {
+test("TASK-057 supplier Excel wizard uses fetch, bounded preview metadata and no raw JSON navigation", () => {
   const productsPage = read("src/app/shop/products/page.tsx");
   const importExportPage = read("src/app/shop/import-export/page.tsx");
   const exportRoute = read("src/app/shop/import-export/export/route.ts");
+  const previewRoute = read("src/app/shop/import-export/preview/route.ts");
+  const applyRoute = read("src/app/shop/import-export/apply/route.ts");
+  const workbook = read("src/server/shop-admin/import-export-workbook.ts");
   const importExportPanel = read(
     "src/app/shop/_components/ImportExportActionPanel.tsx",
   );
 
-  assertContains(productsPage, "ImportExportActionPanel");
+  assertContains(productsPage, "CatalogActionPanel");
   assert.match(importExportPage, /Moved to Products|redirect\(/);
   assertContains(importExportPanel, "Import supplier Excel");
   assertContains(importExportPanel, "Preview supplier workbook");
   assertContains(importExportPanel, "Advanced database transfer");
   assertContains(importExportPanel, "IMPORT DATABASE");
   assertContains(importExportPanel, "full price history");
+  assertContains(importExportPanel, "\"use client\"");
+  assertContains(importExportPanel, "fetch(");
+  assertContains(importExportPanel, "credentials: \"same-origin\"");
+  assertContains(importExportPanel, "readJsonResponse");
+  assertContains(importExportPanel, "response.headers.get(\"content-type\")");
+  assertContains(importExportPanel, "rowAdjustments");
+  assertContains(importExportPanel, "previewRows");
+  assertContains(importExportPanel, "rowFingerprint");
+  assertContains(importExportPanel, "Retail price");
+  assertContains(importExportPanel, "Stock quantity");
+  assertContains(importExportPanel, "Ready");
+  assertContains(importExportPanel, "Blocked");
+  assertContains(importExportPanel, "Duplicate");
+  assertContains(importExportPanel, "Update");
+  assertContains(importExportPanel, "New");
+  assertContains(importExportPanel, "selected shop only");
+  assertContains(previewRoute, "importMode");
+  assertContains(applyRoute, "rowAdjustments");
+  assertContains(workbook, "MAX_PREVIEW_ROWS");
+  assertContains(workbook, "workbookMetadata");
+  assertContains(workbook, "originalColumns");
+  assertContains(workbook, "unmappedColumns");
+  assertContains(workbook, "parsedRows");
+  assertContains(workbook, "previewRowsLimit");
+  assertContains(workbook, "totalRows");
+  assertContains(workbook, "previewRowsTruncated");
+  assertContains(workbook, "CatalogWorkbookPreviewRow");
   assert.doesNotMatch(importExportPanel, /recent prices/i);
+  assert.doesNotMatch(
+    importExportPanel,
+    /action="\/shop\/import-export\/(?:preview|apply)"/,
+    "JSON routes must be called with fetch, not native navigation forms",
+  );
   assertContains(exportRoute, "\"Cache-Control\": \"no-store\"");
+});
+
+test("TASK-057 product creation resolves creatable supplier and category server-side", () => {
+  const actions = read("src/app/shop/actions.ts");
+  const catalogPanel = read("src/app/shop/_components/CatalogActionPanel.tsx");
+
+  for (const required of [
+    "resolveProductCatalogRelations",
+    "supplierName",
+    "categoryName",
+    "lookupCatalogRelation",
+    "createSupplier",
+    "createCategory",
+    "getShopInventoryReadModel",
+    "supplier id and name do not match",
+    "category id and name do not match",
+    "retryCatalogRelationLookup",
+    "createProductAction",
+    "await createProduct({",
+  ]) {
+    assertContains(actions, required);
+  }
+
+  for (const required of [
+    "CreatableSupplierField",
+    "CreatableCategoryField",
+    "list=\"supplier-options\"",
+    "list=\"category-options\"",
+    "name=\"supplierName\"",
+    "name=\"categoryName\"",
+    "type=\"hidden\"",
+    "Existing supplier or new supplier name",
+    "Existing category or new category name",
+  ]) {
+    assertContains(catalogPanel, required);
+  }
+
+  assert.ok(
+    actions.indexOf("validateCatalogProductInput") <
+      actions.indexOf("resolveProductCatalogRelations"),
+    "product input must be validated before creating supplier/category rows",
+  );
+  assert.ok(
+    actions.indexOf("resolveProductCatalogRelations") <
+      actions.indexOf("await createProduct({"),
+    "product must be created only after supplier/category resolution",
+  );
+});
+
+test("TASK-057 apply validates digest token and row adjustments server-side", () => {
+  const workbook = read("src/server/shop-admin/import-export-workbook.ts");
+  const applyRoute = read("src/app/shop/import-export/apply/route.ts");
+
+  for (const required of [
+    "CatalogWorkbookRowAdjustment",
+    "catalogImportRowFingerprint",
+    "buildPreviewDigest",
+    "fileDigest",
+    "selectedProductSheet",
+    "detectedHeaderRow",
+    "detectedMapping",
+    "validateRowAdjustments",
+    "applyRowAdjustments",
+    "duplicate rowNumber",
+    "rowFingerprint",
+    "preview_mismatch",
+    "Number.isFinite",
+    "MAX_ROW_ADJUSTMENTS",
+    "MAX_ROW_ADJUSTMENTS_JSON_BYTES",
+    "rowAdjustments",
+  ]) {
+    assertContains(`${workbook}\n${applyRoute}`, required);
+  }
+
+  assert.match(
+    workbook,
+    /validateRowAdjustments\(\s*parsed,[\s\S]*applyRowAdjustments\([\s\S]*validateCatalogImportRows\(\s*adjustedParsed,/,
+    "adjustments must be validated and applied before import row validation",
+  );
+  assert.doesNotMatch(workbook, /console\.(log|debug|warn)\(.*workbook/i);
 });
 
 test("TASK-057 import routes fail closed on cross-site or unbounded upload requests", () => {

@@ -13,6 +13,8 @@ import {
   updateCategory,
   updateProduct,
   updateSupplier,
+  validateCatalogProductInput,
+  type ProductMutationInput,
 } from "@/server/shop-admin/catalog-mutations";
 import {
   formString,
@@ -98,6 +100,169 @@ function catalogProductInput(formData: FormData) {
   };
 }
 
+type CatalogRelationKind = "supplier" | "category";
+
+function normalizeCatalogRelationName(value?: string) {
+  return value?.trim().replace(/\s+/g, " ") ?? "";
+}
+
+function relationNameKey(value: string) {
+  return value.trim().toLowerCase();
+}
+
+async function retryCatalogRelationLookup(
+  kind: CatalogRelationKind,
+  requestedShopId: string | undefined,
+  name: string,
+) {
+  const readModel = await getShopInventoryReadModel({ requestedShopId });
+
+  if (readModel.status !== "ready") {
+    return undefined;
+  }
+
+  const key = relationNameKey(name);
+
+  if (kind === "supplier") {
+    return readModel.suppliers.find(
+      (supplier) => relationNameKey(supplier.name) === key,
+    )?.supplierId;
+  }
+
+  return readModel.categories.find(
+    (category) => relationNameKey(category.name) === key,
+  )?.categoryId;
+}
+
+async function lookupCatalogRelation(
+  kind: CatalogRelationKind,
+  formData: FormData,
+  currentId: string | undefined,
+  currentName: string | undefined,
+): Promise<{ id?: string } | ShopAdminActionResult> {
+  const requested = requestedShopId(formData);
+  const name = normalizeCatalogRelationName(currentName);
+
+  if (!currentId && !name) {
+    return { id: undefined };
+  }
+
+  const readModel = await getShopInventoryReadModel({ requestedShopId: requested });
+
+  if (readModel.status !== "ready") {
+    return shopAdminActionResult("unauthorized_or_unmapped", {
+      ok: false,
+    });
+  }
+
+  const options = kind === "supplier"
+    ? readModel.suppliers.map((supplier) => ({
+        id: supplier.supplierId,
+        name: supplier.name,
+      }))
+    : readModel.categories.map((category) => ({
+        id: category.categoryId,
+        name: category.name,
+      }));
+  const byId = currentId
+    ? options.find((option) => option.id === currentId)
+    : undefined;
+
+  if (currentId && !byId) {
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors: {
+        [`${kind}Id`]: `Selected ${kind} does not belong to this shop.`,
+      },
+      ok: false,
+    });
+  }
+
+  if (byId && name && relationNameKey(byId.name) !== relationNameKey(name)) {
+    const relationMismatchMessage = kind === "supplier"
+      ? "supplier id and name do not match."
+      : "category id and name do not match.";
+
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors: {
+        [`${kind}Name`]: relationMismatchMessage,
+      },
+      ok: false,
+    });
+  }
+
+  if (byId) {
+    return { id: byId.id };
+  }
+
+  const existingByName = options.find(
+    (option) => relationNameKey(option.name) === relationNameKey(name),
+  );
+
+  if (existingByName) {
+    return { id: existingByName.id };
+  }
+
+  const createResult = kind === "supplier"
+    ? await createSupplier({ name, requestedShopId: requested })
+    : await createCategory({ name, requestedShopId: requested });
+
+  if (createResult.ok && createResult.targetId) {
+    return { id: createResult.targetId };
+  }
+
+  if (createResult.code === "conflict" || createResult.ok) {
+    const retryId = await retryCatalogRelationLookup(kind, requested, name);
+
+    if (retryId) {
+      return { id: retryId };
+    }
+  }
+
+  return createResult;
+}
+
+async function resolveProductCatalogRelations(
+  formData: FormData,
+  input: ProductMutationInput,
+): Promise<ProductMutationInput | ShopAdminActionResult> {
+  const fieldErrors = validateCatalogProductInput(input);
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors,
+      ok: false,
+    });
+  }
+
+  const supplier = await lookupCatalogRelation(
+    "supplier",
+    formData,
+    input.supplierId,
+    optionalFormString(formData, "supplierName"),
+  );
+
+  if ("ok" in supplier) {
+    return supplier;
+  }
+
+  const category = await lookupCatalogRelation(
+    "category",
+    formData,
+    input.categoryId,
+    optionalFormString(formData, "categoryName"),
+  );
+
+  if ("ok" in category) {
+    return category;
+  }
+
+  return {
+    ...input,
+    categoryId: category.id,
+    supplierId: supplier.id,
+  };
+}
+
 async function catalogProductId(formData: FormData) {
   const productId = optionalFormString(formData, "productId");
 
@@ -131,16 +296,35 @@ async function catalogProductId(formData: FormData) {
 }
 
 export async function createProductAction(formData: FormData) {
-  resultRedirect("/shop/products", await createProduct(catalogProductInput(formData)));
+  const input = catalogProductInput(formData);
+  const resolvedInput = await resolveProductCatalogRelations(formData, input);
+
+  resultRedirect(
+    "/shop/products",
+    "ok" in resolvedInput ? resolvedInput : await createProduct({
+      ...resolvedInput,
+    }),
+  );
 }
 
 export async function updateProductAction(formData: FormData) {
+  const productId = await catalogProductId(formData);
+  const input = catalogProductInput(formData);
+  const resolvedInput = productId
+    ? await resolveProductCatalogRelations(formData, input)
+    : shopAdminActionResult("validation_failed", {
+        fieldErrors: { productId: "Product id is required." },
+        ok: false,
+      });
+
   resultRedirect(
     "/shop/products",
-    await updateProduct({
-      ...catalogProductInput(formData),
-      productId: await catalogProductId(formData),
-    }),
+    "ok" in resolvedInput
+      ? resolvedInput
+      : await updateProduct({
+          ...resolvedInput,
+          productId,
+        }),
   );
 }
 

@@ -35,6 +35,9 @@ export async function POST(request: Request) {
   const result = await parseCatalogWorkbookPreview({
     bytes: Buffer.from(await file.arrayBuffer()),
     fileName: file.name,
+    importMode: formString(formData, "importMode") === "database"
+      ? "database"
+      : "supplier",
     mimeType: file.type,
     requestedShopId: formString(formData, "shop_id") || undefined,
   });

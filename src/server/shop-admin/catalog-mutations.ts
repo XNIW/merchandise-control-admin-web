@@ -267,7 +267,7 @@ export async function archiveCategory(
   );
 }
 
-function validateProductInput(input: ProductMutationInput) {
+export function validateCatalogProductInput(input: ProductMutationInput) {
   const fieldErrors: Record<string, string> = {};
 
   if (!input.barcode.trim()) {
@@ -298,7 +298,7 @@ function validateProductInput(input: ProductMutationInput) {
 export async function createProduct(
   input: ProductMutationInput,
 ): Promise<ShopAdminActionResult> {
-  const fieldErrors = validateProductInput(input);
+  const fieldErrors = validateCatalogProductInput(input);
 
   if (Object.keys(fieldErrors).length > 0) {
     return shopAdminActionResult("validation_failed", {
@@ -335,7 +335,7 @@ export async function createProduct(
 export async function updateProduct(
   input: ProductUpdateInput,
 ): Promise<ShopAdminActionResult> {
-  const fieldErrors = validateProductInput(input);
+  const fieldErrors = validateCatalogProductInput(input);
 
   if (!input.productId) {
     fieldErrors.productId = "Product id is required.";

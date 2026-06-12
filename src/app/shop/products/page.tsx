@@ -6,7 +6,6 @@ import {
   type CatalogProductOption,
   type CatalogSupplierOption,
 } from "@/app/shop/_components/CatalogActionPanel";
-import { ImportExportActionPanel } from "@/app/shop/_components/ImportExportActionPanel";
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
@@ -240,6 +239,8 @@ export default async function ShopProductsPage({
     canManageProducts || canImport || canExport ? (
       <CatalogActionPanel
         archivedProducts={archivedProductCatalogOptions}
+        canExport={canExport}
+        canImport={canImport}
         canManage={canManageProducts}
         categories={categoryOptions}
         embedded
@@ -249,16 +250,7 @@ export default async function ShopProductsPage({
         scope="products"
         selectedShopId={requestedShopId}
         suppliers={supplierOptions}
-      >
-        {canImport || canExport ? (
-          <ImportExportActionPanel
-            canExport={canExport}
-            canImport={canImport}
-            embedded
-            selectedShopId={requestedShopId}
-          />
-        ) : null}
-      </CatalogActionPanel>
+      />
     ) : null;
 
   return (

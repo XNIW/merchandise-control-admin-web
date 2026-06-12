@@ -84,9 +84,9 @@ deve duplicare la logica del nuovo workspace.
 
 | Check | Stato |
 |---|---|
-| `node --test tests/foundation/task-057-shop-catalog-workspace-import-intelligence.test.mjs` | `PASS 19/19` |
-| `node --test tests/foundation/task-028-catalog-crud-import-export-win7pos-e2e.test.mjs tests/foundation/task-057-shop-catalog-workspace-import-intelligence.test.mjs` | `PASS 25/25` |
-| `npm run test:foundation` | `PASS 276/276` |
+| `node --test tests/foundation/task-057-shop-catalog-workspace-import-intelligence.test.mjs` | `PASS 21/21` |
+| `node --test tests/foundation/task-028-catalog-crud-import-export-win7pos-e2e.test.mjs tests/foundation/task-057-shop-catalog-workspace-import-intelligence.test.mjs` | `PASS 27/27` |
+| `npm run test:foundation` | `PASS 278/278` |
 | `npm run lint` | `PASS` |
 | `npm run typecheck` | `PASS` |
 | `npm run security:scan` | `PASS` |
@@ -94,8 +94,8 @@ deve duplicare la logica del nuovo workspace.
 | `npm run verify` | `PASS_WITH_WARNINGS` |
 | `npm run test:shop-admin-auth-smoke` | `PASS 4/4`, wrapper local-only |
 | `npm run test:platform:local` | `PASS 1/1` |
-| `npm run test:platform:local-login` | `PASS 1/1` |
-| `npm run db:local:status` | `PASS_FAIL_CLOSED_ENV_LOCAL_POINTS_CLOUD` |
+| `npm run test:platform:local-login` | `PASS_WITH_SKIP`, `1 skipped`, gated da `CONFIRM_TASK046_PLATFORM_LOCAL_LOGIN_TEST=yes` e password runtime |
+| `npm run db:local:status` | `FAIL_CLOSED_EXPECTED`, `.env.local` punta `supabase_cloud`, status Supabase redatto |
 | `supabase migration up --local` | `PASS` |
 | `supabase migration list --local` | `PASS` |
 | `supabase db lint --local` | `PASS` |

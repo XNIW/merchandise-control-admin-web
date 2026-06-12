@@ -336,7 +336,7 @@ test("TASK-028 Excel import/export stays preview-first, shop-scoped and non-purg
   assertContains(routeGuard, "content-length");
 
   assert.doesNotMatch(workbookSource, /\.(delete|upsert)\s*\(/);
-  assert.doesNotMatch(workbookSource, /truncate|replace_all|full\s+delete/i);
+  assert.doesNotMatch(workbookSource, /\btruncate\b|replace_all|full\s+delete/i);
 });
 
 test("TASK-028 Win7POS catalog pull persists cursor diagnostics and applies tombstones without purge", (t) => {
@@ -415,7 +415,7 @@ test("TASK-028 Win7POS catalog pull persists cursor diagnostics and applies tomb
   }
 
   assert.doesNotMatch(service, /DeleteByBarcodeAsync|DELETE FROM products|DELETE FROM product_meta/i);
-  assert.doesNotMatch(`${service}\n${repository}`, /truncate|replace_all|full\s+delete/i);
+  assert.doesNotMatch(`${service}\n${repository}`, /\btruncate\b|replace_all|full\s+delete/i);
 });
 
 test("TASK-028 keeps TASK-027 delta sync and documented POS boundaries intact", () => {

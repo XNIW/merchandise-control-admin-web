@@ -51,15 +51,22 @@ const XLSX_CONTENT_TYPE =
 const BULK_PRODUCT_IMPORT_THRESHOLD = 500;
 const BULK_PRODUCT_IMPORT_CHUNK_SIZE = 500;
 const BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE = 1_000;
+const MAX_PREVIEW_ROWS = 500;
+const MAX_ROW_ADJUSTMENTS = MAX_PREVIEW_ROWS;
+const MAX_ROW_ADJUSTMENTS_JSON_BYTES = 64_000;
+
+type CatalogWorkbookImportMode = "supplier" | "database";
 
 type CatalogWorkbookInput = {
   bytes: Buffer;
   fileName: string;
+  importMode?: CatalogWorkbookImportMode;
   mimeType: string;
   requestedShopId?: string;
 };
 
 type WorkbookRowError = {
+  code?: string;
   field: string;
   message: string;
   row: number;
@@ -139,25 +146,70 @@ type ParsedWorkbook = {
   >;
   digest: string;
   droppedRows: number;
+  fileDigest: string;
+  importMode: CatalogWorkbookImportMode;
+  originalColumns: string[];
   priceHistory: ParsedPriceHistoryRow[];
+  previewRows: CatalogWorkbookPreviewRow[];
+  previewRowsTruncated: boolean;
   products: ParsedProductRow[];
   rowErrors: WorkbookRowError[];
   rowWarnings: WorkbookRowError[];
   selectedProductSheet: string;
   suppliers: ParsedSupplierRow[];
+  unmappedColumns: string[];
   validRows: number;
+  workbookMetadata: CatalogWorkbookMetadata;
+};
+
+export type CatalogWorkbookMetadata = {
+  fileName: string;
+  headerRow: number | null;
+  mimeType: string;
+  parsedRows: number;
+  previewRowsLimit: number;
+  previewRowsTruncated: boolean;
+  selectedSheet: string;
+  sheetNames: string[];
+  sizeBytes: number;
+  totalRows: number;
+};
+
+export type CatalogWorkbookPreviewRow = {
+  barcode: string;
+  categoryName?: string;
+  itemNumber?: string;
+  productName: string;
+  retailPrice?: number;
+  rowFingerprint: string;
+  rowNumber: number;
+  status: "Ready" | "Warning" | "Blocked" | "Duplicate" | "Update" | "New";
+  stockQuantity?: number;
+  supplierName?: string;
+  warnings: number;
+};
+
+export type CatalogWorkbookRowAdjustment = {
+  retailPrice?: number | null;
+  rowFingerprint: string;
+  rowNumber: number;
+  stockQuantity?: number | null;
 };
 
 export type CatalogWorkbookPreview = ShopAdminActionResult & {
   confidence?: number;
   detectedHeaderRow?: number | null;
   detectedMapping?: ParsedWorkbook["detectedMapping"];
+  originalColumns?: string[];
   previewDigest?: string;
+  previewRows?: CatalogWorkbookPreviewRow[];
+  previewRowsTruncated?: boolean;
   rowErrors?: WorkbookRowError[];
   rowWarnings?: WorkbookRowError[];
   selectedProductSheet?: string;
   summary?: {
     categories: number;
+    duplicates?: number;
     droppedRows?: number;
     errors: number;
     newProducts: number;
@@ -168,6 +220,8 @@ export type CatalogWorkbookPreview = ShopAdminActionResult & {
     validRows?: number;
     warnings: number;
   };
+  unmappedColumns?: string[];
+  workbookMetadata?: CatalogWorkbookMetadata;
 };
 
 export type CatalogWorkbookApplyResult = ShopAdminActionResult & {
@@ -190,6 +244,36 @@ export type CatalogWorkbookExport = ShopAdminActionResult & {
 
 function previewDigest(bytes: Buffer) {
   return createHash("sha256").update(bytes).digest("hex");
+}
+
+function normalizeImportMode(mode: CatalogWorkbookInput["importMode"]) {
+  return mode === "database" ? "database" : "supplier";
+}
+
+function jsonDigest(value: unknown) {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+function catalogImportRowFingerprint(row: ParsedProductRow) {
+  return jsonDigest({
+    barcode: row.barcode,
+    itemNumber: row.itemNumber ?? "",
+    productName: row.productName,
+    retailPrice: row.retailPrice ?? null,
+    rowNumber: row.rowNumber,
+    stockQuantity: row.stockQuantity ?? null,
+  });
+}
+
+function buildPreviewDigest(input: {
+  detectedHeaderRow: number | null;
+  detectedMapping: ParsedWorkbook["detectedMapping"];
+  fileDigest: string;
+  importMode: CatalogWorkbookImportMode;
+  rowFingerprints: string[];
+  selectedProductSheet: string;
+}) {
+  return jsonDigest(input);
 }
 
 function validateWorkbookFile(input: CatalogWorkbookInput) {
@@ -679,6 +763,48 @@ function detectionMapping(
   return mapping;
 }
 
+function originalColumns(
+  rows: SheetData,
+  detectedHeaderRow: number | null,
+) {
+  if (!detectedHeaderRow) {
+    return [];
+  }
+
+  return (rows[detectedHeaderRow - 1] ?? [])
+    .map((cell, index) => normalizeLabel(cell) || `Column ${index + 1}`)
+    .filter((label) => label.length > 0);
+}
+
+function unmappedColumns(
+  columns: readonly string[],
+  mapping: ParsedWorkbook["detectedMapping"],
+) {
+  const mappedIndexes = new Set(
+    Object.values(mapping).map((entry) => entry.columnIndex),
+  );
+
+  return columns.filter((_column, index) => !mappedIndexes.has(index));
+}
+
+function parsedPreviewRows(
+  products: readonly ParsedProductRow[],
+): CatalogWorkbookPreviewRow[] {
+  return products.slice(0, MAX_PREVIEW_ROWS).map((product) => ({
+    barcode: product.barcode,
+    categoryName: product.categoryName,
+    itemNumber: product.itemNumber,
+    productName: product.productName,
+    retailPrice: product.retailPrice,
+    rowFingerprint: catalogImportRowFingerprint(product),
+    rowNumber: product.rowNumber,
+    status: "Ready",
+    stockQuantity: product.stockQuantity,
+    supplierName: product.supplierName,
+    warnings: 0,
+  }));
+}
+
 function parseProducts(
   rows: SheetData,
   rowErrors: WorkbookRowError[],
@@ -1113,20 +1239,57 @@ async function parseWorkbook(
     }
   }
 
+  const fileDigest = previewDigest(input.bytes);
+  const importMode = normalizeImportMode(input.importMode);
+  const columns = originalColumns(
+    selectedProductSheet.rows,
+    productResult.detectedHeaderRow,
+  );
+  const mapping = productResult.detectedMapping;
+  const rowFingerprints = productResult.products.map((product) =>
+    catalogImportRowFingerprint(product),
+  );
+  const digest = buildPreviewDigest({
+    detectedHeaderRow: productResult.detectedHeaderRow,
+    detectedMapping: mapping,
+    fileDigest,
+    importMode,
+    rowFingerprints,
+    selectedProductSheet: selectedProductSheet.sheet,
+  });
+
   return {
     categories,
     confidence: productResult.confidence,
     detectedHeaderRow: productResult.detectedHeaderRow,
-    detectedMapping: productResult.detectedMapping,
-    digest: previewDigest(input.bytes),
+    detectedMapping: mapping,
+    digest,
     droppedRows: productResult.droppedRows,
+    fileDigest,
+    importMode,
+    originalColumns: columns,
     priceHistory,
+    previewRows: parsedPreviewRows(productResult.products),
+    previewRowsTruncated: productResult.products.length > MAX_PREVIEW_ROWS,
     products: productResult.products,
     rowErrors,
     rowWarnings,
     selectedProductSheet: selectedProductSheet.sheet,
     suppliers,
+    unmappedColumns: unmappedColumns(columns, mapping),
     validRows: productResult.validRows,
+    workbookMetadata: {
+      fileName: input.fileName,
+      headerRow: productResult.detectedHeaderRow,
+      mimeType: input.mimeType,
+      parsedRows: productResult.products.length,
+      previewRowsLimit: MAX_PREVIEW_ROWS,
+      previewRowsTruncated: productResult.products.length > MAX_PREVIEW_ROWS,
+      selectedSheet: selectedProductSheet.sheet,
+      sheetNames: sheets.map((sheet) => sheet.sheet),
+      sizeBytes: input.bytes.byteLength,
+      totalRows: selectedProductSheet.rows.length,
+    },
   };
 }
 
@@ -1263,6 +1426,281 @@ function validatePriceHistoryRows(
   }
 
   return rowErrors;
+}
+
+function issueCountByRow(issues: readonly WorkbookRowError[]) {
+  const counts = new Map<number, number>();
+
+  for (const issue of issues) {
+    counts.set(issue.row, (counts.get(issue.row) ?? 0) + 1);
+  }
+
+  return counts;
+}
+
+function decorateCatalogPreviewRows(
+  parsed: ParsedWorkbook,
+  rowErrors: readonly WorkbookRowError[],
+  rowWarnings: readonly WorkbookRowError[],
+  readModel: Pick<Awaited<ReturnType<typeof getShopInventoryReadModel>>, "products">,
+) {
+  const errorsByRow = issueCountByRow(rowErrors);
+  const warningsByRow = issueCountByRow(rowWarnings);
+  const existingBarcodes = new Set(
+    readModel.products.map((product) => product.barcode.toLowerCase()),
+  );
+  const errorTextByRow = new Map<number, string>();
+
+  for (const issue of rowErrors) {
+    errorTextByRow.set(
+      issue.row,
+      `${errorTextByRow.get(issue.row) ?? ""} ${issue.code ?? ""} ${issue.message}`,
+    );
+  }
+
+  return parsed.previewRows.map((row) => {
+    const errorText = errorTextByRow.get(row.rowNumber)?.toLowerCase() ?? "";
+    let status: CatalogWorkbookPreviewRow["status"] = "Ready";
+
+    if (errorsByRow.has(row.rowNumber)) {
+      status = errorText.includes("duplicate") ? "Duplicate" : "Blocked";
+    } else if (warningsByRow.has(row.rowNumber)) {
+      status = "Warning";
+    } else if (existingBarcodes.has(row.barcode.toLowerCase())) {
+      status = "Update";
+    } else {
+      status = "New";
+    }
+
+    return {
+      ...row,
+      status,
+      warnings: warningsByRow.get(row.rowNumber) ?? 0,
+    };
+  });
+}
+
+function parseAdjustmentNumber(
+  value: unknown,
+  field: "retailPrice" | "stockQuantity",
+  rowNumber: number,
+) {
+  if (value === undefined || value === null || value === "") {
+    return { ok: true as const, value: undefined };
+  }
+
+  const numeric = typeof value === "number" ? value : Number(value);
+
+  if (!Number.isFinite(numeric) || numeric < 0) {
+    return {
+      error: {
+        field,
+        message: "Adjustment value must be a non-negative finite number.",
+        row: rowNumber,
+        sheet: "Products",
+      } satisfies WorkbookRowError,
+      ok: false as const,
+    };
+  }
+
+  return { ok: true as const, value: numeric };
+}
+
+function validateRowAdjustments(
+  parsed: ParsedWorkbook,
+  rawAdjustments?: string,
+):
+  | { adjustments: CatalogWorkbookRowAdjustment[]; valid: true }
+  | (ShopAdminActionResult & { rowErrors: WorkbookRowError[]; valid: false }) {
+  const raw = rawAdjustments?.trim();
+
+  if (!raw) {
+    return { adjustments: [], valid: true };
+  }
+
+  if (raw.length > MAX_ROW_ADJUSTMENTS_JSON_BYTES) {
+    return {
+      ...shopAdminActionResult("validation_failed", { ok: false }),
+      valid: false,
+      rowErrors: [
+        {
+          field: "rowAdjustments",
+          message: "Row adjustments payload is too large.",
+          row: 0,
+          sheet: "Products",
+        },
+      ],
+    };
+  }
+
+  let decoded: unknown;
+
+  try {
+    decoded = JSON.parse(raw);
+  } catch {
+    return {
+      ...shopAdminActionResult("validation_failed", { ok: false }),
+      valid: false,
+      rowErrors: [
+        {
+          field: "rowAdjustments",
+          message: "Row adjustments must be valid JSON.",
+          row: 0,
+          sheet: "Products",
+        },
+      ],
+    };
+  }
+
+  if (!Array.isArray(decoded) || decoded.length > MAX_ROW_ADJUSTMENTS) {
+    return {
+      ...shopAdminActionResult("validation_failed", { ok: false }),
+      valid: false,
+      rowErrors: [
+        {
+          field: "rowAdjustments",
+          message: `Row adjustments must contain at most ${MAX_ROW_ADJUSTMENTS} rows.`,
+          row: 0,
+          sheet: "Products",
+        },
+      ],
+    };
+  }
+
+  const productsByRow = new Map(
+    parsed.products.map((product) => [product.rowNumber, product]),
+  );
+  const seenRows = new Set<number>();
+  const adjustments: CatalogWorkbookRowAdjustment[] = [];
+  const rowErrors: WorkbookRowError[] = [];
+
+  for (const entry of decoded) {
+    const record = entry && typeof entry === "object"
+      ? (entry as Record<string, unknown>)
+      : {};
+    const rowNumber = Number(record.rowNumber);
+    const rowFingerprint =
+      typeof record.rowFingerprint === "string" ? record.rowFingerprint : "";
+
+    if (!Number.isInteger(rowNumber) || rowNumber <= 0) {
+      rowErrors.push({
+        field: "rowNumber",
+        message: "Adjustment rowNumber must be a positive integer.",
+        row: 0,
+        sheet: "Products",
+      });
+      continue;
+    }
+
+    if (seenRows.has(rowNumber)) {
+      rowErrors.push({
+        field: "rowNumber",
+        message: "duplicate rowNumber in rowAdjustments.",
+        row: rowNumber,
+        sheet: "Products",
+      });
+      continue;
+    }
+
+    seenRows.add(rowNumber);
+    const product = productsByRow.get(rowNumber);
+
+    if (!product) {
+      rowErrors.push({
+        field: "rowNumber",
+        message: "Adjustment rowNumber does not exist in the parsed workbook.",
+        row: rowNumber,
+        sheet: "Products",
+      });
+      continue;
+    }
+
+    if (!rowFingerprint || rowFingerprint !== catalogImportRowFingerprint(product)) {
+      rowErrors.push({
+        field: "rowFingerprint",
+        message: "Adjustment rowFingerprint does not match the parsed workbook row.",
+        row: rowNumber,
+        sheet: "Products",
+      });
+      continue;
+    }
+
+    const retailPrice = parseAdjustmentNumber(
+      record.retailPrice,
+      "retailPrice",
+      rowNumber,
+    );
+    const stockQuantity = parseAdjustmentNumber(
+      record.stockQuantity,
+      "stockQuantity",
+      rowNumber,
+    );
+
+    if (!retailPrice.ok) {
+      rowErrors.push(retailPrice.error);
+    }
+
+    if (!stockQuantity.ok) {
+      rowErrors.push(stockQuantity.error);
+    }
+
+    if (retailPrice.ok && stockQuantity.ok) {
+      adjustments.push({
+        retailPrice: retailPrice.value,
+        rowFingerprint,
+        rowNumber,
+        stockQuantity: stockQuantity.value,
+      });
+    }
+  }
+
+  if (rowErrors.length > 0) {
+    return {
+      ...shopAdminActionResult("validation_failed", { ok: false }),
+      valid: false,
+      rowErrors,
+    };
+  }
+
+  return { adjustments, valid: true };
+}
+
+function applyRowAdjustments(
+  parsed: ParsedWorkbook,
+  adjustments: readonly CatalogWorkbookRowAdjustment[],
+): ParsedWorkbook {
+  if (adjustments.length === 0) {
+    return parsed;
+  }
+
+  const adjustmentsByRow = new Map(
+    adjustments.map((adjustment) => [adjustment.rowNumber, adjustment]),
+  );
+  const products = parsed.products.map((product) => {
+    const adjustment = adjustmentsByRow.get(product.rowNumber);
+
+    if (!adjustment) {
+      return product;
+    }
+
+    return {
+      ...product,
+      retailPrice:
+        adjustment.retailPrice === undefined || adjustment.retailPrice === null
+          ? product.retailPrice
+          : adjustment.retailPrice,
+      stockQuantity:
+        adjustment.stockQuantity === undefined ||
+        adjustment.stockQuantity === null
+          ? product.stockQuantity
+          : adjustment.stockQuantity,
+    };
+  });
+
+  return {
+    ...parsed,
+    products,
+  };
 }
 
 function buildProductIdMaps(products: readonly ShopInventoryProduct[]) {
@@ -1612,6 +2050,15 @@ export async function parseCatalogWorkbookPreview(
     ...priceHistoryRowErrors,
   ];
   const rowWarnings = [...parsed.rowWarnings, ...validation.rowWarnings];
+  const previewRows = decorateCatalogPreviewRows(
+    parsed,
+    rowErrors,
+    rowWarnings,
+    readModel,
+  );
+  const duplicates = rowErrors.filter((issue) =>
+    (issue.code ?? "").startsWith("duplicate_"),
+  ).length;
 
   const auditResult = await auditImportExport(
     context.selectedShop.shopId,
@@ -1624,6 +2071,8 @@ export async function parseCatalogWorkbookPreview(
       detectedHeaderRow: parsed.detectedHeaderRow,
       digest: parsed.digest,
       droppedRows: parsed.droppedRows,
+      fileDigest: parsed.fileDigest,
+      importMode: parsed.importMode,
       errors: rowErrors.length,
       "no_purge": true,
       priceHistory: parsed.priceHistory.length,
@@ -1647,18 +2096,24 @@ export async function parseCatalogWorkbookPreview(
     confidence: parsed.confidence,
     detectedHeaderRow: parsed.detectedHeaderRow,
     detectedMapping: parsed.detectedMapping,
+    originalColumns: parsed.originalColumns,
     previewDigest: parsed.digest,
+    previewRows,
+    previewRowsTruncated: parsed.previewRowsTruncated,
     rowErrors,
     rowWarnings,
     selectedProductSheet: parsed.selectedProductSheet,
     summary: {
       ...validation.summary,
+      duplicates,
       droppedRows: parsed.droppedRows,
       errors: rowErrors.length,
       priceHistory: parsed.priceHistory.length,
       validRows: parsed.validRows,
       warnings: rowWarnings.length,
     },
+    unmappedColumns: parsed.unmappedColumns,
+    workbookMetadata: parsed.workbookMetadata,
   };
 }
 
@@ -1666,6 +2121,7 @@ export async function applyCatalogWorkbookImport(
   input: CatalogWorkbookInput & {
     confirmApply: string;
     previewDigest: string;
+    rowAdjustments?: string;
   },
 ): Promise<CatalogWorkbookApplyResult> {
   const context = await resolveShopActionContext(
@@ -1702,14 +2158,31 @@ export async function applyCatalogWorkbookImport(
     });
   }
 
-  if (parsed.rowErrors.length > 0) {
+  const adjustmentValidation = validateRowAdjustments(
+    parsed,
+    input.rowAdjustments,
+  );
+
+  if (!adjustmentValidation.valid) {
+    return {
+      ...adjustmentValidation,
+      previewDigest: parsed.digest,
+    };
+  }
+
+  const adjustedParsed = applyRowAdjustments(
+    parsed,
+    adjustmentValidation.adjustments,
+  );
+
+  if (adjustedParsed.rowErrors.length > 0) {
     return {
       ...shopAdminActionResult("validation_failed", {
         ok: false,
         shopId: context.selectedShop.shopId,
       }),
-      previewDigest: parsed.digest,
-      rowErrors: parsed.rowErrors,
+      previewDigest: adjustedParsed.digest,
+      rowErrors: adjustedParsed.rowErrors,
     };
   }
 
@@ -1727,12 +2200,12 @@ export async function applyCatalogWorkbookImport(
   }
 
   const validation = validateCatalogImportRows(
-    parsed,
+    adjustedParsed,
     readModelAsExistingRows(readModel),
   );
-  const priceHistoryRowErrors = validatePriceHistoryRows(parsed, readModel);
+  const priceHistoryRowErrors = validatePriceHistoryRows(adjustedParsed, readModel);
   const rowErrors = [
-    ...parsed.rowErrors,
+    ...adjustedParsed.rowErrors,
     ...validation.rowErrors,
     ...priceHistoryRowErrors,
   ];
@@ -1743,7 +2216,7 @@ export async function applyCatalogWorkbookImport(
         ok: false,
         shopId: context.selectedShop.shopId,
       }),
-      previewDigest: parsed.digest,
+      previewDigest: adjustedParsed.digest,
       rowErrors,
     };
   }
@@ -1767,7 +2240,7 @@ export async function applyCatalogWorkbookImport(
   let priceHistoryApplied = 0;
   let failedRows = 0;
 
-  for (const row of parsed.suppliers) {
+  for (const row of adjustedParsed.suppliers) {
     const existing = findSupplier(readModel.suppliers, row);
     const result = existing
       ? await updateSupplier({
@@ -1788,7 +2261,7 @@ export async function applyCatalogWorkbookImport(
     }
   }
 
-  for (const row of parsed.categories) {
+  for (const row of adjustedParsed.categories) {
     const existing = findCategory(readModel.categories, row);
     const result = existing
       ? await updateCategory({
@@ -1809,10 +2282,10 @@ export async function applyCatalogWorkbookImport(
     }
   }
 
-  if (parsed.products.length >= BULK_PRODUCT_IMPORT_THRESHOLD) {
+  if (adjustedParsed.products.length >= BULK_PRODUCT_IMPORT_THRESHOLD) {
     const productImport = await applyBulkProductImport(
       context,
-      parsed.products,
+      adjustedParsed.products,
       readModel.products,
       supplierIdsByName,
       categoryIdsByName,
@@ -1822,7 +2295,7 @@ export async function applyCatalogWorkbookImport(
     productsApplied += productImport.productsApplied;
     failedRows += productImport.failedRows;
   } else {
-    for (const row of parsed.products) {
+    for (const row of adjustedParsed.products) {
       const existing = findProduct(readModel.products, row);
       const productInput: ProductMutationInput = {
         ...mergeProductImportForApply(row, existing, {
@@ -1853,8 +2326,8 @@ export async function applyCatalogWorkbookImport(
     }
   }
 
-  if (parsed.priceHistory.length > 0) {
-    const pricePayload = parsed.priceHistory
+  if (adjustedParsed.priceHistory.length > 0) {
+    const pricePayload = adjustedParsed.priceHistory
       .map((row) => {
         const productId = resolvePriceHistoryProductId(productIdMaps, row);
 
@@ -1912,12 +2385,13 @@ export async function applyCatalogWorkbookImport(
     failedRows > 0 ? "partial_failure" : "success",
     {
       categoriesApplied,
-      digest: parsed.digest,
+      digest: adjustedParsed.digest,
       failedRows,
       "no_purge": true,
       priceHistoryApplied,
       productsApplied,
       "preview.valid": true,
+      rowAdjustments: adjustmentValidation.adjustments.length,
       suppliersApplied,
     },
   );
@@ -1933,7 +2407,7 @@ export async function applyCatalogWorkbookImport(
   if (!auditResult.ok) {
     return {
       ...auditResult,
-      previewDigest: parsed.digest,
+      previewDigest: adjustedParsed.digest,
       summary,
     };
   }
@@ -1943,7 +2417,7 @@ export async function applyCatalogWorkbookImport(
       ok: failedRows === 0,
       shopId: context.selectedShop.shopId,
     }),
-    previewDigest: parsed.digest,
+    previewDigest: adjustedParsed.digest,
     summary,
   };
 }

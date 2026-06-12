@@ -2,6 +2,11 @@
 
 import { useId, useState } from "react";
 import {
+  CatalogExportPanel,
+  DatabaseTransferPanel,
+  SupplierExcelImportWizard,
+} from "@/app/shop/_components/ImportExportActionPanel";
+import {
   archiveCategoryAction,
   archiveProductAction,
   archiveSupplierAction,
@@ -40,9 +45,10 @@ export type CatalogSupplierOption = {
 
 type CatalogActionPanelProps = {
   archivedProducts?: CatalogProductOption[];
+  canExport?: boolean;
+  canImport?: boolean;
   canManage?: boolean;
   categories?: CatalogCategoryOption[];
-  children?: React.ReactNode;
   embedded?: boolean;
   initialDialog?: DialogKey | null;
   initialEntityId?: string;
@@ -227,53 +233,79 @@ function ProductPicker({
   );
 }
 
-function CategoryPicker({
-  categories = [],
-  defaultCategoryId,
-  name = "categoryId",
-}: {
-  categories?: CatalogCategoryOption[];
-  defaultCategoryId?: string | null;
-  name?: string;
-}) {
-  return (
-    <SelectField
-      defaultValue={defaultCategoryId ?? ""}
-      label="Category"
-      name={name}
-    >
-      <option value="">No category</option>
-      {categories.map((category) => (
-        <option key={category.categoryId} value={category.categoryId}>
-          {category.name}
-        </option>
-      ))}
-    </SelectField>
-  );
-}
-
-function SupplierPicker({
+function CreatableSupplierField({
   defaultSupplierId,
-  name = "supplierId",
   suppliers = [],
 }: {
   defaultSupplierId?: string | null;
-  name?: string;
   suppliers?: CatalogSupplierOption[];
 }) {
+  const defaultSupplier = suppliers.find(
+    (supplier) => supplier.supplierId === defaultSupplierId,
+  );
+  const [supplierName, setSupplierName] = useState(defaultSupplier?.name ?? "");
+  const selectedSupplier = suppliers.find(
+    (supplier) => supplier.name.toLowerCase() === supplierName.trim().toLowerCase(),
+  );
+
   return (
-    <SelectField
-      defaultValue={defaultSupplierId ?? ""}
-      label="Supplier"
-      name={name}
-    >
-      <option value="">No supplier</option>
-      {suppliers.map((supplier) => (
-        <option key={supplier.supplierId} value={supplier.supplierId}>
-          {supplier.name}
-        </option>
-      ))}
-    </SelectField>
+    <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-800">
+      Existing supplier or new supplier name
+      <input
+        className={catalogInputClassName}
+        list="supplier-options"
+        name="supplierName"
+        onChange={(event) => setSupplierName(event.currentTarget.value)}
+        value={supplierName}
+      />
+      <input name="supplierId" type="hidden" value={selectedSupplier?.supplierId ?? ""} />
+      <datalist id="supplier-options">
+        {suppliers.map((supplier) => (
+          <option key={supplier.supplierId} value={supplier.name} />
+        ))}
+      </datalist>
+      <span className="text-xs font-normal text-zinc-500">
+        Select an existing supplier or type a new supplier name.
+      </span>
+    </label>
+  );
+}
+
+function CreatableCategoryField({
+  categories = [],
+  defaultCategoryId,
+}: {
+  categories?: CatalogCategoryOption[];
+  defaultCategoryId?: string | null;
+}) {
+  const defaultCategory = categories.find(
+    (category) => category.categoryId === defaultCategoryId,
+  );
+  const [categoryName, setCategoryName] = useState(defaultCategory?.name ?? "");
+  const selectedCategory = categories.find(
+    (category) => category.name.toLowerCase() === categoryName.trim().toLowerCase(),
+  );
+
+  return (
+    <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-800">
+      Existing category or new category name
+      <input
+        className={catalogInputClassName}
+        list="category-options"
+        name="categoryName"
+        onChange={(event) => setCategoryName(event.currentTarget.value)}
+        value={categoryName}
+      />
+      <input name="categoryId" type="hidden" value={selectedCategory?.categoryId ?? ""} />
+      <datalist id="category-options">
+        {categories.map((category) => (
+          <option key={category.categoryId} value={category.name} />
+        ))}
+      </datalist>
+      <span className="text-xs font-normal text-zinc-500">
+        Select an existing category or type a new category name.
+      </span>
+    </label>
   );
 }
 
@@ -352,11 +384,11 @@ function ProductFields({
         label="Item number"
         name="itemNumber"
       />
-      <SupplierPicker
+      <CreatableSupplierField
         defaultSupplierId={defaultProduct?.supplierId}
         suppliers={suppliers}
       />
-      <CategoryPicker
+      <CreatableCategoryField
         categories={categories}
         defaultCategoryId={defaultProduct?.categoryId}
       />
@@ -396,8 +428,9 @@ function SelectedEntitySummary({
 
 function ProductsDialogs({
   archivedProducts,
+  canExport,
+  canImport,
   categories,
-  importExportPanel,
   openDialog,
   products,
   selectedEntityId,
@@ -406,8 +439,9 @@ function ProductsDialogs({
   suppliers,
 }: {
   archivedProducts: CatalogProductOption[];
+  canExport: boolean;
+  canImport: boolean;
   categories: CatalogCategoryOption[];
-  importExportPanel?: React.ReactNode;
   openDialog: DialogKey | null;
   products: CatalogProductOption[];
   selectedEntityId?: string;
@@ -567,23 +601,27 @@ function ProductsDialogs({
         open={openDialog === "importSupplier"}
         title="Import supplier Excel"
       >
-        {importExportPanel}
+        {canImport ? (
+          <SupplierExcelImportWizard selectedShopId={selectedShopId} />
+        ) : null}
       </CatalogDialog>
 
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "exportCatalog"}
-        title="Export catalog"
+        title="Export catalog Excel"
       >
-        {importExportPanel}
+        {canExport ? <CatalogExportPanel selectedShopId={selectedShopId} /> : null}
       </CatalogDialog>
 
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "advancedTransfer"}
-        title="Advanced database import/export"
+        title="Database transfer"
       >
-        {importExportPanel}
+        {canImport ? (
+          <DatabaseTransferPanel selectedShopId={selectedShopId} />
+        ) : null}
       </CatalogDialog>
     </>
   );
@@ -870,9 +908,10 @@ export function CatalogActionPanel({
 
 function CatalogActionPanelContent({
   archivedProducts = [],
+  canExport = false,
+  canImport = false,
   canManage = true,
   categories = [],
-  children,
   embedded = false,
   initialDialog = null,
   initialEntityId = "",
@@ -898,16 +937,24 @@ function CatalogActionPanelContent({
                 New product
               </ToolbarButton>
             ) : null}
-            {children ? (
+            {canImport ? (
               <>
                 <ToolbarButton onClick={() => setOpenDialog("importSupplier")}>
                   Import supplier Excel
                 </ToolbarButton>
+              </>
+            ) : null}
+            {canExport ? (
+              <>
                 <ToolbarButton onClick={() => setOpenDialog("exportCatalog")}>
-                  Export catalog
+                  Export catalog Excel
                 </ToolbarButton>
+              </>
+            ) : null}
+            {canImport ? (
+              <>
                 <ToolbarButton onClick={() => setOpenDialog("advancedTransfer")}>
-                  Advanced database import/export
+                  Database transfer
                 </ToolbarButton>
               </>
             ) : null}
@@ -930,8 +977,9 @@ function CatalogActionPanelContent({
       {scope === "products" ? (
         <ProductsDialogs
           archivedProducts={archivedProducts}
+          canExport={canExport}
+          canImport={canImport}
           categories={categories}
-          importExportPanel={children}
           openDialog={openDialog}
           products={products}
           selectedEntityId={initialEntityId}
