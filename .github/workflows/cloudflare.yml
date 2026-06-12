@@ -112,10 +112,68 @@ jobs:
       - name: Cloudflare OpenNext build
         run: npm run cf:build
 
+      - name: Verify Cloudflare auth inputs
+        env:
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const rawToken = process.env.CLOUDFLARE_API_TOKEN || "";
+          const token = rawToken.replace(/[\r\n]/g, "");
+          const account = process.env.CLOUDFLARE_ACCOUNT_ID || "";
+          const status = {
+            tokenPresent: token.length > 0,
+            tokenLengthOk: token.length >= 40,
+            tokenLooksCfut: token.startsWith("cfut_"),
+            tokenHadNewlines: rawToken !== token,
+            accountPresent: account.length > 0,
+            accountShapeOk: /^[0-9a-f]{32}$/i.test(account),
+          };
+          console.log(JSON.stringify(status));
+          if (!status.tokenPresent || !status.tokenLengthOk || !status.accountPresent || !status.accountShapeOk) {
+            process.exit(1);
+          }
+          NODE
+
+      - name: Verify Cloudflare token with API
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          (async () => {
+            const token = (process.env.CLOUDFLARE_API_TOKEN || "").replace(/[\r\n]/g, "");
+            const res = await fetch("https://api.cloudflare.com/client/v4/user/tokens/verify", {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            const json = await res.json();
+            console.log(JSON.stringify({
+              success: json.success,
+              status: json.result?.status || null,
+              errorCodes: Array.isArray(json.errors) ? json.errors.map((error) => error.code) : [],
+            }));
+            if (!json.success || json.result?.status !== "active") {
+              process.exit(1);
+            }
+          })().catch((error) => {
+            console.error(error?.message || error);
+            process.exit(1);
+          });
+          NODE
+
       - name: Deploy Worker staging
         run: |
           export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
           npx wrangler deploy --env staging --keep-vars
+
+      - name: Install Playwright browsers
+        if: >-
+          vars.CLOUDFLARE_STAGING_URL != '' &&
+          vars.NEXT_PUBLIC_SUPABASE_URL != '' &&
+          vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY != '' &&
+          vars.STAGING_SUPABASE_PROJECT_REF != ''
+        run: npm run playwright:install
 
       - name: Smoke staging
         if: >-
