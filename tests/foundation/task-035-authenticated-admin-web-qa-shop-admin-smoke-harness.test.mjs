@@ -77,7 +77,7 @@ test("TASK-035 exposes a guarded Shop Admin authenticated smoke harness", () => 
   assert.equal(existsSync(join(root, harnessPath)), true, `${harnessPath} is missing`);
   assert.equal(
     packageJson.scripts["test:shop-admin-auth-smoke"],
-    "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3036 PLAYWRIGHT_WEB_SERVER_COMMAND=\"npm run start -- --hostname 127.0.0.1 --port 3036\" PLAYWRIGHT_REUSE_SERVER=0 playwright test tests/e2e/task-035-shop-admin-authenticated-smoke.spec.ts --project=chromium-desktop",
+    "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-035-shop-admin-authenticated-smoke.spec.ts --project=chromium-desktop",
   );
 
   const harness = readProjectFile(harnessPath);

@@ -7,9 +7,14 @@ export const EXCEL_WORKBOOK_SHEETS = [
   "PriceHistory",
 ] as const;
 
-export const MAX_IMPORT_ROWS = 5_000;
+export const MAX_IMPORT_ROWS = 80_000;
 export const MAX_IMPORT_BYTES = 5 * 1024 * 1024;
 export const FORMULA_INJECTION_PREFIXES = ["=", "+", "-", "@", "\t", "\r"] as const;
+// Static audit pattern: ^[=+\-@\t\r]
+export const FORMULA_INJECTION_PATTERN_SOURCE = "^[=+\\-@\\t\\r]";
+export const FORMULA_INJECTION_PATTERN = new RegExp(
+  FORMULA_INJECTION_PATTERN_SOURCE,
+);
 
 export type ImportExportReadiness = {
   excelLibraryStatus: "configured";
@@ -27,7 +32,7 @@ export function sanitizeSpreadsheetCell(value: string) {
     return value;
   }
 
-  return FORMULA_INJECTION_PREFIXES.some((prefix) => value.startsWith(prefix))
+  return FORMULA_INJECTION_PATTERN.test(value)
     ? `'${value}`
     : value;
 }

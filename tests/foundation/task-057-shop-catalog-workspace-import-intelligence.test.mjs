@@ -1,0 +1,666 @@
+import assert from "node:assert/strict";
+import { existsSync, readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { join } from "node:path";
+import { Script, createContext } from "node:vm";
+import test from "node:test";
+import ts from "typescript";
+
+const root = process.cwd();
+const requireForTranspiledModule = createRequire(import.meta.url);
+
+function read(relativePath) {
+  return readFileSync(join(root, relativePath), "utf8");
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+function assertContains(source, required, label = required) {
+  assert.match(source, new RegExp(escapeRegExp(required)), label);
+}
+
+function loadTypeScriptModule(relativePath) {
+  const absolutePath = join(root, relativePath);
+  const source = readFileSync(absolutePath, "utf8");
+  const transpiled = ts.transpileModule(source, {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+    fileName: relativePath,
+  });
+  const cjsModule = { exports: {} };
+  const context = createContext({
+    Buffer,
+    exports: cjsModule.exports,
+    module: cjsModule,
+    require: requireForTranspiledModule,
+  });
+
+  new Script(transpiled.outputText, { filename: relativePath }).runInContext(
+    context,
+  );
+
+  return cjsModule.exports;
+}
+
+test("TASK-057 governance hands off to review without DONE", () => {
+  const taskPath =
+    "docs/TASKS/TASK-057-shop-catalog-workspace-import-intelligence.md";
+  const evidencePath = "docs/TASKS/EVIDENCE/TASK-057/README.md";
+
+  assert.equal(existsSync(join(root, taskPath)), true, `${taskPath} is missing`);
+  assert.equal(
+    existsSync(join(root, evidencePath)),
+    true,
+    `${evidencePath} is missing`,
+  );
+
+  const task = read(taskPath);
+  const evidence = read(evidencePath);
+  const masterPlan = read("docs/MASTER-PLAN.md");
+
+  assertContains(task, "Stato: `REVIEW`");
+  assertContains(task, "Fase attuale: `REVIEW`");
+  assertContains(evidence, "Verdict corrente: `READY_FOR_DONE_CONFIRMATION`");
+  assertContains(masterPlan, "Stato TASK-057: `REVIEW`");
+  assertContains(masterPlan, "Verdict TASK-057: `READY_FOR_DONE_CONFIRMATION`");
+  assertContains(
+    masterPlan,
+    "Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`",
+  );
+  assert.doesNotMatch(task, /Stato:\s*`DONE`/);
+  assert.doesNotMatch(evidence, /Verdict corrente:\s*`DONE`/);
+});
+
+test("TASK-057 moves Import Export out of primary Shop sidebar", () => {
+  const sections = read("src/components/shop/shopSections.ts");
+  const navBlock = sections.match(
+    /export const shopNavigationSections[\s\S]*?export const shopNavigationItems/,
+  )?.[0];
+
+  assert.ok(navBlock, "shopNavigationSections block not found");
+  assert.doesNotMatch(navBlock, /href:\s*"\/shop\/import-export"/);
+  assert.doesNotMatch(navBlock, /label:\s*"Import \/ Export"/);
+
+  assertContains(sections, "importExport");
+  assertContains(sections, "href: \"/shop/import-export\"");
+});
+
+test("TASK-057 Products workspace exposes named filters, state filter and full catalog columns", () => {
+  const page = read("src/app/shop/products/page.tsx");
+  const data = read("src/server/shop-admin/shop-section-data.ts");
+
+  for (const required of [
+    "Catalog Workspace",
+    "name=\"state\"",
+    "<select",
+    "All categories",
+    "All suppliers",
+    "categoryOptions",
+    "supplierOptions",
+  ]) {
+    assertContains(page, required);
+  }
+
+  assert.doesNotMatch(page, />\s*Category id\s*</);
+  assert.doesNotMatch(page, />\s*Supplier id\s*</);
+
+  for (const required of [
+    "Item number",
+    "Product name",
+    "Second name",
+    "Supplier name",
+    "Category name",
+    "Purchase price",
+    "Retail price",
+    "Stock quantity",
+    "Updated / Archived",
+    "state?:",
+  ]) {
+    assertContains(data, required);
+  }
+});
+
+test("TASK-057 catalog actions are toolbar buttons with accessible dialogs", () => {
+  const catalogPanel = read("src/app/shop/_components/CatalogActionPanel.tsx");
+  const productsPage = read("src/app/shop/products/page.tsx");
+  const categoriesPage = read("src/app/shop/categories/page.tsx");
+  const suppliersPage = read("src/app/shop/suppliers/page.tsx");
+  const sectionPage = read("src/components/shop/ShopSectionPage.tsx");
+
+  assertContains(catalogPanel, "\"use client\"");
+  assertContains(catalogPanel, "role=\"dialog\"");
+  assertContains(catalogPanel, "aria-modal=\"true\"");
+  assertContains(catalogPanel, "catalogToolbarButtonClassName");
+  assertContains(catalogPanel, "ProductPicker");
+  assertContains(catalogPanel, "CategoryPicker");
+  assertContains(catalogPanel, "SupplierPicker");
+  assertContains(catalogPanel, "initialEntityId");
+  assertContains(catalogPanel, "SelectedEntitySummary");
+
+  for (const required of [
+    "New product",
+    "Import supplier Excel",
+    "Export catalog",
+    "Advanced database import/export",
+  ]) {
+    assertContains(catalogPanel, required);
+  }
+
+  for (const required of [
+    "Edit product",
+    "Archive product",
+    "Restore product",
+    "Update category",
+    "Archive category",
+    "Update supplier",
+    "Archive supplier",
+  ]) {
+    assertContains(catalogPanel, required);
+  }
+
+  for (const forbidden of [
+    /ToolbarButton onClick=\{\(\) => setOpenDialog\("editProduct"\)\}/,
+    /ToolbarButton onClick=\{\(\) => setOpenDialog\("archiveProduct"\)\}/,
+    /ToolbarButton onClick=\{\(\) => setOpenDialog\("restoreProduct"\)\}/,
+    /ToolbarButton onClick=\{\(\) => setOpenDialog\("editCategory"\)\}/,
+    /ToolbarButton onClick=\{\(\) => setOpenDialog\("archiveCategory"\)\}/,
+    /ToolbarButton onClick=\{\(\) => setOpenDialog\("editSupplier"\)\}/,
+    /ToolbarButton onClick=\{\(\) => setOpenDialog\("archiveSupplier"\)\}/,
+  ]) {
+    assert.doesNotMatch(catalogPanel, forbidden);
+  }
+
+  assertContains(productsPage, "ImportExportActionPanel");
+  assertContains(productsPage, "ProductRowActions");
+  assertContains(productsPage, "product_action");
+  assertContains(productsPage, "product_id");
+  assertContains(productsPage, "liveDataToolbar={catalogToolbar}");
+  assertContains(categoriesPage, "CategoryRowActions");
+  assertContains(categoriesPage, "category_action");
+  assertContains(categoriesPage, "liveDataToolbar={catalogToolbar}");
+  assertContains(suppliersPage, "SupplierRowActions");
+  assertContains(suppliersPage, "supplier_action");
+  assertContains(suppliersPage, "liveDataToolbar={catalogToolbar}");
+  assertContains(sectionPage, "liveDataToolbar");
+  assertContains(sectionPage, "rowActions");
+  assert.ok(
+    sectionPage.indexOf("{liveData ? liveDataToolbar : null}") <
+      sectionPage.indexOf("<SectionCard"),
+    "toolbar must render before the live data table card",
+  );
+  assert.doesNotMatch(catalogPanel, /lg:grid-cols-3/);
+});
+
+test("TASK-057 import export is embedded in Products and compatibility route does not duplicate logic", () => {
+  const productsPage = read("src/app/shop/products/page.tsx");
+  const importExportPage = read("src/app/shop/import-export/page.tsx");
+  const exportRoute = read("src/app/shop/import-export/export/route.ts");
+  const importExportPanel = read(
+    "src/app/shop/_components/ImportExportActionPanel.tsx",
+  );
+
+  assertContains(productsPage, "ImportExportActionPanel");
+  assert.match(importExportPage, /Moved to Products|redirect\(/);
+  assertContains(importExportPanel, "Import supplier Excel");
+  assertContains(importExportPanel, "Preview supplier workbook");
+  assertContains(importExportPanel, "Advanced database transfer");
+  assertContains(importExportPanel, "IMPORT DATABASE");
+  assertContains(importExportPanel, "full price history");
+  assert.doesNotMatch(importExportPanel, /recent prices/i);
+  assertContains(exportRoute, "\"Cache-Control\": \"no-store\"");
+});
+
+test("TASK-057 import routes fail closed on cross-site or unbounded upload requests", () => {
+  const guardPath = "src/server/shop-admin/import-export-route-guard.ts";
+  const previewRoute = read("src/app/shop/import-export/preview/route.ts");
+  const applyRoute = read("src/app/shop/import-export/apply/route.ts");
+
+  assert.equal(existsSync(join(root, guardPath)), true, `${guardPath} is missing`);
+
+  const guard = read(guardPath);
+
+  for (const route of [previewRoute, applyRoute]) {
+    assertContains(route, "guardCatalogImportExportPostRequest");
+    assertContains(route, "guardCatalogImportWorkbookFile");
+    assert.ok(
+      route.indexOf("guardCatalogImportExportPostRequest(request)") <
+        route.indexOf("request.formData()"),
+      "request guard must run before parsing multipart form data",
+    );
+    assert.ok(
+      route.indexOf("guardCatalogImportWorkbookFile(file)") <
+        route.indexOf("file.arrayBuffer()"),
+      "file size guard must run before reading the workbook into memory",
+    );
+  }
+
+  for (const required of [
+    "import \"server-only\"",
+    "MAX_IMPORT_BYTES",
+    "multipart/form-data",
+    "sec-fetch-site",
+    "cross-site",
+    "origin",
+    "x-forwarded-host",
+    "content-length",
+    "invalid_origin",
+    "invalid_content_type",
+    "invalid_request_body",
+    "file_too_large",
+    "file.size",
+    "Cache-Control",
+    "no-store",
+  ]) {
+    assertContains(guard, required);
+  }
+});
+
+test("TASK-057 Excel import contract recognizes supplier and database aliases", () => {
+  const helper = loadTypeScriptModule(
+    "src/server/shop-admin/catalog-import-contract.ts",
+  );
+
+  const detection = helper.detectCatalogImportHeaderRow([
+    ["订单ID", "716813", "销售单号", "Vs20260519-456 By 2049"],
+    ["客户 1832", "metadata"],
+    [
+      "Cod. Art.",
+      "EAN",
+      "Nombre del producto",
+      "Segundo nombre del producto",
+      "Existencias",
+      "Precio de compra",
+      "Precio de venta",
+      "Proveedor",
+      "Categoría",
+    ],
+    [
+      "10068",
+      "8977677100680",
+      "画框18*24",
+      "BASTIDOR-18*24",
+      "20",
+      "750",
+      "713",
+      "Dingli",
+      "Stationery",
+    ],
+  ]);
+
+  assert.equal(detection?.headerRowIndex, 2);
+  assert.equal(detection?.headers.get("itemNumber"), 0);
+  assert.equal(detection?.headers.get("barcode"), 1);
+  assert.equal(detection?.headers.get("productName"), 2);
+  assert.equal(detection?.headers.get("secondProductName"), 3);
+  assert.equal(detection?.headers.get("stockQuantity"), 4);
+  assert.equal(detection?.headers.get("purchasePrice"), 5);
+  assert.equal(detection?.headers.get("retailPrice"), 6);
+  assert.equal(detection?.headers.get("supplierName"), 7);
+  assert.equal(detection?.headers.get("categoryName"), 8);
+});
+
+test("TASK-057 import validation treats duplicate optional item numbers as warnings", () => {
+  const helper = loadTypeScriptModule(
+    "src/server/shop-admin/catalog-import-contract.ts",
+  );
+
+  const validation = helper.validateCatalogImportRows(
+    {
+      categories: [],
+      products: [
+        {
+          barcode: "TASK057-DUPSKU-001",
+          itemNumber: "DUP-SKU",
+          productName: "First duplicate SKU product",
+          rowNumber: 2,
+        },
+        {
+          barcode: "TASK057-DUPSKU-002",
+          itemNumber: "DUP-SKU",
+          productName: "Second duplicate SKU product",
+          rowNumber: 3,
+        },
+      ],
+      suppliers: [],
+    },
+    { categories: [], products: [], suppliers: [] },
+  );
+
+  assert.equal(validation.rowErrors.length, 0);
+  assert.equal(validation.rowWarnings.length, 1);
+  assert.equal(validation.rowWarnings[0].code, "duplicate_product_sku");
+});
+
+test("TASK-057 parser surfaces detection metadata and escapes formula fields", () => {
+  const workbook = read("src/server/shop-admin/import-export-workbook.ts");
+  const readiness = read("src/server/shop-admin/import-export-readiness.ts");
+
+  for (const required of [
+    "selectedProductSheet",
+    "detectedHeaderRow",
+    "detectedMapping",
+    "droppedRows",
+    "validRows",
+    "selectProductSheet",
+    "confidence",
+    "readOoxmlWorkbookFallback",
+    "unzipper.Open.buffer",
+    "DOMParser",
+  ]) {
+    assertContains(workbook, required);
+  }
+
+  for (const required of [
+    "\"barcode\"",
+    "\"itemNumber\"",
+    "\"productName\"",
+    "\"secondProductName\"",
+    "\"supplierName\"",
+    "\"categoryName\"",
+  ]) {
+    assertContains(workbook, required);
+  }
+
+  assertContains(readiness, "sanitizeSpreadsheetCell");
+  assertContains(readiness, "^[=+\\-@\\t\\r]");
+});
+
+test("TASK-057 full database import treats PriceHistory as first-class shop catalog data", () => {
+  const workbook = read("src/server/shop-admin/import-export-workbook.ts");
+  const readiness = read("src/server/shop-admin/import-export-readiness.ts");
+
+  for (const required of [
+    "importableRowCount",
+    "selectedProductSheet.rows",
+    "getSheetRows(sheets, \"Suppliers\")",
+    "getSheetRows(sheets, \"Categories\")",
+    "getSheetRows(sheets, \"PriceHistory\")",
+    "\"proveedor\"",
+    "\"nombre\"",
+    "\"categoría\"",
+    "ParsedPriceHistoryRow",
+    "parsePriceHistory",
+    "priceHistoryRows",
+    "priceHistoryApplied",
+    "shop_catalog_import_price_history",
+    "fetchCatalogExportPriceRows",
+    "mergeCatalogExportPriceRows",
+    "BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE",
+    'rowLimit: "all"',
+  ]) {
+    assertContains(workbook, required);
+  }
+
+  assertContains(readiness, "MAX_IMPORT_ROWS = 80_000");
+  assert.match(
+    workbook,
+    /export async function buildCatalogWorkbookExport[\s\S]*rowLimit: "all"/,
+  );
+  assert.doesNotMatch(
+    workbook,
+    /buildCatalogWorkbookExport[\s\S]*readModel\.prices\.map/,
+  );
+  assert.doesNotMatch(workbook, /PriceHistory rows are ignored/i);
+  assert.doesNotMatch(
+    workbook,
+    /const totalRows = sheets\.reduce[\s\S]*row_limit_exceeded/,
+  );
+});
+
+test("TASK-057 database apply uses audited bulk product import for large workbooks", () => {
+  const workbook = read("src/server/shop-admin/import-export-workbook.ts");
+  const migrationPath =
+    "supabase/migrations/20260612021252_task_057_bulk_product_import.sql";
+
+  assert.equal(
+    existsSync(join(root, migrationPath)),
+    true,
+    `${migrationPath} is missing`,
+  );
+
+  const migration = read(migrationPath);
+
+  for (const required of [
+    "BULK_PRODUCT_IMPORT_THRESHOLD",
+    "BULK_PRODUCT_IMPORT_CHUNK_SIZE",
+    "BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE",
+    "applyBulkProductImport",
+    "chunkRows",
+    "for (const productChunk of chunkRows",
+    "for (const priceChunk of chunkRows",
+    "shop_catalog_import_products",
+    "productsApplied",
+    "productIds",
+    "shop.catalog.product.import.bulk",
+    "app_private.resolve_shop_catalog_scope",
+    "catalog_scope",
+    "source",
+    "admin_web",
+  ]) {
+    assertContains(`${workbook}\n${migration}`, required);
+  }
+
+  assert.doesNotMatch(workbook, /TASK057_DEBUG_BULK/);
+  assert.doesNotMatch(migration, /grant\s+.*\s+to\s+anon/i);
+});
+
+test("TASK-057 product detail exposes Price History and related mobile history entries", () => {
+  const sections = read("src/components/shop/shopSections.ts");
+  const sectionPage = read("src/components/shop/ShopSectionPage.tsx");
+  const sectionData = read("src/server/shop-admin/shop-section-data.ts");
+  const productsPage = read("src/app/shop/products/page.tsx");
+
+  for (const required of [
+    "secondaryLiveData?: ShopSectionLiveData[]",
+    "section.secondaryLiveData",
+    "Price history",
+    "History entries",
+    "buildProductPriceHistoryRows",
+    "buildProductHistoryEntryRows",
+    "getShopHistoryReadModel",
+    "historyReadModel",
+    "note",
+    "Detail",
+    "/shop/products/",
+  ]) {
+    assertContains(`${sections}\n${sectionPage}\n${sectionData}\n${productsPage}`, required);
+  }
+
+  assert.ok(
+    sectionData.indexOf("Price history") < sectionData.indexOf("History entries"),
+    "Product detail should show Price history before related mobile history entries",
+  );
+});
+
+test("TASK-057 product detail supports archived product rows opened from the catalog table", () => {
+  const sectionData = read("src/server/shop-admin/shop-section-data.ts");
+
+  assert.match(
+    sectionData,
+    /buildProductDetailSection[\s\S]*readModel\.archivedProducts/,
+    "Product detail must search archived products as well as active products",
+  );
+  assert.match(
+    sectionData,
+    /buildProductDetailSection[\s\S]*field: "State"/,
+    "Product detail should disclose whether the row is active or archived",
+  );
+});
+
+test("TASK-057 mobile history read model is shop_id-first with legacy owner fallback", () => {
+  const migrationPath =
+    "supabase/migrations/20260612015644_task_057_shop_scoped_mobile_history.sql";
+
+  assert.equal(
+    existsSync(join(root, migrationPath)),
+    true,
+    `${migrationPath} is missing`,
+  );
+
+  const migration = read(migrationPath);
+  const historyReadModel = read("src/server/shop-admin/history-read-model.ts");
+  const sectionData = read("src/server/shop-admin/shop-section-data.ts");
+
+  for (const required of [
+    "alter table public.shared_sheet_sessions",
+    "alter table public.sync_events",
+    "add column if not exists shop_id uuid",
+    "references public.shops(shop_id)",
+    "update public.shared_sheet_sessions",
+    "update public.sync_events",
+    "shared_sheet_sessions_select_shop_member",
+    "sync_events_select_shop_member",
+    ".eq(\"shop_id\", selectedShop.shopId)",
+    ".is(\"shop_id\", null)",
+    "legacyOwnerUserId",
+    "Mobile history entries",
+    "shared_sheet_sessions",
+    "sync_events",
+  ]) {
+    assertContains(`${migration}\n${historyReadModel}\n${sectionData}`, required);
+  }
+
+  assert.doesNotMatch(migration, /alter column shop_id set not null/i);
+  assert.doesNotMatch(migration, /grant\s+.*\s+to\s+anon/i);
+  assert.doesNotMatch(
+    historyReadModel,
+    /No mapped mobile owner source is configured for this shop history view\./,
+  );
+});
+
+test("TASK-057 keeps catalog writes server-side without service role in browser code", () => {
+  const clientSurface = [
+    "src/app/shop/products/page.tsx",
+    "src/app/shop/categories/page.tsx",
+    "src/app/shop/suppliers/page.tsx",
+    "src/app/shop/_components/CatalogActionPanel.tsx",
+    "src/app/shop/_components/ImportExportActionPanel.tsx",
+    "src/components/shop/shopSections.ts",
+  ]
+    .map((relativePath) => read(relativePath))
+    .join("\n");
+
+  assert.doesNotMatch(
+    clientSurface,
+    /NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY|service_role|createAdminClient/i,
+  );
+
+  const actionContext = read("src/server/shop-admin/action-context.ts");
+  const mutations = read("src/server/shop-admin/catalog-mutations.ts");
+
+  assertContains(actionContext, "resolveShopActionContext");
+  assertContains(actionContext, "canShopAdmin");
+  assertContains(mutations, "shop_catalog_create_product");
+  assertContains(mutations, "shop_catalog_update_product");
+  assertContains(mutations, "shop_catalog_archive_product");
+  assertContains(mutations, "shop_catalog_restore_product");
+});
+
+test("TASK-057 introduces an additive shop-scoped catalog migration with legacy bridge", () => {
+  const migrationPath =
+    "supabase/migrations/20260612010000_task_057_shop_scoped_catalog.sql";
+
+  assert.equal(
+    existsSync(join(root, migrationPath)),
+    true,
+    `${migrationPath} is missing`,
+  );
+
+  const migration = read(migrationPath);
+
+  for (const required of [
+    "alter table public.inventory_products",
+    "add column if not exists shop_id uuid",
+    "alter table public.inventory_categories",
+    "alter table public.inventory_suppliers",
+    "alter table public.inventory_product_prices",
+    "references public.shops(shop_id)",
+    "update public.inventory_products",
+    "from public.shop_inventory_sources",
+    "mapping_state = 'mapped'",
+    "shop_scoped",
+    "legacy_owner_bridge",
+    "app_private.resolve_shop_catalog_scope",
+    "app_private.resolve_shop_inventory_owner",
+    "shop_catalog_create_product",
+    "shop_catalog_restore_product",
+    "catalog_scope",
+    "source",
+    "admin_web",
+  ]) {
+    assertContains(migration, required);
+  }
+
+  assert.doesNotMatch(migration, /alter column shop_id set not null/i);
+  assert.doesNotMatch(migration, /grant\s+.*\s+to\s+anon/i);
+});
+
+test("TASK-057 read model prefers shop_id and keeps legacy owner bridge as fallback", () => {
+  const readModel = read("src/server/shop-admin/inventory-read-model.ts");
+  const sectionData = read("src/server/shop-admin/shop-section-data.ts");
+
+  for (const required of [
+    "catalogScope",
+    "shop_scoped",
+    "legacy_owner_bridge",
+    "legacyOwnerUserId",
+    ".eq(\"shop_id\", selectedShop.shopId)",
+    ".eq(\"owner_user_id\", legacyOwnerUserId)",
+    "Catalog scope",
+    "Shop scoped",
+    "Legacy mobile bridge",
+    "Ready via legacy bridge",
+  ]) {
+    assertContains(`${readModel}\n${sectionData}`, required);
+  }
+
+  assert.doesNotMatch(
+    readModel,
+    /No mapped mobile owner inventory source is configured for this shop\./,
+  );
+});
+
+test("TASK-057 POS catalog pull uses shop_id catalog rows before legacy mapping", () => {
+  const catalogPull = read("src/server/pos-auth/catalog-pull.ts");
+
+  for (const required of [
+    "catalogScope",
+    "shop_scoped",
+    "legacy_owner_bridge",
+    ".eq(\"shop_id\", session.shop_id)",
+    ".eq(\"owner_user_id\", ownerUserId)",
+  ]) {
+    assertContains(catalogPull, required);
+  }
+
+  assert.doesNotMatch(
+    catalogPull,
+    /if \(!ownerUserId\) \{\s*return auditedFailure[\s\S]*code: "unmapped"/,
+  );
+});
+
+test("TASK-057 staff-aware catalog writes use shop_id and catalog scope", () => {
+  const mutations = read("src/server/shop-admin/staff-aware-mutations.ts");
+
+  for (const required of [
+    "catalogAuditMetadata",
+    "catalog_scope",
+    'source: "admin_web"',
+    "shop_id: context.selectedShop.shopId",
+    "shop_scoped",
+    "legacy_owner_bridge",
+    "assertInventoryRelation",
+  ]) {
+    assertContains(mutations, required);
+  }
+
+  assert.doesNotMatch(
+    mutations,
+    /\.eq\("owner_user_id", owner\.ownerUserId\)/,
+  );
+});

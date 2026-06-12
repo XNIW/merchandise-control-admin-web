@@ -11,11 +11,16 @@ import type {
 
 type InventorySourceRow = Pick<
   Tables<"shop_inventory_sources">,
-  "shop_inventory_source_id" | "owner_user_id" | "mapping_state" | "source_kind"
+  | "shop_inventory_source_id"
+  | "shop_id"
+  | "owner_user_id"
+  | "mapping_state"
+  | "source_kind"
 >;
 type SyncEventRow = Pick<
   Tables<"sync_events">,
   | "id"
+  | "shop_id"
   | "domain"
   | "event_type"
   | "source"
@@ -28,6 +33,7 @@ type SyncEventRow = Pick<
 type SyncEventDetailRow = Pick<
   Tables<"sync_events">,
   | "id"
+  | "shop_id"
   | "batch_id"
   | "client_event_id"
   | "store_id"
@@ -44,6 +50,7 @@ type SyncEventDetailRow = Pick<
 type SharedSheetSessionRow = Pick<
   Tables<"shared_sheet_sessions">,
   | "remote_id"
+  | "shop_id"
   | "display_name"
   | "supplier"
   | "category"
@@ -57,6 +64,7 @@ type SharedSheetSessionRow = Pick<
 type SharedSheetSessionDetailRow = Pick<
   Tables<"shared_sheet_sessions">,
   | "remote_id"
+  | "shop_id"
   | "display_name"
   | "supplier"
   | "category"
@@ -331,6 +339,58 @@ function mapSession(row: SharedSheetSessionRow): ShopHistorySession {
   };
 }
 
+function mergeRowsByKey<Row>(
+  directRows: readonly Row[],
+  legacyRows: readonly Row[],
+  getKey: (row: Row) => string,
+) {
+  const rows = [...directRows];
+  const seen = new Set(rows.map(getKey));
+
+  for (const row of legacyRows) {
+    const key = getKey(row);
+
+    if (!seen.has(key)) {
+      rows.push(row);
+      seen.add(key);
+    }
+  }
+
+  return rows;
+}
+
+async function resolveHistorySourceState(
+  supabase: SupabaseServerClient,
+  selectedShop: ShopAdminShellShop,
+) {
+  const sourcesResult = await supabase
+    .from("shop_inventory_sources")
+    .select("shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind")
+    .eq("shop_id", selectedShop.shopId)
+    .is("disabled_at", null)
+    .order("created_at", { ascending: false });
+
+  if (sourcesResult.error) {
+    return { error: sourcesResult.error };
+  }
+
+  const sources = (sourcesResult.data ?? []) as InventorySourceRow[];
+  const mappedSource =
+    sources.find(
+      (source) =>
+        source.mapping_state === "mapped" && Boolean(source.owner_user_id),
+    ) ?? null;
+  const blockingSource =
+    sources.find((source) => source.mapping_state !== "mapped") ?? null;
+
+  return {
+    blockingSource,
+    error: null,
+    legacyOwnerUserId: mappedSource?.owner_user_id ?? null,
+    mapping: mappedSource ? mapMapping(mappedSource) : null,
+  };
+}
+
 type ParsedHistoryEntry =
   | {
       kind: "sync_event";
@@ -505,16 +565,9 @@ export async function getShopHistoryReadModel(
   }
 
   const { selectedShop, supabase } = access;
+  const sourceState = await resolveHistorySourceState(supabase, selectedShop);
 
-  const mappingResult = await supabase
-    .from("shop_inventory_sources")
-    .select("shop_inventory_source_id,owner_user_id,mapping_state,source_kind")
-    .eq("shop_id", selectedShop.shopId)
-    .eq("mapping_state", "mapped")
-    .is("disabled_at", null)
-    .maybeSingle();
-
-  if (mappingResult.error) {
+  if (sourceState.error) {
     return {
       status: "error",
       selectedShop,
@@ -524,13 +577,115 @@ export async function getShopHistoryReadModel(
       readOnly: true,
       source: "supabase_server",
       reason: "Mobile history mapping could not be loaded.",
-      error: redactHistoryReadModelError(mappingResult.error),
+      error: redactHistoryReadModelError(sourceState.error),
     };
   }
 
-  const mapping = mappingResult.data ? mapMapping(mappingResult.data) : null;
+  const mapping = sourceState.mapping ?? null;
+  const legacyOwnerUserId = sourceState.legacyOwnerUserId ?? null;
 
-  if (!mapping) {
+  const directSyncEventsResult = await supabase
+    .from("sync_events")
+    .select(
+      "id,shop_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
+    )
+    .eq("shop_id", selectedShop.shopId)
+    .in("domain", ["history", "catalog", "prices"])
+    .order("created_at", { ascending: false })
+    .limit(50);
+
+  if (directSyncEventsResult.error) {
+    return {
+      status: "error",
+      selectedShop,
+      mapping,
+      syncEvents: [],
+      sessions: [],
+      readOnly: true,
+      source: "supabase_server",
+      reason: "Shop-scoped sync events could not be loaded through RLS.",
+      error: redactHistoryReadModelError(directSyncEventsResult.error),
+    };
+  }
+
+  const directSessionsResult = await supabase
+    .from("shared_sheet_sessions")
+    .select(
+      "remote_id,shop_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,data,session_overlay",
+    )
+    .eq("shop_id", selectedShop.shopId)
+    .order("updated_at", { ascending: false })
+    .limit(50);
+
+  if (directSessionsResult.error) {
+    return {
+      status: "error",
+      selectedShop,
+      mapping,
+      syncEvents: (directSyncEventsResult.data ?? []).map(mapSyncEvent),
+      sessions: [],
+      readOnly: true,
+      source: "supabase_server",
+      reason: "Shop-scoped mobile sessions could not be loaded through RLS.",
+      error: redactHistoryReadModelError(directSessionsResult.error),
+    };
+  }
+
+  let legacySyncEvents: SyncEventRow[] = [];
+  let legacySessions: SharedSheetSessionRow[] = [];
+
+  if (legacyOwnerUserId) {
+    const [legacySyncEventsResult, legacySessionsResult] = await Promise.all([
+      supabase
+        .from("sync_events")
+        .select(
+          "id,shop_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
+        )
+        .is("shop_id", null)
+        .eq("owner_user_id", legacyOwnerUserId)
+        .in("domain", ["history", "catalog", "prices"])
+        .order("created_at", { ascending: false })
+        .limit(50),
+      supabase
+        .from("shared_sheet_sessions")
+        .select(
+          "remote_id,shop_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,data,session_overlay",
+        )
+        .is("shop_id", null)
+        .eq("owner_user_id", legacyOwnerUserId)
+        .order("updated_at", { ascending: false })
+        .limit(50),
+    ]);
+
+    const legacyError = legacySyncEventsResult.error ?? legacySessionsResult.error;
+
+    if (legacyError) {
+      return {
+        status: "error",
+        selectedShop,
+        mapping,
+        syncEvents: (directSyncEventsResult.data ?? []).map(mapSyncEvent),
+        sessions: (directSessionsResult.data ?? []).map(mapSession),
+        readOnly: true,
+        source: "supabase_server",
+        reason: "Legacy mobile history rows could not be loaded through RLS.",
+        error: redactHistoryReadModelError(legacyError),
+      };
+    }
+
+    legacySyncEvents = legacySyncEventsResult.data ?? [];
+    legacySessions = legacySessionsResult.data ?? [];
+  }
+
+  const directSyncEvents = directSyncEventsResult.data ?? [];
+  const directSessions = directSessionsResult.data ?? [];
+
+  if (
+    sourceState.blockingSource &&
+    !legacyOwnerUserId &&
+    directSyncEvents.length === 0 &&
+    directSessions.length === 0
+  ) {
     return {
       status: "unmapped",
       selectedShop,
@@ -540,67 +695,33 @@ export async function getShopHistoryReadModel(
       readOnly: true,
       source: "supabase_server",
       reason:
-        "No mapped mobile owner source is configured for this shop history view.",
+        "A legacy mobile source exists for this shop, but it is not mapped yet.",
     };
   }
 
-  const syncEventsResult = await supabase
-    .from("sync_events")
-    .select(
-      "id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
-    )
-    .eq("owner_user_id", mapping.ownerUserId)
-    .in("domain", ["history", "catalog", "prices"])
-    .order("created_at", { ascending: false })
-    .limit(50);
-
-  if (syncEventsResult.error) {
-    return {
-      status: "error",
-      selectedShop,
-      mapping,
-      syncEvents: [],
-      sessions: [],
-      readOnly: true,
-      source: "supabase_server",
-      reason: "Mapped sync events could not be loaded through RLS.",
-      error: redactHistoryReadModelError(syncEventsResult.error),
-    };
-  }
-
-  const sessionsResult = await supabase
-    .from("shared_sheet_sessions")
-    .select(
-      "remote_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,data,session_overlay",
-    )
-    .eq("owner_user_id", mapping.ownerUserId)
-    .order("updated_at", { ascending: false })
-    .limit(50);
-
-  if (sessionsResult.error) {
-    return {
-      status: "error",
-      selectedShop,
-      mapping,
-      syncEvents: (syncEventsResult.data ?? []).map(mapSyncEvent),
-      sessions: [],
-      readOnly: true,
-      source: "supabase_server",
-      reason: "Mapped mobile sessions could not be loaded through RLS.",
-      error: redactHistoryReadModelError(sessionsResult.error),
-    };
-  }
+  const syncEvents = mergeRowsByKey(
+    directSyncEvents,
+    legacySyncEvents,
+    (event) => String(event.id),
+  );
+  const sessions = mergeRowsByKey(
+    directSessions,
+    legacySessions,
+    (session) => session.remote_id,
+  );
 
   return {
     status: "ready",
     selectedShop,
     mapping,
-    syncEvents: (syncEventsResult.data ?? []).map(mapSyncEvent),
-    sessions: (sessionsResult.data ?? []).map(mapSession),
+    syncEvents: syncEvents.map(mapSyncEvent),
+    sessions: sessions.map(mapSession),
     readOnly: true,
     source: "supabase_server",
     reason:
-      "Mapped mobile history activity loaded server-side and summarized with recursive redaction.",
+      legacyOwnerUserId
+        ? "Shop-scoped mobile history entries loaded with legacy owner fallback."
+        : "Shop-scoped mobile history entries loaded server-side.",
   };
 }
 
@@ -636,16 +757,9 @@ export async function getShopHistoryDetailReadModel(
   }
 
   const { selectedShop, supabase } = access;
+  const sourceState = await resolveHistorySourceState(supabase, selectedShop);
 
-  const mappingResult = await supabase
-    .from("shop_inventory_sources")
-    .select("shop_inventory_source_id,owner_user_id,mapping_state,source_kind")
-    .eq("shop_id", selectedShop.shopId)
-    .eq("mapping_state", "mapped")
-    .is("disabled_at", null)
-    .maybeSingle();
-
-  if (mappingResult.error) {
+  if (sourceState.error) {
     return {
       status: "error",
       selectedShop,
@@ -654,32 +768,20 @@ export async function getShopHistoryDetailReadModel(
       readOnly: true,
       source: "supabase_server",
       reason: "Mobile history detail mapping could not be loaded.",
-      error: redactHistoryReadModelError(mappingResult.error),
+      error: redactHistoryReadModelError(sourceState.error),
     };
   }
 
-  const mapping = mappingResult.data ? mapMapping(mappingResult.data) : null;
-
-  if (!mapping) {
-    return {
-      status: "unmapped",
-      selectedShop,
-      mapping: null,
-      detail: null,
-      readOnly: true,
-      source: "supabase_server",
-      reason:
-        "No mapped mobile owner source is configured for this history detail.",
-    };
-  }
+  const mapping = sourceState.mapping ?? null;
+  const legacyOwnerUserId = sourceState.legacyOwnerUserId ?? null;
 
   if (parsedEntry.kind === "sync_event") {
     const syncEventResult = await supabase
       .from("sync_events")
       .select(
-        "id,batch_id,client_event_id,store_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at,expires_at",
+        "id,shop_id,batch_id,client_event_id,store_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at,expires_at",
       )
-      .eq("owner_user_id", mapping.ownerUserId)
+      .eq("shop_id", selectedShop.shopId)
       .eq("id", parsedEntry.value)
       .in("domain", ["history", "catalog", "prices"])
       .maybeSingle();
@@ -692,8 +794,60 @@ export async function getShopHistoryDetailReadModel(
         detail: null,
         readOnly: true,
         source: "supabase_server",
-        reason: "Mapped sync event detail could not be loaded through RLS.",
+        reason: "Shop-scoped sync event detail could not be loaded through RLS.",
         error: redactHistoryReadModelError(syncEventResult.error),
+      };
+    }
+
+    if (!syncEventResult.data && legacyOwnerUserId) {
+      const legacySyncEventResult = await supabase
+        .from("sync_events")
+        .select(
+          "id,shop_id,batch_id,client_event_id,store_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at,expires_at",
+        )
+        .is("shop_id", null)
+        .eq("owner_user_id", legacyOwnerUserId)
+        .eq("id", parsedEntry.value)
+        .in("domain", ["history", "catalog", "prices"])
+        .maybeSingle();
+
+      if (legacySyncEventResult.error) {
+        return {
+          status: "error",
+          selectedShop,
+          mapping,
+          detail: null,
+          readOnly: true,
+          source: "supabase_server",
+          reason: "Legacy sync event detail could not be loaded through RLS.",
+          error: redactHistoryReadModelError(legacySyncEventResult.error),
+        };
+      }
+
+      if (legacySyncEventResult.data) {
+        return {
+          status: "ready",
+          selectedShop,
+          mapping,
+          detail: mapSyncEventDetail(legacySyncEventResult.data),
+          readOnly: true,
+          source: "supabase_server",
+          reason:
+            "Legacy sync event detail loaded server-side with recursive redaction.",
+        };
+      }
+    }
+
+    if (!syncEventResult.data && sourceState.blockingSource && !legacyOwnerUserId) {
+      return {
+        status: "unmapped",
+        selectedShop,
+        mapping: null,
+        detail: null,
+        readOnly: true,
+        source: "supabase_server",
+        reason:
+          "A legacy mobile source exists for this shop, but it is not mapped yet.",
       };
     }
 
@@ -707,17 +861,17 @@ export async function getShopHistoryDetailReadModel(
       readOnly: true,
       source: "supabase_server",
       reason: syncEventResult.data
-        ? "Mapped sync event detail loaded server-side with recursive redaction."
-        : "No sync event detail is visible for the verified shop mapping.",
+        ? "Shop-scoped sync event detail loaded server-side with recursive redaction."
+        : "No sync event detail is visible for the verified shop scope.",
     };
   }
 
   const sessionResult = await supabase
     .from("shared_sheet_sessions")
     .select(
-      "remote_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,data,session_overlay,is_manual_entry",
+      "remote_id,shop_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,data,session_overlay,is_manual_entry",
     )
-    .eq("owner_user_id", mapping.ownerUserId)
+    .eq("shop_id", selectedShop.shopId)
     .eq("remote_id", parsedEntry.value)
     .maybeSingle();
 
@@ -729,8 +883,59 @@ export async function getShopHistoryDetailReadModel(
       detail: null,
       readOnly: true,
       source: "supabase_server",
-      reason: "Mapped history session detail could not be loaded through RLS.",
+      reason: "Shop-scoped history session detail could not be loaded through RLS.",
       error: redactHistoryReadModelError(sessionResult.error),
+    };
+  }
+
+  if (!sessionResult.data && legacyOwnerUserId) {
+    const legacySessionResult = await supabase
+      .from("shared_sheet_sessions")
+      .select(
+        "remote_id,shop_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,data,session_overlay,is_manual_entry",
+      )
+      .is("shop_id", null)
+      .eq("owner_user_id", legacyOwnerUserId)
+      .eq("remote_id", parsedEntry.value)
+      .maybeSingle();
+
+    if (legacySessionResult.error) {
+      return {
+        status: "error",
+        selectedShop,
+        mapping,
+        detail: null,
+        readOnly: true,
+        source: "supabase_server",
+        reason: "Legacy history session detail could not be loaded through RLS.",
+        error: redactHistoryReadModelError(legacySessionResult.error),
+      };
+    }
+
+    if (legacySessionResult.data) {
+      return {
+        status: "ready",
+        selectedShop,
+        mapping,
+        detail: mapSessionDetail(legacySessionResult.data),
+        readOnly: true,
+        source: "supabase_server",
+        reason:
+          "Legacy history session detail loaded server-side with recursive redaction.",
+      };
+    }
+  }
+
+  if (!sessionResult.data && sourceState.blockingSource && !legacyOwnerUserId) {
+    return {
+      status: "unmapped",
+      selectedShop,
+      mapping: null,
+      detail: null,
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "A legacy mobile source exists for this shop, but it is not mapped yet.",
     };
   }
 
@@ -742,7 +947,7 @@ export async function getShopHistoryDetailReadModel(
     readOnly: true,
     source: "supabase_server",
     reason: sessionResult.data
-      ? "Mapped history session detail loaded server-side with recursive redaction."
-      : "No history session detail is visible for the verified shop mapping.",
+      ? "Shop-scoped history session detail loaded server-side with recursive redaction."
+      : "No history session detail is visible for the verified shop scope.",
   };
 }

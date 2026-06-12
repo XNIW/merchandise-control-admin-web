@@ -142,15 +142,15 @@ test("TASK-054 task and Master Plan tracking are aligned for DONE reconciliation
   assertContains(masterPlan, "Verdict TASK-053: `DONE`");
   assertContains(masterPlan, "Stato TASK-054: `DONE`");
   assertContains(masterPlan, "Fase TASK-054: `DONE`");
-  assertContains(masterPlan, "Stato globale attuale: `REVIEW`");
+  assert.match(masterPlan, /Stato globale attuale: `(REVIEW|EXECUTION)`/);
   assertContains(masterPlan, "TASK-054C");
   assertContains(masterPlan, "Safari reale verificato");
   assertContains(masterPlan, "Final DONE confirmation");
   assertContains(masterPlan, "Verdict TASK-054: `DONE_WITH_NOTES`");
   assertContains(masterPlan, "Safari reale via `safaridriver` PASS su server dedicato");
-  assertContains(
+  assert.match(
     masterPlan,
-    "Task attivo: `NESSUNO`",
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`/,
   );
   assertContains(masterPlan, "Stato TASK-055: `DONE_RECONCILED`");
   assertContains(masterPlan, "Stato TASK-056: `DONE_RECONCILED`");

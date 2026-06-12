@@ -2,6 +2,7 @@ import {
   formatTimestampUtc,
   isIsoTimestamp,
 } from "@/components/platform/displayFormat";
+import type { ReactNode } from "react";
 
 export type AdminDataTableColumn = {
   key: string;
@@ -21,6 +22,10 @@ type AdminDataTableProps = {
     description: string;
   };
   footer?: string;
+  rowActions?: {
+    label: string;
+    render: (row: AdminDataTableRow) => ReactNode;
+  };
 };
 
 const nowrapColumns = new Set(["date", "granted", "lastSeen"]);
@@ -31,6 +36,7 @@ export function AdminDataTable({
   rows,
   emptyState,
   footer,
+  rowActions,
 }: AdminDataTableProps) {
   return (
     <div className="overflow-x-auto">
@@ -47,6 +53,14 @@ export function AdminDataTable({
                 {column.label}
               </th>
             ))}
+            {rowActions ? (
+              <th
+                scope="col"
+                className="border-b border-slate-200 px-3 py-2 text-xs font-semibold uppercase tracking-normal text-slate-500 first:pl-0 last:pr-0"
+              >
+                {rowActions.label}
+              </th>
+            ) : null}
           </tr>
         </thead>
         <tbody>
@@ -72,12 +86,17 @@ export function AdminDataTable({
                     </td>
                   );
                 })}
+                {rowActions ? (
+                  <td className="whitespace-nowrap border-b border-slate-100 px-3 py-3 align-top text-slate-700 first:pl-0 last:pr-0">
+                    {rowActions.render(row)}
+                  </td>
+                ) : null}
               </tr>
             ))
           ) : (
             <tr>
               <td
-                colSpan={columns.length}
+                colSpan={columns.length + (rowActions ? 1 : 0)}
                 className="border-b border-slate-100 px-3 py-6 text-sm text-slate-500 first:pl-0 last:pr-0"
               >
                 <span className="font-medium text-slate-700">

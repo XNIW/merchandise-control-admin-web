@@ -92,7 +92,7 @@ test("TASK-032 Excel header detection handles shifted supplier workbooks and mul
   assert.equal(spanishDetection?.headers.get("supplierName"), 5);
 });
 
-test("TASK-032 Excel validation blocks duplicate SKUs while preserving non-destructive import semantics", () => {
+test("TASK-032 Excel validation warns on duplicate SKUs while preserving non-destructive import semantics", () => {
   const helper = loadTypeScriptModule(
     "src/server/shop-admin/catalog-import-contract.ts",
   );
@@ -129,11 +129,16 @@ test("TASK-032 Excel validation blocks duplicate SKUs while preserving non-destr
 
   assert.deepEqual(
     Array.from(validation.rowErrors, (error) => error.code),
+    [],
+  );
+  assert.deepEqual(
+    Array.from(validation.rowWarnings, (warning) => warning.code),
     ["duplicate_product_sku"],
   );
-  assert.equal(validation.rowErrors[0].field, "itemNumber");
-  assert.equal(validation.rowErrors[0].row, 3);
-  assert.equal(validation.summary.errors, 1);
+  assert.equal(validation.rowWarnings[0].field, "itemNumber");
+  assert.equal(validation.rowWarnings[0].row, 3);
+  assert.equal(validation.summary.errors, 0);
+  assert.equal(validation.summary.warnings, 1);
   assert.equal(validation.summary.newProducts, 2);
 });
 

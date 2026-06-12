@@ -3,6 +3,7 @@ import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 type ImportExportActionPanelProps = {
   canExport?: boolean;
   canImport?: boolean;
+  embedded?: boolean;
   selectedShopId?: string;
 };
 
@@ -17,6 +18,8 @@ const importExportButtonClassName =
   "inline-flex h-10 w-full items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-medium text-white sm:w-auto";
 const importExportWarningButtonClassName =
   "inline-flex h-10 w-full items-center justify-center rounded-md border border-amber-400 bg-amber-50 px-4 text-sm font-medium text-amber-950 sm:w-auto";
+const importExportSecondaryButtonClassName =
+  "inline-flex h-10 w-full items-center justify-center rounded-md border border-zinc-300 bg-white px-4 text-sm font-medium text-zinc-900 sm:w-auto";
 
 function shopQuery(selectedShopId?: string) {
   return selectedShopId
@@ -33,19 +36,24 @@ function HiddenShopInput({ selectedShopId }: { selectedShopId?: string }) {
 export function ImportExportActionPanel({
   canExport = false,
   canImport = false,
+  embedded = false,
   selectedShopId,
 }: ImportExportActionPanelProps) {
   const query = shopQuery(selectedShopId);
+  const panelClassName = embedded
+    ? "grid gap-4 lg:grid-cols-2"
+    : `${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-4 lg:grid-cols-2`;
 
   return (
-    <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-4 lg:grid-cols-2`}>
+    <div className={panelClassName}>
       {canImport ? (
         <section className={importExportCardClassName}>
           <h2 className="text-base font-semibold text-zinc-950">
-            Preview workbook
+            Import supplier Excel
           </h2>
           <p className="mt-2 break-words text-sm leading-6 text-zinc-600">
-            Preview first. No catalog rows are changed in preview.
+            Preview first. No catalog rows are changed in preview. Preview workbook
+            detection before applying supplier rows.
           </p>
           <form
             action="/shop/import-export/preview"
@@ -62,7 +70,7 @@ export function ImportExportActionPanel({
               type="file"
             />
             <button className={importExportButtonClassName}>
-              Preview workbook
+              Preview supplier workbook
             </button>
           </form>
         </section>
@@ -109,7 +117,7 @@ export function ImportExportActionPanel({
               />
             </label>
             <button className={importExportWarningButtonClassName}>
-              Apply confirmed import
+              Apply supplier import
             </button>
           </form>
         </section>
@@ -122,7 +130,7 @@ export function ImportExportActionPanel({
         >
           <span className="block text-base font-semibold">Download export</span>
           <span className="mt-2 block break-words text-zinc-600">
-            Products, categories, suppliers and recent prices.
+            Products, categories, suppliers and full price history.
           </span>
         </a>
       ) : null}
@@ -137,6 +145,75 @@ export function ImportExportActionPanel({
             Empty workbook with the accepted columns.
           </span>
         </a>
+      ) : null}
+
+      {canImport ? (
+        <section className={`${importExportCardClassName} lg:col-span-2`}>
+          <details className="grid gap-3">
+            <summary className="cursor-pointer text-base font-semibold text-zinc-950">
+              Advanced database transfer
+            </summary>
+            <p className="mt-2 break-words text-sm leading-6 text-zinc-600">
+              Use this only for database-style catalog workbooks after preview. Confirmation requires IMPORT DATABASE.
+            </p>
+            <div className="mt-3 grid gap-4 lg:grid-cols-2">
+              <form
+                action="/shop/import-export/preview"
+                className={importExportFormClassName}
+                encType="multipart/form-data"
+                method="post"
+              >
+                <HiddenShopInput selectedShopId={selectedShopId} />
+                <input
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  className={importExportFileInputClassName}
+                  name="workbook"
+                  required
+                  type="file"
+                />
+                <button className={importExportSecondaryButtonClassName}>
+                  Preview database workbook
+                </button>
+              </form>
+              <form
+                action="/shop/import-export/apply"
+                className={importExportFormClassName}
+                encType="multipart/form-data"
+                method="post"
+              >
+                <HiddenShopInput selectedShopId={selectedShopId} />
+                <input
+                  accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                  className={importExportFileInputClassName}
+                  name="workbook"
+                  required
+                  type="file"
+                />
+                <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-800">
+                  Preview digest
+                  <input
+                    className={importExportInputClassName}
+                    name="previewDigest"
+                    required
+                    type="text"
+                  />
+                </label>
+                <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-800">
+                  Type IMPORT DATABASE as confirmation
+                  <input
+                    className={importExportInputClassName}
+                    name="confirmApply"
+                    required
+                    type="text"
+                  />
+                </label>
+                <button className={importExportWarningButtonClassName}>
+                  Import database workbook
+                </button>
+              </form>
+            </div>
+          </details>
+        </section>
       ) : null}
     </div>
   );

@@ -37,7 +37,7 @@
     "test:ui-smoke": "playwright test tests/e2e/platform-admin.spec.ts",
     "test:ui-smoke:ci": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3003 PLAYWRIGHT_WEB_SERVER_COMMAND=\"npm run start -- --hostname 127.0.0.1 --port 3003\" PLAYWRIGHT_REUSE_SERVER=0 playwright test tests/e2e/platform-admin.spec.ts --project=chromium-desktop",
     "test:ui-live-auth": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3002 PLAYWRIGHT_WEB_SERVER_COMMAND=\"npm run start -- --hostname 127.0.0.1 --port 3002\" PLAYWRIGHT_REUSE_SERVER=0 playwright test tests/e2e/platform-admin-live-auth.spec.ts --project=chromium-desktop",
-    "test:shop-admin-auth-smoke": "PLAYWRIGHT_BASE_URL=http://127.0.0.1:3036 PLAYWRIGHT_WEB_SERVER_COMMAND=\"npm run start -- --hostname 127.0.0.1 --port 3036\" PLAYWRIGHT_REUSE_SERVER=0 playwright test tests/e2e/task-035-shop-admin-authenticated-smoke.spec.ts --project=chromium-desktop",
+    "test:shop-admin-auth-smoke": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-035-shop-admin-authenticated-smoke.spec.ts --project=chromium-desktop",
     "test:pos-local-harness": "node scripts/pos-local-e2e-harness.mjs",
     "playwright:install": "playwright install chromium",
     "verify:full": "npm run verify && npm run test:ui-smoke"

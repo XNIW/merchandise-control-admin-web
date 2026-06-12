@@ -16,8 +16,9 @@ test("TASK-032 catalog filters expose operator copy and a clear path", () => {
 
   assert.match(productsPage, /Apply filters/);
   assert.match(productsPage, /Clear filters/);
-  assert.match(productsPage, /Use an id from Categories/);
-  assert.match(productsPage, /Use an id from Suppliers/);
+  assert.match(productsPage, /All categories/);
+  assert.match(productsPage, /All suppliers/);
+  assert.match(productsPage, /name="state"/);
   assert.match(categoriesPage, /Apply filters/);
   assert.match(categoriesPage, /Clear filters/);
   assert.match(suppliersPage, /Apply filters/);

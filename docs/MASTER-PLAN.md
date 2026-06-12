@@ -2237,6 +2237,31 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   non configurate. Commit/push finali autorizzati esplicitamente dall'utente;
   nessun migration, schema/RLS/RPC, deploy production, cloud apply o dato reale.
 
+### TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente
+
+- Stato: `REVIEW`
+- File task: `docs/TASKS/TASK-057-shop-catalog-workspace-import-intelligence.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-057/README.md`
+- Fase: `REVIEW`
+- Responsabile: `CODEX_REVIEW_FIX`
+- Scopo: trasformare `/shop/products` nel Catalog Workspace principale con
+  tabella prodotti completa, toolbar/dialog per CRUD catalogo, import/export
+  Excel integrato, parser fornitore intelligente e verifica reale del boundary
+  server-side catalogo.
+- Include:
+  - discovery schema/RPC/action context/mapping e fonti mobile Excel;
+  - prodotti con filtri per search, category, supplier e state;
+  - categorie e fornitori con pattern lista + toolbar + dialog;
+  - import fornitore Excel preview-first e database transfer avanzato;
+  - test foundation TASK-057 e handoff verso `REVIEW`.
+- Non include:
+  - commit, push o stage finale;
+  - deploy production/cloud apply;
+  - nuove dipendenze salvo blocker reale documentato;
+  - bypass di mapping, permessi, RLS/RPC, audit o boundary server-side;
+  - dati reali, token, password o service-role client/browser.
+- Verdict corrente: `READY_FOR_DONE_CONFIRMATION`.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -2311,15 +2336,17 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-055: `DONE_RECONCILED`
 - Stato TASK-056: `DONE_RECONCILED`
 - Fase TASK-056: `DONE_RECONCILED`
-- Task attivo: `NESSUNO`
-- Task precedente: `TASK-055 - Shop Admin Console UI polish`
+- Stato TASK-057: `REVIEW`
+- Fase TASK-057: `REVIEW`
+- Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`
+- Task precedente: `TASK-056 - Master Console shop detail editing and row navigation shortcut`
 - Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`
-- File task: `docs/TASKS/TASK-056-master-console-shop-detail-editing.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-056/README.md`
-- Stato task: `DONE_RECONCILED`
-- Fase: `DONE_RECONCILED`
-- Milestone interna: `TASK_055_056_DONE_RECONCILED`
-- Responsabile: `REVIEWER_DONE_GATE`
+- File task: `docs/TASKS/TASK-057-shop-catalog-workspace-import-intelligence.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-057/README.md`
+- Stato task: `REVIEW`
+- Fase: `REVIEW`
+- Milestone interna: `TASK_057_REVIEW`
+- Responsabile: `CODEX_REVIEW_FIX`
 - Branch previsto: `main`
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -2359,6 +2386,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-054: `DONE_WITH_NOTES`
 - Verdict TASK-055: `DONE_RECONCILED`
 - Verdict TASK-056: `DONE_RECONCILED`
+- Verdict TASK-057: `READY_FOR_DONE_CONFIRMATION`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
 - DONE reconciliation 2026-06-06: su conferma esplicita utente, TASK-046..TASK-050 chiusi a `DONE_RECONCILED`; TASK-040 e TASK-041 restano `REVIEW_WITH_EXTERNAL_BLOCKERS`, TASK-042 resta `READY_FOR_WIN7_MANUAL_TEST`. Commit/push finale su `main` richiesti dall'utente.
 - TASK-051 aperto in execution il 2026-06-06 da brief allegato: provisioning fiscal identity, POS-first bootstrap, manager staff `1001`, Temporary PIN server-side, Admin Console fiscal identity read-only. `shop_code` resta tecnico e `company_rut` separato per compatibilita RUT cileno. Non applicare migration su production e non dichiarare PIN raw/audit/log/evidence.
@@ -2382,6 +2410,25 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - TASK-052 final review 2026-06-11: regressione completa rieseguita dopo fix `ShopShell` `prefetch={false}` su nav protetta e logout; browser laterale autenticato su `127.0.0.1:3049` con fixture locale `TASK052_REVIEW_*`; cleanup locale completata con residui a zero. Stato resta `DONE`, non `DONE`. Rischio residuo tracciato: smoke legacy TASK-035 passa 2/3 e resta bloccato solo sulla safe view shop-owner `/shop/staff` (`Read blocked`), non su perdita sessione.
 - TASK-053 aperto il 2026-06-11: fix architetturale del blocker `/shop/staff Read blocked`. La riproduzione locale ha confermato `42501 permission denied for table staff_accounts` su `staff_accounts_safe` per account personale autenticato, mentre la lettura diretta delle colonne safe gia grantate passava. Soluzione scelta: grant colonnare additivo `SELECT(web_access_revoked_at)` a `authenticated`, con RLS e `security_invoker=true` preservati; nessun service-role browser e nessun grant su `credential_hash`.
 - TASK-054 aperto/allineato il 2026-06-11: stabilizzazione Shop Admin auth navigation e pulizia sidebar/diagnostics. Root cause: personal account failure/no-session poteva essere mascherato dal fallback staff-web con `No staff web session cookie is present.`; inoltre la sidebar propagava query param pagina-specifici tra sezioni. Fix: proxy Supabase passa a `getClaims()`, layout Shop usa `resolveShopAdminDataAccess()`, personal account valido vince sul fallback staff, staff-cookie missing non maschera il flusso Admin account, sidebar preserva solo `shop_id`, active state ottimistico, guardrail condivisi centralizzati in `Shop safety`, Diagnostics per-page rimossi, copy Shop Admin riallineato. Check eseguiti: targeted TASK-054 RED/GREEN, `test:foundation` 241/241, `security:scan`, `lint`, `typecheck`, `build`, `verify`, `test:shop:local` 4/4 con server esistente riusato, browser laterale e `cf:build` PASS_WITH_WARNINGS. Follow-up TASK-054C: processi Next stale su `3000`/`3049`/`3052`/`3053` fermati, host `localhost` e `127.0.0.1` testati separatamente, Safari reale verificato via `safaridriver` su `3054` con Supabase locale e cleanup sintetico a zero. Final review correttiva: drift guardrail `POS Live` corretto, Safari reale rieseguito su `3058`, E2E locale `test:shop:local` PASS 4/4, `verify` PASS_WITH_WARNINGS, `cf:build` PASS_WITH_WARNINGS, Supabase status locale/staging documentati come note ambientali. Final DONE confirmation: Safari reale rieseguito su `3059`, tutti i gate critici PASS/PASS_WITH_WARNINGS con warning non bloccanti, TASK-054 chiuso a `DONE` / `DONE_WITH_NOTES`. Commit/push finali autorizzati esplicitamente dall'utente; nessun migration, deploy production o cloud apply.
+- TASK-057 aperto il 2026-06-11: Catalog Workspace su `/shop/products`,
+  toolbar/dialog catalogo, import/export integrato e parser Excel intelligente.
+  Stato `REVIEW`; Codex ha preparato handoff, non marca `DONE`. QA reale
+  locale passato su Dingli e Database completo con prodotti, fornitori,
+  categorie, `PriceHistory`, mobile history entry, export completo e cleanup
+  sintetico. Nessun commit, push, stage, deploy production/cloud apply
+  autorizzato.
+- Review/fix finale TASK-057 2026-06-12: corretti guard same-origin/body/file
+  sulle route import, detail prodotto archiviato, copy/no-store export e export
+  PriceHistory completo paginato. Check finali: TASK-057 targeted `19/19`,
+  TASK-028+057 targeted `25/25`, `test:foundation` `276/276`,
+  `security:scan`, `typecheck`, `lint`, `build`, `verify`,
+  `test:shop-admin-auth-smoke` `4/4` dopo riallineamento script al wrapper
+  locale process-only, `test:platform:local` `1/1`,
+  `test:platform:local-login` `1/1`, Supabase local migration/list/lint,
+  QA Playwright autenticata, Dingli apply, Database apply/export
+  `PriceHistory 44295` e cleanup TASK057 residui zero. Verdict TASK-057:
+  `READY_FOR_DONE_CONFIRMATION`; resta `REVIEW`, non `DONE`, finche manca la
+  conferma utente esplicita.
 - Snapshot pre-TASK-055 2026-06-11: Stato globale attuale: `IDLE`;
   Task attivo: `NESSUNO`.
 - TASK-055 aperto il 2026-06-11: polish UI Shop Admin Console per menu laterale, header shop con nome/RUT/shop code, filtri products, card categories, card import/export e copy roles. Scope esplicitamente limitato a UI e piccolo arricchimento server-side di dati shop gia disponibili; vietati schema/migration/RLS/RPC, role editor, CRUD ruoli, nuove dipendenze, dati finti, service-role client/browser, commit/push/stage e deploy production. Handoff Codex pronto per `REVIEW`, non `DONE`. Check freschi: targeted TASK-055 RED/GREEN PASS 6/6, targeted legacy PASS 13/13, `lint` PASS, `typecheck` PASS, `security:scan` PASS, `test:foundation` PASS 247/247, `build` e `verify` PASS_WITH_WARNINGS per warning noti Next/Node, `test:shop-admin-auth-smoke` PASS 4/4 con Supabase locale e env process-only, visual check via screenshot Playwright autenticato.

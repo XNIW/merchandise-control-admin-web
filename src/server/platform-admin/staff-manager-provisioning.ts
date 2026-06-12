@@ -343,7 +343,9 @@ async function provisionPlatformStaffManagerInternal(
     {
       p_reason: normalized.reason,
       p_shop_code: normalized.shopCode,
-      p_shop_id: UUID_PATTERN.test(normalized.shopId) ? normalized.shopId : null,
+      p_shop_id: UUID_PATTERN.test(normalized.shopId)
+        ? normalized.shopId
+        : (null as unknown as string),
       p_staff_credential_hash: credentialHash,
       p_staff_display_name: normalized.displayName,
     },

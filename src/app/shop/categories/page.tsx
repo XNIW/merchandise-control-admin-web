@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
-import { CatalogActionPanel } from "@/app/shop/_components/CatalogActionPanel";
+import {
+  CatalogActionPanel,
+  type CatalogCategoryOption,
+} from "@/app/shop/_components/CatalogActionPanel";
+import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
+import { getShopInventoryReadModel } from "@/server/shop-admin/inventory-read-model";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
@@ -15,6 +20,8 @@ export const dynamic = "force-dynamic";
 
 type ShopPageSearchParams = Promise<{
   action?: string | string[];
+  category_action?: string | string[];
+  category_id?: string | string[];
   query?: string | string[];
   result?: string | string[];
   shop_id?: string | string[];
@@ -39,6 +46,79 @@ function buildClearFiltersHref(requestedShopId?: string) {
   }).toString()}`;
 }
 
+function mapCategoryOptions(
+  rows: Awaited<ReturnType<typeof getShopInventoryReadModel>>["categories"],
+): CatalogCategoryOption[] {
+  return rows.map((category) => ({
+    categoryId: category.categoryId,
+    name: category.name,
+  }));
+}
+
+function getCategoryDialog(action?: string) {
+  if (action === "edit") {
+    return "editCategory" as const;
+  }
+
+  if (action === "archive") {
+    return "archiveCategory" as const;
+  }
+
+  return null;
+}
+
+function buildCategoryActionHref(
+  params: Record<string, string | string[] | undefined>,
+  action: "archive" | "edit",
+  categoryId: string,
+) {
+  const nextParams = new URLSearchParams();
+
+  for (const key of ["shop_id", "query"]) {
+    const value = getParam(params, key);
+
+    if (value) {
+      nextParams.set(key, value);
+    }
+  }
+
+  nextParams.set("category_action", action);
+  nextParams.set("category_id", categoryId);
+
+  return `/shop/categories?${nextParams.toString()}`;
+}
+
+function CategoryRowActions({
+  params,
+  row,
+}: {
+  params: Record<string, string | string[] | undefined>;
+  row: AdminDataTableRow;
+}) {
+  if (!row.rowKey) {
+    return null;
+  }
+
+  const categoryId = row.rowKey;
+
+  return (
+    <div className="flex min-w-0 flex-wrap gap-2">
+      {[
+        { action: "edit" as const, label: "Update" },
+        { action: "archive" as const, label: "Archive" },
+      ].map((item) => (
+        <a
+          key={item.action}
+          className="inline-flex h-8 items-center rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
+          href={buildCategoryActionHref(params, item.action, categoryId)}
+        >
+          {item.label}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export default async function ShopCategoriesPage({
   searchParams,
 }: {
@@ -49,18 +129,29 @@ export default async function ShopCategoriesPage({
   const activeFilterCount = [getParam(params, "query")].filter((value) =>
     Boolean(value?.trim()),
   ).length;
-  const section = await getShopSectionForRequest(
-    "categories",
-    requestedShopId,
-    {
+  const [section, inventoryReadModel, categoriesContext] = await Promise.all([
+    getShopSectionForRequest("categories", requestedShopId, {
       catalogFilters: {
         query: getParam(params, "query"),
       },
-    },
-  );
-  const canManageCategories =
-    (await resolveShopActionContext(requestedShopId, "categories.write"))
-      .status === "ready";
+    }),
+    getShopInventoryReadModel({ requestedShopId }),
+    resolveShopActionContext(requestedShopId, "categories.write"),
+  ]);
+  const canManageCategories = categoriesContext.status === "ready";
+  const categoryOptions = mapCategoryOptions(inventoryReadModel.categories);
+  const categoryDialog = getCategoryDialog(getParam(params, "category_action"));
+  const categoryDialogId = getParam(params, "category_id") ?? "";
+  const catalogToolbar = canManageCategories ? (
+    <CatalogActionPanel
+      categories={categoryOptions}
+      embedded
+      initialDialog={categoryDialog}
+      initialEntityId={categoryDialogId}
+      scope="categories"
+      selectedShopId={requestedShopId}
+    />
+  ) : null;
 
   return (
     <div className="grid gap-5">
@@ -94,14 +185,22 @@ export default async function ShopCategoriesPage({
           ) : null}
         </div>
       </form>
-      <ShopSectionPage section={section} />
       <ActionResultBanner
         action={getParam(params, "action")}
         result={getParam(params, "result")}
       />
-      {canManageCategories ? (
-        <CatalogActionPanel scope="categories" selectedShopId={requestedShopId} />
-      ) : null}
+      <ShopSectionPage
+        liveDataToolbar={catalogToolbar}
+        rowActions={
+          canManageCategories
+            ? {
+                label: "Actions",
+                render: (row) => <CategoryRowActions params={params} row={row} />,
+              }
+            : undefined
+        }
+        section={section}
+      />
     </div>
   );
 }

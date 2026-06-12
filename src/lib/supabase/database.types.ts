@@ -7,139 +7,6 @@ export type Json =
   | Json[]
 
 export type Database = {
-  app_private: {
-    Tables: {
-      [_ in never]: never
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      is_active_shop_member: {
-        Args: { target_shop_id: string }
-        Returns: boolean
-      }
-      is_active_shop_owner_member: {
-        Args: { target_shop_id: string }
-        Returns: boolean
-      }
-      is_active_shop_staff_admin_member: {
-        Args: { target_shop_id: string }
-        Returns: boolean
-      }
-      is_platform_admin: { Args: never; Returns: boolean }
-      normalize_admin_label: { Args: { p_value: string }; Returns: string }
-      platform_action_result: {
-        Args: {
-          p_audit_event_id?: string
-          p_code: string
-          p_ok: boolean
-          p_shop_id?: string
-        }
-        Returns: Json
-      }
-      resolve_shop_inventory_owner: {
-        Args: { target_shop_id: string }
-        Returns: string
-      }
-      shop_admin_action_result: {
-        Args: {
-          p_audit_event_id?: string
-          p_code: string
-          p_ok: boolean
-          p_payload?: Json
-          p_shop_id?: string
-          p_target_id?: string
-        }
-        Returns: Json
-      }
-      shop_admin_reason_metadata: { Args: { p_reason: string }; Returns: Json }
-      task051_insert_initial_manager: {
-        Args: {
-          p_actor_profile_id: string
-          p_display_name: string
-          p_shop_id: string
-          p_staff_credential_hash: string
-        }
-        Returns: string
-      }
-      task051_normalize_rut: { Args: { p_value: string }; Returns: string }
-      task051_platform_audit: {
-        Args: {
-          p_actor_profile_id: string
-          p_code: string
-          p_event_key: string
-          p_metadata?: Json
-          p_reason: string
-          p_result: string
-          p_scope: string
-          p_severity: string
-          p_shop_id: string
-          p_target_id: string
-          p_target_type: string
-        }
-        Returns: string
-      }
-      task051_validate_fiscal_identity: {
-        Args: {
-          p_business_address: string
-          p_business_city: string
-          p_business_giro: string
-          p_company_rut: string
-          p_legal_representative_rut: string
-        }
-        Returns: boolean
-      }
-      write_platform_shop_audit: {
-        Args: {
-          p_actor_profile_id: string
-          p_code: string
-          p_event_key: string
-          p_reason: string
-          p_result: string
-          p_scope: string
-          p_severity: string
-          p_shop_id: string
-          p_target_id: string
-          p_target_type: string
-        }
-        Returns: string
-      }
-      write_shop_admin_audit: {
-        Args: {
-          p_code: string
-          p_event_key: string
-          p_metadata?: Json
-          p_result: string
-          p_severity: string
-          p_shop_id: string
-          p_target_id: string
-          p_target_type: string
-        }
-        Returns: string
-      }
-      write_staff_shop_admin_audit: {
-        Args: {
-          p_actor_staff_id: string
-          p_code: string
-          p_event_key: string
-          p_metadata?: Json
-          p_result: string
-          p_severity: string
-          p_shop_id: string
-          p_target_id: string
-          p_target_type: string
-        }
-        Returns: string
-      }
-    }
-    Enums: {
-      [_ in never]: never
-    }
-    CompositeTypes: {
-      [_ in never]: never
-    }
-  }
   graphql_public: {
     Tables: {
       [_ in never]: never
@@ -472,6 +339,7 @@ export type Database = {
           id: string
           name: string
           owner_user_id: string
+          shop_id: string | null
           updated_at: string
         }
         Insert: {
@@ -479,6 +347,7 @@ export type Database = {
           id?: string
           name: string
           owner_user_id: string
+          shop_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -486,9 +355,18 @@ export type Database = {
           id?: string
           name?: string
           owner_user_id?: string
+          shop_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "inventory_categories_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
       }
       inventory_product_prices: {
         Row: {
@@ -499,6 +377,7 @@ export type Database = {
           owner_user_id: string
           price: number
           product_id: string
+          shop_id: string | null
           source: string | null
           type: string
         }
@@ -510,6 +389,7 @@ export type Database = {
           owner_user_id: string
           price: number
           product_id: string
+          shop_id?: string | null
           source?: string | null
           type: string
         }
@@ -521,6 +401,7 @@ export type Database = {
           owner_user_id?: string
           price?: number
           product_id?: string
+          shop_id?: string | null
           source?: string | null
           type?: string
         }
@@ -531,6 +412,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inventory_products"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_product_prices_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
           },
         ]
       }
@@ -546,6 +434,7 @@ export type Database = {
           purchase_price: number | null
           retail_price: number | null
           second_product_name: string | null
+          shop_id: string | null
           stock_quantity: number | null
           supplier_id: string | null
           updated_at: string
@@ -561,6 +450,7 @@ export type Database = {
           purchase_price?: number | null
           retail_price?: number | null
           second_product_name?: string | null
+          shop_id?: string | null
           stock_quantity?: number | null
           supplier_id?: string | null
           updated_at?: string
@@ -576,6 +466,7 @@ export type Database = {
           purchase_price?: number | null
           retail_price?: number | null
           second_product_name?: string | null
+          shop_id?: string | null
           stock_quantity?: number | null
           supplier_id?: string | null
           updated_at?: string
@@ -587,6 +478,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "inventory_categories"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_products_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
           },
           {
             foreignKeyName: "inventory_products_supplier_id_fkey"
@@ -603,6 +501,7 @@ export type Database = {
           id: string
           name: string
           owner_user_id: string
+          shop_id: string | null
           updated_at: string
         }
         Insert: {
@@ -610,6 +509,7 @@ export type Database = {
           id?: string
           name: string
           owner_user_id: string
+          shop_id?: string | null
           updated_at?: string
         }
         Update: {
@@ -617,9 +517,18 @@ export type Database = {
           id?: string
           name?: string
           owner_user_id?: string
+          shop_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "inventory_suppliers_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
       }
       platform_admins: {
         Row: {
@@ -1281,6 +1190,7 @@ export type Database = {
           payload_version: number
           remote_id: string
           session_overlay: Json | null
+          shop_id: string | null
           supplier: string
           timestamp: string
           updated_at: string
@@ -1295,6 +1205,7 @@ export type Database = {
           payload_version: number
           remote_id: string
           session_overlay?: Json | null
+          shop_id?: string | null
           supplier?: string
           timestamp: string
           updated_at?: string
@@ -1309,11 +1220,20 @@ export type Database = {
           payload_version?: number
           remote_id?: string
           session_overlay?: Json | null
+          shop_id?: string | null
           supplier?: string
           timestamp?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "shared_sheet_sessions_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
       }
       shop_devices: {
         Row: {
@@ -1945,6 +1865,7 @@ export type Database = {
           id: number
           metadata: Json
           owner_user_id: string
+          shop_id: string | null
           source: string | null
           source_device_id: string | null
           store_id: string | null
@@ -1961,6 +1882,7 @@ export type Database = {
           id?: never
           metadata?: Json
           owner_user_id: string
+          shop_id?: string | null
           source?: string | null
           source_device_id?: string | null
           store_id?: string | null
@@ -1977,11 +1899,20 @@ export type Database = {
           id?: never
           metadata?: Json
           owner_user_id?: string
+          shop_id?: string | null
           source?: string | null
           source_device_id?: string | null
           store_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "sync_events_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
       }
     }
     Views: {
@@ -2161,7 +2092,7 @@ export type Database = {
         Args: {
           p_reason: string
           p_shop_code: string
-          p_shop_id: string | null
+          p_shop_id: string
           p_staff_credential_hash: string
           p_staff_display_name: string
         }
@@ -2230,6 +2161,7 @@ export type Database = {
           id: number
           metadata: Json
           owner_user_id: string
+          shop_id: string | null
           source: string | null
           source_device_id: string | null
           store_id: string | null
@@ -2284,6 +2216,14 @@ export type Database = {
       }
       shop_catalog_create_supplier: {
         Args: { p_name: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_import_price_history: {
+        Args: { p_prices: Json; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_import_products: {
+        Args: { p_products: Json; p_shop_id: string }
         Returns: Json
       }
       shop_catalog_restore_product: {
@@ -2528,9 +2468,6 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
-  app_private: {
-    Enums: {},
-  },
   graphql_public: {
     Enums: {},
   },

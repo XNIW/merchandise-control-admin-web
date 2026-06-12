@@ -36,9 +36,21 @@ type MutationError = {
   code?: string;
 };
 
+type InventoryCatalogScope = "legacy_owner_bridge" | "shop_scoped";
+
 type InventoryOwnerResult =
-  | { ok: true; ownerUserId: string }
+  | {
+      catalogScope: InventoryCatalogScope;
+      ok: true;
+      ownerUserId: string;
+    }
   | { ok: false; result: ShopAdminActionResult };
+
+type InventoryScopedRow = {
+  id: string;
+  owner_user_id: string;
+  shop_id: string | null;
+};
 
 type CatalogEntityInput = {
   name: string;
@@ -104,6 +116,30 @@ function normalizeLabel(value: string | undefined) {
 
 function isUniqueViolation(error: unknown) {
   return (error as MutationError | null)?.code === "23505";
+}
+
+function catalogAuditMetadata(
+  owner: { catalogScope: InventoryCatalogScope },
+  metadata: JsonRecord = {},
+): JsonRecord {
+  return {
+    catalog_scope: owner.catalogScope,
+    source: "admin_web",
+    ...metadata,
+  };
+}
+
+function isInventoryScopedToShop(
+  row: Pick<InventoryScopedRow, "owner_user_id" | "shop_id">,
+  input: {
+    ownerUserId: string;
+    shopId: string;
+  },
+) {
+  return (
+    row.shop_id === input.shopId ||
+    (row.shop_id === null && row.owner_user_id === input.ownerUserId)
+  );
 }
 
 async function auditResult(
@@ -571,18 +607,54 @@ export async function updateStaffRolePermissionsAsPersonalAccount(
   });
 }
 
+async function resolveShopScopedCompatibilityOwner(
+  context: StaffAwareContext,
+) {
+  const shopOwnerResult = await context.supabase
+    .from("shops")
+    .select("created_by_profile_id")
+    .eq("shop_id", context.selectedShop.shopId)
+    .maybeSingle<Pick<Tables<"shops">, "created_by_profile_id">>();
+
+  if (shopOwnerResult.error) {
+    return { error: shopOwnerResult.error, ownerUserId: null };
+  }
+
+  if (shopOwnerResult.data?.created_by_profile_id) {
+    return {
+      error: null,
+      ownerUserId: shopOwnerResult.data.created_by_profile_id,
+    };
+  }
+
+  const memberOwnerResult = await context.supabase
+    .from("shop_members")
+    .select("profile_id,role_key")
+    .eq("shop_id", context.selectedShop.shopId)
+    .eq("membership_status", "active")
+    .in("role_key", ["shop_owner", "shop_manager"])
+    .order("role_key", { ascending: false })
+    .limit(1);
+
+  if (memberOwnerResult.error) {
+    return { error: memberOwnerResult.error, ownerUserId: null };
+  }
+
+  return {
+    error: null,
+    ownerUserId: memberOwnerResult.data?.[0]?.profile_id ?? null,
+  };
+}
+
 async function resolveInventoryOwner(
   context: StaffAwareContext,
 ): Promise<InventoryOwnerResult> {
   const { data, error } = await context.supabase
     .from("shop_inventory_sources")
-    .select("owner_user_id")
+    .select("owner_user_id,mapping_state")
     .eq("shop_id", context.selectedShop.shopId)
-    .eq("mapping_state", "mapped")
     .is("disabled_at", null)
-    .not("owner_user_id", "is", null)
-    .limit(1)
-    .maybeSingle<Pick<Tables<"shop_inventory_sources">, "owner_user_id">>();
+    .limit(10);
 
   if (error) {
     return {
@@ -599,7 +671,22 @@ async function resolveInventoryOwner(
     };
   }
 
-  if (!data?.owner_user_id) {
+  const mappedSource = (data ?? []).find(
+    (row) => row.mapping_state === "mapped" && row.owner_user_id,
+  );
+  const blockingSource = (data ?? []).find(
+    (row) => row.mapping_state !== "mapped",
+  );
+
+  if (mappedSource?.owner_user_id) {
+    return {
+      catalogScope: "legacy_owner_bridge",
+      ok: true,
+      ownerUserId: mappedSource.owner_user_id,
+    };
+  }
+
+  if (blockingSource) {
     return {
       ok: false,
       result: await auditResult(context, {
@@ -614,7 +701,43 @@ async function resolveInventoryOwner(
     };
   }
 
-  return { ok: true, ownerUserId: data.owner_user_id };
+  const shopScopedOwner = await resolveShopScopedCompatibilityOwner(context);
+
+  if (shopScopedOwner.error) {
+    return {
+      ok: false,
+      result: await auditResult(context, {
+        code: "db_failure",
+        eventKey: "shop.inventory_source.resolve.failure",
+        ok: false,
+        result: "failure",
+        severity: "critical",
+        targetId: context.selectedShop.shopId,
+        targetType: "shop",
+      }),
+    };
+  }
+
+  if (!shopScopedOwner.ownerUserId) {
+    return {
+      ok: false,
+      result: await auditResult(context, {
+        code: "unauthorized_or_unmapped",
+        eventKey: "shop.inventory_source.resolve.failure",
+        ok: false,
+        result: "blocked",
+        severity: "warning",
+        targetId: context.selectedShop.shopId,
+        targetType: "shop",
+      }),
+    };
+  }
+
+  return {
+    catalogScope: "shop_scoped",
+    ok: true,
+    ownerUserId: shopScopedOwner.ownerUserId,
+  };
 }
 
 async function assertInventoryRelation(
@@ -622,7 +745,7 @@ async function assertInventoryRelation(
   input: {
     id?: string;
     ownerUserId: string;
-    table: "inventory_categories" | "inventory_suppliers";
+    table: "inventory_categories" | "inventory_products" | "inventory_suppliers";
   },
 ) {
   if (!input.id) {
@@ -631,13 +754,19 @@ async function assertInventoryRelation(
 
   const { data, error } = await context.supabase
     .from(input.table)
-    .select("id")
+    .select("id,shop_id,owner_user_id")
     .eq("id", input.id)
-    .eq("owner_user_id", input.ownerUserId)
     .is("deleted_at", null)
-    .maybeSingle<{ id: string }>();
+    .maybeSingle<InventoryScopedRow>();
 
-  return !error && Boolean(data);
+  return (
+    !error &&
+    data !== null &&
+    isInventoryScopedToShop(data, {
+      ownerUserId: input.ownerUserId,
+      shopId: context.selectedShop.shopId,
+    })
+  );
 }
 
 export async function createSupplierAsStaff(
@@ -653,7 +782,12 @@ export async function createSupplierAsStaff(
   const name = normalizeLabel(input.name);
   const { data, error } = await context.supabase
     .from("inventory_suppliers")
-    .insert({ name, owner_user_id: owner.ownerUserId, updated_at: nowIso() })
+    .insert({
+      name,
+      owner_user_id: owner.ownerUserId,
+      shop_id: context.selectedShop.shopId,
+      updated_at: nowIso(),
+    })
     .select("id")
     .maybeSingle<{ id: string }>();
 
@@ -663,6 +797,7 @@ export async function createSupplierAsStaff(
     return auditResult(context, {
       code,
       eventKey: "shop.catalog.supplier.create.failure",
+      metadata: catalogAuditMetadata(owner),
       ok: false,
       result: code === "conflict" ? "blocked" : "failure",
       severity: code === "conflict" ? "warning" : "critical",
@@ -673,7 +808,7 @@ export async function createSupplierAsStaff(
   return auditResult(context, {
     code: "success",
     eventKey: "shop.catalog.supplier.create.success",
-    metadata: { name_length: name.length },
+    metadata: catalogAuditMetadata(owner, { name_length: name.length }),
     result: "success",
     severity: "info",
     targetId: data.id,
@@ -692,11 +827,29 @@ export async function updateSupplierAsStaff(
   }
 
   const name = normalizeLabel(input.name);
+  if (
+    !(await assertInventoryRelation(context, {
+      id: input.id,
+      ownerUserId: owner.ownerUserId,
+      table: "inventory_suppliers",
+    }))
+  ) {
+    return auditResult(context, {
+      code: "not_found",
+      eventKey: "shop.catalog.supplier.update.failure",
+      metadata: catalogAuditMetadata(owner),
+      ok: false,
+      result: "blocked",
+      severity: "warning",
+      targetId: input.id,
+      targetType: "supplier",
+    });
+  }
+
   const { data, error } = await context.supabase
     .from("inventory_suppliers")
     .update({ name, updated_at: nowIso() })
     .eq("id", input.id)
-    .eq("owner_user_id", owner.ownerUserId)
     .is("deleted_at", null)
     .select("id")
     .maybeSingle<{ id: string }>();
@@ -707,6 +860,7 @@ export async function updateSupplierAsStaff(
     return auditResult(context, {
       code,
       eventKey: "shop.catalog.supplier.update.failure",
+      metadata: catalogAuditMetadata(owner),
       ok: false,
       result: code === "db_failure" ? "failure" : "blocked",
       severity: code === "db_failure" ? "critical" : "warning",
@@ -718,7 +872,7 @@ export async function updateSupplierAsStaff(
   return auditResult(context, {
     code: "success",
     eventKey: "shop.catalog.supplier.update.success",
-    metadata: { name_length: name.length },
+    metadata: catalogAuditMetadata(owner, { name_length: name.length }),
     result: "success",
     severity: "info",
     targetId: input.id,
@@ -736,11 +890,31 @@ export async function archiveSupplierAsStaff(
     return owner.result;
   }
 
+  if (
+    !(await assertInventoryRelation(context, {
+      id: input.id,
+      ownerUserId: owner.ownerUserId,
+      table: "inventory_suppliers",
+    }))
+  ) {
+    return auditResult(context, {
+      code: "not_found",
+      eventKey: "shop.catalog.supplier.archive.failure",
+      metadata: catalogAuditMetadata(owner, {
+        reason_redacted: normalizeLabel(input.reason),
+      }),
+      ok: false,
+      result: "blocked",
+      severity: "warning",
+      targetId: input.id,
+      targetType: "supplier",
+    });
+  }
+
   const { data, error } = await context.supabase
     .from("inventory_suppliers")
     .update({ deleted_at: nowIso(), updated_at: nowIso() })
     .eq("id", input.id)
-    .eq("owner_user_id", owner.ownerUserId)
     .is("deleted_at", null)
     .select("id")
     .maybeSingle<{ id: string }>();
@@ -749,7 +923,9 @@ export async function archiveSupplierAsStaff(
     return auditResult(context, {
       code: error ? "db_failure" : "not_found",
       eventKey: "shop.catalog.supplier.archive.failure",
-      metadata: { reason_redacted: normalizeLabel(input.reason) },
+      metadata: catalogAuditMetadata(owner, {
+        reason_redacted: normalizeLabel(input.reason),
+      }),
       ok: false,
       result: error ? "failure" : "blocked",
       severity: error ? "critical" : "warning",
@@ -761,7 +937,9 @@ export async function archiveSupplierAsStaff(
   return auditResult(context, {
     code: "success",
     eventKey: "shop.catalog.supplier.archive.success",
-    metadata: { reason_redacted: normalizeLabel(input.reason) },
+    metadata: catalogAuditMetadata(owner, {
+      reason_redacted: normalizeLabel(input.reason),
+    }),
     result: "success",
     severity: "warning",
     targetId: input.id,
@@ -782,7 +960,12 @@ export async function createCategoryAsStaff(
   const name = normalizeLabel(input.name);
   const { data, error } = await context.supabase
     .from("inventory_categories")
-    .insert({ name, owner_user_id: owner.ownerUserId, updated_at: nowIso() })
+    .insert({
+      name,
+      owner_user_id: owner.ownerUserId,
+      shop_id: context.selectedShop.shopId,
+      updated_at: nowIso(),
+    })
     .select("id")
     .maybeSingle<{ id: string }>();
 
@@ -792,6 +975,7 @@ export async function createCategoryAsStaff(
     return auditResult(context, {
       code,
       eventKey: "shop.catalog.category.create.failure",
+      metadata: catalogAuditMetadata(owner),
       ok: false,
       result: code === "conflict" ? "blocked" : "failure",
       severity: code === "conflict" ? "warning" : "critical",
@@ -802,7 +986,7 @@ export async function createCategoryAsStaff(
   return auditResult(context, {
     code: "success",
     eventKey: "shop.catalog.category.create.success",
-    metadata: { name_length: name.length },
+    metadata: catalogAuditMetadata(owner, { name_length: name.length }),
     result: "success",
     severity: "info",
     targetId: data.id,
@@ -821,11 +1005,29 @@ export async function updateCategoryAsStaff(
   }
 
   const name = normalizeLabel(input.name);
+  if (
+    !(await assertInventoryRelation(context, {
+      id: input.id,
+      ownerUserId: owner.ownerUserId,
+      table: "inventory_categories",
+    }))
+  ) {
+    return auditResult(context, {
+      code: "not_found",
+      eventKey: "shop.catalog.category.update.failure",
+      metadata: catalogAuditMetadata(owner),
+      ok: false,
+      result: "blocked",
+      severity: "warning",
+      targetId: input.id,
+      targetType: "category",
+    });
+  }
+
   const { data, error } = await context.supabase
     .from("inventory_categories")
     .update({ name, updated_at: nowIso() })
     .eq("id", input.id)
-    .eq("owner_user_id", owner.ownerUserId)
     .is("deleted_at", null)
     .select("id")
     .maybeSingle<{ id: string }>();
@@ -836,6 +1038,7 @@ export async function updateCategoryAsStaff(
     return auditResult(context, {
       code,
       eventKey: "shop.catalog.category.update.failure",
+      metadata: catalogAuditMetadata(owner),
       ok: false,
       result: code === "db_failure" ? "failure" : "blocked",
       severity: code === "db_failure" ? "critical" : "warning",
@@ -847,7 +1050,7 @@ export async function updateCategoryAsStaff(
   return auditResult(context, {
     code: "success",
     eventKey: "shop.catalog.category.update.success",
-    metadata: { name_length: name.length },
+    metadata: catalogAuditMetadata(owner, { name_length: name.length }),
     result: "success",
     severity: "info",
     targetId: input.id,
@@ -865,11 +1068,31 @@ export async function archiveCategoryAsStaff(
     return owner.result;
   }
 
+  if (
+    !(await assertInventoryRelation(context, {
+      id: input.id,
+      ownerUserId: owner.ownerUserId,
+      table: "inventory_categories",
+    }))
+  ) {
+    return auditResult(context, {
+      code: "not_found",
+      eventKey: "shop.catalog.category.archive.failure",
+      metadata: catalogAuditMetadata(owner, {
+        reason_redacted: normalizeLabel(input.reason),
+      }),
+      ok: false,
+      result: "blocked",
+      severity: "warning",
+      targetId: input.id,
+      targetType: "category",
+    });
+  }
+
   const { data, error } = await context.supabase
     .from("inventory_categories")
     .update({ deleted_at: nowIso(), updated_at: nowIso() })
     .eq("id", input.id)
-    .eq("owner_user_id", owner.ownerUserId)
     .is("deleted_at", null)
     .select("id")
     .maybeSingle<{ id: string }>();
@@ -878,7 +1101,9 @@ export async function archiveCategoryAsStaff(
     return auditResult(context, {
       code: error ? "db_failure" : "not_found",
       eventKey: "shop.catalog.category.archive.failure",
-      metadata: { reason_redacted: normalizeLabel(input.reason) },
+      metadata: catalogAuditMetadata(owner, {
+        reason_redacted: normalizeLabel(input.reason),
+      }),
       ok: false,
       result: error ? "failure" : "blocked",
       severity: error ? "critical" : "warning",
@@ -890,7 +1115,9 @@ export async function archiveCategoryAsStaff(
   return auditResult(context, {
     code: "success",
     eventKey: "shop.catalog.category.archive.success",
-    metadata: { reason_redacted: normalizeLabel(input.reason) },
+    metadata: catalogAuditMetadata(owner, {
+      reason_redacted: normalizeLabel(input.reason),
+    }),
     result: "success",
     severity: "warning",
     targetId: input.id,
@@ -945,6 +1172,7 @@ export async function createProductAsStaff(
       purchase_price: input.purchasePrice,
       retail_price: input.retailPrice,
       second_product_name: input.secondProductName,
+      shop_id: context.selectedShop.shopId,
       stock_quantity: input.stockQuantity,
       supplier_id: input.supplierId,
       updated_at: nowIso(),
@@ -958,6 +1186,7 @@ export async function createProductAsStaff(
     return auditResult(context, {
       code,
       eventKey: "shop.catalog.product.create.failure",
+      metadata: catalogAuditMetadata(owner),
       ok: false,
       result: code === "conflict" ? "blocked" : "failure",
       severity: code === "conflict" ? "warning" : "critical",
@@ -968,11 +1197,11 @@ export async function createProductAsStaff(
   return auditResult(context, {
     code: "success",
     eventKey: "shop.catalog.product.create.success",
-    metadata: {
+    metadata: catalogAuditMetadata(owner, {
       barcode_length: normalizeLabel(input.barcode).length,
       has_category: Boolean(input.categoryId),
       has_supplier: Boolean(input.supplierId),
-    },
+    }),
     result: "success",
     severity: "info",
     targetId: data.id,
@@ -1018,6 +1247,25 @@ export async function updateProductAsStaff(
     });
   }
 
+  if (
+    !(await assertInventoryRelation(context, {
+      id: input.productId,
+      ownerUserId: owner.ownerUserId,
+      table: "inventory_products",
+    }))
+  ) {
+    return auditResult(context, {
+      code: "not_found",
+      eventKey: "shop.catalog.product.update.failure",
+      metadata: catalogAuditMetadata(owner),
+      ok: false,
+      result: "blocked",
+      severity: "warning",
+      targetId: input.productId,
+      targetType: "product",
+    });
+  }
+
   const { data, error } = await context.supabase
     .from("inventory_products")
     .update({
@@ -1033,7 +1281,6 @@ export async function updateProductAsStaff(
       updated_at: nowIso(),
     })
     .eq("id", input.productId)
-    .eq("owner_user_id", owner.ownerUserId)
     .is("deleted_at", null)
     .select("id")
     .maybeSingle<{ id: string }>();
@@ -1044,6 +1291,7 @@ export async function updateProductAsStaff(
     return auditResult(context, {
       code,
       eventKey: "shop.catalog.product.update.failure",
+      metadata: catalogAuditMetadata(owner),
       ok: false,
       result: code === "db_failure" ? "failure" : "blocked",
       severity: code === "db_failure" ? "critical" : "warning",
@@ -1055,6 +1303,7 @@ export async function updateProductAsStaff(
   return auditResult(context, {
     code: "success",
     eventKey: "shop.catalog.product.update.success",
+    metadata: catalogAuditMetadata(owner),
     result: "success",
     severity: "info",
     targetId: input.productId,
@@ -1087,11 +1336,33 @@ async function setProductDeletedStateAsStaff(
     return owner.result;
   }
 
+  if (
+    !(await assertInventoryRelation(context, {
+      id: input.id,
+      ownerUserId: owner.ownerUserId,
+      table: "inventory_products",
+    }))
+  ) {
+    return auditResult(context, {
+      code: "invalid_state_or_not_found",
+      eventKey: archived
+        ? "shop.catalog.product.archive.failure"
+        : "shop.catalog.product.restore.failure",
+      metadata: catalogAuditMetadata(owner, {
+        reason_redacted: normalizeLabel(input.reason),
+      }),
+      ok: false,
+      result: "blocked",
+      severity: "warning",
+      targetId: input.id,
+      targetType: "product",
+    });
+  }
+
   const productUpdate = context.supabase
     .from("inventory_products")
     .update({ deleted_at: archived ? nowIso() : null, updated_at: nowIso() })
-    .eq("id", input.id)
-    .eq("owner_user_id", owner.ownerUserId);
+    .eq("id", input.id);
   const filteredProductUpdate = archived
     ? productUpdate.is("deleted_at", null)
     : productUpdate.not("deleted_at", "is", null);
@@ -1105,7 +1376,9 @@ async function setProductDeletedStateAsStaff(
       eventKey: archived
         ? "shop.catalog.product.archive.failure"
         : "shop.catalog.product.restore.failure",
-      metadata: { reason_redacted: normalizeLabel(input.reason) },
+      metadata: catalogAuditMetadata(owner, {
+        reason_redacted: normalizeLabel(input.reason),
+      }),
       ok: false,
       result: error ? "failure" : "blocked",
       severity: error ? "critical" : "warning",
@@ -1119,7 +1392,9 @@ async function setProductDeletedStateAsStaff(
     eventKey: archived
       ? "shop.catalog.product.archive.success"
       : "shop.catalog.product.restore.success",
-    metadata: { reason_redacted: normalizeLabel(input.reason) },
+    metadata: catalogAuditMetadata(owner, {
+      reason_redacted: normalizeLabel(input.reason),
+    }),
     result: "success",
     severity: "warning",
     targetId: input.id,

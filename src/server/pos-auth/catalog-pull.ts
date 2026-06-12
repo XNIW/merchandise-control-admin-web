@@ -66,7 +66,7 @@ type PosSessionRow = Pick<
 >;
 type InventorySourceRow = Pick<
   Tables<"shop_inventory_sources">,
-  "owner_user_id" | "shop_id"
+  "mapping_state" | "owner_user_id" | "shop_id"
 >;
 type ProductRow = Pick<
   Tables<"inventory_products">,
@@ -79,21 +79,29 @@ type ProductRow = Pick<
   | "purchase_price"
   | "retail_price"
   | "second_product_name"
+  | "shop_id"
   | "stock_quantity"
   | "supplier_id"
   | "updated_at"
 >;
 type CategoryRow = Pick<
   Tables<"inventory_categories">,
-  "deleted_at" | "id" | "name" | "updated_at"
+  "deleted_at" | "id" | "name" | "shop_id" | "updated_at"
 >;
 type SupplierRow = Pick<
   Tables<"inventory_suppliers">,
-  "deleted_at" | "id" | "name" | "updated_at"
+  "deleted_at" | "id" | "name" | "shop_id" | "updated_at"
 >;
 type PriceRow = Pick<
   Tables<"inventory_product_prices">,
-  "created_at" | "effective_at" | "id" | "price" | "product_id" | "source" | "type"
+  | "created_at"
+  | "effective_at"
+  | "id"
+  | "price"
+  | "product_id"
+  | "shop_id"
+  | "source"
+  | "type"
 >;
 
 type JsonRecord = { [key: string]: Json | undefined };
@@ -244,7 +252,7 @@ function failure(
       : code === "validation_failed"
         ? "Request payload is invalid."
         : code === "unmapped"
-          ? "This shop has no mapped catalog source."
+          ? "This shop has a legacy catalog bridge that is not mapped."
           : "POS catalog pull was denied.";
 
   return {
@@ -312,6 +320,46 @@ function previewSyncCursor(syncCursor: string) {
   return syncCursor.startsWith("catalog-v1:")
     ? `${syncCursor.slice(0, 24)}...`
     : syncCursor;
+}
+
+function mergeCatalogRowsById<Row extends { id: string }>(
+  shopRows: readonly Row[],
+  legacyRows: readonly Row[],
+) {
+  const rows = [...shopRows];
+  const seen = new Set(shopRows.map((row) => row.id));
+
+  for (const row of legacyRows) {
+    if (!seen.has(row.id)) {
+      rows.push(row);
+    }
+  }
+
+  return rows;
+}
+
+function compareUpdatedCatalogRows<
+  Row extends { id: string; updated_at: string },
+>(left: Row, right: Row) {
+  const byUpdatedAt = Date.parse(left.updated_at) - Date.parse(right.updated_at);
+
+  return byUpdatedAt === 0 ? left.id.localeCompare(right.id) : byUpdatedAt;
+}
+
+function compareCreatedCatalogRows<
+  Row extends { created_at: string; id: string },
+>(left: Row, right: Row) {
+  const byCreatedAt = Date.parse(left.created_at) - Date.parse(right.created_at);
+
+  return byCreatedAt === 0 ? left.id.localeCompare(right.id) : byCreatedAt;
+}
+
+function pageCatalogScopeRows<Row extends { id: string }>(
+  rows: readonly Row[],
+  range: { from: number; to: number },
+  limit: number,
+) {
+  return pageCatalogRows(rows.slice(range.from, range.to + 1), limit);
 }
 
 async function getSupabaseForPosCatalog() {
@@ -546,12 +594,10 @@ export async function handlePosCatalogPull(
 
   const mappingResult = await supabase
     .from("shop_inventory_sources")
-    .select("shop_id,owner_user_id")
+    .select("shop_id,owner_user_id,mapping_state")
     .eq("shop_id", session.shop_id)
-    .eq("mapping_state", "mapped")
     .is("disabled_at", null)
-    .not("owner_user_id", "is", null)
-    .maybeSingle<InventorySourceRow>();
+    .limit(10);
 
   if (mappingResult.error) {
     return auditedFailure(supabase, {
@@ -564,18 +610,14 @@ export async function handlePosCatalogPull(
     });
   }
 
-  const ownerUserId = mappingResult.data?.owner_user_id;
-
-  if (!ownerUserId) {
-    return auditedFailure(supabase, {
-      code: "unmapped",
-      metadata: requestMetadata(meta),
-      shopId: session.shop_id,
-      status: 409,
-      targetId: session.shop_device_id,
-      targetType: "device",
-    });
-  }
+  const mappingRows = (mappingResult.data ?? []) as InventorySourceRow[];
+  const mappedSource = mappingRows.find(
+    (row) => row.mapping_state === "mapped" && row.owner_user_id,
+  );
+  const blockingSource = mappingRows.find(
+    (row) => row.mapping_state !== "mapped",
+  );
+  const ownerUserId = mappedSource?.owner_user_id ?? null;
 
   const syncOptions = parsed.syncOptions;
   const productRange = catalogRangeFor(syncOptions, "products");
@@ -588,33 +630,33 @@ export async function handlePosCatalogPull(
   let productsQuery = supabase
     .from("inventory_products")
     .select(
-      "id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,updated_at,deleted_at",
+      "id,shop_id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,updated_at,deleted_at",
     )
-    .eq("owner_user_id", ownerUserId)
+    .eq("shop_id", session.shop_id)
     .lte("updated_at", syncOptions.upperBound)
     .order("updated_at", { ascending: true })
     .order("id", { ascending: true });
 
   let categoriesQuery = supabase
     .from("inventory_categories")
-    .select("id,name,updated_at,deleted_at")
-    .eq("owner_user_id", ownerUserId)
+    .select("id,shop_id,name,updated_at,deleted_at")
+    .eq("shop_id", session.shop_id)
     .lte("updated_at", syncOptions.upperBound)
     .order("updated_at", { ascending: true })
     .order("id", { ascending: true });
 
   let suppliersQuery = supabase
     .from("inventory_suppliers")
-    .select("id,name,updated_at,deleted_at")
-    .eq("owner_user_id", ownerUserId)
+    .select("id,shop_id,name,updated_at,deleted_at")
+    .eq("shop_id", session.shop_id)
     .lte("updated_at", syncOptions.upperBound)
     .order("updated_at", { ascending: true })
     .order("id", { ascending: true });
 
   let pricesQuery = supabase
     .from("inventory_product_prices")
-    .select("id,product_id,type,price,effective_at,source,created_at")
-    .eq("owner_user_id", ownerUserId)
+    .select("id,shop_id,product_id,type,price,effective_at,source,created_at")
+    .eq("shop_id", session.shop_id)
     .order("created_at", { ascending: true })
     .order("id", { ascending: true });
 
@@ -638,10 +680,10 @@ export async function handlePosCatalogPull(
 
   const [productsResult, categoriesResult, suppliersResult, pricesResult] =
     await Promise.all([
-      productsQuery.range(productRange.from, productRange.to),
-      categoriesQuery.range(categoryRange.from, categoryRange.to),
-      suppliersQuery.range(supplierRange.from, supplierRange.to),
-      pricesQuery.range(priceRange.from, priceRange.to),
+      productsQuery.range(0, productRange.to),
+      categoriesQuery.range(0, categoryRange.to),
+      suppliersQuery.range(0, supplierRange.to),
+      pricesQuery.range(0, priceRange.to),
     ]);
 
   if (
@@ -660,20 +702,169 @@ export async function handlePosCatalogPull(
     });
   }
 
-  const productPage = pageCatalogRows(
-    (productsResult.data ?? []) as ProductRow[],
+  const shopProducts = (productsResult.data ?? []) as ProductRow[];
+  const shopCategories = (categoriesResult.data ?? []) as CategoryRow[];
+  const shopSuppliers = (suppliersResult.data ?? []) as SupplierRow[];
+  const shopPrices = (pricesResult.data ?? []) as PriceRow[];
+  const shopScopedRowsPresent =
+    shopProducts.length > 0 ||
+    shopCategories.length > 0 ||
+    shopSuppliers.length > 0 ||
+    shopPrices.length > 0;
+  let legacyProducts: ProductRow[] = [];
+  let legacyCategories: CategoryRow[] = [];
+  let legacySuppliers: SupplierRow[] = [];
+  let legacyPrices: PriceRow[] = [];
+
+  if (ownerUserId) {
+    let legacyProductsQuery = supabase
+      .from("inventory_products")
+      .select(
+        "id,shop_id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,updated_at,deleted_at",
+      )
+      .is("shop_id", null)
+      .eq("owner_user_id", ownerUserId)
+      .lte("updated_at", syncOptions.upperBound)
+      .order("updated_at", { ascending: true })
+      .order("id", { ascending: true });
+
+    let legacyCategoriesQuery = supabase
+      .from("inventory_categories")
+      .select("id,shop_id,name,updated_at,deleted_at")
+      .is("shop_id", null)
+      .eq("owner_user_id", ownerUserId)
+      .lte("updated_at", syncOptions.upperBound)
+      .order("updated_at", { ascending: true })
+      .order("id", { ascending: true });
+
+    let legacySuppliersQuery = supabase
+      .from("inventory_suppliers")
+      .select("id,shop_id,name,updated_at,deleted_at")
+      .is("shop_id", null)
+      .eq("owner_user_id", ownerUserId)
+      .lte("updated_at", syncOptions.upperBound)
+      .order("updated_at", { ascending: true })
+      .order("id", { ascending: true });
+
+    let legacyPricesQuery = supabase
+      .from("inventory_product_prices")
+      .select("id,shop_id,product_id,type,price,effective_at,source,created_at")
+      .is("shop_id", null)
+      .eq("owner_user_id", ownerUserId)
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true });
+
+    if (syncOptions.lowerBound) {
+      legacyProductsQuery = legacyProductsQuery.gte(
+        "updated_at",
+        syncOptions.lowerBound,
+      );
+      legacyCategoriesQuery = legacyCategoriesQuery.gte(
+        "updated_at",
+        syncOptions.lowerBound,
+      );
+      legacySuppliersQuery = legacySuppliersQuery.gte(
+        "updated_at",
+        syncOptions.lowerBound,
+      );
+
+      if (priceLowerBound) {
+        legacyPricesQuery = legacyPricesQuery.gte(
+          "created_at",
+          priceLowerBound,
+        );
+      }
+    } else {
+      legacyProductsQuery = legacyProductsQuery.is("deleted_at", null);
+      legacyCategoriesQuery = legacyCategoriesQuery.is("deleted_at", null);
+      legacySuppliersQuery = legacySuppliersQuery.is("deleted_at", null);
+    }
+
+    if (priceUpperBound) {
+      legacyPricesQuery = legacyPricesQuery.lte("created_at", priceUpperBound);
+    }
+
+    const [
+      legacyProductsResult,
+      legacyCategoriesResult,
+      legacySuppliersResult,
+      legacyPricesResult,
+    ] = await Promise.all([
+      legacyProductsQuery.range(0, productRange.to),
+      legacyCategoriesQuery.range(0, categoryRange.to),
+      legacySuppliersQuery.range(0, supplierRange.to),
+      legacyPricesQuery.range(0, priceRange.to),
+    ]);
+
+    if (
+      legacyProductsResult.error ||
+      legacyCategoriesResult.error ||
+      legacySuppliersResult.error ||
+      legacyPricesResult.error
+    ) {
+      return auditedFailure(supabase, {
+        code: "db_failure",
+        metadata: requestMetadata(meta),
+        shopId: session.shop_id,
+        status: 500,
+        targetId: session.shop_device_id,
+        targetType: "device",
+      });
+    }
+
+    legacyProducts = (legacyProductsResult.data ?? []) as ProductRow[];
+    legacyCategories = (legacyCategoriesResult.data ?? []) as CategoryRow[];
+    legacySuppliers = (legacySuppliersResult.data ?? []) as SupplierRow[];
+    legacyPrices = (legacyPricesResult.data ?? []) as PriceRow[];
+  }
+
+  if (!ownerUserId && blockingSource && !shopScopedRowsPresent) {
+    return auditedFailure(supabase, {
+      code: "unmapped",
+      metadata: requestMetadata(meta),
+      shopId: session.shop_id,
+      status: 409,
+      targetId: session.shop_device_id,
+      targetType: "device",
+    });
+  }
+
+  const catalogScope =
+    shopScopedRowsPresent || !ownerUserId
+      ? "shop_scoped"
+      : "legacy_owner_bridge";
+  const productRows = mergeCatalogRowsById(shopProducts, legacyProducts).sort(
+    compareUpdatedCatalogRows,
+  );
+  const categoryRows = mergeCatalogRowsById(
+    shopCategories,
+    legacyCategories,
+  ).sort(compareUpdatedCatalogRows);
+  const supplierRows = mergeCatalogRowsById(
+    shopSuppliers,
+    legacySuppliers,
+  ).sort(compareUpdatedCatalogRows);
+  const priceRows = mergeCatalogRowsById(shopPrices, legacyPrices).sort(
+    compareCreatedCatalogRows,
+  );
+  const productPage = pageCatalogScopeRows(
+    productRows,
+    productRange,
     syncOptions.limit,
   );
-  const categoryPage = pageCatalogRows(
-    (categoriesResult.data ?? []) as CategoryRow[],
+  const categoryPage = pageCatalogScopeRows(
+    categoryRows,
+    categoryRange,
     syncOptions.limit,
   );
-  const supplierPage = pageCatalogRows(
-    (suppliersResult.data ?? []) as SupplierRow[],
+  const supplierPage = pageCatalogScopeRows(
+    supplierRows,
+    supplierRange,
     syncOptions.limit,
   );
-  const pricePage = pageCatalogRows(
-    (pricesResult.data ?? []) as PriceRow[],
+  const pricePage = pageCatalogScopeRows(
+    priceRows,
+    priceRange,
     syncOptions.limit,
   );
   const { active: products, tombstones: productTombstones } =
@@ -714,6 +905,7 @@ export async function handlePosCatalogPull(
     metadata: {
       ...requestMetadata(meta),
       app_version_present: Boolean(parsed.appVersion),
+      catalog_scope: catalogScope,
       catalog_version: catalogVersion,
       categories: categories.length,
       category_tombstones: categoryTombstones.length,

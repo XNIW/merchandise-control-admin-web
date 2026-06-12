@@ -14,6 +14,7 @@ export async function GET(request: Request) {
 
   return new Response(new Uint8Array(result.buffer), {
     headers: {
+      "Cache-Control": "no-store",
       "Content-Disposition": `attachment; filename="${result.fileName}"`,
       "Content-Type": result.contentType ?? "application/octet-stream",
     },

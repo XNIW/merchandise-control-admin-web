@@ -45,6 +45,7 @@ import {
   removeShopMember,
   updateShopMemberRole,
 } from "@/server/shop-admin/member-mutations";
+import { getShopInventoryReadModel } from "@/server/shop-admin/inventory-read-model";
 
 export type ShopAdminActionState = ShopAdminActionResult & {
   temporaryCredential?: string;
@@ -97,6 +98,38 @@ function catalogProductInput(formData: FormData) {
   };
 }
 
+async function catalogProductId(formData: FormData) {
+  const productId = optionalFormString(formData, "productId");
+
+  if (productId) {
+    return productId;
+  }
+
+  const productLookup = optionalFormString(formData, "productLookup");
+
+  if (!productLookup) {
+    return "";
+  }
+
+  const readModel = await getShopInventoryReadModel({
+    requestedShopId: requestedShopId(formData),
+  });
+
+  if (readModel.status !== "ready") {
+    return productLookup;
+  }
+
+  const normalizedLookup = productLookup.trim().toLowerCase();
+  const product = [...readModel.products, ...readModel.archivedProducts].find(
+    (row) =>
+      row.productId.toLowerCase() === normalizedLookup ||
+      row.barcode.toLowerCase() === normalizedLookup ||
+      row.itemNumber?.toLowerCase() === normalizedLookup,
+  );
+
+  return product?.productId ?? productLookup;
+}
+
 export async function createProductAction(formData: FormData) {
   resultRedirect("/shop/products", await createProduct(catalogProductInput(formData)));
 }
@@ -106,7 +139,7 @@ export async function updateProductAction(formData: FormData) {
     "/shop/products",
     await updateProduct({
       ...catalogProductInput(formData),
-      productId: formString(formData, "productId"),
+      productId: await catalogProductId(formData),
     }),
   );
 }
@@ -122,7 +155,7 @@ export async function archiveProductAction(formData: FormData) {
   resultRedirect(
     "/shop/products",
     await archiveProduct({
-      id: formString(formData, "productId"),
+      id: await catalogProductId(formData),
       reason: optionalFormString(formData, "reason"),
       requestedShopId: requestedShopId(formData),
     }),
@@ -140,7 +173,7 @@ export async function restoreProductAction(formData: FormData) {
   resultRedirect(
     "/shop/products",
     await restoreProduct({
-      id: formString(formData, "productId"),
+      id: await catalogProductId(formData),
       reason: optionalFormString(formData, "reason"),
       requestedShopId: requestedShopId(formData),
     }),

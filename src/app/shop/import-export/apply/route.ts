@@ -1,14 +1,10 @@
 import { applyCatalogWorkbookImport } from "@/server/shop-admin/import-export-workbook";
-import { MAX_IMPORT_BYTES } from "@/server/shop-admin/import-export-readiness";
+import {
+  guardCatalogImportExportPostRequest,
+  guardCatalogImportWorkbookFile,
+} from "@/server/shop-admin/import-export-route-guard";
 
 export const dynamic = "force-dynamic";
-
-function requestBodyTooLarge(request: Request) {
-  const contentLength = request.headers.get("content-length");
-  const bytes = contentLength ? Number(contentLength) : 0;
-
-  return Number.isFinite(bytes) && bytes > MAX_IMPORT_BYTES;
-}
 
 function formString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -17,15 +13,10 @@ function formString(formData: FormData, key: string) {
 }
 
 export async function POST(request: Request) {
-  if (requestBodyTooLarge(request)) {
-    return Response.json(
-      {
-        code: "file_too_large",
-        message: "The workbook is larger than the allowed import limit.",
-        ok: false,
-      },
-      { status: 413 },
-    );
+  const invalidRequest = guardCatalogImportExportPostRequest(request);
+
+  if (invalidRequest) {
+    return invalidRequest;
   }
 
   const formData = await request.formData();
@@ -33,6 +24,12 @@ export async function POST(request: Request) {
 
   if (!(file instanceof File)) {
     return Response.json({ code: "invalid_file_type", ok: false }, { status: 400 });
+  }
+
+  const invalidFile = guardCatalogImportWorkbookFile(file);
+
+  if (invalidFile) {
+    return invalidFile;
   }
 
   const result = await applyCatalogWorkbookImport({

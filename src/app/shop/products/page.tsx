@@ -1,9 +1,17 @@
 import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
-import { CatalogActionPanel } from "@/app/shop/_components/CatalogActionPanel";
+import {
+  CatalogActionPanel,
+  type CatalogCategoryOption,
+  type CatalogProductOption,
+  type CatalogSupplierOption,
+} from "@/app/shop/_components/CatalogActionPanel";
+import { ImportExportActionPanel } from "@/app/shop/_components/ImportExportActionPanel";
+import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
+import { getShopInventoryReadModel } from "@/server/shop-admin/inventory-read-model";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
@@ -16,9 +24,12 @@ export const dynamic = "force-dynamic";
 type ShopPageSearchParams = Promise<{
   action?: string | string[];
   category_id?: string | string[];
+  product_action?: string | string[];
+  product_id?: string | string[];
   query?: string | string[];
   result?: string | string[];
   shop_id?: string | string[];
+  state?: string | string[];
   supplier_id?: string | string[];
 }>;
 
@@ -48,6 +59,138 @@ const filterInputClassName =
 const filterButtonClassName =
   "inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium";
 
+function mapProductOptions(
+  rows: Awaited<ReturnType<typeof getShopInventoryReadModel>>["products"],
+): CatalogProductOption[] {
+  return rows.map((product) => ({
+    barcode: product.barcode,
+    categoryId: product.categoryId,
+    itemNumber: product.itemNumber,
+    productId: product.productId,
+    productName: product.productName,
+    purchasePrice: product.purchasePrice,
+    retailPrice: product.retailPrice,
+    secondProductName: product.secondProductName,
+    stockQuantity: product.stockQuantity,
+    supplierId: product.supplierId,
+  }));
+}
+
+function mapCategoryOptions(
+  rows: Awaited<ReturnType<typeof getShopInventoryReadModel>>["categories"],
+): CatalogCategoryOption[] {
+  return rows.map((category) => ({
+    categoryId: category.categoryId,
+    name: category.name,
+  }));
+}
+
+function mapSupplierOptions(
+  rows: Awaited<ReturnType<typeof getShopInventoryReadModel>>["suppliers"],
+): CatalogSupplierOption[] {
+  return rows.map((supplier) => ({
+    name: supplier.name,
+    supplierId: supplier.supplierId,
+  }));
+}
+
+function getProductDialog(action?: string) {
+  if (action === "edit") {
+    return "editProduct" as const;
+  }
+
+  if (action === "archive") {
+    return "archiveProduct" as const;
+  }
+
+  if (action === "restore") {
+    return "restoreProduct" as const;
+  }
+
+  return null;
+}
+
+function buildProductActionHref(
+  params: Record<string, string | string[] | undefined>,
+  action: "archive" | "edit" | "restore",
+  productId: string,
+) {
+  const nextParams = new URLSearchParams();
+
+  for (const key of ["shop_id", "query", "category_id", "supplier_id", "state"]) {
+    const value = getParam(params, key);
+
+    if (value) {
+      nextParams.set(key, value);
+    }
+  }
+
+  nextParams.set("product_action", action);
+  nextParams.set("product_id", productId);
+
+  return `/shop/products?${nextParams.toString()}`;
+}
+
+function buildProductDetailHref(
+  params: Record<string, string | string[] | undefined>,
+  productId: string,
+) {
+  const nextParams = new URLSearchParams();
+
+  for (const key of ["shop_id", "query", "category_id", "supplier_id", "state"]) {
+    const value = getParam(params, key);
+
+    if (value) {
+      nextParams.set(key, value);
+    }
+  }
+
+  const query = nextParams.toString();
+
+  return `/shop/products/${encodeURIComponent(productId)}${query ? `?${query}` : ""}`;
+}
+
+function ProductRowActions({
+  params,
+  row,
+}: {
+  params: Record<string, string | string[] | undefined>;
+  row: AdminDataTableRow;
+}) {
+  if (!row.rowKey) {
+    return null;
+  }
+
+  const productId = row.rowKey;
+  const isArchived = row.state === "Archived";
+  const actions = isArchived
+    ? [{ action: "restore" as const, label: "Restore" }]
+    : [
+        { action: "edit" as const, label: "Edit" },
+        { action: "archive" as const, label: "Archive" },
+      ];
+
+  return (
+    <div className="flex min-w-0 flex-wrap gap-2">
+      <a
+        className="inline-flex h-8 items-center rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
+        href={buildProductDetailHref(params, productId)}
+      >
+        Detail
+      </a>
+      {actions.map((item) => (
+        <a
+          key={item.action}
+          className="inline-flex h-8 items-center rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
+          href={buildProductActionHref(params, item.action, productId)}
+        >
+          {item.label}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export default async function ShopProductsPage({
   searchParams,
 }: {
@@ -55,31 +198,79 @@ export default async function ShopProductsPage({
 }) {
   const params = await searchParams;
   const requestedShopId = getParam(params, "shop_id");
+  const selectedState = getParam(params, "state") ?? "active";
   const activeFilterCount = [
     getParam(params, "query"),
     getParam(params, "category_id"),
     getParam(params, "supplier_id"),
+    selectedState === "active" ? undefined : selectedState,
   ].filter((value) => Boolean(value?.trim())).length;
-  const section = await getShopSectionForRequest(
-    "products",
-    requestedShopId,
-    {
+  const [
+    section,
+    inventoryReadModel,
+    productsContext,
+    importContext,
+    exportContext,
+  ] = await Promise.all([
+    getShopSectionForRequest("products", requestedShopId, {
       catalogFilters: {
         categoryId: getParam(params, "category_id"),
         query: getParam(params, "query"),
+        state: selectedState,
         supplierId: getParam(params, "supplier_id"),
       },
-    },
+    }),
+    getShopInventoryReadModel({ requestedShopId }),
+    resolveShopActionContext(requestedShopId, "products.write"),
+    resolveShopActionContext(requestedShopId, "catalog.import"),
+    resolveShopActionContext(requestedShopId, "catalog.export"),
+  ]);
+  const canManageProducts = productsContext.status === "ready";
+  const canImport = importContext.status === "ready";
+  const canExport = exportContext.status === "ready";
+  const categoryOptions = mapCategoryOptions(inventoryReadModel.categories);
+  const supplierOptions = mapSupplierOptions(inventoryReadModel.suppliers);
+  const productCatalogOptions = mapProductOptions(inventoryReadModel.products);
+  const archivedProductCatalogOptions = mapProductOptions(
+    inventoryReadModel.archivedProducts,
   );
-  const canManageProducts =
-    (await resolveShopActionContext(requestedShopId, "products.write"))
-      .status === "ready";
+  const productDialog = getProductDialog(getParam(params, "product_action"));
+  const productDialogId = getParam(params, "product_id") ?? "";
+  const catalogToolbar =
+    canManageProducts || canImport || canExport ? (
+      <CatalogActionPanel
+        archivedProducts={archivedProductCatalogOptions}
+        canManage={canManageProducts}
+        categories={categoryOptions}
+        embedded
+        initialDialog={productDialog}
+        initialEntityId={productDialogId}
+        products={productCatalogOptions}
+        scope="products"
+        selectedShopId={requestedShopId}
+        suppliers={supplierOptions}
+      >
+        {canImport || canExport ? (
+          <ImportExportActionPanel
+            canExport={canExport}
+            canImport={canImport}
+            embedded
+            selectedShopId={requestedShopId}
+          />
+        ) : null}
+      </CatalogActionPanel>
+    ) : null;
 
   return (
     <div className="grid gap-5">
+      <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-1`}>
+        <p className="text-xs font-semibold uppercase tracking-normal text-emerald-700">
+          Catalog Workspace
+        </p>
+      </div>
       <form
         action="/shop/products"
-        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(14rem,1fr)_minmax(0,220px)_minmax(0,220px)_auto] md:items-end`}
+        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(14rem,1fr)_minmax(0,190px)_minmax(0,190px)_minmax(0,150px)_auto] md:items-end`}
       >
         {requestedShopId ? (
           <input name="shop_id" type="hidden" value={requestedShopId} />
@@ -95,36 +286,46 @@ export default async function ShopProductsPage({
           />
         </label>
         <label className={filterLabelClassName}>
-          Category id
-          <input
-            aria-describedby="products-category-filter-help"
+          Category
+          <select
             className={filterInputClassName}
             defaultValue={getParam(params, "category_id") ?? ""}
             name="category_id"
-            type="text"
-          />
-          <span
-            className="sr-only"
-            id="products-category-filter-help"
           >
-            Use an id from Categories.
-          </span>
+            <option value="">All categories</option>
+            {categoryOptions.map((category) => (
+              <option key={category.categoryId} value={category.categoryId}>
+                {category.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label className={filterLabelClassName}>
-          Supplier id
-          <input
-            aria-describedby="products-supplier-filter-help"
+          Supplier
+          <select
             className={filterInputClassName}
             defaultValue={getParam(params, "supplier_id") ?? ""}
             name="supplier_id"
-            type="text"
-          />
-          <span
-            className="sr-only"
-            id="products-supplier-filter-help"
           >
-            Use an id from Suppliers.
-          </span>
+            <option value="">All suppliers</option>
+            {supplierOptions.map((supplier) => (
+              <option key={supplier.supplierId} value={supplier.supplierId}>
+                {supplier.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className={filterLabelClassName}>
+          State
+          <select
+            className={filterInputClassName}
+            defaultValue={selectedState}
+            name="state"
+          >
+            <option value="active">Active</option>
+            <option value="archived">Archived</option>
+            <option value="all">All states</option>
+          </select>
         </label>
         <div className="flex min-w-0 flex-wrap items-end gap-2 self-end">
           <button className={`${filterButtonClassName} bg-zinc-950 text-white`}>
@@ -140,14 +341,22 @@ export default async function ShopProductsPage({
           ) : null}
         </div>
       </form>
-      <ShopSectionPage section={section} />
       <ActionResultBanner
         action={getParam(params, "action")}
         result={getParam(params, "result")}
       />
-      {canManageProducts ? (
-        <CatalogActionPanel scope="products" selectedShopId={requestedShopId} />
-      ) : null}
+      <ShopSectionPage
+        liveDataToolbar={catalogToolbar}
+        rowActions={
+          canManageProducts
+            ? {
+                label: "Actions",
+                render: (row) => <ProductRowActions params={params} row={row} />,
+              }
+            : undefined
+        }
+        section={section}
+      />
     </div>
   );
 }

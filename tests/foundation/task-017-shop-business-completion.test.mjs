@@ -70,7 +70,7 @@ test("TASK-017 catalog detail routes and product filters are shop-scoped server 
   assert.match(productsPage, /query/);
   assert.match(productsPage, /category_id/);
   assert.match(productsPage, /supplier_id/);
-  assert.match(inventoryReadModel, /\.eq\("owner_user_id", mapping\.ownerUserId\)/);
+  assert.match(inventoryReadModel, /\.eq\("owner_user_id", legacyOwnerUserId\)/);
   assert.doesNotMatch(inventoryReadModel, /\.eq\("shop_id",\s*(requestedShopId|selectedShopId)\)/);
 });
 

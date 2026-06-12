@@ -21,7 +21,7 @@ test("TASK-015 mobile history read model is mapped, redacted, and distinct from 
   assert.match(readModel, /\.from\("shop_inventory_sources"\)/);
   assert.match(readModel, /\.from\("sync_events"\)/);
   assert.match(readModel, /\.from\("shared_sheet_sessions"\)/);
-  assert.match(readModel, /\.eq\("owner_user_id", mapping\.ownerUserId\)/);
+  assert.match(readModel, /\.eq\("owner_user_id", legacyOwnerUserId\)/);
   assert.match(readModel, /\.in\("domain", \["history", "catalog", "prices"\]\)/);
   assert.match(readModel, /redactShopAdminJson/);
   assert.doesNotMatch(readModel, /\.from\("audit_logs"\)/);
@@ -68,7 +68,7 @@ test("TASK-015 history detail is shop-scoped and recursively redacted", () => {
   assert.match(readModel, /catch\s*{[\s\S]*kind: "invalid"/);
   assert.match(readModel, /\.from\("sync_events"\)/);
   assert.match(readModel, /\.from\("shared_sheet_sessions"\)/);
-  assert.match(readModel, /\.eq\("owner_user_id", mapping\.ownerUserId\)/);
+  assert.match(readModel, /\.eq\("owner_user_id", legacyOwnerUserId\)/);
   assert.match(
     readModel,
     /parsedEntry\.kind === "sync_event"[\s\S]*\.eq\("id", parsedEntry\.value\)[\s\S]*\.in\("domain", \["history", "catalog", "prices"\]\)/,

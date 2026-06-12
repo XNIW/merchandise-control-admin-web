@@ -282,7 +282,11 @@ function checkReadOnlyContracts() {
     ],
     [
       "src/server/shop-admin/import-export-workbook.ts",
-      new Set(["shop_admin_audit_event"]),
+      new Set([
+        "shop_admin_audit_event",
+        "shop_catalog_import_price_history",
+        "shop_catalog_import_products",
+      ]),
     ],
   ]);
   const allowedDirectMutationPatternFiles = new Set([
@@ -1983,11 +1987,11 @@ function checkTask015ShopAdminConsole() {
   for (const requiredSnippet of [
     '.from("shop_inventory_sources")',
     '.eq("shop_id", selectedShop.shopId)',
-    '.eq("mapping_state", "mapped")',
+    'mapping_state === "mapped"',
     '.from("inventory_products")',
     '.from("inventory_categories")',
     '.from("inventory_suppliers")',
-    '.eq("owner_user_id", mapping.ownerUserId)',
+    '.eq("owner_user_id", legacyOwnerUserId)',
   ]) {
     if (!inventoryReadModel.includes(requiredSnippet)) {
       addFailure(`inventory-read-model.ts must include ${requiredSnippet}`);
@@ -5579,6 +5583,124 @@ function checkTask053AuthorizationStaffSafeReadBoundary() {
   }
 }
 
+function checkTask057ShopCatalogWorkspace() {
+  const requiredPaths = [
+    "src/server/shop-admin/import-export-route-guard.ts",
+    "src/app/shop/import-export/preview/route.ts",
+    "src/app/shop/import-export/apply/route.ts",
+    "src/app/shop/import-export/export/route.ts",
+    "src/app/shop/_components/ImportExportActionPanel.tsx",
+    "src/server/shop-admin/shop-section-data.ts",
+    "src/server/shop-admin/import-export-workbook.ts",
+    "supabase/migrations/20260612010000_task_057_shop_scoped_catalog.sql",
+    "supabase/migrations/20260612015644_task_057_shop_scoped_mobile_history.sql",
+    "supabase/migrations/20260612021252_task_057_bulk_product_import.sql",
+    "tests/foundation/task-057-shop-catalog-workspace-import-intelligence.test.mjs",
+  ];
+
+  for (const requiredPath of requiredPaths) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`TASK-057 required artifact is missing: ${requiredPath}`);
+      return;
+    }
+  }
+
+  const routeGuard = read("src/server/shop-admin/import-export-route-guard.ts");
+  const previewRoute = read("src/app/shop/import-export/preview/route.ts");
+  const applyRoute = read("src/app/shop/import-export/apply/route.ts");
+  const exportRoute = read("src/app/shop/import-export/export/route.ts");
+  const importPanel = read("src/app/shop/_components/ImportExportActionPanel.tsx");
+  const sectionData = read("src/server/shop-admin/shop-section-data.ts");
+  const workbook = read("src/server/shop-admin/import-export-workbook.ts");
+  const catalogMigration = read(
+    "supabase/migrations/20260612010000_task_057_shop_scoped_catalog.sql",
+  );
+  const mobileHistoryMigration = read(
+    "supabase/migrations/20260612015644_task_057_shop_scoped_mobile_history.sql",
+  );
+  const bulkProductMigration = read(
+    "supabase/migrations/20260612021252_task_057_bulk_product_import.sql",
+  );
+  const task057Test = read(
+    "tests/foundation/task-057-shop-catalog-workspace-import-intelligence.test.mjs",
+  );
+
+  for (const requiredSnippet of [
+    'import "server-only"',
+    "MAX_IMPORT_BYTES",
+    "sec-fetch-site",
+    "content-length",
+    "multipart/form-data",
+    "guardCatalogImportWorkbookFile",
+  ]) {
+    if (!routeGuard.includes(requiredSnippet)) {
+      addFailure(`TASK-057 import route guard must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const [routePath, routeSource] of [
+    ["preview", previewRoute],
+    ["apply", applyRoute],
+  ]) {
+    if (
+      !/guardCatalogImportExportPostRequest\(request\)/.test(routeSource) ||
+      !/guardCatalogImportWorkbookFile\(file\)/.test(routeSource) ||
+      routeSource.indexOf("guardCatalogImportExportPostRequest(request)") >
+        routeSource.indexOf("request.formData()") ||
+      routeSource.indexOf("guardCatalogImportWorkbookFile(file)") >
+        routeSource.indexOf("file.arrayBuffer()")
+    ) {
+      addFailure(`TASK-057 ${routePath} route must guard origin, body and file size before parsing upload data`);
+    }
+  }
+
+  if (!/full price history/i.test(importPanel) || /recent prices/i.test(importPanel)) {
+    addFailure("TASK-057 import/export copy must describe full PriceHistory export");
+  }
+
+  if (!/"Cache-Control": "no-store"/.test(exportRoute)) {
+    addFailure("TASK-057 catalog export route must return business workbooks with no-store caching");
+  }
+
+  if (!/archivedProducts/.test(sectionData) || !/field: "State"/.test(sectionData)) {
+    addFailure("TASK-057 product detail must support archived catalog rows opened from the table");
+  }
+
+  if (
+    !/shop_catalog_import_products/.test(workbook) ||
+    !/shop_catalog_import_price_history/.test(workbook) ||
+    !/fetchCatalogExportPriceRows/.test(workbook) ||
+    !/mergeCatalogExportPriceRows/.test(workbook) ||
+    /TASK057_DEBUG|SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(workbook)
+  ) {
+    addFailure("TASK-057 workbook import must use audited bulk RPCs without debug or service-role surface");
+  }
+
+  for (const [migrationPath, migrationSource] of [
+    ["20260612010000_task_057_shop_scoped_catalog.sql", catalogMigration],
+    ["20260612015644_task_057_shop_scoped_mobile_history.sql", mobileHistoryMigration],
+    ["20260612021252_task_057_bulk_product_import.sql", bulkProductMigration],
+  ]) {
+    if (/grant\s+.*\s+to\s+anon/i.test(migrationSource)) {
+      addFailure(`TASK-057 migration must not grant business access to anon: ${migrationPath}`);
+    }
+
+    if (/shop_id\s+set\s+not\s+null/i.test(migrationSource)) {
+      addFailure(`TASK-057 migration must remain additive for legacy shop_id rows: ${migrationPath}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "cross-site or unbounded upload requests",
+    "supports archived product rows",
+    "full price history",
+  ]) {
+    if (!task057Test.includes(requiredSnippet)) {
+      addFailure(`TASK-057 foundation test must cover ${requiredSnippet}`);
+    }
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -5622,6 +5744,7 @@ checkTask044PlatformProvisioningUxRuntime();
 checkTask045PlatformMasterConsoleFinalReview();
 checkTask046TestTargetSeparation();
 checkTask053AuthorizationStaffSafeReadBoundary();
+checkTask057ShopCatalogWorkspace();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

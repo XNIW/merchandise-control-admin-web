@@ -1,10 +1,19 @@
-import { AdminDataTable } from "@/components/admin/AdminDataTable";
+import {
+  AdminDataTable,
+  type AdminDataTableRow,
+} from "@/components/admin/AdminDataTable";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { SectionCard } from "@/components/admin/SectionCard";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "./shopLayout";
 import type { ShopSection, ShopSectionMetric } from "./shopSections";
+import type { ReactNode } from "react";
 
 type ShopSectionPageProps = {
+  liveDataToolbar?: ReactNode;
+  rowActions?: {
+    label: string;
+    render: (row: AdminDataTableRow) => ReactNode;
+  };
   section: ShopSection;
 };
 
@@ -22,7 +31,11 @@ function metricGridClassName(metricCount: number) {
   ].join(" ");
 }
 
-export function ShopSectionPage({ section }: ShopSectionPageProps) {
+export function ShopSectionPage({
+  liveDataToolbar,
+  rowActions,
+  section,
+}: ShopSectionPageProps) {
   const liveData = section.liveData;
 
   return (
@@ -57,6 +70,8 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
         ))}
       </section>
 
+      {liveData ? liveDataToolbar : null}
+
       <div className="grid gap-5">
         <SectionCard
           title={liveData ? liveData.title : "Planned state"}
@@ -73,6 +88,7 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
               columns={liveData.columns}
               rows={liveData.rows}
               emptyState={liveData.emptyState}
+              rowActions={rowActions}
             />
           ) : (
             <div className="mt-5 grid gap-3">
@@ -88,6 +104,23 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
           )}
         </SectionCard>
 
+        {section.secondaryLiveData?.map((table) => (
+          <SectionCard
+            key={table.title}
+            title={table.title}
+            description={table.description}
+            titleId={`${section.key}-${table.title
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, "-")}-title`}
+          >
+            <AdminDataTable
+              caption={`${section.title} ${table.title} table for the selected shop.`}
+              columns={table.columns}
+              rows={table.rows}
+              emptyState={table.emptyState}
+            />
+          </SectionCard>
+        ))}
       </div>
     </div>
   );

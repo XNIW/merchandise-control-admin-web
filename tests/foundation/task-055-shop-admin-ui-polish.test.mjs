@@ -36,11 +36,11 @@ test("TASK-055 tracking is DONE_RECONCILED after final DONE gate", () => {
   assertContains(task, "Fase attuale: `DONE_RECONCILED`");
   assertContains(task, "Shop Admin Console UI polish");
   assertContains(evidence, "Verdict corrente: `DONE_RECONCILED`");
-  assertContains(masterPlan, "Stato globale attuale: `REVIEW`");
+  assert.match(masterPlan, /Stato globale attuale: `(REVIEW|EXECUTION)`/);
   assertContains(masterPlan, "Stato TASK-055: `DONE_RECONCILED`");
-  assertContains(
+  assert.match(
     masterPlan,
-    "Task attivo: `NESSUNO`",
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`/,
   );
   assertContains(evidence, "Final review / DONE gate 2026-06-11");
 });
@@ -92,9 +92,10 @@ test("TASK-055 products filter bar aligns fields and keeps server query params",
   assertContains(page, "filterInputClassName");
   assertContains(page, "filterButtonClassName");
   assertContains(page, "h-10 w-full min-w-0");
-  assertContains(page, "md:grid-cols-[minmax(14rem,1fr)_minmax(0,220px)_minmax(0,220px)_auto]");
+  assertContains(page, "md:grid-cols-[minmax(14rem,1fr)_minmax(0,190px)_minmax(0,190px)_minmax(0,150px)_auto]");
   assertContains(page, "category_id");
   assertContains(page, "supplier_id");
+  assertContains(page, "name=\"state\"");
   assertContains(page, "getShopSectionForRequest");
 });
 

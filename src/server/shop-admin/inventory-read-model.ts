@@ -27,17 +27,32 @@ type ProductRow = Pick<
   | "second_product_name"
   | "purchase_price"
   | "retail_price"
+  | "shop_id"
   | "stock_quantity"
   | "supplier_id"
   | "category_id"
   | "deleted_at"
   | "updated_at"
 >;
-type CategoryRow = Pick<Tables<"inventory_categories">, "id" | "name" | "updated_at">;
-type SupplierRow = Pick<Tables<"inventory_suppliers">, "id" | "name" | "updated_at">;
+type CategoryRow = Pick<
+  Tables<"inventory_categories">,
+  "id" | "name" | "shop_id" | "updated_at"
+>;
+type SupplierRow = Pick<
+  Tables<"inventory_suppliers">,
+  "id" | "name" | "shop_id" | "updated_at"
+>;
 type PriceRow = Pick<
   Tables<"inventory_product_prices">,
-  "id" | "product_id" | "type" | "price" | "effective_at" | "source" | "created_at"
+  | "id"
+  | "product_id"
+  | "type"
+  | "price"
+  | "effective_at"
+  | "note"
+  | "source"
+  | "created_at"
+  | "shop_id"
 >;
 
 export type ShopInventoryReadModelStatus =
@@ -45,11 +60,17 @@ export type ShopInventoryReadModelStatus =
   | "unmapped";
 
 export type ShopInventoryMapping = {
+  mappingState: string;
   mappingId: string;
   ownerUserId: string;
   sourceKind: string;
   verifiedAt: string | null;
 };
+
+export type ShopInventoryCatalogScope =
+  | "blocked"
+  | "legacy_owner_bridge"
+  | "shop_scoped";
 
 export type ShopInventoryProduct = {
   productId: string;
@@ -84,11 +105,14 @@ export type ShopInventoryPrice = {
   type: string;
   price: number;
   effectiveAt: string;
+  note: string | null;
   source: string | null;
   createdAt: string;
 };
 
 export type ShopInventoryReadModel = {
+  catalogScope: ShopInventoryCatalogScope;
+  legacyOwnerUserId: string | null;
   status: ShopInventoryReadModelStatus;
   selectedShop: ShopAdminShellShop | null;
   mapping: ShopInventoryMapping | null;
@@ -106,9 +130,29 @@ export type ShopInventoryReadModel = {
 type GetShopInventoryReadModelOptions = {
   client?: SupabaseServerClient | null;
   requestedShopId?: string | null;
+  rowLimit?: number | "all";
 };
 
+type InventoryRowsResult<Row> = {
+  data: Row[];
+  error: unknown | null;
+};
+
+type PagedInventoryQuery<Row> = {
+  range: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{
+    data: Row[] | null;
+    error: unknown | null;
+  }>;
+};
+
+const INVENTORY_READ_MODEL_PAGE_SIZE = 1_000;
+
 const emptyRows = {
+  catalogScope: "blocked" as ShopInventoryCatalogScope,
+  legacyOwnerUserId: null,
   selectedShop: null,
   mapping: null,
   products: [],
@@ -134,6 +178,7 @@ function mapMapping(row: InventorySourceRow): ShopInventoryMapping | null {
   }
 
   return {
+    mappingState: row.mapping_state,
     mappingId: row.shop_inventory_source_id,
     ownerUserId: row.owner_user_id,
     sourceKind: row.source_kind,
@@ -181,13 +226,86 @@ function mapPrice(row: PriceRow): ShopInventoryPrice {
     type: row.type,
     price: row.price,
     effectiveAt: row.effective_at,
+    note: row.note,
     source: row.source,
     createdAt: row.created_at,
   };
 }
 
 const productSelect =
-  "id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,deleted_at,updated_at";
+  "id,shop_id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,deleted_at,updated_at";
+const categorySelect = "id,shop_id,name,updated_at";
+const supplierSelect = "id,shop_id,name,updated_at";
+const priceSelect =
+  "id,shop_id,product_id,type,price,effective_at,note,source,created_at";
+
+function mergeRowsById<Row extends { id: string }>(
+  shopRows: readonly Row[],
+  legacyRows: readonly Row[],
+) {
+  const rows = [...shopRows];
+  const seen = new Set(shopRows.map((row) => row.id));
+
+  for (const row of legacyRows) {
+    if (!seen.has(row.id)) {
+      rows.push(row);
+    }
+  }
+
+  return rows;
+}
+
+function hasAnyShopRows(
+  ...rowGroups: ReadonlyArray<readonly { shop_id: string | null }[]>
+) {
+  return rowGroups.some((rows) =>
+    rows.some((row) => row.shop_id !== null),
+  );
+}
+
+async function fetchInventoryRows<Row>(
+  queryFactory: () => PagedInventoryQuery<Row>,
+  rowLimit: number | "all",
+): Promise<InventoryRowsResult<Row>> {
+  if (rowLimit !== "all") {
+    const result = await queryFactory().range(0, Math.max(0, rowLimit - 1));
+
+    return {
+      data: result.data ?? [],
+      error: result.error,
+    };
+  }
+
+  const data: Row[] = [];
+
+  for (
+    let from = 0;
+    ;
+    from += INVENTORY_READ_MODEL_PAGE_SIZE
+  ) {
+    const result = await queryFactory().range(
+      from,
+      from + INVENTORY_READ_MODEL_PAGE_SIZE - 1,
+    );
+
+    if (result.error) {
+      return {
+        data,
+        error: result.error,
+      };
+    }
+
+    const rows = result.data ?? [];
+    data.push(...rows);
+
+    if (rows.length < INVENTORY_READ_MODEL_PAGE_SIZE) {
+      return {
+        data,
+        error: null,
+      };
+    }
+  }
+}
 
 export async function getShopInventoryReadModel(
   options: GetShopInventoryReadModelOptions = {},
@@ -208,6 +326,7 @@ export async function getShopInventoryReadModel(
   }
 
   const { selectedShop, supabase } = access;
+  const rowLimit = options.rowLimit ?? 100;
 
   const mappingResult = await supabase
     .from("shop_inventory_sources")
@@ -215,13 +334,14 @@ export async function getShopInventoryReadModel(
       "shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind,verified_at",
     )
     .eq("shop_id", selectedShop.shopId)
-    .eq("mapping_state", "mapped")
     .is("disabled_at", null)
-    .maybeSingle();
+    .limit(10);
 
   if (mappingResult.error) {
     return {
       status: "error",
+      catalogScope: "blocked",
+      legacyOwnerUserId: null,
       selectedShop,
       mapping: null,
       products: [],
@@ -236,11 +356,242 @@ export async function getShopInventoryReadModel(
     };
   }
 
-  const mapping = mappingResult.data ? mapMapping(mappingResult.data) : null;
+  const mappingRows = mappingResult.data ?? [];
+  const mappedSource = mappingRows.find(
+    (row) => row.mapping_state === "mapped" && row.owner_user_id,
+  );
+  const blockingSource = mappingRows.find(
+    (row) => row.mapping_state !== "mapped",
+  );
+  const mapping = mappedSource ? mapMapping(mappedSource) : null;
+  const legacyOwnerUserId = mapping?.ownerUserId ?? null;
 
-  if (!mapping) {
+  const [
+    shopProductsResult,
+    shopArchivedProductsResult,
+    shopCategoriesResult,
+    shopSuppliersResult,
+    shopPricesResult,
+  ] = await Promise.all([
+    fetchInventoryRows<ProductRow>(
+      () =>
+        supabase
+          .from("inventory_products")
+          .select(productSelect)
+          .eq("shop_id", selectedShop.shopId)
+          .is("deleted_at", null)
+          .order("updated_at", {
+            ascending: false,
+          }) as unknown as PagedInventoryQuery<ProductRow>,
+      rowLimit,
+    ),
+    fetchInventoryRows<ProductRow>(
+      () =>
+        supabase
+          .from("inventory_products")
+          .select(productSelect)
+          .eq("shop_id", selectedShop.shopId)
+          .not("deleted_at", "is", null)
+          .order("deleted_at", {
+            ascending: false,
+          }) as unknown as PagedInventoryQuery<ProductRow>,
+      rowLimit,
+    ),
+    fetchInventoryRows<CategoryRow>(
+      () =>
+        supabase
+          .from("inventory_categories")
+          .select(categorySelect)
+          .eq("shop_id", selectedShop.shopId)
+          .is("deleted_at", null)
+          .order("name", {
+            ascending: true,
+          }) as unknown as PagedInventoryQuery<CategoryRow>,
+      rowLimit,
+    ),
+    fetchInventoryRows<SupplierRow>(
+      () =>
+        supabase
+          .from("inventory_suppliers")
+          .select(supplierSelect)
+          .eq("shop_id", selectedShop.shopId)
+          .is("deleted_at", null)
+          .order("name", {
+            ascending: true,
+          }) as unknown as PagedInventoryQuery<SupplierRow>,
+      rowLimit,
+    ),
+    fetchInventoryRows<PriceRow>(
+      () =>
+        supabase
+          .from("inventory_product_prices")
+          .select(priceSelect)
+          .eq("shop_id", selectedShop.shopId)
+          .order("created_at", {
+            ascending: false,
+          }) as unknown as PagedInventoryQuery<PriceRow>,
+      rowLimit,
+    ),
+  ]);
+
+  const directReadError =
+    shopProductsResult.error ??
+    shopArchivedProductsResult.error ??
+    shopCategoriesResult.error ??
+    shopSuppliersResult.error ??
+    shopPricesResult.error;
+
+  if (directReadError) {
+    return {
+      status: "error",
+      catalogScope: "blocked",
+      legacyOwnerUserId,
+      selectedShop,
+      mapping,
+      products: [],
+      archivedProducts: [],
+      categories: [],
+      suppliers: [],
+      prices: [],
+      readOnly: true,
+      source: "supabase_server",
+      reason: "Shop-scoped inventory rows could not be loaded through RLS.",
+      error: redactInventoryReadModelError(directReadError),
+    };
+  }
+
+  const shopProducts = shopProductsResult.data ?? [];
+  const shopArchivedProducts = shopArchivedProductsResult.data ?? [];
+  const shopCategories = shopCategoriesResult.data ?? [];
+  const shopSuppliers = shopSuppliersResult.data ?? [];
+  const shopPrices = shopPricesResult.data ?? [];
+  const shopScopedRowsPresent = hasAnyShopRows(
+    shopProducts,
+    shopArchivedProducts,
+    shopCategories,
+    shopSuppliers,
+    shopPrices,
+  );
+
+  let legacyProducts: ProductRow[] = [];
+  let legacyArchivedProducts: ProductRow[] = [];
+  let legacyCategories: CategoryRow[] = [];
+  let legacySuppliers: SupplierRow[] = [];
+  let legacyPrices: PriceRow[] = [];
+
+  if (legacyOwnerUserId) {
+    const [
+      legacyProductsResult,
+      legacyArchivedProductsResult,
+      legacyCategoriesResult,
+      legacySuppliersResult,
+      legacyPricesResult,
+    ] = await Promise.all([
+      fetchInventoryRows<ProductRow>(
+        () =>
+          supabase
+            .from("inventory_products")
+            .select(productSelect)
+            .is("shop_id", null)
+            .eq("owner_user_id", legacyOwnerUserId)
+            .is("deleted_at", null)
+            .order("updated_at", {
+              ascending: false,
+            }) as unknown as PagedInventoryQuery<ProductRow>,
+        rowLimit,
+      ),
+      fetchInventoryRows<ProductRow>(
+        () =>
+          supabase
+            .from("inventory_products")
+            .select(productSelect)
+            .is("shop_id", null)
+            .eq("owner_user_id", legacyOwnerUserId)
+            .not("deleted_at", "is", null)
+            .order("deleted_at", {
+              ascending: false,
+            }) as unknown as PagedInventoryQuery<ProductRow>,
+        rowLimit,
+      ),
+      fetchInventoryRows<CategoryRow>(
+        () =>
+          supabase
+            .from("inventory_categories")
+            .select(categorySelect)
+            .is("shop_id", null)
+            .eq("owner_user_id", legacyOwnerUserId)
+            .is("deleted_at", null)
+            .order("name", {
+              ascending: true,
+            }) as unknown as PagedInventoryQuery<CategoryRow>,
+        rowLimit,
+      ),
+      fetchInventoryRows<SupplierRow>(
+        () =>
+          supabase
+            .from("inventory_suppliers")
+            .select(supplierSelect)
+            .is("shop_id", null)
+            .eq("owner_user_id", legacyOwnerUserId)
+            .is("deleted_at", null)
+            .order("name", {
+              ascending: true,
+            }) as unknown as PagedInventoryQuery<SupplierRow>,
+        rowLimit,
+      ),
+      fetchInventoryRows<PriceRow>(
+        () =>
+          supabase
+            .from("inventory_product_prices")
+            .select(priceSelect)
+            .is("shop_id", null)
+            .eq("owner_user_id", legacyOwnerUserId)
+            .order("created_at", {
+              ascending: false,
+            }) as unknown as PagedInventoryQuery<PriceRow>,
+        rowLimit,
+      ),
+    ]);
+
+    const legacyReadError =
+      legacyProductsResult.error ??
+      legacyArchivedProductsResult.error ??
+      legacyCategoriesResult.error ??
+      legacySuppliersResult.error ??
+      legacyPricesResult.error;
+
+    if (legacyReadError) {
+      return {
+        status: "error",
+        catalogScope: "blocked",
+        legacyOwnerUserId,
+        selectedShop,
+        mapping,
+        products: shopProducts.map(mapProduct),
+        archivedProducts: shopArchivedProducts.map(mapProduct),
+        categories: shopCategories.map(mapCategory),
+        suppliers: shopSuppliers.map(mapSupplier),
+        prices: shopPrices.map(mapPrice),
+        readOnly: true,
+        source: "supabase_server",
+        reason:
+          "Legacy owner bridge inventory rows could not be loaded through RLS.",
+        error: redactInventoryReadModelError(legacyReadError),
+      };
+    }
+
+    legacyProducts = legacyProductsResult.data ?? [];
+    legacyArchivedProducts = legacyArchivedProductsResult.data ?? [];
+    legacyCategories = legacyCategoriesResult.data ?? [];
+    legacySuppliers = legacySuppliersResult.data ?? [];
+    legacyPrices = legacyPricesResult.data ?? [];
+  }
+
+  if (!mapping && blockingSource && !shopScopedRowsPresent) {
     return {
       status: "unmapped",
+      catalogScope: "blocked",
+      legacyOwnerUserId: null,
       selectedShop,
       mapping: null,
       products: [],
@@ -250,148 +601,39 @@ export async function getShopInventoryReadModel(
       prices: [],
       readOnly: true,
       source: "supabase_server",
-      reason:
-        "No mapped mobile owner inventory source is configured for this shop.",
+      reason: "Legacy mobile bridge is configured but not mapped for this shop.",
     };
   }
 
-  const productsResult = await supabase
-    .from("inventory_products")
-    .select(productSelect)
-    .eq("owner_user_id", mapping.ownerUserId)
-    .is("deleted_at", null)
-    .order("updated_at", { ascending: false })
-    .limit(100);
-
-  if (productsResult.error) {
-    return {
-      status: "error",
-      selectedShop,
-      mapping,
-      products: [],
-      archivedProducts: [],
-      categories: [],
-      suppliers: [],
-      prices: [],
-      readOnly: true,
-      source: "supabase_server",
-      reason: "Mapped inventory products could not be loaded through RLS.",
-      error: redactInventoryReadModelError(productsResult.error),
-    };
-  }
-
-  const archivedProductsResult = await supabase
-    .from("inventory_products")
-    .select(productSelect)
-    .eq("owner_user_id", mapping.ownerUserId)
-    .not("deleted_at", "is", null)
-    .order("deleted_at", { ascending: false })
-    .limit(100);
-
-  if (archivedProductsResult.error) {
-    return {
-      status: "error",
-      selectedShop,
-      mapping,
-      products: (productsResult.data ?? []).map(mapProduct),
-      archivedProducts: [],
-      categories: [],
-      suppliers: [],
-      prices: [],
-      readOnly: true,
-      source: "supabase_server",
-      reason:
-        "Mapped archived inventory products could not be loaded through RLS.",
-      error: redactInventoryReadModelError(archivedProductsResult.error),
-    };
-  }
-
-  const categoriesResult = await supabase
-    .from("inventory_categories")
-    .select("id,name,updated_at")
-    .eq("owner_user_id", mapping.ownerUserId)
-    .is("deleted_at", null)
-    .order("name", { ascending: true })
-    .limit(100);
-
-  if (categoriesResult.error) {
-    return {
-      status: "error",
-      selectedShop,
-      mapping,
-      products: (productsResult.data ?? []).map(mapProduct),
-      archivedProducts: (archivedProductsResult.data ?? []).map(mapProduct),
-      categories: [],
-      suppliers: [],
-      prices: [],
-      readOnly: true,
-      source: "supabase_server",
-      reason: "Mapped inventory categories could not be loaded through RLS.",
-      error: redactInventoryReadModelError(categoriesResult.error),
-    };
-  }
-
-  const suppliersResult = await supabase
-    .from("inventory_suppliers")
-    .select("id,name,updated_at")
-    .eq("owner_user_id", mapping.ownerUserId)
-    .is("deleted_at", null)
-    .order("name", { ascending: true })
-    .limit(100);
-
-  if (suppliersResult.error) {
-    return {
-      status: "error",
-      selectedShop,
-      mapping,
-      products: (productsResult.data ?? []).map(mapProduct),
-      archivedProducts: (archivedProductsResult.data ?? []).map(mapProduct),
-      categories: (categoriesResult.data ?? []).map(mapCategory),
-      suppliers: [],
-      prices: [],
-      readOnly: true,
-      source: "supabase_server",
-      reason: "Mapped inventory suppliers could not be loaded through RLS.",
-      error: redactInventoryReadModelError(suppliersResult.error),
-    };
-  }
-
-  const pricesResult = await supabase
-    .from("inventory_product_prices")
-    .select("id,product_id,type,price,effective_at,source,created_at")
-    .eq("owner_user_id", mapping.ownerUserId)
-    .order("created_at", { ascending: false })
-    .limit(100);
-
-  if (pricesResult.error) {
-    return {
-      status: "error",
-      selectedShop,
-      mapping,
-      products: (productsResult.data ?? []).map(mapProduct),
-      archivedProducts: (archivedProductsResult.data ?? []).map(mapProduct),
-      categories: (categoriesResult.data ?? []).map(mapCategory),
-      suppliers: (suppliersResult.data ?? []).map(mapSupplier),
-      prices: [],
-      readOnly: true,
-      source: "supabase_server",
-      reason: "Mapped inventory price history could not be loaded through RLS.",
-      error: redactInventoryReadModelError(pricesResult.error),
-    };
-  }
+  const products = mergeRowsById(shopProducts, legacyProducts);
+  const archivedProducts = mergeRowsById(
+    shopArchivedProducts,
+    legacyArchivedProducts,
+  );
+  const categories = mergeRowsById(shopCategories, legacyCategories);
+  const suppliers = mergeRowsById(shopSuppliers, legacySuppliers);
+  const prices = mergeRowsById(shopPrices, legacyPrices);
+  const catalogScope: ShopInventoryCatalogScope =
+    shopScopedRowsPresent || !legacyOwnerUserId
+      ? "shop_scoped"
+      : "legacy_owner_bridge";
 
   return {
     status: "ready",
+    catalogScope,
+    legacyOwnerUserId,
     selectedShop,
     mapping,
-    products: (productsResult.data ?? []).map(mapProduct),
-    archivedProducts: (archivedProductsResult.data ?? []).map(mapProduct),
-    categories: (categoriesResult.data ?? []).map(mapCategory),
-    suppliers: (suppliersResult.data ?? []).map(mapSupplier),
-    prices: (pricesResult.data ?? []).map(mapPrice),
+    products: products.map(mapProduct),
+    archivedProducts: archivedProducts.map(mapProduct),
+    categories: categories.map(mapCategory),
+    suppliers: suppliers.map(mapSupplier),
+    prices: prices.map(mapPrice),
     readOnly: true,
     source: "supabase_server",
     reason:
-      "Mapped inventory rows loaded server-side for the verified selected shop.",
+      catalogScope === "legacy_owner_bridge"
+        ? "Legacy owner rows loaded through shop_inventory_sources while shop_id migration is in progress."
+        : "Shop-scoped catalog rows loaded server-side for the verified selected shop.",
   };
 }

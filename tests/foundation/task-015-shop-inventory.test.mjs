@@ -27,12 +27,12 @@ test("TASK-015 inventory read model is server-only, mapped, and read-only", () =
   assert.match(readModel, /resolveShopAdminDataAccess/);
   assert.match(readModel, /\.from\("shop_inventory_sources"\)/);
   assert.match(readModel, /\.eq\("shop_id", selectedShop\.shopId\)/);
-  assert.match(readModel, /\.eq\("mapping_state", "mapped"\)/);
+  assert.match(readModel, /mapping_state === "mapped"/);
   assert.match(readModel, /\.from\("inventory_products"\)/);
   assert.match(readModel, /\.from\("inventory_categories"\)/);
   assert.match(readModel, /\.from\("inventory_suppliers"\)/);
   assert.match(readModel, /\.from\("inventory_product_prices"\)/);
-  assert.match(readModel, /\.eq\("owner_user_id", mapping\.ownerUserId\)/);
+  assert.match(readModel, /\.eq\("owner_user_id", legacyOwnerUserId\)/);
   assert.match(readModel, /\.is\("deleted_at", null\)/);
   assert.doesNotMatch(readModel, /select\("\*"\)|\.(insert|update|delete|upsert|rpc)\s*\(/);
   assert.doesNotMatch(readModel, /\.eq\("shop_id",\s*(requestedShopId|selectedShopId)\)/);

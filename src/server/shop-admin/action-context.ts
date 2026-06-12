@@ -24,6 +24,7 @@ export type ShopAdminActionCode =
   | "file_too_large"
   | "row_limit_exceeded"
   | "invalid_file_type"
+  | "invalid_workbook"
   | "preview_required"
   | "preview_mismatch"
   | "shop_settings_managed_by_master_console"
@@ -79,6 +80,7 @@ const messages: Record<ShopAdminActionCode, string> = {
   file_too_large: "The workbook is larger than the allowed import limit.",
   row_limit_exceeded: "The workbook contains more rows than allowed.",
   invalid_file_type: "Upload a .xlsx workbook.",
+  invalid_workbook: "The workbook could not be read as a valid .xlsx file.",
   preview_required: "Preview the workbook and confirm before applying it.",
   preview_mismatch: "The uploaded workbook no longer matches the preview digest.",
   shop_settings_managed_by_master_console:

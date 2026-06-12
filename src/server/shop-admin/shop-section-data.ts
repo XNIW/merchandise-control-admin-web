@@ -35,6 +35,7 @@ import {
 import {
   getShopInventoryReadModel,
   type ShopInventoryCategory,
+  type ShopInventoryPrice,
   type ShopInventoryProduct,
   type ShopInventoryReadModel,
   type ShopInventorySupplier,
@@ -62,6 +63,7 @@ import {
 type CatalogFilters = {
   categoryId?: string | null;
   query?: string | null;
+  state?: "active" | "archived" | "all" | string | null;
   supplierId?: string | null;
 };
 
@@ -768,12 +770,33 @@ function inventoryStatusLabel(status: ShopInventoryReadModel["status"]) {
   return labels[status];
 }
 
+function catalogScopeLabel(scope: ShopInventoryReadModel["catalogScope"]) {
+  const labels: Record<ShopInventoryReadModel["catalogScope"], string> = {
+    blocked: "Mapping required",
+    legacy_owner_bridge: "Legacy mobile bridge",
+    shop_scoped: "Shop scoped",
+  };
+
+  return labels[scope];
+}
+
+function catalogWriteLabel(readModel: ShopInventoryReadModel) {
+  if (readModel.status !== "ready") {
+    return "Blocked";
+  }
+
+  return readModel.catalogScope === "legacy_owner_bridge"
+    ? "Ready via legacy bridge"
+    : "Ready";
+}
+
 function inventoryFallbackSection(
   key: "products" | "categories" | "suppliers",
   readModel: ShopInventoryReadModel,
 ): ShopSection {
   const base = shopSections[key];
   const status = inventoryStatusLabel(readModel.status);
+  const catalogScope = catalogScopeLabel(readModel.catalogScope);
 
   return {
     ...base,
@@ -786,14 +809,14 @@ function inventoryFallbackSection(
         "Server-side principal check",
         readModel.selectedShop ? "good" : "warning",
       ),
-      metric("Mapping", status, "shop_inventory_sources gate", "warning"),
+      metric("Catalog scope", catalogScope, "Shop scoped or legacy bridge", "warning"),
       metric("Rows shown", "0", "No fallback rows are rendered", "muted"),
-      metric("Writes", "Blocked", "Mutation boundary not verified", "warning"),
+      metric("Writes", catalogWriteLabel(readModel), "Mutation boundary", "warning"),
     ],
     liveData: {
-      title: "Mapped inventory data",
+      title: "Catalog detail",
       description:
-        "Rows are shown only after a verified shop_inventory_sources mapping resolves the owner-scoped inventory source.",
+        "Rows are shown through shop_id catalog scope, with the legacy owner bridge only as a compatibility fallback.",
       columns: [
         { key: "field", label: "Field" },
         { key: "value", label: "Value" },
@@ -812,25 +835,31 @@ function productRow(
   categories: Map<string, ShopInventoryCategory>,
   suppliers: Map<string, ShopInventorySupplier>,
 ): ShopSectionTableRow {
+  const archivedAt = product.deletedAt ? formatDateTime(product.deletedAt) : "";
+
   return {
     rowKey: product.productId,
-    productId: product.productId,
+    productId: shortId(product.productId),
     state: product.deletedAt ? "Archived" : "Active",
     barcode: product.barcode,
-    name: product.productName ?? "Unnamed",
-    retail: product.retailPrice === null ? "Not set" : String(product.retailPrice),
-    purchase:
+    itemNumber: product.itemNumber ?? "Not set",
+    productName: product.productName ?? "Unnamed",
+    secondName: product.secondProductName ?? "Not set",
+    retailPrice:
+      product.retailPrice === null ? "Not set" : String(product.retailPrice),
+    purchasePrice:
       product.purchasePrice === null ? "Not set" : String(product.purchasePrice),
-    stock:
+    stockQuantity:
       product.stockQuantity === null ? "Not set" : String(product.stockQuantity),
-    supplier: product.supplierId
+    supplierName: product.supplierId
       ? (suppliers.get(product.supplierId)?.name ?? "Unknown")
       : "None",
-    category: product.categoryId
+    categoryName: product.categoryId
       ? (categories.get(product.categoryId)?.name ?? "Unknown")
       : "None",
-    archived: product.deletedAt ? formatDateTime(product.deletedAt) : "No",
-    updated: formatDateTime(product.updatedAt),
+    updatedArchived: product.deletedAt
+      ? `Archived ${archivedAt}`
+      : `Updated ${formatDateTime(product.updatedAt)}`,
   };
 }
 
@@ -895,49 +924,60 @@ export function buildProductsSection(
   );
   const activeProducts = readModel.products;
   const archivedProducts = readModel.archivedProducts;
-  const filteredProducts = applyCatalogFilters(activeProducts, filters);
-  const filteredArchivedProducts = applyCatalogFilters(archivedProducts, filters);
+  const state =
+    filters.state === "archived" || filters.state === "all"
+      ? filters.state
+      : "active";
+  const filteredProducts =
+    state === "archived" ? [] : applyCatalogFilters(activeProducts, filters);
+  const filteredArchivedProducts =
+    state === "active" ? [] : applyCatalogFilters(archivedProducts, filters);
   const visibleProducts = [...filteredProducts, ...filteredArchivedProducts];
-  const activeFilters = Object.values(filters).filter((value) =>
-    Boolean(value?.trim()),
-  ).length;
+  const activeFilters = [
+    filters.query,
+    filters.categoryId,
+    filters.supplierId,
+    state === "active" ? "" : state,
+  ].filter((value) => Boolean(value?.trim())).length;
 
   return {
     ...shopSections.products,
     description:
-      "Mapped inventory products for the verified selected shop. Create, update, archive and restore use audited catalog RPCs.",
+      "Shop catalog products for the verified selected shop. Create, update, archive and restore use audited catalog RPCs.",
     status: activeProducts.length > 0 ? "Live actions" : "Products empty",
     metrics: [
       metric("Products", String(filteredProducts.length), "Filtered active rows"),
-      metric("Archived products", String(filteredArchivedProducts.length), "Restore requires confirmation"),
+      metric("Archived products", String(filteredArchivedProducts.length), "restore requires confirmation"),
       metric("Prices", String(readModel.prices.length), "Recent price rows"),
       metric("Filters", String(activeFilters), "Search/category/supplier"),
-      metric("Writes", "Enabled", "Audited create/update/archive/restore", "good"),
+      metric("Catalog scope", catalogScopeLabel(readModel.catalogScope), readModel.reason, "good"),
+      metric("Writes", catalogWriteLabel(readModel), "Audited create/update/archive/restore", "good"),
     ],
     liveData: {
-      title: "Mapped inventory data",
+      title: "Shop catalog data",
       description:
-        "Active and archived products are read through the selected shop mapping and mutated only through server-side RPCs.",
+        "Active and archived products are read through shop_id first and mutated only through server-side RPCs.",
       columns: [
         { key: "productId", label: "Product id" },
-        { key: "state", label: "State" },
         { key: "barcode", label: "Barcode" },
-        { key: "name", label: "Name" },
-        { key: "retail", label: "Retail" },
-        { key: "purchase", label: "Purchase" },
-        { key: "stock", label: "Stock" },
-        { key: "supplier", label: "Supplier" },
-        { key: "category", label: "Category" },
-        { key: "archived", label: "Archived at" },
-        { key: "updated", label: "Updated" },
+        { key: "itemNumber", label: "Item number" },
+        { key: "productName", label: "Product name" },
+        { key: "secondName", label: "Second name" },
+        { key: "supplierName", label: "Supplier name" },
+        { key: "categoryName", label: "Category name" },
+        { key: "purchasePrice", label: "Purchase price" },
+        { key: "retailPrice", label: "Retail price" },
+        { key: "stockQuantity", label: "Stock quantity" },
+        { key: "state", label: "State" },
+        { key: "updatedArchived", label: "Updated / Archived at" },
       ],
       rows: visibleProducts.map((product) =>
         productRow(product, categories, suppliers),
       ),
       emptyState: {
-        title: "No mapped products are visible",
+        title: "No shop catalog products are visible",
         description:
-          "The mapping is present, but no active or archived product rows match the current filters.",
+          "No active or archived product rows match the current filters for this catalog scope.",
       },
     },
   };
@@ -962,18 +1002,19 @@ export function buildCategoriesSection(
   return {
     ...shopSections.categories,
     description:
-      "Mapped category list for the verified selected shop. Create, update and archive use audited catalog RPCs.",
+      "Shop catalog category list for the verified selected shop. Create, update and archive use audited catalog RPCs.",
     status:
       readModel.categories.length > 0 ? "Live actions" : "Categories empty",
     metrics: [
-      metric("Categories", String(filteredCategories.length), "Filtered mapped rows"),
+      metric("Categories", String(filteredCategories.length), "Filtered catalog rows"),
       metric("Products", String(readModel.products.length), "Products loaded"),
       metric("Filters", String(activeFilters), "Search"),
-      metric("Writes", "Enabled", "Audited create/update/archive", "good"),
+      metric("Catalog scope", catalogScopeLabel(readModel.catalogScope), readModel.reason, "good"),
+      metric("Writes", catalogWriteLabel(readModel), "Audited create/update/archive", "good"),
     ],
     liveData: {
-      title: "Mapped inventory data",
-      description: "Categories are read through the selected shop mapping.",
+      title: "Shop catalog data",
+      description: "Categories are read through shop_id first for the selected shop.",
       columns: [
         { key: "categoryId", label: "Category id" },
         { key: "name", label: "Name" },
@@ -986,9 +1027,9 @@ export function buildCategoriesSection(
         updated: formatDateTime(category.updatedAt),
       })),
       emptyState: {
-        title: "No mapped categories are visible",
+        title: "No shop catalog categories are visible",
         description:
-          "The mapping is present, but no active category rows are visible through current RLS.",
+          "No active category rows are visible for this catalog scope.",
       },
     },
   };
@@ -1010,18 +1051,19 @@ export function buildSuppliersSection(
   return {
     ...shopSections.suppliers,
     description:
-      "Mapped supplier list for the verified selected shop. Create, update and archive use audited catalog RPCs.",
+      "Shop catalog supplier list for the verified selected shop. Create, update and archive use audited catalog RPCs.",
     status:
       readModel.suppliers.length > 0 ? "Live actions" : "Suppliers empty",
     metrics: [
-      metric("Suppliers", String(filteredSuppliers.length), "Filtered mapped rows"),
+      metric("Suppliers", String(filteredSuppliers.length), "Filtered catalog rows"),
       metric("Products", String(readModel.products.length), "Products loaded"),
       metric("Filters", String(activeFilters), "Search"),
-      metric("Writes", "Enabled", "Audited create/update/archive", "good"),
+      metric("Catalog scope", catalogScopeLabel(readModel.catalogScope), readModel.reason, "good"),
+      metric("Writes", catalogWriteLabel(readModel), "Audited create/update/archive", "good"),
     ],
     liveData: {
-      title: "Mapped inventory data",
-      description: "Suppliers are read through the selected shop mapping.",
+      title: "Shop catalog data",
+      description: "Suppliers are read through shop_id first for the selected shop.",
       columns: [
         { key: "supplierId", label: "Supplier id" },
         { key: "name", label: "Name" },
@@ -1034,9 +1076,9 @@ export function buildSuppliersSection(
         updated: formatDateTime(supplier.updatedAt),
       })),
       emptyState: {
-        title: "No mapped suppliers are visible",
+        title: "No shop catalog suppliers are visible",
         description:
-          "The mapping is present, but no active supplier rows are visible through current RLS.",
+          "No active supplier rows are visible for this catalog scope.",
       },
     },
   };
@@ -1049,6 +1091,102 @@ function detailSectionRows(
     ...row,
     rowKey: row.field,
   }));
+}
+
+function buildProductPriceHistoryRows(
+  priceRows: readonly ShopInventoryPrice[],
+): ShopSectionTableRow[] {
+  return [...priceRows]
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    .map((price) => ({
+      rowKey: price.priceId,
+      type: formatToken(price.type),
+      price: String(price.price),
+      effectiveAt: formatDateTime(price.effectiveAt),
+      source: price.source ?? "Not set",
+      note: price.note ?? "Not set",
+      created: formatDateTime(price.createdAt),
+    }));
+}
+
+function productHistorySearchTokens(product: ShopInventoryProduct) {
+  return [
+    product.productId,
+    product.barcode,
+    product.itemNumber,
+    product.productName,
+    product.secondProductName,
+  ]
+    .filter((value): value is string => Boolean(value && value.length >= 3))
+    .map((value) => value.toLowerCase());
+}
+
+function matchesProductHistoryTokens(
+  haystack: string,
+  tokens: readonly string[],
+) {
+  const normalized = haystack.toLowerCase();
+
+  return tokens.some((token) => normalized.includes(token));
+}
+
+function buildProductHistoryEntryRows(
+  product: ShopInventoryProduct,
+  historyReadModel: ShopHistoryReadModel | null | undefined,
+): ShopSectionTableRow[] {
+  if (!historyReadModel || historyReadModel.status !== "ready") {
+    return [];
+  }
+
+  const tokens = productHistorySearchTokens(product);
+  const syncRows = historyReadModel.syncEvents
+    .filter((event) =>
+      matchesProductHistoryTokens(
+        [
+          event.domain,
+          event.eventType,
+          event.entitySummary,
+          event.metadataSummary,
+          event.source,
+          event.sourceDeviceId,
+        ]
+          .filter(Boolean)
+          .join(" "),
+        tokens,
+      ),
+    )
+    .map((event) => ({
+      rowKey: `sync:${event.eventId}`,
+      kind: "Sync event",
+      entry: `sync:${event.eventId}`,
+      source: event.source ?? "Unknown",
+      payload: `${event.domain} / ${event.eventType}`,
+      updated: formatDateTime(event.createdAt),
+    }));
+  const sessionRows = historyReadModel.sessions
+    .filter((session) =>
+      matchesProductHistoryTokens(
+        [
+          session.remoteId,
+          session.displayName,
+          session.supplier,
+          session.category,
+          session.dataSummary,
+          session.overlaySummary,
+        ].join(" "),
+        tokens,
+      ),
+    )
+    .map((session) => ({
+      rowKey: `session:${session.remoteId}`,
+      kind: "Mobile history entry",
+      entry: `session:${session.remoteId}`,
+      source: [session.supplier, session.category].filter(Boolean).join(" / ") || "Unknown",
+      payload: `${session.dataSummary}; ${session.overlaySummary}`,
+      updated: formatDateTime(session.updatedAt),
+    }));
+
+  return [...syncRows, ...sessionRows].slice(0, 25);
 }
 
 function catalogDetailFallback(
@@ -1085,12 +1223,16 @@ function catalogDetailFallback(
 export function buildProductDetailSection(
   readModel: ShopInventoryReadModel,
   productId: string,
+  historyReadModel?: ShopHistoryReadModel | null,
 ): ShopSection {
   if (readModel.status !== "ready") {
     return catalogDetailFallback("Product Detail", readModel);
   }
 
-  const product = readModel.products.find((row) => row.productId === productId);
+  const product = [...readModel.products, ...readModel.archivedProducts].find(
+    (row) => row.productId === productId,
+  );
+  const productState = product?.deletedAt ? "Archived" : "Active";
   const category = product?.categoryId
     ? readModel.categories.find((row) => row.categoryId === product.categoryId)
     : null;
@@ -1098,14 +1240,21 @@ export function buildProductDetailSection(
     ? readModel.suppliers.find((row) => row.supplierId === product.supplierId)
     : null;
   const priceRows = readModel.prices.filter((row) => row.productId === productId);
+  const historyEntryRows = product
+    ? buildProductHistoryEntryRows(product, historyReadModel)
+    : [];
 
   return {
     ...shopSections.products,
     title: "Product Detail",
     description: product
       ? "Shop-scoped product detail loaded from the mapped inventory source."
-      : "No active product row is visible for this shop-scoped detail request.",
-    status: product ? "Read-only detail" : "Not found",
+      : "No product row is visible for this shop-scoped detail request.",
+    status: product
+      ? product.deletedAt
+        ? "Archived detail"
+        : "Read-only detail"
+      : "Not found",
     metrics: [
       metric("Product", product ? product.barcode : "Not found", product?.productName ?? "No row"),
       metric("Prices", String(priceRows.length), "Recent price rows"),
@@ -1122,6 +1271,7 @@ export function buildProductDetailSection(
       rows: product
         ? detailSectionRows([
             { field: "Product id", value: product.productId },
+            { field: "State", value: productState },
             { field: "Barcode", value: product.barcode },
             { field: "Product name", value: product.productName ?? "Unnamed" },
             { field: "Second name", value: product.secondProductName ?? "Not set" },
@@ -1132,14 +1282,54 @@ export function buildProductDetailSection(
             { field: "Supplier", value: supplier?.name ?? product.supplierId ?? "None" },
             { field: "Category", value: category?.name ?? product.categoryId ?? "None" },
             { field: "Updated", value: formatDateTime(product.updatedAt) },
+            { field: "Archived", value: formatDateTime(product.deletedAt) },
           ])
         : [],
       emptyState: {
         title: "Product not found",
         description:
-          "No active product row with this id is visible through the verified shop mapping.",
+          "No product row with this id is visible through the verified shop mapping.",
       },
     },
+    secondaryLiveData: [
+      {
+        title: "Price history",
+        description:
+          "Purchase and retail price rows from inventory_product_prices for this product.",
+        columns: [
+          { key: "type", label: "Type" },
+          { key: "price", label: "Price" },
+          { key: "effectiveAt", label: "Effective at" },
+          { key: "source", label: "Source" },
+          { key: "note", label: "Reason" },
+          { key: "created", label: "Created" },
+        ],
+        rows: product ? buildProductPriceHistoryRows(priceRows) : [],
+        emptyState: {
+          title: "No price history rows are visible",
+          description:
+            "No inventory_product_prices rows are visible for this product and shop scope.",
+        },
+      },
+      {
+        title: "History entries",
+        description:
+          "Related mobile business history entries and sync events, separate from web audit logs.",
+        columns: [
+          { key: "kind", label: "Kind" },
+          { key: "entry", label: "Entry" },
+          { key: "source", label: "Source" },
+          { key: "payload", label: "Payload" },
+          { key: "updated", label: "Updated" },
+        ],
+        rows: historyEntryRows,
+        emptyState: {
+          title: "No related mobile history entries are visible",
+          description:
+            "Mobile history entries are shop-scoped and only shown when their redacted payload links to this product.",
+        },
+      },
+    ],
   };
 }
 
@@ -1351,9 +1541,9 @@ export function buildHistorySection(readModel: ShopHistoryReadModel): ShopSectio
         metric("Payload", "Redacted", "Raw mobile JSON is not rendered", "good"),
       ],
       liveData: {
-        title: "Mobile history activity",
+        title: "Mobile history entries",
         description:
-          "History rows are shown only after a verified shop mapping resolves the owner-scoped mobile source.",
+          "Mobile business history rows are read by shop_id first, with owner_user_id only as a legacy bridge.",
         columns: [
           { key: "field", label: "Field" },
           { key: "value", label: "Value" },
@@ -1370,7 +1560,7 @@ export function buildHistorySection(readModel: ShopHistoryReadModel): ShopSectio
   return {
     ...shopSections.history,
     description:
-      "Read-only mobile sync/history activity for the verified selected shop. Payloads are summarized and recursively redacted.",
+      "Read-only mobile business history entries and sync events for the verified selected shop. Payloads are summarized and recursively redacted.",
     status:
       readModel.syncEvents.length + readModel.sessions.length > 0
         ? "Read-only mapped"
@@ -1381,9 +1571,9 @@ export function buildHistorySection(readModel: ShopHistoryReadModel): ShopSectio
       metric("Payload", "Redacted", "No raw JSON is rendered", "good"),
     ],
     liveData: {
-      title: "Mobile history activity",
+      title: "Mobile history entries",
       description:
-        "Sync events and shared sheet sessions are summarized separately from web audit logs.",
+        "shared_sheet_sessions and sync_events are summarized separately from web audit logs.",
       columns: [
         { key: "kind", label: "Kind" },
         { key: "label", label: "Label" },
@@ -2201,11 +2391,20 @@ export async function getShopCatalogDetailSectionForRequest(
   catalogId: string,
   requestedShopId?: string | null,
 ): Promise<ShopSection> {
-  const inventoryReadModel = await getShopInventoryReadModel({ requestedShopId });
-
   if (kind === "product") {
-    return buildProductDetailSection(inventoryReadModel, catalogId);
+    const [inventoryReadModel, historyReadModel] = await Promise.all([
+      getShopInventoryReadModel({ requestedShopId }),
+      getShopHistoryReadModel({ requestedShopId }),
+    ]);
+
+    return buildProductDetailSection(
+      inventoryReadModel,
+      catalogId,
+      historyReadModel,
+    );
   }
+
+  const inventoryReadModel = await getShopInventoryReadModel({ requestedShopId });
 
   if (kind === "category") {
     return buildCategoryDetailSection(inventoryReadModel, catalogId);

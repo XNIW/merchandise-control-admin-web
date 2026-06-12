@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
-import { CatalogActionPanel } from "@/app/shop/_components/CatalogActionPanel";
+import {
+  CatalogActionPanel,
+  type CatalogSupplierOption,
+} from "@/app/shop/_components/CatalogActionPanel";
+import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
+import { getShopInventoryReadModel } from "@/server/shop-admin/inventory-read-model";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
@@ -18,6 +23,8 @@ type ShopPageSearchParams = Promise<{
   query?: string | string[];
   result?: string | string[];
   shop_id?: string | string[];
+  supplier_action?: string | string[];
+  supplier_id?: string | string[];
 }>;
 
 function getParam(
@@ -39,6 +46,79 @@ function buildClearFiltersHref(requestedShopId?: string) {
   }).toString()}`;
 }
 
+function mapSupplierOptions(
+  rows: Awaited<ReturnType<typeof getShopInventoryReadModel>>["suppliers"],
+): CatalogSupplierOption[] {
+  return rows.map((supplier) => ({
+    name: supplier.name,
+    supplierId: supplier.supplierId,
+  }));
+}
+
+function getSupplierDialog(action?: string) {
+  if (action === "edit") {
+    return "editSupplier" as const;
+  }
+
+  if (action === "archive") {
+    return "archiveSupplier" as const;
+  }
+
+  return null;
+}
+
+function buildSupplierActionHref(
+  params: Record<string, string | string[] | undefined>,
+  action: "archive" | "edit",
+  supplierId: string,
+) {
+  const nextParams = new URLSearchParams();
+
+  for (const key of ["shop_id", "query"]) {
+    const value = getParam(params, key);
+
+    if (value) {
+      nextParams.set(key, value);
+    }
+  }
+
+  nextParams.set("supplier_action", action);
+  nextParams.set("supplier_id", supplierId);
+
+  return `/shop/suppliers?${nextParams.toString()}`;
+}
+
+function SupplierRowActions({
+  params,
+  row,
+}: {
+  params: Record<string, string | string[] | undefined>;
+  row: AdminDataTableRow;
+}) {
+  if (!row.rowKey) {
+    return null;
+  }
+
+  const supplierId = row.rowKey;
+
+  return (
+    <div className="flex min-w-0 flex-wrap gap-2">
+      {[
+        { action: "edit" as const, label: "Update" },
+        { action: "archive" as const, label: "Archive" },
+      ].map((item) => (
+        <a
+          key={item.action}
+          className="inline-flex h-8 items-center rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
+          href={buildSupplierActionHref(params, item.action, supplierId)}
+        >
+          {item.label}
+        </a>
+      ))}
+    </div>
+  );
+}
+
 export default async function ShopSuppliersPage({
   searchParams,
 }: {
@@ -49,18 +129,29 @@ export default async function ShopSuppliersPage({
   const activeFilterCount = [getParam(params, "query")].filter((value) =>
     Boolean(value?.trim()),
   ).length;
-  const section = await getShopSectionForRequest(
-    "suppliers",
-    requestedShopId,
-    {
+  const [section, inventoryReadModel, suppliersContext] = await Promise.all([
+    getShopSectionForRequest("suppliers", requestedShopId, {
       catalogFilters: {
         query: getParam(params, "query"),
       },
-    },
-  );
-  const canManageSuppliers =
-    (await resolveShopActionContext(requestedShopId, "suppliers.write"))
-      .status === "ready";
+    }),
+    getShopInventoryReadModel({ requestedShopId }),
+    resolveShopActionContext(requestedShopId, "suppliers.write"),
+  ]);
+  const canManageSuppliers = suppliersContext.status === "ready";
+  const supplierOptions = mapSupplierOptions(inventoryReadModel.suppliers);
+  const supplierDialog = getSupplierDialog(getParam(params, "supplier_action"));
+  const supplierDialogId = getParam(params, "supplier_id") ?? "";
+  const catalogToolbar = canManageSuppliers ? (
+    <CatalogActionPanel
+      embedded
+      initialDialog={supplierDialog}
+      initialEntityId={supplierDialogId}
+      scope="suppliers"
+      selectedShopId={requestedShopId}
+      suppliers={supplierOptions}
+    />
+  ) : null;
 
   return (
     <div className="grid gap-5">
@@ -94,14 +185,22 @@ export default async function ShopSuppliersPage({
           ) : null}
         </div>
       </form>
-      <ShopSectionPage section={section} />
       <ActionResultBanner
         action={getParam(params, "action")}
         result={getParam(params, "result")}
       />
-      {canManageSuppliers ? (
-        <CatalogActionPanel scope="suppliers" selectedShopId={requestedShopId} />
-      ) : null}
+      <ShopSectionPage
+        liveDataToolbar={catalogToolbar}
+        rowActions={
+          canManageSuppliers
+            ? {
+                label: "Actions",
+                render: (row) => <SupplierRowActions params={params} row={row} />,
+              }
+            : undefined
+        }
+        section={section}
+      />
     </div>
   );
 }
