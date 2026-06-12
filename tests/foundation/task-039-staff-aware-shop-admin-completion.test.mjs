@@ -183,13 +183,13 @@ test("TASK-039 server mutations use staff granular permissions and server-only a
     staffAware,
     /\.from\("staff_role_permissions"\)[\s\S]{0,240}\.delete\(\)[\s\S]{0,240}\.insert\(/,
   );
-  assertContains(settings, 'if (adminConfig.status !== "configured")');
-  assert.match(
+  assertContains(settings, "SHOP_SETTINGS_MANAGED_BY_MASTER_CONSOLE");
+  assertContains(settings, "shop_settings_managed_by_master_console");
+  assert.doesNotMatch(
     settings,
-    /adminConfig\.status !== "configured"[\s\S]{0,260}shopAdminActionResult\("not_configured"/,
-    "settings mutations must fail closed when admin env is unavailable",
+    /\.from\("shops"\)[\s\S]{0,360}\.update\(/,
+    "settings mutations must not update shop profile rows from Admin Console",
   );
-  assertContains(settings, "writeSettingsAudit(adminClient, context");
 
   for (const required of [
     "hasRecognizedWebPermission",
@@ -282,7 +282,6 @@ test("TASK-039 exposes staff lifecycle, permission template and account profile 
   for (const required of [
     "resolveShopActionContext",
     "staff.manage",
-    "settings.write",
     "products.write",
     "categories.write",
     "suppliers.write",

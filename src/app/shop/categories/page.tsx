@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
 import { CatalogActionPanel } from "@/app/shop/_components/CatalogActionPanel";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
+import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
@@ -65,7 +66,7 @@ export default async function ShopCategoriesPage({
     <div className="grid gap-5">
       <form
         action="/shop/categories"
-        className="mx-auto grid w-full max-w-7xl gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_auto]"
+        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_auto]`}
       >
         {requestedShopId ? (
           <input name="shop_id" type="hidden" value={requestedShopId} />

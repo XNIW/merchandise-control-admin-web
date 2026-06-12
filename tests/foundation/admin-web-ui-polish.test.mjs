@@ -46,8 +46,8 @@ test("TASK-013 Shop Admin shell makes selected shop context explicit", () => {
   assert.match(shell, /role="group"/);
   assert.match(shell, /aria-labelledby="selected-shop-context-label selected-shop-summary"/);
   assert.match(shell, /id="selected-shop-summary"/);
-  assert.match(shell, /selectedShop\.shopName/);
-  assert.match(shell, /selectedShop\.shopCode/);
+  assert.match(shell, /shopDisplayName/);
+  assert.match(shell, /shopIdentityLine/);
   assert.match(shell, /overflow-x-auto/);
   assert.match(shell, /lg:grid/);
   assert.match(shell, /whitespace-nowrap/);

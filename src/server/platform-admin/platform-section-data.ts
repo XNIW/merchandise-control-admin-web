@@ -25,8 +25,11 @@ import {
   getPlatformAdminReadModel,
   type PlatformAdminLiveReadModel,
 } from "./read-model";
+import { formatRutForDisplay } from "./shop-action-validation";
 
 const shortId = (value?: string) => (value ? value.slice(0, 8) : "none");
+const notAvailableThroughCurrentBoundary =
+  "Not available through current boundary";
 
 const stat = (
   label: string,
@@ -77,6 +80,22 @@ function activeOwnerMembersForShop(
       member.role_id === "shop_owner" &&
       member.membership_status === "active",
   );
+}
+
+function configuredValue(value?: string | null) {
+  const trimmed = value?.trim() ?? "";
+
+  return trimmed || "Not configured";
+}
+
+function configuredRut(value?: string | null) {
+  const trimmed = value?.trim() ?? "";
+
+  return trimmed ? formatRutForDisplay(trimmed) : "Not configured";
+}
+
+function configuredTimestamp(value?: string | null) {
+  return value ? formatTimestampUtc(value) : "Not configured";
 }
 
 function activeOwnerNamesForShop(
@@ -621,6 +640,102 @@ function userDetailSections(
   ];
 }
 
+function shopProfileFiscalFields(shop: Shop) {
+  return [
+    { label: "Shop name", value: configuredValue(shop.shop_name) },
+    { label: "Shop code", value: configuredValue(shop.shop_code) },
+    { label: "Shop ID", value: configuredValue(shop.shop_id) },
+    { label: "Status", value: formatToken(shop.shop_status) },
+    { label: "Company RUT", value: configuredRut(shop.company_rut) },
+    { label: "Giro", value: configuredValue(shop.business_giro) },
+    { label: "Address", value: configuredValue(shop.business_address) },
+    { label: "City", value: configuredValue(shop.business_city) },
+    {
+      label: "Legal representative RUT",
+      value: configuredRut(shop.legal_representative_rut),
+    },
+    { label: "Created", value: configuredTimestamp(shop.created_at) },
+    { label: "Updated", value: configuredTimestamp(shop.updated_at) },
+    {
+      label: "Managed by",
+      value:
+        shop.fiscal_identity_locked_by_platform === false
+          ? "Unlocked"
+          : "Master Console",
+    },
+  ];
+}
+
+function staffSafeSummaryForShop(
+  shopId: string,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  const staffIssue = staffSafeReadIssue(readModel);
+
+  if (staffIssue) {
+    return notAvailableThroughCurrentBoundary;
+  }
+
+  const staffRows = readModel.staffSafeRows.filter((row) => row.shop_id === shopId);
+  const active = staffRows.filter((row) => row.status === "active").length;
+  const suspended = staffRows.filter((row) => row.status === "suspended").length;
+
+  return `${staffRows.length} visible safe rows\n${active} active / ${suspended} suspended`;
+}
+
+function shopOperationalSummaryFields(
+  shop: Shop,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  const members = readModel.shopMembers.filter(
+    (member) => member.shop_id === shop.shop_id,
+  );
+  const activeOwners = members.filter(
+    (member) =>
+      member.role_id === "shop_owner" && member.membership_status === "active",
+  );
+  const activeManagers = members.filter(
+    (member) =>
+      member.role_id === "shop_manager" && member.membership_status === "active",
+  );
+  const devices = readModel.shopDevices.filter(
+    (device) => device.shop_id === shop.shop_id,
+  );
+  const revokedDevices = devices.filter((device) => device.status === "revoked");
+  const sync = latestSyncForShop(
+    readModel.syncEvents,
+    readModel.shopOwnerMappings,
+    shop.shop_id,
+  );
+  const audits = readModel.auditLogs.filter((log) => log.shop_id === shop.shop_id);
+
+  return [
+    { label: "Members total", value: String(members.length) },
+    { label: "Owners count", value: String(activeOwners.length) },
+    { label: "Managers count", value: String(activeManagers.length) },
+    { label: "Devices total", value: String(devices.length) },
+    { label: "Revoked devices", value: String(revokedDevices.length) },
+    { label: "Audit count", value: String(audits.length) },
+    { label: "Latest audit", value: audits[0]?.event ?? "No audit event visible" },
+    {
+      label: "Latest sync",
+      value: sync
+        ? `${formatToken(sync.event_type)} / ${formatTimestampUtc(sync.created_at)}`
+        : "No sync visible",
+    },
+    {
+      label: "Sync state",
+      value: sync
+        ? `${formatToken(sync.domain)} / ${formatToken(sync.source ?? "unknown")}`
+        : "No sync visible",
+    },
+    { label: "Products count", value: notAvailableThroughCurrentBoundary },
+    { label: "Categories count", value: notAvailableThroughCurrentBoundary },
+    { label: "Suppliers count", value: notAvailableThroughCurrentBoundary },
+    { label: "Staff POS count", value: staffSafeSummaryForShop(shop.shop_id, readModel) },
+  ];
+}
+
 function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
   const members = readModel.shopMembers.filter(
     (member) => member.shop_id === shop.shop_id,
@@ -645,6 +760,26 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
         { label: "Status", value: formatToken(shop.shop_status) },
       ],
       title: "Overview",
+    },
+    {
+      description:
+        "Read-only shop profile and fiscal fields managed by Master Console.",
+      fields: shopProfileFiscalFields(shop),
+      notes: [
+        "The edit dialog only changes fields already visible in this read-only card.",
+        "Shop code and shop ID remain read-only.",
+      ],
+      title: "Shop profile & fiscal identity",
+    },
+    {
+      description:
+        "Aggregated shop-level signals available through the current Platform boundary.",
+      fields: shopOperationalSummaryFields(shop, readModel),
+      notes: [
+        "Counts are aggregated support signals; daily product, staff, and device management stays in Admin Console.",
+        "Unavailable catalog counts are shown as boundary-limited instead of invented as zero.",
+      ],
+      title: "Operational summary",
     },
     {
       fields: [
@@ -724,6 +859,60 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
       title: "Operations boundary",
     },
   ];
+}
+
+export type PlatformShopProfileForEdit = {
+  businessAddress: string;
+  businessCity: string;
+  businessGiro: string;
+  companyRut: string;
+  legalRepresentativeRut: string;
+  shopId: string;
+  shopName: string;
+};
+
+export async function getPlatformShopProfileForRequest(shopId: string): Promise<
+  | {
+      reason: string;
+      shop?: undefined;
+      status: Exclude<PlatformAdminLiveReadModel["status"], "ready"> | "not_found";
+    }
+  | {
+      reason?: undefined;
+      shop: PlatformShopProfileForEdit;
+      status: "ready";
+    }
+> {
+  const readModel = await getPlatformAdminReadModel();
+
+  if (readModel.status !== "ready") {
+    return {
+      reason: readModel.reason,
+      status: readModel.status,
+    };
+  }
+
+  const shop = readModel.shops.find((candidate) => candidate.shop_id === shopId);
+
+  if (!shop) {
+    return {
+      reason: "The requested shop was not found in the Platform Admin read boundary.",
+      status: "not_found",
+    };
+  }
+
+  return {
+    shop: {
+      businessAddress: shop.business_address ?? "",
+      businessCity: shop.business_city ?? "",
+      businessGiro: shop.business_giro ?? "",
+      companyRut: shop.company_rut ?? "",
+      legalRepresentativeRut: shop.legal_representative_rut ?? "",
+      shopId: shop.shop_id,
+      shopName: shop.shop_name,
+    },
+    status: "ready",
+  };
 }
 
 function fallbackSection(

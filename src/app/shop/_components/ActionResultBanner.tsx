@@ -1,3 +1,5 @@
+import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
+
 type ActionResultBannerProps = {
   action?: string;
   result?: string;
@@ -34,7 +36,7 @@ export function ActionResultBanner({ action, result }: ActionResultBannerProps) 
   return (
     <div
       className={[
-        "rounded-md border px-4 py-3 text-sm",
+        `${SHOP_ADMIN_CONTENT_FRAME_CLASS} rounded-md border px-4 py-3 text-sm`,
         isSuccess
           ? "border-emerald-200 bg-emerald-50 text-emerald-950"
           : "border-amber-200 bg-amber-50 text-amber-950",

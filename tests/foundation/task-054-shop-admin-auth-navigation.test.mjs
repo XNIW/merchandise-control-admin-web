@@ -62,7 +62,9 @@ test("TASK-054 shared diagnostics move from each page into the Shop sidebar", ()
 
   assert.doesNotMatch(sectionPage, />\s*Diagnostics\s*</);
   assert.doesNotMatch(sectionPage, /GuardrailNotice/);
-  assertContains(shell, "GuardrailNotice");
+  assert.doesNotMatch(shell, /GuardrailNotice/);
+  assertContains(shell, "sharedShopGuardrails");
+  assertContains(shell, "<details");
   assertContains(shell, "Shop safety");
   assertContains(sections, "sharedShopGuardrails");
   assertContains(sections, "export const sharedShopGuardrails");
@@ -84,7 +86,12 @@ test("TASK-054 Shop Admin copy separates live Excel, roles baseline, POS staff, 
   assertContains(sections, "POS Staff inside Admin Console");
   assertContains(sectionData, "Mapping required");
   assertContains(sectionData, "Shop access verified");
-  assertContains(settingsPage, "Fiscal/boleta identity is managed by Master Console");
+  assertContains(settingsPage, "Master Console only");
+  assertContains(
+    settingsPage,
+    "Shop profile and fiscal identity are managed by Master Console. Admin Console can view these fields but cannot edit them.",
+  );
+  assert.doesNotMatch(settingsPage, /Update settings|Type SETTINGS as confirmation/);
   assert.doesNotMatch(sections, /CSV fallback is preferred/i);
   assert.doesNotMatch(sections, /console separata|separate console/i);
 });
@@ -135,16 +142,21 @@ test("TASK-054 task and Master Plan tracking are aligned for DONE reconciliation
   assertContains(masterPlan, "Verdict TASK-053: `DONE`");
   assertContains(masterPlan, "Stato TASK-054: `DONE`");
   assertContains(masterPlan, "Fase TASK-054: `DONE`");
-  assertContains(masterPlan, "Stato globale attuale: `IDLE`");
+  assertContains(masterPlan, "Stato globale attuale: `REVIEW`");
   assertContains(masterPlan, "TASK-054C");
   assertContains(masterPlan, "Safari reale verificato");
   assertContains(masterPlan, "Final DONE confirmation");
   assertContains(masterPlan, "Verdict TASK-054: `DONE_WITH_NOTES`");
   assertContains(masterPlan, "Safari reale via `safaridriver` PASS su server dedicato");
-  assertContains(masterPlan, "Task attivo: `NESSUNO`");
   assertContains(
     masterPlan,
-    "Ultimo task chiuso: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar/diagnostics`",
+    "Task attivo: `NESSUNO`",
+  );
+  assertContains(masterPlan, "Stato TASK-055: `DONE_RECONCILED`");
+  assertContains(masterPlan, "Stato TASK-056: `DONE_RECONCILED`");
+  assertContains(
+    masterPlan,
+    "Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`",
   );
   assert.doesNotMatch(
     masterPlan,

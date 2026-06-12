@@ -102,6 +102,24 @@ const formatDateTime = (value: string | null | undefined) => {
   }).format(new Date(value));
 };
 
+function formatCompanyRut(value: string | null | undefined) {
+  const compact = (value ?? "").trim().replace(/[^0-9kK]/g, "").toUpperCase();
+
+  if (compact.length < 2) {
+    return "Not configured";
+  }
+
+  const body = compact.slice(0, -1);
+  const dv = compact.slice(-1);
+  const groups: string[] = [];
+
+  for (let index = body.length; index > 0; index -= 3) {
+    groups.unshift(body.slice(Math.max(0, index - 3), index));
+  }
+
+  return `${groups.join(".")}-${dv}`;
+}
+
 const shortId = (value: string | null | undefined) =>
   value ? `${value.slice(0, 8)}...` : "System";
 
@@ -1980,12 +1998,12 @@ export function buildRolesSection(): ShopSection {
   return {
     ...shopSections.roles,
     description:
-      "Server-side baseline permission matrix for web shop members and POS staff roles. Advanced granular role editing remains blocked until schema support exists.",
+      "Server-side baseline permission matrix for web shop members and POS staff roles. Granular editing is not available yet because no granular roles schema exists.",
     status: "Baseline matrix",
     metrics: [
       metric("Web roles", String(Object.keys(SHOP_ADMIN_PERMISSION_MATRIX).length), "shop_members role_key"),
       metric("Staff roles", String(Object.keys(SHOP_STAFF_PERMISSION_MATRIX).length), "staff_accounts role_key"),
-      metric("Role editing", "Blocked", "No granular roles schema", "warning"),
+      metric("Granular editing", "Not available yet", "Baseline matrix only. No granular roles schema yet.", "warning"),
     ],
     liveData: {
       title: "Permissions matrix",
@@ -2016,7 +2034,11 @@ export function buildSettingsSection(readModel: ShopAdminReadModel): ShopSection
 
   const shop = readModel.selectedShop;
   const fiscalRows = [
-    { rowKey: "company-rut", field: "Company RUT / shop code", value: shop.companyRut ?? shop.shopCode },
+    {
+      rowKey: "company-rut",
+      field: "Company RUT",
+      value: formatCompanyRut(shop.companyRut),
+    },
     { rowKey: "giro", field: "Giro", value: shop.businessGiro ?? "Not configured" },
     { rowKey: "address", field: "Address", value: shop.businessAddress ?? "Not configured" },
     { rowKey: "city", field: "City", value: shop.businessCity ?? "Not configured" },
@@ -2030,17 +2052,22 @@ export function buildSettingsSection(readModel: ShopAdminReadModel): ShopSection
   return {
     ...shopSections.settings,
     description:
-      "Shop profile and operational settings through the audited server boundary. Fiscal/boleta identity is managed by Master Console.",
-    status: "Guarded",
+      "Shop profile and fiscal identity are managed by Master Console. Admin Console can view these fields but cannot edit them. Fiscal/boleta identity is managed by Master Console.",
+    status: "Read-only",
     metrics: [
       metric("Shop", shop.shopCode, shop.shopName, "good"),
       metric("Status", formatToken(shop.shopStatus), "Current shop state"),
-      metric("Writes", "Guarded", "Requires settings.write permission", "warning"),
+      metric(
+        "Profile updates",
+        "Master Console only",
+        "Shop profile and fiscal identity are read-only in Admin Console",
+        "warning",
+      ),
     ],
     liveData: {
       title: "Shop profile and fiscal identity",
       description:
-        "Verified shop profile fields visible through the server boundary. Fiscal/boleta identity is managed by Master Console.",
+        "Verified shop profile fields visible through the server boundary. Shop profile and fiscal identity are managed by Master Console.",
       columns: [
         { key: "field", label: "Field" },
         { key: "value", label: "Value" },

@@ -5,9 +5,19 @@ import {
   resolveSupabaseServerConfig,
   type SupabaseServerClient,
 } from "@/lib/supabase/server";
+import type { Tables } from "@/lib/supabase/database.types";
 import type { ShopScopedAdminRole } from "@/server/auth/admin-routing";
 
+type ShopRow = Tables<"shops">;
+type ShopShellReadRow = Pick<
+  ShopRow,
+  "shop_id" | "shop_code" | "shop_name" | "shop_status"
+> & {
+  company_rut?: string | null;
+};
+
 export type ShopAdminShellShop = {
+  companyRut?: string;
   shopId: string;
   shopCode: string;
   shopName: string;
@@ -39,6 +49,37 @@ function toShopAdminRole(value: string | null | undefined) {
   return value && shopAdminRoles.has(value)
     ? (value as ShopScopedAdminRole)
     : null;
+}
+
+async function loadShellShops(
+  supabase: SupabaseServerClient,
+  shopIds: readonly string[],
+) {
+  const fiscalResult = await supabase
+    .from("shops")
+    .select("shop_id,shop_code,shop_name,shop_status,company_rut")
+    .in("shop_id", shopIds)
+    .order("shop_name", { ascending: true })
+    .limit(50);
+
+  if (!fiscalResult.error) {
+    return {
+      data: fiscalResult.data as ShopShellReadRow[] | null,
+      error: null,
+    };
+  }
+
+  const baseResult = await supabase
+    .from("shops")
+    .select("shop_id,shop_code,shop_name,shop_status")
+    .in("shop_id", shopIds)
+    .order("shop_name", { ascending: true })
+    .limit(50);
+
+  return {
+    data: baseResult.data as ShopShellReadRow[] | null,
+    error: baseResult.error,
+  };
 }
 
 export async function resolveCurrentShopAdminShellAccess(
@@ -117,12 +158,7 @@ export async function resolveCurrentShopAdminShellAccess(
     };
   }
 
-  const shopsResult = await supabase
-    .from("shops")
-    .select("shop_id,shop_code,shop_name,shop_status")
-    .in("shop_id", shopIds)
-    .order("shop_name", { ascending: true })
-    .limit(50);
+  const shopsResult = await loadShellShops(supabase, shopIds);
 
   if (shopsResult.error) {
     return {
@@ -143,15 +179,18 @@ export async function resolveCurrentShopAdminShellAccess(
         return null;
       }
 
-      return {
+      const shellShop: ShopAdminShellShop = {
+        companyRut: shop.company_rut ?? undefined,
         shopId: shop.shop_id,
         shopCode: shop.shop_code,
         shopName: shop.shop_name,
         shopStatus: shop.shop_status,
         role: membership.role,
       };
+
+      return shellShop;
     })
-    .filter((shop): shop is ShopAdminShellShop => Boolean(shop))
+    .filter((shop): shop is ShopAdminShellShop => shop !== null)
     .filter((shop) => shop.shopStatus !== "archived");
   const selectedShop =
     availableShops.find((shop) => shop.shopId === memberships[0]?.shopId) ??

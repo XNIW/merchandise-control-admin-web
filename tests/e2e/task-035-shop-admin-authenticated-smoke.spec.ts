@@ -874,7 +874,15 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       await expect(
         page.getByRole("heading", { level: 1, name: "Shop Overview" }),
       ).toBeVisible();
-      await expect(page.getByText(fixture.shopCode).first()).toBeVisible();
+      const blockedRequestHeader = page.getByRole("group", {
+        name: /Shop workspace/,
+      });
+
+      await expect(blockedRequestHeader.getByText(/^Company RUT:/)).toBeVisible();
+      await expect(blockedRequestHeader).not.toContainText("Shop code:");
+      await expect(blockedRequestHeader).not.toContainText(
+        fixture.blockedShopCode,
+      );
       await expect(page.getByText(fixture.blockedShopCode)).toHaveCount(0);
 
       await page.screenshot({
@@ -1015,7 +1023,15 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       await expect(
         page.getByRole("heading", { level: 1, name: "Shop Overview" }),
       ).toBeVisible();
-      await expect(page.getByText(fixture.shopCode).first()).toBeVisible();
+      const blockedRequestHeader = page.getByRole("group", {
+        name: /Shop workspace/,
+      });
+
+      await expect(blockedRequestHeader.getByText(/^Company RUT:/)).toBeVisible();
+      await expect(blockedRequestHeader).not.toContainText("Shop code:");
+      await expect(blockedRequestHeader).not.toContainText(
+        fixture.blockedShopCode,
+      );
       await expect(page.getByText(fixture.blockedShopCode)).toHaveCount(0);
 
       await page.context().clearCookies();

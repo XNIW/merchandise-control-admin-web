@@ -155,6 +155,7 @@ export function mapShopRow(row: ShopRowCandidate): Shop {
     shop_name: row.shop_name,
     shop_status: normalizeShopStatus(row.shop_status),
     created_at: row.created_at,
+    updated_at: row.updated_at ?? undefined,
   };
 }
 

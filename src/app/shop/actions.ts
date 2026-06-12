@@ -45,7 +45,6 @@ import {
   removeShopMember,
   updateShopMemberRole,
 } from "@/server/shop-admin/member-mutations";
-import { updateShopSettings } from "@/server/shop-admin/settings-mutations";
 
 export type ShopAdminActionState = ShopAdminActionResult & {
   temporaryCredential?: string;
@@ -532,28 +531,6 @@ export async function removeShopMemberAction(formData: FormData) {
       memberId: formString(formData, "memberId"),
       reason: optionalFormString(formData, "reason"),
       requestedShopId: shopId,
-    }),
-    shopId,
-  );
-}
-
-export async function updateShopSettingsAction(formData: FormData) {
-  const shopId = requestedShopId(formData);
-
-  if (!confirmed(formData, "SETTINGS")) {
-    resultRedirect(
-      "/shop/settings",
-      shopAdminActionResult("validation_failed", { ok: false }),
-      shopId,
-    );
-  }
-
-  resultRedirect(
-    "/shop/settings",
-    await updateShopSettings({
-      reason: optionalFormString(formData, "reason"),
-      requestedShopId: shopId,
-      shopName: formString(formData, "shopName"),
     }),
     shopId,
   );

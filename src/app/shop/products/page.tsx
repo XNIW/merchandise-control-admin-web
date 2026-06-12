@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
 import { CatalogActionPanel } from "@/app/shop/_components/CatalogActionPanel";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
+import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
@@ -40,6 +41,13 @@ function buildClearFiltersHref(requestedShopId?: string) {
   }).toString()}`;
 }
 
+const filterLabelClassName =
+  "grid min-w-0 gap-1 text-sm font-medium text-zinc-800";
+const filterInputClassName =
+  "h-10 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none";
+const filterButtonClassName =
+  "inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium";
+
 export default async function ShopProductsPage({
   searchParams,
 }: {
@@ -71,59 +79,60 @@ export default async function ShopProductsPage({
     <div className="grid gap-5">
       <form
         action="/shop/products"
-        className="mx-auto grid max-w-7xl gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_220px_220px_auto]"
+        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(14rem,1fr)_minmax(0,220px)_minmax(0,220px)_auto] md:items-end`}
       >
         {requestedShopId ? (
           <input name="shop_id" type="hidden" value={requestedShopId} />
         ) : null}
-        <label className="grid gap-1 text-sm font-medium text-zinc-800">
+        <label className={filterLabelClassName}>
           Search
           <input
-            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+            className={filterInputClassName}
             defaultValue={getParam(params, "query") ?? ""}
             name="query"
+            placeholder="Search by barcode, name, item number"
             type="search"
           />
         </label>
-        <label className="grid gap-1 text-sm font-medium text-zinc-800">
+        <label className={filterLabelClassName}>
           Category id
           <input
             aria-describedby="products-category-filter-help"
-            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+            className={filterInputClassName}
             defaultValue={getParam(params, "category_id") ?? ""}
             name="category_id"
             type="text"
           />
           <span
-            className="text-xs font-normal leading-5 text-zinc-500"
+            className="sr-only"
             id="products-category-filter-help"
           >
             Use an id from Categories.
           </span>
         </label>
-        <label className="grid gap-1 text-sm font-medium text-zinc-800">
+        <label className={filterLabelClassName}>
           Supplier id
           <input
             aria-describedby="products-supplier-filter-help"
-            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+            className={filterInputClassName}
             defaultValue={getParam(params, "supplier_id") ?? ""}
             name="supplier_id"
             type="text"
           />
           <span
-            className="text-xs font-normal leading-5 text-zinc-500"
+            className="sr-only"
             id="products-supplier-filter-help"
           >
             Use an id from Suppliers.
           </span>
         </label>
-        <div className="flex flex-wrap items-end gap-2 self-end">
-          <button className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white">
+        <div className="flex min-w-0 flex-wrap items-end gap-2 self-end">
+          <button className={`${filterButtonClassName} bg-zinc-950 text-white`}>
             Apply filters
           </button>
           {activeFilterCount > 0 ? (
             <a
-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800"
+              className={`${filterButtonClassName} border border-zinc-300 text-zinc-800`}
               href={buildClearFiltersHref(requestedShopId)}
             >
               Clear filters

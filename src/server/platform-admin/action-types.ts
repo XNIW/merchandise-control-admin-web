@@ -6,6 +6,7 @@ export type PlatformShopActionCode =
   | "unauthorized"
   | "not_configured"
   | "validation_failed"
+  | "audit_write_failed"
   | "duplicate_shop_code"
   | "duplicate_company_rut"
   | "owner_not_found"
@@ -58,6 +59,17 @@ export type PlatformShopProvisioningResult = PlatformShopActionResult & {
   staffId?: string;
   temporaryCredential?: string;
   values?: PlatformShopProvisioningFormValues;
+};
+
+export type PlatformShopProfileFormValues = {
+  businessAddress: string;
+  businessCity: string;
+  businessGiro: string;
+  companyRut: string;
+  confirmation: string;
+  legalRepresentativeRut: string;
+  reason: string;
+  shopName: string;
 };
 
 export const INITIAL_MANAGER_DISPLAY_NAME = "manager" as const;
@@ -116,6 +128,10 @@ export type EmergencyRevokeDeviceInput = {
   confirmation: string;
 };
 
+export type UpdateShopProfileInput = PlatformShopProfileFormValues & {
+  shopId: string;
+};
+
 export type PlatformAdminGrantInput = {
   profileId: string;
   reason: string;
@@ -135,6 +151,7 @@ const messageByCode: Record<PlatformShopActionCode, string> = {
   unauthorized: "You are not authorized to perform this operation.",
   not_configured: "Platform Admin runtime is not configured.",
   validation_failed: "Check the required fields and try again.",
+  audit_write_failed: "Audit write failed for the controlled profile update.",
   duplicate_shop_code: "A shop with this code already exists.",
   duplicate_company_rut: "A shop with this company RUT already exists.",
   owner_not_found: "The selected owner could not be used.",

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import { ActionButton } from "./components/ActionButton";
 import { AdminDataTable } from "@/components/admin/AdminDataTable";
 import { EmptyState } from "@/components/admin/EmptyState";
@@ -15,11 +16,18 @@ import { PlatformMasterDetail } from "./PlatformMasterDetail";
 import type { PlatformSection } from "./platformData";
 
 type PlatformPageProps = {
+  children?: ReactNode;
+  detailSectionActions?: Record<string, ReactNode>;
   section: PlatformSection;
   selectedRowKey?: string;
 };
 
-export function PlatformPage({ section, selectedRowKey }: PlatformPageProps) {
+export function PlatformPage({
+  children,
+  detailSectionActions,
+  section,
+  selectedRowKey,
+}: PlatformPageProps) {
   const hasMasterDetail =
     section.rowDetails !== undefined && section.rowDetails.length > 0;
   const hasDetailSections =
@@ -109,6 +117,7 @@ export function PlatformPage({ section, selectedRowKey }: PlatformPageProps) {
             {section.detailSections?.map((detailSection) => (
               <SectionCard
                 key={detailSection.title}
+                actions={detailSectionActions?.[detailSection.title]}
                 title={detailSection.title}
                 description={detailSection.description}
               >
@@ -152,6 +161,8 @@ export function PlatformPage({ section, selectedRowKey }: PlatformPageProps) {
             ))}
           </section>
         ) : null}
+
+        {children}
 
         <div
           className={

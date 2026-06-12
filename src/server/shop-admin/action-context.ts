@@ -26,6 +26,7 @@ export type ShopAdminActionCode =
   | "invalid_file_type"
   | "preview_required"
   | "preview_mismatch"
+  | "shop_settings_managed_by_master_console"
   | "db_failure";
 
 export type ShopAdminActionResult = {
@@ -80,6 +81,8 @@ const messages: Record<ShopAdminActionCode, string> = {
   invalid_file_type: "Upload a .xlsx workbook.",
   preview_required: "Preview the workbook and confirm before applying it.",
   preview_mismatch: "The uploaded workbook no longer matches the preview digest.",
+  shop_settings_managed_by_master_console:
+    "SHOP_SETTINGS_MANAGED_BY_MASTER_CONSOLE: Shop profile and fiscal identity are managed by Master Console.",
   db_failure: "The database action failed without exposing internal details.",
 };
 
@@ -152,6 +155,7 @@ function mapRpcCode(value: unknown): ShopAdminActionCode {
     "invalid_supplier",
     "invalid_category",
     "reason_required",
+    "shop_settings_managed_by_master_console",
     "db_failure",
   ]);
 

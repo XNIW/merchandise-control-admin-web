@@ -2191,6 +2191,20 @@ export type Database = {
         Args: { p_confirmation: string; p_reason: string; p_shop_id: string }
         Returns: Json
       }
+      platform_update_shop_profile: {
+        Args: {
+          p_business_address: string
+          p_business_city: string
+          p_business_giro: string
+          p_company_rut: string
+          p_confirmation: string
+          p_legal_representative_rut: string
+          p_reason: string
+          p_shop_id: string
+          p_shop_name: string
+        }
+        Returns: Json
+      }
       record_sync_event: {
         Args: {
           p_batch_id?: string

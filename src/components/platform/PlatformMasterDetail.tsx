@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   formatDisplayValue,
@@ -238,6 +238,7 @@ export function PlatformMasterDetail({
   footer,
 }: PlatformMasterDetailProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
@@ -290,6 +291,26 @@ export function PlatformMasterDetail({
     const params = new URLSearchParams(window.location.search);
     params.set("selected", rowKey);
     window.history.replaceState(null, "", `${pathname}?${params.toString()}`);
+  }
+
+  function fullDetailHrefFor(rowKey: string) {
+    const detail = detailsByRowKey.get(rowKey);
+    const listHref = `${pathname}?selected=${encodeURIComponent(rowKey)}`;
+
+    return detail?.href
+      ? `${detail.href}?returnTo=${encodeURIComponent(listHref)}`
+      : null;
+  }
+
+  function openFullDetail(rowKey: string) {
+    const href = fullDetailHrefFor(rowKey);
+
+    if (!href) {
+      selectRow(rowKey);
+      return;
+    }
+
+    router.push(href);
   }
 
   async function copyCode(value: string) {
@@ -381,6 +402,7 @@ export function PlatformMasterDetail({
               const rowKey = rowKeyFor(row, columns, rowIndex);
               const hasDetail = detailsByRowKey.has(rowKey);
               const isSelected = rowKey === selectedDetail?.rowKey;
+              const canOpenFullDetail = Boolean(fullDetailHrefFor(rowKey));
 
               return (
                 <tr
@@ -391,7 +413,12 @@ export function PlatformMasterDetail({
                     hasDetail
                       ? `${isSelected ? "selected row" : "select row"} ${
                           row[columns[0]?.key ?? ""] ?? rowKey
-                        }`
+                        }. Double click to open full detail.`
+                      : undefined
+                  }
+                  title={
+                    canOpenFullDetail
+                      ? "Double click to open full detail"
                       : undefined
                   }
                   className={[
@@ -404,10 +431,18 @@ export function PlatformMasterDetail({
                       : "border-l-transparent",
                   ].join(" ")}
                   onClick={hasDetail ? () => selectRow(rowKey) : undefined}
+                  onDoubleClick={
+                    canOpenFullDetail ? () => openFullDetail(rowKey) : undefined
+                  }
                   onKeyDown={
                     hasDetail
                       ? (event) => {
-                          if (event.key === "Enter" || event.key === " ") {
+                          if (event.key === "Enter") {
+                            event.preventDefault();
+                            openFullDetail(rowKey);
+                          }
+
+                          if (event.key === " ") {
                             event.preventDefault();
                             selectRow(rowKey);
                           }
@@ -434,9 +469,17 @@ export function PlatformMasterDetail({
                         {column.key === "code" && row[column.key] ? (
                           <button
                             type="button"
+                            onDoubleClick={(event) => {
+                              event.stopPropagation();
+                            }}
                             onClick={(event) => {
                               event.stopPropagation();
                               void copyCode(row[column.key] ?? "");
+                            }}
+                            onKeyDown={(event) => {
+                              if (event.key === "Enter" || event.key === " ") {
+                                event.stopPropagation();
+                              }
                             }}
                             className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950"
                             aria-label={`Copy shop code ${row[column.key]}`}

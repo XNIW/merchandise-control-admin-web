@@ -50,6 +50,7 @@ export type Shop = {
   shop_name: string;
   shop_status: ShopStatus;
   created_at: string;
+  updated_at?: string;
 };
 
 export type ShopMember = {

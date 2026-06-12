@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
+import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
@@ -48,7 +49,7 @@ export default async function ShopAuditPage({
 
   return (
     <div className="grid gap-5">
-      <form className="mx-auto grid max-w-7xl gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_180px_180px_minmax(0,1fr)_auto]">
+      <form className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_180px_180px_minmax(0,1fr)_auto]`}>
         {requestedShopId ? (
           <input name="shop_id" type="hidden" value={requestedShopId} />
         ) : null}

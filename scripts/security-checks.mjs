@@ -222,6 +222,10 @@ function checkReadOnlyContracts() {
       ]),
     ],
     [
+      "src/server/platform-admin/shop-profile-actions.ts",
+      new Set(["platform_update_shop_profile"]),
+    ],
+    [
       "src/server/platform-admin/staff-manager-provisioning.ts",
       new Set(["platform_recover_initial_manager_1001"]),
     ],
@@ -1545,8 +1549,8 @@ function checkTask013UiPolishArtifacts() {
     'role="group"',
     'aria-labelledby="selected-shop-context-label selected-shop-summary"',
     'id="selected-shop-summary"',
-    "selectedShop.shopName",
-    "selectedShop.shopCode",
+    "shopDisplayName",
+    "shopIdentityLine",
     "overflow-x-auto",
     "lg:grid",
     "whitespace-nowrap",
@@ -4305,18 +4309,15 @@ function checkTask039StaffAwareShopAdminCompletion() {
   }
 
   if (
-    !/adminConfig\.status !== "configured"/.test(settingsMutations) ||
-    !/adminConfig\.status !== "configured"[\s\S]{0,260}shopAdminActionResult\("not_configured"/.test(
-      settingsMutations,
-    ) ||
-    !/writeSettingsAudit\(adminClient, context/.test(settingsMutations)
+    !/SHOP_SETTINGS_MANAGED_BY_MASTER_CONSOLE/.test(settingsMutations) ||
+    !/shop_settings_managed_by_master_console/.test(settingsMutations) ||
+    /\.from\("shops"\)[\s\S]{0,360}\.update\(/.test(settingsMutations)
   ) {
-    addFailure(`${settingsMutationsPath} must fail closed before using admin client and write settings audit with the server-side admin client`);
+    addFailure(`${settingsMutationsPath} must fail closed because Shop Admin settings are managed by Master Console`);
   }
 
   for (const requiredPermission of [
     "staff.manage",
-    "settings.write",
     "products.write",
     "categories.write",
     "suppliers.write",
@@ -5277,7 +5278,7 @@ function checkTask045PlatformMasterConsoleFinalReview() {
     "BLOCKED_TASK045_REQUIRES_LOCAL_SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
     "platform.shop.pending_owner_invite.success",
-    "platform.staff_manager_web.provision.success",
+    "platform.staff_manager.initial_recovery.success",
     "shop_admin.full_access",
     "Master Console access required",
   ]) {

@@ -23,15 +23,7 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
   const availableShops =
     principal.kind === "personal_account"
       ? principal.availableShops
-      : [
-          {
-            role: "shop_manager" as const,
-            shopCode: principal.shop.shopCode,
-            shopId: principal.shop.shopId,
-            shopName: principal.shop.shopCode,
-            shopStatus: "active",
-          },
-        ];
+      : [access.selectedShop];
 
   return (
     <ShopShell

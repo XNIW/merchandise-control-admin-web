@@ -19,7 +19,6 @@ type RuntimeFixture = {
 type CreatedData = {
   pendingShopCode?: string;
   shopCode?: string;
-  staffCode?: string;
 };
 
 type SupabaseOperationResult = {
@@ -72,6 +71,15 @@ function runtimeEnv() {
 
 function nonce() {
   return `${Date.now()}_${randomBytes(4).toString("hex").toUpperCase()}`;
+}
+
+function testCompanyRut(offset: number) {
+  const body = String(
+    1_000_000 + ((Date.now() + offset * 7919) % 8_000_000),
+  );
+  const checkDigit = offset % 2 === 0 ? "K" : String(offset % 10);
+
+  return `${body}-${checkDigit}`;
 }
 
 async function expectSupabaseOk(
@@ -212,17 +220,19 @@ async function signIn(page: Page, fixture: RuntimeFixture) {
 
 async function archiveShopThroughOperations(page: Page, shopCode: string) {
   await page.goto("/platform/operations");
-  const shopArticle = page.locator("article").filter({ hasText: shopCode });
-  await expect(shopArticle).toBeVisible();
-  const archiveForm = shopArticle.locator("form").filter({
-    has: page.getByLabel("Type shop code to archive"),
-  });
+  await page.getByLabel("Search target shops").fill(shopCode);
+  await page.getByRole("button", { name: new RegExp(shopCode) }).click();
+  await page
+    .getByRole("button", {
+      name: /Archive shop Requires reason and shop code confirmation\./,
+    })
+    .click();
 
-  await archiveForm
+  await page
     .getByLabel("Reason")
     .fill("TASK-045 final review operational cleanup archive.");
-  await archiveForm.getByLabel("Type shop code to archive").fill(shopCode);
-  await archiveForm.getByRole("button", { name: "Soft delete shop" }).click();
+  await page.getByLabel("Type shop code to confirm").fill(shopCode);
+  await page.getByRole("button", { name: "Archive shop", exact: true }).click();
   await page.waitForURL(/\/platform\/operations\?operation=soft_delete&result=success/);
   await expect(page.getByText("Operation completed.")).toBeVisible();
 }
@@ -252,6 +262,108 @@ async function expectDiagnosticDeepLink(
       name: hiddenLabel,
     }),
   ).toHaveCount(0);
+}
+
+function createShopSection(page: Page) {
+  return page.locator("section").filter({
+    has: page.getByRole("heading", {
+      level: 2,
+      name: "Create shop",
+    }),
+  });
+}
+
+async function fillUnifiedShopIdentity(
+  page: Page,
+  input: {
+    address: string;
+    city: string;
+    companyRut: string;
+    giro: string;
+    legalRepresentativeRut: string;
+    reason: string;
+    shopCode: string;
+    shopName: string;
+  },
+) {
+  const createSection = createShopSection(page);
+
+  await createSection.getByLabel("Shop name").fill(input.shopName);
+  await createSection
+    .getByRole("textbox", { name: "Company RUT" })
+    .fill(input.companyRut);
+  await createSection.getByLabel("Use Company RUT as Shop code").uncheck();
+  await createSection.getByRole("textbox", { name: "Shop code" }).fill(input.shopCode);
+  await createSection.getByLabel("Business giro").fill(input.giro);
+  await createSection.getByLabel("Address").fill(input.address);
+  await createSection.getByLabel("City").fill(input.city);
+  await createSection
+    .getByLabel("Legal representative RUT")
+    .fill(input.legalRepresentativeRut);
+  await createSection.getByLabel("Reason").fill(input.reason);
+}
+
+async function createShopWithExistingOwner(
+  page: Page,
+  fixture: RuntimeFixture,
+  input: Parameters<typeof fillUnifiedShopIdentity>[1],
+) {
+  const createSection = createShopSection(page);
+
+  await fillUnifiedShopIdentity(page, input);
+  await createSection.getByText("Link existing personal owner").click();
+  await createSection.getByPlaceholder("Search profiles").fill(fixture.userId);
+  await createSection
+    .getByRole("option", { name: /TASK045 Platform Final Review/ })
+    .click();
+  await createSection.getByRole("button", { name: "Create shop with owner" }).click();
+  await expect(createSection.getByText("Shop created")).toBeVisible();
+  await expect(createSection.getByText("Personal owner linked")).toBeVisible();
+  await expect(page.getByText("Rendering...")).toHaveCount(0);
+}
+
+async function createPendingOwnerSetup(
+  page: Page,
+  input: Parameters<typeof fillUnifiedShopIdentity>[1] & {
+    ownerEmail: string;
+  },
+) {
+  const createSection = createShopSection(page);
+
+  await fillUnifiedShopIdentity(page, input);
+  await createSection.getByText("Record pending owner email").click();
+  await createSection.getByLabel("Future owner email").fill(input.ownerEmail);
+  await createSection
+    .getByRole("button", { name: "Create pending owner setup" })
+    .click();
+  await expect(createSection.getByText("Shop created")).toBeVisible();
+  await expect(createSection.getByText("Pending owner setup recorded")).toBeVisible();
+  await expect(page.getByText("Rendering...")).toHaveCount(0);
+}
+
+async function recoverInitialManager1001(
+  page: Page,
+  shopCode: string,
+) {
+  await page.getByText("Emergency recovery: recover initial manager 1001").click();
+  const managerSection = page.locator("form").filter({
+    has: page.getByRole("heading", {
+      level: 3,
+      name: "Recover initial manager 1001",
+    }),
+  });
+
+  await managerSection.getByPlaceholder("Search target shops").fill(shopCode);
+  await managerSection.getByRole("option", { name: new RegExp(shopCode) }).click();
+  await managerSection
+    .getByLabel("Reason")
+    .fill("TASK-045 POS manager web access proof.");
+  await managerSection.getByRole("button", { name: "Recover manager 1001" }).click();
+  await expect(
+    managerSection.getByText("Staff manager web access was provisioned."),
+  ).toBeVisible();
+  await expect(managerSection.getByText("Temporary PIN", { exact: false })).toBeVisible();
+  await expect(managerSection.locator("code")).toHaveText(/^[1-9][0-9]{4}$/);
 }
 
 async function cleanupCreatedData(
@@ -492,11 +604,9 @@ test.describe("TASK-045 Platform Master Console final review", () => {
     const testNonce = nonce();
     const shopCode = `TASK045_SHOP_${testNonce}`.slice(0, 32);
     const pendingShopCode = `TASK045_PENDING_${testNonce}`.slice(0, 32);
-    const staffCode = `TASK045_MGR_${testNonce}`.slice(0, 32);
     const created: CreatedData = {
       pendingShopCode,
       shopCode,
-      staffCode,
     };
 
     try {
@@ -518,32 +628,36 @@ test.describe("TASK-045 Platform Master Console final review", () => {
       ).toBeVisible();
       await page.goto("/platform/provisioning");
       await expect(
-        page.getByRole("heading", {
-          level: 2,
-          name: "Create shop with existing owner",
-        }),
+        page.getByRole("heading", { level: 2, name: "Create shop" }),
       ).toBeVisible();
+      await expect(page.getByText("No personal owner now / POS-first")).toBeVisible();
+      await expect(page.getByText("Link existing personal owner")).toBeVisible();
+      await expect(page.getByText("Record pending owner email")).toBeVisible();
       await expect(
         page.getByRole("heading", {
-          level: 2,
-          name: "Create pending owner invite",
+          level: 3,
+          name: "Recover initial manager 1001",
         }),
-      ).toBeVisible();
+      ).toHaveCount(0);
+      await page.getByText("Emergency recovery: recover initial manager 1001").click();
       await expect(
         page.getByRole("heading", {
-          level: 2,
-          name: "Provision POS manager web access",
+          level: 3,
+          name: "Recover initial manager 1001",
         }),
       ).toBeVisible();
 
       await page.goto("/platform/operations");
-      await expect(page.getByRole("heading", { level: 2, name: "Shop actions" })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: "Controlled Operations" })).toBeVisible();
       await expect(
-        page.getByRole("heading", { level: 2, name: "Emergency devices" }),
+        page.getByRole("heading", { level: 2, name: "Choose target shop" }),
       ).toBeVisible();
       await expect(
-        page.getByRole("heading", { level: 2, name: "Audit preview" }),
+        page.getByRole("heading", { level: 2, name: "Choose action" }),
       ).toBeVisible();
+      await expect(page.getByRole("button", { name: /Archive shop/ }).first()).toBeVisible();
+      await expect(page.getByRole("button", { name: /Emergency revoke device/ }).first()).toBeVisible();
+      await expect(page.getByText("Recent audit for selected shop")).toBeVisible();
       await expect(
         page.getByRole("heading", {
           level: 2,
@@ -555,26 +669,20 @@ test.describe("TASK-045 Platform Master Console final review", () => {
       ).toHaveCount(0);
 
       await page.goto("/platform/provisioning");
-      const createSection = page.locator("section").filter({
-        has: page.getByRole("heading", {
-          level: 2,
-          name: "Create shop with existing owner",
-        }),
+      await createShopWithExistingOwner(page, fixture, {
+        address: "TASK-045 Existing Owner Address 123",
+        city: "Santiago",
+        companyRut: testCompanyRut(1),
+        giro: "TASK-045 local final review",
+        legalRepresentativeRut: testCompanyRut(2),
+        reason: "TASK-045 final review create shop.",
+        shopCode,
+        shopName: `TASK045 Shop ${testNonce}`,
       });
-      await createSection.getByLabel("Shop name").fill(`TASK045 Shop ${testNonce}`);
-      await createSection.getByLabel("Shop code").fill(shopCode);
-      await createSection.getByLabel("Initial owner").selectOption(fixture.userId);
-      await createSection
-        .getByLabel("Reason")
-        .fill("TASK-045 final review create shop.");
-      await createSection.getByRole("button", { name: "Create shop" }).dblclick();
-      await page.waitForURL(/\/platform\/provisioning\?operation=create&result=success/);
-      await expect(page.getByText("Shop created.")).toBeVisible();
-      await expect(page.getByText("Rendering...")).toHaveCount(0);
 
       const { data: createdShops, error: createdShopError } = await fixture.supabase
         .from("shops")
-        .select("shop_id,shop_code,shop_status")
+        .select("shop_id,shop_code,shop_status,company_rut")
         .eq("shop_code", shopCode);
       expect(createdShopError).toBeNull();
       expect(createdShops).toHaveLength(1);
@@ -584,27 +692,31 @@ test.describe("TASK-045 Platform Master Console final review", () => {
       }
 
       const createAudit = await auditEventsForShop(fixture.supabase, shopId, [
-        "platform.shop.create.success",
-        "platform.shop.owner.assign.success",
+        "platform.shop.owner_bootstrap.success",
       ]);
       expect(createAudit).toEqual(
-        new Set([
-          "platform.shop.create.success",
-          "platform.shop.owner.assign.success",
-        ]),
+        new Set(["platform.shop.owner_bootstrap.success"]),
       );
 
       await page.goto("/platform/provisioning");
-      await createSection.getByLabel("Shop name").fill(`TASK045 Duplicate ${testNonce}`);
-      await createSection.getByLabel("Shop code").fill(shopCode);
-      await createSection.getByLabel("Initial owner").selectOption(fixture.userId);
-      await createSection
-        .getByLabel("Reason")
-        .fill("TASK-045 duplicate shop code proof.");
-      await createSection.getByRole("button", { name: "Create shop" }).click();
-      await page.waitForURL(
-        /\/platform\/provisioning\?operation=create&result=duplicate_shop_code/,
-      );
+      await createShopSection(page).getByText("Link existing personal owner").click();
+      await fillUnifiedShopIdentity(page, {
+        address: "TASK-045 Duplicate Address 123",
+        city: "Santiago",
+        companyRut: testCompanyRut(3),
+        giro: "TASK-045 duplicate shop code proof",
+        legalRepresentativeRut: testCompanyRut(4),
+        reason: "TASK-045 duplicate shop code proof.",
+        shopCode,
+        shopName: `TASK045 Duplicate ${testNonce}`,
+      });
+      await createShopSection(page).getByPlaceholder("Search profiles").fill(fixture.userId);
+      await createShopSection(page)
+        .getByRole("option", { name: /TASK045 Platform Final Review/ })
+        .click();
+      await createShopSection(page)
+        .getByRole("button", { name: "Create shop with owner" })
+        .click();
       await expect(page.getByText("A shop with this code already exists.")).toBeVisible();
       await expect(page.getByText("Rendering...")).toHaveCount(0);
 
@@ -616,27 +728,17 @@ test.describe("TASK-045 Platform Master Console final review", () => {
       expect(duplicateCheck).toHaveLength(1);
 
       await page.goto("/platform/provisioning");
-      const pendingSection = page.locator("section").filter({
-        has: page.getByRole("heading", {
-          level: 2,
-          name: "Create pending owner invite",
-        }),
+      await createPendingOwnerSetup(page, {
+        address: "TASK-045 Pending Owner Address 123",
+        city: "Santiago",
+        companyRut: testCompanyRut(5),
+        giro: "TASK-045 pending owner invite proof",
+        legalRepresentativeRut: testCompanyRut(6),
+        ownerEmail: `owner-task045-${testNonce.toLowerCase()}@example.invalid`,
+        reason: "TASK-045 pending owner invite proof.",
+        shopCode: pendingShopCode,
+        shopName: `TASK045 Pending ${testNonce}`,
       });
-      await pendingSection.getByLabel("Shop name").fill(`TASK045 Pending ${testNonce}`);
-      await pendingSection.getByLabel("Shop code").fill(pendingShopCode);
-      await pendingSection
-        .getByLabel("Owner email")
-        .fill(`owner-task045-${testNonce.toLowerCase()}@example.invalid`);
-      await pendingSection
-        .getByLabel("Reason")
-        .fill("TASK-045 pending owner invite proof.");
-      await pendingSection
-        .getByRole("button", { name: "Create pending invite" })
-        .click();
-      await page.waitForURL(
-        /\/platform\/provisioning\?operation=pending_owner_invite&result=success/,
-      );
-      await expect(page.getByText("Pending owner invite created.")).toBeVisible();
 
       const { data: pendingShopRows, error: pendingShopError } = await fixture.supabase
         .from("shops")
@@ -660,34 +762,13 @@ test.describe("TASK-045 Platform Master Console final review", () => {
       );
 
       await page.goto("/platform/provisioning");
-      const managerSection = page.locator("section").filter({
-        has: page.getByRole("heading", {
-          level: 2,
-          name: "Provision POS manager web access",
-        }),
-      });
-      await managerSection.getByLabel("Shop").selectOption(shopId);
-      await managerSection.getByLabel("Staff code").fill(staffCode);
-      await managerSection
-        .getByLabel("Display name")
-        .fill("TASK045 Manager Web");
-      await managerSection
-        .getByLabel("Reason")
-        .fill("TASK-045 POS manager web access proof.");
-      await managerSection
-        .getByRole("button", { name: "Recover manager 1001" })
-        .click();
-      await expect(
-        managerSection.getByText("Staff manager web access was provisioned."),
-      ).toBeVisible();
-      await expect(managerSection.getByText("Temporary PIN", { exact: false })).toBeVisible();
-      await expect(managerSection.locator("code")).toHaveText(/^[1-9][0-9]{4}$/);
+      await recoverInitialManager1001(page, shopCode);
 
       const { data: staffRows, error: staffError } = await fixture.supabase
         .from("staff_accounts")
         .select("staff_id,role_key,status")
         .eq("shop_id", shopId)
-        .eq("staff_code", staffCode);
+        .eq("staff_code", "1001");
       expect(staffError).toBeNull();
       expect(staffRows).toHaveLength(1);
       expect(staffRows?.[0]?.role_key).toBe("manager");
@@ -706,7 +787,7 @@ test.describe("TASK-045 Platform Master Console final review", () => {
         .from("audit_logs")
         .select("event_key")
         .eq("target_id", staffRows?.[0]?.staff_id ?? "")
-        .eq("event_key", "platform.staff_manager_web.provision.success");
+        .eq("event_key", "platform.staff_manager.initial_recovery.success");
       expect(managerAuditError).toBeNull();
       expect(managerAudit).toHaveLength(1);
 
@@ -742,7 +823,7 @@ test.describe("TASK-045 Platform Master Console final review", () => {
       );
       expect(navMarker).toBe("same_document");
 
-      await page.getByRole("link", { name: "Logout" }).click();
+      await page.getByRole("button", { name: "Logout" }).click();
       await page.waitForURL(/\/auth\/login\?logged_out=1/);
       await page.goto("/platform");
       await expect(

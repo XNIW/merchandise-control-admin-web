@@ -1,6 +1,7 @@
 import { AdminDataTable } from "@/components/admin/AdminDataTable";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { SectionCard } from "@/components/admin/SectionCard";
+import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "./shopLayout";
 import type { ShopSection, ShopSectionMetric } from "./shopSections";
 
 type ShopSectionPageProps = {
@@ -14,11 +15,18 @@ const metricToneClasses: Record<ShopSectionMetric["tone"], string> = {
   muted: "border-zinc-200 bg-zinc-100 text-zinc-800",
 };
 
+function metricGridClassName(metricCount: number) {
+  return [
+    "grid gap-3",
+    metricCount >= 4 ? "md:grid-cols-2 xl:grid-cols-4" : "md:grid-cols-3",
+  ].join(" ");
+}
+
 export function ShopSectionPage({ section }: ShopSectionPageProps) {
   const liveData = section.liveData;
 
   return (
-    <div className="mx-auto flex max-w-7xl flex-col gap-5">
+    <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} flex flex-col gap-5`}>
       <PageHeader
         eyebrow={section.eyebrow}
         title={section.title}
@@ -30,7 +38,7 @@ export function ShopSectionPage({ section }: ShopSectionPageProps) {
 
       <section
         aria-label={`${section.title} status`}
-        className="grid gap-3 md:grid-cols-3"
+        className={metricGridClassName(section.metrics.length)}
       >
         {section.metrics.map((metric) => (
           <article

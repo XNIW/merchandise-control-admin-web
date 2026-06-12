@@ -735,7 +735,11 @@ test("TASK-051 read models expose fiscal identity safely and Shop Admin settings
 
   assertContains(platformSections, "Fiscal / Boleta identity");
   assertContains(shopSections, "Fiscal/boleta identity is managed by Master Console.");
-  assertContains(shopSettings, "Fiscal/boleta identity is managed by Master Console.");
+  assertContains(
+    shopSettings,
+    "Shop profile and fiscal identity are managed by Master Console. Admin Console can view these fields but cannot edit them.",
+  );
+  assert.doesNotMatch(shopSettings, /Update settings|Type SETTINGS as confirmation/);
   assert.doesNotMatch(
     shopSettingsMutations,
     /company_rut|business_giro|business_address|business_city|legal_representative_rut/,

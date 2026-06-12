@@ -48,7 +48,8 @@ test("TASK-014 applies shared components to Platform and Shop surfaces", () => {
   assert.match(shopPage, /@\/components\/admin\/PageHeader/);
   assert.match(shopPage, /@\/components\/admin\/SectionCard/);
   assert.match(shopPage, /@\/components\/admin\/AdminDataTable/);
-  assert.match(shopShell, /@\/components\/admin\/GuardrailNotice/);
+  assert.match(shopShell, /sharedShopGuardrails/);
+  assert.match(shopShell, />\s*Shop safety\s*</);
 });
 
 test("TASK-014 keeps shared components server-safe", () => {

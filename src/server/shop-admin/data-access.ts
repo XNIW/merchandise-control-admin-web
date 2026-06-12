@@ -62,6 +62,14 @@ type BlockedShopAdminDataAccess = Extract<
   { status: Exclude<ShopAdminDataAccess["status"], "ready"> }
 >;
 
+type StaffShellShopRow = {
+  company_rut?: string | null;
+  shop_code: string;
+  shop_id: string;
+  shop_name: string;
+  shop_status: string;
+};
+
 function statusForAccessState(
   status: string,
 ): BlockedShopAdminDataAccess["status"] {
@@ -82,14 +90,67 @@ function statusForAccessState(
 function staffShellShop(input: {
   shopCode: string;
   shopId: string;
+  shopName?: string | null;
+  shopStatus?: string | null;
+  companyRut?: string | null;
 }): ShopAdminShellShop {
+  const shopName = input.shopName?.trim();
+
   return {
+    companyRut: input.companyRut ?? undefined,
     role: "shop_manager",
     shopCode: input.shopCode,
     shopId: input.shopId,
-    shopName: input.shopCode,
-    shopStatus: "active",
+    shopName: shopName || `Shop ${input.shopCode}`,
+    shopStatus: input.shopStatus ?? "active",
   };
+}
+
+async function loadStaffShellShop(
+  adminClient: SupabaseAdminClient,
+  input: {
+    shopCode: string;
+    shopId: string;
+  },
+): Promise<ShopAdminShellShop> {
+  const fiscalResult = await adminClient
+    .from("shops")
+    .select("shop_id,shop_code,shop_name,shop_status,company_rut")
+    .eq("shop_id", input.shopId)
+    .maybeSingle();
+
+  if (!fiscalResult.error && fiscalResult.data) {
+    const shop = fiscalResult.data as StaffShellShopRow;
+
+    return {
+      companyRut: shop.company_rut ?? undefined,
+      role: "shop_manager",
+      shopCode: shop.shop_code,
+      shopId: shop.shop_id,
+      shopName: shop.shop_name,
+      shopStatus: shop.shop_status,
+    };
+  }
+
+  const baseResult = await adminClient
+    .from("shops")
+    .select("shop_id,shop_code,shop_name,shop_status")
+    .eq("shop_id", input.shopId)
+    .maybeSingle();
+
+  if (!baseResult.error && baseResult.data) {
+    const shop = baseResult.data as StaffShellShopRow;
+
+    return {
+      role: "shop_manager",
+      shopCode: shop.shop_code,
+      shopId: shop.shop_id,
+      shopName: shop.shop_name,
+      shopStatus: shop.shop_status,
+    };
+  }
+
+  return staffShellShop(input);
 }
 
 function toPersonalAccountBlockedAccess(
@@ -227,7 +288,7 @@ async function resolveShopAdminDataAccessUncached(
   return {
     principalKind: "pos_staff_manager",
     principal: staffResolution.principal,
-    selectedShop: staffShellShop(staffShop),
+    selectedShop: await loadStaffShellShop(adminClient, staffShop),
     status: "ready",
     supabase: adminClient,
   };

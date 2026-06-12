@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
-import { GuardrailNotice } from "@/components/admin/GuardrailNotice";
 import {
   shopNavigationSections,
   shopNavigationItems,
@@ -15,6 +14,7 @@ import {
 type ShopRole = "shop_owner" | "shop_manager";
 
 type ShopShellShop = {
+  companyRut?: string;
   shopId: string;
   shopCode: string;
   shopName: string;
@@ -34,6 +34,46 @@ function formatRole(role: ShopRole) {
     .split("_")
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
+}
+
+function formatCompanyRut(value: string | undefined) {
+  const compact = (value ?? "").trim().replace(/[^0-9kK]/g, "").toUpperCase();
+
+  if (compact.length < 2) {
+    return "Not configured";
+  }
+
+  const body = compact.slice(0, -1);
+  const dv = compact.slice(-1);
+  const groups: string[] = [];
+
+  for (let index = body.length; index > 0; index -= 3) {
+    groups.unshift(body.slice(Math.max(0, index - 3), index));
+  }
+
+  return `${groups.join(".")}-${dv}`;
+}
+
+function shopDisplayName(shop: ShopShellShop | undefined) {
+  if (!shop) {
+    return "No shop selected";
+  }
+
+  const shopName = shop.shopName.trim();
+
+  if (shopName && shopName !== shop.shopCode) {
+    return shopName;
+  }
+
+  return "Shop name not configured";
+}
+
+function shopIdentityLine(shop: ShopShellShop | undefined) {
+  if (!shop) {
+    return "Company RUT: Not configured";
+  }
+
+  return `Company RUT: ${formatCompanyRut(shop.companyRut)}`;
 }
 
 function isActivePath(pathname: string, href: string) {
@@ -64,11 +104,11 @@ function ShopNavigation({
   return (
     <nav
       aria-label="Shop sections"
-      className="space-y-3 lg:min-h-0 lg:flex-1 lg:overflow-y-auto"
+      className="space-y-2 lg:max-h-[calc(100vh-15rem)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1"
     >
       {shopNavigationSections.map((section: ShopNavigationSection) => (
-        <section key={section.key} className="space-y-1.5">
-          <p className="px-2 text-[11px] font-semibold uppercase tracking-normal text-zinc-500">
+        <section key={section.key} className="space-y-1">
+          <p className="px-2 text-[10px] font-semibold uppercase tracking-normal text-zinc-500">
             {section.label}
           </p>
           <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:gap-1 lg:px-0 lg:pb-0">
@@ -83,12 +123,12 @@ function ShopNavigation({
                   aria-current={isActive ? "page" : undefined}
                   onClick={() => onNavigate(item.key)}
                   className={[
-                    "shrink-0 rounded-md px-3 py-2 text-sm font-medium outline-none transition",
+                    "shrink-0 rounded-md border-l-2 px-2.5 py-1.5 text-sm font-medium outline-none transition",
                     "whitespace-nowrap",
                     "focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
                     isActive
-                      ? "bg-emerald-700 text-white"
-                      : "text-zinc-600 hover:bg-emerald-50 hover:text-emerald-900",
+                      ? "border-emerald-700 bg-emerald-50 text-emerald-950"
+                      : "border-transparent text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950",
                   ].join(" ")}
                 >
                   {item.label}
@@ -126,6 +166,8 @@ export function ShopShell({
     availableShops.find((shop) => shop.shopId === requestedShopId) ??
     availableShops.find((shop) => shop.shopId === selectedShopId) ??
     availableShops[0];
+  const selectedShopName = shopDisplayName(selectedShop);
+  const selectedShopIdentity = shopIdentityLine(selectedShop);
 
   function buildShopHref(href: string) {
     if (!selectedShop) {
@@ -154,12 +196,12 @@ export function ShopShell({
       >
         Skip to shop content
       </a>
-      <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
+      <div className="grid min-h-screen lg:grid-cols-[264px_1fr]">
         <aside
           aria-label="Shop navigation"
           className="border-b border-zinc-200 bg-white lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r"
         >
-          <div className="flex min-h-full flex-col gap-6 px-4 py-5 lg:min-h-0">
+          <div className="flex min-h-full flex-col gap-5 px-4 py-5 lg:min-h-0">
             <div className="flex items-center gap-3 px-2">
               <div
                 aria-hidden="true"
@@ -186,16 +228,20 @@ export function ShopShell({
               }
             />
 
-            <div className="mt-auto rounded-md border border-emerald-200 bg-emerald-50 p-3">
+            <div className="mt-auto rounded-md border border-emerald-200 bg-emerald-50/70 p-2.5">
               <p className="text-xs font-semibold uppercase tracking-normal text-emerald-900">
                 Shop safety
               </p>
-              <div className="mt-3">
-                <GuardrailNotice
-                  title="Shared guardrails"
-                  items={sharedShopGuardrails}
-                />
-              </div>
+              <details className="mt-1">
+                <summary className="cursor-pointer text-xs font-medium text-emerald-950 outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2">
+                  Shared guardrails
+                </summary>
+                <ul className="mt-2 space-y-1 border-t border-emerald-200 pt-2 text-xs leading-5 text-emerald-950">
+                  {sharedShopGuardrails.map((item) => (
+                    <li key={item}>{item}</li>
+                  ))}
+                </ul>
+              </details>
             </div>
           </div>
         </aside>
@@ -215,14 +261,12 @@ export function ShopShell({
                 </p>
                 <p
                   id="selected-shop-summary"
-                  className="mt-1 text-sm font-semibold leading-6 text-zinc-950"
+                  className="mt-1 text-lg font-semibold leading-6 text-zinc-950"
                 >
-                  {selectedShop
-                    ? `${selectedShop.shopName}`
-                    : "No shop selected"}
+                  {selectedShopName}
                 </p>
                 <p className="text-sm leading-6 text-zinc-700">
-                  {selectedShop ? selectedShop.shopCode : "Select a shop"}
+                  {selectedShopIdentity}
                 </p>
               </div>
 
@@ -248,7 +292,7 @@ export function ShopShell({
                       >
                         {availableShops.map((shop) => (
                           <option key={shop.shopId} value={shop.shopId}>
-                            {shop.shopName} ({shop.shopCode})
+                            {shopDisplayName(shop)} ({shop.shopCode})
                           </option>
                         ))}
                       </select>

@@ -362,13 +362,13 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     title: "Settings",
     eyebrow: "Shop profile",
     description:
-      "Settings placeholder for safe shop profile updates after read-model and mutation planning.",
-    status: "Planning placeholder",
+      "Shop profile and fiscal identity are managed by Master Console. Admin Console can view these fields but cannot edit them.",
+    status: "Read-only",
     metrics: shellMetrics,
     plannedWork: [
       "Show verified shop profile data",
-      "Avoid shop_code changes without a dedicated plan",
-      "Audit safe settings updates",
+      "Keep shop profile updates in Master Console",
+      "Keep fiscal identity read-only in Admin Console",
     ],
     guardrails: sharedShopGuardrails,
   },

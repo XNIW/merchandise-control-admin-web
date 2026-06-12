@@ -14,6 +14,7 @@ import type {
   RestoreShopInput,
   ShopStatusActionInput,
   SoftDeleteShopInput,
+  UpdateShopProfileInput,
 } from "./action-types";
 import { INITIAL_MANAGER_DISPLAY_NAME as defaultInitialManagerDisplayName } from "./action-types";
 
@@ -380,6 +381,44 @@ export function validateEmergencyRevokeDeviceInput(
       confirmation: normalizeShopCode(input.confirmation),
       reason: input.reason.trim(),
       shopDeviceId: input.shopDeviceId.trim(),
+    },
+  };
+}
+
+export function validateUpdateShopProfileInput(input: UpdateShopProfileInput) {
+  const fiscal = validateFiscalIdentityInput(input);
+  const fieldErrors: Record<string, string> = {
+    ...fiscal.fieldErrors,
+  };
+  const shopId = input.shopId.trim();
+  const shopName = normalizeShopName(input.shopName);
+  const reason = input.reason.trim().slice(0, 240);
+  const confirmation = input.confirmation.trim().toUpperCase();
+
+  if (!shopId) {
+    fieldErrors.shopId = "Shop is required.";
+  }
+
+  if (!shopName) {
+    fieldErrors.shopName = "Shop name is required.";
+  }
+
+  if (!validateRequiredReason(reason)) {
+    fieldErrors.reason = "Reason is required.";
+  }
+
+  if (confirmation !== "UPDATE SHOP PROFILE") {
+    fieldErrors.confirmation = "Type UPDATE SHOP PROFILE to confirm.";
+  }
+
+  return {
+    fieldErrors,
+    normalized: {
+      ...fiscal.normalized,
+      confirmation,
+      reason,
+      shopId,
+      shopName,
     },
   };
 }

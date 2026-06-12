@@ -64,7 +64,9 @@ test("TASK-052 Shop diagnostics are centralized in the sidebar instead of repeat
   assert.doesNotMatch(sectionPage, /<details/);
   assert.doesNotMatch(sectionPage, />\s*Diagnostics\s*</);
   assert.doesNotMatch(sectionPage, /GuardrailNotice/);
-  assert.match(shell, /GuardrailNotice/);
+  assert.doesNotMatch(shell, /GuardrailNotice/);
+  assert.match(shell, /sharedShopGuardrails/);
+  assert.match(shell, /<details/);
   assert.match(shell, />\s*Shop safety\s*</);
   assert.doesNotMatch(sectionPage, /title="Safety rules"/);
   assert.doesNotMatch(sectionPage, /xl:grid-cols-\[minmax\(0,1fr\)_340px\]/);

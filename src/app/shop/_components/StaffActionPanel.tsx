@@ -14,6 +14,7 @@ import {
   updateStaffRolePermissionsAction,
   type ShopAdminActionState,
 } from "@/app/shop/actions";
+import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 
 type StaffActionPanelProps = {
   canManageRolePermissions?: boolean;
@@ -125,7 +126,7 @@ export function StaffActionPanel({
   );
 
   return (
-    <div className="mx-auto grid max-w-7xl gap-4 md:grid-cols-2 xl:grid-cols-4">
+    <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-4 md:grid-cols-2 xl:grid-cols-4`}>
       <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
         <h2 className="text-base font-semibold text-zinc-950">Create staff</h2>
         <form action={createFormAction} className="mt-3 grid gap-3">
