@@ -135,7 +135,9 @@ async function probe({
 
   assertNoSecretLeak(name, text);
 
-  if (response.status >= 500) {
+  const expectedStatus = expect?.includes(response.status) ?? false;
+
+  if (response.status >= 500 && !expectedStatus) {
     throw new Error(`${name} returned ${response.status}`);
   }
 
@@ -287,4 +289,5 @@ async function main() {
 
 main().catch((error) => {
   fail(error instanceof Error ? error.message : String(error));
+  process.exit(1);
 });
