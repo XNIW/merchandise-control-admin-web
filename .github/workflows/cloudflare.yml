@@ -113,7 +113,9 @@ jobs:
         run: npm run cf:build
 
       - name: Deploy Worker staging
-        run: npx wrangler deploy --env staging --keep-vars
+        run: |
+          export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
+          npx wrangler deploy --env staging --keep-vars
 
       - name: Smoke staging
         if: >-
@@ -165,4 +167,6 @@ jobs:
         run: npm run cf:build
 
       - name: Deploy Worker production
-        run: npx wrangler deploy --env production --keep-vars
+        run: |
+          export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
+          npx wrangler deploy --env production --keep-vars
