@@ -4,10 +4,10 @@
 
 - ID: `TASK-057`
 - Titolo: `Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `CODEX_REVIEW_FIX`
-- Verdict tecnico: `READY_FOR_DONE_CONFIRMATION`
+- Stato: `DONE_RECONCILED`
+- Fase attuale: `DONE_RECONCILED`
+- Responsabile attuale: `REVIEWER_CONFIRMED_BY_TASK_058_PROMPT`
+- Verdict tecnico: `DONE_RECONCILED`
 - Data apertura: `2026-06-11`
 - File Master Plan: `docs/MASTER-PLAN.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-057/README.md`
@@ -118,3 +118,8 @@ deve duplicare la logica del nuovo workspace.
   `npm run test:shop-admin-auth-smoke` usa ora il wrapper locale
   `run-playwright-target.mjs local`, Supabase locale process-only e web server
   Playwright locale. Run ufficiale PASS `4/4`.
+- `2026-06-12`: prompt TASK-058 trattato come conferma utente esplicita per
+  chiusura TASK-057 dopo preflight reale positivo: `git status --short --branch
+  --untracked-files=all` PASS su `main...origin/main`, `git diff --check` PASS
+  senza output e targeted TASK-057 PASS `21/21`. TASK-057 riconciliato a
+  `DONE_RECONCILED`.

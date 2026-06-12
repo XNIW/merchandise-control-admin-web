@@ -5,6 +5,16 @@ import {
 } from "@/server/shop-admin/import-export-route-guard";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+function noStoreJson(body: unknown, status: number) {
+  return Response.json(body, {
+    headers: {
+      "Cache-Control": "no-store",
+    },
+    status,
+  });
+}
 
 function formString(formData: FormData, key: string) {
   const value = formData.get(key);
@@ -23,7 +33,7 @@ export async function POST(request: Request) {
   const file = formData.get("workbook");
 
   if (!(file instanceof File)) {
-    return Response.json({ code: "invalid_file_type", ok: false }, { status: 400 });
+    return noStoreJson({ code: "invalid_file_type", ok: false }, 400);
   }
 
   const invalidFile = guardCatalogImportWorkbookFile(file);
@@ -42,5 +52,5 @@ export async function POST(request: Request) {
     requestedShopId: formString(formData, "shop_id") || undefined,
   });
 
-  return Response.json(result, { status: result.ok ? 200 : 400 });
+  return noStoreJson(result, result.ok ? 200 : 400);
 }

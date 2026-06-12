@@ -1,9 +1,10 @@
 # Evidence TASK-057
 
-Verdict corrente: `READY_FOR_DONE_CONFIRMATION`.
+Verdict corrente: `DONE_RECONCILED`.
 
-TASK-057 resta in `REVIEW`, non `DONE`: la governance locale richiede conferma
-utente esplicita per chiudere. Nessun commit, push o stage eseguito.
+TASK-057 e stato riconciliato a `DONE_RECONCILED` dal prompt TASK-058, trattato
+come conferma utente esplicita dopo preflight reale positivo. Nessun commit,
+push o stage eseguito.
 
 ## Scope della FIX
 
@@ -151,6 +152,17 @@ stata eseguita con auth reale, same-origin headers e cookie session SSR.
 | `git diff --check` | `PASS` |
 | `git status --short` | `PASS_WITH_UNCOMMITTED_CHANGES`, nessun stage/commit/push |
 
+## DONE reconciliation TASK-058
+
+| Check | Esito |
+|---|---|
+| `git status --short --branch --untracked-files=all` | `PASS`, `## main...origin/main` |
+| `git diff --check` | `PASS`, nessun output |
+| `node --test tests/foundation/task-057-shop-catalog-workspace-import-intelligence.test.mjs` | `PASS`, `21/21` |
+
+Il prompt TASK-058 autorizza esplicitamente la riconciliazione se questi gate
+sono positivi. Stato finale TASK-057: `DONE_RECONCILED`.
+
 Warning noti non bloccanti:
 
 - Next segnala convenzione `middleware` deprecata verso `proxy`.
@@ -197,5 +209,4 @@ Warning noti non bloccanti:
 
 ## Prossimo passo
 
-Passare a REVIEW utente. TASK-057 non deve essere marcato `DONE` da Codex senza
-conferma esplicita dell'utente.
+TASK-057 chiuso. Il task attivo passa a TASK-058.

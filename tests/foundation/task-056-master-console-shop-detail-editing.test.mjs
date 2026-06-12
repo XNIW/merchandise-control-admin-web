@@ -33,7 +33,10 @@ test("TASK-056 tracking is DONE_RECONCILED after final DONE gate", () => {
   const task055 = read("docs/TASKS/TASK-055-shop-admin-console-ui-polish.md");
   const evidence = read(evidencePath);
 
-  assertContains(masterPlan, "Task attivo: `NESSUNO`");
+  assert.match(
+    masterPlan,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`/,
+  );
   assertContains(masterPlan, "Stato TASK-055: `DONE_RECONCILED`");
   assertContains(masterPlan, "Stato TASK-056: `DONE_RECONCILED`");
   assertContains(task056, "Stato: `DONE_RECONCILED`");

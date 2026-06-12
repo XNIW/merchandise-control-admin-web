@@ -135,7 +135,15 @@ test("TASK-041 opens only verified runtime implementation gates", () => {
   assert.ok(pkg.devDependencies?.wrangler);
   assertContains(pkg.scripts?.["cf:build"] ?? "", "opennextjs-cloudflare build");
   assertContains(pkg.scripts?.["cf:preview"] ?? "", "opennextjs-cloudflare preview");
-  assert.doesNotMatch(JSON.stringify(pkg.scripts), /opennextjs-cloudflare deploy|wrangler deploy|--prod/);
+  const deployScripts = Object.entries(pkg.scripts ?? {}).filter(([, command]) =>
+    /opennextjs-cloudflare deploy|wrangler deploy|--prod/.test(command),
+  );
+  assert.deepEqual(deployScripts, [
+    [
+      "cf:deploy:staging",
+      "npm run cf:build && npx wrangler deploy --env staging --keep-vars",
+    ],
+  ]);
   assertContains(wranglerConfig, "nodejs_compat");
   assertContains(wranglerConfig, "merchandise-control-admin-web-staging");
   assertContains(openNextConfig, "defineCloudflareConfig");

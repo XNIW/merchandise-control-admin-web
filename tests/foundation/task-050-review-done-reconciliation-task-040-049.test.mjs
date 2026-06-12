@@ -34,7 +34,6 @@ test("TASK-050 records the active review reconciliation task and preserves block
 
   for (const required of [
     "TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049",
-    "Task attivo: `NESSUNO`",
     "Stato TASK-050: `DONE_RECONCILED`",
     "Fase TASK-050: `DONE_RECONCILED`",
     "TASK-040",
@@ -66,6 +65,10 @@ test("TASK-050 records the active review reconciliation task and preserves block
     assertContains(docs, required, `TASK-050 docs must contain ${required}`);
   }
 
+  assert.match(
+    masterPlan,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`/,
+  );
   assert.doesNotMatch(docs, /TASK-040: `DONE/);
   assert.doesNotMatch(docs, /TASK-041: `DONE/);
   assert.doesNotMatch(docs, /TASK-042: `DONE/);
