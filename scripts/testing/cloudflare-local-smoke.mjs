@@ -66,7 +66,16 @@ async function stopPreview(child) {
     return;
   }
 
-  child.kill("SIGTERM");
+  const signalPreview = (signal) => {
+    if (process.platform !== "win32" && child.pid) {
+      process.kill(-child.pid, signal);
+      return;
+    }
+
+    child.kill(signal);
+  };
+
+  signalPreview("SIGTERM");
 
   for (let attempt = 0; attempt < 20; attempt += 1) {
     if (child.exitCode !== null || child.signalCode !== null) {
@@ -76,7 +85,7 @@ async function stopPreview(child) {
     await delay(250);
   }
 
-  child.kill("SIGKILL");
+  signalPreview("SIGKILL");
 }
 
 async function waitForPreview(child, getLogs) {
@@ -184,6 +193,7 @@ async function main() {
     ],
     {
       cwd: root,
+      detached: process.platform !== "win32",
       env: commandEnv(),
       stdio: ["ignore", "pipe", "pipe"],
     },
