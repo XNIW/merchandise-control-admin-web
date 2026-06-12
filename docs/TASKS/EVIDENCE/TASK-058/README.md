@@ -2,8 +2,10 @@
 
 Verdict corrente: `REVIEW_WITH_EXTERNAL_BLOCKERS`.
 
-Nessun commit, push, stage, deploy production, DNS cutover, Supabase production
-apply o cloud production apply eseguito.
+Nessun deploy production, DNS cutover, Supabase production apply o cloud
+production apply eseguito. Le modifiche CI sono state committate e pushate sul
+branch `codex/task-058-cloudflare-staging-finalize` per eseguire la run
+diagnostica staging reale.
 
 ## Preflight TASK-057
 
@@ -25,19 +27,28 @@ Verdict confermato: `REVIEW_WITH_EXTERNAL_BLOCKERS`.
 - TASK-057: confermato `DONE_RECONCILED` in
   `docs/TASKS/TASK-057-shop-catalog-workspace-import-intelligence.md`,
   `docs/TASKS/EVIDENCE/TASK-057/README.md` e `docs/MASTER-PLAN.md`.
-- GitHub Actions: workflow remoto `Cloudflare` verificato in read-only con
-  `gh workflow view cloudflare.yml`, `gh run list --workflow cloudflare.yml` e
-  `gh run view <latest>`. Latest run letta: evento `push`, branch `main`,
-  job `Cloudflare build` `success`, job `Deploy staging` `skipped`, job
+- GitHub Actions: workflow remoto `Cloudflare` verificato con run reale
+  `27449125119` su branch `codex/task-058-cloudflare-staging-finalize`, commit
+  `b9904ce`. Esito: `Cloudflare build` `success`, `Deploy staging` `success`,
   `Deploy production` `skipped`.
-- Staging deploy TASK-058: eseguito via Wrangler locale
-  `npx wrangler deploy --env staging --keep-vars`, non tramite GitHub Actions.
-  Stato: `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW`.
+- Causa reale auth: il valore salvato inizialmente nel secret staging era stato
+  copiato dalla UI Cloudflare come comando `curl` wrapper, non come token puro.
+  Il token puro `cfut_...` e stato estratto senza stamparlo, verificato
+  localmente con `wrangler whoami`, quindi salvato in
+  `cloudflare-staging/CLOUDFLARE_API_TOKEN`.
+- Diagnostica CI auth: `Verify Cloudflare auth inputs` ha restituito
+  `tokenPresent=true`, `tokenLengthOk=true`, `tokenLooksCfut=true`,
+  `tokenHadNewlines=false`, `accountPresent=true`, `accountShapeOk=true`.
+  `Verify Cloudflare token with API` ha restituito `success=true`,
+  `status=active`, `errorCodes=[]`.
+- Staging deploy TASK-058: GitHub Actions `Deploy Worker staging` PASS nella
+  run `27449125119`; versione Worker corrente
+  `6dc24d16-29f7-4006-abcc-f8308e24c761`.
 - Cloudflare token: creato in Dashboard con nome/template
-  `Edit Cloudflare Workers`, scope risorse sull'account corrente e
-  `All zones from an account` per lo stesso account; installato solo come
-  GitHub secret nei due ambienti `cloudflare-staging` e
-  `cloudflare-production`; valore mai stampato.
+  `Edit Cloudflare Workers`, scope risorse sull'account corrente e `All zones`;
+  valore mai stampato. Il fix finale ha aggiornato solo
+  `cloudflare-staging/CLOUDFLARE_API_TOKEN` con il token puro validato; la
+  production resta non eseguita e protetta da approval.
 - Production approval: `cloudflare-production` verificato via GitHub API con
   protection rule `required_reviewers`. Deploy production resta
   `NOT_RUN_PRODUCTION_FORBIDDEN`.
@@ -145,9 +156,8 @@ Verdict confermato: `REVIEW_WITH_EXTERNAL_BLOCKERS`.
   variabili configurate fuori repo.
 - Production deploy resta solo `workflow_dispatch`, branch `main`,
   `cloudflare-production` e conferme manuali.
-- GitHub Actions staging deploy non e stato eseguito per questa modifica non
-  committata/non pushata:
-  `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW`.
+- GitHub Actions staging deploy e stato eseguito realmente nella run
+  `27449125119`; production e rimasta skipped.
 - Smoke locale usa `wrangler dev --local` su `127.0.0.1` e termina sempre il
   processo figlio.
 - Il prompt unblock 2026-06-12 ha autorizzato configurazione Cloudflare/GitHub
@@ -216,12 +226,18 @@ Verdict confermato: `REVIEW_WITH_EXTERNAL_BLOCKERS`.
 
 - `npx wrangler deploy --env staging --keep-vars`: `PASS`, eseguito via
   Wrangler locale.
-- GitHub Actions staging deploy: `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW`.
+- GitHub Actions staging deploy: `PASS`, run `27449125119`, commit `b9904ce`.
+- Auth diagnostic staging: `PASS`; token presente, forma `cfut_`, no newline,
+  account id shape valido, token API `active`.
+- CI smoke staging: `PASS` dopo installazione browser Playwright nel job.
 - Deploy delegato a `opennextjs-cloudflare deploy`.
 - Asset upload completato: `43` asset.
 - Worker remoto: `merchandise-control-admin-web-staging`.
 - URL remoto: `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev`.
-- Version ID del deploy applicativo: `01053a54-aa17-4e74-bcff-4c0b6e02dd6b`.
+- Version ID del deploy applicativo locale iniziale:
+  `01053a54-aa17-4e74-bcff-4c0b6e02dd6b`.
+- Version ID del deploy GitHub Actions staging `27449125119`:
+  `6dc24d16-29f7-4006-abcc-f8308e24c761`.
 - Dopo il deploy sono stati impostati secret/env Worker staging via
   `wrangler secret put` con stdin:
   - `NEXT_PUBLIC_SUPABASE_URL`;
@@ -282,11 +298,11 @@ Verdict confermato: `REVIEW_WITH_EXTERNAL_BLOCKERS`.
 - `gh workflow view cloudflare.yml`: workflow remoto `Cloudflare`, ID
   `290788709`.
 - `gh run list --workflow cloudflare.yml`: run recenti lette in read-only.
-- `gh run view` su latest run: evento `push`, branch `main`,
-  `Cloudflare build` `success`, `Deploy staging` `skipped`,
-  `Deploy production` `skipped`.
-- Staging deploy Actions non eseguito sulle modifiche correnti non committate:
-  `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW`.
+- `gh run view 27449125119`: evento `workflow_dispatch`, branch
+  `codex/task-058-cloudflare-staging-finalize`, `Cloudflare build` `success`,
+  `Deploy staging` `success`, `Deploy production` `skipped`.
+- Repo-level secrets: solo vecchi secret Supabase per nome; nessun
+  `CLOUDFLARE_*` repo-level che possa shadoware l'environment.
 - Environment iniziali: solo `Production`.
 - Environment creati/verificati:
   - `cloudflare-staging`;
@@ -351,7 +367,9 @@ Verdict confermato: `REVIEW_WITH_EXTERNAL_BLOCKERS`.
 | `npx wrangler deploy --dry-run --env staging` | `PASS_WITH_WARNINGS`, nessun deploy; rerun post-documentazione `PASS_WITH_WARNINGS` |
 | `npm run db:staging:status` con env process-only | `PASS`; due rerun fail-closed senza allowlist/conferma corretta, poi `PASS` |
 | `npx wrangler deploy --env staging --keep-vars` | `PASS` |
-| GitHub Actions staging deploy | `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW`; latest remote `main` run ha `Deploy staging` skipped |
+| GitHub Actions staging deploy | `PASS`, run `27449125119`, `Deploy Worker staging` PASS, `Smoke staging` PASS, production skipped |
+| `Verify Cloudflare auth inputs` CI | `PASS`, token presente, forma `cfut_`, no newline, account id shape valido |
+| `Verify Cloudflare token with API` CI | `PASS`, `success=true`, `status=active`, `errorCodes=[]` |
 | `npm run smoke:staging` con env process-only | `PASS`, `1/1`; rerun post-documentazione `PASS`, `1/1` |
 | `npx wrangler deployments list --env staging` | `ROLLBACK_READ_ONLY_VERIFIED`, latest active after secret changes `7450051b-4b89-4b31-bb42-beb711d7969c` |
 | `npx wrangler deployments status --env staging` | `ROLLBACK_READ_ONLY_VERIFIED`, active `7450051b-4b89-4b31-bb42-beb711d7969c` |

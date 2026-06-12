@@ -2493,10 +2493,11 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   `db:staging:status` PASS con env process-only, `wrangler deploy --env staging
   --keep-vars` PASS, `smoke:staging` PASS `1/1`, `wrangler deployments
   list/status --env staging` ROLLBACK_READ_ONLY_VERIFIED. GitHub Actions
-  verificato in read-only: workflow `Cloudflare` attivo, latest run `main`
-  con `Cloudflare build` success e deploy staging/production skipped; lo
-  staging deploy TASK-058 e stato Wrangler locale, non Actions:
-  `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW`.
+  staging reale PASS nella run `27449125119` su commit `b9904ce`: auth
+  diagnostic PASS (`cfut_` token presente, active via API), `Deploy Worker
+  staging` PASS, `Smoke staging` PASS dopo install Chromium Playwright,
+  production skipped. La causa auth precedente era il salvataggio del comando
+  `curl` wrapper invece del token puro nel secret staging.
   Blocker residui: nessuna Cloudflare zone/custom domain per applicare WAF/rate-limit remoto,
   `npx supabase projects list` non concluso per hang quindi Supabase remote
   verification resta `PARTIAL`, rollback staging reale non eseguito per assenza

@@ -30,11 +30,14 @@ assenza di zone/custom domain Cloudflare per WAF/rate-limit remoto, verifica
 Supabase CLI project-list non conclusa per hang, e rollback reale non eseguito
 per mancanza di un precedente deployment safe noto.
 
-Review finale mirata 2026-06-12: il deploy staging verificato e stato eseguito
-via Wrangler locale, non tramite GitHub Actions. Il workflow remoto Cloudflare
-e stato verificato in read-only, ma le modifiche correnti sono non committate e
-non pushate; classificazione:
-`GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW`.
+Final unblock 2026-06-12: il deploy staging GitHub Actions e stato eseguito
+realmente su branch `codex/task-058-cloudflare-staging-finalize`, run
+`27449125119`, commit `b9904ce`. La causa auth reale era un valore secret
+copiato inizialmente come comando `curl` wrapper invece del token puro; il
+token staging puro e stato verificato con `wrangler whoami` locale e con lo
+step CI `Verify Cloudflare token with API` (`success=true`, `status=active`).
+Il successivo blocker CI era l'assenza del browser Playwright nel job staging,
+corretta installando Chromium prima dello smoke.
 
 ## Include
 
@@ -69,7 +72,7 @@ non pushate; classificazione:
 - Sales Sync live.
 - Android/iOS/POS changes.
 - Dati reali o secret in repository/evidence.
-- Commit/stage/push.
+- Deploy production, tag/release o merge automatico.
 
 ## Criteri di accettazione
 
@@ -79,7 +82,7 @@ non pushate; classificazione:
 | CA-02 | TASK-058 aperto con evidence dedicata e Master Plan aggiornato. | `PASS` |
 | CA-03 | Vercel resta parcheggiato e non deploya automaticamente. | `PASS` |
 | CA-04 | `wrangler.jsonc`, `open-next.config.ts` e package scripts sono coerenti con Cloudflare/OpenNext. | `PASS` |
-| CA-05 | Workflow Cloudflare fa build/check e production solo manual-gated con environment approval. | `PASS_REPO_CONFIG_AND_GITHUB_ENVIRONMENTS`, `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW` |
+| CA-05 | Workflow Cloudflare fa build/check e production solo manual-gated con environment approval. | `PASS_GITHUB_ACTIONS_STAGING_DEPLOY_AND_PRODUCTION_GATED` |
 | CA-06 | Smoke locale OpenNext/Workers copre route pubbliche, guard auth, POS API e import/export senza secret. | `PASS` |
 | CA-07 | Route sensibili import/export e POS sono no-store/fail-closed dove applicabile. | `PASS` |
 | CA-08 | Supabase staging separato e allowlistato, senza service-role client/browser. | `PASS_GUARDRAIL`, `SUPABASE_STAGING_VERIFICATION_PARTIAL` |
@@ -132,10 +135,9 @@ non pushate; classificazione:
   creato con required reviewer.
 - GitHub secrets: `CLOUDFLARE_ACCOUNT_ID` e `CLOUDFLARE_API_TOKEN` presenti in
   `cloudflare-staging` e `cloudflare-production`; valori mai stampati.
-- GitHub Actions: workflow remoto `Cloudflare` attivo e verificato read-only;
-  latest run su `main` ha eseguito `Cloudflare build` e ha saltato
-  `Deploy staging`/`Deploy production`. Staging deploy reale TASK-058 e locale
-  via Wrangler.
+- GitHub Actions: workflow remoto `Cloudflare` attivo. Run staging reale
+  `27449125119` su commit `b9904ce`: `Cloudflare build` PASS, `Deploy staging`
+  PASS, `Deploy production` skipped.
 - Supabase staging: `.env.local` non tracciato contiene valori staging/dev
   necessari; guardrail staging PASS con env process-only; verifica remota
   Supabase CLI project-list `PARTIAL` per hang.
@@ -170,18 +172,17 @@ non pushate; classificazione:
 | `gh secret list --env cloudflare-staging` | `PASS`, nomi secret verificati |
 | `gh secret list --env cloudflare-production` | `PASS`, nomi secret verificati |
 | `gh api .../environments/cloudflare-production` | `PASS`, `required_reviewers` presente |
-| `gh workflow view cloudflare.yml`, `gh run list`, `gh run view` | `PASS_READ_ONLY`, workflow attivo; deploy staging Actions `SKIPPED` sull'ultima run main; `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW` |
+| `gh workflow run cloudflare.yml --ref codex/task-058-cloudflare-staging-finalize -f target=staging` | `PASS`, run `27449125119`: auth diagnostic PASS, deploy staging PASS, smoke staging PASS, production skipped |
 | Production deploy / DNS cutover | `NOT_RUN_PRODUCTION_FORBIDDEN` |
 
 ## Handoff
 
-Codex ha completato la parte repo-controllabile e lo staging remoto workers.dev.
-TASK-058 resta in `REVIEW_WITH_EXTERNAL_BLOCKERS`, non `DONE`, perche mancano
-ancora zone/custom domain Cloudflare per applicare WAF/rate-limit reali, la
-verifica Supabase remote project-list non e conclusa e non esiste un precedente
-deployment staging safe su cui eseguire un rollback reale senza introdurre
-rischio. Il task puo essere considerato `PASS_WITH_NOTES` solo per la parte
-repo/staging workers.dev; il verdict formale resta `REVIEW_WITH_EXTERNAL_BLOCKERS`.
+Codex ha completato la parte repo-controllabile, staging workers.dev e GitHub
+Actions staging deploy/smoke. TASK-058 resta in
+`REVIEW_WITH_EXTERNAL_BLOCKERS`, non `DONE`, perche mancano ancora
+zone/custom domain Cloudflare per applicare WAF/rate-limit reali, la verifica
+Supabase remote project-list non e conclusa e il rollback reale staging non e
+stato provato.
 
 ## Stop condition
 
