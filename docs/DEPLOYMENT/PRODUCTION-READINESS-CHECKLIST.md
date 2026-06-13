@@ -24,11 +24,16 @@
 - [x] Workflow Cloudflare separato con build su PR/main e deploy production solo
   da `workflow_dispatch` con conferme manuali.
 - [x] Runbook Cloudflare migration/rollback disponibili.
-- [ ] Staging stabile HTTPS non-production con rollback.
-- [ ] Policy esplicita per promozione production. Stato:
-  `BLOCKED_GITHUB_PRODUCTION_ENVIRONMENT_APPROVAL_NOT_VERIFIED`; GitHub
-  environment `cloudflare-production` non trovato via API e required reviewers
-  non verificati.
+- [x] Smoke Cloudflare/OpenNext locale disponibile come
+  `npm run smoke:cloudflare:local`.
+- [ ] Staging stabile HTTPS non-production con rollback. Stato:
+  workers.dev staging deployato e smoke `PASS`; rollback reale resta
+  `ROLLBACK_STAGING_NOT_RUN_NO_PREVIOUS_SAFE_DEPLOYMENT`; staging deploy
+  GitHub Actions resta
+  `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW`.
+- [x] Policy CI esplicita per promozione production: workflow production solo
+  `workflow_dispatch` con conferme manuali e GitHub environment
+  `cloudflare-production` con `required_reviewers`.
 
 ## Database
 
@@ -42,7 +47,11 @@
 
 - [x] POS Route Handler storici usano guardrail `no-store` e validazioni payload dai task precedenti.
 - [x] TASK-036 aggiunge motivo obbligatorio per archive/restore catalogo lato UI e server boundary.
-- [ ] Rate limit infrastrutturale su login, POS API e mutazioni Shop Admin. Stato Cloudflare: `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED`.
+- [x] Runbook WAF/rate-limit Cloudflare disponibile in
+  `docs/DEPLOYMENT/CLOUDFLARE-WAF-RATE-LIMIT.md`.
+- [ ] Rate limit infrastrutturale su login, POS API e mutazioni Shop Admin.
+  Stato Cloudflare: `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED`; WAF/rate
+  limit remoto non attivo.
 - [ ] Body limit verificato su ogni route upload/import.
 - [ ] Content-Type guard verificato su ogni endpoint mutativo custom.
 
@@ -58,7 +67,9 @@
 
 - [x] `security:scan`, `test:foundation`, `typecheck`, `lint`, `build`, `verify` restano gate richiesti.
 - [x] Smoke autenticato Shop Admin esiste come `npm run test:shop-admin-auth-smoke`.
-- [ ] Smoke autenticato su staging stabile.
+- [x] Smoke OpenNext/Workers locale esiste come `npm run smoke:cloudflare:local`.
+- [ ] Smoke autenticato completo su staging stabile. Smoke auth-boundary
+  read-only su workers.dev staging: `PASS`.
 - [ ] Browser QA multi-viewport autenticata su tutte le route Shop Admin.
 - [ ] Win7POS live E2E ripreso quando l'ambiente Windows e disponibile.
 
@@ -73,9 +84,9 @@
 ## Rischi residui
 
 - Vercel Preview/non-production resta bloccato/parcheggiato.
-- Cloudflared e effimero, non staging stabile.
-- Cloudflare staging remoto resta bloccato da
-  `BLOCKED_CLOUDFLARE_STAGING_IDENTITY_AND_TARGETS_NOT_VERIFIED`.
-- Rate limit e monitoring richiedono infrastruttura o provider esterno.
+- Cloudflared e effimero e non va trattato come staging stabile.
+- Cloudflare workers.dev staging e deployato, ma custom domain/zone mancano.
+- Rate limit/WAF e monitoring richiedono una zona Cloudflare o provider
+  esterno; stato `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED`.
 - Win7POS live E2E resta parcheggiato per disponibilita ambiente.
 - TASK-024 Sales Sync resta `DEFERRED`; nessun runtime vendite e stato introdotto.

@@ -15,11 +15,25 @@
 3. Salvare timestamp, versione/deployment corrente e sintomo osservato.
 4. Non stampare secret o env.
 
+## Incident checklist
+
+- Ambiente impattato: `staging` o `production`.
+- Worker impattato e deployment/version id corrente.
+- Sintomo osservato, primo timestamp noto e canale di rilevazione.
+- Ultimo deploy, cambio env/secret, regola WAF o cambio DNS correlabile.
+- Decisione: rollback Worker, rollback env/secret, rollback DNS/custom domain o
+  sola mitigazione WAF.
+- Owner operativo e approval richiesta per production.
+- Smoke post-intervento e follow-up registrati.
+- Secret rotation obbligatoria se qualunque valore sensibile e stato esposto.
+
 ## Diagnosi rapida
 
 ```bash
 npx wrangler deployments list --env staging
+npx wrangler deployments status --env staging
 npx wrangler deployments list --env production
+npx wrangler deployments status --env production
 npx wrangler tail --env staging
 npx wrangler tail --env production
 ```
@@ -41,14 +55,19 @@ Percorso dashboard:
 Percorso CLI, se disponibile nel piano/account:
 
 ```bash
-npx wrangler rollback --env staging
+npx wrangler rollback --env staging --yes
 ```
 
-Per production usare CLI solo dopo conferma esplicita:
+Per production usare CLI solo dopo conferma esplicita/approval registrata:
 
 ```bash
-npx wrangler rollback --env production
+npx wrangler rollback --env production --yes
 ```
+
+`wrangler 4.98.0` espone `wrangler deployments list`,
+`wrangler deployments status` e `wrangler rollback [version-id] --env <env>`.
+Se il comando remoto richiede prompt o permessi non disponibili, fermarsi e
+registrare `BLOCKED_CLOUDFLARE_ROLLBACK_PERMISSION_REQUIRED`.
 
 ## Rollback DNS/custom domain
 

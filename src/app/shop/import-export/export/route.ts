@@ -1,6 +1,16 @@
 import { buildCatalogWorkbookExport } from "@/server/shop-admin/import-export-workbook";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+function noStoreJson(body: unknown, status: number) {
+  return Response.json(body, {
+    headers: {
+      "Cache-Control": "no-store",
+    },
+    status,
+  });
+}
 
 export async function GET(request: Request) {
   const url = new URL(request.url);
@@ -9,7 +19,7 @@ export async function GET(request: Request) {
   );
 
   if (!result.ok || !result.buffer) {
-    return Response.json(result, { status: 400 });
+    return noStoreJson(result, 400);
   }
 
   return new Response(new Uint8Array(result.buffer), {

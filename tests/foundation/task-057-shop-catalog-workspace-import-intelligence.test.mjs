@@ -47,7 +47,7 @@ function loadTypeScriptModule(relativePath) {
   return cjsModule.exports;
 }
 
-test("TASK-057 governance hands off to review without DONE", () => {
+test("TASK-057 governance is DONE_RECONCILED after TASK-058 confirmation", () => {
   const taskPath =
     "docs/TASKS/TASK-057-shop-catalog-workspace-import-intelligence.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-057/README.md";
@@ -63,17 +63,15 @@ test("TASK-057 governance hands off to review without DONE", () => {
   const evidence = read(evidencePath);
   const masterPlan = read("docs/MASTER-PLAN.md");
 
-  assertContains(task, "Stato: `REVIEW`");
-  assertContains(task, "Fase attuale: `REVIEW`");
-  assertContains(evidence, "Verdict corrente: `READY_FOR_DONE_CONFIRMATION`");
-  assertContains(masterPlan, "Stato TASK-057: `REVIEW`");
-  assertContains(masterPlan, "Verdict TASK-057: `READY_FOR_DONE_CONFIRMATION`");
+  assertContains(task, "Stato: `DONE_RECONCILED`");
+  assertContains(task, "Fase attuale: `DONE_RECONCILED`");
+  assertContains(evidence, "Verdict corrente: `DONE_RECONCILED`");
+  assertContains(masterPlan, "Stato TASK-057: `DONE_RECONCILED`");
+  assertContains(masterPlan, "Verdict TASK-057: `DONE_RECONCILED`");
   assertContains(
     masterPlan,
-    "Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`",
+    "Task attivo: `TASK-058 - Cloudflare/OpenNext Staging Hardening and Deployment Governance`",
   );
-  assert.doesNotMatch(task, /Stato:\s*`DONE`/);
-  assert.doesNotMatch(evidence, /Verdict corrente:\s*`DONE`/);
 });
 
 test("TASK-057 moves Import Export out of primary Shop sidebar", () => {

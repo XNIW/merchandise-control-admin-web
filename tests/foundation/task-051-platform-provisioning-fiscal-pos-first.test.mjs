@@ -755,7 +755,10 @@ test("TASK-051 docs record runtime regression fix, checks, and follow-up boundar
   const evidence = readProjectFile("docs/TASKS/EVIDENCE/TASK-051/README.md");
 
   assertContains(masterPlan, "TASK-051 - Platform Provisioning fiscal identity and POS-first shop bootstrap");
-  assertContains(masterPlan, "Task attivo: `NESSUNO`");
+  assert.match(
+    masterPlan,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`/,
+  );
   assert.match(
     masterPlan,
     /Stato TASK-051: `(READY_FOR_DONE_CONFIRMATION|DONE)`/,

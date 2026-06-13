@@ -36,11 +36,11 @@ test("TASK-055 tracking is DONE_RECONCILED after final DONE gate", () => {
   assertContains(task, "Fase attuale: `DONE_RECONCILED`");
   assertContains(task, "Shop Admin Console UI polish");
   assertContains(evidence, "Verdict corrente: `DONE_RECONCILED`");
-  assert.match(masterPlan, /Stato globale attuale: `(REVIEW|EXECUTION)`/);
+  assert.match(masterPlan, /Stato globale attuale: `(REVIEW|EXECUTION|REVIEW_WITH_EXTERNAL_BLOCKERS)`/);
   assertContains(masterPlan, "Stato TASK-055: `DONE_RECONCILED`");
   assert.match(
     masterPlan,
-    /Task attivo: `NESSUNO`|Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`/,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`/,
   );
   assertContains(evidence, "Final review / DONE gate 2026-06-11");
 });

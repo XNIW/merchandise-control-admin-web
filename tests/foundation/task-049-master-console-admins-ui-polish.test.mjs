@@ -219,7 +219,6 @@ test("TASK-049 docs and evidence record DONE reconciliation without external PAS
 
   for (const required of [
     "TASK-049 - Master Console Admins UI/UX polish",
-    "Task attivo: `NESSUNO`",
     "Stato TASK-049: `DONE_RECONCILED`",
     "Fase TASK-049: `DONE_RECONCILED`",
     "Devices and Sync remain outside the primary Master Console sidebar.",
@@ -230,5 +229,9 @@ test("TASK-049 docs and evidence record DONE reconciliation without external PAS
     assertContains(docs, required, `TASK-049 docs must contain ${required}`);
   }
 
+  assert.match(
+    masterPlan,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`/,
+  );
   assert.match(docs, /Stato TASK-049: `DONE_RECONCILED`/);
 });

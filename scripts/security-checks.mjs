@@ -4639,7 +4639,19 @@ function checkTask041RuntimeCompletion() {
     addFailure("TASK-041 must include Cloudflare/OpenNext dev deps and non-production build/preview scripts");
   }
 
-  if (/opennextjs-cloudflare deploy|wrangler deploy|--prod/.test(JSON.stringify(packageJson.scripts))) {
+  const packageDeployScripts = Object.entries(packageJson.scripts ?? {}).filter(
+    ([, command]) => /opennextjs-cloudflare deploy|wrangler deploy|--prod/.test(command),
+  );
+  const forbiddenPackageDeployScripts = packageDeployScripts.filter(
+    ([name, command]) =>
+      !(
+        name === "cf:deploy:staging" &&
+        /wrangler deploy --env staging --keep-vars/.test(command) &&
+        !/--env production|--prod/.test(command)
+      ),
+  );
+
+  if (forbiddenPackageDeployScripts.length > 0) {
     addFailure("TASK-041 package scripts must not add production deploy commands");
   }
 
@@ -5701,6 +5713,169 @@ function checkTask057ShopCatalogWorkspace() {
   }
 }
 
+function checkTask058CloudflareOpenNextHardening() {
+  const requiredPaths = [
+    "docs/TASKS/TASK-058-cloudflare-opennext-staging-hardening.md",
+    "docs/TASKS/EVIDENCE/TASK-058/README.md",
+    "docs/DEPLOYMENT/CLOUDFLARE-WAF-RATE-LIMIT.md",
+    "docs/DEPLOYMENT/CLOUDFLARE-ROLLBACK.md",
+    "scripts/testing/cloudflare-local-smoke.mjs",
+    "tests/foundation/task-058-cloudflare-opennext-staging-hardening.test.mjs",
+  ];
+
+  for (const requiredPath of requiredPaths) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`TASK-058 required artifact is missing: ${requiredPath}`);
+      return;
+    }
+  }
+
+  const packageJson = JSON.parse(read("package.json"));
+  const workflow = read(".github/workflows/cloudflare.yml");
+  const wranglerConfig = read("wrangler.jsonc");
+  const vercelConfig = read("vercel.json");
+  const smoke = read("scripts/testing/cloudflare-local-smoke.mjs");
+  const migration = read("docs/DEPLOYMENT/CLOUDFLARE-MIGRATION.md");
+  const waf = read("docs/DEPLOYMENT/CLOUDFLARE-WAF-RATE-LIMIT.md");
+  const rollback = read("docs/DEPLOYMENT/CLOUDFLARE-ROLLBACK.md");
+  const importExportRoutes = [
+    "src/app/shop/import-export/preview/route.ts",
+    "src/app/shop/import-export/apply/route.ts",
+    "src/app/shop/import-export/export/route.ts",
+    "src/app/shop/import-export/template/route.ts",
+  ].map((routePath) => read(routePath)).join("\n");
+
+  for (const scriptName of [
+    "cf:build",
+    "cf:preview",
+    "cf:deploy:staging",
+    "smoke:cloudflare:local",
+    "test:cloudflare:local",
+  ]) {
+    if (!packageJson.scripts?.[scriptName]) {
+      addFailure(`TASK-058 package script is missing: ${scriptName}`);
+    }
+  }
+
+  if (!/wrangler deploy --env staging --keep-vars/.test(packageJson.scripts?.["cf:deploy:staging"] ?? "")) {
+    addFailure("TASK-058 staging deploy script must use wrangler --env staging --keep-vars");
+  }
+
+  if (/cf:deploy:production|vercel deploy|vercel --prod/.test(JSON.stringify(packageJson.scripts))) {
+    addFailure("TASK-058 package scripts must not add production or Vercel deploy commands");
+  }
+
+  for (const requiredSnippet of [
+    "environment: cloudflare-staging",
+    "environment: cloudflare-production",
+    "workflow_dispatch",
+    "github.ref == 'refs/heads/main'",
+    "inputs.confirm_staging_gates_passed",
+    "inputs.confirm_user_approved_production",
+    "CF_SMOKE_SKIP_BUILD=1 npm run smoke:cloudflare:local",
+    "npm run smoke:staging",
+  ]) {
+    if (!workflow.includes(requiredSnippet)) {
+      addFailure(`TASK-058 Cloudflare workflow must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/push:[\s\S]{0,240}deploy-production/.test(workflow)) {
+    addFailure("TASK-058 production deploy must not run from push");
+  }
+
+  if (!/"deploymentEnabled": false/.test(vercelConfig)) {
+    addFailure("TASK-058 must keep Vercel deploymentEnabled=false");
+  }
+
+  for (const requiredSnippet of [
+    "\"compatibility_date\": \"2026-06-10\"",
+    "nodejs_compat",
+    "global_fetch_strictly_public",
+    "merchandise-control-admin-web-staging",
+    "merchandise-control-admin-web",
+  ]) {
+    if (!wranglerConfig.includes(requiredSnippet)) {
+      addFailure(`TASK-058 wrangler.jsonc must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/SUPABASE_SERVICE_ROLE_KEY\s*:|CLOUDFLARE_API_TOKEN|password|secret/i.test(wranglerConfig)) {
+    addFailure("TASK-058 wrangler.jsonc must not contain secret material");
+  }
+
+  for (const requiredSnippet of [
+    "wrangler",
+    "dev",
+    "--local",
+    "stopPreview",
+    "secretPattern",
+    "POS method guard",
+    "method: \"GET\"",
+    "expect: [405]",
+    "/api/pos/sales/sync",
+    "/shop/import-export/preview",
+    "requireNoStore",
+  ]) {
+    if (!smoke.includes(requiredSnippet)) {
+      addFailure(`TASK-058 local smoke must include ${requiredSnippet}`);
+    }
+  }
+
+  if (/console\.log\(.*process\.env|SUPABASE_SERVICE_ROLE_KEY\s*=|CLOUDFLARE_API_TOKEN\s*=/.test(smoke)) {
+    addFailure("TASK-058 local smoke must not print env secret values");
+  }
+
+  for (const requiredSnippet of [
+    "export const runtime = \"nodejs\"",
+    "\"Cache-Control\": \"no-store\"",
+  ]) {
+    if (!importExportRoutes.includes(requiredSnippet)) {
+      addFailure(`TASK-058 import/export routes must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "BLOCKED_CLOUDFLARE_API_TOKEN_MISSING",
+    "BLOCKED_CLOUDFLARE_ACCOUNT_ID_MISSING",
+    "BLOCKED_SUPABASE_STAGING_UNKNOWN",
+    "npm run smoke:cloudflare:local",
+    "npm run cf:deploy:staging",
+  ]) {
+    if (!migration.includes(requiredSnippet)) {
+      addFailure(`TASK-058 Cloudflare migration runbook must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "/auth/login",
+    "/shop/staff-login",
+    "/platform/provisioning",
+    "/platform/operations",
+    "/shop/import-export",
+    "/api/pos/sales/sync",
+    "False-positive handling",
+    "safe operations",
+    "rollback",
+    "do not",
+  ]) {
+    if (!waf.includes(requiredSnippet)) {
+      addFailure(`TASK-058 WAF runbook must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "Incident checklist",
+    "wrangler deployments list --env staging",
+    "wrangler rollback --env staging",
+    "Secret rotation",
+  ]) {
+    if (!rollback.includes(requiredSnippet)) {
+      addFailure(`TASK-058 rollback runbook must include ${requiredSnippet}`);
+    }
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -5745,6 +5920,7 @@ checkTask045PlatformMasterConsoleFinalReview();
 checkTask046TestTargetSeparation();
 checkTask053AuthorizationStaffSafeReadBoundary();
 checkTask057ShopCatalogWorkspace();
+checkTask058CloudflareOpenNextHardening();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

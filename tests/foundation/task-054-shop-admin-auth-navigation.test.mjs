@@ -142,7 +142,7 @@ test("TASK-054 task and Master Plan tracking are aligned for DONE reconciliation
   assertContains(masterPlan, "Verdict TASK-053: `DONE`");
   assertContains(masterPlan, "Stato TASK-054: `DONE`");
   assertContains(masterPlan, "Fase TASK-054: `DONE`");
-  assert.match(masterPlan, /Stato globale attuale: `(REVIEW|EXECUTION)`/);
+  assert.match(masterPlan, /Stato globale attuale: `(REVIEW|EXECUTION|REVIEW_WITH_EXTERNAL_BLOCKERS)`/);
   assertContains(masterPlan, "TASK-054C");
   assertContains(masterPlan, "Safari reale verificato");
   assertContains(masterPlan, "Final DONE confirmation");
@@ -150,13 +150,13 @@ test("TASK-054 task and Master Plan tracking are aligned for DONE reconciliation
   assertContains(masterPlan, "Safari reale via `safaridriver` PASS su server dedicato");
   assert.match(
     masterPlan,
-    /Task attivo: `NESSUNO`|Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`/,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`/,
   );
   assertContains(masterPlan, "Stato TASK-055: `DONE_RECONCILED`");
   assertContains(masterPlan, "Stato TASK-056: `DONE_RECONCILED`");
-  assertContains(
+  assert.match(
     masterPlan,
-    "Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`",
+    /Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`|Ultimo task chiuso: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`/,
   );
   assert.doesNotMatch(
     masterPlan,

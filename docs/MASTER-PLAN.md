@@ -2239,11 +2239,11 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente
 
-- Stato: `REVIEW`
+- Stato: `DONE_RECONCILED`
 - File task: `docs/TASKS/TASK-057-shop-catalog-workspace-import-intelligence.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-057/README.md`
-- Fase: `REVIEW`
-- Responsabile: `CODEX_REVIEW_FIX`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `REVIEWER_CONFIRMED_BY_TASK_058_PROMPT`
 - Scopo: trasformare `/shop/products` nel Catalog Workspace principale con
   tabella prodotti completa, toolbar/dialog per CRUD catalogo, import/export
   Excel integrato, parser fornitore intelligente e verifica reale del boundary
@@ -2260,7 +2260,40 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - nuove dipendenze salvo blocker reale documentato;
   - bypass di mapping, permessi, RLS/RPC, audit o boundary server-side;
   - dati reali, token, password o service-role client/browser.
-- Verdict corrente: `READY_FOR_DONE_CONFIRMATION`.
+- Verdict corrente: `DONE_RECONCILED`.
+- Nota: riconciliato a `DONE_RECONCILED` il 2026-06-12 dal prompt TASK-058,
+  trattato come conferma utente esplicita dopo preflight reale positivo:
+  `git status --short --branch --untracked-files=all` PASS,
+  `git diff --check` PASS e targeted TASK-057 PASS `21/21`.
+
+### TASK-058 - Cloudflare/OpenNext Staging Hardening and Deployment Governance
+
+- Stato: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- File task: `docs/TASKS/TASK-058-cloudflare-opennext-staging-hardening.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-058/README.md`
+- Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Responsabile: `REVIEWER`
+- Scopo: consolidare governance e hardening Cloudflare/OpenNext per staging e
+  production manual-gated, verificando Vercel parcheggiato, `wrangler.jsonc`,
+  `open-next.config.ts`, workflow Cloudflare, Supabase staging readiness,
+  smoke locale/staging, rollback e WAF/rate-limit.
+- Include:
+  - discovery Cloudflare/OpenNext esistente;
+  - Vercel guardrail;
+  - build e smoke OpenNext/Workers locale;
+  - staging remote readiness e blocker espliciti se mancano credenziali/target;
+  - production deploy solo manual-gated, senza deploy production in task;
+  - runbook rollback e WAF/rate-limit;
+  - test foundation/security e evidence redatta.
+- Non include:
+  - deploy production;
+  - DNS cutover production;
+  - Supabase production apply;
+  - Vercel Git Integration;
+  - nuove migration non necessarie;
+  - Win7POS live E2E o Sales Sync live;
+  - dati reali, secret, commit, stage o push.
+- Verdict corrente: `REVIEW_WITH_EXTERNAL_BLOCKERS`.
 
 ## Tooling policy
 
@@ -2275,7 +2308,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `REVIEW`
+- Stato globale attuale: `REVIEW_WITH_EXTERNAL_BLOCKERS`
 - Ultimo task completato: `TASK-056 - Master Console shop detail editing and row navigation shortcut`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
@@ -2336,17 +2369,19 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-055: `DONE_RECONCILED`
 - Stato TASK-056: `DONE_RECONCILED`
 - Fase TASK-056: `DONE_RECONCILED`
-- Stato TASK-057: `REVIEW`
-- Fase TASK-057: `REVIEW`
-- Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`
-- Task precedente: `TASK-056 - Master Console shop detail editing and row navigation shortcut`
-- Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`
-- File task: `docs/TASKS/TASK-057-shop-catalog-workspace-import-intelligence.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-057/README.md`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
-- Milestone interna: `TASK_057_REVIEW`
-- Responsabile: `CODEX_REVIEW_FIX`
+- Stato TASK-057: `DONE_RECONCILED`
+- Fase TASK-057: `DONE_RECONCILED`
+- Stato TASK-058: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Fase TASK-058: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Task attivo: `TASK-058 - Cloudflare/OpenNext Staging Hardening and Deployment Governance`
+- Task precedente: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`
+- Ultimo task chiuso: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`
+- File task: `docs/TASKS/TASK-058-cloudflare-opennext-staging-hardening.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-058/README.md`
+- Stato task: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Milestone interna: `TASK_058_REVIEW_WITH_EXTERNAL_BLOCKERS`
+- Responsabile: `REVIEWER`
 - Branch previsto: `main`
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -2386,7 +2421,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-054: `DONE_WITH_NOTES`
 - Verdict TASK-055: `DONE_RECONCILED`
 - Verdict TASK-056: `DONE_RECONCILED`
-- Verdict TASK-057: `READY_FOR_DONE_CONFIRMATION`
+- Verdict TASK-057: `DONE_RECONCILED`
+- Verdict TASK-058: `REVIEW_WITH_EXTERNAL_BLOCKERS`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
 - DONE reconciliation 2026-06-06: su conferma esplicita utente, TASK-046..TASK-050 chiusi a `DONE_RECONCILED`; TASK-040 e TASK-041 restano `REVIEW_WITH_EXTERNAL_BLOCKERS`, TASK-042 resta `READY_FOR_WIN7_MANUAL_TEST`. Commit/push finale su `main` richiesti dall'utente.
 - TASK-051 aperto in execution il 2026-06-06 da brief allegato: provisioning fiscal identity, POS-first bootstrap, manager staff `1001`, Temporary PIN server-side, Admin Console fiscal identity read-only. `shop_code` resta tecnico e `company_rut` separato per compatibilita RUT cileno. Non applicare migration su production e non dichiarare PIN raw/audit/log/evidence.
@@ -2405,7 +2441,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Review-completion Codex TASK-051 2026-06-09: blocker atomicita risolto con migration locale `20260609170549_task_051_transactional_provisioning_recovery.sql`; owner bootstrap, POS-first, pending owner fiscalizzato e recovery manager `1001` usano RPC transazionali user-scoped con JWT dell'utente verificato. Applicata solo a Supabase locale (`supabase migration up --local`), non production/cloud. Full local E2E TASK-051 PASS: crea shop POS-first, verifica Admin account e Shop code access, recupera manager `1001` e login con nuovo Temporary PIN. Check PASS: `supabase db lint --local --schema public,app_private --fail-on error`, TASK-051 targeted, guardrail TASK-006/016/038/054, `test:foundation` 228/228, `security:scan`, `verify`, `git diff --check`. `npm run db:local:status` resta `FAIL_CLOSED` per `.env.local` puntato a `supabase_cloud`, ma il runner E2E locale usa env Supabase CLI. TASK-051 pronto per `DONE`; Codex non marca `DONE`, no stage/commit/push.
 - DONE confirmation TASK-051 2026-06-09: su conferma esplicita utente, final review senza blocker reali e check rieseguiti, TASK-051 e chiuso a `DONE`. Architettura finale confermata: client leggero -> Route Handler server-side -> resolver Platform Admin unico -> service server-only -> RPC DB transazionale/auditabile. Full local E2E TASK-051 PASS con wrapper local-only; vecchio PIN respinto e nuovo Temporary PIN accettato. `npm run db:local:status` resta `FAIL_CLOSED` per `.env.local` cloud, ma Supabase locale e disponibile e i comandi local-only passano. Nessun production/cloud apply, nessun dato reale, nessun commit, push o stage finale.
 - Runtime auth regression TASK-051 2026-06-09: prova manuale utente con `platform.local@example.test` ha mostrato GET `/platform/provisioning` autorizzata ma POST create-shop/recovery `unauthorized`; il live browser Codex ha riprodotto e poi verificato recovery/create/recovery+old-PIN-rejected/new-PIN-accepted. Root cause completa: `bearer/cookie mismatch`, GET/POST auth-path mismatch tra read boundary cookie SSR/RLS e POST admin/service-role check, piu `platform:local:dev` senza env server-only locali per login staff/POS manuale. Fix applicato senza bypass RPC: submit provisioning cookie-only same-origin; `resolvePlatformAdminForRequest` autorizza cookie con lo stesso client SSR/RLS della GET, usa client user-scoped/RLS per bearer valido e fail-closed `auth_mismatch` se bearer/cookie sono utenti diversi; `platform:local:dev` carica service-role locale solo server-only, non `NEXT_PUBLIC_*`; `AuthForm` rimuove `method="post"` su server action. Boundary finale confermata: client leggero -> Route Handler same-origin -> resolver Platform Admin unico via cookie SSR/RLS -> service server-only -> RPC DB transazionale/auditabile (`platform_create_shop_with_owner_bootstrap`, `platform_create_pos_first_shop`, pending owner fiscalizzato, `platform_recover_initial_manager_1001`). Full E2E TASK-051 PASS 1/1 e manual-regression PASS 1/1 dopo il fix finale; check finali richiesti PASS/PASS_WITH_WARNINGS documentati in evidence. TASK-051 resta `DONE` in `REVIEW`; no production/cloud apply, no raw PIN/password/token in DB/log/audit/evidence, no commit/push/stage.
-- Cloudflare hosting migration follow-up 2026-06-07: `wrangler.jsonc` aggiornato con ambienti `staging` e `production`, workflow separato `.github/workflows/cloudflare.yml` aggiunto, runbook `docs/DEPLOYMENT/CLOUDFLARE-MIGRATION.md` e `docs/DEPLOYMENT/CLOUDFLARE-ROLLBACK.md` creati. Decisione operativa aggiuntiva: prima fase obbligatoria solo Cloudflare staging remoto; production deploy e DNS cutover vietati finche staging remoto e smoke non sono `PASS` e l'utente non conferma esplicitamente. Remote staging resta `BLOCKED_CLOUDFLARE_STAGING_IDENTITY_AND_TARGETS_NOT_VERIFIED`: `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` mancanti, `wrangler` non autenticato, account/zone Cloudflare non verificati, domini staging/production `UNKNOWN`, Supabase staging project `UNKNOWN_FOR_THIS_TASK` con solo candidato storico non-production `merchandisecontrol-dev` / `jpgoimipbothfgkokyvm`, GitHub environments `cloudflare-staging` e `cloudflare-production` non trovati via API (`404`). Workflow production ora richiede `workflow_dispatch`, environment `cloudflare-production` e conferme manuali, ma required reviewers remoti restano da configurare/verificare. Production deploy `NOT_RUN_PRODUCTION_FORBIDDEN`; custom domain/DNS `BLOCKED_DOMAIN_UNKNOWN_AND_ZONE_NOT_VERIFIED` / `BLOCKED_DNS_OR_DOMAIN_PERMISSION_REQUIRED`; WAF/rate limit `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED`; Supabase Auth URLs `BLOCKED_SUPABASE_AUTH_URLS_MANUAL_STEP`; Vercel resta parcheggiato con `git.deploymentEnabled=false`.
+- Cloudflare hosting migration follow-up 2026-06-07: `wrangler.jsonc` aggiornato con ambienti `staging` e `production`, workflow separato `.github/workflows/cloudflare.yml` aggiunto, runbook `docs/DEPLOYMENT/CLOUDFLARE-MIGRATION.md` e `docs/DEPLOYMENT/CLOUDFLARE-ROLLBACK.md` creati. Decisione operativa aggiuntiva: prima fase obbligatoria solo Cloudflare staging remoto; production deploy e DNS cutover vietati finche staging remoto e smoke non sono `PASS` e l'utente non conferma esplicitamente. Nota storica: i blocker iniziali `BLOCKED_CLOUDFLARE_STAGING_IDENTITY_AND_TARGETS_NOT_VERIFIED`, `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` mancanti, `wrangler` non autenticato e GitHub environments non trovati sono stati superati dall'unblock TASK-058 del 2026-06-12. Restano attuali solo custom domain/DNS `BLOCKED_DOMAIN_UNKNOWN_AND_ZONE_NOT_VERIFIED` / `BLOCKED_DNS_OR_DOMAIN_PERMISSION_REQUIRED`, WAF/rate limit `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED`, Supabase Auth URLs `BLOCKED_SUPABASE_AUTH_URLS_MANUAL_STEP`, Supabase remote project-list `PARTIAL` e production deploy `NOT_RUN_PRODUCTION_FORBIDDEN`; Vercel resta parcheggiato con `git.deploymentEnabled=false`.
 - TASK-052 recovery 2026-06-11: aperto per ripristinare stato compilabile dopo tentativo precedente di Shop/Admin UX polish non affidabile. Ripristinati da `HEAD` i pannelli operativi catalog/import-export/member/staff e le pagine contaminate dal tracking `actionsEnabled`; riapplicato solo polish piccolo su ShopShell, navigazione, Diagnostics e tracking. Non dichiarare `DONE`, non fare commit/push/stage e non creare dati locali o migration.
 - TASK-052 final review 2026-06-11: regressione completa rieseguita dopo fix `ShopShell` `prefetch={false}` su nav protetta e logout; browser laterale autenticato su `127.0.0.1:3049` con fixture locale `TASK052_REVIEW_*`; cleanup locale completata con residui a zero. Stato resta `DONE`, non `DONE`. Rischio residuo tracciato: smoke legacy TASK-035 passa 2/3 e resta bloccato solo sulla safe view shop-owner `/shop/staff` (`Read blocked`), non su perdita sessione.
 - TASK-053 aperto il 2026-06-11: fix architetturale del blocker `/shop/staff Read blocked`. La riproduzione locale ha confermato `42501 permission denied for table staff_accounts` su `staff_accounts_safe` per account personale autenticato, mentre la lettura diretta delle colonne safe gia grantate passava. Soluzione scelta: grant colonnare additivo `SELECT(web_access_revoked_at)` a `authenticated`, con RLS e `security_invoker=true` preservati; nessun service-role browser e nessun grant su `credential_hash`.
@@ -2431,6 +2467,49 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   Aggiunto fix di redazione per `scripts/dev-supabase-check.mjs`. Verdict TASK-057:
   `READY_FOR_DONE_CONFIRMATION`; resta `REVIEW`, non `DONE`, finche manca la
   conferma utente esplicita.
+- TASK-058 Cloudflare/OpenNext staging hardening 2026-06-12: il prompt TASK-058
+  e stato trattato come conferma utente esplicita per riconciliare TASK-057
+  dopo preflight reale positivo (`git status`, `git diff --check`, targeted
+  TASK-057 `21/21`). Repo-controllabile completato: Vercel resta parcheggiato
+  con `deploymentEnabled=false`; `wrangler.jsonc` separa staging/production e
+  usa `compatibility_date` `2026-06-10`, massima data supportata dal workerd
+  locale Wrangler `4.98.0`; workflow Cloudflare aggiunge smoke locale,
+  staging deploy `--env staging --keep-vars`, smoke staging condizionato e
+  production solo `workflow_dispatch`/branch `main`/conferme manuali; route
+  import/export sensibili sono `nodejs`, dinamiche e `no-store`; runbook WAF e
+  rollback aggiornati. Unblock esterno eseguito: Wrangler OAuth `PASS`,
+  account Cloudflare verificato, workers.dev subdomain staging creato, Worker
+  staging deployato su
+  `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev`,
+  Worker staging secrets impostati per nome, GitHub environments
+  `cloudflare-staging` e `cloudflare-production` creati, production environment
+  con `required_reviewers`, secret GitHub `CLOUDFLARE_ACCOUNT_ID` e
+  `CLOUDFLARE_API_TOKEN` configurati per staging/production senza stampare
+  valori. Check reali: targeted TASK-058/legacy `65/65`, `security:scan`,
+  `test:foundation` `284/284`, `typecheck`, `lint`, `build`,
+  `verify` PASS_WITH_WARNINGS per warning noti Next/Node, `cf:build`
+  PASS_WITH_WARNINGS con worker generato, `smoke:cloudflare:local` PASS,
+  `wrangler deploy --dry-run --env staging` PASS_WITH_WARNINGS,
+  `db:staging:status` PASS con env process-only, `wrangler deploy --env staging
+  --keep-vars` PASS, `smoke:staging` PASS `1/1`, `wrangler deployments
+  list/status --env staging` ROLLBACK_READ_ONLY_VERIFIED. GitHub Actions
+  staging reale PASS nella run `27449125119` su commit `b9904ce`: auth
+  diagnostic PASS (`cfut_` token presente, active via API), `Deploy Worker
+  staging` PASS, `Smoke staging` PASS dopo install Chromium Playwright,
+  production skipped. La causa auth precedente era il salvataggio del comando
+  `curl` wrapper invece del token puro nel secret staging.
+  Pre-merge 2026-06-13 UTC: token Cloudflare esposto ruotato senza stampare
+  valori, token vecchi `Edit Cloudflare Workers` revocati `2/2`, secret
+  `CLOUDFLARE_API_TOKEN` aggiornato negli environment GitHub
+  `cloudflare-staging` e `cloudflare-production`, e nuova run staging
+  post-rotazione `27450388578` PASS (`Cloudflare build`, `Deploy staging`,
+  auth diagnostic, Worker deploy e smoke staging), production skipped.
+  Blocker residui: nessuna Cloudflare zone/custom domain per applicare WAF/rate-limit remoto,
+  `npx supabase projects list` non concluso per hang quindi Supabase remote
+  verification resta `PARTIAL`, rollback staging reale non eseguito per assenza
+  di precedente deployment safe noto. Deploy production, DNS cutover e Supabase
+  production apply `NOT_RUN_PRODUCTION_FORBIDDEN`; TASK-058 resta
+  `REVIEW_WITH_EXTERNAL_BLOCKERS`.
 - Snapshot pre-TASK-055 2026-06-11: Stato globale attuale: `IDLE`;
   Task attivo: `NESSUNO`.
 - TASK-055 aperto il 2026-06-11: polish UI Shop Admin Console per menu laterale, header shop con nome/RUT/shop code, filtri products, card categories, card import/export e copy roles. Scope esplicitamente limitato a UI e piccolo arricchimento server-side di dati shop gia disponibili; vietati schema/migration/RLS/RPC, role editor, CRUD ruoli, nuove dipendenze, dati finti, service-role client/browser, commit/push/stage e deploy production. Handoff Codex pronto per `REVIEW`, non `DONE`. Check freschi: targeted TASK-055 RED/GREEN PASS 6/6, targeted legacy PASS 13/13, `lint` PASS, `typecheck` PASS, `security:scan` PASS, `test:foundation` PASS 247/247, `build` e `verify` PASS_WITH_WARNINGS per warning noti Next/Node, `test:shop-admin-auth-smoke` PASS 4/4 con Supabase locale e env process-only, visual check via screenshot Playwright autenticato.

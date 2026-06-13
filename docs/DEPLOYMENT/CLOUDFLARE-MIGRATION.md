@@ -2,53 +2,74 @@
 
 ## Stato
 
-- Stato corrente: `BLOCKED_CLOUDFLARE_STAGING_IDENTITY_AND_TARGETS_NOT_VERIFIED`.
+- Stato corrente: `REVIEW_WITH_EXTERNAL_BLOCKERS`.
 - Vercel: parcheggiato; `vercel.json` mantiene `git.deploymentEnabled=false`.
-- OpenNext locale: gia preparato da `TASK-041`.
-- Cloudflare staging remoto: `NOT_RUN_BLOCKED`, mancano autenticazione
-  Cloudflare, account/zone verificati, target Supabase staging confermato e
-  secret staging configurati.
+- OpenNext locale: `PASS_WITH_WARNINGS`, worker generato.
+- Smoke Cloudflare/OpenNext locale: `PASS` con
+  `npm run smoke:cloudflare:local`.
+- Cloudflare Wrangler OAuth/account: `PASS`.
+- Cloudflare staging workers.dev: `PASS`.
+- Cloudflare staging deploy remoto: `PASS` via Wrangler locale.
+- Cloudflare staging smoke remoto: `PASS`.
+- GitHub Actions staging deploy: `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW`.
 - Cloudflare production: `NOT_RUN_PRODUCTION_FORBIDDEN`.
-- Custom domain/DNS: `BLOCKED_DOMAIN_UNKNOWN_AND_ZONE_NOT_VERIFIED`.
+- Custom domain/DNS: `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`.
 - Supabase Auth URL alignment: `BLOCKED_SUPABASE_AUTH_URLS_MANUAL_STEP`.
 - WAF/rate limit/Access rules: `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED`.
-- GitHub environments: `BLOCKED_GITHUB_CLOUDFLARE_ENVIRONMENTS_NOT_FOUND`.
+- GitHub environments: `PASS`, `cloudflare-staging` e
+  `cloudflare-production` creati; production ha `required_reviewers`.
+- Supabase staging: `PASS_GUARDRAIL`,
+  `SUPABASE_STAGING_VERIFICATION_PARTIAL` per hang di
+  `npx supabase projects list`.
 
-## Decisioni operative vincolanti 2026-06-07
+## Storico blocker 2026-06-12
 
-- Prima fase obbligatoria: completare solo Cloudflare staging remoto.
+Questi blocker erano veri nel preflight iniziale TASK-058 e restano nel runbook
+per tracciabilita e scanner, ma sono stati riclassificati dopo l'unblock:
+
+| Blocker storico | Stato aggiornato |
+| --- | --- |
+| `BLOCKED_CLOUDFLARE_API_TOKEN_MISSING` | `RESOLVED_GITHUB_ENV_SECRET_CONFIGURED`, secret `CLOUDFLARE_API_TOKEN` presente per nome in `cloudflare-staging` e `cloudflare-production`. |
+| `BLOCKED_CLOUDFLARE_ACCOUNT_ID_MISSING` | `RESOLVED_GITHUB_ENV_SECRET_CONFIGURED`, secret `CLOUDFLARE_ACCOUNT_ID` presente per nome in `cloudflare-staging` e `cloudflare-production`. |
+| `BLOCKED_SUPABASE_STAGING_UNKNOWN` | `PARTIAL`, guardrail staging passa con env process-only; verifica remota Supabase project-list non conclusa per hang. |
+
+## Decisioni operative vincolanti
+
+- Prima fase obbligatoria: completare e verificare solo Cloudflare staging
+  remoto su workers.dev.
 - Production deploy e DNS cutover sono consentiti solo dopo tutti i gate
-  staging `PASS` e nuova conferma esplicita dell'utente.
+  staging `PASS`, WAF/rate-limit applicabili su zona reale, rollback safe
+  definito e nuova conferma esplicita dell'utente.
 - Se permessi Cloudflare, GitHub o Supabase mancano, non tentare workaround:
   fermarsi e aggiornare la checklist `BLOCKED`.
-- Dominio staging desiderato: `UNKNOWN`.
+- Dominio staging custom desiderato: `UNKNOWN`.
 - Dominio production desiderato: `UNKNOWN`.
-- Cloudflare account/zone: usare solo account/zone gia configurati e
-  verificati; se non identificabili, fermarsi.
-- Supabase staging project: `UNKNOWN_FOR_THIS_TASK`. Storicamente
-  `merchandisecontrol-dev` / `jpgoimipbothfgkokyvm` e stato verificato come
-  non-production, ma va confermato esplicitamente come target staging di questa
-  migrazione prima di configurare secret Cloudflare.
+- Cloudflare account: verificato via Wrangler OAuth e API. Zone/custom domain:
+  non presenti nell'account corrente.
+- Supabase staging/dev: usato solo con env process-only e guardrail; non
+  salvare valori in repo/evidence.
 - Supabase production project: non usare ne modificare senza conferma
   esplicita.
 - CI/CD production: workflow preparato con `workflow_dispatch`, environment
-  `cloudflare-production` e conferme manuali; la protezione GitHub environment
-  con required reviewers resta da configurare/verificare.
-- Obiettivo minimo corrente: `BLOCKED_CLOUDFLARE_STAGING_READY_PREREQUISITES`.
+  `cloudflare-production`, conferme manuali e required reviewer remoto.
 
-## Checklist BLOCKED corrente
+## Checklist corrente
 
 | Gate | Stato | Evidence |
 | --- | --- | --- |
-| Cloudflare token locale | `BLOCKED_CLOUDFLARE_API_TOKEN_REQUIRED` | `CLOUDFLARE_API_TOKEN=MISSING`; `npx wrangler whoami` non autenticato. |
-| Cloudflare account id | `BLOCKED_CLOUDFLARE_ACCOUNT_ID_REQUIRED` | `CLOUDFLARE_ACCOUNT_ID=MISSING`; `wrangler.jsonc` non contiene `account_id`. |
-| Cloudflare zone/domain | `BLOCKED_CLOUDFLARE_ZONE_NOT_VERIFIED` | Nessuna route/custom domain in `wrangler.jsonc`; dominio staging e production `UNKNOWN`. |
-| GitHub staging environment | `BLOCKED_GITHUB_ENVIRONMENT_NOT_FOUND` | `gh api repos/XNIW/merchandise-control-admin-web/environments/cloudflare-staging` restituisce `404`. |
-| GitHub production approval | `BLOCKED_GITHUB_PRODUCTION_ENVIRONMENT_APPROVAL_NOT_VERIFIED` | `cloudflare-production` restituisce `404`; required reviewers non verificabili dal repo. |
-| Supabase staging target | `BLOCKED_SUPABASE_STAGING_TARGET_NOT_CONFIRMED` | Nessun `SUPABASE_PROJECT_REF` nel processo; target storico dev va confermato per staging. |
-| Supabase staging secret | `BLOCKED_CLOUDFLARE_STAGING_SECRETS_NOT_CONFIGURED` | Env richieste mancanti nel processo; secret Worker remoto non verificabili senza Cloudflare auth. |
-| Staging deploy remoto | `NOT_RUN_BLOCKED_BY_PREREQUISITES` | Nessun deploy tentato. |
-| Staging smoke remoto | `NOT_RUN_BLOCKED_NO_REMOTE_STAGING_URL` | `PLAYWRIGHT_BASE_URL=MISSING`. |
+| Cloudflare token CI | `PASS_CONFIGURED_GITHUB_ENV_SECRET` | `gh secret list --env cloudflare-staging` e `--env cloudflare-production` mostrano `CLOUDFLARE_API_TOKEN`; valore mai letto. |
+| Cloudflare account id | `PASS_CONFIGURED_GITHUB_ENV_SECRET` | `CLOUDFLARE_ACCOUNT_ID` presente per nome nei due GitHub environments; valore non hardcoded in repo. |
+| Cloudflare zone/domain | `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED` | Cloudflare account con `zones count 0` e `workers/domains count 0`; nessuna route/custom domain in `wrangler.jsonc`. |
+| GitHub staging environment | `PASS` | `cloudflare-staging` creato e popolato con secret/vars per nome. |
+| GitHub production approval | `PASS` | `cloudflare-production` creato con `required_reviewers`; production deploy non eseguito. |
+| Supabase staging target | `PASS_GUARDRAIL_PARTIAL_REMOTE` | `npm run db:staging:status` passa con env process-only; `npx supabase projects list` hang/no output. |
+| Supabase staging secret Worker | `PASS_CONFIGURED_BY_NAME` | Worker staging contiene secret/env richiesti per nome; valori non letti. |
+| Staging deploy remoto | `PASS_WRANGLER_LOCAL` | `npx wrangler deploy --env staging --keep-vars` completato localmente. |
+| Staging deploy via GitHub Actions | `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW` | Workflow remoto verificato read-only; ultima run `main` ha saltato `Deploy staging`. |
+| Staging smoke remoto | `PASS` | `npm run smoke:staging` passa `1/1` su workers.dev staging. |
+| Rollback read-only | `ROLLBACK_READ_ONLY_VERIFIED` | `wrangler deployments list/status --env staging` passano. |
+| Rollback staging reale | `ROLLBACK_STAGING_NOT_RUN_NO_PREVIOUS_SAFE_DEPLOYMENT` | Manca un precedente deployment safe noto. |
+| WAF/rate-limit remoto | `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED` | Nessuna zona/custom domain disponibile. |
 
 ## Config repo
 
@@ -72,14 +93,15 @@
 
 Non salvare valori reali in repository, log, evidence o screenshot.
 
-| Nome | Classificazione | Dove configurare | Note |
+| Nome | Classificazione | Dove configurare | Stato |
 | --- | --- | --- | --- |
-| `NEXT_PUBLIC_SUPABASE_URL` | public safe, environment-specific | Cloudflare Worker env/secret per `staging` e `production`; GitHub environment se serve al build | Non usare production Supabase per staging senza conferma. |
-| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | public safe, environment-specific | Cloudflare Worker env/secret per `staging` e `production`; GitHub environment se serve al build | Publishable, ma non hardcodare nel repo. |
-| `SUPABASE_PROJECT_REF` | server config, non secret | Cloudflare Worker env/secret per `staging` e `production` | Serve per diagnostica/target guardrails. |
-| `SUPABASE_SERVICE_ROLE_KEY` | server secret | Cloudflare Worker secret per `staging` e `production` | Vietato nel client/browser e in GitHub Actions salvo decisione esplicita. |
-| `CLOUDFLARE_ACCOUNT_ID` | deploy secret/config | GitHub Secret | Richiesto dalla CI Cloudflare. |
-| `CLOUDFLARE_API_TOKEN` | deploy secret | GitHub Secret o processo locale | Richiesto per deploy non interattivo. |
+| `NEXT_PUBLIC_SUPABASE_URL` | public safe, environment-specific | Cloudflare Worker staging secret/env; GitHub `cloudflare-staging` var | `PASS_BY_NAME`, valore redatto. |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | public safe, environment-specific | Cloudflare Worker staging secret/env; GitHub `cloudflare-staging` var | `PASS_BY_NAME`, valore redatto. |
+| `SUPABASE_PROJECT_REF` | server config, non secret | Cloudflare Worker staging secret/env | `PASS_BY_NAME`, valore redatto. |
+| `SUPABASE_SERVICE_ROLE_KEY` | server secret | Cloudflare Worker staging secret | `PASS_BY_NAME`, valore mai stampato. |
+| `CLOUDFLARE_ACCOUNT_ID` | deploy config/secret per policy repo | GitHub Secret `cloudflare-staging` e `cloudflare-production` | `PASS_BY_NAME`, valore redatto. |
+| `CLOUDFLARE_API_TOKEN` | deploy secret | GitHub Secret `cloudflare-staging` e `cloudflare-production` | `PASS_BY_NAME`, valore mai stampato. |
+| `CLOUDFLARE_STAGING_URL` | public staging URL | GitHub `cloudflare-staging` var | `PASS_BY_NAME`. |
 
 Comandi manuali ammessi per impostare secret Cloudflare staging, da eseguire
 senza stampare i valori:
@@ -103,18 +125,17 @@ npx wrangler secret put SUPABASE_SERVICE_ROLE_KEY --env production
 
 ## Staging deploy
 
-Prerequisiti:
+Prerequisiti attuali per ripetere deploy staging:
 
-1. `CLOUDFLARE_API_TOKEN` disponibile nel processo o login Wrangler
+1. `CLOUDFLARE_API_TOKEN` disponibile nel GitHub environment o login Wrangler
    interattivo.
-2. `CLOUDFLARE_ACCOUNT_ID` configurato e account verificato.
-3. Zone/domain staging identificato se si vuole usare custom domain; altrimenti
-   usare solo URL `workers.dev` generato dal deploy.
+2. `CLOUDFLARE_ACCOUNT_ID` configurato nel GitHub environment.
+3. Zone/domain staging identificato solo se si vuole custom domain; per ora
+   workers.dev e sufficiente.
 4. Secret staging configurati sul Worker
    `merchandise-control-admin-web-staging`.
-5. Supabase staging/dev non-production confermato esplicitamente per questa
-   migrazione.
-6. GitHub environment `cloudflare-staging` configurato se si usa deploy da CI.
+5. Supabase staging/dev non-production guardrailato e confermato per il run.
+6. GitHub environment `cloudflare-staging` configurato.
 
 Comandi:
 
@@ -125,13 +146,19 @@ npm run typecheck
 npm run lint
 npm run build
 npm run cf:build
-npx wrangler deploy --env staging
+npm run smoke:cloudflare:local
+npm run cf:deploy:staging
+npx wrangler deploy --env staging --keep-vars
 ```
 
-Smoke remoto staging, solo dopo URL Cloudflare reale:
+`npm run cf:deploy:staging` esegue `npm run cf:build` e poi
+`npx wrangler deploy --env staging --keep-vars`, in modo da non cancellare le
+variabili configurate in dashboard/GitHub environment.
+
+Smoke remoto staging:
 
 ```bash
-PLAYWRIGHT_BASE_URL="https://<staging-host>" \
+PLAYWRIGHT_BASE_URL="https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev" \
 ALLOW_STAGING_E2E=yes \
 CONFIRM_STAGING_E2E=yes \
 npm run smoke:staging
@@ -140,12 +167,12 @@ npm run smoke:staging
 Smoke curl read-only:
 
 ```bash
-curl -i "https://<staging-host>/"
-curl -i "https://<staging-host>/auth/login?next=/shop"
-curl -i "https://<staging-host>/auth/login?next=/platform"
-curl -i "https://<staging-host>/shop"
-curl -i "https://<staging-host>/platform"
-curl -i "https://<staging-host>/api/pos/sales/sync"
+curl -i "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev/"
+curl -i "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev/auth/login?next=/shop"
+curl -i "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev/auth/login?next=/platform"
+curl -i "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev/shop"
+curl -i "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev/platform"
+curl -i "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev/api/pos/sales/sync"
 ```
 
 Aspettative:
@@ -162,19 +189,23 @@ Non eseguire production finche non sono veri tutti questi gate:
 
 - staging deploy remoto: `PASS`;
 - staging smoke remoto: `PASS`;
-- secrets production configurati;
+- secrets production configurati per il target corretto;
 - Supabase production target chiarito e confermato;
 - dominio production confermato;
-- GitHub environment `cloudflare-production` configurato con required reviewers
-  o approvazione equivalente verificata;
-- rollback plan pronto;
+- GitHub environment `cloudflare-production` con required reviewers verificato;
+- rollback plan pronto e punto rollback safe definito;
+- WAF/rate-limit valutati su zona reale;
 - conferma esplicita utente per production deploy e DNS cutover.
+
+Nota CI/CD: production deployment da GitHub Actions richiede comunque
+environment approval su `cloudflare-production`; TASK-058 non ha eseguito
+deploy production.
 
 Comandi solo dopo conferma e fuori dalla prima fase staging:
 
 ```bash
 npm run cf:build
-npx wrangler deploy --env production
+npx wrangler deploy --env production --keep-vars
 ```
 
 DNS cutover production resta separato dal deploy Worker e richiede conferma
@@ -187,9 +218,12 @@ Dominio richiesto ma non confermato:
 - staging: `UNKNOWN`;
 - production: `UNKNOWN`.
 
-Se il dominio e in una zona Cloudflare controllata, configurare custom domain con `routes` e `custom_domain: true` o dashboard Workers > Settings > Domains & Routes.
+Stato account: nessuna Cloudflare zone/custom domain disponibile. Se il dominio
+viene aggiunto a Cloudflare, configurare custom domain con `routes` e
+`custom_domain: true` o dashboard Workers > Settings > Domains & Routes.
 
-Non aggiungere route/domain in `wrangler.jsonc` finche il dominio reale non e confermato.
+Non aggiungere route/domain in `wrangler.jsonc` finche il dominio reale non e
+confermato.
 
 ## Supabase Auth URL alignment
 
@@ -197,8 +231,8 @@ Aggiornare manualmente Supabase Auth URL Configuration:
 
 - Site URL staging: URL staging Cloudflare confermata.
 - Redirect URLs staging:
-  - `https://<staging-host>/auth/callback`;
-  - `https://<staging-host>/**` solo se serve durante preview/staging controllata.
+  - `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev/auth/callback`;
+  - `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev/**` solo se serve durante staging controllata.
 - Site URL production: dominio production confermato.
 - Redirect URLs production:
   - `https://<production-host>/auth/callback`;
@@ -213,9 +247,13 @@ Regole minime da applicare dopo dominio/zona:
 - rate limit su `/auth/*`;
 - rate limit su `/shop/staff-login`;
 - rate limit su `/api/pos/*`;
+- protezione/log dedicato per `/platform/operations`;
 - log-first per nuove soglie, poi challenge/block dopo validazione;
-- non proteggere tutto `/auth/login` con Cloudflare Access se impedisce ai clienti Shop Admin di entrare;
-- valutare Cloudflare Access solo per Master Console su path/domain dedicato.
+- non proteggere tutto `/auth/login` con Cloudflare Access se impedisce ai
+  clienti Shop Admin di entrare;
+- valutare Cloudflare Access solo per Master Console su path/domain dedicato;
+- procedure false-positive documentate in
+  `docs/DEPLOYMENT/CLOUDFLARE-WAF-RATE-LIMIT.md`.
 
 Stato corrente: `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED`.
 
