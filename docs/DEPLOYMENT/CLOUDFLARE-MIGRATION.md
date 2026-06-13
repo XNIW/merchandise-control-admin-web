@@ -11,16 +11,16 @@
 - Cloudflare staging workers.dev: `PASS`.
 - Cloudflare staging deploy remoto: `PASS` via Wrangler locale.
 - Cloudflare staging smoke remoto: `PASS`.
-- GitHub Actions staging deploy: `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW`.
+- GitHub Actions staging deploy: `PASS_GITHUB_ACTIONS_STAGING_DEPLOY_AND_SMOKE`.
 - Cloudflare production: `NOT_RUN_PRODUCTION_FORBIDDEN`.
 - Custom domain/DNS: `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`.
 - Supabase Auth URL alignment: `BLOCKED_SUPABASE_AUTH_URLS_MANUAL_STEP`.
-- WAF/rate limit/Access rules: `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED`.
+- WAF/rate limit/Access rules: `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`.
 - GitHub environments: `PASS`, `cloudflare-staging` e
   `cloudflare-production` creati; production ha `required_reviewers`.
-- Supabase staging: `PASS_GUARDRAIL`,
-  `SUPABASE_STAGING_VERIFICATION_PARTIAL` per hang di
-  `npx supabase projects list`.
+- Supabase staging: `PASS_GUARDRAIL_PARTIAL_TIMEOUT`; guardrail staging passa,
+  ma `npx supabase projects list --output-format json` non ha concluso entro
+  timeout controllato.
 
 ## Storico blocker 2026-06-12
 
@@ -32,6 +32,17 @@ per tracciabilita e scanner, ma sono stati riclassificati dopo l'unblock:
 | `BLOCKED_CLOUDFLARE_API_TOKEN_MISSING` | `RESOLVED_GITHUB_ENV_SECRET_CONFIGURED`, secret `CLOUDFLARE_API_TOKEN` presente per nome in `cloudflare-staging` e `cloudflare-production`. |
 | `BLOCKED_CLOUDFLARE_ACCOUNT_ID_MISSING` | `RESOLVED_GITHUB_ENV_SECRET_CONFIGURED`, secret `CLOUDFLARE_ACCOUNT_ID` presente per nome in `cloudflare-staging` e `cloudflare-production`. |
 | `BLOCKED_SUPABASE_STAGING_UNKNOWN` | `PARTIAL`, guardrail staging passa con env process-only; verifica remota Supabase project-list non conclusa per hang. |
+
+## Post-merge TASK-059
+
+- TASK-058 e stato mergeato su `main` con commit `b93a6e4`.
+- La run staging GitHub Actions post-rotazione `27450388578` ha passato build,
+  deploy staging, verifica token e smoke staging; production e rimasta skipped.
+- TASK-059 non rilancia deploy staging o production: aggiorna solo evidence e
+  readiness con verifiche read-only.
+- Supabase remote verification resta `PARTIAL_TIMEOUT`, non pienamente
+  verificata.
+- Custom domain/WAF/rate-limit restano `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`.
 
 ## Decisioni operative vincolanti
 
@@ -62,10 +73,10 @@ per tracciabilita e scanner, ma sono stati riclassificati dopo l'unblock:
 | Cloudflare zone/domain | `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED` | Cloudflare account con `zones count 0` e `workers/domains count 0`; nessuna route/custom domain in `wrangler.jsonc`. |
 | GitHub staging environment | `PASS` | `cloudflare-staging` creato e popolato con secret/vars per nome. |
 | GitHub production approval | `PASS` | `cloudflare-production` creato con `required_reviewers`; production deploy non eseguito. |
-| Supabase staging target | `PASS_GUARDRAIL_PARTIAL_REMOTE` | `npm run db:staging:status` passa con env process-only; `npx supabase projects list` hang/no output. |
+| Supabase staging target | `PASS_GUARDRAIL_PARTIAL_TIMEOUT` | `npm run db:staging:status` passa con env process-only; `npx supabase projects list --output-format json` resta senza output prima del timeout controllato. |
 | Supabase staging secret Worker | `PASS_CONFIGURED_BY_NAME` | Worker staging contiene secret/env richiesti per nome; valori non letti. |
 | Staging deploy remoto | `PASS_WRANGLER_LOCAL` | `npx wrangler deploy --env staging --keep-vars` completato localmente. |
-| Staging deploy via GitHub Actions | `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW` | Workflow remoto verificato read-only; ultima run `main` ha saltato `Deploy staging`. |
+| Staging deploy via GitHub Actions | `PASS_GITHUB_ACTIONS_STAGING_DEPLOY_AND_SMOKE` | Run staging reale `27449125119` PASS; run post-rotazione `27450388578` PASS con production skipped. |
 | Staging smoke remoto | `PASS` | `npm run smoke:staging` passa `1/1` su workers.dev staging. |
 | Rollback read-only | `ROLLBACK_READ_ONLY_VERIFIED` | `wrangler deployments list/status --env staging` passano. |
 | Rollback staging reale | `ROLLBACK_STAGING_NOT_RUN_NO_PREVIOUS_SAFE_DEPLOYMENT` | Manca un precedente deployment safe noto. |
@@ -255,7 +266,7 @@ Regole minime da applicare dopo dominio/zona:
 - procedure false-positive documentate in
   `docs/DEPLOYMENT/CLOUDFLARE-WAF-RATE-LIMIT.md`.
 
-Stato corrente: `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED`.
+Stato corrente: `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`.
 
 ## Evidence da registrare
 

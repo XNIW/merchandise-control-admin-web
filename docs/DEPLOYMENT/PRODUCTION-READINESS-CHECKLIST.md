@@ -12,7 +12,9 @@
 - [x] `.env.example` contiene solo nomi variabile senza valori.
 - [x] `SUPABASE_SERVICE_ROLE_KEY` documentata come server-side only.
 - [ ] Separare env dev, staging e prod con ownership chiara.
-- [ ] Rotazione secret documentata e provata.
+- [ ] Rotazione secret documentata e provata. Stato parziale: token CI
+  Cloudflare TASK-058 ruotato e revocato correttamente; rotazione completa
+  Supabase runtime secret resta non eseguita.
 - [ ] Smoke anti-leak su ogni deployment non-production.
 
 ## Deploy controllato
@@ -27,10 +29,9 @@
 - [x] Smoke Cloudflare/OpenNext locale disponibile come
   `npm run smoke:cloudflare:local`.
 - [ ] Staging stabile HTTPS non-production con rollback. Stato:
-  workers.dev staging deployato e smoke `PASS`; rollback reale resta
-  `ROLLBACK_STAGING_NOT_RUN_NO_PREVIOUS_SAFE_DEPLOYMENT`; staging deploy
-  GitHub Actions resta
-  `GITHUB_ACTIONS_STAGING_DEPLOY_NOT_RUN_UNCOMMITTED_WORKFLOW`.
+  workers.dev staging deployato e smoke `PASS`; GitHub Actions staging deploy
+  e smoke `PASS` nella run post-rotazione `27450388578`; rollback reale resta
+  `ROLLBACK_STAGING_NOT_RUN_NO_PREVIOUS_SAFE_DEPLOYMENT`.
 - [x] Policy CI esplicita per promozione production: workflow production solo
   `workflow_dispatch` con conferme manuali e GitHub environment
   `cloudflare-production` con `required_reviewers`.
@@ -50,8 +51,8 @@
 - [x] Runbook WAF/rate-limit Cloudflare disponibile in
   `docs/DEPLOYMENT/CLOUDFLARE-WAF-RATE-LIMIT.md`.
 - [ ] Rate limit infrastrutturale su login, POS API e mutazioni Shop Admin.
-  Stato Cloudflare: `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED`; WAF/rate
-  limit remoto non attivo.
+  Stato Cloudflare: `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`; WAF/rate limit
+  remoto non attivo.
 - [ ] Body limit verificato su ogni route upload/import.
 - [ ] Content-Type guard verificato su ogni endpoint mutativo custom.
 
@@ -87,6 +88,6 @@
 - Cloudflared e effimero e non va trattato come staging stabile.
 - Cloudflare workers.dev staging e deployato, ma custom domain/zone mancano.
 - Rate limit/WAF e monitoring richiedono una zona Cloudflare o provider
-  esterno; stato `BLOCKED_CLOUDFLARE_ZONE_PERMISSION_REQUIRED`.
+  esterno; stato `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`.
 - Win7POS live E2E resta parcheggiato per disponibilita ambiente.
 - TASK-024 Sales Sync resta `DEFERRED`; nessun runtime vendite e stato introdotto.
