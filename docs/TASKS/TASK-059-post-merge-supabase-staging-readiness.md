@@ -4,10 +4,10 @@
 
 - ID: `TASK-059`
 - Titolo: `Post-merge Supabase Staging Readiness`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `REVIEWER`
-- Branch previsto: `codex/task-059-post-merge-supabase-readiness`
+- Stato: `DONE_RECONCILED_WITH_NOTES`
+- Fase attuale: `DONE_RECONCILED`
+- Responsabile attuale: `USER_CONFIRMED_RECONCILIATION`
+- Branch previsto: `main`
 - Base branch: `main`
 - Data apertura: `2026-06-13`
 - File Master Plan: `docs/MASTER-PLAN.md`
@@ -69,11 +69,11 @@ senza applicare modifiche remote distruttive.
 | CA-01 | Branch TASK-059 creato da `main` post-merge TASK-058. | `PASS` |
 | CA-02 | TASK-058 wording distingue token storici `Edit Cloudflare Workers` e token CI corrente. | `PASS` |
 | CA-03 | Evidence TASK-059 registra verifiche senza valori sensibili. | `PASS` |
-| CA-04 | Supabase staging remote verification classificata con timeout o pass reale. | `PARTIAL_TIMEOUT` |
-| CA-05 | Cloudflare WAF/custom domain readiness verificata read-only. | `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED` |
-| CA-06 | Production e staging deploy non rilanciati in TASK-059. | `NOT_RUN` |
+| CA-04 | Supabase staging remote verification classificata con timeout o pass reale. | `PASS_CLASSIFIED_PARTIAL_TIMEOUT` |
+| CA-05 | Cloudflare WAF/custom domain readiness verificata read-only. | `PASS_CLASSIFIED_BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED` |
+| CA-06 | Production e staging deploy non rilanciati in TASK-059. | `PASS_NOT_RUN_IN_SCOPE` |
 | CA-07 | Check locali eseguiti e registrati con esito reale. | `PASS_WITH_WARNINGS` |
-| CA-08 | PR aperta verso `main`, senza merge diretto. | `PENDING_PR` |
+| CA-08 | PR aperta verso `main`, senza merge diretto. | `PASS`, PR #1 mergeata su `main` con commit `d15e461` |
 
 ## Stato Supabase staging
 
@@ -105,12 +105,40 @@ senza applicare modifiche remote distruttive.
 
 ## Note di verifica
 
-- `npm run test:foundation` ha inizialmente segnalato una whitelist storica
-  TASK-035 che non includeva `TASK-057` come ultimo task completato. Fix mirato:
-  aggiornata solo la whitelist del test legacy, poi full foundation `284/284`
-  PASS.
+- `npm run test:foundation` ha inizialmente segnalato whitelist storiche di
+  governance non aggiornate per lo stato finale TASK-059. Fix mirato: aggiornate
+  solo le whitelist TASK-028/TASK-035/TASK-054/TASK-055 per accettare
+  `DONE_RECONCILED_WITH_NOTES`, `IDLE`, `NESSUNO` e ultimo task TASK-059, poi
+  full foundation `284/284` PASS.
 - `npm run build` e `npm run verify` passano con warning noti Next
   `middleware` -> `proxy` e Node `DEP0205`.
+
+## Final review / DONE reconciliation 2026-06-13
+
+- Conferma utente: ricevuta richiesta esplicita di final review e
+  reconciliation a `DONE` per TASK-059.
+- PR: #1, `https://github.com/XNIW/merchandise-control-admin-web/pull/1`,
+  mergeata su `main`.
+- Merge commit: `d15e461`.
+- Diff review: solo runbook/evidence/tracking documentale e whitelist
+  foundation governance mirate; nessun runtime applicativo, workflow deploy,
+  schema, migration, secret o configurazione production modificati.
+- Check finali richiesti: `git diff --check`, `npm run security:scan`,
+  `npm run test:foundation`, `npm run typecheck`, `npm run lint`,
+  `npm run build`, `npm run verify` e
+  `CF_SMOKE_SKIP_BUILD=1 npm run smoke:cloudflare:local`.
+- Supabase staging resta `PARTIAL_TIMEOUT`: e una nota residua attesa per lo
+  scope TASK-059, non blocker, perche il task chiedeva classificazione
+  read-only con timeout e non creazione token/progetti.
+- Cloudflare WAF/custom domain resta
+  `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`: e una nota residua attesa per lo
+  scope TASK-059, non blocker, perche il task chiedeva readiness read-only e
+  non creazione di zone, DNS, custom domain, WAF o rate-limit.
+- Staging deploy in TASK-059: `NOT_RUN`.
+- Production deploy: `NOT_RUN`.
+- Supabase migration/apply/reset/dump/query dati reali: `NOT_RUN`.
+- TASK-058 resta `REVIEW_WITH_EXTERNAL_BLOCKERS`.
+- Verdict finale TASK-059: `DONE_RECONCILED_WITH_NOTES`.
 
 ## Stop condition
 
@@ -118,4 +146,5 @@ senza applicare modifiche remote distruttive.
 - Non eseguire Supabase production apply.
 - Non applicare migration o reset Supabase.
 - Non stampare secret o dati reali.
-- Non dichiarare TASK-059 o TASK-058 `DONE`; handoff a `REVIEW`.
+- TASK-059 puo essere riconciliato a `DONE_RECONCILED_WITH_NOTES` per lo scope
+  readiness/read-only; TASK-058 resta `REVIEW_WITH_EXTERNAL_BLOCKERS`.

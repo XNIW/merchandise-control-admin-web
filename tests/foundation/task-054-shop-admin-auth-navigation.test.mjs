@@ -142,7 +142,7 @@ test("TASK-054 task and Master Plan tracking are aligned for DONE reconciliation
   assertContains(masterPlan, "Verdict TASK-053: `DONE`");
   assertContains(masterPlan, "Stato TASK-054: `DONE`");
   assertContains(masterPlan, "Fase TASK-054: `DONE`");
-  assert.match(masterPlan, /Stato globale attuale: `(REVIEW|EXECUTION|REVIEW_WITH_EXTERNAL_BLOCKERS)`/);
+  assert.match(masterPlan, /Stato globale attuale: `(IDLE|REVIEW|EXECUTION|REVIEW_WITH_EXTERNAL_BLOCKERS)`/);
   assertContains(masterPlan, "TASK-054C");
   assertContains(masterPlan, "Safari reale verificato");
   assertContains(masterPlan, "Final DONE confirmation");
@@ -156,7 +156,7 @@ test("TASK-054 task and Master Plan tracking are aligned for DONE reconciliation
   assertContains(masterPlan, "Stato TASK-056: `DONE_RECONCILED`");
   assert.match(
     masterPlan,
-    /Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`|Ultimo task chiuso: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`/,
+    /Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`|Ultimo task chiuso: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Ultimo task chiuso: `TASK-059 - Post-merge Supabase Staging Readiness`/,
   );
   assert.doesNotMatch(
     masterPlan,

@@ -2297,12 +2297,12 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-059 - Post-merge Supabase Staging Readiness
 
-- Stato: `REVIEW`
+- Stato: `DONE_RECONCILED_WITH_NOTES`
 - File task: `docs/TASKS/TASK-059-post-merge-supabase-staging-readiness.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-059/README.md`
-- Fase: `REVIEW`
-- Responsabile: `REVIEWER`
-- Branch previsto: `codex/task-059-post-merge-supabase-readiness`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `USER_CONFIRMED_RECONCILIATION`
+- Branch previsto: `main`
 - Scopo: cleanup post-merge TASK-058, verifica Supabase staging read-only con
   timeout, readiness Cloudflare custom domain/WAF read-only e PR verso `main`.
 - Include:
@@ -2317,7 +2317,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - deploy staging;
   - Supabase production apply, migration, reset, dump o query dati reali;
   - creazione di zone, DNS, custom domain, WAF/rate-limit o nuovi token.
-- Verdict corrente: `REVIEW`.
+- Verdict corrente: `DONE_RECONCILED_WITH_NOTES`.
 
 ## Tooling policy
 
@@ -2332,8 +2332,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `REVIEW`
-- Ultimo task completato: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`
+- Stato globale attuale: `IDLE`
+- Ultimo task completato: `TASK-059 - Post-merge Supabase Staging Readiness`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -2397,17 +2397,17 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-057: `DONE_RECONCILED`
 - Stato TASK-058: `REVIEW_WITH_EXTERNAL_BLOCKERS`
 - Fase TASK-058: `REVIEW_WITH_EXTERNAL_BLOCKERS`
-- Stato TASK-059: `REVIEW`
-- Fase TASK-059: `REVIEW`
-- Task attivo: `TASK-059 - Post-merge Supabase Staging Readiness`
+- Stato TASK-059: `DONE_RECONCILED_WITH_NOTES`
+- Fase TASK-059: `DONE_RECONCILED`
+- Task attivo: `NESSUNO`
 - Task precedente: `TASK-058 - Cloudflare/OpenNext Staging Hardening and Deployment Governance`
-- Ultimo task chiuso: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`
+- Ultimo task chiuso: `TASK-059 - Post-merge Supabase Staging Readiness`
 - File task: `docs/TASKS/TASK-059-post-merge-supabase-staging-readiness.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-059/README.md`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
-- Milestone interna: `TASK_059_REVIEW`
-- Responsabile: `REVIEWER`
+- Stato task: `DONE_RECONCILED_WITH_NOTES`
+- Fase: `DONE_RECONCILED`
+- Milestone interna: `TASK_059_DONE_RECONCILED_WITH_NOTES`
+- Responsabile: `USER_CONFIRMED_RECONCILIATION`
 - Branch previsto: `main`
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -2449,7 +2449,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-056: `DONE_RECONCILED`
 - Verdict TASK-057: `DONE_RECONCILED`
 - Verdict TASK-058: `REVIEW_WITH_EXTERNAL_BLOCKERS`
-- Verdict TASK-059: `REVIEW`
+- Verdict TASK-059: `DONE_RECONCILED_WITH_NOTES`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
 - DONE reconciliation 2026-06-06: su conferma esplicita utente, TASK-046..TASK-050 chiusi a `DONE_RECONCILED`; TASK-040 e TASK-041 restano `REVIEW_WITH_EXTERNAL_BLOCKERS`, TASK-042 resta `READY_FOR_WIN7_MANUAL_TEST`. Commit/push finale su `main` richiesti dall'utente.
 - TASK-051 aperto in execution il 2026-06-06 da brief allegato: provisioning fiscal identity, POS-first bootstrap, manager staff `1001`, Temporary PIN server-side, Admin Console fiscal identity read-only. `shop_code` resta tecnico e `company_rut` separato per compatibilita RUT cileno. Non applicare migration su production e non dichiarare PIN raw/audit/log/evidence.
@@ -2552,6 +2552,15 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   ma `zonesCount=0` e `workersDomainsCount=0`, quindi WAF/custom domain resta
   `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`. Deploy staging e production
   `NOT_RUN` in TASK-059; rollback reale non eseguito.
+- Final review / DONE reconciliation TASK-059 2026-06-13: su richiesta
+  esplicita dell'utente, TASK-059 riconciliato a
+  `DONE_RECONCILED_WITH_NOTES` dopo verifica merge PR #1 su `main` con commit
+  `d15e461` e review scope del diff. Note residue non bloccanti per TASK-059:
+  Supabase remote verification `PARTIAL_TIMEOUT`, Cloudflare WAF/custom domain
+  `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`, rollback staging reale non eseguito
+  e production deploy `NOT_RUN`. TASK-058 resta
+  `REVIEW_WITH_EXTERNAL_BLOCKERS`; TASK-040/TASK-041/TASK-042, Win7POS live,
+  Sales Sync live, Cloudflare production, DNS e WAF non sono promossi.
 - Snapshot pre-TASK-055 2026-06-11: Stato globale attuale: `IDLE`;
   Task attivo: `NESSUNO`.
 - TASK-055 aperto il 2026-06-11: polish UI Shop Admin Console per menu laterale, header shop con nome/RUT/shop code, filtri products, card categories, card import/export e copy roles. Scope esplicitamente limitato a UI e piccolo arricchimento server-side di dati shop gia disponibili; vietati schema/migration/RLS/RPC, role editor, CRUD ruoli, nuove dipendenze, dati finti, service-role client/browser, commit/push/stage e deploy production. Handoff Codex pronto per `REVIEW`, non `DONE`. Check freschi: targeted TASK-055 RED/GREEN PASS 6/6, targeted legacy PASS 13/13, `lint` PASS, `typecheck` PASS, `security:scan` PASS, `test:foundation` PASS 247/247, `build` e `verify` PASS_WITH_WARNINGS per warning noti Next/Node, `test:shop-admin-auth-smoke` PASS 4/4 con Supabase locale e env process-only, visual check via screenshot Playwright autenticato.
