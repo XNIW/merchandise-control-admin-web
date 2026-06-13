@@ -119,7 +119,7 @@ modificato.
 
 ## PR
 
-- PR verso `main`: `PENDING_PR`.
+- PR verso `main`: https://github.com/XNIW/merchandise-control-admin-web/pull/1
 
 ## Rischi residui
 
