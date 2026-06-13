@@ -2498,6 +2498,12 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   staging` PASS, `Smoke staging` PASS dopo install Chromium Playwright,
   production skipped. La causa auth precedente era il salvataggio del comando
   `curl` wrapper invece del token puro nel secret staging.
+  Pre-merge 2026-06-13 UTC: token Cloudflare esposto ruotato senza stampare
+  valori, token vecchi `Edit Cloudflare Workers` revocati `2/2`, secret
+  `CLOUDFLARE_API_TOKEN` aggiornato negli environment GitHub
+  `cloudflare-staging` e `cloudflare-production`, e nuova run staging
+  post-rotazione `27450388578` PASS (`Cloudflare build`, `Deploy staging`,
+  auth diagnostic, Worker deploy e smoke staging), production skipped.
   Blocker residui: nessuna Cloudflare zone/custom domain per applicare WAF/rate-limit remoto,
   `npx supabase projects list` non concluso per hang quindi Supabase remote
   verification resta `PARTIAL`, rollback staging reale non eseguito per assenza

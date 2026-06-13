@@ -62,6 +62,26 @@ Verdict confermato: `REVIEW_WITH_EXTERNAL_BLOCKERS`.
 - Evidence wording: nessuna dichiarazione di production-ready o architettura
   ideale completa per TASK-058; la checklist production mantiene i gate aperti.
 
+## Rotazione token pre-merge 2026-06-13 UTC
+
+- Precondizione sicurezza merge: il token Cloudflare esposto durante la review
+  e stato ruotato senza stampare valori.
+- Nuovo token creato con nome `TASK-058 GitHub Actions Cloudflare deploy
+  2026-06-13`, scope clonati dal token CI valido e verificato con
+  `wrangler whoami` senza stampare il valore.
+- GitHub environment secrets aggiornati per nome:
+  - `cloudflare-staging/CLOUDFLARE_API_TOKEN` aggiornato
+    `2026-06-13T00:10:25Z`;
+  - `cloudflare-production/CLOUDFLARE_API_TOKEN` aggiornato
+    `2026-06-13T00:10:25Z`.
+- Token vecchi `Edit Cloudflare Workers` revocati: `2/2` revoche PASS; dopo
+  revoca resta attivo solo il token CI nuovo.
+- Clipboard e memoria temporanea Safari svuotate dopo l'aggiornamento secret.
+- GitHub Actions staging post-rotazione: run `27450388578`, commit `c4aef59`,
+  `Cloudflare build` PASS, `Deploy staging` PASS, `Verify Cloudflare token with
+  API` PASS, `Deploy Worker staging` PASS, `Smoke staging` PASS,
+  `Deploy production` skipped.
+
 ## File letti
 
 - `docs/MASTER-PLAN.md`

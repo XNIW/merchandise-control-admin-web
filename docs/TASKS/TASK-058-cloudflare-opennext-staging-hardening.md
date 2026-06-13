@@ -39,6 +39,15 @@ step CI `Verify Cloudflare token with API` (`success=true`, `status=active`).
 Il successivo blocker CI era l'assenza del browser Playwright nel job staging,
 corretta installando Chromium prima dello smoke.
 
+Pre-merge 2026-06-13 UTC: per chiudere il rischio del token Cloudflare esposto
+in screenshot, il token e stato ruotato senza stampare valori, i due token
+vecchi `Edit Cloudflare Workers` sono stati revocati e i secret
+`CLOUDFLARE_API_TOKEN` degli environment GitHub `cloudflare-staging` e
+`cloudflare-production` sono stati aggiornati. La run staging post-rotazione
+`27450388578` su commit `c4aef59` e passata (`Cloudflare build`, `Deploy
+staging`, auth diagnostic, Worker deploy e smoke staging), con production
+skipped.
+
 ## Include
 
 - Discovery Cloudflare/OpenNext esistente.
