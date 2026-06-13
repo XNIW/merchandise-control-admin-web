@@ -2,10 +2,10 @@
 
 ## Stato
 
-- Stato corrente: `READY_AS_RUNBOOK_ONLY`.
+- Stato corrente: `READY_AS_RUNBOOK_ONLY_BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`.
 - Regole remote Cloudflare: `NOT_APPLIED`.
-- Motivo: account, zone, dominio staging e dominio production non sono ancora
-  verificati in questa task.
+- Motivo: account Cloudflare verificato read-only, ma l'account corrente non
+  contiene zone o Workers custom domains configurabili.
 - Production: non configurare o modificare regole senza conferma esplicita.
 
 ## Principi
@@ -59,6 +59,15 @@ Prima di applicare regole remote:
 npx wrangler whoami
 ```
 
+TASK-059 read-only evidence:
+
+- `npx wrangler whoami`: `PASS`, account utente verificato via OAuth.
+- Cloudflare dashboard API read-only: `zonesCount=0`.
+- Workers custom domains read-only: `workersDomainsCount=0`.
+- `wrangler.jsonc`: nessuna `routes` o custom domain configurata.
+- Verdict: `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`; nessuna regola WAF/rate
+  limit e attiva.
+
 Verificare manualmente in Cloudflare dashboard:
 
 1. Account corretto.
@@ -72,6 +81,7 @@ Se account o zone non sono verificati, classificare:
 - `BLOCKED_CLOUDFLARE_API_TOKEN_MISSING`
 - `BLOCKED_CLOUDFLARE_ACCOUNT_ID_MISSING`
 - `BLOCKED_CLOUDFLARE_ZONE_NOT_VERIFIED`
+- `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`
 - `BLOCKED_CLOUDFLARE_STAGING_DOMAIN_UNKNOWN`
 
 ## Logging e redaction

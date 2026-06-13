@@ -5,10 +5,8 @@
 - Task origine: `TASK-029`
 - Data: `2026-06-02`
 - Stato deploy pubblico HTTPS: `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
-- Stato Cloudflare/OpenNext:
-  `BLOCKED_CLOUDFLARE_STAGING_IDENTITY_AND_TARGETS_NOT_VERIFIED` per staging
-  remoto; preview locale storica `PASS_CLOUDFLARE_OPENNEXT_PREVIEW` in
-  `TASK-041`.
+- Stato Cloudflare/OpenNext: staging workers.dev `PASS` dopo TASK-058; custom
+  domain/WAF/rate-limit restano `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`.
 - No production: nessun deploy production deve essere eseguito da questo task.
 - Guardrail corrente: Git Integration Vercel disconnessa e `vercel.json` con `git.deploymentEnabled=false`.
 
@@ -52,44 +50,42 @@ Per ottenere uno staging/preview reale senza production serve ora uno di questi 
 
 ## Percorso Cloudflare/OpenNext staging
 
-`wrangler.jsonc` ora contiene ambienti `staging` e `production`.
+`wrangler.jsonc` contiene ambienti `staging` e `production`.
 
-Staging previsto:
+Staging Cloudflare corrente:
 
 - worker: `merchandise-control-admin-web-staging`;
-- URL workers.dev/custom domain: `BLOCKED_NOT_DEPLOYED`;
+- URL workers.dev:
+  `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev`;
 - dominio staging desiderato: `UNKNOWN`;
-- Cloudflare account/zone: `BLOCKED_NOT_VERIFIED`;
-- Supabase staging project: `UNKNOWN_FOR_THIS_TASK` (`merchandisecontrol-dev`
-  / `jpgoimipbothfgkokyvm` resta solo candidato storico non-production da
-  confermare);
-- comando previsto dopo autenticazione e secret:
+- Cloudflare account: `PASS_READ_ONLY`;
+- Cloudflare zone/custom domain: `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`;
+- Supabase staging project: `PASS_GUARDRAIL_PARTIAL_TIMEOUT`, guardrail staging
+  passa con env process-only ma `projects list` non conclude entro timeout;
+- comando previsto per ripetere staging dopo autenticazione e secret:
 
 ```bash
 npm run cf:build
-npx wrangler deploy --env staging
+npx wrangler deploy --env staging --keep-vars
 ```
 
 Blocker corrente:
 
-- `CLOUDFLARE_API_TOKEN`: `MISSING`;
-- `CLOUDFLARE_ACCOUNT_ID`: `MISSING`;
-- `npx wrangler whoami`: `BLOCKED_CLOUDFLARE_API_TOKEN_REQUIRED`, runtime non
-  autenticato;
-- `npx wrangler deployments list --env staging`:
-  `BLOCKED_CLOUDFLARE_API_TOKEN_REQUIRED`, perche il runtime corrente non e
-  autenticato e non ha `CLOUDFLARE_API_TOKEN`;
+- `CLOUDFLARE_API_TOKEN`: `PASS_BY_NAME` negli environment GitHub, valore non
+  letto;
+- `CLOUDFLARE_ACCOUNT_ID`: `PASS_BY_NAME` negli environment GitHub, valore non
+  letto;
+- `npx wrangler whoami`: `PASS`, account utente verificato;
+- `npx wrangler deployments list --env staging`: `ROLLBACK_READ_ONLY_VERIFIED`;
 - `wrangler.jsonc`: nessun `account_id`, `routes` o custom domain configurato;
-- `gh api .../environments/cloudflare-staging`:
-  `BLOCKED_GITHUB_ENVIRONMENT_NOT_FOUND`, HTTP `404`;
-- `gh api .../environments/cloudflare-production`:
-  `BLOCKED_GITHUB_PRODUCTION_ENVIRONMENT_APPROVAL_NOT_VERIFIED`, HTTP `404`;
-- custom domain: `BLOCKED_DOMAIN_UNKNOWN_AND_ZONE_NOT_VERIFIED`;
-- DNS: `BLOCKED_DNS_OR_DOMAIN_PERMISSION_REQUIRED`;
+- `gh api .../environments/cloudflare-staging`: `PASS`;
+- `gh api .../environments/cloudflare-production`: `PASS`, approval richiesto;
+- custom domain: `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`;
+- DNS: `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`;
 - Supabase staging project:
-  `BLOCKED_SUPABASE_STAGING_TARGET_NOT_CONFIRMED`;
+  `PASS_GUARDRAIL_PARTIAL_TIMEOUT`;
 - Supabase Auth URLs: `BLOCKED_SUPABASE_AUTH_URLS_MANUAL_STEP`;
-- staging remote smoke: `NOT_RUN_BLOCKED_NO_REMOTE_STAGING_URL`.
+- staging remote smoke: `PASS` nella run TASK-058 post-rotazione `27450388578`.
 
 Decisione operativa aggiunta 2026-06-07: la prima fase obbligatoria e solo
 Cloudflare staging remoto. Production deploy e DNS cutover sono fuori fase e

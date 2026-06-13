@@ -44,11 +44,10 @@ Verdict confermato: `REVIEW_WITH_EXTERNAL_BLOCKERS`.
 - Staging deploy TASK-058: GitHub Actions `Deploy Worker staging` PASS nella
   run `27449125119`; versione Worker corrente
   `6dc24d16-29f7-4006-abcc-f8308e24c761`.
-- Cloudflare token: creato in Dashboard con nome/template
-  `Edit Cloudflare Workers`, scope risorse sull'account corrente e `All zones`;
-  valore mai stampato. Il fix finale ha aggiornato solo
-  `cloudflare-staging/CLOUDFLARE_API_TOKEN` con il token puro validato; la
-  production resta non eseguita e protetta da approval.
+- Cloudflare token: `Edit Cloudflare Workers` era il nome/template dei token
+  storici usati prima della rotazione; il token CI corrente e
+  `TASK-058 GitHub Actions Cloudflare deploy 2026-06-13`. Valori mai
+  stampati. La production resta non eseguita e protetta da approval.
 - Production approval: `cloudflare-production` verificato via GitHub API con
   protection rule `required_reviewers`. Deploy production resta
   `NOT_RUN_PRODUCTION_FORBIDDEN`.
@@ -230,10 +229,13 @@ Verdict confermato: `REVIEW_WITH_EXTERNAL_BLOCKERS`.
 
 ## Stato Cloudflare API token CI
 
-- Token creato da Cloudflare Dashboard usando template `Edit Cloudflare Workers`.
-- Nome/template confermato senza valore token: `Edit Cloudflare Workers`.
-- Scope risorse limitato all'account corrente e a `All zones from an account`
-  per lo stesso account.
+- Token storici pre-rotazione: creati da Cloudflare Dashboard usando template
+  `Edit Cloudflare Workers`; revocati nella fase pre-merge `2/2`.
+- Token CI corrente: `TASK-058 GitHub Actions Cloudflare deploy 2026-06-13`,
+  creato con scope clonati dal token CI valido e verificato senza stampare il
+  valore.
+- Scope risorse: account corrente e `All zones from an account` per lo stesso
+  account.
 - Il valore one-time non e stato stampato, salvato o copiato in evidence.
 - Clipboard svuotata dopo `gh secret set`.
 - GitHub secrets verificati per nome:
