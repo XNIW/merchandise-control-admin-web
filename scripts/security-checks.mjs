@@ -4085,8 +4085,13 @@ function checkTask038PosManagerWebLogin() {
     }
   }
 
-  if (!loginPage.includes("/auth/login?next=/shop&mode=shop-code")) {
-    addFailure(`${loginPagePath} must redirect to the unified Shop code login tab`);
+  if (
+    !loginPage.includes('mode: "shop-code"') ||
+    !loginPage.includes("safeNextPath(firstParam(params.next))")
+  ) {
+    addFailure(
+      `${loginPagePath} must redirect to the unified Shop code login tab while preserving a safe next path`,
+    );
   }
 
   if (!/logoutStaffWebSession/.test(logoutRoute)) {

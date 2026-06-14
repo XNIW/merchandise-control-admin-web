@@ -2,7 +2,9 @@ import Link from "next/link";
 
 type AccessStateStatus =
   | "not_configured"
+  | "no_active_session"
   | "no_session"
+  | "session_expired"
   | "revoked"
   | "viewer_only"
   | "no_shop"
@@ -19,7 +21,9 @@ type AccessStateProps = {
 
 const titleByStatus: Record<AccessStateStatus, string> = {
   not_configured: "Runtime not configured",
+  no_active_session: "No active session",
   no_session: "No active session",
+  session_expired: "Session expired",
   revoked: "Access revoked",
   viewer_only: "Admin access required",
   no_shop: "No shop access",
@@ -38,7 +42,10 @@ export function AccessState({
   reason,
   loginHref = "/auth/login",
 }: AccessStateProps) {
-  const showLogin = status === "no_session";
+  const showLogin =
+    status === "no_session" ||
+    status === "no_active_session" ||
+    status === "session_expired";
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">

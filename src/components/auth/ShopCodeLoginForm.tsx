@@ -7,6 +7,7 @@ import {
 } from "@/app/(staff-auth)/shop/staff-login/actions";
 
 type ShopCodeLoginFormProps = {
+  nextPath?: string;
   result?: string | null;
 };
 
@@ -77,7 +78,10 @@ function initialStateForResult(result: string | null | undefined): ShopCodeLogin
   };
 }
 
-export function ShopCodeLoginForm({ result }: ShopCodeLoginFormProps) {
+export function ShopCodeLoginForm({
+  nextPath = "/shop",
+  result,
+}: ShopCodeLoginFormProps) {
   const initialState = useMemo(() => initialStateForResult(result), [result]);
   const [state, formAction, pending] = useActionState(
     staffManagerWebLoginFormAction,
@@ -100,6 +104,7 @@ export function ShopCodeLoginForm({ result }: ShopCodeLoginFormProps) {
         aria-label="Shop code sign in"
         className="grid gap-4"
       >
+        <input name="next" type="hidden" value={nextPath} />
         <div className="grid gap-1.5">
           <label htmlFor="shopCode" className="text-sm font-medium text-slate-800">
             Shop code

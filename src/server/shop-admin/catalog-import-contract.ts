@@ -19,7 +19,10 @@ export type CatalogImportProductRow = {
   barcode: string;
   categoryId?: string;
   categoryName?: string;
+  discount?: number;
+  discountedPrice?: number;
   itemNumber?: string;
+  lineTotal?: number;
   productId?: string;
   productName: string;
   purchasePrice?: number;
@@ -53,7 +56,10 @@ export type CatalogImportField =
   | "barcode"
   | "categoryId"
   | "categoryName"
+  | "discount"
+  | "discountedPrice"
   | "itemNumber"
+  | "lineTotal"
   | "productId"
   | "productName"
   | "purchasePrice"
@@ -62,6 +68,33 @@ export type CatalogImportField =
   | "stockQuantity"
   | "supplierId"
   | "supplierName";
+
+export const CATALOG_IMPORT_FIELDS = [
+  "barcode",
+  "categoryId",
+  "categoryName",
+  "discount",
+  "discountedPrice",
+  "itemNumber",
+  "lineTotal",
+  "productId",
+  "productName",
+  "purchasePrice",
+  "retailPrice",
+  "secondProductName",
+  "stockQuantity",
+  "supplierId",
+  "supplierName",
+] as const satisfies readonly CatalogImportField[];
+
+export type CatalogImportColumnSource = {
+  columnIndex: number | null;
+  columnLabel?: string;
+  confidence: "high" | "medium" | "low";
+  reason?: string;
+  score?: number;
+  source: "alias" | "pattern" | "generated" | "manual";
+};
 
 export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
   CatalogImportField,
@@ -84,8 +117,13 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "codigo_de_barras",
     "código de barra",
     "código de barras",
+    "codigo barras",
+    "código barras",
+    "codice a barre",
+    "co.barra",
     "条码",
     "條碼",
+    "条形码",
   ],
   categoryId: ["category_id", "categoria_id", "id_categoria"],
   categoryName: [
@@ -102,7 +140,10 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "item_number",
     "itemnumber",
     "item",
+    "ref",
     "sku",
+    "codice",
+    "codice articolo",
     "product_code",
     "product code",
     "productcode",
@@ -115,6 +156,10 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "codigodeproducto",
     "codigo del articulo",
     "código del artículo",
+    "número de artículo",
+    "numero de artículo",
+    "número de producto",
+    "numero de producto",
     "cod_art",
     "cod. art.",
     "item code",
@@ -133,6 +178,9 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "productname",
     "product",
     "name",
+    "中文名",
+    "商品信息",
+    "nome",
     "nombre_producto",
     "nombre producto",
     "nombre_del_producto",
@@ -156,13 +204,21 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "purchase",
     "cost",
     "cost_price",
+    "purchaseprice",
+    "new purchase price",
+    "buy price",
+    "prezzo acquisto",
     "precio",
     "precio_compra",
     "precio de compra",
     "precio compra",
+    "precio adquisición",
     "compra",
     "costo",
     "precio unitario",
+    "v. unit. bruto",
+    "pre/u",
+    "销售单价",
     "单价",
     "單價",
     "进价",
@@ -178,16 +234,77 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "precio de venta",
     "precio venta",
     "venta",
-    "售价",
-    "售價",
     "零售价",
     "零售價",
+  ],
+  discount: [
+    "discount",
+    "discount_percent",
+    "discount %",
+    "discount%",
+    "sconto",
+    "descuento",
+    "rebaja",
+    "dto%",
+    "dcto",
+    "d%",
+    "d.%",
+    "折扣",
+    "折",
+  ],
+  discountedPrice: [
+    "discounted_price",
+    "discountedprice",
+    "discounted price",
+    "prezzo scontato",
+    "prezzoscontato",
+    "precio con descuento",
+    "precio descontado",
+    "precio rebajado",
+    "after discount price",
+    "final price",
+    "prezzo finale",
+    "售价",
+    "售價",
+    "折后价",
+    "折後價",
+    "折后单价(含税)",
+    "折後單價(含稅)",
+  ],
+  lineTotal: [
+    "line_total",
+    "line total",
+    "total_price",
+    "totalprice",
+    "total price",
+    "total",
+    "totale",
+    "importe",
+    "importe total",
+    "subtotal",
+    "price total",
+    "precio total",
+    "总价",
+    "總價",
+    "合计",
+    "合計",
+    "总计",
+    "總計",
+    "金额",
+    "金額",
   ],
   secondProductName: [
     "second_product_name",
     "second_name",
     "second name",
     "second product name",
+    "local_descripcion",
+    "local descripcion",
+    "local descripción",
+    "外文名",
+    "零售名称",
+    "productname2",
+    "product name 2",
     "nombre_2",
     "nombre2",
     "nombre 2",
@@ -207,11 +324,21 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
   stockQuantity: [
     "stock_quantity",
     "stock",
+    "stockquantity",
+    "cnt",
     "qty",
     "quantity",
     "cantidad",
+    "quantita",
+    "quantità",
     "existencias",
     "cantid",
+    "amount",
+    "numero",
+    "número",
+    "unds.",
+    "giacenza",
+    "scorte",
     "数量",
     "數量",
     "总数量",
@@ -227,9 +354,14 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "supplier",
     "suppliername",
     "proveedor",
+    "empresa proveedora",
     "fornitore",
+    "fornitore/azienda",
     "vendor",
     "provider",
+    "vendedor",
+    "distribuidor",
+    "fabricante",
     "供应商",
     "供應商",
   ],
@@ -284,8 +416,10 @@ export type CatalogImportLookupMaps = {
 };
 
 export type CatalogImportHeaderDetection = {
-  headerRowIndex: number;
+  dataStartRowIndex: number;
+  headerRowIndex: number | null;
   headers: Map<CatalogImportField, number>;
+  recognizedColumnSources: Partial<Record<CatalogImportField, CatalogImportColumnSource>>;
   score: number;
 };
 
@@ -328,6 +462,235 @@ function headerDetectionScore(headers: Map<CatalogImportField, number>) {
   return score;
 }
 
+function headerColumnLabel(row: readonly unknown[] | undefined, index: number) {
+  return String(row?.[index] ?? "").trim();
+}
+
+function aliasColumnSources(
+  row: readonly unknown[] | undefined,
+  headers: ReadonlyMap<CatalogImportField, number>,
+) {
+  const sources: Partial<Record<CatalogImportField, CatalogImportColumnSource>> = {};
+
+  for (const [field, columnIndex] of headers.entries()) {
+    sources[field] = {
+      columnIndex,
+      columnLabel: headerColumnLabel(row, columnIndex) || undefined,
+      confidence:
+        field === "barcode" || field === "productName" ? "high" : "medium",
+      reason: "header-alias",
+      source: "alias",
+    };
+  }
+
+  return sources;
+}
+
+function withGeneratedMinimumSources(
+  sources: Partial<Record<CatalogImportField, CatalogImportColumnSource>>,
+) {
+  for (const field of ["barcode", "productName"] satisfies CatalogImportField[]) {
+    if (!sources[field]) {
+      sources[field] = {
+        columnIndex: null,
+        confidence: "low",
+        reason: "missing-required-column",
+        source: "generated",
+      };
+    }
+  }
+
+  return sources;
+}
+
+function stringValue(value: unknown) {
+  return String(value ?? "").trim();
+}
+
+function numberLike(value: unknown) {
+  const normalized = stringValue(value).replace(/[^\d,.-]/g, "");
+
+  if (!normalized) {
+    return null;
+  }
+
+  const numeric = Number(normalized.replace(",", "."));
+
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function rowLooksProductDataLike(row: readonly unknown[]) {
+  const values = row.map(stringValue).filter(Boolean);
+  const numericCount = values.filter((value) => numberLike(value) !== null)
+    .length;
+  const textCount = values.length - numericCount;
+
+  return values.length >= 4 && numericCount >= 2 && textCount >= 1;
+}
+
+function ratio(count: number, total: number) {
+  return total > 0 ? count / total : 0;
+}
+
+function scorePatternColumn(
+  field: CatalogImportField,
+  values: readonly unknown[],
+) {
+  const nonBlank = values.map(stringValue).filter(Boolean);
+  const numeric = nonBlank.map(numberLike).filter((value) => value !== null);
+
+  if (nonBlank.length < 2) {
+    return 0;
+  }
+
+  if (field === "barcode") {
+    return ratio(
+      nonBlank.filter((value) => /^\d{8,14}$/.test(value.replace(/\D/g, "")))
+        .length,
+      nonBlank.length,
+    );
+  }
+
+  if (field === "itemNumber") {
+    return ratio(
+      nonBlank.filter((value) => {
+        const compact = value.replace(/\s+/g, "");
+
+        return compact.length >= 3 &&
+          compact.length <= 16 &&
+          /[A-Za-z0-9]/.test(compact) &&
+          !/^\d{8,14}$/.test(compact);
+      }).length,
+      nonBlank.length,
+    );
+  }
+
+  if (field === "productName" || field === "secondProductName") {
+    return ratio(
+      nonBlank.filter((value) => value.length >= 3 && numberLike(value) === null)
+        .length,
+      nonBlank.length,
+    );
+  }
+
+  if (field === "stockQuantity") {
+    return ratio(
+      numeric.filter((value) =>
+        Number.isInteger(value) && value >= 0 && value <= 100_000
+      ).length,
+      nonBlank.length,
+    );
+  }
+
+  if (
+    field === "purchasePrice" ||
+    field === "retailPrice" ||
+    field === "discount" ||
+    field === "discountedPrice" ||
+    field === "lineTotal"
+  ) {
+    return ratio(
+      numeric.filter((value) => value >= 0 && value <= 100_000_000).length,
+      nonBlank.length,
+    );
+  }
+
+  return 0;
+}
+
+function selectPatternColumn(
+  field: CatalogImportField,
+  rows: readonly (readonly unknown[])[],
+  usedColumns: ReadonlySet<number>,
+  maxColumnCount: number,
+) {
+  const candidates = Array.from({ length: maxColumnCount }, (_value, columnIndex) => {
+    const score = usedColumns.has(columnIndex)
+      ? 0
+      : scorePatternColumn(field, rows.map((row) => row[columnIndex]));
+
+    return { columnIndex, score };
+  }).sort((left, right) =>
+    right.score - left.score || left.columnIndex - right.columnIndex,
+  );
+  const selected = candidates[0];
+  const runnerUp = candidates[1];
+
+  if (!selected || selected.score < 0.72) {
+    return null;
+  }
+
+  if (runnerUp && selected.score - runnerUp.score < 0.12) {
+    return null;
+  }
+
+  return selected;
+}
+
+function detectPatternImportHeaderRow(
+  rows: readonly (readonly unknown[])[],
+): CatalogImportHeaderDetection | null {
+  const dataStartRowIndex = rows
+    .slice(0, 25)
+    .findIndex((row) => rowLooksProductDataLike(row));
+
+  if (dataStartRowIndex < 0) {
+    return null;
+  }
+
+  const sampleRows = rows
+    .slice(dataStartRowIndex, dataStartRowIndex + 40)
+    .filter(rowLooksProductDataLike);
+  const maxColumnCount = Math.max(0, ...sampleRows.map((row) => row.length));
+  const headers = new Map<CatalogImportField, number>();
+  const recognizedColumnSources: Partial<Record<CatalogImportField, CatalogImportColumnSource>> = {};
+  const usedColumns = new Set<number>();
+
+  for (const field of [
+    "barcode",
+    "itemNumber",
+    "productName",
+    "stockQuantity",
+    "purchasePrice",
+    "retailPrice",
+  ] satisfies CatalogImportField[]) {
+    const selected = selectPatternColumn(
+      field,
+      sampleRows,
+      usedColumns,
+      maxColumnCount,
+    );
+
+    if (!selected) {
+      continue;
+    }
+
+    headers.set(field, selected.columnIndex);
+    usedColumns.add(selected.columnIndex);
+    recognizedColumnSources[field] = {
+      columnIndex: selected.columnIndex,
+      confidence: selected.score >= 0.9 ? "high" : "medium",
+      reason: "pattern-score",
+      score: selected.score,
+      source: "pattern",
+    };
+  }
+
+  if (!headers.has("barcode") || !(headers.has("productName") || headers.has("itemNumber"))) {
+    return null;
+  }
+
+  return {
+    dataStartRowIndex,
+    headerRowIndex: null,
+    headers,
+    recognizedColumnSources: withGeneratedMinimumSources(
+      recognizedColumnSources,
+    ),
+    score: headerDetectionScore(headers),
+  };
+}
+
 export function detectCatalogImportHeaderRow(
   rows: readonly (readonly unknown[])[],
 ): CatalogImportHeaderDetection | null {
@@ -346,16 +709,29 @@ export function detectCatalogImportHeaderRow(
 
     const score = headerDetectionScore(headers);
 
-    if (
+    const hasStrongIdentity =
       headers.has("barcode") &&
-      (headers.has("productName") || headers.has("itemNumber")) &&
+      (headers.has("productName") || headers.has("itemNumber"));
+    const hasGeneratedBarcodeCandidate =
+      headers.has("productName") && headers.has("itemNumber");
+
+    if (
+      (hasStrongIdentity || hasGeneratedBarcodeCandidate) &&
       (!best || score > best.score)
     ) {
-      best = { headerRowIndex, headers, score };
+      best = {
+        dataStartRowIndex: headerRowIndex + 1,
+        headerRowIndex,
+        headers,
+        recognizedColumnSources: withGeneratedMinimumSources(
+          aliasColumnSources(row, headers),
+        ),
+        score,
+      };
     }
   }
 
-  return best;
+  return best ?? detectPatternImportHeaderRow(rows);
 }
 
 function normalized(value: string | null | undefined) {

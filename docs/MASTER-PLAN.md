@@ -1066,7 +1066,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening
 
-- Stato: `REVIEW`
+- Stato: `DONE`
 - File task: `docs/TASKS/TASK-029-production-path-staging-win7pos-bootstrap.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-029/README.md`
 - Fase: `REVIEW`
@@ -1149,7 +1149,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-032 - Full project progression mega-task
 
-- Stato: `REVIEW`
+- Stato: `DONE`
 - File task: `docs/TASKS/TASK-032-full-project-progression-mega-task.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-032/README.md`
 - Fase: `REVIEW`
@@ -1222,7 +1222,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - sales sync planning only in `docs/ARCHITECTURE/POS-SALES-SYNC-PLAN.md`;
   - resume checklist Win7 live E2E quando VM e drop saranno pronti.
 - Non include:
-  - commit, push o stage finale;
+  - commit/push/stage durante execution non confermata; commit e push finali
+    su `main` autorizzati esplicitamente dall'utente il 2026-06-14;
   - `DONE`;
   - riapertura UTM/VM, download ISO o creazione VM;
   - uso Production come staging;
@@ -2319,6 +2320,64 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - creazione di zone, DNS, custom domain, WAF/rate-limit o nuovi token.
 - Verdict corrente: `DONE_RECONCILED_WITH_NOTES`.
 
+### TASK-060 - Supplier Excel Android-style preview/import
+
+- Stato: `REVIEW`
+- File task: `docs/TASKS/TASK-060-supplier-excel-android-style-preview-import.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-060/README.md`
+- Fase: `DONE`
+- Responsabile: `CODEX_ORCHESTRATOR`
+- Branch previsto: `main`
+- Scopo: migliorare `Import supplier Excel` con drop zone, preview larga
+  Android-style, tabella con valori riconosciuti read-only e input mutativi
+  vuoti, parser supplier piu robusto e apply che importa solo valori
+  quantity/retail price compilati dall'utente, creando/aggiornando prodotti
+  validi dallo sheet supplier. Il resume/fix 2 aggiunge supporto `.xls`
+  legacy/HTML-Excel, mapping colonne editabile e input supplier/category
+  manuali shop-scoped. Il resume/fix 3 corregge session expiry/permission UX
+  per Shop Code staff import. I resume/fix 5-7 puliscono lo step
+  `Check columns` con sample prodotto/header reali, mapping tabellare,
+  include/exclude optional, guardia numerica Dingli e Step 3 supplier compatto
+  con `No.` prodotto e label Android/iOS `Total price`. Il gate finale
+  corregge il boundary preview/apply per autorizzare prima del multipart body
+  e aggiunge E2E locale sui workbook reali Dingli/Belina forniti dall'utente.
+- Include:
+  - apertura governance/evidence TASK-060;
+  - drop zone `.xlsx` / `.xls` accessibile con click e drag/drop, file badge,
+    remove e replace;
+  - preview step/modale larga `Supplier workbook preview`;
+  - mapping colonne digest-bound con override server-side validato;
+  - default supplier/category e override per-riga collegati solo a nomi
+    esistenti nello shop;
+  - alias multilingua, header shifted, recognized column sources e summary rows;
+  - parsing server-side `.xlsx`, `.xls` legacy/BIFF e HTML-Excel via
+    `@e965/xlsx`;
+  - `recognizedQuantity`, `recognizedPurchasePrice`, `recognizedRetailPrice`;
+  - apply supplier preview-first con `APPLY`, digest e row fingerprint;
+  - test foundation e browser/Playwright QA con fixture sintetiche;
+  - QA locale con workbook reali Dingli/Belina forniti dall'utente, senza
+    copiarli nel repository;
+  - UX auth supplier import: `session_expired`/`no_active_session` con login
+    recovery e `permission_denied` distinto da sessione non valida.
+- Handoff:
+  - supplier apply crea/aggiorna prodotti validi; identita prodotto e purchase
+    price riconosciuti possono essere importati;
+  - `retailPrice`/`stockQuantity` restano manual-only: campi vuoti preservano
+    valori esistenti e restano vuoti/default sulle righe nuove;
+  - riferimenti supplier/category non risolti nello shop diventano warning e
+    non creano anagrafiche;
+  - sheets `Suppliers`/`Categories`/`PriceHistory` restano preview-only nel
+    supplier flow;
+  - database transfer resta il percorso per import catalogo completo.
+- Non include:
+  - commit, push o stage finale;
+  - deploy production/cloud apply;
+  - dipendenze non motivate oltre `@e965/xlsx` per parsing `.xls`;
+  - schema Supabase, migration, RLS o RPC;
+  - Sales Sync, POS runtime, Win7POS/iOS/Android edits o dashboard fake;
+  - workbook reale committato/copiato o raw workbook/secret in evidence.
+- Verdict corrente: `DONE`.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -2333,7 +2392,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `IDLE`
-- Ultimo task completato: `TASK-059 - Post-merge Supabase Staging Readiness`
+- Ultimo task completato: `TASK-060 - Supplier Excel Android-style preview/import`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -2399,15 +2458,17 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-058: `REVIEW_WITH_EXTERNAL_BLOCKERS`
 - Stato TASK-059: `DONE_RECONCILED_WITH_NOTES`
 - Fase TASK-059: `DONE_RECONCILED`
+- Stato TASK-060: `DONE`
+- Fase TASK-060: `DONE`
 - Task attivo: `NESSUNO`
-- Task precedente: `TASK-058 - Cloudflare/OpenNext Staging Hardening and Deployment Governance`
-- Ultimo task chiuso: `TASK-059 - Post-merge Supabase Staging Readiness`
-- File task: `docs/TASKS/TASK-059-post-merge-supabase-staging-readiness.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-059/README.md`
-- Stato task: `DONE_RECONCILED_WITH_NOTES`
-- Fase: `DONE_RECONCILED`
-- Milestone interna: `TASK_059_DONE_RECONCILED_WITH_NOTES`
-- Responsabile: `USER_CONFIRMED_RECONCILIATION`
+- Task precedente: `TASK-059 - Post-merge Supabase Staging Readiness`
+- Ultimo task chiuso: `TASK-060 - Supplier Excel Android-style preview/import`
+- File task: `docs/TASKS/TASK-060-supplier-excel-android-style-preview-import.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-060/README.md`
+- Stato task: `DONE`
+- Fase: `DONE`
+- Milestone interna: `TASK_060_DONE`
+- Responsabile: `CODEX_ORCHESTRATOR`
 - Branch previsto: `main`
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -2450,6 +2511,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-057: `DONE_RECONCILED`
 - Verdict TASK-058: `REVIEW_WITH_EXTERNAL_BLOCKERS`
 - Verdict TASK-059: `DONE_RECONCILED_WITH_NOTES`
+- Verdict TASK-060: `DONE`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
 - DONE reconciliation 2026-06-06: su conferma esplicita utente, TASK-046..TASK-050 chiusi a `DONE_RECONCILED`; TASK-040 e TASK-041 restano `REVIEW_WITH_EXTERNAL_BLOCKERS`, TASK-042 resta `READY_FOR_WIN7_MANUAL_TEST`. Commit/push finale su `main` richiesti dall'utente.
 - TASK-051 aperto in execution il 2026-06-06 da brief allegato: provisioning fiscal identity, POS-first bootstrap, manager staff `1001`, Temporary PIN server-side, Admin Console fiscal identity read-only. `shop_code` resta tecnico e `company_rut` separato per compatibilita RUT cileno. Non applicare migration su production e non dichiarare PIN raw/audit/log/evidence.
@@ -2494,6 +2556,82 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   Aggiunto fix di redazione per `scripts/dev-supabase-check.mjs`. Verdict TASK-057:
   `READY_FOR_DONE_CONFIRMATION`; resta `REVIEW`, non `DONE`, finche manca la
   conferma utente esplicita.
+- TASK-060 resume/fix 2026-06-13: test manuale reale con workbook Dingli ha
+  evidenziato falso preview `Sheet: Unknown`, errore authorization su Shop Code
+  staff audit e supplier apply troppo conservativo. Fix: preview `ok:false`
+  resta errore, audit staff-aware per import/export, supplier apply crea/aggiorna
+  prodotti validi, quantity/retail manual-only e filtro summary Dingli piu
+  conservativo. QA reale locale PASS_WITH_NOTE su
+  `/Users/minxiang/Downloads/Vs20260519-456(Dingli).xlsx`: sheet `产品`, header
+  row `10`, apply con `failed rows 0`, 101 prodotti importati e browser laterale
+  lasciato sulla shop popolata. Nessun workbook reale copiato/committato,
+  nessun production/cloud apply, nessun commit/push/stage.
+- TASK-060 resume/fix 2 2026-06-13: aggiunti supporto `.xls`
+  legacy/HTML-Excel con `@e965/xlsx`, mapping override server-side incluso nel
+  digest, UI file selected/replace/upload collassabile, default/per-row
+  supplier/category con suggerimenti shop-scoped e tabella preview piu ampia.
+  E2E mutativo rieseguito solo su Supabase locale con workbook sintetico `.xls`
+  e cleanup; dev server corrente `3000` resta cloud e non e stato usato per
+  apply. Check finali: TASK-060 targeted `11/11`, `test:foundation` `295/295`,
+  `lint`, `typecheck`, `security:scan`, `build` PASS_WITH_WARNINGS,
+  `cf:build` PASS_WITH_WARNINGS, `npm audit` FAIL_WITH_EXISTING_WARNINGS su
+  OpenNext/Wrangler/esbuild toolchain. Nessun commit/push/stage.
+- TASK-060 resume/fix 3 2026-06-13: riprodotto il caso utente con Shop Code
+  staff manager che vedeva `This account is not authorized for this shop
+  action` dopo file ready. Root cause: sessione staff scaduta/non attiva veniva
+  rimappata in `unauthorized`, indistinguibile da permesso negato. Fix:
+  `session_expired`/`no_active_session` tornano 401 con UX `Session expired.
+  Please sign in again.` e `next` preservato verso Shop Code login;
+  `permission_denied` torna 403 e staff senza `catalog.import` non vede Import
+  supplier Excel. Route preview/apply autorizzano prima di leggere i bytes
+  workbook. E2E locale TASK-060 passa `4/4` su manager valido, sessione scaduta,
+  sessione cancellata e staff senza import; targeted foundation `12/12`,
+  `test:foundation` `296/296`, `typecheck`, `lint`, `security:scan`,
+  `verify` e `cf:build` passano con warning noti dove gia tracciati.
+  Nessun production/cloud apply,
+  nessun commit/push/stage.
+- TASK-060 resume/fix 5 2026-06-13: Step 1 resta l'unico punto con upload
+  grande/replace/remove; Step 2 contiene default supplier/category,
+  sample prodotto dalla header rilevata, contesto raw collassato e mapping
+  tabellare con header Excel reali/sample values; Step 3 contiene solo
+  preview/apply con tabella compatta `Product` / `Recognized` /
+  `Import values`, senza default/card file e con back top-level
+  Step3->Step2->Step1. Rifinitura browser review: back Step2/Step3 spostato
+  nella barra titolo del dialog come freccia Android-style a sinistra del
+  titolo. Stato resta `REVIEW` / `READY_FOR_REVIEW`; nessun commit/push/stage,
+  nessun schema/migration/RLS/RPC.
+- TASK-060 resume/fix 7 2026-06-13: corretta regressione mapping Dingli
+  `purchasePrice -> 产品名2` con guardia numerica client/server piu severa
+  (codici/testo con cifre non sono numeri), `Retail price` nascosto dal mapping
+  supplier, `Line total` rinominato `Total price` come Android/iOS, Step 2 sample
+  prima del mapping con massimo 5 righe prodotto e senza colonna Excel `Row`,
+  Step 3 con `No.` prodotto invece del numero riga Excel. Check finali mirati:
+  TASK-060 targeted `13/13`, `typecheck`, `lint`, `security:scan`, `build`
+  PASS_WITH_WARNINGS, E2E locale `3060` `5/5`, browser laterale senza errori
+  console. Stato resta `REVIEW` / `READY_FOR_REVIEW`; nessun commit/push/stage,
+  nessun schema/migration/RLS/RPC.
+- TASK-060 final gate 2026-06-14: usati i workbook reali richiesti dall'utente
+  `/Users/minxiang/Downloads/Vs20260519-456(Dingli).xlsx` e
+  `/Users/minxiang/Downloads/2604137549-Belina.xls` nella suite Playwright
+  locale su browser Chromium (`7/7`). Il browser laterale in-app e stato reso
+  visibile su `127.0.0.1:3060` durante la QA; il plugin non supporta
+  `setInputFiles`, quindi upload/apply reali sono stati eseguiti con Playwright
+  esterno sullo stesso server/Supabase locale. Corretto blocker boundary:
+  preview/apply autorizzano prima di `request.formData()` e bytes workbook,
+  usando `shop_id` in query validato server-side. Cleanup locale completato:
+  fixture `TASK060_*`/`LIVE060_*` a zero. Check finali: TASK-060 targeted
+  `13/13`, E2E real workbook `7/7` su `next start` locale, `test:foundation`
+  `297/297`, `test:shop-admin-auth-smoke` `4/4`, `test:shop:local` `4/4`,
+  `verify` PASS_WITH_WARNINGS e `cf:build` PASS_WITH_WARNINGS con warning
+  noti. Stato resta `REVIEW`; verdict operativo
+  `READY_FOR_DONE_CONFIRMATION`, non `DONE`, finche manca conferma utente
+  esplicita. Nessun commit/push/stage, nessun production/cloud apply, nessun
+  schema/migration/RLS/RPC.
+- TASK-060 DONE confirmation 2026-06-14: conferma esplicita utente ricevuta
+  con richiesta di mettere il task in `DONE`, merge su `main`, commit e push.
+  Il repository era gia su `main`, quindi il merge locale e un no-op; commit e
+  push finali su `main` sono autorizzati dopo rerun dei gate finali. TASK-060
+  chiuso a `DONE`; stato globale torna `IDLE`.
 - TASK-058 Cloudflare/OpenNext staging hardening 2026-06-12: il prompt TASK-058
   e stato trattato come conferma utente esplicita per riconciliare TASK-057
   dopo preflight reale positivo (`git status`, `git diff --check`, targeted

@@ -19,8 +19,10 @@ test("TASK-034 import/export panel makes preview-first apply semantics explicit"
   for (const required of [
     "Preview first",
     "No catalog rows are changed in preview.",
-    "Use the preview digest returned by the preview step.",
-    "APPLY only after reviewing errors, warnings and counts.",
+    "Continue to import preview before apply.",
+    "formData.set(\"previewDigest\", preview.previewDigest)",
+    "formData.set(\"confirmApply\", applyConfirmation)",
+    "Apply confirmed import",
   ]) {
     assertContains(panel, required);
   }

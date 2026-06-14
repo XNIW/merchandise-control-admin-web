@@ -59,7 +59,9 @@ export type ShopAdminPrincipalResolution =
       reason: string;
       status:
         | "not_configured"
+        | "no_active_session"
         | "no_session"
+        | "session_expired"
         | "viewer_only"
         | "no_shop"
         | "error"

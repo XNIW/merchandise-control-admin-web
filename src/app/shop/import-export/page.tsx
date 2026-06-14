@@ -67,6 +67,11 @@ export default async function ShopImportExportPage({
       </section>
       {canImport || canExport ? (
         <ImportExportActionPanel
+          authPrincipalKind={
+            importContext.status === "ready"
+              ? importContext.principalKind
+              : undefined
+          }
           canExport={canExport}
           canImport={canImport}
           selectedShopId={requestedShopId}

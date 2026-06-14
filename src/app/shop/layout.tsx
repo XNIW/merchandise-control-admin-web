@@ -9,12 +9,17 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
   const access = await resolveShopAdminDataAccess();
 
   if (access.status !== "ready") {
+    const loginHref =
+      access.status === "session_expired" || access.status === "no_active_session"
+        ? "/shop/staff-login?next=/shop"
+        : "/auth/login?next=/shop";
+
     return (
       <AccessState
         area="Admin Console"
         status={access.status}
         reason={access.reason}
-        loginHref="/auth/login?next=/shop"
+        loginHref={loginHref}
       />
     );
   }

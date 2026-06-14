@@ -139,8 +139,11 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
   assertContains(shopCodeLoginForm, "staffCode");
   assertContains(shopCodeLoginForm, "credential");
   assertContains(shopCodeLoginForm, "staffManagerWebLoginFormAction");
-  assertContains(loginPage, "/auth/login?next=/shop&mode=shop-code");
+  assertContains(loginPage, "safeNextPath(firstParam(params.next))");
+  assertContains(loginPage, 'mode: "shop-code"');
   assertContains(loginActions, "\"use server\"");
+  assertContains(loginActions, "nextPathFromForm");
+  assertContains(loginActions, "redirect(nextPath, RedirectType.replace)");
   assertContains(logoutRoute, "logoutStaffWebSession");
   assertContains(shopLayout, "resolveShopAdminDataAccess");
   assertContains(shopLayout, "principal.kind");

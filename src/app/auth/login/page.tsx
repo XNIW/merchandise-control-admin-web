@@ -23,6 +23,19 @@ function getSingleSearchParamValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
+function isSafeInternalNextPath(value: string | undefined): value is string {
+  return Boolean(value?.startsWith("/") && !value.startsWith("//"));
+}
+
+function loginHref(nextPath: string, mode: "admin-account" | "shop-code") {
+  const params = new URLSearchParams({
+    mode,
+    next: nextPath,
+  });
+
+  return `/auth/login?${params.toString()}`;
+}
+
 function tabClassName(isActive: boolean) {
   return [
     "inline-flex h-10 items-center justify-center rounded-md px-3 text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2",
@@ -39,6 +52,7 @@ export default async function PlatformAdminLoginPage({
   const next = getSingleSearchParamValue(query.next);
   const mode = getSingleSearchParamValue(query.mode);
   const result = getSingleSearchParamValue(query.result);
+  const nextPath = isSafeInternalNextPath(next) ? next : "/shop";
   const isMasterConsole = next === "/platform";
   const activeLoginMode =
     !isMasterConsole && mode === "shop-code" ? "shop-code" : "admin-account";
@@ -140,7 +154,7 @@ export default async function PlatformAdminLoginPage({
               <Link
                 role="tab"
                 aria-selected={activeLoginMode === "admin-account"}
-                href="/auth/login?next=/shop&mode=admin-account"
+                href={loginHref(nextPath, "admin-account")}
                 className={tabClassName(activeLoginMode === "admin-account")}
               >
                 Admin account
@@ -148,7 +162,7 @@ export default async function PlatformAdminLoginPage({
               <Link
                 role="tab"
                 aria-selected={activeLoginMode === "shop-code"}
-                href="/auth/login?next=/shop&mode=shop-code"
+                href={loginHref(nextPath, "shop-code")}
                 className={tabClassName(activeLoginMode === "shop-code")}
               >
                 Shop code
@@ -159,7 +173,7 @@ export default async function PlatformAdminLoginPage({
           {rendersAccountForm ? (
             <AuthForm isConfigured={isConfigured} formLabel={content.formLabel} />
           ) : (
-            <ShopCodeLoginForm result={result} />
+            <ShopCodeLoginForm nextPath={nextPath} result={result} />
           )}
 
           {rendersAccountForm && !isConfigured ? (

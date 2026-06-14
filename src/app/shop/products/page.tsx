@@ -239,6 +239,11 @@ export default async function ShopProductsPage({
     canManageProducts || canImport || canExport ? (
       <CatalogActionPanel
         archivedProducts={archivedProductCatalogOptions}
+        authPrincipalKind={
+          importContext.status === "ready"
+            ? importContext.principalKind
+            : undefined
+        }
         canExport={canExport}
         canImport={canImport}
         canManage={canManageProducts}

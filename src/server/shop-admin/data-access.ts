@@ -44,7 +44,9 @@ export type ShopAdminDataAccess =
       reason: string;
       status:
         | "not_configured"
+        | "no_active_session"
         | "no_session"
+        | "session_expired"
         | "viewer_only"
         | "no_shop"
         | "error"
@@ -75,7 +77,9 @@ function statusForAccessState(
 ): BlockedShopAdminDataAccess["status"] {
   if (
     status === "not_configured" ||
+    status === "no_active_session" ||
     status === "no_session" ||
+    status === "session_expired" ||
     status === "viewer_only" ||
     status === "no_shop" ||
     status === "error" ||

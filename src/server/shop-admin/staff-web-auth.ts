@@ -703,8 +703,8 @@ export async function resolveStaffWebSessionPrincipal(): Promise<ShopAdminPrinci
     await clearStaffWebCookie();
 
     return {
-      reason: "Staff web session is not valid.",
-      status: "unauthorized",
+      reason: "Staff web session is no longer active.",
+      status: "no_active_session",
     };
   }
 
@@ -731,7 +731,7 @@ export async function resolveStaffWebSessionPrincipal(): Promise<ShopAdminPrinci
 
     return {
       reason: "Staff web session expired.",
-      status: "no_session",
+      status: "session_expired",
     };
   }
 

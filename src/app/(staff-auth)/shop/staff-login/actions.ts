@@ -31,6 +31,16 @@ function normalizeVisibleCode(raw: string) {
   return raw.trim().toUpperCase().slice(0, 32);
 }
 
+function isSafeInternalNextPath(value: string) {
+  return value.startsWith("/") && !value.startsWith("//");
+}
+
+function nextPathFromForm(formData: FormData) {
+  const requested = value(formData, "next");
+
+  return isSafeInternalNextPath(requested) ? requested : "/shop";
+}
+
 function submittedValues(formData: FormData): ShopCodeLoginFormState["values"] {
   return {
     shopCode: normalizeVisibleCode(value(formData, "shopCode")),
@@ -38,8 +48,14 @@ function submittedValues(formData: FormData): ShopCodeLoginFormState["values"] {
   };
 }
 
-function resultPath(result: string) {
-  return `/auth/login?next=/shop&mode=shop-code&result=${encodeURIComponent(result)}`;
+function resultPath(result: string, nextPath: string) {
+  const params = new URLSearchParams({
+    mode: "shop-code",
+    next: nextPath,
+    result,
+  });
+
+  return `/auth/login?${params.toString()}`;
 }
 
 function messageForStaffWebLoginCode(code: ShopCodeLoginFormCode) {
@@ -89,10 +105,11 @@ export async function staffManagerWebLoginFormAction(
   _previousState: ShopCodeLoginFormState,
   formData: FormData,
 ): Promise<ShopCodeLoginFormState> {
+  const nextPath = nextPathFromForm(formData);
   const result = await authenticateFromFormData(formData);
 
   if (result.ok) {
-    redirect("/shop", RedirectType.replace);
+    redirect(nextPath, RedirectType.replace);
   }
 
   return {
@@ -105,11 +122,12 @@ export async function staffManagerWebLoginFormAction(
 }
 
 export async function staffManagerWebLoginAction(formData: FormData) {
+  const nextPath = nextPathFromForm(formData);
   const result = await authenticateFromFormData(formData);
 
   if (result.ok) {
-    redirect("/shop", RedirectType.replace);
+    redirect(nextPath, RedirectType.replace);
   }
 
-  redirect(resultPath(result.code), RedirectType.replace);
+  redirect(resultPath(result.code, nextPath), RedirectType.replace);
 }

@@ -1,9 +1,10 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import {
   CatalogExportPanel,
   DatabaseTransferPanel,
+  type HeaderFileState,
   SupplierExcelImportWizard,
 } from "@/app/shop/_components/ImportExportActionPanel";
 import {
@@ -45,6 +46,7 @@ export type CatalogSupplierOption = {
 
 type CatalogActionPanelProps = {
   archivedProducts?: CatalogProductOption[];
+  authPrincipalKind?: "personal_account" | "pos_staff_manager";
   canExport?: boolean;
   canImport?: boolean;
   canManage?: boolean;
@@ -72,6 +74,11 @@ type DialogKey =
   | "newSupplier"
   | "editSupplier"
   | "archiveSupplier";
+
+type DialogLeadingAction = {
+  label: string;
+  onBack: () => void;
+};
 
 const catalogActionCardClassName =
   "flex min-h-[14rem] min-w-0 flex-col rounded-md border border-zinc-200 bg-white p-4 shadow-sm";
@@ -158,13 +165,19 @@ function SelectField({
 
 function CatalogDialog({
   children,
+  headerAccessory,
+  leadingAction,
   onClose,
   open,
+  size = "default",
   title,
 }: {
   children: React.ReactNode;
+  headerAccessory?: React.ReactNode;
+  leadingAction?: DialogLeadingAction | null;
   onClose: () => void;
   open: boolean;
+  size?: "default" | "wide";
   title: string;
 }) {
   const titleId = useId();
@@ -178,22 +191,54 @@ function CatalogDialog({
       <section
         aria-labelledby={titleId}
         aria-modal="true"
-        className="max-h-[90vh] w-full max-w-3xl overflow-auto rounded-md bg-white p-5 shadow-xl"
+        className={`flex max-h-[92vh] w-full flex-col overflow-hidden rounded-md bg-white p-5 shadow-xl ${
+          size === "wide" ? "max-w-[min(98vw,96rem)]" : "max-w-3xl"
+        }`}
         role="dialog"
       >
-        <div className="flex min-w-0 items-start justify-between gap-4">
-          <h2 className="text-lg font-semibold text-zinc-950" id={titleId}>
-            {title}
-          </h2>
-          <button
-            className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800"
-            onClick={onClose}
-            type="button"
-          >
-            Close
-          </button>
+        <div className="-mx-5 -mt-5 flex min-w-0 items-center justify-between gap-4 border-b border-zinc-200 px-4 py-3">
+          <div className="flex min-w-0 items-center gap-2">
+            {leadingAction ? (
+              <button
+                aria-label={leadingAction.label}
+                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+                onClick={leadingAction.onBack}
+                title={leadingAction.label}
+                type="button"
+              >
+                <svg
+                  aria-hidden="true"
+                  className="h-5 w-5"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2.25"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="m15 18-6-6 6-6" />
+                </svg>
+              </button>
+            ) : null}
+            <h2
+              className="min-w-0 truncate text-lg font-semibold text-zinc-950"
+              id={titleId}
+            >
+              {title}
+            </h2>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {headerAccessory}
+            <button
+              className="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800"
+              onClick={onClose}
+              type="button"
+            >
+              Close
+            </button>
+          </div>
         </div>
-        <div className="mt-4">{children}</div>
+        <div className="mt-4 min-h-0 flex-1 overflow-auto">{children}</div>
       </section>
     </div>
   );
@@ -428,6 +473,7 @@ function SelectedEntitySummary({
 
 function ProductsDialogs({
   archivedProducts,
+  authPrincipalKind,
   canExport,
   canImport,
   categories,
@@ -439,6 +485,7 @@ function ProductsDialogs({
   suppliers,
 }: {
   archivedProducts: CatalogProductOption[];
+  authPrincipalKind?: "personal_account" | "pos_staff_manager";
   canExport: boolean;
   canImport: boolean;
   categories: CatalogCategoryOption[];
@@ -450,6 +497,41 @@ function ProductsDialogs({
   suppliers: CatalogSupplierOption[];
 }) {
   const auditReasonDescription = "Required for the audit trail.";
+  const [
+    supplierImportLeadingAction,
+    setSupplierImportLeadingAction,
+  ] = useState<DialogLeadingAction | null>(null);
+  const [supplierImportHeaderFile, setSupplierImportHeaderFile] =
+    useState<HeaderFileState | null>(null);
+  const handleSupplierImportLeadingAction = useCallback(
+    (nextAction: DialogLeadingAction | null) => {
+      setSupplierImportLeadingAction(nextAction);
+    },
+    [],
+  );
+  const handleSupplierImportHeaderFile = useCallback(
+    (nextFile: HeaderFileState | null) => {
+      setSupplierImportHeaderFile(nextFile);
+    },
+    [],
+  );
+  const supplierImportHeaderAccessory = supplierImportHeaderFile ? (
+    <span className="hidden max-w-[min(42vw,32rem)] items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs text-zinc-700 sm:inline-flex">
+      <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-900">
+        {supplierImportHeaderFile.extension}
+      </span>
+      <span aria-hidden="true" className="text-zinc-400">
+        ·
+      </span>
+      <span className="truncate font-medium text-zinc-900">
+        {supplierImportHeaderFile.name}
+      </span>
+      <span aria-hidden="true" className="text-zinc-400">
+        ·
+      </span>
+      <span className="text-zinc-500">{supplierImportHeaderFile.sizeLabel}</span>
+    </span>
+  ) : null;
   const selectedProduct = [...products, ...archivedProducts].find(
     (product) => product.productId === selectedEntityId,
   );
@@ -597,12 +679,22 @@ function ProductsDialogs({
       </CatalogDialog>
 
       <CatalogDialog
+        headerAccessory={supplierImportHeaderAccessory}
+        leadingAction={supplierImportLeadingAction}
         onClose={() => setOpenDialog(null)}
         open={openDialog === "importSupplier"}
-        title="Import supplier Excel"
+        size="wide"
+        title="Supplier workbook preview"
       >
         {canImport ? (
-          <SupplierExcelImportWizard selectedShopId={selectedShopId} />
+          <SupplierExcelImportWizard
+            authPrincipalKind={authPrincipalKind}
+            categories={categories}
+            onHeaderBackStateChange={handleSupplierImportLeadingAction}
+            onHeaderFileStateChange={handleSupplierImportHeaderFile}
+            selectedShopId={selectedShopId}
+            suppliers={suppliers}
+          />
         ) : null}
       </CatalogDialog>
 
@@ -908,6 +1000,7 @@ export function CatalogActionPanel({
 
 function CatalogActionPanelContent({
   archivedProducts = [],
+  authPrincipalKind,
   canExport = false,
   canImport = false,
   canManage = true,
@@ -977,6 +1070,7 @@ function CatalogActionPanelContent({
       {scope === "products" ? (
         <ProductsDialogs
           archivedProducts={archivedProducts}
+          authPrincipalKind={authPrincipalKind}
           canExport={canExport}
           canImport={canImport}
           categories={categories}

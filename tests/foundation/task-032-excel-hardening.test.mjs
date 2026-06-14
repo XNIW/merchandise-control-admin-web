@@ -71,7 +71,9 @@ test("TASK-032 Excel header detection handles shifted supplier workbooks and mul
   assert.equal(chineseDetection?.headers.get("secondProductName"), 5);
   assert.equal(chineseDetection?.headers.get("stockQuantity"), 7);
   assert.equal(chineseDetection?.headers.get("purchasePrice"), 8);
-  assert.equal(chineseDetection?.headers.get("retailPrice"), 9);
+  assert.equal(chineseDetection?.headers.get("discountedPrice"), 9);
+  assert.equal(chineseDetection?.headers.get("lineTotal"), 10);
+  assert.equal(chineseDetection?.headers.has("retailPrice"), false);
 
   const spanishDetection = helper.detectCatalogImportHeaderRow([
     [
@@ -142,7 +144,7 @@ test("TASK-032 Excel validation warns on duplicate SKUs while preserving non-des
   assert.equal(validation.summary.newProducts, 2);
 });
 
-test("TASK-032 Excel safety covers invalid numbers, xlsx-only uploads and formula injection sanitization", () => {
+test("TASK-032 Excel safety covers invalid numbers, workbook uploads and formula injection sanitization", () => {
   const workbookSource = readProjectFile(
     "src/server/shop-admin/import-export-workbook.ts",
   );
@@ -158,8 +160,8 @@ test("TASK-032 Excel safety covers invalid numbers, xlsx-only uploads and formul
   assert.equal(readiness.sanitizeSpreadsheetCell("plain text"), "plain text");
   assert.match(workbookSource, /Value must be a non-negative number\./);
   assert.match(workbookSource, /productNumberValue\(/);
-  assert.match(workbookSource, /\.endsWith\("\.xlsx"\)/);
-  assert.match(actionContext, /Upload a \.xlsx workbook\./);
+  assert.match(workbookSource, /\.endsWith\("\.xlsx"\) \|\| lowerName\.endsWith\("\.xls"\)/);
+  assert.match(actionContext, /Upload a \.xlsx or \.xls workbook\./);
   assert.match(workbookSource, /stringCell\(product\.barcode\)/);
   assert.match(workbookSource, /stringCell\(supplier\.name\)/);
   assert.match(workbookSource, /stringCell\(category\.name\)/);

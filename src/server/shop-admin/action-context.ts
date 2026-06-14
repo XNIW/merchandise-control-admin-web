@@ -10,8 +10,11 @@ import { canStaffWebPerformShopAdminAction } from "./staff-web-permissions";
 export type ShopAdminActionCode =
   | "success"
   | "not_configured"
+  | "no_active_session"
+  | "session_expired"
   | "unauthorized"
   | "validation_failed"
+  | "permission_denied"
   | "unauthorized_or_unmapped"
   | "not_found"
   | "conflict"
@@ -64,8 +67,11 @@ export type ShopAdminActionContext =
 const messages: Record<ShopAdminActionCode, string> = {
   success: "Action completed.",
   not_configured: "Supabase runtime is not configured.",
+  no_active_session: "Session expired. Please sign in again.",
+  session_expired: "Session expired. Please sign in again.",
   unauthorized: "This account is not authorized for this shop action.",
   validation_failed: "Check the highlighted fields and try again.",
+  permission_denied: "You do not have permission for this shop action.",
   unauthorized_or_unmapped:
     "This shop is not authorized or has no mapped inventory source.",
   not_found: "The requested row was not found for this shop.",
@@ -79,8 +85,8 @@ const messages: Record<ShopAdminActionCode, string> = {
   reason_required: "A reason is required for this sensitive action.",
   file_too_large: "The workbook is larger than the allowed import limit.",
   row_limit_exceeded: "The workbook contains more rows than allowed.",
-  invalid_file_type: "Upload a .xlsx workbook.",
-  invalid_workbook: "The workbook could not be read as a valid .xlsx file.",
+  invalid_file_type: "Upload a .xlsx or .xls workbook.",
+  invalid_workbook: "The workbook could not be read as a valid .xlsx or .xls file.",
   preview_required: "Preview the workbook and confirm before applying it.",
   preview_mismatch: "The uploaded workbook no longer matches the preview digest.",
   shop_settings_managed_by_master_console:
@@ -146,8 +152,11 @@ function mapRpcCode(value: unknown): ShopAdminActionCode {
   const allowedCodes = new Set<ShopAdminActionCode>([
     "success",
     "not_configured",
+    "no_active_session",
+    "session_expired",
     "unauthorized",
     "validation_failed",
+    "permission_denied",
     "unauthorized_or_unmapped",
     "not_found",
     "conflict",
@@ -189,12 +198,18 @@ export async function resolveShopActionContext(
   });
 
   if (access.status !== "ready") {
+    const code =
+      access.status === "not_configured"
+        ? "not_configured"
+        : access.status === "session_expired"
+          ? "session_expired"
+          : access.status === "no_active_session" || access.status === "no_session"
+            ? "no_active_session"
+            : "permission_denied";
+
     return {
       status: "blocked",
-      result: shopAdminActionResult(
-        access.status === "not_configured" ? "not_configured" : "unauthorized",
-        { ok: false },
-      ),
+      result: shopAdminActionResult(code, { ok: false }),
     };
   }
 
@@ -206,7 +221,7 @@ export async function resolveShopActionContext(
   ) {
     return {
       status: "blocked",
-      result: shopAdminActionResult("unauthorized", {
+      result: shopAdminActionResult("permission_denied", {
         ok: false,
         shopId: selectedShop.shopId,
       }),
@@ -222,7 +237,7 @@ export async function resolveShopActionContext(
   ) {
     return {
       status: "blocked",
-      result: shopAdminActionResult("unauthorized", {
+      result: shopAdminActionResult("permission_denied", {
         ok: false,
         shopId: selectedShop.shopId,
       }),

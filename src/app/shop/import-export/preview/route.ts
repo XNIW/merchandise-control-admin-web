@@ -1,4 +1,5 @@
 import { parseCatalogWorkbookPreview } from "@/server/shop-admin/import-export-workbook";
+import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import {
   guardCatalogImportExportPostRequest,
   guardCatalogImportWorkbookFile,
@@ -22,11 +23,41 @@ function formString(formData: FormData, key: string) {
   return typeof value === "string" ? value : "";
 }
 
+function requestedShopIdFromUrl(request: Request) {
+  return new URL(request.url).searchParams.get("shop_id")?.trim() || undefined;
+}
+
+function statusForImportResult(code: string, ok: boolean) {
+  if (ok) {
+    return 200;
+  }
+
+  if (code === "session_expired" || code === "no_active_session") {
+    return 401;
+  }
+
+  if (code === "permission_denied" || code === "unauthorized") {
+    return 403;
+  }
+
+  return 400;
+}
+
 export async function POST(request: Request) {
   const invalidRequest = guardCatalogImportExportPostRequest(request);
 
   if (invalidRequest) {
     return invalidRequest;
+  }
+
+  const requestedShopId = requestedShopIdFromUrl(request);
+  const context = await resolveShopActionContext(requestedShopId, "catalog.import");
+
+  if (context.status !== "ready") {
+    return noStoreJson(
+      context.result,
+      statusForImportResult(context.result.code, context.result.ok),
+    );
   }
 
   const formData = await request.formData();
@@ -48,9 +79,10 @@ export async function POST(request: Request) {
     importMode: formString(formData, "importMode") === "database"
       ? "database"
       : "supplier",
+    mappingOverride: formString(formData, "mappingOverride") || undefined,
     mimeType: file.type,
-    requestedShopId: formString(formData, "shop_id") || undefined,
+    requestedShopId,
   });
 
-  return noStoreJson(result, result.ok ? 200 : 400);
+  return noStoreJson(result, statusForImportResult(result.code, result.ok));
 }

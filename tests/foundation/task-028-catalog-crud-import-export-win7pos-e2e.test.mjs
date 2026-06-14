@@ -120,7 +120,10 @@ test("TASK-028 import contract validates duplicates, conflicts and non-destructi
   assert.equal(supplierHeaderDetection?.headers.get("secondProductName"), 4);
   assert.equal(supplierHeaderDetection?.headers.get("stockQuantity"), 5);
   assert.equal(supplierHeaderDetection?.headers.get("purchasePrice"), 6);
-  assert.equal(supplierHeaderDetection?.headers.get("retailPrice"), 8);
+  assert.equal(supplierHeaderDetection?.headers.get("discount"), 7);
+  assert.equal(supplierHeaderDetection?.headers.get("discountedPrice"), 8);
+  assert.equal(supplierHeaderDetection?.headers.get("lineTotal"), 9);
+  assert.equal(supplierHeaderDetection?.headers.has("retailPrice"), false);
 
   const spanishHeaderDetection = helper.detectCatalogImportHeaderRow([
     ["Código Producto", "Nombre Producto", "Cantidad", "Precio", "Valor Total", "Código de Barra"],

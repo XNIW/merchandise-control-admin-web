@@ -42,8 +42,9 @@ test("TASK-053 auth login shell switches between Master and Admin tab modes", ()
   assert.match(loginPage, /role="tab"/);
   assert.match(loginPage, /aria-selected=\{activeLoginMode === "admin-account"\}/);
   assert.match(loginPage, /aria-selected=\{activeLoginMode === "shop-code"\}/);
-  assert.match(loginPage, /\/auth\/login\?next=\/shop&mode=admin-account/);
-  assert.match(loginPage, /\/auth\/login\?next=\/shop&mode=shop-code/);
+  assert.match(loginPage, /loginHref\(nextPath, "admin-account"\)/);
+  assert.match(loginPage, /loginHref\(nextPath, "shop-code"\)/);
+  assert.match(loginPage, /new URLSearchParams\(\{/);
   assert.match(loginPage, /ShopCodeLoginForm/);
   assert.doesNotMatch(loginPage, /Back to console selection/);
   assert.doesNotMatch(loginPage, /Use Shop code sign in/);
@@ -75,12 +76,13 @@ test("TASK-053 Shop code form is shared and keeps staff login server action", ()
   assert.match(shopCodeLoginForm, /Shop code/);
   assert.match(shopCodeLoginForm, /Staff code/);
   assert.match(shopCodeLoginForm, /PIN \/ password/);
+  assert.match(shopCodeLoginForm, /name="next"/);
   assert.match(staffLoginAction, /"use server"/);
-  assert.match(
-    staffLoginAction,
-    /\/auth\/login\?next=\/shop&mode=shop-code&result=\$\{encodeURIComponent\(result\)\}/,
-  );
-  assert.match(staffLoginPage, /redirect\("\/auth\/login\?next=\/shop&mode=shop-code"\)/);
+  assert.match(staffLoginAction, /nextPathFromForm/);
+  assert.match(staffLoginAction, /redirect\(nextPath, RedirectType\.replace\)/);
+  assert.match(staffLoginAction, /resultPath\(result\.code, nextPath\)/);
+  assert.match(staffLoginPage, /safeNextPath\(firstParam\(params\.next\)\)/);
+  assert.match(staffLoginPage, /mode: "shop-code"/);
   assert.doesNotMatch(
     `${shopCodeLoginForm}\n${staffLoginAction}\n${staffLoginPage}`,
     /SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash/i,

@@ -52,8 +52,9 @@ test("TASK-047 access entrypoints use Master Console and Admin Console terminolo
     "Admin Console",
     "Admin account",
     "Shop code",
-    "/auth/login?next=/shop&mode=admin-account",
-    "/auth/login?next=/shop&mode=shop-code",
+    "loginHref(nextPath, \"admin-account\")",
+    "loginHref(nextPath, \"shop-code\")",
+    "isSafeInternalNextPath",
   ]) {
     assertContains(loginPage, required, `account login must contain ${required}`);
   }
@@ -61,7 +62,8 @@ test("TASK-047 access entrypoints use Master Console and Admin Console terminolo
   assertContains(authForm, "accountSignInAction");
   assertContains(loginAction, "redirect(nextPath, RedirectType.replace)");
   assertContains(loginAction, "signInWithPassword");
-  assertContains(staffLoginPage, "/auth/login?next=/shop&mode=shop-code");
+  assertContains(staffLoginPage, "safeNextPath(firstParam(params.next))");
+  assertContains(staffLoginPage, 'mode: "shop-code"');
   assertContains(`${loginPage}\n${shopCodeLoginForm}`, "Admin Console");
   assertContains(shopCodeLoginForm, "Shop code");
   assertContains(shopCodeLoginForm, "Staff code");
