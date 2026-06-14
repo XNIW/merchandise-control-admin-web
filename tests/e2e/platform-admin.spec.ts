@@ -220,6 +220,24 @@ async function expectAccessState(page: import("@playwright/test").Page) {
   await expect(page.getByRole("heading", { name: "Create shop" })).toHaveCount(0);
 }
 
+async function expectAuthHref(
+  locator: import("@playwright/test").Locator,
+  expected: { mode?: string; next: string },
+) {
+  const href = await locator.getAttribute("href");
+  expect(href).not.toBeNull();
+
+  const url = new URL(href ?? "", "http://127.0.0.1:3003");
+  expect(url.pathname).toBe("/auth/login");
+  expect(url.searchParams.get("next")).toBe(expected.next);
+
+  if (expected.mode) {
+    expect(url.searchParams.get("mode")).toBe(expected.mode);
+  } else {
+    expect(url.searchParams.has("mode")).toBe(false);
+  }
+}
+
 test.describe("Admin Web smoke", () => {
   test("redirects the root entrypoint to Admin Console account login", async ({
     page,
@@ -241,14 +259,14 @@ test.describe("Admin Web smoke", () => {
       page.getByRole("link", { name: /Master Console|Open Master Console/ }),
     ).toHaveCount(0);
     await expect(page.locator('a[href="/auth/login?next=/platform"]')).toHaveCount(0);
-    await expect(page.getByRole("tab", { name: "Admin account" })).toHaveAttribute(
-      "href",
-      "/auth/login?next=/shop&mode=admin-account",
-    );
-    await expect(page.getByRole("tab", { name: "Shop code" })).toHaveAttribute(
-      "href",
-      "/auth/login?next=/shop&mode=shop-code",
-    );
+    await expectAuthHref(page.getByRole("tab", { name: "Admin account" }), {
+      mode: "admin-account",
+      next: "/shop",
+    });
+    await expectAuthHref(page.getByRole("tab", { name: "Shop code" }), {
+      mode: "shop-code",
+      next: "/shop",
+    });
   });
 
   for (const route of protectedPlatformRoutes) {
