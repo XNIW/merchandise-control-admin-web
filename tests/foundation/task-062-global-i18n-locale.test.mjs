@@ -122,6 +122,84 @@ test("TASK-062 guards critical UI copy against untranslated non-English locales"
     "Download catalog export",
     "Download template",
     "Rows come from the server read model when available; empty states explain the current boundary.",
+    "Active",
+    "Active grants",
+    "Active owner memberships",
+    "Active shops",
+    "Company RUT",
+    "Global Platform Admin overview loaded server-side through Supabase RLS.",
+    "Provision Shop",
+    "Shop onboarding",
+    "Create shop with existing owner",
+    "Create pending owner invite",
+    "Owner email",
+    "Overview shop",
+    "Data status",
+    "Device signals",
+    "Device signals appear after POS or mobile registration.",
+    "Device signals appear after POS or mobile registration. Sync source ids alone do not authorize a device.",
+    "Device warnings",
+    "Device/sync data health",
+    "Global registry",
+    "Historical shops",
+    "Needs provisioning review",
+    "Operational shops",
+    "Profiles",
+    "Profiles checked",
+    "Profiles, shops, audit, devices, sync",
+    "Read-only diagnostics",
+    "Recent sync on suspended shop",
+    "Requires review",
+    "Membership, owner, or read warnings",
+    "RLS/grants summary",
+    "Selects pass through authenticated RLS only",
+    "Server-side directory",
+    "Shop owners",
+    "Shops without owner",
+    "Sync signals",
+    "Sync signals are diagnostic; live Win7POS Sales Sync remains separately verified.",
+    "Total shops",
+    "Use it when checking device authorization, revoked devices, or suspicious device state for support triage.",
+    "Visible through Platform Admin",
+    "Visible through RLS",
+    "Shop-scoped catalog rows loaded server-side for the verified selected shop.",
+    "Shop Staff read model loaded server-side through the credential-safe view.",
+    "Server registry devices loaded for the verified selected shop, with read-only links to sync activity when available.",
+    "No sync event",
+    "Shop-scoped mobile history entries loaded with legacy owner fallback.",
+    "Shop catalog products for the verified selected shop. Create, update, archive and restore use audited catalog RPCs.",
+    "restore requires confirmation",
+    "Read-only member list for the verified selected shop. Profile identifiers are shortened in the UI.",
+    "Rows scoped by shop_id",
+    "revoked",
+    "revoked or suspicious",
+    "visible devices",
+    "failed technical events",
+    "latest events",
+    "latest sync/history events",
+    "platform admins",
+    "orphaned memberships",
+    "profiles without membership",
+    "shops without owner",
+    "suspended shops with recent activity",
+    "active",
+    "archived",
+    "good",
+    "muted",
+    "neutral",
+    "suspended",
+    "total",
+    "warning",
+    "Not available yet",
+    "Permissions matrix",
+    "Staff credential-safe read model",
+    "Trusted POS devices, sessions and staff links for the verified selected shop. This view is read-only and does not include sales synchronization.",
+    "Device registry",
+    "Sync events",
+    "History entries are loaded from shared_sheet_sessions. Sync events are technical synchronization logs linked to those entries. Admin audit events are shown separately in Audit.",
+    "Shop audit log",
+    "Shop profile and fiscal identity",
+    "Drop a catalog database .xlsx or .xls workbook here or choose a file.",
   ]) {
     const escapedPhrase = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const translationCount = [...dictionaries.matchAll(new RegExp(`"${escapedPhrase}"\\s*:`, "g"))]
@@ -160,4 +238,160 @@ test("TASK-062 guards critical UI copy against untranslated non-English locales"
     cwd: root,
     stdio: "pipe",
   });
+});
+
+test("TASK-062 wires rendered i18n corrections into runtime translators and scans read models", () => {
+  const dictionaries = readProjectFile("src/i18n/dictionaries.ts");
+  const sectionTranslator = readProjectFile("src/i18n/translate-sections.ts");
+  const staticScanner = readProjectFile("scripts/i18n-hardcoded-ui-scan.mjs");
+  const renderedScanner = readProjectFile("scripts/i18n-rendered-text-scan.mjs");
+
+  assert.match(
+    dictionaries,
+    /exact:\s*\{\s*\.{3}itExact,\s*\.{3}itRenderedCorrectiveExact\s*\}/,
+  );
+  assert.match(
+    dictionaries,
+    /exact:\s*\{\s*\.{3}esExact,\s*\.{3}esRenderedCorrectiveExact\s*\}/,
+  );
+  assert.match(
+    dictionaries,
+    /exact:\s*\{\s*\.{3}zhExact,\s*\.{3}zhRenderedCorrectiveExact\s*\}/,
+  );
+  assert.match(dictionaries, /companyRutPrefix: "RUT azienda"/);
+  assert.match(dictionaries, /companyRutPrefix: "RUT empresa"/);
+  assert.match(dictionaries, /companyRutPrefix: "公司 RUT"/);
+
+  assert.match(sectionTranslator, /"group"/);
+  assert.match(sectionTranslator, /"label"/);
+  assert.match(sectionTranslator, /"summary"/);
+  assert.match(sectionTranslator, /function translateRowValue/);
+  assert.match(sectionTranslator, /function shouldTranslateWholeRowValue/);
+  assert.match(sectionTranslator, /normalized === "detail"/);
+  assert.doesNotMatch(sectionTranslator, /normalized === "value"/);
+  assert.doesNotMatch(sectionTranslator, /normalized\.endsWith\("value"\)/);
+
+  for (const sourceFile of [
+    "src/server/shop-admin/history-read-model.ts",
+    "src/server/shop-admin/device-read-model.ts",
+    "src/server/shop-admin/pos-live-read-model.ts",
+    "src/server/shop-admin/read-model.ts",
+    "src/server/shop-admin/staff-read-model.ts",
+    "src/server/shop-admin/audit-read-model.ts",
+    "src/server/shop-admin/inventory-read-model.ts",
+    "src/app/shop/products/page.tsx",
+    "src/app/shop/categories/page.tsx",
+    "src/app/shop/suppliers/page.tsx",
+    "src/app/shop/members/page.tsx",
+    "src/app/shop/roles/page.tsx",
+    "src/app/shop/staff/page.tsx",
+    "src/app/shop/pos/page.tsx",
+    "src/app/shop/devices/page.tsx",
+    "src/app/shop/sync/page.tsx",
+    "src/app/shop/history/page.tsx",
+    "src/app/shop/audit/page.tsx",
+    "src/app/shop/settings/page.tsx",
+    "src/app/platform/audit/page.tsx",
+    "src/app/platform/data/page.tsx",
+    "src/app/platform/devices/page.tsx",
+    "src/app/platform/history/page.tsx",
+    "src/app/platform/shops/page.tsx",
+    "src/app/platform/shops/new/page.tsx",
+    "src/app/platform/support/page.tsx",
+    "src/app/platform/sync/page.tsx",
+    "src/app/platform/system/page.tsx",
+    "src/app/platform/users/page.tsx",
+  ]) {
+    assert.match(staticScanner, new RegExp(sourceFile.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+
+  for (const phrase of [
+    "Active",
+    "Active grants",
+    "Active owner memberships",
+    "Active shops",
+    "Company RUT",
+    "Device signals",
+    "Device signals appear after POS or mobile registration.",
+    "Device signals appear after POS or mobile registration. Sync source ids alone do not authorize a device.",
+    "Device warnings",
+    "Device/sync data health",
+    "Global Platform Admin overview loaded server-side through Supabase RLS.",
+    "Provision Shop",
+    "Shop onboarding",
+    "Create shop with existing owner",
+    "Create pending owner invite",
+    "Owner email",
+    "Global registry",
+    "Historical shops",
+    "Needs provisioning review",
+    "Operational shops",
+    "Profiles",
+    "Profiles checked",
+    "Profiles, shops, audit, devices, sync",
+    "Read-only diagnostics",
+    "Recent sync on suspended shop",
+    "Requires review",
+    "Membership, owner, or read warnings",
+    "RLS/grants summary",
+    "Selects pass through authenticated RLS only",
+    "Server-side directory",
+    "Shop owners",
+    "Shops without owner",
+    "Sync signals",
+    "Sync signals are diagnostic; live Win7POS Sales Sync remains separately verified.",
+    "Total shops",
+    "Use it when checking device authorization, revoked devices, or suspicious device state for support triage.",
+    "Visible through Platform Admin",
+    "Visible through RLS",
+    "Overview shop",
+    "Shop catalog products for the verified selected shop. Create, update, archive and restore use audited catalog RPCs.",
+    "Read-only member list for the verified selected shop. Profile identifiers are shortened in the UI.",
+    "Permissions matrix",
+    "Staff credential-safe read model",
+    "Trusted POS devices, sessions and staff links for the verified selected shop. This view is read-only and does not include sales synchronization.",
+    "Device registry",
+    "Sync events",
+    "History entries are loaded from shared_sheet_sessions. Sync events are technical synchronization logs linked to those entries. Admin audit events are shown separately in Audit.",
+    "Shop audit log",
+    "Shop profile and fiscal identity",
+    "Shop Staff",
+    "legacy owner fallback",
+    "revoked",
+    "revoked or suspicious",
+    "visible devices",
+    "latest events",
+    "latest sync/history events",
+    "platform admins",
+    "orphaned memberships",
+    "profiles without membership",
+    "shops without owner",
+    "suspended shops with recent activity",
+    "active",
+    "archived",
+    "good",
+    "muted",
+    "neutral",
+    "suspended",
+    "total",
+    "warning",
+  ]) {
+    if (
+      !["Company RUT", "Shop Staff", "legacy owner fallback", "revoked"].includes(
+        phrase,
+      )
+    ) {
+      assert.match(staticScanner, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    }
+    assert.match(renderedScanner, new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+
+  assert.match(renderedScanner, /requires --input <snapshot\.json>/);
+  assert.match(renderedScanner, /requiredRoutes/);
+  assert.doesNotMatch(
+    dictionaries,
+    /"Ready"\s*:\s*"Ready"/,
+    "zh-CN and other non-English exact dictionaries must not keep Ready as English",
+  );
+  assert.match(dictionaries, /"Ready"\s*:\s*"就绪"/);
 });

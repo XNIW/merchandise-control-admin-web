@@ -315,7 +315,7 @@ export default async function PlatformAdminsPage({
                               </p>
                             </div>
                             <span className="w-fit rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
-                              {formatToken(admin.status)}
+                              {t(formatToken(admin.status))}
                             </span>
                           </div>
 

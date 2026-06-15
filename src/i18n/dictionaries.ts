@@ -2486,6 +2486,689 @@ const zhExact: Record<string, string> = {
     "仅下载所选店铺的商品、分类、供应商和完整价格历史。",
 };
 
+const itRenderedCorrectiveExact: Record<string, string> = {
+  "0 total mapped rows": "0 righe mappate totali",
+  "Active and archived products are read through shop_id first and mutated only through server-side RPCs.":
+    "I prodotti attivi e archiviati sono letti prima tramite shop_id e modificati solo tramite RPC server-side.",
+  "Active device credentials": "Credenziali dispositivo attive",
+  "Active entries": "Voci attive",
+  "Active grants": "Grant attivi",
+  "Active owner memberships": "Membership owner attive",
+  "Active shop_devices rows": "Righe shop_devices attive",
+  "Active shops": "Shop attivi",
+  "Android / iOS History Entries": "Voci storico Android / iOS",
+  "Applied server-side": "Applicato server-side",
+  "Baseline matrix": "Matrice baseline",
+  "Baseline matrix only. No granular roles schema yet.":
+    "Solo matrice baseline. Non esiste ancora uno schema ruoli granulare.",
+  "Catalog cursor": "Cursore catalogo",
+  "Catalog errors": "Errori catalogo",
+  "Catalog sync": "Sync catalogo",
+  "Categories are read through shop_id first for the selected shop.":
+    "Le categorie sono lette prima tramite shop_id per lo shop selezionato.",
+  "Chronological rows": "Righe cronologiche",
+  "Complete rows": "Righe complete",
+  "Credential-ready accounts": "Account con credenziali pronte",
+  "Create a shop with an existing owner or a pending owner invite through audited Master Console boundaries.":
+    "Crea uno shop con owner esistente o invito owner pending tramite boundary Master Console auditati.",
+  "Create pending invite": "Crea invito pending",
+  "Create pending owner invite": "Crea invito owner pending",
+  "Create shop with existing owner": "Crea shop con owner esistente",
+  "Creates a pending setup shop and stores only redacted owner contact state. Email delivery pending is tracked as PASS_WITH_NOTES_EMAIL_DELIVERY.":
+    "Crea uno shop in setup pending e salva solo lo stato contatto owner redatto. La consegna email pending e tracciata come PASS_WITH_NOTES_EMAIL_DELIVERY.",
+  "Current result set": "Set risultati corrente",
+  "Data rows": "Righe dati",
+  "Data health": "Salute dati",
+  "Deleted entries": "Voci eliminate",
+  "Device registry": "Registro dispositivi",
+  "Device registry state": "Stato registro dispositivi",
+  "Device signals": "Segnali dispositivi",
+  "Device signals appear after POS or mobile registration.":
+    "I segnali dispositivo appaiono dopo registrazione POS o mobile.",
+  "Device signals appear after POS or mobile registration. Sync source ids alone do not authorize a device.":
+    "I segnali dispositivo appaiono dopo registrazione POS o mobile. I soli ID sorgente sync non autorizzano un dispositivo.",
+  "Device/sync data health": "Salute dati dispositivi/sync",
+  "Diagnostics appear after shared_sheet_sessions rows are visible.":
+    "La diagnostica appare dopo che le righe shared_sheet_sessions sono visibili.",
+  "Drop a catalog database .xlsx or .xls workbook here or choose a file.":
+    "Trascina qui un workbook database catalogo .xlsx o .xls oppure scegli un file.",
+  "Editable rows": "Righe modificabili",
+  "Enabled": "Abilitato",
+  "Entry name": "Nome voce",
+  "Events are ordered chronologically and metadata is summarized after recursive redaction.":
+    "Gli eventi sono ordinati cronologicamente e i metadata sono riassunti dopo redazione ricorsiva.",
+  "Events marked pending": "Eventi marcati pending",
+  "Events shown": "Eventi mostrati",
+  "Events with failure metadata": "Eventi con metadata di errore",
+  "Events without failure metadata": "Eventi senza metadata di errore",
+  "Excel workbook import/export for catalog transfer. Preview before apply is required and apply runs through audited catalog RPCs.":
+    "Import/export workbook Excel per trasferimento catalogo. La preview prima dell'applicazione e obbligatoria e l'applicazione usa RPC catalogo auditate.",
+  "Failed technical events": "Eventi tecnici falliti",
+  "Global Platform Admin overview loaded server-side through Supabase RLS.":
+    "Panoramica Platform Admin globale caricata server-side tramite Supabase RLS.",
+  "Global registry": "Registro globale",
+  "Filtered result set": "Set risultati filtrato",
+  "Fiscal boundary": "Boundary fiscale",
+  "Granular editing": "Editing granulare",
+  "Group": "Gruppo",
+  "History empty": "Storico vuoto",
+  "History entries are loaded from shared_sheet_sessions. Sync events are technical synchronization logs linked to those entries. Admin audit events are shown separately in Audit.":
+    "Le voci storico sono caricate da shared_sheet_sessions. Gli eventi sync sono log tecnici collegati a quelle voci. Gli eventi audit admin sono mostrati separatamente in Audit.",
+  "History sessions may still exist without a related sync_events row.":
+    "Le sessioni storico possono esistere anche senza una riga sync_events collegata.",
+  "Inventory": "Inventario",
+  "Issue": "Problema",
+  "Latest events": "Eventi piu recenti",
+  "Latest POS catalog pull failures": "Ultimi errori pull catalogo POS",
+  "Latest POS session/device activity": "Ultima attivita sessione/dispositivo POS",
+  "Latest shop audit": "Ultimo audit shop",
+  "Locked": "Bloccato",
+  "Managers": "Manager",
+  "Metadata": "Metadata",
+  "Device warnings": "Avvisi dispositivi",
+  "No catalog cursor": "Nessun cursore catalogo",
+  "No failed event in current result": "Nessun evento fallito nel risultato corrente",
+  "No history sync events are visible": "Nessun evento sync storico visibile",
+  "No mobile history entries are visible": "Nessuna voce storico mobile visibile",
+  "No POS devices are visible": "Nessun dispositivo POS visibile",
+  "No registered devices are visible": "Nessun dispositivo registrato visibile",
+  "No successful catalog pull": "Nessun pull catalogo riuscito",
+  "No trusted POS device has registered for the selected shop yet.":
+    "Nessun dispositivo POS trusted e ancora registrato per lo shop selezionato.",
+  "Not available yet": "Non ancora disponibile",
+  "Not locked": "Non bloccato",
+  "Operational shops": "Shop operativi",
+  "Owner assignment uses an existing active profile and writes audit in the create-shop RPC.":
+    "L'assegnazione owner usa un profilo attivo esistente e scrive audit nella RPC create-shop.",
+  "Owner email": "Email owner",
+  "Overlay status": "Stato overlay",
+  "Payload version": "Versione payload",
+  "Permissions matrix": "Matrice permessi",
+  "Profiles checked": "Profili controllati",
+  "Profiles, shops, audit, devices, sync": "Profili, shop, audit, dispositivi, sync",
+  "Preview before apply available Excel preview, confirmed apply, export and template generation run server-side through audited catalog boundaries.":
+    "Preview prima dell'applicazione disponibile. Preview Excel, applicazione confermata, export e template girano server-side tramite boundary catalogo auditati.",
+  "Provision Shop": "Crea shop",
+  "Provisioning unavailable": "Provisioning non disponibile",
+  "Read-only Sync Center for mapped mobile events. This page classifies pending, success and failed states without triggering synchronization.":
+    "Sync Center in sola lettura per eventi mobile mappati. Questa pagina classifica stati pending, success e failed senza avviare sincronizzazione.",
+  "Read-only diagnostics": "Diagnostica in sola lettura",
+  "Read-only in Admin Console": "Sola lettura nella Console Admin",
+  "Read-only member list for the verified selected shop. Profile identifiers are shortened in the UI.":
+    "Lista membri in sola lettura per lo shop selezionato verificato. Gli identificativi profilo sono abbreviati nella UI.",
+  "Ready": "Pronto",
+  "Real mobile history entries from shared_sheet_sessions. This table does not include technical sync_events or admin audit_logs.":
+    "Voci storico mobile reali da shared_sheet_sessions. Questa tabella non include sync_events tecnici o audit_logs admin.",
+  "Registered rows": "Righe registrate",
+  "Register a device from Admin Web or wait for a future client registration flow.":
+    "Registra un dispositivo da Admin Web oppure attendi un futuro flusso di registrazione client.",
+  "Related history sync events": "Eventi sync storico collegati",
+  "Recent sync on suspended shop": "Sync recente su shop sospeso",
+  "restore requires confirmation": "il ripristino richiede conferma",
+  "Revoked": "Revocato",
+  "Revoked or suspicious": "Revocati o sospetti",
+  "revoked": "revocati",
+  "revoked or suspicious": "revocati o sospetti",
+  "Rows are assembled from real device, trusted credential, session, staff and audit records for this shop.":
+    "Le righe sono assemblate da record reali di dispositivi, credenziali trusted, sessioni, staff e audit per questo shop.",
+  "Rows represent the Admin Web authorization registry with read-only sync activity links when available.":
+    "Le righe rappresentano il registro autorizzativo Admin Web con link di attivita sync in sola lettura quando disponibili.",
+  "Rows scoped by shop_id": "Righe limitate da shop_id",
+  "Rows with deleted_at": "Righe con deleted_at",
+  "Rows without deleted_at": "Righe senza deleted_at",
+  "Safe rows": "Righe sicure",
+  "Server registry": "Registro server",
+  "Server-side directory": "Directory server-side",
+  "Server registry devices loaded for the verified selected shop, with read-only links to sync activity when available.":
+    "Dispositivi del registro server caricati per lo shop selezionato verificato, con link in sola lettura all'attivita sync quando disponibili.",
+  "Server registry for shop devices with revoke/reactivate state. Mobile/POS clients must consume this registry before revocation becomes client-enforced.":
+    "Registro server per dispositivi shop con stato revoca/riattivazione. I client mobile/POS devono consumare questo registro prima che la revoca sia applicata dal client.",
+  "Server-side": "Server-side",
+  "Server-side baseline permission matrix for web shop members and POS staff roles. Granular editing is not available yet because no granular roles schema exists.":
+    "Matrice permessi baseline server-side per membri web dello shop e ruoli staff POS. L'editing granulare non e ancora disponibile perche non esiste uno schema ruoli granulare.",
+  "Server-side query params": "Parametri query server-side",
+  "Server-side status": "Stato server-side",
+  "Shop Manager": "Manager shop",
+  "Shop Owner": "Proprietario shop",
+  "Shop onboarding": "Onboarding shop",
+  "Shop Staff read model loaded server-side through the credential-safe view.":
+    "Read model staff shop caricato server-side tramite vista credential-safe.",
+  "Shop audit log": "Log audit shop",
+  "Shop catalog category list for the verified selected shop. Create, update and archive use audited catalog RPCs.":
+    "Lista categorie catalogo shop per lo shop selezionato verificato. Creazione, modifica e archiviazione usano RPC catalogo auditate.",
+  "Shop catalog products for the verified selected shop. Create, update, archive and restore use audited catalog RPCs.":
+    "Prodotti catalogo shop per lo shop selezionato verificato. Creazione, modifica, archiviazione e restore usano RPC catalogo auditate.",
+  "Shop catalog supplier list for the verified selected shop. Create, update and archive use audited catalog RPCs.":
+    "Lista fornitori catalogo shop per lo shop selezionato verificato. Creazione, modifica e archiviazione usano RPC catalogo auditate.",
+  "Shop profile and fiscal identity": "Profilo shop e identita fiscale",
+  "Shop profile and fiscal identity are managed by Master Console. Admin Console can view these fields but cannot edit them. Fiscal/boleta identity is managed by Master Console.":
+    "Profilo shop e identita fiscale sono gestiti dalla Master Console. La Console Admin puo vedere questi campi ma non modificarli. L'identita fiscale/boleta e gestita dalla Master Console.",
+  "Shop profile and fiscal identity are read-only in Admin Console":
+    "Profilo shop e identita fiscale sono in sola lettura nella Console Admin",
+  "Shop-scoped audit rows for the verified selected shop, with server-side filters and redacted metadata.":
+    "Righe audit shop-scoped per lo shop selezionato verificato, con filtri server-side e metadata redatti.",
+  "Shop-scoped catalog rows loaded server-side for the verified selected shop.":
+    "Righe catalogo shop-scoped caricate server-side per lo shop selezionato verificato.",
+  "Shop-scoped mobile history entries loaded with legacy owner fallback.":
+    "Voci storico mobile shop-scoped caricate con fallback proprietario legacy.",
+  "Source/device values in current result": "Valori source/device nel risultato corrente",
+  "Staff credential-safe read model": "Read model staff credential-safe",
+  "failed technical events": "eventi tecnici falliti",
+  "latest events": "eventi recenti",
+  "latest sync/history events": "eventi sync/storico recenti",
+  "orphaned memberships": "membership orfane",
+  "profiles without membership": "profili senza membership",
+  "Status summary": "Riepilogo stato",
+  "suspended shops with recent activity":
+    "shop sospesi con attivita recente",
+  "Suppliers are read through shop_id first for the selected shop.":
+    "I fornitori sono letti prima tramite shop_id per lo shop selezionato.",
+  "Sync activity is separate from shop audit. Pending, success and failed are derived from the event payload when available.":
+    "L'attivita sync e separata dall'audit shop. Pending, success e failed derivano dal payload evento quando disponibile.",
+  "Sync empty": "Sync vuoto",
+  "Sync events": "Eventi sync",
+  "Sync signals": "Segnali sync",
+  "Target": "Target",
+  "The mapping is present, but no shared_sheet_sessions rows are visible through current RLS.":
+    "La mappatura e presente, ma nessuna riga shared_sheet_sessions e visibile tramite la RLS corrente.",
+  "The matrix separates personal web memberships from POS staff roles.":
+    "La matrice separa membership web personali e ruoli staff POS.",
+  "Membership, owner, or read warnings": "Avvisi membership, owner o lettura",
+  "RLS/grants summary": "Riepilogo RLS/grant",
+  "Selects pass through authenticated RLS only":
+    "Le select passano solo tramite RLS autenticata",
+  "Sync signals are diagnostic; live Win7POS Sales Sync remains separately verified.":
+    "I segnali sync sono diagnostici; Win7POS Sales Sync live resta verificato separatamente.",
+  "These are technical synchronization logs. They are not the inventory history entries themselves.":
+    "Questi sono log tecnici di sincronizzazione. Non sono le voci storico inventory stesse.",
+  "Trusted POS devices, sessions and staff links for the verified selected shop. This view is read-only and does not include sales synchronization.":
+    "Dispositivi POS trusted, sessioni e link staff per lo shop selezionato verificato. Questa vista e in sola lettura e non include sincronizzazione vendite.",
+  "Use it when checking device authorization, revoked devices, or suspicious device state for support triage.":
+    "Usala per controllare autorizzazione dispositivi, dispositivi revocati o stati sospetti nel triage supporto.",
+  "Verified shop profile fields visible through the server boundary. Shop profile and fiscal identity are managed by Master Console.":
+    "Campi profilo shop verificati visibili tramite boundary server. Profilo shop e identita fiscale sono gestiti dalla Master Console.",
+  "Workbook sheets and safety limits are enforced server-side before catalog apply.":
+    "Sheet workbook e limiti di sicurezza sono applicati server-side prima dell'applicazione catalogo.",
+  "active": "attivi",
+  "archived": "archiviati",
+  "good": "ok",
+  "muted": "attenuato",
+  "neutral": "neutro",
+  "platform admins": "admin piattaforma",
+  "shops without owner": "shop senza owner",
+  "suspended": "sospesi",
+  "total": "totali",
+  "visible devices": "dispositivi visibili",
+  "visible profiles": "profili visibili",
+  "Visible through Platform Admin": "Visibili tramite Platform Admin",
+  "Visible through RLS": "Visibili tramite RLS",
+  "Requires review": "Richiede review",
+  "Historical shops": "Shop storici",
+  "Profiles": "Profili",
+  "Shop owners": "Owner shop",
+  "Shops without owner": "Shop senza owner",
+  "Needs provisioning review": "Richiede review provisioning",
+  "Total shops": "Shop totali",
+  "A valid Master Console server session is required before provisioning can run.":
+    "Serve una sessione server Master Console valida prima di eseguire il provisioning.",
+  "warning": "attenzione",
+};
+
+const esRenderedCorrectiveExact: Record<string, string> = {
+  "0 total mapped rows": "0 filas mapeadas totales",
+  "Active and archived products are read through shop_id first and mutated only through server-side RPCs.":
+    "Los productos activos y archivados se leen primero mediante shop_id y se modifican solo mediante RPC server-side.",
+  "Active device credentials": "Credenciales de dispositivo activas",
+  "Active entries": "Entradas activas",
+  "Active grants": "Grants activos",
+  "Active owner memberships": "Membresias owner activas",
+  "Active shop_devices rows": "Filas shop_devices activas",
+  "Active shops": "Shops activos",
+  "Android / iOS History Entries": "Entradas de historial Android / iOS",
+  "Applied server-side": "Aplicado server-side",
+  "Baseline matrix": "Matriz base",
+  "Baseline matrix only. No granular roles schema yet.":
+    "Solo matriz base. Aun no existe un schema de roles granulares.",
+  "Catalog cursor": "Cursor de catalogo",
+  "Catalog errors": "Errores de catalogo",
+  "Catalog sync": "Sync de catalogo",
+  "Categories are read through shop_id first for the selected shop.":
+    "Las categorias se leen primero mediante shop_id para el shop seleccionado.",
+  "Chronological rows": "Filas cronologicas",
+  "Complete rows": "Filas completas",
+  "Credential-ready accounts": "Cuentas con credenciales listas",
+  "Create a shop with an existing owner or a pending owner invite through audited Master Console boundaries.":
+    "Crea un shop con owner existente o una invitacion owner pendiente mediante boundaries auditados de Master Console.",
+  "Create pending invite": "Crear invitacion pendiente",
+  "Create pending owner invite": "Crear invitacion owner pendiente",
+  "Create shop with existing owner": "Crear shop con owner existente",
+  "Creates a pending setup shop and stores only redacted owner contact state. Email delivery pending is tracked as PASS_WITH_NOTES_EMAIL_DELIVERY.":
+    "Crea un shop en setup pendiente y guarda solo el estado de contacto owner redactado. La entrega de email pendiente queda registrada como PASS_WITH_NOTES_EMAIL_DELIVERY.",
+  "Current result set": "Conjunto de resultados actual",
+  "Data rows": "Filas de datos",
+  "Data health": "Salud de datos",
+  "Deleted entries": "Entradas eliminadas",
+  "Device registry": "Registro de dispositivos",
+  "Device registry state": "Estado del registro de dispositivos",
+  "Device signals": "Señales de dispositivos",
+  "Device signals appear after POS or mobile registration.":
+    "Las señales de dispositivo aparecen despues del registro POS o mobile.",
+  "Device signals appear after POS or mobile registration. Sync source ids alone do not authorize a device.":
+    "Las señales de dispositivo aparecen despues del registro POS o mobile. Los IDs de origen sync por si solos no autorizan un dispositivo.",
+  "Device/sync data health": "Salud de datos dispositivos/sync",
+  "Diagnostics appear after shared_sheet_sessions rows are visible.":
+    "El diagnostico aparece cuando las filas shared_sheet_sessions son visibles.",
+  "Drop a catalog database .xlsx or .xls workbook here or choose a file.":
+    "Arrastra aqui un workbook de base de datos de catalogo .xlsx o .xls, o elige un archivo.",
+  "Editable rows": "Filas editables",
+  "Enabled": "Habilitado",
+  "Entry name": "Nombre de entrada",
+  "Events are ordered chronologically and metadata is summarized after recursive redaction.":
+    "Los eventos se ordenan cronologicamente y los metadatos se resumen despues de redaccion recursiva.",
+  "Events marked pending": "Eventos marcados como pendientes",
+  "Events shown": "Eventos mostrados",
+  "Events with failure metadata": "Eventos con metadatos de falla",
+  "Events without failure metadata": "Eventos sin metadatos de falla",
+  "Excel workbook import/export for catalog transfer. Preview before apply is required and apply runs through audited catalog RPCs.":
+    "Import/export de workbook Excel para transferencia de catalogo. La preview antes de aplicar es obligatoria y el apply usa RPCs auditadas de catalogo.",
+  "Failed technical events": "Eventos tecnicos fallidos",
+  "Global Platform Admin overview loaded server-side through Supabase RLS.":
+    "Resumen global de Platform Admin cargado server-side mediante Supabase RLS.",
+  "Global registry": "Registro global",
+  "Filtered result set": "Conjunto de resultados filtrado",
+  "Fiscal boundary": "Boundary fiscal",
+  "Granular editing": "Edicion granular",
+  "Group": "Grupo",
+  "History empty": "Historial vacio",
+  "History entries are loaded from shared_sheet_sessions. Sync events are technical synchronization logs linked to those entries. Admin audit events are shown separately in Audit.":
+    "Las entradas de historial se cargan desde shared_sheet_sessions. Los eventos sync son logs tecnicos vinculados a esas entradas. Los eventos de auditoria admin se muestran por separado en Audit.",
+  "History sessions may still exist without a related sync_events row.":
+    "Las sesiones de historial pueden existir aunque no haya una fila sync_events relacionada.",
+  "Inventory": "Inventario",
+  "Issue": "Problema",
+  "Latest events": "Eventos recientes",
+  "Latest POS catalog pull failures": "Ultimas fallas de pull de catalogo POS",
+  "Latest POS session/device activity": "Ultima actividad de sesion/dispositivo POS",
+  "Latest shop audit": "Ultima auditoria shop",
+  "Locked": "Bloqueado",
+  "Managers": "Gerentes",
+  "Metadata": "Metadatos",
+  "Device warnings": "Alertas de dispositivos",
+  "No catalog cursor": "Sin cursor de catalogo",
+  "No failed event in current result": "Sin evento fallido en el resultado actual",
+  "No history sync events are visible": "No hay eventos sync de historial visibles",
+  "No mobile history entries are visible": "No hay entradas de historial mobile visibles",
+  "No POS devices are visible": "No hay dispositivos POS visibles",
+  "No registered devices are visible": "No hay dispositivos registrados visibles",
+  "No successful catalog pull": "Sin pull de catalogo exitoso",
+  "No trusted POS device has registered for the selected shop yet.":
+    "Aun no hay ningun dispositivo POS trusted registrado para el shop seleccionado.",
+  "Not available yet": "Aun no disponible",
+  "Not locked": "No bloqueado",
+  "Operational shops": "Shops operativos",
+  "Owner assignment uses an existing active profile and writes audit in the create-shop RPC.":
+    "La asignacion de owner usa un perfil activo existente y escribe auditoria en la RPC create-shop.",
+  "Owner email": "Email owner",
+  "Overlay status": "Estado del overlay",
+  "Payload version": "Version de payload",
+  "Permissions matrix": "Matriz de permisos",
+  "Profiles checked": "Perfiles revisados",
+  "Profiles, shops, audit, devices, sync":
+    "Perfiles, shops, auditoria, dispositivos, sync",
+  "Preview before apply available Excel preview, confirmed apply, export and template generation run server-side through audited catalog boundaries.":
+    "Preview antes de apply disponible. La preview Excel, el apply confirmado, el export y la generacion de template corren server-side mediante boundaries de catalogo auditados.",
+  "Provision Shop": "Provisionar shop",
+  "Provisioning unavailable": "Provisioning no disponible",
+  "Read-only Sync Center for mapped mobile events. This page classifies pending, success and failed states without triggering synchronization.":
+    "Sync Center de solo lectura para eventos mobile mapeados. Esta pagina clasifica estados pending, success y failed sin iniciar sincronizacion.",
+  "Read-only diagnostics": "Diagnosticos de solo lectura",
+  "Read-only in Admin Console": "Solo lectura en Consola Admin",
+  "Read-only member list for the verified selected shop. Profile identifiers are shortened in the UI.":
+    "Lista de miembros de solo lectura para el shop seleccionado verificado. Los identificadores de perfil se abrevian en la UI.",
+  "Ready": "Listo",
+  "Real mobile history entries from shared_sheet_sessions. This table does not include technical sync_events or admin audit_logs.":
+    "Entradas reales de historial mobile desde shared_sheet_sessions. Esta tabla no incluye sync_events tecnicos ni audit_logs admin.",
+  "Registered rows": "Filas registradas",
+  "Register a device from Admin Web or wait for a future client registration flow.":
+    "Registra un dispositivo desde Admin Web o espera un futuro flujo de registro cliente.",
+  "Related history sync events": "Eventos sync de historial relacionados",
+  "Recent sync on suspended shop": "Sync reciente en shop suspendido",
+  "restore requires confirmation": "restaurar requiere confirmacion",
+  "Revoked": "Revocado",
+  "Revoked or suspicious": "Revocados o sospechosos",
+  "revoked": "revocados",
+  "revoked or suspicious": "revocados o sospechosos",
+  "Rows are assembled from real device, trusted credential, session, staff and audit records for this shop.":
+    "Las filas se ensamblan desde registros reales de dispositivos, credenciales trusted, sesiones, staff y auditoria para este shop.",
+  "Rows represent the Admin Web authorization registry with read-only sync activity links when available.":
+    "Las filas representan el registro de autorizacion Admin Web con links de actividad sync de solo lectura cuando estan disponibles.",
+  "Rows scoped by shop_id": "Filas limitadas por shop_id",
+  "Rows with deleted_at": "Filas con deleted_at",
+  "Rows without deleted_at": "Filas sin deleted_at",
+  "Safe rows": "Filas seguras",
+  "Server registry": "Registro servidor",
+  "Server-side directory": "Directorio server-side",
+  "Server registry devices loaded for the verified selected shop, with read-only links to sync activity when available.":
+    "Dispositivos del registro servidor cargados para el shop seleccionado verificado, con links de actividad sync de solo lectura cuando estan disponibles.",
+  "Server registry for shop devices with revoke/reactivate state. Mobile/POS clients must consume this registry before revocation becomes client-enforced.":
+    "Registro servidor para dispositivos del shop con estado revoke/reactivate. Los clientes mobile/POS deben consumir este registro antes de que la revocacion sea aplicada por el cliente.",
+  "Server-side": "Server-side",
+  "Server-side baseline permission matrix for web shop members and POS staff roles. Granular editing is not available yet because no granular roles schema exists.":
+    "Matriz base de permisos server-side para miembros web del shop y roles staff POS. La edicion granular aun no esta disponible porque no existe un schema de roles granulares.",
+  "Server-side query params": "Parametros query server-side",
+  "Server-side status": "Estado server-side",
+  "Shop Manager": "Gerente shop",
+  "Shop Owner": "Dueño shop",
+  "Shop onboarding": "Onboarding shop",
+  "Shop Staff read model loaded server-side through the credential-safe view.":
+    "Read model de staff del shop cargado server-side mediante la vista credential-safe.",
+  "Shop audit log": "Log de auditoria shop",
+  "Shop catalog category list for the verified selected shop. Create, update and archive use audited catalog RPCs.":
+    "Lista de categorias del catalogo shop para el shop seleccionado verificado. Crear, actualizar y archivar usan RPCs auditadas de catalogo.",
+  "Shop catalog products for the verified selected shop. Create, update, archive and restore use audited catalog RPCs.":
+    "Productos del catalogo shop para el shop seleccionado verificado. Crear, actualizar, archivar y restaurar usan RPCs auditadas de catalogo.",
+  "Shop catalog supplier list for the verified selected shop. Create, update and archive use audited catalog RPCs.":
+    "Lista de proveedores del catalogo shop para el shop seleccionado verificado. Crear, actualizar y archivar usan RPCs auditadas de catalogo.",
+  "Shop profile and fiscal identity": "Perfil shop e identidad fiscal",
+  "Shop profile and fiscal identity are managed by Master Console. Admin Console can view these fields but cannot edit them. Fiscal/boleta identity is managed by Master Console.":
+    "El perfil shop y la identidad fiscal se gestionan en Master Console. Consola Admin puede ver estos campos pero no editarlos. La identidad fiscal/boleta se gestiona en Master Console.",
+  "Shop profile and fiscal identity are read-only in Admin Console":
+    "Perfil shop e identidad fiscal son de solo lectura en Consola Admin",
+  "Shop-scoped audit rows for the verified selected shop, with server-side filters and redacted metadata.":
+    "Filas de auditoria shop-scoped para el shop seleccionado verificado, con filtros server-side y metadatos redactados.",
+  "Shop-scoped catalog rows loaded server-side for the verified selected shop.":
+    "Filas de catalogo shop-scoped cargadas server-side para el shop seleccionado verificado.",
+  "Shop-scoped mobile history entries loaded with legacy owner fallback.":
+    "Entradas de historial mobile shop-scoped cargadas con fallback de owner legacy.",
+  "Source/device values in current result": "Valores source/device en el resultado actual",
+  "Staff credential-safe read model": "Read model staff credential-safe",
+  "failed technical events": "eventos tecnicos fallidos",
+  "latest events": "eventos recientes",
+  "latest sync/history events": "eventos sync/historial recientes",
+  "orphaned memberships": "membresias huerfanas",
+  "profiles without membership": "perfiles sin membresia",
+  "Status summary": "Resumen de estado",
+  "suspended shops with recent activity":
+    "shops suspendidos con actividad reciente",
+  "Suppliers are read through shop_id first for the selected shop.":
+    "Los proveedores se leen primero mediante shop_id para el shop seleccionado.",
+  "Sync activity is separate from shop audit. Pending, success and failed are derived from the event payload when available.":
+    "La actividad sync esta separada de la auditoria shop. Pending, success y failed derivan del payload del evento cuando esta disponible.",
+  "Sync empty": "Sync vacio",
+  "Sync events": "Eventos sync",
+  "Sync signals": "Señales sync",
+  "Target": "Target",
+  "The mapping is present, but no shared_sheet_sessions rows are visible through current RLS.":
+    "El mapeo esta presente, pero no hay filas shared_sheet_sessions visibles mediante la RLS actual.",
+  "The matrix separates personal web memberships from POS staff roles.":
+    "La matriz separa membresias web personales y roles staff POS.",
+  "Membership, owner, or read warnings": "Alertas de membresia, owner o lectura",
+  "RLS/grants summary": "Resumen RLS/grants",
+  "Selects pass through authenticated RLS only":
+    "Los selects pasan solo por RLS autenticada",
+  "Sync signals are diagnostic; live Win7POS Sales Sync remains separately verified.":
+    "Las señales sync son diagnosticas; Win7POS Sales Sync live se verifica por separado.",
+  "These are technical synchronization logs. They are not the inventory history entries themselves.":
+    "Estos son logs tecnicos de sincronizacion. No son las entradas de historial de inventory en si.",
+  "Trusted POS devices, sessions and staff links for the verified selected shop. This view is read-only and does not include sales synchronization.":
+    "Dispositivos POS trusted, sesiones y links de staff para el shop seleccionado verificado. Esta vista es de solo lectura y no incluye sincronizacion de ventas.",
+  "Use it when checking device authorization, revoked devices, or suspicious device state for support triage.":
+    "Usala para revisar autorizacion de dispositivos, dispositivos revocados o estados sospechosos en triage de soporte.",
+  "Verified shop profile fields visible through the server boundary. Shop profile and fiscal identity are managed by Master Console.":
+    "Campos de perfil shop verificados visibles mediante el boundary servidor. Perfil shop e identidad fiscal se gestionan en Master Console.",
+  "Workbook sheets and safety limits are enforced server-side before catalog apply.":
+    "Sheets del workbook y limites de seguridad se aplican server-side antes del apply de catalogo.",
+  "active": "activos",
+  "archived": "archivados",
+  "good": "ok",
+  "muted": "atenuado",
+  "neutral": "neutro",
+  "platform admins": "admins de plataforma",
+  "shops without owner": "shops sin owner",
+  "suspended": "suspendidos",
+  "total": "totales",
+  "visible devices": "dispositivos visibles",
+  "visible profiles": "perfiles visibles",
+  "Visible through Platform Admin": "Visibles mediante Platform Admin",
+  "Visible through RLS": "Visibles mediante RLS",
+  "Requires review": "Requiere revision",
+  "Historical shops": "Shops historicos",
+  "Profiles": "Perfiles",
+  "Shop owners": "Owners de shop",
+  "Shops without owner": "Shops sin owner",
+  "Needs provisioning review": "Requiere revision de provisioning",
+  "Total shops": "Shops totales",
+  "A valid Master Console server session is required before provisioning can run.":
+    "Se requiere una sesion servidor valida de Master Console antes de ejecutar provisioning.",
+  "warning": "alerta",
+};
+
+const zhRenderedCorrectiveExact: Record<string, string> = {
+  "0 total mapped rows": "0 条已映射行",
+  "Active and archived products are read through shop_id first and mutated only through server-side RPCs.":
+    "启用和已归档商品会优先通过 shop_id 读取，并且只能通过服务端 RPC 修改。",
+  "Active device credentials": "启用的设备凭证",
+  "Active entries": "启用条目",
+  "Active grants": "启用授权",
+  "Active owner memberships": "启用的所有者成员关系",
+  "Active shop_devices rows": "启用的 shop_devices 行",
+  "Active shops": "启用店铺",
+  "Android / iOS History Entries": "Android / iOS 历史条目",
+  "Applied server-side": "已在服务端应用",
+  "Baseline matrix": "基础矩阵",
+  "Baseline matrix only. No granular roles schema yet.":
+    "仅提供基础矩阵。尚无细粒度角色 schema。",
+  "Catalog cursor": "目录游标",
+  "Catalog errors": "目录错误",
+  "Catalog sync": "目录同步",
+  "Categories are read through shop_id first for the selected shop.":
+    "所选店铺的分类会优先通过 shop_id 读取。",
+  "Chronological rows": "按时间排序的行",
+  "Complete rows": "完整行",
+  "Credential-ready accounts": "凭证就绪账号",
+  "Create a shop with an existing owner or a pending owner invite through audited Master Console boundaries.":
+    "通过已审计的主控台边界，使用现有 owner 或待处理 owner 邀请创建店铺。",
+  "Create pending invite": "创建待处理邀请",
+  "Create pending owner invite": "创建待处理 owner 邀请",
+  "Create shop with existing owner": "使用现有 owner 创建店铺",
+  "Creates a pending setup shop and stores only redacted owner contact state. Email delivery pending is tracked as PASS_WITH_NOTES_EMAIL_DELIVERY.":
+    "创建待设置店铺，并只保存已脱敏的 owner 联系状态。待发送邮件以 PASS_WITH_NOTES_EMAIL_DELIVERY 跟踪。",
+  "Current result set": "当前结果集",
+  "Data rows": "数据行",
+  "Data health": "数据健康",
+  "Deleted entries": "已删除条目",
+  "Device registry": "设备注册表",
+  "Device registry state": "设备注册表状态",
+  "Device signals": "设备信号",
+  "Device signals appear after POS or mobile registration.":
+    "POS 或移动端注册后会显示设备信号。",
+  "Device signals appear after POS or mobile registration. Sync source ids alone do not authorize a device.":
+    "POS 或移动端注册后会显示设备信号。仅同步来源 ID 不会授权设备。",
+  "Device/sync data health": "设备/同步数据健康",
+  "Diagnostics appear after shared_sheet_sessions rows are visible.":
+    "shared_sheet_sessions 行可见后会显示诊断信息。",
+  "Drop a catalog database .xlsx or .xls workbook here or choose a file.":
+    "将目录数据库 .xlsx 或 .xls workbook 拖到这里，或选择文件。",
+  "Editable rows": "可编辑行",
+  "Enabled": "已启用",
+  "Entry name": "条目名称",
+  "Events are ordered chronologically and metadata is summarized after recursive redaction.":
+    "事件按时间顺序排列，metadata 会在递归脱敏后汇总。",
+  "Events marked pending": "标记为待处理的事件",
+  "Events shown": "已显示事件",
+  "Events with failure metadata": "带失败 metadata 的事件",
+  "Events without failure metadata": "不带失败 metadata 的事件",
+  "Excel workbook import/export for catalog transfer. Preview before apply is required and apply runs through audited catalog RPCs.":
+    "用于目录传输的 Excel workbook 导入/导出。应用前必须先预览，应用会通过已审计的目录 RPC 执行。",
+  "Failed technical events": "失败的技术事件",
+  "Global Platform Admin overview loaded server-side through Supabase RLS.":
+    "全局 Platform Admin 概览已通过 Supabase RLS 在服务端加载。",
+  "Global registry": "全局注册表",
+  "Filtered result set": "筛选后的结果集",
+  "Fiscal boundary": "税务边界",
+  "Granular editing": "细粒度编辑",
+  "Group": "组",
+  "History empty": "历史为空",
+  "History entries are loaded from shared_sheet_sessions. Sync events are technical synchronization logs linked to those entries. Admin audit events are shown separately in Audit.":
+    "历史条目来自 shared_sheet_sessions。同步事件是关联这些条目的技术同步日志。管理员审计事件会在审计中单独显示。",
+  "History sessions may still exist without a related sync_events row.":
+    "即使没有关联的 sync_events 行，历史会话仍可能存在。",
+  "Inventory": "库存",
+  "Issue": "问题",
+  "Latest events": "最新事件",
+  "Latest POS catalog pull failures": "最新 POS 目录拉取失败",
+  "Latest POS session/device activity": "最新 POS 会话/设备活动",
+  "Latest shop audit": "最新店铺审计",
+  "Locked": "已锁定",
+  "Managers": "经理",
+  "Metadata": "元数据",
+  "Device warnings": "设备警告",
+  "No catalog cursor": "没有目录游标",
+  "No failed event in current result": "当前结果中没有失败事件",
+  "No history sync events are visible": "没有可见的历史同步事件",
+  "No mobile history entries are visible": "没有可见的移动端历史条目",
+  "No POS devices are visible": "没有可见的 POS 设备",
+  "No registered devices are visible": "没有可见的已注册设备",
+  "No successful catalog pull": "没有成功的目录拉取",
+  "No trusted POS device has registered for the selected shop yet.":
+    "所选店铺尚未注册可信 POS 设备。",
+  "Not available yet": "尚不可用",
+  "Not locked": "未锁定",
+  "Operational shops": "运营中的店铺",
+  "Owner assignment uses an existing active profile and writes audit in the create-shop RPC.":
+    "Owner 分配使用现有启用资料，并在 create-shop RPC 中写入审计。",
+  "Owner email": "Owner 邮箱",
+  "Overlay status": "覆盖层状态",
+  "Payload version": "Payload 版本",
+  "Permissions matrix": "权限矩阵",
+  "Profiles checked": "已检查个人资料",
+  "Profiles, shops, audit, devices, sync": "个人资料、店铺、审计、设备、同步",
+  "Preview before apply available Excel preview, confirmed apply, export and template generation run server-side through audited catalog boundaries.":
+    "已提供应用前预览。Excel 预览、确认应用、导出和模板生成都会通过已审计的目录边界在服务端执行。",
+  "Provision Shop": "开通店铺",
+  "Provisioning unavailable": "开通不可用",
+  "Read-only Sync Center for mapped mobile events. This page classifies pending, success and failed states without triggering synchronization.":
+    "映射移动端事件的只读同步中心。此页面只分类 pending、success 和 failed 状态，不会触发同步。",
+  "Read-only diagnostics": "只读诊断",
+  "Read-only in Admin Console": "在店铺管理台中只读",
+  "Read-only member list for the verified selected shop. Profile identifiers are shortened in the UI.":
+    "已验证所选店铺的只读成员列表。界面中会缩短个人资料标识符。",
+  "Ready": "就绪",
+  "Real mobile history entries from shared_sheet_sessions. This table does not include technical sync_events or admin audit_logs.":
+    "来自 shared_sheet_sessions 的真实移动端历史条目。此表不包含技术 sync_events 或管理员 audit_logs。",
+  "Registered rows": "已注册行",
+  "Register a device from Admin Web or wait for a future client registration flow.":
+    "从 Admin Web 注册设备，或等待未来的客户端注册流程。",
+  "Related history sync events": "相关历史同步事件",
+  "Recent sync on suspended shop": "暂停店铺的近期同步",
+  "restore requires confirmation": "恢复需要确认",
+  "Revoked": "已撤销",
+  "Revoked or suspicious": "已撤销或可疑",
+  "revoked": "已撤销",
+  "revoked or suspicious": "已撤销或可疑",
+  "Rows are assembled from real device, trusted credential, session, staff and audit records for this shop.":
+    "这些行由此店铺的真实设备、可信凭证、会话、员工和审计记录组装而成。",
+  "Rows represent the Admin Web authorization registry with read-only sync activity links when available.":
+    "这些行代表 Admin Web 授权注册表，并在可用时提供只读同步活动链接。",
+  "Rows scoped by shop_id": "按 shop_id 限定的行",
+  "Rows with deleted_at": "带 deleted_at 的行",
+  "Rows without deleted_at": "不带 deleted_at 的行",
+  "Safe rows": "安全行",
+  "Server registry": "服务端注册表",
+  "Server-side directory": "服务端目录",
+  "Server registry devices loaded for the verified selected shop, with read-only links to sync activity when available.":
+    "已为验证的所选店铺加载服务端注册设备，并在可用时提供指向同步活动的只读链接。",
+  "Server registry for shop devices with revoke/reactivate state. Mobile/POS clients must consume this registry before revocation becomes client-enforced.":
+    "包含撤销/重新启用状态的店铺设备服务端注册表。移动端/POS 客户端必须读取此注册表，撤销才能由客户端强制执行。",
+  "Server-side": "服务端",
+  "Server-side baseline permission matrix for web shop members and POS staff roles. Granular editing is not available yet because no granular roles schema exists.":
+    "服务端基础权限矩阵，覆盖 Web 店铺成员和 POS 员工角色。由于尚无细粒度角色 schema，暂不支持细粒度编辑。",
+  "Server-side query params": "服务端查询参数",
+  "Server-side status": "服务端状态",
+  "Shop Manager": "店铺经理",
+  "Shop Owner": "店铺所有者",
+  "Shop onboarding": "店铺开通",
+  "Shop Staff read model loaded server-side through the credential-safe view.":
+    "店铺员工读取模型已通过凭证安全视图在服务端加载。",
+  "Shop audit log": "店铺审计日志",
+  "Shop catalog category list for the verified selected shop. Create, update and archive use audited catalog RPCs.":
+    "已验证所选店铺的目录分类列表。创建、更新和归档都使用已审计的目录 RPC。",
+  "Shop catalog products for the verified selected shop. Create, update, archive and restore use audited catalog RPCs.":
+    "已验证所选店铺的目录商品列表。创建、更新、归档和恢复都使用已审计的目录 RPC。",
+  "Shop catalog supplier list for the verified selected shop. Create, update and archive use audited catalog RPCs.":
+    "已验证所选店铺的目录供应商列表。创建、更新和归档都使用已审计的目录 RPC。",
+  "Shop profile and fiscal identity": "店铺资料和税务身份",
+  "Shop profile and fiscal identity are managed by Master Console. Admin Console can view these fields but cannot edit them. Fiscal/boleta identity is managed by Master Console.":
+    "店铺资料和税务身份由主控台管理。店铺管理台可以查看这些字段，但不能编辑。税务/boleta 身份由主控台管理。",
+  "Shop profile and fiscal identity are read-only in Admin Console":
+    "店铺资料和税务身份在店铺管理台中只读",
+  "Shop-scoped audit rows for the verified selected shop, with server-side filters and redacted metadata.":
+    "已验证所选店铺的店铺范围审计行，包含服务端筛选和已脱敏 metadata。",
+  "Shop-scoped catalog rows loaded server-side for the verified selected shop.":
+    "已在服务端加载验证所选店铺的店铺范围目录行。",
+  "Shop-scoped mobile history entries loaded with legacy owner fallback.":
+    "已加载店铺范围的移动端历史条目，并使用旧版所有者回退。",
+  "Source/device values in current result": "当前结果中的来源/设备值",
+  "Staff credential-safe read model": "员工凭证安全读取模型",
+  "failed technical events": "失败的技术事件",
+  "latest events": "最新事件",
+  "latest sync/history events": "最新同步/历史事件",
+  "orphaned memberships": "孤立成员关系",
+  "profiles without membership": "无成员关系的个人资料",
+  "Status summary": "状态摘要",
+  "suspended shops with recent activity": "有近期活动的暂停店铺",
+  "Suppliers are read through shop_id first for the selected shop.":
+    "所选店铺的供应商会优先通过 shop_id 读取。",
+  "Sync activity is separate from shop audit. Pending, success and failed are derived from the event payload when available.":
+    "同步活动与店铺审计分离。pending、success 和 failed 会在可用时从事件 payload 派生。",
+  "Sync empty": "同步为空",
+  "Sync events": "同步事件",
+  "Sync signals": "同步信号",
+  "Target": "目标",
+  "The mapping is present, but no shared_sheet_sessions rows are visible through current RLS.":
+    "映射已存在，但当前 RLS 下没有可见的 shared_sheet_sessions 行。",
+  "The matrix separates personal web memberships from POS staff roles.":
+    "此矩阵区分个人 Web membership 和 POS 员工角色。",
+  "Membership, owner, or read warnings": "成员关系、owner 或读取警告",
+  "RLS/grants summary": "RLS/授权摘要",
+  "Selects pass through authenticated RLS only": "查询只通过已认证 RLS",
+  "Sync signals are diagnostic; live Win7POS Sales Sync remains separately verified.":
+    "同步信号仅用于诊断；实时 Win7POS Sales Sync 会单独验证。",
+  "These are technical synchronization logs. They are not the inventory history entries themselves.":
+    "这些是技术同步日志，不是库存历史条目本身。",
+  "Trusted POS devices, sessions and staff links for the verified selected shop. This view is read-only and does not include sales synchronization.":
+    "已验证所选店铺的可信 POS 设备、会话和员工关联。此视图为只读，不包含销售同步。",
+  "Use it when checking device authorization, revoked devices, or suspicious device state for support triage.":
+    "在支持排查中检查设备授权、已撤销设备或可疑设备状态时使用。",
+  "Verified shop profile fields visible through the server boundary. Shop profile and fiscal identity are managed by Master Console.":
+    "可通过服务端边界查看已验证的店铺资料字段。店铺资料和税务身份由主控台管理。",
+  "Workbook sheets and safety limits are enforced server-side before catalog apply.":
+    "应用目录前，workbook sheets 和安全限制会在服务端强制执行。",
+  "active": "启用",
+  "archived": "已归档",
+  "good": "正常",
+  "muted": "弱化",
+  "neutral": "中性",
+  "platform admins": "平台管理员",
+  "shops without owner": "无 owner 店铺",
+  "suspended": "已暂停",
+  "total": "总计",
+  "visible devices": "可见设备",
+  "visible profiles": "可见个人资料",
+  "Visible through Platform Admin": "通过 Platform Admin 可见",
+  "Visible through RLS": "通过 RLS 可见",
+  "Requires review": "需要复核",
+  "Historical shops": "历史店铺",
+  "Profiles": "个人资料",
+  "Shop owners": "店铺 owner",
+  "Shops without owner": "无 owner 店铺",
+  "Needs provisioning review": "需要开通复核",
+  "Total shops": "店铺总数",
+  "A valid Master Console server session is required before provisioning can run.":
+    "执行开通前需要有效的主控台服务端会话。",
+  "warning": "警告",
+};
+
 const en: Dictionary = {
   access: {
     accessRequired: "{area} access required",
@@ -2745,7 +3428,7 @@ const it: Dictionary = {
     language: "Lingua",
     logout: "Esci",
   },
-  exact: itExact,
+  exact: { ...itExact, ...itRenderedCorrectiveExact },
   languageSwitcher: {
     label: "Lingua",
   },
@@ -2807,7 +3490,7 @@ const it: Dictionary = {
   shopShell: {
     ...en.shopShell,
     adminConsole: "Console Admin",
-    companyRutPrefix: "Company RUT",
+    companyRutPrefix: "RUT azienda",
     navigationAria: "Sezioni shop",
     noShopSelected: "Nessuno shop selezionato",
     notConfigured: "Non configurato",
@@ -2921,7 +3604,7 @@ const es: Dictionary = {
     language: "Idioma",
     logout: "Salir",
   },
-  exact: esExact,
+  exact: { ...esExact, ...esRenderedCorrectiveExact },
   languageSwitcher: {
     label: "Idioma",
   },
@@ -2983,7 +3666,7 @@ const es: Dictionary = {
   shopShell: {
     ...en.shopShell,
     adminConsole: "Consola Admin",
-    companyRutPrefix: "Company RUT",
+    companyRutPrefix: "RUT empresa",
     navigationAria: "Secciones shop",
     noShopSelected: "Ningun shop seleccionado",
     notConfigured: "No configurado",
@@ -3089,7 +3772,7 @@ const zhCN: Dictionary = {
     language: "语言",
     logout: "退出",
   },
-  exact: zhExact,
+  exact: { ...zhExact, ...zhRenderedCorrectiveExact },
   languageSwitcher: {
     label: "语言",
   },
@@ -3147,7 +3830,7 @@ const zhCN: Dictionary = {
   shopShell: {
     ...en.shopShell,
     adminConsole: "店铺管理台",
-    companyRutPrefix: "Company RUT",
+    companyRutPrefix: "公司 RUT",
     navigationAria: "店铺分区",
     noShopSelected: "未选择店铺",
     notConfigured: "未配置",

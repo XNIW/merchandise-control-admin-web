@@ -18,6 +18,7 @@ export type StatItem = {
   value: string;
   detail: string;
   tone: "neutral" | "good" | "warning" | "muted";
+  toneLabel?: string;
 };
 
 export type TableColumn = {

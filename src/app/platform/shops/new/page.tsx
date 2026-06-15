@@ -3,6 +3,8 @@ import { AppShell } from "@/components/platform/AppShell";
 import { EmptyState } from "@/components/platform/components/EmptyState";
 import { PageHeader } from "@/components/platform/components/PageHeader";
 import { SectionCard } from "@/components/platform/components/SectionCard";
+import { getI18n } from "@/i18n/get-locale";
+import { translateText } from "@/i18n/translate-sections";
 import { getPlatformAdminReadModel } from "@/server/platform-admin/read-model";
 import {
   createPlatformPendingOwnerInviteAction,
@@ -24,6 +26,8 @@ function formatToken(value: string) {
 }
 
 export default async function PlatformNewShopPage() {
+  const { dictionary, locale } = await getI18n();
+  const t = (value: string) => translateText(dictionary, value);
   const readModel = await getPlatformAdminReadModel();
   const ready = readModel.status === "ready";
   const activeProfiles = readModel.profiles.filter(
@@ -31,31 +35,40 @@ export default async function PlatformNewShopPage() {
   );
 
   return (
-    <AppShell activeSection="provisioning">
+    <AppShell activeSection="provisioning" dictionary={dictionary} locale={locale}>
       <div className="mx-auto flex max-w-5xl flex-col gap-5">
         <PageHeader
-          eyebrow="Shop onboarding"
-          title="Provision Shop"
-          description="Create a shop with an existing owner or a pending owner invite through audited Master Console boundaries."
-          status={ready ? "Safe provisioning" : formatToken(readModel.status)}
+          eyebrow={t("Shop onboarding")}
+          title={t("Provision Shop")}
+          description={t(
+            "Create a shop with an existing owner or a pending owner invite through audited Master Console boundaries.",
+          )}
+          status={ready ? t("Safe provisioning") : t(formatToken(readModel.status))}
         />
 
         {!ready ? (
           <SectionCard
-            title="Provisioning unavailable"
-            description="A valid Master Console server session is required before provisioning can run."
+            title={t("Provisioning unavailable")}
+            description={t(
+              "A valid Master Console server session is required before provisioning can run.",
+            )}
           >
-            <EmptyState title={formatToken(readModel.status)} description={readModel.reason} />
+            <EmptyState
+              title={t(formatToken(readModel.status))}
+              description={t(readModel.reason)}
+            />
           </SectionCard>
         ) : (
           <div className="grid gap-5">
             <SectionCard
-              title="Create shop with existing owner"
-              description="Owner assignment uses an existing active profile and writes audit in the create-shop RPC."
+              title={t("Create shop with existing owner")}
+              description={t(
+                "Owner assignment uses an existing active profile and writes audit in the create-shop RPC.",
+              )}
             >
               <form action={createPlatformShopAction} className="grid gap-4 lg:grid-cols-2">
                 <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-                  <span>Shop name</span>
+                  <span>{t("Shop name")}</span>
                   <input
                     name="shopName"
                     required
@@ -63,7 +76,7 @@ export default async function PlatformNewShopPage() {
                   />
                 </label>
                 <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-                  <span>Shop code</span>
+                  <span>{t("Shop code")}</span>
                   <input
                     name="shopCode"
                     required
@@ -71,13 +84,13 @@ export default async function PlatformNewShopPage() {
                   />
                 </label>
                 <label className="grid gap-1.5 text-sm font-medium text-slate-800 lg:col-span-2">
-                  <span>Initial owner</span>
+                  <span>{t("Initial owner")}</span>
                   <select
                     name="ownerProfileId"
                     required
                     className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
                   >
-                    <option value="">Select active profile</option>
+                    <option value="">{t("Select active profile")}</option>
                     {activeProfiles.map((profile) => (
                       <option key={profile.profile_id} value={profile.profile_id}>
                         {profile.display_name}
@@ -86,7 +99,7 @@ export default async function PlatformNewShopPage() {
                   </select>
                 </label>
                 <label className="grid gap-1.5 text-sm font-medium text-slate-800 lg:col-span-2">
-                  <span>Reason</span>
+                  <span>{t("Reason")}</span>
                   <textarea
                     name="reason"
                     required
@@ -99,22 +112,24 @@ export default async function PlatformNewShopPage() {
                     type="submit"
                     className="min-h-10 rounded-md border border-slate-950 bg-slate-950 px-3 py-2 text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
                   >
-                    Create shop
+                    {t("Create shop")}
                   </button>
                 </div>
               </form>
             </SectionCard>
 
             <SectionCard
-              title="Create pending owner invite"
-              description="Creates a pending setup shop and stores only redacted owner contact state. Email delivery pending is tracked as PASS_WITH_NOTES_EMAIL_DELIVERY."
+              title={t("Create pending owner invite")}
+              description={t(
+                "Creates a pending setup shop and stores only redacted owner contact state. Email delivery pending is tracked as PASS_WITH_NOTES_EMAIL_DELIVERY.",
+              )}
             >
               <form
                 action={createPlatformPendingOwnerInviteAction}
                 className="grid gap-4 lg:grid-cols-2"
               >
                 <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-                  <span>Shop name</span>
+                  <span>{t("Shop name")}</span>
                   <input
                     name="shopName"
                     required
@@ -122,7 +137,7 @@ export default async function PlatformNewShopPage() {
                   />
                 </label>
                 <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-                  <span>Shop code</span>
+                  <span>{t("Shop code")}</span>
                   <input
                     name="shopCode"
                     required
@@ -130,7 +145,7 @@ export default async function PlatformNewShopPage() {
                   />
                 </label>
                 <label className="grid gap-1.5 text-sm font-medium text-slate-800 lg:col-span-2">
-                  <span>Owner email</span>
+                  <span>{t("Owner email")}</span>
                   <input
                     name="ownerEmail"
                     required
@@ -139,7 +154,7 @@ export default async function PlatformNewShopPage() {
                   />
                 </label>
                 <label className="grid gap-1.5 text-sm font-medium text-slate-800 lg:col-span-2">
-                  <span>Reason</span>
+                  <span>{t("Reason")}</span>
                   <textarea
                     name="reason"
                     required
@@ -152,7 +167,7 @@ export default async function PlatformNewShopPage() {
                     type="submit"
                     className="min-h-10 rounded-md border border-slate-950 bg-slate-950 px-3 py-2 text-sm font-semibold text-white outline-none focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
                   >
-                    Create pending invite
+                    {t("Create pending invite")}
                   </button>
                 </div>
               </form>

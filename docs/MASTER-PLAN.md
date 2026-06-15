@@ -2484,11 +2484,17 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   action panel, provisioning Platform e access gate sono stati collegati alle
   label i18n. Gate finali verdi:
   `git diff --check`, `typecheck`, `lint`, `security:scan`,
-  `test:foundation` (`314/314`), `build`, `verify`, targeted TASK-061/TASK-060,
+  `test:foundation` (`315/315`), `build`, `verify`, targeted TASK-061/TASK-060,
   targeted History Sync/TASK-015, targeted TASK-062 e scanner i18n
-  (`checkedPhrases: 179`). Browser QA locale su `127.0.0.1:3062` ha visitato
+  (`checkedPhrases: 260`). Browser QA locale su `127.0.0.1:3062` ha visitato
   `19` route x `4` locali senza crash, senza `wrongLang` e con auth/runtime
   fail-closed dove non era disponibile una sessione Supabase.
+- Nota correttiva visual i18n 2026-06-15: sweep browser laterale autenticato
+  su `127.0.0.1:3000` in `zh-CN` ha coperto `28` route Shop/Platform; scanner
+  rendered riproducibile
+  `node scripts/i18n-rendered-text-scan.mjs --input /tmp/task062-rendered-i18n-after.json`
+  verde con `checkedPhrases: 85`, `checkedRoutes: 28`,
+  `nonEnglishRecords: 28`.
 
 ## Tooling policy
 
