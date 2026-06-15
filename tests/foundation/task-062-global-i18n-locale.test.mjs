@@ -39,6 +39,9 @@ test("TASK-062 defines a global locale contract with cookie fallback", () => {
 test("TASK-062 connects locale to global layouts and client refresh switcher", () => {
   const rootLayout = readProjectFile("src/app/layout.tsx");
   const shopLayout = readProjectFile("src/app/shop/layout.tsx");
+  const platformProvisioningPage = readProjectFile(
+    "src/app/platform/provisioning/page.tsx",
+  );
   const appShell = readProjectFile("src/components/platform/AppShell.tsx");
   const shopShell = readProjectFile("src/components/shop/ShopShell.tsx");
   const switcher = readProjectFile("src/components/language-switcher.tsx");
@@ -58,6 +61,10 @@ test("TASK-062 connects locale to global layouts and client refresh switcher", (
   assert.match(shopShell, /navigationSections/);
   assert.match(shopShell, /sharedGuardrails/);
 
+  assert.match(platformProvisioningPage, /getI18n/);
+  assert.match(platformProvisioningPage, /createPlatformProvisioningLabels/);
+  assert.match(platformProvisioningPage, /labels=\{labels\}/);
+
   assert.match(switcher, /document\.cookie/);
   assert.match(switcher, /LOCALE_COOKIE_NAME/);
   assert.match(switcher, /router\.refresh\(\)/);
@@ -66,6 +73,9 @@ test("TASK-062 connects locale to global layouts and client refresh switcher", (
 
 test("TASK-062 guards critical UI copy against untranslated non-English locales", () => {
   const dictionaries = readProjectFile("src/i18n/dictionaries.ts");
+  const platformProvisioningLabels = readProjectFile(
+    "src/app/platform/provisioning/provisioningLabels.ts",
+  );
 
   for (const phrase of [
     "Legacy mobile bridge",
@@ -116,6 +126,28 @@ test("TASK-062 guards critical UI copy against untranslated non-English locales"
     const escapedPhrase = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
     const translationCount = [...dictionaries.matchAll(new RegExp(`"${escapedPhrase}"\\s*:`, "g"))]
       .length;
+
+    assert.equal(
+      translationCount,
+      3,
+      `${phrase} must be covered in it/es/zh-CN exact dictionaries`,
+    );
+  }
+
+  const provisioningLabelKeys = [
+    ...platformProvisioningLabels.matchAll(/^  "((?:[^"\\]|\\.)*)",$/gm),
+  ].map((match) => JSON.parse(`"${match[1]}"`));
+
+  assert.ok(
+    provisioningLabelKeys.length > 100,
+    "Platform provisioning i18n labels should cover the full form/recovery UI",
+  );
+
+  for (const phrase of provisioningLabelKeys) {
+    const escapedPhrase = phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const translationCount = [
+      ...dictionaries.matchAll(new RegExp(`"${escapedPhrase}"\\s*:`, "g")),
+    ].length;
 
     assert.equal(
       translationCount,

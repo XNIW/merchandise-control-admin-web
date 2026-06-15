@@ -18,6 +18,9 @@ const sourceFiles = [
   "src/components/platform/platformData.ts",
   "src/server/platform-admin/platform-section-data.ts",
   "src/components/platform/PlatformPage.tsx",
+  "src/components/auth/AccessState.tsx",
+  "src/server/auth/admin-routing.ts",
+  "src/server/shop-admin/shop-access.ts",
   "src/components/shop/ShopSectionPage.tsx",
   "src/app/shop/import-export/page.tsx",
   "src/app/shop/_components/CatalogActionPanel.tsx",
@@ -28,9 +31,28 @@ const sourceFiles = [
   "src/app/platform/admins/page.tsx",
   "src/app/platform/operations/page.tsx",
   "src/components/platform/operations/ControlledOperationsWorkflow.tsx",
+  "src/app/platform/layout.tsx",
+  "src/app/platform/provisioning/page.tsx",
+  "src/app/platform/provisioning/provisioningLabels.ts",
+  "src/app/platform/provisioning/ShopProvisioningForms.tsx",
+  "src/app/platform/provisioning/StaffManagerProvisioningPanel.tsx",
+  "src/app/platform/provisioning/SearchableEntityPicker.tsx",
 ].filter((relativePath) => existsSync(join(root, relativePath)));
 
-const criticalUiPhrases = [
+function extractQuotedLabelKeys(relativePath) {
+  if (!existsSync(join(root, relativePath))) {
+    return [];
+  }
+
+  return [...read(relativePath).matchAll(/^  "((?:[^"\\]|\\.)*)",$/gm)]
+    .map((match) => JSON.parse(`"${match[1]}"`));
+}
+
+const provisioningCriticalUiPhrases = extractQuotedLabelKeys(
+  "src/app/platform/provisioning/provisioningLabels.ts",
+);
+
+const baseCriticalUiPhrases = [
   "Legacy mobile bridge",
   "Ready via legacy bridge",
   "Filtered catalog rows",
@@ -91,6 +113,13 @@ const criticalUiPhrases = [
   "Android database columns were recognized automatically.",
   "Download catalog export",
   "Download template",
+  "Master Console",
+  "Sign in with a personal account to open the Admin Console.",
+  "This account is authorized for Admin Console, not Master Console.",
+];
+
+const criticalUiPhrases = [
+  ...new Set([...baseCriticalUiPhrases, ...provisioningCriticalUiPhrases]),
 ];
 
 const dictionaries = read("src/i18n/dictionaries.ts");

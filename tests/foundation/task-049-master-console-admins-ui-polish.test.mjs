@@ -153,7 +153,7 @@ test("TASK-049 Audit, Provisioning, Operations, and topbar use compact safe layo
     "placeholder=\"Acme Santiago\"",
     "placeholder=\"761234567\"",
     "Use Company RUT as Shop code",
-    "placeholder=\"Why this provisioning action is approved\"",
+    'placeholder={t("Why this provisioning action is approved")}',
     "Create POS-first shop",
     "Record pending owner email",
     "Temporary PIN. It is shown once after creation and should be changed after first access.",

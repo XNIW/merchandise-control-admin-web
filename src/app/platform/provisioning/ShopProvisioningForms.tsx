@@ -15,6 +15,11 @@ import {
   SearchableEntityPicker,
   type SearchableEntityPickerItem,
 } from "./SearchableEntityPicker";
+import {
+  createPlatformProvisioningTranslator,
+  defaultPlatformProvisioningLabels,
+  type PlatformProvisioningLabels,
+} from "./provisioningLabels";
 import { submitPlatformProvisioningForm } from "./platformProvisioningRequest";
 
 type OwnerProfileOption = {
@@ -25,12 +30,14 @@ type OwnerProfileOption = {
 };
 
 type ShopProvisioningFormsProps = {
+  labels?: PlatformProvisioningLabels;
   ownerProfiles: readonly OwnerProfileOption[];
 };
 
 type OwnerSetupMode = "existing-owner" | "pending-email" | "pos-first";
 type FieldErrorMap = Record<string, string>;
 type RegisteredField = HTMLInputElement | HTMLTextAreaElement;
+type PlatformProvisioningT = (value: string) => string;
 
 const initialState: PlatformShopProvisioningState = {
   code: "success",
@@ -178,10 +185,6 @@ function formatRutForFiscalDisplay(value: string) {
   return formatRutForDisplay(value);
 }
 
-function formatShopIdentityRutHelp() {
-  return "RUT can be typed with or without dots/dash. Shop code uses the compact RUT for login.";
-}
-
 function normalizeShopCode(value: string) {
   return value.trim().toUpperCase();
 }
@@ -226,7 +229,13 @@ type FieldErrorHelpers = {
   registerField: (field: string) => (element: RegisteredField | null) => void;
 };
 
-function CopyPinButton({ value }: { value: string }) {
+function CopyPinButton({
+  t,
+  value,
+}: {
+  t: PlatformProvisioningT;
+  value: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -240,15 +249,17 @@ function CopyPinButton({ value }: { value: string }) {
       onClick={handleCopy}
       type="button"
     >
-      {copied ? "Copied" : "Copy PIN"}
+      {copied ? t("Copied") : t("Copy PIN")}
     </button>
   );
 }
 
 function ProvisioningResultBanner({
   state,
+  t,
 }: {
   state: PlatformShopProvisioningState;
+  t: PlatformProvisioningT;
 }) {
   if (state.message === initialState.message) {
     return null;
@@ -265,47 +276,65 @@ function ProvisioningResultBanner({
       ].join(" ")}
       role={state.ok ? "status" : "alert"}
     >
-      <p className="font-semibold">{state.ok ? "Shop created" : state.message}</p>
+      <p className="font-semibold">
+        {state.ok ? t("Shop created") : t(state.message)}
+      </p>
       {state.ok ? (
         <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           <div>
-            <dt className="text-xs uppercase text-emerald-800">Shop name</dt>
-            <dd className="text-sm">{state.shopName ?? "Not returned"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase text-emerald-800">Company RUT</dt>
-            <dd className="font-mono text-sm">
-              {state.companyRut ?? "Not returned"}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase text-emerald-800">Shop code</dt>
-            <dd className="font-mono text-sm">{state.shopCode ?? "Not returned"}</dd>
-          </div>
-          <div>
-            <dt className="text-xs uppercase text-emerald-800">Owner mode</dt>
-            <dd className="text-sm">{state.ownerMode ?? "Not returned"}</dd>
+            <dt className="text-xs uppercase text-emerald-800">
+              {t("Shop name")}
+            </dt>
+            <dd className="text-sm">{state.shopName ?? t("Not returned")}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase text-emerald-800">
-              Staff code
+              {t("Company RUT")}
+            </dt>
+            <dd className="font-mono text-sm">
+              {state.companyRut ?? t("Not returned")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase text-emerald-800">
+              {t("Shop code")}
+            </dt>
+            <dd className="font-mono text-sm">
+              {state.shopCode ?? t("Not returned")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase text-emerald-800">
+              {t("Owner mode")}
+            </dt>
+            <dd className="text-sm">
+              {state.ownerMode ? t(state.ownerMode) : t("Not returned")}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs uppercase text-emerald-800">
+              {t("Staff code")}
             </dt>
             <dd className="font-mono text-sm">{state.staffCode ?? "1001"}</dd>
           </div>
           <div>
             <dt className="text-xs uppercase text-emerald-800">
-              Temporary PIN shown once
+              {t("Temporary PIN shown once")}
             </dt>
             <dd className="text-sm">
               {state.temporaryCredential
-                ? "Shown below"
-                : "Not returned by this action"}
+                ? t("Shown below")
+                : t("Not returned by this action")}
             </dd>
           </div>
           <div>
-            <dt className="text-xs uppercase text-emerald-800">Owner status</dt>
+            <dt className="text-xs uppercase text-emerald-800">
+              {t("Owner status")}
+            </dt>
             <dd className="text-sm">
-              {state.ownerStatus ?? "No personal owner yet"}
+              {state.ownerStatus
+                ? t(state.ownerStatus)
+                : t("No personal owner yet")}
             </dd>
           </div>
         </dl>
@@ -314,16 +343,18 @@ function ProvisioningResultBanner({
         <>
           <div className="mt-3 grid gap-2 rounded-md border border-emerald-200 bg-white p-3">
             <p className="text-xs font-semibold text-emerald-950">
-              Save this PIN now. It will not be shown again.
+              {t("Save this PIN now. It will not be shown again.")}
             </p>
             <p className="text-xs text-emerald-900">
-              Use this PIN with shop code and staff code 1001 for the first Admin Console / Win7POS access. The shop should change it after first access.
+              {t(
+                "Use this PIN with shop code and staff code 1001 for the first Admin Console / Win7POS access. The shop should change it after first access.",
+              )}
             </p>
             <code className="block rounded bg-emerald-50 px-3 py-2 font-mono text-2xl font-semibold text-slate-950">
               {state.temporaryCredential}
             </code>
             <div>
-              <CopyPinButton value={state.temporaryCredential} />
+              <CopyPinButton t={t} value={state.temporaryCredential} />
             </div>
           </div>
         </>
@@ -344,6 +375,7 @@ function ShopIdentityFields({
   onShopCodeChange,
   onUseCompanyRutAsShopCodeChange,
   registerField,
+  t,
 }: FieldErrorHelpers & {
   formValues: PlatformShopProvisioningFormValues;
   onCompanyRutBlur: () => void;
@@ -352,21 +384,24 @@ function ShopIdentityFields({
   onShopNameChange: (value: string) => void;
   onShopCodeChange: (value: string) => void;
   onUseCompanyRutAsShopCodeChange: (checked: boolean) => void;
+  t: PlatformProvisioningT;
 }) {
   return (
     <fieldset className="grid gap-4 rounded-md border border-slate-200 p-4">
       <legend className="px-1 text-sm font-semibold text-slate-900">
-        Shop identity
+        {t("Shop identity")}
       </legend>
       <p className="text-xs leading-5 text-slate-600">
-        {formatShopIdentityRutHelp()}
+        {t(
+          "RUT can be typed with or without dots/dash. Shop code uses the compact RUT for login.",
+        )}
       </p>
       <div
         className="grid items-start gap-4 sm:grid-cols-2"
         data-layout="shop-identity-primary-row"
       >
         <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-          <span>Shop name</span>
+          <span>{t("Shop name")}</span>
           <input
             aria-describedby={fieldErrorId("shopName")}
             aria-invalid={fieldHasError("shopName")}
@@ -386,7 +421,7 @@ function ShopIdentityFields({
           />
         </label>
         <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-          <span>Company RUT</span>
+          <span>{t("Company RUT")}</span>
           <input
             aria-describedby={fieldErrorId("companyRut")}
             aria-invalid={fieldHasError("companyRut")}
@@ -420,13 +455,13 @@ function ShopIdentityFields({
           type="checkbox"
           value="true"
         />
-        <span>Use Company RUT as Shop code</span>
+        <span>{t("Use Company RUT as Shop code")}</span>
       </label>
       <label
         className="grid gap-1.5 text-sm font-medium text-slate-800"
         data-layout="shop-code-row"
       >
-        <span>Shop code</span>
+        <span>{t("Shop code")}</span>
         <input
           aria-describedby={fieldErrorId("shopCode")}
           aria-invalid={fieldHasError("shopCode")}
@@ -457,6 +492,7 @@ function FiscalIdentityFields({
   onFieldChange,
   onLegalRepresentativeRutBlur,
   registerField,
+  t,
 }: FieldErrorHelpers & {
   formValues: PlatformShopProvisioningFormValues;
   onFieldChange: (
@@ -464,21 +500,24 @@ function FiscalIdentityFields({
     value: string,
   ) => void;
   onLegalRepresentativeRutBlur: () => void;
+  t: PlatformProvisioningT;
 }) {
   return (
     <fieldset className="grid gap-4 rounded-md border border-slate-200 p-4">
       <legend className="px-1 text-sm font-semibold text-slate-900">
-        Fiscal / Boleta identity
+        {t("Fiscal / Boleta identity")}
       </legend>
       <p className="text-xs leading-5 text-slate-600">
-        Fiscal identity is managed by Master Console and shown read-only in Admin Console.
+        {t(
+          "Fiscal identity is managed by Master Console and shown read-only in Admin Console.",
+        )}
       </p>
       <div
         className="grid items-start gap-4 sm:grid-cols-2"
         data-layout="fiscal-primary-row"
       >
         <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-          <span>Business giro</span>
+          <span>{t("Business giro")}</span>
           <input
             aria-describedby={fieldErrorId("businessGiro")}
             aria-invalid={fieldHasError("businessGiro")}
@@ -487,7 +526,7 @@ function FiscalIdentityFields({
             onChange={(event) =>
               onFieldChange("businessGiro", event.target.value)
             }
-            placeholder="Retail and POS operations"
+            placeholder={t("Retail and POS operations")}
             ref={registerField("businessGiro")}
             required
             value={formValues.businessGiro}
@@ -499,7 +538,7 @@ function FiscalIdentityFields({
           />
         </label>
         <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-          <span>Address</span>
+          <span>{t("Address")}</span>
           <input
             aria-describedby={fieldErrorId("businessAddress")}
             aria-invalid={fieldHasError("businessAddress")}
@@ -525,7 +564,7 @@ function FiscalIdentityFields({
         data-layout="fiscal-secondary-row"
       >
         <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-          <span>City</span>
+          <span>{t("City")}</span>
           <input
             aria-describedby={fieldErrorId("businessCity")}
             aria-invalid={fieldHasError("businessCity")}
@@ -546,7 +585,7 @@ function FiscalIdentityFields({
           />
         </label>
         <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-          <span>Legal representative RUT</span>
+          <span>{t("Legal representative RUT")}</span>
           <input
             aria-describedby={fieldErrorId("legalRepresentativeRut")}
             aria-invalid={fieldHasError("legalRepresentativeRut")}
@@ -578,10 +617,12 @@ function OwnerProfilePicker({
   onSelect,
   profiles,
   selectedProfileId,
+  t,
 }: Pick<FieldErrorHelpers, "fieldErrorId" | "fieldMessage"> & {
   onSelect: (profileId: string) => void;
   profiles: readonly OwnerProfileOption[];
   selectedProfileId: string;
+  t: PlatformProvisioningT;
 }) {
   const pickerItems = useMemo(
     () =>
@@ -602,17 +643,19 @@ function OwnerProfilePicker({
   return (
     <div className="grid gap-2">
       <SearchableEntityPicker
-        emptyState="No profiles match this search"
+        emptyState={t("No profiles match this search")}
         hiddenInputName="ownerProfileId"
         items={pickerItems}
-        label="Initial owner"
+        label={t("Initial owner")}
+        noResultsLabel={t("No results.")}
+        noneLabel={t("None")}
         onSelect={onSelect}
         renderItemStatus={(profile) => profile.status}
         renderItemSubtitle={(profile) => profile.shortProfileId}
         renderItemTitle={(profile) => profile.displayName}
-        searchPlaceholder="Search profiles"
+        searchPlaceholder={t("Search profiles")}
         selectedId={selectedProfileId}
-        selectedSummaryLabel="Selected owner"
+        selectedSummaryLabel={t("Selected owner")}
       />
       <FieldError
         field="ownerProfileId"
@@ -623,7 +666,7 @@ function OwnerProfilePicker({
   );
 }
 
-function InitialManagerSummary() {
+function InitialManagerSummary({ t }: { t: PlatformProvisioningT }) {
   const summaryItems = [
     "Staff code: 1001",
     "Display name: manager",
@@ -634,11 +677,11 @@ function InitialManagerSummary() {
   return (
     <section className="grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-4">
       <h3 className="text-sm font-semibold text-slate-900">
-        Initial manager access
+        {t("Initial manager access")}
       </h3>
       <ul className="grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
         {summaryItems.map((item) => (
-          <li key={item}>{item}</li>
+          <li key={item}>{t(item)}</li>
         ))}
       </ul>
     </section>
@@ -655,6 +698,7 @@ function OwnerSetupFields({
   onOwnerProfileSelect,
   ownerProfiles,
   registerField,
+  t,
 }: FieldErrorHelpers & {
   formValues: PlatformShopProvisioningFormValues;
   onChange: (mode: OwnerSetupMode) => void;
@@ -664,11 +708,12 @@ function OwnerSetupFields({
   ) => void;
   onOwnerProfileSelect: (profileId: string) => void;
   ownerProfiles: readonly OwnerProfileOption[];
+  t: PlatformProvisioningT;
 }) {
   return (
     <fieldset className="grid gap-3 rounded-md border border-slate-200 p-4">
       <legend className="px-1 text-sm font-semibold text-slate-900">
-        Owner setup
+        {t("Owner setup")}
       </legend>
       <div className="grid gap-2">
         {ownerSetupOptions.map((option) => {
@@ -683,7 +728,7 @@ function OwnerSetupFields({
                   : "border-slate-200 bg-white text-slate-800 hover:border-slate-400",
               ].join(" ")}
               key={option.mode}
-              title={ownerStatusLabelByMode[option.mode]}
+              title={t(ownerStatusLabelByMode[option.mode])}
             >
               <span className="flex items-center gap-2 font-semibold">
                 <input
@@ -694,10 +739,10 @@ function OwnerSetupFields({
                   type="radio"
                   value={option.mode}
                 />
-                {option.label}
+                {t(option.label)}
               </span>
               <span className="pl-6 text-xs leading-5 opacity-80">
-                {option.description}
+                {t(option.description)}
               </span>
             </label>
           );
@@ -710,19 +755,20 @@ function OwnerSetupFields({
       />
 
       {formValues.ownerSetupMode === "existing-owner" ? (
-        <OwnerProfilePicker
-          fieldErrorId={fieldErrorId}
-          fieldMessage={fieldMessage}
-          onSelect={onOwnerProfileSelect}
-          profiles={ownerProfiles}
-          selectedProfileId={formValues.ownerProfileId}
-        />
+          <OwnerProfilePicker
+            fieldErrorId={fieldErrorId}
+            fieldMessage={fieldMessage}
+            onSelect={onOwnerProfileSelect}
+            profiles={ownerProfiles}
+            selectedProfileId={formValues.ownerProfileId}
+            t={t}
+          />
       ) : null}
 
       {formValues.ownerSetupMode === "pending-email" ? (
         <div className="grid gap-3">
           <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-            <span>Future owner email</span>
+            <span>{t("Future owner email")}</span>
             <input
               aria-describedby={fieldErrorId("ownerContact")}
               aria-invalid={fieldHasError("ownerContact")}
@@ -744,7 +790,9 @@ function OwnerSetupFields({
             />
           </label>
           <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-            This records a pending owner setup. Email delivery is not active yet.
+            {t(
+              "This records a pending owner setup. Email delivery is not active yet.",
+            )}
           </p>
         </div>
       ) : null}
@@ -759,23 +807,25 @@ function ReasonField({
   formValues,
   onFieldChange,
   registerField,
+  t,
 }: FieldErrorHelpers & {
   formValues: PlatformShopProvisioningFormValues;
   onFieldChange: (
     field: keyof PlatformShopProvisioningFormValues,
     value: string,
   ) => void;
+  t: PlatformProvisioningT;
 }) {
   return (
     <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-      <span>Reason</span>
+      <span>{t("Reason")}</span>
       <textarea
         aria-describedby={fieldErrorId("reason")}
         aria-invalid={fieldHasError("reason")}
         className="min-h-20 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
         name="reason"
         onChange={(event) => onFieldChange("reason", event.target.value)}
-        placeholder="Why this provisioning action is approved"
+        placeholder={t("Why this provisioning action is approved")}
         ref={registerField("reason")}
         required
         rows={3}
@@ -791,8 +841,13 @@ function ReasonField({
 }
 
 export function ShopProvisioningForms({
+  labels = defaultPlatformProvisioningLabels,
   ownerProfiles,
 }: ShopProvisioningFormsProps) {
+  const t = useMemo(
+    () => createPlatformProvisioningTranslator(labels),
+    [labels],
+  );
   const fieldRefs = useRef<Partial<Record<string, RegisteredField>>>({});
   const createShopPendingRef = useRef(false);
   const [formValues, setFormValues] =
@@ -857,7 +912,9 @@ export function ShopProvisioningForms({
   }
 
   function fieldMessage(field: string) {
-    return fieldErrors[field];
+    const message = fieldErrors[field];
+
+    return message ? t(message) : undefined;
   }
 
   function registerField(field: string) {
@@ -1019,13 +1076,17 @@ export function ShopProvisioningForms({
   return (
     <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-4">
       <div>
-        <h2 className="text-lg font-semibold text-slate-950">Create shop</h2>
+        <h2 className="text-lg font-semibold text-slate-950">
+          {t("Create shop")}
+        </h2>
         <p className="mt-1 text-sm text-slate-600">
-          Create the shop, fiscal identity, initial manager access, and optional owner setup.
+          {t(
+            "Create the shop, fiscal identity, initial manager access, and optional owner setup.",
+          )}
         </p>
       </div>
 
-      <ProvisioningResultBanner state={state} />
+      <ProvisioningResultBanner state={state} t={t} />
 
       <div className="grid gap-4">
         <ShopIdentityFields
@@ -1042,6 +1103,7 @@ export function ShopProvisioningForms({
           }
           onUseCompanyRutAsShopCodeChange={handleUseCompanyRutAsShopCodeChange}
           registerField={registerField}
+          t={t}
         />
         <FiscalIdentityFields
           fieldErrorId={fieldErrorId}
@@ -1051,8 +1113,9 @@ export function ShopProvisioningForms({
           onFieldChange={updateFormValue}
           onLegalRepresentativeRutBlur={handleLegalRepresentativeRutBlur}
           registerField={registerField}
+          t={t}
         />
-        <InitialManagerSummary />
+        <InitialManagerSummary t={t} />
         <OwnerSetupFields
           fieldErrorId={fieldErrorId}
           fieldHasError={fieldHasError}
@@ -1065,6 +1128,7 @@ export function ShopProvisioningForms({
           }
           ownerProfiles={ownerProfiles}
           registerField={registerField}
+          t={t}
         />
         <ReasonField
           fieldErrorId={fieldErrorId}
@@ -1073,6 +1137,7 @@ export function ShopProvisioningForms({
           formValues={formValues}
           onFieldChange={updateFormValue}
           registerField={registerField}
+          t={t}
         />
         <div className="flex justify-end border-t border-slate-200 pt-4">
           <button
@@ -1082,8 +1147,8 @@ export function ShopProvisioningForms({
             type="button"
           >
             {createShopPending
-              ? pendingLabelByMode[ownerSetupMode]
-              : submitLabelByMode[ownerSetupMode]}
+              ? t(pendingLabelByMode[ownerSetupMode])
+              : t(submitLabelByMode[ownerSetupMode])}
           </button>
         </div>
       </div>

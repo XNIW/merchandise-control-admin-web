@@ -33,7 +33,10 @@ export async function AccessState({
     status === "no_active_session" ||
     status === "session_expired";
   const title = dictionary.access.titles[status] ?? status;
-  const formattedArea = dictionary.access.accessRequired.replace("{area}", area);
+  const formattedArea = dictionary.access.accessRequired.replace(
+    "{area}",
+    translateText(dictionary, area),
+  );
 
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">

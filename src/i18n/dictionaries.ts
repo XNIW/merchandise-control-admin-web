@@ -127,6 +127,8 @@ const itExact: Record<string, string> = {
     "L'accesso e verificato server-side e non crea mai un profilo personale.",
   "Sign in with a personal account to open an admin console.":
     "Accedi con un account personale per aprire una console admin.",
+  "Sign in with a personal account to open the Admin Console.":
+    "Accedi con un account personale per aprire la Console Admin.",
   "Staff web session is no longer active.":
     "La sessione web staff non e piu attiva.",
   "Any": "Qualsiasi",
@@ -198,6 +200,8 @@ const itExact: Record<string, string> = {
   "Live data": "Dati live",
   "Master Console": "Master Console",
   "Master Console access": "Accesso Master Console",
+  "This account is authorized for Admin Console, not Master Console.":
+    "Questo account e autorizzato per la Console Admin, non per la Master Console.",
   "Members": "Membri",
   "Members empty": "Membri vuoti",
   "Mobile History": "Storico mobile",
@@ -488,6 +492,158 @@ const itExact: Record<string, string> = {
     "Le operazioni richiedono uno shop visibile dal read model server.",
   "Operations unavailable": "Operazioni non disponibili",
   "Owner": "Proprietario",
+  "Action ready.": "Azione pronta.",
+  "Access: full Admin Console access":
+    "Accesso: accesso completo alla Console Admin",
+  "A provisioning reason is required.":
+    "Serve un motivo di provisioning.",
+  "A staff account with this code already exists for the shop.":
+    "Esiste gia un account staff con questo codice per lo shop.",
+  "Address": "Indirizzo",
+  "Attach an active personal profile as shop owner during creation.":
+    "Collega un profilo personale attivo come proprietario dello shop durante la creazione.",
+  "Business address is required.": "L'indirizzo business e obbligatorio.",
+  "Business city is required.": "La citta business e obbligatoria.",
+  "Business giro": "Giro attivita",
+  "Business giro is required.": "Il giro attivita e obbligatorio.",
+  "Choose owner setup.": "Scegli la configurazione proprietario.",
+  "City": "Citta",
+  "Company RUT": "RUT azienda",
+  "Copied": "Copiato",
+  "Copy PIN": "Copia PIN",
+  "Create pending owner setup": "Crea setup proprietario in attesa",
+  "Create POS-first shop": "Crea shop POS-first",
+  "Create shop": "Crea shop",
+  "Create shop with owner": "Crea shop con proprietario",
+  "Create shops, fiscal identity, and initial manager access through audited Platform Admin boundaries.":
+    "Crea shop, identita fiscale e accesso manager iniziale tramite boundary Platform Admin auditati.",
+  "Create the shop and initial manager before linking a personal owner.":
+    "Crea lo shop e il manager iniziale prima di collegare un proprietario personale.",
+  "Create the shop, fiscal identity, initial manager access, and optional owner setup.":
+    "Crea shop, identita fiscale, accesso manager iniziale e setup proprietario opzionale.",
+  "Creating pending owner setup": "Creazione setup proprietario in attesa",
+  "Creating POS-first shop": "Creazione shop POS-first",
+  "Creating shop with owner": "Creazione shop con proprietario",
+  "Display name: manager": "Nome visualizzato: manager",
+  "Emergency recovery: recover initial manager 1001":
+    "Recovery emergenza: recupera manager iniziale 1001",
+  "Enter a valid Chilean RUT. You can enter only numbers; for example 123456789.":
+    "Inserisci un RUT cileno valido. Puoi inserire solo numeri; per esempio 123456789.",
+  "Existing personal owner": "Proprietario personale esistente",
+  "Fiscal / Boleta identity": "Identita fiscale / boleta",
+  "Fiscal identity is managed by Master Console and shown read-only in Admin Console.":
+    "L'identita fiscale e gestita dalla Master Console e mostrata in sola lettura nella Console Admin.",
+  "Future owner email": "Email futuro proprietario",
+  "If manager 1001 exists and is usable, recovery resets its PIN. If manager 1001 is suspended, archived, disabled or otherwise not usable, recovery reactivates it and resets its PIN. If manager 1001 is missing, recovery recreates manager 1001 with full access.":
+    "Se il manager 1001 esiste ed e utilizzabile, il recovery reimposta il PIN. Se il manager 1001 e sospeso, archiviato, disabilitato o non utilizzabile, il recovery lo riattiva e reimposta il PIN. Se manca, il recovery ricrea il manager 1001 con accesso completo.",
+  "Initial manager access": "Accesso manager iniziale",
+  "Initial manager recovery found duplicate manager 1001 rows. Manual review is required.":
+    "Il recovery del manager iniziale ha trovato righe duplicate per il manager 1001. Serve review manuale.",
+  "Initial owner": "Proprietario iniziale",
+  "Initial owner is required.": "Il proprietario iniziale e obbligatorio.",
+  "Legal representative RUT": "RUT rappresentante legale",
+  "Link existing personal owner": "Collega proprietario personale esistente",
+  "Manager availability is resolved at the server boundary after shop selection. Dynamic manager selection is not available in this read model yet.":
+    "La disponibilita del manager e risolta al boundary server dopo la selezione dello shop. La selezione dinamica del manager non e ancora disponibile in questo read model.",
+  "Manager permission write failed at the database boundary.":
+    "La scrittura permessi manager e fallita al boundary database.",
+  "Manager reactivated and PIN reset":
+    "Manager riattivato e PIN reimpostato",
+  "Manager recreated": "Manager ricreato",
+  "Manager state": "Stato manager",
+  "New manager display name: manager":
+    "Nuovo nome visualizzato manager: manager",
+  "No personal owner now / POS-first":
+    "Nessun proprietario personale ora / POS-first",
+  "No personal owner yet": "Nessun proprietario personale ancora",
+  "No profiles match this search":
+    "Nessun profilo corrisponde a questa ricerca",
+  "No results.": "Nessun risultato.",
+  "No shops match this search": "Nessuno shop corrisponde a questa ricerca",
+  "Not returned": "Non restituito",
+  "Not returned by this action": "Non restituito da questa azione",
+  "Only manager 1001 can be recovered by this action.":
+    "Solo il manager 1001 puo essere recuperato da questa azione.",
+  "Operation result": "Risultato operazione",
+  "Owner email is required.": "L'email proprietario e obbligatoria.",
+  "Owner mode": "Modalita proprietario",
+  "Owner setup": "Setup proprietario",
+  "Owner status": "Stato proprietario",
+  "Pending owner setup": "Setup proprietario in attesa",
+  "Pending owner setup recorded":
+    "Setup proprietario in attesa registrato",
+  "Personal owner linked": "Proprietario personale collegato",
+  "PIN reset": "PIN reimpostato",
+  "POS-first": "POS-first",
+  "Ready.": "Pronto.",
+  "Reason is required.": "Il motivo e obbligatorio.",
+  "Record a pending setup email without activating email delivery.":
+    "Registra una email di setup in attesa senza attivare l'invio email.",
+  "Record pending owner email": "Registra email proprietario in attesa",
+  "Recover initial manager 1001": "Recupera manager iniziale 1001",
+  "Recover manager 1001": "Recupera manager 1001",
+  "Recovering manager 1001": "Recovery manager 1001",
+  "Recovery could not complete because the database boundary failed. Check server diagnostics.":
+    "Il recovery non e stato completato perche il boundary database e fallito. Controlla la diagnostica server.",
+  "Retail and POS operations": "Retail e operazioni POS",
+  "RUT can be typed with or without dots/dash. Shop code uses the compact RUT for login.":
+    "Il RUT puo essere digitato con o senza punti/trattino. Il codice shop usa il RUT compatto per il login.",
+  "RUT can contain numbers and K only as the final check digit.":
+    "Il RUT puo contenere numeri e K solo come cifra di controllo finale.",
+  "RUT is required.": "Il RUT e obbligatorio.",
+  "Safe provisioning": "Provisioning sicuro",
+  "Save this PIN now. It will not be shown again.":
+    "Salva questo PIN ora. Non verra mostrato di nuovo.",
+  "Search profiles": "Cerca profili",
+  "Select a target shop before running recovery.":
+    "Seleziona uno shop target prima di eseguire il recovery.",
+  "Select a valid shop.": "Seleziona uno shop valido.",
+  "Selected owner": "Proprietario selezionato",
+  "Selected shop": "Shop selezionato",
+  "Server admin runtime is not configured. Recovery cannot update staff credentials in this runtime.":
+    "Il runtime server admin non e configurato. Il recovery non puo aggiornare le credenziali staff in questo runtime.",
+  "Shop code must be 3-32 uppercase letters, numbers, underscore, or dash.":
+    "Il codice shop deve avere 3-32 lettere maiuscole, numeri, underscore o trattino.",
+  "Shop created": "Shop creato",
+  "Shop identity": "Identita shop",
+  "Shop name is required.": "Il nome shop e obbligatorio.",
+  "Shop Provisioning": "Provisioning shop",
+  "Shown below": "Mostrato sotto",
+  "Staff account lookup failed at the database boundary.":
+    "La lettura account staff e fallita al boundary database.",
+  "Staff account write failed at the database boundary.":
+    "La scrittura account staff e fallita al boundary database.",
+  "Staff code: 1001": "Codice staff: 1001",
+  "Staff manager web access was provisioned.":
+    "L'accesso web del manager staff e stato provisionato.",
+  "Target shop": "Shop target",
+  "Temporary PIN. It is shown once after creation and should be changed after first access.":
+    "PIN temporaneo. Viene mostrato una sola volta dopo la creazione e va cambiato dopo il primo accesso.",
+  "Temporary PIN. Shown once in this response. It will not be shown again.":
+    "PIN temporaneo. Mostrato una sola volta in questa risposta. Non verra mostrato di nuovo.",
+  "Temporary PIN shown once": "PIN temporaneo mostrato una volta",
+  "The selected shop is inactive or archived.":
+    "Lo shop selezionato e inattivo o archiviato.",
+  "The selected shop is not eligible for staff manager web access.":
+    "Lo shop selezionato non e idoneo per l'accesso web del manager staff.",
+  "This records a pending owner setup. Email delivery is not active yet.":
+    "Questo registra un setup proprietario in attesa. L'invio email non e ancora attivo.",
+  "This recovery always targets staff code 1001. Client-provided staff code values are ignored by the server.":
+    "Questo recovery punta sempre al codice staff 1001. I valori codice staff forniti dal client sono ignorati dal server.",
+  "Use 2-32 uppercase letters, numbers, dash or underscore.":
+    "Usa 2-32 lettere maiuscole, numeri, trattino o underscore.",
+  "Use 3-32 uppercase letters, numbers, dash or underscore.":
+    "Usa 3-32 lettere maiuscole, numeri, trattino o underscore.",
+  "Use Company RUT as Shop code":
+    "Usa il RUT azienda come codice shop",
+  "Use shops as the business root. Shop code remains a technical POS/Admin Console login code; company RUT is stored separately for fiscal/boleta identity.":
+    "Usa gli shop come root business. Il codice shop resta un codice tecnico di login POS/Console Admin; il RUT azienda e salvato separatamente per l'identita fiscale/boleta.",
+  "Use this only when an existing shop lost manager access. The server will restore or recreate manager 1001 and generate a new temporary PIN. The old PIN is never shown.":
+    "Usalo solo quando uno shop esistente ha perso l'accesso manager. Il server ripristina o ricrea il manager 1001 e genera un nuovo PIN temporaneo. Il vecchio PIN non viene mai mostrato.",
+  "Use this PIN with shop code and staff code 1001 for the first Admin Console / Win7POS access. The shop should change it after first access.":
+    "Usa questo PIN con codice shop e codice staff 1001 per il primo accesso Console Admin / Win7POS. Lo shop dovrebbe cambiarlo dopo il primo accesso.",
+  "Why this provisioning action is approved":
+    "Perche questa azione di provisioning e approvata",
   "Pending setup": "Setup in attesa",
   "Pick one shop before selecting the audited action.":
     "Scegli uno shop prima di selezionare l'azione auditata.",
@@ -769,6 +925,8 @@ const esExact: Record<string, string> = {
     "El acceso se verifica server-side y nunca crea un perfil personal.",
   "Sign in with a personal account to open an admin console.":
     "Inicia sesion con una cuenta personal para abrir una consola admin.",
+  "Sign in with a personal account to open the Admin Console.":
+    "Inicia sesion con una cuenta personal para abrir la Consola Admin.",
   "Staff web session is no longer active.":
     "La sesion web staff ya no esta activa.",
   "Any": "Cualquiera",
@@ -840,6 +998,8 @@ const esExact: Record<string, string> = {
   "Live data": "Datos live",
   "Master Console": "Master Console",
   "Master Console access": "Acceso Master Console",
+  "This account is authorized for Admin Console, not Master Console.":
+    "Esta cuenta esta autorizada para Admin Console, no para Master Console.",
   "Members": "Miembros",
   "Members empty": "Miembros vacios",
   "Mobile History": "Historial movil",
@@ -1130,6 +1290,157 @@ const esExact: Record<string, string> = {
     "Las operaciones requieren un shop visible desde el read model del servidor.",
   "Operations unavailable": "Operaciones no disponibles",
   "Owner": "Dueño",
+  "Action ready.": "Accion lista.",
+  "Access: full Admin Console access":
+    "Acceso: acceso completo a Admin Console",
+  "A provisioning reason is required.":
+    "Se requiere una razon de provisioning.",
+  "A staff account with this code already exists for the shop.":
+    "Ya existe una cuenta staff con este codigo para el shop.",
+  "Address": "Direccion",
+  "Attach an active personal profile as shop owner during creation.":
+    "Vincula un perfil personal activo como dueño del shop durante la creacion.",
+  "Business address is required.": "La direccion comercial es obligatoria.",
+  "Business city is required.": "La ciudad comercial es obligatoria.",
+  "Business giro": "Giro comercial",
+  "Business giro is required.": "El giro comercial es obligatorio.",
+  "Choose owner setup.": "Elige configuracion de dueño.",
+  "City": "Ciudad",
+  "Company RUT": "RUT empresa",
+  "Copied": "Copiado",
+  "Copy PIN": "Copiar PIN",
+  "Create pending owner setup": "Crear setup de dueño pendiente",
+  "Create POS-first shop": "Crear shop POS-first",
+  "Create shop": "Crear shop",
+  "Create shop with owner": "Crear shop con dueño",
+  "Create shops, fiscal identity, and initial manager access through audited Platform Admin boundaries.":
+    "Crea shops, identidad fiscal y acceso inicial de gerente mediante boundaries Platform Admin auditados.",
+  "Create the shop and initial manager before linking a personal owner.":
+    "Crea el shop y el gerente inicial antes de vincular un dueño personal.",
+  "Create the shop, fiscal identity, initial manager access, and optional owner setup.":
+    "Crea el shop, identidad fiscal, acceso inicial de gerente y setup opcional de dueño.",
+  "Creating pending owner setup": "Creando setup de dueño pendiente",
+  "Creating POS-first shop": "Creando shop POS-first",
+  "Creating shop with owner": "Creando shop con dueño",
+  "Display name: manager": "Nombre visible: manager",
+  "Emergency recovery: recover initial manager 1001":
+    "Recuperacion de emergencia: recuperar gerente inicial 1001",
+  "Enter a valid Chilean RUT. You can enter only numbers; for example 123456789.":
+    "Ingresa un RUT chileno valido. Puedes ingresar solo numeros; por ejemplo 123456789.",
+  "Existing personal owner": "Dueño personal existente",
+  "Fiscal / Boleta identity": "Identidad fiscal / boleta",
+  "Fiscal identity is managed by Master Console and shown read-only in Admin Console.":
+    "La identidad fiscal se gestiona en Master Console y se muestra solo lectura en Admin Console.",
+  "Future owner email": "Email del futuro dueño",
+  "If manager 1001 exists and is usable, recovery resets its PIN. If manager 1001 is suspended, archived, disabled or otherwise not usable, recovery reactivates it and resets its PIN. If manager 1001 is missing, recovery recreates manager 1001 with full access.":
+    "Si el gerente 1001 existe y es usable, la recuperacion restablece su PIN. Si esta suspendido, archivado, deshabilitado o no usable, lo reactiva y restablece el PIN. Si falta, recrea el gerente 1001 con acceso completo.",
+  "Initial manager access": "Acceso inicial de gerente",
+  "Initial manager recovery found duplicate manager 1001 rows. Manual review is required.":
+    "La recuperacion del gerente inicial encontro filas duplicadas para el gerente 1001. Se requiere revision manual.",
+  "Initial owner": "Dueño inicial",
+  "Initial owner is required.": "El dueño inicial es obligatorio.",
+  "Legal representative RUT": "RUT representante legal",
+  "Link existing personal owner": "Vincular dueño personal existente",
+  "Manager availability is resolved at the server boundary after shop selection. Dynamic manager selection is not available in this read model yet.":
+    "La disponibilidad del gerente se resuelve en el boundary servidor despues de seleccionar el shop. La seleccion dinamica de gerente aun no esta disponible en este read model.",
+  "Manager permission write failed at the database boundary.":
+    "La escritura de permisos del gerente fallo en el boundary de base de datos.",
+  "Manager reactivated and PIN reset":
+    "Gerente reactivado y PIN restablecido",
+  "Manager recreated": "Gerente recreado",
+  "Manager state": "Estado del gerente",
+  "New manager display name: manager":
+    "Nuevo nombre visible del gerente: manager",
+  "No personal owner now / POS-first":
+    "Sin dueño personal ahora / POS-first",
+  "No personal owner yet": "Sin dueño personal aun",
+  "No profiles match this search":
+    "Ningun perfil coincide con esta busqueda",
+  "No results.": "Sin resultados.",
+  "No shops match this search": "Ningun shop coincide con esta busqueda",
+  "Not returned": "No devuelto",
+  "Not returned by this action": "No devuelto por esta accion",
+  "Only manager 1001 can be recovered by this action.":
+    "Solo el gerente 1001 puede recuperarse con esta accion.",
+  "Operation result": "Resultado de operacion",
+  "Owner email is required.": "El email del dueño es obligatorio.",
+  "Owner mode": "Modo de dueño",
+  "Owner setup": "Setup de dueño",
+  "Owner status": "Estado de dueño",
+  "Pending owner setup": "Setup de dueño pendiente",
+  "Pending owner setup recorded": "Setup de dueño pendiente registrado",
+  "Personal owner linked": "Dueño personal vinculado",
+  "PIN reset": "PIN restablecido",
+  "POS-first": "POS-first",
+  "Ready.": "Listo.",
+  "Reason is required.": "La razon es obligatoria.",
+  "Record a pending setup email without activating email delivery.":
+    "Registra un email de setup pendiente sin activar el envio de email.",
+  "Record pending owner email": "Registrar email de dueño pendiente",
+  "Recover initial manager 1001": "Recuperar gerente inicial 1001",
+  "Recover manager 1001": "Recuperar gerente 1001",
+  "Recovering manager 1001": "Recuperando gerente 1001",
+  "Recovery could not complete because the database boundary failed. Check server diagnostics.":
+    "La recuperacion no pudo completarse porque fallo el boundary de base de datos. Revisa diagnosticos del servidor.",
+  "Retail and POS operations": "Retail y operaciones POS",
+  "RUT can be typed with or without dots/dash. Shop code uses the compact RUT for login.":
+    "El RUT puede escribirse con o sin puntos/guion. El codigo shop usa el RUT compacto para iniciar sesion.",
+  "RUT can contain numbers and K only as the final check digit.":
+    "El RUT puede contener numeros y K solo como digito verificador final.",
+  "RUT is required.": "El RUT es obligatorio.",
+  "Safe provisioning": "Provisioning seguro",
+  "Save this PIN now. It will not be shown again.":
+    "Guarda este PIN ahora. No se mostrara otra vez.",
+  "Search profiles": "Buscar perfiles",
+  "Select a target shop before running recovery.":
+    "Selecciona un shop objetivo antes de ejecutar la recuperacion.",
+  "Select a valid shop.": "Selecciona un shop valido.",
+  "Selected owner": "Dueño seleccionado",
+  "Selected shop": "Shop seleccionado",
+  "Server admin runtime is not configured. Recovery cannot update staff credentials in this runtime.":
+    "El runtime server admin no esta configurado. La recuperacion no puede actualizar credenciales staff en este runtime.",
+  "Shop code must be 3-32 uppercase letters, numbers, underscore, or dash.":
+    "El codigo shop debe tener 3-32 letras mayusculas, numeros, underscore o guion.",
+  "Shop created": "Shop creado",
+  "Shop identity": "Identidad del shop",
+  "Shop name is required.": "El nombre del shop es obligatorio.",
+  "Shop Provisioning": "Provisioning de shop",
+  "Shown below": "Mostrado abajo",
+  "Staff account lookup failed at the database boundary.":
+    "La consulta de cuenta staff fallo en el boundary de base de datos.",
+  "Staff account write failed at the database boundary.":
+    "La escritura de cuenta staff fallo en el boundary de base de datos.",
+  "Staff code: 1001": "Codigo staff: 1001",
+  "Staff manager web access was provisioned.":
+    "El acceso web del gerente staff fue provisionado.",
+  "Target shop": "Shop objetivo",
+  "Temporary PIN. It is shown once after creation and should be changed after first access.":
+    "PIN temporal. Se muestra una sola vez despues de la creacion y debe cambiarse despues del primer acceso.",
+  "Temporary PIN. Shown once in this response. It will not be shown again.":
+    "PIN temporal. Mostrado una sola vez en esta respuesta. No se mostrara otra vez.",
+  "Temporary PIN shown once": "PIN temporal mostrado una vez",
+  "The selected shop is inactive or archived.":
+    "El shop seleccionado esta inactivo o archivado.",
+  "The selected shop is not eligible for staff manager web access.":
+    "El shop seleccionado no es elegible para acceso web de gerente staff.",
+  "This records a pending owner setup. Email delivery is not active yet.":
+    "Esto registra un setup de dueño pendiente. El envio de email aun no esta activo.",
+  "This recovery always targets staff code 1001. Client-provided staff code values are ignored by the server.":
+    "Esta recuperacion siempre apunta al codigo staff 1001. Los valores de codigo staff enviados por el cliente son ignorados por el servidor.",
+  "Use 2-32 uppercase letters, numbers, dash or underscore.":
+    "Usa 2-32 letras mayusculas, numeros, guion o underscore.",
+  "Use 3-32 uppercase letters, numbers, dash or underscore.":
+    "Usa 3-32 letras mayusculas, numeros, guion o underscore.",
+  "Use Company RUT as Shop code":
+    "Usar RUT empresa como codigo shop",
+  "Use shops as the business root. Shop code remains a technical POS/Admin Console login code; company RUT is stored separately for fiscal/boleta identity.":
+    "Usa shops como raiz de negocio. El codigo shop sigue siendo un codigo tecnico de login POS/Admin Console; el RUT empresa se guarda separado para identidad fiscal/boleta.",
+  "Use this only when an existing shop lost manager access. The server will restore or recreate manager 1001 and generate a new temporary PIN. The old PIN is never shown.":
+    "Usalo solo cuando un shop existente perdio acceso de gerente. El servidor restaurara o recreara el gerente 1001 y generara un nuevo PIN temporal. El PIN anterior nunca se muestra.",
+  "Use this PIN with shop code and staff code 1001 for the first Admin Console / Win7POS access. The shop should change it after first access.":
+    "Usa este PIN con codigo shop y codigo staff 1001 para el primer acceso Admin Console / Win7POS. El shop deberia cambiarlo despues del primer acceso.",
+  "Why this provisioning action is approved":
+    "Por que esta accion de provisioning esta aprobada",
   "Pending setup": "Configuracion pendiente",
   "Pick one shop before selecting the audited action.":
     "Elige un shop antes de seleccionar la accion auditada.",
@@ -1411,6 +1722,8 @@ const zhExact: Record<string, string> = {
     "访问会在服务端验证，且不会创建个人资料。",
   "Sign in with a personal account to open an admin console.":
     "请使用个人账号登录以打开管理控制台。",
+  "Sign in with a personal account to open the Admin Console.":
+    "请使用个人账号登录以打开店铺管理台。",
   "Staff web session is no longer active.": "员工网页登录会话已不再有效。",
   "Any": "任意",
   "Critical": "严重",
@@ -1481,6 +1794,8 @@ const zhExact: Record<string, string> = {
   "Live data": "实时数据",
   "Master Console": "主控台",
   "Master Console access": "主控台访问",
+  "This account is authorized for Admin Console, not Master Console.":
+    "此账号已获准访问管理控制台，而不是主控台。",
   "Members": "成员",
   "Members empty": "暂无成员",
   "Mobile History": "移动端历史",
@@ -1765,6 +2080,148 @@ const zhExact: Record<string, string> = {
     "操作需要服务端读取模型中可见的店铺。",
   "Operations unavailable": "操作不可用",
   "Owner": "所有者",
+  "Action ready.": "操作已就绪。",
+  "Access: full Admin Console access": "访问：完整管理控制台访问",
+  "A provisioning reason is required.": "需要填写开通原因。",
+  "A staff account with this code already exists for the shop.":
+    "此店铺已存在使用该代码的员工账号。",
+  "Address": "地址",
+  "Attach an active personal profile as shop owner during creation.":
+    "创建时将一个启用的个人资料关联为店铺所有者。",
+  "Business address is required.": "业务地址为必填项。",
+  "Business city is required.": "业务城市为必填项。",
+  "Business giro": "经营范围",
+  "Business giro is required.": "经营范围为必填项。",
+  "Choose owner setup.": "请选择所有者设置。",
+  "City": "城市",
+  "Company RUT": "公司 RUT",
+  "Copied": "已复制",
+  "Copy PIN": "复制 PIN",
+  "Create pending owner setup": "创建待处理所有者设置",
+  "Create POS-first shop": "创建 POS 优先店铺",
+  "Create shop": "创建店铺",
+  "Create shop with owner": "创建带所有者的店铺",
+  "Create shops, fiscal identity, and initial manager access through audited Platform Admin boundaries.":
+    "通过已审计的平台管理边界创建店铺、税务身份和初始经理访问。",
+  "Create the shop and initial manager before linking a personal owner.":
+    "先创建店铺和初始经理，再关联个人所有者。",
+  "Create the shop, fiscal identity, initial manager access, and optional owner setup.":
+    "创建店铺、税务身份、初始经理访问，以及可选的所有者设置。",
+  "Creating pending owner setup": "正在创建待处理所有者设置",
+  "Creating POS-first shop": "正在创建 POS 优先店铺",
+  "Creating shop with owner": "正在创建带所有者的店铺",
+  "Display name: manager": "显示名称：manager",
+  "Emergency recovery: recover initial manager 1001":
+    "紧急恢复：恢复初始经理 1001",
+  "Enter a valid Chilean RUT. You can enter only numbers; for example 123456789.":
+    "请输入有效的智利 RUT。只能输入数字，例如 123456789。",
+  "Existing personal owner": "现有个人所有者",
+  "Fiscal / Boleta identity": "税务 / Boleta 身份",
+  "Fiscal identity is managed by Master Console and shown read-only in Admin Console.":
+    "税务身份由主控台管理，并在管理控制台中以只读方式显示。",
+  "Future owner email": "未来所有者邮箱",
+  "If manager 1001 exists and is usable, recovery resets its PIN. If manager 1001 is suspended, archived, disabled or otherwise not usable, recovery reactivates it and resets its PIN. If manager 1001 is missing, recovery recreates manager 1001 with full access.":
+    "如果经理 1001 存在且可用，恢复会重置其 PIN。如果经理 1001 被暂停、归档、禁用或不可用，恢复会重新启用并重置 PIN。如果经理 1001 缺失，恢复会重新创建具有完整访问权限的经理 1001。",
+  "Initial manager access": "初始经理访问",
+  "Initial manager recovery found duplicate manager 1001 rows. Manual review is required.":
+    "初始经理恢复发现重复的经理 1001 行，需要人工复核。",
+  "Initial owner": "初始所有者",
+  "Initial owner is required.": "初始所有者为必填项。",
+  "Legal representative RUT": "法定代表人 RUT",
+  "Link existing personal owner": "关联现有个人所有者",
+  "Manager availability is resolved at the server boundary after shop selection. Dynamic manager selection is not available in this read model yet.":
+    "选择店铺后，经理可用性会在服务端边界解析。此读取模型尚不支持动态经理选择。",
+  "Manager permission write failed at the database boundary.":
+    "经理权限写入在数据库边界失败。",
+  "Manager reactivated and PIN reset": "经理已重新启用并重置 PIN",
+  "Manager recreated": "经理已重新创建",
+  "Manager state": "经理状态",
+  "New manager display name: manager": "新经理显示名称：manager",
+  "No personal owner now / POS-first": "当前无个人所有者 / POS 优先",
+  "No personal owner yet": "尚无个人所有者",
+  "No profiles match this search": "没有资料匹配此搜索",
+  "No results.": "没有结果。",
+  "No shops match this search": "没有店铺匹配此搜索",
+  "Not returned": "未返回",
+  "Not returned by this action": "此操作未返回",
+  "Only manager 1001 can be recovered by this action.":
+    "此操作只能恢复经理 1001。",
+  "Operation result": "操作结果",
+  "Owner email is required.": "所有者邮箱为必填项。",
+  "Owner mode": "所有者模式",
+  "Owner setup": "所有者设置",
+  "Owner status": "所有者状态",
+  "Pending owner setup": "待处理所有者设置",
+  "Pending owner setup recorded": "已记录待处理所有者设置",
+  "Personal owner linked": "已关联个人所有者",
+  "PIN reset": "PIN 已重置",
+  "POS-first": "POS 优先",
+  "Ready.": "已就绪。",
+  "Reason is required.": "原因为必填项。",
+  "Record a pending setup email without activating email delivery.":
+    "记录待处理设置邮箱，但不启用邮件发送。",
+  "Record pending owner email": "记录待处理所有者邮箱",
+  "Recover initial manager 1001": "恢复初始经理 1001",
+  "Recover manager 1001": "恢复经理 1001",
+  "Recovering manager 1001": "正在恢复经理 1001",
+  "Recovery could not complete because the database boundary failed. Check server diagnostics.":
+    "由于数据库边界失败，恢复无法完成。请检查服务端诊断。",
+  "Retail and POS operations": "零售与 POS 操作",
+  "RUT can be typed with or without dots/dash. Shop code uses the compact RUT for login.":
+    "RUT 可带点/短横线输入，也可不带。店铺代码使用紧凑 RUT 登录。",
+  "RUT can contain numbers and K only as the final check digit.":
+    "RUT 可包含数字，K 只能作为最后一位校验位。",
+  "RUT is required.": "RUT 为必填项。",
+  "Safe provisioning": "安全开通",
+  "Save this PIN now. It will not be shown again.":
+    "请立即保存此 PIN。它不会再次显示。",
+  "Search profiles": "搜索资料",
+  "Select a target shop before running recovery.":
+    "运行恢复前请选择目标店铺。",
+  "Select a valid shop.": "请选择有效店铺。",
+  "Selected owner": "已选所有者",
+  "Selected shop": "已选店铺",
+  "Server admin runtime is not configured. Recovery cannot update staff credentials in this runtime.":
+    "服务端 admin 运行时未配置。恢复无法在此运行时更新员工凭证。",
+  "Shop code must be 3-32 uppercase letters, numbers, underscore, or dash.":
+    "店铺代码必须为 3-32 个大写字母、数字、下划线或短横线。",
+  "Shop created": "店铺已创建",
+  "Shop identity": "店铺身份",
+  "Shop name is required.": "店铺名称为必填项。",
+  "Shop Provisioning": "店铺开通",
+  "Shown below": "显示在下方",
+  "Staff account lookup failed at the database boundary.":
+    "员工账号查询在数据库边界失败。",
+  "Staff account write failed at the database boundary.":
+    "员工账号写入在数据库边界失败。",
+  "Staff code: 1001": "员工代码：1001",
+  "Staff manager web access was provisioned.": "员工经理网页访问已开通。",
+  "Target shop": "目标店铺",
+  "Temporary PIN. It is shown once after creation and should be changed after first access.":
+    "临时 PIN。创建后仅显示一次，应在首次访问后更改。",
+  "Temporary PIN. Shown once in this response. It will not be shown again.":
+    "临时 PIN。仅在此响应中显示一次，不会再次显示。",
+  "Temporary PIN shown once": "临时 PIN 仅显示一次",
+  "The selected shop is inactive or archived.":
+    "所选店铺未启用或已归档。",
+  "The selected shop is not eligible for staff manager web access.":
+    "所选店铺不符合员工经理网页访问条件。",
+  "This records a pending owner setup. Email delivery is not active yet.":
+    "这会记录待处理所有者设置。邮件发送尚未启用。",
+  "This recovery always targets staff code 1001. Client-provided staff code values are ignored by the server.":
+    "此恢复始终针对员工代码 1001。客户端提供的员工代码值会被服务端忽略。",
+  "Use 2-32 uppercase letters, numbers, dash or underscore.":
+    "请使用 2-32 个大写字母、数字、短横线或下划线。",
+  "Use 3-32 uppercase letters, numbers, dash or underscore.":
+    "请使用 3-32 个大写字母、数字、短横线或下划线。",
+  "Use Company RUT as Shop code": "使用公司 RUT 作为店铺代码",
+  "Use shops as the business root. Shop code remains a technical POS/Admin Console login code; company RUT is stored separately for fiscal/boleta identity.":
+    "将店铺作为业务根。店铺代码仍是 POS/管理控制台的技术登录代码；公司 RUT 会单独保存用于税务/boleta 身份。",
+  "Use this only when an existing shop lost manager access. The server will restore or recreate manager 1001 and generate a new temporary PIN. The old PIN is never shown.":
+    "仅在现有店铺丢失经理访问时使用。服务端会恢复或重新创建经理 1001，并生成新的临时 PIN。旧 PIN 永远不会显示。",
+  "Use this PIN with shop code and staff code 1001 for the first Admin Console / Win7POS access. The shop should change it after first access.":
+    "首次访问管理控制台 / Win7POS 时，请将此 PIN 与店铺代码和员工代码 1001 一起使用。店铺应在首次访问后更改它。",
+  "Why this provisioning action is approved": "此开通操作获批的原因",
   "Pending setup": "待配置",
   "Pick one shop before selecting the audited action.":
     "选择审计操作前，请先选择一个店铺。",

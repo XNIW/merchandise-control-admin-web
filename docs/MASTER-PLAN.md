@@ -2473,19 +2473,22 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - shell/navigation Platform e Shop localizzate;
   - pagina compatibilita import/export e pannelli catalog/import-export coperti
     da `dictionary.exact`;
+  - provisioning Platform e access gate globali localizzati;
   - scanner hardcoded UI e test foundation TASK-062.
 - Non include:
   - nuove dipendenze;
   - traduzione dati business provenienti dal database;
   - secret, env o service-role client;
   - claim `DONE` prima dei gate finali e della review orchestrata.
-- Nota integrazione 2026-06-15: import/export, Database transfer e Catalog
-  action panel sono stati collegati alle label i18n. Gate finali verdi:
+- Nota integrazione 2026-06-15: import/export, Database transfer, Catalog
+  action panel, provisioning Platform e access gate sono stati collegati alle
+  label i18n. Gate finali verdi:
   `git diff --check`, `typecheck`, `lint`, `security:scan`,
   `test:foundation` (`314/314`), `build`, `verify`, targeted TASK-061/TASK-060,
-  targeted History Sync/TASK-015, targeted TASK-062 e scanner i18n. Browser QA
-  locale su `127.0.0.1:3062` ha visitato le route richieste senza crash, con
-  auth/runtime fail-closed dove non era disponibile una sessione Supabase.
+  targeted History Sync/TASK-015, targeted TASK-062 e scanner i18n
+  (`checkedPhrases: 179`). Browser QA locale su `127.0.0.1:3062` ha visitato
+  `19` route x `4` locali senza crash, senza `wrongLang` e con auth/runtime
+  fail-closed dove non era disponibile una sessione Supabase.
 
 ## Tooling policy
 

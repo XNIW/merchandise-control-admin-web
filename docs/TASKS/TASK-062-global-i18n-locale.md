@@ -28,6 +28,8 @@ scelta.
 - Localizzare shell, navigazione e guardrail principali Shop/Platform.
 - Localizzare le superfici critiche import/export, Database transfer e Catalog
   action panel tramite `dictionary.exact`.
+- Localizzare il provisioning Platform e gli access gate globali senza spostare
+  dati business nel dizionario.
 - Aggiungere scanner statico per copy hardcoded UI critica.
 - Coprire il contratto con test foundation dedicato.
 
@@ -65,11 +67,15 @@ scelta.
 - `src/app/shop/_components/ImportExportActionPanel.tsx`
 - `src/app/shop/_components/CatalogActionPanel.tsx`
 - `src/app/shop/import-export/page.tsx`
+- `src/app/platform/provisioning/page.tsx`
+- `src/app/platform/provisioning/provisioningLabels.ts`
+- `src/components/auth/AccessState.tsx`
 - `scripts/i18n-hardcoded-ui-scan.mjs`
 - `tests/foundation/task-062-global-i18n-locale.test.mjs`
 
 ## Handoff
 
 - Fase corrente: `DONE_RECONCILED`.
-- Gate finali completati nel worktree di integrazione; commit/push finale resta
-  subordinato alla review orchestrata read-only richiesta dall'utente.
+- Gate finali completati nel worktree di integrazione; closure finale
+  autorizzata dal prompt utente con review A/B/C, staging selettivo, commit e
+  push su `main`.

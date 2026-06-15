@@ -170,8 +170,8 @@ test("TASK-051 platform provisioning UI uses one create-shop form with owner set
   assertContains(page, "<details");
   assertContains(page, "ownerProfileOptions");
   assertContains(page, "shopOptions");
-  assertContains(page, "status: formatToken(profile.profile_status)");
-  assertContains(page, "status: formatToken(shop.shop_status)");
+  assertContains(page, "status: t(formatToken(profile.profile_status))");
+  assertContains(page, "status: t(formatToken(shop.shop_status))");
   assert.doesNotMatch(
     page,
     /\.filter\(\(profile\) => profile\.profile_status === "active"\)|\.filter\(\(shop\) => shop\.shop_status === "active"\)/,
@@ -267,7 +267,7 @@ test("TASK-051 platform provisioning UI uses one create-shop form with owner set
   );
   assertContains(panel, "Search profiles");
   assertContains(panel, "shortProfileId");
-  assertContains(panel, 'selectedSummaryLabel="Selected owner"');
+  assertContains(panel, 'selectedSummaryLabel={t("Selected owner")}');
   assertContains(panel, 'hiddenInputName="ownerProfileId"');
   assertContains(panel, "renderItemTitle={(profile) => profile.displayName}");
   assertContains(panel, "renderItemSubtitle={(profile) => profile.shortProfileId}");
@@ -291,7 +291,7 @@ test("TASK-051 platform provisioning UI uses one create-shop form with owner set
   assertContains(staffPanel, "Target shop");
   assertContains(staffPanel, "SearchableEntityPicker");
   assertContains(staffPanel, 'hiddenInputName="shopId"');
-  assertContains(staffPanel, 'selectedSummaryLabel="Selected shop"');
+  assertContains(staffPanel, 'selectedSummaryLabel={t("Selected shop")}');
   assertContains(staffPanel, "renderItemTitle={(shop) => shop.shopName}");
   assertContains(staffPanel, "renderItemSubtitle={(shop) => shop.shopCode}");
   assertContains(staffPanel, "renderItemStatus={(shop) => shop.status}");

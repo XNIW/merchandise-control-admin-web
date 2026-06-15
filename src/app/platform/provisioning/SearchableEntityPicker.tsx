@@ -13,6 +13,8 @@ type SearchableEntityPickerProps<TItem extends SearchableEntityPickerItem> = {
   hiddenInputName: string;
   items: readonly TItem[];
   label: string;
+  noResultsLabel?: string;
+  noneLabel?: string;
   onQueryChange?: (query: string) => void;
   onSelect: (id: string) => void;
   renderItemStatus?: (item: TItem) => string;
@@ -31,6 +33,8 @@ export function SearchableEntityPicker<TItem extends SearchableEntityPickerItem>
   hiddenInputName,
   items,
   label,
+  noResultsLabel = "No results.",
+  noneLabel = "None",
   onQueryChange,
   onSelect,
   renderItemStatus,
@@ -108,14 +112,14 @@ export function SearchableEntityPicker<TItem extends SearchableEntityPickerItem>
           })
         ) : (
           <span className="px-1 py-2 text-sm text-slate-500">
-            No results. {emptyState}
+            {noResultsLabel} {emptyState}
           </span>
         )}
       </div>
       <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
         {selectedSummaryLabel}:{" "}
         <span className="font-semibold text-slate-950">
-          {selectedItem ? renderItemTitle(selectedItem) : "None"}
+          {selectedItem ? renderItemTitle(selectedItem) : noneLabel}
         </span>
         {selectedItem ? (
           <span className="text-slate-600">

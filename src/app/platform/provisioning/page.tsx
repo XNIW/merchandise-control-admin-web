@@ -3,7 +3,10 @@ import { AppShell } from "@/components/platform/AppShell";
 import { EmptyState } from "@/components/platform/components/EmptyState";
 import { PageHeader } from "@/components/platform/components/PageHeader";
 import { SectionCard } from "@/components/platform/components/SectionCard";
+import { getI18n } from "@/i18n/get-locale";
+import { translateText } from "@/i18n/translate-sections";
 import { getPlatformAdminReadModel } from "@/server/platform-admin/read-model";
+import { createPlatformProvisioningLabels } from "./provisioningLabels";
 import { ShopProvisioningForms } from "./ShopProvisioningForms";
 import { StaffManagerProvisioningPanel } from "./StaffManagerProvisioningPanel";
 
@@ -26,6 +29,9 @@ function shortIdentifier(value: string) {
 }
 
 export default async function PlatformProvisioningPage() {
+  const { dictionary } = await getI18n();
+  const t = (value: string) => translateText(dictionary, value);
+  const labels = createPlatformProvisioningLabels(t);
   const readModel = await getPlatformAdminReadModel();
   const ready = readModel.status === "ready";
   const ownerProfileOptions = readModel.profiles
@@ -33,7 +39,7 @@ export default async function PlatformProvisioningPage() {
       displayName: profile.display_name,
       profileId: profile.profile_id,
       shortProfileId: shortIdentifier(profile.profile_id),
-      status: formatToken(profile.profile_status),
+      status: t(formatToken(profile.profile_status)),
     }));
   const shopOptions = readModel.shops
     .map((shop) => ({
@@ -41,44 +47,58 @@ export default async function PlatformProvisioningPage() {
       shopCode: shop.shop_code,
       shopId: shop.shop_id,
       shopName: shop.shop_name,
-      status: formatToken(shop.shop_status),
+      status: t(formatToken(shop.shop_status)),
     }));
 
   return (
     <AppShell activeSection="provisioning">
       <div className="mx-auto flex max-w-5xl flex-col gap-5">
         <PageHeader
-          eyebrow="Master Console"
-          title="Shop Provisioning"
-          description="Create shops, fiscal identity, and initial manager access through audited Platform Admin boundaries."
-          status={ready ? "Safe provisioning" : formatToken(readModel.status)}
+          eyebrow={t("Master Console")}
+          title={t("Shop Provisioning")}
+          description={t(
+            "Create shops, fiscal identity, and initial manager access through audited Platform Admin boundaries.",
+          )}
+          status={ready ? t("Safe provisioning") : t(formatToken(readModel.status))}
         />
 
         <section className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-5 text-slate-700">
-          Use shops as the business root. Shop code remains a technical POS/Admin Console login code;
-          company RUT is stored separately for fiscal/boleta identity.
+          {t(
+            "Use shops as the business root. Shop code remains a technical POS/Admin Console login code; company RUT is stored separately for fiscal/boleta identity.",
+          )}
         </section>
 
         {!ready ? (
           <SectionCard
-            title={`Provisioning ${formatToken(readModel.status)}`}
-            description={readModel.reason}
+            title={`${t("Provisioning")} ${t(formatToken(readModel.status))}`}
+            description={t(readModel.reason)}
           >
-            <EmptyState title={formatToken(readModel.status)} description={readModel.reason} />
+            <EmptyState
+              title={t(formatToken(readModel.status))}
+              description={t(readModel.reason)}
+            />
           </SectionCard>
         ) : (
           <>
-            <ShopProvisioningForms ownerProfiles={ownerProfileOptions} />
+            <ShopProvisioningForms
+              labels={labels}
+              ownerProfiles={ownerProfileOptions}
+            />
 
             <details className="rounded-md border border-slate-200 bg-white p-4">
               <summary className="cursor-pointer text-sm font-semibold text-slate-950">
-                Emergency recovery: recover initial manager 1001
+                {t("Emergency recovery: recover initial manager 1001")}
               </summary>
               <p className="mt-2 text-sm leading-5 text-slate-600">
-                Use this only when an existing shop lost manager access. The server will restore or recreate manager 1001 and generate a new temporary PIN. The old PIN is never shown.
+                {t(
+                  "Use this only when an existing shop lost manager access. The server will restore or recreate manager 1001 and generate a new temporary PIN. The old PIN is never shown.",
+                )}
               </p>
               <div className="mt-4 max-w-3xl">
-                <StaffManagerProvisioningPanel shops={shopOptions} />
+                <StaffManagerProvisioningPanel
+                  labels={labels}
+                  shops={shopOptions}
+                />
               </div>
             </details>
           </>
