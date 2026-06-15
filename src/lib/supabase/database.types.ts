@@ -1916,6 +1916,84 @@ export type Database = {
       }
     }
     Views: {
+      shared_sheet_session_diagnostics: {
+        Row: {
+          category: string
+          column_count: number
+          complete_count: number
+          complete_rows: number
+          data_rows: number
+          data_summary: string
+          deleted_at: string | null
+          display_name: string
+          editable_rows: number
+          is_manual_entry: boolean
+          item_rows: number
+          missing_count: number
+          owner_user_id: string
+          overlay_bytes: number
+          overlay_schema: number | null
+          overlay_status: string
+          overlay_summary: string
+          payload_version: number
+          remote_id: string
+          shop_id: string | null
+          supplier: string
+          timestamp: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          column_count?: number
+          complete_count?: number
+          complete_rows?: number
+          data_rows?: number
+          data_summary?: string
+          deleted_at?: string | null
+          display_name?: string
+          editable_rows?: number
+          is_manual_entry?: boolean
+          item_rows?: number
+          missing_count?: number
+          owner_user_id?: string
+          overlay_bytes?: number
+          overlay_schema?: number | null
+          overlay_status?: string
+          overlay_summary?: string
+          payload_version?: number
+          remote_id?: string
+          shop_id?: string | null
+          supplier?: string
+          timestamp?: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          column_count?: number
+          complete_count?: number
+          complete_rows?: number
+          data_rows?: number
+          data_summary?: string
+          deleted_at?: string | null
+          display_name?: string
+          editable_rows?: number
+          is_manual_entry?: boolean
+          item_rows?: number
+          missing_count?: number
+          owner_user_id?: string
+          overlay_bytes?: number
+          overlay_schema?: number | null
+          overlay_status?: string
+          overlay_summary?: string
+          payload_version?: number
+          remote_id?: string
+          shop_id?: string | null
+          supplier?: string
+          timestamp?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       staff_accounts_safe: {
         Row: {
           created_at: string | null

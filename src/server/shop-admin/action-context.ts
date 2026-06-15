@@ -15,6 +15,7 @@ export type ShopAdminActionCode =
   | "unauthorized"
   | "validation_failed"
   | "permission_denied"
+  | "partial_failure"
   | "unauthorized_or_unmapped"
   | "not_found"
   | "conflict"
@@ -72,6 +73,8 @@ const messages: Record<ShopAdminActionCode, string> = {
   unauthorized: "This account is not authorized for this shop action.",
   validation_failed: "Check the highlighted fields and try again.",
   permission_denied: "You do not have permission for this shop action.",
+  partial_failure:
+    "Some rows could not be imported. Re-run preview and review the import summary before retrying.",
   unauthorized_or_unmapped:
     "This shop is not authorized or has no mapped inventory source.",
   not_found: "The requested row was not found for this shop.",
@@ -157,6 +160,7 @@ function mapRpcCode(value: unknown): ShopAdminActionCode {
     "unauthorized",
     "validation_failed",
     "permission_denied",
+    "partial_failure",
     "unauthorized_or_unmapped",
     "not_found",
     "conflict",

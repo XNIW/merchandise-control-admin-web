@@ -102,7 +102,7 @@ test("TASK-049 Audit, Provisioning, Operations, and topbar use compact safe layo
 
   assert.match(
     appShell,
-    /Read-only[\s\S]*Server boundary[\s\S]*Controlled actions[\s\S]*Logout/,
+    /platformShell\.readOnly[\s\S]*platformShell\.serverBoundary[\s\S]*platformShell\.controlledActions[\s\S]*common\.logout/,
     "topbar chips must stay in the requested order",
   );
   assert.doesNotMatch(appShell, /isControlledActions/);
@@ -129,8 +129,8 @@ test("TASK-049 Audit, Provisioning, Operations, and topbar use compact safe layo
   }
 
   for (const required of [
-    'section.diagnosticsPriority !== "primary"',
-    "Boundary details",
+    'localizedSection.diagnosticsPriority !== "primary"',
+    "dictionary.common.boundaryDetails",
     "px-3 py-2",
   ]) {
     assertContains(platformPage, required, `PlatformPage must contain ${required}`);

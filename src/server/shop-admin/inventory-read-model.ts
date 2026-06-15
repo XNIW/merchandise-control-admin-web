@@ -382,6 +382,9 @@ export async function getShopInventoryReadModel(
           .is("deleted_at", null)
           .order("updated_at", {
             ascending: false,
+          })
+          .order("id", {
+            ascending: true,
           }) as unknown as PagedInventoryQuery<ProductRow>,
       rowLimit,
     ),
@@ -394,6 +397,9 @@ export async function getShopInventoryReadModel(
           .not("deleted_at", "is", null)
           .order("deleted_at", {
             ascending: false,
+          })
+          .order("id", {
+            ascending: true,
           }) as unknown as PagedInventoryQuery<ProductRow>,
       rowLimit,
     ),
@@ -405,6 +411,9 @@ export async function getShopInventoryReadModel(
           .eq("shop_id", selectedShop.shopId)
           .is("deleted_at", null)
           .order("name", {
+            ascending: true,
+          })
+          .order("id", {
             ascending: true,
           }) as unknown as PagedInventoryQuery<CategoryRow>,
       rowLimit,
@@ -418,6 +427,9 @@ export async function getShopInventoryReadModel(
           .is("deleted_at", null)
           .order("name", {
             ascending: true,
+          })
+          .order("id", {
+            ascending: true,
           }) as unknown as PagedInventoryQuery<SupplierRow>,
       rowLimit,
     ),
@@ -429,6 +441,9 @@ export async function getShopInventoryReadModel(
           .eq("shop_id", selectedShop.shopId)
           .order("created_at", {
             ascending: false,
+          })
+          .order("id", {
+            ascending: true,
           }) as unknown as PagedInventoryQuery<PriceRow>,
       rowLimit,
     ),
@@ -497,6 +512,9 @@ export async function getShopInventoryReadModel(
             .is("deleted_at", null)
             .order("updated_at", {
               ascending: false,
+            })
+            .order("id", {
+              ascending: true,
             }) as unknown as PagedInventoryQuery<ProductRow>,
         rowLimit,
       ),
@@ -510,6 +528,9 @@ export async function getShopInventoryReadModel(
             .not("deleted_at", "is", null)
             .order("deleted_at", {
               ascending: false,
+            })
+            .order("id", {
+              ascending: true,
             }) as unknown as PagedInventoryQuery<ProductRow>,
         rowLimit,
       ),
@@ -522,6 +543,9 @@ export async function getShopInventoryReadModel(
             .eq("owner_user_id", legacyOwnerUserId)
             .is("deleted_at", null)
             .order("name", {
+              ascending: true,
+            })
+            .order("id", {
               ascending: true,
             }) as unknown as PagedInventoryQuery<CategoryRow>,
         rowLimit,
@@ -536,6 +560,9 @@ export async function getShopInventoryReadModel(
             .is("deleted_at", null)
             .order("name", {
               ascending: true,
+            })
+            .order("id", {
+              ascending: true,
             }) as unknown as PagedInventoryQuery<SupplierRow>,
         rowLimit,
       ),
@@ -548,6 +575,9 @@ export async function getShopInventoryReadModel(
             .eq("owner_user_id", legacyOwnerUserId)
             .order("created_at", {
               ascending: false,
+            })
+            .order("id", {
+              ascending: true,
             }) as unknown as PagedInventoryQuery<PriceRow>,
         rowLimit,
       ),

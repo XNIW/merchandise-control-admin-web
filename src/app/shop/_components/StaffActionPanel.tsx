@@ -18,7 +18,54 @@ import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 
 type StaffActionPanelProps = {
   canManageRolePermissions?: boolean;
+  labels?: StaffActionPanelLabels;
   selectedShopId?: string;
+};
+
+type StaffRoleOptionKey = "cashier" | "manager" | "viewer";
+type StaffTemplateKey =
+  | "catalog_manager"
+  | "shop_manager_full"
+  | "staff_manager"
+  | "viewer";
+
+export type StaffActionPanelLabels = {
+  archive: string;
+  clearLockout: string;
+  createStaff: string;
+  credentialType: string;
+  custom: string;
+  displayName: string;
+  forceCredentialRotation: string;
+  forceRotation: string;
+  oneTimeSignInValue: string;
+  passwordLabel: string;
+  pinLabel: string;
+  reactivate: string;
+  reason: string;
+  resetCredential: string;
+  revokeSessions: string;
+  revokeWebAccess: string;
+  role: string;
+  roleOptions: Record<StaffRoleOptionKey, string>;
+  sessionStatus: string;
+  staffCode: string;
+  staffRolePermissions: string;
+  staffRowId: string;
+  staffWebAccess: string;
+  suspend: string;
+  template: string;
+  templateLabels: Record<StaffTemplateKey, string>;
+  typeArchiveConfirmation: string;
+  typeClearConfirmation: string;
+  typePermissionsConfirmation: string;
+  typeReactivateConfirmation: string;
+  typeResetConfirmation: string;
+  typeRevokeConfirmation: string;
+  typeRotateConfirmation: string;
+  typeSessionsConfirmation: string;
+  typeSuspendConfirmation: string;
+  updatePermissions: string;
 };
 
 const emptyState: ShopAdminActionState = {
@@ -27,12 +74,60 @@ const emptyState: ShopAdminActionState = {
   ok: true,
 };
 
+const defaultStaffActionLabels: StaffActionPanelLabels = {
+  archive: "Archive",
+  clearLockout: "Clear lockout",
+  createStaff: "Create staff",
+  credentialType: "Credential type",
+  custom: "Custom",
+  displayName: "Display name",
+  forceCredentialRotation: "Force credential rotation",
+  forceRotation: "Force rotation",
+  oneTimeSignInValue: "One-time sign-in value",
+  passwordLabel: "Password",
+  pinLabel: "PIN",
+  reactivate: "Reactivate",
+  reason: "Reason",
+  resetCredential: "Reset credential",
+  revokeSessions: "Revoke sessions",
+  revokeWebAccess: "Revoke web access",
+  role: "Role",
+  roleOptions: {
+    cashier: "Cashier",
+    manager: "Manager",
+    viewer: "Viewer",
+  },
+  sessionStatus: "Session status",
+  staffCode: "Staff code",
+  staffRolePermissions: "Staff role permissions",
+  staffRowId: "Staff row id",
+  staffWebAccess: "Staff web access",
+  suspend: "Suspend",
+  template: "Template",
+  templateLabels: {
+    catalog_manager: "Catalog manager",
+    shop_manager_full: "Shop manager full",
+    staff_manager: "Staff manager",
+    viewer: "Viewer",
+  },
+  typeArchiveConfirmation: "Type ARCHIVE as confirmation",
+  typeClearConfirmation: "Type CLEAR as confirmation",
+  typePermissionsConfirmation: "Type PERMISSIONS as confirmation",
+  typeReactivateConfirmation: "Type REACTIVATE as confirmation",
+  typeResetConfirmation: "Type RESET as confirmation",
+  typeRevokeConfirmation: "Type REVOKE as confirmation",
+  typeRotateConfirmation: "Type ROTATE as confirmation",
+  typeSessionsConfirmation: "Type SESSIONS as confirmation",
+  typeSuspendConfirmation: "Type SUSPEND as confirmation",
+  updatePermissions: "Update permissions",
+};
+
 const SHOP_STAFF_WEB_ROLE_TEMPLATES = [
-  { key: "shop_manager_full", label: "Shop manager full" },
-  { key: "catalog_manager", label: "Catalog manager" },
-  { key: "staff_manager", label: "Staff manager" },
-  { key: "viewer", label: "Viewer" },
-];
+  { key: "shop_manager_full" },
+  { key: "catalog_manager" },
+  { key: "staff_manager" },
+  { key: "viewer" },
+] satisfies Array<{ key: StaffTemplateKey }>;
 
 const staffWebPermissions = [
   "catalog.read",
@@ -78,23 +173,33 @@ function TextInput({
   );
 }
 
-function CredentialKindSelect() {
+function CredentialKindSelect({
+  labels,
+}: {
+  labels: StaffActionPanelLabels;
+}) {
   return (
     <label className="grid gap-1 text-sm font-medium text-zinc-800">
-      Credential type
+      {labels.credentialType}
       <select
         className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
         name="credentialKind"
         required
       >
-        <option value="password">Password</option>
-        <option value="pin">PIN</option>
+        <option value="password">{labels.passwordLabel}</option>
+        <option value="pin">{labels.pinLabel}</option>
       </select>
     </label>
   );
 }
 
-function OneTimeDisplay({ state }: { state: ShopAdminActionState }) {
+function OneTimeDisplay({
+  label,
+  state,
+}: {
+  label: string;
+  state: ShopAdminActionState;
+}) {
   if (!state.temporaryCredential) {
     return null;
   }
@@ -104,7 +209,7 @@ function OneTimeDisplay({ state }: { state: ShopAdminActionState }) {
       className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950"
       role="status"
     >
-      <span className="block font-medium">One-time sign-in value</span>
+      <span className="block font-medium">{label}</span>
       <code className="mt-1 block break-all rounded bg-white px-2 py-1 text-zinc-950">
         {state.temporaryCredential}
       </code>
@@ -114,6 +219,7 @@ function OneTimeDisplay({ state }: { state: ShopAdminActionState }) {
 
 export function StaffActionPanel({
   canManageRolePermissions = false,
+  labels = defaultStaffActionLabels,
   selectedShopId,
 }: StaffActionPanelProps) {
   const [createState, createFormAction] = useActionState(
@@ -128,154 +234,192 @@ export function StaffActionPanel({
   return (
     <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-4 md:grid-cols-2 xl:grid-cols-4`}>
       <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-zinc-950">Create staff</h2>
+        <h2 className="text-base font-semibold text-zinc-950">
+          {labels.createStaff}
+        </h2>
         <form action={createFormAction} className="mt-3 grid gap-3">
           <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Staff code" name="staffCode" required />
-          <TextInput label="Display name" name="displayName" required />
-          <CredentialKindSelect />
+          <TextInput label={labels.staffCode} name="staffCode" required />
+          <TextInput label={labels.displayName} name="displayName" required />
+          <CredentialKindSelect labels={labels} />
           <label className="grid gap-1 text-sm font-medium text-zinc-800">
-            Role
+            {labels.role}
             <select
               className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
               name="roleKey"
               required
             >
-              <option value="cashier">Cashier</option>
-              <option value="manager">Manager</option>
-              <option value="viewer">Viewer</option>
+              <option value="cashier">{labels.roleOptions.cashier}</option>
+              <option value="manager">{labels.roleOptions.manager}</option>
+              <option value="viewer">{labels.roleOptions.viewer}</option>
             </select>
           </label>
           <button className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white">
-            Create staff
+            {labels.createStaff}
           </button>
         </form>
-        <OneTimeDisplay state={createState} />
+        <OneTimeDisplay
+          label={labels.oneTimeSignInValue}
+          state={createState}
+        />
       </section>
 
       <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
         <h2 className="text-base font-semibold text-zinc-950">
-          Reset credential
+          {labels.resetCredential}
         </h2>
         <form action={resetFormAction} className="mt-3 grid gap-3">
           <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Staff row id" name="staffId" required />
-          <CredentialKindSelect />
-          <TextInput label="Reason" name="reason" required />
-          <TextInput label="Type RESET as confirmation" name="confirmation" required />
+          <TextInput label={labels.staffRowId} name="staffId" required />
+          <CredentialKindSelect labels={labels} />
+          <TextInput label={labels.reason} name="reason" required />
+          <TextInput
+            label={labels.typeResetConfirmation}
+            name="confirmation"
+            required
+          />
           <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
-            Reset credential
+            {labels.resetCredential}
           </button>
         </form>
-        <OneTimeDisplay state={resetState} />
+        <OneTimeDisplay
+          label={labels.oneTimeSignInValue}
+          state={resetState}
+        />
       </section>
 
       <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-zinc-950">Suspend</h2>
+        <h2 className="text-base font-semibold text-zinc-950">
+          {labels.suspend}
+        </h2>
         <form action={suspendStaffAction} className="mt-3 grid gap-3">
           <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Staff row id" name="staffId" required />
-          <TextInput label="Reason" name="reason" required />
-          <TextInput label="Type SUSPEND as confirmation" name="confirmation" required />
+          <TextInput label={labels.staffRowId} name="staffId" required />
+          <TextInput label={labels.reason} name="reason" required />
+          <TextInput
+            label={labels.typeSuspendConfirmation}
+            name="confirmation"
+            required
+          />
           <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
-            Suspend
+            {labels.suspend}
           </button>
         </form>
       </section>
 
       <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-zinc-950">Reactivate</h2>
+        <h2 className="text-base font-semibold text-zinc-950">
+          {labels.reactivate}
+        </h2>
         <form action={reactivateStaffAction} className="mt-3 grid gap-3">
           <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Staff row id" name="staffId" required />
-          <TextInput label="Reason" name="reason" required />
+          <TextInput label={labels.staffRowId} name="staffId" required />
+          <TextInput label={labels.reason} name="reason" required />
           <TextInput
-            label="Type REACTIVATE as confirmation"
+            label={labels.typeReactivateConfirmation}
             name="confirmation"
             required
           />
           <button className="rounded-md border border-emerald-400 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-950">
-            Reactivate
-          </button>
-        </form>
-      </section>
-
-      <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-zinc-950">Archive</h2>
-        <form action={archiveStaffAction} className="mt-3 grid gap-3">
-          <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Staff row id" name="staffId" required />
-          <TextInput label="Reason" name="reason" required />
-          <TextInput label="Type ARCHIVE as confirmation" name="confirmation" required />
-          <button className="rounded-md border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950">
-            Archive
+            {labels.reactivate}
           </button>
         </form>
       </section>
 
       <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
         <h2 className="text-base font-semibold text-zinc-950">
-          Force credential rotation
+          {labels.archive}
+        </h2>
+        <form action={archiveStaffAction} className="mt-3 grid gap-3">
+          <HiddenShopInput selectedShopId={selectedShopId} />
+          <TextInput label={labels.staffRowId} name="staffId" required />
+          <TextInput label={labels.reason} name="reason" required />
+          <TextInput
+            label={labels.typeArchiveConfirmation}
+            name="confirmation"
+            required
+          />
+          <button className="rounded-md border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950">
+            {labels.archive}
+          </button>
+        </form>
+      </section>
+
+      <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+        <h2 className="text-base font-semibold text-zinc-950">
+          {labels.forceCredentialRotation}
         </h2>
         <form
           action={forceStaffCredentialRotationAction}
           className="mt-3 grid gap-3"
         >
           <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Staff row id" name="staffId" required />
-          <TextInput label="Reason" name="reason" required />
-          <TextInput label="Type ROTATE as confirmation" name="confirmation" required />
-          <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
-            Force rotation
-          </button>
-        </form>
-      </section>
-
-      <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-zinc-950">
-          Clear lockout
-        </h2>
-        <form action={clearStaffLockoutAction} className="mt-3 grid gap-3">
-          <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Staff row id" name="staffId" required />
-          <TextInput label="Reason" name="reason" required />
-          <TextInput label="Type CLEAR as confirmation" name="confirmation" required />
-          <button className="rounded-md border border-emerald-400 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-950">
-            Clear lockout
-          </button>
-        </form>
-      </section>
-
-      <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-zinc-950">
-          Staff web access
-        </h2>
-        <form action={revokeStaffWebAccessAction} className="mt-3 grid gap-3">
-          <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Staff row id" name="staffId" required />
-          <TextInput label="Reason" name="reason" required />
-          <TextInput label="Type REVOKE as confirmation" name="confirmation" required />
-          <button className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-950">
-            Revoke web access
-          </button>
-        </form>
-      </section>
-
-      <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
-        <h2 className="text-base font-semibold text-zinc-950">
-          Session status
-        </h2>
-        <form action={revokeStaffWebSessionsAction} className="mt-3 grid gap-3">
-          <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Staff row id" name="staffId" required />
-          <TextInput label="Reason" name="reason" required />
+          <TextInput label={labels.staffRowId} name="staffId" required />
+          <TextInput label={labels.reason} name="reason" required />
           <TextInput
-            label="Type SESSIONS as confirmation"
+            label={labels.typeRotateConfirmation}
             name="confirmation"
             required
           />
           <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
-            Revoke sessions
+            {labels.forceRotation}
+          </button>
+        </form>
+      </section>
+
+      <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+        <h2 className="text-base font-semibold text-zinc-950">
+          {labels.clearLockout}
+        </h2>
+        <form action={clearStaffLockoutAction} className="mt-3 grid gap-3">
+          <HiddenShopInput selectedShopId={selectedShopId} />
+          <TextInput label={labels.staffRowId} name="staffId" required />
+          <TextInput label={labels.reason} name="reason" required />
+          <TextInput
+            label={labels.typeClearConfirmation}
+            name="confirmation"
+            required
+          />
+          <button className="rounded-md border border-emerald-400 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-950">
+            {labels.clearLockout}
+          </button>
+        </form>
+      </section>
+
+      <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+        <h2 className="text-base font-semibold text-zinc-950">
+          {labels.sessionStatus}
+        </h2>
+        <form action={revokeStaffWebAccessAction} className="mt-3 grid gap-3">
+          <HiddenShopInput selectedShopId={selectedShopId} />
+          <TextInput label={labels.staffRowId} name="staffId" required />
+          <TextInput label={labels.reason} name="reason" required />
+          <TextInput
+            label={labels.typeRevokeConfirmation}
+            name="confirmation"
+            required
+          />
+          <button className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-950">
+            {labels.revokeWebAccess}
+          </button>
+        </form>
+      </section>
+
+      <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+        <h2 className="text-base font-semibold text-zinc-950">
+          {labels.staffWebAccess}
+        </h2>
+        <form action={revokeStaffWebSessionsAction} className="mt-3 grid gap-3">
+          <HiddenShopInput selectedShopId={selectedShopId} />
+          <TextInput label={labels.staffRowId} name="staffId" required />
+          <TextInput label={labels.reason} name="reason" required />
+          <TextInput
+            label={labels.typeSessionsConfirmation}
+            name="confirmation"
+            required
+          />
+          <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
+            {labels.revokeSessions}
           </button>
         </form>
       </section>
@@ -283,32 +427,32 @@ export function StaffActionPanel({
       {canManageRolePermissions ? (
         <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm xl:col-span-2">
           <h2 className="text-base font-semibold text-zinc-950">
-            Staff role permissions
+            {labels.staffRolePermissions}
           </h2>
           <form action={updateStaffRolePermissionsAction} className="mt-3 grid gap-3">
             <HiddenShopInput selectedShopId={selectedShopId} />
             <label className="grid gap-1 text-sm font-medium text-zinc-800">
-              Role
+              {labels.role}
               <select
                 className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
                 name="roleKey"
                 required
               >
-                <option value="manager">Manager</option>
-                <option value="cashier">Cashier</option>
-                <option value="viewer">Viewer</option>
+                <option value="manager">{labels.roleOptions.manager}</option>
+                <option value="cashier">{labels.roleOptions.cashier}</option>
+                <option value="viewer">{labels.roleOptions.viewer}</option>
               </select>
             </label>
             <label className="grid gap-1 text-sm font-medium text-zinc-800">
-              Template
+              {labels.template}
               <select
                 className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
                 name="templateKey"
               >
-                <option value="">Custom</option>
+                <option value="">{labels.custom}</option>
                 {SHOP_STAFF_WEB_ROLE_TEMPLATES.map((template) => (
                   <option key={template.key} value={template.key}>
-                    {template.label}
+                    {labels.templateLabels[template.key]}
                   </option>
                 ))}
               </select>
@@ -325,12 +469,12 @@ export function StaffActionPanel({
               ))}
             </div>
             <TextInput
-              label="Type PERMISSIONS as confirmation"
+              label={labels.typePermissionsConfirmation}
               name="confirmation"
               required
             />
             <button className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950">
-              Update permissions
+              {labels.updatePermissions}
             </button>
           </form>
         </section>

@@ -3,14 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useMemo, useState } from "react";
-import type { PlatformSectionKey } from "./platformData";
-import { navigationItems, primaryNavigationItems } from "./platformData";
+import type { PlatformNavigationItem, PlatformSectionKey } from "./platformData";
 
 type PlatformSidebarNavProps = {
   activeSection: PlatformSectionKey;
+  navigationItems: readonly PlatformNavigationItem[];
+  navigationLabel: string;
+  primaryNavigationItems: readonly PlatformNavigationItem[];
 };
 
-function sectionFromPath(pathname: string): PlatformSectionKey | null {
+function sectionFromPath(
+  pathname: string,
+  navigationItems: readonly PlatformNavigationItem[],
+): PlatformSectionKey | null {
   const matchingItem = [...navigationItems]
     .sort((left, right) => right.href.length - left.href.length)
     .find((item) => {
@@ -24,15 +29,20 @@ function sectionFromPath(pathname: string): PlatformSectionKey | null {
   return matchingItem?.key ?? null;
 }
 
-export function PlatformSidebarNav({ activeSection }: PlatformSidebarNavProps) {
+export function PlatformSidebarNav({
+  activeSection,
+  navigationItems,
+  navigationLabel,
+  primaryNavigationItems,
+}: PlatformSidebarNavProps) {
   const pathname = usePathname();
   const [optimisticActive, setOptimisticActive] = useState<{
     key: PlatformSectionKey;
     originPathname: string;
   } | null>(null);
   const pathnameActive = useMemo(
-    () => sectionFromPath(pathname),
-    [pathname],
+    () => sectionFromPath(pathname, navigationItems),
+    [navigationItems, pathname],
   );
   const currentActive =
     optimisticActive?.originPathname === pathname
@@ -41,7 +51,7 @@ export function PlatformSidebarNav({ activeSection }: PlatformSidebarNavProps) {
 
   return (
     <nav
-      aria-label="Platform sections"
+      aria-label={navigationLabel}
       className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:min-h-0 lg:overflow-y-auto lg:px-0 lg:pb-0"
     >
       {primaryNavigationItems.map((item) => {

@@ -23,6 +23,8 @@
     "supabase:bootstrap-platform-admin": "node scripts/supabase/bootstrap-platform-admin.mjs",
     "platform:local:seed": "node scripts/platform/local-login-setup.mjs seed",
     "platform:local:cleanup": "node scripts/platform/local-login-setup.mjs cleanup",
+    "platform:local:seed:history-demo": "node scripts/platform/seed-history-sync-demo.mjs seed",
+    "platform:local:cleanup:history-demo": "node scripts/platform/seed-history-sync-demo.mjs cleanup",
     "platform:local:status": "node scripts/platform/local-login-setup.mjs status",
     "platform:local:dev": "node scripts/platform/local-dev-server.mjs",
     "test:foundation": "node --test tests/foundation/*.test.mjs",

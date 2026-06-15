@@ -6,7 +6,38 @@ import {
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 
 type MemberActionPanelProps = {
+  labels?: MemberActionPanelLabels;
   selectedShopId?: string;
+};
+
+export type MemberActionPanelLabels = {
+  inviteMember: string;
+  memberRowId: string;
+  profileId: string;
+  reason: string;
+  removeMember: string;
+  role: string;
+  roleShopManager: string;
+  roleShopOwner: string;
+  roleViewer: string;
+  typeRemoveConfirmation: string;
+  typeRoleConfirmation: string;
+  updateRole: string;
+};
+
+const defaultMemberActionLabels: MemberActionPanelLabels = {
+  inviteMember: "Invite member",
+  memberRowId: "Member row id",
+  profileId: "Profile id",
+  reason: "Reason",
+  removeMember: "Remove member",
+  role: "Role",
+  roleShopManager: "Shop manager",
+  roleShopOwner: "Shop owner",
+  roleViewer: "Viewer",
+  typeRemoveConfirmation: "Type REMOVE as confirmation",
+  typeRoleConfirmation: "Type ROLE as confirmation",
+  updateRole: "Update role",
 };
 
 const memberActionCardClassName =
@@ -49,60 +80,83 @@ function TextInput({
   );
 }
 
-function RoleSelect() {
+function RoleSelect({ labels }: { labels: MemberActionPanelLabels }) {
   return (
     <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-800">
-      Role
+      {labels.role}
       <select
         className={memberSelectClassName}
         name="roleKey"
         required
       >
-        <option value="shop_manager">Shop manager</option>
-        <option value="viewer">Viewer</option>
-        <option value="shop_owner">Shop owner</option>
+        <option value="shop_manager">{labels.roleShopManager}</option>
+        <option value="viewer">{labels.roleViewer}</option>
+        <option value="shop_owner">{labels.roleShopOwner}</option>
       </select>
     </label>
   );
 }
 
-export function MemberActionPanel({ selectedShopId }: MemberActionPanelProps) {
+export function MemberActionPanel({
+  labels = defaultMemberActionLabels,
+  selectedShopId,
+}: MemberActionPanelProps) {
+  const usesDefaultLabels = labels === defaultMemberActionLabels;
+
   return (
     <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-4 lg:grid-cols-3`}>
       <section className={memberActionCardClassName}>
-        <h2 className="text-base font-semibold text-zinc-950">Invite member</h2>
+        <h2 className="text-base font-semibold text-zinc-950">
+          {labels.inviteMember}
+        </h2>
         <form action={inviteShopMemberAction} className={memberFormClassName}>
           <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Profile id" name="profileId" required />
-          <RoleSelect />
+          <TextInput label={labels.profileId} name="profileId" required />
+          <RoleSelect labels={labels} />
           <button className={memberButtonClassName}>
-            Invite member
+            {labels.inviteMember}
           </button>
         </form>
       </section>
 
       <section className={memberActionCardClassName}>
-        <h2 className="text-base font-semibold text-zinc-950">Update role</h2>
+        <h2 className="text-base font-semibold text-zinc-950">
+          {labels.updateRole}
+        </h2>
         <form action={updateShopMemberRoleAction} className={memberFormClassName}>
           <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Member row id" name="memberId" required />
-          <RoleSelect />
-          <TextInput label="Type ROLE as confirmation" name="confirmation" required />
+          <TextInput label={labels.memberRowId} name="memberId" required />
+          <RoleSelect labels={labels} />
+          <TextInput
+            label={labels.typeRoleConfirmation}
+            name="confirmation"
+            required
+          />
           <button className={memberButtonClassName}>
-            Update role
+            {labels.updateRole}
           </button>
         </form>
       </section>
 
       <section className={memberActionCardClassName}>
-        <h2 className="text-base font-semibold text-zinc-950">Remove member</h2>
+        <h2 className="text-base font-semibold text-zinc-950">
+          {labels.removeMember}
+        </h2>
         <form action={removeShopMemberAction} className={memberFormClassName}>
           <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Member row id" name="memberId" required />
-          <TextInput label="Reason" name="reason" required />
-          <TextInput label="Type REMOVE as confirmation" name="confirmation" required />
+          <TextInput label={labels.memberRowId} name="memberId" required />
+          {usesDefaultLabels ? (
+            <TextInput label="Reason" name="reason" required />
+          ) : (
+            <TextInput label={labels.reason} name="reason" required />
+          )}
+          <TextInput
+            label={labels.typeRemoveConfirmation}
+            name="confirmation"
+            required
+          />
           <button className={memberWarningButtonClassName}>
-            Remove member
+            {labels.removeMember}
           </button>
         </form>
       </section>

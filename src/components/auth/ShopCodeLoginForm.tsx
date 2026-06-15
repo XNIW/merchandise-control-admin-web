@@ -5,8 +5,10 @@ import {
   staffManagerWebLoginFormAction,
   type ShopCodeLoginFormState,
 } from "@/app/(staff-auth)/shop/staff-login/actions";
+import type { Dictionary } from "@/i18n/dictionaries";
 
 type ShopCodeLoginFormProps = {
+  labels: Dictionary["shopCodeLogin"];
   nextPath?: string;
   result?: string | null;
 };
@@ -37,38 +39,15 @@ function resultCode(result: string | null | undefined): ShopCodeLoginFormState["
     : "unknown_error";
 }
 
-function statusMessage(code: ShopCodeLoginFormState["code"]) {
-  const messages: Record<ShopCodeLoginFormState["code"], string> = {
-    credential_invalid: "PIN/password is not correct for this staff account.",
-    database_error:
-      "Sign-in could not be verified because of a server/database error.",
-    idle: "",
-    locked:
-      "Sign-in is temporarily blocked. Try again later or ask an admin to reset access.",
-    not_configured: "Shop-code staff access is not configured in this runtime.",
-    server_admin_not_configured:
-      "Sign-in cannot be verified because the server admin runtime is not configured.",
-    shop_inactive: "This shop is not active. Contact platform support.",
-    shop_not_found: "Shop code was not found. Check the shop code and try again.",
-    staff_inactive:
-      "This staff account cannot open Admin Console. Ask a manager to reset access.",
-    staff_not_allowed:
-      "This staff account cannot open Admin Console. Use a manager staff account.",
-    staff_not_found: "Staff code was not found for this shop.",
-    success: "",
-    unknown_error: "Sign-in could not be verified. Try again.",
-    validation_failed: "Check Shop code, Staff code, and PIN/password and try again.",
-  };
-
-  return messages[code];
-}
-
-function initialStateForResult(result: string | null | undefined): ShopCodeLoginFormState {
+function initialStateForResult(
+  result: string | null | undefined,
+  labels: Dictionary["shopCodeLogin"],
+): ShopCodeLoginFormState {
   const code = resultCode(result);
 
   return {
     code,
-    message: statusMessage(code),
+    message: labels.messages[code],
     ok: code === "idle" || code === "success",
     shouldFocusCredential: false,
     values: {
@@ -79,10 +58,14 @@ function initialStateForResult(result: string | null | undefined): ShopCodeLogin
 }
 
 export function ShopCodeLoginForm({
+  labels,
   nextPath = "/shop",
   result,
 }: ShopCodeLoginFormProps) {
-  const initialState = useMemo(() => initialStateForResult(result), [result]);
+  const initialState = useMemo(
+    () => initialStateForResult(result, labels),
+    [labels, result],
+  );
   const [state, formAction, pending] = useActionState(
     staffManagerWebLoginFormAction,
     initialState,
@@ -101,13 +84,13 @@ export function ShopCodeLoginForm({
       <form
         key={formKey}
         action={formAction}
-        aria-label="Shop code sign in"
+        aria-label={labels.formLabel}
         className="grid gap-4"
       >
         <input name="next" type="hidden" value={nextPath} />
         <div className="grid gap-1.5">
           <label htmlFor="shopCode" className="text-sm font-medium text-slate-800">
-            Shop code
+            {labels.shopCode}
           </label>
           <input
             id="shopCode"
@@ -121,7 +104,7 @@ export function ShopCodeLoginForm({
 
         <div className="grid gap-1.5">
           <label htmlFor="staffCode" className="text-sm font-medium text-slate-800">
-            Staff code
+            {labels.staffCode}
           </label>
           <input
             id="staffCode"
@@ -138,7 +121,7 @@ export function ShopCodeLoginForm({
             htmlFor="credential"
             className="text-sm font-medium text-slate-800"
           >
-            PIN / password
+            {labels.credential}
           </label>
           <input
             ref={credentialRef}
@@ -156,7 +139,7 @@ export function ShopCodeLoginForm({
           disabled={pending}
           className="inline-flex h-11 items-center justify-center rounded-md bg-emerald-700 px-4 text-sm font-semibold text-white outline-none transition hover:bg-emerald-800 focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:bg-emerald-700/60"
         >
-          {pending ? "Signing in" : "Sign in"}
+          {pending ? labels.pending : labels.submit}
         </button>
       </form>
 

@@ -24,8 +24,10 @@ import {
   getShopHistoryReadModel,
   type ShopHistoryDetailField,
   type ShopHistoryDetailReadModel,
+  type ShopHistoryOverlayStatus,
   type ShopHistoryReadModel,
   type ShopHistorySession,
+  type ShopHistoryTablePreviewRow,
   type ShopSyncEventActivity,
 } from "./history-read-model";
 import {
@@ -1503,26 +1505,119 @@ function historyStatusLabel(
   return labels[status];
 }
 
-function syncEventRow(event: ShopSyncEventActivity): ShopSectionTableRow {
-  return {
-    rowKey: `sync:${event.eventId}`,
-    kind: "Sync event",
-    label: `${event.domain}:${event.eventType}`,
-    source: event.sourceDeviceId ?? event.source ?? "Unknown",
-    count: String(event.changedCount),
-    payload: `${event.entitySummary}; ${event.metadataSummary}`,
-    updated: formatDateTime(event.createdAt),
+function sourceScopeLabel(sourceScope: ShopHistorySession["sourceScope"]) {
+  const labels: Record<ShopHistorySession["sourceScope"], string> = {
+    legacy_owner_bridge: "Legacy owner bridge",
+    shop_scoped: "Shop scoped",
   };
+
+  return labels[sourceScope];
+}
+
+function overlayStatusLabel(status: ShopHistoryOverlayStatus) {
+  const labels: Record<ShopHistoryOverlayStatus, string> = {
+    invalid_shape: "Invalid shape",
+    legacy_v1: "Legacy v1",
+    missing: "Missing",
+    ok: "OK",
+    schema_unsupported: "Unsupported schema",
+    too_large: "Too large",
+  };
+
+  return labels[status];
+}
+
+function historyEntryType(session: ShopHistorySession) {
+  return session.state === "tombstone"
+    ? "Deleted history entry"
+    : "Active history entry";
+}
+
+function historyEntryStatus(session: ShopHistorySession) {
+  if (session.state === "tombstone") {
+    return "Deleted";
+  }
+
+  if (session.payloadVersion < 2) {
+    return "Legacy v1";
+  }
+
+  if (session.overlayStatus !== "ok") {
+    return "Overlay issue";
+  }
+
+  return "Active";
+}
+
+function historyEntryPayloadLabel(session: ShopHistorySession) {
+  return session.payloadVersion < 2
+    ? `Legacy v${session.payloadVersion}`
+    : `Payload v${session.payloadVersion}`;
+}
+
+function historyEntryOverlayLabel(session: ShopHistorySession) {
+  if (session.overlayStatus === "ok") {
+    return "Overlay OK";
+  }
+
+  if (session.overlayStatus === "legacy_v1") {
+    return "Legacy v1";
+  }
+
+  return `Overlay issue: ${overlayStatusLabel(session.overlayStatus)}`;
+}
+
+function historyEntryIssue(session: ShopHistorySession) {
+  if (session.overlayStatus === "ok") {
+    return "None";
+  }
+
+  if (session.overlayStatus === "legacy_v1") {
+    return "Legacy v1 payload has no overlay contract.";
+  }
+
+  return `${overlayStatusLabel(session.overlayStatus)}; completed/editable counts are diagnostic only.`;
 }
 
 function historySessionRow(session: ShopHistorySession): ShopSectionTableRow {
   return {
     rowKey: `session:${session.remoteId}`,
-    kind: session.deletedAt ? "History tombstone" : "History session",
-    label: session.displayName,
-    source: [session.supplier, session.category].filter(Boolean).join(" / "),
-    count: `v${session.payloadVersion}`,
-    payload: `${session.dataSummary}; ${session.overlaySummary}`,
+    type: historyEntryType(session),
+    entryName: session.displayName,
+    supplierCategory:
+      [session.supplier, session.category].filter(Boolean).join(" / ") ||
+      "Not set",
+    status: historyEntryStatus(session),
+    payload: historyEntryPayloadLabel(session),
+    overlay: historyEntryOverlayLabel(session),
+    rows: String(session.rowCount),
+    updated: formatDateTime(session.updatedAt),
+  };
+}
+
+function historySyncEventRow(event: ShopSyncEventActivity): ShopSectionTableRow {
+  return {
+    rowKey: `sync:${event.eventId}`,
+    event: event.eventType,
+    state: event.status,
+    source: event.sourceDeviceId ?? event.source ?? "Unknown",
+    changed: String(event.changedCount),
+    clientEvent: event.clientEventId ?? "Not set",
+    batch: event.batchId ?? "Not set",
+    updated: formatDateTime(event.createdAt),
+  };
+}
+
+function historyDiagnosticsRow(session: ShopHistorySession): ShopSectionTableRow {
+  return {
+    rowKey: `diagnostic:${session.remoteId}`,
+    entryName: session.displayName,
+    payloadVersion: historyEntryPayloadLabel(session),
+    dataRows: String(session.rowCount),
+    overlayStatus: historyEntryOverlayLabel(session),
+    editableRows: String(session.editableRows),
+    completeRows: String(session.completeRows),
+    issue: historyEntryIssue(session),
     updated: formatDateTime(session.updatedAt),
   };
 }
@@ -1541,9 +1636,9 @@ export function buildHistorySection(readModel: ShopHistoryReadModel): ShopSectio
         metric("Payload", "Redacted", "Raw mobile JSON is not rendered", "good"),
       ],
       liveData: {
-        title: "Mobile history entries",
+        title: "Android / iOS History Entries",
         description:
-          "Mobile business history rows are read by shop_id first, with owner_user_id only as a legacy bridge.",
+          "Real mobile history entries from shared_sheet_sessions appear here after the mapping is ready.",
         columns: [
           { key: "field", label: "Field" },
           { key: "value", label: "Value" },
@@ -1557,41 +1652,125 @@ export function buildHistorySection(readModel: ShopHistoryReadModel): ShopSectio
     };
   }
 
+  const historyEvents = readModel.syncEvents.filter(
+    (event) => event.domain === "history",
+  );
+  const activeSessions = readModel.sessions.filter(
+    (session) => session.state === "active",
+  ).length;
+  const tombstones = readModel.sessions.filter(
+    (session) => session.state === "tombstone",
+  ).length;
+  const payloadV2 = readModel.sessions.filter(
+    (session) => session.payloadVersion === 2,
+  ).length;
+  const legacyPayloadV1 = readModel.sessions.filter(
+    (session) => session.payloadVersion < 2,
+  ).length;
+  const overlayOk = readModel.sessions.filter(
+    (session) => session.overlayStatus === "ok",
+  ).length;
+  const overlayIssues = readModel.sessions.filter(
+    (session) => session.overlayStatus !== "ok",
+  ).length;
+  const manualEntries = readModel.sessions.filter(
+    (session) => session.isManualEntry,
+  ).length;
+  const completedRows = readModel.sessions.reduce(
+    (total, session) => total + session.completeCount,
+    0,
+  );
+  const missingRows = readModel.sessions.reduce(
+    (total, session) => total + session.missingCount,
+    0,
+  );
+  const failedHistoryEvents = historyEvents.filter(
+    (event) => event.status === "failed",
+  ).length;
+
   return {
     ...shopSections.history,
     description:
-      "Read-only mobile business history entries and sync events for the verified selected shop. Payloads are summarized and recursively redacted.",
+      "History entries are loaded from shared_sheet_sessions. Sync events are technical synchronization logs linked to those entries. Admin audit events are shown separately in Audit.",
     status:
       readModel.syncEvents.length + readModel.sessions.length > 0
         ? "Read-only mapped"
         : "History empty",
     metrics: [
-      metric("Sync events", String(readModel.syncEvents.length), "Mapped rows"),
-      metric("Sessions", String(readModel.sessions.length), "History rows"),
-      metric("Payload", "Redacted", "No raw JSON is rendered", "good"),
+      metric("History entries", String(readModel.sessions.length), "shared_sheet_sessions"),
+      metric("Active entries", String(activeSessions), "Rows without deleted_at", "good"),
+      metric("Deleted entries", String(tombstones), "Rows with deleted_at", tombstones > 0 ? "warning" : "muted"),
+      metric("Payload v2", String(payloadV2), "Current Android/iOS contract", "good"),
+      metric("Legacy v1", String(legacyPayloadV1), "Overlay not expected", legacyPayloadV1 > 0 ? "warning" : "muted"),
+      metric("Overlay OK", String(overlayOk), "Schema 1 and row counts match", "good"),
+      metric("Overlay issues", String(overlayIssues), "Missing, invalid, too large or unsupported", overlayIssues > 0 ? "warning" : "good"),
+      metric("Sync events", String(historyEvents.length), `${failedHistoryEvents} failed technical events`, failedHistoryEvents > 0 ? "warning" : "good"),
+      metric("Payload safety", "Read-only", `${manualEntries} manual; ${completedRows} complete flags; ${missingRows} missing flags`, overlayIssues > 0 ? "warning" : "good"),
     ],
     liveData: {
-      title: "Mobile history entries",
+      title: "Android / iOS History Entries",
       description:
-        "shared_sheet_sessions and sync_events are summarized separately from web audit logs.",
+        "Real mobile history entries from shared_sheet_sessions. This table does not include technical sync_events or admin audit_logs.",
       columns: [
-        { key: "kind", label: "Kind" },
-        { key: "label", label: "Label" },
-        { key: "source", label: "Source" },
-        { key: "count", label: "Count" },
-        { key: "payload", label: "Payload summary" },
+        { key: "type", label: "Type" },
+        { key: "entryName", label: "Entry name" },
+        { key: "supplierCategory", label: "Supplier / Category" },
+        { key: "status", label: "Status" },
+        { key: "payload", label: "Payload" },
+        { key: "overlay", label: "Overlay" },
+        { key: "rows", label: "Rows" },
         { key: "updated", label: "Updated" },
       ],
-      rows: [
-        ...readModel.syncEvents.map(syncEventRow),
-        ...readModel.sessions.map(historySessionRow),
-      ],
+      rows: readModel.sessions.map(historySessionRow),
       emptyState: {
-        title: "No mobile history rows are visible",
+        title: "No mobile history entries are visible",
         description:
-          "The mapping is present, but no sync or session rows are visible through current RLS.",
+          "The mapping is present, but no shared_sheet_sessions rows are visible through current RLS.",
       },
     },
+    secondaryLiveData: [
+      {
+        title: "Related history sync events",
+        description:
+          "These are technical synchronization logs. They are not the inventory history entries themselves.",
+        columns: [
+          { key: "event", label: "Event" },
+          { key: "state", label: "State" },
+          { key: "source", label: "Source / Device" },
+          { key: "changed", label: "Changed" },
+          { key: "clientEvent", label: "Client event" },
+          { key: "batch", label: "Batch" },
+          { key: "updated", label: "Updated" },
+        ],
+        rows: historyEvents.map(historySyncEventRow),
+        emptyState: {
+          title: "No history sync events are visible",
+          description:
+            "History sessions may still exist without a related sync_events row.",
+        },
+      },
+      {
+        title: "Payload and overlay diagnostics",
+        description:
+          "Diagnostics are calculated from shared_sheet_sessions payloads and overlays, not from sync_events.",
+        columns: [
+          { key: "entryName", label: "Entry name" },
+          { key: "payloadVersion", label: "Payload version" },
+          { key: "dataRows", label: "Data rows" },
+          { key: "overlayStatus", label: "Overlay status" },
+          { key: "editableRows", label: "Editable rows" },
+          { key: "completeRows", label: "Complete rows" },
+          { key: "issue", label: "Issue" },
+          { key: "updated", label: "Updated" },
+        ],
+        rows: readModel.sessions.map(historyDiagnosticsRow),
+        emptyState: {
+          title: "No payload diagnostics are available",
+          description:
+            "Diagnostics appear after shared_sheet_sessions rows are visible.",
+        },
+      },
+    ],
   };
 }
 
@@ -1663,6 +1842,8 @@ export function applySyncFilters(
       event.eventType,
       event.source,
       event.sourceDeviceId,
+      event.clientEventId,
+      event.batchId,
       event.entitySummary,
       event.metadataSummary,
     ].some((value) => includesText(value, query));
@@ -1799,6 +1980,29 @@ function historyDetailRow(field: ShopHistoryDetailField): ShopSectionTableRow {
   };
 }
 
+function historyPreviewRow(
+  row: ShopHistoryTablePreviewRow,
+): ShopSectionTableRow {
+  return { ...row };
+}
+
+function relatedHistoryEventRow(
+  event: ShopSyncEventActivity,
+): ShopSectionTableRow {
+  return {
+    rowKey: `related:${event.eventId}`,
+    event: event.eventType,
+    state: event.status,
+    source: event.sourceDeviceId ?? event.source ?? "Unknown",
+    clientEvent: event.clientEventId ?? "Not set",
+    changed: String(event.changedCount),
+    sessionIds:
+      event.sessionIds.length > 0 ? event.sessionIds.slice(0, 4).join(", ") : "None",
+    updated: formatDateTime(event.createdAt),
+    sourceScope: sourceScopeLabel(event.sourceScope),
+  };
+}
+
 export function buildHistoryDetailSection(
   readModel: ShopHistoryDetailReadModel,
 ): ShopSection {
@@ -1833,22 +2037,104 @@ export function buildHistoryDetailSection(
   }
 
   const detail = readModel.detail;
+  const analysis = detail.sessionAnalysis;
+  const secondaryLiveData: ShopSection["secondaryLiveData"] = [
+    {
+      title: "Redacted JSON preview",
+      description:
+        "Bounded JSON preview after recursive key/value redaction. This is for diagnostics only, not editing.",
+      columns: [
+        { key: "field", label: "Field" },
+        { key: "value", label: "Value" },
+      ],
+      rows: [
+        {
+          rowKey: "json-preview",
+          field: "Preview",
+          value: detail.rawJsonPreview,
+        },
+      ],
+      emptyState: {
+        title: "No JSON preview is available",
+        description: "The detail payload did not include a previewable JSON body.",
+      },
+    },
+  ];
+
+  if (analysis) {
+    secondaryLiveData.unshift(
+      {
+        title: "Payload table preview",
+        description:
+          "First safe rows from shared_sheet_sessions.data with complete/editable overlay context.",
+        columns: [
+          { key: "rowNumber", label: "Row" },
+          { key: "complete", label: "Complete" },
+          { key: "editable", label: "Editable value" },
+          { key: "item", label: "Main item" },
+          { key: "barcode", label: "Barcode" },
+          { key: "name", label: "Name" },
+          { key: "values", label: "Values" },
+        ],
+        rows: detail.tablePreview.map(historyPreviewRow),
+        emptyState: {
+          title: "No payload rows are previewable",
+          description:
+            "The session data field is empty or not shaped as a grid of rows.",
+        },
+      },
+      {
+        title: "Related history sync events",
+        description:
+          "sync_events rows that explicitly reference this remote_id in entity_ids.session_ids or entity_ids.sessionIds.",
+        columns: [
+          { key: "event", label: "Event" },
+          { key: "state", label: "State" },
+          { key: "clientEvent", label: "Client event" },
+          { key: "source", label: "Source" },
+          { key: "changed", label: "Changed" },
+          { key: "sessionIds", label: "Session IDs" },
+          { key: "updated", label: "Updated" },
+          { key: "sourceScope", label: "Source scope" },
+        ],
+        rows: detail.relatedSyncEvents.map(relatedHistoryEventRow),
+        emptyState: {
+          title: "No related history sync events are visible",
+          description:
+            "The session can exist without a linked sync_events row, or the event may not include this remote_id.",
+        },
+      },
+    );
+  }
 
   return {
     ...shopSections.history,
-    title: "History Detail",
+    title: analysis ? "Mobile History Entry Detail" : "History Sync Event Detail",
     description:
-      "Read-only mobile history detail for the verified selected shop. Nested payload data is recursively redacted and limited.",
+      analysis
+        ? "Read-only shared_sheet_sessions record detail with remote_id identity, tombstone state, overlay diagnostics and safe row preview."
+        : "Read-only sync_events record detail for a technical event linked to mobile history entries.",
     status: "Read-only mapped",
-    metrics: [
-      metric("Entry", detail.entryId, detail.title, "good"),
-      metric("Records", String(detail.recordCount), detail.tableSummary),
-      metric("Payload", "Redacted", detail.payloadSummary, "good"),
-    ],
+    metrics: analysis
+      ? [
+          metric("Remote ID", analysis.remoteId, detail.title, "good"),
+          metric("State", formatToken(analysis.state), analysis.deletedAt ? formatDateTime(analysis.deletedAt) : "Active session"),
+          metric("Rows", String(analysis.rowCount), `${analysis.columnCount} columns`),
+          metric("Overlay", overlayStatusLabel(analysis.overlayStatus), `schema ${analysis.overlaySchema ?? "n/a"}; ${analysis.overlayBytes} bytes`, analysis.overlayStatus === "ok" ? "good" : "warning"),
+          metric("Completed", String(analysis.completeCount), `${analysis.missingCount} missing`, analysis.missingCount > 0 ? "warning" : "good"),
+          metric("Related events", String(analysis.relatedSyncEventCount), analysis.latestRelatedSyncAt ? formatDateTime(analysis.latestRelatedSyncAt) : "No related event"),
+        ]
+      : [
+          metric("Entry", detail.entryId, detail.title, "good"),
+          metric("Records", String(detail.recordCount), detail.tableSummary),
+          metric("Payload", "Redacted", detail.payloadSummary, "good"),
+        ],
     liveData: {
-      title: "History detail",
+      title: analysis ? "shared_sheet_sessions record" : "sync_events record",
       description:
-        "Detail fields are loaded from the mapped mobile source and kept separate from web audit logs.",
+        analysis
+          ? "remote_id is the cross-platform identity. deleted_at marks tombstone/deleted sessions. Invalid overlays are diagnostic only and are not trusted for completed/editable counts."
+          : "This technical sync event can reference history entries, but it is not the Android / iOS History Entry itself.",
       columns: [
         { key: "field", label: "Field" },
         { key: "value", label: "Value" },
@@ -1860,6 +2146,7 @@ export function buildHistoryDetailSection(
           "The mapping is present, but this entry is not visible through current RLS.",
       },
     },
+    secondaryLiveData,
   };
 }
 

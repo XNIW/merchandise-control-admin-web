@@ -7,7 +7,38 @@ import {
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 
 type DeviceActionPanelProps = {
+  labels?: DeviceActionPanelLabels;
   selectedShopId?: string;
+};
+
+export type DeviceActionPanelLabels = {
+  appVersion: string;
+  deviceIdentifier: string;
+  deviceRowId: string;
+  deviceType: string;
+  displayName: string;
+  reactivateDevice: string;
+  reason: string;
+  registerDevice: string;
+  renameDevice: string;
+  revokeDevice: string;
+  typeReactivateConfirmation: string;
+  typeRevokeConfirmation: string;
+};
+
+const defaultDeviceActionLabels: DeviceActionPanelLabels = {
+  appVersion: "App version",
+  deviceIdentifier: "Device identifier",
+  deviceRowId: "Device row id",
+  deviceType: "Device type",
+  displayName: "Display name",
+  reactivateDevice: "Reactivate device",
+  reason: "Reason",
+  registerDevice: "Register device",
+  renameDevice: "Rename device",
+  revokeDevice: "Revoke device",
+  typeReactivateConfirmation: "Type REACTIVATE as confirmation",
+  typeRevokeConfirmation: "Type REVOKE as confirmation",
 };
 
 const deviceActionCardClassName =
@@ -50,65 +81,90 @@ function TextInput({
   );
 }
 
-export function DeviceActionPanel({ selectedShopId }: DeviceActionPanelProps) {
+export function DeviceActionPanel({
+  labels = defaultDeviceActionLabels,
+  selectedShopId,
+}: DeviceActionPanelProps) {
+  const usesDefaultLabels = labels === defaultDeviceActionLabels;
+
   return (
     <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-4 md:grid-cols-2 xl:grid-cols-4`}>
       <section className={deviceActionCardClassName}>
         <h2 className="text-base font-semibold text-zinc-950">
-          Register device
+          {labels.registerDevice}
         </h2>
         <form action={registerDeviceAction} className={deviceFormClassName}>
           <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Device identifier" name="deviceIdentifier" required />
-          <TextInput label="Display name" name="displayName" />
-          <TextInput label="Device type" name="deviceType" />
-          <TextInput label="App version" name="appVersion" />
+          <TextInput
+            label={labels.deviceIdentifier}
+            name="deviceIdentifier"
+            required
+          />
+          <TextInput label={labels.displayName} name="displayName" />
+          <TextInput label={labels.deviceType} name="deviceType" />
+          <TextInput label={labels.appVersion} name="appVersion" />
           <button className={deviceButtonClassName}>
-            Register device
-          </button>
-        </form>
-      </section>
-
-      <section className={deviceActionCardClassName}>
-        <h2 className="text-base font-semibold text-zinc-950">Rename device</h2>
-        <form action={renameDeviceAction} className={deviceFormClassName}>
-          <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Device row id" name="deviceId" required />
-          <TextInput label="Display name" name="displayName" required />
-          <button className={deviceButtonClassName}>
-            Rename device
-          </button>
-        </form>
-      </section>
-
-      <section className={deviceActionCardClassName}>
-        <h2 className="text-base font-semibold text-zinc-950">Revoke device</h2>
-        <form action={revokeDeviceAction} className={deviceFormClassName}>
-          <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Device row id" name="deviceId" required />
-          <TextInput label="Reason" name="reason" required />
-          <TextInput label="Type REVOKE as confirmation" name="confirmation" required />
-          <button className={deviceWarningButtonClassName}>
-            Revoke device
+            {labels.registerDevice}
           </button>
         </form>
       </section>
 
       <section className={deviceActionCardClassName}>
         <h2 className="text-base font-semibold text-zinc-950">
-          Reactivate device
+          {labels.renameDevice}
+        </h2>
+        <form action={renameDeviceAction} className={deviceFormClassName}>
+          <HiddenShopInput selectedShopId={selectedShopId} />
+          <TextInput label={labels.deviceRowId} name="deviceId" required />
+          <TextInput label={labels.displayName} name="displayName" required />
+          <button className={deviceButtonClassName}>
+            {labels.renameDevice}
+          </button>
+        </form>
+      </section>
+
+      <section className={deviceActionCardClassName}>
+        <h2 className="text-base font-semibold text-zinc-950">
+          {labels.revokeDevice}
+        </h2>
+        <form action={revokeDeviceAction} className={deviceFormClassName}>
+          <HiddenShopInput selectedShopId={selectedShopId} />
+          <TextInput label={labels.deviceRowId} name="deviceId" required />
+          {usesDefaultLabels ? (
+            <TextInput label="Reason" name="reason" required />
+          ) : (
+            <TextInput label={labels.reason} name="reason" required />
+          )}
+          <TextInput
+            label={labels.typeRevokeConfirmation}
+            name="confirmation"
+            required
+          />
+          <button className={deviceWarningButtonClassName}>
+            {labels.revokeDevice}
+          </button>
+        </form>
+      </section>
+
+      <section className={deviceActionCardClassName}>
+        <h2 className="text-base font-semibold text-zinc-950">
+          {labels.reactivateDevice}
         </h2>
         <form action={reactivateDeviceAction} className={deviceFormClassName}>
           <HiddenShopInput selectedShopId={selectedShopId} />
-          <TextInput label="Device row id" name="deviceId" required />
-          <TextInput label="Reason" name="reason" required />
+          <TextInput label={labels.deviceRowId} name="deviceId" required />
+          {usesDefaultLabels ? (
+            <TextInput label="Reason" name="reason" required />
+          ) : (
+            <TextInput label={labels.reason} name="reason" required />
+          )}
           <TextInput
-            label="Type REACTIVATE as confirmation"
+            label={labels.typeReactivateConfirmation}
             name="confirmation"
             required
           />
           <button className={deviceSuccessButtonClassName}>
-            Reactivate device
+            {labels.reactivateDevice}
           </button>
         </form>
       </section>

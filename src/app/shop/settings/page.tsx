@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
+import { getI18n } from "@/i18n/get-locale";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
@@ -9,9 +10,6 @@ export const metadata: Metadata = {
 };
 
 export const dynamic = "force-dynamic";
-
-const SETTINGS_READ_ONLY_COPY =
-  "Shop profile and fiscal identity are managed by Master Console. Admin Console can view these fields but cannot edit them.";
 
 type ShopPageSearchParams = Promise<{
   shop_id?: string | string[];
@@ -31,6 +29,7 @@ export default async function ShopSettingsPage({
 }: {
   searchParams: ShopPageSearchParams;
 }) {
+  const { dictionary } = await getI18n();
   const params = await searchParams;
   const section = await getShopSectionForRequest(
     "settings",
@@ -41,8 +40,8 @@ export default async function ShopSettingsPage({
     <div className="grid gap-5">
       <ShopSectionPage section={section} />
       <section className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950`}>
-        <p className="font-semibold">Master Console only</p>
-        <p className="mt-1">{SETTINGS_READ_ONLY_COPY}</p>
+        <p className="font-semibold">{dictionary.settings.masterOnly}</p>
+        <p className="mt-1">{dictionary.settings.readOnlyCopy}</p>
       </section>
     </div>
   );

@@ -9,6 +9,9 @@ import {
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
+import type { Dictionary } from "@/i18n/dictionaries";
+import { getI18n } from "@/i18n/get-locale";
+import { translateText } from "@/i18n/translate-sections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopInventoryReadModel } from "@/server/shop-admin/inventory-read-model";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
@@ -150,9 +153,16 @@ function buildProductDetailHref(
 }
 
 function ProductRowActions({
+  labels,
   params,
   row,
 }: {
+  labels: {
+    archive: string;
+    detail: string;
+    edit: string;
+    restore: string;
+  };
   params: Record<string, string | string[] | undefined>;
   row: AdminDataTableRow;
 }) {
@@ -163,10 +173,10 @@ function ProductRowActions({
   const productId = row.rowKey;
   const isArchived = row.state === "Archived";
   const actions = isArchived
-    ? [{ action: "restore" as const, label: "Restore" }]
+    ? [{ action: "restore" as const, label: labels.restore }]
     : [
-        { action: "edit" as const, label: "Edit" },
-        { action: "archive" as const, label: "Archive" },
+        { action: "edit" as const, label: labels.edit },
+        { action: "archive" as const, label: labels.archive },
       ];
 
   return (
@@ -175,7 +185,7 @@ function ProductRowActions({
         className="inline-flex h-8 items-center rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
         href={buildProductDetailHref(params, productId)}
       >
-        Detail
+        {labels.detail}
       </a>
       {actions.map((item) => (
         <a
@@ -195,6 +205,7 @@ export default async function ShopProductsPage({
 }: {
   searchParams: ShopPageSearchParams;
 }) {
+  const { dictionary } = await getI18n();
   const params = await searchParams;
   const requestedShopId = getParam(params, "shop_id");
   const selectedState = getParam(params, "state") ?? "active";
@@ -235,6 +246,13 @@ export default async function ShopProductsPage({
   );
   const productDialog = getProductDialog(getParam(params, "product_action"));
   const productDialogId = getParam(params, "product_id") ?? "";
+  const rowActionLabels = {
+    archive: translateText(dictionary, "Archive"),
+    detail: translateText(dictionary, "Detail"),
+    edit: translateText(dictionary, "Edit"),
+    restore: translateText(dictionary, "Restore"),
+  };
+  const filterLabels: Dictionary["shopFilters"] = dictionary.shopFilters;
   const catalogToolbar =
     canManageProducts || canImport || canExport ? (
       <CatalogActionPanel
@@ -251,6 +269,7 @@ export default async function ShopProductsPage({
         embedded
         initialDialog={productDialog}
         initialEntityId={productDialogId}
+        labels={dictionary.exact}
         products={productCatalogOptions}
         scope="products"
         selectedShopId={requestedShopId}
@@ -262,7 +281,7 @@ export default async function ShopProductsPage({
     <div className="grid gap-5">
       <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-1`}>
         <p className="text-xs font-semibold uppercase tracking-normal text-emerald-700">
-          Catalog Workspace
+          {filterLabels.catalogWorkspace}
         </p>
       </div>
       <form
@@ -273,23 +292,23 @@ export default async function ShopProductsPage({
           <input name="shop_id" type="hidden" value={requestedShopId} />
         ) : null}
         <label className={filterLabelClassName}>
-          Search
+          {filterLabels.search}
           <input
             className={filterInputClassName}
             defaultValue={getParam(params, "query") ?? ""}
             name="query"
-            placeholder="Search by barcode, name, item number"
+            placeholder={filterLabels.searchPlaceholder}
             type="search"
           />
         </label>
         <label className={filterLabelClassName}>
-          Category
+          {filterLabels.category}
           <select
             className={filterInputClassName}
             defaultValue={getParam(params, "category_id") ?? ""}
             name="category_id"
           >
-            <option value="">All categories</option>
+            <option value="">{filterLabels.allCategories}</option>
             {categoryOptions.map((category) => (
               <option key={category.categoryId} value={category.categoryId}>
                 {category.name}
@@ -298,13 +317,13 @@ export default async function ShopProductsPage({
           </select>
         </label>
         <label className={filterLabelClassName}>
-          Supplier
+          {filterLabels.supplier}
           <select
             className={filterInputClassName}
             defaultValue={getParam(params, "supplier_id") ?? ""}
             name="supplier_id"
           >
-            <option value="">All suppliers</option>
+            <option value="">{filterLabels.allSuppliers}</option>
             {supplierOptions.map((supplier) => (
               <option key={supplier.supplierId} value={supplier.supplierId}>
                 {supplier.name}
@@ -313,27 +332,27 @@ export default async function ShopProductsPage({
           </select>
         </label>
         <label className={filterLabelClassName}>
-          State
+          {filterLabels.state}
           <select
             className={filterInputClassName}
             defaultValue={selectedState}
             name="state"
           >
-            <option value="active">Active</option>
-            <option value="archived">Archived</option>
-            <option value="all">All states</option>
+            <option value="active">{translateText(dictionary, "Active")}</option>
+            <option value="archived">{filterLabels.archived}</option>
+            <option value="all">{filterLabels.allStates}</option>
           </select>
         </label>
         <div className="flex min-w-0 flex-wrap items-end gap-2 self-end">
           <button className={`${filterButtonClassName} bg-zinc-950 text-white`}>
-            Apply filters
+            {dictionary.common.applyFilters}
           </button>
           {activeFilterCount > 0 ? (
             <a
               className={`${filterButtonClassName} border border-zinc-300 text-zinc-800`}
               href={buildClearFiltersHref(requestedShopId)}
             >
-              Clear filters
+              {dictionary.common.clearFilters}
             </a>
           ) : null}
         </div>
@@ -347,8 +366,14 @@ export default async function ShopProductsPage({
         rowActions={
           canManageProducts
             ? {
-                label: "Actions",
-                render: (row) => <ProductRowActions params={params} row={row} />,
+                label: dictionary.common.actions,
+                render: (row) => (
+                  <ProductRowActions
+                    labels={rowActionLabels}
+                    params={params}
+                    row={row}
+                  />
+                ),
               }
             : undefined
         }

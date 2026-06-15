@@ -26,6 +26,7 @@ import {
 } from "./action-context";
 import {
   EXCEL_WORKBOOK_SHEETS,
+  FORMULA_INJECTION_PATTERN,
   MAX_IMPORT_BYTES,
   MAX_IMPORT_ROWS,
   sanitizeSpreadsheetCell,
@@ -48,7 +49,13 @@ import {
   type ShopInventoryProduct,
   type ShopInventorySupplier,
 } from "./inventory-read-model";
-import { write_staff_shop_admin_audit } from "./staff-aware-mutations";
+import {
+  applyStaffAwareBulkPriceHistoryImport,
+  applyStaffAwareBulkProductImport,
+  write_staff_shop_admin_audit,
+  type StaffAwareBulkPriceHistoryImportPayload,
+  type StaffAwareBulkProductImportPayload,
+} from "./staff-aware-mutations";
 
 const XLSX_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -78,6 +85,8 @@ const MAX_PRODUCT_SAMPLE_ROWS = 5;
 const MAX_ROW_ADJUSTMENTS = MAX_PREVIEW_ROWS;
 const MAX_ROW_ADJUSTMENTS_JSON_BYTES = 64_000;
 const MAX_MAPPING_OVERRIDE_JSON_BYTES = 8_000;
+const MAX_PRODUCT_BARCODE_LENGTH = 96;
+const SAFETY_FORMULA_ESCAPE_CODE = "safety_formula_escape";
 const SUPPLIER_ALWAYS_EXCLUDED_MAPPING_FIELDS = new Set<CatalogImportField>([
   "retailPrice",
 ]);
@@ -95,6 +104,20 @@ const NUMERIC_COMPATIBLE_MAPPING_FIELDS = new Set<CatalogImportField>([
 ]);
 
 type CatalogWorkbookImportMode = "supplier" | "database";
+type CatalogWorkbookDetectedFormatKind =
+  | "android_database_export"
+  | "generic_product_import";
+type CatalogWorkbookSheetRole =
+  | "categories"
+  | "priceHistory"
+  | "products"
+  | "suppliers"
+  | "unsupported";
+type AndroidDatabaseExpectedSheet =
+  | "Categories"
+  | "PriceHistory"
+  | "Products"
+  | "Suppliers";
 
 type CatalogWorkbookInput = {
   bytes: Buffer;
@@ -136,7 +159,6 @@ type CatalogExportPagedQuery<Row> = {
     error: unknown | null;
   }>;
 };
-
 type ParsedSupplierRow = {
   name: string;
   rowNumber: number;
@@ -170,10 +192,21 @@ type ParsedPriceHistoryRow = {
   type: "PURCHASE" | "RETAIL";
 };
 
+type CatalogWorkbookDetectedFormat = {
+  confidence: "high" | "low" | "medium";
+  ignoredSheets: string[];
+  isPartial: boolean;
+  kind: CatalogWorkbookDetectedFormatKind;
+  label: string;
+  missingSheets: AndroidDatabaseExpectedSheet[];
+  presentSheets: AndroidDatabaseExpectedSheet[];
+};
+
 type ParsedWorkbook = {
   categories: ParsedCategoryRow[];
   confidence: number;
   detectedHeaderRow: number | null;
+  detectedFormat: CatalogWorkbookDetectedFormat;
   detectedMapping: Partial<
     Record<
       CatalogImportField,
@@ -201,6 +234,7 @@ type ParsedWorkbook = {
   rowErrors: WorkbookRowError[];
   rowWarnings: WorkbookRowError[];
   selectedProductSheet: string;
+  sheetSummaries: CatalogWorkbookSheetSummary[];
   suppliers: ParsedSupplierRow[];
   unmappedColumns: string[];
   validRows: number;
@@ -260,6 +294,23 @@ export type CatalogWorkbookRawPreviewRow = {
   rowNumber: number;
 };
 
+export type CatalogWorkbookSheetSummary = {
+  blockedRows: number;
+  columns: string[];
+  expectedSheet: AndroidDatabaseExpectedSheet | null;
+  importable: boolean;
+  notes: string[];
+  parsedRows: number;
+  role: CatalogWorkbookSheetRole;
+  sampleRows: string[][];
+  sampleRowsTruncated: boolean;
+  sheetName: string;
+  status: "ignored" | "missing" | "present";
+  totalRows: number;
+  validRows: number;
+  warningRows: number;
+};
+
 export type CatalogWorkbookRowAdjustment = {
   categoryName?: string;
   retailPrice?: number | null;
@@ -271,6 +322,7 @@ export type CatalogWorkbookRowAdjustment = {
 
 export type CatalogWorkbookPreview = ShopAdminActionResult & {
   confidence?: number;
+  detectedFormat?: CatalogWorkbookDetectedFormat;
   detectedHeaderRow?: number | null;
   detectedMapping?: ParsedWorkbook["detectedMapping"];
   originalColumns?: string[];
@@ -283,17 +335,28 @@ export type CatalogWorkbookPreview = ShopAdminActionResult & {
   recognizedColumnSources?: ParsedWorkbook["recognizedColumnSources"];
   rowErrors?: WorkbookRowError[];
   rowWarnings?: WorkbookRowError[];
+  safetyNotes?: WorkbookRowError[];
   selectedProductSheet?: string;
+  sheetSummaries?: CatalogWorkbookSheetSummary[];
   summary?: {
+    blockedRows?: number;
     categories: number;
     duplicates?: number;
     droppedRows?: number;
     errors: number;
+    newCategories?: number;
     newProducts: number;
+    newSuppliers?: number;
+    operationalWarnings?: number;
     priceHistory: number;
+    priceHistoryPurchase?: number;
+    priceHistoryRetail?: number;
     products: number;
+    safetySanitizations?: number;
     suppliers: number;
+    updatedCategories?: number;
     updatedProducts: number;
+    updatedSuppliers?: number;
     validRows?: number;
     warnings: number;
   };
@@ -327,6 +390,78 @@ function normalizeImportMode(mode: CatalogWorkbookInput["importMode"]) {
   return mode === "database" ? "database" : "supplier";
 }
 
+const ANDROID_DATABASE_EXPECTED_SHEETS = [
+  "Products",
+  "Suppliers",
+  "Categories",
+  "PriceHistory",
+] as const satisfies readonly AndroidDatabaseExpectedSheet[];
+
+const ANDROID_PRODUCT_HEADER_SETS = [
+  [
+    "Barcode",
+    "Item code",
+    "Product name",
+    "Second Product Name",
+    "Purchase price",
+    "Retail price",
+    "Purchase (Old)",
+    "Retail (Old)",
+    "Supplier",
+    "Category",
+    "Stock Quantity",
+  ],
+  [
+    "Código de barras",
+    "Código del artículo",
+    "Nombre del producto",
+    "Segundo nombre del producto",
+    "Precio de compra",
+    "Precio de venta",
+    "Compra (Antiguo)",
+    "Venta (Antiguo)",
+    "Proveedor",
+    "Categoría",
+    "Existencias",
+  ],
+  [
+    "Codice a barre",
+    "Codice articolo",
+    "Nome prodotto",
+    "Secondo nome prodotto",
+    "Prezzo acquisto",
+    "Prezzo vendita",
+    "Acquisto (Vecchio)",
+    "Vendita (Vecchio)",
+    "Fornitore",
+    "Categoria",
+    "Giacenza",
+  ],
+  [
+    "条码",
+    "货号",
+    "品名",
+    "品名2",
+    "进价",
+    "零售价",
+    "进价（旧）",
+    "售价（旧）",
+    "供应商",
+    "类别",
+    "库存数量",
+  ],
+] as const satisfies readonly (readonly string[])[];
+
+const ANDROID_ENTITY_HEADERS = ["id", "name"] as const;
+const ANDROID_PRICE_HISTORY_HEADERS = [
+  "productBarcode",
+  "timestamp",
+  "type",
+  "oldPrice",
+  "newPrice",
+  "source",
+] as const;
+
 function jsonDigest(value: unknown) {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
 }
@@ -356,7 +491,6 @@ function buildPreviewDigest(input: {
 }
 
 function bindPreviewDigestToShop(input: {
-  catalogScope: string;
   mappingId: string | null;
   parsedDigest: string;
   shopId: string;
@@ -388,6 +522,136 @@ function normalizeLabel(value: unknown) {
   return sanitizeSpreadsheetCell(String(value ?? "").replace(/\s+/g, " ").trim());
 }
 
+function normalizeWorkbookText(value: unknown) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function needsSpreadsheetSafetyEscape(value: string) {
+  return FORMULA_INJECTION_PATTERN.test(value);
+}
+
+function normalizedHeaderSet(values: readonly string[]) {
+  return new Set(values.map((value) => normalizeCatalogImportHeader(value)));
+}
+
+function rowHeaderSet(rows: SheetData) {
+  return normalizedHeaderSet((rows[0] ?? []).map((cell) => normalizeLabel(cell)));
+}
+
+function hasExpectedHeaders(
+  rows: SheetData,
+  expectedHeaders: readonly string[],
+  mode: "all" | "any" = "all",
+) {
+  const headers = rowHeaderSet(rows);
+  const expected = expectedHeaders.map((header) =>
+    normalizeCatalogImportHeader(header),
+  );
+
+  return mode === "all"
+    ? expected.every((header) => headers.has(header))
+    : expected.some((header) => headers.has(header));
+}
+
+function hasAndroidProductHeaders(rows: SheetData) {
+  const headers = rowHeaderSet(rows);
+
+  return ANDROID_PRODUCT_HEADER_SETS.some((headerSet) =>
+    headerSet
+      .map((header) => normalizeCatalogImportHeader(header))
+      .every((header) => headers.has(header)),
+  );
+}
+
+function normalizedSheetName(value: string) {
+  return normalizeCatalogImportHeader(value);
+}
+
+function findSheetByExpectedName(
+  sheets: readonly { data: SheetData; sheet: string }[],
+  expectedSheet: AndroidDatabaseExpectedSheet,
+) {
+  const expected = normalizedSheetName(expectedSheet);
+
+  return sheets.find((entry) => normalizedSheetName(entry.sheet) === expected);
+}
+
+function androidSheetHasSignature(
+  sheet: { data: SheetData; sheet: string },
+  expectedSheet: AndroidDatabaseExpectedSheet,
+) {
+  if (expectedSheet === "Products") {
+    return hasAndroidProductHeaders(sheet.data);
+  }
+
+  if (expectedSheet === "Suppliers" || expectedSheet === "Categories") {
+    return hasExpectedHeaders(sheet.data, ANDROID_ENTITY_HEADERS);
+  }
+
+  return hasExpectedHeaders(sheet.data, ANDROID_PRICE_HISTORY_HEADERS);
+}
+
+function detectCatalogWorkbookFormat(
+  sheets: readonly { data: SheetData; sheet: string }[],
+  importMode: CatalogWorkbookImportMode,
+): CatalogWorkbookDetectedFormat {
+  if (importMode !== "database") {
+    return {
+      confidence: "medium",
+      ignoredSheets: [],
+      isPartial: false,
+      kind: "generic_product_import",
+      label: "Product import workbook",
+      missingSheets: [],
+      presentSheets: [],
+    };
+  }
+
+  const presentSheets = ANDROID_DATABASE_EXPECTED_SHEETS.filter((sheet) =>
+    findSheetByExpectedName(sheets, sheet),
+  );
+  const missingSheets = ANDROID_DATABASE_EXPECTED_SHEETS.filter(
+    (sheet) => !presentSheets.includes(sheet),
+  );
+  const ignoredSheets = sheets
+    .map((entry) => entry.sheet)
+    .filter((sheetName) =>
+      !ANDROID_DATABASE_EXPECTED_SHEETS.some(
+        (expected) =>
+          normalizedSheetName(expected) === normalizedSheetName(sheetName),
+      ),
+    );
+  const matchingSignatures = presentSheets.filter((expected) => {
+    const sheet = findSheetByExpectedName(sheets, expected);
+
+    return sheet ? androidSheetHasSignature(sheet, expected) : false;
+  });
+  const kind = presentSheets.length > 0
+    ? "android_database_export"
+    : "generic_product_import";
+  const confidence =
+    matchingSignatures.length === presentSheets.length && presentSheets.length > 0
+      ? "high"
+      : presentSheets.length > 0
+        ? "medium"
+        : "low";
+
+  return {
+    confidence,
+    ignoredSheets,
+    isPartial:
+      presentSheets.length > 0 &&
+      presentSheets.length < ANDROID_DATABASE_EXPECTED_SHEETS.length,
+    kind,
+    label:
+      kind === "android_database_export"
+        ? "Android database export"
+        : "Generic product import workbook",
+    missingSheets,
+    presentSheets,
+  };
+}
+
 function productCellValue(
   headers: ReadonlyMap<CatalogImportField, number>,
   row: readonly unknown[],
@@ -405,7 +669,7 @@ function productTextValue(
 ) {
   const value = productCellValue(headers, row, field);
 
-  return normalizeLabel(value);
+  return normalizeWorkbookText(value);
 }
 
 function productNumberValue(
@@ -418,7 +682,7 @@ function productNumberValue(
   rowErrors: WorkbookRowError[],
 ) {
   const value = productCellValue(headers, row, sourceField);
-  const normalized = normalizeLabel(value);
+  const normalized = normalizeWorkbookText(value);
 
   if (!normalized) {
     return undefined;
@@ -446,7 +710,7 @@ function productReferenceNumberValue(
   sourceField: CatalogImportField,
 ) {
   const value = productCellValue(headers, row, sourceField);
-  const normalized = normalizeLabel(value);
+  const normalized = normalizeWorkbookText(value);
 
   if (!normalized) {
     return undefined;
@@ -538,7 +802,7 @@ function textValue(
     const index = headers.get(normalizeCatalogImportHeader(alias));
 
     if (index !== undefined) {
-      return normalizeLabel(row[index]);
+      return normalizeWorkbookText(row[index]);
     }
   }
 
@@ -622,7 +886,7 @@ function workbookDateText(value: unknown) {
     return date.toISOString().replace("T", " ").slice(0, 19);
   }
 
-  return normalizeLabel(value);
+  return normalizeWorkbookText(value);
 }
 
 function priceHistoryTextValue(
@@ -634,7 +898,7 @@ function priceHistoryTextValue(
     const index = headers.get(normalizeCatalogImportHeader(alias));
 
     if (index !== undefined) {
-      return normalizeLabel(row[index]);
+      return normalizeWorkbookText(row[index]);
     }
   }
 
@@ -857,6 +1121,22 @@ function isValidProductBarcode(value: string) {
   return /^\d{8,14}$/.test(barcodeDigits(value));
 }
 
+function isAndroidDatabaseBarcodeTooLong(value: string) {
+  return value.length > MAX_PRODUCT_BARCODE_LENGTH;
+}
+
+function isSafetySanitizationIssue(issue: WorkbookRowError) {
+  return issue.code === SAFETY_FORMULA_ESCAPE_CODE;
+}
+
+function issueRowKey(issue: WorkbookRowError) {
+  return `${normalizedSheetName(issue.sheet)}:${issue.row}`;
+}
+
+function issueMatchesSheet(issue: WorkbookRowError, sheetName: string) {
+  return normalizedSheetName(issue.sheet) === normalizedSheetName(sheetName);
+}
+
 function isProductSummaryRow(
   row: readonly unknown[],
   headers: ReadonlyMap<CatalogImportField, number>,
@@ -1075,6 +1355,174 @@ function productPreviewRows(
       : []),
     ...sampleRows,
   ];
+}
+
+function sheetHeaderColumns(rows: SheetData) {
+  return (rows[0] ?? [])
+    .map((cell, index) => normalizeLabel(cell) || `Column ${index + 1}`)
+    .filter(Boolean)
+    .slice(0, MAX_RAW_PREVIEW_CELLS);
+}
+
+function sheetSampleRows(rows: SheetData) {
+  return nonEmptyRows(rows)
+    .slice(0, MAX_PRODUCT_SAMPLE_ROWS)
+    .map(({ row }) =>
+      row
+        .slice(0, MAX_RAW_PREVIEW_CELLS)
+        .map((cell) =>
+          normalizeLabel(cell).slice(0, MAX_RAW_PREVIEW_CELL_LENGTH),
+        ),
+    );
+}
+
+function sheetDataRowCount(rows: SheetData) {
+  return nonEmptyRows(rows).length;
+}
+
+function sheetRoleForExpectedSheet(
+  expectedSheet: AndroidDatabaseExpectedSheet,
+): Exclude<CatalogWorkbookSheetRole, "unsupported"> {
+  if (expectedSheet === "Products") {
+    return "products";
+  }
+
+  if (expectedSheet === "Suppliers") {
+    return "suppliers";
+  }
+
+  if (expectedSheet === "Categories") {
+    return "categories";
+  }
+
+  return "priceHistory";
+}
+
+function parsedRowsForExpectedSheet(
+  parsed: Pick<
+    ParsedWorkbook,
+    "categories" | "priceHistory" | "products" | "suppliers" | "validRows"
+  >,
+  expectedSheet: AndroidDatabaseExpectedSheet,
+) {
+  if (expectedSheet === "Products") {
+    return {
+      parsedRows: parsed.products.length,
+      validRows: parsed.validRows,
+    };
+  }
+
+  if (expectedSheet === "Suppliers") {
+    return {
+      parsedRows: parsed.suppliers.length,
+      validRows: parsed.suppliers.length,
+    };
+  }
+
+  if (expectedSheet === "Categories") {
+    return {
+      parsedRows: parsed.categories.length,
+      validRows: parsed.categories.length,
+    };
+  }
+
+  return {
+    parsedRows: parsed.priceHistory.length,
+    validRows: parsed.priceHistory.length,
+  };
+}
+
+function baseSheetSummaries(
+  sheets: readonly { data: SheetData; sheet: string }[],
+  parsed: Pick<
+    ParsedWorkbook,
+    "categories" | "priceHistory" | "products" | "suppliers" | "validRows"
+  >,
+): CatalogWorkbookSheetSummary[] {
+  const summaries = ANDROID_DATABASE_EXPECTED_SHEETS.map((expectedSheet) => {
+    const sheet = findSheetByExpectedName(sheets, expectedSheet);
+    const parsedRows = parsedRowsForExpectedSheet(parsed, expectedSheet);
+    const notes: string[] = [];
+
+    if (!sheet) {
+      notes.push("Sheet not included in this workbook.");
+    } else if (!androidSheetHasSignature(sheet, expectedSheet)) {
+      notes.push("Headers do not exactly match the audited Android export.");
+    }
+
+    return {
+      blockedRows: 0,
+      columns: sheet ? sheetHeaderColumns(sheet.data) : [],
+      expectedSheet,
+      importable: Boolean(sheet),
+      notes,
+      parsedRows: parsedRows.parsedRows,
+      role: sheetRoleForExpectedSheet(expectedSheet),
+      sampleRows: sheet ? sheetSampleRows(sheet.data) : [],
+      sampleRowsTruncated:
+        sheet ? sheetDataRowCount(sheet.data) > MAX_PRODUCT_SAMPLE_ROWS : false,
+      sheetName: sheet?.sheet ?? expectedSheet,
+      status: sheet ? "present" : "missing",
+      totalRows: sheet ? sheetDataRowCount(sheet.data) : 0,
+      validRows: parsedRows.validRows,
+      warningRows: 0,
+    } satisfies CatalogWorkbookSheetSummary;
+  });
+
+  const unsupported = sheets
+    .filter((sheet) =>
+      !ANDROID_DATABASE_EXPECTED_SHEETS.some(
+        (expected) =>
+          normalizedSheetName(expected) === normalizedSheetName(sheet.sheet),
+      ),
+    )
+    .map((sheet) => ({
+      blockedRows: 0,
+      columns: sheetHeaderColumns(sheet.data),
+      expectedSheet: null,
+      importable: false,
+      notes: ["Sheet is not part of the Android database export contract."],
+      parsedRows: 0,
+      role: "unsupported" as const,
+      sampleRows: sheetSampleRows(sheet.data),
+      sampleRowsTruncated: sheetDataRowCount(sheet.data) > MAX_PRODUCT_SAMPLE_ROWS,
+      sheetName: sheet.sheet,
+      status: "ignored" as const,
+      totalRows: sheetDataRowCount(sheet.data),
+      validRows: 0,
+      warningRows: 0,
+    }));
+
+  return [...summaries, ...unsupported];
+}
+
+function decorateSheetSummaries(
+  summaries: readonly CatalogWorkbookSheetSummary[],
+  rowErrors: readonly WorkbookRowError[],
+  rowWarnings: readonly WorkbookRowError[],
+) {
+  const uniqueIssueRowsForSheets = (
+    issues: readonly WorkbookRowError[],
+    sheetNames: ReadonlySet<string>,
+  ) =>
+    new Set(
+      issues
+        .filter((issue) => sheetNames.has(issue.sheet))
+        .map((issue) => issueRowKey(issue)),
+    ).size;
+
+  return summaries.map((summary) => {
+    const issueSheets = new Set([
+      summary.sheetName,
+      summary.expectedSheet ?? summary.sheetName,
+    ]);
+
+    return {
+      ...summary,
+      blockedRows: uniqueIssueRowsForSheets(rowErrors, issueSheets),
+      warningRows: uniqueIssueRowsForSheets(rowWarnings, issueSheets),
+    };
+  });
 }
 
 function unmappedColumns(
@@ -1369,6 +1817,9 @@ function parseProducts(
   mappingOverride: CatalogWorkbookMappingOverride,
   sheet = "Products",
   importMode: CatalogWorkbookImportMode = "database",
+  options: {
+    allowFlexibleBarcode?: boolean;
+  } = {},
 ): ParsedProductsResult {
   if (rows.length === 0) {
     return {
@@ -1456,7 +1907,18 @@ function parseProducts(
         row: rowNumber,
         sheet,
       });
-    } else if (!isValidProductBarcode(barcode)) {
+    } else if (
+      options.allowFlexibleBarcode &&
+      isAndroidDatabaseBarcodeTooLong(barcode)
+    ) {
+      rowErrors.push({
+        field: "barcode",
+        message:
+          "Android database barcode must be at most 96 characters for Admin Web import.",
+        row: rowNumber,
+        sheet,
+      });
+    } else if (!options.allowFlexibleBarcode && !isValidProductBarcode(barcode)) {
       rowErrors.push({
         field: "barcode",
         message: "Barcode must contain 8 to 14 digits.",
@@ -1793,6 +2255,7 @@ async function readWorkbookSheets(input: CatalogWorkbookInput) {
 
 function selectProductSheet(
   sheets: readonly { data: SheetData; sheet: string }[],
+  options: { fallbackToFirstSheet?: boolean } = { fallbackToFirstSheet: true },
 ) {
   let selectedProductSheet:
     | {
@@ -1814,6 +2277,10 @@ function selectProductSheet(
           : 0;
     const score = (detection?.score ?? 0) + nameBoost;
 
+    if (!detection && nameBoost === 0) {
+      continue;
+    }
+
     if (!selectedProductSheet || score > selectedProductSheet.score) {
       selectedProductSheet = {
         detection,
@@ -1824,14 +2291,25 @@ function selectProductSheet(
     }
   }
 
-  return (
-    selectedProductSheet ?? {
+  if (selectedProductSheet) {
+    return selectedProductSheet;
+  }
+
+  if (options.fallbackToFirstSheet) {
+    return {
       detection: null,
-      rows: [],
+      rows: sheets[0]?.data ?? [],
       score: 0,
-      sheet: "Products",
-    }
-  );
+      sheet: sheets[0]?.sheet ?? "Products",
+    };
+  }
+
+  return {
+    detection: null,
+    rows: [],
+    score: 0,
+    sheet: "Products",
+  };
 }
 
 async function parseWorkbook(
@@ -1858,7 +2336,12 @@ async function parseWorkbook(
   const rowErrors: WorkbookRowError[] = [];
   const rowWarnings: WorkbookRowError[] = [];
   const importMode = normalizeImportMode(input.importMode);
-  const selectedProductSheet = selectProductSheet(sheets);
+  const detectedFormat = detectCatalogWorkbookFormat(sheets, importMode);
+  const selectedProductSheet = selectProductSheet(sheets, {
+    fallbackToFirstSheet:
+      importMode !== "database" ||
+      detectedFormat.kind !== "android_database_export",
+  });
   const mappingOverrideValidation = validateMappingOverride(
     input.mappingOverride,
     maxColumnCount(selectedProductSheet.rows),
@@ -1884,10 +2367,24 @@ async function parseWorkbook(
     mappingOverride,
     selectedProductSheet.sheet,
     importMode,
+    {
+      allowFlexibleBarcode:
+        importMode === "database" &&
+        detectedFormat.kind === "android_database_export",
+    },
   );
   const suppliers = parseSuppliers(supplierRows, rowErrors);
   const categories = parseCategories(categoryRows, rowErrors);
   const priceHistory = parsePriceHistory(priceHistoryRows, rowErrors);
+  const sheetSummaries = importMode === "database"
+    ? baseSheetSummaries(sheets, {
+        categories,
+        priceHistory,
+        products: productResult.products,
+        suppliers,
+        validRows: productResult.validRows,
+      })
+    : [];
   const importableRowCount =
     productResult.products.length +
     suppliers.length +
@@ -1911,12 +2408,14 @@ async function parseWorkbook(
     for (const [field, value] of Object.entries(product)) {
       if (
         typeof value === "string" &&
-        value.startsWith("'") &&
+        needsSpreadsheetSafetyEscape(value) &&
         formulaEscapeFields.has(field)
       ) {
         rowWarnings.push({
+          code: SAFETY_FORMULA_ESCAPE_CODE,
           field,
-          message: "Leading formula character escaped.",
+          message:
+            "Leading formula character will be escaped in spreadsheet output.",
           row: product.rowNumber,
           sheet: selectedProductSheet.sheet,
         });
@@ -1952,6 +2451,7 @@ async function parseWorkbook(
     categories,
     confidence: productResult.confidence,
     detectedHeaderRow: productResult.detectedHeaderRow,
+    detectedFormat,
     detectedMapping: mapping,
     digest,
     droppedRows: productResult.droppedRows,
@@ -1977,6 +2477,7 @@ async function parseWorkbook(
     rowErrors,
     rowWarnings,
     selectedProductSheet: selectedProductSheet.sheet,
+    sheetSummaries,
     suppliers,
     unmappedColumns: unmappedColumns(columns, mapping),
     validRows: productResult.validRows,
@@ -2041,6 +2542,46 @@ function isSupplierReferenceOnlyIssue(issue: WorkbookRowError) {
 
 function supplierVisibleRowErrors(issues: readonly WorkbookRowError[]) {
   return issues.filter((issue) => !isSupplierReferenceOnlyIssue(issue));
+}
+
+function uniqueIssueRowCount(issues: readonly WorkbookRowError[]) {
+  return new Set(issues.map((issue) => issueRowKey(issue))).size;
+}
+
+function supplierChangeSummary(
+  suppliers: readonly ParsedSupplierRow[],
+  readModel: Pick<Awaited<ReturnType<typeof getShopInventoryReadModel>>, "suppliers">,
+) {
+  let updated = 0;
+
+  for (const supplier of suppliers) {
+    if (findSupplier(readModel.suppliers, supplier)) {
+      updated += 1;
+    }
+  }
+
+  return {
+    newSuppliers: Math.max(0, suppliers.length - updated),
+    updatedSuppliers: updated,
+  };
+}
+
+function categoryChangeSummary(
+  categories: readonly ParsedCategoryRow[],
+  readModel: Pick<Awaited<ReturnType<typeof getShopInventoryReadModel>>, "categories">,
+) {
+  let updated = 0;
+
+  for (const category of categories) {
+    if (findCategory(readModel.categories, category)) {
+      updated += 1;
+    }
+  }
+
+  return {
+    newCategories: Math.max(0, categories.length - updated),
+    updatedCategories: updated,
+  };
 }
 
 function maybeNumber(value: number | null | undefined) {
@@ -2210,10 +2751,15 @@ function validatePriceHistoryRows(
   return rowErrors;
 }
 
-function issueCountByRow(issues: readonly WorkbookRowError[]) {
+function issueCountByProductRow(
+  issues: readonly WorkbookRowError[],
+  productSheetName: string,
+) {
   const counts = new Map<number, number>();
 
-  for (const issue of issues) {
+  for (const issue of issues.filter((entry) =>
+    issueMatchesSheet(entry, productSheetName),
+  )) {
     counts.set(issue.row, (counts.get(issue.row) ?? 0) + 1);
   }
 
@@ -2226,8 +2772,17 @@ function decorateCatalogPreviewRows(
   rowWarnings: readonly WorkbookRowError[],
   readModel: Pick<Awaited<ReturnType<typeof getShopInventoryReadModel>>, "products">,
 ) {
-  const errorsByRow = issueCountByRow(rowErrors);
-  const warningsByRow = issueCountByRow(rowWarnings);
+  const productRowErrors = rowErrors.filter((issue) =>
+    issueMatchesSheet(issue, parsed.selectedProductSheet),
+  );
+  const errorsByRow = issueCountByProductRow(
+    rowErrors,
+    parsed.selectedProductSheet,
+  );
+  const warningsByRow = issueCountByProductRow(
+    rowWarnings,
+    parsed.selectedProductSheet,
+  );
   const parsedProductsByRow = new Map(
     parsed.products.map((product) => [product.rowNumber, product]),
   );
@@ -2236,7 +2791,7 @@ function decorateCatalogPreviewRows(
   );
   const errorTextByRow = new Map<number, string>();
 
-  for (const issue of rowErrors) {
+  for (const issue of productRowErrors) {
     errorTextByRow.set(
       issue.row,
       `${errorTextByRow.get(issue.row) ?? ""} ${issue.code ?? ""} ${issue.message}`,
@@ -2889,6 +3444,14 @@ function payloadRecord(data: unknown) {
     : {};
 }
 
+function rpcResultOk(data: unknown) {
+  if (!data || typeof data !== "object" || !("ok" in data)) {
+    return true;
+  }
+
+  return (data as { ok?: unknown }).ok === true;
+}
+
 function* chunkRows<T>(rows: readonly T[], chunkSize: number) {
   for (let index = 0; index < rows.length; index += chunkSize) {
     yield rows.slice(index, index + chunkSize);
@@ -2903,7 +3466,7 @@ async function applyBulkProductImport(
   categoryIdsByName: ReadonlyMap<string, string>,
   productIdMaps: ReturnType<typeof buildProductIdMaps>,
 ) {
-  const productPayload = rows.map((row) => {
+  const productPayload: StaffAwareBulkProductImportPayload[] = rows.map((row) => {
     const existing = findProduct(existingProducts, row);
     const merged = mergeProductImportForApply(row, existing, {
       categoryIdsByName,
@@ -2924,13 +3487,41 @@ async function applyBulkProductImport(
     };
   });
 
+  if (context.principalKind === "pos_staff_manager") {
+    const productImport = await applyStaffAwareBulkProductImport(
+      context,
+      productPayload,
+    );
+
+    for (const product of productImport.productIds) {
+      productIdMaps.byProductId.add(product.productId);
+
+      if (product.barcode) {
+        productIdMaps.byBarcode.set(
+          product.barcode.toLowerCase(),
+          product.productId,
+        );
+      }
+
+      if (product.itemNumber) {
+        productIdMaps.byItemNumber.set(
+          product.itemNumber.toLowerCase(),
+          product.productId,
+        );
+      }
+    }
+
+    return productImport;
+  }
+
   let failedRows = 0;
   let productsApplied = 0;
+  const rowErrors: WorkbookRowError[] = [];
 
-  for (const productChunk of chunkRows(
+  for (const [chunkIndex, productChunk] of Array.from(chunkRows(
     productPayload,
     BULK_PRODUCT_IMPORT_CHUNK_SIZE,
-  )) {
+  )).entries()) {
     const { data, error } = await context.supabase.rpc(
       "shop_catalog_import_products",
       {
@@ -2941,6 +3532,13 @@ async function applyBulkProductImport(
 
     if (error) {
       failedRows += productChunk.length;
+      rowErrors.push({
+        field: "products",
+        message:
+          "Products import chunk failed before completion. Re-run preview before retrying.",
+        row: chunkIndex + 1,
+        sheet: "Products",
+      });
       continue;
     }
 
@@ -2975,13 +3573,30 @@ async function applyBulkProductImport(
       }
     }
 
-    failedRows += numberFromPayload(payload.failedRows);
-    productsApplied += numberFromPayload(payload.productsApplied);
+    const rpcFailedRows = numberFromPayload(payload.failedRows);
+    const rpcProductsApplied = numberFromPayload(payload.productsApplied);
+    const rpcOk = rpcResultOk(data);
+
+    if (!rpcOk) {
+      rowErrors.push({
+        field: "products",
+        message:
+          "Products import chunk returned a failed result. Re-run preview before retrying.",
+        row: chunkIndex + 1,
+        sheet: "Products",
+      });
+    }
+
+    failedRows += rpcOk || rpcFailedRows > 0 || rpcProductsApplied > 0
+      ? rpcFailedRows
+      : productChunk.length;
+    productsApplied += rpcProductsApplied;
   }
 
   return {
     failedRows,
     productsApplied,
+    rowErrors,
   };
 }
 
@@ -3071,7 +3686,6 @@ export async function parseCatalogWorkbookPreview(
   }
 
   const boundPreviewDigest = bindPreviewDigestToShop({
-    catalogScope: readModel.catalogScope,
     mappingId: readModel.mapping?.mappingId ?? null,
     parsedDigest: parsed.digest,
     shopId: context.selectedShop.shopId,
@@ -3089,13 +3703,22 @@ export async function parseCatalogWorkbookPreview(
   const rowErrors = parsed.importMode === "supplier"
     ? supplierVisibleRowErrors(rawRowErrors)
     : rawRowErrors;
-  const rowWarnings = [
+  const rawRowWarnings = [
     ...parsed.rowWarnings,
     ...validation.rowWarnings,
     ...(parsed.importMode === "supplier"
       ? supplierReferenceWarnings(rawRowErrors)
       : []),
   ];
+  const safetyNotes = rawRowWarnings.filter(isSafetySanitizationIssue);
+  const rowWarnings = rawRowWarnings.filter(
+    (issue) => !isSafetySanitizationIssue(issue),
+  );
+  const sheetSummaries = decorateSheetSummaries(
+    parsed.sheetSummaries,
+    rowErrors,
+    rowWarnings,
+  );
   const previewRows = decorateCatalogPreviewRows(
     parsed,
     rowErrors,
@@ -3105,6 +3728,15 @@ export async function parseCatalogWorkbookPreview(
   const duplicates = rowErrors.filter((issue) =>
     (issue.code ?? "").startsWith("duplicate_"),
   ).length;
+  const supplierChanges = supplierChangeSummary(parsed.suppliers, readModel);
+  const categoryChanges = categoryChangeSummary(parsed.categories, readModel);
+  const priceHistoryPurchase = parsed.priceHistory.filter(
+    (row) => row.type === "PURCHASE",
+  ).length;
+  const priceHistoryRetail = parsed.priceHistory.filter(
+    (row) => row.type === "RETAIL",
+  ).length;
+  const blockedRows = uniqueIssueRowCount(rowErrors);
 
   const auditResult = await auditImportExport(
     context.selectedShop.shopId,
@@ -3125,6 +3757,7 @@ export async function parseCatalogWorkbookPreview(
       products: parsed.products.length,
       "preview.valid": rowErrors.length === 0,
       selectedProductSheet: parsed.selectedProductSheet,
+      safetySanitizations: safetyNotes.length,
       validRows: parsed.validRows,
       warnings: rowWarnings.length,
     },
@@ -3140,6 +3773,7 @@ export async function parseCatalogWorkbookPreview(
       { ok: rowErrors.length === 0, shopId: context.selectedShop.shopId },
     ),
     confidence: parsed.confidence,
+    detectedFormat: parsed.detectedFormat,
     detectedHeaderRow: parsed.detectedHeaderRow,
     detectedMapping: parsed.detectedMapping,
     originalColumns: parsed.originalColumns,
@@ -3152,13 +3786,24 @@ export async function parseCatalogWorkbookPreview(
     recognizedColumnSources: parsed.recognizedColumnSources,
     rowErrors,
     rowWarnings,
+    safetyNotes,
     selectedProductSheet: parsed.selectedProductSheet,
+    sheetSummaries,
     summary: {
       ...validation.summary,
+      blockedRows,
       duplicates,
       droppedRows: parsed.droppedRows,
       errors: rowErrors.length,
+      newCategories: categoryChanges.newCategories,
+      newSuppliers: supplierChanges.newSuppliers,
+      operationalWarnings: rowWarnings.length,
       priceHistory: parsed.priceHistory.length,
+      priceHistoryPurchase,
+      priceHistoryRetail,
+      safetySanitizations: safetyNotes.length,
+      updatedCategories: categoryChanges.updatedCategories,
+      updatedSuppliers: supplierChanges.updatedSuppliers,
       validRows: parsed.validRows,
       warnings: rowWarnings.length,
     },
@@ -3227,7 +3872,6 @@ export async function applyCatalogWorkbookImport(
   }
 
   const boundPreviewDigest = bindPreviewDigestToShop({
-    catalogScope: readModel.catalogScope,
     mappingId: readModel.mapping?.mappingId ?? null,
     parsedDigest: parsed.digest,
     shopId: context.selectedShop.shopId,
@@ -3318,6 +3962,7 @@ export async function applyCatalogWorkbookImport(
   let productsApplied = 0;
   let priceHistoryApplied = 0;
   let failedRows = 0;
+  const applyRowErrors: WorkbookRowError[] = [];
 
   for (const row of adjustedParsed.suppliers) {
     const existing = findSupplier(readModel.suppliers, row);
@@ -3373,6 +4018,7 @@ export async function applyCatalogWorkbookImport(
 
     productsApplied += productImport.productsApplied;
     failedRows += productImport.failedRows;
+    applyRowErrors.push(...productImport.rowErrors);
   } else {
     for (const row of adjustedParsed.products) {
       const existing = findProduct(readModel.products, row);
@@ -3406,12 +4052,20 @@ export async function applyCatalogWorkbookImport(
   }
 
   if (adjustedParsed.priceHistory.length > 0) {
-    const pricePayload = adjustedParsed.priceHistory
+    const pricePayload: StaffAwareBulkPriceHistoryImportPayload[] =
+      adjustedParsed.priceHistory
       .map((row) => {
         const productId = resolvePriceHistoryProductId(productIdMaps, row);
 
         if (!productId) {
           failedRows += 1;
+          applyRowErrors.push({
+            field: "product",
+            message:
+              "PriceHistory product reference could not be resolved after product import.",
+            row: row.rowNumber,
+            sheet: "PriceHistory",
+          });
           return null;
         }
 
@@ -3428,30 +4082,63 @@ export async function applyCatalogWorkbookImport(
       })
       .filter((row): row is NonNullable<typeof row> => row !== null);
 
-    for (const priceChunk of chunkRows(
-      pricePayload,
-      BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE,
-    )) {
-      if (priceChunk.length === 0) {
-        continue;
-      }
-
-      const { data, error } = await context.supabase.rpc(
-        "shop_catalog_import_price_history",
-        {
-          p_prices: priceChunk,
-          p_shop_id: context.selectedShop.shopId,
-        },
+    if (context.principalKind === "pos_staff_manager") {
+      const priceImport = await applyStaffAwareBulkPriceHistoryImport(
+        context,
+        pricePayload,
       );
 
-      if (error) {
-        failedRows += priceChunk.length;
-      } else {
-        const payload = payloadRecord(data);
-        const rpcFailedRows = numberFromPayload(payload.failedRows);
+      priceHistoryApplied += priceImport.priceHistoryApplied;
+      failedRows += priceImport.failedRows;
+      applyRowErrors.push(...priceImport.rowErrors);
+    } else {
+      for (const priceChunk of chunkRows(
+        pricePayload,
+        BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE,
+      )) {
+        if (priceChunk.length === 0) {
+          continue;
+        }
 
-        priceHistoryApplied += numberFromPayload(payload.priceHistoryApplied);
-        failedRows += rpcFailedRows;
+        const { data, error } = await context.supabase.rpc(
+          "shop_catalog_import_price_history",
+          {
+            p_prices: priceChunk,
+            p_shop_id: context.selectedShop.shopId,
+          },
+        );
+
+        if (error) {
+          failedRows += priceChunk.length;
+          applyRowErrors.push({
+            field: "priceHistory",
+            message:
+              "Price history import chunk failed before completion. Re-run preview before retrying.",
+            row: 0,
+            sheet: "PriceHistory",
+          });
+        } else {
+          const payload = payloadRecord(data);
+          const rpcFailedRows = numberFromPayload(payload.failedRows);
+          const rpcPriceHistoryApplied = numberFromPayload(
+            payload.priceHistoryApplied,
+          );
+          const rpcOk = rpcResultOk(data);
+
+          priceHistoryApplied += rpcPriceHistoryApplied;
+          if (!rpcOk) {
+            applyRowErrors.push({
+              field: "priceHistory",
+              message:
+                "Price history import chunk returned a failed result. Re-run preview before retrying.",
+              row: 0,
+              sheet: "PriceHistory",
+            });
+          }
+          failedRows += rpcOk || rpcFailedRows > 0 || rpcPriceHistoryApplied > 0
+            ? rpcFailedRows
+            : priceChunk.length;
+        }
       }
     }
   }
@@ -3492,11 +4179,12 @@ export async function applyCatalogWorkbookImport(
   }
 
   return {
-    ...shopAdminActionResult(failedRows > 0 ? "db_failure" : "success", {
+    ...shopAdminActionResult(failedRows > 0 ? "partial_failure" : "success", {
       ok: failedRows === 0,
       shopId: context.selectedShop.shopId,
     }),
     previewDigest: boundPreviewDigest,
+    rowErrors: applyRowErrors,
     summary,
   };
 }

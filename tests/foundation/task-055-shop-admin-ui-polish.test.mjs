@@ -47,6 +47,7 @@ test("TASK-055 tracking is DONE_RECONCILED after final DONE gate", () => {
 
 test("TASK-055 Shop shell header shows real shop context and compact sidebar guardrails", () => {
   const shell = read("src/components/shop/ShopShell.tsx");
+  const dictionary = read("src/i18n/dictionaries.ts");
 
   assertContains(shell, "companyRut?: string");
   assertContains(shell, "function formatCompanyRut");
@@ -54,8 +55,10 @@ test("TASK-055 Shop shell header shows real shop context and compact sidebar gua
   assertContains(shell, "groups.join(\".\")");
   assertContains(shell, "function shopDisplayName");
   assertContains(shell, "shop.companyRut");
-  assertContains(shell, "Company RUT:");
-  assertContains(shell, "Not configured");
+  assertContains(shell, "labels.companyRutPrefix");
+  assertContains(shell, "labels.notConfigured");
+  assertContains(dictionary, "Company RUT");
+  assertContains(dictionary, "Not configured");
   assertContains(shell, "text-lg font-semibold");
   assertContains(shell, "<details");
   assertContains(shell, "summary");
@@ -87,8 +90,10 @@ test("TASK-055 Shop shell access keeps RUT/name enrichment server-side", () => {
 
 test("TASK-055 products filter bar aligns fields and keeps server query params", () => {
   const page = read("src/app/shop/products/page.tsx");
+  const dictionary = read("src/i18n/dictionaries.ts");
 
-  assertContains(page, "Search by barcode, name, item number");
+  assertContains(page, "filterLabels.searchPlaceholder");
+  assertContains(dictionary, "Search by barcode, name, item number");
   assertContains(page, "filterInputClassName");
   assertContains(page, "filterButtonClassName");
   assertContains(page, "h-10 w-full min-w-0");
@@ -260,12 +265,13 @@ test("TASK-055 review fix keeps Settings read-only and fail-closed to Master Con
   const settingsMutations = read("src/server/shop-admin/settings-mutations.ts");
   const sectionData = read("src/server/shop-admin/shop-section-data.ts");
   const shopSections = read("src/components/shop/shopSections.ts");
+  const dictionary = read("src/i18n/dictionaries.ts");
 
   assertContains(
-    settingsPage,
+    `${settingsPage}\n${dictionary}`,
     "Shop profile and fiscal identity are managed by Master Console. Admin Console can view these fields but cannot edit them.",
   );
-  assertContains(settingsPage, "Master Console only");
+  assertContains(`${settingsPage}\n${dictionary}`, "Master Console only");
   assert.doesNotMatch(settingsPage, /updateShopSettingsAction/);
   assert.doesNotMatch(settingsPage, /resolveShopActionContext/);
   assert.doesNotMatch(settingsPage, /Type SETTINGS as confirmation/);

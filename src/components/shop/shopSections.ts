@@ -256,12 +256,12 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     title: "Mobile History",
     eyebrow: "Mobile sync",
     description:
-      "Mobile history and sync activity surface for a mapped shop inventory source.",
+      "History entries loaded from shared_sheet_sessions, with related technical sync events kept separate.",
     status: "Read model pending",
     metrics: shellMetrics,
     plannedWork: [
       "Resolve shop_inventory_sources before reading owner-scoped history",
-      "Summarize sync payloads with recursive redaction",
+      "Diagnose payload v2 session overlays without mutating cloud rows",
       "Keep mobile sync activity distinct from web audit logs",
     ],
     guardrails: sharedShopGuardrails,

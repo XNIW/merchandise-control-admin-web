@@ -32,6 +32,7 @@ test("TASK-048 secondary Master Console sections explain purpose, empty state, d
   );
   const devicesPage = readProjectFile("src/app/platform/devices/page.tsx");
   const syncPage = readProjectFile("src/app/platform/sync/page.tsx");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
 
   for (const required of [
     "type PlatformPurposeItem",
@@ -74,12 +75,16 @@ test("TASK-048 secondary Master Console sections explain purpose, empty state, d
 
   for (const required of [
     "Use this page to",
-    "section.purposeItems",
-    "section.nextLinks",
+    "localizedSection.purposeItems",
+    "localizedSection.nextLinks",
     "diagnosticsPriority",
     "Next action",
   ]) {
-    assertContains(platformPage, required, `PlatformPage must render ${required}`);
+    assertContains(
+      `${platformPage}\n${dictionary}`,
+      required,
+      `PlatformPage must render ${required}`,
+    );
   }
 
   for (const required of [

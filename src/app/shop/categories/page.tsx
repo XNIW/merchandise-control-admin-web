@@ -7,6 +7,8 @@ import {
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
+import { getI18n } from "@/i18n/get-locale";
+import { translateText } from "@/i18n/translate-sections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopInventoryReadModel } from "@/server/shop-admin/inventory-read-model";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
@@ -89,9 +91,14 @@ function buildCategoryActionHref(
 }
 
 function CategoryRowActions({
+  labels,
   params,
   row,
 }: {
+  labels: {
+    archive: string;
+    update: string;
+  };
   params: Record<string, string | string[] | undefined>;
   row: AdminDataTableRow;
 }) {
@@ -104,8 +111,8 @@ function CategoryRowActions({
   return (
     <div className="flex min-w-0 flex-wrap gap-2">
       {[
-        { action: "edit" as const, label: "Update" },
-        { action: "archive" as const, label: "Archive" },
+        { action: "edit" as const, label: labels.update },
+        { action: "archive" as const, label: labels.archive },
       ].map((item) => (
         <a
           key={item.action}
@@ -124,6 +131,7 @@ export default async function ShopCategoriesPage({
 }: {
   searchParams: ShopPageSearchParams;
 }) {
+  const { dictionary } = await getI18n();
   const params = await searchParams;
   const requestedShopId = getParam(params, "shop_id");
   const activeFilterCount = [getParam(params, "query")].filter((value) =>
@@ -142,12 +150,17 @@ export default async function ShopCategoriesPage({
   const categoryOptions = mapCategoryOptions(inventoryReadModel.categories);
   const categoryDialog = getCategoryDialog(getParam(params, "category_action"));
   const categoryDialogId = getParam(params, "category_id") ?? "";
+  const rowActionLabels = {
+    archive: translateText(dictionary, "Archive"),
+    update: translateText(dictionary, "Update"),
+  };
   const catalogToolbar = canManageCategories ? (
     <CatalogActionPanel
       categories={categoryOptions}
       embedded
       initialDialog={categoryDialog}
       initialEntityId={categoryDialogId}
+      labels={dictionary.exact}
       scope="categories"
       selectedShopId={requestedShopId}
     />
@@ -163,7 +176,7 @@ export default async function ShopCategoriesPage({
           <input name="shop_id" type="hidden" value={requestedShopId} />
         ) : null}
         <label className="grid gap-1 text-sm font-medium text-zinc-800">
-          Search
+          {dictionary.shopFilters.search}
           <input
             className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
             defaultValue={getParam(params, "query") ?? ""}
@@ -173,14 +186,14 @@ export default async function ShopCategoriesPage({
         </label>
         <div className="flex flex-wrap items-end gap-2 self-end">
           <button className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white">
-            Apply filters
+            {dictionary.common.applyFilters}
           </button>
           {activeFilterCount > 0 ? (
             <a
               className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800"
               href={buildClearFiltersHref(requestedShopId)}
             >
-              Clear filters
+              {dictionary.common.clearFilters}
             </a>
           ) : null}
         </div>
@@ -194,8 +207,14 @@ export default async function ShopCategoriesPage({
         rowActions={
           canManageCategories
             ? {
-                label: "Actions",
-                render: (row) => <CategoryRowActions params={params} row={row} />,
+                label: dictionary.common.actions,
+                render: (row) => (
+                  <CategoryRowActions
+                    labels={rowActionLabels}
+                    params={params}
+                    row={row}
+                  />
+                ),
               }
             : undefined
         }

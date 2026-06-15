@@ -110,6 +110,7 @@ test("TASK-054 staff web auth returns diagnostic login failure codes without exp
 test("TASK-054 Shop code form preserves non-secret fields and focuses PIN after an error", () => {
   const form = readProjectFile("src/components/auth/ShopCodeLoginForm.tsx");
   const actions = readProjectFile("src/app/(staff-auth)/shop/staff-login/actions.ts");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
 
   assert.match(form, /^"use client";/);
   assertContains(form, "useActionState");
@@ -119,7 +120,7 @@ test("TASK-054 Shop code form preserves non-secret fields and focuses PIN after 
   assertContains(form, "defaultValue={state.values.shopCode}");
   assertContains(form, "defaultValue={state.values.staffCode}");
   assertContains(form, "credentialRef.current?.focus()");
-  assertContains(form, "PIN / password");
+  assertContains(`${form}\n${dictionary}`, "PIN / password");
   assert.doesNotMatch(form, /Credential<\/label>|localStorage|sessionStorage/);
 
   assertContains(actions, "type ShopCodeLoginFormState");

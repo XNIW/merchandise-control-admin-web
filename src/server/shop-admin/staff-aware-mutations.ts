@@ -1,5 +1,6 @@
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import {
   createSupabaseAdminClient,
   resolveSupabaseAdminConfig,
@@ -81,6 +82,44 @@ type ProductUpdateInput = ProductMutationInput & {
   productId: string;
 };
 
+export type StaffAwareBulkProductImportPayload = {
+  barcode: string;
+  category_id?: string | null;
+  item_number?: string;
+  product_id?: string;
+  product_name: string;
+  purchase_price?: number;
+  retail_price?: number;
+  second_product_name?: string;
+  stock_quantity?: number;
+  supplier_id?: string | null;
+};
+
+export type StaffAwareBulkPriceHistoryImportPayload = {
+  created_at?: string;
+  effective_at: string;
+  note?: string;
+  price: number;
+  price_id?: string;
+  product_id: string;
+  source?: string;
+  type: "PURCHASE" | "RETAIL";
+};
+
+export type StaffAwareBulkImportRowError = {
+  code?: string;
+  field: string;
+  message: string;
+  row: number;
+  sheet: string;
+};
+
+export type StaffAwareBulkAppliedProduct = {
+  barcode: string;
+  itemNumber: string | null;
+  productId: string;
+};
+
 type StaffMutationInput = {
   credentialHash?: string;
   credentialKind?: string;
@@ -105,6 +144,8 @@ const STAFF_WEB_PERMISSION_KEYS: readonly ShopStaffWebPermission[] =
   SHOP_STAFF_WEB_PERMISSION_TREE.flatMap((group) =>
     group.permissions.map((permission) => permission.key),
   );
+const STAFF_AWARE_BULK_PRODUCT_IMPORT_CHUNK_SIZE = 500;
+const STAFF_AWARE_BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE = 1_000;
 
 function nowIso() {
   return new Date().toISOString();
@@ -737,6 +778,171 @@ async function resolveInventoryOwner(
     catalogScope: "shop_scoped",
     ok: true,
     ownerUserId: shopScopedOwner.ownerUserId,
+  };
+}
+
+function* chunkRows<T>(rows: readonly T[], chunkSize: number) {
+  for (let index = 0; index < rows.length; index += chunkSize) {
+    yield rows.slice(index, index + chunkSize);
+  }
+}
+
+function staffBulkOwnerRowError(
+  owner: Extract<InventoryOwnerResult, { ok: false }>,
+  sheet: "PriceHistory" | "Products",
+): StaffAwareBulkImportRowError {
+  return {
+    code: owner.result.code,
+    field: "catalogOwner",
+    message: "Shop catalog owner is not available for staff database import.",
+    row: 0,
+    sheet,
+  };
+}
+
+export async function applyStaffAwareBulkProductImport(
+  context: StaffAwareContext,
+  productPayload: readonly StaffAwareBulkProductImportPayload[],
+) {
+  const owner = await resolveInventoryOwner(context);
+
+  if (!owner.ok) {
+    return {
+      failedRows: productPayload.length,
+      productIds: [] as StaffAwareBulkAppliedProduct[],
+      productsApplied: 0,
+      rowErrors: [staffBulkOwnerRowError(owner, "Products")],
+    };
+  }
+
+  let failedRows = 0;
+  let productsApplied = 0;
+  const productIds: StaffAwareBulkAppliedProduct[] = [];
+  const rowErrors: StaffAwareBulkImportRowError[] = [];
+
+  for (const [chunkIndex, productChunk] of Array.from(chunkRows(
+    productPayload,
+    STAFF_AWARE_BULK_PRODUCT_IMPORT_CHUNK_SIZE,
+  )).entries()) {
+    const updatedAt = nowIso();
+    const productRows = productChunk.map((product) => ({
+      barcode: product.barcode,
+      category_id: product.category_id ?? null,
+      id: product.product_id ?? randomUUID(),
+      item_number: product.item_number ?? null,
+      owner_user_id: owner.ownerUserId,
+      product_name: product.product_name,
+      purchase_price: product.purchase_price ?? null,
+      retail_price: product.retail_price ?? null,
+      second_product_name: product.second_product_name ?? null,
+      shop_id: context.selectedShop.shopId,
+      stock_quantity: product.stock_quantity ?? null,
+      supplier_id: product.supplier_id ?? null,
+      updated_at: updatedAt,
+    }));
+
+    const { data, error } = await context.supabase
+      .from("inventory_products")
+      .upsert(productRows, { onConflict: "id" })
+      .select("id,barcode,item_number");
+
+    if (error) {
+      failedRows += productChunk.length;
+      rowErrors.push({
+        field: "products",
+        message:
+          "Products import chunk failed before completion. Re-run preview before retrying.",
+        row: chunkIndex + 1,
+        sheet: "Products",
+      });
+      continue;
+    }
+
+    const appliedRows = data ?? [];
+
+    for (const product of appliedRows) {
+      productIds.push({
+        barcode: product.barcode,
+        itemNumber: product.item_number,
+        productId: product.id,
+      });
+    }
+
+    productsApplied += appliedRows.length;
+    failedRows += Math.max(productChunk.length - appliedRows.length, 0);
+  }
+
+  return {
+    failedRows,
+    productIds,
+    productsApplied,
+    rowErrors,
+  };
+}
+
+export async function applyStaffAwareBulkPriceHistoryImport(
+  context: StaffAwareContext,
+  pricePayload: readonly StaffAwareBulkPriceHistoryImportPayload[],
+) {
+  const owner = await resolveInventoryOwner(context);
+
+  if (!owner.ok) {
+    return {
+      failedRows: pricePayload.length,
+      priceHistoryApplied: 0,
+      rowErrors: [staffBulkOwnerRowError(owner, "PriceHistory")],
+    };
+  }
+
+  let failedRows = 0;
+  let priceHistoryApplied = 0;
+  const rowErrors: StaffAwareBulkImportRowError[] = [];
+
+  for (const [chunkIndex, priceChunk] of Array.from(chunkRows(
+    pricePayload,
+    STAFF_AWARE_BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE,
+  )).entries()) {
+    const priceRows = priceChunk.map((price) => ({
+      created_at: price.created_at ?? price.effective_at,
+      effective_at: price.effective_at,
+      id: price.price_id ?? randomUUID(),
+      note: price.note ?? null,
+      owner_user_id: owner.ownerUserId,
+      price: price.price,
+      product_id: price.product_id,
+      shop_id: context.selectedShop.shopId,
+      source: price.source ?? null,
+      type: price.type,
+    }));
+
+    const { data, error } = await context.supabase
+      .from("inventory_product_prices")
+      .upsert(priceRows, {
+        onConflict: "owner_user_id,product_id,type,effective_at",
+      })
+      .select("id");
+
+    if (error) {
+      failedRows += priceChunk.length;
+      rowErrors.push({
+        field: "priceHistory",
+        message:
+          "Price history import chunk failed before completion. Re-run preview before retrying.",
+        row: chunkIndex + 1,
+        sheet: "PriceHistory",
+      });
+      continue;
+    }
+
+    const appliedRows = data ?? [];
+    priceHistoryApplied += appliedRows.length;
+    failedRows += Math.max(priceChunk.length - appliedRows.length, 0);
+  }
+
+  return {
+    failedRows,
+    priceHistoryApplied,
+    rowErrors,
   };
 }
 

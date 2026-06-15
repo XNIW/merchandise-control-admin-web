@@ -78,7 +78,10 @@ test("TASK-056 shop detail renders complete read-only profile and fiscal identit
   assertContains(detailPage, "detailSectionActions");
   assertContains(detailPage, '"Shop profile & fiscal identity":');
   assertContains(platformPage, "detailSectionActions");
-  assertContains(platformPage, "actions={detailSectionActions?.[detailSection.title]}");
+  assertContains(
+    platformPage,
+    "section.detailSections?.[index]?.title ?? detailSection.title",
+  );
   assertContains(sectionCard, "actions?: ReactNode");
   assertContains(sectionData, 'title: "Shop profile & fiscal identity"');
   assertContains(sectionData, 'title: "Operational summary"');

@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { ImportExportActionPanel } from "@/app/shop/_components/ImportExportActionPanel";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
+import { getI18n } from "@/i18n/get-locale";
+import { translateText } from "@/i18n/translate-sections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
@@ -34,6 +36,7 @@ export default async function ShopImportExportPage({
 }: {
   searchParams: ShopPageSearchParams;
 }) {
+  const { dictionary } = await getI18n();
   const params = await searchParams;
   const requestedShopId = getRequestedShopId(params);
   const section = await getShopSectionForRequest(
@@ -53,16 +56,20 @@ export default async function ShopImportExportPage({
       <section
         className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950`}
       >
-        <h2 className="text-base font-semibold">Moved to Products</h2>
+        <h2 className="text-base font-semibold">
+          {translateText(dictionary, "Moved to Products")}
+        </h2>
         <p className="mt-1">
-          Import and export actions now live in the Products Catalog Workspace.
-          This compatibility page keeps existing import/export links available.
+          {translateText(
+            dictionary,
+            "Import and export actions now live in the Products Catalog Workspace. This compatibility page keeps existing import/export links available.",
+          )}
         </p>
         <a
           className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-emerald-900 px-4 text-sm font-medium text-white"
           href={productsHref(requestedShopId)}
         >
-          Open Products
+          {translateText(dictionary, "Open Products")}
         </a>
       </section>
       {canImport || canExport ? (
@@ -74,6 +81,7 @@ export default async function ShopImportExportPage({
           }
           canExport={canExport}
           canImport={canImport}
+          labels={dictionary.exact}
           selectedShopId={requestedShopId}
         />
       ) : null}

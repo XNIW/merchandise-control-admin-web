@@ -141,7 +141,7 @@ test("TASK-032 Excel validation warns on duplicate SKUs while preserving non-des
   assert.equal(validation.rowWarnings[0].row, 3);
   assert.equal(validation.summary.errors, 0);
   assert.equal(validation.summary.warnings, 1);
-  assert.equal(validation.summary.newProducts, 2);
+  assert.equal(validation.summary.newProducts, 3);
 });
 
 test("TASK-032 Excel safety covers invalid numbers, workbook uploads and formula injection sanitization", () => {

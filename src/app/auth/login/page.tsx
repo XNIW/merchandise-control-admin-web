@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { ShopCodeLoginForm } from "@/components/auth/ShopCodeLoginForm";
+import { getI18n } from "@/i18n/get-locale";
+import { translateText } from "@/i18n/translate-sections";
 
 export const metadata: Metadata = {
   title: "Console Sign In | MerchandiseControl Admin Web",
@@ -48,6 +51,7 @@ function tabClassName(isActive: boolean) {
 export default async function PlatformAdminLoginPage({
   searchParams,
 }: LoginPageProps) {
+  const { dictionary, locale } = await getI18n();
   const query = await searchParams;
   const next = getSingleSearchParamValue(query.next);
   const mode = getSingleSearchParamValue(query.mode);
@@ -57,32 +61,20 @@ export default async function PlatformAdminLoginPage({
   const activeLoginMode =
     !isMasterConsole && mode === "shop-code" ? "shop-code" : "admin-account";
   const content = isMasterConsole
-    ? {
-        brandSubtitle: "Master Console",
-        eyebrow: "Master Console",
-        heading: "Master Console sign in",
-        description:
-          "Use the platform owner account to open the Master Console. Platform authorization is verified server-side.",
-        cardTitle: "Master Console credentials",
-        cardDescription:
-          "Only platform owner accounts can continue into the Master Console.",
-        formLabel: "Master Console sign in",
-      }
+    ? dictionary.authLogin.master
     : {
-        brandSubtitle: "Admin Console",
-        eyebrow: "Admin Console",
-        heading: "Admin Console sign in",
-        description:
-          "Use an Admin account for shop-owner or manager access, or use Shop code and Staff code for a single-shop staff session.",
+        ...dictionary.authLogin.admin,
         cardTitle:
           activeLoginMode === "shop-code"
-            ? "Shop code credentials"
-            : "Admin account credentials",
+            ? translateText(dictionary, "Shop code credentials")
+            : dictionary.authLogin.admin.cardTitle,
         cardDescription:
           activeLoginMode === "shop-code"
-            ? "Access is verified server-side and never creates a personal profile."
-            : "The Supabase SSR session opens only the Admin Console authorized server-side for this account.",
-        formLabel: "Admin account sign in",
+            ? translateText(
+                dictionary,
+                "Access is verified server-side and never creates a personal profile.",
+              )
+            : dictionary.authLogin.admin.cardDescription,
       };
   const isConfigured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() &&
@@ -95,19 +87,26 @@ export default async function PlatformAdminLoginPage({
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 lg:px-8">
       <div className="mx-auto grid min-h-[calc(100vh-4rem)] max-w-6xl items-center gap-8 lg:grid-cols-[minmax(0,1fr)_420px]">
         <section className="grid gap-5">
-          <div className="flex items-center gap-3">
-            <div
-              aria-hidden="true"
-              className="grid size-11 place-items-center rounded-lg bg-slate-950 text-sm font-semibold text-white"
-            >
-              MC
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div
+                aria-hidden="true"
+                className="grid size-11 place-items-center rounded-lg bg-slate-950 text-sm font-semibold text-white"
+              >
+                MC
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-slate-950">
+                  MerchandiseControl
+                </p>
+                <p className="text-sm text-slate-600">{content.brandSubtitle}</p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-semibold text-slate-950">
-                MerchandiseControl
-              </p>
-              <p className="text-sm text-slate-600">{content.brandSubtitle}</p>
-            </div>
+            <LanguageSwitcher
+              label={dictionary.languageSwitcher.label}
+              locale={locale}
+              tone="slate"
+            />
           </div>
 
           <div className="max-w-2xl">
@@ -123,15 +122,21 @@ export default async function PlatformAdminLoginPage({
           </div>
 
           <div className="flex flex-wrap gap-2" aria-label="Auth safety status">
-            <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
-              SSR session
-            </span>
-            <span className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-medium text-slate-700">
-              Server-side reads
-            </span>
-            <span className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
-              No service key in browser
-            </span>
+            {dictionary.authLogin.safetyBadges.map((badge, index) => (
+              <span
+                key={badge}
+                className={[
+                  "rounded-md border px-2.5 py-1 text-xs font-medium",
+                  index === 0
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                    : index === 1
+                      ? "border-slate-200 bg-white text-slate-700"
+                      : "border-amber-200 bg-amber-50 text-amber-800",
+                ].join(" ")}
+              >
+                {badge}
+              </span>
+            ))}
           </div>
         </section>
 
@@ -148,7 +153,7 @@ export default async function PlatformAdminLoginPage({
           {!isMasterConsole ? (
             <nav
               role="tablist"
-              aria-label="Admin Console sign-in method"
+              aria-label={dictionary.authLogin.tabAriaLabel}
               className="mb-5 grid grid-cols-2 gap-2"
             >
               <Link
@@ -157,7 +162,7 @@ export default async function PlatformAdminLoginPage({
                 href={loginHref(nextPath, "admin-account")}
                 className={tabClassName(activeLoginMode === "admin-account")}
               >
-                Admin account
+                {dictionary.authLogin.adminAccountTab}
               </Link>
               <Link
                 role="tab"
@@ -165,20 +170,28 @@ export default async function PlatformAdminLoginPage({
                 href={loginHref(nextPath, "shop-code")}
                 className={tabClassName(activeLoginMode === "shop-code")}
               >
-                Shop code
+                {dictionary.authLogin.shopCodeTab}
               </Link>
             </nav>
           ) : null}
 
           {rendersAccountForm ? (
-            <AuthForm isConfigured={isConfigured} formLabel={content.formLabel} />
+            <AuthForm
+              isConfigured={isConfigured}
+              formLabel={content.formLabel}
+              labels={dictionary.authForm}
+            />
           ) : (
-            <ShopCodeLoginForm nextPath={nextPath} result={result} />
+            <ShopCodeLoginForm
+              labels={dictionary.shopCodeLogin}
+              nextPath={nextPath}
+              result={result}
+            />
           )}
 
           {rendersAccountForm && !isConfigured ? (
             <p className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-              Supabase browser auth is not configured in this runtime.
+              {dictionary.authLogin.configMissing}
             </p>
           ) : null}
         </section>

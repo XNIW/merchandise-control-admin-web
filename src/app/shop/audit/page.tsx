@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
+import { getI18n } from "@/i18n/get-locale";
+import { translateText } from "@/i18n/translate-sections";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
@@ -32,6 +34,7 @@ export default async function ShopAuditPage({
 }: {
   searchParams: ShopPageSearchParams;
 }) {
+  const { dictionary } = await getI18n();
   const params = await searchParams;
   const requestedShopId = getParam(params, "shop_id");
   const section = await getShopSectionForRequest(
@@ -54,7 +57,7 @@ export default async function ShopAuditPage({
           <input name="shop_id" type="hidden" value={requestedShopId} />
         ) : null}
         <label className="grid gap-1 text-sm font-medium text-zinc-800">
-          Event
+          {translateText(dictionary, "Event")}
           <input
             className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
             defaultValue={getParam(params, "event") ?? ""}
@@ -63,33 +66,33 @@ export default async function ShopAuditPage({
           />
         </label>
         <label className="grid gap-1 text-sm font-medium text-zinc-800">
-          Severity
+          {translateText(dictionary, "Severity")}
           <select
             className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
             defaultValue={getParam(params, "severity") ?? ""}
             name="severity"
           >
-            <option value="">Any</option>
+            <option value="">{translateText(dictionary, "Any")}</option>
             <option value="info">Info</option>
-            <option value="warning">Warning</option>
-            <option value="critical">Critical</option>
+            <option value="warning">{translateText(dictionary, "Warning")}</option>
+            <option value="critical">{translateText(dictionary, "Critical")}</option>
           </select>
         </label>
         <label className="grid gap-1 text-sm font-medium text-zinc-800">
-          Result
+          {translateText(dictionary, "Result")}
           <select
             className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
             defaultValue={getParam(params, "result") ?? ""}
             name="result"
           >
-            <option value="">Any</option>
-            <option value="success">Success</option>
-            <option value="blocked">Blocked</option>
-            <option value="failure">Failure</option>
+            <option value="">{translateText(dictionary, "Any")}</option>
+            <option value="success">{translateText(dictionary, "Success")}</option>
+            <option value="blocked">{translateText(dictionary, "Blocked")}</option>
+            <option value="failure">{translateText(dictionary, "Failure")}</option>
           </select>
         </label>
         <label className="grid gap-1 text-sm font-medium text-zinc-800">
-          Target id
+          {translateText(dictionary, "Target id")}
           <input
             className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
             defaultValue={getParam(params, "target_id") ?? ""}
@@ -98,7 +101,7 @@ export default async function ShopAuditPage({
           />
         </label>
         <button className="self-end rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white">
-          Filter
+          {translateText(dictionary, "Filter")}
         </button>
       </form>
       <ShopSectionPage section={section} />

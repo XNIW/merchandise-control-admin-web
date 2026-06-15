@@ -68,9 +68,9 @@ test("TASK-057 governance is DONE_RECONCILED after TASK-058 confirmation", () =>
   assertContains(evidence, "Verdict corrente: `DONE_RECONCILED`");
   assertContains(masterPlan, "Stato TASK-057: `DONE_RECONCILED`");
   assertContains(masterPlan, "Verdict TASK-057: `DONE_RECONCILED`");
-  assertContains(
+  assert.match(
     masterPlan,
-    "Task attivo: `TASK-058 - Cloudflare/OpenNext Staging Hardening and Deployment Governance`",
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`/,
   );
 });
 
@@ -91,6 +91,8 @@ test("TASK-057 moves Import Export out of primary Shop sidebar", () => {
 test("TASK-057 Products workspace exposes named filters, state filter and full catalog columns", () => {
   const page = read("src/app/shop/products/page.tsx");
   const data = read("src/server/shop-admin/shop-section-data.ts");
+  const dictionary = read("src/i18n/dictionaries.ts");
+  const pageI18nSource = `${page}\n${dictionary}`;
 
   for (const required of [
     "Catalog Workspace",
@@ -101,7 +103,7 @@ test("TASK-057 Products workspace exposes named filters, state filter and full c
     "categoryOptions",
     "supplierOptions",
   ]) {
-    assertContains(page, required);
+    assertContains(pageI18nSource, required);
   }
 
   assert.doesNotMatch(page, />\s*Category id\s*</);
@@ -188,13 +190,13 @@ test("TASK-057 catalog actions are toolbar buttons with accessible dialogs", () 
   assertContains(importExportPanel, "<details");
   assertContains(importExportPanel, "Download catalog export");
   assertContains(importExportPanel, "selected shop only");
-  assertContains(importExportPanel, "Confirm {confirmationWord}");
+  assertContains(importExportPanel, '{t("Confirm")} {confirmationWord}');
   assertContains(importExportPanel, "APPLY");
   assertContains(importExportPanel, "IMPORT DATABASE");
   assert.match(
     importExportPanel,
-    /<SupplierExcelImportWizard[\s\S]*<CatalogExportPanel[\s\S]*<details[\s\S]*<DatabaseTransferPanel/,
-    "supplier import, export and advanced database transfer must render in that order",
+    /<SupplierExcelImportWizard[\s\S]*<CatalogExportPanel[\s\S]*data-catalog-flow="database-transfer-panel"[\s\S]*<DatabaseTransferPanel/,
+    "supplier import, export and database transfer must render in that order",
   );
   assertContains(productsPage, "ProductRowActions");
   assertContains(productsPage, "product_action");
@@ -236,7 +238,7 @@ test("TASK-057 supplier Excel wizard uses fetch, bounded preview metadata and no
   assert.match(importExportPage, /Moved to Products|redirect\(/);
   assertContains(importExportPanel, "Import supplier Excel");
   assertContains(importExportPanel, "Preview supplier workbook");
-  assertContains(importExportPanel, "Advanced database transfer");
+  assertContains(importExportPanel, "Database transfer");
   assertContains(importExportPanel, "IMPORT DATABASE");
   assertContains(importExportPanel, "full price history");
   assertContains(importExportPanel, "\"use client\"");
@@ -554,6 +556,7 @@ test("TASK-057 full database import treats PriceHistory as first-class shop cata
 
 test("TASK-057 database apply uses audited bulk product import for large workbooks", () => {
   const workbook = read("src/server/shop-admin/import-export-workbook.ts");
+  const staffAwareMutations = read("src/server/shop-admin/staff-aware-mutations.ts");
   const migrationPath =
     "supabase/migrations/20260612021252_task_057_bulk_product_import.sql";
 
@@ -571,7 +574,9 @@ test("TASK-057 database apply uses audited bulk product import for large workboo
     "BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE",
     "applyBulkProductImport",
     "chunkRows",
-    "for (const productChunk of chunkRows",
+    "applyStaffAwareBulkProductImport",
+    "applyStaffAwareBulkPriceHistoryImport",
+    "for (const [chunkIndex, productChunk] of Array.from(chunkRows",
     "for (const priceChunk of chunkRows",
     "shop_catalog_import_products",
     "productsApplied",
@@ -581,11 +586,22 @@ test("TASK-057 database apply uses audited bulk product import for large workboo
     "catalog_scope",
     "source",
     "admin_web",
+    "resolveInventoryOwner",
+    ".from(\"inventory_products\")",
+    ".from(\"inventory_product_prices\")",
   ]) {
-    assertContains(`${workbook}\n${migration}`, required);
+    assertContains(`${workbook}\n${staffAwareMutations}\n${migration}`, required);
   }
 
   assert.doesNotMatch(workbook, /TASK057_DEBUG_BULK/);
+  assert.doesNotMatch(
+    workbook,
+    /context\.principalKind === "pos_staff_manager"[\s\S]*\.from\("inventory_products"\)/,
+  );
+  assert.doesNotMatch(
+    workbook,
+    /context\.principalKind === "pos_staff_manager"[\s\S]*\.from\("inventory_product_prices"\)/,
+  );
   assert.doesNotMatch(migration, /grant\s+.*\s+to\s+anon/i);
 });
 
@@ -597,7 +613,7 @@ test("TASK-057 product detail exposes Price History and related mobile history e
 
   for (const required of [
     "secondaryLiveData?: ShopSectionLiveData[]",
-    "section.secondaryLiveData",
+    "localizedSection.secondaryLiveData",
     "Price history",
     "History entries",
     "buildProductPriceHistoryRows",

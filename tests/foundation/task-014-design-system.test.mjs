@@ -39,6 +39,8 @@ test("TASK-014 applies shared components to Platform and Shop surfaces", () => {
   const platformPage = readProjectFile("src/components/platform/PlatformPage.tsx");
   const shopPage = readProjectFile("src/components/shop/ShopSectionPage.tsx");
   const shopShell = readProjectFile("src/components/shop/ShopShell.tsx");
+  const shopSections = readProjectFile("src/components/shop/shopSections.ts");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
 
   assert.match(platformPage, /@\/components\/admin\/PageHeader/);
   assert.match(platformPage, /@\/components\/admin\/SectionCard/);
@@ -48,8 +50,10 @@ test("TASK-014 applies shared components to Platform and Shop surfaces", () => {
   assert.match(shopPage, /@\/components\/admin\/PageHeader/);
   assert.match(shopPage, /@\/components\/admin\/SectionCard/);
   assert.match(shopPage, /@\/components\/admin\/AdminDataTable/);
-  assert.match(shopShell, /sharedShopGuardrails/);
-  assert.match(shopShell, />\s*Shop safety\s*</);
+  assert.match(shopShell, /sharedGuardrails/);
+  assert.match(shopShell, /\{labels\.shopSafety\}/);
+  assert.match(shopSections, /sharedShopGuardrails/);
+  assert.match(dictionary, /shopSafety: "Shop safety"/);
 });
 
 test("TASK-014 keeps shared components server-safe", () => {

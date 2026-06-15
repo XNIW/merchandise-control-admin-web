@@ -35,6 +35,7 @@ test("TASK-009 Shop Admin access resolver is server-only and membership scoped",
 test("TASK-009 ShopShell renders switcher from server-provided shops only", () => {
   const layout = readProjectFile("src/app/shop/layout.tsx");
   const shell = readProjectFile("src/components/shop/ShopShell.tsx");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
 
   assert.match(layout, /resolveShopAdminDataAccess/);
   assert.match(layout, /availableShops=\{availableShops\}/);
@@ -45,7 +46,8 @@ test("TASK-009 ShopShell renders switcher from server-provided shops only", () =
   assert.match(shell, /selectedShopId/);
   assert.match(shell, /useSearchParams/);
   assert.match(shell, /useRouter/);
-  assert.match(shell, /aria-label="Switch shop"/);
+  assert.match(shell, /aria-label=\{labels\.switchShop\}/);
+  assert.match(dictionary, /switchShop: "Switch shop"/);
   assert.match(shell, /shop_id/);
   assert.doesNotMatch(shell, /@\/server|src\/server|@supabase\//);
 });

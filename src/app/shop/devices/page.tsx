@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
-import { DeviceActionPanel } from "@/app/shop/_components/DeviceActionPanel";
+import {
+  DeviceActionPanel,
+  type DeviceActionPanelLabels,
+} from "@/app/shop/_components/DeviceActionPanel";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
+import { getI18n } from "@/i18n/get-locale";
+import { translateText } from "@/i18n/translate-sections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
@@ -27,12 +32,31 @@ function getParam(
   return Array.isArray(value) ? value[0] : value;
 }
 
+function deviceActionLabels(t: (value: string) => string): DeviceActionPanelLabels {
+  return {
+    appVersion: t("App version"),
+    deviceIdentifier: t("Device identifier"),
+    deviceRowId: t("Device row id"),
+    deviceType: t("Device type"),
+    displayName: t("Display name"),
+    reactivateDevice: t("Reactivate device"),
+    reason: t("Reason"),
+    registerDevice: t("Register device"),
+    renameDevice: t("Rename device"),
+    revokeDevice: t("Revoke device"),
+    typeReactivateConfirmation: t("Type REACTIVATE as confirmation"),
+    typeRevokeConfirmation: t("Type REVOKE as confirmation"),
+  };
+}
+
 export default async function ShopDevicesPage({
   searchParams,
 }: {
   searchParams: ShopPageSearchParams;
 }) {
   const params = await searchParams;
+  const { dictionary } = await getI18n();
+  const t = (value: string) => translateText(dictionary, value);
   const requestedShopId = getParam(params, "shop_id");
   const section = await getShopSectionForRequest(
     "devices",
@@ -50,7 +74,10 @@ export default async function ShopDevicesPage({
         result={getParam(params, "result")}
       />
       {canManageDevices ? (
-        <DeviceActionPanel selectedShopId={requestedShopId} />
+        <DeviceActionPanel
+          labels={deviceActionLabels(t)}
+          selectedShopId={requestedShopId}
+        />
       ) : null}
     </div>
   );

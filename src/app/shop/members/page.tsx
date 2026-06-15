@@ -1,7 +1,12 @@
 import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
-import { MemberActionPanel } from "@/app/shop/_components/MemberActionPanel";
+import {
+  MemberActionPanel,
+  type MemberActionPanelLabels,
+} from "@/app/shop/_components/MemberActionPanel";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
+import { getI18n } from "@/i18n/get-locale";
+import { translateText } from "@/i18n/translate-sections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
@@ -27,12 +32,31 @@ function getParam(
   return Array.isArray(value) ? value[0] : value;
 }
 
+function memberActionLabels(t: (value: string) => string): MemberActionPanelLabels {
+  return {
+    inviteMember: t("Invite member"),
+    memberRowId: t("Member row id"),
+    profileId: t("Profile id"),
+    reason: t("Reason"),
+    removeMember: t("Remove member"),
+    role: t("Role"),
+    roleShopManager: t("Shop manager"),
+    roleShopOwner: t("Shop owner"),
+    roleViewer: t("Viewer"),
+    typeRemoveConfirmation: t("Type REMOVE as confirmation"),
+    typeRoleConfirmation: t("Type ROLE as confirmation"),
+    updateRole: t("Update role"),
+  };
+}
+
 export default async function ShopMembersPage({
   searchParams,
 }: {
   searchParams: ShopPageSearchParams;
 }) {
   const params = await searchParams;
+  const { dictionary } = await getI18n();
+  const t = (value: string) => translateText(dictionary, value);
   const requestedShopId = getParam(params, "shop_id");
   const section = await getShopSectionForRequest(
     "members",
@@ -50,7 +74,10 @@ export default async function ShopMembersPage({
         result={getParam(params, "result")}
       />
       {canManageMembers ? (
-        <MemberActionPanel selectedShopId={requestedShopId} />
+        <MemberActionPanel
+          labels={memberActionLabels(t)}
+          selectedShopId={requestedShopId}
+        />
       ) : null}
     </div>
   );

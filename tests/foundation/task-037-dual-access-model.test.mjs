@@ -71,6 +71,7 @@ test("TASK-037 server foundation defines explicit principals without implementin
   const principal = readProjectFile(principalPath);
   const shopAccess = readProjectFile("src/server/shop-admin/shop-access.ts");
   const authLogin = readProjectFile("src/app/auth/login/page.tsx");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
 
   for (const required of [
     'import "server-only"',
@@ -111,8 +112,8 @@ test("TASK-037 server foundation defines explicit principals without implementin
   assertContains(shopAccess, ".from(\"shop_members\")");
   assertContains(shopAccess, "shop_owner");
   assertContains(shopAccess, "shop_manager");
-  assertContains(authLogin, "Admin Console sign in");
-  assertContains(authLogin, "shop-owner or manager access");
+  assertContains(`${authLogin}\n${dictionary}`, "Admin Console sign in");
+  assertContains(`${authLogin}\n${dictionary}`, "shop-owner or manager access");
 
   assert.doesNotMatch(principal, /createSupabaseAdminClient|SUPABASE_SERVICE_ROLE_KEY|cookies\(\)\.set|NextResponse/);
   assert.doesNotMatch(principal, /credential_hash|pin_plain|password_plain|plain_pin|plain_password/i);

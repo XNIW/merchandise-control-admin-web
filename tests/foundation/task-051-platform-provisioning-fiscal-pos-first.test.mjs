@@ -720,6 +720,7 @@ test("TASK-051 read models expose fiscal identity safely and Shop Admin settings
   const shopSections = readProjectFile("src/server/shop-admin/shop-section-data.ts");
   const shopSettings = readProjectFile("src/app/shop/settings/page.tsx");
   const shopSettingsMutations = readProjectFile("src/server/shop-admin/settings-mutations.ts");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
 
   for (const snippet of [
     "company_rut",
@@ -736,7 +737,7 @@ test("TASK-051 read models expose fiscal identity safely and Shop Admin settings
   assertContains(platformSections, "Fiscal / Boleta identity");
   assertContains(shopSections, "Fiscal/boleta identity is managed by Master Console.");
   assertContains(
-    shopSettings,
+    `${shopSettings}\n${dictionary}`,
     "Shop profile and fiscal identity are managed by Master Console. Admin Console can view these fields but cannot edit them.",
   );
   assert.doesNotMatch(shopSettings, /Update settings|Type SETTINGS as confirmation/);

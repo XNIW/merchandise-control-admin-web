@@ -26,17 +26,19 @@ test("TASK-052 login page labels Master only for exact platform next path", () =
   const loginPage = readProjectFile("src/app/auth/login/page.tsx");
   const loginAction = readProjectFile("src/app/auth/login/actions.ts");
   const authForm = readProjectFile("src/components/auth/AuthForm.tsx");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
+  const loginI18nSource = `${loginPage}\n${dictionary}`;
 
   assert.match(loginPage, /type LoginPageSearchParams = Promise/);
   assert.match(loginPage, /searchParams: LoginPageSearchParams/);
   assert.match(loginPage, /const query = await searchParams/);
   assert.match(loginPage, /next === "\/platform"/);
   assert.match(loginPage, /mode === "shop-code"/);
-  assert.match(loginPage, /Master Console sign in/);
-  assert.match(loginPage, /Master Console credentials/);
-  assert.match(loginPage, /Admin Console sign in/);
-  assert.match(loginPage, /Admin account credentials/);
-  assert.match(loginPage, /Shop code credentials/);
+  assert.match(loginI18nSource, /Master Console sign in/);
+  assert.match(loginI18nSource, /Master Console credentials/);
+  assert.match(loginI18nSource, /Admin Console sign in/);
+  assert.match(loginI18nSource, /Admin account credentials/);
+  assert.match(loginI18nSource, /Shop code credentials/);
   assert.match(loginPage, /role="tablist"/);
   assert.doesNotMatch(loginPage, /Back to console selection/);
   assert.doesNotMatch(loginPage, /Use Shop code sign in/);

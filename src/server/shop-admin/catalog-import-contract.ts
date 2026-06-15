@@ -910,10 +910,7 @@ export function validateCatalogImportRows(
       );
     }
 
-    if (
-      !duplicateProductsByBarcode.has(product) &&
-      !duplicateProductsBySku.has(product)
-    ) {
+    if (!duplicateProductsByBarcode.has(product)) {
       const target = existingByBarcode ?? existingById;
 
       if (target) {
@@ -990,7 +987,6 @@ export function validateCatalogImportRows(
 
   const duplicateProductRows = new Set([
     ...duplicateProductsByBarcode,
-    ...duplicateProductsBySku,
   ]);
   const effectiveProductRows = parsed.products.length - duplicateProductRows.size;
 

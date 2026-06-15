@@ -37,6 +37,7 @@ test("TASK-008 Shop Admin shell artifacts exist and stay boundary-safe", () => {
 
   const layout = readProjectFile("src/app/shop/layout.tsx");
   const shell = readProjectFile("src/components/shop/ShopShell.tsx");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
 
   assert.match(layout, /resolveShopAdminDataAccess/);
   assert.match(layout, /access\.status !== "ready"/);
@@ -47,8 +48,10 @@ test("TASK-008 Shop Admin shell artifacts exist and stay boundary-safe", () => {
   assert.match(shell, /^"use client";/);
   assert.match(shell, /usePathname/);
   assert.match(shell, /useState/);
-  assert.match(shell, /aria-label="Shop sections"/);
-  assert.match(shell, /Skip to shop content/);
+  assert.match(shell, /aria-label=\{labels\.navigationAria\}/);
+  assert.match(shell, /\{labels\.skipLink\}/);
+  assert.match(dictionary, /navigationAria: "Shop sections"/);
+  assert.match(dictionary, /skipLink: "Skip to shop content"/);
   assert.doesNotMatch(shell, /@\/server|src\/server|@supabase\//);
 });
 

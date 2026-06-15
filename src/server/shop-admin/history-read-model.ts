@@ -21,6 +21,8 @@ type SyncEventRow = Pick<
   Tables<"sync_events">,
   | "id"
   | "shop_id"
+  | "batch_id"
+  | "client_event_id"
   | "domain"
   | "event_type"
   | "source"
@@ -58,8 +60,35 @@ type SharedSheetSessionRow = Pick<
   | "updated_at"
   | "deleted_at"
   | "payload_version"
+  | "is_manual_entry"
   | "data"
   | "session_overlay"
+>;
+type SharedSheetSessionDiagnosticsRow = Pick<
+  Tables<"shared_sheet_session_diagnostics">,
+  | "remote_id"
+  | "shop_id"
+  | "owner_user_id"
+  | "display_name"
+  | "supplier"
+  | "category"
+  | "timestamp"
+  | "updated_at"
+  | "deleted_at"
+  | "payload_version"
+  | "is_manual_entry"
+  | "data_rows"
+  | "item_rows"
+  | "column_count"
+  | "overlay_status"
+  | "overlay_schema"
+  | "overlay_bytes"
+  | "editable_rows"
+  | "complete_rows"
+  | "complete_count"
+  | "missing_count"
+  | "data_summary"
+  | "overlay_summary"
 >;
 type SharedSheetSessionDetailRow = Pick<
   Tables<"shared_sheet_sessions">,
@@ -89,18 +118,32 @@ export type ShopHistoryMapping = {
 
 export type ShopSyncEventActivity = {
   eventId: string;
+  batchId: string | null;
+  clientEventId: string | null;
   domain: string;
   eventType: string;
   status: "pending" | "success" | "failed";
+  sourceScope: ShopHistorySourceScope;
   source: string | null;
   sourceDeviceId: string | null;
   changedCount: number;
+  sessionIds: readonly string[];
   entitySummary: string;
   metadataSummary: string;
   createdAt: string;
 };
 
-export type ShopHistorySession = {
+export type ShopHistorySourceScope = "shop_scoped" | "legacy_owner_bridge";
+
+export type ShopHistoryOverlayStatus =
+  | "ok"
+  | "missing"
+  | "invalid_shape"
+  | "schema_unsupported"
+  | "too_large"
+  | "legacy_v1";
+
+export type ShopHistorySessionAnalysis = {
   remoteId: string;
   displayName: string;
   supplier: string;
@@ -109,8 +152,37 @@ export type ShopHistorySession = {
   updatedAt: string;
   deletedAt: string | null;
   payloadVersion: number;
+  state: "active" | "tombstone";
+  sourceScope: ShopHistorySourceScope;
+  isManualEntry: boolean;
+  rowCount: number;
+  itemRowCount: number;
+  columnCount: number;
+  completeCount: number;
+  missingCount: number;
+  overlayStatus: ShopHistoryOverlayStatus;
+  overlaySchema: number | null;
+  overlayBytes: number;
+  editableRows: number;
+  completeRows: number;
+  relatedSyncEventCount: number;
+  latestRelatedSyncAt: string | null;
+};
+
+export type ShopHistorySession = ShopHistorySessionAnalysis & {
   dataSummary: string;
   overlaySummary: string;
+};
+
+export type ShopHistoryTablePreviewRow = {
+  rowKey: string;
+  rowNumber: string;
+  complete: string;
+  editable: string;
+  item: string;
+  barcode: string;
+  name: string;
+  values: string;
 };
 
 export type ShopHistoryReadModel = {
@@ -149,6 +221,9 @@ export type ShopHistoryDetail = {
   rawJsonPreview: string;
   createdAt: string;
   fields: readonly ShopHistoryDetailField[];
+  sessionAnalysis: ShopHistorySessionAnalysis | null;
+  tablePreview: readonly ShopHistoryTablePreviewRow[];
+  relatedSyncEvents: readonly ShopSyncEventActivity[];
 };
 
 export type ShopHistoryDetailReadModel = {
@@ -179,6 +254,46 @@ const emptyDetail = {
   mapping: null,
   detail: null,
 } as const;
+
+const SESSION_PAYLOAD_VERSION = 2;
+const SESSION_OVERLAY_SCHEMA = 1;
+const SESSION_OVERLAY_MAX_BYTES = 512 * 1024;
+const HISTORY_PREVIEW_ROW_LIMIT = 8;
+const HISTORY_CELL_MAX_LENGTH = 120;
+
+export type SessionDataSummary = {
+  grid: string[][];
+  rowCount: number;
+  itemRowCount: number;
+  columnCount: number;
+};
+
+export type SessionOverlayAnalysis = {
+  overlayStatus: ShopHistoryOverlayStatus;
+  overlaySchema: number | null;
+  overlayBytes: number;
+  editableRows: number;
+  completeRows: number;
+  completeCount: number;
+  missingCount: number;
+};
+
+type ScopedSyncEventRow = SyncEventRow & {
+  sourceScope: ShopHistorySourceScope;
+};
+
+type ScopedSharedSheetSessionRow = SharedSheetSessionRow & {
+  sourceScope: ShopHistorySourceScope;
+};
+
+type ScopedSharedSheetSessionDiagnosticsRow =
+  SharedSheetSessionDiagnosticsRow & {
+    sourceScope: ShopHistorySourceScope;
+  };
+
+type ScopedSharedSheetSessionDetailRow = SharedSheetSessionDetailRow & {
+  sourceScope: ShopHistorySourceScope;
+};
 
 function redactHistoryReadModelError(error: unknown): ShopAdminReadModelError {
   const code =
@@ -221,6 +336,23 @@ function isSensitiveJsonKey(key: string) {
   ].some((part) => normalized.includes(part));
 }
 
+function redactSensitiveText(value: string) {
+  const trimmed = value.trim();
+
+  if (
+    /bearer\s+[a-z0-9._-]+/i.test(trimmed) ||
+    /\beyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{10,}/.test(trimmed) ||
+    /\b(?:sk|pk|rk|sbp|ghp|github_pat)_[a-z0-9_]{12,}/i.test(trimmed) ||
+    /\b(password|secret|token|credential|refresh[_-]?token|access[_-]?token|pin)\b/i.test(
+      trimmed,
+    )
+  ) {
+    return "[redacted]";
+  }
+
+  return value;
+}
+
 export function redactShopAdminJson(value: Json): Json {
   if (Array.isArray(value)) {
     return value.slice(0, 20).map((item) => redactShopAdminJson(item));
@@ -238,6 +370,10 @@ export function redactShopAdminJson(value: Json): Json {
         ];
       }),
     );
+  }
+
+  if (typeof value === "string") {
+    return redactSensitiveText(value);
   }
 
   return value;
@@ -309,22 +445,354 @@ export function stringifyRedactedJson(value: Json | null, maxLength = 900) {
   return `${rendered.slice(0, maxLength)}... [truncated]`;
 }
 
-function mapSyncEvent(row: SyncEventRow): ShopSyncEventActivity {
+export function safeJsonByteSize(value: Json | null) {
+  if (value === null) {
+    return 0;
+  }
+
+  return new TextEncoder().encode(JSON.stringify(value)).length;
+}
+
+function stringGridFromJson(value: Json | null): string[][] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((row) => {
+    if (!Array.isArray(row)) {
+      return [];
+    }
+
+    return row.map((cell) => {
+      if (
+        cell === null ||
+        typeof cell === "string" ||
+        typeof cell === "number" ||
+        typeof cell === "boolean"
+      ) {
+        return redactSensitiveText(String(cell ?? ""));
+      }
+
+      return stringifyRedactedJson(cell, HISTORY_CELL_MAX_LENGTH);
+    });
+  });
+}
+
+export function summarizeSessionDataGrid(data: Json | null): SessionDataSummary {
+  const grid = stringGridFromJson(data);
+  const rowCount = grid.length;
+  const itemRowCount = grid.slice(1).filter((row) =>
+    row.some((cell) => cell.trim().length > 0),
+  ).length;
+  const columnCount = grid.reduce(
+    (currentMax, row) => Math.max(currentMax, row.length),
+    0,
+  );
+
+  return { columnCount, grid, itemRowCount, rowCount };
+}
+
+function overlayObject(overlay: Json | null) {
+  return overlay && typeof overlay === "object" && !Array.isArray(overlay)
+    ? (overlay as Record<string, Json>)
+    : null;
+}
+
+export function analyzeSessionOverlay({
+  data,
+  payloadVersion,
+  sessionOverlay,
+}: {
+  data: Json | null;
+  payloadVersion: number;
+  sessionOverlay: Json | null;
+}): SessionOverlayAnalysis {
+  const dataSummary = summarizeSessionDataGrid(data);
+  const overlayBytes = safeJsonByteSize(sessionOverlay);
+
+  if (payloadVersion < SESSION_PAYLOAD_VERSION) {
+    return {
+      completeCount: 0,
+      completeRows: 0,
+      editableRows: 0,
+      missingCount: dataSummary.itemRowCount,
+      overlayBytes,
+      overlaySchema: null,
+      overlayStatus: "legacy_v1",
+    };
+  }
+
+  if (sessionOverlay === null) {
+    return {
+      completeCount: 0,
+      completeRows: 0,
+      editableRows: 0,
+      missingCount: dataSummary.itemRowCount,
+      overlayBytes,
+      overlaySchema: null,
+      overlayStatus: "missing",
+    };
+  }
+
+  if (overlayBytes > SESSION_OVERLAY_MAX_BYTES) {
+    return {
+      completeCount: 0,
+      completeRows: 0,
+      editableRows: 0,
+      missingCount: dataSummary.itemRowCount,
+      overlayBytes,
+      overlaySchema: null,
+      overlayStatus: "too_large",
+    };
+  }
+
+  const overlay = overlayObject(sessionOverlay);
+  const overlaySchema = overlay?.overlay_schema;
+  const editable = overlay?.editable;
+  const complete = overlay?.complete;
+  const editableRows = Array.isArray(editable) ? editable.length : 0;
+  const completeRows = Array.isArray(complete) ? complete.length : 0;
+  const completeCount = Array.isArray(complete)
+    ? complete.slice(1).filter((value) => value === true).length
+    : 0;
+
+  if (
+    !overlay ||
+    typeof overlaySchema !== "number" ||
+    !Array.isArray(editable) ||
+    !editable.every((row) => Array.isArray(row)) ||
+    !Array.isArray(complete) ||
+    !complete.every((value) => typeof value === "boolean")
+  ) {
+    return {
+      completeCount: 0,
+      completeRows: 0,
+      editableRows: 0,
+      missingCount: dataSummary.itemRowCount,
+      overlayBytes,
+      overlaySchema: typeof overlaySchema === "number" ? overlaySchema : null,
+      overlayStatus: "invalid_shape",
+    };
+  }
+
+  if (overlaySchema !== SESSION_OVERLAY_SCHEMA) {
+    return {
+      completeCount: 0,
+      completeRows: 0,
+      editableRows: 0,
+      missingCount: dataSummary.itemRowCount,
+      overlayBytes,
+      overlaySchema,
+      overlayStatus: "schema_unsupported",
+    };
+  }
+
+  if (
+    editableRows !== dataSummary.rowCount ||
+    completeRows !== dataSummary.rowCount
+  ) {
+    return {
+      completeCount: 0,
+      completeRows: 0,
+      editableRows: 0,
+      missingCount: dataSummary.itemRowCount,
+      overlayBytes,
+      overlaySchema,
+      overlayStatus: "invalid_shape",
+    };
+  }
+
+  return {
+    completeCount,
+    completeRows,
+    editableRows,
+    missingCount: Math.max(0, dataSummary.itemRowCount - completeCount),
+    overlayBytes,
+    overlaySchema,
+    overlayStatus: "ok",
+  };
+}
+
+function safeHistoryCell(value: string | null | undefined, maxLength = 72) {
+  const redacted = redactSensitiveText(value ?? "").replace(/\s+/g, " ").trim();
+
+  if (!redacted) {
+    return "Not set";
+  }
+
+  return redacted.length > maxLength
+    ? `${redacted.slice(0, maxLength)}...`
+    : redacted;
+}
+
+function previewOverlay(overlay: Json | null) {
+  const value = overlayObject(overlay);
+  const editable = value?.editable;
+  const complete = value?.complete;
+
+  return {
+    complete: Array.isArray(complete) ? complete : [],
+    editable: Array.isArray(editable) ? stringGridFromJson(editable) : [],
+  };
+}
+
+function inferBarcode(row: readonly string[]) {
+  return row.find((cell) => /^[0-9]{6,}$/.test(cell.trim())) ?? "";
+}
+
+function inferName(row: readonly string[], barcode: string) {
+  return (
+    row.find((cell) => {
+      const trimmed = cell.trim();
+
+      return trimmed.length > 0 && trimmed !== barcode && !/^[0-9.,-]+$/.test(trimmed);
+    }) ?? ""
+  );
+}
+
+export function safeHistoryTablePreview({
+  data,
+  overlayStatus,
+  sessionOverlay,
+}: {
+  data: Json | null;
+  overlayStatus?: ShopHistoryOverlayStatus;
+  sessionOverlay: Json | null;
+}): ShopHistoryTablePreviewRow[] {
+  const grid = stringGridFromJson(data).slice(0, HISTORY_PREVIEW_ROW_LIMIT);
+  const canUseOverlay = overlayStatus === "ok";
+  const overlay = canUseOverlay
+    ? previewOverlay(sessionOverlay)
+    : { complete: [], editable: [] };
+
+  return grid.map((row, index) => {
+    const editableRow = overlay.editable[index] ?? [];
+    const isComplete = overlay.complete[index] === true;
+    const barcode = inferBarcode(row);
+    const name = inferName(row, barcode);
+
+    return {
+      rowKey: `preview:${index + 1}`,
+      rowNumber: String(index + 1),
+      complete: canUseOverlay
+        ? isComplete
+          ? "Complete"
+          : "Missing"
+        : "Overlay unavailable",
+      editable:
+        !canUseOverlay
+          ? "Overlay unavailable"
+          : editableRow.filter((cell) => cell.trim().length > 0).length > 0
+          ? editableRow.map((cell) => safeHistoryCell(cell, 36)).join(" / ")
+          : "Not set",
+      item: safeHistoryCell(row.find((cell) => cell.trim().length > 0)),
+      barcode: safeHistoryCell(barcode),
+      name: safeHistoryCell(name),
+      values: row.slice(0, 6).map((cell) => safeHistoryCell(cell, 28)).join(" | "),
+    };
+  });
+}
+
+export function normalizeSessionIdsFromSyncEvent(
+  entityIds: Json | null,
+): string[] {
+  const ids: string[] = [];
+
+  const collect = (value: Json | undefined) => {
+    if (typeof value === "string" && value.trim().length > 0) {
+      ids.push(value.trim().toLowerCase());
+    }
+
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        collect(item);
+      }
+    }
+  };
+
+  if (entityIds && typeof entityIds === "object" && !Array.isArray(entityIds)) {
+    const objectValue = entityIds as Record<string, Json>;
+
+    collect(objectValue.history_session_ids);
+    collect(objectValue.historySessionIds);
+    collect(objectValue.history_session_id);
+    collect(objectValue.historySessionId);
+    collect(objectValue.session_ids);
+    collect(objectValue.sessionIds);
+    collect(objectValue.session_id);
+    collect(objectValue.sessionId);
+  } else {
+    collect(entityIds ?? undefined);
+  }
+
+  return Array.from(new Set(ids)).slice(0, 250);
+}
+
+export function mapRelatedHistorySyncEvents(
+  remoteId: string,
+  events: readonly ShopSyncEventActivity[],
+) {
+  const normalizedRemoteId = remoteId.trim().toLowerCase();
+
+  return events.filter(
+    (event) =>
+      event.domain === "history" && event.sessionIds.includes(normalizedRemoteId),
+  );
+}
+
+function sourceScopeDisplayName(sourceScope: ShopHistorySourceScope) {
+  const labels: Record<ShopHistorySourceScope, string> = {
+    legacy_owner_bridge: "Legacy owner bridge",
+    shop_scoped: "Shop scoped",
+  };
+
+  return labels[sourceScope];
+}
+
+function overlayStatusDisplayName(status: ShopHistoryOverlayStatus) {
+  const labels: Record<ShopHistoryOverlayStatus, string> = {
+    invalid_shape: "Invalid shape",
+    legacy_v1: "Legacy v1",
+    missing: "Missing",
+    ok: "OK",
+    schema_unsupported: "Unsupported schema",
+    too_large: "Too large",
+  };
+
+  return labels[status];
+}
+
+function mapSyncEvent(row: ScopedSyncEventRow): ShopSyncEventActivity {
   return {
     eventId: String(row.id),
+    batchId: row.batch_id,
+    clientEventId: row.client_event_id,
     domain: row.domain,
     eventType: row.event_type,
     status: inferSyncStatus(row.metadata, row.event_type),
+    sourceScope: row.sourceScope,
     source: row.source,
     sourceDeviceId: row.source_device_id,
     changedCount: row.changed_count,
+    sessionIds: normalizeSessionIdsFromSyncEvent(row.entity_ids),
     entitySummary: summarizeJson(row.entity_ids),
     metadataSummary: summarizeJson(row.metadata),
     createdAt: row.created_at,
   };
 }
 
-function mapSession(row: SharedSheetSessionRow): ShopHistorySession {
+function mapSession(
+  row: ScopedSharedSheetSessionRow,
+  events: readonly ShopSyncEventActivity[],
+): ShopHistorySession {
+  const dataSummary = summarizeSessionDataGrid(row.data);
+  const overlayAnalysis = analyzeSessionOverlay({
+    data: row.data,
+    payloadVersion: row.payload_version,
+    sessionOverlay: row.session_overlay,
+  });
+  const relatedEvents = mapRelatedHistorySyncEvents(row.remote_id, events);
+
   return {
     remoteId: row.remote_id,
     displayName: row.display_name,
@@ -334,8 +802,59 @@ function mapSession(row: SharedSheetSessionRow): ShopHistorySession {
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
     payloadVersion: row.payload_version,
+    state: row.deleted_at ? "tombstone" : "active",
+    sourceScope: row.sourceScope,
+    isManualEntry: row.is_manual_entry,
+    rowCount: dataSummary.rowCount,
+    itemRowCount: dataSummary.itemRowCount,
+    columnCount: dataSummary.columnCount,
+    completeCount: overlayAnalysis.completeCount,
+    missingCount: overlayAnalysis.missingCount,
+    overlayStatus: overlayAnalysis.overlayStatus,
+    overlaySchema: overlayAnalysis.overlaySchema,
+    overlayBytes: overlayAnalysis.overlayBytes,
+    editableRows: overlayAnalysis.editableRows,
+    completeRows: overlayAnalysis.completeRows,
+    relatedSyncEventCount: relatedEvents.length,
+    latestRelatedSyncAt: relatedEvents[0]?.createdAt ?? null,
     dataSummary: summarizeJson(row.data),
     overlaySummary: summarizeJson(row.session_overlay),
+  };
+}
+
+function mapSessionDiagnostics(
+  row: ScopedSharedSheetSessionDiagnosticsRow,
+  events: readonly ShopSyncEventActivity[],
+): ShopHistorySession {
+  const relatedEvents = mapRelatedHistorySyncEvents(row.remote_id, events);
+  const overlayStatus = row.overlay_status as ShopHistoryOverlayStatus;
+
+  return {
+    remoteId: row.remote_id,
+    displayName: row.display_name,
+    supplier: row.supplier,
+    category: row.category,
+    timestamp: row.timestamp,
+    updatedAt: row.updated_at,
+    deletedAt: row.deleted_at,
+    payloadVersion: row.payload_version,
+    state: row.deleted_at ? "tombstone" : "active",
+    sourceScope: row.sourceScope,
+    isManualEntry: row.is_manual_entry,
+    rowCount: row.data_rows,
+    itemRowCount: row.item_rows,
+    columnCount: row.column_count,
+    completeCount: row.complete_count,
+    missingCount: row.missing_count,
+    overlayStatus,
+    overlaySchema: row.overlay_schema,
+    overlayBytes: row.overlay_bytes,
+    editableRows: row.editable_rows,
+    completeRows: row.complete_rows,
+    relatedSyncEventCount: relatedEvents.length,
+    latestRelatedSyncAt: relatedEvents[0]?.createdAt ?? null,
+    dataSummary: row.data_summary,
+    overlaySummary: row.overlay_summary,
   };
 }
 
@@ -363,25 +882,37 @@ async function resolveHistorySourceState(
   supabase: SupabaseServerClient,
   selectedShop: ShopAdminShellShop,
 ) {
-  const sourcesResult = await supabase
-    .from("shop_inventory_sources")
-    .select("shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind")
-    .eq("shop_id", selectedShop.shopId)
-    .is("disabled_at", null)
-    .order("created_at", { ascending: false });
+  const [mappedSourceResult, blockingSourceResult] = await Promise.all([
+    supabase
+      .from("shop_inventory_sources")
+      .select("shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind")
+      .eq("shop_id", selectedShop.shopId)
+      .eq("mapping_state", "mapped")
+      .is("disabled_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1),
+    supabase
+      .from("shop_inventory_sources")
+      .select("shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind")
+      .eq("shop_id", selectedShop.shopId)
+      .neq("mapping_state", "mapped")
+      .is("disabled_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1),
+  ]);
 
-  if (sourcesResult.error) {
-    return { error: sourcesResult.error };
+  const sourceError = mappedSourceResult.error ?? blockingSourceResult.error;
+
+  if (sourceError) {
+    return { error: sourceError };
   }
 
-  const sources = (sourcesResult.data ?? []) as InventorySourceRow[];
   const mappedSource =
-    sources.find(
-      (source) =>
-        source.mapping_state === "mapped" && Boolean(source.owner_user_id),
+    ((mappedSourceResult.data ?? []) as InventorySourceRow[]).find((source) =>
+      Boolean(source.owner_user_id),
     ) ?? null;
   const blockingSource =
-    sources.find((source) => source.mapping_state !== "mapped") ?? null;
+    ((blockingSourceResult.data ?? []) as InventorySourceRow[])[0] ?? null;
 
   return {
     blockingSource,
@@ -389,6 +920,66 @@ async function resolveHistorySourceState(
     legacyOwnerUserId: mappedSource?.owner_user_id ?? null,
     mapping: mappedSource ? mapMapping(mappedSource) : null,
   };
+}
+
+async function loadHistorySyncEventsForShop(
+  supabase: SupabaseServerClient,
+  selectedShop: ShopAdminShellShop,
+  legacyOwnerUserId: string | null,
+) {
+  const directResult = await supabase
+    .from("sync_events")
+    .select(
+      "id,shop_id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
+    )
+    .eq("shop_id", selectedShop.shopId)
+    .eq("domain", "history")
+    .order("created_at", { ascending: false })
+    .limit(80);
+
+  if (directResult.error) {
+    return { error: directResult.error, events: [] };
+  }
+
+  const directRows: ScopedSyncEventRow[] = ((directResult.data ??
+    []) as SyncEventRow[]).map(
+    (row) => ({
+      ...row,
+      sourceScope: "shop_scoped" as const,
+    }),
+  );
+
+  if (!legacyOwnerUserId) {
+    return { error: null, events: directRows.map(mapSyncEvent) };
+  }
+
+  const legacyResult = await supabase
+    .from("sync_events")
+    .select(
+      "id,shop_id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
+    )
+    .is("shop_id", null)
+    .eq("owner_user_id", legacyOwnerUserId)
+    .eq("domain", "history")
+    .order("created_at", { ascending: false })
+    .limit(80);
+
+  if (legacyResult.error) {
+    return { error: legacyResult.error, events: directRows.map(mapSyncEvent) };
+  }
+
+  const legacyRows: ScopedSyncEventRow[] = ((legacyResult.data ??
+    []) as SyncEventRow[]).map(
+    (row) => ({
+      ...row,
+      sourceScope: "legacy_owner_bridge" as const,
+    }),
+  );
+  const rows = mergeRowsByKey(directRows, legacyRows, (event) =>
+    String(event.id),
+  );
+
+  return { error: null, events: rows.map(mapSyncEvent) };
 }
 
 type ParsedHistoryEntry =
@@ -488,6 +1079,12 @@ function mapSyncEventDetail(row: SyncEventDetailRow): ShopHistoryDetail {
     fields: [
       detailField("entry", "Entry", `sync:${row.id}`),
       detailField("type", "Type", "Sync event"),
+      detailField("record", "Source table", "sync_events"),
+      detailField(
+        "meaning",
+        "Record meaning",
+        "Technical synchronization event linked to mobile history entries; it is not the History Entry itself.",
+      ),
       detailField("domain", "Domain", row.domain),
       detailField("event", "Event type", row.event_type),
       detailField("source", "Source", row.source),
@@ -496,6 +1093,11 @@ function mapSyncEventDetail(row: SyncEventDetailRow): ShopHistoryDetail {
       detailField("batch", "Batch", row.batch_id),
       detailField("client", "Client event", row.client_event_id),
       detailField("records", "Record count", row.changed_count),
+      detailField(
+        "sessionIds",
+        "History session IDs",
+        normalizeSessionIdsFromSyncEvent(row.entity_ids).join(", "),
+      ),
       detailField("tables", "Tables involved", row.domain),
       detailField("payload", "Payload summary", payloadSummary),
       detailField("errors", "Sync errors", summarizeSyncErrors(row.metadata)),
@@ -503,10 +1105,18 @@ function mapSyncEventDetail(row: SyncEventDetailRow): ShopHistoryDetail {
       detailField("created", "Created", row.created_at),
       detailField("expires", "Expires", row.expires_at),
     ],
+    sessionAnalysis: null,
+    tablePreview: [],
+    relatedSyncEvents: [],
   };
 }
 
-function mapSessionDetail(row: SharedSheetSessionDetailRow): ShopHistoryDetail {
+function mapSessionDetail(
+  row: ScopedSharedSheetSessionDetailRow,
+  historyEvents: readonly ShopSyncEventActivity[],
+): ShopHistoryDetail {
+  const relatedSyncEvents = mapRelatedHistorySyncEvents(row.remote_id, historyEvents);
+  const analysis = mapSession(row, historyEvents);
   const payloadSummary = `${summarizeJson(row.data)}; ${summarizeJson(
     row.session_overlay,
   )}`;
@@ -514,6 +1124,10 @@ function mapSessionDetail(row: SharedSheetSessionDetailRow): ShopHistoryDetail {
     data: row.data,
     session_overlay: row.session_overlay,
   });
+  const overlayTrust =
+    analysis.overlayStatus === "ok"
+      ? "Overlay OK; completed and editable counts match the data rows."
+      : "Diagnostic only; do not trust completed or editable counts for this overlay.";
 
   return {
     entryId: `session:${row.remote_id}`,
@@ -529,13 +1143,39 @@ function mapSessionDetail(row: SharedSheetSessionDetailRow): ShopHistoryDetail {
     createdAt: row.timestamp,
     fields: [
       detailField("entry", "Entry", `session:${row.remote_id}`),
-      detailField("type", "Type", row.deleted_at ? "History tombstone" : "History session"),
+      detailField("type", "Type", row.deleted_at ? "Deleted history entry" : "History entry"),
+      detailField("record", "Source table", "shared_sheet_sessions"),
+      detailField("remoteId", "Remote ID", row.remote_id),
+      detailField(
+        "identity",
+        "Cross-platform identity",
+        "remote_id is the Android/iOS identity for this shared_sheet_sessions record.",
+      ),
+      detailField("state", "State", analysis.state === "tombstone" ? "Tombstone" : "Active"),
+      detailField(
+        "deletedMeaning",
+        "Deleted meaning",
+        row.deleted_at
+          ? "deleted_at means this shared_sheet_sessions record is a tombstone/deleted session."
+          : "Not deleted; deleted_at is empty.",
+      ),
+      detailField("scope", "Source scope", sourceScopeDisplayName(analysis.sourceScope)),
       detailField("display", "Display name", row.display_name),
       detailField("supplier", "Supplier", row.supplier),
       detailField("category", "Category", row.category),
       detailField("manual", "Manual entry", row.is_manual_entry),
       detailField("version", "Payload version", row.payload_version),
-      detailField("records", "Record count", 1),
+      detailField("rows", "Data rows", analysis.rowCount),
+      detailField("columns", "Columns", analysis.columnCount),
+      detailField("completed", "Completed rows", analysis.completeCount),
+      detailField("missing", "Missing rows", analysis.missingCount),
+      detailField("overlay", "Overlay status", overlayStatusDisplayName(analysis.overlayStatus)),
+      detailField("overlayTrust", "Overlay trust", overlayTrust),
+      detailField("overlaySchema", "Overlay schema", analysis.overlaySchema),
+      detailField("overlayBytes", "Overlay bytes", analysis.overlayBytes),
+      detailField("editableRows", "Editable rows", analysis.editableRows),
+      detailField("completeRows", "Complete flags", analysis.completeRows),
+      detailField("relatedEvents", "Related sync events", relatedSyncEvents.length),
       detailField("tables", "Tables involved", "shared_sheet_sessions"),
       detailField("payload", "Payload summary", payloadSummary),
       detailField("raw", "Redacted JSON", rawJsonPreview),
@@ -543,6 +1183,13 @@ function mapSessionDetail(row: SharedSheetSessionDetailRow): ShopHistoryDetail {
       detailField("updated", "Updated", row.updated_at),
       detailField("deleted", "Deleted", row.deleted_at),
     ],
+    sessionAnalysis: analysis,
+    tablePreview: safeHistoryTablePreview({
+      data: row.data,
+      overlayStatus: analysis.overlayStatus,
+      sessionOverlay: row.session_overlay,
+    }),
+    relatedSyncEvents,
   };
 }
 
@@ -587,7 +1234,7 @@ export async function getShopHistoryReadModel(
   const directSyncEventsResult = await supabase
     .from("sync_events")
     .select(
-      "id,shop_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
+      "id,shop_id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
     )
     .eq("shop_id", selectedShop.shopId)
     .in("domain", ["history", "catalog", "prices"])
@@ -608,10 +1255,16 @@ export async function getShopHistoryReadModel(
     };
   }
 
+  const directSyncEventRows: ScopedSyncEventRow[] = ((directSyncEventsResult.data ??
+    []) as SyncEventRow[]).map((row) => ({
+    ...row,
+    sourceScope: "shop_scoped" as const,
+  }));
+
   const directSessionsResult = await supabase
-    .from("shared_sheet_sessions")
+    .from("shared_sheet_session_diagnostics")
     .select(
-      "remote_id,shop_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,data,session_overlay",
+      "remote_id,shop_id,owner_user_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,is_manual_entry,data_rows,item_rows,column_count,overlay_status,overlay_schema,overlay_bytes,editable_rows,complete_rows,complete_count,missing_count,data_summary,overlay_summary",
     )
     .eq("shop_id", selectedShop.shopId)
     .order("updated_at", { ascending: false })
@@ -622,7 +1275,7 @@ export async function getShopHistoryReadModel(
       status: "error",
       selectedShop,
       mapping,
-      syncEvents: (directSyncEventsResult.data ?? []).map(mapSyncEvent),
+      syncEvents: directSyncEventRows.map(mapSyncEvent),
       sessions: [],
       readOnly: true,
       source: "supabase_server",
@@ -631,15 +1284,21 @@ export async function getShopHistoryReadModel(
     };
   }
 
-  let legacySyncEvents: SyncEventRow[] = [];
-  let legacySessions: SharedSheetSessionRow[] = [];
+  const directSessionRows: ScopedSharedSheetSessionDiagnosticsRow[] = ((directSessionsResult.data ??
+    []) as SharedSheetSessionDiagnosticsRow[]).map((row) => ({
+    ...row,
+    sourceScope: "shop_scoped" as const,
+  }));
+
+  let legacySyncEvents: ScopedSyncEventRow[] = [];
+  let legacySessions: ScopedSharedSheetSessionDiagnosticsRow[] = [];
 
   if (legacyOwnerUserId) {
     const [legacySyncEventsResult, legacySessionsResult] = await Promise.all([
       supabase
         .from("sync_events")
         .select(
-          "id,shop_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
+          "id,shop_id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
         )
         .is("shop_id", null)
         .eq("owner_user_id", legacyOwnerUserId)
@@ -647,9 +1306,9 @@ export async function getShopHistoryReadModel(
         .order("created_at", { ascending: false })
         .limit(50),
       supabase
-        .from("shared_sheet_sessions")
+        .from("shared_sheet_session_diagnostics")
         .select(
-          "remote_id,shop_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,data,session_overlay",
+          "remote_id,shop_id,owner_user_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,is_manual_entry,data_rows,item_rows,column_count,overlay_status,overlay_schema,overlay_bytes,editable_rows,complete_rows,complete_count,missing_count,data_summary,overlay_summary",
         )
         .is("shop_id", null)
         .eq("owner_user_id", legacyOwnerUserId)
@@ -660,12 +1319,16 @@ export async function getShopHistoryReadModel(
     const legacyError = legacySyncEventsResult.error ?? legacySessionsResult.error;
 
     if (legacyError) {
+      const directSyncEvents = directSyncEventRows.map(mapSyncEvent);
+
       return {
         status: "error",
         selectedShop,
         mapping,
-        syncEvents: (directSyncEventsResult.data ?? []).map(mapSyncEvent),
-        sessions: (directSessionsResult.data ?? []).map(mapSession),
+        syncEvents: directSyncEvents,
+        sessions: directSessionRows.map((session) =>
+          mapSessionDiagnostics(session, directSyncEvents),
+        ),
         readOnly: true,
         source: "supabase_server",
         reason: "Legacy mobile history rows could not be loaded through RLS.",
@@ -673,12 +1336,21 @@ export async function getShopHistoryReadModel(
       };
     }
 
-    legacySyncEvents = legacySyncEventsResult.data ?? [];
-    legacySessions = legacySessionsResult.data ?? [];
+    legacySyncEvents = ((legacySyncEventsResult.data ?? []) as SyncEventRow[]).map(
+      (row) => ({
+        ...row,
+        sourceScope: "legacy_owner_bridge" as const,
+      }),
+    );
+    legacySessions = ((legacySessionsResult.data ??
+      []) as SharedSheetSessionDiagnosticsRow[]).map((row) => ({
+      ...row,
+      sourceScope: "legacy_owner_bridge" as const,
+    }));
   }
 
-  const directSyncEvents = directSyncEventsResult.data ?? [];
-  const directSessions = directSessionsResult.data ?? [];
+  const directSyncEvents = directSyncEventRows;
+  const directSessions = directSessionRows;
 
   if (
     sourceState.blockingSource &&
@@ -699,23 +1371,26 @@ export async function getShopHistoryReadModel(
     };
   }
 
-  const syncEvents = mergeRowsByKey(
+  const syncEventRows = mergeRowsByKey(
     directSyncEvents,
     legacySyncEvents,
     (event) => String(event.id),
   );
-  const sessions = mergeRowsByKey(
+  const sessionRows = mergeRowsByKey(
     directSessions,
     legacySessions,
     (session) => session.remote_id,
   );
+  const syncEvents = syncEventRows.map(mapSyncEvent);
 
   return {
     status: "ready",
     selectedShop,
     mapping,
-    syncEvents: syncEvents.map(mapSyncEvent),
-    sessions: sessions.map(mapSession),
+    syncEvents,
+    sessions: sessionRows.map((session) =>
+      mapSessionDiagnostics(session, syncEvents),
+    ),
     readOnly: true,
     source: "supabase_server",
     reason:
@@ -888,6 +1563,25 @@ export async function getShopHistoryDetailReadModel(
     };
   }
 
+  const historyEventsResult = await loadHistorySyncEventsForShop(
+    supabase,
+    selectedShop,
+    legacyOwnerUserId,
+  );
+
+  if (historyEventsResult.error) {
+    return {
+      status: "error",
+      selectedShop,
+      mapping,
+      detail: null,
+      readOnly: true,
+      source: "supabase_server",
+      reason: "Related sync_events for this session could not be loaded.",
+      error: redactHistoryReadModelError(historyEventsResult.error),
+    };
+  }
+
   if (!sessionResult.data && legacyOwnerUserId) {
     const legacySessionResult = await supabase
       .from("shared_sheet_sessions")
@@ -917,7 +1611,13 @@ export async function getShopHistoryDetailReadModel(
         status: "ready",
         selectedShop,
         mapping,
-        detail: mapSessionDetail(legacySessionResult.data),
+        detail: mapSessionDetail(
+          {
+            ...legacySessionResult.data,
+            sourceScope: "legacy_owner_bridge" as const,
+          },
+          historyEventsResult.events,
+        ),
         readOnly: true,
         source: "supabase_server",
         reason:
@@ -943,7 +1643,12 @@ export async function getShopHistoryDetailReadModel(
     status: sessionResult.data ? "ready" : "not_found",
     selectedShop,
     mapping,
-    detail: sessionResult.data ? mapSessionDetail(sessionResult.data) : null,
+    detail: sessionResult.data
+      ? mapSessionDetail(
+          { ...sessionResult.data, sourceScope: "shop_scoped" as const },
+          historyEventsResult.events,
+        )
+      : null,
     readOnly: true,
     source: "supabase_server",
     reason: sessionResult.data

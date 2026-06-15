@@ -4,6 +4,8 @@ import {
 } from "@/components/admin/AdminDataTable";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { SectionCard } from "@/components/admin/SectionCard";
+import { getI18n } from "@/i18n/get-locale";
+import { translateShopSection, translateText } from "@/i18n/translate-sections";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "./shopLayout";
 import type { ShopSection, ShopSectionMetric } from "./shopSections";
 import type { ReactNode } from "react";
@@ -13,6 +15,13 @@ type ShopSectionPageProps = {
   rowActions?: {
     label: string;
     render: (row: AdminDataTableRow) => ReactNode;
+  };
+  secondaryRowActions?: {
+    label: string;
+    render: (row: AdminDataTableRow) => ReactNode;
+    renderForTable?: (
+      table: NonNullable<ShopSection["secondaryLiveData"]>[number],
+    ) => boolean;
   };
   section: ShopSection;
 };
@@ -31,41 +40,61 @@ function metricGridClassName(metricCount: number) {
   ].join(" ");
 }
 
-export function ShopSectionPage({
+export async function ShopSectionPage({
   liveDataToolbar,
   rowActions,
+  secondaryRowActions,
   section,
 }: ShopSectionPageProps) {
+  const { dictionary } = await getI18n();
+  const localizedSection = translateShopSection(dictionary, section);
   const liveData = section.liveData;
+  const localizedLiveData = localizedSection.liveData;
+  const localizedRowActions = rowActions
+    ? {
+        ...rowActions,
+        label: translateText(dictionary, rowActions.label),
+      }
+    : undefined;
+  const localizedSecondaryRowActions = secondaryRowActions
+    ? {
+        ...secondaryRowActions,
+        label: translateText(dictionary, secondaryRowActions.label),
+      }
+    : undefined;
 
   return (
     <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} flex flex-col gap-5`}>
       <PageHeader
-        eyebrow={section.eyebrow}
-        title={section.title}
-        description={section.description}
-        status={section.status}
+        eyebrow={localizedSection.eyebrow}
+        title={localizedSection.title}
+        description={localizedSection.description}
+        status={localizedSection.status}
         titleId="shop-page-title"
         accent="emerald"
       />
 
       <section
-        aria-label={`${section.title} status`}
-        className={metricGridClassName(section.metrics.length)}
+        aria-label={`${localizedSection.title} ${translateText(dictionary, "status")}`}
+        className={metricGridClassName(localizedSection.metrics.length)}
       >
-        {section.metrics.map((metric) => (
+        {localizedSection.metrics.map((metric) => (
           <article
             key={metric.label}
             className={[
-              "rounded-md border p-4 shadow-sm",
+              "min-w-0 rounded-md border p-4 shadow-sm",
               metricToneClasses[metric.tone],
             ].join(" ")}
           >
-            <p className="text-sm font-medium">{metric.label}</p>
-            <p className="mt-2 text-xl font-semibold tracking-normal">
+            <p className="break-words text-sm font-medium [overflow-wrap:anywhere]">
+              {metric.label}
+            </p>
+            <p className="mt-2 break-words text-xl font-semibold leading-7 tracking-normal [overflow-wrap:anywhere]">
               {metric.value}
             </p>
-            <p className="mt-1 text-sm leading-6 opacity-80">{metric.detail}</p>
+            <p className="mt-1 break-words text-sm leading-6 opacity-80 [overflow-wrap:anywhere]">
+              {metric.detail}
+            </p>
           </article>
         ))}
       </section>
@@ -74,25 +103,35 @@ export function ShopSectionPage({
 
       <div className="grid gap-5">
         <SectionCard
-          title={liveData ? liveData.title : "Planned state"}
-          description={
-            liveData
-              ? liveData.description
-              : "No live shop rows are available in this section yet. This page remains a guarded placeholder until its schema is verified."
+          title={
+            localizedLiveData
+              ? localizedLiveData.title
+              : translateText(dictionary, "Planned state")
           }
-          titleId={`${section.key}-status-title`}
+          description={
+            localizedLiveData
+              ? localizedLiveData.description
+              : translateText(
+                  dictionary,
+                  "No live shop rows are available in this section yet. This page remains a guarded placeholder until its schema is verified.",
+                )
+          }
+          titleId={`${localizedSection.key}-status-title`}
         >
-          {liveData ? (
+          {localizedLiveData ? (
             <AdminDataTable
-              caption={`${section.title} read-only table for the selected shop.`}
-              columns={liveData.columns}
-              rows={liveData.rows}
-              emptyState={liveData.emptyState}
-              rowActions={rowActions}
+              caption={`${localizedSection.title} ${translateText(
+                dictionary,
+                "read-only table for the selected shop.",
+              )}`}
+              columns={localizedLiveData.columns}
+              rows={localizedLiveData.rows}
+              emptyState={localizedLiveData.emptyState}
+              rowActions={localizedRowActions}
             />
           ) : (
             <div className="mt-5 grid gap-3">
-              {section.plannedWork.map((item) => (
+              {localizedSection.plannedWork.map((item) => (
                 <div
                   key={item}
                   className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm leading-6 text-zinc-700"
@@ -104,23 +143,37 @@ export function ShopSectionPage({
           )}
         </SectionCard>
 
-        {section.secondaryLiveData?.map((table) => (
-          <SectionCard
-            key={table.title}
-            title={table.title}
-            description={table.description}
-            titleId={`${section.key}-${table.title
-              .toLowerCase()
-              .replace(/[^a-z0-9]+/g, "-")}-title`}
-          >
-            <AdminDataTable
-              caption={`${section.title} ${table.title} table for the selected shop.`}
-              columns={table.columns}
-              rows={table.rows}
-              emptyState={table.emptyState}
-            />
-          </SectionCard>
-        ))}
+        {section.secondaryLiveData?.map((table, index) => {
+          const localizedTable =
+            localizedSection.secondaryLiveData?.[index] ?? table;
+          const tableRowActions =
+            localizedSecondaryRowActions &&
+            (secondaryRowActions?.renderForTable?.(table) ?? true)
+              ? localizedSecondaryRowActions
+              : undefined;
+
+          return (
+            <SectionCard
+              key={table.title}
+              title={localizedTable.title}
+              description={localizedTable.description}
+              titleId={`${localizedSection.key}-${table.title
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")}-title`}
+            >
+              <AdminDataTable
+                caption={`${localizedSection.title} ${localizedTable.title} ${translateText(
+                  dictionary,
+                  "table for the selected shop.",
+                )}`}
+                columns={localizedTable.columns}
+                rows={localizedTable.rows}
+                emptyState={localizedTable.emptyState}
+                rowActions={tableRowActions}
+              />
+            </SectionCard>
+          );
+        })}
       </div>
     </div>
   );

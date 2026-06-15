@@ -9,6 +9,8 @@ import {
   shortIdentifier,
 } from "@/components/platform/displayFormat";
 import type { Profile } from "@/domain/platform-admin/types";
+import { getI18n } from "@/i18n/get-locale";
+import { translateText } from "@/i18n/translate-sections";
 import { getPlatformAdminReadModel } from "@/server/platform-admin/read-model";
 import {
   grantPlatformAdminAction,
@@ -64,17 +66,21 @@ function asResultCode(value: string | undefined): ResultCode | null {
   return value && value in resultMessages ? (value as ResultCode) : null;
 }
 
-function profileNameById(profiles: readonly Profile[], profileId: string) {
+function profileNameById(
+  profiles: readonly Profile[],
+  profileId: string,
+  fallback: string,
+) {
   return (
     profiles.find((profile) => profile.profile_id === profileId)?.display_name ??
-    "Platform User"
+    fallback
   );
 }
 
-function ReasonInput() {
+function ReasonInput({ label }: { label: string }) {
   return (
     <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-      <span>Reason</span>
+      <span>{label}</span>
       <textarea
         name="reason"
         required
@@ -137,6 +143,8 @@ export default async function PlatformAdminsPage({
   searchParams?: SearchParams;
 }) {
   const params = searchParams ? await searchParams : {};
+  const { dictionary } = await getI18n();
+  const t = (value: string) => translateText(dictionary, value);
   const result = asResultCode(firstParam(params.result));
   const readModel = await getPlatformAdminReadModel();
   const ready = readModel.status === "ready";
@@ -155,10 +163,12 @@ export default async function PlatformAdminsPage({
     <AppShell activeSection="admins">
       <div className="mx-auto flex max-w-6xl flex-col gap-5">
         <PageHeader
-          eyebrow="Global security"
-          title="Platform Admins"
-          description="Grant and revoke Platform Admin access through server-side RPCs with anti self-lockout and audit."
-          status={ready ? "Live actions" : formatToken(readModel.status)}
+          eyebrow={t("Global security")}
+          title={t("Platform Admins")}
+          description={t(
+            "Grant and revoke Platform Admin access through server-side RPCs with anti self-lockout and audit.",
+          )}
+          status={ready ? t("Live actions") : t(formatToken(readModel.status))}
         />
 
         {result ? (
@@ -172,43 +182,48 @@ export default async function PlatformAdminsPage({
                 : "border-rose-200 bg-rose-50 text-rose-900",
             ].join(" ")}
           >
-            {resultMessages[result]}
+            {t(resultMessages[result])}
           </section>
         ) : null}
 
         {!ready ? (
           <SectionCard
-            title="Admin operations unavailable"
-            description="A valid Platform Admin server session is required before grant or revoke operations can run."
+            title={t("Admin operations unavailable")}
+            description={t(
+              "A valid Platform Admin server session is required before grant or revoke operations can run.",
+            )}
           >
-            <EmptyState title={formatToken(readModel.status)} description={readModel.reason} />
+            <EmptyState
+              title={t(formatToken(readModel.status))}
+              description={t(readModel.reason)}
+            />
           </SectionCard>
         ) : (
           <div className="grid gap-5">
             <section
-              aria-label="Platform Admin safeguards"
+              aria-label={t("Platform Admin safeguards")}
               className="grid gap-3 md:grid-cols-2 xl:grid-cols-4"
             >
               {[
                 {
-                  label: "Active admins",
+                  label: t("Active admins"),
                   value: String(activeAdmins.length),
-                  detail: "Visible active grants",
+                  detail: t("Visible active grants"),
                 },
                 {
-                  label: "Server-side audit boundary",
-                  value: "Required",
-                  detail: "Grant/revoke actions use audited RPCs",
+                  label: t("Server-side audit boundary"),
+                  value: t("Required"),
+                  detail: t("Grant/revoke actions use audited RPCs"),
                 },
                 {
-                  label: "Self-lockout protection",
-                  value: "Server enforced",
-                  detail: "Server blocks self-lockout and last-admin removal.",
+                  label: t("Self-lockout protection"),
+                  value: t("Server enforced"),
+                  detail: t("Server blocks self-lockout and last-admin removal."),
                 },
                 {
-                  label: "Metadata/redaction boundary",
-                  value: "Redacted",
-                  detail: "No raw sensitive metadata is rendered",
+                  label: t("Metadata/redaction boundary"),
+                  value: t("Redacted"),
+                  detail: t("No raw sensitive metadata is rendered"),
                 },
               ].map((item) => (
                 <div
@@ -230,18 +245,20 @@ export default async function PlatformAdminsPage({
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)] xl:items-start">
               <SectionCard
-                title="Grant Platform Admin"
-                description="Select an active profile, provide a reason, and type GRANT to confirm."
+                title={t("Grant Platform Admin")}
+                description={t(
+                  "Select an active profile, provide a reason, and type GRANT to confirm.",
+                )}
               >
                 <form action={grantPlatformAdminAction} className="grid max-w-2xl gap-4">
                   <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-                    <span>Profile</span>
+                    <span>{t("Profile")}</span>
                     <select
                       name="profileId"
                       required
                       className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
                     >
-                      <option value="">Select active profile</option>
+                      <option value="">{t("Select active profile")}</option>
                       {grantableProfiles.map((profile) => (
                         <option key={profile.profile_id} value={profile.profile_id}>
                           {profile.display_name}
@@ -249,22 +266,26 @@ export default async function PlatformAdminsPage({
                       ))}
                     </select>
                   </label>
-                  <ReasonInput />
-                  <ConfirmationInput label="Type GRANT to confirm" />
+                  <ReasonInput label={t("Reason")} />
+                  <ConfirmationInput label={t("Type GRANT to confirm")} />
                   <SubmitButton disabled={grantableProfiles.length === 0}>
-                    Grant admin
+                    {t("Grant admin")}
                   </SubmitButton>
                 </form>
               </SectionCard>
 
               <SectionCard
-                title="Active Platform Admins"
-                description="Server blocks self-lockout and last-admin removal. Revoke controls are collapsed by default."
+                title={t("Active Platform Admins")}
+                description={t(
+                  "Server blocks self-lockout and last-admin removal. Revoke controls are collapsed by default.",
+                )}
               >
                 {activeAdmins.length === 0 ? (
                   <EmptyState
-                    title="No active grants"
-                    description="No active Platform Admin grants are visible through RLS."
+                    title={t("No active grants")}
+                    description={t(
+                      "No active Platform Admin grants are visible through RLS.",
+                    )}
                   />
                 ) : (
                   <div className="grid gap-3">
@@ -280,13 +301,17 @@ export default async function PlatformAdminsPage({
                                 title={admin.profile_id}
                                 className="break-words text-base font-semibold text-slate-950"
                               >
-                                {profileNameById(readModel.profiles, admin.profile_id)}
+                                {profileNameById(
+                                  readModel.profiles,
+                                  admin.profile_id,
+                                  t("Platform User"),
+                                )}
                               </h3>
                               <p
                                 title={admin.profile_id}
                                 className="mt-1 break-all font-mono text-xs text-slate-500"
                               >
-                                Profile {shortIdentifier(admin.profile_id)}
+                                {t("Profile")} {shortIdentifier(admin.profile_id)}
                               </p>
                             </div>
                             <span className="w-fit rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
@@ -296,7 +321,9 @@ export default async function PlatformAdminsPage({
 
                           <dl className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
                             <div>
-                              <dt className="font-semibold text-slate-500">Grant ID</dt>
+                              <dt className="font-semibold text-slate-500">
+                                {t("Grant ID")}
+                              </dt>
                               <dd
                                 title={admin.platform_admin_id}
                                 className="break-all font-mono text-slate-800"
@@ -305,7 +332,9 @@ export default async function PlatformAdminsPage({
                               </dd>
                             </div>
                             <div>
-                              <dt className="font-semibold text-slate-500">Granted</dt>
+                              <dt className="font-semibold text-slate-500">
+                                {t("Granted")}
+                              </dt>
                               <dd
                                 title={admin.granted_at}
                                 className="whitespace-nowrap text-slate-800"
@@ -318,18 +347,18 @@ export default async function PlatformAdminsPage({
 
                         <details className="mt-4 rounded-md border border-rose-100 bg-white">
                           <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus-visible:ring-2 focus-visible:ring-rose-700">
-                            Show revoke controls
+                            {t("Show revoke controls")}
                           </summary>
                           <div className="border-t border-rose-100 bg-rose-50 p-3">
                           <p className="text-sm leading-5 text-rose-950">
-                            Revoke controls are collapsed by default. Server blocks self-lockout and last-admin removal.
+                            {t("Revoke controls are collapsed by default. Server blocks self-lockout and last-admin removal.")}
                           </p>
                           <form action={revokePlatformAdminAction} className="mt-3 grid gap-3">
                             <input type="hidden" name="profileId" value={admin.profile_id} />
-                            <ReasonInput />
-                            <ConfirmationInput label="Type REVOKE to confirm" />
+                            <ReasonInput label={t("Reason")} />
+                            <ConfirmationInput label={t("Type REVOKE to confirm")} />
                             <SubmitButton danger disabled={activeAdmins.length <= 1}>
-                              Revoke admin
+                              {t("Revoke admin")}
                             </SubmitButton>
                           </form>
                           </div>

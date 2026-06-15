@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
+import { getI18n } from "@/i18n/get-locale";
+import { translateText } from "@/i18n/translate-sections";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 
 export const metadata: Metadata = {
@@ -77,6 +79,7 @@ export default async function ShopSyncPage({
 }: {
   searchParams: ShopPageSearchParams;
 }) {
+  const { dictionary } = await getI18n();
   const params = await searchParams;
   const requestedShopId = getParam(params, "shop_id");
   const queryFilter = getBoundedFilterParam(params, "query");
@@ -112,61 +115,61 @@ export default async function ShopSyncPage({
           <input name="shop_id" type="hidden" value={requestedShopId} />
         ) : null}
         <label className={syncFilterLabelClassName}>
-          Search
+          {dictionary.shopFilters.search}
           <input
             className={syncFilterInputClassName}
             defaultValue={queryFilter ?? ""}
             maxLength={SYNC_FILTER_MAX_LENGTH}
             name="query"
-            placeholder="Search sync events"
+            placeholder={translateText(dictionary, "Search sync events")}
             type="search"
           />
         </label>
         <label className={syncFilterLabelClassName}>
-          Domain
+          {translateText(dictionary, "Domain")}
           <input
             className={syncFilterInputClassName}
             defaultValue={domainFilter ?? ""}
             maxLength={SYNC_FILTER_MAX_LENGTH}
             name="domain"
-            placeholder="Domain"
+            placeholder={translateText(dictionary, "Domain")}
             type="text"
           />
         </label>
         <label className={syncFilterLabelClassName}>
-          Source or device
+          {translateText(dictionary, "Source or device")}
           <input
             className={syncFilterInputClassName}
             defaultValue={sourceFilter ?? ""}
             maxLength={SYNC_FILTER_MAX_LENGTH}
             name="source"
-            placeholder="Device or source"
+            placeholder={translateText(dictionary, "Device or source")}
             type="text"
           />
         </label>
         <label className={syncFilterLabelClassName}>
-          Status
+          {translateText(dictionary, "Status")}
           <select
             className={syncFilterSelectClassName}
             defaultValue={statusFilter ?? ""}
             name="status"
           >
-            <option value="">Any</option>
-            <option value="pending">Pending</option>
-            <option value="success">Success</option>
-            <option value="failed">Failed</option>
+            <option value="">{translateText(dictionary, "Any")}</option>
+            <option value="pending">{translateText(dictionary, "Pending")}</option>
+            <option value="success">{translateText(dictionary, "Success")}</option>
+            <option value="failed">{translateText(dictionary, "Failed")}</option>
           </select>
         </label>
         <div className={syncFilterActionsClassName}>
           <button className={syncFilterButtonClassName}>
-            Apply filters
+            {dictionary.common.applyFilters}
           </button>
           {activeFilterCount > 0 ? (
             <a
               className={syncClearFiltersClassName}
               href={buildClearFiltersHref(requestedShopId)}
             >
-              Clear filters
+              {dictionary.common.clearFilters}
             </a>
           ) : null}
         </div>

@@ -28,16 +28,18 @@ test("TASK-053 auth login shell switches between Master and Admin tab modes", ()
   const loginPage = readProjectFile("src/app/auth/login/page.tsx");
   const loginAction = readProjectFile("src/app/auth/login/actions.ts");
   const authForm = readProjectFile("src/components/auth/AuthForm.tsx");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
+  const loginI18nSource = `${loginPage}\n${dictionary}`;
 
   assert.match(loginPage, /type LoginPageSearchParams = Promise/);
   assert.match(loginPage, /const query = await searchParams/);
   assert.match(loginPage, /next === "\/platform"/);
   assert.match(loginPage, /mode === "shop-code"/);
-  assert.match(loginPage, /Master Console sign in/);
-  assert.match(loginPage, /Master Console credentials/);
-  assert.match(loginPage, /Admin Console sign in/);
-  assert.match(loginPage, /Admin account credentials/);
-  assert.match(loginPage, /Shop code credentials/);
+  assert.match(loginI18nSource, /Master Console sign in/);
+  assert.match(loginI18nSource, /Master Console credentials/);
+  assert.match(loginI18nSource, /Admin Console sign in/);
+  assert.match(loginI18nSource, /Admin account credentials/);
+  assert.match(loginI18nSource, /Shop code credentials/);
   assert.match(loginPage, /role="tablist"/);
   assert.match(loginPage, /role="tab"/);
   assert.match(loginPage, /aria-selected=\{activeLoginMode === "admin-account"\}/);
@@ -63,19 +65,21 @@ test("TASK-053 Shop code form is shared and keeps staff login server action", ()
   assertPathExists("src/components/auth/ShopCodeLoginForm.tsx");
 
   const shopCodeLoginForm = readProjectFile("src/components/auth/ShopCodeLoginForm.tsx");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
+  const formI18nSource = `${shopCodeLoginForm}\n${dictionary}`;
   const staffLoginAction = readProjectFile(
     "src/app/(staff-auth)/shop/staff-login/actions.ts",
   );
   const staffLoginPage = readProjectFile("src/app/(staff-auth)/shop/staff-login/page.tsx");
 
   assert.match(shopCodeLoginForm, /staffManagerWebLoginFormAction/);
-  assert.match(shopCodeLoginForm, /aria-label="Shop code sign in"/);
+  assert.match(shopCodeLoginForm, /aria-label=\{labels\.formLabel\}/);
   assert.match(shopCodeLoginForm, /name="shopCode"/);
   assert.match(shopCodeLoginForm, /name="staffCode"/);
   assert.match(shopCodeLoginForm, /name="credential"/);
-  assert.match(shopCodeLoginForm, /Shop code/);
-  assert.match(shopCodeLoginForm, /Staff code/);
-  assert.match(shopCodeLoginForm, /PIN \/ password/);
+  assert.match(formI18nSource, /Shop code/);
+  assert.match(formI18nSource, /Staff code/);
+  assert.match(formI18nSource, /PIN \/ password/);
   assert.match(shopCodeLoginForm, /name="next"/);
   assert.match(staffLoginAction, /"use server"/);
   assert.match(staffLoginAction, /nextPathFromForm/);

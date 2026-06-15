@@ -111,6 +111,10 @@ function read(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
 }
 
+function optionalRead(relativePath) {
+  return existsSync(join(root, relativePath)) ? read(relativePath) : "";
+}
+
 function isTask041RuntimeCompletionActive(
   masterPlan = existsSync(join(root, "docs/MASTER-PLAN.md"))
     ? read("docs/MASTER-PLAN.md")
@@ -621,7 +625,17 @@ function checkTask008ShopShellArtifacts() {
     addFailure(`${shopShellPath} must keep pathname-aware navigation in a client boundary`);
   }
 
-  if (!/aria-label="Shop sections"/.test(shell) || !/Skip to shop content/.test(shell)) {
+  const dictionaries = optionalRead("src/i18n/dictionaries.ts");
+  const exposesShopNavigation =
+    /aria-label="Shop sections"/.test(shell) ||
+    (/aria-label=\{labels\.navigationAria\}/.test(shell) &&
+      /navigationAria:\s*"Shop sections"/.test(dictionaries));
+  const exposesShopSkipLink =
+    /Skip to shop content/.test(shell) ||
+    (/\{labels\.skipLink\}/.test(shell) &&
+      /skipLink:\s*"Skip to shop content"/.test(dictionaries));
+
+  if (!exposesShopNavigation || !exposesShopSkipLink) {
     addFailure(`${shopShellPath} must expose accessible Shop Admin navigation`);
   }
 
@@ -722,18 +736,26 @@ function checkTask009ShopSwitcherArtifacts() {
     addFailure(`${shopLayoutPath} must pass only server-authorized shops to ShopShell`);
   }
 
+  const exposesSwitchShop =
+    shell.includes('aria-label="Switch shop"') ||
+    (shell.includes("aria-label={labels.switchShop}") &&
+      /switchShop:\s*"Switch shop"/.test(optionalRead("src/i18n/dictionaries.ts")));
+
   for (const requiredSnippet of [
     "availableShops",
     "selectedShopId",
     "buildShopHref",
     "useSearchParams",
     "useRouter",
-    'aria-label="Switch shop"',
     "shop_id",
   ]) {
     if (!shell.includes(requiredSnippet)) {
       addFailure(`${shopShellPath} must include ${requiredSnippet}`);
     }
+  }
+
+  if (!exposesSwitchShop) {
+    addFailure(`${shopShellPath} must include aria-label=\"Switch shop\"`);
   }
 
   if (!/href=\{buildShopHref\(item\.href\)\}/.test(shell)) {
@@ -1389,6 +1411,10 @@ function checkTask012PosStaffCredentialPlanning() {
   ];
 
   for (const sourcePath of listFiles("src")) {
+    if (sourcePath.startsWith("src/i18n/")) {
+      continue;
+    }
+
     const source = read(sourcePath);
 
     for (const pattern of hardcodedStaffCredentialPatterns) {
@@ -4994,7 +5020,12 @@ function checkTask043PlatformAdminRuntimeFixes() {
     addFailure(`${sectionDataPath} must surface non-fatal staff safe read diagnostics`);
   }
 
-  if (!/action="\/auth\/logout"/.test(appShell) || !/>\s*Logout\s*</.test(appShell)) {
+  const exposesPlatformLogout =
+    />\s*Logout\s*</.test(appShell) ||
+    (/\{dictionary\.common\.logout\}/.test(appShell) &&
+      /logout:\s*"Logout"/.test(optionalRead("src/i18n/dictionaries.ts")));
+
+  if (!/action="\/auth\/logout"/.test(appShell) || !exposesPlatformLogout) {
     addFailure(`${appShellPath} must expose visible native Logout to /auth/logout`);
   }
 

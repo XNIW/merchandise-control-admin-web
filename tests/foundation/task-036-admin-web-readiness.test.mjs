@@ -96,6 +96,8 @@ test("TASK-036 npm scripts are safe local helpers and Vercel remains parked", ()
 test("TASK-036 Sync Center has server-side filters and redacted diagnostics without sales sync", () => {
   const page = readProjectFile("src/app/shop/sync/page.tsx");
   const sectionData = readProjectFile("src/server/shop-admin/shop-section-data.ts");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
+  const localizedSources = `${page}\n${sectionData}\n${dictionary}`;
   const syncSlice = sectionData.slice(
     sectionData.indexOf("export function buildSyncSection"),
     sectionData.indexOf("function historyDetailRow"),
@@ -119,7 +121,7 @@ test("TASK-036 Sync Center has server-side filters and redacted diagnostics with
     "Filtered result set",
     "no sync rows match the current filters.",
   ]) {
-    assertContains(`${page}\n${sectionData}`, required);
+    assertContains(localizedSources, required);
   }
 
   assert.doesNotMatch(`${page}\n${syncSlice}`, /sales|retry|offline queue|export async function POST/i);

@@ -53,7 +53,11 @@ test("TASK-060 governance is DONE after explicit confirmation", () => {
     "docs/TASKS/TASK-060-supplier-excel-android-style-preview-import.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-060/README.md";
 
-  assert.equal(existsSync(join(root, taskPath)), true, `${taskPath} is missing`);
+  assert.equal(
+    existsSync(join(root, taskPath)),
+    true,
+    `${taskPath} is missing`,
+  );
   assert.equal(
     existsSync(join(root, evidencePath)),
     true,
@@ -64,7 +68,10 @@ test("TASK-060 governance is DONE after explicit confirmation", () => {
   const evidence = read(evidencePath);
   const masterPlan = read("docs/MASTER-PLAN.md");
 
-  assertContains(task, "TASK-060 - Supplier Excel Android-style preview/import");
+  assertContains(
+    task,
+    "TASK-060 - Supplier Excel Android-style preview/import",
+  );
   assertContains(task, "Stato: `DONE`");
   assertContains(task, "Fase attuale: `DONE`");
   assertContains(evidence, "Verdict corrente: `DONE`");
@@ -81,11 +88,13 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
     "src/app/shop/_components/ImportExportActionPanel.tsx",
   );
 
-  assertContains(catalogPanel, "size?: \"default\" | \"wide\"");
-  assertContains(catalogPanel, "size=\"wide\"");
-  assertContains(catalogPanel, "title=\"Supplier workbook preview\"");
-  assertContains(catalogPanel, "max-w-[min(98vw,96rem)]");
-  assertContains(catalogPanel, "max-h-[92vh]");
+  assertContains(catalogPanel, 'size?: "default" | "wide"');
+  assertContains(catalogPanel, 'size="wide"');
+  assertContains(catalogPanel, 'title="Supplier workbook preview"');
+  assertContains(catalogPanel, "overflow-y-auto overflow-x-hidden");
+  assertContains(catalogPanel, "max-h-[calc(100vh-64px)]");
+  assertContains(catalogPanel, "sm:w-[min(1500px,calc(100vw-96px))]");
+  assertContains(catalogPanel, "min-w-0 max-w-[min(30vw,22rem)] shrink");
   assertContains(catalogPanel, "categories={categories}");
   assertContains(catalogPanel, "suppliers={suppliers}");
   assertContains(catalogPanel, "leadingAction?: DialogLeadingAction | null");
@@ -95,21 +104,27 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   assertContains(catalogPanel, "type HeaderFileState");
   assertContains(catalogPanel, "supplierImportHeaderFile");
   assertContains(catalogPanel, "supplierImportHeaderAccessory");
-  assertContains(catalogPanel, "onHeaderFileStateChange={handleSupplierImportHeaderFile}");
-  assertContains(catalogPanel, "onHeaderBackStateChange={handleSupplierImportLeadingAction}");
+  assertContains(
+    catalogPanel,
+    "onHeaderFileStateChange={handleSupplierImportHeaderFile}",
+  );
+  assertContains(
+    catalogPanel,
+    "onHeaderBackStateChange={handleSupplierImportLeadingAction}",
+  );
 
   for (const required of [
     "useId",
     "useRef",
     "fileInputRef",
-    "const importExportFileInputClassName = \"sr-only\"",
+    'const importExportFileInputClassName = "sr-only"',
     "className={importExportFileInputClassName}",
     "onDragOver",
     "onDragLeave",
     "onDrop",
     "onKeyDown",
     "fileInputRef.current?.click()",
-    "role=\"button\"",
+    'role="button"',
     "tabIndex={0}",
     "focus-visible:outline-emerald-600",
     "onDropFile(event.dataTransfer.files.item(0))",
@@ -119,11 +134,11 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
     "Upload a .xlsx or .xls workbook.",
     "supportedWorkbookAccept",
     "application/vnd.ms-excel",
-    "data-import-step=\"workbook-file\"",
+    'data-import-step="workbook-file"',
     "Check columns",
     "Verify detected product columns",
     "Confirm which workbook columns should be used before opening the",
-    "data-import-step=\"check-columns\"",
+    'data-import-step="check-columns"',
     "Product row sample",
     "Show raw workbook context",
     "Column mapping",
@@ -136,7 +151,7 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
     "Ignored columns",
     "Re-run preview with mapping",
     "Continue to import preview",
-    "data-import-step=\"import-preview\"",
+    'data-import-step="import-preview"',
     "Back to check columns",
     "Back to workbook file",
     "onHeaderBackStateChange?: (state: HeaderBackState | null) => void",
@@ -144,6 +159,7 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
     "Default category",
     "Show warnings/errors",
     "Show edited rows",
+    "supplier rows",
     "Recognized",
     "Recognized from file",
     "Current catalog values",
@@ -163,9 +179,9 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
     "You do not have permission to import catalog data for this shop.",
     "For security, the browser will ask you to select the workbook again",
     "authLoginHref(authPrincipalKind)",
-    "authPrincipalKind === \"pos_staff_manager\"",
-    "\"/shop/staff-login\"",
-    "\"/auth/login\"",
+    'authPrincipalKind === "pos_staff_manager"',
+    '"/shop/staff-login"',
+    '"/auth/login"',
     "isSessionAuthCode",
     "Boolean(authPrompt)",
     "type HeaderFileState",
@@ -186,10 +202,13 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   );
 
   assertContains(importPanel, "rowAdjustments(previewRows, edits, mode)");
-  assertContains(importPanel, "mode === \"supplier\"");
-  assertContains(importPanel, "step === \"workbook\" ? (");
+  assertContains(importPanel, 'mode === "supplier"');
+  assertContains(importPanel, 'step === "workbook" ? (');
   assertContains(importPanel, "{isDatabase ? (");
-  assertContains(importPanel, "Optional references start off until you turn them on.");
+  assertContains(
+    importPanel,
+    "Optional references start off until you turn them on.",
+  );
   assertContains(importPanel, "<DefaultImportSettings");
   assertContains(importPanel, "visibleSupplierMappingFields");
   assertContains(importPanel, "supplierHiddenMappingFields");
@@ -201,13 +220,19 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   assertContains(importPanel, "Fix column mapping before continuing.");
   assertContains(importPanel, "Choose a numeric column before continuing.");
   assertContains(importPanel, "isMappingFieldEnabled");
-  assertContains(importPanel, "aria-label={`Use ${label}`}");
+  assertContains(importPanel, 'aria-label={`${t("Use")} ${t(label)}`}');
   assertContains(importPanel, "columnDisplayLabel(column)");
-  assertContains(importPanel, "const displayedRows = rawRows.filter((row) => !row.isHeader).slice(0, 5);");
-  assertContains(importPanel, "Shows the first five product rows using the detected header labels.");
+  assertContains(
+    importPanel,
+    "const displayedRows = rawRows.filter((row) => !row.isHeader).slice(0, 5);",
+  );
+  assertContains(
+    importPanel,
+    "Shows the first five product rows using the detected header labels.",
+  );
   assertContains(importPanel, "data-product-row-sample");
   assertContains(importPanel, "data-product-row-sample-table");
-  assertContains(importPanel, "<th className=\"w-14 px-3 py-2\">No.</th>");
+  assertContains(importPanel, '<th className="w-14 px-3 py-2">{t("No.")}</th>');
   assertContains(importPanel, "rawWorkbookContextRows");
   assertContains(importPanel, "onHeaderBackStateChange(headerBackState)");
   assertContains(importPanel, "onHeaderFileStateChange(null)");
@@ -218,11 +243,13 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   );
   assert.match(
     importPanel,
-    /\{isDatabase \? \([\s\S]*<WizardHeader[\s\S]*onBack=\{goBackFromStep\}/,
-    "supplier wizard must render the body header/back only for database transfer",
+    /\{isDatabase && !hasExternalHeader \? \([\s\S]*<WizardHeader[\s\S]*onBack=\{goBackFromStep\}/,
+    "supplier wizard must render the body header/back only for standalone database transfer",
   );
   assert.doesNotMatch(
-    importPanel.match(/data-import-step="import-preview"[\s\S]*?<SummaryGrid/)?.[0] ?? "",
+    importPanel.match(
+      /data-import-step="import-preview"[\s\S]*?<SummaryGrid/,
+    )?.[0] ?? "",
     /DefaultImportSettings|Default supplier|Workbook file/,
     "Step 3 must not repeat workbook file or default supplier/category settings",
   );
@@ -230,15 +257,24 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   assertContains(importPanel, "!edit.retailPrice?.trim()");
   assertContains(importPanel, "!edit.stockQuantity?.trim()");
   assertContains(importPanel, "!edit.supplierName?.trim()");
-  assertContains(importPanel, "value={edit.stockQuantity ?? \"\"}");
-  assertContains(importPanel, "value={edit.retailPrice ?? \"\"}");
-  assertContains(importPanel, "value={edit.retailPrice ?? row.retailPrice ?? \"\"}");
-  assertContains(importPanel, "value={edit.stockQuantity ?? row.stockQuantity ?? \"\"}");
-  assertContains(importPanel, "list=\"supplier-import-supplier-options\"");
-  assertContains(importPanel, "list=\"supplier-import-category-options\"");
-  assertContains(importPanel, "formData.set(\"defaultSupplierName\", defaultSupplierName)");
-  assertContains(importPanel, "formData.set(\"defaultCategoryName\", defaultCategoryName)");
-  assertContains(importPanel, "formData.set(\"mappingOverride\", mappingOverride)");
+  assertContains(importPanel, 'value={edit.stockQuantity ?? ""}');
+  assertContains(importPanel, 'value={edit.retailPrice ?? ""}');
+  assertContains(importPanel, 'value={edit.retailPrice ?? ""}');
+  assertContains(importPanel, 'value={edit.stockQuantity ?? ""}');
+  assertContains(importPanel, 'list="supplier-import-supplier-options"');
+  assertContains(importPanel, 'list="supplier-import-category-options"');
+  assertContains(
+    importPanel,
+    'formData.set("defaultSupplierName", defaultSupplierName)',
+  );
+  assertContains(
+    importPanel,
+    'formData.set("defaultCategoryName", defaultCategoryName)',
+  );
+  assertContains(
+    importPanel,
+    'formData.set("mappingOverride", mappingOverride)',
+  );
   assertContains(importPanel, "recognizedPurchasePrice");
   assertContains(importPanel, "recognizedQuantity");
   assertContains(importPanel, "recognizedRetailPrice");
@@ -281,44 +317,55 @@ test("TASK-060 import auth separates expired session from permission denied UX",
   const loginPage = read("src/app/auth/login/page.tsx");
 
   for (const required of [
-    "\"session_expired\"",
-    "\"no_active_session\"",
-    "\"permission_denied\"",
+    '"session_expired"',
+    '"no_active_session"',
+    '"permission_denied"',
     "Session expired. Please sign in again.",
     "You do not have permission for this shop action.",
-    "access.status === \"session_expired\"",
-    "access.status === \"no_active_session\" || access.status === \"no_session\"",
-    "shopAdminActionResult(\"permission_denied\"",
+    'access.status === "session_expired"',
+    'access.status === "no_active_session" || access.status === "no_session"',
+    'shopAdminActionResult("permission_denied"',
   ]) {
     assertContains(actionContext, required);
   }
 
-  assertContains(staffAuth, "status: \"session_expired\"");
-  assertContains(staffAuth, "status: \"no_active_session\"");
-  assertContains(dataAccess, "\"session_expired\"");
-  assertContains(dataAccess, "\"no_active_session\"");
+  assertContains(staffAuth, 'status: "session_expired"');
+  assertContains(staffAuth, 'status: "no_active_session"');
+  assertContains(dataAccess, '"session_expired"');
+  assertContains(dataAccess, '"no_active_session"');
 
   for (const route of [previewRoute, applyRoute]) {
-    assertContains(route, "resolveShopActionContext(requestedShopId, \"catalog.import\")");
+    assertContains(
+      route,
+      'resolveShopActionContext(requestedShopId, "catalog.import")',
+    );
     assertContains(route, "statusForImportResult");
-    assertContains(route, "code === \"session_expired\" || code === \"no_active_session\"");
+    assertContains(
+      route,
+      'code === "session_expired" || code === "no_active_session"',
+    );
     assertContains(route, "return 401;");
-    assertContains(route, "code === \"permission_denied\" || code === \"unauthorized\"");
+    assertContains(
+      route,
+      'code === "permission_denied" || code === "unauthorized"',
+    );
     assertContains(route, "return 403;");
     assert.ok(
-      route.indexOf("resolveShopActionContext(requestedShopId, \"catalog.import\")") <
-        route.indexOf("request.formData()"),
+      route.indexOf(
+        'resolveShopActionContext(requestedShopId, "catalog.import")',
+      ) < route.indexOf("request.formData()"),
       "import auth must run before parsing multipart form data",
     );
     assert.ok(
-      route.indexOf("resolveShopActionContext(requestedShopId, \"catalog.import\")") <
-        route.indexOf("file.arrayBuffer()"),
+      route.indexOf(
+        'resolveShopActionContext(requestedShopId, "catalog.import")',
+      ) < route.indexOf("file.arrayBuffer()"),
       "import auth must run before reading workbook bytes",
     );
   }
 
   for (const required of [
-    "type AuthPrincipalKind = \"personal_account\" | \"pos_staff_manager\"",
+    'type AuthPrincipalKind = "personal_account" | "pos_staff_manager"',
     "type AuthPrompt",
     "isSessionAuthCode",
     "importErrorMessage",
@@ -336,18 +383,26 @@ test("TASK-060 import auth separates expired session from permission denied UX",
     assertContains(importPanel, required);
   }
 
-  assertContains(catalogPanel, "authPrincipalKind?: \"personal_account\" | \"pos_staff_manager\"");
+  assertContains(
+    catalogPanel,
+    'authPrincipalKind?: "personal_account" | "pos_staff_manager"',
+  );
   assertContains(catalogPanel, "authPrincipalKind={authPrincipalKind}");
-  assertContains(productsPage, "importContext.status === \"ready\"");
+  assertContains(productsPage, 'importContext.status === "ready"');
   assertContains(productsPage, "importContext.principalKind");
-  assertContains(importExportPage, "importContext.status === \"ready\"");
+  assertContains(importExportPage, 'importContext.status === "ready"');
   assertContains(importExportPage, "importContext.principalKind");
   assertContains(staffLoginPage, "next: safeNextPath(firstParam(params.next))");
   assertContains(staffLoginActions, "redirect(nextPath, RedirectType.replace)");
   assertContains(staffLoginActions, "resultPath(result.code, nextPath)");
-  assertContains(shopCodeForm, "<input name=\"next\" type=\"hidden\" value={nextPath} />");
-  assertContains(loginPage, "loginHref(nextPath, \"shop-code\")");
-  assertContains(loginPage, "<ShopCodeLoginForm nextPath={nextPath} result={result} />");
+  assertContains(
+    shopCodeForm,
+    '<input name="next" type="hidden" value={nextPath} />',
+  );
+  assertContains(loginPage, 'loginHref(nextPath, "shop-code")');
+  assertContains(loginPage, "<ShopCodeLoginForm");
+  assertContains(loginPage, "nextPath={nextPath}");
+  assertContains(loginPage, "result={result}");
   assert.doesNotMatch(
     importPanel,
     /Sheet:\s*\{preview\.selectedProductSheet \?\? "Unknown"\}[\s\S]{0,600}role="alert"[\s\S]{0,100}Session expired/,
@@ -415,7 +470,10 @@ test("TASK-060 header detection accepts shifted multilingual Android-style alias
   assert.equal(detection.headers.get("retailPrice"), 6);
   assert.equal(detection.headers.get("supplierName"), 7);
   assert.equal(detection.recognizedColumnSources.barcode.source, "alias");
-  assert.equal(detection.recognizedColumnSources.barcode.columnLabel, "co.barra");
+  assert.equal(
+    detection.recognizedColumnSources.barcode.columnLabel,
+    "co.barra",
+  );
 });
 
 test("TASK-060 Dingli-like supplier header is detected from shifted Chinese order sheet", () => {
@@ -562,7 +620,7 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
 
   for (const required of [
     "write_staff_shop_admin_audit",
-    "context.principalKind === \"pos_staff_manager\"",
+    'context.principalKind === "pos_staff_manager"',
     "recognizedColumnSources",
     "recognizedPurchasePrice: product.purchasePrice",
     "recognizedQuantity: product.stockQuantity",
@@ -587,14 +645,13 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     "productPreviewRows",
     "MAX_PRODUCT_SAMPLE_ROWS",
     "bindPreviewDigestToShop",
-    "catalogScope: readModel.catalogScope",
     "mappingId: readModel.mapping?.mappingId ?? null",
     "parsedDigest: parsed.digest",
     "shopId: context.selectedShop.shopId",
     "mappingConfirmed: true",
     "input.previewDigest !== boundPreviewDigest",
     "const requiredConfirmation =",
-    "importMode === \"database\" ? \"IMPORT DATABASE\" : \"APPLY\"",
+    'importMode === "database" ? "IMPORT DATABASE" : "APPLY"',
     "normalizedConfirmation !== requiredConfirmation",
     "applySupplierWorkbookRows",
     "const products = parsed.products.map((product)",
@@ -603,13 +660,13 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     "manualCategoryName",
     "defaultSupplierName",
     "defaultCategoryName",
-    "barcode: product.barcode || existing?.barcode || \"\"",
+    'barcode: product.barcode || existing?.barcode || ""',
     "productId: existing?.productId ?? product.productId",
-    "productName: product.productName || existing?.productName || \"\"",
+    'productName: product.productName || existing?.productName || ""',
     "categories: []",
     "priceHistory: []",
     "suppliers: []",
-    "parsed.importMode === \"supplier\"",
+    'parsed.importMode === "supplier"',
     "supplierName.value !== undefined",
     "categoryName.value !== undefined",
     "hasPlausibleProductIdentity",
@@ -620,13 +677,23 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     assertContains(workbook, required);
   }
 
+  assert.doesNotMatch(
+    workbook.match(
+      /function bindPreviewDigestToShop\([\s\S]*?\n\}/,
+    )?.[0] ?? "",
+    /catalogScope/,
+    "preview digest must not include mutable catalogScope",
+  );
+
   assert.match(
     workbook,
     /parsed\.importMode === "supplier"[\s\S]*applySupplierWorkbookRows[\s\S]*applyRowAdjustments/,
     "supplier mode must use the supplier product import path",
   );
   assert.doesNotMatch(
-    workbook.match(/function applySupplierWorkbookRows[\s\S]*?function buildProductIdMaps/)?.[0] ?? "",
+    workbook.match(
+      /function applySupplierWorkbookRows[\s\S]*?function buildProductIdMaps/,
+    )?.[0] ?? "",
     /Supplier import can update quantity or retail price only|flatMap/,
     "supplier path must not fail closed on new product rows",
   );
@@ -668,12 +735,14 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
 });
 
 test("TASK-060 workbook parser accepts XLSX, legacy XLS and HTML-Excel safely", () => {
-  const workbookSource = read("src/server/shop-admin/import-export-workbook.ts");
+  const workbookSource = read(
+    "src/server/shop-admin/import-export-workbook.ts",
+  );
   const routeSource = read("src/app/shop/import-export/preview/route.ts");
 
   for (const required of [
-    "import * as SheetJS from \"@e965/xlsx\"",
-    "const XLS_CONTENT_TYPE = \"application/vnd.ms-excel\"",
+    'import * as SheetJS from "@e965/xlsx"',
+    'const XLS_CONTENT_TYPE = "application/vnd.ms-excel"',
     "text/html",
     "application/xhtml+xml",
     "isLegacyWorkbookName",
@@ -689,7 +758,10 @@ test("TASK-060 workbook parser accepts XLSX, legacy XLS and HTML-Excel safely", 
     assertContains(workbookSource, required);
   }
 
-  assertContains(routeSource, "mappingOverride: formString(formData, \"mappingOverride\") || undefined");
+  assertContains(
+    routeSource,
+    'mappingOverride: formString(formData, "mappingOverride") || undefined',
+  );
 
   const xlsWorkbook = XLSX.utils.book_new();
   const xlsSheet = XLSX.utils.aoa_to_sheet([
@@ -703,10 +775,9 @@ test("TASK-060 workbook parser accepts XLSX, legacy XLS and HTML-Excel safely", 
     type: "buffer",
   });
   const parsedXls = XLSX.read(xlsBuffer, { type: "buffer" });
-  const parsedXlsRows = XLSX.utils.sheet_to_json(
-    parsedXls.Sheets.Products,
-    { header: 1 },
-  );
+  const parsedXlsRows = XLSX.utils.sheet_to_json(parsedXls.Sheets.Products, {
+    header: 1,
+  });
 
   assert.equal(parsedXls.SheetNames[0], "Products");
   assert.deepEqual(parsedXlsRows[1], [
@@ -754,11 +825,11 @@ test("TASK-060 supplier validation treats supplier/category references as previe
 
   for (const required of [
     "isSupplierReferenceOnlyIssue",
-    "issue.code === \"unknown_supplier\"",
-    "issue.code === \"unknown_category\"",
+    'issue.code === "unknown_supplier"',
+    'issue.code === "unknown_category"',
     "supplierVisibleRowErrors",
-    "parsed.importMode === \"supplier\"",
-    "adjustedParsed.importMode === \"supplier\"",
+    'parsed.importMode === "supplier"',
+    'adjustedParsed.importMode === "supplier"',
   ]) {
     assertContains(workbook, required);
   }
@@ -769,9 +840,9 @@ test("TASK-060 import routes keep no-store node runtime and guard files before r
   const applyRoute = read("src/app/shop/import-export/apply/route.ts");
 
   for (const route of [previewRoute, applyRoute]) {
-    assertContains(route, "export const dynamic = \"force-dynamic\"");
-    assertContains(route, "export const runtime = \"nodejs\"");
-    assertContains(route, "\"Cache-Control\": \"no-store\"");
+    assertContains(route, 'export const dynamic = "force-dynamic"');
+    assertContains(route, 'export const runtime = "nodejs"');
+    assertContains(route, '"Cache-Control": "no-store"');
     assertContains(route, "requestedShopIdFromUrl(request)");
     assert.ok(
       route.indexOf("guardCatalogImportExportPostRequest(request)") <
@@ -779,8 +850,9 @@ test("TASK-060 import routes keep no-store node runtime and guard files before r
       "request guard must run before request.formData()",
     );
     assert.ok(
-      route.indexOf("resolveShopActionContext(requestedShopId, \"catalog.import\")") <
-        route.indexOf("request.formData()"),
+      route.indexOf(
+        'resolveShopActionContext(requestedShopId, "catalog.import")',
+      ) < route.indexOf("request.formData()"),
       "auth must run before multipart parsing",
     );
     assert.ok(
@@ -788,6 +860,9 @@ test("TASK-060 import routes keep no-store node runtime and guard files before r
         route.indexOf("file.arrayBuffer()"),
       "file guard must run before file.arrayBuffer()",
     );
-    assert.doesNotMatch(route, /SUPABASE_SERVICE_ROLE_KEY|service_role|credential_hash/i);
+    assert.doesNotMatch(
+      route,
+      /SUPABASE_SERVICE_ROLE_KEY|service_role|credential_hash/i,
+    );
   }
 });

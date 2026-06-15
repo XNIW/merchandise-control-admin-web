@@ -24,11 +24,13 @@ test("TASK-043 keeps optional staff safe read failures from blocking Platform co
 test("TASK-043 Platform shell exposes a visible safe logout control", () => {
   const appShell = readProjectFile("src/components/platform/AppShell.tsx");
   const logoutRoute = readProjectFile("src/app/auth/logout/route.ts");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
 
   assert.match(appShell, /action="\/auth\/logout"/);
   assert.match(appShell, /method="get"/);
   assert.match(appShell, /type="submit"/);
-  assert.match(appShell, />\s*Logout\s*</);
+  assert.match(appShell, /dictionary\.common\.logout/);
+  assert.match(dictionary, /logout: "Logout"/);
   assert.match(logoutRoute, /signOut\(\)/);
   assert.match(logoutRoute, /NextResponse\.redirect/);
 });

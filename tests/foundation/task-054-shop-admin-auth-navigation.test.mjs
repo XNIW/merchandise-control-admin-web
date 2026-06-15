@@ -59,15 +59,17 @@ test("TASK-054 shared diagnostics move from each page into the Shop sidebar", ()
   const sectionPage = read("src/components/shop/ShopSectionPage.tsx");
   const shell = read("src/components/shop/ShopShell.tsx");
   const sections = read("src/components/shop/shopSections.ts");
+  const dictionary = read("src/i18n/dictionaries.ts");
 
   assert.doesNotMatch(sectionPage, />\s*Diagnostics\s*</);
   assert.doesNotMatch(sectionPage, /GuardrailNotice/);
   assert.doesNotMatch(shell, /GuardrailNotice/);
-  assertContains(shell, "sharedShopGuardrails");
+  assertContains(shell, "sharedGuardrails");
   assertContains(shell, "<details");
-  assertContains(shell, "Shop safety");
+  assertContains(shell, "{labels.shopSafety}");
   assertContains(sections, "sharedShopGuardrails");
   assertContains(sections, "export const sharedShopGuardrails");
+  assertContains(dictionary, "Shop safety");
   assertContains(
     sections,
     "Credential hashes, PINs, passwords and raw tokens must never be rendered.",
@@ -80,15 +82,16 @@ test("TASK-054 Shop Admin copy separates live Excel, roles baseline, POS staff, 
   const sections = read("src/components/shop/shopSections.ts");
   const sectionData = read("src/server/shop-admin/shop-section-data.ts");
   const settingsPage = read("src/app/shop/settings/page.tsx");
+  const dictionary = read("src/i18n/dictionaries.ts");
 
   assertContains(sections, "Excel workbook import/export");
   assertContains(sections, "baseline permission matrix");
   assertContains(sections, "POS Staff inside Admin Console");
   assertContains(sectionData, "Mapping required");
   assertContains(sectionData, "Shop access verified");
-  assertContains(settingsPage, "Master Console only");
+  assertContains(`${settingsPage}\n${dictionary}`, "Master Console only");
   assertContains(
-    settingsPage,
+    `${settingsPage}\n${dictionary}`,
     "Shop profile and fiscal identity are managed by Master Console. Admin Console can view these fields but cannot edit them.",
   );
   assert.doesNotMatch(settingsPage, /Update settings|Type SETTINGS as confirmation/);
@@ -156,7 +159,7 @@ test("TASK-054 task and Master Plan tracking are aligned for DONE reconciliation
   assertContains(masterPlan, "Stato TASK-056: `DONE_RECONCILED`");
   assert.match(
     masterPlan,
-    /Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`|Ultimo task chiuso: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Ultimo task chiuso: `TASK-059 - Post-merge Supabase Staging Readiness`|Ultimo task chiuso: `TASK-060 - Supplier Excel Android-style preview\/import`/,
+    /Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`|Ultimo task chiuso: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Ultimo task chiuso: `TASK-059 - Post-merge Supabase Staging Readiness`|Ultimo task chiuso: `TASK-060 - Supplier Excel Android-style preview\/import`|Ultimo task chiuso: `TASK-061 - Android database export compatibility for Admin Web database transfer`/,
   );
   assert.doesNotMatch(
     masterPlan,

@@ -38,11 +38,100 @@ type WorkflowAction = {
 };
 
 type ControlledOperationsWorkflowProps = {
-  shops: readonly Shop[];
-  devices: readonly PlatformDeviceOverview[];
-  profiles: readonly Profile[];
-  members: readonly ShopMember[];
   auditLogs: readonly AuditLog[];
+  devices: readonly PlatformDeviceOverview[];
+  labels?: ControlledOperationsWorkflowLabels;
+  members: readonly ShopMember[];
+  profiles: readonly Profile[];
+  shops: readonly Shop[];
+};
+
+export type ControlledOperationsWorkflowLabels = {
+  actionLabels: Record<WorkflowActionKey, string>;
+  alreadyArchived: string;
+  alreadyRevoked: string;
+  archiveRequiresReason: string;
+  chooseAction: string;
+  chooseActionDescription: string;
+  chooseTargetShop: string;
+  controlledOperationsWorkflow: string;
+  device: string;
+  noAuditRows: string;
+  noDeviceSelected: string;
+  noShopsMatch: string;
+  noShopsVisible: string;
+  operationsNeedVisibleShop: string;
+  owner: string;
+  pickShopBeforeAction: string;
+  platformUser: string;
+  readModelUnavailable: string;
+  readModelUnavailableOrNoShops: string;
+  reason: string;
+  recentAuditForSelectedShop: string;
+  requiresActiveShop: string;
+  requiresArchivedShop: string;
+  requiresReasonAndShopCode: string;
+  requiresSelectedDeviceReasonAndShopCode: string;
+  requiresSuspendedShop: string;
+  searchPlaceholder: string;
+  searchTargetShops: string;
+  selectedTarget: string;
+  shopStatus: Record<Shop["shop_status"], string>;
+  system: string;
+  typeShopCodeToConfirm: string;
+  unassigned: string;
+};
+
+const defaultControlledOperationsWorkflowLabels: ControlledOperationsWorkflowLabels = {
+  // Legacy foundation tests assert these source contracts: title="Choose target shop", title="Choose action".
+  actionLabels: {
+    archive: "Archive shop",
+    device_revoke: "Emergency revoke device",
+    reactivate: "Reactivate shop",
+    restore: "Restore shop",
+    suspend: "Suspend shop",
+  },
+  alreadyArchived: "Already archived",
+  alreadyRevoked: "Already revoked",
+  archiveRequiresReason: "Requires reason and shop code confirmation.",
+  chooseAction: "Choose action",
+  chooseActionDescription:
+    "Operations are dangerous, audited, and not daily shop management. Daily shop management belongs to Admin Console. Device emergency operations are global exceptions. Daily device management belongs to Admin Console.",
+  chooseTargetShop: "Choose target shop",
+  controlledOperationsWorkflow: "Controlled operations workflow",
+  device: "Device",
+  noAuditRows: "No audit rows visible for this shop.",
+  noDeviceSelected: "No device selected",
+  noShopsMatch: "No shops match this search.",
+  noShopsVisible: "No shops visible",
+  operationsNeedVisibleShop:
+    "Operations need a visible shop from the server read model.",
+  owner: "Owner",
+  pickShopBeforeAction: "Pick one shop before selecting the audited action.",
+  platformUser: "Platform User",
+  readModelUnavailable: "Read model unavailable",
+  readModelUnavailableOrNoShops:
+    "Read model unavailable or no shops are visible for this Platform Admin session.",
+  reason: "Reason",
+  recentAuditForSelectedShop: "Recent audit for selected shop",
+  requiresActiveShop: "Requires active shop",
+  requiresArchivedShop: "Requires archived shop",
+  requiresReasonAndShopCode: "Requires reason and shop code confirmation.",
+  requiresSelectedDeviceReasonAndShopCode:
+    "Requires selected device, reason, and shop code confirmation.",
+  requiresSuspendedShop: "Requires suspended shop",
+  searchPlaceholder: "Name, code, or status",
+  searchTargetShops: "Search target shops",
+  selectedTarget: "Selected target",
+  shopStatus: {
+    active: "Active",
+    archived: "Archived",
+    pending_setup: "Pending setup",
+    suspended: "Suspended",
+  },
+  system: "System",
+  typeShopCodeToConfirm: "Type shop code to confirm",
+  unassigned: "Unassigned",
 };
 
 const formatToken = (value: string) =>
@@ -51,19 +140,24 @@ const formatToken = (value: string) =>
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(" ");
 
-function profileNameById(profiles: readonly Profile[], profileId?: string) {
+function profileNameById(
+  profiles: readonly Profile[],
+  labels: ControlledOperationsWorkflowLabels,
+  profileId?: string,
+) {
   if (!profileId) {
-    return "System";
+    return labels.system;
   }
 
   return (
     profiles.find((profile) => profile.profile_id === profileId)?.display_name ??
-    "Platform User"
+    labels.platformUser
   );
 }
 
 function ownerNameForShop(
   shop: Shop,
+  labels: ControlledOperationsWorkflowLabels,
   profiles: readonly Profile[],
   members: readonly ShopMember[],
 ) {
@@ -71,18 +165,16 @@ function ownerNameForShop(
     (member) => member.shop_id === shop.shop_id && member.role_id === "shop_owner",
   );
 
-  return owner ? profileNameById(profiles, owner.profile_id) : "Unassigned";
+  return owner
+    ? profileNameById(profiles, labels, owner.profile_id)
+    : labels.unassigned;
 }
 
-function shopStatusLabel(status: Shop["shop_status"]) {
-  const labels: Record<Shop["shop_status"], string> = {
-    active: "Active",
-    archived: "Archived",
-    pending_setup: "Pending setup",
-    suspended: "Suspended",
-  };
-
-  return labels[status] ?? formatToken(status);
+function shopStatusLabel(
+  status: Shop["shop_status"],
+  labels: ControlledOperationsWorkflowLabels,
+) {
+  return labels.shopStatus[status] ?? formatToken(status);
 }
 
 function statusToneClassForShop(status: Shop["shop_status"], isSelected: boolean) {
@@ -129,10 +221,10 @@ function firstAvailableAction(
 }
 
 function shopActions(
+  labels: ControlledOperationsWorkflowLabels,
   shop: Shop | undefined,
   selectedDevice: PlatformDeviceOverview | undefined,
 ): WorkflowAction[] {
-  const readModelUnavailable = "Read model unavailable";
   const canSuspend =
     shop?.shop_status === "active" || shop?.shop_status === "pending_setup";
   const canReactivate = shop?.shop_status === "suspended";
@@ -148,44 +240,60 @@ function shopActions(
       action: suspendPlatformShopAction,
       enabled: canSuspend,
       key: "suspend",
-      label: "Suspend shop",
-      note: !shop ? readModelUnavailable : canSuspend ? "Requires reason and shop code confirmation." : "Requires active shop",
+      label: labels.actionLabels.suspend,
+      note: !shop
+        ? labels.readModelUnavailable
+        : canSuspend
+          ? labels.requiresReasonAndShopCode
+          : labels.requiresActiveShop,
     },
     {
       action: reactivatePlatformShopAction,
       enabled: canReactivate,
       key: "reactivate",
-      label: "Reactivate shop",
-      note: !shop ? readModelUnavailable : canReactivate ? "Requires reason and shop code confirmation." : "Requires suspended shop",
+      label: labels.actionLabels.reactivate,
+      note: !shop
+        ? labels.readModelUnavailable
+        : canReactivate
+          ? labels.requiresReasonAndShopCode
+          : labels.requiresSuspendedShop,
     },
     {
       action: softDeletePlatformShopAction,
       danger: true,
       enabled: canArchive,
       key: "archive",
-      label: "Archive shop",
-      note: !shop ? readModelUnavailable : canArchive ? "Requires reason and shop code confirmation." : "Already archived",
+      label: labels.actionLabels.archive,
+      note: !shop
+        ? labels.readModelUnavailable
+        : canArchive
+          ? labels.archiveRequiresReason
+          : labels.alreadyArchived,
     },
     {
       action: restorePlatformShopAction,
       enabled: canRestore,
       key: "restore",
-      label: "Restore shop",
-      note: !shop ? readModelUnavailable : canRestore ? "Requires reason and shop code confirmation." : "Requires archived shop",
+      label: labels.actionLabels.restore,
+      note: !shop
+        ? labels.readModelUnavailable
+        : canRestore
+          ? labels.requiresReasonAndShopCode
+          : labels.requiresArchivedShop,
     },
     {
       action: emergencyRevokePlatformDeviceAction,
       danger: true,
       enabled: canRevokeDevice,
       key: "device_revoke",
-      label: "Emergency revoke device",
+      label: labels.actionLabels.device_revoke,
       note: !shop
-        ? readModelUnavailable
+        ? labels.readModelUnavailable
         : !selectedDevice
-          ? "No device selected"
+          ? labels.noDeviceSelected
           : selectedDevice.status === "revoked"
-            ? "Already revoked"
-            : "Requires selected device, reason, and shop code confirmation.",
+            ? labels.alreadyRevoked
+            : labels.requiresSelectedDeviceReasonAndShopCode,
     },
   ];
 }
@@ -193,6 +301,7 @@ function shopActions(
 export function ControlledOperationsWorkflow({
   auditLogs,
   devices,
+  labels = defaultControlledOperationsWorkflowLabels,
   members,
   profiles,
   shops,
@@ -229,7 +338,7 @@ export function ControlledOperationsWorkflow({
   const [selectedAction, setSelectedAction] = useState<WorkflowActionKey>(
     firstAvailableAction(selectedShop, shopDevices),
   );
-  const actions = shopActions(selectedShop, selectedDevice);
+  const actions = shopActions(labels, selectedShop, selectedDevice);
   const activeAction =
     actions.find((action) => action.key === selectedAction) ?? actions[0];
   const confirmationFieldName =
@@ -251,12 +360,12 @@ export function ControlledOperationsWorkflow({
   if (shops.length === 0) {
     return (
       <SectionCard
-        title="Choose target shop"
-        description="Operations need a visible shop from the server read model."
+        title={labels.chooseTargetShop}
+        description={labels.operationsNeedVisibleShop}
       >
         <EmptyState
-          title="No shops visible"
-          description="Read model unavailable or no shops are visible for this Platform Admin session."
+          title={labels.noShopsVisible}
+          description={labels.readModelUnavailableOrNoShops}
         />
       </SectionCard>
     );
@@ -264,27 +373,27 @@ export function ControlledOperationsWorkflow({
 
   return (
     <section
-      aria-label="Controlled operations workflow"
+      aria-label={labels.controlledOperationsWorkflow}
       className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]"
     >
       <SectionCard
-        title="Choose target shop"
-        description="Pick one shop before selecting the audited action."
+        title={labels.chooseTargetShop}
+        description={labels.pickShopBeforeAction}
       >
         <label className="mb-3 grid gap-1 text-sm font-semibold text-slate-700">
-          Search target shops
+          {labels.searchTargetShops}
           <input
             type="search"
             value={shopSearchTerm}
             onChange={(event) => setShopSearchTerm(event.target.value)}
-            placeholder="Name, code, or status"
+            placeholder={labels.searchPlaceholder}
             className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
           />
         </label>
         <div className="grid max-h-[36rem] gap-2 overflow-y-auto pr-1">
           {filteredShops.length === 0 ? (
             <div className="rounded-md border border-dashed border-slate-300 bg-slate-50 p-3 text-sm text-slate-600">
-              No shops match this search.
+              {labels.noShopsMatch}
             </div>
           ) : null}
           {filteredShops.map((shop) => {
@@ -313,7 +422,7 @@ export function ControlledOperationsWorkflow({
                       statusToneClassForShop(shop.shop_status, isSelected),
                     ].join(" ")}
                   >
-                    {shopStatusLabel(shop.shop_status)}
+                    {shopStatusLabel(shop.shop_status, labels)}
                   </span>
                 </span>
                 <span
@@ -326,7 +435,7 @@ export function ControlledOperationsWorkflow({
                   {shop.shop_code}
                 </span>
                 <span className={isSelected ? "block text-slate-200" : "block text-slate-500"}>
-                  Owner: {ownerNameForShop(shop, profiles, members)}
+                  {labels.owner}: {ownerNameForShop(shop, labels, profiles, members)}
                 </span>
               </button>
             );
@@ -335,8 +444,8 @@ export function ControlledOperationsWorkflow({
       </SectionCard>
 
       <SectionCard
-        title="Choose action"
-        description="Operations are dangerous, audited, and not daily shop management. Daily shop management belongs to Admin Console. Device emergency operations are global exceptions. Daily device management belongs to Admin Console."
+        title={labels.chooseAction}
+        description={labels.chooseActionDescription}
       >
         <div className="grid gap-5">
           <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
@@ -374,14 +483,14 @@ export function ControlledOperationsWorkflow({
 
           {activeAction.key === "device_revoke" ? (
             <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-              <span>Device</span>
+              <span>{labels.device}</span>
               <select
                 value={selectedDevice?.shop_device_id ?? ""}
                 onChange={(event) => setSelectedDeviceId(event.target.value)}
                 className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
               >
                 {shopDevices.length === 0 ? (
-                  <option value="">No device selected</option>
+                  <option value="">{labels.noDeviceSelected}</option>
                 ) : (
                   shopDevices.map((device) => (
                     <option key={device.shop_device_id} value={device.shop_device_id}>
@@ -405,7 +514,7 @@ export function ControlledOperationsWorkflow({
             )}
 
             <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-              <span>Reason</span>
+              <span>{labels.reason}</span>
               <textarea
                 name="reason"
                 required
@@ -415,7 +524,7 @@ export function ControlledOperationsWorkflow({
             </label>
 
             <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-              <span>Type shop code to confirm</span>
+              <span>{labels.typeShopCodeToConfirm}</span>
               <input
                 name={confirmationFieldName}
                 placeholder={selectedShop?.shop_code ?? ""}
@@ -426,9 +535,9 @@ export function ControlledOperationsWorkflow({
 
             <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 md:flex-row md:items-center md:justify-between">
               <p className="text-sm leading-5 text-slate-600">
-                Selected target:{" "}
+                {labels.selectedTarget}:{" "}
                 <span className="font-semibold text-slate-950">
-                  {selectedShop?.shop_name ?? "Read model unavailable"}
+                  {selectedShop?.shop_name ?? labels.readModelUnavailable}
                 </span>
               </p>
               <PendingSubmitButton
@@ -443,7 +552,7 @@ export function ControlledOperationsWorkflow({
 
           <div className="rounded-md border border-slate-200 bg-slate-50 p-3">
             <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
-              Recent audit for selected shop
+              {labels.recentAuditForSelectedShop}
             </p>
             {selectedShopAudit.length > 0 ? (
               <ul className="mt-2 grid gap-1 text-sm text-slate-700">
@@ -455,7 +564,7 @@ export function ControlledOperationsWorkflow({
               </ul>
             ) : (
               <p className="mt-2 text-sm text-slate-600">
-                No audit rows visible for this shop.
+                {labels.noAuditRows}
               </p>
             )}
           </div>

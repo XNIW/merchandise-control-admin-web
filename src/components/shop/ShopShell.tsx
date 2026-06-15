@@ -3,13 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
-import {
-  shopNavigationSections,
-  shopNavigationItems,
-  sharedShopGuardrails,
-  type ShopNavigationSection,
-  type ShopSectionKey,
-} from "./shopSections";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import type { Dictionary } from "@/i18n/dictionaries";
+import type { SupportedLocale } from "@/i18n/locales";
+import type { ShopNavigationSection, ShopSectionKey } from "./shopSections";
 
 type ShopRole = "shop_owner" | "shop_manager";
 
@@ -25,22 +22,25 @@ type ShopShellShop = {
 type ShopShellProps = {
   availableShops: readonly ShopShellShop[];
   children: ReactNode;
+  labels: Dictionary["shopShell"];
+  languageSwitcherLabel: string;
+  locale: SupportedLocale;
+  logoutLabel: string;
+  navigationSections: readonly ShopNavigationSection[];
   principalKind: "personal_account" | "pos_staff_manager";
   selectedShopId: string;
+  sharedGuardrails: readonly string[];
 };
 
-function formatRole(role: ShopRole) {
-  return role
-    .split("_")
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
+function formatRole(role: ShopRole, labels: Dictionary["shopShell"]) {
+  return labels.roles[role];
 }
 
-function formatCompanyRut(value: string | undefined) {
+function formatCompanyRut(value: string | undefined, labels: Dictionary["shopShell"]) {
   const compact = (value ?? "").trim().replace(/[^0-9kK]/g, "").toUpperCase();
 
   if (compact.length < 2) {
-    return "Not configured";
+    return labels.notConfigured;
   }
 
   const body = compact.slice(0, -1);
@@ -54,9 +54,12 @@ function formatCompanyRut(value: string | undefined) {
   return `${groups.join(".")}-${dv}`;
 }
 
-function shopDisplayName(shop: ShopShellShop | undefined) {
+function shopDisplayName(
+  shop: ShopShellShop | undefined,
+  labels: Dictionary["shopShell"],
+) {
   if (!shop) {
-    return "No shop selected";
+    return labels.noShopSelected;
   }
 
   const shopName = shop.shopName.trim();
@@ -65,15 +68,18 @@ function shopDisplayName(shop: ShopShellShop | undefined) {
     return shopName;
   }
 
-  return "Shop name not configured";
+  return labels.shopNameNotConfigured;
 }
 
-function shopIdentityLine(shop: ShopShellShop | undefined) {
+function shopIdentityLine(
+  shop: ShopShellShop | undefined,
+  labels: Dictionary["shopShell"],
+) {
   if (!shop) {
-    return "Company RUT: Not configured";
+    return `${labels.companyRutPrefix}: ${labels.notConfigured}`;
   }
 
-  return `Company RUT: ${formatCompanyRut(shop.companyRut)}`;
+  return `${labels.companyRutPrefix}: ${formatCompanyRut(shop.companyRut, labels)}`;
 }
 
 function isActivePath(pathname: string, href: string) {
@@ -84,8 +90,12 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function sectionFromPath(pathname: string): ShopSectionKey | null {
-  const matchingItem = [...shopNavigationItems]
+function sectionFromPath(
+  pathname: string,
+  navigationSections: readonly ShopNavigationSection[],
+): ShopSectionKey | null {
+  const navigationItems = navigationSections.flatMap((section) => section.items);
+  const matchingItem = [...navigationItems]
     .sort((left, right) => right.href.length - left.href.length)
     .find((item) => isActivePath(pathname, item.href));
 
@@ -95,18 +105,22 @@ function sectionFromPath(pathname: string): ShopSectionKey | null {
 function ShopNavigation({
   buildShopHref,
   currentActive,
+  labels,
+  navigationSections,
   onNavigate,
 }: {
   buildShopHref: (href: string) => string;
   currentActive: ShopSectionKey | null;
+  labels: Dictionary["shopShell"];
+  navigationSections: readonly ShopNavigationSection[];
   onNavigate: (key: ShopSectionKey) => void;
 }) {
   return (
     <nav
-      aria-label="Shop sections"
+      aria-label={labels.navigationAria}
       className="space-y-2 lg:max-h-[calc(100vh-15rem)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1"
     >
-      {shopNavigationSections.map((section: ShopNavigationSection) => (
+      {navigationSections.map((section: ShopNavigationSection) => (
         <section key={section.key} className="space-y-1">
           <p className="px-2 text-[10px] font-semibold uppercase tracking-normal text-zinc-500">
             {section.label}
@@ -145,8 +159,14 @@ function ShopNavigation({
 export function ShopShell({
   availableShops,
   children,
+  labels,
+  languageSwitcherLabel,
+  locale,
+  logoutLabel,
+  navigationSections,
   principalKind,
   selectedShopId,
+  sharedGuardrails,
 }: ShopShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -156,7 +176,10 @@ export function ShopShell({
     key: ShopSectionKey;
     originPathname: string;
   } | null>(null);
-  const pathnameActive = useMemo(() => sectionFromPath(pathname), [pathname]);
+  const pathnameActive = useMemo(
+    () => sectionFromPath(pathname, navigationSections),
+    [navigationSections, pathname],
+  );
   const currentActive =
     optimisticActive?.originPathname === pathname
       ? optimisticActive.key
@@ -166,8 +189,8 @@ export function ShopShell({
     availableShops.find((shop) => shop.shopId === requestedShopId) ??
     availableShops.find((shop) => shop.shopId === selectedShopId) ??
     availableShops[0];
-  const selectedShopName = shopDisplayName(selectedShop);
-  const selectedShopIdentity = shopIdentityLine(selectedShop);
+  const selectedShopName = shopDisplayName(selectedShop, labels);
+  const selectedShopIdentity = shopIdentityLine(selectedShop, labels);
 
   function buildShopHref(href: string) {
     if (!selectedShop) {
@@ -194,11 +217,11 @@ export function ShopShell({
         href="#shop-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-zinc-950 focus:shadow"
       >
-        Skip to shop content
+        {labels.skipLink}
       </a>
       <div className="grid min-h-screen lg:grid-cols-[264px_1fr]">
         <aside
-          aria-label="Shop navigation"
+          aria-label={labels.navigationAria}
           className="border-b border-zinc-200 bg-white lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r"
         >
           <div className="flex min-h-full flex-col gap-5 px-4 py-5 lg:min-h-0">
@@ -213,13 +236,15 @@ export function ShopShell({
                 <p className="text-sm font-semibold text-zinc-950">
                   MerchandiseControl
                 </p>
-                <p className="text-xs text-zinc-500">Admin Console</p>
+                <p className="text-xs text-zinc-500">{labels.adminConsole}</p>
               </div>
             </div>
 
             <ShopNavigation
               buildShopHref={buildShopHref}
               currentActive={currentActive}
+              labels={labels}
+              navigationSections={navigationSections}
               onNavigate={(key) =>
                 setOptimisticActive({
                   key,
@@ -230,14 +255,14 @@ export function ShopShell({
 
             <div className="mt-auto rounded-md border border-emerald-200 bg-emerald-50/70 p-2.5">
               <p className="text-xs font-semibold uppercase tracking-normal text-emerald-900">
-                Shop safety
+                {labels.shopSafety}
               </p>
               <details className="mt-1">
                 <summary className="cursor-pointer text-xs font-medium text-emerald-950 outline-none focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2">
-                  Shared guardrails
+                  {labels.sharedGuardrails}
                 </summary>
                 <ul className="mt-2 space-y-1 border-t border-emerald-200 pt-2 text-xs leading-5 text-emerald-950">
-                  {sharedShopGuardrails.map((item) => (
+                  {sharedGuardrails.map((item) => (
                     <li key={item}>{item}</li>
                   ))}
                 </ul>
@@ -257,7 +282,7 @@ export function ShopShell({
                   id="selected-shop-context-label"
                   className="text-xs font-semibold uppercase text-zinc-500"
                 >
-                  Shop workspace
+                  {labels.selectedShopContext}
                 </p>
                 <p
                   id="selected-shop-summary"
@@ -273,7 +298,7 @@ export function ShopShell({
               <div className="flex flex-col gap-2 lg:items-end">
                 <div
                   className="flex flex-wrap items-center gap-2"
-                  aria-label="Shop selection"
+                  aria-label={labels.shopSelectionAria}
                 >
                   {hasMultipleShops ? (
                     <>
@@ -281,18 +306,18 @@ export function ShopShell({
                         htmlFor="shop-switcher"
                         className="text-xs font-semibold uppercase text-zinc-500"
                       >
-                        Switch shop
+                        {labels.switchShop}
                       </label>
                       <select
                         id="shop-switcher"
-                        aria-label="Switch shop"
+                        aria-label={labels.switchShop}
                         value={selectedShop?.shopId ?? ""}
                         onChange={handleShopChange}
                         className="h-10 min-w-56 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
                       >
                         {availableShops.map((shop) => (
                           <option key={shop.shopId} value={shop.shopId}>
-                            {shopDisplayName(shop)} ({shop.shopCode})
+                            {shopDisplayName(shop, labels)} ({shop.shopCode})
                           </option>
                         ))}
                       </select>
@@ -301,19 +326,24 @@ export function ShopShell({
 
                   {!hasMultipleShops && selectedShop ? (
                     <p className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700">
-                      Single shop workspace
+                      {labels.singleShopWorkspace}
                     </p>
                   ) : null}
                 </div>
 
-                <div className="flex flex-wrap gap-2" aria-label="Shop status">
+                <div className="flex flex-wrap gap-2" aria-label={labels.shopStatusAria}>
+                  <LanguageSwitcher
+                    label={languageSwitcherLabel}
+                    locale={locale}
+                    tone="emerald"
+                  />
                   <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
                     {selectedShop
-                      ? formatRole(selectedShop.role)
-                      : "Admin Console"}
+                      ? formatRole(selectedShop.role, labels)
+                      : labels.adminConsole}
                   </span>
                   <span className="rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">
-                    Server verified
+                    {labels.serverVerified}
                   </span>
                   <form
                     action={
@@ -327,7 +357,7 @@ export function ShopShell({
                       className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 outline-none transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2"
                       type="submit"
                     >
-                      Logout
+                      {logoutLabel}
                     </button>
                   </form>
                 </div>

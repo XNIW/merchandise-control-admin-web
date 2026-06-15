@@ -1,25 +1,50 @@
 import type { ReactNode } from "react";
-import type { PlatformSectionKey } from "./platformData";
+import { LanguageSwitcher } from "@/components/language-switcher";
+import type { Dictionary } from "@/i18n/dictionaries";
+import { getI18n } from "@/i18n/get-locale";
+import type { SupportedLocale } from "@/i18n/locales";
+import { translatePlatformNavigationItems } from "@/i18n/translate-sections";
+import {
+  navigationItems,
+  primaryNavigationItems,
+  type PlatformSectionKey,
+} from "./platformData";
 import { PlatformSidebarNav } from "./PlatformSidebarNav";
 
 type AppShellProps = {
   activeSection: PlatformSectionKey;
   children: ReactNode;
+  dictionary?: Dictionary;
+  locale?: SupportedLocale;
 };
 
-export function AppShell({ activeSection, children }: AppShellProps) {
+export async function AppShell({
+  activeSection,
+  children,
+  dictionary: providedDictionary,
+  locale: providedLocale,
+}: AppShellProps) {
+  const fallbackI18n =
+    providedDictionary && providedLocale ? null : await getI18n();
+  const dictionary = providedDictionary ?? fallbackI18n?.dictionary;
+  const locale = providedLocale ?? fallbackI18n?.locale;
+
+  if (!dictionary || !locale) {
+    throw new Error("APP_SHELL_I18N_UNAVAILABLE");
+  }
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
       <a
         href="#platform-content"
         className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:text-sm focus:font-semibold focus:text-slate-950 focus:shadow"
       >
-        Skip to platform content
+        {dictionary.platformShell.skipLink}
       </a>
       <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
-        <Sidebar activeSection={activeSection} />
+        <Sidebar activeSection={activeSection} dictionary={dictionary} />
         <div className="flex min-w-0 flex-col lg:min-h-0">
-          <Topbar />
+          <Topbar dictionary={dictionary} locale={locale} />
           <main
             id="platform-content"
             tabIndex={-1}
@@ -33,10 +58,25 @@ export function AppShell({ activeSection, children }: AppShellProps) {
   );
 }
 
-function Sidebar({ activeSection }: { activeSection: PlatformSectionKey }) {
+function Sidebar({
+  activeSection,
+  dictionary,
+}: {
+  activeSection: PlatformSectionKey;
+  dictionary: Dictionary;
+}) {
+  const localizedNavigationItems = translatePlatformNavigationItems(
+    dictionary,
+    navigationItems,
+  );
+  const localizedPrimaryNavigationItems = translatePlatformNavigationItems(
+    dictionary,
+    primaryNavigationItems,
+  );
+
   return (
     <aside
-      aria-label="Platform navigation"
+      aria-label={dictionary.platformShell.navigationAria}
       className="border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r"
     >
       <div className="flex min-h-full flex-col gap-6 px-4 py-5 lg:min-h-0">
@@ -51,19 +91,25 @@ function Sidebar({ activeSection }: { activeSection: PlatformSectionKey }) {
             <p className="text-sm font-semibold text-slate-950">
               MerchandiseControl
             </p>
-            <p className="text-xs text-slate-500">Master Console</p>
+            <p className="text-xs text-slate-500">
+              {dictionary.platformShell.masterConsole}
+            </p>
           </div>
         </div>
 
-        <PlatformSidebarNav activeSection={activeSection} />
+        <PlatformSidebarNav
+          activeSection={activeSection}
+          navigationItems={localizedNavigationItems}
+          navigationLabel={dictionary.platformShell.navigationAria}
+          primaryNavigationItems={localizedPrimaryNavigationItems}
+        />
 
         <div className="mt-auto rounded-md border border-slate-200 bg-slate-50 p-3">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Scope
+            {dictionary.platformShell.scope}
           </p>
           <p className="mt-2 text-sm text-slate-700">
-            Server-side Supabase boundary for read-only Master Console views.
-            Controlled operations require server-side authorization and audit.
+            {dictionary.platformShell.scopeDescription}
           </p>
         </div>
       </div>
@@ -71,34 +117,48 @@ function Sidebar({ activeSection }: { activeSection: PlatformSectionKey }) {
   );
 }
 
-function Topbar() {
+function Topbar({
+  dictionary,
+  locale,
+}: {
+  dictionary: Dictionary;
+  locale: SupportedLocale;
+}) {
   return (
     <header className="border-b border-slate-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            Master console
+            {dictionary.platformShell.masterConsole}
           </p>
           <p className="text-sm text-slate-700">
-            Global ecosystem, users, shops, audit, system status
+            {dictionary.platformShell.description}
           </p>
         </div>
-        <div className="flex flex-wrap gap-2" aria-label="Platform status">
+        <div
+          className="flex flex-wrap gap-2"
+          aria-label={dictionary.platformShell.statusAria}
+        >
+          <LanguageSwitcher
+            label={dictionary.languageSwitcher.label}
+            locale={locale}
+            tone="slate"
+          />
           <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
-            Read-only
+            {dictionary.platformShell.readOnly}
           </span>
           <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
-            Server boundary
+            {dictionary.platformShell.serverBoundary}
           </span>
           <span className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800">
-            Controlled actions
+            {dictionary.platformShell.controlledActions}
           </span>
           <form action="/auth/logout" method="get">
             <button
               className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 outline-none transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
               type="submit"
             >
-              Logout
+              {dictionary.common.logout}
             </button>
           </form>
         </div>

@@ -2138,7 +2138,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-052 - Admin Console UX polish, shell parity and operational clarity
 
-- Stato: `REVIEW`
+- Stato: `DONE`
 - File task: `docs/TASKS/TASK-052-admin-console-ux-polish-shell-parity.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-052/README.md`
 - Fase: `DONE_RECONCILED`
@@ -2322,7 +2322,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-060 - Supplier Excel Android-style preview/import
 
-- Stato: `REVIEW`
+- Stato: `DONE`
 - File task: `docs/TASKS/TASK-060-supplier-excel-android-style-preview-import.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-060/README.md`
 - Fase: `DONE`
@@ -2378,6 +2378,115 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - workbook reale committato/copiato o raw workbook/secret in evidence.
 - Verdict corrente: `DONE`.
 
+### TASK-061 - Android database export compatibility for Admin Web database transfer
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-061-android-database-export-transfer-compatibility.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-061/README.md`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `NONE`
+- Branch previsto: `codex/task-061-android-database-export`
+- Scopo: rendere `Shop Admin Console > Catalog > Products > Database transfer`
+  compatibile con il database export Android completo e parziale, riconoscendo
+  automaticamente i workbook con sheet tecnici `Products`, `Suppliers`,
+  `Categories` e `PriceHistory`, validando/mostrando preview multi-sheet e
+  importando in modo sicuro i dati supportati dal backend reale shop-scoped.
+- Include:
+  - audit read-only del formato export Android da codice
+    `MerchandiseControlSplitView`;
+  - documentazione tecnica del formato Android database export;
+  - detection esplicita Android database export full/partial;
+  - parser/validation/preview separati per prodotti, fornitori, categorie e
+    storico prezzi;
+  - UI database transfer non product-only, con sheet summary e preview bounded;
+  - import preview-first di suppliers, categories, products e PriceHistory
+    tramite RPC/schema reali esistenti;
+  - test foundation mirati e regressione supplier import esistente;
+  - riconciliazione finale a `DONE` / `DONE_RECONCILED` dopo gate reali.
+- Non include:
+  - commit, push o stage finale;
+  - modifiche al repository Android;
+  - nuove dipendenze;
+  - migration/schema/RLS/RPC non necessari;
+  - workbook reali copiati o committati;
+  - secret, service-role key lato client, dati finti o dashboard fake.
+- Verdict corrente: `DONE`.
+- Nota review/fix 2026-06-14: fix critico completato e verificato con E2E
+  reale sul workbook locale
+  `/Users/minxiang/Downloads/Database_2026_06_04_19-09-08.xlsx`, senza copiare
+  il file nel repo. Il bulk write staff-aware e stato spostato fuori da
+  `import-export-workbook.ts` e dentro `staff-aware-mutations.ts`; `security:scan`
+  passa. Primo apply: `21181` products, `59` suppliers, `24` categories,
+  `44295` PriceHistory, `failedRows=0`. Retry/idempotenza: preview
+  `newProducts=0`, apply HTTP 200, `failedRows=0`, conteggi DB invariati.
+  Browser/E2E locale PASS con busy state `Importing database...`, input e
+  close disabilitati durante import.
+- DONE closure loop 2026-06-15: i `27` failure foundation residui sono stati
+  corretti come asserzioni statiche obsolete i18n/layout (`dictionary`,
+  `labels`, `localizedSection`), non regressioni database transfer. Dopo il
+  refactor security-safe e dopo foundation verde e stato rieseguito l'E2E reale
+  completo con il workbook Downloads: primo apply HTTP `200`, `failedRows=0`,
+  Products `21181`, Suppliers `59`, Categories `24`, PriceHistory `44295`;
+  retry preview `newProducts=0`, retry apply HTTP `200`, `failedRows=0`,
+  conteggi invariati; cleanup sintetico completato. Gate finali seriali PASS:
+  TASK-061, TASK-060, `npm run test:foundation` (`308/308`), typecheck, lint,
+  security scan, build, verify e `git diff --check`. TASK-061 riconciliato a
+  `DONE` / `DONE_RECONCILED`; nessun commit/push/stage.
+
+### History Sync Console - shared sessions and sync diagnostics
+
+- Stato: `DONE`
+- Evidence: `docs/TASKS/EVIDENCE/history-sync-cross-platform-contract.md`
+- Fase: `DONE_RECONCILED_INTEGRATION`
+- Responsabile: `NONE`
+- Scopo: preservare la lettura Admin Console di `shared_sheet_sessions`,
+  `sync_events` e diagnostica history senza confondere questi eventi tecnici con
+  `audit_logs` amministrativi.
+- Include:
+  - read model server-side per history/sessioni condivise;
+  - diagnostica `sync_events` e normalizzazione riferimenti sessione;
+  - migration additive per diagnostics/history legacy RLS;
+  - seed demo solo sintetico;
+  - test foundation `task-history-sync-console` e regressione `task-015-history`.
+- Non include:
+  - scritture raw dal client/browser;
+  - service-role key lato client;
+  - conversioni destructive dei payload mobile;
+  - dati reali, workbook reali o secret nel repository.
+- Nota integrazione 2026-06-15: preservato nel merge verso main insieme a
+  TASK-061 e TASK-062; i gate finali di integrazione restano l'evidence
+  definitiva prima del commit finale.
+
+### TASK-062 - Global i18n locale and import/export coverage
+
+- Stato: `DONE`
+- File task: `docs/TASKS/TASK-062-global-i18n-locale.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-062/README.md`
+- Fase: `DONE_RECONCILED`
+- Responsabile: `NONE`
+- Scopo: introdurre locale globale Admin Web con cookie
+  `mc_admin_locale`, lingue `en`, `it`, `es`, `zh-CN`, fallback `en`,
+  language switcher e copertura delle superfici Shop/Platform critiche.
+- Include:
+  - resolver locale server-side e dizionari esatti;
+  - language switcher client con cookie e refresh;
+  - shell/navigation Platform e Shop localizzate;
+  - pagina compatibilita import/export e pannelli catalog/import-export coperti
+    da `dictionary.exact`;
+  - scanner hardcoded UI e test foundation TASK-062.
+- Non include:
+  - nuove dipendenze;
+  - traduzione dati business provenienti dal database;
+  - secret, env o service-role client;
+  - claim `DONE` prima dei gate finali e della review orchestrata.
+- Nota integrazione 2026-06-15: import/export, Database transfer e Catalog
+  action panel sono stati collegati alle label i18n. Gate finali verdi:
+  `git diff --check`, `typecheck`, `lint`, `security:scan`,
+  `test:foundation` (`314/314`), `build`, `verify`, targeted TASK-061/TASK-060,
+  targeted History Sync/TASK-015, targeted TASK-062 e scanner i18n. Browser QA
+  locale su `127.0.0.1:3062` ha visitato le route richieste senza crash, con
+  auth/runtime fail-closed dove non era disponibile una sessione Supabase.
+
 ## Tooling policy
 
 - Codex resta executor/fixer.
@@ -2392,7 +2501,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `IDLE`
-- Ultimo task completato: `TASK-060 - Supplier Excel Android-style preview/import`
+- Ultimo task completato: `TASK-061 - Android database export compatibility for Admin Web database transfer`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -2460,16 +2569,22 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-059: `DONE_RECONCILED`
 - Stato TASK-060: `DONE`
 - Fase TASK-060: `DONE`
+- Stato TASK-061: `DONE`
+- Fase TASK-061: `DONE_RECONCILED`
+- Stato History Sync Console: `DONE`
+- Fase History Sync Console: `DONE_RECONCILED_INTEGRATION`
+- Stato TASK-062: `DONE`
+- Fase TASK-062: `DONE_RECONCILED`
 - Task attivo: `NESSUNO`
-- Task precedente: `TASK-059 - Post-merge Supabase Staging Readiness`
-- Ultimo task chiuso: `TASK-060 - Supplier Excel Android-style preview/import`
-- File task: `docs/TASKS/TASK-060-supplier-excel-android-style-preview-import.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-060/README.md`
+- Task precedente: `TASK-061 - Android database export compatibility for Admin Web database transfer`
+- Ultimo task chiuso: `TASK-061 - Android database export compatibility for Admin Web database transfer`
+- File task: `docs/TASKS/TASK-061-android-database-export-transfer-compatibility.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-061/README.md`
 - Stato task: `DONE`
-- Fase: `DONE`
-- Milestone interna: `TASK_060_DONE`
-- Responsabile: `CODEX_ORCHESTRATOR`
-- Branch previsto: `main`
+- Fase: `DONE_RECONCILED`
+- Milestone interna: `TASK_061_HISTORY_SYNC_TASK_062_INTEGRATION_READY_FOR_REVIEWED_COMMIT`
+- Responsabile: `NONE`
+- Branch previsto: `codex/task-061-android-database-export`
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
 - Task Vercel parcheggiato: `TASK-031 - Vercel Preview retry after environment docs`
@@ -2512,6 +2627,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-058: `REVIEW_WITH_EXTERNAL_BLOCKERS`
 - Verdict TASK-059: `DONE_RECONCILED_WITH_NOTES`
 - Verdict TASK-060: `DONE`
+- Verdict TASK-061: `DONE`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
 - DONE reconciliation 2026-06-06: su conferma esplicita utente, TASK-046..TASK-050 chiusi a `DONE_RECONCILED`; TASK-040 e TASK-041 restano `REVIEW_WITH_EXTERNAL_BLOCKERS`, TASK-042 resta `READY_FOR_WIN7_MANUAL_TEST`. Commit/push finale su `main` richiesti dall'utente.
 - TASK-051 aperto in execution il 2026-06-06 da brief allegato: provisioning fiscal identity, POS-first bootstrap, manager staff `1001`, Temporary PIN server-side, Admin Console fiscal identity read-only. `shop_code` resta tecnico e `company_rut` separato per compatibilita RUT cileno. Non applicare migration su production e non dichiarare PIN raw/audit/log/evidence.

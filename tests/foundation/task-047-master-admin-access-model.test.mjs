@@ -37,6 +37,8 @@ test("TASK-047 access entrypoints use Master Console and Admin Console terminolo
   const platformShell = readProjectFile("src/components/platform/AppShell.tsx");
   const shopLayout = readProjectFile("src/app/shop/layout.tsx");
   const shopShell = readProjectFile("src/components/shop/ShopShell.tsx");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
+  const loginI18nSource = `${loginPage}\n${dictionary}`;
 
   for (const required of ["/auth/login?next=/shop&mode=admin-account", "redirect"]) {
     assertContains(home, required, `home must contain ${required}`);
@@ -56,7 +58,7 @@ test("TASK-047 access entrypoints use Master Console and Admin Console terminolo
     "loginHref(nextPath, \"shop-code\")",
     "isSafeInternalNextPath",
   ]) {
-    assertContains(loginPage, required, `account login must contain ${required}`);
+    assertContains(loginI18nSource, required, `account login must contain ${required}`);
   }
 
   assertContains(authForm, "accountSignInAction");
@@ -64,14 +66,14 @@ test("TASK-047 access entrypoints use Master Console and Admin Console terminolo
   assertContains(loginAction, "signInWithPassword");
   assertContains(staffLoginPage, "safeNextPath(firstParam(params.next))");
   assertContains(staffLoginPage, 'mode: "shop-code"');
-  assertContains(`${loginPage}\n${shopCodeLoginForm}`, "Admin Console");
-  assertContains(shopCodeLoginForm, "Shop code");
-  assertContains(shopCodeLoginForm, "Staff code");
-  assertContains(`${loginPage}\n${shopCodeLoginForm}`, "single-shop");
+  assertContains(`${loginPage}\n${shopCodeLoginForm}\n${dictionary}`, "Admin Console");
+  assertContains(`${shopCodeLoginForm}\n${dictionary}`, "Shop code");
+  assertContains(`${shopCodeLoginForm}\n${dictionary}`, "Staff code");
+  assertContains(`${loginPage}\n${shopCodeLoginForm}\n${dictionary}`, "single-shop");
   assertContains(platformLayout, 'area="Master Console"');
-  assertContains(platformShell, "Master Console");
-  assertContains(shopLayout, 'area="Admin Console"');
-  assertContains(shopShell, "Admin Console");
+  assertContains(`${platformShell}\n${dictionary}`, "Master Console");
+  assertContains(shopLayout, "area={dictionary.shopShell.adminConsole}");
+  assertContains(`${shopShell}\n${dictionary}`, "Admin Console");
 
   assert.doesNotMatch(
     `${home}\n${loginPage}\n${authForm}\n${loginAction}`,
@@ -264,12 +266,13 @@ test("TASK-047 Master Console users and shops expose row details without auth se
   assert.doesNotMatch(masterDetail, /scroll={false}/);
 
   assertContains(platformPage, "PlatformMasterDetail");
-  assertContains(platformPage, "section.rowDetails !== undefined && section.rowDetails.length > 0");
+  assertContains(platformPage, "localizedSection.rowDetails !== undefined");
+  assertContains(platformPage, "localizedSection.rowDetails.length > 0");
   assertContains(platformPage, "selectedRowKey");
-  assertContains(platformPage, "section.filters");
-  assertContains(platformPage, "section.detailSections");
-  assertContains(platformPage, "section.backHref");
-  assertContains(platformPage, "Diagnostics");
+  assertContains(platformPage, "localizedSection.filters");
+  assertContains(platformPage, "localizedSection.detailSections");
+  assertContains(platformPage, "localizedSection.backHref");
+  assertContains(platformPage, "dictionary.common.diagnostics");
   assert.doesNotMatch(platformPage, /title="Read state"/);
 
   for (const required of [

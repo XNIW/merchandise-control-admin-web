@@ -13,16 +13,22 @@ test("TASK-032 catalog filters expose operator copy and a clear path", () => {
   const productsPage = readProjectFile("src/app/shop/products/page.tsx");
   const categoriesPage = readProjectFile("src/app/shop/categories/page.tsx");
   const suppliersPage = readProjectFile("src/app/shop/suppliers/page.tsx");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
+  const localizedSources = `${productsPage}\n${categoriesPage}\n${suppliersPage}\n${dictionary}`;
 
-  assert.match(productsPage, /Apply filters/);
-  assert.match(productsPage, /Clear filters/);
-  assert.match(productsPage, /All categories/);
-  assert.match(productsPage, /All suppliers/);
+  assert.match(productsPage, /dictionary\.common\.applyFilters/);
+  assert.match(productsPage, /dictionary\.common\.clearFilters/);
+  assert.match(productsPage, /filterLabels\.allCategories/);
+  assert.match(productsPage, /filterLabels\.allSuppliers/);
+  assert.match(localizedSources, /Apply filters/);
+  assert.match(localizedSources, /Clear filters/);
+  assert.match(localizedSources, /All categories/);
+  assert.match(localizedSources, /All suppliers/);
   assert.match(productsPage, /name="state"/);
-  assert.match(categoriesPage, /Apply filters/);
-  assert.match(categoriesPage, /Clear filters/);
-  assert.match(suppliersPage, /Apply filters/);
-  assert.match(suppliersPage, /Clear filters/);
+  assert.match(categoriesPage, /dictionary\.common\.applyFilters/);
+  assert.match(categoriesPage, /dictionary\.common\.clearFilters/);
+  assert.match(suppliersPage, /dictionary\.common\.applyFilters/);
+  assert.match(suppliersPage, /dictionary\.common\.clearFilters/);
 });
 
 test("TASK-032 category and supplier lists expose ids required by action forms", () => {

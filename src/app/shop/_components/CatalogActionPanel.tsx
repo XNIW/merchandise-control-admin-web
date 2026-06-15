@@ -1,11 +1,13 @@
 "use client";
 
-import { useCallback, useId, useState } from "react";
+import { createContext, useCallback, useContext, useId, useState } from "react";
 import {
   CatalogExportPanel,
   DatabaseTransferPanel,
+  type HeaderBackState,
   type HeaderFileState,
   SupplierExcelImportWizard,
+  type UiTextMap,
 } from "@/app/shop/_components/ImportExportActionPanel";
 import {
   archiveCategoryAction,
@@ -54,6 +56,7 @@ type CatalogActionPanelProps = {
   embedded?: boolean;
   initialDialog?: DialogKey | null;
   initialEntityId?: string;
+  labels?: UiTextMap;
   products?: CatalogProductOption[];
   scope: "products" | "categories" | "suppliers";
   selectedShopId?: string;
@@ -79,6 +82,16 @@ type DialogLeadingAction = {
   label: string;
   onBack: () => void;
 };
+
+const CatalogActionLabelsContext = createContext<UiTextMap | undefined>(
+  undefined,
+);
+
+function useCatalogActionText() {
+  const labels = useContext(CatalogActionLabelsContext);
+
+  return useCallback((value: string) => labels?.[value] ?? value, [labels]);
+}
 
 const catalogActionCardClassName =
   "flex min-h-[14rem] min-w-0 flex-col rounded-md border border-zinc-200 bg-white p-4 shadow-sm";
@@ -165,6 +178,7 @@ function SelectField({
 
 function CatalogDialog({
   children,
+  closeDisabled = false,
   headerAccessory,
   leadingAction,
   onClose,
@@ -173,6 +187,7 @@ function CatalogDialog({
   title,
 }: {
   children: React.ReactNode;
+  closeDisabled?: boolean;
   headerAccessory?: React.ReactNode;
   leadingAction?: DialogLeadingAction | null;
   onClose: () => void;
@@ -181,65 +196,74 @@ function CatalogDialog({
   title: string;
 }) {
   const titleId = useId();
+  const t = useCatalogActionText();
 
   if (!open) {
     return null;
   }
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-zinc-950/35 p-4">
-      <section
-        aria-labelledby={titleId}
-        aria-modal="true"
-        className={`flex max-h-[92vh] w-full flex-col overflow-hidden rounded-md bg-white p-5 shadow-xl ${
-          size === "wide" ? "max-w-[min(98vw,96rem)]" : "max-w-3xl"
-        }`}
-        role="dialog"
-      >
-        <div className="-mx-5 -mt-5 flex min-w-0 items-center justify-between gap-4 border-b border-zinc-200 px-4 py-3">
-          <div className="flex min-w-0 items-center gap-2">
-            {leadingAction ? (
+    <div className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-zinc-950/35 p-3 sm:p-6">
+      <div className="flex min-h-full min-w-0 items-center justify-center">
+        <section
+          aria-labelledby={titleId}
+          aria-modal="true"
+          className={`flex max-h-[calc(100vh-64px)] w-full min-w-0 flex-col overflow-hidden rounded-md bg-white shadow-xl ${
+            size === "wide"
+              ? "sm:w-[min(1500px,calc(100vw-96px))] sm:max-w-none"
+              : "max-w-3xl"
+          }`}
+          role="dialog"
+        >
+          <div className="sticky top-0 z-20 flex min-w-0 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3">
+            <div className="flex min-w-0 flex-1 items-center gap-2">
+              {leadingAction ? (
+                <button
+                  aria-label={leadingAction.label}
+                  className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
+                  onClick={leadingAction.onBack}
+                  title={leadingAction.label}
+                  type="button"
+                >
+                  <svg
+                    aria-hidden="true"
+                    className="h-5 w-5"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2.25"
+                    viewBox="0 0 24 24"
+                  >
+                    <path d="m15 18-6-6 6-6" />
+                  </svg>
+                </button>
+              ) : null}
+              <h2
+                className="min-w-0 truncate text-lg font-semibold text-zinc-950"
+                id={titleId}
+              >
+                {t(title)}
+              </h2>
+            </div>
+            <div className="flex min-w-0 shrink items-center justify-end gap-2">
+              {headerAccessory}
               <button
-                aria-label={leadingAction.label}
-                className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-zinc-700 transition hover:bg-zinc-100 hover:text-zinc-950 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600"
-                onClick={leadingAction.onBack}
-                title={leadingAction.label}
+                className="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800"
+                disabled={closeDisabled}
+                onClick={onClose}
+                title={closeDisabled ? t("Import in progress") : undefined}
                 type="button"
               >
-                <svg
-                  aria-hidden="true"
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth="2.25"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="m15 18-6-6 6-6" />
-                </svg>
+                {t("Close")}
               </button>
-            ) : null}
-            <h2
-              className="min-w-0 truncate text-lg font-semibold text-zinc-950"
-              id={titleId}
-            >
-              {title}
-            </h2>
+            </div>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
-            {headerAccessory}
-            <button
-              className="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800"
-              onClick={onClose}
-              type="button"
-            >
-              Close
-            </button>
+          <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden p-4 sm:p-5">
+            {children}
           </div>
-        </div>
-        <div className="mt-4 min-h-0 flex-1 overflow-auto">{children}</div>
-      </section>
+        </section>
+      </div>
     </div>
   );
 }
@@ -265,7 +289,10 @@ function ProductPicker({
         <option value="">Select product</option>
         {allProducts.map((product) => (
           <option key={product.productId} value={product.productId}>
-            {product.barcode} - {product.productName ?? product.secondProductName ?? product.productId}
+            {product.barcode} -{" "}
+            {product.productName ??
+              product.secondProductName ??
+              product.productId}
           </option>
         ))}
       </SelectField>
@@ -290,7 +317,8 @@ function CreatableSupplierField({
   );
   const [supplierName, setSupplierName] = useState(defaultSupplier?.name ?? "");
   const selectedSupplier = suppliers.find(
-    (supplier) => supplier.name.toLowerCase() === supplierName.trim().toLowerCase(),
+    (supplier) =>
+      supplier.name.toLowerCase() === supplierName.trim().toLowerCase(),
   );
 
   return (
@@ -303,7 +331,11 @@ function CreatableSupplierField({
         onChange={(event) => setSupplierName(event.currentTarget.value)}
         value={supplierName}
       />
-      <input name="supplierId" type="hidden" value={selectedSupplier?.supplierId ?? ""} />
+      <input
+        name="supplierId"
+        type="hidden"
+        value={selectedSupplier?.supplierId ?? ""}
+      />
       <datalist id="supplier-options">
         {suppliers.map((supplier) => (
           <option key={supplier.supplierId} value={supplier.name} />
@@ -328,7 +360,8 @@ function CreatableCategoryField({
   );
   const [categoryName, setCategoryName] = useState(defaultCategory?.name ?? "");
   const selectedCategory = categories.find(
-    (category) => category.name.toLowerCase() === categoryName.trim().toLowerCase(),
+    (category) =>
+      category.name.toLowerCase() === categoryName.trim().toLowerCase(),
   );
 
   return (
@@ -341,7 +374,11 @@ function CreatableCategoryField({
         onChange={(event) => setCategoryName(event.currentTarget.value)}
         value={categoryName}
       />
-      <input name="categoryId" type="hidden" value={selectedCategory?.categoryId ?? ""} />
+      <input
+        name="categoryId"
+        type="hidden"
+        value={selectedCategory?.categoryId ?? ""}
+      />
       <datalist id="category-options">
         {categories.map((category) => (
           <option key={category.categoryId} value={category.name} />
@@ -388,12 +425,32 @@ function EntityPicker({
   );
 }
 
-function DialogFormShell({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function DialogFormShell({ children }: { children: React.ReactNode }) {
   return <section className={catalogActionCardClassName}>{children}</section>;
+}
+
+function DialogHeaderFileAccessory({ file }: { file: HeaderFileState | null }) {
+  if (!file) {
+    return null;
+  }
+
+  return (
+    <span className="hidden min-w-0 max-w-[min(30vw,22rem)] shrink items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs text-zinc-700 sm:inline-flex">
+      <span className="shrink-0 rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-900">
+        {file.extension}
+      </span>
+      <span aria-hidden="true" className="shrink-0 text-zinc-400">
+        ·
+      </span>
+      <span className="min-w-0 flex-1 truncate font-medium text-zinc-900">
+        {file.name}
+      </span>
+      <span aria-hidden="true" className="shrink-0 text-zinc-400">
+        ·
+      </span>
+      <span className="shrink-0 text-zinc-500">{file.sizeLabel}</span>
+    </span>
+  );
 }
 
 function ProductFields({
@@ -459,11 +516,7 @@ function ProductFields({
   );
 }
 
-function SelectedEntitySummary({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function SelectedEntitySummary({ children }: { children: React.ReactNode }) {
   return (
     <p className="mb-3 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-950">
       {children}
@@ -496,15 +549,20 @@ function ProductsDialogs({
   setOpenDialog: (dialog: DialogKey | null) => void;
   suppliers: CatalogSupplierOption[];
 }) {
+  const labels = useContext(CatalogActionLabelsContext);
+  const t = useCatalogActionText();
   const auditReasonDescription = "Required for the audit trail.";
-  const [
-    supplierImportLeadingAction,
-    setSupplierImportLeadingAction,
-  ] = useState<DialogLeadingAction | null>(null);
+  const [supplierImportLeadingAction, setSupplierImportLeadingAction] =
+    useState<DialogLeadingAction | null>(null);
   const [supplierImportHeaderFile, setSupplierImportHeaderFile] =
     useState<HeaderFileState | null>(null);
+  const [databaseTransferLeadingAction, setDatabaseTransferLeadingAction] =
+    useState<DialogLeadingAction | null>(null);
+  const [databaseTransferHeaderFile, setDatabaseTransferHeaderFile] =
+    useState<HeaderFileState | null>(null);
+  const [databaseTransferBusy, setDatabaseTransferBusy] = useState(false);
   const handleSupplierImportLeadingAction = useCallback(
-    (nextAction: DialogLeadingAction | null) => {
+    (nextAction: HeaderBackState | null) => {
       setSupplierImportLeadingAction(nextAction);
     },
     [],
@@ -515,23 +573,24 @@ function ProductsDialogs({
     },
     [],
   );
-  const supplierImportHeaderAccessory = supplierImportHeaderFile ? (
-    <span className="hidden max-w-[min(42vw,32rem)] items-center gap-2 rounded-full border border-zinc-200 bg-zinc-50 px-3 py-1 text-xs text-zinc-700 sm:inline-flex">
-      <span className="rounded-full border border-emerald-300 bg-emerald-50 px-2 py-0.5 font-semibold text-emerald-900">
-        {supplierImportHeaderFile.extension}
-      </span>
-      <span aria-hidden="true" className="text-zinc-400">
-        ·
-      </span>
-      <span className="truncate font-medium text-zinc-900">
-        {supplierImportHeaderFile.name}
-      </span>
-      <span aria-hidden="true" className="text-zinc-400">
-        ·
-      </span>
-      <span className="text-zinc-500">{supplierImportHeaderFile.sizeLabel}</span>
-    </span>
-  ) : null;
+  const handleDatabaseTransferLeadingAction = useCallback(
+    (nextAction: HeaderBackState | null) => {
+      setDatabaseTransferLeadingAction(nextAction);
+    },
+    [],
+  );
+  const handleDatabaseTransferHeaderFile = useCallback(
+    (nextFile: HeaderFileState | null) => {
+      setDatabaseTransferHeaderFile(nextFile);
+    },
+    [],
+  );
+  const supplierImportHeaderAccessory = (
+    <DialogHeaderFileAccessory file={supplierImportHeaderFile} />
+  );
+  const databaseTransferHeaderAccessory = (
+    <DialogHeaderFileAccessory file={databaseTransferHeaderFile} />
+  );
   const selectedProduct = [...products, ...archivedProducts].find(
     (product) => product.productId === selectedEntityId,
   );
@@ -554,7 +613,7 @@ function ProductsDialogs({
           <form action={createProductAction} className={catalogFormClassName}>
             <HiddenShopInput selectedShopId={selectedShopId} />
             <ProductFields categories={categories} suppliers={suppliers} />
-            <button className={catalogButtonClassName}>Create product</button>
+            <button className={catalogButtonClassName}>{t("Create product")}</button>
           </form>
         </DialogFormShell>
       </CatalogDialog>
@@ -575,7 +634,7 @@ function ProductsDialogs({
                   value={selectedProduct.productId}
                 />
                 <SelectedEntitySummary>
-                  Editing {selectedProductLabel}
+                  {t("Editing")} {selectedProductLabel}
                 </SelectedEntitySummary>
               </>
             ) : (
@@ -590,7 +649,7 @@ function ProductsDialogs({
               defaultProduct={selectedProduct}
               suppliers={suppliers}
             />
-            <button className={catalogButtonClassName}>Update product</button>
+            <button className={catalogButtonClassName}>{t("Update product")}</button>
           </form>
         </DialogFormShell>
       </CatalogDialog>
@@ -611,7 +670,7 @@ function ProductsDialogs({
                   value={selectedProduct.productId}
                 />
                 <SelectedEntitySummary>
-                  Archiving {selectedProductLabel}
+                  {t("Archiving")} {selectedProductLabel}
                 </SelectedEntitySummary>
               </>
             ) : (
@@ -621,15 +680,19 @@ function ProductsDialogs({
               />
             )}
             <TextInput
-              description={auditReasonDescription}
-              label="Reason"
+              description={t(auditReasonDescription)}
+              label={t("Reason")}
               maxLength={240}
               name="reason"
               required
             />
-            <TextInput label="Type ARCHIVE as confirmation" name="confirmation" required />
+            <TextInput
+              label={t("Type ARCHIVE as confirmation")}
+              name="confirmation"
+              required
+            />
             <button className={catalogArchiveButtonClassName}>
-              Archive product
+              {t("Archive product")}
             </button>
           </form>
         </DialogFormShell>
@@ -641,7 +704,7 @@ function ProductsDialogs({
         title="Restore product"
       >
         <p className="mb-3 text-sm leading-6 text-zinc-600">
-          Archived products can be restored with an audit reason.
+          {t("Archived products can be restored with an audit reason.")}
         </p>
         <DialogFormShell>
           <form action={restoreProductAction} className={catalogFormClassName}>
@@ -654,7 +717,7 @@ function ProductsDialogs({
                   value={selectedProduct.productId}
                 />
                 <SelectedEntitySummary>
-                  Restoring {selectedProductLabel}
+                  {t("Restoring")} {selectedProductLabel}
                 </SelectedEntitySummary>
               </>
             ) : (
@@ -664,15 +727,19 @@ function ProductsDialogs({
               />
             )}
             <TextInput
-              description={auditReasonDescription}
-              label="Reason"
+              description={t(auditReasonDescription)}
+              label={t("Reason")}
               maxLength={240}
               name="reason"
               required
             />
-            <TextInput label="Type RESTORE as confirmation" name="confirmation" required />
+            <TextInput
+              label={t("Type RESTORE as confirmation")}
+              name="confirmation"
+              required
+            />
             <button className={catalogRestoreButtonClassName}>
-              Restore product
+              {t("Restore product")}
             </button>
           </form>
         </DialogFormShell>
@@ -690,6 +757,7 @@ function ProductsDialogs({
           <SupplierExcelImportWizard
             authPrincipalKind={authPrincipalKind}
             categories={categories}
+            labels={labels}
             onHeaderBackStateChange={handleSupplierImportLeadingAction}
             onHeaderFileStateChange={handleSupplierImportHeaderFile}
             selectedShopId={selectedShopId}
@@ -703,16 +771,31 @@ function ProductsDialogs({
         open={openDialog === "exportCatalog"}
         title="Export catalog Excel"
       >
-        {canExport ? <CatalogExportPanel selectedShopId={selectedShopId} /> : null}
+        {canExport ? (
+          <CatalogExportPanel
+            labels={labels}
+            selectedShopId={selectedShopId}
+          />
+        ) : null}
       </CatalogDialog>
 
       <CatalogDialog
+        closeDisabled={databaseTransferBusy}
+        headerAccessory={databaseTransferHeaderAccessory}
+        leadingAction={databaseTransferLeadingAction}
         onClose={() => setOpenDialog(null)}
         open={openDialog === "advancedTransfer"}
+        size="wide"
         title="Database transfer"
       >
         {canImport ? (
-          <DatabaseTransferPanel selectedShopId={selectedShopId} />
+          <DatabaseTransferPanel
+            labels={labels}
+            onBusyStateChange={setDatabaseTransferBusy}
+            onHeaderBackStateChange={handleDatabaseTransferLeadingAction}
+            onHeaderFileStateChange={handleDatabaseTransferHeaderFile}
+            selectedShopId={selectedShopId}
+          />
         ) : null}
       </CatalogDialog>
     </>
@@ -831,7 +914,11 @@ function CategoryDialogs({
               name="reason"
               required
             />
-            <TextInput label="Type ARCHIVE as confirmation" name="confirmation" required />
+            <TextInput
+              label="Type ARCHIVE as confirmation"
+              name="confirmation"
+              required
+            />
             <button className={catalogArchiveButtonClassName}>
               Archive category
             </button>
@@ -954,7 +1041,11 @@ function SupplierDialogs({
               name="reason"
               required
             />
-            <TextInput label="Type ARCHIVE as confirmation" name="confirmation" required />
+            <TextInput
+              label="Type ARCHIVE as confirmation"
+              name="confirmation"
+              required
+            />
             <button className={catalogArchiveButtonClassName}>
               Archive supplier
             </button>
@@ -1008,46 +1099,49 @@ function CatalogActionPanelContent({
   embedded = false,
   initialDialog = null,
   initialEntityId = "",
+  labels,
   products = [],
   scope,
   selectedShopId,
   suppliers = [],
 }: CatalogActionPanelProps) {
-  const [openDialog, setOpenDialog] = useState<DialogKey | null>(
-    initialDialog,
-  );
+  const [openDialog, setOpenDialog] = useState<DialogKey | null>(initialDialog);
+  const t = useCallback((value: string) => labels?.[value] ?? value, [labels]);
   const panelClassName = embedded
     ? "grid gap-3"
     : `${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-3`;
 
   return (
+    <CatalogActionLabelsContext.Provider value={labels}>
     <section className={panelClassName}>
       <div className="flex min-w-0 flex-wrap gap-2 rounded-md border border-zinc-200 bg-white p-3 shadow-sm">
         {scope === "products" ? (
           <>
             {canManage ? (
               <ToolbarButton onClick={() => setOpenDialog("newProduct")}>
-                New product
+                {t("New product")}
               </ToolbarButton>
             ) : null}
             {canImport ? (
               <>
                 <ToolbarButton onClick={() => setOpenDialog("importSupplier")}>
-                  Import supplier Excel
+                  {t("Import supplier Excel")}
                 </ToolbarButton>
               </>
             ) : null}
             {canExport ? (
               <>
                 <ToolbarButton onClick={() => setOpenDialog("exportCatalog")}>
-                  Export catalog Excel
+                  {t("Export catalog Excel")}
                 </ToolbarButton>
               </>
             ) : null}
             {canImport ? (
               <>
-                <ToolbarButton onClick={() => setOpenDialog("advancedTransfer")}>
-                  Database transfer
+                <ToolbarButton
+                  onClick={() => setOpenDialog("advancedTransfer")}
+                >
+                  {t("Database transfer")}
                 </ToolbarButton>
               </>
             ) : null}
@@ -1056,13 +1150,13 @@ function CatalogActionPanelContent({
 
         {scope === "categories" ? (
           <ToolbarButton onClick={() => setOpenDialog("newCategory")}>
-            Create category
+            {t("Create category")}
           </ToolbarButton>
         ) : null}
 
         {scope === "suppliers" ? (
           <ToolbarButton onClick={() => setOpenDialog("newSupplier")}>
-            Create supplier
+            {t("Create supplier")}
           </ToolbarButton>
         ) : null}
       </div>
@@ -1103,5 +1197,6 @@ function CatalogActionPanelContent({
         />
       ) : null}
     </section>
+    </CatalogActionLabelsContext.Provider>
   );
 }
