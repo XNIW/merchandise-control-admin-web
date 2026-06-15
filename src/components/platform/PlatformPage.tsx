@@ -34,7 +34,7 @@ export async function PlatformPage({
   selectedRowKey,
 }: PlatformPageProps) {
   const { dictionary, locale } = await getI18n();
-  const localizedSection = translatePlatformSection(dictionary, section);
+  const localizedSection = translatePlatformSection(dictionary, section, locale);
   const hasMasterDetail =
     localizedSection.rowDetails !== undefined &&
     localizedSection.rowDetails.length > 0;
@@ -156,7 +156,10 @@ export async function PlatformPage({
                     <div key={field.label}>
                       <dt className="font-semibold text-slate-500">{field.label}</dt>
                       {(() => {
-                        const { text, fullValue } = formatDisplayValue(field.value);
+                        const { text, fullValue } = formatDisplayValue(
+                          field.value,
+                          locale,
+                        );
 
                         return (
                           <dd
@@ -221,6 +224,27 @@ export async function PlatformPage({
                 selectedRowKey={selectedRowKey}
                 filters={localizedSection.filters}
                 searchPlaceholder={localizedSection.searchPlaceholder}
+                labels={{
+                  adjustSearchOrFilters: translateText(
+                    dictionary,
+                    "Adjust search or filters to show rows already returned by the server boundary.",
+                  ),
+                  copied: translateText(dictionary, "Copied"),
+                  copy: translateText(dictionary, "Copy"),
+                  copyShopCode: translateText(dictionary, "Copy shop code"),
+                  doubleClickToOpenFullDetail: translateText(
+                    dictionary,
+                    "Double click to open full detail",
+                  ),
+                  inspector: translateText(dictionary, "Inspector"),
+                  noMatchingRows: translateText(dictionary, "No matching rows"),
+                  openFullDetail: translateText(dictionary, "Open full detail"),
+                  search: translateText(dictionary, "Search"),
+                  searchRows: translateText(dictionary, "Search rows"),
+                  selectRow: translateText(dictionary, "select row"),
+                  selectedRow: translateText(dictionary, "selected row"),
+                }}
+                locale={locale}
                 emptyState={
                   localizedSection.emptyState ?? {
                     title: translateText(dictionary, "No rows visible"),
@@ -243,6 +267,7 @@ export async function PlatformPage({
                 )}
                 columns={localizedSection.columns}
                 rows={localizedSection.rows}
+                locale={locale}
                 emptyState={
                   localizedSection.emptyState ?? {
                     title: translateText(dictionary, "No rows visible"),

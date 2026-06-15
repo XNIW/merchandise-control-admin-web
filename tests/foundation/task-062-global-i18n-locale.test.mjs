@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test } from "node:test";
 
@@ -8,6 +9,88 @@ const root = process.cwd();
 
 function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
+}
+
+function assertContains(source, required, label = required) {
+  assert.match(
+    source,
+    new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    label,
+  );
+}
+
+const renderedRequiredRoutes = [
+  "/shop",
+  "/shop/products",
+  "/shop/categories",
+  "/shop/suppliers",
+  "/shop/members",
+  "/shop/roles",
+  "/shop/staff",
+  "/shop/pos",
+  "/shop/devices",
+  "/shop/sync",
+  "/shop/history",
+  "/shop/audit",
+  "/shop/settings",
+  "/shop/import-export",
+  "/platform",
+  "/platform/users",
+  "/platform/shops",
+  "/platform/shops/new",
+  "/platform/admins",
+  "/platform/audit",
+  "/platform/system",
+  "/platform/data",
+  "/platform/devices",
+  "/platform/sync",
+  "/platform/history",
+  "/platform/operations",
+  "/platform/support",
+  "/platform/provisioning",
+];
+
+function writeRenderedSnapshot(locale, textByRoute = {}) {
+  const directory = mkdtempSync(join(tmpdir(), "task062-rendered-"));
+  const path = join(directory, "snapshot.json");
+  const records = renderedRequiredRoutes.map((route) => ({
+    lang: locale,
+    locale,
+    route,
+    text:
+      textByRoute[route] ??
+      "供应商ID 商品ID 更新时间 2026年6月14日 21:16 Amanda 123e4567-e89b-12d3-a456-426614174000",
+  }));
+
+  writeFileSync(path, JSON.stringify({ records }), "utf8");
+
+  return { directory, path };
+}
+
+function runRenderedScanner(path) {
+  return execFileSync(
+    process.execPath,
+    ["scripts/i18n-rendered-text-scan.mjs", "--input", path],
+    {
+      cwd: root,
+      stdio: "pipe",
+    },
+  );
+}
+
+function assertRenderedScannerFails(path, expectedMessage) {
+  assert.throws(
+    () => runRenderedScanner(path),
+    (error) => {
+      const output = `${error.stdout?.toString() ?? ""}\n${
+        error.stderr?.toString() ?? ""
+      }`;
+
+      assert.match(output, expectedMessage);
+
+      return true;
+    },
+  );
 }
 
 test("TASK-062 defines a global locale contract with cookie fallback", () => {
@@ -69,6 +152,137 @@ test("TASK-062 connects locale to global layouts and client refresh switcher", (
   assert.match(switcher, /LOCALE_COOKIE_NAME/);
   assert.match(switcher, /router\.refresh\(\)/);
   assert.doesNotMatch(switcher, /localStorage|sessionStorage/);
+});
+
+test("TASK-062 formats visible date/time values through a central locale helper", () => {
+  const formatter = readProjectFile("src/i18n/format.ts");
+  const displayFormat = readProjectFile("src/components/platform/displayFormat.ts");
+  const shopSectionData = readProjectFile("src/server/shop-admin/shop-section-data.ts");
+  const platformSectionData = readProjectFile(
+    "src/server/platform-admin/platform-section-data.ts",
+  );
+  const translator = readProjectFile("src/i18n/translate-sections.ts");
+
+  assert.match(formatter, /export function formatDateTime/);
+  assert.match(formatter, /export function formatDate\(/);
+  assert.match(formatter, /export function formatTime/);
+  assert.match(formatter, /es:\s*"es-CL"/);
+  assert.match(formatter, /"zh-CN":\s*"zh-CN"/);
+  assert.match(formatter, /hour12:\s*false/);
+  assert.match(formatter, /hour12:\s*locale === "en"/);
+  assert.match(formatter, /formatToParts/);
+  assert.match(formatter, /年\$\{parts\.month\}月\$\{parts\.day\}日/);
+  assert.match(formatter, /"Sin configurar"/);
+  assert.match(formatter, /"未设置"/);
+  assert.match(formatter, /Intl\.DateTimeFormat/);
+
+  assert.match(displayFormat, /formatDateTime\(locale, value\)/);
+  assert.match(translator, /formatEmbeddedDateTimes/);
+  assert.match(translator, /isoDateTimePattern/);
+  assert.match(translator, /translateShopSection\([^)]*locale/s);
+  assert.match(translator, /translatePlatformSection\([^)]*locale/s);
+  assert.doesNotMatch(shopSectionData, /Intl\.DateTimeFormat\("en"/);
+  assert.doesNotMatch(platformSectionData, /formatTimestampUtc/);
+});
+
+test("TASK-062 localizes technical table and field labels without translating values", () => {
+  const dictionaries = readProjectFile("src/i18n/dictionaries.ts");
+
+  for (const [source, zh] of [
+    ["Supplier id", "供应商ID"],
+    ["Product id", "商品ID"],
+    ["Category id", "分类ID"],
+    ["Shop ID", "店铺ID"],
+    ["Staff id", "员工ID"],
+    ["Member id", "成员ID"],
+    ["Profile ID", "资料ID"],
+    ["Device id", "设备ID"],
+    ["Identifier", "标识符"],
+    ["Session id", "会话ID"],
+    ["Updated at", "更新时间"],
+    ["Created at", "创建时间"],
+    ["Lockout", "锁定状态"],
+    ["Latest sync", "最近同步"],
+    ["Latest POS audit", "最近POS审计"],
+    ["Metadata", "元数据"],
+    ["Target", "目标"],
+    ["Payload", "数据载荷"],
+    ["Overlay", "覆盖层"],
+    ["Entry name", "条目名称"],
+    ["Supplier / Category", "供应商 / 分类"],
+    ["Device / trust", "设备 / 信任"],
+    ["Session", "会话"],
+    ["Count", "数量"],
+    ["Namespace", "命名空间"],
+    ["Permissions", "权限"],
+    ["Field", "字段"],
+    ["Value", "值"],
+    ["Detail", "详情"],
+    ["Group", "组"],
+    ["Action", "操作"],
+  ]) {
+    assertContains(dictionaries, `"${source}"`);
+    assertContains(dictionaries, `"${source}": "${zh}"`);
+  }
+
+  assert.doesNotMatch(
+    dictionaries,
+    /"Amanda"\s*:/,
+    "business supplier names must not become dictionary keys",
+  );
+  assert.doesNotMatch(
+    dictionaries,
+    /123e4567-e89b-12d3-a456-426614174000/,
+    "UUID values must not become dictionary keys",
+  );
+});
+
+test("TASK-062 rendered scanner accepts localized zh-CN timestamps and business values", () => {
+  const { directory, path } = writeRenderedSnapshot("zh-CN");
+
+  try {
+    const output = JSON.parse(runRenderedScanner(path).toString());
+
+    assert.equal(output.status, "pass");
+    assert.equal(output.nonEnglishRecords, renderedRequiredRoutes.length);
+    assert.ok(output.checkedZhTechnicalHeaders >= 30);
+  } finally {
+    rmSync(directory, { force: true, recursive: true });
+  }
+});
+
+test("TASK-062 rendered scanner rejects English timestamps and zh-CN technical headers", () => {
+  const englishDate = writeRenderedSnapshot("zh-CN", {
+    "/shop/suppliers": "供应商ID Jun 14, 2026, 9:16 PM Amanda",
+  });
+  const slashDate = writeRenderedSnapshot("zh-CN", {
+    "/shop/suppliers": "供应商ID 2026/6/14 21:16 Amanda",
+  });
+  const englishHeader = writeRenderedSnapshot("zh-CN", {
+    "/shop/products": "SUPPLIER ID\t更新时间\t2026年6月14日 21:16",
+  });
+  const italianEnglishDate = writeRenderedSnapshot("it", {
+    "/platform/shops": "ID shop Jun 14, 2026 Amanda",
+  });
+
+  try {
+    assertRenderedScannerFails(englishDate.path, /English month date format/);
+    assertRenderedScannerFails(englishDate.path, /English AM\/PM time marker/);
+    assertRenderedScannerFails(slashDate.path, /slash date format/);
+    assertRenderedScannerFails(
+      englishHeader.path,
+      /untranslated technical header "SUPPLIER ID"/,
+    );
+    assertRenderedScannerFails(
+      italianEnglishDate.path,
+      /it \/platform\/shops: English month date format/,
+    );
+  } finally {
+    rmSync(englishDate.directory, { force: true, recursive: true });
+    rmSync(slashDate.directory, { force: true, recursive: true });
+    rmSync(englishHeader.directory, { force: true, recursive: true });
+    rmSync(italianEnglishDate.directory, { force: true, recursive: true });
+  }
 });
 
 test("TASK-062 guards critical UI copy against untranslated non-English locales", () => {
@@ -164,6 +378,15 @@ test("TASK-062 guards critical UI copy against untranslated non-English locales"
     "Visible through Platform Admin",
     "Visible through RLS",
     "Shop-scoped catalog rows loaded server-side for the verified selected shop.",
+    "Shop scoped",
+    "Shop scoped or legacy bridge",
+    "Audited create/update/archive",
+    "Audited create/update/archive/restore",
+    "No client-side shop trust",
+    "No cross-shop event lookup",
+    "Mapped owner source",
+    "File changes are never applied directly",
+    "Server-only workbook parser/writer",
     "Shop Staff read model loaded server-side through the credential-safe view.",
     "Server registry devices loaded for the verified selected shop, with read-only links to sync activity when available.",
     "No sync event",
@@ -348,6 +571,15 @@ test("TASK-062 wires rendered i18n corrections into runtime translators and scan
     "Visible through RLS",
     "Overview shop",
     "Shop catalog products for the verified selected shop. Create, update, archive and restore use audited catalog RPCs.",
+    "Shop scoped",
+    "Shop scoped or legacy bridge",
+    "Audited create/update/archive",
+    "Audited create/update/archive/restore",
+    "No client-side shop trust",
+    "No cross-shop event lookup",
+    "Mapped owner source",
+    "File changes are never applied directly",
+    "Server-only workbook parser/writer",
     "Read-only member list for the verified selected shop. Profile identifiers are shortened in the UI.",
     "Permissions matrix",
     "Staff credential-safe read model",

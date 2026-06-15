@@ -10,6 +10,7 @@ import {
   isLikelyIdentifier,
   shortIdentifier,
 } from "./displayFormat";
+import { DEFAULT_LOCALE, type SupportedLocale } from "@/i18n/locales";
 import type {
   PlatformFilter,
   RowDetailPanel,
@@ -30,6 +31,39 @@ type PlatformMasterDetailProps = {
   searchPlaceholder?: string;
   selectedRowKey?: string;
   footer?: string;
+  labels?: PlatformMasterDetailLabels;
+  locale?: SupportedLocale;
+};
+
+export type PlatformMasterDetailLabels = {
+  adjustSearchOrFilters: string;
+  copied: string;
+  copy: string;
+  copyShopCode: string;
+  doubleClickToOpenFullDetail: string;
+  inspector: string;
+  noMatchingRows: string;
+  openFullDetail: string;
+  search: string;
+  searchRows: string;
+  selectRow: string;
+  selectedRow: string;
+};
+
+const defaultLabels: PlatformMasterDetailLabels = {
+  adjustSearchOrFilters:
+    "Adjust search or filters to show rows already returned by the server boundary.",
+  copied: "Copied",
+  copy: "Copy",
+  copyShopCode: "Copy shop code",
+  doubleClickToOpenFullDetail: "Double click to open full detail",
+  inspector: "Inspector",
+  noMatchingRows: "No matching rows",
+  openFullDetail: "Open full detail",
+  search: "Search",
+  searchRows: "Search rows",
+  selectRow: "select row",
+  selectedRow: "selected row",
 };
 
 function rowKeyFor(row: TableRow, columns: TableColumn[], rowIndex: number) {
@@ -105,7 +139,10 @@ function statusToneClassForSegment(value: string) {
   return "border-slate-200 bg-slate-100 text-slate-700";
 }
 
-function displayValueForSegment(value: string) {
+function displayValueForSegment(
+  value: string,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+) {
   if (isLikelyIdentifier(value)) {
     return {
       fullValue: value,
@@ -116,14 +153,18 @@ function displayValueForSegment(value: string) {
   if (isIsoTimestamp(value)) {
     return {
       fullValue: value,
-      text: formatTimestampUtc(value),
+      text: formatTimestampUtc(value, locale),
     };
   }
 
-  return formatDisplayValue(value);
+  return formatDisplayValue(value, locale);
 }
 
-function renderCellValue(value: string, columnKey: string) {
+function renderCellValue(
+  value: string,
+  columnKey: string,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+) {
   const segments = value.split("\n").filter(Boolean);
 
   if (segments.length === 0) {
@@ -133,7 +174,7 @@ function renderCellValue(value: string, columnKey: string) {
   return (
     <div className="grid min-w-0 gap-1">
       {segments.map((segment, index) => {
-        const { text, fullValue } = displayValueForSegment(segment);
+        const { text, fullValue } = displayValueForSegment(segment, locale);
         const isMeta =
           index > 0 ||
           segment.startsWith("ID ") ||
@@ -169,7 +210,10 @@ function renderCellValue(value: string, columnKey: string) {
   );
 }
 
-function renderDetailGroups(detail: RowDetailPanel) {
+function renderDetailGroups(
+  detail: RowDetailPanel,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+) {
   const groups =
     detail.groups ??
     (detail.fields
@@ -191,7 +235,10 @@ function renderDetailGroups(detail: RowDetailPanel) {
               <div key={field.label}>
                 <dt className="font-semibold text-slate-500">{field.label}</dt>
                 {(() => {
-                  const { text, fullValue } = displayValueForSegment(field.value);
+                  const { text, fullValue } = displayValueForSegment(
+                    field.value,
+                    locale,
+                  );
 
                   return (
                     <dd
@@ -236,6 +283,8 @@ export function PlatformMasterDetail({
   searchPlaceholder,
   selectedRowKey,
   footer,
+  labels = defaultLabels,
+  locale = DEFAULT_LOCALE,
 }: PlatformMasterDetailProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -341,12 +390,12 @@ export function PlatformMasterDetail({
       <div className="min-w-0">
         <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_auto]">
           <label className="grid gap-1 text-sm font-semibold text-slate-700">
-            Search
+            {labels.search}
             <input
               type="search"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder={searchPlaceholder ?? "Search rows"}
+              placeholder={searchPlaceholder ?? labels.searchRows}
               className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
             />
           </label>
@@ -381,136 +430,150 @@ export function PlatformMasterDetail({
         </div>
 
         <div className="overflow-x-auto">
-        <table className="min-w-full border-separate border-spacing-0 text-left text-sm">
-          <caption className="sr-only">{caption}</caption>
-          <thead>
-            <tr>
-              {columns.map((column) => (
-                <th
-                  key={column.key}
-                  scope="col"
-                  className="border-b border-slate-200 px-3 py-2 text-xs font-semibold uppercase tracking-normal text-slate-500 first:pl-0 last:pr-0"
-                >
-                  {column.label}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {filteredRows.length > 0 ? (
-              filteredRows.map((row, rowIndex) => {
-              const rowKey = rowKeyFor(row, columns, rowIndex);
-              const hasDetail = detailsByRowKey.has(rowKey);
-              const isSelected = rowKey === selectedDetail?.rowKey;
-              const canOpenFullDetail = Boolean(fullDetailHrefFor(rowKey));
-
-              return (
-                <tr
-                  id={rowDomId(rowKey)}
-                  key={rowKey}
-                  aria-selected={hasDetail ? isSelected : undefined}
-                  aria-label={
-                    hasDetail
-                      ? `${isSelected ? "selected row" : "select row"} ${
-                          row[columns[0]?.key ?? ""] ?? rowKey
-                        }. Double click to open full detail.`
-                      : undefined
-                  }
-                  title={
-                    canOpenFullDetail
-                      ? "Double click to open full detail"
-                      : undefined
-                  }
-                  className={[
-                    "scroll-mt-24 border-l-4 align-top outline-none",
-                    hasDetail
-                      ? "cursor-pointer transition hover:bg-slate-50 focus-visible:bg-slate-50"
-                      : "",
-                    isSelected
-                      ? "border-l-slate-950 bg-slate-50"
-                      : "border-l-transparent",
-                  ].join(" ")}
-                  onClick={hasDetail ? () => selectRow(rowKey) : undefined}
-                  onDoubleClick={
-                    canOpenFullDetail ? () => openFullDetail(rowKey) : undefined
-                  }
-                  onKeyDown={
-                    hasDetail
-                      ? (event) => {
-                          if (event.key === "Enter") {
-                            event.preventDefault();
-                            openFullDetail(rowKey);
-                          }
-
-                          if (event.key === " ") {
-                            event.preventDefault();
-                            selectRow(rowKey);
-                          }
-                        }
-                      : undefined
-                  }
-                  role={hasDetail ? "button" : undefined}
-                  tabIndex={hasDetail ? 0 : undefined}
-                >
-                  {columns.map((column) => (
-                    <td
-                      key={column.key}
-                      className={[
-                        "max-w-80 break-words border-b border-slate-100 px-3 py-3 text-slate-700 first:pl-0 last:pr-0",
-                        isSelected && column.key === columns[0]?.key
-                          ? "font-semibold text-slate-950"
-                          : "",
-                      ].join(" ")}
-                    >
-                      <div className="flex min-w-0 items-start gap-2">
-                        <div className="min-w-0 flex-1">
-                          {renderCellValue(row[column.key] ?? "", column.key)}
-                        </div>
-                        {column.key === "code" && row[column.key] ? (
-                          <button
-                            type="button"
-                            onDoubleClick={(event) => {
-                              event.stopPropagation();
-                            }}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              void copyCode(row[column.key] ?? "");
-                            }}
-                            onKeyDown={(event) => {
-                              if (event.key === "Enter" || event.key === " ") {
-                                event.stopPropagation();
-                              }
-                            }}
-                            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950"
-                            aria-label={`Copy shop code ${row[column.key]}`}
-                          >
-                            {copiedCode === row[column.key] ? "Copied" : "Copy"}
-                          </button>
-                        ) : null}
-                      </div>
-                    </td>
-                  ))}
-                </tr>
-              );
-              })
-            ) : (
+          <table className="min-w-full border-separate border-spacing-0 text-left text-sm">
+            <caption className="sr-only">{caption}</caption>
+            <thead>
               <tr>
-                <td
-                  colSpan={columns.length}
-                  className="border-b border-slate-100 px-3 py-6 text-sm text-slate-500 first:pl-0 last:pr-0"
-                >
-                  <span className="font-medium text-slate-700">
-                    No matching rows
-                  </span>
-                  <span className="mt-1 block leading-6">
-                    Adjust search or filters to show rows already returned by the
-                    server boundary.
-                  </span>
-                </td>
+                {columns.map((column) => (
+                  <th
+                    key={column.key}
+                    scope="col"
+                    className="border-b border-slate-200 px-3 py-2 text-xs font-semibold uppercase tracking-normal text-slate-500 first:pl-0 last:pr-0"
+                  >
+                    {column.label}
+                  </th>
+                ))}
               </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredRows.length > 0 ? (
+                filteredRows.map((row, rowIndex) => {
+                  const rowKey = rowKeyFor(row, columns, rowIndex);
+                  const hasDetail = detailsByRowKey.has(rowKey);
+                  const isSelected = rowKey === selectedDetail?.rowKey;
+                  const canOpenFullDetail = Boolean(fullDetailHrefFor(rowKey));
+
+                  return (
+                    <tr
+                      id={rowDomId(rowKey)}
+                      key={rowKey}
+                      aria-selected={hasDetail ? isSelected : undefined}
+                      aria-label={
+                        hasDetail
+                          ? `${
+                              isSelected
+                                ? labels.selectedRow
+                                : labels.selectRow
+                            } ${
+                              row[columns[0]?.key ?? ""] ?? rowKey
+                            }. ${labels.doubleClickToOpenFullDetail}.`
+                          : undefined
+                      }
+                      title={
+                        canOpenFullDetail
+                          ? labels.doubleClickToOpenFullDetail
+                          : undefined
+                      }
+                      className={[
+                        "scroll-mt-24 border-l-4 align-top outline-none",
+                        hasDetail
+                          ? "cursor-pointer transition hover:bg-slate-50 focus-visible:bg-slate-50"
+                          : "",
+                        isSelected
+                          ? "border-l-slate-950 bg-slate-50"
+                          : "border-l-transparent",
+                      ].join(" ")}
+                      onClick={hasDetail ? () => selectRow(rowKey) : undefined}
+                      onDoubleClick={
+                        canOpenFullDetail
+                          ? () => openFullDetail(rowKey)
+                          : undefined
+                      }
+                      onKeyDown={
+                        hasDetail
+                          ? (event) => {
+                              if (event.key === "Enter") {
+                                event.preventDefault();
+                                openFullDetail(rowKey);
+                              }
+
+                              if (event.key === " ") {
+                                event.preventDefault();
+                                selectRow(rowKey);
+                              }
+                            }
+                          : undefined
+                      }
+                      role={hasDetail ? "button" : undefined}
+                      tabIndex={hasDetail ? 0 : undefined}
+                    >
+                      {columns.map((column) => (
+                        <td
+                          key={column.key}
+                          className={[
+                            "max-w-80 break-words border-b border-slate-100 px-3 py-3 text-slate-700 first:pl-0 last:pr-0",
+                            isSelected && column.key === columns[0]?.key
+                              ? "font-semibold text-slate-950"
+                              : "",
+                          ].join(" ")}
+                        >
+                          <div className="flex min-w-0 items-start gap-2">
+                            <div className="min-w-0 flex-1">
+                              {renderCellValue(
+                                row[column.key] ?? "",
+                                column.key,
+                                locale,
+                              )}
+                            </div>
+                            {column.key === "code" && row[column.key] ? (
+                              <button
+                                type="button"
+                                onDoubleClick={(event) => {
+                                  event.stopPropagation();
+                                }}
+                                onClick={(event) => {
+                                  event.stopPropagation();
+                                  void copyCode(row[column.key] ?? "");
+                                }}
+                                onKeyDown={(event) => {
+                                  if (
+                                    event.key === "Enter" ||
+                                    event.key === " "
+                                  ) {
+                                    event.stopPropagation();
+                                  }
+                                }}
+                                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950"
+                                aria-label={`${labels.copyShopCode} ${row[column.key]}`}
+                              >
+                                {copiedCode === row[column.key]
+                                  ? labels.copied
+                                  : labels.copy}
+                              </button>
+                            ) : null}
+                          </div>
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td
+                    colSpan={columns.length}
+                    className="border-b border-slate-100 px-3 py-6 text-sm text-slate-500 first:pl-0 last:pr-0"
+                  >
+                    <span className="font-medium text-slate-700">
+                      {labels.noMatchingRows}
+                    </span>
+                    <span className="mt-1 block leading-6">
+                      {labels.adjustSearchOrFilters}
+                    </span>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
         {footer ? <p className="mt-3 text-xs text-slate-500">{footer}</p> : null}
       </div>
@@ -522,7 +585,7 @@ export function PlatformMasterDetail({
         >
           <div className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50 p-4">
             <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
-              Inspector
+              {labels.inspector}
             </p>
             <h3 className="mt-2 text-base font-semibold text-slate-950">
               {selectedDetail.title}
@@ -532,7 +595,7 @@ export function PlatformMasterDetail({
             </p>
           </div>
           <div className="p-4 pt-3">
-            {renderDetailGroups(selectedDetail)}
+            {renderDetailGroups(selectedDetail, locale)}
             {selectedDetail.notes && selectedDetail.notes.length > 0 ? (
               <div className="mt-4 grid gap-2">
                 {selectedDetail.notes.map((note) => (
@@ -552,7 +615,7 @@ export function PlatformMasterDetail({
                 href={selectedDetailHref}
                 className="inline-flex min-h-9 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950"
               >
-                Open full detail
+                {labels.openFullDetail}
               </Link>
             </div>
           ) : null}

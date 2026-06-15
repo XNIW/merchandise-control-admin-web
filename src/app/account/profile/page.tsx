@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { SectionCard } from "@/components/admin/SectionCard";
+import { formatDateTime } from "@/i18n/format";
+import { getI18n } from "@/i18n/get-locale";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { PasswordResetPanel } from "./PasswordResetPanel";
 
@@ -12,18 +14,8 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-function formatDateTime(value: string | null | undefined) {
-  if (!value) {
-    return "Not available";
-  }
-
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
-}
-
 export default async function AccountProfilePage() {
+  const { locale } = await getI18n();
   const supabase = await createSupabaseServerClient();
   const authResult = supabase ? await supabase.auth.getUser() : null;
   const user = authResult?.data.user;
@@ -60,7 +52,7 @@ export default async function AccountProfilePage() {
               <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2">
                 <dt className="font-medium text-zinc-700">Last sign in</dt>
                 <dd className="mt-1 text-zinc-950">
-                  {formatDateTime(user?.last_sign_in_at)}
+                  {formatDateTime(locale, user?.last_sign_in_at)}
                 </dd>
               </div>
             </dl>

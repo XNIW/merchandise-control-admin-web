@@ -2503,6 +2503,16 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   per `personal_account` multi-shop. E2E Shop locale `4/4` e Browser QA
   `zh-CN` confermano staff manager single-shop, nessun switcher e query
   cross-shop negata.
+- Nota date/time e label tecniche 2026-06-15: addendum completato con helper
+  centrale `src/i18n/format.ts` basato su `Intl.DateTimeFormat` senza cambiare
+  numeri/prezzi/quantita. Browser laterale autenticato su `127.0.0.1:3000`
+  conferma esempi `zh-CN` `2026年6月14日 21:16`, `it`
+  `14 giu 2026, 21:16`, `es`/`es-CL` `14 jun 2026, 21:16`; dati business come
+  nomi fornitori e UUID restano non tradotti. Scanner statico i18n verde
+  (`checkedPhrases: 307`), scanner rendered verde su snapshot browser
+  `/tmp/task062-rendered-i18n-after.json` (`checkedPhrases: 95`,
+  `checkedRoutes: 28`, `checkedZhTechnicalHeaders: 33`,
+  `nonEnglishRecords: 28`), `test:foundation` verde `321/321`.
 
 ## Tooling policy
 

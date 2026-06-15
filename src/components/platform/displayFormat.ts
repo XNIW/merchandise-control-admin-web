@@ -1,3 +1,6 @@
+import { formatDateTime } from "@/i18n/format";
+import { DEFAULT_LOCALE, type SupportedLocale } from "@/i18n/locales";
+
 export function formatToken(value: string) {
   return value
     .split("_")
@@ -14,23 +17,15 @@ export function isIsoTimestamp(value: string | null | undefined) {
   );
 }
 
-export function formatTimestampUtc(value: string | null | undefined) {
-  if (!value) {
-    return "Not recorded";
+export function formatTimestampUtc(
+  value: string | null | undefined,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+) {
+  if (!value || !isIsoTimestamp(value)) {
+    return formatDateTime(locale, value);
   }
 
-  const date = new Date(value);
-
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  const pad = (part: number) => String(part).padStart(2, "0");
-
-  return [
-    `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(date.getUTCDate())}`,
-    `${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())} UTC`,
-  ].join(" ");
+  return formatDateTime(locale, value);
 }
 
 export function shortIdentifier(
@@ -78,12 +73,15 @@ export function readableBoundaryStatus(value: string | null | undefined) {
   return labels[value] ?? formatToken(value);
 }
 
-export function formatDisplayValue(value: string) {
+export function formatDisplayValue(
+  value: string,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+) {
   if (isIsoTimestamp(value)) {
     return {
       fullValue: value,
       isIdentifier: false,
-      text: formatTimestampUtc(value),
+      text: formatTimestampUtc(value, locale),
     };
   }
 

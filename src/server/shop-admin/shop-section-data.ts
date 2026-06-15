@@ -100,10 +100,9 @@ const formatDateTime = (value: string | null | undefined) => {
     return "Not set";
   }
 
-  return new Intl.DateTimeFormat("en", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+  const date = new Date(value);
+
+  return Number.isNaN(date.getTime()) ? "Not set" : value;
 };
 
 function formatCompanyRut(value: string | null | undefined) {

@@ -25,24 +25,29 @@ comandi eseguiti davvero nel worktree di integrazione.
 - Corrective staff shop scope: Shop switcher consentito solo per
   `personal_account` multi-shop; `pos_staff_manager` resta single-shop anche
   con sessione personale stale e query param cross-shop.
+- Date/time locale addendum: date/ore visibili passano da helper centrale
+  locale-aware; non sono stati cambiati numeri, prezzi o quantita.
+- Label tecniche addendum: intestazioni/field label tecnici sono localizzati
+  quando visibili, mentre valori business dinamici, nomi shop/fornitori, ID e
+  UUID restano dati e non dizionario.
 
 ## Check
 
 | Comando / metodo | Stato | Note |
 |---|---|---|
 | `git diff --check` | `PASS` | Exit code `0`, nessun output. |
-| `npm run typecheck` | `PASS` | `next typegen && tsc --noEmit`; route types generate successfully. |
 | `npm run lint` | `PASS` | `eslint` exit code `0`. |
+| `npm run typecheck` | `PASS` | `next typegen && tsc --noEmit`; route types generate successfully. |
 | `npm run security:scan` | `PASS` | `Security scan passed.` |
-| `npm run test:foundation` | `PASS` | `317/317` pass. |
+| `npm run test:foundation` | `PASS` | `321/321` pass. |
 | `npm run build` | `PASS_WITH_WARNINGS` | Build exit code `0`; warning noti: `middleware` convention deprecata e `[DEP0205] module.register()`. |
 | `npm run verify` | `PASS_WITH_WARNINGS` | Eseguito da solo dopo build; include lint, typecheck, security e build; stessi warning tooling. |
 | `node --test tests/foundation/shop-switcher.test.mjs tests/foundation/task-054-shop-admin-auth-navigation.test.mjs` | `PASS` | `12/12` pass; include staff manager single-shop e staff session precedence su auth personale stale. |
 | `node --test tests/foundation/task-061-android-database-export-transfer.test.mjs tests/foundation/task-060-supplier-excel-android-style-preview-import.test.mjs` | `PASS` | `22/22` pass. |
 | `node --test tests/foundation/task-history-sync-console.test.mjs tests/foundation/task-015-history.test.mjs` | `PASS` | `8/8` pass. |
-| `node --test tests/foundation/task-062-global-i18n-locale.test.mjs` | `PASS` | `4/4` pass; include regressioni rendered/read-model. |
-| `node scripts/i18n-hardcoded-ui-scan.mjs` | `PASS` | `checkedPhrases: 261`, `status: pass`; include Shop read models, Platform overview/admins/provisioning e regressione `Device signals are aggregated for support.`. |
-| `node scripts/i18n-rendered-text-scan.mjs --input /tmp/task062-rendered-i18n-after.json` | `PASS` | Snapshot browser `/tmp/task062-rendered-i18n-after.json`; `checkedPhrases: 86`, `checkedRoutes: 28`, `nonEnglishRecords: 28`, `status: pass`. |
+| `node --test tests/foundation/task-062-global-i18n-locale.test.mjs` | `PASS` | `8/8` pass; include regressioni date/time locale, label tecniche, scanner rendered e read-model. |
+| `node scripts/i18n-hardcoded-ui-scan.mjs` | `PASS` | `checkedPhrases: 307`, `status: pass`; include Shop read models, Platform overview/admins/provisioning, date/label tecniche e regressione `Device signals are aggregated for support.`. |
+| `node scripts/i18n-rendered-text-scan.mjs --input /tmp/task062-rendered-i18n-after.json` | `PASS` | Snapshot browser `/tmp/task062-rendered-i18n-after.json`; `checkedPhrases: 95`, `checkedRoutes: 28`, `checkedZhTechnicalHeaders: 33`, `nonEnglishRecords: 28`, `status: pass`. |
 | `PLAYWRIGHT_DISABLE_WEB_SERVER=1 PLAYWRIGHT_BASE_URL=http://127.0.0.1:3000 npm run test:shop:local` | `PASS_WITH_WARNINGS` | `4/4` pass contro il server locale gia aperto; warning tooling `[DEP0205]` e `NO_COLOR`/`FORCE_COLOR`. Un tentativo precedente senza `PLAYWRIGHT_DISABLE_WEB_SERVER` era stato bloccato dal server Next gia attivo su `3000`, poi rerun esplicito passato. |
 | `npx supabase --version && npx supabase migration up --local` | `PASS` | Supabase CLI `2.106.0`; local database up to date. |
 | Browser QA staff manager zh-CN | `PASS` | Login shop-code/staff manager sintetico locale: un solo shop visibile, nessun `#shop-switcher`, ruolo manager localizzato, query `shop_id` cross-shop negata senza leak. Fixture temporanea `T62QA%` rimossa, residui `0`. |
@@ -204,6 +209,76 @@ Esito:
 - Route Shop/Platform protette renderizzate in stato fail-closed
   `runtime/auth not configured` sul server locale senza sessione Supabase
   browser.
+
+## Date/time e label tecniche addendum 2026-06-15
+
+Contesto browser laterale:
+
+- Tab in-app visibile su `http://127.0.0.1:3000`.
+- Account sintetico locale `platform.local@example.test` aggiornato via
+  `npm run platform:local:seed`; password temporanea usata solo in runtime,
+  salvata in `/tmp/task062-local-admin-password` durante il login e poi
+  rimossa con `rm -f`.
+- Browser finale lasciato su `/shop/suppliers` in `zh-CN`.
+
+Fix applicato:
+
+- Nuovo helper centrale `src/i18n/format.ts` con `Intl.DateTimeFormat` e
+  mapping `en-US`, `it-IT`, `es-CL`, `zh-CN`.
+- `zh-CN` assembla esplicitamente `YYYY年M月D日 HH:mm` per evitare il fallback
+  browser `YYYY/M/D HH:mm` osservato in RED.
+- `AdminDataTable`, `PlatformMasterDetail`, `PlatformPage`, `ShopSectionPage`,
+  `/platform/admins` e `/account/profile` ricevono il locale corrente per
+  formattare timestamp visibili.
+- Read model Shop/Platform lasciano gli ISO timestamp al layer i18n invece di
+  preformattarli in inglese.
+- Label tecniche aggiunte/rafforzate in `dictionary.exact`, incluse
+  `Supplier id`, `Product id`, `Category id`, `Shop ID`, `Staff id`,
+  `Member id`, `Profile ID`, `Device id`, `Identifier`, `Session id`,
+  `Updated at`, `Created at`, `Latest sync`, `Latest POS audit`, `Metadata`,
+  `Target`, `Payload`, `Overlay`, `Entry name`, `Supplier / Category`,
+  `Device / trust`, `Session`, `Count`, `Namespace`, `Permissions`, `Field`,
+  `Value`, `Detail`, `Group`, `Action`.
+- Residui browser corretti durante QA: `Shop scoped`,
+  `Audited create/update/archive` e header `IDENTIFIER`.
+- Lo scanner rendered ora blocca in `zh-CN` date inglesi, marker `AM/PM`,
+  formato slash `YYYY/M/D` e header tecnici inglesi. I token di conferma
+  `SESSIONS`/`PERMISSIONS` restano intenzionalmente non tradotti dentro frasi
+  gia localizzate, perche sono valori da digitare.
+
+Browser QA autenticata:
+
+- `zh-CN` sweep completo su `28` route: `/shop`, `/shop/products`,
+  `/shop/categories`, `/shop/suppliers`, `/shop/members`, `/shop/roles`,
+  `/shop/staff`, `/shop/pos`, `/shop/devices`, `/shop/sync`, `/shop/history`,
+  `/shop/audit`, `/shop/settings`, `/shop/import-export`, `/platform`,
+  `/platform/users`, `/platform/shops`, `/platform/shops/new`,
+  `/platform/admins`, `/platform/audit`, `/platform/system`, `/platform/data`,
+  `/platform/devices`, `/platform/sync`, `/platform/history`,
+  `/platform/operations`, `/platform/support`, `/platform/provisioning`.
+- Snapshot scritto a `/tmp/task062-rendered-i18n-after.json`.
+- Scanner rendered sullo snapshot: `PASS`, `checkedPhrases: 95`,
+  `checkedRoutes: 28`, `checkedZhTechnicalHeaders: 33`,
+  `nonEnglishRecords: 28`.
+- Esempio osservato su `/shop/suppliers`: header
+  `供应商ID	名称	更新时间	操作`, data `2026年6月14日 21:16`.
+- Esempio osservato su `/shop/devices`: header
+  `设备	标识符	类型	状态	最近同步	历史	更新时间`.
+- Campione `it`: `/shop/suppliers`, `/shop/staff`, `/shop/audit`,
+  `/platform`, `/platform/shops`, `/platform/admins`; esempi
+  `14 giu 2026, 21:16`, `9 giu 2026, 21:54`, nessun mese inglese.
+- Campione `es`: stesse route; esempi `14 jun 2026, 21:16`,
+  `9 jun 2026, 21:54`, nessun mese inglese.
+
+Regressioni aggiunte:
+
+- `tests/foundation/task-062-global-i18n-locale.test.mjs` copre helper
+  centrale, traduzioni label tecniche, business value non tradotti, scanner
+  rendered positivo e failure per `Jun 14, 2026`, `PM`, `2026/6/14` e header
+  tecnici inglesi.
+- `tests/foundation/task-056-master-console-shop-detail-editing.test.mjs` e
+  `tests/foundation/task-049-master-console-admins-ui-polish.test.mjs` sono
+  riallineati al nuovo i18n wiring senza indebolire le aspettative UX.
 
 ## Safety
 

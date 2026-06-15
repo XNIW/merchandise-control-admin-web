@@ -46,8 +46,8 @@ export async function ShopSectionPage({
   secondaryRowActions,
   section,
 }: ShopSectionPageProps) {
-  const { dictionary } = await getI18n();
-  const localizedSection = translateShopSection(dictionary, section);
+  const { dictionary, locale } = await getI18n();
+  const localizedSection = translateShopSection(dictionary, section, locale);
   const liveData = section.liveData;
   const localizedLiveData = localizedSection.liveData;
   const localizedRowActions = rowActions
@@ -127,6 +127,7 @@ export async function ShopSectionPage({
               columns={localizedLiveData.columns}
               rows={localizedLiveData.rows}
               emptyState={localizedLiveData.emptyState}
+              locale={locale}
               rowActions={localizedRowActions}
             />
           ) : (
@@ -169,6 +170,7 @@ export async function ShopSectionPage({
                 columns={localizedTable.columns}
                 rows={localizedTable.rows}
                 emptyState={localizedTable.emptyState}
+                locale={locale}
                 rowActions={tableRowActions}
               />
             </SectionCard>

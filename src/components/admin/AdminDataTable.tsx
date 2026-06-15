@@ -2,6 +2,7 @@ import {
   formatTimestampUtc,
   isIsoTimestamp,
 } from "@/components/platform/displayFormat";
+import { DEFAULT_LOCALE, type SupportedLocale } from "@/i18n/locales";
 import type { ReactNode } from "react";
 
 export type AdminDataTableColumn = {
@@ -22,6 +23,7 @@ type AdminDataTableProps = {
     description: string;
   };
   footer?: string;
+  locale?: SupportedLocale;
   rowActions?: {
     label: string;
     render: (row: AdminDataTableRow) => ReactNode;
@@ -36,6 +38,7 @@ export function AdminDataTable({
   rows,
   emptyState,
   footer,
+  locale = DEFAULT_LOCALE,
   rowActions,
 }: AdminDataTableProps) {
   return (
@@ -70,7 +73,7 @@ export function AdminDataTable({
                 {columns.map((column) => {
                   const rawValue = row[column.key] ?? "";
                   const value = isIsoTimestamp(rawValue)
-                    ? formatTimestampUtc(rawValue)
+                    ? formatTimestampUtc(rawValue, locale)
                     : rawValue;
 
                   return (

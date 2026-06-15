@@ -1,4 +1,9 @@
-import type { PlatformNavigationItem, PlatformSection } from "@/components/platform/platformData";
+import type {
+  PlatformNavigationItem,
+  PlatformSection,
+} from "@/components/platform/platformData";
+import { formatDateTime } from "./format";
+import { DEFAULT_LOCALE, type SupportedLocale } from "./locales";
 import type {
   ShopNavigationSection,
   ShopSection,
@@ -9,6 +14,15 @@ import type { Dictionary } from "./dictionaries";
 
 export function translateText(dictionary: Dictionary, value: string): string {
   return dictionary.exact[value] ?? value;
+}
+
+const isoDateTimePattern =
+  /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:\d{2})?\b/g;
+
+function formatEmbeddedDateTimes(value: string, locale: SupportedLocale) {
+  return value.replace(isoDateTimePattern, (match) =>
+    formatDateTime(locale, match),
+  );
 }
 
 const translatableValueKeyPatterns = [
@@ -38,6 +52,7 @@ const translatableValueKeyPatterns = [
   "status",
   "summary",
   "type",
+  "write",
 ];
 
 function shouldTranslateUiValue(keyOrLabel: string | undefined): boolean {
@@ -52,21 +67,23 @@ function translateUiValue(
   dictionary: Dictionary,
   keyOrLabel: string | undefined,
   value: string,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): string {
   const normalized = keyOrLabel?.toLowerCase() ?? "";
 
   if (normalized === "detail") {
-    return translateStaticUiText(dictionary, value);
+    return translateStaticUiText(dictionary, value, locale);
   }
 
   return shouldTranslateUiValue(keyOrLabel)
-    ? translateStaticUiText(dictionary, value)
-    : translateEmbeddedUiText(dictionary, value);
+    ? translateStaticUiText(dictionary, value, locale)
+    : translateEmbeddedUiText(dictionary, value, locale);
 }
 
 function translateStaticUiText(
   dictionary: Dictionary,
   value: string,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): string {
   const exact = translateText(dictionary, value);
 
@@ -74,23 +91,28 @@ function translateStaticUiText(
     return exact;
   }
 
-  return translateEmbeddedUiText(dictionary, value);
+  return translateEmbeddedUiText(dictionary, value, locale);
 }
 
 function translateEmbeddedUiText(
   dictionary: Dictionary,
   value: string,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): string {
-  if (value.includes("\n")) {
-    return value
+  const valueWithDateTimes = formatEmbeddedDateTimes(value, locale);
+
+  if (valueWithDateTimes.includes("\n")) {
+    return valueWithDateTimes
       .split("\n")
       .map((segment, index) =>
-        index === 0 ? segment : translateStatusLikeSegment(dictionary, segment),
+        index === 0
+          ? translateEmbeddedUiText(dictionary, segment, locale)
+          : translateStatusLikeSegment(dictionary, segment, locale),
       )
       .join("\n");
   }
 
-  const countWithLabelMatch = value.match(
+  const countWithLabelMatch = valueWithDateTimes.match(
     /^(\d+)\s+(revoked|failed technical events|visible devices|revoked or suspicious|latest events|orphaned memberships|profiles without membership|suspended shops with recent activity|latest sync\/history events|shops without owner|visible profiles|platform admins)$/,
   );
 
@@ -98,7 +120,25 @@ function translateEmbeddedUiText(
     return `${countWithLabelMatch[1]} ${translateText(dictionary, countWithLabelMatch[2])}`;
   }
 
-  const shopStateSummaryMatch = value.match(
+  const updatedAtMatch = valueWithDateTimes.match(/^Updated (.+)$/);
+
+  if (updatedAtMatch) {
+    return `${translateText(dictionary, "Updated")} ${updatedAtMatch[1]}`;
+  }
+
+  const lockedUntilMatch = valueWithDateTimes.match(/^Locked until (.+)$/);
+
+  if (lockedUntilMatch) {
+    return `${translateText(dictionary, "Locked until")} ${lockedUntilMatch[1]}`;
+  }
+
+  const activeUntilMatch = valueWithDateTimes.match(/^Active until (.+)$/);
+
+  if (activeUntilMatch) {
+    return `${translateText(dictionary, "Active until")} ${activeUntilMatch[1]}`;
+  }
+
+  const shopStateSummaryMatch = valueWithDateTimes.match(
     /^(\d+)\s+active\s+\/\s+(\d+)\s+suspended\s+\/\s+(\d+)\s+archived$/,
   );
 
@@ -112,7 +152,9 @@ function translateEmbeddedUiText(
     ].join(" / ");
   }
 
-  const activeTotalSummaryMatch = value.match(/^(\d+)\s+active\s+\/\s+(\d+)\s+total$/);
+  const activeTotalSummaryMatch = valueWithDateTimes.match(
+    /^(\d+)\s+active\s+\/\s+(\d+)\s+total$/,
+  );
 
   if (activeTotalSummaryMatch) {
     const [, active, total] = activeTotalSummaryMatch;
@@ -120,7 +162,7 @@ function translateEmbeddedUiText(
     return `${active} ${translateText(dictionary, "active")} / ${total} ${translateText(dictionary, "total")}`;
   }
 
-  const credentialStatusMatch = value.match(
+  const credentialStatusMatch = valueWithDateTimes.match(
     /^(.+)\s+(Active|Locked|Expired|Rotation Required)\s+v(\d+)\s+updated\s+(.+)$/,
   );
 
@@ -137,13 +179,19 @@ function translateEmbeddedUiText(
     ].join(" ");
   }
 
-  const statusSuffixMatch = value.match(/^(.+)\s+\/\s+(Active|Archived)$/);
+  const statusSuffixMatch = valueWithDateTimes.match(
+    /^(.+)\s+\/\s+(Active|Archived)$/,
+  );
 
   if (statusSuffixMatch) {
     return `${statusSuffixMatch[1]} / ${translateText(dictionary, statusSuffixMatch[2])}`;
   }
 
-  return value;
+  if (valueWithDateTimes !== value) {
+    return valueWithDateTimes;
+  }
+
+  return valueWithDateTimes;
 }
 
 const translatableValueFields = new Set(
@@ -168,7 +216,11 @@ const translatableValueFields = new Set(
   ].map((value) => value.toLowerCase()),
 );
 
-function translateStatusLikeSegment(dictionary: Dictionary, value: string): string {
+function translateStatusLikeSegment(
+  dictionary: Dictionary,
+  value: string,
+  locale: SupportedLocale = DEFAULT_LOCALE,
+): string {
   return [
     "Active",
     "Archived",
@@ -189,7 +241,7 @@ function translateStatusLikeSegment(dictionary: Dictionary, value: string): stri
     "Visible",
   ].includes(value)
     ? translateText(dictionary, value)
-    : translateEmbeddedUiText(dictionary, value);
+    : translateEmbeddedUiText(dictionary, value, locale);
 }
 
 function shouldTranslateWholeRowValue(row: Record<string, string>): boolean {
@@ -202,10 +254,11 @@ function translateRowValue(
   dictionary: Dictionary,
   row: Record<string, string>,
   value: string,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): string {
   return shouldTranslateWholeRowValue(row)
-    ? translateStaticUiText(dictionary, value)
-    : translateEmbeddedUiText(dictionary, value);
+    ? translateStaticUiText(dictionary, value, locale)
+    : translateEmbeddedUiText(dictionary, value, locale);
 }
 
 function translateList(dictionary: Dictionary, values: readonly string[] | undefined) {
@@ -215,6 +268,7 @@ function translateList(dictionary: Dictionary, values: readonly string[] | undef
 function translateShopRow(
   dictionary: Dictionary,
   row: ShopSectionTableRow,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): ShopSectionTableRow {
   return Object.fromEntries(
     Object.entries(row).map(([key, value]) => [
@@ -222,8 +276,8 @@ function translateShopRow(
       key === "rowKey"
         ? value
         : key === "value"
-          ? translateRowValue(dictionary, row, value)
-          : translateUiValue(dictionary, key, value),
+          ? translateRowValue(dictionary, row, value, locale)
+          : translateUiValue(dictionary, key, value, locale),
     ]),
   ) as ShopSectionTableRow;
 }
@@ -231,6 +285,7 @@ function translateShopRow(
 function translateShopLiveData(
   dictionary: Dictionary,
   liveData: ShopSectionLiveData | undefined,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): ShopSectionLiveData | undefined {
   if (!liveData) {
     return undefined;
@@ -247,7 +302,7 @@ function translateShopLiveData(
       description: translateText(dictionary, liveData.emptyState.description),
       title: translateText(dictionary, liveData.emptyState.title),
     },
-    rows: liveData.rows.map((row) => translateShopRow(dictionary, row)),
+    rows: liveData.rows.map((row) => translateShopRow(dictionary, row, locale)),
     title: translateText(dictionary, liveData.title),
   };
 }
@@ -269,6 +324,7 @@ export function translateShopNavigationSections(
 export function translateShopSection(
   dictionary: Dictionary,
   section: ShopSection,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): ShopSection {
   return {
     ...section,
@@ -276,12 +332,12 @@ export function translateShopSection(
     eyebrow: translateText(dictionary, section.eyebrow),
     guardrails: section.guardrails.map((item) => translateText(dictionary, item)),
     label: translateText(dictionary, section.label),
-    liveData: translateShopLiveData(dictionary, section.liveData),
+    liveData: translateShopLiveData(dictionary, section.liveData, locale),
     metrics: section.metrics.map((metric) => ({
       ...metric,
-      detail: translateStaticUiText(dictionary, metric.detail),
+      detail: translateStaticUiText(dictionary, metric.detail, locale),
       label: translateText(dictionary, metric.label),
-      value: translateStaticUiText(dictionary, metric.value),
+      value: translateStaticUiText(dictionary, metric.value, locale),
     })),
     plannedWork: section.plannedWork.map((item) => translateText(dictionary, item)),
     secondaryLiveData: section.secondaryLiveData?.map((table) => ({
@@ -295,7 +351,7 @@ export function translateShopSection(
         description: translateText(dictionary, table.emptyState.description),
         title: translateText(dictionary, table.emptyState.title),
       },
-      rows: table.rows.map((row) => translateShopRow(dictionary, row)),
+      rows: table.rows.map((row) => translateShopRow(dictionary, row, locale)),
       title: translateText(dictionary, table.title),
     })),
     status: translateText(dictionary, section.status),
@@ -308,6 +364,7 @@ type PlatformTableRow = PlatformSection["rows"][number];
 function translatePlatformRow(
   dictionary: Dictionary,
   row: PlatformTableRow,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): PlatformTableRow {
   return Object.fromEntries(
     Object.entries(row).map(([key, value]) => [
@@ -315,8 +372,8 @@ function translatePlatformRow(
       key === "rowKey"
         ? value
         : key === "value"
-          ? translateRowValue(dictionary, row, value)
-          : translateUiValue(dictionary, key, value),
+          ? translateRowValue(dictionary, row, value, locale)
+          : translateUiValue(dictionary, key, value, locale),
     ]),
   ) as PlatformTableRow;
 }
@@ -334,6 +391,7 @@ export function translatePlatformNavigationItems(
 export function translatePlatformSection(
   dictionary: Dictionary,
   section: PlatformSection,
+  locale: SupportedLocale = DEFAULT_LOCALE,
 ): PlatformSection {
   return {
     ...section,
@@ -353,7 +411,12 @@ export function translatePlatformSection(
       fields: detailSection.fields.map((field) => ({
         ...field,
         label: translateText(dictionary, field.label),
-        value: translateRowValue(dictionary, { field: field.label }, field.value),
+        value: translateRowValue(
+          dictionary,
+          { field: field.label },
+          field.value,
+          locale,
+        ),
       })),
       notes: translateList(dictionary, detailSection.notes),
       title: translateText(dictionary, detailSection.title),
@@ -391,35 +454,45 @@ export function translatePlatformSection(
     })),
     rowDetails: section.rowDetails?.map((detail) => ({
       ...detail,
-        fields: detail.fields?.map((field) => ({
-          ...field,
-          label: translateText(dictionary, field.label),
-          value: translateRowValue(dictionary, { field: field.label }, field.value),
-        })),
+      fields: detail.fields?.map((field) => ({
+        ...field,
+        label: translateText(dictionary, field.label),
+        value: translateRowValue(
+          dictionary,
+          { field: field.label },
+          field.value,
+          locale,
+        ),
+      })),
       groups: detail.groups?.map((group) => ({
         ...group,
         fields: group.fields.map((field) => ({
           ...field,
           label: translateText(dictionary, field.label),
-          value: translateRowValue(dictionary, { field: field.label }, field.value),
+          value: translateRowValue(
+            dictionary,
+            { field: field.label },
+            field.value,
+            locale,
+          ),
         })),
         notes: translateList(dictionary, group.notes),
         title: translateText(dictionary, group.title),
       })),
       notes: translateList(dictionary, detail.notes),
-      subtitle: translateEmbeddedUiText(dictionary, detail.subtitle),
+      subtitle: translateEmbeddedUiText(dictionary, detail.subtitle, locale),
       title: translateText(dictionary, detail.title),
     })),
-    rows: section.rows.map((row) => translatePlatformRow(dictionary, row)),
+    rows: section.rows.map((row) => translatePlatformRow(dictionary, row, locale)),
     searchPlaceholder: section.searchPlaceholder
       ? translateText(dictionary, section.searchPlaceholder)
       : section.searchPlaceholder,
     stats: section.stats.map((stat) => ({
       ...stat,
-      detail: translateStaticUiText(dictionary, stat.detail),
+      detail: translateStaticUiText(dictionary, stat.detail, locale),
       label: translateText(dictionary, stat.label),
       toneLabel: translateText(dictionary, stat.tone),
-      value: translateStaticUiText(dictionary, stat.value),
+      value: translateStaticUiText(dictionary, stat.value, locale),
     })),
     status: translateText(dictionary, section.status),
     title: translateText(dictionary, section.title),

@@ -92,6 +92,15 @@ const criticalRenderedUiPhrases = [
   "Ready",
   "Verified by active membership",
   "Shop-scoped catalog rows loaded server-side for the verified selected shop.",
+  "Shop scoped",
+  "Shop scoped or legacy bridge",
+  "Audited create/update/archive",
+  "Audited create/update/archive/restore",
+  "No client-side shop trust",
+  "No cross-shop event lookup",
+  "Mapped owner source",
+  "File changes are never applied directly",
+  "Server-only workbook parser/writer",
   "Shop Staff read model loaded server-side through the credential-safe view.",
   "Server registry devices loaded for the verified selected shop, with read-only links to sync activity when available.",
   "No sync event",
@@ -132,6 +141,46 @@ const criticalRenderedUiPhrases = [
   "Shop audit log",
   "Shop profile and fiscal identity",
   "Drop a catalog database .xlsx or .xls workbook here or choose a file.",
+];
+
+const englishMonthDatePattern =
+  /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+\d{1,2},\s+\d{4}\b/;
+const englishMeridiemPattern = /\b(?:AM|PM)\b/;
+const zhSlashDatePattern = /\b\d{4}\/\d{1,2}\/\d{1,2}\b/;
+const zhTechnicalHeaderPhrases = [
+  "SUPPLIER ID",
+  "PRODUCT ID",
+  "CATEGORY ID",
+  "SHOP ID",
+  "STAFF ID",
+  "MEMBER ID",
+  "PROFILE ID",
+  "DEVICE ID",
+  "SESSION ID",
+  "IDENTIFIER",
+  "TYPE",
+  "STATUS",
+  "UPDATED AT",
+  "CREATED AT",
+  "LOCKOUT",
+  "LATEST SYNC",
+  "LATEST POS AUDIT",
+  "METADATA",
+  "TARGET",
+  "PAYLOAD",
+  "OVERLAY",
+  "ENTRY NAME",
+  "SUPPLIER / CATEGORY",
+  "DEVICE / TRUST",
+  "SESSION",
+  "COUNT",
+  "NAMESPACE",
+  "PERMISSIONS",
+  "FIELD",
+  "VALUE",
+  "DETAIL",
+  "GROUP",
+  "ACTION",
 ];
 
 function readJson(path) {
@@ -180,6 +229,18 @@ function collectText(value, key = "") {
   return Object.entries(value).flatMap(([entryKey, entryValue]) =>
     collectText(entryValue, entryKey),
   );
+}
+
+function hasStandaloneOrTableHeader(text, header) {
+  return text.split(/\r?\n/).some((line) => {
+    const trimmed = line.trim();
+
+    if (trimmed === header) {
+      return true;
+    }
+
+    return trimmed.split("\t").some((cell) => cell.trim() === header);
+  });
 }
 
 const payload = readJson(inputPath);
@@ -234,6 +295,30 @@ for (const record of nonEnglishRecords) {
       failures.push(`${locale} ${route}: "${phrase}"`);
     }
   }
+
+  if (locale === "zh-CN") {
+    if (englishMonthDatePattern.test(text)) {
+      failures.push(`${locale} ${route}: English month date format`);
+    }
+
+    if (englishMeridiemPattern.test(text)) {
+      failures.push(`${locale} ${route}: English AM/PM time marker`);
+    }
+
+    if (zhSlashDatePattern.test(text)) {
+      failures.push(`${locale} ${route}: slash date format`);
+    }
+
+    for (const header of zhTechnicalHeaderPhrases) {
+      if (hasStandaloneOrTableHeader(text, header)) {
+        failures.push(`${locale} ${route}: untranslated technical header "${header}"`);
+      }
+    }
+  }
+
+  if ((locale === "it" || locale === "es") && englishMonthDatePattern.test(text)) {
+    failures.push(`${locale} ${route}: English month date format`);
+  }
 }
 
 if (failures.length > 0) {
@@ -252,6 +337,7 @@ console.log(
       inputPath: resolve(inputPath),
       checkedPhrases: criticalRenderedUiPhrases.length,
       checkedRoutes: requiredRoutes.length,
+      checkedZhTechnicalHeaders: zhTechnicalHeaderPhrases.length,
       nonEnglishRecords: nonEnglishRecords.length,
       status: "pass",
     },

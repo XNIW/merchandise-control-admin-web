@@ -63,7 +63,7 @@ test("TASK-056 Shops master-detail keeps single-click selection and adds double-
   assertContains(masterDetail, "selectRow(rowKey)");
   assertContains(masterDetail, "Open full detail");
   assertContains(masterDetail, "event.stopPropagation();");
-  assertContains(masterDetail, "aria-label={`Copy shop code");
+  assertContains(masterDetail, "aria-label={`${labels.copyShopCode}");
 });
 
 test("TASK-056 shop detail renders complete read-only profile and fiscal identity before opening edit dialog", () => {

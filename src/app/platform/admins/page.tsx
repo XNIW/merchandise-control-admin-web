@@ -4,11 +4,11 @@ import { EmptyState } from "@/components/platform/components/EmptyState";
 import { PageHeader } from "@/components/platform/components/PageHeader";
 import { SectionCard } from "@/components/platform/components/SectionCard";
 import {
-  formatTimestampUtc,
   formatToken,
   shortIdentifier,
 } from "@/components/platform/displayFormat";
 import type { Profile } from "@/domain/platform-admin/types";
+import { formatDateTime } from "@/i18n/format";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
 import { getPlatformAdminReadModel } from "@/server/platform-admin/read-model";
@@ -143,7 +143,7 @@ export default async function PlatformAdminsPage({
   searchParams?: SearchParams;
 }) {
   const params = searchParams ? await searchParams : {};
-  const { dictionary } = await getI18n();
+  const { dictionary, locale } = await getI18n();
   const t = (value: string) => translateText(dictionary, value);
   const result = asResultCode(firstParam(params.result));
   const readModel = await getPlatformAdminReadModel();
@@ -339,7 +339,7 @@ export default async function PlatformAdminsPage({
                                 title={admin.granted_at}
                                 className="whitespace-nowrap text-slate-800"
                               >
-                                {formatTimestampUtc(admin.granted_at)}
+                                {formatDateTime(locale, admin.granted_at)}
                               </dd>
                             </div>
                           </dl>

@@ -63,7 +63,7 @@ test("TASK-049 Admins page is compact and keeps destructive revoke controls coll
     "Revoke controls are collapsed by default",
     "title={admin.profile_id}",
     "title={admin.platform_admin_id}",
-    "formatTimestampUtc(admin.granted_at)",
+    "formatDateTime(locale, admin.granted_at)",
     "shortIdentifier(admin.profile_id)",
     "shortIdentifier(admin.platform_admin_id)",
     "break-all",
@@ -188,8 +188,8 @@ test("TASK-049 Users, Shops, System, and Data keep technical values readable", (
     "Profile ID ${shortId(profile.profile_id)}",
     "Shop code ${shop.shop_code}",
     "Code ${shop.shop_code}",
-    "formatTimestampUtc(devices[0].updated_at)",
-    "formatTimestampUtc(sync.created_at)",
+    "devices[0].updated_at",
+    "latestSync.created_at",
   ]) {
     assertContains(sectionData, required, `section data must contain ${required}`);
   }

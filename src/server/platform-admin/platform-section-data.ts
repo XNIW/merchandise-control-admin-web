@@ -1,7 +1,6 @@
 import "server-only";
 
 import {
-  formatTimestampUtc,
   formatToken,
   readableBoundaryStatus,
 } from "@/components/platform/displayFormat";
@@ -95,7 +94,7 @@ function configuredRut(value?: string | null) {
 }
 
 function configuredTimestamp(value?: string | null) {
-  return value ? formatTimestampUtc(value) : "Not configured";
+  return value ?? "Not configured";
 }
 
 function activeOwnerNamesForShop(
@@ -513,7 +512,7 @@ function shopRowDetail(
           {
             label: "Latest device update",
             value: devices[0]?.updated_at
-              ? formatTimestampUtc(devices[0].updated_at)
+              ? devices[0].updated_at
               : "No devices visible",
           },
         ],
@@ -528,7 +527,7 @@ function shopRowDetail(
           {
             label: "Latest sync",
             value: latestSync
-              ? `${formatToken(latestSync.event_type)} / ${formatTimestampUtc(latestSync.created_at)}`
+              ? `${formatToken(latestSync.event_type)} / ${latestSync.created_at}`
               : "No sync visible",
           },
           { label: "Audit count", value: String(audits.length) },
@@ -720,7 +719,7 @@ function shopOperationalSummaryFields(
     {
       label: "Latest sync",
       value: sync
-        ? `${formatToken(sync.event_type)} / ${formatTimestampUtc(sync.created_at)}`
+        ? `${formatToken(sync.event_type)} / ${sync.created_at}`
         : "No sync visible",
     },
     {
@@ -803,7 +802,7 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
         {
           label: "Latest update",
           value: devices[0]?.updated_at
-            ? formatTimestampUtc(devices[0].updated_at)
+            ? devices[0].updated_at
             : "No devices visible",
         },
       ],
@@ -825,7 +824,7 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
         {
           label: "Latest sync",
           value: sync
-            ? `${formatToken(sync.event_type)} / ${formatTimestampUtc(sync.created_at)}`
+            ? `${formatToken(sync.event_type)} / ${sync.created_at}`
             : "No sync visible",
         },
         { label: "Latest audit", value: audits[0]?.event ?? "No audit event visible" },

@@ -30,7 +30,15 @@ scelta.
   action panel tramite `dictionary.exact`.
 - Localizzare il provisioning Platform e gli access gate globali senza spostare
   dati business nel dizionario.
+- Formattare date/ore visibili con helper centrale locale-aware:
+  `zh-CN` con `YYYY年M月D日 HH:mm`, `it` con mese breve italiano,
+  `es` tramite `es-CL`; `en` resta compatibile con formato inglese.
+- Localizzare label tecniche visibili in tabelle/metriche/dettagli senza
+  tradurre valori business dinamici, ID, UUID, nomi shop/fornitori o dati
+  provenienti dal database.
 - Aggiungere scanner statico per copy hardcoded UI critica.
+- Aggiungere scanner rendered che blocca date inglesi/AM-PM/slash date in
+  `zh-CN` e header tecnici inglesi rimasti nel DOM.
 - Coprire il contratto con test foundation dedicato.
 
 ## Non incluso
@@ -51,14 +59,19 @@ scelta.
 | CA-04 | Import/export, Database transfer e Catalog action panel non restano hardcoded nelle frasi critiche. | `PASS` |
 | CA-05 | Scanner i18n e test foundation TASK-062 passano. | `PASS` |
 | CA-06 | Browser QA copre route principali con UI renderizzata. | `PASS_WITH_AUTH_RUNTIME_NOTE` |
+| CA-07 | Date/ore e label tecniche sono localizzate senza cambiare number/price/quantity formatting o valori business. | `PASS` |
 
 ## File principali
 
 - `src/i18n/locales.ts`
 - `src/i18n/get-locale.ts`
 - `src/i18n/dictionaries.ts`
+- `src/i18n/format.ts`
 - `src/i18n/translate-sections.ts`
 - `src/components/language-switcher.tsx`
+- `src/components/admin/AdminDataTable.tsx`
+- `src/components/platform/displayFormat.ts`
+- `src/components/platform/PlatformMasterDetail.tsx`
 - `src/app/layout.tsx`
 - `src/app/shop/layout.tsx`
 - `src/components/platform/AppShell.tsx`
@@ -71,6 +84,7 @@ scelta.
 - `src/app/platform/provisioning/provisioningLabels.ts`
 - `src/components/auth/AccessState.tsx`
 - `scripts/i18n-hardcoded-ui-scan.mjs`
+- `scripts/i18n-rendered-text-scan.mjs`
 - `tests/foundation/task-062-global-i18n-locale.test.mjs`
 
 ## Handoff
