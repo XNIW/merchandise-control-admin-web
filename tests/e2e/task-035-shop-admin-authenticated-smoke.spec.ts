@@ -986,6 +986,8 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
     const fixture = await createTask035Fixture(runtime);
 
     try {
+      await signInWithTask035Credentials(page, fixture);
+
       const managerSession = await createTask035StaffWebSession(
         runtime,
         fixture,
@@ -999,6 +1001,13 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         page.getByRole("heading", { level: 1, name: "Shop Overview" }),
       ).toBeVisible();
       await expect(page.getByText(fixture.shopCode).first()).toBeVisible();
+      await expect(page.locator("#shop-switcher")).toHaveCount(0);
+      await expect(
+        page.getByLabel("Shop status").getByText("Shop Manager"),
+      ).toBeVisible();
+      await expect(
+        page.getByLabel("Shop status").getByText("Shop Owner"),
+      ).toHaveCount(0);
 
       for (const route of [
         { heading: "Products", path: "/shop/products", text: fixture.productName },
@@ -1010,6 +1019,10 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
           page.getByRole("heading", { level: 1, name: route.heading }),
         ).toBeVisible();
         await expect(page.getByText(route.text).first()).toBeVisible();
+        await expect(page.locator("#shop-switcher")).toHaveCount(0);
+        await expect(
+          page.getByLabel("Shop status").getByText("Shop Manager"),
+        ).toBeVisible();
         await assertNoSensitiveText(page, [
           fixture.cashierCredential,
           fixture.password,
@@ -1022,6 +1035,10 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       await page.goto(`/shop?shop_id=${fixture.blockedShopId}`);
       await expect(
         page.getByRole("heading", { level: 1, name: "Shop Overview" }),
+      ).toBeVisible();
+      await expect(page.locator("#shop-switcher")).toHaveCount(0);
+      await expect(
+        page.getByLabel("Shop status").getByText("Shop Manager"),
       ).toBeVisible();
       const blockedRequestHeader = page.getByRole("group", {
         name: /Shop workspace/,

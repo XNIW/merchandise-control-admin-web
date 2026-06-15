@@ -164,6 +164,7 @@ const renderedRegressionUiPhrases = [
   "Device signals",
   "Device signals appear after POS or mobile registration.",
   "Device signals appear after POS or mobile registration. Sync source ids alone do not authorize a device.",
+  "Device signals are aggregated for support.",
   "Device warnings",
   "Device/sync data health",
   "Global registry",

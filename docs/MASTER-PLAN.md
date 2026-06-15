@@ -2493,8 +2493,16 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   su `127.0.0.1:3000` in `zh-CN` ha coperto `28` route Shop/Platform; scanner
   rendered riproducibile
   `node scripts/i18n-rendered-text-scan.mjs --input /tmp/task062-rendered-i18n-after.json`
-  verde con `checkedPhrases: 85`, `checkedRoutes: 28`,
+  verde con `checkedPhrases: 86`, `checkedRoutes: 28`,
   `nonEnglishRecords: 28`.
+- Nota staff shop-scope 2026-06-15: Master Console `/platform/shops` ha
+  verificato `123456789` e `TASKHIST1` come shop reali distinti, entrambi
+  autorizzati allo stesso personal owner locale ma non allo stesso staff
+  account. Il resolver Admin Console ora da precedenza alla staff web session
+  rispetto a una sessione personale stale; `ShopShell` rende lo switcher solo
+  per `personal_account` multi-shop. E2E Shop locale `4/4` e Browser QA
+  `zh-CN` confermano staff manager single-shop, nessun switcher e query
+  cross-shop negata.
 
 ## Tooling policy
 

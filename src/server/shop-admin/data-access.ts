@@ -169,6 +169,63 @@ function toPersonalAccountBlockedAccess(
 async function resolveShopAdminDataAccessUncached(
   options: ResolveShopAdminDataAccessOptions = {},
 ): Promise<ShopAdminDataAccess> {
+  const staffResolution = await resolveStaffWebSessionPrincipal();
+
+  if (staffResolution.status === "ready") {
+    if (staffResolution.principal.kind !== "pos_staff_manager") {
+      return {
+        reason:
+          "Resolved staff web session did not produce a POS staff manager principal.",
+        status: "unauthorized",
+      };
+    }
+
+    const staffShop = staffResolution.principal.shop;
+
+    if (options.requestedShopId && options.requestedShopId !== staffShop.shopId) {
+      return {
+        reason: "Staff web access is limited to the staff account shop.",
+        status: "unauthorized",
+      };
+    }
+
+    const adminConfig = resolveSupabaseAdminConfig();
+
+    if (adminConfig.status !== "configured") {
+      return {
+        reason:
+          "Supabase admin runtime is required for staff web Admin Console data access.",
+        status: "not_configured",
+      };
+    }
+
+    const adminClient = createSupabaseAdminClient(adminConfig);
+
+    if (!adminClient) {
+      return {
+        reason: "Supabase admin client is unavailable for staff web data access.",
+        status: "not_configured",
+      };
+    }
+
+    return {
+      principalKind: "pos_staff_manager",
+      principal: staffResolution.principal,
+      selectedShop: await loadStaffShellShop(adminClient, staffShop),
+      status: "ready",
+      supabase: adminClient,
+    };
+  }
+
+  if (staffResolution.reason !== STAFF_WEB_SESSION_MISSING_REASON) {
+    return {
+      reason:
+        staffResolution.reason ??
+        "Staff web session is not authorized for Admin Console.",
+      status: statusForAccessState(staffResolution.status),
+    };
+  }
+
   const serverConfig = resolveSupabaseServerConfig();
   const serverClient =
     options.client ??
@@ -227,75 +284,22 @@ async function resolveShopAdminDataAccessUncached(
               "Resolved personal account access did not produce a personal account principal.",
             status: "unauthorized",
           }
-        : toPersonalAccountBlockedAccess(personalResolution);
+      : toPersonalAccountBlockedAccess(personalResolution);
   }
 
-  const staffResolution = await resolveStaffWebSessionPrincipal();
+  if (
+    personalAccountBlockedAccess &&
+    staffResolution.reason === STAFF_WEB_SESSION_MISSING_REASON
+  ) {
+    return personalAccountBlockedAccess;
+  }
 
-  if (staffResolution.status !== "ready") {
-    if (
-      personalAccountBlockedAccess &&
-      staffResolution.reason === STAFF_WEB_SESSION_MISSING_REASON
-    ) {
-      return personalAccountBlockedAccess;
+  return (
+    personalAccountBlockedAccess ?? {
+      reason: "No personal account or staff web session is authorized for Admin Console.",
+      status: "no_session",
     }
-
-    const fallbackStatus =
-      serverConfig.status === "not_configured"
-        ? "not_configured"
-        : statusForAccessState(staffResolution.status);
-
-    return {
-      reason:
-        staffResolution.reason ??
-        personalAccountBlockedAccess?.reason ??
-        "No personal account or staff web session is authorized for Admin Console.",
-      status: fallbackStatus,
-    };
-  }
-
-  if (staffResolution.principal.kind !== "pos_staff_manager") {
-    return {
-      reason: "Resolved staff web session did not produce a POS staff manager principal.",
-      status: "unauthorized",
-    };
-  }
-
-  const staffShop = staffResolution.principal.shop;
-
-  if (options.requestedShopId && options.requestedShopId !== staffShop.shopId) {
-    return {
-      reason: "Staff web access is limited to the staff account shop.",
-      status: "unauthorized",
-    };
-  }
-
-  const adminConfig = resolveSupabaseAdminConfig();
-
-  if (adminConfig.status !== "configured") {
-    return {
-      reason:
-        "Supabase admin runtime is required for staff web Admin Console data access.",
-      status: "not_configured",
-    };
-  }
-
-  const adminClient = createSupabaseAdminClient(adminConfig);
-
-  if (!adminClient) {
-    return {
-      reason: "Supabase admin client is unavailable for staff web data access.",
-      status: "not_configured",
-    };
-  }
-
-  return {
-    principalKind: "pos_staff_manager",
-    principal: staffResolution.principal,
-    selectedShop: await loadStaffShellShop(adminClient, staffShop),
-    status: "ready",
-    supabase: adminClient,
-  };
+  );
 }
 
 const resolveShopAdminDataAccessForRequest = cache(

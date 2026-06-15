@@ -2527,6 +2527,8 @@ const itRenderedCorrectiveExact: Record<string, string> = {
     "I segnali dispositivo appaiono dopo registrazione POS o mobile.",
   "Device signals appear after POS or mobile registration. Sync source ids alone do not authorize a device.":
     "I segnali dispositivo appaiono dopo registrazione POS o mobile. I soli ID sorgente sync non autorizzano un dispositivo.",
+  "Device signals are aggregated for support.":
+    "I segnali dispositivo sono aggregati per il supporto.",
   "Device/sync data health": "Salute dati dispositivi/sync",
   "Diagnostics appear after shared_sheet_sessions rows are visible.":
     "La diagnostica appare dopo che le righe shared_sheet_sessions sono visibili.",
@@ -2755,6 +2757,8 @@ const esRenderedCorrectiveExact: Record<string, string> = {
     "Las señales de dispositivo aparecen despues del registro POS o mobile.",
   "Device signals appear after POS or mobile registration. Sync source ids alone do not authorize a device.":
     "Las señales de dispositivo aparecen despues del registro POS o mobile. Los IDs de origen sync por si solos no autorizan un dispositivo.",
+  "Device signals are aggregated for support.":
+    "Las señales de dispositivo se agregan para soporte.",
   "Device/sync data health": "Salud de datos dispositivos/sync",
   "Diagnostics appear after shared_sheet_sessions rows are visible.":
     "El diagnostico aparece cuando las filas shared_sheet_sessions son visibles.",
@@ -2984,6 +2988,7 @@ const zhRenderedCorrectiveExact: Record<string, string> = {
     "POS 或移动端注册后会显示设备信号。",
   "Device signals appear after POS or mobile registration. Sync source ids alone do not authorize a device.":
     "POS 或移动端注册后会显示设备信号。仅同步来源 ID 不会授权设备。",
+  "Device signals are aggregated for support.": "设备信号会汇总用于支持。",
   "Device/sync data health": "设备/同步数据健康",
   "Diagnostics appear after shared_sheet_sessions rows are visible.":
     "shared_sheet_sessions 行可见后会显示诊断信息。",

@@ -185,6 +185,7 @@ export function ShopShell({
       ? optimisticActive.key
       : pathnameActive ?? "overview";
   const hasMultipleShops = availableShops.length > 1;
+  const canSwitchShops = principalKind === "personal_account" && hasMultipleShops;
   const selectedShop =
     availableShops.find((shop) => shop.shopId === requestedShopId) ??
     availableShops.find((shop) => shop.shopId === selectedShopId) ??
@@ -300,7 +301,7 @@ export function ShopShell({
                   className="flex flex-wrap items-center gap-2"
                   aria-label={labels.shopSelectionAria}
                 >
-                  {hasMultipleShops ? (
+                  {canSwitchShops ? (
                     <>
                       <label
                         htmlFor="shop-switcher"
@@ -324,7 +325,7 @@ export function ShopShell({
                     </>
                   ) : null}
 
-                  {!hasMultipleShops && selectedShop ? (
+                  {!canSwitchShops && selectedShop ? (
                     <p className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700">
                       {labels.singleShopWorkspace}
                     </p>

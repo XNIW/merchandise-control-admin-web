@@ -43,6 +43,29 @@ test("TASK-054 Shop Admin data access does not mask personal-account failures as
   );
 });
 
+test("TASK-062 corrective: staff web session takes precedence over stale personal auth", () => {
+  const dataAccess = read("src/server/shop-admin/data-access.ts");
+
+  const staffResolutionIndex = dataAccess.indexOf(
+    "const staffResolution = await resolveStaffWebSessionPrincipal();",
+  );
+  const personalResolutionIndex = dataAccess.indexOf(
+    "const personalResolution = await resolveCurrentShopAdminPrincipal(serverClient);",
+  );
+
+  assert.notEqual(staffResolutionIndex, -1);
+  assert.notEqual(personalResolutionIndex, -1);
+  assert.ok(
+    staffResolutionIndex < personalResolutionIndex,
+    "staff web session must be resolved before Supabase personal account auth",
+  );
+  assertContains(dataAccess, 'staffResolution.status === "ready"');
+  assertContains(dataAccess, 'principalKind: "pos_staff_manager"');
+  assertContains(dataAccess, "staffResolution.reason !== STAFF_WEB_SESSION_MISSING_REASON");
+  assertContains(dataAccess, "statusForAccessState(staffResolution.status)");
+  assertContains(dataAccess, "return personalAccountBlockedAccess");
+});
+
 test("TASK-054 Shop shell keeps only shop_id during cross-section navigation", () => {
   const shell = read("src/components/shop/ShopShell.tsx");
 

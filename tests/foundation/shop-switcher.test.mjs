@@ -46,10 +46,26 @@ test("TASK-009 ShopShell renders switcher from server-provided shops only", () =
   assert.match(shell, /selectedShopId/);
   assert.match(shell, /useSearchParams/);
   assert.match(shell, /useRouter/);
+  assert.match(shell, /principalKind/);
+  assert.match(shell, /principalKind === "personal_account"/);
   assert.match(shell, /aria-label=\{labels\.switchShop\}/);
   assert.match(dictionary, /switchShop: "Switch shop"/);
   assert.match(shell, /shop_id/);
   assert.doesNotMatch(shell, /@\/server|src\/server|@supabase\//);
+});
+
+test("TASK-062 corrective: staff manager shell remains single-shop", () => {
+  const layout = readProjectFile("src/app/shop/layout.tsx");
+  const shell = readProjectFile("src/components/shop/ShopShell.tsx");
+
+  assert.match(
+    layout,
+    /principal\.kind === "personal_account"\s*\?\s*principal\.availableShops\s*:\s*\[access\.selectedShop\]/,
+  );
+  assert.match(shell, /const canSwitchShops =/);
+  assert.match(shell, /principalKind === "personal_account" && hasMultipleShops/);
+  assert.match(shell, /\{canSwitchShops \? \(/);
+  assert.doesNotMatch(shell, /\{hasMultipleShops \? \(/);
 });
 
 test("TASK-009 ShopShell preserves selected shop while navigating sections", () => {
