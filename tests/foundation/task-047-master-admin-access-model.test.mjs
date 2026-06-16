@@ -302,11 +302,11 @@ test("TASK-047 Master Console users and shops expose row details without auth se
   }
 
   for (const required of [
-    "function accountOriginForProfile",
-    'return "Not captured"',
+    "function accountOriginForUser",
+    "function profileSyncStateLabel",
     "function accessSummaryForProfile",
     "function shopCodesForProfile",
-    "function profileDiagnostics",
+    "function userAccountDiagnostics",
     "function shopDeviceSummary",
     "function shopHealthSummary",
     "function userRowDetail",
@@ -324,7 +324,7 @@ test("TASK-047 Master Console users and shops expose row details without auth se
     "Sync & audit",
     "Operations boundary",
     "Related data limited by current boundary",
-    "Search users by name or profile ID",
+    "Search email, UID, display name, or provider",
     "Search shops by name, code, or ID",
     'label: "State"',
     'label: "Access"',
@@ -332,12 +332,12 @@ test("TASK-047 Master Console users and shops expose row details without auth se
     "No devices visible",
     "No sync visible",
     "No roles visible",
-    "rowDetails: readModel.profiles.map",
+    "rowDetails: readModel.userAccounts.map",
     "rowDetails: readModel.shops.map",
     "detailSections:",
-    "`/platform/users/${profile.profile_id}`",
+    "`/platform/users/${account.profileId}`",
     "`/platform/shops/${shop.shop_id}`",
-    "Provider origin is not captured in the current safe profile DTO.",
+    "Email and provider are returned only by a minimal server-side Auth identity DTO.",
     "No auth secret fields are queried or rendered.",
   ]) {
     assertContains(sectionData, required, `section data must contain ${required}`);

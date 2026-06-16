@@ -10,6 +10,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 type UsersSearchParams = Promise<{
+  q?: string | string[];
   selected?: string | string[];
 }>;
 
@@ -23,7 +24,9 @@ export default async function PlatformUsersPage({
   searchParams?: UsersSearchParams;
 }) {
   const params = searchParams ? await searchParams : {};
-  const section = await getPlatformSectionForRequest("users");
+  const section = await getPlatformSectionForRequest("users", {
+    usersSearchQuery: firstParam(params.q),
+  });
 
   return <PlatformPage section={section} selectedRowKey={firstParam(params.selected)} />;
 }

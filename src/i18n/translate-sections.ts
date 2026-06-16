@@ -487,6 +487,14 @@ export function translatePlatformSection(
     searchPlaceholder: section.searchPlaceholder
       ? translateText(dictionary, section.searchPlaceholder)
       : section.searchPlaceholder,
+    serverSearch: section.serverSearch
+      ? {
+          ...section.serverSearch,
+          clearLabel: translateText(dictionary, section.serverSearch.clearLabel),
+          helper: translateText(dictionary, section.serverSearch.helper),
+          submitLabel: translateText(dictionary, section.serverSearch.submitLabel),
+        }
+      : section.serverSearch,
     stats: section.stats.map((stat) => ({
       ...stat,
       detail: translateStaticUiText(dictionary, stat.detail, locale),

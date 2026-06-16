@@ -12,11 +12,21 @@ import type {
 } from "@/domain/platform-admin/types";
 import {
   createSupabaseServerClient,
+  getSupabaseRuntimeTargetDiagnostic,
   resolveSupabaseServerConfig,
   type SupabaseServerClient,
+  type SupabaseRuntimeTargetDiagnostic,
 } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { authorizeCurrentPlatformAdmin } from "./authz";
+import {
+  escapePostgrestLikePattern,
+  loadPlatformAuthIdentitySummaries,
+  normalizePlatformUserSearchQuery,
+  type PlatformAuthIdentityLoadResult,
+  type PlatformAuthIdentitySummary,
+  type PlatformAuthProviderType,
+} from "./auth-identities";
 import {
   mapProfileRow,
   mapShopMemberRow,
@@ -35,7 +45,7 @@ type Tables = Database["public"]["Tables"];
 type PlatformReadStatus = "ready" | "not_configured" | "unauthorized" | "error";
 
 type PlatformReadIssue = {
-  area: "staff_accounts_safe";
+  area: "auth_identities" | "staff_accounts_safe";
   code: string;
   message: string;
   severity: "warning";
@@ -48,6 +58,36 @@ type StaffSafeSummary = {
   staff_id: string | null;
   status: string | null;
   updated_at: string | null;
+};
+
+export type PlatformProfileSyncState =
+  | "auth_only"
+  | "origin_unavailable"
+  | "profile_ok"
+  | "profile_only";
+
+export type PlatformShopAccessState =
+  | "member"
+  | "member_and_platform_admin"
+  | "none"
+  | "platform_admin";
+
+export type PlatformUserAccountSummary = {
+  createdAt: string;
+  displayName: string;
+  email: string;
+  membershipCount: number;
+  profileId: string;
+  profileStatus: Profile["profile_status"] | "not_configured";
+  profileSyncState: PlatformProfileSyncState;
+  provider: string;
+  providerType: PlatformAuthProviderType | "unavailable";
+  shopAccessState: PlatformShopAccessState;
+};
+
+export type PlatformAdminReadModelOptions = {
+  includeAuthIdentities?: boolean;
+  usersSearchQuery?: string;
 };
 
 export type PlatformAdminReadModelFoundation = {
@@ -69,7 +109,17 @@ export type PlatformAdminLiveReadModel = PlatformAdminReadModelFoundation & {
   shopDevices: readonly PlatformDeviceOverview[];
   syncEvents: readonly PlatformSyncOverview[];
   staffSafeRows: readonly StaffSafeSummary[];
+  authIdentities: readonly PlatformAuthIdentitySummary[];
+  authIdentityStatus: {
+    reason?: string;
+    scannedCount: number;
+    status: PlatformAuthIdentityLoadResult["status"];
+    truncated: boolean;
+  };
+  userAccounts: readonly PlatformUserAccountSummary[];
+  usersSearchQuery: string;
   readIssues: readonly PlatformReadIssue[];
+  runtimeTarget: SupabaseRuntimeTargetDiagnostic;
   dataHealth: PlatformDataHealth;
 };
 
@@ -106,17 +156,27 @@ function emptyModel(
   return {
     ...foundation(status, reason),
     auditLogs: [],
+    authIdentities: [],
+    authIdentityStatus: {
+      reason: "Auth identity summaries are loaded only for the Users section.",
+      scannedCount: 0,
+      status: "not_configured",
+      truncated: false,
+    },
     dataHealth: emptyHealth,
     platformAdminProfileIds: [],
     platformAdmins: [],
     profiles: [],
     readIssues: [],
+    runtimeTarget: getSupabaseRuntimeTargetDiagnostic(),
     shopDevices: [],
     shopMembers: [],
     shopOwnerMappings: [],
     shops: [],
     staffSafeRows: [],
     syncEvents: [],
+    userAccounts: [],
+    usersSearchQuery: "",
   };
 }
 
@@ -308,6 +368,190 @@ function buildDataHealth(input: {
   };
 }
 
+function isUuidLike(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value,
+  );
+}
+
+function uniqueProfileRows(rows: readonly ProfileRowCandidate[]) {
+  const seen = new Set<string>();
+  const uniqueRows: ProfileRowCandidate[] = [];
+
+  for (const row of rows) {
+    if (seen.has(row.profile_id)) {
+      continue;
+    }
+
+    seen.add(row.profile_id);
+    uniqueRows.push(row);
+  }
+
+  return uniqueRows;
+}
+
+async function loadProfileRows(
+  supabase: SupabaseServerClient,
+  searchQuery?: string,
+) {
+  const selectColumns =
+    "profile_id,display_name,profile_status,created_at,updated_at,disabled_at";
+  const normalizedSearch = normalizePlatformUserSearchQuery(searchQuery);
+
+  if (!normalizedSearch) {
+    return supabase
+      .from("profiles")
+      .select(selectColumns)
+      .order("created_at", { ascending: false })
+      .limit(200);
+  }
+
+  const displayNameResult = await supabase
+    .from("profiles")
+    .select(selectColumns)
+    .ilike("display_name", `%${escapePostgrestLikePattern(normalizedSearch)}%`)
+    .order("created_at", { ascending: false })
+    .limit(200);
+
+  if (displayNameResult.error) {
+    return displayNameResult;
+  }
+
+  if (!isUuidLike(normalizedSearch)) {
+    return displayNameResult;
+  }
+
+  const idResult = await supabase
+    .from("profiles")
+    .select(selectColumns)
+    .eq("profile_id", normalizedSearch)
+    .limit(1);
+
+  if (idResult.error) {
+    return idResult;
+  }
+
+  return {
+    ...displayNameResult,
+    data: uniqueProfileRows([
+      ...((idResult.data ?? []) as ProfileRowCandidate[]),
+      ...((displayNameResult.data ?? []) as ProfileRowCandidate[]),
+    ]),
+  };
+}
+
+async function loadProfilesByIds(
+  supabase: SupabaseServerClient,
+  profileIds: readonly string[],
+) {
+  const ids = Array.from(new Set(profileIds)).filter(isUuidLike);
+
+  if (ids.length === 0) {
+    return { data: [], error: null };
+  }
+
+  const rows: ProfileRowCandidate[] = [];
+
+  for (let index = 0; index < ids.length; index += 200) {
+    const batchIds = ids.slice(index, index + 200);
+    const result = await supabase
+      .from("profiles")
+      .select("profile_id,display_name,profile_status,created_at,updated_at,disabled_at")
+      .in("profile_id", batchIds);
+
+    if (result.error) {
+      return result;
+    }
+
+    rows.push(...((result.data ?? []) as ProfileRowCandidate[]));
+  }
+
+  return { data: rows, error: null };
+}
+
+function shopAccessStateForProfile(
+  profileId: string,
+  members: readonly ShopMember[],
+  platformAdmins: readonly PlatformAdminRecord[],
+): PlatformShopAccessState {
+  const hasMembership = members.some(
+    (member) =>
+      member.profile_id === profileId && member.membership_status === "active",
+  );
+  const isPlatformAdmin = platformAdmins.some(
+    (admin) => admin.profile_id === profileId && admin.status === "active",
+  );
+
+  if (hasMembership && isPlatformAdmin) {
+    return "member_and_platform_admin";
+  }
+
+  if (isPlatformAdmin) {
+    return "platform_admin";
+  }
+
+  return hasMembership ? "member" : "none";
+}
+
+function buildUserAccounts(input: {
+  authIdentities: readonly PlatformAuthIdentitySummary[];
+  authIdentitiesAvailable: boolean;
+  platformAdmins: readonly PlatformAdminRecord[];
+  profiles: readonly Profile[];
+  shopMembers: readonly ShopMember[];
+}) {
+  const profileById = new Map(
+    input.profiles.map((profile) => [profile.profile_id, profile]),
+  );
+  const authById = new Map(
+    input.authIdentities.map((identity) => [identity.authUserId, identity]),
+  );
+  const userIds = new Set<string>([
+    ...profileById.keys(),
+    ...authById.keys(),
+  ]);
+  const accounts: PlatformUserAccountSummary[] = [];
+
+  for (const profileId of userIds) {
+    const profile = profileById.get(profileId);
+    const authIdentity = authById.get(profileId);
+    const membershipCount = input.shopMembers.filter(
+      (member) =>
+        member.profile_id === profileId && member.membership_status === "active",
+    ).length;
+    const profileSyncState: PlatformProfileSyncState =
+      profile && authIdentity
+        ? "profile_ok"
+        : authIdentity
+          ? "auth_only"
+          : input.authIdentitiesAvailable
+            ? "profile_only"
+            : "origin_unavailable";
+
+    accounts.push({
+      createdAt: profile?.created_at ?? authIdentity?.createdAt ?? "Not captured",
+      displayName:
+        profile?.display_name ??
+        authIdentity?.displayName ??
+        `Profile ${profileId.slice(0, 8)}`,
+      email: authIdentity?.email ?? "Auth identity unavailable",
+      membershipCount,
+      profileId,
+      profileStatus: profile?.profile_status ?? "not_configured",
+      profileSyncState,
+      provider: authIdentity?.provider ?? "Auth identity unavailable",
+      providerType: authIdentity?.providerType ?? "unavailable",
+      shopAccessState: shopAccessStateForProfile(
+        profileId,
+        input.shopMembers,
+        input.platformAdmins,
+      ),
+    });
+  }
+
+  return accounts.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+}
+
 async function loadPlatformShopRows(supabase: SupabaseServerClient) {
   const fiscalSelect =
     "shop_id,shop_code,shop_name,shop_status,company_rut,business_giro,business_address,business_city,legal_representative_rut,fiscal_identity_locked_by_platform,created_at,updated_at,archived_at,suspended_at,status_changed_at,status_reason_redacted";
@@ -330,7 +574,22 @@ async function loadPlatformShopRows(supabase: SupabaseServerClient) {
     .limit(200);
 }
 
-async function loadRows(supabase: SupabaseServerClient) {
+async function loadRows(
+  supabase: SupabaseServerClient,
+  options: PlatformAdminReadModelOptions = {},
+) {
+  const normalizedUsersSearch = normalizePlatformUserSearchQuery(
+    options.usersSearchQuery,
+  );
+  const authIdentitiesPromise = options.includeAuthIdentities
+    ? loadPlatformAuthIdentitySummaries(normalizedUsersSearch)
+    : Promise.resolve<PlatformAuthIdentityLoadResult>({
+        identities: [],
+        reason: "Auth identity summaries are loaded only for the Users section.",
+        scannedCount: 0,
+        status: "not_configured",
+        truncated: false,
+      });
   const [
     profilesResult,
     shopsResult,
@@ -341,14 +600,9 @@ async function loadRows(supabase: SupabaseServerClient) {
     devicesResult,
     syncResult,
     staffResult,
+    authIdentitiesResult,
   ] = await Promise.all([
-    supabase
-      .from("profiles")
-      .select(
-        "profile_id,display_name,profile_status,created_at,updated_at,disabled_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(200),
+    loadProfileRows(supabase, normalizedUsersSearch),
     loadPlatformShopRows(supabase),
     supabase
       .from("shop_members")
@@ -397,6 +651,7 @@ async function loadRows(supabase: SupabaseServerClient) {
       .select("staff_id,shop_id,status,role_key,updated_at,last_login_at")
       .order("updated_at", { ascending: false })
       .limit(200),
+    authIdentitiesPromise,
   ]);
 
   const firstError = [
@@ -415,6 +670,27 @@ async function loadRows(supabase: SupabaseServerClient) {
   }
 
   const readIssues: PlatformReadIssue[] = [];
+  const authIdentities =
+    authIdentitiesResult.status === "ready" ? authIdentitiesResult.identities : [];
+
+  let profileRows = (profilesResult.data ?? []) as ProfileRowCandidate[];
+
+  if (authIdentities.length > 0) {
+    const existingProfileIds = new Set(profileRows.map((row) => row.profile_id));
+    const missingProfileIds = authIdentities
+      .map((identity) => identity.authUserId)
+      .filter((profileId) => !existingProfileIds.has(profileId));
+    const linkedProfilesResult = await loadProfilesByIds(supabase, missingProfileIds);
+
+    if (linkedProfilesResult.error) {
+      return { error: linkedProfilesResult.error };
+    }
+
+    profileRows = uniqueProfileRows([
+      ...profileRows,
+      ...((linkedProfilesResult.data ?? []) as ProfileRowCandidate[]),
+    ]);
+  }
 
   if (staffResult.error) {
     readIssues.push({
@@ -429,9 +705,26 @@ async function loadRows(supabase: SupabaseServerClient) {
     });
   }
 
-  const profiles = (profilesResult.data ?? []).map((row) =>
-    mapProfileRow(row as ProfileRowCandidate),
-  );
+  if (options.includeAuthIdentities && authIdentitiesResult.status !== "ready") {
+    readIssues.push({
+      area: "auth_identities",
+      code: authIdentitiesResult.status,
+      message: authIdentitiesResult.reason,
+      severity: "warning",
+    });
+  }
+
+  if (authIdentitiesResult.status === "ready" && authIdentitiesResult.truncated) {
+    readIssues.push({
+      area: "auth_identities",
+      code: "auth_identity_scan_truncated",
+      message:
+        "Supabase Auth identity summaries were scanned through a bounded server-side page limit.",
+      severity: "warning",
+    });
+  }
+
+  const profiles = profileRows.map((row) => mapProfileRow(row));
   const shops = (shopsResult.data ?? []).map((row) =>
     mapShopRow(row as ShopRowCandidate),
   );
@@ -456,10 +749,27 @@ async function loadRows(supabase: SupabaseServerClient) {
   const staffSafeRows = staffResult.error
     ? []
     : ((staffResult.data ?? []) as StaffSafeSummary[]);
+  const userAccounts = buildUserAccounts({
+    authIdentities,
+    authIdentitiesAvailable: authIdentitiesResult.status === "ready",
+    platformAdmins,
+    profiles,
+    shopMembers,
+  });
 
   return {
     data: {
       auditLogs,
+      authIdentities,
+      authIdentityStatus: {
+        reason:
+          authIdentitiesResult.status === "ready"
+            ? undefined
+            : authIdentitiesResult.reason,
+        scannedCount: authIdentitiesResult.scannedCount,
+        status: authIdentitiesResult.status,
+        truncated: authIdentitiesResult.truncated,
+      },
       dataHealth: buildDataHealth({
         auditLogs,
         platformAdmins,
@@ -478,12 +788,15 @@ async function loadRows(supabase: SupabaseServerClient) {
       platformAdmins,
       profiles,
       readIssues,
+      runtimeTarget: getSupabaseRuntimeTargetDiagnostic(),
       shopDevices,
       shopMembers,
       shopOwnerMappings,
       shops,
       staffSafeRows,
       syncEvents,
+      userAccounts,
+      usersSearchQuery: normalizedUsersSearch,
     },
   };
 }
@@ -504,7 +817,9 @@ export function getPlatformAdminReadModelFoundation(): PlatformAdminReadModelFou
   );
 }
 
-export async function getPlatformAdminReadModel(): Promise<PlatformAdminLiveReadModel> {
+export async function getPlatformAdminReadModel(
+  options: PlatformAdminReadModelOptions = {},
+): Promise<PlatformAdminLiveReadModel> {
   const config = resolveSupabaseServerConfig();
 
   if (config.status !== "configured") {
@@ -529,7 +844,7 @@ export async function getPlatformAdminReadModel(): Promise<PlatformAdminLiveRead
     return emptyModel(authz.status, authz.reason);
   }
 
-  const loaded = await loadRows(supabase);
+  const loaded = await loadRows(supabase, options);
 
   if ("error" in loaded) {
     return emptyModel(

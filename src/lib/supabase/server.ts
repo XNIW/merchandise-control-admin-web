@@ -31,7 +31,92 @@ export type SupabaseServerBoundaryStatus = {
   reason: string;
 };
 
+export type SupabaseRuntimeTargetDiagnostic = {
+  projectRef: string;
+  runtimeSource: ".env.local cloud" | "local supabase status" | "runtime env";
+  targetClass: "cloud" | "local" | "not_configured" | "unknown";
+};
+
 export type SupabaseServerClient = SupabaseClient<Database>;
+
+function redactProjectRef(value?: string) {
+  const normalized = value?.trim();
+
+  if (!normalized) {
+    return "not_configured";
+  }
+
+  if (normalized.length <= 7) {
+    return "redacted";
+  }
+
+  return `${normalized.slice(0, 4)}...${normalized.slice(-3)}`;
+}
+
+function projectRefFromUrl(value?: string) {
+  if (!value) {
+    return undefined;
+  }
+
+  try {
+    const hostname = new URL(value).hostname;
+    const [ref] = hostname.split(".");
+
+    return ref;
+  } catch {
+    return undefined;
+  }
+}
+
+function isLocalHostname(hostname: string) {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1" ||
+    hostname.endsWith(".localhost")
+  );
+}
+
+export function getSupabaseRuntimeTargetDiagnostic(
+  config: SupabaseServerConfig = resolveSupabaseServerConfig(),
+  env: NodeJS.ProcessEnv = process.env,
+): SupabaseRuntimeTargetDiagnostic {
+  if (config.status !== "configured") {
+    return {
+      projectRef: "not_configured",
+      runtimeSource: "runtime env",
+      targetClass: "not_configured",
+    };
+  }
+
+  try {
+    const hostname = new URL(config.url).hostname;
+    const targetClass = isLocalHostname(hostname)
+      ? "local"
+      : hostname.endsWith(".supabase.co")
+        ? "cloud"
+        : "unknown";
+    const projectRef = env.SUPABASE_PROJECT_REF?.trim() || projectRefFromUrl(config.url);
+    const runtimeSource =
+      env.TEST_TARGET === "local"
+        ? "local supabase status"
+        : env.TEST_TARGET === "cloud"
+          ? ".env.local cloud"
+          : "runtime env";
+
+    return {
+      projectRef: redactProjectRef(projectRef),
+      runtimeSource,
+      targetClass,
+    };
+  } catch {
+    return {
+      projectRef: "not_configured",
+      runtimeSource: "runtime env",
+      targetClass: "unknown",
+    };
+  }
+}
 
 export function resolveSupabaseServerConfig(
   env: NodeJS.ProcessEnv = process.env,

@@ -907,14 +907,210 @@ function checkAuthMetadataAndMockLabels() {
 
   for (const file of srcFiles) {
     const contents = read(file);
+    const isTask064AuthIdentityDto =
+      file === "src/server/platform-admin/auth-identities.ts";
 
-    if (/user_metadata|raw_user_meta_data/.test(contents)) {
+    if (/user_metadata|raw_user_meta_data/.test(contents) && !isTask064AuthIdentityDto) {
       addFailure(`${file} must not authorize from user metadata`);
+    }
+
+    if (
+      isTask064AuthIdentityDto &&
+      /authorizeCurrentPlatformAdmin|platform_admins|shop_members|staff_accounts/.test(
+        contents,
+      )
+    ) {
+      addFailure(`${file} must stay a DTO mapper and must not authorize from metadata`);
     }
 
     if (/mock[\s\S]{0,80}Live|Live[\s\S]{0,80}mock/.test(contents)) {
       addFailure(`${file} appears to label mock data as live data`);
     }
+  }
+}
+
+function checkTask064PlatformUsersFoundation() {
+  const authIdentitiesPath = "src/server/platform-admin/auth-identities.ts";
+  const readModelPath = "src/server/platform-admin/read-model.ts";
+  const sectionDataPath = "src/server/platform-admin/platform-section-data.ts";
+  const usersPagePath = "src/app/platform/users/page.tsx";
+  const masterDetailPath = "src/components/platform/PlatformMasterDetail.tsx";
+  const platformPagePath = "src/components/platform/PlatformPage.tsx";
+  const packageJsonPath = "package.json";
+  const cloudDevPath = "scripts/platform/cloud-dev-server.mjs";
+  const cloudProbePath = "scripts/platform/cloud-target-probe.mjs";
+  const migrationPath =
+    "supabase/migrations/20260615143000_task_064_auth_profile_parity.sql";
+
+  for (const requiredPath of [
+    authIdentitiesPath,
+    readModelPath,
+    sectionDataPath,
+    usersPagePath,
+    masterDetailPath,
+    platformPagePath,
+    packageJsonPath,
+    cloudDevPath,
+    cloudProbePath,
+    migrationPath,
+  ]) {
+    if (!existsSync(join(root, requiredPath))) {
+      addFailure(`${requiredPath} is missing for TASK-064`);
+      return;
+    }
+  }
+
+  const authIdentities = read(authIdentitiesPath);
+  const readModel = read(readModelPath);
+  const sectionData = read(sectionDataPath);
+  const usersPage = read(usersPagePath);
+  const masterDetail = read(masterDetailPath);
+  const platformPage = read(platformPagePath);
+  const packageJson = read(packageJsonPath);
+  const cloudDev = read(cloudDevPath);
+  const cloudProbe = read(cloudProbePath);
+  const migration = read(migrationPath);
+  const clientSource = [
+    ...listFiles("src/app").filter((file) => /^["']use client["'];?/m.test(read(file))),
+    ...listFiles("src/components"),
+  ]
+    .map((file) => `${file}\n${read(file)}`)
+    .join("\n");
+
+  for (const required of [
+    'import "server-only"',
+    "loadPlatformAuthIdentitySummaries",
+    "normalizePlatformUserSearchQuery",
+    "PlatformAuthIdentitySummary",
+    "auth.admin.listUsers",
+    "user_metadata",
+  ]) {
+    if (!authIdentities.includes(required)) {
+      addFailure(`${authIdentitiesPath} must include ${required}`);
+    }
+  }
+
+  if (/access_token|refresh_token|session_token|magic_link|credential_hash|password_hash|pin_hash/i.test(authIdentities)) {
+    addFailure(`${authIdentitiesPath} must not map token, password, PIN, or credential fields`);
+  }
+
+  if (!/authorizeCurrentPlatformAdmin/.test(readModel)) {
+    addFailure(`${readModelPath} must authorize Platform Admin before Auth identity summaries are loaded`);
+  }
+
+  for (const required of [
+    "includeAuthIdentities",
+    "usersSearchQuery",
+    "loadProfileRows",
+    "loadProfilesByIds",
+    "profile_ok",
+    "auth_only",
+    "profile_only",
+    "origin_unavailable",
+  ]) {
+    if (!readModel.includes(required)) {
+      addFailure(`${readModelPath} must include ${required}`);
+    }
+  }
+
+  for (const forbidden of [
+    /select\("\*"\)|select\('\*'\)/,
+    /\.(insert|update|delete|upsert|rpc)\s*\(/,
+    /raw_user_meta_data/,
+  ]) {
+    if (forbidden.test(readModel)) {
+      addFailure(`${readModelPath} violates TASK-064 read-only safe DTO boundary`);
+    }
+  }
+
+  for (const required of [
+    "Profile OK",
+    "Auth only",
+    "Profile only",
+    "Origin unavailable",
+    "Email and provider are returned only by a minimal server-side Auth identity DTO.",
+    "Search email, UID, display name, or provider",
+  ]) {
+    if (!sectionData.includes(required)) {
+      addFailure(`${sectionDataPath} must render ${required}`);
+    }
+  }
+
+  if (!/q\?: string \| string\[\]/.test(usersPage) || !/usersSearchQuery/.test(usersPage)) {
+    addFailure(`${usersPagePath} must submit q to the server read model`);
+  }
+
+  if (!/method="get"/.test(masterDetail) || !/serverSearch/.test(masterDetail)) {
+    addFailure(`${masterDetailPath} must render the server-side search form`);
+  }
+
+  if (!/rows\.length === 0 && !serverSearch/.test(masterDetail)) {
+    addFailure(`${masterDetailPath} must keep server-side search visible when zero rows are returned`);
+  }
+
+  if (!/localizedSection\.serverSearch !== undefined/.test(platformPage)) {
+    addFailure(`${platformPagePath} must route server-side search sections to PlatformMasterDetail even with zero rows`);
+  }
+
+  if (/@\/lib\/supabase\/admin|createSupabaseAdminClient|auth\.admin|SUPABASE_SERVICE_ROLE_KEY/i.test(clientSource)) {
+    addFailure("TASK-064 Auth Admin boundary must not be imported into client/browser files");
+  }
+
+  for (const required of [
+    '"platform:cloud:dev"',
+    '"platform:cloud:probe"',
+  ]) {
+    if (!packageJson.includes(required)) {
+      addFailure(`${packageJsonPath} must expose ${required} for explicit cloud target checks`);
+    }
+  }
+
+  for (const required of [
+    "platform:cloud:dev must not run against local Supabase.",
+    'TEST_TARGET: "cloud"',
+    "SUPABASE_PROJECT_REF must match the Supabase URL project ref.",
+  ]) {
+    if (!cloudDev.includes(required)) {
+      addFailure(`${cloudDevPath} must include ${required}`);
+    }
+  }
+
+  for (const required of [
+    "CONFIRM_PLATFORM_CLOUD_READONLY",
+    "PLATFORM_CLOUD_PROBE_EMAIL",
+    "redactEmail",
+    "auth.admin.listUsers",
+  ]) {
+    if (!cloudProbe.includes(required)) {
+      addFailure(`${cloudProbePath} must include ${required}`);
+    }
+  }
+
+  if (/supabase.+status/i.test(cloudDev)) {
+    addFailure(`${cloudDevPath} must not load local Supabase status`);
+  }
+
+  if (/xniw97@gmail\.com/i.test(cloudProbe)) {
+    addFailure(`${cloudProbePath} must not hardcode the real probe email`);
+  }
+
+  if (/\.(insert|update|delete|upsert|rpc)\s*\(/.test(cloudProbe)) {
+    addFailure(`${cloudProbePath} must stay read-only`);
+  }
+
+  for (const required of [
+    "task064_auth_users_ensure_profile",
+    "after insert on auth.users",
+    "on conflict (profile_id) do nothing",
+    "left join public.profiles",
+  ]) {
+    if (!migration.includes(required)) {
+      addFailure(`${migrationPath} must include ${required}`);
+    }
+  }
+
+  if (/grant\s+(insert|update|delete|all).*to\s+authenticated/i.test(migration)) {
+    addFailure(`${migrationPath} must not grant profile mutations to authenticated`);
   }
 }
 
@@ -5957,6 +6153,7 @@ checkTask046TestTargetSeparation();
 checkTask053AuthorizationStaffSafeReadBoundary();
 checkTask057ShopCatalogWorkspace();
 checkTask058CloudflareOpenNextHardening();
+checkTask064PlatformUsersFoundation();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

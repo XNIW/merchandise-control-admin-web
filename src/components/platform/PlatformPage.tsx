@@ -36,6 +36,7 @@ export async function PlatformPage({
   const { dictionary, locale } = await getI18n();
   const localizedSection = translatePlatformSection(dictionary, section, locale);
   const hasMasterDetail =
+    localizedSection.serverSearch !== undefined ||
     localizedSection.rowDetails !== undefined &&
     localizedSection.rowDetails.length > 0;
   const hasDetailSections =
@@ -213,7 +214,10 @@ export async function PlatformPage({
           >
             {hasMasterDetail ? (
               <PlatformMasterDetail
-                key={selectedRowKey ?? localizedSection.key}
+                key={[
+                  selectedRowKey ?? localizedSection.key,
+                  localizedSection.serverSearch?.value ?? "",
+                ].join(":")}
                 caption={translateText(
                   dictionary,
                   "Platform Admin read-only table rendered from server-provided rows.",
@@ -224,6 +228,7 @@ export async function PlatformPage({
                 selectedRowKey={selectedRowKey}
                 filters={localizedSection.filters}
                 searchPlaceholder={localizedSection.searchPlaceholder}
+                serverSearch={localizedSection.serverSearch}
                 labels={{
                   adjustSearchOrFilters: translateText(
                     dictionary,

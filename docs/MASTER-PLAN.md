@@ -2433,6 +2433,98 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   security scan, build, verify e `git diff --check`. TASK-061 riconciliato a
   `DONE` / `DONE_RECONCILED`; nessun commit/push/stage.
 
+### TASK-064 - Master Console Auth/Profile Parity e ricerca utenti Android/iOS
+
+- Stato: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
+- File task: `docs/TASKS/TASK-064-master-console-auth-profile-parity.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-064/README.md`
+- Fase: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
+- Responsabile: `NONE`
+- Scopo: rendere visibili e ricercabili in Master Console gli account
+  personali Supabase Auth usati da Android/iOS, fondendo in modo sicuro Auth,
+  profiles e membership.
+- Include:
+  - search server-side `/platform/users?q=...`;
+  - DTO Auth/Profile server-only minimale con email/provider/origin/state;
+  - classificazione `profile_ok`, `auth_only`, `profile_only`,
+    `origin_unavailable`;
+  - migration additiva locale-verificata per trigger/backfill
+    `auth.users -> public.profiles`;
+  - verifica parity Supabase project/ref Admin Web, Android e iOS con valori
+    redatti;
+  - test foundation, security scanner e E2E locale TASK-064.
+- Non include:
+  - commit, push o stage finale;
+  - apply cloud/production;
+  - query mutative su account reale;
+  - modifica Android/iOS;
+  - merge tra `profiles` e `staff_accounts`;
+  - esposizione client/browser di service-role, token, PIN, password o raw auth
+    metadata.
+- Nota execution 2026-06-15: root cause confermata: `/platform/users` caricava
+  solo `profiles` limitati e il search UI filtrava le righe gia restituite;
+  provider/origin erano hardcoded `Not captured`; schema locale senza trigger
+  auth->profile. Fix implementato con read model server-side Auth/Profile,
+  UI email/provider/state, migration `20260615143000_task_064_auth_profile_parity.sql`,
+  scanner/test/E2E. Gate gia verdi: TASK-064 foundation `5/5`,
+  `security:scan`, `typecheck`, `supabase migration up --local`,
+  `supabase db lint --local --schema public,app_private --fail-on error`,
+  E2E locale `test:platform:local-users` `1 passed` con cleanup a zero.
+  Cloud/production non toccati; account reale redatto non usato in test
+  mutativi. Codex prepara handoff a `REVIEW`, non marca `DONE`.
+- DONE reconciliation 2026-06-16: su conferma esplicita utente, TASK-064
+  chiuso a `DONE_RECONCILED` per il code scope dopo review orchestrata
+  DB/UI/target/security/test. Fix finali: lookup profili Auth in batch per
+  evitare falsi `auth_only` oltre 200 profili, full detail/returnTo preserva
+  `q` e `selected`, E2E locale copre selected inspector/full detail e cleanup
+  robusto. Gate passati: targeted TASK-064/TASK-047/TASK-049 `14/14`,
+  `security:scan`, `lint`, `typecheck`, `test:foundation` `326/326`,
+  `build`, `verify`, `test:platform:local-users` `1 passed`,
+  `test:platform:local` `1 passed`, `test:platform:local-login` exit `0`
+  con `1 skipped`, `supabase migration list --local`,
+  `supabase migration up --local`, `supabase db lint --local --schema public,app_private --fail-on error`,
+  trigger rollback probe `profile_exists=1` e residui TASK064 `0`.
+  Admin Web/Android/iOS puntano allo stesso ref redatto `jpgo...yvm`, ma il
+  target cloud e `production/unknown` dal repo: nessuna query cloud o migration
+  cloud eseguita, e `xniw97@...` resta `NOT_RUN_EXTERNAL_TARGET_UNKNOWN`.
+  Nessun commit/push/stage.
+- REOPEN 2026-06-16: verifica manuale utente ha dimostrato che il problema
+  reale non era risolto nel browser: search `xniw...@...com` mostrava `No
+  matching rows`. Root cause reale trovata: browser/runtime aperto con
+  `platform:local:dev` legge Supabase locale `127.0.0.1:54321`
+  (`authUsers=96`, `profiles=96`, account reale assente), mentre `.env.local`
+  cloud ref redatto `jpgo...yvm` contiene `authUsers=3`, `profiles=3`,
+  account reale presente provider Google e `profile_ok`. Aggiunti
+  `platform:cloud:dev` e `platform:cloud:probe` per separare target locale e
+  cloud; search Auth esplicita rafforzata con limite dedicato piu alto e
+  warning se lo scan viene troncato; UI zero-result corretta per mantenere la
+  search server-side visibile. TASK-064 torna
+  `CHANGES_REQUIRED_TARGET_MISMATCH_FOUND`, non `DONE`.
+- TASK-064C cloud reconciliation 2026-06-16: runtime locale fermato, avviato
+  solo `platform:cloud:dev` su `127.0.0.1:3055`, target `cloud` ref redatto
+  `jpgo...yvm`. Aggiunto login Google server-side tramite Supabase Auth per
+  account cloud provider Google, diagnostica target runtime redatta su Users e
+  Data, e browser acceptance reale dopo login manuale Google: URL
+  `/platform/users?q=xniw97`, `Runtime target=cloud`, `Auth users=3`,
+  `Platform admins=3`, riga `xniw...@...com` visibile, provider `google`,
+  stato `Profile OK`. Screenshot evidence:
+  `docs/TASKS/EVIDENCE/TASK-064/browser-cloud-xniw-visible.png`. Gate minimi
+  TASK-064C passati: cloud probe read-only, browser cloud acceptance,
+  `security:scan`, `typecheck`, `lint`, `git diff --check`, `git status`
+  con dirty worktree noto; nessun commit/push/stage, nessuna migration cloud,
+  nessun grant creato. Il successivo blocco Auth URL Configuration e stato
+  risolto dalla verifica reale finale: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`.
+- TASK-064C final reconciliation 2026-06-16: conferma esplicita utente della
+  verifica reale nel browser Master Console cloud. La pagina su runtime
+  `platform:cloud:dev` mostra `Runtime target=cloud`, project `jpgo...yvm`,
+  `Auth users=3`, riga reale `xniw...@...com`, provider `google`, stato
+  `Profile OK`. Root cause finale: target mismatch local vs cloud;
+  `platform:local:dev` legge Supabase locale, mentre `platform:cloud:dev`
+  legge Supabase cloud `jpgo...yvm`. Android/iOS/Admin Web risultano allineati
+  sul target cloud redatto. Vercel non e hosting operativo per staging, login
+  o callback; era solo una configurazione redirect storica da non usare.
+  Stato finale: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`.
+
 ### TASK-063 - History Sync Console cross-platform diagnostics
 
 - Stato: `DONE`
@@ -2607,15 +2699,20 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Task TASK-063: `TASK-063 - History Sync Console cross-platform diagnostics`
 - File task TASK-063: `docs/TASKS/TASK-063-history-sync-console-cross-platform.md`
 - Evidence TASK-063: `docs/TASKS/EVIDENCE/history-sync-cross-platform-contract.md`
+- Stato TASK-064: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
+- Fase TASK-064: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
+- Task TASK-064: `TASK-064 - Master Console Auth/Profile Parity e ricerca utenti Android/iOS`
+- File task TASK-064: `docs/TASKS/TASK-064-master-console-auth-profile-parity.md`
+- Evidence TASK-064: `docs/TASKS/EVIDENCE/TASK-064/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
 - Task attivo: `NESSUNO`
 - Task precedente: `TASK-061 - Android database export compatibility for Admin Web database transfer`
-- Ultimo task chiuso: `TASK-061 - Android database export compatibility for Admin Web database transfer`
-- File task: `docs/TASKS/TASK-061-android-database-export-transfer-compatibility.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-061/README.md`
-- Stato task: `DONE`
-- Fase: `DONE_RECONCILED`
+- Ultimo task chiuso: `TASK-064 - Master Console Auth/Profile Parity e ricerca utenti Android/iOS`
+- File task: `docs/TASKS/TASK-064-master-console-auth-profile-parity.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-064/README.md`
+- Stato task: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
+- Fase: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
 - Milestone interna: `TASK_061_HISTORY_SYNC_TASK_062_INTEGRATION_READY_FOR_REVIEWED_COMMIT`
 - Responsabile: `NONE`
 - Branch previsto: `codex/task-061-android-database-export`
@@ -2681,7 +2778,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Review-completion Codex TASK-051 2026-06-09: blocker atomicita risolto con migration locale `20260609170549_task_051_transactional_provisioning_recovery.sql`; owner bootstrap, POS-first, pending owner fiscalizzato e recovery manager `1001` usano RPC transazionali user-scoped con JWT dell'utente verificato. Applicata solo a Supabase locale (`supabase migration up --local`), non production/cloud. Full local E2E TASK-051 PASS: crea shop POS-first, verifica Admin account e Shop code access, recupera manager `1001` e login con nuovo Temporary PIN. Check PASS: `supabase db lint --local --schema public,app_private --fail-on error`, TASK-051 targeted, guardrail TASK-006/016/038/054, `test:foundation` 228/228, `security:scan`, `verify`, `git diff --check`. `npm run db:local:status` resta `FAIL_CLOSED` per `.env.local` puntato a `supabase_cloud`, ma il runner E2E locale usa env Supabase CLI. TASK-051 pronto per `DONE`; Codex non marca `DONE`, no stage/commit/push.
 - DONE confirmation TASK-051 2026-06-09: su conferma esplicita utente, final review senza blocker reali e check rieseguiti, TASK-051 e chiuso a `DONE`. Architettura finale confermata: client leggero -> Route Handler server-side -> resolver Platform Admin unico -> service server-only -> RPC DB transazionale/auditabile. Full local E2E TASK-051 PASS con wrapper local-only; vecchio PIN respinto e nuovo Temporary PIN accettato. `npm run db:local:status` resta `FAIL_CLOSED` per `.env.local` cloud, ma Supabase locale e disponibile e i comandi local-only passano. Nessun production/cloud apply, nessun dato reale, nessun commit, push o stage finale.
 - Runtime auth regression TASK-051 2026-06-09: prova manuale utente con `platform.local@example.test` ha mostrato GET `/platform/provisioning` autorizzata ma POST create-shop/recovery `unauthorized`; il live browser Codex ha riprodotto e poi verificato recovery/create/recovery+old-PIN-rejected/new-PIN-accepted. Root cause completa: `bearer/cookie mismatch`, GET/POST auth-path mismatch tra read boundary cookie SSR/RLS e POST admin/service-role check, piu `platform:local:dev` senza env server-only locali per login staff/POS manuale. Fix applicato senza bypass RPC: submit provisioning cookie-only same-origin; `resolvePlatformAdminForRequest` autorizza cookie con lo stesso client SSR/RLS della GET, usa client user-scoped/RLS per bearer valido e fail-closed `auth_mismatch` se bearer/cookie sono utenti diversi; `platform:local:dev` carica service-role locale solo server-only, non `NEXT_PUBLIC_*`; `AuthForm` rimuove `method="post"` su server action. Boundary finale confermata: client leggero -> Route Handler same-origin -> resolver Platform Admin unico via cookie SSR/RLS -> service server-only -> RPC DB transazionale/auditabile (`platform_create_shop_with_owner_bootstrap`, `platform_create_pos_first_shop`, pending owner fiscalizzato, `platform_recover_initial_manager_1001`). Full E2E TASK-051 PASS 1/1 e manual-regression PASS 1/1 dopo il fix finale; check finali richiesti PASS/PASS_WITH_WARNINGS documentati in evidence. TASK-051 resta `DONE` in `REVIEW`; no production/cloud apply, no raw PIN/password/token in DB/log/audit/evidence, no commit/push/stage.
-- Cloudflare hosting migration follow-up 2026-06-07: `wrangler.jsonc` aggiornato con ambienti `staging` e `production`, workflow separato `.github/workflows/cloudflare.yml` aggiunto, runbook `docs/DEPLOYMENT/CLOUDFLARE-MIGRATION.md` e `docs/DEPLOYMENT/CLOUDFLARE-ROLLBACK.md` creati. Decisione operativa aggiuntiva: prima fase obbligatoria solo Cloudflare staging remoto; production deploy e DNS cutover vietati finche staging remoto e smoke non sono `PASS` e l'utente non conferma esplicitamente. Nota storica: i blocker iniziali `BLOCKED_CLOUDFLARE_STAGING_IDENTITY_AND_TARGETS_NOT_VERIFIED`, `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` mancanti, `wrangler` non autenticato e GitHub environments non trovati sono stati superati dall'unblock TASK-058 del 2026-06-12. Restano attuali solo custom domain/DNS `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`, WAF/rate limit `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`, Supabase Auth URLs `BLOCKED_SUPABASE_AUTH_URLS_MANUAL_STEP`, Supabase remote project-list `PARTIAL` e production deploy `NOT_RUN_PRODUCTION_FORBIDDEN`; Vercel resta parcheggiato con `git.deploymentEnabled=false`.
+- Cloudflare hosting migration follow-up 2026-06-07: `wrangler.jsonc` aggiornato con ambienti `staging` e `production`, workflow separato `.github/workflows/cloudflare.yml` aggiunto, runbook `docs/DEPLOYMENT/CLOUDFLARE-MIGRATION.md` e `docs/DEPLOYMENT/CLOUDFLARE-ROLLBACK.md` creati. Decisione operativa aggiuntiva: prima fase obbligatoria solo Cloudflare staging remoto; production deploy e DNS cutover vietati finche staging remoto e smoke non sono `PASS` e l'utente non conferma esplicitamente. Nota storica: i blocker iniziali `BLOCKED_CLOUDFLARE_STAGING_IDENTITY_AND_TARGETS_NOT_VERIFIED`, `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` mancanti, `wrangler` non autenticato e GitHub environments non trovati sono stati superati dall'unblock TASK-058 del 2026-06-12. Restano attuali solo custom domain/DNS `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`, WAF/rate limit `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`, Supabase remote project-list `PARTIAL` e production deploy `NOT_RUN_PRODUCTION_FORBIDDEN`; Supabase Auth URLs e callback runtime cloud sono riconciliate in TASK-064C come `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`; Vercel resta parcheggiato con `git.deploymentEnabled=false`.
 - TASK-052 recovery 2026-06-11: aperto per ripristinare stato compilabile dopo tentativo precedente di Shop/Admin UX polish non affidabile. Ripristinati da `HEAD` i pannelli operativi catalog/import-export/member/staff e le pagine contaminate dal tracking `actionsEnabled`; riapplicato solo polish piccolo su ShopShell, navigazione, Diagnostics e tracking. Non dichiarare `DONE`, non fare commit/push/stage e non creare dati locali o migration.
 - TASK-052 final review 2026-06-11: regressione completa rieseguita dopo fix `ShopShell` `prefetch={false}` su nav protetta e logout; browser laterale autenticato su `127.0.0.1:3049` con fixture locale `TASK052_REVIEW_*`; cleanup locale completata con residui a zero. Stato resta `DONE`, non `DONE`. Rischio residuo tracciato: smoke legacy TASK-035 passa 2/3 e resta bloccato solo sulla safe view shop-owner `/shop/staff` (`Read blocked`), non su perdita sessione.
 - TASK-053 aperto il 2026-06-11: fix architetturale del blocker `/shop/staff Read blocked`. La riproduzione locale ha confermato `42501 permission denied for table staff_accounts` su `staff_accounts_safe` per account personale autenticato, mentre la lettura diretta delle colonne safe gia grantate passava. Soluzione scelta: grant colonnare additivo `SELECT(web_access_revoked_at)` a `authenticated`, con RLS e `security_invoker=true` preservati; nessun service-role browser e nessun grant su `credential_hash`.

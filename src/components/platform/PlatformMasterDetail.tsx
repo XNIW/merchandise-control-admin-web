@@ -13,6 +13,7 @@ import {
 import { DEFAULT_LOCALE, type SupportedLocale } from "@/i18n/locales";
 import type {
   PlatformFilter,
+  PlatformServerSearch,
   RowDetailPanel,
   TableColumn,
   TableRow,
@@ -29,6 +30,7 @@ type PlatformMasterDetailProps = {
   };
   filters?: PlatformFilter[];
   searchPlaceholder?: string;
+  serverSearch?: PlatformServerSearch;
   selectedRowKey?: string;
   footer?: string;
   labels?: PlatformMasterDetailLabels;
@@ -65,6 +67,39 @@ const defaultLabels: PlatformMasterDetailLabels = {
   selectRow: "select row",
   selectedRow: "selected row",
 };
+
+const noWrapTableColumns = new Set([
+  "access",
+  "health",
+  "origin",
+  "state",
+  "status",
+]);
+const noWrapCellColumns = new Set(["access", "health", "origin", "status"]);
+
+function tableColumnClass(columnKey: string) {
+  if (columnKey === "email") {
+    return "min-w-60";
+  }
+
+  if (columnKey === "profile" || columnKey === "shop") {
+    return "min-w-44";
+  }
+
+  if (columnKey === "origin" || columnKey === "access") {
+    return "min-w-28";
+  }
+
+  if (columnKey === "shops" || columnKey === "owners") {
+    return "min-w-56";
+  }
+
+  if (columnKey === "state" || columnKey === "health") {
+    return "min-w-40";
+  }
+
+  return "min-w-32";
+}
 
 function rowKeyFor(row: TableRow, columns: TableColumn[], rowIndex: number) {
   return row.rowKey ?? `${rowIndex}-${columns[0]?.key ?? "row"}`;
@@ -186,13 +221,19 @@ function renderCellValue(
           columnKey === "code" ||
           segment.startsWith("Code ") ||
           segment.startsWith("Shop code ");
+        const keepSegmentTogether =
+          noWrapTableColumns.has(columnKey) &&
+          !isLikelyIdentifier(segment) &&
+          segment.length <= 36 &&
+          (columnKey !== "state" || index === 0);
 
         return (
           <span
             key={`${segment}-${index}`}
             title={fullValue}
             className={[
-              "min-w-0 break-words leading-5",
+              "min-w-0 leading-5",
+              keepSegmentTogether ? "whitespace-nowrap" : "break-words",
               index === 0 ? "font-medium text-slate-900" : "text-slate-600",
               isMeta ? "text-xs" : "",
               isCode ? "font-mono" : "",
@@ -285,10 +326,11 @@ export function PlatformMasterDetail({
   footer,
   labels = defaultLabels,
   locale = DEFAULT_LOCALE,
+  serverSearch,
 }: PlatformMasterDetailProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(serverSearch?.value ?? "");
   const [activeFilters, setActiveFilters] = useState<Record<string, string>>({});
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const detailsByRowKey = useMemo(
@@ -314,8 +356,20 @@ export function PlatformMasterDetail({
   const selectedKey = manualSelectedKey ?? selectedKeyFromUrl ?? firstDetailKey;
   const selectedDetail =
     detailsByRowKey.get(selectedKey) ?? rowDetails[0] ?? null;
+  function listHrefFor(rowKey: string) {
+    const params = new URLSearchParams();
+
+    if (serverSearch?.value) {
+      params.set(serverSearch.paramName, serverSearch.value);
+    }
+
+    params.set("selected", rowKey);
+
+    return `${pathname}?${params.toString()}`;
+  }
+
   const selectedListHref = selectedDetail
-    ? `${pathname}?selected=${encodeURIComponent(selectedDetail.rowKey)}`
+    ? listHrefFor(selectedDetail.rowKey)
     : pathname;
   const selectedDetailHref =
     selectedDetail?.href && selectedDetail
@@ -344,7 +398,7 @@ export function PlatformMasterDetail({
 
   function fullDetailHrefFor(rowKey: string) {
     const detail = detailsByRowKey.get(rowKey);
-    const listHref = `${pathname}?selected=${encodeURIComponent(rowKey)}`;
+    const listHref = listHrefFor(rowKey);
 
     return detail?.href
       ? `${detail.href}?returnTo=${encodeURIComponent(listHref)}`
@@ -372,7 +426,7 @@ export function PlatformMasterDetail({
     setCopiedCode(value);
   }
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && !serverSearch) {
     return (
       <div className="rounded-md border border-dashed border-slate-300 bg-white p-4">
         <p className="text-sm font-semibold text-slate-800">
@@ -388,25 +442,60 @@ export function PlatformMasterDetail({
   return (
     <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="min-w-0">
-        <div className="mb-4 grid gap-3 lg:grid-cols-[minmax(16rem,1fr)_auto]">
-          <label className="grid gap-1 text-sm font-semibold text-slate-700">
-            {labels.search}
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder={searchPlaceholder ?? labels.searchRows}
-              className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
-            />
-          </label>
+        <div className="mb-4 grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 lg:grid-cols-[minmax(18rem,1fr)_auto]">
+          {serverSearch ? (
+            <form
+              action={pathname}
+              method="get"
+              className="grid min-w-0 gap-2 text-sm font-semibold text-slate-700 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
+            >
+              <label htmlFor="platform-master-search" className="sr-only">
+                {labels.search}
+              </label>
+              <input
+                id="platform-master-search"
+                name={serverSearch.paramName}
+                type="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder={searchPlaceholder ?? labels.searchRows}
+                className="min-h-10 min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
+              />
+              <button
+                type="submit"
+                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-950 bg-slate-950 px-3 py-2 text-sm font-semibold text-white outline-none hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+              >
+                {serverSearch.submitLabel}
+              </button>
+              {serverSearch.value ? (
+                <Link
+                  href={pathname}
+                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950"
+                >
+                  {serverSearch.clearLabel}
+                </Link>
+              ) : null}
+            </form>
+          ) : (
+            <label className="grid gap-1 text-sm font-semibold text-slate-700">
+              <span className="sr-only">{labels.search}</span>
+              <input
+                type="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder={searchPlaceholder ?? labels.searchRows}
+                className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
+              />
+            </label>
+          )}
           {filters && filters.length > 0 ? (
-            <div className="grid gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end">
+            <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:w-[22rem] xl:w-[24rem]">
               {filters.map((filter) => (
                 <label
                   key={filter.key}
-                  className="grid gap-1 text-sm font-semibold text-slate-700"
+                  className="grid min-w-0 text-sm font-semibold text-slate-700"
                 >
-                  {filter.label}
+                  <span className="sr-only">{filter.label}</span>
                   <select
                     value={activeFilters[filter.key] ?? ""}
                     onChange={(event) =>
@@ -415,7 +504,7 @@ export function PlatformMasterDetail({
                         [filter.key]: event.target.value,
                       }))
                     }
-                    className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
+                    className="min-h-10 w-full min-w-36 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
                   >
                     {filter.options.map((option) => (
                       <option key={option.label} value={option.value}>
@@ -511,7 +600,11 @@ export function PlatformMasterDetail({
                         <td
                           key={column.key}
                           className={[
-                            "max-w-80 break-words border-b border-slate-100 px-3 py-3 text-slate-700 first:pl-0 last:pr-0",
+                            "max-w-80 border-b border-slate-100 px-3 py-3 align-top text-slate-700 first:pl-0 last:pr-0",
+                            tableColumnClass(column.key),
+                            noWrapCellColumns.has(column.key)
+                              ? "whitespace-nowrap"
+                              : "break-words",
                             isSelected && column.key === columns[0]?.key
                               ? "font-semibold text-slate-950"
                               : "",

@@ -23,6 +23,9 @@ import type {
 import {
   getPlatformAdminReadModel,
   type PlatformAdminLiveReadModel,
+  type PlatformProfileSyncState,
+  type PlatformShopAccessState,
+  type PlatformUserAccountSummary,
 } from "./read-model";
 import { formatRutForDisplay } from "./shop-action-validation";
 
@@ -144,8 +147,34 @@ function memberSummaryForShop(shopId: string, members: readonly ShopMember[]) {
   return `${activeMembers.length} active / ${shopMembers.length} total`;
 }
 
-function accountOriginForProfile() {
-  return "Not captured";
+function accountOriginForUser(account: PlatformUserAccountSummary) {
+  return `${account.provider}\n${formatToken(account.providerType)}`;
+}
+
+function profileSyncStateLabel(state: PlatformProfileSyncState) {
+  switch (state) {
+    case "auth_only":
+      return "Auth only";
+    case "origin_unavailable":
+      return "Origin unavailable";
+    case "profile_ok":
+      return "Profile OK";
+    case "profile_only":
+      return "Profile only";
+  }
+}
+
+function shopAccessStateLabel(state: PlatformShopAccessState) {
+  switch (state) {
+    case "member":
+      return "Shop member";
+    case "member_and_platform_admin":
+      return "Master admin + shop member";
+    case "none":
+      return "No shop access";
+    case "platform_admin":
+      return "Master admin";
+  }
 }
 
 function activeMembershipsForProfile(
@@ -284,32 +313,35 @@ function staffSafeReadIssue(readModel: PlatformAdminLiveReadModel) {
   return readModel.readIssues.find((issue) => issue.area === "staff_accounts_safe");
 }
 
-function profileDiagnostics(
-  profile: Profile,
+function userAccountDiagnostics(
+  account: PlatformUserAccountSummary,
   readModel: PlatformAdminLiveReadModel,
 ) {
-  const duplicateCount = readModel.profiles.filter(
+  const duplicateCount = readModel.userAccounts.filter(
     (candidate) =>
-      candidate.profile_id !== profile.profile_id &&
-      candidate.display_name === profile.display_name,
-  ).length;
-  const activeMembershipCount = activeMembershipsForProfile(
-    profile.profile_id,
-    readModel.shopMembers,
+      candidate.profileId !== account.profileId &&
+      candidate.displayName === account.displayName,
   ).length;
 
   return [
+    {
+      label: "Profile sync state",
+      value: profileSyncStateLabel(account.profileSyncState),
+    },
+    {
+      label: "Auth identity summary",
+      value:
+        readModel.authIdentityStatus.status === "ready"
+          ? "Available through safe server DTO"
+          : readModel.authIdentityStatus.reason ?? "Unavailable",
+    },
     {
       label: "Duplicate display name",
       value: duplicateCount > 0 ? `${duplicateCount} duplicate visible` : "None visible",
     },
     {
       label: "Profile without membership",
-      value: activeMembershipCount === 0 ? "Yes" : "No",
-    },
-    {
-      label: "Provider data",
-      value: "Not captured in safe profile DTO",
+      value: account.membershipCount === 0 ? "Yes" : "No",
     },
   ];
 }
@@ -350,42 +382,45 @@ function shopHealthSummary(shop: Shop, readModel: PlatformAdminLiveReadModel) {
 }
 
 function userRowDetail(
-  profile: Profile,
+  account: PlatformUserAccountSummary,
   readModel: PlatformAdminLiveReadModel,
 ): RowDetailPanel {
   const memberships = membershipsForProfile(
-    profile.profile_id,
+    account.profileId,
     readModel.shops,
     readModel.shopMembers,
   );
   const audits = readModel.auditLogs.filter(
-    (log) => log.actor_profile_id === profile.profile_id,
+    (log) => log.actor_profile_id === account.profileId,
   );
   const platformRole = platformRoleForProfile(
-    profile.profile_id,
+    account.profileId,
     readModel.platformAdminProfileIds,
   );
-  const activeMembershipCount = activeMembershipsForProfile(
-    profile.profile_id,
-    readModel.shopMembers,
-  ).length;
+  const activeMembershipCount = account.membershipCount;
 
   return {
     groups: [
       {
         fields: [
-          { label: "Display name", value: profile.display_name },
-          { label: "Profile ID", value: profile.profile_id },
-          { label: "Status", value: formatToken(profile.profile_status) },
+          { label: "Display name", value: account.displayName },
+          { label: "Profile ID", value: account.profileId },
+          { label: "Status", value: profileSyncStateLabel(account.profileSyncState) },
+          { label: "Profile status", value: formatToken(account.profileStatus) },
         ],
         title: "Identity",
       },
       {
         fields: [
-          { label: "Provider", value: accountOriginForProfile() },
+          { label: "Email", value: account.email },
+          { label: "Provider", value: account.provider },
+          { label: "Provider type", value: formatToken(account.providerType) },
           {
             label: "Capture state",
-            value: "Provider origin is not captured in the current safe profile DTO.",
+            value:
+              readModel.authIdentityStatus.status === "ready"
+                ? "Auth identity is captured through the safe server DTO."
+                : readModel.authIdentityStatus.reason ?? "Auth identity unavailable.",
           },
         ],
         notes: ["No auth secret fields are queried or rendered."],
@@ -399,9 +434,10 @@ function userRowDetail(
           },
           {
             label: "Admin Console/shop access",
-            value: accessSummaryForProfile(profile.profile_id, readModel),
+            value: accessSummaryForProfile(account.profileId, readModel),
           },
-          { label: "Primary role", value: primaryRoleForProfile(profile.profile_id, readModel) },
+          { label: "Primary role", value: primaryRoleForProfile(account.profileId, readModel) },
+          { label: "Shop access state", value: shopAccessStateLabel(account.shopAccessState) },
         ],
         title: "Access",
       },
@@ -420,22 +456,22 @@ function userRowDetail(
         title: "Recent audit",
       },
       {
-        fields: profileDiagnostics(profile, readModel),
+        fields: userAccountDiagnostics(account, readModel),
         title: "Diagnostics",
       },
     ],
-    href: `/platform/users/${profile.profile_id}`,
+    href: `/platform/users/${account.profileId}`,
     notes: [
-      "Provider origin is not captured in the current safe profile DTO.",
+      "Email and provider are returned only by a minimal server-side Auth identity DTO.",
       "No auth secret fields are queried or rendered.",
     ],
-    rowKey: profile.profile_id,
-    subtitle: `Profile ID ${shortId(profile.profile_id)} / ${shopAccessSummaryForProfile(
-      profile.profile_id,
+    rowKey: account.profileId,
+    subtitle: `Profile ID ${shortId(account.profileId)} / ${profileSyncStateLabel(account.profileSyncState)} / ${shopAccessSummaryForProfile(
+      account.profileId,
       readModel.shops,
       readModel.shopMembers,
     ).replace(/\n/g, " ")}`,
-    title: profile.display_name,
+    title: account.displayName,
   };
 }
 
@@ -567,38 +603,44 @@ function shopRowDetail(
 }
 
 function userDetailSections(
-  profile: Profile,
+  account: PlatformUserAccountSummary,
   readModel: PlatformAdminLiveReadModel,
 ) {
   const memberships = membershipsForProfile(
-    profile.profile_id,
+    account.profileId,
     readModel.shops,
     readModel.shopMembers,
   );
   const audits = readModel.auditLogs.filter(
-    (log) => log.actor_profile_id === profile.profile_id,
+    (log) => log.actor_profile_id === account.profileId,
   );
   const platformRole = platformRoleForProfile(
-    profile.profile_id,
+    account.profileId,
     readModel.platformAdminProfileIds,
   );
 
   return [
     {
       fields: [
-        { label: "Display name", value: profile.display_name },
-        { label: "Profile ID", value: profile.profile_id },
-        { label: "Short ID", value: shortId(profile.profile_id) },
-        { label: "Status", value: formatToken(profile.profile_status) },
+        { label: "Display name", value: account.displayName },
+        { label: "Profile ID", value: account.profileId },
+        { label: "Short ID", value: shortId(account.profileId) },
+        { label: "Status", value: profileSyncStateLabel(account.profileSyncState) },
+        { label: "Profile status", value: formatToken(account.profileStatus) },
       ],
       title: "Identity",
     },
     {
       fields: [
-        { label: "Provider", value: accountOriginForProfile() },
+        { label: "Email", value: account.email },
+        { label: "Provider", value: account.provider },
+        { label: "Provider type", value: formatToken(account.providerType) },
         {
           label: "Capture state",
-          value: "Provider origin is not captured in the current safe profile DTO.",
+          value:
+            readModel.authIdentityStatus.status === "ready"
+              ? "Auth identity is captured through the safe server DTO."
+              : readModel.authIdentityStatus.reason ?? "Auth identity unavailable.",
         },
       ],
       notes: ["No auth secret fields are queried or rendered."],
@@ -612,9 +654,10 @@ function userDetailSections(
         },
         {
           label: "Admin Console/shop access",
-          value: accessSummaryForProfile(profile.profile_id, readModel),
+          value: accessSummaryForProfile(account.profileId, readModel),
         },
-        { label: "Primary role", value: primaryRoleForProfile(profile.profile_id, readModel) },
+        { label: "Primary role", value: primaryRoleForProfile(account.profileId, readModel) },
+        { label: "Shop access state", value: shopAccessStateLabel(account.shopAccessState) },
       ],
       title: "Master Console access",
     },
@@ -633,7 +676,7 @@ function userDetailSections(
       title: "Recent audit",
     },
     {
-      fields: profileDiagnostics(profile, readModel),
+      fields: userAccountDiagnostics(account, readModel),
       title: "Diagnostics",
     },
   ];
@@ -1052,6 +1095,18 @@ function buildOverview(readModel: PlatformAdminLiveReadModel): PlatformSection {
 function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
   const base = platformSections.users;
   const platformAdmins = new Set(readModel.platformAdminProfileIds);
+  const profileOkCount = readModel.userAccounts.filter(
+    (account) => account.profileSyncState === "profile_ok",
+  ).length;
+  const authOnlyCount = readModel.userAccounts.filter(
+    (account) => account.profileSyncState === "auth_only",
+  ).length;
+  const profileOnlyCount = readModel.userAccounts.filter(
+    (account) => account.profileSyncState === "profile_only",
+  ).length;
+  const originUnavailableCount = readModel.userAccounts.filter(
+    (account) => account.profileSyncState === "origin_unavailable",
+  ).length;
 
   return {
     ...base,
@@ -1061,9 +1116,10 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
         label: "State",
         options: [
           { label: "All states", value: "" },
-          { label: "Active", value: "Active" },
-          { label: "Disabled", value: "Disabled" },
-          { label: "Review", value: "Review" },
+          { label: "Profile OK", value: "Profile OK" },
+          { label: "Auth only", value: "Auth only" },
+          { label: "Profile only", value: "Profile only" },
+          { label: "Origin unavailable", value: "Origin unavailable" },
         ],
       },
       {
@@ -1079,31 +1135,57 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
       },
     ],
     guardrails: [
-      "Search and filters are server-side concerns; this view renders the current server-limited read model.",
-      "No auth secrets are part of the profile DTO.",
+      "Submitted search is resolved server-side against safe Auth/Profile DTOs before rows render.",
+      "No auth secret fields are queried or rendered.",
       "Profile lifecycle actions are not exposed; Platform Admin grant changes use the dedicated audited admin RPCs.",
     ],
-    rowDetails: readModel.profiles.map((profile) => userRowDetail(profile, readModel)),
-    rows: readModel.profiles.map((profile): TableRow => {
+    rowDetails: readModel.userAccounts.map((account) => userRowDetail(account, readModel)),
+    rows: readModel.userAccounts.map((account): TableRow => {
       const shopAccess = shopAccessSummaryForProfile(
-        profile.profile_id,
+        account.profileId,
         readModel.shops,
         readModel.shopMembers,
       );
-      const profileStatus = formatToken(profile.profile_status);
+      const profileSyncState = profileSyncStateLabel(account.profileSyncState);
 
       return {
-        origin: accountOriginForProfile(),
-        access: accessSummaryForProfile(profile.profile_id, readModel),
-        profile: `${profile.display_name}\nProfile ID ${shortId(profile.profile_id)}\n${profileStatus}`,
-        rowKey: profile.profile_id,
+        origin: accountOriginForUser(account),
+        access: accessSummaryForProfile(account.profileId, readModel),
+        email: account.email,
+        profile: `${account.displayName}\nProfile ID ${shortId(account.profileId)}\n${profileSyncState}`,
+        rowKey: account.profileId,
         shops: shopAccess,
-        state: profileStatus,
+        state: `${profileSyncState}\n${shopAccessStateLabel(account.shopAccessState)}`,
       };
     }),
-    searchPlaceholder: "Search users by name or profile ID",
+    searchPlaceholder: "Search email, UID, display name, or provider",
+    serverSearch: {
+      clearLabel: "Clear",
+      helper: readModel.authIdentityStatus.truncated
+        ? "Server search scanned a bounded Auth identity page range."
+        : "Server search runs before the table filter.",
+      paramName: "q",
+      submitLabel: "Search",
+      value: readModel.usersSearchQuery ?? "",
+    },
     stats: [
-      stat("Profiles", String(readModel.profiles.length), "Visible users"),
+      stat(
+        "Runtime target",
+        readModel.runtimeTarget.targetClass,
+        `Project ${readModel.runtimeTarget.projectRef} / ${readModel.runtimeTarget.runtimeSource}`,
+        readModel.runtimeTarget.targetClass === "cloud" ? "good" : "warning",
+      ),
+      stat("Profiles", String(readModel.profiles.length), "Visible profiles"),
+      stat(
+        "Auth users",
+        readModel.authIdentityStatus.status === "ready"
+          ? String(readModel.authIdentityStatus.scannedCount)
+          : "Unavailable",
+        readModel.authIdentityStatus.status === "ready"
+          ? "Safe server DTO scan"
+          : "Auth identity DTO unavailable",
+        readModel.authIdentityStatus.status === "ready" ? "good" : "warning",
+      ),
       stat("Platform admins", String(platformAdmins.size), "Active grants", "good"),
       stat(
         "Without membership",
@@ -1111,7 +1193,25 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
         "Support diagnostics signal",
         readModel.dataHealth.profiles_without_membership > 0 ? "warning" : "good",
       ),
-      stat("Origins", "Not captured", "Provider not in safe profile DTO", "muted"),
+      stat("Profile OK", String(profileOkCount), "Auth user with profile", "good"),
+      stat(
+        "Auth only",
+        String(authOnlyCount),
+        "Auth user without profile",
+        authOnlyCount > 0 ? "warning" : "good",
+      ),
+      stat(
+        "Profile only",
+        String(profileOnlyCount),
+        "Profile without auth identity",
+        profileOnlyCount > 0 ? "warning" : "good",
+      ),
+      stat(
+        "Origin unavailable",
+        String(originUnavailableCount),
+        "Auth identity summary not available",
+        originUnavailableCount > 0 ? "warning" : "muted",
+      ),
     ],
     status: "Read-only",
   };
@@ -1387,12 +1487,37 @@ function buildData(readModel: PlatformAdminLiveReadModel): PlatformSection {
   return {
     ...base,
     guardrails: [
+      "Runtime target diagnostics expose only class, redacted project ref, and counts.",
       "Data health is computed from server aggregate inputs only.",
       "Migration drift is NOT_RUN in the UI unless the Supabase CLI gate has been executed.",
       "Blocked and not_configured states are distinct from empty data.",
       "Device/sync data health is read-only and aggregated for support diagnostics.",
     ],
     rows: [
+      {
+        area: "runtime target",
+        next: `Source: ${readModel.runtimeTarget.runtimeSource}`,
+        signal: `${readModel.runtimeTarget.targetClass} / ${readModel.runtimeTarget.projectRef}`,
+        state: "Server diagnostic",
+      },
+      {
+        area: "auth users count",
+        next:
+          readModel.authIdentityStatus.status === "ready"
+            ? "Counted through server-side Auth identity DTO"
+            : readModel.authIdentityStatus.reason ?? "Auth identity DTO unavailable",
+        signal:
+          readModel.authIdentityStatus.status === "ready"
+            ? String(readModel.authIdentityStatus.scannedCount)
+            : "Unavailable",
+        state: readableBoundaryStatus(readModel.authIdentityStatus.status),
+      },
+      {
+        area: "profiles count",
+        next: "Loaded through authenticated RLS",
+        signal: String(readModel.profiles.length),
+        state: readableBoundaryStatus("PASS"),
+      },
       {
         area: "shops without owner",
         next: "Assign owner through safe operations",
@@ -1464,6 +1589,12 @@ function buildData(readModel: PlatformAdminLiveReadModel): PlatformSection {
       },
     ],
     stats: [
+      stat(
+        "Runtime target",
+        readModel.runtimeTarget.targetClass,
+        `Project ${readModel.runtimeTarget.projectRef}`,
+        readModel.runtimeTarget.targetClass === "cloud" ? "good" : "warning",
+      ),
       stat(
         "Shops without owner",
         String(health.shops_without_owner),
@@ -2029,9 +2160,9 @@ function buildUserDetail(
   profileId: string,
 ): PlatformSection {
   const base = platformSections.users;
-  const profile = readModel.profiles.find((item) => item.profile_id === profileId);
-  const memberships = profile
-    ? readModel.shopMembers.filter((member) => member.profile_id === profile.profile_id)
+  const account = readModel.userAccounts.find((item) => item.profileId === profileId);
+  const memberships = account
+    ? readModel.shopMembers.filter((member) => member.profile_id === account.profileId)
     : [];
   const audits = readModel.auditLogs.filter(
     (log) => log.actor_profile_id === profileId,
@@ -2039,50 +2170,53 @@ function buildUserDetail(
 
   return {
     ...base,
-    description: "Profile detail with memberships, role state, and linked audit.",
-    detailSections: profile ? userDetailSections(profile, readModel) : undefined,
+    description:
+      "Profile detail with safe Auth identity summary, memberships, role state, and linked audit.",
+    detailSections: account ? userDetailSections(account, readModel) : undefined,
     emptyState: {
       description:
-        "The requested profile is not visible through the current Platform Admin RLS boundary.",
-      title: "Profile not visible",
+        "The requested account is not visible through the current Platform Admin read boundary.",
+      title: "Account not visible",
     },
     guardrails: [
-      "Access state is shown from profile and membership rows only.",
+      "Access state is shown from safe profile, Auth identity, and membership summaries only.",
       "Suspend/reactivate profile remains outside this task; Platform role changes use the audited admin RPCs.",
       "No auth secret fields are queried or rendered.",
     ],
-    rows: profile
+    rows: account
       ? [
           {
-            access: accessSummaryForProfile(profile.profile_id, readModel),
-            origin: accountOriginForProfile(),
-            profile: `${profile.display_name}\nProfile ID ${shortId(profile.profile_id)}\n${formatToken(profile.profile_status)}`,
-            rowKey: profile.profile_id,
+            access: accessSummaryForProfile(account.profileId, readModel),
+            email: account.email,
+            origin: accountOriginForUser(account),
+            profile: `${account.displayName}\nProfile ID ${shortId(account.profileId)}\n${profileSyncStateLabel(account.profileSyncState)}`,
+            rowKey: account.profileId,
             shops:
               memberships.length > 0
                 ? memberships
                     .map((member) => `${shopCodeById(readModel.shops, member.shop_id)} / ${formatToken(member.role_id)}`)
                     .join("\n")
                 : "None",
-            state: formatToken(profile.profile_status),
+            state: `${profileSyncStateLabel(account.profileSyncState)}\n${shopAccessStateLabel(account.shopAccessState)}`,
           },
           {
             access: "Audit",
+            email: "No email in audit",
             origin: "Server audit",
             profile: "Recent audit",
-            rowKey: `${profile.profile_id}-audit`,
+            rowKey: `${account.profileId}-audit`,
             shops: `${audits.length} linked events`,
             state: audits[0]?.event ?? "None",
           },
         ]
       : [],
     stats: [
-      stat("Profile", profile ? "Visible" : "Missing", "RLS detail lookup"),
+      stat("Account", account ? "Visible" : "Missing", "Server detail lookup"),
       stat("Memberships", String(memberships.length), "Shop memberships"),
       stat("Audit events", String(audits.length), "Actor-linked audit"),
     ],
     status: "User detail",
-    title: profile ? profile.display_name : "User Detail",
+    title: account ? account.displayName : "User Detail",
   };
 }
 
@@ -2197,8 +2331,12 @@ function buildReadySection(
 
 export async function getPlatformSectionForRequest(
   key: PlatformSectionKey,
+  options: { usersSearchQuery?: string } = {},
 ): Promise<PlatformSection> {
-  const readModel = await getPlatformAdminReadModel();
+  const readModel = await getPlatformAdminReadModel({
+    includeAuthIdentities: key === "users" || key === "data",
+    usersSearchQuery: key === "users" ? options.usersSearchQuery : undefined,
+  });
 
   if (readModel.status !== "ready") {
     return fallbackSection(key, readModel);
@@ -2222,7 +2360,10 @@ export async function getPlatformAuditDetailForRequest(
 export async function getPlatformUserDetailForRequest(
   profileId: string,
 ): Promise<PlatformSection> {
-  const readModel = await getPlatformAdminReadModel();
+  const readModel = await getPlatformAdminReadModel({
+    includeAuthIdentities: true,
+    usersSearchQuery: profileId,
+  });
 
   if (readModel.status !== "ready") {
     return fallbackSection("users", readModel);

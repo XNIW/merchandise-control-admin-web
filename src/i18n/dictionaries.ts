@@ -35,7 +35,9 @@ export type Dictionary = {
   actionResults: Record<string, string>;
   authForm: {
     email: string;
+    googleSubmit: string;
     password: string;
+    passwordDivider: string;
     pending: string;
     submit: string;
   };
@@ -3368,7 +3370,9 @@ const en: Dictionary = {
   },
   authForm: {
     email: "Email",
+    googleSubmit: "Continue with Google",
     password: "Password",
+    passwordDivider: "or use password",
     pending: "Signing in",
     submit: "Sign in",
   },
@@ -3542,7 +3546,9 @@ const it: Dictionary = {
   },
   authForm: {
     email: "Email",
+    googleSubmit: "Continua con Google",
     password: "Password",
+    passwordDivider: "oppure usa password",
     pending: "Accesso in corso",
     submit: "Accedi",
   },
@@ -3718,7 +3724,9 @@ const es: Dictionary = {
   },
   authForm: {
     email: "Email",
+    googleSubmit: "Continuar con Google",
     password: "Contraseña",
+    passwordDivider: "o usa password",
     pending: "Iniciando sesion",
     submit: "Iniciar sesion",
   },
@@ -3892,7 +3900,9 @@ const zhCN: Dictionary = {
   },
   authForm: {
     email: "邮箱",
+    googleSubmit: "使用 Google 继续",
     password: "密码",
+    passwordDivider: "或使用密码",
     pending: "登录中",
     submit: "登录",
   },

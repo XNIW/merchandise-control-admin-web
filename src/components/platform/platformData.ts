@@ -62,6 +62,14 @@ export type PlatformFilter = {
   options: PlatformFilterOption[];
 };
 
+export type PlatformServerSearch = {
+  clearLabel: string;
+  helper: string;
+  paramName: string;
+  submitLabel: string;
+  value: string;
+};
+
 export type PlatformDetailSection = {
   title: string;
   description?: string;
@@ -103,6 +111,7 @@ export type PlatformSection = {
   rows: TableRow[];
   filters?: PlatformFilter[];
   searchPlaceholder?: string;
+  serverSearch?: PlatformServerSearch;
   detailSections?: PlatformDetailSection[];
   rowDetails?: RowDetailPanel[];
   emptyState?: EmptyStateContent;
@@ -183,6 +192,7 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
     "Global profile directory with memberships, platform role state, access status, and recent audit.",
     [
       { key: "profile", label: "Profile" },
+      { key: "email", label: "Email" },
       { key: "origin", label: "Origin" },
       { key: "access", label: "Access" },
       { key: "shops", label: "Shops" },

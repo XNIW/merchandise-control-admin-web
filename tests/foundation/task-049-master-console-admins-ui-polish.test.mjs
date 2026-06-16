@@ -185,7 +185,7 @@ test("TASK-049 Users, Shops, System, and Data keep technical values readable", (
   const platformMasterDetail = readProjectFile("src/components/platform/PlatformMasterDetail.tsx");
 
   for (const required of [
-    "Profile ID ${shortId(profile.profile_id)}",
+    "Profile ID ${shortId(account.profileId)}",
     "Shop code ${shop.shop_code}",
     "Code ${shop.shop_code}",
     "devices[0].updated_at",
