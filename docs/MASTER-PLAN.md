@@ -2433,9 +2433,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   security scan, build, verify e `git diff --check`. TASK-061 riconciliato a
   `DONE` / `DONE_RECONCILED`; nessun commit/push/stage.
 
-### History Sync Console - shared sessions and sync diagnostics
+### TASK-063 - History Sync Console cross-platform diagnostics
 
 - Stato: `DONE`
+- File task: `docs/TASKS/TASK-063-history-sync-console-cross-platform.md`
 - Evidence: `docs/TASKS/EVIDENCE/history-sync-cross-platform-contract.md`
 - Fase: `DONE_RECONCILED_INTEGRATION`
 - Responsabile: `NONE`
@@ -2456,6 +2457,9 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Nota integrazione 2026-06-15: preservato nel merge verso main insieme a
   TASK-061 e TASK-062; i gate finali di integrazione restano l'evidence
   definitiva prima del commit finale.
+- Nota normalizzazione tracking 2026-06-15: la feature era gia presente su
+  `main` senza task file numerato dedicato. Creato `TASK-063` come tracking
+  retrospettivo documentale, senza modifiche runtime, migration, seed o test.
 
 ### TASK-062 - Global i18n locale and import/export coverage
 
@@ -2598,8 +2602,11 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Fase TASK-060: `DONE`
 - Stato TASK-061: `DONE`
 - Fase TASK-061: `DONE_RECONCILED`
-- Stato History Sync Console: `DONE`
-- Fase History Sync Console: `DONE_RECONCILED_INTEGRATION`
+- Stato TASK-063: `DONE`
+- Fase TASK-063: `DONE_RECONCILED_INTEGRATION`
+- Task TASK-063: `TASK-063 - History Sync Console cross-platform diagnostics`
+- File task TASK-063: `docs/TASKS/TASK-063-history-sync-console-cross-platform.md`
+- Evidence TASK-063: `docs/TASKS/EVIDENCE/history-sync-cross-platform-contract.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
 - Task attivo: `NESSUNO`
@@ -2655,6 +2662,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-059: `DONE_RECONCILED_WITH_NOTES`
 - Verdict TASK-060: `DONE`
 - Verdict TASK-061: `DONE`
+- Verdict TASK-063: `HISTORY_SYNC_ALREADY_MERGED` / `TASK_TRACKING_NORMALIZED`
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
 - DONE reconciliation 2026-06-06: su conferma esplicita utente, TASK-046..TASK-050 chiusi a `DONE_RECONCILED`; TASK-040 e TASK-041 restano `REVIEW_WITH_EXTERNAL_BLOCKERS`, TASK-042 resta `READY_FOR_WIN7_MANUAL_TEST`. Commit/push finale su `main` richiesti dall'utente.
 - TASK-051 aperto in execution il 2026-06-06 da brief allegato: provisioning fiscal identity, POS-first bootstrap, manager staff `1001`, Temporary PIN server-side, Admin Console fiscal identity read-only. `shop_code` resta tecnico e `company_rut` separato per compatibilita RUT cileno. Non applicare migration su production e non dichiarare PIN raw/audit/log/evidence.
