@@ -182,7 +182,7 @@ test("TASK-054 task and Master Plan tracking are aligned for DONE reconciliation
   assertContains(masterPlan, "Stato TASK-056: `DONE_RECONCILED`");
   assert.match(
     masterPlan,
-    /Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`|Ultimo task chiuso: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Ultimo task chiuso: `TASK-059 - Post-merge Supabase Staging Readiness`|Ultimo task chiuso: `TASK-060 - Supplier Excel Android-style preview\/import`|Ultimo task chiuso: `TASK-061 - Android database export compatibility for Admin Web database transfer`/,
+    /Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`|Ultimo task chiuso: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Ultimo task chiuso: `TASK-059 - Post-merge Supabase Staging Readiness`|Ultimo task chiuso: `TASK-060 - Supplier Excel Android-style preview\/import`|Ultimo task chiuso: `TASK-061 - Android database export compatibility for Admin Web database transfer`|Ultimo task chiuso: `TASK-064 - Master Console Auth\/Profile Parity e ricerca utenti Android\/iOS`/,
   );
   assert.doesNotMatch(
     masterPlan,

@@ -94,7 +94,7 @@ test("TASK-028 governance artifacts close after explicit DONE reconciliation", (
   );
   assert.match(
     masterPlan,
-    /Stato task: `PLANNED`|Stato task: `REVIEW`|Stato task: `EXECUTION`|Stato task: `REVIEW_WITH_BLOCKERS`|Stato task: `REVIEW_WITH_EXTERNAL_BLOCKERS`|Stato task: `READY_FOR_WIN7_MANUAL_TEST`|Stato task: `READY_FOR_DONE_CONFIRMATION`|Stato task: `DONE`|Stato task: `DONE_RECONCILED`|Stato task: `DONE_RECONCILED_WITH_NOTES`/,
+    /Stato task: `PLANNED`|Stato task: `REVIEW`|Stato task: `EXECUTION`|Stato task: `REVIEW_WITH_BLOCKERS`|Stato task: `REVIEW_WITH_EXTERNAL_BLOCKERS`|Stato task: `READY_FOR_WIN7_MANUAL_TEST`|Stato task: `READY_FOR_DONE_CONFIRMATION`|Stato task: `DONE`|Stato task: `DONE_RECONCILED`|Stato task: `DONE_RECONCILED_WITH_NOTES`|Stato task: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`/,
   );
   assert.match(task, /Stato:\s*`DONE_RECONCILED_WITH_NOTES`/);
   assert.match(evidence, /Verdict corrente:\s*`DONE_RECONCILED_WITH_NOTES`/);
