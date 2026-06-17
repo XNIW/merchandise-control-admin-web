@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { PlatformPage } from "@/components/platform/PlatformPage";
 import {
   getPlatformShopAccessForRequest,
@@ -10,11 +9,11 @@ import { ShopAdminAccessActions } from "./ShopAdminAccessActions";
 import { ShopDangerZoneActions } from "./ShopDangerZoneActions";
 import { ShopLifecycleActions } from "./ShopLifecycleActions";
 import { ShopProfileEditForm } from "./ShopProfileEditForm";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Shop Detail | MerchandiseControl Admin Web",
-  description: "Platform Admin shop detail.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Shop Detail");
+}
 
 export const dynamic = "force-dynamic";
 

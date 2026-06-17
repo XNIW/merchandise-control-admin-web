@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
 import {
   StaffActionPanel,
@@ -10,11 +9,11 @@ import { translateText } from "@/i18n/translate-sections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 import { hasStaffFullShopAdminWebAccess } from "@/server/shop-admin/staff-web-permissions";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "POS / Staff | MerchandiseControl Admin Web",
-  description: "Shop Admin POS and staff shell for MerchandiseControl Admin Web.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("POS / Staff");
+}
 
 export const dynamic = "force-dynamic";
 

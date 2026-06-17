@@ -1,12 +1,10 @@
-import type { Metadata } from "next";
 import { PlatformPage } from "@/components/platform/PlatformPage";
 import { getPlatformSectionForRequest } from "@/server/platform-admin/platform-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Sync Signals | MerchandiseControl Admin Web",
-  description:
-    "Internal diagnostic view for global sync signals and support triage.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Sync Signals");
+}
 
 export const dynamic = "force-dynamic";
 

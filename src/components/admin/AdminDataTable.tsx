@@ -42,7 +42,7 @@ export function AdminDataTable({
   rowActions,
 }: AdminDataTableProps) {
   return (
-    <div className="overflow-x-auto">
+    <div className="min-w-0 overflow-x-auto">
       <table className="min-w-[64rem] border-separate border-spacing-0 text-left text-sm">
         <caption className="sr-only">{caption}</caption>
         <thead>

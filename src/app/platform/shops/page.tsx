@@ -1,12 +1,10 @@
-import type { Metadata } from "next";
 import { PlatformPage } from "@/components/platform/PlatformPage";
 import { getPlatformSectionForRequest } from "@/server/platform-admin/platform-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Shops | MerchandiseControl Admin Web",
-  description:
-    "Read-only shops using shops as the root business model.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Shops");
+}
 
 export const dynamic = "force-dynamic";
 

@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
 import {
   MemberActionPanel,
@@ -9,11 +8,11 @@ import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Members | MerchandiseControl Admin Web",
-  description: "Shop Admin members shell for MerchandiseControl Admin Web.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Members");
+}
 
 export const dynamic = "force-dynamic";
 

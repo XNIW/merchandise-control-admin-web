@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { AppShell } from "@/components/platform/AppShell";
 import { EmptyState } from "@/components/platform/components/EmptyState";
 import { PageHeader } from "@/components/platform/components/PageHeader";
@@ -10,11 +9,11 @@ import {
   createPlatformPendingOwnerInviteAction,
   createPlatformShopAction,
 } from "../../operations/actions";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Provision Shop | MerchandiseControl Admin Web",
-  description: "Provision a shop from the Master Console.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Provision Shop");
+}
 
 export const dynamic = "force-dynamic";
 

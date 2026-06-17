@@ -1,11 +1,10 @@
-import type { Metadata } from "next";
 import { PlatformPage } from "@/components/platform/PlatformPage";
 import { getPlatformSectionForRequest } from "@/server/platform-admin/platform-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Global History | MerchandiseControl Admin Web",
-  description: "Global history overview.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Global History");
+}
 
 export const dynamic = "force-dynamic";
 

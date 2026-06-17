@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { getLocale } from "@/i18n/get-locale";
+import { createRootMetadata } from "@/i18n/metadata";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,10 +14,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "MerchandiseControl Admin Web",
-  description: "Admin Web for MerchandiseControl Platform and Shop consoles.",
-};
+export function generateMetadata(): Promise<Metadata> {
+  return createRootMetadata();
+}
 
 export default async function RootLayout({
   children,

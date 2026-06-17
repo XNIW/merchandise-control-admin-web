@@ -1,11 +1,10 @@
-import type { Metadata } from "next";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { getShopAuditDetailSectionForRequest } from "@/server/shop-admin/shop-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Audit Event Detail | MerchandiseControl Admin Web",
-  description: "Shop Admin audit event detail for MerchandiseControl Admin Web.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Audit Event Detail");
+}
 
 export const dynamic = "force-dynamic";
 

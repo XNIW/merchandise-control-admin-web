@@ -1,12 +1,10 @@
-import type { Metadata } from "next";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Admin Console | MerchandiseControl Admin Web",
-  description:
-    "Protected Admin Console entrypoint for MerchandiseControl.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Admin Console");
+}
 
 export const dynamic = "force-dynamic";
 

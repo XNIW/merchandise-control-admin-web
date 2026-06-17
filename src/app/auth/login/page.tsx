@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { AuthForm } from "@/components/auth/AuthForm";
@@ -7,12 +6,11 @@ import { safeInternalNextPath } from "@/lib/auth/oauth-redirect";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Console Sign In | MerchandiseControl Admin Web",
-  description:
-    "Sign in to the requested MerchandiseControl console with the supported credential method.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Console Sign In");
+}
 
 export const dynamic = "force-dynamic";
 

@@ -1,14 +1,13 @@
-import type { Metadata } from "next";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Sync Center | MerchandiseControl Admin Web",
-  description: "Shop Admin sync center for MerchandiseControl Admin Web.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Sync Center");
+}
 
 export const dynamic = "force-dynamic";
 

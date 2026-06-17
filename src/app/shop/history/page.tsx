@@ -1,13 +1,11 @@
-import type { Metadata } from "next";
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Mobile History | MerchandiseControl Admin Web",
-  description:
-    "Shop Admin mobile history entries, payload overlays and related technical sync activity for MerchandiseControl Admin Web.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Mobile History");
+}
 
 export const dynamic = "force-dynamic";
 

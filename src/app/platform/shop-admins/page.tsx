@@ -1,12 +1,10 @@
-import type { Metadata } from "next";
 import { PlatformPage } from "@/components/platform/PlatformPage";
 import { getPlatformSectionForRequest } from "@/server/platform-admin/platform-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Shop Admins | MerchandiseControl Admin Web",
-  description:
-    "Personal accounts with shop-scoped Admin Console access for the Master Console.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Shop Admins");
+}
 
 export const dynamic = "force-dynamic";
 

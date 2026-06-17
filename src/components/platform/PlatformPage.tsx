@@ -119,7 +119,7 @@ export async function PlatformPage({
     >
       <div
         className={[
-          "mx-auto flex flex-col gap-5",
+          "mx-auto flex min-w-0 flex-col gap-5",
           hasMasterDetail ? "max-w-[96rem]" : "max-w-7xl",
         ].join(" ")}
       >
@@ -288,7 +288,7 @@ export async function PlatformPage({
               )}
             >
               {hasMasterDetail ? (
-                <div className="grid gap-4">
+                <div className="grid min-w-0 gap-4">
                   {localizedSection.tableNotice ? (
                     <section className="rounded-md border border-slate-200 bg-slate-50 p-4">
                       <p className="text-sm font-semibold text-slate-950">

@@ -1,11 +1,10 @@
-import type { Metadata } from "next";
 import { PlatformPage } from "@/components/platform/PlatformPage";
 import { getPlatformSectionForRequest } from "@/server/platform-admin/platform-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Data Health | MerchandiseControl Admin Web",
-  description: "Platform data health diagnostics.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Data Health");
+}
 
 export const dynamic = "force-dynamic";
 

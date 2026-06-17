@@ -41,8 +41,8 @@ test("TASK-049 preserves TASK-048 diagnostic navigation decisions", () => {
     /navigationItems\.map\(\(item\)/,
     "Devices and Sync must not return to the primary sidebar renderer",
   );
-  assertContains(devicesPage, "Device Signals | MerchandiseControl Admin Web");
-  assertContains(syncPage, "Sync Signals | MerchandiseControl Admin Web");
+  assertContains(devicesPage, 'createLocalizedPageMetadata("Device Signals")');
+  assertContains(syncPage, 'createLocalizedPageMetadata("Sync Signals")');
   assert.doesNotMatch(devicesPage, /Global Devices \| MerchandiseControl Admin Web/);
   assert.doesNotMatch(syncPage, /Global Sync \| MerchandiseControl Admin Web/);
 });

@@ -1,13 +1,12 @@
-import type { Metadata } from "next";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { getI18n } from "@/i18n/get-locale";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Settings | MerchandiseControl Admin Web",
-  description: "Shop Admin settings shell for MerchandiseControl Admin Web.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Settings");
+}
 
 export const dynamic = "force-dynamic";
 

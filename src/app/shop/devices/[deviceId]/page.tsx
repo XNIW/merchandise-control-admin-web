@@ -1,11 +1,10 @@
-import type { Metadata } from "next";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { getShopDeviceDetailSectionForRequest } from "@/server/shop-admin/shop-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Device Detail | MerchandiseControl Admin Web",
-  description: "Shop Admin device detail for MerchandiseControl Admin Web.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Device Detail");
+}
 
 export const dynamic = "force-dynamic";
 

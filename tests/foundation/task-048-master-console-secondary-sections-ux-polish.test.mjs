@@ -64,12 +64,12 @@ test("TASK-048 secondary Master Console sections explain purpose, empty state, d
 
   assertContains(
     devicesPage,
-    "Device Signals | MerchandiseControl Admin Web",
+    'createLocalizedPageMetadata("Device Signals")',
     "devices route metadata must use diagnostic title",
   );
   assertContains(
     syncPage,
-    "Sync Signals | MerchandiseControl Admin Web",
+    'createLocalizedPageMetadata("Sync Signals")',
     "sync route metadata must use diagnostic title",
   );
 

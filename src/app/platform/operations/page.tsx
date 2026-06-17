@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { AppShell } from "@/components/platform/AppShell";
 import {
   ControlledOperationsWorkflow,
@@ -10,12 +9,11 @@ import { SectionCard } from "@/components/platform/components/SectionCard";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
 import { getPlatformAdminReadModel } from "@/server/platform-admin/read-model";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Controlled Operations | MerchandiseControl Admin Web",
-  description:
-    "Controlled Platform Admin operations for shops with server-side authorization and audit.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Controlled Operations");
+}
 
 export const dynamic = "force-dynamic";
 

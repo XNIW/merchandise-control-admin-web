@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/admin/PageHeader";
 import { SectionCard } from "@/components/admin/SectionCard";
@@ -6,11 +5,11 @@ import { formatDateTime } from "@/i18n/format";
 import { getI18n } from "@/i18n/get-locale";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { PasswordResetPanel } from "./PasswordResetPanel";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Account Profile | MerchandiseControl Admin Web",
-  description: "Personal Admin Web account profile and session status.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Account Profile");
+}
 
 export const dynamic = "force-dynamic";
 

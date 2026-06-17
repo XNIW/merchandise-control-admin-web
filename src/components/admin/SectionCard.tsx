@@ -18,7 +18,7 @@ export function SectionCard({
   return (
     <section
       aria-labelledby={titleId}
-      className="rounded-md border border-slate-200 bg-white p-5"
+      className="min-w-0 rounded-md border border-slate-200 bg-white p-5"
     >
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">

@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { AppShell } from "@/components/platform/AppShell";
 import { EmptyState } from "@/components/platform/components/EmptyState";
 import { PageHeader } from "@/components/platform/components/PageHeader";
@@ -20,11 +19,11 @@ import {
   grantPlatformAdminAction,
   revokePlatformAdminAction,
 } from "./actions";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Platform Admins | MerchandiseControl Admin Web",
-  description: "Platform Admin grant and revoke operations.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Platform Admins");
+}
 
 export const dynamic = "force-dynamic";
 

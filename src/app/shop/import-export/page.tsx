@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { ImportExportActionPanel } from "@/app/shop/_components/ImportExportActionPanel";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
@@ -6,12 +5,11 @@ import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Import / Export | MerchandiseControl Admin Web",
-  description:
-    "Shop Admin import and export shell for MerchandiseControl Admin Web.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Import / Export");
+}
 
 export const dynamic = "force-dynamic";
 

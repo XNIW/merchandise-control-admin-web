@@ -41,7 +41,7 @@ export async function AppShell({
       >
         {dictionary.platformShell.skipLink}
       </a>
-      <div className="grid min-h-screen lg:grid-cols-[280px_1fr]">
+      <div className="grid min-h-screen min-w-0 lg:grid-cols-[280px_1fr]">
         <Sidebar activeSection={activeSection} dictionary={dictionary} />
         <div className="flex min-w-0 flex-col lg:min-h-0">
           <Topbar dictionary={dictionary} locale={locale} />
@@ -77,9 +77,9 @@ function Sidebar({
   return (
     <aside
       aria-label={dictionary.platformShell.navigationAria}
-      className="border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r"
+      className="min-w-0 border-b border-slate-200 bg-white lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r"
     >
-      <div className="flex min-h-full flex-col gap-6 px-4 py-5 lg:min-h-0">
+      <div className="flex min-h-full min-w-0 flex-col gap-6 px-4 py-5 lg:min-h-0">
         <div className="flex items-center gap-3 px-2">
           <div
             aria-hidden="true"
@@ -125,9 +125,9 @@ function Topbar({
   locale: SupportedLocale;
 }) {
   return (
-    <header className="border-b border-slate-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
+    <header className="min-w-0 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
+      <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="min-w-0">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
             {dictionary.platformShell.masterConsole}
           </p>

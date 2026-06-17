@@ -1,4 +1,3 @@
-import type { Metadata } from "next";
 import { AppShell } from "@/components/platform/AppShell";
 import { EmptyState } from "@/components/platform/components/EmptyState";
 import { PageHeader } from "@/components/platform/components/PageHeader";
@@ -9,11 +8,11 @@ import { getPlatformAdminReadModel } from "@/server/platform-admin/read-model";
 import { createPlatformProvisioningLabels } from "./provisioningLabels";
 import { ShopProvisioningForms } from "./ShopProvisioningForms";
 import { StaffManagerProvisioningPanel } from "./StaffManagerProvisioningPanel";
+import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
-export const metadata: Metadata = {
-  title: "Provisioning | MerchandiseControl Admin Web",
-  description: "Safe Platform Admin shop provisioning.",
-};
+export function generateMetadata() {
+  return createLocalizedPageMetadata("Provisioning");
+}
 
 export const dynamic = "force-dynamic";
 

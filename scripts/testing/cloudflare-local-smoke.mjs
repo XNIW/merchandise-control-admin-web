@@ -12,6 +12,42 @@ const npxBin = process.platform === "win32" ? "npx.cmd" : "npx";
 
 const secretPattern =
   /\b(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.|service_role|SUPABASE_SERVICE_ROLE_KEY|credential_hash|password_hash|pin_hash|access_token|refresh_token|CLOUDFLARE_API_TOKEN|mcpos_(?:device|session)_[A-Za-z0-9_-]+)\b/i;
+const securityHeaderExpectations = [
+  {
+    name: "content-security-policy",
+    required: [
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ],
+  },
+  {
+    name: "permissions-policy",
+    required: [
+      "camera=()",
+      "microphone=()",
+      "geolocation=()",
+      "payment=()",
+      "usb=()",
+      "bluetooth=()",
+      "serial=()",
+      "browsing-topics=()",
+    ],
+  },
+  {
+    equals: "strict-origin-when-cross-origin",
+    name: "referrer-policy",
+  },
+  {
+    equals: "nosniff",
+    name: "x-content-type-options",
+  },
+  {
+    equals: "DENY",
+    name: "x-frame-options",
+  },
+];
 
 function log(message) {
   console.log(`[cloudflare-smoke] ${message}`);
@@ -121,6 +157,36 @@ function assertNoSecretLeak(name, body) {
   }
 }
 
+function assertSecurityHeaders(name, response) {
+  const poweredBy = response.headers.get("x-powered-by");
+
+  if (poweredBy) {
+    throw new Error(`${name} must not expose X-Powered-By`);
+  }
+
+  for (const expectation of securityHeaderExpectations) {
+    const headerValue = response.headers.get(expectation.name);
+
+    if (!headerValue) {
+      throw new Error(`${name} missing ${expectation.name}`);
+    }
+
+    if (expectation.equals && headerValue !== expectation.equals) {
+      throw new Error(
+        `${name} ${expectation.name}=${headerValue}, expected ${expectation.equals}`,
+      );
+    }
+
+    for (const requiredValue of expectation.required ?? []) {
+      if (!headerValue.includes(requiredValue)) {
+        throw new Error(
+          `${name} ${expectation.name} missing ${requiredValue}`,
+        );
+      }
+    }
+  }
+}
+
 async function probe({
   body,
   expect,
@@ -137,6 +203,8 @@ async function probe({
     redirect: "manual",
     signal: AbortSignal.timeout(12000),
   });
+  assertSecurityHeaders(name, response);
+
   const contentType = response.headers.get("content-type") ?? "";
   const cacheControl = response.headers.get("cache-control") ?? "";
   const bytes = await response.arrayBuffer();
@@ -161,7 +229,7 @@ async function probe({
   }
 
   log(
-    `PASS ${name}: status=${response.status} cache=${cacheControl || "none"} type=${contentType || "none"}`,
+    `PASS ${name}: status=${response.status} security=ok cache=${cacheControl || "none"} type=${contentType || "none"}`,
   );
 }
 
