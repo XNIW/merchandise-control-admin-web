@@ -3,8 +3,8 @@ import { PlatformPage } from "@/components/platform/PlatformPage";
 import { getPlatformSectionForRequest } from "@/server/platform-admin/platform-section-data";
 
 export const metadata: Metadata = {
-  title: "Users / Profiles | MerchandiseControl Admin Web",
-  description: "Read-only users and profiles for the Master Console.",
+  title: "Personal Accounts | MerchandiseControl Admin Web",
+  description: "Read-only non-admin personal accounts for the Master Console.",
 };
 
 export const dynamic = "force-dynamic";

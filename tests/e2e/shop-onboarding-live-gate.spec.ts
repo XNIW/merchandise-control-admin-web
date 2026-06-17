@@ -363,7 +363,7 @@ test.describe("TASK-011 shop onboarding live gate", () => {
         page.getByRole("heading", {
           exact: true,
           level: 1,
-          name: "Users / Profiles",
+          name: "Personal Accounts",
         }),
       ).toBeVisible();
       await expect(page.getByText(owner.displayName).first()).toBeVisible();

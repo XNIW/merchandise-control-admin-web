@@ -4,20 +4,21 @@
 
 - ID: `TASK-064`
 - Titolo: `Master Console Auth/Profile Parity e ricerca utenti Android/iOS`
-- Stato: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
-- Fase attuale: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
+- Stato: `DONE_RECONCILED`
+- Fase attuale: `DONE_RECONCILED`
 - Responsabile attuale: `NONE`
-- Verdict tecnico Codex: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
+- Verdict tecnico Codex: `DONE_RECONCILED`
 - Data apertura execution: `2026-06-15`
 - File Master Plan: `docs/MASTER-PLAN.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-064/README.md`
 
 ## Contesto
 
-In `Master Console > Users / Profiles` gli account personali Supabase Auth
-usati da Android/iOS potevano non essere trovabili perche la lista era basata
-solo su `public.profiles` server-limited e la ricerca UI filtrava le righe gia
-restituite. Email/provider/origin erano hardcoded come `Not captured`.
+In `Master Console > Users / Personal Accounts` gli account personali Supabase
+Auth usati da Android/iOS potevano non essere trovabili perche la lista era
+basata solo su `public.profiles` server-limited e la ricerca UI filtrava le
+righe gia restituite. Email/provider/origin erano hardcoded come
+`Not captured`.
 
 Reopen 2026-06-16: la verifica manuale reale ha fallito per target mismatch.
 Il browser Master Console aperto su `http://127.0.0.1:3000/platform/users` era
@@ -98,6 +99,20 @@ browser Master Console cloud conferma target `cloud`, project `jpgo...yvm`,
     `127.0.0.1:3055` mostra target `cloud`, project `jpgo...yvm`,
     `Auth users=3`, riga `xniw...@...com`, provider `google`,
     stato `Profile OK`.
+- Final taxonomy review 2026-06-16:
+  - `Users` e rinominata semanticamente a `Personal Accounts` e mostra per
+    default account personali normali/non-admin o incompleti;
+  - `Shop Admins` mostra account personali con membership `shop_owner` o
+    `shop_manager` in `shop_members`, includendo contesto current,
+    historical-only e disabled;
+  - `Platform Admins` resta limitata ai grant globali in `platform_admins` e
+    mostra identita sicura con email, provider, Profile ID, badge
+    `Current account` e badge `Platform Admin`;
+  - POS/Staff resta separato da `profiles` e dagli account personali;
+  - il futuro claim `shop_code` deve produrre membership `shop_members`, non
+    grant `platform_admin`;
+  - UI layout review completata per Users, Shop Admins e Platform Admins, incluso
+    il pannello `Advanced global access` aperto.
 
 ## Non incluso
 
@@ -108,6 +123,11 @@ browser Master Console cloud conferma target `cloud`, project `jpgo...yvm`,
 - Nessun dato reale, token, password, PIN, JWT, magic link, service-role key o
   raw auth metadata in evidence.
 - Nessun merge tra account personali `profiles` e `staff_accounts`.
+- Nessuna chiusura o promozione di TASK-065 OAuth redirect: resta fuori scope
+  con blocker/config esterni dedicati.
+- Nessuna chiusura o modifica di TASK-067 lifecycle/cleanup, schema, migration,
+  RPC o RLS: il follow-up security su TASK-067 resta fuori scope non bloccante
+  per questa tassonomia.
 
 ## File toccati
 
@@ -120,6 +140,8 @@ browser Master Console cloud conferma target `cloud`, project `jpgo...yvm`,
 - `scripts/platform/cloud-target-probe.mjs`
 - `scripts/testing/run-playwright-target.mjs`
 - `src/app/auth/login/actions.ts`
+- `src/app/platform/admins/page.tsx`
+- `src/app/platform/shop-admins/page.tsx`
 - `src/app/platform/users/page.tsx`
 - `src/components/auth/AuthForm.tsx`
 - `src/components/platform/PlatformMasterDetail.tsx`
@@ -151,13 +173,22 @@ browser Master Console cloud conferma target `cloud`, project `jpgo...yvm`,
 | CA-08 | Nessun token/PIN/password/raw auth metadata in UI/log/evidence. | `PASS` |
 | CA-09 | Android/iOS/Admin Web Supabase target parity verificata o mismatch documentato. | `PASS_REAL_CLOUD_RUNTIME`: Users page mostra target `cloud` ref `jpgo...yvm` |
 | CA-10 | Test/check reali documentati. | `PASS` |
+| CA-11 | Users / Personal Accounts mostra per default solo account personali normali/non-admin o incompleti e spiega le viste dedicate. | `PASS` |
+| CA-12 | Shop Admins deriva da `shop_members` owner/manager e include current, historical-only e disabled senza usare POS/staff come account personali. | `PASS` |
+| CA-13 | Platform Admins mostra solo accesso globale Master Console e arricchisce identita con email/provider/profile/current account quando disponibile. | `PASS` |
+| CA-14 | Visual QA Users, Shop Admins, Platform Admins senza overlap, con multi-shop compatto e dettagli completi in inspector/full detail. | `PASS` |
+| CA-15 | `Advanced global access` resta collassato e, da aperto, non rompe il layout del box. | `PASS` |
 
 ## Handoff
 
-- Fase corrente: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`.
+- Fase corrente: `DONE_RECONCILED`.
 - Browser cloud acceptance reale confermata su `127.0.0.1:3055`: target
   `cloud`, project `jpgo...yvm`, `Auth users=3`, riga `xniw...@...com`,
   provider `google`, stato `Profile OK`.
+- Final review taxonomy 2026-06-16 riconciliata su conferma esplicita utente:
+  Users/Personal Accounts, Shop Admins e Platform Admins hanno viste distinte,
+  read model e UI aggiornati, historical Shop Admins visibili e Platform Admins
+  identificabili.
 - Root cause chiusa: `platform:local:dev` legge Supabase locale; il browser
   cloud deve usare `platform:cloud:dev`, che legge Supabase cloud `jpgo...yvm`.
 - Android/iOS/Admin Web risultano allineati sul target cloud redatto
@@ -166,4 +197,12 @@ browser Master Console cloud conferma target `cloud`, project `jpgo...yvm`,
   configurazione redirect storica da non usare.
 - Evidenza primaria:
   `docs/TASKS/EVIDENCE/TASK-064/browser-cloud-xniw-visible.png`.
+- Evidenza visuale taxonomy:
+  `docs/TASKS/EVIDENCE/TASK-064/task064-users-desktop.png`,
+  `docs/TASKS/EVIDENCE/TASK-064/task064-users-tablet.png`,
+  `docs/TASKS/EVIDENCE/TASK-064/task064-shop-admins-desktop.png`,
+  `docs/TASKS/EVIDENCE/TASK-064/task064-shop-admins-tablet.png`,
+  `docs/TASKS/EVIDENCE/TASK-064/task064-platform-admins-desktop.png`,
+  `docs/TASKS/EVIDENCE/TASK-064/task064-platform-admins-tablet.png`,
+  `docs/TASKS/EVIDENCE/TASK-064/task064-platform-admins-advanced-fixed.png`.
 - Nessun commit/push/stage, nessuna migration cloud, nessun grant creato.

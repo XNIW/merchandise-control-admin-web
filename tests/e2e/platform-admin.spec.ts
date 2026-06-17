@@ -16,7 +16,12 @@ const protectedPlatformRoutes = [
   {
     path: "/platform/users",
     heading: "Master Console access required",
-    title: "Users / Profiles | MerchandiseControl Admin Web",
+    title: "Personal Accounts | MerchandiseControl Admin Web",
+  },
+  {
+    path: "/platform/shop-admins",
+    heading: "Master Console access required",
+    title: "Shop Admins | MerchandiseControl Admin Web",
   },
   {
     path: "/platform/users/00000000-0000-0000-0000-000000000000",
@@ -327,7 +332,9 @@ test.describe("Admin Web smoke", () => {
       "aria-selected",
       "false",
     );
-    await expect(page.getByRole("form", { name: "Admin account sign in" })).toBeVisible();
+    await expect(
+      page.getByRole("form", { exact: true, name: "Admin account sign in" }),
+    ).toBeVisible();
     await expect(page.getByLabel("Email")).toBeVisible();
     await expect(page.getByLabel("Password")).toBeVisible();
     await expect(page.getByLabel("Shop code")).toHaveCount(0);
@@ -342,7 +349,9 @@ test.describe("Admin Web smoke", () => {
       page.getByRole("heading", { level: 1, name: "Master Console sign in" }),
     ).toBeVisible();
     await expect(page.getByText("Master Console credentials")).toBeVisible();
-    await expect(page.getByRole("form", { name: "Master Console sign in" })).toBeVisible();
+    await expect(
+      page.getByRole("form", { exact: true, name: "Master Console sign in" }),
+    ).toBeVisible();
     await expect(page.getByRole("tablist")).toHaveCount(0);
     await expect(page.getByRole("tab", { name: "Shop code" })).toHaveCount(0);
     await expect(page.getByLabel("Shop code")).toHaveCount(0);
@@ -371,7 +380,9 @@ test.describe("Admin Web smoke", () => {
       "false",
     );
     await expect(page.getByText("Admin account credentials")).toBeVisible();
-    await expect(page.getByRole("form", { name: "Admin account sign in" })).toBeVisible();
+    await expect(
+      page.getByRole("form", { exact: true, name: "Admin account sign in" }),
+    ).toBeVisible();
     await expect(page.getByText("No service key in browser")).toBeVisible();
     await expect(page.getByRole("heading", { name: "Create shop" })).toHaveCount(0);
   });

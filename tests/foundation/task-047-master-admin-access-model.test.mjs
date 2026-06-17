@@ -38,7 +38,8 @@ test("TASK-047 access entrypoints use Master Console and Admin Console terminolo
   const shopLayout = readProjectFile("src/app/shop/layout.tsx");
   const shopShell = readProjectFile("src/components/shop/ShopShell.tsx");
   const dictionary = readProjectFile("src/i18n/dictionaries.ts");
-  const loginI18nSource = `${loginPage}\n${dictionary}`;
+  const oauthRedirect = readProjectFile("src/lib/auth/oauth-redirect.ts");
+  const loginI18nSource = `${loginPage}\n${dictionary}\n${oauthRedirect}`;
 
   for (const required of ["/auth/login?next=/shop&mode=admin-account", "redirect"]) {
     assertContains(home, required, `home must contain ${required}`);
@@ -166,7 +167,7 @@ test("TASK-047 governance docs record product decision and access matrix", () =>
     assertContains(docs, required, `docs must contain ${required}`);
   }
 
-  assert.match(masterPlan, /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`/);
+  assert.match(masterPlan, /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`|Task attivo: `TASK-065 - Fix Master Console Google OAuth redirect`/);
   assert.match(masterPlan, /Stato TASK-047: `DONE_RECONCILED`/);
   assert.match(masterPlan, /Fase TASK-047: `DONE_RECONCILED`/);
   assert.doesNotMatch(
@@ -186,6 +187,7 @@ test("TASK-047 Master Console users and shops expose row details without auth se
     "src/components/platform/PlatformMasterDetail.tsx",
   );
   const userListPage = readProjectFile("src/app/platform/users/page.tsx");
+  const shopAdminsPage = readProjectFile("src/app/platform/shop-admins/page.tsx");
   const shopListPage = readProjectFile("src/app/platform/shops/page.tsx");
   const userDetailPage = readProjectFile(
     "src/app/platform/users/[profileId]/page.tsx",
@@ -202,12 +204,17 @@ test("TASK-047 Master Console users and shops expose row details without auth se
     "type RowDetailGroup",
     "type PlatformFilter",
     "type PlatformDetailSection",
+    '{ key: "shopAdmins", label: "Shop Admins", href: "/platform/shop-admins" }',
     '{ key: "origin", label: "Origin" }',
-    '{ key: "access", label: "Access" }',
-    '{ key: "shops", label: "Shops" }',
+    '{ key: "accountType", label: "Account type" }',
+    '{ key: "globalAccess", label: "Global access" }',
+    '{ key: "roles", label: "Roles" }',
+    '{ key: "state", label: "Profile/Auth state" }',
     '{ key: "owners", label: "Owners" }',
     '{ key: "members", label: "Members" }',
     '{ key: "devices", label: "Devices" }',
+    "Shop-scoped admin accounts",
+    "Personal accounts linked to shops through shop_owner or shop_manager membership, including current, historical, and disabled contexts.",
     "backHref?: string",
     "backLabel?: string",
     "filters?: PlatformFilter[]",
@@ -216,6 +223,12 @@ test("TASK-047 Master Console users and shops expose row details without auth se
   ]) {
     assertContains(platformData, required, `platform data must contain ${required}`);
   }
+
+  assert.doesNotMatch(
+    platformData,
+    /Personal accounts that can open the shop-scoped Admin Console through active shop_owner or shop_manager membership\./,
+    "Shop Admins base copy must not describe the whole view as active-only",
+  );
 
   for (const required of [
     "lg:sticky",
@@ -279,14 +292,17 @@ test("TASK-047 Master Console users and shops expose row details without auth se
     "searchParams",
     "selected?: string | string[]",
     "selectedRowKey={firstParam(params.selected)}",
+    "getPlatformSectionForRequest(\"shopAdmins\"",
   ]) {
-    assertContains(`${userListPage}\n${shopListPage}`, required);
+    assertContains(`${userListPage}\n${shopAdminsPage}\n${shopListPage}`, required);
   }
 
   for (const required of [
     "returnTo?: string | string[]",
     "safeReturnTo",
     "Back to Users",
+    "Back to Shop Admins",
+    "/platform/shop-admins",
     "/platform/users?selected=",
   ]) {
     assertContains(userDetailPage, required, `user detail must contain ${required}`);
@@ -304,6 +320,17 @@ test("TASK-047 Master Console users and shops expose row details without auth se
   for (const required of [
     "function accountOriginForUser",
     "function profileSyncStateLabel",
+    "function accountTypeLabelForProfile",
+    "function globalAccessSummaryForProfile",
+    "function shopAdminAccessSummaryForProfile",
+    "function shopAdminAccountMembershipsForProfile",
+    "function shopAdminRolesSummaryForProfile",
+    "function shopAdminShopsSummaryForProfile",
+    "uniqueShopMemberships",
+    "uniqueShopMemberships.slice(0, 2)",
+    "function buildShopAdmins",
+    "function canAccessAdminConsole",
+    "function isNonAdminPersonalAccount",
     "function accessSummaryForProfile",
     "function shopCodesForProfile",
     "function userAccountDiagnostics",
@@ -314,30 +341,43 @@ test("TASK-047 Master Console users and shops expose row details without auth se
     "shopAccessSummaryForProfile",
     "ownerSummaryForShop",
     "memberSummaryForShop",
+    "Summary",
+    "Classification",
+    "Can access Admin Console now",
+    "Historical shop access",
     "Identity",
     "Account origin",
+    "Account classification",
     "Shop memberships",
     "Recent audit",
     "Diagnostics",
     "Overview",
     "Owners & members",
     "Sync & audit",
-    "Operations boundary",
+    "Audited status changes with controlled transitions",
     "Related data limited by current boundary",
     "Search email, UID, display name, or provider",
+    "Search Shop Admin by email, UID, display name, or provider",
     "Search shops by name, code, or ID",
     'label: "State"',
-    'label: "Access"',
+    'label: "Account type"',
+    'label: "Profile/Auth state"',
     'label: "Owner status"',
     "No devices visible",
     "No sync visible",
     "No roles visible",
-    "rowDetails: readModel.userAccounts.map",
+    "rowDetails: personalAccounts.map",
+    "rowDetails: shopAdminAccounts.map",
     "rowDetails: readModel.shops.map",
     "detailSections:",
     "`/platform/users/${account.profileId}`",
     "`/platform/shops/${shop.shop_id}`",
     "Email and provider are returned only by a minimal server-side Auth identity DTO.",
+    "This default Users view lists non-admin and incomplete personal accounts; access-bearing accounts live in Shop Admins or Platform Admins.",
+    "Shop Admin accounts are personal accounts with shop_owner or shop_manager membership in shop_members, including historical and disabled contexts.",
+    "Current means active membership on an operational shop; Historical only means the owner/manager link is retained for audit but cannot open Admin Console now.",
+    "An Admin account is a personal account with shop-scoped Admin Console access through shop_members.",
+    "platform_admin is global Master Console access and is not created by connecting a shop code.",
     "No auth secret fields are queried or rendered.",
   ]) {
     assertContains(sectionData, required, `section data must contain ${required}`);

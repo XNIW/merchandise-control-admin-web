@@ -19,6 +19,23 @@ export type {
 } from "./types";
 
 export {
+  SHOP_STATUS_DEFINITIONS,
+  isActiveMembershipStatus,
+  isOperationalMembership,
+  isOperationalShopStatus,
+  membershipOperationalLabel,
+  membershipOperationalReason,
+  nonOperationalMembershipsForProfile,
+  operationalMembershipsForProfile,
+  operationalMembershipsForShop,
+  shopById,
+  shopOperationalAccessLabel,
+  shopStatusDescription,
+  shopStatusLabel,
+  type ShopStatusDefinition,
+} from "./semantics";
+
+export {
   mockPlatformAuditLogs,
   mockPlatformPermissions,
   mockPlatformProfiles,

@@ -218,12 +218,21 @@ function checkReadOnlyContracts() {
         "platform_create_shop_with_owner_bootstrap",
         "platform_create_pos_first_shop",
         "platform_create_shop_with_pending_owner_invite",
+        "platform_activate_shop",
+        "platform_assign_shop_member",
+        "platform_force_purge_test_shop",
+        "platform_purge_shop",
+        "platform_revoke_shop_member",
         "platform_suspend_shop",
         "platform_reactivate_shop",
         "platform_restore_shop",
         "platform_soft_delete_shop",
         "platform_emergency_revoke_device",
       ]),
+    ],
+    [
+      "src/server/platform-admin/platform-section-data.ts",
+      new Set(["platform_preview_shop_purge"]),
     ],
     [
       "src/server/platform-admin/shop-profile-actions.ts",
@@ -409,9 +418,11 @@ function checkTask006ControlledActionArtifacts() {
   }
 
   if (
-    !/redirect\(\s*`\$\{safeReturnTo\(formData\)\}\?operation=\$\{operation\}&result=\$\{result\.code\}`/.test(
+    !/const target = safeReturnTo\(formData\)/.test(serverActions) ||
+    !/const separator = target\.includes\("\?"\) \? "&" : "\?"/.test(
       serverActions,
-    )
+    ) ||
+    !/operation=\$\{operation\}&result=\$\{result\.code\}/.test(serverActions)
   ) {
     addFailure(`${serverActionsPath} must redirect with a redacted action result`);
   }
@@ -473,6 +484,7 @@ function checkTask007AuthRoutingArtifacts() {
   const accessStatePath = "src/components/auth/AccessState.tsx";
   const authFormPath = "src/components/auth/AuthForm.tsx";
   const callbackPath = "src/app/auth/callback/route.ts";
+  const oauthRedirectPath = "src/lib/auth/oauth-redirect.ts";
 
   for (const requiredPath of [
     resolverPath,
@@ -483,6 +495,7 @@ function checkTask007AuthRoutingArtifacts() {
     accessStatePath,
     authFormPath,
     callbackPath,
+    oauthRedirectPath,
   ]) {
     if (!existsSync(join(root, requiredPath))) {
       addFailure(`${requiredPath} is missing`);
@@ -498,6 +511,7 @@ function checkTask007AuthRoutingArtifacts() {
   const accessState = read(accessStatePath);
   const authForm = read(authFormPath);
   const callback = read(callbackPath);
+  const oauthRedirect = read(oauthRedirectPath);
 
   if (!/import "server-only"/.test(resolver)) {
     addFailure(`${resolverPath} must be server-only`);
@@ -562,8 +576,12 @@ function checkTask007AuthRoutingArtifacts() {
     addFailure(`${authFormPath} must default post-login routing to /`);
   }
 
-  if (!callback.includes('? value : "/"')) {
-    addFailure(`${callbackPath} must default callback routing to /`);
+  if (!callback.includes("safeInternalNextPath")) {
+    addFailure(`${callbackPath} must use the shared callback routing guard`);
+  }
+
+  if (!oauthRedirect.includes('? value : fallback')) {
+    addFailure(`${oauthRedirectPath} must default callback routing to /`);
   }
 }
 
@@ -1476,23 +1494,30 @@ function checkPlatformLiveAuthHarness() {
 function checkAuthRedirectSafety() {
   const authFormPath = "src/components/auth/AuthForm.tsx";
   const callbackPath = "src/app/auth/callback/route.ts";
+  const helperPath = "src/lib/auth/oauth-redirect.ts";
 
-  for (const requiredPath of [authFormPath, callbackPath]) {
+  for (const requiredPath of [authFormPath, callbackPath, helperPath]) {
     if (!existsSync(join(root, requiredPath))) {
       addFailure(`${requiredPath} is missing`);
       return;
     }
   }
 
+  const helper = read(helperPath);
+
+  if (!/isSafeInternalNextPath/.test(helper)) {
+    addFailure(`${helperPath} must validate auth redirect next paths`);
+  }
+
+  if (!/startsWith\("\/\/"\)/.test(helper)) {
+    addFailure(`${helperPath} must reject protocol-relative auth redirects`);
+  }
+
   for (const file of [authFormPath, callbackPath]) {
     const contents = read(file);
 
-    if (!/isSafeInternalNextPath/.test(contents)) {
-      addFailure(`${file} must validate auth redirect next paths`);
-    }
-
-    if (!/startsWith\("\/\/"\)/.test(contents)) {
-      addFailure(`${file} must reject protocol-relative auth redirects`);
+    if (!/safeInternalNextPath|isSafeInternalNextPath/.test(contents)) {
+      addFailure(`${file} must use the shared auth redirect next path guard`);
     }
   }
 }
@@ -6108,6 +6133,90 @@ function checkTask058CloudflareOpenNextHardening() {
   }
 }
 
+function checkTask065GoogleOauthRedirect() {
+  const configPath = "supabase/config.toml";
+  const envExamplePath = ".env.example";
+  const smokePath = "scripts/testing/task-065-oauth-local-provider-smoke.mjs";
+  const foundationPath = "tests/foundation/task-065-google-oauth-redirect.test.mjs";
+
+  if (!existsSync(join(root, configPath))) {
+    addFailure(`${configPath} is missing`);
+    return;
+  }
+
+  const config = read(configPath);
+  const envExample = optionalRead(envExamplePath);
+  const smoke = optionalRead(smokePath);
+  const foundation = optionalRead(foundationPath);
+
+  for (const requiredSnippet of [
+    "[auth.external.google]",
+    "enabled = true",
+    'client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"',
+    'secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET)"',
+    "skip_nonce_check = false",
+  ]) {
+    if (!config.includes(requiredSnippet)) {
+      addFailure(`TASK-065 Supabase config must include ${requiredSnippet}`);
+    }
+  }
+
+  const googleConfig = config.match(
+    /\[auth\.external\.google\][\s\S]*?(?=\n\[auth\.external\.|$)/,
+  )?.[0] ?? "";
+  const googleCredentialAssignments = googleConfig.matchAll(
+    /^\s*(client_id|secret)\s*=\s*"([^"]*)"/gm,
+  );
+
+  for (const [, key, assignedValue] of googleCredentialAssignments) {
+    if (assignedValue && !assignedValue.startsWith("env(")) {
+      addFailure(`TASK-065 Supabase Google OAuth ${key} must use env(...) substitution`);
+    }
+  }
+
+  if (/\.apps\.googleusercontent\.com|GOCSPX-/.test(googleConfig)) {
+    addFailure("TASK-065 Supabase config must not hardcode Google OAuth secrets or client IDs");
+  }
+
+  for (const envName of [
+    "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID",
+    "SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET",
+  ]) {
+    if (!new RegExp(`^${envName}=\\s*$`, "m").test(envExample)) {
+      addFailure(`${envExamplePath} must contain empty ${envName}=`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "BLOCKED_EXTERNAL_CONFIG",
+    "FAIL_CODE_REGRESSION",
+    "GOOGLE_CLIENT_ID_PLACEHOLDER",
+    "GOOGLE_PROVIDER_NOT_ENABLED",
+    "GOOGLE_OAUTH_ERROR_PAGE",
+    "accounts.google.com",
+    "redirect: \"manual\"",
+  ]) {
+    if (!smoke.includes(requiredSnippet)) {
+      addFailure(`TASK-065 OAuth smoke must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "safeInternalNextPath(\"/\\\\evil.example/path\")",
+    "hasMisconfiguredOAuthRedirectUrl",
+    "hasInvalidGoogleOAuthClientIdLocation",
+    "isGoogleOAuthAccountsLocation",
+    "oauth_google_client_id_invalid",
+    "platform_admin",
+    "shop_owner",
+    "shop_manager",
+  ]) {
+    if (!foundation.includes(requiredSnippet)) {
+      addFailure(`TASK-065 foundation test must include ${requiredSnippet}`);
+    }
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -6153,6 +6262,7 @@ checkTask046TestTargetSeparation();
 checkTask053AuthorizationStaffSafeReadBoundary();
 checkTask057ShopCatalogWorkspace();
 checkTask058CloudflareOpenNextHardening();
+checkTask065GoogleOauthRedirect();
 checkTask064PlatformUsersFoundation();
 
 if (failures.length > 0) {

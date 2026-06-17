@@ -31,6 +31,7 @@ test("TASK-007 routes are protected server-side", () => {
   const rootPage = readProjectFile("src/app/page.tsx");
   const authForm = readProjectFile("src/components/auth/AuthForm.tsx");
   const authCallback = readProjectFile("src/app/auth/callback/route.ts");
+  const oauthRedirect = readProjectFile("src/lib/auth/oauth-redirect.ts");
 
   assert.equal(existsSync(join(root, "src/app/platform/layout.tsx")), true);
   assert.equal(existsSync(join(root, "src/app/shop/layout.tsx")), true);
@@ -55,7 +56,8 @@ test("TASK-007 routes are protected server-side", () => {
   assert.match(accessState, /not_configured/);
   assert.match(accessState, /no_shop/);
   assert.ok(authForm.includes('? requested : "/"'));
-  assert.ok(authCallback.includes('? value : "/"'));
+  assert.match(authCallback, /safeInternalNextPath/);
+  assert.ok(oauthRedirect.includes('? value : fallback'));
 });
 
 test("TASK-007 security scan includes server auth modules", () => {

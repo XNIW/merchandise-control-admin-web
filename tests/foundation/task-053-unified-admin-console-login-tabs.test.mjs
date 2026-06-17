@@ -28,6 +28,7 @@ test("TASK-053 auth login shell switches between Master and Admin tab modes", ()
   const loginPage = readProjectFile("src/app/auth/login/page.tsx");
   const loginAction = readProjectFile("src/app/auth/login/actions.ts");
   const authForm = readProjectFile("src/components/auth/AuthForm.tsx");
+  const oauthRedirect = readProjectFile("src/lib/auth/oauth-redirect.ts");
   const dictionary = readProjectFile("src/i18n/dictionaries.ts");
   const loginI18nSource = `${loginPage}\n${dictionary}`;
 
@@ -56,8 +57,9 @@ test("TASK-053 auth login shell switches between Master and Admin tab modes", ()
   assert.match(authForm, /startsWith\("\/\/"\)/);
   assert.match(authForm, /accountSignInAction/);
   assert.match(authForm, /name="next"/);
-  assert.match(loginAction, /isSafeInternalNextPath/);
-  assert.match(loginAction, /startsWith\("\/\/"\)/);
+  assert.match(loginAction, /safeInternalNextPath/);
+  assert.match(oauthRedirect, /isSafeInternalNextPath/);
+  assert.match(oauthRedirect, /startsWith\("\/\/"\)/);
   assert.match(loginAction, /redirect\(nextPath, RedirectType\.replace\)/);
 });
 

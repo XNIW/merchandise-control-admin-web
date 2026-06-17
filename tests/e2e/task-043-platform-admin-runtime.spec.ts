@@ -18,7 +18,8 @@ type RuntimeFixture = {
 
 const coreRoutes = [
   { heading: "Platform Overview", label: "Overview", path: "/platform" },
-  { heading: "Users / Profiles", label: "Users", path: "/platform/users" },
+  { heading: "Personal Accounts", label: "Users", path: "/platform/users" },
+  { heading: "Shop Admins", label: "Shop Admins", path: "/platform/shop-admins" },
   { heading: "Shops", label: "Shops", path: "/platform/shops" },
   { heading: "Provisioning", label: "Provisioning", path: "/platform/provisioning" },
   { heading: "Audit", label: "Audit", path: "/platform/audit" },

@@ -138,9 +138,40 @@ export async function resolveCurrentAdminRouteAccess(
       shopId: membership.shop_id,
     }))
     .filter((membership) => membership.role && membership.shopId);
+  const shopIds = Array.from(
+    new Set(memberships.map((membership) => membership.shopId)),
+  );
+  const activeShopsResult =
+    shopIds.length > 0
+      ? await supabase
+          .from("shops")
+          .select("shop_id,shop_status")
+          .in("shop_id", shopIds)
+          .eq("shop_status", "active")
+          .limit(20)
+      : { data: [], error: null };
+
+  if (activeShopsResult.error) {
+    return {
+      status: "error",
+      reason: "Operational shop authorization could not be resolved.",
+      userId,
+    };
+  }
+
+  const operationalShopIds = new Set(
+    (activeShopsResult.data ?? []).map((shop) => shop.shop_id),
+  );
+  const operationalMemberships = memberships.filter((membership) =>
+    operationalShopIds.has(membership.shopId),
+  );
   const primaryShopAdmin = memberships.find(
     (membership): membership is { role: ShopScopedAdminRole; shopId: string } =>
-      Boolean(membership.role && shopAdminRoles.has(membership.role)),
+      Boolean(
+        membership.role &&
+          shopAdminRoles.has(membership.role) &&
+          operationalShopIds.has(membership.shopId),
+      ),
   );
 
   if (primaryShopAdmin) {
@@ -165,7 +196,7 @@ export async function resolveCurrentAdminRouteAccess(
     };
   }
 
-  const hasViewerMembership = memberships.some(
+  const hasViewerMembership = operationalMemberships.some(
     (membership) => membership.role === "viewer",
   );
 
@@ -180,7 +211,8 @@ export async function resolveCurrentAdminRouteAccess(
 
   return {
     status: "no_shop",
-    reason: "No active shop owner or manager membership is available.",
+    reason:
+      "No operational active shop owner or manager membership is available.",
     userId,
   };
 }

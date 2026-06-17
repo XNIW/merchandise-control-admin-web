@@ -26,6 +26,18 @@ type ShopCodeLoginMessageCode =
   | "unknown_error"
   | "validation_failed";
 
+type AuthLoginMessageCode =
+  | "auth_not_configured"
+  | "callback_blocked"
+  | "callback_missing_code"
+  | "idle"
+  | "oauth_blocked"
+  | "oauth_google_client_id_invalid"
+  | "oauth_not_configured"
+  | "oauth_origin_missing"
+  | "oauth_provider_not_enabled"
+  | "oauth_redirect_misconfigured";
+
 export type Dictionary = {
   access: {
     accessRequired: string;
@@ -46,6 +58,7 @@ export type Dictionary = {
     adminAccountTab: string;
     configMissing: string;
     master: AuthLoginContent;
+    messages: Record<AuthLoginMessageCode, string>;
     safetyBadges: readonly string[];
     shopCodeTab: string;
     tabAriaLabel: string;
@@ -164,6 +177,11 @@ const itExact: Record<string, string> = {
   "Audit log": "Log audit",
   "Available": "Disponibile",
   "Archive": "Archivia",
+  "Archived record": "Record archiviato",
+  "Archived record: visible in Master Console for history and audit, but not available for operational access.":
+    "Record archiviato: visibile nella Master Console per storico e audit, ma non disponibile per accesso operativo.",
+  "Archived shop": "Shop archiviato",
+  "Available action": "Azione disponibile",
   "Blocked": "Bloccato",
   "Boundary status": "Stato boundary",
   "Catalog": "Catalogo",
@@ -185,13 +203,18 @@ const itExact: Record<string, string> = {
   "Detail navigation": "Navigazione dettaglio",
   "Device": "Dispositivo",
   "Device Signals": "Segnali dispositivi",
+  "Device rows": "Righe dispositivo",
   "Devices": "Dispositivi",
+  "Devices visible": "Dispositivi visibili",
   "Diagnostics": "Diagnostica",
+  "Diagnostics / boundary rows": "Diagnostica / righe boundary",
   "Event": "Evento",
   "Edit": "Modifica",
   "Expired sessions": "Sessioni scadute",
   "Field": "Campo",
   "Filters": "Filtri",
+  "Fiscal identity": "Identita fiscale",
+  "Fiscal identity not configured": "Identita fiscale non configurata",
   "Global History": "Storico globale",
   "History": "Storico",
   "Import / Export": "Importa / Esporta",
@@ -205,6 +228,10 @@ const itExact: Record<string, string> = {
   "This account is authorized for Admin Console, not Master Console.":
     "Questo account e autorizzato per la Console Admin, non per la Master Console.",
   "Members": "Membri",
+  "Membership record summary for this shop.": "Riepilogo record membership per questo shop.",
+  "Membership records": "Record membership",
+  "Memberships are preserved, but operational access is disabled.":
+    "Le membership sono conservate, ma l'accesso operativo e disabilitato.",
   "Members empty": "Membri vuoti",
   "Mobile History": "Storico mobile",
   "Name": "Nome",
@@ -216,6 +243,9 @@ const itExact: Record<string, string> = {
   "Not found": "Non trovato",
   "Not set": "Non impostato",
   "Operation": "Operazione",
+  "Operational access": "Accesso operativo",
+  "Operational shop: available to Admin Console, shop switcher, POS, and sync flows according to existing permissions.":
+    "Shop operativo: disponibile per Admin Console, shop switcher, POS e sync secondo i permessi esistenti.",
   "Operational": "Operativo",
   "Overview": "Panoramica",
   "Overview shop": "Panoramica shop",
@@ -233,6 +263,7 @@ const itExact: Record<string, string> = {
   "Read-only filtered": "Sola lettura filtrata",
   "Result": "Risultato",
   "Restore": "Ripristina",
+  "Restore / reopen": "Ripristina / riapri",
   "Role": "Ruolo",
   "Roles": "Ruoli",
   "Rows shown": "Righe mostrate",
@@ -422,6 +453,7 @@ const itExact: Record<string, string> = {
   "Rename device": "Rinomina dispositivo",
   "Reset credential": "Reimposta credenziale",
   "Revoke device": "Revoca dispositivo",
+  "Revoke Platform Admin": "Revoca Platform Admin",
   "Revoke sessions": "Revoca sessioni",
   "Revoke web access": "Revoca accesso web",
   "Session status": "Stato sessione",
@@ -454,32 +486,69 @@ const itExact: Record<string, string> = {
     "Serve una sessione server Platform Admin valida prima di concedere o revocare accessi.",
   "Active Platform Admins": "Platform Admin attivi",
   "Active admins": "Admin attivi",
+  "Account classification": "Classificazione account",
+  "Account type": "Tipo account",
+  "Advanced global access": "Accesso globale avanzato",
+  "All account types": "Tutti i tipi account",
+  "All shop access": "Tutti gli accessi shop",
+  "An Admin account is a personal account with shop-scoped Admin Console access through shop_members.":
+    "Un Admin account e un account personale con accesso Console Admin shop-scoped tramite shop_members.",
+  "Admin access / Ownership": "Accesso admin / proprieta",
+  "Admin account means a personal account with shop-scoped Admin Console access through shop_members.":
+    "Admin account significa account personale con accesso Console Admin limitato allo shop tramite shop_members.",
   "Admin operations unavailable": "Operazioni admin non disponibili",
   "Already archived": "Gia archiviato",
   "Already revoked": "Gia revocato",
   "Archive shop": "Archivia shop",
+  "Assign access": "Assegna accesso",
   "Check the required fields and try again.":
     "Controlla i campi richiesti e riprova.",
+  "Change status to": "Cambia stato in",
   "Choose action": "Scegli azione",
   "Choose target shop": "Scegli shop target",
+  "Can access Admin Console": "Puo accedere alla Console Admin",
+  "Can access Master Console": "Puo accedere alla Master Console",
+  "Connecting or claiming a shop code must create shop_owner or shop_manager membership, not platform_admin.":
+    "Collegare o reclamare uno shop code deve creare una membership shop_owner o shop_manager, non platform_admin.",
   "Controlled actions": "Azioni controllate",
   "Controlled operations workflow": "Workflow operazioni controllate",
+  "Current owner and manager access": "Accesso proprietari e responsabili attuali",
+  "Danger Zone": "Zona pericolosa",
+  "Dependency preview": "Anteprima dipendenze",
   "Emergency revoke device": "Revoca emergenza dispositivo",
   "Every operation is checked on the server and written to the audit log. Use development-safe test shops only. Do not use customer data for testing.":
     "Ogni operazione e verificata sul server e scritta nel log audit. Usa solo shop di test sicuri per sviluppo. Non usare dati cliente per test.",
   "Global security": "Sicurezza globale",
+  "Global access": "Accesso globale",
+  "Global access only": "Solo accesso globale",
   "Grant ID": "ID concessione",
   "Grant Platform Admin": "Concedi Platform Admin",
-  "Grant admin": "Concedi admin",
   "Grant and revoke Platform Admin access through server-side RPCs with anti self-lockout and audit.":
     "Concedi e revoca accesso Platform Admin tramite RPC server-side con anti self-lockout e audit.",
+  "Grant Platform Admin is a sensitive global operation. It does not create shop owners, shop managers, shop-code access, or POS staff.":
+    "Concedere Platform Admin e un'operazione globale sensibile. Non crea proprietari shop, responsabili shop, accesso shop-code o staff POS.",
   "Grant/revoke actions use audited RPCs":
     "Le azioni grant/revoke usano RPC auditate",
+  "Historical only": "Solo storico",
+  "Join source": "Origine collegamento",
+  "Join source is not captured in the current read model; future self-claim shop_code needs a separate audited flow.":
+    "L'origine collegamento non e catturata nel read model corrente; il futuro self-claim dello shop_code richiede un flusso auditato separato.",
+  "Manager of 1 shop": "Responsabile di 1 shop",
   "Metadata/redaction boundary": "Boundary metadata/redaction",
+  "Manage only global Master Console access. Shop owners and managers belong to shop_members, not platform_admins.":
+    "Gestisce solo l'accesso globale alla Master Console. Proprietari e responsabili shop appartengono a shop_members, non a platform_admins.",
   "Name, code, or status": "Nome, codice o stato",
   "No active Platform Admin grants are visible through RLS.":
     "Nessuna concessione Platform Admin attiva e visibile tramite RLS.",
   "No active grants": "Nessuna concessione attiva",
+  "No Admin Console access": "Nessun accesso Console Admin",
+  "No non-admin personal accounts visible":
+    "Nessun account personale non-admin visibile",
+  "No Shop Admin accounts visible": "Nessun account Shop Admin visibile",
+  "No global access": "Nessun accesso globale",
+  "No shop access": "Nessun accesso shop",
+  "No operational shop role": "Nessun ruolo shop operativo",
+  "Not captured in current read model": "Non catturato nel read model corrente",
   "No audit rows visible for this shop.":
     "Nessuna riga audit visibile per questo shop.",
   "No device selected": "Nessun dispositivo selezionato",
@@ -494,6 +563,132 @@ const itExact: Record<string, string> = {
     "Le operazioni richiedono uno shop visibile dal read model server.",
   "Operations unavailable": "Operazioni non disponibili",
   "Owner": "Proprietario",
+  "Owner of 1 shop": "Proprietario di 1 shop",
+  "Owner memberships": "Membership proprietari",
+  "Owner accounts": "Account proprietari",
+  "Platform admin": "Platform admin",
+  "Platform Admin (Master Console)": "Platform Admin (Master Console)",
+  "Platform Admin + operational shop member":
+    "Platform Admin + membro shop operativo",
+  "Platform Admins and Shop Admins have dedicated views.":
+    "Platform Admin e Shop Admin hanno viste dedicate.",
+  "Personal Accounts": "Account personali",
+  "Personal accounts": "Account personali",
+  "Personal account directory for non-admin and incomplete accounts. Shop Admins and Platform Admins have dedicated views.":
+    "Directory degli account personali per account non-admin e incompleti. Shop Admin e Platform Admin hanno viste dedicate.",
+  "Personal accounts with no global or shop-admin access.":
+    "Account personali senza accesso globale o shop-admin.",
+  "Personal accounts with only inactive or non-operational shop records.":
+    "Account personali con soli record shop inattivi o non operativi.",
+  "Platform admins": "Platform admin",
+  "Platform admin overlap": "Sovrapposizione Platform admin",
+  "platform_admin means global Master Console access; it is not created by linking a shop code.":
+    "platform_admin significa accesso globale alla Master Console; non viene creato collegando uno shop code.",
+  "POS staff separation": "Separazione staff POS",
+  "POS staff separate": "Staff POS separato",
+  "POS staff and manager 1001 stay in staff/shop-code principals, separate from personal accounts.":
+    "Staff POS e manager 1001 restano principal staff/shop-code separati dagli account personali.",
+  "Profile/Auth state": "Stato profilo/auth",
+  "Personal account directory. Shop admins are owner/manager memberships in shop_members; Platform admins are global Master Console grants.":
+    "Directory degli account personali. Gli admin shop sono membership owner/manager in shop_members; i Platform admin sono grant globali Master Console.",
+  "Personal accounts with no operational shop membership.":
+    "Account personali senza membership shop operativa.",
+  "Personal accounts that can open Admin Console through active shop_owner or shop_manager membership.":
+    "Account personali che possono aprire la Console Admin tramite membership attiva shop_owner o shop_manager.",
+  "Platform admin grant/revoke controls only global Master Console access.":
+    "Grant/revoke Platform admin controlla solo l'accesso globale alla Master Console.",
+  "Global Master Console grants stored separately in platform_admins.":
+    "Grant globali Master Console salvati separatamente in platform_admins.",
+  "Global Master Console grants. Server blocks self-lockout and last-admin removal. Revoke controls are collapsed by default.":
+    "Grant globali Master Console. Il server blocca self-lockout e rimozione dell'ultimo admin. I controlli di revoca sono chiusi di default.",
+  "Grant controls are collapsed by default because Platform Admin is global Master Console access.":
+    "I controlli grant sono chiusi di default perche Platform Admin e accesso globale alla Master Console.",
+  "Shop admin": "Admin shop",
+  "Shop Admins": "Admin shop",
+  "Shop admin accounts": "Account admin shop",
+  "Shop admins": "Admin shop",
+  "Shop Admin accounts are personal accounts with active shop_owner or shop_manager membership in shop_members.":
+    "Gli account Shop Admin sono account personali con membership attiva shop_owner o shop_manager in shop_members.",
+  "Shop code claim": "Claim shop code",
+  "Shop code claim target": "Target claim shop code",
+  "Shop roles": "Ruoli shop",
+  "Shop owners and managers are personal accounts linked to shops through shop_members.":
+    "Proprietari e responsabili shop sono account personali collegati agli shop tramite shop_members.",
+  "Shop-code staff and manager 1001 remain separate POS/staff principals, not profiles.":
+    "Staff shop-code e manager 1001 restano principal POS/staff separati, non profili.",
+  "Shop-code staff, manager 1001, and PIN credentials stay outside personal account profiles.":
+    "Staff shop-code, manager 1001 e credenziali PIN restano fuori dai profili account personali.",
+  "Shop-code staff, manager 1001, and local credentials stay outside personal account profiles.":
+    "Staff shop-code, manager 1001 e credenziali locali restano fuori dai profili account personali.",
+  "Staff code, manager 1001, and credential access stay in the separate POS/staff model.":
+    "Codice staff, manager 1001 e accesso credenziale restano nel modello POS/staff separato.",
+  "Staff code, manager 1001, and PIN access stay in the separate POS/staff model.":
+    "Codice staff, manager 1001 e accesso PIN restano nel modello POS/staff separato.",
+  "Search Shop Admin by email, UID, display name, or provider":
+    "Cerca Shop Admin per email, UID, nome visualizzato o provider",
+  "This default Users view lists non-admin and incomplete personal accounts; access-bearing accounts live in Shop Admins or Platform Admins.":
+    "Questa vista Users predefinita elenca account personali non-admin e incompleti; gli account con accesso sono in Shop Admins o Platform Admins.",
+  "The current server read model returned only Shop Admins, Platform Admins, or no personal accounts. Use the dedicated admin views for access-bearing accounts.":
+    "Il read model server corrente ha restituito solo Shop Admin, Platform Admin o nessun account personale. Usa le viste admin dedicate per gli account con accesso.",
+  "This page controls only global Master Console access.":
+    "Questa pagina controlla solo l'accesso globale alla Master Console.",
+  "This view excludes POS staff and shop-code/staff-code principals from staff_accounts.":
+    "Questa vista esclude staff POS e principal shop-code/staff-code da staff_accounts.",
+  "Unlinked user": "Utente non collegato",
+  "Unlinked users": "Utenti non collegati",
+  "User directory": "Directory utenti",
+  "Normal users": "Utenti normali",
+  "Incomplete accounts": "Account incompleti",
+  "Auth-only, profile-only, or origin-unavailable accounts needing review.":
+    "Account auth-only, profile-only o con origine non disponibile che richiedono review.",
+  "Open Shop Admins": "Apri Shop Admin",
+  "Open Platform Admins": "Apri Platform Admin",
+  "Review personal accounts that can open the shop-scoped Admin Console.":
+    "Rivedi gli account personali che possono aprire la Console Admin shop-scoped.",
+  "Review global Master Console grants and exceptional grant/revoke controls.":
+    "Rivedi i grant globali Master Console e i controlli eccezionali grant/revoke.",
+  "Non-admin default rows": "Righe predefinite non-admin",
+  "Dedicated Shop Admins view": "Vista Shop Admin dedicata",
+  "Dedicated Platform Admins view": "Vista Platform Admin dedicata",
+  "Admin accounts": "Account admin",
+  "Shop-scoped admin accounts": "Account admin shop-scoped",
+  "Admin Console access": "Accesso Console Admin",
+  "Personal accounts linked to shops through shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
+    "Account personali collegati agli shop tramite membership shop_owner o shop_manager, inclusi contesti attuali, storici e disabilitati.",
+  "Accounts listed here can open the shop-scoped Admin Console through shop_members.":
+    "Gli account elencati qui possono aprire la Console Admin shop-scoped tramite shop_members.",
+  "Multi-shop ready": "Pronto multi-shop",
+  "A personal account can be owner or manager of one or more operational shops.":
+    "Un account personale puo essere proprietario o responsabile di uno o piu shop operativi.",
+  "Future claim flows should appear here as membership rows after approval.":
+    "I futuri flussi di claim dovrebbero comparire qui come righe membership dopo approvazione.",
+  "Future shop_code claim flows should create shop_members rows, not platform_admin grants.":
+    "I futuri flussi di claim shop_code devono creare righe shop_members, non grant platform_admin.",
+  "Connecting or claiming a shop code must create an audited shop_members membership, not a platform_admin grant.":
+    "Collegare o reclamare uno shop code deve creare una membership shop_members auditata, non un grant platform_admin.",
+  "Platform admin overlap is shown only as global access context; it is not required for Admin Console access.":
+    "La sovrapposizione Platform admin e mostrata solo come contesto di accesso globale; non e richiesta per accedere alla Console Admin.",
+  "No credential, token, raw auth metadata, or service-role key is rendered.":
+    "Nessuna credenziale, token, metadata auth raw o chiave service-role viene renderizzata.",
+  "Owner/manager accounts": "Account proprietari/responsabili",
+  "Has shop_owner membership": "Ha membership shop_owner",
+  "Manager accounts": "Account responsabili",
+  "Has shop_manager membership": "Ha membership shop_manager",
+  "Multi-shop accounts": "Account multi-shop",
+  "More than one operational shop": "Piu di uno shop operativo",
+  "Also has global Master Console access": "Ha anche accesso globale Master Console",
+  "Inactive or non-operational rows for listed accounts":
+    "Righe inattive o non operative per gli account elencati",
+  "Back to Shop Admins": "Torna a Shop Admin",
+  "Manager memberships": "Membership responsabili",
+  "Permanent delete production shop": "Eliminazione permanente shop produzione",
+  "Primary owner": "Proprietario principale",
+  "Purge test shop": "Purge shop di test",
+  "Purge unavailable": "Purge non disponibile",
+  "Revoke membership": "Revoca membership",
+  "Search existing profile": "Cerca profilo esistente",
+  "Search results": "Risultati ricerca",
+  "Shop lifecycle management": "Gestione lifecycle shop",
   "Action ready.": "Azione pronta.",
   "Access: full Admin Console access":
     "Accesso: accesso completo alla Console Admin",
@@ -1220,6 +1415,7 @@ const esExact: Record<string, string> = {
   "Rename device": "Renombrar dispositivo",
   "Reset credential": "Restablecer credencial",
   "Revoke device": "Revocar dispositivo",
+  "Revoke Platform Admin": "Revocar Platform Admin",
   "Revoke sessions": "Revocar sesiones",
   "Revoke web access": "Revocar acceso web",
   "Session status": "Estado de sesion",
@@ -1252,6 +1448,15 @@ const esExact: Record<string, string> = {
     "Se requiere una sesion server Platform Admin valida antes de conceder o revocar accesos.",
   "Active Platform Admins": "Platform Admins activos",
   "Active admins": "Admins activos",
+  "Account classification": "Clasificacion de cuenta",
+  "Account type": "Tipo de cuenta",
+  "Advanced global access": "Acceso global avanzado",
+  "All account types": "Todos los tipos de cuenta",
+  "All shop access": "Todos los accesos shop",
+  "An Admin account is a personal account with shop-scoped Admin Console access through shop_members.":
+    "Un Admin account es una cuenta personal con acceso Admin Console shop-scoped mediante shop_members.",
+  "Admin account means a personal account with shop-scoped Admin Console access through shop_members.":
+    "Admin account significa una cuenta personal con acceso Admin Console limitado al shop mediante shop_members.",
   "Admin operations unavailable": "Operaciones admin no disponibles",
   "Already archived": "Ya archivado",
   "Already revoked": "Ya revocado",
@@ -1260,29 +1465,51 @@ const esExact: Record<string, string> = {
     "Revisa los campos requeridos e intenta de nuevo.",
   "Choose action": "Elegir accion",
   "Choose target shop": "Elegir shop objetivo",
+  "Can access Admin Console": "Puede acceder a Admin Console",
+  "Can access Master Console": "Puede acceder a Master Console",
+  "Connecting or claiming a shop code must create shop_owner or shop_manager membership, not platform_admin.":
+    "Conectar o reclamar un shop code debe crear una membresia shop_owner o shop_manager, no platform_admin.",
   "Controlled actions": "Acciones controladas",
   "Controlled operations workflow": "Flujo de operaciones controladas",
   "Emergency revoke device": "Revocar dispositivo de emergencia",
   "Every operation is checked on the server and written to the audit log. Use development-safe test shops only. Do not use customer data for testing.":
     "Cada operacion se verifica en el servidor y se escribe en el audit log. Usa solo shops de prueba seguros para desarrollo. No uses datos de clientes para pruebas.",
+  "Global access": "Acceso global",
+  "Global access only": "Solo acceso global",
   "Global security": "Seguridad global",
+  "Global Master Console grants stored separately in platform_admins.":
+    "Grants globales de Master Console almacenados por separado en platform_admins.",
   "Grant ID": "ID concesion",
   "Grant Platform Admin": "Conceder Platform Admin",
-  "Grant admin": "Conceder admin",
   "Grant and revoke Platform Admin access through server-side RPCs with anti self-lockout and audit.":
     "Concede y revoca acceso Platform Admin mediante RPCs server-side con anti self-lockout y auditoria.",
+  "Grant Platform Admin is a sensitive global operation. It does not create shop owners, shop managers, shop-code access, or POS staff.":
+    "Conceder Platform Admin es una operacion global sensible. No crea dueños de shop, gerentes de shop, acceso shop-code ni staff POS.",
   "Grant/revoke actions use audited RPCs":
     "Las acciones grant/revoke usan RPCs auditadas",
+  "Historical only": "Solo historico",
+  "Join source": "Origen de vinculacion",
+  "Join source is not captured in the current read model; future self-claim shop_code needs a separate audited flow.":
+    "El origen de vinculacion no se captura en el read model actual; el futuro self-claim de shop_code necesita un flujo auditado separado.",
+  "Manager of 1 shop": "Gerente de 1 shop",
   "Metadata/redaction boundary": "Boundary metadata/redaction",
   "Name, code, or status": "Nombre, codigo o estado",
   "No active Platform Admin grants are visible through RLS.":
     "No hay concesiones Platform Admin activas visibles mediante RLS.",
   "No active grants": "Sin concesiones activas",
+  "No Admin Console access": "Sin acceso Admin Console",
+  "No non-admin personal accounts visible":
+    "No hay cuentas personales no admin visibles",
+  "No Shop Admin accounts visible": "No hay cuentas Shop Admin visibles",
+  "No global access": "Sin acceso global",
+  "No shop access": "Sin acceso shop",
+  "No operational shop role": "Sin rol operativo de shop",
   "No audit rows visible for this shop.":
     "No hay filas audit visibles para este shop.",
   "No device selected": "Sin dispositivo seleccionado",
   "No raw sensitive metadata is rendered":
     "No se renderiza metadata sensible raw",
+  "Not captured in current read model": "No capturado en el read model actual",
   "No shops match this search.": "Ningun shop coincide con esta busqueda.",
   "No shops visible": "No hay shops visibles",
   "Operation completed.": "Operacion completada.",
@@ -1292,6 +1519,118 @@ const esExact: Record<string, string> = {
     "Las operaciones requieren un shop visible desde el read model del servidor.",
   "Operations unavailable": "Operaciones no disponibles",
   "Owner": "Dueño",
+  "Owner accounts": "Cuentas dueñas",
+  "Owner of 1 shop": "Dueño de 1 shop",
+  "Personal Accounts": "Cuentas personales",
+  "Personal accounts": "Cuentas personales",
+  "Personal account directory. Shop admins are owner/manager memberships in shop_members; Platform admins are global Master Console grants.":
+    "Directorio de cuentas personales. Los shop admins son membresias dueño/gerente en shop_members; los Platform admins son grants globales de Master Console.",
+  "Personal account directory for non-admin and incomplete accounts. Shop Admins and Platform Admins have dedicated views.":
+    "Directorio de cuentas personales para cuentas no admin e incompletas. Shop Admins y Platform Admins tienen vistas dedicadas.",
+  "Personal accounts with no global or shop-admin access.":
+    "Cuentas personales sin acceso global ni shop-admin.",
+  "Personal accounts with no operational shop membership.":
+    "Cuentas personales sin membresia operativa de shop.",
+  "Personal accounts with only inactive or non-operational shop records.":
+    "Cuentas personales con solo registros de shop inactivos o no operativos.",
+  "Personal accounts that can open Admin Console through active shop_owner or shop_manager membership.":
+    "Cuentas personales que pueden abrir Admin Console mediante membresia activa shop_owner o shop_manager.",
+  "Platform admin": "Platform admin",
+  "Platform Admin (Master Console)": "Platform Admin (Master Console)",
+  "Platform Admin + operational shop member":
+    "Platform Admin + miembro operativo de shop",
+  "Platform admin overlap": "Solapamiento Platform admin",
+  "Platform admins": "Platform admins",
+  "platform_admin means global Master Console access; it is not created by linking a shop code.":
+    "platform_admin significa acceso global a Master Console; no se crea al vincular un shop code.",
+  "Platform admin grant/revoke controls only global Master Console access.":
+    "Grant/revoke Platform admin controla solo el acceso global a Master Console.",
+  "Global Master Console grants. Server blocks self-lockout and last-admin removal. Revoke controls are collapsed by default.":
+    "Grants globales de Master Console. El servidor bloquea self-lockout y remocion del ultimo admin. Los controles de revocacion estan colapsados por defecto.",
+  "Grant controls are collapsed by default because Platform Admin is global Master Console access.":
+    "Los controles de grant estan colapsados por defecto porque Platform Admin es acceso global a Master Console.",
+  "POS staff separation": "Separacion staff POS",
+  "POS staff separate": "Staff POS separado",
+  "POS staff and manager 1001 stay in staff/shop-code principals, separate from personal accounts.":
+    "El staff POS y el gerente 1001 permanecen como principals staff/shop-code separados de las cuentas personales.",
+  "Profile/Auth state": "Estado perfil/auth",
+  "Shop admin": "Shop admin",
+  "Shop Admins": "Shop Admins",
+  "Shop admin accounts": "Cuentas shop admin",
+  "Shop admins": "Shop admins",
+  "Shop Admin accounts are personal accounts with active shop_owner or shop_manager membership in shop_members.":
+    "Las cuentas Shop Admin son cuentas personales con membresia activa shop_owner o shop_manager en shop_members.",
+  "Shop code claim": "Claim de shop code",
+  "Shop code claim target": "Destino claim shop code",
+  "Shop roles": "Roles de shop",
+  "Shop owners and managers are personal accounts linked to shops through shop_members.":
+    "Dueños y gerentes de shop son cuentas personales vinculadas a shops mediante shop_members.",
+  "Shop-code staff and manager 1001 remain separate POS/staff principals, not profiles.":
+    "El staff shop-code y el gerente 1001 siguen siendo principals POS/staff separados, no perfiles.",
+  "Shop-code staff, manager 1001, and PIN credentials stay outside personal account profiles.":
+    "El staff shop-code, el gerente 1001 y las credenciales PIN quedan fuera de los perfiles de cuentas personales.",
+  "Shop-code staff, manager 1001, and local credentials stay outside personal account profiles.":
+    "El staff shop-code, el gerente 1001 y las credenciales locales quedan fuera de los perfiles de cuentas personales.",
+  "Staff code, manager 1001, and credential access stay in the separate POS/staff model.":
+    "Codigo staff, gerente 1001 y acceso de credencial permanecen en el modelo POS/staff separado.",
+  "Staff code, manager 1001, and PIN access stay in the separate POS/staff model.":
+    "Codigo staff, gerente 1001 y acceso PIN permanecen en el modelo POS/staff separado.",
+  "Search Shop Admin by email, UID, display name, or provider":
+    "Buscar Shop Admin por email, UID, nombre visible o proveedor",
+  "This default Users view lists non-admin and incomplete personal accounts; access-bearing accounts live in Shop Admins or Platform Admins.":
+    "Esta vista Users predeterminada lista cuentas personales no admin e incompletas; las cuentas con acceso estan en Shop Admins o Platform Admins.",
+  "The current server read model returned only Shop Admins, Platform Admins, or no personal accounts. Use the dedicated admin views for access-bearing accounts.":
+    "El read model server actual devolvio solo Shop Admins, Platform Admins o ninguna cuenta personal. Usa las vistas admin dedicadas para cuentas con acceso.",
+  "This page controls only global Master Console access.":
+    "Esta pagina controla solo el acceso global a Master Console.",
+  "This view excludes POS staff and shop-code/staff-code principals from staff_accounts.":
+    "Esta vista excluye staff POS y principals shop-code/staff-code de staff_accounts.",
+  "Unlinked user": "Usuario sin vincular",
+  "Unlinked users": "Usuarios sin vincular",
+  "User directory": "Directorio de usuarios",
+  "Normal users": "Usuarios normales",
+  "Incomplete accounts": "Cuentas incompletas",
+  "Auth-only, profile-only, or origin-unavailable accounts needing review.":
+    "Cuentas auth-only, profile-only u origin-unavailable que necesitan revision.",
+  "Open Shop Admins": "Abrir Shop Admins",
+  "Open Platform Admins": "Abrir Platform Admins",
+  "Review personal accounts that can open the shop-scoped Admin Console.":
+    "Revisar cuentas personales que pueden abrir Admin Console shop-scoped.",
+  "Review global Master Console grants and exceptional grant/revoke controls.":
+    "Revisar grants globales de Master Console y controles excepcionales grant/revoke.",
+  "Non-admin default rows": "Filas predeterminadas no admin",
+  "Dedicated Shop Admins view": "Vista Shop Admins dedicada",
+  "Dedicated Platform Admins view": "Vista Platform Admins dedicada",
+  "Admin accounts": "Cuentas admin",
+  "Shop-scoped admin accounts": "Cuentas admin shop-scoped",
+  "Admin Console access": "Acceso Admin Console",
+  "Personal accounts linked to shops through shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
+    "Cuentas personales vinculadas a shops mediante membresia shop_owner o shop_manager, incluyendo contextos actuales, historicos y deshabilitados.",
+  "Accounts listed here can open the shop-scoped Admin Console through shop_members.":
+    "Las cuentas listadas aqui pueden abrir Admin Console shop-scoped mediante shop_members.",
+  "Multi-shop ready": "Lista para multi-shop",
+  "A personal account can be owner or manager of one or more operational shops.":
+    "Una cuenta personal puede ser dueña o gerente de uno o mas shops operativos.",
+  "Future claim flows should appear here as membership rows after approval.":
+    "Los futuros flujos de claim deberian aparecer aqui como filas de membresia despues de aprobarse.",
+  "Future shop_code claim flows should create shop_members rows, not platform_admin grants.":
+    "Los futuros flujos de claim shop_code deben crear filas shop_members, no grants platform_admin.",
+  "Connecting or claiming a shop code must create an audited shop_members membership, not a platform_admin grant.":
+    "Conectar o reclamar un shop code debe crear una membresia shop_members auditada, no un grant platform_admin.",
+  "Platform admin overlap is shown only as global access context; it is not required for Admin Console access.":
+    "El solapamiento Platform admin se muestra solo como contexto de acceso global; no es necesario para acceso Admin Console.",
+  "No credential, token, raw auth metadata, or service-role key is rendered.":
+    "No se renderiza ninguna credencial, token, metadata auth raw ni service-role key.",
+  "Owner/manager accounts": "Cuentas dueñas/gerentes",
+  "Has shop_owner membership": "Tiene membresia shop_owner",
+  "Manager accounts": "Cuentas gerentes",
+  "Has shop_manager membership": "Tiene membresia shop_manager",
+  "Multi-shop accounts": "Cuentas multi-shop",
+  "More than one operational shop": "Mas de un shop operativo",
+  "Also has global Master Console access": "Tambien tiene acceso global Master Console",
+  "Inactive or non-operational rows for listed accounts":
+    "Filas inactivas o no operativas para las cuentas listadas",
+  "Back to Shop Admins": "Volver a Shop Admins",
   "Action ready.": "Accion lista.",
   "Access: full Admin Console access":
     "Acceso: acceso completo a Admin Console",
@@ -2014,6 +2353,7 @@ const zhExact: Record<string, string> = {
   "Rename device": "重命名设备",
   "Reset credential": "重置凭证",
   "Revoke device": "撤销设备",
+  "Revoke Platform Admin": "撤销 Platform Admin",
   "Revoke sessions": "撤销会话",
   "Revoke web access": "撤销网页访问",
   "Session status": "会话状态",
@@ -2046,6 +2386,15 @@ const zhExact: Record<string, string> = {
     "需要有效的 Platform Admin 服务端会话，才能执行授权或撤销操作。",
   "Active Platform Admins": "启用的 Platform Admin",
   "Active admins": "启用管理员",
+  "Account classification": "账号分类",
+  "Account type": "账号类型",
+  "Advanced global access": "高级全局访问",
+  "All account types": "所有账号类型",
+  "All shop access": "所有店铺访问",
+  "An Admin account is a personal account with shop-scoped Admin Console access through shop_members.":
+    "Admin account 是通过 shop_members 获得店铺范围 Admin Console 访问的个人账号。",
+  "Admin account means a personal account with shop-scoped Admin Console access through shop_members.":
+    "Admin account 指通过 shop_members 获得店铺范围 Admin Console 访问的个人账号。",
   "Admin operations unavailable": "管理员操作不可用",
   "Already archived": "已归档",
   "Already revoked": "已撤销",
@@ -2053,26 +2402,49 @@ const zhExact: Record<string, string> = {
   "Check the required fields and try again.": "请检查必填字段后重试。",
   "Choose action": "选择操作",
   "Choose target shop": "选择目标店铺",
+  "Can access Admin Console": "可访问 Admin Console",
+  "Can access Master Console": "可访问 Master Console",
+  "Connecting or claiming a shop code must create shop_owner or shop_manager membership, not platform_admin.":
+    "连接或认领 shop code 必须创建 shop_owner 或 shop_manager 成员关系，而不是 platform_admin。",
   "Controlled actions": "受控操作",
   "Controlled operations workflow": "受控操作流程",
   "Emergency revoke device": "紧急撤销设备",
   "Every operation is checked on the server and written to the audit log. Use development-safe test shops only. Do not use customer data for testing.":
     "每个操作都会在服务端检查并写入审计日志。仅使用适合开发的测试店铺。不要使用客户数据进行测试。",
+  "Global access": "全局访问",
+  "Global access only": "仅全局访问",
   "Global security": "全局安全",
+  "Global Master Console grants stored separately in platform_admins.":
+    "Master Console 全局授权单独存储在 platform_admins 中。",
   "Grant ID": "授权 ID",
   "Grant Platform Admin": "授予 Platform Admin",
-  "Grant admin": "授予管理员",
   "Grant and revoke Platform Admin access through server-side RPCs with anti self-lockout and audit.":
     "通过服务端 RPC 授予和撤销 Platform Admin 访问，并带有防自锁和审计。",
+  "Grant Platform Admin is a sensitive global operation. It does not create shop owners, shop managers, shop-code access, or POS staff.":
+    "授予 Platform Admin 是敏感的全局操作。它不会创建店铺所有者、店铺经理、shop-code 访问或 POS 员工。",
   "Grant/revoke actions use audited RPCs": "授权/撤销操作使用已审计 RPC",
+  "Historical only": "仅历史记录",
+  "Join source": "加入来源",
+  "Join source is not captured in the current read model; future self-claim shop_code needs a separate audited flow.":
+    "当前读取模型未捕获加入来源；未来的 shop_code 自助认领需要单独的审计流程。",
+  "Manager of 1 shop": "1 个店铺的经理",
   "Metadata/redaction boundary": "元数据/脱敏边界",
+  "Manage only global Master Console access. Shop owners and managers belong to shop_members, not platform_admins.":
+    "仅管理 Master Console 全局访问。店铺所有者和经理属于 shop_members，而不是 platform_admins。",
   "Name, code, or status": "名称、代码或状态",
   "No active Platform Admin grants are visible through RLS.":
     "通过 RLS 没有可见的启用 Platform Admin 授权。",
   "No active grants": "没有启用授权",
+  "No Admin Console access": "无 Admin Console 访问",
+  "No non-admin personal accounts visible": "没有可见的非管理员个人账号",
+  "No Shop Admin accounts visible": "没有可见的 Shop Admin 账号",
+  "No global access": "无全局访问",
+  "No shop access": "无店铺访问",
+  "No operational shop role": "无运营店铺角色",
   "No audit rows visible for this shop.": "此店铺没有可见审计行。",
   "No device selected": "未选择设备",
   "No raw sensitive metadata is rendered": "不会渲染原始敏感元数据",
+  "Not captured in current read model": "当前读取模型未捕获",
   "No shops match this search.": "没有店铺匹配此搜索。",
   "No shops visible": "没有可见店铺",
   "Operation completed.": "操作已完成。",
@@ -2082,6 +2454,117 @@ const zhExact: Record<string, string> = {
     "操作需要服务端读取模型中可见的店铺。",
   "Operations unavailable": "操作不可用",
   "Owner": "所有者",
+  "Owner accounts": "所有者账号",
+  "Owner of 1 shop": "1 个店铺的所有者",
+  "Personal Accounts": "个人账号",
+  "Personal accounts": "个人账号",
+  "Personal account directory. Shop admins are owner/manager memberships in shop_members; Platform admins are global Master Console grants.":
+    "个人账号目录。Shop admin 是 shop_members 中的所有者/经理成员关系；Platform admin 是 Master Console 全局授权。",
+  "Personal account directory for non-admin and incomplete accounts. Shop Admins and Platform Admins have dedicated views.":
+    "面向非管理员和不完整账号的个人账号目录。Shop Admins 和 Platform Admins 有专用视图。",
+  "Personal accounts with no global or shop-admin access.":
+    "没有全局访问或店铺管理员访问的个人账号。",
+  "Personal accounts with no operational shop membership.":
+    "没有运营店铺成员关系的个人账号。",
+  "Personal accounts with only inactive or non-operational shop records.":
+    "只有非活动或非运营店铺记录的个人账号。",
+  "Personal accounts that can open Admin Console through active shop_owner or shop_manager membership.":
+    "可通过活动 shop_owner 或 shop_manager 成员关系打开 Admin Console 的个人账号。",
+  "Platform admin": "Platform admin",
+  "Platform Admin (Master Console)": "Platform Admin (Master Console)",
+  "Platform Admin + operational shop member": "Platform Admin + 运营店铺成员",
+  "Platform admin overlap": "Platform admin 重叠",
+  "Platform admins": "Platform admin",
+  "platform_admin means global Master Console access; it is not created by linking a shop code.":
+    "platform_admin 表示 Master Console 全局访问；它不会通过关联 shop code 创建。",
+  "Platform admin grant/revoke controls only global Master Console access.":
+    "Platform admin 授权/撤销仅控制 Master Console 全局访问。",
+  "Global Master Console grants. Server blocks self-lockout and last-admin removal. Revoke controls are collapsed by default.":
+    "Master Console 全局授权。服务端会阻止自锁和移除最后一个管理员。撤销控件默认折叠。",
+  "Grant controls are collapsed by default because Platform Admin is global Master Console access.":
+    "授权控件默认折叠，因为 Platform Admin 是 Master Console 全局访问。",
+  "POS staff separation": "POS 员工分离",
+  "POS staff separate": "POS 员工分离",
+  "POS staff and manager 1001 stay in staff/shop-code principals, separate from personal accounts.":
+    "POS 员工和经理 1001 保持为 staff/shop-code 主体，与个人账号分离。",
+  "Profile/Auth state": "资料/Auth 状态",
+  "Shop admin": "店铺管理员",
+  "Shop Admins": "店铺管理员",
+  "Shop admin accounts": "店铺管理员账号",
+  "Shop admins": "店铺管理员",
+  "Shop Admin accounts are personal accounts with active shop_owner or shop_manager membership in shop_members.":
+    "Shop Admin 账号是 shop_members 中拥有活动 shop_owner 或 shop_manager 成员关系的个人账号。",
+  "Shop code claim": "Shop code 认领",
+  "Shop code claim target": "Shop code 认领目标",
+  "Shop roles": "店铺角色",
+  "Shop owners and managers are personal accounts linked to shops through shop_members.":
+    "店铺所有者和经理是通过 shop_members 关联到店铺的个人账号。",
+  "Shop-code staff and manager 1001 remain separate POS/staff principals, not profiles.":
+    "Shop-code 员工和经理 1001 仍是单独的 POS/员工主体，不是个人资料。",
+  "Shop-code staff, manager 1001, and PIN credentials stay outside personal account profiles.":
+    "Shop-code 员工、经理 1001 和 PIN 凭证不属于个人账号资料。",
+  "Shop-code staff, manager 1001, and local credentials stay outside personal account profiles.":
+    "Shop-code 员工、经理 1001 和本地凭证不属于个人账号资料。",
+  "Staff code, manager 1001, and credential access stay in the separate POS/staff model.":
+    "员工代码、经理 1001 和凭证访问保留在单独的 POS/员工模型中。",
+  "Staff code, manager 1001, and PIN access stay in the separate POS/staff model.":
+    "员工代码、经理 1001 和 PIN 访问保留在单独的 POS/员工模型中。",
+  "Search Shop Admin by email, UID, display name, or provider":
+    "按邮箱、UID、显示名称或 provider 搜索 Shop Admin",
+  "This default Users view lists non-admin and incomplete personal accounts; access-bearing accounts live in Shop Admins or Platform Admins.":
+    "默认 Users 视图列出非管理员和不完整个人账号；具有访问权限的账号在 Shop Admins 或 Platform Admins 中。",
+  "The current server read model returned only Shop Admins, Platform Admins, or no personal accounts. Use the dedicated admin views for access-bearing accounts.":
+    "当前服务端读取模型只返回了 Shop Admins、Platform Admins，或没有个人账号。请使用专用管理员视图查看具有访问权限的账号。",
+  "This page controls only global Master Console access.":
+    "此页面仅控制 Master Console 的全局访问。",
+  "This view excludes POS staff and shop-code/staff-code principals from staff_accounts.":
+    "此视图排除来自 staff_accounts 的 POS 员工和 shop-code/staff-code 主体。",
+  "Unlinked user": "未关联用户",
+  "Unlinked users": "未关联用户",
+  "User directory": "用户目录",
+  "Normal users": "普通用户",
+  "Incomplete accounts": "不完整账号",
+  "Auth-only, profile-only, or origin-unavailable accounts needing review.":
+    "需要复核的 auth-only、profile-only 或 origin-unavailable 账号。",
+  "Open Shop Admins": "打开 Shop Admins",
+  "Open Platform Admins": "打开 Platform Admins",
+  "Review personal accounts that can open the shop-scoped Admin Console.":
+    "复核可打开店铺范围 Admin Console 的个人账号。",
+  "Review global Master Console grants and exceptional grant/revoke controls.":
+    "复核 Master Console 全局授权以及例外的授权/撤销控件。",
+  "Non-admin default rows": "默认非管理员行",
+  "Dedicated Shop Admins view": "专用 Shop Admins 视图",
+  "Dedicated Platform Admins view": "专用 Platform Admins 视图",
+  "Admin accounts": "管理员账号",
+  "Shop-scoped admin accounts": "店铺范围管理员账号",
+  "Admin Console access": "Admin Console 访问",
+  "Personal accounts linked to shops through shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
+    "通过 shop_owner 或 shop_manager 成员关系关联到店铺的个人账号，包括当前、历史和禁用上下文。",
+  "Accounts listed here can open the shop-scoped Admin Console through shop_members.":
+    "此处列出的账号可通过 shop_members 打开店铺范围 Admin Console。",
+  "Multi-shop ready": "支持多店铺",
+  "A personal account can be owner or manager of one or more operational shops.":
+    "一个个人账号可以是一个或多个运营店铺的所有者或经理。",
+  "Future claim flows should appear here as membership rows after approval.":
+    "未来认领流程在批准后应作为成员关系行显示在这里。",
+  "Future shop_code claim flows should create shop_members rows, not platform_admin grants.":
+    "未来 shop_code 认领流程应创建 shop_members 行，而不是 platform_admin 授权。",
+  "Connecting or claiming a shop code must create an audited shop_members membership, not a platform_admin grant.":
+    "连接或认领 shop code 必须创建经过审计的 shop_members 成员关系，而不是 platform_admin 授权。",
+  "Platform admin overlap is shown only as global access context; it is not required for Admin Console access.":
+    "Platform admin 重叠只作为全局访问背景显示；访问 Admin Console 并不需要它。",
+  "No credential, token, raw auth metadata, or service-role key is rendered.":
+    "不会渲染凭证、token、原始 auth 元数据或 service-role key。",
+  "Owner/manager accounts": "所有者/经理账号",
+  "Has shop_owner membership": "拥有 shop_owner 成员关系",
+  "Manager accounts": "经理账号",
+  "Has shop_manager membership": "拥有 shop_manager 成员关系",
+  "Multi-shop accounts": "多店铺账号",
+  "More than one operational shop": "超过一个运营店铺",
+  "Also has global Master Console access": "也拥有 Master Console 全局访问",
+  "Inactive or non-operational rows for listed accounts":
+    "所列账号的非活动或非运营行",
+  "Back to Shop Admins": "返回 Shop Admins",
   "Action ready.": "操作已就绪。",
   "Access: full Admin Console access": "访问：完整管理控制台访问",
   "A provisioning reason is required.": "需要填写开通原因。",
@@ -2518,7 +3001,16 @@ const itRenderedCorrectiveExact: Record<string, string> = {
   "Create shop with existing owner": "Crea shop con owner esistente",
   "Creates a pending setup shop and stores only redacted owner contact state. Email delivery pending is tracked as PASS_WITH_NOTES_EMAIL_DELIVERY.":
     "Crea uno shop in setup pending e salva solo lo stato contatto owner redatto. La consegna email pending e tracciata come PASS_WITH_NOTES_EMAIL_DELIVERY.",
+  "Current": "Attuale",
+  "Current account": "Account corrente",
+  "Current and historical": "Attuali e storici",
+  "Current means active membership on an operational shop; Historical only means the owner/manager link is retained for audit but cannot open Admin Console now.":
+    "Attuale significa membership attiva su shop operativo; Solo storico significa che il link owner/manager e conservato per audit ma non puo aprire ora la Console Admin.",
+  "Current Platform Admin account": "Account Platform Admin corrente",
   "Current result set": "Set risultati corrente",
+  "Current session": "Sessione corrente",
+  "Current Shop Admins": "Shop Admin attuali",
+  "Current view": "Vista corrente",
   "Data rows": "Righe dati",
   "Data health": "Salute dati",
   "Deleted entries": "Voci eliminate",
@@ -2538,6 +3030,93 @@ const itRenderedCorrectiveExact: Record<string, string> = {
     "Trascina qui un workbook database catalogo .xlsx o .xls oppure scegli un file.",
   "Editable rows": "Righe modificabili",
   "Enabled": "Abilitato",
+  "Disabled": "Disabilitato",
+  "Disabled memberships": "Membership disabilitate",
+  "Historical": "Storico",
+  "Historical shop access": "Accesso shop storico",
+  "Historical Shop Admins": "Shop Admin storici",
+  "Historical shops": "Shop storici",
+  "Inactive owner/manager rows": "Righe owner/manager inattive",
+  "More than one linked shop": "Piu di uno shop collegato",
+  "No personal account has shop_owner or shop_manager membership visible through shop_members. Future shop_code claim flows should create shop_members rows, not platform_admin grants.":
+    "Nessun account personale ha membership shop_owner o shop_manager visibile tramite shop_members. I futuri flussi claim shop_code devono creare righe shop_members, non grant platform_admin.",
+  "No normal users in this view": "Nessun utente normale in questa vista",
+  "No shop admin membership": "Nessuna membership shop admin",
+  "Only inactive owner or manager memberships":
+    "Solo membership owner o manager inattive",
+  "Owner/manager memberships": "Membership owner/manager",
+  "Owner/manager memberships in dedicated view":
+    "Membership owner/manager nella vista dedicata",
+  "Profiles/Auth accounts returned by the read model":
+    "Account profilo/Auth restituiti dal read model",
+  "Rows are the non-admin subset; totals below show the wider personal-account read model.":
+    "Le righe sono il sottoinsieme non-admin; i totali sotto mostrano il read model piu ampio degli account personali.",
+  "Rows include current access plus archived, suspended, pending, or inactive owner/manager history.":
+    "Le righe includono accesso attuale piu storico owner/manager archiviato, sospeso, pending o inattivo.",
+  "Server search returned no rows. Clear the search to return to the default view.":
+    "La ricerca server non ha restituito righe. Cancella la ricerca per tornare alla vista predefinita.",
+  "Shop Admin accounts": "Account Shop Admin",
+  "Shop Admin accounts are personal accounts with shop_owner or shop_manager membership in shop_members, including historical and disabled contexts.":
+    "Gli account Shop Admin sono account personali con membership shop_owner o shop_manager in shop_members, inclusi contesti storici e disabilitati.",
+  "Shop Admins and Platform Admins are intentionally excluded from this default Users table.":
+    "Shop Admin e Platform Admin sono esclusi intenzionalmente da questa tabella Users predefinita.",
+  "Showing normal personal accounts only":
+    "Mostra solo account personali normali",
+  "Showing normal personal accounts only. Shop Admins and Platform Admins are shown in dedicated views.":
+    "Mostra solo account personali normali. Shop Admin e Platform Admin sono mostrati in viste dedicate.",
+  "Summary": "Riepilogo",
+  "Visible normal users": "Utenti normali visibili",
+  "Active record": "Record attivo",
+  "Archived record": "Record archiviato",
+  "Archived record: visible in Master Console for history and audit, but not available for operational access.":
+    "Record archiviato: visibile nella Master Console per storico e audit, ma non disponibile per accesso operativo.",
+  "Archived shop": "Shop archiviato",
+  "Available action": "Azione disponibile",
+  "Created or provisioned shop that is not operational yet: visible in Master Console, but not available to shop users.":
+    "Shop creato o provisionato ma non ancora operativo: visibile nella Master Console, ma non disponibile agli utenti shop.",
+  "Current status": "Stato corrente",
+  "Device rows": "Righe dispositivo",
+  "Devices visible": "Dispositivi visibili",
+  "Devices / sync / audit": "Dispositivi / sync / audit",
+  "Diagnostics / boundary rows": "Diagnostica / righe boundary",
+  "Fiscal identity": "Identita fiscale",
+  "Fiscal identity not configured": "Identita fiscale non configurata",
+  "Internal rows returned by the server boundary for review and troubleshooting.":
+    "Righe interne restituite dal boundary server per review e troubleshooting.",
+  "Latest audit": "Ultimo audit",
+  "Latest device update": "Ultimo aggiornamento dispositivo",
+  "Managed by": "Gestito da",
+  "Meaning": "Significato",
+  "Membership record summary for this shop.": "Riepilogo record membership per questo shop.",
+  "Membership records": "Record membership",
+  "Memberships are preserved, but operational access is disabled.":
+    "Le membership sono conservate, ma l'accesso operativo e disabilitato.",
+  "No audit event visible": "Nessun evento audit visibile",
+  "No devices visible": "Nessun dispositivo visibile",
+  "No lifecycle action available": "Nessuna azione lifecycle disponibile",
+  "No sync visible": "Nessuna sync visibile",
+  "Operational access": "Accesso operativo",
+  "Operational members": "Membri operativi",
+  "Operational shop: available to Admin Console, shop switcher, POS, and sync flows according to existing permissions.":
+    "Shop operativo: disponibile per Admin Console, shop switcher, POS e sync secondo i permessi esistenti.",
+  "Owner summary": "Riepilogo proprietari",
+  "Pending record": "Record in sospeso",
+  "Pending shop": "Shop in sospeso",
+  "Platform Admin diagnostic rows rendered from server-provided rows.":
+    "Righe diagnostiche Platform Admin renderizzate da righe fornite dal server.",
+  "Restore / reopen": "Ripristina / riapri",
+  "Shop profile & fiscal identity": "Profilo shop e identita fiscale",
+  "Some related rows are not visible through the current read boundary.":
+    "Alcune righe correlate non sono visibili tramite il boundary di lettura corrente.",
+  "Status & lifecycle": "Stato e lifecycle",
+  "Support signals from the current Master Console boundary.":
+    "Segnali di supporto dal boundary corrente della Master Console.",
+  "Suspended record": "Record sospeso",
+  "Suspended shop": "Shop sospeso",
+  "Sync & audit rows are compact support signals, not daily device management.":
+    "Le righe sync e audit sono segnali di supporto compatti, non gestione dispositivi quotidiana.",
+  "Temporarily blocked shop: data and memberships are preserved, while operational access and operational writes are disabled.":
+    "Shop temporaneamente bloccato: dati e membership sono conservati, mentre accesso operativo e scritture operative sono disabilitati.",
   "Audited create/update/archive": "Creazione/aggiornamento/archiviazione auditate",
   "Audited create/update/archive/restore":
     "Creazione/aggiornamento/archiviazione/ripristino auditati",
@@ -2548,6 +3127,24 @@ const itRenderedCorrectiveExact: Record<string, string> = {
   "Active until": "Attivo fino a",
   "Adjust search or filters to show rows already returned by the server boundary.":
     "Regola ricerca o filtri per mostrare le righe gia restituite dal boundary server.",
+  "All access states": "Tutti gli stati accesso",
+  "All global access": "Tutti gli accessi globali",
+  "All owners": "Tutti i proprietari",
+  "All personal accounts": "Tutti gli account personali",
+  "All roles": "Tutti i ruoli",
+  "An empty Users table can be correct when the returned accounts are Shop Admins or Platform Admins instead of normal users.":
+    "Una tabella Users vuota puo essere corretta quando gli account restituiti sono Shop Admin o Platform Admin invece di utenti normali.",
+  "Archived or non-operational owner/manager rows":
+    "Righe owner/manager archiviate o non operative",
+  "Archived/non-operational owner or manager accounts":
+    "Account owner o manager archiviati/non operativi",
+  "Archived/non-operational owner or manager history":
+    "Storico owner o manager archiviato/non operativo",
+  "Auth identity unavailable": "Identita auth non disponibile",
+  "Can access Admin Console now": "Puo accedere ora alla Console Admin",
+  "Client filters are hiding rows returned by the server boundary.":
+    "I filtri client stanno nascondendo righe restituite dal boundary server.",
+  "Classification": "Classificazione",
   "Copy": "Copia",
   "Copy shop code": "Copia codice shop",
   "Created at": "Creato il",
@@ -2760,7 +3357,6 @@ const itRenderedCorrectiveExact: Record<string, string> = {
   "Visible through Platform Admin": "Visibili tramite Platform Admin",
   "Visible through RLS": "Visibili tramite RLS",
   "Requires review": "Richiede review",
-  "Historical shops": "Shop storici",
   "Profiles": "Profili",
   "Shop owners": "Owner shop",
   "Shops without owner": "Shop senza owner",
@@ -2801,7 +3397,16 @@ const esRenderedCorrectiveExact: Record<string, string> = {
   "Create shop with existing owner": "Crear shop con owner existente",
   "Creates a pending setup shop and stores only redacted owner contact state. Email delivery pending is tracked as PASS_WITH_NOTES_EMAIL_DELIVERY.":
     "Crea un shop en setup pendiente y guarda solo el estado de contacto owner redactado. La entrega de email pendiente queda registrada como PASS_WITH_NOTES_EMAIL_DELIVERY.",
+  "Current": "Actual",
+  "Current account": "Cuenta actual",
+  "Current and historical": "Actuales e historicas",
+  "Current means active membership on an operational shop; Historical only means the owner/manager link is retained for audit but cannot open Admin Console now.":
+    "Actual significa membresia activa en un shop operativo; Solo historico significa que el enlace owner/manager se conserva para auditoria pero no puede abrir Admin Console ahora.",
+  "Current Platform Admin account": "Cuenta Platform Admin actual",
   "Current result set": "Conjunto de resultados actual",
+  "Current session": "Sesion actual",
+  "Current Shop Admins": "Shop Admins actuales",
+  "Current view": "Vista actual",
   "Data rows": "Filas de datos",
   "Data health": "Salud de datos",
   "Deleted entries": "Entradas eliminadas",
@@ -2821,6 +3426,93 @@ const esRenderedCorrectiveExact: Record<string, string> = {
     "Arrastra aqui un workbook de base de datos de catalogo .xlsx o .xls, o elige un archivo.",
   "Editable rows": "Filas editables",
   "Enabled": "Habilitado",
+  "Disabled": "Deshabilitado",
+  "Disabled memberships": "Membresias deshabilitadas",
+  "Historical": "Historico",
+  "Historical shop access": "Acceso historico a shop",
+  "Historical Shop Admins": "Shop Admins historicos",
+  "Historical shops": "Shops historicos",
+  "Inactive owner/manager rows": "Filas owner/manager inactivas",
+  "More than one linked shop": "Mas de un shop vinculado",
+  "No personal account has shop_owner or shop_manager membership visible through shop_members. Future shop_code claim flows should create shop_members rows, not platform_admin grants.":
+    "Ninguna cuenta personal tiene membresia shop_owner o shop_manager visible mediante shop_members. Los futuros flujos claim shop_code deben crear filas shop_members, no grants platform_admin.",
+  "No normal users in this view": "No hay usuarios normales en esta vista",
+  "No shop admin membership": "Sin membresia shop admin",
+  "Only inactive owner or manager memberships":
+    "Solo membresias owner o manager inactivas",
+  "Owner/manager memberships": "Membresias owner/manager",
+  "Owner/manager memberships in dedicated view":
+    "Membresias owner/manager en vista dedicada",
+  "Profiles/Auth accounts returned by the read model":
+    "Cuentas perfil/Auth devueltas por el read model",
+  "Rows are the non-admin subset; totals below show the wider personal-account read model.":
+    "Las filas son el subconjunto no admin; los totales abajo muestran el read model mas amplio de cuentas personales.",
+  "Rows include current access plus archived, suspended, pending, or inactive owner/manager history.":
+    "Las filas incluyen acceso actual mas historial owner/manager archivado, suspendido, pendiente o inactivo.",
+  "Server search returned no rows. Clear the search to return to the default view.":
+    "La busqueda server no devolvio filas. Limpia la busqueda para volver a la vista predeterminada.",
+  "Shop Admin accounts": "Cuentas Shop Admin",
+  "Shop Admin accounts are personal accounts with shop_owner or shop_manager membership in shop_members, including historical and disabled contexts.":
+    "Las cuentas Shop Admin son cuentas personales con membresia shop_owner o shop_manager en shop_members, incluyendo contextos historicos y deshabilitados.",
+  "Shop Admins and Platform Admins are intentionally excluded from this default Users table.":
+    "Shop Admins y Platform Admins se excluyen intencionalmente de esta tabla Users predeterminada.",
+  "Showing normal personal accounts only":
+    "Mostrando solo cuentas personales normales",
+  "Showing normal personal accounts only. Shop Admins and Platform Admins are shown in dedicated views.":
+    "Mostrando solo cuentas personales normales. Shop Admins y Platform Admins se muestran en vistas dedicadas.",
+  "Summary": "Resumen",
+  "Visible normal users": "Usuarios normales visibles",
+  "Active record": "Registro activo",
+  "Archived record": "Registro archivado",
+  "Archived record: visible in Master Console for history and audit, but not available for operational access.":
+    "Registro archivado: visible en Master Console para historial y auditoria, pero no disponible para acceso operativo.",
+  "Archived shop": "Shop archivado",
+  "Available action": "Accion disponible",
+  "Created or provisioned shop that is not operational yet: visible in Master Console, but not available to shop users.":
+    "Shop creado o provisionado que aun no es operativo: visible en Master Console, pero no disponible para usuarios del shop.",
+  "Current status": "Estado actual",
+  "Device rows": "Filas de dispositivo",
+  "Devices visible": "Dispositivos visibles",
+  "Devices / sync / audit": "Dispositivos / sync / auditoria",
+  "Diagnostics / boundary rows": "Diagnostico / filas boundary",
+  "Fiscal identity": "Identidad fiscal",
+  "Fiscal identity not configured": "Identidad fiscal no configurada",
+  "Internal rows returned by the server boundary for review and troubleshooting.":
+    "Filas internas devueltas por el boundary servidor para revision y troubleshooting.",
+  "Latest audit": "Ultima auditoria",
+  "Latest device update": "Ultima actualizacion de dispositivo",
+  "Managed by": "Gestionado por",
+  "Meaning": "Significado",
+  "Membership record summary for this shop.": "Resumen de registros de membresia para este shop.",
+  "Membership records": "Registros de membresia",
+  "Memberships are preserved, but operational access is disabled.":
+    "Las membresias se conservan, pero el acceso operativo esta deshabilitado.",
+  "No audit event visible": "No hay evento de auditoria visible",
+  "No devices visible": "No hay dispositivos visibles",
+  "No lifecycle action available": "No hay accion de lifecycle disponible",
+  "No sync visible": "No hay sync visible",
+  "Operational access": "Acceso operativo",
+  "Operational members": "Miembros operativos",
+  "Operational shop: available to Admin Console, shop switcher, POS, and sync flows according to existing permissions.":
+    "Shop operativo: disponible para Admin Console, selector de shop, POS y flujos sync segun los permisos existentes.",
+  "Owner summary": "Resumen de propietarios",
+  "Pending record": "Registro pendiente",
+  "Pending shop": "Shop pendiente",
+  "Platform Admin diagnostic rows rendered from server-provided rows.":
+    "Filas diagnosticas de Platform Admin renderizadas desde filas provistas por el servidor.",
+  "Restore / reopen": "Restaurar / reabrir",
+  "Shop profile & fiscal identity": "Perfil shop e identidad fiscal",
+  "Some related rows are not visible through the current read boundary.":
+    "Algunas filas relacionadas no son visibles mediante el boundary de lectura actual.",
+  "Status & lifecycle": "Estado y lifecycle",
+  "Support signals from the current Master Console boundary.":
+    "Señales de soporte desde el boundary actual de Master Console.",
+  "Suspended record": "Registro suspendido",
+  "Suspended shop": "Shop suspendido",
+  "Sync & audit rows are compact support signals, not daily device management.":
+    "Las filas de sync y auditoria son señales compactas de soporte, no gestion diaria de dispositivos.",
+  "Temporarily blocked shop: data and memberships are preserved, while operational access and operational writes are disabled.":
+    "Shop bloqueado temporalmente: datos y membresias se conservan, mientras acceso operativo y escrituras operativas quedan deshabilitados.",
   "Audited create/update/archive": "Creación/actualización/archivo auditados",
   "Audited create/update/archive/restore":
     "Creación/actualización/archivo/restauración auditados",
@@ -2831,6 +3523,24 @@ const esRenderedCorrectiveExact: Record<string, string> = {
   "Active until": "Activo hasta",
   "Adjust search or filters to show rows already returned by the server boundary.":
     "Ajusta la busqueda o los filtros para mostrar filas ya devueltas por el boundary servidor.",
+  "All access states": "Todos los estados de acceso",
+  "All global access": "Todos los accesos globales",
+  "All owners": "Todos los dueños",
+  "All personal accounts": "Todas las cuentas personales",
+  "All roles": "Todos los roles",
+  "An empty Users table can be correct when the returned accounts are Shop Admins or Platform Admins instead of normal users.":
+    "Una tabla Users vacia puede ser correcta cuando las cuentas devueltas son Shop Admins o Platform Admins en vez de usuarios normales.",
+  "Archived or non-operational owner/manager rows":
+    "Filas owner/manager archivadas o no operativas",
+  "Archived/non-operational owner or manager accounts":
+    "Cuentas owner o manager archivadas/no operativas",
+  "Archived/non-operational owner or manager history":
+    "Historial owner o manager archivado/no operativo",
+  "Auth identity unavailable": "Identidad auth no disponible",
+  "Can access Admin Console now": "Puede acceder ahora a Admin Console",
+  "Client filters are hiding rows returned by the server boundary.":
+    "Los filtros cliente estan ocultando filas devueltas por el boundary servidor.",
+  "Classification": "Clasificacion",
   "Copy": "Copiar",
   "Copy shop code": "Copiar código de shop",
   "Created at": "Creado el",
@@ -3044,7 +3754,6 @@ const esRenderedCorrectiveExact: Record<string, string> = {
   "Visible through Platform Admin": "Visibles mediante Platform Admin",
   "Visible through RLS": "Visibles mediante RLS",
   "Requires review": "Requiere revision",
-  "Historical shops": "Shops historicos",
   "Profiles": "Perfiles",
   "Shop owners": "Owners de shop",
   "Shops without owner": "Shops sin owner",
@@ -3085,7 +3794,16 @@ const zhRenderedCorrectiveExact: Record<string, string> = {
   "Create shop with existing owner": "使用现有 owner 创建店铺",
   "Creates a pending setup shop and stores only redacted owner contact state. Email delivery pending is tracked as PASS_WITH_NOTES_EMAIL_DELIVERY.":
     "创建待设置店铺，并只保存已脱敏的 owner 联系状态。待发送邮件以 PASS_WITH_NOTES_EMAIL_DELIVERY 跟踪。",
+  "Current": "当前",
+  "Current account": "当前账号",
+  "Current and historical": "当前和历史",
+  "Current means active membership on an operational shop; Historical only means the owner/manager link is retained for audit but cannot open Admin Console now.":
+    "当前表示运营店铺上的启用成员关系；仅历史表示保留 owner/manager 关联用于审计，但现在不能打开 Admin Console。",
+  "Current Platform Admin account": "当前 Platform Admin 账号",
   "Current result set": "当前结果集",
+  "Current session": "当前会话",
+  "Current Shop Admins": "当前 Shop Admin",
+  "Current view": "当前视图",
   "Data rows": "数据行",
   "Data health": "数据健康",
   "Deleted entries": "已删除条目",
@@ -3104,6 +3822,92 @@ const zhRenderedCorrectiveExact: Record<string, string> = {
     "将目录数据库 .xlsx 或 .xls workbook 拖到这里，或选择文件。",
   "Editable rows": "可编辑行",
   "Enabled": "已启用",
+  "Disabled": "已禁用",
+  "Disabled memberships": "已禁用成员关系",
+  "Historical": "历史",
+  "Historical shop access": "历史店铺访问",
+  "Historical Shop Admins": "历史 Shop Admin",
+  "Historical shops": "历史店铺",
+  "Inactive owner/manager rows": "非活动 owner/manager 行",
+  "More than one linked shop": "关联超过一个店铺",
+  "No personal account has shop_owner or shop_manager membership visible through shop_members. Future shop_code claim flows should create shop_members rows, not platform_admin grants.":
+    "没有个人账号通过 shop_members 显示 shop_owner 或 shop_manager 成员关系。未来 shop_code 认领流程应创建 shop_members 行，而不是 platform_admin 授权。",
+  "No normal users in this view": "此视图中没有普通用户",
+  "No shop admin membership": "无 shop admin 成员关系",
+  "Only inactive owner or manager memberships":
+    "只有非活动 owner 或 manager 成员关系",
+  "Owner/manager memberships": "Owner/manager 成员关系",
+  "Owner/manager memberships in dedicated view":
+    "专用视图中的 owner/manager 成员关系",
+  "Profiles/Auth accounts returned by the read model":
+    "读取模型返回的 Profile/Auth 账号",
+  "Rows are the non-admin subset; totals below show the wider personal-account read model.":
+    "行是非管理员子集；下面的总数显示更宽的个人账号读取模型。",
+  "Rows include current access plus archived, suspended, pending, or inactive owner/manager history.":
+    "行包括当前访问，以及已归档、暂停、待处理或非活动 owner/manager 历史。",
+  "Server search returned no rows. Clear the search to return to the default view.":
+    "服务端搜索没有返回行。清除搜索以返回默认视图。",
+  "Shop Admin accounts": "Shop Admin 账号",
+  "Shop Admin accounts are personal accounts with shop_owner or shop_manager membership in shop_members, including historical and disabled contexts.":
+    "Shop Admin 账号是 shop_members 中具有 shop_owner 或 shop_manager 成员关系的个人账号，包括历史和禁用上下文。",
+  "Shop Admins and Platform Admins are intentionally excluded from this default Users table.":
+    "Shop Admin 和 Platform Admin 会被有意排除在此默认 Users 表之外。",
+  "Showing normal personal accounts only": "仅显示普通个人账号",
+  "Showing normal personal accounts only. Shop Admins and Platform Admins are shown in dedicated views.":
+    "仅显示普通个人账号。Shop Admin 和 Platform Admin 会显示在专用视图中。",
+  "Summary": "摘要",
+  "Visible normal users": "可见普通用户",
+  "Active record": "启用记录",
+  "Archived record": "已归档记录",
+  "Archived record: visible in Master Console for history and audit, but not available for operational access.":
+    "已归档记录：可在主控台中用于历史和审计，但不可用于运营访问。",
+  "Archived shop": "已归档店铺",
+  "Available action": "可用操作",
+  "Created or provisioned shop that is not operational yet: visible in Master Console, but not available to shop users.":
+    "已创建或已开通但尚未运营的店铺：可在主控台中查看，但店铺用户不可使用。",
+  "Current status": "当前状态",
+  "Device rows": "设备行",
+  "Devices visible": "可见设备",
+  "Devices / sync / audit": "设备 / 同步 / 审计",
+  "Diagnostics / boundary rows": "诊断 / 边界行",
+  "Fiscal identity": "税务身份",
+  "Fiscal identity not configured": "税务身份未配置",
+  "Internal rows returned by the server boundary for review and troubleshooting.":
+    "服务端边界返回的内部行，用于复核和故障排查。",
+  "Latest audit": "最新审计",
+  "Latest device update": "最新设备更新",
+  "Managed by": "管理方",
+  "Meaning": "含义",
+  "Membership record summary for this shop.": "此店铺的成员关系记录摘要。",
+  "Membership records": "成员关系记录",
+  "Memberships are preserved, but operational access is disabled.":
+    "成员关系会保留，但运营访问已禁用。",
+  "No audit event visible": "没有可见审计事件",
+  "No devices visible": "没有可见设备",
+  "No lifecycle action available": "没有可用的生命周期操作",
+  "No sync visible": "没有可见同步",
+  "Operational access": "运营访问",
+  "Operational members": "运营成员",
+  "Operational shop: available to Admin Console, shop switcher, POS, and sync flows according to existing permissions.":
+    "运营店铺：按现有权限可用于店铺管理台、店铺切换器、POS 和同步流程。",
+  "Owner summary": "所有者摘要",
+  "Pending record": "待处理记录",
+  "Pending shop": "待处理店铺",
+  "Platform Admin diagnostic rows rendered from server-provided rows.":
+    "平台管理诊断行由服务端提供的行渲染。",
+  "Restore / reopen": "恢复 / 重新打开",
+  "Shop profile & fiscal identity": "店铺资料和税务身份",
+  "Some related rows are not visible through the current read boundary.":
+    "部分相关行在当前读取边界下不可见。",
+  "Status & lifecycle": "状态和生命周期",
+  "Support signals from the current Master Console boundary.":
+    "来自当前主控台边界的支持信号。",
+  "Suspended record": "已暂停记录",
+  "Suspended shop": "已暂停店铺",
+  "Sync & audit rows are compact support signals, not daily device management.":
+    "同步和审计行是精简的支持信号，不是日常设备管理。",
+  "Temporarily blocked shop: data and memberships are preserved, while operational access and operational writes are disabled.":
+    "临时阻止的店铺：数据和成员关系会保留，同时禁用运营访问和运营写入。",
   "Audited create/update/archive": "已审计的创建/更新/归档",
   "Audited create/update/archive/restore": "已审计的创建/更新/归档/恢复",
   "Entry name": "条目名称",
@@ -3112,6 +3916,24 @@ const zhRenderedCorrectiveExact: Record<string, string> = {
   "Active until": "有效至",
   "Adjust search or filters to show rows already returned by the server boundary.":
     "调整搜索或筛选条件，以显示服务端边界已返回的行。",
+  "All access states": "所有访问状态",
+  "All global access": "所有全局访问",
+  "All owners": "所有 owner",
+  "All personal accounts": "所有个人账号",
+  "All roles": "所有角色",
+  "An empty Users table can be correct when the returned accounts are Shop Admins or Platform Admins instead of normal users.":
+    "当返回的账号是 Shop Admin 或 Platform Admin 而不是普通用户时，Users 表为空也可能是正确的。",
+  "Archived or non-operational owner/manager rows":
+    "已归档或非运营 owner/manager 行",
+  "Archived/non-operational owner or manager accounts":
+    "已归档/非运营 owner 或 manager 账号",
+  "Archived/non-operational owner or manager history":
+    "已归档/非运营 owner 或 manager 历史",
+  "Auth identity unavailable": "Auth 身份不可用",
+  "Can access Admin Console now": "现在可访问 Admin Console",
+  "Client filters are hiding rows returned by the server boundary.":
+    "客户端筛选正在隐藏服务端边界返回的行。",
+  "Classification": "分类",
   "Copy": "复制",
   "Copy shop code": "复制店铺代码",
   "Created at": "创建时间",
@@ -3321,7 +4143,6 @@ const zhRenderedCorrectiveExact: Record<string, string> = {
   "Visible through Platform Admin": "通过 Platform Admin 可见",
   "Visible through RLS": "通过 RLS 可见",
   "Requires review": "需要复核",
-  "Historical shops": "历史店铺",
   "Profiles": "个人资料",
   "Shop owners": "店铺 owner",
   "Shops without owner": "无 owner 店铺",
@@ -3400,6 +4221,27 @@ const en: Dictionary = {
       eyebrow: "Master Console",
       formLabel: "Master Console sign in",
       heading: "Master Console sign in",
+    },
+    messages: {
+      auth_not_configured:
+        "Supabase auth is not configured for this runtime.",
+      callback_blocked:
+        "Google sign-in could not complete. Check the account and try again.",
+      callback_missing_code:
+        "Google sign-in did not return a valid callback. Try again.",
+      idle: "",
+      oauth_blocked:
+        "Google sign-in is blocked by the current Supabase or Google configuration.",
+      oauth_google_client_id_invalid:
+        "Google sign-in has a missing or placeholder OAuth client ID for this Supabase target.",
+      oauth_not_configured:
+        "Google sign-in is not configured for this runtime.",
+      oauth_origin_missing:
+        "Google sign-in could not determine the current app origin.",
+      oauth_provider_not_enabled:
+        "Google sign-in is not enabled in the local Supabase Auth configuration. Add the Google OAuth client ID and secret, then restart Supabase.",
+      oauth_redirect_misconfigured:
+        "Google sign-in is misconfigured: Supabase returned an old Vercel redirect. Update Supabase Auth URLs before retrying.",
     },
     safetyBadges: [
       "SSR session",
@@ -3576,6 +4418,27 @@ const it: Dictionary = {
       eyebrow: "Master Console",
       formLabel: "Accesso Master Console",
       heading: "Accesso Master Console",
+    },
+    messages: {
+      auth_not_configured:
+        "Auth Supabase non configurata per questo runtime.",
+      callback_blocked:
+        "Accesso Google non completato. Controlla l'account e riprova.",
+      callback_missing_code:
+        "Accesso Google senza callback valido. Riprova.",
+      idle: "",
+      oauth_blocked:
+        "Accesso Google bloccato dalla configurazione Supabase o Google corrente.",
+      oauth_google_client_id_invalid:
+        "Accesso Google con client ID OAuth mancante o placeholder per questo target Supabase.",
+      oauth_not_configured:
+        "Accesso Google non configurato per questo runtime.",
+      oauth_origin_missing:
+        "Accesso Google: origine app corrente non determinabile.",
+      oauth_provider_not_enabled:
+        "Accesso Google non abilitato nella configurazione locale Supabase Auth. Aggiungi client ID e secret OAuth Google, poi riavvia Supabase.",
+      oauth_redirect_misconfigured:
+        "Accesso Google configurato male: Supabase ha restituito un vecchio redirect Vercel. Aggiorna gli URL Auth Supabase e riprova.",
     },
     safetyBadges: [
       "Sessione SSR",
@@ -3755,6 +4618,27 @@ const es: Dictionary = {
       formLabel: "Ingreso Master Console",
       heading: "Ingreso Master Console",
     },
+    messages: {
+      auth_not_configured:
+        "Auth Supabase no esta configurada para este runtime.",
+      callback_blocked:
+        "El ingreso con Google no se completo. Revisa la cuenta e intenta de nuevo.",
+      callback_missing_code:
+        "Google no devolvio un callback valido. Intenta de nuevo.",
+      idle: "",
+      oauth_blocked:
+        "El ingreso con Google esta bloqueado por la configuracion Supabase o Google actual.",
+      oauth_google_client_id_invalid:
+        "El ingreso con Google tiene un client ID OAuth faltante o placeholder para este target Supabase.",
+      oauth_not_configured:
+        "El ingreso con Google no esta configurado para este runtime.",
+      oauth_origin_missing:
+        "El ingreso con Google no pudo determinar el origen actual de la app.",
+      oauth_provider_not_enabled:
+        "El ingreso con Google no esta habilitado en la configuracion local de Supabase Auth. Agrega el client ID y secret OAuth de Google, luego reinicia Supabase.",
+      oauth_redirect_misconfigured:
+        "El ingreso con Google esta mal configurado: Supabase devolvio un redirect antiguo de Vercel. Actualiza los URL de Auth Supabase e intenta de nuevo.",
+    },
     safetyBadges: [
       "Sesion SSR",
       "Lecturas server-side",
@@ -3928,6 +4812,21 @@ const zhCN: Dictionary = {
       eyebrow: "主控台",
       formLabel: "主控台登录",
       heading: "主控台登录",
+    },
+    messages: {
+      auth_not_configured: "此运行时未配置 Supabase auth。",
+      callback_blocked: "Google 登录未完成。请检查账号后重试。",
+      callback_missing_code: "Google 登录未返回有效 callback。请重试。",
+      idle: "",
+      oauth_blocked: "当前 Supabase 或 Google 配置阻止了 Google 登录。",
+      oauth_google_client_id_invalid:
+        "此 Supabase target 的 Google 登录 OAuth client ID 缺失或仍是 placeholder。",
+      oauth_not_configured: "此运行时未配置 Google 登录。",
+      oauth_origin_missing: "Google 登录无法确定当前应用 origin。",
+      oauth_provider_not_enabled:
+        "本地 Supabase Auth 配置未启用 Google 登录。请添加 Google OAuth client ID 和 secret，然后重启 Supabase。",
+      oauth_redirect_misconfigured:
+        "Google 登录配置错误：Supabase 返回了旧的 Vercel redirect。请更新 Supabase Auth URL 后重试。",
     },
     safetyBadges: ["SSR 会话", "服务端读取", "浏览器无 service key"],
     shopCodeTab: "店铺代码",

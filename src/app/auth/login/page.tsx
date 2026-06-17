@@ -3,6 +3,8 @@ import Link from "next/link";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { ShopCodeLoginForm } from "@/components/auth/ShopCodeLoginForm";
+import { safeInternalNextPath } from "@/lib/auth/oauth-redirect";
+import type { Dictionary } from "@/i18n/dictionaries";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
 
@@ -22,12 +24,19 @@ type LoginPageProps = {
   searchParams: LoginPageSearchParams;
 };
 
+type AuthLoginMessages = Dictionary["authLogin"]["messages"];
+
 function getSingleSearchParamValue(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function isSafeInternalNextPath(value: string | undefined): value is string {
-  return Boolean(value?.startsWith("/") && !value.startsWith("//"));
+function authLoginMessage(
+  messages: AuthLoginMessages,
+  value: string | undefined,
+) {
+  return value && value in messages
+    ? messages[value as keyof AuthLoginMessages]
+    : "";
 }
 
 function loginHref(nextPath: string, mode: "admin-account" | "shop-code") {
@@ -56,7 +65,8 @@ export default async function PlatformAdminLoginPage({
   const next = getSingleSearchParamValue(query.next);
   const mode = getSingleSearchParamValue(query.mode);
   const result = getSingleSearchParamValue(query.result);
-  const nextPath = isSafeInternalNextPath(next) ? next : "/shop";
+  const error = getSingleSearchParamValue(query.error);
+  const nextPath = safeInternalNextPath(next, "/shop");
   const isMasterConsole = next === "/platform";
   const activeLoginMode =
     !isMasterConsole && mode === "shop-code" ? "shop-code" : "admin-account";
@@ -180,6 +190,12 @@ export default async function PlatformAdminLoginPage({
               isConfigured={isConfigured}
               formLabel={content.formLabel}
               labels={dictionary.authForm}
+              resultMessage={
+                authLoginMessage(
+                  dictionary.authLogin.messages,
+                  result ?? error ?? "idle",
+                )
+              }
             />
           ) : (
             <ShopCodeLoginForm

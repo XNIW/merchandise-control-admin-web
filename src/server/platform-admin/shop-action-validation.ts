@@ -2,6 +2,8 @@ import "server-only";
 
 import type { ShopStatus } from "@/domain/platform-admin/types";
 import type {
+  AssignShopMemberInput,
+  ActivateShopInput,
   CreateShopInput,
   CreatePosFirstShopInput,
   CreateShopWithOwnerBootstrapInput,
@@ -11,7 +13,9 @@ import type {
   PendingOwnerInviteWithFiscalInput,
   PlatformAdminGrantInput,
   PlatformAdminRevokeInput,
+  RevokeShopMemberInput,
   RestoreShopInput,
+  PurgeShopInput,
   ShopStatusActionInput,
   SoftDeleteShopInput,
   UpdateShopProfileInput,
@@ -149,8 +153,12 @@ function validateFiscalIdentityInput(input: FiscalIdentityInput) {
 
 export function canTransitionShopStatus(
   status: ShopStatus,
-  action: "suspend" | "reactivate" | "soft_delete" | "restore",
+  action: "activate" | "suspend" | "reactivate" | "soft_delete" | "restore",
 ) {
+  if (action === "activate") {
+    return status === "pending_setup";
+  }
+
   if (action === "suspend") {
     return status === "active" || status === "pending_setup";
   }
@@ -355,6 +363,116 @@ export function validateSoftDeleteShopInput(input: SoftDeleteShopInput) {
 
 export function validateRestoreShopInput(input: RestoreShopInput) {
   return validateSoftDeleteShopInput(input);
+}
+
+export function validateActivateShopInput(input: ActivateShopInput) {
+  return validateSoftDeleteShopInput(input);
+}
+
+export function validatePurgeShopInput(input: PurgeShopInput) {
+  const fieldErrors: Record<string, string> = {};
+  const mode = input.mode === "force_test" ? "force_test" : "normal";
+
+  if (!input.shopId.trim()) {
+    fieldErrors.shopId = "Shop is required.";
+  }
+
+  if (!validateRequiredReason(input.reason)) {
+    fieldErrors.reason = "Reason is required.";
+  }
+
+  if (!input.confirmation.trim()) {
+    fieldErrors.confirmation = "Type DELETE followed by the shop code.";
+  } else if (!input.confirmation.trim().startsWith("DELETE ")) {
+    fieldErrors.confirmation = "Type DELETE followed by the shop code.";
+  }
+
+  return {
+    fieldErrors,
+    normalized: {
+      ...input,
+      confirmation: input.confirmation.trim(),
+      mode,
+      reason: input.reason.trim(),
+      shopId: input.shopId.trim(),
+    },
+  };
+}
+
+function normalizeShopMemberRole(value: string) {
+  const normalized = value.trim();
+
+  return normalized === "shop_owner" || normalized === "shop_manager"
+    ? normalized
+    : "";
+}
+
+export function validateAssignShopMemberInput(input: AssignShopMemberInput) {
+  const fieldErrors: Record<string, string> = {};
+  const roleKey = normalizeShopMemberRole(input.roleKey);
+
+  if (!input.shopId.trim()) {
+    fieldErrors.shopId = "Shop is required.";
+  }
+
+  if (!input.profileId.trim()) {
+    fieldErrors.profileId = "Profile is required.";
+  }
+
+  if (!roleKey) {
+    fieldErrors.roleKey = "Role must be shop_owner or shop_manager.";
+  }
+
+  if (!input.shopCodeConfirmation.trim()) {
+    fieldErrors.shopCodeConfirmation = "Shop code confirmation is required.";
+  }
+
+  if (!validateRequiredReason(input.reason)) {
+    fieldErrors.reason = "Reason is required.";
+  }
+
+  return {
+    fieldErrors,
+    normalized: {
+      ...input,
+      profileId: input.profileId.trim(),
+      reason: input.reason.trim(),
+      roleKey,
+      shopCodeConfirmation: normalizeShopCode(input.shopCodeConfirmation),
+      shopId: input.shopId.trim(),
+    },
+  };
+}
+
+export function validateRevokeShopMemberInput(input: RevokeShopMemberInput) {
+  const fieldErrors: Record<string, string> = {};
+
+  if (!input.shopId.trim()) {
+    fieldErrors.shopId = "Shop is required.";
+  }
+
+  if (!input.shopMemberId.trim()) {
+    fieldErrors.shopMemberId = "Membership is required.";
+  }
+
+  if (!input.shopCodeConfirmation.trim()) {
+    fieldErrors.shopCodeConfirmation = "Shop code confirmation is required.";
+  }
+
+  if (!validateRequiredReason(input.reason)) {
+    fieldErrors.reason = "Reason is required.";
+  }
+
+  return {
+    fieldErrors,
+    normalized: {
+      ...input,
+      reason: input.reason.trim(),
+      shopCodeConfirmation: normalizeShopCode(input.shopCodeConfirmation),
+      shopId: input.shopId.trim(),
+      shopMemberId: input.shopMemberId.trim(),
+    },
+  };
 }
 
 export function validateEmergencyRevokeDeviceInput(

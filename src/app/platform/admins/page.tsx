@@ -11,7 +11,11 @@ import type { Profile } from "@/domain/platform-admin/types";
 import { formatDateTime } from "@/i18n/format";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
-import { getPlatformAdminReadModel } from "@/server/platform-admin/read-model";
+import {
+  getPlatformAdminReadModel,
+  type PlatformAdminLiveReadModel,
+  type PlatformUserAccountSummary,
+} from "@/server/platform-admin/read-model";
 import {
   grantPlatformAdminAction,
   revokePlatformAdminAction,
@@ -77,15 +81,68 @@ function profileNameById(
   );
 }
 
+function accountForProfile(
+  readModel: PlatformAdminLiveReadModel,
+  profileId: string,
+) {
+  return readModel.userAccounts.find((account) => account.profileId === profileId);
+}
+
+function accountDisplayName(
+  readModel: PlatformAdminLiveReadModel,
+  profileId: string,
+  fallback: string,
+) {
+  return (
+    accountForProfile(readModel, profileId)?.displayName ??
+    profileNameById(readModel.profiles, profileId, fallback)
+  );
+}
+
+function accountEmail(account: PlatformUserAccountSummary | undefined) {
+  return account?.email ?? "Auth identity unavailable";
+}
+
+function accountOrigin(account: PlatformUserAccountSummary | undefined) {
+  if (!account) {
+    return "Auth identity unavailable";
+  }
+
+  return `${account.provider} / ${formatToken(account.providerType)}`;
+}
+
+function shopAdminOverlap(account: PlatformUserAccountSummary | undefined) {
+  if (!account || account.shopAdminMembershipCount === 0) {
+    return "No shop admin membership";
+  }
+
+  if (account.currentShopAdminMembershipCount > 0) {
+    return `${account.currentShopAdminMembershipCount} current shop admin membership${account.currentShopAdminMembershipCount === 1 ? "" : "s"}`;
+  }
+
+  if (account.historicalShopAdminMembershipCount > 0) {
+    return `${account.historicalShopAdminMembershipCount} historical shop admin membership${account.historicalShopAdminMembershipCount === 1 ? "" : "s"}`;
+  }
+
+  return `${account.disabledShopAdminMembershipCount} disabled shop admin membership${account.disabledShopAdminMembershipCount === 1 ? "" : "s"}`;
+}
+
+function profileOptionLabel(
+  profile: Profile,
+  account: PlatformUserAccountSummary | undefined,
+) {
+  return `${profile.display_name} / ${accountEmail(account)} / Profile ${shortIdentifier(profile.profile_id)}`;
+}
+
 function ReasonInput({ label }: { label: string }) {
   return (
-    <label className="grid gap-1.5 text-sm font-medium text-slate-800">
+    <label className="grid min-w-0 gap-1.5 text-sm font-medium text-slate-800">
       <span>{label}</span>
       <textarea
         name="reason"
         required
         rows={3}
-        className="min-h-20 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
+        className="min-h-20 w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
       />
     </label>
   );
@@ -99,12 +156,12 @@ function ConfirmationInput({
   name?: string;
 }) {
   return (
-    <label className="grid gap-1.5 text-sm font-medium text-slate-800">
+    <label className="grid min-w-0 gap-1.5 text-sm font-medium text-slate-800">
       <span>{label}</span>
       <input
         name={name}
         required
-        className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
+        className="min-h-10 w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
       />
     </label>
   );
@@ -124,7 +181,7 @@ function SubmitButton({
       type="submit"
       disabled={disabled}
       className={[
-        "min-h-10 rounded-md px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
+        "min-h-10 w-full min-w-0 rounded-md px-3 py-2 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-2",
         disabled
           ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400"
           : danger
@@ -146,7 +203,9 @@ export default async function PlatformAdminsPage({
   const { dictionary, locale } = await getI18n();
   const t = (value: string) => translateText(dictionary, value);
   const result = asResultCode(firstParam(params.result));
-  const readModel = await getPlatformAdminReadModel();
+  const readModel = await getPlatformAdminReadModel({
+    includeAuthIdentities: true,
+  });
   const ready = readModel.status === "ready";
   const activeAdminIds = new Set(readModel.platformAdminProfileIds);
   const activeProfiles = readModel.profiles.filter(
@@ -158,6 +217,9 @@ export default async function PlatformAdminsPage({
   const activeAdmins = readModel.platformAdmins.filter(
     (admin) => admin.status === "active",
   );
+  const currentAccount = ready && readModel.currentProfileId
+    ? accountForProfile(readModel, readModel.currentProfileId)
+    : undefined;
 
   return (
     <AppShell activeSection="admins">
@@ -166,10 +228,47 @@ export default async function PlatformAdminsPage({
           eyebrow={t("Global security")}
           title={t("Platform Admins")}
           description={t(
-            "Grant and revoke Platform Admin access through server-side RPCs with anti self-lockout and audit.",
+            "Manage only global Master Console access. Shop owners and managers belong to shop_members, not platform_admins.",
           )}
           status={ready ? t("Live actions") : t(formatToken(readModel.status))}
         />
+
+        <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-5 text-amber-950">
+          <p className="font-semibold">{t("Global access only")}</p>
+          <dl className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            {[
+              {
+                label: t("Master Console"),
+                detail: t("This page controls only global Master Console access."),
+              },
+              {
+                label: t("Shop admins"),
+                detail: t(
+                  "Shop owners and managers are personal accounts linked to shops through shop_members.",
+                ),
+              },
+              {
+                label: t("Shop code claim"),
+                detail: t(
+                  "Connecting or claiming a shop code must create shop_owner or shop_manager membership, not platform_admin.",
+                ),
+              },
+              {
+                label: t("POS staff"),
+                detail: t(
+                  "Staff code, manager 1001, and credential access stay in the separate POS/staff model.",
+                ),
+              },
+            ].map((item) => (
+              <div key={item.label}>
+                <dt className="text-xs font-semibold uppercase tracking-normal text-amber-800">
+                  {item.label}
+                </dt>
+                <dd className="mt-1 text-amber-950">{item.detail}</dd>
+              </div>
+            ))}
+          </dl>
+        </section>
 
         {result ? (
           <section
@@ -183,6 +282,72 @@ export default async function PlatformAdminsPage({
             ].join(" ")}
           >
             {t(resultMessages[result])}
+          </section>
+        ) : null}
+
+        {ready ? (
+          <section
+            aria-label={t("Current Platform Admin account")}
+            className="rounded-md border border-slate-200 bg-white p-4"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
+                  {t("Current Platform Admin account")}
+                </p>
+                <h2 className="mt-1 break-words text-lg font-semibold text-slate-950">
+                  {readModel.currentProfileId
+                    ? accountDisplayName(
+                        readModel,
+                        readModel.currentProfileId,
+                        t("Platform User"),
+                      )
+                    : t("Platform User")}
+                </h2>
+                <p className="mt-1 break-all text-sm text-slate-700">
+                  {accountEmail(currentAccount)}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <span className="rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700">
+                  {t("Current session")}
+                </span>
+                <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
+                  {t("Platform Admin (Master Console)")}
+                </span>
+              </div>
+            </div>
+            <dl className="mt-4 grid gap-3 text-sm text-slate-700 sm:grid-cols-3">
+              <div>
+                <dt className="font-semibold text-slate-500">
+                  {t("Profile ID")}
+                </dt>
+                <dd
+                  title={readModel.currentProfileId ?? undefined}
+                  className="break-all font-mono text-slate-800"
+                >
+                  {readModel.currentProfileId
+                    ? shortIdentifier(readModel.currentProfileId)
+                    : t("Not captured")}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-slate-500">
+                  {t("Provider")}
+                </dt>
+                <dd className="break-words text-slate-800">
+                  {accountOrigin(currentAccount)}
+                </dd>
+              </div>
+              <div>
+                <dt className="font-semibold text-slate-500">
+                  {t("Shop access")}
+                </dt>
+                <dd className="break-words text-slate-800">
+                  {shopAdminOverlap(currentAccount)}
+                </dd>
+              </div>
+            </dl>
           </section>
         ) : null}
 
@@ -243,41 +408,11 @@ export default async function PlatformAdminsPage({
               ))}
             </section>
 
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,0.9fr)_minmax(0,1.4fr)] xl:items-start">
-              <SectionCard
-                title={t("Grant Platform Admin")}
-                description={t(
-                  "Select an active profile, provide a reason, and type GRANT to confirm.",
-                )}
-              >
-                <form action={grantPlatformAdminAction} className="grid max-w-2xl gap-4">
-                  <label className="grid gap-1.5 text-sm font-medium text-slate-800">
-                    <span>{t("Profile")}</span>
-                    <select
-                      name="profileId"
-                      required
-                      className="min-h-10 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
-                    >
-                      <option value="">{t("Select active profile")}</option>
-                      {grantableProfiles.map((profile) => (
-                        <option key={profile.profile_id} value={profile.profile_id}>
-                          {profile.display_name}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <ReasonInput label={t("Reason")} />
-                  <ConfirmationInput label={t("Type GRANT to confirm")} />
-                  <SubmitButton disabled={grantableProfiles.length === 0}>
-                    {t("Grant admin")}
-                  </SubmitButton>
-                </form>
-              </SectionCard>
-
+            <div className="grid gap-5">
               <SectionCard
                 title={t("Active Platform Admins")}
                 description={t(
-                  "Server blocks self-lockout and last-admin removal. Revoke controls are collapsed by default.",
+                  "Global Master Console grants. Server blocks self-lockout and last-admin removal. Revoke controls are collapsed by default.",
                 )}
               >
                 {activeAdmins.length === 0 ? (
@@ -289,85 +424,185 @@ export default async function PlatformAdminsPage({
                   />
                 ) : (
                   <div className="grid gap-3">
-                    {activeAdmins.map((admin) => (
-                      <article
-                        key={admin.platform_admin_id}
-                        className="rounded-md border border-slate-200 bg-slate-50 p-4"
-                      >
-                        <div className="min-w-0">
-                          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-                            <div className="min-w-0">
-                              <h3
-                                title={admin.profile_id}
-                                className="break-words text-base font-semibold text-slate-950"
-                              >
-                                {profileNameById(
-                                  readModel.profiles,
-                                  admin.profile_id,
-                                  t("Platform User"),
+                    {activeAdmins.map((admin) => {
+                      const account = accountForProfile(readModel, admin.profile_id);
+                      const isCurrentAccount =
+                        admin.profile_id === readModel.currentProfileId;
+
+                      return (
+                        <article
+                          key={admin.platform_admin_id}
+                          className="rounded-md border border-slate-200 bg-slate-50 p-4"
+                        >
+                          <div className="min-w-0">
+                            <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="min-w-0">
+                                <h3
+                                  title={admin.profile_id}
+                                  className="break-words text-base font-semibold text-slate-950"
+                                >
+                                  {accountDisplayName(
+                                    readModel,
+                                    admin.profile_id,
+                                    t("Platform User"),
+                                  )}
+                                </h3>
+                                <p className="mt-1 break-all text-sm text-slate-700">
+                                  {accountEmail(account)}
+                                </p>
+                                <p
+                                  title={admin.profile_id}
+                                  className="mt-1 break-all font-mono text-xs text-slate-500"
+                                >
+                                  {t("Profile ID")} {shortIdentifier(admin.profile_id)}
+                                </p>
+                              </div>
+                              <div className="flex flex-wrap gap-2 sm:justify-end">
+                                <span className="w-fit rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
+                                  {t(formatToken(admin.status))}
+                                </span>
+                                <span className="w-fit rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700">
+                                  {t("Platform Admin (Master Console)")}
+                                </span>
+                                {isCurrentAccount ? (
+                                  <span className="w-fit rounded-md border border-slate-950 bg-slate-950 px-2 py-1 text-xs font-semibold text-white">
+                                    {t("Current account")}
+                                  </span>
+                                ) : null}
+                              </div>
+                            </div>
+
+                            <dl className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-3">
+                              <div>
+                                <dt className="font-semibold text-slate-500">
+                                  {t("Provider")}
+                                </dt>
+                                <dd className="break-words text-slate-800">
+                                  {accountOrigin(account)}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="font-semibold text-slate-500">
+                                  {t("Shop access")}
+                                </dt>
+                                <dd className="break-words text-slate-800">
+                                  {shopAdminOverlap(account)}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="font-semibold text-slate-500">
+                                  {t("Grant ID")}
+                                </dt>
+                                <dd
+                                  title={admin.platform_admin_id}
+                                  className="break-all font-mono text-slate-800"
+                                >
+                                  {shortIdentifier(admin.platform_admin_id)}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="font-semibold text-slate-500">
+                                  {t("Granted")}
+                                </dt>
+                                <dd
+                                  title={admin.granted_at}
+                                  className="whitespace-nowrap text-slate-800"
+                                >
+                                  {formatDateTime(locale, admin.granted_at)}
+                                </dd>
+                              </div>
+                            </dl>
+                          </div>
+
+                          <details className="mt-4 rounded-md border border-rose-100 bg-white">
+                            <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus-visible:ring-2 focus-visible:ring-rose-700">
+                              {t("Show revoke controls")}
+                            </summary>
+                            <div className="border-t border-rose-100 bg-rose-50 p-3">
+                              <p className="text-sm leading-5 text-rose-950">
+                                {t(
+                                  "Revoke controls are collapsed by default. Server blocks self-lockout and last-admin removal.",
                                 )}
-                              </h3>
-                              <p
-                                title={admin.profile_id}
-                                className="mt-1 break-all font-mono text-xs text-slate-500"
-                              >
-                                {t("Profile")} {shortIdentifier(admin.profile_id)}
                               </p>
-                            </div>
-                            <span className="w-fit rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
-                              {t(formatToken(admin.status))}
-                            </span>
-                          </div>
-
-                          <dl className="mt-3 grid gap-2 text-sm text-slate-700 sm:grid-cols-2">
-                            <div>
-                              <dt className="font-semibold text-slate-500">
-                                {t("Grant ID")}
-                              </dt>
-                              <dd
-                                title={admin.platform_admin_id}
-                                className="break-all font-mono text-slate-800"
+                              <form
+                                action={revokePlatformAdminAction}
+                                className="mt-3 grid gap-3"
                               >
-                                {shortIdentifier(admin.platform_admin_id)}
-                              </dd>
+                                <input
+                                  type="hidden"
+                                  name="profileId"
+                                  value={admin.profile_id}
+                                />
+                                <ReasonInput label={t("Reason")} />
+                                <ConfirmationInput label={t("Type REVOKE to confirm")} />
+                                <SubmitButton
+                                  danger
+                                  disabled={activeAdmins.length <= 1}
+                                >
+                                  {t("Revoke Platform Admin")}
+                                </SubmitButton>
+                              </form>
                             </div>
-                            <div>
-                              <dt className="font-semibold text-slate-500">
-                                {t("Granted")}
-                              </dt>
-                              <dd
-                                title={admin.granted_at}
-                                className="whitespace-nowrap text-slate-800"
-                              >
-                                {formatDateTime(locale, admin.granted_at)}
-                              </dd>
-                            </div>
-                          </dl>
-                        </div>
-
-                        <details className="mt-4 rounded-md border border-rose-100 bg-white">
-                          <summary className="cursor-pointer px-3 py-2 text-sm font-semibold text-slate-700 outline-none focus-visible:ring-2 focus-visible:ring-rose-700">
-                            {t("Show revoke controls")}
-                          </summary>
-                          <div className="border-t border-rose-100 bg-rose-50 p-3">
-                          <p className="text-sm leading-5 text-rose-950">
-                            {t("Revoke controls are collapsed by default. Server blocks self-lockout and last-admin removal.")}
-                          </p>
-                          <form action={revokePlatformAdminAction} className="mt-3 grid gap-3">
-                            <input type="hidden" name="profileId" value={admin.profile_id} />
-                            <ReasonInput label={t("Reason")} />
-                            <ConfirmationInput label={t("Type REVOKE to confirm")} />
-                            <SubmitButton danger disabled={activeAdmins.length <= 1}>
-                              {t("Revoke admin")}
-                            </SubmitButton>
-                          </form>
-                          </div>
-                        </details>
-                      </article>
-                    ))}
+                          </details>
+                        </article>
+                      );
+                    })}
                   </div>
                 )}
               </SectionCard>
+
+              <details className="rounded-md border border-amber-200 bg-white">
+                <summary className="cursor-pointer px-4 py-3 text-sm font-semibold text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-slate-950">
+                  {t("Advanced global access")}
+                  <span className="mt-1 block text-sm font-normal leading-5 text-slate-600">
+                    {t(
+                      "Grant controls are collapsed by default because Platform Admin is global Master Console access.",
+                    )}
+                  </span>
+                </summary>
+                <div className="border-t border-amber-100 bg-amber-50/60 p-4">
+                  <p className="text-sm leading-5 text-amber-950">
+                    {t(
+                      "Grant Platform Admin is a sensitive global operation. It does not create shop owners, shop managers, shop-code access, or POS staff.",
+                    )}
+                  </p>
+                  <form
+                    action={grantPlatformAdminAction}
+                    className="mt-4 grid w-full max-w-2xl min-w-0 gap-4 rounded-md border border-amber-200 bg-white p-4"
+                  >
+                    <label className="grid min-w-0 gap-1.5 text-sm font-medium text-slate-800">
+                      <span>{t("Profile")}</span>
+                      <select
+                        name="profileId"
+                        required
+                        className="min-h-10 w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-950 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
+                      >
+                        <option value="">{t("Select active profile")}</option>
+                        {grantableProfiles.map((profile) => {
+                          const account = accountForProfile(
+                            readModel,
+                            profile.profile_id,
+                          );
+
+                          return (
+                            <option
+                              key={profile.profile_id}
+                              value={profile.profile_id}
+                            >
+                              {profileOptionLabel(profile, account)}
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </label>
+                    <ReasonInput label={t("Reason")} />
+                    <ConfirmationInput label={t("Type GRANT to confirm")} />
+                    <SubmitButton disabled={grantableProfiles.length === 0}>
+                      {t("Grant Platform Admin")}
+                    </SubmitButton>
+                  </form>
+                </div>
+              </details>
             </div>
           </div>
         )}

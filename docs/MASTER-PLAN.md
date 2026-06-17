@@ -2435,10 +2435,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ### TASK-064 - Master Console Auth/Profile Parity e ricerca utenti Android/iOS
 
-- Stato: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
+- Stato: `DONE_RECONCILED`
 - File task: `docs/TASKS/TASK-064-master-console-auth-profile-parity.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-064/README.md`
-- Fase: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
+- Fase: `DONE_RECONCILED`
 - Responsabile: `NONE`
 - Scopo: rendere visibili e ricercabili in Master Console gli account
   personali Supabase Auth usati da Android/iOS, fondendo in modo sicuro Auth,
@@ -2513,7 +2513,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   `security:scan`, `typecheck`, `lint`, `git diff --check`, `git status`
   con dirty worktree noto; nessun commit/push/stage, nessuna migration cloud,
   nessun grant creato. Il successivo blocco Auth URL Configuration e stato
-  risolto dalla verifica reale finale: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`.
+  risolto nel sotto-pass storico TASK-064C:
+  `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`.
 - TASK-064C final reconciliation 2026-06-16: conferma esplicita utente della
   verifica reale nel browser Master Console cloud. La pagina su runtime
   `platform:cloud:dev` mostra `Runtime target=cloud`, project `jpgo...yvm`,
@@ -2523,7 +2524,25 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   legge Supabase cloud `jpgo...yvm`. Android/iOS/Admin Web risultano allineati
   sul target cloud redatto. Vercel non e hosting operativo per staging, login
   o callback; era solo una configurazione redirect storica da non usare.
-  Stato finale: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`.
+- Final taxonomy reconciliation 2026-06-16: su conferma esplicita utente,
+  TASK-064 e riconciliato a `DONE_RECONCILED` anche per la tassonomia Master
+  Console Users / Shop Admins / Platform Admins. Users e `Personal Accounts`
+  per account personali normali/non-admin o incompleti; Shop Admins deriva da
+  `shop_members` owner/manager includendo current, historical-only e disabled;
+  Platform Admins deriva solo da `platform_admins`; POS/Staff resta separato.
+  UI/read model/test aggiornati: Shop Admins senza overlap, multi-shop compatto
+  in tabella con dettagli in inspector/full detail, Users empty state/notice con
+  CTA dedicate, Platform Admins con email/provider/Profile ID/current account,
+  `Advanced global access` collassato e form aperto contenuto nel box. Gate
+  finali passati: targeted TASK-047/TASK-049/TASK-064 `16/16`,
+  `npm run test:foundation` `342/342`, `npm run security:scan`, `npm run lint`,
+  `npm run typecheck`, `npm run build`, `npm run verify`,
+  `npm run test:platform:local-users` `1 passed`,
+  `npm run test:ui-smoke:ci` `48 passed`, visual QA screenshot desktop/tablet e
+  `git diff --check`. Nessun commit/push/stage; nessun
+  schema/migration/RPC/RLS; TASK-065 OAuth e TASK-067 lifecycle/cleanup restano
+  fuori scope separati.
+  Stato finale: `DONE_RECONCILED`.
 
 ### TASK-063 - History Sync Console cross-platform diagnostics
 
@@ -2623,7 +2642,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `IDLE`
+- Stato globale attuale: `TASK_ACTIVE`
 - Ultimo task completato: `TASK-061 - Android database export compatibility for Admin Web database transfer`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
@@ -2699,23 +2718,33 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Task TASK-063: `TASK-063 - History Sync Console cross-platform diagnostics`
 - File task TASK-063: `docs/TASKS/TASK-063-history-sync-console-cross-platform.md`
 - Evidence TASK-063: `docs/TASKS/EVIDENCE/history-sync-cross-platform-contract.md`
-- Stato TASK-064: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
-- Fase TASK-064: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
+- Stato TASK-064: `DONE_RECONCILED`
+- Fase TASK-064: `DONE_RECONCILED`
 - Task TASK-064: `TASK-064 - Master Console Auth/Profile Parity e ricerca utenti Android/iOS`
 - File task TASK-064: `docs/TASKS/TASK-064-master-console-auth-profile-parity.md`
 - Evidence TASK-064: `docs/TASKS/EVIDENCE/TASK-064/README.md`
+- Stato TASK-065: `REVIEW_WITH_SECURITY_BLOCKER`
+- Fase TASK-065: `BLOCKED_SECURITY`
+- Task TASK-065: `TASK-065 - Fix Master Console Google OAuth redirect`
+- File task TASK-065: `docs/TASKS/TASK-065-fix-master-console-google-oauth-redirect.md`
+- Evidence TASK-065: `docs/TASKS/EVIDENCE/TASK-065/README.md`
+- Stato TASK-067: `DONE_RECONCILED`
+- Fase TASK-067: `DONE_RECONCILED`
+- Task TASK-067: `TASK-067 - Master Console lifecycle management, admin assignment, and safe cleanup`
+- File task TASK-067: `docs/TASKS/TASK-067-master-console-lifecycle-management-admin-assignment-safe-cleanup.md`
+- Evidence TASK-067: `docs/TASKS/EVIDENCE/TASK-067/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Task attivo: `NESSUNO`
+- Task attivo: `TASK-065 - Fix Master Console Google OAuth redirect`
 - Task precedente: `TASK-061 - Android database export compatibility for Admin Web database transfer`
-- Ultimo task chiuso: `TASK-064 - Master Console Auth/Profile Parity e ricerca utenti Android/iOS`
-- File task: `docs/TASKS/TASK-064-master-console-auth-profile-parity.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-064/README.md`
-- Stato task: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
-- Fase: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`
+- Ultimo task chiuso: `TASK-067 - Master Console lifecycle management, admin assignment, and safe cleanup`
+- File task: `docs/TASKS/TASK-065-fix-master-console-google-oauth-redirect.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-065/README.md`
+- Stato task: `REVIEW_WITH_SECURITY_BLOCKER`
+- Fase: `BLOCKED_SECURITY`
 - Milestone interna: `TASK_061_HISTORY_SYNC_TASK_062_INTEGRATION_READY_FOR_REVIEWED_COMMIT`
 - Responsabile: `NONE`
-- Branch previsto: `codex/task-061-android-database-export`
+- Branch previsto: `codex/task-065-google-oauth-redirect`
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
 - Task Vercel parcheggiato: `TASK-031 - Vercel Preview retry after environment docs`
@@ -2760,6 +2789,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-060: `DONE`
 - Verdict TASK-061: `DONE`
 - Verdict TASK-063: `HISTORY_SYNC_ALREADY_MERGED` / `TASK_TRACKING_NORMALIZED`
+- Verdict TASK-065: `BLOCKED_SECURITY`
+- Verdict TASK-067: `DONE_RECONCILED`
+- Review-fix TASK-065 2026-06-16/17: il 400 locale Supabase `Unsupported provider: provider is not enabled` e stato riprodotto su `127.0.0.1:54321/auth/v1/authorize`; `supabase/config.toml` ora abilita `[auth.external.google]` con placeholder env e `.env.example` dichiara le variabili vuote. Nella review-fix iniziale Docker e Supabase locale sono raggiungibili e il provider reindirizza a Google, ma il redirect locale contiene `client_id=env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)` perche il runtime locale non ha un OAuth client reale. Review finale ha rafforzato repo-side: `next` rifiuta backslash/control chars, origin OAuth deriva da host/proxy prima di `Origin`, qualsiasi host Vercel nel flusso OAuth e bloccato, la probe server-side ha timeout 3s e client ID placeholder/invalid ha result dedicato `oauth_google_client_id_invalid`. Lo smoke `npm run smoke:oauth:local` classifica `PASS`, `BLOCKED_EXTERNAL_CONFIG` o `FAIL_CODE_REGRESSION`, controlla `/platform` e `/shop`, e blocca error page/HTTP error di Google. Un tentativo di unblock del 2026-06-17 ha caricato il Client ID Google reale in `.env` ignorato da git e GoTrue lo risolve (`*.apps.googleusercontent.com`), ma il Client Secret non e stato letto dal comando zsh e resta placeholder; Google classifica inoltre il callback locale `http://127.0.0.1:54321/auth/v1/callback` come `redirect_uri_mismatch`. Unblock finale 2026-06-17: Client Secret scritto solo in `.env` locale ignorato da git tramite prompt macOS nascosto, Supabase riavviato con output silenziato, GoTrue risolve client ID e secret reali senza placeholder, `npm run smoke:oauth:local` PASS per `/platform` e `/shop`, browser process-only locale `127.0.0.1:3055` porta Master/Admin account a `accounts.google.com/v3/signin/identifier` senza Vercel/JSON/Google error, shop-code non mostra Google. Check finali PASS: TASK-065 targeted 10/10, security scan, foundation 342/342, smoke OAuth, lint, typecheck, build con warning noti, browser smoke e git diff check. Codex non marca DONE; pronto per review e conferma esplicita utente. Follow-up: ruotare il Client Secret Google perche e stato incollato in chat durante l'unblock.
+- Final DONE closure TASK-065 2026-06-17: chiusura `DONE` bloccata da sicurezza. Il Google Client Secret e stato incollato in chat dall'utente e non e possibile verificare da terminale la rotazione/revoca del secret nel Google Cloud OAuth client (`gcloud` non disponibile, screenshot non sufficiente come prova machine-readable). `~/.supabase/access-token` era presente; `supabase logout` non ha rimosso il file per profilo CLI mancante/non-interactive, quindi il file locale e stato rimosso manualmente e verificato assente. Revoca remota token Supabase non verificabile da questo runtime. Verdict finale `BLOCKED_SECURITY`; non eseguiti i gate DONE completi della closure perche il primo gate sicurezza e bloccante.
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
 - DONE reconciliation 2026-06-06: su conferma esplicita utente, TASK-046..TASK-050 chiusi a `DONE_RECONCILED`; TASK-040 e TASK-041 restano `REVIEW_WITH_EXTERNAL_BLOCKERS`, TASK-042 resta `READY_FOR_WIN7_MANUAL_TEST`. Commit/push finale su `main` richiesti dall'utente.
 - TASK-051 aperto in execution il 2026-06-06 da brief allegato: provisioning fiscal identity, POS-first bootstrap, manager staff `1001`, Temporary PIN server-side, Admin Console fiscal identity read-only. `shop_code` resta tecnico e `company_rut` separato per compatibilita RUT cileno. Non applicare migration su production e non dichiarare PIN raw/audit/log/evidence.
@@ -2958,6 +2991,16 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Review-fix 2 Codex TASK-056 2026-06-11: full detail shop completato con card read-only `Shop profile & fiscal identity` per Shop name, Shop code, Shop ID, Status, Company RUT, Giro, Address, City, Legal representative RUT, Created e Updated; valori mancanti mostrano `Not configured`. Il trigger `Edit` e stato spostato in quella card con aria-label `Edit shop profile and fiscal identity`, mentre il dialog continua a modificare solo campi gia visibili e `shop_code` resta non editabile. Aggiunta card `Operational summary` con soli aggregati boundary-safe; Products/Categories/Suppliers restano `Not available through current boundary` quando non disponibili. Nessuna nuova migration/RPC/schema, nessun dato finto, nessun service-role client/browser. Check review-fix 2: targeted TASK-056 PASS 5/5, `test:foundation` PASS 257/257, `lint` PASS, `typecheck` PASS, `security:scan` PASS, `build` PASS_WITH_WARNINGS, `verify` PASS_WITH_WARNINGS.
 - DONE gate finale TASK-055/TASK-056 2026-06-11: su conferma esplicita utente nel brief `Final Review / DONE Gate - TASK-055 + TASK-056 Admin Web`, entrambi riconciliati a `DONE_RECONCILED`. Corretto drift E2E repo-controllabile: `test:platform:local` riallineato al provisioning TASK-051 e agli audit event transazionali; aggiunto `test:platform:local-shop-profile` con fixture sintetica Platform Admin/shop, edit dialog, update auditato, shop_code immutato e cleanup. Gate reali passati: TASK-055 targeted 11/11, TASK-056 targeted 5/5, `security:scan`, `test:foundation` 257/257, `lint`, `typecheck`, `build`, `verify`, `test:shop-admin-auth-smoke` 4/4, `test:platform:local` 1/1, `test:platform:local-login` 1/1, `test:platform:local-shop-profile` 1/1, `supabase migration list --local`, `supabase migration up --local`, `supabase db lint --local --schema public,app_private --fail-on error`, `git diff --check`. `npm run db:local:status` resta `FAIL_CLOSED` per `.env.local` puntato a `supabase_cloud`, ma container Supabase locale, RPC `platform_update_shop_profile`, migration e lint sono verificati. Cleanup locale: zero shop attivi/non archiviati `TASK035_%`, `TASK045_%`, `TASK056_%` e zero Platform Admin attivi TASK056; audit append-only e shop TASK056 archiviati possono restare. Nessun production/cloud apply, nessun dato reale, nessun commit/push/stage. Vercel/Cloudflare production, Win7POS live e Sales Sync live restano parcheggiati/non promossi.
 - Prossima azione consigliata: selezionare un prossimo task esplicito da aprire in `PLANNING`/`EXECUTION`, mantenendo parcheggiati Vercel production, Win7POS live/Sales Sync live e Cloudflare production finche non esistono target, credenziali e conferma esplicita. Non marcare `TASK-041 DONE` o `TASK-040 DONE` e non dichiarare Win7POS live/Sales Sync live `PASS` finche mancano run reali/evidence.
+
+- Final reconciliation TASK-067 2026-06-17: su review prodotto positiva e
+  approvazione esplicita dell'utente, `TASK-067` e chiuso a
+  `DONE_RECONCILED`. Stato tecnico riconciliato: `typecheck`, `lint`,
+  `security:scan`, `test:foundation` `342/342`, `build`, `verify`,
+  `git diff --check`, `supabase migration up --local`, QA autenticata e force
+  purge test shop con snapshot globale/audit success tutti PASS. Production
+  hard delete resta bloccato; user purge/auth.users resta fuori scope;
+  TASK-065/OAuth resta task separato e non viene modificato da `TASK-067`.
+  Questa reconciliation non modifica codice e non esegue commit/push/stage.
 
 ## Regole di avanzamento
 

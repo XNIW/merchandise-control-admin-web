@@ -27,10 +27,11 @@ type SupabaseOperationResult = {
 
 const platformRoutes = [
   { heading: "Platform Overview", label: "Overview", path: "/platform" },
-  { heading: "Users / Profiles", label: "Users", path: "/platform/users" },
+  { heading: "Personal Accounts", label: "Users", path: "/platform/users" },
+  { heading: "Shop Admins", label: "Shop Admins", path: "/platform/shop-admins" },
   { heading: "Shops", label: "Shops", path: "/platform/shops" },
   { heading: "Provisioning", label: "Provisioning", path: "/platform/provisioning" },
-  { heading: "Platform Admins", label: "Admins", path: "/platform/admins" },
+  { heading: "Platform Admins", label: "Platform Admins", path: "/platform/admins" },
   { heading: "Audit", label: "Audit", path: "/platform/audit" },
   { heading: "System Status", label: "System", path: "/platform/system" },
   { heading: "Data Health", label: "Data", path: "/platform/data" },
@@ -623,9 +624,15 @@ test.describe("TASK-045 Platform Master Console final review", () => {
       }
 
       await page.goto("/platform/admins");
+      await expect(page.getByText("Advanced global access")).toBeVisible();
       await expect(
-        page.getByRole("heading", { level: 2, name: "Grant Platform Admin" }),
+        page.getByText(
+          "Grant controls are collapsed by default because Platform Admin is global Master Console access.",
+        ),
       ).toBeVisible();
+      await expect(
+        page.getByRole("button", { name: "Grant Platform Admin" }),
+      ).toHaveCount(0);
       await page.goto("/platform/provisioning");
       await expect(
         page.getByRole("heading", { level: 2, name: "Create shop" }),
@@ -817,7 +824,7 @@ test.describe("TASK-045 Platform Master Console final review", () => {
         );
       }
       await page.waitForURL("**/platform/users");
-      await expectPlatformRoute(page, "Users / Profiles", "Users");
+      await expectPlatformRoute(page, "Personal Accounts", "Users");
       const navMarker = await page.evaluate(() =>
         window.sessionStorage.getItem("task045_nav_marker"),
       );

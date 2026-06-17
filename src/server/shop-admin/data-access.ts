@@ -208,10 +208,19 @@ async function resolveShopAdminDataAccessUncached(
       };
     }
 
+    const selectedShop = await loadStaffShellShop(adminClient, staffShop);
+
+    if (selectedShop.shopStatus !== "active") {
+      return {
+        reason: "Selected shop is not operational.",
+        status: "unauthorized",
+      };
+    }
+
     return {
       principalKind: "pos_staff_manager",
       principal: staffResolution.principal,
-      selectedShop: await loadStaffShellShop(adminClient, staffShop),
+      selectedShop,
       status: "ready",
       supabase: adminClient,
     };
@@ -268,10 +277,19 @@ async function resolveShopAdminDataAccessUncached(
         };
       }
 
+      const selectedShop = requestedShop ?? personalResolution.principal.selectedShop;
+
+      if (selectedShop.shopStatus !== "active") {
+        return {
+          reason: "Selected shop is not operational.",
+          status: "unauthorized",
+        };
+      }
+
       return {
         principalKind: "personal_account",
         principal: personalResolution.principal,
-        selectedShop: requestedShop ?? personalResolution.principal.selectedShop,
+        selectedShop,
         status: "ready",
         supabase: serverClient,
       };

@@ -39,6 +39,7 @@ type PlatformMasterDetailProps = {
 
 export type PlatformMasterDetailLabels = {
   adjustSearchOrFilters: string;
+  clientFiltersHideRows: string;
   copied: string;
   copy: string;
   copyShopCode: string;
@@ -50,11 +51,14 @@ export type PlatformMasterDetailLabels = {
   searchRows: string;
   selectRow: string;
   selectedRow: string;
+  serverSearchReturnedNoRows: string;
 };
 
 const defaultLabels: PlatformMasterDetailLabels = {
   adjustSearchOrFilters:
     "Adjust search or filters to show rows already returned by the server boundary.",
+  clientFiltersHideRows:
+    "Client filters are hiding rows returned by the server boundary.",
   copied: "Copied",
   copy: "Copy",
   copyShopCode: "Copy shop code",
@@ -66,16 +70,37 @@ const defaultLabels: PlatformMasterDetailLabels = {
   searchRows: "Search rows",
   selectRow: "select row",
   selectedRow: "selected row",
+  serverSearchReturnedNoRows:
+    "Server search returned no rows. Clear the search to return to the default view.",
 };
 
 const noWrapTableColumns = new Set([
+  "accountType",
   "access",
+  "adminAccess",
+  "code",
+  "globalAccess",
   "health",
+  "operationalAccess",
   "origin",
+  "roles",
+  "shopAccess",
   "state",
   "status",
 ]);
-const noWrapCellColumns = new Set(["access", "health", "origin", "status"]);
+const noWrapCellColumns = new Set([
+  "accountType",
+  "access",
+  "adminAccess",
+  "code",
+  "globalAccess",
+  "health",
+  "operationalAccess",
+  "origin",
+  "roles",
+  "shopAccess",
+  "status",
+]);
 
 function tableColumnClass(columnKey: string) {
   if (columnKey === "email") {
@@ -86,11 +111,39 @@ function tableColumnClass(columnKey: string) {
     return "min-w-44";
   }
 
+  if (columnKey === "code") {
+    return "min-w-48";
+  }
+
   if (columnKey === "origin" || columnKey === "access") {
     return "min-w-28";
   }
 
-  if (columnKey === "shops" || columnKey === "owners") {
+  if (
+    columnKey === "accountType" ||
+    columnKey === "adminAccess" ||
+    columnKey === "globalAccess"
+  ) {
+    return "min-w-36";
+  }
+
+  if (columnKey === "shopAccess") {
+    return "min-w-48";
+  }
+
+  if (columnKey === "roles") {
+    return "min-w-36";
+  }
+
+  if (columnKey === "shops") {
+    return "min-w-60";
+  }
+
+  if (columnKey === "operationalAccess") {
+    return "min-w-44";
+  }
+
+  if (columnKey === "owners") {
     return "min-w-56";
   }
 
@@ -139,9 +192,15 @@ function rowMatchesFilters(
       return true;
     }
 
-    return normalizeSearch(row[filter.key] ?? "").includes(
-      normalizeSearch(selectedValue),
+    const rowValue = normalizeSearch(row[filter.key] ?? "");
+    const selectedOption = filter.options.find(
+      (option) => option.value === selectedValue,
     );
+    const needles = [selectedValue, selectedOption?.label]
+      .filter((value): value is string => Boolean(value))
+      .map(normalizeSearch);
+
+    return needles.some((needle) => rowValue.includes(needle));
   });
 }
 
@@ -149,7 +208,11 @@ function isStatusSegment(value: string) {
   return [
     "Active",
     "Archived",
+    "Current",
     "Disabled",
+    "Historical",
+    "Historical only",
+    "Pending",
     "Pending Setup",
     "Revoked",
     "Review",
@@ -163,11 +226,24 @@ function statusToneClassForSegment(value: string) {
     return "border-emerald-200 bg-emerald-50 text-emerald-800";
   }
 
+  if (value === "Current") {
+    return "border-sky-200 bg-sky-50 text-sky-800";
+  }
+
   if (value === "Disabled" || value === "Revoked") {
     return "border-rose-200 bg-rose-50 text-rose-800";
   }
 
-  if (value === "Pending Setup" || value === "Review" || value === "Suspended") {
+  if (value === "Historical" || value === "Historical only") {
+    return "border-slate-300 bg-slate-100 text-slate-800";
+  }
+
+  if (
+    value === "Pending" ||
+    value === "Pending Setup" ||
+    value === "Review" ||
+    value === "Suspended"
+  ) {
     return "border-amber-200 bg-amber-50 text-amber-900";
   }
 
@@ -226,6 +302,12 @@ function renderCellValue(
           !isLikelyIdentifier(segment) &&
           segment.length <= 36 &&
           (columnKey !== "state" || index === 0);
+        const shouldTruncate =
+          !isStatusSegment(segment) &&
+          (columnKey === "email" ||
+            columnKey === "globalAccess" ||
+            columnKey === "shops" ||
+            (columnKey === "profile" && index > 0));
 
         return (
           <span
@@ -233,7 +315,11 @@ function renderCellValue(
             title={fullValue}
             className={[
               "min-w-0 leading-5",
-              keepSegmentTogether ? "whitespace-nowrap" : "break-words",
+              shouldTruncate
+                ? "block max-w-full overflow-hidden text-ellipsis whitespace-nowrap"
+                : keepSegmentTogether
+                  ? "whitespace-nowrap"
+                  : "break-words",
               index === 0 ? "font-medium text-slate-900" : "text-slate-600",
               isMeta ? "text-xs" : "",
               isCode ? "font-mono" : "",
@@ -289,7 +375,16 @@ function renderDetailGroups(
                         isLikelyIdentifier(field.value) ? "font-mono break-all" : "",
                       ].join(" ")}
                     >
-                      {text}
+                      {field.href ? (
+                        <Link
+                          href={field.href}
+                          className="font-semibold text-slate-950 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-950"
+                        >
+                          {text}
+                        </Link>
+                      ) : (
+                        text
+                      )}
                     </dd>
                   );
                 })()}
@@ -347,15 +442,26 @@ export function PlatformMasterDetail({
       ),
     [activeFilters, filters, normalizedSearchTerm, rows],
   );
+  const noRowsHint =
+    rows.length === 0 && serverSearch?.value
+      ? labels.serverSearchReturnedNoRows
+      : rows.length > 0
+        ? labels.clientFiltersHideRows
+        : labels.adjustSearchOrFilters;
+  const filteredDetailKeys = filteredRows
+    .map((row, rowIndex) => rowKeyFor(row, columns, rowIndex))
+    .filter((rowKey) => detailsByRowKey.has(rowKey));
   const selectedKeyFromUrl =
     selectedRowKey && detailsByRowKey.has(selectedRowKey)
       ? selectedRowKey
       : null;
-  const firstDetailKey = rowDetails[0]?.rowKey ?? "";
   const [manualSelectedKey, setManualSelectedKey] = useState<string | null>(null);
-  const selectedKey = manualSelectedKey ?? selectedKeyFromUrl ?? firstDetailKey;
-  const selectedDetail =
-    detailsByRowKey.get(selectedKey) ?? rowDetails[0] ?? null;
+  const selectedCandidate = manualSelectedKey ?? selectedKeyFromUrl;
+  const selectedKey =
+    selectedCandidate && filteredDetailKeys.includes(selectedCandidate)
+      ? selectedCandidate
+      : filteredDetailKeys[0] ?? "";
+  const selectedDetail = selectedKey ? detailsByRowKey.get(selectedKey) ?? null : null;
   function listHrefFor(rowKey: string) {
     const params = new URLSearchParams();
 
@@ -375,6 +481,12 @@ export function PlatformMasterDetail({
     selectedDetail?.href && selectedDetail
       ? `${selectedDetail.href}?returnTo=${encodeURIComponent(selectedListHref)}`
       : null;
+  const tableMinWidthClass =
+    columns.length >= 8
+      ? "min-w-[88rem]"
+      : columns.length >= 5
+        ? "min-w-[72rem]"
+        : "min-w-full";
 
   useEffect(() => {
     if (!selectedKeyFromUrl) {
@@ -442,40 +554,45 @@ export function PlatformMasterDetail({
   return (
     <div className="grid gap-4 2xl:grid-cols-[minmax(0,1fr)_360px]">
       <div className="min-w-0">
-        <div className="mb-4 grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-2 lg:grid-cols-[minmax(18rem,1fr)_auto]">
+        <div className="mb-4 grid gap-3 rounded-md border border-slate-200 bg-slate-50 p-2 xl:grid-cols-[minmax(20rem,1fr)_auto]">
           {serverSearch ? (
-            <form
-              action={pathname}
-              method="get"
-              className="grid min-w-0 gap-2 text-sm font-semibold text-slate-700 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
-            >
-              <label htmlFor="platform-master-search" className="sr-only">
-                {labels.search}
-              </label>
-              <input
-                id="platform-master-search"
-                name={serverSearch.paramName}
-                type="search"
-                value={searchTerm}
-                onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder={searchPlaceholder ?? labels.searchRows}
-                className="min-h-10 min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
-              />
-              <button
-                type="submit"
-                className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-950 bg-slate-950 px-3 py-2 text-sm font-semibold text-white outline-none hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+            <div className="grid min-w-0 gap-1">
+              <form
+                action={pathname}
+                method="get"
+                className="grid min-w-0 items-start gap-2 text-sm font-semibold text-slate-700 sm:grid-cols-[minmax(0,1fr)_auto_auto]"
               >
-                {serverSearch.submitLabel}
-              </button>
-              {serverSearch.value ? (
-                <Link
-                  href={pathname}
-                  className="inline-flex min-h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950"
+                <label htmlFor="platform-master-search" className="sr-only">
+                  {labels.search}
+                </label>
+                <input
+                  id="platform-master-search"
+                  name={serverSearch.paramName}
+                  type="search"
+                  value={searchTerm}
+                  onChange={(event) => setSearchTerm(event.target.value)}
+                  placeholder={searchPlaceholder ?? labels.searchRows}
+                  className="h-10 min-w-0 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-normal text-slate-900 outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
+                />
+                <button
+                  type="submit"
+                  className="inline-flex h-10 items-center justify-center rounded-md border border-slate-950 bg-slate-950 px-3 py-2 text-sm font-semibold text-white outline-none hover:bg-slate-800 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
                 >
-                  {serverSearch.clearLabel}
-                </Link>
-              ) : null}
-            </form>
+                  {serverSearch.submitLabel}
+                </button>
+                {serverSearch.value ? (
+                  <Link
+                    href={pathname}
+                    className="inline-flex h-10 items-center justify-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950"
+                  >
+                    {serverSearch.clearLabel}
+                  </Link>
+                ) : null}
+              </form>
+              <p className="px-1 text-xs leading-5 text-slate-500">
+                {serverSearch.helper}
+              </p>
+            </div>
           ) : (
             <label className="grid gap-1 text-sm font-semibold text-slate-700">
               <span className="sr-only">{labels.search}</span>
@@ -489,13 +606,15 @@ export function PlatformMasterDetail({
             </label>
           )}
           {filters && filters.length > 0 ? (
-            <div className="grid min-w-0 gap-2 sm:grid-cols-2 lg:w-[22rem] xl:w-[24rem]">
+            <div className="grid min-w-0 gap-2 sm:grid-cols-2 xl:grid-cols-4 xl:w-auto">
               {filters.map((filter) => (
                 <label
                   key={filter.key}
                   className="grid min-w-0 text-sm font-semibold text-slate-700"
                 >
-                  <span className="sr-only">{filter.label}</span>
+                  <span className="mb-1 text-xs uppercase tracking-normal text-slate-500">
+                    {filter.label}
+                  </span>
                   <select
                     value={activeFilters[filter.key] ?? ""}
                     onChange={(event) =>
@@ -518,8 +637,24 @@ export function PlatformMasterDetail({
           ) : null}
         </div>
 
+        {rows.length === 0 ? (
+          <div className="mb-4 rounded-md border border-dashed border-slate-300 bg-white p-4">
+            <p className="text-sm font-semibold text-slate-800">
+              {emptyState.title}
+            </p>
+            <p className="mt-1 text-sm leading-5 text-slate-600">
+              {emptyState.description}
+            </p>
+          </div>
+        ) : null}
+
         <div className="overflow-x-auto">
-          <table className="min-w-full border-separate border-spacing-0 text-left text-sm">
+          <table
+            className={[
+              tableMinWidthClass,
+              "border-separate border-spacing-0 text-left text-sm",
+            ].join(" ")}
+          >
             <caption className="sr-only">{caption}</caption>
             <thead>
               <tr>
@@ -660,7 +795,7 @@ export function PlatformMasterDetail({
                       {labels.noMatchingRows}
                     </span>
                     <span className="mt-1 block leading-6">
-                      {labels.adjustSearchOrFilters}
+                      {noRowsHint}
                     </span>
                   </td>
                 </tr>

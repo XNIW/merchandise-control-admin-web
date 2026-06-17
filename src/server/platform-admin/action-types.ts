@@ -13,11 +13,15 @@ export type PlatformShopActionCode =
   | "owner_not_active"
   | "profile_not_found"
   | "profile_not_active"
+  | "member_not_found"
   | "admin_not_found"
   | "self_lockout_blocked"
   | "last_admin_blocked"
   | "already_active"
   | "invalid_state"
+  | "not_archived"
+  | "unsafe_purge_target"
+  | "dependencies_blocked"
   | "shop_not_found"
   | "device_not_found"
   | "conflict"
@@ -122,6 +126,32 @@ export type SoftDeleteShopInput = {
 
 export type RestoreShopInput = SoftDeleteShopInput;
 
+export type ActivateShopInput = SoftDeleteShopInput;
+
+export type PurgeShopInput = {
+  confirmation: string;
+  mode?: "force_test" | "normal";
+  reason: string;
+  shopId: string;
+};
+
+export type PlatformShopMemberRole = "shop_owner" | "shop_manager";
+
+export type AssignShopMemberInput = {
+  shopId: string;
+  profileId: string;
+  roleKey: string;
+  shopCodeConfirmation: string;
+  reason: string;
+};
+
+export type RevokeShopMemberInput = {
+  shopId: string;
+  shopMemberId: string;
+  shopCodeConfirmation: string;
+  reason: string;
+};
+
 export type EmergencyRevokeDeviceInput = {
   shopDeviceId: string;
   reason: string;
@@ -142,7 +172,7 @@ export type PlatformAdminRevokeInput = PlatformAdminGrantInput;
 
 export type ShopStatusTransition = {
   from: ShopStatus;
-  action: "suspend" | "reactivate" | "soft_delete" | "restore";
+  action: "activate" | "suspend" | "reactivate" | "soft_delete" | "restore";
 };
 
 const messageByCode: Record<PlatformShopActionCode, string> = {
@@ -158,11 +188,15 @@ const messageByCode: Record<PlatformShopActionCode, string> = {
   owner_not_active: "The selected owner could not be used.",
   profile_not_found: "The selected profile could not be used.",
   profile_not_active: "The selected profile could not be used.",
+  member_not_found: "The selected membership could not be found.",
   admin_not_found: "The selected Platform Admin grant could not be found.",
   self_lockout_blocked: "The operation was blocked to prevent self-lockout.",
   last_admin_blocked: "The operation was blocked because at least one Platform Admin must remain active.",
   already_active: "The selected Platform Admin grant is already active.",
   invalid_state: "This operation is not available for the current shop state.",
+  not_archived: "The shop must be archived before it can be purged.",
+  unsafe_purge_target: "Purge is limited to synthetic test/local/staging shops.",
+  dependencies_blocked: "The shop still has dependencies that block physical delete.",
   shop_not_found: "The selected shop could not be found.",
   device_not_found: "The selected device could not be found.",
   conflict: "The operation could not be completed because of a conflict.",

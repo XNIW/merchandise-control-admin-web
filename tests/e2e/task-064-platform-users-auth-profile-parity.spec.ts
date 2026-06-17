@@ -14,11 +14,16 @@ type SupabaseAdminClient = SupabaseClient<Database>;
 const runId = `task064-${Date.now()}-${randomUUID().slice(0, 8)}`;
 const adminEmail = `${runId}-admin@example.test`;
 const profileOkEmail = `${runId}-profile-ok@example.test`;
+const shopAdminEmail = `${runId}-shop-admin@example.test`;
+const historicalShopAdminEmail = `${runId}-historical-shop-admin@example.test`;
 const authOnlyEmail = `${runId}-auth-only@example.test`;
 const adminPassword = `Task064-${randomUUID()}-Aa1!`;
 const profileOkDisplayName = "TASK064 Profile OK";
+const shopAdminDisplayName = "TASK064 Shop Admin";
+const historicalShopAdminDisplayName = "TASK064 Historical Shop Admin";
 const authOnlyDisplayName = "TASK064 Auth Only";
 const shopCode = `T64${Date.now().toString().slice(-8)}`;
+const historicalShopCode = `H64${Date.now().toString().slice(-8)}`;
 
 const createdAuthUserIds = new Set<string>();
 const createdShopIds = new Set<string>();
@@ -156,7 +161,7 @@ async function task064ShopIds(supabase: SupabaseAdminClient) {
   const { data, error } = await supabase
     .from("shops")
     .select("shop_id")
-    .eq("shop_name", "TASK064 Search Shop");
+    .in("shop_name", ["TASK064 Search Shop", "TASK064 Historical Shop"]);
 
   if (error) {
     throw new Error(`BLOCKED_TASK064_SHOP_CLEANUP_LIST_FAILED: ${error.message}`);
@@ -212,6 +217,8 @@ async function cleanup() {
       .in("display_name", [
         "TASK064 Platform Admin",
         profileOkDisplayName,
+        shopAdminDisplayName,
+        historicalShopAdminDisplayName,
         authOnlyDisplayName,
       ]),
   );
@@ -238,6 +245,16 @@ test.beforeAll(async () => {
     email: profileOkEmail,
     supabase,
   });
+  const shopAdminUserId = await createAuthUser({
+    displayName: shopAdminDisplayName,
+    email: shopAdminEmail,
+    supabase,
+  });
+  const historicalShopAdminUserId = await createAuthUser({
+    displayName: historicalShopAdminDisplayName,
+    email: historicalShopAdminEmail,
+    supabase,
+  });
   authOnlyUserId = await createAuthUser({
     displayName: authOnlyDisplayName,
     email: authOnlyEmail,
@@ -258,6 +275,22 @@ test.beforeAll(async () => {
       .from("profiles")
       .select("profile_id")
       .eq("profile_id", profileOkUserId)
+      .single(),
+  );
+  await expectOk<{ profile_id: string }>(
+    "BLOCKED_TRIGGER_PROFILE_SHOP_ADMIN_MISSING",
+    supabase
+      .from("profiles")
+      .select("profile_id")
+      .eq("profile_id", shopAdminUserId)
+      .single(),
+  );
+  await expectOk<{ profile_id: string }>(
+    "BLOCKED_TRIGGER_PROFILE_HISTORICAL_SHOP_ADMIN_MISSING",
+    supabase
+      .from("profiles")
+      .select("profile_id")
+      .eq("profile_id", historicalShopAdminUserId)
       .single(),
   );
 
@@ -287,12 +320,40 @@ test.beforeAll(async () => {
 
   createdShopIds.add(shop.shop_id);
 
+  const historicalShop = await expectOk<{ shop_id: string }>(
+    "BLOCKED_HISTORICAL_SHOP_CREATE_FAILED",
+    supabase
+      .from("shops")
+      .insert({
+        archived_at: new Date().toISOString(),
+        archived_by_profile_id: adminUserId,
+        created_by_profile_id: adminUserId,
+        shop_code: historicalShopCode,
+        shop_name: "TASK064 Historical Shop",
+        shop_status: "archived",
+      })
+      .select("shop_id")
+      .single(),
+  );
+
+  createdShopIds.add(historicalShop.shop_id);
+
   await expectOk<null>(
     "BLOCKED_SHOP_MEMBER_CREATE_FAILED",
     supabase.from("shop_members").insert({
-      profile_id: profileOkUserId,
+      profile_id: shopAdminUserId,
       role_key: "shop_owner",
       shop_id: shop.shop_id,
+    }),
+    { allowNull: true },
+  );
+
+  await expectOk<null>(
+    "BLOCKED_HISTORICAL_SHOP_MEMBER_CREATE_FAILED",
+    supabase.from("shop_members").insert({
+      profile_id: historicalShopAdminUserId,
+      role_key: "shop_manager",
+      shop_id: historicalShop.shop_id,
     }),
     { allowNull: true },
   );
@@ -309,27 +370,35 @@ test.afterAll(async () => {
 });
 
 async function signInPlatformAdmin(page: Page) {
-  await page.goto("/auth/login?next=/platform/users");
+  await page.goto("/auth/login?next=/platform");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Master Console sign in" }),
+  ).toBeVisible();
   await page.getByLabel("Email").fill(adminEmail);
   await page.getByLabel("Password").fill(adminPassword);
   await Promise.all([
-    page.waitForURL("**/platform/users"),
+    page.waitForFunction(() => window.location.pathname === "/platform"),
     page.getByRole("button", { name: "Sign in" }).click(),
   ]);
+  await page.goto("/platform/users");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Users / Profiles" }),
+    page.getByRole("heading", { level: 1, name: "Personal Accounts" }),
   ).toBeVisible();
 }
 
-async function submitServerSearch(page: Page, query: string) {
+async function submitServerSearch(
+  page: Page,
+  query: string,
+  expectedUrl: RegExp = /\/platform\/users\?q=/,
+) {
   await page.getByLabel("Search").fill(query);
   await Promise.all([
-    page.waitForURL(/\/platform\/users\?q=/),
+    page.waitForURL(expectedUrl),
     page.getByRole("button", { name: "Search" }).click(),
   ]);
 }
 
-test("TASK-064 finds profile OK and auth-only accounts by email, UID, and display name", async ({
+test("TASK-064 separates normal users, shop admins, and auth-only accounts", async ({
   page,
 }) => {
   const supabase = createAdminClient();
@@ -357,12 +426,64 @@ test("TASK-064 finds profile OK and auth-only accounts by email, UID, and displa
 
   await submitServerSearch(page, profileOkEmail);
   await expect(page.getByText(profileOkEmail).first()).toBeVisible();
-  await expect(page.getByText(profileOkDisplayName).first()).toBeVisible();
-  await expect(page.getByText("Profile OK").first()).toBeVisible();
-  await expect(page.getByText(shopCode).first()).toBeVisible();
+  await expect(
+    page
+      .getByRole("button", {
+        name: new RegExp(`${profileOkDisplayName}.*Profile OK`),
+      })
+      .first(),
+  ).toBeVisible();
 
   await submitServerSearch(page, profileOkProfileId);
   await expect(page.getByText(profileOkDisplayName).first()).toBeVisible();
+
+  await page.goto("/platform/shop-admins");
+  await expect(page.getByRole("heading", { level: 1, name: "Shop Admins" })).toBeVisible();
+  await submitServerSearch(page, shopAdminEmail, /\/platform\/shop-admins\?q=/);
+  await expect(page.getByText(shopAdminEmail).first()).toBeVisible();
+  await expect(
+    page
+      .getByRole("button", {
+        name: new RegExp(`${shopAdminDisplayName}.*Profile OK`),
+      })
+      .first(),
+  ).toBeVisible();
+  await expect(page.getByText(shopCode).first()).toBeVisible();
+  await expect(page.getByText("Owner").first()).toBeVisible();
+
+  await submitServerSearch(
+    page,
+    historicalShopAdminEmail,
+    /\/platform\/shop-admins\?q=/,
+  );
+  await expect(page.getByText(historicalShopAdminEmail).first()).toBeVisible();
+  await expect(page.getByText(historicalShopAdminDisplayName).first()).toBeVisible();
+  await expect(page.getByText(historicalShopCode).first()).toBeVisible();
+  await expect(page.getByText("Historical only").first()).toBeVisible();
+  await expect(page.getByText("Manager").first()).toBeVisible();
+
+  await page.goto("/platform/users");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Personal Accounts" }),
+  ).toBeVisible();
+
+  await submitServerSearch(page, historicalShopAdminEmail);
+  await expect(page.getByText("No matching rows")).toBeVisible();
+  await expect(
+    page.getByText(
+      "Showing normal personal accounts only. Shop Admins and Platform Admins are shown in dedicated views.",
+    ),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "Client filters are hiding rows returned by the server boundary.",
+    ),
+  ).toBeVisible();
+  await expect(page.getByRole("link", { name: "Clear" })).toHaveAttribute(
+    "href",
+    "/platform/users",
+  );
+  await expect(page.getByText(historicalShopAdminDisplayName)).toHaveCount(0);
 
   await submitServerSearch(page, authOnlyEmail);
   await expect(page.getByText(authOnlyEmail).first()).toBeVisible();
@@ -398,10 +519,14 @@ test("TASK-064 finds profile OK and auth-only accounts by email, UID, and displa
   await expect(page.getByText("Auth only").first()).toBeVisible();
   await expect(page.getByText(authOnlyEmail).first()).toBeVisible();
 
-  await Promise.all([
-    page.waitForURL(/\/platform\/users\?/),
-    page.getByRole("link", { name: "Back to Users" }).click(),
-  ]);
+  const backHref = await page
+    .getByRole("link", { name: "Back to Users" })
+    .getAttribute("href");
+
+  expect(backHref).toMatch(/^\/platform\/users\?/);
+
+  await page.goto(backHref ?? "/platform/users");
+  await expect.poll(() => new URL(page.url()).pathname).toBe("/platform/users");
   await expect
     .poll(() => new URL(page.url()).searchParams.get("q"))
     .toBe(authOnlyDisplayName);
@@ -409,4 +534,22 @@ test("TASK-064 finds profile OK and auth-only accounts by email, UID, and displa
     .poll(() => new URL(page.url()).searchParams.get("selected"))
     .toBe(authOnlyUserId);
   await expect(page.getByText(authOnlyDisplayName).first()).toBeVisible();
+
+  await submitServerSearch(page, `${runId}-missing-user`);
+  await expect(page.getByText("No matching rows")).toBeVisible();
+  await expect(
+    page.getByText("Client filters are hiding rows returned by the server boundary."),
+  ).toBeVisible();
+
+  await page.goto("/platform/admins");
+  const currentAccount = page.getByRole("region", {
+    name: "Current Platform Admin account",
+  });
+  await expect(currentAccount).toBeVisible();
+  await expect(currentAccount.getByText(adminEmail)).toBeVisible();
+  await expect(currentAccount.getByText("Current session")).toBeVisible();
+  await expect(
+    currentAccount.getByText("Platform Admin (Master Console)"),
+  ).toBeVisible();
+  await expect(page.getByText("Current account").first()).toBeVisible();
 });

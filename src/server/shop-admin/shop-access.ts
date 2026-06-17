@@ -153,7 +153,7 @@ export async function resolveCurrentShopAdminShellAccess(
       status: hasViewerMembership ? "viewer_only" : "no_shop",
       reason: hasViewerMembership
         ? "This account has viewer access only and cannot open Admin Console."
-        : "No active shop owner or manager membership is available.",
+        : "No operational active shop owner or manager membership is available.",
       userId,
     };
   }
@@ -191,7 +191,7 @@ export async function resolveCurrentShopAdminShellAccess(
       return shellShop;
     })
     .filter((shop): shop is ShopAdminShellShop => shop !== null)
-    .filter((shop) => shop.shopStatus !== "archived");
+    .filter((shop) => shop.shopStatus === "active");
   const selectedShop =
     availableShops.find((shop) => shop.shopId === memberships[0]?.shopId) ??
     availableShops[0];
@@ -199,7 +199,8 @@ export async function resolveCurrentShopAdminShellAccess(
   if (!selectedShop) {
     return {
       status: "no_shop",
-      reason: "No active shop owner or manager membership is available.",
+      reason:
+        "No operational active shop owner or manager membership is available.",
       userId,
     };
   }

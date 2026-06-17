@@ -22,6 +22,27 @@ La Admin Console supporta due principal distinti:
 
 Questa decisione non fonde `profiles` e `staff_accounts`.
 
+### Chiarimento Admin account vs platform_admin
+
+Nel prodotto, `Admin account` significa account personale con accesso alla Admin
+Console shop-scoped tramite `shop_members`, normalmente con ruolo `shop_owner` o
+`shop_manager` su uno o piu shop. `platform_admin` significa invece accesso
+globale alla Master Console tramite `platform_admins`.
+
+I due concetti non sono equivalenti. Un utente normale che collega o reclama un
+futuro `shop_code` valido non deve diventare `platform_admin`: deve ottenere,
+quando autorizzato, una membership shop-scoped `shop_owner` o `shop_manager`.
+Il claim self-service di `shop_code` resta un flusso futuro separato e auditato;
+la Master Console puo preparare o mostrare l'accesso shop-scoped, ma non deve
+confonderlo con il grant globale Platform Admin.
+
+La tassonomia UI della Master Console deve riflettere la stessa distinzione:
+`Users` mostra per default account personali normali, incompleti o non-admin;
+`Shop Admins` mostra account personali con membership operativa `shop_owner` o
+`shop_manager` in `shop_members`; `Platform Admins` mostra solo grant globali in
+`platform_admins`. POS/Staff resta separato da `profiles` e dagli account
+personali.
+
 ## Stato attuale
 
 ### personal_account

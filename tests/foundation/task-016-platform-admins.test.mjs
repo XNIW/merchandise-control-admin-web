@@ -58,14 +58,24 @@ test("TASK-016 Platform Admin grant and revoke use audited anti-lockout RPCs", (
   assert.match(actions, /^"use server";/);
   assert.match(actions, /grantPlatformAdminAction/);
   assert.match(actions, /revokePlatformAdminAction/);
-  assert.match(page, /Grant admin/);
-  assert.match(page, /Revoke admin/);
+  assert.match(page, /Advanced global access/);
+  assert.match(page, /Grant Platform Admin/);
+  assert.match(page, /Revoke Platform Admin/);
+  assert.doesNotMatch(page, /Grant admin|Revoke admin/);
+  assert.doesNotMatch(
+    page,
+    /assignPlatformShopMemberAction|revokePlatformShopMemberAction|<option value="shop_owner"|<option value="shop_manager"|<option value="platform_admin">/,
+  );
   assert.match(page, /Type REVOKE to confirm/);
   assert.doesNotMatch(`${page}\n${sectionData}`, /BLOCKED_SCHEMA|read-only until reviewed|grant\/revoke remains blocked|Reviewed schema required/i);
   assert.match(sectionData, /Anti self-lockout RPCs/);
   assert.match(validation, /validatePlatformAdminGrantInput/);
   assert.match(validation, /validatePlatformAdminRevokeInput/);
   assert.doesNotMatch(`${actions}\n${adminActions}`, /\.(insert|update|delete|upsert)\s*\(/);
+  assert.doesNotMatch(
+    `${actions}\n${adminActions}`,
+    /shop_members|staff_accounts|platform_assign_shop_member|platform_revoke_shop_member/,
+  );
 });
 
 test("TASK-016 restore shop uses audited lifecycle RPC when archived shops are safe", () => {

@@ -149,6 +149,7 @@ test("TASK-005J auth UI keeps Supabase sign-in scoped to auth boundaries", () =>
   const authForm = readProjectFile(authFormPath);
   const callbackRoute = readProjectFile(callbackPath);
   const logoutRoute = readProjectFile(logoutPath);
+  const oauthRedirect = readProjectFile("src/lib/auth/oauth-redirect.ts");
 
   assert.match(browserClient, /createBrowserClient/);
   assert.match(browserClient, /NEXT_PUBLIC_SUPABASE_URL/);
@@ -157,8 +158,9 @@ test("TASK-005J auth UI keeps Supabase sign-in scoped to auth boundaries", () =>
   assert.match(loginAction, /"use server"/);
   assert.match(loginAction, /createSupabaseServerClient/);
   assert.match(loginAction, /signInWithPassword/);
-  assert.match(loginAction, /isSafeInternalNextPath/);
-  assert.match(loginAction, /startsWith\("\/\/"\)/);
+  assert.match(loginAction, /safeInternalNextPath/);
+  assert.match(oauthRedirect, /isSafeInternalNextPath/);
+  assert.match(oauthRedirect, /startsWith\("\/\/"\)/);
   assert.match(loginAction, /redirect\(nextPath, RedirectType\.replace\)/);
   assert.doesNotMatch(loginAction, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
   assert.match(authForm, /accountSignInAction/);
@@ -176,11 +178,13 @@ test("TASK-005L auth redirects reject protocol-relative next paths", () => {
   const authForm = readProjectFile("src/components/auth/AuthForm.tsx");
   const loginAction = readProjectFile("src/app/auth/login/actions.ts");
   const callbackRoute = readProjectFile("src/app/auth/callback/route.ts");
+  const oauthRedirect = readProjectFile("src/lib/auth/oauth-redirect.ts");
 
-  for (const source of [authForm, loginAction, callbackRoute]) {
-    assert.match(source, /isSafeInternalNextPath/);
-    assert.match(source, /startsWith\("\/\/"\)/);
-  }
+  assert.match(oauthRedirect, /isSafeInternalNextPath/);
+  assert.match(oauthRedirect, /startsWith\("\/\/"\)/);
+  assert.match(authForm, /isSafeInternalNextPath/);
+  assert.match(loginAction, /safeInternalNextPath/);
+  assert.match(callbackRoute, /safeInternalNextPath/);
 });
 
 test("TASK-005K live auth browser gate is opt-in and non-persistent", () => {

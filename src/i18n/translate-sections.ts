@@ -27,6 +27,7 @@ function formatEmbeddedDateTimes(value: string, locale: SupportedLocale) {
 
 const translatableValueKeyPatterns = [
   "action",
+  "access",
   "area",
   "availability",
   "category",
@@ -89,6 +90,13 @@ function translateStaticUiText(
 
   if (exact !== value) {
     return exact;
+  }
+
+  if (value.includes("\n")) {
+    return value
+      .split("\n")
+      .map((segment) => translateStatusLikeSegment(dictionary, segment, locale))
+      .join("\n");
   }
 
   return translateEmbeddedUiText(dictionary, value, locale);
@@ -197,13 +205,18 @@ function translateEmbeddedUiText(
 const translatableValueFields = new Set(
   [
     "audit",
+    "available action",
     "availability",
     "credential",
+    "current status",
     "current role",
     "devices",
+    "fiscal identity",
     "inventory",
     "latest sync",
     "lockout",
+    "meaning",
+    "operational access",
     "owner status",
     "pos staff",
     "result",
@@ -221,11 +234,18 @@ function translateStatusLikeSegment(
   value: string,
   locale: SupportedLocale = DEFAULT_LOCALE,
 ): string {
+  const exact = translateText(dictionary, value);
+
+  if (exact !== value) {
+    return exact;
+  }
+
   return [
     "Active",
     "Archived",
     "Available",
     "Disabled",
+    "Enabled",
     "Expired",
     "Locked",
     "Missing",
@@ -503,6 +523,12 @@ export function translatePlatformSection(
       value: translateStaticUiText(dictionary, stat.value, locale),
     })),
     status: translateText(dictionary, section.status),
+    tableNotice: section.tableNotice
+      ? {
+          description: translateText(dictionary, section.tableNotice.description),
+          title: translateText(dictionary, section.tableNotice.title),
+        }
+      : section.tableNotice,
     title: translateText(dictionary, section.title),
   };
 }

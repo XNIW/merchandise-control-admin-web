@@ -83,16 +83,26 @@ test("TASK-056 shop detail renders complete read-only profile and fiscal identit
     "section.detailSections?.[index]?.title ?? detailSection.title",
   );
   assertContains(sectionCard, "actions?: ReactNode");
+  assertContains(platformPage, 'localizedSection.rowsPresentation === "diagnostics"');
+  assertContains(platformPage, "Diagnostics / boundary rows");
+  assertContains(platformPage, 'actionPlacement === "body"');
   assertContains(sectionData, 'title: "Shop profile & fiscal identity"');
-  assertContains(sectionData, 'title: "Operational summary"');
+  assertContains(sectionData, 'title: "Shop lifecycle management"');
+  assertContains(sectionData, 'title: "Admin access / Ownership"');
+  assertContains(sectionData, 'title: "Danger Zone"');
+  assertContains(sectionData, 'title: "Members"');
+  assertContains(sectionData, 'title: "Devices / sync / audit"');
+  assertContains(sectionData, 'actionPlacement: "body" as const');
+  assertContains(sectionData, 'layout: "full" as const');
+  assertContains(sectionData, 'rowsPresentation: "diagnostics"');
   assertContains(sectionData, "Not configured");
-  assertContains(sectionData, "Not available through current boundary");
+  assertContains(sectionData, "Fiscal identity not configured");
+  assertContains(sectionData, "No lifecycle action available");
 
   for (const required of [
-    "Shop name",
     "Shop code",
     "Shop ID",
-    "Status",
+    "Available transition",
     "Company RUT",
     "Giro",
     "Address",
@@ -105,11 +115,11 @@ test("TASK-056 shop detail renders complete read-only profile and fiscal identit
   }
 
   for (const required of [
-    "Members total",
-    "Owners count",
-    "Managers count",
-    "Devices total",
-    "Revoked devices",
+    "Membership records",
+    "Operational members",
+    "Owners",
+    "Managers",
+    "Devices visible",
     "Audit count",
     "Latest audit",
     "Latest sync",

@@ -43,8 +43,47 @@ export async function PlatformPage({
     localizedSection.detailSections !== undefined &&
     localizedSection.detailSections.length > 0;
   const compactDiagnostics = localizedSection.diagnosticsPriority !== "primary";
+  const rowsAreDiagnostics =
+    localizedSection.rowsPresentation === "diagnostics";
   const diagnosticsContent = (
     <div className="grid gap-3">
+      {rowsAreDiagnostics && localizedSection.rows.length > 0 ? (
+        <div className="grid gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-slate-950">
+              {translateText(dictionary, "Diagnostics / boundary rows")}
+            </h2>
+            <p className="mt-1 text-sm leading-5 text-slate-600">
+              {translateText(
+                dictionary,
+                "Internal rows returned by the server boundary for review and troubleshooting.",
+              )}
+            </p>
+          </div>
+          <AdminDataTable
+            caption={translateText(
+              dictionary,
+              "Platform Admin diagnostic rows rendered from server-provided rows.",
+            )}
+            columns={localizedSection.columns}
+            rows={localizedSection.rows}
+            locale={locale}
+            emptyState={
+              localizedSection.emptyState ?? {
+                title: translateText(dictionary, "No rows visible"),
+                description: translateText(
+                  dictionary,
+                  "The server boundary did not return rows for this view.",
+                ),
+              }
+            }
+            footer={translateText(
+              dictionary,
+              "Rows are server-limited for the current read-only boundary.",
+            )}
+          />
+        </div>
+      ) : null}
       <EmptyState
         title={
           localizedSection.emptyState?.title ??
@@ -141,58 +180,93 @@ export async function PlatformPage({
             aria-label={`${localizedSection.title} detail sections`}
             className="grid gap-4 xl:grid-cols-2"
           >
-            {localizedSection.detailSections?.map((detailSection, index) => (
-              <SectionCard
-                key={detailSection.title}
-                actions={
-                  detailSectionActions?.[
-                    section.detailSections?.[index]?.title ?? detailSection.title
-                  ]
-                }
-                title={detailSection.title}
-                description={detailSection.description}
-              >
-                <dl className="grid gap-3 text-sm">
-                  {detailSection.fields.map((field) => (
-                    <div key={field.label}>
-                      <dt className="font-semibold text-slate-500">{field.label}</dt>
-                      {(() => {
-                        const { text, fullValue } = formatDisplayValue(
-                          field.value,
-                          locale,
-                        );
+            {localizedSection.detailSections?.map((detailSection, index) => {
+              const actionNode =
+                detailSectionActions?.[
+                  section.detailSections?.[index]?.title ?? detailSection.title
+                ];
+              const actionPlacement = detailSection.actionPlacement ?? "header";
 
-                        return (
-                          <dd
-                            title={fullValue}
-                            className={[
-                              "mt-0.5 break-words text-slate-800",
-                              isLikelyIdentifier(field.value)
-                                ? "font-mono break-all"
-                                : "",
-                            ].join(" ")}
+              return (
+                <div
+                  key={detailSection.title}
+                  className={
+                    detailSection.layout === "full" ? "xl:col-span-2" : undefined
+                  }
+                >
+                  <SectionCard
+                    actions={
+                      actionPlacement === "header" ? actionNode : undefined
+                    }
+                    title={detailSection.title}
+                    description={detailSection.description}
+                  >
+                    <dl
+                      className={[
+                        "grid gap-3 text-sm",
+                        detailSection.layout === "full"
+                          ? "md:grid-cols-2 xl:grid-cols-4"
+                          : "md:grid-cols-2",
+                      ].join(" ")}
+                    >
+                      {detailSection.fields.map((field) => (
+                        <div key={field.label}>
+                          <dt className="font-semibold text-slate-500">
+                            {field.label}
+                          </dt>
+                          {(() => {
+                            const { text, fullValue } = formatDisplayValue(
+                              field.value,
+                              locale,
+                            );
+
+                            return (
+                              <dd
+                                title={fullValue}
+                                className={[
+                                  "mt-0.5 break-words text-slate-800",
+                                  isLikelyIdentifier(field.value)
+                                    ? "font-mono break-all"
+                                    : "",
+                                ].join(" ")}
+                              >
+                                {field.href ? (
+                                  <Link
+                                    href={field.href}
+                                    className="font-semibold text-slate-950 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-950"
+                                  >
+                                    {text}
+                                  </Link>
+                                ) : (
+                                  text
+                                )}
+                              </dd>
+                            );
+                          })()}
+                        </div>
+                      ))}
+                    </dl>
+                    {detailSection.notes && detailSection.notes.length > 0 ? (
+                      <div className="mt-4 grid gap-2">
+                        {detailSection.notes.map((note) => (
+                          <p
+                            key={note}
+                            className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-5 text-slate-700"
                           >
-                            {text}
-                          </dd>
-                        );
-                      })()}
-                    </div>
-                  ))}
-                </dl>
-                {detailSection.notes && detailSection.notes.length > 0 ? (
-                  <div className="mt-4 grid gap-2">
-                    {detailSection.notes.map((note) => (
-                      <p
-                        key={note}
-                        className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm leading-5 text-slate-700"
-                      >
-                        {note}
-                      </p>
-                    ))}
-                  </div>
-                ) : null}
-              </SectionCard>
-            ))}
+                            {note}
+                          </p>
+                        ))}
+                      </div>
+                    ) : null}
+                    {actionPlacement === "body" && actionNode ? (
+                      <div className="mt-4 border-t border-slate-200 pt-4">
+                        {actionNode}
+                      </div>
+                    ) : null}
+                  </SectionCard>
+                </div>
+              );
+            })}
           </section>
         ) : null}
 
@@ -205,90 +279,126 @@ export async function PlatformPage({
               : "grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]"
           }
         >
-          <SectionCard
-            title={`${localizedSection.title} ${translateText(dictionary, "rows")}`}
-            description={translateText(
-              dictionary,
-              "Rows come from the server read model when available; empty states explain the current boundary.",
-            )}
-          >
-            {hasMasterDetail ? (
-              <PlatformMasterDetail
-                key={[
-                  selectedRowKey ?? localizedSection.key,
-                  localizedSection.serverSearch?.value ?? "",
-                ].join(":")}
-                caption={translateText(
-                  dictionary,
-                  "Platform Admin read-only table rendered from server-provided rows.",
-                )}
-                columns={localizedSection.columns}
-                rows={localizedSection.rows}
-                rowDetails={localizedSection.rowDetails ?? []}
-                selectedRowKey={selectedRowKey}
-                filters={localizedSection.filters}
-                searchPlaceholder={localizedSection.searchPlaceholder}
-                serverSearch={localizedSection.serverSearch}
-                labels={{
-                  adjustSearchOrFilters: translateText(
-                    dictionary,
-                    "Adjust search or filters to show rows already returned by the server boundary.",
-                  ),
-                  copied: translateText(dictionary, "Copied"),
-                  copy: translateText(dictionary, "Copy"),
-                  copyShopCode: translateText(dictionary, "Copy shop code"),
-                  doubleClickToOpenFullDetail: translateText(
-                    dictionary,
-                    "Double click to open full detail",
-                  ),
-                  inspector: translateText(dictionary, "Inspector"),
-                  noMatchingRows: translateText(dictionary, "No matching rows"),
-                  openFullDetail: translateText(dictionary, "Open full detail"),
-                  search: translateText(dictionary, "Search"),
-                  searchRows: translateText(dictionary, "Search rows"),
-                  selectRow: translateText(dictionary, "select row"),
-                  selectedRow: translateText(dictionary, "selected row"),
-                }}
-                locale={locale}
-                emptyState={
-                  localizedSection.emptyState ?? {
-                    title: translateText(dictionary, "No rows visible"),
-                    description: translateText(
+          {!rowsAreDiagnostics ? (
+            <SectionCard
+              title={`${localizedSection.title} ${translateText(dictionary, "rows")}`}
+              description={translateText(
+                dictionary,
+                "Rows come from the server read model when available; empty states explain the current boundary.",
+              )}
+            >
+              {hasMasterDetail ? (
+                <div className="grid gap-4">
+                  {localizedSection.tableNotice ? (
+                    <section className="rounded-md border border-slate-200 bg-slate-50 p-4">
+                      <p className="text-sm font-semibold text-slate-950">
+                        {localizedSection.tableNotice.title}
+                      </p>
+                      <p className="mt-1 text-sm leading-5 text-slate-700">
+                        {localizedSection.tableNotice.description}
+                      </p>
+                      {localizedSection.nextLinks &&
+                      localizedSection.nextLinks.length > 0 ? (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          {localizedSection.nextLinks.map((link) => (
+                            <Link
+                              key={link.href}
+                              href={link.href}
+                              className="inline-flex min-h-9 items-center rounded-md border border-slate-300 bg-white px-3 py-2 text-sm font-semibold text-slate-800 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950"
+                            >
+                              {link.label}
+                            </Link>
+                          ))}
+                        </div>
+                      ) : null}
+                    </section>
+                  ) : null}
+                  <PlatformMasterDetail
+                    key={[
+                      selectedRowKey ?? localizedSection.key,
+                      localizedSection.serverSearch?.value ?? "",
+                    ].join(":")}
+                    caption={translateText(
                       dictionary,
-                      "The server boundary did not return rows for this view.",
-                    ),
-                  }
-                }
-                footer={translateText(
-                  dictionary,
-                  "Rows are server-limited for the current read-only boundary.",
-                )}
-              />
-            ) : (
-              <AdminDataTable
-                caption={translateText(
-                  dictionary,
-                  "Platform Admin read-only table rendered from server-provided rows.",
-                )}
-                columns={localizedSection.columns}
-                rows={localizedSection.rows}
-                locale={locale}
-                emptyState={
-                  localizedSection.emptyState ?? {
-                    title: translateText(dictionary, "No rows visible"),
-                    description: translateText(
+                      "Platform Admin read-only table rendered from server-provided rows.",
+                    )}
+                    columns={localizedSection.columns}
+                    rows={localizedSection.rows}
+                    rowDetails={localizedSection.rowDetails ?? []}
+                    selectedRowKey={selectedRowKey}
+                    filters={localizedSection.filters}
+                    searchPlaceholder={localizedSection.searchPlaceholder}
+                    serverSearch={localizedSection.serverSearch}
+                    labels={{
+                      adjustSearchOrFilters: translateText(
+                        dictionary,
+                        "Adjust search or filters to show rows already returned by the server boundary.",
+                      ),
+                      clientFiltersHideRows: translateText(
+                        dictionary,
+                        "Client filters are hiding rows returned by the server boundary.",
+                      ),
+                      copied: translateText(dictionary, "Copied"),
+                      copy: translateText(dictionary, "Copy"),
+                      copyShopCode: translateText(dictionary, "Copy shop code"),
+                      doubleClickToOpenFullDetail: translateText(
+                        dictionary,
+                        "Double click to open full detail",
+                      ),
+                      inspector: translateText(dictionary, "Inspector"),
+                      noMatchingRows: translateText(dictionary, "No matching rows"),
+                      openFullDetail: translateText(dictionary, "Open full detail"),
+                      search: translateText(dictionary, "Search"),
+                      searchRows: translateText(dictionary, "Search rows"),
+                      selectRow: translateText(dictionary, "select row"),
+                      selectedRow: translateText(dictionary, "selected row"),
+                      serverSearchReturnedNoRows: translateText(
+                        dictionary,
+                        "Server search returned no rows. Clear the search to return to the default view.",
+                      ),
+                    }}
+                    locale={locale}
+                    emptyState={
+                      localizedSection.emptyState ?? {
+                        title: translateText(dictionary, "No rows visible"),
+                        description: translateText(
+                          dictionary,
+                          "The server boundary did not return rows for this view.",
+                        ),
+                      }
+                    }
+                    footer={translateText(
                       dictionary,
-                      "The server boundary did not return rows for this view.",
-                    ),
+                      "Rows are server-limited for the current read-only boundary.",
+                    )}
+                  />
+                </div>
+              ) : (
+                <AdminDataTable
+                  caption={translateText(
+                    dictionary,
+                    "Platform Admin read-only table rendered from server-provided rows.",
+                  )}
+                  columns={localizedSection.columns}
+                  rows={localizedSection.rows}
+                  locale={locale}
+                  emptyState={
+                    localizedSection.emptyState ?? {
+                      title: translateText(dictionary, "No rows visible"),
+                      description: translateText(
+                        dictionary,
+                        "The server boundary did not return rows for this view.",
+                      ),
+                    }
                   }
-                }
-                footer={translateText(
-                  dictionary,
-                  "Rows are server-limited for the current read-only boundary.",
-                )}
-              />
-            )}
-          </SectionCard>
+                  footer={translateText(
+                    dictionary,
+                    "Rows are server-limited for the current read-only boundary.",
+                  )}
+                />
+              )}
+            </SectionCard>
+          ) : null}
 
           <div className="grid gap-5">
             {compactDiagnostics ? (

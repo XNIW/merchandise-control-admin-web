@@ -5,6 +5,15 @@ export const platformShopAuditEvents = {
   ownerAssignAttempt: "platform.shop.owner.assign.attempt",
   ownerAssignSuccess: "platform.shop.owner.assign.success",
   ownerAssignFailure: "platform.shop.owner.assign.failure",
+  memberAssignAttempt: "platform.shop.member.assign.attempt",
+  memberAssignSuccess: "platform.shop.member.assign.success",
+  memberAssignFailure: "platform.shop.member.assign.failure",
+  memberRevokeAttempt: "platform.shop.member.revoke.attempt",
+  memberRevokeSuccess: "platform.shop.member.revoke.success",
+  memberRevokeFailure: "platform.shop.member.revoke.failure",
+  activateAttempt: "platform.shop.activate.attempt",
+  activateSuccess: "platform.shop.activate.success",
+  activateFailure: "platform.shop.activate.failure",
   suspendAttempt: "platform.shop.suspend.attempt",
   suspendSuccess: "platform.shop.suspend.success",
   suspendFailure: "platform.shop.suspend.failure",
@@ -14,6 +23,11 @@ export const platformShopAuditEvents = {
   softDeleteAttempt: "platform.shop.soft_delete.attempt",
   softDeleteSuccess: "platform.shop.soft_delete.success",
   softDeleteFailure: "platform.shop.soft_delete.failure",
+  purgeAttempt: "platform.shop.purge.attempt",
+  purgeSnapshot: "platform.shop.purge.snapshot",
+  purgeSuccess: "platform.shop.purge.success",
+  purgeFailure: "platform.shop.purge.failure",
+  forcePurgeFailure: "platform.shop.force_purge.failure",
 } as const;
 
 export type PlatformShopAuditEvent =

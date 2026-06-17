@@ -1,6 +1,6 @@
 # Evidence TASK-064
 
-Verdict corrente: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`.
+Verdict corrente: `DONE_RECONCILED`.
 
 TASK-064 e stato riaperto il 2026-06-16 perche la verifica manuale reale ha
 fallito: nel browser Master Console la ricerca `xniw...@...com` mostrava
@@ -15,6 +15,11 @@ account `xniw...@...com` visibile con provider `google` e stato `Profile OK`.
 Il redirect Vercel osservato in precedenza era configurazione storica da non
 usare: Vercel non e hosting operativo per staging, login o callback.
 
+Final review taxonomy 2026-06-16: su conferma esplicita utente, la review
+finale Users / Shop Admins / Platform Admins e stata riconciliata a
+`DONE_RECONCILED`. Questa riconciliazione chiude lo scope UI/read-model/test
+della tassonomia Master Console, non dichiara production-ready globale.
+
 ## Pre-flight Reopen
 
 - Brief utente: `TASK-064 REOPEN - Fix reale Master Console Users non trova
@@ -28,7 +33,7 @@ usare: Vercel non e hosting operativo per staging, login o callback.
 
 Orchestratore reale usato nel reopen:
 
-- Coordinator: Codex principale. Verdict finale:
+- Coordinator: Codex principale. Verdict storico del reopen:
   `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`.
 - Runtime target investigator: verifica dedicata su processo/dev server e
   target runtime.
@@ -50,6 +55,20 @@ Orchestratore reale usato nel reopen:
 - Coordinator TASK-064C URL config correction: Vercel classificato come
   redirect storico non operativo; verifica reale finale confermata sul runtime
   cloud locale `127.0.0.1:3055`.
+- Final taxonomy review 2026-06-16:
+  - Product/domain reviewer: Users/Personal Accounts, Shop Admins e Platform
+    Admins verificati come viste distinte; POS/Staff separato; claim futuro
+    `shop_code` verso `shop_members`, non `platform_admin`.
+  - Read-model/security reviewer: `shop_members` owner/manager include current,
+    historical-only e disabled; `platform_admins.revoked_at` non resta active;
+    identity Auth DTO safe; nessun raw metadata/secret in UI.
+  - UI/UX visual reviewer: screenshot desktop/tablet verificati per Users, Shop
+    Admins, Platform Admins e pannello `Advanced global access` aperto.
+  - Test/reliability reviewer: foundation ed E2E coprono historical Shop Admins,
+    Users default, Platform Admins identity, form anti-overflow, summary shop
+    compatto e separazione POS/staff.
+  - Documentation/evidence reviewer: tracking aggiornato a `DONE_RECONCILED`
+    con gate correnti, screenshot evidence e follow-up fuori scope separati.
 
 ## Fonti Lette
 
@@ -157,6 +176,13 @@ Questa evidence dimostra il mismatch target iniziale. La chiusura reale e
 avvenuta solo dopo avvio `platform:cloud:dev` e verifica browser cloud su
 `127.0.0.1:3055`.
 
+Nota storica: gli screenshot `browser-local-target-mismatch-xniw.png`,
+`browser-cloud-xniw-visible.png`, `browser-platform-users-personal-accounts-taxonomy.png`,
+`browser-platform-shop-admins-taxonomy.png` e
+`browser-platform-admins-collapsed-grant.png` documentano passaggi precedenti
+del reopen/review. La visual QA corrente per la tassonomia finale usa i file
+`task064-*.png` elencati nella sezione `Final Review Taxonomy 2026-06-16`.
+
 Browser laterale Codex, TASK-064C:
 
 - Dev server attivo: `PLATFORM_CLOUD_DEV_PORT=3055 npm run platform:cloud:dev`.
@@ -177,7 +203,8 @@ Browser laterale Codex, TASK-064C:
 
 ## Nota Redirect Vercel
 
-Stato corrente: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`.
+Stato storico TASK-064C: `DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`.
+Stato corrente TASK-064 taxonomy: `DONE_RECONCILED`.
 
 Il codice repo genera il `redirectTo` Google OAuth da origin runtime e, per
 `127.0.0.1:3055`, punta a `/auth/callback` sullo stesso host. Non e stato
@@ -242,6 +269,71 @@ la riga `xniw...@...com` con provider `google` e `Profile OK`.
 | `git status --short --branch --untracked-files=all` | `PASS_WITH_DIRTY_WORKTREE` | Worktree sporca attesa; nessun stage/commit/push. |
 | Porta `3055` | `PASS_RUNNING` | `node` in ascolto su `127.0.0.1:3055`; `platform:cloud:dev` lasciato attivo. |
 
+## Final Review Taxonomy 2026-06-16
+
+Scope riconciliato:
+
+- `/platform/users` mostra `Personal Accounts`, con default normal/non-admin o
+  account incompleti, notice dedicata e CTA verso `Shop Admins` e
+  `Platform Admins`.
+- `/platform/shop-admins` deriva da `shop_members` `shop_owner` /
+  `shop_manager`, include current, historical-only e disabled, e non usa
+  `staff_accounts` come account personale.
+- `/platform/admins` mostra solo accesso globale Master Console da
+  `platform_admins`, arricchito con email/provider/Profile ID/current account
+  quando disponibile.
+- POS/Staff resta separato e shop-scoped; un futuro claim `shop_code` deve
+  creare membership `shop_members`, non grant `platform_admin`.
+- `Advanced global access` resta collassato e, quando aperto, il form resta
+  dentro il box.
+
+Screenshot evidence:
+
+| Pagina | Viewport | File |
+|---|---|---|
+| Users / Personal Accounts | desktop 1440x900 | `docs/TASKS/EVIDENCE/TASK-064/task064-users-desktop.png` |
+| Users / Personal Accounts | tablet/medio | `docs/TASKS/EVIDENCE/TASK-064/task064-users-tablet.png` |
+| Shop Admins | desktop 1440x900 | `docs/TASKS/EVIDENCE/TASK-064/task064-shop-admins-desktop.png` |
+| Shop Admins | tablet/medio | `docs/TASKS/EVIDENCE/TASK-064/task064-shop-admins-tablet.png` |
+| Platform Admins | desktop 1440x900 | `docs/TASKS/EVIDENCE/TASK-064/task064-platform-admins-desktop.png` |
+| Platform Admins | tablet/medio | `docs/TASKS/EVIDENCE/TASK-064/task064-platform-admins-tablet.png` |
+| Platform Admins advanced open | desktop 1440x900 | `docs/TASKS/EVIDENCE/TASK-064/task064-platform-admins-advanced-fixed.png` |
+
+Acceptance visuale:
+
+- `PASS`: zero testo o badge sovrapposti negli screenshot verificati.
+- `PASS`: search/filter allineati e con altezze stabili.
+- `PASS`: tabella Shop Admins leggibile con summary multi-shop compatto.
+- `PASS`: dettagli completi disponibili in inspector/full detail, non nella
+  cella principale della tabella.
+- `PASS`: Users empty state/notice non appare come perdita dati.
+- `PASS`: Platform Admins mostra email/provider/Profile ID/current account.
+
+Gate final review taxonomy:
+
+| Comando / Metodo | Esito | Note |
+|---|---|---|
+| Targeted foundation TASK-047/TASK-049/TASK-064 | `PASS` | `16/16`. |
+| `npm run test:foundation` | `PASS` | `342/342`. |
+| `npm run security:scan` | `PASS` | `Security scan passed.` |
+| `npm run typecheck` | `PASS` | `next typegen` + `tsc --noEmit`, exit `0`. |
+| `npm run lint` | `PASS` | exit `0`. |
+| `npm run build` | `PASS_WITH_WARNINGS` | Exit `0`; warning noti Next `middleware` deprecato e Node `DEP0205`. |
+| `npm run verify` | `PASS_WITH_WARNINGS` | lint, typecheck, security scan e build passati; stessi warning noti. |
+| `npm run test:platform:local-users` | `PASS` | `1 passed`. |
+| `npm run test:ui-smoke:ci` | `PASS` | `48 passed`. |
+| Browser visual QA Users/Shop Admins/Platform Admins | `PASS` | Screenshot evidence sopra. |
+| `git diff --check` | `PASS` | Nessun output. |
+| `git status --short --branch --untracked-files=all` | `PASS_WITH_DIRTY_WORKTREE` | Worktree sporca con TASK-065/TASK-067 e altri artefatti fuori scope; nessuno stage/commit/push. |
+
+Follow-up non bloccante fuori scope TASK-064:
+
+- TASK-067 migration/security follow-up su snapshot force purge e audit metadata:
+  classificato fuori scope per questa review taxonomy. Non blocca
+  `DONE_RECONCILED` di TASK-064 perche il brief vieta modifiche
+  schema/migration/RPC/RLS fuori scope; va trattato nel task lifecycle/cleanup
+  dedicato.
+
 ## Check Visuale Layout Users
 
 Correzione UI applicata dopo review visuale browser laterale su
@@ -263,10 +355,15 @@ Correzione UI applicata dopo review visuale browser laterale su
 
 ## Stato Finale Corretto
 
-`DONE_RECONCILED_REAL_ACCOUNT_VISIBLE`.
+`DONE_RECONCILED`.
 
 La browser acceptance cloud reale mostra la riga `xniw...@...com` in Master
 Console su `127.0.0.1:3055`, target `cloud`, project `jpgo...yvm`,
 `Auth users=3`, provider `google`, stato `Profile OK`. Android/iOS/Admin Web
 risultano allineati sul target cloud redatto `jpgo...yvm`. Vercel resta
 parcheggiato e non operativo per staging, login o callback.
+
+La final review taxonomy 2026-06-16 chiude inoltre la separazione prodotto/UI:
+Users/Personal Accounts, Shop Admins e Platform Admins sono viste distinte, con
+Shop Admins derivato da `shop_members`, Platform Admins derivato da
+`platform_admins`, POS/Staff separato e visual QA desktop/tablet verificata.

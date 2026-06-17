@@ -4,9 +4,9 @@ Admin Web per MerchandiseControl, basato su Next.js App Router, TypeScript e Tai
 
 Il prodotto distingue:
 
-- `Platform Admin Console`: area globale per amministrare ecosistema, utenti, negozi, stato sistema e audit globale.
-- `Shop Admin Console`: area per proprietari/manager del negozio.
-- `POS/Staff`: modulo interno della Shop Admin Console, shop-scoped, non terza console autonoma.
+- `Master Console`: area globale per amministrare ecosistema, utenti, negozi, stato sistema e audit globale.
+- `Admin Console`: area shop-scoped per proprietari/manager collegati tramite account personale e `shop_members`.
+- `POS/Staff`: modulo shop-scoped separato dagli account personali, basato su staff/shop-code e non terza console autonoma.
 
 Per governance e roadmap leggere `docs/MASTER-PLAN.md`.
 
@@ -25,6 +25,8 @@ Usare `.env.example` come template. I nomi previsti sono:
 - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
 - `SUPABASE_PROJECT_REF`
 - `SUPABASE_SERVICE_ROLE_KEY` solo per runtime server-side degli endpoint POS; mai nel client/browser.
+- `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID` per Supabase Auth Google OAuth locale/deploy.
+- `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET` per Supabase Auth Google OAuth locale/deploy.
 
 Il repository non deve contenere valori reali, secret, service-role key, token o password.
 
@@ -78,6 +80,6 @@ Non configura deploy automatici e non richiede secret.
 - Foundation backend POS per sessioni/dispositivi presente; nessun client POS reale ancora collegato.
 - Nessuna integrazione Android/iOS/POS reale end-to-end.
 - Nessun sales sync POS.
-- Nessun login Google, Apple o WeChat.
+- Google OAuth e predisposto repo-side e verificato in locale per account personali quando il runtime fornisce client ID/secret reali tramite env locali/deploy. I valori reali non devono stare nel repository. Apple e WeChat non sono operativi.
 
 Per modifiche Next.js leggere prima le guide pertinenti in `node_modules/next/dist/docs/`, come richiesto da `AGENTS.md`.

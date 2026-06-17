@@ -2158,8 +2158,46 @@ export type Database = {
         }
         Returns: Json
       }
+      platform_activate_shop: {
+        Args: {
+          p_reason: string
+          p_shop_code_confirmation: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      platform_assign_shop_member: {
+        Args: {
+          p_profile_id: string
+          p_reason: string
+          p_role_key: string
+          p_shop_code_confirmation: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      platform_force_purge_test_shop: {
+        Args: {
+          p_confirmation: string
+          p_reason: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
       platform_grant_platform_admin: {
         Args: { p_confirmation: string; p_profile_id: string; p_reason: string }
+        Returns: Json
+      }
+      platform_preview_shop_purge: {
+        Args: { p_shop_id: string }
+        Returns: Json
+      }
+      platform_purge_shop: {
+        Args: {
+          p_confirmation: string
+          p_reason: string
+          p_shop_id: string
+        }
         Returns: Json
       }
       platform_reactivate_shop: {
@@ -2186,6 +2224,15 @@ export type Database = {
       }
       platform_revoke_platform_admin: {
         Args: { p_confirmation: string; p_profile_id: string; p_reason: string }
+        Returns: Json
+      }
+      platform_revoke_shop_member: {
+        Args: {
+          p_reason: string
+          p_shop_code_confirmation: string
+          p_shop_id: string
+          p_shop_member_id: string
+        }
         Returns: Json
       }
       platform_soft_delete_shop: {

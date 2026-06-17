@@ -52,10 +52,26 @@ test("TASK-049 Admins page is compact and keeps destructive revoke controls coll
 
   for (const required of [
     "@/components/platform/displayFormat",
+    "includeAuthIdentities: true",
+    "Current Platform Admin account",
+    "Current session",
+    "Current account",
+    "accountEmail",
+    "accountOrigin",
+    "shopAdminOverlap",
+    "profileOptionLabel",
     "Active admins",
+    "Global access only",
+    "This page controls only global Master Console access.",
+    "Shop owners and managers are personal accounts linked to shops through shop_members.",
+    "Connecting or claiming a shop code must create shop_owner or shop_manager membership, not platform_admin.",
+    "Advanced global access",
     "Server-side audit boundary",
     "Self-lockout protection",
     "Metadata/redaction boundary",
+    "Global Master Console grants. Server blocks self-lockout and last-admin removal. Revoke controls are collapsed by default.",
+    "Grant controls are collapsed by default because Platform Admin is global Master Console access.",
+    "Grant Platform Admin is a sensitive global operation. It does not create shop owners, shop managers, shop-code access, or POS staff.",
     "Server blocks self-lockout and last-admin removal.",
     "<details",
     "<summary",
@@ -63,11 +79,17 @@ test("TASK-049 Admins page is compact and keeps destructive revoke controls coll
     "Revoke controls are collapsed by default",
     "title={admin.profile_id}",
     "title={admin.platform_admin_id}",
+    "Profile ID",
+    "Provider",
+    "Shop access",
     "formatDateTime(locale, admin.granted_at)",
     "shortIdentifier(admin.profile_id)",
     "shortIdentifier(admin.platform_admin_id)",
     "break-all",
     "whitespace-nowrap",
+    "grid w-full max-w-2xl min-w-0 gap-4",
+    "min-h-10 w-full min-w-0",
+    "min-h-20 w-full min-w-0",
   ]) {
     assertContains(adminsPage, required, `admins page must contain ${required}`);
   }
@@ -77,9 +99,21 @@ test("TASK-049 Admins page is compact and keeps destructive revoke controls coll
     /Danger zone: Show revoke controls/,
     "closed admin revoke summary should be sober, not danger-led",
   );
-  assert.match(adminsPage, /grid gap-5 xl:grid-cols-\[minmax\(0,0\.9fr\)_minmax\(0,1\.4fr\)\]/);
-  assert.match(adminsPage, /className="grid max-w-2xl gap-4"/);
-  assert.match(adminsPage, /<details[\s\S]*<form action=\{revokePlatformAdminAction\}/);
+  assert.doesNotMatch(
+    adminsPage,
+    /xl:grid-cols-\[minmax\(0,0\.9fr\)_minmax\(0,1\.4fr\)\]/,
+    "grant form must not stay promoted beside active global grants",
+  );
+  assertContains(adminsPage, "{t(\"Grant Platform Admin\")}");
+  assert.doesNotMatch(adminsPage, /Grant admin/);
+  assert.match(adminsPage, /<details[\s\S]*Advanced global access[\s\S]*<form\s+action=\{grantPlatformAdminAction\}/);
+  assert.match(adminsPage, /className="mt-4 grid w-full max-w-2xl min-w-0 gap-4/);
+  assert.match(adminsPage, /<details[\s\S]*<form\s+action=\{revokePlatformAdminAction\}/);
+  assert.doesNotMatch(
+    adminsPage,
+    /assignPlatformShopMemberAction|revokePlatformShopMemberAction|<option value="shop_owner"|<option value="shop_manager"|<option value="platform_admin">/,
+    "Platform Admins page must not manage shop_members or staff principals",
+  );
   assert.doesNotMatch(
     adminsPage,
     /lg:grid-cols-\[minmax\(0,1fr\)_280px\][\s\S]*<form action=\{revokePlatformAdminAction\}/,

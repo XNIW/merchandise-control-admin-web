@@ -11,6 +11,12 @@ import type {
   ShopMember,
 } from "@/domain/platform-admin/types";
 import {
+  isActiveMembershipStatus,
+  isOperationalMembership,
+  operationalMembershipsForProfile,
+  shopById,
+} from "@/domain/platform-admin/semantics";
+import {
   createSupabaseServerClient,
   getSupabaseRuntimeTargetDiagnostic,
   resolveSupabaseServerConfig,
@@ -74,14 +80,20 @@ export type PlatformShopAccessState =
 
 export type PlatformUserAccountSummary = {
   createdAt: string;
+  currentShopAdminMembershipCount: number;
+  disabledShopAdminMembershipCount: number;
   displayName: string;
   email: string;
+  historicalShopAdminMembershipCount: number;
+  nonOperationalMembershipCount: number;
+  totalMembershipCount: number;
   membershipCount: number;
   profileId: string;
   profileStatus: Profile["profile_status"] | "not_configured";
   profileSyncState: PlatformProfileSyncState;
   provider: string;
   providerType: PlatformAuthProviderType | "unavailable";
+  shopAdminMembershipCount: number;
   shopAccessState: PlatformShopAccessState;
 };
 
@@ -121,6 +133,7 @@ export type PlatformAdminLiveReadModel = PlatformAdminReadModelFoundation & {
   readIssues: readonly PlatformReadIssue[];
   runtimeTarget: SupabaseRuntimeTargetDiagnostic;
   dataHealth: PlatformDataHealth;
+  currentProfileId?: string;
 };
 
 const emptyHealth: PlatformDataHealth = {
@@ -163,6 +176,7 @@ function emptyModel(
       status: "not_configured",
       truncated: false,
     },
+    currentProfileId: undefined,
     dataHealth: emptyHealth,
     platformAdminProfileIds: [],
     platformAdmins: [],
@@ -251,8 +265,12 @@ function mapPlatformAdminRow(
     profile_id: row.profile_id,
     reason_redacted: row.reason_redacted ?? undefined,
     revoked_at: row.revoked_at ?? undefined,
-    status: row.status === "active" ? "active" : "revoked",
+    status: row.status === "active" && row.revoked_at === null ? "active" : "revoked",
   };
+}
+
+function isShopAdminRole(member: ShopMember) {
+  return member.role_id === "shop_owner" || member.role_id === "shop_manager";
 }
 
 function mapDeviceRow(row: Tables["shop_devices"]["Row"]): PlatformDeviceOverview {
@@ -296,17 +314,21 @@ function buildDataHealth(input: {
   syncEvents: readonly PlatformSyncOverview[];
   readIssues: readonly PlatformReadIssue[];
 }): PlatformDataHealth {
+  const shopsById = shopById(input.shops);
   const activeOwnerShopIds = new Set(
     input.shopMembers
       .filter(
         (member) =>
-          member.membership_status === "active" && member.role_id === "shop_owner",
+          member.role_id === "shop_owner" &&
+          isOperationalMembership(member, shopsById.get(member.shop_id)),
       )
       .map((member) => member.shop_id),
   );
   const memberProfileIds = new Set(
     input.shopMembers
-      .filter((member) => member.membership_status === "active")
+      .filter((member) =>
+        isOperationalMembership(member, shopsById.get(member.shop_id)),
+      )
       .map((member) => member.profile_id),
   );
   const profileIds = new Set(input.profiles.map((profile) => profile.profile_id));
@@ -472,12 +494,11 @@ async function loadProfilesByIds(
 function shopAccessStateForProfile(
   profileId: string,
   members: readonly ShopMember[],
+  shops: readonly Shop[],
   platformAdmins: readonly PlatformAdminRecord[],
 ): PlatformShopAccessState {
-  const hasMembership = members.some(
-    (member) =>
-      member.profile_id === profileId && member.membership_status === "active",
-  );
+  const hasMembership =
+    operationalMembershipsForProfile(profileId, shops, members).length > 0;
   const isPlatformAdmin = platformAdmins.some(
     (admin) => admin.profile_id === profileId && admin.status === "active",
   );
@@ -499,6 +520,7 @@ function buildUserAccounts(input: {
   platformAdmins: readonly PlatformAdminRecord[];
   profiles: readonly Profile[];
   shopMembers: readonly ShopMember[];
+  shops: readonly Shop[];
 }) {
   const profileById = new Map(
     input.profiles.map((profile) => [profile.profile_id, profile]),
@@ -506,6 +528,7 @@ function buildUserAccounts(input: {
   const authById = new Map(
     input.authIdentities.map((identity) => [identity.authUserId, identity]),
   );
+  const shopsById = shopById(input.shops);
   const userIds = new Set<string>([
     ...profileById.keys(),
     ...authById.keys(),
@@ -515,9 +538,25 @@ function buildUserAccounts(input: {
   for (const profileId of userIds) {
     const profile = profileById.get(profileId);
     const authIdentity = authById.get(profileId);
-    const membershipCount = input.shopMembers.filter(
+    const profileMemberships = input.shopMembers.filter(
+      (member) => member.profile_id === profileId,
+    );
+    const shopAdminMemberships = profileMemberships.filter(isShopAdminRole);
+    const currentShopAdminMembershipCount = shopAdminMemberships.filter((member) =>
+      isOperationalMembership(member, shopsById.get(member.shop_id)),
+    ).length;
+    const historicalShopAdminMembershipCount = shopAdminMemberships.filter(
       (member) =>
-        member.profile_id === profileId && member.membership_status === "active",
+        isActiveMembershipStatus(member.membership_status) &&
+        !isOperationalMembership(member, shopsById.get(member.shop_id)),
+    ).length;
+    const disabledShopAdminMembershipCount = shopAdminMemberships.filter(
+      (member) => !isActiveMembershipStatus(member.membership_status),
+    ).length;
+    const membershipCount = operationalMembershipsForProfile(
+      profileId,
+      input.shops,
+      input.shopMembers,
     ).length;
     const profileSyncState: PlatformProfileSyncState =
       profile && authIdentity
@@ -530,22 +569,29 @@ function buildUserAccounts(input: {
 
     accounts.push({
       createdAt: profile?.created_at ?? authIdentity?.createdAt ?? "Not captured",
+      currentShopAdminMembershipCount,
+      disabledShopAdminMembershipCount,
       displayName:
         profile?.display_name ??
         authIdentity?.displayName ??
         `Profile ${profileId.slice(0, 8)}`,
       email: authIdentity?.email ?? "Auth identity unavailable",
+      historicalShopAdminMembershipCount,
       membershipCount,
+      nonOperationalMembershipCount: profileMemberships.length - membershipCount,
       profileId,
       profileStatus: profile?.profile_status ?? "not_configured",
       profileSyncState,
       provider: authIdentity?.provider ?? "Auth identity unavailable",
       providerType: authIdentity?.providerType ?? "unavailable",
+      shopAdminMembershipCount: shopAdminMemberships.length,
       shopAccessState: shopAccessStateForProfile(
         profileId,
         input.shopMembers,
+        input.shops,
         input.platformAdmins,
       ),
+      totalMembershipCount: profileMemberships.length,
     });
   }
 
@@ -675,11 +721,21 @@ async function loadRows(
 
   let profileRows = (profilesResult.data ?? []) as ProfileRowCandidate[];
 
-  if (authIdentities.length > 0) {
+  const relatedProfileIds = new Set<string>([
+    ...authIdentities.map((identity) => identity.authUserId),
+    ...((membersResult.data ?? []) as ShopMemberRowCandidate[]).map(
+      (member) => member.profile_id,
+    ),
+    ...((platformAdminsResult.data ?? []) as Tables["platform_admins"]["Row"][]).map(
+      (admin) => admin.profile_id,
+    ),
+  ]);
+
+  if (relatedProfileIds.size > 0) {
     const existingProfileIds = new Set(profileRows.map((row) => row.profile_id));
-    const missingProfileIds = authIdentities
-      .map((identity) => identity.authUserId)
-      .filter((profileId) => !existingProfileIds.has(profileId));
+    const missingProfileIds = Array.from(relatedProfileIds).filter(
+      (profileId) => !existingProfileIds.has(profileId),
+    );
     const linkedProfilesResult = await loadProfilesByIds(supabase, missingProfileIds);
 
     if (linkedProfilesResult.error) {
@@ -755,6 +811,7 @@ async function loadRows(
     platformAdmins,
     profiles,
     shopMembers,
+    shops,
   });
 
   return {
@@ -858,6 +915,7 @@ export async function getPlatformAdminReadModel(
       "ready",
       "Server-side Platform Admin read model loaded through RLS.",
     ),
+    currentProfileId: authz.userId,
     ...loaded.data,
   };
 }

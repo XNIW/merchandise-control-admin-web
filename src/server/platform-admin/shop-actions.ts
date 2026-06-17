@@ -13,6 +13,8 @@ import { authorizeCurrentPlatformAdmin } from "./authz";
 import {
   INITIAL_MANAGER_DISPLAY_NAME,
   platformShopActionResult,
+  type AssignShopMemberInput,
+  type ActivateShopInput,
   type CreatePosFirstShopInput,
   type CreateShopInput,
   type CreateShopWithOwnerBootstrapInput,
@@ -23,6 +25,8 @@ import {
   type PlatformShopProvisioningResult,
   type PlatformShopActionResult,
   type RestoreShopInput,
+  type RevokeShopMemberInput,
+  type PurgeShopInput,
   type ShopStatusActionInput,
   type SoftDeleteShopInput,
 } from "./action-types";
@@ -30,10 +34,14 @@ import {
   validateCreateShopInput,
   validateCreatePosFirstShopInput,
   validateCreateShopWithOwnerBootstrapInput,
+  validateActivateShopInput,
+  validateAssignShopMemberInput,
   validateEmergencyRevokeDeviceInput,
   validatePendingOwnerInviteInput,
   validatePendingOwnerInviteWithFiscalInput,
   validateRestoreShopInput,
+  validateRevokeShopMemberInput,
+  validatePurgeShopInput,
   validateShopStatusActionInput,
   validateSoftDeleteShopInput,
 } from "./shop-action-validation";
@@ -90,11 +98,15 @@ function mapRpcCode(value: unknown): PlatformShopActionCode {
       "owner_not_active",
       "profile_not_found",
       "profile_not_active",
+      "member_not_found",
       "admin_not_found",
       "self_lockout_blocked",
       "last_admin_blocked",
       "already_active",
       "invalid_state",
+      "not_archived",
+      "unsafe_purge_target",
+      "dependencies_blocked",
       "shop_not_found",
       "device_not_found",
       "conflict",
@@ -517,6 +529,37 @@ export async function createPlatformPendingOwnerInvite(
   return mapRpcResult(data);
 }
 
+export async function activatePlatformShop(
+  input: ActivateShopInput,
+): Promise<PlatformShopActionResult> {
+  const { fieldErrors, normalized } = validateActivateShopInput(input);
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return platformShopActionResult("validation_failed", {
+      fieldErrors,
+      ok: false,
+    });
+  }
+
+  const { result, supabase } = await getAuthorizedSupabase();
+
+  if (!supabase) {
+    return result;
+  }
+
+  const { data, error } = await supabase.rpc("platform_activate_shop", {
+    p_reason: normalized.reason,
+    p_shop_code_confirmation: normalized.shopCodeConfirmation,
+    p_shop_id: normalized.shopId,
+  });
+
+  if (error) {
+    return platformShopActionResult("db_failure", { ok: false });
+  }
+
+  return mapRpcResult(data);
+}
+
 export async function suspendPlatformShop(
   input: ShopStatusActionInput,
 ): Promise<PlatformShopActionResult> {
@@ -632,6 +675,109 @@ export async function restorePlatformShop(
     p_reason: normalized.reason,
     p_shop_code_confirmation: normalized.shopCodeConfirmation,
     p_shop_id: normalized.shopId,
+  });
+
+  if (error) {
+    return platformShopActionResult("db_failure", { ok: false });
+  }
+
+  return mapRpcResult(data);
+}
+
+export async function purgePlatformShop(
+  input: PurgeShopInput,
+): Promise<PlatformShopActionResult> {
+  const { fieldErrors, normalized } = validatePurgeShopInput(input);
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return platformShopActionResult("validation_failed", {
+      fieldErrors,
+      ok: false,
+    });
+  }
+
+  const { result, supabase } = await getAuthorizedSupabase();
+
+  if (!supabase) {
+    return result;
+  }
+
+  const { data, error } =
+    normalized.mode === "force_test"
+      ? await supabase.rpc("platform_force_purge_test_shop", {
+          p_confirmation: normalized.confirmation,
+          p_reason: normalized.reason,
+          p_shop_id: normalized.shopId,
+        })
+      : await supabase.rpc("platform_purge_shop", {
+          p_confirmation: normalized.confirmation,
+          p_reason: normalized.reason,
+          p_shop_id: normalized.shopId,
+        });
+
+  if (error) {
+    return platformShopActionResult("db_failure", { ok: false });
+  }
+
+  return mapRpcResult(data);
+}
+
+export async function assignPlatformShopMember(
+  input: AssignShopMemberInput,
+): Promise<PlatformShopActionResult> {
+  const { fieldErrors, normalized } = validateAssignShopMemberInput(input);
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return platformShopActionResult("validation_failed", {
+      fieldErrors,
+      ok: false,
+    });
+  }
+
+  const { result, supabase } = await getAuthorizedSupabase();
+
+  if (!supabase) {
+    return result;
+  }
+
+  const { data, error } = await supabase.rpc("platform_assign_shop_member", {
+    p_profile_id: normalized.profileId,
+    p_reason: normalized.reason,
+    p_role_key: normalized.roleKey,
+    p_shop_code_confirmation: normalized.shopCodeConfirmation,
+    p_shop_id: normalized.shopId,
+  });
+
+  if (error) {
+    return platformShopActionResult("db_failure", { ok: false });
+  }
+
+  return mapRpcResult(data);
+}
+
+export async function revokePlatformShopMember(
+  input: RevokeShopMemberInput,
+): Promise<PlatformShopActionResult> {
+  const { fieldErrors, normalized } = validateRevokeShopMemberInput(input);
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return platformShopActionResult("validation_failed", {
+      fieldErrors,
+      ok: false,
+    });
+  }
+
+  const { result, supabase } = await getAuthorizedSupabase();
+
+  if (!supabase) {
+    return result;
+  }
+
+  const { data, error } = await supabase.rpc("platform_revoke_shop_member", {
+    p_reason: normalized.reason,
+    p_shop_code_confirmation: normalized.shopCodeConfirmation,
+    p_shop_id: normalized.shopId,
+    p_shop_member_id: normalized.shopMemberId,
   });
 
   if (error) {

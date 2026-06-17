@@ -1,6 +1,7 @@
 export type PlatformSectionKey =
   | "overview"
   | "users"
+  | "shopAdmins"
   | "shops"
   | "provisioning"
   | "admins"
@@ -31,6 +32,7 @@ export type TableRow = Record<string, string> & {
 };
 
 export type RowDetailField = {
+  href?: string;
   label: string;
   value: string;
 };
@@ -71,9 +73,11 @@ export type PlatformServerSearch = {
 };
 
 export type PlatformDetailSection = {
+  actionPlacement?: "header" | "body";
   title: string;
   description?: string;
   fields: RowDetailField[];
+  layout?: "default" | "full";
   notes?: string[];
 };
 
@@ -109,11 +113,13 @@ export type PlatformSection = {
   stats: StatItem[];
   columns: TableColumn[];
   rows: TableRow[];
+  tableNotice?: EmptyStateContent;
   filters?: PlatformFilter[];
   searchPlaceholder?: string;
   serverSearch?: PlatformServerSearch;
   detailSections?: PlatformDetailSection[];
   rowDetails?: RowDetailPanel[];
+  rowsPresentation?: "main" | "diagnostics";
   emptyState?: EmptyStateContent;
   operations?: OperationItem[];
   guardrails?: string[];
@@ -132,9 +138,10 @@ export type PlatformNavigationItem = {
 export const navigationItems: PlatformNavigationItem[] = [
   { key: "overview", label: "Overview", href: "/platform" },
   { key: "users", label: "Users", href: "/platform/users" },
+  { key: "shopAdmins", label: "Shop Admins", href: "/platform/shop-admins" },
   { key: "shops", label: "Shops", href: "/platform/shops" },
   { key: "provisioning", label: "Provisioning", href: "/platform/provisioning" },
-  { key: "admins", label: "Admins", href: "/platform/admins" },
+  { key: "admins", label: "Platform Admins", href: "/platform/admins" },
   { key: "audit", label: "Audit", href: "/platform/audit" },
   { key: "system", label: "System", href: "/platform/system" },
   { key: "data", label: "Data", href: "/platform/data" },
@@ -187,16 +194,31 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   ),
   users: baseSection(
     "users",
-    "Users / Profiles",
-    "Identity overview",
-    "Global profile directory with memberships, platform role state, access status, and recent audit.",
+    "Personal Accounts",
+    "User directory",
+    "Directory of non-admin and incomplete personal accounts. Shop Admins and Platform Admins have dedicated views.",
+    [
+      { key: "profile", label: "Profile" },
+      { key: "email", label: "Email" },
+      { key: "accountType", label: "Account type" },
+      { key: "origin", label: "Origin" },
+      { key: "state", label: "Profile/Auth state" },
+    ],
+  ),
+  shopAdmins: baseSection(
+    "shopAdmins",
+    "Shop Admins",
+    "Shop-scoped admin accounts",
+    "Personal accounts linked to shops through shop_owner or shop_manager membership, including current, historical, and disabled contexts.",
     [
       { key: "profile", label: "Profile" },
       { key: "email", label: "Email" },
       { key: "origin", label: "Origin" },
-      { key: "access", label: "Access" },
       { key: "shops", label: "Shops" },
-      { key: "state", label: "State" },
+      { key: "roles", label: "Roles" },
+      { key: "adminAccess", label: "Admin Console access" },
+      { key: "globalAccess", label: "Global access" },
+      { key: "state", label: "Profile/Auth state" },
     ],
   ),
   shops: baseSection(
@@ -207,6 +229,8 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
     [
       { key: "shop", label: "Shop" },
       { key: "code", label: "Code" },
+      { key: "status", label: "Status" },
+      { key: "operationalAccess", label: "Operational access" },
       { key: "owners", label: "Owners" },
       { key: "members", label: "Members" },
       { key: "devices", label: "Devices" },
@@ -223,9 +247,12 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
     "admins",
     "Platform Admins",
     "Global access",
-    "Platform Admin grant visibility with audited grant and revoke actions behind anti-lockout RPCs.",
+    "Global Master Console access only. Shop owners and managers are shop_members, not platform_admins.",
     [
       { key: "profile", label: "Profile" },
+      { key: "email", label: "Email" },
+      { key: "origin", label: "Origin" },
+      { key: "shopOverlap", label: "Shop access" },
       { key: "status", label: "Status" },
       { key: "granted", label: "Granted" },
       { key: "review", label: "Review" },

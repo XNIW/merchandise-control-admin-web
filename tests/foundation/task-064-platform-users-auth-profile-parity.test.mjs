@@ -23,6 +23,7 @@ function assertPathExists(relativePath) {
 
 test("TASK-064 users route submits server-side query state", () => {
   const usersPage = readProjectFile("src/app/platform/users/page.tsx");
+  const shopAdminsPage = readProjectFile("src/app/platform/shop-admins/page.tsx");
   const platformPage = readProjectFile("src/components/platform/PlatformPage.tsx");
   const masterDetail = readProjectFile(
     "src/components/platform/PlatformMasterDetail.tsx",
@@ -32,16 +33,38 @@ test("TASK-064 users route submits server-side query state", () => {
 
   assertContains(usersPage, "q?: string | string[]");
   assertContains(usersPage, "usersSearchQuery: firstParam(params.q)");
+  assertContains(shopAdminsPage, "q?: string | string[]");
+  assertContains(shopAdminsPage, "getPlatformSectionForRequest(\"shopAdmins\"");
+  assertContains(shopAdminsPage, "usersSearchQuery: firstParam(params.q)");
   assertContains(masterDetail, "serverSearch");
   assertContains(masterDetail, 'method="get"');
   assertContains(masterDetail, "name={serverSearch.paramName}");
   assertContains(masterDetail, "function listHrefFor");
   assertContains(masterDetail, "serverSearch?.value");
+  assertContains(masterDetail, "serverSearch.helper");
+  assertContains(masterDetail, "serverSearchReturnedNoRows");
+  assertContains(masterDetail, "clientFiltersHideRows");
+  assertContains(masterDetail, "tableMinWidthClass");
+  assertContains(masterDetail, "min-w-[88rem]");
+  assertContains(masterDetail, "xl:grid-cols-4");
+  assertContains(masterDetail, "overflow-hidden text-ellipsis whitespace-nowrap");
   assertContains(masterDetail, "rows.length === 0 && !serverSearch");
   assertContains(masterDetail, "returnTo");
   assertContains(platformPage, "localizedSection.serverSearch !== undefined");
+  assertContains(platformPage, "localizedSection.tableNotice");
+  assertContains(platformData, "tableNotice?: EmptyStateContent");
+  assertContains(platformPage, "Server search returned no rows. Clear the search to return to the default view.");
+  assertContains(platformPage, "Client filters are hiding rows returned by the server boundary.");
   assertContains(platformData, "type PlatformServerSearch");
   assertContains(platformData, '{ key: "email", label: "Email" }');
+  assertContains(platformData, '{ key: "accountType", label: "Account type" }');
+  assertContains(platformData, '{ key: "shopAdmins", label: "Shop Admins", href: "/platform/shop-admins" }');
+  assertContains(platformData, '{ key: "roles", label: "Roles" }');
+  assertContains(platformData, '{ key: "origin", label: "Origin" }');
+  assertContains(platformData, '{ key: "adminAccess", label: "Admin Console access" }');
+  assertContains(platformData, '{ key: "globalAccess", label: "Global access" }');
+  assertContains(platformData, '{ key: "shopOverlap", label: "Shop access" }');
+  assertContains(platformData, '{ key: "state", label: "Profile/Auth state" }');
   assertContains(translateSections, "serverSearch: section.serverSearch");
 });
 
@@ -58,9 +81,8 @@ test("TASK-064 users master-detail table keeps identity columns stable", () => {
     "min-w-28",
     "min-w-56",
     "whitespace-nowrap",
-    "rounded-md border border-slate-200 bg-slate-50 p-2 lg:grid-cols-[minmax(18rem,1fr)_auto]",
+    "rounded-md border border-slate-200 bg-slate-50 p-2 xl:grid-cols-[minmax(20rem,1fr)_auto]",
     "sm:grid-cols-[minmax(0,1fr)_auto_auto]",
-    "lg:w-[22rem] xl:w-[24rem]",
     "sm:grid-cols-2",
   ]) {
     assertContains(masterDetail, required);
@@ -121,8 +143,16 @@ test("TASK-064 read model merges Auth, profile, and membership summaries safely"
     "usersSearchQuery",
     "loadProfileRows",
     "loadProfilesByIds",
+    "relatedProfileIds",
+    "membersResult.data",
+    "platformAdminsResult.data",
     "for (let index = 0; index < ids.length; index += 200)",
     "userAccounts",
+    "currentProfileId",
+    "shopAdminMembershipCount",
+    "currentShopAdminMembershipCount",
+    "historicalShopAdminMembershipCount",
+    "disabledShopAdminMembershipCount",
     "authIdentities",
     "authIdentityStatus",
     "runtimeTarget",
@@ -149,13 +179,56 @@ test("TASK-064 read model merges Auth, profile, and membership summaries safely"
     "Auth only",
     "Profile only",
     "Origin unavailable",
+    "Unlinked user",
+    "Shop admin",
+    "Historical shop admin",
+    "Disabled shop admin",
+    "Platform admin",
+    "Historical only",
+    "shopAdminMembershipsForProfile",
+    "currentShopAdminMembershipsForProfile",
+    "historicalShopAdminMembershipsForProfile",
+    "disabledShopAdminMembershipsForProfile",
+    "hasShopAdminMembershipHistory",
+    "Can access Master Console",
+    "Can access Admin Console",
+    "Admin Console access",
+    "All access states",
+    "Current Shop Admins",
+    "Historical Shop Admins",
+    "Showing normal personal accounts only",
+    "No normal users in this view",
+    "Summary",
+    "Classification",
+    "Can access Admin Console now",
+    "Historical shop access",
+    "No global access",
+    "No shop access",
+    "No shop admin membership",
+    "Shop Admins",
+    "No Shop Admin accounts visible",
     "Email",
     "Provider",
+    "Account type",
+    "Global access",
+    "Shop access",
+    "Profile/Auth state",
     "Profile sync state",
     "Shop access state",
+    "Join source",
+    "Not captured in current read model",
     "runtime target",
     "auth users count",
     "profiles count",
+    "Admin account means a personal account with shop-scoped Admin Console access through shop_members.",
+    "This default Users view lists non-admin and incomplete personal accounts; access-bearing accounts live in Shop Admins or Platform Admins.",
+    "An empty Users table can be correct when the returned accounts are Shop Admins or Platform Admins instead of normal users.",
+    "Shop Admin accounts are personal accounts with shop_owner or shop_manager membership in shop_members, including historical and disabled contexts.",
+    "Current means active membership on an operational shop; Historical only means the owner/manager link is retained for audit but cannot open Admin Console now.",
+    "Rows are the non-admin subset; totals below show the wider personal-account read model.",
+    "Shop Admins and Platform Admins are intentionally excluded from this default Users table.",
+    "Future shop_code claim flows should create shop_members rows, not platform_admin grants.",
+    "platform_admin means global Master Console access; it is not created by linking a shop code.",
     "Runtime target diagnostics expose only class, redacted project ref, and counts.",
     "No auth secret fields are queried or rendered.",
     "Email and provider are returned only by a minimal server-side Auth identity DTO.",
