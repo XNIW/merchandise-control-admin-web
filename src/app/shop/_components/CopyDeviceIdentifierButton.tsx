@@ -11,21 +11,33 @@ export function CopyDeviceIdentifierButton({
   label = "Copy identifier",
   value,
 }: CopyDeviceIdentifierButtonProps) {
-  const [copied, setCopied] = useState(false);
+  const [copyState, setCopyState] = useState<"idle" | "copied" | "failed">(
+    "idle",
+  );
 
   async function copyIdentifier() {
-    await navigator.clipboard.writeText(value);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 1500);
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopyState("copied");
+    } catch {
+      setCopyState("failed");
+    }
+
+    window.setTimeout(() => setCopyState("idle"), 1500);
   }
 
   return (
     <button
+      aria-live="polite"
       className="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:border-emerald-300 hover:text-emerald-700"
       onClick={copyIdentifier}
       type="button"
     >
-      {copied ? "Copied" : label}
+      {copyState === "copied"
+        ? "Copied"
+        : copyState === "failed"
+          ? "Copy failed"
+          : label}
     </button>
   );
 }

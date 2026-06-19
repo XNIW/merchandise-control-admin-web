@@ -3232,7 +3232,14 @@ Review / DONE Gate / Commit Readiness`, completata la riconciliazione finale
   `Staff POS usato`, diagnostic/test devices raggruppati, sync activity hints
   non autorizzativi e manual fallback chiuso in `Advanced manual actions`.
   Nessuna migration, nessuna modifica RPC/RLS/enforcement, nessuna service-role
-  client-side. Stato Codex: `READY_FOR_REVIEW`, non `DONE`.
+  client-side. Final visual review richiesta dall'utente il 2026-06-19:
+  corretto copy sync hints da mapped shop owner a mapped shop inventory source,
+  reso robusto il copy button se la clipboard non e disponibile e preservato
+  badge/kind diagnostico anche nel filtro `Diagnostics / Test`. Gate finali:
+  in-app browser autenticato PASS, smoke `/shop/devices` local Supabase PASS,
+  negative revoked-register PASS, security/foundation/typecheck/lint/build/verify
+  PASS, `git diff --check` PASS e nessun file staged. Stato finale:
+  `DONE`; fase: `DONE_RECONCILED`; verdict finale: `DONE`.
 
 ## Regole di avanzamento
 

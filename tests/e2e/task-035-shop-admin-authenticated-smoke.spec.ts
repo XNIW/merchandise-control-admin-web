@@ -118,7 +118,7 @@ const authenticatedSmokeRoutes: Array<{
   {
     heading: "Devices",
     path: "/shop/devices",
-    assertText: (fixture) => fixture.deviceDisplayName,
+    assertText: () => "Registered devices",
   },
   {
     heading: "Audit",
@@ -1096,17 +1096,58 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         }
 
         if (route.path === "/shop/devices") {
+          await expect(
+            page.getByText("Diagnostic / test devices"),
+          ).toBeVisible();
+          await expect(page.getByText("Advanced manual actions")).toBeVisible();
+          const syncHintsDetails = page.locator("details").filter({
+            hasText: "These rows come from sync_events.source_device_id",
+          });
+
+          await expect(syncHintsDetails).toHaveCount(1);
+          await syncHintsDetails.locator("summary").click();
+          await expect(
+            syncHintsDetails.getByText("mapped shop inventory source"),
+          ).toBeVisible();
+          await expect(page.getByText("mapped shop owner")).toHaveCount(0);
+
+          await page.goto(
+            `${route.path}?shop_id=${fixture.shopId}&device_filter=diagnostics`,
+          );
           const deviceCard = page
             .getByTestId("registered-device-card")
             .filter({ hasText: fixture.deviceDisplayName });
 
+          await expect(deviceCard).toBeVisible();
           await expect(deviceCard).toContainText("POS");
           await expect(deviceCard).toContainText("active");
+          await expect(deviceCard).toContainText("Diagnostics / Test");
           await expect(deviceCard).toContainText("TASK035_SMOKE");
           await expect(deviceCard).toContainText("TASK035 Shop Admin");
           await expect(deviceCard).toContainText("Account personale usato");
           await expect(deviceCard).toContainText("Staff POS usato");
-          await expect(page.getByText("Advanced manual actions")).toBeVisible();
+
+          await page.setViewportSize({ width: 390, height: 844 });
+          await page.goto(
+            `${route.path}?shop_id=${fixture.shopId}&device_filter=diagnostics`,
+          );
+          await expect(
+            page.getByRole("heading", { level: 1, name: route.heading }),
+          ).toBeVisible();
+          await expect(
+            page.getByText(fixture.deviceDisplayName).first(),
+          ).toBeVisible();
+          const mobileSyncHintsDetails = page.locator("details").filter({
+            hasText: "These rows come from sync_events.source_device_id",
+          });
+
+          await expect(mobileSyncHintsDetails).toHaveCount(1);
+          await mobileSyncHintsDetails.locator("summary").click();
+          await expect(
+            mobileSyncHintsDetails.getByText("mapped shop inventory source"),
+          ).toBeVisible();
+          await expect(page.getByText("mapped shop owner")).toHaveCount(0);
+          await page.setViewportSize({ width: 1440, height: 900 });
         }
 
         if (route.path === "/shop/members") {

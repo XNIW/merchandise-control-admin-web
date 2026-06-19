@@ -770,6 +770,7 @@ function DeviceList({
       {devices.map((row) => (
         <DeviceCard
           canManageDevices={canManageDevices}
+          diagnostic={isDiagnosticDevice(row)}
           key={row.deviceId}
           locale={locale}
           requestedShopId={requestedShopId}
@@ -843,7 +844,7 @@ function SyncActivityHints({
       </summary>
       <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
         {t(
-          "These rows come from sync_events.source_device_id for the mapped shop owner. They are activity hints only and are not authorized devices until a client registers through shop_device_register.",
+          "These rows come from sync_events.source_device_id for the mapped shop inventory source. They are activity hints only and are not authorized devices until a client registers through shop_device_register.",
         )}
       </p>
       {clients.length === 0 ? (
