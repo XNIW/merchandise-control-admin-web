@@ -136,15 +136,16 @@ export default async function ShopSuppliersPage({
   const activeFilterCount = [getParam(params, "query")].filter((value) =>
     Boolean(value?.trim()),
   ).length;
-  const [section, inventoryReadModel, suppliersContext] = await Promise.all([
-    getShopSectionForRequest("suppliers", requestedShopId, {
-      catalogFilters: {
-        query: getParam(params, "query"),
-      },
-    }),
+  const [inventoryReadModel, suppliersContext] = await Promise.all([
     getShopInventoryReadModel({ requestedShopId }),
     resolveShopActionContext(requestedShopId, "suppliers.write"),
   ]);
+  const section = await getShopSectionForRequest("suppliers", requestedShopId, {
+    catalogFilters: {
+      query: getParam(params, "query"),
+    },
+    inventoryReadModel,
+  });
   const canManageSuppliers = suppliersContext.status === "ready";
   const supplierOptions = mapSupplierOptions(inventoryReadModel.suppliers);
   const supplierDialog = getSupplierDialog(getParam(params, "supplier_action"));

@@ -9,6 +9,7 @@ import type {
   CreateShopWithOwnerBootstrapInput,
   EmergencyRevokeDeviceInput,
   FiscalIdentityInput,
+  MapShopInventorySourceInput,
   PendingOwnerInviteInput,
   PendingOwnerInviteWithFiscalInput,
   PlatformAdminGrantInput,
@@ -202,6 +203,34 @@ export function validateCreateShopInput(input: CreateShopInput) {
       shopCode,
       shopName,
       reason: input.reason.trim(),
+    },
+  };
+}
+
+export function validateMapShopInventorySourceInput(
+  input: MapShopInventorySourceInput,
+) {
+  const fieldErrors: Record<string, string> = {};
+
+  if (!input.shopId.trim()) {
+    fieldErrors.shopId = "Shop is required.";
+  }
+
+  if (!input.ownerProfileId.trim()) {
+    fieldErrors.ownerProfileId = "Owner profile is required.";
+  }
+
+  if (!validateRequiredReason(input.reason)) {
+    fieldErrors.reason = "Reason is required.";
+  }
+
+  return {
+    fieldErrors,
+    normalized: {
+      ...input,
+      ownerProfileId: input.ownerProfileId.trim(),
+      reason: input.reason.trim(),
+      shopId: input.shopId.trim(),
     },
   };
 }

@@ -9,7 +9,9 @@ import { ShopAdminAccessActions } from "./ShopAdminAccessActions";
 import { ShopDangerZoneActions } from "./ShopDangerZoneActions";
 import { ShopLifecycleActions } from "./ShopLifecycleActions";
 import { ShopProfileEditForm } from "./ShopProfileEditForm";
+import { getI18n } from "@/i18n/get-locale";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
+import { translateText } from "@/i18n/translate-sections";
 
 export function generateMetadata() {
   return createLocalizedPageMetadata("Shop Detail");
@@ -64,6 +66,7 @@ export default async function PlatformShopDetailPage({
   const query = searchParams ? await searchParams : {};
   const fallbackBackHref = `/platform/shops?selected=${encodeURIComponent(shopId)}`;
   const profileQuery = firstParam(query.profileQuery);
+  const { dictionary } = await getI18n();
   const [section, profile, access] = await Promise.all([
     getPlatformShopDetailForRequest(shopId),
     getPlatformShopProfileForRequest(shopId),
@@ -143,7 +146,7 @@ export default async function PlatformShopDetailPage({
       section={{
         ...section,
         backHref: safeReturnTo(firstParam(query.returnTo), fallbackBackHref),
-        backLabel: "Back to Shops",
+        backLabel: translateText(dictionary, "Back to Shops"),
       }}
     />
   );

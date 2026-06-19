@@ -14,6 +14,42 @@ function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
 }
 
+function extractExportedFunctionBlock(source, functionName) {
+  const signature = `export function ${functionName}`;
+  const start = source.indexOf(signature);
+
+  if (start === -1) {
+    return "";
+  }
+
+  const bodyStart = source.indexOf("{", start);
+
+  if (bodyStart === -1) {
+    return "";
+  }
+
+  let depth = 0;
+
+  for (let index = bodyStart; index < source.length; index += 1) {
+    const char = source[index];
+
+    if (char === "{") {
+      depth += 1;
+      continue;
+    }
+
+    if (char === "}") {
+      depth -= 1;
+
+      if (depth === 0) {
+        return source.slice(start, index + 1);
+      }
+    }
+  }
+
+  return "";
+}
+
 function readWin7PosFile(relativePath) {
   return readFileSync(join(win7PosRoot, relativePath), "utf8");
 }
@@ -108,7 +144,12 @@ test("Admin Web POS live dashboard is Shop Admin read-only and uses real POS tab
   const readModel = readProjectFile(readModelPath);
   const sectionData = readProjectFile(sectionDataPath);
   const sections = readProjectFile(sectionsPath);
-  const dashboardSource = `${route}\n${readModel}\n${sectionData}\n${sections}`;
+  const posLiveSection = extractExportedFunctionBlock(
+    sectionData,
+    "buildPosLiveSection",
+  );
+  assert.ok(posLiveSection, "buildPosLiveSection block is missing");
+  const dashboardSource = `${route}\n${readModel}\n${posLiveSection}\n${sections}`;
 
   assert.match(route, /export const dynamic = "force-dynamic"/);
   assert.match(route, /getShopSectionForRequest\(\s*"pos"/);
@@ -136,6 +177,8 @@ test("Admin Web POS live dashboard is Shop Admin read-only and uses real POS tab
   assert.match(sections, /href: "\/shop\/pos"/);
   assert.match(sectionData, /buildPosLiveSection/);
   assert.match(sectionData, /getShopPosLiveReadModel/);
+  assert.match(sectionData, /metric\("Sales \/ revenue", "Not configured", "POS sales sync is not connected yet", "muted"\)/);
+  assert.match(sectionData, /field: "Sales \/ revenue"[\s\S]*value: "Not configured"[\s\S]*detail: "POS sales sync is not connected yet"/);
   assert.doesNotMatch(dashboardSource, /sales today|revenue|orders|pos_sales|sales_sync|sync_batch/i);
   assert.doesNotMatch(dashboardSource, /mock|fake|demo/i);
 });

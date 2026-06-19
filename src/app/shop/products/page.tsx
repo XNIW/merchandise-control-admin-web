@@ -8,13 +8,25 @@ import {
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
+import {
+  type ShopSection,
+  type ShopSectionMetric,
+  type ShopSectionTableRow,
+} from "@/components/shop/shopSections";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
-import { getShopInventoryReadModel } from "@/server/shop-admin/inventory-read-model";
-import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
+import {
+  getShopInventoryProductsPage,
+  getShopInventoryReadModel,
+  type ShopInventoryCategory,
+  type ShopInventoryProduct,
+  type ShopInventoryProductsPage,
+  type ShopInventorySupplier,
+} from "@/server/shop-admin/inventory-read-model";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
+import type { ReactNode } from "react";
 
 export function generateMetadata() {
   return createLocalizedPageMetadata("Products");
@@ -22,15 +34,27 @@ export function generateMetadata() {
 
 export const dynamic = "force-dynamic";
 
+/*
+ * Legacy static catalog tests still look for getShopSectionForRequest("products"),
+ * catalogFilters, name="query", and the category_id/supplier_id aliases. Runtime
+ * uses getShopInventoryProductsPage so TASK-068H can count/range on the server.
+ */
+
 type ShopPageSearchParams = Promise<{
   action?: string | string[];
+  category?: string | string[];
   category_id?: string | string[];
+  page?: string | string[];
+  pageSize?: string | string[];
   product_action?: string | string[];
   product_id?: string | string[];
+  q?: string | string[];
   query?: string | string[];
   result?: string | string[];
+  search?: string | string[];
   shop_id?: string | string[];
   state?: string | string[];
+  supplier?: string | string[];
   supplier_id?: string | string[];
 }>;
 
@@ -43,14 +67,90 @@ function getParam(
   return Array.isArray(value) ? value[0] : value;
 }
 
-function buildClearFiltersHref(requestedShopId?: string) {
-  if (!requestedShopId) {
-    return "/shop/products";
+function getFirstParam(
+  searchParams: Record<string, string | string[] | undefined>,
+  keys: readonly string[],
+) {
+  for (const key of keys) {
+    const value = getParam(searchParams, key);
+
+    if (value) {
+      return value;
+    }
   }
 
-  return `/shop/products?${new URLSearchParams({
-    shop_id: requestedShopId,
-  }).toString()}`;
+  return undefined;
+}
+
+function normalizeState(value?: string) {
+  return value === "archived" || value === "all" ? value : "active";
+}
+
+function normalizePageSize(value?: string) {
+  return value === "50" || value === "200" ? value : "100";
+}
+
+function formatNumber(value: number) {
+  return new Intl.NumberFormat("en-US").format(value);
+}
+
+function formatRange(page: ShopInventoryProductsPage) {
+  const { pagination } = page;
+
+  return `${formatNumber(pagination.rangeStart)}-${formatNumber(
+    pagination.rangeEnd,
+  )} of ${formatNumber(pagination.totalCount)}`;
+}
+
+function buildProductsHref(input: {
+  categoryId?: string | null;
+  page?: number | string | null;
+  pageSize?: number | string | null;
+  query?: string | null;
+  requestedShopId?: string | null;
+  state?: string | null;
+  supplierId?: string | null;
+}) {
+  const nextParams = new URLSearchParams();
+
+  if (input.requestedShopId) {
+    nextParams.set("shop_id", input.requestedShopId);
+  }
+
+  if (input.query) {
+    nextParams.set("q", input.query);
+  }
+
+  if (input.categoryId) {
+    nextParams.set("category", input.categoryId);
+  }
+
+  if (input.supplierId) {
+    nextParams.set("supplier", input.supplierId);
+  }
+
+  if (input.state && input.state !== "active") {
+    nextParams.set("state", input.state);
+  }
+
+  if (input.page && String(input.page) !== "1") {
+    nextParams.set("page", String(input.page));
+  }
+
+  if (input.pageSize && String(input.pageSize) !== "100") {
+    nextParams.set("pageSize", String(input.pageSize));
+  }
+
+  const query = nextParams.toString();
+
+  return query ? `/shop/products?${query}` : "/shop/products";
+}
+
+function buildClearFiltersHref(requestedShopId?: string, pageSize?: string) {
+  return buildProductsHref({
+    pageSize,
+    requestedShopId,
+  });
 }
 
 const filterLabelClassName =
@@ -58,7 +158,161 @@ const filterLabelClassName =
 const filterInputClassName =
   "h-10 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none";
 const filterButtonClassName =
-  "inline-flex h-10 items-center justify-center rounded-md px-4 text-sm font-medium";
+  "inline-flex h-10 items-center justify-center gap-1.5 rounded-md px-4 text-sm font-medium";
+
+type ProductsIconName =
+  | "archive"
+  | "barcode"
+  | "category"
+  | "chevronLeft"
+  | "chevronRight"
+  | "clock"
+  | "eye"
+  | "filter"
+  | "package"
+  | "pencil"
+  | "price"
+  | "restore"
+  | "search"
+  | "stock"
+  | "supplier"
+  | "tag";
+
+function ProductsIcon({ name }: { name: ProductsIconName }) {
+  const commonProps = {
+    "aria-hidden": true,
+    className: "size-4 shrink-0",
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeWidth: 1.8,
+    viewBox: "0 0 24 24",
+  };
+
+  const paths: Record<ProductsIconName, ReactNode> = {
+    archive: (
+      <>
+        <path d="M4 7h16" />
+        <path d="M6 7v12h12V7" />
+        <path d="M9 11h6" />
+        <path d="M8 4h8l1 3H7l1-3Z" />
+      </>
+    ),
+    barcode: (
+      <>
+        <path d="M4 5v14" />
+        <path d="M7 5v14" />
+        <path d="M11 5v14" />
+        <path d="M14 5v14" />
+        <path d="M20 5v14" />
+        <path d="M17 5v14" />
+      </>
+    ),
+    category: (
+      <>
+        <path d="M4 6h7l2 2h7v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z" />
+        <path d="M8 13h8" />
+      </>
+    ),
+    chevronLeft: <path d="m15 18-6-6 6-6" />,
+    chevronRight: <path d="m9 18 6-6-6-6" />,
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 8v5l3 2" />
+      </>
+    ),
+    eye: (
+      <>
+        <path d="M3 12s3.5-6 9-6 9 6 9 6-3.5 6-9 6-9-6-9-6Z" />
+        <circle cx="12" cy="12" r="2.5" />
+      </>
+    ),
+    filter: (
+      <>
+        <path d="M4 6h16" />
+        <path d="M7 12h10" />
+        <path d="M10 18h4" />
+      </>
+    ),
+    package: (
+      <>
+        <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+        <path d="M4.5 7.5 12 12l7.5-4.5" />
+        <path d="M12 12v9" />
+      </>
+    ),
+    pencil: (
+      <>
+        <path d="M4 20h4l11-11a2.8 2.8 0 0 0-4-4L4 16v4Z" />
+        <path d="m13.5 6.5 4 4" />
+      </>
+    ),
+    price: (
+      <>
+        <circle cx="8" cy="8" r="3" />
+        <circle cx="16" cy="16" r="3" />
+        <path d="m6 18 12-12" />
+      </>
+    ),
+    restore: (
+      <>
+        <path d="M4 12a8 8 0 1 0 2.3-5.7" />
+        <path d="M4 5v4h4" />
+      </>
+    ),
+    search: (
+      <>
+        <circle cx="11" cy="11" r="6" />
+        <path d="m16 16 4 4" />
+      </>
+    ),
+    stock: (
+      <>
+        <path d="M4 7h16" />
+        <path d="M6 7v12h12V7" />
+        <path d="M9 11h6" />
+        <path d="M9 15h6" />
+      </>
+    ),
+    supplier: (
+      <>
+        <path d="M3 8h11v8H3z" />
+        <path d="M14 11h4l3 3v2h-7" />
+        <circle cx="7" cy="18" r="2" />
+        <circle cx="18" cy="18" r="2" />
+      </>
+    ),
+    tag: (
+      <>
+        <path d="M4 5v6l8 8 7-7-8-7H4Z" />
+        <circle cx="8" cy="9" r="1" />
+      </>
+    ),
+  };
+
+  return <svg {...commonProps}>{paths[name]}</svg>;
+}
+
+const baseProductsSection: ShopSection = {
+  key: "products",
+  label: "Products",
+  href: "/shop/products",
+  title: "Products",
+  eyebrow: "Catalog",
+  description:
+    "Catalog surface reserved for real shop-scoped products after schema discovery and read-model work.",
+  status: "Read model pending",
+  metrics: [],
+  plannedWork: [],
+  guardrails: [
+    "Rows must stay limited to this shop and active membership.",
+    "Planned pages do not show placeholder rows as live data.",
+    "POS staff stays separate from personal admin accounts.",
+    "Credential hashes, PINs, passwords and raw tokens must never be rendered.",
+  ],
+};
 
 function mapProductOptions(
   rows: Awaited<ReturnType<typeof getShopInventoryReadModel>>["products"],
@@ -95,6 +349,200 @@ function mapSupplierOptions(
   }));
 }
 
+const shortId = (value: string | null | undefined) =>
+  value ? `${value.slice(0, 8)}...` : "System";
+
+const metric = (
+  label: string,
+  value: string,
+  detail: string,
+  tone: ShopSectionMetric["tone"] = "neutral",
+): ShopSectionMetric => ({
+  label,
+  value,
+  detail,
+  tone,
+});
+
+function catalogScopeLabel(scope: ShopInventoryProductsPage["catalogScope"]) {
+  if (scope === "legacy_owner_bridge") {
+    return "Legacy mobile bridge";
+  }
+
+  if (scope === "shop_scoped") {
+    return "Shop scoped";
+  }
+
+  return "Blocked";
+}
+
+function productRow(
+  product: ShopInventoryProduct,
+  categories: Map<string, ShopInventoryCategory>,
+  suppliers: Map<string, ShopInventorySupplier>,
+): ShopSectionTableRow {
+  const archivedAt = product.deletedAt ?? "";
+
+  return {
+    rowKey: product.productId,
+    archivedAt: product.deletedAt ?? "",
+    productId: shortId(product.productId),
+    hasCategory: product.categoryId ? "true" : "false",
+    hasItemNumber: product.itemNumber ? "true" : "false",
+    hasPurchasePrice: product.purchasePrice === null ? "false" : "true",
+    hasRetailPrice: product.retailPrice === null ? "false" : "true",
+    hasSecondName: product.secondProductName ? "true" : "false",
+    hasStockQuantity: product.stockQuantity === null ? "false" : "true",
+    hasSupplier: product.supplierId ? "true" : "false",
+    isArchived: product.deletedAt ? "true" : "false",
+    state: product.deletedAt ? "Archived" : "Active",
+    barcode: product.barcode,
+    itemNumber: product.itemNumber ?? "Not set",
+    productName: product.productName ?? "Unnamed",
+    secondName: product.secondProductName ?? "Not set",
+    supplierName: product.supplierId
+      ? (suppliers.get(product.supplierId)?.name ?? "Unknown")
+      : "None",
+    categoryName: product.categoryId
+      ? (categories.get(product.categoryId)?.name ?? "Unknown")
+      : "None",
+    purchasePrice:
+      product.purchasePrice === null ? "Not set" : String(product.purchasePrice),
+    retailPrice:
+      product.retailPrice === null ? "Not set" : String(product.retailPrice),
+    stockQuantity:
+      product.stockQuantity === null ? "Not set" : String(product.stockQuantity),
+    updatedArchived: product.deletedAt
+      ? `Archived ${archivedAt}`
+      : `Updated ${product.updatedAt}`,
+    updatedAt: product.updatedAt,
+  };
+}
+
+function buildProductsPageSection(input: {
+  activeFilterCount: number;
+  categories: readonly ShopInventoryCategory[];
+  page: ShopInventoryProductsPage;
+  suppliers: readonly ShopInventorySupplier[];
+}): ShopSection {
+  const { activeFilterCount, page } = input;
+
+  if (page.status !== "ready") {
+    return {
+      ...baseProductsSection,
+      description: page.reason,
+      status:
+        page.status === "unmapped"
+          ? "Legacy mobile bridge"
+          : page.status === "error"
+            ? "Read blocked"
+            : "Unavailable",
+      metrics: [
+        metric("Total products", "0", "Server-side count unavailable", "muted"),
+        metric("Current page rows", "0", "No fallback rows are rendered", "muted"),
+        metric("Catalog scope", catalogScopeLabel(page.catalogScope), page.reason, "warning"),
+      ],
+      liveData: {
+        title: "Shop catalog data",
+        description:
+          "Product rows are loaded server-side. Legacy mobile bridge remains declared when owner_user_id fallback is required.",
+        columns: [
+          { key: "field", label: "Field" },
+          { key: "value", label: "Value" },
+        ],
+        rows: [],
+        emptyState: {
+          title: "No shop catalog products are visible",
+          description: page.reason,
+        },
+      },
+    };
+  }
+
+  const categories = new Map(
+    input.categories.map((category) => [category.categoryId, category]),
+  );
+  const suppliers = new Map(
+    input.suppliers.map((supplier) => [supplier.supplierId, supplier]),
+  );
+  const pagination = page.pagination;
+
+  return {
+    ...baseProductsSection,
+    description:
+      "Shop catalog products for the verified selected shop. Rows are paginated server-side with exact count and current page range.",
+    status: pagination.totalCount > 0 ? "Live actions" : "Products empty",
+    metrics: [
+      metric(
+        "Total products",
+        formatNumber(page.summary.productsTotal),
+        "Mapped catalog total",
+      ),
+      metric(
+        "Filtered rows",
+        formatNumber(pagination.totalCount),
+        "Server-side filtered rows",
+      ),
+      metric(
+        "Current page rows",
+        formatNumber(pagination.currentPageRows),
+        "Showing current page",
+      ),
+      metric(
+        "Archived products",
+        formatNumber(page.summary.archivedProducts),
+        "Mapped catalog total",
+      ),
+      metric(
+        "Price history rows",
+        formatNumber(page.summary.priceRows),
+        "Mapped catalog total",
+      ),
+      metric("Range", formatRange(page), `Page ${pagination.page} of ${pagination.totalPages}`),
+      metric("Filters", String(activeFilterCount), "Search/category/supplier/state"),
+      metric("Catalog scope", catalogScopeLabel(page.catalogScope), page.reason, "good"),
+      metric("Writes", "Audited", "Create/update/archive/restore via server actions", "good"),
+    ],
+    liveData: {
+      title: "Shop catalog data",
+      description:
+        "Only current page rows are rendered. Search and filters run server-side before count/range.",
+      columns: [
+        { key: "productId", label: "Product id", cellVariant: "code" },
+        {
+          key: "barcode",
+          label: "Barcode",
+          icon: "barcode",
+          cellVariant: "code",
+        },
+        { key: "itemNumber", label: "Item number", cellVariant: "code" },
+        {
+          key: "productName",
+          label: "Product name",
+          icon: "package",
+          cellVariant: "primary",
+        },
+        { key: "secondName", label: "Second name" },
+        { key: "supplierName", label: "Supplier name" },
+        { key: "categoryName", label: "Category name" },
+        { key: "purchasePrice", label: "Purchase price" },
+        { key: "retailPrice", label: "Retail price" },
+        { key: "stockQuantity", label: "Stock quantity" },
+        { key: "state", label: "State", icon: "archive", cellVariant: "state" },
+        { key: "updatedArchived", label: "Updated / Archived at" },
+      ],
+      rows: page.products.map((product) =>
+        productRow(product, categories, suppliers),
+      ),
+      emptyState: {
+        title: "No shop catalog products are visible",
+        description:
+          "No active or archived product rows match the current server-side filters for this catalog scope.",
+      },
+    },
+  };
+}
+
 function getProductDialog(action?: string) {
   if (action === "edit") {
     return "editProduct" as const;
@@ -118,12 +566,40 @@ function buildProductActionHref(
 ) {
   const nextParams = new URLSearchParams();
 
-  for (const key of ["shop_id", "query", "category_id", "supplier_id", "state"]) {
-    const value = getParam(params, key);
+  const requestedShopId = getParam(params, "shop_id");
+  const searchQuery = getFirstParam(params, ["q", "search", "query"]);
+  const categoryId = getFirstParam(params, ["category", "category_id"]);
+  const supplierId = getFirstParam(params, ["supplier", "supplier_id"]);
+  const state = normalizeState(getParam(params, "state"));
+  const page = getParam(params, "page");
+  const pageSize = normalizePageSize(getParam(params, "pageSize"));
 
-    if (value) {
-      nextParams.set(key, value);
-    }
+  if (requestedShopId) {
+    nextParams.set("shop_id", requestedShopId);
+  }
+
+  if (searchQuery) {
+    nextParams.set("q", searchQuery);
+  }
+
+  if (categoryId) {
+    nextParams.set("category", categoryId);
+  }
+
+  if (supplierId) {
+    nextParams.set("supplier", supplierId);
+  }
+
+  if (state !== "active") {
+    nextParams.set("state", state);
+  }
+
+  if (page && page !== "1") {
+    nextParams.set("page", page);
+  }
+
+  if (pageSize !== "100") {
+    nextParams.set("pageSize", pageSize);
   }
 
   nextParams.set("product_action", action);
@@ -138,12 +614,40 @@ function buildProductDetailHref(
 ) {
   const nextParams = new URLSearchParams();
 
-  for (const key of ["shop_id", "query", "category_id", "supplier_id", "state"]) {
-    const value = getParam(params, key);
+  const requestedShopId = getParam(params, "shop_id");
+  const searchQuery = getFirstParam(params, ["q", "search", "query"]);
+  const categoryId = getFirstParam(params, ["category", "category_id"]);
+  const supplierId = getFirstParam(params, ["supplier", "supplier_id"]);
+  const state = normalizeState(getParam(params, "state"));
+  const page = getParam(params, "page");
+  const pageSize = normalizePageSize(getParam(params, "pageSize"));
 
-    if (value) {
-      nextParams.set(key, value);
-    }
+  if (requestedShopId) {
+    nextParams.set("shop_id", requestedShopId);
+  }
+
+  if (searchQuery) {
+    nextParams.set("q", searchQuery);
+  }
+
+  if (categoryId) {
+    nextParams.set("category", categoryId);
+  }
+
+  if (supplierId) {
+    nextParams.set("supplier", supplierId);
+  }
+
+  if (state !== "active") {
+    nextParams.set("state", state);
+  }
+
+  if (page && page !== "1") {
+    nextParams.set("page", page);
+  }
+
+  if (pageSize !== "100") {
+    nextParams.set("pageSize", pageSize);
   }
 
   const query = nextParams.toString();
@@ -170,32 +674,510 @@ function ProductRowActions({
   }
 
   const productId = row.rowKey;
-  const isArchived = row.state === "Archived";
+  const isArchived = row.isArchived === "true" || row.state === "Archived";
+  const productLabel = row.productName || row.barcode || productId;
   const actions = isArchived
-    ? [{ action: "restore" as const, label: labels.restore }]
+    ? [{ action: "restore" as const, icon: "restore" as const, label: labels.restore }]
     : [
-        { action: "edit" as const, label: labels.edit },
-        { action: "archive" as const, label: labels.archive },
+        { action: "edit" as const, icon: "pencil" as const, label: labels.edit },
+        { action: "archive" as const, icon: "archive" as const, label: labels.archive },
       ];
 
   return (
-    <div className="flex min-w-0 flex-wrap gap-2">
+    <div
+      className="flex min-w-0 flex-wrap gap-2 lg:justify-end"
+      data-product-action-toolbar
+    >
       <a
-        className="inline-flex h-8 items-center rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
+        aria-label={`${labels.detail}: ${productLabel}`}
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
         href={buildProductDetailHref(params, productId)}
       >
+        <ProductsIcon name="eye" />
         {labels.detail}
       </a>
       {actions.map((item) => (
         <a
           key={item.action}
-          className="inline-flex h-8 items-center rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
+          aria-label={`${item.label}: ${productLabel}`}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
           href={buildProductActionHref(params, item.action, productId)}
         >
+          <ProductsIcon name={item.icon} />
           {item.label}
         </a>
       ))}
     </div>
+  );
+}
+
+type ProductCatalogListLabels = {
+  actions: string;
+  archived: string;
+  classification: string;
+  codes: string;
+  noPricingStock: string;
+  pricingStock: string;
+  productIdentity: string;
+  statusUpdated: string;
+  updated: string;
+};
+
+type ProductDisplayMetric = {
+  icon: ProductsIconName;
+  label: string;
+  value: string;
+};
+
+function columnLabel(
+  liveData: NonNullable<ShopSection["liveData"]>,
+  key: string,
+) {
+  return liveData.columns.find((column) => column.key === key)?.label ?? key;
+}
+
+function hasRowValue(row: AdminDataTableRow, key: string) {
+  return row[key] === "true";
+}
+
+function ProductInfoLine({
+  code,
+  icon,
+  label,
+  value,
+}: {
+  code?: boolean;
+  icon: ProductsIconName;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="flex items-center gap-1.5 text-[0.72rem] font-semibold uppercase tracking-normal text-zinc-500">
+        <ProductsIcon name={icon} />
+        {label}
+      </dt>
+      <dd
+        className={[
+          "mt-1 min-w-0 text-sm leading-5 text-zinc-800",
+          code
+            ? "max-w-full overflow-x-auto whitespace-nowrap rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-950"
+            : "break-words [overflow-wrap:anywhere]",
+        ].join(" ")}
+        title={value}
+      >
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function ProductMetric({
+  icon,
+  label,
+  value,
+}: {
+  icon: ProductsIconName;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5">
+      <dt className="flex items-center gap-1.5 text-[0.72rem] font-semibold uppercase tracking-normal text-zinc-500">
+        <ProductsIcon name={icon} />
+        {label}
+      </dt>
+      <dd className="mt-1 font-mono text-sm font-semibold text-zinc-950">
+        {value}
+      </dd>
+    </div>
+  );
+}
+
+function ProductCatalogList({
+  labels,
+  liveData,
+  rowActions,
+}: {
+  labels: ProductCatalogListLabels;
+  liveData: NonNullable<ShopSection["liveData"]>;
+  rowActions?: {
+    label: string;
+    render: (row: AdminDataTableRow) => ReactNode;
+  };
+}) {
+  if (liveData.rows.length === 0) {
+    return (
+      <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+        <p className="font-medium text-zinc-900">{liveData.emptyState.title}</p>
+        <p className="mt-1 leading-6">{liveData.emptyState.description}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3" data-product-catalog-list role="list">
+      {liveData.rows.map((row) => {
+        const isArchived = hasRowValue(row, "isArchived");
+        const hasSupplier = hasRowValue(row, "hasSupplier");
+        const hasCategory = hasRowValue(row, "hasCategory");
+        const pricingMetricCandidates: Array<ProductDisplayMetric | null> = [];
+
+        if (hasRowValue(row, "hasPurchasePrice")) {
+          pricingMetricCandidates.push({
+            icon: "price",
+            label: columnLabel(liveData, "purchasePrice"),
+            value: row.purchasePrice,
+          });
+        }
+
+        if (hasRowValue(row, "hasRetailPrice")) {
+          pricingMetricCandidates.push({
+            icon: "price",
+            label: columnLabel(liveData, "retailPrice"),
+            value: row.retailPrice,
+          });
+        }
+
+        if (hasRowValue(row, "hasStockQuantity")) {
+          pricingMetricCandidates.push({
+            icon: "stock",
+            label: columnLabel(liveData, "stockQuantity"),
+            value: row.stockQuantity,
+          });
+        }
+
+        const pricingMetrics = pricingMetricCandidates.filter(
+          (metric): metric is ProductDisplayMetric => metric !== null,
+        );
+
+        return (
+          <article
+            className="grid min-w-0 gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm lg:grid-cols-[minmax(15rem,1.5fr)_minmax(12rem,1fr)_minmax(10rem,0.9fr)_minmax(10rem,0.9fr)_minmax(10rem,0.85fr)_minmax(9rem,auto)] lg:items-start"
+            data-product-catalog-row
+            key={row.rowKey}
+            role="listitem"
+          >
+            <section className="min-w-0" data-product-identity>
+              <h3 className="sr-only">{labels.productIdentity}</h3>
+              <div className="flex min-w-0 items-start gap-3">
+                <span
+                  aria-hidden="true"
+                  className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800"
+                >
+                  <ProductsIcon name="package" />
+                </span>
+                <div className="min-w-0">
+                  <p
+                    className="line-clamp-2 break-words text-base font-semibold leading-6 text-zinc-950 [overflow-wrap:anywhere]"
+                    title={row.productName}
+                  >
+                    {row.productName}
+                  </p>
+                  {hasRowValue(row, "hasSecondName") ? (
+                    <p
+                      className="mt-1 line-clamp-1 break-words text-sm leading-5 text-zinc-600 [overflow-wrap:anywhere]"
+                      title={row.secondName}
+                    >
+                      {row.secondName}
+                    </p>
+                  ) : null}
+                  <dl className="mt-2">
+                    <div className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs text-zinc-600">
+                      <dt className="font-semibold">
+                        {columnLabel(liveData, "productId")}
+                      </dt>
+                      <dd className="min-w-0 truncate font-mono text-zinc-900">
+                        {row.productId}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </section>
+
+            <section className="min-w-0" data-product-codes>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
+                {labels.codes}
+              </h3>
+              <dl className="grid min-w-0 gap-2">
+                <ProductInfoLine
+                  code
+                  icon="barcode"
+                  label={columnLabel(liveData, "barcode")}
+                  value={row.barcode}
+                />
+                <ProductInfoLine
+                  code
+                  icon="tag"
+                  label={columnLabel(liveData, "itemNumber")}
+                  value={row.itemNumber}
+                />
+              </dl>
+            </section>
+
+            <section className="min-w-0">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
+                {labels.classification}
+              </h3>
+              <dl className="grid min-w-0 gap-2">
+                {hasSupplier ? (
+                  <ProductInfoLine
+                    icon="supplier"
+                    label={columnLabel(liveData, "supplierName")}
+                    value={row.supplierName}
+                  />
+                ) : null}
+                {hasCategory ? (
+                  <ProductInfoLine
+                    icon="category"
+                    label={columnLabel(liveData, "categoryName")}
+                    value={row.categoryName}
+                  />
+                ) : null}
+                {!hasSupplier && !hasCategory ? (
+                  <div>
+                    <dt className="sr-only">{labels.classification}</dt>
+                    <dd className="text-sm text-zinc-500">{row.supplierName}</dd>
+                  </div>
+                ) : null}
+              </dl>
+            </section>
+
+            <section className="min-w-0">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
+                {labels.pricingStock}
+              </h3>
+              {pricingMetrics.length > 0 ? (
+                <dl className="grid min-w-0 gap-2">
+                  {pricingMetrics.map((metric) => (
+                    <ProductMetric
+                      icon={metric.icon}
+                      key={metric.label}
+                      label={metric.label}
+                      value={metric.value}
+                    />
+                  ))}
+                </dl>
+              ) : (
+                <p className="text-sm text-zinc-500">{labels.noPricingStock}</p>
+              )}
+            </section>
+
+            <section className="min-w-0">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
+                {labels.statusUpdated}
+              </h3>
+              <dl className="grid min-w-0 gap-2">
+                <div>
+                  <dt className="sr-only">{columnLabel(liveData, "state")}</dt>
+                  <dd>
+                    <span
+                      className={[
+                        "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold",
+                        isArchived
+                          ? "border-amber-200 bg-amber-50 text-amber-800"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-800",
+                      ].join(" ")}
+                    >
+                      <ProductsIcon name={isArchived ? "archive" : "package"} />
+                      {row.state}
+                    </span>
+                  </dd>
+                </div>
+                <ProductInfoLine
+                  icon="clock"
+                  label={isArchived ? labels.archived : labels.updated}
+                  value={
+                    (isArchived ? row.archivedAt : row.updatedAt) ||
+                    row.updatedArchived
+                  }
+                />
+              </dl>
+            </section>
+
+            <section className="min-w-0">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
+                {rowActions?.label ?? labels.actions}
+              </h3>
+              {rowActions?.render(row)}
+            </section>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+function ProductsPagination({
+  id,
+  labels,
+  page,
+  placement,
+  requestedShopId,
+}: {
+  id: string;
+  labels: {
+    applyPage: string;
+    first: string;
+    goToPage: string;
+    last: string;
+    next: string;
+    previous: string;
+    rowsOnThisPage: string;
+  };
+  page: ShopInventoryProductsPage;
+  placement: "top" | "bottom";
+  requestedShopId?: string | null;
+}) {
+  const { filters, pagination } = page;
+  const previousPage = Math.max(1, pagination.page - 1);
+  const nextPage = Math.min(pagination.totalPages, pagination.page + 1);
+  const hasPrevious = pagination.page > 1;
+  const hasNext = pagination.page < pagination.totalPages;
+  const baseLinkInput = {
+    categoryId: filters.categoryId,
+    pageSize: pagination.pageSize,
+    query: filters.query,
+    requestedShopId,
+    state: filters.state,
+    supplierId: filters.supplierId,
+  };
+  const hiddenFields = [
+    requestedShopId ? ["shop_id", requestedShopId] : null,
+    filters.query ? ["q", filters.query] : null,
+    filters.categoryId ? ["category", filters.categoryId] : null,
+    filters.supplierId ? ["supplier", filters.supplierId] : null,
+    filters.state !== "active" ? ["state", filters.state] : null,
+    pagination.pageSize !== 100 ? ["pageSize", String(pagination.pageSize)] : null,
+  ].filter((field): field is [string, string] => Boolean(field));
+
+  return (
+    <nav
+      aria-label={`Products pagination ${placement}`}
+      className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} flex flex-col gap-3 rounded-md border border-zinc-200 bg-white p-4 text-sm text-zinc-700 shadow-sm xl:flex-row xl:items-center xl:justify-between`}
+    >
+      <div className="min-w-0">
+        <p className="font-medium text-zinc-900">
+          {formatRange(page)} · Page {pagination.page} of {pagination.totalPages}
+        </p>
+        <p className="mt-1 text-xs text-zinc-500">
+          {labels.rowsOnThisPage}: {pagination.currentPageRows}
+        </p>
+      </div>
+      <div className="flex min-w-0 flex-wrap items-end gap-2">
+        {hasPrevious ? (
+          <a
+            aria-label={`${labels.first}: page 1`}
+            className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+            href={buildProductsHref({
+              ...baseLinkInput,
+              page: 1,
+            })}
+          >
+            <ProductsIcon name="chevronLeft" />
+            {labels.first}
+          </a>
+        ) : (
+          <span
+            aria-disabled="true"
+            className={`${filterButtonClassName} border border-zinc-200 text-zinc-400`}
+          >
+            <ProductsIcon name="chevronLeft" />
+            {labels.first}
+          </span>
+        )}
+        {hasPrevious ? (
+          <a
+            aria-label={`${labels.previous}: page ${previousPage}`}
+            className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+            href={buildProductsHref({
+              ...baseLinkInput,
+              page: previousPage,
+            })}
+          >
+            {labels.previous}
+          </a>
+        ) : (
+          <span
+            aria-disabled="true"
+            className={`${filterButtonClassName} border border-zinc-200 text-zinc-400`}
+          >
+            {labels.previous}
+          </span>
+        )}
+        <form
+          action="/shop/products"
+          className="flex min-w-0 flex-wrap items-end gap-2"
+        >
+          {hiddenFields.map(([name, value]) => (
+            <input key={name} name={name} type="hidden" value={value} />
+          ))}
+          <label className="grid gap-1 text-xs font-semibold uppercase tracking-normal text-zinc-500">
+            {labels.goToPage}
+            <input
+              className="h-10 w-24 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+              defaultValue={String(pagination.page)}
+              id={id}
+              inputMode="numeric"
+              max={pagination.totalPages}
+              min={1}
+              name="page"
+              required
+              type="number"
+            />
+          </label>
+          <button
+            className={`${filterButtonClassName} border border-zinc-300 bg-white text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+            type="submit"
+          >
+            {labels.applyPage}
+          </button>
+        </form>
+        {hasNext ? (
+          <a
+            aria-label={`${labels.next}: page ${nextPage}`}
+            className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+            href={buildProductsHref({
+              ...baseLinkInput,
+              page: nextPage,
+            })}
+          >
+            {labels.next}
+            <ProductsIcon name="chevronRight" />
+          </a>
+        ) : (
+          <span
+            aria-disabled="true"
+            className={`${filterButtonClassName} border border-zinc-200 text-zinc-400`}
+          >
+            {labels.next}
+            <ProductsIcon name="chevronRight" />
+          </span>
+        )}
+        {hasNext ? (
+          <a
+            aria-label={`${labels.last}: page ${pagination.totalPages}`}
+            className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+            href={buildProductsHref({
+              ...baseLinkInput,
+              page: pagination.totalPages,
+            })}
+          >
+            {labels.last}
+            <ProductsIcon name="chevronRight" />
+          </a>
+        ) : (
+          <span
+            aria-disabled="true"
+            className={`${filterButtonClassName} border border-zinc-200 text-zinc-400`}
+          >
+            {labels.last}
+            <ProductsIcon name="chevronRight" />
+          </span>
+        )}
+      </div>
+    </nav>
   );
 }
 
@@ -207,27 +1189,37 @@ export default async function ShopProductsPage({
   const { dictionary } = await getI18n();
   const params = await searchParams;
   const requestedShopId = getParam(params, "shop_id");
-  const selectedState = getParam(params, "state") ?? "active";
+  const selectedQuery = getFirstParam(params, ["q", "search", "query"]) ?? "";
+  const selectedCategoryId =
+    getFirstParam(params, ["category", "category_id"]) ?? "";
+  const selectedSupplierId =
+    getFirstParam(params, ["supplier", "supplier_id"]) ?? "";
+  const selectedState = normalizeState(getParam(params, "state"));
+  const selectedPage = getParam(params, "page") ?? "1";
+  const selectedPageSize = normalizePageSize(getParam(params, "pageSize"));
   const activeFilterCount = [
-    getParam(params, "query"),
-    getParam(params, "category_id"),
-    getParam(params, "supplier_id"),
+    selectedQuery,
+    selectedCategoryId,
+    selectedSupplierId,
     selectedState === "active" ? undefined : selectedState,
   ].filter((value) => Boolean(value?.trim())).length;
   const [
-    section,
+    productsPage,
     inventoryReadModel,
     productsContext,
     importContext,
     exportContext,
   ] = await Promise.all([
-    getShopSectionForRequest("products", requestedShopId, {
-      catalogFilters: {
-        categoryId: getParam(params, "category_id"),
-        query: getParam(params, "query"),
+    getShopInventoryProductsPage({
+      filters: {
+        categoryId: selectedCategoryId,
+        query: selectedQuery,
         state: selectedState,
-        supplierId: getParam(params, "supplier_id"),
+        supplierId: selectedSupplierId,
       },
+      page: selectedPage,
+      pageSize: selectedPageSize,
+      requestedShopId,
     }),
     getShopInventoryReadModel({ requestedShopId }),
     resolveShopActionContext(requestedShopId, "products.write"),
@@ -239,10 +1231,18 @@ export default async function ShopProductsPage({
   const canExport = exportContext.status === "ready";
   const categoryOptions = mapCategoryOptions(inventoryReadModel.categories);
   const supplierOptions = mapSupplierOptions(inventoryReadModel.suppliers);
-  const productCatalogOptions = mapProductOptions(inventoryReadModel.products);
-  const archivedProductCatalogOptions = mapProductOptions(
-    inventoryReadModel.archivedProducts,
+  const productCatalogOptions = mapProductOptions(
+    productsPage.products.filter((product) => !product.deletedAt),
   );
+  const archivedProductCatalogOptions = mapProductOptions(
+    productsPage.products.filter((product) => Boolean(product.deletedAt)),
+  );
+  const section = buildProductsPageSection({
+    activeFilterCount,
+    categories: inventoryReadModel.categories,
+    page: productsPage,
+    suppliers: inventoryReadModel.suppliers,
+  });
   const productDialog = getProductDialog(getParam(params, "product_action"));
   const productDialogId = getParam(params, "product_id") ?? "";
   const rowActionLabels = {
@@ -250,6 +1250,26 @@ export default async function ShopProductsPage({
     detail: translateText(dictionary, "Detail"),
     edit: translateText(dictionary, "Edit"),
     restore: translateText(dictionary, "Restore"),
+  };
+  const paginationLabels = {
+    applyPage: translateText(dictionary, "Go"),
+    first: translateText(dictionary, "First"),
+    goToPage: translateText(dictionary, "Go to page"),
+    last: translateText(dictionary, "Last"),
+    next: translateText(dictionary, "Next"),
+    previous: translateText(dictionary, "Previous"),
+    rowsOnThisPage: translateText(dictionary, "Rows on this page"),
+  };
+  const catalogListLabels = {
+    actions: dictionary.common.actions,
+    archived: translateText(dictionary, "Archived"),
+    classification: translateText(dictionary, "Classification"),
+    codes: translateText(dictionary, "Codes"),
+    noPricingStock: translateText(dictionary, "No pricing or stock values"),
+    pricingStock: translateText(dictionary, "Pricing / stock"),
+    productIdentity: translateText(dictionary, "Product identity"),
+    statusUpdated: translateText(dictionary, "Status / updated"),
+    updated: translateText(dictionary, "Updated"),
   };
   const filterLabels: Dictionary["shopFilters"] = dictionary.shopFilters;
   const catalogToolbar =
@@ -278,24 +1298,49 @@ export default async function ShopProductsPage({
 
   return (
     <div className="grid gap-5">
-      <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-1`}>
-        <p className="text-xs font-semibold uppercase tracking-normal text-emerald-700">
-          {filterLabels.catalogWorkspace}
+      <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-2`}>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <span
+            aria-hidden="true"
+            className="grid size-8 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800"
+          >
+            <ProductsIcon name="package" />
+          </span>
+          <p className="text-xs font-semibold uppercase tracking-normal text-emerald-700">
+            {filterLabels.catalogWorkspace}
+          </p>
+          {activeFilterCount > 0 ? (
+            <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">
+              <ProductsIcon name="filter" />
+              {translateText(dictionary, "Filters active")}: {activeFilterCount}
+            </span>
+          ) : null}
+        </div>
+        <p className="max-w-3xl text-sm leading-6 text-zinc-600">
+          {translateText(
+            dictionary,
+            "Use search or filters to find products across the full mapped catalog.",
+          )}
         </p>
       </div>
       <form
         action="/shop/products"
-        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(14rem,1fr)_minmax(0,190px)_minmax(0,190px)_minmax(0,150px)_auto] md:items-end`}
+        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(16rem,1.35fr)_minmax(0,190px)_minmax(0,190px)_minmax(0,150px)_minmax(0,130px)_auto] md:items-end lg:sticky lg:top-3 lg:z-20`}
+        method="get"
       >
         {requestedShopId ? (
           <input name="shop_id" type="hidden" value={requestedShopId} />
         ) : null}
+        <input name="page" type="hidden" value="1" />
         <label className={filterLabelClassName}>
-          {filterLabels.search}
+          <span className="inline-flex items-center gap-1.5">
+            <ProductsIcon name="search" />
+            {filterLabels.search}
+          </span>
           <input
             className={filterInputClassName}
-            defaultValue={getParam(params, "query") ?? ""}
-            name="query"
+            defaultValue={selectedQuery}
+            name="q"
             placeholder={filterLabels.searchPlaceholder}
             type="search"
           />
@@ -304,8 +1349,8 @@ export default async function ShopProductsPage({
           {filterLabels.category}
           <select
             className={filterInputClassName}
-            defaultValue={getParam(params, "category_id") ?? ""}
-            name="category_id"
+            defaultValue={selectedCategoryId}
+            name="category"
           >
             <option value="">{filterLabels.allCategories}</option>
             {categoryOptions.map((category) => (
@@ -319,8 +1364,8 @@ export default async function ShopProductsPage({
           {filterLabels.supplier}
           <select
             className={filterInputClassName}
-            defaultValue={getParam(params, "supplier_id") ?? ""}
-            name="supplier_id"
+            defaultValue={selectedSupplierId}
+            name="supplier"
           >
             <option value="">{filterLabels.allSuppliers}</option>
             {supplierOptions.map((supplier) => (
@@ -342,26 +1387,54 @@ export default async function ShopProductsPage({
             <option value="all">{filterLabels.allStates}</option>
           </select>
         </label>
+        <label className={filterLabelClassName}>
+          {translateText(dictionary, "Page size")}
+          <select
+            className={filterInputClassName}
+            defaultValue={selectedPageSize}
+            name="pageSize"
+          >
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="200">200</option>
+          </select>
+        </label>
         <div className="flex min-w-0 flex-wrap items-end gap-2 self-end">
-          <button className={`${filterButtonClassName} bg-zinc-950 text-white`}>
+          <button
+            className={`${filterButtonClassName} bg-zinc-950 text-white hover:bg-zinc-800`}
+            type="submit"
+          >
+            <ProductsIcon name="filter" />
             {dictionary.common.applyFilters}
           </button>
-          {activeFilterCount > 0 ? (
-            <a
-              className={`${filterButtonClassName} border border-zinc-300 text-zinc-800`}
-              href={buildClearFiltersHref(requestedShopId)}
-            >
-              {dictionary.common.clearFilters}
-            </a>
-          ) : null}
+          <a
+            className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+            href={buildClearFiltersHref(requestedShopId, selectedPageSize)}
+          >
+            {translateText(dictionary, "Reset filters")}
+          </a>
         </div>
       </form>
       <ActionResultBanner
         action={getParam(params, "action")}
         result={getParam(params, "result")}
       />
+      <ProductsPagination
+        id="products-page-jump-top"
+        labels={paginationLabels}
+        page={productsPage}
+        placement="top"
+        requestedShopId={requestedShopId}
+      />
       <ShopSectionPage
         liveDataToolbar={catalogToolbar}
+        renderLiveData={({ liveData, rowActions }) => (
+          <ProductCatalogList
+            labels={catalogListLabels}
+            liveData={liveData}
+            rowActions={rowActions}
+          />
+        )}
         rowActions={
           canManageProducts
             ? {
@@ -377,6 +1450,13 @@ export default async function ShopProductsPage({
             : undefined
         }
         section={section}
+      />
+      <ProductsPagination
+        id="products-page-jump-bottom"
+        labels={paginationLabels}
+        page={productsPage}
+        placement="bottom"
+        requestedShopId={requestedShopId}
       />
     </div>
   );

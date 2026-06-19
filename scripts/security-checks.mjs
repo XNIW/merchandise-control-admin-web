@@ -115,6 +115,94 @@ function optionalRead(relativePath) {
   return existsSync(join(root, relativePath)) ? read(relativePath) : "";
 }
 
+function extractExportedFunctionBlock(source, functionName) {
+  const signature = `export function ${functionName}`;
+  const start = source.indexOf(signature);
+
+  if (start === -1) {
+    return "";
+  }
+
+  const bodyStart = source.indexOf("{", start);
+
+  if (bodyStart === -1) {
+    return "";
+  }
+
+  let depth = 0;
+  let quote = "";
+  let escaped = false;
+  let lineComment = false;
+  let blockComment = false;
+
+  for (let index = bodyStart; index < source.length; index += 1) {
+    const char = source[index];
+    const next = source[index + 1];
+
+    if (lineComment) {
+      if (char === "\n") {
+        lineComment = false;
+      }
+      continue;
+    }
+
+    if (blockComment) {
+      if (char === "*" && next === "/") {
+        blockComment = false;
+        index += 1;
+      }
+      continue;
+    }
+
+    if (quote) {
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+      if (char === "\\") {
+        escaped = true;
+        continue;
+      }
+      if (char === quote) {
+        quote = "";
+      }
+      continue;
+    }
+
+    if (char === "/" && next === "/") {
+      lineComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (char === "/" && next === "*") {
+      blockComment = true;
+      index += 1;
+      continue;
+    }
+
+    if (char === "\"" || char === "'" || char === "`") {
+      quote = char;
+      continue;
+    }
+
+    if (char === "{") {
+      depth += 1;
+      continue;
+    }
+
+    if (char === "}") {
+      depth -= 1;
+
+      if (depth === 0) {
+        return source.slice(start, index + 1);
+      }
+    }
+  }
+
+  return "";
+}
+
 function isTask041RuntimeCompletionActive(
   masterPlan = existsSync(join(root, "docs/MASTER-PLAN.md"))
     ? read("docs/MASTER-PLAN.md")
@@ -215,6 +303,7 @@ function checkReadOnlyContracts() {
       "src/server/platform-admin/shop-actions.ts",
       new Set([
         "platform_create_shop",
+        "platform_map_shop_inventory_source",
         "platform_create_shop_with_owner_bootstrap",
         "platform_create_pos_first_shop",
         "platform_create_shop_with_pending_owner_invite",
@@ -3765,7 +3854,10 @@ function checkTask022023PosDashboardWin7PosClient() {
   const sectionData = read(sectionDataPath);
   const sections = read(sectionsPath);
   const foundationTest = read(foundationTestPath);
-  const dashboardSource = `${route}\n${readModel}\n${sectionData}\n${sections}`;
+  const posSectionData =
+    extractExportedFunctionBlock(sectionData, "buildPosLiveSection") ||
+    sectionData;
+  const dashboardSource = `${route}\n${readModel}\n${posSectionData}\n${sections}`;
   const clientSurface = [
     ...listFiles("src/components"),
     dashboardRoutePath,

@@ -138,6 +138,26 @@ export type Dictionary = {
 const emptyExact: Record<string, string> = {};
 
 const itExact: Record<string, string> = {
+  "Codes": "Codici",
+  "Configured": "Configurato",
+  "Filters active": "Filtri attivi",
+  First: "Prima",
+  Go: "Vai",
+  "Go to page": "Vai alla pagina",
+  "Header shop": "Intestazione shop",
+  "Key shop signals grouped before operational sections for quick review.":
+    "Segnali chiave dello shop raggruppati prima delle sezioni operative per una review rapida.",
+  "Key status cards": "Card stato chiave",
+  Last: "Ultima",
+  "Master Console role only": "Solo ruolo Master Console",
+  "No pricing or stock values": "Nessun valore prezzo o stock",
+  "Pricing / stock": "Prezzi / stock",
+  "Product identity": "Identita prodotto",
+  "Reset filters": "Reset filtri",
+  "Rows on this page": "Righe in questa pagina",
+  "Status / updated": "Stato / aggiornamento",
+  "Use search or filters to find products across the full mapped catalog.":
+    "Usa ricerca o filtri per trovare prodotti in tutto il catalogo mappato.",
   "Access is verified server-side and never creates a personal profile.":
     "L'accesso e verificato server-side e non crea mai un profilo personale.",
   "Sign in with a personal account to open an admin console.":
@@ -198,6 +218,7 @@ const itExact: Record<string, string> = {
   "Data": "Dati",
   "Data Health": "Salute dati",
   "Data status": "Stato dati",
+  "Data status unavailable": "Stato dati non disponibile",
   "Date": "Data",
   "Detail": "Dettaglio",
   "Detail navigation": "Navigazione dettaglio",
@@ -234,14 +255,38 @@ const itExact: Record<string, string> = {
     "Le membership sono conservate, ma l'accesso operativo e disabilitato.",
   "Members empty": "Membri vuoti",
   "Mobile History": "Storico mobile",
+  "Mobile data linked to shop": "Dati mobile collegati allo shop",
+  "Mobile data present": "Dati mobile presenti",
+  "Mobile inventory data": "Dati inventory mobile",
+  "Linked mobile inventory source": "Fonte inventory mobile collegata",
+  "Linked mobile inventory": "Inventory mobile collegato",
+  "Linked shop": "Shop collegato",
+  "Mapping state": "Stato mapping",
+  "Mapped": "Mappato",
   "Name": "Nome",
   "Next": "Prossimo",
   "Next action": "Prossima azione",
+  "Previous": "Precedente",
+  "Page size": "Dimensione pagina",
+  "Total products": "Prodotti totali",
+  "Filtered rows": "Righe filtrate",
+  "Current page rows": "Righe pagina corrente",
+  "Mapped catalog total": "Totale catalogo mappato",
+  "Server-side filtered rows": "Righe filtrate lato server",
+  "Showing current page": "Pagina corrente mostrata",
+  "Range": "Intervallo",
   "No live shop rows are visible": "Nessuna riga shop live visibile",
+  "No mobile data": "Nessun dato mobile",
+  "No inventory source": "Nessuna fonte inventory",
   "No rows visible": "Nessuna riga visibile",
   "Not configured": "Non configurato",
   "Not found": "Non trovato",
+  "Not assigned to a shop yet": "Non assegnato a uno shop",
   "Not set": "Non impostato",
+  "Open linked shop": "Apri shop collegato",
+  "Open personal account": "Apri account personale",
+  "Open Platform Admin grant": "Apri grant Platform Admin",
+  "Open Shop Admin record": "Apri record Shop Admin",
   "Operation": "Operazione",
   "Operational access": "Accesso operativo",
   "Operational shop: available to Admin Console, shop switcher, POS, and sync flows according to existing permissions.":
@@ -254,6 +299,7 @@ const itExact: Record<string, string> = {
   "POS / Staff": "POS / Staff",
   "POS Live": "POS Live",
   "Products": "Prodotti",
+  "Present": "Presente",
   "Products empty": "Prodotti vuoti",
   "Profile": "Profilo",
   "Provisioning": "Provisioning",
@@ -272,6 +318,7 @@ const itExact: Record<string, string> = {
   "Server verified": "Verificato dal server",
   "Settings": "Impostazioni",
   "Shop": "Shop",
+  "Shop link": "Collegamento shop",
   "Shop Overview": "Panoramica shop",
   "Shop access": "Accesso shop",
   "Shop activity": "Attivita shop",
@@ -406,9 +453,11 @@ const itExact: Record<string, string> = {
   "No active supplier rows are visible for this catalog scope.":
     "Nessuna riga fornitore attiva visibile per questo ambito catalogo.",
   "Price history": "Storico prezzi",
+  "Price history rows": "Righe storico prezzi",
   "Effective at": "Effettivo il",
   "No price history rows are visible": "Nessuna riga storico prezzi visibile",
   "History entries": "Voci storico",
+  "History sessions": "Sessioni storico",
   "No related mobile history entries are visible":
     "Nessuna voce storico mobile correlata visibile",
   "Rows come from the server read model when available; empty states explain the current boundary.":
@@ -563,6 +612,16 @@ const itExact: Record<string, string> = {
     "Le operazioni richiedono uno shop visibile dal read model server.",
   "Operations unavailable": "Operazioni non disponibili",
   "Owner": "Proprietario",
+  "Owner account": "Account proprietario",
+  "Owner-scoped mobile data": "Dati mobile dell'account personale",
+  "Owner-scoped mobile data is mapped to the linked shop. Inventory counts are shown on the shop record.":
+    "I dati mobile dell'account personale sono mappati allo shop collegato. I conteggi inventory sono mostrati nel record shop.",
+  "Owner-scoped mobile data mapped to this shop.":
+    "Dati mobile dell'account personale mappati a questo shop.",
+  "No owner-scoped mobile inventory source is mapped to this shop through the current read boundary.":
+    "Nessuna fonte inventory mobile dell'account personale e mappata a questo shop tramite il read boundary corrente.",
+  "Mobile inventory counts are shown on the linked shop record when an owner-scoped source is mapped.":
+    "I conteggi inventory mobile sono mostrati nel record shop collegato quando una fonte owner-scoped e mappata.",
   "Owner of 1 shop": "Proprietario di 1 shop",
   "Owner memberships": "Membership proprietari",
   "Owner accounts": "Account proprietari",
@@ -576,11 +635,37 @@ const itExact: Record<string, string> = {
   "Personal accounts": "Account personali",
   "Personal account directory for non-admin and incomplete accounts. Shop Admins and Platform Admins have dedicated views.":
     "Directory degli account personali per account non-admin e incompleti. Shop Admin e Platform Admin hanno viste dedicate.",
+  "Directory of unassigned personal accounts returned by the server read model. Shop Admins and Platform Admins have dedicated views.":
+    "Directory degli account personali non assegnati restituiti dal read model server. Shop Admin e Platform Admin hanno viste dedicate.",
+  "Unassigned personal account directory for accounts not managed through Shop Admins or Platform Admins. Dedicated admin views keep grant and membership operations separate.":
+    "Directory degli account personali non assegnati, non gestiti tramite Shop Admin o Platform Admin. Le viste admin dedicate tengono separati grant e membership.",
+  "Unassigned personal accounts": "Account personali non assegnati",
+  "All unassigned accounts": "Tutti gli account non assegnati",
+  "No unassigned personal accounts": "Nessun account personale non assegnato",
+  "No unassigned personal accounts. This account is now managed through Shop Admins and Platform Admins.":
+    "Nessun account personale non assegnato. Questo account ora e gestito tramite Shop Admins e Platform Admins.",
+  "No unassigned normal accounts match this filter":
+    "Nessun account normale non assegnato corrisponde a questo filtro",
+  "No unassigned normal accounts match this filter. Shop Admins and Platform Admins are managed in their dedicated views.":
+    "Nessun account normale non assegnato corrisponde a questo filtro. Shop Admin e Platform Admin sono gestiti nelle viste dedicate.",
+  "Users shows personal accounts that are not currently managed through Shop Admins or Platform Admins. Use dedicated admin views for grant or membership operations.":
+    "Users mostra account personali che non sono attualmente gestiti tramite Shop Admin o Platform Admin. Usa le viste dedicate per operazioni su grant o membership.",
+  "Users is the unassigned Personal Account Directory: it excludes accounts already managed through Shop Admins or Platform Admins.":
+    "Users e la directory degli account personali non assegnati: esclude gli account gia gestiti tramite Shop Admin o Platform Admin.",
+  "Normal accounts only is an explicit filter inside the unassigned Users view.":
+    "Normal accounts only e un filtro esplicito dentro la vista Users non assegnati.",
+  "Rows are personal/profile accounts that do not have Shop Admin membership or Platform Admin access.":
+    "Le righe sono account personali/profili senza membership Shop Admin o accesso Platform Admin.",
+  "Normal account and Incomplete account labels identify unassigned personal accounts, not duplicated actions.":
+    "Le label Normal account e Incomplete account identificano account personali non assegnati, non azioni duplicate.",
+  "Unassigned personal accounts returned by Users":
+    "Account personali non assegnati restituiti da Users",
   "Personal accounts with no global or shop-admin access.":
     "Account personali senza accesso globale o shop-admin.",
   "Personal accounts with only inactive or non-operational shop records.":
     "Account personali con soli record shop inattivi o non operativi.",
   "Platform admins": "Platform admin",
+  "Platform Admin": "Platform Admin",
   "Platform admin overlap": "Sovrapposizione Platform admin",
   "platform_admin means global Master Console access; it is not created by linking a shop code.":
     "platform_admin significa accesso globale alla Master Console; non viene creato collegando uno shop code.",
@@ -589,6 +674,15 @@ const itExact: Record<string, string> = {
   "POS staff and manager 1001 stay in staff/shop-code principals, separate from personal accounts.":
     "Staff POS e manager 1001 restano principal staff/shop-code separati dagli account personali.",
   "Profile/Auth state": "Stato profilo/auth",
+  "Inventory source": "Fonte inventory",
+  "Inventory source mapped": "Fonte inventory mappata",
+  "Source kind": "Tipo fonte",
+  "Shop Admin record": "Record Shop Admin",
+  "Shop Admin Detail": "Dettaglio Shop Admin",
+  "Shop Admin access is shop-scoped through shop_members. It is separate from Platform Admin global access.":
+    "L'accesso Shop Admin e scoped allo shop tramite shop_members. E separato dall'accesso globale Platform Admin.",
+  "Shop Admin detail stays in the shop_members context. Open the personal account only when identity diagnostics are needed.":
+    "Il dettaglio Shop Admin resta nel contesto shop_members. Apri l'account personale solo quando servono diagnostiche identita.",
   "Personal account directory. Shop admins are owner/manager memberships in shop_members; Platform admins are global Master Console grants.":
     "Directory degli account personali. Gli admin shop sono membership owner/manager in shop_members; i Platform admin sono grant globali Master Console.",
   "Personal accounts with no operational shop membership.":
@@ -604,6 +698,7 @@ const itExact: Record<string, string> = {
   "Grant controls are collapsed by default because Platform Admin is global Master Console access.":
     "I controlli grant sono chiusi di default perche Platform Admin e accesso globale alla Master Console.",
   "Shop admin": "Admin shop",
+  "Shop Admin": "Shop Admin",
   "Shop Admins": "Admin shop",
   "Shop admin accounts": "Account admin shop",
   "Shop admins": "Admin shop",
@@ -637,12 +732,68 @@ const itExact: Record<string, string> = {
   "Unlinked user": "Utente non collegato",
   "Unlinked users": "Utenti non collegati",
   "User directory": "Directory utenti",
+  "Personal Account Directory": "Directory account personali",
+  "Directory of personal accounts returned by the server read model, including normal users, Shop Admins, Platform Admins, and incomplete accounts.":
+    "Directory degli account personali restituiti dal read model server, inclusi utenti normali, Shop Admin, Platform Admin e account incompleti.",
+  "Personal Account Directory for every personal/profile account returned by the safe server read model. Dedicated admin views keep grant and membership operations separate.":
+    "Directory account personali per ogni account personale/profilo restituito dal read model server sicuro. Le viste admin dedicate mantengono separate operazioni di grant e membership.",
+  "Filtered Shop Admin view": "Vista Shop Admin filtrata",
+  "Filtered view of Personal Account Directory accounts with shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
+    "Vista filtrata degli account della Directory account personali con membership shop_owner o shop_manager, inclusi contesti attuali, storici e disabilitati.",
+  "No personal accounts visible": "Nessun account personale visibile",
+  "No Auth/Profile personal accounts were returned by the current read model or server search.":
+    "Il read model corrente o la ricerca server non ha restituito account personali Auth/Profile.",
+  "Users includes normal, Shop Admin, Platform Admin, and incomplete personal accounts. Use dedicated admin views for grant or membership operations.":
+    "Users include account personali normali, Shop Admin, Platform Admin e incompleti. Usa le viste admin dedicate per operazioni di grant o membership.",
+  "Normal account": "Account normale",
+  "Normal accounts": "Account normali",
+  "Normal accounts only": "Solo account normali",
+  "No normal accounts match this filter": "Nessun account normale corrisponde a questo filtro",
+  "No normal accounts match this filter. Platform Admins are hidden by this filter.":
+    "Nessun account normale corrisponde a questo filtro. I Platform Admin sono nascosti da questo filtro.",
+  "Platform Admin / Master Console": "Platform Admin / Master Console",
+  "Shop Owner": "Proprietario shop",
+  "Shop Manager": "Manager shop",
+  "Incomplete account": "Account incompleto",
+  "Users is the Personal Account Directory: it includes normal, Shop Admin, Platform Admin, and incomplete accounts returned by the read model.":
+    "Users e la Directory account personali: include account normali, Shop Admin, Platform Admin e incompleti restituiti dal read model.",
+  "Normal accounts only is an explicit filter, not the default Users view.":
+    "Solo account normali e un filtro esplicito, non la vista Users predefinita.",
+  "Account directory": "Directory account",
+  "Rows are all personal/profile accounts returned by the server read model.":
+    "Le righe sono tutti gli account personali/profili restituiti dal read model server.",
+  "Normal account, Shop Admin, Platform Admin / Master Console, and Incomplete account are labels, not duplicated actions.":
+    "Account normale, Shop Admin, Platform Admin / Master Console e Account incompleto sono etichette, non azioni duplicate.",
+  "Shop Admins and Platform Admins remain the operational views for membership and grant controls.":
+    "Shop Admin e Platform Admin restano le viste operative per controlli membership e grant.",
+  "Auth-only, profile-only, or origin-unavailable accounts stay visible for review.":
+    "Gli account auth-only, profile-only o con origine non disponibile restano visibili per review.",
+  "Platform Admin grant": "Grant Platform Admin",
+  "View Platform Admin grant": "Vedi grant Platform Admin",
+  "Visible in this table": "Visibili in questa tabella",
+  "All account types returned by Users": "Tutti i tipi account restituiti da Users",
+  "Has shop": "Ha shop",
+  "No shop": "Nessuno shop",
+  "Any visible shop_members or linked mobile shop":
+    "Qualsiasi shop_members visibile o shop mobile collegato",
+  "No visible shop_members or linked mobile shop":
+    "Nessun shop_members visibile o shop mobile collegato",
+  "No Platform Admin or Shop Admin access": "Nessun accesso Platform Admin o Shop Admin",
+  "Also visible in the dedicated Platform Admins view":
+    "Visibile anche nella vista Platform Admins dedicata",
+  "Not linked to shop_owner or shop_manager":
+    "Non collegato a shop_owner o shop_manager",
+  "Normal without admin access": "Normali senza accesso admin",
+  "Profile OK accounts with no admin role":
+    "Account Profile OK senza ruolo admin",
+  "Auth/Profile parity needs review": "Parita Auth/Profile da revisionare",
   "Normal users": "Utenti normali",
   "Incomplete accounts": "Account incompleti",
   "Auth-only, profile-only, or origin-unavailable accounts needing review.":
     "Account auth-only, profile-only o con origine non disponibile che richiedono review.",
   "Open Shop Admins": "Apri Shop Admin",
   "Open Platform Admins": "Apri Platform Admin",
+  "Open account detail": "Apri dettaglio account",
   "Review personal accounts that can open the shop-scoped Admin Console.":
     "Rivedi gli account personali che possono aprire la Console Admin shop-scoped.",
   "Review global Master Console grants and exceptional grant/revoke controls.":
@@ -652,6 +803,26 @@ const itExact: Record<string, string> = {
   "Dedicated Platform Admins view": "Vista Platform Admin dedicata",
   "Admin accounts": "Account admin",
   "Shop-scoped admin accounts": "Account admin shop-scoped",
+  "Account label": "Label account",
+  "Profile display name": "Nome visualizzato profilo",
+  "Badges": "Badge",
+  "Current shop access": "Accesso shop corrente",
+  "Not current": "Non corrente",
+  "Shop Admin context": "Contesto Shop Admin",
+  "Filtered Shop Admin view: this account is shown here because it has owner or manager shop_members context.":
+    "Vista Shop Admin filtrata: questo account e mostrato qui perche ha contesto shop_members owner o manager.",
+  "Account detail": "Dettaglio account",
+  "Shop Admin account detail": "Dettaglio account Shop Admin",
+  "Account Detail": "Dettaglio account",
+  "Account detail with safe Auth identity summary, global access, shop memberships, linked mobile data, and audit.":
+    "Dettaglio account con riepilogo Auth sicuro, accesso globale, membership shop, dati mobile collegati e audit.",
+  "Account detail opened from the filtered Shop Admin view, with shop_members context highlighted.":
+    "Dettaglio account aperto dalla vista Shop Admin filtrata, con contesto shop_members evidenziato.",
+  "Mobile data / linked shop": "Dati mobile / shop collegato",
+  "Managed through linked shop": "Gestito tramite shop collegato",
+  "Managed through linked shop.": "Gestito tramite shop collegato.",
+  "Owner-scoped mobile data mapped to this shop":
+    "Dati mobile dell'account personale mappati a questo shop",
   "Admin Console access": "Accesso Console Admin",
   "Personal accounts linked to shops through shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
     "Account personali collegati agli shop tramite membership shop_owner o shop_manager, inclusi contesti attuali, storici e disabilitati.",
@@ -679,7 +850,9 @@ const itExact: Record<string, string> = {
   "Also has global Master Console access": "Ha anche accesso globale Master Console",
   "Inactive or non-operational rows for listed accounts":
     "Righe inattive o non operative per gli account elencati",
+  "Back to Shops": "Torna a Shop",
   "Back to Shop Admins": "Torna a Shop Admin",
+  "Back to Users": "Torna a Utenti",
   "Manager memberships": "Membership responsabili",
   "Permanent delete production shop": "Eliminazione permanente shop produzione",
   "Primary owner": "Proprietario principale",
@@ -711,6 +884,10 @@ const itExact: Record<string, string> = {
   "Create pending owner setup": "Crea setup proprietario in attesa",
   "Create POS-first shop": "Crea shop POS-first",
   "Create shop": "Crea shop",
+  "Create a shop and link this account as owner":
+    "Crea uno shop e collega questo account come proprietario",
+  "Create a shop and link this account as owner to move this account into the normal Shop Admin flow.":
+    "Crea uno shop e collega questo account come proprietario per portare questo account nel normale flusso Shop Admin.",
   "Create shop with owner": "Crea shop con proprietario",
   "Create shops, fiscal identity, and initial manager access through audited Platform Admin boundaries.":
     "Crea shop, identita fiscale e accesso manager iniziale tramite boundary Platform Admin auditati.",
@@ -782,6 +959,8 @@ const itExact: Record<string, string> = {
   "Recovering manager 1001": "Recovery manager 1001",
   "Recovery could not complete because the database boundary failed. Check server diagnostics.":
     "Il recovery non e stato completato perche il boundary database e fallito. Controlla la diagnostica server.",
+  "Initial manager recovery is not installed on this database target. Ask an operator to apply the recovery boundary migration, then retry.":
+    "Il recovery del manager iniziale non e installato su questo target database. Chiedi a un operatore di applicare la migration del boundary recovery, poi riprova.",
   "Retail and POS operations": "Retail e operazioni POS",
   "RUT can be typed with or without dots/dash. Shop code uses the compact RUT for login.":
     "Il RUT puo essere digitato con o senza punti/trattino. Il codice shop usa il RUT compatto per il login.",
@@ -1118,6 +1297,21 @@ const itExact: Record<string, string> = {
 };
 
 const esExact: Record<string, string> = {
+  "Configured": "Configurado",
+  "Filters active": "Filtros activos",
+  First: "Primera",
+  Go: "Ir",
+  "Go to page": "Ir a pagina",
+  "Header shop": "Encabezado del shop",
+  "Key shop signals grouped before operational sections for quick review.":
+    "Senales clave del shop agrupadas antes de las secciones operativas para una revision rapida.",
+  "Key status cards": "Tarjetas de estado clave",
+  Last: "Ultima",
+  "Master Console role only": "Solo rol de Master Console",
+  "Reset filters": "Restablecer filtros",
+  "Rows on this page": "Filas en esta pagina",
+  "Use search or filters to find products across the full mapped catalog.":
+    "Usa busqueda o filtros para encontrar productos en todo el catalogo mapeado.",
   "Access is verified server-side and never creates a personal profile.":
     "El acceso se verifica server-side y nunca crea un perfil personal.",
   "Sign in with a personal account to open an admin console.":
@@ -1127,6 +1321,7 @@ const esExact: Record<string, string> = {
   "Staff web session is no longer active.":
     "La sesion web staff ya no esta activa.",
   "Any": "Cualquiera",
+  "Codes": "Codigos",
   "Critical": "Critico",
   "Device or source": "Dispositivo o fuente",
   "Domain": "Dominio",
@@ -1173,6 +1368,7 @@ const esExact: Record<string, string> = {
   "Data": "Datos",
   "Data Health": "Salud de datos",
   "Data status": "Estado de datos",
+  "Data status unavailable": "Estado de datos no disponible",
   "Date": "Fecha",
   "Detail": "Detalle",
   "Detail navigation": "Navegacion detalle",
@@ -1200,14 +1396,42 @@ const esExact: Record<string, string> = {
   "Members": "Miembros",
   "Members empty": "Miembros vacios",
   "Mobile History": "Historial movil",
+  "Mobile data linked to shop": "Datos moviles vinculados al shop",
+  "Mobile data present": "Datos moviles presentes",
+  "Mobile inventory data": "Datos de inventario movil",
+  "No pricing or stock values": "Sin valores de precio o stock",
+  "Pricing / stock": "Precios / stock",
+  "Product identity": "Identidad producto",
+  "Status / updated": "Estado / actualizacion",
+  "Linked mobile inventory source": "Fuente de inventario movil vinculada",
+  "Linked mobile inventory": "Inventario movil vinculado",
+  "Linked shop": "Shop vinculado",
+  "Mapping state": "Estado de mapeo",
+  "Mapped": "Mapeado",
   "Name": "Nombre",
   "Next": "Siguiente",
   "Next action": "Siguiente accion",
+  "Previous": "Anterior",
+  "Page size": "Tamano de pagina",
+  "Total products": "Productos totales",
+  "Filtered rows": "Filas filtradas",
+  "Current page rows": "Filas de pagina actual",
+  "Mapped catalog total": "Total de catalogo mapeado",
+  "Server-side filtered rows": "Filas filtradas del servidor",
+  "Showing current page": "Mostrando pagina actual",
+  "Range": "Rango",
   "No live shop rows are visible": "No hay filas live visibles del shop",
+  "No mobile data": "Sin datos moviles",
+  "No inventory source": "Sin fuente de inventario",
   "No rows visible": "No hay filas visibles",
   "Not configured": "No configurado",
   "Not found": "No encontrado",
+  "Not assigned to a shop yet": "Aun no asignado a un shop",
   "Not set": "Sin configurar",
+  "Open linked shop": "Abrir shop vinculado",
+  "Open personal account": "Abrir cuenta personal",
+  "Open Platform Admin grant": "Abrir grant Platform Admin",
+  "Open Shop Admin record": "Abrir registro Shop Admin",
   "Operation": "Operacion",
   "Operational": "Operativo",
   "Overview": "Resumen",
@@ -1217,6 +1441,7 @@ const esExact: Record<string, string> = {
   "POS / Staff": "POS / Staff",
   "POS Live": "POS Live",
   "Products": "Productos",
+  "Present": "Presente",
   "Products empty": "Productos vacios",
   "Profile": "Perfil",
   "Provisioning": "Provisioning",
@@ -1234,6 +1459,7 @@ const esExact: Record<string, string> = {
   "Server verified": "Verificado por servidor",
   "Settings": "Configuracion",
   "Shop": "Shop",
+  "Shop link": "Vinculo shop",
   "Shop Overview": "Resumen shop",
   "Shop access": "Acceso shop",
   "Shop activity": "Actividad shop",
@@ -1368,9 +1594,11 @@ const esExact: Record<string, string> = {
   "No active supplier rows are visible for this catalog scope.":
     "No hay filas de proveedor activo visibles para este alcance de catalogo.",
   "Price history": "Historial de precios",
+  "Price history rows": "Filas de historial de precios",
   "Effective at": "Vigente el",
   "No price history rows are visible": "No hay filas de historial de precios visibles",
   "History entries": "Entradas de historial",
+  "History sessions": "Sesiones de historial",
   "No related mobile history entries are visible":
     "No hay entradas de historial movil relacionadas visibles",
   "Rows come from the server read model when available; empty states explain the current boundary.":
@@ -1519,6 +1747,16 @@ const esExact: Record<string, string> = {
     "Las operaciones requieren un shop visible desde el read model del servidor.",
   "Operations unavailable": "Operaciones no disponibles",
   "Owner": "Dueño",
+  "Owner account": "Cuenta dueña",
+  "Owner-scoped mobile data": "Datos moviles del dueño",
+  "Owner-scoped mobile data is mapped to the linked shop. Inventory counts are shown on the shop record.":
+    "Los datos moviles del dueño estan mapeados al shop vinculado. Los conteos de inventario se muestran en el registro del shop.",
+  "Owner-scoped mobile data mapped to this shop.":
+    "Datos moviles del dueño mapeados a este shop.",
+  "No owner-scoped mobile inventory source is mapped to this shop through the current read boundary.":
+    "No hay una fuente de inventario movil owner-scoped mapeada a este shop mediante el read boundary actual.",
+  "Mobile inventory counts are shown on the linked shop record when an owner-scoped source is mapped.":
+    "Los conteos de inventario movil se muestran en el registro del shop vinculado cuando una fuente owner-scoped esta mapeada.",
   "Owner accounts": "Cuentas dueñas",
   "Owner of 1 shop": "Dueño de 1 shop",
   "Personal Accounts": "Cuentas personales",
@@ -1527,6 +1765,31 @@ const esExact: Record<string, string> = {
     "Directorio de cuentas personales. Los shop admins son membresias dueño/gerente en shop_members; los Platform admins son grants globales de Master Console.",
   "Personal account directory for non-admin and incomplete accounts. Shop Admins and Platform Admins have dedicated views.":
     "Directorio de cuentas personales para cuentas no admin e incompletas. Shop Admins y Platform Admins tienen vistas dedicadas.",
+  "Directory of unassigned personal accounts returned by the server read model. Shop Admins and Platform Admins have dedicated views.":
+    "Directorio de cuentas personales no asignadas devueltas por el read model del servidor. Shop Admins y Platform Admins tienen vistas dedicadas.",
+  "Unassigned personal account directory for accounts not managed through Shop Admins or Platform Admins. Dedicated admin views keep grant and membership operations separate.":
+    "Directorio de cuentas personales no asignadas para cuentas no gestionadas por Shop Admins o Platform Admins. Las vistas admin dedicadas mantienen separados grants y membresias.",
+  "Unassigned personal accounts": "Cuentas personales no asignadas",
+  "All unassigned accounts": "Todas las cuentas no asignadas",
+  "No unassigned personal accounts": "No hay cuentas personales no asignadas",
+  "No unassigned personal accounts. This account is now managed through Shop Admins and Platform Admins.":
+    "No hay cuentas personales no asignadas. Esta cuenta ahora se gestiona mediante Shop Admins y Platform Admins.",
+  "No unassigned normal accounts match this filter":
+    "No hay cuentas normales no asignadas que coincidan con este filtro",
+  "No unassigned normal accounts match this filter. Shop Admins and Platform Admins are managed in their dedicated views.":
+    "No hay cuentas normales no asignadas que coincidan con este filtro. Shop Admins y Platform Admins se gestionan en sus vistas dedicadas.",
+  "Users shows personal accounts that are not currently managed through Shop Admins or Platform Admins. Use dedicated admin views for grant or membership operations.":
+    "Users muestra cuentas personales que no estan gestionadas actualmente por Shop Admins o Platform Admins. Usa vistas dedicadas para operaciones de grant o membresia.",
+  "Users is the unassigned Personal Account Directory: it excludes accounts already managed through Shop Admins or Platform Admins.":
+    "Users es el Directorio de cuentas personales no asignadas: excluye cuentas ya gestionadas por Shop Admins o Platform Admins.",
+  "Normal accounts only is an explicit filter inside the unassigned Users view.":
+    "Normal accounts only es un filtro explicito dentro de la vista Users no asignados.",
+  "Rows are personal/profile accounts that do not have Shop Admin membership or Platform Admin access.":
+    "Las filas son cuentas personales/perfiles sin membresia Shop Admin ni acceso Platform Admin.",
+  "Normal account and Incomplete account labels identify unassigned personal accounts, not duplicated actions.":
+    "Las etiquetas Normal account e Incomplete account identifican cuentas personales no asignadas, no acciones duplicadas.",
+  "Unassigned personal accounts returned by Users":
+    "Cuentas personales no asignadas devueltas por Users",
   "Personal accounts with no global or shop-admin access.":
     "Cuentas personales sin acceso global ni shop-admin.",
   "Personal accounts with no operational shop membership.":
@@ -1541,6 +1804,16 @@ const esExact: Record<string, string> = {
     "Platform Admin + miembro operativo de shop",
   "Platform admin overlap": "Solapamiento Platform admin",
   "Platform admins": "Platform admins",
+  "Inventory source": "Fuente de inventario",
+  "Inventory source mapped": "Fuente de inventario mapeada",
+  "Source kind": "Tipo de fuente",
+  "Shop Admin record": "Registro Shop Admin",
+  "Shop Admin Detail": "Detalle Shop Admin",
+  "Shop Admin access is shop-scoped through shop_members. It is separate from Platform Admin global access.":
+    "El acceso Shop Admin esta scoped al shop mediante shop_members. Es separado del acceso global Platform Admin.",
+  "Shop Admin detail stays in the shop_members context. Open the personal account only when identity diagnostics are needed.":
+    "El detalle Shop Admin permanece en el contexto shop_members. Abre la cuenta personal solo cuando necesites diagnostico de identidad.",
+  "Platform Admin": "Platform Admin",
   "platform_admin means global Master Console access; it is not created by linking a shop code.":
     "platform_admin significa acceso global a Master Console; no se crea al vincular un shop code.",
   "Platform admin grant/revoke controls only global Master Console access.":
@@ -1555,6 +1828,7 @@ const esExact: Record<string, string> = {
     "El staff POS y el gerente 1001 permanecen como principals staff/shop-code separados de las cuentas personales.",
   "Profile/Auth state": "Estado perfil/auth",
   "Shop admin": "Shop admin",
+  "Shop Admin": "Shop Admin",
   "Shop Admins": "Shop Admins",
   "Shop admin accounts": "Cuentas shop admin",
   "Shop admins": "Shop admins",
@@ -1588,12 +1862,67 @@ const esExact: Record<string, string> = {
   "Unlinked user": "Usuario sin vincular",
   "Unlinked users": "Usuarios sin vincular",
   "User directory": "Directorio de usuarios",
+  "Personal Account Directory": "Directorio de cuentas personales",
+  "Directory of personal accounts returned by the server read model, including normal users, Shop Admins, Platform Admins, and incomplete accounts.":
+    "Directorio de cuentas personales devueltas por el read model server, incluyendo usuarios normales, Shop Admins, Platform Admins y cuentas incompletas.",
+  "Personal Account Directory for every personal/profile account returned by the safe server read model. Dedicated admin views keep grant and membership operations separate.":
+    "Directorio de cuentas personales para cada cuenta personal/perfil devuelto por el read model server seguro. Las vistas admin dedicadas mantienen separadas las operaciones de grant y membresia.",
+  "Filtered Shop Admin view": "Vista Shop Admin filtrada",
+  "Filtered view of Personal Account Directory accounts with shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
+    "Vista filtrada de cuentas del Directorio de cuentas personales con membresia shop_owner o shop_manager, incluidos contextos actuales, historicos y deshabilitados.",
+  "No personal accounts visible": "No hay cuentas personales visibles",
+  "No Auth/Profile personal accounts were returned by the current read model or server search.":
+    "El read model actual o la busqueda server no devolvio cuentas personales Auth/Profile.",
+  "Users includes normal, Shop Admin, Platform Admin, and incomplete personal accounts. Use dedicated admin views for grant or membership operations.":
+    "Users incluye cuentas personales normales, Shop Admin, Platform Admin e incompletas. Usa vistas admin dedicadas para operaciones de grant o membresia.",
+  "Normal account": "Cuenta normal",
+  "Normal accounts": "Cuentas normales",
+  "Normal accounts only": "Solo cuentas normales",
+  "No normal accounts match this filter": "Ninguna cuenta normal coincide con este filtro",
+  "No normal accounts match this filter. Platform Admins are hidden by this filter.":
+    "Ninguna cuenta normal coincide con este filtro. Los Platform Admins quedan ocultos por este filtro.",
+  "Platform Admin / Master Console": "Platform Admin / Master Console",
+  "Shop Owner": "Dueño shop",
+  "Shop Manager": "Gerente shop",
+  "Incomplete account": "Cuenta incompleta",
+  "Users is the Personal Account Directory: it includes normal, Shop Admin, Platform Admin, and incomplete accounts returned by the read model.":
+    "Users es el Directorio de cuentas personales: incluye cuentas normales, Shop Admin, Platform Admin e incompletas devueltas por el read model.",
+  "Normal accounts only is an explicit filter, not the default Users view.":
+    "Solo cuentas normales es un filtro explicito, no la vista Users predeterminada.",
+  "Account directory": "Directorio de cuentas",
+  "Rows are all personal/profile accounts returned by the server read model.":
+    "Las filas son todas las cuentas personales/perfiles devueltos por el read model server.",
+  "Normal account, Shop Admin, Platform Admin / Master Console, and Incomplete account are labels, not duplicated actions.":
+    "Cuenta normal, Shop Admin, Platform Admin / Master Console y Cuenta incompleta son etiquetas, no acciones duplicadas.",
+  "Shop Admins and Platform Admins remain the operational views for membership and grant controls.":
+    "Shop Admins y Platform Admins siguen siendo las vistas operativas para controles de membresia y grant.",
+  "Auth-only, profile-only, or origin-unavailable accounts stay visible for review.":
+    "Las cuentas auth-only, profile-only u origin-unavailable siguen visibles para revision.",
+  "Platform Admin grant": "Grant Platform Admin",
+  "View Platform Admin grant": "Ver grant Platform Admin",
+  "Visible in this table": "Visibles en esta tabla",
+  "All account types returned by Users": "Todos los tipos de cuenta devueltos por Users",
+  "Has shop": "Tiene shop",
+  "No shop": "Sin shop",
+  "Any visible shop_members or linked mobile shop":
+    "Cualquier shop_members visible o shop movil vinculado",
+  "No visible shop_members or linked mobile shop":
+    "Sin shop_members visible ni shop movil vinculado",
+  "No Platform Admin or Shop Admin access": "Sin acceso Platform Admin o Shop Admin",
+  "Also visible in the dedicated Platform Admins view":
+    "Tambien visible en la vista Platform Admins dedicada",
+  "Not linked to shop_owner or shop_manager":
+    "No vinculado a shop_owner o shop_manager",
+  "Normal without admin access": "Normales sin acceso admin",
+  "Profile OK accounts with no admin role": "Cuentas Profile OK sin rol admin",
+  "Auth/Profile parity needs review": "Paridad Auth/Profile necesita revision",
   "Normal users": "Usuarios normales",
   "Incomplete accounts": "Cuentas incompletas",
   "Auth-only, profile-only, or origin-unavailable accounts needing review.":
     "Cuentas auth-only, profile-only u origin-unavailable que necesitan revision.",
   "Open Shop Admins": "Abrir Shop Admins",
   "Open Platform Admins": "Abrir Platform Admins",
+  "Open account detail": "Abrir detalle de cuenta",
   "Review personal accounts that can open the shop-scoped Admin Console.":
     "Revisar cuentas personales que pueden abrir Admin Console shop-scoped.",
   "Review global Master Console grants and exceptional grant/revoke controls.":
@@ -1603,6 +1932,26 @@ const esExact: Record<string, string> = {
   "Dedicated Platform Admins view": "Vista Platform Admins dedicada",
   "Admin accounts": "Cuentas admin",
   "Shop-scoped admin accounts": "Cuentas admin shop-scoped",
+  "Account label": "Etiqueta de cuenta",
+  "Profile display name": "Nombre visible de perfil",
+  "Badges": "Badges",
+  "Current shop access": "Acceso shop actual",
+  "Not current": "No actual",
+  "Shop Admin context": "Contexto Shop Admin",
+  "Filtered Shop Admin view: this account is shown here because it has owner or manager shop_members context.":
+    "Vista Shop Admin filtrada: esta cuenta aparece aqui porque tiene contexto shop_members owner o manager.",
+  "Account detail": "Detalle de cuenta",
+  "Shop Admin account detail": "Detalle de cuenta Shop Admin",
+  "Account Detail": "Detalle de cuenta",
+  "Account detail with safe Auth identity summary, global access, shop memberships, linked mobile data, and audit.":
+    "Detalle de cuenta con resumen Auth seguro, acceso global, membresias shop, datos moviles vinculados y audit.",
+  "Account detail opened from the filtered Shop Admin view, with shop_members context highlighted.":
+    "Detalle de cuenta abierto desde la vista Shop Admin filtrada, con contexto shop_members destacado.",
+  "Mobile data / linked shop": "Datos moviles / shop vinculado",
+  "Managed through linked shop": "Gestionado mediante shop vinculado",
+  "Managed through linked shop.": "Gestionado mediante shop vinculado.",
+  "Owner-scoped mobile data mapped to this shop":
+    "Datos moviles owner-scoped mapeados a este shop",
   "Admin Console access": "Acceso Admin Console",
   "Personal accounts linked to shops through shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
     "Cuentas personales vinculadas a shops mediante membresia shop_owner o shop_manager, incluyendo contextos actuales, historicos y deshabilitados.",
@@ -1630,7 +1979,9 @@ const esExact: Record<string, string> = {
   "Also has global Master Console access": "Tambien tiene acceso global Master Console",
   "Inactive or non-operational rows for listed accounts":
     "Filas inactivas o no operativas para las cuentas listadas",
+  "Back to Shops": "Volver a Shops",
   "Back to Shop Admins": "Volver a Shop Admins",
+  "Back to Users": "Volver a Usuarios",
   "Action ready.": "Accion lista.",
   "Access: full Admin Console access":
     "Acceso: acceso completo a Admin Console",
@@ -1653,6 +2004,10 @@ const esExact: Record<string, string> = {
   "Create pending owner setup": "Crear setup de dueño pendiente",
   "Create POS-first shop": "Crear shop POS-first",
   "Create shop": "Crear shop",
+  "Create a shop and link this account as owner":
+    "Crea un shop y vincula esta cuenta como dueña",
+  "Create a shop and link this account as owner to move this account into the normal Shop Admin flow.":
+    "Crea un shop y vincula esta cuenta como dueña para moverla al flujo normal de Shop Admin.",
   "Create shop with owner": "Crear shop con dueño",
   "Create shops, fiscal identity, and initial manager access through audited Platform Admin boundaries.":
     "Crea shops, identidad fiscal y acceso inicial de gerente mediante boundaries Platform Admin auditados.",
@@ -1723,6 +2078,8 @@ const esExact: Record<string, string> = {
   "Recovering manager 1001": "Recuperando gerente 1001",
   "Recovery could not complete because the database boundary failed. Check server diagnostics.":
     "La recuperacion no pudo completarse porque fallo el boundary de base de datos. Revisa diagnosticos del servidor.",
+  "Initial manager recovery is not installed on this database target. Ask an operator to apply the recovery boundary migration, then retry.":
+    "La recuperacion del gerente inicial no esta instalada en este target de base de datos. Pide a un operador aplicar la migration del boundary de recuperacion y vuelve a intentar.",
   "Retail and POS operations": "Retail y operaciones POS",
   "RUT can be typed with or without dots/dash. Shop code uses the compact RUT for login.":
     "El RUT puede escribirse con o sin puntos/guion. El codigo shop usa el RUT compacto para iniciar sesion.",
@@ -2059,6 +2416,21 @@ const esExact: Record<string, string> = {
 };
 
 const zhExact: Record<string, string> = {
+  "Configured": "已配置",
+  "Filters active": "筛选已启用",
+  First: "第一页",
+  Go: "跳转",
+  "Go to page": "跳转到页面",
+  "Header shop": "店铺头部信息",
+  "Key shop signals grouped before operational sections for quick review.":
+    "关键店铺信号集中在运营区块之前，便于快速复核。",
+  "Key status cards": "关键状态卡片",
+  Last: "最后一页",
+  "Master Console role only": "仅 Master Console 角色",
+  "Reset filters": "重置筛选",
+  "Rows on this page": "本页行数",
+  "Use search or filters to find products across the full mapped catalog.":
+    "使用搜索或筛选在完整映射目录中查找商品。",
   "Access is verified server-side and never creates a personal profile.":
     "访问会在服务端验证，且不会创建个人资料。",
   "Sign in with a personal account to open an admin console.":
@@ -2067,6 +2439,7 @@ const zhExact: Record<string, string> = {
     "请使用个人账号登录以打开店铺管理台。",
   "Staff web session is no longer active.": "员工网页登录会话已不再有效。",
   "Any": "任意",
+  "Codes": "编码",
   "Critical": "严重",
   "Device or source": "设备或来源",
   "Domain": "域",
@@ -2113,6 +2486,7 @@ const zhExact: Record<string, string> = {
   "Data": "数据",
   "Data Health": "数据健康",
   "Data status": "数据状态",
+  "Data status unavailable": "数据状态不可用",
   "Date": "日期",
   "Detail": "详情",
   "Detail navigation": "详情导航",
@@ -2140,14 +2514,42 @@ const zhExact: Record<string, string> = {
   "Members": "成员",
   "Members empty": "暂无成员",
   "Mobile History": "移动端历史",
+  "Mobile data linked to shop": "移动端数据已关联到店铺",
+  "Mobile data present": "存在移动端数据",
+  "Mobile inventory data": "移动端库存数据",
+  "No pricing or stock values": "暂无价格或库存值",
+  "Pricing / stock": "价格 / 库存",
+  "Product identity": "商品标识",
+  "Status / updated": "状态 / 更新时间",
+  "Linked mobile inventory source": "已关联的移动端库存来源",
+  "Linked mobile inventory": "已关联的移动端库存",
+  "Linked shop": "已关联店铺",
+  "Mapping state": "映射状态",
+  "Mapped": "已映射",
   "Name": "名称",
   "Next": "下一步",
   "Next action": "下一步操作",
+  "Previous": "上一步",
+  "Page size": "每页数量",
+  "Total products": "商品总数",
+  "Filtered rows": "已筛选行",
+  "Current page rows": "当前页行数",
+  "Mapped catalog total": "已映射目录总数",
+  "Server-side filtered rows": "服务端筛选行",
+  "Showing current page": "正在显示当前页",
+  "Range": "范围",
   "No live shop rows are visible": "没有可见的店铺实时行",
+  "No mobile data": "无移动端数据",
+  "No inventory source": "无库存来源",
   "No rows visible": "没有可见行",
   "Not configured": "未配置",
   "Not found": "未找到",
+  "Not assigned to a shop yet": "尚未分配到店铺",
   "Not set": "未设置",
+  "Open linked shop": "打开已关联店铺",
+  "Open personal account": "打开个人账号",
+  "Open Platform Admin grant": "打开 Platform Admin 授权",
+  "Open Shop Admin record": "打开 Shop Admin 记录",
   "Operation": "操作",
   "Operational": "运营",
   "Overview": "概览",
@@ -2157,6 +2559,7 @@ const zhExact: Record<string, string> = {
   "POS / Staff": "POS / 员工",
   "POS Live": "POS 实时",
   "Products": "商品",
+  "Present": "存在",
   "Products empty": "暂无商品",
   "Profile": "资料",
   "Provisioning": "开通",
@@ -2174,6 +2577,7 @@ const zhExact: Record<string, string> = {
   "Server verified": "服务端已验证",
   "Settings": "设置",
   "Shop": "店铺",
+  "Shop link": "店铺关联",
   "Shop Overview": "店铺概览",
   "Shop access": "店铺访问",
   "Shop activity": "店铺活动",
@@ -2307,9 +2711,11 @@ const zhExact: Record<string, string> = {
   "No active supplier rows are visible for this catalog scope.":
     "此目录范围没有可见的活动供应商行。",
   "Price history": "价格历史",
+  "Price history rows": "价格历史行",
   "Effective at": "生效时间",
   "No price history rows are visible": "没有可见的价格历史行",
   "History entries": "历史条目",
+  "History sessions": "历史会话",
   "No related mobile history entries are visible": "没有可见的相关移动端历史条目",
   "Rows come from the server read model when available; empty states explain the current boundary.":
     "可用时，行数据来自服务端读取模型；空状态会解释当前边界。",
@@ -2454,6 +2860,16 @@ const zhExact: Record<string, string> = {
     "操作需要服务端读取模型中可见的店铺。",
   "Operations unavailable": "操作不可用",
   "Owner": "所有者",
+  "Owner account": "所有者账号",
+  "Owner-scoped mobile data": "按所有者归属的移动端数据",
+  "Owner-scoped mobile data is mapped to the linked shop. Inventory counts are shown on the shop record.":
+    "按所有者归属的移动端数据已映射到关联店铺。库存计数显示在店铺记录中。",
+  "Owner-scoped mobile data mapped to this shop.":
+    "按所有者归属的移动端数据已映射到此店铺。",
+  "No owner-scoped mobile inventory source is mapped to this shop through the current read boundary.":
+    "当前读取边界中没有按所有者归属的移动端库存来源映射到此店铺。",
+  "Mobile inventory counts are shown on the linked shop record when an owner-scoped source is mapped.":
+    "当按所有者归属的来源已映射时，移动端库存计数显示在关联店铺记录中。",
   "Owner accounts": "所有者账号",
   "Owner of 1 shop": "1 个店铺的所有者",
   "Personal Accounts": "个人账号",
@@ -2462,6 +2878,31 @@ const zhExact: Record<string, string> = {
     "个人账号目录。Shop admin 是 shop_members 中的所有者/经理成员关系；Platform admin 是 Master Console 全局授权。",
   "Personal account directory for non-admin and incomplete accounts. Shop Admins and Platform Admins have dedicated views.":
     "面向非管理员和不完整账号的个人账号目录。Shop Admins 和 Platform Admins 有专用视图。",
+  "Directory of unassigned personal accounts returned by the server read model. Shop Admins and Platform Admins have dedicated views.":
+    "服务端读取模型返回的未分配个人账号目录。Shop Admins 和 Platform Admins 有专用视图。",
+  "Unassigned personal account directory for accounts not managed through Shop Admins or Platform Admins. Dedicated admin views keep grant and membership operations separate.":
+    "未分配个人账号目录，用于未通过 Shop Admins 或 Platform Admins 管理的账号。专用管理员视图会分开授权和成员关系操作。",
+  "Unassigned personal accounts": "未分配个人账号",
+  "All unassigned accounts": "全部未分配账号",
+  "No unassigned personal accounts": "没有未分配个人账号",
+  "No unassigned personal accounts. This account is now managed through Shop Admins and Platform Admins.":
+    "没有未分配个人账号。此账号现在通过 Shop Admins 和 Platform Admins 管理。",
+  "No unassigned normal accounts match this filter":
+    "没有未分配的普通账号匹配此筛选",
+  "No unassigned normal accounts match this filter. Shop Admins and Platform Admins are managed in their dedicated views.":
+    "没有未分配的普通账号匹配此筛选。Shop Admins 和 Platform Admins 在各自专用视图中管理。",
+  "Users shows personal accounts that are not currently managed through Shop Admins or Platform Admins. Use dedicated admin views for grant or membership operations.":
+    "Users 显示当前未通过 Shop Admins 或 Platform Admins 管理的个人账号。授权或成员关系操作请使用专用管理员视图。",
+  "Users is the unassigned Personal Account Directory: it excludes accounts already managed through Shop Admins or Platform Admins.":
+    "Users 是未分配个人账号目录：它会排除已经通过 Shop Admins 或 Platform Admins 管理的账号。",
+  "Normal accounts only is an explicit filter inside the unassigned Users view.":
+    "Normal accounts only 是未分配 Users 视图内的显式筛选。",
+  "Rows are personal/profile accounts that do not have Shop Admin membership or Platform Admin access.":
+    "这些行是没有 Shop Admin 成员关系或 Platform Admin 访问权限的个人账号/资料。",
+  "Normal account and Incomplete account labels identify unassigned personal accounts, not duplicated actions.":
+    "Normal account 和 Incomplete account 标签用于识别未分配个人账号，不代表重复操作。",
+  "Unassigned personal accounts returned by Users":
+    "Users 返回的未分配个人账号",
   "Personal accounts with no global or shop-admin access.":
     "没有全局访问或店铺管理员访问的个人账号。",
   "Personal accounts with no operational shop membership.":
@@ -2475,6 +2916,16 @@ const zhExact: Record<string, string> = {
   "Platform Admin + operational shop member": "Platform Admin + 运营店铺成员",
   "Platform admin overlap": "Platform admin 重叠",
   "Platform admins": "Platform admin",
+  "Platform Admin": "Platform Admin",
+  "Inventory source": "库存来源",
+  "Inventory source mapped": "库存来源已映射",
+  "Source kind": "来源类型",
+  "Shop Admin record": "Shop Admin 记录",
+  "Shop Admin Detail": "Shop Admin 详情",
+  "Shop Admin access is shop-scoped through shop_members. It is separate from Platform Admin global access.":
+    "Shop Admin 访问通过 shop_members 按店铺限定。它与 Platform Admin 全局访问分开。",
+  "Shop Admin detail stays in the shop_members context. Open the personal account only when identity diagnostics are needed.":
+    "Shop Admin 详情保留在 shop_members 上下文中。只有需要身份诊断时才打开个人账号。",
   "platform_admin means global Master Console access; it is not created by linking a shop code.":
     "platform_admin 表示 Master Console 全局访问；它不会通过关联 shop code 创建。",
   "Platform admin grant/revoke controls only global Master Console access.":
@@ -2489,6 +2940,7 @@ const zhExact: Record<string, string> = {
     "POS 员工和经理 1001 保持为 staff/shop-code 主体，与个人账号分离。",
   "Profile/Auth state": "资料/Auth 状态",
   "Shop admin": "店铺管理员",
+  "Shop Admin": "店铺管理员",
   "Shop Admins": "店铺管理员",
   "Shop admin accounts": "店铺管理员账号",
   "Shop admins": "店铺管理员",
@@ -2522,12 +2974,67 @@ const zhExact: Record<string, string> = {
   "Unlinked user": "未关联用户",
   "Unlinked users": "未关联用户",
   "User directory": "用户目录",
+  "Personal Account Directory": "个人账号目录",
+  "Directory of personal accounts returned by the server read model, including normal users, Shop Admins, Platform Admins, and incomplete accounts.":
+    "服务端读取模型返回的个人账号目录，包括普通用户、Shop Admin、Platform Admin 和不完整账号。",
+  "Personal Account Directory for every personal/profile account returned by the safe server read model. Dedicated admin views keep grant and membership operations separate.":
+    "安全服务端读取模型返回的所有个人账号/资料账号目录。专用管理员视图保留授权和成员关系操作。",
+  "Filtered Shop Admin view": "筛选后的 Shop Admin 视图",
+  "Filtered view of Personal Account Directory accounts with shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
+    "个人账号目录中具有 shop_owner 或 shop_manager 成员关系的筛选视图，包括当前、历史和禁用上下文。",
+  "No personal accounts visible": "没有可见个人账号",
+  "No Auth/Profile personal accounts were returned by the current read model or server search.":
+    "当前读取模型或服务端搜索未返回 Auth/Profile 个人账号。",
+  "Users includes normal, Shop Admin, Platform Admin, and incomplete personal accounts. Use dedicated admin views for grant or membership operations.":
+    "Users 包含普通、Shop Admin、Platform Admin 和不完整个人账号。授权或成员关系操作请使用专用管理员视图。",
+  "Normal account": "普通账号",
+  "Normal accounts": "普通账号",
+  "Normal accounts only": "仅普通账号",
+  "No normal accounts match this filter": "没有普通账号匹配此筛选器",
+  "No normal accounts match this filter. Platform Admins are hidden by this filter.":
+    "没有普通账号匹配此筛选器。Platform Admin 会被此筛选器隐藏。",
+  "Platform Admin / Master Console": "Platform Admin / Master Console",
+  "Shop Owner": "店铺所有者",
+  "Shop Manager": "店铺经理",
+  "Incomplete account": "不完整账号",
+  "Users is the Personal Account Directory: it includes normal, Shop Admin, Platform Admin, and incomplete accounts returned by the read model.":
+    "Users 是个人账号目录：包含读取模型返回的普通、Shop Admin、Platform Admin 和不完整账号。",
+  "Normal accounts only is an explicit filter, not the default Users view.":
+    "仅普通账号是显式筛选器，不是默认 Users 视图。",
+  "Account directory": "账号目录",
+  "Rows are all personal/profile accounts returned by the server read model.":
+    "行是服务端读取模型返回的所有个人账号/资料账号。",
+  "Normal account, Shop Admin, Platform Admin / Master Console, and Incomplete account are labels, not duplicated actions.":
+    "普通账号、Shop Admin、Platform Admin / Master Console 和不完整账号是标签，不是重复操作。",
+  "Shop Admins and Platform Admins remain the operational views for membership and grant controls.":
+    "Shop Admins 和 Platform Admins 仍是成员关系和授权控制的操作视图。",
+  "Auth-only, profile-only, or origin-unavailable accounts stay visible for review.":
+    "auth-only、profile-only 或 origin-unavailable 账号仍保持可见以供复核。",
+  "Platform Admin grant": "Platform Admin 授权",
+  "View Platform Admin grant": "查看 Platform Admin 授权",
+  "Visible in this table": "此表中可见",
+  "All account types returned by Users": "Users 返回的所有账号类型",
+  "Has shop": "有店铺",
+  "No shop": "无店铺",
+  "Any visible shop_members or linked mobile shop":
+    "任何可见的 shop_members 或已关联移动端店铺",
+  "No visible shop_members or linked mobile shop":
+    "没有可见的 shop_members 或已关联移动端店铺",
+  "No Platform Admin or Shop Admin access": "无 Platform Admin 或 Shop Admin 访问",
+  "Also visible in the dedicated Platform Admins view":
+    "也显示在专用 Platform Admins 视图中",
+  "Not linked to shop_owner or shop_manager":
+    "未关联到 shop_owner 或 shop_manager",
+  "Normal without admin access": "无管理员访问的普通账号",
+  "Profile OK accounts with no admin role": "没有管理员角色的 Profile OK 账号",
+  "Auth/Profile parity needs review": "需要复核 Auth/Profile 一致性",
   "Normal users": "普通用户",
   "Incomplete accounts": "不完整账号",
   "Auth-only, profile-only, or origin-unavailable accounts needing review.":
     "需要复核的 auth-only、profile-only 或 origin-unavailable 账号。",
   "Open Shop Admins": "打开 Shop Admins",
   "Open Platform Admins": "打开 Platform Admins",
+  "Open account detail": "打开账号详情",
   "Review personal accounts that can open the shop-scoped Admin Console.":
     "复核可打开店铺范围 Admin Console 的个人账号。",
   "Review global Master Console grants and exceptional grant/revoke controls.":
@@ -2537,6 +3044,26 @@ const zhExact: Record<string, string> = {
   "Dedicated Platform Admins view": "专用 Platform Admins 视图",
   "Admin accounts": "管理员账号",
   "Shop-scoped admin accounts": "店铺范围管理员账号",
+  "Account label": "账号标签",
+  "Profile display name": "资料显示名称",
+  "Badges": "徽章",
+  "Current shop access": "当前店铺访问",
+  "Not current": "非当前",
+  "Shop Admin context": "Shop Admin 上下文",
+  "Filtered Shop Admin view: this account is shown here because it has owner or manager shop_members context.":
+    "筛选后的 Shop Admin 视图：此账号显示在这里，因为它具有 owner 或 manager shop_members 上下文。",
+  "Account detail": "账号详情",
+  "Shop Admin account detail": "Shop Admin 账号详情",
+  "Account Detail": "账号详情",
+  "Account detail with safe Auth identity summary, global access, shop memberships, linked mobile data, and audit.":
+    "账号详情包含安全 Auth 身份摘要、全局访问、店铺成员关系、已关联移动数据和审计。",
+  "Account detail opened from the filtered Shop Admin view, with shop_members context highlighted.":
+    "从筛选后的 Shop Admin 视图打开的账号详情，并突出 shop_members 上下文。",
+  "Mobile data / linked shop": "移动数据 / 已关联店铺",
+  "Managed through linked shop": "通过已关联店铺管理",
+  "Managed through linked shop.": "通过已关联店铺管理。",
+  "Owner-scoped mobile data mapped to this shop":
+    "所有者范围移动数据已映射到此店铺",
   "Admin Console access": "Admin Console 访问",
   "Personal accounts linked to shops through shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
     "通过 shop_owner 或 shop_manager 成员关系关联到店铺的个人账号，包括当前、历史和禁用上下文。",
@@ -2564,7 +3091,9 @@ const zhExact: Record<string, string> = {
   "Also has global Master Console access": "也拥有 Master Console 全局访问",
   "Inactive or non-operational rows for listed accounts":
     "所列账号的非活动或非运营行",
+  "Back to Shops": "返回店铺",
   "Back to Shop Admins": "返回 Shop Admins",
+  "Back to Users": "返回用户",
   "Action ready.": "操作已就绪。",
   "Access: full Admin Console access": "访问：完整管理控制台访问",
   "A provisioning reason is required.": "需要填写开通原因。",
@@ -2585,6 +3114,10 @@ const zhExact: Record<string, string> = {
   "Create pending owner setup": "创建待处理所有者设置",
   "Create POS-first shop": "创建 POS 优先店铺",
   "Create shop": "创建店铺",
+  "Create a shop and link this account as owner":
+    "创建店铺并将此账号作为所有者关联",
+  "Create a shop and link this account as owner to move this account into the normal Shop Admin flow.":
+    "创建店铺并将此账号作为所有者关联，以将此账号纳入正常的店铺管理员流程。",
   "Create shop with owner": "创建带所有者的店铺",
   "Create shops, fiscal identity, and initial manager access through audited Platform Admin boundaries.":
     "通过已审计的平台管理边界创建店铺、税务身份和初始经理访问。",
@@ -2651,6 +3184,8 @@ const zhExact: Record<string, string> = {
   "Recovering manager 1001": "正在恢复经理 1001",
   "Recovery could not complete because the database boundary failed. Check server diagnostics.":
     "由于数据库边界失败，恢复无法完成。请检查服务端诊断。",
+  "Initial manager recovery is not installed on this database target. Ask an operator to apply the recovery boundary migration, then retry.":
+    "此数据库目标尚未安装初始经理恢复功能。请让操作员应用恢复边界 migration 后再重试。",
   "Retail and POS operations": "零售与 POS 操作",
   "RUT can be typed with or without dots/dash. Shop code uses the compact RUT for login.":
     "RUT 可带点/短横线输入，也可不带。店铺代码使用紧凑 RUT 登录。",
@@ -3277,8 +3812,6 @@ const itRenderedCorrectiveExact: Record<string, string> = {
     "Matrice permessi baseline server-side per membri web dello shop e ruoli staff POS. L'editing granulare non e ancora disponibile perche non esiste uno schema ruoli granulare.",
   "Server-side query params": "Parametri query server-side",
   "Server-side status": "Stato server-side",
-  "Shop Manager": "Manager shop",
-  "Shop Owner": "Proprietario shop",
   "Shop onboarding": "Onboarding shop",
   "Shop Staff read model loaded server-side through the credential-safe view.":
     "Read model staff shop caricato server-side tramite vista credential-safe.",
@@ -3687,8 +4220,6 @@ const esRenderedCorrectiveExact: Record<string, string> = {
     "Matriz base de permisos server-side para miembros web del shop y roles staff POS. La edicion granular aun no esta disponible porque no existe un schema de roles granulares.",
   "Server-side query params": "Parametros query server-side",
   "Server-side status": "Estado server-side",
-  "Shop Manager": "Gerente shop",
-  "Shop Owner": "Dueño shop",
   "Shop onboarding": "Onboarding shop",
   "Shop Staff read model loaded server-side through the credential-safe view.":
     "Read model de staff del shop cargado server-side mediante la vista credential-safe.",
@@ -4091,8 +4622,6 @@ const zhRenderedCorrectiveExact: Record<string, string> = {
     "服务端基础权限矩阵，覆盖 Web 店铺成员和 POS 员工角色。由于尚无细粒度角色 schema，暂不支持细粒度编辑。",
   "Server-side query params": "服务端查询参数",
   "Server-side status": "服务端状态",
-  "Shop Manager": "店铺经理",
-  "Shop Owner": "店铺所有者",
   "Shop onboarding": "店铺开通",
   "Shop Staff read model loaded server-side through the credential-safe view.":
     "店铺员工读取模型已通过凭证安全视图在服务端加载。",
@@ -4336,7 +4865,7 @@ const en: Dictionary = {
     catalogWorkspace: "Catalog Workspace",
     category: "Category",
     search: "Search",
-    searchPlaceholder: "Search by barcode, name, item number",
+    searchPlaceholder: "Search barcode, item number, product name",
     state: "State",
     supplier: "Supplier",
   },
@@ -4534,7 +5063,7 @@ const it: Dictionary = {
     catalogWorkspace: "Workspace catalogo",
     category: "Categoria",
     search: "Cerca",
-    searchPlaceholder: "Cerca per barcode, nome, item number",
+    searchPlaceholder: "Cerca barcode, item number, nome prodotto",
     state: "Stato",
     supplier: "Fornitore",
   },
@@ -4733,7 +5262,7 @@ const es: Dictionary = {
     catalogWorkspace: "Workspace catalogo",
     category: "Categoria",
     search: "Buscar",
-    searchPlaceholder: "Buscar por barcode, nombre, item number",
+    searchPlaceholder: "Buscar barcode, item number, nombre de producto",
     state: "Estado",
     supplier: "Proveedor",
   },
@@ -4914,7 +5443,7 @@ const zhCN: Dictionary = {
     catalogWorkspace: "目录工作区",
     category: "分类",
     search: "搜索",
-    searchPlaceholder: "按条码、名称、货号搜索",
+    searchPlaceholder: "搜索条码、货号、商品名称",
     state: "状态",
     supplier: "供应商",
   },

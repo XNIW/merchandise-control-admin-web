@@ -105,7 +105,63 @@ const catalogArchiveButtonClassName =
 const catalogRestoreButtonClassName =
   "mt-auto inline-flex h-10 w-full items-center justify-center rounded-md border border-emerald-500 bg-emerald-50 px-4 text-sm font-medium text-emerald-950 sm:w-auto";
 const catalogToolbarButtonClassName =
-  "inline-flex h-10 min-w-0 items-center justify-center rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 shadow-sm hover:border-emerald-400 hover:text-emerald-800";
+  "inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 shadow-sm hover:border-emerald-400 hover:text-emerald-800";
+
+type CatalogActionIconName =
+  | "databaseTransfer"
+  | "downloadSpreadsheet"
+  | "newProduct"
+  | "uploadSpreadsheet";
+
+function CatalogActionIcon({ name }: { name: CatalogActionIconName }) {
+  const commonProps = {
+    "aria-hidden": true,
+    className: "size-4 shrink-0",
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeWidth: 1.8,
+    viewBox: "0 0 24 24",
+  };
+  const paths: Record<CatalogActionIconName, React.ReactNode> = {
+    databaseTransfer: (
+      <>
+        <ellipse cx="12" cy="5" rx="7" ry="3" />
+        <path d="M5 5v6c0 1.7 3.1 3 7 3s7-1.3 7-3V5" />
+        <path d="M5 11v6c0 1.7 3.1 3 7 3s7-1.3 7-3v-6" />
+        <path d="m9 16 3 3 3-3" />
+      </>
+    ),
+    downloadSpreadsheet: (
+      <>
+        <path d="M7 3h7l3 3v15H7V3Z" />
+        <path d="M14 3v4h4" />
+        <path d="M12 9v7" />
+        <path d="m9 13 3 3 3-3" />
+      </>
+    ),
+    newProduct: (
+      <>
+        <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+        <path d="M4.5 7.5 12 12l7.5-4.5" />
+        <path d="M12 12v9" />
+        <path d="M18 3v5" />
+        <path d="M15.5 5.5h5" />
+      </>
+    ),
+    uploadSpreadsheet: (
+      <>
+        <path d="M7 3h7l3 3v15H7V3Z" />
+        <path d="M14 3v4h4" />
+        <path d="M12 16V9" />
+        <path d="m9 12 3-3 3 3" />
+      </>
+    ),
+  };
+
+  return <svg {...commonProps}>{paths[name]}</svg>;
+}
 
 function HiddenShopInput({ selectedShopId }: { selectedShopId?: string }) {
   return selectedShopId ? (
@@ -1058,9 +1114,11 @@ function SupplierDialogs({
 
 function ToolbarButton({
   children,
+  icon,
   onClick,
 }: {
   children: React.ReactNode;
+  icon?: CatalogActionIconName;
   onClick: () => void;
 }) {
   return (
@@ -1069,6 +1127,7 @@ function ToolbarButton({
       onClick={onClick}
       type="button"
     >
+      {icon ? <CatalogActionIcon name={icon} /> : null}
       {children}
     </button>
   );
@@ -1118,20 +1177,29 @@ function CatalogActionPanelContent({
         {scope === "products" ? (
           <>
             {canManage ? (
-              <ToolbarButton onClick={() => setOpenDialog("newProduct")}>
+              <ToolbarButton
+                icon="newProduct"
+                onClick={() => setOpenDialog("newProduct")}
+              >
                 {t("New product")}
               </ToolbarButton>
             ) : null}
             {canImport ? (
               <>
-                <ToolbarButton onClick={() => setOpenDialog("importSupplier")}>
+                <ToolbarButton
+                  icon="uploadSpreadsheet"
+                  onClick={() => setOpenDialog("importSupplier")}
+                >
                   {t("Import supplier Excel")}
                 </ToolbarButton>
               </>
             ) : null}
             {canExport ? (
               <>
-                <ToolbarButton onClick={() => setOpenDialog("exportCatalog")}>
+                <ToolbarButton
+                  icon="downloadSpreadsheet"
+                  onClick={() => setOpenDialog("exportCatalog")}
+                >
                   {t("Export catalog Excel")}
                 </ToolbarButton>
               </>
@@ -1139,6 +1207,7 @@ function CatalogActionPanelContent({
             {canImport ? (
               <>
                 <ToolbarButton
+                  icon="databaseTransfer"
                   onClick={() => setOpenDialog("advancedTransfer")}
                 >
                   {t("Database transfer")}

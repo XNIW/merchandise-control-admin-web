@@ -93,6 +93,18 @@ export type CreateShopInput = {
   reason: string;
 };
 
+export type MapShopInventorySourceInput = {
+  shopId: string;
+  ownerProfileId: string;
+  reason: string;
+};
+
+export type PlatformShopInventorySourceMappingResult =
+  PlatformShopActionResult & {
+    mappingState?: string;
+    shopInventorySourceId?: string;
+  };
+
 export type CreateShopWithOwnerBootstrapInput = CreateShopInput &
   FiscalIdentityInput;
 

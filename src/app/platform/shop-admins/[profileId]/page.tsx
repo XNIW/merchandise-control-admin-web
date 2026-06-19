@@ -2,19 +2,19 @@ import { PlatformPage } from "@/components/platform/PlatformPage";
 import { getI18n } from "@/i18n/get-locale";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
 import { translateText } from "@/i18n/translate-sections";
-import { getPlatformUserDetailForRequest } from "@/server/platform-admin/platform-section-data";
+import { getPlatformShopAdminDetailForRequest } from "@/server/platform-admin/platform-section-data";
 
 export function generateMetadata() {
-  return createLocalizedPageMetadata("User Detail");
+  return createLocalizedPageMetadata("Shop Admin Detail");
 }
 
 export const dynamic = "force-dynamic";
 
-type UserDetailParams = Promise<{
+type ShopAdminDetailParams = Promise<{
   profileId: string;
 }>;
 
-type UserDetailSearchParams = Promise<{
+type ShopAdminDetailSearchParams = Promise<{
   returnTo?: string | string[];
 }>;
 
@@ -30,12 +30,8 @@ function safeReturnTo(value: string | undefined, fallback: string) {
   try {
     const parsed = new URL(value, "http://platform.local");
 
-    if (parsed.origin !== "http://platform.local") {
-      return fallback;
-    }
-
     if (
-      parsed.pathname !== "/platform/users" &&
+      parsed.origin !== "http://platform.local" ||
       parsed.pathname !== "/platform/shop-admins"
     ) {
       return fallback;
@@ -47,33 +43,27 @@ function safeReturnTo(value: string | undefined, fallback: string) {
   }
 }
 
-export default async function PlatformUserDetailPage({
+export default async function PlatformShopAdminDetailPage({
   params,
   searchParams,
 }: {
-  params: UserDetailParams;
-  searchParams?: UserDetailSearchParams;
+  params: ShopAdminDetailParams;
+  searchParams?: ShopAdminDetailSearchParams;
 }) {
   const { profileId } = await params;
   const query = searchParams ? await searchParams : {};
-  const fallbackBackHref = `/platform/users?selected=${encodeURIComponent(profileId)}`;
-  const backHref = safeReturnTo(firstParam(query.returnTo), fallbackBackHref);
-  const fromShopAdmins = backHref.startsWith("/platform/shop-admins");
+  const fallbackBackHref = `/platform/shop-admins?selected=${encodeURIComponent(
+    profileId,
+  )}`;
   const { dictionary } = await getI18n();
-  const section = await getPlatformUserDetailForRequest(profileId, {
-    context: fromShopAdmins ? "shopAdmins" : "users",
-  });
+  const section = await getPlatformShopAdminDetailForRequest(profileId);
 
   return (
     <PlatformPage
       section={{
         ...section,
-        key: fromShopAdmins ? "shopAdmins" : section.key,
-        backHref,
-        backLabel: translateText(
-          dictionary,
-          fromShopAdmins ? "Back to Shop Admins" : "Back to Users",
-        ),
+        backHref: safeReturnTo(firstParam(query.returnTo), fallbackBackHref),
+        backLabel: translateText(dictionary, "Back to Shop Admins"),
       }}
     />
   );

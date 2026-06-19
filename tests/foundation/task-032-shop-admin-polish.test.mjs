@@ -17,10 +17,11 @@ test("TASK-032 catalog filters expose operator copy and a clear path", () => {
   const localizedSources = `${productsPage}\n${categoriesPage}\n${suppliersPage}\n${dictionary}`;
 
   assert.match(productsPage, /dictionary\.common\.applyFilters/);
-  assert.match(productsPage, /dictionary\.common\.clearFilters/);
+  assert.match(productsPage, /Reset filters/);
   assert.match(productsPage, /filterLabels\.allCategories/);
   assert.match(productsPage, /filterLabels\.allSuppliers/);
   assert.match(localizedSources, /Apply filters/);
+  assert.match(localizedSources, /Reset filters/);
   assert.match(localizedSources, /Clear filters/);
   assert.match(localizedSources, /All categories/);
   assert.match(localizedSources, /All suppliers/);

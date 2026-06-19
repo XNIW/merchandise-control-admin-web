@@ -102,6 +102,126 @@ function sectionFromPath(
   return matchingItem?.key ?? null;
 }
 
+function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
+  const commonProps = {
+    "aria-hidden": true,
+    className: "size-4 shrink-0",
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeWidth: 1.8,
+    viewBox: "0 0 24 24",
+  };
+  const paths: Record<ShopSectionKey, ReactNode> = {
+    audit: (
+      <>
+        <path d="M9 5h6" />
+        <path d="M9 13l2 2 4-4" />
+        <path d="M7 3h10v3H7z" />
+        <path d="M6 5H5a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-1" />
+      </>
+    ),
+    categories: (
+      <>
+        <path d="M4 6h7l2 2h7v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z" />
+        <path d="M8 13h8" />
+      </>
+    ),
+    devices: (
+      <>
+        <rect height="14" rx="2" width="10" x="7" y="4" />
+        <path d="M11 18h2" />
+      </>
+    ),
+    history: (
+      <>
+        <path d="M4 12a8 8 0 1 0 2.3-5.7" />
+        <path d="M4 5v4h4" />
+        <path d="M12 8v5l3 2" />
+      </>
+    ),
+    importExport: (
+      <>
+        <path d="M12 3v12" />
+        <path d="m8 11 4 4 4-4" />
+        <path d="M5 19h14" />
+      </>
+    ),
+    members: (
+      <>
+        <path d="M16 11a4 4 0 1 0-8 0" />
+        <path d="M4 20a8 8 0 0 1 16 0" />
+      </>
+    ),
+    overview: (
+      <>
+        <path d="M4 11 12 4l8 7" />
+        <path d="M6 10v10h12V10" />
+        <path d="M10 20v-6h4v6" />
+      </>
+    ),
+    pos: (
+      <>
+        <rect height="12" rx="2" width="16" x="4" y="5" />
+        <path d="M8 19h8" />
+        <path d="M9 10h6" />
+      </>
+    ),
+    products: (
+      <>
+        <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+        <path d="M4.5 7.5 12 12l7.5-4.5" />
+        <path d="M12 12v9" />
+      </>
+    ),
+    roles: (
+      <>
+        <path d="M12 3 5 6v5c0 4.5 3 8 7 10 4-2 7-5.5 7-10V6l-7-3Z" />
+        <path d="M9.5 12.5 11 14l3.5-4" />
+      </>
+    ),
+    settings: (
+      <>
+        <circle cx="12" cy="12" r="3" />
+        <path d="M12 3v3" />
+        <path d="M12 18v3" />
+        <path d="M3 12h3" />
+        <path d="M18 12h3" />
+        <path d="m5.6 5.6 2.1 2.1" />
+        <path d="m16.3 16.3 2.1 2.1" />
+        <path d="m18.4 5.6-2.1 2.1" />
+        <path d="m7.7 16.3-2.1 2.1" />
+      </>
+    ),
+    staff: (
+      <>
+        <rect height="16" rx="2" width="14" x="5" y="4" />
+        <circle cx="12" cy="10" r="2" />
+        <path d="M8.5 17a3.5 3.5 0 0 1 7 0" />
+      </>
+    ),
+    suppliers: (
+      <>
+        <path d="M3 8h11v8H3z" />
+        <path d="M14 11h4l3 3v2h-7" />
+        <circle cx="7" cy="18" r="2" />
+        <circle cx="18" cy="18" r="2" />
+      </>
+    ),
+    sync: (
+      <>
+        <path d="M17 3v5h-5" />
+        <path d="M7 21v-5h5" />
+        <path d="M17 8a6 6 0 0 0-10-2" />
+        <path d="M7 16a6 6 0 0 0 10 2" />
+      </>
+    ),
+  };
+
+  return <svg {...commonProps}>{paths[itemKey]}</svg>;
+}
+
 function ShopNavigation({
   buildShopHref,
   currentActive,
@@ -137,14 +257,15 @@ function ShopNavigation({
                   aria-current={isActive ? "page" : undefined}
                   onClick={() => onNavigate(item.key)}
                   className={[
-                    "shrink-0 rounded-md border-l-2 px-2.5 py-1.5 text-sm font-medium outline-none transition",
+                    "inline-flex shrink-0 items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-sm font-medium outline-none transition",
                     "whitespace-nowrap",
                     "focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
                     isActive
                       ? "border-emerald-700 bg-emerald-50 text-emerald-950"
-                      : "border-transparent text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950",
+                    : "border-transparent text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950",
                   ].join(" ")}
                 >
+                  <ShopNavigationIcon itemKey={item.key} />
                   {item.label}
                 </Link>
               );

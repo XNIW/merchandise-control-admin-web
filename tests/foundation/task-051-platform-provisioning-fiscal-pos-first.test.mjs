@@ -526,7 +526,7 @@ test("TASK-051 server boundaries generate credentials server-side and keep raw v
   assertContains(staffProvisioning, "operation_result");
   assertContains(staffProvisioning, "duplicate_initial_manager");
   assertContains(staffProvisioning, "DEFAULT_MANAGER_DISPLAY_NAME");
-  assertContains(staffProvisioning, "credential_expires_at: null");
+  assertContains(staffProvisioning, 'credential_expires_at: "temporary_14_days"');
   assertContains(staffProvisioning, "locked_until: null");
   assertContains(staffProvisioning, "must_change_credential: false");
   assertContains(staffProvisioning, "platform.staff_manager_web.recovery.success");

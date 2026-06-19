@@ -136,15 +136,16 @@ export default async function ShopCategoriesPage({
   const activeFilterCount = [getParam(params, "query")].filter((value) =>
     Boolean(value?.trim()),
   ).length;
-  const [section, inventoryReadModel, categoriesContext] = await Promise.all([
-    getShopSectionForRequest("categories", requestedShopId, {
-      catalogFilters: {
-        query: getParam(params, "query"),
-      },
-    }),
+  const [inventoryReadModel, categoriesContext] = await Promise.all([
     getShopInventoryReadModel({ requestedShopId }),
     resolveShopActionContext(requestedShopId, "categories.write"),
   ]);
+  const section = await getShopSectionForRequest("categories", requestedShopId, {
+    catalogFilters: {
+      query: getParam(params, "query"),
+    },
+    inventoryReadModel,
+  });
   const canManageCategories = categoriesContext.status === "ready";
   const categoryOptions = mapCategoryOptions(inventoryReadModel.categories);
   const categoryDialog = getCategoryDialog(getParam(params, "category_action"));

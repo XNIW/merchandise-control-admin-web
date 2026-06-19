@@ -2094,6 +2094,14 @@ export type Database = {
         }
         Returns: Json
       }
+      platform_map_shop_inventory_source: {
+        Args: {
+          p_owner_user_id: string
+          p_reason: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
       platform_create_shop_with_owner_bootstrap: {
         Args: {
           p_business_address: string

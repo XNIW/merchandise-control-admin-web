@@ -424,8 +424,18 @@ test("TASK-064 separates normal users, shop admins, and auth-only accounts", asy
 
   await signInPlatformAdmin(page);
 
+  await submitServerSearch(page, adminEmail);
+  await expect(page.getByText("Data status").first()).toBeVisible();
+  await expect(page.getByText("No unassigned personal accounts").first()).toBeVisible();
+  await expect(page.getByRole("link", { name: "Open Platform Admins" })).toBeVisible();
+  await page.goto("/platform/admins");
+  await expect(page.getByText(adminEmail).first()).toBeVisible();
+  await expect(page.getByText("Platform Admin / Master Console").first()).toBeVisible();
+  await page.goto("/platform/users");
+
   await submitServerSearch(page, profileOkEmail);
   await expect(page.getByText(profileOkEmail).first()).toBeVisible();
+  await expect(page.getByText("No mobile data").first()).toBeVisible();
   await expect(
     page
       .getByRole("button", {
@@ -468,27 +478,23 @@ test("TASK-064 separates normal users, shop admins, and auth-only accounts", asy
   ).toBeVisible();
 
   await submitServerSearch(page, historicalShopAdminEmail);
-  await expect(page.getByText("No matching rows")).toBeVisible();
-  await expect(
-    page.getByText(
-      "Showing normal personal accounts only. Shop Admins and Platform Admins are shown in dedicated views.",
-    ),
-  ).toBeVisible();
-  await expect(
-    page.getByText(
-      "Client filters are hiding rows returned by the server boundary.",
-    ),
-  ).toBeVisible();
-  await expect(page.getByRole("link", { name: "Clear" })).toHaveAttribute(
-    "href",
-    "/platform/users",
-  );
-  await expect(page.getByText(historicalShopAdminDisplayName)).toHaveCount(0);
+  await expect(page.getByText("No unassigned personal accounts").first()).toBeVisible();
 
   await submitServerSearch(page, authOnlyEmail);
   await expect(page.getByText(authOnlyEmail).first()).toBeVisible();
   await expect(page.getByText(authOnlyDisplayName).first()).toBeVisible();
   await expect(page.getByText("Auth only").first()).toBeVisible();
+
+  await page.getByLabel("Account type").selectOption("Normal account");
+  await expect(
+    page.getByText("No unassigned normal accounts match this filter").first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText(
+      "No unassigned normal accounts match this filter. Shop Admins and Platform Admins are managed in their dedicated views.",
+    ),
+  ).toBeVisible();
+  await page.getByLabel("Account type").selectOption("");
 
   await submitServerSearch(page, authOnlyDisplayName);
   await expect(page.getByText(authOnlyEmail).first()).toBeVisible();
@@ -509,6 +515,8 @@ test("TASK-064 separates normal users, shop admins, and auth-only accounts", asy
 
   await expect(inspector.getByText("Auth only").first()).toBeVisible();
   await expect(inspector.getByText(authOnlyEmail).first()).toBeVisible();
+  await expect(inspector.getByText("Mobile inventory data").first()).toBeVisible();
+  await expect(inspector.getByText("No mobile data").first()).toBeVisible();
 
   await Promise.all([
     page.waitForURL(new RegExp(`/platform/users/${authOnlyUserId}`)),
@@ -518,6 +526,8 @@ test("TASK-064 separates normal users, shop admins, and auth-only accounts", asy
   await expect(page.getByRole("heading", { level: 1, name: authOnlyDisplayName })).toBeVisible();
   await expect(page.getByText("Auth only").first()).toBeVisible();
   await expect(page.getByText(authOnlyEmail).first()).toBeVisible();
+  await expect(page.getByText("Mobile inventory data").first()).toBeVisible();
+  await expect(page.getByText("No mobile data").first()).toBeVisible();
 
   const backHref = await page
     .getByRole("link", { name: "Back to Users" })

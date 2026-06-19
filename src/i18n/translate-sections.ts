@@ -453,6 +453,15 @@ export function translatePlatformSection(
       label: translateText(dictionary, filter.label),
       options: filter.options.map((option) => ({
         ...option,
+        emptyState: option.emptyState
+          ? {
+              description: translateText(
+                dictionary,
+                option.emptyState.description,
+              ),
+              title: translateText(dictionary, option.emptyState.title),
+            }
+          : option.emptyState,
         label: translateText(dictionary, option.label),
       })),
     })),

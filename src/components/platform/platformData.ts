@@ -54,6 +54,7 @@ export type RowDetailPanel = {
 };
 
 export type PlatformFilterOption = {
+  emptyState?: EmptyStateContent;
   label: string;
   value: string;
 };
@@ -195,12 +196,14 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   users: baseSection(
     "users",
     "Personal Accounts",
-    "User directory",
-    "Directory of non-admin and incomplete personal accounts. Shop Admins and Platform Admins have dedicated views.",
+    "Personal Account Directory",
+    "Directory of personal accounts returned by the server read model, including normal users, Shop Admins, Platform Admins, and incomplete accounts.",
     [
       { key: "profile", label: "Profile" },
       { key: "email", label: "Email" },
       { key: "accountType", label: "Account type" },
+      { key: "dataStatus", label: "Data status" },
+      { key: "shopAccess", label: "Shop access" },
       { key: "origin", label: "Origin" },
       { key: "state", label: "Profile/Auth state" },
     ],
@@ -208,8 +211,8 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   shopAdmins: baseSection(
     "shopAdmins",
     "Shop Admins",
-    "Shop-scoped admin accounts",
-    "Personal accounts linked to shops through shop_owner or shop_manager membership, including current, historical, and disabled contexts.",
+    "Filtered Shop Admin view",
+    "Filtered view of Personal Account Directory accounts with shop_owner or shop_manager membership, including current, historical, and disabled contexts.",
     [
       { key: "profile", label: "Profile" },
       { key: "email", label: "Email" },
@@ -233,6 +236,7 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
       { key: "operationalAccess", label: "Operational access" },
       { key: "owners", label: "Owners" },
       { key: "members", label: "Members" },
+      { key: "inventorySource", label: "Inventory source" },
       { key: "devices", label: "Devices" },
       { key: "health", label: "Health" },
     ],

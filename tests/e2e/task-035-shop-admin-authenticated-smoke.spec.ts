@@ -22,6 +22,7 @@ type Task035Fixture = {
   blockedShopCode: string;
   blockedShopId: string;
   cashierCredential: string;
+  categoryId: string;
   cleanup: () => Promise<CleanupSummary>;
   email: string;
   password: string;
@@ -34,6 +35,7 @@ type Task035Fixture = {
   staffManagerCredential: string;
   staffManagerId: string;
   staffWebAttemptKeyHash: string;
+  supplierId: string;
   userId: string;
 };
 
@@ -625,6 +627,7 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
     return {
       blockedShopCode,
       blockedShopId,
+      categoryId: category.id,
       cleanup,
       email,
       password,
@@ -638,12 +641,47 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
       staffManagerCredential,
       staffManagerId: managerStaff.staff_id,
       staffWebAttemptKeyHash,
+      supplierId: supplier.id,
       userId,
     };
   } catch (error) {
     await cleanup();
     throw error;
   }
+}
+
+async function createTask068KProducts(
+  runtime: Extract<Runtime, { status: "ready" }>,
+  fixture: Task035Fixture,
+) {
+  const supabase = createClient<Database>(
+    runtime.supabaseUrl,
+    runtime.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        persistSession: false,
+      },
+    },
+  );
+  const rows = Array.from({ length: 105 }, (_, index) => {
+    const padded = String(index + 1).padStart(3, "0");
+
+    return {
+      barcode: `TASK035_PAGE_${fixture.userId.slice(0, 8)}_${padded}`,
+      category_id: fixture.categoryId,
+      item_number: `TASK035-PAGE-${padded}`,
+      owner_user_id: fixture.userId,
+      product_name: `TASK035 Page Product ${padded}`,
+      purchase_price: 1 + index,
+      retail_price: 2 + index,
+      stock_quantity: index + 1,
+      supplier_id: fixture.supplierId,
+    };
+  });
+
+  await must("TASK068K_PRODUCTS_CREATE", supabase.from("inventory_products").insert(rows));
 }
 
 async function countTask035ResidualRows(
@@ -966,6 +1004,140 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         runtime.publishableKey,
         runtime.serviceRoleKey,
       ]);
+    } finally {
+      const cleanup = await fixture.cleanup();
+
+      expect(cleanup.cleanupErrors).toEqual([]);
+      expect(cleanup.userDeleted).toBe(true);
+      expect(cleanup.residualRows).toBe(0);
+    }
+  });
+
+  test("TASK-068K products UX smoke covers pagination, search, reset, and sidebar icons", async ({
+    page,
+  }) => {
+    if (runtime.status !== "ready") {
+      test.skip(true, runtime.reason);
+      return;
+    }
+
+    const fixture = await createTask035Fixture(runtime);
+
+    try {
+      await createTask068KProducts(runtime, fixture);
+      await signInWithTask035Credentials(page, fixture);
+      await page.goto(`/shop/products?shop_id=${fixture.shopId}`);
+
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Products" }),
+      ).toBeVisible();
+      await expect(page.locator("[data-product-catalog-list]")).toBeVisible();
+      await expect(page.locator("[data-product-catalog-row]")).toHaveCount(100);
+
+      const firstCatalogRow = page.locator("[data-product-catalog-row]").first();
+      await expect(firstCatalogRow.locator("[data-product-identity]")).toContainText(
+        /TASK035/,
+      );
+      await expect(firstCatalogRow.locator("[data-product-codes]")).toContainText(
+        "Barcode",
+      );
+      await expect(firstCatalogRow.locator("[data-product-codes]")).toContainText(
+        "Item number",
+      );
+      await expect(
+        firstCatalogRow.locator(
+          '[data-product-action-toolbar] svg[aria-hidden="true"]',
+        ),
+      ).toHaveCount(3);
+
+      const shopNavigation = page.getByRole("navigation", {
+        name: "Shop sections",
+      });
+      await expect(
+        shopNavigation
+          .getByRole("link", { name: "Products" })
+          .locator('svg[aria-hidden="true"]'),
+      ).toHaveCount(1);
+      await expect(
+        page
+          .getByRole("button", { name: "New product" })
+          .locator('svg[aria-hidden="true"]'),
+      ).toHaveCount(1);
+      await expect(
+        page
+          .getByRole("button", { name: "Import supplier Excel" })
+          .locator('svg[aria-hidden="true"]'),
+      ).toHaveCount(1);
+      await page.getByRole("button", { name: "Import supplier Excel" }).click();
+      await expect(
+        page.getByRole("dialog", { name: "Supplier workbook preview" }),
+      ).toBeVisible();
+      await page.getByRole("button", { name: "Close" }).click();
+      await expect(
+        page
+          .getByRole("button", { name: "Export catalog Excel" })
+          .locator('svg[aria-hidden="true"]'),
+      ).toHaveCount(1);
+      await expect(
+        page
+          .getByRole("button", { name: "Database transfer" })
+          .locator('svg[aria-hidden="true"]'),
+      ).toHaveCount(1);
+
+      const topPagination = page.getByRole("navigation", {
+        name: "Products pagination top",
+      });
+      const bottomPagination = page.getByRole("navigation", {
+        name: "Products pagination bottom",
+      });
+
+      await expect(topPagination).toContainText(/1-100 of 106/);
+      await expect(topPagination).toContainText("Page 1 of 2");
+      await expect(bottomPagination).toContainText(/1-100 of 106/);
+      await expect(bottomPagination).toContainText("Page 1 of 2");
+
+      await topPagination.getByRole("link", { name: /Next: page 2/ }).click();
+      await expect(page).toHaveURL(/[\?&]page=2(?:&|$)/);
+      await expect(
+        page.getByRole("navigation", { name: "Products pagination bottom" }),
+      ).toContainText("Page 2 of 2");
+
+      const searchInput = page.getByPlaceholder(
+        "Search barcode, item number, product name",
+      );
+
+      await searchInput.fill("TASK035 Page Product 104");
+      await searchInput.press("Enter");
+      await expect(page).toHaveURL(/[\?&]q=TASK035\+Page\+Product\+104(?:&|$)/);
+      await expect(page.getByText("TASK035 Page Product 104")).toBeVisible();
+      await expect(page.getByText(/Filters active: 1/)).toBeVisible();
+
+      await page.getByRole("link", { name: "Reset filters" }).click();
+      await expect(page).not.toHaveURL(/[\?&]q=/);
+      await expect(
+        page.getByPlaceholder("Search barcode, item number, product name"),
+      ).toHaveValue("");
+
+      const resetBottomPagination = page.getByRole("navigation", {
+        name: "Products pagination bottom",
+      });
+      await resetBottomPagination.getByLabel("Go to page").fill("2");
+      await resetBottomPagination.getByRole("button", { name: "Go" }).click();
+      await expect(page).toHaveURL(/[\?&]page=2(?:&|$)/);
+
+      await page.setViewportSize({ width: 390, height: 820 });
+      await page.goto(`/shop/products?shop_id=${fixture.shopId}`);
+      await expect(page.locator("[data-product-catalog-row]").first()).toBeVisible();
+      await expect(
+        page
+          .locator("[data-product-catalog-row]")
+          .first()
+          .locator("[data-product-action-toolbar]"),
+      ).toBeVisible();
+      const hasDocumentOverflow = await page.evaluate(
+        () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+      );
+      expect(hasDocumentOverflow).toBe(false);
     } finally {
       const cleanup = await fixture.cleanup();
 

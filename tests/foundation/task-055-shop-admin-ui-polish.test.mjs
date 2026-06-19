@@ -93,15 +93,55 @@ test("TASK-055 products filter bar aligns fields and keeps server query params",
   const dictionary = read("src/i18n/dictionaries.ts");
 
   assertContains(page, "filterLabels.searchPlaceholder");
-  assertContains(dictionary, "Search by barcode, name, item number");
+  assertContains(dictionary, "Search barcode, item number, product name");
   assertContains(page, "filterInputClassName");
   assertContains(page, "filterButtonClassName");
   assertContains(page, "h-10 w-full min-w-0");
-  assertContains(page, "md:grid-cols-[minmax(14rem,1fr)_minmax(0,190px)_minmax(0,190px)_minmax(0,150px)_auto]");
+  assertContains(page, "md:grid-cols-[minmax(16rem,1.35fr)_minmax(0,190px)_minmax(0,190px)_minmax(0,150px)_minmax(0,130px)_auto]");
   assertContains(page, "category_id");
   assertContains(page, "supplier_id");
   assertContains(page, "name=\"state\"");
   assertContains(page, "getShopSectionForRequest");
+});
+
+test("TASK-068K products polish adds bottom pagination, reset, and decorative sidebar icons", () => {
+  const page = read("src/app/shop/products/page.tsx");
+  const table = read("src/components/admin/AdminDataTable.tsx");
+  const shell = read("src/components/shop/ShopShell.tsx");
+  const dictionary = read("src/i18n/dictionaries.ts");
+  const packageJson = read("package.json");
+
+  assertContains(page, "ProductsPagination");
+  assertContains(page, "id=\"products-page-jump-top\"");
+  assertContains(page, "id=\"products-page-jump-bottom\"");
+  assertContains(page, "aria-label={`Products pagination ${placement}`}");
+  assertContains(page, "placement=\"top\"");
+  assertContains(page, "placement=\"bottom\"");
+  assertContains(page, "labels.first");
+  assertContains(page, "labels.last");
+  assertContains(page, "name=\"page\"");
+  assertContains(page, "inputMode=\"numeric\"");
+  assertContains(page, "required");
+  assertContains(page, "hiddenFields.map");
+  assertContains(page, "Reset filters");
+  assertContains(page, "Filters active");
+  assertContains(page, "Rows on this page");
+  assertContains(page, "Use search or filters to find products across the full mapped catalog.");
+  assertContains(page, "ProductsIcon");
+  assertContains(page, "icon: \"barcode\"");
+  assertContains(page, "icon: \"package\"");
+  assertContains(page, "cellVariant: \"primary\"");
+  assertContains(page, "aria-label={`${labels.next}: page ${nextPage}`}");
+  assertContains(table, "TableColumnIcon");
+  assertContains(table, "cellVariant === \"code\"");
+  assertContains(table, "cellVariant === \"state\"");
+  assertContains(shell, "ShopNavigationIcon");
+  assertContains(shell, "aria-hidden\": true");
+  assertContains(shell, "<ShopNavigationIcon itemKey={item.key} />");
+  assertContains(dictionary, "Reset filters");
+  assertContains(dictionary, "Go to page");
+  assertContains(dictionary, "Rows on this page");
+  assert.doesNotMatch(packageJson, /lucide|heroicons|react-icons/);
 });
 
 test("TASK-055 catalog action cards and import/export cards avoid uneven overflow", () => {

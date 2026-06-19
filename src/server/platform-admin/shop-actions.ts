@@ -19,8 +19,10 @@ import {
   type CreateShopInput,
   type CreateShopWithOwnerBootstrapInput,
   type EmergencyRevokeDeviceInput,
+  type MapShopInventorySourceInput,
   type PendingOwnerInviteInput,
   type PendingOwnerInviteWithFiscalInput,
+  type PlatformShopInventorySourceMappingResult,
   type PlatformShopActionCode,
   type PlatformShopProvisioningResult,
   type PlatformShopActionResult,
@@ -34,6 +36,7 @@ import {
   validateCreateShopInput,
   validateCreatePosFirstShopInput,
   validateCreateShopWithOwnerBootstrapInput,
+  validateMapShopInventorySourceInput,
   validateActivateShopInput,
   validateAssignShopMemberInput,
   validateEmergencyRevokeDeviceInput,
@@ -54,7 +57,9 @@ type RpcResult = {
   ok?: unknown;
   shop_id?: unknown;
   shop_code?: unknown;
+  shop_inventory_source_id?: unknown;
   shop_name?: unknown;
+  mapping_state?: unknown;
   staff_code?: unknown;
   staff_id?: unknown;
 };
@@ -129,6 +134,22 @@ function mapRpcResult(data: unknown): PlatformShopActionResult {
     ok: result.ok === true,
     shopId: typeof result.shop_id === "string" ? result.shop_id : undefined,
   });
+}
+
+function mapInventorySourceMappingRpcResult(
+  data: unknown,
+): PlatformShopInventorySourceMappingResult {
+  const result = data && typeof data === "object" ? (data as RpcResult) : {};
+
+  return {
+    ...mapRpcResult(data),
+    mappingState:
+      typeof result.mapping_state === "string" ? result.mapping_state : undefined,
+    shopInventorySourceId:
+      typeof result.shop_inventory_source_id === "string"
+        ? result.shop_inventory_source_id
+        : undefined,
+  };
 }
 
 function mapProvisioningRpcResult(
@@ -315,6 +336,37 @@ export async function createPlatformShop(
   }
 
   return mapRpcResult(data);
+}
+
+export async function mapPlatformShopInventorySource(
+  input: MapShopInventorySourceInput,
+): Promise<PlatformShopInventorySourceMappingResult> {
+  const { fieldErrors, normalized } = validateMapShopInventorySourceInput(input);
+
+  if (Object.keys(fieldErrors).length > 0) {
+    return platformShopActionResult("validation_failed", {
+      fieldErrors,
+      ok: false,
+    });
+  }
+
+  const { result, supabase } = await getAuthorizedSupabase();
+
+  if (!supabase) {
+    return result;
+  }
+
+  const { data, error } = await supabase.rpc("platform_map_shop_inventory_source", {
+    p_owner_user_id: normalized.ownerProfileId,
+    p_reason: normalized.reason,
+    p_shop_id: normalized.shopId,
+  });
+
+  if (error) {
+    return platformShopActionResult("db_failure", { ok: false });
+  }
+
+  return mapInventorySourceMappingRpcResult(data);
 }
 
 export async function createPlatformShopWithOwnerBootstrap(

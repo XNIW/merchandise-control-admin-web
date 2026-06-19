@@ -68,8 +68,8 @@ function profileNameById(profiles: readonly Profile[], profileId?: string) {
   }
 
   return (
-    profiles.find((profile) => profile.profile_id === profileId)?.display_name ??
-    `Profile ${shortId(profileId)}`
+    profiles.find((profile) => profile.profile_id === profileId)
+      ?.display_name ?? `Profile ${shortId(profileId)}`
   );
 }
 
@@ -86,13 +86,12 @@ function shopCodeById(shops: readonly Shop[], shopId?: string | null) {
     return "no shop";
   }
 
-  return shops.find((shop) => shop.shop_id === shopId)?.shop_code ?? shortId(shopId);
+  return (
+    shops.find((shop) => shop.shop_id === shopId)?.shop_code ?? shortId(shopId)
+  );
 }
 
-function activeOwnerMembersForShop(
-  shop: Shop,
-  members: readonly ShopMember[],
-) {
+function activeOwnerMembersForShop(shop: Shop, members: readonly ShopMember[]) {
   return members.filter(
     (member) =>
       member.shop_id === shop.shop_id &&
@@ -101,7 +100,10 @@ function activeOwnerMembersForShop(
   );
 }
 
-function ownerMembershipsForShop(shopId: string, members: readonly ShopMember[]) {
+function ownerMembershipsForShop(
+  shopId: string,
+  members: readonly ShopMember[],
+) {
   return members.filter(
     (member) =>
       member.shop_id === shopId &&
@@ -145,10 +147,10 @@ function shopOperationalAccessTableValue(shop: Shop) {
 function hasConfiguredFiscalIdentity(shop: Shop) {
   return Boolean(
     shop.company_rut?.trim() ||
-      shop.business_giro?.trim() ||
-      shop.business_address?.trim() ||
-      shop.business_city?.trim() ||
-      shop.legal_representative_rut?.trim(),
+    shop.business_giro?.trim() ||
+    shop.business_address?.trim() ||
+    shop.business_city?.trim() ||
+    shop.legal_representative_rut?.trim(),
   );
 }
 
@@ -178,7 +180,9 @@ function ownerSummaryForShop(
   const ownerMemberships = ownerMembershipsForShop(shop.shop_id, members);
   const owners = isOperationalShopStatus(shop.shop_status)
     ? activeOwnerNamesForShop(shop, profiles, members)
-    : ownerMemberships.map((member) => profileNameById(profiles, member.profile_id));
+    : ownerMemberships.map((member) =>
+        profileNameById(profiles, member.profile_id),
+      );
 
   if (owners.length === 0) {
     return "Unassigned";
@@ -198,7 +202,9 @@ function ownerSummaryForShop(
 }
 
 function memberSummaryForShop(shop: Shop, members: readonly ShopMember[]) {
-  const shopMembers = members.filter((member) => member.shop_id === shop.shop_id);
+  const shopMembers = members.filter(
+    (member) => member.shop_id === shop.shop_id,
+  );
   const operationalMembers = operationalMembershipsForShop(shop, shopMembers);
 
   if (!isOperationalShopStatus(shop.shop_status)) {
@@ -210,6 +216,110 @@ function memberSummaryForShop(shop: Shop, members: readonly ShopMember[]) {
 
 function accountOriginForUser(account: PlatformUserAccountSummary) {
   return `${account.provider}\n${formatToken(account.providerType)}`;
+}
+
+function isUnavailableIdentityValue(value: string) {
+  return [
+    "Auth identity unavailable",
+    "Email unavailable",
+    "Not captured",
+    "Unavailable",
+  ].includes(value);
+}
+
+function accountSafeEmail(account: PlatformUserAccountSummary) {
+  const email = account.email.trim();
+
+  return email && !isUnavailableIdentityValue(email) ? email : "";
+}
+
+function isGenericAccountDisplayName(value: string) {
+  const normalized = value.trim().toLocaleLowerCase();
+
+  return [
+    "admin",
+    "administrator",
+    "master admin",
+    "platform admin",
+    "profile",
+    "user",
+  ].includes(normalized);
+}
+
+function accountPrimaryLabel(account: PlatformUserAccountSummary) {
+  const email = accountSafeEmail(account);
+  const displayName = account.displayName.trim();
+
+  if (email && (!displayName || isGenericAccountDisplayName(displayName))) {
+    return email;
+  }
+
+  return displayName || email || `Profile ${shortId(account.profileId)}`;
+}
+
+function accountForProfileId(
+  profileId: string | undefined,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  if (!profileId) {
+    return undefined;
+  }
+
+  return readModel.userAccounts.find(
+    (account) => account.profileId === profileId,
+  );
+}
+
+function accountPrimaryLabelForProfile(
+  profileId: string | undefined,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  if (!profileId) {
+    return "Unassigned";
+  }
+
+  const account = accountForProfileId(profileId, readModel);
+  const safeEmail = account ? accountSafeEmail(account) : "";
+
+  if (safeEmail) {
+    return safeEmail;
+  }
+
+  if (account) {
+    return accountPrimaryLabel(account);
+  }
+
+  const profileLabel = profileNameById(readModel.profiles, profileId);
+
+  return isGenericAccountDisplayName(profileLabel)
+    ? `Profile ${shortId(profileId)}`
+    : profileLabel;
+}
+
+function accountProfileCell(
+  account: PlatformUserAccountSummary,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  const primaryLabel = accountPrimaryLabel(account);
+  const profileSyncState = profileSyncStateLabel(account.profileSyncState);
+  const lines = [primaryLabel];
+
+  if (account.displayName && account.displayName !== primaryLabel) {
+    lines.push(`Profile display name ${account.displayName}`);
+  }
+
+  lines.push(`Profile ID ${shortId(account.profileId)}`);
+  lines.push(profileSyncState);
+
+  if (mobileInventoryDataLinkedToShop(account.mobileInventoryData)) {
+    lines.push(mobileInventoryDataStatusLabel(account.mobileInventoryData));
+  }
+
+  if (hasPlatformAdminAccess(account.profileId, readModel)) {
+    lines.push("Platform Admin / Master Console");
+  }
+
+  return lines.join("\n");
 }
 
 function profileSyncStateLabel(state: PlatformProfileSyncState) {
@@ -318,7 +428,9 @@ function hasShopAdminMembershipHistory(
   profileId: string,
   readModel: PlatformAdminLiveReadModel,
 ) {
-  return shopAdminMembershipsForProfile(profileId, readModel.shopMembers).length > 0;
+  return (
+    shopAdminMembershipsForProfile(profileId, readModel.shopMembers).length > 0
+  );
 }
 
 function shopAdminAccessStateForProfile(
@@ -360,43 +472,43 @@ function accountTypeSegmentsForProfile(
   readModel: PlatformAdminLiveReadModel,
 ) {
   const segments: string[] = [];
+  const account = readModel.userAccounts.find(
+    (candidate) => candidate.profileId === profileId,
+  );
+  const isIncomplete = account
+    ? account.profileSyncState !== "profile_ok"
+    : false;
 
   if (hasPlatformAdminAccess(profileId, readModel)) {
-    segments.push("Platform admin");
+    segments.push("Platform Admin / Master Console");
   }
 
-  if (canAccessAdminConsole(profileId, readModel)) {
-    segments.push("Shop admin");
-  } else if (
-    historicalShopAdminMembershipsForProfile(
+  if (hasShopAdminMembershipHistory(profileId, readModel)) {
+    segments.push("Shop Admin");
+
+    const memberships = shopAdminMembershipsForProfile(
       profileId,
-      readModel.shops,
       readModel.shopMembers,
-    ).length > 0
-  ) {
-    segments.push("Historical shop admin");
-  } else if (
-    disabledShopAdminMembershipsForProfile(profileId, readModel.shopMembers).length >
-    0
-  ) {
-    segments.push("Disabled shop admin");
+    );
+
+    if (memberships.some((member) => member.role_id === "shop_owner")) {
+      segments.push("Shop Owner");
+    }
+
+    if (memberships.some((member) => member.role_id === "shop_manager")) {
+      segments.push("Shop Manager");
+    }
+  }
+
+  if (isIncomplete) {
+    segments.push("Incomplete account");
   }
 
   if (segments.length > 0) {
     return segments;
   }
 
-  if (
-    nonOperationalMembershipsForProfile(
-      profileId,
-      readModel.shops,
-      readModel.shopMembers,
-    ).length > 0
-  ) {
-    return ["Historical only"];
-  }
-
-  return ["Unlinked user"];
+  return ["Normal account"];
 }
 
 function accountTypeLabelForProfile(
@@ -477,9 +589,7 @@ function shopAdminAccessSummaryForProfile(
   const segments: string[] = [];
 
   if (ownerCount > 0) {
-    segments.push(
-      `Owner of ${ownerCount} shop${ownerCount === 1 ? "" : "s"}`,
-    );
+    segments.push(`Owner of ${ownerCount} shop${ownerCount === 1 ? "" : "s"}`);
   }
 
   if (managerCount > 0) {
@@ -541,7 +651,10 @@ function shopAdminRolesSummaryForProfile(
   profileId: string,
   readModel: PlatformAdminLiveReadModel,
 ) {
-  const memberships = shopAdminAccountMembershipsForProfile(profileId, readModel);
+  const memberships = shopAdminAccountMembershipsForProfile(
+    profileId,
+    readModel,
+  );
   const roles: string[] = [];
 
   if (memberships.some((member) => member.role_id === "shop_owner")) {
@@ -560,7 +673,10 @@ function shopAdminShopsSummaryForProfile(
   readModel: PlatformAdminLiveReadModel,
 ) {
   const shopsById = shopById(readModel.shops);
-  const memberships = shopAdminAccountMembershipsForProfile(profileId, readModel);
+  const memberships = shopAdminAccountMembershipsForProfile(
+    profileId,
+    readModel,
+  );
 
   if (memberships.length === 0) {
     return "No Admin Console access";
@@ -599,19 +715,17 @@ function membershipsForProfile(
 
   return members
     .filter((member) => member.profile_id === profileId)
-    .map(
-      (member) => {
-        const shop = shopsById.get(member.shop_id);
+    .map((member) => {
+      const shop = shopsById.get(member.shop_id);
 
-        return [
-          shopCodeById(shops, member.shop_id),
-          formatToken(member.role_id),
-          `membership ${formatToken(member.membership_status)}`,
-          `shop ${shop ? shopStatusLabel(shop.shop_status) : "Not visible"}`,
-          `operational ${membershipOperationalLabel(member, shop)}`,
-        ].join(" / ");
-      },
-    );
+      return [
+        shopCodeById(shops, member.shop_id),
+        formatToken(member.role_id),
+        `membership ${formatToken(member.membership_status)}`,
+        `shop ${shop ? shopStatusLabel(shop.shop_status) : "Not visible"}`,
+        `operational ${membershipOperationalLabel(member, shop)}`,
+      ].join(" / ");
+    });
 }
 
 function membershipFieldsForProfile(
@@ -682,13 +796,41 @@ function shopAccessSummaryForProfile(
   }
 
   const visibleCodes = shopCodes.slice(0, 2).join(", ");
-  const overflow = shopCodes.length > 2 ? `\n+${shopCodes.length - 2} more` : "";
+  const overflow =
+    shopCodes.length > 2 ? `\n+${shopCodes.length - 2} more` : "";
   const historical =
     nonOperationalCount > 0
       ? `\n${nonOperationalCount} historical/non-operational`
       : "";
 
   return `${shopCodes.length} operational shops\n${visibleCodes}${overflow}${historical}`;
+}
+
+function hasAnyShopAccess(account: PlatformUserAccountSummary) {
+  return (
+    account.totalMembershipCount > 0 ||
+    account.membershipCount > 0 ||
+    Boolean(account.mobileInventoryData.shopId)
+  );
+}
+
+function shopAccessFilterLabelForAccount(account: PlatformUserAccountSummary) {
+  return hasAnyShopAccess(account) ? "Has shop" : "No shop";
+}
+
+function shopAccessTableValueForAccount(
+  account: PlatformUserAccountSummary,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  return [
+    shopAccessFilterLabelForAccount(account),
+    shopAdminAccessStateForProfile(account.profileId, readModel),
+    shopAccessSummaryForProfile(
+      account.profileId,
+      readModel.shops,
+      readModel.shopMembers,
+    ),
+  ].join("\n");
 }
 
 function accessSummaryForProfile(
@@ -706,11 +848,15 @@ function accessSummaryForProfile(
     access.add("Platform Admin (Master Console)");
   }
 
-  if (operationalMemberships.some((member) => member.role_id === "shop_owner")) {
+  if (
+    operationalMemberships.some((member) => member.role_id === "shop_owner")
+  ) {
     access.add("Shop owner");
   }
 
-  if (operationalMemberships.some((member) => member.role_id === "shop_manager")) {
+  if (
+    operationalMemberships.some((member) => member.role_id === "shop_manager")
+  ) {
     access.add("Shop manager");
   }
 
@@ -779,7 +925,164 @@ function syncEventsForShop(
 }
 
 function staffSafeReadIssue(readModel: PlatformAdminLiveReadModel) {
-  return readModel.readIssues.find((issue) => issue.area === "staff_accounts_safe");
+  return readModel.readIssues.find(
+    (issue) => issue.area === "staff_accounts_safe",
+  );
+}
+
+function mobileInventoryDataStatusLabel(
+  mobileInventoryData: PlatformUserAccountSummary["mobileInventoryData"],
+) {
+  switch (mobileInventoryData.status) {
+    case "none":
+      return "No mobile data";
+    case "present":
+      if (
+        mobileInventoryData.shopInventoryMappingState === "mapped" &&
+        mobileInventoryData.shopId
+      ) {
+        return "Mobile data linked to shop";
+      }
+
+      return "Mobile data present";
+    case "unavailable":
+      return "Data status unavailable";
+  }
+}
+
+function mobileInventoryInspectorStatus(
+  mobileInventoryData: PlatformUserAccountSummary["mobileInventoryData"],
+) {
+  switch (mobileInventoryData.status) {
+    case "none":
+      return "No mobile data";
+    case "present":
+      return "Present";
+    case "unavailable":
+      return "Not available";
+  }
+}
+
+function mobileInventoryCountValue(value: number | null) {
+  return typeof value === "number" ? String(value) : "Not available";
+}
+
+function mobileInventoryShopLinkLabel(
+  mobileInventoryData: PlatformUserAccountSummary["mobileInventoryData"],
+  readModel: PlatformAdminLiveReadModel,
+) {
+  if (mobileInventoryData.shopInventoryMappingState === "mapped") {
+    return mobileInventoryData.shopId
+      ? `Linked to ${shopNameById(readModel.shops, mobileInventoryData.shopId)}`
+      : "Linked shop not visible";
+  }
+
+  return "Not assigned to a shop yet";
+}
+
+function mobileInventoryDataLinkedToShop(
+  mobileInventoryData: PlatformUserAccountSummary["mobileInventoryData"],
+) {
+  return (
+    mobileInventoryData.status === "present" &&
+    mobileInventoryData.shopInventoryMappingState === "mapped" &&
+    Boolean(mobileInventoryData.shopId)
+  );
+}
+
+function mobileInventoryShopHref(
+  mobileInventoryData: PlatformUserAccountSummary["mobileInventoryData"],
+) {
+  return mobileInventoryData.shopId
+    ? `/platform/shops/${mobileInventoryData.shopId}`
+    : undefined;
+}
+
+function mobileInventoryDataFields(
+  account: PlatformUserAccountSummary,
+  readModel: PlatformAdminLiveReadModel,
+): RowDetailField[] {
+  const mobileInventoryData = account.mobileInventoryData;
+
+  if (mobileInventoryDataLinkedToShop(mobileInventoryData)) {
+    return [
+      {
+        label: "Status",
+        value: mobileInventoryDataStatusLabel(mobileInventoryData),
+      },
+      {
+        label: "Scope",
+        value: "Owner-scoped mobile data",
+      },
+      {
+        href: mobileInventoryShopHref(mobileInventoryData),
+        label: "Linked shop",
+        value: mobileInventoryShopLinkLabel(mobileInventoryData, readModel),
+      },
+      {
+        label: "Mapping state",
+        value: formatToken(mobileInventoryData.shopInventoryMappingState),
+      },
+      {
+        href: mobileInventoryShopHref(mobileInventoryData),
+        label: "Managed through linked shop",
+        value: "Managed through linked shop",
+      },
+    ];
+  }
+
+  return [
+    {
+      label: "Status",
+      value: mobileInventoryInspectorStatus(mobileInventoryData),
+    },
+    {
+      label: "Scope",
+      value: "Owner-scoped mobile data",
+    },
+    {
+      label: "Shop link",
+      value: mobileInventoryShopLinkLabel(mobileInventoryData, readModel),
+    },
+    {
+      label: "Products",
+      value: mobileInventoryCountValue(mobileInventoryData.productsCount),
+    },
+    {
+      label: "Suppliers",
+      value: mobileInventoryCountValue(mobileInventoryData.suppliersCount),
+    },
+    {
+      label: "Categories",
+      value: mobileInventoryCountValue(mobileInventoryData.categoriesCount),
+    },
+    {
+      label: "Price history rows",
+      value: mobileInventoryCountValue(mobileInventoryData.productPricesCount),
+    },
+    {
+      label: "History sessions",
+      value: mobileInventoryCountValue(
+        mobileInventoryData.sharedSheetSessionsCount,
+      ),
+    },
+    {
+      label: "Sync events",
+      value: mobileInventoryCountValue(mobileInventoryData.syncEventsCount),
+    },
+  ];
+}
+
+function mobileInventoryDataNotes(
+  account: PlatformUserAccountSummary,
+): string[] {
+  if (mobileInventoryDataLinkedToShop(account.mobileInventoryData)) {
+    return ["Managed through linked shop."];
+  }
+
+  return [
+    "Create a shop and link this account as owner to move this account into the normal Shop Admin flow.",
+  ];
 }
 
 function userAccountDiagnostics(
@@ -802,11 +1105,14 @@ function userAccountDiagnostics(
       value:
         readModel.authIdentityStatus.status === "ready"
           ? "Available through safe server DTO"
-          : readModel.authIdentityStatus.reason ?? "Unavailable",
+          : (readModel.authIdentityStatus.reason ?? "Unavailable"),
     },
     {
       label: "Duplicate display name",
-      value: duplicateCount > 0 ? `${duplicateCount} duplicate visible` : "None visible",
+      value:
+        duplicateCount > 0
+          ? `${duplicateCount} duplicate visible`
+          : "None visible",
     },
     {
       label: "No operational shop access",
@@ -819,7 +1125,10 @@ function accountAccessSummaryFields(
   account: PlatformUserAccountSummary,
   readModel: PlatformAdminLiveReadModel,
 ): RowDetailField[] {
-  const canAccessMasterConsole = hasPlatformAdminAccess(account.profileId, readModel);
+  const canAccessMasterConsole = hasPlatformAdminAccess(
+    account.profileId,
+    readModel,
+  );
   const canAccessShopAdminConsole = canAccessAdminConsole(
     account.profileId,
     readModel,
@@ -839,6 +1148,15 @@ function accountAccessSummaryFields(
       label: "Can access Master Console",
       value: canAccessMasterConsole ? "Yes" : "No",
     },
+    ...(canAccessMasterConsole
+      ? [
+          {
+            href: "/platform/admins",
+            label: "Platform Admin grant",
+            value: "View Platform Admin grant",
+          },
+        ]
+      : []),
     {
       label: "Can access Admin Console now",
       value: canAccessShopAdminConsole ? "Yes" : "No",
@@ -861,10 +1179,7 @@ function accountAccessSummaryFields(
   ];
 }
 
-function shopDeviceSummary(
-  shop: Shop,
-  readModel: PlatformAdminLiveReadModel,
-) {
+function shopDeviceSummary(shop: Shop, readModel: PlatformAdminLiveReadModel) {
   const devices = readModel.shopDevices.filter(
     (device) => device.shop_id === shop.shop_id,
   );
@@ -874,7 +1189,9 @@ function shopDeviceSummary(
   }
 
   const active = devices.filter((device) => device.status === "active").length;
-  const revoked = devices.filter((device) => device.status === "revoked").length;
+  const revoked = devices.filter(
+    (device) => device.status === "revoked",
+  ).length;
   const suspicious = devices.filter(
     (device) => device.status === "suspicious",
   ).length;
@@ -891,9 +1208,233 @@ function shopHealthSummary(shop: Shop, readModel: PlatformAdminLiveReadModel) {
   const latestAudit = latestAuditForShop(readModel.auditLogs, shop.shop_id);
 
   return [
-    latestSync ? `Sync ${formatToken(latestSync.event_type)}` : "Sync not visible",
-    latestAudit ? `Audit ${formatToken(latestAudit.result)}` : "Audit not visible",
+    latestSync
+      ? `Sync ${formatToken(latestSync.event_type)}`
+      : "Sync not visible",
+    latestAudit
+      ? `Audit ${formatToken(latestAudit.result)}`
+      : "Audit not visible",
   ].join("\n");
+}
+
+function shopInventorySourceMappingForShop(
+  shop: Shop,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  const mappings = readModel.shopOwnerMappings.filter(
+    (mapping) => mapping.shopId === shop.shop_id,
+  );
+
+  return (
+    mappings.find((mapping) => mapping.mappingState === "mapped") ?? mappings[0]
+  );
+}
+
+function shopInventorySourceAccount(
+  shop: Shop,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  const mapping = shopInventorySourceMappingForShop(shop, readModel);
+
+  if (!mapping?.ownerUserId) {
+    return undefined;
+  }
+
+  return readModel.userAccounts.find(
+    (account) => account.profileId === mapping.ownerUserId,
+  );
+}
+
+function ownerAccountLabelForInventorySource(
+  account: PlatformUserAccountSummary | undefined,
+  ownerUserId: string | null | undefined,
+) {
+  if (!account) {
+    return ownerUserId ? `Profile ${shortId(ownerUserId)}` : "Not available";
+  }
+
+  return accountSafeEmail(account) || accountPrimaryLabel(account);
+}
+
+function shopInventorySourceTableValue(
+  shop: Shop,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  const mapping = shopInventorySourceMappingForShop(shop, readModel);
+
+  if (!mapping) {
+    return "No inventory source";
+  }
+
+  if (mapping.mappingState === "mapped") {
+    return "Inventory source mapped";
+  }
+
+  return `Inventory source ${formatToken(mapping.mappingState)}`;
+}
+
+function linkedMobileInventorySourceFields(
+  shop: Shop,
+  readModel: PlatformAdminLiveReadModel,
+): RowDetailField[] {
+  const mapping = shopInventorySourceMappingForShop(shop, readModel);
+
+  if (!mapping) {
+    return [
+      { label: "Status", value: "No inventory source" },
+      { label: "Source kind", value: "Not available" },
+      { label: "Owner account", value: "Not available" },
+      { label: "Mapping state", value: "Not configured" },
+    ];
+  }
+
+  const account = shopInventorySourceAccount(shop, readModel);
+  const mobileInventoryData = account?.mobileInventoryData;
+  const ownerAccountHref = account
+    ? `/platform/users/${account.profileId}`
+    : undefined;
+  const ownerProfileId = account?.profileId ?? mapping.ownerUserId ?? undefined;
+
+  return [
+    {
+      label: "Status",
+      value:
+        mapping.mappingState === "mapped"
+          ? "Mapped"
+          : formatToken(mapping.mappingState),
+    },
+    {
+      label: "Source kind",
+      value: formatToken(mapping.sourceKind),
+    },
+    {
+      href: ownerAccountHref,
+      label: "Owner account",
+      value: ownerAccountLabelForInventorySource(account, mapping.ownerUserId),
+    },
+    {
+      label: "Platform Admin overlap",
+      value: platformAdminOverlapLabel(ownerProfileId, readModel),
+    },
+    {
+      label: "Products",
+      value: mobileInventoryCountValue(
+        mobileInventoryData?.productsCount ?? null,
+      ),
+    },
+    {
+      label: "Suppliers",
+      value: mobileInventoryCountValue(
+        mobileInventoryData?.suppliersCount ?? null,
+      ),
+    },
+    {
+      label: "Categories",
+      value: mobileInventoryCountValue(
+        mobileInventoryData?.categoriesCount ?? null,
+      ),
+    },
+    {
+      label: "Price history rows",
+      value: mobileInventoryCountValue(
+        mobileInventoryData?.productPricesCount ?? null,
+      ),
+    },
+    {
+      label: "History sessions",
+      value: mobileInventoryCountValue(
+        mobileInventoryData?.sharedSheetSessionsCount ?? null,
+      ),
+    },
+    {
+      label: "Sync events",
+      value: mobileInventoryCountValue(
+        mobileInventoryData?.syncEventsCount ?? null,
+      ),
+    },
+    {
+      label: "Mapping state",
+      value: formatToken(mapping.mappingState),
+    },
+  ];
+}
+
+function linkedMobileInventorySourceNotes(
+  shop: Shop,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  const mapping = shopInventorySourceMappingForShop(shop, readModel);
+
+  if (mapping?.mappingState === "mapped") {
+    return ["Owner-scoped mobile data mapped to this shop"];
+  }
+
+  return [
+    "No owner-scoped mobile inventory source is mapped to this shop through the current read boundary.",
+  ];
+}
+
+function primaryOwnerMemberForShop(shop: Shop, members: readonly ShopMember[]) {
+  return (
+    operationalMembershipsForShop(shop, members).find(
+      (member) => member.role_id === "shop_owner",
+    ) ??
+    members.find(
+      (member) =>
+        member.role_id === "shop_owner" &&
+        member.membership_status === "active",
+    )
+  );
+}
+
+function primaryOwnerProfileIdForShop(
+  shop: Shop,
+  members: readonly ShopMember[],
+  readModel: PlatformAdminLiveReadModel,
+) {
+  return (
+    primaryOwnerMemberForShop(shop, members)?.profile_id ??
+    shopInventorySourceMappingForShop(shop, readModel)?.ownerUserId ??
+    undefined
+  );
+}
+
+function shopOwnerLinkedLabel(
+  shop: Shop,
+  members: readonly ShopMember[],
+  readModel: PlatformAdminLiveReadModel,
+) {
+  return primaryOwnerProfileIdForShop(shop, members, readModel)
+    ? "Owner linked"
+    : "Unassigned";
+}
+
+function shopInventorySourceStatusLabel(
+  shop: Shop,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  const mapping = shopInventorySourceMappingForShop(shop, readModel);
+
+  if (!mapping) {
+    return "No inventory source";
+  }
+
+  return mapping.mappingState === "mapped"
+    ? "Inventory mapped"
+    : formatToken(mapping.mappingState);
+}
+
+function platformAdminOverlapLabel(
+  profileId: string | undefined,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  if (!profileId) {
+    return "No global access";
+  }
+
+  return hasPlatformAdminAccess(profileId, readModel)
+    ? "Platform Admin\nMaster Console role only"
+    : "No global access";
 }
 
 function userRowDetail(
@@ -908,7 +1449,10 @@ function userRowDetail(
   const audits = readModel.auditLogs.filter(
     (log) => log.actor_profile_id === account.profileId,
   );
-  const canAccessMasterConsole = hasPlatformAdminAccess(account.profileId, readModel);
+  const canAccessMasterConsole = hasPlatformAdminAccess(
+    account.profileId,
+    readModel,
+  );
   const canAccessShopAdminConsole = canAccessAdminConsole(
     account.profileId,
     readModel,
@@ -929,8 +1473,14 @@ function userRowDetail(
         fields: [
           { label: "Display name", value: account.displayName },
           { label: "Profile ID", value: account.profileId },
-          { label: "Status", value: profileSyncStateLabel(account.profileSyncState) },
-          { label: "Profile status", value: formatToken(account.profileStatus) },
+          {
+            label: "Status",
+            value: profileSyncStateLabel(account.profileSyncState),
+          },
+          {
+            label: "Profile status",
+            value: formatToken(account.profileStatus),
+          },
         ],
         title: "Identity",
       },
@@ -944,7 +1494,8 @@ function userRowDetail(
             value:
               readModel.authIdentityStatus.status === "ready"
                 ? "Auth identity is captured through the safe server DTO."
-                : readModel.authIdentityStatus.reason ?? "Auth identity unavailable.",
+                : (readModel.authIdentityStatus.reason ??
+                  "Auth identity unavailable."),
           },
         ],
         notes: ["No auth secret fields are queried or rendered."],
@@ -984,8 +1535,14 @@ function userRowDetail(
             label: "Join source",
             value: "Not captured in current read model",
           },
-          { label: "Primary role", value: primaryRoleForProfile(account.profileId, readModel) },
-          { label: "Shop access state", value: shopAccessStateLabel(account.shopAccessState) },
+          {
+            label: "Primary role",
+            value: primaryRoleForProfile(account.profileId, readModel),
+          },
+          {
+            label: "Shop access state",
+            value: shopAccessStateLabel(account.shopAccessState),
+          },
         ],
         notes: [
           "Admin account means a personal account with shop-scoped Admin Console access through shop_members.",
@@ -996,7 +1553,10 @@ function userRowDetail(
       },
       {
         fields: [
-          { label: "Operational shops", value: String(account.membershipCount) },
+          {
+            label: "Operational shops",
+            value: String(account.membershipCount),
+          },
           {
             label: "Historical/non-operational",
             value: String(account.nonOperationalMembershipCount),
@@ -1005,14 +1565,25 @@ function userRowDetail(
             label: "Returned membership records",
             value: String(account.totalMembershipCount),
           },
-          { label: "Membership summary", value: memberships.join("\n") || "None" },
+          {
+            label: "Membership summary",
+            value: memberships.join("\n") || "None",
+          },
         ],
         title: "Shop memberships",
       },
       {
+        fields: mobileInventoryDataFields(account, readModel),
+        notes: mobileInventoryDataNotes(account),
+        title: "Mobile inventory data",
+      },
+      {
         fields: [
           { label: "Linked events", value: String(audits.length) },
-          { label: "Latest event", value: audits[0]?.event ?? "No visible audit event" },
+          {
+            label: "Latest event",
+            value: audits[0]?.event ?? "No visible audit event",
+          },
         ],
         title: "Recent audit",
       },
@@ -1032,7 +1603,228 @@ function userRowDetail(
       readModel.shops,
       readModel.shopMembers,
     ).replace(/\n/g, " ")}`,
-    title: account.displayName,
+    title: accountPrimaryLabel(account),
+  };
+}
+
+function shopAdminLinkedShopId(
+  account: PlatformUserAccountSummary,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  if (account.mobileInventoryData.shopId) {
+    return account.mobileInventoryData.shopId;
+  }
+
+  return currentShopAdminMembershipsForProfile(
+    account.profileId,
+    readModel.shops,
+    readModel.shopMembers,
+  )[0]?.shop_id;
+}
+
+function shopAdminLinkedShopLabel(
+  account: PlatformUserAccountSummary,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  const shopId = shopAdminLinkedShopId(account, readModel);
+
+  if (!shopId) {
+    return "Not assigned to a shop yet";
+  }
+
+  return `Linked to ${shopNameById(readModel.shops, shopId)}`;
+}
+
+function shopAdminNavigationFields(
+  account: PlatformUserAccountSummary,
+  readModel: PlatformAdminLiveReadModel,
+): RowDetailField[] {
+  const shopId = shopAdminLinkedShopId(account, readModel);
+  const fields: RowDetailField[] = [];
+
+  if (shopId) {
+    fields.push({
+      href: `/platform/shops/${shopId}`,
+      label: "Open linked shop",
+      value: "Open linked shop",
+    });
+  }
+
+  if (hasPlatformAdminAccess(account.profileId, readModel)) {
+    fields.push({
+      href: "/platform/admins",
+      label: "Open Platform Admin grant",
+      value: "Open Platform Admin grant",
+    });
+  }
+
+  fields.push({
+    href: `/platform/users/${account.profileId}`,
+    label: "Open account detail",
+    value: "Open account detail",
+  });
+
+  return fields;
+}
+
+function shopAdminMobileInventoryFields(
+  account: PlatformUserAccountSummary,
+  readModel: PlatformAdminLiveReadModel,
+): RowDetailField[] {
+  const mobileInventoryData = account.mobileInventoryData;
+  const shopId = shopAdminLinkedShopId(account, readModel);
+
+  return [
+    {
+      label: "Data status",
+      value: mobileInventoryDataStatusLabel(mobileInventoryData),
+    },
+    {
+      label: "Scope",
+      value: "Owner-scoped mobile data",
+    },
+    {
+      href: shopId ? `/platform/shops/${shopId}` : undefined,
+      label: "Linked shop",
+      value: shopAdminLinkedShopLabel(account, readModel),
+    },
+    {
+      label: "Inventory source",
+      value: mobileInventoryDataLinkedToShop(mobileInventoryData)
+        ? "Owner-scoped mobile data mapped to this shop"
+        : "Not assigned to a shop yet",
+    },
+    {
+      label: "Mapping state",
+      value: formatToken(mobileInventoryData.shopInventoryMappingState),
+    },
+  ];
+}
+
+function shopAdminDetailGroups(
+  account: PlatformUserAccountSummary,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  const audits = readModel.auditLogs.filter(
+    (log) => log.actor_profile_id === account.profileId,
+  );
+
+  return [
+    {
+      fields: [
+        {
+          label: "Current access",
+          value: shopAdminAccessSummaryForProfile(
+            account.profileId,
+            readModel.shops,
+            readModel.shopMembers,
+          ),
+        },
+        {
+          label: "Roles",
+          value: shopAdminRolesSummaryForProfile(account.profileId, readModel),
+        },
+        {
+          label: "Linked shop",
+          value: shopAdminLinkedShopLabel(account, readModel),
+          href: shopAdminLinkedShopId(account, readModel)
+            ? `/platform/shops/${shopAdminLinkedShopId(account, readModel)}`
+            : undefined,
+        },
+        {
+          label: "Platform Admin overlap",
+          value: globalAccessSummaryForProfile(account.profileId, readModel),
+        },
+      ],
+      title: "Summary",
+    },
+    {
+      fields: [
+        { label: "Display name", value: account.displayName },
+        { label: "Email", value: account.email },
+        { label: "Profile ID", value: account.profileId },
+        { label: "Profile status", value: formatToken(account.profileStatus) },
+        {
+          label: "Profile/Auth state",
+          value: profileSyncStateLabel(account.profileSyncState),
+        },
+      ],
+      notes: ["No auth secret fields are queried or rendered."],
+      title: "Identity",
+    },
+    {
+      fields: [
+        {
+          label: "Admin Console access",
+          value: shopAdminAccessSummaryForProfile(
+            account.profileId,
+            readModel.shops,
+            readModel.shopMembers,
+          ),
+        },
+        {
+          label: "Shop roles",
+          value:
+            shopRolesForProfile(
+              account.profileId,
+              readModel.shops,
+              readModel.shopMembers,
+            ).join("\n") || "No operational shop role",
+        },
+        ...membershipFieldsForProfile(
+          account.profileId,
+          readModel.shops,
+          readModel.shopMembers,
+        ),
+      ],
+      notes: [
+        "Shop Admin access is shop-scoped through shop_members. It is separate from Platform Admin global access.",
+      ],
+      title: "Shop Admin access",
+    },
+    {
+      fields: shopAdminMobileInventoryFields(account, readModel),
+      notes: [
+        "Mobile inventory counts are shown on the linked shop record when an owner-scoped source is mapped.",
+      ],
+      title: "Linked mobile inventory",
+    },
+    {
+      fields: shopAdminNavigationFields(account, readModel),
+      title: "Actions",
+    },
+    {
+      fields: [
+        { label: "Linked events", value: String(audits.length) },
+        {
+          label: "Latest event",
+          value: audits[0]?.event ?? "No visible audit event",
+        },
+      ],
+      title: "Recent audit",
+    },
+  ];
+}
+
+function shopAdminRowDetail(
+  account: PlatformUserAccountSummary,
+  readModel: PlatformAdminLiveReadModel,
+): RowDetailPanel {
+  return {
+    groups: shopAdminDetailGroups(account, readModel),
+    href: `/platform/users/${account.profileId}`,
+    notes: [
+      "Shop Admin detail stays in the shop_members context. Open the personal account only when identity diagnostics are needed.",
+    ],
+    rowKey: account.profileId,
+    subtitle: `${shopAdminAccessStateForProfile(
+      account.profileId,
+      readModel,
+    )} / ${shopAdminShopsSummaryForProfile(
+      account.profileId,
+      readModel,
+    ).replace(/\n/g, " ")}`,
+    title: accountPrimaryLabel(account),
   };
 }
 
@@ -1056,7 +1848,9 @@ function shopRowDetail(
     readModel.shopOwnerMappings,
     shop.shop_id,
   );
-  const audits = readModel.auditLogs.filter((log) => log.shop_id === shop.shop_id);
+  const audits = readModel.auditLogs.filter(
+    (log) => log.shop_id === shop.shop_id,
+  );
   const fiscalRows = [
     { label: "Company RUT", value: configuredRut(shop.company_rut) },
     { label: "Giro", value: shop.business_giro ?? "Not configured" },
@@ -1068,9 +1862,10 @@ function shopRowDetail(
     },
     {
       label: "Managed by",
-      value: shop.fiscal_identity_locked_by_platform === false
-        ? "Unlocked"
-        : "Master Console",
+      value:
+        shop.fiscal_identity_locked_by_platform === false
+          ? "Unlocked"
+          : "Master Console",
     },
   ];
 
@@ -1101,7 +1896,10 @@ function shopRowDetail(
       {
         fields: [
           { label: "Owners", value: owners.join("\n") || "Unassigned" },
-          { label: "Members", value: memberSummaryForShop(shop, readModel.shopMembers) },
+          {
+            label: "Members",
+            value: memberSummaryForShop(shop, readModel.shopMembers),
+          },
           {
             label: "Operational members",
             value: String(operationalMembershipsForShop(shop, members).length),
@@ -1117,6 +1915,11 @@ function shopRowDetail(
           },
         ],
         title: "Owners & members",
+      },
+      {
+        fields: linkedMobileInventorySourceFields(shop, readModel),
+        notes: linkedMobileInventorySourceNotes(shop, readModel),
+        title: "Linked mobile inventory source",
       },
       {
         fields: [
@@ -1143,11 +1946,16 @@ function shopRowDetail(
               : "No sync visible",
           },
           { label: "Audit count", value: String(audits.length) },
-          { label: "Latest audit", value: audits[0]?.event ?? "No audit event visible" },
+          {
+            label: "Latest audit",
+            value: audits[0]?.event ?? "No audit event visible",
+          },
         ],
         notes:
           latestSync || audits.length > 0
-            ? ["Device and sync values are support signals, not daily device management."]
+            ? [
+                "Device and sync values are support signals, not daily device management.",
+              ]
             : [
                 "Device and sync values are support signals, not daily device management.",
                 "Related data limited by current boundary.",
@@ -1178,14 +1986,20 @@ function shopRowDetail(
   };
 }
 
+type AccountDetailContext = "shopAdmins" | "users";
+
 function userDetailSections(
   account: PlatformUserAccountSummary,
   readModel: PlatformAdminLiveReadModel,
+  context: AccountDetailContext = "users",
 ) {
   const audits = readModel.auditLogs.filter(
     (log) => log.actor_profile_id === account.profileId,
   );
-  const canAccessMasterConsole = hasPlatformAdminAccess(account.profileId, readModel);
+  const canAccessMasterConsole = hasPlatformAdminAccess(
+    account.profileId,
+    readModel,
+  );
   const canAccessShopAdminConsole = canAccessAdminConsole(
     account.profileId,
     readModel,
@@ -1195,38 +2009,74 @@ function userDetailSections(
     readModel.shops,
     readModel.shopMembers,
   );
+  const shopAdminContextSections =
+    context === "shopAdmins"
+      ? [
+          {
+            fields: [
+              {
+                label: "Current shop access",
+                value: shopAdminAccessSummaryForProfile(
+                  account.profileId,
+                  readModel.shops,
+                  readModel.shopMembers,
+                ),
+              },
+              {
+                label: "Role",
+                value: shopAdminRolesSummaryForProfile(
+                  account.profileId,
+                  readModel,
+                ),
+              },
+              {
+                href: shopAdminLinkedShopId(account, readModel)
+                  ? `/platform/shops/${shopAdminLinkedShopId(account, readModel)}`
+                  : undefined,
+                label: "Linked shop",
+                value: shopAdminLinkedShopLabel(account, readModel),
+              },
+              {
+                label: "Admin Console access",
+                value: canAccessShopAdminConsole ? "Current" : "Not current",
+              },
+            ],
+            notes: [
+              "Filtered Shop Admin view: this account is shown here because it has owner or manager shop_members context.",
+            ],
+            title: "Shop Admin context",
+          },
+        ]
+      : [];
 
   return [
     {
-      fields: accountAccessSummaryFields(account, readModel),
-      title: "Summary",
-    },
-    {
       fields: [
+        { label: "Account label", value: accountPrimaryLabel(account) },
         { label: "Display name", value: account.displayName },
-        { label: "Profile ID", value: account.profileId },
-        { label: "Short ID", value: shortId(account.profileId) },
-        { label: "Status", value: profileSyncStateLabel(account.profileSyncState) },
-        { label: "Profile status", value: formatToken(account.profileStatus) },
-      ],
-      title: "Identity",
-    },
-    {
-      fields: [
         { label: "Email", value: account.email },
         { label: "Provider", value: account.provider },
         { label: "Provider type", value: formatToken(account.providerType) },
+        { label: "Profile ID", value: account.profileId },
+        { label: "Short ID", value: shortId(account.profileId) },
+        {
+          label: "Status",
+          value: profileSyncStateLabel(account.profileSyncState),
+        },
+        { label: "Profile status", value: formatToken(account.profileStatus) },
         {
           label: "Capture state",
           value:
             readModel.authIdentityStatus.status === "ready"
               ? "Auth identity is captured through the safe server DTO."
-              : readModel.authIdentityStatus.reason ?? "Auth identity unavailable.",
+              : (readModel.authIdentityStatus.reason ??
+                "Auth identity unavailable."),
         },
       ],
       notes: ["No auth secret fields are queried or rendered."],
-      title: "Account origin",
+      title: "Identity",
     },
+    ...shopAdminContextSections,
     {
       fields: [
         {
@@ -1253,23 +2103,11 @@ function userDetailSections(
           label: "Global access",
           value: globalAccessSummaryForProfile(account.profileId, readModel),
         },
-        {
-          label: "Shop roles",
-          value: shopRoles.join("\n") || "No operational shop role",
-        },
-        {
-          label: "Join source",
-          value: "Not captured in current read model",
-        },
-        { label: "Primary role", value: primaryRoleForProfile(account.profileId, readModel) },
-        { label: "Shop access state", value: shopAccessStateLabel(account.shopAccessState) },
       ],
       notes: [
-        "Admin account means a personal account with shop-scoped Admin Console access through shop_members.",
         "platform_admin means global Master Console access; it is not created by linking a shop code.",
-        "POS staff and manager 1001 stay in staff/shop-code principals, separate from personal accounts.",
       ],
-      title: "Account classification",
+      title: "Global access",
     },
     {
       fields: [
@@ -1287,15 +2125,35 @@ function userDetailSections(
           readModel.shops,
           readModel.shopMembers,
         ),
+        {
+          label: "Shop roles",
+          value: shopRoles.join("\n") || "No operational shop role",
+        },
+        {
+          label: "Shop access state",
+          value: shopAccessStateLabel(account.shopAccessState),
+        },
+      ],
+      notes: [
+        "Admin account means a personal account with shop-scoped Admin Console access through shop_members.",
+        "POS staff and manager 1001 stay in staff/shop-code principals, separate from personal accounts.",
       ],
       title: "Shop memberships",
     },
     {
+      fields: mobileInventoryDataFields(account, readModel),
+      notes: mobileInventoryDataNotes(account),
+      title: "Mobile data / linked shop",
+    },
+    {
       fields: [
         { label: "Linked events", value: String(audits.length) },
-        { label: "Latest event", value: audits[0]?.event ?? "No visible audit event" },
+        {
+          label: "Latest event",
+          value: audits[0]?.event ?? "No visible audit event",
+        },
       ],
-      title: "Recent audit",
+      title: "Audit",
     },
     {
       fields: userAccountDiagnostics(account, readModel),
@@ -1305,8 +2163,18 @@ function userDetailSections(
 }
 
 function shopProfileFiscalFields(shop: Shop) {
+  const identityFields = [
+    { label: "Shop name", value: shop.shop_name },
+    { label: "Shop code", value: shop.shop_code },
+    { label: "Shop ID", value: shop.shop_id },
+    { label: "Status", value: shopStatusLabel(shop.shop_status) },
+    { label: "Created", value: shop.created_at },
+    { label: "Updated", value: shop.updated_at ?? "Not configured" },
+  ];
+
   if (!hasConfiguredFiscalIdentity(shop)) {
     return [
+      ...identityFields,
       { label: "Fiscal identity", value: "Fiscal identity not configured" },
       {
         label: "Managed by",
@@ -1319,6 +2187,8 @@ function shopProfileFiscalFields(shop: Shop) {
   }
 
   return [
+    ...identityFields,
+    { label: "Fiscal identity", value: "Configured" },
     { label: "Company RUT", value: configuredRut(shop.company_rut) },
     { label: "Giro", value: configuredValue(shop.business_giro) },
     { label: "Address", value: configuredValue(shop.business_address) },
@@ -1361,7 +2231,9 @@ function availableLifecycleActionsForShop(shop: Shop) {
       : null,
   ].filter((action): action is string => Boolean(action));
 
-  return actions.length > 0 ? actions.join("\n") : "No lifecycle action available";
+  return actions.length > 0
+    ? actions.join("\n")
+    : "No lifecycle action available";
 }
 
 export type PlatformShopAccessMembership = {
@@ -1403,7 +2275,9 @@ type PlatformShopPurgePreview = {
 export type PlatformShopAccessManagementForRequest =
   | {
       reason: string;
-      status: Exclude<PlatformAdminLiveReadModel["status"], "ready"> | "not_found";
+      status:
+        | Exclude<PlatformAdminLiveReadModel["status"], "ready">
+        | "not_found";
     }
   | {
       candidates: readonly PlatformShopAccessCandidate[];
@@ -1440,7 +2314,9 @@ function accountSummaryForProfile(
       profile?.display_name ??
       `Profile ${shortId(profileId)}`,
     email: account?.email ?? "Auth identity unavailable",
-    profileStatus: formatToken(account?.profileStatus ?? profile?.profile_status ?? "review"),
+    profileStatus: formatToken(
+      account?.profileStatus ?? profile?.profile_status ?? "review",
+    ),
   };
 }
 
@@ -1622,10 +2498,18 @@ function shopDependencyPreview(
   previewCounts?: Record<string, number>,
 ): PlatformShopDependencyPreviewItem[] {
   const shopId = shop.shop_id;
-  const members = readModel.shopMembers.filter((member) => member.shop_id === shopId);
-  const ownerMembers = members.filter((member) => member.role_id === "shop_owner");
-  const managerMembers = members.filter((member) => member.role_id === "shop_manager");
-  const devices = readModel.shopDevices.filter((device) => device.shop_id === shopId);
+  const members = readModel.shopMembers.filter(
+    (member) => member.shop_id === shopId,
+  );
+  const ownerMembers = members.filter(
+    (member) => member.role_id === "shop_owner",
+  );
+  const managerMembers = members.filter(
+    (member) => member.role_id === "shop_manager",
+  );
+  const devices = readModel.shopDevices.filter(
+    (device) => device.shop_id === shopId,
+  );
   const syncEvents = syncEventsForShop(
     readModel.syncEvents,
     readModel.shopOwnerMappings,
@@ -1635,7 +2519,9 @@ function shopDependencyPreview(
     (mapping) => mapping.shopId === shopId,
   );
   const auditLogs = readModel.auditLogs.filter((log) => log.shop_id === shopId);
-  const staffRows = readModel.staffSafeRows.filter((row) => row.shop_id === shopId);
+  const staffRows = readModel.staffSafeRows.filter(
+    (row) => row.shop_id === shopId,
+  );
 
   return [
     dependencyPreviewItem({
@@ -1741,9 +2627,7 @@ function purgeBlockedReasonsForShop(
   }
 
   if (!isSyntheticPurgeCandidate(shop)) {
-    reasons.add(
-      "Purge is limited to synthetic test/local/staging shop codes.",
-    );
+    reasons.add("Purge is limited to synthetic test/local/staging shop codes.");
   }
 
   for (const dependency of dependencies) {
@@ -1767,8 +2651,11 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
     readModel.shopOwnerMappings,
     shop.shop_id,
   );
-  const audits = readModel.auditLogs.filter((log) => log.shop_id === shop.shop_id);
-  const relatedRowsVisible = devices.length > 0 || Boolean(sync) || audits.length > 0;
+  const audits = readModel.auditLogs.filter(
+    (log) => log.shop_id === shop.shop_id,
+  );
+  const relatedRowsVisible =
+    devices.length > 0 || Boolean(sync) || audits.length > 0;
   const operationalMembers = operationalMembershipsForShop(shop, members);
   const owners = operationalMembers.filter(
     (member) => member.role_id === "shop_owner",
@@ -1782,38 +2669,40 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
   );
   const activeManagerRecords = members.filter(
     (member) =>
-      member.role_id === "shop_manager" && member.membership_status === "active",
+      member.role_id === "shop_manager" &&
+      member.membership_status === "active",
   );
+  const primaryOwnerMember = primaryOwnerMemberForShop(shop, members);
+  const primaryOwnerProfileId = primaryOwnerProfileIdForShop(
+    shop,
+    members,
+    readModel,
+  );
+  const primaryOwnerHref = primaryOwnerProfileId
+    ? `/platform/users/${primaryOwnerProfileId}`
+    : undefined;
+  const inventorySourceStatus = shopInventorySourceStatusLabel(shop, readModel);
 
   return [
     {
-      actionPlacement: "body" as const,
-      description: "Audited status changes with controlled transitions.",
       fields: [
+        { label: "Status", value: shopStatusLabel(shop.shop_status) },
         {
-          label: "Available transition",
-          value: availableLifecycleActionsForShop(shop),
+          label: "Operational access",
+          value: shopOperationalAccessState(shop),
         },
-      ],
-      layout: "full" as const,
-      notes: undefined,
-      title: "Shop lifecycle management",
-    },
-    {
-      actionPlacement: "body" as const,
-      description: "Personal web accounts linked to this shop. POS staff stays in Shop Admin.",
-      fields: [
-        { label: "Owners", value: String(activeOwnerRecords.length) },
-        { label: "Managers", value: String(activeManagerRecords.length) },
-      ],
-      layout: "full" as const,
-      notes: [
-        "Owner and manager changes use audited Master Console RPCs. POS staff remains in Shop Admin.",
-      ],
-      title: "Admin access / Ownership",
-    },
-    {
-      fields: [
+        {
+          href: primaryOwnerHref,
+          label: "Owner account",
+          value: accountPrimaryLabelForProfile(
+            primaryOwnerProfileId,
+            readModel,
+          ),
+        },
+        {
+          label: "Inventory source",
+          value: inventorySourceStatus,
+        },
         { label: "Shop code", value: shop.shop_code },
         { label: "Shop ID", value: shop.shop_id },
         { label: "Created", value: configuredTimestamp(shop.created_at) },
@@ -1826,14 +2715,95 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
               : "Master Console",
         },
       ],
-      title: "Overview",
+      layout: "full" as const,
+      notes: [
+        shopOwnerLinkedLabel(shop, members, readModel),
+        inventorySourceStatus,
+        audits.length > 0 ? "Audit available" : "No audit event visible",
+      ],
+      title: "Header shop",
     },
     {
       description:
-        hasConfiguredFiscalIdentity(shop)
-          ? "Fiscal / Boleta fields managed by Master Console."
-          : "Fiscal identity not configured.",
+        "Key shop signals grouped before operational sections for quick review.",
+      fields: [
+        { label: "Status", value: shopStatusLabel(shop.shop_status) },
+        {
+          label: "Operational access",
+          value: shopOperationalAccessState(shop),
+        },
+        {
+          href: primaryOwnerHref,
+          label: "Owner account",
+          value: accountPrimaryLabelForProfile(
+            primaryOwnerProfileId,
+            readModel,
+          ),
+        },
+        {
+          label: "Inventory source",
+          value: inventorySourceStatus,
+        },
+        { label: "Audit count", value: String(audits.length) },
+        { label: "Devices visible", value: String(devices.length) },
+      ],
+      layout: "full" as const,
+      title: "Key status cards",
+    },
+    {
+      actionPlacement: "body" as const,
+      description:
+        "Personal web accounts linked to this shop. POS staff stays in Shop Admin.",
+      fields: [
+        {
+          href: primaryOwnerHref,
+          label: "Owner account",
+          value: accountPrimaryLabelForProfile(
+            primaryOwnerProfileId,
+            readModel,
+          ),
+        },
+        {
+          label: "Role",
+          value: primaryOwnerMember
+            ? formatToken(primaryOwnerMember.role_id)
+            : "Unassigned",
+        },
+        {
+          label: "Owner status",
+          value: primaryOwnerMember
+            ? formatToken(primaryOwnerMember.membership_status)
+            : "Unassigned",
+        },
+        {
+          label: "Operational access",
+          value:
+            primaryOwnerMember &&
+            isOperationalMembership(primaryOwnerMember, shop)
+              ? "Yes"
+              : "No",
+        },
+        {
+          label: "Platform Admin overlap",
+          value: platformAdminOverlapLabel(primaryOwnerProfileId, readModel),
+        },
+        { label: "Owners", value: String(activeOwnerRecords.length) },
+        { label: "Managers", value: String(activeManagerRecords.length) },
+        { label: "Membership records", value: String(members.length) },
+      ],
+      layout: "full" as const,
+      notes: [
+        "Owner and manager changes use audited Master Console RPCs. POS staff remains in Shop Admin.",
+        "Platform Admin overlap is shown as global context, not as the owner account name.",
+      ],
+      title: "Admin access / Ownership",
+    },
+    {
+      description: hasConfiguredFiscalIdentity(shop)
+        ? "Fiscal / Boleta fields managed by Master Console."
+        : "Fiscal identity not configured.",
       fields: shopProfileFiscalFields(shop),
+      layout: "full" as const,
       notes: [
         "The edit dialog only changes fields already visible in this read-only card.",
         "Shop code and shop ID remain read-only.",
@@ -1841,7 +2811,8 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
       title: "Shop profile & fiscal identity",
     },
     {
-      description: "Compact membership summary; changes are handled in Admin access / Ownership.",
+      description:
+        "Compact membership summary; changes are handled in Admin access / Ownership.",
       fields: [
         {
           label: "Membership records",
@@ -1863,7 +2834,15 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
       notes: isOperationalShopStatus(shop.shop_status)
         ? undefined
         : ["Memberships are preserved, but operational access is disabled."],
+      layout: "full" as const,
       title: "Members",
+    },
+    {
+      description: "Owner-scoped mobile data mapped to this shop",
+      fields: linkedMobileInventorySourceFields(shop, readModel),
+      layout: "full" as const,
+      notes: linkedMobileInventorySourceNotes(shop, readModel),
+      title: "Linked mobile inventory source",
     },
     {
       description: "Support signals from the current Master Console boundary.",
@@ -1879,9 +2858,13 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
             ? `${formatToken(sync.event_type)} / ${sync.created_at}`
             : "No sync visible",
         },
-        { label: "Latest audit", value: audits[0]?.event ?? "No audit event visible" },
+        {
+          label: "Latest audit",
+          value: audits[0]?.event ?? "No audit event visible",
+        },
         { label: "Audit count", value: String(audits.length) },
       ],
+      layout: "full" as const,
       notes: relatedRowsVisible
         ? [
             "Sync & audit rows are compact support signals, not daily device management.",
@@ -1894,7 +2877,21 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
     },
     {
       actionPlacement: "body" as const,
-      description: "Reversible archive and guarded physical delete for synthetic test cleanup.",
+      description: "Audited status changes with controlled transitions.",
+      fields: [
+        {
+          label: "Available transition",
+          value: availableLifecycleActionsForShop(shop),
+        },
+      ],
+      layout: "full" as const,
+      notes: undefined,
+      title: "Shop lifecycle management",
+    },
+    {
+      actionPlacement: "body" as const,
+      description:
+        "Reversible archive and guarded physical delete for synthetic test cleanup.",
       fields: [
         {
           label: "Archive",
@@ -1905,7 +2902,8 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
         },
         {
           label: "Purge test shop",
-          value: "Normal when dependency-free; force mode for managed synthetic test dependencies",
+          value:
+            "Normal when dependency-free; force mode for managed synthetic test dependencies",
         },
         {
           label: "Permanent delete production shop",
@@ -1937,7 +2935,9 @@ export async function getPlatformShopProfileForRequest(shopId: string): Promise<
   | {
       reason: string;
       shop?: undefined;
-      status: Exclude<PlatformAdminLiveReadModel["status"], "ready"> | "not_found";
+      status:
+        | Exclude<PlatformAdminLiveReadModel["status"], "ready">
+        | "not_found";
     }
   | {
       reason?: undefined;
@@ -1954,11 +2954,14 @@ export async function getPlatformShopProfileForRequest(shopId: string): Promise<
     };
   }
 
-  const shop = readModel.shops.find((candidate) => candidate.shop_id === shopId);
+  const shop = readModel.shops.find(
+    (candidate) => candidate.shop_id === shopId,
+  );
 
   if (!shop) {
     return {
-      reason: "The requested shop was not found in the Platform Admin read boundary.",
+      reason:
+        "The requested shop was not found in the Platform Admin read boundary.",
       status: "not_found",
     };
   }
@@ -1996,11 +2999,14 @@ export async function getPlatformShopAccessForRequest(
     };
   }
 
-  const shop = readModel.shops.find((candidate) => candidate.shop_id === shopId);
+  const shop = readModel.shops.find(
+    (candidate) => candidate.shop_id === shopId,
+  );
 
   if (!shop) {
     return {
-      reason: "The requested shop was not found in the Platform Admin read boundary.",
+      reason:
+        "The requested shop was not found in the Platform Admin read boundary.",
       status: "not_found",
     };
   }
@@ -2169,12 +3175,20 @@ function buildOverview(readModel: PlatformAdminLiveReadModel): PlatformSection {
 
 function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
   const base = platformSections.users;
-  const platformAdmins = new Set(readModel.platformAdminProfileIds);
-  const personalAccounts = readModel.userAccounts.filter((account) =>
-    isNonAdminPersonalAccount(account, readModel),
+  const directoryAccounts = readModel.userAccounts;
+  const normalAccounts = directoryAccounts.filter(
+    (account) =>
+      isNonAdminPersonalAccount(account, readModel) &&
+      account.profileSyncState === "profile_ok",
   );
-  const shopAdminAccounts = readModel.userAccounts.filter((account) =>
+  const incompleteAccounts = directoryAccounts.filter(
+    (account) => account.profileSyncState !== "profile_ok",
+  );
+  const shopAdminAccounts = directoryAccounts.filter((account) =>
     hasShopAdminMembershipHistory(account.profileId, readModel),
+  );
+  const platformAdminAccounts = directoryAccounts.filter((account) =>
+    hasPlatformAdminAccess(account.profileId, readModel),
   );
   const currentShopAdminAccounts = shopAdminAccounts.filter((account) =>
     canAccessAdminConsole(account.profileId, readModel),
@@ -2188,34 +3202,29 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
         readModel.shopMembers,
       ).length > 0,
   ).length;
-  const unlinkedUsers = personalAccounts.filter(
-    (account) =>
-      accountTypeSegmentsForProfile(account.profileId, readModel).includes(
-        "Unlinked user",
-      ),
+  const hasShopAccounts = directoryAccounts.filter(hasAnyShopAccess).length;
+  const noShopAccounts = directoryAccounts.length - hasShopAccounts;
+  const unlinkedUsers = normalAccounts.filter((account) =>
+    accountTypeSegmentsForProfile(account.profileId, readModel).includes(
+      "Normal account",
+    ),
   ).length;
-  const historicalOnlyUsers = personalAccounts.filter(
-    (account) =>
-      accountTypeSegmentsForProfile(account.profileId, readModel).includes(
-        "Historical only",
-      ),
-  ).length;
-  const profileOkCount = personalAccounts.filter(
+  const profileOkCount = directoryAccounts.filter(
     (account) => account.profileSyncState === "profile_ok",
   ).length;
-  const authOnlyCount = personalAccounts.filter(
+  const authOnlyCount = directoryAccounts.filter(
     (account) => account.profileSyncState === "auth_only",
   ).length;
-  const profileOnlyCount = personalAccounts.filter(
+  const profileOnlyCount = directoryAccounts.filter(
     (account) => account.profileSyncState === "profile_only",
   ).length;
-  const originUnavailableCount = personalAccounts.filter(
+  const originUnavailableCount = directoryAccounts.filter(
     (account) => account.profileSyncState === "origin_unavailable",
   ).length;
-  const usersWithoutOperationalShop = personalAccounts.filter(
+  const usersWithoutOperationalShop = directoryAccounts.filter(
     (account) => account.membershipCount === 0,
   ).length;
-  const nonOperationalMemberships = personalAccounts.reduce(
+  const nonOperationalMemberships = directoryAccounts.reduce(
     (total, account) => total + account.nonOperationalMembershipCount,
     0,
   );
@@ -2223,15 +3232,16 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
   return {
     ...base,
     description:
-      "Personal account directory for non-admin and incomplete accounts. Shop Admins and Platform Admins have dedicated views.",
+      "Personal Account Directory for every personal/profile account returned by the safe server read model. Dedicated admin views keep grant and membership operations separate.",
     emptyState: {
-      title: "No normal users in this view",
-      description: `No normal users in this view. There are ${shopAdminAccounts.length} Shop Admin account${shopAdminAccounts.length === 1 ? "" : "s"} and ${platformAdmins.size} Platform Admin${platformAdmins.size === 1 ? "" : "s"}.`,
+      title: "No personal accounts visible",
+      description:
+        "No Auth/Profile personal accounts were returned by the current read model or server search.",
     },
     tableNotice: {
-      title: "Showing normal personal accounts only",
+      title: "Personal Account Directory",
       description:
-        "Showing normal personal accounts only. Shop Admins and Platform Admins are shown in dedicated views.",
+        "Users includes normal, Shop Admin, Platform Admin, and incomplete personal accounts. Use dedicated admin views for grant or membership operations.",
     },
     filters: [
       {
@@ -2239,8 +3249,30 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
         label: "Account type",
         options: [
           { label: "All account types", value: "" },
-          { label: "Unlinked user", value: "Unlinked user" },
-          { label: "Historical only", value: "Historical only" },
+          {
+            emptyState: {
+              title: "No normal accounts match this filter",
+              description:
+                "No normal accounts match this filter. Platform Admins are hidden by this filter.",
+            },
+            label: "Normal accounts",
+            value: "Normal account",
+          },
+          { label: "Shop Admins", value: "Shop Admin" },
+          {
+            label: "Platform Admins",
+            value: "Platform Admin / Master Console",
+          },
+          { label: "Incomplete account", value: "Incomplete account" },
+        ],
+      },
+      {
+        key: "shopAccess",
+        label: "Shop access",
+        options: [
+          { label: "All shop access", value: "" },
+          { label: "Has shop", value: "Has shop" },
+          { label: "No shop", value: "No shop" },
         ],
       },
       {
@@ -2257,8 +3289,8 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
     ],
     guardrails: [
       "Submitted search is resolved server-side against safe Auth/Profile DTOs before rows render.",
-      "This default Users view lists non-admin and incomplete personal accounts; access-bearing accounts live in Shop Admins or Platform Admins.",
-      "An empty Users table can be correct when the returned accounts are Shop Admins or Platform Admins instead of normal users.",
+      "Users is the Personal Account Directory: it includes normal, Shop Admin, Platform Admin, and incomplete accounts returned by the read model.",
+      "Normal accounts only is an explicit filter, not the default Users view.",
       "An Admin account is a personal account with shop-scoped Admin Console access through shop_members.",
       "platform_admin is global Master Console access and is not created by connecting a shop code.",
       "Shop-code staff and manager 1001 remain separate POS/staff principals, not profiles.",
@@ -2268,22 +3300,24 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
     ],
     purposeItems: [
       {
-        label: "Normal users",
-        detail: "Personal accounts with no global or shop-admin access.",
-      },
-      {
-        label: "Current view",
+        label: "Account directory",
         detail:
-          "Rows are the non-admin subset; totals below show the wider personal-account read model.",
+          "Rows are all personal/profile accounts returned by the server read model.",
       },
       {
-        label: "Incomplete accounts",
-        detail: "Auth-only, profile-only, or origin-unavailable accounts needing review.",
+        label: "Account type",
+        detail:
+          "Normal account, Shop Admin, Platform Admin / Master Console, and Incomplete account are labels, not duplicated actions.",
       },
       {
         label: "Dedicated admin views",
         detail:
-          "Shop Admins and Platform Admins are intentionally excluded from this default Users table.",
+          "Shop Admins and Platform Admins remain the operational views for membership and grant controls.",
+      },
+      {
+        label: "Incomplete accounts",
+        detail:
+          "Auth-only, profile-only, or origin-unavailable accounts stay visible for review.",
       },
       {
         label: "POS staff separation",
@@ -2305,19 +3339,23 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
         label: "Open Platform Admins",
       },
     ],
-    rowDetails: personalAccounts.map((account) => userRowDetail(account, readModel)),
-    rows: personalAccounts.map((account): TableRow => {
-      const profileSyncState = profileSyncStateLabel(account.profileSyncState);
-
-      return {
+    rowDetails: directoryAccounts.map((account) =>
+      userRowDetail(account, readModel),
+    ),
+    rows: directoryAccounts.map(
+      (account): TableRow => ({
         accountType: accountTypeLabelForProfile(account.profileId, readModel),
+        dataStatus: mobileInventoryDataStatusLabel(account.mobileInventoryData),
         origin: accountOriginForUser(account),
         email: account.email,
-        profile: `${account.displayName}\nProfile ID ${shortId(account.profileId)}\n${profileSyncState}`,
+        profile: accountProfileCell(account, readModel),
         rowKey: account.profileId,
-        state: `${profileSyncState}\n${formatToken(account.profileStatus)}`,
-      };
-    }),
+        shopAccess: shopAccessTableValueForAccount(account, readModel),
+        state: `${profileSyncStateLabel(account.profileSyncState)}\n${formatToken(
+          account.profileStatus,
+        )}`,
+      }),
+    ),
     searchPlaceholder: "Search email, UID, display name, or provider",
     serverSearch: {
       clearLabel: "Clear",
@@ -2341,9 +3379,9 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
         "Profiles/Auth accounts returned by the read model",
       ),
       stat(
-        "Visible normal users",
-        String(personalAccounts.length),
-        "Non-admin default rows",
+        "Visible in this table",
+        String(directoryAccounts.length),
+        "All account types returned by Users",
         "good",
       ),
       stat(
@@ -2357,10 +3395,16 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
         readModel.authIdentityStatus.status === "ready" ? "good" : "warning",
       ),
       stat(
+        "Normal accounts",
+        String(normalAccounts.length),
+        "No Platform Admin or Shop Admin access",
+        normalAccounts.length > 0 ? "good" : "muted",
+      ),
+      stat(
         "Shop Admin accounts",
         String(shopAdminAccounts.length),
         "Owner/manager memberships in dedicated view",
-        "good",
+        shopAdminAccounts.length > 0 ? "good" : "muted",
       ),
       stat(
         "Current Shop Admins",
@@ -2374,18 +3418,29 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
         "Archived/non-operational owner or manager history",
         historicalShopAdminAccounts > 0 ? "warning" : "muted",
       ),
-      stat("Platform admins", String(platformAdmins.size), "Dedicated Platform Admins view", "good"),
       stat(
-        "Unlinked users",
-        String(unlinkedUsers),
-        "No operational shop membership",
-        unlinkedUsers > 0 ? "warning" : "good",
+        "Platform admins",
+        String(platformAdminAccounts.length),
+        "Also visible in the dedicated Platform Admins view",
+        platformAdminAccounts.length > 0 ? "good" : "muted",
       ),
       stat(
-        "Historical only",
-        String(historicalOnlyUsers),
-        "Only historical/non-operational memberships",
-        historicalOnlyUsers > 0 ? "warning" : "muted",
+        "Has shop",
+        String(hasShopAccounts),
+        "Any visible shop_members or linked mobile shop",
+        hasShopAccounts > 0 ? "good" : "muted",
+      ),
+      stat(
+        "No shop",
+        String(noShopAccounts),
+        "No visible shop_members or linked mobile shop",
+        noShopAccounts > 0 ? "warning" : "good",
+      ),
+      stat(
+        "Normal without admin access",
+        String(unlinkedUsers),
+        "Profile OK accounts with no admin role",
+        unlinkedUsers > 0 ? "warning" : "good",
       ),
       stat(
         "No operational shop",
@@ -2399,7 +3454,18 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
         "Non-operational or inactive membership rows",
         nonOperationalMemberships > 0 ? "warning" : "muted",
       ),
-      stat("Profile OK", String(profileOkCount), "Auth user with profile", "good"),
+      stat(
+        "Incomplete accounts",
+        String(incompleteAccounts.length),
+        "Auth/Profile parity needs review",
+        incompleteAccounts.length > 0 ? "warning" : "good",
+      ),
+      stat(
+        "Profile OK",
+        String(profileOkCount),
+        "Auth user with profile",
+        "good",
+      ),
       stat(
         "Auth only",
         String(authOnlyCount),
@@ -2423,7 +3489,9 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
   };
 }
 
-function buildShopAdmins(readModel: PlatformAdminLiveReadModel): PlatformSection {
+function buildShopAdmins(
+  readModel: PlatformAdminLiveReadModel,
+): PlatformSection {
   const base = platformSections.shopAdmins;
   const shopAdminAccounts = readModel.userAccounts.filter((account) =>
     hasShopAdminMembershipHistory(account.profileId, readModel),
@@ -2432,10 +3500,14 @@ function buildShopAdmins(readModel: PlatformAdminLiveReadModel): PlatformSection
     canAccessAdminConsole(account.profileId, readModel),
   ).length;
   const historicalOnlyAccounts = shopAdminAccounts.filter(
-    (account) => shopAdminAccessStateForProfile(account.profileId, readModel) === "Historical only",
+    (account) =>
+      shopAdminAccessStateForProfile(account.profileId, readModel) ===
+      "Historical only",
   ).length;
   const disabledOnlyAccounts = shopAdminAccounts.filter(
-    (account) => shopAdminAccessStateForProfile(account.profileId, readModel) === "Disabled",
+    (account) =>
+      shopAdminAccessStateForProfile(account.profileId, readModel) ===
+      "Disabled",
   ).length;
   const ownerAccounts = shopAdminAccounts.filter((account) =>
     shopAdminAccountMembershipsForProfile(account.profileId, readModel).some(
@@ -2447,17 +3519,15 @@ function buildShopAdmins(readModel: PlatformAdminLiveReadModel): PlatformSection
       (member) => member.role_id === "shop_manager",
     ),
   ).length;
-  const multiShopAccounts = shopAdminAccounts.filter(
-    (account) => {
-      const shopIds = new Set(
-        shopAdminAccountMembershipsForProfile(account.profileId, readModel).map(
-          (member) => member.shop_id,
-        ),
-      );
+  const multiShopAccounts = shopAdminAccounts.filter((account) => {
+    const shopIds = new Set(
+      shopAdminAccountMembershipsForProfile(account.profileId, readModel).map(
+        (member) => member.shop_id,
+      ),
+    );
 
-      return shopIds.size > 1;
-    },
-  ).length;
+    return shopIds.size > 1;
+  }).length;
   const platformAdminOverlap = shopAdminAccounts.filter((account) =>
     hasPlatformAdminAccess(account.profileId, readModel),
   ).length;
@@ -2560,24 +3630,31 @@ function buildShopAdmins(readModel: PlatformAdminLiveReadModel): PlatformSection
       },
     ],
     rowDetails: shopAdminAccounts.map((account) =>
-      userRowDetail(account, readModel),
+      shopAdminRowDetail(account, readModel),
     ),
     rows: shopAdminAccounts.map((account): TableRow => {
       const profileSyncState = profileSyncStateLabel(account.profileSyncState);
 
       return {
-        adminAccess: shopAdminAccessStateForProfile(account.profileId, readModel),
+        adminAccess: shopAdminAccessStateForProfile(
+          account.profileId,
+          readModel,
+        ),
         email: account.email,
-        globalAccess: globalAccessSummaryForProfile(account.profileId, readModel),
+        globalAccess: globalAccessSummaryForProfile(
+          account.profileId,
+          readModel,
+        ),
         origin: accountOriginForUser(account),
-        profile: `${account.displayName}\nProfile ID ${shortId(account.profileId)}\n${profileSyncState}`,
+        profile: accountProfileCell(account, readModel),
         roles: shopAdminRolesSummaryForProfile(account.profileId, readModel),
         rowKey: account.profileId,
         shops: shopAdminShopsSummaryForProfile(account.profileId, readModel),
         state: `${profileSyncState}\n${formatToken(account.profileStatus)}`,
       };
     }),
-    searchPlaceholder: "Search Shop Admin by email, UID, display name, or provider",
+    searchPlaceholder:
+      "Search Shop Admin by email, UID, display name, or provider",
     serverSearch: {
       clearLabel: "Clear",
       helper: readModel.authIdentityStatus.truncated
@@ -2588,8 +3665,18 @@ function buildShopAdmins(readModel: PlatformAdminLiveReadModel): PlatformSection
       value: readModel.usersSearchQuery ?? "",
     },
     stats: [
-      stat("Shop Admin accounts", String(shopAdminAccounts.length), "Owner/manager memberships", "good"),
-      stat("Current Shop Admins", String(currentShopAdminAccounts), "Can access Admin Console now", "good"),
+      stat(
+        "Shop Admin accounts",
+        String(shopAdminAccounts.length),
+        "Owner/manager memberships",
+        "good",
+      ),
+      stat(
+        "Current Shop Admins",
+        String(currentShopAdminAccounts),
+        "Can access Admin Console now",
+        "good",
+      ),
       stat(
         "Historical only",
         String(historicalOnlyAccounts),
@@ -2602,9 +3689,23 @@ function buildShopAdmins(readModel: PlatformAdminLiveReadModel): PlatformSection
         "Only inactive owner or manager memberships",
         disabledOnlyAccounts > 0 ? "warning" : "muted",
       ),
-      stat("Owner accounts", String(ownerAccounts), "Has shop_owner membership", "good"),
-      stat("Manager accounts", String(managerAccounts), "Has shop_manager membership", "good"),
-      stat("Multi-shop accounts", String(multiShopAccounts), "More than one linked shop"),
+      stat(
+        "Owner accounts",
+        String(ownerAccounts),
+        "Has shop_owner membership",
+        "good",
+      ),
+      stat(
+        "Manager accounts",
+        String(managerAccounts),
+        "Has shop_manager membership",
+        "good",
+      ),
+      stat(
+        "Multi-shop accounts",
+        String(multiShopAccounts),
+        "More than one linked shop",
+      ),
       stat(
         "Platform admin overlap",
         String(platformAdminOverlap),
@@ -2685,9 +3786,14 @@ function buildShops(readModel: PlatformAdminLiveReadModel): PlatformSection {
         code: shop.shop_code,
         devices: shopDeviceSummary(shop, readModel),
         health: shopHealthSummary(shop, readModel),
+        inventorySource: shopInventorySourceTableValue(shop, readModel),
         members: memberSummaryForShop(shop, readModel.shopMembers),
         operationalAccess: shopOperationalAccessTableValue(shop),
-        owners: ownerSummaryForShop(shop, readModel.profiles, readModel.shopMembers),
+        owners: ownerSummaryForShop(
+          shop,
+          readModel.profiles,
+          readModel.shopMembers,
+        ),
         rowKey: shop.shop_id,
         shop: `${shop.shop_name}\nCode ${shop.shop_code}\nID ${shortId(shop.shop_id)}`,
         status: shopStatus,
@@ -2724,7 +3830,9 @@ function buildShops(readModel: PlatformAdminLiveReadModel): PlatformSection {
   };
 }
 
-function buildProvisioning(readModel: PlatformAdminLiveReadModel): PlatformSection {
+function buildProvisioning(
+  readModel: PlatformAdminLiveReadModel,
+): PlatformSection {
   const base = platformSections.provisioning;
   const activeProfiles = readModel.profiles.filter(
     (profile) => profile.profile_status === "active",
@@ -2766,10 +3874,19 @@ function buildProvisioning(readModel: PlatformAdminLiveReadModel): PlatformSecti
       },
     ],
     stats: [
-      stat("Active profiles", String(activeProfiles.length), "Owner candidates"),
+      stat(
+        "Active profiles",
+        String(activeProfiles.length),
+        "Owner candidates",
+      ),
       stat("Shop code", "Validated", "Server normalization", "good"),
       stat("Initial staff", "1001", "POS manager default", "good"),
-      stat("Invite delivery", "Pending", "PASS_WITH_NOTES_EMAIL_DELIVERY", "warning"),
+      stat(
+        "Invite delivery",
+        "Pending",
+        "PASS_WITH_NOTES_EMAIL_DELIVERY",
+        "warning",
+      ),
     ],
     status: "Safe provisioning",
   };
@@ -2795,16 +3912,27 @@ function buildAdmins(readModel: PlatformAdminLiveReadModel): PlatformSection {
       return {
         email: account?.email ?? "Auth identity unavailable",
         granted: admin.granted_at,
-        origin: account ? accountOriginForUser(account) : "Auth identity unavailable",
-        profile: `${account?.displayName ?? profileNameById(readModel.profiles, admin.profile_id)}\nProfile ID ${shortId(admin.profile_id)}`,
+        origin: account
+          ? accountOriginForUser(account)
+          : "Auth identity unavailable",
+        profile: account
+          ? accountProfileCell(account, readModel)
+          : `${profileNameById(readModel.profiles, admin.profile_id)}\nProfile ID ${shortId(admin.profile_id)}`,
         review: admin.last_reviewed_at ?? "Grant state visible",
         rowKey: admin.platform_admin_id,
-        shopOverlap: shopAdminAccessStateForProfile(admin.profile_id, readModel),
+        shopOverlap: shopAdminAccessStateForProfile(
+          admin.profile_id,
+          readModel,
+        ),
         status: formatToken(admin.status),
       };
     }),
     stats: [
-      stat("Admin grants", String(readModel.platformAdmins.length), "Visible grants"),
+      stat(
+        "Admin grants",
+        String(readModel.platformAdmins.length),
+        "Visible grants",
+      ),
       stat(
         "Active admins",
         String(readModel.platformAdminProfileIds.length),
@@ -2827,27 +3955,28 @@ function buildAudit(readModel: PlatformAdminLiveReadModel): PlatformSection {
       "metadata_redacted is summarized only; raw metadata is not rendered.",
       "Audit logs are distinct from sync/history events.",
     ],
-    rows: readModel.auditLogs.map((log): TableRow => ({
-      actor: profileNameById(readModel.profiles, log.actor_profile_id),
-      date: log.created_at,
-      event: log.event,
-      rowKey: log.audit_log_id,
-      scope:
-        log.scope === "shop"
-          ? shopNameById(readModel.shops, log.shop_id)
-          : "Global",
-      severity: formatToken(log.severity),
-      target: `${log.target_type ?? "none"}:${shortId(log.target_id)}`,
-    })),
+    rows: readModel.auditLogs.map(
+      (log): TableRow => ({
+        actor: profileNameById(readModel.profiles, log.actor_profile_id),
+        date: log.created_at,
+        event: log.event,
+        rowKey: log.audit_log_id,
+        scope:
+          log.scope === "shop"
+            ? shopNameById(readModel.shops, log.shop_id)
+            : "Global",
+        severity: formatToken(log.severity),
+        target: `${log.target_type ?? "none"}:${shortId(log.target_id)}`,
+      }),
+    ),
     stats: [
       stat("Audit events", String(readModel.auditLogs.length), "Latest rows"),
-      stat("Severity filters", "Ready", "actor shop area action target severity date"),
       stat(
-        "Metadata",
-        "Redacted",
-        "metadata_redacted summaries only",
-        "good",
+        "Severity filters",
+        "Ready",
+        "actor shop area action target severity date",
       ),
+      stat("Metadata", "Redacted", "metadata_redacted summaries only", "good"),
     ],
     status: "Read-only",
   };
@@ -2870,7 +3999,10 @@ function buildSystem(readModel: PlatformAdminLiveReadModel): PlatformSection {
         area: "Redacted runtime configuration",
         next: "Configured values are never printed",
         signal: readModel.status === "ready" ? "Configured" : "Not configured",
-        state: readModel.status === "ready" ? readableBoundaryStatus("PASS") : readableBoundaryStatus("not_configured"),
+        state:
+          readModel.status === "ready"
+            ? readableBoundaryStatus("PASS")
+            : readableBoundaryStatus("not_configured"),
       },
       {
         area: "Supabase connection health",
@@ -2883,7 +4015,9 @@ function buildSystem(readModel: PlatformAdminLiveReadModel): PlatformSection {
         next: staffIssue
           ? `${staffIssue.message}\nCode: ${staffIssue.code}`
           : "Selects pass through authenticated RLS only",
-        signal: staffIssue ? "Permission boundary" : "Profiles, shops, audit, devices, sync",
+        signal: staffIssue
+          ? "Permission boundary"
+          : "Profiles, shops, audit, devices, sync",
         state: staffIssue
           ? readableBoundaryStatus(staffIssue.code)
           : readableBoundaryStatus("PASS_WITH_NOTES"),
@@ -2915,13 +4049,30 @@ function buildSystem(readModel: PlatformAdminLiveReadModel): PlatformSection {
         area: "Migration drift",
         next: "Verified only by linked Supabase CLI checks",
         signal: "migration drift",
-        state: readableBoundaryStatus(readModel.dataHealth.migration_drift_status),
+        state: readableBoundaryStatus(
+          readModel.dataHealth.migration_drift_status,
+        ),
       },
     ],
     stats: [
-      stat("Auth SSR", readableBoundaryStatus("PASS"), "Server session boundary", "good"),
-      stat("Route protection", readableBoundaryStatus("PASS"), "Server layout gate", "good"),
-      stat("Migration drift", readableBoundaryStatus("NOT_RUN"), "CLI evidence required", "warning"),
+      stat(
+        "Auth SSR",
+        readableBoundaryStatus("PASS"),
+        "Server session boundary",
+        "good",
+      ),
+      stat(
+        "Route protection",
+        readableBoundaryStatus("PASS"),
+        "Server layout gate",
+        "good",
+      ),
+      stat(
+        "Migration drift",
+        readableBoundaryStatus("NOT_RUN"),
+        "CLI evidence required",
+        "warning",
+      ),
     ],
     status: "System health",
   };
@@ -2953,7 +4104,8 @@ function buildData(readModel: PlatformAdminLiveReadModel): PlatformSection {
         next:
           readModel.authIdentityStatus.status === "ready"
             ? "Counted through server-side Auth identity DTO"
-            : readModel.authIdentityStatus.reason ?? "Auth identity DTO unavailable",
+            : (readModel.authIdentityStatus.reason ??
+              "Auth identity DTO unavailable"),
         signal:
           readModel.authIdentityStatus.status === "ready"
             ? String(readModel.authIdentityStatus.scannedCount)
@@ -3032,7 +4184,9 @@ function buildData(readModel: PlatformAdminLiveReadModel): PlatformSection {
         next: staffIssue
           ? `${staffIssue.message}\nCode: ${staffIssue.code}`
           : "Safe staff view only",
-        signal: staffIssue ? "Permission boundary" : String(readModel.staffSafeRows.length),
+        signal: staffIssue
+          ? "Permission boundary"
+          : String(readModel.staffSafeRows.length),
         state: readableBoundaryStatus(health.staff_schema_status),
       },
     ],
@@ -3094,7 +4248,9 @@ function buildDevices(readModel: PlatformAdminLiveReadModel): PlatformSection {
   const syncSourceIds = new Set(
     readModel.syncEvents
       .map((event) => event.source_device_id)
-      .filter((sourceDeviceId): sourceDeviceId is string => Boolean(sourceDeviceId)),
+      .filter((sourceDeviceId): sourceDeviceId is string =>
+        Boolean(sourceDeviceId),
+      ),
   );
 
   return {
@@ -3138,7 +4294,8 @@ function buildDevices(readModel: PlatformAdminLiveReadModel): PlatformSection {
     ],
     purposeItems: [
       {
-        detail: "Review aggregated device coverage and support signals across shops.",
+        detail:
+          "Review aggregated device coverage and support signals across shops.",
         label: "Shows",
       },
       {
@@ -3158,8 +4315,18 @@ function buildDevices(readModel: PlatformAdminLiveReadModel): PlatformSection {
     ],
     rows: readModel.shopDevices.map((device) => deviceRow(device, readModel)),
     stats: [
-      stat("Authorized", String(authorized), "Active shop_devices rows", "good"),
-      stat("Revoked", String(revoked), "Authorization disabled", revoked > 0 ? "warning" : "good"),
+      stat(
+        "Authorized",
+        String(authorized),
+        "Active shop_devices rows",
+        "good",
+      ),
+      stat(
+        "Revoked",
+        String(revoked),
+        "Authorization disabled",
+        revoked > 0 ? "warning" : "good",
+      ),
       stat(
         "Suspicious",
         String(suspicious),
@@ -3256,7 +4423,8 @@ function buildSyncLike(
     nextLinks: isSync
       ? [
           {
-            description: "Review aggregate device and sync health in the data diagnostics page.",
+            description:
+              "Review aggregate device and sync health in the data diagnostics page.",
             href: "/platform/data",
             label: "Open Data",
           },
@@ -3274,12 +4442,14 @@ function buildSyncLike(
         ]
       : [
           {
-            description: "Use technical sync events when debugging event-level replication.",
+            description:
+              "Use technical sync events when debugging event-level replication.",
             href: "/platform/sync",
             label: "Open Sync",
           },
           {
-            description: "Use Audit for admin actions, results, actors, and targets.",
+            description:
+              "Use Audit for admin actions, results, actors, and targets.",
             href: "/platform/audit",
             label: "Open Audit",
           },
@@ -3292,7 +4462,8 @@ function buildSyncLike(
             label: "Shows",
           },
           {
-            detail: "Use it when debugging global sync visibility before opening shop-level troubleshooting.",
+            detail:
+              "Use it when debugging global sync visibility before opening shop-level troubleshooting.",
             label: "Use when",
           },
           {
@@ -3313,7 +4484,8 @@ function buildSyncLike(
             label: "Shows",
           },
           {
-            detail: "Use it when Sync feels too technical for a support question.",
+            detail:
+              "Use it when Sync feels too technical for a support question.",
             label: "Use when",
           },
           {
@@ -3354,7 +4526,9 @@ function buildSyncLike(
   };
 }
 
-function buildOperations(readModel: PlatformAdminLiveReadModel): PlatformSection {
+function buildOperations(
+  readModel: PlatformAdminLiveReadModel,
+): PlatformSection {
   const base = platformSections.operations;
 
   return {
@@ -3367,7 +4541,8 @@ function buildOperations(readModel: PlatformAdminLiveReadModel): PlatformSection
     ],
     operations: [
       {
-        description: "Suspend, reactivate, or archive a shop through audited RPCs.",
+        description:
+          "Suspend, reactivate, or archive a shop through audited RPCs.",
         label: "Shop lifecycle",
       },
       {
@@ -3388,7 +4563,8 @@ function buildOperations(readModel: PlatformAdminLiveReadModel): PlatformSection
         state: "Audited",
       },
       {
-        availability: readModel.shopDevices.length > 0 ? "Available" : "No device rows",
+        availability:
+          readModel.shopDevices.length > 0 ? "Available" : "No device rows",
         operation: "Emergency device action",
         requirement: "Device id, shop code confirmation, and reason",
         state: "Audited RPC",
@@ -3405,32 +4581,34 @@ function buildOperations(readModel: PlatformAdminLiveReadModel): PlatformSection
 
 function buildSupport(readModel: PlatformAdminLiveReadModel): PlatformSection {
   const base = platformSections.support;
-  const profileRows = readModel.profiles.slice(0, 60).map((profile): TableRow => {
-    const memberships = membershipsForProfile(
-      profile.profile_id,
-      readModel.shops,
-      readModel.shopMembers,
-    );
-    const recentAudit = readModel.auditLogs.find(
-      (log) => log.actor_profile_id === profile.profile_id,
-    );
+  const profileRows = readModel.profiles
+    .slice(0, 60)
+    .map((profile): TableRow => {
+      const memberships = membershipsForProfile(
+        profile.profile_id,
+        readModel.shops,
+        readModel.shopMembers,
+      );
+      const recentAudit = readModel.auditLogs.find(
+        (log) => log.actor_profile_id === profile.profile_id,
+      );
 
-    return {
-      rowKey: profile.profile_id,
-      signal:
-        memberships.length > 0
-          ? memberships.slice(0, 2).join(", ")
-          : "No memberships",
-      state: formatToken(profile.profile_status),
-      subject: profile.display_name,
-      suggestedNextStep:
-        memberships.length === 0
-          ? "Check profile membership"
-          : recentAudit
-            ? "Open user detail"
-            : "No action needed",
-    };
-  });
+      return {
+        rowKey: profile.profile_id,
+        signal:
+          memberships.length > 0
+            ? memberships.slice(0, 2).join(", ")
+            : "No memberships",
+        state: formatToken(profile.profile_status),
+        subject: profile.display_name,
+        suggestedNextStep:
+          memberships.length === 0
+            ? "Check profile membership"
+            : recentAudit
+              ? "Open user detail"
+              : "No action needed",
+      };
+    });
 
   const shopRows = readModel.shops.slice(0, 40).map((shop): TableRow => {
     const devices = readModel.shopDevices.filter(
@@ -3448,7 +4626,8 @@ function buildSupport(readModel: PlatformAdminLiveReadModel): PlatformSection {
       state: formatToken(shop.shop_status),
       subject: shop.shop_name,
       suggestedNextStep:
-        activeOwnerForShop(shop, readModel.profiles, readModel.shopMembers) === "Unassigned"
+        activeOwnerForShop(shop, readModel.profiles, readModel.shopMembers) ===
+        "Unassigned"
           ? "Use Provisioning"
           : devices.length === 0
             ? "Open Data"
@@ -3506,7 +4685,8 @@ function buildSupport(readModel: PlatformAdminLiveReadModel): PlatformSection {
         label: "Open Provisioning",
       },
       {
-        description: "Use Operations only for audited emergency or lifecycle actions.",
+        description:
+          "Use Operations only for audited emergency or lifecycle actions.",
         href: "/platform/operations",
         label: "Open Operations",
       },
@@ -3523,7 +4703,8 @@ function buildSupport(readModel: PlatformAdminLiveReadModel): PlatformSection {
         label: "Use when",
       },
       {
-        detail: "It does not impersonate users and does not run mutative support actions.",
+        detail:
+          "It does not impersonate users and does not run mutative support actions.",
         label: "Not included",
       },
       {
@@ -3542,7 +4723,12 @@ function buildSupport(readModel: PlatformAdminLiveReadModel): PlatformSection {
         "Membership, owner, or read warnings",
         accessIssues > 0 ? "warning" : "good",
       ),
-      stat("Impersonation: Out of scope", "No", "No mutative support action", "warning"),
+      stat(
+        "Impersonation: Out of scope",
+        "No",
+        "No mutative support action",
+        "warning",
+      ),
     ],
     status: "Read-only",
   };
@@ -3596,7 +4782,11 @@ function buildAuditDetail(
     stats: [
       stat("Event", event ? "Visible" : "Missing", "RLS detail lookup"),
       stat("Metadata", "Redacted", "Summary only", "good"),
-      stat("Result", event ? formatToken(event.result) : "Unknown", "Audit outcome"),
+      stat(
+        "Result",
+        event ? formatToken(event.result) : "Unknown",
+        "Audit outcome",
+      ),
     ],
     status: "Audit detail",
     title: "Audit Detail",
@@ -3606,9 +4796,15 @@ function buildAuditDetail(
 function buildUserDetail(
   readModel: PlatformAdminLiveReadModel,
   profileId: string,
+  context: AccountDetailContext = "users",
 ): PlatformSection {
-  const base = platformSections.users;
-  const account = readModel.userAccounts.find((item) => item.profileId === profileId);
+  const base =
+    context === "shopAdmins"
+      ? platformSections.shopAdmins
+      : platformSections.users;
+  const account = readModel.userAccounts.find(
+    (item) => item.profileId === profileId,
+  );
   const audits = readModel.auditLogs.filter(
     (log) => log.actor_profile_id === profileId,
   );
@@ -3616,8 +4812,12 @@ function buildUserDetail(
   return {
     ...base,
     description:
-      "Profile detail with safe Auth identity summary, memberships, role state, and linked audit.",
-    detailSections: account ? userDetailSections(account, readModel) : undefined,
+      context === "shopAdmins"
+        ? "Account detail opened from the filtered Shop Admin view, with shop_members context highlighted."
+        : "Account detail with safe Auth identity summary, global access, shop memberships, linked mobile data, and audit.",
+    detailSections: account
+      ? userDetailSections(account, readModel, context)
+      : undefined,
     emptyState: {
       description:
         "The requested account is not visible through the current Platform Admin read boundary.",
@@ -3634,7 +4834,7 @@ function buildUserDetail(
             access: accessSummaryForProfile(account.profileId, readModel),
             email: account.email,
             origin: accountOriginForUser(account),
-            profile: `${account.displayName}\nProfile ID ${shortId(account.profileId)}\n${profileSyncStateLabel(account.profileSyncState)}`,
+            profile: accountProfileCell(account, readModel),
             rowKey: account.profileId,
             shops: shopAccessSummaryForProfile(
               account.profileId,
@@ -3669,8 +4869,124 @@ function buildUserDetail(
       ),
       stat("Audit events", String(audits.length), "Actor-linked audit"),
     ],
-    status: "User detail",
-    title: account ? account.displayName : "User Detail",
+    status:
+      context === "shopAdmins" ? "Shop Admin account detail" : "Account detail",
+    title: account ? accountPrimaryLabel(account) : "Account Detail",
+  };
+}
+
+function buildShopAdminDetail(
+  readModel: PlatformAdminLiveReadModel,
+  profileId: string,
+): PlatformSection {
+  const base = platformSections.shopAdmins;
+  const account = readModel.userAccounts.find(
+    (item) => item.profileId === profileId,
+  );
+  const memberships = account
+    ? shopAdminAccountMembershipsForProfile(account.profileId, readModel)
+    : [];
+  const audits = readModel.auditLogs.filter(
+    (log) => log.actor_profile_id === profileId,
+  );
+
+  return {
+    ...base,
+    description:
+      "Account detail opened from the filtered Shop Admin view, with shop_members context highlighted.",
+    detailSections: account
+      ? userDetailSections(account, readModel, "shopAdmins")
+      : undefined,
+    emptyState: {
+      description:
+        "The requested Shop Admin account is not visible through the current Platform Admin read boundary.",
+      title: "Shop Admin account not visible",
+    },
+    guardrails: [
+      "Shop Admin access is read from shop_members owner/manager memberships.",
+      "Platform Admin overlap is context only; global grants remain in Platform Admins.",
+      "Owner-scoped mobile inventory counts are shown on the linked shop record when mapped.",
+      "No auth secret fields are queried or rendered.",
+    ],
+    rows: account
+      ? [
+          {
+            adminAccess: shopAdminAccessStateForProfile(
+              account.profileId,
+              readModel,
+            ),
+            email: account.email,
+            globalAccess: globalAccessSummaryForProfile(
+              account.profileId,
+              readModel,
+            ),
+            origin: accountOriginForUser(account),
+            profile: accountProfileCell(account, readModel),
+            roles: shopAdminRolesSummaryForProfile(
+              account.profileId,
+              readModel,
+            ),
+            rowKey: account.profileId,
+            shops: shopAdminShopsSummaryForProfile(
+              account.profileId,
+              readModel,
+            ),
+            state: `${profileSyncStateLabel(account.profileSyncState)}\n${formatToken(account.profileStatus)}`,
+          },
+          ...memberships.map((member) => ({
+            adminAccess: membershipOperationalLabel(
+              member,
+              shopById(readModel.shops).get(member.shop_id),
+            ),
+            email: account.email,
+            globalAccess: globalAccessSummaryForProfile(
+              account.profileId,
+              readModel,
+            ),
+            origin: "shop_members",
+            profile: profileNameById(readModel.profiles, account.profileId),
+            roles: formatToken(member.role_id),
+            rowKey: `${account.profileId}-${member.shop_member_id}`,
+            shops: shopCodeById(readModel.shops, member.shop_id),
+            state: formatToken(member.membership_status),
+          })),
+        ]
+      : [],
+    stats: [
+      stat(
+        "Shop Admin account",
+        account ? "Visible" : "Missing",
+        "Server detail lookup",
+      ),
+      stat(
+        "Current access",
+        account
+          ? shopAdminAccessStateForProfile(account.profileId, readModel)
+          : "Missing",
+        "shop_members owner/manager context",
+        account && canAccessAdminConsole(account.profileId, readModel)
+          ? "good"
+          : "warning",
+      ),
+      stat(
+        "Membership records",
+        String(memberships.length),
+        "Owner/manager rows",
+      ),
+      stat(
+        "Platform Admin overlap",
+        account && hasPlatformAdminAccess(account.profileId, readModel)
+          ? "Yes"
+          : "No",
+        "Global Master Console context",
+        account && hasPlatformAdminAccess(account.profileId, readModel)
+          ? "warning"
+          : "muted",
+      ),
+      stat("Audit events", String(audits.length), "Actor-linked audit"),
+    ],
+    status: "Shop Admin account detail",
+    title: account ? accountPrimaryLabel(account) : "Shop Admin Detail",
   };
 }
 
@@ -3680,14 +4996,21 @@ function buildShopDetail(
 ): PlatformSection {
   const base = platformSections.shops;
   const shop = readModel.shops.find((item) => item.shop_id === shopId);
-  const members = readModel.shopMembers.filter((member) => member.shop_id === shopId);
-  const devices = readModel.shopDevices.filter((device) => device.shop_id === shopId);
+  const members = readModel.shopMembers.filter(
+    (member) => member.shop_id === shopId,
+  );
+  const devices = readModel.shopDevices.filter(
+    (device) => device.shop_id === shopId,
+  );
   const sync = latestSyncForShop(
     readModel.syncEvents,
     readModel.shopOwnerMappings,
     shopId,
   );
   const audits = readModel.auditLogs.filter((log) => log.shop_id === shopId);
+  const primaryOwnerProfileId = shop
+    ? primaryOwnerProfileIdForShop(shop, members, readModel)
+    : undefined;
 
   return {
     ...base,
@@ -3711,9 +5034,14 @@ function buildShopDetail(
             code: shop.shop_code,
             devices: shopDeviceSummary(shop, readModel),
             health: shopHealthSummary(shop, readModel),
+            inventorySource: shopInventorySourceTableValue(shop, readModel),
             members: memberSummaryForShop(shop, readModel.shopMembers),
             operationalAccess: shopOperationalAccessTableValue(shop),
-            owners: ownerSummaryForShop(shop, readModel.profiles, readModel.shopMembers),
+            owners: ownerSummaryForShop(
+              shop,
+              readModel.profiles,
+              readModel.shopMembers,
+            ),
             rowKey: shop.shop_id,
             shop: `${shop.shop_name}\nCode ${shop.shop_code}\nID ${shortId(shop.shop_id)}`,
             status: shopStatusLabel(shop.shop_status),
@@ -3722,11 +5050,14 @@ function buildShopDetail(
             code: "Members",
             devices: "No device change",
             health: `${members.length} memberships`,
+            inventorySource: shopInventorySourceTableValue(shop, readModel),
             members: memberSummaryForShop(shop, readModel.shopMembers),
             operationalAccess: shopOperationalAccessTableValue(shop),
             owners: members
               .slice(0, 4)
-              .map((member) => profileNameById(readModel.profiles, member.profile_id))
+              .map((member) =>
+                profileNameById(readModel.profiles, member.profile_id),
+              )
               .join(", "),
             rowKey: `${shop.shop_id}-members`,
             shop: "Owner/members summary",
@@ -3736,6 +5067,7 @@ function buildShopDetail(
             code: "Sync",
             devices: `${devices.length} visible devices`,
             health: sync ? sync.metadata_summary : "No sync visible",
+            inventorySource: shopInventorySourceTableValue(shop, readModel),
             members: `${audits.length} audit events`,
             operationalAccess: shopOperationalAccessTableValue(shop),
             owners: sync?.source ?? "None",
@@ -3752,15 +5084,32 @@ function buildShopDetail(
         shop ? shopRecordLabel(shop) : "No shop record",
         shop?.shop_status === "active" ? "good" : "warning",
       ),
-      stat("Membership records", String(members.length), "Returned memberships"),
       stat(
         "Operational access",
         shop ? shopOperationalAccessState(shop) : "Missing",
         shop ? shopRecordLabel(shop) : "No shop record",
         shop?.shop_status === "active" ? "good" : "warning",
       ),
+      stat(
+        "Owner",
+        shop
+          ? accountPrimaryLabelForProfile(primaryOwnerProfileId, readModel)
+          : "Missing",
+        primaryOwnerProfileId ? "Shop Owner" : "Owner not linked",
+        primaryOwnerProfileId ? "good" : "warning",
+      ),
+      stat(
+        "Inventory source",
+        shop ? shopInventorySourceStatusLabel(shop, readModel) : "Missing",
+        "Owner-scoped mobile data",
+        shop &&
+          shopInventorySourceMappingForShop(shop, readModel)?.mappingState ===
+            "mapped"
+          ? "good"
+          : "muted",
+      ),
+      stat("Audit events", String(audits.length), "Recent audit rows"),
       stat("Devices", String(devices.length), "Device rows"),
-      stat("Audit", String(audits.length), "Recent audit rows"),
     ],
     status: "Shop detail",
     title: shop ? shop.shop_name : "Shop Detail",
@@ -3811,6 +5160,7 @@ export async function getPlatformSectionForRequest(
     includeAuthIdentities:
       key === "users" ||
       key === "shopAdmins" ||
+      key === "shops" ||
       key === "admins" ||
       key === "data",
     usersSearchQuery:
@@ -3840,6 +5190,7 @@ export async function getPlatformAuditDetailForRequest(
 
 export async function getPlatformUserDetailForRequest(
   profileId: string,
+  options: { context?: AccountDetailContext } = {},
 ): Promise<PlatformSection> {
   const readModel = await getPlatformAdminReadModel({
     includeAuthIdentities: true,
@@ -3850,13 +5201,31 @@ export async function getPlatformUserDetailForRequest(
     return fallbackSection("users", readModel);
   }
 
-  return buildUserDetail(readModel, profileId);
+  return buildUserDetail(readModel, profileId, options.context ?? "users");
+}
+
+export async function getPlatformShopAdminDetailForRequest(
+  profileId: string,
+): Promise<PlatformSection> {
+  const readModel = await getPlatformAdminReadModel({
+    includeAuthIdentities: true,
+    usersSearchQuery: profileId,
+  });
+
+  if (readModel.status !== "ready") {
+    return fallbackSection("shopAdmins", readModel);
+  }
+
+  return buildShopAdminDetail(readModel, profileId);
 }
 
 export async function getPlatformShopDetailForRequest(
   shopId: string,
 ): Promise<PlatformSection> {
-  const readModel = await getPlatformAdminReadModel();
+  const readModel = await getPlatformAdminReadModel({
+    includeAuthIdentities: true,
+    mobileInventoryShopIds: [shopId],
+  });
 
   if (readModel.status !== "ready") {
     return fallbackSection("shops", readModel);

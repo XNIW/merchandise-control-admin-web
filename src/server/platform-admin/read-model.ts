@@ -45,13 +45,14 @@ import {
   type ShopOwnerMappingRowCandidate,
   type ShopRowCandidate,
 } from "./mappers";
+import type { InventorySourceMappingState } from "./inventory-sources";
 
 type Tables = Database["public"]["Tables"];
 
 type PlatformReadStatus = "ready" | "not_configured" | "unauthorized" | "error";
 
 type PlatformReadIssue = {
-  area: "auth_identities" | "staff_accounts_safe";
+  area: "auth_identities" | "mobile_inventory_data" | "staff_accounts_safe";
   code: string;
   message: string;
   severity: "warning";
@@ -78,6 +79,25 @@ export type PlatformShopAccessState =
   | "none"
   | "platform_admin";
 
+export type PlatformMobileInventoryDataStatus =
+  | "none"
+  | "present"
+  | "unavailable";
+
+export type PlatformMobileInventoryDataSummary = {
+  categoriesCount: number | null;
+  hasMobileInventoryData: boolean;
+  mobileDataScope: "owner_scoped";
+  productPricesCount: number | null;
+  productsCount: number | null;
+  sharedSheetSessionsCount: number | null;
+  shopId: string | null;
+  shopInventoryMappingState: InventorySourceMappingState;
+  status: PlatformMobileInventoryDataStatus;
+  suppliersCount: number | null;
+  syncEventsCount: number | null;
+};
+
 export type PlatformUserAccountSummary = {
   createdAt: string;
   currentShopAdminMembershipCount: number;
@@ -85,6 +105,7 @@ export type PlatformUserAccountSummary = {
   displayName: string;
   email: string;
   historicalShopAdminMembershipCount: number;
+  mobileInventoryData: PlatformMobileInventoryDataSummary;
   nonOperationalMembershipCount: number;
   totalMembershipCount: number;
   membershipCount: number;
@@ -99,6 +120,7 @@ export type PlatformUserAccountSummary = {
 
 export type PlatformAdminReadModelOptions = {
   includeAuthIdentities?: boolean;
+  mobileInventoryShopIds?: readonly string[];
   usersSearchQuery?: string;
 };
 
@@ -299,6 +321,226 @@ function mapSyncRow(row: Tables["sync_events"]["Row"]): PlatformSyncOverview {
     source_device_id: row.source_device_id ?? undefined,
     store_id: row.store_id ?? undefined,
     sync_event_id: String(row.id),
+  };
+}
+
+type MobileInventoryCountKey =
+  | "categoriesCount"
+  | "productPricesCount"
+  | "productsCount"
+  | "sharedSheetSessionsCount"
+  | "suppliersCount"
+  | "syncEventsCount";
+
+type MobileInventoryCountTable =
+  | "inventory_categories"
+  | "inventory_product_prices"
+  | "inventory_products"
+  | "inventory_suppliers"
+  | "shared_sheet_sessions"
+  | "sync_events";
+
+type MobileInventoryCountResult = {
+  count: number | null;
+  errorMessage: string | null;
+};
+
+const mobileInventoryCountTables: readonly {
+  key: MobileInventoryCountKey;
+  table: MobileInventoryCountTable;
+}[] = [
+  { key: "productsCount", table: "inventory_products" },
+  { key: "suppliersCount", table: "inventory_suppliers" },
+  { key: "categoriesCount", table: "inventory_categories" },
+  { key: "productPricesCount", table: "inventory_product_prices" },
+  { key: "sharedSheetSessionsCount", table: "shared_sheet_sessions" },
+  { key: "syncEventsCount", table: "sync_events" },
+];
+
+function emptyMobileInventoryDataSummary(
+  mapping?: ShopOwnerMapping,
+): PlatformMobileInventoryDataSummary {
+  return {
+    categoriesCount: 0,
+    hasMobileInventoryData: false,
+    mobileDataScope: "owner_scoped",
+    productPricesCount: 0,
+    productsCount: 0,
+    sharedSheetSessionsCount: 0,
+    shopId: mapping?.shopId ?? null,
+    shopInventoryMappingState: mapping?.mappingState ?? "not_configured",
+    status: "none",
+    suppliersCount: 0,
+    syncEventsCount: 0,
+  };
+}
+
+function shopOwnerMappingForOwner(
+  ownerUserId: string,
+  mappings: readonly ShopOwnerMapping[],
+) {
+  const ownerMappings = mappings.filter(
+    (mapping) => mapping.ownerUserId === ownerUserId,
+  );
+
+  return (
+    ownerMappings.find((mapping) => mapping.mappingState === "mapped") ??
+    ownerMappings[0]
+  );
+}
+
+async function safeCountOwnerRows(
+  supabase: SupabaseServerClient,
+  table: MobileInventoryCountTable,
+  ownerUserId: string,
+): Promise<MobileInventoryCountResult> {
+  const selectOwnerOnly = "owner_user_id";
+  const countOptions = { count: "exact", head: true } as const;
+  let result: { count: number | null; error: { message: string } | null };
+
+  switch (table) {
+    case "inventory_categories":
+      result = await supabase
+        .from("inventory_categories")
+        .select(selectOwnerOnly, countOptions)
+        .eq("owner_user_id", ownerUserId);
+      break;
+    case "inventory_product_prices":
+      result = await supabase
+        .from("inventory_product_prices")
+        .select(selectOwnerOnly, countOptions)
+        .eq("owner_user_id", ownerUserId);
+      break;
+    case "inventory_products":
+      result = await supabase
+        .from("inventory_products")
+        .select(selectOwnerOnly, countOptions)
+        .eq("owner_user_id", ownerUserId);
+      break;
+    case "inventory_suppliers":
+      result = await supabase
+        .from("inventory_suppliers")
+        .select(selectOwnerOnly, countOptions)
+        .eq("owner_user_id", ownerUserId);
+      break;
+    case "shared_sheet_sessions":
+      result = await supabase
+        .from("shared_sheet_sessions")
+        .select(selectOwnerOnly, countOptions)
+        .eq("owner_user_id", ownerUserId);
+      break;
+    case "sync_events":
+      result = await supabase
+        .from("sync_events")
+        .select(selectOwnerOnly, countOptions)
+        .eq("owner_user_id", ownerUserId);
+      break;
+  }
+
+  if (result.error) {
+    return {
+      count: null,
+      errorMessage: result.error.message,
+    };
+  }
+
+  return {
+    count: result.count ?? 0,
+    errorMessage: null,
+  };
+}
+
+function mobileInventorySummaryFromCounts(input: {
+  counts: Partial<Record<MobileInventoryCountKey, number | null>>;
+  mapping?: ShopOwnerMapping;
+}): PlatformMobileInventoryDataSummary {
+  const counts = {
+    categoriesCount: input.counts.categoriesCount ?? null,
+    productPricesCount: input.counts.productPricesCount ?? null,
+    productsCount: input.counts.productsCount ?? null,
+    sharedSheetSessionsCount: input.counts.sharedSheetSessionsCount ?? null,
+    suppliersCount: input.counts.suppliersCount ?? null,
+    syncEventsCount: input.counts.syncEventsCount ?? null,
+  };
+  const countValues = Object.values(counts);
+  const hasMobileInventoryData = countValues.some(
+    (count) => typeof count === "number" && count > 0,
+  );
+  const hasUnavailableCount = countValues.some((count) => count === null);
+
+  return {
+    ...counts,
+    hasMobileInventoryData,
+    mobileDataScope: "owner_scoped",
+    shopId: input.mapping?.shopId ?? null,
+    shopInventoryMappingState: input.mapping?.mappingState ?? "not_configured",
+    status: hasMobileInventoryData
+      ? "present"
+      : hasUnavailableCount
+        ? "unavailable"
+        : "none",
+  };
+}
+
+async function loadMobileInventoryDataSummaries(
+  supabase: SupabaseServerClient,
+  ownerUserIds: readonly string[],
+  mappings: readonly ShopOwnerMapping[],
+) {
+  const ids = Array.from(new Set(ownerUserIds)).filter(isUuidLike);
+  const summaries = new Map<string, PlatformMobileInventoryDataSummary>();
+  const unavailableTables = new Set<MobileInventoryCountTable>();
+
+  if (ids.length === 0) {
+    return {
+      summaries,
+      unavailableTables: [] as MobileInventoryCountTable[],
+    };
+  }
+
+  const countsByOwnerId = new Map<
+    string,
+    Partial<Record<MobileInventoryCountKey, number | null>>
+  >();
+
+  for (const ownerUserId of ids) {
+    countsByOwnerId.set(ownerUserId, {});
+  }
+
+  for (const { key, table } of mobileInventoryCountTables) {
+    const tableCounts = await Promise.all(
+      ids.map(async (ownerUserId) => {
+        const result = await safeCountOwnerRows(supabase, table, ownerUserId);
+
+        if (result.errorMessage) {
+          unavailableTables.add(table);
+        }
+
+        return { count: result.count, ownerUserId };
+      }),
+    );
+
+    for (const { count, ownerUserId } of tableCounts) {
+      const ownerCounts = countsByOwnerId.get(ownerUserId) ?? {};
+      ownerCounts[key] = count;
+      countsByOwnerId.set(ownerUserId, ownerCounts);
+    }
+  }
+
+  for (const ownerUserId of ids) {
+    const mapping = shopOwnerMappingForOwner(ownerUserId, mappings);
+    summaries.set(
+      ownerUserId,
+      mobileInventorySummaryFromCounts({
+        counts: countsByOwnerId.get(ownerUserId) ?? {},
+        mapping,
+      }),
+    );
+  }
+
+  return {
+    summaries,
+    unavailableTables: Array.from(unavailableTables),
   };
 }
 
@@ -517,6 +759,10 @@ function shopAccessStateForProfile(
 function buildUserAccounts(input: {
   authIdentities: readonly PlatformAuthIdentitySummary[];
   authIdentitiesAvailable: boolean;
+  mobileInventoryDataByOwnerId: ReadonlyMap<
+    string,
+    PlatformMobileInventoryDataSummary
+  >;
   platformAdmins: readonly PlatformAdminRecord[];
   profiles: readonly Profile[];
   shopMembers: readonly ShopMember[];
@@ -578,6 +824,9 @@ function buildUserAccounts(input: {
       email: authIdentity?.email ?? "Auth identity unavailable",
       historicalShopAdminMembershipCount,
       membershipCount,
+      mobileInventoryData:
+        input.mobileInventoryDataByOwnerId.get(profileId) ??
+        emptyMobileInventoryDataSummary(),
       nonOperationalMembershipCount: profileMemberships.length - membershipCount,
       profileId,
       profileStatus: profile?.profile_status ?? "not_configured",
@@ -721,6 +970,20 @@ async function loadRows(
 
   let profileRows = (profilesResult.data ?? []) as ProfileRowCandidate[];
 
+  const requestedMobileInventoryShopIds = new Set(
+    (options.mobileInventoryShopIds ?? []).filter(isUuidLike),
+  );
+  const requestedMobileInventoryOwnerIds = (
+    (mappingsResult.data ?? []) as ShopOwnerMappingRowCandidate[]
+  )
+    .filter(
+      (mapping) =>
+        typeof mapping.shop_id === "string" &&
+        Boolean(mapping.owner_user_id) &&
+        requestedMobileInventoryShopIds.has(mapping.shop_id),
+    )
+    .map((mapping) => mapping.owner_user_id)
+    .filter((ownerUserId): ownerUserId is string => Boolean(ownerUserId));
   const relatedProfileIds = new Set<string>([
     ...authIdentities.map((identity) => identity.authUserId),
     ...((membersResult.data ?? []) as ShopMemberRowCandidate[]).map(
@@ -729,6 +992,7 @@ async function loadRows(
     ...((platformAdminsResult.data ?? []) as Tables["platform_admins"]["Row"][]).map(
       (admin) => admin.profile_id,
     ),
+    ...requestedMobileInventoryOwnerIds,
   ]);
 
   if (relatedProfileIds.size > 0) {
@@ -802,12 +1066,53 @@ async function loadRows(
   const syncEvents = (syncResult.data ?? []).map((row) =>
     mapSyncRow(row as Tables["sync_events"]["Row"]),
   );
+  const visibleAccountIds = new Set([
+    ...profiles.map((profile) => profile.profile_id),
+    ...authIdentities.map((identity) => identity.authUserId),
+  ]);
+  const mappedVisibleAccountOwnerIds = options.includeAuthIdentities
+    ? shopOwnerMappings
+        .map((mapping) => mapping.ownerUserId)
+        .filter(
+          (ownerUserId): ownerUserId is string =>
+            typeof ownerUserId === "string" &&
+            visibleAccountIds.has(ownerUserId),
+        )
+    : [];
+  const mobileInventoryOwnerIds = Array.from(
+    new Set([
+      ...requestedMobileInventoryOwnerIds,
+      ...mappedVisibleAccountOwnerIds,
+    ]),
+  );
+  const mobileInventoryDataResult =
+    mobileInventoryOwnerIds.length > 0
+      ? await loadMobileInventoryDataSummaries(
+          supabase,
+          mobileInventoryOwnerIds,
+          shopOwnerMappings,
+        )
+    : {
+        summaries: new Map<string, PlatformMobileInventoryDataSummary>(),
+        unavailableTables: [] as MobileInventoryCountTable[],
+      };
+
+  if (mobileInventoryDataResult.unavailableTables.length > 0) {
+    readIssues.push({
+      area: "mobile_inventory_data",
+      code: "mobile_inventory_counts_unavailable",
+      message: `Mobile inventory counts are unavailable for ${mobileInventoryDataResult.unavailableTables.join(", ")} through the current read boundary.`,
+      severity: "warning",
+    });
+  }
+
   const staffSafeRows = staffResult.error
     ? []
     : ((staffResult.data ?? []) as StaffSafeSummary[]);
   const userAccounts = buildUserAccounts({
     authIdentities,
     authIdentitiesAvailable: authIdentitiesResult.status === "ready",
+    mobileInventoryDataByOwnerId: mobileInventoryDataResult.summaries,
     platformAdmins,
     profiles,
     shopMembers,

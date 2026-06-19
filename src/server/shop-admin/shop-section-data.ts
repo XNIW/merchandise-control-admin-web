@@ -84,6 +84,7 @@ type GetShopSectionForRequestOptions = {
     targetId?: string | null;
   };
   catalogFilters?: CatalogFilters;
+  inventoryReadModel?: ShopInventoryReadModel;
   syncFilters?: SyncFilters;
 };
 
@@ -250,6 +251,8 @@ export function buildShopDashboardSection({
   }
 
   const shop = readModel.selectedShop;
+  const catalogSummary = inventoryReadModel.summary;
+  const historySummary = historyReadModel.summary;
   const latestSync = historyReadModel.syncEvents[0];
   const latestAudit = auditReadModel.events[0];
   const activeStaff = staffReadModel.staffAccounts.filter(
@@ -258,9 +261,12 @@ export function buildShopDashboardSection({
   const revokedDevices = deviceReadModel.devices.filter(
     (device) => device.status === "revoked",
   ).length;
-  const failedSync = historyReadModel.syncEvents.filter(
-    (event) => event.status === "failed",
-  ).length;
+  const failedSync = historySummary.latestFailedSyncEvents;
+  const inventorySource = inventoryReadModel.mapping
+    ? `${formatToken(inventoryReadModel.mapping.sourceKind)} / ${formatToken(
+        inventoryReadModel.mapping.mappingState,
+      )}`
+    : "Not configured";
 
   return {
     ...shopSections.overview,
@@ -269,12 +275,14 @@ export function buildShopDashboardSection({
     status: "Operational",
     metrics: [
       metric("Shop", shop.shopCode, shop.shopName, "good"),
-      metric("Products", String(inventoryReadModel.products.length), "Mapped active rows"),
-      metric("Categories", String(inventoryReadModel.categories.length), "Mapped taxonomy"),
-      metric("Suppliers", String(inventoryReadModel.suppliers.length), "Mapped suppliers"),
+      metric("Total products", String(catalogSummary.productsTotal), "Mapped catalog total"),
+      metric("Categories", String(catalogSummary.categories), "Mapped catalog total"),
+      metric("Suppliers", String(catalogSummary.suppliers), "Mapped catalog total"),
+      metric("Price history rows", String(catalogSummary.priceRows), "Mapped catalog total"),
       metric("Staff active", String(activeStaff), "Credential-safe staff rows", "good"),
       metric("Devices", String(deviceReadModel.devices.length), `${revokedDevices} revoked`),
       metric("Sync failed", String(failedSync), "Latest mapped sync events", failedSync > 0 ? "warning" : "good"),
+      metric("Sales / revenue", "Not configured", "POS sales sync is not connected yet", "muted"),
       metric("Audit events", String(auditReadModel.events.length), "Latest shop audit rows"),
     ],
     liveData: {
@@ -301,6 +309,36 @@ export function buildShopDashboardSection({
           field: "Current role",
           value: formatToken(shop.role),
           detail: "Verified by active membership",
+        },
+        {
+          rowKey: "overview:catalog-total",
+          group: "Catalog totals",
+          field: "Total products",
+          value: String(catalogSummary.productsTotal),
+          detail: `${catalogSummary.activeProducts} active / ${catalogSummary.archivedProducts} archived`,
+        },
+        {
+          rowKey: "overview:catalog-price",
+          group: "Catalog totals",
+          field: "Price history rows",
+          value: String(catalogSummary.priceRows),
+          detail: "Server-side exact count for the selected shop scope",
+        },
+        {
+          rowKey: "overview:inventory-source",
+          group: "Inventory source",
+          field: "Inventory source",
+          value: catalogScopeLabel(inventoryReadModel.catalogScope),
+          detail: inventorySource,
+        },
+        {
+          rowKey: "overview:inventory-owner",
+          group: "Inventory source",
+          field: "Owner account",
+          value: inventoryReadModel.legacyOwnerUserId
+            ? shortId(inventoryReadModel.legacyOwnerUserId)
+            : "Not configured",
+          detail: "Owner-scoped mobile data mapped to this shop",
         },
         {
           rowKey: "status:inventory",
@@ -333,6 +371,22 @@ export function buildShopDashboardSection({
           detail: latestSync
             ? `${latestSync.status} / ${formatDateTime(latestSync.createdAt)}`
             : historyReadModel.reason,
+        },
+        {
+          rowKey: "event:sync-total",
+          group: "Latest events",
+          field: "Sync events",
+          value: String(historySummary.syncEventsTotal),
+          detail: historySummary.latestChangedAt
+            ? `Latest change ${formatDateTime(historySummary.latestChangedAt)}`
+            : "No mapped sync change",
+        },
+        {
+          rowKey: "overview:revenue",
+          group: "Revenue",
+          field: "Sales / revenue",
+          value: "Not configured",
+          detail: "POS sales sync is not connected yet",
         },
         {
           rowKey: "event:audit",
@@ -947,9 +1001,10 @@ export function buildProductsSection(
       "Shop catalog products for the verified selected shop. Create, update, archive and restore use audited catalog RPCs.",
     status: activeProducts.length > 0 ? "Live actions" : "Products empty",
     metrics: [
-      metric("Products", String(filteredProducts.length), "Filtered active rows"),
-      metric("Archived products", String(filteredArchivedProducts.length), "restore requires confirmation"),
-      metric("Prices", String(readModel.prices.length), "Recent price rows"),
+      metric("Total products", String(readModel.summary.productsTotal), "Mapped catalog total"),
+      metric("Current page rows", String(visibleProducts.length), "Filtered rows"),
+      metric("Archived products", String(readModel.summary.archivedProducts), "Mapped catalog total"),
+      metric("Price history rows", String(readModel.summary.priceRows), "Mapped catalog total"),
       metric("Filters", String(activeFilters), "Search/category/supplier"),
       metric("Catalog scope", catalogScopeLabel(readModel.catalogScope), readModel.reason, "good"),
       metric("Writes", catalogWriteLabel(readModel), "Audited create/update/archive/restore", "good"),
@@ -1007,8 +1062,9 @@ export function buildCategoriesSection(
     status:
       readModel.categories.length > 0 ? "Live actions" : "Categories empty",
     metrics: [
-      metric("Categories", String(filteredCategories.length), "Filtered catalog rows"),
-      metric("Products", String(readModel.products.length), "Products loaded"),
+      metric("Categories", String(readModel.summary.categories), "Mapped catalog total"),
+      metric("Current page rows", String(filteredCategories.length), "Filtered rows"),
+      metric("Total products", String(readModel.summary.productsTotal), "Mapped catalog total"),
       metric("Filters", String(activeFilters), "Search"),
       metric("Catalog scope", catalogScopeLabel(readModel.catalogScope), readModel.reason, "good"),
       metric("Writes", catalogWriteLabel(readModel), "Audited create/update/archive", "good"),
@@ -1056,8 +1112,9 @@ export function buildSuppliersSection(
     status:
       readModel.suppliers.length > 0 ? "Live actions" : "Suppliers empty",
     metrics: [
-      metric("Suppliers", String(filteredSuppliers.length), "Filtered catalog rows"),
-      metric("Products", String(readModel.products.length), "Products loaded"),
+      metric("Suppliers", String(readModel.summary.suppliers), "Mapped catalog total"),
+      metric("Current page rows", String(filteredSuppliers.length), "Filtered rows"),
+      metric("Total products", String(readModel.summary.productsTotal), "Mapped catalog total"),
       metric("Filters", String(activeFilters), "Search"),
       metric("Catalog scope", catalogScopeLabel(readModel.catalogScope), readModel.reason, "good"),
       metric("Writes", catalogWriteLabel(readModel), "Audited create/update/archive", "good"),
@@ -1686,24 +1743,26 @@ export function buildHistorySection(readModel: ShopHistoryReadModel): ShopSectio
   const failedHistoryEvents = historyEvents.filter(
     (event) => event.status === "failed",
   ).length;
+  const historySummary = readModel.summary;
 
   return {
     ...shopSections.history,
     description:
       "History entries are loaded from shared_sheet_sessions. Sync events are technical synchronization logs linked to those entries. Admin audit events are shown separately in Audit.",
     status:
-      readModel.syncEvents.length + readModel.sessions.length > 0
+      historySummary.syncEventsTotal + historySummary.historySessionsTotal > 0
         ? "Read-only mapped"
         : "History empty",
     metrics: [
-      metric("History entries", String(readModel.sessions.length), "shared_sheet_sessions"),
+      metric("History entries", String(historySummary.historySessionsTotal), "shared_sheet_sessions total"),
+      metric("Current page rows", String(readModel.sessions.length), "Latest visible history entries"),
       metric("Active entries", String(activeSessions), "Rows without deleted_at", "good"),
       metric("Deleted entries", String(tombstones), "Rows with deleted_at", tombstones > 0 ? "warning" : "muted"),
       metric("Payload v2", String(payloadV2), "Current Android/iOS contract", "good"),
       metric("Legacy v1", String(legacyPayloadV1), "Overlay not expected", legacyPayloadV1 > 0 ? "warning" : "muted"),
       metric("Overlay OK", String(overlayOk), "Schema 1 and row counts match", "good"),
       metric("Overlay issues", String(overlayIssues), "Missing, invalid, too large or unsupported", overlayIssues > 0 ? "warning" : "good"),
-      metric("Sync events", String(historyEvents.length), `${failedHistoryEvents} failed technical events`, failedHistoryEvents > 0 ? "warning" : "good"),
+      metric("Sync events", String(historySummary.syncEventsTotal), `${failedHistoryEvents} failed events shown`, failedHistoryEvents > 0 ? "warning" : "good"),
       metric("Payload safety", "Read-only", `${manualEntries} manual; ${completedRows} complete flags; ${missingRows} missing flags`, overlayIssues > 0 ? "warning" : "good"),
     ],
     liveData: {
@@ -1911,12 +1970,12 @@ export function buildSyncSection(
     ...shopSections.sync,
     description:
       "Read-only Sync Center for mapped mobile events. This page classifies pending, success and failed states without triggering synchronization.",
-    status: readModel.syncEvents.length > 0 ? "Read-only mapped" : "Sync empty",
+    status: readModel.summary.syncEventsTotal > 0 ? "Read-only mapped" : "Sync empty",
     metrics: [
       metric("Pending", String(pending), "Events marked pending"),
       metric("Success", String(success), "Events without failure metadata", "good"),
       metric("Failed", String(failed), "Events with failure metadata", failed > 0 ? "warning" : "good"),
-      metric("Events shown", String(filteredEvents.length), `${readModel.syncEvents.length} total mapped rows`),
+      metric("Events shown", String(filteredEvents.length), `${readModel.summary.syncEventsTotal} total mapped rows`),
       metric("Sources", String(sourceCount), "Source/device values in current result"),
       metric(
         "Latest error",
@@ -2584,9 +2643,11 @@ export async function getShopSectionForRequest(
   }
 
   if (key === "products" || key === "categories" || key === "suppliers") {
-    const inventoryReadModel = await getShopInventoryReadModel({
-      requestedShopId,
-    });
+    const inventoryReadModel =
+      options.inventoryReadModel ??
+      (await getShopInventoryReadModel({
+        requestedShopId,
+      }));
 
     if (key === "products") {
       return buildProductsSection(inventoryReadModel, options.catalogFilters);

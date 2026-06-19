@@ -49,6 +49,7 @@ export type ShopOwnerMapping = {
   shopId: string | null;
   ownerUserId: string | null;
   mappingState: InventorySourceMappingState;
+  sourceKind: string;
 };
 
 export type ShopOwnerMappingCardinalityIssue =
@@ -189,6 +190,7 @@ export function mapShopOwnerMappingRow(
     shopId: row.shop_id,
     ownerUserId: row.owner_user_id,
     mappingState: normalizeInventorySourceMappingState(row.mapping_state),
+    sourceKind: row.source_kind,
   };
 }
 

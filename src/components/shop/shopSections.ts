@@ -22,6 +22,8 @@ export type ShopSectionMetric = {
 };
 
 export type ShopSectionTableColumn = {
+  cellVariant?: "code" | "primary" | "state";
+  icon?: "archive" | "barcode" | "package";
   key: string;
   label: string;
 };

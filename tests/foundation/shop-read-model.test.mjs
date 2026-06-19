@@ -72,6 +72,179 @@ test("TASK-010 live Shop Admin pages render real rows or declared empty states",
   assert.doesNotMatch(`${sectionPage}\n${sectionData}`, /TASK-010|TASK-008/);
 });
 
+test("TASK-068E inventory read model supports legacy owner-only mobile schema", () => {
+  const inventoryReadModel = readProjectFile(
+    "src/server/shop-admin/inventory-read-model.ts",
+  );
+
+  for (const required of [
+    "legacyProductSelect",
+    "legacyCategorySelect",
+    "legacySupplierSelect",
+    "legacyPriceSelect",
+    "isMissingShopIdColumnError",
+    "legacyOwnerOnlySchema",
+    ".eq(\"owner_user_id\", legacyOwnerUserId)",
+    "catalogScope === \"legacy_owner_bridge\"",
+    "Legacy owner rows loaded through shop_inventory_sources while shop_id migration is in progress.",
+  ]) {
+    assert.match(
+      inventoryReadModel,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `inventory read model must contain ${required}`,
+    );
+  }
+
+  assert.doesNotMatch(inventoryReadModel, /\.(insert|update|delete|upsert|rpc)\s*\(/);
+});
+
+test("TASK-068H products page uses server-side pagination count and range", () => {
+  const inventoryReadModel = readProjectFile(
+    "src/server/shop-admin/inventory-read-model.ts",
+  );
+  const productsPage = readProjectFile("src/app/shop/products/page.tsx");
+
+  for (const required of [
+    "getShopInventoryProductsPage",
+    "ShopInventoryProductsPage",
+    "count: \"exact\"",
+    ".range(input.from, input.to)",
+    "totalCount",
+    "currentPageRows",
+    "Total products",
+    "Current page rows",
+    "ProductsPagination",
+    "Page size",
+  ]) {
+    assert.match(
+      `${inventoryReadModel}\n${productsPage}`,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `products pagination contract must contain ${required}`,
+    );
+  }
+
+  assert.match(productsPage, /getShopInventoryProductsPage/);
+});
+
+test("TASK-068H products filters and search stay server-side", () => {
+  const inventoryReadModel = readProjectFile(
+    "src/server/shop-admin/inventory-read-model.ts",
+  );
+  const productsPage = readProjectFile("src/app/shop/products/page.tsx");
+
+  for (const required of [
+    "getFirstParam(params, [\"q\", \"search\", \"query\"])",
+    "getFirstParam(params, [\"category\", \"category_id\"])",
+    "getFirstParam(params, [\"supplier\", \"supplier_id\"])",
+    "nextQuery.eq(\"category_id\", filters.categoryId)",
+    "nextQuery.eq(\"supplier_id\", filters.supplierId)",
+    "barcode.ilike",
+    "item_number.ilike",
+    "product_name.ilike",
+  ]) {
+    assert.match(
+      `${inventoryReadModel}\n${productsPage}`,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `products server-side filter contract must contain ${required}`,
+    );
+  }
+
+  assert.doesNotMatch(productsPage, /applyCatalogFilters/);
+});
+
+test("TASK-068H products page preserves legacy mobile bridge fallback", () => {
+  const inventoryReadModel = readProjectFile(
+    "src/server/shop-admin/inventory-read-model.ts",
+  );
+  const productsPage = readProjectFile("src/app/shop/products/page.tsx");
+
+  for (const required of [
+    "countShopScopedProducts",
+    "legacyOwnerOnlySchema",
+    "useLegacyOwnerBridge",
+    ".eq(\"owner_user_id\", input.legacyOwnerUserId ?? \"\")",
+    "Legacy mobile bridge product rows loaded through owner_user_id",
+    "Legacy mobile bridge",
+  ]) {
+    assert.match(
+      `${inventoryReadModel}\n${productsPage}`,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `legacy mobile bridge contract must contain ${required}`,
+    );
+  }
+
+  assert.doesNotMatch(inventoryReadModel, /\.(insert|update|delete|upsert|rpc)\s*\(/);
+});
+
+test("TASK-068J products page prefers mapped mobile owner bridge before shop_id count", () => {
+  const inventoryReadModel = readProjectFile(
+    "src/server/shop-admin/inventory-read-model.ts",
+  );
+  const productsPage = readProjectFile("src/app/shop/products/page.tsx");
+
+  for (const required of [
+    "isMappedMobileOwnerSource",
+    "mapping?.mappingState === \"mapped\"",
+    "mapping.sourceKind === \"mobile_owner\"",
+    "preferMappedMobileOwnerBridge",
+    "? { count: null, error: null }",
+    "preferMappedMobileOwnerBridge ||",
+    ".eq(\"owner_user_id\", input.legacyOwnerUserId ?? \"\")",
+    "Only current page rows are rendered",
+  ]) {
+    assert.match(
+      `${inventoryReadModel}\n${productsPage}`,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `TASK-068J legacy bridge contract must contain ${required}`,
+    );
+  }
+
+  assert.match(
+    inventoryReadModel,
+    /preferMappedMobileOwnerBridge[\s\S]{0,260}countShopScopedProducts/,
+  );
+  assert.doesNotMatch(productsPage, /SUPABASE_SERVICE_ROLE_KEY|createSupabaseAdminClient/);
+  assert.doesNotMatch(inventoryReadModel, /SUPABASE_SERVICE_ROLE_KEY|createSupabaseAdminClient/);
+});
+
+test("TASK-068H Shop Admin overview uses exact catalog/history summaries", () => {
+  const inventoryReadModel = readProjectFile(
+    "src/server/shop-admin/inventory-read-model.ts",
+  );
+  const historyReadModel = readProjectFile(
+    "src/server/shop-admin/history-read-model.ts",
+  );
+  const sectionData = readProjectFile("src/server/shop-admin/shop-section-data.ts");
+  const dashboardSection =
+    sectionData.match(
+      /export function buildShopDashboardSection[\s\S]*?(?=\nexport function buildMembersSection)/,
+    )?.[0] ?? "";
+
+  for (const required of [
+    "loadCatalogSummary",
+    "ShopInventoryCatalogSummary",
+    "loadHistorySummary",
+    "ShopHistorySummary",
+    "inventoryReadModel.summary",
+    "historyReadModel.summary",
+    "Total products",
+    "Price history rows",
+    "Sales / revenue",
+    "POS sales sync is not connected yet",
+    "syncEventsTotal",
+    "historySessionsTotal",
+  ]) {
+    assert.match(
+      `${inventoryReadModel}\n${historyReadModel}\n${dashboardSection}`,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `Shop Admin overview summary contract must contain ${required}`,
+    );
+  }
+
+  assert.doesNotMatch(dashboardSection, /inventoryReadModel\.products\.length/);
+  assert.doesNotMatch(dashboardSection, /inventoryReadModel\.prices\.length/);
+});
+
 test("TASK-010 security scan locks read model and live page artifacts", () => {
   const securityChecks = readProjectFile("scripts/security-checks.mjs");
 

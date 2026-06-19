@@ -24,6 +24,9 @@ function assertPathExists(relativePath) {
 test("TASK-064 users route submits server-side query state", () => {
   const usersPage = readProjectFile("src/app/platform/users/page.tsx");
   const shopAdminsPage = readProjectFile("src/app/platform/shop-admins/page.tsx");
+  const shopAdminDetailPage = readProjectFile(
+    "src/app/platform/shop-admins/[profileId]/page.tsx",
+  );
   const platformPage = readProjectFile("src/components/platform/PlatformPage.tsx");
   const masterDetail = readProjectFile(
     "src/components/platform/PlatformMasterDetail.tsx",
@@ -36,6 +39,8 @@ test("TASK-064 users route submits server-side query state", () => {
   assertContains(shopAdminsPage, "q?: string | string[]");
   assertContains(shopAdminsPage, "getPlatformSectionForRequest(\"shopAdmins\"");
   assertContains(shopAdminsPage, "usersSearchQuery: firstParam(params.q)");
+  assertContains(shopAdminDetailPage, "getPlatformShopAdminDetailForRequest");
+  assertContains(shopAdminDetailPage, "Back to Shop Admins");
   assertContains(masterDetail, "serverSearch");
   assertContains(masterDetail, 'method="get"');
   assertContains(masterDetail, "name={serverSearch.paramName}");
@@ -53,19 +58,25 @@ test("TASK-064 users route submits server-side query state", () => {
   assertContains(platformPage, "localizedSection.serverSearch !== undefined");
   assertContains(platformPage, "localizedSection.tableNotice");
   assertContains(platformData, "tableNotice?: EmptyStateContent");
+  assertContains(platformData, "emptyState?: EmptyStateContent");
   assertContains(platformPage, "Server search returned no rows. Clear the search to return to the default view.");
   assertContains(platformPage, "Client filters are hiding rows returned by the server boundary.");
   assertContains(platformData, "type PlatformServerSearch");
   assertContains(platformData, '{ key: "email", label: "Email" }');
   assertContains(platformData, '{ key: "accountType", label: "Account type" }');
+  assertContains(platformData, '{ key: "dataStatus", label: "Data status" }');
+  assertContains(platformData, '{ key: "shopAccess", label: "Shop access" }');
   assertContains(platformData, '{ key: "shopAdmins", label: "Shop Admins", href: "/platform/shop-admins" }');
   assertContains(platformData, '{ key: "roles", label: "Roles" }');
   assertContains(platformData, '{ key: "origin", label: "Origin" }');
   assertContains(platformData, '{ key: "adminAccess", label: "Admin Console access" }');
   assertContains(platformData, '{ key: "globalAccess", label: "Global access" }');
+  assertContains(platformData, '{ key: "inventorySource", label: "Inventory source" }');
   assertContains(platformData, '{ key: "shopOverlap", label: "Shop access" }');
   assertContains(platformData, '{ key: "state", label: "Profile/Auth state" }');
   assertContains(translateSections, "serverSearch: section.serverSearch");
+  assertContains(translateSections, "emptyState: option.emptyState");
+  assertContains(masterDetail, "selectedFilterEmptyState");
 });
 
 test("TASK-064 users master-detail table keeps identity columns stable", () => {
@@ -75,6 +86,7 @@ test("TASK-064 users master-detail table keeps identity columns stable", () => {
 
   for (const required of [
     "noWrapTableColumns",
+    "dataStatus",
     "tableColumnClass",
     "min-w-full",
     "min-w-60",
@@ -153,6 +165,28 @@ test("TASK-064 read model merges Auth, profile, and membership summaries safely"
     "currentShopAdminMembershipCount",
     "historicalShopAdminMembershipCount",
     "disabledShopAdminMembershipCount",
+    "PlatformMobileInventoryDataSummary",
+    "mobileInventoryData",
+    "hasMobileInventoryData",
+    "productsCount",
+    "suppliersCount",
+    "categoriesCount",
+    "productPricesCount",
+    "sharedSheetSessionsCount",
+    "syncEventsCount",
+    "mobileDataScope",
+    "owner_scoped",
+    "shopInventoryMappingState",
+    "mobileInventoryOwnerIds",
+    "mapping.ownerUserId",
+    "loadMobileInventoryDataSummaries",
+    "safeCountOwnerRows",
+    ".from(\"inventory_products\")",
+    ".from(\"inventory_suppliers\")",
+    ".from(\"inventory_categories\")",
+    ".from(\"inventory_product_prices\")",
+    ".from(\"shared_sheet_sessions\")",
+    ".from(\"sync_events\")",
     "authIdentities",
     "authIdentityStatus",
     "runtimeTarget",
@@ -179,11 +213,10 @@ test("TASK-064 read model merges Auth, profile, and membership summaries safely"
     "Auth only",
     "Profile only",
     "Origin unavailable",
-    "Unlinked user",
-    "Shop admin",
-    "Historical shop admin",
-    "Disabled shop admin",
-    "Platform admin",
+    "Normal account",
+    "Shop Admin",
+    "Platform Admin / Master Console",
+    "Incomplete account",
     "Historical only",
     "shopAdminMembershipsForProfile",
     "currentShopAdminMembershipsForProfile",
@@ -196,8 +229,18 @@ test("TASK-064 read model merges Auth, profile, and membership summaries safely"
     "All access states",
     "Current Shop Admins",
     "Historical Shop Admins",
-    "Showing normal personal accounts only",
-    "No normal users in this view",
+    "Personal Account Directory",
+    "Personal Account Directory for every personal/profile account returned by the safe server read model. Dedicated admin views keep grant and membership operations separate.",
+    "No personal accounts visible",
+    "No Auth/Profile personal accounts were returned by the current read model or server search.",
+    "Users includes normal, Shop Admin, Platform Admin, and incomplete personal accounts. Use dedicated admin views for grant or membership operations.",
+    "Normal accounts only",
+    "All account types",
+    "No normal accounts match this filter. Platform Admins are hidden by this filter.",
+    "Visible in this table",
+    "rowDetails: directoryAccounts.map",
+    "rows: directoryAccounts.map",
+    "Open Platform Admins",
     "Summary",
     "Classification",
     "Can access Admin Console now",
@@ -210,6 +253,27 @@ test("TASK-064 read model merges Auth, profile, and membership summaries safely"
     "Email",
     "Provider",
     "Account type",
+    "Data status",
+    "Mobile data linked to shop",
+    "Mobile data present",
+    "No mobile data",
+    "Data status unavailable",
+    "Mobile inventory data",
+    "Owner-scoped mobile data",
+    "Not assigned to a shop yet",
+    "Create a shop and link this account as owner to move this account into the normal Shop Admin flow.",
+    "Mobile inventory counts are shown on the linked shop record when an owner-scoped source is mapped.",
+    "Linked shop",
+    "Mapping state",
+    "Shop Admin context",
+    "Shop Admin account detail",
+    "Linked mobile inventory source",
+    "Managed through linked shop.",
+    "Inventory source mapped",
+    "Source kind",
+    "Owner account",
+    "Price history rows",
+    "History sessions",
     "Global access",
     "Shop access",
     "Profile/Auth state",
@@ -220,13 +284,13 @@ test("TASK-064 read model merges Auth, profile, and membership summaries safely"
     "runtime target",
     "auth users count",
     "profiles count",
-    "Admin account means a personal account with shop-scoped Admin Console access through shop_members.",
-    "This default Users view lists non-admin and incomplete personal accounts; access-bearing accounts live in Shop Admins or Platform Admins.",
-    "An empty Users table can be correct when the returned accounts are Shop Admins or Platform Admins instead of normal users.",
+    "An Admin account is a personal account with shop-scoped Admin Console access through shop_members.",
+    "Users is the Personal Account Directory: it includes normal, Shop Admin, Platform Admin, and incomplete accounts returned by the read model.",
+    "Normal accounts only is an explicit filter, not the default Users view.",
+    "Rows are all personal/profile accounts returned by the server read model.",
     "Shop Admin accounts are personal accounts with shop_owner or shop_manager membership in shop_members, including historical and disabled contexts.",
     "Current means active membership on an operational shop; Historical only means the owner/manager link is retained for audit but cannot open Admin Console now.",
-    "Rows are the non-admin subset; totals below show the wider personal-account read model.",
-    "Shop Admins and Platform Admins are intentionally excluded from this default Users table.",
+    "Shop Admins and Platform Admins remain the operational views for membership and grant controls.",
     "Future shop_code claim flows should create shop_members rows, not platform_admin grants.",
     "platform_admin means global Master Console access; it is not created by linking a shop code.",
     "Runtime target diagnostics expose only class, redacted project ref, and counts.",
@@ -243,6 +307,54 @@ test("TASK-064 read model merges Auth, profile, and membership summaries safely"
     "redactProjectRef",
   ]) {
     assertContains(serverBoundary, required);
+  }
+});
+
+test("TASK-068L shop full detail keeps owner identity primary and layout ordered", () => {
+  const sectionData = readProjectFile(
+    "src/server/platform-admin/platform-section-data.ts",
+  );
+  const platformPage = readProjectFile("src/components/platform/PlatformPage.tsx");
+  const dictionary = readProjectFile("src/i18n/dictionaries.ts");
+
+  for (const required of [
+    "function accountPrimaryLabelForProfile",
+    "accountSafeEmail(account)",
+    "isGenericAccountDisplayName(profileLabel)",
+    'title: "Header shop"',
+    'title: "Key status cards"',
+    'title: "Admin access / Ownership"',
+    'title: "Shop profile & fiscal identity"',
+    'title: "Linked mobile inventory source"',
+    'title: "Devices / sync / audit"',
+    'title: "Danger Zone"',
+    'label: "Owner account"',
+    'label: "Platform Admin overlap"',
+    'value: platformAdminOverlapLabel(primaryOwnerProfileId, readModel)',
+    "Master Console role only",
+    'label: "Fiscal identity", value: "Configured"',
+    "Owner-scoped mobile data mapped to this shop",
+    'layout: "full" as const',
+  ]) {
+    assertContains(sectionData, required);
+  }
+
+  assert.match(
+    sectionData,
+    /title: "Header shop"[\s\S]*title: "Key status cards"[\s\S]*title: "Admin access \/ Ownership"[\s\S]*title: "Shop profile & fiscal identity"[\s\S]*title: "Linked mobile inventory source"[\s\S]*title: "Devices \/ sync \/ audit"[\s\S]*title: "Shop lifecycle management"[\s\S]*title: "Danger Zone"/,
+    "shop detail sections must stay ordered with Danger Zone last",
+  );
+  assertContains(platformPage, "renderDetailFieldValue");
+  assertContains(platformPage, "badgeClassForValue");
+  assertContains(platformPage, "sourceField");
+
+  for (const required of [
+    "Header shop",
+    "Key status cards",
+    "Master Console role only",
+    "Configured",
+  ]) {
+    assertContains(dictionary, required);
   }
 });
 

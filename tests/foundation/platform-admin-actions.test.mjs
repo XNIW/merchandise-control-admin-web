@@ -9,6 +9,14 @@ function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
 }
 
+function assertContains(source, required, label = required) {
+  assert.match(
+    source,
+    new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    label,
+  );
+}
+
 test("TASK-006 action foundation files define redacted controlled actions", () => {
   const expectedFiles = [
     "src/server/platform-admin/action-types.ts",
@@ -61,6 +69,7 @@ test("TASK-006 action foundation files define redacted controlled actions", () =
   assert.match(shopActions, /import "server-only"/);
   assert.match(shopActions, /authorizeCurrentPlatformAdmin/);
   assert.match(shopActions, /\.rpc\("platform_create_shop"/);
+  assert.match(shopActions, /\.rpc\("platform_map_shop_inventory_source"/);
   assert.match(shopActions, /\.rpc\("platform_suspend_shop"/);
   assert.match(shopActions, /\.rpc\("platform_reactivate_shop"/);
   assert.match(shopActions, /\.rpc\("platform_soft_delete_shop"/);
@@ -73,6 +82,65 @@ test("TASK-006 action foundation files define redacted controlled actions", () =
   assert.match(serverActions, /revalidatePath\("\/platform\/operations"\)/);
   assert.match(serverActions, /revalidatePath\("\/platform\/shops"\)/);
   assert.doesNotMatch(serverActions, /from\(["'][a-z_]+["']\)/);
+});
+
+test("TASK-068E inventory source mapping is audited behind Platform Admin RPC", () => {
+  const migrationPath =
+    "supabase/migrations/20260618230828_task_068e_inventory_source_mapping.sql";
+
+  assert.equal(existsSync(join(root, migrationPath)), true);
+
+  const migration = readProjectFile(migrationPath);
+  const actionTypes = readProjectFile("src/server/platform-admin/action-types.ts");
+  const validation = readProjectFile("src/server/platform-admin/shop-action-validation.ts");
+  const shopActions = readProjectFile("src/server/platform-admin/shop-actions.ts");
+  const databaseTypes = readProjectFile("src/lib/supabase/database.types.ts");
+  const securityChecks = readProjectFile("scripts/security-checks.mjs");
+
+  for (const snippet of [
+    "platform_map_shop_inventory_source",
+    "security definer",
+    "set search_path = public, app_private, pg_temp",
+    "app_private.is_platform_admin()",
+    "platform.shop.inventory_source.map.attempt",
+    "platform.shop.inventory_source.map.success",
+    "platform.shop.inventory_source.map.failure",
+    "shop_inventory_source_id",
+    "mapping_state = 'mapped'",
+    "source_kind = 'mobile_owner'",
+    "verified_at = now()",
+    "verified_by_profile_id = actor_id",
+    "created_by_profile_id",
+    "role_key = 'shop_owner'",
+    "membership_status = 'active'",
+    "grant execute on function public.platform_map_shop_inventory_source",
+  ]) {
+    assertContains(migration, snippet, `migration must contain ${snippet}`);
+  }
+
+  assert.doesNotMatch(
+    migration,
+    /grant\s+(insert|update|delete|all).*on table public\.shop_inventory_sources.*authenticated/i,
+  );
+  assert.doesNotMatch(migration, /public\.inventory_(products|categories|suppliers|product_prices)[\s\S]{0,120}(insert|update|delete)/i);
+  assert.doesNotMatch(migration, /staff_accounts|staff_credential|pin_hash|credential_hash/i);
+
+  for (const snippet of [
+    "MapShopInventorySourceInput",
+    "PlatformShopInventorySourceMappingResult",
+    "validateMapShopInventorySourceInput",
+    "mapPlatformShopInventorySource",
+    ".rpc(\"platform_map_shop_inventory_source\"",
+    "p_owner_user_id: normalized.ownerProfileId",
+    "p_shop_id: normalized.shopId",
+    "platform_map_shop_inventory_source",
+  ]) {
+    assertContains(
+      `${actionTypes}\n${validation}\n${shopActions}\n${databaseTypes}\n${securityChecks}`,
+      snippet,
+      `server mapping contract must contain ${snippet}`,
+    );
+  }
 });
 
 test("TASK-006 migration defines safe RPC boundary and grants", () => {

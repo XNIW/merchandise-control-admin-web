@@ -8,17 +8,14 @@ import { PageHeader } from "@/components/admin/PageHeader";
 import { SectionCard } from "@/components/admin/SectionCard";
 import { StatCard } from "./components/StatCard";
 import { AppShell } from "./AppShell";
-import {
-  formatDisplayValue,
-  isLikelyIdentifier,
-} from "./displayFormat";
+import { formatDisplayValue, isLikelyIdentifier } from "./displayFormat";
 import { getI18n } from "@/i18n/get-locale";
 import {
   translatePlatformSection,
   translateText,
 } from "@/i18n/translate-sections";
 import { PlatformMasterDetail } from "./PlatformMasterDetail";
-import type { PlatformSection } from "./platformData";
+import type { PlatformSection, RowDetailField } from "./platformData";
 
 type PlatformPageProps = {
   children?: ReactNode;
@@ -27,6 +24,148 @@ type PlatformPageProps = {
   selectedRowKey?: string;
 };
 
+const badgeLikeFieldLabels = new Set([
+  "Inventory source",
+  "Mapping state",
+  "Operational access",
+  "Owner status",
+  "Platform Admin overlap",
+  "Role",
+  "Source kind",
+  "Status",
+]);
+
+const goodBadgeValues = new Set([
+  "Active",
+  "Audit available",
+  "Enabled",
+  "Inventory mapped",
+  "Mapped",
+  "Owner linked",
+  "Yes",
+]);
+
+const infoBadgeValues = new Set([
+  "Mobile Owner",
+  "Owner",
+  "Shop Manager",
+  "Shop Owner",
+]);
+
+const warningBadgeValues = new Set([
+  "Archived",
+  "Disabled",
+  "No",
+  "Pending",
+  "Pending Setup",
+  "Review",
+  "Suspended",
+]);
+
+const mutedBadgeValues = new Set([
+  "No global access",
+  "No inventory source",
+  "Not available",
+  "Not configured",
+  "Unassigned",
+]);
+
+function badgeClassForValue(value: string, label?: string) {
+  const normalizedLabel = label ?? "";
+
+  if (
+    value === "Platform Admin" ||
+    value === "Platform Admin / Master Console" ||
+    value === "Platform Admin (Master Console)"
+  ) {
+    return "border-amber-200 bg-amber-50 text-amber-900";
+  }
+
+  if (goodBadgeValues.has(value)) {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+
+  if (infoBadgeValues.has(value) || normalizedLabel === "Source kind") {
+    return "border-sky-200 bg-sky-50 text-sky-800";
+  }
+
+  if (warningBadgeValues.has(value)) {
+    return "border-amber-200 bg-amber-50 text-amber-900";
+  }
+
+  if (mutedBadgeValues.has(value)) {
+    return "border-slate-200 bg-slate-100 text-slate-700";
+  }
+
+  if (badgeLikeFieldLabels.has(normalizedLabel) && value.length <= 32) {
+    return "border-slate-200 bg-slate-50 text-slate-700";
+  }
+
+  return undefined;
+}
+
+function renderDetailFieldValue({
+  field,
+  locale,
+  sourceField,
+}: {
+  field: RowDetailField;
+  locale: Parameters<typeof formatDisplayValue>[1];
+  sourceField?: RowDetailField;
+}) {
+  const localizedSegments = field.value.split("\n").filter(Boolean);
+  const sourceSegments = (sourceField?.value ?? field.value)
+    .split("\n")
+    .filter(Boolean);
+
+  if (localizedSegments.length === 0) {
+    return null;
+  }
+
+  return (
+    <dd className="mt-1 flex min-w-0 flex-wrap gap-1.5">
+      {localizedSegments.map((segment, segmentIndex) => {
+        const sourceSegment = sourceSegments[segmentIndex] ?? segment;
+        const { text, fullValue } = formatDisplayValue(segment, locale);
+        const badgeClass = badgeClassForValue(
+          sourceSegment,
+          sourceField?.label,
+        );
+        const className = badgeClass
+          ? `inline-flex max-w-full items-center rounded-md border px-2 py-0.5 text-xs font-semibold ${badgeClass}`
+          : [
+              "min-w-0 max-w-full break-words text-slate-800",
+              isLikelyIdentifier(sourceSegment)
+                ? "font-mono break-all text-xs"
+                : "",
+              sourceSegment.includes("@") ? "[overflow-wrap:anywhere]" : "",
+            ].join(" ");
+        const content =
+          field.href && segmentIndex === 0 ? (
+            <Link
+              href={field.href}
+              className="font-semibold text-slate-950 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-950"
+            >
+              {text}
+            </Link>
+          ) : (
+            text
+          );
+
+        return (
+          <span
+            className={className}
+            key={`${segment}-${segmentIndex}`}
+            title={fullValue}
+          >
+            {content}
+          </span>
+        );
+      })}
+    </dd>
+  );
+}
+
 export async function PlatformPage({
   children,
   detailSectionActions,
@@ -34,11 +173,15 @@ export async function PlatformPage({
   selectedRowKey,
 }: PlatformPageProps) {
   const { dictionary, locale } = await getI18n();
-  const localizedSection = translatePlatformSection(dictionary, section, locale);
+  const localizedSection = translatePlatformSection(
+    dictionary,
+    section,
+    locale,
+  );
   const hasMasterDetail =
     localizedSection.serverSearch !== undefined ||
-    localizedSection.rowDetails !== undefined &&
-    localizedSection.rowDetails.length > 0;
+    (localizedSection.rowDetails !== undefined &&
+      localizedSection.rowDetails.length > 0);
   const hasDetailSections =
     localizedSection.detailSections !== undefined &&
     localizedSection.detailSections.length > 0;
@@ -191,7 +334,9 @@ export async function PlatformPage({
                 <div
                   key={detailSection.title}
                   className={
-                    detailSection.layout === "full" ? "xl:col-span-2" : undefined
+                    detailSection.layout === "full"
+                      ? "xl:col-span-2"
+                      : undefined
                   }
                 >
                   <SectionCard
@@ -209,40 +354,19 @@ export async function PlatformPage({
                           : "md:grid-cols-2",
                       ].join(" ")}
                     >
-                      {detailSection.fields.map((field) => (
+                      {detailSection.fields.map((field, fieldIndex) => (
                         <div key={field.label}>
                           <dt className="font-semibold text-slate-500">
                             {field.label}
                           </dt>
-                          {(() => {
-                            const { text, fullValue } = formatDisplayValue(
-                              field.value,
-                              locale,
-                            );
-
-                            return (
-                              <dd
-                                title={fullValue}
-                                className={[
-                                  "mt-0.5 break-words text-slate-800",
-                                  isLikelyIdentifier(field.value)
-                                    ? "font-mono break-all"
-                                    : "",
-                                ].join(" ")}
-                              >
-                                {field.href ? (
-                                  <Link
-                                    href={field.href}
-                                    className="font-semibold text-slate-950 underline decoration-slate-300 underline-offset-2 hover:decoration-slate-950"
-                                  >
-                                    {text}
-                                  </Link>
-                                ) : (
-                                  text
-                                )}
-                              </dd>
-                            );
-                          })()}
+                          {renderDetailFieldValue({
+                            field,
+                            locale,
+                            sourceField:
+                              section.detailSections?.[index]?.fields[
+                                fieldIndex
+                              ],
+                          })}
                         </div>
                       ))}
                     </dl>
@@ -346,8 +470,14 @@ export async function PlatformPage({
                         "Double click to open full detail",
                       ),
                       inspector: translateText(dictionary, "Inspector"),
-                      noMatchingRows: translateText(dictionary, "No matching rows"),
-                      openFullDetail: translateText(dictionary, "Open full detail"),
+                      noMatchingRows: translateText(
+                        dictionary,
+                        "No matching rows",
+                      ),
+                      openFullDetail: translateText(
+                        dictionary,
+                        "Open full detail",
+                      ),
                       search: translateText(dictionary, "Search"),
                       searchRows: translateText(dictionary, "Search rows"),
                       selectRow: translateText(dictionary, "select row"),
@@ -409,7 +539,9 @@ export async function PlatformPage({
                     {dictionary.common.boundaryDetails}
                   </span>
                 </summary>
-                <div className="border-t border-slate-200 p-3">{diagnosticsContent}</div>
+                <div className="border-t border-slate-200 p-3">
+                  {diagnosticsContent}
+                </div>
               </details>
             ) : (
               <SectionCard
@@ -443,7 +575,8 @@ export async function PlatformPage({
               </SectionCard>
             ) : null}
 
-            {localizedSection.nextLinks && localizedSection.nextLinks.length > 0 ? (
+            {localizedSection.nextLinks &&
+            localizedSection.nextLinks.length > 0 ? (
               <SectionCard
                 title={translateText(dictionary, "Next action")}
                 description={translateText(

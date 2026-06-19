@@ -73,6 +73,7 @@ export const platformProvisioningLabelKeys = [
   "Recover manager 1001",
   "Recovering manager 1001",
   "Recovery could not complete because the database boundary failed. Check server diagnostics.",
+  "Initial manager recovery is not installed on this database target. Ask an operator to apply the recovery boundary migration, then retry.",
   "Retail and POS operations",
   "RUT can be typed with or without dots/dash. Shop code uses the compact RUT for login.",
   "RUT can contain numbers and K only as the final check digit.",

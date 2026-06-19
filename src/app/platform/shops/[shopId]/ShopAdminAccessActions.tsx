@@ -26,10 +26,26 @@ type ShopAdminAccessActionsProps = {
 const accessOperations = new Set(["assign_member", "revoke_member"]);
 const fieldClassName =
   "h-10 w-full min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 shadow-sm outline-none focus:border-slate-950 focus-visible:ring-2 focus-visible:ring-slate-950 disabled:bg-slate-100 disabled:text-slate-400";
-const labelClassName = "grid min-w-0 gap-1 text-sm font-semibold text-slate-800";
+const labelClassName =
+  "grid min-w-0 gap-1 text-sm font-semibold text-slate-800";
 
 function shortId(value: string) {
   return value.slice(0, 8);
+}
+
+function isUnavailableIdentity(value: string) {
+  return [
+    "Auth identity unavailable",
+    "Email unavailable",
+    "Not captured",
+    "Unavailable",
+  ].includes(value);
+}
+
+function primaryAccountLabel(member: PlatformShopAccessMembership) {
+  return !isUnavailableIdentity(member.email)
+    ? member.email
+    : member.displayName;
 }
 
 function resultMessage(lastResult?: ShopAdminAccessActionsProps["lastResult"]) {
@@ -253,17 +269,27 @@ function MembershipTable({
               member.roleId === "Shop Owner" &&
               member.membershipStatus === "Active" &&
               activeOwners <= 1;
+            const primaryLabel = primaryAccountLabel(member);
+            const secondaryLabel =
+              member.displayName && member.displayName !== primaryLabel
+                ? member.displayName
+                : undefined;
 
             return (
               <tr className="align-top" key={member.shopMemberId}>
                 <td className="px-3 py-2">
                   <div className="max-w-[260px]">
-                    <p className="truncate font-semibold text-slate-950">
-                      {member.displayName}
+                    <p className="break-words font-semibold text-slate-950 [overflow-wrap:anywhere]">
+                      {primaryLabel}
                     </p>
-                    <p className="break-words text-slate-600">{member.email}</p>
+                    {secondaryLabel ? (
+                      <p className="break-words text-slate-600">
+                        Profile label {secondaryLabel}
+                      </p>
+                    ) : null}
                     <p className="font-mono text-xs text-slate-500">
-                      {shortId(member.profileId)} / {shortId(member.shopMemberId)}
+                      {shortId(member.profileId)} /{" "}
+                      {shortId(member.shopMemberId)}
                     </p>
                   </div>
                 </td>

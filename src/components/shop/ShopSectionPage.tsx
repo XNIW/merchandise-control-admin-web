@@ -12,6 +12,13 @@ import type { ReactNode } from "react";
 
 type ShopSectionPageProps = {
   liveDataToolbar?: ReactNode;
+  renderLiveData?: (input: {
+    liveData: NonNullable<ShopSection["liveData"]>;
+    rowActions?: {
+      label: string;
+      render: (row: AdminDataTableRow) => ReactNode;
+    };
+  }) => ReactNode;
   rowActions?: {
     label: string;
     render: (row: AdminDataTableRow) => ReactNode;
@@ -42,6 +49,7 @@ function metricGridClassName(metricCount: number) {
 
 export async function ShopSectionPage({
   liveDataToolbar,
+  renderLiveData,
   rowActions,
   secondaryRowActions,
   section,
@@ -119,17 +127,24 @@ export async function ShopSectionPage({
           titleId={`${localizedSection.key}-status-title`}
         >
           {localizedLiveData ? (
-            <AdminDataTable
-              caption={`${localizedSection.title} ${translateText(
-                dictionary,
-                "read-only table for the selected shop.",
-              )}`}
-              columns={localizedLiveData.columns}
-              rows={localizedLiveData.rows}
-              emptyState={localizedLiveData.emptyState}
-              locale={locale}
-              rowActions={localizedRowActions}
-            />
+            renderLiveData ? (
+              renderLiveData({
+                liveData: localizedLiveData,
+                rowActions: localizedRowActions,
+              })
+            ) : (
+              <AdminDataTable
+                caption={`${localizedSection.title} ${translateText(
+                  dictionary,
+                  "read-only table for the selected shop.",
+                )}`}
+                columns={localizedLiveData.columns}
+                rows={localizedLiveData.rows}
+                emptyState={localizedLiveData.emptyState}
+                locale={locale}
+                rowActions={localizedRowActions}
+              />
+            )
           ) : (
             <div className="mt-5 grid gap-3">
               {localizedSection.plannedWork.map((item) => (

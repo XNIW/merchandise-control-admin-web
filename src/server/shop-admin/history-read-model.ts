@@ -185,12 +185,20 @@ export type ShopHistoryTablePreviewRow = {
   values: string;
 };
 
+export type ShopHistorySummary = {
+  historySessionsTotal: number;
+  latestChangedAt: string | null;
+  latestFailedSyncEvents: number;
+  syncEventsTotal: number;
+};
+
 export type ShopHistoryReadModel = {
   status: ShopHistoryReadModelStatus;
   selectedShop: ShopAdminShellShop | null;
   mapping: ShopHistoryMapping | null;
   syncEvents: readonly ShopSyncEventActivity[];
   sessions: readonly ShopHistorySession[];
+  summary: ShopHistorySummary;
   readOnly: true;
   source: "supabase_server";
   reason: string;
@@ -247,6 +255,12 @@ const emptyRows = {
   mapping: null,
   syncEvents: [],
   sessions: [],
+  summary: {
+    historySessionsTotal: 0,
+    latestChangedAt: null,
+    latestFailedSyncEvents: 0,
+    syncEventsTotal: 0,
+  },
 } as const;
 
 const emptyDetail = {
@@ -878,6 +892,177 @@ function mergeRowsByKey<Row>(
   return rows;
 }
 
+type HistoryCountResult = {
+  count: number | null;
+  error: unknown | null;
+};
+
+type HistoryCountQuery = {
+  eq: (column: string, value: string) => HistoryCountQuery;
+  in: (column: string, values: readonly string[]) => HistoryCountQuery;
+  is: (column: string, value: null) => HistoryCountQuery;
+} & PromiseLike<HistoryCountResult>;
+
+type HistoryCountTable = {
+  select: (
+    columns: string,
+    options: {
+      count: "exact";
+      head: true;
+    },
+  ) => HistoryCountQuery;
+};
+
+type SupportedHistoryCountTable =
+  | "shared_sheet_session_diagnostics"
+  | "sync_events";
+
+const SUPPORTED_HISTORY_TOTAL_TABLES = [
+  "shared_sheet_session_diagnostics",
+  "sync_events",
+] as const satisfies readonly SupportedHistoryCountTable[];
+
+type HistoryCountScope =
+  | {
+      kind: "shop_scoped";
+      shopId: string;
+    }
+  | {
+      kind: "legacy_owner_bridge";
+      ownerUserId: string;
+    };
+
+function isSupportedHistoryCountTable(
+  table: string,
+): table is SupportedHistoryCountTable {
+  return SUPPORTED_HISTORY_TOTAL_TABLES.includes(
+    table as SupportedHistoryCountTable,
+  );
+}
+
+function isHistoryCountTable(value: unknown): value is HistoryCountTable {
+  return (
+    Boolean(value) &&
+    typeof value === "object" &&
+    typeof (value as { select?: unknown }).select === "function"
+  );
+}
+
+function historyCountUnavailableError(table: string, reason: string) {
+  const error = new Error(`history_read_unavailable:${reason}:${table}`);
+  error.name = "history_read_unavailable";
+
+  return error;
+}
+
+async function countHistoryRows(input: {
+  domains?: readonly string[];
+  scope: HistoryCountScope;
+  supabase: SupabaseServerClient;
+  table: string;
+}) {
+  if (!isSupportedHistoryCountTable(input.table)) {
+    return {
+      count: 0,
+      error: historyCountUnavailableError(input.table, "unsupported_table"),
+    };
+  }
+
+  const fromHistoryTable = input.supabase.from.bind(input.supabase) as unknown as (
+    table: SupportedHistoryCountTable,
+  ) => unknown;
+  let table: unknown;
+
+  try {
+    table = fromHistoryTable(input.table);
+  } catch {
+    return {
+      count: 0,
+      error: historyCountUnavailableError(input.table, "table_builder_failed"),
+    };
+  }
+
+  if (!isHistoryCountTable(table)) {
+    return {
+      count: 0,
+      error: historyCountUnavailableError(input.table, "table_builder_missing"),
+    };
+  }
+
+  let query = table.select("*", {
+    count: "exact",
+    head: true,
+  });
+
+  if (input.scope.kind === "shop_scoped") {
+    query = query.eq("shop_id", input.scope.shopId);
+  } else {
+    query = query
+      .is("shop_id", null)
+      .eq("owner_user_id", input.scope.ownerUserId);
+  }
+
+  if (input.domains) {
+    query = query.in("domain", input.domains);
+  }
+
+  return (await query) as HistoryCountResult;
+}
+
+async function loadHistorySummary(input: {
+  legacyOwnerUserId: string | null;
+  selectedShopId: string;
+  supabase: SupabaseServerClient;
+}) {
+  const scopes: HistoryCountScope[] = [
+    {
+      kind: "shop_scoped",
+      shopId: input.selectedShopId,
+    },
+  ];
+
+  if (input.legacyOwnerUserId) {
+    scopes.push({
+      kind: "legacy_owner_bridge",
+      ownerUserId: input.legacyOwnerUserId,
+    });
+  }
+
+  const results = await Promise.all(
+    scopes.flatMap((scope) => [
+      countHistoryRows({
+        domains: ["history", "catalog", "prices"],
+        scope,
+        supabase: input.supabase,
+        table: "sync_events",
+      }),
+      countHistoryRows({
+        scope,
+        supabase: input.supabase,
+        table: "shared_sheet_session_diagnostics",
+      }),
+    ]),
+  );
+  const error = results.find((result) => result.error)?.error ?? null;
+  let syncEventsTotal = 0;
+  let historySessionsTotal = 0;
+
+  for (let index = 0; index < results.length; index += 2) {
+    syncEventsTotal += results[index]?.count ?? 0;
+    historySessionsTotal += results[index + 1]?.count ?? 0;
+  }
+
+  return {
+    error,
+    summary: {
+      historySessionsTotal,
+      latestChangedAt: null,
+      latestFailedSyncEvents: 0,
+      syncEventsTotal,
+    } satisfies ShopHistorySummary,
+  };
+}
+
 async function resolveHistorySourceState(
   supabase: SupabaseServerClient,
   selectedShop: ShopAdminShellShop,
@@ -1221,6 +1406,7 @@ export async function getShopHistoryReadModel(
       mapping: null,
       syncEvents: [],
       sessions: [],
+      summary: emptyRows.summary,
       readOnly: true,
       source: "supabase_server",
       reason: "Mobile history mapping could not be loaded.",
@@ -1230,6 +1416,26 @@ export async function getShopHistoryReadModel(
 
   const mapping = sourceState.mapping ?? null;
   const legacyOwnerUserId = sourceState.legacyOwnerUserId ?? null;
+  const historySummaryResult = await loadHistorySummary({
+    legacyOwnerUserId,
+    selectedShopId: selectedShop.shopId,
+    supabase,
+  });
+
+  if (historySummaryResult.error) {
+    return {
+      status: "error",
+      selectedShop,
+      mapping,
+      syncEvents: [],
+      sessions: [],
+      summary: emptyRows.summary,
+      readOnly: true,
+      source: "supabase_server",
+      reason: "Mobile history totals could not be loaded through RLS.",
+      error: redactHistoryReadModelError(historySummaryResult.error),
+    };
+  }
 
   const directSyncEventsResult = await supabase
     .from("sync_events")
@@ -1248,6 +1454,7 @@ export async function getShopHistoryReadModel(
       mapping,
       syncEvents: [],
       sessions: [],
+      summary: historySummaryResult.summary,
       readOnly: true,
       source: "supabase_server",
       reason: "Shop-scoped sync events could not be loaded through RLS.",
@@ -1277,6 +1484,7 @@ export async function getShopHistoryReadModel(
       mapping,
       syncEvents: directSyncEventRows.map(mapSyncEvent),
       sessions: [],
+      summary: historySummaryResult.summary,
       readOnly: true,
       source: "supabase_server",
       reason: "Shop-scoped mobile sessions could not be loaded through RLS.",
@@ -1329,6 +1537,7 @@ export async function getShopHistoryReadModel(
         sessions: directSessionRows.map((session) =>
           mapSessionDiagnostics(session, directSyncEvents),
         ),
+        summary: historySummaryResult.summary,
         readOnly: true,
         source: "supabase_server",
         reason: "Legacy mobile history rows could not be loaded through RLS.",
@@ -1364,6 +1573,7 @@ export async function getShopHistoryReadModel(
       mapping: null,
       syncEvents: [],
       sessions: [],
+      summary: historySummaryResult.summary,
       readOnly: true,
       source: "supabase_server",
       reason:
@@ -1382,15 +1592,31 @@ export async function getShopHistoryReadModel(
     (session) => session.remote_id,
   );
   const syncEvents = syncEventRows.map(mapSyncEvent);
+  const sessions = sessionRows.map((session) =>
+    mapSessionDiagnostics(session, syncEvents),
+  );
+  const latestChangedAt = [
+    ...syncEvents.map((event) => event.createdAt),
+    ...sessions.map((session) => session.updatedAt),
+  ].reduce<string | null>(
+    (latest, value) => (!latest || value > latest ? value : latest),
+    null,
+  );
+  const latestFailedSyncEvents = syncEvents.filter(
+    (event) => event.status === "failed",
+  ).length;
 
   return {
     status: "ready",
     selectedShop,
     mapping,
     syncEvents,
-    sessions: sessionRows.map((session) =>
-      mapSessionDiagnostics(session, syncEvents),
-    ),
+    sessions,
+    summary: {
+      ...historySummaryResult.summary,
+      latestChangedAt,
+      latestFailedSyncEvents,
+    },
     readOnly: true,
     source: "supabase_server",
     reason:

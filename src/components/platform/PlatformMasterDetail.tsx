@@ -12,6 +12,7 @@ import {
 } from "./displayFormat";
 import { DEFAULT_LOCALE, type SupportedLocale } from "@/i18n/locales";
 import type {
+  EmptyStateContent,
   PlatformFilter,
   PlatformServerSearch,
   RowDetailPanel,
@@ -79,6 +80,7 @@ const noWrapTableColumns = new Set([
   "access",
   "adminAccess",
   "code",
+  "dataStatus",
   "globalAccess",
   "health",
   "operationalAccess",
@@ -93,6 +95,7 @@ const noWrapCellColumns = new Set([
   "access",
   "adminAccess",
   "code",
+  "dataStatus",
   "globalAccess",
   "health",
   "operationalAccess",
@@ -119,16 +122,20 @@ function tableColumnClass(columnKey: string) {
     return "min-w-28";
   }
 
-  if (
-    columnKey === "accountType" ||
-    columnKey === "adminAccess" ||
-    columnKey === "globalAccess"
-  ) {
+  if (columnKey === "accountType") {
+    return "min-w-56";
+  }
+
+  if (columnKey === "adminAccess" || columnKey === "globalAccess") {
     return "min-w-36";
   }
 
   if (columnKey === "shopAccess") {
     return "min-w-48";
+  }
+
+  if (columnKey === "dataStatus") {
+    return "min-w-44";
   }
 
   if (columnKey === "roles") {
@@ -204,6 +211,33 @@ function rowMatchesFilters(
   });
 }
 
+function selectedFilterEmptyState(
+  filters: PlatformFilter[] | undefined,
+  activeFilters: Record<string, string>,
+): EmptyStateContent | undefined {
+  if (!filters || filters.length === 0) {
+    return undefined;
+  }
+
+  for (const filter of filters) {
+    const selectedValue = activeFilters[filter.key];
+
+    if (!selectedValue) {
+      continue;
+    }
+
+    const selectedOption = filter.options.find(
+      (option) => option.value === selectedValue,
+    );
+
+    if (selectedOption?.emptyState) {
+      return selectedOption.emptyState;
+    }
+  }
+
+  return undefined;
+}
+
 function isStatusSegment(value: string) {
   return [
     "Active",
@@ -277,6 +311,7 @@ function renderCellValue(
   locale: SupportedLocale = DEFAULT_LOCALE,
 ) {
   const segments = value.split("\n").filter(Boolean);
+  const isCodeColumn = columnKey === "code";
 
   if (segments.length === 0) {
     return null;
@@ -298,6 +333,7 @@ function renderCellValue(
           segment.startsWith("Code ") ||
           segment.startsWith("Shop code ");
         const keepSegmentTogether =
+          !isCodeColumn &&
           noWrapTableColumns.has(columnKey) &&
           !isLikelyIdentifier(segment) &&
           segment.length <= 36 &&
@@ -320,6 +356,7 @@ function renderCellValue(
                 : keepSegmentTogether
                   ? "whitespace-nowrap"
                   : "break-words",
+              isCodeColumn ? "whitespace-normal [overflow-wrap:anywhere]" : "",
               index === 0 ? "font-medium text-slate-900" : "text-slate-600",
               isMeta ? "text-xs" : "",
               isCode ? "font-mono" : "",
@@ -448,6 +485,10 @@ export function PlatformMasterDetail({
       : rows.length > 0
         ? labels.clientFiltersHideRows
         : labels.adjustSearchOrFilters;
+  const filterEmptyState =
+    rows.length > 0
+      ? selectedFilterEmptyState(filters, activeFilters)
+      : undefined;
   const filteredDetailKeys = filteredRows
     .map((row, rowIndex) => rowKeyFor(row, columns, rowIndex))
     .filter((rowKey) => detailsByRowKey.has(rowKey));
@@ -707,10 +748,25 @@ export function PlatformMasterDetail({
                           ? "border-l-slate-950 bg-slate-50"
                           : "border-l-transparent",
                       ].join(" ")}
-                      onClick={hasDetail ? () => selectRow(rowKey) : undefined}
+                      onClick={
+                        hasDetail
+                          ? (event) => {
+                              if (event.detail >= 2 && canOpenFullDetail) {
+                                event.preventDefault();
+                                openFullDetail(rowKey);
+                                return;
+                              }
+
+                              selectRow(rowKey);
+                            }
+                          : undefined
+                      }
                       onDoubleClick={
                         canOpenFullDetail
-                          ? () => openFullDetail(rowKey)
+                          ? (event) => {
+                              event.preventDefault();
+                              openFullDetail(rowKey);
+                            }
                           : undefined
                       }
                       onKeyDown={
@@ -737,7 +793,9 @@ export function PlatformMasterDetail({
                           className={[
                             "max-w-80 border-b border-slate-100 px-3 py-3 align-top text-slate-700 first:pl-0 last:pr-0",
                             tableColumnClass(column.key),
-                            noWrapCellColumns.has(column.key)
+                            column.key === "code"
+                              ? "whitespace-normal break-words [overflow-wrap:anywhere]"
+                              : noWrapCellColumns.has(column.key)
                               ? "whitespace-nowrap"
                               : "break-words",
                             isSelected && column.key === columns[0]?.key
@@ -746,7 +804,14 @@ export function PlatformMasterDetail({
                           ].join(" ")}
                         >
                           <div className="flex min-w-0 items-start gap-2">
-                            <div className="min-w-0 flex-1">
+                            <div
+                              className={[
+                                "min-w-0 flex-1",
+                                column.key === "code"
+                                  ? "whitespace-normal [overflow-wrap:anywhere]"
+                                  : "",
+                              ].join(" ")}
+                            >
                               {renderCellValue(
                                 row[column.key] ?? "",
                                 column.key,
@@ -771,7 +836,7 @@ export function PlatformMasterDetail({
                                     event.stopPropagation();
                                   }
                                 }}
-                                className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950"
+                                className="shrink-0 whitespace-nowrap rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950"
                                 aria-label={`${labels.copyShopCode} ${row[column.key]}`}
                               >
                                 {copiedCode === row[column.key]
@@ -792,10 +857,10 @@ export function PlatformMasterDetail({
                     className="border-b border-slate-100 px-3 py-6 text-sm text-slate-500 first:pl-0 last:pr-0"
                   >
                     <span className="font-medium text-slate-700">
-                      {labels.noMatchingRows}
+                      {filterEmptyState?.title ?? labels.noMatchingRows}
                     </span>
                     <span className="mt-1 block leading-6">
-                      {noRowsHint}
+                      {filterEmptyState?.description ?? noRowsHint}
                     </span>
                   </td>
                 </tr>

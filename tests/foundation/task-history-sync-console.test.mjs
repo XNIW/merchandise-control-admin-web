@@ -88,6 +88,71 @@ test("Mobile History does not treat invalid overlays as trusted completion state
   );
 });
 
+test("History summary counts guard unsupported tables and keep overview renderable", () => {
+  const readModel = readProjectFile("src/server/shop-admin/history-read-model.ts");
+  const sectionData = readProjectFile("src/server/shop-admin/shop-section-data.ts");
+  const overviewPage = readProjectFile("src/app/shop/overview/page.tsx");
+  const dashboardSection =
+    sectionData.match(
+      /export function buildShopDashboardSection[\s\S]*?(?=\nexport function buildMembersSection)/,
+    )?.[0] ?? "";
+  const countHistoryRows =
+    readModel.match(
+      /async function countHistoryRows[\s\S]*?(?=\nasync function loadHistorySummary)/,
+    )?.[0] ?? "";
+  const loadHistorySummary =
+    readModel.match(
+      /async function loadHistorySummary[\s\S]*?(?=\nasync function resolveHistorySourceState)/,
+    )?.[0] ?? "";
+
+  for (const required of [
+    "type SupportedHistoryCountTable",
+    "const SUPPORTED_HISTORY_TOTAL_TABLES",
+    "\"shared_sheet_session_diagnostics\"",
+    "\"sync_events\"",
+    "function isSupportedHistoryCountTable",
+    "function isHistoryCountTable",
+    "function historyCountUnavailableError",
+    "history_read_unavailable",
+  ]) {
+    assert.match(
+      readModel,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `history read model must keep ${required}`,
+    );
+  }
+
+  for (const required of [
+    "if (!isSupportedHistoryCountTable(input.table))",
+    "historyCountUnavailableError(input.table, \"unsupported_table\")",
+    "input.supabase.from.bind(input.supabase)",
+    "historyCountUnavailableError(input.table, \"table_builder_failed\")",
+    "if (!isHistoryCountTable(table))",
+    "historyCountUnavailableError(input.table, \"table_builder_missing\")",
+    "count: 0",
+    "table.select(\"*\"",
+    "count: \"exact\"",
+    "head: true",
+  ]) {
+    assert.match(
+      countHistoryRows,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `countHistoryRows must guard and preserve valid count path: ${required}`,
+    );
+  }
+
+  assert.match(loadHistorySummary, /table: "sync_events"/);
+  assert.match(loadHistorySummary, /table: "shared_sheet_session_diagnostics"/);
+  assert.match(readModel, /status: "error"[\s\S]*Mobile history totals could not be loaded through RLS\./);
+  assert.match(readModel, /summary: emptyRows\.summary/);
+
+  assert.match(overviewPage, /getShopSectionForRequest\(\s*"overview"/);
+  assert.match(dashboardSection, /const historySummary = historyReadModel\.summary/);
+  assert.match(dashboardSection, /historyReadModel\.reason/);
+  assert.doesNotMatch(dashboardSection, /historyReadModel\.summary\./);
+  assert.doesNotMatch(dashboardSection, /historyReadModel\.status !== "ready"/);
+});
+
 test("History page renders mobile entries first, then sync events and diagnostics", () => {
   const sectionsPath = "src/components/shop/shopSections.ts";
   const sectionDataPath = "src/server/shop-admin/shop-section-data.ts";

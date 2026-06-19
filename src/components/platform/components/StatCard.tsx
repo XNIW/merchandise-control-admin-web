@@ -12,7 +12,7 @@ export function StatCard({ stat }: StatCardProps) {
         <p className="text-sm font-medium text-slate-600">{stat.label}</p>
         <StatusBadge label={stat.toneLabel ?? stat.tone} tone={stat.tone} />
       </div>
-      <p className="mt-4 text-2xl font-semibold tracking-normal text-slate-950">
+      <p className="mt-4 break-words text-2xl font-semibold tracking-normal text-slate-950 [overflow-wrap:anywhere]">
         {stat.value}
       </p>
       <p className="mt-2 text-sm leading-5 text-slate-600">{stat.detail}</p>

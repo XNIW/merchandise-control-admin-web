@@ -19,6 +19,7 @@ export type PlatformStaffManagerProvisionCode =
   | "invalid_state"
   | "not_configured"
   | "permission_write_failed"
+  | "recovery_rpc_not_configured"
   | "server_admin_not_configured"
   | "shop_inactive"
   | "shop_lookup_database_error"
@@ -110,6 +111,8 @@ const messageByCode: Record<PlatformStaffManagerProvisionCode, string> = {
   invalid_state: "The selected shop is not eligible for staff manager web access.",
   not_configured: "Platform Admin runtime is not configured.",
   permission_write_failed: "Manager permission write failed at the database boundary.",
+  recovery_rpc_not_configured:
+    "Initial manager recovery is not installed on this database target. Ask an operator to apply the recovery boundary migration, then retry.",
   server_admin_not_configured:
     "Server admin runtime is not configured. Recovery cannot update staff credentials in this runtime.",
   shop_inactive: "The selected shop is inactive or archived.",
@@ -132,7 +135,7 @@ const SHOP_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{2,31}$/;
 export const DEFAULT_MANAGER_DISPLAY_NAME = "manager" as const;
 export const INITIAL_MANAGER_RECOVERY_STAFF_CODE = "1001" as const;
 export const TASK051_INITIAL_MANAGER_RECOVERY_RPC_CONTRACT = {
-  credential_expires_at: null,
+  credential_expires_at: "temporary_14_days",
   credential_generated: true,
   locked_until: null,
   must_change_credential: false,
@@ -238,6 +241,7 @@ function mapRpcCode(value: unknown): PlatformStaffManagerProvisionCode {
       "credential_update_database_error",
       "duplicate_initial_manager",
       "not_configured",
+      "recovery_rpc_not_configured",
       "shop_inactive",
       "shop_not_found",
       "unauthorized",
@@ -352,7 +356,12 @@ async function provisionPlatformStaffManagerInternal(
   );
 
   if (error) {
-    return finish("credential_update_database_error", {
+    const errorCode =
+      error.code === "PGRST202"
+        ? "recovery_rpc_not_configured"
+        : "credential_update_database_error";
+
+    return finish(errorCode, {
       ok: false,
       shopCode: normalized.shopCode || undefined,
       shopId: normalized.shopId || undefined,

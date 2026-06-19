@@ -2733,6 +2733,11 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Task TASK-067: `TASK-067 - Master Console lifecycle management, admin assignment, and safe cleanup`
 - File task TASK-067: `docs/TASKS/TASK-067-master-console-lifecycle-management-admin-assignment-safe-cleanup.md`
 - Evidence TASK-067: `docs/TASKS/EVIDENCE/TASK-067/README.md`
+- Stato TASK-068Z: `REVIEW`
+- Fase TASK-068Z: `REVIEW`
+- Task TASK-068Z: `TASK-068Z - CodeRabbit full review, hardening and reconciliation`
+- File task TASK-068Z: `docs/TASKS/TASK-068Z-coderabbit-full-review-hardening-reconciliation.md`
+- Evidence TASK-068Z: `docs/TASKS/EVIDENCE/TASK-068Z/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
 - Task attivo: `TASK-065 - Fix Master Console Google OAuth redirect`
