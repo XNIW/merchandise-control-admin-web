@@ -6,9 +6,11 @@ import {
   formatToken,
   shortIdentifier,
 } from "@/components/platform/displayFormat";
+import { AccountIdentity } from "@/components/account/AccountIdentity";
 import type { Profile } from "@/domain/platform-admin/types";
 import { formatDateTime } from "@/i18n/format";
 import { getI18n } from "@/i18n/get-locale";
+import { createAccountIdentitySummary } from "@/lib/account-identity";
 import { translateText } from "@/i18n/translate-sections";
 import {
   getPlatformAdminReadModel,
@@ -87,17 +89,6 @@ function accountForProfile(
   return readModel.userAccounts.find((account) => account.profileId === profileId);
 }
 
-function accountDisplayName(
-  readModel: PlatformAdminLiveReadModel,
-  profileId: string,
-  fallback: string,
-) {
-  return (
-    accountForProfile(readModel, profileId)?.displayName ??
-    profileNameById(readModel.profiles, profileId, fallback)
-  );
-}
-
 function accountEmail(account: PlatformUserAccountSummary | undefined) {
   return account?.email ?? "Auth identity unavailable";
 }
@@ -108,6 +99,32 @@ function accountOrigin(account: PlatformUserAccountSummary | undefined) {
   }
 
   return `${account.provider} / ${formatToken(account.providerType)}`;
+}
+
+function isUnavailableIdentityValue(value: string | undefined) {
+  return (
+    !value ||
+    value === "Auth identity unavailable" ||
+    value === "Email unavailable"
+  );
+}
+
+function accountIdentityForProfile(
+  readModel: PlatformAdminLiveReadModel,
+  profileId: string,
+  fallback: string,
+) {
+  const account = accountForProfile(readModel, profileId);
+
+  return createAccountIdentitySummary({
+    displayName:
+      account?.displayName ?? profileNameById(readModel.profiles, profileId, fallback),
+    email: isUnavailableIdentityValue(account?.email) ? null : account?.email,
+    profileId,
+    rawProvider: isUnavailableIdentityValue(account?.provider)
+      ? null
+      : account?.provider,
+  });
 }
 
 function shopAdminOverlap(account: PlatformUserAccountSummary | undefined) {
@@ -294,18 +311,22 @@ export default async function PlatformAdminsPage({
                 <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
                   {t("Current Platform Admin account")}
                 </p>
-                <h2 className="mt-1 break-words text-lg font-semibold text-slate-950">
-                  {readModel.currentProfileId
-                    ? accountDisplayName(
+                {readModel.currentProfileId ? (
+                  <div className="mt-2">
+                    <AccountIdentity
+                      identity={accountIdentityForProfile(
                         readModel,
                         readModel.currentProfileId,
                         t("Platform User"),
-                      )
-                    : t("Platform User")}
-                </h2>
-                <p className="mt-1 break-all text-sm text-slate-700">
-                  {accountEmail(currentAccount)}
-                </p>
+                      )}
+                      locale={locale}
+                    />
+                  </div>
+                ) : (
+                  <h2 className="mt-1 break-words text-lg font-semibold text-slate-950">
+                    {t("Platform User")}
+                  </h2>
+                )}
               </div>
               <div className="flex flex-wrap gap-2">
                 <span className="rounded-md border border-slate-300 bg-slate-50 px-2 py-1 text-xs font-semibold text-slate-700">
@@ -435,26 +456,15 @@ export default async function PlatformAdminsPage({
                         >
                           <div className="min-w-0">
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                              <div className="min-w-0">
-                                <h3
-                                  title={admin.profile_id}
-                                  className="break-words text-base font-semibold text-slate-950"
-                                >
-                                  {accountDisplayName(
+                              <div className="min-w-0" title={admin.profile_id}>
+                                <AccountIdentity
+                                  identity={accountIdentityForProfile(
                                     readModel,
                                     admin.profile_id,
                                     t("Platform User"),
                                   )}
-                                </h3>
-                                <p className="mt-1 break-all text-sm text-slate-700">
-                                  {accountEmail(account)}
-                                </p>
-                                <p
-                                  title={admin.profile_id}
-                                  className="mt-1 break-all font-mono text-xs text-slate-500"
-                                >
-                                  {t("Profile ID")} {shortIdentifier(admin.profile_id)}
-                                </p>
+                                  locale={locale}
+                                />
                               </div>
                               <div className="flex flex-wrap gap-2 sm:justify-end">
                                 <span className="w-fit rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-800">
@@ -486,6 +496,17 @@ export default async function PlatformAdminsPage({
                                 </dt>
                                 <dd className="break-words text-slate-800">
                                   {shopAdminOverlap(account)}
+                                </dd>
+                              </div>
+                              <div>
+                                <dt className="font-semibold text-slate-500">
+                                  {t("Profile ID")}
+                                </dt>
+                                <dd
+                                  title={admin.profile_id}
+                                  className="break-all font-mono text-slate-800"
+                                >
+                                  {shortIdentifier(admin.profile_id)}
                                 </dd>
                               </div>
                               <div>

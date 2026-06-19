@@ -2,6 +2,14 @@ import "server-only";
 
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/supabase/database.types";
+import {
+  createAccountIdentitySummary,
+  type AccountIdentitySummary,
+} from "@/lib/account-identity";
+import {
+  loadAuthIdentitySummariesByIds,
+  type PlatformAuthIdentitySummary,
+} from "@/server/platform-admin/auth-identities";
 import { resolveShopAdminDataAccess } from "./data-access";
 
 type ShopRow = Tables<"shops">;
@@ -79,6 +87,7 @@ export type ShopAdminReadModelShop = {
 };
 
 export type ShopAdminReadModelMember = {
+  accountIdentity: AccountIdentitySummary;
   shopMemberId: string;
   profileId: string;
   roleKey: string;
@@ -88,6 +97,7 @@ export type ShopAdminReadModelMember = {
 };
 
 export type ShopAdminReadModelAuditLog = {
+  actorIdentity: AccountIdentitySummary | null;
   auditLogId: string;
   actorProfileId: string | null;
   eventKey: string;
@@ -180,8 +190,46 @@ async function loadSelectedShop(
     .maybeSingle();
 }
 
-function mapMemberRow(row: ShopMemberReadRow): ShopAdminReadModelMember {
+function availableAuthValue(value: string | undefined) {
+  return value &&
+    value !== "Auth identity unavailable" &&
+    value !== "Email unavailable"
+    ? value
+    : null;
+}
+
+function identityFromAuthSummary(
+  profileId: string,
+  authIdentity: PlatformAuthIdentitySummary | undefined,
+) {
+  return createAccountIdentitySummary({
+    displayName: availableAuthValue(authIdentity?.displayName),
+    email: availableAuthValue(authIdentity?.email),
+    profileId,
+    rawProvider:
+      authIdentity?.provider && authIdentity.provider !== "unknown"
+        ? authIdentity.provider
+        : null,
+  });
+}
+
+async function loadScopedAccountIdentityMap(profileIds: readonly string[]) {
+  const result = await loadAuthIdentitySummariesByIds(profileIds);
+
+  return new Map(
+    result.identities.map((identity) => [identity.authUserId, identity]),
+  );
+}
+
+function mapMemberRow(
+  row: ShopMemberReadRow,
+  identitiesByProfileId: ReadonlyMap<string, PlatformAuthIdentitySummary> = new Map(),
+): ShopAdminReadModelMember {
   return {
+    accountIdentity: identityFromAuthSummary(
+      row.profile_id,
+      identitiesByProfileId.get(row.profile_id),
+    ),
     shopMemberId: row.shop_member_id,
     profileId: row.profile_id,
     roleKey: row.role_key,
@@ -191,8 +239,17 @@ function mapMemberRow(row: ShopMemberReadRow): ShopAdminReadModelMember {
   };
 }
 
-function mapAuditLogRow(row: AuditLogReadRow): ShopAdminReadModelAuditLog {
+function mapAuditLogRow(
+  row: AuditLogReadRow,
+  identitiesByProfileId: ReadonlyMap<string, PlatformAuthIdentitySummary> = new Map(),
+): ShopAdminReadModelAuditLog {
   return {
+    actorIdentity: row.actor_profile_id
+      ? identityFromAuthSummary(
+          row.actor_profile_id,
+          identitiesByProfileId.get(row.actor_profile_id),
+        )
+      : null,
     auditLogId: row.audit_log_id,
     actorProfileId: row.actor_profile_id,
     eventKey: row.event_key,
@@ -286,7 +343,9 @@ export async function getShopAdminReadModel(
     return {
       status: "error",
       selectedShop: mapShopRow(selectedShopRow, selectedShop.role),
-      members: (membersResult.data ?? []).map(mapMemberRow),
+      members: ((membersResult.data ?? []) as ShopMemberReadRow[]).map((row) =>
+        mapMemberRow(row),
+      ),
       auditLogs: [],
       readOnly: true,
       source: "supabase_server",
@@ -295,11 +354,26 @@ export async function getShopAdminReadModel(
     };
   }
 
+  const memberRows = (membersResult.data ?? []) as ShopMemberReadRow[];
+  const auditRows = (auditLogsResult.data ?? []) as AuditLogReadRow[];
+  const scopedProfileIds = Array.from(
+    new Set(
+      [
+        ...memberRows.map((row) => row.profile_id),
+        ...auditRows
+          .map((row) => row.actor_profile_id)
+          .filter((value): value is string => Boolean(value)),
+      ].filter(Boolean),
+    ),
+  );
+  const identitiesByProfileId =
+    await loadScopedAccountIdentityMap(scopedProfileIds);
+
   return {
     status: "ready",
     selectedShop: mapShopRow(selectedShopRow, selectedShop.role),
-    members: (membersResult.data ?? []).map(mapMemberRow),
-    auditLogs: (auditLogsResult.data ?? []).map(mapAuditLogRow),
+    members: memberRows.map((row) => mapMemberRow(row, identitiesByProfileId)),
+    auditLogs: auditRows.map((row) => mapAuditLogRow(row, identitiesByProfileId)),
     readOnly: true,
     source: "supabase_server",
     reason:

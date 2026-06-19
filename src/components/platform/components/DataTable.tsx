@@ -1,4 +1,9 @@
 import type { TableColumn, TableRow } from "../platformData";
+import { AccountIdentity } from "@/components/account/AccountIdentity";
+import {
+  accountIdentitySearchText,
+  isAccountIdentitySummary,
+} from "@/lib/account-identity";
 
 type DataTableProps = {
   columns: TableColumn[];
@@ -29,14 +34,23 @@ export function DataTable({ columns, rows }: DataTableProps) {
           {rows.length > 0 ? (
             rows.map((row, rowIndex) => (
               <tr key={`${rowIndex}-${columns[0]?.key ?? "row"}`}>
-                {columns.map((column) => (
-                  <td
-                    key={column.key}
-                    className="break-words border-b border-slate-100 px-3 py-3 text-slate-700 first:pl-0 last:pr-0"
-                  >
-                    {row[column.key]}
-                  </td>
-                ))}
+                {columns.map((column) => {
+                  const cellValue = row[column.key];
+
+                  return (
+                    <td
+                      key={column.key}
+                      title={cellTitle(cellValue)}
+                      className="break-words border-b border-slate-100 px-3 py-3 text-slate-700 first:pl-0 last:pr-0"
+                    >
+                      {isAccountIdentitySummary(cellValue) ? (
+                        <AccountIdentity identity={cellValue} />
+                      ) : (
+                        cellValue
+                      )}
+                    </td>
+                  );
+                })}
               </tr>
             ))
           ) : (
@@ -56,4 +70,12 @@ export function DataTable({ columns, rows }: DataTableProps) {
       </p>
     </div>
   );
+}
+
+function cellTitle(value: TableRow[string] | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  return isAccountIdentitySummary(value) ? accountIdentitySearchText(value) : value;
 }

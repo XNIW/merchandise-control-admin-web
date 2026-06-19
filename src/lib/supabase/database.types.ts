@@ -1052,6 +1052,9 @@ export type Database = {
           heartbeat_count: number
           issued_at: string
           last_seen_at: string | null
+          last_seen_principal_kind: string
+          last_seen_profile_id: string | null
+          last_seen_staff_id: string | null
           metadata_redacted: Json
           pos_device_credential_id: string
           pos_session_id: string
@@ -1071,6 +1074,9 @@ export type Database = {
           heartbeat_count?: number
           issued_at?: string
           last_seen_at?: string | null
+          last_seen_principal_kind?: string
+          last_seen_profile_id?: string | null
+          last_seen_staff_id?: string | null
           metadata_redacted?: Json
           pos_device_credential_id: string
           pos_session_id?: string
@@ -1090,6 +1096,9 @@ export type Database = {
           heartbeat_count?: number
           issued_at?: string
           last_seen_at?: string | null
+          last_seen_principal_kind?: string
+          last_seen_profile_id?: string | null
+          last_seen_staff_id?: string | null
           metadata_redacted?: Json
           pos_device_credential_id?: string
           pos_session_id?: string
@@ -1244,6 +1253,9 @@ export type Database = {
           device_type: string
           display_name: string
           last_seen_at: string | null
+          last_seen_principal_kind: string
+          last_seen_profile_id: string | null
+          last_seen_staff_id: string | null
           metadata_redacted: Json
           reactivated_at: string | null
           reactivated_by_profile_id: string | null
@@ -1263,6 +1275,9 @@ export type Database = {
           device_type?: string
           display_name: string
           last_seen_at?: string | null
+          last_seen_principal_kind?: string
+          last_seen_profile_id?: string | null
+          last_seen_staff_id?: string | null
           metadata_redacted?: Json
           reactivated_at?: string | null
           reactivated_by_profile_id?: string | null
@@ -1282,6 +1297,9 @@ export type Database = {
           device_type?: string
           display_name?: string
           last_seen_at?: string | null
+          last_seen_principal_kind?: string
+          last_seen_profile_id?: string | null
+          last_seen_staff_id?: string | null
           metadata_redacted?: Json
           reactivated_at?: string | null
           reactivated_by_profile_id?: string | null
@@ -1300,6 +1318,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "shop_devices_last_seen_profile_id_fkey"
+            columns: ["last_seen_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "shop_devices_last_seen_staff_id_fkey"
+            columns: ["last_seen_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "shop_devices_last_seen_staff_id_fkey"
+            columns: ["last_seen_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "shop_devices_reactivated_by_profile_id_fkey"
@@ -2400,6 +2439,20 @@ export type Database = {
           p_metadata?: Json
           p_shop_id: string
         }
+        Returns: Json
+      }
+      shop_device_register_current_owner: {
+        Args: {
+          p_app_version?: string
+          p_device_identifier: string
+          p_device_type?: string
+          p_display_name?: string
+          p_metadata?: Json
+        }
+        Returns: Json
+      }
+      shop_device_status_current_owner: {
+        Args: { p_device_identifier: string }
         Returns: Json
       }
       shop_device_rename: {

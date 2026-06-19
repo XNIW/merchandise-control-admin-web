@@ -20,6 +20,7 @@
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
     "verify": "npm run lint && npm run typecheck && npm run security:scan && npm run build",
+    "verify:task072:devices": "node scripts/verify-task-072-device-supabase.mjs",
     "security:scan": "node scripts/security-checks.mjs",
     "supabase:bootstrap-platform-admin": "node scripts/supabase/bootstrap-platform-admin.mjs",
     "platform:local:seed": "node scripts/platform/local-login-setup.mjs seed",

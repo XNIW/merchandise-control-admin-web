@@ -2,6 +2,7 @@ import type {
   PlatformNavigationItem,
   PlatformSection,
 } from "@/components/platform/platformData";
+import { isAccountIdentitySummary } from "@/lib/account-identity";
 import { formatDateTime } from "./format";
 import { DEFAULT_LOCALE, type SupportedLocale } from "./locales";
 import type {
@@ -264,15 +265,19 @@ function translateStatusLikeSegment(
     : translateEmbeddedUiText(dictionary, value, locale);
 }
 
-function shouldTranslateWholeRowValue(row: Record<string, string>): boolean {
-  const field = row.field ?? row.label ?? "";
+function stringCellValue(value: unknown) {
+  return typeof value === "string" ? value : "";
+}
+
+function shouldTranslateWholeRowValue(row: Record<string, unknown>): boolean {
+  const field = stringCellValue(row.field ?? row.label);
 
   return translatableValueFields.has(field.toLowerCase());
 }
 
 function translateRowValue(
   dictionary: Dictionary,
-  row: Record<string, string>,
+  row: Record<string, unknown>,
   value: string,
   locale: SupportedLocale = DEFAULT_LOCALE,
 ): string {
@@ -293,11 +298,13 @@ function translateShopRow(
   return Object.fromEntries(
     Object.entries(row).map(([key, value]) => [
       key,
-      key === "rowKey"
+      key === "rowKey" || isAccountIdentitySummary(value)
         ? value
-        : key === "value"
+        : key === "value" && typeof value === "string"
           ? translateRowValue(dictionary, row, value, locale)
-          : translateUiValue(dictionary, key, value, locale),
+          : typeof value === "string"
+            ? translateUiValue(dictionary, key, value, locale)
+            : value,
     ]),
   ) as ShopSectionTableRow;
 }
@@ -389,11 +396,13 @@ function translatePlatformRow(
   return Object.fromEntries(
     Object.entries(row).map(([key, value]) => [
       key,
-      key === "rowKey"
+      key === "rowKey" || isAccountIdentitySummary(value)
         ? value
-        : key === "value"
+        : key === "value" && typeof value === "string"
           ? translateRowValue(dictionary, row, value, locale)
-          : translateUiValue(dictionary, key, value, locale),
+          : typeof value === "string"
+            ? translateUiValue(dictionary, key, value, locale)
+            : value,
     ]),
   ) as PlatformTableRow;
 }
@@ -431,12 +440,15 @@ export function translatePlatformSection(
       fields: detailSection.fields.map((field) => ({
         ...field,
         label: translateText(dictionary, field.label),
-        value: translateRowValue(
-          dictionary,
-          { field: field.label },
-          field.value,
-          locale,
-        ),
+        value:
+          typeof field.value === "string"
+            ? translateRowValue(
+                dictionary,
+                { field: field.label },
+                field.value,
+                locale,
+              )
+            : field.value,
       })),
       notes: translateList(dictionary, detailSection.notes),
       title: translateText(dictionary, detailSection.title),
@@ -486,24 +498,30 @@ export function translatePlatformSection(
       fields: detail.fields?.map((field) => ({
         ...field,
         label: translateText(dictionary, field.label),
-        value: translateRowValue(
-          dictionary,
-          { field: field.label },
-          field.value,
-          locale,
-        ),
+        value:
+          typeof field.value === "string"
+            ? translateRowValue(
+                dictionary,
+                { field: field.label },
+                field.value,
+                locale,
+              )
+            : field.value,
       })),
       groups: detail.groups?.map((group) => ({
         ...group,
         fields: group.fields.map((field) => ({
           ...field,
           label: translateText(dictionary, field.label),
-          value: translateRowValue(
-            dictionary,
-            { field: field.label },
-            field.value,
-            locale,
-          ),
+          value:
+            typeof field.value === "string"
+              ? translateRowValue(
+                  dictionary,
+                  { field: field.label },
+                  field.value,
+                  locale,
+                )
+              : field.value,
         })),
         notes: translateList(dictionary, group.notes),
         title: translateText(dictionary, group.title),

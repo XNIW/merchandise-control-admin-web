@@ -16,6 +16,7 @@ import {
 } from "./audit-read-model";
 import {
   getShopDeviceReadModel,
+  type ShopDetectedSyncClient,
   type ShopDeviceReadModel,
   type ShopDeviceRegistryRow,
 } from "./device-read-model";
@@ -108,7 +109,10 @@ const formatDateTime = (value: string | null | undefined) => {
 };
 
 function formatCompanyRut(value: string | null | undefined) {
-  const compact = (value ?? "").trim().replace(/[^0-9kK]/g, "").toUpperCase();
+  const compact = (value ?? "")
+    .trim()
+    .replace(/[^0-9kK]/g, "")
+    .toUpperCase();
 
   if (compact.length < 2) {
     return "Not configured";
@@ -158,7 +162,11 @@ function fallbackSection(
     description: readModel.reason,
     status: statusByReadModel[readModel.status],
     metrics: [
-      metric("Supabase", statusByReadModel[readModel.status], "Server-only read"),
+      metric(
+        "Supabase",
+        statusByReadModel[readModel.status],
+        "Server-only read",
+      ),
       metric("Rows shown", "0", "No fallback rows are rendered", "muted"),
       metric("Writes", "Off", "Read-only contract", "warning"),
     ],
@@ -196,7 +204,11 @@ export function buildOverviewSection(
     metrics: [
       metric("Shop", shop.shopCode, shop.shopName, "good"),
       metric("Status", formatToken(shop.shopStatus), "Current shop state"),
-      metric("Members", String(readModel.members.length), "Visible shop members"),
+      metric(
+        "Members",
+        String(readModel.members.length),
+        "Visible shop members",
+      ),
       metric("Audit events", String(readModel.auditLogs.length), "Latest rows"),
     ],
     liveData: {
@@ -276,15 +288,54 @@ export function buildShopDashboardSection({
     status: "Operational",
     metrics: [
       metric("Shop", shop.shopCode, shop.shopName, "good"),
-      metric("Total products", String(catalogSummary.productsTotal), "Mapped catalog total"),
-      metric("Categories", String(catalogSummary.categories), "Mapped catalog total"),
-      metric("Suppliers", String(catalogSummary.suppliers), "Mapped catalog total"),
-      metric("Price history rows", String(catalogSummary.priceRows), "Mapped catalog total"),
-      metric("Staff active", String(activeStaff), "Credential-safe staff rows", "good"),
-      metric("Devices", String(deviceReadModel.devices.length), `${revokedDevices} revoked`),
-      metric("Sync failed", String(failedSync), "Latest mapped sync events", failedSync > 0 ? "warning" : "good"),
-      metric("Sales / revenue", "Not configured", "POS sales sync is not connected yet", "muted"),
-      metric("Audit events", String(auditReadModel.events.length), "Latest shop audit rows"),
+      metric(
+        "Total products",
+        String(catalogSummary.productsTotal),
+        "Mapped catalog total",
+      ),
+      metric(
+        "Categories",
+        String(catalogSummary.categories),
+        "Mapped catalog total",
+      ),
+      metric(
+        "Suppliers",
+        String(catalogSummary.suppliers),
+        "Mapped catalog total",
+      ),
+      metric(
+        "Price history rows",
+        String(catalogSummary.priceRows),
+        "Mapped catalog total",
+      ),
+      metric(
+        "Staff active",
+        String(activeStaff),
+        "Credential-safe staff rows",
+        "good",
+      ),
+      metric(
+        "Devices",
+        String(deviceReadModel.devices.length),
+        `${revokedDevices} revoked`,
+      ),
+      metric(
+        "Sync failed",
+        String(failedSync),
+        "Latest mapped sync events",
+        failedSync > 0 ? "warning" : "good",
+      ),
+      metric(
+        "Sales / revenue",
+        "Not configured",
+        "POS sales sync is not connected yet",
+        "muted",
+      ),
+      metric(
+        "Audit events",
+        String(auditReadModel.events.length),
+        "Latest shop audit rows",
+      ),
     ],
     liveData: {
       title: "Operational cards",
@@ -411,7 +462,7 @@ export function buildShopDashboardSection({
 function memberRow(member: ShopAdminReadModelMember): ShopSectionTableRow {
   return {
     rowKey: member.shopMemberId,
-    profile: shortId(member.profileId),
+    account: member.accountIdentity,
     role: formatToken(member.roleKey),
     status: formatToken(member.membershipStatus),
     created: formatDateTime(member.createdAt),
@@ -436,10 +487,14 @@ export function buildMembersSection(
   return {
     ...shopSections.members,
     description:
-      "Read-only member list for the verified selected shop. Profile identifiers are shortened in the UI.",
+      "Read-only member list for the verified selected shop. Personal accounts show email or display name with provider when available.",
     status: readModel.members.length > 0 ? "Read-only" : "Members empty",
     metrics: [
-      metric("Members", String(readModel.members.length), "Rows scoped by shop_id"),
+      metric(
+        "Members",
+        String(readModel.members.length),
+        "Rows scoped by shop_id",
+      ),
       metric("Owners", String(owners), "shop_owner memberships", "good"),
       metric("Managers", String(managers), "shop_manager memberships"),
     ],
@@ -448,7 +503,7 @@ export function buildMembersSection(
       description:
         "Live rows for the selected shop. Changes are not available on this page.",
       columns: [
-        { key: "profile", label: "Profile" },
+        { key: "account", label: "Account" },
         { key: "role", label: "Role" },
         { key: "status", label: "Status" },
         { key: "created", label: "Created" },
@@ -478,13 +533,29 @@ export function buildMemberDetailSection(
     ...shopSections.members,
     title: "Member Detail",
     description: member
-      ? "Shop member detail for the verified selected shop. Profile identifiers remain shortened in summary surfaces."
+      ? "Shop member detail for the verified selected shop. Personal account identity stays separate from POS staff."
       : "No member row is visible for this shop-scoped detail request.",
     status: member ? "Read-only detail" : "Not found",
     metrics: [
-      metric("Member", member ? shortId(member.profileId) : "Not found", "Personal web account"),
-      metric("Role", member ? formatToken(member.roleKey) : "Not found", "shop_members role_key"),
-      metric("Status", member ? formatToken(member.membershipStatus) : "Not found", "Membership state"),
+      metric(
+        "Account",
+        member
+          ? (member.accountIdentity.email ??
+              member.accountIdentity.displayName ??
+              shortId(member.profileId))
+          : "Not found",
+        "Personal web account",
+      ),
+      metric(
+        "Role",
+        member ? formatToken(member.roleKey) : "Not found",
+        "shop_members role_key",
+      ),
+      metric(
+        "Status",
+        member ? formatToken(member.membershipStatus) : "Not found",
+        "Membership state",
+      ),
     ],
     liveData: {
       title: "Member detail",
@@ -498,6 +569,14 @@ export function buildMemberDetailSection(
         ? detailSectionRows([
             { field: "Member id", value: member.shopMemberId },
             { field: "Profile id", value: member.profileId },
+            {
+              field: "Account",
+              value:
+                member.accountIdentity.email ??
+                member.accountIdentity.displayName ??
+                "Account identity unavailable",
+            },
+            { field: "Provider", value: member.accountIdentity.originLabel },
             { field: "Role", value: formatToken(member.roleKey) },
             { field: "Status", value: formatToken(member.membershipStatus) },
             { field: "Created", value: formatDateTime(member.createdAt) },
@@ -517,10 +596,12 @@ function auditEventRow(log: ShopAuditEvent): ShopSectionTableRow {
   return {
     rowKey: log.auditLogId,
     event: log.eventKey,
-    actor: shortId(log.actorProfileId),
+    actor: log.actorIdentity ?? shortId(log.actorProfileId),
     severity: formatToken(log.severity),
     result: formatToken(log.result),
-    target: log.targetType ? `${log.targetType}:${log.targetId ?? "unknown"}` : "None",
+    target: log.targetType
+      ? `${log.targetType}:${log.targetId ?? "unknown"}`
+      : "None",
     metadata: log.metadataSummary,
     created: formatDateTime(log.createdAt),
   };
@@ -534,8 +615,18 @@ export function buildAuditSection(readModel: ShopAuditReadModel): ShopSection {
       status: readModelStatusLabel(readModel.status),
       metrics: [
         metric("Audit events", "0", "No fallback rows are rendered", "muted"),
-        metric("Filters", "Server-side", "No client-only audit filtering", "good"),
-        metric("Metadata", "Redacted", "Sensitive fields are not rendered", "good"),
+        metric(
+          "Filters",
+          "Server-side",
+          "No client-only audit filtering",
+          "good",
+        ),
+        metric(
+          "Metadata",
+          "Redacted",
+          "Sensitive fields are not rendered",
+          "good",
+        ),
       ],
       liveData: {
         title: "Shop audit log",
@@ -568,9 +659,18 @@ export function buildAuditSection(readModel: ShopAuditReadModel): ShopSection {
       "Shop-scoped audit rows for the verified selected shop, with server-side filters and redacted metadata.",
     status: readModel.events.length > 0 ? "Read-only filtered" : "Audit empty",
     metrics: [
-      metric("Audit events", String(readModel.events.length), "Chronological rows"),
+      metric(
+        "Audit events",
+        String(readModel.events.length),
+        "Chronological rows",
+      ),
       metric("Warnings", String(warnings), "Warning or critical severity"),
-      metric("Blocked", String(blocked), "Blocked or failed results", "warning"),
+      metric(
+        "Blocked",
+        String(blocked),
+        "Blocked or failed results",
+        "warning",
+      ),
       metric("Filters", String(filterCount), "Applied server-side"),
     ],
     liveData: {
@@ -596,9 +696,7 @@ export function buildAuditSection(readModel: ShopAuditReadModel): ShopSection {
   };
 }
 
-function staffRow(
-  staff: ShopStaffReadModelStaffAccount,
-): ShopSectionTableRow {
+function staffRow(staff: ShopStaffReadModelStaffAccount): ShopSectionTableRow {
   return {
     rowKey: staff.staffId,
     code: staff.staffCode,
@@ -652,7 +750,9 @@ function posDeviceRow(device: ShopPosLiveDeviceRow): ShopSectionTableRow {
   };
 }
 
-export function buildPosLiveSection(readModel: ShopPosLiveReadModel): ShopSection {
+export function buildPosLiveSection(
+  readModel: ShopPosLiveReadModel,
+): ShopSection {
   if (readModel.status !== "ready" || !readModel.selectedShop) {
     const status = readModelStatusLabel(readModel.status);
 
@@ -690,16 +790,66 @@ export function buildPosLiveSection(readModel: ShopPosLiveReadModel): ShopSectio
       "Trusted POS devices, sessions and staff links for the verified selected shop. This view is read-only and does not include sales synchronization.",
     status: readModel.devices.length > 0 ? "Read-only live" : "POS empty",
     metrics: [
-      metric("Devices", String(summary.registeredDevices), "Registered POS devices"),
-      metric("Trusted", String(summary.trustedActiveDevices), "Active device credentials", "good"),
-      metric("Revoked", String(summary.revokedDevices), "Device registry state", summary.revokedDevices > 0 ? "warning" : "good"),
-      metric("Active sessions", String(summary.activeSessions), "Not expired", "good"),
-      metric("Expired sessions", String(summary.expiredSessions), "Expired or past TTL", summary.expiredSessions > 0 ? "warning" : "good"),
-      metric("Linked staff", String(summary.linkedStaff), "Credential-safe staff rows"),
-      metric("Last heartbeat", formatDateTime(summary.latestHeartbeatAt), "Latest POS session/device activity"),
-      metric("Catalog sync", formatDateTime(summary.latestCatalogSyncAt), summary.latestCatalogVersion ?? "No successful catalog pull", summary.latestCatalogSyncAt ? "good" : "muted"),
-      metric("Catalog errors", String(summary.catalogSyncErrors), "Latest POS catalog pull failures", summary.catalogSyncErrors > 0 ? "warning" : "good"),
-      metric("Catalog cursor", summary.latestCatalogCursor ? shortId(summary.latestCatalogCursor) : "Not set", summary.catalogSyncHasMore ? "More catalog rows pending" : (summary.latestCatalogVersion ?? "No catalog cursor")),
+      metric(
+        "Devices",
+        String(summary.registeredDevices),
+        "Registered POS devices",
+      ),
+      metric(
+        "Trusted",
+        String(summary.trustedActiveDevices),
+        "Active device credentials",
+        "good",
+      ),
+      metric(
+        "Revoked",
+        String(summary.revokedDevices),
+        "Device registry state",
+        summary.revokedDevices > 0 ? "warning" : "good",
+      ),
+      metric(
+        "Active sessions",
+        String(summary.activeSessions),
+        "Not expired",
+        "good",
+      ),
+      metric(
+        "Expired sessions",
+        String(summary.expiredSessions),
+        "Expired or past TTL",
+        summary.expiredSessions > 0 ? "warning" : "good",
+      ),
+      metric(
+        "Linked staff",
+        String(summary.linkedStaff),
+        "Credential-safe staff rows",
+      ),
+      metric(
+        "Last heartbeat",
+        formatDateTime(summary.latestHeartbeatAt),
+        "Latest POS session/device activity",
+      ),
+      metric(
+        "Catalog sync",
+        formatDateTime(summary.latestCatalogSyncAt),
+        summary.latestCatalogVersion ?? "No successful catalog pull",
+        summary.latestCatalogSyncAt ? "good" : "muted",
+      ),
+      metric(
+        "Catalog errors",
+        String(summary.catalogSyncErrors),
+        "Latest POS catalog pull failures",
+        summary.catalogSyncErrors > 0 ? "warning" : "good",
+      ),
+      metric(
+        "Catalog cursor",
+        summary.latestCatalogCursor
+          ? shortId(summary.latestCatalogCursor)
+          : "Not set",
+        summary.catalogSyncHasMore
+          ? "More catalog rows pending"
+          : (summary.latestCatalogVersion ?? "No catalog cursor"),
+      ),
     ],
     liveData: {
       title: "POS devices and sessions",
@@ -742,8 +892,18 @@ export function buildStaffSection(readModel: ShopStaffReadModel): ShopSection {
       status: statusByReadModel[readModel.status],
       metrics: [
         metric("Staff", "0", "No staff rows are rendered", "muted"),
-        metric("Credential hashes", "Hidden", "Safe view excludes hashes", "good"),
-        metric("Actions", "Available", "Audited create/reset/suspend flows", "good"),
+        metric(
+          "Credential hashes",
+          "Hidden",
+          "Safe view excludes hashes",
+          "good",
+        ),
+        metric(
+          "Actions",
+          "Available",
+          "Audited create/reset/suspend flows",
+          "good",
+        ),
       ],
       liveData: {
         title: "Staff credential-safe read model",
@@ -776,8 +936,7 @@ export function buildStaffSection(readModel: ShopStaffReadModel): ShopSection {
     ...shopSections.staff,
     description:
       "POS staff list for the verified selected shop. Credential hashes are never returned to the UI; temporary credentials are generated only during create/reset actions.",
-    status:
-      readModel.staffAccounts.length > 0 ? "Live actions" : "Staff empty",
+    status: readModel.staffAccounts.length > 0 ? "Live actions" : "Staff empty",
     metrics: [
       metric("Staff", String(readModel.staffAccounts.length), "Safe rows"),
       metric("Active", String(active), "Credential-ready accounts", "good"),
@@ -865,9 +1024,19 @@ function inventoryFallbackSection(
         "Server-side principal check",
         readModel.selectedShop ? "good" : "warning",
       ),
-      metric("Catalog scope", catalogScope, "Shop scoped or legacy bridge", "warning"),
+      metric(
+        "Catalog scope",
+        catalogScope,
+        "Shop scoped or legacy bridge",
+        "warning",
+      ),
       metric("Rows shown", "0", "No fallback rows are rendered", "muted"),
-      metric("Writes", catalogWriteLabel(readModel), "Mutation boundary", "warning"),
+      metric(
+        "Writes",
+        catalogWriteLabel(readModel),
+        "Mutation boundary",
+        "warning",
+      ),
     ],
     liveData: {
       title: "Catalog detail",
@@ -904,9 +1073,13 @@ function productRow(
     retailPrice:
       product.retailPrice === null ? "Not set" : String(product.retailPrice),
     purchasePrice:
-      product.purchasePrice === null ? "Not set" : String(product.purchasePrice),
+      product.purchasePrice === null
+        ? "Not set"
+        : String(product.purchasePrice),
     stockQuantity:
-      product.stockQuantity === null ? "Not set" : String(product.stockQuantity),
+      product.stockQuantity === null
+        ? "Not set"
+        : String(product.stockQuantity),
     supplierName: product.supplierId
       ? (suppliers.get(product.supplierId)?.name ?? "Unknown")
       : "None",
@@ -1002,13 +1175,39 @@ export function buildProductsSection(
       "Shop catalog products for the verified selected shop. Create, update, archive and restore use audited catalog RPCs.",
     status: activeProducts.length > 0 ? "Live actions" : "Products empty",
     metrics: [
-      metric("Total products", String(readModel.summary.productsTotal), "Mapped catalog total"),
-      metric("Current page rows", String(visibleProducts.length), "Filtered rows"),
-      metric("Archived products", String(readModel.summary.archivedProducts), "Mapped catalog total"),
-      metric("Price history rows", String(readModel.summary.priceRows), "Mapped catalog total"),
+      metric(
+        "Total products",
+        String(readModel.summary.productsTotal),
+        "Mapped catalog total",
+      ),
+      metric(
+        "Current page rows",
+        String(visibleProducts.length),
+        "Filtered rows",
+      ),
+      metric(
+        "Archived products",
+        String(readModel.summary.archivedProducts),
+        "Mapped catalog total",
+      ),
+      metric(
+        "Price history rows",
+        String(readModel.summary.priceRows),
+        "Mapped catalog total",
+      ),
       metric("Filters", String(activeFilters), "Search/category/supplier"),
-      metric("Catalog scope", catalogScopeLabel(readModel.catalogScope), readModel.reason, "good"),
-      metric("Writes", catalogWriteLabel(readModel), "Audited create/update/archive/restore", "good"),
+      metric(
+        "Catalog scope",
+        catalogScopeLabel(readModel.catalogScope),
+        readModel.reason,
+        "good",
+      ),
+      metric(
+        "Writes",
+        catalogWriteLabel(readModel),
+        "Audited create/update/archive/restore",
+        "good",
+      ),
     ],
     liveData: {
       title: "Shop catalog data",
@@ -1063,16 +1262,39 @@ export function buildCategoriesSection(
     status:
       readModel.categories.length > 0 ? "Live actions" : "Categories empty",
     metrics: [
-      metric("Categories", String(readModel.summary.categories), "Mapped catalog total"),
-      metric("Current page rows", String(filteredCategories.length), "Filtered rows"),
-      metric("Total products", String(readModel.summary.productsTotal), "Mapped catalog total"),
+      metric(
+        "Categories",
+        String(readModel.summary.categories),
+        "Mapped catalog total",
+      ),
+      metric(
+        "Current page rows",
+        String(filteredCategories.length),
+        "Filtered rows",
+      ),
+      metric(
+        "Total products",
+        String(readModel.summary.productsTotal),
+        "Mapped catalog total",
+      ),
       metric("Filters", String(activeFilters), "Search"),
-      metric("Catalog scope", catalogScopeLabel(readModel.catalogScope), readModel.reason, "good"),
-      metric("Writes", catalogWriteLabel(readModel), "Audited create/update/archive", "good"),
+      metric(
+        "Catalog scope",
+        catalogScopeLabel(readModel.catalogScope),
+        readModel.reason,
+        "good",
+      ),
+      metric(
+        "Writes",
+        catalogWriteLabel(readModel),
+        "Audited create/update/archive",
+        "good",
+      ),
     ],
     liveData: {
       title: "Shop catalog data",
-      description: "Categories are read through shop_id first for the selected shop.",
+      description:
+        "Categories are read through shop_id first for the selected shop.",
       columns: [
         { key: "categoryId", label: "Category id" },
         { key: "name", label: "Name" },
@@ -1101,7 +1323,10 @@ export function buildSuppliersSection(
     return inventoryFallbackSection("suppliers", readModel);
   }
 
-  const filteredSuppliers = applyNamedCatalogFilter(readModel.suppliers, filters);
+  const filteredSuppliers = applyNamedCatalogFilter(
+    readModel.suppliers,
+    filters,
+  );
   const activeFilters = Object.values(filters).filter((value) =>
     Boolean(value?.trim()),
   ).length;
@@ -1110,19 +1335,41 @@ export function buildSuppliersSection(
     ...shopSections.suppliers,
     description:
       "Shop catalog supplier list for the verified selected shop. Create, update and archive use audited catalog RPCs.",
-    status:
-      readModel.suppliers.length > 0 ? "Live actions" : "Suppliers empty",
+    status: readModel.suppliers.length > 0 ? "Live actions" : "Suppliers empty",
     metrics: [
-      metric("Suppliers", String(readModel.summary.suppliers), "Mapped catalog total"),
-      metric("Current page rows", String(filteredSuppliers.length), "Filtered rows"),
-      metric("Total products", String(readModel.summary.productsTotal), "Mapped catalog total"),
+      metric(
+        "Suppliers",
+        String(readModel.summary.suppliers),
+        "Mapped catalog total",
+      ),
+      metric(
+        "Current page rows",
+        String(filteredSuppliers.length),
+        "Filtered rows",
+      ),
+      metric(
+        "Total products",
+        String(readModel.summary.productsTotal),
+        "Mapped catalog total",
+      ),
       metric("Filters", String(activeFilters), "Search"),
-      metric("Catalog scope", catalogScopeLabel(readModel.catalogScope), readModel.reason, "good"),
-      metric("Writes", catalogWriteLabel(readModel), "Audited create/update/archive", "good"),
+      metric(
+        "Catalog scope",
+        catalogScopeLabel(readModel.catalogScope),
+        readModel.reason,
+        "good",
+      ),
+      metric(
+        "Writes",
+        catalogWriteLabel(readModel),
+        "Audited create/update/archive",
+        "good",
+      ),
     ],
     liveData: {
       title: "Shop catalog data",
-      description: "Suppliers are read through shop_id first for the selected shop.",
+      description:
+        "Suppliers are read through shop_id first for the selected shop.",
       columns: [
         { key: "supplierId", label: "Supplier id" },
         { key: "name", label: "Name" },
@@ -1240,7 +1487,9 @@ function buildProductHistoryEntryRows(
       rowKey: `session:${session.remoteId}`,
       kind: "Mobile history entry",
       entry: `session:${session.remoteId}`,
-      source: [session.supplier, session.category].filter(Boolean).join(" / ") || "Unknown",
+      source:
+        [session.supplier, session.category].filter(Boolean).join(" / ") ||
+        "Unknown",
       payload: `${session.dataSummary}; ${session.overlaySummary}`,
       updated: formatDateTime(session.updatedAt),
     }));
@@ -1259,7 +1508,12 @@ function catalogDetailFallback(
     status: inventoryStatusLabel(readModel.status),
     metrics: [
       metric("Detail", "Unavailable", "No catalog row is rendered", "muted"),
-      metric("Mapping", inventoryStatusLabel(readModel.status), "shop_inventory_sources gate", "warning"),
+      metric(
+        "Mapping",
+        inventoryStatusLabel(readModel.status),
+        "shop_inventory_sources gate",
+        "warning",
+      ),
       metric("Scope", "Server verified", "No client-side shop trust", "good"),
     ],
     liveData: {
@@ -1298,7 +1552,9 @@ export function buildProductDetailSection(
   const supplier = product?.supplierId
     ? readModel.suppliers.find((row) => row.supplierId === product.supplierId)
     : null;
-  const priceRows = readModel.prices.filter((row) => row.productId === productId);
+  const priceRows = readModel.prices.filter(
+    (row) => row.productId === productId,
+  );
   const historyEntryRows = product
     ? buildProductHistoryEntryRows(product, historyReadModel)
     : [];
@@ -1315,7 +1571,11 @@ export function buildProductDetailSection(
         : "Read-only detail"
       : "Not found",
     metrics: [
-      metric("Product", product ? product.barcode : "Not found", product?.productName ?? "No row"),
+      metric(
+        "Product",
+        product ? product.barcode : "Not found",
+        product?.productName ?? "No row",
+      ),
       metric("Prices", String(priceRows.length), "Recent price rows"),
       metric("Scope", "Server verified", "Mapped owner source", "good"),
     ],
@@ -1333,13 +1593,40 @@ export function buildProductDetailSection(
             { field: "State", value: productState },
             { field: "Barcode", value: product.barcode },
             { field: "Product name", value: product.productName ?? "Unnamed" },
-            { field: "Second name", value: product.secondProductName ?? "Not set" },
+            {
+              field: "Second name",
+              value: product.secondProductName ?? "Not set",
+            },
             { field: "Item number", value: product.itemNumber ?? "Not set" },
-            { field: "Retail price", value: product.retailPrice === null ? "Not set" : String(product.retailPrice) },
-            { field: "Purchase price", value: product.purchasePrice === null ? "Not set" : String(product.purchasePrice) },
-            { field: "Stock quantity", value: product.stockQuantity === null ? "Not set" : String(product.stockQuantity) },
-            { field: "Supplier", value: supplier?.name ?? product.supplierId ?? "None" },
-            { field: "Category", value: category?.name ?? product.categoryId ?? "None" },
+            {
+              field: "Retail price",
+              value:
+                product.retailPrice === null
+                  ? "Not set"
+                  : String(product.retailPrice),
+            },
+            {
+              field: "Purchase price",
+              value:
+                product.purchasePrice === null
+                  ? "Not set"
+                  : String(product.purchasePrice),
+            },
+            {
+              field: "Stock quantity",
+              value:
+                product.stockQuantity === null
+                  ? "Not set"
+                  : String(product.stockQuantity),
+            },
+            {
+              field: "Supplier",
+              value: supplier?.name ?? product.supplierId ?? "None",
+            },
+            {
+              field: "Category",
+              value: category?.name ?? product.categoryId ?? "None",
+            },
             { field: "Updated", value: formatDateTime(product.updatedAt) },
             { field: "Archived", value: formatDateTime(product.deletedAt) },
           ])
@@ -1400,7 +1687,9 @@ export function buildCategoryDetailSection(
     return catalogDetailFallback("Category Detail", readModel);
   }
 
-  const category = readModel.categories.find((row) => row.categoryId === categoryId);
+  const category = readModel.categories.find(
+    (row) => row.categoryId === categoryId,
+  );
   const productCount = readModel.products.filter(
     (product) => product.categoryId === categoryId,
   ).length;
@@ -1449,7 +1738,9 @@ export function buildSupplierDetailSection(
     return catalogDetailFallback("Supplier Detail", readModel);
   }
 
-  const supplier = readModel.suppliers.find((row) => row.supplierId === supplierId);
+  const supplier = readModel.suppliers.find(
+    (row) => row.supplierId === supplierId,
+  );
   const productCount = readModel.products.filter(
     (product) => product.supplierId === supplierId,
   ).length;
@@ -1462,7 +1753,11 @@ export function buildSupplierDetailSection(
       : "No active supplier row is visible for this shop-scoped detail request.",
     status: supplier ? "Read-only detail" : "Not found",
     metrics: [
-      metric("Supplier", supplier?.name ?? "Not found", "Mapped procurement row"),
+      metric(
+        "Supplier",
+        supplier?.name ?? "Not found",
+        "Mapped procurement row",
+      ),
       metric("Products", String(productCount), "Products using this supplier"),
       metric("Scope", "Server verified", "Mapped owner source", "good"),
     ],
@@ -1500,7 +1795,12 @@ export function buildImportExportSection(): ShopSection {
     status: "Live Excel",
     metrics: [
       metric("Excel", "Enabled", "Server-only workbook parser/writer", "good"),
-      metric("Preview before apply", "Required", "File changes are never applied directly", "good"),
+      metric(
+        "Preview before apply",
+        "Required",
+        "File changes are never applied directly",
+        "good",
+      ),
       metric("Limits", `${readiness.maxImportRows} rows`, "5 MB max file size"),
     ],
     liveData: {
@@ -1523,9 +1823,10 @@ export function buildImportExportSection(): ShopSection {
           rowKey: "formula",
           gate: "Formula injection",
           status: "Guarded",
-          detail: sanitizeSpreadsheetCell("=formula") === "'=formula"
-            ? "Leading formula characters are escaped"
-            : "Escaping unavailable",
+          detail:
+            sanitizeSpreadsheetCell("=formula") === "'=formula"
+              ? "Leading formula characters are escaped"
+              : "Escaping unavailable",
         },
         {
           rowKey: "apply",
@@ -1652,7 +1953,9 @@ function historySessionRow(session: ShopHistorySession): ShopSectionTableRow {
   };
 }
 
-function historySyncEventRow(event: ShopSyncEventActivity): ShopSectionTableRow {
+function historySyncEventRow(
+  event: ShopSyncEventActivity,
+): ShopSectionTableRow {
   return {
     rowKey: `sync:${event.eventId}`,
     event: event.eventType,
@@ -1665,7 +1968,9 @@ function historySyncEventRow(event: ShopSyncEventActivity): ShopSectionTableRow 
   };
 }
 
-function historyDiagnosticsRow(session: ShopHistorySession): ShopSectionTableRow {
+function historyDiagnosticsRow(
+  session: ShopHistorySession,
+): ShopSectionTableRow {
   return {
     rowKey: `diagnostic:${session.remoteId}`,
     entryName: session.displayName,
@@ -1679,7 +1984,9 @@ function historyDiagnosticsRow(session: ShopHistorySession): ShopSectionTableRow
   };
 }
 
-export function buildHistorySection(readModel: ShopHistoryReadModel): ShopSection {
+export function buildHistorySection(
+  readModel: ShopHistoryReadModel,
+): ShopSection {
   if (readModel.status !== "ready") {
     const status = historyStatusLabel(readModel.status);
 
@@ -1690,7 +1997,12 @@ export function buildHistorySection(readModel: ShopHistoryReadModel): ShopSectio
       metrics: [
         metric("Mapping", status, "shop_inventory_sources gate", "warning"),
         metric("Rows shown", "0", "No fallback rows are rendered", "muted"),
-        metric("Payload", "Redacted", "Raw mobile JSON is not rendered", "good"),
+        metric(
+          "Payload",
+          "Redacted",
+          "Raw mobile JSON is not rendered",
+          "good",
+        ),
       ],
       liveData: {
         title: "Android / iOS History Entries",
@@ -1755,16 +2067,64 @@ export function buildHistorySection(readModel: ShopHistoryReadModel): ShopSectio
         ? "Read-only mapped"
         : "History empty",
     metrics: [
-      metric("History entries", String(historySummary.historySessionsTotal), "shared_sheet_sessions total"),
-      metric("Current page rows", String(readModel.sessions.length), "Latest visible history entries"),
-      metric("Active entries", String(activeSessions), "Rows without deleted_at", "good"),
-      metric("Deleted entries", String(tombstones), "Rows with deleted_at", tombstones > 0 ? "warning" : "muted"),
-      metric("Payload v2", String(payloadV2), "Current Android/iOS contract", "good"),
-      metric("Legacy v1", String(legacyPayloadV1), "Overlay not expected", legacyPayloadV1 > 0 ? "warning" : "muted"),
-      metric("Overlay OK", String(overlayOk), "Schema 1 and row counts match", "good"),
-      metric("Overlay issues", String(overlayIssues), "Missing, invalid, too large or unsupported", overlayIssues > 0 ? "warning" : "good"),
-      metric("Sync events", String(historySummary.syncEventsTotal), `${failedHistoryEvents} failed events shown`, failedHistoryEvents > 0 ? "warning" : "good"),
-      metric("Payload safety", "Read-only", `${manualEntries} manual; ${completedRows} complete flags; ${missingRows} missing flags`, overlayIssues > 0 ? "warning" : "good"),
+      metric(
+        "History entries",
+        String(historySummary.historySessionsTotal),
+        "shared_sheet_sessions total",
+      ),
+      metric(
+        "Current page rows",
+        String(readModel.sessions.length),
+        "Latest visible history entries",
+      ),
+      metric(
+        "Active entries",
+        String(activeSessions),
+        "Rows without deleted_at",
+        "good",
+      ),
+      metric(
+        "Deleted entries",
+        String(tombstones),
+        "Rows with deleted_at",
+        tombstones > 0 ? "warning" : "muted",
+      ),
+      metric(
+        "Payload v2",
+        String(payloadV2),
+        "Current Android/iOS contract",
+        "good",
+      ),
+      metric(
+        "Legacy v1",
+        String(legacyPayloadV1),
+        "Overlay not expected",
+        legacyPayloadV1 > 0 ? "warning" : "muted",
+      ),
+      metric(
+        "Overlay OK",
+        String(overlayOk),
+        "Schema 1 and row counts match",
+        "good",
+      ),
+      metric(
+        "Overlay issues",
+        String(overlayIssues),
+        "Missing, invalid, too large or unsupported",
+        overlayIssues > 0 ? "warning" : "good",
+      ),
+      metric(
+        "Sync events",
+        String(historySummary.syncEventsTotal),
+        `${failedHistoryEvents} failed events shown`,
+        failedHistoryEvents > 0 ? "warning" : "good",
+      ),
+      metric(
+        "Payload safety",
+        "Read-only",
+        `${manualEntries} manual; ${completedRows} complete flags; ${missingRows} missing flags`,
+        overlayIssues > 0 ? "warning" : "good",
+      ),
     ],
     liveData: {
       title: "Android / iOS History Entries",
@@ -1833,7 +2193,10 @@ export function buildHistorySection(readModel: ShopHistoryReadModel): ShopSectio
   };
 }
 
-function syncStatusRow(status: "pending" | "success" | "failed", count: number) {
+function syncStatusRow(
+  status: "pending" | "success" | "failed",
+  count: number,
+) {
   return {
     rowKey: `status:${status}`,
     event: status,
@@ -1841,6 +2204,7 @@ function syncStatusRow(status: "pending" | "success" | "failed", count: number) 
     state: status,
     source: "Status summary",
     changed: String(count),
+    cursor: "Current filter",
     diagnostic: "Filtered result set",
     updated: "Current result set",
   };
@@ -1859,7 +2223,9 @@ function normalizedSyncStatus(value?: string | null) {
 function normalizeSyncFilter(value?: string | null) {
   const trimmed = value?.trim();
 
-  return trimmed ? trimmed.slice(0, SYNC_FILTER_MAX_LENGTH).toLowerCase() : null;
+  return trimmed
+    ? trimmed.slice(0, SYNC_FILTER_MAX_LENGTH).toLowerCase()
+    : null;
 }
 
 function includesText(value: string | null | undefined, query: string) {
@@ -1923,7 +2289,12 @@ export function buildSyncSection(
       metrics: [
         metric("Mapping", status, "shop_inventory_sources gate", "warning"),
         metric("Sync events", "0", "No fallback rows are rendered", "muted"),
-        metric("Mode", "Read-only", "Admin Web does not synchronize clients", "good"),
+        metric(
+          "Mode",
+          "Read-only",
+          "Admin Web does not synchronize clients",
+          "good",
+        ),
       ],
       liveData: {
         title: "Sync events",
@@ -1964,20 +2335,59 @@ export function buildSyncSection(
     (event) => event.status === "failed",
   );
   const sourceCount = new Set(
-    filteredEvents.map((event) => event.sourceDeviceId ?? event.source ?? "Unknown"),
+    filteredEvents.map(
+      (event) => event.sourceDeviceId ?? event.source ?? "Unknown",
+    ),
   ).size;
+  const adminWebEvents = filteredEvents.filter(
+    (event) => event.source === "admin_web",
+  );
+  const latestAdminWebEvent = adminWebEvents[0];
 
   return {
     ...shopSections.sync,
     description:
-      "Read-only Sync Center for mapped mobile events. This page classifies pending, success and failed states without triggering synchronization.",
-    status: readModel.summary.syncEventsTotal > 0 ? "Read-only mapped" : "Sync empty",
+      "Sync Center for mapped mobile events. Admin Web records technical sync_events after catalog and history mutations while classifying states without triggering synchronization.",
+    status:
+      readModel.summary.syncEventsTotal > 0 ? "Read-only mapped" : "Sync empty",
     metrics: [
       metric("Pending", String(pending), "Events marked pending"),
-      metric("Success", String(success), "Events without failure metadata", "good"),
-      metric("Failed", String(failed), "Events with failure metadata", failed > 0 ? "warning" : "good"),
-      metric("Events shown", String(filteredEvents.length), `${readModel.summary.syncEventsTotal} total mapped rows`),
-      metric("Sources", String(sourceCount), "Source/device values in current result"),
+      metric(
+        "Success",
+        String(success),
+        "Events without failure metadata",
+        "good",
+      ),
+      metric(
+        "Failed",
+        String(failed),
+        "Events with failure metadata",
+        failed > 0 ? "warning" : "good",
+      ),
+      metric(
+        "Events shown",
+        String(filteredEvents.length),
+        `${readModel.summary.syncEventsTotal} total mapped rows`,
+      ),
+      metric(
+        "Admin Web events",
+        String(adminWebEvents.length),
+        latestAdminWebEvent?.clientEventId ?? "No Admin Web cursor visible",
+        adminWebEvents.length > 0 ? "good" : "muted",
+      ),
+      metric(
+        "Latest cursor",
+        latestEvent?.clientEventId ?? "None",
+        latestEvent
+          ? `${latestEvent.domain}:${latestEvent.eventType}`
+          : "No client event cursor visible",
+        latestEvent?.clientEventId ? "good" : "muted",
+      ),
+      metric(
+        "Sources",
+        String(sourceCount),
+        "Source/device values in current result",
+      ),
       metric(
         "Latest error",
         latestFailedEvent
@@ -1992,16 +2402,16 @@ export function buildSyncSection(
     ],
     liveData: {
       title: "Sync events",
-      description:
-        latestEvent
-          ? `Latest visible event: ${latestEvent.domain}:${latestEvent.eventType} at ${formatDateTime(latestEvent.createdAt)}. Sync activity is separate from shop audit.`
-          : "Sync activity is separate from shop audit. Pending, success and failed are derived from the event payload when available.",
+      description: latestEvent
+        ? `Latest visible event: ${latestEvent.domain}:${latestEvent.eventType} at ${formatDateTime(latestEvent.createdAt)}. Sync activity is separate from shop audit.`
+        : "Sync activity is separate from shop audit. Pending, success and failed are derived from the event payload when available.",
       columns: [
         { key: "event", label: "Event" },
         { key: "domain", label: "Domain" },
         { key: "state", label: "State" },
         { key: "source", label: "Source" },
         { key: "changed", label: "Changed" },
+        { key: "cursor", label: "Cursor / Client event" },
         { key: "diagnostic", label: "Diagnostic" },
         { key: "updated", label: "Updated" },
       ],
@@ -2016,6 +2426,7 @@ export function buildSyncSection(
           state: event.status,
           source: event.sourceDeviceId ?? event.source ?? "Unknown",
           changed: String(event.changedCount),
+          cursor: event.clientEventId ?? "Not set",
           diagnostic: `${event.entitySummary}; ${event.metadataSummary}`,
           updated: formatDateTime(event.createdAt),
         })),
@@ -2056,7 +2467,9 @@ function relatedHistoryEventRow(
     clientEvent: event.clientEventId ?? "Not set",
     changed: String(event.changedCount),
     sessionIds:
-      event.sessionIds.length > 0 ? event.sessionIds.slice(0, 4).join(", ") : "None",
+      event.sessionIds.length > 0
+        ? event.sessionIds.slice(0, 4).join(", ")
+        : "None",
     updated: formatDateTime(event.createdAt),
     sourceScope: sourceScopeLabel(event.sourceScope),
   };
@@ -2076,7 +2489,12 @@ export function buildHistoryDetailSection(
       metrics: [
         metric("Mapping", status, "shop_inventory_sources gate", "warning"),
         metric("Entry", "Unavailable", "No detail row is rendered", "muted"),
-        metric("Payload", "Redacted", "Raw mobile JSON is not rendered", "good"),
+        metric(
+          "Payload",
+          "Redacted",
+          "Raw mobile JSON is not rendered",
+          "good",
+        ),
       ],
       liveData: {
         title: "History detail",
@@ -2115,7 +2533,8 @@ export function buildHistoryDetailSection(
       ],
       emptyState: {
         title: "No JSON preview is available",
-        description: "The detail payload did not include a previewable JSON body.",
+        description:
+          "The detail payload did not include a previewable JSON body.",
       },
     },
   ];
@@ -2168,20 +2587,47 @@ export function buildHistoryDetailSection(
 
   return {
     ...shopSections.history,
-    title: analysis ? "Mobile History Entry Detail" : "History Sync Event Detail",
-    description:
-      analysis
-        ? "Read-only shared_sheet_sessions record detail with remote_id identity, tombstone state, overlay diagnostics and safe row preview."
-        : "Read-only sync_events record detail for a technical event linked to mobile history entries.",
+    title: analysis
+      ? "Mobile History Entry Detail"
+      : "History Sync Event Detail",
+    description: analysis
+      ? "Read-only shared_sheet_sessions record detail with remote_id identity, tombstone state, overlay diagnostics and safe row preview."
+      : "Read-only sync_events record detail for a technical event linked to mobile history entries.",
     status: "Read-only mapped",
     metrics: analysis
       ? [
           metric("Remote ID", analysis.remoteId, detail.title, "good"),
-          metric("State", formatToken(analysis.state), analysis.deletedAt ? formatDateTime(analysis.deletedAt) : "Active session"),
-          metric("Rows", String(analysis.rowCount), `${analysis.columnCount} columns`),
-          metric("Overlay", overlayStatusLabel(analysis.overlayStatus), `schema ${analysis.overlaySchema ?? "n/a"}; ${analysis.overlayBytes} bytes`, analysis.overlayStatus === "ok" ? "good" : "warning"),
-          metric("Completed", String(analysis.completeCount), `${analysis.missingCount} missing`, analysis.missingCount > 0 ? "warning" : "good"),
-          metric("Related events", String(analysis.relatedSyncEventCount), analysis.latestRelatedSyncAt ? formatDateTime(analysis.latestRelatedSyncAt) : "No related event"),
+          metric(
+            "State",
+            formatToken(analysis.state),
+            analysis.deletedAt
+              ? formatDateTime(analysis.deletedAt)
+              : "Active session",
+          ),
+          metric(
+            "Rows",
+            String(analysis.rowCount),
+            `${analysis.columnCount} columns`,
+          ),
+          metric(
+            "Overlay",
+            overlayStatusLabel(analysis.overlayStatus),
+            `schema ${analysis.overlaySchema ?? "n/a"}; ${analysis.overlayBytes} bytes`,
+            analysis.overlayStatus === "ok" ? "good" : "warning",
+          ),
+          metric(
+            "Completed",
+            String(analysis.completeCount),
+            `${analysis.missingCount} missing`,
+            analysis.missingCount > 0 ? "warning" : "good",
+          ),
+          metric(
+            "Related events",
+            String(analysis.relatedSyncEventCount),
+            analysis.latestRelatedSyncAt
+              ? formatDateTime(analysis.latestRelatedSyncAt)
+              : "No related event",
+          ),
         ]
       : [
           metric("Entry", detail.entryId, detail.title, "good"),
@@ -2190,10 +2636,9 @@ export function buildHistoryDetailSection(
         ],
     liveData: {
       title: analysis ? "shared_sheet_sessions record" : "sync_events record",
-      description:
-        analysis
-          ? "remote_id is the cross-platform identity. deleted_at marks tombstone/deleted sessions. Invalid overlays are diagnostic only and are not trusted for completed/editable counts."
-          : "This technical sync event can reference history entries, but it is not the Android / iOS History Entry itself.",
+      description: analysis
+        ? "remote_id is the cross-platform identity. deleted_at marks tombstone/deleted sessions. Invalid overlays are diagnostic only and are not trusted for completed/editable counts."
+        : "This technical sync event can reference history entries, but it is not the Android / iOS History Entry itself.",
       columns: [
         { key: "field", label: "Field" },
         { key: "value", label: "Value" },
@@ -2209,7 +2654,9 @@ export function buildHistoryDetailSection(
   };
 }
 
-export function buildDevicesSection(readModel: ShopDeviceReadModel): ShopSection {
+export function buildDevicesSection(
+  readModel: ShopDeviceReadModel,
+): ShopSection {
   if (readModel.status !== "ready") {
     const status = historyStatusLabel(readModel.status);
 
@@ -2218,9 +2665,19 @@ export function buildDevicesSection(readModel: ShopDeviceReadModel): ShopSection
       description: readModel.reason,
       status,
       metrics: [
-        metric("Device registry", status, "Server registry read gate", "warning"),
+        metric(
+          "Device registry",
+          status,
+          "Server registry read gate",
+          "warning",
+        ),
         metric("Rows shown", "0", "No fallback rows are rendered", "muted"),
-        metric("Revocation", "Unavailable", "No registry rows rendered", "warning"),
+        metric(
+          "Revocation",
+          "Unavailable",
+          "No registry rows rendered",
+          "warning",
+        ),
       ],
       liveData: {
         title: "Device registry",
@@ -2242,44 +2699,107 @@ export function buildDevicesSection(readModel: ShopDeviceReadModel): ShopSection
   return {
     ...shopSections.devices,
     description:
-      "Server registry for shop devices with revoke/reactivate state. Mobile/POS clients must consume this registry before revocation becomes client-enforced.",
-    status: "Server registry",
+      "Owner-friendly shop device registry with revoke/reactivate state. Updated Android/iOS/POS clients appear here after authentication or sync.",
+    status: "Revocation enforced",
     metrics: [
-      metric("Devices", String(readModel.devices.length), "Registered rows"),
-      metric("Revoked", String(readModel.devices.filter((device) => device.status === "revoked").length), "Server-side status"),
-      metric("Revocation", "Server-side", "Client enforcement is a mobile/POS follow-up", "warning"),
+      metric("Devices", String(readModel.devices.length), "Registered devices"),
+      metric(
+        "Revoked",
+        String(
+          readModel.devices.filter((device) => device.status === "revoked")
+            .length,
+        ),
+        "Blocked by registry status",
+      ),
+      metric(
+        "Sync activity hints",
+        String(readModel.detectedSyncClients.length),
+        "Activity hints only",
+      ),
+      metric(
+        "Revocation",
+        "Enforced",
+        "Updated POS/Android/iOS clients check active status before sync/write",
+      ),
     ],
     liveData: {
       title: "Device registry",
       description:
-        "Rows represent the Admin Web authorization registry with read-only sync activity links when available.",
+        "Rows represent authorized shop_devices registry state with read-only sync activity links when available.",
       columns: [
         { key: "device", label: "Device" },
-        { key: "identifier", label: "Identifier" },
+        { key: "identifier", label: "Short id" },
         { key: "type", label: "Type" },
         { key: "status", label: "Status" },
+        { key: "account", label: "Account personale usato" },
+        { key: "staff", label: "Staff POS usato" },
+        { key: "appVersion", label: "App version" },
+        { key: "lastSeen", label: "Last access/sync" },
         { key: "latest", label: "Latest sync" },
         { key: "history", label: "History" },
-        { key: "updated", label: "Updated" },
       ],
       rows: readModel.devices.map((device: ShopDeviceRegistryRow) => ({
         rowKey: device.deviceId,
         device: device.displayName,
-        identifier: device.deviceIdentifier,
+        identifier: shortId(device.deviceIdentifier),
         type: formatToken(device.deviceType),
         status: formatToken(device.status),
+        account:
+          device.lastSeenAccount ??
+          (device.lastSeenPrincipalKind === "personal_account"
+            ? "Account not visible"
+            : "Not seen"),
+        staff:
+          device.lastSeenStaff ??
+          (device.lastSeenPrincipalKind === "pos_staff"
+            ? "Staff not visible"
+            : "Not seen"),
+        appVersion: device.appVersion ?? "Not set",
+        lastSeen: formatDateTime(device.lastSeenAt),
         latest: device.syncActivity
           ? `${device.syncActivity.latestDomain}:${device.syncActivity.latestEventType}`
           : "No sync event",
         history: device.deviceDetailHref,
-        updated: formatDateTime(device.updatedAt),
       })),
       emptyState: {
-        title: "No registered devices are visible",
+        title: "No registered devices yet",
         description:
-          "Register a device from Admin Web or wait for a future client registration flow.",
+          "Devices will appear after login or sync from updated clients.",
       },
     },
+    secondaryLiveData: [
+      {
+        title: "Sync activity hints",
+        description:
+          "Read-only activity hints from sync_events.source_device_id. These rows are not authorized devices and cannot be revoked here.",
+        columns: [
+          { key: "sourceDeviceId", label: "Source device id" },
+          { key: "status", label: "Status" },
+          { key: "source", label: "Source" },
+          { key: "latest", label: "Latest sync" },
+          { key: "events", label: "Events" },
+          { key: "changed", label: "Changed rows" },
+          { key: "history", label: "History" },
+        ],
+        rows: readModel.detectedSyncClients.map(
+          (client: ShopDetectedSyncClient) => ({
+            rowKey: client.sourceDeviceId,
+            sourceDeviceId: client.sourceDeviceId,
+            status: "Activity hint only",
+            source: client.source ?? "unknown",
+            latest: `${client.latestDomain}:${client.latestEventType} / ${formatDateTime(client.latestEventAt)}`,
+            events: String(client.eventCount),
+            changed: String(client.changedCount),
+            history: client.historyHref,
+          }),
+        ),
+        emptyState: {
+          title: "No sync-only clients detected",
+          description:
+            "sync_events.source_device_id has no unmapped client hints for this shop.",
+        },
+      },
+    ],
   };
 }
 
@@ -2296,8 +2816,18 @@ export function buildStaffDetailSection(
       description: readModel.reason,
       status,
       metrics: [
-        metric("Staff", "Unavailable", "No staff detail row is rendered", "muted"),
-        metric("Credential hash", "Hidden", "Safe view excludes hashes", "good"),
+        metric(
+          "Staff",
+          "Unavailable",
+          "No staff detail row is rendered",
+          "muted",
+        ),
+        metric(
+          "Credential hash",
+          "Hidden",
+          "Safe view excludes hashes",
+          "good",
+        ),
         metric("Scope", status, "Server-side shop access"),
       ],
       liveData: {
@@ -2327,9 +2857,22 @@ export function buildStaffDetailSection(
       : "No staff row is visible for this shop-scoped detail request.",
     status: staff ? "Credential-safe detail" : "Not found",
     metrics: [
-      metric("Staff code", staff?.staffCode ?? "Not found", staff?.displayName ?? "No row"),
-      metric("Status", staff ? formatToken(staff.status) : "Not found", "POS staff state"),
-      metric("Credential hash", "Hidden", "Safe view excludes stored hashes", "good"),
+      metric(
+        "Staff code",
+        staff?.staffCode ?? "Not found",
+        staff?.displayName ?? "No row",
+      ),
+      metric(
+        "Status",
+        staff ? formatToken(staff.status) : "Not found",
+        "POS staff state",
+      ),
+      metric(
+        "Credential hash",
+        "Hidden",
+        "Safe view excludes stored hashes",
+        "good",
+      ),
     ],
     liveData: {
       title: "Staff detail",
@@ -2346,14 +2889,31 @@ export function buildStaffDetailSection(
             { field: "Display name", value: staff.displayName },
             { field: "Role", value: formatToken(staff.roleKey) },
             { field: "Status", value: formatToken(staff.status) },
-            { field: "Credential status", value: formatToken(staff.credentialStatus) },
-            { field: "Credential version", value: `v${staff.credentialVersion}` },
-            { field: "Credential kind", value: staff.credentialKind ? formatToken(staff.credentialKind) : "Pending setup" },
-            { field: "Must change credential", value: staff.mustChangeCredential ? "Yes" : "No" },
+            {
+              field: "Credential status",
+              value: formatToken(staff.credentialStatus),
+            },
+            {
+              field: "Credential version",
+              value: `v${staff.credentialVersion}`,
+            },
+            {
+              field: "Credential kind",
+              value: staff.credentialKind
+                ? formatToken(staff.credentialKind)
+                : "Pending setup",
+            },
+            {
+              field: "Must change credential",
+              value: staff.mustChangeCredential ? "Yes" : "No",
+            },
             { field: "Failed attempts", value: String(staff.failedAttempts) },
             { field: "Locked until", value: formatDateTime(staff.lockedUntil) },
             { field: "Last login", value: formatDateTime(staff.lastLoginAt) },
-            { field: "Session invalidated", value: formatDateTime(staff.sessionInvalidatedAt) },
+            {
+              field: "Session invalidated",
+              value: formatDateTime(staff.sessionInvalidatedAt),
+            },
             { field: "Updated", value: formatDateTime(staff.updatedAt) },
           ])
         : [],
@@ -2379,9 +2939,19 @@ export function buildDeviceDetailSection(
       description: readModel.reason,
       status,
       metrics: [
-        metric("Device", "Unavailable", "No device detail row is rendered", "muted"),
+        metric(
+          "Device",
+          "Unavailable",
+          "No device detail row is rendered",
+          "muted",
+        ),
         metric("Registry", status, "Server-side shop access"),
-        metric("Secret fields", "Hidden", "No device tokens are rendered", "good"),
+        metric(
+          "Secret fields",
+          "Hidden",
+          "No device tokens are rendered",
+          "good",
+        ),
       ],
       liveData: {
         title: "Device detail",
@@ -2406,12 +2976,20 @@ export function buildDeviceDetailSection(
     ...shopSections.devices,
     title: "Device Detail",
     description: device
-      ? "Server registry detail for a shop device. Client enforcement still depends on Android/iOS/POS consumption of the registry."
+      ? "Server registry detail for a shop device. Updated POS/Android/iOS clients check active status before sync/write."
       : "No device row is visible for this shop-scoped detail request.",
     status: device ? "Server registry detail" : "Not found",
     metrics: [
-      metric("Device", device?.displayName ?? "Not found", device?.deviceIdentifier ?? "No row"),
-      metric("Status", device ? formatToken(device.status) : "Not found", "Server registry status"),
+      metric(
+        "Device",
+        device?.displayName ?? "Not found",
+        device?.deviceIdentifier ?? "No row",
+      ),
+      metric(
+        "Status",
+        device ? formatToken(device.status) : "Not found",
+        "Server registry status",
+      ),
       metric("Audit", "Linked", "Use target filter in Shop Audit"),
     ],
     liveData: {
@@ -2432,7 +3010,12 @@ export function buildDeviceDetailSection(
             { field: "App version", value: device.appVersion ?? "Not set" },
             { field: "Last seen", value: formatDateTime(device.lastSeenAt) },
             { field: "Revoked", value: formatDateTime(device.revokedAt) },
-            { field: "Latest sync", value: device.syncActivity ? `${device.syncActivity.latestDomain}:${device.syncActivity.latestEventType}` : "No sync event" },
+            {
+              field: "Latest sync",
+              value: device.syncActivity
+                ? `${device.syncActivity.latestDomain}:${device.syncActivity.latestEventType}`
+                : "No sync event",
+            },
             { field: "Audit target filter", value: device.deviceId },
           ])
         : [],
@@ -2455,9 +3038,24 @@ export function buildAuditDetailSection(
       description: readModel.reason,
       status: readModelStatusLabel(readModel.status),
       metrics: [
-        metric("Audit event", "Unavailable", "No detail row is rendered", "muted"),
-        metric("Metadata", "Redacted", "Raw sensitive metadata is not rendered", "good"),
-        metric("Scope", "Server verified", "No cross-shop event lookup", "good"),
+        metric(
+          "Audit event",
+          "Unavailable",
+          "No detail row is rendered",
+          "muted",
+        ),
+        metric(
+          "Metadata",
+          "Redacted",
+          "Raw sensitive metadata is not rendered",
+          "good",
+        ),
+        metric(
+          "Scope",
+          "Server verified",
+          "No cross-shop event lookup",
+          "good",
+        ),
       ],
       liveData: {
         title: "Audit event detail",
@@ -2500,10 +3098,25 @@ export function buildAuditDetailSection(
       rows: detailSectionRows([
         { field: "Audit event id", value: event.auditLogId },
         { field: "Event", value: event.eventKey },
-        { field: "Actor", value: shortId(event.actorProfileId) },
+        {
+          field: "Actor",
+          value:
+            event.actorIdentity?.email ??
+            event.actorIdentity?.displayName ??
+            shortId(event.actorProfileId),
+        },
+        {
+          field: "Actor provider",
+          value: event.actorIdentity?.originLabel ?? "Origin unavailable",
+        },
         { field: "Severity", value: formatToken(event.severity) },
         { field: "Result", value: formatToken(event.result) },
-        { field: "Target", value: event.targetType ? `${event.targetType}:${event.targetId ?? "unknown"}` : "None" },
+        {
+          field: "Target",
+          value: event.targetType
+            ? `${event.targetType}:${event.targetId ?? "unknown"}`
+            : "None",
+        },
         { field: "Metadata summary", value: event.metadataSummary },
         { field: "Redacted metadata", value: event.metadataPreview },
         { field: "Created", value: formatDateTime(event.createdAt) },
@@ -2537,9 +3150,22 @@ export function buildRolesSection(): ShopSection {
       "Server-side baseline permission matrix for web shop members and POS staff roles. Granular editing is not available yet because no granular roles schema exists.",
     status: "Baseline matrix",
     metrics: [
-      metric("Web roles", String(Object.keys(SHOP_ADMIN_PERMISSION_MATRIX).length), "shop_members role_key"),
-      metric("Staff roles", String(Object.keys(SHOP_STAFF_PERMISSION_MATRIX).length), "staff_accounts role_key"),
-      metric("Granular editing", "Not available yet", "Baseline matrix only. No granular roles schema yet.", "warning"),
+      metric(
+        "Web roles",
+        String(Object.keys(SHOP_ADMIN_PERMISSION_MATRIX).length),
+        "shop_members role_key",
+      ),
+      metric(
+        "Staff roles",
+        String(Object.keys(SHOP_STAFF_PERMISSION_MATRIX).length),
+        "staff_accounts role_key",
+      ),
+      metric(
+        "Granular editing",
+        "Not available yet",
+        "Baseline matrix only. No granular roles schema yet.",
+        "warning",
+      ),
     ],
     liveData: {
       title: "Permissions matrix",
@@ -2563,7 +3189,9 @@ export function buildRolesSection(): ShopSection {
   };
 }
 
-export function buildSettingsSection(readModel: ShopAdminReadModel): ShopSection {
+export function buildSettingsSection(
+  readModel: ShopAdminReadModel,
+): ShopSection {
   if (readModel.status !== "ready" || !readModel.selectedShop) {
     return fallbackSection("settings", readModel);
   }
@@ -2575,9 +3203,21 @@ export function buildSettingsSection(readModel: ShopAdminReadModel): ShopSection
       field: "Company RUT",
       value: formatCompanyRut(shop.companyRut),
     },
-    { rowKey: "giro", field: "Giro", value: shop.businessGiro ?? "Not configured" },
-    { rowKey: "address", field: "Address", value: shop.businessAddress ?? "Not configured" },
-    { rowKey: "city", field: "City", value: shop.businessCity ?? "Not configured" },
+    {
+      rowKey: "giro",
+      field: "Giro",
+      value: shop.businessGiro ?? "Not configured",
+    },
+    {
+      rowKey: "address",
+      field: "Address",
+      value: shop.businessAddress ?? "Not configured",
+    },
+    {
+      rowKey: "city",
+      field: "City",
+      value: shop.businessCity ?? "Not configured",
+    },
     {
       rowKey: "legal-representative",
       field: "Legal representative RUT",
@@ -2611,10 +3251,26 @@ export function buildSettingsSection(readModel: ShopAdminReadModel): ShopSection
       rows: [
         { rowKey: "name", field: "Shop name", value: shop.shopName },
         { rowKey: "code", field: "Shop code", value: shop.shopCode },
-        { rowKey: "status", field: "Status", value: formatToken(shop.shopStatus) },
-        { rowKey: "role", field: "Current role", value: formatToken(shop.role) },
-        { rowKey: "updated", field: "Updated", value: formatDateTime(shop.updatedAt) },
-        { rowKey: "fiscal-boundary", field: "Fiscal boundary", value: "Read-only in Admin Console" },
+        {
+          rowKey: "status",
+          field: "Status",
+          value: formatToken(shop.shopStatus),
+        },
+        {
+          rowKey: "role",
+          field: "Current role",
+          value: formatToken(shop.role),
+        },
+        {
+          rowKey: "updated",
+          field: "Updated",
+          value: formatDateTime(shop.updatedAt),
+        },
+        {
+          rowKey: "fiscal-boundary",
+          field: "Fiscal boundary",
+          value: "Read-only in Admin Console",
+        },
         ...fiscalRows,
       ],
       emptyState: {
@@ -2755,7 +3411,9 @@ export async function getShopCatalogDetailSectionForRequest(
     );
   }
 
-  const inventoryReadModel = await getShopInventoryReadModel({ requestedShopId });
+  const inventoryReadModel = await getShopInventoryReadModel({
+    requestedShopId,
+  });
 
   if (kind === "category") {
     return buildCategoryDetailSection(inventoryReadModel, catalogId);

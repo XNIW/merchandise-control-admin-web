@@ -2072,23 +2072,66 @@ export async function registerDeviceAsStaff(
 ) {
   const deviceIdentifier = normalizeLabel(input.deviceIdentifier);
   const displayName = normalizeLabel(input.displayName) || deviceIdentifier;
-  const { data, error } = await context.supabase
+  const existing = await context.supabase
     .from("shop_devices")
-    .upsert(
-      {
-        app_version: input.appVersion,
-        device_identifier: deviceIdentifier,
-        device_type: input.deviceType ?? "unknown",
-        display_name: displayName,
-        metadata_redacted: {},
-        shop_id: context.selectedShop.shopId,
-        status: "active",
-        updated_at: nowIso(),
-      },
-      { onConflict: "shop_id,device_identifier" },
-    )
-    .select("shop_device_id")
-    .maybeSingle<Pick<Tables<"shop_devices">, "shop_device_id">>();
+    .select("shop_device_id,status")
+    .eq("shop_id", context.selectedShop.shopId)
+    .eq("device_identifier", deviceIdentifier)
+    .maybeSingle<Pick<Tables<"shop_devices">, "shop_device_id" | "status">>();
+
+  if (existing.error) {
+    return auditResult(context, {
+      code: "db_failure",
+      eventKey: "shop.device.register.failure",
+      ok: false,
+      result: "failure",
+      severity: "critical",
+      targetType: "device",
+    });
+  }
+
+  const seenAt = nowIso();
+  const nextStatus =
+    existing.data?.status === "revoked" || existing.data?.status === "suspicious"
+      ? existing.data.status
+      : "active";
+  const mutationResult = existing.data
+    ? await context.supabase
+        .from("shop_devices")
+        .update({
+          app_version: input.appVersion,
+          device_type: input.deviceType ?? "unknown",
+          display_name: displayName,
+          last_seen_at: seenAt,
+          last_seen_principal_kind: "pos_staff",
+          last_seen_profile_id: null,
+          last_seen_staff_id: context.actorStaffId,
+          metadata_redacted: {},
+          status: nextStatus,
+          updated_at: seenAt,
+        })
+        .eq("shop_id", context.selectedShop.shopId)
+        .eq("shop_device_id", existing.data.shop_device_id)
+        .select("shop_device_id")
+        .maybeSingle<Pick<Tables<"shop_devices">, "shop_device_id">>()
+    : await context.supabase
+        .from("shop_devices")
+        .insert({
+          app_version: input.appVersion,
+          device_identifier: deviceIdentifier,
+          device_type: input.deviceType ?? "unknown",
+          display_name: displayName,
+          last_seen_at: seenAt,
+          last_seen_principal_kind: "pos_staff",
+          last_seen_staff_id: context.actorStaffId,
+          metadata_redacted: {},
+          shop_id: context.selectedShop.shopId,
+          status: "active",
+          updated_at: seenAt,
+        })
+        .select("shop_device_id")
+        .maybeSingle<Pick<Tables<"shop_devices">, "shop_device_id">>();
+  const { data, error } = mutationResult;
 
   if (error || !data) {
     return auditResult(context, {

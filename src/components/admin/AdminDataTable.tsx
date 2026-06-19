@@ -2,6 +2,12 @@ import {
   formatTimestampUtc,
   isIsoTimestamp,
 } from "@/components/platform/displayFormat";
+import { AccountIdentity } from "@/components/account/AccountIdentity";
+import {
+  accountIdentitySearchText,
+  isAccountIdentitySummary,
+  type AccountIdentitySummary,
+} from "@/lib/account-identity";
 import { DEFAULT_LOCALE, type SupportedLocale } from "@/i18n/locales";
 import type { ReactNode } from "react";
 
@@ -15,7 +21,10 @@ export type AdminDataTableColumn = {
   label: string;
 };
 
-export type AdminDataTableRow = Record<string, string> & {
+type AdminDataTableCellValue = string | AccountIdentitySummary;
+
+export type AdminDataTableRow = {
+  [key: string]: AdminDataTableCellValue | undefined;
   rowKey?: string;
 };
 
@@ -107,9 +116,13 @@ function tableCellClassName(column: AdminDataTableColumn) {
 function renderCellValue(
   column: AdminDataTableColumn,
   locale: SupportedLocale,
-  rawValue: string,
+  rawValue: AdminDataTableCellValue,
   value: string,
 ) {
+  if (isAccountIdentitySummary(rawValue)) {
+    return <AccountIdentity identity={rawValue} locale={locale} />;
+  }
+
   if (column.cellVariant === "code") {
     return (
       <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[0.78rem] leading-5 text-slate-900 [overflow-wrap:anywhere]">
@@ -147,6 +160,14 @@ function renderCellValue(
   }
 
   return value;
+}
+
+function cellTitle(value: AdminDataTableCellValue | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  return isAccountIdentitySummary(value) ? accountIdentitySearchText(value) : value;
 }
 
 export function AdminDataTable({
@@ -191,10 +212,12 @@ export function AdminDataTable({
             rows.map((row, rowIndex) => (
               <tr key={row.rowKey ?? `${rowIndex}-${columns[0]?.key ?? "row"}`}>
                 {columns.map((column) => {
-                  const rawValue = row[column.key] ?? "";
-                  const value = isIsoTimestamp(rawValue)
-                    ? formatTimestampUtc(rawValue, locale)
-                    : rawValue;
+                  const cellValue = row[column.key] ?? "";
+                  const rawValue = cellTitle(cellValue);
+                  const value =
+                    typeof cellValue === "string" && isIsoTimestamp(cellValue)
+                      ? formatTimestampUtc(cellValue, locale)
+                      : rawValue;
 
                   return (
                     <td
@@ -202,7 +225,7 @@ export function AdminDataTable({
                       title={rawValue}
                       className={tableCellClassName(column)}
                     >
-                      {renderCellValue(column, locale, rawValue, value)}
+                      {renderCellValue(column, locale, cellValue, value)}
                     </td>
                   );
                 })}

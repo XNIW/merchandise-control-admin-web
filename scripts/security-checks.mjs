@@ -181,7 +181,7 @@ function extractExportedFunctionBlock(source, functionName) {
       continue;
     }
 
-    if (char === "\"" || char === "'" || char === "`") {
+    if (char === '"' || char === "'" || char === "`") {
       quote = char;
       continue;
     }
@@ -396,6 +396,8 @@ function checkReadOnlyContracts() {
     "src/server/shop-admin/staff-web-auth.ts",
     "src/server/shop-admin/settings-mutations.ts",
     "src/server/shop-admin/staff-aware-mutations.ts",
+    "src/server/shop-admin/history-mutations.ts",
+    "src/server/shop-admin/sync-event-writer.ts",
     "src/server/platform-admin/shop-actions.ts",
     "src/server/platform-admin/staff-manager-provisioning.ts",
   ]);
@@ -415,7 +417,9 @@ function checkReadOnlyContracts() {
       const isAllowedActionRpc = allowedRpcsByFile.get(file)?.has(rpcName);
 
       if (!isAllowedActionRpc) {
-        addFailure(`${file} contains an unapproved Supabase RPC call: ${rpcName}`);
+        addFailure(
+          `${file} contains an unapproved Supabase RPC call: ${rpcName}`,
+        );
       }
     }
 
@@ -465,11 +469,19 @@ function checkTask006ControlledActionArtifacts() {
     "platform_reactivate_shop",
     "platform_soft_delete_shop",
   ]) {
-    if (!new RegExp(`create or replace function public\\.${rpcName}`).test(migration)) {
+    if (
+      !new RegExp(`create or replace function public\\.${rpcName}`).test(
+        migration,
+      )
+    ) {
       addFailure(`${migrationPath} must create ${rpcName}`);
     }
 
-    if (!new RegExp(`grant execute on function public\\.${rpcName}`).test(migration)) {
+    if (
+      !new RegExp(`grant execute on function public\\.${rpcName}`).test(
+        migration,
+      )
+    ) {
       addFailure(`${migrationPath} must grant execute on ${rpcName}`);
     }
 
@@ -483,7 +495,9 @@ function checkTask006ControlledActionArtifacts() {
   }
 
   if (!/app_private\.is_platform_admin\(\)/.test(migration)) {
-    addFailure(`${migrationPath} must authorize through app_private.is_platform_admin()`);
+    addFailure(
+      `${migrationPath} must authorize through app_private.is_platform_admin()`,
+    );
   }
 
   if (
@@ -491,7 +505,9 @@ function checkTask006ControlledActionArtifacts() {
       migration,
     )
   ) {
-    addFailure(`${migrationPath} must not grant direct table mutations to authenticated`);
+    addFailure(
+      `${migrationPath} must not grant direct table mutations to authenticated`,
+    );
   }
 
   if (/grant\s+\w+.*\s+to\s+anon/i.test(migration)) {
@@ -513,14 +529,20 @@ function checkTask006ControlledActionArtifacts() {
     ) ||
     !/operation=\$\{operation\}&result=\$\{result\.code\}/.test(serverActions)
   ) {
-    addFailure(`${serverActionsPath} must redirect with a redacted action result`);
+    addFailure(
+      `${serverActionsPath} must redirect with a redacted action result`,
+    );
   }
 
   if (!/authorizeCurrentPlatformAdmin/.test(shopActions)) {
     addFailure(`${shopActionsPath} must authorize the current Platform Admin`);
   }
 
-  if (/console\.(log|debug|info|warn|error)/.test(`${serverActions}\n${shopActions}`)) {
+  if (
+    /console\.(log|debug|info|warn|error)/.test(
+      `${serverActions}\n${shopActions}`,
+    )
+  ) {
     addFailure("TASK-006 action files must not log runtime details");
   }
 
@@ -547,7 +569,9 @@ function checkTask006ControlledActionArtifacts() {
   }
 
   if (/Safe Operations/.test(`${operationsPage}\n${platformData}`)) {
-    addFailure("TASK-006 active UI must not label mutative controls as Safe Operations");
+    addFailure(
+      "TASK-006 active UI must not label mutative controls as Safe Operations",
+    );
   }
 
   for (const requiredSnippet of [
@@ -624,16 +648,33 @@ function checkTask007AuthRoutingArtifacts() {
     addFailure(`${resolverPath} must not authorize from auth metadata`);
   }
 
-  if (!/redirect\("\/auth\/login\?next=\/shop&mode=admin-account"\)/.test(rootPage)) {
-    addFailure(`${rootPagePath} must redirect to the Admin Console account login tab`);
+  if (
+    !/redirect\("\/auth\/login\?next=\/shop&mode=admin-account"\)/.test(
+      rootPage,
+    )
+  ) {
+    addFailure(
+      `${rootPagePath} must redirect to the Admin Console account login tab`,
+    );
   }
 
-  if (/resolveCurrentAdminRouteAccess|getAdminRouteDestination|\/auth\/login\?next=\/platform/.test(rootPage)) {
-    addFailure(`${rootPagePath} must not expose Master Console or public role selection`);
+  if (
+    /resolveCurrentAdminRouteAccess|getAdminRouteDestination|\/auth\/login\?next=\/platform/.test(
+      rootPage,
+    )
+  ) {
+    addFailure(
+      `${rootPagePath} must not expose Master Console or public role selection`,
+    );
   }
 
-  if (!/status !== "platform_admin"/.test(platformLayout) || !/AccessState/.test(platformLayout)) {
-    addFailure(`${platformLayoutPath} must block non-Platform Admin access server-side`);
+  if (
+    !/status !== "platform_admin"/.test(platformLayout) ||
+    !/AccessState/.test(platformLayout)
+  ) {
+    addFailure(
+      `${platformLayoutPath} must block non-Platform Admin access server-side`,
+    );
   }
 
   if (
@@ -641,11 +682,15 @@ function checkTask007AuthRoutingArtifacts() {
     !/access\.status !== "ready"/.test(shopLayout) ||
     !/AccessState/.test(shopLayout)
   ) {
-    addFailure(`${shopLayoutPath} must block non-Shop Admin access server-side`);
+    addFailure(
+      `${shopLayoutPath} must block non-Shop Admin access server-side`,
+    );
   }
 
   if (!/ShopSectionPage/.test(shopPage)) {
-    addFailure(`${shopPagePath} must render the protected Shop Admin shell page`);
+    addFailure(
+      `${shopPagePath} must render the protected Shop Admin shell page`,
+    );
   }
 
   for (const statusName of [
@@ -669,7 +714,7 @@ function checkTask007AuthRoutingArtifacts() {
     addFailure(`${callbackPath} must use the shared callback routing guard`);
   }
 
-  if (!oauthRedirect.includes('? value : fallback')) {
+  if (!oauthRedirect.includes("? value : fallback")) {
     addFailure(`${oauthRedirectPath} must default callback routing to /`);
   }
 }
@@ -724,12 +769,19 @@ function checkTask008ShopShellArtifacts() {
     addFailure(`${shopLayoutPath} must protect Shop Admin routes server-side`);
   }
 
-  if (!/<ShopShell/.test(layout) || !/export const dynamic = ["']force-dynamic["']/.test(layout)) {
-    addFailure(`${shopLayoutPath} must render the ShopShell dynamically after authorization`);
+  if (
+    !/<ShopShell/.test(layout) ||
+    !/export const dynamic = ["']force-dynamic["']/.test(layout)
+  ) {
+    addFailure(
+      `${shopLayoutPath} must render the ShopShell dynamically after authorization`,
+    );
   }
 
   if (!/^["']use client["'];?/m.test(shell) || !/usePathname/.test(shell)) {
-    addFailure(`${shopShellPath} must keep pathname-aware navigation in a client boundary`);
+    addFailure(
+      `${shopShellPath} must keep pathname-aware navigation in a client boundary`,
+    );
   }
 
   const dictionaries = optionalRead("src/i18n/dictionaries.ts");
@@ -750,11 +802,15 @@ function checkTask008ShopShellArtifacts() {
     const contents = read(file);
 
     if (/@\/server|src\/server|@supabase\//.test(contents)) {
-      addFailure(`${file} must not import server-only or Supabase modules into the Shop UI boundary`);
+      addFailure(
+        `${file} must not import server-only or Supabase modules into the Shop UI boundary`,
+      );
     }
   }
 
-  if (!/No live shop rows are available in this section yet/.test(sectionPage)) {
+  if (
+    !/No live shop rows are available in this section yet/.test(sectionPage)
+  ) {
     addFailure(`${shopSectionPagePath} must label placeholders as non-live`);
   }
 
@@ -762,7 +818,9 @@ function checkTask008ShopShellArtifacts() {
     const page = read(routePath);
 
     if (!/export const dynamic = ["']force-dynamic["']/.test(page)) {
-      addFailure(`${routePath} must force dynamic rendering for auth-scoped Shop Admin UI`);
+      addFailure(
+        `${routePath} must force dynamic rendering for auth-scoped Shop Admin UI`,
+      );
     }
   }
 
@@ -827,26 +885,39 @@ function checkTask009ShopSwitcherArtifacts() {
     addFailure(`${resolverPath} must not authorize from auth metadata`);
   }
 
-  if (/resolveCurrentAdminRouteAccess|\.from\("platform_admins"\)/.test(resolver)) {
-    addFailure(`${resolverPath} must resolve Shop Admin membership independently from Platform Admin routing`);
+  if (
+    /resolveCurrentAdminRouteAccess|\.from\("platform_admins"\)/.test(resolver)
+  ) {
+    addFailure(
+      `${resolverPath} must resolve Shop Admin membership independently from Platform Admin routing`,
+    );
   }
 
   if (/Promise\.all\s*\(/.test(resolver)) {
     addFailure(`${resolverPath} must avoid parallel remote Supabase reads`);
   }
 
-  if (!/resolveShopAdminDataAccess/.test(layout) || !/principal\.kind/.test(layout)) {
-    addFailure(`${shopLayoutPath} must use the Shop Admin data access resolver`);
+  if (
+    !/resolveShopAdminDataAccess/.test(layout) ||
+    !/principal\.kind/.test(layout)
+  ) {
+    addFailure(
+      `${shopLayoutPath} must use the Shop Admin data access resolver`,
+    );
   }
 
   if (!/availableShops=\{availableShops\}/.test(layout)) {
-    addFailure(`${shopLayoutPath} must pass only server-authorized shops to ShopShell`);
+    addFailure(
+      `${shopLayoutPath} must pass only server-authorized shops to ShopShell`,
+    );
   }
 
   const exposesSwitchShop =
     shell.includes('aria-label="Switch shop"') ||
     (shell.includes("aria-label={labels.switchShop}") &&
-      /switchShop:\s*"Switch shop"/.test(optionalRead("src/i18n/dictionaries.ts")));
+      /switchShop:\s*"Switch shop"/.test(
+        optionalRead("src/i18n/dictionaries.ts"),
+      ));
 
   for (const requiredSnippet of [
     "availableShops",
@@ -866,11 +937,15 @@ function checkTask009ShopSwitcherArtifacts() {
   }
 
   if (!/href=\{buildShopHref\(item\.href\)\}/.test(shell)) {
-    addFailure(`${shopShellPath} must preserve selected shop_id across section links`);
+    addFailure(
+      `${shopShellPath} must preserve selected shop_id across section links`,
+    );
   }
 
   if (/@\/server|src\/server|@supabase\//.test(shell)) {
-    addFailure(`${shopShellPath} must not import server-only or Supabase modules`);
+    addFailure(
+      `${shopShellPath} must not import server-only or Supabase modules`,
+    );
   }
 }
 
@@ -938,7 +1013,9 @@ function checkTask010ShopReadModelArtifacts() {
     "principal.selectedShop",
   ]) {
     if (!dataAccess.includes(requiredSnippet)) {
-      addFailure(`src/server/shop-admin/data-access.ts must include ${requiredSnippet}`);
+      addFailure(
+        `src/server/shop-admin/data-access.ts must include ${requiredSnippet}`,
+      );
     }
   }
 
@@ -955,11 +1032,18 @@ function checkTask010ShopReadModelArtifacts() {
   }
 
   if (/\.eq\("shop_id",\s*(requestedShopId|selectedShopId)\)/.test(readModel)) {
-    addFailure(`${readModelPath} must not authorize directly from shop_id query params`);
+    addFailure(
+      `${readModelPath} must not authorize directly from shop_id query params`,
+    );
   }
 
-  if (!/availableShops\.find/.test(dataAccess) || !/principal\.selectedShop/.test(dataAccess)) {
-    addFailure("src/server/shop-admin/data-access.ts must select shops from server-authorized memberships");
+  if (
+    !/availableShops\.find/.test(dataAccess) ||
+    !/principal\.selectedShop/.test(dataAccess)
+  ) {
+    addFailure(
+      "src/server/shop-admin/data-access.ts must select shops from server-authorized memberships",
+    );
   }
 
   for (const requiredSnippet of [
@@ -978,11 +1062,15 @@ function checkTask010ShopReadModelArtifacts() {
     !/Live shop data/.test(`${sectionData}\n${sectionPage}`) ||
     !/Live rows for the selected shop/.test(`${sectionData}\n${sectionPage}`)
   ) {
-    addFailure(`${sectionDataPath} and ${sectionPagePath} must render live data or declared empty states`);
+    addFailure(
+      `${sectionDataPath} and ${sectionPagePath} must render live data or declared empty states`,
+    );
   }
 
   if (/TASK-010|TASK-008/.test(`${sectionData}\n${sectionPage}`)) {
-    addFailure(`${sectionDataPath} and ${sectionPagePath} must not render task IDs in Shop Admin UI copy`);
+    addFailure(
+      `${sectionDataPath} and ${sectionPagePath} must not render task IDs in Shop Admin UI copy`,
+    );
   }
 
   for (const [pagePath, contents, sectionKey] of [
@@ -992,11 +1080,15 @@ function checkTask010ShopReadModelArtifacts() {
     [auditPagePath, auditPage, "audit"],
   ]) {
     if (!contents.includes("searchParams")) {
-      addFailure(`${pagePath} must accept searchParams as navigation state only`);
+      addFailure(
+        `${pagePath} must accept searchParams as navigation state only`,
+      );
     }
 
     if (!contents.includes(`getShopSectionForRequest(\n    "${sectionKey}"`)) {
-      addFailure(`${pagePath} must load the ${sectionKey} section through the server read model`);
+      addFailure(
+        `${pagePath} must load the ${sectionKey} section through the server read model`,
+      );
     }
   }
 
@@ -1005,7 +1097,9 @@ function checkTask010ShopReadModelArtifacts() {
   }
 
   if (/mock|fake|demo/i.test(`${readModel}\n${sectionData}\n${sectionPage}`)) {
-    addFailure("TASK-010 read surfaces must not present fake data as live data");
+    addFailure(
+      "TASK-010 read surfaces must not present fake data as live data",
+    );
   }
 }
 
@@ -1017,7 +1111,10 @@ function checkAuthMetadataAndMockLabels() {
     const isTask064AuthIdentityDto =
       file === "src/server/platform-admin/auth-identities.ts";
 
-    if (/user_metadata|raw_user_meta_data/.test(contents) && !isTask064AuthIdentityDto) {
+    if (
+      /user_metadata|raw_user_meta_data/.test(contents) &&
+      !isTask064AuthIdentityDto
+    ) {
       addFailure(`${file} must not authorize from user metadata`);
     }
 
@@ -1027,7 +1124,9 @@ function checkAuthMetadataAndMockLabels() {
         contents,
       )
     ) {
-      addFailure(`${file} must stay a DTO mapper and must not authorize from metadata`);
+      addFailure(
+        `${file} must stay a DTO mapper and must not authorize from metadata`,
+      );
     }
 
     if (/mock[\s\S]{0,80}Live|Live[\s\S]{0,80}mock/.test(contents)) {
@@ -1078,7 +1177,9 @@ function checkTask064PlatformUsersFoundation() {
   const cloudProbe = read(cloudProbePath);
   const migration = read(migrationPath);
   const clientSource = [
-    ...listFiles("src/app").filter((file) => /^["']use client["'];?/m.test(read(file))),
+    ...listFiles("src/app").filter((file) =>
+      /^["']use client["'];?/m.test(read(file)),
+    ),
     ...listFiles("src/components"),
   ]
     .map((file) => `${file}\n${read(file)}`)
@@ -1097,12 +1198,20 @@ function checkTask064PlatformUsersFoundation() {
     }
   }
 
-  if (/access_token|refresh_token|session_token|magic_link|credential_hash|password_hash|pin_hash/i.test(authIdentities)) {
-    addFailure(`${authIdentitiesPath} must not map token, password, PIN, or credential fields`);
+  if (
+    /access_token|refresh_token|session_token|magic_link|credential_hash|password_hash|pin_hash/i.test(
+      authIdentities,
+    )
+  ) {
+    addFailure(
+      `${authIdentitiesPath} must not map token, password, PIN, or credential fields`,
+    );
   }
 
   if (!/authorizeCurrentPlatformAdmin/.test(readModel)) {
-    addFailure(`${readModelPath} must authorize Platform Admin before Auth identity summaries are loaded`);
+    addFailure(
+      `${readModelPath} must authorize Platform Admin before Auth identity summaries are loaded`,
+    );
   }
 
   for (const required of [
@@ -1126,7 +1235,9 @@ function checkTask064PlatformUsersFoundation() {
     /raw_user_meta_data/,
   ]) {
     if (forbidden.test(readModel)) {
-      addFailure(`${readModelPath} violates TASK-064 read-only safe DTO boundary`);
+      addFailure(
+        `${readModelPath} violates TASK-064 read-only safe DTO boundary`,
+      );
     }
   }
 
@@ -1143,32 +1254,47 @@ function checkTask064PlatformUsersFoundation() {
     }
   }
 
-  if (!/q\?: string \| string\[\]/.test(usersPage) || !/usersSearchQuery/.test(usersPage)) {
+  if (
+    !/q\?: string \| string\[\]/.test(usersPage) ||
+    !/usersSearchQuery/.test(usersPage)
+  ) {
     addFailure(`${usersPagePath} must submit q to the server read model`);
   }
 
-  if (!/method="get"/.test(masterDetail) || !/serverSearch/.test(masterDetail)) {
+  if (
+    !/method="get"/.test(masterDetail) ||
+    !/serverSearch/.test(masterDetail)
+  ) {
     addFailure(`${masterDetailPath} must render the server-side search form`);
   }
 
   if (!/rows\.length === 0 && !serverSearch/.test(masterDetail)) {
-    addFailure(`${masterDetailPath} must keep server-side search visible when zero rows are returned`);
+    addFailure(
+      `${masterDetailPath} must keep server-side search visible when zero rows are returned`,
+    );
   }
 
   if (!/localizedSection\.serverSearch !== undefined/.test(platformPage)) {
-    addFailure(`${platformPagePath} must route server-side search sections to PlatformMasterDetail even with zero rows`);
+    addFailure(
+      `${platformPagePath} must route server-side search sections to PlatformMasterDetail even with zero rows`,
+    );
   }
 
-  if (/@\/lib\/supabase\/admin|createSupabaseAdminClient|auth\.admin|SUPABASE_SERVICE_ROLE_KEY/i.test(clientSource)) {
-    addFailure("TASK-064 Auth Admin boundary must not be imported into client/browser files");
+  if (
+    /@\/lib\/supabase\/admin|createSupabaseAdminClient|auth\.admin|SUPABASE_SERVICE_ROLE_KEY/i.test(
+      clientSource,
+    )
+  ) {
+    addFailure(
+      "TASK-064 Auth Admin boundary must not be imported into client/browser files",
+    );
   }
 
-  for (const required of [
-    '"platform:cloud:dev"',
-    '"platform:cloud:probe"',
-  ]) {
+  for (const required of ['"platform:cloud:dev"', '"platform:cloud:probe"']) {
     if (!packageJson.includes(required)) {
-      addFailure(`${packageJsonPath} must expose ${required} for explicit cloud target checks`);
+      addFailure(
+        `${packageJsonPath} must expose ${required} for explicit cloud target checks`,
+      );
     }
   }
 
@@ -1216,8 +1342,12 @@ function checkTask064PlatformUsersFoundation() {
     }
   }
 
-  if (/grant\s+(insert|update|delete|all).*to\s+authenticated/i.test(migration)) {
-    addFailure(`${migrationPath} must not grant profile mutations to authenticated`);
+  if (
+    /grant\s+(insert|update|delete|all).*to\s+authenticated/i.test(migration)
+  ) {
+    addFailure(
+      `${migrationPath} must not grant profile mutations to authenticated`,
+    );
   }
 }
 
@@ -1309,7 +1439,12 @@ function checkSupabaseExecutionArtifacts() {
   const readModelPath = "src/server/platform-admin/read-model.ts";
   const serverPath = "src/lib/supabase/server.ts";
 
-  for (const requiredPath of [migrationPath, typesPath, readModelPath, serverPath]) {
+  for (const requiredPath of [
+    migrationPath,
+    typesPath,
+    readModelPath,
+    serverPath,
+  ]) {
     if (!existsSync(join(root, requiredPath))) {
       addFailure(`${requiredPath} is missing`);
       return;
@@ -1329,11 +1464,19 @@ function checkSupabaseExecutionArtifacts() {
     "shop_inventory_sources",
     "audit_logs",
   ]) {
-    if (!new RegExp(`create table if not exists public\\.${tableName}`).test(migration)) {
+    if (
+      !new RegExp(`create table if not exists public\\.${tableName}`).test(
+        migration,
+      )
+    ) {
       addFailure(`${migrationPath} must create public.${tableName}`);
     }
 
-    if (!new RegExp(`alter table public\\.${tableName} enable row level security`).test(migration)) {
+    if (
+      !new RegExp(
+        `alter table public\\.${tableName} enable row level security`,
+      ).test(migration)
+    ) {
       addFailure(`${migrationPath} must enable RLS on public.${tableName}`);
     }
 
@@ -1351,10 +1494,15 @@ function checkSupabaseExecutionArtifacts() {
   }
 
   if (!/security definer/.test(migration)) {
-    addFailure(`${migrationPath} must define controlled security definer helpers`);
+    addFailure(
+      `${migrationPath} must define controlled security definer helpers`,
+    );
   }
 
-  if (!/@supabase\/ssr/.test(serverBoundary) || !/cookies/.test(serverBoundary)) {
+  if (
+    !/@supabase\/ssr/.test(serverBoundary) ||
+    !/cookies/.test(serverBoundary)
+  ) {
     addFailure(`${serverPath} must use the Supabase SSR cookie boundary`);
   }
 
@@ -1411,7 +1559,9 @@ function checkPlatformRoutesStayDynamic() {
     const contents = read(routePath);
 
     if (!/export const dynamic = ["']force-dynamic["']/.test(contents)) {
-      addFailure(`${routePath} must force dynamic rendering for auth-scoped reads`);
+      addFailure(
+        `${routePath} must force dynamic rendering for auth-scoped reads`,
+      );
     }
   }
 }
@@ -1454,7 +1604,9 @@ function checkPlatformAdminBootstrapScript() {
   }
 
   if (!/rollback/.test(bootstrap) || !/commit/.test(bootstrap)) {
-    addFailure(`${bootstrapPath} must support rollback dry-run and confirmed apply`);
+    addFailure(
+      `${bootstrapPath} must support rollback dry-run and confirmed apply`,
+    );
   }
 
   if (/@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/.test(bootstrap)) {
@@ -1491,10 +1643,16 @@ function checkSupabaseProxyLifecycle() {
       ? !/export async function middleware/.test(proxyEntry)
       : !/export async function proxy/.test(proxyEntry)
   ) {
-    addFailure(`${proxyEntryPath} must export the Supabase SSR request lifecycle function`);
+    addFailure(
+      `${proxyEntryPath} must export the Supabase SSR request lifecycle function`,
+    );
   }
 
-  if (!/matcher/.test(proxyEntry) || !/_next\/static/.test(proxyEntry) || !/_next\/image/.test(proxyEntry)) {
+  if (
+    !/matcher/.test(proxyEntry) ||
+    !/_next\/static/.test(proxyEntry) ||
+    !/_next\/image/.test(proxyEntry)
+  ) {
     addFailure(`${proxyEntryPath} must avoid static Next.js internals`);
   }
 
@@ -1502,23 +1660,39 @@ function checkSupabaseProxyLifecycle() {
     addFailure(`${proxyEntryPath} must avoid favicon requests`);
   }
 
-  if (!/createServerClient/.test(proxyHelper) || !/auth\.getClaims\(\)/.test(proxyHelper)) {
-    addFailure(`${proxyHelperPath} must validate Supabase SSR sessions through getClaims`);
+  if (
+    !/createServerClient/.test(proxyHelper) ||
+    !/auth\.getClaims\(\)/.test(proxyHelper)
+  ) {
+    addFailure(
+      `${proxyHelperPath} must validate Supabase SSR sessions through getClaims`,
+    );
   }
 
   if (/auth\.getSession\(\)/.test(proxyHelper)) {
-    addFailure(`${proxyHelperPath} must not use getSession in the server proxy lifecycle`);
+    addFailure(
+      `${proxyHelperPath} must not use getSession in the server proxy lifecycle`,
+    );
   }
 
-  if (!/request\.cookies\.set/.test(proxyHelper) || !/response\.cookies\.set/.test(proxyHelper)) {
-    addFailure(`${proxyHelperPath} must sync refreshed cookies to request and response`);
+  if (
+    !/request\.cookies\.set/.test(proxyHelper) ||
+    !/response\.cookies\.set/.test(proxyHelper)
+  ) {
+    addFailure(
+      `${proxyHelperPath} must sync refreshed cookies to request and response`,
+    );
   }
 
   if (/platform_admins|is_platform_admin/.test(proxyHelper)) {
-    addFailure(`${proxyHelperPath} must not decide Platform Admin authorization`);
+    addFailure(
+      `${proxyHelperPath} must not decide Platform Admin authorization`,
+    );
   }
 
-  if (/SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE|service_role/i.test(proxyHelper)) {
+  if (
+    /SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE|service_role/i.test(proxyHelper)
+  ) {
     addFailure(`${proxyHelperPath} must not use service-role secrets`);
   }
 }
@@ -1541,7 +1715,9 @@ function checkPlatformLiveAuthHarness() {
   const liveScript = pkg.scripts["test:ui-live-auth"] ?? "";
 
   if (!/platform-admin-live-auth\.spec\.ts/.test(liveScript)) {
-    addFailure("package.json must expose test:ui-live-auth for the live auth gate");
+    addFailure(
+      "package.json must expose test:ui-live-auth for the live auth gate",
+    );
   }
 
   if (!/PLAYWRIGHT_REUSE_SERVER=0/.test(liveScript)) {
@@ -1562,9 +1738,9 @@ function checkPlatformLiveAuthHarness() {
     "CONFIRM_PLATFORM_ADMIN_LIVE_BROWSER_TEST",
     "createUser",
     "deleteUser",
-    "screenshot: \"off\"",
-    "trace: \"off\"",
-    "video: \"off\"",
+    'screenshot: "off"',
+    'trace: "off"',
+    'video: "off"',
   ]) {
     if (!liveAuthTest.includes(requiredSnippet)) {
       addFailure(`${liveAuthTestPath} must include ${requiredSnippet}`);
@@ -1646,7 +1822,10 @@ function checkTask012PosStaffCredentialPlanning() {
     .join("\n");
   const clientStaffUi = `${staffPage}\n${read("src/components/shop/shopSections.ts")}`;
   const task014FoundationPresent = existsSync(
-    join(root, "docs/TASKS/TASK-014-integrated-auth-qa-design-pos-staff-foundation.md"),
+    join(
+      root,
+      "docs/TASKS/TASK-014-integrated-auth-qa-design-pos-staff-foundation.md",
+    ),
   );
   const task015CompletionPresent = existsSync(
     join(root, "docs/TASKS/TASK-015-complete-shop-admin-console.md"),
@@ -1681,7 +1860,11 @@ function checkTask012PosStaffCredentialPlanning() {
     addFailure(`${evidencePath} must record the TASK-012 DONE reconciliation`);
   }
 
-  if (!/TASK-012 - POS Staff Credential Planning \/ Schema Discovery[\s\S]*Stato: `DONE`/.test(masterPlan)) {
+  if (
+    !/TASK-012 - POS Staff Credential Planning \/ Schema Discovery[\s\S]*Stato: `DONE`/.test(
+      masterPlan,
+    )
+  ) {
     addFailure(`${masterPlanPath} must keep TASK-012 reconciled as DONE`);
   }
 
@@ -1708,7 +1891,9 @@ function checkTask012PosStaffCredentialPlanning() {
 
   for (const pattern of unsafeCredentialExamplePatterns) {
     if (pattern.test(taskAndEvidence)) {
-      addFailure(`${taskPath} and ${evidencePath} must use redacted placeholders instead of dangerous credential examples`);
+      addFailure(
+        `${taskPath} and ${evidencePath} must use redacted placeholders instead of dangerous credential examples`,
+      );
     }
   }
 
@@ -1729,7 +1914,9 @@ function checkTask012PosStaffCredentialPlanning() {
 
     for (const pattern of hardcodedStaffCredentialPatterns) {
       if (pattern.test(source)) {
-        addFailure(`${sourcePath} appears to introduce staff credential runtime handling during TASK-012 planning`);
+        addFailure(
+          `${sourcePath} appears to introduce staff credential runtime handling during TASK-012 planning`,
+        );
       }
     }
   }
@@ -1738,15 +1925,23 @@ function checkTask012PosStaffCredentialPlanning() {
     !task015CompletionPresent &&
     /action=|formAction|createStaff|resetCredential/i.test(staffPage)
   ) {
-    addFailure(`${staffPagePath} must remain non-mutative after TASK-012/TASK-014`);
+    addFailure(
+      `${staffPagePath} must remain non-mutative after TASK-012/TASK-014`,
+    );
   }
 
   if (!task014FoundationPresent) {
     if (/staff_accounts:\s*\{/.test(generatedTypes)) {
-      addFailure(`${typesPath} must not include staff_accounts during TASK-012 planning`);
+      addFailure(
+        `${typesPath} must not include staff_accounts during TASK-012 planning`,
+      );
     }
 
-    if (/create\s+table\s+(if\s+not\s+exists\s+)?public\.staff_accounts/i.test(migrations)) {
+    if (
+      /create\s+table\s+(if\s+not\s+exists\s+)?public\.staff_accounts/i.test(
+        migrations,
+      )
+    ) {
       addFailure("TASK-012 must not create public.staff_accounts");
     }
 
@@ -1754,8 +1949,14 @@ function checkTask012PosStaffCredentialPlanning() {
       addFailure("TASK-012 must not introduce credential_hash in migrations");
     }
 
-    if (/staff_accounts|staff_code|credential_hash|pin_hash|password_hash|shop_staff_/i.test(serverShopAdmin)) {
-      addFailure("TASK-012 must not introduce staff credential runtime code under src/server/shop-admin");
+    if (
+      /staff_accounts|staff_code|credential_hash|pin_hash|password_hash|shop_staff_/i.test(
+        serverShopAdmin,
+      )
+    ) {
+      addFailure(
+        "TASK-012 must not introduce staff credential runtime code under src/server/shop-admin",
+      );
     }
   }
 
@@ -1808,11 +2009,17 @@ function checkTask013UiPolishArtifacts() {
     }
   }
 
-  if (!/https:\/\/www\.figma\.com\/design\/nw9wx6Q7jutwLGPHatGlWq/.test(evidence)) {
+  if (
+    !/https:\/\/www\.figma\.com\/design\/nw9wx6Q7jutwLGPHatGlWq/.test(evidence)
+  ) {
     addFailure(`${evidencePath} must include the TASK-013 Figma file link`);
   }
 
-  if (!/TASK-013 - Admin Web UI\/UX Professional Audit & Polish[\s\S]*Stato: `DONE`/.test(masterPlan)) {
+  if (
+    !/TASK-013 - Admin Web UI\/UX Professional Audit & Polish[\s\S]*Stato: `DONE`/.test(
+      masterPlan,
+    )
+  ) {
     addFailure(`${masterPlanPath} must keep TASK-013 reconciled as DONE`);
   }
 
@@ -1827,9 +2034,7 @@ function checkTask013UiPolishArtifacts() {
     !/Task attivo: `TASK-016 - Complete Platform Admin Console`/.test(
       masterPlan,
     ) &&
-    !/Task attivo: `TASK-017 - Shop Business Completion`/.test(
-      masterPlan,
-    ) &&
+    !/Task attivo: `TASK-017 - Shop Business Completion`/.test(masterPlan) &&
     !/Task attivo: `TASK-018 - Infrastructure, Security Hardening and POS Foundation`/.test(
       masterPlan,
     ) &&
@@ -1882,7 +2087,9 @@ function checkTask013UiPolishArtifacts() {
       masterPlan,
     )
   ) {
-    addFailure(`${masterPlanPath} must either be IDLE after TASK-013 or track a later active task`);
+    addFailure(
+      `${masterPlanPath} must either be IDLE after TASK-013 or track a later active task`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -1902,9 +2109,13 @@ function checkTask013UiPolishArtifacts() {
 
   if (
     !/Planned state/.test(shopSectionPage) ||
-    !/break-words/.test(`${shopSectionPage}\n${platformTable}\n${read("src/components/admin/AdminDataTable.tsx")}`)
+    !/break-words/.test(
+      `${shopSectionPage}\n${platformTable}\n${read("src/components/admin/AdminDataTable.tsx")}`,
+    )
   ) {
-    addFailure(`${shopSectionPagePath} must make placeholder state and long table values clearer`);
+    addFailure(
+      `${shopSectionPagePath} must make placeholder state and long table values clearer`,
+    );
   }
 
   if (!/break-words/.test(platformTable)) {
@@ -1912,11 +2123,15 @@ function checkTask013UiPolishArtifacts() {
   }
 
   if (!/Use development-safe test shops only/.test(platformOperations)) {
-    addFailure(`${platformOperationsPath} must keep operation warning copy clear`);
+    addFailure(
+      `${platformOperationsPath} must keep operation warning copy clear`,
+    );
   }
 
   if (/TASK006_TEST_/.test(platformOperations)) {
-    addFailure(`${platformOperationsPath} must not expose task-internal test prefixes in UI copy`);
+    addFailure(
+      `${platformOperationsPath} must not expose task-internal test prefixes in UI copy`,
+    );
   }
 }
 
@@ -1962,7 +2177,9 @@ function checkTask014DesignSystem() {
     "GuardrailNotice",
   ]) {
     if (!sharedUi.includes(requiredSnippet)) {
-      addFailure(`TASK-014 shared Admin components must include ${requiredSnippet}`);
+      addFailure(
+        `TASK-014 shared Admin components must include ${requiredSnippet}`,
+      );
     }
   }
 
@@ -1985,7 +2202,9 @@ function checkTask014DesignSystem() {
   }
 
   if (/@supabase\/|@\/server\/|src\/server\//.test(sharedUi)) {
-    addFailure("TASK-014 shared Admin components must not import Supabase or server modules");
+    addFailure(
+      "TASK-014 shared Admin components must not import Supabase or server modules",
+    );
   }
 }
 
@@ -2060,17 +2279,30 @@ function checkTask014PosStaffFoundation() {
     }
   }
 
-  const safeViewDefinition = migration.split("create view public.staff_accounts_safe")[1] ?? "";
+  const safeViewDefinition =
+    migration.split("create view public.staff_accounts_safe")[1] ?? "";
 
   if (/credential_hash/i.test(safeViewDefinition)) {
-    addFailure(`${migrationPath} must not expose credential_hash through staff_accounts_safe`);
+    addFailure(
+      `${migrationPath} must not expose credential_hash through staff_accounts_safe`,
+    );
   }
 
-  if (/grant\s+(insert|update|delete|all)[\s\S]*on table public\.staff_accounts[\s\S]*to authenticated/i.test(migration)) {
-    addFailure(`${migrationPath} must not grant direct staff mutations to authenticated`);
+  if (
+    /grant\s+(insert|update|delete|all)[\s\S]*on table public\.staff_accounts[\s\S]*to authenticated/i.test(
+      migration,
+    )
+  ) {
+    addFailure(
+      `${migrationPath} must not grant direct staff mutations to authenticated`,
+    );
   }
 
-  if (/grant\s+.*on (table )?public\.staff_accounts[\s\S]*to anon/i.test(migration)) {
+  if (
+    /grant\s+.*on (table )?public\.staff_accounts[\s\S]*to anon/i.test(
+      migration,
+    )
+  ) {
     addFailure(`${migrationPath} must not grant staff table access to anon`);
   }
 
@@ -2092,8 +2324,12 @@ function checkTask014PosStaffFoundation() {
     addFailure(`${credentialModulePath} must not log credential details`);
   }
 
-  if (/["'`](?:1234|0000|password|test123|admin)["'`]/i.test(credentialModule)) {
-    addFailure(`${credentialModulePath} must not hardcode dangerous credential examples`);
+  if (
+    /["'`](?:1234|0000|password|test123|admin)["'`]/i.test(credentialModule)
+  ) {
+    addFailure(
+      `${credentialModulePath} must not hardcode dangerous credential examples`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -2106,24 +2342,46 @@ function checkTask014PosStaffFoundation() {
     }
   }
 
-  if (/credential_hash|select\("\*"\)|\.(insert|update|delete|upsert|rpc)\s*\(/.test(readModel)) {
+  if (
+    /credential_hash|select\("\*"\)|\.(insert|update|delete|upsert|rpc)\s*\(/.test(
+      readModel,
+    )
+  ) {
     addFailure(`${readModelPath} must read only safe staff fields`);
   }
 
-  if (!sectionData.includes("buildStaffSection") || !sectionData.includes("getShopStaffReadModel")) {
-    addFailure(`${sectionDataPath} must build staff UI from the safe read model`);
+  if (
+    !sectionData.includes("buildStaffSection") ||
+    !sectionData.includes("getShopStaffReadModel")
+  ) {
+    addFailure(
+      `${sectionDataPath} must build staff UI from the safe read model`,
+    );
   }
 
   if (!/getShopSectionForRequest\(\s*"staff"/.test(staffPage)) {
-    addFailure(`${staffPagePath} must load staff through getShopSectionForRequest`);
+    addFailure(
+      `${staffPagePath} must load staff through getShopSectionForRequest`,
+    );
   }
 
-  if (!/staff_accounts:\s*\{/.test(types) || !/staff_accounts_safe:\s*\{/.test(types)) {
-    addFailure(`${typesPath} must include staff_accounts and staff_accounts_safe`);
+  if (
+    !/staff_accounts:\s*\{/.test(types) ||
+    !/staff_accounts_safe:\s*\{/.test(types)
+  ) {
+    addFailure(
+      `${typesPath} must include staff_accounts and staff_accounts_safe`,
+    );
   }
 
-  if (/credential_hash|pin_hash|password_hash|hashStaffCredential|verifyStaffCredential/.test(clientStaffUi)) {
-    addFailure("Shop Staff UI must not expose credential hashes or hashing functions");
+  if (
+    /credential_hash|pin_hash|password_hash|hashStaffCredential|verifyStaffCredential/.test(
+      clientStaffUi,
+    )
+  ) {
+    addFailure(
+      "Shop Staff UI must not expose credential hashes or hashing functions",
+    );
   }
 
   if (/pos.*login|login.*pos/i.test(read("src/app/shop/staff/page.tsx"))) {
@@ -2145,8 +2403,14 @@ function checkTask014AuthenticatedQaHarness() {
   const spec = read(specPath);
   const pkg = JSON.parse(read(packagePath));
 
-  if (!/platform-admin-live-auth\.spec\.ts/.test(pkg.scripts["test:ui-live-auth"] ?? "")) {
-    addFailure("package.json must keep test:ui-live-auth wired to platform-admin-live-auth.spec.ts");
+  if (
+    !/platform-admin-live-auth\.spec\.ts/.test(
+      pkg.scripts["test:ui-live-auth"] ?? "",
+    )
+  ) {
+    addFailure(
+      "package.json must keep test:ui-live-auth wired to platform-admin-live-auth.spec.ts",
+    );
   }
 
   for (const requiredSnippet of [
@@ -2179,7 +2443,9 @@ function checkTask014AuthenticatedQaHarness() {
   }
 
   if (/magic link|access_token|refresh_token/i.test(spec)) {
-    addFailure(`${specPath} must not print or store auth tokens or magic links`);
+    addFailure(
+      `${specPath} must not print or store auth tokens or magic links`,
+    );
   }
 }
 
@@ -2286,7 +2552,9 @@ function checkTask015ShopAdminConsole() {
       addFailure(`${modulePath} must be server-only`);
     }
 
-    if (/select\("\*"\)|\.(insert|update|delete|upsert|rpc)\s*\(/.test(contents)) {
+    if (
+      /select\("\*"\)|\.(insert|update|delete|upsert|rpc)\s*\(/.test(contents)
+    ) {
       addFailure(`${modulePath} must stay read-only and avoid select-star`);
     }
   }
@@ -2299,14 +2567,23 @@ function checkTask015ShopAdminConsole() {
       addFailure(`${modulePath} must be server-only`);
     }
 
-    if (/select\("\*"\)|\.from\([^)]+\)[\s\S]*\.(insert|update|delete|upsert)\s*\(/.test(contents)) {
-      addFailure(`${modulePath} must avoid direct table mutations and select-star`);
+    if (
+      /select\("\*"\)|\.from\([^)]+\)[\s\S]*\.(insert|update|delete|upsert)\s*\(/.test(
+        contents,
+      )
+    ) {
+      addFailure(
+        `${modulePath} must avoid direct table mutations and select-star`,
+      );
     }
   }
 
-  const inventoryReadModel = serverModules["src/server/shop-admin/inventory-read-model.ts"];
-  const historyReadModel = serverModules["src/server/shop-admin/history-read-model.ts"];
-  const deviceReadModel = serverModules["src/server/shop-admin/device-read-model.ts"];
+  const inventoryReadModel =
+    serverModules["src/server/shop-admin/inventory-read-model.ts"];
+  const historyReadModel =
+    serverModules["src/server/shop-admin/history-read-model.ts"];
+  const deviceReadModel =
+    serverModules["src/server/shop-admin/device-read-model.ts"];
   const importExportReadiness =
     serverModules["src/server/shop-admin/import-export-readiness.ts"];
   const permissions = serverModules["src/server/shop-admin/permissions.ts"];
@@ -2334,7 +2611,11 @@ function checkTask015ShopAdminConsole() {
     }
   }
 
-  if (/\.eq\("shop_id",\s*(requestedShopId|selectedShopId)\)/.test(inventoryReadModel)) {
+  if (
+    /\.eq\("shop_id",\s*(requestedShopId|selectedShopId)\)/.test(
+      inventoryReadModel,
+    )
+  ) {
     addFailure("TASK-015 inventory reads must not authorize from query params");
   }
 
@@ -2357,7 +2638,9 @@ function checkTask015ShopAdminConsole() {
       historyReadModel,
     )
   ) {
-    addFailure("TASK-015 history detail must treat malformed encoded entry ids as invalid");
+    addFailure(
+      "TASK-015 history detail must treat malformed encoded entry ids as invalid",
+    );
   }
 
   if (
@@ -2365,11 +2648,19 @@ function checkTask015ShopAdminConsole() {
       historyReadModel,
     )
   ) {
-    addFailure("TASK-015 history detail must keep the mapped sync-event domain allowlist");
+    addFailure(
+      "TASK-015 history detail must keep the mapped sync-event domain allowlist",
+    );
   }
 
-  if (/\.from\("audit_logs"\)|credential_hash|access_token|refresh_token|magic_link/i.test(historyReadModel)) {
-    addFailure("TASK-015 history reads must stay distinct from audit logs and redact sensitive payloads");
+  if (
+    /\.from\("audit_logs"\)|credential_hash|access_token|refresh_token|magic_link/i.test(
+      historyReadModel,
+    )
+  ) {
+    addFailure(
+      "TASK-015 history reads must stay distinct from audit logs and redact sensitive payloads",
+    );
   }
 
   for (const requiredSnippet of [
@@ -2385,8 +2676,14 @@ function checkTask015ShopAdminConsole() {
     }
   }
 
-  if (/activity_only|revocationBlockedReason|device_secret|device_token/i.test(deviceReadModel)) {
-    addFailure("TASK-015 devices must use the safe shop_devices registry without device secrets");
+  if (
+    /activity_only|revocationBlockedReason|device_secret|device_token/i.test(
+      deviceReadModel,
+    )
+  ) {
+    addFailure(
+      "TASK-015 devices must use the safe shop_devices registry without device secrets",
+    );
   }
 
   for (const requiredSnippet of [
@@ -2483,24 +2780,36 @@ function checkTask015ShopAdminConsole() {
     !/canShopAdmin/.test(permissions) ||
     !/canShopStaff/.test(permissions)
   ) {
-    addFailure("TASK-015 permissions must define separate web admin and POS staff matrices");
+    addFailure(
+      "TASK-015 permissions must define separate web admin and POS staff matrices",
+    );
   }
 
   for (const [key, routePath] of routeChecks) {
     const route = read(routePath);
+    const loadsThroughServerReadModel =
+      new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`).test(route) ||
+      (key === "devices" &&
+        /getShopDeviceReadModel/.test(route) &&
+        /DeviceRegistryView/.test(route)) ||
+      (key === "history" &&
+        /getShopHistoryReadModel/.test(route) &&
+        /buildHistorySection/.test(route));
 
     if (!/export const dynamic = ["']force-dynamic["']/.test(route)) {
       addFailure(`${routePath} must force dynamic rendering`);
     }
 
-    if (!route.includes("searchParams") || !new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`).test(route)) {
-      addFailure(`${routePath} must load ${key} through the server section builder`);
+    if (!route.includes("searchParams") || !loadsThroughServerReadModel) {
+      addFailure(`${routePath} must load ${key} through a server read model`);
     }
   }
 
   const historyDetailRoute = read(historyDetailRoutePath);
 
-  if (!/export const dynamic = ["']force-dynamic["']/.test(historyDetailRoute)) {
+  if (
+    !/export const dynamic = ["']force-dynamic["']/.test(historyDetailRoute)
+  ) {
     addFailure(`${historyDetailRoutePath} must force dynamic rendering`);
   }
 
@@ -2509,30 +2818,51 @@ function checkTask015ShopAdminConsole() {
     !/searchParams/.test(historyDetailRoute) ||
     !/getShopHistoryDetailSectionForRequest/.test(historyDetailRoute)
   ) {
-    addFailure(`${historyDetailRoutePath} must load detail through the server section builder`);
+    addFailure(
+      `${historyDetailRoutePath} must load detail through the server section builder`,
+    );
   }
 
   if (
     !/buildHistoryDetailSection/.test(sectionData) ||
     !/getShopHistoryDetailSectionForRequest/.test(sectionData)
   ) {
-    addFailure("TASK-015 history detail must be built from a server read model");
+    addFailure(
+      "TASK-015 history detail must be built from a server read model",
+    );
   }
 
-  if (!/key: "history"/.test(sections) || !/href: "\/shop\/history"/.test(sections)) {
+  if (
+    !/key: "history"/.test(sections) ||
+    !/href: "\/shop\/history"/.test(sections)
+  ) {
     addFailure(`${sectionsPath} must include the Shop Admin history section`);
   }
 
-  if (/credential_hash|pin_hash|password_hash|hashStaffCredential|verifyStaffCredential/.test(task015ClientSurface)) {
-    addFailure("TASK-015 client surfaces must not expose staff credential hashes or hashing functions");
+  if (
+    /credential_hash|pin_hash|password_hash|hashStaffCredential|verifyStaffCredential/.test(
+      task015ClientSurface,
+    )
+  ) {
+    addFailure(
+      "TASK-015 client surfaces must not expose staff credential hashes or hashing functions",
+    );
   }
 
-  if (/SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE|service_role/i.test(task015ClientSurface)) {
-    addFailure("TASK-015 client surfaces must not expose service-role material");
+  if (
+    /SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE|service_role/i.test(
+      task015ClientSurface,
+    )
+  ) {
+    addFailure(
+      "TASK-015 client surfaces must not expose service-role material",
+    );
   }
 
   if (/credential_hash|pin_hash|password_hash/i.test(task015ReadSurface)) {
-    addFailure("TASK-015 server DTO/read surfaces must not expose credential hashes or auth token names");
+    addFailure(
+      "TASK-015 server DTO/read surfaces must not expose credential hashes or auth token names",
+    );
   }
 
   if (/access_token|refresh_token|magic_link/i.test(task015ServerSurface)) {
@@ -2654,7 +2984,10 @@ function checkTask016PlatformAdminConsole() {
     addFailure("TASK-016 read model must include global sync_events overview");
   }
 
-  if (!/metadata_redacted/.test(readModel) || !/redactPlatformMetadata/.test(readModel)) {
+  if (
+    !/metadata_redacted/.test(readModel) ||
+    !/redactPlatformMetadata/.test(readModel)
+  ) {
     addFailure("TASK-016 audit reads must use redacted metadata summaries");
   }
 
@@ -2663,7 +2996,9 @@ function checkTask016PlatformAdminConsole() {
       platformBrowserSafeSource,
     )
   ) {
-    addFailure("TASK-016 Platform source must not expose raw env or privileged key material");
+    addFailure(
+      "TASK-016 Platform source must not expose raw env or privileged key material",
+    );
   }
 
   const platformReadAndUiSource = [
@@ -2675,12 +3010,20 @@ function checkTask016PlatformAdminConsole() {
     ...routePaths.map(read),
   ].join("\n");
 
-  if (/pin_hash|password_hash|magic_link|access_token|refresh_token/i.test(platformBrowserSafeSource)) {
-    addFailure("TASK-016 Platform source must not expose auth secret field names");
+  if (
+    /pin_hash|password_hash|magic_link|access_token|refresh_token/i.test(
+      platformBrowserSafeSource,
+    )
+  ) {
+    addFailure(
+      "TASK-016 Platform source must not expose auth secret field names",
+    );
   }
 
   if (/credential_hash/i.test(platformReadAndUiSource)) {
-    addFailure("TASK-016 Platform read/UI source must not expose credential_hash");
+    addFailure(
+      "TASK-016 Platform read/UI source must not expose credential_hash",
+    );
   }
 
   if (
@@ -2692,7 +3035,9 @@ function checkTask016PlatformAdminConsole() {
         shopActions,
       ))
   ) {
-    addFailure("TASK-016 Platform shop actions may only handle credential_hash for TASK-051 server-side staff bootstrap");
+    addFailure(
+      "TASK-016 Platform shop actions may only handle credential_hash for TASK-051 server-side staff bootstrap",
+    );
   }
 
   if (/console\.(log|debug|info|warn|error)/.test(platformSource)) {
@@ -2705,17 +3050,23 @@ function checkTask016PlatformAdminConsole() {
     !/platform_emergency_revoke_device/.test(migration) ||
     !/app_private\.is_platform_admin\(\)/.test(migration)
   ) {
-    addFailure("TASK-016 migration must add platform-admin device and sync policies");
+    addFailure(
+      "TASK-016 migration must add platform-admin device and sync policies",
+    );
   }
 
   if (
     !/platform_owner_invites/.test(completionMigration) ||
-    !/platform_create_shop_with_pending_owner_invite/.test(completionMigration) ||
+    !/platform_create_shop_with_pending_owner_invite/.test(
+      completionMigration,
+    ) ||
     !/owner_contact_redacted/.test(completionMigration) ||
     !/owner_contact_digest/.test(completionMigration) ||
     !/platform\.shop\.pending_owner_invite\.success/.test(completionMigration)
   ) {
-    addFailure("TASK-016 auth provisioning must use redacted pending owner invite state");
+    addFailure(
+      "TASK-016 auth provisioning must use redacted pending owner invite state",
+    );
   }
 
   if (
@@ -2723,7 +3074,9 @@ function checkTask016PlatformAdminConsole() {
       completionMigration,
     )
   ) {
-    addFailure("TASK-016 auth provisioning must not persist delivery artifacts or secret fields");
+    addFailure(
+      "TASK-016 auth provisioning must not persist delivery artifacts or secret fields",
+    );
   }
 
   if (
@@ -2734,12 +3087,18 @@ function checkTask016PlatformAdminConsole() {
     !/platform\.admin\.grant\.success/.test(completionMigration) ||
     !/platform\.admin\.revoke\.success/.test(completionMigration)
   ) {
-    addFailure("TASK-016 Platform Admin grant/revoke must be audited and anti-lockout guarded");
+    addFailure(
+      "TASK-016 Platform Admin grant/revoke must be audited and anti-lockout guarded",
+    );
   }
 
   if (
-    !/grantPlatformAdminAction/.test(read("src/app/platform/admins/actions.ts")) ||
-    !/revokePlatformAdminAction/.test(read("src/app/platform/admins/actions.ts")) ||
+    !/grantPlatformAdminAction/.test(
+      read("src/app/platform/admins/actions.ts"),
+    ) ||
+    !/revokePlatformAdminAction/.test(
+      read("src/app/platform/admins/actions.ts"),
+    ) ||
     !/\.rpc\("platform_grant_platform_admin"/.test(adminActions) ||
     !/\.rpc\("platform_revoke_platform_admin"/.test(adminActions)
   ) {
@@ -2762,7 +3121,9 @@ function checkTask016PlatformAdminConsole() {
   }
 
   if (/\.(insert|update|delete|upsert)\s*\(/.test(adminActions)) {
-    addFailure("TASK-016 Platform server actions must not direct-mutate tables");
+    addFailure(
+      "TASK-016 Platform server actions must not direct-mutate tables",
+    );
   }
 
   if (
@@ -2770,11 +3131,15 @@ function checkTask016PlatformAdminConsole() {
     !/platform\.shop\.restore\.success/.test(completionMigration) ||
     !/restorePlatformShopAction/.test(operationActions)
   ) {
-    addFailure("TASK-016 restore shop must use an audited RPC and Server Action");
+    addFailure(
+      "TASK-016 restore shop must use an audited RPC and Server Action",
+    );
   }
 
   if (/source_device_id[\s\S]{0,120}revoke/i.test(sectionData)) {
-    addFailure("TASK-016 must not confuse source_device_id with device authorization");
+    addFailure(
+      "TASK-016 must not confuse source_device_id with device authorization",
+    );
   }
 
   if (/impersonat/i.test(read("src/app/platform/support/page.tsx"))) {
@@ -2816,8 +3181,14 @@ function checkTask017ShopBusinessCompletionArtifacts() {
       addFailure(`${routePath} must force dynamic rendering`);
     }
 
-    if (/@supabase|service_role|credential_hash|password_hash|pin_hash/i.test(route)) {
-      addFailure(`${routePath} must not expose privileged or credential fields`);
+    if (
+      /@supabase|service_role|credential_hash|password_hash|pin_hash/i.test(
+        route,
+      )
+    ) {
+      addFailure(
+        `${routePath} must not expose privileged or credential fields`,
+      );
     }
   }
 
@@ -2851,11 +3222,19 @@ function checkTask017ShopBusinessCompletionArtifacts() {
     "shop_member_update_role",
     "shop_member_remove",
   ]) {
-    if (!new RegExp(`create or replace function public\\.${rpcName}`).test(migration)) {
+    if (
+      !new RegExp(`create or replace function public\\.${rpcName}`).test(
+        migration,
+      )
+    ) {
       addFailure(`${migrationPath} must create ${rpcName}`);
     }
 
-    if (!new RegExp(`grant execute on function public\\.${rpcName}`).test(migration)) {
+    if (
+      !new RegExp(`grant execute on function public\\.${rpcName}`).test(
+        migration,
+      )
+    ) {
       addFailure(`${migrationPath} must grant execute on ${rpcName}`);
     }
 
@@ -2876,7 +3255,9 @@ function checkTask017ShopBusinessCompletionArtifacts() {
       ownerEnforcementMigration,
     )
   ) {
-    addFailure("TASK-017 member RPCs must enforce owner-only authorization in Supabase");
+    addFailure(
+      "TASK-017 member RPCs must enforce owner-only authorization in Supabase",
+    );
   }
 
   if (
@@ -2885,7 +3266,9 @@ function checkTask017ShopBusinessCompletionArtifacts() {
     ) ||
     !/reason_length/.test(ownerEnforcementMigration)
   ) {
-    addFailure("TASK-017 member removal must require a reason without storing raw reason text");
+    addFailure(
+      "TASK-017 member removal must require a reason without storing raw reason text",
+    );
   }
 
   if (
@@ -2893,7 +3276,9 @@ function checkTask017ShopBusinessCompletionArtifacts() {
       migration,
     )
   ) {
-    addFailure(`${migrationPath} must not grant direct member/audit table mutations`);
+    addFailure(
+      `${migrationPath} must not grant direct member/audit table mutations`,
+    );
   }
 
   if (/grant\s+\w+.*\s+to\s+anon/i.test(migration)) {
@@ -2908,15 +3293,22 @@ function checkTask017ShopBusinessCompletionArtifacts() {
     !/buildDeviceDetailSection/.test(sectionData) ||
     !/buildAuditDetailSection/.test(sectionData)
   ) {
-    addFailure("TASK-017 section builders must cover dashboard, sync, catalog, staff, devices and audit detail");
+    addFailure(
+      "TASK-017 section builders must cover dashboard, sync, catalog, staff, devices and audit detail",
+    );
   }
 
-  if (!/metadata_redacted/.test(auditReadModel) || !/redact/.test(auditReadModel)) {
+  if (
+    !/metadata_redacted/.test(auditReadModel) ||
+    !/redact/.test(auditReadModel)
+  ) {
     addFailure("TASK-017 audit read model must use redacted metadata");
   }
 
   if (!/\.eq\("shop_id", selectedShop\.shopId\)/.test(auditReadModel)) {
-    addFailure("TASK-017 audit read model must filter by the verified selected shop");
+    addFailure(
+      "TASK-017 audit read model must filter by the verified selected shop",
+    );
   }
 
   if (!/key: "sync"/.test(sections) || !/href: "\/shop\/sync"/.test(sections)) {
@@ -2933,7 +3325,9 @@ function checkTask017ShopBusinessCompletionArtifacts() {
     !/label="Reason" name="reason" required/.test(memberPanel) ||
     !/Reason is required/.test(memberMutations)
   ) {
-    addFailure("TASK-017 member actions must stay in audited Shop Admin Server Actions");
+    addFailure(
+      "TASK-017 member actions must stay in audited Shop Admin Server Actions",
+    );
   }
 
   if (
@@ -2941,7 +3335,9 @@ function checkTask017ShopBusinessCompletionArtifacts() {
       `${sectionData}\n${auditReadModel}\n${memberMutations}\n${memberPanel}\n${actions}`,
     )
   ) {
-    addFailure("TASK-017 Shop Admin source must not expose secrets or credential hashes");
+    addFailure(
+      "TASK-017 Shop Admin source must not expose secrets or credential hashes",
+    );
   }
 }
 
@@ -2950,8 +3346,7 @@ function checkTask018InfrastructureSecurityPosFoundation() {
   const taskPath =
     "docs/TASKS/TASK-018-infrastructure-security-hardening-pos-foundation.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-018/README.md";
-  const enforcementPath =
-    "docs/ARCHITECTURE/MOBILE-POS-ENFORCEMENT-DESIGN.md";
+  const enforcementPath = "docs/ARCHITECTURE/MOBILE-POS-ENFORCEMENT-DESIGN.md";
   const posAuthPath = "docs/ARCHITECTURE/POS-AUTH-FOUNDATION.md";
   const migrationPath =
     "supabase/migrations/20260531234500_task_018_backup_table_lockdown.sql";
@@ -2983,7 +3378,9 @@ function checkTask018InfrastructureSecurityPosFoundation() {
   const packageJson = JSON.parse(read("package.json"));
   const migration = read(migrationPath);
   const triggerHardeningMigration = read(triggerHardeningMigrationPath);
-  const memberInviteLintCleanupMigration = read(memberInviteLintCleanupMigrationPath);
+  const memberInviteLintCleanupMigration = read(
+    memberInviteLintCleanupMigrationPath,
+  );
   const task = read(taskPath);
   const evidence = read(evidencePath);
   const enforcement = read(enforcementPath);
@@ -3012,7 +3409,9 @@ function checkTask018InfrastructureSecurityPosFoundation() {
   }
 
   if (/SUPABASE_SERVICE_ROLE|service_role|vercel|netlify/i.test(workflow)) {
-    addFailure(`${workflowPath} must not configure service-role secrets or deploy providers`);
+    addFailure(
+      `${workflowPath} must not configure service-role secrets or deploy providers`,
+    );
   }
 
   const smokeScript = packageJson.scripts?.["test:ui-smoke:ci"] ?? "";
@@ -3024,7 +3423,9 @@ function checkTask018InfrastructureSecurityPosFoundation() {
     !/PLAYWRIGHT_REUSE_SERVER=0/.test(smokeScript) ||
     !/--project=chromium-desktop/.test(smokeScript)
   ) {
-    addFailure("TASK-018 CI smoke script must run the built app through next start");
+    addFailure(
+      "TASK-018 CI smoke script must run the built app through next start",
+    );
   }
 
   for (const backupTable of [
@@ -3063,7 +3464,9 @@ function checkTask018InfrastructureSecurityPosFoundation() {
     ) ||
     !/set search_path = public, pg_temp/i.test(triggerHardeningMigration)
   ) {
-    addFailure(`${triggerHardeningMigrationPath} must harden trigger function search_path`);
+    addFailure(
+      `${triggerHardeningMigrationPath} must harden trigger function search_path`,
+    );
   }
 
   if (/drop table|delete from|truncate/i.test(triggerHardeningMigration)) {
@@ -3074,17 +3477,25 @@ function checkTask018InfrastructureSecurityPosFoundation() {
     !/create or replace function public\.shop_member_invite_profile/.test(
       memberInviteLintCleanupMigration,
     ) ||
-    !/perform 1[\s\S]*from public\.profiles/i.test(memberInviteLintCleanupMigration) ||
+    !/perform 1[\s\S]*from public\.profiles/i.test(
+      memberInviteLintCleanupMigration,
+    ) ||
     /v_profile/i.test(memberInviteLintCleanupMigration) ||
     !/grant execute on function public\.shop_member_invite_profile/.test(
       memberInviteLintCleanupMigration,
     )
   ) {
-    addFailure(`${memberInviteLintCleanupMigrationPath} must clean the member invite lint warning without changing grants`);
+    addFailure(
+      `${memberInviteLintCleanupMigrationPath} must clean the member invite lint warning without changing grants`,
+    );
   }
 
-  if (/drop table|delete from|truncate/i.test(memberInviteLintCleanupMigration)) {
-    addFailure(`${memberInviteLintCleanupMigrationPath} must stay non-destructive`);
+  if (
+    /drop table|delete from|truncate/i.test(memberInviteLintCleanupMigration)
+  ) {
+    addFailure(
+      `${memberInviteLintCleanupMigrationPath} must stay non-destructive`,
+    );
   }
 
   for (const required of [
@@ -3122,24 +3533,38 @@ function checkTask018InfrastructureSecurityPosFoundation() {
       posAuth,
     )
   ) {
-    addFailure(`${posAuthPath} must remain design-only and must not implement POS auth`);
+    addFailure(
+      `${posAuthPath} must remain design-only and must not implement POS auth`,
+    );
   }
 
-  if (!/TASK-018 - Infrastructure, Security Hardening and POS Foundation/.test(masterPlan)) {
+  if (
+    !/TASK-018 - Infrastructure, Security Hardening and POS Foundation/.test(
+      masterPlan,
+    )
+  ) {
     addFailure("MASTER-PLAN must track TASK-018");
   }
 
   if (
     !/Stato: `(REVIEW|DONE)`/.test(task) ||
     !/Fase: `(REVIEW|DONE_RECONCILED)`/.test(task) ||
-    !/(Verdict handoff Codex: `PASS_WITH_NOTES`|Verdict finale: `DONE`|Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`)/.test(task) ||
-    !/(Verdict Codex: `PASS_WITH_NOTES`|Verdict finale: `DONE`|Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`)/.test(evidence)
+    !/(Verdict handoff Codex: `PASS_WITH_NOTES`|Verdict finale: `DONE`|Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`)/.test(
+      task,
+    ) ||
+    !/(Verdict Codex: `PASS_WITH_NOTES`|Verdict finale: `DONE`|Fase: `REVIEW_WITH_EXTERNAL_BLOCKERS`)/.test(
+      evidence,
+    )
   ) {
-    addFailure("TASK-018 docs must be either in REVIEW handoff or DONE reconciliation state");
+    addFailure(
+      "TASK-018 docs must be either in REVIEW handoff or DONE reconciliation state",
+    );
   }
 
   if (!/checkTask018InfrastructureSecurityPosFoundation/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert the TASK-018 security scanner gate`);
+    addFailure(
+      `${foundationTestPath} must assert the TASK-018 security scanner gate`,
+    );
   }
 }
 
@@ -3183,7 +3608,10 @@ function checkTask019PosAuthFoundationImplementation() {
 
   const task = read(taskPath);
   const masterPlan = read("docs/MASTER-PLAN.md");
-  const migration = migrationPaths.sort().map((file) => read(file)).join("\n");
+  const migration = migrationPaths
+    .sort()
+    .map((file) => read(file))
+    .join("\n");
   const readModel = read(readModelPath);
   const mutations = read(mutationsPath);
   const actions = read(actionsPath);
@@ -3202,7 +3630,9 @@ function checkTask019PosAuthFoundationImplementation() {
   const appRoutes = listFiles("src/app");
 
   if (!/Stato: `(IN_PROGRESS|REVIEW|DONE)`/.test(task)) {
-    addFailure(`${taskPath} must stay IN_PROGRESS, REVIEW or DONE after reconciliation`);
+    addFailure(
+      `${taskPath} must stay IN_PROGRESS, REVIEW or DONE after reconciliation`,
+    );
   }
 
   if (!/Fase: `(EXECUTION|REVIEW|DONE_RECONCILED)`/.test(task)) {
@@ -3232,7 +3662,9 @@ function checkTask019PosAuthFoundationImplementation() {
     )?.[0] ?? "";
 
   if (/credential_hash|pin_hash|password_hash/i.test(safeViewDefinition)) {
-    addFailure("TASK-019 migrations must not expose credential hashes in staff_accounts_safe");
+    addFailure(
+      "TASK-019 migrations must not expose credential hashes in staff_accounts_safe",
+    );
   }
 
   if (/drop table|delete from|truncate/i.test(migration)) {
@@ -3244,7 +3676,9 @@ function checkTask019PosAuthFoundationImplementation() {
       migration,
     )
   ) {
-    addFailure("TASK-019 migrations must not grant direct staff table mutations");
+    addFailure(
+      "TASK-019 migrations must not grant direct staff table mutations",
+    );
   }
 
   if (
@@ -3252,7 +3686,9 @@ function checkTask019PosAuthFoundationImplementation() {
       migration,
     )
   ) {
-    addFailure("TASK-019 must grant authenticated SELECT on safe new staff columns for the security_invoker view");
+    addFailure(
+      "TASK-019 must grant authenticated SELECT on safe new staff columns for the security_invoker view",
+    );
   }
 
   for (const rpcName of [
@@ -3263,11 +3699,19 @@ function checkTask019PosAuthFoundationImplementation() {
     "shop_staff_force_credential_rotation",
     "shop_staff_clear_lockout",
   ]) {
-    if (!new RegExp(`create or replace function public\\.${rpcName}`).test(migration)) {
+    if (
+      !new RegExp(`create or replace function public\\.${rpcName}`).test(
+        migration,
+      )
+    ) {
       addFailure(`TASK-019 migrations must create ${rpcName}`);
     }
 
-    if (!new RegExp(`grant execute on function public\\.${rpcName}`).test(migration)) {
+    if (
+      !new RegExp(`grant execute on function public\\.${rpcName}`).test(
+        migration,
+      )
+    ) {
       addFailure(`TASK-019 migrations must grant execute on ${rpcName}`);
     }
 
@@ -3337,16 +3781,30 @@ function checkTask019PosAuthFoundationImplementation() {
     }
   }
 
-  if (!/credentialStatus|credentialVersion|sessionInvalidatedAt/.test(sectionData)) {
-    addFailure(`${sectionDataPath} must render credential-safe status metadata`);
+  if (
+    !/credentialStatus|credentialVersion|sessionInvalidatedAt/.test(sectionData)
+  ) {
+    addFailure(
+      `${sectionDataPath} must render credential-safe status metadata`,
+    );
   }
 
-  if (/credential_hash|pin_hash|password_hash|hashStaffCredential|verifyStaffCredential/.test(clientSurface)) {
-    addFailure("TASK-019 client surfaces must not expose credential hashes or hashing functions");
+  if (
+    /credential_hash|pin_hash|password_hash|hashStaffCredential|verifyStaffCredential/.test(
+      clientSurface,
+    )
+  ) {
+    addFailure(
+      "TASK-019 client surfaces must not expose credential hashes or hashing functions",
+    );
   }
 
-  if (/SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE|service_role/i.test(clientSurface)) {
-    addFailure("TASK-019 client surfaces must not expose service-role material");
+  if (
+    /SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE|service_role/i.test(clientSurface)
+  ) {
+    addFailure(
+      "TASK-019 client surfaces must not expose service-role material",
+    );
   }
 
   const task021Exists = existsSync(
@@ -3367,8 +3825,13 @@ function checkTask019PosAuthFoundationImplementation() {
       !allowedTask021PosRoutes.has(file),
   );
 
-  if (!task021Exists && appRoutes.some((file) => /^src\/app\/(?:api\/)?pos\//i.test(file))) {
-    addFailure("TASK-019 must not create a public POS login endpoint or separate POS console");
+  if (
+    !task021Exists &&
+    appRoutes.some((file) => /^src\/app\/(?:api\/)?pos\//i.test(file))
+  ) {
+    addFailure(
+      "TASK-019 must not create a public POS login endpoint or separate POS console",
+    );
   }
 
   if (task021Exists && unexpectedPosRoutes.length > 0) {
@@ -3378,7 +3841,9 @@ function checkTask019PosAuthFoundationImplementation() {
   }
 
   if (!/checkTask019PosAuthFoundationImplementation/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert the TASK-019 security scanner gate`);
+    addFailure(
+      `${foundationTestPath} must assert the TASK-019 security scanner gate`,
+    );
   }
 }
 
@@ -3436,28 +3901,61 @@ function checkTask020Win7PosIntegrationPlanning() {
     addFailure("MASTER-PLAN must track TASK-020");
   }
 
-  if (!/Stato TASK-020: `DONE`/.test(masterPlan) || !/Fase TASK-020: `DONE_RECONCILED`/.test(masterPlan)) {
+  if (
+    !/Stato TASK-020: `DONE`/.test(masterPlan) ||
+    !/Fase TASK-020: `DONE_RECONCILED`/.test(masterPlan)
+  ) {
     addFailure("MASTER-PLAN must reconcile TASK-020 to DONE");
   }
 
   if (
     !/Task attivo: `(NONE|NESSUNO)`/.test(masterPlan) &&
-    !/Task attivo: `TASK-021 - POS backend session\/device endpoints`/.test(masterPlan) &&
-    !/Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/.test(masterPlan) &&
-    !/Task attivo: `TASK-026 - Shop Admin product catalog foundation`/.test(masterPlan) &&
-    !/Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`/.test(masterPlan) &&
-    !/Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`/.test(masterPlan) &&
-    !/Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`/.test(masterPlan) &&
-    !/Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`/.test(masterPlan) &&
-    !/Task attivo: `TASK-032 - Full project progression mega-task`/.test(masterPlan) &&
-    !/Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`/.test(masterPlan) &&
-    !/Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`/.test(masterPlan) &&
-    !/Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`/.test(masterPlan) &&
-    !/Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/.test(masterPlan) &&
-    !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(masterPlan) &&
-    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-052 - Admin Console UX polish, shell parity and operational clarity`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`/.test(masterPlan)
+    !/Task attivo: `TASK-021 - POS backend session\/device endpoints`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-026 - Shop Admin product catalog foundation`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-032 - Full project progression mega-task`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-037 - Shop Admin dual access model: personal account and POS manager login`/.test(
+      masterPlan,
+    ) &&
+    !/Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-052 - Admin Console UX polish, shell parity and operational clarity`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`/.test(
+      masterPlan,
+    )
   ) {
-    addFailure("MASTER-PLAN must return to no active task after reconciliation or track an active POS/catalog task");
+    addFailure(
+      "MASTER-PLAN must return to no active task after reconciliation or track an active POS/catalog task",
+    );
   }
 
   if (migrations.some((file) => /task_020|task-020/i.test(file))) {
@@ -3482,7 +3980,10 @@ function checkTask020Win7PosIntegrationPlanning() {
       !allowedTask021PosRoutes.has(file),
   );
 
-  if (!task021Exists && appRoutes.some((file) => /^src\/app\/(?:api\/)?pos(?:\/|$)/i.test(file))) {
+  if (
+    !task021Exists &&
+    appRoutes.some((file) => /^src\/app\/(?:api\/)?pos(?:\/|$)/i.test(file))
+  ) {
     addFailure("TASK-020 must not create a public POS endpoint or POS route");
   }
 
@@ -3492,17 +3993,23 @@ function checkTask020Win7PosIntegrationPlanning() {
     );
   }
 
-  if (existsSync(join(root, "Win7POS")) || existsSync(join(root, "src/Win7POS"))) {
+  if (
+    existsSync(join(root, "Win7POS")) ||
+    existsSync(join(root, "src/Win7POS"))
+  ) {
     addFailure("TASK-020 must not vendor or modify Win7POS inside Admin Web");
   }
 
   if (!/checkTask020Win7PosIntegrationPlanning/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert the TASK-020 security scanner gate`);
+    addFailure(
+      `${foundationTestPath} must assert the TASK-020 security scanner gate`,
+    );
   }
 }
 
 function checkTask021PosBackendSessionDeviceEndpoints() {
-  const taskPath = "docs/TASKS/TASK-021-pos-backend-session-device-endpoints.md";
+  const taskPath =
+    "docs/TASKS/TASK-021-pos-backend-session-device-endpoints.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-021/README.md";
   const foundationTestPath =
     "tests/foundation/task-021-pos-backend-session-device.test.mjs";
@@ -3595,18 +4102,31 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     "revoca device",
     "No sales sync",
   ]) {
-    if (!task.includes(requiredSnippet) && !evidence.includes(requiredSnippet)) {
+    if (
+      !task.includes(requiredSnippet) &&
+      !evidence.includes(requiredSnippet)
+    ) {
       addFailure(`TASK-021 docs must include ${requiredSnippet}`);
     }
   }
 
   if (/Stato: `DONE`/.test(task) || /Stato task: `DONE`/.test(evidence)) {
-    if (!/Fase: `DONE_RECONCILED`/.test(task) || !/Fase: `DONE_RECONCILED`/.test(evidence)) {
-      addFailure("TASK-021 DONE state must be reconciled with explicit review evidence");
+    if (
+      !/Fase: `DONE_RECONCILED`/.test(task) ||
+      !/Fase: `DONE_RECONCILED`/.test(evidence)
+    ) {
+      addFailure(
+        "TASK-021 DONE state must be reconciled with explicit review evidence",
+      );
     }
 
-    if (!/Review\/reconciliation finale/.test(task) || !/Review\/reconciliation finale/.test(evidence)) {
-      addFailure("TASK-021 DONE state must document final review/reconciliation");
+    if (
+      !/Review\/reconciliation finale/.test(task) ||
+      !/Review\/reconciliation finale/.test(evidence)
+    ) {
+      addFailure(
+        "TASK-021 DONE state must document final review/reconciliation",
+      );
     }
   }
 
@@ -3629,15 +4149,26 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
       migration,
     )
   ) {
-    addFailure(`${migrationPath} must not grant POS runtime tables to anon/authenticated`);
+    addFailure(
+      `${migrationPath} must not grant POS runtime tables to anon/authenticated`,
+    );
   }
 
-  if (/\b(device_token|trusted_token|session_token|refresh_token)\s+text\b/i.test(migration)) {
+  if (
+    /\b(device_token|trusted_token|session_token|refresh_token)\s+text\b/i.test(
+      migration,
+    )
+  ) {
     addFailure(`${migrationPath} must not store raw POS token columns`);
   }
 
-  if (!/import "server-only"/.test(adminClient) || !/SUPABASE_SERVICE_ROLE_KEY/.test(adminClient)) {
-    addFailure(`${adminClientPath} must be server-only and resolve the service-role env name`);
+  if (
+    !/import "server-only"/.test(adminClient) ||
+    !/SUPABASE_SERVICE_ROLE_KEY/.test(adminClient)
+  ) {
+    addFailure(
+      `${adminClientPath} must be server-only and resolve the service-role env name`,
+    );
   }
 
   if (!/hashPosSecret/.test(tokens) || !/timingSafeEqual/.test(tokens)) {
@@ -3666,19 +4197,37 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   }
 
   if (!/credential_status: "active"/.test(service)) {
-    addFailure(`${servicePath} must reactivate expired lockout state after successful credential verification`);
+    addFailure(
+      `${servicePath} must reactivate expired lockout state after successful credential verification`,
+    );
   }
 
-  if (!/const auditOk = await writePosAudit/.test(service) || !/if \(!auditOk\) \{/.test(service)) {
-    addFailure(`${servicePath} must fail closed when required audit writes fail`);
+  if (
+    !/const auditOk = await writePosAudit/.test(service) ||
+    !/if \(!auditOk\) \{/.test(service)
+  ) {
+    addFailure(
+      `${servicePath} must fail closed when required audit writes fail`,
+    );
   }
 
-  if (!/const trustedAuditOk = await writePosAudit/.test(service) || !/const firstLoginAuditOk = await writePosAudit/.test(service)) {
-    addFailure(`${servicePath} must require both trusted-device and first-login success audits`);
+  if (
+    !/const trustedAuditOk = await writePosAudit/.test(service) ||
+    !/const firstLoginAuditOk = await writePosAudit/.test(service)
+  ) {
+    addFailure(
+      `${servicePath} must require both trusted-device and first-login success audits`,
+    );
   }
 
-  if (/!verifyPosSecret\(parsed\.sessionToken[\s\S]{0,260}markSessionDenied/.test(service)) {
-    addFailure(`${servicePath} must not permanently block a session solely because a heartbeat token is wrong`);
+  if (
+    /!verifyPosSecret\(parsed\.sessionToken[\s\S]{0,260}markSessionDenied/.test(
+      service,
+    )
+  ) {
+    addFailure(
+      `${servicePath} must not permanently block a session solely because a heartbeat token is wrong`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -3690,7 +4239,9 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     "!credentialMatchesSession",
   ]) {
     if (!service.includes(requiredSnippet)) {
-      addFailure(`${servicePath} must bind heartbeat credentials to the same session/shop/device/staff`);
+      addFailure(
+        `${servicePath} must bind heartbeat credentials to the same session/shop/device/staff`,
+      );
     }
   }
 
@@ -3716,22 +4267,34 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     }
   }
 
-  if (/pin_plain|password_plain|plain_pin|plain_password/i.test(runtimeSource)) {
-    addFailure("TASK-021 runtime source must not name plaintext credential storage");
+  if (
+    /pin_plain|password_plain|plain_pin|plain_password/i.test(runtimeSource)
+  ) {
+    addFailure(
+      "TASK-021 runtime source must not name plaintext credential storage",
+    );
   }
 
   if (
     !isTask041RuntimeCompletionActive() &&
-    /pos_sales_sync|pos_sync_batches|src\/app\/api\/pos\/sales/i.test(runtimeSource)
+    /pos_sales_sync|pos_sync_batches|src\/app\/api\/pos\/sales/i.test(
+      runtimeSource,
+    )
   ) {
     addFailure("TASK-021 must not implement sales sync");
   }
 
   if (/SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(clientSurface)) {
-    addFailure("TASK-021 client/browser surface must not expose service-role material");
+    addFailure(
+      "TASK-021 client/browser surface must not expose service-role material",
+    );
   }
 
-  for (const route of [firstLoginRoute, catalogPullRoute, heartbeatRoute].filter(Boolean)) {
+  for (const route of [
+    firstLoginRoute,
+    catalogPullRoute,
+    heartbeatRoute,
+  ].filter(Boolean)) {
     if (!/export const dynamic = "force-dynamic"/.test(route)) {
       addFailure("TASK-021 POS routes must be dynamic");
     }
@@ -3740,16 +4303,23 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
       addFailure("TASK-021 POS routes must run on nodejs runtime");
     }
 
-    if (!/export async function POST/.test(route) || /export async function GET/.test(route)) {
+    if (
+      !/export async function POST/.test(route) ||
+      /export async function GET/.test(route)
+    ) {
       addFailure("TASK-021 POS routes must expose POST only");
     }
 
     if (/SUPABASE_SERVICE_ROLE_KEY|credential_hash|service_role/i.test(route)) {
-      addFailure("TASK-021 POS routes must delegate privileged logic to server-only modules");
+      addFailure(
+        "TASK-021 POS routes must delegate privileged logic to server-only modules",
+      );
     }
 
     if (!/readPosJsonBody/.test(route) || !/posJsonResponse/.test(route)) {
-      addFailure("TASK-021 POS routes must use shared POS JSON hardening helper");
+      addFailure(
+        "TASK-021 POS routes must use shared POS JSON hardening helper",
+      );
     }
   }
 
@@ -3760,7 +4330,9 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   }
 
   if (!/checkTask021PosBackendSessionDeviceEndpoints/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert the TASK-021 security scanner gate`);
+    addFailure(
+      `${foundationTestPath} must assert the TASK-021 security scanner gate`,
+    );
   }
 }
 
@@ -3777,13 +4349,20 @@ function listExternalFiles(start, extensions) {
     const stats = statSync(absolutePath);
 
     if (stats.isDirectory()) {
-      if (!excludedDirectories.has(entry) && entry !== "bin" && entry !== "obj") {
+      if (
+        !excludedDirectories.has(entry) &&
+        entry !== "bin" &&
+        entry !== "obj"
+      ) {
         files.push(...listExternalFiles(absolutePath, extensions));
       }
       continue;
     }
 
-    if (stats.isFile() && extensions.some((extension) => entry.endsWith(extension))) {
+    if (
+      stats.isFile() &&
+      extensions.some((extension) => entry.endsWith(extension))
+    ) {
       files.push(absolutePath);
     }
   }
@@ -3885,7 +4464,10 @@ function checkTask022023PosDashboardWin7PosClient() {
     "utf8",
   );
   const win7OperatorDialog = readFileSync(
-    join(win7PosRoot, "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml.cs"),
+    join(
+      win7PosRoot,
+      "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml.cs",
+    ),
     "utf8",
   );
   const win7MainWindow = readFileSync(
@@ -3903,7 +4485,9 @@ function checkTask022023PosDashboardWin7PosClient() {
     "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml.cs",
     "src/Win7POS.Wpf/MainWindow.xaml.cs",
   ]
-    .map((relativePath) => readFileSync(join(win7PosRoot, relativePath), "utf8"))
+    .map((relativePath) =>
+      readFileSync(join(win7PosRoot, relativePath), "utf8"),
+    )
     .join("\n");
 
   for (const required of [
@@ -3914,16 +4498,28 @@ function checkTask022023PosDashboardWin7PosClient() {
     "trusted device",
     "heartbeat",
   ]) {
-    if (!new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(`${task}\n${evidence}`)) {
+    if (
+      !new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(
+        `${task}\n${evidence}`,
+      )
+    ) {
       addFailure(`${taskPath} and evidence must mention ${required}`);
     }
   }
 
-  if (!/Stato: `(IN_PROGRESS|REVIEW)`/.test(task) || /DONE_RECONCILED/.test(task)) {
-    addFailure(`${taskPath} must stay IN_PROGRESS or REVIEW until user confirmation`);
+  if (
+    !/Stato: `(IN_PROGRESS|REVIEW)`/.test(task) ||
+    /DONE_RECONCILED/.test(task)
+  ) {
+    addFailure(
+      `${taskPath} must stay IN_PROGRESS or REVIEW until user confirmation`,
+    );
   }
 
-  if (!/export const dynamic = "force-dynamic"/.test(route) || !/getShopSectionForRequest\(\s*"pos"/.test(route)) {
+  if (
+    !/export const dynamic = "force-dynamic"/.test(route) ||
+    !/getShopSectionForRequest\(\s*"pos"/.test(route)
+  ) {
     addFailure(`${dashboardRoutePath} must render the POS section dynamically`);
   }
 
@@ -3951,7 +4547,11 @@ function checkTask022023PosDashboardWin7PosClient() {
     addFailure(`${readModelPath} must stay read-only`);
   }
 
-  if (/token_hash|session_token_hash|trustedDeviceToken|deviceToken|sessionToken/.test(readModel)) {
+  if (
+    /token_hash|session_token_hash|trustedDeviceToken|deviceToken|sessionToken/.test(
+      readModel,
+    )
+  ) {
     addFailure(`${readModelPath} must not select or expose POS secret fields`);
   }
 
@@ -3959,12 +4559,23 @@ function checkTask022023PosDashboardWin7PosClient() {
     addFailure(`${sectionsPath} must register the POS Live Shop Admin section`);
   }
 
-  if (!/buildPosLiveSection/.test(sectionData) || !/getShopPosLiveReadModel/.test(sectionData)) {
-    addFailure(`${sectionDataPath} must build the POS live section from the POS read model`);
+  if (
+    !/buildPosLiveSection/.test(sectionData) ||
+    !/getShopPosLiveReadModel/.test(sectionData)
+  ) {
+    addFailure(
+      `${sectionDataPath} must build the POS live section from the POS read model`,
+    );
   }
 
-  if (/sales today|revenue|orders|pos_sales|sales_sync|sync_batch/i.test(dashboardSource)) {
-    addFailure("TASK-022 dashboard must not render sales/sync metrics outside scope");
+  if (
+    /sales today|revenue|orders|pos_sales|sales_sync|sync_batch/i.test(
+      dashboardSource,
+    )
+  ) {
+    addFailure(
+      "TASK-022 dashboard must not render sales/sync metrics outside scope",
+    );
   }
 
   if (/mock|fake|demo/i.test(dashboardSource)) {
@@ -3972,7 +4583,9 @@ function checkTask022023PosDashboardWin7PosClient() {
   }
 
   if (/SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(clientSurface)) {
-    addFailure("TASK-022 client/browser surface must not expose service-role material");
+    addFailure(
+      "TASK-022 client/browser surface must not expose service-role material",
+    );
   }
 
   for (const requiredSnippet of [
@@ -3983,19 +4596,30 @@ function checkTask022023PosDashboardWin7PosClient() {
     "/api/pos/session/heartbeat",
   ]) {
     if (!win7Client.includes(requiredSnippet)) {
-      addFailure(`Win7POS PosAdminWebClient.cs must include ${requiredSnippet}`);
+      addFailure(
+        `Win7POS PosAdminWebClient.cs must include ${requiredSnippet}`,
+      );
     }
   }
 
-  if (!/ProtectedData\.Protect/.test(win7Store) || !/ProtectedData\.Unprotect/.test(win7Store)) {
+  if (
+    !/ProtectedData\.Protect/.test(win7Store) ||
+    !/ProtectedData\.Unprotect/.test(win7Store)
+  ) {
     addFailure("Win7POS trusted device store must use DPAPI ProtectedData");
   }
 
-  if (!/WIN7POS_ADMIN_WEB_BASE_URL/.test(win7Options) || !new RegExp(win7ConfigFileName.replace(".", "\\.")).test(win7Options)) {
+  if (
+    !/WIN7POS_ADMIN_WEB_BASE_URL/.test(win7Options) ||
+    !new RegExp(win7ConfigFileName.replace(".", "\\.")).test(win7Options)
+  ) {
     addFailure("Win7POS Admin Web base URL must come from env/config file");
   }
 
-  if (!/PosOnlineFirstLoginDialog/.test(win7OperatorDialog) || !/TryRefreshTrustedPosSessionAsync/.test(win7MainWindow)) {
+  if (
+    !/PosOnlineFirstLoginDialog/.test(win7OperatorDialog) ||
+    !/TryRefreshTrustedPosSessionAsync/.test(win7MainWindow)
+  ) {
     addFailure("Win7POS must expose first login UI and startup heartbeat");
   }
 
@@ -4019,7 +4643,9 @@ function checkTask022023PosDashboardWin7PosClient() {
   }
 
   if (!/checkTask022023PosDashboardWin7PosClient/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert the TASK-022_023 security scanner gate`);
+    addFailure(
+      `${foundationTestPath} must assert the TASK-022_023 security scanner gate`,
+    );
   }
 }
 
@@ -4093,24 +4719,50 @@ function checkTask027CatalogPullDeltaSync() {
     addFailure("TASK-027 catalog pull must remain owner/shop scoped");
   }
 
-  if (!/\.gte\("updated_at", syncOptions\.lowerBound\)/.test(service) || !/\.range\(/.test(service)) {
-    addFailure("TASK-027 catalog pull must use updated_at lower bound and pagination");
+  if (
+    !/\.gte\("updated_at", syncOptions\.lowerBound\)/.test(service) ||
+    !/\.range\(/.test(service)
+  ) {
+    addFailure(
+      "TASK-027 catalog pull must use updated_at lower bound and pagination",
+    );
   }
 
-  if (/\.(delete|upsert)\s*\(/.test(service) || /truncate|purge|replace_all/i.test(service)) {
-    addFailure("TASK-027 catalog pull must not perform destructive purge/write behavior");
+  if (
+    /\.(delete|upsert)\s*\(/.test(service) ||
+    /truncate|purge|replace_all/i.test(service)
+  ) {
+    addFailure(
+      "TASK-027 catalog pull must not perform destructive purge/write behavior",
+    );
   }
 
-  if (/sale_lines|sales_sync|payment|cash_close|bidirectional/i.test(`${helper}\n${service}`)) {
-    addFailure("TASK-027 must not introduce sales sync or bidirectional catalog sync");
+  if (
+    /sale_lines|sales_sync|payment|cash_close|bidirectional/i.test(
+      `${helper}\n${service}`,
+    )
+  ) {
+    addFailure(
+      "TASK-027 must not introduce sales sync or bidirectional catalog sync",
+    );
   }
 
-  if (!/metadata_redacted/.test(readModel) || !/Catalog sync/.test(sectionData)) {
-    addFailure("TASK-027 must expose real catalog pull diagnostics from audit metadata");
+  if (
+    !/metadata_redacted/.test(readModel) ||
+    !/Catalog sync/.test(sectionData)
+  ) {
+    addFailure(
+      "TASK-027 must expose real catalog pull diagnostics from audit metadata",
+    );
   }
 
-  if (!/sync_cursor_preview/.test(`${service}\n${readModel}`) || /sync_cursor:\s*syncCursor/.test(service)) {
-    addFailure("TASK-027 audit metadata must redact catalog cursors before diagnostics");
+  if (
+    !/sync_cursor_preview/.test(`${service}\n${readModel}`) ||
+    /sync_cursor:\s*syncCursor/.test(service)
+  ) {
+    addFailure(
+      "TASK-027 audit metadata must redact catalog cursors before diagnostics",
+    );
   }
 
   if (existsSync(win7PosRoot)) {
@@ -4133,17 +4785,25 @@ function checkTask027CatalogPullDeltaSync() {
       'DataMember(Name = "tombstones"',
     ]) {
       if (!`${win7Client}\n${win7Service}`.includes(requiredSnippet)) {
-        addFailure(`Win7POS TASK-027 catalog pull must include ${requiredSnippet}`);
+        addFailure(
+          `Win7POS TASK-027 catalog pull must include ${requiredSnippet}`,
+        );
       }
     }
 
-    if (/pos_sales|sales_sync|sync_batch|api\/pos\/sales/i.test(`${win7Client}\n${win7Service}`)) {
+    if (
+      /pos_sales|sales_sync|sync_batch|api\/pos\/sales/i.test(
+        `${win7Client}\n${win7Service}`,
+      )
+    ) {
       addFailure("TASK-027 Win7POS changes must not introduce sales sync");
     }
   }
 
   if (!/checkTask027CatalogPullDeltaSync/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert the TASK-027 security scanner gate`);
+    addFailure(
+      `${foundationTestPath} must assert the TASK-027 security scanner gate`,
+    );
   }
 }
 
@@ -4152,7 +4812,8 @@ function checkTask037ShopAdminDualAccessModel() {
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-037/README.md";
   const architecturePath = "docs/ARCHITECTURE/SHOP-ADMIN-DUAL-ACCESS-MODEL.md";
   const principalPath = "src/server/shop-admin/access-principal.ts";
-  const foundationTestPath = "tests/foundation/task-037-dual-access-model.test.mjs";
+  const foundationTestPath =
+    "tests/foundation/task-037-dual-access-model.test.mjs";
 
   for (const requiredPath of [
     taskPath,
@@ -4174,8 +4835,8 @@ function checkTask037ShopAdminDualAccessModel() {
   const foundationTest = read(foundationTestPath);
   const masterPlan = read("docs/MASTER-PLAN.md");
   const combinedDocs = `${task}\n${evidence}\n${architecture}\n${masterPlan}`;
-  const migrationNames = listFiles("supabase/migrations").map((file) =>
-    file.split("/").pop() ?? file,
+  const migrationNames = listFiles("supabase/migrations").map(
+    (file) => file.split("/").pop() ?? file,
   );
   const appRouteFiles = listFiles("src/app");
 
@@ -4222,16 +4883,32 @@ function checkTask037ShopAdminDualAccessModel() {
     }
   }
 
-  if (/createSupabaseAdminClient|SUPABASE_SERVICE_ROLE_KEY|credential_hash|pin_plain|password_plain|plain_pin|plain_password/i.test(principal)) {
-    addFailure(`${principalPath} must not handle service-role or raw staff credentials`);
+  if (
+    /createSupabaseAdminClient|SUPABASE_SERVICE_ROLE_KEY|credential_hash|pin_plain|password_plain|plain_pin|plain_password/i.test(
+      principal,
+    )
+  ) {
+    addFailure(
+      `${principalPath} must not handle service-role or raw staff credentials`,
+    );
   }
 
-  if (!/input\.roleKey === POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY/.test(principal)) {
-    addFailure(`${principalPath} must restrict current staff web eligibility to the verified manager role`);
+  if (
+    !/input\.roleKey === POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY/.test(principal)
+  ) {
+    addFailure(
+      `${principalPath} must restrict current staff web eligibility to the verified manager role`,
+    );
   }
 
-  if (/new Set\(\["manager", "admin"\]\)|posStaffWebRoleKeys\.has|principalCanSelectShop|principalShopRole/.test(principal)) {
-    addFailure(`${principalPath} must not accept future admin role or expose unused authorization helpers`);
+  if (
+    /new Set\(\["manager", "admin"\]\)|posStaffWebRoleKeys\.has|principalCanSelectShop|principalShopRole/.test(
+      principal,
+    )
+  ) {
+    addFailure(
+      `${principalPath} must not accept future admin role or expose unused authorization helpers`,
+    );
   }
 
   if (migrationNames.some((file) => /task_037|task-037/i.test(file))) {
@@ -4242,9 +4919,10 @@ function checkTask037ShopAdminDualAccessModel() {
     /staff.*login|login.*staff|pos.*manager.*login/i.test(file),
   );
 
-  const task038Opened = /TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate/.test(
-    masterPlan,
-  );
+  const task038Opened =
+    /TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate/.test(
+      masterPlan,
+    );
 
   if (unexpectedStaffLoginRoutes.length > 0 && !task038Opened) {
     addFailure(
@@ -4253,7 +4931,9 @@ function checkTask037ShopAdminDualAccessModel() {
   }
 
   if (!/checkTask037ShopAdminDualAccessModel/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert the TASK-037 security scanner gate`);
+    addFailure(
+      `${foundationTestPath} must assert the TASK-037 security scanner gate`,
+    );
   }
 }
 
@@ -4275,7 +4955,8 @@ function checkTask038PosManagerWebLogin() {
   const platformProvisioningPanelPath =
     "src/app/platform/provisioning/StaffManagerProvisioningPanel.tsx";
   const platformProvisioningPagePath = "src/app/platform/provisioning/page.tsx";
-  const foundationTestPath = "tests/foundation/task-038-pos-manager-web-login.test.mjs";
+  const foundationTestPath =
+    "tests/foundation/task-038-pos-manager-web-login.test.mjs";
   const migrationName = listFiles("supabase/migrations")
     .map((file) => file.split("/").pop() ?? file)
     .find((file) => /task_038_pos_manager_web_login/i.test(file));
@@ -4362,12 +5043,18 @@ function checkTask038PosManagerWebLogin() {
     }
   }
 
-  if (/\b(session_token|raw_token|credential|password|pin)\s+text\b/i.test(migration)) {
+  if (
+    /\b(session_token|raw_token|credential|password|pin)\s+text\b/i.test(
+      migration,
+    )
+  ) {
     addFailure("TASK-038 migration must store only hashed staff web secrets");
   }
 
   if (/pos_sales|sales_sync|sale_payments|receipts/i.test(migration)) {
-    addFailure("TASK-038 migration must not introduce Sales Sync or revenue tables");
+    addFailure(
+      "TASK-038 migration must not introduce Sales Sync or revenue tables",
+    );
   }
 
   for (const requiredSnippet of [
@@ -4396,11 +5083,19 @@ function checkTask038PosManagerWebLogin() {
       `${auth}\n${shopCodeLoginForm}\n${loginPage}\n${loginActions}\n${logoutRoute}`,
     )
   ) {
-    addFailure("TASK-038 staff web runtime must not use browser storage or runtime logging");
+    addFailure(
+      "TASK-038 staff web runtime must not use browser storage or runtime logging",
+    );
   }
 
-  if (/SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash/i.test(`${shopCodeLoginForm}\n${loginPage}\n${loginActions}\n${logoutRoute}`)) {
-    addFailure("TASK-038 staff web routes must not expose service-role, credential hashes or token hashes");
+  if (
+    /SUPABASE_SERVICE_ROLE_KEY|credential_hash|session_token_hash/i.test(
+      `${shopCodeLoginForm}\n${loginPage}\n${loginActions}\n${logoutRoute}`,
+    )
+  ) {
+    addFailure(
+      "TASK-038 staff web routes must not expose service-role, credential hashes or token hashes",
+    );
   }
 
   for (const requiredSnippet of [
@@ -4454,7 +5149,9 @@ function checkTask038PosManagerWebLogin() {
   }
 
   if (!/server-only/.test(platformProvisioningSubmit)) {
-    addFailure(`${platformProvisioningSubmitPath} must be a server-only submit module`);
+    addFailure(
+      `${platformProvisioningSubmitPath} must be a server-only submit module`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -4468,17 +5165,31 @@ function checkTask038PosManagerWebLogin() {
     "Manager state",
     "reason",
   ]) {
-    if (!`${platformProvisioningSubmit}\n${platformProvisioningPanel}\n${platformProvisioningPage}`.includes(requiredSnippet)) {
-      addFailure(`Platform staff manager provisioning UI must include ${requiredSnippet}`);
+    if (
+      !`${platformProvisioningSubmit}\n${platformProvisioningPanel}\n${platformProvisioningPage}`.includes(
+        requiredSnippet,
+      )
+    ) {
+      addFailure(
+        `Platform staff manager provisioning UI must include ${requiredSnippet}`,
+      );
     }
   }
 
   if (/name="displayName"/.test(platformProvisioningPanel)) {
-    addFailure("Platform staff manager provisioning UI must not expose editable displayName");
+    addFailure(
+      "Platform staff manager provisioning UI must not expose editable displayName",
+    );
   }
 
-  if (/name="staffCode"|Recovery action|Advanced options/.test(platformProvisioningPanel)) {
-    addFailure("Platform initial manager recovery must not expose editable staffCode or multiple recovery actions");
+  if (
+    /name="staffCode"|Recovery action|Advanced options/.test(
+      platformProvisioningPanel,
+    )
+  ) {
+    addFailure(
+      "Platform initial manager recovery must not expose editable staffCode or multiple recovery actions",
+    );
   }
 
   if (
@@ -4486,7 +5197,9 @@ function checkTask038PosManagerWebLogin() {
       platformProvisioningSubmit,
     )
   ) {
-    addFailure(`${platformProvisioningSubmitPath} must not expose stored secret fields`);
+    addFailure(
+      `${platformProvisioningSubmitPath} must not expose stored secret fields`,
+    );
   }
 
   if (
@@ -4494,19 +5207,30 @@ function checkTask038PosManagerWebLogin() {
       `${platformProvisioningPanel}\n${platformProvisioningPage}`,
     )
   ) {
-    addFailure("Platform provisioning page surface must not expose stored secret fields");
+    addFailure(
+      "Platform provisioning page surface must not expose stored secret fields",
+    );
   }
 
   if (/@\/server\//.test(platformProvisioningPanel)) {
-    addFailure(`${platformProvisioningPanelPath} must not import server modules`);
+    addFailure(
+      `${platformProvisioningPanelPath} must not import server modules`,
+    );
   }
 
-  if (!/resolveShopAdminDataAccess/.test(shopLayout) || !/principal\.kind/.test(shopLayout)) {
-    addFailure("Shop Admin layout must resolve explicit TASK-038 principal kinds");
+  if (
+    !/resolveShopAdminDataAccess/.test(shopLayout) ||
+    !/principal\.kind/.test(shopLayout)
+  ) {
+    addFailure(
+      "Shop Admin layout must resolve explicit TASK-038 principal kinds",
+    );
   }
 
   if (!/checkTask038PosManagerWebLogin/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert the TASK-038 security scanner gate`);
+    addFailure(
+      `${foundationTestPath} must assert the TASK-038 security scanner gate`,
+    );
   }
 }
 
@@ -4520,7 +5244,8 @@ function checkTask039StaffAwareShopAdminCompletion() {
   const accessPrincipalPath = "src/server/shop-admin/access-principal.ts";
   const staffWebPermissionsPath =
     "src/server/shop-admin/staff-web-permissions.ts";
-  const staffAwareMutationsPath = "src/server/shop-admin/staff-aware-mutations.ts";
+  const staffAwareMutationsPath =
+    "src/server/shop-admin/staff-aware-mutations.ts";
   const settingsMutationsPath = "src/server/shop-admin/settings-mutations.ts";
   const databaseTypesPath = "src/lib/supabase/database.types.ts";
   const gatedPagePaths = [
@@ -4564,7 +5289,9 @@ function checkTask039StaffAwareShopAdminCompletion() {
   const settingsMutations = read(settingsMutationsPath);
   const databaseTypes = read(databaseTypesPath);
   const foundationTest = read(foundationTestPath);
-  const gatedPages = gatedPagePaths.map((pagePath) => read(pagePath)).join("\n");
+  const gatedPages = gatedPagePaths
+    .map((pagePath) => read(pagePath))
+    .join("\n");
   const combinedDocs = `${task}\n${evidence}\n${masterPlan}`;
 
   for (const requiredSnippet of [
@@ -4602,22 +5329,33 @@ function checkTask039StaffAwareShopAdminCompletion() {
       masterPlan,
     )
   ) {
-    addFailure("MASTER-PLAN must track TASK-040 or its TASK-041 superseding runtime task after TASK-039 closure");
+    addFailure(
+      "MASTER-PLAN must track TASK-040 or its TASK-041 superseding runtime task after TASK-039 closure",
+    );
   }
 
   if (!/canStaffWebPerformShopAdminAction/.test(actionContext)) {
-    addFailure(`${actionContextPath} must authorize staff web mutators through granular permissions`);
+    addFailure(
+      `${actionContextPath} must authorize staff web mutators through granular permissions`,
+    );
   }
 
-  if (!/resolveShopAdminDataAccess/.test(dataAccess) || !/pos_staff_manager/.test(dataAccess)) {
-    addFailure(`${dataAccessPath} must retain dual read-model actor resolution`);
+  if (
+    !/resolveShopAdminDataAccess/.test(dataAccess) ||
+    !/pos_staff_manager/.test(dataAccess)
+  ) {
+    addFailure(
+      `${dataAccessPath} must retain dual read-model actor resolution`,
+    );
   }
 
   if (
     !/hasRecognizedWebPermission/.test(accessPrincipal) ||
     !/isShopStaffWebPermission\(permission\)/.test(accessPrincipal)
   ) {
-    addFailure(`${accessPrincipalPath} must whitelist recognized staff web permissions during principal eligibility`);
+    addFailure(
+      `${accessPrincipalPath} must whitelist recognized staff web permissions during principal eligibility`,
+    );
   }
 
   if (
@@ -4627,11 +5365,18 @@ function checkTask039StaffAwareShopAdminCompletion() {
     !/catalog\.write/.test(staffWebPermissions) ||
     !/sync\.read/.test(staffWebPermissions)
   ) {
-    addFailure(`${staffWebPermissionsPath} must keep the granular staff web permission tree`);
+    addFailure(
+      `${staffWebPermissionsPath} must keep the granular staff web permission tree`,
+    );
   }
 
-  if (!/actor_profile_id/.test(databaseTypes) || !/actor_staff_id/.test(databaseTypes)) {
-    addFailure(`${databaseTypesPath} must expose personal and staff audit actors`);
+  if (
+    !/actor_profile_id/.test(databaseTypes) ||
+    !/actor_staff_id/.test(databaseTypes)
+  ) {
+    addFailure(
+      `${databaseTypesPath} must expose personal and staff audit actors`,
+    );
   }
 
   if (
@@ -4641,11 +5386,17 @@ function checkTask039StaffAwareShopAdminCompletion() {
     !/replaceStaffRolePermissions/.test(staffAwareMutations) ||
     !/staleStaffWebPermissions/.test(staffAwareMutations) ||
     !/\.upsert\(/.test(staffAwareMutations) ||
-    !/onConflict: "shop_id,role_key,permission_key"/.test(staffAwareMutations) ||
-    !/hasStaffFullShopAdminWebAccess\(context\.staffPermissions\)/.test(staffAwareMutations) ||
+    !/onConflict: "shop_id,role_key,permission_key"/.test(
+      staffAwareMutations,
+    ) ||
+    !/hasStaffFullShopAdminWebAccess\(context\.staffPermissions\)/.test(
+      staffAwareMutations,
+    ) ||
     !/code: "unauthorized"/.test(staffAwareMutations)
   ) {
-    addFailure(`${staffAwareMutationsPath} must implement the staff-aware mutation/audit boundary`);
+    addFailure(
+      `${staffAwareMutationsPath} must implement the staff-aware mutation/audit boundary`,
+    );
   }
 
   if (
@@ -4653,7 +5404,9 @@ function checkTask039StaffAwareShopAdminCompletion() {
       staffAwareMutations,
     )
   ) {
-    addFailure(`${staffAwareMutationsPath} must not delete all role permissions before insert`);
+    addFailure(
+      `${staffAwareMutationsPath} must not delete all role permissions before insert`,
+    );
   }
 
   if (
@@ -4661,7 +5414,9 @@ function checkTask039StaffAwareShopAdminCompletion() {
     !/shop_settings_managed_by_master_console/.test(settingsMutations) ||
     /\.from\("shops"\)[\s\S]{0,360}\.update\(/.test(settingsMutations)
   ) {
-    addFailure(`${settingsMutationsPath} must fail closed because Shop Admin settings are managed by Master Console`);
+    addFailure(
+      `${settingsMutationsPath} must fail closed because Shop Admin settings are managed by Master Console`,
+    );
   }
 
   for (const requiredPermission of [
@@ -4678,7 +5433,9 @@ function checkTask039StaffAwareShopAdminCompletion() {
       !gatedPages.includes("resolveShopActionContext") ||
       !gatedPages.includes(requiredPermission)
     ) {
-      addFailure(`TASK-039 Shop Admin UI pages must preflight ${requiredPermission}`);
+      addFailure(
+        `TASK-039 Shop Admin UI pages must preflight ${requiredPermission}`,
+      );
     }
   }
 
@@ -4694,11 +5451,15 @@ function checkTask039StaffAwareShopAdminCompletion() {
     !isTask041RuntimeCompletionActive() &&
     existsSync(join(root, "src/app/api/pos/sales"))
   ) {
-    addFailure("TASK-039 audit phase must not introduce POS sales runtime routes");
+    addFailure(
+      "TASK-039 audit phase must not introduce POS sales runtime routes",
+    );
   }
 
   if (!/checkTask039StaffAwareShopAdminCompletion/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert the TASK-039 security scanner gate`);
+    addFailure(
+      `${foundationTestPath} must assert the TASK-039 security scanner gate`,
+    );
   }
 }
 
@@ -4706,7 +5467,8 @@ function checkTask040RuntimeReadiness() {
   const taskPath =
     "docs/TASKS/TASK-040-runtime-readiness-supabase-staging-win7pos-sales-sync.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-040/README.md";
-  const foundationTestPath = "tests/foundation/task-040-runtime-readiness.test.mjs";
+  const foundationTestPath =
+    "tests/foundation/task-040-runtime-readiness.test.mjs";
   const masterPlan = read("docs/MASTER-PLAN.md");
 
   for (const requiredPath of [taskPath, evidencePath, foundationTestPath]) {
@@ -4758,7 +5520,9 @@ function checkTask040RuntimeReadiness() {
       masterPlan,
     )
   ) {
-    addFailure("MASTER-PLAN must track TASK-040 or its TASK-041 superseding runtime task");
+    addFailure(
+      "MASTER-PLAN must track TASK-040 or its TASK-041 superseding runtime task",
+    );
   }
 
   if (
@@ -4767,10 +5531,15 @@ function checkTask040RuntimeReadiness() {
     ) &&
     !/SUPERSEDED_BY_TASK-041/.test(combinedDocs)
   ) {
-    addFailure("TASK-040 must be explicitly marked SUPERSEDED_BY_TASK-041 when TASK-041 is active");
+    addFailure(
+      "TASK-040 must be explicitly marked SUPERSEDED_BY_TASK-041 when TASK-041 is active",
+    );
   }
 
-  if (!/Stato TASK-039: `DONE`/.test(masterPlan) || !/Fase TASK-039: `DONE_RECONCILED`/.test(masterPlan)) {
+  if (
+    !/Stato TASK-039: `DONE`/.test(masterPlan) ||
+    !/Fase TASK-039: `DONE_RECONCILED`/.test(masterPlan)
+  ) {
     addFailure("MASTER-PLAN must close TASK-039 after explicit confirmation");
   }
 
@@ -4786,11 +5555,15 @@ function checkTask040RuntimeReadiness() {
     !isTask041RuntimeCompletionActive() &&
     existsSync(join(root, "src/app/api/pos/sales"))
   ) {
-    addFailure("TASK-040 must not add POS sales runtime routes while gates are blocked");
+    addFailure(
+      "TASK-040 must not add POS sales runtime routes while gates are blocked",
+    );
   }
 
   if (!/checkTask040RuntimeReadiness/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert the TASK-040 security scanner gate`);
+    addFailure(
+      `${foundationTestPath} must assert the TASK-040 security scanner gate`,
+    );
   }
 }
 
@@ -4798,7 +5571,8 @@ function checkTask041RuntimeCompletion() {
   const taskPath =
     "docs/TASKS/TASK-041-runtime-completion-supabase-cloudflare-sales-sync-win7pos-e2e.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-041/README.md";
-  const foundationTestPath = "tests/foundation/task-041-runtime-completion.test.mjs";
+  const foundationTestPath =
+    "tests/foundation/task-041-runtime-completion.test.mjs";
   const salesRoutePath = "src/app/api/pos/sales/sync/route.ts";
   const salesServicePath = "src/server/pos-auth/sales-sync.ts";
   const posRouteSecurityPath = "src/app/api/pos/_shared/pos-route-security.ts";
@@ -4872,11 +5646,15 @@ function checkTask041RuntimeCompletion() {
       masterPlan,
     )
   ) {
-    addFailure("MASTER-PLAN must track TASK-041, TASK-042, or TASK-043 as the active runtime completion task");
+    addFailure(
+      "MASTER-PLAN must track TASK-041, TASK-042, or TASK-043 as the active runtime completion task",
+    );
   }
 
   if (!/Stato TASK-040: `REVIEW_WITH_EXTERNAL_BLOCKERS`/.test(masterPlan)) {
-    addFailure("MASTER-PLAN must keep TASK-040 in REVIEW_WITH_EXTERNAL_BLOCKERS");
+    addFailure(
+      "MASTER-PLAN must keep TASK-040 in REVIEW_WITH_EXTERNAL_BLOCKERS",
+    );
   }
 
   if (
@@ -4884,12 +5662,14 @@ function checkTask041RuntimeCompletion() {
       combinedDocs,
     )
   ) {
-    addFailure("TASK-041 must not declare TASK-040 or blocked runtime gates done");
+    addFailure(
+      "TASK-041 must not declare TASK-040 or blocked runtime gates done",
+    );
   }
 
   for (const requiredSnippet of [
-    "export const dynamic = \"force-dynamic\"",
-    "export const runtime = \"nodejs\"",
+    'export const dynamic = "force-dynamic"',
+    'export const runtime = "nodejs"',
     "export async function POST",
     "readPosJsonBody",
     "MAX_POS_SALES_SYNC_JSON_BODY_BYTES",
@@ -4924,7 +5704,7 @@ function checkTask041RuntimeCompletion() {
     "duplicate",
     "conflict",
     "cleanup_ok",
-    "source: \"TASK-041\"",
+    'source: "TASK-041"',
   ]) {
     if (!salesService.includes(requiredSnippet)) {
       addFailure(`${salesServicePath} must include ${requiredSnippet}`);
@@ -4935,8 +5715,14 @@ function checkTask041RuntimeCompletion() {
     addFailure(`${salesRoutePath} must not reference service-role material`);
   }
 
-  if (/fakeRevenue|sampleSales|demoSales|mockRevenue/i.test(`${salesRoute}\n${salesService}`)) {
-    addFailure("TASK-041 Sales Sync must not introduce fake revenue or demo sales data");
+  if (
+    /fakeRevenue|sampleSales|demoSales|mockRevenue/i.test(
+      `${salesRoute}\n${salesService}`,
+    )
+  ) {
+    addFailure(
+      "TASK-041 Sales Sync must not introduce fake revenue or demo sales data",
+    );
   }
 
   for (const requiredSnippet of [
@@ -4961,7 +5747,9 @@ function checkTask041RuntimeCompletion() {
   }
 
   if (/sale_payments|payment_methods|receipts/i.test(salesMigrationSource)) {
-    addFailure(`${salesMigration} must keep payments/receipts out of Sales Sync v1`);
+    addFailure(
+      `${salesMigration} must keep payments/receipts out of Sales Sync v1`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -4980,11 +5768,14 @@ function checkTask041RuntimeCompletion() {
     !packageJson.scripts?.["cf:build"] ||
     !packageJson.scripts?.["cf:preview"]
   ) {
-    addFailure("TASK-041 must include Cloudflare/OpenNext dev deps and non-production build/preview scripts");
+    addFailure(
+      "TASK-041 must include Cloudflare/OpenNext dev deps and non-production build/preview scripts",
+    );
   }
 
   const packageDeployScripts = Object.entries(packageJson.scripts ?? {}).filter(
-    ([, command]) => /opennextjs-cloudflare deploy|wrangler deploy|--prod/.test(command),
+    ([, command]) =>
+      /opennextjs-cloudflare deploy|wrangler deploy|--prod/.test(command),
   );
   const forbiddenPackageDeployScripts = packageDeployScripts.filter(
     ([name, command]) =>
@@ -4996,7 +5787,9 @@ function checkTask041RuntimeCompletion() {
   );
 
   if (forbiddenPackageDeployScripts.length > 0) {
-    addFailure("TASK-041 package scripts must not add production deploy commands");
+    addFailure(
+      "TASK-041 package scripts must not add production deploy commands",
+    );
   }
 
   for (const requiredSnippet of [
@@ -5016,23 +5809,39 @@ function checkTask041RuntimeCompletion() {
   }
 
   if (existsSync(join(root, "src/proxy.ts"))) {
-    addFailure("TASK-041 Cloudflare build must avoid Next 16 Node-only src/proxy.ts");
+    addFailure(
+      "TASK-041 Cloudflare build must avoid Next 16 Node-only src/proxy.ts",
+    );
   }
 
-  if (!/maxBytes/.test(posRouteSecurity) || !/MAX_POS_JSON_BODY_BYTES/.test(posRouteSecurity)) {
-    addFailure(`${posRouteSecurityPath} must preserve default body limit and support bounded overrides`);
+  if (
+    !/maxBytes/.test(posRouteSecurity) ||
+    !/MAX_POS_JSON_BODY_BYTES/.test(posRouteSecurity)
+  ) {
+    addFailure(
+      `${posRouteSecurityPath} must preserve default body limit and support bounded overrides`,
+    );
   }
 
-  if (!/--mode=/.test(devSupabaseCheck) || !/production mode is intentionally unsupported/.test(devSupabaseCheck)) {
-    addFailure("scripts/dev-supabase-check.mjs must expose redacted modes and fail closed for production");
+  if (
+    !/--mode=/.test(devSupabaseCheck) ||
+    !/production mode is intentionally unsupported/.test(devSupabaseCheck)
+  ) {
+    addFailure(
+      "scripts/dev-supabase-check.mjs must expose redacted modes and fail closed for production",
+    );
   }
 
   if (/\/Users\/minxiang\/Projects\/Win7POS/.test(combinedTask041Artifacts)) {
-    addFailure("TASK-041 artifacts must use WIN7POS_REPO_PATH instead of hardcoded local Win7POS paths");
+    addFailure(
+      "TASK-041 artifacts must use WIN7POS_REPO_PATH instead of hardcoded local Win7POS paths",
+    );
   }
 
   if (!/checkTask041RuntimeCompletion/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert the TASK-041 security scanner gate`);
+    addFailure(
+      `${foundationTestPath} must assert the TASK-041 security scanner gate`,
+    );
   }
 }
 
@@ -5195,7 +6004,11 @@ function checkTask042ReviewCiWin7PosBridge() {
     }
   }
 
-  if (/GH_TOKEN|GITHUB_TOKEN|ghp_|github_pat_/.test(`${compareScript}\n${fetchScript}`)) {
+  if (
+    /GH_TOKEN|GITHUB_TOKEN|ghp_|github_pat_/.test(
+      `${compareScript}\n${fetchScript}`,
+    )
+  ) {
     addFailure("TASK-042B scripts must not hardcode GitHub tokens");
   }
 
@@ -5204,11 +6017,15 @@ function checkTask042ReviewCiWin7PosBridge() {
       masterPlan,
     )
   ) {
-    addFailure("MASTER-PLAN must track TASK-042 or TASK-043 as the active review/runtime task");
+    addFailure(
+      "MASTER-PLAN must track TASK-042 or TASK-043 as the active review/runtime task",
+    );
   }
 
   if (!/Stato TASK-041: `REVIEW_WITH_EXTERNAL_BLOCKERS`/.test(masterPlan)) {
-    addFailure("MASTER-PLAN must keep TASK-041 in REVIEW_WITH_EXTERNAL_BLOCKERS");
+    addFailure(
+      "MASTER-PLAN must keep TASK-041 in REVIEW_WITH_EXTERNAL_BLOCKERS",
+    );
   }
 
   if (
@@ -5216,11 +6033,15 @@ function checkTask042ReviewCiWin7PosBridge() {
       `${task}\n${evidence}`,
     )
   ) {
-    addFailure("TASK-042 must not declare DONE or live Win7POS/Sales Sync PASS before manual evidence");
+    addFailure(
+      "TASK-042 must not declare DONE or live Win7POS/Sales Sync PASS before manual evidence",
+    );
   }
 
   if (!/checkTask042ReviewCiWin7PosBridge/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert the TASK-042 security scanner gate`);
+    addFailure(
+      `${foundationTestPath} must assert the TASK-042 security scanner gate`,
+    );
   }
 }
 
@@ -5290,11 +6111,15 @@ function checkTask043PlatformAdminRuntimeFixes() {
   }
 
   if (
-    !/Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-052 - Admin Console UX polish, shell parity and operational clarity`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`/.test(masterPlan) ||
+    !/Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-052 - Admin Console UX polish, shell parity and operational clarity`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`/.test(
+      masterPlan,
+    ) ||
     !/Stato TASK-043: `DONE_RECONCILED`/.test(masterPlan) ||
     !/Fase TASK-043: `DONE_RECONCILED`/.test(masterPlan)
   ) {
-    addFailure("MASTER-PLAN must reconcile TASK-043 as DONE_RECONCILED through TASK-045 evidence");
+    addFailure(
+      "MASTER-PLAN must reconcile TASK-043 as DONE_RECONCILED through TASK-045 evidence",
+    );
   }
 
   if (
@@ -5313,7 +6138,9 @@ function checkTask043PlatformAdminRuntimeFixes() {
       readModel,
     )
   ) {
-    addFailure(`${readModelPath} must not treat staff_accounts_safe as a fatal core read error`);
+    addFailure(
+      `${readModelPath} must not treat staff_accounts_safe as a fatal core read error`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -5329,8 +6156,13 @@ function checkTask043PlatformAdminRuntimeFixes() {
     }
   }
 
-  if (!/staffSafeReadIssue/.test(sectionData) || !/Staff safe read model/.test(sectionData)) {
-    addFailure(`${sectionDataPath} must surface non-fatal staff safe read diagnostics`);
+  if (
+    !/staffSafeReadIssue/.test(sectionData) ||
+    !/Staff safe read model/.test(sectionData)
+  ) {
+    addFailure(
+      `${sectionDataPath} must surface non-fatal staff safe read diagnostics`,
+    );
   }
 
   const exposesPlatformLogout =
@@ -5339,10 +6171,15 @@ function checkTask043PlatformAdminRuntimeFixes() {
       /logout:\s*"Logout"/.test(optionalRead("src/i18n/dictionaries.ts")));
 
   if (!/action="\/auth\/logout"/.test(appShell) || !exposesPlatformLogout) {
-    addFailure(`${appShellPath} must expose visible native Logout to /auth/logout`);
+    addFailure(
+      `${appShellPath} must expose visible native Logout to /auth/logout`,
+    );
   }
 
-  if (!/signOut\(\)/.test(logoutRoute) || !/NextResponse\.redirect/.test(logoutRoute)) {
+  if (
+    !/signOut\(\)/.test(logoutRoute) ||
+    !/NextResponse\.redirect/.test(logoutRoute)
+  ) {
     addFailure(`${logoutRoutePath} must sign out server-side and redirect`);
   }
 
@@ -5352,11 +6189,18 @@ function checkTask043PlatformAdminRuntimeFixes() {
     ) ||
     !/readModel\.reason/.test(provisioningPage)
   ) {
-    addFailure(`${provisioningPagePath} must use readModel.reason instead of the generic provisioning blocker`);
+    addFailure(
+      `${provisioningPagePath} must use readModel.reason instead of the generic provisioning blocker`,
+    );
   }
 
-  if (!/aria-busy="true"/.test(loading) || /activeSection="overview"/.test(loading)) {
-    addFailure(`${loadingPath} must provide a neutral Platform loading state without forcing Overview active`);
+  if (
+    !/aria-busy="true"/.test(loading) ||
+    /activeSection="overview"/.test(loading)
+  ) {
+    addFailure(
+      `${loadingPath} must provide a neutral Platform loading state without forcing Overview active`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -5380,7 +6224,8 @@ function checkTask043PlatformAdminRuntimeFixes() {
 }
 
 function checkTask044PlatformProvisioningUxRuntime() {
-  const taskPath = "docs/TASKS/TASK-044-platform-provisioning-ux-runtime-fixes.md";
+  const taskPath =
+    "docs/TASKS/TASK-044-platform-provisioning-ux-runtime-fixes.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-044/README.md";
   const foundationTestPath =
     "tests/foundation/task-044-platform-provisioning-ux-runtime.test.mjs";
@@ -5474,7 +6319,9 @@ function checkTask044PlatformProvisioningUxRuntime() {
     !/Stato TASK-044: `DONE_RECONCILED`/.test(masterPlan) ||
     !/Fase TASK-044: `DONE_RECONCILED`/.test(masterPlan)
   ) {
-    addFailure("MASTER-PLAN must reconcile TASK-044 as DONE_RECONCILED through TASK-045 evidence");
+    addFailure(
+      "MASTER-PLAN must reconcile TASK-044 as DONE_RECONCILED through TASK-045 evidence",
+    );
   }
 
   if (
@@ -5488,20 +6335,35 @@ function checkTask044PlatformProvisioningUxRuntime() {
     addFailure("TASK-044 must use DONE_RECONCILED, not plain DONE");
   }
 
-  if (!/useFormStatus/.test(pendingButton) || !/disabled={isDisabled}/.test(pendingButton)) {
-    addFailure(`${pendingButtonPath} must use useFormStatus to disable pending submits`);
+  if (
+    !/useFormStatus/.test(pendingButton) ||
+    !/disabled={isDisabled}/.test(pendingButton)
+  ) {
+    addFailure(
+      `${pendingButtonPath} must use useFormStatus to disable pending submits`,
+    );
   }
 
-  if (!/usePathname/.test(sidebarNav) || !/setOptimisticActive/.test(sidebarNav)) {
-    addFailure(`${sidebarNavPath} must keep Platform navigation active state client-aware`);
+  if (
+    !/usePathname/.test(sidebarNav) ||
+    !/setOptimisticActive/.test(sidebarNav)
+  ) {
+    addFailure(
+      `${sidebarNavPath} must keep Platform navigation active state client-aware`,
+    );
   }
 
   if (!/PlatformSidebarNav/.test(appShell)) {
     addFailure(`${appShellPath} must render PlatformSidebarNav`);
   }
 
-  if (/activeSection="overview"/.test(loading) || /Rendering\.\.\./.test(loading)) {
-    addFailure(`${loadingPath} must not force Overview active or render a stuck Rendering label`);
+  if (
+    /activeSection="overview"/.test(loading) ||
+    /Rendering\.\.\./.test(loading)
+  ) {
+    addFailure(
+      `${loadingPath} must not force Overview active or render a stuck Rendering label`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -5518,16 +6380,25 @@ function checkTask044PlatformProvisioningUxRuntime() {
     'type="button"',
   ]) {
     if (!provisioningSurface.includes(requiredSnippet)) {
-      addFailure(`${provisioningPagePath} or ${provisioningFormsPath} must include ${requiredSnippet}`);
+      addFailure(
+        `${provisioningPagePath} or ${provisioningFormsPath} must include ${requiredSnippet}`,
+      );
     }
   }
 
   if (/Authorization:\s*`Bearer \$\{/.test(provisioningSurface)) {
-    addFailure("Platform provisioning same-origin client must not send custom browser bearer headers");
+    addFailure(
+      "Platform provisioning same-origin client must not send custom browser bearer headers",
+    );
   }
 
-  if (!/safeReturnTo/.test(operationsActions) || !/revalidatePath\("\/platform\/provisioning"\)/.test(operationsActions)) {
-    addFailure(`${operationsActionsPath} must allow provisioning actions to redirect back to provisioning`);
+  if (
+    !/safeReturnTo/.test(operationsActions) ||
+    !/revalidatePath\("\/platform\/provisioning"\)/.test(operationsActions)
+  ) {
+    addFailure(
+      `${operationsActionsPath} must allow provisioning actions to redirect back to provisioning`,
+    );
   }
 
   for (const forbiddenSnippet of [
@@ -5535,23 +6406,29 @@ function checkTask044PlatformProvisioningUxRuntime() {
     "createPlatformPendingOwnerInviteAction",
     "grantPlatformAdminAction",
     "revokePlatformAdminAction",
-    "title=\"Create shop\"",
-    "title=\"Platform Admin grants\"",
+    'title="Create shop"',
+    'title="Platform Admin grants"',
     "pending_owner_invite",
     "admin_grant",
     "admin_revoke",
   ]) {
     if (operationsPage.includes(forbiddenSnippet)) {
-      addFailure(`${operationsPagePath} must not include duplicated ${forbiddenSnippet}`);
+      addFailure(
+        `${operationsPagePath} must not include duplicated ${forbiddenSnippet}`,
+      );
     }
   }
 
   if (!/Lifecycle operations/.test(platformData)) {
-    addFailure(`${platformDataPath} must describe Operations as lifecycle-focused`);
+    addFailure(
+      `${platformDataPath} must describe Operations as lifecycle-focused`,
+    );
   }
 
   if (/db_failure/.test(staffProvisioning)) {
-    addFailure(`${staffProvisioningPath} must not collapse manager failures into db_failure`);
+    addFailure(
+      `${staffProvisioningPath} must not collapse manager failures into db_failure`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -5566,8 +6443,13 @@ function checkTask044PlatformProvisioningUxRuntime() {
     }
   }
 
-  if (!/role={state\.ok \? "status" : "alert"}/.test(staffPanel) || !/aria-disabled/.test(staffPanel)) {
-    addFailure(`${staffPanelPath} must expose clear success/error status and disabled state`);
+  if (
+    !/role={state\.ok \? "status" : "alert"}/.test(staffPanel) ||
+    !/aria-disabled/.test(staffPanel)
+  ) {
+    addFailure(
+      `${staffPanelPath} must expose clear success/error status and disabled state`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -5585,13 +6467,16 @@ function checkTask044PlatformProvisioningUxRuntime() {
     }
   }
 
-  if (!/TASK-044 provisioning forms prevent double submit/.test(foundationTest)) {
+  if (
+    !/TASK-044 provisioning forms prevent double submit/.test(foundationTest)
+  ) {
     addFailure(`${foundationTestPath} must assert TASK-044 provisioning UX`);
   }
 }
 
 function checkTask045PlatformMasterConsoleFinalReview() {
-  const taskPath = "docs/TASKS/TASK-045-platform-master-console-final-review-done-reconciliation.md";
+  const taskPath =
+    "docs/TASKS/TASK-045-platform-master-console-final-review-done-reconciliation.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-045/README.md";
   const foundationTestPath =
     "tests/foundation/task-045-platform-master-console-final-review.test.mjs";
@@ -5674,16 +6559,21 @@ function checkTask045PlatformMasterConsoleFinalReview() {
       combinedDocs,
     )
   ) {
-    addFailure("TASK-045 must not declare Win7POS live or Sales Sync live PASS/DONE");
+    addFailure(
+      "TASK-045 must not declare Win7POS live or Sales Sync live PASS/DONE",
+    );
   }
 
   if (!/TASK-045 final review artifacts/.test(foundationTest)) {
-    addFailure(`${foundationTestPath} must assert TASK-045 final review artifacts`);
+    addFailure(
+      `${foundationTestPath} must assert TASK-045 final review artifacts`,
+    );
   }
 }
 
 function checkTask046TestTargetSeparation() {
-  const taskPath = "docs/TASKS/TASK-046-test-target-separation-local-vs-staging.md";
+  const taskPath =
+    "docs/TASKS/TASK-046-test-target-separation-local-vs-staging.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-046/README.md";
   const foundationTestPath =
     "tests/foundation/task-046-test-target-separation.test.mjs";
@@ -5742,7 +6632,9 @@ function checkTask046TestTargetSeparation() {
     }
 
     if (/cross-env/.test(script)) {
-      addFailure(`${scriptName} must use the Node wrapper instead of cross-env`);
+      addFailure(
+        `${scriptName} must use the Node wrapper instead of cross-env`,
+      );
     }
   }
 
@@ -5794,11 +6686,19 @@ function checkTask046TestTargetSeparation() {
     }
   }
 
-  if (!/PLAYWRIGHT_DISABLE_WEB_SERVER/.test(playwrightConfig) || !/useWebServer/.test(playwrightConfig)) {
-    addFailure(`${playwrightConfigPath} must allow staging to disable the local web server`);
+  if (
+    !/PLAYWRIGHT_DISABLE_WEB_SERVER/.test(playwrightConfig) ||
+    !/useWebServer/.test(playwrightConfig)
+  ) {
+    addFailure(
+      `${playwrightConfigPath} must allow staging to disable the local web server`,
+    );
   }
 
-  if (!/STAGING_TASK045_/.test(stagingSpec) || /delete\(\)|service_role|SUPABASE_SERVICE_ROLE_KEY/.test(stagingSpec)) {
+  if (
+    !/STAGING_TASK045_/.test(stagingSpec) ||
+    /delete\(\)|service_role|SUPABASE_SERVICE_ROLE_KEY/.test(stagingSpec)
+  ) {
     addFailure(`${stagingSpecPath} must be staging-safe and non-destructive`);
   }
 
@@ -5816,7 +6716,11 @@ function checkTask046TestTargetSeparation() {
     }
   }
 
-  if (!/TASK-046 wrappers enforce local and staging target guardrails/.test(foundationTest)) {
+  if (
+    !/TASK-046 wrappers enforce local and staging target guardrails/.test(
+      foundationTest,
+    )
+  ) {
     addFailure(`${foundationTestPath} must assert TASK-046 guardrails`);
   }
 }
@@ -5898,7 +6802,9 @@ function checkTask053AuthorizationStaffSafeReadBoundary() {
     ) ||
     (!task054Active && !task054Reconciled)
   ) {
-    addFailure("MASTER-PLAN must close TASK-053 and either track or reconcile TASK-054");
+    addFailure(
+      "MASTER-PLAN must close TASK-053 and either track or reconcile TASK-054",
+    );
   }
 
   if (
@@ -5906,11 +6812,18 @@ function checkTask053AuthorizationStaffSafeReadBoundary() {
       migration,
     )
   ) {
-    addFailure("TASK-053 migration must grant only the missing web_access_revoked_at safe column");
+    addFailure(
+      "TASK-053 migration must grant only the missing web_access_revoked_at safe column",
+    );
   }
 
-  if (!/security_invoker=true/.test(migration) || !/relrowsecurity/.test(migration)) {
-    addFailure("TASK-053 migration must verify security_invoker and RLS before granting the safe column");
+  if (
+    !/security_invoker=true/.test(migration) ||
+    !/relrowsecurity/.test(migration)
+  ) {
+    addFailure(
+      "TASK-053 migration must verify security_invoker and RLS before granting the safe column",
+    );
   }
 
   if (
@@ -5918,7 +6831,9 @@ function checkTask053AuthorizationStaffSafeReadBoundary() {
       migration,
     )
   ) {
-    addFailure("TASK-053 migration must not grant credential_hash to authenticated");
+    addFailure(
+      "TASK-053 migration must not grant credential_hash to authenticated",
+    );
   }
 
   if (
@@ -5926,10 +6841,16 @@ function checkTask053AuthorizationStaffSafeReadBoundary() {
       migration,
     )
   ) {
-    addFailure("TASK-053 migration must not grant mutative staff_accounts privileges to authenticated");
+    addFailure(
+      "TASK-053 migration must not grant mutative staff_accounts privileges to authenticated",
+    );
   }
 
-  if (/grant\s+[\s\S]*on table public\.staff_accounts[\s\S]*to anon/i.test(migration)) {
+  if (
+    /grant\s+[\s\S]*on table public\.staff_accounts[\s\S]*to anon/i.test(
+      migration,
+    )
+  ) {
     addFailure("TASK-053 migration must not expose staff_accounts to anon");
   }
 
@@ -5940,7 +6861,9 @@ function checkTask053AuthorizationStaffSafeReadBoundary() {
       staffReadModel,
     )
   ) {
-    addFailure(`${staffReadModelPath} must remain a safe shop-scoped read model`);
+    addFailure(
+      `${staffReadModelPath} must remain a safe shop-scoped read model`,
+    );
   }
 }
 
@@ -5970,7 +6893,9 @@ function checkTask057ShopCatalogWorkspace() {
   const previewRoute = read("src/app/shop/import-export/preview/route.ts");
   const applyRoute = read("src/app/shop/import-export/apply/route.ts");
   const exportRoute = read("src/app/shop/import-export/export/route.ts");
-  const importPanel = read("src/app/shop/_components/ImportExportActionPanel.tsx");
+  const importPanel = read(
+    "src/app/shop/_components/ImportExportActionPanel.tsx",
+  );
   const sectionData = read("src/server/shop-admin/shop-section-data.ts");
   const workbook = read("src/server/shop-admin/import-export-workbook.ts");
   const catalogMigration = read(
@@ -6011,20 +6936,34 @@ function checkTask057ShopCatalogWorkspace() {
       routeSource.indexOf("guardCatalogImportWorkbookFile(file)") >
         routeSource.indexOf("file.arrayBuffer()")
     ) {
-      addFailure(`TASK-057 ${routePath} route must guard origin, body and file size before parsing upload data`);
+      addFailure(
+        `TASK-057 ${routePath} route must guard origin, body and file size before parsing upload data`,
+      );
     }
   }
 
-  if (!/full price history/i.test(importPanel) || /recent prices/i.test(importPanel)) {
-    addFailure("TASK-057 import/export copy must describe full PriceHistory export");
+  if (
+    !/full price history/i.test(importPanel) ||
+    /recent prices/i.test(importPanel)
+  ) {
+    addFailure(
+      "TASK-057 import/export copy must describe full PriceHistory export",
+    );
   }
 
   if (!/"Cache-Control": "no-store"/.test(exportRoute)) {
-    addFailure("TASK-057 catalog export route must return business workbooks with no-store caching");
+    addFailure(
+      "TASK-057 catalog export route must return business workbooks with no-store caching",
+    );
   }
 
-  if (!/archivedProducts/.test(sectionData) || !/field: "State"/.test(sectionData)) {
-    addFailure("TASK-057 product detail must support archived catalog rows opened from the table");
+  if (
+    !/archivedProducts/.test(sectionData) ||
+    !/field: "State"/.test(sectionData)
+  ) {
+    addFailure(
+      "TASK-057 product detail must support archived catalog rows opened from the table",
+    );
   }
 
   if (
@@ -6034,20 +6973,29 @@ function checkTask057ShopCatalogWorkspace() {
     !/mergeCatalogExportPriceRows/.test(workbook) ||
     /TASK057_DEBUG|SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(workbook)
   ) {
-    addFailure("TASK-057 workbook import must use audited bulk RPCs without debug or service-role surface");
+    addFailure(
+      "TASK-057 workbook import must use audited bulk RPCs without debug or service-role surface",
+    );
   }
 
   for (const [migrationPath, migrationSource] of [
     ["20260612010000_task_057_shop_scoped_catalog.sql", catalogMigration],
-    ["20260612015644_task_057_shop_scoped_mobile_history.sql", mobileHistoryMigration],
+    [
+      "20260612015644_task_057_shop_scoped_mobile_history.sql",
+      mobileHistoryMigration,
+    ],
     ["20260612021252_task_057_bulk_product_import.sql", bulkProductMigration],
   ]) {
     if (/grant\s+.*\s+to\s+anon/i.test(migrationSource)) {
-      addFailure(`TASK-057 migration must not grant business access to anon: ${migrationPath}`);
+      addFailure(
+        `TASK-057 migration must not grant business access to anon: ${migrationPath}`,
+      );
     }
 
     if (/shop_id\s+set\s+not\s+null/i.test(migrationSource)) {
-      addFailure(`TASK-057 migration must remain additive for legacy shop_id rows: ${migrationPath}`);
+      addFailure(
+        `TASK-057 migration must remain additive for legacy shop_id rows: ${migrationPath}`,
+      );
     }
   }
 
@@ -6092,7 +7040,9 @@ function checkTask058CloudflareOpenNextHardening() {
     "src/app/shop/import-export/apply/route.ts",
     "src/app/shop/import-export/export/route.ts",
     "src/app/shop/import-export/template/route.ts",
-  ].map((routePath) => read(routePath)).join("\n");
+  ]
+    .map((routePath) => read(routePath))
+    .join("\n");
 
   for (const scriptName of [
     "cf:build",
@@ -6106,12 +7056,24 @@ function checkTask058CloudflareOpenNextHardening() {
     }
   }
 
-  if (!/wrangler deploy --env staging --keep-vars/.test(packageJson.scripts?.["cf:deploy:staging"] ?? "")) {
-    addFailure("TASK-058 staging deploy script must use wrangler --env staging --keep-vars");
+  if (
+    !/wrangler deploy --env staging --keep-vars/.test(
+      packageJson.scripts?.["cf:deploy:staging"] ?? "",
+    )
+  ) {
+    addFailure(
+      "TASK-058 staging deploy script must use wrangler --env staging --keep-vars",
+    );
   }
 
-  if (/cf:deploy:production|vercel deploy|vercel --prod/.test(JSON.stringify(packageJson.scripts))) {
-    addFailure("TASK-058 package scripts must not add production or Vercel deploy commands");
+  if (
+    /cf:deploy:production|vercel deploy|vercel --prod/.test(
+      JSON.stringify(packageJson.scripts),
+    )
+  ) {
+    addFailure(
+      "TASK-058 package scripts must not add production or Vercel deploy commands",
+    );
   }
 
   for (const requiredSnippet of [
@@ -6125,7 +7087,9 @@ function checkTask058CloudflareOpenNextHardening() {
     "npm run smoke:staging",
   ]) {
     if (!workflow.includes(requiredSnippet)) {
-      addFailure(`TASK-058 Cloudflare workflow must include ${requiredSnippet}`);
+      addFailure(
+        `TASK-058 Cloudflare workflow must include ${requiredSnippet}`,
+      );
     }
   }
 
@@ -6138,7 +7102,7 @@ function checkTask058CloudflareOpenNextHardening() {
   }
 
   for (const requiredSnippet of [
-    "\"compatibility_date\": \"2026-06-10\"",
+    '"compatibility_date": "2026-06-10"',
     "nodejs_compat",
     "global_fetch_strictly_public",
     "merchandise-control-admin-web-staging",
@@ -6149,7 +7113,11 @@ function checkTask058CloudflareOpenNextHardening() {
     }
   }
 
-  if (/SUPABASE_SERVICE_ROLE_KEY\s*:|CLOUDFLARE_API_TOKEN|password|secret/i.test(wranglerConfig)) {
+  if (
+    /SUPABASE_SERVICE_ROLE_KEY\s*:|CLOUDFLARE_API_TOKEN|password|secret/i.test(
+      wranglerConfig,
+    )
+  ) {
     addFailure("TASK-058 wrangler.jsonc must not contain secret material");
   }
 
@@ -6163,7 +7131,7 @@ function checkTask058CloudflareOpenNextHardening() {
     "content-security-policy",
     "x-frame-options",
     "POS method guard",
-    "method: \"GET\"",
+    'method: "GET"',
     "expect: [405]",
     "/api/pos/sales/sync",
     "/shop/import-export/preview",
@@ -6174,16 +7142,22 @@ function checkTask058CloudflareOpenNextHardening() {
     }
   }
 
-  if (/console\.log\(.*process\.env|SUPABASE_SERVICE_ROLE_KEY\s*=|CLOUDFLARE_API_TOKEN\s*=/.test(smoke)) {
+  if (
+    /console\.log\(.*process\.env|SUPABASE_SERVICE_ROLE_KEY\s*=|CLOUDFLARE_API_TOKEN\s*=/.test(
+      smoke,
+    )
+  ) {
     addFailure("TASK-058 local smoke must not print env secret values");
   }
 
   for (const requiredSnippet of [
-    "export const runtime = \"nodejs\"",
-    "\"Cache-Control\": \"no-store\"",
+    'export const runtime = "nodejs"',
+    '"Cache-Control": "no-store"',
   ]) {
     if (!importExportRoutes.includes(requiredSnippet)) {
-      addFailure(`TASK-058 import/export routes must include ${requiredSnippet}`);
+      addFailure(
+        `TASK-058 import/export routes must include ${requiredSnippet}`,
+      );
     }
   }
 
@@ -6195,7 +7169,9 @@ function checkTask058CloudflareOpenNextHardening() {
     "npm run cf:deploy:staging",
   ]) {
     if (!migration.includes(requiredSnippet)) {
-      addFailure(`TASK-058 Cloudflare migration runbook must include ${requiredSnippet}`);
+      addFailure(
+        `TASK-058 Cloudflare migration runbook must include ${requiredSnippet}`,
+      );
     }
   }
 
@@ -6232,7 +7208,8 @@ function checkTask065GoogleOauthRedirect() {
   const configPath = "supabase/config.toml";
   const envExamplePath = ".env.example";
   const smokePath = "scripts/testing/task-065-oauth-local-provider-smoke.mjs";
-  const foundationPath = "tests/foundation/task-065-google-oauth-redirect.test.mjs";
+  const foundationPath =
+    "tests/foundation/task-065-google-oauth-redirect.test.mjs";
 
   if (!existsSync(join(root, configPath))) {
     addFailure(`${configPath} is missing`);
@@ -6256,21 +7233,26 @@ function checkTask065GoogleOauthRedirect() {
     }
   }
 
-  const googleConfig = config.match(
-    /\[auth\.external\.google\][\s\S]*?(?=\n\[auth\.external\.|$)/,
-  )?.[0] ?? "";
+  const googleConfig =
+    config.match(
+      /\[auth\.external\.google\][\s\S]*?(?=\n\[auth\.external\.|$)/,
+    )?.[0] ?? "";
   const googleCredentialAssignments = googleConfig.matchAll(
     /^\s*(client_id|secret)\s*=\s*"([^"]*)"/gm,
   );
 
   for (const [, key, assignedValue] of googleCredentialAssignments) {
     if (assignedValue && !assignedValue.startsWith("env(")) {
-      addFailure(`TASK-065 Supabase Google OAuth ${key} must use env(...) substitution`);
+      addFailure(
+        `TASK-065 Supabase Google OAuth ${key} must use env(...) substitution`,
+      );
     }
   }
 
   if (/\.apps\.googleusercontent\.com|GOCSPX-/.test(googleConfig)) {
-    addFailure("TASK-065 Supabase config must not hardcode Google OAuth secrets or client IDs");
+    addFailure(
+      "TASK-065 Supabase config must not hardcode Google OAuth secrets or client IDs",
+    );
   }
 
   for (const envName of [
@@ -6289,7 +7271,7 @@ function checkTask065GoogleOauthRedirect() {
     "GOOGLE_PROVIDER_NOT_ENABLED",
     "GOOGLE_OAUTH_ERROR_PAGE",
     "accounts.google.com",
-    "redirect: \"manual\"",
+    'redirect: "manual"',
   ]) {
     if (!smoke.includes(requiredSnippet)) {
       addFailure(`TASK-065 OAuth smoke must include ${requiredSnippet}`);
@@ -6297,7 +7279,7 @@ function checkTask065GoogleOauthRedirect() {
   }
 
   for (const requiredSnippet of [
-    "safeInternalNextPath(\"/\\\\evil.example/path\")",
+    'safeInternalNextPath("/\\\\evil.example/path")',
     "hasMisconfiguredOAuthRedirectUrl",
     "hasInvalidGoogleOAuthClientIdLocation",
     "isGoogleOAuthAccountsLocation",
@@ -6309,6 +7291,89 @@ function checkTask065GoogleOauthRedirect() {
     if (!foundation.includes(requiredSnippet)) {
       addFailure(`TASK-065 foundation test must include ${requiredSnippet}`);
     }
+  }
+}
+
+function checkTask072CrossPlatformSync() {
+  const writerPath = "src/server/shop-admin/sync-event-writer.ts";
+  const historyMutationsPath = "src/server/shop-admin/history-mutations.ts";
+  const permissionsPath = "src/server/shop-admin/permissions.ts";
+  const historyRoutePath = "src/app/shop/history/[entryId]/page.tsx";
+  const writer = optionalRead(writerPath);
+  const historyMutations = optionalRead(historyMutationsPath);
+  const permissions = optionalRead(permissionsPath);
+  const historyRoute = optionalRead(historyRoutePath);
+
+  if (!writer || !historyMutations) {
+    return;
+  }
+
+  for (const [file, contents] of [
+    [writerPath, writer],
+    [historyMutationsPath, historyMutations],
+  ]) {
+    if (!/import "server-only"/.test(contents)) {
+      addFailure(`${file} must remain server-only for TASK-072 write paths`);
+    }
+
+    if (/console\.(log|debug|info|warn|error)/.test(contents)) {
+      addFailure(`${file} must not log TASK-072 sync or history write details`);
+    }
+  }
+
+  for (const forbidden of [
+    "barcode",
+    "password",
+    "pin_hash",
+    "credential",
+    "product_name",
+    "supplier_name",
+    "category_name",
+  ]) {
+    if (new RegExp(forbidden, "i").test(writer)) {
+      addFailure(
+        `${writerPath} must not store sensitive catalog fields in sync_events`,
+      );
+    }
+  }
+
+  for (const required of [
+    'source: "admin_web"',
+    "source_device_id: null",
+    "buildAdminWebClientEventId",
+    'domain: "history"',
+    'eventType: "history_tombstone"',
+    "SESSION_PAYLOAD_VERSION = 2",
+    "SESSION_OVERLAY_SCHEMA = 1",
+    "randomUUID().toLowerCase()",
+  ]) {
+    if (!writer.includes(required) && !historyMutations.includes(required)) {
+      addFailure(`TASK-072 server write path must include ${required}`);
+    }
+  }
+
+  if (!/session_ids:\s*\[\s*input\.remoteId\s*\]/.test(historyMutations)) {
+    addFailure(
+      `${historyMutationsPath} must emit history session_ids for mobile delta apply`,
+    );
+  }
+
+  if (/\.delete\s*\(/.test(historyMutations)) {
+    addFailure(
+      `${historyMutationsPath} must tombstone history rows instead of deleting them`,
+    );
+  }
+
+  if (!/"history\.write"/.test(permissions)) {
+    addFailure(
+      `${permissionsPath} must define the TASK-072 history.write permission`,
+    );
+  }
+
+  if (!/getShopHistoryDetailSectionForRequest/.test(historyRoute)) {
+    addFailure(
+      `${historyRoutePath} must keep loading detail through the server section builder`,
+    );
   }
 }
 
@@ -6359,6 +7424,7 @@ checkTask057ShopCatalogWorkspace();
 checkTask058CloudflareOpenNextHardening();
 checkTask065GoogleOauthRedirect();
 checkTask064PlatformUsersFoundation();
+checkTask072CrossPlatformSync();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

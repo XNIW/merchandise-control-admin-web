@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { AccountIdentity } from "@/components/account/AccountIdentity";
 import {
   formatDisplayValue,
   formatTimestampUtc,
@@ -10,6 +11,10 @@ import {
   isLikelyIdentifier,
   shortIdentifier,
 } from "./displayFormat";
+import {
+  accountIdentitySearchText,
+  isAccountIdentitySummary,
+} from "@/lib/account-identity";
 import { DEFAULT_LOCALE, type SupportedLocale } from "@/i18n/locales";
 import type {
   EmptyStateContent,
@@ -179,7 +184,7 @@ function rowMatchesSearch(row: TableRow, term: string) {
   }
 
   return Object.values(row).some((value) =>
-    normalizeSearch(value).includes(term),
+    normalizeSearch(cellSearchText(value)).includes(term),
   );
 }
 
@@ -199,7 +204,7 @@ function rowMatchesFilters(
       return true;
     }
 
-    const rowValue = normalizeSearch(row[filter.key] ?? "");
+    const rowValue = normalizeSearch(cellSearchText(row[filter.key]));
     const selectedOption = filter.options.find(
       (option) => option.value === selectedValue,
     );
@@ -305,11 +310,27 @@ function displayValueForSegment(
   return formatDisplayValue(value, locale);
 }
 
+function cellSearchText(value: TableRow[string] | undefined) {
+  if (!value) {
+    return "";
+  }
+
+  return isAccountIdentitySummary(value) ? accountIdentitySearchText(value) : value;
+}
+
 function renderCellValue(
-  value: string,
+  value: TableRow[string] | undefined,
   columnKey: string,
   locale: SupportedLocale = DEFAULT_LOCALE,
 ) {
+  if (isAccountIdentitySummary(value)) {
+    return <AccountIdentity identity={value} locale={locale} />;
+  }
+
+  if (typeof value !== "string") {
+    return null;
+  }
+
   const segments = value.split("\n").filter(Boolean);
   const isCodeColumn = columnKey === "code";
 
@@ -399,6 +420,14 @@ function renderDetailGroups(
               <div key={field.label}>
                 <dt className="font-semibold text-slate-500">{field.label}</dt>
                 {(() => {
+                  if (isAccountIdentitySummary(field.value)) {
+                    return (
+                      <dd className="mt-0.5 min-w-0">
+                        <AccountIdentity identity={field.value} locale={locale} />
+                      </dd>
+                    );
+                  }
+
                   const { text, fullValue } = displayValueForSegment(
                     field.value,
                     locale,
@@ -730,7 +759,8 @@ export function PlatformMasterDetail({
                                 ? labels.selectedRow
                                 : labels.selectRow
                             } ${
-                              row[columns[0]?.key ?? ""] ?? rowKey
+                              cellSearchText(row[columns[0]?.key ?? ""]) ||
+                              rowKey
                             }. ${labels.doubleClickToOpenFullDetail}.`
                           : undefined
                       }
@@ -813,12 +843,14 @@ export function PlatformMasterDetail({
                               ].join(" ")}
                             >
                               {renderCellValue(
-                                row[column.key] ?? "",
+                                row[column.key],
                                 column.key,
                                 locale,
                               )}
                             </div>
-                            {column.key === "code" && row[column.key] ? (
+                            {column.key === "code" &&
+                            typeof row[column.key] === "string" &&
+                            row[column.key] ? (
                               <button
                                 type="button"
                                 onDoubleClick={(event) => {
@@ -826,7 +858,7 @@ export function PlatformMasterDetail({
                                 }}
                                 onClick={(event) => {
                                   event.stopPropagation();
-                                  void copyCode(row[column.key] ?? "");
+                                  void copyCode(String(row[column.key] ?? ""));
                                 }}
                                 onKeyDown={(event) => {
                                   if (
@@ -837,7 +869,7 @@ export function PlatformMasterDetail({
                                   }
                                 }}
                                 className="shrink-0 whitespace-nowrap rounded-md border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950"
-                                aria-label={`${labels.copyShopCode} ${row[column.key]}`}
+                                aria-label={`${labels.copyShopCode} ${cellSearchText(row[column.key])}`}
                               >
                                 {copiedCode === row[column.key]
                                   ? labels.copied

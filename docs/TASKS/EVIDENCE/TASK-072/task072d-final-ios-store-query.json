@@ -1,0 +1,11 @@
+[{"metric":"products_active","value":0},
+{"metric":"products_tombstoned","value":0},
+{"metric":"suppliers_active","value":0},
+{"metric":"suppliers_tombstoned","value":0},
+{"metric":"categories_active","value":0},
+{"metric":"categories_tombstoned","value":0},
+{"metric":"history_active","value":0},
+{"metric":"history_tombstoned","value":0},
+{"metric":"local_pending_open","value":0},
+{"metric":"sync_outbox_open","value":0},
+{"metric":"sync_outbox_localOnly_all","value":2}]

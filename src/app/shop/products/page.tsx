@@ -742,6 +742,12 @@ function hasRowValue(row: AdminDataTableRow, key: string) {
   return row[key] === "true";
 }
 
+function rowString(row: AdminDataTableRow, key: string) {
+  const value = row[key];
+
+  return typeof value === "string" ? value : "";
+}
+
 function ProductInfoLine({
   code,
   icon,
@@ -823,13 +829,27 @@ function ProductCatalogList({
         const isArchived = hasRowValue(row, "isArchived");
         const hasSupplier = hasRowValue(row, "hasSupplier");
         const hasCategory = hasRowValue(row, "hasCategory");
+        const archivedAt = rowString(row, "archivedAt");
+        const barcode = rowString(row, "barcode");
+        const categoryName = rowString(row, "categoryName");
+        const itemNumber = rowString(row, "itemNumber");
+        const productId = rowString(row, "productId");
+        const productName = rowString(row, "productName");
+        const purchasePrice = rowString(row, "purchasePrice");
+        const retailPrice = rowString(row, "retailPrice");
+        const secondName = rowString(row, "secondName");
+        const state = rowString(row, "state");
+        const stockQuantity = rowString(row, "stockQuantity");
+        const supplierName = rowString(row, "supplierName");
+        const updatedArchived = rowString(row, "updatedArchived");
+        const updatedAt = rowString(row, "updatedAt");
         const pricingMetricCandidates: Array<ProductDisplayMetric | null> = [];
 
         if (hasRowValue(row, "hasPurchasePrice")) {
           pricingMetricCandidates.push({
             icon: "price",
             label: columnLabel(liveData, "purchasePrice"),
-            value: row.purchasePrice,
+            value: purchasePrice,
           });
         }
 
@@ -837,7 +857,7 @@ function ProductCatalogList({
           pricingMetricCandidates.push({
             icon: "price",
             label: columnLabel(liveData, "retailPrice"),
-            value: row.retailPrice,
+            value: retailPrice,
           });
         }
 
@@ -845,7 +865,7 @@ function ProductCatalogList({
           pricingMetricCandidates.push({
             icon: "stock",
             label: columnLabel(liveData, "stockQuantity"),
-            value: row.stockQuantity,
+            value: stockQuantity,
           });
         }
 
@@ -872,16 +892,16 @@ function ProductCatalogList({
                 <div className="min-w-0">
                   <p
                     className="line-clamp-2 break-words text-base font-semibold leading-6 text-zinc-950 [overflow-wrap:anywhere]"
-                    title={row.productName}
+                    title={productName}
                   >
-                    {row.productName}
+                    {productName}
                   </p>
                   {hasRowValue(row, "hasSecondName") ? (
                     <p
                       className="mt-1 line-clamp-1 break-words text-sm leading-5 text-zinc-600 [overflow-wrap:anywhere]"
-                      title={row.secondName}
+                      title={secondName}
                     >
-                      {row.secondName}
+                      {secondName}
                     </p>
                   ) : null}
                   <dl className="mt-2">
@@ -890,7 +910,7 @@ function ProductCatalogList({
                         {columnLabel(liveData, "productId")}
                       </dt>
                       <dd className="min-w-0 truncate font-mono text-zinc-900">
-                        {row.productId}
+                        {productId}
                       </dd>
                     </div>
                   </dl>
@@ -907,13 +927,13 @@ function ProductCatalogList({
                   code
                   icon="barcode"
                   label={columnLabel(liveData, "barcode")}
-                  value={row.barcode}
+                  value={barcode}
                 />
                 <ProductInfoLine
                   code
                   icon="tag"
                   label={columnLabel(liveData, "itemNumber")}
-                  value={row.itemNumber}
+                  value={itemNumber}
                 />
               </dl>
             </section>
@@ -927,20 +947,20 @@ function ProductCatalogList({
                   <ProductInfoLine
                     icon="supplier"
                     label={columnLabel(liveData, "supplierName")}
-                    value={row.supplierName}
+                    value={supplierName}
                   />
                 ) : null}
                 {hasCategory ? (
                   <ProductInfoLine
                     icon="category"
                     label={columnLabel(liveData, "categoryName")}
-                    value={row.categoryName}
+                    value={categoryName}
                   />
                 ) : null}
                 {!hasSupplier && !hasCategory ? (
                   <div>
                     <dt className="sr-only">{labels.classification}</dt>
-                    <dd className="text-sm text-zinc-500">{row.supplierName}</dd>
+                    <dd className="text-sm text-zinc-500">{supplierName}</dd>
                   </div>
                 ) : null}
               </dl>
@@ -983,7 +1003,7 @@ function ProductCatalogList({
                       ].join(" ")}
                     >
                       <ProductsIcon name={isArchived ? "archive" : "package"} />
-                      {row.state}
+                      {state}
                     </span>
                   </dd>
                 </div>
@@ -991,8 +1011,7 @@ function ProductCatalogList({
                   icon="clock"
                   label={isArchived ? labels.archived : labels.updated}
                   value={
-                    (isArchived ? row.archivedAt : row.updatedAt) ||
-                    row.updatedArchived
+                    (isArchived ? archivedAt : updatedAt) || updatedArchived
                   }
                 />
               </dl>

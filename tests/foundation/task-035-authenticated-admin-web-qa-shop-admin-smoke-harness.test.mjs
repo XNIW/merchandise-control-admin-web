@@ -10,7 +10,11 @@ function readProjectFile(relativePath) {
 }
 
 function assertContains(source, required, label = required) {
-  assert.match(source, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")), label);
+  assert.match(
+    source,
+    new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    label,
+  );
 }
 
 test("TASK-035 artifacts define authenticated Shop Admin QA scope and DONE handoff", () => {
@@ -18,8 +22,16 @@ test("TASK-035 artifacts define authenticated Shop Admin QA scope and DONE hando
     "docs/TASKS/TASK-035-authenticated-admin-web-qa-shop-admin-smoke-harness.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-035/README.md";
 
-  assert.equal(existsSync(join(root, taskPath)), true, `${taskPath} is missing`);
-  assert.equal(existsSync(join(root, evidencePath)), true, `${evidencePath} is missing`);
+  assert.equal(
+    existsSync(join(root, taskPath)),
+    true,
+    `${taskPath} is missing`,
+  );
+  assert.equal(
+    existsSync(join(root, evidencePath)),
+    true,
+    `${evidencePath} is missing`,
+  );
 
   const task = readProjectFile(taskPath);
   const evidence = readProjectFile(evidencePath);
@@ -59,7 +71,7 @@ test("TASK-035 artifacts define authenticated Shop Admin QA scope and DONE hando
   );
   assert.match(
     masterPlan,
-    /Ultimo task completato: `TASK-035|Ultimo task completato: `TASK-036|Ultimo task completato: `TASK-037|Ultimo task completato: `TASK-038|Ultimo task completato: `TASK-039|Ultimo task completato: `TASK-054|Ultimo task completato: `TASK-056|Ultimo task completato: `TASK-057|Ultimo task completato: `TASK-059|Ultimo task completato: `TASK-060|Ultimo task completato: `TASK-061/,
+    /Ultimo task completato: `TASK-035|Ultimo task completato: `TASK-036|Ultimo task completato: `TASK-037|Ultimo task completato: `TASK-038|Ultimo task completato: `TASK-039|Ultimo task completato: `TASK-054|Ultimo task completato: `TASK-056|Ultimo task completato: `TASK-057|Ultimo task completato: `TASK-059|Ultimo task completato: `TASK-060|Ultimo task completato: `TASK-061|Ultimo task completato: `TASK-073/,
   );
   assert.match(masterPlan, /Stato TASK-034: `DONE_RECONCILED_WITH_NOTES`/);
   assert.match(task, /Stato: `DONE`/);
@@ -67,14 +79,22 @@ test("TASK-035 artifacts define authenticated Shop Admin QA scope and DONE hando
   assert.match(evidence, /Stato task: `DONE`/);
   assert.match(evidence, /Verdict corrente: `DONE`/);
   assert.match(evidence, /Target Supabase \| `supabase_cloud`/);
-  assert.doesNotMatch(`${task}\n${evidence}`, /create table|export async function POST|supabase\/migrations/i);
+  assert.doesNotMatch(
+    `${task}\n${evidence}`,
+    /create table|export async function POST|supabase\/migrations/i,
+  );
 });
 
 test("TASK-035 exposes a guarded Shop Admin authenticated smoke harness", () => {
   const packageJson = JSON.parse(readProjectFile("package.json"));
-  const harnessPath = "tests/e2e/task-035-shop-admin-authenticated-smoke.spec.ts";
+  const harnessPath =
+    "tests/e2e/task-035-shop-admin-authenticated-smoke.spec.ts";
 
-  assert.equal(existsSync(join(root, harnessPath)), true, `${harnessPath} is missing`);
+  assert.equal(
+    existsSync(join(root, harnessPath)),
+    true,
+    `${harnessPath} is missing`,
+  );
   assert.equal(
     packageJson.scripts["test:shop-admin-auth-smoke"],
     "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-035-shop-admin-authenticated-smoke.spec.ts --project=chromium-desktop",
@@ -115,7 +135,10 @@ test("TASK-035 exposes a guarded Shop Admin authenticated smoke harness", () => 
     assertContains(harness, required);
   }
 
-  assert.doesNotMatch(harness, /TASK014QA_|TASK032_TEST_|SUPABASE_SERVICE_ROLE_KEY\\s*=/i);
+  assert.doesNotMatch(
+    harness,
+    /TASK014QA_|TASK032_TEST_|SUPABASE_SERVICE_ROLE_KEY\\s*=/i,
+  );
   assert.doesNotMatch(harness, /credential_status:\s*"pending_credential"/);
   assert.doesNotMatch(harness, /device_type:\s*"pos_terminal"/);
 });

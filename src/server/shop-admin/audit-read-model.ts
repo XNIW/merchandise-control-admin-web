@@ -2,6 +2,14 @@ import "server-only";
 
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Json, Tables } from "@/lib/supabase/database.types";
+import {
+  createAccountIdentitySummary,
+  type AccountIdentitySummary,
+} from "@/lib/account-identity";
+import {
+  loadAuthIdentitySummariesByIds,
+  type PlatformAuthIdentitySummary,
+} from "@/server/platform-admin/auth-identities";
 import { redactShopAdminJson, stringifyRedactedJson } from "./history-read-model";
 import { resolveShopAdminDataAccess, type ShopAdminDataClient } from "./data-access";
 import type {
@@ -26,6 +34,7 @@ type AuditLogRow = Pick<
 export type ShopAuditReadModelStatus = ShopAdminReadModelStatus;
 
 export type ShopAuditEvent = {
+  actorIdentity: AccountIdentitySummary | null;
   actorProfileId: string | null;
   auditLogId: string;
   createdAt: string;
@@ -102,8 +111,48 @@ function metadataSummary(value: Json) {
   return String(redacted ?? "None");
 }
 
-function mapAuditEvent(row: AuditLogRow): ShopAuditEvent {
+function availableAuthValue(value: string | undefined) {
+  return value &&
+    value !== "Auth identity unavailable" &&
+    value !== "Email unavailable"
+    ? value
+    : null;
+}
+
+function identityFromAuthSummary(
+  profileId: string,
+  authIdentity: PlatformAuthIdentitySummary | undefined,
+) {
+  return createAccountIdentitySummary({
+    displayName: availableAuthValue(authIdentity?.displayName),
+    email: availableAuthValue(authIdentity?.email),
+    profileId,
+    rawProvider:
+      authIdentity?.provider && authIdentity.provider !== "unknown"
+        ? authIdentity.provider
+        : null,
+  });
+}
+
+async function loadScopedAccountIdentityMap(profileIds: readonly string[]) {
+  const result = await loadAuthIdentitySummariesByIds(profileIds);
+
+  return new Map(
+    result.identities.map((identity) => [identity.authUserId, identity]),
+  );
+}
+
+function mapAuditEvent(
+  row: AuditLogRow,
+  identitiesByProfileId: ReadonlyMap<string, PlatformAuthIdentitySummary> = new Map(),
+): ShopAuditEvent {
   return {
+    actorIdentity: row.actor_profile_id
+      ? identityFromAuthSummary(
+          row.actor_profile_id,
+          identitiesByProfileId.get(row.actor_profile_id),
+        )
+      : null,
     actorProfileId: row.actor_profile_id,
     auditLogId: row.audit_log_id,
     createdAt: row.created_at,
@@ -220,10 +269,21 @@ export async function getShopAuditReadModel(
     };
   }
 
+  const auditRows = (auditResult.data ?? []) as AuditLogRow[];
+  const actorProfileIds = Array.from(
+    new Set(
+      auditRows
+        .map((row) => row.actor_profile_id)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+  const identitiesByProfileId =
+    await loadScopedAccountIdentityMap(actorProfileIds);
+
   return {
     status: "ready",
     selectedShop,
-    events: (auditResult.data ?? []).map(mapAuditEvent),
+    events: auditRows.map((row) => mapAuditEvent(row, identitiesByProfileId)),
     filters,
     readOnly: true,
     source: "supabase_server",
@@ -290,10 +350,16 @@ export async function getShopAuditDetailReadModel(
     };
   }
 
+  const identitiesByProfileId = auditResult.data?.actor_profile_id
+    ? await loadScopedAccountIdentityMap([auditResult.data.actor_profile_id])
+    : new Map<string, PlatformAuthIdentitySummary>();
+
   return {
     status: auditResult.data ? "ready" : "not_found",
     selectedShop,
-    event: auditResult.data ? mapAuditEvent(auditResult.data) : null,
+    event: auditResult.data
+      ? mapAuditEvent(auditResult.data, identitiesByProfileId)
+      : null,
     readOnly: true,
     source: "supabase_server",
     reason: auditResult.data

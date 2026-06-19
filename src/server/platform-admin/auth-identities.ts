@@ -127,14 +127,6 @@ function providerSummaryForUser(user: User): {
     }
   }
 
-  if (providers.size === 0 && user.email) {
-    providers.add("email");
-  }
-
-  if (providers.size === 0 && user.phone) {
-    providers.add("phone");
-  }
-
   const provider = Array.from(providers).sort().join(", ") || "unknown";
   const primary = provider.split(", ")[0] ?? "unknown";
 
@@ -269,5 +261,63 @@ export async function loadPlatformAuthIdentitySummaries(
     scannedCount,
     status: "ready",
     truncated,
+  };
+}
+
+export async function loadAuthIdentitySummariesByIds(
+  profileIds: readonly string[],
+): Promise<PlatformAuthIdentityLoadResult> {
+  const config = resolveSupabaseAdminConfig();
+
+  if (config.status !== "configured") {
+    return {
+      identities: [],
+      reason:
+        "Supabase Auth identity summaries require server admin runtime env after authorization.",
+      scannedCount: 0,
+      status: "not_configured",
+      truncated: false,
+    };
+  }
+
+  const admin = createSupabaseAdminClient(config);
+
+  if (!admin) {
+    return {
+      identities: [],
+      reason:
+        "Supabase Auth identity summaries are unavailable for this request.",
+      scannedCount: 0,
+      status: "not_configured",
+      truncated: false,
+    };
+  }
+
+  const ids = Array.from(new Set(profileIds)).filter((profileId) =>
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+      profileId,
+    ),
+  );
+  const identities: PlatformAuthIdentitySummary[] = [];
+  let scannedCount = 0;
+
+  for (const profileId of ids) {
+    const { data, error } = await admin.auth.admin.getUserById(profileId);
+    scannedCount += 1;
+
+    if (error) {
+      continue;
+    }
+
+    if (data.user) {
+      identities.push(mapAuthUserToSummary(data.user));
+    }
+  }
+
+  return {
+    identities,
+    scannedCount,
+    status: "ready",
+    truncated: false,
   };
 }

@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createHash, randomBytes, scrypt } from "node:crypto";
+import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import type { Database } from "../../src/lib/supabase/database.types";
 
@@ -25,6 +26,10 @@ type Task035Fixture = {
   categoryId: string;
   cleanup: () => Promise<CleanupSummary>;
   email: string;
+  blockedDeviceDisplayName: string;
+  blockedDeviceIdentifier: string;
+  deviceDisplayName: string;
+  deviceIdentifier: string;
   password: string;
   productName: string;
   shopCode: string;
@@ -69,29 +74,68 @@ const STAFF_SCRYPT_PARAMS = {
   r: 8,
 };
 const STAFF_SCRYPT_MAXMEM = 64 * 1024 * 1024;
+const TASK073_EVIDENCE_DIR = "docs/TASKS/EVIDENCE/TASK-073";
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 const authenticatedSmokeRoutes: Array<{
   assertText?: (fixture: Task035Fixture) => string;
   heading: string;
   path: string;
 }> = [
-  { heading: "Shop Overview", path: "/shop", assertText: (fixture) => fixture.shopCode },
+  {
+    heading: "Shop Overview",
+    path: "/shop",
+    assertText: (fixture) => fixture.shopCode,
+  },
   {
     heading: "Products",
     path: "/shop/products",
     assertText: (fixture) => fixture.productName,
   },
-  { heading: "Categories", path: "/shop/categories", assertText: () => "TASK035_Category" },
-  { heading: "Suppliers", path: "/shop/suppliers", assertText: () => "TASK035_Supplier" },
-  { heading: "Import / Export", path: "/shop/import-export", assertText: () => "Preview before apply" },
+  {
+    heading: "Categories",
+    path: "/shop/categories",
+    assertText: () => "TASK035_Category",
+  },
+  {
+    heading: "Suppliers",
+    path: "/shop/suppliers",
+    assertText: () => "TASK035_Supplier",
+  },
+  {
+    heading: "Import / Export",
+    path: "/shop/import-export",
+    assertText: () => "Preview before apply",
+  },
   { heading: "Members", path: "/shop/members", assertText: () => "Shop Owner" },
   { heading: "Roles", path: "/shop/roles", assertText: () => "Shop Owner" },
-  { heading: "POS / Staff", path: "/shop/staff", assertText: (fixture) => fixture.staffCode },
-  { heading: "Devices", path: "/shop/devices", assertText: () => "Reason" },
-  { heading: "Audit", path: "/shop/audit", assertText: () => "No shop audit rows are visible" },
-  { heading: "Settings", path: "/shop/settings", assertText: () => "Server verified" },
+  {
+    heading: "POS / Staff",
+    path: "/shop/staff",
+    assertText: (fixture) => fixture.staffCode,
+  },
+  {
+    heading: "Devices",
+    path: "/shop/devices",
+    assertText: (fixture) => fixture.deviceDisplayName,
+  },
+  {
+    heading: "Audit",
+    path: "/shop/audit",
+    assertText: () => "shop.account_identity.task073.visual_check",
+  },
+  {
+    heading: "Settings",
+    path: "/shop/settings",
+    assertText: () => "Server verified",
+  },
   { heading: "POS Live", path: "/shop/pos", assertText: () => "TASK035_SMOKE" },
-  { heading: "Sync Center", path: "/shop/sync", assertText: () => "without triggering synchronization" },
+  {
+    heading: "Sync Center",
+    path: "/shop/sync",
+    assertText: () => "without triggering synchronization",
+  },
 ];
 
 function loadEnvFile(path: string) {
@@ -166,7 +210,8 @@ function resolveRuntime(): Runtime {
 
   if (!supabaseUrl) {
     return {
-      reason: "BLOCKED_NO_AUTH_SESSION: NEXT_PUBLIC_SUPABASE_URL is not configured.",
+      reason:
+        "BLOCKED_NO_AUTH_SESSION: NEXT_PUBLIC_SUPABASE_URL is not configured.",
       status: "blocked",
       supabaseTargetKind: targetKind,
     };
@@ -215,7 +260,7 @@ async function must<T>(
   const { data, error } = await result;
 
   if (error) {
-    throw new Error(`BLOCKED_TASK035_${label}`);
+    throw new Error(`BLOCKED_TASK035_${label}: ${formatSupabaseError(error)}`);
   }
 
   return data;
@@ -228,10 +273,91 @@ async function mustSingle<T>(
   const { data, error } = await result;
 
   if (error || data === null) {
-    throw new Error(`BLOCKED_TASK035_${label}`);
+    throw new Error(
+      `BLOCKED_TASK035_${label}: ${
+        error ? formatSupabaseError(error) : "missing data"
+      }`,
+    );
   }
 
   return data;
+}
+
+function formatSupabaseError(error: unknown) {
+  if (!error) {
+    return "unknown error";
+  }
+
+  if (typeof error === "object") {
+    const record = error as Record<string, unknown>;
+    const parts = ["message", "code", "details", "hint"]
+      .map((key) =>
+        typeof record[key] === "string" && record[key]
+          ? `${key}=${record[key]}`
+          : "",
+      )
+      .filter(Boolean);
+
+    if (parts.length > 0) {
+      return parts.join("; ");
+    }
+  }
+
+  return String(error);
+}
+
+function localDatabaseUrl() {
+  const output = execFileSync("supabase", ["status", "--output", "env"], {
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      DO_NOT_TRACK: "1",
+      SUPABASE_TELEMETRY_DISABLED: "1",
+    },
+  });
+  const dbUrl = output.match(/^DB_URL="?([^"\n]+)"?$/m)?.[1];
+
+  if (!dbUrl) {
+    throw new Error("TASK035_LOCAL_DB_URL_MISSING");
+  }
+
+  return dbUrl;
+}
+
+function deleteTask035AuditRows(shopIds: readonly string[]) {
+  if (shopIds.length === 0) {
+    return;
+  }
+
+  for (const shopId of shopIds) {
+    if (!UUID_PATTERN.test(shopId)) {
+      throw new Error("TASK035_AUDIT_CLEANUP_SHOP_ID_INVALID");
+    }
+  }
+
+  execFileSync(
+    "psql",
+    [
+      localDatabaseUrl(),
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-c",
+      [
+        "alter table public.audit_logs disable trigger user",
+        `delete from public.audit_logs where shop_id in (${shopIds
+          .map((shopId) => `'${shopId}'`)
+          .join(",")})`,
+        "alter table public.audit_logs enable trigger user",
+      ].join(";"),
+    ],
+    {
+      env: {
+        ...process.env,
+        PGCONNECT_TIMEOUT: "5",
+      },
+      stdio: "ignore",
+    },
+  );
 }
 
 function task035Code(nonce: string, suffix: string) {
@@ -292,20 +418,30 @@ function hashStaffWebSecret(secret: string) {
   return `sha256:${createHash("sha256").update(secret, "utf8").digest("hex")}`;
 }
 
-async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" }>) {
-  const supabase = createClient<Database>(runtime.supabaseUrl, runtime.serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      persistSession: false,
+async function createTask035Fixture(
+  runtime: Extract<Runtime, { status: "ready" }>,
+) {
+  const supabase = createClient<Database>(
+    runtime.supabaseUrl,
+    runtime.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        persistSession: false,
+      },
     },
-  });
+  );
   const nonce = randomBytes(5).toString("hex").toUpperCase();
   const email = `task035-${nonce.toLowerCase()}@example.invalid`;
   const password = randomBytes(24).toString("base64url");
   const shopCode = task035Code(nonce, "SHOP");
   const blockedShopCode = task035Code(nonce, "BLOCKED");
   const categoryName = `TASK035_Category_${nonce}`;
+  const blockedDeviceIdentifier = task035Code(nonce, "BLOCKED_DEVICE");
+  const blockedDeviceDisplayName = `TASK035 Blocked Device ${nonce}`;
+  const deviceIdentifier = task035Code(nonce, "DEVICE");
+  const deviceDisplayName = `TASK035 Device ${nonce}`;
   const supplierName = `TASK035_Supplier_${nonce}`;
   const productName = `TASK035_Product_${nonce}`;
   const staffCode = task035Code(nonce, "STAFF");
@@ -344,15 +480,16 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
       const { error } = await result;
 
       if (error) {
-        cleanupErrors.push(label);
+        cleanupErrors.push(`${label}: ${formatSupabaseError(error)}`);
       }
     }
 
     if (shopIds.length > 0) {
-      await recordCleanup(
-        "AUDIT_DELETE",
-        supabase.from("audit_logs").delete().in("shop_id", shopIds),
-      );
+      try {
+        deleteTask035AuditRows(shopIds);
+      } catch (error) {
+        cleanupErrors.push(`AUDIT_DELETE: ${formatSupabaseError(error)}`);
+      }
       await recordCleanup(
         "DEVICE_DELETE",
         supabase.from("shop_devices").delete().in("shop_id", shopIds),
@@ -422,7 +559,9 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
 
     const userDelete = await supabase.auth.admin.deleteUser(userId);
     if (userDelete.error) {
-      cleanupErrors.push("AUTH_USER_DELETE");
+      cleanupErrors.push(
+        `AUTH_USER_DELETE: ${formatSupabaseError(userDelete.error)}`,
+      );
     }
 
     const residualRows = await countTask035ResidualRows(supabase, {
@@ -433,7 +572,7 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
       userId,
     });
     if (residualRows > 0) {
-      cleanupErrors.push("RESIDUAL_ROWS");
+      cleanupErrors.push(`RESIDUAL_ROWS: ${residualRows}`);
     }
 
     return {
@@ -549,7 +688,9 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
       }),
     );
     const cashierCredentialHash = await hashStaffCredential(cashierCredential);
-    const managerCredentialHash = await hashStaffCredential(staffManagerCredential);
+    const managerCredentialHash = await hashStaffCredential(
+      staffManagerCredential,
+    );
 
     const cashierStaff = await mustSingle<{ staff_id: string }>(
       "STAFF_CREATE",
@@ -615,20 +756,58 @@ async function createTask035Fixture(runtime: Extract<Runtime, { status: "ready" 
       supabase.from("shop_devices").insert({
         app_version: "TASK035_SMOKE",
         created_by_profile_id: userId,
-        device_identifier: task035Code(nonce, "DEVICE"),
+        device_identifier: deviceIdentifier,
         device_type: "pos",
-        display_name: `TASK035 Device ${nonce}`,
-        metadata_redacted: { source: "TASK035_smoke" },
+        display_name: deviceDisplayName,
+        last_seen_at: now,
+        last_seen_principal_kind: "personal_account",
+        last_seen_profile_id: userId,
+        metadata_redacted: {},
         shop_id: authorizedShopId,
         status: "active",
         updated_by_profile_id: userId,
       }),
     );
+    await must(
+      "BLOCKED_DEVICE_CREATE",
+      supabase.from("shop_devices").insert({
+        app_version: "TASK035_BLOCKED_SMOKE",
+        created_by_profile_id: userId,
+        device_identifier: blockedDeviceIdentifier,
+        device_type: "pos",
+        display_name: blockedDeviceDisplayName,
+        last_seen_at: now,
+        last_seen_principal_kind: "personal_account",
+        last_seen_profile_id: userId,
+        metadata_redacted: {},
+        shop_id: blockedShopId,
+        status: "active",
+        updated_by_profile_id: userId,
+      }),
+    );
+    await must(
+      "TASK073_AUDIT_CREATE",
+      supabase.from("audit_logs").insert({
+        actor_profile_id: userId,
+        event_key: "shop.account_identity.task073.visual_check",
+        metadata_redacted: { evidence: "TASK-073" },
+        result: "success",
+        scope: "shop",
+        severity: "info",
+        shop_id: authorizedShopId,
+        target_id: userId,
+        target_type: "profile",
+      }),
+    );
     return {
       blockedShopCode,
+      blockedDeviceDisplayName,
+      blockedDeviceIdentifier,
       blockedShopId,
       categoryId: category.id,
       cleanup,
+      deviceDisplayName,
+      deviceIdentifier,
       email,
       password,
       productName,
@@ -681,7 +860,10 @@ async function createTask068KProducts(
     };
   });
 
-  await must("TASK068K_PRODUCTS_CREATE", supabase.from("inventory_products").insert(rows));
+  await must(
+    "TASK068K_PRODUCTS_CREATE",
+    supabase.from("inventory_products").insert(rows),
+  );
 }
 
 async function countTask035ResidualRows(
@@ -729,46 +911,50 @@ async function countTask035ResidualRows(
       : [];
   const [shops, products, categories, suppliers, profile, ...children] =
     await Promise.all([
-    supabase
-      .from("shops")
-      .select("shop_id", { count: "exact", head: true })
-      .in("shop_code", [input.shopCode, input.blockedShopCode]),
-    supabase
-      .from("inventory_products")
-      .select("id", { count: "exact", head: true })
-      .eq("owner_user_id", input.userId)
-      .like("barcode", "TASK035_%"),
-    supabase
-      .from("inventory_categories")
-      .select("id", { count: "exact", head: true })
-      .eq("owner_user_id", input.userId)
-      .like("name", "TASK035_%"),
-    supabase
-      .from("inventory_suppliers")
-      .select("id", { count: "exact", head: true })
-      .eq("owner_user_id", input.userId)
-      .like("name", "TASK035_%"),
-    supabase
-      .from("profiles")
-      .select("profile_id", { count: "exact", head: true })
-      .eq("profile_id", input.userId),
-    supabase
-      .from("staff_web_login_attempts")
-      .select("attempt_key_hash", { count: "exact", head: true })
-      .eq("attempt_key_hash", input.staffWebAttemptKeyHash),
-    ...childTableCounts,
-  ]);
-  const countResults = [shops, products, categories, suppliers, profile, ...children];
+      supabase
+        .from("shops")
+        .select("shop_id", { count: "exact", head: true })
+        .in("shop_code", [input.shopCode, input.blockedShopCode]),
+      supabase
+        .from("inventory_products")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_user_id", input.userId)
+        .like("barcode", "TASK035_%"),
+      supabase
+        .from("inventory_categories")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_user_id", input.userId)
+        .like("name", "TASK035_%"),
+      supabase
+        .from("inventory_suppliers")
+        .select("id", { count: "exact", head: true })
+        .eq("owner_user_id", input.userId)
+        .like("name", "TASK035_%"),
+      supabase
+        .from("profiles")
+        .select("profile_id", { count: "exact", head: true })
+        .eq("profile_id", input.userId),
+      supabase
+        .from("staff_web_login_attempts")
+        .select("attempt_key_hash", { count: "exact", head: true })
+        .eq("attempt_key_hash", input.staffWebAttemptKeyHash),
+      ...childTableCounts,
+    ]);
+  const countResults = [
+    shops,
+    products,
+    categories,
+    suppliers,
+    profile,
+    ...children,
+  ];
   const failedCount = countResults.find((result) => result.error);
 
   if (failedCount) {
     throw new Error("BLOCKED_TASK035_CLEANUP_FAILED");
   }
 
-  return countResults.reduce(
-    (total, result) => total + (result.count ?? 0),
-    0,
-  );
+  return countResults.reduce((total, result) => total + (result.count ?? 0), 0);
 }
 
 async function signInWithTask035Credentials(
@@ -793,13 +979,17 @@ async function createTask035StaffWebSession(
   fixture: Task035Fixture,
   staffId: string,
 ) {
-  const supabase = createClient<Database>(runtime.supabaseUrl, runtime.serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      detectSessionInUrl: false,
-      persistSession: false,
+  const supabase = createClient<Database>(
+    runtime.supabaseUrl,
+    runtime.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        persistSession: false,
+      },
     },
-  });
+  );
   const rawSession = `mcstaff_web_${randomBytes(32).toString("base64url")}`;
   const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
@@ -843,7 +1033,9 @@ async function assertNoSensitiveText(
 ) {
   const body = await page.locator("body").innerText();
 
-  expect(body).not.toMatch(/\b(access_token|refresh_token|service_role|credential_hash|password_hash|pin_hash)\b/i);
+  expect(body).not.toMatch(
+    /\b(access_token|refresh_token|service_role|credential_hash|password_hash|pin_hash)\b/i,
+  );
   expect(body).not.toMatch(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/);
 
   for (const value of sensitiveValues) {
@@ -856,7 +1048,9 @@ async function assertNoSensitiveText(
 test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
   const runtime = resolveRuntime();
 
-  test("confirms Shop Admin access guard without a session", async ({ page }) => {
+  test("confirms Shop Admin access guard without a session", async ({
+    page,
+  }) => {
     for (const route of guardedShopRoutes) {
       await page.goto(route);
       await expect(
@@ -896,7 +1090,49 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         ).toBeVisible();
 
         if (route.assertText) {
-          await expect(page.getByText(route.assertText(fixture)).first()).toBeVisible();
+          await expect(
+            page.getByText(route.assertText(fixture)).first(),
+          ).toBeVisible();
+        }
+
+        if (route.path === "/shop/devices") {
+          const deviceCard = page
+            .getByTestId("registered-device-card")
+            .filter({ hasText: fixture.deviceDisplayName });
+
+          await expect(deviceCard).toContainText("POS");
+          await expect(deviceCard).toContainText("active");
+          await expect(deviceCard).toContainText("TASK035_SMOKE");
+          await expect(deviceCard).toContainText("TASK035 Shop Admin");
+          await expect(deviceCard).toContainText("Account personale usato");
+          await expect(deviceCard).toContainText("Staff POS usato");
+          await expect(page.getByText("Advanced manual actions")).toBeVisible();
+        }
+
+        if (route.path === "/shop/members") {
+          const memberRow = page
+            .locator("tr")
+            .filter({ hasText: fixture.email });
+
+          await expect(memberRow).toContainText("Email");
+          await expect(memberRow).toContainText("Profile:");
+          await page.screenshot({
+            fullPage: true,
+            path: `${TASK073_EVIDENCE_DIR}/browser-shop-members-account-identity.png`,
+          });
+        }
+
+        if (route.path === "/shop/audit") {
+          const auditRow = page
+            .locator("tr")
+            .filter({ hasText: "shop.account_identity.task073.visual_check" });
+
+          await expect(auditRow).toContainText(fixture.email);
+          await expect(auditRow).toContainText("Email");
+          await page.screenshot({
+            fullPage: true,
+            path: `${TASK073_EVIDENCE_DIR}/browser-shop-audit-account-identity.png`,
+          });
         }
 
         await assertNoSensitiveText(page, [
@@ -908,6 +1144,89 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         ]);
       }
 
+      const adminSupabase = createClient<Database>(
+        runtime.supabaseUrl,
+        runtime.serviceRoleKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            detectSessionInUrl: false,
+            persistSession: false,
+          },
+        },
+      );
+      await must(
+        "DEVICE_REVOKE_NEGATIVE_SETUP",
+        adminSupabase
+          .from("shop_devices")
+          .update({
+            revoked_at: new Date().toISOString(),
+            revoked_by_profile_id: fixture.userId,
+            status: "revoked",
+            updated_by_profile_id: fixture.userId,
+          })
+          .eq("shop_id", fixture.shopId)
+          .eq("device_identifier", fixture.deviceIdentifier),
+      );
+
+      const ownerSupabase = createClient<Database>(
+        runtime.supabaseUrl,
+        runtime.publishableKey,
+        {
+          auth: {
+            autoRefreshToken: false,
+            detectSessionInUrl: false,
+            persistSession: false,
+          },
+        },
+      );
+      const ownerSignIn = await ownerSupabase.auth.signInWithPassword({
+        email: fixture.email,
+        password: fixture.password,
+      });
+
+      expect(ownerSignIn.error).toBeNull();
+
+      const ownerRegister = await ownerSupabase.rpc("shop_device_register", {
+        p_app_version: "TASK035_REREGISTERED",
+        p_device_identifier: fixture.deviceIdentifier,
+        p_device_type: "pos",
+        p_display_name: fixture.deviceDisplayName,
+        p_metadata: { source: "TASK035_negative_revoked_register" },
+        p_shop_id: fixture.shopId,
+      });
+
+      expect(ownerRegister.error).toBeNull();
+
+      const revokedDevice = await mustSingle<{
+        app_version: string | null;
+        last_seen_profile_id: string | null;
+        status: string;
+      }>(
+        "DEVICE_REVOKED_REGISTER_STATUS",
+        adminSupabase
+          .from("shop_devices")
+          .select("app_version,last_seen_profile_id,status")
+          .eq("shop_id", fixture.shopId)
+          .eq("device_identifier", fixture.deviceIdentifier)
+          .single(),
+      );
+
+      expect(revokedDevice.status).toBe("revoked");
+      expect(revokedDevice.app_version).toBe("TASK035_REREGISTERED");
+      expect(revokedDevice.last_seen_profile_id).toBe(fixture.userId);
+
+      await page.goto(`/shop/devices?shop_id=${fixture.blockedShopId}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Devices" }),
+      ).toBeVisible();
+      await expect(page.getByText(fixture.blockedDeviceIdentifier)).toHaveCount(
+        0,
+      );
+      await expect(
+        page.getByText(fixture.blockedDeviceDisplayName),
+      ).toHaveCount(0);
+
       await page.goto(`/shop?shop_id=${fixture.blockedShopId}`);
       await expect(
         page.getByRole("heading", { level: 1, name: "Shop Overview" }),
@@ -916,7 +1235,9 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         name: /Shop workspace/,
       });
 
-      await expect(blockedRequestHeader.getByText(/^Company RUT:/)).toBeVisible();
+      await expect(
+        blockedRequestHeader.getByText(/^Company RUT:/),
+      ).toBeVisible();
       await expect(blockedRequestHeader).not.toContainText("Shop code:");
       await expect(blockedRequestHeader).not.toContainText(
         fixture.blockedShopCode,
@@ -970,13 +1291,23 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         }).toString()}`,
       );
 
-      const navigation = page.getByRole("navigation", { name: "Shop sections" });
+      const navigation = page.getByRole("navigation", {
+        name: "Shop sections",
+      });
       const flow = [
         { heading: "Products", label: "Products", text: fixture.productName },
-        { heading: "Categories", label: "Categories", text: "TASK035_Category" },
+        {
+          heading: "Categories",
+          label: "Categories",
+          text: "TASK035_Category",
+        },
         { heading: "Suppliers", label: "Suppliers", text: "TASK035_Supplier" },
         { heading: "POS / Staff", label: "Staff", text: fixture.staffCode },
-        { heading: "Devices", label: "Devices", text: "Reason" },
+        {
+          heading: "Devices",
+          label: "Devices",
+          text: fixture.deviceIdentifier,
+        },
         { heading: "Shop Overview", label: "Overview", text: fixture.shopCode },
       ] as const;
 
@@ -1034,16 +1365,18 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       await expect(page.locator("[data-product-catalog-list]")).toBeVisible();
       await expect(page.locator("[data-product-catalog-row]")).toHaveCount(100);
 
-      const firstCatalogRow = page.locator("[data-product-catalog-row]").first();
-      await expect(firstCatalogRow.locator("[data-product-identity]")).toContainText(
-        /TASK035/,
-      );
-      await expect(firstCatalogRow.locator("[data-product-codes]")).toContainText(
-        "Barcode",
-      );
-      await expect(firstCatalogRow.locator("[data-product-codes]")).toContainText(
-        "Item number",
-      );
+      const firstCatalogRow = page
+        .locator("[data-product-catalog-row]")
+        .first();
+      await expect(
+        firstCatalogRow.locator("[data-product-identity]"),
+      ).toContainText(/TASK035/);
+      await expect(
+        firstCatalogRow.locator("[data-product-codes]"),
+      ).toContainText("Barcode");
+      await expect(
+        firstCatalogRow.locator("[data-product-codes]"),
+      ).toContainText("Item number");
       await expect(
         firstCatalogRow.locator(
           '[data-product-action-toolbar] svg[aria-hidden="true"]',
@@ -1127,7 +1460,9 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
 
       await page.setViewportSize({ width: 390, height: 820 });
       await page.goto(`/shop/products?shop_id=${fixture.shopId}`);
-      await expect(page.locator("[data-product-catalog-row]").first()).toBeVisible();
+      await expect(
+        page.locator("[data-product-catalog-row]").first(),
+      ).toBeVisible();
       await expect(
         page
           .locator("[data-product-catalog-row]")
@@ -1135,7 +1470,9 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
           .locator("[data-product-action-toolbar]"),
       ).toBeVisible();
       const hasDocumentOverflow = await page.evaluate(
-        () => document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
+        () =>
+          document.documentElement.scrollWidth >
+          document.documentElement.clientWidth + 1,
       );
       expect(hasDocumentOverflow).toBe(false);
     } finally {
@@ -1182,8 +1519,16 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       ).toHaveCount(0);
 
       for (const route of [
-        { heading: "Products", path: "/shop/products", text: fixture.productName },
-        { heading: "POS / Staff", path: "/shop/staff", text: fixture.staffManagerCode },
+        {
+          heading: "Products",
+          path: "/shop/products",
+          text: fixture.productName,
+        },
+        {
+          heading: "POS / Staff",
+          path: "/shop/staff",
+          text: fixture.staffManagerCode,
+        },
         { heading: "POS Live", path: "/shop/pos", text: "TASK035_SMOKE" },
       ]) {
         await page.goto(`${route.path}?shop_id=${fixture.shopId}`);
@@ -1216,7 +1561,9 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         name: /Shop workspace/,
       });
 
-      await expect(blockedRequestHeader.getByText(/^Company RUT:/)).toBeVisible();
+      await expect(
+        blockedRequestHeader.getByText(/^Company RUT:/),
+      ).toBeVisible();
       await expect(blockedRequestHeader).not.toContainText("Shop code:");
       await expect(blockedRequestHeader).not.toContainText(
         fixture.blockedShopCode,

@@ -1,3 +1,5 @@
+import type { AccountIdentitySummary } from "@/lib/account-identity";
+
 export type ShopSectionKey =
   | "overview"
   | "products"
@@ -28,7 +30,10 @@ export type ShopSectionTableColumn = {
   label: string;
 };
 
-export type ShopSectionTableRow = Record<string, string> & {
+export type ShopSectionTableCellValue = string | AccountIdentitySummary;
+
+export type ShopSectionTableRow = {
+  [key: string]: ShopSectionTableCellValue | undefined;
   rowKey: string;
 };
 
@@ -105,7 +110,7 @@ export const shopNavigationSections: ShopNavigationSection[] = [
     label: "Data",
     items: [
       { key: "sync", label: "Sync Center", href: "/shop/sync" },
-      { key: "history", label: "History", href: "/shop/history" },
+      { key: "history", label: "History Entries", href: "/shop/history" },
       { key: "audit", label: "Audit", href: "/shop/audit" },
     ],
   },
@@ -253,10 +258,10 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
   },
   history: {
     key: "history",
-    label: "History",
+    label: "History Entries",
     href: "/shop/history",
-    title: "Mobile History",
-    eyebrow: "Mobile sync",
+    title: "Mobile History Entries",
+    eyebrow: "Business history",
     description:
       "History entries loaded from shared_sheet_sessions, with related technical sync events kept separate.",
     status: "Read model pending",

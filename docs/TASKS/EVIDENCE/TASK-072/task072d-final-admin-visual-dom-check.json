@@ -1,0 +1,21 @@
+{
+  "generatedAt": "2026-06-19T20:51:22.663Z",
+  "products": {
+    "excerpt": " rows are not available yet.\n\nWrites\n\nAudited\n\nCreate/update/archive/restore via server actions\n\nNew product\nImport supplier Excel\nExport catalog Excel\nDatabase transfer\nShop catalog data\n\nOnly current page rows are rendered. Search and filters run server-side before count/range.\n\nProduct identity\n\nTASK072D_IOS_20260619T192903Z_PRODUCT_CREATE_NAME\n\nProduct id\n0097a991...\nCODES\nBARCODE\nTASK072D_IOS_20260619T192903Z_PRODUCT_CREATE\nITEM NUMBER\nTASK072D_IOS_20260619T192903Z_PRODUCT_CREATE_ITEM\nCLASSIFICATION\nSUPPLIER NAME\nUnknown\nCATEGORY NAME\nUnknown\nPRICING / STOCK\nPURCHASE PRICE\n44.1\nRETAIL PRICE\n55.2\nSTOCK QUANTITY\n6\nSTATUS / UPDATED\nState\nArchived\nARCHIVED\nJun 19, 2026, 3:34 PM\nACTIONS\nDetail\nRestore\nProduct identity\n\nTASK072D_ANDROID_20260619T190340Z_PRODUCT_CREATE_NAME\n\nProduct id\n0d886e6c...\nCODES\nBARCODE\nTASK072D_ANDROID_20260619T190340Z_PRODUCT_CREATE\nITEM NUMBER\nTASK072D_ANDROID_20260619T190340Z_ITEM_CREATE\nCLASSIFICATION\nSUPPLIER NAME\nUnknown\nCATEGORY NAME\nUnknown\nPRICING / STOCK\nPURCHASE PRICE\n11.25\nRETAIL PRICE\n15.5\nSTOCK QUANTITY\n3\nSTATUS / UPDATED\nState\nArchived\nARCHIVED\nJun 19, 2026, 3:34 PM\nACTIONS\nDetail\nRestore\nProduct identity\n\nTASK072D_ANDROID_20260619T190743Z_PRO",
+    "hasTask072D": true,
+    "index": 3819,
+    "title": "Products | MerchandiseControl Admin Web",
+    "url": "http://localhost:3055/shop/products?shop_id=bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d&q=TASK072D_&state=all&pageSize=50"
+  },
+  "history": {
+    "excerpt": "Entries\n\nReal mobile history entries from shared_sheet_sessions. This table does not include technical sync_events or admin audit_logs.\n\nMobile History Entries read-only table for the selected shop.\nTYPE\tENTRY NAME\tSUPPLIER / CATEGORY\tSTATUS\tPAYLOAD\tOVERLAY\tROWS\tUPDATED\tDETAIL\nDeleted history entry\tTASK072D_ADMIN_20260619T185924Z_HISTORY_CREATE\tTASK072D_ADMIN_20260619T185924Z_SUPPLIER / TASK072D_ADMIN_20260619T185924Z_CATEGORY\tDeleted\tPayload v2\tOverlay OK\t2\tJun 19, 2026, 3:34 PM\tDetail\nDeleted history entry\tTASK072_RT_HISTORY_20260619_20260619155430_UPDATED\tTASK072_RT_SUPPLIER_20260619_20260619155430 / TASK072_RT_CATEGORY_20260619_20260619155430\tDeleted\tPayload v2\tOverlay OK\t2\tJun 19, 2026, 12:08 PM\tDetail\nActive history entry\tTASK135_MATRIX_20260617_192636_RT_20260617T232636Z_IOS_MATRIX_IOS_HISTORY_UPDATE_FINAL\tTASK135_MATRIX_20260617_192636_RT_20260617T232636Z_IOS_MATRIX_SUP_IOS / TASK135_MATRIX_20260617_192636_RT_20260617T232636Z_IOS_MATRIX_CAT_IOS\tActive\tPayload v2\tOverlay OK\t2\tJun 19, 2026, 11:35 AM\tDetail\nActive history entry\t\tBuena / accesorios y peluches\tActive\tPayload v2\tOverlay OK\t63\tJun 19, 2026, 11:35 AM\tDetail\nDeleted history entry\tTASK110_FINAL_ANDROID_OFFLINE_181157",
+    "hasTask072D": true,
+    "index": 1582,
+    "title": "Mobile History | MerchandiseControl Admin Web",
+    "url": "http://localhost:3055/shop/history?shop_id=bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d"
+  },
+  "screenshots": {
+    "products": "/Users/minxiang/Projects/merchandise-control-admin-web/docs/TASKS/EVIDENCE/TASK-072/task072d-final-admin-products-filtered.png",
+    "history": "/Users/minxiang/Projects/merchandise-control-admin-web/docs/TASKS/EVIDENCE/TASK-072/task072d-final-admin-history-context.png"
+  }
+}

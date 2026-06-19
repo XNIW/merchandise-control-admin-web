@@ -647,6 +647,9 @@ export async function handlePosFirstLogin(
           device_type: "pos",
           display_name: parsed.displayName,
           last_seen_at: nowIso(),
+          last_seen_principal_kind: "pos_staff",
+          last_seen_profile_id: null,
+          last_seen_staff_id: staff.staff_id,
           status: "active",
           updated_at: nowIso(),
         })
@@ -662,6 +665,8 @@ export async function handlePosFirstLogin(
           device_type: "pos",
           display_name: parsed.displayName,
           last_seen_at: nowIso(),
+          last_seen_principal_kind: "pos_staff",
+          last_seen_staff_id: staff.staff_id,
           metadata_redacted: {
             app_version_present: Boolean(parsed.appVersion),
             source: "TASK-021",
@@ -1075,6 +1080,9 @@ export async function handlePosHeartbeat(
       .update({
         app_version: parsed.appVersion,
         last_seen_at: seenAt,
+        last_seen_principal_kind: "pos_staff",
+        last_seen_profile_id: null,
+        last_seen_staff_id: session.staff_id,
         updated_at: seenAt,
       })
       .eq("shop_device_id", session.shop_device_id)

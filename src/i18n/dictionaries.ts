@@ -139,12 +139,18 @@ export type Dictionary = {
 const emptyExact: Record<string, string> = {};
 
 const itExact: Record<string, string> = {
+  "Account": "Account",
+  "Account identity unavailable": "Identita account non disponibile",
+  "Actor provider": "Provider attore",
+  "Apple ID": "Apple ID",
   "Codes": "Codici",
   "Configured": "Configurato",
+  "Email": "Email",
   "Filters active": "Filtri attivi",
   First: "Prima",
   Go: "Vai",
   "Go to page": "Vai alla pagina",
+  "Google": "Google",
   "Header shop": "Intestazione shop",
   "Key shop signals grouped before operational sections for quick review.":
     "Segnali chiave dello shop raggruppati prima delle sezioni operative per una review rapida.",
@@ -305,6 +311,7 @@ const itExact: Record<string, string> = {
   "Present": "Presente",
   "Products empty": "Prodotti vuoti",
   "Profile": "Profilo",
+  "Origin unavailable": "Origine non disponibile",
   "Provisioning": "Provisioning",
   "Read blocked": "Lettura bloccata",
   "Read boundary checked": "Boundary di lettura verificato",
@@ -1305,14 +1312,21 @@ const itExact: Record<string, string> = {
     "Le azioni import/export ora vivono nel workspace catalogo Prodotti. Questa pagina di compatibilita mantiene disponibili i link import/export esistenti.",
   "Download products, categories, suppliers and full price history for the selected shop only.":
     "Scarica prodotti, categorie, fornitori e storico prezzi completo solo per lo shop selezionato.",
+  "WeChat": "WeChat",
 };
 
 const esExact: Record<string, string> = {
+  "Account": "Cuenta",
+  "Account identity unavailable": "Identidad de cuenta no disponible",
+  "Actor provider": "Proveedor del actor",
+  "Apple ID": "Apple ID",
   "Configured": "Configurado",
+  "Email": "Email",
   "Filters active": "Filtros activos",
   First: "Primera",
   Go: "Ir",
   "Go to page": "Ir a pagina",
+  "Google": "Google",
   "Header shop": "Encabezado del shop",
   "Key shop signals grouped before operational sections for quick review.":
     "Senales clave del shop agrupadas antes de las secciones operativas para una revision rapida.",
@@ -1457,6 +1471,7 @@ const esExact: Record<string, string> = {
   "Present": "Presente",
   "Products empty": "Productos vacios",
   "Profile": "Perfil",
+  "Origin unavailable": "Origen no disponible",
   "Provisioning": "Provisioning",
   "Read blocked": "Lectura bloqueada",
   "Read boundary checked": "Boundary de lectura verificado",
@@ -2434,14 +2449,21 @@ const esExact: Record<string, string> = {
     "Las acciones de import/export ahora viven en el workspace de catalogo Productos. Esta pagina de compatibilidad mantiene disponibles los links existentes.",
   "Download products, categories, suppliers and full price history for the selected shop only.":
     "Descarga productos, categorias, proveedores e historial de precios completo solo para el shop seleccionado.",
+  "WeChat": "WeChat",
 };
 
 const zhExact: Record<string, string> = {
+  "Account": "账号",
+  "Account identity unavailable": "账号身份不可用",
+  "Actor provider": "操作者来源",
+  "Apple ID": "Apple ID",
   "Configured": "已配置",
+  "Email": "邮箱",
   "Filters active": "筛选已启用",
   First: "第一页",
   Go: "跳转",
   "Go to page": "跳转到页面",
+  "Google": "Google",
   "Header shop": "店铺头部信息",
   "Key shop signals grouped before operational sections for quick review.":
     "关键店铺信号集中在运营区块之前，便于快速复核。",
@@ -2584,7 +2606,8 @@ const zhExact: Record<string, string> = {
   "Products": "商品",
   "Present": "存在",
   "Products empty": "暂无商品",
-  "Profile": "资料",
+  "Profile": "个人资料",
+  "Origin unavailable": "来源不可用",
   "Provisioning": "开通",
   "Read blocked": "读取已阻止",
   "Read boundary checked": "读取边界已检查",
@@ -3535,6 +3558,7 @@ const zhExact: Record<string, string> = {
     "导入/导出操作现在位于商品目录工作区。此兼容页面保留现有导入/导出链接。",
   "Download products, categories, suppliers and full price history for the selected shop only.":
     "仅下载所选店铺的商品、分类、供应商和完整价格历史。",
+  "WeChat": "微信",
 };
 
 const itRenderedCorrectiveExact: Record<string, string> = {

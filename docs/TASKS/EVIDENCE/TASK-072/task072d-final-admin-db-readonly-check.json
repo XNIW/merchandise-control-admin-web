@@ -1,0 +1,45 @@
+{
+  "generatedAt": "2026-06-19T20:46:26.303Z",
+  "source": "task072d-final-admin-db-readonly-check",
+  "target": {
+    "projectRefHash": "1dabff35f7b7",
+    "shopIdHash": "67545716fda8",
+    "prefix": "TASK072D_"
+  },
+  "activeCounts": {
+    "products": 0,
+    "suppliers": 0,
+    "categories": 0,
+    "history": 0
+  },
+  "tombstoneCounts": {
+    "products": 1,
+    "suppliers": 1,
+    "categories": 1,
+    "history": 1
+  },
+  "uniqueness": {
+    "productBarcode": {
+      "keys": 1,
+      "duplicateKeys": 0,
+      "maxRowsPerKey": 1
+    },
+    "historyRemoteId": {
+      "keys": 1,
+      "duplicateKeys": 0,
+      "maxRowsPerKey": 1
+    },
+    "syncClientEventId": {
+      "keys": 0,
+      "duplicateKeys": 0,
+      "maxRowsPerKey": 0
+    }
+  },
+  "syncEvents": {
+    "scopedCount": 0,
+    "minId": null,
+    "maxId": null,
+    "domains": {}
+  },
+  "verdict": "PASS_READONLY_ACTIVE_ZERO_UNIQUE_KEYS"
+}

@@ -49,6 +49,34 @@ function loadLocalSupabaseEnv(env) {
   };
 }
 
+function reloadLocalPostgrestSchema() {
+  try {
+    execFileSync(
+      "supabase",
+      ["db", "query", "notify pgrst, 'reload schema';", "--local"],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          SUPABASE_TELEMETRY_DISABLED: "1",
+          DO_NOT_TRACK: "1",
+        },
+        stdio: ["ignore", "ignore", "pipe"],
+      },
+    );
+  } catch (error) {
+    const stderr = error.stderr?.toString().trim();
+    fail(
+      [
+        "local PostgREST schema cache reload failed; restart or repair local Supabase before browser E2E.",
+        stderr,
+      ]
+        .filter(Boolean)
+        .join(" "),
+    );
+  }
+}
+
 function portFromUrl(value) {
   try {
     return new URL(value).port || "80";
@@ -68,6 +96,7 @@ let env = {
 
 if (target === "local") {
   env = loadLocalSupabaseEnv(env);
+  reloadLocalPostgrestSchema();
   env.CONFIRM_TASK043_PLATFORM_RUNTIME_TEST ??= "yes";
   env.CONFIRM_TASK044_PLATFORM_RUNTIME_TEST ??= "yes";
   env.CONFIRM_TASK045_PLATFORM_FINAL_REVIEW_TEST ??= "yes";

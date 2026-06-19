@@ -15,6 +15,7 @@ export type ShopAdminPermission =
   | "suppliers.write"
   | "history.view"
   | "history.read"
+  | "history.write"
   | "members.view"
   | "members.manage"
   | "staff.view"
@@ -56,6 +57,7 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "suppliers.write",
     "history.view",
     "history.read",
+    "history.write",
     "members.view",
     "members.manage",
     "staff.view",
@@ -83,6 +85,7 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "suppliers.write",
     "history.view",
     "history.read",
+    "history.write",
     "members.view",
     "staff.view",
     "staff.manage",

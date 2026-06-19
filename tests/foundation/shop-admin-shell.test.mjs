@@ -32,7 +32,11 @@ test("TASK-008 Shop Admin shell artifacts exist and stay boundary-safe", () => {
     "src/components/shop/ShopSectionPage.tsx",
     "src/components/shop/shopSections.ts",
   ]) {
-    assert.equal(existsSync(join(root, relativePath)), true, `${relativePath} is missing`);
+    assert.equal(
+      existsSync(join(root, relativePath)),
+      true,
+      `${relativePath} is missing`,
+    );
   }
 
   const layout = readProjectFile("src/app/shop/layout.tsx");
@@ -58,12 +62,17 @@ test("TASK-008 Shop Admin shell artifacts exist and stay boundary-safe", () => {
 test("TASK-008 route placeholders cover the Shop Admin sections", () => {
   const rootPage = readProjectFile("src/app/shop/page.tsx");
   const sections = readProjectFile("src/components/shop/shopSections.ts");
-  const sectionPage = readProjectFile("src/components/shop/ShopSectionPage.tsx");
+  const sectionPage = readProjectFile(
+    "src/components/shop/ShopSectionPage.tsx",
+  );
 
   assert.match(rootPage, /getShopSectionForRequest\(\s*"overview"/);
   assert.match(rootPage, /ShopSectionPage/);
   assert.match(sectionPage, /Planned state/);
-  assert.match(sectionPage, /No live shop rows are available in this section yet/);
+  assert.match(
+    sectionPage,
+    /No live shop rows are available in this section yet/,
+  );
   assert.doesNotMatch(sectionPage, /TASK-008|TASK-010/);
 
   for (const { key, path } of shopRoutes) {
@@ -72,7 +81,15 @@ test("TASK-008 route placeholders cover the Shop Admin sections", () => {
     const page = readProjectFile(path);
 
     assert.match(page, /export const dynamic = ["']force-dynamic["']/);
-    assert.match(page, new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`));
+    if (key === "history") {
+      assert.match(page, /getShopHistoryReadModel/);
+      assert.match(page, /buildHistorySection/);
+    } else if (key === "devices") {
+      assert.match(page, /getShopDeviceReadModel/);
+      assert.match(page, /DeviceRegistryView/);
+    } else {
+      assert.match(page, new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`));
+    }
     assert.match(sections, new RegExp(`key: "${key}"`));
   }
 

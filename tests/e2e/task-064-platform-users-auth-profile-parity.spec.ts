@@ -24,11 +24,13 @@ const historicalShopAdminDisplayName = "TASK064 Historical Shop Admin";
 const authOnlyDisplayName = "TASK064 Auth Only";
 const shopCode = `T64${Date.now().toString().slice(-8)}`;
 const historicalShopCode = `H64${Date.now().toString().slice(-8)}`;
+const TASK073_EVIDENCE_DIR = "docs/TASKS/EVIDENCE/TASK-073";
 
 const createdAuthUserIds = new Set<string>();
 const createdShopIds = new Set<string>();
 let authOnlyUserId = "";
 let profileOkUserId = "";
+let shopId = "";
 
 function requireEnv(name: string) {
   const value = process.env[name]?.trim();
@@ -319,6 +321,7 @@ test.beforeAll(async () => {
   );
 
   createdShopIds.add(shop.shop_id);
+  shopId = shop.shop_id;
 
   const historicalShop = await expectOk<{ shop_id: string }>(
     "BLOCKED_HISTORICAL_SHOP_CREATE_FAILED",
@@ -426,11 +429,24 @@ test("TASK-064 separates normal users, shop admins, and auth-only accounts", asy
 
   await submitServerSearch(page, adminEmail);
   await expect(page.getByText("Data status").first()).toBeVisible();
-  await expect(page.getByText("No unassigned personal accounts").first()).toBeVisible();
-  await expect(page.getByRole("link", { name: "Open Platform Admins" })).toBeVisible();
+  await expect(page.getByText(adminEmail).first()).toBeVisible();
+  await expect(
+    page.getByText("Platform Admin / Master Console").first(),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { exact: true, name: "Open Platform Admins" }),
+  ).toBeVisible();
+  await page.screenshot({
+    fullPage: true,
+    path: `${TASK073_EVIDENCE_DIR}/browser-platform-users-account-identity.png`,
+  });
   await page.goto("/platform/admins");
   await expect(page.getByText(adminEmail).first()).toBeVisible();
-  await expect(page.getByText("Platform Admin / Master Console").first()).toBeVisible();
+  await expect(page.getByText("Platform Admin (Master Console)").first()).toBeVisible();
+  await page.screenshot({
+    fullPage: true,
+    path: `${TASK073_EVIDENCE_DIR}/browser-platform-admins-account-identity.png`,
+  });
   await page.goto("/platform/users");
 
   await submitServerSearch(page, profileOkEmail);
@@ -439,7 +455,7 @@ test("TASK-064 separates normal users, shop admins, and auth-only accounts", asy
   await expect(
     page
       .getByRole("button", {
-        name: new RegExp(`${profileOkDisplayName}.*Profile OK`),
+        name: new RegExp(profileOkEmail),
       })
       .first(),
   ).toBeVisible();
@@ -454,12 +470,16 @@ test("TASK-064 separates normal users, shop admins, and auth-only accounts", asy
   await expect(
     page
       .getByRole("button", {
-        name: new RegExp(`${shopAdminDisplayName}.*Profile OK`),
+        name: new RegExp(shopAdminEmail),
       })
       .first(),
   ).toBeVisible();
   await expect(page.getByText(shopCode).first()).toBeVisible();
   await expect(page.getByText("Owner").first()).toBeVisible();
+  await page.screenshot({
+    fullPage: true,
+    path: `${TASK073_EVIDENCE_DIR}/browser-platform-shop-admins-account-identity.png`,
+  });
 
   await submitServerSearch(
     page,
@@ -478,7 +498,9 @@ test("TASK-064 separates normal users, shop admins, and auth-only accounts", asy
   ).toBeVisible();
 
   await submitServerSearch(page, historicalShopAdminEmail);
-  await expect(page.getByText("No unassigned personal accounts").first()).toBeVisible();
+  await expect(page.getByText(historicalShopAdminEmail).first()).toBeVisible();
+  await expect(page.getByText(historicalShopAdminDisplayName).first()).toBeVisible();
+  await expect(page.getByText("Shop Admin").first()).toBeVisible();
 
   await submitServerSearch(page, authOnlyEmail);
   await expect(page.getByText(authOnlyEmail).first()).toBeVisible();
@@ -487,11 +509,11 @@ test("TASK-064 separates normal users, shop admins, and auth-only accounts", asy
 
   await page.getByLabel("Account type").selectOption("Normal account");
   await expect(
-    page.getByText("No unassigned normal accounts match this filter").first(),
+    page.getByText("No normal accounts match this filter").first(),
   ).toBeVisible();
   await expect(
     page.getByText(
-      "No unassigned normal accounts match this filter. Shop Admins and Platform Admins are managed in their dedicated views.",
+      "No normal accounts match this filter. Platform Admins are hidden by this filter.",
     ),
   ).toBeVisible();
   await page.getByLabel("Account type").selectOption("");
@@ -515,7 +537,9 @@ test("TASK-064 separates normal users, shop admins, and auth-only accounts", asy
 
   await expect(inspector.getByText("Auth only").first()).toBeVisible();
   await expect(inspector.getByText(authOnlyEmail).first()).toBeVisible();
-  await expect(inspector.getByText("Mobile inventory data").first()).toBeVisible();
+  await expect(
+    inspector.getByText(/Mobile (inventory data|data \/ linked shop)/).first(),
+  ).toBeVisible();
   await expect(inspector.getByText("No mobile data").first()).toBeVisible();
 
   await Promise.all([
@@ -526,7 +550,9 @@ test("TASK-064 separates normal users, shop admins, and auth-only accounts", asy
   await expect(page.getByRole("heading", { level: 1, name: authOnlyDisplayName })).toBeVisible();
   await expect(page.getByText("Auth only").first()).toBeVisible();
   await expect(page.getByText(authOnlyEmail).first()).toBeVisible();
-  await expect(page.getByText("Mobile inventory data").first()).toBeVisible();
+  await expect(
+    page.getByText(/Mobile (inventory data|data \/ linked shop)/).first(),
+  ).toBeVisible();
   await expect(page.getByText("No mobile data").first()).toBeVisible();
 
   const backHref = await page
@@ -562,4 +588,15 @@ test("TASK-064 separates normal users, shop admins, and auth-only accounts", asy
     currentAccount.getByText("Platform Admin (Master Console)"),
   ).toBeVisible();
   await expect(page.getByText("Current account").first()).toBeVisible();
+
+  expect(shopId).toBeTruthy();
+  await page.goto(`/platform/shops/${shopId}`);
+  await expect(page.getByText(shopCode).first()).toBeVisible();
+  await expect(page.getByText("Admin access / Ownership").first()).toBeVisible();
+  await expect(page.getByText(shopAdminEmail).first()).toBeVisible();
+  await expect(page.getByText("Email").first()).toBeVisible();
+  await page.screenshot({
+    fullPage: true,
+    path: `${TASK073_EVIDENCE_DIR}/browser-platform-shop-detail-ownership-account-identity.png`,
+  });
 });

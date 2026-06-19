@@ -1171,7 +1171,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   - dati clienti reali;
   - sync bidirezionale catalogo o editing catalogo dal POS;
   - modifiche Android/iOS runtime senza necessita esplicita.
-- Nota: execution avviata da Codex il 2026-06-02 da allegato utente. Baseline iniziale: Admin Web `main` pulito e allineato a `origin/main` su `18116bc`; Win7POS `main` pulito e allineato a `origin/main` su `5e35a37`; Vercel Git Integration scollegata (`link=null`, `gitRepository=null`), nessun deployment, nessun alias, `vercel.json` con `git.deploymentEnabled=false`. Branch Admin Web creato per l'execution: `codex/task-032-full-project-progression`. Fase 1 gate base passati dopo fix mirato delle whitelist governance per riconoscere TASK-032: Admin Web `security:scan`, `test:foundation` (`134/134`) e `git diff --check` PASS; Win7POS `git diff --check` e scanner bootstrap/client/catalog PASS. Fase 2 Shop Admin polish passata con note: `test:foundation` `137/137`, `security:scan`, `typecheck`, `lint`, `build`, `verify` e `git diff --check` PASS/PASS_WITH_WARNING; browser smoke autenticato `BLOCKED_NO_AUTH_SESSION` su route shop locali. Fase 3 Excel hardening passata con note: validazione `duplicate_product_sku`, test sintetici header spostati/alias cinesi-spagnoli/formula injection/numeri, Drive discovery read-only dei campioni fornitori, `test:foundation` `140/140`, `security:scan`, `verify` e `git diff --check` PASS/PASS_WITH_WARNING. Fase 4 permissions hardening passata con note: `resolveShopActionContext` nega `shop_id` non autorizzati invece di fallback, test matrix owner/manager/viewer/POS staff, `test:foundation` `144/144`, `security:scan`, `verify` e `git diff --check` PASS/PASS_WITH_WARNING. Fase 5 Local POS E2E passata con cleanup: stack Supabase temporaneo isolato, migration locali applicate, dataset sintetico `TASK032_*`, POS first-login/trusted device/heartbeat/catalog full/tombstone/restore passati, cleanup verificato con zero residui attivi, Admin Web `test:foundation` `147/147`, `security:scan`, `verify` e `git diff --check` PASS/PASS_WITH_WARNING; Win7POS scanner bootstrap/client/catalog e `git diff --check` PASS. Review/fix finale Codex: diff security scan completato in `/tmp/codex-security-scans/merchandise-control-admin-web/18116bc_20260601235207/report.md`, trovato e corretto finding locale `TASK032-URL-CREDS-LEAK` nel harness POS (`TASK032_POS_E2E_BASE_URL` con userinfo non viene piu stampato su startup failure), regression test dedicato aggiunto. Check finali freschi: Admin Web `security:scan` PASS, `test:foundation` PASS (`148/148`), `verify` PASS con warning `[DEP0205]`, `git diff --check` PASS; browser smoke locale conferma blocco auth su prodotti/categorie/fornitori; Win7POS `git diff --check` e scanner bootstrap/client/catalog PASS; Vercel read-only conferma zero deployment, zero alias, Git Integration scollegata e env solo come `Encrypted`. TASK-032 passa a handoff `REVIEW` con Fase 6 bloccata; TASK-029, TASK-031 e TASK-022_023 restano non chiusi finche i relativi gate HTTPS/non-production e Win7POS live non passano. TASK-033 ha poi integrato il commit TASK-032 `2fa1feb` sul branch `codex/task-033-https-pos-sales-mega-task` per review controllata e prosecuzione del gate HTTPS.
+- Nota: execution avviata da Codex il 2026-06-02 da allegato utente. Baseline iniziale: Admin Web `main` pulito e allineato a `origin/main` su `18116bc`; Win7POS `main` pulito e allineato a `origin/main` su `5e35a37`; Vercel Git Integration scollegata (`link=null`, `gitRepository=null`), nessun deployment, nessun alias, `vercel.json` con `git.deploymentEnabled=false`. Branch Admin Web creato per l'execution: `codex/task-032-full-project-progression`. Fase 1 gate base passati dopo fix mirato delle whitelist governance per riconoscere TASK-032: Admin Web `security:scan`, `test:foundation` (`134/134`) e `git diff --check` PASS; Win7POS `git diff --check` e scanner bootstrap/client/catalog PASS. Fase 2 Shop Admin polish passata con note: `test:foundation` `137/137`, `security:scan`, `typecheck`, `lint`, `build`, `verify` e `git diff --check` PASS/PASS*WITH_WARNING; browser smoke autenticato `BLOCKED_NO_AUTH_SESSION` su route shop locali. Fase 3 Excel hardening passata con note: validazione `duplicate_product_sku`, test sintetici header spostati/alias cinesi-spagnoli/formula injection/numeri, Drive discovery read-only dei campioni fornitori, `test:foundation` `140/140`, `security:scan`, `verify` e `git diff --check` PASS/PASS_WITH_WARNING. Fase 4 permissions hardening passata con note: `resolveShopActionContext` nega `shop_id` non autorizzati invece di fallback, test matrix owner/manager/viewer/POS staff, `test:foundation` `144/144`, `security:scan`, `verify` e `git diff --check` PASS/PASS_WITH_WARNING. Fase 5 Local POS E2E passata con cleanup: stack Supabase temporaneo isolato, migration locali applicate, dataset sintetico `TASK032*\*`, POS first-login/trusted device/heartbeat/catalog full/tombstone/restore passati, cleanup verificato con zero residui attivi, Admin Web `test:foundation` `147/147`, `security:scan`, `verify`e`git diff --check`PASS/PASS_WITH_WARNING; Win7POS scanner bootstrap/client/catalog e`git diff --check`PASS. Review/fix finale Codex: diff security scan completato in`/tmp/codex-security-scans/merchandise-control-admin-web/18116bc_20260601235207/report.md`, trovato e corretto finding locale `TASK032-URL-CREDS-LEAK` nel harness POS (`TASK032_POS_E2E_BASE_URL`con userinfo non viene piu stampato su startup failure), regression test dedicato aggiunto. Check finali freschi: Admin Web`security:scan`PASS,`test:foundation` PASS (`148/148`), `verify`PASS con warning`[DEP0205]`, `git diff --check`PASS; browser smoke locale conferma blocco auth su prodotti/categorie/fornitori; Win7POS`git diff --check`e scanner bootstrap/client/catalog PASS; Vercel read-only conferma zero deployment, zero alias, Git Integration scollegata e env solo come`Encrypted`. TASK-032 passa a handoff `REVIEW`con Fase 6 bloccata; TASK-029, TASK-031 e TASK-022_023 restano non chiusi finche i relativi gate HTTPS/non-production e Win7POS live non passano. TASK-033 ha poi integrato il commit TASK-032`2fa1feb`sul branch`codex/task-033-https-pos-sales-mega-task` per review controllata e prosecuzione del gate HTTPS.
 
 ### TASK-033 - Controlled TASK-032 review + HTTPS non-production + Win7POS live E2E + POS reconciliation + sales sync foundation
 
@@ -2212,7 +2212,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Follow-up `TASK-054C` 2026-06-11: Safari reale verificato su
   `localhost:3054` e `127.0.0.1:3054` via `safaridriver` con Supabase locale e
   fixture sintetica; login separati per host, sidebar `Products -> Import /
-  Export -> Overview`, solo `shop_id` propagato, assenti `No active session`,
+Export -> Overview`, solo `shop_id` propagato, assenti `No active session`,
   `No staff web session cookie is present` e `Unauthorized`, cleanup
   `cleanupErrors: []`.
 - Final review correttiva Codex 2026-06-11: trovato e corretto drift minore
@@ -2490,7 +2490,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   Nessun commit/push/stage.
 - REOPEN 2026-06-16: verifica manuale utente ha dimostrato che il problema
   reale non era risolto nel browser: search `xniw...@...com` mostrava `No
-  matching rows`. Root cause reale trovata: browser/runtime aperto con
+matching rows`. Root cause reale trovata: browser/runtime aperto con
   `platform:local:dev` legge Supabase locale `127.0.0.1:54321`
   (`authUsers=96`, `profiles=96`, account reale assente), mentre `.env.local`
   cloud ref redatto `jpgo...yvm` contiene `authUsers=3`, `profiles=3`,
@@ -2643,7 +2643,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 ## Tracking corrente
 
 - Stato globale attuale: `IDLE`
-- Ultimo task completato: `TASK-061 - Android database export compatibility for Admin Web database transfer`
+- Ultimo task completato: `TASK-072 - Cross-platform catalog sync and History Entry write path for Admin Web, Android and iOS`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -2753,17 +2753,33 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Task TASK-071: `TASK-071 - Final closure and fix-all for TASK-068 / TASK-069 / TASK-070`
 - File task TASK-071: `docs/TASKS/TASK-071-final-closure-task-068-069-070.md`
 - Evidence TASK-071: `docs/TASKS/EVIDENCE/TASK-071/README.md`
+- Stato TASK-072: `DONE`
+- Fase TASK-072: `DONE_RECONCILED`
+- Task TASK-072: `TASK-072 - Cross-platform catalog sync and History Entry write path for Admin Web, Android and iOS`
+- File task TASK-072: `docs/TASKS/TASK-072-cross-platform-catalog-sync-history-entry-write-path.md`
+- Evidence TASK-072: `docs/TASKS/EVIDENCE/TASK-072/README.md`
+- Stato TASK-073: `DONE`
+- Fase TASK-073: `DONE`
+- Task TASK-073: `TASK-073 - Account identity display globale`
+- File task TASK-073: `docs/TASKS/TASK-073-account-identity-display.md`
+- Evidence TASK-073: `docs/TASKS/EVIDENCE/TASK-073/README.md`
+- Stato TASK-074: `REVIEW`
+- Fase TASK-074: `READY_FOR_REVIEW`
+- Task TASK-074: `TASK-074 - Devices UX Polish / Owner-Friendly Device Registry`
+- File task TASK-074: `docs/TASKS/TASK-074-devices-ux-polish.md`
+- Evidence TASK-074: `docs/TASKS/EVIDENCE/TASK-074/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Task attivo: `NESSUNO`
-- Task precedente: `TASK-071 - Final closure and fix-all for TASK-068 / TASK-069 / TASK-070`
-- Ultimo task chiuso: `TASK-071 - Final closure and fix-all for TASK-068 / TASK-069 / TASK-070`
-- File task: `docs/TASKS/TASK-071-final-closure-task-068-069-070.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-071/README.md`
-- Stato task: `DONE`
-- Fase: `DONE_RECONCILED`
-- Milestone interna: `TASK_071_DONE`
-- Responsabile: `USER_CONFIRMED_CLOSURE`
+- Task attivo: `TASK-074 - Devices UX Polish / Owner-Friendly Device Registry`
+- Task precedente: `TASK-073 - Account identity display globale`
+- Ultimo task chiuso: `TASK-073 - Account identity display globale`
+- Ultimo task completato: `TASK-073 - Account identity display globale`
+- File task corrente: `docs/TASKS/TASK-074-devices-ux-polish.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-074/README.md`
+- Stato task: `REVIEW`
+- Fase: `READY_FOR_REVIEW`
+- Milestone interna: `TASK_074_READY_FOR_REVIEW`
+- Responsabile: `CODEX_TASK074_UX_POLISH`
 - Branch previsto: `main` / no branch creation requested
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -2810,6 +2826,8 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Verdict TASK-061: `DONE`
 - Verdict TASK-063: `HISTORY_SYNC_ALREADY_MERGED` / `TASK_TRACKING_NORMALIZED`
 - Verdict TASK-065: `BLOCKED_SECURITY`
+- Verdict TASK-072: `DONE_RECONCILED`
+- Verdict TASK-074: `READY_FOR_REVIEW`
 - Verdict TASK-067: `DONE_RECONCILED`
 - Review-fix TASK-065 2026-06-16/17: il 400 locale Supabase `Unsupported provider: provider is not enabled` e stato riprodotto su `127.0.0.1:54321/auth/v1/authorize`; `supabase/config.toml` ora abilita `[auth.external.google]` con placeholder env e `.env.example` dichiara le variabili vuote. Nella review-fix iniziale Docker e Supabase locale sono raggiungibili e il provider reindirizza a Google, ma il redirect locale contiene `client_id=env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)` perche il runtime locale non ha un OAuth client reale. Review finale ha rafforzato repo-side: `next` rifiuta backslash/control chars, origin OAuth deriva da host/proxy prima di `Origin`, qualsiasi host Vercel nel flusso OAuth e bloccato, la probe server-side ha timeout 3s e client ID placeholder/invalid ha result dedicato `oauth_google_client_id_invalid`. Lo smoke `npm run smoke:oauth:local` classifica `PASS`, `BLOCKED_EXTERNAL_CONFIG` o `FAIL_CODE_REGRESSION`, controlla `/platform` e `/shop`, e blocca error page/HTTP error di Google. Un tentativo di unblock del 2026-06-17 ha caricato il Client ID Google reale in `.env` ignorato da git e GoTrue lo risolve (`*.apps.googleusercontent.com`), ma il Client Secret non e stato letto dal comando zsh e resta placeholder; Google classifica inoltre il callback locale `http://127.0.0.1:54321/auth/v1/callback` come `redirect_uri_mismatch`. Unblock finale 2026-06-17: Client Secret scritto solo in `.env` locale ignorato da git tramite prompt macOS nascosto, Supabase riavviato con output silenziato, GoTrue risolve client ID e secret reali senza placeholder, `npm run smoke:oauth:local` PASS per `/platform` e `/shop`, browser process-only locale `127.0.0.1:3055` porta Master/Admin account a `accounts.google.com/v3/signin/identifier` senza Vercel/JSON/Google error, shop-code non mostra Google. Check finali PASS: TASK-065 targeted 10/10, security scan, foundation 342/342, smoke OAuth, lint, typecheck, build con warning noti, browser smoke e git diff check. Codex non marca DONE; pronto per review e conferma esplicita utente. Follow-up: ruotare il Client Secret Google perche e stato incollato in chat durante l'unblock.
 - Final DONE closure TASK-065 2026-06-17: chiusura `DONE` bloccata da sicurezza. Il Google Client Secret e stato incollato in chat dall'utente e non e possibile verificare da terminale la rotazione/revoca del secret nel Google Cloud OAuth client (`gcloud` non disponibile, screenshot non sufficiente come prova machine-readable). `~/.supabase/access-token` era presente; `supabase logout` non ha rimosso il file per profilo CLI mancante/non-interactive, quindi il file locale e stato rimosso manualmente e verificato assente. Revoca remota token Supabase non verificabile da questo runtime. Verdict finale `BLOCKED_SECURITY`; non eseguiti i gate DONE completi della closure perche il primo gate sicurezza e bloccante.
@@ -2879,10 +2897,10 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   OpenNext/Wrangler/esbuild toolchain. Nessun commit/push/stage.
 - TASK-060 resume/fix 3 2026-06-13: riprodotto il caso utente con Shop Code
   staff manager che vedeva `This account is not authorized for this shop
-  action` dopo file ready. Root cause: sessione staff scaduta/non attiva veniva
+action` dopo file ready. Root cause: sessione staff scaduta/non attiva veniva
   rimappata in `unauthorized`, indistinguibile da permesso negato. Fix:
   `session_expired`/`no_active_session` tornano 401 con UX `Session expired.
-  Please sign in again.` e `next` preservato verso Shop Code login;
+Please sign in again.` e `next` preservato verso Shop Code login;
   `permission_denied` torna 403 e staff senza `catalog.import` non vede Import
   supplier Excel. Route preview/apply autorizzano prima di leggere i bytes
   workbook. E2E locale TASK-060 passa `4/4` su manager valido, sessione scaduta,
@@ -2953,29 +2971,27 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   `CLOUDFLARE_API_TOKEN` configurati per staging/production senza stampare
   valori. Check reali: targeted TASK-058/legacy `65/65`, `security:scan`,
   `test:foundation` `284/284`, `typecheck`, `lint`, `build`,
-  `verify` PASS_WITH_WARNINGS per warning noti Next/Node, `cf:build`
+  `verify` PASS*WITH_WARNINGS per warning noti Next/Node, `cf:build`
   PASS_WITH_WARNINGS con worker generato, `smoke:cloudflare:local` PASS,
   `wrangler deploy --dry-run --env staging` PASS_WITH_WARNINGS,
   `db:staging:status` PASS con env process-only, `wrangler deploy --env staging
-  --keep-vars` PASS, `smoke:staging` PASS `1/1`, `wrangler deployments
-  list/status --env staging` ROLLBACK_READ_ONLY_VERIFIED. GitHub Actions
+--keep-vars` PASS, `smoke:staging` PASS `1/1`, `wrangler deployments
+list/status --env staging` ROLLBACK_READ_ONLY_VERIFIED. GitHub Actions
   staging reale PASS nella run `27449125119` su commit `b9904ce`: auth
-  diagnostic PASS (`cfut_` token presente, active via API), `Deploy Worker
-  staging` PASS, `Smoke staging` PASS dopo install Chromium Playwright,
-  production skipped. La causa auth precedente era il salvataggio del comando
-  `curl` wrapper invece del token puro nel secret staging.
-  Pre-merge 2026-06-13 UTC: token Cloudflare esposto ruotato senza stampare
-  valori, token vecchi `Edit Cloudflare Workers` revocati `2/2`, secret
-  `CLOUDFLARE_API_TOKEN` aggiornato negli environment GitHub
-  `cloudflare-staging` e `cloudflare-production`, e nuova run staging
-  post-rotazione `27450388578` PASS (`Cloudflare build`, `Deploy staging`,
-  auth diagnostic, Worker deploy e smoke staging), production skipped.
-  Blocker residui: nessuna Cloudflare zone/custom domain per applicare WAF/rate-limit remoto,
-  `npx supabase projects list` non concluso per hang quindi Supabase remote
-  verification resta `PARTIAL`, rollback staging reale non eseguito per assenza
-  di precedente deployment safe noto. Deploy production, DNS cutover e Supabase
-  production apply `NOT_RUN_PRODUCTION_FORBIDDEN`; TASK-058 resta
-  `REVIEW_WITH_EXTERNAL_BLOCKERS`.
+  diagnostic PASS (`cfut*`token presente, active via API),`Deploy Worker
+  staging`PASS,`Smoke staging`PASS dopo install Chromium Playwright,
+production skipped. La causa auth precedente era il salvataggio del comando`curl`wrapper invece del token puro nel secret staging.
+Pre-merge 2026-06-13 UTC: token Cloudflare esposto ruotato senza stampare
+valori, token vecchi`Edit Cloudflare Workers`revocati`2/2`, secret
+`CLOUDFLARE_API_TOKEN`aggiornato negli environment GitHub`cloudflare-staging`e`cloudflare-production`, e nuova run staging
+post-rotazione `27450388578` PASS (`Cloudflare build`, `Deploy staging`,
+auth diagnostic, Worker deploy e smoke staging), production skipped.
+Blocker residui: nessuna Cloudflare zone/custom domain per applicare WAF/rate-limit remoto,
+`npx supabase projects list`non concluso per hang quindi Supabase remote
+verification resta`PARTIAL`, rollback staging reale non eseguito per assenza
+di precedente deployment safe noto. Deploy production, DNS cutover e Supabase
+production apply `NOT_RUN_PRODUCTION_FORBIDDEN`; TASK-058 resta
+`REVIEW_WITH_EXTERNAL_BLOCKERS`.
 - Snapshot storico TASK-058 pre-TASK-059: Task attivo: `TASK-058 - Cloudflare/OpenNext Staging Hardening and Deployment Governance`;
   stato globale `REVIEW_WITH_EXTERNAL_BLOCKERS`; milestone interna
   `TASK_058_REVIEW_WITH_EXTERNAL_BLOCKERS`.
@@ -3009,7 +3025,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - TASK-056 aperto e portato a `REVIEW` il 2026-06-11: Master Console shop detail editing e row navigation shortcut completati. Scope completato: single click su lista Shops mantiene selezione inspector, double click/Enter apre full detail, detail shop espone `Edit shop profile` per Shop name, Company RUT, Giro, Address, City, Legal representative RUT; update server-side Platform Admin tramite route no-store e RPC auditata `platform_update_shop_profile` con audit family `platform.shop.profile_update`. Esclusi shop_code, shop_id, owner/members, lifecycle, device state, staff/PIN/password e catalogo. No commit/push/stage, no service-role client/browser, no production/cloud apply. Check finali iniziali: targeted TASK-056 PASS 5/5, targeted tracking TASK-054/TASK-055 PASS 17/17, `test:foundation` PASS 257/257, `lint` PASS, `typecheck` PASS, `security:scan` PASS, `build` PASS_WITH_WARNINGS, `verify` PASS_WITH_WARNINGS, `supabase migration up --local` PASS, `supabase migration list --local` PASS con `20260611203000` allineata, `supabase db lint --local --schema public,app_private --fail-on error` PASS, `git diff --check` PASS. Il drift iniziale di `test:platform:local` e il gate skipped di `test:platform:local-login` sono stati corretti nel DONE gate finale.
 - Review-fix Codex TASK-056 2026-06-11: nel primo review-fix il blocco grande inline `Edit shop profile` nel detail shop e stato sostituito da trigger `Edit` in una sezione detail e dialog accessibile. Il form esistente resta riusato dentro il dialog con reason/confirmation e preservazione valori su errore; server-side invariato con stessa route, stessa validazione, stesso resolver Platform Admin, stessa RPC auditata `platform_update_shop_profile` e nessuna nuova migration. Check review-fix: targeted TASK-056 PASS 5/5, `test:foundation` PASS 257/257, `lint` PASS, `typecheck` PASS, `security:scan` PASS, `build` PASS_WITH_WARNINGS, `verify` PASS_WITH_WARNINGS, `git diff --check` PASS. Browser in-app locale era bloccato da assenza sessione Master in questa fase; il DONE gate finale ha poi coperto il flusso autenticato con fixture Playwright locale.
 - Review-fix 2 Codex TASK-056 2026-06-11: full detail shop completato con card read-only `Shop profile & fiscal identity` per Shop name, Shop code, Shop ID, Status, Company RUT, Giro, Address, City, Legal representative RUT, Created e Updated; valori mancanti mostrano `Not configured`. Il trigger `Edit` e stato spostato in quella card con aria-label `Edit shop profile and fiscal identity`, mentre il dialog continua a modificare solo campi gia visibili e `shop_code` resta non editabile. Aggiunta card `Operational summary` con soli aggregati boundary-safe; Products/Categories/Suppliers restano `Not available through current boundary` quando non disponibili. Nessuna nuova migration/RPC/schema, nessun dato finto, nessun service-role client/browser. Check review-fix 2: targeted TASK-056 PASS 5/5, `test:foundation` PASS 257/257, `lint` PASS, `typecheck` PASS, `security:scan` PASS, `build` PASS_WITH_WARNINGS, `verify` PASS_WITH_WARNINGS.
-- DONE gate finale TASK-055/TASK-056 2026-06-11: su conferma esplicita utente nel brief `Final Review / DONE Gate - TASK-055 + TASK-056 Admin Web`, entrambi riconciliati a `DONE_RECONCILED`. Corretto drift E2E repo-controllabile: `test:platform:local` riallineato al provisioning TASK-051 e agli audit event transazionali; aggiunto `test:platform:local-shop-profile` con fixture sintetica Platform Admin/shop, edit dialog, update auditato, shop_code immutato e cleanup. Gate reali passati: TASK-055 targeted 11/11, TASK-056 targeted 5/5, `security:scan`, `test:foundation` 257/257, `lint`, `typecheck`, `build`, `verify`, `test:shop-admin-auth-smoke` 4/4, `test:platform:local` 1/1, `test:platform:local-login` 1/1, `test:platform:local-shop-profile` 1/1, `supabase migration list --local`, `supabase migration up --local`, `supabase db lint --local --schema public,app_private --fail-on error`, `git diff --check`. `npm run db:local:status` resta `FAIL_CLOSED` per `.env.local` puntato a `supabase_cloud`, ma container Supabase locale, RPC `platform_update_shop_profile`, migration e lint sono verificati. Cleanup locale: zero shop attivi/non archiviati `TASK035_%`, `TASK045_%`, `TASK056_%` e zero Platform Admin attivi TASK056; audit append-only e shop TASK056 archiviati possono restare. Nessun production/cloud apply, nessun dato reale, nessun commit/push/stage. Vercel/Cloudflare production, Win7POS live e Sales Sync live restano parcheggiati/non promossi.
+- DONE gate finale TASK-055/TASK-056 2026-06-11: su conferma esplicita utente nel brief `Final Review / DONE Gate - TASK-055 + TASK-056 Admin Web`, entrambi riconciliati a `DONE_RECONCILED`. Corretto drift E2E repo-controllabile: `test:platform:local` riallineato al provisioning TASK-051 e agli audit event transazionali; aggiunto `test:platform:local-shop-profile` con fixture sintetica Platform Admin/shop, edit dialog, update auditato, shop*code immutato e cleanup. Gate reali passati: TASK-055 targeted 11/11, TASK-056 targeted 5/5, `security:scan`, `test:foundation` 257/257, `lint`, `typecheck`, `build`, `verify`, `test:shop-admin-auth-smoke` 4/4, `test:platform:local` 1/1, `test:platform:local-login` 1/1, `test:platform:local-shop-profile` 1/1, `supabase migration list --local`, `supabase migration up --local`, `supabase db lint --local --schema public,app_private --fail-on error`, `git diff --check`. `npm run db:local:status` resta `FAIL_CLOSED` per `.env.local` puntato a `supabase_cloud`, ma container Supabase locale, RPC `platform_update_shop_profile`, migration e lint sono verificati. Cleanup locale: zero shop attivi/non archiviati `TASK035*%`, `TASK045*%`, `TASK056*%` e zero Platform Admin attivi TASK056; audit append-only e shop TASK056 archiviati possono restare. Nessun production/cloud apply, nessun dato reale, nessun commit/push/stage. Vercel/Cloudflare production, Win7POS live e Sales Sync live restano parcheggiati/non promossi.
 - Prossima azione consigliata: selezionare un prossimo task esplicito da aprire in `PLANNING`/`EXECUTION`, mantenendo parcheggiati Vercel production, Win7POS live/Sales Sync live e Cloudflare production finche non esistono target, credenziali e conferma esplicita. Non marcare `TASK-041 DONE` o `TASK-040 DONE` e non dichiarare Win7POS live/Sales Sync live `PASS` finche mancano run reali/evidence.
 
 - Final reconciliation TASK-067 2026-06-17: su review prodotto positiva e
@@ -3035,7 +3051,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Handoff Codex TASK-070 2026-06-19: audit Win7POS completato con subagenti
   specializzati e review CodeRabbit locale su diff non committato. Win7POS
   trovato in `/Users/minxiang/Projects/Win7POS`; stack reale C# WPF `.NET
-  Framework 4.8` x86, SQLite locale, Windows 7 first. Fix piccoli applicati:
+Framework 4.8` x86, SQLite locale, Windows 7 first. Fix piccoli applicati:
   race SQLite supplier/category (`last_insert_rowid()`), bridge job newest,
   clean dist release, path normalization physical Win7, status strip POS,
   guardia `catalog.view` menu Prodotti, guardia `catalog.edit` creazione rapida,
@@ -3073,6 +3089,150 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   successiva dell'utente, i repo gia su `main` vengono finalizzati con
   stage/commit/push; merge effettivo non necessario perche `main...origin/main`
   era gia il branch corrente.
+- Avvio TASK-072 2026-06-19: aperto per override esplicito utente dal brief
+  allegato `TASK-072 - Cross-platform catalog sync and History Entry write path
+for Admin Web, Android and iOS`. Scope: Admin Web emette eventi sync catalogo
+  e implementa History Entry write path v2; Android/iOS ricevono/applicano
+  delta catalog/history con idempotenza; Sync Center mostra cursor/stato/errori
+  tecnici senza confondere `sync_events` con `audit_logs`. Vietati commit,
+  push, stage, production deploy/apply, dati reali, secret, service-role
+  client/browser/mobile e Win7POS/POS runtime fuori lettura. Codex prepara
+  handoff a `REVIEW`, non `DONE`.
+- Handoff Codex TASK-072 2026-06-19: implementata la write path Admin Web per
+  eventi tecnici `sync_events` catalogo/history e per History Entry v2
+  server-side con audit amministrativo separato. Catalogo: le mutazioni
+  prodotto/categoria/fornitore emettono eventi redatti `catalog_changed` /
+  `catalog_tombstone` con `client_event_id` deterministico `admin_web:*` e
+  `entity_ids` mobile-compatible. History: create/update/tombstone scrivono
+  `shared_sheet_sessions` `payload_version=2`, `session_overlay.overlay_schema=1`,
+  `remote_id` UUID lowercase, tombstone logico `deleted_at`, audit in
+  `audit_logs` e segnale `history_changed` / `history_tombstone` con
+  `session_ids`. Sync Center mostra cursor/client event e conteggio eventi
+  Admin Web senza avviare sincronizzazione client. Check Admin Web PASS:
+  `lint`, `typecheck`, `security:scan`, `test:foundation` 381/381 nella
+  prima handoff,
+  `build`, `verify`, targeted TASK-072 3/3, `test:shop:local` 5/5 e
+  `git diff --check`; build/verify hanno solo warning noti Next middleware
+  deprecato e Node `DEP0205`. Android PASS sullo stato corrente:
+  `./gradlew assembleDebug lintDebug testDebugUnitTest`. iOS PASS:
+  XcodeBuildMCP `build_sim` senza warning/errori e targeted
+  `HistorySessionSyncServiceTests`, `SyncEventRecordingTests`,
+  `SyncEventOutboxStateTests` 73/73; full `test_sim` non e gate per TASK-072
+  perche resta `FAIL_WITH_PREEXISTING_SUITE_DRIFT` 858 passed, 23 failed,
+  29 skipped su test storici non correlati. Computer Use read-only sui
+  simulatori aperti conferma stato cloud collegato e conteggi locali visibili
+  coerenti tra iOS/Android per prodotti 19.704, fornitori 66, categorie 35 e
+  sessioni cronologia 35. Nessun commit, push, stage, deploy production/cloud
+  o migration apply eseguito. In quella prima handoff lo scope device
+  auto-registration era ancora separato; l'addendum successivo qui sotto lo
+  include esplicitamente. TASK-072 passa a `REVIEW`, non `DONE`.
+- Handoff addendum TASK-072 device auto-registration 2026-06-19: su override
+  esplicito utente, completata registrazione automatica device per
+  Android/iOS/POS login/sync senza commit/push/stage. Admin Web: migration
+  additiva `20260619123000_task_072_device_auto_registration.sql` con
+  `last_seen_profile_id`, `last_seen_staff_id`,
+  `last_seen_principal_kind`, helper ricorsivo anti metadata sensibili e RPC
+  `shop_device_register_current_owner` owner-scoped senza `shop_id` client;
+  read model `/shop/devices` mostra registry autorizzato, ultimo account/staff
+  visto, app version, last seen/sync e sezione read-only `Detected sync
+clients` da `sync_events.source_device_id` come hint non autorizzativo.
+  POS server: first login/heartbeat preservano o bloccano device
+  `revoked`/`suspicious`; catalog pull e sales sync richiedono device active.
+  Android: install id UUID stabile in Room tramite `SyncEventDeviceStateDao`,
+  RPC best-effort dopo auth/foreground/network con metadata redatti. iOS:
+  install id UUID stabile in `UserDefaults`, RPC best-effort dopo
+  auth/foreground/sync trigger e stesso id come `sourceDeviceID`. Check PASS:
+  Admin Web `lint`, `typecheck`, `security:scan`, `test:foundation` 385/385,
+  `build`, `verify`, smoke `/shop/devices` 1/1, test device auto-reg 4/4;
+  Android `./gradlew assembleDebug lintDebug testDebugUnitTest`; iOS
+  XcodeBuildMCP `build_sim` 0 warning/errori e targeted sync/outbox `58/58`
+  con warning solo in test storici non toccati. Nessuna migration/apply
+  production/cloud. Residuo: Android/iOS non consumano ancora
+  `shop_devices.status` per enforcement completo client-side; resta follow-up.
+  TASK-072 resta `REVIEW`, non `DONE`.
+- Addendum TASK-072 iOS Device Runtime Registration Live Gate 2026-06-19:
+  verificato su cloud dev e iPhone 17 Pro Simulator che una sessione owner
+  mappata registra `iOS arm64` in `shop_devices` e lo rende visibile in
+  `/shop/devices`. Fix finale iOS: auth gate prima della RPC, logging redatto e
+  decode `ok/code`; test negativo conferma che un device revocato non torna
+  active con re-register. Stato `PASS_WITH_NOTES`; enforcement mobile completo
+  di `shop_devices.status` resta follow-up.
+- Final gap closure TASK-072 2026-06-19: chiusura richiesta esplicitamente
+  dall'utente e riconciliata a `DONE_RECONCILED`. La RPC read-only
+  `shop_device_status_current_owner` resta owner-scoped e non accetta
+  `shop_id` client; register/heartbeat preservano device revoked/suspicious e
+  metadata redatti. Android live auth gate ora passa sullo stesso install id:
+  active -> revoked blocca manual/automatic/cloud write -> active ripristina
+  can_write; nessun service-role in app/mobile e nessun token salvato. iOS live
+  gate confermato con build/test/launch simulator. `/shop/devices` smoke
+  autenticato PASS con fixture temporanea e screenshot evidence. Supabase
+  harness deterministico PASS, incluso negativo revoked non riattivato e
+  blocco metadata sensibili. `test:foundation` riallineato e PASS 390/390;
+  TASK-049/TASK-073 targeted PASS. Nessun commit, push o stage.
+- Avvio TASK-073 2026-06-19: aperto per override esplicito utente dal brief
+  allegato `Account identity display globale: email, provider e icona`.
+  Scope: modello e componente riusabile per account personali web/Supabase
+  Auth, provider da fonte Auth reale quando disponibile, fallback Unknown senza
+  deduzione da dominio email, applicazione a Shop Admin Console e Master
+  Console dove compaiono profili/account/owner/manager/admin/actor. Shop Admin
+  resta shop-scoped e Staff POS resta separato. Vietati nuove dipendenze,
+  schema/migration, service-role client/browser, commit, push, stage e deploy.
+  Stato iniziale: handoff a `REVIEW`; superato dalla closure review successiva
+  che chiude TASK-073 a `DONE`.
+- Closure review Codex TASK-073 2026-06-19: chiuso a `DONE` su richiesta
+  esplicita utente e in base all'eccezione `GLOBAL-REVIEW-001`. Confermata
+  review tecnica: provider solo da Supabase Auth server-side, nessuna deduzione
+  da dominio email, Shop Admin bounded by profile id shop-scoped, Master Console
+  tramite boundary platform autorizzato, Staff POS separato dagli account
+  personali. Risolto `BLOCKED_TASK035_DEVICE_CREATE` applicando le migrazioni
+  locali pendenti (`20260619044500`, `20260619123000`, `20260619173000`) e
+  ricaricando la schema cache PostgREST nel runner locale. Aggiornato
+  `test:platform:local-users` per le semantiche correnti della directory
+  account personali. Check: `lint` PASS con 8 warning noti, `typecheck` PASS,
+  targeted TASK-073 3/3 PASS, `test:foundation` 390/390 PASS,
+  `test:shop:local` 5/5 PASS, `test:platform:local-users` 1/1 PASS, `verify`
+  PASS, `git diff --check` PASS. Evidence visuale autenticata salvata in
+  `docs/TASKS/EVIDENCE/TASK-073/` per Shop Members, Shop Audit, Master Users,
+  Platform Admins, Shop Admins e Shop detail/ownership. Browser plugin tentato
+  ma webview attach in timeout; fallback Playwright autenticato accettato come
+  evidence equivalente. Nessun commit, push o stage.
+- TASK-072D final bidirectional runtime E2E 2026-06-19: su nuovo brief utente,
+  TASK-072 e stato riaperto operativamente per completare evidence runtime
+  bidirezionale Admin Web <-> Android <-> iOS prima della conferma finale.
+  Admin seed/verify/idempotency/negative RLS passano su cloud dev
+  non-production con prefisso `TASK072D_ADMIN_20260619T185924Z_`.
+  Android harness live passa con `adminReceiver=pass` e poi con
+  `iosReceiver=pass`; iOS harness live passa con Android receive
+  `applied_products_3_history_3` e Admin history receive `1`.
+  Cleanup remoto `TASK072D_` tombstona solo righe sintetiche, post-verify
+  products/categories/suppliers/history `active=0`; cleanup locale Android
+  passa con tutti i contatori a `0`; iOS cleanup locale e dry-run only e rimanda
+  al backend gia pulito. Computer Use tentato su Safari/Simulator/Android
+  Studio ma `get_app_state` fallisce con `cgWindowNotFound`, quindi evidence
+  primaria resta harness programmatica. Stato corrente:
+  `READY_FOR_DONE_CONFIRMATION`, non `DONE`; serve conferma esplicita utente.
+- Final DONE gate TASK-072 2026-06-19: su brief esplicito `TASK-072 Final
+Review / DONE Gate / Commit Readiness`, completata la riconciliazione finale
+  a `DONE_RECONCILED`. Evidence visuale sostitutiva salvata con
+  browser/Playwright, `adb exec-out screencap` e `xcrun simctl` screenshot;
+  iOS store query conferma active TASK072D `0` e outbox TASK072D `0` separando
+  due `localOnly` preesistenti; Android DB query conferma active/refs/outbox
+  TASK072D `0`; Admin read-only DB check conferma active direct rows `0` e
+  duplicate keys `0`. Gate freschi passano: Admin security scan, targeted
+  TASK-072 `5/5`, foundation `390/390`, typecheck, lint senza warning, build,
+  verify, `test:shop:local` `5/5`; Android `assembleDebug`,
+  `lintDebug testDebugUnitTest`, authorization unit e compile androidTest; iOS
+  XcodeBuildMCP `build_sim` e selected sync/history/catalog/outbox tests
+  `121/121`; `git diff --check` e cached empty nei tre repo. Nessun commit,
+  push, stage, deploy o production migration apply.
+- TASK-074 Devices UX Polish 2026-06-19: aperto come task UI owner-friendly
+  sopra il registry TASK-072 gia enforced. `/shop/devices` passa da tabella
+  generica a vista dedicata con header `Revocation enforced`, summary cards,
+  filtri/search, card registry, separazione `Account personale usato` /
+  `Staff POS usato`, diagnostic/test devices raggruppati, sync activity hints
+  non autorizzativi e manual fallback chiuso in `Advanced manual actions`.
+  Nessuna migration, nessuna modifica RPC/RLS/enforcement, nessuna service-role
+  client-side. Stato Codex: `READY_FOR_REVIEW`, non `DONE`.
 
 ## Regole di avanzamento
 
@@ -3089,6 +3249,7 @@ Status: `REVIEW`, not `DONE`.
 Final gate verdict: `BLOCKED_SCHEMA_OR_RLS_FIX_REQUIRED`.
 
 Summary:
+
 - In-app browser QA confirmed Master Console provisioning, Admin account access, Shop code staff manager `1001` login, and `1001` recovery on local Supabase.
 - A P0 prefetch/session issue in the Platform shell was fixed by disabling prefetch on protected Platform nav/logout links.
 - `/shop/staff` remains blocked for authenticated personal Admin accounts because `public.staff_accounts_safe` selects `web_access_revoked_at` under `security_invoker=true`, while authenticated column grants on `public.staff_accounts` do not include that column.

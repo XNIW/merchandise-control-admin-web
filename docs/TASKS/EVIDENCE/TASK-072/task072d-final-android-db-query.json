@@ -1,0 +1,9 @@
+[{"metric":"products","value":0},
+{"metric":"suppliers","value":0},
+{"metric":"categories","value":0},
+{"metric":"history_active","value":0},
+{"metric":"history_tombstoned","value":0},
+{"metric":"product_remote_refs","value":0},
+{"metric":"history_remote_refs","value":0},
+{"metric":"pending_tombstones","value":0},
+{"metric":"sync_outbox","value":0}]

@@ -5,6 +5,10 @@ import {
   readableBoundaryStatus,
 } from "@/components/platform/displayFormat";
 import {
+  createAccountIdentitySummary,
+  type AccountIdentitySummary,
+} from "@/lib/account-identity";
+import {
   platformSections,
   type PlatformSection,
   type PlatformSectionKey,
@@ -156,32 +160,32 @@ function hasConfiguredFiscalIdentity(shop: Shop) {
 
 function activeOwnerNamesForShop(
   shop: Shop,
-  profiles: readonly Profile[],
-  members: readonly ShopMember[],
+  readModel: PlatformAdminLiveReadModel,
 ) {
-  return activeOwnerMembersForShop(shop, members).map((member) =>
-    profileNameById(profiles, member.profile_id),
+  return activeOwnerMembersForShop(shop, readModel.shopMembers).map((member) =>
+    accountPrimaryLabelForProfile(member.profile_id, readModel),
   );
 }
 
 function activeOwnerForShop(
   shop: Shop,
-  profiles: readonly Profile[],
-  members: readonly ShopMember[],
+  readModel: PlatformAdminLiveReadModel,
 ) {
-  return activeOwnerNamesForShop(shop, profiles, members)[0] ?? "Unassigned";
+  return activeOwnerNamesForShop(shop, readModel)[0] ?? "Unassigned";
 }
 
 function ownerSummaryForShop(
   shop: Shop,
-  profiles: readonly Profile[],
-  members: readonly ShopMember[],
+  readModel: PlatformAdminLiveReadModel,
 ) {
-  const ownerMemberships = ownerMembershipsForShop(shop.shop_id, members);
+  const ownerMemberships = ownerMembershipsForShop(
+    shop.shop_id,
+    readModel.shopMembers,
+  );
   const owners = isOperationalShopStatus(shop.shop_status)
-    ? activeOwnerNamesForShop(shop, profiles, members)
+    ? activeOwnerNamesForShop(shop, readModel)
     : ownerMemberships.map((member) =>
-        profileNameById(profiles, member.profile_id),
+        accountPrimaryLabelForProfile(member.profile_id, readModel),
       );
 
   if (owners.length === 0) {
@@ -296,30 +300,41 @@ function accountPrimaryLabelForProfile(
     : profileLabel;
 }
 
-function accountProfileCell(
+function accountIdentityCell(
   account: PlatformUserAccountSummary,
+): AccountIdentitySummary {
+  return createAccountIdentitySummary({
+    displayName: account.displayName,
+    email: accountSafeEmail(account) || null,
+    profileId: account.profileId,
+    rawProvider: isUnavailableIdentityValue(account.provider)
+      ? null
+      : account.provider,
+  });
+}
+
+function accountIdentityForProfileId(
+  profileId: string | undefined | null,
   readModel: PlatformAdminLiveReadModel,
 ) {
-  const primaryLabel = accountPrimaryLabel(account);
-  const profileSyncState = profileSyncStateLabel(account.profileSyncState);
-  const lines = [primaryLabel];
-
-  if (account.displayName && account.displayName !== primaryLabel) {
-    lines.push(`Profile display name ${account.displayName}`);
+  if (!profileId) {
+    return undefined;
   }
 
-  lines.push(`Profile ID ${shortId(account.profileId)}`);
-  lines.push(profileSyncState);
+  const account = accountForProfileId(profileId, readModel);
 
-  if (mobileInventoryDataLinkedToShop(account.mobileInventoryData)) {
-    lines.push(mobileInventoryDataStatusLabel(account.mobileInventoryData));
+  if (account) {
+    return accountIdentityCell(account);
   }
 
-  if (hasPlatformAdminAccess(account.profileId, readModel)) {
-    lines.push("Platform Admin / Master Console");
-  }
-
-  return lines.join("\n");
+  return createAccountIdentitySummary({
+    displayName:
+      readModel.profiles.find((profile) => profile.profile_id === profileId)
+        ?.display_name ?? null,
+    email: null,
+    profileId,
+    rawProvider: null,
+  });
 }
 
 function profileSyncStateLabel(state: PlatformProfileSyncState) {
@@ -1832,11 +1847,7 @@ function shopRowDetail(
   shop: Shop,
   readModel: PlatformAdminLiveReadModel,
 ): RowDetailPanel {
-  const owners = activeOwnerNamesForShop(
-    shop,
-    readModel.profiles,
-    readModel.shopMembers,
-  );
+  const owners = activeOwnerNamesForShop(shop, readModel);
   const members = readModel.shopMembers.filter(
     (member) => member.shop_id === shop.shop_id,
   );
@@ -2681,6 +2692,13 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
   const primaryOwnerHref = primaryOwnerProfileId
     ? `/platform/users/${primaryOwnerProfileId}`
     : undefined;
+  const primaryOwnerIdentity =
+    primaryOwnerProfileId
+      ? accountIdentityForProfileId(primaryOwnerProfileId, readModel)
+      : undefined;
+  const primaryOwnerValue =
+    primaryOwnerIdentity ??
+    accountPrimaryLabelForProfile(primaryOwnerProfileId, readModel);
   const inventorySourceStatus = shopInventorySourceStatusLabel(shop, readModel);
 
   return [
@@ -2694,10 +2712,7 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
         {
           href: primaryOwnerHref,
           label: "Owner account",
-          value: accountPrimaryLabelForProfile(
-            primaryOwnerProfileId,
-            readModel,
-          ),
+          value: primaryOwnerValue,
         },
         {
           label: "Inventory source",
@@ -2735,10 +2750,7 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
         {
           href: primaryOwnerHref,
           label: "Owner account",
-          value: accountPrimaryLabelForProfile(
-            primaryOwnerProfileId,
-            readModel,
-          ),
+          value: primaryOwnerValue,
         },
         {
           label: "Inventory source",
@@ -2758,10 +2770,7 @@ function shopDetailSections(shop: Shop, readModel: PlatformAdminLiveReadModel) {
         {
           href: primaryOwnerHref,
           label: "Owner account",
-          value: accountPrimaryLabelForProfile(
-            primaryOwnerProfileId,
-            readModel,
-          ),
+          value: primaryOwnerValue,
         },
         {
           label: "Role",
@@ -3348,7 +3357,7 @@ function buildUsers(readModel: PlatformAdminLiveReadModel): PlatformSection {
         dataStatus: mobileInventoryDataStatusLabel(account.mobileInventoryData),
         origin: accountOriginForUser(account),
         email: account.email,
-        profile: accountProfileCell(account, readModel),
+        profile: accountIdentityCell(account),
         rowKey: account.profileId,
         shopAccess: shopAccessTableValueForAccount(account, readModel),
         state: `${profileSyncStateLabel(account.profileSyncState)}\n${formatToken(
@@ -3646,7 +3655,7 @@ function buildShopAdmins(
           readModel,
         ),
         origin: accountOriginForUser(account),
-        profile: accountProfileCell(account, readModel),
+        profile: accountIdentityCell(account),
         roles: shopAdminRolesSummaryForProfile(account.profileId, readModel),
         rowKey: account.profileId,
         shops: shopAdminShopsSummaryForProfile(account.profileId, readModel),
@@ -3789,11 +3798,7 @@ function buildShops(readModel: PlatformAdminLiveReadModel): PlatformSection {
         inventorySource: shopInventorySourceTableValue(shop, readModel),
         members: memberSummaryForShop(shop, readModel.shopMembers),
         operationalAccess: shopOperationalAccessTableValue(shop),
-        owners: ownerSummaryForShop(
-          shop,
-          readModel.profiles,
-          readModel.shopMembers,
-        ),
+        owners: ownerSummaryForShop(shop, readModel),
         rowKey: shop.shop_id,
         shop: `${shop.shop_name}\nCode ${shop.shop_code}\nID ${shortId(shop.shop_id)}`,
         status: shopStatus,
@@ -3915,9 +3920,9 @@ function buildAdmins(readModel: PlatformAdminLiveReadModel): PlatformSection {
         origin: account
           ? accountOriginForUser(account)
           : "Auth identity unavailable",
-        profile: account
-          ? accountProfileCell(account, readModel)
-          : `${profileNameById(readModel.profiles, admin.profile_id)}\nProfile ID ${shortId(admin.profile_id)}`,
+        profile:
+          accountIdentityForProfileId(admin.profile_id, readModel) ??
+          `${profileNameById(readModel.profiles, admin.profile_id)}\nProfile ID ${shortId(admin.profile_id)}`,
         review: admin.last_reviewed_at ?? "Grant state visible",
         rowKey: admin.platform_admin_id,
         shopOverlap: shopAdminAccessStateForProfile(
@@ -3957,7 +3962,9 @@ function buildAudit(readModel: PlatformAdminLiveReadModel): PlatformSection {
     ],
     rows: readModel.auditLogs.map(
       (log): TableRow => ({
-        actor: profileNameById(readModel.profiles, log.actor_profile_id),
+        actor:
+          accountIdentityForProfileId(log.actor_profile_id, readModel) ??
+          profileNameById(readModel.profiles, log.actor_profile_id),
         date: log.created_at,
         event: log.event,
         rowKey: log.audit_log_id,
@@ -4622,11 +4629,11 @@ function buildSupport(readModel: PlatformAdminLiveReadModel): PlatformSection {
 
     return {
       rowKey: shop.shop_id,
-      signal: `${activeOwnerForShop(shop, readModel.profiles, readModel.shopMembers)} / ${devices.length} devices`,
+      signal: `${activeOwnerForShop(shop, readModel)} / ${devices.length} devices`,
       state: formatToken(shop.shop_status),
       subject: shop.shop_name,
       suggestedNextStep:
-        activeOwnerForShop(shop, readModel.profiles, readModel.shopMembers) ===
+        activeOwnerForShop(shop, readModel) ===
         "Unassigned"
           ? "Use Provisioning"
           : devices.length === 0
@@ -4757,7 +4764,9 @@ function buildAuditDetail(
     rows: event
       ? [
           {
-            actor: profileNameById(readModel.profiles, event.actor_profile_id),
+            actor:
+              accountIdentityForProfileId(event.actor_profile_id, readModel) ??
+              profileNameById(readModel.profiles, event.actor_profile_id),
             date: event.created_at,
             event: event.event,
             rowKey: event.audit_log_id,
@@ -4834,7 +4843,7 @@ function buildUserDetail(
             access: accessSummaryForProfile(account.profileId, readModel),
             email: account.email,
             origin: accountOriginForUser(account),
-            profile: accountProfileCell(account, readModel),
+            profile: accountIdentityCell(account),
             rowKey: account.profileId,
             shops: shopAccessSummaryForProfile(
               account.profileId,
@@ -4921,7 +4930,7 @@ function buildShopAdminDetail(
               readModel,
             ),
             origin: accountOriginForUser(account),
-            profile: accountProfileCell(account, readModel),
+            profile: accountIdentityCell(account),
             roles: shopAdminRolesSummaryForProfile(
               account.profileId,
               readModel,
@@ -4944,7 +4953,7 @@ function buildShopAdminDetail(
               readModel,
             ),
             origin: "shop_members",
-            profile: profileNameById(readModel.profiles, account.profileId),
+            profile: accountIdentityCell(account),
             roles: formatToken(member.role_id),
             rowKey: `${account.profileId}-${member.shop_member_id}`,
             shops: shopCodeById(readModel.shops, member.shop_id),
@@ -5037,11 +5046,7 @@ function buildShopDetail(
             inventorySource: shopInventorySourceTableValue(shop, readModel),
             members: memberSummaryForShop(shop, readModel.shopMembers),
             operationalAccess: shopOperationalAccessTableValue(shop),
-            owners: ownerSummaryForShop(
-              shop,
-              readModel.profiles,
-              readModel.shopMembers,
-            ),
+            owners: ownerSummaryForShop(shop, readModel),
             rowKey: shop.shop_id,
             shop: `${shop.shop_name}\nCode ${shop.shop_code}\nID ${shortId(shop.shop_id)}`,
             status: shopStatusLabel(shop.shop_status),

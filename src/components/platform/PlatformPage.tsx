@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
 import { ActionButton } from "./components/ActionButton";
+import { AccountIdentity } from "@/components/account/AccountIdentity";
 import { AdminDataTable } from "@/components/admin/AdminDataTable";
 import { EmptyState } from "@/components/admin/EmptyState";
 import { GuardrailNotice } from "@/components/admin/GuardrailNotice";
@@ -14,6 +15,7 @@ import {
   translatePlatformSection,
   translateText,
 } from "@/i18n/translate-sections";
+import { isAccountIdentitySummary } from "@/lib/account-identity";
 import { PlatformMasterDetail } from "./PlatformMasterDetail";
 import type { PlatformSection, RowDetailField } from "./platformData";
 
@@ -113,8 +115,29 @@ function renderDetailFieldValue({
   locale: Parameters<typeof formatDisplayValue>[1];
   sourceField?: RowDetailField;
 }) {
+  if (isAccountIdentitySummary(field.value)) {
+    const identity = <AccountIdentity identity={field.value} locale={locale} />;
+
+    return (
+      <dd className="mt-1 min-w-0">
+        {field.href ? (
+          <Link
+            href={field.href}
+            className="block rounded-md outline-none focus-visible:ring-2 focus-visible:ring-slate-950"
+          >
+            {identity}
+          </Link>
+        ) : (
+          identity
+        )}
+      </dd>
+    );
+  }
+
+  const sourceValue =
+    typeof sourceField?.value === "string" ? sourceField.value : field.value;
   const localizedSegments = field.value.split("\n").filter(Boolean);
-  const sourceSegments = (sourceField?.value ?? field.value)
+  const sourceSegments = sourceValue
     .split("\n")
     .filter(Boolean);
 

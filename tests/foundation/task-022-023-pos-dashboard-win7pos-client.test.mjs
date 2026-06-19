@@ -6,8 +6,7 @@ import test from "node:test";
 
 const root = process.cwd();
 const defaultWin7PosRoot = "/Users/minxiang/Projects/Win7POS";
-const win7PosRoot =
-  process.env.WIN7POS_REPO_PATH?.trim() || defaultWin7PosRoot;
+const win7PosRoot = process.env.WIN7POS_REPO_PATH?.trim() || defaultWin7PosRoot;
 const requireWin7PosRepo = process.env.REQUIRE_WIN7POS_REPO === "1";
 
 function readProjectFile(relativePath) {
@@ -80,7 +79,10 @@ function listWin7PosFiles(start, extensions) {
       continue;
     }
 
-    if (stats.isFile() && extensions.some((extension) => entry.endsWith(extension))) {
+    if (
+      stats.isFile() &&
+      extensions.some((extension) => entry.endsWith(extension))
+    ) {
       files.push(relativePath);
     }
   }
@@ -98,8 +100,16 @@ test("TASK-022_023 governance artifacts track execution without marking DONE", (
   const taskPath = "docs/TASKS/TASK-022-023-pos-dashboard-win7pos-client.md";
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-022-023/README.md";
 
-  assert.equal(existsSync(join(root, taskPath)), true, `${taskPath} is missing`);
-  assert.equal(existsSync(join(root, evidencePath)), true, `${evidencePath} is missing`);
+  assert.equal(
+    existsSync(join(root, taskPath)),
+    true,
+    `${taskPath} is missing`,
+  );
+  assert.equal(
+    existsSync(join(root, evidencePath)),
+    true,
+    `${evidencePath} is missing`,
+  );
 
   const task = readProjectFile(taskPath);
   const evidence = readProjectFile(evidencePath);
@@ -116,18 +126,30 @@ test("TASK-022_023 governance artifacts track execution without marking DONE", (
     "No sales sync",
     "no dati finti",
   ]) {
-    assert.match(`${task}\n${evidence}`, new RegExp(escapeRegExp(required), "i"));
+    assert.match(
+      `${task}\n${evidence}`,
+      new RegExp(escapeRegExp(required), "i"),
+    );
   }
 
   assert.match(task, /Stato: `(IN_PROGRESS|REVIEW)`/);
-  assert.match(task, /Fase: `(EXECUTION|REVIEW|REVIEW_WITH_BLOCKERS|REVIEW_WITH_EXTERNAL_BLOCKERS)`/);
+  assert.match(
+    task,
+    /Fase: `(EXECUTION|REVIEW|REVIEW_WITH_BLOCKERS|REVIEW_WITH_EXTERNAL_BLOCKERS)`/,
+  );
   assert.doesNotMatch(task, /DONE_RECONCILED/);
-  assert.match(masterPlan, /TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device/);
+  assert.match(
+    masterPlan,
+    /TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device/,
+  );
   assert.match(
     masterPlan,
     /Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`|Task attivo: `TASK-026 - Shop Admin product catalog foundation`|Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`|Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`/,
   );
-  assert.match(masterPlan, /Task parcheggiato(?: non chiuso)?: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/);
+  assert.match(
+    masterPlan,
+    /Task parcheggiato(?: non chiuso)?: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`/,
+  );
 });
 
 test("Admin Web POS live dashboard is Shop Admin read-only and uses real POS tables only", () => {
@@ -136,8 +158,17 @@ test("Admin Web POS live dashboard is Shop Admin read-only and uses real POS tab
   const sectionDataPath = "src/server/shop-admin/shop-section-data.ts";
   const sectionsPath = "src/components/shop/shopSections.ts";
 
-  for (const relativePath of [routePath, readModelPath, sectionDataPath, sectionsPath]) {
-    assert.equal(existsSync(join(root, relativePath)), true, `${relativePath} is missing`);
+  for (const relativePath of [
+    routePath,
+    readModelPath,
+    sectionDataPath,
+    sectionsPath,
+  ]) {
+    assert.equal(
+      existsSync(join(root, relativePath)),
+      true,
+      `${relativePath} is missing`,
+    );
   }
 
   const route = readProjectFile(routePath);
@@ -171,15 +202,27 @@ test("Admin Web POS live dashboard is Shop Admin read-only and uses real POS tab
   assert.doesNotMatch(readModel, /select\("\*"\)/);
   assert.doesNotMatch(readModel, /\.(insert|update|delete|upsert|rpc)\s*\(/);
   assert.doesNotMatch(readModel, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
-  assert.doesNotMatch(readModel, /token_hash|session_token_hash|trustedDeviceToken|deviceToken|sessionToken/);
+  assert.doesNotMatch(
+    readModel,
+    /token_hash|session_token_hash|trustedDeviceToken|deviceToken|sessionToken/,
+  );
 
   assert.match(sections, /key: "pos"/);
   assert.match(sections, /href: "\/shop\/pos"/);
   assert.match(sectionData, /buildPosLiveSection/);
   assert.match(sectionData, /getShopPosLiveReadModel/);
-  assert.match(sectionData, /metric\("Sales \/ revenue", "Not configured", "POS sales sync is not connected yet", "muted"\)/);
-  assert.match(sectionData, /field: "Sales \/ revenue"[\s\S]*value: "Not configured"[\s\S]*detail: "POS sales sync is not connected yet"/);
-  assert.doesNotMatch(dashboardSource, /sales today|revenue|orders|pos_sales|sales_sync|sync_batch/i);
+  assert.match(
+    sectionData,
+    /metric\(\s*"Sales \/ revenue",\s*"Not configured",\s*"POS sales sync is not connected yet",\s*"muted",?\s*\)/,
+  );
+  assert.match(
+    sectionData,
+    /field: "Sales \/ revenue"[\s\S]*value: "Not configured"[\s\S]*detail: "POS sales sync is not connected yet"/,
+  );
+  assert.doesNotMatch(
+    dashboardSource,
+    /sales today|revenue|orders|pos_sales|sales_sync|sync_batch/i,
+  );
   assert.doesNotMatch(dashboardSource, /mock|fake|demo/i);
 });
 
@@ -212,18 +255,35 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
     );
   }
 
-  const client = readWin7PosFile("src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs");
-  const store = readWin7PosFile("src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs");
-  const options = readWin7PosFile("src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs");
-  const identity = readWin7PosFile("src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs");
-  const bootstrap = readWin7PosFile("src/Win7POS.Wpf/Pos/Online/PosOnlineBootstrapService.cs");
-  const loginDialog = readWin7PosFile("src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs");
-  const operatorDialog = readWin7PosFile("src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml.cs");
+  const client = readWin7PosFile(
+    "src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs",
+  );
+  const store = readWin7PosFile(
+    "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",
+  );
+  const options = readWin7PosFile(
+    "src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs",
+  );
+  const identity = readWin7PosFile(
+    "src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs",
+  );
+  const bootstrap = readWin7PosFile(
+    "src/Win7POS.Wpf/Pos/Online/PosOnlineBootstrapService.cs",
+  );
+  const loginDialog = readWin7PosFile(
+    "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs",
+  );
+  const operatorDialog = readWin7PosFile(
+    "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml.cs",
+  );
   const mainWindow = readWin7PosFile("src/Win7POS.Wpf/MainWindow.xaml.cs");
   const combined = combinedWin7PosSource();
 
   assert.match(client, /HttpClient/);
-  assert.match(client, /ServicePointManager\.SecurityProtocol[\s\S]*SecurityProtocolType\.Tls12/);
+  assert.match(
+    client,
+    /ServicePointManager\.SecurityProtocol[\s\S]*SecurityProtocolType\.Tls12/,
+  );
   assert.match(client, /Timeout\s*=/);
   assert.match(client, /\/api\/pos\/auth\/first-login/);
   assert.match(client, /\/api\/pos\/session\/heartbeat/);
@@ -234,7 +294,10 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
 
   assert.match(store, /ProtectedData\.Protect/);
   assert.match(store, /ProtectedData\.Unprotect/);
-  assert.doesNotMatch(store, /File\.WriteAllText[\s\S]{0,160}(trustedDeviceToken|sessionToken|deviceToken)/);
+  assert.doesNotMatch(
+    store,
+    /File\.WriteAllText[\s\S]{0,160}(trustedDeviceToken|sessionToken|deviceToken)/,
+  );
 
   assert.match(options, /WIN7POS_ADMIN_WEB_BASE_URL/);
   assert.match(options, /pos-admin-web\.config/);
@@ -247,8 +310,14 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
 
   assert.doesNotMatch(combined, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
   assert.doesNotMatch(combined, /mcpos_(device|session)_[A-Za-z0-9_-]+/);
-  assert.doesNotMatch(combined, /pin\s*=\s*["'][0-9]{4,6}["']|password\s*=\s*["'][^"']+["']/i);
-  assert.doesNotMatch(combined, /pos_sales|sales_sync|sync_batch|api\/pos\/sales/i);
+  assert.doesNotMatch(
+    combined,
+    /pin\s*=\s*["'][0-9]{4,6}["']|password\s*=\s*["'][^"']+["']/i,
+  );
+  assert.doesNotMatch(
+    combined,
+    /pos_sales|sales_sync|sync_batch|api\/pos\/sales/i,
+  );
 });
 
 test("TASK-022_023 security scanner covers Admin Web and Win7POS constraints", () => {

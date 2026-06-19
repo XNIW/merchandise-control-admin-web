@@ -19,6 +19,11 @@ type ShopDeviceRow = Pick<
   | "app_version"
   | "status"
   | "last_seen_at"
+  | "last_seen_principal_kind"
+  | "last_seen_profile_id"
+  | "last_seen_staff_id"
+  | "metadata_redacted"
+  | "reactivated_at"
   | "revoked_at"
   | "created_at"
   | "updated_at"
@@ -37,6 +42,14 @@ type InventorySourceRow = Pick<
   Tables<"shop_inventory_sources">,
   "shop_inventory_source_id" | "owner_user_id" | "mapping_state" | "source_kind"
 >;
+type ProfileDisplayRow = Pick<
+  Tables<"profiles">,
+  "profile_id" | "display_name"
+>;
+type StaffDisplayRow = Pick<
+  Tables<"staff_accounts_safe">,
+  "display_name" | "staff_code" | "staff_id"
+>;
 
 export type ShopDeviceMapping = {
   mappingId: string;
@@ -52,6 +65,7 @@ export type ShopDeviceActivity = {
   latestEventId: string;
   latestEventType: string;
   source: string | null;
+  sourceDeviceId: string;
 };
 
 export type ShopDeviceRegistryRow = {
@@ -63,10 +77,20 @@ export type ShopDeviceRegistryRow = {
   deviceType: string;
   displayName: string;
   lastSeenAt: string | null;
+  lastSeenAccount: string | null;
+  lastSeenPrincipalKind: string;
+  lastSeenStaff: string | null;
+  metadataRedacted: ShopDeviceRow["metadata_redacted"];
+  reactivatedAt: string | null;
   revokedAt: string | null;
   status: string;
   syncActivity: ShopDeviceActivity | null;
   updatedAt: string;
+};
+
+export type ShopDetectedSyncClient = ShopDeviceActivity & {
+  authorizationStatus: "activity_hint_only";
+  historyHref: string;
 };
 
 export type ShopDeviceReadModel = {
@@ -74,6 +98,7 @@ export type ShopDeviceReadModel = {
   selectedShop: ShopAdminShellShop | null;
   mapping: ShopDeviceMapping | null;
   devices: readonly ShopDeviceRegistryRow[];
+  detectedSyncClients: readonly ShopDetectedSyncClient[];
   readOnly: true;
   source: "supabase_server";
   reason: string;
@@ -89,7 +114,11 @@ const emptyRows = {
   selectedShop: null,
   mapping: null,
   devices: [],
+  detectedSyncClients: [],
 } as const;
+
+const shortId = (value: string | null | undefined) =>
+  value ? `${value.slice(0, 8)}...` : null;
 
 function redactDeviceReadModelError(error: unknown): ShopAdminReadModelError {
   const code =
@@ -134,6 +163,7 @@ function mapDeviceActivities(rows: readonly DeviceActivityRow[]) {
         latestEventId: String(row.id),
         latestEventType: row.event_type,
         source: row.source,
+        sourceDeviceId: deviceId,
       });
       continue;
     }
@@ -151,8 +181,16 @@ function mapDeviceActivities(rows: readonly DeviceActivityRow[]) {
 function mapDeviceRow(
   row: ShopDeviceRow,
   activityByIdentifier: Map<string, ShopDeviceActivity>,
+  profilesById: Map<string, ProfileDisplayRow>,
+  staffById: Map<string, StaffDisplayRow>,
 ): ShopDeviceRegistryRow {
   const syncActivity = activityByIdentifier.get(row.device_identifier) ?? null;
+  const profile = row.last_seen_profile_id
+    ? profilesById.get(row.last_seen_profile_id)
+    : null;
+  const staff = row.last_seen_staff_id
+    ? staffById.get(row.last_seen_staff_id)
+    : null;
 
   return {
     appVersion: row.app_version,
@@ -165,11 +203,35 @@ function mapDeviceRow(
     deviceType: row.device_type,
     displayName: row.display_name,
     lastSeenAt: row.last_seen_at ?? syncActivity?.latestEventAt ?? null,
+    lastSeenAccount: row.last_seen_profile_id
+      ? (profile?.display_name ?? shortId(row.last_seen_profile_id))
+      : null,
+    lastSeenPrincipalKind: row.last_seen_principal_kind,
+    lastSeenStaff: row.last_seen_staff_id
+      ? (staff?.display_name ??
+        staff?.staff_code ??
+        shortId(row.last_seen_staff_id))
+      : null,
+    metadataRedacted: row.metadata_redacted,
+    reactivatedAt: row.reactivated_at,
     revokedAt: row.revoked_at,
     status: row.status,
     syncActivity,
     updatedAt: row.updated_at,
   };
+}
+
+function mapDetectedSyncClients(
+  activityByIdentifier: Map<string, ShopDeviceActivity>,
+  registeredIdentifiers: Set<string>,
+): ShopDetectedSyncClient[] {
+  return Array.from(activityByIdentifier.entries())
+    .filter(([sourceDeviceId]) => !registeredIdentifiers.has(sourceDeviceId))
+    .map(([, activity]) => ({
+      ...activity,
+      authorizationStatus: "activity_hint_only" as const,
+      historyHref: `/shop/history/sync:${encodeURIComponent(activity.latestEventId)}`,
+    }));
 }
 
 export async function getShopDeviceReadModel(
@@ -195,7 +257,7 @@ export async function getShopDeviceReadModel(
   const devicesResult = await supabase
     .from("shop_devices")
     .select(
-      "shop_device_id,shop_id,device_identifier,device_type,display_name,app_version,status,last_seen_at,revoked_at,created_at,updated_at",
+      "shop_device_id,shop_id,device_identifier,device_type,display_name,app_version,status,last_seen_at,last_seen_principal_kind,last_seen_profile_id,last_seen_staff_id,metadata_redacted,reactivated_at,revoked_at,created_at,updated_at",
     )
     .eq("shop_id", selectedShop.shopId)
     .order("updated_at", { ascending: false })
@@ -207,6 +269,7 @@ export async function getShopDeviceReadModel(
       selectedShop,
       mapping: null,
       devices: [],
+      detectedSyncClients: [],
       readOnly: true,
       source: "supabase_server",
       reason: "Device registry rows could not be loaded through RLS.",
@@ -214,6 +277,7 @@ export async function getShopDeviceReadModel(
     };
   }
 
+  const deviceRows = devicesResult.data ?? [];
   const mappingResult = await supabase
     .from("shop_inventory_sources")
     .select("shop_inventory_source_id,owner_user_id,mapping_state,source_kind")
@@ -222,20 +286,10 @@ export async function getShopDeviceReadModel(
     .is("disabled_at", null)
     .maybeSingle();
 
-  if (mappingResult.error) {
-    return {
-      status: "error",
-      selectedShop,
-      mapping: null,
-      devices: [],
-      readOnly: true,
-      source: "supabase_server",
-      reason: "Device sync mapping could not be loaded.",
-      error: redactDeviceReadModelError(mappingResult.error),
-    };
-  }
-
-  const mapping = mappingResult.data ? mapMapping(mappingResult.data) : null;
+  const mapping =
+    !mappingResult.error && mappingResult.data
+      ? mapMapping(mappingResult.data)
+      : null;
   let activityByIdentifier = new Map<string, ShopDeviceActivity>();
 
   if (mapping) {
@@ -249,28 +303,67 @@ export async function getShopDeviceReadModel(
       .order("created_at", { ascending: false })
       .limit(100);
 
-    if (activityResult.error) {
-      return {
-        status: "error",
-        selectedShop,
-        mapping,
-        devices: [],
-        readOnly: true,
-        source: "supabase_server",
-        reason: "Mapped device activity could not be loaded through RLS.",
-        error: redactDeviceReadModelError(activityResult.error),
-      };
+    if (!activityResult.error) {
+      activityByIdentifier = mapDeviceActivities(activityResult.data ?? []);
     }
-
-    activityByIdentifier = mapDeviceActivities(activityResult.data ?? []);
   }
+
+  const profileIds = Array.from(
+    new Set(
+      deviceRows
+        .map((row) => row.last_seen_profile_id)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+  const staffIds = Array.from(
+    new Set(
+      deviceRows
+        .map((row) => row.last_seen_staff_id)
+        .filter((value): value is string => Boolean(value)),
+    ),
+  );
+  const profilesById = new Map<string, ProfileDisplayRow>();
+  const staffById = new Map<string, StaffDisplayRow>();
+
+  if (profileIds.length > 0) {
+    const profilesResult = await supabase
+      .from("profiles")
+      .select("profile_id,display_name")
+      .in("profile_id", profileIds);
+
+    for (const row of profilesResult.data ?? []) {
+      profilesById.set(row.profile_id, row);
+    }
+  }
+
+  if (staffIds.length > 0) {
+    const staffResult = await supabase
+      .from("staff_accounts_safe")
+      .select("staff_id,staff_code,display_name")
+      .eq("shop_id", selectedShop.shopId)
+      .in("staff_id", staffIds);
+
+    for (const row of staffResult.data ?? []) {
+      if (row.staff_id) {
+        staffById.set(row.staff_id, row);
+      }
+    }
+  }
+
+  const registeredIdentifiers = new Set(
+    deviceRows.map((row) => row.device_identifier),
+  );
 
   return {
     status: "ready",
     selectedShop,
     mapping,
-    devices: (devicesResult.data ?? []).map((row) =>
-      mapDeviceRow(row, activityByIdentifier),
+    devices: deviceRows.map((row) =>
+      mapDeviceRow(row, activityByIdentifier, profilesById, staffById),
+    ),
+    detectedSyncClients: mapDetectedSyncClients(
+      activityByIdentifier,
+      registeredIdentifiers,
     ),
     readOnly: true,
     source: "supabase_server",

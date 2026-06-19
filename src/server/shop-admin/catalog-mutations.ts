@@ -7,6 +7,11 @@ import {
   type ShopAdminActionResult,
 } from "./action-context";
 import {
+  emitCatalogMutationSyncEvent,
+  type CatalogSyncEntity,
+  type CatalogSyncOperation,
+} from "./sync-event-writer";
+import {
   archiveCategoryAsStaff,
   archiveProductAsStaff,
   archiveSupplierAsStaff,
@@ -33,6 +38,19 @@ type CatalogArchiveInput = {
   id: string;
   reason?: string;
   requestedShopId?: string;
+};
+
+type ReadyShopActionContext = Extract<
+  Awaited<ReturnType<typeof resolveShopActionContext>>,
+  { status: "ready" }
+>;
+type StaffReadyShopActionContext = Extract<
+  ReadyShopActionContext,
+  { principalKind: "pos_staff_manager" }
+>;
+type CatalogSyncDescriptor = {
+  entity: CatalogSyncEntity;
+  operation: CatalogSyncOperation;
 };
 
 export type ProductMutationInput = {
@@ -86,18 +104,9 @@ function catalogReasonRequired(input: CatalogArchiveInput) {
 async function rpcResult(
   requestedShopId: string | undefined,
   permission: "products.write" | "categories.write" | "suppliers.write",
-  staffCall: (
-    context: Extract<
-      Awaited<ReturnType<typeof resolveShopActionContext>>,
-      { principalKind: "pos_staff_manager"; status: "ready" }
-    >,
-  ) => Promise<ShopAdminActionResult>,
-  call: (
-    context: Extract<
-      Awaited<ReturnType<typeof resolveShopActionContext>>,
-      { status: "ready" }
-    >,
-  ) => PromiseLike<{ data: unknown; error: unknown }>,
+  staffCall: (context: StaffReadyShopActionContext) => Promise<ShopAdminActionResult>,
+  call: (context: ReadyShopActionContext) => PromiseLike<{ data: unknown; error: unknown }>,
+  syncDescriptor?: CatalogSyncDescriptor,
 ): Promise<ShopAdminActionResult> {
   const context = await resolveShopActionContext(requestedShopId, permission);
 
@@ -105,10 +114,33 @@ async function rpcResult(
     return context.result;
   }
 
+  const withSyncEvent = async (result: ShopAdminActionResult) => {
+    if (!syncDescriptor) {
+      return result;
+    }
+
+    const syncResult = await emitCatalogMutationSyncEvent({
+      context,
+      result,
+      ...syncDescriptor,
+    });
+
+    if (syncResult.ok) {
+      return result;
+    }
+
+    return shopAdminActionResult(syncResult.code, {
+      auditEventId: result.auditEventId,
+      ok: false,
+      shopId: result.shopId ?? context.selectedShop.shopId,
+      targetId: result.targetId,
+    });
+  };
+
   const staffResult = await runStaffAwareShopAdminMutation(context, staffCall);
 
   if (staffResult) {
-    return staffResult;
+    return withSyncEvent(staffResult);
   }
 
   const { data, error } = await call(context);
@@ -120,7 +152,7 @@ async function rpcResult(
     });
   }
 
-  return mapShopAdminRpcResult(data);
+  return withSyncEvent(mapShopAdminRpcResult(data));
 }
 
 export async function createSupplier(
@@ -142,6 +174,7 @@ export async function createSupplier(
         p_name: input.name,
         p_shop_id: context.selectedShop.shopId,
       }),
+    { entity: "supplier", operation: "create" },
   );
 }
 
@@ -165,6 +198,7 @@ export async function updateSupplier(
         p_shop_id: context.selectedShop.shopId,
         p_supplier_id: input.id,
       }),
+    { entity: "supplier", operation: "update" },
   );
 }
 
@@ -192,6 +226,7 @@ export async function archiveSupplier(
         p_shop_id: context.selectedShop.shopId,
         p_supplier_id: input.id,
       }),
+    { entity: "supplier", operation: "archive" },
   );
 }
 
@@ -214,6 +249,7 @@ export async function createCategory(
         p_name: input.name,
         p_shop_id: context.selectedShop.shopId,
       }),
+    { entity: "category", operation: "create" },
   );
 }
 
@@ -237,6 +273,7 @@ export async function updateCategory(
         p_name: input.name,
         p_shop_id: context.selectedShop.shopId,
       }),
+    { entity: "category", operation: "update" },
   );
 }
 
@@ -264,6 +301,7 @@ export async function archiveCategory(
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,
       }),
+    { entity: "category", operation: "archive" },
   );
 }
 
@@ -329,6 +367,7 @@ export async function createProduct(
         p_stock_quantity: input.stockQuantity,
         p_supplier_id: cleanUuid(input.supplierId),
       }),
+    { entity: "product", operation: "create" },
   );
 }
 
@@ -371,6 +410,7 @@ export async function updateProduct(
         p_stock_quantity: input.stockQuantity,
         p_supplier_id: cleanUuid(input.supplierId),
       }),
+    { entity: "product", operation: "update" },
   );
 }
 
@@ -397,6 +437,7 @@ export async function archiveProduct(
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,
       }),
+    { entity: "product", operation: "archive" },
   );
 }
 
@@ -423,5 +464,6 @@ export async function restoreProduct(
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,
       }),
+    { entity: "product", operation: "restore" },
   );
 }

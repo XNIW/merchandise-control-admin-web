@@ -47,7 +47,10 @@ test("Mobile History read model analyzes sessions, overlays, and related events 
   assert.match(readModel, /mapSessionDiagnostics/);
   assert.match(readModel, /shared_sheet_session_diagnostics/);
   assert.match(readModel, /data_rows,item_rows,column_count/);
-  assert.match(readModel, /payload_version,data,session_overlay,is_manual_entry/);
+  assert.match(
+    readModel,
+    /payload_version,data,session_overlay,is_manual_entry/,
+  );
   assert.match(readModel, /grid\.slice\(1\)\.filter/);
   assert.match(readModel, /complete\.slice\(1\)\.filter/);
   assert.match(readModel, /dataSummary\.itemRowCount - completeCount/);
@@ -67,12 +70,15 @@ test("Mobile History read model analyzes sessions, overlays, and related events 
   );
 
   assert.match(listReadModel, /\.from\("shared_sheet_session_diagnostics"\)/);
-  assert.doesNotMatch(listReadModel, /\.from\("shared_sheet_sessions"\)/);
-  assert.doesNotMatch(listReadModel, /data,session_overlay/);
+  assert.match(listReadModel, /\.from\("shared_sheet_sessions"\)/);
+  assert.match(listReadModel, /legacyFullSessionsResult/);
+  assert.doesNotMatch(listReadModel, /select\("\*"\)/);
 });
 
 test("Mobile History does not treat invalid overlays as trusted completion state", () => {
-  const readModel = readProjectFile("src/server/shop-admin/history-read-model.ts");
+  const readModel = readProjectFile(
+    "src/server/shop-admin/history-read-model.ts",
+  );
 
   assert.match(
     readModel,
@@ -89,8 +95,12 @@ test("Mobile History does not treat invalid overlays as trusted completion state
 });
 
 test("History summary counts guard unsupported tables and keep overview renderable", () => {
-  const readModel = readProjectFile("src/server/shop-admin/history-read-model.ts");
-  const sectionData = readProjectFile("src/server/shop-admin/shop-section-data.ts");
+  const readModel = readProjectFile(
+    "src/server/shop-admin/history-read-model.ts",
+  );
+  const sectionData = readProjectFile(
+    "src/server/shop-admin/shop-section-data.ts",
+  );
   const overviewPage = readProjectFile("src/app/shop/overview/page.tsx");
   const dashboardSection =
     sectionData.match(
@@ -108,8 +118,8 @@ test("History summary counts guard unsupported tables and keep overview renderab
   for (const required of [
     "type SupportedHistoryCountTable",
     "const SUPPORTED_HISTORY_TOTAL_TABLES",
-    "\"shared_sheet_session_diagnostics\"",
-    "\"sync_events\"",
+    '"shared_sheet_session_diagnostics"',
+    '"sync_events"',
     "function isSupportedHistoryCountTable",
     "function isHistoryCountTable",
     "function historyCountUnavailableError",
@@ -124,14 +134,14 @@ test("History summary counts guard unsupported tables and keep overview renderab
 
   for (const required of [
     "if (!isSupportedHistoryCountTable(input.table))",
-    "historyCountUnavailableError(input.table, \"unsupported_table\")",
+    'historyCountUnavailableError(input.table, "unsupported_table")',
     "input.supabase.from.bind(input.supabase)",
-    "historyCountUnavailableError(input.table, \"table_builder_failed\")",
+    'historyCountUnavailableError(input.table, "table_builder_failed")',
     "if (!isHistoryCountTable(table))",
-    "historyCountUnavailableError(input.table, \"table_builder_missing\")",
+    'historyCountUnavailableError(input.table, "table_builder_missing")',
     "count: 0",
-    "table.select(\"*\"",
-    "count: \"exact\"",
+    'table.select("*"',
+    'count: "exact"',
     "head: true",
   ]) {
     assert.match(
@@ -143,11 +153,17 @@ test("History summary counts guard unsupported tables and keep overview renderab
 
   assert.match(loadHistorySummary, /table: "sync_events"/);
   assert.match(loadHistorySummary, /table: "shared_sheet_session_diagnostics"/);
-  assert.match(readModel, /status: "error"[\s\S]*Mobile history totals could not be loaded through RLS\./);
+  assert.match(
+    readModel,
+    /status: "error"[\s\S]*Mobile history totals could not be loaded through RLS\./,
+  );
   assert.match(readModel, /summary: emptyRows\.summary/);
 
   assert.match(overviewPage, /getShopSectionForRequest\(\s*"overview"/);
-  assert.match(dashboardSection, /const historySummary = historyReadModel\.summary/);
+  assert.match(
+    dashboardSection,
+    /const historySummary = historyReadModel\.summary/,
+  );
   assert.match(dashboardSection, /historyReadModel\.reason/);
   assert.doesNotMatch(dashboardSection, /historyReadModel\.summary\./);
   assert.doesNotMatch(dashboardSection, /historyReadModel\.status !== "ready"/);
@@ -162,11 +178,14 @@ test("History page renders mobile entries first, then sync events and diagnostic
   const sectionData = readProjectFile(sectionDataPath);
   const page = readProjectFile(pagePath);
 
-  assert.match(sections, /title: "Mobile History"/);
+  assert.match(sections, /title: "Mobile History Entries"/);
   assert.match(sections, /History entries loaded from shared_sheet_sessions/);
 
   assert.match(sectionData, /title: "Android \/ iOS History Entries"/);
-  assert.match(sectionData, /rows: readModel\.sessions\.map\(historySessionRow\)/);
+  assert.match(
+    sectionData,
+    /rows: readModel\.sessions\.map\(historySessionRow\)/,
+  );
   assert.doesNotMatch(
     sectionData,
     /title: "Android \/ iOS History Entries"[\s\S]{0,1200}rows: historyEvents\.map/,
@@ -180,7 +199,10 @@ test("History page renders mobile entries first, then sync events and diagnostic
   assert.match(sectionData, /"Deleted history entry"/);
   assert.match(sectionData, /"Overlay OK"/);
   assert.match(sectionData, /`Legacy v\$\{session\.payloadVersion\}`/);
-  assert.match(sectionData, /Overlay issue: \$\{overlayStatusLabel\(session\.overlayStatus\)\}/);
+  assert.match(
+    sectionData,
+    /Overlay issue: \$\{overlayStatusLabel\(session\.overlayStatus\)\}/,
+  );
   assert.match(sectionData, /title: "Related history sync events"/);
   assert.match(sectionData, /rows: historyEvents\.map\(historySyncEventRow\)/);
   assert.match(
@@ -190,7 +212,10 @@ test("History page renders mobile entries first, then sync events and diagnostic
   assert.match(sectionData, /label: "Client event"/);
   assert.match(sectionData, /label: "Batch"/);
   assert.match(sectionData, /title: "Payload and overlay diagnostics"/);
-  assert.match(sectionData, /rows: readModel\.sessions\.map\(historyDiagnosticsRow\)/);
+  assert.match(
+    sectionData,
+    /rows: readModel\.sessions\.map\(historyDiagnosticsRow\)/,
+  );
   assert.match(
     sectionData,
     /History entries are loaded from shared_sheet_sessions\. Sync events are technical synchronization logs linked to those entries\. Admin audit events are shown separately in Audit\./,
@@ -199,21 +224,44 @@ test("History page renders mobile entries first, then sync events and diagnostic
   assert.match(sectionData, /admin audit_logs/);
   assert.match(sectionData, /title: "Payload table preview"/);
   assert.match(sectionData, /title: "Related history sync events"/);
-  assert.match(sectionData, /title: analysis \? "Mobile History Entry Detail" : "History Sync Event Detail"/);
-  assert.match(sectionData, /title: analysis \? "shared_sheet_sessions record" : "sync_events record"/);
+  assert.match(
+    sectionData,
+    /title:\s*analysis\s*\?\s*"Mobile History Entry Detail"\s*:\s*"History Sync Event Detail"/,
+  );
+  assert.match(
+    sectionData,
+    /title:\s*analysis\s*\?\s*"shared_sheet_sessions record"\s*:\s*"sync_events record"/,
+  );
   assert.match(sectionData, /remote_id is the cross-platform identity/);
   assert.match(sectionData, /deleted_at marks tombstone\/deleted sessions/);
   assert.match(sectionData, /Invalid overlays are diagnostic only/);
   assert.match(sectionData, /title: "Redacted JSON preview"/);
 
-  const readModel = readProjectFile("src/server/shop-admin/history-read-model.ts");
+  const readModel = readProjectFile(
+    "src/server/shop-admin/history-read-model.ts",
+  );
   assert.match(readModel, /const SESSION_OVERLAY_SCHEMA = 1/);
   assert.match(readModel, /const SESSION_OVERLAY_MAX_BYTES = 512 \* 1024/);
-  assert.match(readModel, /detailField\("record", "Source table", "shared_sheet_sessions"\)/);
-  assert.match(readModel, /detailField\("record", "Source table", "sync_events"\)/);
-  assert.match(readModel, /"remote_id is the Android\/iOS identity for this shared_sheet_sessions record\."/);
-  assert.match(readModel, /"deleted_at means this shared_sheet_sessions record is a tombstone\/deleted session\."/);
-  assert.match(readModel, /"Diagnostic only; do not trust completed or editable counts for this overlay\."/);
+  assert.match(
+    readModel,
+    /detailField\("record", "Source table", "shared_sheet_sessions"\)/,
+  );
+  assert.match(
+    readModel,
+    /detailField\("record", "Source table", "sync_events"\)/,
+  );
+  assert.match(
+    readModel,
+    /"remote_id is the Android\/iOS identity for this shared_sheet_sessions record\."/,
+  );
+  assert.match(
+    readModel,
+    /"deleted_at means this shared_sheet_sessions record is a tombstone\/deleted session\."/,
+  );
+  assert.match(
+    readModel,
+    /"Diagnostic only; do not trust completed or editable counts for this overlay\."/,
+  );
   assert.match(
     readModel,
     /"Technical synchronization event linked to mobile history entries; it is not the History Entry itself\."/,
@@ -224,8 +272,14 @@ test("History page renders mobile entries first, then sync events and diagnostic
   assert.match(page, /new URLSearchParams\(\{ shop_id: requestedShopId \}\)/);
   assert.match(page, /rowActions=\{\{/);
   assert.match(page, /secondaryRowActions=\{\{/);
-  assert.match(page, /renderForTable: \(table\) => table\.title === "Related history sync events"/);
-  assert.doesNotMatch(page, /renderForTable: \(table\) => table\.title === "Payload and overlay diagnostics"/);
+  assert.match(
+    page,
+    /renderForTable: \(table\) => table\.title === "Related history sync events"/,
+  );
+  assert.doesNotMatch(
+    page,
+    /renderForTable: \(table\) => table\.title === "Payload and overlay diagnostics"/,
+  );
 });
 
 test("Mobile History has a local-only demo seed and cleanup harness", () => {
@@ -277,10 +331,19 @@ test("Mobile History has a local-only demo seed and cleanup harness", () => {
     "failed",
     "success",
   ]) {
-    assert.match(script, new RegExp(requiredSnippet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(
+      script,
+      new RegExp(requiredSnippet.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
   }
 
-  for (const sessionKey of ["valid", "manual", "tombstone", "invalid", "legacy"]) {
+  for (const sessionKey of [
+    "valid",
+    "manual",
+    "tombstone",
+    "invalid",
+    "legacy",
+  ]) {
     const expectedRemotePrefix =
       `${sessionKey}: uuidFromHash(` + "`" + "${demoPrefix}remote-";
 
@@ -295,7 +358,10 @@ test("Mobile History has a local-only demo seed and cleanup harness", () => {
   assert.match(script, /supabase\.auth\.admin\.createUser/);
   assert.match(script, /email_confirm:\s*true/);
   assert.match(script, /BLOCKED_DEMO_OWNER_ALREADY_MAPPED/);
-  assert.match(script, /display_name: sessionDisplayNames\.invalid[\s\S]{0,260}owner_user_id: diagnosticOwnerUserId/);
+  assert.match(
+    script,
+    /display_name: sessionDisplayNames\.invalid[\s\S]{0,260}owner_user_id: diagnosticOwnerUserId/,
+  );
   assert.match(
     script,
     /client_event_id: `\$\{demoPrefix\}EVENT_FAILED_INVALID_OVERLAY`[\s\S]{0,760}owner_user_id: diagnosticOwnerUserId/,
@@ -315,7 +381,10 @@ test("Mobile History has a local-only demo seed and cleanup harness", () => {
   assert.doesNotMatch(script, /legacyNonUuidRemotePrefix/);
   assert.doesNotMatch(script, /\.like\("remote_id",/);
   assert.doesNotMatch(script, /\$\{demoPrefix\.toLowerCase\(\)\}/);
-  assert.doesNotMatch(script, /\.eq\("shop_status", "active"\)[\s\S]{0,220}\.limit\(1\)/);
+  assert.doesNotMatch(
+    script,
+    /\.eq\("shop_status", "active"\)[\s\S]{0,220}\.limit\(1\)/,
+  );
   assert.doesNotMatch(script, /NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY/);
   assert.doesNotMatch(script, /service[_-]?role.*browser/i);
 });
@@ -337,16 +406,28 @@ test("History diagnostics view and legacy fallback RLS stay server-side and boun
     /create or replace view public\.shared_sheet_session_diagnostics/,
   );
   assert.match(viewMigration, /with \(security_invoker = true\)/);
-  assert.match(viewMigration, /grant select on public\.shared_sheet_session_diagnostics to authenticated/);
+  assert.match(
+    viewMigration,
+    /grant select on public\.shared_sheet_session_diagnostics to authenticated/,
+  );
   assert.match(viewMigration, /flags\.position > 1/);
   assert.match(viewMigration, /greatest\(item_rows - raw_complete_count, 0\)/);
   assert.doesNotMatch(viewMigration, /security definer/i);
 
-  assert.match(legacyRlsMigration, /shared_sheet_sessions_select_mapped_shop_member_legacy/);
-  assert.match(legacyRlsMigration, /sync_events_select_mapped_shop_member_legacy/);
+  assert.match(
+    legacyRlsMigration,
+    /shared_sheet_sessions_select_mapped_shop_member_legacy/,
+  );
+  assert.match(
+    legacyRlsMigration,
+    /sync_events_select_mapped_shop_member_legacy/,
+  );
   assert.match(legacyRlsMigration, /shop_id is null/);
   assert.match(legacyRlsMigration, /source\.mapping_state = 'mapped'/);
-  assert.match(legacyRlsMigration, /app_private\.is_active_shop_member\(source\.shop_id\)/);
+  assert.match(
+    legacyRlsMigration,
+    /app_private\.is_active_shop_member\(source\.shop_id\)/,
+  );
 
   assert.match(databaseTypes, /shared_sheet_session_diagnostics/);
   assert.match(databaseTypes, /overlay_status: string/);

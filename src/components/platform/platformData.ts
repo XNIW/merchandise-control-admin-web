@@ -1,3 +1,5 @@
+import type { AccountIdentitySummary } from "@/lib/account-identity";
+
 export type PlatformSectionKey =
   | "overview"
   | "users"
@@ -27,14 +29,17 @@ export type TableColumn = {
   label: string;
 };
 
-export type TableRow = Record<string, string> & {
+export type PlatformTableCellValue = string | AccountIdentitySummary;
+
+export type TableRow = {
+  [key: string]: PlatformTableCellValue | undefined;
   rowKey?: string;
 };
 
 export type RowDetailField = {
   href?: string;
   label: string;
-  value: string;
+  value: PlatformTableCellValue;
 };
 
 export type RowDetailGroup = {

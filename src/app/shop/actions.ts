@@ -48,6 +48,11 @@ import {
   updateShopMemberRole,
 } from "@/server/shop-admin/member-mutations";
 import { getShopInventoryReadModel } from "@/server/shop-admin/inventory-read-model";
+import {
+  createHistoryEntry,
+  tombstoneHistoryEntry,
+  updateHistoryEntry,
+} from "@/server/shop-admin/history-mutations";
 
 export type ShopAdminActionState = ShopAdminActionResult & {
   temporaryCredential?: string;
@@ -147,7 +152,9 @@ async function lookupCatalogRelation(
     return { id: undefined };
   }
 
-  const readModel = await getShopInventoryReadModel({ requestedShopId: requested });
+  const readModel = await getShopInventoryReadModel({
+    requestedShopId: requested,
+  });
 
   if (readModel.status !== "ready") {
     return shopAdminActionResult("unauthorized_or_unmapped", {
@@ -155,15 +162,16 @@ async function lookupCatalogRelation(
     });
   }
 
-  const options = kind === "supplier"
-    ? readModel.suppliers.map((supplier) => ({
-        id: supplier.supplierId,
-        name: supplier.name,
-      }))
-    : readModel.categories.map((category) => ({
-        id: category.categoryId,
-        name: category.name,
-      }));
+  const options =
+    kind === "supplier"
+      ? readModel.suppliers.map((supplier) => ({
+          id: supplier.supplierId,
+          name: supplier.name,
+        }))
+      : readModel.categories.map((category) => ({
+          id: category.categoryId,
+          name: category.name,
+        }));
   const byId = currentId
     ? options.find((option) => option.id === currentId)
     : undefined;
@@ -178,9 +186,10 @@ async function lookupCatalogRelation(
   }
 
   if (byId && name && relationNameKey(byId.name) !== relationNameKey(name)) {
-    const relationMismatchMessage = kind === "supplier"
-      ? "supplier id and name do not match."
-      : "category id and name do not match.";
+    const relationMismatchMessage =
+      kind === "supplier"
+        ? "supplier id and name do not match."
+        : "category id and name do not match.";
 
     return shopAdminActionResult("validation_failed", {
       fieldErrors: {
@@ -202,9 +211,10 @@ async function lookupCatalogRelation(
     return { id: existingByName.id };
   }
 
-  const createResult = kind === "supplier"
-    ? await createSupplier({ name, requestedShopId: requested })
-    : await createCategory({ name, requestedShopId: requested });
+  const createResult =
+    kind === "supplier"
+      ? await createSupplier({ name, requestedShopId: requested })
+      : await createCategory({ name, requestedShopId: requested });
 
   if (createResult.ok && createResult.targetId) {
     return { id: createResult.targetId };
@@ -301,9 +311,11 @@ export async function createProductAction(formData: FormData) {
 
   resultRedirect(
     "/shop/products",
-    "ok" in resolvedInput ? resolvedInput : await createProduct({
-      ...resolvedInput,
-    }),
+    "ok" in resolvedInput
+      ? resolvedInput
+      : await createProduct({
+          ...resolvedInput,
+        }),
   );
 }
 
@@ -437,6 +449,54 @@ export async function archiveSupplierAction(formData: FormData) {
     await archiveSupplier({
       id: formString(formData, "supplierId"),
       reason: optionalFormString(formData, "reason"),
+      requestedShopId: requestedShopId(formData),
+    }),
+  );
+}
+
+function historyEntryInput(formData: FormData) {
+  return {
+    category: optionalFormString(formData, "category"),
+    completeRows: formString(formData, "completeRows") === "on",
+    displayName: formString(formData, "displayName"),
+    remoteId: optionalFormString(formData, "remoteId"),
+    requestedShopId: requestedShopId(formData),
+    rowsText: formString(formData, "rowsText"),
+    supplier: optionalFormString(formData, "supplier"),
+  };
+}
+
+export async function createHistoryEntryAction(formData: FormData) {
+  resultRedirect(
+    "/shop/history",
+    await createHistoryEntry(historyEntryInput(formData)),
+  );
+}
+
+export async function updateHistoryEntryAction(formData: FormData) {
+  const remoteId = optionalFormString(formData, "remoteId") ?? "";
+
+  resultRedirect(
+    `/shop/history/session:${encodeURIComponent(remoteId)}`,
+    await updateHistoryEntry(historyEntryInput(formData)),
+  );
+}
+
+export async function tombstoneHistoryEntryAction(formData: FormData) {
+  const remoteId = optionalFormString(formData, "remoteId") ?? "";
+
+  if (!confirmed(formData, "TOMBSTONE")) {
+    resultRedirect(
+      `/shop/history/session:${encodeURIComponent(remoteId)}`,
+      shopAdminActionResult("validation_failed", { ok: false }),
+    );
+  }
+
+  resultRedirect(
+    `/shop/history/session:${encodeURIComponent(remoteId)}`,
+    await tombstoneHistoryEntry({
+      reason: optionalFormString(formData, "reason"),
+      remoteId,
       requestedShopId: requestedShopId(formData),
     }),
   );
@@ -635,6 +695,8 @@ export async function updateStaffRolePermissionsAction(formData: FormData) {
 }
 
 export async function registerDeviceAction(formData: FormData) {
+  const selectedShopId = requestedShopId(formData);
+
   resultRedirect(
     "/shop/devices",
     await registerDevice({
@@ -642,27 +704,34 @@ export async function registerDeviceAction(formData: FormData) {
       deviceIdentifier: formString(formData, "deviceIdentifier"),
       deviceType: optionalFormString(formData, "deviceType"),
       displayName: optionalFormString(formData, "displayName"),
-      requestedShopId: requestedShopId(formData),
+      requestedShopId: selectedShopId,
     }),
+    selectedShopId,
   );
 }
 
 export async function renameDeviceAction(formData: FormData) {
+  const selectedShopId = requestedShopId(formData);
+
   resultRedirect(
     "/shop/devices",
     await renameDevice({
       deviceId: formString(formData, "deviceId"),
       displayName: formString(formData, "displayName"),
-      requestedShopId: requestedShopId(formData),
+      requestedShopId: selectedShopId,
     }),
+    selectedShopId,
   );
 }
 
 export async function revokeDeviceAction(formData: FormData) {
+  const selectedShopId = requestedShopId(formData);
+
   if (!confirmed(formData, "REVOKE")) {
     resultRedirect(
       "/shop/devices",
       shopAdminActionResult("validation_failed", { ok: false }),
+      selectedShopId,
     );
   }
 
@@ -671,16 +740,20 @@ export async function revokeDeviceAction(formData: FormData) {
     await revokeDevice({
       deviceId: formString(formData, "deviceId"),
       reason: optionalFormString(formData, "reason"),
-      requestedShopId: requestedShopId(formData),
+      requestedShopId: selectedShopId,
     }),
+    selectedShopId,
   );
 }
 
 export async function reactivateDeviceAction(formData: FormData) {
+  const selectedShopId = requestedShopId(formData);
+
   if (!confirmed(formData, "REACTIVATE")) {
     resultRedirect(
       "/shop/devices",
       shopAdminActionResult("validation_failed", { ok: false }),
+      selectedShopId,
     );
   }
 
@@ -689,9 +762,9 @@ export async function reactivateDeviceAction(formData: FormData) {
     await reactivateDevice({
       deviceId: formString(formData, "deviceId"),
       reason: optionalFormString(formData, "reason"),
-      requestedShopId: requestedShopId(formData),
+      requestedShopId: selectedShopId,
     }),
-    requestedShopId(formData),
+    selectedShopId,
   );
 }
 
