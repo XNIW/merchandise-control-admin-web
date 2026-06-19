@@ -19,6 +19,7 @@ type ShopCodeLoginMessageCode =
   | "server_admin_not_configured"
   | "shop_inactive"
   | "shop_not_found"
+  | "sign_in_blocked"
   | "staff_inactive"
   | "staff_not_allowed"
   | "staff_not_found"
@@ -151,8 +152,10 @@ const itExact: Record<string, string> = {
   Last: "Ultima",
   "Master Console role only": "Solo ruolo Master Console",
   "No pricing or stock values": "Nessun valore prezzo o stock",
+  Page: "Pagina",
   "Pricing / stock": "Prezzi / stock",
   "Product identity": "Identita prodotto",
+  "Products pagination": "Paginazione prodotti",
   "Reset filters": "Reset filtri",
   "Rows on this page": "Righe in questa pagina",
   "Status / updated": "Stato / aggiornamento",
@@ -1091,7 +1094,9 @@ const itExact: Record<string, string> = {
   "Apply failed before the server returned a response.":
     "Apply fallito prima della risposta del server.",
   "Applying...": "Applicazione...",
+  "Archive category": "Archivia categoria",
   "Archive product": "Archivia prodotto",
+  "Archive supplier": "Archivia fornitore",
   "Archived products can be restored with an audit reason.":
     "I prodotti archiviati possono essere ripristinati con una motivazione audit.",
   "Archiving": "Archiviazione",
@@ -1144,6 +1149,12 @@ const itExact: Record<string, string> = {
   "Fix blocked rows before apply.": "Correggi le righe bloccate prima di applicare.",
   "Fix column mapping before continuing.":
     "Correggi il mapping colonne prima di continuare.",
+  "Required for the audit trail.": "Richiesto per il tracciamento audit.",
+  "Select category": "Seleziona categoria",
+  "Select supplier": "Seleziona fornitore",
+  "Update category": "Aggiorna categoria",
+  "Update supplier": "Aggiorna fornitore",
+  Updating: "Aggiornamento",
   "Full workbook": "Workbook completo",
   "Ignore": "Ignora",
   "Ignored": "Ignorato",
@@ -1308,7 +1319,9 @@ const esExact: Record<string, string> = {
   "Key status cards": "Tarjetas de estado clave",
   Last: "Ultima",
   "Master Console role only": "Solo rol de Master Console",
+  Page: "Pagina",
   "Reset filters": "Restablecer filtros",
+  "Products pagination": "Paginacion de productos",
   "Rows on this page": "Filas en esta pagina",
   "Use search or filters to find products across the full mapped catalog.":
     "Usa busqueda o filtros para encontrar productos en todo el catalogo mapeado.",
@@ -2210,7 +2223,9 @@ const esExact: Record<string, string> = {
   "Apply failed before the server returned a response.":
     "La aplicacion fallo antes de que el servidor respondiera.",
   "Applying...": "Aplicando...",
+  "Archive category": "Archivar categoria",
   "Archive product": "Archivar producto",
+  "Archive supplier": "Archivar proveedor",
   "Archived products can be restored with an audit reason.":
     "Los productos archivados pueden restaurarse con una razon de auditoria.",
   "Archiving": "Archivando",
@@ -2263,6 +2278,12 @@ const esExact: Record<string, string> = {
   "Fix blocked rows before apply.": "Corrige las filas bloqueadas antes de aplicar.",
   "Fix column mapping before continuing.":
     "Corrige el mapeo de columnas antes de continuar.",
+  "Required for the audit trail.": "Requerido para el rastro de auditoria.",
+  "Select category": "Seleccionar categoria",
+  "Select supplier": "Seleccionar proveedor",
+  "Update category": "Actualizar categoria",
+  "Update supplier": "Actualizar proveedor",
+  Updating: "Actualizando",
   "Full workbook": "Workbook completo",
   "Ignore": "Ignorar",
   "Ignored": "Ignorado",
@@ -2427,7 +2448,9 @@ const zhExact: Record<string, string> = {
   "Key status cards": "关键状态卡片",
   Last: "最后一页",
   "Master Console role only": "仅 Master Console 角色",
+  Page: "页面",
   "Reset filters": "重置筛选",
+  "Products pagination": "商品分页",
   "Rows on this page": "本页行数",
   "Use search or filters to find products across the full mapped catalog.":
     "使用搜索或筛选在完整映射目录中查找商品。",
@@ -3308,7 +3331,9 @@ const zhExact: Record<string, string> = {
   "Apply failed before the server returned a response.":
     "服务器返回响应前应用失败。",
   "Applying...": "正在应用...",
+  "Archive category": "归档分类",
   "Archive product": "归档商品",
+  "Archive supplier": "归档供应商",
   "Archived products can be restored with an audit reason.":
     "已归档商品可通过审计原因恢复。",
   "Archiving": "正在归档",
@@ -3356,6 +3381,12 @@ const zhExact: Record<string, string> = {
   "Extra sheets will be ignored:": "将忽略额外 sheets：",
   "Fix blocked rows before apply.": "应用前请修复阻止行。",
   "Fix column mapping before continuing.": "继续前请修复列映射。",
+  "Required for the audit trail.": "审计追踪需要此项。",
+  "Select category": "选择分类",
+  "Select supplier": "选择供应商",
+  "Update category": "更新分类",
+  "Update supplier": "更新供应商",
+  Updating: "正在更新",
   "Full workbook": "完整 workbook",
   "Ignore": "忽略",
   "Ignored": "已忽略",
@@ -4832,22 +4863,27 @@ const en: Dictionary = {
     credential: "PIN / password",
     formLabel: "Shop code sign in",
     messages: {
-      credential_invalid: "PIN/password is not correct for this staff account.",
+      credential_invalid:
+        "Sign-in was blocked. Check the credentials or try again later.",
       database_error:
         "Sign-in could not be verified because of a server/database error.",
       idle: "",
-      locked:
-        "Sign-in is temporarily blocked. Try again later or ask an admin to reset access.",
+      locked: "Sign-in was blocked. Check the credentials or try again later.",
       not_configured: "Shop-code staff access is not configured in this runtime.",
       server_admin_not_configured:
         "Sign-in cannot be verified because the server admin runtime is not configured.",
-      shop_inactive: "This shop is not active. Contact platform support.",
-      shop_not_found: "Shop code was not found. Check the shop code and try again.",
+      shop_inactive:
+        "Sign-in was blocked. Check the credentials or try again later.",
+      shop_not_found:
+        "Sign-in was blocked. Check the credentials or try again later.",
+      sign_in_blocked:
+        "Sign-in was blocked. Check the credentials or try again later.",
       staff_inactive:
-        "This staff account cannot open Admin Console. Ask a manager to reset access.",
+        "Sign-in was blocked. Check the credentials or try again later.",
       staff_not_allowed:
-        "This staff account cannot open Admin Console. Use a manager staff account.",
-      staff_not_found: "Staff code was not found for this shop.",
+        "Sign-in was blocked. Check the credentials or try again later.",
+      staff_not_found:
+        "Sign-in was blocked. Check the credentials or try again later.",
       success: "",
       unknown_error: "Sign-in could not be verified. Try again.",
       validation_failed: "Check Shop code, Staff code, and PIN/password and try again.",
@@ -5030,22 +5066,28 @@ const it: Dictionary = {
     credential: "PIN / password",
     formLabel: "Accesso con codice shop",
     messages: {
-      credential_invalid: "PIN/password non corretto per questo account staff.",
+      credential_invalid:
+        "Accesso bloccato. Controlla le credenziali o riprova piu tardi.",
       database_error:
         "Accesso non verificabile per errore server/database.",
       idle: "",
       locked:
-        "Accesso temporaneamente bloccato. Riprova piu tardi o chiedi reset a un admin.",
+        "Accesso bloccato. Controlla le credenziali o riprova piu tardi.",
       not_configured: "Accesso staff con codice shop non configurato in questo runtime.",
       server_admin_not_configured:
         "Accesso non verificabile perche il runtime admin server non e configurato.",
-      shop_inactive: "Questo shop non e attivo. Contatta il supporto piattaforma.",
-      shop_not_found: "Codice shop non trovato. Controlla il codice e riprova.",
+      shop_inactive:
+        "Accesso bloccato. Controlla le credenziali o riprova piu tardi.",
+      shop_not_found:
+        "Accesso bloccato. Controlla le credenziali o riprova piu tardi.",
+      sign_in_blocked:
+        "Accesso bloccato. Controlla le credenziali o riprova piu tardi.",
       staff_inactive:
-        "Questo account staff non puo aprire la Console Admin. Chiedi il reset a un responsabile.",
+        "Accesso bloccato. Controlla le credenziali o riprova piu tardi.",
       staff_not_allowed:
-        "Questo account staff non puo aprire la Console Admin. Usa un account staff responsabile.",
-      staff_not_found: "Codice staff non trovato per questo shop.",
+        "Accesso bloccato. Controlla le credenziali o riprova piu tardi.",
+      staff_not_found:
+        "Accesso bloccato. Controlla le credenziali o riprova piu tardi.",
       success: "",
       unknown_error: "Accesso non verificabile. Riprova.",
       validation_failed: "Controlla codice shop, codice staff e PIN/password.",
@@ -5229,22 +5271,28 @@ const es: Dictionary = {
     credential: "PIN / contraseña",
     formLabel: "Ingreso con codigo shop",
     messages: {
-      credential_invalid: "PIN/contraseña no es correcto para esta cuenta staff.",
+      credential_invalid:
+        "Ingreso bloqueado. Revisa las credenciales o intenta mas tarde.",
       database_error:
         "El ingreso no pudo verificarse por error server/database.",
       idle: "",
       locked:
-        "Ingreso temporalmente bloqueado. Intenta mas tarde o pide reset a un admin.",
+        "Ingreso bloqueado. Revisa las credenciales o intenta mas tarde.",
       not_configured: "Acceso staff con codigo shop no configurado en este runtime.",
       server_admin_not_configured:
         "Ingreso no verificable porque el runtime admin server no esta configurado.",
-      shop_inactive: "Este shop no esta activo. Contacta soporte plataforma.",
-      shop_not_found: "Codigo shop no encontrado. Revisa el codigo e intenta otra vez.",
+      shop_inactive:
+        "Ingreso bloqueado. Revisa las credenciales o intenta mas tarde.",
+      shop_not_found:
+        "Ingreso bloqueado. Revisa las credenciales o intenta mas tarde.",
+      sign_in_blocked:
+        "Ingreso bloqueado. Revisa las credenciales o intenta mas tarde.",
       staff_inactive:
-        "Esta cuenta staff no puede abrir Consola Admin. Pide reset a un gerente.",
+        "Ingreso bloqueado. Revisa las credenciales o intenta mas tarde.",
       staff_not_allowed:
-        "Esta cuenta staff no puede abrir Consola Admin. Usa una cuenta staff gerente.",
-      staff_not_found: "Codigo staff no encontrado para este shop.",
+        "Ingreso bloqueado. Revisa las credenciales o intenta mas tarde.",
+      staff_not_found:
+        "Ingreso bloqueado. Revisa las credenciales o intenta mas tarde.",
       success: "",
       unknown_error: "Ingreso no verificable. Intenta otra vez.",
       validation_failed: "Revisa codigo shop, codigo staff y PIN/contraseña.",
@@ -5414,18 +5462,19 @@ const zhCN: Dictionary = {
     credential: "PIN / 密码",
     formLabel: "店铺代码登录",
     messages: {
-      credential_invalid: "此员工账号的 PIN/密码不正确。",
+      credential_invalid: "登录被阻止。请检查凭据或稍后重试。",
       database_error: "由于服务端/数据库错误，无法验证登录。",
       idle: "",
-      locked: "登录暂时被阻止。请稍后再试，或让管理员重置访问。",
+      locked: "登录被阻止。请检查凭据或稍后重试。",
       not_configured: "此运行时未配置店铺代码员工访问。",
       server_admin_not_configured:
         "服务端 admin 运行时未配置，无法验证登录。",
-      shop_inactive: "此店铺未启用。请联系平台支持。",
-      shop_not_found: "未找到店铺代码。请检查后重试。",
-      staff_inactive: "此员工账号无法打开店铺管理台。请让经理重置访问。",
-      staff_not_allowed: "此员工账号无法打开店铺管理台。请使用经理员工账号。",
-      staff_not_found: "该店铺没有找到此员工代码。",
+      shop_inactive: "登录被阻止。请检查凭据或稍后重试。",
+      shop_not_found: "登录被阻止。请检查凭据或稍后重试。",
+      sign_in_blocked: "登录被阻止。请检查凭据或稍后重试。",
+      staff_inactive: "登录被阻止。请检查凭据或稍后重试。",
+      staff_not_allowed: "登录被阻止。请检查凭据或稍后重试。",
+      staff_not_found: "登录被阻止。请检查凭据或稍后重试。",
       success: "",
       unknown_error: "无法验证登录。请重试。",
       validation_failed: "请检查店铺代码、员工代码和 PIN/密码。",

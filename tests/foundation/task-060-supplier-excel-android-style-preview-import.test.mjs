@@ -394,7 +394,7 @@ test("TASK-060 import auth separates expired session from permission denied UX",
   assertContains(importExportPage, "importContext.principalKind");
   assertContains(staffLoginPage, "next: safeNextPath(firstParam(params.next))");
   assertContains(staffLoginActions, "redirect(nextPath, RedirectType.replace)");
-  assertContains(staffLoginActions, "resultPath(result.code, nextPath)");
+  assertContains(staffLoginActions, "resultPath(publicStaffWebLoginCode(result.code), nextPath)");
   assertContains(
     shopCodeForm,
     '<input name="next" type="hidden" value={nextPath} />',

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { parseLocalizedNumberText } from "@/lib/localized-number";
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import { resolveShopAdminDataAccess } from "./data-access";
@@ -137,7 +138,7 @@ export function optionalFormNumber(formData: FormData, key: string) {
     return undefined;
   }
 
-  const value = Number(raw);
+  const value = parseLocalizedNumberText(raw);
 
   return Number.isFinite(value) ? value : Number.NaN;
 }

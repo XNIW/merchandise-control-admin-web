@@ -4,9 +4,9 @@
 
 - ID: `TASK-068Z`
 - Titolo: CodeRabbit full review, hardening and reconciliation
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `CODEX`
+- Stato: `DONE`
+- Fase attuale: `DONE`
+- Responsabile attuale: `USER_CONFIRMED_CLOSURE`
 - Data apertura: 2026-06-19
 - File Master Plan: `docs/MASTER-PLAN.md`
 
@@ -25,7 +25,9 @@ Il worktree contiene modifiche ampie da TASK-068J, TASK-068K, TASK-068L, TASK-06
 - Nessuna nuova dipendenza icone.
 - Nessun secret, credential hash, PIN o password in repository/evidence.
 - Nessuna modifica di lifecycle/purge fuori dai fix review validi.
-- Nessuna chiusura `DONE` da parte di Codex: il task resta in `REVIEW` finche non arriva review positiva e conferma esplicita utente, come da `AGENTS.md`.
+- Nessuna chiusura `DONE` da parte di Codex senza conferma esplicita utente;
+  TASK-071 ha poi ricevuto richiesta di closure finale e riconciliato questo
+  task a `DONE`.
 
 ## File potenzialmente coinvolti
 
@@ -59,9 +61,11 @@ Fix applicati durante review:
 
 ## Handoff
 
-- Stato operativo: `PASS_WITH_NOTES_READY_FOR_REVIEW`.
+- Stato operativo: `DONE`.
 - Evidence finale: `docs/TASKS/EVIDENCE/TASK-068Z/README.md`.
 - Note: `npm run build` e `npm run verify` passano con warning noti Next `middleware` deprecato e Node `module.register()` deprecato.
 - Note: query Supabase eseguite in sola lettura sul target letto dagli env locali; nessun `db push`, migration apply, deploy, stage, commit o push.
-- Prossima fase: review utente/Claude-ChatGPT.
-- Chiusura: non marcata `DONE` da Codex.
+- Prossima fase: nessuna; task riconciliato da TASK-071.
+- Chiusura TASK-071: riconciliata a `DONE` su conferma esplicita
+  utente. CodeRabbit Admin Web finale non rieseguito per rate limit CLI; gate
+  Admin Web critici verdi e nessun commit/push/stage/deploy/db apply.

@@ -9,9 +9,10 @@ import {
 } from "@/server/shop-admin/staff-web-auth";
 
 type ShopCodeLoginFormCode = StaffWebLoginCode | "idle";
+type PublicShopCodeLoginFormCode = ShopCodeLoginFormCode | "sign_in_blocked";
 
 export type ShopCodeLoginFormState = {
-  code: ShopCodeLoginFormCode;
+  code: PublicShopCodeLoginFormCode;
   message: string;
   ok: boolean;
   shouldFocusCredential: boolean;
@@ -58,24 +59,38 @@ function resultPath(result: string, nextPath: string) {
   return `/auth/login?${params.toString()}`;
 }
 
-function messageForStaffWebLoginCode(code: ShopCodeLoginFormCode) {
-  const messages: Record<ShopCodeLoginFormCode, string> = {
-    credential_invalid: "PIN/password is not correct for this staff account.",
+const staffWebIdentityFailureCodes = new Set<StaffWebLoginCode>([
+  "credential_invalid",
+  "locked",
+  "shop_inactive",
+  "shop_not_found",
+  "staff_inactive",
+  "staff_not_allowed",
+  "staff_not_found",
+]);
+
+function publicStaffWebLoginCode(code: StaffWebLoginCode): PublicShopCodeLoginFormCode {
+  return staffWebIdentityFailureCodes.has(code) ? "sign_in_blocked" : code;
+}
+
+function messageForStaffWebLoginCode(code: PublicShopCodeLoginFormCode) {
+  const signInBlockedMessage =
+    "Sign-in was blocked. Check the credentials or try again later.";
+  const messages: Record<PublicShopCodeLoginFormCode, string> = {
+    credential_invalid: signInBlockedMessage,
     database_error:
       "Sign-in could not be verified because of a server/database error.",
     idle: "",
-    locked:
-      "Sign-in is temporarily blocked. Try again later or ask an admin to reset access.",
+    locked: signInBlockedMessage,
     not_configured: "Shop-code staff access is not configured in this runtime.",
     server_admin_not_configured:
       "Sign-in cannot be verified because the server admin runtime is not configured.",
-    shop_inactive: "This shop is not active. Contact platform support.",
-    shop_not_found: "Shop code was not found. Check the shop code and try again.",
-    staff_inactive:
-      "This staff account cannot open Admin Console. Ask a manager to reset access.",
-    staff_not_allowed:
-      "This staff account cannot open Admin Console. Use a manager staff account.",
-    staff_not_found: "Staff code was not found for this shop.",
+    shop_inactive: signInBlockedMessage,
+    shop_not_found: signInBlockedMessage,
+    sign_in_blocked: signInBlockedMessage,
+    staff_inactive: signInBlockedMessage,
+    staff_not_allowed: signInBlockedMessage,
+    staff_not_found: signInBlockedMessage,
     success: "",
     unknown_error: "Sign-in could not be verified. Try again.",
     validation_failed: "Check Shop code, Staff code, and PIN/password and try again.",
@@ -112,9 +127,11 @@ export async function staffManagerWebLoginFormAction(
     redirect(nextPath, RedirectType.replace);
   }
 
+  const publicCode = publicStaffWebLoginCode(result.code);
+
   return {
-    code: result.code,
-    message: messageForStaffWebLoginCode(result.code),
+    code: publicCode,
+    message: messageForStaffWebLoginCode(publicCode),
     ok: false,
     shouldFocusCredential: true,
     values: submittedValues(formData),
@@ -129,5 +146,5 @@ export async function staffManagerWebLoginAction(formData: FormData) {
     redirect(nextPath, RedirectType.replace);
   }
 
-  redirect(resultPath(result.code, nextPath), RedirectType.replace);
+  redirect(resultPath(publicStaffWebLoginCode(result.code), nextPath), RedirectType.replace);
 }

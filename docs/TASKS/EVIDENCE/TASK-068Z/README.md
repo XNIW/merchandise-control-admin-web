@@ -2,10 +2,10 @@
 
 ## Stato
 
-- Stato corrente: `REVIEW`
-- Verdict operativo Codex: `PASS_WITH_NOTES_READY_FOR_REVIEW`
+- Stato corrente: `DONE`
+- Verdict operativo Codex: `DONE`
 - Data: 2026-06-19
-- Commit/push/stage: `NOT_RUN_BY_REQUEST`
+- Commit/push/stage: `AUTHORIZED_AFTER_USER_DONE_CONFIRMATION`
 - DB push/production apply/deploy: `NOT_RUN_BY_REQUEST`
 
 ## CodeRabbit
@@ -118,4 +118,5 @@ Risultati redatti:
 
 ## Chiusura
 
-Codex non marca `DONE`. Questo handoff resta in `REVIEW` finche reviewer/utente non approvano e confermano esplicitamente.
+TASK-071 ha ricevuto conferma esplicita utente e ha riconciliato questo handoff
+a `DONE`. Le note residue restano documentate come non bloccanti.

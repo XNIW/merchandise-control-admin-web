@@ -94,9 +94,18 @@ test("TASK-054 staff web auth returns diagnostic login failure codes without exp
     "unknown_error",
   ]) {
     assertContains(auth, required, `staff web auth must expose ${required}`);
-    assertContains(actions, required, `staff login action must map ${required}`);
+    assertContains(actions, required, `staff login action must classify ${required}`);
   }
 
+  assertContains(actions, "sign_in_blocked");
+  assertContains(actions, "publicStaffWebLoginCode(result.code)");
+  assertContains(actions, "code: publicCode");
+  assertContains(
+    actions,
+    "Sign-in was blocked. Check the credentials or try again later.",
+  );
+  assert.doesNotMatch(actions, /Shop code was not found|Staff code was not found/);
+  assert.doesNotMatch(actions, /PIN\/password is not correct for this staff account/);
   assert.doesNotMatch(auth, /return staffWebLoginResult\("denied"\)/);
   assert.doesNotMatch(actions, /credential_hash|session_token_hash|service_role/i);
   assert.doesNotMatch(

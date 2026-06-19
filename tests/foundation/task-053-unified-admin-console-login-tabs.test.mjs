@@ -86,7 +86,7 @@ test("TASK-053 Shop code form is shared and keeps staff login server action", ()
   assert.match(staffLoginAction, /"use server"/);
   assert.match(staffLoginAction, /nextPathFromForm/);
   assert.match(staffLoginAction, /redirect\(nextPath, RedirectType\.replace\)/);
-  assert.match(staffLoginAction, /resultPath\(result\.code, nextPath\)/);
+  assert.match(staffLoginAction, /resultPath\(publicStaffWebLoginCode\(result\.code\), nextPath\)/);
   assert.match(staffLoginPage, /safeNextPath\(firstParam\(params\.next\)\)/);
   assert.match(staffLoginPage, /mode: "shop-code"/);
   assert.doesNotMatch(

@@ -2642,7 +2642,7 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 
 ## Tracking corrente
 
-- Stato globale attuale: `TASK_ACTIVE`
+- Stato globale attuale: `IDLE`
 - Ultimo task completato: `TASK-061 - Android database export compatibility for Admin Web database transfer`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
@@ -2733,23 +2733,38 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
 - Task TASK-067: `TASK-067 - Master Console lifecycle management, admin assignment, and safe cleanup`
 - File task TASK-067: `docs/TASKS/TASK-067-master-console-lifecycle-management-admin-assignment-safe-cleanup.md`
 - Evidence TASK-067: `docs/TASKS/EVIDENCE/TASK-067/README.md`
-- Stato TASK-068Z: `REVIEW`
-- Fase TASK-068Z: `REVIEW`
+- Stato TASK-068Z: `DONE`
+- Fase TASK-068Z: `DONE_RECONCILED`
 - Task TASK-068Z: `TASK-068Z - CodeRabbit full review, hardening and reconciliation`
 - File task TASK-068Z: `docs/TASKS/TASK-068Z-coderabbit-full-review-hardening-reconciliation.md`
 - Evidence TASK-068Z: `docs/TASKS/EVIDENCE/TASK-068Z/README.md`
+- Stato TASK-069: `DONE`
+- Fase TASK-069: `DONE_RECONCILED`
+- Task TASK-069: `TASK-069 - Full cross-platform audit Admin Web, Android and iOS sync readiness`
+- File task TASK-069: `docs/TASKS/TASK-069-full-cross-platform-audit-admin-android-ios-sync-readiness.md`
+- Evidence TASK-069: `docs/TASKS/EVIDENCE/TASK-069/README.md`
+- Stato TASK-070: `DONE`
+- Fase TASK-070: `DONE_RECONCILED`
+- Task TASK-070: `TASK-070 - Full Win7POS audit and Admin Web alignment plan`
+- File task TASK-070: `docs/TASKS/TASK-070-win7pos-audit-admin-web-alignment.md`
+- Evidence TASK-070: `docs/TASKS/EVIDENCE/TASK-070/README.md`
+- Stato TASK-071: `DONE`
+- Fase TASK-071: `DONE_RECONCILED`
+- Task TASK-071: `TASK-071 - Final closure and fix-all for TASK-068 / TASK-069 / TASK-070`
+- File task TASK-071: `docs/TASKS/TASK-071-final-closure-task-068-069-070.md`
+- Evidence TASK-071: `docs/TASKS/EVIDENCE/TASK-071/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Task attivo: `TASK-065 - Fix Master Console Google OAuth redirect`
-- Task precedente: `TASK-061 - Android database export compatibility for Admin Web database transfer`
-- Ultimo task chiuso: `TASK-067 - Master Console lifecycle management, admin assignment, and safe cleanup`
-- File task: `docs/TASKS/TASK-065-fix-master-console-google-oauth-redirect.md`
-- Evidence: `docs/TASKS/EVIDENCE/TASK-065/README.md`
-- Stato task: `REVIEW_WITH_SECURITY_BLOCKER`
-- Fase: `BLOCKED_SECURITY`
-- Milestone interna: `TASK_061_HISTORY_SYNC_TASK_062_INTEGRATION_READY_FOR_REVIEWED_COMMIT`
-- Responsabile: `NONE`
-- Branch previsto: `codex/task-065-google-oauth-redirect`
+- Task attivo: `NESSUNO`
+- Task precedente: `TASK-071 - Final closure and fix-all for TASK-068 / TASK-069 / TASK-070`
+- Ultimo task chiuso: `TASK-071 - Final closure and fix-all for TASK-068 / TASK-069 / TASK-070`
+- File task: `docs/TASKS/TASK-071-final-closure-task-068-069-070.md`
+- Evidence: `docs/TASKS/EVIDENCE/TASK-071/README.md`
+- Stato task: `DONE`
+- Fase: `DONE_RECONCILED`
+- Milestone interna: `TASK_071_DONE`
+- Responsabile: `USER_CONFIRMED_CLOSURE`
+- Branch previsto: `main` / no branch creation requested
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
 - Task Vercel parcheggiato: `TASK-031 - Vercel Preview retry after environment docs`
@@ -3006,6 +3021,58 @@ Non introdurre per ora un livello separato `merchant -> stores`, per mantenere i
   hard delete resta bloccato; user purge/auth.users resta fuori scope;
   TASK-065/OAuth resta task separato e non viene modificato da `TASK-067`.
   Questa reconciliation non modifica codice e non esegue commit/push/stage.
+- Handoff Codex TASK-069 2026-06-19: audit cross-platform Admin Web, Android e
+  iOS completato con subagenti specializzati, fix piccoli/medi applicati e
+  evidence in `docs/TASKS/EVIDENCE/TASK-069/README.md`. Admin Web:
+  `test:foundation` PASS 378/378, `verify` PASS, `test:shop:local` PASS 5/5,
+  `git diff --check` PASS. Android: `assembleDebug` PASS,
+  `lintDebug testDebugUnitTest` PASS con 524 test, `git diff --check` PASS.
+  iOS: `build_sim` PASS e targeted sync/catalog `test_sim` PASS 200/200; full
+  suite iOS precedente resta `FAIL_WITH_PREEXISTING_SUITE_DRIFT` 856 passed,
+  25 failed, 29 skipped ed e' documentata come rischio residuo. Nessun stage,
+  commit, push, merge, deploy, `db push` o migration apply eseguito. TASK-069
+  passa a `REVIEW`, non `DONE`.
+- Handoff Codex TASK-070 2026-06-19: audit Win7POS completato con subagenti
+  specializzati e review CodeRabbit locale su diff non committato. Win7POS
+  trovato in `/Users/minxiang/Projects/Win7POS`; stack reale C# WPF `.NET
+  Framework 4.8` x86, SQLite locale, Windows 7 first. Fix piccoli applicati:
+  race SQLite supplier/category (`last_insert_rowid()`), bridge job newest,
+  clean dist release, path normalization physical Win7, status strip POS,
+  guardia `catalog.view` menu Prodotti, guardia `catalog.edit` creazione rapida,
+  confronto PIN constant-time, HTTP Admin Web solo loopback, CSV formula
+  sanitization e typo README guest. Check Win7POS: build WPF Release x86 PASS
+  0 warnings/0 errors, dialog standards PASS, POS online bootstrap/client/catalog
+  pull PASS, product dialog free-text PASS, bash syntax PASS, PowerShell parser
+  PASS, `git diff --check` PASS. Residui: runtime fisico Win7/TLS/root certs e
+  native SQLite drop non verificati; sales sync non pronto per mancanza queue,
+  idempotency, client `/api/pos/sales/sync`, mapping pagamenti e policy
+  refund/void; `ProductsViewModel` e `OpenCashDrawer` richiedono hardening
+  dedicato. Evidence: `docs/TASKS/EVIDENCE/TASK-070/README.md`. Nessun stage,
+  commit, push, merge, deploy, `db push` o migration apply eseguito. TASK-070
+  passa a `REVIEW`, non `DONE`.
+- Final closure TASK-071 2026-06-19: su richiesta esplicita utente, closure
+  severa e fix-all di `TASK-068Z`, `TASK-069` e `TASK-070` completata.
+  Riconciliazione finale: `TASK-068Z DONE`, `TASK-069 DONE`, `TASK-070 DONE`
+  e `TASK-071 DONE`; evidence in
+  `docs/TASKS/EVIDENCE/TASK-071/README.md`. Fix aggiuntivi: Admin Web staff
+  login non enumera piu shop/staff via messaggi UI, path locali assoluti rimossi
+  dai nuovi handoff/evidence, Android migration/dirty mask legacy backfill,
+  Win7POS Products permission guards, CSV formula hardening, Change PIN cleanup
+  in `finally`, bridge fisico `collect-logs` non maschera raccolte vuote.
+  QA cleanup finale: metadata IDE Android sanificato da serial/path locali e
+  backup iOS SwiftData `default.store*` spostato fuori repo in quarantena
+  locale `.codex`.
+  Gate critici passati: Admin Web `security:scan`, `test:foundation` 378/378 e
+  `verify`; Android `assembleDebug`, targeted unit rerun e
+  `lintDebug testDebugUnitTest`; iOS `build_sim` e targeted `test_sim` 200/200;
+  Win7POS build Release x86 0 warnings/0 errors, static scripts e bash syntax.
+  CodeRabbit Admin Web finale `BLOCKED_EXTERNAL_RATE_LIMIT`; Win7POS finale ha
+  trovato 2 finding batch fisici, corretti e validati staticamente. Residui
+  non bloccanti: Win7 fisico/runtime, sales sync completo, iOS full suite drift
+  preesistente, Supabase migration non applicata. Dopo conferma esplicita
+  successiva dell'utente, i repo gia su `main` vengono finalizzati con
+  stage/commit/push; merge effettivo non necessario perche `main...origin/main`
+  era gia il branch corrente.
 
 ## Regole di avanzamento
 

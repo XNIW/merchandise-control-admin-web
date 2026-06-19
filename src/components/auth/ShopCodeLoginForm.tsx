@@ -21,6 +21,7 @@ const loginCodes = [
   "server_admin_not_configured",
   "shop_inactive",
   "shop_not_found",
+  "sign_in_blocked",
   "staff_inactive",
   "staff_not_allowed",
   "staff_not_found",

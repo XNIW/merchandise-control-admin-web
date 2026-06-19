@@ -497,7 +497,7 @@ async function assertOldPinRejected(
   await page.getByLabel("PIN / password").fill(input.oldPin);
   await page.getByRole("button", { name: "Sign in" }).click();
   await expect(
-    page.getByText("PIN/password is not correct for this staff account."),
+    page.getByText("Sign-in was blocked. Check the credentials or try again later."),
   ).toBeVisible({ timeout: 20_000 });
   await context.close();
 }

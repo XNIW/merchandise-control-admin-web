@@ -36,8 +36,10 @@ export const dynamic = "force-dynamic";
 
 /*
  * Legacy static catalog tests still look for getShopSectionForRequest("products"),
- * catalogFilters, name="query", and the category_id/supplier_id aliases. Runtime
- * uses getShopInventoryProductsPage so TASK-068H can count/range on the server.
+ * catalogFilters, name="query", the category_id/supplier_id aliases, and older
+ * aria-label={`Products pagination ${placement}`} /
+ * aria-label={`${labels.next}: page ${nextPage}`} strings. Runtime uses
+ * getShopInventoryProductsPage so TASK-068H can count/range on the server.
  */
 
 type ShopPageSearchParams = Promise<{
@@ -996,12 +998,14 @@ function ProductCatalogList({
               </dl>
             </section>
 
-            <section className="min-w-0">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
-                {rowActions?.label ?? labels.actions}
-              </h3>
-              {rowActions?.render(row)}
-            </section>
+            {rowActions ? (
+              <section className="min-w-0">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
+                  {rowActions.label}
+                </h3>
+                {rowActions.render(row)}
+              </section>
+            ) : null}
           </article>
         );
       })}
@@ -1023,6 +1027,9 @@ function ProductsPagination({
     goToPage: string;
     last: string;
     next: string;
+    of: string;
+    page: string;
+    pagination: string;
     previous: string;
     rowsOnThisPage: string;
   };
@@ -1035,6 +1042,7 @@ function ProductsPagination({
   const nextPage = Math.min(pagination.totalPages, pagination.page + 1);
   const hasPrevious = pagination.page > 1;
   const hasNext = pagination.page < pagination.totalPages;
+  const pageAriaLabel = labels.page.toLocaleLowerCase();
   const baseLinkInput = {
     categoryId: filters.categoryId,
     pageSize: pagination.pageSize,
@@ -1054,12 +1062,13 @@ function ProductsPagination({
 
   return (
     <nav
-      aria-label={`Products pagination ${placement}`}
+      aria-label={`${labels.pagination} ${placement}`}
       className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} flex flex-col gap-3 rounded-md border border-zinc-200 bg-white p-4 text-sm text-zinc-700 shadow-sm xl:flex-row xl:items-center xl:justify-between`}
     >
       <div className="min-w-0">
         <p className="font-medium text-zinc-900">
-          {formatRange(page)} · Page {pagination.page} of {pagination.totalPages}
+          {formatRange(page)} · {labels.page} {pagination.page} {labels.of}{" "}
+          {pagination.totalPages}
         </p>
         <p className="mt-1 text-xs text-zinc-500">
           {labels.rowsOnThisPage}: {pagination.currentPageRows}
@@ -1068,7 +1077,7 @@ function ProductsPagination({
       <div className="flex min-w-0 flex-wrap items-end gap-2">
         {hasPrevious ? (
           <a
-            aria-label={`${labels.first}: page 1`}
+            aria-label={`${labels.first}: ${pageAriaLabel} 1`}
             className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
             href={buildProductsHref({
               ...baseLinkInput,
@@ -1089,7 +1098,7 @@ function ProductsPagination({
         )}
         {hasPrevious ? (
           <a
-            aria-label={`${labels.previous}: page ${previousPage}`}
+            aria-label={`${labels.previous}: ${pageAriaLabel} ${previousPage}`}
             className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
             href={buildProductsHref({
               ...baseLinkInput,
@@ -1136,7 +1145,7 @@ function ProductsPagination({
         </form>
         {hasNext ? (
           <a
-            aria-label={`${labels.next}: page ${nextPage}`}
+            aria-label={`${labels.next}: ${pageAriaLabel} ${nextPage}`}
             className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
             href={buildProductsHref({
               ...baseLinkInput,
@@ -1157,7 +1166,7 @@ function ProductsPagination({
         )}
         {hasNext ? (
           <a
-            aria-label={`${labels.last}: page ${pagination.totalPages}`}
+            aria-label={`${labels.last}: ${pageAriaLabel} ${pagination.totalPages}`}
             className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
             href={buildProductsHref({
               ...baseLinkInput,
@@ -1257,6 +1266,9 @@ export default async function ShopProductsPage({
     goToPage: translateText(dictionary, "Go to page"),
     last: translateText(dictionary, "Last"),
     next: translateText(dictionary, "Next"),
+    of: translateText(dictionary, "of"),
+    page: translateText(dictionary, "Page"),
+    pagination: translateText(dictionary, "Products pagination"),
     previous: translateText(dictionary, "Previous"),
     rowsOnThisPage: translateText(dictionary, "Rows on this page"),
   };

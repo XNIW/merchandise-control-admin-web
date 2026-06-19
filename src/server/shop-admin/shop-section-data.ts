@@ -35,6 +35,7 @@ import {
   sanitizeSpreadsheetCell,
 } from "./import-export-readiness";
 import {
+  getShopInventoryProductDetailReadModel,
   getShopInventoryReadModel,
   type ShopInventoryCategory,
   type ShopInventoryPrice,
@@ -2740,7 +2741,10 @@ export async function getShopCatalogDetailSectionForRequest(
 ): Promise<ShopSection> {
   if (kind === "product") {
     const [inventoryReadModel, historyReadModel] = await Promise.all([
-      getShopInventoryReadModel({ requestedShopId }),
+      getShopInventoryProductDetailReadModel({
+        productId: catalogId,
+        requestedShopId,
+      }),
       getShopHistoryReadModel({ requestedShopId }),
     ]);
 

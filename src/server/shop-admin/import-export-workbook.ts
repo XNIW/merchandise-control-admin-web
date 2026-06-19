@@ -8,6 +8,7 @@ import * as unzipper from "unzipper";
 import writeXlsxFile, {
   type SheetData as WritableSheetData,
 } from "write-excel-file/node";
+import { parseLocalizedNumberText } from "@/lib/localized-number";
 import type { Json } from "@/lib/supabase/database.types";
 import {
   createCategory,
@@ -722,37 +723,7 @@ function productReferenceNumberValue(
 }
 
 function parseWorkbookNumber(value: string) {
-  const normalized = value
-    .trim()
-    .replace(
-      /(^|\s)(ars|brl|clp|cny|cop|eur|gbp|mxn|pen|rmb|usd|uyu)(?=\s|$)/gi,
-      " ",
-    )
-    .replace(/[$€£¥₩₽₹]/g, "");
-
-  if (/[A-Za-z\u00C0-\u024F\u0370-\u03FF\u0400-\u04FF\u4E00-\u9FFF]/.test(normalized)) {
-    return Number.NaN;
-  }
-
-  const compact = normalized.replace(/\s+/g, "").replace(/[^\d,.-]/g, "");
-
-  if (!compact) {
-    return Number.NaN;
-  }
-
-  if (!/^-?[\d.,]+$/.test(compact)) {
-    return Number.NaN;
-  }
-
-  if (/^-?\d{1,3}(\.\d{3})+,\d+$/.test(compact)) {
-    return Number(compact.replace(/\./g, "").replace(",", "."));
-  }
-
-  if (/^-?\d{1,3}(,\d{3})+\.\d+$/.test(compact)) {
-    return Number(compact.replace(/,/g, ""));
-  }
-
-  return Number(compact.replace(",", "."));
+  return parseLocalizedNumberText(value);
 }
 
 function getSheetRows(

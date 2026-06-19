@@ -871,6 +871,7 @@ function CategoryDialogs({
   selectedShopId?: string;
   setOpenDialog: (dialog: DialogKey | null) => void;
 }) {
+  const t = useCatalogActionText();
   const auditReasonDescription = "Required for the audit trail.";
   const categoryOptions = categories.map((category) => ({
     id: category.categoryId,
@@ -885,13 +886,15 @@ function CategoryDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "newCategory"}
-        title="Create category"
+        title={t("Create category")}
       >
         <DialogFormShell>
           <form action={createCategoryAction} className={catalogFormClassName}>
             <HiddenShopInput selectedShopId={selectedShopId} />
-            <TextInput label="Category name" name="name" required />
-            <button className={catalogButtonClassName}>Create category</button>
+            <TextInput label={t("Category name")} name="name" required />
+            <button className={catalogButtonClassName}>
+              {t("Create category")}
+            </button>
           </form>
         </DialogFormShell>
       </CatalogDialog>
@@ -899,7 +902,7 @@ function CategoryDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "editCategory"}
-        title="Update category"
+        title={t("Update category")}
       >
         <DialogFormShell>
           <form action={updateCategoryAction} className={catalogFormClassName}>
@@ -912,25 +915,27 @@ function CategoryDialogs({
                   value={selectedCategory.categoryId}
                 />
                 <SelectedEntitySummary>
-                  Updating {selectedCategory.name}
+                  {t("Updating")} {selectedCategory.name}
                 </SelectedEntitySummary>
               </>
             ) : (
               <EntityPicker
                 defaultEntityId={selectedEntityId}
-                emptyLabel="Select category"
-                label="Category"
+                emptyLabel={t("Select category")}
+                label={t("Category")}
                 name="categoryId"
                 options={categoryOptions}
               />
             )}
             <TextInput
               defaultValue={selectedCategory?.name}
-              label="Category name"
+              label={t("Category name")}
               name="name"
               required
             />
-            <button className={catalogButtonClassName}>Update category</button>
+            <button className={catalogButtonClassName}>
+              {t("Update category")}
+            </button>
           </form>
         </DialogFormShell>
       </CatalogDialog>
@@ -938,7 +943,7 @@ function CategoryDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "archiveCategory"}
-        title="Archive category"
+        title={t("Archive category")}
       >
         <DialogFormShell>
           <form action={archiveCategoryAction} className={catalogFormClassName}>
@@ -951,21 +956,21 @@ function CategoryDialogs({
                   value={selectedCategory.categoryId}
                 />
                 <SelectedEntitySummary>
-                  Archiving {selectedCategory.name}
+                  {t("Archiving")} {selectedCategory.name}
                 </SelectedEntitySummary>
               </>
             ) : (
               <EntityPicker
                 defaultEntityId={selectedEntityId}
-                emptyLabel="Select category"
-                label="Category"
+                emptyLabel={t("Select category")}
+                label={t("Category")}
                 name="categoryId"
                 options={categoryOptions}
               />
             )}
             <TextInput
-              description={auditReasonDescription}
-              label="Reason"
+              description={t(auditReasonDescription)}
+              label={t("Reason")}
               maxLength={240}
               name="reason"
               required
@@ -976,7 +981,7 @@ function CategoryDialogs({
               required
             />
             <button className={catalogArchiveButtonClassName}>
-              Archive category
+              {t("Archive category")}
             </button>
           </form>
         </DialogFormShell>
@@ -998,6 +1003,7 @@ function SupplierDialogs({
   setOpenDialog: (dialog: DialogKey | null) => void;
   suppliers: CatalogSupplierOption[];
 }) {
+  const t = useCatalogActionText();
   const auditReasonDescription = "Required for the audit trail.";
   const supplierOptions = suppliers.map((supplier) => ({
     id: supplier.supplierId,
@@ -1012,13 +1018,15 @@ function SupplierDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "newSupplier"}
-        title="Create supplier"
+        title={t("Create supplier")}
       >
         <DialogFormShell>
           <form action={createSupplierAction} className={catalogFormClassName}>
             <HiddenShopInput selectedShopId={selectedShopId} />
-            <TextInput label="Supplier name" name="name" required />
-            <button className={catalogButtonClassName}>Create supplier</button>
+            <TextInput label={t("Supplier name")} name="name" required />
+            <button className={catalogButtonClassName}>
+              {t("Create supplier")}
+            </button>
           </form>
         </DialogFormShell>
       </CatalogDialog>
@@ -1026,7 +1034,7 @@ function SupplierDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "editSupplier"}
-        title="Update supplier"
+        title={t("Update supplier")}
       >
         <DialogFormShell>
           <form action={updateSupplierAction} className={catalogFormClassName}>
@@ -1039,25 +1047,27 @@ function SupplierDialogs({
                   value={selectedSupplier.supplierId}
                 />
                 <SelectedEntitySummary>
-                  Updating {selectedSupplier.name}
+                  {t("Updating")} {selectedSupplier.name}
                 </SelectedEntitySummary>
               </>
             ) : (
               <EntityPicker
                 defaultEntityId={selectedEntityId}
-                emptyLabel="Select supplier"
-                label="Supplier"
+                emptyLabel={t("Select supplier")}
+                label={t("Supplier")}
                 name="supplierId"
                 options={supplierOptions}
               />
             )}
             <TextInput
               defaultValue={selectedSupplier?.name}
-              label="Supplier name"
+              label={t("Supplier name")}
               name="name"
               required
             />
-            <button className={catalogButtonClassName}>Update supplier</button>
+            <button className={catalogButtonClassName}>
+              {t("Update supplier")}
+            </button>
           </form>
         </DialogFormShell>
       </CatalogDialog>
@@ -1065,7 +1075,7 @@ function SupplierDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "archiveSupplier"}
-        title="Archive supplier"
+        title={t("Archive supplier")}
       >
         <DialogFormShell>
           <form action={archiveSupplierAction} className={catalogFormClassName}>
@@ -1078,21 +1088,21 @@ function SupplierDialogs({
                   value={selectedSupplier.supplierId}
                 />
                 <SelectedEntitySummary>
-                  Archiving {selectedSupplier.name}
+                  {t("Archiving")} {selectedSupplier.name}
                 </SelectedEntitySummary>
               </>
             ) : (
               <EntityPicker
                 defaultEntityId={selectedEntityId}
-                emptyLabel="Select supplier"
-                label="Supplier"
+                emptyLabel={t("Select supplier")}
+                label={t("Supplier")}
                 name="supplierId"
                 options={supplierOptions}
               />
             )}
             <TextInput
-              description={auditReasonDescription}
-              label="Reason"
+              description={t(auditReasonDescription)}
+              label={t("Reason")}
               maxLength={240}
               name="reason"
               required
@@ -1103,7 +1113,7 @@ function SupplierDialogs({
               required
             />
             <button className={catalogArchiveButtonClassName}>
-              Archive supplier
+              {t("Archive supplier")}
             </button>
           </form>
         </DialogFormShell>
