@@ -112,9 +112,7 @@ function formatRange(page: ShopInventoryProductsPage) {
   const totalSuffix =
     pagination.totalCountStatus === "exact"
       ? formatNumber(pagination.totalCount)
-      : pagination.hasNextPage
-        ? `${formatNumber(pagination.totalCount)}+`
-        : formatNumber(pagination.totalCount);
+      : `at least ${formatNumber(pagination.totalCount)}`;
 
   return `${formatNumber(pagination.rangeStart)}-${formatNumber(
     pagination.rangeEnd,
@@ -485,6 +483,33 @@ function buildProductsPageSection(input: {
     input.suppliers.map((supplier) => [supplier.supplierId, supplier]),
   );
   const pagination = page.pagination;
+  const exactTotalForState =
+    page.filters.state === "archived"
+      ? page.summary.archivedProducts
+      : page.filters.state === "all"
+        ? page.summary.productsTotal
+        : page.summary.activeProducts;
+  const hasRowsOnPage = pagination.currentPageRows > 0;
+  const loadedLowerBoundCount =
+    !hasRowsOnPage
+      ? 0
+      : pagination.totalCountStatus === "exact"
+        ? pagination.totalCount > pagination.rangeEnd
+          ? pagination.rangeEnd + 1
+          : pagination.rangeEnd
+        : pagination.rangeEnd + (pagination.hasNextPage ? 1 : 0);
+  const lowerBoundValue =
+    pagination.totalCountStatus === "exact" &&
+    hasRowsOnPage &&
+    pagination.totalCount <= pagination.rangeEnd
+      ? formatNumber(loadedLowerBoundCount)
+      : `${formatNumber(loadedLowerBoundCount)}+`;
+  const pageRange =
+    pagination.rangeStart > 0 && pagination.rangeEnd > 0
+      ? `${formatNumber(pagination.rangeStart)}-${formatNumber(
+          pagination.rangeEnd,
+        )}`
+      : "0";
 
   return {
     ...baseProductsSection,
@@ -495,22 +520,35 @@ function buildProductsPageSection(input: {
     status: pagination.currentPageRows > 0 ? "Live actions" : "Products empty",
     metrics: [
       metric(
-        "Total products",
+        "Exact total",
         pagination.totalCountStatus === "exact"
-          ? formatNumber(page.summary.productsTotal)
-          : `${formatNumber(page.summary.productsTotal)}+`,
+          ? formatNumber(exactTotalForState)
+          : "Calculating...",
         pagination.totalCountStatus === "exact"
-          ? "Mapped catalog total"
-          : "Exact total deferred from first paint",
+          ? "Server-side catalog count for the selected state"
+          : "Deferred to keep first paint lightweight",
       ),
       metric(
-        "Filtered rows",
+        "Filtered exact total",
         pagination.totalCountStatus === "exact"
           ? formatNumber(pagination.totalCount)
-          : `${formatNumber(pagination.totalCount)}+`,
+          : "Calculating...",
         pagination.totalCountStatus === "exact"
           ? "Server-side filtered rows"
-          : "Lower bound from current page",
+          : "Search/filter count is server-side and still deferred",
+      ),
+      metric(
+        "Loaded lower bound",
+        lowerBoundValue,
+        pagination.totalCountStatus === "exact"
+          ? "Fallback page lower bound; exact total is shown separately"
+          : "Pagination lower bound from loaded pages, not a catalog total",
+        "warning",
+      ),
+      metric(
+        "Current page",
+        pageRange,
+        `${formatNumber(pagination.currentPageRows)} rows rendered`,
       ),
       metric(
         "Current page rows",
@@ -541,6 +579,12 @@ function buildProductsPageSection(input: {
             : `Page ${pagination.page}`,
       ),
       metric("Filters", String(activeFilterCount), "Search/category/supplier/state"),
+      metric(
+        "Search scope",
+        "Server-side",
+        "Search runs across all matching products before pagination",
+        "good",
+      ),
       metric("Catalog scope", catalogScopeLabel(page.catalogScope), page.reason, "good"),
       metric("Writes", "Audited", "Create/update/archive/restore via server actions", "good"),
     ],
@@ -549,7 +593,7 @@ function buildProductsPageSection(input: {
       description:
         pagination.totalCountStatus === "exact"
           ? "Only current page rows are rendered. Search and filters run server-side before count/range."
-          : "Only current page rows are rendered. Exact totals and heavy summary counts are deferred from first paint.",
+          : "Only current page rows are rendered. Search and filters run server-side across the catalog; exact totals and heavy summary counts are deferred from first paint.",
       columns: [
         { key: "productId", label: "Product id", cellVariant: "code" },
         {
@@ -1097,7 +1141,7 @@ function ProductCatalogList({
 
         return (
           <article
-            className="grid min-w-0 gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm [contain-intrinsic-size:220px] [content-visibility:auto] lg:grid-cols-[minmax(15rem,1.5fr)_minmax(12rem,1fr)_minmax(10rem,0.9fr)_minmax(10rem,0.9fr)_minmax(10rem,0.85fr)_minmax(9rem,auto)] lg:items-start"
+            className="grid min-w-0 gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm [contain-intrinsic-size:220px] [content-visibility:auto] lg:grid-cols-[minmax(13rem,1.35fr)_minmax(9rem,0.85fr)_minmax(9rem,0.85fr)_minmax(9rem,0.85fr)_minmax(8rem,0.75fr)_minmax(10rem,auto)] lg:items-start"
             data-product-catalog-row
             key={row.rowKey}
             role="listitem"
@@ -1124,6 +1168,19 @@ function ProductCatalogList({
                       title={secondName}
                     >
                       {secondName}
+                    </p>
+                  ) : null}
+                  {hasSupplier || hasCategory ? (
+                    <p
+                      className="mt-1 flex min-w-0 items-center gap-1.5 text-sm leading-5 text-zinc-600"
+                      title={[supplierName, categoryName]
+                        .filter(Boolean)
+                        .join(" / ")}
+                    >
+                      <ProductsIcon name={hasSupplier ? "supplier" : "category"} />
+                      <span className="min-w-0 truncate">
+                        {[supplierName, categoryName].filter(Boolean).join(" / ")}
+                      </span>
                     </p>
                   ) : null}
                   <dl className="mt-2">

@@ -172,10 +172,12 @@ test("History summary counts guard unsupported tables and keep overview renderab
 test("History page renders mobile entries first, then sync events and diagnostics", () => {
   const sectionsPath = "src/components/shop/shopSections.ts";
   const sectionDataPath = "src/server/shop-admin/shop-section-data.ts";
+  const historyListPath = "src/app/shop/_components/HistoryEntriesClientList.tsx";
   const pagePath = "src/app/shop/history/page.tsx";
 
   const sections = readProjectFile(sectionsPath);
   const sectionData = readProjectFile(sectionDataPath);
+  const historyList = readProjectFile(historyListPath);
   const page = readProjectFile(pagePath);
 
   assert.match(sections, /title: "Android \/ iOS History Entries"/);
@@ -270,11 +272,13 @@ test("History page renders mobile entries first, then sync events and diagnostic
     /"Technical synchronization event linked to mobile history entries; it is not the History Entry itself\."/,
   );
 
-  assert.match(page, /buildHistoryDetailHref/);
-  assert.match(page, /encodeURIComponent\(entryId\)/);
-  assert.match(page, /new URLSearchParams\(\{ shop_id: requestedShopId \}\)/);
+  assert.match(page, /HistoryEntriesClientList/);
+  assert.match(historyList, /buildHistoryDetailHref/);
+  assert.match(historyList, /encodeURIComponent\(entryId\)/);
+  assert.match(historyList, /new URLSearchParams\(\{ shop_id: requestedShopId \}\)/);
+  assert.match(historyList, /data-history-detail-trigger/);
   assert.match(page, /getShopHistoryListReadModel/);
-  assert.match(page, /rowActions=\{\{/);
+  assert.doesNotMatch(page, /rowActions=\{\{/);
   assert.doesNotMatch(page, /secondaryRowActions=\{\{/);
   assert.match(readModel, /getShopHistoryDetailReadModel/);
   assert.match(sectionData, /readModel\.listMode === "light"/);

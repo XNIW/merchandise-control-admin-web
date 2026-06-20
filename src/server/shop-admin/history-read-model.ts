@@ -168,6 +168,7 @@ export type ShopHistorySessionAnalysis = {
   state: "active" | "tombstone";
   sourceScope: ShopHistorySourceScope;
   isManualEntry: boolean;
+  isTechnicalEntry: boolean;
   rowCount: number;
   itemRowCount: number;
   columnCount: number;
@@ -195,14 +196,19 @@ export type ShopHistoryTablePreviewRow = {
   item: string;
   barcode: string;
   name: string;
+  quantity: string;
+  purchasePrice: string;
+  retailPrice: string;
   values: string;
 };
 
 export type ShopHistorySummary = {
   historySessionsTotal: number;
+  historySessionsTotalAvailable: boolean;
   latestChangedAt: string | null;
   latestFailedSyncEvents: number;
   syncEventsTotal: number;
+  syncEventsTotalAvailable: boolean;
 };
 
 export type ShopHistoryReadModel = {
@@ -271,9 +277,11 @@ const emptyRows = {
   sessions: [],
   summary: {
     historySessionsTotal: 0,
+    historySessionsTotalAvailable: false,
     latestChangedAt: null,
     latestFailedSyncEvents: 0,
     syncEventsTotal: 0,
+    syncEventsTotalAvailable: false,
   },
 } as const;
 
@@ -287,6 +295,7 @@ const SESSION_PAYLOAD_VERSION = 2;
 const SESSION_OVERLAY_SCHEMA = 1;
 const SESSION_OVERLAY_MAX_BYTES = 512 * 1024;
 const HISTORY_PREVIEW_ROW_LIMIT = 8;
+export const HISTORY_LIGHT_LIST_LIMIT = 200;
 const HISTORY_CELL_MAX_LENGTH = 120;
 
 export type SessionDataSummary = {
@@ -703,6 +712,109 @@ function inferName(row: readonly string[], barcode: string) {
   );
 }
 
+type HistoryPreviewColumn =
+  | "barcode"
+  | "item"
+  | "name"
+  | "purchasePrice"
+  | "quantity"
+  | "retailPrice"
+  | "rowNumber";
+
+function normalizeHeaderCell(value: string) {
+  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function inferHistoryPreviewColumns(headerRow: readonly string[]) {
+  const columns: Partial<Record<HistoryPreviewColumn, number>> = {};
+
+  headerRow.forEach((cell, index) => {
+    const normalized = normalizeHeaderCell(cell);
+
+    if (!normalized) {
+      return;
+    }
+
+    if (
+      columns.rowNumber === undefined &&
+      /^(no|n|row|row number|#)$/.test(normalized)
+    ) {
+      columns.rowNumber = index;
+      return;
+    }
+
+    if (
+      columns.item === undefined &&
+      /^(item|item code|item number|sku|code)$/.test(normalized)
+    ) {
+      columns.item = index;
+      return;
+    }
+
+    if (
+      columns.barcode === undefined &&
+      /^(barcode|bar code|ean|upc)$/.test(normalized)
+    ) {
+      columns.barcode = index;
+      return;
+    }
+
+    if (
+      columns.name === undefined &&
+      /^(product|product name|name|description)$/.test(normalized)
+    ) {
+      columns.name = index;
+      return;
+    }
+
+    if (
+      columns.quantity === undefined &&
+      /^(quantity|qty|stock quantity)$/.test(normalized)
+    ) {
+      columns.quantity = index;
+      return;
+    }
+
+    if (
+      columns.purchasePrice === undefined &&
+      /^(purchase|purchase price|buy price|cost)$/.test(normalized)
+    ) {
+      columns.purchasePrice = index;
+      return;
+    }
+
+    if (
+      columns.retailPrice === undefined &&
+      /^(retail|retail price|sell price|sale price|price)$/.test(normalized)
+    ) {
+      columns.retailPrice = index;
+    }
+  });
+
+  return columns;
+}
+
+function historyPreviewColumnValue(
+  row: readonly string[],
+  columnIndex: number | undefined,
+) {
+  return columnIndex === undefined ? "" : (row[columnIndex] ?? "");
+}
+
+function firstHistoryDataCell(
+  row: readonly string[],
+  excludedIndexes: readonly (number | undefined)[],
+) {
+  const excluded = new Set(
+    excludedIndexes.filter((value): value is number => value !== undefined),
+  );
+
+  return (
+    row.find((cell, index) => !excluded.has(index) && cell.trim().length > 0) ??
+    ""
+  );
+}
+
 export function safeHistoryTablePreview({
   data,
   overlayStatus,
@@ -713,6 +825,7 @@ export function safeHistoryTablePreview({
   sessionOverlay: Json | null;
 }): ShopHistoryTablePreviewRow[] {
   const grid = stringGridFromJson(data).slice(0, HISTORY_PREVIEW_ROW_LIMIT);
+  const columns = inferHistoryPreviewColumns(grid[0] ?? []);
   const canUseOverlay = overlayStatus === "ok";
   const overlay = canUseOverlay
     ? previewOverlay(sessionOverlay)
@@ -721,12 +834,18 @@ export function safeHistoryTablePreview({
   return grid.map((row, index) => {
     const editableRow = overlay.editable[index] ?? [];
     const isComplete = overlay.complete[index] === true;
-    const barcode = inferBarcode(row);
-    const name = inferName(row, barcode);
+    const barcode = historyPreviewColumnValue(row, columns.barcode) || inferBarcode(row);
+    const name = historyPreviewColumnValue(row, columns.name) || inferName(row, barcode);
+    const item =
+      historyPreviewColumnValue(row, columns.item) ||
+      firstHistoryDataCell(row, [columns.rowNumber]);
 
     return {
       rowKey: `preview:${index + 1}`,
-      rowNumber: String(index + 1),
+      rowNumber: safeHistoryCell(
+        historyPreviewColumnValue(row, columns.rowNumber) || String(index + 1),
+        16,
+      ),
       complete: canUseOverlay
         ? isComplete
           ? "Complete"
@@ -738,9 +857,18 @@ export function safeHistoryTablePreview({
           : editableRow.filter((cell) => cell.trim().length > 0).length > 0
           ? editableRow.map((cell) => safeHistoryCell(cell, 36)).join(" / ")
           : "Not set",
-      item: safeHistoryCell(row.find((cell) => cell.trim().length > 0)),
+      item: safeHistoryCell(item),
       barcode: safeHistoryCell(barcode),
       name: safeHistoryCell(name),
+      purchasePrice: safeHistoryCell(
+        historyPreviewColumnValue(row, columns.purchasePrice),
+        24,
+      ),
+      quantity: safeHistoryCell(historyPreviewColumnValue(row, columns.quantity), 24),
+      retailPrice: safeHistoryCell(
+        historyPreviewColumnValue(row, columns.retailPrice),
+        24,
+      ),
       values: row.slice(0, 6).map((cell) => safeHistoryCell(cell, 28)).join(" | "),
     };
   });
@@ -800,6 +928,27 @@ function sourceScopeDisplayName(sourceScope: ShopHistorySourceScope) {
   };
 
   return labels[sourceScope];
+}
+
+function isUserFacingHistoryIdentifier(value: string | null | undefined) {
+  const normalized = (value ?? "").trim().toUpperCase();
+
+  return (
+    normalized.length === 0 ||
+    (!normalized.startsWith("APPLY_IMPORT_") &&
+      !normalized.startsWith("FULL_IMPORT_") &&
+      !normalized.startsWith("TASK135_MATRIX_"))
+  );
+}
+
+function isTechnicalHistorySessionIdentity(input: {
+  display_name: string | null | undefined;
+  remote_id: string | null | undefined;
+}) {
+  return (
+    !isUserFacingHistoryIdentifier(input.remote_id) ||
+    !isUserFacingHistoryIdentifier(input.display_name)
+  );
 }
 
 function overlayStatusDisplayName(status: ShopHistoryOverlayStatus) {
@@ -889,7 +1038,7 @@ function mapLegacySessionDetailRow(
 
 function mapSessionList(row: ScopedSharedSheetSessionListRow): ShopHistorySession {
   const overlayStatus: ShopHistoryOverlayStatus =
-    row.payload_version < SESSION_PAYLOAD_VERSION ? "legacy_v1" : "missing";
+    row.payload_version < SESSION_PAYLOAD_VERSION ? "legacy_v1" : "ok";
 
   return {
     remoteId: row.remote_id,
@@ -903,6 +1052,7 @@ function mapSessionList(row: ScopedSharedSheetSessionListRow): ShopHistorySessio
     state: row.deleted_at ? "tombstone" : "active",
     sourceScope: row.sourceScope,
     isManualEntry: row.is_manual_entry,
+    isTechnicalEntry: isTechnicalHistorySessionIdentity(row),
     rowCount: 0,
     itemRowCount: 0,
     columnCount: 0,
@@ -944,6 +1094,7 @@ function mapSession(
     state: row.deleted_at ? "tombstone" : "active",
     sourceScope: row.sourceScope,
     isManualEntry: row.is_manual_entry,
+    isTechnicalEntry: isTechnicalHistorySessionIdentity(row),
     rowCount: dataSummary.rowCount,
     itemRowCount: dataSummary.itemRowCount,
     columnCount: dataSummary.columnCount,
@@ -980,6 +1131,7 @@ function mapSessionDiagnostics(
     state: row.deleted_at ? "tombstone" : "active",
     sourceScope: row.sourceScope,
     isManualEntry: row.is_manual_entry,
+    isTechnicalEntry: isTechnicalHistorySessionIdentity(row),
     rowCount: row.data_rows,
     itemRowCount: row.item_rows,
     columnCount: row.column_count,
@@ -1217,9 +1369,11 @@ async function loadHistorySummary(input: {
     error,
     summary: {
       historySessionsTotal,
+      historySessionsTotalAvailable: !error,
       latestChangedAt: null,
       latestFailedSyncEvents: 0,
       syncEventsTotal,
+      syncEventsTotalAvailable: !error,
     } satisfies ShopHistorySummary,
   };
 }
@@ -1579,7 +1733,7 @@ async function loadHistoryListSessions(input: {
     .select(historyListSessionSelect)
     .eq("shop_id", input.selectedShop.shopId)
     .order("updated_at", { ascending: false })
-    .limit(50);
+    .limit(HISTORY_LIGHT_LIST_LIMIT);
 
   if (
     directSessionsResult.error &&
@@ -1601,41 +1755,40 @@ async function loadHistoryListSessions(input: {
           }),
         );
 
-  if (directSessions.length > 0 || !input.legacyOwnerUserId) {
+  if (!input.legacyOwnerUserId) {
     return {
       error: null,
       sessions: directSessions,
     };
   }
 
-  const legacySessionsResult = await input.supabase
+  const ownerSessionsResult = await input.supabase
     .from("shared_sheet_sessions")
     .select(historyListSessionSelect)
-    .is("shop_id", null)
     .eq("owner_user_id", input.legacyOwnerUserId)
     .order("updated_at", { ascending: false })
-    .limit(50);
+    .limit(HISTORY_LIGHT_LIST_LIMIT);
 
   if (
-    legacySessionsResult.error &&
-    !isLegacyHistorySchemaError(legacySessionsResult.error)
+    ownerSessionsResult.error &&
+    !isLegacyHistorySchemaError(ownerSessionsResult.error)
   ) {
     return {
-      error: legacySessionsResult.error,
+      error: ownerSessionsResult.error,
       sessions: directSessions,
     };
   }
 
   if (
-    legacySessionsResult.error &&
-    isLegacyHistorySchemaError(legacySessionsResult.error)
+    ownerSessionsResult.error &&
+    isLegacyHistorySchemaError(ownerSessionsResult.error)
   ) {
     const legacyOwnerSessionsResult = await input.supabase
       .from("shared_sheet_sessions")
       .select(legacyHistoryListSessionSelect)
       .eq("owner_user_id", input.legacyOwnerUserId)
       .order("updated_at", { ascending: false })
-      .limit(50);
+      .limit(HISTORY_LIGHT_LIST_LIMIT);
 
     if (legacyOwnerSessionsResult.error) {
       return {
@@ -1659,17 +1812,20 @@ async function loadHistoryListSessions(input: {
     };
   }
 
-  const legacySessions = ((legacySessionsResult.data ??
+  const ownerSessions = ((ownerSessionsResult.data ??
     []) as SharedSheetSessionListRow[]).map((row) => ({
     ...row,
-    sourceScope: "legacy_owner_bridge" as const,
+    sourceScope:
+      row.shop_id === input.selectedShop.shopId
+        ? ("shop_scoped" as const)
+        : ("legacy_owner_bridge" as const),
   }));
 
   return {
     error: null,
     sessions: mergeRowsByKey(
+      ownerSessions,
       directSessions,
-      legacySessions,
       (session) => session.remote_id,
     ),
   };
@@ -1772,15 +1928,18 @@ export async function getShopHistoryListReadModel(
     sessions,
     summary: {
       historySessionsTotal: sessions.length,
+      historySessionsTotalAvailable: false,
       latestChangedAt,
       latestFailedSyncEvents: 0,
       syncEventsTotal: 0,
+      syncEventsTotalAvailable: false,
     },
     listMode: "light",
     readOnly: true,
     source: "supabase_server",
     reason:
-      legacyOwnerUserId && sessions.some((session) => session.sourceScope === "legacy_owner_bridge")
+      legacyOwnerUserId &&
+      sessions.some((session) => session.sourceScope === "legacy_owner_bridge")
         ? "Lightweight mobile history list loaded with legacy owner fallback."
         : "Lightweight mobile history list loaded server-side.",
   };
@@ -1974,9 +2133,11 @@ export async function getShopSyncReadModel(
     sessions: [],
     summary: {
       historySessionsTotal: 0,
+      historySessionsTotalAvailable: true,
       latestChangedAt,
       latestFailedSyncEvents,
       syncEventsTotal: syncEvents.length,
+      syncEventsTotalAvailable: true,
     },
     readOnly: true,
     source: "supabase_server",

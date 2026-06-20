@@ -1886,14 +1886,22 @@ function overlayStatusLabel(status: ShopHistoryOverlayStatus) {
 }
 
 function historyEntryType(session: ShopHistorySession) {
-  return session.state === "tombstone"
-    ? "Deleted history entry"
+  if (session.state === "tombstone") {
+    return "Deleted history entry";
+  }
+
+  return session.isTechnicalEntry
+    ? "Technical history entry"
     : "Active history entry";
 }
 
 function historyEntryStatus(session: ShopHistorySession) {
   if (session.state === "tombstone") {
     return "Deleted";
+  }
+
+  if (session.isTechnicalEntry) {
+    return "Technical";
   }
 
   if (session.payloadVersion < 2) {
@@ -1949,6 +1957,7 @@ function historySessionRow(session: ShopHistorySession): ShopSectionTableRow {
     payload: historyEntryPayloadLabel(session),
     overlay: historyEntryOverlayLabel(session),
     rows: String(session.rowCount),
+    technical: session.isTechnicalEntry ? "true" : "false",
     updated: formatDateTime(session.updatedAt),
   };
 }
@@ -1964,6 +1973,7 @@ function historySessionListRow(
       [session.supplier, session.category].filter(Boolean).join(" / ") ||
       "Not set",
     status: historyEntryStatus(session),
+    technical: session.isTechnicalEntry ? "true" : "false",
     updated: formatDateTime(session.updatedAt),
   };
 }
@@ -2044,7 +2054,12 @@ export function buildHistorySection(
     const tombstones = readModel.sessions.filter(
       (session) => session.state === "tombstone",
     ).length;
-
+    const technicalSessions = readModel.sessions.filter(
+      (session) => session.state === "active" && session.isTechnicalEntry,
+    ).length;
+    const mobileVisibleSessions = readModel.sessions.filter(
+      (session) => session.state === "active" && !session.isTechnicalEntry,
+    ).length;
     return {
       ...shopSections.history,
       title: "Android / iOS History Entries",
@@ -2069,6 +2084,14 @@ export function buildHistorySection(
           String(tombstones),
           "Rows with deleted_at",
           tombstones > 0 ? "warning" : "muted",
+        ),
+        metric(
+          "Mobile visible",
+          String(mobileVisibleSessions),
+          technicalSessions > 0
+            ? "Technical rows stay out of default view"
+            : "Default view hides technical rows",
+          "good",
         ),
         metric(
           "Diagnostics",
