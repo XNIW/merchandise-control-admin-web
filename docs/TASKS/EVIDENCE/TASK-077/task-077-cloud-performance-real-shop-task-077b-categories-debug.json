@@ -1,0 +1,47 @@
+{
+  "dataset": "real-shop-readonly",
+  "generatedAt": "2026-06-20T17:13:52.720Z",
+  "measurements": [
+    {
+      "activeMs": 62,
+      "consoleErrors": [],
+      "documentBytes": 185073,
+      "documentMs": 208,
+      "finalMs": 589,
+      "finalPathname": "/shop/categories",
+      "finalStatus": "ready",
+      "finalTitleText": null,
+      "label": "Categories",
+      "path": "/shop/categories",
+      "pendingMs": 33,
+      "pendingStatus": "observed",
+      "rscBytes": 5161,
+      "rscResponseCount": 3,
+      "shopParamStatus": "matched",
+      "ttfbMs": 299,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 33,
+      "visualReplacementStatus": "observed",
+      "key": "categories",
+      "serverTraceSummary": {
+        "status": "not_captured"
+      }
+    }
+  ],
+  "phase": "task-077b-categories-debug",
+  "shop": {
+    "id": "redacted",
+    "source": "env"
+  },
+  "target": {
+    "baseUrl": "http://127.0.0.1:3077",
+    "class": "cloud-supabase-readonly",
+    "testTarget": "staging"
+  },
+  "serverPerfTraces": [],
+  "serverTraceCapture": {
+    "appTarget": "local-cloud",
+    "status": "captured",
+    "tracesCount": 0
+  }
+}

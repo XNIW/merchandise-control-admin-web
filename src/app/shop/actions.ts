@@ -340,6 +340,33 @@ export async function updateProductAction(formData: FormData) {
   );
 }
 
+export async function updateProductInlineAction(
+  _previousState: ShopAdminActionState = initialActionState,
+  formData: FormData,
+): Promise<ShopAdminActionState> {
+  void _previousState;
+
+  const productId = await catalogProductId(formData);
+  const input = catalogProductInput(formData);
+  const resolvedInput = productId
+    ? await resolveProductCatalogRelations(formData, input)
+    : shopAdminActionResult("validation_failed", {
+        fieldErrors: { productId: "Product id is required." },
+        ok: false,
+      });
+  const result =
+    "ok" in resolvedInput
+      ? resolvedInput
+      : await updateProduct({
+          ...resolvedInput,
+          productId,
+        });
+
+  revalidatePath("/shop/products");
+
+  return result;
+}
+
 export async function archiveProductAction(formData: FormData) {
   if (!confirmed(formData, "ARCHIVE")) {
     resultRedirect(
@@ -358,6 +385,27 @@ export async function archiveProductAction(formData: FormData) {
   );
 }
 
+export async function archiveProductInlineAction(
+  _previousState: ShopAdminActionState = initialActionState,
+  formData: FormData,
+): Promise<ShopAdminActionState> {
+  void _previousState;
+
+  if (!confirmed(formData, "ARCHIVE")) {
+    return shopAdminActionResult("validation_failed", { ok: false });
+  }
+
+  const result = await archiveProduct({
+    id: await catalogProductId(formData),
+    reason: optionalFormString(formData, "reason"),
+    requestedShopId: requestedShopId(formData),
+  });
+
+  revalidatePath("/shop/products");
+
+  return result;
+}
+
 export async function restoreProductAction(formData: FormData) {
   if (!confirmed(formData, "RESTORE")) {
     resultRedirect(
@@ -374,6 +422,27 @@ export async function restoreProductAction(formData: FormData) {
       requestedShopId: requestedShopId(formData),
     }),
   );
+}
+
+export async function restoreProductInlineAction(
+  _previousState: ShopAdminActionState = initialActionState,
+  formData: FormData,
+): Promise<ShopAdminActionState> {
+  void _previousState;
+
+  if (!confirmed(formData, "RESTORE")) {
+    return shopAdminActionResult("validation_failed", { ok: false });
+  }
+
+  const result = await restoreProduct({
+    id: await catalogProductId(formData),
+    reason: optionalFormString(formData, "reason"),
+    requestedShopId: requestedShopId(formData),
+  });
+
+  revalidatePath("/shop/products");
+
+  return result;
 }
 
 export async function createCategoryAction(formData: FormData) {

@@ -5,6 +5,7 @@ import {
   createSupabaseAdminClient,
   resolveSupabaseAdminConfig,
 } from "@/lib/supabase/admin";
+import type { AdminWebPerfTrace } from "@/server/admin-web-perf";
 
 export type PlatformAuthProviderType =
   | "email"
@@ -180,8 +181,19 @@ function authIdentityMatchesSearch(
   return haystack.includes(normalizedSearch.toLocaleLowerCase());
 }
 
+async function tracedAdminCall<T>(
+  perfTrace: AdminWebPerfTrace | undefined,
+  label: string,
+  task: () => Promise<T>,
+) {
+  perfTrace?.query(label);
+
+  return perfTrace ? perfTrace.time(label, task) : task();
+}
+
 export async function loadPlatformAuthIdentitySummaries(
   searchQuery?: string,
+  perfTrace?: AdminWebPerfTrace,
 ): Promise<PlatformAuthIdentityLoadResult> {
   const config = resolveSupabaseAdminConfig();
 
@@ -219,10 +231,15 @@ export async function loadPlatformAuthIdentitySummaries(
   let truncated = false;
 
   while (scannedCount < maxUsers) {
-    const { data, error } = await admin.auth.admin.listUsers({
-      page,
-      perPage: authListPageSize,
-    });
+    const { data, error } = await tracedAdminCall(
+      perfTrace,
+      "platform.auth.admin.listUsers",
+      () =>
+        admin.auth.admin.listUsers({
+          page,
+          perPage: authListPageSize,
+        }),
+    );
 
     if (error) {
       return {
@@ -266,6 +283,7 @@ export async function loadPlatformAuthIdentitySummaries(
 
 export async function loadAuthIdentitySummariesByIds(
   profileIds: readonly string[],
+  perfTrace?: AdminWebPerfTrace,
 ): Promise<PlatformAuthIdentityLoadResult> {
   const config = resolveSupabaseAdminConfig();
 
@@ -302,7 +320,11 @@ export async function loadAuthIdentitySummariesByIds(
   let scannedCount = 0;
 
   for (const profileId of ids) {
-    const { data, error } = await admin.auth.admin.getUserById(profileId);
+    const { data, error } = await tracedAdminCall(
+      perfTrace,
+      "platform.auth.admin.getUserById",
+      () => admin.auth.admin.getUserById(profileId),
+    );
     scannedCount += 1;
 
     if (error) {

@@ -24,6 +24,10 @@ import {
   type SupabaseRuntimeTargetDiagnostic,
 } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
+import {
+  createAdminWebPerfTrace,
+  type AdminWebPerfTrace,
+} from "@/server/admin-web-perf";
 import { authorizeCurrentPlatformAdmin } from "./authz";
 import {
   escapePostgrestLikePattern,
@@ -119,8 +123,21 @@ export type PlatformUserAccountSummary = {
 };
 
 export type PlatformAdminReadModelOptions = {
+  auditLogLimit?: number;
+  includeAuditLogs?: boolean;
   includeAuthIdentities?: boolean;
+  includeMobileInventoryCounts?: boolean;
+  includePlatformAdmins?: boolean;
+  includeProfiles?: boolean;
+  includeShopDevices?: boolean;
+  includeShopMembers?: boolean;
+  includeShopOwnerMappings?: boolean;
+  includeShops?: boolean;
+  includeStaffSafeRows?: boolean;
+  includeSyncEvents?: boolean;
   mobileInventoryShopIds?: readonly string[];
+  perfTrace?: AdminWebPerfTrace;
+  readModelName?: string;
   usersSearchQuery?: string;
 };
 
@@ -218,6 +235,20 @@ function emptyModel(
 
 function limitText(value: string, max = 180) {
   return value.length > max ? `${value.slice(0, max)}...` : value;
+}
+
+async function tracedQuery<T>(
+  perfTrace: AdminWebPerfTrace | undefined,
+  label: string,
+  task: () => PromiseLike<T>,
+): Promise<T> {
+  perfTrace?.query(label);
+
+  if (!perfTrace) {
+    return await task();
+  }
+
+  return perfTrace.time(label, async () => await task());
 }
 
 export function redactPlatformMetadata(value: unknown): string {
@@ -393,6 +424,7 @@ async function safeCountOwnerRows(
   supabase: SupabaseServerClient,
   table: MobileInventoryCountTable,
   ownerUserId: string,
+  perfTrace?: AdminWebPerfTrace,
 ): Promise<MobileInventoryCountResult> {
   const selectOwnerOnly = "owner_user_id";
   const countOptions = { count: "exact", head: true } as const;
@@ -400,40 +432,70 @@ async function safeCountOwnerRows(
 
   switch (table) {
     case "inventory_categories":
-      result = await supabase
-        .from("inventory_categories")
-        .select(selectOwnerOnly, countOptions)
-        .eq("owner_user_id", ownerUserId);
+      result = await tracedQuery(
+        perfTrace,
+        "platform.mobile_inventory.inventory_categories.count",
+        () =>
+          supabase
+            .from("inventory_categories")
+            .select(selectOwnerOnly, countOptions)
+            .eq("owner_user_id", ownerUserId),
+      );
       break;
     case "inventory_product_prices":
-      result = await supabase
-        .from("inventory_product_prices")
-        .select(selectOwnerOnly, countOptions)
-        .eq("owner_user_id", ownerUserId);
+      result = await tracedQuery(
+        perfTrace,
+        "platform.mobile_inventory.inventory_product_prices.count",
+        () =>
+          supabase
+            .from("inventory_product_prices")
+            .select(selectOwnerOnly, countOptions)
+            .eq("owner_user_id", ownerUserId),
+      );
       break;
     case "inventory_products":
-      result = await supabase
-        .from("inventory_products")
-        .select(selectOwnerOnly, countOptions)
-        .eq("owner_user_id", ownerUserId);
+      result = await tracedQuery(
+        perfTrace,
+        "platform.mobile_inventory.inventory_products.count",
+        () =>
+          supabase
+            .from("inventory_products")
+            .select(selectOwnerOnly, countOptions)
+            .eq("owner_user_id", ownerUserId),
+      );
       break;
     case "inventory_suppliers":
-      result = await supabase
-        .from("inventory_suppliers")
-        .select(selectOwnerOnly, countOptions)
-        .eq("owner_user_id", ownerUserId);
+      result = await tracedQuery(
+        perfTrace,
+        "platform.mobile_inventory.inventory_suppliers.count",
+        () =>
+          supabase
+            .from("inventory_suppliers")
+            .select(selectOwnerOnly, countOptions)
+            .eq("owner_user_id", ownerUserId),
+      );
       break;
     case "shared_sheet_sessions":
-      result = await supabase
-        .from("shared_sheet_sessions")
-        .select(selectOwnerOnly, countOptions)
-        .eq("owner_user_id", ownerUserId);
+      result = await tracedQuery(
+        perfTrace,
+        "platform.mobile_inventory.shared_sheet_sessions.count",
+        () =>
+          supabase
+            .from("shared_sheet_sessions")
+            .select(selectOwnerOnly, countOptions)
+            .eq("owner_user_id", ownerUserId),
+      );
       break;
     case "sync_events":
-      result = await supabase
-        .from("sync_events")
-        .select(selectOwnerOnly, countOptions)
-        .eq("owner_user_id", ownerUserId);
+      result = await tracedQuery(
+        perfTrace,
+        "platform.mobile_inventory.sync_events.count",
+        () =>
+          supabase
+            .from("sync_events")
+            .select(selectOwnerOnly, countOptions)
+            .eq("owner_user_id", ownerUserId),
+      );
       break;
   }
 
@@ -486,6 +548,7 @@ async function loadMobileInventoryDataSummaries(
   supabase: SupabaseServerClient,
   ownerUserIds: readonly string[],
   mappings: readonly ShopOwnerMapping[],
+  perfTrace?: AdminWebPerfTrace,
 ) {
   const ids = Array.from(new Set(ownerUserIds)).filter(isUuidLike);
   const summaries = new Map<string, PlatformMobileInventoryDataSummary>();
@@ -510,7 +573,12 @@ async function loadMobileInventoryDataSummaries(
   for (const { key, table } of mobileInventoryCountTables) {
     const tableCounts = await Promise.all(
       ids.map(async (ownerUserId) => {
-        const result = await safeCountOwnerRows(supabase, table, ownerUserId);
+        const result = await safeCountOwnerRows(
+          supabase,
+          table,
+          ownerUserId,
+          perfTrace,
+        );
 
         if (result.errorMessage) {
           unavailableTables.add(table);
@@ -657,25 +725,36 @@ function uniqueProfileRows(rows: readonly ProfileRowCandidate[]) {
 async function loadProfileRows(
   supabase: SupabaseServerClient,
   searchQuery?: string,
+  perfTrace?: AdminWebPerfTrace,
 ) {
   const selectColumns =
     "profile_id,display_name,profile_status,created_at,updated_at,disabled_at";
   const normalizedSearch = normalizePlatformUserSearchQuery(searchQuery);
 
   if (!normalizedSearch) {
-    return supabase
-      .from("profiles")
-      .select(selectColumns)
-      .order("created_at", { ascending: false })
-      .limit(200);
+    return tracedQuery(perfTrace, "platform.profiles.list", () =>
+      supabase
+        .from("profiles")
+        .select(selectColumns)
+        .order("created_at", { ascending: false })
+        .limit(200),
+    );
   }
 
-  const displayNameResult = await supabase
-    .from("profiles")
-    .select(selectColumns)
-    .ilike("display_name", `%${escapePostgrestLikePattern(normalizedSearch)}%`)
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const displayNameResult = await tracedQuery(
+    perfTrace,
+    "platform.profiles.search_display_name",
+    () =>
+      supabase
+        .from("profiles")
+        .select(selectColumns)
+        .ilike(
+          "display_name",
+          `%${escapePostgrestLikePattern(normalizedSearch)}%`,
+        )
+        .order("created_at", { ascending: false })
+        .limit(200),
+  );
 
   if (displayNameResult.error) {
     return displayNameResult;
@@ -685,11 +764,16 @@ async function loadProfileRows(
     return displayNameResult;
   }
 
-  const idResult = await supabase
-    .from("profiles")
-    .select(selectColumns)
-    .eq("profile_id", normalizedSearch)
-    .limit(1);
+  const idResult = await tracedQuery(
+    perfTrace,
+    "platform.profiles.search_profile_id",
+    () =>
+      supabase
+        .from("profiles")
+        .select(selectColumns)
+        .eq("profile_id", normalizedSearch)
+        .limit(1),
+  );
 
   if (idResult.error) {
     return idResult;
@@ -707,6 +791,7 @@ async function loadProfileRows(
 async function loadProfilesByIds(
   supabase: SupabaseServerClient,
   profileIds: readonly string[],
+  perfTrace?: AdminWebPerfTrace,
 ) {
   const ids = Array.from(new Set(profileIds)).filter(isUuidLike);
 
@@ -718,10 +803,17 @@ async function loadProfilesByIds(
 
   for (let index = 0; index < ids.length; index += 200) {
     const batchIds = ids.slice(index, index + 200);
-    const result = await supabase
-      .from("profiles")
-      .select("profile_id,display_name,profile_status,created_at,updated_at,disabled_at")
-      .in("profile_id", batchIds);
+    const result = await tracedQuery(
+      perfTrace,
+      "platform.profiles.by_ids",
+      () =>
+        supabase
+          .from("profiles")
+          .select(
+            "profile_id,display_name,profile_status,created_at,updated_at,disabled_at",
+          )
+          .in("profile_id", batchIds),
+    );
 
     if (result.error) {
       return result;
@@ -847,26 +939,33 @@ function buildUserAccounts(input: {
   return accounts.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
-async function loadPlatformShopRows(supabase: SupabaseServerClient) {
+async function loadPlatformShopRows(
+  supabase: SupabaseServerClient,
+  perfTrace?: AdminWebPerfTrace,
+) {
   const fiscalSelect =
     "shop_id,shop_code,shop_name,shop_status,company_rut,business_giro,business_address,business_city,legal_representative_rut,fiscal_identity_locked_by_platform,created_at,updated_at,archived_at,suspended_at,status_changed_at,status_reason_redacted";
   const baseSelect =
     "shop_id,shop_code,shop_name,shop_status,created_at,updated_at,archived_at,suspended_at,status_changed_at,status_reason_redacted";
-  const result = await supabase
-    .from("shops")
-    .select(fiscalSelect)
-    .order("created_at", { ascending: false })
-    .limit(200);
+  const result = await tracedQuery(perfTrace, "platform.shops.list_fiscal", () =>
+    supabase
+      .from("shops")
+      .select(fiscalSelect)
+      .order("created_at", { ascending: false })
+      .limit(200),
+  );
 
   if (!result.error) {
     return result;
   }
 
-  return supabase
-    .from("shops")
-    .select(baseSelect)
-    .order("created_at", { ascending: false })
-    .limit(200);
+  return tracedQuery(perfTrace, "platform.shops.list_basic_fallback", () =>
+    supabase
+      .from("shops")
+      .select(baseSelect)
+      .order("created_at", { ascending: false })
+      .limit(200),
+  );
 }
 
 async function loadRows(
@@ -876,8 +975,24 @@ async function loadRows(
   const normalizedUsersSearch = normalizePlatformUserSearchQuery(
     options.usersSearchQuery,
   );
-  const authIdentitiesPromise = options.includeAuthIdentities
-    ? loadPlatformAuthIdentitySummaries(normalizedUsersSearch)
+  const perfTrace = options.perfTrace;
+  const includeAuditLogs = options.includeAuditLogs ?? true;
+  const auditLogLimit = Math.max(1, Math.min(options.auditLogLimit ?? 200, 200));
+  const includeAuthIdentities = Boolean(options.includeAuthIdentities);
+  const includeMobileInventoryCounts =
+    options.includeMobileInventoryCounts ??
+    Boolean(options.includeAuthIdentities || options.mobileInventoryShopIds?.length);
+  const includePlatformAdmins = options.includePlatformAdmins ?? true;
+  const includeProfiles = options.includeProfiles ?? true;
+  const includeShopDevices = options.includeShopDevices ?? true;
+  const includeShopMembers = options.includeShopMembers ?? true;
+  const includeShopOwnerMappings = options.includeShopOwnerMappings ?? true;
+  const includeShops = options.includeShops ?? true;
+  const includeStaffSafeRows = options.includeStaffSafeRows ?? true;
+  const includeSyncEvents = options.includeSyncEvents ?? true;
+  const skippedRowsResult = { data: [], error: null };
+  const authIdentitiesPromise = includeAuthIdentities
+    ? loadPlatformAuthIdentitySummaries(normalizedUsersSearch, perfTrace)
     : Promise.resolve<PlatformAuthIdentityLoadResult>({
         identities: [],
         reason: "Auth identity summaries are loaded only for the Users section.",
@@ -885,6 +1000,23 @@ async function loadRows(
         status: "not_configured",
         truncated: false,
       });
+  perfTrace?.mark("platform.readModel.loadRows.start", {
+    hasUsersSearchQuery: Boolean(normalizedUsersSearch),
+    auditLogLimit,
+    includeAuditLogs,
+    includeAuthIdentities,
+    includeMobileInventoryCounts,
+    includePlatformAdmins,
+    includeProfiles,
+    includeShopDevices,
+    includeShopMembers,
+    includeShopOwnerMappings,
+    includeShops,
+    includeStaffSafeRows,
+    includeSyncEvents,
+    mobileInventoryShopIdsCount: options.mobileInventoryShopIds?.length ?? 0,
+    readModelName: options.readModelName ?? "getPlatformAdminReadModel",
+  });
   const [
     profilesResult,
     shopsResult,
@@ -897,55 +1029,87 @@ async function loadRows(
     staffResult,
     authIdentitiesResult,
   ] = await Promise.all([
-    loadProfileRows(supabase, normalizedUsersSearch),
-    loadPlatformShopRows(supabase),
-    supabase
-      .from("shop_members")
-      .select(
-        "shop_member_id,profile_id,shop_id,role_key,membership_status,created_at,updated_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(500),
-    supabase
-      .from("platform_admins")
-      .select(
-        "platform_admin_id,profile_id,status,granted_at,revoked_at,last_reviewed_at,reason_redacted",
-      )
-      .order("granted_at", { ascending: false })
-      .limit(100),
-    supabase
-      .from("shop_inventory_sources")
-      .select(
-        "shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind,created_at,verified_at,disabled_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(500),
-    supabase
-      .from("audit_logs")
-      .select(
-        "audit_log_id,actor_profile_id,scope,shop_id,event_key,severity,result,target_type,target_id,metadata_redacted,created_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(200),
-    supabase
-      .from("shop_devices")
-      .select(
-        "shop_device_id,shop_id,device_identifier,display_name,device_type,status,app_version,last_seen_at,updated_at",
-      )
-      .order("updated_at", { ascending: false })
-      .limit(300),
-    supabase
-      .from("sync_events")
-      .select(
-        "id,owner_user_id,store_id,source,source_device_id,domain,event_type,changed_count,metadata,created_at",
-      )
-      .order("created_at", { ascending: false })
-      .limit(300),
-    supabase
-      .from("staff_accounts_safe")
-      .select("staff_id,shop_id,status,role_key,updated_at,last_login_at")
-      .order("updated_at", { ascending: false })
-      .limit(200),
+    includeProfiles
+      ? loadProfileRows(supabase, normalizedUsersSearch, perfTrace)
+      : Promise.resolve(skippedRowsResult),
+    includeShops
+      ? loadPlatformShopRows(supabase, perfTrace)
+      : Promise.resolve(skippedRowsResult),
+    includeShopMembers
+      ? tracedQuery(perfTrace, "platform.shop_members.list", () =>
+          supabase
+            .from("shop_members")
+            .select(
+              "shop_member_id,profile_id,shop_id,role_key,membership_status,created_at,updated_at",
+            )
+            .order("created_at", { ascending: false })
+            .limit(500),
+        )
+      : Promise.resolve(skippedRowsResult),
+    includePlatformAdmins
+      ? tracedQuery(perfTrace, "platform.platform_admins.list", () =>
+          supabase
+            .from("platform_admins")
+            .select(
+              "platform_admin_id,profile_id,status,granted_at,revoked_at,last_reviewed_at,reason_redacted",
+            )
+            .order("granted_at", { ascending: false })
+            .limit(100),
+        )
+      : Promise.resolve(skippedRowsResult),
+    includeShopOwnerMappings
+      ? tracedQuery(perfTrace, "platform.shop_inventory_sources.list", () =>
+          supabase
+            .from("shop_inventory_sources")
+            .select(
+              "shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind,created_at,verified_at,disabled_at",
+            )
+            .order("created_at", { ascending: false })
+            .limit(500),
+        )
+      : Promise.resolve(skippedRowsResult),
+    includeAuditLogs
+      ? tracedQuery(perfTrace, "platform.audit_logs.list", () =>
+          supabase
+            .from("audit_logs")
+            .select(
+              "audit_log_id,actor_profile_id,scope,shop_id,event_key,severity,result,target_type,target_id,metadata_redacted,created_at",
+            )
+            .order("created_at", { ascending: false })
+            .limit(auditLogLimit),
+        )
+      : Promise.resolve(skippedRowsResult),
+    includeShopDevices
+      ? tracedQuery(perfTrace, "platform.shop_devices.list", () =>
+          supabase
+            .from("shop_devices")
+            .select(
+              "shop_device_id,shop_id,device_identifier,display_name,device_type,status,app_version,last_seen_at,updated_at",
+            )
+            .order("updated_at", { ascending: false })
+            .limit(300),
+        )
+      : Promise.resolve(skippedRowsResult),
+    includeSyncEvents
+      ? tracedQuery(perfTrace, "platform.sync_events.list", () =>
+          supabase
+            .from("sync_events")
+            .select(
+              "id,owner_user_id,store_id,source,source_device_id,domain,event_type,changed_count,metadata,created_at",
+            )
+            .order("created_at", { ascending: false })
+            .limit(300),
+        )
+      : Promise.resolve(skippedRowsResult),
+    includeStaffSafeRows
+      ? tracedQuery(perfTrace, "platform.staff_accounts_safe.list", () =>
+          supabase
+            .from("staff_accounts_safe")
+            .select("staff_id,shop_id,status,role_key,updated_at,last_login_at")
+            .order("updated_at", { ascending: false })
+            .limit(200),
+        )
+      : Promise.resolve(skippedRowsResult),
     authIdentitiesPromise,
   ]);
 
@@ -973,17 +1137,17 @@ async function loadRows(
   const requestedMobileInventoryShopIds = new Set(
     (options.mobileInventoryShopIds ?? []).filter(isUuidLike),
   );
-  const requestedMobileInventoryOwnerIds = (
-    (mappingsResult.data ?? []) as ShopOwnerMappingRowCandidate[]
-  )
-    .filter(
-      (mapping) =>
-        typeof mapping.shop_id === "string" &&
-        Boolean(mapping.owner_user_id) &&
-        requestedMobileInventoryShopIds.has(mapping.shop_id),
-    )
-    .map((mapping) => mapping.owner_user_id)
-    .filter((ownerUserId): ownerUserId is string => Boolean(ownerUserId));
+  const requestedMobileInventoryOwnerIds = includeMobileInventoryCounts
+    ? ((mappingsResult.data ?? []) as ShopOwnerMappingRowCandidate[])
+        .filter(
+          (mapping) =>
+            typeof mapping.shop_id === "string" &&
+            Boolean(mapping.owner_user_id) &&
+            requestedMobileInventoryShopIds.has(mapping.shop_id),
+        )
+        .map((mapping) => mapping.owner_user_id)
+        .filter((ownerUserId): ownerUserId is string => Boolean(ownerUserId))
+    : [];
   const relatedProfileIds = new Set<string>([
     ...authIdentities.map((identity) => identity.authUserId),
     ...((membersResult.data ?? []) as ShopMemberRowCandidate[]).map(
@@ -992,6 +1156,9 @@ async function loadRows(
     ...((platformAdminsResult.data ?? []) as Tables["platform_admins"]["Row"][]).map(
       (admin) => admin.profile_id,
     ),
+    ...((auditResult.data ?? []) as AuditLogRowCandidate[])
+      .map((audit) => audit.actor_profile_id)
+      .filter((profileId): profileId is string => Boolean(profileId)),
     ...requestedMobileInventoryOwnerIds,
   ]);
 
@@ -1000,7 +1167,11 @@ async function loadRows(
     const missingProfileIds = Array.from(relatedProfileIds).filter(
       (profileId) => !existingProfileIds.has(profileId),
     );
-    const linkedProfilesResult = await loadProfilesByIds(supabase, missingProfileIds);
+    const linkedProfilesResult = await loadProfilesByIds(
+      supabase,
+      missingProfileIds,
+      perfTrace,
+    );
 
     if (linkedProfilesResult.error) {
       return { error: linkedProfilesResult.error };
@@ -1025,7 +1196,7 @@ async function loadRows(
     });
   }
 
-  if (options.includeAuthIdentities && authIdentitiesResult.status !== "ready") {
+  if (includeAuthIdentities && authIdentitiesResult.status !== "ready") {
     readIssues.push({
       area: "auth_identities",
       code: authIdentitiesResult.status,
@@ -1070,7 +1241,7 @@ async function loadRows(
     ...profiles.map((profile) => profile.profile_id),
     ...authIdentities.map((identity) => identity.authUserId),
   ]);
-  const mappedVisibleAccountOwnerIds = options.includeAuthIdentities
+  const mappedVisibleAccountOwnerIds = includeMobileInventoryCounts && includeAuthIdentities
     ? shopOwnerMappings
         .map((mapping) => mapping.ownerUserId)
         .filter(
@@ -1091,6 +1262,7 @@ async function loadRows(
           supabase,
           mobileInventoryOwnerIds,
           shopOwnerMappings,
+          perfTrace,
         )
     : {
         summaries: new Map<string, PlatformMobileInventoryDataSummary>(),
@@ -1109,15 +1281,54 @@ async function loadRows(
   const staffSafeRows = staffResult.error
     ? []
     : ((staffResult.data ?? []) as StaffSafeSummary[]);
-  const userAccounts = buildUserAccounts({
-    authIdentities,
-    authIdentitiesAvailable: authIdentitiesResult.status === "ready",
-    mobileInventoryDataByOwnerId: mobileInventoryDataResult.summaries,
-    platformAdmins,
-    profiles,
-    shopMembers,
-    shops,
-  });
+  const userAccounts = perfTrace
+    ? await perfTrace.time("platform.buildUserAccounts", async () =>
+        buildUserAccounts({
+          authIdentities,
+          authIdentitiesAvailable: authIdentitiesResult.status === "ready",
+          mobileInventoryDataByOwnerId: mobileInventoryDataResult.summaries,
+          platformAdmins,
+          profiles,
+          shopMembers,
+          shops,
+        }),
+      )
+    : buildUserAccounts({
+        authIdentities,
+        authIdentitiesAvailable: authIdentitiesResult.status === "ready",
+        mobileInventoryDataByOwnerId: mobileInventoryDataResult.summaries,
+        platformAdmins,
+        profiles,
+        shopMembers,
+        shops,
+      });
+  const dataHealth = perfTrace
+    ? await perfTrace.time("platform.buildDataHealth", async () =>
+        buildDataHealth({
+          auditLogs,
+          platformAdmins,
+          profiles,
+          shopDevices,
+          shopMembers,
+          shopOwnerMappings,
+          shops,
+          staffSafeRows,
+          syncEvents,
+          readIssues,
+        }),
+      )
+    : buildDataHealth({
+        auditLogs,
+        platformAdmins,
+        profiles,
+        shopDevices,
+        shopMembers,
+        shopOwnerMappings,
+        shops,
+        staffSafeRows,
+        syncEvents,
+        readIssues,
+      });
 
   return {
     data: {
@@ -1132,18 +1343,7 @@ async function loadRows(
         status: authIdentitiesResult.status,
         truncated: authIdentitiesResult.truncated,
       },
-      dataHealth: buildDataHealth({
-        auditLogs,
-        platformAdmins,
-        profiles,
-        shopDevices,
-        shopMembers,
-        shopOwnerMappings,
-        shops,
-        staffSafeRows,
-        syncEvents,
-        readIssues,
-      }),
+      dataHealth,
       platformAdminProfileIds: platformAdmins
         .filter((admin) => admin.status === "active")
         .map((admin) => admin.profile_id),
@@ -1179,48 +1379,245 @@ export function getPlatformAdminReadModelFoundation(): PlatformAdminReadModelFou
   );
 }
 
+function readModelPerfMeta(
+  model: PlatformAdminLiveReadModel,
+  options: PlatformAdminReadModelOptions,
+) {
+  return {
+    auditLogsCount: model.auditLogs.length,
+    authIdentitiesCount: model.authIdentities.length,
+    authIdentitiesScannedCount: model.authIdentityStatus.scannedCount,
+    hasUsersSearchQuery: Boolean(
+      normalizePlatformUserSearchQuery(options.usersSearchQuery),
+    ),
+    includeAuthIdentities: Boolean(options.includeAuthIdentities),
+    mobileInventoryShopIdsCount: options.mobileInventoryShopIds?.length ?? 0,
+    platformAdminsCount: model.platformAdmins.length,
+    profilesCount: model.profiles.length,
+    readIssuesCount: model.readIssues.length,
+    readModel: options.readModelName ?? "getPlatformAdminReadModel",
+    shopDevicesCount: model.shopDevices.length,
+    shopMembersCount: model.shopMembers.length,
+    shopOwnerMappingsCount: model.shopOwnerMappings.length,
+    shopsCount: model.shops.length,
+    staffSafeRowsCount: model.staffSafeRows.length,
+    status: model.status,
+    syncEventsCount: model.syncEvents.length,
+    userAccountsCount: model.userAccounts.length,
+  };
+}
+
 export async function getPlatformAdminReadModel(
   options: PlatformAdminReadModelOptions = {},
 ): Promise<PlatformAdminLiveReadModel> {
+  const ownsTrace = !options.perfTrace;
+  const perfTrace =
+    options.perfTrace ??
+    createAdminWebPerfTrace("platform.getPlatformAdminReadModel", {
+      hasUsersSearchQuery: Boolean(
+        normalizePlatformUserSearchQuery(options.usersSearchQuery),
+      ),
+      includeAuthIdentities: Boolean(options.includeAuthIdentities),
+      mobileInventoryShopIdsCount: options.mobileInventoryShopIds?.length ?? 0,
+      readModel: options.readModelName ?? "getPlatformAdminReadModel",
+    });
+  const complete = (model: PlatformAdminLiveReadModel) => {
+    if (ownsTrace) {
+      perfTrace.flush(readModelPerfMeta(model, options));
+    }
+
+    return model;
+  };
   const config = resolveSupabaseServerConfig();
 
   if (config.status !== "configured") {
-    return emptyModel(
+    return complete(emptyModel(
       "not_configured",
       "Supabase runtime is not configured for the server Platform Admin boundary.",
-    );
+    ));
   }
 
-  const supabase = await createSupabaseServerClient(config);
+  const supabase = await perfTrace.time("platform.createSupabaseServerClient", () =>
+    createSupabaseServerClient(config),
+  );
 
   if (!supabase) {
-    return emptyModel(
+    return complete(emptyModel(
       "not_configured",
       "Supabase server client is unavailable for this request.",
-    );
+    ));
   }
 
-  const authz = await authorizeCurrentPlatformAdmin(supabase);
+  const authz = await perfTrace.time("platform.authorizeCurrentPlatformAdmin", () =>
+    authorizeCurrentPlatformAdmin(supabase, perfTrace),
+  );
 
   if (authz.status !== "authorized") {
-    return emptyModel(authz.status, authz.reason);
+    return complete(emptyModel(authz.status, authz.reason));
   }
 
-  const loaded = await loadRows(supabase, options);
+  const loaded = await perfTrace.time("platform.loadRows", () =>
+    loadRows(supabase, {
+      ...options,
+      perfTrace,
+    }),
+  );
 
   if ("error" in loaded) {
-    return emptyModel(
+    return complete(emptyModel(
       "error",
       "The Platform Admin read model could not be loaded through RLS.",
-    );
+    ));
   }
 
-  return {
+  return complete({
     ...foundation(
       "ready",
       "Server-side Platform Admin read model loaded through RLS.",
     ),
     currentProfileId: authz.userId,
     ...loaded.data,
-  };
+  });
+}
+
+export function getPlatformOverviewReadModel(
+  options: PlatformAdminReadModelOptions = {},
+) {
+  return getPlatformAdminReadModel({
+    ...options,
+    includeAuditLogs: true,
+    includeAuthIdentities: false,
+    includeMobileInventoryCounts: false,
+    includePlatformAdmins: true,
+    includeProfiles: true,
+    includeShopDevices: true,
+    includeShopMembers: true,
+    includeShopOwnerMappings: false,
+    includeShops: true,
+    includeStaffSafeRows: false,
+    includeSyncEvents: true,
+    auditLogLimit: 25,
+    readModelName: "getPlatformOverviewReadModel",
+  });
+}
+
+export function getPlatformUsersReadModel(
+  options: PlatformAdminReadModelOptions = {},
+) {
+  return getPlatformAdminReadModel({
+    ...options,
+    includeAuditLogs: false,
+    includeAuthIdentities: true,
+    includeMobileInventoryCounts: false,
+    includePlatformAdmins: true,
+    includeProfiles: true,
+    includeShopDevices: false,
+    includeShopMembers: true,
+    includeShopOwnerMappings: false,
+    includeShops: true,
+    includeStaffSafeRows: false,
+    includeSyncEvents: false,
+    readModelName: "getPlatformUsersReadModel",
+  });
+}
+
+export function getPlatformShopAdminsReadModel(
+  options: PlatformAdminReadModelOptions = {},
+) {
+  return getPlatformAdminReadModel({
+    ...options,
+    includeAuditLogs: false,
+    includeAuthIdentities: false,
+    includeMobileInventoryCounts: false,
+    includePlatformAdmins: true,
+    includeProfiles: true,
+    includeShopDevices: false,
+    includeShopMembers: true,
+    includeShopOwnerMappings: false,
+    includeShops: true,
+    includeStaffSafeRows: false,
+    includeSyncEvents: false,
+    readModelName: "getPlatformShopAdminsReadModel",
+  });
+}
+
+export function getPlatformAdminsReadModel(
+  options: PlatformAdminReadModelOptions = {},
+) {
+  return getPlatformAdminReadModel({
+    ...options,
+    includeAuditLogs: false,
+    includeAuthIdentities: false,
+    includeMobileInventoryCounts: false,
+    includePlatformAdmins: true,
+    includeProfiles: true,
+    includeShopDevices: false,
+    includeShopMembers: true,
+    includeShopOwnerMappings: false,
+    includeShops: true,
+    includeStaffSafeRows: false,
+    includeSyncEvents: false,
+    readModelName: "getPlatformAdminsReadModel",
+  });
+}
+
+export function getPlatformShopsReadModel(
+  options: PlatformAdminReadModelOptions = {},
+) {
+  return getPlatformAdminReadModel({
+    ...options,
+    includeAuditLogs: false,
+    includeAuthIdentities: false,
+    includeMobileInventoryCounts: false,
+    includePlatformAdmins: false,
+    includeProfiles: true,
+    includeShopDevices: false,
+    includeShopMembers: true,
+    includeShopOwnerMappings: false,
+    includeShops: true,
+    includeStaffSafeRows: false,
+    includeSyncEvents: false,
+    readModelName: "getPlatformShopsReadModel",
+  });
+}
+
+export function getPlatformAuditReadModel(
+  options: PlatformAdminReadModelOptions = {},
+) {
+  return getPlatformAdminReadModel({
+    ...options,
+    includeAuditLogs: true,
+    includeAuthIdentities: false,
+    includeMobileInventoryCounts: false,
+    includePlatformAdmins: false,
+    includeProfiles: false,
+    includeShopDevices: false,
+    includeShopMembers: false,
+    includeShopOwnerMappings: false,
+    includeShops: true,
+    includeStaffSafeRows: false,
+    includeSyncEvents: false,
+    auditLogLimit: 80,
+    readModelName: "getPlatformAuditReadModel",
+  });
+}
+
+export function getPlatformSystemReadModel(
+  options: PlatformAdminReadModelOptions = {},
+) {
+  return getPlatformAdminReadModel({
+    ...options,
+    includeAuditLogs: false,
+    includeAuthIdentities: false,
+    includeMobileInventoryCounts: false,
+    includePlatformAdmins: false,
+    includeProfiles: false,
+    includeShopDevices: false,
+    includeShopMembers: false,
+    includeShopOwnerMappings: false,
+    includeShops: true,
+    includeStaffSafeRows: false,
+    includeSyncEvents: false,
+    readModelName: "getPlatformSystemReadModel",
+  });
 }

@@ -70,6 +70,7 @@ export type ShopNavigationSection = {
     key: ShopSectionKey;
     label: string;
     href: string;
+    hiddenFromPrimaryNav?: boolean;
   }>;
 };
 
@@ -86,7 +87,13 @@ export const shopNavigationSections: ShopNavigationSection[] = [
       { key: "products", label: "Products", href: "/shop/products" },
       { key: "categories", label: "Categories", href: "/shop/categories" },
       { key: "suppliers", label: "Suppliers", href: "/shop/suppliers" },
-      { key: "importExport", label: "Import / Export", href: "/shop/import-export" },
+      { key: "history", label: "History Entries", href: "/shop/history" },
+      {
+        key: "importExport",
+        label: "Import / Export",
+        href: "/shop/import-export",
+        hiddenFromPrimaryNav: true,
+      },
     ],
   },
   {
@@ -111,7 +118,6 @@ export const shopNavigationSections: ShopNavigationSection[] = [
     label: "Data",
     items: [
       { key: "sync", label: "Sync Center", href: "/shop/sync" },
-      { key: "history", label: "History Entries", href: "/shop/history" },
       { key: "audit", label: "Audit", href: "/shop/audit" },
     ],
   },
@@ -160,7 +166,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "Overview",
     href: "/shop/overview",
     title: "Shop Overview",
-    eyebrow: "Admin Console",
+    eyebrow: "Shop Admin",
     description:
       "Workspace shell for shop owners and managers. Live shop summaries are intentionally deferred until the shop-scoped read model is implemented.",
     status: "Shell placeholder",
@@ -178,8 +184,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     href: "/shop/products",
     title: "Products",
     eyebrow: "Catalog",
-    description:
-      "Catalog surface reserved for real shop-scoped products after schema discovery and read-model work.",
+    description: "Manage products, prices, stock and mapped mobile catalog.",
     status: "Read model pending",
     metrics: shellMetrics,
     plannedWork: [
@@ -194,7 +199,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "Categories",
     href: "/shop/categories",
     title: "Categories",
-    eyebrow: "Catalog taxonomy",
+    eyebrow: "Catalog",
     description:
       "Category management placeholder for the future shop-scoped catalog taxonomy.",
     status: "Read model pending",
@@ -211,7 +216,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "Suppliers",
     href: "/shop/suppliers",
     title: "Suppliers",
-    eyebrow: "Procurement",
+    eyebrow: "Catalog",
     description:
       "Supplier directory placeholder for future shop-scoped purchasing and product source work.",
     status: "Read model pending",
@@ -228,7 +233,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "Import / Export",
     href: "/shop/import-export",
     title: "Import / Export",
-    eyebrow: "Catalog transfer",
+    eyebrow: "Catalog",
     description:
       "Excel workbook import/export for live catalog transfer with preview before apply, server-only parsing/writing and audited catalog RPCs.",
     status: "Planning placeholder",
@@ -245,7 +250,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "Sync Center",
     href: "/shop/sync",
     title: "Sync Center",
-    eyebrow: "Mobile sync",
+    eyebrow: "Data",
     description:
       "Administrative view of sync events for the selected shop. No synchronization is started from Admin Web.",
     status: "Read-only pending",
@@ -261,10 +266,9 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     key: "history",
     label: "History Entries",
     href: "/shop/history",
-    title: "Mobile History Entries",
-    eyebrow: "Business history",
-    description:
-      "History entries loaded from shared_sheet_sessions, with related technical sync events kept separate.",
+    title: "Android / iOS History Entries",
+    eyebrow: "Catalog",
+    description: "Mobile history sessions and sync-related catalog activity.",
     status: "Read model pending",
     metrics: shellMetrics,
     plannedWork: [
@@ -279,7 +283,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "Members",
     href: "/shop/members",
     title: "Members",
-    eyebrow: "Shop access",
+    eyebrow: "Access",
     description:
       "Member management placeholder for shop owners and managers, built on active shop_members records.",
     status: "Planning placeholder",
@@ -296,7 +300,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "Roles",
     href: "/shop/roles",
     title: "Roles",
-    eyebrow: "Permissions",
+    eyebrow: "Access",
     description:
       "Read-only baseline permission matrix for shop_owner, shop_manager and POS staff roles; no granular role editor is implied.",
     status: "Planning placeholder",
@@ -313,7 +317,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "POS / Staff",
     href: "/shop/staff",
     title: "POS / Staff",
-    eyebrow: "Operations",
+    eyebrow: "POS / Staff",
     description:
       "POS Staff inside Admin Console. Staff accounts remain shop-scoped and separate from personal admin login.",
     status: "Planning placeholder",
@@ -330,7 +334,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "POS Live",
     href: "/shop/pos",
     title: "POS Live",
-    eyebrow: "Operations",
+    eyebrow: "POS / Staff",
     description:
       "Read-only live view for trusted POS devices and sessions registered against this shop.",
     status: "Read model pending",
@@ -347,9 +351,8 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "Devices",
     href: "/shop/devices",
     title: "Devices",
-    eyebrow: "Authorized hardware",
-    description:
-      "Device management placeholder for future POS and shop hardware authorization.",
+    eyebrow: "POS / Staff",
+    description: "Registered Android, iOS, POS and web clients for this shop.",
     status: "Planning placeholder",
     metrics: shellMetrics,
     plannedWork: [
@@ -364,7 +367,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "Settings",
     href: "/shop/settings",
     title: "Settings",
-    eyebrow: "Shop profile",
+    eyebrow: "Settings",
     description:
       "Shop profile and fiscal identity are managed by Master Console. Admin Console can view these fields but cannot edit them.",
     status: "Read-only",
@@ -381,7 +384,7 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
     label: "Audit",
     href: "/shop/audit",
     title: "Audit",
-    eyebrow: "Shop activity",
+    eyebrow: "Data",
     description:
       "Shop audit placeholder for redacted, shop-scoped events once the read model is available.",
     status: "Read model pending",

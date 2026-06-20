@@ -122,6 +122,7 @@ export type Dictionary = {
     selectedShopContext: string;
     serverVerified: string;
     sharedGuardrails: string;
+    shopCodePrefix: string;
     shopNameNotConfigured: string;
     shopSafety: string;
     shopSelectionAria: string;
@@ -151,22 +152,29 @@ const itExact: Record<string, string> = {
   Go: "Vai",
   "Go to page": "Vai alla pagina",
   "Google": "Google",
+  "Governance": "Governance",
   "Header shop": "Intestazione shop",
   "Key shop signals grouped before operational sections for quick review.":
     "Segnali chiave dello shop raggruppati prima delle sezioni operative per una review rapida.",
   "Key status cards": "Card stato chiave",
   Last: "Ultima",
   "Master Console role only": "Solo ruolo Master Console",
+  "Manage products, prices, stock and mapped mobile catalog.":
+    "Gestisci prodotti, prezzi, stock e catalogo mobile mappato.",
+  "Mobile history sessions and sync-related catalog activity.":
+    "Sessioni storico mobile e attivita catalogo collegate alla sync.",
   "No pricing or stock values": "Nessun valore prezzo o stock",
   Page: "Pagina",
+  "Platform": "Piattaforma",
   "Pricing / stock": "Prezzi / stock",
   "Product identity": "Identita prodotto",
   "Products pagination": "Paginazione prodotti",
+  "Registered Android, iOS, POS and web clients for this shop.":
+    "Client Android, iOS, POS e web registrati per questo shop.",
   "Reset filters": "Reset filtri",
   "Rows on this page": "Righe in questa pagina",
+  "Search and filters": "Ricerca e filtri",
   "Status / updated": "Stato / aggiornamento",
-  "Use search or filters to find products across the full mapped catalog.":
-    "Usa ricerca o filtri per trovare prodotti in tutto il catalogo mappato.",
   "Access is verified server-side and never creates a personal profile.":
     "L'accesso e verificato server-side e non crea mai un profilo personale.",
   "Sign in with a personal account to open an admin console.":
@@ -382,7 +390,6 @@ const itExact: Record<string, string> = {
   "Mobile sync": "Sync mobile",
   "Permissions": "Permessi",
   "Operations": "Operazioni",
-  "Authorized hardware": "Hardware autorizzato",
   "Admins": "Admin",
   "Support": "Supporto",
   "Area": "Area",
@@ -731,6 +738,10 @@ const itExact: Record<string, string> = {
     "Codice staff, manager 1001 e accesso PIN restano nel modello POS/staff separato.",
   "Search Shop Admin by email, UID, display name, or provider":
     "Cerca Shop Admin per email, UID, nome visualizzato o provider",
+  "Search Shop Admin by profile ID or display name":
+    "Cerca Shop Admin per ID profilo o nome visualizzato",
+  "Server search runs on profile ID/display name; Auth email/provider lookup is deferred from first paint.":
+    "La ricerca server usa ID profilo o nome visualizzato; la lookup Auth email/provider e differita dal primo paint.",
   "This default Users view lists non-admin and incomplete personal accounts; access-bearing accounts live in Shop Admins or Platform Admins.":
     "Questa vista Users predefinita elenca account personali non-admin e incompleti; gli account con accesso sono in Shop Admins o Platform Admins.",
   "The current server read model returned only Shop Admins, Platform Admins, or no personal accounts. Use the dedicated admin views for access-bearing accounts.":
@@ -748,6 +759,8 @@ const itExact: Record<string, string> = {
   "Personal Account Directory for every personal/profile account returned by the safe server read model. Dedicated admin views keep grant and membership operations separate.":
     "Directory account personali per ogni account personale/profilo restituito dal read model server sicuro. Le viste admin dedicate mantengono separate operazioni di grant e membership.",
   "Filtered Shop Admin view": "Vista Shop Admin filtrata",
+  "Filtered Shop Admin view. Filtered view of Personal Account Directory accounts with shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
+    "Vista Shop Admin filtrata. Vista filtrata degli account della Directory account personali con membership shop_owner o shop_manager, inclusi contesti attuali, storici e disabilitati.",
   "Filtered view of Personal Account Directory accounts with shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
     "Vista filtrata degli account della Directory account personali con membership shop_owner o shop_manager, inclusi contesti attuali, storici e disabilitati.",
   "No personal accounts visible": "Nessun account personale visibile",
@@ -1308,10 +1321,18 @@ const itExact: Record<string, string> = {
     "Controlla le righe prodotto. I valori riconosciuti sono in sola lettura; verranno applicati solo i valori import digitati.",
   "This can take a few minutes. Keep this window open while suppliers, categories, products, and price history are applied.":
     "Puo richiedere alcuni minuti. Tieni aperta questa finestra mentre vengono applicati fornitori, categorie, prodotti e storico prezzi.",
-  "Import and export actions now live in the Products Catalog Workspace. This compatibility page keeps existing import/export links available.":
-    "Le azioni import/export ora vivono nel workspace catalogo Prodotti. Questa pagina di compatibilita mantiene disponibili i link import/export esistenti.",
+  "Import and export actions now live on the Products page. This compatibility page keeps existing import/export links available.":
+    "Le azioni import/export ora vivono nella pagina Prodotti. Questa pagina di compatibilita mantiene disponibili i link import/export esistenti.",
   "Download products, categories, suppliers and full price history for the selected shop only.":
     "Scarica prodotti, categorie, fornitori e storico prezzi completo solo per lo shop selezionato.",
+  "Audited lifecycle and emergency controls for selected shops.":
+    "Controlli auditati di lifecycle ed emergenza per gli shop selezionati.",
+  "Create a shop with an existing owner or pending owner invite.":
+    "Crea uno shop con owner esistente o invito owner pending.",
+  "Create shops and recover initial manager access through audited boundaries.":
+    "Crea shop e recupera l'accesso manager iniziale tramite boundary auditati.",
+  "Global Master Console access and grant review.":
+    "Accesso globale Master Console e revisione dei grant.",
   "WeChat": "WeChat",
 };
 
@@ -1327,18 +1348,29 @@ const esExact: Record<string, string> = {
   Go: "Ir",
   "Go to page": "Ir a pagina",
   "Google": "Google",
+  "Governance": "Gobernanza",
   "Header shop": "Encabezado del shop",
   "Key shop signals grouped before operational sections for quick review.":
     "Senales clave del shop agrupadas antes de las secciones operativas para una revision rapida.",
   "Key status cards": "Tarjetas de estado clave",
   Last: "Ultima",
   "Master Console role only": "Solo rol de Master Console",
+  "Manage products, prices, stock and mapped mobile catalog.":
+    "Gestiona productos, precios, stock y catalogo movil mapeado.",
+  "Mobile history sessions and sync-related catalog activity.":
+    "Sesiones de historial movil y actividad de catalogo relacionada con sync.",
+  "No pricing or stock values": "Sin valores de precio o stock",
   Page: "Pagina",
+  "Platform": "Plataforma",
+  "Pricing / stock": "Precios / stock",
+  "Product identity": "Identidad de producto",
   "Reset filters": "Restablecer filtros",
   "Products pagination": "Paginacion de productos",
+  "Registered Android, iOS, POS and web clients for this shop.":
+    "Clientes Android, iOS, POS y web registrados para este shop.",
   "Rows on this page": "Filas en esta pagina",
-  "Use search or filters to find products across the full mapped catalog.":
-    "Usa busqueda o filtros para encontrar productos en todo el catalogo mapeado.",
+  "Search and filters": "Busqueda y filtros",
+  "Status / updated": "Estado / actualizado",
   "Access is verified server-side and never creates a personal profile.":
     "El acceso se verifica server-side y nunca crea un perfil personal.",
   "Sign in with a personal account to open an admin console.":
@@ -1426,10 +1458,6 @@ const esExact: Record<string, string> = {
   "Mobile data linked to shop": "Datos moviles vinculados al shop",
   "Mobile data present": "Datos moviles presentes",
   "Mobile inventory data": "Datos de inventario movil",
-  "No pricing or stock values": "Sin valores de precio o stock",
-  "Pricing / stock": "Precios / stock",
-  "Product identity": "Identidad producto",
-  "Status / updated": "Estado / actualizacion",
   "Linked mobile inventory source": "Fuente de inventario movil vinculada",
   "Linked mobile inventory": "Inventario movil vinculado",
   "Linked shop": "Shop vinculado",
@@ -1541,7 +1569,6 @@ const esExact: Record<string, string> = {
   "Mobile sync": "Sync movil",
   "Permissions": "Permisos",
   "Operations": "Operaciones",
-  "Authorized hardware": "Hardware autorizado",
   "Admins": "Admins",
   "Support": "Soporte",
   "Area": "Area",
@@ -1879,6 +1906,10 @@ const esExact: Record<string, string> = {
     "Codigo staff, gerente 1001 y acceso PIN permanecen en el modelo POS/staff separado.",
   "Search Shop Admin by email, UID, display name, or provider":
     "Buscar Shop Admin por email, UID, nombre visible o proveedor",
+  "Search Shop Admin by profile ID or display name":
+    "Buscar Shop Admin por ID de perfil o nombre visible",
+  "Server search runs on profile ID/display name; Auth email/provider lookup is deferred from first paint.":
+    "La busqueda server usa ID de perfil o nombre visible; la consulta Auth email/provider se difiere del primer paint.",
   "This default Users view lists non-admin and incomplete personal accounts; access-bearing accounts live in Shop Admins or Platform Admins.":
     "Esta vista Users predeterminada lista cuentas personales no admin e incompletas; las cuentas con acceso estan en Shop Admins o Platform Admins.",
   "The current server read model returned only Shop Admins, Platform Admins, or no personal accounts. Use the dedicated admin views for access-bearing accounts.":
@@ -1896,6 +1927,8 @@ const esExact: Record<string, string> = {
   "Personal Account Directory for every personal/profile account returned by the safe server read model. Dedicated admin views keep grant and membership operations separate.":
     "Directorio de cuentas personales para cada cuenta personal/perfil devuelto por el read model server seguro. Las vistas admin dedicadas mantienen separadas las operaciones de grant y membresia.",
   "Filtered Shop Admin view": "Vista Shop Admin filtrada",
+  "Filtered Shop Admin view. Filtered view of Personal Account Directory accounts with shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
+    "Vista Shop Admin filtrada. Vista filtrada de cuentas del Directorio de cuentas personales con membresia shop_owner o shop_manager, incluidos contextos actuales, historicos y deshabilitados.",
   "Filtered view of Personal Account Directory accounts with shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
     "Vista filtrada de cuentas del Directorio de cuentas personales con membresia shop_owner o shop_manager, incluidos contextos actuales, historicos y deshabilitados.",
   "No personal accounts visible": "No hay cuentas personales visibles",
@@ -2445,10 +2478,18 @@ const esExact: Record<string, string> = {
     "Revisa filas de producto. Los valores reconocidos son solo lectura; solo se aplicaran los valores digitados.",
   "This can take a few minutes. Keep this window open while suppliers, categories, products, and price history are applied.":
     "Esto puede tomar unos minutos. Mantén esta ventana abierta mientras se aplican proveedores, categorias, productos e historial de precios.",
-  "Import and export actions now live in the Products Catalog Workspace. This compatibility page keeps existing import/export links available.":
-    "Las acciones de import/export ahora viven en el workspace de catalogo Productos. Esta pagina de compatibilidad mantiene disponibles los links existentes.",
+  "Import and export actions now live on the Products page. This compatibility page keeps existing import/export links available.":
+    "Las acciones de import/export ahora viven en la pagina Productos. Esta pagina de compatibilidad mantiene disponibles los links existentes.",
   "Download products, categories, suppliers and full price history for the selected shop only.":
     "Descarga productos, categorias, proveedores e historial de precios completo solo para el shop seleccionado.",
+  "Audited lifecycle and emergency controls for selected shops.":
+    "Controles auditados de ciclo de vida y emergencia para shops seleccionados.",
+  "Create a shop with an existing owner or pending owner invite.":
+    "Crea un shop con owner existente o invitacion de owner pendiente.",
+  "Create shops and recover initial manager access through audited boundaries.":
+    "Crea shops y recupera acceso inicial de manager mediante boundaries auditados.",
+  "Global Master Console access and grant review.":
+    "Acceso global de Master Console y revision de grants.",
   "WeChat": "WeChat",
 };
 
@@ -2464,18 +2505,29 @@ const zhExact: Record<string, string> = {
   Go: "跳转",
   "Go to page": "跳转到页面",
   "Google": "Google",
+  "Governance": "治理",
   "Header shop": "店铺头部信息",
   "Key shop signals grouped before operational sections for quick review.":
     "关键店铺信号集中在运营区块之前，便于快速复核。",
   "Key status cards": "关键状态卡片",
   Last: "最后一页",
   "Master Console role only": "仅 Master Console 角色",
+  "Manage products, prices, stock and mapped mobile catalog.":
+    "管理商品、价格、库存和已映射的移动目录。",
+  "Mobile history sessions and sync-related catalog activity.":
+    "移动端历史会话和同步相关目录活动。",
+  "No pricing or stock values": "无价格或库存值",
   Page: "页面",
+  "Platform": "平台",
+  "Pricing / stock": "价格 / 库存",
+  "Product identity": "商品身份",
   "Reset filters": "重置筛选",
   "Products pagination": "商品分页",
+  "Registered Android, iOS, POS and web clients for this shop.":
+    "此店铺已注册的 Android、iOS、POS 和 Web 客户端。",
   "Rows on this page": "本页行数",
-  "Use search or filters to find products across the full mapped catalog.":
-    "使用搜索或筛选在完整映射目录中查找商品。",
+  "Search and filters": "搜索和筛选",
+  "Status / updated": "状态 / 更新时间",
   "Access is verified server-side and never creates a personal profile.":
     "访问会在服务端验证，且不会创建个人资料。",
   "Sign in with a personal account to open an admin console.":
@@ -2562,10 +2614,6 @@ const zhExact: Record<string, string> = {
   "Mobile data linked to shop": "移动端数据已关联到店铺",
   "Mobile data present": "存在移动端数据",
   "Mobile inventory data": "移动端库存数据",
-  "No pricing or stock values": "暂无价格或库存值",
-  "Pricing / stock": "价格 / 库存",
-  "Product identity": "商品标识",
-  "Status / updated": "状态 / 更新时间",
   "Linked mobile inventory source": "已关联的移动端库存来源",
   "Linked mobile inventory": "已关联的移动端库存",
   "Linked shop": "已关联店铺",
@@ -2676,7 +2724,6 @@ const zhExact: Record<string, string> = {
   "Mobile sync": "移动端同步",
   "Permissions": "权限",
   "Operations": "操作",
-  "Authorized hardware": "已授权硬件",
   "Admins": "管理员",
   "Support": "支持",
   "Area": "区域",
@@ -3009,6 +3056,10 @@ const zhExact: Record<string, string> = {
     "员工代码、经理 1001 和 PIN 访问保留在单独的 POS/员工模型中。",
   "Search Shop Admin by email, UID, display name, or provider":
     "按邮箱、UID、显示名称或 provider 搜索 Shop Admin",
+  "Search Shop Admin by profile ID or display name":
+    "按资料 ID 或显示名称搜索 Shop Admin",
+  "Server search runs on profile ID/display name; Auth email/provider lookup is deferred from first paint.":
+    "服务端搜索使用资料 ID 或显示名称；Auth 邮箱/provider 查询会从首屏加载中延后。",
   "This default Users view lists non-admin and incomplete personal accounts; access-bearing accounts live in Shop Admins or Platform Admins.":
     "默认 Users 视图列出非管理员和不完整个人账号；具有访问权限的账号在 Shop Admins 或 Platform Admins 中。",
   "The current server read model returned only Shop Admins, Platform Admins, or no personal accounts. Use the dedicated admin views for access-bearing accounts.":
@@ -3026,6 +3077,8 @@ const zhExact: Record<string, string> = {
   "Personal Account Directory for every personal/profile account returned by the safe server read model. Dedicated admin views keep grant and membership operations separate.":
     "安全服务端读取模型返回的所有个人账号/资料账号目录。专用管理员视图保留授权和成员关系操作。",
   "Filtered Shop Admin view": "筛选后的 Shop Admin 视图",
+  "Filtered Shop Admin view. Filtered view of Personal Account Directory accounts with shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
+    "筛选后的 Shop Admin 视图。个人账号目录中具有 shop_owner 或 shop_manager 成员关系的筛选视图，包括当前、历史和禁用上下文。",
   "Filtered view of Personal Account Directory accounts with shop_owner or shop_manager membership, including current, historical, and disabled contexts.":
     "个人账号目录中具有 shop_owner 或 shop_manager 成员关系的筛选视图，包括当前、历史和禁用上下文。",
   "No personal accounts visible": "没有可见个人账号",
@@ -3554,10 +3607,18 @@ const zhExact: Record<string, string> = {
     "检查商品行。识别值为只读；只会应用输入的导入值。",
   "This can take a few minutes. Keep this window open while suppliers, categories, products, and price history are applied.":
     "这可能需要几分钟。应用供应商、分类、商品和价格历史时请保持此窗口打开。",
-  "Import and export actions now live in the Products Catalog Workspace. This compatibility page keeps existing import/export links available.":
-    "导入/导出操作现在位于商品目录工作区。此兼容页面保留现有导入/导出链接。",
+  "Import and export actions now live on the Products page. This compatibility page keeps existing import/export links available.":
+    "导入/导出操作现在位于商品页面。此兼容页面保留现有导入/导出链接。",
   "Download products, categories, suppliers and full price history for the selected shop only.":
     "仅下载所选店铺的商品、分类、供应商和完整价格历史。",
+  "Audited lifecycle and emergency controls for selected shops.":
+    "针对所选店铺的已审计生命周期和紧急控制。",
+  "Create a shop with an existing owner or pending owner invite.":
+    "使用现有 owner 或待处理 owner 邀请创建店铺。",
+  "Create shops and recover initial manager access through audited boundaries.":
+    "通过已审计边界创建店铺并恢复初始经理访问。",
+  "Global Master Console access and grant review.":
+    "全局 Master Console 访问和授权复核。",
   "WeChat": "微信",
 };
 
@@ -3573,6 +3634,82 @@ const itRenderedCorrectiveExact: Record<string, string> = {
   "History Detail": "Dettaglio storico",
   "Member Detail": "Dettaglio membro",
   "Product Detail": "Dettaglio prodotto",
+  "Advanced": "Avanzato",
+  "All": "Tutti",
+  "Cancel": "Annulla",
+  "Category not set": "Categoria non impostata",
+  "Client event": "Evento client",
+  "Completed": "Completati",
+  "Completed / Missing": "Completati / Mancanti",
+  "Current purchase price": "Prezzo acquisto attuale",
+  "Current retail price": "Prezzo vendita attuale",
+  "Danger area": "Area critica",
+  "Detail contents": "Contenuti dettaglio",
+  "Details load when opened.": "I dettagli si caricano all'apertura.",
+  "Effective": "Decorrenza",
+  "Changed": "Modificati",
+  "Errors": "Errori",
+  "History detail tabs": "Tab dettaglio storico",
+  "History entry": "Voce storico",
+  "History entry detail": "Dettaglio voce storico",
+  "History rows": "Righe storico",
+  "Ignored header row": "Riga header ignorata",
+  "Identity": "Identita",
+  "Inventory / Sync": "Inventario / Sync",
+  "Item code": "Codice articolo",
+  "Keep this action separate from daily edits.":
+    "Tieni questa azione separata dalle modifiche quotidiane.",
+  "Last sync": "Ultimo sync",
+  "Last sync / update": "Ultimo sync / aggiornamento",
+  "Last update": "Ultimo aggiornamento",
+  "Linked products": "Prodotti collegati",
+  "Missing": "Mancanti",
+  "Missing / errors": "Mancanti / errori",
+  "Missing products": "Prodotti mancanti",
+  "Mobile history": "Storico mobile",
+  "Mobile history entry": "Voce storico mobile",
+  "Mobile mapping": "Mapping mobile",
+  "No bounded row data is available for this entry.":
+    "Non sono disponibili righe bounded per questa voce.",
+  "No missing products or row errors are visible in this bounded payload.":
+    "Nessun prodotto mancante o errore riga e visibile in questo payload bounded.",
+  "No previous price changes are recorded for this product.":
+    "Non sono registrate variazioni prezzo precedenti per questo prodotto.",
+  "No product match": "Nessun prodotto trovato",
+  "No product shortcuts were resolved from this bounded detail payload.":
+    "Nessuno shortcut prodotto e stato risolto da questo payload bounded.",
+  "No related mobile history entries are visible for this product.":
+    "Nessuna voce storico mobile collegata e visibile per questo prodotto.",
+  "No related sync events are visible for this entry.":
+    "Nessun evento sync collegato e visibile per questa voce.",
+  "Not mapped": "Non mappato",
+  "Note": "Nota",
+  "Open history detail": "Apri dettaglio storico",
+  "Open sync event": "Apri evento sync",
+  "Price rows": "Righe prezzo",
+  "Price": "Prezzo",
+  "Product detail": "Dettaglio prodotto",
+  "Product detail tabs": "Tab dettaglio prodotto",
+  "Product not resolved from barcode or item code":
+    "Prodotto non risolto da codice a barre o codice articolo",
+  "Products detected": "Prodotti rilevati",
+  "Purchase": "Acquisto",
+  "Raw diagnostics": "Diagnostica raw",
+  "Read status": "Stato lettura",
+  "Redacted diagnostics": "Diagnostica redatta",
+  "Retail": "Vendita",
+  "Rows in file": "Righe nel file",
+  "Rows preview": "Anteprima righe",
+  "Row filters": "Filtri righe",
+  "Save": "Salva",
+  "Saving": "Salvataggio",
+  "Stock": "Stock",
+  "Supplier not set": "Fornitore non impostato",
+  "Sync event": "Evento sync",
+  "Sync issue": "Problema sync",
+  "Sync state": "Stato sync",
+  "Synced": "Sincronizzato",
+  "Updated / Actions": "Aggiornato / Azioni",
   "Shop Audit": "Audit shop",
   "Shop Detail": "Dettaglio shop",
   "Staff Detail": "Dettaglio staff",
@@ -3962,6 +4099,82 @@ const esRenderedCorrectiveExact: Record<string, string> = {
   "History Detail": "Detalle historial",
   "Member Detail": "Detalle miembro",
   "Product Detail": "Detalle producto",
+  "Advanced": "Avanzado",
+  "All": "Todos",
+  "Cancel": "Cancelar",
+  "Category not set": "Categoria no configurada",
+  "Client event": "Evento cliente",
+  "Completed": "Completados",
+  "Completed / Missing": "Completados / Faltantes",
+  "Current purchase price": "Precio de compra actual",
+  "Current retail price": "Precio de venta actual",
+  "Danger area": "Area critica",
+  "Detail contents": "Contenido del detalle",
+  "Details load when opened.": "Los detalles se cargan al abrir.",
+  "Effective": "Vigencia",
+  "Changed": "Modificados",
+  "Errors": "Errores",
+  "History detail tabs": "Pestanas del detalle historial",
+  "History entry": "Entrada de historial",
+  "History entry detail": "Detalle de entrada historial",
+  "History rows": "Filas de historial",
+  "Ignored header row": "Fila de encabezado ignorada",
+  "Identity": "Identidad",
+  "Inventory / Sync": "Inventario / Sync",
+  "Item code": "Codigo articulo",
+  "Keep this action separate from daily edits.":
+    "Mantiene esta accion separada de las ediciones diarias.",
+  "Last sync": "Ultimo sync",
+  "Last sync / update": "Ultimo sync / actualizacion",
+  "Last update": "Ultima actualizacion",
+  "Linked products": "Productos vinculados",
+  "Missing": "Faltantes",
+  "Missing / errors": "Faltantes / errores",
+  "Missing products": "Productos faltantes",
+  "Mobile history": "Historial mobile",
+  "Mobile history entry": "Entrada historial mobile",
+  "Mobile mapping": "Mapeo mobile",
+  "No bounded row data is available for this entry.":
+    "No hay datos de filas bounded disponibles para esta entrada.",
+  "No missing products or row errors are visible in this bounded payload.":
+    "No hay productos faltantes ni errores de fila visibles en este payload bounded.",
+  "No previous price changes are recorded for this product.":
+    "No hay cambios de precio previos registrados para este producto.",
+  "No product match": "Sin coincidencia de producto",
+  "No product shortcuts were resolved from this bounded detail payload.":
+    "No se resolvieron atajos de producto desde este payload bounded.",
+  "No related mobile history entries are visible for this product.":
+    "No hay entradas de historial mobile relacionadas visibles para este producto.",
+  "No related sync events are visible for this entry.":
+    "No hay eventos sync relacionados visibles para esta entrada.",
+  "Not mapped": "No mapeado",
+  "Note": "Nota",
+  "Open history detail": "Abrir detalle historial",
+  "Open sync event": "Abrir evento sync",
+  "Price rows": "Filas de precio",
+  "Price": "Precio",
+  "Product detail": "Detalle producto",
+  "Product detail tabs": "Pestanas del detalle producto",
+  "Product not resolved from barcode or item code":
+    "Producto no resuelto por codigo de barras o codigo articulo",
+  "Products detected": "Productos detectados",
+  "Purchase": "Compra",
+  "Raw diagnostics": "Diagnostico raw",
+  "Read status": "Estado de lectura",
+  "Redacted diagnostics": "Diagnostico redactado",
+  "Retail": "Venta",
+  "Rows in file": "Filas en el archivo",
+  "Rows preview": "Vista previa de filas",
+  "Row filters": "Filtros de filas",
+  "Save": "Guardar",
+  "Saving": "Guardando",
+  "Stock": "Stock",
+  "Supplier not set": "Proveedor no configurado",
+  "Sync event": "Evento sync",
+  "Sync issue": "Problema sync",
+  "Sync state": "Estado sync",
+  "Synced": "Sincronizado",
+  "Updated / Actions": "Actualizado / Acciones",
   "Shop Audit": "Auditoria shop",
   "Shop Detail": "Detalle shop",
   "Staff Detail": "Detalle staff",
@@ -4370,6 +4583,80 @@ const zhRenderedCorrectiveExact: Record<string, string> = {
   "History Detail": "历史详情",
   "Member Detail": "成员详情",
   "Product Detail": "商品详情",
+  "Advanced": "高级",
+  "All": "全部",
+  "Cancel": "取消",
+  "Category not set": "未设置分类",
+  "Client event": "客户端事件",
+  "Completed": "已完成",
+  "Completed / Missing": "已完成 / 缺失",
+  "Current purchase price": "当前采购价",
+  "Current retail price": "当前零售价",
+  "Danger area": "危险区域",
+  "Detail contents": "详情内容",
+  "Details load when opened.": "打开后加载详情。",
+  "Effective": "生效时间",
+  "Changed": "已变更",
+  "Errors": "错误",
+  "History detail tabs": "历史详情标签",
+  "History entry": "历史条目",
+  "History entry detail": "历史条目详情",
+  "History rows": "历史行",
+  "Ignored header row": "已忽略表头行",
+  "Identity": "身份信息",
+  "Inventory / Sync": "库存 / 同步",
+  "Item code": "商品编码",
+  "Keep this action separate from daily edits.": "请将此操作与日常编辑分开。",
+  "Last sync": "最近同步",
+  "Last sync / update": "最近同步 / 更新",
+  "Last update": "最近更新",
+  "Linked products": "已关联商品",
+  "Missing": "缺失",
+  "Missing / errors": "缺失 / 错误",
+  "Missing products": "缺失商品",
+  "Mobile history": "移动端历史",
+  "Mobile history entry": "移动端历史条目",
+  "Mobile mapping": "移动端映射",
+  "No bounded row data is available for this entry.":
+    "此条目没有可用的有界行数据。",
+  "No missing products or row errors are visible in this bounded payload.":
+    "此有界载荷中没有可见的缺失商品或行错误。",
+  "No previous price changes are recorded for this product.":
+    "此商品没有记录过往价格变更。",
+  "No product match": "无匹配商品",
+  "No product shortcuts were resolved from this bounded detail payload.":
+    "此有界详情载荷中未解析出商品快捷入口。",
+  "No related mobile history entries are visible for this product.":
+    "此商品没有可见的关联移动端历史条目。",
+  "No related sync events are visible for this entry.":
+    "此条目没有可见的关联同步事件。",
+  "Not mapped": "未映射",
+  "Note": "备注",
+  "Open history detail": "打开历史详情",
+  "Open sync event": "打开同步事件",
+  "Price rows": "价格行",
+  "Price": "价格",
+  "Product detail": "商品详情",
+  "Product detail tabs": "商品详情标签",
+  "Product not resolved from barcode or item code": "无法通过条码或商品编码解析商品",
+  "Products detected": "检测到的商品",
+  "Purchase": "采购",
+  "Raw diagnostics": "原始诊断",
+  "Read status": "读取状态",
+  "Redacted diagnostics": "已脱敏诊断",
+  "Retail": "零售",
+  "Rows in file": "文件中的行",
+  "Rows preview": "行预览",
+  "Row filters": "行筛选",
+  "Save": "保存",
+  "Saving": "保存中",
+  "Stock": "库存",
+  "Supplier not set": "未设置供应商",
+  "Sync event": "同步事件",
+  "Sync issue": "同步问题",
+  "Sync state": "同步状态",
+  "Synced": "已同步",
+  "Updated / Actions": "更新 / 操作",
   "Shop Audit": "店铺审计",
   "Shop Detail": "店铺详情",
   "Staff Detail": "员工详情",
@@ -4922,7 +5209,7 @@ const en: Dictionary = {
     allStates: "All states",
     allSuppliers: "All suppliers",
     archived: "Archived",
-    catalogWorkspace: "Catalog Workspace",
+    catalogWorkspace: "Catalog",
     category: "Category",
     search: "Search",
     searchPlaceholder: "Search barcode, item number, product name",
@@ -4943,6 +5230,7 @@ const en: Dictionary = {
     selectedShopContext: "Shop workspace",
     serverVerified: "Server verified",
     sharedGuardrails: "Shared guardrails",
+    shopCodePrefix: "Shop code",
     shopNameNotConfigured: "Shop name not configured",
     shopSafety: "Shop safety",
     shopSelectionAria: "Shop selection",
@@ -5126,7 +5414,7 @@ const it: Dictionary = {
     allStates: "Tutti gli stati",
     allSuppliers: "Tutti i fornitori",
     archived: "Archiviati",
-    catalogWorkspace: "Workspace catalogo",
+    catalogWorkspace: "Catalogo",
     category: "Categoria",
     search: "Cerca",
     searchPlaceholder: "Cerca barcode, item number, nome prodotto",
@@ -5148,6 +5436,7 @@ const it: Dictionary = {
     selectedShopContext: "Workspace shop",
     serverVerified: "Verificato dal server",
     sharedGuardrails: "Guardrail condivisi",
+    shopCodePrefix: "Codice shop",
     shopNameNotConfigured: "Nome shop non configurato",
     shopSafety: "Sicurezza shop",
     shopSelectionAria: "Selezione shop",
@@ -5331,7 +5620,7 @@ const es: Dictionary = {
     allStates: "Todos los estados",
     allSuppliers: "Todos los proveedores",
     archived: "Archivados",
-    catalogWorkspace: "Workspace catalogo",
+    catalogWorkspace: "Catalogo",
     category: "Categoria",
     search: "Buscar",
     searchPlaceholder: "Buscar barcode, item number, nombre de producto",
@@ -5353,6 +5642,7 @@ const es: Dictionary = {
     selectedShopContext: "Workspace shop",
     serverVerified: "Verificado por servidor",
     sharedGuardrails: "Guardrails compartidos",
+    shopCodePrefix: "Codigo shop",
     shopNameNotConfigured: "Nombre shop no configurado",
     shopSafety: "Seguridad shop",
     shopSelectionAria: "Seleccion shop",
@@ -5513,7 +5803,7 @@ const zhCN: Dictionary = {
     allStates: "全部状态",
     allSuppliers: "全部供应商",
     archived: "已归档",
-    catalogWorkspace: "目录工作区",
+    catalogWorkspace: "目录",
     category: "分类",
     search: "搜索",
     searchPlaceholder: "搜索条码、货号、商品名称",
@@ -5535,6 +5825,7 @@ const zhCN: Dictionary = {
     selectedShopContext: "店铺工作区",
     serverVerified: "服务端已验证",
     sharedGuardrails: "共享保护规则",
+    shopCodePrefix: "店铺代码",
     shopNameNotConfigured: "店铺名称未配置",
     shopSafety: "店铺安全",
     shopSelectionAria: "店铺选择",

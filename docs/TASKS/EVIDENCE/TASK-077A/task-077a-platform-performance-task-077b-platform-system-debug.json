@@ -1,0 +1,364 @@
+{
+  "dataset": "platform-master-console-readonly",
+  "generatedAt": "2026-06-20T17:09:50.249Z",
+  "measurements": [
+    {
+      "activeMs": 31,
+      "consoleErrors": [],
+      "documentBytes": 59480,
+      "documentMs": 174,
+      "finalMs": 339,
+      "finalStatus": "ready",
+      "heading": "System Status",
+      "key": "system",
+      "label": "System",
+      "path": "/platform/system",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "rscBytes": 21721,
+      "rscResponseCount": 1,
+      "ttfbMs": 178,
+      "ttfbStatus": 200,
+      "visualReplacementMs": null,
+      "visualReplacementStatus": "not_observed",
+      "serverTraceSummary": {
+        "latestQueryCount": 3,
+        "latestTotalMs": 254.6,
+        "pagePayloadBytesMax": 0,
+        "queryCountPerRenderMax": 3,
+        "queryLabels": [
+          "platform.auth.getUser",
+          "platform.platform_admins.authz",
+          "platform.shops.list_fiscal"
+        ],
+        "readModelsLoaded": [
+          "getPlatformSystemReadModel"
+        ],
+        "renderCount": 3,
+        "scopeLabels": [
+          "platform.section"
+        ],
+        "sectionBytesMax": 2081,
+        "serverTotalMsMax": 371.8,
+        "status": "captured"
+      }
+    }
+  ],
+  "phase": "task-077b-platform-system-debug",
+  "platformAdmin": {
+    "source": "discovered",
+    "user": "redacted"
+  },
+  "target": {
+    "baseUrl": "http://127.0.0.1:3078",
+    "class": "cloud-supabase-readonly",
+    "testTarget": "staging"
+  },
+  "serverPerfTraces": [
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "auditLogLimit": 200,
+            "includeAuditLogs": false,
+            "includeAuthIdentities": false,
+            "includeMobileInventoryCounts": false,
+            "includePlatformAdmins": false,
+            "includeProfiles": false,
+            "includeShopDevices": false,
+            "includeShopMembers": false,
+            "includeShopOwnerMappings": false,
+            "includeShops": true,
+            "includeStaffSafeRows": false,
+            "includeSyncEvents": false,
+            "mobileInventoryShopIdsCount": 0,
+            "readModelName": "getPlatformSystemReadModel"
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": false,
+        "routeKey": "system",
+        "auditLogsCount": 0,
+        "authIdentitiesCount": 0,
+        "authIdentitiesScannedCount": 0,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 4,
+        "platformAdminsCount": 0,
+        "profilesCount": 0,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformSystemReadModel",
+        "rowDetailsCount": 0,
+        "rowsCount": 7,
+        "sectionBytes": 2081,
+        "shopDevicesCount": 0,
+        "shopMembersCount": 0,
+        "shopOwnerMappingsCount": 0,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 0,
+        "statsCount": 3,
+        "status": "ready",
+        "syncEventsCount": 0,
+        "userAccountsCount": 0
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.shops.list_fiscal": 1
+      },
+      "queryCount": 3,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 2
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 154.5
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 129.1
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 283.7
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 84.3
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 85
+        },
+        {
+          "label": "platform.getPlatformSystemReadModel",
+          "ms": 370.8
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 0.7
+        }
+      ],
+      "totalMs": 371.8
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "auditLogLimit": 200,
+            "includeAuditLogs": false,
+            "includeAuthIdentities": false,
+            "includeMobileInventoryCounts": false,
+            "includePlatformAdmins": false,
+            "includeProfiles": false,
+            "includeShopDevices": false,
+            "includeShopMembers": false,
+            "includeShopOwnerMappings": false,
+            "includeShops": true,
+            "includeStaffSafeRows": false,
+            "includeSyncEvents": false,
+            "mobileInventoryShopIdsCount": 0,
+            "readModelName": "getPlatformSystemReadModel"
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": false,
+        "routeKey": "system",
+        "auditLogsCount": 0,
+        "authIdentitiesCount": 0,
+        "authIdentitiesScannedCount": 0,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 4,
+        "platformAdminsCount": 0,
+        "profilesCount": 0,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformSystemReadModel",
+        "rowDetailsCount": 0,
+        "rowsCount": 7,
+        "sectionBytes": 2081,
+        "shopDevicesCount": 0,
+        "shopMembersCount": 0,
+        "shopOwnerMappingsCount": 0,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 0,
+        "statsCount": 3,
+        "status": "ready",
+        "syncEventsCount": 0,
+        "userAccountsCount": 0
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.shops.list_fiscal": 1
+      },
+      "queryCount": 3,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.4
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 79.4
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 83.2
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 162.6
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 153.4
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 154.3
+        },
+        {
+          "label": "platform.getPlatformSystemReadModel",
+          "ms": 317.3
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 0.1
+        }
+      ],
+      "totalMs": 324
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "auditLogLimit": 200,
+            "includeAuditLogs": false,
+            "includeAuthIdentities": false,
+            "includeMobileInventoryCounts": false,
+            "includePlatformAdmins": false,
+            "includeProfiles": false,
+            "includeShopDevices": false,
+            "includeShopMembers": false,
+            "includeShopOwnerMappings": false,
+            "includeShops": true,
+            "includeStaffSafeRows": false,
+            "includeSyncEvents": false,
+            "mobileInventoryShopIdsCount": 0,
+            "readModelName": "getPlatformSystemReadModel"
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": false,
+        "routeKey": "system",
+        "auditLogsCount": 0,
+        "authIdentitiesCount": 0,
+        "authIdentitiesScannedCount": 0,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 4,
+        "platformAdminsCount": 0,
+        "profilesCount": 0,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformSystemReadModel",
+        "rowDetailsCount": 0,
+        "rowsCount": 7,
+        "sectionBytes": 2081,
+        "shopDevicesCount": 0,
+        "shopMembersCount": 0,
+        "shopOwnerMappingsCount": 0,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 0,
+        "statsCount": 3,
+        "status": "ready",
+        "syncEventsCount": 0,
+        "userAccountsCount": 0
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.shops.list_fiscal": 1
+      },
+      "queryCount": 3,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.4
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 83
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 79.6
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 162.6
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 91.3
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 91.4
+        },
+        {
+          "label": "platform.getPlatformSystemReadModel",
+          "ms": 254.5
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 0
+        }
+      ],
+      "totalMs": 254.6
+    }
+  ],
+  "serverTraceCapture": {
+    "appTarget": "local-cloud",
+    "status": "captured",
+    "tracesCount": 3
+  }
+}

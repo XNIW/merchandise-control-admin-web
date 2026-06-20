@@ -5,24 +5,56 @@ import { getI18n } from "@/i18n/get-locale";
 import type { SupportedLocale } from "@/i18n/locales";
 import { translatePlatformNavigationItems } from "@/i18n/translate-sections";
 import {
+  createSupabaseServerClient,
+  resolveSupabaseServerConfig,
+} from "@/lib/supabase/server";
+import {
   navigationItems,
   primaryNavigationItems,
   type PlatformSectionKey,
 } from "./platformData";
-import { PlatformSidebarNav } from "./PlatformSidebarNav";
+import {
+  PlatformNavigationIcon,
+  PlatformSidebarNav,
+} from "./PlatformSidebarNav";
 
 type AppShellProps = {
   activeSection: PlatformSectionKey;
   children: ReactNode;
   dictionary?: Dictionary;
   locale?: SupportedLocale;
+  topbarDescription?: string;
+  topbarEyebrow?: string;
+  topbarTitle?: string;
 };
+
+async function getPlatformAccountLabel(fallback: string) {
+  const config = resolveSupabaseServerConfig();
+
+  if (config.status !== "configured") {
+    return fallback;
+  }
+
+  const supabase = await createSupabaseServerClient(config);
+
+  if (!supabase) {
+    return fallback;
+  }
+
+  const { data, error } = await supabase.auth.getUser();
+  const email = data.user?.email?.trim();
+
+  return error || !email ? fallback : email;
+}
 
 export async function AppShell({
   activeSection,
   children,
   dictionary: providedDictionary,
   locale: providedLocale,
+  topbarDescription,
+  topbarEyebrow,
+  topbarTitle,
 }: AppShellProps) {
   const fallbackI18n =
     providedDictionary && providedLocale ? null : await getI18n();
@@ -33,6 +65,10 @@ export async function AppShell({
     throw new Error("APP_SHELL_I18N_UNAVAILABLE");
   }
 
+  const platformAccountLabel = await getPlatformAccountLabel(
+    dictionary.platformShell.masterConsole,
+  );
+
   return (
     <div className="min-h-screen bg-slate-100 text-slate-950">
       <a
@@ -42,9 +78,20 @@ export async function AppShell({
         {dictionary.platformShell.skipLink}
       </a>
       <div className="grid min-h-screen min-w-0 lg:grid-cols-[280px_1fr]">
-        <Sidebar activeSection={activeSection} dictionary={dictionary} />
+        <Sidebar
+          accountLabel={platformAccountLabel}
+          activeSection={activeSection}
+          dictionary={dictionary}
+        />
         <div className="flex min-w-0 flex-col lg:min-h-0">
-          <Topbar dictionary={dictionary} locale={locale} />
+          <Topbar
+            activeSection={activeSection}
+            description={topbarDescription ?? dictionary.platformShell.description}
+            dictionary={dictionary}
+            eyebrow={topbarEyebrow ?? dictionary.platformShell.masterConsole}
+            locale={locale}
+            title={topbarTitle ?? dictionary.platformShell.masterConsole}
+          />
           <main
             id="platform-content"
             tabIndex={-1}
@@ -59,9 +106,11 @@ export async function AppShell({
 }
 
 function Sidebar({
+  accountLabel,
   activeSection,
   dictionary,
 }: {
+  accountLabel: string;
   activeSection: PlatformSectionKey;
   dictionary: Dictionary;
 }) {
@@ -87,13 +136,15 @@ function Sidebar({
           >
             MC
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-sm font-semibold text-slate-950">
-              MerchandiseControl
+              {accountLabel}
             </p>
-            <p className="text-xs text-slate-500">
-              {dictionary.platformShell.masterConsole}
-            </p>
+            {accountLabel === dictionary.platformShell.masterConsole ? null : (
+              <p className="truncate text-xs text-slate-500">
+                {dictionary.platformShell.masterConsole}
+              </p>
+            )}
           </div>
         </div>
 
@@ -118,22 +169,40 @@ function Sidebar({
 }
 
 function Topbar({
+  activeSection,
+  description,
   dictionary,
+  eyebrow,
   locale,
+  title,
 }: {
+  activeSection: PlatformSectionKey;
+  description: string;
   dictionary: Dictionary;
+  eyebrow: string;
   locale: SupportedLocale;
+  title: string;
 }) {
   return (
-    <header className="min-w-0 border-b border-slate-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
+    <header className="min-w-0 border-b border-slate-200 bg-white px-4 py-2.5 sm:px-6 lg:px-8">
       <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div className="min-w-0">
-          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {dictionary.platformShell.masterConsole}
-          </p>
-          <p className="text-sm text-slate-700">
-            {dictionary.platformShell.description}
-          </p>
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            aria-hidden="true"
+            className="grid size-8 shrink-0 place-items-center rounded-md border border-slate-200 bg-slate-50 text-slate-700"
+          >
+            <PlatformNavigationIcon itemKey={activeSection} />
+          </span>
+          <div className="min-w-0" title={description}>
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <h1 className="min-w-0 truncate text-lg font-semibold leading-6 text-slate-950">
+                {title}
+              </h1>
+              <span className="shrink-0 rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-normal text-slate-600">
+                {eyebrow}
+              </span>
+            </div>
+          </div>
         </div>
         <div
           className="flex flex-wrap gap-2"

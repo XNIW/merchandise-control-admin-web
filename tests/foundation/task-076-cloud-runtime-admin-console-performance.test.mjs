@@ -43,8 +43,11 @@ test("TASK-076 ShopShell exposes immediate pending navigation state", () => {
   assertContains(shell, "data-shop-navigation-pending");
   assertContains(shell, "data-shop-navigation-target");
   assertContains(shell, "data-shop-route-loading");
+  assertContains(shell, "data-shop-route-loading-target");
   assertContains(shell, "data-shop-nav-item");
-  assertContains(shell, "Loading {visiblePendingNavigation.label}");
+  assertContains(shell, "ShopPendingNavigationSkeleton");
+  assertContains(shell, ") : (");
+  assertContains(shell, "children");
   assertContains(sections, "importExport");
   assertContains(sections, "/shop/import-export");
 });
@@ -74,13 +77,16 @@ test("TASK-076 route-level loading states cover the measured Shop sections", () 
   assertContains(skeleton, "aria-busy=\"true\"");
 });
 
-test("TASK-076 Staff and Members pages do not serialize read model and action context", () => {
+test("TASK-076 Staff and Members pages avoid serialized read/action context", () => {
   const staffPage = read("src/app/shop/staff/page.tsx");
+  const staffReadModel = read("src/server/shop-admin/staff-read-model.ts");
   const membersPage = read("src/app/shop/members/page.tsx");
 
-  assertContains(staffPage, "Promise.all([");
-  assertContains(staffPage, "getShopSectionForRequest(\"staff\", requestedShopId)");
-  assertContains(staffPage, "resolveShopActionContext(requestedShopId, \"staff.manage\")");
+  assertContains(staffPage, "resolveStaffPageBundle(requestedShopId)");
+  assertContains(staffPage, "buildStaffSection(bundle.readModel)");
+  assertContains(staffReadModel, "export async function resolveStaffPageBundle");
+  assertContains(staffReadModel, "staffReadModelFromAccess(access)");
+  assert.doesNotMatch(staffPage, /resolveShopActionContext/);
   assertContains(membersPage, "Promise.all([");
   assertContains(membersPage, "getShopSectionForRequest(\"members\", requestedShopId)");
   assertContains(membersPage, "resolveShopActionContext(requestedShopId, \"members.manage\")");

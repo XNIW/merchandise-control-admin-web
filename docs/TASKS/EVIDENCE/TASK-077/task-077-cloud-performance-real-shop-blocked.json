@@ -1,0 +1,23 @@
+{
+  "dataset": "real-shop-readonly",
+  "generatedAt": "2026-06-20T15:13:12Z",
+  "status": "BLOCKED_NO_REAL_SHOP_CANDIDATE",
+  "reason": "Supabase cloud env has active shops and active owner/manager memberships, but every automatically discoverable owner/manager shop candidate is synthetic. Real-shop mode was not run against synthetic TASK/TEST/FIXTURE/DEMO data.",
+  "redactedDiscoveryCounts": {
+    "activeShopsTotal": 3,
+    "activeShopMembersTotal": 2,
+    "ownerOrManagerMembersTotal": 2,
+    "joinCandidates": 2,
+    "syntheticCandidates": 2,
+    "authableCandidates": 2
+  },
+  "requiredToUnblock": [
+    "Provide TASK077_REAL_SHOP_ID and TASK077_REAL_SHOP_USER_EMAIL for a non-synthetic active shop owner/manager, or add a real non-synthetic active shop/membership to the cloud env."
+  ],
+  "safety": {
+    "productionDeploy": "not_run",
+    "productionSupabaseApply": "not_run",
+    "serviceRoleClientOrBrowser": "not_used",
+    "realDataInEvidence": "redacted_counts_only"
+  }
+}

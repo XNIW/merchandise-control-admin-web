@@ -52,7 +52,7 @@ test("TASK-049 Admins page is compact and keeps destructive revoke controls coll
 
   for (const required of [
     "@/components/platform/displayFormat",
-    "includeAuthIdentities: true",
+    "includeAuthIdentities: false",
     "Current Platform Admin account",
     "Current session",
     "Current account",
@@ -139,6 +139,20 @@ test("TASK-049 Audit, Provisioning, Operations, and topbar use compact safe layo
     /platformShell\.readOnly[\s\S]*platformShell\.serverBoundary[\s\S]*platformShell\.controlledActions[\s\S]*common\.logout/,
     "topbar chips must stay in the requested order",
   );
+  assert.match(appShell, /getPlatformAccountLabel/);
+  assert.match(appShell, /topbarTitle/);
+  assert.match(appShell, /<h1 className="[^"]*truncate[^"]*text-lg[^"]*font-semibold/);
+  assert.match(appShell, /topbarDescription/);
+  assert.match(appShell, /topbarEyebrow/);
+  assert.match(appShell, /PlatformNavigationIcon/);
+  assert.match(appShell, /<PlatformNavigationIcon itemKey=\{activeSection\} \/>/);
+  assert.match(appShell, /title=\{description\}/);
+  assert.doesNotMatch(appShell, /<span className="size-2 rounded-full bg-slate-950" \/>/);
+  assert.doesNotMatch(
+    appShell,
+    /<p className="[^"]*line-clamp-2[^"]*text-slate-600/,
+  );
+  assert.doesNotMatch(appShell, /MerchandiseControl/);
   assert.doesNotMatch(appShell, /isControlledActions/);
 
   for (const required of [

@@ -24,6 +24,7 @@ test("TASK-068M products page renders catalog rows instead of a wide technical t
   assertContains(page, "renderLiveData={({ liveData, rowActions })");
   assertContains(page, "data-product-catalog-list");
   assertContains(page, "data-product-catalog-row");
+  assertContains(page, "[content-visibility:auto]");
   assertContains(page, "lg:grid-cols-[minmax(15rem,1.5fr)_minmax(12rem,1fr)_minmax(10rem,0.9fr)_minmax(10rem,0.9fr)_minmax(10rem,0.85fr)_minmax(9rem,auto)]");
   assert.doesNotMatch(page, /<AdminDataTable/);
 });
@@ -105,24 +106,33 @@ test("TASK-068M polish stays out of products read model and Supabase schema", ()
   assert.doesNotMatch(packageJson, /lucide|heroicons|react-icons/);
 });
 
-test("TASK-068M catalog category and supplier pages reuse the loaded inventory read model", () => {
-  for (const pagePath of [
-    "src/app/shop/categories/page.tsx",
-    "src/app/shop/suppliers/page.tsx",
+test("TASK-068M catalog category and supplier pages reuse loaded lightweight read models", () => {
+  for (const [pagePath, readModelCall] of [
+    [
+      "src/app/shop/categories/page.tsx",
+      "getShopCategoriesPageReadModel({ requestedShopId })",
+    ],
+    [
+      "src/app/shop/suppliers/page.tsx",
+      "getShopSuppliersPageReadModel({ requestedShopId })",
+    ],
   ]) {
     const page = read(pagePath);
 
-    assertContains(page, "getShopInventoryReadModel({ requestedShopId })");
-    assertContains(page, "inventoryReadModel,");
+    assertContains(page, readModelCall);
+    assertContains(page, "catalogOptionsReadModel: catalogReadModel");
+    assert.doesNotMatch(page, /getShopInventoryReadModel\(/);
     assert.doesNotMatch(
       page,
-      /getShopSectionForRequest\([^)]*\)\s*,\s*\n\s*getShopInventoryReadModel/s,
-      `${pagePath} must not load the inventory read model twice`,
+      /getShopSectionForRequest\([^)]*\)\s*,\s*\n\s*getShop.*ReadModel/s,
+      `${pagePath} must not load its catalog read model twice`,
     );
   }
 
   const sectionData = read("src/server/shop-admin/shop-section-data.ts");
 
   assertContains(sectionData, "inventoryReadModel?: ShopInventoryReadModel");
+  assertContains(sectionData, "catalogOptionsReadModel?: ShopCatalogOptionsReadModel");
   assertContains(sectionData, "options.inventoryReadModel ??");
+  assertContains(sectionData, "options.catalogOptionsReadModel ??");
 });

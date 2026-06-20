@@ -1,10 +1,11 @@
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
-import {
-  CatalogActionPanel,
-  type CatalogCategoryOption,
-  type CatalogProductOption,
-  type CatalogSupplierOption,
+import type {
+  CatalogCategoryOption,
+  CatalogProductOption,
+  CatalogSupplierOption,
 } from "@/app/shop/_components/CatalogActionPanel";
+import { HistoryDetailModalController } from "@/app/shop/_components/HistoryDetailModalController";
+import { ProductDetailModalController } from "@/app/shop/_components/ProductDetailModalController";
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
@@ -38,7 +39,7 @@ export const dynamic = "force-dynamic";
 /*
  * Legacy static catalog tests still look for catalogFilters, name="query",
  * the category_id/supplier_id aliases, and older aria-label strings.
- * Runtime uses getShopInventoryProductsPage for count/range and
+ * Runtime uses getShopInventoryProductsPage for first-page rows and
  * getShopCatalogOptionsReadModel for lightweight toolbar/filter options.
  */
 
@@ -89,19 +90,35 @@ function normalizeState(value?: string) {
 }
 
 function normalizePageSize(value?: string) {
-  return value === "50" || value === "200" ? value : "100";
+  return value === "25" || value === "50" || value === "100" || value === "200"
+    ? value
+    : "10";
 }
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat("en-US").format(value);
 }
 
+function jsonByteLength(value: unknown) {
+  try {
+    return new TextEncoder().encode(JSON.stringify(value)).byteLength;
+  } catch {
+    return null;
+  }
+}
+
 function formatRange(page: ShopInventoryProductsPage) {
   const { pagination } = page;
+  const totalSuffix =
+    pagination.totalCountStatus === "exact"
+      ? formatNumber(pagination.totalCount)
+      : pagination.hasNextPage
+        ? `${formatNumber(pagination.totalCount)}+`
+        : formatNumber(pagination.totalCount);
 
   return `${formatNumber(pagination.rangeStart)}-${formatNumber(
     pagination.rangeEnd,
-  )} of ${formatNumber(pagination.totalCount)}`;
+  )} of ${totalSuffix}`;
 }
 
 function buildProductsHref(input: {
@@ -139,7 +156,7 @@ function buildProductsHref(input: {
     nextParams.set("page", String(input.page));
   }
 
-  if (input.pageSize && String(input.pageSize) !== "100") {
+  if (input.pageSize && String(input.pageSize) !== "10") {
     nextParams.set("pageSize", String(input.pageSize));
   }
 
@@ -472,35 +489,57 @@ function buildProductsPageSection(input: {
   return {
     ...baseProductsSection,
     description:
-      "Shop catalog products for the verified selected shop. Rows are paginated server-side with exact count and current page range.",
-    status: pagination.totalCount > 0 ? "Live actions" : "Products empty",
+      pagination.totalCountStatus === "exact"
+        ? "Shop catalog products for the verified selected shop. Rows are paginated server-side with exact count and current page range."
+        : "Shop catalog products for the verified selected shop. First paint loads the current page and defers exact totals.",
+    status: pagination.currentPageRows > 0 ? "Live actions" : "Products empty",
     metrics: [
       metric(
         "Total products",
-        formatNumber(page.summary.productsTotal),
-        "Mapped catalog total",
+        pagination.totalCountStatus === "exact"
+          ? formatNumber(page.summary.productsTotal)
+          : `${formatNumber(page.summary.productsTotal)}+`,
+        pagination.totalCountStatus === "exact"
+          ? "Mapped catalog total"
+          : "Exact total deferred from first paint",
       ),
       metric(
         "Filtered rows",
-        formatNumber(pagination.totalCount),
-        "Server-side filtered rows",
+        pagination.totalCountStatus === "exact"
+          ? formatNumber(pagination.totalCount)
+          : `${formatNumber(pagination.totalCount)}+`,
+        pagination.totalCountStatus === "exact"
+          ? "Server-side filtered rows"
+          : "Lower bound from current page",
       ),
       metric(
         "Current page rows",
         formatNumber(pagination.currentPageRows),
         "Showing current page",
       ),
+      ...(pagination.totalCountStatus === "exact"
+        ? [
+            metric(
+              "Archived products",
+              formatNumber(page.summary.archivedProducts),
+              "Mapped catalog total",
+            ),
+            metric(
+              "Price history rows",
+              formatNumber(page.summary.priceRows),
+              "Mapped catalog total",
+            ),
+          ]
+        : []),
       metric(
-        "Archived products",
-        formatNumber(page.summary.archivedProducts),
-        "Mapped catalog total",
+        "Range",
+        formatRange(page),
+        pagination.totalCountStatus === "exact"
+          ? `Page ${pagination.page} of ${pagination.totalPages}`
+          : pagination.hasNextPage
+            ? `Page ${pagination.page} of ${pagination.totalPages}+`
+            : `Page ${pagination.page}`,
       ),
-      metric(
-        "Price history rows",
-        formatNumber(page.summary.priceRows),
-        "Mapped catalog total",
-      ),
-      metric("Range", formatRange(page), `Page ${pagination.page} of ${pagination.totalPages}`),
       metric("Filters", String(activeFilterCount), "Search/category/supplier/state"),
       metric("Catalog scope", catalogScopeLabel(page.catalogScope), page.reason, "good"),
       metric("Writes", "Audited", "Create/update/archive/restore via server actions", "good"),
@@ -508,7 +547,9 @@ function buildProductsPageSection(input: {
     liveData: {
       title: "Shop catalog data",
       description:
-        "Only current page rows are rendered. Search and filters run server-side before count/range.",
+        pagination.totalCountStatus === "exact"
+          ? "Only current page rows are rendered. Search and filters run server-side before count/range."
+          : "Only current page rows are rendered. Exact totals and heavy summary counts are deferred from first paint.",
       columns: [
         { key: "productId", label: "Product id", cellVariant: "code" },
         {
@@ -546,6 +587,10 @@ function buildProductsPageSection(input: {
 }
 
 function getProductDialog(action?: string) {
+  if (action === "new") {
+    return "newProduct" as const;
+  }
+
   if (action === "edit") {
     return "editProduct" as const;
   }
@@ -558,7 +603,43 @@ function getProductDialog(action?: string) {
     return "restoreProduct" as const;
   }
 
+  if (action === "import") {
+    return "importSupplier" as const;
+  }
+
+  if (action === "export") {
+    return "exportCatalog" as const;
+  }
+
+  if (action === "advanced") {
+    return "advancedTransfer" as const;
+  }
+
   return null;
+}
+
+function canOpenProductDialog(
+  dialog: ReturnType<typeof getProductDialog>,
+  permissions: {
+    canExport: boolean;
+    canImport: boolean;
+    canManageProducts: boolean;
+  },
+) {
+  switch (dialog) {
+    case "newProduct":
+    case "editProduct":
+    case "archiveProduct":
+    case "restoreProduct":
+      return permissions.canManageProducts;
+    case "importSupplier":
+    case "advancedTransfer":
+      return permissions.canImport;
+    case "exportCatalog":
+      return permissions.canExport;
+    default:
+      return false;
+  }
 }
 
 function buildProductActionHref(
@@ -600,7 +681,7 @@ function buildProductActionHref(
     nextParams.set("page", page);
   }
 
-  if (pageSize !== "100") {
+  if (pageSize !== "10") {
     nextParams.set("pageSize", pageSize);
   }
 
@@ -648,7 +729,7 @@ function buildProductDetailHref(
     nextParams.set("page", page);
   }
 
-  if (pageSize !== "100") {
+  if (pageSize !== "10") {
     nextParams.set("pageSize", pageSize);
   }
 
@@ -657,11 +738,60 @@ function buildProductDetailHref(
   return `/shop/products/${encodeURIComponent(productId)}${query ? `?${query}` : ""}`;
 }
 
+function buildProductGlobalActionHref(
+  params: Record<string, string | string[] | undefined>,
+  action: "advanced" | "export" | "import" | "new",
+) {
+  const nextParams = new URLSearchParams();
+
+  const requestedShopId = getParam(params, "shop_id");
+  const searchQuery = getFirstParam(params, ["q", "search", "query"]);
+  const categoryId = getFirstParam(params, ["category", "category_id"]);
+  const supplierId = getFirstParam(params, ["supplier", "supplier_id"]);
+  const state = normalizeState(getParam(params, "state"));
+  const page = getParam(params, "page");
+  const pageSize = normalizePageSize(getParam(params, "pageSize"));
+
+  if (requestedShopId) {
+    nextParams.set("shop_id", requestedShopId);
+  }
+
+  if (searchQuery) {
+    nextParams.set("q", searchQuery);
+  }
+
+  if (categoryId) {
+    nextParams.set("category", categoryId);
+  }
+
+  if (supplierId) {
+    nextParams.set("supplier", supplierId);
+  }
+
+  if (state !== "active") {
+    nextParams.set("state", state);
+  }
+
+  if (page && page !== "1") {
+    nextParams.set("page", page);
+  }
+
+  if (pageSize !== "10") {
+    nextParams.set("pageSize", pageSize);
+  }
+
+  nextParams.set("product_action", action);
+
+  return `/shop/products?${nextParams.toString()}`;
+}
+
 function ProductRowActions({
+  canManageProducts,
   labels,
   params,
   row,
 }: {
+  canManageProducts: boolean;
   labels: {
     archive: string;
     detail: string;
@@ -678,12 +808,14 @@ function ProductRowActions({
   const productId = row.rowKey;
   const isArchived = row.isArchived === "true" || row.state === "Archived";
   const productLabel = row.productName || row.barcode || productId;
-  const actions = isArchived
-    ? [{ action: "restore" as const, icon: "restore" as const, label: labels.restore }]
-    : [
-        { action: "edit" as const, icon: "pencil" as const, label: labels.edit },
-        { action: "archive" as const, icon: "archive" as const, label: labels.archive },
-      ];
+  const actions = canManageProducts
+    ? isArchived
+      ? [{ action: "restore" as const, icon: "restore" as const, label: labels.restore }]
+      : [
+          { action: "edit" as const, icon: "pencil" as const, label: labels.edit },
+          { action: "archive" as const, icon: "archive" as const, label: labels.archive },
+        ]
+    : [];
 
   return (
     <div
@@ -692,7 +824,9 @@ function ProductRowActions({
     >
       <a
         aria-label={`${labels.detail}: ${productLabel}`}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
+        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-emerald-700 bg-emerald-900 px-2.5 text-xs font-medium text-white hover:bg-emerald-800"
+        data-product-detail-id={productId}
+        data-product-detail-trigger
         href={buildProductDetailHref(params, productId)}
       >
         <ProductsIcon name="eye" />
@@ -702,8 +836,96 @@ function ProductRowActions({
         <a
           key={item.action}
           aria-label={`${item.label}: ${productLabel}`}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
+          className={[
+            "inline-flex h-8 items-center gap-1.5 rounded-md border bg-white px-2.5 text-xs font-medium",
+            item.action === "edit"
+              ? "border-zinc-300 text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
+              : "border-amber-200 text-amber-900 hover:border-amber-400",
+          ].join(" ")}
+          data-product-detail-id={item.action === "edit" ? productId : undefined}
+          data-product-detail-mode={item.action === "edit" ? "edit" : undefined}
+          data-product-detail-trigger={item.action === "edit" ? "" : undefined}
           href={buildProductActionHref(params, item.action, productId)}
+        >
+          <ProductsIcon name={item.icon} />
+          {item.label}
+        </a>
+      ))}
+    </div>
+  );
+}
+
+function ProductCatalogToolbar({
+  canExport,
+  canImport,
+  canManageProducts,
+  labels,
+  params,
+}: {
+  canExport: boolean;
+  canImport: boolean;
+  canManageProducts: boolean;
+  labels: {
+    advancedTransfer: string;
+    exportCatalog: string;
+    importSupplier: string;
+    newProduct: string;
+  };
+  params: Record<string, string | string[] | undefined>;
+}) {
+  const actions: Array<{
+    action: "advanced" | "export" | "import" | "new";
+    icon: ProductsIconName;
+    label: string;
+  }> = [];
+
+  if (canManageProducts) {
+    actions.push({
+      action: "new",
+      icon: "package",
+      label: labels.newProduct,
+    });
+  }
+
+  if (canImport) {
+    actions.push({
+      action: "import",
+      icon: "stock",
+      label: labels.importSupplier,
+    });
+  }
+
+  if (canExport) {
+    actions.push({
+      action: "export",
+      icon: "barcode",
+      label: labels.exportCatalog,
+    });
+  }
+
+  if (canImport) {
+    actions.push({
+      action: "advanced",
+      icon: "supplier",
+      label: labels.advancedTransfer,
+    });
+  }
+
+  if (actions.length === 0) {
+    return null;
+  }
+
+  return (
+    <div
+      className="flex min-w-0 flex-wrap gap-2 sm:justify-end"
+      data-product-catalog-command-bar
+    >
+      {actions.map((item) => (
+        <a
+          className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 shadow-sm hover:border-emerald-400 hover:text-emerald-800"
+          href={buildProductGlobalActionHref(params, item.action)}
+          key={item.action}
+          role="button"
         >
           <ProductsIcon name={item.icon} />
           {item.label}
@@ -875,7 +1097,7 @@ function ProductCatalogList({
 
         return (
           <article
-            className="grid min-w-0 gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm lg:grid-cols-[minmax(15rem,1.5fr)_minmax(12rem,1fr)_minmax(10rem,0.9fr)_minmax(10rem,0.9fr)_minmax(10rem,0.85fr)_minmax(9rem,auto)] lg:items-start"
+            className="grid min-w-0 gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm [contain-intrinsic-size:220px] [content-visibility:auto] lg:grid-cols-[minmax(15rem,1.5fr)_minmax(12rem,1fr)_minmax(10rem,0.9fr)_minmax(10rem,0.9fr)_minmax(10rem,0.85fr)_minmax(9rem,auto)] lg:items-start"
             data-product-catalog-row
             key={row.rowKey}
             role="listitem"
@@ -1058,9 +1280,13 @@ function ProductsPagination({
 }) {
   const { filters, pagination } = page;
   const previousPage = Math.max(1, pagination.page - 1);
-  const nextPage = Math.min(pagination.totalPages, pagination.page + 1);
-  const hasPrevious = pagination.page > 1;
-  const hasNext = pagination.page < pagination.totalPages;
+  const nextPage =
+    pagination.totalCountStatus === "exact"
+      ? Math.min(pagination.totalPages, pagination.page + 1)
+      : pagination.page + 1;
+  const hasPrevious = pagination.hasPreviousPage;
+  const hasNext = pagination.hasNextPage;
+  const hasExactTotal = pagination.totalCountStatus === "exact";
   const pageAriaLabel = labels.page.toLocaleLowerCase();
   const baseLinkInput = {
     categoryId: filters.categoryId,
@@ -1076,7 +1302,7 @@ function ProductsPagination({
     filters.categoryId ? ["category", filters.categoryId] : null,
     filters.supplierId ? ["supplier", filters.supplierId] : null,
     filters.state !== "active" ? ["state", filters.state] : null,
-    pagination.pageSize !== 100 ? ["pageSize", String(pagination.pageSize)] : null,
+    pagination.pageSize !== 10 ? ["pageSize", String(pagination.pageSize)] : null,
   ].filter((field): field is [string, string] => Boolean(field));
 
   return (
@@ -1086,8 +1312,12 @@ function ProductsPagination({
     >
       <div className="min-w-0">
         <p className="font-medium text-zinc-900">
-          {formatRange(page)} · {labels.page} {pagination.page} {labels.of}{" "}
-          {pagination.totalPages}
+          {formatRange(page)} · {labels.page} {pagination.page}
+          {hasExactTotal
+            ? ` ${labels.of} ${pagination.totalPages}`
+            : hasNext
+              ? ` ${labels.of} ${pagination.totalPages}+`
+              : ""}
         </p>
         <p className="mt-1 text-xs text-zinc-500">
           {labels.rowsOnThisPage}: {pagination.currentPageRows}
@@ -1148,7 +1378,7 @@ function ProductsPagination({
               defaultValue={String(pagination.page)}
               id={id}
               inputMode="numeric"
-              max={pagination.totalPages}
+              max={hasExactTotal ? pagination.totalPages : undefined}
               min={1}
               name="page"
               required
@@ -1183,7 +1413,7 @@ function ProductsPagination({
             <ProductsIcon name="chevronRight" />
           </span>
         )}
-        {hasNext ? (
+        {hasExactTotal && hasNext ? (
           <a
             aria-label={`${labels.last}: ${pageAriaLabel} ${pagination.totalPages}`}
             className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
@@ -1247,6 +1477,7 @@ export default async function ShopProductsPage({
           state: selectedState,
           supplierId: selectedSupplierId,
         },
+        includeExactTotals: false,
         page: selectedPage,
         pageSize: selectedPageSize,
         perfTrace,
@@ -1268,21 +1499,39 @@ export default async function ShopProductsPage({
     pageAccess.status === "ready"
       ? pageAccess.selectedShop.shopId
       : (productsPage.selectedShop?.shopId ?? requestedShopId);
-  const categoryOptions = mapCategoryOptions(catalogOptions.categories);
-  const supplierOptions = mapSupplierOptions(catalogOptions.suppliers);
-  const productCatalogOptions = mapProductOptions(
-    productsPage.products.filter((product) => !product.deletedAt),
-  );
-  const archivedProductCatalogOptions = mapProductOptions(
-    productsPage.products.filter((product) => Boolean(product.deletedAt)),
-  );
-  const section = buildProductsPageSection({
-    activeFilterCount,
-    categories: catalogOptions.categories,
-    page: productsPage,
-    suppliers: catalogOptions.suppliers,
-  });
   const productDialog = getProductDialog(getParam(params, "product_action"));
+  const canOpenRequestedProductDialog = canOpenProductDialog(productDialog, {
+    canExport,
+    canImport,
+    canManageProducts,
+  });
+  const {
+    archivedProductCatalogOptions,
+    categoryOptions,
+    productCatalogOptions,
+    supplierOptions,
+  } = await perfTrace.time("mapCatalogOptionsForClient", async () => ({
+    archivedProductCatalogOptions: canOpenRequestedProductDialog
+      ? mapProductOptions(
+          productsPage.products.filter((product) => Boolean(product.deletedAt)),
+        )
+      : [],
+    categoryOptions: mapCategoryOptions(catalogOptions.categories),
+    productCatalogOptions: canOpenRequestedProductDialog
+      ? mapProductOptions(
+          productsPage.products.filter((product) => !product.deletedAt),
+        )
+      : [],
+    supplierOptions: mapSupplierOptions(catalogOptions.suppliers),
+  }));
+  const section = await perfTrace.time("buildProductsPageSection", async () =>
+    buildProductsPageSection({
+      activeFilterCount,
+      categories: catalogOptions.categories,
+      page: productsPage,
+      suppliers: catalogOptions.suppliers,
+    }),
+  );
   const productDialogId = getParam(params, "product_id") ?? "";
   const rowActionLabels = {
     archive: translateText(dictionary, "Archive"),
@@ -1313,9 +1562,22 @@ export default async function ShopProductsPage({
     statusUpdated: translateText(dictionary, "Status / updated"),
     updated: translateText(dictionary, "Updated"),
   };
+  const catalogToolbarLabels = {
+    advancedTransfer: translateText(dictionary, "Database transfer"),
+    exportCatalog: translateText(dictionary, "Export catalog Excel"),
+    importSupplier: translateText(dictionary, "Import supplier Excel"),
+    newProduct: translateText(dictionary, "New product"),
+  };
   const filterLabels: Dictionary["shopFilters"] = dictionary.shopFilters;
-  const catalogToolbar =
-    canManageProducts || canImport || canExport ? (
+  let catalogCommandBar: ReactNode = null;
+  let catalogDialogPanel: ReactNode = null;
+
+  if (productDialog && canOpenRequestedProductDialog) {
+    const { CatalogActionPanel } = await import(
+      "@/app/shop/_components/CatalogActionPanel"
+    );
+
+    catalogDialogPanel = (
       <CatalogActionPanel
         archivedProducts={archivedProductCatalogOptions}
         authPrincipalKind={
@@ -1336,133 +1598,165 @@ export default async function ShopProductsPage({
         selectedShopId={selectedShopId ?? undefined}
         suppliers={supplierOptions}
       />
-    ) : null;
+    );
+  } else if (canManageProducts || canImport || canExport) {
+    catalogCommandBar = (
+      <ProductCatalogToolbar
+        canExport={canExport}
+        canImport={canImport}
+        canManageProducts={canManageProducts}
+        labels={catalogToolbarLabels}
+        params={params}
+      />
+    );
+  }
 
   perfTrace.flush({
+    catalogOptionRows:
+      catalogOptions.categories.length + catalogOptions.suppliers.length,
     catalogOptionsStatus: catalogOptions.status,
+    catalogOptionsBytes: jsonByteLength(catalogOptions),
+    categoryOptions: categoryOptions.length,
+    clientProductOptions:
+      productCatalogOptions.length + archivedProductCatalogOptions.length,
+    dialogLoaded: Boolean(productDialog),
+    estimatedSectionBytes: jsonByteLength(section),
+    liveDataColumns: section.liveData?.columns.length ?? 0,
+    liveDataRows: section.liveData?.rows.length ?? 0,
     pageRows: productsPage.pagination.currentPageRows,
+    productsPageBytes: jsonByteLength(productsPage),
     productsStatus: productsPage.status,
+    supplierOptions: supplierOptions.length,
+    totalCount: productsPage.pagination.totalCount,
+    totalCountStatus: productsPage.pagination.totalCountStatus,
+    hasNextPage: productsPage.pagination.hasNextPage,
   });
 
   return (
     <div className="grid gap-5">
-      <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-2`}>
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="grid size-8 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800"
-          >
-            <ProductsIcon name="package" />
-          </span>
-          <p className="text-xs font-semibold uppercase tracking-normal text-emerald-700">
-            {filterLabels.catalogWorkspace}
-          </p>
-          {activeFilterCount > 0 ? (
-            <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">
-              <ProductsIcon name="filter" />
-              {translateText(dictionary, "Filters active")}: {activeFilterCount}
-            </span>
-          ) : null}
-        </div>
-        <p className="max-w-3xl text-sm leading-6 text-zinc-600">
-          {translateText(
-            dictionary,
-            "Use search or filters to find products across the full mapped catalog.",
-          )}
-        </p>
-      </div>
       <form
         action="/shop/products"
-        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(16rem,1.35fr)_minmax(0,190px)_minmax(0,190px)_minmax(0,150px)_minmax(0,130px)_auto] md:items-end lg:sticky lg:top-3 lg:z-20`}
+        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm lg:sticky lg:top-3 lg:z-20`}
         method="get"
       >
         {requestedShopId ? (
           <input name="shop_id" type="hidden" value={requestedShopId} />
         ) : null}
         <input name="page" type="hidden" value="1" />
-        <label className={filterLabelClassName}>
-          <span className="inline-flex items-center gap-1.5">
-            <ProductsIcon name="search" />
-            {filterLabels.search}
-          </span>
-          <input
-            className={filterInputClassName}
-            defaultValue={selectedQuery}
-            name="q"
-            placeholder={filterLabels.searchPlaceholder}
-            type="search"
-          />
-        </label>
-        <label className={filterLabelClassName}>
-          {filterLabels.category}
-          <select
-            className={filterInputClassName}
-            defaultValue={selectedCategoryId}
-            name="category"
-          >
-            <option value="">{filterLabels.allCategories}</option>
-            {categoryOptions.map((category) => (
-              <option key={category.categoryId} value={category.categoryId}>
-                {category.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={filterLabelClassName}>
-          {filterLabels.supplier}
-          <select
-            className={filterInputClassName}
-            defaultValue={selectedSupplierId}
-            name="supplier"
-          >
-            <option value="">{filterLabels.allSuppliers}</option>
-            {supplierOptions.map((supplier) => (
-              <option key={supplier.supplierId} value={supplier.supplierId}>
-                {supplier.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className={filterLabelClassName}>
-          {filterLabels.state}
-          <select
-            className={filterInputClassName}
-            defaultValue={selectedState}
-            name="state"
-          >
-            <option value="active">{translateText(dictionary, "Active")}</option>
-            <option value="archived">{filterLabels.archived}</option>
-            <option value="all">{filterLabels.allStates}</option>
-          </select>
-        </label>
-        <label className={filterLabelClassName}>
-          {translateText(dictionary, "Page size")}
-          <select
-            className={filterInputClassName}
-            defaultValue={selectedPageSize}
-            name="pageSize"
-          >
-            <option value="50">50</option>
-            <option value="100">100</option>
-            <option value="200">200</option>
-          </select>
-        </label>
-        <div className="flex min-w-0 flex-wrap items-end gap-2 self-end">
-          <button
-            className={`${filterButtonClassName} bg-zinc-950 text-white hover:bg-zinc-800`}
-            type="submit"
-          >
-            <ProductsIcon name="filter" />
-            {dictionary.common.applyFilters}
-          </button>
-          <a
-            className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
-            href={buildClearFiltersHref(requestedShopId, selectedPageSize)}
-          >
-            {translateText(dictionary, "Reset filters")}
-          </a>
+        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <p className="text-sm font-semibold text-zinc-950">
+              {translateText(dictionary, "Search and filters")}
+            </p>
+            {activeFilterCount > 0 ? (
+              <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">
+                <ProductsIcon name="filter" />
+                {translateText(dictionary, "Filters active")}: {activeFilterCount}
+              </span>
+            ) : null}
+          </div>
+          {catalogCommandBar}
+        </div>
+        <div className="grid gap-3 md:grid-cols-[minmax(16rem,1.35fr)_minmax(0,190px)_minmax(0,190px)_minmax(0,150px)_minmax(0,130px)_auto] md:items-end">
+          <label className={filterLabelClassName}>
+            <span className="inline-flex items-center gap-1.5">
+              <ProductsIcon name="search" />
+              {filterLabels.search}
+            </span>
+            <input
+              className={filterInputClassName}
+              defaultValue={selectedQuery}
+              name="q"
+              placeholder={filterLabels.searchPlaceholder}
+              type="search"
+            />
+          </label>
+          <label className={filterLabelClassName}>
+            {filterLabels.category}
+            <select
+              className={filterInputClassName}
+              defaultValue={selectedCategoryId}
+              name="category"
+            >
+              <option value="">{filterLabels.allCategories}</option>
+              {categoryOptions.map((category) => (
+                <option key={category.categoryId} value={category.categoryId}>
+                  {category.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={filterLabelClassName}>
+            {filterLabels.supplier}
+            <select
+              className={filterInputClassName}
+              defaultValue={selectedSupplierId}
+              name="supplier"
+            >
+              <option value="">{filterLabels.allSuppliers}</option>
+              {supplierOptions.map((supplier) => (
+                <option key={supplier.supplierId} value={supplier.supplierId}>
+                  {supplier.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className={filterLabelClassName}>
+            {filterLabels.state}
+            <select
+              className={filterInputClassName}
+              defaultValue={selectedState}
+              name="state"
+            >
+              <option value="active">{translateText(dictionary, "Active")}</option>
+              <option value="archived">{filterLabels.archived}</option>
+              <option value="all">{filterLabels.allStates}</option>
+            </select>
+          </label>
+          <label className={filterLabelClassName}>
+            {translateText(dictionary, "Page size")}
+            <select
+              className={filterInputClassName}
+              defaultValue={selectedPageSize}
+              name="pageSize"
+            >
+              <option value="10">10</option>
+              <option value="25">25</option>
+              <option value="50">50</option>
+              <option value="100">100</option>
+              <option value="200">200</option>
+            </select>
+          </label>
+          <div className="flex min-w-0 flex-wrap items-end gap-2 self-end">
+            <button
+              className={`${filterButtonClassName} bg-zinc-950 text-white hover:bg-zinc-800`}
+              type="submit"
+            >
+              <ProductsIcon name="filter" />
+              {dictionary.common.applyFilters}
+            </button>
+            <a
+              className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+              href={buildClearFiltersHref(requestedShopId, selectedPageSize)}
+            >
+              {translateText(dictionary, "Reset filters")}
+            </a>
+          </div>
         </div>
       </form>
+      {catalogDialogPanel}
+      <ProductDetailModalController
+        canManageProducts={canManageProducts}
+        categories={categoryOptions}
+        labels={dictionary.exact}
+        requestedShopId={requestedShopId}
+        selectedShopId={selectedShopId}
+        suppliers={supplierOptions}
+      />
+      <HistoryDetailModalController
+        labels={dictionary.exact}
+        requestedShopId={requestedShopId}
+      />
       <ActionResultBanner
         action={getParam(params, "action")}
         result={getParam(params, "result")}
@@ -1475,7 +1769,6 @@ export default async function ShopProductsPage({
         requestedShopId={requestedShopId}
       />
       <ShopSectionPage
-        liveDataToolbar={catalogToolbar}
         renderLiveData={({ liveData, rowActions }) => (
           <ProductCatalogList
             labels={catalogListLabels}
@@ -1483,20 +1776,17 @@ export default async function ShopProductsPage({
             rowActions={rowActions}
           />
         )}
-        rowActions={
-          canManageProducts
-            ? {
-                label: dictionary.common.actions,
-                render: (row) => (
-                  <ProductRowActions
-                    labels={rowActionLabels}
-                    params={params}
-                    row={row}
-                  />
-                ),
-              }
-            : undefined
-        }
+        rowActions={{
+          label: dictionary.common.actions,
+          render: (row) => (
+            <ProductRowActions
+              canManageProducts={canManageProducts}
+              labels={rowActionLabels}
+              params={params}
+              row={row}
+            />
+          ),
+        }}
         section={section}
       />
       <ProductsPagination

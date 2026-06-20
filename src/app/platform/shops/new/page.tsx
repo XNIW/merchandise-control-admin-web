@@ -1,6 +1,5 @@
 import { AppShell } from "@/components/platform/AppShell";
 import { EmptyState } from "@/components/platform/components/EmptyState";
-import { PageHeader } from "@/components/platform/components/PageHeader";
 import { SectionCard } from "@/components/platform/components/SectionCard";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
@@ -34,17 +33,17 @@ export default async function PlatformNewShopPage() {
   );
 
   return (
-    <AppShell activeSection="provisioning" dictionary={dictionary} locale={locale}>
+    <AppShell
+      activeSection="provisioning"
+      dictionary={dictionary}
+      locale={locale}
+      topbarDescription={t(
+        "Create a shop with an existing owner or pending owner invite.",
+      )}
+      topbarEyebrow={t("Controlled actions")}
+      topbarTitle={t("Provision Shop")}
+    >
       <div className="mx-auto flex max-w-5xl flex-col gap-5">
-        <PageHeader
-          eyebrow={t("Shop onboarding")}
-          title={t("Provision Shop")}
-          description={t(
-            "Create a shop with an existing owner or a pending owner invite through audited Master Console boundaries.",
-          )}
-          status={ready ? t("Safe provisioning") : t(formatToken(readModel.status))}
-        />
-
         {!ready ? (
           <SectionCard
             title={t("Provisioning unavailable")}

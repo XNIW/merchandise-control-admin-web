@@ -1,6 +1,5 @@
 import { AppShell } from "@/components/platform/AppShell";
 import { EmptyState } from "@/components/platform/components/EmptyState";
-import { PageHeader } from "@/components/platform/components/PageHeader";
 import { SectionCard } from "@/components/platform/components/SectionCard";
 import {
   formatToken,
@@ -12,8 +11,9 @@ import { formatDateTime } from "@/i18n/format";
 import { getI18n } from "@/i18n/get-locale";
 import { createAccountIdentitySummary } from "@/lib/account-identity";
 import { translateText } from "@/i18n/translate-sections";
+import { createAdminWebPerfTrace } from "@/server/admin-web-perf";
 import {
-  getPlatformAdminReadModel,
+  getPlatformAdminsReadModel,
   type PlatformAdminLiveReadModel,
   type PlatformUserAccountSummary,
 } from "@/server/platform-admin/read-model";
@@ -62,6 +62,14 @@ const resultMessages: Record<ResultCode, string> = {
   conflict: "The operation could not be completed because of a conflict.",
   db_failure: "The controlled database action failed without exposing internal details.",
 };
+
+function jsonByteLength(value: unknown) {
+  try {
+    return new TextEncoder().encode(JSON.stringify(value)).length;
+  } catch {
+    return null;
+  }
+}
 
 function firstParam(value: string | string[] | undefined) {
   return Array.isArray(value) ? value[0] : value;
@@ -219,9 +227,15 @@ export default async function PlatformAdminsPage({
   const { dictionary, locale } = await getI18n();
   const t = (value: string) => translateText(dictionary, value);
   const result = asResultCode(firstParam(params.result));
-  const readModel = await getPlatformAdminReadModel({
-    includeAuthIdentities: true,
+  const perfTrace = createAdminWebPerfTrace("platform.admins.route", {
+    includeAuthIdentities: false,
+    routeKey: "admins",
   });
+  const readModel = await perfTrace.time("platform.getPlatformAdminsReadModel", () =>
+    getPlatformAdminsReadModel({
+      perfTrace,
+    }),
+  );
   const ready = readModel.status === "ready";
   const activeAdminIds = new Set(readModel.platformAdminProfileIds);
   const activeProfiles = readModel.profiles.filter(
@@ -236,19 +250,39 @@ export default async function PlatformAdminsPage({
   const currentAccount = ready && readModel.currentProfileId
     ? accountForProfile(readModel, readModel.currentProfileId)
     : undefined;
+  perfTrace.flush({
+    activeAdminsCount: activeAdmins.length,
+    authIdentitiesCount: readModel.authIdentities.length,
+    authIdentitiesScannedCount: readModel.authIdentityStatus.scannedCount,
+    grantableProfilesCount: grantableProfiles.length,
+    pagePayloadBytes: jsonByteLength({
+      activeAdmins: readModel.platformAdmins,
+      grantableProfiles,
+      readIssues: readModel.readIssues,
+      userAccounts: readModel.userAccounts,
+    }),
+    platformAdminsCount: readModel.platformAdmins.length,
+    profilesCount: readModel.profiles.length,
+    readIssuesCount: readModel.readIssues.length,
+    readModel: "getPlatformAdminsReadModel",
+    routeKey: "admins",
+    shopDevicesCount: readModel.shopDevices.length,
+    shopMembersCount: readModel.shopMembers.length,
+    shopsCount: readModel.shops.length,
+    staffSafeRowsCount: readModel.staffSafeRows.length,
+    status: readModel.status,
+    syncEventsCount: readModel.syncEvents.length,
+    userAccountsCount: readModel.userAccounts.length,
+  });
 
   return (
-    <AppShell activeSection="admins">
+    <AppShell
+      activeSection="admins"
+      topbarDescription={t("Global Master Console access and grant review.")}
+      topbarEyebrow={t("Platform")}
+      topbarTitle={t("Platform Admins")}
+    >
       <div className="mx-auto flex max-w-6xl flex-col gap-5">
-        <PageHeader
-          eyebrow={t("Global security")}
-          title={t("Platform Admins")}
-          description={t(
-            "Manage only global Master Console access. Shop owners and managers belong to shop_members, not platform_admins.",
-          )}
-          status={ready ? t("Live actions") : t(formatToken(readModel.status))}
-        />
-
         <section className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm leading-5 text-amber-950">
           <p className="font-semibold">{t("Global access only")}</p>
           <dl className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">

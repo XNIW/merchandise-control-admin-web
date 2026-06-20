@@ -1,0 +1,355 @@
+{
+  "dataset": "real-shop-readonly",
+  "generatedAt": "2026-06-20T17:14:29.399Z",
+  "measurements": [
+    {
+      "activeMs": 60,
+      "consoleErrors": [],
+      "documentBytes": 370988,
+      "documentMs": 805,
+      "finalMs": 580,
+      "finalPathname": "/shop/products",
+      "finalStatus": "ready",
+      "finalTitleText": null,
+      "label": "Products",
+      "path": "/shop/products",
+      "pendingMs": 32,
+      "pendingStatus": "observed",
+      "rscBytes": 16413,
+      "rscResponseCount": 3,
+      "shopParamStatus": "matched",
+      "ttfbMs": 385,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 32,
+      "visualReplacementStatus": "observed",
+      "key": "products",
+      "serverTraceSummary": {
+        "catalogOptionsBytesMax": 14898,
+        "clientProductOptionsMax": 0,
+        "estimatedSectionBytesMax": 9840,
+        "latestQueryCount": 5,
+        "latestTotalMs": 1305.3,
+        "liveDataRowsMax": 10,
+        "pageRowsMax": 10,
+        "productsPageBytesMax": 5674,
+        "queryCountPerRenderMax": 5,
+        "queryLabels": [
+          "inventory_categories.options",
+          "inventory_products.page",
+          "inventory_suppliers.options",
+          "shop_inventory_sources.mapping",
+          "shop_inventory_sources.mapping.options"
+        ],
+        "readModelsLoaded": [],
+        "renderCount": 2,
+        "scopeLabels": [
+          "shop.products"
+        ],
+        "serverTotalMsMax": 1305.3,
+        "status": "captured",
+        "totalCountMax": 11
+      }
+    },
+    {
+      "activeMs": 25,
+      "consoleErrors": [],
+      "documentBytes": 185073,
+      "documentMs": 286,
+      "finalMs": null,
+      "finalPathname": "/shop/categories",
+      "finalStatus": "timeout",
+      "finalTitleText": null,
+      "label": "Categories",
+      "path": "/shop/categories",
+      "pendingMs": 21,
+      "pendingStatus": "observed",
+      "rscBytes": 80724,
+      "rscResponseCount": 4,
+      "ttfbMs": 437,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 21,
+      "visualReplacementStatus": "observed",
+      "key": "categories",
+      "serverTraceSummary": {
+        "status": "not_captured"
+      }
+    },
+    {
+      "activeMs": 17,
+      "consoleErrors": [],
+      "documentBytes": 286386,
+      "documentMs": 241,
+      "finalMs": null,
+      "finalPathname": "/shop/suppliers",
+      "finalStatus": "timeout",
+      "finalTitleText": null,
+      "label": "Suppliers",
+      "path": "/shop/suppliers",
+      "pendingMs": 15,
+      "pendingStatus": "observed",
+      "rscBytes": 4842,
+      "rscResponseCount": 4,
+      "ttfbMs": 515,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 15,
+      "visualReplacementStatus": "observed",
+      "key": "suppliers",
+      "serverTraceSummary": {
+        "status": "not_captured"
+      }
+    },
+    {
+      "activeMs": 19,
+      "consoleErrors": [],
+      "documentBytes": 77281,
+      "documentMs": 148,
+      "finalMs": null,
+      "finalPathname": "/shop/staff",
+      "finalStatus": "timeout",
+      "finalTitleText": null,
+      "label": "POS / Staff",
+      "path": "/shop/staff",
+      "pendingMs": 16,
+      "pendingStatus": "observed",
+      "rscBytes": 19309,
+      "rscResponseCount": 4,
+      "ttfbMs": 383,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 16,
+      "visualReplacementStatus": "observed",
+      "key": "staff",
+      "serverTraceSummary": {
+        "status": "not_captured"
+      }
+    },
+    {
+      "activeMs": 22,
+      "consoleErrors": [],
+      "documentBytes": 223038,
+      "documentMs": 251,
+      "finalMs": null,
+      "finalPathname": "/shop/history",
+      "finalStatus": "timeout",
+      "finalTitleText": null,
+      "label": "History Entries",
+      "path": "/shop/history",
+      "pendingMs": 18,
+      "pendingStatus": "observed",
+      "rscBytes": 265,
+      "rscResponseCount": 4,
+      "ttfbMs": 316,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 18,
+      "visualReplacementStatus": "observed",
+      "key": "history",
+      "serverTraceSummary": {
+        "status": "not_captured"
+      }
+    },
+    {
+      "activeMs": 14,
+      "consoleErrors": [],
+      "documentBytes": 157432,
+      "documentMs": 204,
+      "finalMs": null,
+      "finalPathname": "/shop/sync",
+      "finalStatus": "timeout",
+      "finalTitleText": null,
+      "label": "Sync Center",
+      "path": "/shop/sync",
+      "pendingMs": 13,
+      "pendingStatus": "observed",
+      "rscBytes": 262,
+      "rscResponseCount": 4,
+      "ttfbMs": 414,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 13,
+      "visualReplacementStatus": "observed",
+      "key": "sync",
+      "serverTraceSummary": {
+        "status": "not_captured"
+      }
+    }
+  ],
+  "phase": "task-077b-shop-after-final2",
+  "shop": {
+    "id": "redacted",
+    "source": "env"
+  },
+  "target": {
+    "baseUrl": "http://127.0.0.1:3077",
+    "class": "cloud-supabase-readonly",
+    "testTarget": "staging"
+  },
+  "serverPerfTraces": [
+    {
+      "marks": [],
+      "meta": {
+        "activeFilterCount": 0,
+        "hasRequestedShopId": true,
+        "pageSize": "10",
+        "route": "/shop/products",
+        "state": "active",
+        "catalogOptionRows": 109,
+        "catalogOptionsStatus": "ready",
+        "catalogOptionsBytes": 14898,
+        "categoryOptions": 39,
+        "clientProductOptions": 0,
+        "dialogLoaded": false,
+        "estimatedSectionBytes": 9840,
+        "liveDataColumns": 12,
+        "liveDataRows": 10,
+        "pageRows": 10,
+        "productsPageBytes": 5674,
+        "productsStatus": "ready",
+        "supplierOptions": 70,
+        "totalCount": 11,
+        "totalCountStatus": "deferred",
+        "hasNextPage": true
+      },
+      "queries": {
+        "shop_inventory_sources.mapping": 1,
+        "shop_inventory_sources.mapping.options": 1,
+        "inventory_products.page": 1,
+        "inventory_categories.options": 1,
+        "inventory_suppliers.options": 1
+      },
+      "queryCount": 5,
+      "scope": "shop.products",
+      "timings": [
+        {
+          "label": "resolveShopAdminDataAccess.productsPage",
+          "ms": 366.8
+        },
+        {
+          "label": "resolveShopAdminDataAccess.catalogOptions",
+          "ms": 366.7
+        },
+        {
+          "label": "resolveShopPageAccessBundle",
+          "ms": 366.9
+        },
+        {
+          "label": "shop_inventory_sources.mapping.query",
+          "ms": 100.7
+        },
+        {
+          "label": "inventory_categories.options.query",
+          "ms": 142.4
+        },
+        {
+          "label": "inventory_suppliers.options.query",
+          "ms": 155.6
+        },
+        {
+          "label": "getShopCatalogOptionsReadModel",
+          "ms": 623.7
+        },
+        {
+          "label": "inventory_products.page.query",
+          "ms": 675.8
+        },
+        {
+          "label": "getShopInventoryProductsPage",
+          "ms": 1144.2
+        },
+        {
+          "label": "mapCatalogOptionsForClient",
+          "ms": 0.4
+        },
+        {
+          "label": "buildProductsPageSection",
+          "ms": 3.2
+        }
+      ],
+      "totalMs": 1148
+    },
+    {
+      "marks": [],
+      "meta": {
+        "activeFilterCount": 0,
+        "hasRequestedShopId": true,
+        "pageSize": "10",
+        "route": "/shop/products",
+        "state": "active",
+        "catalogOptionRows": 109,
+        "catalogOptionsStatus": "ready",
+        "catalogOptionsBytes": 14898,
+        "categoryOptions": 39,
+        "clientProductOptions": 0,
+        "dialogLoaded": false,
+        "estimatedSectionBytes": 9840,
+        "liveDataColumns": 12,
+        "liveDataRows": 10,
+        "pageRows": 10,
+        "productsPageBytes": 5674,
+        "productsStatus": "ready",
+        "supplierOptions": 70,
+        "totalCount": 11,
+        "totalCountStatus": "deferred",
+        "hasNextPage": true
+      },
+      "queries": {
+        "shop_inventory_sources.mapping": 1,
+        "shop_inventory_sources.mapping.options": 1,
+        "inventory_products.page": 1,
+        "inventory_categories.options": 1,
+        "inventory_suppliers.options": 1
+      },
+      "queryCount": 5,
+      "scope": "shop.products",
+      "timings": [
+        {
+          "label": "resolveShopAdminDataAccess.productsPage",
+          "ms": 426.5
+        },
+        {
+          "label": "resolveShopAdminDataAccess.catalogOptions",
+          "ms": 426.5
+        },
+        {
+          "label": "resolveShopPageAccessBundle",
+          "ms": 427
+        },
+        {
+          "label": "shop_inventory_sources.mapping.query",
+          "ms": 189.8
+        },
+        {
+          "label": "inventory_categories.options.query",
+          "ms": 96.5
+        },
+        {
+          "label": "inventory_suppliers.options.query",
+          "ms": 109
+        },
+        {
+          "label": "getShopCatalogOptionsReadModel",
+          "ms": 725.9
+        },
+        {
+          "label": "inventory_products.page.query",
+          "ms": 687.6
+        },
+        {
+          "label": "getShopInventoryProductsPage",
+          "ms": 1304.6
+        },
+        {
+          "label": "mapCatalogOptionsForClient",
+          "ms": 0
+        },
+        {
+          "label": "buildProductsPageSection",
+          "ms": 0.5
+        }
+      ],
+      "totalMs": 1305.3
+    }
+  ],
+  "serverTraceCapture": {
+    "appTarget": "local-cloud",
+    "status": "captured",
+    "tracesCount": 2
+  }
+}

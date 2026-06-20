@@ -4,6 +4,7 @@ import { ShopShell } from "@/components/shop/ShopShell";
 import {
   sharedShopGuardrails,
   shopNavigationSections,
+  shopSections,
 } from "@/components/shop/shopSections";
 import { getI18n } from "@/i18n/get-locale";
 import {
@@ -41,6 +42,31 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
     principal.kind === "personal_account"
       ? principal.availableShops
       : [access.selectedShop];
+  const sectionTitles = Object.fromEntries(
+    Object.entries(shopSections).map(([key, section]) => [
+      key,
+      translateText(dictionary, section.title),
+    ]),
+  );
+  const sectionEyebrows = Object.fromEntries(
+    Object.entries(shopSections).map(([key, section]) => [
+      key,
+      translateText(dictionary, section.eyebrow),
+    ]),
+  );
+  const sectionDescriptions = Object.fromEntries(
+    Object.entries(shopSections).map(([key, section]) => [
+      key,
+      translateText(dictionary, section.description),
+    ]),
+  );
+
+  sectionTitles.history = translateText(dictionary, "Android / iOS History Entries");
+  sectionEyebrows.history = translateText(dictionary, "Catalog");
+  sectionDescriptions.history = translateText(
+    dictionary,
+    "Mobile history sessions and sync-related catalog activity.",
+  );
 
   return (
     <ShopShell
@@ -54,6 +80,9 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
         shopNavigationSections,
       )}
       principalKind={principal.kind}
+      sectionDescriptions={sectionDescriptions}
+      sectionEyebrows={sectionEyebrows}
+      sectionTitles={sectionTitles}
       selectedShopId={access.selectedShop.shopId}
       sharedGuardrails={sharedShopGuardrails.map((item) =>
         translateText(dictionary, item),

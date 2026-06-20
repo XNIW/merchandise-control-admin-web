@@ -1,0 +1,3045 @@
+{
+  "dataset": "platform-master-console-readonly",
+  "generatedAt": "2026-06-20T16:39:13.345Z",
+  "measurements": [
+    {
+      "activeMs": 37,
+      "consoleErrors": [],
+      "documentBytes": 62605,
+      "documentMs": 358,
+      "finalMs": 868,
+      "finalStatus": "ready",
+      "heading": "Platform Overview",
+      "key": "overview",
+      "label": "Overview",
+      "path": "/platform",
+      "pendingMs": 49,
+      "pendingStatus": "observed",
+      "rscBytes": 0,
+      "rscResponseCount": 1,
+      "ttfbMs": 201,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 49,
+      "visualReplacementStatus": "observed",
+      "serverTraceSummary": {
+        "latestQueryCount": 11,
+        "latestTotalMs": 330.1,
+        "pagePayloadBytesMax": 0,
+        "queryCountPerRenderMax": 11,
+        "queryLabels": [
+          "platform.audit_logs.list",
+          "platform.auth.getUser",
+          "platform.platform_admins.authz",
+          "platform.platform_admins.list",
+          "platform.profiles.list",
+          "platform.shop_devices.list",
+          "platform.shop_inventory_sources.list",
+          "platform.shop_members.list",
+          "platform.shops.list_fiscal",
+          "platform.staff_accounts_safe.list",
+          "platform.sync_events.list"
+        ],
+        "readModelsLoaded": [
+          "getPlatformAdminReadModel"
+        ],
+        "renderCount": 2,
+        "scopeLabels": [
+          "platform.section"
+        ],
+        "sectionBytesMax": 2178,
+        "serverTotalMsMax": 525.5,
+        "status": "captured"
+      }
+    },
+    {
+      "activeMs": 16,
+      "consoleErrors": [],
+      "documentBytes": 127506,
+      "documentMs": 2871,
+      "finalMs": 2861,
+      "finalStatus": "ready",
+      "heading": "Personal Accounts",
+      "key": "users",
+      "label": "Users",
+      "path": "/platform/users",
+      "pendingMs": 24,
+      "pendingStatus": "observed",
+      "rscBytes": 0,
+      "rscResponseCount": 1,
+      "ttfbMs": 1244,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 24,
+      "visualReplacementStatus": "observed",
+      "serverTraceSummary": {
+        "latestQueryCount": 24,
+        "latestTotalMs": 2576.9,
+        "pagePayloadBytesMax": 0,
+        "queryCountPerRenderMax": 24,
+        "queryLabels": [
+          "platform.audit_logs.list",
+          "platform.auth.admin.listUsers",
+          "platform.auth.getUser",
+          "platform.mobile_inventory.inventory_categories.count",
+          "platform.mobile_inventory.inventory_product_prices.count",
+          "platform.mobile_inventory.inventory_products.count",
+          "platform.mobile_inventory.inventory_suppliers.count",
+          "platform.mobile_inventory.shared_sheet_sessions.count",
+          "platform.mobile_inventory.sync_events.count",
+          "platform.platform_admins.authz",
+          "platform.platform_admins.list",
+          "platform.profiles.list",
+          "platform.shop_devices.list",
+          "platform.shop_inventory_sources.list",
+          "platform.shop_members.list",
+          "platform.shops.list_fiscal",
+          "platform.staff_accounts_safe.list",
+          "platform.sync_events.list"
+        ],
+        "readModelsLoaded": [
+          "getPlatformAdminReadModel"
+        ],
+        "renderCount": 2,
+        "scopeLabels": [
+          "platform.section"
+        ],
+        "sectionBytesMax": 17898,
+        "serverTotalMsMax": 4083.8,
+        "status": "captured"
+      }
+    },
+    {
+      "activeMs": 18,
+      "consoleErrors": [],
+      "documentBytes": 93175,
+      "documentMs": 3727,
+      "finalMs": 2847,
+      "finalStatus": "ready",
+      "heading": "Shop Admins",
+      "key": "shopAdmins",
+      "label": "Shop Admins",
+      "path": "/platform/shop-admins",
+      "pendingMs": 29,
+      "pendingStatus": "observed",
+      "rscBytes": 0,
+      "rscResponseCount": 1,
+      "ttfbMs": 203,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 29,
+      "visualReplacementStatus": "observed",
+      "serverTraceSummary": {
+        "latestQueryCount": 24,
+        "latestTotalMs": 2710.6,
+        "pagePayloadBytesMax": 0,
+        "queryCountPerRenderMax": 24,
+        "queryLabels": [
+          "platform.audit_logs.list",
+          "platform.auth.admin.listUsers",
+          "platform.auth.getUser",
+          "platform.mobile_inventory.inventory_categories.count",
+          "platform.mobile_inventory.inventory_product_prices.count",
+          "platform.mobile_inventory.inventory_products.count",
+          "platform.mobile_inventory.inventory_suppliers.count",
+          "platform.mobile_inventory.shared_sheet_sessions.count",
+          "platform.mobile_inventory.sync_events.count",
+          "platform.platform_admins.authz",
+          "platform.platform_admins.list",
+          "platform.profiles.list",
+          "platform.shop_devices.list",
+          "platform.shop_inventory_sources.list",
+          "platform.shop_members.list",
+          "platform.shops.list_fiscal",
+          "platform.staff_accounts_safe.list",
+          "platform.sync_events.list"
+        ],
+        "readModelsLoaded": [
+          "getPlatformAdminReadModel"
+        ],
+        "renderCount": 2,
+        "scopeLabels": [
+          "platform.section"
+        ],
+        "sectionBytesMax": 10360,
+        "serverTotalMsMax": 3912.5,
+        "status": "captured"
+      }
+    },
+    {
+      "activeMs": 18,
+      "consoleErrors": [],
+      "documentBytes": 62694,
+      "documentMs": 3235,
+      "finalMs": 2835,
+      "finalStatus": "ready",
+      "heading": "Platform Admins",
+      "key": "admins",
+      "label": "Platform Admins",
+      "path": "/platform/admins",
+      "pendingMs": 25,
+      "pendingStatus": "observed",
+      "rscBytes": 0,
+      "rscResponseCount": 1,
+      "ttfbMs": 196,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 25,
+      "visualReplacementStatus": "observed",
+      "serverTraceSummary": {
+        "latestQueryCount": 24,
+        "latestTotalMs": 2539.3,
+        "pagePayloadBytesMax": 3227,
+        "queryCountPerRenderMax": 24,
+        "queryLabels": [
+          "platform.audit_logs.list",
+          "platform.auth.admin.listUsers",
+          "platform.auth.getUser",
+          "platform.mobile_inventory.inventory_categories.count",
+          "platform.mobile_inventory.inventory_product_prices.count",
+          "platform.mobile_inventory.inventory_products.count",
+          "platform.mobile_inventory.inventory_suppliers.count",
+          "platform.mobile_inventory.shared_sheet_sessions.count",
+          "platform.mobile_inventory.sync_events.count",
+          "platform.platform_admins.authz",
+          "platform.platform_admins.list",
+          "platform.profiles.list",
+          "platform.shop_devices.list",
+          "platform.shop_inventory_sources.list",
+          "platform.shop_members.list",
+          "platform.shops.list_fiscal",
+          "platform.staff_accounts_safe.list",
+          "platform.sync_events.list"
+        ],
+        "readModelsLoaded": [
+          "getPlatformAdminReadModel"
+        ],
+        "renderCount": 2,
+        "scopeLabels": [
+          "platform.admins.route"
+        ],
+        "sectionBytesMax": 0,
+        "serverTotalMsMax": 3402.9,
+        "status": "captured"
+      }
+    },
+    {
+      "activeMs": 23,
+      "consoleErrors": [],
+      "documentBytes": 92649,
+      "documentMs": 3284,
+      "finalMs": 2841,
+      "finalStatus": "ready",
+      "heading": "Shops",
+      "key": "shops",
+      "label": "Shops",
+      "path": "/platform/shops",
+      "pendingMs": 31,
+      "pendingStatus": "observed",
+      "rscBytes": 30359,
+      "rscResponseCount": 1,
+      "ttfbMs": 198,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 31,
+      "visualReplacementStatus": "observed",
+      "serverTraceSummary": {
+        "latestQueryCount": 24,
+        "latestTotalMs": 2468.9,
+        "pagePayloadBytesMax": 0,
+        "queryCountPerRenderMax": 24,
+        "queryLabels": [
+          "platform.audit_logs.list",
+          "platform.auth.admin.listUsers",
+          "platform.auth.getUser",
+          "platform.mobile_inventory.inventory_categories.count",
+          "platform.mobile_inventory.inventory_product_prices.count",
+          "platform.mobile_inventory.inventory_products.count",
+          "platform.mobile_inventory.inventory_suppliers.count",
+          "platform.mobile_inventory.shared_sheet_sessions.count",
+          "platform.mobile_inventory.sync_events.count",
+          "platform.platform_admins.authz",
+          "platform.platform_admins.list",
+          "platform.profiles.list",
+          "platform.shop_devices.list",
+          "platform.shop_inventory_sources.list",
+          "platform.shop_members.list",
+          "platform.shops.list_fiscal",
+          "platform.staff_accounts_safe.list",
+          "platform.sync_events.list"
+        ],
+        "readModelsLoaded": [
+          "getPlatformAdminReadModel"
+        ],
+        "renderCount": 2,
+        "scopeLabels": [
+          "platform.section"
+        ],
+        "sectionBytesMax": 12389,
+        "serverTotalMsMax": 3458.2,
+        "status": "captured"
+      }
+    },
+    {
+      "activeMs": 24,
+      "consoleErrors": [],
+      "documentBytes": 138815,
+      "documentMs": 268,
+      "finalMs": 822,
+      "finalStatus": "ready",
+      "heading": "Controlled Operations",
+      "key": "operations",
+      "label": "Operations",
+      "path": "/platform/operations",
+      "pendingMs": 31,
+      "pendingStatus": "observed",
+      "rscBytes": 0,
+      "rscResponseCount": 1,
+      "ttfbMs": 178,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 31,
+      "visualReplacementStatus": "observed",
+      "serverTraceSummary": {
+        "latestQueryCount": 11,
+        "latestTotalMs": 445.1,
+        "pagePayloadBytesMax": 74484,
+        "queryCountPerRenderMax": 11,
+        "queryLabels": [
+          "platform.audit_logs.list",
+          "platform.auth.getUser",
+          "platform.platform_admins.authz",
+          "platform.platform_admins.list",
+          "platform.profiles.list",
+          "platform.shop_devices.list",
+          "platform.shop_inventory_sources.list",
+          "platform.shop_members.list",
+          "platform.shops.list_fiscal",
+          "platform.staff_accounts_safe.list",
+          "platform.sync_events.list"
+        ],
+        "readModelsLoaded": [
+          "getPlatformAdminReadModel"
+        ],
+        "renderCount": 2,
+        "scopeLabels": [
+          "platform.operations.route"
+        ],
+        "sectionBytesMax": 0,
+        "serverTotalMsMax": 445.1,
+        "status": "captured"
+      }
+    },
+    {
+      "activeMs": 19,
+      "consoleErrors": [],
+      "documentBytes": 754083,
+      "documentMs": 314,
+      "finalMs": 837,
+      "finalStatus": "ready",
+      "heading": "Audit",
+      "key": "audit",
+      "label": "Audit",
+      "path": "/platform/audit",
+      "pendingMs": 27,
+      "pendingStatus": "observed",
+      "rscBytes": 0,
+      "rscResponseCount": 1,
+      "ttfbMs": 199,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 27,
+      "visualReplacementStatus": "observed",
+      "serverTraceSummary": {
+        "latestQueryCount": 11,
+        "latestTotalMs": 476.4,
+        "pagePayloadBytesMax": 0,
+        "queryCountPerRenderMax": 11,
+        "queryLabels": [
+          "platform.audit_logs.list",
+          "platform.auth.getUser",
+          "platform.platform_admins.authz",
+          "platform.platform_admins.list",
+          "platform.profiles.list",
+          "platform.shop_devices.list",
+          "platform.shop_inventory_sources.list",
+          "platform.shop_members.list",
+          "platform.shops.list_fiscal",
+          "platform.staff_accounts_safe.list",
+          "platform.sync_events.list"
+        ],
+        "readModelsLoaded": [
+          "getPlatformAdminReadModel"
+        ],
+        "renderCount": 2,
+        "scopeLabels": [
+          "platform.section"
+        ],
+        "sectionBytesMax": 62348,
+        "serverTotalMsMax": 476.4,
+        "status": "captured"
+      }
+    },
+    {
+      "activeMs": 18,
+      "consoleErrors": [],
+      "documentBytes": 59269,
+      "documentMs": 343,
+      "finalMs": 815,
+      "finalStatus": "ready",
+      "heading": "System Status",
+      "key": "system",
+      "label": "System",
+      "path": "/platform/system",
+      "pendingMs": 25,
+      "pendingStatus": "observed",
+      "rscBytes": 22270,
+      "rscResponseCount": 1,
+      "ttfbMs": 193,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 25,
+      "visualReplacementStatus": "observed",
+      "serverTraceSummary": {
+        "latestQueryCount": 11,
+        "latestTotalMs": 531,
+        "pagePayloadBytesMax": 0,
+        "queryCountPerRenderMax": 11,
+        "queryLabels": [
+          "platform.audit_logs.list",
+          "platform.auth.getUser",
+          "platform.platform_admins.authz",
+          "platform.platform_admins.list",
+          "platform.profiles.list",
+          "platform.shop_devices.list",
+          "platform.shop_inventory_sources.list",
+          "platform.shop_members.list",
+          "platform.shops.list_fiscal",
+          "platform.staff_accounts_safe.list",
+          "platform.sync_events.list"
+        ],
+        "readModelsLoaded": [
+          "getPlatformAdminReadModel"
+        ],
+        "renderCount": 3,
+        "scopeLabels": [
+          "platform.section"
+        ],
+        "sectionBytesMax": 2080,
+        "serverTotalMsMax": 653.6,
+        "status": "captured"
+      }
+    }
+  ],
+  "phase": "local-cloud-before",
+  "platformAdmin": {
+    "source": "discovered",
+    "user": "redacted"
+  },
+  "target": {
+    "baseUrl": "http://127.0.0.1:3078",
+    "class": "cloud-supabase-readonly",
+    "testTarget": "staging"
+  },
+  "serverPerfTraces": [
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": false,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": false,
+        "routeKey": "system",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 0,
+        "authIdentitiesScannedCount": 0,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 4,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 0,
+        "rowsCount": 7,
+        "sectionBytes": 2080,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 3,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1
+      },
+      "queryCount": 11,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 2.7
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 250.2
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 155.9
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 406.2
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 92.3
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 92.4
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 148.8
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 155.9
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 170.9
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 170.6
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 183.1
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 201.7
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 232
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 9.4
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.3
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 243.7
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 652.8
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 0.7
+        }
+      ],
+      "totalMs": 653.6
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": false,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": false,
+        "routeKey": "overview",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 0,
+        "authIdentitiesScannedCount": 0,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 3,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 0,
+        "rowsCount": 6,
+        "sectionBytes": 2178,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 8,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1
+      },
+      "queryCount": 11,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.4
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 89.6
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 85.2
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 174.9
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 97.7
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 109.4
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 109.6
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 109.7
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 117.1
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 121.3
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 122
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 172.6
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 348.8
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 349.7
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 525.1
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 0.3
+        }
+      ],
+      "totalMs": 525.5
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": false,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": false,
+        "routeKey": "overview",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 0,
+        "authIdentitiesScannedCount": 0,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 3,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 0,
+        "rowsCount": 6,
+        "sectionBytes": 2178,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 8,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1
+      },
+      "queryCount": 11,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.3
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 83.5
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 87.5
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 171.1
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 87.7
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 89.2
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 93.7
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 97.5
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 100
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 108.4
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 108.4
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 116.1
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 157.7
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0.2
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 158.5
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 330
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 0.1
+        }
+      ],
+      "totalMs": 330.1
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": true,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": true,
+        "routeKey": "users",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 3,
+        "authIdentitiesScannedCount": 3,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 9,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 3,
+        "rowsCount": 3,
+        "sectionBytes": 17898,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 19,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.auth.admin.listUsers": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1,
+        "platform.mobile_inventory.inventory_products.count": 2,
+        "platform.mobile_inventory.inventory_suppliers.count": 2,
+        "platform.mobile_inventory.inventory_categories.count": 2,
+        "platform.mobile_inventory.inventory_product_prices.count": 2,
+        "platform.mobile_inventory.shared_sheet_sessions.count": 2,
+        "platform.mobile_inventory.sync_events.count": 2
+      },
+      "queryCount": 24,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.3
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 229.1
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 995.4
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 1224.5
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 120.8
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 128.3
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 148.1
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 163.5
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 163.6
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 163.7
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 189.3
+        },
+        {
+          "label": "platform.auth.admin.listUsers",
+          "ms": 198.5
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 222.1
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 239.4
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 88.1
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 768.5
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 87.3
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 94.8
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 93.6
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 94.7
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 88.6
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 1384.7
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 103.5
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 104.3
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 90.6
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 164.4
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0.3
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.2
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 2855.4
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 4080.3
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 3.3
+        }
+      ],
+      "totalMs": 4083.8
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": true,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": true,
+        "routeKey": "users",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 3,
+        "authIdentitiesScannedCount": 3,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 9,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 3,
+        "rowsCount": 3,
+        "sectionBytes": 17898,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 19,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.auth.admin.listUsers": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1,
+        "platform.mobile_inventory.inventory_products.count": 2,
+        "platform.mobile_inventory.inventory_suppliers.count": 2,
+        "platform.mobile_inventory.inventory_categories.count": 2,
+        "platform.mobile_inventory.inventory_product_prices.count": 2,
+        "platform.mobile_inventory.shared_sheet_sessions.count": 2,
+        "platform.mobile_inventory.sync_events.count": 2
+      },
+      "queryCount": 24,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.2
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 91
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 119.7
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 211.9
+        },
+        {
+          "label": "platform.auth.admin.listUsers",
+          "ms": 103.5
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 111.7
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 111.9
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 111.9
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 111.1
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 120.7
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 112.6
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 144.1
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 145.7
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 187.8
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 95.4
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 573.8
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 109.1
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 116.7
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 150
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 150.9
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 89.7
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 1057.5
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 84.8
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 90.8
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 106.6
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 166.6
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.3
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 2360.2
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 2575.4
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 1.2
+        }
+      ],
+      "totalMs": 2576.9
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": true,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": true,
+        "routeKey": "shopAdmins",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 3,
+        "authIdentitiesScannedCount": 3,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 6,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 2,
+        "rowsCount": 2,
+        "sectionBytes": 10360,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 10,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.auth.admin.listUsers": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1,
+        "platform.mobile_inventory.inventory_products.count": 2,
+        "platform.mobile_inventory.inventory_suppliers.count": 2,
+        "platform.mobile_inventory.inventory_categories.count": 2,
+        "platform.mobile_inventory.inventory_product_prices.count": 2,
+        "platform.mobile_inventory.shared_sheet_sessions.count": 2,
+        "platform.mobile_inventory.sync_events.count": 2
+      },
+      "queryCount": 24,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 85.3
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 101.4
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 186.8
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 94.5
+        },
+        {
+          "label": "platform.auth.admin.listUsers",
+          "ms": 109.2
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 108.8
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 108.8
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 108.4
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 118.5
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 118.3
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 118.4
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 143
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 317.7
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 93.9
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 936.2
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 104.1
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 105
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 87.9
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 89.2
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 86.3
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 2007.1
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 101.9
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 103.9
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 88.7
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 162.9
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.2
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 3724.2
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 3911.3
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 1.2
+        }
+      ],
+      "totalMs": 3912.5
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": true,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": true,
+        "routeKey": "shopAdmins",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 3,
+        "authIdentitiesScannedCount": 3,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 6,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 2,
+        "rowsCount": 2,
+        "sectionBytes": 10360,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 10,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.auth.admin.listUsers": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1,
+        "platform.mobile_inventory.inventory_products.count": 2,
+        "platform.mobile_inventory.inventory_suppliers.count": 2,
+        "platform.mobile_inventory.inventory_categories.count": 2,
+        "platform.mobile_inventory.inventory_product_prices.count": 2,
+        "platform.mobile_inventory.shared_sheet_sessions.count": 2,
+        "platform.mobile_inventory.sync_events.count": 2
+      },
+      "queryCount": 24,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.2
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 223.6
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 85.4
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 309.1
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 97.3
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 97.4
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 97.6
+        },
+        {
+          "label": "platform.auth.admin.listUsers",
+          "ms": 108.1
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 107.5
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 120.1
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 120.1
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 120.5
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 147
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 177.5
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 104.7
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 598.8
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 89.5
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 186.5
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 83.4
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 87.9
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 84.5
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 1080.7
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 93.7
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 100.8
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 101.9
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 165.4
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.2
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 2400.7
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 2710
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 0.5
+        }
+      ],
+      "totalMs": 2710.6
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": true,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "includeAuthIdentities": true,
+        "routeKey": "admins",
+        "activeAdminsCount": 1,
+        "authIdentitiesCount": 3,
+        "authIdentitiesScannedCount": 3,
+        "grantableProfilesCount": 2,
+        "pagePayloadBytes": 3227,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.auth.admin.listUsers": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1,
+        "platform.mobile_inventory.inventory_products.count": 2,
+        "platform.mobile_inventory.inventory_suppliers.count": 2,
+        "platform.mobile_inventory.inventory_categories.count": 2,
+        "platform.mobile_inventory.inventory_product_prices.count": 2,
+        "platform.mobile_inventory.shared_sheet_sessions.count": 2,
+        "platform.mobile_inventory.sync_events.count": 2
+      },
+      "queryCount": 24,
+      "scope": "platform.admins.route",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 81.7
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 94.7
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 176.4
+        },
+        {
+          "label": "platform.auth.admin.listUsers",
+          "ms": 112.7
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 112.5
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 118
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 123
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 123.2
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 126.6
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 126.7
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 141
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 141.6
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 182.4
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 170.1
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 1045.5
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 170.8
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 171
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 86.6
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 86.7
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 77.5
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 1486.7
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 96.5
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 100.9
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 84.9
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 152
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 3226.2
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 3402.7
+        }
+      ],
+      "totalMs": 3402.9
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": true,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "includeAuthIdentities": true,
+        "routeKey": "admins",
+        "activeAdminsCount": 1,
+        "authIdentitiesCount": 3,
+        "authIdentitiesScannedCount": 3,
+        "grantableProfilesCount": 2,
+        "pagePayloadBytes": 3227,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.auth.admin.listUsers": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1,
+        "platform.mobile_inventory.inventory_products.count": 2,
+        "platform.mobile_inventory.inventory_suppliers.count": 2,
+        "platform.mobile_inventory.inventory_categories.count": 2,
+        "platform.mobile_inventory.inventory_product_prices.count": 2,
+        "platform.mobile_inventory.shared_sheet_sessions.count": 2,
+        "platform.mobile_inventory.sync_events.count": 2
+      },
+      "queryCount": 24,
+      "scope": "platform.admins.route",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.2
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 93.1
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 145.5
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 238.7
+        },
+        {
+          "label": "platform.auth.admin.listUsers",
+          "ms": 107.1
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 106.2
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 106.3
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 106.4
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 106.6
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 112.5
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 114
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 118.2
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 131.4
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 165.8
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 84.2
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 572.4
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 80.7
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 90.1
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 87.7
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 87.8
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 127
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 1072.7
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 106.2
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 106.7
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 83.8
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 201.8
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.3
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 2300.2
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 2539.2
+        }
+      ],
+      "totalMs": 2539.3
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": true,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": true,
+        "routeKey": "shops",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 3,
+        "authIdentitiesScannedCount": 3,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 6,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 3,
+        "rowsCount": 3,
+        "sectionBytes": 12389,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 7,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.auth.admin.listUsers": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1,
+        "platform.mobile_inventory.inventory_products.count": 2,
+        "platform.mobile_inventory.inventory_suppliers.count": 2,
+        "platform.mobile_inventory.inventory_categories.count": 2,
+        "platform.mobile_inventory.inventory_product_prices.count": 2,
+        "platform.mobile_inventory.shared_sheet_sessions.count": 2,
+        "platform.mobile_inventory.sync_events.count": 2
+      },
+      "queryCount": 24,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 108
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 82.8
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 190.8
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 94.6
+        },
+        {
+          "label": "platform.auth.admin.listUsers",
+          "ms": 94.9
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 103.8
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 103.9
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 103.9
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 109.8
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 109.9
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 114.2
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 146.8
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 238.9
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 130
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 1010.3
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 165.7
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 166.5
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 90
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 96.5
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 93.3
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 1478.2
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 107
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 111.6
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 90.5
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 159
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.2
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 3262.9
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 3453.9
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 4
+        }
+      ],
+      "totalMs": 3458.2
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": true,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": true,
+        "routeKey": "shops",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 3,
+        "authIdentitiesScannedCount": 3,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 6,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 3,
+        "rowsCount": 3,
+        "sectionBytes": 12389,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 7,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.auth.admin.listUsers": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1,
+        "platform.mobile_inventory.inventory_products.count": 2,
+        "platform.mobile_inventory.inventory_suppliers.count": 2,
+        "platform.mobile_inventory.inventory_categories.count": 2,
+        "platform.mobile_inventory.inventory_product_prices.count": 2,
+        "platform.mobile_inventory.shared_sheet_sessions.count": 2,
+        "platform.mobile_inventory.sync_events.count": 2
+      },
+      "queryCount": 24,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.3
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 88.5
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 112.4
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 200.9
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 84.2
+        },
+        {
+          "label": "platform.auth.admin.listUsers",
+          "ms": 89.4
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 90.5
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 101.4
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 101.4
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 103.7
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 108.3
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 114.6
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 126.1
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 160.3
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 94.3
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_products.count",
+          "ms": 566.5
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 81.3
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_suppliers.count",
+          "ms": 92.2
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 85.6
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_categories.count",
+          "ms": 85.9
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 147
+        },
+        {
+          "label": "platform.mobile_inventory.inventory_product_prices.count",
+          "ms": 1051.9
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 141.3
+        },
+        {
+          "label": "platform.mobile_inventory.shared_sheet_sessions.count",
+          "ms": 142.3
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 101.1
+        },
+        {
+          "label": "platform.mobile_inventory.sync_events.count",
+          "ms": 166.8
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 2267.4
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 2468.6
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 0.2
+        }
+      ],
+      "totalMs": 2468.9
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": false,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "includeAuthIdentities": false,
+        "routeKey": "operations",
+        "auditLogsCount": 200,
+        "pagePayloadBytes": 74484,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "workflowDevicesCount": 9,
+        "workflowShopsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1
+      },
+      "queryCount": 11,
+      "scope": "platform.operations.route",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 90.8
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 92.3
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 183.1
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 85.8
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 99.8
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 103.1
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 103.1
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 103.1
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 106.5
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 119.4
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 127.7
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 243.3
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 243.8
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 427
+        }
+      ],
+      "totalMs": 427.4
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": false,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "includeAuthIdentities": false,
+        "routeKey": "operations",
+        "auditLogsCount": 200,
+        "pagePayloadBytes": 74484,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "workflowDevicesCount": 9,
+        "workflowShopsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1
+      },
+      "queryCount": 11,
+      "scope": "platform.operations.route",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.2
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 135.4
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 92.6
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 228
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 94.5
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 94.5
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 110.1
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 110.1
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 110.1
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 110.2
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 116.6
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 123
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 216.5
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 216.8
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 445
+        }
+      ],
+      "totalMs": 445.1
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": false,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": false,
+        "routeKey": "audit",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 0,
+        "authIdentitiesScannedCount": 0,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 3,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 0,
+        "rowsCount": 200,
+        "sectionBytes": 62348,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 3,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1
+      },
+      "queryCount": 11,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.2
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 94.8
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 92.3
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 187.2
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 122.4
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 122.4
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 122.5
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 122.5
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 122.6
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 122.6
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 122.5
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 137.9
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 264.5
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 265
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 452.4
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 0.6
+        }
+      ],
+      "totalMs": 453.3
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": false,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": false,
+        "routeKey": "audit",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 0,
+        "authIdentitiesScannedCount": 0,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 3,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 0,
+        "rowsCount": 200,
+        "sectionBytes": 62348,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 3,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1
+      },
+      "queryCount": 11,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.4
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 87.1
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 102.1
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 189.2
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 110.6
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 110.5
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 110.6
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 110.6
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 110.7
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 110.7
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 114.2
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 126.5
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 286
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 286.4
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 476
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 0.2
+        }
+      ],
+      "totalMs": 476.4
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": false,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": false,
+        "routeKey": "system",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 0,
+        "authIdentitiesScannedCount": 0,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 4,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 0,
+        "rowsCount": 7,
+        "sectionBytes": 2080,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 3,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1
+      },
+      "queryCount": 11,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.3
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 95
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 84.7
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 179.7
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 96.5
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 96.5
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 96.5
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 96.5
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 101.6
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 119.4
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 128.5
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 151.4
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 344.4
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 344.8
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 524.8
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 0
+        }
+      ],
+      "totalMs": 524.9
+    },
+    {
+      "marks": [
+        {
+          "label": "platform.readModel.loadRows.start",
+          "meta": {
+            "hasUsersSearchQuery": false,
+            "includeAuthIdentities": false,
+            "mobileInventoryShopIdsCount": 0
+          }
+        }
+      ],
+      "meta": {
+        "hasUsersSearchQuery": false,
+        "includeAuthIdentities": false,
+        "routeKey": "system",
+        "auditLogsCount": 200,
+        "authIdentitiesCount": 0,
+        "authIdentitiesScannedCount": 0,
+        "detailSectionsCount": 0,
+        "guardrailsCount": 4,
+        "platformAdminsCount": 1,
+        "profilesCount": 3,
+        "readIssuesCount": 0,
+        "readModel": "getPlatformAdminReadModel",
+        "rowDetailsCount": 0,
+        "rowsCount": 7,
+        "sectionBytes": 2080,
+        "shopDevicesCount": 9,
+        "shopMembersCount": 2,
+        "shopOwnerMappingsCount": 2,
+        "shopsCount": 3,
+        "staffSafeRowsCount": 1,
+        "statsCount": 3,
+        "status": "ready",
+        "syncEventsCount": 300,
+        "userAccountsCount": 3
+      },
+      "queries": {
+        "platform.auth.getUser": 1,
+        "platform.platform_admins.authz": 1,
+        "platform.profiles.list": 1,
+        "platform.shops.list_fiscal": 1,
+        "platform.shop_members.list": 1,
+        "platform.platform_admins.list": 1,
+        "platform.shop_inventory_sources.list": 1,
+        "platform.audit_logs.list": 1,
+        "platform.shop_devices.list": 1,
+        "platform.sync_events.list": 1,
+        "platform.staff_accounts_safe.list": 1
+      },
+      "queryCount": 11,
+      "scope": "platform.section",
+      "timings": [
+        {
+          "label": "platform.createSupabaseServerClient",
+          "ms": 0.2
+        },
+        {
+          "label": "platform.auth.getUser",
+          "ms": 90.1
+        },
+        {
+          "label": "platform.platform_admins.authz",
+          "ms": 79.4
+        },
+        {
+          "label": "platform.authorizeCurrentPlatformAdmin",
+          "ms": 169.5
+        },
+        {
+          "label": "platform.platform_admins.list",
+          "ms": 115.4
+        },
+        {
+          "label": "platform.shop_inventory_sources.list",
+          "ms": 115.4
+        },
+        {
+          "label": "platform.profiles.list",
+          "ms": 124.2
+        },
+        {
+          "label": "platform.shops.list_fiscal",
+          "ms": 124.2
+        },
+        {
+          "label": "platform.shop_devices.list",
+          "ms": 128.6
+        },
+        {
+          "label": "platform.staff_accounts_safe.list",
+          "ms": 136.6
+        },
+        {
+          "label": "platform.shop_members.list",
+          "ms": 142.6
+        },
+        {
+          "label": "platform.audit_logs.list",
+          "ms": 200.5
+        },
+        {
+          "label": "platform.sync_events.list",
+          "ms": 360.6
+        },
+        {
+          "label": "platform.buildUserAccounts",
+          "ms": 0
+        },
+        {
+          "label": "platform.buildDataHealth",
+          "ms": 0.1
+        },
+        {
+          "label": "platform.loadRows",
+          "ms": 361.2
+        },
+        {
+          "label": "platform.getPlatformAdminReadModel",
+          "ms": 530.9
+        },
+        {
+          "label": "platform.buildReadySection",
+          "ms": 0.1
+        }
+      ],
+      "totalMs": 531
+    }
+  ],
+  "serverTraceCapture": {
+    "appTarget": "local-cloud",
+    "status": "captured",
+    "tracesCount": 17
+  }
+}

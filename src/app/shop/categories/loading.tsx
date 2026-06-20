@@ -4,7 +4,7 @@ export default function ShopCategoriesLoading() {
   return (
     <ShopRouteLoading
       dataAttribute="categories"
-      eyebrow="Catalog taxonomy"
+      eyebrow="Catalog"
       title="Categories"
     />
   );

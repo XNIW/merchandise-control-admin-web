@@ -1,0 +1,153 @@
+{
+  "dataset": "real-shop-readonly",
+  "generatedAt": "2026-06-20T17:41:58.728Z",
+  "measurements": [
+    {
+      "activeMs": 72,
+      "consoleErrors": [],
+      "documentBytes": 383869,
+      "documentMs": 885,
+      "finalMs": 94,
+      "finalPathname": "/shop/products",
+      "finalStatus": "ready",
+      "finalTitleText": "Products",
+      "label": "Products",
+      "path": "/shop/products",
+      "pendingMs": 35,
+      "pendingStatus": "observed",
+      "rscBytes": 16413,
+      "rscResponseCount": 3,
+      "shopParamStatus": "matched",
+      "ttfbMs": 494,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 35,
+      "visualReplacementStatus": "observed",
+      "key": "products",
+      "serverTraceSummary": {
+        "catalogOptionsBytesMax": 14898,
+        "clientProductOptionsMax": 0,
+        "estimatedSectionBytesMax": 9840,
+        "latestQueryCount": 5,
+        "latestTotalMs": 1327.3,
+        "liveDataRowsMax": 10,
+        "pageRowsMax": 10,
+        "productsPageBytesMax": 5674,
+        "queryCountPerRenderMax": 5,
+        "queryLabels": [
+          "inventory_categories.options",
+          "inventory_products.page",
+          "inventory_suppliers.options",
+          "shop_inventory_sources.mapping",
+          "shop_inventory_sources.mapping.options"
+        ],
+        "readModelsLoaded": [],
+        "renderCount": 1,
+        "scopeLabels": [
+          "shop.products"
+        ],
+        "serverTotalMsMax": 1327.3,
+        "status": "captured",
+        "totalCountMax": 11
+      }
+    }
+  ],
+  "phase": "task-077-final-reconciliation-products",
+  "shop": {
+    "id": "redacted",
+    "source": "env"
+  },
+  "target": {
+    "baseUrl": "http://127.0.0.1:3077",
+    "class": "cloud-supabase-readonly",
+    "testTarget": "staging"
+  },
+  "serverPerfTraces": [
+    {
+      "marks": [],
+      "meta": {
+        "activeFilterCount": 0,
+        "hasRequestedShopId": true,
+        "pageSize": "10",
+        "route": "/shop/products",
+        "state": "active",
+        "catalogOptionRows": 109,
+        "catalogOptionsStatus": "ready",
+        "catalogOptionsBytes": 14898,
+        "categoryOptions": 39,
+        "clientProductOptions": 0,
+        "dialogLoaded": false,
+        "estimatedSectionBytes": 9840,
+        "liveDataColumns": 12,
+        "liveDataRows": 10,
+        "pageRows": 10,
+        "productsPageBytes": 5674,
+        "productsStatus": "ready",
+        "supplierOptions": 70,
+        "totalCount": 11,
+        "totalCountStatus": "deferred",
+        "hasNextPage": true
+      },
+      "queries": {
+        "shop_inventory_sources.mapping": 1,
+        "shop_inventory_sources.mapping.options": 1,
+        "inventory_products.page": 1,
+        "inventory_categories.options": 1,
+        "inventory_suppliers.options": 1
+      },
+      "queryCount": 5,
+      "scope": "shop.products",
+      "timings": [
+        {
+          "label": "resolveShopAdminDataAccess.productsPage",
+          "ms": 472.9
+        },
+        {
+          "label": "resolveShopAdminDataAccess.catalogOptions",
+          "ms": 472.8
+        },
+        {
+          "label": "resolveShopPageAccessBundle",
+          "ms": 473
+        },
+        {
+          "label": "shop_inventory_sources.mapping.query",
+          "ms": 100.8
+        },
+        {
+          "label": "inventory_categories.options.query",
+          "ms": 95.6
+        },
+        {
+          "label": "inventory_suppliers.options.query",
+          "ms": 234.7
+        },
+        {
+          "label": "getShopCatalogOptionsReadModel",
+          "ms": 809.1
+        },
+        {
+          "label": "inventory_products.page.query",
+          "ms": 749.9
+        },
+        {
+          "label": "getShopInventoryProductsPage",
+          "ms": 1324.4
+        },
+        {
+          "label": "mapCatalogOptionsForClient",
+          "ms": 0.1
+        },
+        {
+          "label": "buildProductsPageSection",
+          "ms": 2.5
+        }
+      ],
+      "totalMs": 1327.3
+    }
+  ],
+  "serverTraceCapture": {
+    "appTarget": "local-cloud",
+    "status": "captured",
+    "tracesCount": 1
+  }
+}

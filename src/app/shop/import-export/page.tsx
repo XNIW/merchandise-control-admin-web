@@ -1,10 +1,7 @@
-import { ImportExportActionPanel } from "@/app/shop/_components/ImportExportActionPanel";
-import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
+import Link from "next/link";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
-import { resolveShopActionContext } from "@/server/shop-admin/action-context";
-import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
 export function generateMetadata() {
@@ -37,52 +34,26 @@ export default async function ShopImportExportPage({
   const { dictionary } = await getI18n();
   const params = await searchParams;
   const requestedShopId = getRequestedShopId(params);
-  const section = await getShopSectionForRequest(
-    "importExport",
-    requestedShopId,
-  );
-  const [importContext, exportContext] = await Promise.all([
-    resolveShopActionContext(requestedShopId, "catalog.import"),
-    resolveShopActionContext(requestedShopId, "catalog.export"),
-  ]);
-  const canImport = importContext.status === "ready";
-  const canExport = exportContext.status === "ready";
 
   return (
-    <div className="grid gap-5">
-      <ShopSectionPage section={section} />
-      <section
-        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950`}
+    <section
+      className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm leading-6 text-emerald-950`}
+    >
+      <h2 className="text-base font-semibold">
+        {translateText(dictionary, "Moved to Products")}
+      </h2>
+      <p className="mt-1">
+        {translateText(
+          dictionary,
+          "Import and export actions now live on the Products page. This compatibility page keeps existing import/export links available.",
+        )}
+      </p>
+      <Link
+        className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-emerald-900 px-4 text-sm font-medium text-white"
+        href={productsHref(requestedShopId)}
       >
-        <h2 className="text-base font-semibold">
-          {translateText(dictionary, "Moved to Products")}
-        </h2>
-        <p className="mt-1">
-          {translateText(
-            dictionary,
-            "Import and export actions now live in the Products Catalog Workspace. This compatibility page keeps existing import/export links available.",
-          )}
-        </p>
-        <a
-          className="mt-3 inline-flex h-10 items-center justify-center rounded-md bg-emerald-900 px-4 text-sm font-medium text-white"
-          href={productsHref(requestedShopId)}
-        >
-          {translateText(dictionary, "Open Products")}
-        </a>
-      </section>
-      {canImport || canExport ? (
-        <ImportExportActionPanel
-          authPrincipalKind={
-            importContext.status === "ready"
-              ? importContext.principalKind
-              : undefined
-          }
-          canExport={canExport}
-          canImport={canImport}
-          labels={dictionary.exact}
-          selectedShopId={requestedShopId}
-        />
-      ) : null}
-    </div>
+        {translateText(dictionary, "Open Products")}
+      </Link>
+    </section>
   );
 }

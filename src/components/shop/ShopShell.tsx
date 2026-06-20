@@ -13,6 +13,7 @@ import {
 import { LanguageSwitcher } from "@/components/language-switcher";
 import type { Dictionary } from "@/i18n/dictionaries";
 import type { SupportedLocale } from "@/i18n/locales";
+import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "./shopLayout";
 import type { ShopNavigationSection, ShopSectionKey } from "./shopSections";
 
 type ShopRole = "shop_owner" | "shop_manager";
@@ -35,19 +36,24 @@ type ShopShellProps = {
   logoutLabel: string;
   navigationSections: readonly ShopNavigationSection[];
   principalKind: "personal_account" | "pos_staff_manager";
+  sectionDescriptions: Readonly<Partial<Record<ShopSectionKey, string>>>;
+  sectionEyebrows: Readonly<Partial<Record<ShopSectionKey, string>>>;
+  sectionTitles: Readonly<Partial<Record<ShopSectionKey, string>>>;
   selectedShopId: string;
   sharedGuardrails: readonly string[];
 };
+
+type ShopNavigationItem = ShopNavigationSection["items"][number];
 
 function formatRole(role: ShopRole, labels: Dictionary["shopShell"]) {
   return labels.roles[role];
 }
 
-function formatCompanyRut(value: string | undefined, labels: Dictionary["shopShell"]) {
+function formatCompanyRut(value: string | undefined) {
   const compact = (value ?? "").trim().replace(/[^0-9kK]/g, "").toUpperCase();
 
   if (compact.length < 2) {
-    return labels.notConfigured;
+    return null;
   }
 
   const body = compact.slice(0, -1);
@@ -83,10 +89,16 @@ function shopIdentityLine(
   labels: Dictionary["shopShell"],
 ) {
   if (!shop) {
-    return `${labels.companyRutPrefix}: ${labels.notConfigured}`;
+    return null;
   }
 
-  return `${labels.companyRutPrefix}: ${formatCompanyRut(shop.companyRut, labels)}`;
+  const companyRut = formatCompanyRut(shop.companyRut);
+
+  if (companyRut) {
+    return `${labels.companyRutPrefix}: ${companyRut}`;
+  }
+
+  return null;
 }
 
 function isActivePath(pathname: string, href: string) {
@@ -97,16 +109,23 @@ function isActivePath(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(`${href}/`);
 }
 
-function sectionFromPath(
+function navigationItemFromPath(
   pathname: string,
   navigationSections: readonly ShopNavigationSection[],
-): ShopSectionKey | null {
+): ShopNavigationItem | null {
   const navigationItems = navigationSections.flatMap((section) => section.items);
   const matchingItem = [...navigationItems]
     .sort((left, right) => right.href.length - left.href.length)
     .find((item) => isActivePath(pathname, item.href));
 
-  return matchingItem?.key ?? null;
+  return matchingItem ?? null;
+}
+
+function sectionFromPath(
+  pathname: string,
+  navigationSections: readonly ShopNavigationSection[],
+): ShopSectionKey | null {
+  return navigationItemFromPath(pathname, navigationSections)?.key ?? null;
 }
 
 function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
@@ -229,6 +248,72 @@ function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
   return <svg {...commonProps}>{paths[itemKey]}</svg>;
 }
 
+function SkeletonBlock({ className }: { className: string }) {
+  return (
+    <div
+      aria-hidden="true"
+      className={`rounded-md bg-zinc-200 ${className}`}
+    />
+  );
+}
+
+function ShopPendingNavigationSkeleton({
+  itemKey,
+  label,
+}: {
+  itemKey: ShopSectionKey;
+  label: string;
+}) {
+  return (
+    <div
+      aria-busy="true"
+      aria-label={`${label} loading`}
+      className="grid gap-5"
+      data-shop-route-loading
+      data-shop-route-loading-section={itemKey}
+      data-shop-route-loading-target
+      role="status"
+      aria-live="polite"
+    >
+      <section className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-2`}>
+        <p className="text-xs font-semibold uppercase tracking-normal text-emerald-700">
+          Loading
+        </p>
+        <p className="flex min-w-0 items-center gap-3 text-2xl font-semibold leading-8 text-zinc-950">
+          <span
+            aria-hidden="true"
+            className="size-2.5 shrink-0 rounded-full bg-emerald-600"
+          />
+          <span className="min-w-0 truncate">Loading {label}</span>
+        </p>
+        <SkeletonBlock className="h-4 w-full max-w-2xl" />
+      </section>
+
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {Array.from({ length: 4 }, (_, index) => (
+          <div
+            className="min-h-24 rounded-md border border-zinc-200 bg-white p-4 shadow-sm"
+            key={index}
+          >
+            <SkeletonBlock className="h-3 w-24" />
+            <SkeletonBlock className="mt-4 h-7 w-20 bg-zinc-300" />
+            <SkeletonBlock className="mt-3 h-3 w-32" />
+          </div>
+        ))}
+      </section>
+
+      <section className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+        <SkeletonBlock className="h-5 w-52 bg-zinc-300" />
+        <div className="mt-5 grid gap-3">
+          {Array.from({ length: itemKey === "overview" ? 5 : 4 }, (_, index) => (
+            <SkeletonBlock className="h-12 w-full" key={index} />
+          ))}
+        </div>
+      </section>
+    </div>
+  );
+}
+
 function ShopNavigation({
   buildShopHref,
   currentActive,
@@ -276,43 +361,45 @@ function ShopNavigation({
             {section.label}
           </p>
           <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:gap-1 lg:px-0 lg:pb-0">
-            {section.items.map((item) => {
-              const isActive = item.key === currentActive;
-              const href = buildShopHref(item.href);
+            {section.items
+              .filter((item) => !item.hiddenFromPrimaryNav)
+              .map((item) => {
+                const isActive = item.key === currentActive;
+                const href = buildShopHref(item.href);
 
-              return (
-                <Link
-                  key={item.key}
-                  href={href}
-                  prefetch={false}
-                  aria-current={isActive ? "page" : undefined}
-                  onClick={(event) =>
-                    onNavigate({
-                      event,
-                      href,
-                      key: item.key,
-                      label: item.label,
-                    })
-                  }
-                  onFocus={() => handleNavigationIntent(item)}
-                  onMouseEnter={() => handleNavigationIntent(item)}
-                  onTouchStart={() => handleNavigationIntent(item)}
-                  data-prefetch-ready={prefetchedItems.has(item.key)}
-                  data-shop-nav-item={item.key}
-                  className={[
-                    "inline-flex shrink-0 items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-sm font-medium outline-none transition",
-                    "whitespace-nowrap",
-                    "focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
-                    isActive
-                      ? "border-emerald-700 bg-emerald-50 text-emerald-950"
-                    : "border-transparent text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950",
-                  ].join(" ")}
-                >
-                  <ShopNavigationIcon itemKey={item.key} />
-                  {item.label}
-                </Link>
-              );
-            })}
+                return (
+                  <Link
+                    key={item.key}
+                    href={href}
+                    prefetch={false}
+                    aria-current={isActive ? "page" : undefined}
+                    onClick={(event) =>
+                      onNavigate({
+                        event,
+                        href,
+                        key: item.key,
+                        label: item.label,
+                      })
+                    }
+                    onFocus={() => handleNavigationIntent(item)}
+                    onMouseEnter={() => handleNavigationIntent(item)}
+                    onTouchStart={() => handleNavigationIntent(item)}
+                    data-prefetch-ready={prefetchedItems.has(item.key)}
+                    data-shop-nav-item={item.key}
+                    className={[
+                      "inline-flex shrink-0 items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-sm font-medium outline-none transition",
+                      "whitespace-nowrap",
+                      "focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
+                      isActive
+                        ? "border-emerald-700 bg-emerald-50 text-emerald-950"
+                        : "border-transparent text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950",
+                    ].join(" ")}
+                  >
+                    <ShopNavigationIcon itemKey={item.key} />
+                    {item.label}
+                  </Link>
+                );
+              })}
           </div>
         </section>
       ))}
@@ -329,6 +416,9 @@ export function ShopShell({
   logoutLabel,
   navigationSections,
   principalKind,
+  sectionDescriptions,
+  sectionEyebrows,
+  sectionTitles,
   selectedShopId,
   sharedGuardrails,
 }: ShopShellProps) {
@@ -348,6 +438,10 @@ export function ShopShell({
   } | null>(null);
   const pathnameActive = useMemo(
     () => sectionFromPath(pathname, navigationSections),
+    [navigationSections, pathname],
+  );
+  const pathnameItem = useMemo(
+    () => navigationItemFromPath(pathname, navigationSections),
     [navigationSections, pathname],
   );
   const currentShopId = searchParams.get("shop_id");
@@ -371,6 +465,19 @@ export function ShopShell({
     availableShops[0];
   const selectedShopName = shopDisplayName(selectedShop, labels);
   const selectedShopIdentity = shopIdentityLine(selectedShop, labels);
+  const currentPageKey = visiblePendingNavigation?.key ?? pathnameItem?.key ?? null;
+  const currentPageTitle =
+    (visiblePendingNavigation
+      ? sectionTitles[visiblePendingNavigation.key] ?? visiblePendingNavigation.label
+      : null) ??
+    (pathnameItem ? sectionTitles[pathnameItem.key] ?? pathnameItem.label : null) ??
+    labels.adminConsole;
+  const currentPageEyebrow =
+    currentPageKey !== null
+      ? sectionEyebrows[currentPageKey] ?? labels.adminConsole
+      : labels.adminConsole;
+  const currentPageDescription =
+    currentPageKey !== null ? sectionDescriptions[currentPageKey] : null;
 
   function buildShopHref(href: string) {
     if (!selectedShop) {
@@ -453,7 +560,7 @@ export function ShopShell({
       >
         {labels.skipLink}
       </a>
-      <div className="grid min-h-screen lg:grid-cols-[264px_1fr]">
+      <div className="grid min-h-screen grid-cols-[minmax(0,1fr)] lg:grid-cols-[264px_minmax(0,1fr)]">
         <aside
           aria-label={labels.navigationAria}
           className="border-b border-zinc-200 bg-white lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r"
@@ -466,11 +573,15 @@ export function ShopShell({
               >
                 MC
               </div>
-              <div>
+              <div className="min-w-0">
                 <p className="text-sm font-semibold text-zinc-950">
-                  MerchandiseControl
+                  {selectedShop ? selectedShopName : labels.adminConsole}
                 </p>
-                <p className="text-xs text-zinc-500">{labels.adminConsole}</p>
+                {selectedShopIdentity ? (
+                  <p className="truncate text-xs text-zinc-500">
+                    {selectedShopIdentity}
+                  </p>
+                ) : null}
               </div>
             </div>
 
@@ -501,95 +612,96 @@ export function ShopShell({
         </aside>
 
         <div className="flex min-w-0 flex-col">
-          <header className="border-b border-zinc-200 bg-white px-4 py-3 sm:px-6 lg:px-8">
+          <header className="border-b border-zinc-200 bg-white px-4 py-2.5 sm:px-6 lg:px-8">
             <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-              <div
-                role="group"
-                aria-labelledby="selected-shop-context-label selected-shop-summary"
-              >
-                <p
-                  id="selected-shop-context-label"
-                  className="text-xs font-semibold uppercase text-zinc-500"
+              <div className="flex min-w-0 items-center gap-3">
+                <span
+                  aria-hidden="true"
+                  className="grid size-8 shrink-0 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800"
                 >
-                  {labels.selectedShopContext}
-                </p>
-                <p
-                  id="selected-shop-summary"
-                  className="mt-1 text-lg font-semibold leading-6 text-zinc-950"
-                >
-                  {selectedShopName}
-                </p>
-                <p className="text-sm leading-6 text-zinc-700">
-                  {selectedShopIdentity}
-                </p>
+                  {currentPageKey ? (
+                    <ShopNavigationIcon itemKey={currentPageKey} />
+                  ) : (
+                    <span className="size-2 rounded-full bg-emerald-700" />
+                  )}
+                </span>
+                <div className="min-w-0" title={currentPageDescription ?? undefined}>
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <h1
+                      id="shop-shell-page-title"
+                      className="min-w-0 truncate text-lg font-semibold leading-6 text-zinc-950"
+                    >
+                      {currentPageTitle}
+                    </h1>
+                    <span className="shrink-0 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-normal text-emerald-800">
+                      {currentPageEyebrow}
+                    </span>
+                  </div>
+                </div>
               </div>
 
-              <div className="flex flex-col gap-2 lg:items-end">
-                <div
-                  className="flex flex-wrap items-center gap-2"
-                  aria-label={labels.shopSelectionAria}
-                >
-                  {canSwitchShops ? (
-                    <>
-                      <label
-                        htmlFor="shop-switcher"
-                        className="text-xs font-semibold uppercase text-zinc-500"
-                      >
-                        {labels.switchShop}
-                      </label>
-                      <select
-                        id="shop-switcher"
-                        aria-label={labels.switchShop}
-                        value={selectedShop?.shopId ?? ""}
-                        onChange={handleShopChange}
-                        className="h-10 min-w-56 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
-                      >
-                        {availableShops.map((shop) => (
-                          <option key={shop.shopId} value={shop.shopId}>
-                            {shopDisplayName(shop, labels)} ({shop.shopCode})
-                          </option>
-                        ))}
-                      </select>
-                    </>
-                  ) : null}
-
-                  {!canSwitchShops && selectedShop ? (
-                    <p className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700">
-                      {labels.singleShopWorkspace}
-                    </p>
-                  ) : null}
-                </div>
-
-                <div className="flex flex-wrap gap-2" aria-label={labels.shopStatusAria}>
-                  <LanguageSwitcher
-                    label={languageSwitcherLabel}
-                    locale={locale}
-                    tone="emerald"
-                  />
-                  <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                    {selectedShop
-                      ? formatRole(selectedShop.role, labels)
-                      : labels.adminConsole}
-                  </span>
-                  <span className="rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">
-                    {labels.serverVerified}
-                  </span>
-                  <form
-                    action={
-                      principalKind === "pos_staff_manager"
-                        ? "/shop/staff-logout"
-                        : "/auth/logout"
-                    }
-                    method="get"
-                  >
-                    <button
-                      className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 outline-none transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2"
-                      type="submit"
+              <div
+                className="flex min-w-0 flex-wrap items-center justify-start gap-2 md:justify-end"
+                aria-label={labels.shopStatusAria}
+              >
+                {canSwitchShops ? (
+                  <>
+                    <label
+                      htmlFor="shop-switcher"
+                      className="sr-only"
                     >
-                      {logoutLabel}
-                    </button>
-                  </form>
-                </div>
+                      {labels.switchShop}
+                    </label>
+                    <select
+                      id="shop-switcher"
+                      aria-label={labels.switchShop}
+                      value={selectedShop?.shopId ?? ""}
+                      onChange={handleShopChange}
+                      className="h-9 min-w-52 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
+                    >
+                      {availableShops.map((shop) => (
+                        <option key={shop.shopId} value={shop.shopId}>
+                          {shopDisplayName(shop, labels)} ({shop.shopCode})
+                        </option>
+                      ))}
+                    </select>
+                  </>
+                ) : null}
+
+                {!canSwitchShops && selectedShop ? (
+                  <p className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700">
+                    {labels.singleShopWorkspace}
+                  </p>
+                ) : null}
+
+                <LanguageSwitcher
+                  label={languageSwitcherLabel}
+                  locale={locale}
+                  tone="emerald"
+                />
+                <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
+                  {selectedShop
+                    ? formatRole(selectedShop.role, labels)
+                    : labels.adminConsole}
+                </span>
+                <span className="rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">
+                  {labels.serverVerified}
+                </span>
+                <form
+                  action={
+                    principalKind === "pos_staff_manager"
+                      ? "/shop/staff-logout"
+                      : "/auth/logout"
+                  }
+                  method="get"
+                >
+                  <button
+                    className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 outline-none transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2"
+                    type="submit"
+                  >
+                    {logoutLabel}
+                  </button>
+                </form>
               </div>
             </div>
           </header>
@@ -602,32 +714,13 @@ export function ShopShell({
             data-shop-navigation-target={visiblePendingNavigation?.key}
           >
             {visiblePendingNavigation ? (
-              <div
-                className="mb-4 grid gap-3 rounded-md border border-emerald-200 bg-white p-3 shadow-sm"
-                data-shop-route-loading
-                role="status"
-                aria-live="polite"
-              >
-                <div className="flex min-w-0 items-center gap-3">
-                  <span
-                    aria-hidden="true"
-                    className="size-2.5 shrink-0 rounded-full bg-emerald-600"
-                  />
-                  <p className="min-w-0 text-sm font-semibold text-emerald-950">
-                    Loading {visiblePendingNavigation.label}
-                  </p>
-                </div>
-                <div
-                  aria-hidden="true"
-                  className="grid gap-2 sm:grid-cols-[minmax(8rem,0.8fr)_minmax(12rem,1fr)_minmax(8rem,0.6fr)]"
-                >
-                  <span className="h-2.5 rounded-md bg-zinc-200" />
-                  <span className="h-2.5 rounded-md bg-zinc-100" />
-                  <span className="h-2.5 rounded-md bg-zinc-200" />
-                </div>
-              </div>
-            ) : null}
-            {children}
+              <ShopPendingNavigationSkeleton
+                itemKey={visiblePendingNavigation.key}
+                label={visiblePendingNavigation.label}
+              />
+            ) : (
+              children
+            )}
           </main>
         </div>
       </div>

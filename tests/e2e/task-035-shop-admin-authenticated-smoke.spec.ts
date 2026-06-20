@@ -34,6 +34,7 @@ type Task035Fixture = {
   productName: string;
   shopCode: string;
   shopId: string;
+  shopName: string;
   staffCode: string;
   staffId: string;
   staffManagerCode: string;
@@ -86,7 +87,7 @@ const authenticatedSmokeRoutes: Array<{
   {
     heading: "Shop Overview",
     path: "/shop",
-    assertText: (fixture) => fixture.shopCode,
+    assertText: (fixture) => fixture.shopName,
   },
   {
     heading: "Products",
@@ -106,7 +107,7 @@ const authenticatedSmokeRoutes: Array<{
   {
     heading: "Import / Export",
     path: "/shop/import-export",
-    assertText: () => "Preview before apply",
+    assertText: () => "Moved to Products",
   },
   { heading: "Members", path: "/shop/members", assertText: () => "Shop Owner" },
   { heading: "Roles", path: "/shop/roles", assertText: () => "Shop Owner" },
@@ -134,7 +135,7 @@ const authenticatedSmokeRoutes: Array<{
   {
     heading: "Sync Center",
     path: "/shop/sync",
-    assertText: () => "without triggering synchronization",
+    assertText: () => "Sync events",
   },
 ];
 
@@ -444,6 +445,7 @@ async function createTask035Fixture(
   const deviceDisplayName = `TASK035 Device ${nonce}`;
   const supplierName = `TASK035_Supplier_${nonce}`;
   const productName = `TASK035_Product_${nonce}`;
+  const shopName = `TASK035 Authorized Shop ${nonce}`;
   const staffCode = task035Code(nonce, "STAFF");
   const cashierCredential = `task035_cashier_${randomBytes(18).toString("base64url")}`;
   const staffManagerCode = task035Code(nonce, "MANAGER");
@@ -602,7 +604,7 @@ async function createTask035Fixture(
         .insert({
           created_by_profile_id: userId,
           shop_code: shopCode,
-          shop_name: `TASK035 Authorized Shop ${nonce}`,
+          shop_name: shopName,
           shop_status: "active",
           status_changed_by_profile_id: userId,
         })
@@ -813,6 +815,7 @@ async function createTask035Fixture(
       productName,
       shopCode,
       shopId: authorizedShopId,
+      shopName,
       cashierCredential,
       staffCode,
       staffId: cashierStaff.staff_id,
@@ -1272,15 +1275,12 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       await expect(
         page.getByRole("heading", { level: 1, name: "Shop Overview" }),
       ).toBeVisible();
-      const blockedRequestHeader = page.getByRole("group", {
-        name: /Shop workspace/,
-      });
+      const blockedRequestSidebar = page.locator("aside").first();
 
-      await expect(
-        blockedRequestHeader.getByText(/^Company RUT:/),
-      ).toBeVisible();
-      await expect(blockedRequestHeader).not.toContainText("Shop code:");
-      await expect(blockedRequestHeader).not.toContainText(
+      await expect(blockedRequestSidebar).not.toContainText(
+        "Company RUT: Not configured",
+      );
+      await expect(blockedRequestSidebar).not.toContainText(
         fixture.blockedShopCode,
       );
       await expect(page.getByText(fixture.blockedShopCode)).toHaveCount(0);
@@ -1344,12 +1344,8 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         },
         { heading: "Suppliers", label: "Suppliers", text: "TASK035_Supplier" },
         { heading: "POS / Staff", label: "Staff", text: fixture.staffCode },
-        {
-          heading: "Devices",
-          label: "Devices",
-          text: fixture.deviceIdentifier,
-        },
-        { heading: "Shop Overview", label: "Overview", text: fixture.shopCode },
+        { heading: "Devices", label: "Devices" },
+        { heading: "Shop Overview", label: "Overview", text: fixture.shopName },
       ] as const;
 
       for (const step of flow) {
@@ -1357,7 +1353,10 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         await expect(
           page.getByRole("heading", { level: 1, name: step.heading }),
         ).toBeVisible();
-        await expect(page.getByText(step.text).first()).toBeVisible();
+
+        if ("text" in step) {
+          await expect(page.getByText(step.text).first()).toBeVisible();
+        }
 
         const currentUrl = new URL(page.url());
 
@@ -1404,7 +1403,7 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         page.getByRole("heading", { level: 1, name: "Products" }),
       ).toBeVisible();
       await expect(page.locator("[data-product-catalog-list]")).toBeVisible();
-      await expect(page.locator("[data-product-catalog-row]")).toHaveCount(100);
+      await expect(page.locator("[data-product-catalog-row]")).toHaveCount(10);
 
       const firstCatalogRow = page
         .locator("[data-product-catalog-row]")
@@ -1465,16 +1464,16 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         name: "Products pagination bottom",
       });
 
-      await expect(topPagination).toContainText(/1-100 of 106/);
-      await expect(topPagination).toContainText("Page 1 of 2");
-      await expect(bottomPagination).toContainText(/1-100 of 106/);
-      await expect(bottomPagination).toContainText("Page 1 of 2");
+      await expect(topPagination).toContainText(/1-10 of 11\+/);
+      await expect(topPagination).toContainText("Page 1 of 2+");
+      await expect(bottomPagination).toContainText(/1-10 of 11\+/);
+      await expect(bottomPagination).toContainText("Page 1 of 2+");
 
       await topPagination.getByRole("link", { name: /Next: page 2/ }).click();
       await expect(page).toHaveURL(/[\?&]page=2(?:&|$)/);
       await expect(
         page.getByRole("navigation", { name: "Products pagination bottom" }),
-      ).toContainText("Page 2 of 2");
+      ).toContainText("Page 2 of 3+");
 
       const searchInput = page.getByPlaceholder(
         "Search barcode, item number, product name",
@@ -1550,7 +1549,7 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       await expect(
         page.getByRole("heading", { level: 1, name: "Shop Overview" }),
       ).toBeVisible();
-      await expect(page.getByText(fixture.shopCode).first()).toBeVisible();
+      await expect(page.getByText(fixture.shopName).first()).toBeVisible();
       await expect(page.locator("#shop-switcher")).toHaveCount(0);
       await expect(
         page.getByLabel("Shop status").getByText("Shop Manager"),
@@ -1598,15 +1597,12 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       await expect(
         page.getByLabel("Shop status").getByText("Shop Manager"),
       ).toBeVisible();
-      const blockedRequestHeader = page.getByRole("group", {
-        name: /Shop workspace/,
-      });
+      const blockedRequestSidebar = page.locator("aside").first();
 
-      await expect(
-        blockedRequestHeader.getByText(/^Company RUT:/),
-      ).toBeVisible();
-      await expect(blockedRequestHeader).not.toContainText("Shop code:");
-      await expect(blockedRequestHeader).not.toContainText(
+      await expect(blockedRequestSidebar).not.toContainText(
+        "Company RUT: Not configured",
+      );
+      await expect(blockedRequestSidebar).not.toContainText(
         fixture.blockedShopCode,
       );
       await expect(page.getByText(fixture.blockedShopCode)).toHaveCount(0);

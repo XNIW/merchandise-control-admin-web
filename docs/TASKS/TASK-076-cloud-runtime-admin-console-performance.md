@@ -4,8 +4,8 @@
 
 - ID: `TASK-076`
 - Titolo: `Cloud Runtime Performance Fix: Admin Console tab latency, Staff, Products and full Shop navigation`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW_WITH_NOTES`
+- Stato: `DONE_RECONCILED_WITH_NOTES`
+- Fase attuale: `DONE_RECONCILED`
 - Responsabile attuale: `CODEX`
 - Data apertura: `2026-06-19`
 - File Master Plan: `docs/MASTER-PLAN.md`
@@ -66,8 +66,8 @@ Products, Staff e almeno cinque route Shop aggiuntive.
 | CA-04 | Navigazione sidebar evidenzia tab/pending entro 200ms. | `PASS` |
 | CA-05 | Skeleton/pending visibile entro 300ms sulle route critiche. | `PASS` |
 | CA-06 | Products e Staff sotto 1.5s contenuto finale se cloud normale. | `PASS` |
-| CA-07 | Almeno 5 route Shop aggiuntive misurate e senza tab >2s senza feedback. | `PASS_WITH_NOTES_HISTORY` |
-| CA-08 | Query/read model pesanti eliminati, differiti o motivati. | `PASS_WITH_NOTES` |
+| CA-07 | Almeno 5 route Shop aggiuntive misurate e senza tab >2s senza feedback. | `PASS_AFTER_TASK_077B` |
+| CA-08 | Query/read model pesanti eliminati, differiti o motivati. | `PASS_AFTER_TASK_077B` |
 | CA-09 | No secret leak, no service-role client, no cross-shop leak. | `PASS` |
 | CA-10 | Cloud authenticated E2E e cleanup `TASK076_*` verificati. | `PASS` |
 | CA-11 | Check richiesti eseguiti o marcati `NOT_RUN`/`BLOCKED` con motivo reale. | `PASS` |
@@ -139,10 +139,30 @@ Products, Staff e almeno cinque route Shop aggiuntive.
 | `git diff --check` finale | `PASS` |
 | `git status --short --branch --untracked-files=all` finale | `PASS_WITH_NOTES_TASK075_LOCAL` |
 
+## Final DONE reconciliation - 2026-06-20
+
+Il residuo storico di `TASK-076` su `/shop/history` e stato verificato come
+risolto dai fix `TASK-077`/`TASK-077B`:
+
+- Admin Console real-shop/local-cloud:
+  `docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-real-shop-task-077-final-reconciliation-shop.json`.
+  `/shop/history` `finalMs=46ms`, `documentMs=440ms`, `visualReplacementMs=14ms`,
+  nessun timeout.
+- Fixture cloud/local-cloud:
+  `docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-fixture-task-077-final-reconciliation-fixture.json`.
+  `/shop/history` `finalMs=46ms`, pending `12ms`, nessun timeout.
+- Products real-shop/local-cloud:
+  `docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-real-shop-task-077-final-reconciliation-products.json`.
+  `queryCount=5`, count exact rimosso dal first paint e total count differito.
+
+Gate freschi: `security:scan`, `test:foundation` (`414/414`), `typecheck`,
+`lint`, `build`, `verify`, `git diff --check`: `PASS` o
+`PASS_WITH_WARNINGS` solo per warning build noti.
+
+Commit, stage, push, deploy e Supabase apply: `NOT_RUN`.
+
 ## Stato corrente
 
-`REVIEW_WITH_NOTES`. Products e Staff passano il gate cloud after sotto 1.5s
-con pending osservato entro 21ms. Dieci route su dodici completano sotto 1.5s
-nel run after; `/shop/history` resta con pending immediato ma final marker in
-timeout nel click-flow cloud e richiede follow-up/review dedicato. Codex non
-marca `DONE`.
+`DONE_RECONCILED_WITH_NOTES`. Le note storiche del run staging TASK-076 restano
+nel file per audit trail, ma il blocker History non e piu attivo nella evidence
+finale local-cloud/read-only.

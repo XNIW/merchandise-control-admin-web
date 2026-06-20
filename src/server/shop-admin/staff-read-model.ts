@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { resolveShopAdminDataAccess } from "./data-access";
@@ -8,6 +9,11 @@ import type {
   ShopAdminReadModelError,
   ShopAdminReadModelStatus,
 } from "./read-model";
+import { canShopAdmin } from "./permissions";
+import {
+  canStaffWebPerformShopAdminAction,
+  hasStaffFullShopAdminWebAccess,
+} from "./staff-web-permissions";
 
 type StaffSafeRow =
   Database["public"]["Views"]["staff_accounts_safe"]["Row"];
@@ -48,6 +54,17 @@ type GetShopStaffReadModelOptions = {
   client?: SupabaseServerClient | null;
   requestedShopId?: string | null;
 };
+
+export type ShopStaffPageBundle = {
+  canManageRolePermissions: boolean;
+  canManageStaff: boolean;
+  readModel: ShopStaffReadModel;
+};
+
+type StaffReadClient = SupabaseAdminClient | SupabaseServerClient;
+type ResolvedShopStaffAccess = Awaited<
+  ReturnType<typeof resolveShopAdminDataAccess>
+>;
 
 const emptyRows = {
   selectedShop: null,
@@ -126,26 +143,25 @@ function mapStaffSafeRow(
   };
 }
 
-export async function getShopStaffReadModel(
-  options: GetShopStaffReadModelOptions = {},
-): Promise<ShopStaffReadModel> {
-  const access = await resolveShopAdminDataAccess(options);
+function blockedStaffReadModel(
+  access: Exclude<ResolvedShopStaffAccess, { status: "ready" }>,
+): ShopStaffReadModel {
+  return {
+    status:
+      access.status === "not_configured" || access.status === "error"
+        ? access.status
+        : "unauthorized",
+    ...emptyRows,
+    readOnly: true,
+    source: "supabase_server",
+    reason: access.reason,
+  };
+}
 
-  if (access.status !== "ready") {
-    return {
-      status:
-        access.status === "not_configured" || access.status === "error"
-          ? access.status
-          : "unauthorized",
-      ...emptyRows,
-      readOnly: true,
-      source: "supabase_server",
-      reason: access.reason,
-    };
-  }
-
-  const { selectedShop, supabase } = access;
-
+async function loadStaffAccounts(
+  supabase: StaffReadClient,
+  selectedShop: ShopAdminShellShop,
+) {
   const staffResult = await supabase
     .from("staff_accounts_safe")
     .select(
@@ -154,6 +170,36 @@ export async function getShopStaffReadModel(
     .eq("shop_id", selectedShop.shopId)
     .order("staff_code", { ascending: true })
     .limit(100);
+
+  if (staffResult.error) {
+    return {
+      error: staffResult.error,
+      staffAccounts: [] as ShopStaffReadModelStaffAccount[],
+    };
+  }
+
+  return {
+    error: null,
+    staffAccounts: (staffResult.data ?? [])
+      .map((row) => mapStaffSafeRow(row as StaffSafeRow))
+      .filter(
+        (
+          row,
+        ): row is ShopStaffReadModelStaffAccount =>
+          Boolean(row),
+      ),
+  };
+}
+
+async function staffReadModelFromAccess(
+  access: ResolvedShopStaffAccess,
+): Promise<ShopStaffReadModel> {
+  if (access.status !== "ready") {
+    return blockedStaffReadModel(access);
+  }
+
+  const { selectedShop, supabase } = access;
+  const staffResult = await loadStaffAccounts(supabase, selectedShop);
 
   if (staffResult.error) {
     return {
@@ -167,22 +213,66 @@ export async function getShopStaffReadModel(
     };
   }
 
-  const staffAccounts = (staffResult.data ?? [])
-    .map(mapStaffSafeRow)
-    .filter(
-      (
-        row,
-      ): row is ShopStaffReadModelStaffAccount =>
-        Boolean(row),
-    );
-
   return {
     status: "ready",
     selectedShop,
-    staffAccounts,
+    staffAccounts: staffResult.staffAccounts,
     readOnly: true,
     source: "supabase_server",
     reason:
       "Shop Staff read model loaded server-side through the credential-safe view.",
+  };
+}
+
+function canManageStaffFromAccess(access: ResolvedShopStaffAccess) {
+  if (access.status !== "ready") {
+    return false;
+  }
+
+  if (access.principalKind === "personal_account") {
+    return canShopAdmin(access.selectedShop.role, "staff.manage");
+  }
+
+  return canStaffWebPerformShopAdminAction(
+    access.principal.permissions,
+    "staff.manage",
+  );
+}
+
+function canManageRolePermissionsFromAccess(access: ResolvedShopStaffAccess) {
+  if (access.status !== "ready") {
+    return false;
+  }
+
+  if (access.principalKind === "personal_account") {
+    return canShopAdmin(access.selectedShop.role, "staff.manage");
+  }
+
+  return (
+    canManageStaffFromAccess(access) &&
+    hasStaffFullShopAdminWebAccess(access.principal.permissions)
+  );
+}
+
+export async function getShopStaffReadModel(
+  options: GetShopStaffReadModelOptions = {},
+): Promise<ShopStaffReadModel> {
+  const access = await resolveShopAdminDataAccess(options);
+
+  return staffReadModelFromAccess(access);
+}
+
+export async function resolveStaffPageBundle(
+  requestedShopId?: string | null,
+): Promise<ShopStaffPageBundle> {
+  const access = await resolveShopAdminDataAccess({
+    requestedShopId,
+    strictRequestedShop: true,
+  });
+
+  return {
+    canManageRolePermissions: canManageRolePermissionsFromAccess(access),
+    canManageStaff: canManageStaffFromAccess(access),
+    readModel: await staffReadModelFromAccess(access),
   };
 }

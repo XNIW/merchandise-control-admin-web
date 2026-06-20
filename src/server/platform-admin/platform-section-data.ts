@@ -39,9 +39,17 @@ import {
   shopStatusLabel,
 } from "@/domain/platform-admin/semantics";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createAdminWebPerfTrace } from "@/server/admin-web-perf";
 import {
   getPlatformAdminReadModel,
+  getPlatformAuditReadModel,
+  getPlatformOverviewReadModel,
+  getPlatformShopAdminsReadModel,
+  getPlatformShopsReadModel,
+  getPlatformSystemReadModel,
+  getPlatformUsersReadModel,
   type PlatformAdminLiveReadModel,
+  type PlatformAdminReadModelOptions,
   type PlatformProfileSyncState,
   type PlatformShopAccessState,
   type PlatformUserAccountSummary,
@@ -53,6 +61,94 @@ import {
 } from "./shop-action-validation";
 
 const shortId = (value?: string) => (value ? value.slice(0, 8) : "none");
+
+function jsonByteLength(value: unknown) {
+  try {
+    return new TextEncoder().encode(JSON.stringify(value)).length;
+  } catch {
+    return null;
+  }
+}
+
+function sectionPerfMeta(input: {
+  key: PlatformSectionKey;
+  readModel: PlatformAdminLiveReadModel;
+  section: PlatformSection;
+  includeAuthIdentities: boolean;
+  readModelName: string;
+  usersSearchQuery?: string;
+}) {
+  return {
+    auditLogsCount: input.readModel.auditLogs.length,
+    authIdentitiesCount: input.readModel.authIdentities.length,
+    authIdentitiesScannedCount:
+      input.readModel.authIdentityStatus.scannedCount,
+    detailSectionsCount: input.section.detailSections?.length ?? 0,
+    guardrailsCount: input.section.guardrails?.length ?? 0,
+    hasUsersSearchQuery: Boolean(input.usersSearchQuery),
+    includeAuthIdentities: input.includeAuthIdentities,
+    platformAdminsCount: input.readModel.platformAdmins.length,
+    profilesCount: input.readModel.profiles.length,
+    readIssuesCount: input.readModel.readIssues.length,
+    readModel: input.readModelName,
+    routeKey: input.key,
+    rowDetailsCount: input.section.rowDetails?.length ?? 0,
+    rowsCount: input.section.rows.length,
+    sectionBytes: jsonByteLength(input.section),
+    shopDevicesCount: input.readModel.shopDevices.length,
+    shopMembersCount: input.readModel.shopMembers.length,
+    shopOwnerMappingsCount: input.readModel.shopOwnerMappings.length,
+    shopsCount: input.readModel.shops.length,
+    staffSafeRowsCount: input.readModel.staffSafeRows.length,
+    statsCount: input.section.stats.length,
+    status: input.readModel.status,
+    syncEventsCount: input.readModel.syncEvents.length,
+    userAccountsCount: input.readModel.userAccounts.length,
+  };
+}
+
+function platformReadModelForSection(
+  key: PlatformSectionKey,
+  options: PlatformAdminReadModelOptions,
+) {
+  switch (key) {
+    case "overview":
+      return {
+        name: "getPlatformOverviewReadModel",
+        promise: getPlatformOverviewReadModel(options),
+      };
+    case "users":
+      return {
+        name: "getPlatformUsersReadModel",
+        promise: getPlatformUsersReadModel(options),
+      };
+    case "shopAdmins":
+      return {
+        name: "getPlatformShopAdminsReadModel",
+        promise: getPlatformShopAdminsReadModel(options),
+      };
+    case "shops":
+      return {
+        name: "getPlatformShopsReadModel",
+        promise: getPlatformShopsReadModel(options),
+      };
+    case "audit":
+      return {
+        name: "getPlatformAuditReadModel",
+        promise: getPlatformAuditReadModel(options),
+      };
+    case "system":
+      return {
+        name: "getPlatformSystemReadModel",
+        promise: getPlatformSystemReadModel(options),
+      };
+    default:
+      return {
+        name: "getPlatformAdminReadModel",
+        promise: getPlatformAdminReadModel(options),
+      };
+  }
+}
 
 const stat = (
   label: string,
@@ -3662,13 +3758,11 @@ function buildShopAdmins(
         state: `${profileSyncState}\n${formatToken(account.profileStatus)}`,
       };
     }),
-    searchPlaceholder:
-      "Search Shop Admin by email, UID, display name, or provider",
+    searchPlaceholder: "Search Shop Admin by profile ID or display name",
     serverSearch: {
       clearLabel: "Clear",
-      helper: readModel.authIdentityStatus.truncated
-        ? "Server search scanned a bounded Auth identity page range."
-        : "Server search runs before the table filter.",
+      helper:
+        "Server search runs on profile ID/display name; Auth email/provider lookup is deferred from first paint.",
       paramName: "q",
       submitLabel: "Search",
       value: readModel.usersSearchQuery ?? "",
@@ -5161,24 +5255,61 @@ export async function getPlatformSectionForRequest(
   key: PlatformSectionKey,
   options: { usersSearchQuery?: string } = {},
 ): Promise<PlatformSection> {
-  const readModel = await getPlatformAdminReadModel({
-    includeAuthIdentities:
-      key === "users" ||
-      key === "shopAdmins" ||
-      key === "shops" ||
-      key === "admins" ||
-      key === "data",
-    usersSearchQuery:
-      key === "users" || key === "shopAdmins"
-        ? options.usersSearchQuery
-        : undefined,
+  const includeAuthIdentities = key === "users" || key === "data";
+  const usersSearchQuery =
+    key === "users" || key === "shopAdmins"
+      ? options.usersSearchQuery
+      : undefined;
+  const perfTrace = createAdminWebPerfTrace("platform.section", {
+    hasUsersSearchQuery: Boolean(usersSearchQuery),
+    includeAuthIdentities,
+    routeKey: key,
   });
+  const readModelLoad = platformReadModelForSection(key, {
+      includeAuthIdentities,
+      perfTrace,
+      usersSearchQuery,
+    });
+  const readModel = await perfTrace.time(
+    `platform.${readModelLoad.name}`,
+    () => readModelLoad.promise,
+  );
 
   if (readModel.status !== "ready") {
-    return fallbackSection(key, readModel);
+    const section = await perfTrace.time("platform.buildFallbackSection", async () =>
+      fallbackSection(key, readModel),
+    );
+
+    perfTrace.flush(
+      sectionPerfMeta({
+        includeAuthIdentities,
+        key,
+        readModelName: readModelLoad.name,
+        readModel,
+        section,
+        usersSearchQuery,
+      }),
+    );
+
+    return section;
   }
 
-  return buildReadySection(key, readModel);
+  const section = await perfTrace.time("platform.buildReadySection", async () =>
+    buildReadySection(key, readModel),
+  );
+
+  perfTrace.flush(
+    sectionPerfMeta({
+      includeAuthIdentities,
+      key,
+      readModelName: readModelLoad.name,
+      readModel,
+      section,
+      usersSearchQuery,
+    }),
+  );
+
+  return section;
 }
 
 export async function getPlatformAuditDetailForRequest(

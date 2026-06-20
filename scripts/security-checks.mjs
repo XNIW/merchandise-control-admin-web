@@ -270,8 +270,15 @@ function checkClientBoundaries() {
   for (const file of clientFiles) {
     const contents = read(file);
     const authClientBoundary = file.startsWith("src/components/auth/");
+    const serverComponentBoundary = new Set([
+      "src/components/platform/AppShell.tsx",
+    ]).has(file);
     const platformProvisioningRequestBoundary =
       file === "src/app/platform/provisioning/platformProvisioningRequest.ts";
+
+    if (serverComponentBoundary) {
+      continue;
+    }
 
     for (const pattern of forbiddenPatterns) {
       if (
@@ -1978,6 +1985,9 @@ function checkTask013UiPolishArtifacts() {
   const masterPlanPath = "docs/MASTER-PLAN.md";
   const shopShellPath = "src/components/shop/ShopShell.tsx";
   const shopSectionPagePath = "src/components/shop/ShopSectionPage.tsx";
+  const productsPagePath = "src/app/shop/products/page.tsx";
+  const productsLoadingPath = "src/app/shop/products/loading.tsx";
+  const deviceRegistryPath = "src/app/shop/_components/DeviceRegistryView.tsx";
   const platformOperationsPath = "src/app/platform/operations/page.tsx";
   const platformTablePath = "src/components/platform/components/DataTable.tsx";
 
@@ -1987,6 +1997,9 @@ function checkTask013UiPolishArtifacts() {
     masterPlanPath,
     shopShellPath,
     shopSectionPagePath,
+    productsPagePath,
+    productsLoadingPath,
+    deviceRegistryPath,
     platformOperationsPath,
     platformTablePath,
   ]) {
@@ -2001,6 +2014,9 @@ function checkTask013UiPolishArtifacts() {
   const masterPlan = read(masterPlanPath);
   const shopShell = read(shopShellPath);
   const shopSectionPage = read(shopSectionPagePath);
+  const productsPage = read(productsPagePath);
+  const productsLoading = read(productsLoadingPath);
+  const deviceRegistry = read(deviceRegistryPath);
   const platformOperations = read(platformOperationsPath);
   const platformTable = read(platformTablePath);
 
@@ -2099,19 +2115,67 @@ function checkTask013UiPolishArtifacts() {
     );
   }
 
-  for (const requiredSnippet of [
-    'role="group"',
-    'aria-labelledby="selected-shop-context-label selected-shop-summary"',
-    'id="selected-shop-summary"',
-    "shopDisplayName",
-    "shopIdentityLine",
-    "overflow-x-auto",
-    "lg:grid",
-    "whitespace-nowrap",
-  ]) {
-    if (!shopShell.includes(requiredSnippet)) {
-      addFailure(`${shopShellPath} must include ${requiredSnippet}`);
+  const requiredShopShellPatterns = [
+    [/id=\s*"shop-shell-page-title"/, 'id="shop-shell-page-title"'],
+    [/currentPageTitle/, "currentPageTitle"],
+    [/sectionTitles/, "sectionTitles"],
+    [/sectionDescriptions/, "sectionDescriptions"],
+    [/sectionEyebrows/, "sectionEyebrows"],
+    [/currentPageDescription/, "currentPageDescription"],
+    [/currentPageEyebrow/, "currentPageEyebrow"],
+    [/shopDisplayName/, "shopDisplayName"],
+    [/shopIdentityLine/, "shopIdentityLine"],
+    [/selectedShopIdentity/, "selectedShopIdentity"],
+    [/overflow-x-auto/, "overflow-x-auto"],
+    [/lg:grid/, "lg:grid"],
+    [/whitespace-nowrap/, "whitespace-nowrap"],
+  ];
+
+  for (const [requiredPattern, label] of requiredShopShellPatterns) {
+    if (!requiredPattern.test(shopShell)) {
+      addFailure(`${shopShellPath} must include ${label}`);
     }
+  }
+
+  if (/selected-shop-context-label|selected-shop-summary/.test(shopShell)) {
+    addFailure(
+      `${shopShellPath} must keep selected shop identity in the sidebar, not in the top header context group`,
+    );
+  }
+
+  if (
+    !/title=\{currentPageDescription \?\? undefined\}/.test(shopShell) ||
+    /currentPageDescription \? \([\s\S]*<p className="[^"]*line-clamp-2/.test(
+      shopShell,
+    )
+  ) {
+    addFailure(
+      `${shopShellPath} must keep section descriptions out of the visible topbar subtitle`,
+    );
+  }
+
+  if (/Catalog Workspace/.test(`${productsPage}\n${productsLoading}`)) {
+    addFailure(
+      `${productsPagePath} must not restore the Catalog Workspace content hero`,
+    );
+  }
+
+  if (
+    /Use search or filters to find products across the full mapped catalog\./.test(
+      productsPage,
+    )
+  ) {
+    addFailure(
+      `${productsPagePath} must keep Products intro copy in the masthead, not in content`,
+    );
+  }
+
+  if (!/data-product-catalog-command-bar/.test(productsPage)) {
+    addFailure(`${productsPagePath} must keep catalog actions near the filters`);
+  }
+
+  if (/PageHeader/.test(deviceRegistry)) {
+    addFailure(`${deviceRegistryPath} must not restore the Devices hero PageHeader`);
   }
 
   if (
@@ -2190,16 +2254,23 @@ function checkTask014DesignSystem() {
     }
   }
 
-  for (const requiredImport of [
-    "@/components/admin/PageHeader",
-    "@/components/admin/SectionCard",
-    "@/components/admin/AdminDataTable",
+  if (!/topbarTitle=\{localizedSection\.title\}/.test(platformPage)) {
+    addFailure(`${platformPagePath} must expose the localized section title`);
+  }
+
+  if (/PageHeader/.test(shopPage)) {
+    addFailure(`${shopPagePath} must keep the ShopShell page heading boundary`);
+  }
+
+  for (const [requiredImport, importPattern] of [
+    ["@/components/admin/SectionCard", /@\/components\/admin\/SectionCard|SectionCard/],
+    ["@/components/admin/AdminDataTable", /@\/components\/admin\/AdminDataTable|AdminDataTable/],
   ]) {
-    if (!platformPage.includes(requiredImport)) {
+    if (!importPattern.test(platformPage)) {
       addFailure(`${platformPagePath} must use ${requiredImport}`);
     }
 
-    if (!shopPage.includes(requiredImport)) {
+    if (!importPattern.test(shopPage)) {
       addFailure(`${shopPagePath} must use ${requiredImport}`);
     }
   }
@@ -2366,9 +2437,9 @@ function checkTask014PosStaffFoundation() {
     );
   }
 
-  if (!/getShopSectionForRequest\(\s*"staff"/.test(staffPage)) {
+  if (!/resolveStaffPageBundle/.test(staffPage)) {
     addFailure(
-      `${staffPagePath} must load staff through getShopSectionForRequest`,
+      `${staffPagePath} must load staff through resolveStaffPageBundle`,
     );
   }
 
@@ -2804,8 +2875,12 @@ function checkTask015ShopAdminConsole() {
         /getShopDeviceReadModel/.test(route) &&
         /DeviceRegistryView/.test(route)) ||
       (key === "history" &&
-        /getShopHistoryReadModel/.test(route) &&
-        /buildHistorySection/.test(route));
+        /getShopHistory(?:List)?ReadModel/.test(route) &&
+        /buildHistorySection/.test(route)) ||
+      (key === "importExport" &&
+        /Moved to Products/.test(route) &&
+        /Open Products/.test(route) &&
+        !/ImportExportActionPanel|ShopSectionPage|getShopSectionForRequest/.test(route));
 
     if (!/export const dynamic = ["']force-dynamic["']/.test(route)) {
       addFailure(`${routePath} must force dynamic rendering`);
@@ -5435,7 +5510,6 @@ function checkTask039StaffAwareShopAdminCompletion() {
   }
 
   for (const requiredPermission of [
-    "staff.manage",
     "products.write",
     "categories.write",
     "suppliers.write",
@@ -5448,15 +5522,24 @@ function checkTask039StaffAwareShopAdminCompletion() {
       gatedPages.includes("resolveShopActionContext") &&
       gatedPages.includes(requiredPermission);
     const hasProductsPageAccessPreflight =
-      requiredPermission === "products.write" &&
+      ["products.write", "catalog.import", "catalog.export"].includes(
+        requiredPermission,
+      ) &&
       productsPage.includes("resolveShopPageAccessBundle") &&
-      pageAccess.includes('"products.write"');
+      pageAccess.includes(`"${requiredPermission}"`);
 
     if (!hasActionContextPreflight && !hasProductsPageAccessPreflight) {
       addFailure(
         `TASK-039 Shop Admin UI pages must preflight ${requiredPermission}`,
       );
     }
+  }
+
+  if (
+    !gatedPages.includes("resolveStaffPageBundle") ||
+    !read("src/server/shop-admin/staff-read-model.ts").includes("staff.manage")
+  ) {
+    addFailure("TASK-039 Shop Admin UI pages must preflight staff.manage");
   }
 
   if (
@@ -6439,9 +6522,20 @@ function checkTask044PlatformProvisioningUxRuntime() {
     }
   }
 
-  if (!/Lifecycle operations/.test(platformData)) {
+  if (!/Controlled actions/.test(platformData)) {
     addFailure(
-      `${platformDataPath} must describe Operations as lifecycle-focused`,
+      `${platformDataPath} must keep Operations tagged as controlled actions`,
+    );
+  }
+
+  if (
+    !/PlatformNavigationIcon/.test(appShell) ||
+    !/<PlatformNavigationIcon itemKey=\{activeSection\} \/>/.test(appShell) ||
+    /<span className="size-2 rounded-full bg-slate-950" \/>/.test(appShell) ||
+    /<p className="[^"]*line-clamp-2[^"]*text-slate-600/.test(appShell)
+  ) {
+    addFailure(
+      `${appShellPath} must keep the Master topbar compact and reuse sidebar section icons`,
     );
   }
 

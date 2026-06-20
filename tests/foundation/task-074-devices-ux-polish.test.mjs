@@ -27,7 +27,7 @@ test("TASK-074 devices page uses owner-friendly registry view over the generic t
   assert.match(page, /device_q/);
   assert.doesNotMatch(page, /ShopSectionPage/);
 
-  assert.match(view, /Revocation enforced/);
+  assert.match(view, /Devices blocked by the registry/);
   assert.match(view, /Active devices/);
   assert.match(view, /Revoked devices/);
   assert.match(view, /Needs attention/);

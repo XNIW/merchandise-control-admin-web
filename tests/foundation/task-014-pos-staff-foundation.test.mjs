@@ -113,7 +113,8 @@ test("TASK-014 staff read model and UI use safe fields only", () => {
   assert.doesNotMatch(readModel, /credential_hash|select\("\*"\)|\.(insert|update|delete|upsert|rpc)\s*\(/);
   assert.match(sectionData, /buildStaffSection/);
   assert.match(sectionData, /getShopStaffReadModel/);
-  assert.match(staffPage, /getShopSectionForRequest\(\s*"staff"/);
+  assert.match(staffPage, /resolveStaffPageBundle/);
+  assert.match(staffPage, /buildStaffSection/);
   assert.match(types, /staff_accounts:\s*\{/);
   assert.match(types, /staff_accounts_safe:\s*\{/);
 });

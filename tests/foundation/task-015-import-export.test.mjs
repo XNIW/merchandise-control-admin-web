@@ -56,11 +56,16 @@ test("TASK-015 import/export routes implement preview, confirmed apply, export a
   const exportRoute = readProjectFile("src/app/shop/import-export/export/route.ts");
   const templateRoute = readProjectFile("src/app/shop/import-export/template/route.ts");
   const actionPanel = readProjectFile("src/app/shop/_components/ImportExportActionPanel.tsx");
+  const productsPage = readProjectFile("src/app/shop/products/page.tsx");
 
   assert.match(page, /searchParams/);
-  assert.match(page, /getShopSectionForRequest\(\s*"importExport"/);
-  assert.match(page, /ImportExportActionPanel/);
+  assert.match(page, /Moved to Products/);
+  assert.match(page, /Open Products/);
+  assert.doesNotMatch(page, /ImportExportActionPanel/);
   assert.doesNotMatch(page, /shopSections\.importExport/);
+  assert.match(productsPage, /CatalogActionPanel/);
+  assert.match(productsPage, /canImport/);
+  assert.match(productsPage, /canExport/);
   assert.match(sectionData, /buildImportExportSection/);
   assert.match(sectionData, /getImportExportReadiness/);
   assert.match(sectionData, /Preview before apply/);

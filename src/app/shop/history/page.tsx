@@ -1,12 +1,18 @@
 import { createHistoryEntryAction } from "@/app/shop/actions";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
+import { HistoryDetailModalController } from "@/app/shop/_components/HistoryDetailModalController";
+import { ProductDetailModalController } from "@/app/shop/_components/ProductDetailModalController";
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
+import type { ShopSection } from "@/components/shop/shopSections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
-import { getShopHistoryReadModel } from "@/server/shop-admin/history-read-model";
+import { getShopHistoryListReadModel } from "@/server/shop-admin/history-read-model";
 import { buildHistorySection } from "@/server/shop-admin/shop-section-data";
+import { getI18n } from "@/i18n/get-locale";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
+import { translateText } from "@/i18n/translate-sections";
+import type { ReactNode } from "react";
 
 export function generateMetadata() {
   return createLocalizedPageMetadata("Mobile History");
@@ -38,9 +44,11 @@ function buildHistoryDetailHref(entryId: string, requestedShopId?: string) {
 }
 
 function HistoryRowActions({
+  label,
   requestedShopId,
   row,
 }: {
+  label: string;
   requestedShopId?: string;
   row: AdminDataTableRow;
 }) {
@@ -51,10 +59,173 @@ function HistoryRowActions({
   return (
     <a
       className="inline-flex h-8 items-center rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
+      data-history-detail-id={row.rowKey}
+      data-history-detail-trigger
       href={buildHistoryDetailHref(row.rowKey, requestedShopId)}
     >
-      Detail
+      {label}
     </a>
+  );
+}
+
+function rowString(row: AdminDataTableRow, key: string) {
+  const value = row[key];
+
+  return typeof value === "string" ? value : "";
+}
+
+function translateLabel(labels: Record<string, string> | undefined, value: string) {
+  return labels?.[value] ?? value;
+}
+
+function splitSupplierCategory(
+  value: string,
+  labels?: Record<string, string>,
+) {
+  const [supplier, ...categoryParts] = value.split(" / ");
+  const category = categoryParts.join(" / ");
+
+  return {
+    category: category || translateLabel(labels, "Category not set"),
+    supplier: supplier || translateLabel(labels, "Supplier not set"),
+  };
+}
+
+function HistoryStatusBadge({ status }: { status: string }) {
+  const normalized = status.toLowerCase();
+  const isIssue =
+    normalized.includes("issue") ||
+    normalized.includes("deleted") ||
+    normalized.includes("legacy");
+
+  return (
+    <span
+      className={[
+        "inline-flex rounded-md border px-2 py-1 text-xs font-semibold",
+        isIssue
+          ? "border-amber-200 bg-amber-50 text-amber-900"
+          : "border-emerald-200 bg-emerald-50 text-emerald-800",
+      ].join(" ")}
+    >
+      {status || "Active"}
+    </span>
+  );
+}
+
+function HistoryEntriesList({
+  labels,
+  liveData,
+  rowActions,
+}: {
+  labels?: Record<string, string>;
+  liveData: NonNullable<ShopSection["liveData"]>;
+  rowActions?: {
+    label: string;
+    render: (row: AdminDataTableRow) => ReactNode;
+  };
+}) {
+  if (liveData.rows.length === 0) {
+    return (
+      <div className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+        <p className="font-medium text-zinc-900">{liveData.emptyState.title}</p>
+        <p className="mt-1 leading-6">{liveData.emptyState.description}</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-3" data-history-entries-list role="list">
+      {liveData.rows.map((row) => {
+        const entryName = rowString(row, "entryName") || rowString(row, "event");
+        const supplierCategory = splitSupplierCategory(
+          rowString(row, "supplierCategory"),
+          labels,
+        );
+        const status =
+          rowString(row, "status") ||
+          rowString(row, "state") ||
+          "Active";
+        const updated = rowString(row, "updated") || translateLabel(labels, "Not set");
+        const rows = rowString(row, "rows");
+        const missing =
+          rowString(row, "missing") ||
+          rowString(row, "missingRows");
+        const syncState =
+          rowString(row, "sync") ||
+          rowString(row, "overlay") ||
+          rowString(row, "payload");
+        const detailFacts = [
+          rows ? `${translateLabel(labels, "Rows")}: ${rows}` : null,
+          missing ? `${translateLabel(labels, "Missing")}: ${missing}` : null,
+          syncState ? `${translateLabel(labels, "Sync")}: ${syncState}` : null,
+        ].filter((item): item is string => Boolean(item));
+
+        return (
+          <article
+            className="grid min-w-0 gap-3 rounded-md border border-zinc-200 bg-white p-3 shadow-sm [contain-intrinsic-size:150px] [content-visibility:auto] xl:grid-cols-[minmax(16rem,1.6fr)_minmax(12rem,1fr)_minmax(14rem,1fr)_minmax(9rem,auto)] xl:items-center"
+            data-history-entry-row
+            key={row.rowKey}
+            role="listitem"
+          >
+            <section className="min-w-0">
+              <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0">
+                  <p
+                    className="line-clamp-2 break-words text-base font-semibold leading-6 text-zinc-950 [overflow-wrap:anywhere]"
+                    title={entryName}
+                  >
+                    {entryName || translateLabel(labels, "History entry")}
+                  </p>
+                  <p className="mt-1 text-xs font-medium uppercase tracking-normal text-zinc-500">
+                    {rowString(row, "type") || translateLabel(labels, "Mobile history entry")}
+                  </p>
+                </div>
+                <HistoryStatusBadge status={status} />
+              </div>
+            </section>
+
+            <section className="min-w-0">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
+                {translateLabel(labels, "Supplier / Category")}
+              </h3>
+              <p
+                className="line-clamp-2 break-words text-sm font-medium text-zinc-950 [overflow-wrap:anywhere]"
+                title={supplierCategory.supplier}
+              >
+                {supplierCategory.supplier}
+              </p>
+              <p
+                className="mt-1 line-clamp-2 break-words text-sm text-zinc-600 [overflow-wrap:anywhere]"
+                title={supplierCategory.category}
+              >
+                {supplierCategory.category}
+              </p>
+            </section>
+
+            <section className="min-w-0">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
+                {translateLabel(labels, "Detail contents")}
+              </h3>
+              <p className="line-clamp-2 text-sm text-zinc-700 [overflow-wrap:anywhere]">
+                {detailFacts.length > 0
+                  ? detailFacts.join(" · ")
+                  : translateLabel(labels, "Details load when opened.")}
+              </p>
+            </section>
+
+            <section className="min-w-0">
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
+                {translateLabel(labels, "Updated / Actions")}
+              </h3>
+              <p className="mb-3 break-words text-sm text-zinc-700 [overflow-wrap:anywhere]">
+                {updated}
+              </p>
+              {rowActions ? rowActions.render(row) : null}
+            </section>
+          </article>
+        );
+      })}
+    </div>
   );
 }
 
@@ -128,8 +299,9 @@ export default async function ShopHistoryPage({
 }) {
   const params = await searchParams;
   const requestedShopId = getParam(params, "shop_id");
-  const [readModel, writeContext] = await Promise.all([
-    getShopHistoryReadModel({ requestedShopId }),
+  const [{ dictionary }, readModel, writeContext] = await Promise.all([
+    getI18n(),
+    getShopHistoryListReadModel({ requestedShopId }),
     resolveShopActionContext(requestedShopId, "history.write"),
   ]);
   const section = buildHistorySection(readModel);
@@ -142,22 +314,36 @@ export default async function ShopHistoryPage({
         action={getParam(params, "action")}
         result={getParam(params, "result")}
       />
+      <HistoryDetailModalController
+        labels={dictionary.exact}
+        requestedShopId={requestedShopId}
+      />
+      <ProductDetailModalController
+        canManageProducts={false}
+        labels={dictionary.exact}
+        requestedShopId={requestedShopId}
+        selectedShopId={readModel.selectedShop?.shopId ?? requestedShopId}
+      />
       {canWriteHistory ? (
         <HistoryEntryCreateForm requestedShopId={requestedShopId} />
       ) : null}
       <ShopSectionPage
+        renderLiveData={({ liveData, rowActions }) => (
+          <HistoryEntriesList
+            labels={dictionary.exact}
+            liveData={liveData}
+            rowActions={rowActions}
+          />
+        )}
         section={section}
         rowActions={{
-          label: "Detail",
+          label: translateText(dictionary, "Detail"),
           render: (row) => (
-            <HistoryRowActions requestedShopId={requestedShopId} row={row} />
-          ),
-        }}
-        secondaryRowActions={{
-          label: "Detail",
-          renderForTable: (table) => table.title === "Related history sync events",
-          render: (row) => (
-            <HistoryRowActions requestedShopId={requestedShopId} row={row} />
+            <HistoryRowActions
+              label={translateText(dictionary, "Detail")}
+              requestedShopId={requestedShopId}
+              row={row}
+            />
           ),
         }}
       />

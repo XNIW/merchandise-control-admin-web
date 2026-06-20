@@ -201,7 +201,7 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   users: baseSection(
     "users",
     "Personal Accounts",
-    "Personal Account Directory",
+    "Platform",
     "Directory of personal accounts returned by the server read model, including normal users, Shop Admins, Platform Admins, and incomplete accounts.",
     [
       { key: "profile", label: "Profile" },
@@ -216,8 +216,8 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   shopAdmins: baseSection(
     "shopAdmins",
     "Shop Admins",
-    "Filtered Shop Admin view",
-    "Filtered view of Personal Account Directory accounts with shop_owner or shop_manager membership, including current, historical, and disabled contexts.",
+    "Platform",
+    "Filtered Shop Admin view. Filtered view of Personal Account Directory accounts with shop_owner or shop_manager membership, including current, historical, and disabled contexts.",
     [
       { key: "profile", label: "Profile" },
       { key: "email", label: "Email" },
@@ -232,7 +232,7 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   shops: baseSection(
     "shops",
     "Shops",
-    "Shop root model",
+    "Platform",
     "Global shop registry with owner, member, data health, device, sync, and audit summaries.",
     [
       { key: "shop", label: "Shop" },
@@ -249,13 +249,13 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   provisioning: baseSection(
     "provisioning",
     "Provisioning",
-    "Shop onboarding",
+    "Controlled actions",
     "Create a shop with an existing active owner through the audited controlled operation.",
   ),
   admins: baseSection(
     "admins",
     "Platform Admins",
-    "Global access",
+    "Platform",
     "Global Master Console access only. Shop owners and managers are shop_members, not platform_admins.",
     [
       { key: "profile", label: "Profile" },
@@ -270,7 +270,7 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   audit: baseSection(
     "audit",
     "Audit",
-    "Global traceability",
+    "Governance",
     "Global audit list with actor, shop, action, target, date, severity, result, and redacted metadata.",
     [
       { key: "event", label: "Event" },
@@ -284,19 +284,19 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   system: baseSection(
     "system",
     "System Status",
-    "Platform health",
+    "System",
     "Runtime, auth SSR, route protection, RLS/grants, migration, and check status with redacted configuration.",
   ),
   data: baseSection(
     "data",
     "Data Health",
-    "Supabase health",
+    "System",
     "Data quality checks for owners, memberships, mappings, audit coverage, devices, staff schema, and sync history.",
   ),
   devices: baseSection(
     "devices",
     "Device Signals",
-    "Internal diagnostic",
+    "System",
     "Read-only diagnostic view for global device coverage and support signals. Daily device management belongs to Admin Console.",
     [
       { key: "shop", label: "Shop" },
@@ -309,7 +309,7 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   sync: baseSection(
     "sync",
     "Sync Signals",
-    "Internal diagnostic",
+    "System",
     "Read-only diagnostic view for global sync signals. Shop-level sync troubleshooting belongs to Admin Console.",
     [
       { key: "shop", label: "Shop" },
@@ -322,7 +322,7 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   history: baseSection(
     "history",
     "Global History",
-    "History overview",
+    "Governance",
     "Read-only history view for mobile/inventory history and high-level sync history.",
     [
       { key: "shop", label: "Shop" },
@@ -335,7 +335,7 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   operations: baseSection(
     "operations",
     "Controlled Operations",
-    "Lifecycle operations",
+    "Controlled actions",
     "Audited Platform Admin controls for shop lifecycle, restore, diagnostics, and emergency device actions.",
     [
       { key: "operation", label: "Operation" },
@@ -347,7 +347,7 @@ export const platformSections: Record<PlatformSectionKey, PlatformSection> = {
   support: baseSection(
     "support",
     "Support Diagnostics",
-    "Read-only diagnostics",
+    "System",
     "Read-only diagnostic view for access, membership, shop setup, devices, sync, and recent audit signals.",
     [
       { key: "subject", label: "Subject" },

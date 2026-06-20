@@ -17,35 +17,30 @@ export default function ShopProductsLoading() {
       className="grid gap-5"
       data-products-loading
     >
-      <section className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-2`}>
-        <div className="flex min-w-0 items-center gap-2">
-          <span
-            aria-hidden="true"
-            className="grid size-8 place-items-center rounded-md border border-emerald-200 bg-emerald-50"
-          >
-            <ProductsSkeletonBlock className="size-4 bg-emerald-200" />
-          </span>
-          <p className="text-xs font-semibold uppercase tracking-normal text-emerald-700">
-            Catalog Workspace
-          </p>
-        </div>
-        <h1 className="text-2xl font-semibold leading-8 text-zinc-950">
-          Products
-        </h1>
-        <ProductsSkeletonBlock className="h-4 w-full max-w-2xl" />
-      </section>
-
       <section
-        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(16rem,1.35fr)_minmax(0,190px)_minmax(0,190px)_minmax(0,150px)_minmax(0,130px)_auto] md:items-end`}
+        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm`}
         data-products-loading-filters
       >
-        {Array.from({ length: 5 }, (_, index) => (
-          <div className="grid gap-1" key={index}>
-            <ProductsSkeletonBlock className="h-3 w-20" />
-            <ProductsSkeletonBlock className="h-10 w-full bg-zinc-100" />
+        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <ProductsSkeletonBlock className="h-5 w-36 bg-zinc-300" />
+          <div className="flex flex-wrap gap-2">
+            {Array.from({ length: 4 }, (_, index) => (
+              <ProductsSkeletonBlock
+                className="h-10 w-32 bg-zinc-100"
+                key={index}
+              />
+            ))}
           </div>
-        ))}
-        <ProductsSkeletonBlock className="h-10 w-28 bg-zinc-300" />
+        </div>
+        <div className="grid gap-3 md:grid-cols-[minmax(16rem,1.35fr)_minmax(0,190px)_minmax(0,190px)_minmax(0,150px)_minmax(0,130px)_auto] md:items-end">
+          {Array.from({ length: 5 }, (_, index) => (
+            <div className="grid gap-1" key={index}>
+              <ProductsSkeletonBlock className="h-3 w-20" />
+              <ProductsSkeletonBlock className="h-10 w-full bg-zinc-100" />
+            </div>
+          ))}
+          <ProductsSkeletonBlock className="h-10 w-28 bg-zinc-300" />
+        </div>
       </section>
 
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">

@@ -5,6 +5,7 @@ import {
   resolveSupabaseServerConfig,
   type SupabaseServerClient,
 } from "@/lib/supabase/server";
+import type { AdminWebPerfTrace } from "@/server/admin-web-perf";
 
 export type PlatformAdminSafetyGate =
   | "auth_ssr_not_configured"
@@ -42,6 +43,20 @@ export type RedactedPlatformAdminError = {
 };
 
 const platformAdminRole = "platform_admin";
+
+async function tracedAuthzCall<T>(
+  perfTrace: AdminWebPerfTrace | undefined,
+  label: string,
+  task: () => PromiseLike<T>,
+): Promise<T> {
+  perfTrace?.query(label);
+
+  if (!perfTrace) {
+    return await task();
+  }
+
+  return perfTrace.time(label, async () => await task());
+}
 
 export function authorizePlatformAdmin(
   input: PlatformAdminAuthzInput = {},
@@ -102,6 +117,7 @@ export function authorizePlatformAdmin(
 
 export async function authorizeCurrentPlatformAdmin(
   client?: SupabaseServerClient | null,
+  perfTrace?: AdminWebPerfTrace,
 ): Promise<PlatformAdminAuthzDecision> {
   const supabaseConfig = resolveSupabaseServerConfig();
 
@@ -135,7 +151,11 @@ export async function authorizeCurrentPlatformAdmin(
     };
   }
 
-  const { data: userData, error: userError } = await supabase.auth.getUser();
+  const { data: userData, error: userError } = await tracedAuthzCall(
+    perfTrace,
+    "platform.auth.getUser",
+    () => supabase.auth.getUser(),
+  );
 
   if (userError || !userData.user) {
     return {
@@ -149,13 +169,19 @@ export async function authorizeCurrentPlatformAdmin(
     };
   }
 
-  const { data: platformAdmin, error: platformAdminError } = await supabase
-    .from("platform_admins")
-    .select("profile_id,status,revoked_at")
-    .eq("profile_id", userData.user.id)
-    .eq("status", "active")
-    .is("revoked_at", null)
-    .maybeSingle();
+  const { data: platformAdmin, error: platformAdminError } =
+    await tracedAuthzCall(
+      perfTrace,
+      "platform.platform_admins.authz",
+      () =>
+        supabase
+          .from("platform_admins")
+          .select("profile_id,status,revoked_at")
+          .eq("profile_id", userData.user.id)
+          .eq("status", "active")
+          .is("revoked_at", null)
+          .maybeSingle(),
+    );
 
   if (platformAdminError || !platformAdmin) {
     return {

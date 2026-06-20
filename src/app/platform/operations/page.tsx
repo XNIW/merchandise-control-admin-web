@@ -4,10 +4,10 @@ import {
   type ControlledOperationsWorkflowLabels,
 } from "@/components/platform/operations/ControlledOperationsWorkflow";
 import { EmptyState } from "@/components/platform/components/EmptyState";
-import { PageHeader } from "@/components/platform/components/PageHeader";
 import { SectionCard } from "@/components/platform/components/SectionCard";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
+import { createAdminWebPerfTrace } from "@/server/admin-web-perf";
 import { getPlatformAdminReadModel } from "@/server/platform-admin/read-model";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
@@ -54,7 +54,15 @@ const resultMessages: Record<OperationResultCode, string> = {
 };
 
 const operationsWarning =
-  "Every operation is checked on the server and written to the audit log. Use development-safe test shops only. Do not use customer data for testing.";
+  "Use this page only for audited lifecycle and emergency operations. Daily shop management belongs to Admin Console. Every operation is checked on the server and written to the audit log. Use development-safe test shops only. Do not use customer data for testing.";
+
+function jsonByteLength(value: unknown) {
+  try {
+    return new TextEncoder().encode(JSON.stringify(value)).length;
+  } catch {
+    return null;
+  }
+}
 
 const formatToken = (value: string) =>
   value
@@ -207,21 +215,51 @@ export default async function PlatformOperationsPage({
   const labels = operationPageLabels(t);
   const operation = asOperationKey(firstParam(params.operation));
   const result = asResultCode(firstParam(params.result));
-  const readModel = await getPlatformAdminReadModel();
+  const perfTrace = createAdminWebPerfTrace("platform.operations.route", {
+    includeAuthIdentities: false,
+    routeKey: "operations",
+  });
+  const readModel = await perfTrace.time("platform.getPlatformAdminReadModel", () =>
+    getPlatformAdminReadModel({
+      perfTrace,
+    }),
+  );
   const ready = readModel.status === "ready";
+  const workflowDevices = readModel.shopDevices.slice(0, 100);
+  const workflowShops = readModel.shops.slice(0, 100);
+  perfTrace.flush({
+    auditLogsCount: readModel.auditLogs.length,
+    pagePayloadBytes: jsonByteLength({
+      auditLogs: readModel.auditLogs,
+      devices: workflowDevices,
+      members: readModel.shopMembers,
+      profiles: readModel.profiles,
+      shops: workflowShops,
+    }),
+    profilesCount: readModel.profiles.length,
+    readIssuesCount: readModel.readIssues.length,
+    readModel: "getPlatformAdminReadModel",
+    routeKey: "operations",
+    shopDevicesCount: readModel.shopDevices.length,
+    shopMembersCount: readModel.shopMembers.length,
+    shopsCount: readModel.shops.length,
+    staffSafeRowsCount: readModel.staffSafeRows.length,
+    status: readModel.status,
+    syncEventsCount: readModel.syncEvents.length,
+    workflowDevicesCount: workflowDevices.length,
+    workflowShopsCount: workflowShops.length,
+  });
 
   return (
-    <AppShell activeSection="operations">
+    <AppShell
+      activeSection="operations"
+      topbarDescription={t(
+        "Audited lifecycle and emergency controls for selected shops.",
+      )}
+      topbarEyebrow={t("Controlled actions")}
+      topbarTitle={t("Controlled Operations")}
+    >
       <div className="mx-auto flex max-w-7xl flex-col gap-5">
-        <PageHeader
-          eyebrow={t("Controlled actions")}
-          title={t("Controlled Operations")}
-          description={t(
-            "Use this page only for audited lifecycle and emergency operations. Daily shop management belongs to Admin Console.",
-          )}
-          status={ready ? t("Live actions") : t(formatToken(readModel.status))}
-        />
-
         {operation && result ? (
           <ActionResultBanner
             labels={labels}
@@ -252,11 +290,11 @@ export default async function PlatformOperationsPage({
         ) : (
           <ControlledOperationsWorkflow
             auditLogs={readModel.auditLogs}
-            devices={readModel.shopDevices.slice(0, 100)}
+            devices={workflowDevices}
             labels={labels.workflow}
             members={readModel.shopMembers}
             profiles={readModel.profiles}
-            shops={readModel.shops.slice(0, 100)}
+            shops={workflowShops}
           />
         )}
       </div>

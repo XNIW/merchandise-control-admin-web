@@ -313,7 +313,7 @@ test("TASK-062 guards critical UI copy against untranslated non-English locales"
     "Type shop code to confirm",
     "Moved to Products",
     "Open Products",
-    "Import and export actions now live in the Products Catalog Workspace. This compatibility page keeps existing import/export links available.",
+    "Import and export actions now live on the Products page. This compatibility page keeps existing import/export links available.",
     "Workbook",
     "Workbook file",
     "Check workbook",
@@ -485,6 +485,9 @@ test("TASK-062 wires rendered i18n corrections into runtime translators and scan
   assert.match(dictionaries, /companyRutPrefix: "RUT azienda"/);
   assert.match(dictionaries, /companyRutPrefix: "RUT empresa"/);
   assert.match(dictionaries, /companyRutPrefix: "公司 RUT"/);
+  assert.match(dictionaries, /shopCodePrefix: "Codice shop"/);
+  assert.match(dictionaries, /shopCodePrefix: "Codigo shop"/);
+  assert.match(dictionaries, /shopCodePrefix: "店铺代码"/);
 
   assert.match(sectionTranslator, /"group"/);
   assert.match(sectionTranslator, /"label"/);

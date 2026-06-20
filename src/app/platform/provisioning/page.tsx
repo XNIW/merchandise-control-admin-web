@@ -1,6 +1,5 @@
 import { AppShell } from "@/components/platform/AppShell";
 import { EmptyState } from "@/components/platform/components/EmptyState";
-import { PageHeader } from "@/components/platform/components/PageHeader";
 import { SectionCard } from "@/components/platform/components/SectionCard";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
@@ -50,17 +49,15 @@ export default async function PlatformProvisioningPage() {
     }));
 
   return (
-    <AppShell activeSection="provisioning">
+    <AppShell
+      activeSection="provisioning"
+      topbarDescription={t(
+        "Create shops and recover initial manager access through audited boundaries.",
+      )}
+      topbarEyebrow={t("Controlled actions")}
+      topbarTitle={t("Shop Provisioning")}
+    >
       <div className="mx-auto flex max-w-5xl flex-col gap-5">
-        <PageHeader
-          eyebrow={t("Master Console")}
-          title={t("Shop Provisioning")}
-          description={t(
-            "Create shops, fiscal identity, and initial manager access through audited Platform Admin boundaries.",
-          )}
-          status={ready ? t("Safe provisioning") : t(formatToken(readModel.status))}
-        />
-
         <section className="rounded-md border border-slate-200 bg-white p-4 text-sm leading-5 text-slate-700">
           {t(
             "Use shops as the business root. Shop code remains a technical POS/Admin Console login code; company RUT is stored separately for fiscal/boleta identity.",

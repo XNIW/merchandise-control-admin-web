@@ -9,7 +9,10 @@ import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
-import { getShopInventoryReadModel } from "@/server/shop-admin/inventory-read-model";
+import {
+  getShopSuppliersPageReadModel,
+  type ShopCatalogOptionsReadModel,
+} from "@/server/shop-admin/inventory-read-model";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
@@ -48,7 +51,7 @@ function buildClearFiltersHref(requestedShopId?: string) {
 }
 
 function mapSupplierOptions(
-  rows: Awaited<ReturnType<typeof getShopInventoryReadModel>>["suppliers"],
+  rows: ShopCatalogOptionsReadModel["suppliers"],
 ): CatalogSupplierOption[] {
   return rows.map((supplier) => ({
     name: supplier.name,
@@ -136,18 +139,18 @@ export default async function ShopSuppliersPage({
   const activeFilterCount = [getParam(params, "query")].filter((value) =>
     Boolean(value?.trim()),
   ).length;
-  const [inventoryReadModel, suppliersContext] = await Promise.all([
-    getShopInventoryReadModel({ requestedShopId }),
+  const [catalogReadModel, suppliersContext] = await Promise.all([
+    getShopSuppliersPageReadModel({ requestedShopId }),
     resolveShopActionContext(requestedShopId, "suppliers.write"),
   ]);
   const section = await getShopSectionForRequest("suppliers", requestedShopId, {
+    catalogOptionsReadModel: catalogReadModel,
     catalogFilters: {
       query: getParam(params, "query"),
     },
-    inventoryReadModel,
   });
   const canManageSuppliers = suppliersContext.status === "ready";
-  const supplierOptions = mapSupplierOptions(inventoryReadModel.suppliers);
+  const supplierOptions = mapSupplierOptions(catalogReadModel.suppliers);
   const supplierDialog = getSupplierDialog(getParam(params, "supplier_action"));
   const supplierDialogId = getParam(params, "supplier_id") ?? "";
   const rowActionLabels = {

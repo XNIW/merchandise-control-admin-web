@@ -283,7 +283,6 @@ test("TASK-039 exposes staff lifecycle, permission template and account profile 
 
   for (const required of [
     "resolveShopActionContext",
-    "staff.manage",
     "products.write",
     "categories.write",
     "suppliers.write",
@@ -294,6 +293,12 @@ test("TASK-039 exposes staff lifecycle, permission template and account profile 
   ]) {
     assertContains(gatedPages, required);
   }
+
+  assertContains(gatedPages, "resolveStaffPageBundle");
+  assertContains(
+    readProjectFile("src/server/shop-admin/staff-read-model.ts"),
+    "staff.manage",
+  );
 
   for (const required of ["canImport", "canExport"]) {
     assertContains(importExportPanel, required);

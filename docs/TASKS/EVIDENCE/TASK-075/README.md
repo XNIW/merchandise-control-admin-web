@@ -3,8 +3,8 @@
 ## Stato
 
 - Data apertura: `2026-06-19`
-- Stato operativo: `REVIEW`
-- Verdict corrente: `DONE_READY`
+- Stato operativo: `DONE_RECONCILED_WITH_NOTES`
+- Verdict corrente: `DONE_RECONCILED_WITH_NOTES`
 - Commit / push / stage: `NOT_RUN`
 - Production deploy / production migration apply: `NOT_RUN_FORBIDDEN`
 
@@ -148,3 +148,31 @@ prima dello stage/commit:
   `DEP0205`.
 
 Nessun deploy production o Supabase cloud apply eseguito in questa fase.
+
+## Final DONE reconciliation - 2026-06-20
+
+Riconciliazione richiesta esplicitamente dall'utente dopo `TASK-077B`.
+TASK-075 viene chiuso con note perche il lavoro iniziale e stato superato dalle
+misure cloud/read-only e dai fix architetturali successivi.
+
+Benchmark freschi redatti:
+
+| Target | Report | Esito |
+|---|---|---|
+| Products real-shop/local-cloud | `docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-real-shop-task-077-final-reconciliation-products.json` | `PASS`, `finalMs=94ms`, `documentMs=885ms`, `visualReplacementMs=35ms`, `queryCount=5`. |
+| Admin Console real-shop/local-cloud | `docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-real-shop-task-077-final-reconciliation-shop.json` | `PASS`, nessuna route sopra 2s finali; History fuori timeout. |
+| Fixture cloud/local-cloud | `docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-fixture-task-077-final-reconciliation-fixture.json` | `PASS`, Products `51ms` final marker. |
+
+Gate freschi:
+
+| Check | Esito |
+|---|---|
+| `npm run security:scan` | `PASS` |
+| `npm run test:foundation` | `PASS`, `414/414` |
+| `npm run typecheck` | `PASS` |
+| `npm run lint` | `PASS` |
+| `npm run build` | `PASS_WITH_WARNINGS`, warning noti Next `middleware` deprecato e Node `[DEP0205]`. |
+| `npm run verify` | `PASS_WITH_WARNINGS`, stessi warning build. |
+| `git diff --check` | `PASS` |
+
+Commit, stage, push, deploy staging/production e Supabase apply: `NOT_RUN`.

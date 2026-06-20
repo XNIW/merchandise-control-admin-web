@@ -39,7 +39,7 @@ test("TASK-015 history route is part of Shop Admin navigation", () => {
 
   assert.match(sections, /key: "history"/);
   assert.match(sections, /href: "\/shop\/history"/);
-  assert.match(page, /getShopHistoryReadModel/);
+  assert.match(page, /getShopHistoryListReadModel/);
   assert.match(page, /buildHistorySection/);
 });
 

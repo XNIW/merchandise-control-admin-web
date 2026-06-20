@@ -1,5 +1,3 @@
-import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
-
 type ShopRouteLoadingProps = {
   dataAttribute: string;
   eyebrow: string;
@@ -22,6 +20,8 @@ export function ShopRouteLoading({
   rows = 4,
   title,
 }: ShopRouteLoadingProps) {
+  void eyebrow;
+
   return (
     <div
       aria-busy="true"
@@ -30,16 +30,6 @@ export function ShopRouteLoading({
       data-shop-route-loading
       data-shop-route-loading-section={dataAttribute}
     >
-      <section className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-2`}>
-        <p className="text-xs font-semibold uppercase tracking-normal text-emerald-700">
-          {eyebrow}
-        </p>
-        <h1 className="text-2xl font-semibold leading-8 text-zinc-950">
-          {title}
-        </h1>
-        <SkeletonBlock className="h-4 w-full max-w-2xl" />
-      </section>
-
       <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }, (_, index) => (
           <div

@@ -1,0 +1,142 @@
+{
+  "dataset": "real-shop-readonly",
+  "generatedAt": "2026-06-20T15:58:44.982Z",
+  "measurements": [
+    {
+      "activeMs": 41,
+      "consoleErrors": [],
+      "finalMs": 345,
+      "finalStatus": "ready",
+      "label": "Overview",
+      "path": "/shop/overview",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 457,
+      "ttfbStatus": 200,
+      "visualReplacementMs": null,
+      "visualReplacementStatus": "not_observed"
+    },
+    {
+      "activeMs": 63,
+      "consoleErrors": [],
+      "finalMs": 4419,
+      "finalStatus": "ready",
+      "label": "Products",
+      "path": "/shop/products",
+      "pendingMs": 58,
+      "pendingStatus": "observed",
+      "ttfbMs": 1225,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 58,
+      "visualReplacementStatus": "observed"
+    },
+    {
+      "activeMs": 63,
+      "consoleErrors": [],
+      "finalMs": 1361,
+      "finalStatus": "ready",
+      "label": "Categories",
+      "path": "/shop/categories",
+      "pendingMs": 59,
+      "pendingStatus": "observed",
+      "ttfbMs": 1122,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 59,
+      "visualReplacementStatus": "observed"
+    },
+    {
+      "activeMs": 54,
+      "consoleErrors": [],
+      "finalMs": 844,
+      "finalStatus": "ready",
+      "label": "Suppliers",
+      "path": "/shop/suppliers",
+      "pendingMs": 51,
+      "pendingStatus": "observed",
+      "ttfbMs": 465,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 51,
+      "visualReplacementStatus": "observed"
+    },
+    {
+      "activeMs": 53,
+      "consoleErrors": [],
+      "finalMs": 849,
+      "finalStatus": "ready",
+      "label": "POS / Staff",
+      "path": "/shop/staff",
+      "pendingMs": 49,
+      "pendingStatus": "observed",
+      "ttfbMs": 542,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 49,
+      "visualReplacementStatus": "observed"
+    },
+    {
+      "activeMs": 49,
+      "consoleErrors": [],
+      "finalMs": 842,
+      "finalStatus": "ready",
+      "label": "History Entries",
+      "path": "/shop/history",
+      "pendingMs": 45,
+      "pendingStatus": "observed",
+      "ttfbMs": 509,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 45,
+      "visualReplacementStatus": "observed"
+    },
+    {
+      "activeMs": 45,
+      "consoleErrors": [],
+      "finalMs": 841,
+      "finalStatus": "ready",
+      "label": "Sync Center",
+      "path": "/shop/sync",
+      "pendingMs": 41,
+      "pendingStatus": "observed",
+      "ttfbMs": 618,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 41,
+      "visualReplacementStatus": "observed"
+    },
+    {
+      "activeMs": 40,
+      "consoleErrors": [],
+      "finalMs": 1343,
+      "finalStatus": "ready",
+      "label": "Devices",
+      "path": "/shop/devices",
+      "pendingMs": 35,
+      "pendingStatus": "observed",
+      "ttfbMs": 526,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 35,
+      "visualReplacementStatus": "observed"
+    },
+    {
+      "activeMs": 39,
+      "consoleErrors": [],
+      "finalMs": 1843,
+      "finalStatus": "ready",
+      "label": "Settings",
+      "path": "/shop/settings",
+      "pendingMs": 36,
+      "pendingStatus": "observed",
+      "ttfbMs": 469,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 36,
+      "visualReplacementStatus": "observed"
+    }
+  ],
+  "phase": "final-review-after-marker-local",
+  "shop": {
+    "id": "redacted",
+    "source": "env"
+  },
+  "target": {
+    "baseUrl": "http://127.0.0.1:3055",
+    "class": "cloud-supabase-readonly",
+    "testTarget": "staging"
+  }
+}

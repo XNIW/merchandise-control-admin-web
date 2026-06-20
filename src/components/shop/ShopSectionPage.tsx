@@ -2,7 +2,6 @@ import {
   AdminDataTable,
   type AdminDataTableRow,
 } from "@/components/admin/AdminDataTable";
-import { PageHeader } from "@/components/admin/PageHeader";
 import { SectionCard } from "@/components/admin/SectionCard";
 import { getI18n } from "@/i18n/get-locale";
 import { translateShopSection, translateText } from "@/i18n/translate-sections";
@@ -73,15 +72,6 @@ export async function ShopSectionPage({
 
   return (
     <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} flex flex-col gap-5`}>
-      <PageHeader
-        eyebrow={localizedSection.eyebrow}
-        title={localizedSection.title}
-        description={localizedSection.description}
-        status={localizedSection.status}
-        titleId="shop-page-title"
-        accent="emerald"
-      />
-
       <section
         aria-label={`${localizedSection.title} ${translateText(dictionary, "status")}`}
         className={metricGridClassName(localizedSection.metrics.length)}

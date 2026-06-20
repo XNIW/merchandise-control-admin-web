@@ -2643,7 +2643,7 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 ## Tracking corrente
 
 - Stato globale attuale: `IDLE`
-- Ultimo task completato: `TASK-072 - Cross-platform catalog sync and History Entry write path for Admin Web, Android and iOS`
+- Ultimo task completato: `TASK-077B - Performance architecture fix: Products + Master Console lightweight read models`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -2768,23 +2768,41 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-074: `TASK-074 - Devices UX Polish / Owner-Friendly Device Registry`
 - File task TASK-074: `docs/TASKS/TASK-074-devices-ux-polish.md`
 - Evidence TASK-074: `docs/TASKS/EVIDENCE/TASK-074/README.md`
-- Stato TASK-075: `REVIEW`
-- Fase TASK-075: `REVIEW`
+- Stato TASK-075: `DONE_RECONCILED_WITH_NOTES`
+- Fase TASK-075: `DONE_RECONCILED`
 - Task TASK-075: `TASK-075 - Admin Web performance audit e Products navigation latency fix`
 - File task TASK-075: `docs/TASKS/TASK-075-admin-web-performance-audit-products-latency.md`
 - Evidence TASK-075: `docs/TASKS/EVIDENCE/TASK-075/README.md`
+- Stato TASK-076: `DONE_RECONCILED_WITH_NOTES`
+- Fase TASK-076: `DONE_RECONCILED`
+- Task TASK-076: `TASK-076 - Cloud Runtime Performance Fix: Admin Console tab latency, Staff, Products and full Shop navigation`
+- File task TASK-076: `docs/TASKS/TASK-076-cloud-runtime-admin-console-performance.md`
+- Evidence TASK-076: `docs/TASKS/EVIDENCE/TASK-076/README.md`
+- Stato TASK-077: `DONE_RECONCILED`
+- Fase TASK-077: `DONE_RECONCILED`
+- Task TASK-077: `TASK-077 - Admin Console real-shop performance hardening`
+- File task TASK-077: `docs/TASKS/TASK-077-admin-console-real-shop-performance-hardening.md`
+- Evidence TASK-077: `docs/TASKS/EVIDENCE/TASK-077/README.md`
+- Subtask TASK-077A: `Master Console performance audit`
+- Stato TASK-077A: `DONE_RECONCILED_AS_SUPERSEDED_BY_TASK_077B`
+- File subtask TASK-077A: `docs/TASKS/TASK-077A-master-console-performance-audit.md`
+- Evidence TASK-077A: `docs/TASKS/EVIDENCE/TASK-077A/README.md`
+- Subtask TASK-077B: `Performance architecture fix: Products + Master Console lightweight read models`
+- Stato TASK-077B: `DONE_RECONCILED`
+- File subtask TASK-077B: `docs/TASKS/TASK-077B-products-platform-lightweight-read-models.md`
+- Evidence TASK-077B: `docs/TASKS/EVIDENCE/TASK-077B/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Task attivo: `TASK-075 - Admin Web performance audit e Products navigation latency fix`
-- Task precedente: `TASK-074 - Devices UX Polish / Owner-Friendly Device Registry`
-- Ultimo task chiuso: `TASK-074 - Devices UX Polish / Owner-Friendly Device Registry`
-- Ultimo task completato: `TASK-074 - Devices UX Polish / Owner-Friendly Device Registry`
-- File task corrente: `docs/TASKS/TASK-075-admin-web-performance-audit-products-latency.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-075/README.md`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
-- Milestone interna: `TASK_075_REVIEW_HANDOFF`
-- Responsabile: `CODEX_TASK075_PERFORMANCE`
+- Task attivo: `NESSUNO`
+- Task precedente: `TASK-077B - Performance architecture fix: Products + Master Console lightweight read models`
+- Ultimo task chiuso: `TASK-077B - Performance architecture fix: Products + Master Console lightweight read models`
+- Ultimo task completato: `TASK-077B - Performance architecture fix: Products + Master Console lightweight read models`
+- File task corrente: `NESSUNO`
+- Evidence task corrente: `NESSUNO`
+- Stato task: `IDLE`
+- Fase: `IDLE`
+- Milestone interna: `IDLE`
+- Responsabile: `N/A`
 - Branch previsto: `main` / no branch creation requested
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -3301,6 +3319,127 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
   verify, cloud authenticated performance baseline/after, staging deploy,
   `git diff --check`. Rischio residuo: follow-up mirato History read
   model/rendering prima di eventuale `DONE_READY`.
+- Avvio TASK-077 2026-06-20: aperto per brief utente
+  `TASK-077 - Admin Console real-shop performance hardening`. Scope: misurare
+  cloud real-shop read-only oltre alla fixture sintetica; sostituire vecchio
+  contenuto con skeleton target durante navigazione pending; alleggerire
+  Categories/Suppliers senza full inventory read model; consolidare Staff in
+  `resolveStaffPageBundle`; ottimizzare History list light e Overview
+  progressiva; estendere harness a Products, Staff, History, Categories,
+  Suppliers e Overview per fixture e real-shop. Vietati production deploy/apply,
+  service-role client/browser, dati reali in log/evidence, dati finti nella
+  modalita real-shop, modifiche Android/iOS/POS e `DONE` senza evidence
+  cloud real-shop. Stato iniziale: `EXECUTION`, non `DONE`.
+- Handoff TASK-077 2026-06-20: stato operativo `REVIEW_WITH_NOTES`, non
+  `DONE`. Implementato skeleton target in `ShopShell` durante
+  `pendingNavigation`, read model leggeri per Categories/Suppliers senza full
+  inventory, `resolveStaffPageBundle` server-only, History list light senza
+  `count exact`/diagnostics nel primo paint e Overview su card leggere.
+  Harness aggiunto con `npm run test:shop:cloud-performance:task077`, dataset
+  `fixture`, `real-shop` o `both`, app locale con Supabase cloud e report
+  redatti. Fixture before: `/shop/history` in timeout. Fixture after su app
+  locale TASK-077 + Supabase cloud: sostituzione visiva completa entro `40-69ms`
+  su Overview, Products, Categories, Suppliers, Staff e History; History passa
+  da timeout a `1425ms`. Real-shop read-only before/after resta
+  `BLOCKED_NO_REAL_SHOP_CANDIDATE`: discovery redatta conferma candidati cloud
+  solo sintetici per lo scope, quindi nessun dato finto usato. Gate eseguiti:
+  security scan, foundation `406/406`, typecheck, lint, build, verify, cloud
+  fixture after e `git diff --check`; build/verify con warning preesistenti su
+  `middleware` deprecato e `[DEP0205]`. Nessun deploy production/staging,
+  nessun Supabase apply, nessun commit/push/stage.
+- Final review TASK-077 2026-06-20: verdict `CHANGES_REQUIRED`, non `DONE_READY`.
+  Verifica Git: TASK-077 non e presente in `HEAD`/`main`; file task/evidence e
+  harness restano nel worktree locale non committato/pushato. Verifica staging
+  Cloudflare read-only: ultimo deploy staging precedente a TASK-077, quindi
+  nessuna prova che lo staging contenga le modifiche. Real-shop read-only
+  local-cloud su shop autorizzato e report redatti: visual replacement entro
+  `35-59ms`; Staff `849ms`, History `842ms`, Sync `841ms`; Products resta sopra
+  soglia con final marker `4419ms`. Gate finali rilanciati: `security:scan`
+  PASS, `test:foundation` PASS `409/409`, `typecheck` PASS, `lint` PASS,
+  `build`/`verify` PASS_WITH_WARNINGS per warning preesistenti, `git diff
+  --check` PASS. Nessun commit, push, staging deploy, production deploy o
+  Supabase apply eseguito.
+- Subtask TASK-077A 2026-06-20: audit separato Master Console, senza mischiare
+  il fix Products. Benchmark local-cloud production-like su Supabase
+  cloud/staging env con `next build` + `next start`,
+  `ADMIN_WEB_PERF_DEBUG=1` e report redatto in
+  `docs/TASKS/EVIDENCE/TASK-077A/task-077a-platform-performance-local-cloud-before.json`.
+  Pending visuale osservato su tutte le route (`24-49ms`), quindi lo skeleton
+  non e il blocker. Route sopra soglia: `/platform/users` `2861ms`,
+  `/platform/shop-admins` `2847ms`, `/platform/admins` `2835ms`,
+  `/platform/shops` `2841ms`. Root cause: queste route caricano
+  `getPlatformAdminReadModel` con Auth identities e mobile inventory count,
+  `24` query/server render; count `inventory_product_prices` e
+  `inventory_products` dominano i trace. Stato `CHANGES_REQUIRED`, non `DONE`.
+- Avvio TASK-077B 2026-06-20: aperto subtask di execution mirata per correggere
+  i due blocker architetturali rimasti senza audit generico: Products
+  real-shop/local-cloud sopra soglia e Master Console ancora legata al read model
+  Platform globale. Scope: misurare Products con `ADMIN_WEB_PERF_DEBUG=1`,
+  eliminare count/render/payload non indispensabili dal primo paint Products,
+  introdurre read model Platform leggeri per overview/users/shop-admins/admins/
+  shops/audit/system e rieseguire benchmark Shop + Platform. Nessun
+  commit/push/deploy senza conferma utente.
+- Final review TASK-077B 2026-06-20: verdict tecnico `DONE_READY`, non `DONE`
+  senza conferma utente. TASK-077 resta `REVIEW_WITH_DONE_READY_NOTES`;
+  TASK-077A e `SUPERSEDED_BY_TASK_077B_DONE_READY`. Products real-shop dopo
+  fix: final marker `95ms`, document `818ms`, query `5`, server trace
+  `1150.2ms`, RSC `577B`. Fixture dopo fix: Products `55ms`, Categories
+  `52ms`, Suppliers `68ms`, Staff `50ms`, History `49ms`, Sync `49ms`.
+  Platform dopo read model leggeri: route finali `817-873ms`, query
+  route-specifiche `3-11`. Gate finali rilanciati: `security:scan` PASS,
+  `test:foundation` PASS `409/409`, `typecheck` PASS, `lint` PASS, `build`
+  PASS_WITH_WARNINGS, `verify` PASS_WITH_WARNINGS, `git diff --check` PASS.
+  Warning residui: convenzione Next.js `middleware` deprecata in favore di
+  `proxy` e Node `[DEP0205]`. Nessun commit, staging, push, deploy o Supabase
+  apply eseguito.
+- DONE Seal TASK-077/TASK-077A/TASK-077B 2026-06-20: accettazione finale
+  esplicita utente dopo review tecnica positiva. TASK-077 e TASK-077B chiusi
+  in `DONE_RECONCILED`; TASK-077A chiuso in
+  `DONE_RECONCILED_AS_SUPERSEDED_BY_TASK_077B`. Master Plan riportato a
+  `IDLE` senza task attivo. Restano non eseguiti per scelta: commit, stage,
+  push, deploy, production apply e Supabase apply.
+- Final DONE reconciliation TASK-075/TASK-076/TASK-077/TASK-077A/TASK-077B
+  2026-06-20: su richiesta esplicita utente, rieseguiti benchmark
+  local-cloud/read-only con Supabase cloud/staging env e gate finali.
+  TASK-075 e TASK-076 riconciliati a `DONE_RECONCILED_WITH_NOTES` perche i
+  residui storici sono stati superati da TASK-077B. Products real-shop:
+  `finalMs=94ms` nel run Products-only e `77ms` nel run Admin completa,
+  `queryCount=5`, count exact differito. History real-shop: `finalMs=46ms`,
+  fuori timeout. Fixture: Products `51ms`, History `46ms`. Platform:
+  final marker `819-860ms`, Users/Admins/Shops/Shop Admins su read model
+  leggeri senza mobile counts nel first paint. Gate freschi:
+  `security:scan` PASS, `test:foundation` PASS `414/414`, `typecheck` PASS,
+  `lint` PASS, `build` PASS_WITH_WARNINGS, `verify` PASS_WITH_WARNINGS,
+  `git diff --check` PASS, redaction/temp cleanup PASS. Nessun commit, stage,
+  push, deploy o Supabase apply eseguito.
+- Handoff TASK-078 2026-06-20: aperto da brief utente per Product Detail
+  Modal, Product Edit inline, History Entry Detail Modal e History Entries list
+  piu leggibile. Stato operativo `REVIEW`, non `DONE`. Detail prodotto,
+  storico prezzi, righe History e diagnostica sono lazy via route handler
+  no-store, senza reintrodurre full read model nel primo render Products.
+  Gate finali: targeted TASK-078 PASS 5/5, `typecheck` PASS, `lint` PASS,
+  `security:scan` PASS, `test:foundation` PASS 414/414, `build` e `verify`
+  PASS_WITH_WARNINGS per warning noti Next `middleware` deprecato e Node
+  `[DEP0205]`, `git diff --check` PASS, probe HTTP locale `/shop/products`
+  PASS su dev server esistente `127.0.0.1:3055`. Non eseguiti: commit, stage,
+  push, deploy, Supabase apply, smoke browser autenticato su dataset reale.
+- Handoff TASK-078B 2026-06-20: follow-up polish UI/UX su Product e History
+  detail modals. Stato operativo `REVIEW`, non `DONE`. Product modal ora e piu
+  compatto/mobile fullscreen, edit resta nello stesso modal con Save/Cancel in
+  header sticky, Archive/Restore sono in Advanced/Danger, Prices mostra prezzi
+  correnti e Inventory/Sync usa label owner-friendly. History list non usa piu
+  `Open Detail` come valore dati; History detail ha summary reale, row filters
+  client-side sul payload bounded, `-` per celle assenti, shortcut prodotto
+  disabilitato se non risolto e diagnostics redatti collassati. Guardrail
+  performance invariato: detail/storico/diagnostica solo lazy via route handler
+  no-store, nessun full read model nel first render. Gate finali: targeted
+  TASK-078 PASS 5/5, targeted i18n TASK-062/TASK-068 PASS, `typecheck` PASS,
+  `lint` PASS, `security:scan` PASS, `test:foundation` PASS 414/414, `build`
+  e `verify` PASS_WITH_WARNINGS per warning noti Next `middleware` deprecato e
+  Node `[DEP0205]`, `git diff --check` PASS, probe HTTP locale
+  `/shop/products` PASS su dev server esistente `127.0.0.1:3055`. Visual
+  screenshot modali `NOT_RUN_AUTH_REQUIRED`; non eseguiti commit, stage, push,
+  deploy o Supabase apply.
 
 ## Regole di avanzamento
 

@@ -37,8 +37,8 @@ test("TASK-075 Shop and Products routes expose non-technical loading states", ()
   assertContains(productsLoading, "data-products-loading");
   assertContains(productsLoading, "data-products-loading-filters");
   assertContains(productsLoading, "data-products-loading-rows");
-  assertContains(productsLoading, "Catalog Workspace");
-  assertContains(productsLoading, "Products");
+  assertContains(productsLoading, "SHOP_ADMIN_CONTENT_FRAME_CLASS");
+  assert.doesNotMatch(productsLoading, /Catalog Workspace/);
   assert.doesNotMatch(`${shopLoading}\n${productsLoading}`, /Rendering|Suspense|Loading\.\.\./i);
 });
 

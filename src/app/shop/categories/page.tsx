@@ -9,7 +9,10 @@ import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
-import { getShopInventoryReadModel } from "@/server/shop-admin/inventory-read-model";
+import {
+  getShopCategoriesPageReadModel,
+  type ShopCatalogOptionsReadModel,
+} from "@/server/shop-admin/inventory-read-model";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
@@ -48,7 +51,7 @@ function buildClearFiltersHref(requestedShopId?: string) {
 }
 
 function mapCategoryOptions(
-  rows: Awaited<ReturnType<typeof getShopInventoryReadModel>>["categories"],
+  rows: ShopCatalogOptionsReadModel["categories"],
 ): CatalogCategoryOption[] {
   return rows.map((category) => ({
     categoryId: category.categoryId,
@@ -136,18 +139,18 @@ export default async function ShopCategoriesPage({
   const activeFilterCount = [getParam(params, "query")].filter((value) =>
     Boolean(value?.trim()),
   ).length;
-  const [inventoryReadModel, categoriesContext] = await Promise.all([
-    getShopInventoryReadModel({ requestedShopId }),
+  const [catalogReadModel, categoriesContext] = await Promise.all([
+    getShopCategoriesPageReadModel({ requestedShopId }),
     resolveShopActionContext(requestedShopId, "categories.write"),
   ]);
   const section = await getShopSectionForRequest("categories", requestedShopId, {
+    catalogOptionsReadModel: catalogReadModel,
     catalogFilters: {
       query: getParam(params, "query"),
     },
-    inventoryReadModel,
   });
   const canManageCategories = categoriesContext.status === "ready";
-  const categoryOptions = mapCategoryOptions(inventoryReadModel.categories);
+  const categoryOptions = mapCategoryOptions(catalogReadModel.categories);
   const categoryDialog = getCategoryDialog(getParam(params, "category_action"));
   const categoryDialogId = getParam(params, "category_id") ?? "";
   const rowActionLabels = {

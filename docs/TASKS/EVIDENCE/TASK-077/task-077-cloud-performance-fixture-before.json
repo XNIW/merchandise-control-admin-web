@@ -1,0 +1,160 @@
+{
+  "cleanup": {
+    "cleanupErrors": [],
+    "residualRows": 0,
+    "userDeleted": true
+  },
+  "generatedAt": "2026-06-20T14:43:43.502Z",
+  "measurements": [
+    {
+      "activeMs": 28,
+      "consoleErrors": [],
+      "finalMs": 941,
+      "finalStatus": "ready",
+      "label": "Overview",
+      "path": "/shop/overview",
+      "pendingMs": 21,
+      "pendingStatus": "observed",
+      "ttfbMs": 981,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 20,
+      "consoleErrors": [],
+      "finalMs": 1051,
+      "finalStatus": "ready",
+      "label": "Products",
+      "path": "/shop/products",
+      "pendingMs": 16,
+      "pendingStatus": "observed",
+      "ttfbMs": 237,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 61,
+      "consoleErrors": [],
+      "finalMs": 953,
+      "finalStatus": "ready",
+      "label": "Categories",
+      "path": "/shop/categories",
+      "pendingMs": 36,
+      "pendingStatus": "observed",
+      "ttfbMs": 314,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 23,
+      "consoleErrors": [],
+      "finalMs": 882,
+      "finalStatus": "ready",
+      "label": "Suppliers",
+      "path": "/shop/suppliers",
+      "pendingMs": 18,
+      "pendingStatus": "observed",
+      "ttfbMs": 222,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 28,
+      "consoleErrors": [],
+      "finalMs": 1126,
+      "finalStatus": "ready",
+      "label": "Import / Export",
+      "path": "/shop/import-export",
+      "pendingMs": 22,
+      "pendingStatus": "observed",
+      "ttfbMs": 252,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 32,
+      "consoleErrors": [],
+      "finalMs": 1099,
+      "finalStatus": "ready",
+      "label": "Staff",
+      "path": "/shop/staff",
+      "pendingMs": 23,
+      "pendingStatus": "observed",
+      "ttfbMs": 273,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 28,
+      "consoleErrors": [],
+      "finalMs": 939,
+      "finalStatus": "ready",
+      "label": "Devices",
+      "path": "/shop/devices",
+      "pendingMs": 24,
+      "pendingStatus": "observed",
+      "ttfbMs": 258,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 38,
+      "consoleErrors": [],
+      "finalMs": null,
+      "finalStatus": "timeout",
+      "label": "History Entries",
+      "path": "/shop/history",
+      "pendingMs": 31,
+      "pendingStatus": "observed",
+      "ttfbMs": 291,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 30,
+      "consoleErrors": [],
+      "finalMs": 948,
+      "finalStatus": "ready",
+      "label": "Sync Center",
+      "path": "/shop/sync",
+      "pendingMs": 23,
+      "pendingStatus": "observed",
+      "ttfbMs": 260,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 21,
+      "consoleErrors": [],
+      "finalMs": 939,
+      "finalStatus": "ready",
+      "label": "Members",
+      "path": "/shop/members",
+      "pendingMs": 16,
+      "pendingStatus": "observed",
+      "ttfbMs": 287,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 27,
+      "consoleErrors": [],
+      "finalMs": 180,
+      "finalStatus": "ready",
+      "label": "Roles",
+      "path": "/shop/roles",
+      "pendingMs": 19,
+      "pendingStatus": "observed",
+      "ttfbMs": 284,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 21,
+      "consoleErrors": [],
+      "finalMs": 923,
+      "finalStatus": "ready",
+      "label": "Settings",
+      "path": "/shop/settings",
+      "pendingMs": 17,
+      "pendingStatus": "observed",
+      "ttfbMs": 229,
+      "ttfbStatus": 200
+    }
+  ],
+  "phase": "task-077-fixture-before",
+  "target": {
+    "baseUrl": "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev",
+    "class": "cloud-staging",
+    "testTarget": "staging"
+  }
+}

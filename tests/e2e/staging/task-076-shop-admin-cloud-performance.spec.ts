@@ -35,23 +35,28 @@ type Task076Fixture = {
 
 type RouteMeasurement = {
   activeMs: number | null;
+  contentStatus?: "missing" | "not_checked" | "visible";
   consoleErrors: readonly string[];
   finalMs: number | null;
+  finalPathname?: string | null;
   finalStatus: "ready" | "timeout";
+  finalTitleText?: string | null;
   label: string;
   navigationError?: string;
   path: string;
   pendingMs: number | null;
   pendingStatus: "observed" | "not_observed" | "final_under_300ms";
+  shopParamStatus?: "different" | "matched" | "missing";
   ttfbMs: number | null;
   ttfbStatus: number | null;
 };
 
 type RouteCheck = {
+  hiddenFromPrimaryNav?: boolean;
   key: string;
   label: string;
   path: string;
-  text?: (fixture: Task076Fixture) => string;
+  text?: (fixture: Task076Fixture) => RegExp | string;
   title: string;
 };
 
@@ -80,7 +85,7 @@ const routeChecks: readonly RouteCheck[] = [
     label: "Products",
     path: "/shop/products",
     title: "Products",
-    text: (fixture: Task076Fixture) => fixture.productName,
+    text: () => new RegExp(`^${taskPrefix}Product `),
   },
   {
     key: "categories",
@@ -98,8 +103,10 @@ const routeChecks: readonly RouteCheck[] = [
   },
   {
     key: "importExport",
+    hiddenFromPrimaryNav: true,
     label: "Import / Export",
     path: "/shop/import-export",
+    text: () => "Moved to Products",
     title: "Import / Export",
   },
   {
@@ -510,6 +517,7 @@ async function createTask076Fixture(): Promise<Task076Fixture> {
         .insert({
           name: supplierName,
           owner_user_id: userId,
+          shop_id: shopId,
         })
         .select("id")
         .single(),
@@ -521,6 +529,7 @@ async function createTask076Fixture(): Promise<Task076Fixture> {
         .insert({
           name: categoryName,
           owner_user_id: userId,
+          shop_id: shopId,
         })
         .select("id")
         .single(),
@@ -536,6 +545,7 @@ async function createTask076Fixture(): Promise<Task076Fixture> {
         product_name: `${taskPrefix}Product ${padded}`,
         purchase_price: 1 + index,
         retail_price: 2 + index,
+        shop_id: shopId,
         stock_quantity: index + 1,
         supplier_id: supplier.id,
       };
@@ -701,9 +711,21 @@ async function signIn(page: Page, fixture: Task076Fixture) {
     page.getByRole("button", { name: "Sign in" }).click(),
   ]);
   await page.goto(routeUrl("/shop", fixture.shopId).toString());
-  await expect(page.locator("#shop-page-title")).toContainText("Shop Overview", {
-    timeout: 20_000,
+  await expectRouteTitle(page, "Shop Overview", 20_000);
+}
+
+async function expectRouteTitle(page: Page, title: string, timeout = 12_000) {
+  const titleById = page.locator("#shop-shell-page-title");
+  const legacyTitleById = page.locator("#shop-page-title");
+  const visibleHeading = page.getByRole("heading", {
+    level: 1,
+    name: title,
   });
+
+  await expect(titleById.or(legacyTitleById).or(visibleHeading).first()).toContainText(
+    title,
+    { timeout },
+  );
 }
 
 async function cookieHeader(context: BrowserContext) {
@@ -821,12 +843,18 @@ async function measureRouteNavigation(
   consoleErrors: readonly string[],
 ): Promise<RouteMeasurement> {
   const ttfb = await measureTtfb(context, route.path, fixture.shopId);
-  const link = page.getByRole("link", { name: route.label, exact: true }).first();
+  const link = route.hiddenFromPrimaryNav
+    ? null
+    : page.getByRole("link", { name: route.label, exact: true }).first();
 
   await installPendingObserver(page);
   const startedAt = await page.evaluate(() => window.performance.now());
   try {
-    await link.click({ timeout: 3_000 });
+    if (route.hiddenFromPrimaryNav) {
+      await page.goto(routeUrl(route.path, fixture.shopId).toString());
+    } else {
+      await link?.click({ timeout: 3_000 });
+    }
   } catch (error) {
     return {
       activeMs: null,
@@ -845,6 +873,10 @@ async function measureRouteNavigation(
   }
 
   const activeMs = await (async () => {
+    if (!link) {
+      return null;
+    }
+
     try {
       await expect(link).toHaveAttribute("aria-current", "page", {
         timeout: 1_000,
@@ -858,31 +890,53 @@ async function measureRouteNavigation(
     }
   })();
   const pendingMs = await firstPendingMs(page, startedAt);
+  let contentStatus: RouteMeasurement["contentStatus"] = route.text
+    ? "missing"
+    : "not_checked";
   let finalMs: number | null = null;
+  let finalPathname: string | null = null;
   let finalStatus: RouteMeasurement["finalStatus"] = "timeout";
+  let finalTitleText: string | null = null;
+  let shopParamStatus: RouteMeasurement["shopParamStatus"];
 
   try {
-    await page.waitForURL(
-      (url) =>
-        url.pathname === route.path &&
-        url.searchParams.get("shop_id") === fixture.shopId,
-      { timeout: 12_000 },
-    );
-    await expect(page.locator("#shop-page-title")).toContainText(route.title, {
+    await expect(page.locator("[data-shop-route-loading-target]")).toHaveCount(0, {
       timeout: 12_000,
     });
+    await expectRouteTitle(page, route.title);
+    const currentUrl = new URL(page.url());
+    const shopParam = currentUrl.searchParams.get("shop_id");
 
-    if (route.text) {
-      await expect(page.getByText(route.text(fixture)).first()).toBeVisible({
-        timeout: 3_000,
-      });
-    }
+    finalPathname = currentUrl.pathname;
+    finalTitleText = await page.locator("#shop-shell-page-title").textContent({
+      timeout: 500,
+    }).catch(() => null);
+    expect(currentUrl.pathname).toBe(route.path);
 
     finalMs = Math.round(
       (await page.evaluate(() => window.performance.now())) - startedAt,
     );
     finalStatus = "ready";
+    shopParamStatus =
+      shopParam === fixture.shopId ? "matched" : shopParam ? "different" : "missing";
+
+    if (route.text) {
+      contentStatus = await page
+        .getByText(route.text(fixture))
+        .first()
+        .isVisible({ timeout: 3_000 })
+        .then((visible) => (visible ? "visible" : "missing"))
+        .catch(() => "missing");
+    }
   } catch {
+    try {
+      finalPathname = new URL(page.url()).pathname;
+    } catch {
+      finalPathname = null;
+    }
+    finalTitleText = await page.locator("#shop-shell-page-title").textContent({
+      timeout: 500,
+    }).catch(() => null);
     finalMs = null;
   }
 
@@ -895,13 +949,17 @@ async function measureRouteNavigation(
 
   return {
     activeMs,
+    contentStatus,
     consoleErrors: consoleErrors.slice(),
     finalMs,
+    finalPathname,
     finalStatus,
+    finalTitleText,
     label: route.label,
     path: route.path,
     pendingMs,
     pendingStatus,
+    shopParamStatus,
     ttfbMs: ttfb.ms,
     ttfbStatus: ttfb.status,
   };

@@ -6,9 +6,8 @@ import {
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
-import { resolveShopActionContext } from "@/server/shop-admin/action-context";
-import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
-import { hasStaffFullShopAdminWebAccess } from "@/server/shop-admin/staff-web-permissions";
+import { buildStaffSection } from "@/server/shop-admin/shop-section-data";
+import { resolveStaffPageBundle } from "@/server/shop-admin/staff-read-model";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
 export function generateMetadata() {
@@ -91,15 +90,8 @@ export default async function ShopStaffPage({
   const { dictionary } = await getI18n();
   const t = (value: string) => translateText(dictionary, value);
   const requestedShopId = getParam(params, "shop_id");
-  const [section, staffActionContext] = await Promise.all([
-    getShopSectionForRequest("staff", requestedShopId),
-    resolveShopActionContext(requestedShopId, "staff.manage"),
-  ]);
-  const canManageStaff = staffActionContext.status === "ready";
-  const canManageRolePermissions =
-    staffActionContext.status === "ready" &&
-    (staffActionContext.principalKind === "personal_account" ||
-      hasStaffFullShopAdminWebAccess(staffActionContext.staffPermissions));
+  const bundle = await resolveStaffPageBundle(requestedShopId);
+  const section = buildStaffSection(bundle.readModel);
 
   return (
     <div className="grid gap-5">
@@ -108,9 +100,9 @@ export default async function ShopStaffPage({
         action={getParam(params, "action")}
         result={getParam(params, "result")}
       />
-      {canManageStaff ? (
+      {bundle.canManageStaff ? (
         <StaffActionPanel
-          canManageRolePermissions={canManageRolePermissions}
+          canManageRolePermissions={bundle.canManageRolePermissions}
           labels={staffActionLabels(t)}
           selectedShopId={requestedShopId}
         />

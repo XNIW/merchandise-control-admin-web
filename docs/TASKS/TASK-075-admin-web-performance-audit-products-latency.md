@@ -4,8 +4,8 @@
 
 - ID: `TASK-075`
 - Titolo: `Admin Web performance audit e Products navigation latency fix`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
+- Stato: `DONE_RECONCILED_WITH_NOTES`
+- Fase attuale: `DONE_RECONCILED`
 - Responsabile attuale: `CODEX`
 - Data apertura: `2026-06-19`
 - File Master Plan: `docs/MASTER-PLAN.md`
@@ -105,7 +105,31 @@ model inventario completo per popolare opzioni toolbar/dialog.
 | `git diff --check` finale | `PENDING` |
 | `git status --short --branch --untracked-files=all` finale | `PENDING` |
 
+## Final DONE reconciliation - 2026-06-20
+
+TASK-075 resta storicamente un audit/fix iniziale con limiti di runtime cloud,
+ma i blocker residui sono stati corretti e verificati dai task successivi
+`TASK-076`, `TASK-077` e soprattutto `TASK-077B`.
+
+Evidence fresca di riconciliazione:
+
+- Products real-shop/local-cloud: report
+  `docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-real-shop-task-077-final-reconciliation-products.json`,
+  `finalMs=94ms`, `documentMs=885ms`, `visualReplacementMs=35ms`,
+  `queryCount=5`, `totalCountStatus=deferred`.
+- Admin Console real-shop completa: report
+  `docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-real-shop-task-077-final-reconciliation-shop.json`,
+  nessuna route sopra 2s finali; History fuori timeout.
+- Fixture cloud/local-cloud: report
+  `docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-fixture-task-077-final-reconciliation-fixture.json`,
+  Products `51ms` final marker.
+- Gate freschi: `security:scan`, `test:foundation` (`414/414`),
+  `typecheck`, `lint`, `build`, `verify`, `git diff --check`: `PASS`.
+
+Commit, stage, push, deploy e Supabase apply: `NOT_RUN`.
+
 ## Stato corrente
 
-`REVIEW`. Implementazione pronta per review utente con verdict operativo
-`DONE_READY`; Codex non marca `DONE`.
+`DONE_RECONCILED_WITH_NOTES`. Chiuso come task fondativo/superseded dai fix
+runtime successivi; note storiche mantenute per distinguere il limite iniziale
+da Products/History corretti in `TASK-077B`.

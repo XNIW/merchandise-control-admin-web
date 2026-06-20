@@ -43,11 +43,13 @@ test("TASK-013 UI/UX polish is reconciled to DONE", () => {
 test("TASK-013 Shop Admin shell makes selected shop context explicit", () => {
   const shell = readProjectFile("src/components/shop/ShopShell.tsx");
 
-  assert.match(shell, /role="group"/);
-  assert.match(shell, /aria-labelledby="selected-shop-context-label selected-shop-summary"/);
-  assert.match(shell, /id="selected-shop-summary"/);
+  assert.match(shell, /id="shop-shell-page-title"/);
   assert.match(shell, /shopDisplayName/);
   assert.match(shell, /shopIdentityLine/);
+  assert.match(shell, /selectedShop \? selectedShopName : labels\.adminConsole/);
+  assert.match(shell, /selectedShopIdentity/);
+  assert.doesNotMatch(shell, /selected-shop-context-label/);
+  assert.doesNotMatch(shell, /selected-shop-summary/);
   assert.match(shell, /overflow-x-auto/);
   assert.match(shell, /lg:grid/);
   assert.match(shell, /whitespace-nowrap/);

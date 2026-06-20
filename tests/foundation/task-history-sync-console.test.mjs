@@ -178,8 +178,11 @@ test("History page renders mobile entries first, then sync events and diagnostic
   const sectionData = readProjectFile(sectionDataPath);
   const page = readProjectFile(pagePath);
 
-  assert.match(sections, /title: "Mobile History Entries"/);
-  assert.match(sections, /History entries loaded from shared_sheet_sessions/);
+  assert.match(sections, /title: "Android \/ iOS History Entries"/);
+  assert.match(
+    sections,
+    /Mobile history sessions and sync-related catalog activity/,
+  );
 
   assert.match(sectionData, /title: "Android \/ iOS History Entries"/);
   assert.match(
@@ -270,12 +273,11 @@ test("History page renders mobile entries first, then sync events and diagnostic
   assert.match(page, /buildHistoryDetailHref/);
   assert.match(page, /encodeURIComponent\(entryId\)/);
   assert.match(page, /new URLSearchParams\(\{ shop_id: requestedShopId \}\)/);
+  assert.match(page, /getShopHistoryListReadModel/);
   assert.match(page, /rowActions=\{\{/);
-  assert.match(page, /secondaryRowActions=\{\{/);
-  assert.match(
-    page,
-    /renderForTable: \(table\) => table\.title === "Related history sync events"/,
-  );
+  assert.doesNotMatch(page, /secondaryRowActions=\{\{/);
+  assert.match(readModel, /getShopHistoryDetailReadModel/);
+  assert.match(sectionData, /readModel\.listMode === "light"/);
   assert.doesNotMatch(
     page,
     /renderForTable: \(table\) => table\.title === "Payload and overlay diagnostics"/,

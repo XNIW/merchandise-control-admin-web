@@ -139,7 +139,10 @@ test("TASK-012 planning stays redacted as later staff runtime tasks land", () =>
   }
 
   assert.match(staffPage, /ShopSectionPage/);
-  assert.match(staffPage, /shopSections\.staff|getShopSectionForRequest\(\s*"staff"/);
+  assert.match(
+    staffPage,
+    /shopSections\.staff|getShopSectionForRequest\(\s*"staff"|resolveStaffPageBundle/,
+  );
   if (task015Present) {
     assert.match(staffPage, /StaffActionPanel/);
   } else {

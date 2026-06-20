@@ -29,7 +29,11 @@ function sectionFromPath(
   return matchingItem?.key ?? null;
 }
 
-function PlatformNavigationIcon({ itemKey }: { itemKey: PlatformSectionKey }) {
+export function PlatformNavigationIcon({
+  itemKey,
+}: {
+  itemKey: PlatformSectionKey;
+}) {
   const commonProps = {
     "aria-hidden": true,
     className: "size-4 shrink-0",

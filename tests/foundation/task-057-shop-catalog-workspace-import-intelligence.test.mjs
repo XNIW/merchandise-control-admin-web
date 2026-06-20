@@ -74,9 +74,8 @@ test("TASK-057 governance is DONE_RECONCILED after TASK-058 confirmation", () =>
   );
 });
 
-test("TASK-057 keeps Import Export route available and TASK-076 restores sidebar access", () => {
+test("TASK-057 keeps Import Export route compatible but hidden from primary nav", () => {
   const sections = read("src/components/shop/shopSections.ts");
-  const task076Evidence = read("docs/TASKS/EVIDENCE/TASK-076/README.md");
   const navBlock = sections.match(
     /export const shopNavigationSections[\s\S]*?export const shopNavigationItems/,
   )?.[0];
@@ -84,21 +83,22 @@ test("TASK-057 keeps Import Export route available and TASK-076 restores sidebar
   assert.ok(navBlock, "shopNavigationSections block not found");
   assert.match(navBlock, /href:\s*"\/shop\/import-export"/);
   assert.match(navBlock, /label:\s*"Import \/ Export"/);
+  assert.match(navBlock, /hiddenFromPrimaryNav:\s*true/);
 
   assertContains(sections, "importExport");
   assertContains(sections, "href: \"/shop/import-export\"");
-  assertContains(task076Evidence, "`/shop/import-export`");
-  assertContains(task076Evidence, "Sidebar navigation fixed.");
 });
 
-test("TASK-057 Products workspace exposes named filters, state filter and full catalog columns", () => {
+test("TASK-057 Products filters start the page and keep full catalog columns", () => {
   const page = read("src/app/shop/products/page.tsx");
+  const loading = read("src/app/shop/products/loading.tsx");
   const data = read("src/server/shop-admin/shop-section-data.ts");
   const dictionary = read("src/i18n/dictionaries.ts");
   const pageI18nSource = `${page}\n${dictionary}`;
 
   for (const required of [
-    "Catalog Workspace",
+    "Search and filters",
+    "data-product-catalog-command-bar",
     "name=\"state\"",
     "<select",
     "All categories",
@@ -109,6 +109,12 @@ test("TASK-057 Products workspace exposes named filters, state filter and full c
     assertContains(pageI18nSource, required);
   }
 
+  assert.doesNotMatch(page, /Catalog Workspace/);
+  assert.doesNotMatch(loading, /Catalog Workspace/);
+  assert.doesNotMatch(
+    page,
+    /Use search or filters to find products across the full mapped catalog\./,
+  );
   assert.doesNotMatch(page, />\s*Category id\s*</);
   assert.doesNotMatch(page, />\s*Supplier id\s*</);
 
@@ -204,7 +210,9 @@ test("TASK-057 catalog actions are toolbar buttons with accessible dialogs", () 
   assertContains(productsPage, "ProductRowActions");
   assertContains(productsPage, "product_action");
   assertContains(productsPage, "product_id");
-  assertContains(productsPage, "liveDataToolbar={catalogToolbar}");
+  assertContains(productsPage, "data-product-catalog-command-bar");
+  assertContains(productsPage, "{catalogDialogPanel}");
+  assert.doesNotMatch(productsPage, /liveDataToolbar=\{catalogToolbar\}/);
   assertContains(categoriesPage, "CategoryRowActions");
   assertContains(categoriesPage, "category_action");
   assertContains(categoriesPage, "liveDataToolbar={catalogToolbar}");

@@ -1,0 +1,150 @@
+{
+  "dataset": "real-shop-readonly",
+  "generatedAt": "2026-06-20T17:02:33.506Z",
+  "measurements": [
+    {
+      "activeMs": 60,
+      "consoleErrors": [],
+      "documentBytes": 371030,
+      "documentMs": 850,
+      "finalMs": 76,
+      "finalStatus": "ready",
+      "label": "Products",
+      "path": "/shop/products",
+      "pendingMs": 32,
+      "pendingStatus": "observed",
+      "rscBytes": 16413,
+      "rscResponseCount": 3,
+      "ttfbMs": 510,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 32,
+      "visualReplacementStatus": "observed",
+      "key": "products",
+      "serverTraceSummary": {
+        "catalogOptionsBytesMax": 14898,
+        "clientProductOptionsMax": 0,
+        "estimatedSectionBytesMax": 9840,
+        "latestQueryCount": 5,
+        "latestTotalMs": 1307.6,
+        "liveDataRowsMax": 10,
+        "pageRowsMax": 10,
+        "productsPageBytesMax": 5674,
+        "queryCountPerRenderMax": 5,
+        "queryLabels": [
+          "inventory_categories.options",
+          "inventory_products.page",
+          "inventory_suppliers.options",
+          "shop_inventory_sources.mapping",
+          "shop_inventory_sources.mapping.options"
+        ],
+        "readModelsLoaded": [],
+        "renderCount": 1,
+        "scopeLabels": [
+          "shop.products"
+        ],
+        "serverTotalMsMax": 1307.6,
+        "status": "captured",
+        "totalCountMax": 11
+      }
+    }
+  ],
+  "phase": "task-077b-products-after-light-counts",
+  "shop": {
+    "id": "redacted",
+    "source": "env"
+  },
+  "target": {
+    "baseUrl": "http://127.0.0.1:3077",
+    "class": "cloud-supabase-readonly",
+    "testTarget": "staging"
+  },
+  "serverPerfTraces": [
+    {
+      "marks": [],
+      "meta": {
+        "activeFilterCount": 0,
+        "hasRequestedShopId": true,
+        "pageSize": "10",
+        "route": "/shop/products",
+        "state": "active",
+        "catalogOptionRows": 109,
+        "catalogOptionsStatus": "ready",
+        "catalogOptionsBytes": 14898,
+        "categoryOptions": 39,
+        "clientProductOptions": 0,
+        "dialogLoaded": false,
+        "estimatedSectionBytes": 9840,
+        "liveDataColumns": 12,
+        "liveDataRows": 10,
+        "pageRows": 10,
+        "productsPageBytes": 5674,
+        "productsStatus": "ready",
+        "supplierOptions": 70,
+        "totalCount": 11,
+        "totalCountStatus": "deferred",
+        "hasNextPage": true
+      },
+      "queries": {
+        "shop_inventory_sources.mapping": 1,
+        "shop_inventory_sources.mapping.options": 1,
+        "inventory_products.page": 1,
+        "inventory_categories.options": 1,
+        "inventory_suppliers.options": 1
+      },
+      "queryCount": 5,
+      "scope": "shop.products",
+      "timings": [
+        {
+          "label": "resolveShopAdminDataAccess.productsPage",
+          "ms": 486.3
+        },
+        {
+          "label": "resolveShopAdminDataAccess.catalogOptions",
+          "ms": 486.2
+        },
+        {
+          "label": "resolveShopPageAccessBundle",
+          "ms": 486.6
+        },
+        {
+          "label": "shop_inventory_sources.mapping.query",
+          "ms": 102.2
+        },
+        {
+          "label": "inventory_categories.options.query",
+          "ms": 112.2
+        },
+        {
+          "label": "inventory_suppliers.options.query",
+          "ms": 302.4
+        },
+        {
+          "label": "getShopCatalogOptionsReadModel",
+          "ms": 891.9
+        },
+        {
+          "label": "inventory_products.page.query",
+          "ms": 710
+        },
+        {
+          "label": "getShopInventoryProductsPage",
+          "ms": 1299.7
+        },
+        {
+          "label": "mapCatalogOptionsForClient",
+          "ms": 0.4
+        },
+        {
+          "label": "buildProductsPageSection",
+          "ms": 6.9
+        }
+      ],
+      "totalMs": 1307.6
+    }
+  ],
+  "serverTraceCapture": {
+    "appTarget": "local-cloud",
+    "status": "captured",
+    "tracesCount": 1
+  }
+}

@@ -3,8 +3,8 @@
 ## Stato
 
 - Data apertura: `2026-06-19`
-- Stato operativo: `REVIEW`
-- Verdict corrente: `REVIEW_WITH_NOTES`
+- Stato operativo: `DONE_RECONCILED_WITH_NOTES`
+- Verdict corrente: `DONE_RECONCILED_WITH_NOTES`
 - Commit / push / stage: `NOT_RUN`
 - Production deploy / production migration apply: `NOT_RUN_FORBIDDEN`
 
@@ -194,3 +194,31 @@ prima dello stage/commit:
   `DEP0205`.
 
 Nessun deploy production o Supabase cloud apply eseguito in questa fase.
+
+## Final DONE reconciliation - 2026-06-20
+
+`TASK-076` viene riconciliato con note dopo `TASK-077B`: il timeout storico di
+`/shop/history` nel click-flow cloud non e piu riproducibile nei benchmark
+finali local-cloud/read-only.
+
+Benchmark freschi redatti:
+
+| Target | Report | Esito |
+|---|---|---|
+| Admin Console real-shop/local-cloud | `docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-real-shop-task-077-final-reconciliation-shop.json` | `PASS`, `/shop/history finalMs=46ms`, `documentMs=440ms`, `visualReplacementMs=14ms`. |
+| Fixture cloud/local-cloud | `docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-fixture-task-077-final-reconciliation-fixture.json` | `PASS`, `/shop/history finalMs=46ms`, pending `12ms`. |
+| Products debug real-shop/local-cloud | `docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-real-shop-task-077-final-reconciliation-products.json` | `PASS`, `queryCount=5`, `totalCountStatus=deferred`. |
+
+Gate freschi:
+
+| Check | Esito |
+|---|---|
+| `npm run security:scan` | `PASS` |
+| `npm run test:foundation` | `PASS`, `414/414` |
+| `npm run typecheck` | `PASS` |
+| `npm run lint` | `PASS` |
+| `npm run build` | `PASS_WITH_WARNINGS`, warning noti Next `middleware` deprecato e Node `[DEP0205]`. |
+| `npm run verify` | `PASS_WITH_WARNINGS`, stessi warning build. |
+| `git diff --check` | `PASS` |
+
+Commit, stage, push, deploy staging/production e Supabase apply: `NOT_RUN`.

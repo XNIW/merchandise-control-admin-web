@@ -4,7 +4,6 @@ import {
   revokeDeviceAction,
 } from "@/app/shop/actions";
 import { CopyDeviceIdentifierButton } from "@/app/shop/_components/CopyDeviceIdentifierButton";
-import { PageHeader } from "@/components/admin/PageHeader";
 import { SectionCard } from "@/components/admin/SectionCard";
 import {
   StatusBadge,
@@ -924,18 +923,6 @@ export function DeviceRegistryView({
 
   return (
     <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-5`}>
-      <PageHeader
-        accent="emerald"
-        description={t(
-          "Devices appear here automatically after Android, iOS, POS, or web clients log in or sync with this shop. Revoked devices remain visible for audit and enforcement.",
-        )}
-        eyebrow={t("Shop Admin")}
-        status={t("Revocation enforced")}
-        statusTone="good"
-        title={t("Devices")}
-        titleId="shop-page-title"
-      />
-
       <SummaryCards
         cards={summaryCards({
           detectedSyncClients: readModel.detectedSyncClients,

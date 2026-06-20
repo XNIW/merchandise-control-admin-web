@@ -23,6 +23,7 @@ import {
 import {
   getShopHistoryDetailReadModel,
   getShopHistoryReadModel,
+  getShopSyncReadModel,
   type ShopHistoryDetailField,
   type ShopHistoryDetailReadModel,
   type ShopHistoryOverlayStatus,
@@ -36,8 +37,12 @@ import {
   sanitizeSpreadsheetCell,
 } from "./import-export-readiness";
 import {
+  getShopCategoriesPageReadModel,
   getShopInventoryProductDetailReadModel,
   getShopInventoryReadModel,
+  getShopSuppliersPageReadModel,
+  type ShopCatalogOptionsReadModel,
+  type ShopInventoryCatalogScope,
   type ShopInventoryCategory,
   type ShopInventoryPrice,
   type ShopInventoryProduct,
@@ -85,10 +90,13 @@ type GetShopSectionForRequestOptions = {
     severity?: string | null;
     targetId?: string | null;
   };
+  catalogOptionsReadModel?: ShopCatalogOptionsReadModel;
   catalogFilters?: CatalogFilters;
   inventoryReadModel?: ShopInventoryReadModel;
   syncFilters?: SyncFilters;
 };
+
+type CatalogListReadModel = ShopInventoryReadModel | ShopCatalogOptionsReadModel;
 
 const SYNC_FILTER_MAX_LENGTH = 160;
 
@@ -985,8 +993,8 @@ function inventoryStatusLabel(status: ShopInventoryReadModel["status"]) {
   return labels[status];
 }
 
-function catalogScopeLabel(scope: ShopInventoryReadModel["catalogScope"]) {
-  const labels: Record<ShopInventoryReadModel["catalogScope"], string> = {
+function catalogScopeLabel(scope: ShopInventoryCatalogScope) {
+  const labels: Record<ShopInventoryCatalogScope, string> = {
     blocked: "Mapping required",
     legacy_owner_bridge: "Legacy mobile bridge",
     shop_scoped: "Shop scoped",
@@ -995,7 +1003,9 @@ function catalogScopeLabel(scope: ShopInventoryReadModel["catalogScope"]) {
   return labels[scope];
 }
 
-function catalogWriteLabel(readModel: ShopInventoryReadModel) {
+function catalogWriteLabel(
+  readModel: Pick<CatalogListReadModel, "catalogScope" | "status">,
+) {
   if (readModel.status !== "ready") {
     return "Blocked";
   }
@@ -1007,7 +1017,7 @@ function catalogWriteLabel(readModel: ShopInventoryReadModel) {
 
 function inventoryFallbackSection(
   key: "products" | "categories" | "suppliers",
-  readModel: ShopInventoryReadModel,
+  readModel: CatalogListReadModel,
 ): ShopSection {
   const base = shopSections[key];
   const status = inventoryStatusLabel(readModel.status);
@@ -1240,7 +1250,7 @@ export function buildProductsSection(
 }
 
 export function buildCategoriesSection(
-  readModel: ShopInventoryReadModel,
+  readModel: CatalogListReadModel,
   filters: CatalogFilters = {},
 ): ShopSection {
   if (readModel.status !== "ready") {
@@ -1264,18 +1274,13 @@ export function buildCategoriesSection(
     metrics: [
       metric(
         "Categories",
-        String(readModel.summary.categories),
-        "Mapped catalog total",
+        String(readModel.categories.length),
+        "Loaded category rows",
       ),
       metric(
         "Current page rows",
         String(filteredCategories.length),
         "Filtered rows",
-      ),
-      metric(
-        "Total products",
-        String(readModel.summary.productsTotal),
-        "Mapped catalog total",
       ),
       metric("Filters", String(activeFilters), "Search"),
       metric(
@@ -1316,7 +1321,7 @@ export function buildCategoriesSection(
 }
 
 export function buildSuppliersSection(
-  readModel: ShopInventoryReadModel,
+  readModel: CatalogListReadModel,
   filters: CatalogFilters = {},
 ): ShopSection {
   if (readModel.status !== "ready") {
@@ -1339,18 +1344,13 @@ export function buildSuppliersSection(
     metrics: [
       metric(
         "Suppliers",
-        String(readModel.summary.suppliers),
-        "Mapped catalog total",
+        String(readModel.suppliers.length),
+        "Loaded supplier rows",
       ),
       metric(
         "Current page rows",
         String(filteredSuppliers.length),
         "Filtered rows",
-      ),
-      metric(
-        "Total products",
-        String(readModel.summary.productsTotal),
-        "Mapped catalog total",
       ),
       metric("Filters", String(activeFilters), "Search"),
       metric(
@@ -1953,6 +1953,21 @@ function historySessionRow(session: ShopHistorySession): ShopSectionTableRow {
   };
 }
 
+function historySessionListRow(
+  session: ShopHistorySession,
+): ShopSectionTableRow {
+  return {
+    rowKey: `session:${session.remoteId}`,
+    type: historyEntryType(session),
+    entryName: session.displayName,
+    supplierCategory:
+      [session.supplier, session.category].filter(Boolean).join(" / ") ||
+      "Not set",
+    status: historyEntryStatus(session),
+    updated: formatDateTime(session.updatedAt),
+  };
+}
+
 function historySyncEventRow(
   event: ShopSyncEventActivity,
 ): ShopSectionTableRow {
@@ -1992,6 +2007,7 @@ export function buildHistorySection(
 
     return {
       ...shopSections.history,
+      title: "Android / iOS History Entries",
       description: readModel.reason,
       status,
       metrics: [
@@ -2016,6 +2032,73 @@ export function buildHistorySection(
         emptyState: {
           title: "Mobile history mapping is not ready",
           description: readModel.reason,
+        },
+      },
+    };
+  }
+
+  if (readModel.listMode === "light") {
+    const activeSessions = readModel.sessions.filter(
+      (session) => session.state === "active",
+    ).length;
+    const tombstones = readModel.sessions.filter(
+      (session) => session.state === "tombstone",
+    ).length;
+
+    return {
+      ...shopSections.history,
+      title: "Android / iOS History Entries",
+      description:
+        "Lightweight mobile history list from shared_sheet_sessions. Payload, overlay diagnostics and related sync details load only after opening a specific entry.",
+      status:
+        readModel.sessions.length > 0 ? "Read-only mapped" : "History empty",
+      metrics: [
+        metric(
+          "History entries",
+          String(readModel.sessions.length),
+          "Latest visible rows; exact total deferred",
+        ),
+        metric(
+          "Active entries",
+          String(activeSessions),
+          "Rows without deleted_at",
+          "good",
+        ),
+        metric(
+          "Deleted entries",
+          String(tombstones),
+          "Rows with deleted_at",
+          tombstones > 0 ? "warning" : "muted",
+        ),
+        metric(
+          "Diagnostics",
+          "Deferred",
+          "Payload and overlay checks are loaded on detail",
+          "good",
+        ),
+        metric(
+          "Fallback",
+          readModel.mapping ? "Mapped" : "Shop scoped",
+          readModel.reason,
+          "good",
+        ),
+      ],
+      liveData: {
+        title: "Android / iOS History Entries",
+        description:
+          "Real mobile history entries from shared_sheet_sessions. Technical sync events and payload diagnostics are opened from Detail.",
+        columns: [
+          { key: "type", label: "Type" },
+          { key: "entryName", label: "Entry name" },
+          { key: "supplierCategory", label: "Supplier / Category" },
+          { key: "status", label: "Status" },
+          { key: "updated", label: "Updated" },
+        ],
+        rows: readModel.sessions.map(historySessionListRow),
+        emptyState: {
+          title: "No mobile history entries are visible",
+          description:
+            "The mapping is present, but no shared_sheet_sessions rows are visible through current RLS.",
         },
       },
     };
@@ -2060,6 +2143,7 @@ export function buildHistorySection(
 
   return {
     ...shopSections.history,
+    title: "Android / iOS History Entries",
     description:
       "History entries are loaded from shared_sheet_sessions. Sync events are technical synchronization logs linked to those entries. Admin audit events are shown separately in Audit.",
     status:
@@ -3299,22 +3383,30 @@ export async function getShopSectionForRequest(
     return buildPosLiveSection(posLiveReadModel);
   }
 
-  if (key === "products" || key === "categories" || key === "suppliers") {
+  if (key === "products") {
     const inventoryReadModel =
       options.inventoryReadModel ??
       (await getShopInventoryReadModel({
         requestedShopId,
       }));
 
-    if (key === "products") {
-      return buildProductsSection(inventoryReadModel, options.catalogFilters);
-    }
+    return buildProductsSection(inventoryReadModel, options.catalogFilters);
+  }
 
-    if (key === "categories") {
-      return buildCategoriesSection(inventoryReadModel, options.catalogFilters);
-    }
+  if (key === "categories") {
+    const catalogReadModel =
+      options.catalogOptionsReadModel ??
+      (await getShopCategoriesPageReadModel({ requestedShopId }));
 
-    return buildSuppliersSection(inventoryReadModel, options.catalogFilters);
+    return buildCategoriesSection(catalogReadModel, options.catalogFilters);
+  }
+
+  if (key === "suppliers") {
+    const catalogReadModel =
+      options.catalogOptionsReadModel ??
+      (await getShopSuppliersPageReadModel({ requestedShopId }));
+
+    return buildSuppliersSection(catalogReadModel, options.catalogFilters);
   }
 
   if (key === "importExport") {
@@ -3328,7 +3420,7 @@ export async function getShopSectionForRequest(
   }
 
   if (key === "sync") {
-    const historyReadModel = await getShopHistoryReadModel({ requestedShopId });
+    const historyReadModel = await getShopSyncReadModel({ requestedShopId });
 
     return buildSyncSection(historyReadModel, options.syncFilters);
   }
@@ -3347,28 +3439,7 @@ export async function getShopSectionForRequest(
 
   switch (key) {
     case "overview": {
-      const [
-        inventoryReadModel,
-        staffReadModel,
-        deviceReadModel,
-        historyReadModel,
-        auditReadModel,
-      ] = await Promise.all([
-        getShopInventoryReadModel({ requestedShopId }),
-        getShopStaffReadModel({ requestedShopId }),
-        getShopDeviceReadModel({ requestedShopId }),
-        getShopHistoryReadModel({ requestedShopId }),
-        getShopAuditReadModel({ requestedShopId }),
-      ]);
-
-      return buildShopDashboardSection({
-        auditReadModel,
-        deviceReadModel,
-        historyReadModel,
-        inventoryReadModel,
-        readModel,
-        staffReadModel,
-      });
+      return buildOverviewSection(readModel);
     }
     case "members":
       return buildMembersSection(readModel);

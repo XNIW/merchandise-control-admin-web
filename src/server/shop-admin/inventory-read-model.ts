@@ -164,12 +164,15 @@ export type ShopInventoryProductsPage = {
   pagination: {
     currentPageRows: number;
     from: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
     page: number;
-    pageSize: 50 | 100 | 200;
+    pageSize: 10 | 25 | 50 | 100 | 200;
     rangeEnd: number;
     rangeStart: number;
     to: number;
     totalCount: number;
+    totalCountStatus: "deferred" | "exact";
     totalPages: number;
   };
   readOnly: true;
@@ -202,6 +205,7 @@ type GetShopInventoryReadModelOptions = {
 type GetShopInventoryProductsPageOptions = {
   client?: SupabaseServerClient | null;
   filters?: ShopInventoryProductsPageFilters;
+  includeExactTotals?: boolean;
   page?: number | string | null;
   pageSize?: number | string | null;
   perfTrace?: AdminWebPerfTrace;
@@ -213,6 +217,8 @@ type GetShopCatalogOptionsReadModelOptions = {
   perfTrace?: AdminWebPerfTrace;
   requestedShopId?: string | null;
 };
+
+type CatalogEntityKind = "categories" | "suppliers";
 
 type GetShopInventoryProductDetailOptions = {
   client?: SupabaseServerClient | null;
@@ -277,14 +283,10 @@ type ProductPageQuery = {
   }>;
 };
 
-type ProductCountQuery = {
-  eq: (column: string, value: string) => ProductCountQuery;
-} & PromiseLike<CountResult>;
-
 type ProductPageTable = {
   select: (
     columns: string,
-    options: {
+    options?: {
       count: "exact";
     },
   ) => ProductPageQuery;
@@ -313,7 +315,7 @@ type InventoryDetailTable<Row> = {
 };
 
 const INVENTORY_READ_MODEL_PAGE_SIZE = 1_000;
-const INVENTORY_PRODUCTS_PAGE_SIZES = [50, 100, 200] as const;
+const INVENTORY_PRODUCTS_PAGE_SIZES = [10, 25, 50, 100, 200] as const;
 
 const emptySummary: ShopInventoryCatalogSummary = {
   activeProducts: 0,
@@ -468,14 +470,14 @@ function isMissingShopIdColumnError(error: unknown) {
 
 function normalizeProductPageSize(
   value: GetShopInventoryProductsPageOptions["pageSize"],
-): 50 | 100 | 200 {
+): 10 | 25 | 50 | 100 | 200 {
   const numericValue = Number(value);
 
   return INVENTORY_PRODUCTS_PAGE_SIZES.includes(
     numericValue as (typeof INVENTORY_PRODUCTS_PAGE_SIZES)[number],
   )
-    ? (numericValue as 50 | 100 | 200)
-    : 100;
+    ? (numericValue as 10 | 25 | 50 | 100 | 200)
+    : 10;
 }
 
 function normalizeProductPage(
@@ -551,13 +553,16 @@ async function countShopScopedProducts(
   supabase: SupabaseServerClient,
   shopId: string,
 ) {
-  return (await ((supabase
+  const result = await supabase
     .from("inventory_products")
-    .select("id", {
-      count: "exact",
-      head: true,
-    }) as unknown as ProductCountQuery)
-    .eq("shop_id", shopId))) as CountResult;
+    .select("id")
+    .eq("shop_id", shopId)
+    .limit(1);
+
+  return {
+    count: result.error ? null : (result.data?.length ?? 0),
+    error: result.error,
+  } satisfies CountResult;
 }
 
 type InventoryCountTableName =
@@ -612,7 +617,11 @@ async function countInventoryRows(input: {
     query = query.not("deleted_at", "is", null);
   }
 
-  return (await query) as CountResult;
+  return input.perfTrace
+    ? await input.perfTrace.time(`${input.table}.count.query`, async () =>
+        ((await query) as CountResult),
+      )
+    : ((await query) as CountResult);
 }
 
 async function loadCatalogSummary(input: {
@@ -710,6 +719,7 @@ async function loadCatalogSummary(input: {
 async function fetchProductsPage(input: {
   filters: ShopInventoryProductsPage["filters"];
   from: number;
+  includeExactCount: boolean;
   legacyOwnerOnlySchema: boolean;
   legacyOwnerUserId: string | null;
   perfTrace?: AdminWebPerfTrace;
@@ -727,9 +737,10 @@ async function fetchProductsPage(input: {
   const productsTable = input.supabase.from(
     "inventory_products",
   ) as unknown as ProductPageTable;
-  let query = productsTable.select(select, {
-    count: "exact",
-  });
+  let query = productsTable.select(
+    select,
+    input.includeExactCount ? { count: "exact" } : undefined,
+  );
 
   if (input.source === "shop_scoped") {
     query = query.eq("shop_id", input.selectedShopId);
@@ -753,11 +764,17 @@ async function fetchProductsPage(input: {
     });
   }
 
-  return query
+  const pageQuery = query
     .order("id", {
       ascending: true,
     })
     .range(input.from, input.to);
+
+  return input.perfTrace
+    ? input.perfTrace.time("inventory_products.page.query", async () =>
+        pageQuery,
+      )
+    : pageQuery;
 }
 
 function applyInventoryCatalogScope<Row>(
@@ -881,7 +898,12 @@ async function fetchInventoryRows<Row>(
 export async function getShopInventoryReadModel(
   options: GetShopInventoryReadModelOptions = {},
 ): Promise<ShopInventoryReadModel> {
-  const access = await resolveShopAdminDataAccess(options);
+  const { perfTrace } = options;
+  const access = perfTrace
+    ? await perfTrace.time("resolveShopAdminDataAccess.inventoryReadModel", () =>
+        resolveShopAdminDataAccess(options),
+      )
+    : await resolveShopAdminDataAccess(options);
 
   if (access.status !== "ready") {
     return {
@@ -899,7 +921,7 @@ export async function getShopInventoryReadModel(
   const { selectedShop, supabase } = access;
   const rowLimit = options.rowLimit ?? 100;
 
-  const mappingResult = await supabase
+  const mappingQuery = supabase
     .from("shop_inventory_sources")
     .select(
       "shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind,verified_at",
@@ -907,6 +929,12 @@ export async function getShopInventoryReadModel(
     .eq("shop_id", selectedShop.shopId)
     .is("disabled_at", null)
     .limit(10);
+  const mappingResult = perfTrace
+    ? await perfTrace.time(
+        "shop_inventory_sources.mapping.options.query",
+        async () => mappingQuery,
+      )
+    : await mappingQuery;
 
   if (mappingResult.error) {
     return {
@@ -1340,7 +1368,7 @@ export async function getShopCatalogOptionsReadModel(
   const { selectedShop, supabase } = access;
 
   perfTrace?.query("shop_inventory_sources.mapping.options");
-  const mappingResult = await supabase
+  const mappingQuery = supabase
     .from("shop_inventory_sources")
     .select(
       "shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind,verified_at",
@@ -1348,6 +1376,11 @@ export async function getShopCatalogOptionsReadModel(
     .eq("shop_id", selectedShop.shopId)
     .is("disabled_at", null)
     .limit(10);
+  const mappingResult = perfTrace
+    ? await perfTrace.time("shop_inventory_sources.mapping.query", async () =>
+        mappingQuery,
+      )
+    : await mappingQuery;
 
   if (mappingResult.error) {
     return {
@@ -1380,7 +1413,12 @@ export async function getShopCatalogOptionsReadModel(
     : await (async () => {
         perfTrace?.query("inventory_products.shopScopedPresence.options");
 
-        return countShopScopedProducts(supabase, selectedShop.shopId);
+        return perfTrace
+          ? perfTrace.time(
+              "inventory_products.shopScopedPresence.options.query",
+              () => countShopScopedProducts(supabase, selectedShop.shopId),
+            )
+          : countShopScopedProducts(supabase, selectedShop.shopId);
       })();
   const legacyOwnerOnlySchema =
     preferMappedMobileOwnerBridge ||
@@ -1440,7 +1478,7 @@ export async function getShopCatalogOptionsReadModel(
 
   perfTrace?.query("inventory_categories.options");
   perfTrace?.query("inventory_suppliers.options");
-  const [categoriesResult, suppliersResult] = await Promise.all([
+  const categoriesTask = () =>
     fetchInventoryRows<CategoryRow>(
       () =>
         applyInventoryCatalogScope(
@@ -1462,7 +1500,8 @@ export async function getShopCatalogOptionsReadModel(
           },
         ) as unknown as PagedInventoryQuery<CategoryRow>,
       "all",
-    ),
+    );
+  const suppliersTask = () =>
     fetchInventoryRows<SupplierRow>(
       () =>
         applyInventoryCatalogScope(
@@ -1484,7 +1523,14 @@ export async function getShopCatalogOptionsReadModel(
           },
         ) as unknown as PagedInventoryQuery<SupplierRow>,
       "all",
-    ),
+    );
+  const [categoriesResult, suppliersResult] = await Promise.all([
+    perfTrace
+      ? perfTrace.time("inventory_categories.options.query", categoriesTask)
+      : categoriesTask(),
+    perfTrace
+      ? perfTrace.time("inventory_suppliers.options.query", suppliersTask)
+      : suppliersTask(),
   ]);
   const optionsError = categoriesResult.error ?? suppliersResult.error;
 
@@ -1522,6 +1568,235 @@ export async function getShopCatalogOptionsReadModel(
         ? "Legacy owner catalog options loaded through shop_inventory_sources while shop_id migration is in progress."
         : "Shop-scoped catalog options loaded server-side for the verified selected shop.",
   };
+}
+
+async function fetchCatalogEntityRows(input: {
+  entity: CatalogEntityKind;
+  legacyOwnerOnlySchema: boolean;
+  legacyOwnerUserId: string | null;
+  selectedShopId: string;
+  source: "legacy_owner_bridge" | "shop_scoped";
+  supabase: SupabaseServerClient;
+}) {
+  const isCategory = input.entity === "categories";
+  const table = isCategory ? "inventory_categories" : "inventory_suppliers";
+  const select = isCategory
+    ? input.source === "legacy_owner_bridge" && input.legacyOwnerOnlySchema
+      ? legacyCategorySelect
+      : categorySelect
+    : input.source === "legacy_owner_bridge" && input.legacyOwnerOnlySchema
+      ? legacySupplierSelect
+      : supplierSelect;
+  const query = applyInventoryCatalogScope(
+    (input.supabase
+      .from(table)
+      .select(select)
+      .is("deleted_at", null)
+      .order("name", { ascending: true })
+      .order("id", { ascending: true }) as unknown as InventoryDetailQuery<
+      CategoryRow | SupplierRow
+    >),
+    input,
+  );
+
+  return fetchInventoryRows<CategoryRow | SupplierRow>(
+    () => query as unknown as PagedInventoryQuery<CategoryRow | SupplierRow>,
+    "all",
+  );
+}
+
+async function getShopCatalogEntityPageReadModel(
+  entity: CatalogEntityKind,
+  options: GetShopCatalogOptionsReadModelOptions = {},
+): Promise<ShopCatalogOptionsReadModel> {
+  const accessOptions = {
+    client: options.client,
+    requestedShopId: options.requestedShopId,
+  };
+  const { perfTrace } = options;
+  const access = perfTrace
+    ? await perfTrace.time(`resolveShopAdminDataAccess.${entity}Page`, () =>
+        resolveShopAdminDataAccess(accessOptions),
+      )
+    : await resolveShopAdminDataAccess(accessOptions);
+
+  if (access.status !== "ready") {
+    return {
+      status:
+        access.status === "not_configured" || access.status === "error"
+          ? access.status
+          : "unauthorized",
+      catalogScope: "blocked",
+      legacyOwnerUserId: null,
+      selectedShop: null,
+      mapping: null,
+      categories: [],
+      suppliers: [],
+      readOnly: true,
+      source: "supabase_server",
+      reason: access.reason,
+    };
+  }
+
+  const { selectedShop, supabase } = access;
+
+  perfTrace?.query(`shop_inventory_sources.mapping.${entity}Page`);
+  const mappingResult = await supabase
+    .from("shop_inventory_sources")
+    .select(
+      "shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind,verified_at",
+    )
+    .eq("shop_id", selectedShop.shopId)
+    .is("disabled_at", null)
+    .limit(10);
+
+  if (mappingResult.error) {
+    return {
+      status: "error",
+      catalogScope: "blocked",
+      legacyOwnerUserId: null,
+      selectedShop,
+      mapping: null,
+      categories: [],
+      suppliers: [],
+      readOnly: true,
+      source: "supabase_server",
+      reason: "Shop inventory mapping could not be loaded.",
+      error: redactInventoryReadModelError(mappingResult.error),
+    };
+  }
+
+  const mappingRows = mappingResult.data ?? [];
+  const mappedSource = mappingRows.find(
+    (row) => row.mapping_state === "mapped" && row.owner_user_id,
+  );
+  const blockingSource = mappingRows.find(
+    (row) => row.mapping_state !== "mapped",
+  );
+  const mapping = mappedSource ? mapMapping(mappedSource) : null;
+  const legacyOwnerUserId = mapping?.ownerUserId ?? null;
+  const preferMappedMobileOwnerBridge = isMappedMobileOwnerSource(mapping);
+  let legacyOwnerOnlySchema = preferMappedMobileOwnerBridge;
+  let catalogScope: ShopInventoryCatalogScope = preferMappedMobileOwnerBridge
+    ? "legacy_owner_bridge"
+    : "shop_scoped";
+
+  perfTrace?.query(`inventory_${entity}.page`);
+  let entityResult = await fetchCatalogEntityRows({
+    entity,
+    legacyOwnerOnlySchema,
+    legacyOwnerUserId,
+    selectedShopId: selectedShop.shopId,
+    source: catalogScope,
+    supabase,
+  });
+
+  if (
+    entityResult.error &&
+    !preferMappedMobileOwnerBridge &&
+    isMissingShopIdColumnError(entityResult.error)
+  ) {
+    legacyOwnerOnlySchema = true;
+    catalogScope = "legacy_owner_bridge";
+    entityResult = legacyOwnerUserId
+      ? await fetchCatalogEntityRows({
+          entity,
+          legacyOwnerOnlySchema,
+          legacyOwnerUserId,
+          selectedShopId: selectedShop.shopId,
+          source: catalogScope,
+          supabase,
+        })
+      : { data: [], error: null };
+  }
+
+  if (
+    !entityResult.error &&
+    catalogScope === "shop_scoped" &&
+    (entityResult.data ?? []).length === 0 &&
+    legacyOwnerUserId
+  ) {
+    catalogScope = "legacy_owner_bridge";
+    entityResult = await fetchCatalogEntityRows({
+      entity,
+      legacyOwnerOnlySchema,
+      legacyOwnerUserId,
+      selectedShopId: selectedShop.shopId,
+      source: catalogScope,
+      supabase,
+    });
+  }
+
+  if (entityResult.error) {
+    return {
+      status: "error",
+      catalogScope: "blocked",
+      legacyOwnerUserId,
+      selectedShop,
+      mapping,
+      categories: [],
+      suppliers: [],
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        catalogScope === "legacy_owner_bridge"
+          ? "Legacy mobile bridge catalog rows could not be loaded through RLS."
+          : "Shop-scoped catalog rows could not be loaded through RLS.",
+      error: redactInventoryReadModelError(entityResult.error),
+    };
+  }
+
+  if (
+    !mapping &&
+    blockingSource &&
+    catalogScope !== "shop_scoped" &&
+    (entityResult.data ?? []).length === 0
+  ) {
+    return {
+      status: "unmapped",
+      catalogScope: "blocked",
+      legacyOwnerUserId: null,
+      selectedShop,
+      mapping: null,
+      categories: [],
+      suppliers: [],
+      readOnly: true,
+      source: "supabase_server",
+      reason: "Legacy mobile bridge is configured but not mapped for this shop.",
+    };
+  }
+
+  const rows = entityResult.data ?? [];
+
+  return {
+    status: "ready",
+    catalogScope,
+    legacyOwnerUserId,
+    selectedShop,
+    mapping,
+    categories:
+      entity === "categories" ? (rows as CategoryRow[]).map(mapCategory) : [],
+    suppliers:
+      entity === "suppliers" ? (rows as SupplierRow[]).map(mapSupplier) : [],
+    readOnly: true,
+    source: "supabase_server",
+    reason:
+      catalogScope === "legacy_owner_bridge"
+        ? "Legacy owner catalog rows loaded through shop_inventory_sources while shop_id migration is in progress."
+        : "Shop-scoped catalog rows loaded server-side for the verified selected shop.",
+  };
+}
+
+export async function getShopCategoriesPageReadModel(
+  options: GetShopCatalogOptionsReadModelOptions = {},
+): Promise<ShopCatalogOptionsReadModel> {
+  return getShopCatalogEntityPageReadModel("categories", options);
+}
+
+export async function getShopSuppliersPageReadModel(
+  options: GetShopCatalogOptionsReadModelOptions = {},
+): Promise<ShopCatalogOptionsReadModel> {
+  return getShopCatalogEntityPageReadModel("suppliers", options);
 }
 
 export async function getShopInventoryProductDetailReadModel(
@@ -1641,33 +1916,6 @@ export async function getShopInventoryProductDetailReadModel(
   const catalogScope: ShopInventoryCatalogScope = useLegacyOwnerBridge
     ? "legacy_owner_bridge"
     : "shop_scoped";
-  const catalogSummaryResult = await loadCatalogSummary({
-    legacyOwnerOnlySchema,
-    legacyOwnerUserId,
-    selectedShopId: selectedShop.shopId,
-    supabase,
-    useLegacyOwnerBridge,
-  });
-
-  if (catalogSummaryResult.error) {
-    return {
-      status: "error",
-      catalogScope: "blocked",
-      legacyOwnerUserId,
-      selectedShop,
-      mapping,
-      products: [],
-      archivedProducts: [],
-      categories: [],
-      suppliers: [],
-      prices: [],
-      summary: emptySummary,
-      readOnly: true,
-      source: "supabase_server",
-      reason: "Mapped catalog totals could not be loaded through RLS.",
-      error: redactInventoryReadModelError(catalogSummaryResult.error),
-    };
-  }
 
   const productSelectForScope =
     catalogScope === "legacy_owner_bridge" && legacyOwnerOnlySchema
@@ -1699,7 +1947,7 @@ export async function getShopInventoryProductDetailReadModel(
       categories: [],
       suppliers: [],
       prices: [],
-      summary: catalogSummaryResult.summary,
+      summary: emptySummary,
       readOnly: true,
       source: "supabase_server",
       reason:
@@ -1772,7 +2020,7 @@ export async function getShopInventoryProductDetailReadModel(
       categories: [],
       suppliers: [],
       prices: [],
-      summary: catalogSummaryResult.summary,
+      summary: emptySummary,
       readOnly: true,
       source: "supabase_server",
       reason:
@@ -1794,7 +2042,7 @@ export async function getShopInventoryProductDetailReadModel(
     categories: (categoryResult.data ?? []).map(mapCategory),
     suppliers: (supplierResult.data ?? []).map(mapSupplier),
     prices: (pricesResult.data ?? []).map(mapPrice),
-    summary: catalogSummaryResult.summary,
+    summary: emptySummary,
     readOnly: true,
     source: "supabase_server",
     reason:
@@ -1819,6 +2067,7 @@ export async function getShopInventoryProductsPage(
     : await resolveShopAdminDataAccess(accessOptions);
   const page = normalizeProductPage(options.page);
   const pageSize = normalizeProductPageSize(options.pageSize);
+  const includeExactTotals = options.includeExactTotals !== false;
   const requestedFrom = (page - 1) * pageSize;
   const requestedTo = requestedFrom + pageSize - 1;
   const filters: ShopInventoryProductsPage["filters"] = {
@@ -1830,12 +2079,15 @@ export async function getShopInventoryProductsPage(
   const emptyPagination = {
     currentPageRows: 0,
     from: requestedFrom,
+    hasNextPage: false,
+    hasPreviousPage: page > 1,
     page,
     pageSize,
     rangeEnd: 0,
     rangeStart: 0,
     to: requestedTo,
     totalCount: 0,
+    totalCountStatus: includeExactTotals ? "exact" : "deferred",
     totalPages: 1,
   } as const;
 
@@ -1904,7 +2156,12 @@ export async function getShopInventoryProductsPage(
     : await (async () => {
         perfTrace?.query("inventory_products.shopScopedPresence");
 
-        return countShopScopedProducts(supabase, selectedShop.shopId);
+        return perfTrace
+          ? perfTrace.time(
+              "inventory_products.shopScopedPresence.query",
+              () => countShopScopedProducts(supabase, selectedShop.shopId),
+            )
+          : countShopScopedProducts(supabase, selectedShop.shopId);
       })();
   const legacyOwnerOnlySchema =
     preferMappedMobileOwnerBridge ||
@@ -1957,14 +2214,19 @@ export async function getShopInventoryProductsPage(
   const catalogScope: ShopInventoryCatalogScope = useLegacyOwnerBridge
     ? "legacy_owner_bridge"
     : "shop_scoped";
-  const catalogSummaryResult = await loadCatalogSummary({
-    legacyOwnerOnlySchema,
-    legacyOwnerUserId,
-    perfTrace,
-    selectedShopId: selectedShop.shopId,
-    supabase,
-    useLegacyOwnerBridge,
-  });
+  const catalogSummaryResult = includeExactTotals
+    ? await loadCatalogSummary({
+        legacyOwnerOnlySchema,
+        legacyOwnerUserId,
+        perfTrace,
+        selectedShopId: selectedShop.shopId,
+        supabase,
+        useLegacyOwnerBridge,
+      })
+    : {
+        error: null,
+        summary: emptySummary,
+      };
 
   if (catalogSummaryResult.error) {
     return {
@@ -1987,13 +2249,14 @@ export async function getShopInventoryProductsPage(
   let productsResult = await fetchProductsPage({
     filters,
     from: requestedFrom,
+    includeExactCount: includeExactTotals,
     legacyOwnerOnlySchema,
     legacyOwnerUserId,
     perfTrace,
     selectedShopId: selectedShop.shopId,
     source: catalogScope,
     supabase,
-    to: requestedTo,
+    to: includeExactTotals ? requestedTo : requestedTo + 1,
   });
 
   if (productsResult.error) {
@@ -2017,10 +2280,19 @@ export async function getShopInventoryProductsPage(
     };
   }
 
-  let rows = productsResult.data ?? [];
-  const totalCount = productsResult.count ?? rows.length;
-  const totalPages = Math.max(1, Math.ceil(totalCount / pageSize));
-  const clampedPage = totalCount > 0 ? Math.min(page, totalPages) : 1;
+  let fetchedRows = productsResult.data ?? [];
+  let rows = includeExactTotals ? fetchedRows : fetchedRows.slice(0, pageSize);
+  let hasNextPage = includeExactTotals ? false : fetchedRows.length > pageSize;
+  const exactTotalCount = productsResult.count ?? rows.length;
+  const totalCount = includeExactTotals
+    ? exactTotalCount
+    : requestedFrom + rows.length + (hasNextPage ? 1 : 0);
+  const totalPages = includeExactTotals
+    ? Math.max(1, Math.ceil(totalCount / pageSize))
+    : Math.max(1, page + (hasNextPage ? 1 : 0));
+  const clampedPage = includeExactTotals && totalCount > 0
+    ? Math.min(page, totalPages)
+    : page;
   const from = (clampedPage - 1) * pageSize;
   const to = from + pageSize - 1;
 
@@ -2028,13 +2300,14 @@ export async function getShopInventoryProductsPage(
     productsResult = await fetchProductsPage({
       filters,
       from,
+      includeExactCount: includeExactTotals,
       legacyOwnerOnlySchema,
       legacyOwnerUserId,
       perfTrace,
       selectedShopId: selectedShop.shopId,
       source: catalogScope,
       supabase,
-      to,
+      to: includeExactTotals ? to : to + 1,
     });
 
     if (productsResult.error) {
@@ -2058,11 +2331,24 @@ export async function getShopInventoryProductsPage(
       };
     }
 
-    rows = productsResult.data ?? [];
+    fetchedRows = productsResult.data ?? [];
+    rows = includeExactTotals ? fetchedRows : fetchedRows.slice(0, pageSize);
+    hasNextPage = includeExactTotals ? false : fetchedRows.length > pageSize;
   }
 
   const rangeStart = rows.length === 0 ? 0 : from + 1;
   const rangeEnd = rows.length === 0 ? 0 : from + rows.length;
+  const resolvedHasNextPage = includeExactTotals
+    ? clampedPage < totalPages
+    : hasNextPage;
+  const summary = includeExactTotals
+    ? catalogSummaryResult.summary
+    : {
+        ...emptySummary,
+        activeProducts: filters.state === "archived" ? 0 : totalCount,
+        archivedProducts: filters.state === "archived" ? totalCount : 0,
+        productsTotal: totalCount,
+      };
 
   return {
     status: "ready",
@@ -2072,23 +2358,30 @@ export async function getShopInventoryProductsPage(
     mapping,
     products: rows.map(mapProduct),
     filters,
-    summary: catalogSummaryResult.summary,
+    summary,
     pagination: {
       currentPageRows: rows.length,
       from,
+      hasNextPage: resolvedHasNextPage,
+      hasPreviousPage: clampedPage > 1,
       page: clampedPage,
       pageSize,
       rangeEnd,
       rangeStart,
       to,
       totalCount,
+      totalCountStatus: includeExactTotals ? "exact" : "deferred",
       totalPages,
     },
     readOnly: true,
     source: "supabase_server",
     reason:
       catalogScope === "legacy_owner_bridge"
-        ? "Legacy mobile bridge product rows loaded through owner_user_id from shop_inventory_sources because shop_id rows are not available yet."
-        : "Shop-scoped product rows loaded server-side with exact count and range for the verified selected shop.",
+        ? includeExactTotals
+          ? "Legacy mobile bridge product rows loaded through owner_user_id from shop_inventory_sources with exact count."
+          : "Legacy mobile bridge product rows loaded through owner_user_id from shop_inventory_sources with exact totals deferred from first paint."
+        : includeExactTotals
+          ? "Shop-scoped product rows loaded server-side with exact count and range for the verified selected shop."
+          : "Shop-scoped product rows loaded server-side with exact totals deferred from first paint.",
   };
 }

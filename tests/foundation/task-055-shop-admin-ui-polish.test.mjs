@@ -56,18 +56,27 @@ test("TASK-055 Shop shell header shows real shop context and compact sidebar gua
   assertContains(shell, "function shopDisplayName");
   assertContains(shell, "shop.companyRut");
   assertContains(shell, "labels.companyRutPrefix");
-  assertContains(shell, "labels.notConfigured");
   assertContains(dictionary, "Company RUT");
-  assertContains(dictionary, "Not configured");
-  assertContains(shell, "text-lg font-semibold");
+  assertContains(shell, "shop-shell-page-title");
+  assertContains(shell, "currentPageEyebrow");
+  assertContains(shell, "currentPageDescription");
+  assertContains(shell, "sectionDescriptions");
+  assertContains(shell, "sectionEyebrows");
+  assertContains(shell, "title={currentPageDescription ?? undefined}");
+  assertContains(shell, "<ShopNavigationIcon itemKey={currentPageKey} />");
   assertContains(shell, "<details");
   assertContains(shell, "summary");
-  assertContains(shell, "lg:grid-cols-[264px_1fr]");
+  assertContains(shell, "lg:grid-cols-[264px_minmax(0,1fr)]");
   assertContains(shell, "border-l-2");
   assertContains(shell, "max-h-[calc(100vh-");
+  assert.doesNotMatch(
+    shell,
+    /currentPageDescription \? \([\s\S]*<p className="[^"]*line-clamp-2/,
+  );
   assert.doesNotMatch(shell, /GuardrailNotice/);
   assert.doesNotMatch(shell, /Shop \$\{shop\.shopCode\}/);
-  assert.doesNotMatch(shell, /Shop code:/);
+  assert.doesNotMatch(shell, /labels\.shopCodePrefix/);
+  assert.doesNotMatch(shell, /labels\.notConfigured/);
 });
 
 test("TASK-055 Shop shell access keeps RUT/name enrichment server-side", () => {
@@ -127,7 +136,13 @@ test("TASK-068K products polish adds bottom pagination, reset, and decorative si
   assertContains(page, "Reset filters");
   assertContains(page, "Filters active");
   assertContains(page, "Rows on this page");
-  assertContains(page, "Use search or filters to find products across the full mapped catalog.");
+  assertContains(page, "Search and filters");
+  assertContains(page, "data-product-catalog-command-bar");
+  assert.doesNotMatch(page, /Catalog Workspace/);
+  assert.doesNotMatch(
+    page,
+    /Use search or filters to find products across the full mapped catalog\./,
+  );
   assertContains(page, "ProductsIcon");
   assertContains(page, "icon: \"barcode\"");
   assertContains(page, "icon: \"package\"");

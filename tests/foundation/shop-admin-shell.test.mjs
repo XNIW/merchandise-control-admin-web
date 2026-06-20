@@ -82,7 +82,7 @@ test("TASK-008 route placeholders cover the Shop Admin sections", () => {
 
     assert.match(page, /export const dynamic = ["']force-dynamic["']/);
     if (key === "history") {
-      assert.match(page, /getShopHistoryReadModel/);
+      assert.match(page, /getShopHistoryListReadModel/);
       assert.match(page, /buildHistorySection/);
     } else if (key === "devices") {
       assert.match(page, /getShopDeviceReadModel/);
@@ -91,6 +91,20 @@ test("TASK-008 route placeholders cover the Shop Admin sections", () => {
       assert.match(page, /getShopInventoryProductsPage/);
       assert.match(page, /getShopCatalogOptionsReadModel/);
       assert.match(page, /buildProductsPageSection/);
+    } else if (key === "staff") {
+      assert.match(page, /resolveStaffPageBundle/);
+      assert.match(page, /buildStaffSection/);
+    } else if (key === "categories") {
+      assert.match(page, /getShopCategoriesPageReadModel/);
+      assert.match(page, /getShopSectionForRequest\(\s*"categories"/);
+    } else if (key === "suppliers") {
+      assert.match(page, /getShopSuppliersPageReadModel/);
+      assert.match(page, /getShopSectionForRequest\(\s*"suppliers"/);
+    } else if (key === "importExport") {
+      assert.match(page, /Moved to Products/);
+      assert.match(page, /Open Products/);
+      assert.doesNotMatch(page, /getShopSectionForRequest/);
+      assert.doesNotMatch(page, /ShopSectionPage/);
     } else {
       assert.match(page, new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`));
     }
@@ -114,6 +128,51 @@ test("TASK-008 route placeholders cover the Shop Admin sections", () => {
   ]) {
     assert.match(sections, new RegExp(`href: "${href}"`));
   }
+});
+
+test("Shop shell cleanup keeps catalog navigation contextual", () => {
+  const sections = readProjectFile("src/components/shop/shopSections.ts");
+  const shell = readProjectFile("src/components/shop/ShopShell.tsx");
+  const layout = readProjectFile("src/app/shop/layout.tsx");
+  const importExportPage = readProjectFile("src/app/shop/import-export/page.tsx");
+  const navigationSections = sections.slice(
+    sections.indexOf("export const shopNavigationSections"),
+    sections.indexOf("export const shopNavigationItems"),
+  );
+
+  assert.match(
+    navigationSections,
+    /key: "catalog"[\s\S]*key: "suppliers"[\s\S]*key: "history"[\s\S]*key: "importExport"[\s\S]*hiddenFromPrimaryNav: true/,
+  );
+  assert.match(
+    navigationSections,
+    /key: "data_diagnostics"[\s\S]*key: "sync"[\s\S]*key: "audit"/,
+  );
+  assert.doesNotMatch(
+    navigationSections,
+    /key: "data_diagnostics"[\s\S]*key: "history"/,
+  );
+  assert.match(shell, /filter\(\(item\) => !item\.hiddenFromPrimaryNav\)/);
+  assert.match(shell, /id="shop-shell-page-title"/);
+  assert.match(shell, /sectionDescriptions/);
+  assert.match(shell, /sectionEyebrows/);
+  assert.match(shell, /currentPageDescription/);
+  assert.match(shell, /currentPageEyebrow/);
+  assert.match(shell, /title=\{currentPageDescription \?\? undefined\}/);
+  assert.doesNotMatch(
+    shell,
+    /currentPageDescription \? \([\s\S]*<p className="[^"]*line-clamp-2/,
+  );
+  assert.doesNotMatch(shell, /labels\.shopCodePrefix/);
+  assert.doesNotMatch(shell, /MerchandiseControl/);
+  assert.match(layout, /sectionDescriptions=\{sectionDescriptions\}/);
+  assert.match(layout, /sectionEyebrows=\{sectionEyebrows\}/);
+  assert.match(sections, /Manage products, prices, stock and mapped mobile catalog\./);
+  assert.match(sections, /Mobile history sessions and sync-related catalog activity\./);
+  assert.match(sections, /Registered Android, iOS, POS and web clients for this shop\./);
+  assert.match(importExportPage, /Moved to Products/);
+  assert.match(importExportPage, /Open Products/);
+  assert.doesNotMatch(importExportPage, /ImportExportActionPanel/);
 });
 
 test("TASK-008 security scan locks Shop Admin shell artifacts", () => {

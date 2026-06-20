@@ -4,7 +4,7 @@ export default function ShopSyncLoading() {
   return (
     <ShopRouteLoading
       dataAttribute="sync"
-      eyebrow="Mobile sync"
+      eyebrow="Data"
       rows={5}
       title="Sync Center"
     />

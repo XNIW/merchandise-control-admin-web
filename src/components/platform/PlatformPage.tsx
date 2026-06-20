@@ -5,7 +5,6 @@ import { AccountIdentity } from "@/components/account/AccountIdentity";
 import { AdminDataTable } from "@/components/admin/AdminDataTable";
 import { EmptyState } from "@/components/admin/EmptyState";
 import { GuardrailNotice } from "@/components/admin/GuardrailNotice";
-import { PageHeader } from "@/components/admin/PageHeader";
 import { SectionCard } from "@/components/admin/SectionCard";
 import { StatCard } from "./components/StatCard";
 import { AppShell } from "./AppShell";
@@ -282,6 +281,9 @@ export async function PlatformPage({
       activeSection={localizedSection.key}
       dictionary={dictionary}
       locale={locale}
+      topbarDescription={localizedSection.description}
+      topbarEyebrow={localizedSection.eyebrow}
+      topbarTitle={localizedSection.title}
     >
       <div
         className={[
@@ -299,14 +301,6 @@ export async function PlatformPage({
             </Link>
           </nav>
         ) : null}
-
-        <PageHeader
-          eyebrow={localizedSection.eyebrow}
-          title={localizedSection.title}
-          description={localizedSection.description}
-          status={localizedSection.status}
-          titleId="platform-page-title"
-        />
 
         {localizedSection.purposeItems &&
         localizedSection.purposeItems.length > 0 ? (

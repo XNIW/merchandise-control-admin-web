@@ -1,0 +1,176 @@
+{
+  "dataset": "real-shop-readonly",
+  "generatedAt": "2026-06-20T16:57:55.252Z",
+  "measurements": [
+    {
+      "activeMs": 64,
+      "consoleErrors": [],
+      "documentBytes": 373624,
+      "documentMs": 2533,
+      "finalMs": 81,
+      "finalStatus": "ready",
+      "label": "Products",
+      "path": "/shop/products",
+      "pendingMs": 35,
+      "pendingStatus": "observed",
+      "rscBytes": 16413,
+      "rscResponseCount": 3,
+      "ttfbMs": 293,
+      "ttfbStatus": 200,
+      "visualReplacementMs": 35,
+      "visualReplacementStatus": "observed",
+      "key": "products",
+      "serverTraceSummary": {
+        "catalogOptionsBytesMax": 14898,
+        "clientProductOptionsMax": 0,
+        "estimatedSectionBytesMax": 10016,
+        "latestQueryCount": 10,
+        "latestTotalMs": 2783.3,
+        "liveDataRowsMax": 10,
+        "pageRowsMax": 10,
+        "productsPageBytesMax": 5619,
+        "queryCountPerRenderMax": 10,
+        "queryLabels": [
+          "inventory_categories.count",
+          "inventory_categories.options",
+          "inventory_product_prices.count",
+          "inventory_products.count",
+          "inventory_products.page",
+          "inventory_suppliers.count",
+          "inventory_suppliers.options",
+          "shop_inventory_sources.mapping",
+          "shop_inventory_sources.mapping.options"
+        ],
+        "readModelsLoaded": [],
+        "renderCount": 1,
+        "scopeLabels": [
+          "shop.products"
+        ],
+        "serverTotalMsMax": 2783.3,
+        "status": "captured",
+        "totalCountMax": 19710
+      }
+    }
+  ],
+  "phase": "task-077b-products-before",
+  "shop": {
+    "id": "redacted",
+    "source": "env"
+  },
+  "target": {
+    "baseUrl": "http://127.0.0.1:3077",
+    "class": "cloud-supabase-readonly",
+    "testTarget": "staging"
+  },
+  "serverPerfTraces": [
+    {
+      "marks": [],
+      "meta": {
+        "activeFilterCount": 0,
+        "hasRequestedShopId": true,
+        "pageSize": "10",
+        "route": "/shop/products",
+        "state": "active",
+        "catalogOptionRows": 109,
+        "catalogOptionsStatus": "ready",
+        "catalogOptionsBytes": 14898,
+        "categoryOptions": 39,
+        "clientProductOptions": 0,
+        "dialogLoaded": false,
+        "estimatedSectionBytes": 10016,
+        "liveDataColumns": 12,
+        "liveDataRows": 10,
+        "pageRows": 10,
+        "productsPageBytes": 5619,
+        "productsStatus": "ready",
+        "supplierOptions": 70,
+        "totalCount": 19710
+      },
+      "queries": {
+        "shop_inventory_sources.mapping": 1,
+        "shop_inventory_sources.mapping.options": 1,
+        "inventory_products.count": 2,
+        "inventory_categories.count": 1,
+        "inventory_suppliers.count": 1,
+        "inventory_product_prices.count": 1,
+        "inventory_categories.options": 1,
+        "inventory_suppliers.options": 1,
+        "inventory_products.page": 1
+      },
+      "queryCount": 10,
+      "scope": "shop.products",
+      "timings": [
+        {
+          "label": "resolveShopAdminDataAccess.productsPage",
+          "ms": 266.7
+        },
+        {
+          "label": "resolveShopAdminDataAccess.catalogOptions",
+          "ms": 266.6
+        },
+        {
+          "label": "resolveShopPageAccessBundle",
+          "ms": 267.2
+        },
+        {
+          "label": "shop_inventory_sources.mapping.query",
+          "ms": 82
+        },
+        {
+          "label": "inventory_products.count.query",
+          "ms": 108.2
+        },
+        {
+          "label": "inventory_categories.count.query",
+          "ms": 263.9
+        },
+        {
+          "label": "inventory_suppliers.count.query",
+          "ms": 264.6
+        },
+        {
+          "label": "inventory_suppliers.options.query",
+          "ms": 288.1
+        },
+        {
+          "label": "inventory_categories.options.query",
+          "ms": 350.2
+        },
+        {
+          "label": "getShopCatalogOptionsReadModel",
+          "ms": 700.3
+        },
+        {
+          "label": "inventory_products.count.query",
+          "ms": 755.6
+        },
+        {
+          "label": "inventory_product_prices.count.query",
+          "ms": 1320.6
+        },
+        {
+          "label": "inventory_products.page.query",
+          "ms": 1102.9
+        },
+        {
+          "label": "getShopInventoryProductsPage",
+          "ms": 2774.9
+        },
+        {
+          "label": "mapCatalogOptionsForClient",
+          "ms": 0.3
+        },
+        {
+          "label": "buildProductsPageSection",
+          "ms": 7.6
+        }
+      ],
+      "totalMs": 2783.3
+    }
+  ],
+  "serverTraceCapture": {
+    "appTarget": "local-cloud",
+    "status": "captured",
+    "tracesCount": 1
+  }
+}

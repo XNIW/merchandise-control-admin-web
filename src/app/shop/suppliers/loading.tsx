@@ -4,7 +4,7 @@ export default function ShopSuppliersLoading() {
   return (
     <ShopRouteLoading
       dataAttribute="suppliers"
-      eyebrow="Procurement"
+      eyebrow="Catalog"
       title="Suppliers"
     />
   );
