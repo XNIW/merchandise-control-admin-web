@@ -1,0 +1,161 @@
+{
+  "cleanup": {
+    "cleanupErrors": [],
+    "residualRows": 0,
+    "userDeleted": true
+  },
+  "generatedAt": "2026-06-19T23:40:22.910Z",
+  "measurements": [
+    {
+      "activeMs": 20,
+      "consoleErrors": [],
+      "finalMs": 1377,
+      "finalStatus": "ready",
+      "label": "Overview",
+      "path": "/shop/overview",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 1049,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 30,
+      "consoleErrors": [],
+      "finalMs": 835,
+      "finalStatus": "ready",
+      "label": "Products",
+      "path": "/shop/products",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 535,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 43,
+      "consoleErrors": [],
+      "finalMs": 708,
+      "finalStatus": "ready",
+      "label": "Categories",
+      "path": "/shop/categories",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 470,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 21,
+      "consoleErrors": [],
+      "finalMs": 543,
+      "finalStatus": "ready",
+      "label": "Suppliers",
+      "path": "/shop/suppliers",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 648,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": null,
+      "consoleErrors": [],
+      "finalMs": null,
+      "finalStatus": "timeout",
+      "label": "Import / Export",
+      "navigationError": "locator.click: Timeout 3000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('link', { name: 'Import / Export', exact: true }).first()\u001b[22m\n",
+      "path": "/shop/import-export",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 224,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 19,
+      "consoleErrors": [],
+      "finalMs": 689,
+      "finalStatus": "ready",
+      "label": "Staff",
+      "path": "/shop/staff",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 310,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 23,
+      "consoleErrors": [],
+      "finalMs": 527,
+      "finalStatus": "ready",
+      "label": "Devices",
+      "path": "/shop/devices",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 1478,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 25,
+      "consoleErrors": [],
+      "finalMs": null,
+      "finalStatus": "timeout",
+      "label": "History",
+      "path": "/shop/history",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 486,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 19,
+      "consoleErrors": [],
+      "finalMs": 538,
+      "finalStatus": "ready",
+      "label": "Sync Center",
+      "path": "/shop/sync",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 448,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 17,
+      "consoleErrors": [],
+      "finalMs": 443,
+      "finalStatus": "ready",
+      "label": "Members",
+      "path": "/shop/members",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 413,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 20,
+      "consoleErrors": [],
+      "finalMs": 325,
+      "finalStatus": "ready",
+      "label": "Roles",
+      "path": "/shop/roles",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 224,
+      "ttfbStatus": 200
+    },
+    {
+      "activeMs": 23,
+      "consoleErrors": [],
+      "finalMs": 447,
+      "finalStatus": "ready",
+      "label": "Settings",
+      "path": "/shop/settings",
+      "pendingMs": null,
+      "pendingStatus": "not_observed",
+      "ttfbMs": 391,
+      "ttfbStatus": 200
+    }
+  ],
+  "phase": "baseline",
+  "target": {
+    "baseUrl": "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev",
+    "class": "cloud-staging",
+    "testTarget": "staging"
+  }
+}

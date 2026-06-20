@@ -2,7 +2,14 @@
 
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState, type ChangeEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ChangeEvent,
+  type MouseEvent,
+  type ReactNode,
+} from "react";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import type { Dictionary } from "@/i18n/dictionaries";
 import type { SupportedLocale } from "@/i18n/locales";
@@ -233,8 +240,31 @@ function ShopNavigation({
   currentActive: ShopSectionKey | null;
   labels: Dictionary["shopShell"];
   navigationSections: readonly ShopNavigationSection[];
-  onNavigate: (key: ShopSectionKey) => void;
+  onNavigate: (input: {
+    event: MouseEvent<HTMLAnchorElement>;
+    href: string;
+    key: ShopSectionKey;
+    label: string;
+  }) => void;
 }) {
+  const router = useRouter();
+  const [prefetchedItems, setPrefetchedItems] = useState<
+    ReadonlySet<ShopSectionKey>
+  >(() => new Set());
+
+  function handleNavigationIntent(item: { href: string; key: ShopSectionKey }) {
+    const href = buildShopHref(item.href);
+
+    setPrefetchedItems((currentItems) => {
+      if (currentItems.has(item.key)) {
+        return currentItems;
+      }
+
+      return new Set(currentItems).add(item.key);
+    });
+    router.prefetch(href);
+  }
+
   return (
     <nav
       aria-label={labels.navigationAria}
@@ -248,14 +278,27 @@ function ShopNavigation({
           <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:gap-1 lg:px-0 lg:pb-0">
             {section.items.map((item) => {
               const isActive = item.key === currentActive;
+              const href = buildShopHref(item.href);
 
               return (
                 <Link
                   key={item.key}
-                  href={buildShopHref(item.href)}
+                  href={href}
                   prefetch={false}
                   aria-current={isActive ? "page" : undefined}
-                  onClick={() => onNavigate(item.key)}
+                  onClick={(event) =>
+                    onNavigate({
+                      event,
+                      href,
+                      key: item.key,
+                      label: item.label,
+                    })
+                  }
+                  onFocus={() => handleNavigationIntent(item)}
+                  onMouseEnter={() => handleNavigationIntent(item)}
+                  onTouchStart={() => handleNavigationIntent(item)}
+                  data-prefetch-ready={prefetchedItems.has(item.key)}
+                  data-shop-nav-item={item.key}
                   className={[
                     "inline-flex shrink-0 items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-sm font-medium outline-none transition",
                     "whitespace-nowrap",
@@ -297,14 +340,29 @@ export function ShopShell({
     key: ShopSectionKey;
     originPathname: string;
   } | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<{
+    key: ShopSectionKey;
+    label: string;
+    targetPathname: string;
+    targetShopId: string | null;
+  } | null>(null);
   const pathnameActive = useMemo(
     () => sectionFromPath(pathname, navigationSections),
     [navigationSections, pathname],
   );
+  const currentShopId = searchParams.get("shop_id");
+  const pendingNavigationTargetReached =
+    pendingNavigation !== null &&
+    pathname === pendingNavigation.targetPathname &&
+    currentShopId === pendingNavigation.targetShopId;
+  const visiblePendingNavigation = pendingNavigationTargetReached
+    ? null
+    : pendingNavigation;
   const currentActive =
-    optimisticActive?.originPathname === pathname
+    visiblePendingNavigation?.key ??
+    (optimisticActive?.originPathname === pathname
       ? optimisticActive.key
-      : pathnameActive ?? "overview";
+      : pathnameActive ?? "overview");
   const hasMultipleShops = availableShops.length > 1;
   const canSwitchShops = principalKind === "personal_account" && hasMultipleShops;
   const selectedShop =
@@ -331,6 +389,60 @@ export function ShopShell({
 
     nextSearchParams.set("shop_id", nextShopId);
     router.push(`${pathname}?${nextSearchParams.toString()}`);
+  }
+
+  useEffect(() => {
+    if (!pendingNavigation || pendingNavigationTargetReached) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => {
+      setPendingNavigation(null);
+      setOptimisticActive(null);
+    }, 15_000);
+
+    return () => window.clearTimeout(timeout);
+  }, [pendingNavigation, pendingNavigationTargetReached]);
+
+  function handleNavigation(input: {
+    event: MouseEvent<HTMLAnchorElement>;
+    href: string;
+    key: ShopSectionKey;
+    label: string;
+  }) {
+    const { event, href, key, label } = input;
+
+    if (
+      event.defaultPrevented ||
+      event.button !== 0 ||
+      event.metaKey ||
+      event.ctrlKey ||
+      event.shiftKey ||
+      event.altKey
+    ) {
+      return;
+    }
+
+    const target = new URL(href, window.location.origin);
+    const targetShopId = target.searchParams.get("shop_id");
+    const alreadyCurrent =
+      target.pathname === pathname &&
+      target.searchParams.toString() === searchParams.toString();
+
+    if (alreadyCurrent) {
+      return;
+    }
+
+    setOptimisticActive({
+      key,
+      originPathname: pathname,
+    });
+    setPendingNavigation({
+      key,
+      label,
+      targetPathname: target.pathname,
+      targetShopId,
+    });
   }
 
   return (
@@ -367,12 +479,7 @@ export function ShopShell({
               currentActive={currentActive}
               labels={labels}
               navigationSections={navigationSections}
-              onNavigate={(key) =>
-                setOptimisticActive({
-                  key,
-                  originPathname: pathname,
-                })
-              }
+              onNavigate={handleNavigation}
             />
 
             <div className="mt-auto rounded-md border border-emerald-200 bg-emerald-50/70 p-2.5">
@@ -489,8 +596,37 @@ export function ShopShell({
           <main
             id="shop-content"
             tabIndex={-1}
+            aria-busy={visiblePendingNavigation ? true : undefined}
             className="min-w-0 flex-1 px-4 py-5 outline-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-emerald-800 sm:px-6 lg:px-8"
+            data-shop-navigation-pending={visiblePendingNavigation ? "true" : "false"}
+            data-shop-navigation-target={visiblePendingNavigation?.key}
           >
+            {visiblePendingNavigation ? (
+              <div
+                className="mb-4 grid gap-3 rounded-md border border-emerald-200 bg-white p-3 shadow-sm"
+                data-shop-route-loading
+                role="status"
+                aria-live="polite"
+              >
+                <div className="flex min-w-0 items-center gap-3">
+                  <span
+                    aria-hidden="true"
+                    className="size-2.5 shrink-0 rounded-full bg-emerald-600"
+                  />
+                  <p className="min-w-0 text-sm font-semibold text-emerald-950">
+                    Loading {visiblePendingNavigation.label}
+                  </p>
+                </div>
+                <div
+                  aria-hidden="true"
+                  className="grid gap-2 sm:grid-cols-[minmax(8rem,0.8fr)_minmax(12rem,1fr)_minmax(8rem,0.6fr)]"
+                >
+                  <span className="h-2.5 rounded-md bg-zinc-200" />
+                  <span className="h-2.5 rounded-md bg-zinc-100" />
+                  <span className="h-2.5 rounded-md bg-zinc-200" />
+                </div>
+              </div>
+            ) : null}
             {children}
           </main>
         </div>

@@ -57,13 +57,12 @@ export default async function ShopMembersPage({
   const { dictionary } = await getI18n();
   const t = (value: string) => translateText(dictionary, value);
   const requestedShopId = getParam(params, "shop_id");
-  const section = await getShopSectionForRequest(
-    "members",
-    requestedShopId,
-  );
+  const [section, memberActionContext] = await Promise.all([
+    getShopSectionForRequest("members", requestedShopId),
+    resolveShopActionContext(requestedShopId, "members.manage"),
+  ]);
   const canManageMembers =
-    (await resolveShopActionContext(requestedShopId, "members.manage"))
-      .status === "ready";
+    memberActionContext.status === "ready";
 
   return (
     <div className="grid gap-5">

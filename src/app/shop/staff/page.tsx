@@ -91,14 +91,10 @@ export default async function ShopStaffPage({
   const { dictionary } = await getI18n();
   const t = (value: string) => translateText(dictionary, value);
   const requestedShopId = getParam(params, "shop_id");
-  const section = await getShopSectionForRequest(
-    "staff",
-    requestedShopId,
-  );
-  const staffActionContext = await resolveShopActionContext(
-    requestedShopId,
-    "staff.manage",
-  );
+  const [section, staffActionContext] = await Promise.all([
+    getShopSectionForRequest("staff", requestedShopId),
+    resolveShopActionContext(requestedShopId, "staff.manage"),
+  ]);
   const canManageStaff = staffActionContext.status === "ready";
   const canManageRolePermissions =
     staffActionContext.status === "ready" &&

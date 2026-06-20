@@ -74,18 +74,21 @@ test("TASK-057 governance is DONE_RECONCILED after TASK-058 confirmation", () =>
   );
 });
 
-test("TASK-057 moves Import Export out of primary Shop sidebar", () => {
+test("TASK-057 keeps Import Export route available and TASK-076 restores sidebar access", () => {
   const sections = read("src/components/shop/shopSections.ts");
+  const task076Evidence = read("docs/TASKS/EVIDENCE/TASK-076/README.md");
   const navBlock = sections.match(
     /export const shopNavigationSections[\s\S]*?export const shopNavigationItems/,
   )?.[0];
 
   assert.ok(navBlock, "shopNavigationSections block not found");
-  assert.doesNotMatch(navBlock, /href:\s*"\/shop\/import-export"/);
-  assert.doesNotMatch(navBlock, /label:\s*"Import \/ Export"/);
+  assert.match(navBlock, /href:\s*"\/shop\/import-export"/);
+  assert.match(navBlock, /label:\s*"Import \/ Export"/);
 
   assertContains(sections, "importExport");
   assertContains(sections, "href: \"/shop/import-export\"");
+  assertContains(task076Evidence, "`/shop/import-export`");
+  assertContains(task076Evidence, "Sidebar navigation fixed.");
 });
 
 test("TASK-057 Products workspace exposes named filters, state filter and full catalog columns", () => {

@@ -249,6 +249,7 @@ test("TASK-039 exposes staff lifecycle, permission template and account profile 
   const profilePage = readProjectFile(profilePagePath);
   const profileActions = readProjectFile(profileActionsPath);
   const source = `${staffPanel}\n${shopActions}\n${settingsPage}\n${profilePage}\n${profileActions}`;
+  const pageAccess = readProjectFile("src/server/shop-admin/page-access.ts");
   const gatedPages = [
     staffPage,
     settingsPage,
@@ -258,6 +259,7 @@ test("TASK-039 exposes staff lifecycle, permission template and account profile 
     devicesPage,
     importExportPage,
     membersPage,
+    pageAccess,
   ].join("\n");
   const revenueGateSource = [
     readProjectFile("src/server/shop-admin/pos-live-read-model.ts"),

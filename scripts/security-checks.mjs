@@ -936,7 +936,10 @@ function checkTask009ShopSwitcherArtifacts() {
     addFailure(`${shopShellPath} must include aria-label=\"Switch shop\"`);
   }
 
-  if (!/href=\{buildShopHref\(item\.href\)\}/.test(shell)) {
+  if (
+    !/const href = buildShopHref\(item\.href\)/.test(shell) ||
+    !/href=\{href\}/.test(shell)
+  ) {
     addFailure(
       `${shopShellPath} must preserve selected shop_id across section links`,
     );
@@ -1085,7 +1088,11 @@ function checkTask010ShopReadModelArtifacts() {
       );
     }
 
-    if (!contents.includes(`getShopSectionForRequest(\n    "${sectionKey}"`)) {
+    if (
+      !new RegExp(
+        `getShopSectionForRequest\\(\\s*["']${sectionKey}["']`,
+      ).test(contents)
+    ) {
       addFailure(
         `${pagePath} must load the ${sectionKey} section through the server read model`,
       );
@@ -2789,6 +2796,10 @@ function checkTask015ShopAdminConsole() {
     const route = read(routePath);
     const loadsThroughServerReadModel =
       new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`).test(route) ||
+      (key === "products" &&
+        /getShopInventoryProductsPage/.test(route) &&
+        /getShopCatalogOptionsReadModel/.test(route) &&
+        /buildProductsPageSection/.test(route)) ||
       (key === "devices" &&
         /getShopDeviceReadModel/.test(route) &&
         /DeviceRegistryView/.test(route)) ||
@@ -5247,6 +5258,7 @@ function checkTask039StaffAwareShopAdminCompletion() {
   const staffAwareMutationsPath =
     "src/server/shop-admin/staff-aware-mutations.ts";
   const settingsMutationsPath = "src/server/shop-admin/settings-mutations.ts";
+  const pageAccessPath = "src/server/shop-admin/page-access.ts";
   const databaseTypesPath = "src/lib/supabase/database.types.ts";
   const gatedPagePaths = [
     "src/app/shop/staff/page.tsx",
@@ -5269,6 +5281,7 @@ function checkTask039StaffAwareShopAdminCompletion() {
     staffWebPermissionsPath,
     staffAwareMutationsPath,
     settingsMutationsPath,
+    pageAccessPath,
     databaseTypesPath,
     ...gatedPagePaths,
   ]) {
@@ -5287,7 +5300,9 @@ function checkTask039StaffAwareShopAdminCompletion() {
   const staffWebPermissions = read(staffWebPermissionsPath);
   const staffAwareMutations = read(staffAwareMutationsPath);
   const settingsMutations = read(settingsMutationsPath);
+  const pageAccess = read(pageAccessPath);
   const databaseTypes = read(databaseTypesPath);
+  const productsPage = read("src/app/shop/products/page.tsx");
   const foundationTest = read(foundationTestPath);
   const gatedPages = gatedPagePaths
     .map((pagePath) => read(pagePath))
@@ -5429,10 +5444,15 @@ function checkTask039StaffAwareShopAdminCompletion() {
     "catalog.export",
     "members.manage",
   ]) {
-    if (
-      !gatedPages.includes("resolveShopActionContext") ||
-      !gatedPages.includes(requiredPermission)
-    ) {
+    const hasActionContextPreflight =
+      gatedPages.includes("resolveShopActionContext") &&
+      gatedPages.includes(requiredPermission);
+    const hasProductsPageAccessPreflight =
+      requiredPermission === "products.write" &&
+      productsPage.includes("resolveShopPageAccessBundle") &&
+      pageAccess.includes('"products.write"');
+
+    if (!hasActionContextPreflight && !hasProductsPageAccessPreflight) {
       addFailure(
         `TASK-039 Shop Admin UI pages must preflight ${requiredPermission}`,
       );

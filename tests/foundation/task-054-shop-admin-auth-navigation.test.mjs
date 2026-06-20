@@ -74,7 +74,8 @@ test("TASK-054 Shop shell keeps only shop_id during cross-section navigation", (
   assertContains(shell, "new URLSearchParams()");
   assertContains(shell, "nextSearchParams.set(\"shop_id\", selectedShop.shopId)");
   assert.doesNotMatch(shell, /new URLSearchParams\(searchParams\.toString\(\)\)/);
-  assertContains(shell, "onClick={() =>");
+  assertContains(shell, "onClick={(event) =>");
+  assertContains(shell, "onNavigate({");
   assertContains(shell, "setOptimisticActive");
 });
 
@@ -176,13 +177,13 @@ test("TASK-054 task and Master Plan tracking are aligned for DONE reconciliation
   assertContains(masterPlan, "Safari reale via `safaridriver` PASS su server dedicato");
   assert.match(
     masterPlan,
-    /Task attivo: `(NESSUNO|Nessuno)`|Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`|Task attivo: `TASK-065 - Fix Master Console Google OAuth redirect`/,
+    /Task attivo: `(NESSUNO|Nessuno)`|Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`|Task attivo: `TASK-065 - Fix Master Console Google OAuth redirect`|Task attivo: `TASK-075 - Admin Web performance audit e Products navigation latency fix`/,
   );
   assertContains(masterPlan, "Stato TASK-055: `DONE_RECONCILED`");
   assertContains(masterPlan, "Stato TASK-056: `DONE_RECONCILED`");
   assert.match(
     masterPlan,
-    /Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`|Ultimo task chiuso: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Ultimo task chiuso: `TASK-059 - Post-merge Supabase Staging Readiness`|Ultimo task chiuso: `TASK-060 - Supplier Excel Android-style preview\/import`|Ultimo task chiuso: `TASK-061 - Android database export compatibility for Admin Web database transfer`|Ultimo task chiuso: `TASK-064 - Master Console Auth\/Profile Parity e ricerca utenti Android\/iOS`|Ultimo task chiuso: `TASK-067 - Master Console lifecycle management, admin assignment, and safe cleanup`|Ultimo task chiuso: `TASK-071 - Final closure and fix-all for TASK-068 \/ TASK-069 \/ TASK-070`|Ultimo task chiuso: `TASK-072 - Cross-platform catalog sync and History Entry write path for Admin Web, Android and iOS`|Ultimo task chiuso: `TASK-073 - Account identity display globale`/,
+    /Ultimo task chiuso: `TASK-056 - Master Console shop detail editing and row navigation shortcut`|Ultimo task chiuso: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Ultimo task chiuso: `TASK-059 - Post-merge Supabase Staging Readiness`|Ultimo task chiuso: `TASK-060 - Supplier Excel Android-style preview\/import`|Ultimo task chiuso: `TASK-061 - Android database export compatibility for Admin Web database transfer`|Ultimo task chiuso: `TASK-064 - Master Console Auth\/Profile Parity e ricerca utenti Android\/iOS`|Ultimo task chiuso: `TASK-067 - Master Console lifecycle management, admin assignment, and safe cleanup`|Ultimo task chiuso: `TASK-071 - Final closure and fix-all for TASK-068 \/ TASK-069 \/ TASK-070`|Ultimo task chiuso: `TASK-072 - Cross-platform catalog sync and History Entry write path for Admin Web, Android and iOS`|Ultimo task chiuso: `TASK-073 - Account identity display globale`|Ultimo task chiuso: `TASK-074 - Devices UX Polish \/ Owner-Friendly Device Registry`/,
   );
   assert.doesNotMatch(
     masterPlan,

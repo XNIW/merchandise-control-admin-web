@@ -38,7 +38,7 @@ test("TASK-052 protected console shells disable auth-breaking prefetch", () => {
   );
   const shopShell = readProjectFile("src/components/shop/ShopShell.tsx");
 
-  assert.match(shopShell, /href=\{buildShopHref\(item\.href\)\}[\s\S]{0,120}prefetch=\{false\}/);
+  assert.match(shopShell, /const href = buildShopHref\(item\.href\);[\s\S]{0,180}href=\{href\}[\s\S]{0,120}prefetch=\{false\}/);
   assert.match(
     shopShell,
     /<form[\s\S]*principalKind === "pos_staff_manager"[\s\S]*"\/shop\/staff-logout"[\s\S]*"\/auth\/logout"[\s\S]*method="get"[\s\S]*>\s*<button[\s\S]*type="submit"[\s\S]*>\s*\{logoutLabel\}\s*<\/button>/,

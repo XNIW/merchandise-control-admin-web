@@ -87,6 +87,10 @@ test("TASK-008 route placeholders cover the Shop Admin sections", () => {
     } else if (key === "devices") {
       assert.match(page, /getShopDeviceReadModel/);
       assert.match(page, /DeviceRegistryView/);
+    } else if (key === "products") {
+      assert.match(page, /getShopInventoryProductsPage/);
+      assert.match(page, /getShopCatalogOptionsReadModel/);
+      assert.match(page, /buildProductsPageSection/);
     } else {
       assert.match(page, new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`));
     }

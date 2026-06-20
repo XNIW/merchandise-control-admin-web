@@ -16,15 +16,16 @@ import {
 import type { Dictionary } from "@/i18n/dictionaries";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
-import { resolveShopActionContext } from "@/server/shop-admin/action-context";
+import { createAdminWebPerfTrace } from "@/server/admin-web-perf";
 import {
+  getShopCatalogOptionsReadModel,
   getShopInventoryProductsPage,
-  getShopInventoryReadModel,
   type ShopInventoryCategory,
   type ShopInventoryProduct,
   type ShopInventoryProductsPage,
   type ShopInventorySupplier,
 } from "@/server/shop-admin/inventory-read-model";
+import { resolveShopPageAccessBundle } from "@/server/shop-admin/page-access";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
 import type { ReactNode } from "react";
 
@@ -35,11 +36,10 @@ export function generateMetadata() {
 export const dynamic = "force-dynamic";
 
 /*
- * Legacy static catalog tests still look for getShopSectionForRequest("products"),
- * catalogFilters, name="query", the category_id/supplier_id aliases, and older
- * aria-label={`Products pagination ${placement}`} /
- * aria-label={`${labels.next}: page ${nextPage}`} strings. Runtime uses
- * getShopInventoryProductsPage so TASK-068H can count/range on the server.
+ * Legacy static catalog tests still look for catalogFilters, name="query",
+ * the category_id/supplier_id aliases, and older aria-label strings.
+ * Runtime uses getShopInventoryProductsPage for count/range and
+ * getShopCatalogOptionsReadModel for lightweight toolbar/filter options.
  */
 
 type ShopPageSearchParams = Promise<{
@@ -317,7 +317,7 @@ const baseProductsSection: ShopSection = {
 };
 
 function mapProductOptions(
-  rows: Awaited<ReturnType<typeof getShopInventoryReadModel>>["products"],
+  rows: readonly ShopInventoryProduct[],
 ): CatalogProductOption[] {
   return rows.map((product) => ({
     barcode: product.barcode,
@@ -334,7 +334,7 @@ function mapProductOptions(
 }
 
 function mapCategoryOptions(
-  rows: Awaited<ReturnType<typeof getShopInventoryReadModel>>["categories"],
+  rows: readonly ShopInventoryCategory[],
 ): CatalogCategoryOption[] {
   return rows.map((category) => ({
     categoryId: category.categoryId,
@@ -343,7 +343,7 @@ function mapCategoryOptions(
 }
 
 function mapSupplierOptions(
-  rows: Awaited<ReturnType<typeof getShopInventoryReadModel>>["suppliers"],
+  rows: readonly ShopInventorySupplier[],
 ): CatalogSupplierOption[] {
   return rows.map((supplier) => ({
     name: supplier.name,
@@ -1231,34 +1231,45 @@ export default async function ShopProductsPage({
     selectedSupplierId,
     selectedState === "active" ? undefined : selectedState,
   ].filter((value) => Boolean(value?.trim())).length;
-  const [
-    productsPage,
-    inventoryReadModel,
-    productsContext,
-    importContext,
-    exportContext,
-  ] = await Promise.all([
-    getShopInventoryProductsPage({
-      filters: {
-        categoryId: selectedCategoryId,
-        query: selectedQuery,
-        state: selectedState,
-        supplierId: selectedSupplierId,
-      },
-      page: selectedPage,
-      pageSize: selectedPageSize,
-      requestedShopId,
-    }),
-    getShopInventoryReadModel({ requestedShopId }),
-    resolveShopActionContext(requestedShopId, "products.write"),
-    resolveShopActionContext(requestedShopId, "catalog.import"),
-    resolveShopActionContext(requestedShopId, "catalog.export"),
+  const perfTrace = createAdminWebPerfTrace("shop.products", {
+    activeFilterCount,
+    hasRequestedShopId: Boolean(requestedShopId),
+    pageSize: selectedPageSize,
+    route: "/shop/products",
+    state: selectedState,
+  });
+  const [productsPage, catalogOptions, pageAccess] = await Promise.all([
+    perfTrace.time("getShopInventoryProductsPage", () =>
+      getShopInventoryProductsPage({
+        filters: {
+          categoryId: selectedCategoryId,
+          query: selectedQuery,
+          state: selectedState,
+          supplierId: selectedSupplierId,
+        },
+        page: selectedPage,
+        pageSize: selectedPageSize,
+        perfTrace,
+        requestedShopId,
+      }),
+    ),
+    perfTrace.time("getShopCatalogOptionsReadModel", () =>
+      getShopCatalogOptionsReadModel({ perfTrace, requestedShopId }),
+    ),
+    perfTrace.time("resolveShopPageAccessBundle", () =>
+      resolveShopPageAccessBundle(requestedShopId),
+    ),
   ]);
-  const canManageProducts = productsContext.status === "ready";
-  const canImport = importContext.status === "ready";
-  const canExport = exportContext.status === "ready";
-  const categoryOptions = mapCategoryOptions(inventoryReadModel.categories);
-  const supplierOptions = mapSupplierOptions(inventoryReadModel.suppliers);
+  const canManageProducts =
+    pageAccess.status === "ready" && pageAccess.canManageProducts;
+  const canImport = pageAccess.status === "ready" && pageAccess.canImport;
+  const canExport = pageAccess.status === "ready" && pageAccess.canExport;
+  const selectedShopId =
+    pageAccess.status === "ready"
+      ? pageAccess.selectedShop.shopId
+      : (productsPage.selectedShop?.shopId ?? requestedShopId);
+  const categoryOptions = mapCategoryOptions(catalogOptions.categories);
+  const supplierOptions = mapSupplierOptions(catalogOptions.suppliers);
   const productCatalogOptions = mapProductOptions(
     productsPage.products.filter((product) => !product.deletedAt),
   );
@@ -1267,9 +1278,9 @@ export default async function ShopProductsPage({
   );
   const section = buildProductsPageSection({
     activeFilterCount,
-    categories: inventoryReadModel.categories,
+    categories: catalogOptions.categories,
     page: productsPage,
-    suppliers: inventoryReadModel.suppliers,
+    suppliers: catalogOptions.suppliers,
   });
   const productDialog = getProductDialog(getParam(params, "product_action"));
   const productDialogId = getParam(params, "product_id") ?? "";
@@ -1308,8 +1319,8 @@ export default async function ShopProductsPage({
       <CatalogActionPanel
         archivedProducts={archivedProductCatalogOptions}
         authPrincipalKind={
-          importContext.status === "ready"
-            ? importContext.principalKind
+          pageAccess.status === "ready"
+            ? pageAccess.principalKind
             : undefined
         }
         canExport={canExport}
@@ -1322,10 +1333,16 @@ export default async function ShopProductsPage({
         labels={dictionary.exact}
         products={productCatalogOptions}
         scope="products"
-        selectedShopId={requestedShopId}
+        selectedShopId={selectedShopId ?? undefined}
         suppliers={supplierOptions}
       />
     ) : null;
+
+  perfTrace.flush({
+    catalogOptionsStatus: catalogOptions.status,
+    pageRows: productsPage.pagination.currentPageRows,
+    productsStatus: productsPage.status,
+  });
 
   return (
     <div className="grid gap-5">

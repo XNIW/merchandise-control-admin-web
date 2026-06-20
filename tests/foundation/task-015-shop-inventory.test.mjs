@@ -110,7 +110,13 @@ test("TASK-015 catalog pages expose real guarded forms through the mapped sectio
     const page = readProjectFile(path);
 
     assert.match(page, /searchParams/);
-    assert.match(page, new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`));
+    if (key === "products") {
+      assert.match(page, /getShopInventoryProductsPage/);
+      assert.match(page, /getShopCatalogOptionsReadModel/);
+      assert.match(page, /buildProductsPageSection/);
+    } else {
+      assert.match(page, new RegExp(`getShopSectionForRequest\\(\\s*"${key}"`));
+    }
     assert.match(page, /CatalogActionPanel/);
     assert.doesNotMatch(page, new RegExp(`shopSections\\.${key}`));
   }

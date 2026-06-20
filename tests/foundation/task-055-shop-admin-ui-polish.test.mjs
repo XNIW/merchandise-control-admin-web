@@ -101,7 +101,8 @@ test("TASK-055 products filter bar aligns fields and keeps server query params",
   assertContains(page, "category_id");
   assertContains(page, "supplier_id");
   assertContains(page, "name=\"state\"");
-  assertContains(page, "getShopSectionForRequest");
+  assertContains(page, "getShopInventoryProductsPage");
+  assertContains(page, "getShopCatalogOptionsReadModel");
 });
 
 test("TASK-068K products polish adds bottom pagination, reset, and decorative sidebar icons", () => {
@@ -114,7 +115,7 @@ test("TASK-068K products polish adds bottom pagination, reset, and decorative si
   assertContains(page, "ProductsPagination");
   assertContains(page, "id=\"products-page-jump-top\"");
   assertContains(page, "id=\"products-page-jump-bottom\"");
-  assertContains(page, "aria-label={`Products pagination ${placement}`}");
+  assertContains(page, "aria-label={`${labels.pagination} ${placement}`}");
   assertContains(page, "placement=\"top\"");
   assertContains(page, "placement=\"bottom\"");
   assertContains(page, "labels.first");
@@ -131,7 +132,7 @@ test("TASK-068K products polish adds bottom pagination, reset, and decorative si
   assertContains(page, "icon: \"barcode\"");
   assertContains(page, "icon: \"package\"");
   assertContains(page, "cellVariant: \"primary\"");
-  assertContains(page, "aria-label={`${labels.next}: page ${nextPage}`}");
+  assertContains(page, "aria-label={`${labels.next}: ${pageAriaLabel} ${nextPage}`}");
   assertContains(table, "TableColumnIcon");
   assertContains(table, "cellVariant === \"code\"");
   assertContains(table, "cellVariant === \"state\"");

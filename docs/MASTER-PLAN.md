@@ -2763,23 +2763,28 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-073: `TASK-073 - Account identity display globale`
 - File task TASK-073: `docs/TASKS/TASK-073-account-identity-display.md`
 - Evidence TASK-073: `docs/TASKS/EVIDENCE/TASK-073/README.md`
-- Stato TASK-074: `REVIEW`
-- Fase TASK-074: `READY_FOR_REVIEW`
+- Stato TASK-074: `DONE`
+- Fase TASK-074: `DONE_RECONCILED`
 - Task TASK-074: `TASK-074 - Devices UX Polish / Owner-Friendly Device Registry`
 - File task TASK-074: `docs/TASKS/TASK-074-devices-ux-polish.md`
 - Evidence TASK-074: `docs/TASKS/EVIDENCE/TASK-074/README.md`
+- Stato TASK-075: `REVIEW`
+- Fase TASK-075: `REVIEW`
+- Task TASK-075: `TASK-075 - Admin Web performance audit e Products navigation latency fix`
+- File task TASK-075: `docs/TASKS/TASK-075-admin-web-performance-audit-products-latency.md`
+- Evidence TASK-075: `docs/TASKS/EVIDENCE/TASK-075/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Task attivo: `TASK-074 - Devices UX Polish / Owner-Friendly Device Registry`
-- Task precedente: `TASK-073 - Account identity display globale`
-- Ultimo task chiuso: `TASK-073 - Account identity display globale`
-- Ultimo task completato: `TASK-073 - Account identity display globale`
-- File task corrente: `docs/TASKS/TASK-074-devices-ux-polish.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-074/README.md`
+- Task attivo: `TASK-075 - Admin Web performance audit e Products navigation latency fix`
+- Task precedente: `TASK-074 - Devices UX Polish / Owner-Friendly Device Registry`
+- Ultimo task chiuso: `TASK-074 - Devices UX Polish / Owner-Friendly Device Registry`
+- Ultimo task completato: `TASK-074 - Devices UX Polish / Owner-Friendly Device Registry`
+- File task corrente: `docs/TASKS/TASK-075-admin-web-performance-audit-products-latency.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-075/README.md`
 - Stato task: `REVIEW`
-- Fase: `READY_FOR_REVIEW`
-- Milestone interna: `TASK_074_READY_FOR_REVIEW`
-- Responsabile: `CODEX_TASK074_UX_POLISH`
+- Fase: `REVIEW`
+- Milestone interna: `TASK_075_REVIEW_HANDOFF`
+- Responsabile: `CODEX_TASK075_PERFORMANCE`
 - Branch previsto: `main` / no branch creation requested
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -3240,6 +3245,62 @@ Review / DONE Gate / Commit Readiness`, completata la riconciliazione finale
   negative revoked-register PASS, security/foundation/typecheck/lint/build/verify
   PASS, `git diff --check` PASS e nessun file staged. Stato finale:
   `DONE`; fase: `DONE_RECONCILED`; verdict finale: `DONE`.
+- Avvio TASK-075 2026-06-19: aperto per brief utente allegato
+  `TASK-075 - Admin Web performance audit e Products navigation latency fix`.
+  Scope: audit performance/rendering/navigation su Master Console e Admin
+  Console, priorita `/shop/products`; loading skeleton Admin Console/Products;
+  navigazione sidebar piu reattiva senza prefetch di azioni mutative; read
+  model Products leggero per opzioni catalogo; instrumentation dev/test dietro
+  `ADMIN_WEB_PERF_DEBUG=1`; evidence before/after e handoff a `REVIEW`.
+  Vietati commit, push, stage, deploy production/cloud apply, nuove dipendenze,
+  dati reali/secret e service-role lato client/browser. Stato iniziale:
+  `EXECUTION`, non `DONE`.
+- Handoff TASK-075 2026-06-19: fix completato e pronto per `REVIEW`.
+  Products non carica piu il read model inventario completo al primo render:
+  usa `getShopInventoryProductsPage` per count/range e
+  `getShopCatalogOptionsReadModel` per sole opzioni categorie/fornitori,
+  senza `inventory_product_prices` nel percorso opzioni. Permessi Products
+  consolidati in `resolveShopPageAccessBundle`; loading segment aggiunti per
+  `/shop` e `/shop/products`; sidebar Shop usa prefetch manuale su intento
+  utente (`hover`/`focus`/`touch`) senza prefetchare logout o azioni mutative;
+  instrumentation server opt-in con `ADMIN_WEB_PERF_DEBUG=1` e metadata
+  redatti/troncati. Gate PASS: security scan, foundation `396/396`,
+  typecheck, lint, build, verify, browser smoke non autenticato Products
+  (`100` righe, filtri, paginazione top/bottom, zero console error),
+  `curl -I` su `/shop/products` e `/auth/login` con security headers. Smoke
+  autenticati locali `test:shop:local` / `test:shop-admin-auth-smoke`:
+  `BLOCKED_ENV` per `.env.local` puntato a `supabase_cloud`, dev server
+  preesistente e timeout Playwright/auth harness; nessun PASS inventato.
+  Nessun commit, push, stage, deploy o production/cloud apply. Verdict
+  operativo Codex: `DONE_READY`, attesa review/conferma utente per `DONE`.
+- Avvio TASK-076 2026-06-19: aperto per brief utente allegato
+  `TASK-076 - Cloud Runtime Performance Fix: Admin Console tab latency, Staff,
+Products and full Shop navigation`. Scope: audit/fix performance cloud reale
+  autenticata della Shop Admin Console, non solo Products; baseline e after su
+  `/shop/products`, `/shop/staff` e route principali Shop; feedback immediato
+  sidebar/pending/skeleton; tracing server-only opt-in; read model/data-access
+  ottimizzati in modo piccolo e misurabile; nuovo harness cloud performance con
+  dataset sintetico `TASK076_*` e cleanup. Vietati production deploy/apply,
+  secret in repo/evidence, service-role client/browser/mobile, dati reali
+  permanenti, grandi refactor non misurati, commit, push e stage. Stato
+  iniziale: `EXECUTION`, non `DONE`.
+- Handoff TASK-076 2026-06-19: stato operativo `REVIEW_WITH_NOTES`, non
+  `DONE`. Aggiunto harness `npm run test:shop:cloud-performance` con fixture
+  cloud/staging `TASK076_*`, service-role solo nel processo Playwright,
+  cleanup verificato a zero residui e report JSON before/after. Deploy
+  non-production completato su Cloudflare staging
+  `merchandise-control-admin-web-staging`, Version ID
+  `d266644d-78e0-4ccd-8da2-0844ab91a175`; nessun deploy/apply production.
+  Baseline: pending/skeleton `not_observed` su tutte le route,
+  `/shop/import-export` non presente in sidebar, History timeout. After:
+  pending osservato entro `12-33ms` sulle route completate; Products `965ms`,
+  Staff `887ms`, Import/Export navigabile `868ms`, Devices `901ms`, Members
+  `875ms`, Settings `929ms`, Roles `130ms`; `/shop/history` mantiene TTFB
+  `237ms` e pending `20ms` ma final marker in timeout nel click-flow cloud.
+  Gate PASS: security scan, targeted foundation 11/11, typecheck, lint, build,
+  verify, cloud authenticated performance baseline/after, staging deploy,
+  `git diff --check`. Rischio residuo: follow-up mirato History read
+  model/rendering prima di eventuale `DONE_READY`.
 
 ## Regole di avanzamento
 

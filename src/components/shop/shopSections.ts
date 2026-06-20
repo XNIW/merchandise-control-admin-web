@@ -86,6 +86,7 @@ export const shopNavigationSections: ShopNavigationSection[] = [
       { key: "products", label: "Products", href: "/shop/products" },
       { key: "categories", label: "Categories", href: "/shop/categories" },
       { key: "suppliers", label: "Suppliers", href: "/shop/suppliers" },
+      { key: "importExport", label: "Import / Export", href: "/shop/import-export" },
     ],
   },
   {

@@ -73,7 +73,8 @@ test("TASK-009 ShopShell preserves selected shop while navigating sections", () 
 
   assert.match(shell, /function buildShopHref/);
   assert.match(shell, /nextSearchParams\.set\("shop_id", selectedShop\.shopId\)/);
-  assert.match(shell, /href=\{buildShopHref\(item\.href\)\}/);
+  assert.match(shell, /const href = buildShopHref\(item\.href\);/);
+  assert.match(shell, /href=\{href\}/);
 });
 
 test("TASK-009 security scan locks shop switcher artifacts", () => {

@@ -97,8 +97,10 @@ test("TASK-068M polish stays out of products read model and Supabase schema", ()
   const packageJson = read("package.json");
 
   assertContains(page, "getShopInventoryProductsPage");
-  assertContains(page, "getShopInventoryReadModel");
-  assertContains(page, "resolveShopActionContext");
+  assertContains(page, "getShopCatalogOptionsReadModel");
+  assertContains(page, "resolveShopPageAccessBundle");
+  assert.doesNotMatch(page, /getShopInventoryReadModel\(/);
+  assert.doesNotMatch(page, /resolveShopActionContext\(/);
   assert.doesNotMatch(page, /\.from\(|\.select\(|\.rpc\(|createClient/);
   assert.doesNotMatch(packageJson, /lucide|heroicons|react-icons/);
 });

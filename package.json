@@ -41,6 +41,7 @@
     "test:platform:staging": "node scripts/testing/run-playwright-target.mjs staging tests/e2e/staging/platform-staging-smoke.spec.ts --project=chromium-desktop",
     "test:platform:local-login": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-046-platform-local-login.spec.ts --project=chromium-desktop",
     "test:shop:local": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-035-shop-admin-authenticated-smoke.spec.ts --project=chromium-desktop",
+    "test:shop:cloud-performance": "node scripts/testing/task-076-shop-cloud-performance.mjs",
     "smoke:staging": "node scripts/testing/run-playwright-target.mjs staging tests/e2e/staging/platform-staging-smoke.spec.ts --project=chromium-desktop",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",

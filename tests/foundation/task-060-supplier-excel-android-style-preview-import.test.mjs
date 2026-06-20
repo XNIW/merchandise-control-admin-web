@@ -388,8 +388,8 @@ test("TASK-060 import auth separates expired session from permission denied UX",
     'authPrincipalKind?: "personal_account" | "pos_staff_manager"',
   );
   assertContains(catalogPanel, "authPrincipalKind={authPrincipalKind}");
-  assertContains(productsPage, 'importContext.status === "ready"');
-  assertContains(productsPage, "importContext.principalKind");
+  assertContains(productsPage, 'pageAccess.status === "ready"');
+  assertContains(productsPage, "pageAccess.principalKind");
   assertContains(importExportPage, 'importContext.status === "ready"');
   assertContains(importExportPage, "importContext.principalKind");
   assertContains(staffLoginPage, "next: safeNextPath(firstParam(params.next))");
