@@ -490,11 +490,11 @@ function productStatusClasses(state: HistoryDetailModalRow["productState"]) {
 }
 
 function effectiveCountedQuantity(row: HistoryDetailModalRow, draft: HistoryRowEditDraft) {
-  return draft.countedQuantity || editableCell(row.countedQuantity);
+  return draft.countedQuantity ?? editableCell(row.countedQuantity);
 }
 
 function effectiveSalePrice(row: HistoryDetailModalRow, draft: HistoryRowEditDraft) {
-  return draft.salePrice || editableCell(row.salePrice);
+  return draft.salePrice ?? editableCell(row.salePrice);
 }
 
 function rowQuantityDelta(row: HistoryDetailModalRow, draft: HistoryRowEditDraft) {

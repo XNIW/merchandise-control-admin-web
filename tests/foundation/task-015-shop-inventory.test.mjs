@@ -130,8 +130,8 @@ test("TASK-015 catalog pages expose real guarded forms through the mapped sectio
   }
 
   assert.match(formPanel, /Create product/);
-  assert.match(formPanel, /Update product/);
   assert.match(formPanel, /Archive product/);
+  assert.doesNotMatch(formPanel, /Update product/);
   assert.match(formPanel, /Create category/);
   assert.match(formPanel, /Create supplier/);
   assert.match(formPanel, /confirmation/);

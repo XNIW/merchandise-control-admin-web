@@ -61,7 +61,7 @@ test("TASK-079B governance is archived under canonical TASK-079", () => {
   assertContains(masterPlan, "Riconciliazione governance TASK-079 2026-06-21");
   assertContains(masterPlan, "Avvio TASK-079B 2026-06-21");
   assertContains(task079, "079.2 Supplier Import to canonical History Entry");
-  assertContains(task079, "Stato: `REVIEW_READY_FOR_USER_VISUAL_CHECK`");
+  assertContains(task079, "Stato: `DONE_RECONCILED`");
   assertContains(task079b, "Stato: `REVIEW`");
   assertContains(task079b, "Fase attuale: `REVIEW`");
   assertContains(task079b, "Nessuna scrittura durante preview.");

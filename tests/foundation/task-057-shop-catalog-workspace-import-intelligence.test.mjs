@@ -164,7 +164,6 @@ test("TASK-057 catalog actions are toolbar buttons with accessible dialogs", () 
   }
 
   for (const required of [
-    "Edit product",
     "Archive product",
     "Restore product",
     "Rename category",
@@ -174,6 +173,8 @@ test("TASK-057 catalog actions are toolbar buttons with accessible dialogs", () 
   ]) {
     assertContains(catalogPanel, required);
   }
+
+  assert.doesNotMatch(catalogPanel, /Edit product|Update product|editProduct/);
 
   for (const forbidden of [
     /ToolbarButton onClick=\{\(\) => setOpenDialog\("editProduct"\)\}/,
@@ -833,5 +834,9 @@ test("TASK-057 staff-aware catalog writes use shop_id and catalog scope", () => 
   assert.doesNotMatch(
     mutations,
     /\.eq\("owner_user_id", owner\.ownerUserId\)/,
+  );
+  assert.doesNotMatch(
+    mutations,
+    /\.eq\("owner_user_id", input\.scope\.legacyOwnerUserId/,
   );
 });

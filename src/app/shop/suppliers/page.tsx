@@ -295,6 +295,9 @@ export default async function ShopSuppliersPage({
               {requestedShopId ? (
                 <input name="shop_id" type="hidden" value={requestedShopId} />
               ) : null}
+              {selectedState !== "active" ? (
+                <input name="state" type="hidden" value={selectedState} />
+              ) : null}
               <input name="page" type="hidden" value="1" />
               <label className="grid gap-1 text-sm font-medium text-zinc-800">
                 {dictionary.shopFilters.search}

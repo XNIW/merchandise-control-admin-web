@@ -18,7 +18,6 @@ import {
   createSupplierAction,
   restoreProductAction,
   updateCategoryAction,
-  updateProductAction,
   updateSupplierAction,
 } from "@/app/shop/actions";
 import { CreatableCatalogCombobox } from "@/app/shop/_components/CreatableCatalogCombobox";
@@ -68,7 +67,6 @@ type CatalogActionPanelProps = {
 
 type DialogKey =
   | "newProduct"
-  | "editProduct"
   | "archiveProduct"
   | "restoreProduct"
   | "importSupplier"
@@ -490,63 +488,22 @@ function DialogHeaderFileAccessory({ file }: { file: HeaderFileState | null }) {
 
 function ProductFields({
   categories,
-  defaultProduct,
   suppliers,
 }: {
   categories: CatalogCategoryOption[];
-  defaultProduct?: CatalogProductOption;
   suppliers: CatalogSupplierOption[];
 }) {
   return (
     <>
-      <TextInput
-        defaultValue={defaultProduct?.barcode}
-        label="Barcode"
-        name="barcode"
-        required
-      />
-      <TextInput
-        defaultValue={defaultProduct?.productName}
-        label="Product name"
-        name="productName"
-        required
-      />
-      <TextInput
-        defaultValue={defaultProduct?.secondProductName}
-        label="Second name"
-        name="secondProductName"
-      />
-      <TextInput
-        defaultValue={defaultProduct?.itemNumber}
-        label="Item number"
-        name="itemNumber"
-      />
-      <CreatableSupplierField
-        defaultSupplierId={defaultProduct?.supplierId}
-        suppliers={suppliers}
-      />
-      <CreatableCategoryField
-        categories={categories}
-        defaultCategoryId={defaultProduct?.categoryId}
-      />
-      <TextInput
-        defaultValue={defaultProduct?.purchasePrice}
-        label="Purchase price"
-        name="purchasePrice"
-        type="number"
-      />
-      <TextInput
-        defaultValue={defaultProduct?.retailPrice}
-        label="Retail price"
-        name="retailPrice"
-        type="number"
-      />
-      <TextInput
-        defaultValue={defaultProduct?.stockQuantity}
-        label="Stock quantity"
-        name="stockQuantity"
-        type="number"
-      />
+      <TextInput label="Barcode" name="barcode" required />
+      <TextInput label="Product name" name="productName" required />
+      <TextInput label="Second name" name="secondProductName" />
+      <TextInput label="Item number" name="itemNumber" />
+      <CreatableSupplierField suppliers={suppliers} />
+      <CreatableCategoryField categories={categories} />
+      <TextInput label="Purchase price" name="purchasePrice" type="number" />
+      <TextInput label="Retail price" name="retailPrice" type="number" />
+      <TextInput label="Stock quantity" name="stockQuantity" type="number" />
     </>
   );
 }
@@ -653,42 +610,6 @@ function ProductsDialogs({
             <HiddenShopInput selectedShopId={selectedShopId} />
             <ProductFields categories={categories} suppliers={suppliers} />
             <button className={catalogButtonClassName}>{t("Create product")}</button>
-          </form>
-        </DialogFormShell>
-      </CatalogDialog>
-
-      <CatalogDialog
-        onClose={() => setOpenDialog(null)}
-        open={openDialog === "editProduct"}
-        title="Edit product"
-      >
-        <DialogFormShell>
-          <form action={updateProductAction} className={catalogFormClassName}>
-            <HiddenShopInput selectedShopId={selectedShopId} />
-            {selectedProduct ? (
-              <>
-                <input
-                  name="productId"
-                  type="hidden"
-                  value={selectedProduct.productId}
-                />
-                <SelectedEntitySummary>
-                  {t("Editing")} {selectedProductLabel}
-                </SelectedEntitySummary>
-              </>
-            ) : (
-              <ProductPicker
-                archivedProducts={archivedProducts}
-                defaultProductId={selectedEntityId}
-                products={products}
-              />
-            )}
-            <ProductFields
-              categories={categories}
-              defaultProduct={selectedProduct}
-              suppliers={suppliers}
-            />
-            <button className={catalogButtonClassName}>{t("Update product")}</button>
           </form>
         </DialogFormShell>
       </CatalogDialog>

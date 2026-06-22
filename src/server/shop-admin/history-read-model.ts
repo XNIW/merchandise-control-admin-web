@@ -2363,14 +2363,25 @@ function compareHistoryListRows(
   );
 }
 
-function mergeHistoryPageRows<Row extends { remote_id: string; timestamp: string; updated_at: string }>(
+function isHistoryRangeNotSatisfiableError(error: unknown) {
+  return (
+    Boolean(error) &&
+    typeof error === "object" &&
+    (error as { code?: unknown }).code === "PGRST103"
+  );
+}
+
+function mergeHistoryPageRows<
+  Row extends { remote_id: string; timestamp: string; updated_at: string },
+>(
   primaryRows: readonly Row[],
   fallbackRows: readonly Row[],
   pageSize: number,
+  from = 0,
 ) {
   return mergeRowsByKey(primaryRows, fallbackRows, (row) => row.remote_id)
     .sort(compareHistoryListRows)
-    .slice(0, pageSize);
+    .slice(from, from + pageSize);
 }
 
 async function loadHistoryListDiagnostics(input: {
@@ -2395,9 +2406,19 @@ async function loadHistoryListDiagnostics(input: {
     .order("timestamp", { ascending: false })
     .order("remote_id", { ascending: true });
   const directDiagnosticsResult = await directDiagnosticsQuery.range(
-    input.from,
+    input.legacyOwnerUserId ? 0 : input.from,
     input.to,
   );
+
+  if (isHistoryRangeNotSatisfiableError(directDiagnosticsResult.error)) {
+    return {
+      diagnostics: [] as ScopedSharedSheetSessionDiagnosticsRow[],
+      error: null,
+      fallbackToSessions: false,
+      totalCount: 0,
+      totalCountStatus: "deferred" as const,
+    };
+  }
 
   if (
     directDiagnosticsResult.error &&
@@ -2405,8 +2426,8 @@ async function loadHistoryListDiagnostics(input: {
   ) {
     return {
       diagnostics: [] as ScopedSharedSheetSessionDiagnosticsRow[],
-      error: directDiagnosticsResult.error,
-      fallbackToSessions: false,
+      error: null,
+      fallbackToSessions: true,
       totalCount: 0,
       totalCountStatus: "deferred" as const,
     };
@@ -2450,9 +2471,24 @@ async function loadHistoryListDiagnostics(input: {
     .order("timestamp", { ascending: false })
     .order("remote_id", { ascending: true });
   const legacyDiagnosticsResult = await legacyDiagnosticsQuery.range(
-    input.from,
+    0,
     input.to,
   );
+
+  if (isHistoryRangeNotSatisfiableError(legacyDiagnosticsResult.error)) {
+    return {
+      diagnostics: mergeHistoryPageRows(
+        directDiagnostics,
+        [],
+        input.pageSize,
+        input.from,
+      ),
+      error: null,
+      fallbackToSessions: false,
+      totalCount: directDiagnosticsResult.count ?? directDiagnostics.length,
+      totalCountStatus: "deferred" as const,
+    };
+  }
 
   if (
     legacyDiagnosticsResult.error &&
@@ -2489,6 +2525,7 @@ async function loadHistoryListDiagnostics(input: {
       directDiagnostics,
       legacyDiagnostics,
       input.pageSize,
+      input.from,
     ),
     error: null,
     fallbackToSessions: false,
@@ -2521,9 +2558,18 @@ async function loadHistoryListSessions(input: {
     .order("timestamp", { ascending: false })
     .order("remote_id", { ascending: true });
   const directSessionsResult = await directSessionsQuery.range(
-    input.from,
+    input.legacyOwnerUserId ? 0 : input.from,
     input.to,
   );
+
+  if (isHistoryRangeNotSatisfiableError(directSessionsResult.error)) {
+    return {
+      error: null,
+      sessions: [] as ScopedSharedSheetSessionListRow[],
+      totalCount: 0,
+      totalCountStatus: "deferred" as const,
+    };
+  }
 
   if (
     directSessionsResult.error &&
@@ -2566,9 +2612,23 @@ async function loadHistoryListSessions(input: {
     .order("timestamp", { ascending: false })
     .order("remote_id", { ascending: true });
   const ownerSessionsResult = await ownerSessionsQuery.range(
-    input.from,
+    0,
     input.to,
   );
+
+  if (isHistoryRangeNotSatisfiableError(ownerSessionsResult.error)) {
+    return {
+      error: null,
+      sessions: mergeHistoryPageRows(
+        directSessions,
+        [],
+        input.pageSize,
+        input.from,
+      ),
+      totalCount: directSessionsResult.count ?? directSessions.length,
+      totalCountStatus: "deferred" as const,
+    };
+  }
 
   if (
     ownerSessionsResult.error &&
@@ -2599,9 +2659,23 @@ async function loadHistoryListSessions(input: {
       .order("timestamp", { ascending: false })
       .order("remote_id", { ascending: true });
     const legacyOwnerSessionsResult = await legacyOwnerSessionsQuery.range(
-      input.from,
+      0,
       input.to,
     );
+
+    if (isHistoryRangeNotSatisfiableError(legacyOwnerSessionsResult.error)) {
+      return {
+        error: null,
+        sessions: mergeHistoryPageRows(
+          directSessions,
+          [],
+          input.pageSize,
+          input.from,
+        ),
+        totalCount: directSessionsResult.count ?? directSessions.length,
+        totalCountStatus: "deferred" as const,
+      };
+    }
 
     if (legacyOwnerSessionsResult.error) {
       return {
@@ -2623,6 +2697,7 @@ async function loadHistoryListSessions(input: {
         directSessions,
         legacySessions,
         input.pageSize,
+        input.from,
       ),
       totalCount:
         (directSessionsResult.count ?? directSessions.length) +
@@ -2646,6 +2721,7 @@ async function loadHistoryListSessions(input: {
       ownerSessions,
       directSessions,
       input.pageSize,
+      input.from,
     ),
     totalCount:
       (ownerSessionsResult.count ?? ownerSessions.length) +

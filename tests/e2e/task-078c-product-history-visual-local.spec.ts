@@ -529,11 +529,12 @@ test("TASK-078C visual QA covers polished product and month-grouped history moda
       path: `${EVIDENCE_DIR}/browser-product-detail-advanced-collapsed-desktop.png`,
     });
 
-    await productDialog.getByRole("button", { name: /Edit/ }).click();
-    await expect(productDialog.getByText("Editing product")).toBeVisible();
+    await productDialog.getByRole("tab", { name: /Overview/ }).click();
+    await expect(productDialog.getByLabel("Product name")).toBeVisible();
+    await expect(productDialog.getByRole("button", { name: "Save" })).toBeDisabled();
     await page.screenshot({
       fullPage: true,
-      path: `${EVIDENCE_DIR}/browser-product-detail-edit-desktop.png`,
+      path: `${EVIDENCE_DIR}/browser-product-detail-editable-overview-desktop.png`,
     });
     await productDialog.getByRole("button", { name: /Close/ }).click();
     await expect(productDialog).toBeHidden();

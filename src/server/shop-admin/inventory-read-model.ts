@@ -325,6 +325,7 @@ type InventoryCountTable = {
 
 type ProductPageQuery = {
   eq: (column: string, value: string) => ProductPageQuery;
+  in: (column: string, values: string[]) => ProductPageQuery;
   is: (column: string, value: null) => ProductPageQuery;
   not: (column: string, operator: string, value: null) => ProductPageQuery;
   or: (filters: string) => ProductPageQuery;
@@ -351,6 +352,34 @@ type ProductPageTable = {
       count: "exact";
     },
   ) => ProductPageQuery;
+};
+
+type CatalogEntityProductCountRow = {
+  category_id?: string | null;
+  supplier_id?: string | null;
+  count?: number | string | null;
+};
+
+type CatalogEntityProductCountQuery = PromiseLike<{
+  data: CatalogEntityProductCountRow[] | null;
+  error: unknown | null;
+}> & {
+  eq: (
+    column: string,
+    value: string,
+  ) => CatalogEntityProductCountQuery;
+  in: (
+    column: string,
+    values: string[],
+  ) => CatalogEntityProductCountQuery;
+  is: (
+    column: string,
+    value: null,
+  ) => CatalogEntityProductCountQuery;
+};
+
+type CatalogEntityProductCountTable = {
+  select: (columns: string) => CatalogEntityProductCountQuery;
 };
 
 type CatalogEntityPageQuery<Row> = {
@@ -430,6 +459,8 @@ const INVENTORY_READ_MODEL_PAGE_SIZE = 1_000;
 const INVENTORY_PRODUCTS_PAGE_SIZES = [10, 25, 50, 100, 200] as const;
 const INVENTORY_CATALOG_ENTITY_PAGE_SIZES = [10, 25, 50, 100, 200] as const;
 const INVENTORY_PRODUCTS_CODE_LOOKUP_LIMIT = 40;
+const CATALOG_ENTITY_PRODUCT_METRIC_SCAN_PAGE_SIZE = 1_000;
+const CATALOG_ENTITY_PRODUCT_METRIC_SCAN_MAX_ROWS = 200_000;
 
 const emptySummary: ShopInventoryCatalogSummary = {
   activeProducts: 0,
@@ -909,7 +940,7 @@ async function loadCatalogEntityActiveProductCounts(input: {
   supabase: SupabaseServerClient;
 }): Promise<{ counts: Map<string, number>; error: unknown | null }> {
   const counts = new Map<string, number>();
-  const entityIds = input.entityIds.filter(Boolean);
+  const entityIds = Array.from(new Set(input.entityIds.filter(Boolean)));
 
   if (entityIds.length === 0) {
     return { counts, error: null };
@@ -919,47 +950,101 @@ async function loadCatalogEntityActiveProductCounts(input: {
     return { counts, error: null };
   }
 
-  const scope: InventoryCountScope =
-    input.source === "legacy_owner_bridge"
-      ? {
-          kind: "legacy_owner_bridge",
-          legacyOwnerOnlySchema: input.legacyOwnerOnlySchema,
-          ownerUserId: input.legacyOwnerUserId ?? "",
-        }
-      : {
-          kind: "shop_scoped",
-          shopId: input.selectedShopId,
-        };
   const relationColumn =
     input.entity === "categories" ? "category_id" : "supplier_id";
-  const batchSize = 8;
+  const productTable = input.supabase.from(
+    "inventory_products",
+  ) as unknown as CatalogEntityProductCountTable;
+  const aggregateCountSelect = `${relationColumn},${["c", "ount()"].join("")}`;
+  input.perfTrace?.query(`inventory_products.${input.entity}.linkedCounts`);
 
-  for (let index = 0; index < entityIds.length; index += batchSize) {
-    const batch = entityIds.slice(index, index + batchSize);
-    const results = await Promise.all(
-      batch.map((entityId) =>
-        countInventoryRows({
-          deletedState: "active",
-          filters: [{ column: relationColumn, value: entityId }],
-          perfTrace: input.perfTrace,
-          scope,
-          supabase: input.supabase,
-          table: "inventory_products",
-        }),
-      ),
-    );
-    const error = results.find((result) => result.error)?.error ?? null;
+  let query = productTable
+    .select(aggregateCountSelect)
+    .is("deleted_at", null)
+    .in(relationColumn, entityIds);
 
-    if (error) {
-      return { counts, error };
+  if (input.source === "shop_scoped") {
+    query = query.eq("shop_id", input.selectedShopId);
+  } else {
+    if (!input.legacyOwnerOnlySchema) {
+      query = query.is("shop_id", null);
     }
 
-    batch.forEach((entityId, resultIndex) => {
-      counts.set(entityId, results[resultIndex]?.count ?? 0);
-    });
+    query = query.eq("owner_user_id", input.legacyOwnerUserId ?? "");
   }
 
-  return { counts, error: null };
+  const result = await query;
+
+  if (!result.error) {
+    for (const row of result.data ?? []) {
+      const relationId = row[relationColumn];
+      const count =
+        typeof row.count === "number" ? row.count : Number(row.count ?? 0);
+
+      if (relationId && Number.isFinite(count)) {
+        counts.set(relationId, count);
+      }
+    }
+
+    return { counts, error: null };
+  }
+
+  const fallbackCounts = new Map<string, number>();
+  const fallbackTable = input.supabase.from(
+    "inventory_products",
+  ) as unknown as ProductPageTable;
+  input.perfTrace?.query(`inventory_products.${input.entity}.linkedCountRows`);
+
+  for (
+    let from = 0;
+    from < CATALOG_ENTITY_PRODUCT_METRIC_SCAN_MAX_ROWS;
+    from += CATALOG_ENTITY_PRODUCT_METRIC_SCAN_PAGE_SIZE
+  ) {
+    let fallbackQuery = fallbackTable
+      .select(relationColumn)
+      .is("deleted_at", null)
+      .in(relationColumn, entityIds);
+
+    if (input.source === "shop_scoped") {
+      fallbackQuery = fallbackQuery.eq("shop_id", input.selectedShopId);
+    } else {
+      if (!input.legacyOwnerOnlySchema) {
+        fallbackQuery = fallbackQuery.is("shop_id", null);
+      }
+
+      fallbackQuery = fallbackQuery.eq("owner_user_id", input.legacyOwnerUserId ?? "");
+    }
+
+    const fallbackResult = await fallbackQuery.range(
+      from,
+      from + CATALOG_ENTITY_PRODUCT_METRIC_SCAN_PAGE_SIZE - 1,
+    );
+
+    if (fallbackResult.error) {
+      return { counts, error: fallbackResult.error };
+    }
+
+    const rows = fallbackResult.data ?? [];
+
+    for (const row of rows) {
+      const relationId = row[relationColumn];
+
+      if (relationId) {
+        fallbackCounts.set(relationId, (fallbackCounts.get(relationId) ?? 0) + 1);
+      }
+    }
+
+    if (rows.length < CATALOG_ENTITY_PRODUCT_METRIC_SCAN_PAGE_SIZE) {
+      return { counts: fallbackCounts, error: null };
+    }
+  }
+
+  return {
+    counts,
+    error: {
+      message: "Linked product count fallback exceeded the bounded row scan.",
+    },
+  };
 }
 
 async function fetchProductsPage(input: {

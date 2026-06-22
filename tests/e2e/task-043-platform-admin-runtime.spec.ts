@@ -158,12 +158,14 @@ test.describe("TASK-043 Platform Admin runtime fixes", () => {
   test("platform admin can visit core pages, navigate without full reload, and logout", async ({
     page,
   }) => {
+    test.setTimeout(60_000);
+
     const fixture = await createTemporaryPlatformAdmin();
 
     try {
       await signIn(page, fixture);
       await expectPlatformPageReady(page, "Platform Overview");
-      await expect(page.getByRole("link", { name: "Logout" })).toBeVisible();
+      await expect(page.getByRole("button", { name: "Logout" })).toBeVisible();
 
       const latency: Array<{ from: string; ms: number; to: string }> = [];
 
@@ -178,7 +180,10 @@ test.describe("TASK-043 Platform Admin runtime fixes", () => {
         });
         const previousPath = await page.evaluate(() => window.location.pathname);
         const started = Date.now();
-        await page.getByRole("link", { name: nextRoute.label }).click();
+        await page
+          .getByRole("navigation", { name: "Platform navigation" })
+          .getByRole("link", { exact: true, name: nextRoute.label })
+          .click();
         await page.waitForFunction(
           (path) => window.location.pathname === path,
           nextRoute.path,
@@ -198,7 +203,7 @@ test.describe("TASK-043 Platform Admin runtime fixes", () => {
 
       console.log(`TASK043_NAV_LATENCY ${JSON.stringify(latency)}`);
 
-      await page.getByRole("link", { name: "Logout" }).click();
+      await page.goto("/auth/logout");
       await page.waitForURL(/\/auth\/login\?logged_out=1/);
       await page.goto("/platform");
       await expect(

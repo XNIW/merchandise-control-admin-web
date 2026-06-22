@@ -24,9 +24,11 @@ import {
   createSupplierAsStaff,
   restoreProductAsStaff,
   runStaffAwareShopAdminMutation,
+  updateCatalogProductAssignments,
   updateCategoryAsStaff,
   updateProductAsStaff,
   updateSupplierAsStaff,
+  type CatalogProductAssignmentScope,
 } from "./staff-aware-mutations";
 
 type CatalogEntityInput = {
@@ -67,6 +69,10 @@ type StaffReadyShopActionContext = Extract<
 type CatalogSyncDescriptor = {
   entity: CatalogSyncEntity;
   operation: CatalogSyncOperation;
+};
+type LinkedActiveProducts = {
+  ids: string[];
+  scope: CatalogProductAssignmentScope;
 };
 
 export type ProductMutationInput = {
@@ -325,8 +331,9 @@ async function collectLinkedActiveProductIds(input: {
   entity: "category" | "supplier";
   id: string;
   requestedShopId?: string;
-}): Promise<{ ids: string[] } | ShopAdminActionResult> {
+}): Promise<LinkedActiveProducts | ShopAdminActionResult> {
   const ids: string[] = [];
+  let scope: CatalogProductAssignmentScope | null = null;
 
   for (let page = 1; page <= 200; page += 1) {
     const productsPage = await getShopInventoryProductsPage({
@@ -350,10 +357,34 @@ async function collectLinkedActiveProductIds(input: {
       return shopAdminActionResult("unauthorized_or_unmapped", { ok: false });
     }
 
+    if (
+      !productsPage.selectedShop ||
+      (productsPage.catalogScope !== "legacy_owner_bridge" &&
+        productsPage.catalogScope !== "shop_scoped")
+    ) {
+      return shopAdminActionResult("unauthorized_or_unmapped", { ok: false });
+    }
+
+    const pageScope: CatalogProductAssignmentScope = {
+      catalogScope: productsPage.catalogScope,
+      legacyOwnerUserId: productsPage.legacyOwnerUserId,
+      selectedShopId: productsPage.selectedShop.shopId,
+    };
+
+    if (!scope) {
+      scope = pageScope;
+    } else if (
+      scope.catalogScope !== pageScope.catalogScope ||
+      scope.legacyOwnerUserId !== pageScope.legacyOwnerUserId ||
+      scope.selectedShopId !== pageScope.selectedShopId
+    ) {
+      return shopAdminActionResult("invalid_state", { ok: false });
+    }
+
     ids.push(...productsPage.products.map((product) => product.productId));
 
     if (!productsPage.pagination.hasNextPage) {
-      return { ids };
+      return { ids, scope: scope ?? pageScope };
     }
   }
 
@@ -438,43 +469,14 @@ async function updateLinkedProductAssignments(input: {
   entity: "category" | "supplier";
   productIds: readonly string[];
   replacementId: string | null;
+  scope: CatalogProductAssignmentScope;
 }): Promise<ShopAdminActionResult | null> {
-  const now = new Date().toISOString();
-  const payload =
-    input.entity === "supplier"
-      ? {
-          supplier_id: input.replacementId,
-          updated_at: now,
-        }
-      : {
-          category_id: input.replacementId,
-          updated_at: now,
-        };
-
-  for (let index = 0; index < input.productIds.length; index += 100) {
-    const chunk = input.productIds.slice(index, index + 100);
-    const { data, error } = await input.context.supabase
-      .from("inventory_products")
-      .update(payload)
-      .in("id", chunk)
-      .select("id");
-
-    if (error) {
-      return shopAdminActionResult("db_failure", {
-        ok: false,
-        shopId: input.context.selectedShop.shopId,
-      });
-    }
-
-    if ((data?.length ?? 0) !== chunk.length) {
-      return shopAdminActionResult("partial_failure", {
-        ok: false,
-        shopId: input.context.selectedShop.shopId,
-      });
-    }
-  }
-
-  return null;
+  return updateCatalogProductAssignments(input.context, {
+    entity: input.entity,
+    productIds: input.productIds,
+    replacementId: input.replacementId,
+    scope: input.scope,
+  });
 }
 
 async function archiveCatalogEntityWithStrategy(input: {
@@ -567,6 +569,7 @@ async function archiveCatalogEntityWithStrategy(input: {
       entity: input.entity,
       productIds: linkedProducts.ids,
       replacementId,
+      scope: linkedProducts.scope,
     });
 
     if (updateError) {

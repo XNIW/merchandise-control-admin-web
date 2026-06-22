@@ -51,10 +51,11 @@ test("TASK-079 is the only current root task for history and catalog pagination"
   assert.deepEqual(rootTaskFiles, [
     "TASK-079-history-entry-catalog-pagination-unified.md",
   ]);
-  assertContains(currentBlock, "Stato TASK-079: `REVIEW_READY_FOR_USER_VISUAL_CHECK`");
+  assertContains(currentBlock, "Stato TASK-079: `DONE_RECONCILED`");
   assertContains(currentBlock, "Task TASK-079: `TASK-079 - History Entry and Catalog Pagination Unified Completion`");
   assertContains(currentBlock, "File task corrente: `docs/TASKS/TASK-079-history-entry-catalog-pagination-unified.md`");
   assertContains(currentBlock, "Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-079/README.md`");
+  assertContains(currentBlock, "Task attivo: `NESSUNO`");
   assert.doesNotMatch(currentBlock, /TASK-079[B-F]|TASK-080/);
   assertContains(canonicalTask, "079.1 History Entry read-only mobile parity");
   assertContains(canonicalTask, "079.10 Final QA and review");
@@ -101,6 +102,11 @@ test("TASK-079 history pagination keeps out-of-range and filtered pages readable
   assertContains(readModel, 'value === "active_issues" || value === "active_with_issues"');
   assertContains(readModel, "loadShopScopedHistoryPresence");
   assertContains(readModel, 'table: "shared_sheet_sessions"');
+  assertContains(readModel, "isHistoryRangeNotSatisfiableError");
+  assertContains(readModel, 'code?: unknown }).code === "PGRST103"');
+  assertContains(readModel, "input.legacyOwnerUserId ? 0 : input.from");
+  assertContains(readModel, ".slice(from, from + pageSize)");
+  assertContains(readModel, "legacyDiagnosticsResult = await legacyDiagnosticsQuery.range(\n    0,\n    input.to,");
   assertContains(readModel, "Boolean(filters.month || filters.query || filters.status !== \"active_issues\")");
   assertContains(readModel, ".select(historyListSessionSelect, { count: \"exact\" })");
   assertContains(readModel, ".range(");

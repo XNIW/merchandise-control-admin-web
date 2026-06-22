@@ -63,6 +63,11 @@ test("TASK-080 catalog entity read model paginates and searches server-side", ()
     "async function fetchCatalogEntityRows",
     "async function getShopCatalogEntityPageReadModel",
   );
+  const productCountsBody = functionBody(
+    readModel,
+    "async function loadCatalogEntityActiveProductCounts",
+    "async function fetchProductsPage",
+  );
 
   assertContains(readModel, "ShopCatalogEntityPageReadModel");
   assertContains(readModel, "const INVENTORY_CATALOG_ENTITY_PAGE_SIZES = [10, 25, 50, 100, 200] as const");
@@ -74,6 +79,12 @@ test("TASK-080 catalog entity read model paginates and searches server-side", ()
   assertContains(entityPageBody, "filters: ShopCatalogEntityPageReadModel[\"filters\"]");
   assertContains(entityPageBody, "pagination: {");
   assertContains(entityPageBody, "loadCatalogEntityActiveProductCounts");
+  assertContains(productCountsBody, 'const aggregateCountSelect = `${relationColumn},${["c", "ount()"].join("")}`');
+  assertContains(productCountsBody, ".select(aggregateCountSelect)");
+  assertContains(productCountsBody, ".in(relationColumn, entityIds)");
+  assertContains(productCountsBody, "inventory_products.${input.entity}.linkedCounts");
+  assert.doesNotMatch(productCountsBody, /countInventoryRows/);
+  assert.doesNotMatch(productCountsBody, /Promise\.all/);
   assert.doesNotMatch(fetchBody, /fetchInventoryRows[\s\S]*"all"/);
 });
 
@@ -110,6 +121,8 @@ test("TASK-080 categories and suppliers pages preserve URL state and dialog opti
     assertContains(page, "pagination={catalogReadModel.pagination}");
     assertContains(page, "name=\"pageSize\"");
     assertContains(page, "name=\"q\"");
+    assertContains(page, "selectedState !== \"active\" ? (");
+    assertContains(page, "<input name=\"state\" type=\"hidden\" value={selectedState} />");
     assertContains(page, "nextParams.set(\"q\", searchQuery)");
     assertContains(page, "nextParams.set(\"page\", page)");
     assertContains(page, "nextParams.set(\"pageSize\", pageSize)");

@@ -39,6 +39,12 @@ type MutationError = {
 
 type InventoryCatalogScope = "legacy_owner_bridge" | "shop_scoped";
 
+export type CatalogProductAssignmentScope = {
+  catalogScope: InventoryCatalogScope;
+  legacyOwnerUserId: string | null;
+  selectedShopId: string;
+};
+
 type InventoryOwnerResult =
   | {
       catalogScope: InventoryCatalogScope;
@@ -785,6 +791,109 @@ function* chunkRows<T>(rows: readonly T[], chunkSize: number) {
   for (let index = 0; index < rows.length; index += chunkSize) {
     yield rows.slice(index, index + chunkSize);
   }
+}
+
+export async function updateCatalogProductAssignments(
+  context: Extract<ShopAdminActionContext, { status: "ready" }>,
+  input: {
+    entity: "category" | "supplier";
+    productIds: readonly string[];
+    replacementId: string | null;
+    scope: CatalogProductAssignmentScope;
+  },
+): Promise<ShopAdminActionResult | null> {
+  if (input.productIds.length === 0) {
+    return null;
+  }
+
+  if (input.scope.selectedShopId !== context.selectedShop.shopId) {
+    return shopAdminActionResult("unauthorized_or_unmapped", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+
+  if (
+    input.scope.catalogScope === "legacy_owner_bridge" &&
+    !input.scope.legacyOwnerUserId
+  ) {
+    return shopAdminActionResult("unauthorized_or_unmapped", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+
+  const updatedAt = nowIso();
+  const payload =
+    input.entity === "supplier"
+      ? {
+          supplier_id: input.replacementId,
+          updated_at: updatedAt,
+        }
+      : {
+          category_id: input.replacementId,
+          updated_at: updatedAt,
+        };
+
+  for (const productChunk of chunkRows(input.productIds, 100)) {
+    const scopeCheck = await context.supabase
+      .from("inventory_products")
+      .select("id,shop_id,owner_user_id")
+      .in("id", productChunk)
+      .is("deleted_at", null);
+
+    if (scopeCheck.error) {
+      return shopAdminActionResult("db_failure", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
+    }
+
+    const scopedRows = scopeCheck.data ?? [];
+    const scopedRowIds = new Set(scopedRows.map((row) => row.id));
+    const allRowsMatchScope =
+      scopedRows.length === productChunk.length &&
+      productChunk.every((id) => scopedRowIds.has(id)) &&
+      scopedRows.every((row) =>
+        input.scope.catalogScope === "legacy_owner_bridge"
+          ? row.shop_id === null &&
+            row.owner_user_id === input.scope.legacyOwnerUserId
+          : row.shop_id === input.scope.selectedShopId,
+      );
+
+    if (!allRowsMatchScope) {
+      return shopAdminActionResult("partial_failure", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
+    }
+
+    const scopedUpdate = context.supabase
+      .from("inventory_products")
+      .update(payload)
+      .in("id", productChunk)
+      .is("deleted_at", null);
+    const result =
+      input.scope.catalogScope === "shop_scoped"
+        ? await scopedUpdate.eq("shop_id", input.scope.selectedShopId).select("id")
+        : await scopedUpdate.select("id");
+
+    if (result.error) {
+      return shopAdminActionResult("db_failure", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
+    }
+
+    if ((result.data?.length ?? 0) !== productChunk.length) {
+      return shopAdminActionResult("partial_failure", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
+    }
+  }
+
+  return null;
 }
 
 function staffBulkOwnerRowError(

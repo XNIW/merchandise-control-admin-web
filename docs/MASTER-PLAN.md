@@ -2806,23 +2806,23 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-078C: `TASK-078C - Product Detail visual polish and History Entries month-grouped UX`
 - File task TASK-078C: `docs/TASKS/TASK-078C-product-history-visual-polish-month-grouping.md`
 - Evidence TASK-078C: `docs/TASKS/EVIDENCE/TASK-078C/README.md`
-- Stato TASK-079: `REVIEW_READY_FOR_USER_VISUAL_CHECK`
-- Fase TASK-079: `REVIEW`
+- Stato TASK-079: `DONE_RECONCILED`
+- Fase TASK-079: `DONE_RECONCILED`
 - Task TASK-079: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
 - File task TASK-079: `docs/TASKS/TASK-079-history-entry-catalog-pagination-unified.md`
 - Evidence TASK-079: `docs/TASKS/EVIDENCE/TASK-079/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Task attivo: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
+- Task attivo: `NESSUNO`
 - Task precedente: `TASK-078C - Product Detail visual polish and History Entries month-grouped UX`
-- Ultimo task chiuso: `TASK-078C - Product Detail visual polish and History Entries month-grouped UX`
-- Ultimo task completato: `TASK-078C - Product Detail visual polish and History Entries month-grouped UX`
+- Ultimo task chiuso: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
+- Ultimo task completato: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
 - File task corrente: `docs/TASKS/TASK-079-history-entry-catalog-pagination-unified.md`
 - Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-079/README.md`
-- Stato task: `REVIEW_READY_FOR_USER_VISUAL_CHECK`
-- Fase: `REVIEW`
-- Milestone interna: `TASK_079_UNIFIED_REVIEW_READY_FOR_USER_VISUAL_CHECK`
-- Responsabile: `REVIEWER`
+- Stato task: `DONE_RECONCILED`
+- Fase: `DONE_RECONCILED`
+- Milestone interna: `TASK_079_DONE_RECONCILED`
+- Responsabile: `DONE_RECONCILED`
 - Branch previsto: `main` / no branch creation requested
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -2872,6 +2872,7 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Verdict TASK-072: `DONE_RECONCILED`
 - Verdict TASK-074: `READY_FOR_REVIEW`
 - Verdict TASK-067: `DONE_RECONCILED`
+- Verdict TASK-079: `DONE`
 - Review-fix TASK-065 2026-06-16/17: il 400 locale Supabase `Unsupported provider: provider is not enabled` e stato riprodotto su `127.0.0.1:54321/auth/v1/authorize`; `supabase/config.toml` ora abilita `[auth.external.google]` con placeholder env e `.env.example` dichiara le variabili vuote. Nella review-fix iniziale Docker e Supabase locale sono raggiungibili e il provider reindirizza a Google, ma il redirect locale contiene `client_id=env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)` perche il runtime locale non ha un OAuth client reale. Review finale ha rafforzato repo-side: `next` rifiuta backslash/control chars, origin OAuth deriva da host/proxy prima di `Origin`, qualsiasi host Vercel nel flusso OAuth e bloccato, la probe server-side ha timeout 3s e client ID placeholder/invalid ha result dedicato `oauth_google_client_id_invalid`. Lo smoke `npm run smoke:oauth:local` classifica `PASS`, `BLOCKED_EXTERNAL_CONFIG` o `FAIL_CODE_REGRESSION`, controlla `/platform` e `/shop`, e blocca error page/HTTP error di Google. Un tentativo di unblock del 2026-06-17 ha caricato il Client ID Google reale in `.env` ignorato da git e GoTrue lo risolve (`*.apps.googleusercontent.com`), ma il Client Secret non e stato letto dal comando zsh e resta placeholder; Google classifica inoltre il callback locale `http://127.0.0.1:54321/auth/v1/callback` come `redirect_uri_mismatch`. Unblock finale 2026-06-17: Client Secret scritto solo in `.env` locale ignorato da git tramite prompt macOS nascosto, Supabase riavviato con output silenziato, GoTrue risolve client ID e secret reali senza placeholder, `npm run smoke:oauth:local` PASS per `/platform` e `/shop`, browser process-only locale `127.0.0.1:3055` porta Master/Admin account a `accounts.google.com/v3/signin/identifier` senza Vercel/JSON/Google error, shop-code non mostra Google. Check finali PASS: TASK-065 targeted 10/10, security scan, foundation 342/342, smoke OAuth, lint, typecheck, build con warning noti, browser smoke e git diff check. Codex non marca DONE; pronto per review e conferma esplicita utente. Follow-up: ruotare il Client Secret Google perche e stato incollato in chat durante l'unblock.
 - Final DONE closure TASK-065 2026-06-17: chiusura `DONE` bloccata da sicurezza. Il Google Client Secret e stato incollato in chat dall'utente e non e possibile verificare da terminale la rotazione/revoca del secret nel Google Cloud OAuth client (`gcloud` non disponibile, screenshot non sufficiente come prova machine-readable). `~/.supabase/access-token` era presente; `supabase logout` non ha rimosso il file per profilo CLI mancante/non-interactive, quindi il file locale e stato rimosso manualmente e verificato assente. Revoca remota token Supabase non verificabile da questo runtime. Verdict finale `BLOCKED_SECURITY`; non eseguiti i gate DONE completi della closure perche il primo gate sicurezza e bloccante.
 - Follow-up Win7POS TASK-029 2026-06-02: scanner legacy riconciliato e pushato in Win7POS commit `d2c3d4b`; hardening bootstrap response validation pushato in `5e35a37`; nessun cambio a Vercel, Supabase schema, catalogo Admin Web o sales sync.
@@ -3716,8 +3717,8 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
   `docs/TASKS/TASK-079-history-entry-catalog-pagination-unified.md`; i task
   legacy sono stati spostati in
   `docs/TASKS/EVIDENCE/TASK-079/legacy-task-files/` e le evidence legacy in
-  `docs/TASKS/EVIDENCE/TASK-079/legacy-evidence/`. Il tracking corrente resta
-  `REVIEW_READY_FOR_USER_VISUAL_CHECK`, non `DONE`.
+  `docs/TASKS/EVIDENCE/TASK-079/legacy-evidence/`. In quella fase il tracking
+  era `REVIEW_READY_FOR_USER_VISUAL_CHECK`, non `DONE`.
 - Handoff TASK-079 unificato 2026-06-21: completate le correzioni finali
   richieste su governance, History pagination e row-state colori. `/shop/history`
   non usa piu il fallback `Read blocked` per `page > 1`, filtri attivi o pagine
@@ -3727,11 +3728,47 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
   Check reali: mirati TASK-079/Catalog PASS 32/32, mirati con TASK-028 PASS
   38/38, `lint` PASS, `typecheck` PASS, `build` PASS_WITH_WARNINGS per warning
   noti `middleware`/`DEP0205`, smoke mobile PASS, Playwright Catalog PASS 1/1,
-  Playwright History PASS 1/1, `git diff --check` PASS. Gate globali residui:
+  Playwright History PASS 1/1, `git diff --check` PASS. Snapshot precedente
+  prima del fix finale cloud: gate globali residui:
   `security:scan` FAIL_EXTERNAL su `src/server/shop-admin/catalog-mutations.ts`;
   `verify` FAIL_EXTERNAL per lo stesso security scan; `test:foundation`
   FAIL_EXTERNAL 2 fail derivati dallo stesso blocker. Nessun commit, stage,
   push, deploy, migration, production apply o Supabase apply eseguito.
+- Handoff fix finale TASK-079 2026-06-21: riprodotto sul cloud dev richiesto
+  (`PLATFORM_CLOUD_DEV_PORT=3055 npm run platform:cloud:dev`) il caso
+  `/shop/history?page=2&pageSize=10` con top metric `Read blocked` e lista
+  vuota. Root cause: la lista univa righe History dirette `shop_id` con legacy
+  owner bridge; il codice chiedeva `range(10,19)` anche al bridge legacy con 6
+  righe, riceveva `PGRST103 Requested range not satisfiable` e promuoveva
+  l'errore a mapping/read blocked. Fix: per sorgenti miste si carica `0..to`,
+  si fa merge ordinato e si taglia la pagina globale; `PGRST103` diventa pagina
+  vuota leggibile, non blocco. Cloud smoke redatto: page 1, page 2,
+  `status=active_with_issues`, `status=all`, `q=` e `month=` PASS 6/6,
+  page 2 `11-20 of 45`, 10 righe, nessun `shop_inventory_sources gate`.
+  Counted Qty zero verificato in cloud senza salvare: `unresolved` e complete
+  unchecked. Check finali correnti: targeted TASK-079 pagination/row-colors
+  PASS 9/9, `lint` PASS, `typecheck` PASS, `build` PASS_WITH_WARNINGS,
+  `verify` PASS, `test:foundation` PASS 453/453, `git diff --check` PASS.
+  Nessun commit, stage, push, deploy, migration, production apply o Supabase
+  apply eseguito. Prima della riconciliazione finale lo stato restava
+  `REVIEW_READY_FOR_USER_VISUAL_CHECK`, non `DONE`.
+- DONE reconciliation TASK-079 2026-06-22: su richiesta esplicita utente,
+  review orchestrata finale chiusa a `READY_FOR_DONE` su governance, History
+  data/pagination, UX/mobile, catalog pagination e QA/security. Correzioni
+  finali applicate prima della chiusura: draft vuoti Counted Qty/Sale Price
+  restano vuoti invece di fare fallback al valore sorgente; Categories/Suppliers
+  preservano `state` nei form GET; linked product counts della pagina corrente
+  sono batch/bounded con fallback paginato, non N+1; staff-aware catalog
+  assignment valida scope per riga e poi aggiorna per id verificati, senza
+  filtro mutativo legacy su `owner_user_id`. Evidence cloud aggiunta per
+  History page 2, Counted Qty zero non distruttivo e Catalog state/pagination.
+  Check finali reali: `node scripts/i18n-hardcoded-ui-scan.mjs` PASS, targeted
+  057/079/080 PASS 30/30, `npm run test:foundation` PASS 453/453,
+  `npm run verify` PASS (`lint`, `typecheck`, `security:scan`, `build`),
+  `git diff --check` PASS. Warning non bloccanti: Next `middleware` deprecato e
+  Node `[DEP0205]`. Nessun commit, stage, push, deploy, migration, Supabase
+  apply, History Save o import apply eseguito. Stato finale:
+  `DONE_RECONCILED`.
 
 ## Regole di avanzamento
 

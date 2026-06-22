@@ -1503,16 +1503,16 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         name: "Products pagination bottom",
       });
 
-      await expect(topPagination).toContainText(/1-10 of at least 11/);
-      await expect(topPagination).toContainText("Page 1 of 2+");
-      await expect(bottomPagination).toContainText(/1-10 of at least 11/);
-      await expect(bottomPagination).toContainText("Page 1 of 2+");
+      await expect(topPagination).toContainText(/1-10 of 106/);
+      await expect(topPagination).toContainText("Page 1 of 11");
+      await expect(bottomPagination).toContainText(/1-10 of 106/);
+      await expect(bottomPagination).toContainText("Page 1 of 11");
 
       await topPagination.getByRole("link", { name: /Next: page 2/ }).click();
       await expect(page).toHaveURL(/[\?&]page=2(?:&|$)/);
       await expect(
         page.getByRole("navigation", { name: "Products pagination bottom" }),
-      ).toContainText("Page 2 of 3+");
+      ).toContainText("Page 2 of 11");
 
       const searchInput = page.getByPlaceholder(
         "Search barcode, item number, product name",
@@ -1583,13 +1583,17 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       const firstCatalogRow = page
         .locator("[data-product-catalog-row]")
         .first();
-      await expect(
-        firstCatalogRow.getByRole("link", { name: /^Detail:/ }),
-      ).toBeVisible();
+      const detailLink = firstCatalogRow.getByRole("link", { name: /^Detail:/ });
+      await expect(detailLink).toBeVisible();
       await expect(
         firstCatalogRow.getByRole("link", { name: /^Edit:/ }),
       ).toHaveCount(0);
-      await firstCatalogRow.getByRole("link", { name: /^Detail:/ }).click();
+      const detailHref = await detailLink.getAttribute("href");
+      const openedProductId = detailHref
+        ? new URL(detailHref, "http://localhost").searchParams.get("product_id")
+        : null;
+      expect(openedProductId).toBeTruthy();
+      await detailLink.click();
 
       const dialog = page
         .getByRole("dialog")
@@ -1622,6 +1626,32 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
       await expect(
         page.locator("[data-product-catalog-list]"),
       ).toBeVisible();
+
+      await page.goto(
+        `/shop/products?shop_id=${fixture.shopId}&product_action=edit&product_id=${openedProductId}`,
+      );
+      await expect(dialog).toBeVisible();
+      await expect(dialog.getByLabel("Product name")).toBeVisible();
+
+      await dialog.getByLabel("Supplier").fill("TASK068E browser supplier");
+      await expect(
+        dialog.getByRole("option", {
+          name: /Create new supplier: TASK068E browser supplier/,
+        }),
+      ).toBeVisible();
+      await expect(saveButton).toBeEnabled();
+      await dialog.getByRole("button", { name: "Reset changes" }).click();
+      await expect(saveButton).toBeDisabled();
+
+      await dialog.getByLabel("Category").fill("TASK068E browser category");
+      await expect(
+        dialog.getByRole("option", {
+          name: /Create new category: TASK068E browser category/,
+        }),
+      ).toBeVisible();
+      await expect(saveButton).toBeEnabled();
+      await dialog.getByRole("button", { name: "Reset changes" }).click();
+      await expect(saveButton).toBeDisabled();
     } finally {
       const cleanup = await fixture.cleanup();
 

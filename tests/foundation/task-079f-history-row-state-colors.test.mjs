@@ -75,6 +75,10 @@ test("TASK-079F detail table has row-state colors, vertical scroll and live auto
   assertContains(modal, "if (counted === null || counted <= 0)");
   assertContains(modal, "return counted >= supplierQuantity");
   assertContains(modal, 'return counted >= supplierQuantity ? "complete" : "partial";');
+  assertContains(modal, "return draft.countedQuantity ?? editableCell(row.countedQuantity);");
+  assertContains(modal, "return draft.salePrice ?? editableCell(row.salePrice);");
+  assert.doesNotMatch(modal, /draft\.countedQuantity \|\| editableCell/);
+  assert.doesNotMatch(modal, /draft\.salePrice \|\| editableCell/);
   assertContains(modal, "shouldShowOldPrice");
   assertContains(modal, "Row total");
   assertContains(modal, "paymentTotalFromRows");
@@ -118,6 +122,11 @@ test("TASK-079F history list pagination and filters are URL-driven server-side",
   assertContains(readModel, "!hasActiveHistoryListFilters(filters)");
   assertContains(readModel, "loadShopScopedHistoryPresence");
   assertContains(readModel, "!shopScopedHistoryPresence.hasRows");
+  assertContains(readModel, "isHistoryRangeNotSatisfiableError");
+  assertContains(readModel, 'code?: unknown }).code === "PGRST103"');
+  assertContains(readModel, "input.legacyOwnerUserId ? 0 : input.from");
+  assertContains(readModel, ".slice(from, from + pageSize)");
+  assertContains(readModel, "legacyOwnerSessionsResult = await legacyOwnerSessionsQuery.range(\n      0,\n      input.to,");
   assertContains(readModel, ".select(historyDiagnosticsSessionSelect, { count: \"exact\" })");
   assertContains(readModel, ".select(historyListSessionSelect, { count: \"exact\" })");
   assertContains(readModel, ".range(");

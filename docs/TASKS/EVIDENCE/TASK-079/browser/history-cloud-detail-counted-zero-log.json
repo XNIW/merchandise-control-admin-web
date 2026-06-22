@@ -1,0 +1,6 @@
+{
+  "status": "PASS",
+  "zeroState": "unresolved",
+  "completeChecked": false,
+  "reason": "browser-only field edit; Save changes not clicked"
+}

@@ -3,8 +3,8 @@
 ## Stato
 
 - Task canonico: `TASK-079`
-- Stato operativo: `REVIEW_READY_FOR_USER_VISUAL_CHECK`
-- Fase: `REVIEW`
+- Stato operativo: `DONE_RECONCILED`
+- Fase: `DONE_RECONCILED`
 - File task canonico: `docs/TASKS/TASK-079-history-entry-catalog-pagination-unified.md`
 - Legacy task files: `docs/TASKS/EVIDENCE/TASK-079/legacy-task-files/`
 - Legacy evidence: `docs/TASKS/EVIDENCE/TASK-079/legacy-evidence/`
@@ -82,6 +82,13 @@
   non mostrano `Read blocked` quando la sorgente e leggibile.
 - Il fallback `Read blocked` resta limitato a pagina 1 senza filtri attivi e
   senza righe diagnostiche leggibili.
+- Fix finale cloud: quando una History list combina righe `shop_id` dirette e
+  legacy owner bridge, il read model carica `0..to` per ogni sorgente, fa merge
+  ordinato e poi taglia la pagina globale. Prima chiedeva `range(10,19)` anche
+  al bridge legacy con sole 6 righe; PostgREST rispondeva `PGRST103 Requested
+  range not satisfiable` e il read model promuoveva il caso a `Read blocked`.
+- `status=active_with_issues` e alias default `active_issues` sono normalizzati
+  allo stesso filtro.
 
 ## 079.8 Categories pagination
 
@@ -103,6 +110,46 @@
 
 ## Final checks
 
+- Cloud dev richiesto dall'utente:
+  `PLATFORM_CLOUD_DEV_PORT=3055 npm run platform:cloud:dev`.
+- Cloud History smoke redatto su shop rehearsal:
+  `/shop/history?page=1&pageSize=10`,
+  `/shop/history?page=2&pageSize=10`,
+  `/shop/history?page=2&pageSize=10&status=active_with_issues`,
+  `/shop/history?page=2&pageSize=10&status=all`,
+  `/shop/history?page=2&pageSize=10&q=`,
+  `/shop/history?page=2&pageSize=10&month=` preservando `shop_id`: `PASS` 6/6.
+  Evidence: `browser/history-cloud-pagination-access-log.json`.
+- Cloud Counted Qty zero smoke non distruttivo: campo modificato solo nel
+  browser, senza click su Save. `zeroState = unresolved`,
+  `completeChecked = false`. Evidence:
+  `browser/history-cloud-detail-counted-zero-log.json`.
+- Cloud Catalog state/pagination smoke redatto:
+  `/shop/categories?state=archived&pageSize=25`,
+  `/shop/suppliers?state=archived&pageSize=25`,
+  `/shop/categories?state=all&page=1&pageSize=25&q=TASK`,
+  `/shop/suppliers?state=all&page=1&pageSize=25&q=TASK`: `PASS`, nessun
+  linked count error e state preservato nei form. Evidence:
+  `browser/catalog-cloud-pagination-state-log.json`.
+- Review orchestrata finale 2026-06-22: governance, History data/pagination,
+  UX/mobile, Catalog pagination e QA/security hanno restituito
+  `READY_FOR_DONE`.
+- `node scripts/i18n-hardcoded-ui-scan.mjs`: `PASS`
+  (`checkedPhrases = 308`).
+- `node --test tests/foundation/task-057-shop-catalog-workspace-import-intelligence.test.mjs tests/foundation/task-079-catalog-pagination-unified.test.mjs tests/foundation/task-080-categories-suppliers-pagination.test.mjs`:
+  `PASS` 30/30.
+- `node --test tests/foundation/task-079-catalog-pagination-unified.test.mjs tests/foundation/task-079f-history-row-state-colors.test.mjs`:
+  `PASS` 9/9.
+- `npm run lint`: `PASS`.
+- `npm run typecheck`: `PASS`.
+- `npm run build`: `PASS_WITH_WARNINGS` per warning noti Next.js
+  `middleware` deprecato e Node `[DEP0205]`.
+- `npm run verify`: `PASS` (`lint`, `typecheck`, `security:scan`, `build`).
+- `npm run test:foundation`: `PASS` 453/453.
+- `git diff --check`: `PASS`.
+
+### Storico prima del fix finale
+
 - `node --test tests/foundation/task-079-history-entry-read-only-parity.test.mjs tests/foundation/task-079b-supplier-import-canonical-history.test.mjs tests/foundation/task-079c-history-generated-edit.test.mjs tests/foundation/task-079d-history-mobile-semantics.test.mjs tests/foundation/task-079e-history-compact-sync-analysis.test.mjs tests/foundation/task-079f-history-row-state-colors.test.mjs tests/foundation/task-080-categories-suppliers-pagination.test.mjs tests/foundation/task-079-catalog-pagination-unified.test.mjs`:
   `PASS` 32/32.
 - `node --test ... task-028 ... + TASK-079 mirati`: `PASS` 38/38.
@@ -119,12 +166,9 @@
 - Playwright local History:
   `PASS` 1/1 con verifica `Counted Qty = 0` neutro/unresolved.
 - `git diff --check`: `PASS`.
-- `npm run security:scan`: `FAIL_EXTERNAL` su
-  `src/server/shop-admin/catalog-mutations.ts` per guardrail direct Supabase
-  mutation/select-star.
-- `npm run verify`: `FAIL_EXTERNAL` per lo stesso `security:scan`.
-- `npm run test:foundation`: `FAIL_EXTERNAL` 2 fail residui, entrambi derivati
-  dal guardrail storico `catalog-mutations.ts`/`security:scan`.
+- Nota superata: in uno snapshot precedente `security:scan`, `verify` e
+  `test:foundation` erano documentati come `FAIL_EXTERNAL` su
+  `catalog-mutations.ts`; nel check finale corrente passano.
 
 ## Browser evidence
 
@@ -140,11 +184,18 @@
 - `browser/browser-history-detail-no-horizontal-scroll-desktop.png`
 - `browser/browser-history-detail-saved-no-horizontal-scroll-desktop.png`
 - `browser/browser-history-detail-sync-analysis-desktop.png`
+- `browser/history-cloud-page-1-ready.png`
+- `browser/history-cloud-page-2-ready-no-read-blocked.png`
+- `browser/history-cloud-pagination-access-log.json`
+- `browser/history-cloud-detail-counted-zero-neutral.png`
+- `browser/history-cloud-detail-counted-zero-log.json`
+- `browser/catalog-cloud-categories-state-archived.png`
+- `browser/catalog-cloud-suppliers-state-all.png`
+- `browser/catalog-cloud-pagination-state-log.json`
 
 ## Rischi residui
 
-- Serve review visuale utente sugli screenshot finali.
-- `security:scan`, `verify` e `test:foundation` restano bloccati dal guardrail
-  storico su `src/server/shop-admin/catalog-mutations.ts`.
+- Review visuale utente sugli screenshot resta follow-up facoltativo, non
+  blocker repo-controllabile.
 - Category/Supplier restore resta follow-up: non esiste ancora una boundary
   restore audited dedicata per queste entita.

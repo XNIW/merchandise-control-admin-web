@@ -1,0 +1,62 @@
+[
+  {
+    "cardCount": 24,
+    "hasInventoryMappingError": false,
+    "hasLinkedCountError": false,
+    "hasPagination": true,
+    "h1": "Categories",
+    "paginationText": [
+      "1-24 of 24 · Page 1 of 1Rows on this page: 24PreviousGo to pageGoNext",
+      "1-24 of 24 · Page 1 of 1Rows on this page: 24PreviousGo to pageGoNext"
+    ],
+    "stateInputValue": "archived",
+    "title": "Categories | MerchandiseControl Admin Web",
+    "url": "http://127.0.0.1:3055/shop/categories?shop_id=redacted&state=archived&pageSize=25",
+    "warningOrErrorLogCount": 0
+  },
+  {
+    "cardCount": 24,
+    "hasInventoryMappingError": false,
+    "hasLinkedCountError": false,
+    "hasPagination": true,
+    "h1": "Suppliers",
+    "paginationText": [
+      "1-24 of 24 · Page 1 of 1Rows on this page: 24PreviousGo to pageGoNext",
+      "1-24 of 24 · Page 1 of 1Rows on this page: 24PreviousGo to pageGoNext"
+    ],
+    "stateInputValue": "archived",
+    "title": "Suppliers | MerchandiseControl Admin Web",
+    "url": "http://127.0.0.1:3055/shop/suppliers?shop_id=redacted&state=archived&pageSize=25",
+    "warningOrErrorLogCount": 0
+  },
+  {
+    "cardCount": 25,
+    "hasInventoryMappingError": false,
+    "hasLinkedCountError": false,
+    "hasPagination": true,
+    "h1": "Categories",
+    "paginationText": [
+      "1-25 of 35 · Page 1 of 2Rows on this page: 25PreviousGo to pageGoNext",
+      "1-25 of 35 · Page 1 of 2Rows on this page: 25PreviousGo to pageGoNext"
+    ],
+    "stateInputValue": "all",
+    "title": "Categories | MerchandiseControl Admin Web",
+    "url": "http://127.0.0.1:3055/shop/categories?shop_id=redacted&state=all&page=1&pageSize=25&q=TASK",
+    "warningOrErrorLogCount": 0
+  },
+  {
+    "cardCount": 25,
+    "hasInventoryMappingError": false,
+    "hasLinkedCountError": false,
+    "hasPagination": true,
+    "h1": "Suppliers",
+    "paginationText": [
+      "1-25 of 35 · Page 1 of 2Rows on this page: 25PreviousGo to pageGoNext",
+      "1-25 of 35 · Page 1 of 2Rows on this page: 25PreviousGo to pageGoNext"
+    ],
+    "stateInputValue": "all",
+    "title": "Suppliers | MerchandiseControl Admin Web",
+    "url": "http://127.0.0.1:3055/shop/suppliers?shop_id=redacted&state=all&page=1&pageSize=25&q=TASK",
+    "warningOrErrorLogCount": 0
+  }
+]
