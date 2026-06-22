@@ -4,8 +4,8 @@
 
 - ID: `TASK-078B`
 - Titolo: `Product and History Detail Modal UI Polish`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
+- Stato: `DONE_RECONCILED`
+- Fase attuale: `DONE_RECONCILED`
 - Data apertura: `2026-06-20`
 - Origine: brief utente allegato `Titolo: TASK-078B - Product and History Detail Modal UI Polish Contesto: TASK-0...`
 - Task base: `TASK-078`
@@ -60,7 +60,7 @@ quando l'utente apre il modal.
 | CA-04 | History list non usa `Open Detail` come valore tecnico e resta su read model light. | `PASS` |
 | CA-05 | History modal mostra righe import con filtri locali e diagnostics collassati/redatti. | `PASS` |
 | CA-06 | i18n nuove label passa attraverso exact dictionaries senza shadow dei corrective. | `PASS` |
-| CA-07 | Check reali eseguiti o motivati `NOT_RUN`/`BLOCKED`. | `PASS_WITH_NOTES` |
+| CA-07 | Check reali eseguiti o motivati `NOT_RUN`/`BLOCKED`. | `PASS` |
 
 ## Fonti lette
 
@@ -97,27 +97,33 @@ quando l'utente apre il modal.
 - i18n: nuove stringhe aggiunte ai corrective exact solo quando non gia
   presenti nei dizionari base.
 
-## Handoff REVIEW
+## Final Review / DONE Reconciliation
 
-Verdict: `REVIEW`.
+Verdict: `DONE_RECONCILED`.
 
-Il polish e pronto per review funzionale/visiva. La pagina Products resta
-leggera: nessun dettaglio prodotto, righe history o diagnostica e stato
-aggiunto al first render. I dettagli continuano a passare dai route handler
-lazy/no-store di `TASK-078`.
+Il polish e riconciliato con `TASK-078C`: la visual QA locale ha sostituito il
+precedente limite di screenshot autenticati usando fixture sintetica autenticata,
+screenshot evidence e cleanup finale. La pagina Products resta leggera:
+nessun dettaglio prodotto, righe history o diagnostica e stato aggiunto al
+first render. I dettagli continuano a passare dai route handler lazy/no-store
+di `TASK-078`.
 
-Check finali: targeted TASK-078 `PASS` 5/5, targeted i18n TASK-062/TASK-068
-`PASS`, `typecheck` PASS, `lint` PASS, `security:scan` PASS,
-`test:foundation` PASS 414/414, `build` e `verify` PASS_WITH_WARNINGS per
-warning noti Next `middleware` deprecato e Node `DEP0205`,
-`git diff --check` PASS, probe HTTP locale `/shop/products` PASS su dev server
-esistente `127.0.0.1:3055`.
+Correzioni finali applicate durante la riconciliazione:
 
-Visual browser screenshot dei modali: `NOT_RUN_AUTH_REQUIRED`, perche serve
-una sessione autenticata con dataset reale per aprire Product/History detail.
+- i18n completato per le nuove label History list/detail;
+- History list riportata al read model light senza summary exact nel first
+  render;
+- copia/test di paginazione locale riallineati a `at least`;
+- summary card History resa piu stabile con valori source lunghi.
+- guardrail statico TASK-054 aggiornato per accettare `TASK-078C` come ultimo
+  task chiuso.
 
-## Prossima fase
+Check finali: targeted TASK-078 `PASS` 5/5, targeted History sync console
+`PASS` 6/6, targeted Product list readability `PASS` 6/6, targeted i18n
+TASK-062/TASK-068 `PASS`, `security:scan` PASS, `test:foundation` PASS
+414/414, `typecheck` PASS, `lint` PASS, `build` e `verify`
+`PASS_WITH_WARNINGS` per warning noti Next `middleware` deprecato e Node
+`DEP0205`, `test:shop:local` PASS 5/5, Playwright visual TASK-078C locale
+`PASS`, `git diff --check` PASS.
 
-`REVIEW`: validare UX su Products e History con sessione autenticata e dati
-lunghi/reali. Il task non e marcato `DONE`; richiede conferma esplicita
-dell'utente.
+Nessun commit, stage, push, deploy o Supabase apply eseguito.

@@ -4,8 +4,10 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import {
   archiveCategory,
+  archiveCategoryWithStrategy,
   archiveProduct,
   archiveSupplier,
+  archiveSupplierWithStrategy,
   createCategory,
   createProduct,
   createSupplier,
@@ -14,6 +16,7 @@ import {
   updateProduct,
   updateSupplier,
   validateCatalogProductInput,
+  type CatalogEntityArchiveStrategy,
   type ProductMutationInput,
 } from "@/server/shop-admin/catalog-mutations";
 import {
@@ -484,6 +487,41 @@ export async function archiveCategoryAction(formData: FormData) {
   );
 }
 
+function catalogArchiveStrategy(formData: FormData): CatalogEntityArchiveStrategy {
+  const strategy = formString(formData, "strategy");
+
+  if (
+    strategy === "replace_existing" ||
+    strategy === "create_replacement" ||
+    strategy === "clear_assignments"
+  ) {
+    return strategy;
+  }
+
+  return "delete_if_unused";
+}
+
+export async function archiveCategoryWithStrategyAction(formData: FormData) {
+  if (!confirmed(formData, "ARCHIVE")) {
+    resultRedirect(
+      "/shop/categories",
+      shopAdminActionResult("validation_failed", { ok: false }),
+    );
+  }
+
+  resultRedirect(
+    "/shop/categories",
+    await archiveCategoryWithStrategy({
+      id: formString(formData, "categoryId"),
+      reason: optionalFormString(formData, "reason"),
+      replacementId: optionalFormString(formData, "replacementId"),
+      replacementName: optionalFormString(formData, "replacementName"),
+      requestedShopId: requestedShopId(formData),
+      strategy: catalogArchiveStrategy(formData),
+    }),
+  );
+}
+
 export async function createSupplierAction(formData: FormData) {
   resultRedirect(
     "/shop/suppliers",
@@ -519,6 +557,27 @@ export async function archiveSupplierAction(formData: FormData) {
       id: formString(formData, "supplierId"),
       reason: optionalFormString(formData, "reason"),
       requestedShopId: requestedShopId(formData),
+    }),
+  );
+}
+
+export async function archiveSupplierWithStrategyAction(formData: FormData) {
+  if (!confirmed(formData, "ARCHIVE")) {
+    resultRedirect(
+      "/shop/suppliers",
+      shopAdminActionResult("validation_failed", { ok: false }),
+    );
+  }
+
+  resultRedirect(
+    "/shop/suppliers",
+    await archiveSupplierWithStrategy({
+      id: formString(formData, "supplierId"),
+      reason: optionalFormString(formData, "reason"),
+      replacementId: optionalFormString(formData, "replacementId"),
+      replacementName: optionalFormString(formData, "replacementName"),
+      requestedShopId: requestedShopId(formData),
+      strategy: catalogArchiveStrategy(formData),
     }),
   );
 }

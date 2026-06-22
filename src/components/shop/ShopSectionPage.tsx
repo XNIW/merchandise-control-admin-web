@@ -10,6 +10,7 @@ import type { ShopSection, ShopSectionMetric } from "./shopSections";
 import type { ReactNode } from "react";
 
 type ShopSectionPageProps = {
+  beforeLiveData?: ReactNode;
   liveDataToolbar?: ReactNode;
   renderLiveData?: (input: {
     liveData: NonNullable<ShopSection["liveData"]>;
@@ -46,7 +47,24 @@ function metricGridClassName(metricCount: number) {
   ].join(" ");
 }
 
+const technicalMetricLabels = new Set([
+  "Catalog scope",
+  "Current page rows",
+  "Loaded lower bound",
+  "Page",
+  "Range",
+  "Rows shown",
+  "Search scope",
+  "Supabase",
+  "Writes",
+]);
+
+function isTechnicalMetric(metric: ShopSectionMetric) {
+  return technicalMetricLabels.has(metric.label);
+}
+
 export async function ShopSectionPage({
+  beforeLiveData,
   liveDataToolbar,
   renderLiveData,
   rowActions,
@@ -69,33 +87,77 @@ export async function ShopSectionPage({
         label: translateText(dictionary, secondaryRowActions.label),
       }
     : undefined;
+  const metricPairs = localizedSection.metrics.map((metric, index) => ({
+    metric,
+    source: section.metrics[index] ?? metric,
+  }));
+  const preferredMetrics = metricPairs.filter(
+    (entry) => !isTechnicalMetric(entry.source),
+  );
+  const primaryMetricPairs = (
+    preferredMetrics.length > 0 ? preferredMetrics : metricPairs
+  ).slice(0, 4);
+  const primaryMetricSourceLabels = new Set(
+    primaryMetricPairs.map((entry) => entry.source.label),
+  );
+  const secondaryMetricPairs = metricPairs.filter(
+    (entry) => !primaryMetricSourceLabels.has(entry.source.label),
+  );
 
   return (
     <div className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} flex flex-col gap-5`}>
       <section
         aria-label={`${localizedSection.title} ${translateText(dictionary, "status")}`}
-        className={metricGridClassName(localizedSection.metrics.length)}
+        className={metricGridClassName(primaryMetricPairs.length)}
       >
-        {localizedSection.metrics.map((metric) => (
+        {primaryMetricPairs.map(({ metric }) => (
           <article
             key={metric.label}
             className={[
-              "min-w-0 rounded-md border p-4 shadow-sm",
+              "min-w-0 rounded-md border p-3 shadow-sm",
               metricToneClasses[metric.tone],
             ].join(" ")}
           >
             <p className="break-words text-sm font-medium [overflow-wrap:anywhere]">
               {metric.label}
             </p>
-            <p className="mt-2 break-words text-xl font-semibold leading-7 tracking-normal [overflow-wrap:anywhere]">
+            <p className="mt-1.5 break-words text-xl font-semibold leading-7 tracking-normal [overflow-wrap:anywhere]">
               {metric.value}
             </p>
-            <p className="mt-1 break-words text-sm leading-6 opacity-80 [overflow-wrap:anywhere]">
+            <p className="mt-1 break-words text-xs leading-5 opacity-80 [overflow-wrap:anywhere]">
               {metric.detail}
             </p>
           </article>
         ))}
       </section>
+
+      {secondaryMetricPairs.length > 0 ? (
+        <details className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 shadow-sm">
+          <summary className="cursor-pointer font-medium text-zinc-900">
+            {translateText(dictionary, "Technical details")}
+          </summary>
+          <dl className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            {secondaryMetricPairs.map(({ metric }) => (
+              <div
+                className="min-w-0 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2"
+                key={metric.label}
+              >
+                <dt className="text-xs font-semibold text-zinc-500">
+                  {metric.label}
+                </dt>
+                <dd className="mt-1 break-words text-sm font-semibold text-zinc-950 [overflow-wrap:anywhere]">
+                  {metric.value}
+                </dd>
+                <dd className="mt-0.5 break-words text-xs leading-5 text-zinc-500 [overflow-wrap:anywhere]">
+                  {metric.detail}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        </details>
+      ) : null}
+
+      {beforeLiveData}
 
       {liveData ? liveDataToolbar : null}
 

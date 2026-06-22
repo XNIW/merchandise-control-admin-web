@@ -275,7 +275,9 @@ test("History page renders mobile entries first, then sync events and diagnostic
   assert.match(page, /HistoryEntriesClientList/);
   assert.match(historyList, /buildHistoryDetailHref/);
   assert.match(historyList, /encodeURIComponent\(entryId\)/);
-  assert.match(historyList, /new URLSearchParams\(\{ shop_id: requestedShopId \}\)/);
+  assert.match(historyList, /nextParams\.set\("shop_id", input\.requestedShopId\)/);
+  assert.match(historyList, /nextParams\.set\("page", String\(input\.page\)\)/);
+  assert.match(historyList, /nextParams\.set\("pageSize", String\(input\.pageSize\)\)/);
   assert.match(historyList, /data-history-detail-trigger/);
   assert.match(page, /getShopHistoryListReadModel/);
   assert.doesNotMatch(page, /rowActions=\{\{/);

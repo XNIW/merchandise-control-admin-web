@@ -112,7 +112,7 @@ test("TASK-068H products page uses server-side pagination count and range", () =
     "totalCount",
     "currentPageRows",
     "Total products",
-    "Current page rows",
+    "Results",
     "ProductsPagination",
     "Page size",
   ]) {

@@ -25,7 +25,16 @@ test("TASK-068M products page renders catalog rows instead of a wide technical t
   assertContains(page, "data-product-catalog-list");
   assertContains(page, "data-product-catalog-row");
   assertContains(page, "[content-visibility:auto]");
-  assertContains(page, "lg:grid-cols-[minmax(15rem,1.5fr)_minmax(12rem,1fr)_minmax(10rem,0.9fr)_minmax(10rem,0.9fr)_minmax(10rem,0.85fr)_minmax(9rem,auto)]");
+  assertContains(page, "[contain-intrinsic-size:180px]");
+  assertContains(page, "p-3 shadow-sm");
+  assertContains(page, "data-product-cell=\"identity\"");
+  assertContains(page, "data-product-cell=\"codes\"");
+  assertContains(page, "data-product-cell=\"classification\"");
+  assertContains(page, "data-product-cell=\"pricing-stock\"");
+  assertContains(page, "data-product-cell=\"status\"");
+  assertContains(page, "data-product-cell=\"actions\"");
+  assertContains(page, "grid min-w-0 gap-2.5 md:grid-cols-2 min-[1400px]:grid-cols-[minmax(11.5rem,0.85fr)_minmax(11.5rem,0.85fr)_minmax(17rem,1.2fr)]");
+  assert.doesNotMatch(page, /lg:grid-cols-\[minmax\(16rem,1\.35fr\)_minmax\(10rem,0\.75fr\)_minmax\(12rem,0\.85fr\)_minmax\(14rem,0\.95fr\)_minmax\(9rem,0\.65fr\)_auto\]/);
   assert.doesNotMatch(page, /<AdminDataTable/);
 });
 
@@ -36,12 +45,29 @@ test("TASK-068M product identity and codes are primary grouped content", () => {
   assertContains(page, "Product identity");
   assertContains(page, "line-clamp-2 break-words text-base font-semibold");
   assertContains(page, "data-product-codes");
-  assertContains(page, "Codes");
-  assertContains(page, "label={columnLabel(liveData, \"barcode\")}");
-  assertContains(page, "label={columnLabel(liveData, \"itemNumber\")}");
-  assertContains(page, "icon=\"barcode\"");
-  assertContains(page, "icon=\"tag\"");
-  assertContains(page, "overflow-x-auto whitespace-nowrap");
+  assertContains(page, "data-product-classification");
+  assertContains(page, "data-product-pricing-stock");
+  assertContains(page, "data-product-status");
+  assertContains(page, "data-product-actions");
+  assertContains(page, "barcodeLabel={columnLabel(liveData, \"barcode\")}");
+  assertContains(page, "itemNumberLabel={columnLabel(liveData, \"itemNumber\")}");
+  assertContains(page, "icon: \"barcode\" as const");
+  assertContains(page, "icon: \"tag\" as const");
+  assertContains(page, "ProductCodeBlock");
+  assertContains(page, "ProductClassificationBlock");
+  assertContains(page, "ProductPriceStockBlock");
+  assertContains(page, "<dt className=\"sr-only\">{item.label}</dt>");
+  assertContains(page, "aria-label={`${item.label}: ${item.value}`}");
+  assertContains(page, "aria-label={`${columnLabel(liveData, \"productId\")}: ${productId}`}");
+  assertContains(page, "compactMetricLabel(");
+  assertContains(page, "[overflow-wrap:anywhere]");
+  assertContains(page, "<h3 className=\"sr-only\">{labels.productIdentity}</h3>");
+  assertContains(page, "<h3 className=\"sr-only\">{labels.codes}</h3>");
+  assertContains(page, "<h3 className=\"sr-only\">{labels.classification}</h3>");
+  assertContains(page, "<h3 className=\"sr-only\">{labels.pricingStock}</h3>");
+  assertContains(page, "<h3 className=\"sr-only\">{labels.statusUpdated}</h3>");
+  assert.doesNotMatch(page, /\{columnLabel\(liveData, "productId"\)\}: \{productId\}/);
+  assert.doesNotMatch(page, /<span className="min-w-0 truncate">\{item\.label\}<\/span>/);
 });
 
 test("TASK-068M product row actions and catalog toolbar use decorative inline icons", () => {
@@ -51,11 +77,13 @@ test("TASK-068M product row actions and catalog toolbar use decorative inline ic
 
   assertContains(page, "data-product-action-toolbar");
   assertContains(page, "<ProductsIcon name=\"eye\" />");
-  assertContains(page, "icon: \"pencil\"");
   assertContains(page, "icon: \"archive\"");
   assertContains(page, "icon: \"restore\"");
   assertContains(page, "aria-label={`${labels.detail}: ${productLabel}`}");
   assertContains(page, "aria-label={`${item.label}: ${productLabel}`}");
+  assert.doesNotMatch(page, /action: "edit"/);
+  assert.doesNotMatch(page, /labels\.edit/);
+  assert.doesNotMatch(page, /item\.action === "edit"/);
 
   assertContains(catalogPanel, "CatalogActionIcon");
   assertContains(catalogPanel, "aria-hidden\": true");
@@ -110,11 +138,11 @@ test("TASK-068M catalog category and supplier pages reuse loaded lightweight rea
   for (const [pagePath, readModelCall] of [
     [
       "src/app/shop/categories/page.tsx",
-      "getShopCategoriesPageReadModel({ requestedShopId })",
+      "getShopCategoriesPageReadModel({",
     ],
     [
       "src/app/shop/suppliers/page.tsx",
-      "getShopSuppliersPageReadModel({ requestedShopId })",
+      "getShopSuppliersPageReadModel({",
     ],
   ]) {
     const page = read(pagePath);

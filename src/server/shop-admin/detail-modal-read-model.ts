@@ -10,7 +10,7 @@ import {
 } from "./history-read-model";
 import {
   getShopInventoryProductDetailReadModel,
-  getShopInventoryProductsPage,
+  getShopInventoryProductsByCodes,
   type ShopInventoryPrice,
   type ShopInventoryProduct,
   type ShopInventoryReadModel,
@@ -67,12 +67,18 @@ export type HistoryDetailModalRow = {
   itemCode: string;
   barcode: string;
   productName: string;
-  quantity: string;
+  sourceQuantity: string;
+  countedQuantity: string;
   purchasePrice: string;
-  retailPrice: string;
+  salePrice: string;
   completion: string;
   productId: string | null;
   productLabel: string | null;
+  productState: "active" | "archived" | "unresolved";
+  oldPurchasePrice: string | null;
+  oldRetailPrice: string | null;
+  stockQuantity: string | null;
+  values: string;
 };
 
 export type HistoryDetailModalReadModel = {
@@ -141,6 +147,7 @@ function productHistoryEntries(
       includesAnyToken(
         [
           session.remoteId,
+          session.displayTitle,
           session.displayName,
           session.supplier,
           session.category,
@@ -153,12 +160,12 @@ function productHistoryEntries(
     .map((session) => ({
       entryId: `session:${session.remoteId}`,
       kind: "history_entry" as const,
-      title: session.displayName,
+      title: session.displayTitle,
       source:
         [session.supplier, session.category].filter(Boolean).join(" / ") ||
         "Unknown",
       payload: `${session.dataSummary}; ${session.overlaySummary}`,
-      updatedAt: session.updatedAt,
+      updatedAt: session.entryDate,
     }));
 
   return [...syncRows, ...sessionRows].slice(0, 25);
@@ -278,56 +285,59 @@ function historyRowCodes(row: ShopHistoryTablePreviewRow) {
     .slice(0, 2);
 }
 
-async function resolveLinkedProduct(input: {
-  code: string;
-  requestedShopId?: string | null;
-}) {
-  const page = await getShopInventoryProductsPage({
-    filters: {
-      query: input.code,
-      state: "all",
-    },
-    includeExactTotals: false,
-    pageSize: 10,
-    requestedShopId: input.requestedShopId,
-  });
-
-  if (page.status !== "ready") {
-    return null;
-  }
-
-  return (
-    page.products.find(
-      (product) =>
-        product.barcode === input.code || product.itemNumber === input.code,
-    ) ?? null
-  );
-}
-
 async function linkedProductsByCode(input: {
   requestedShopId?: string | null;
   rows: readonly ShopHistoryTablePreviewRow[];
 }) {
   const codes = Array.from(
     new Set(input.rows.flatMap((row) => historyRowCodes(row))),
-  ).slice(0, 12);
-  const pairs = await Promise.all(
-    codes.map(async (code) => [code, await resolveLinkedProduct({
-      code,
-      requestedShopId: input.requestedShopId,
-    })] as const),
-  );
+  ).slice(0, 200);
+  const codeKeys = new Set(codes.map((code) => code.toLowerCase()));
+  const readModel = await getShopInventoryProductsByCodes({
+    codes,
+    requestedShopId: input.requestedShopId,
+  });
 
-  return new Map(
-    pairs
-      .filter((pair): pair is readonly [string, ShopInventoryProduct] =>
-        Boolean(pair[1]),
-      )
-      .map(([code, product]) => [code, product]),
-  );
+  if (readModel.status !== "ready") {
+    return new Map<string, ShopInventoryProduct>();
+  }
+
+  const productsByCode = new Map<string, ShopInventoryProduct>();
+
+  for (const product of readModel.products) {
+    for (const requestedCode of codes) {
+      const normalizedRequestedCode = requestedCode.toLowerCase();
+
+      if (
+        codeKeys.has(normalizedRequestedCode) &&
+        [product.barcode, product.itemNumber].some(
+          (code) => code?.trim().toLowerCase() === normalizedRequestedCode,
+        )
+      ) {
+        productsByCode.set(requestedCode, product);
+      }
+    }
+  }
+
+  return productsByCode;
 }
 
-function historyModalRow(
+function catalogNumber(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return String(value);
+}
+
+function historyOrCatalogValue(
+  historyValue: string,
+  catalogValue: number | null | undefined,
+) {
+  return usableHistoryCell(historyValue) ? historyValue : catalogNumber(catalogValue);
+}
+
+export function mapHistoryDetailModalRow(
   row: ShopHistoryTablePreviewRow,
   productsByCode: Map<string, ShopInventoryProduct>,
 ): HistoryDetailModalRow {
@@ -350,12 +360,32 @@ function historyModalRow(
     productLabel: product
       ? (product.productName ?? product.secondProductName ?? product.barcode)
       : null,
+    productState: product ? (product.deletedAt ? "archived" : "active") : "unresolved",
+    oldPurchasePrice: product
+      ? historyOrCatalogValue(row.oldPurchasePrice, product.purchasePrice)
+      : usableHistoryCell(row.oldPurchasePrice)
+        ? row.oldPurchasePrice
+        : null,
+    oldRetailPrice: product
+      ? historyOrCatalogValue(row.oldRetailPrice, product.retailPrice)
+      : usableHistoryCell(row.oldRetailPrice)
+        ? row.oldRetailPrice
+        : null,
     productName: usableHistoryCell(row.name)
       ? row.name
       : (product?.productName ?? "Not resolved"),
-    purchasePrice: "Not resolved",
-    quantity: "Not resolved",
-    retailPrice: "Not resolved",
+    purchasePrice: usableHistoryCell(row.purchasePrice)
+      ? row.purchasePrice
+      : "Not resolved",
+    countedQuantity: usableHistoryCell(row.countedQuantity)
+      ? row.countedQuantity
+      : "Not resolved",
+    salePrice: usableHistoryCell(row.salePrice) ? row.salePrice : "Not resolved",
+    sourceQuantity: usableHistoryCell(row.sourceQuantity)
+      ? row.sourceQuantity
+      : "Not resolved",
+    stockQuantity: product ? catalogNumber(product.stockQuantity) : null,
+    values: row.values,
   };
 }
 
@@ -385,7 +415,7 @@ export async function getShopHistoryDetailModalReadModel(input: {
     rows: detail.tablePreview,
   });
   const rows = detail.tablePreview.map((row) =>
-    historyModalRow(row, productsByCode),
+    mapHistoryDetailModalRow(row, productsByCode),
   );
 
   return {

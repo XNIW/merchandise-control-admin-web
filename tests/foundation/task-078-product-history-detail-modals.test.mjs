@@ -21,7 +21,7 @@ test("TASK-078 product page mounts lazy detail modals without expanding first pa
   const productsPage = read("src/app/shop/products/page.tsx");
 
   assertContains(productsPage, "getShopInventoryProductsPage");
-  assertContains(productsPage, "includeExactTotals: false");
+  assertContains(productsPage, "includeExactTotals: true");
   assertContains(productsPage, "ProductDetailModalController");
   assertContains(productsPage, "HistoryDetailModalController");
   assertContains(productsPage, "data-product-detail-trigger");
@@ -29,6 +29,8 @@ test("TASK-078 product page mounts lazy detail modals without expanding first pa
   assertContains(productsPage, "canManageProducts={canManageProducts}");
   assertContains(productsPage, "rowActions={{");
   assert.doesNotMatch(productsPage, /getShopInventoryProductDetailReadModel/);
+  assert.doesNotMatch(productsPage, /getShopProductDetailModalReadModel/);
+  assert.doesNotMatch(productsPage, /getShopHistoryDetailModalReadModel/);
   assert.doesNotMatch(productsPage, /getShopHistoryReadModel/);
 });
 
@@ -36,6 +38,7 @@ test("TASK-078 modal route handlers are dynamic, no-store, and server-only backe
   const productRoute = read("src/app/shop/products/detail/route.ts");
   const historyRoute = read("src/app/shop/history/detail/route.ts");
   const modalReadModel = read("src/server/shop-admin/detail-modal-read-model.ts");
+  const historyReadModel = read("src/server/shop-admin/history-read-model.ts");
 
   for (const route of [productRoute, historyRoute]) {
     assertContains(route, 'export const dynamic = "force-dynamic"');
@@ -48,14 +51,22 @@ test("TASK-078 modal route handlers are dynamic, no-store, and server-only backe
   assertContains(modalReadModel, 'import "server-only"');
   assertContains(modalReadModel, "getShopInventoryProductDetailReadModel");
   assertContains(modalReadModel, "getShopHistoryDetailReadModel");
-  assertContains(modalReadModel, "getShopInventoryProductsPage");
-  assertContains(modalReadModel, "includeExactTotals: false");
-  assertContains(modalReadModel, ".slice(0, 12)");
+  assertContains(modalReadModel, "getShopInventoryProductsByCodes");
+  assertContains(historyReadModel, "stringifyRedactedJson");
+  assertContains(historyReadModel, "redactShopAdminJson");
+  assertContains(modalReadModel, ".slice(0, 25)");
+  assertContains(modalReadModel, ".slice(0, 200)");
+  assert.doesNotMatch(modalReadModel, /codes\.map\(async/);
+  assert.doesNotMatch(modalReadModel, /getShopInventoryProductsPage/);
+  assert.doesNotMatch(modalReadModel, /\.rpc\(/);
+  assert.doesNotMatch(modalReadModel, /createSupabaseAdminClient/);
+  assert.doesNotMatch(modalReadModel, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.doesNotMatch(modalReadModel, /process\.env/);
   assert.doesNotMatch(modalReadModel, /\.from\("audit_logs"\)/);
   assert.doesNotMatch(modalReadModel, /service[_-]?role/i);
 });
 
-test("TASK-078 product detail modal supports view/edit/actions and tabbed lazy data", () => {
+test("TASK-078 product detail modal supports editable overview/actions and tabbed lazy data", () => {
   const controller = read(
     "src/app/shop/_components/ProductDetailModalController.tsx",
   );
@@ -65,19 +76,30 @@ test("TASK-078 product detail modal supports view/edit/actions and tabbed lazy d
   assertContains(controller, "updateProductInlineAction");
   assertContains(controller, "archiveProductInlineAction");
   assertContains(controller, "restoreProductInlineAction");
+  assertContains(controller, "ProductDetailIcon");
+  assertContains(controller, "CopyChip");
   assertContains(controller, 'label: "Overview"');
   assertContains(controller, 'label: "Prices"');
   assertContains(controller, 'label: "Inventory / Sync"');
   assertContains(controller, 'label: "History entries"');
   assertContains(controller, 'label: "Advanced"');
-  assertContains(controller, 'productDetailMode === "edit"');
-  assertContains(controller, 'form={editFormId}');
+  assertContains(controller, "ProductOverviewForm");
+  assertContains(controller, "data-product-overview-edit-form");
+  assertContains(controller, "overviewFormId");
+  assertContains(controller, "draftDirty");
+  assertContains(controller, "isProductDraftDirty(product, draft)");
+  assertContains(controller, 'form={overviewFormId}');
+  assertContains(controller, "Product identity");
+  assertContains(controller, "Mobile sync");
+  assertContains(controller, "Reset changes");
+  assertContains(controller, "Mapped to mobile inventory");
   assertContains(controller, "Danger area");
   assertContains(controller, "Current purchase price");
   assertContains(controller, "No previous price changes are recorded for this product.");
   assertContains(controller, "Save");
-  assertContains(controller, "Cancel");
+  assertContains(controller, "Close");
   assertContains(controller, "data-history-detail-trigger");
+  assert.doesNotMatch(controller, /ProductQuickEditForm|data-product-quick-edit-form|quickEditFormId|translate\("Full edit"\)|mode === "edit"|Editing product/);
   assertContains(actions, "export async function updateProductInlineAction");
   assertContains(actions, "export async function archiveProductInlineAction");
   assertContains(actions, "export async function restoreProductInlineAction");
@@ -85,20 +107,33 @@ test("TASK-078 product detail modal supports view/edit/actions and tabbed lazy d
 
 test("TASK-078 history page stays on the light list and opens detail lazily", () => {
   const historyPage = read("src/app/shop/history/page.tsx");
+  const historyList = read(
+    "src/app/shop/_components/HistoryEntriesClientList.tsx",
+  );
 
   assertContains(historyPage, "getShopHistoryListReadModel");
-  assertContains(historyPage, "HistoryEntriesList");
-  assertContains(historyPage, "data-history-entries-list");
-  assertContains(historyPage, "data-history-detail-trigger");
-  assertContains(historyPage, "Detail contents");
-  assertContains(historyPage, "Details load when opened.");
+  assertContains(historyPage, "HistoryEntriesClientList");
+  assertContains(historyPage, "rawRows={section.liveData?.rows ?? []}");
   assertContains(historyPage, "ProductDetailModalController");
+  assertContains(historyList, "data-history-entries-list");
+  assertContains(historyList, "data-history-detail-trigger");
+  assertContains(historyList, "Search, status, month and pagination run server-side before rows are rendered.");
+  assertContains(historyList, "All time");
+  assertContains(historyList, "This month");
+  assertContains(historyList, "Active + issues");
+  assertContains(historyList, "Deleted");
+  assertContains(historyList, "monthTitle");
+  assertContains(historyList, "buildHistoryDetailHref");
   assert.doesNotMatch(historyPage, /Open Detail/);
   assert.doesNotMatch(historyPage, /getShopHistoryReadModel/);
+  assert.doesNotMatch(historyPage, /getShopHistoryDetailReadModel/);
+  assert.doesNotMatch(historyPage, /getShopHistoryDetailModalReadModel/);
   assert.doesNotMatch(historyPage, /rawJsonPreview/);
   assert.doesNotMatch(historyPage, /payloadSummary/);
   assert.doesNotMatch(historyPage, /shared_sheet_session_diagnostics/);
   assert.doesNotMatch(historyPage, /secondaryRowActions/);
+  assert.doesNotMatch(historyList, /fetch\(/);
+  assert.doesNotMatch(historyList, /Details load when opened\./);
 });
 
 test("TASK-078 history detail modal exposes rows, missing, links and collapsed diagnostics", () => {
@@ -107,24 +142,31 @@ test("TASK-078 history detail modal exposes rows, missing, links and collapsed d
   );
 
   assertContains(controller, "fetch(`/shop/history/detail?");
+  assertContains(controller, 'cache: "no-store"');
+  assertContains(controller, 'credentials: "same-origin"');
   assertContains(controller, 'label: "Rows preview"');
   assertContains(controller, 'label: "Missing / errors"');
   assertContains(controller, 'label: "Linked products"');
   assertContains(controller, 'label: "Sync events"');
+  assertContains(controller, "HistoryDetailIcon");
   assertContains(controller, "Redacted diagnostics");
   assertContains(controller, "Row filters");
   assertContains(controller, "Ignored header row");
-  assertContains(controller, "No product match");
+  assertContains(controller, "No match");
+  assertContains(controller, "Product not resolved from barcode or item code");
   assertContains(controller, "No.");
   assertContains(controller, "Item code");
   assertContains(controller, "Barcode");
-  assertContains(controller, "Product name");
+  assertContains(controller, "Product");
   assertContains(controller, "Quantity");
   assertContains(controller, "Purchase");
   assertContains(controller, "Retail");
-  assertContains(controller, "Completed / Missing");
+  assertContains(controller, "Status");
   assertContains(controller, "data-product-detail-trigger");
   assertContains(controller, "<details");
+  assertContains(controller, 'return isUnresolvedValue(value) ? "—" : String(value);');
+  assert.doesNotMatch(controller, /Authorization|process\.env|SUPABASE|service[_-]?role/i);
+  assert.doesNotMatch(controller, /JSON\.stringify\(readModel\)/);
   assert.doesNotMatch(controller, /<details[^>]*open/);
   assert.doesNotMatch(controller, /label: "Raw diagnostics"/);
 });

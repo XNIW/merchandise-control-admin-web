@@ -57,6 +57,8 @@ import {
   type StaffAwareBulkPriceHistoryImportPayload,
   type StaffAwareBulkProductImportPayload,
 } from "./staff-aware-mutations";
+import { upsertSupplierImportHistoryEntry } from "./history-mutations";
+import type { SupplierImportHistoryGridRow } from "./supplier-import-history-entry-contract";
 
 const XLSX_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -366,6 +368,13 @@ export type CatalogWorkbookPreview = ShopAdminActionResult & {
 };
 
 export type CatalogWorkbookApplyResult = ShopAdminActionResult & {
+  historyEntry?: {
+    action: "created" | "updated";
+    displayName: string;
+    href: string;
+    remoteId: string;
+    rowCount: number;
+  };
   previewDigest?: string;
   rowErrors?: WorkbookRowError[];
   summary?: {
@@ -2565,6 +2574,43 @@ function maybeText(value: string | null | undefined) {
   return normalized ? normalized : undefined;
 }
 
+function supplierImportHistoryRows(
+  rows: readonly ParsedProductRow[],
+  readModel: Pick<
+    Awaited<ReturnType<typeof getShopInventoryReadModel>>,
+    "categories" | "suppliers"
+  >,
+): SupplierImportHistoryGridRow[] {
+  const supplierNamesById = new Map(
+    readModel.suppliers.map((supplier) => [
+      supplier.supplierId,
+      supplier.name,
+    ]),
+  );
+  const categoryNamesById = new Map(
+    readModel.categories.map((category) => [
+      category.categoryId,
+      category.name,
+    ]),
+  );
+
+  return rows.map((row) => ({
+    barcode: row.barcode,
+    categoryName: row.categoryId
+      ? categoryNamesById.get(row.categoryId)
+      : row.categoryName,
+    itemNumber: row.itemNumber,
+    productName: row.productName,
+    purchasePrice: row.purchasePrice,
+    retailPrice: row.retailPrice,
+    rowNumber: row.rowNumber,
+    stockQuantity: row.stockQuantity,
+    supplierName: row.supplierId
+      ? supplierNamesById.get(row.supplierId)
+      : row.supplierName,
+  }));
+}
+
 function jsonRecordMetadata(value: Json) {
   return value && typeof value === "object" && !Array.isArray(value)
     ? (value as { [key: string]: Json | undefined })
@@ -4149,11 +4195,61 @@ export async function applyCatalogWorkbookImport(
     };
   }
 
+  let historyEntry: CatalogWorkbookApplyResult["historyEntry"];
+
+  if (
+    adjustedParsed.importMode === "supplier" &&
+    failedRows === 0 &&
+    adjustedParsed.products.length > 0
+  ) {
+    const historyResult = await upsertSupplierImportHistoryEntry({
+      appliedAt: new Date(),
+      categoryName: defaultValidation.defaultCategoryName,
+      context,
+      fileName: input.fileName,
+      previewDigest: boundPreviewDigest,
+      rows: supplierImportHistoryRows(adjustedParsed.products, readModel),
+      supplierName: defaultValidation.defaultSupplierName,
+    });
+
+    if (!historyResult.ok) {
+      return {
+        ...shopAdminActionResult("partial_failure", {
+          ok: false,
+          shopId: context.selectedShop.shopId,
+          targetId: historyResult.remoteId,
+        }),
+        previewDigest: boundPreviewDigest,
+        rowErrors: [
+          ...applyRowErrors,
+          {
+            code: historyResult.code,
+            field: "historyEntry",
+            message:
+              "Supplier import was applied, but the canonical History Entry could not be created.",
+            row: 0,
+            sheet: "History",
+          },
+        ],
+        summary,
+      };
+    }
+
+    historyEntry = {
+      action: historyResult.action,
+      displayName: historyResult.displayName,
+      href: historyResult.href,
+      remoteId: historyResult.remoteId,
+      rowCount: historyResult.rowCount,
+    };
+  }
+
   return {
     ...shopAdminActionResult(failedRows > 0 ? "partial_failure" : "success", {
       ok: failedRows === 0,
       shopId: context.selectedShop.shopId,
     }),
+    historyEntry,
     previewDigest: boundPreviewDigest,
     rowErrors: applyRowErrors,
     summary,

@@ -4,7 +4,6 @@ import { HistoryEntriesClientList } from "@/app/shop/_components/HistoryEntriesC
 import { HistoryDetailModalController } from "@/app/shop/_components/HistoryDetailModalController";
 import { ProductDetailModalController } from "@/app/shop/_components/ProductDetailModalController";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
-import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import { getShopHistoryListReadModel } from "@/server/shop-admin/history-read-model";
 import { buildHistorySection } from "@/server/shop-admin/shop-section-data";
@@ -20,8 +19,14 @@ export const dynamic = "force-dynamic";
 
 type ShopPageSearchParams = Promise<{
   action?: string | string[];
+  month?: string | string[];
+  page?: string | string[];
+  pageSize?: string | string[];
+  q?: string | string[];
+  query?: string | string[];
   result?: string | string[];
   shop_id?: string | string[];
+  status?: string | string[];
 }>;
 
 function getParam(
@@ -33,6 +38,21 @@ function getParam(
   return Array.isArray(value) ? value[0] : value;
 }
 
+function getFirstParam(
+  searchParams: Record<string, string | string[] | undefined>,
+  keys: readonly string[],
+) {
+  for (const key of keys) {
+    const value = getParam(searchParams, key);
+
+    if (value) {
+      return value;
+    }
+  }
+
+  return undefined;
+}
+
 function HistoryEntryCreateForm({
   requestedShopId,
 }: {
@@ -42,7 +62,7 @@ function HistoryEntryCreateForm({
     <form
       action={createHistoryEntryAction}
       aria-label="Create mobile history entry"
-      className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm`}
+      className="grid gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm"
     >
       {requestedShopId ? (
         <input name="shop_id" type="hidden" value={requestedShopId} />
@@ -103,9 +123,23 @@ export default async function ShopHistoryPage({
 }) {
   const params = await searchParams;
   const requestedShopId = getParam(params, "shop_id");
+  const selectedQuery = getFirstParam(params, ["q", "query"]) ?? "";
+  const selectedMonth = getParam(params, "month") ?? "";
+  const selectedStatus = getParam(params, "status") ?? "active_issues";
+  const selectedPage = getParam(params, "page") ?? "1";
+  const selectedPageSize = getParam(params, "pageSize") ?? "10";
   const [{ dictionary }, readModel, writeContext] = await Promise.all([
     getI18n(),
-    getShopHistoryListReadModel({ requestedShopId }),
+    getShopHistoryListReadModel({
+      filters: {
+        month: selectedMonth,
+        query: selectedQuery,
+        status: selectedStatus,
+      },
+      page: selectedPage,
+      pageSize: selectedPageSize,
+      requestedShopId,
+    }),
     resolveShopActionContext(requestedShopId, "history.write"),
   ]);
   const section = buildHistorySection(readModel);
@@ -114,31 +148,37 @@ export default async function ShopHistoryPage({
 
   return (
     <div className="grid gap-5">
-      <ActionResultBanner
-        action={getParam(params, "action")}
-        result={getParam(params, "result")}
-      />
-      <HistoryDetailModalController
-        labels={dictionary.exact}
-        requestedShopId={requestedShopId}
-      />
-      <ProductDetailModalController
-        canManageProducts={false}
-        labels={dictionary.exact}
-        requestedShopId={requestedShopId}
-        selectedShopId={readModel.selectedShop?.shopId ?? requestedShopId}
-      />
-      {canWriteHistory ? (
-        <HistoryEntryCreateForm requestedShopId={requestedShopId} />
-      ) : null}
       <ShopSectionPage
+        beforeLiveData={
+          <>
+            <ActionResultBanner
+              action={getParam(params, "action")}
+              result={getParam(params, "result")}
+            />
+            <HistoryDetailModalController
+              labels={dictionary.exact}
+              requestedShopId={requestedShopId}
+            />
+            <ProductDetailModalController
+              canManageProducts={false}
+              labels={dictionary.exact}
+              requestedShopId={requestedShopId}
+              selectedShopId={readModel.selectedShop?.shopId ?? requestedShopId}
+            />
+            {canWriteHistory ? (
+              <HistoryEntryCreateForm requestedShopId={requestedShopId} />
+            ) : null}
+          </>
+        }
         renderLiveData={({ liveData }) => (
           <HistoryEntriesClientList
             detailLabel={translateText(dictionary, "Detail")}
             labels={dictionary.exact}
             liveData={liveData}
+            pagination={readModel.pagination}
             rawRows={section.liveData?.rows ?? []}
             requestedShopId={requestedShopId}
+            selectedFilters={readModel.filters}
           />
         )}
         section={section}

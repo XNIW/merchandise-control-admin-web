@@ -167,10 +167,10 @@ test("TASK-057 catalog actions are toolbar buttons with accessible dialogs", () 
     "Edit product",
     "Archive product",
     "Restore product",
-    "Update category",
-    "Archive category",
-    "Update supplier",
-    "Archive supplier",
+    "Rename category",
+    "Delete category",
+    "Rename supplier",
+    "Delete supplier",
   ]) {
     assertContains(catalogPanel, required);
   }
@@ -215,16 +215,19 @@ test("TASK-057 catalog actions are toolbar buttons with accessible dialogs", () 
   assert.doesNotMatch(productsPage, /liveDataToolbar=\{catalogToolbar\}/);
   assertContains(categoriesPage, "CategoryRowActions");
   assertContains(categoriesPage, "category_action");
-  assertContains(categoriesPage, "liveDataToolbar={catalogToolbar}");
+  assertContains(categoriesPage, "beforeLiveData");
+  assertContains(categoriesPage, "{catalogToolbar}");
   assertContains(suppliersPage, "SupplierRowActions");
   assertContains(suppliersPage, "supplier_action");
-  assertContains(suppliersPage, "liveDataToolbar={catalogToolbar}");
+  assertContains(suppliersPage, "beforeLiveData");
+  assertContains(suppliersPage, "{catalogToolbar}");
+  assertContains(sectionPage, "beforeLiveData");
   assertContains(sectionPage, "liveDataToolbar");
   assertContains(sectionPage, "rowActions");
   assert.ok(
-    sectionPage.indexOf("{liveData ? liveDataToolbar : null}") <
+    sectionPage.indexOf("{beforeLiveData}") <
       sectionPage.indexOf("<SectionCard"),
-    "toolbar must render before the live data table card",
+    "beforeLiveData content must render before the live data table card",
   );
   assert.doesNotMatch(catalogPanel, /lg:grid-cols-3/);
   assert.doesNotMatch(
@@ -312,8 +315,9 @@ test("TASK-057 product creation resolves creatable supplier and category server-
   for (const required of [
     "CreatableSupplierField",
     "CreatableCategoryField",
-    "list=\"supplier-options\"",
-    "list=\"category-options\"",
+    "CreatableCatalogCombobox",
+    "createLabel=\"Create new supplier\"",
+    "createLabel=\"Create new category\"",
     "name=\"supplierName\"",
     "name=\"categoryName\"",
     "type=\"hidden\"",

@@ -41,6 +41,7 @@ import {
   getShopInventoryProductDetailReadModel,
   getShopInventoryReadModel,
   getShopSuppliersPageReadModel,
+  type ShopCatalogEntityPageReadModel,
   type ShopCatalogOptionsReadModel,
   type ShopInventoryCatalogScope,
   type ShopInventoryCategory,
@@ -96,7 +97,10 @@ type GetShopSectionForRequestOptions = {
   syncFilters?: SyncFilters;
 };
 
-type CatalogListReadModel = ShopInventoryReadModel | ShopCatalogOptionsReadModel;
+type CatalogListReadModel =
+  | ShopCatalogEntityPageReadModel
+  | ShopInventoryReadModel
+  | ShopCatalogOptionsReadModel;
 
 const SYNC_FILTER_MAX_LENGTH = 160;
 
@@ -1147,6 +1151,12 @@ export function applyNamedCatalogFilter<T extends { name: string }>(
   return rows.filter((row) => row.name.toLowerCase().includes(query));
 }
 
+function isCatalogEntityPageReadModel(
+  readModel: CatalogListReadModel,
+): readModel is ShopCatalogEntityPageReadModel {
+  return "pagination" in readModel && Boolean(readModel.pagination);
+}
+
 export function buildProductsSection(
   readModel: ShopInventoryReadModel,
   filters: CatalogFilters = {},
@@ -1191,7 +1201,7 @@ export function buildProductsSection(
         "Mapped catalog total",
       ),
       metric(
-        "Current page rows",
+        "Results",
         String(visibleProducts.length),
         "Filtered rows",
       ),
@@ -1206,18 +1216,8 @@ export function buildProductsSection(
         "Mapped catalog total",
       ),
       metric("Filters", String(activeFilters), "Search/category/supplier"),
-      metric(
-        "Catalog scope",
-        catalogScopeLabel(readModel.catalogScope),
-        readModel.reason,
-        "good",
-      ),
-      metric(
-        "Writes",
-        catalogWriteLabel(readModel),
-        "Audited create/update/archive/restore",
-        "good",
-      ),
+      metric("Catalog scope", catalogScopeLabel(readModel.catalogScope), readModel.reason, "good"),
+      metric("Writes", catalogWriteLabel(readModel), "Audited create/update/archive/restore", "good"),
     ],
     liveData: {
       title: "Shop catalog data",
@@ -1257,13 +1257,29 @@ export function buildCategoriesSection(
     return inventoryFallbackSection("categories", readModel);
   }
 
-  const filteredCategories = applyNamedCatalogFilter(
-    readModel.categories,
-    filters,
-  );
+  const paginatedReadModel = isCatalogEntityPageReadModel(readModel)
+    ? readModel
+    : null;
+  const filteredCategories = paginatedReadModel
+    ? readModel.categories
+    : applyNamedCatalogFilter(readModel.categories, filters);
   const activeFilters = Object.values(filters).filter((value) =>
     Boolean(value?.trim()),
   ).length;
+  const linkedProductsTotal = filteredCategories.reduce(
+    (total, category) => total + category.activeProductsCount,
+    0,
+  );
+  const pagination = paginatedReadModel?.pagination;
+  const totalCategories = pagination
+    ? pagination.totalCountStatus === "exact"
+      ? String(pagination.totalCount)
+      : `at least ${pagination.totalCount}`
+    : String(readModel.categories.length);
+  const rangeLabel =
+    pagination && pagination.rangeStart > 0
+      ? `${pagination.rangeStart}-${pagination.rangeEnd}`
+      : "0";
 
   return {
     ...shopSections.categories,
@@ -1274,41 +1290,44 @@ export function buildCategoriesSection(
     metrics: [
       metric(
         "Categories",
-        String(readModel.categories.length),
-        "Loaded category rows",
+        totalCategories,
+        pagination ? "Filtered server-side total" : "Loaded category rows",
       ),
       metric(
-        "Current page rows",
+        "Linked products",
+        String(linkedProductsTotal),
+        pagination
+          ? "Active product assignments on this page"
+          : "Active product assignments",
+      ),
+      metric(
+        "Results",
         String(filteredCategories.length),
-        "Filtered rows",
+        pagination
+          ? `${rangeLabel} shown on page ${pagination.page}`
+          : "Filtered rows",
       ),
       metric("Filters", String(activeFilters), "Search"),
-      metric(
-        "Catalog scope",
-        catalogScopeLabel(readModel.catalogScope),
-        readModel.reason,
-        "good",
-      ),
-      metric(
-        "Writes",
-        catalogWriteLabel(readModel),
-        "Audited create/update/archive",
-        "good",
-      ),
+      metric("Catalog scope", catalogScopeLabel(readModel.catalogScope), readModel.reason, "good"),
+      metric("Writes", catalogWriteLabel(readModel), "Audited create/update/archive", "good"),
     ],
     liveData: {
       title: "Shop catalog data",
       description:
         "Categories are read through shop_id first for the selected shop.",
       columns: [
-        { key: "categoryId", label: "Category id" },
         { key: "name", label: "Name" },
+        { key: "state", label: "State" },
+        { key: "activeProductsCount", label: "Linked active products" },
         { key: "updated", label: "Updated" },
       ],
       rows: filteredCategories.map((category) => ({
         rowKey: category.categoryId,
+        activeProductsCount: String(category.activeProductsCount),
         categoryId: category.categoryId,
+        id: category.categoryId,
         name: category.name,
+        state: category.deletedAt ? "Archived" : "Active",
         updated: formatDateTime(category.updatedAt),
       })),
       emptyState: {
@@ -1328,13 +1347,29 @@ export function buildSuppliersSection(
     return inventoryFallbackSection("suppliers", readModel);
   }
 
-  const filteredSuppliers = applyNamedCatalogFilter(
-    readModel.suppliers,
-    filters,
-  );
+  const paginatedReadModel = isCatalogEntityPageReadModel(readModel)
+    ? readModel
+    : null;
+  const filteredSuppliers = paginatedReadModel
+    ? readModel.suppliers
+    : applyNamedCatalogFilter(readModel.suppliers, filters);
   const activeFilters = Object.values(filters).filter((value) =>
     Boolean(value?.trim()),
   ).length;
+  const linkedProductsTotal = filteredSuppliers.reduce(
+    (total, supplier) => total + supplier.activeProductsCount,
+    0,
+  );
+  const pagination = paginatedReadModel?.pagination;
+  const totalSuppliers = pagination
+    ? pagination.totalCountStatus === "exact"
+      ? String(pagination.totalCount)
+      : `at least ${pagination.totalCount}`
+    : String(readModel.suppliers.length);
+  const rangeLabel =
+    pagination && pagination.rangeStart > 0
+      ? `${pagination.rangeStart}-${pagination.rangeEnd}`
+      : "0";
 
   return {
     ...shopSections.suppliers,
@@ -1344,41 +1379,44 @@ export function buildSuppliersSection(
     metrics: [
       metric(
         "Suppliers",
-        String(readModel.suppliers.length),
-        "Loaded supplier rows",
+        totalSuppliers,
+        pagination ? "Filtered server-side total" : "Loaded supplier rows",
       ),
       metric(
-        "Current page rows",
+        "Linked products",
+        String(linkedProductsTotal),
+        pagination
+          ? "Active product assignments on this page"
+          : "Active product assignments",
+      ),
+      metric(
+        "Results",
         String(filteredSuppliers.length),
-        "Filtered rows",
+        pagination
+          ? `${rangeLabel} shown on page ${pagination.page}`
+          : "Filtered rows",
       ),
       metric("Filters", String(activeFilters), "Search"),
-      metric(
-        "Catalog scope",
-        catalogScopeLabel(readModel.catalogScope),
-        readModel.reason,
-        "good",
-      ),
-      metric(
-        "Writes",
-        catalogWriteLabel(readModel),
-        "Audited create/update/archive",
-        "good",
-      ),
+      metric("Catalog scope", catalogScopeLabel(readModel.catalogScope), readModel.reason, "good"),
+      metric("Writes", catalogWriteLabel(readModel), "Audited create/update/archive", "good"),
     ],
     liveData: {
       title: "Shop catalog data",
       description:
         "Suppliers are read through shop_id first for the selected shop.",
       columns: [
-        { key: "supplierId", label: "Supplier id" },
         { key: "name", label: "Name" },
+        { key: "state", label: "State" },
+        { key: "activeProductsCount", label: "Linked active products" },
         { key: "updated", label: "Updated" },
       ],
       rows: filteredSuppliers.map((supplier) => ({
         rowKey: supplier.supplierId,
+        activeProductsCount: String(supplier.activeProductsCount),
+        id: supplier.supplierId,
         supplierId: supplier.supplierId,
         name: supplier.name,
+        state: supplier.deletedAt ? "Archived" : "Active",
         updated: formatDateTime(supplier.updatedAt),
       })),
       emptyState: {
@@ -1474,6 +1512,7 @@ function buildProductHistoryEntryRows(
       matchesProductHistoryTokens(
         [
           session.remoteId,
+          session.displayTitle,
           session.displayName,
           session.supplier,
           session.category,
@@ -1486,12 +1525,12 @@ function buildProductHistoryEntryRows(
     .map((session) => ({
       rowKey: `session:${session.remoteId}`,
       kind: "Mobile history entry",
-      entry: `session:${session.remoteId}`,
+      entry: session.displayTitle,
       source:
         [session.supplier, session.category].filter(Boolean).join(" / ") ||
         "Unknown",
       payload: `${session.dataSummary}; ${session.overlaySummary}`,
-      updated: formatDateTime(session.updatedAt),
+      updated: formatDateTime(session.entryDate),
     }));
 
   return [...syncRows, ...sessionRows].slice(0, 25);
@@ -1934,6 +1973,10 @@ function historyEntryOverlayLabel(session: ShopHistorySession) {
 }
 
 function historyEntryIssue(session: ShopHistorySession) {
+  if (!session.diagnosticsAvailable) {
+    return "Diagnostics load from Detail.";
+  }
+
   if (session.overlayStatus === "ok") {
     return "None";
   }
@@ -1945,19 +1988,39 @@ function historyEntryIssue(session: ShopHistorySession) {
   return `${overlayStatusLabel(session.overlayStatus)}; completed/editable counts are diagnostic only.`;
 }
 
+function historyDiagnosticsValue(
+  session: ShopHistorySession,
+  value: number,
+) {
+  return session.diagnosticsAvailable ? String(value) : "Diagnostics not available";
+}
+
 function historySessionRow(session: ShopHistorySession): ShopSectionTableRow {
   return {
     rowKey: `session:${session.remoteId}`,
     type: historyEntryType(session),
-    entryName: session.displayName,
+    entryName: session.displayTitle,
+    displayName: session.displayName,
+    entryDate: formatDateTime(session.entryDate),
     supplierCategory:
       [session.supplier, session.category].filter(Boolean).join(" / ") ||
       "Not set",
     status: historyEntryStatus(session),
     payload: historyEntryPayloadLabel(session),
     overlay: historyEntryOverlayLabel(session),
-    rows: String(session.rowCount),
+    items: historyDiagnosticsValue(session, session.itemRowCount || session.rowCount),
+    rows: historyDiagnosticsValue(session, session.itemRowCount || session.rowCount),
+    completed: historyDiagnosticsValue(session, session.completeCount),
+    missing: historyDiagnosticsValue(session, session.missingCount),
+    orderTotal: session.orderTotal,
+    paidTotal: session.paymentTotal,
+    syncState: session.syncStateLabel,
+    totalQuantity: session.totalQuantity,
+    activeState: session.state === "tombstone" ? "Deleted" : "Active",
     technical: session.isTechnicalEntry ? "true" : "false",
+    latestSync: session.latestRelatedSyncAt
+      ? formatDateTime(session.latestRelatedSyncAt)
+      : "Sync state not available",
     updated: formatDateTime(session.updatedAt),
   };
 }
@@ -1968,12 +2031,29 @@ function historySessionListRow(
   return {
     rowKey: `session:${session.remoteId}`,
     type: historyEntryType(session),
-    entryName: session.displayName,
+    entryName: session.displayTitle,
+    displayName: session.displayName,
+    entryDate: formatDateTime(session.entryDate),
     supplierCategory:
       [session.supplier, session.category].filter(Boolean).join(" / ") ||
       "Not set",
     status: historyEntryStatus(session),
+    items: historyDiagnosticsValue(session, session.itemRowCount || session.rowCount),
+    rows: historyDiagnosticsValue(session, session.itemRowCount || session.rowCount),
+    completed: historyDiagnosticsValue(session, session.completeCount),
+    missing: historyDiagnosticsValue(session, session.missingCount),
+    orderTotal: session.orderTotal,
+    overlay: session.diagnosticsAvailable
+      ? historyEntryOverlayLabel(session)
+      : "Diagnostics not available",
+    paidTotal: session.paymentTotal,
+    syncState: session.syncStateLabel,
+    totalQuantity: session.totalQuantity,
+    activeState: session.state === "tombstone" ? "Deleted" : "Active",
     technical: session.isTechnicalEntry ? "true" : "false",
+    latestSync: session.latestRelatedSyncAt
+      ? formatDateTime(session.latestRelatedSyncAt)
+      : "Sync state not available",
     updated: formatDateTime(session.updatedAt),
   };
 }
@@ -1998,13 +2078,16 @@ function historyDiagnosticsRow(
 ): ShopSectionTableRow {
   return {
     rowKey: `diagnostic:${session.remoteId}`,
-    entryName: session.displayName,
+    entryName: session.displayTitle,
     payloadVersion: historyEntryPayloadLabel(session),
-    dataRows: String(session.rowCount),
-    overlayStatus: historyEntryOverlayLabel(session),
-    editableRows: String(session.editableRows),
-    completeRows: String(session.completeRows),
+    dataRows: historyDiagnosticsValue(session, session.rowCount),
+    overlayStatus: session.diagnosticsAvailable
+      ? historyEntryOverlayLabel(session)
+      : "Diagnostics not available",
+    editableRows: historyDiagnosticsValue(session, session.editableRows),
+    completeRows: historyDiagnosticsValue(session, session.completeRows),
     issue: historyEntryIssue(session),
+    entryDate: formatDateTime(session.entryDate),
     updated: formatDateTime(session.updatedAt),
   };
 }
@@ -2048,6 +2131,17 @@ export function buildHistorySection(
   }
 
   if (readModel.listMode === "light") {
+    const pagination = readModel.pagination;
+    const totalEntries =
+      pagination?.totalCountStatus === "exact"
+        ? String(pagination.totalCount)
+        : pagination
+          ? `at least ${pagination.totalCount}`
+          : String(readModel.sessions.length);
+    const pageRange =
+      pagination && pagination.rangeStart > 0
+        ? `${pagination.rangeStart}-${pagination.rangeEnd}`
+        : "0";
     const activeSessions = readModel.sessions.filter(
       (session) => session.state === "active",
     ).length;
@@ -2070,8 +2164,17 @@ export function buildHistorySection(
       metrics: [
         metric(
           "History entries",
+          totalEntries,
+          pagination?.totalCountStatus === "exact"
+            ? "Filtered server-side total"
+            : "Server-side lower bound",
+        ),
+        metric(
+          "Current page rows",
           String(readModel.sessions.length),
-          "Latest visible rows; exact total deferred",
+          pagination
+            ? `${pageRange} shown on page ${pagination.page}`
+            : "Visible rows",
         ),
         metric(
           "Active entries",
@@ -2113,8 +2216,15 @@ export function buildHistorySection(
         columns: [
           { key: "type", label: "Type" },
           { key: "entryName", label: "Entry name" },
+          { key: "entryDate", label: "Entry date" },
           { key: "supplierCategory", label: "Supplier / Category" },
           { key: "status", label: "Status" },
+          { key: "items", label: "Items" },
+          { key: "totalQuantity", label: "Total quantity" },
+          { key: "orderTotal", label: "Order" },
+          { key: "paidTotal", label: "Paid" },
+          { key: "missing", label: "Missing" },
+          { key: "syncState", label: "Sync state" },
           { key: "updated", label: "Updated" },
         ],
         rows: readModel.sessions.map(historySessionListRow),
@@ -2240,11 +2350,15 @@ export function buildHistorySection(
       columns: [
         { key: "type", label: "Type" },
         { key: "entryName", label: "Entry name" },
+        { key: "entryDate", label: "Entry date" },
         { key: "supplierCategory", label: "Supplier / Category" },
         { key: "status", label: "Status" },
-        { key: "payload", label: "Payload" },
-        { key: "overlay", label: "Overlay" },
-        { key: "rows", label: "Rows" },
+        { key: "items", label: "Items" },
+        { key: "totalQuantity", label: "Total quantity" },
+        { key: "orderTotal", label: "Order" },
+        { key: "paidTotal", label: "Paid" },
+        { key: "missing", label: "Missing" },
+        { key: "syncState", label: "Sync state" },
         { key: "updated", label: "Updated" },
       ],
       rows: readModel.sessions.map(historySessionRow),
@@ -2287,6 +2401,7 @@ export function buildHistorySection(
           { key: "editableRows", label: "Editable rows" },
           { key: "completeRows", label: "Complete rows" },
           { key: "issue", label: "Issue" },
+          { key: "entryDate", label: "Entry date" },
           { key: "updated", label: "Updated" },
         ],
         rows: readModel.sessions.map(historyDiagnosticsRow),
@@ -2659,6 +2774,10 @@ export function buildHistoryDetailSection(
           { key: "item", label: "Main item" },
           { key: "barcode", label: "Barcode" },
           { key: "name", label: "Name" },
+          { key: "sourceQuantity", label: "Supplier Qty" },
+          { key: "purchasePrice", label: "Purchase" },
+          { key: "countedQuantity", label: "Counted Qty" },
+          { key: "salePrice", label: "Sale Price" },
           { key: "values", label: "Values" },
         ],
         rows: detail.tablePreview.map(historyPreviewRow),
@@ -2716,6 +2835,9 @@ export function buildHistoryDetailSection(
             String(analysis.rowCount),
             `${analysis.columnCount} columns`,
           ),
+          metric("Total quantity", analysis.totalQuantity, "Source quantity"),
+          metric("Order", analysis.orderTotal, "Source quantity x purchase"),
+          metric("Paid", analysis.paymentTotal, "Complete rows only"),
           metric(
             "Overlay",
             overlayStatusLabel(analysis.overlayStatus),

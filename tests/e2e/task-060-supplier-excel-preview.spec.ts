@@ -1029,6 +1029,13 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
         timeout: 15_000,
       });
       await expect(dialog.getByText(/Products 6,/)).toBeVisible();
+      await expect(dialog.locator("[data-sync-analysis-panel]")).toBeVisible();
+      await expect(dialog.getByText("Sync / Import analysis")).toBeVisible();
+      await expect(dialog.getByText("history_changed").first()).toBeVisible();
+      await expect(dialog.getByRole("link", { name: "Open History Entry" })).toBeVisible();
+      await dialog.screenshot({
+        path: "docs/TASKS/EVIDENCE/TASK-079/browser/browser-products-import-apply-sync-analysis.png",
+      });
 
       const { data: existingProduct, error: existingError } = await fixture.supabase
         .from("inventory_products")

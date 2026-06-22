@@ -14,6 +14,10 @@ import {
 } from "react";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { parseLocalizedNumberText } from "@/lib/localized-number";
+import {
+  buildImportApplySyncAnalysisModel,
+  SyncAnalysisPanel,
+} from "./SyncAnalysisPanel";
 
 type ImportExportActionPanelProps = {
   authPrincipalKind?: AuthPrincipalKind;
@@ -221,6 +225,13 @@ type PreviewResponse = {
 
 type ApplyResponse = {
   code: string;
+  historyEntry?: {
+    action: "created" | "updated";
+    displayName: string;
+    href: string;
+    remoteId: string;
+    rowCount: number;
+  };
   message: string;
   ok: boolean;
   rowErrors?: ImportIssue[];
@@ -2177,6 +2188,10 @@ function ImportWizard({
     ? t("Preview database workbook")
     : t("Preview supplier workbook");
   const previewRows = useMemo(() => preview?.previewRows ?? [], [preview]);
+  const applySyncAnalysisModel = useMemo(
+    () => (applyResult ? buildImportApplySyncAnalysisModel(applyResult) : null),
+    [applyResult],
+  );
   const supplierNames = useMemo(() => optionNameSet(suppliers), [suppliers]);
   const categoryNames = useMemo(() => optionNameSet(categories), [categories]);
   const hasExternalHeader = Boolean(
@@ -2881,6 +2896,13 @@ function ImportWizard({
               {t("No blocking rows detected.")}
             </p>
           ) : null}
+          {!isDatabase ? (
+            <p className="rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-sm leading-6 text-sky-950">
+              {t(
+                "Applying this supplier import will create or update a mobile History Entry for the selected shop.",
+              )}
+            </p>
+          ) : null}
           <IssueList
             issues={preview.rowErrors}
             title="Blocked rows"
@@ -3053,12 +3075,14 @@ function ImportWizard({
           </form>
         </div>
       ) : null}
-      {applyResult ? (
-        <section className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-950">
-          <h3 className="font-semibold">{t("Result summary")}</h3>
-          <p className="mt-1">{applyResult.message}</p>
-          {applyResult.summary ? (
-            <p className="mt-1">
+      {applySyncAnalysisModel ? (
+        <section className="grid gap-2">
+          <h3 className="text-sm font-semibold text-zinc-950">
+            {t("Result summary")}
+          </h3>
+          <p className="text-sm text-zinc-700">{applyResult?.message}</p>
+          {applyResult?.summary ? (
+            <p className="text-sm text-zinc-700">
               {t("Products")} {applyResult.summary.productsApplied},{" "}
               {t("suppliers")} {applyResult.summary.suppliersApplied},{" "}
               {t("categories")} {applyResult.summary.categoriesApplied},{" "}
@@ -3067,6 +3091,7 @@ function ImportWizard({
               {applyResult.summary.failedRows}.
             </p>
           ) : null}
+          <SyncAnalysisPanel labels={labels} model={applySyncAnalysisModel} />
         </section>
       ) : null}
       {error && !authPrompt ? (

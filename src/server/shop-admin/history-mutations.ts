@@ -1,6 +1,7 @@
 import "server-only";
 
 import { randomUUID } from "node:crypto";
+import { parseLocalizedNumberText } from "@/lib/localized-number";
 import {
   createSupabaseAdminClient,
   resolveSupabaseAdminConfig,
@@ -13,9 +14,15 @@ import {
   type ShopAdminActionContext,
   type ShopAdminActionResult,
 } from "./action-context";
+import {
+  buildSupplierImportHistoryEntryPayload,
+  supplierImportHistoryPayloadJson,
+  type SupplierImportHistoryEntryPayload,
+  type SupplierImportHistoryGridRow,
+} from "./supplier-import-history-entry-contract";
 import { writeAdminWebSyncEvent } from "./sync-event-writer";
 
-type ReadyShopActionContext = Extract<
+export type ReadyShopActionContext = Extract<
   ShopAdminActionContext,
   { status: "ready" }
 >;
@@ -25,6 +32,7 @@ type HistorySessionWriteRow = Pick<
   | "deleted_at"
   | "display_name"
   | "owner_user_id"
+  | "payload_version"
   | "remote_id"
   | "session_overlay"
   | "shop_id"
@@ -56,6 +64,49 @@ export type HistoryEntryMutationInput = {
   requestedShopId?: string;
   rowsText?: string;
   supplier?: string;
+};
+export type SupplierImportHistoryEntryUpsertResult =
+  | {
+      action: "created" | "updated";
+      displayName: string;
+      href: string;
+      ok: true;
+      remoteId: string;
+      rowCount: number;
+    }
+  | {
+      code: ShopAdminActionResult["code"];
+      message: string;
+      ok: false;
+      remoteId?: string;
+    };
+
+export type SupplierImportHistoryEntryUpsertInput = {
+  appliedAt?: Date | string;
+  categoryName?: string;
+  context: ReadyShopActionContext;
+  fileName: string;
+  previewDigest: string;
+  rows: readonly SupplierImportHistoryGridRow[];
+  supplierName?: string;
+};
+
+export type HistoryEntryGeneratedRowPatch = {
+  complete?: boolean;
+  countedQuantity?: string;
+  expectedUpdatedAt?: string;
+  quantity?: string;
+  retailPrice?: string;
+  rowIndex?: number;
+  rowKey?: string;
+  salePrice?: string;
+};
+
+export type HistoryEntryGeneratedRowsUpdateInput = {
+  expectedUpdatedAt?: string;
+  remoteId?: string;
+  requestedShopId?: string;
+  rows: readonly HistoryEntryGeneratedRowPatch[];
 };
 
 type ParsedRows =
@@ -210,6 +261,301 @@ function buildHistoryOverlay(data: readonly string[][], completeRows: boolean) {
     editable: data.map(() => ["", ""]),
     overlay_schema: SESSION_OVERLAY_SCHEMA,
   } satisfies Record<string, Json>;
+}
+
+function normalizedHeaderKey(value: string) {
+  return value.replace(/[^a-z0-9]/gi, "").toLowerCase();
+}
+
+function findGeneratedColumn(header: readonly string[], exactName: string) {
+  const exactIndex = header.findIndex((cell) => cell === exactName);
+
+  if (exactIndex >= 0) {
+    return exactIndex;
+  }
+
+  const normalizedName = normalizedHeaderKey(exactName);
+
+  return header.findIndex((cell) => normalizedHeaderKey(cell) === normalizedName);
+}
+
+function ensureRowHasIndex(row: string[], columnIndex: number) {
+  while (row.length <= columnIndex) {
+    row.push("");
+  }
+}
+
+function ensureHistoryGeneratedColumns(data: string[][]) {
+  const header = data[0] ?? [];
+  const columnsAdded: string[] = [];
+  const ensureColumn = (name: "RetailPrice" | "complete" | "realQuantity") => {
+    const existingIndex = findGeneratedColumn(header, name);
+
+    if (existingIndex >= 0) {
+      return existingIndex;
+    }
+
+    const nextIndex = header.length;
+    header.push(name);
+    columnsAdded.push(name);
+
+    for (let rowIndex = 1; rowIndex < data.length; rowIndex += 1) {
+      ensureRowHasIndex(data[rowIndex], nextIndex);
+      data[rowIndex][nextIndex] = "";
+    }
+
+    return nextIndex;
+  };
+
+  return {
+    columnsAdded,
+    complete: ensureColumn("complete"),
+    countedQuantity: ensureColumn("realQuantity"),
+    salePrice: ensureColumn("RetailPrice"),
+  };
+}
+
+function parseGeneratedRowIndex(input: HistoryEntryGeneratedRowPatch) {
+  if (typeof input.rowIndex === "number" && Number.isInteger(input.rowIndex)) {
+    return input.rowIndex;
+  }
+
+  const rowKeyMatch = input.rowKey?.match(/^preview:(\d+)$/);
+
+  if (!rowKeyMatch) {
+    return null;
+  }
+
+  return Number(rowKeyMatch[1]) - 1;
+}
+
+function normalizeGeneratedNumber(input: {
+  field: "countedQuantity" | "salePrice";
+  rowIndex: number;
+  value: string | undefined;
+}) {
+  const raw = input.value?.trim();
+
+  if (raw === undefined) {
+    return { present: false as const };
+  }
+
+  if (raw.length === 0) {
+    return { present: true as const, value: "" };
+  }
+
+  const parsed = parseLocalizedNumberText(raw);
+
+  if (!Number.isFinite(parsed) || parsed < 0) {
+    return {
+      present: false as const,
+      error: `Row ${input.rowIndex + 1} ${input.field} must be a non-negative number.`,
+    };
+  }
+
+  return { present: true as const, value: String(parsed) };
+}
+
+function overlayRowsFromJson(value: Json) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const overlay = value as Record<string, Json>;
+  const overlaySchema = overlay.overlay_schema;
+  const complete = overlay.complete;
+  const editable = overlay.editable;
+
+  if (
+    overlaySchema !== SESSION_OVERLAY_SCHEMA ||
+    !Array.isArray(complete) ||
+    !complete.every((row) => typeof row === "boolean") ||
+    !Array.isArray(editable) ||
+    !editable.every((row) => Array.isArray(row))
+  ) {
+    return null;
+  }
+
+  return {
+    complete: complete.map((row) => row === true),
+    editable: editable.map((row) =>
+      row.map((cell) =>
+        cell === null ||
+        typeof cell === "string" ||
+        typeof cell === "number" ||
+        typeof cell === "boolean"
+          ? normalizeCell(String(cell ?? ""))
+          : normalizeCell(JSON.stringify(cell)),
+      ),
+    ),
+    overlay_schema: SESSION_OVERLAY_SCHEMA,
+  };
+}
+
+function applyGeneratedRowPatches(input: {
+  data: string[][];
+  overlay: Json;
+  patches: readonly HistoryEntryGeneratedRowPatch[];
+}) {
+  const overlay = overlayRowsFromJson(input.overlay);
+
+  if (
+    !overlay ||
+    overlay.complete.length !== input.data.length ||
+    overlay.editable.length !== input.data.length
+  ) {
+    return {
+      fieldErrors: {
+        rows: "History overlay must be payload v2 with rows aligned to data.",
+      },
+      ok: false as const,
+    };
+  }
+
+  const data = input.data.map((row) => [...row]);
+  const columns = ensureHistoryGeneratedColumns(data);
+  const editable = overlay.editable.map((row) => [...row]);
+  const complete = [...overlay.complete];
+  const changedFields = new Set<"complete" | "countedQuantity" | "salePrice">();
+  const changedRows = new Set<number>();
+
+  for (const patch of input.patches) {
+    const rowIndex = parseGeneratedRowIndex(patch);
+
+    if (rowIndex === null || rowIndex <= 0 || rowIndex >= data.length) {
+      return {
+        fieldErrors: {
+          rows: "History row edits must target an existing data row.",
+        },
+        ok: false as const,
+      };
+    }
+
+    const nextCountedQuantity = normalizeGeneratedNumber({
+      field: "countedQuantity",
+      rowIndex,
+      value: patch.countedQuantity ?? patch.quantity,
+    });
+    const nextSalePrice = normalizeGeneratedNumber({
+      field: "salePrice",
+      rowIndex,
+      value: patch.salePrice ?? patch.retailPrice,
+    });
+
+    const countedQuantityError =
+      "error" in nextCountedQuantity ? nextCountedQuantity.error : null;
+    const salePriceError =
+      "error" in nextSalePrice ? nextSalePrice.error : null;
+
+    if (countedQuantityError) {
+      return {
+        fieldErrors: { countedQuantity: countedQuantityError },
+        ok: false as const,
+      };
+    }
+
+    if (salePriceError) {
+      return {
+        fieldErrors: { salePrice: salePriceError },
+        ok: false as const,
+      };
+    }
+
+    ensureRowHasIndex(data[rowIndex], columns.countedQuantity);
+    ensureRowHasIndex(data[rowIndex], columns.salePrice);
+    ensureRowHasIndex(data[rowIndex], columns.complete);
+
+    if (
+      nextCountedQuantity.present &&
+      data[rowIndex][columns.countedQuantity] !== nextCountedQuantity.value
+    ) {
+      data[rowIndex][columns.countedQuantity] = nextCountedQuantity.value;
+      changedFields.add("countedQuantity");
+      changedRows.add(rowIndex);
+    }
+
+    if (
+      nextSalePrice.present &&
+      data[rowIndex][columns.salePrice] !== nextSalePrice.value
+    ) {
+      data[rowIndex][columns.salePrice] = nextSalePrice.value;
+      changedFields.add("salePrice");
+      changedRows.add(rowIndex);
+    }
+
+    if (!editable[rowIndex]) {
+      editable[rowIndex] = [];
+    }
+
+    if (nextCountedQuantity.present) {
+      ensureRowHasIndex(editable[rowIndex], 0);
+
+      if (editable[rowIndex][0] !== nextCountedQuantity.value) {
+        editable[rowIndex][0] = nextCountedQuantity.value;
+        changedFields.add("countedQuantity");
+        changedRows.add(rowIndex);
+      }
+    }
+
+    if (nextSalePrice.present) {
+      ensureRowHasIndex(editable[rowIndex], 1);
+
+      if (editable[rowIndex][1] !== nextSalePrice.value) {
+        editable[rowIndex][1] = nextSalePrice.value;
+        changedFields.add("salePrice");
+        changedRows.add(rowIndex);
+      }
+    }
+
+    if (typeof patch.complete === "boolean") {
+      const completeCellValue = patch.complete ? "1" : "";
+
+      if (complete[rowIndex] !== patch.complete) {
+        complete[rowIndex] = patch.complete;
+        changedFields.add("complete");
+        changedRows.add(rowIndex);
+      }
+
+      if (data[rowIndex][columns.complete] !== completeCellValue) {
+        data[rowIndex][columns.complete] = completeCellValue;
+        changedFields.add("complete");
+        changedRows.add(rowIndex);
+      }
+    }
+  }
+
+  if (columns.columnsAdded.length > 0 && changedRows.size > 0) {
+    columns.columnsAdded.forEach((field) => {
+      if (field === "realQuantity") {
+        changedFields.add("countedQuantity");
+      } else if (field === "RetailPrice") {
+        changedFields.add("salePrice");
+      } else if (field === "complete") {
+        changedFields.add("complete");
+      }
+    });
+  }
+
+  const nextOverlay = {
+    complete,
+    editable,
+    overlay_schema: SESSION_OVERLAY_SCHEMA,
+  } satisfies Record<string, Json>;
+
+  if (byteSize(nextOverlay) > SESSION_OVERLAY_MAX_BYTES) {
+    return {
+      fieldErrors: { rows: "History overlay is too large." },
+      ok: false as const,
+    };
+  }
+
+  return {
+    changedFields: Array.from(changedFields),
+    changedRows: Array.from(changedRows),
+    data,
+    ok: true as const,
+    overlay: nextOverlay,
+  };
 }
 
 function historyAdminClientForContext(context: ReadyShopActionContext) {
@@ -374,7 +720,7 @@ async function loadHistorySessionForWrite(input: {
   supabase: SupabaseAdminClient;
 }) {
   const selectColumns =
-    "remote_id,shop_id,owner_user_id,display_name,timestamp,updated_at,deleted_at,data,session_overlay";
+    "remote_id,shop_id,owner_user_id,display_name,timestamp,updated_at,deleted_at,payload_version,data,session_overlay";
   const directResult = await input.supabase
     .from("shared_sheet_sessions")
     .select(selectColumns)
@@ -394,7 +740,7 @@ async function loadHistorySessionForWrite(input: {
     const legacyResult = await input.supabase
       .from("shared_sheet_sessions")
       .select(
-        "remote_id,owner_user_id,display_name,timestamp,updated_at,deleted_at,data,session_overlay",
+        "remote_id,owner_user_id,display_name,timestamp,updated_at,deleted_at,payload_version,data,session_overlay",
       )
       .eq("owner_user_id", input.ownerUserId)
       .eq("remote_id", input.remoteId)
@@ -423,7 +769,7 @@ async function loadHistorySessionForWrite(input: {
   const legacyResult = await input.supabase
     .from("shared_sheet_sessions")
     .select(
-      "remote_id,owner_user_id,display_name,timestamp,updated_at,deleted_at,data,session_overlay",
+      "remote_id,owner_user_id,display_name,timestamp,updated_at,deleted_at,payload_version,data,session_overlay",
     )
     .eq("owner_user_id", input.ownerUserId)
     .eq("remote_id", input.remoteId)
@@ -527,6 +873,134 @@ async function updateHistorySessionForWrite(input: {
     .maybeSingle<HistorySessionMutationRow>();
 }
 
+async function updateGeneratedRowsHistorySessionForWrite(input: {
+  data: Json;
+  existingShopId: string | null;
+  ownerUserId: string;
+  overlay: Json;
+  remoteId: string;
+  supabase: SupabaseAdminClient;
+  updatedAt: string;
+}) {
+  const row = {
+    data: input.data,
+    payload_version: SESSION_PAYLOAD_VERSION,
+    session_overlay: input.overlay,
+    shop_id: input.existingShopId,
+    updated_at: input.updatedAt,
+  };
+  let query = input.supabase
+    .from("shared_sheet_sessions")
+    .update(row)
+    .eq("remote_id", input.remoteId)
+    .eq("owner_user_id", input.ownerUserId);
+
+  query = input.existingShopId
+    ? query.eq("shop_id", input.existingShopId)
+    : query.is("shop_id", null);
+
+  const result = await query
+    .select("remote_id,updated_at,deleted_at")
+    .maybeSingle<HistorySessionMutationRow>();
+
+  if (!result.error || !isLegacyHistorySchemaError(result.error)) {
+    return result;
+  }
+
+  const legacyRow = omitShopId(row);
+
+  return input.supabase
+    .from("shared_sheet_sessions")
+    .update(legacyRow)
+    .eq("remote_id", input.remoteId)
+    .eq("owner_user_id", input.ownerUserId)
+    .select("remote_id,updated_at,deleted_at")
+    .maybeSingle<HistorySessionMutationRow>();
+}
+
+async function insertSupplierImportHistorySession(input: {
+  ownerUserId: string;
+  payload: SupplierImportHistoryEntryPayload;
+  shopId: string;
+  supabase: SupabaseAdminClient;
+  updatedAt: string;
+}) {
+  const payloadJson = supplierImportHistoryPayloadJson(input.payload);
+  const row = {
+    category: input.payload.category,
+    data: payloadJson.data,
+    deleted_at: null,
+    display_name: input.payload.displayName,
+    is_manual_entry: input.payload.isManualEntry,
+    owner_user_id: input.ownerUserId,
+    payload_version: input.payload.payloadVersion,
+    remote_id: input.payload.remoteId,
+    session_overlay: payloadJson.sessionOverlay,
+    shop_id: input.shopId,
+    supplier: input.payload.supplier,
+    timestamp: input.payload.timestamp,
+    updated_at: input.updatedAt,
+  };
+  const result = await input.supabase.from("shared_sheet_sessions").insert(row);
+
+  if (!result.error || !isLegacyHistorySchemaError(result.error)) {
+    return result;
+  }
+
+  const legacyRow = omitShopId(row);
+
+  return input.supabase.from("shared_sheet_sessions").insert(legacyRow);
+}
+
+async function updateSupplierImportHistorySession(input: {
+  existingShopId: string | null;
+  ownerUserId: string;
+  payload: SupplierImportHistoryEntryPayload;
+  supabase: SupabaseAdminClient;
+  updatedAt: string;
+}) {
+  const payloadJson = supplierImportHistoryPayloadJson(input.payload);
+  const row = {
+    category: input.payload.category,
+    data: payloadJson.data,
+    deleted_at: null,
+    display_name: input.payload.displayName,
+    is_manual_entry: input.payload.isManualEntry,
+    owner_user_id: input.ownerUserId,
+    payload_version: input.payload.payloadVersion,
+    session_overlay: payloadJson.sessionOverlay,
+    shop_id: input.existingShopId,
+    supplier: input.payload.supplier,
+    timestamp: input.payload.timestamp,
+    updated_at: input.updatedAt,
+  };
+  let query = input.supabase
+    .from("shared_sheet_sessions")
+    .update(row)
+    .eq("remote_id", input.payload.remoteId);
+
+  query = input.existingShopId
+    ? query.eq("shop_id", input.existingShopId)
+    : query.is("shop_id", null);
+
+  const result = await query
+    .select("remote_id,updated_at,deleted_at")
+    .maybeSingle<HistorySessionMutationRow>();
+
+  if (!result.error || !isLegacyHistorySchemaError(result.error)) {
+    return result;
+  }
+
+  const legacyRow = omitShopId(row);
+
+  return input.supabase
+    .from("shared_sheet_sessions")
+    .update(legacyRow)
+    .eq("remote_id", input.payload.remoteId)
+    .select("remote_id,updated_at,deleted_at")
+    .maybeSingle<HistorySessionMutationRow>();
+}
+
 async function tombstoneHistorySessionForWrite(input: {
   deletedAt: string;
   existingShopId: string | null;
@@ -571,6 +1045,7 @@ async function tombstoneHistorySessionForWrite(input: {
 async function writeHistoryAudit(input: {
   code: string;
   context: ReadyShopActionContext;
+  metadata?: Record<string, Json>;
   operation: "create" | "tombstone" | "update";
   owner: Extract<HistoryOwnerScope, { ok: true }>;
   remoteId: string;
@@ -599,6 +1074,7 @@ async function writeHistoryAudit(input: {
         payload_version: SESSION_PAYLOAD_VERSION,
         row_count: input.rowCount,
         source: "admin_web",
+        ...(input.metadata ?? {}),
       },
       result: "success",
       scope: "shop",
@@ -616,6 +1092,7 @@ async function writeHistoryAudit(input: {
 async function emitHistorySyncEvent(input: {
   context: ReadyShopActionContext;
   eventType: "history_changed" | "history_tombstone";
+  metadata?: Record<string, Json>;
   operation: "create" | "tombstone" | "update";
   owner: Extract<HistoryOwnerScope, { ok: true }>;
   remoteId: string;
@@ -642,6 +1119,7 @@ async function emitHistorySyncEvent(input: {
       overlay_schema: SESSION_OVERLAY_SCHEMA,
       payload_version: SESSION_PAYLOAD_VERSION,
       row_count: input.rowCount,
+      ...(input.metadata ?? {}),
     },
     ownerUserId: input.owner.ownerUserId,
     shopId: input.context.selectedShop.shopId,
@@ -677,6 +1155,185 @@ function finalizeHistoryMutation(input: {
     shopId: input.context.selectedShop.shopId,
     targetId: input.remoteId,
   });
+}
+
+export async function upsertSupplierImportHistoryEntry(
+  input: SupplierImportHistoryEntryUpsertInput,
+): Promise<SupplierImportHistoryEntryUpsertResult> {
+  if (input.rows.length === 0) {
+    return {
+      code: "validation_failed",
+      message: "No supplier import rows are available for History Entry.",
+      ok: false,
+    };
+  }
+
+  const supabase = historyAdminClientForContext(input.context);
+
+  if (!supabase) {
+    return {
+      code: "not_configured",
+      message: shopAdminActionResult("not_configured").message,
+      ok: false,
+    };
+  }
+
+  const owner = await resolveHistoryOwner(input.context, supabase);
+
+  if (!owner.ok) {
+    return {
+      code: owner.result.code,
+      message: owner.result.message,
+      ok: false,
+    };
+  }
+
+  const payload = buildSupplierImportHistoryEntryPayload({
+    appliedAt: input.appliedAt,
+    categoryName: input.categoryName,
+    fileName: input.fileName,
+    previewDigest: input.previewDigest,
+    rows: input.rows,
+    shopId: input.context.selectedShop.shopId,
+    supplierName: input.supplierName,
+  });
+  const existingResult = await loadHistorySessionForWrite({
+    ownerUserId: owner.ownerUserId,
+    remoteId: payload.remoteId,
+    shopId: input.context.selectedShop.shopId,
+    supabase,
+  });
+
+  if (existingResult.error) {
+    return {
+      code: "db_failure",
+      message: shopAdminActionResult("db_failure").message,
+      ok: false,
+      remoteId: payload.remoteId,
+    };
+  }
+
+  const updatedAt = nowIso();
+  let action: "created" | "updated" = existingResult.data ? "updated" : "created";
+  const writeResult = existingResult.data
+    ? await updateSupplierImportHistorySession({
+        existingShopId: existingResult.data.shop_id,
+        ownerUserId: owner.ownerUserId,
+        payload,
+        supabase,
+        updatedAt,
+      })
+    : await insertSupplierImportHistorySession({
+        ownerUserId: owner.ownerUserId,
+        payload,
+        shopId: input.context.selectedShop.shopId,
+        supabase,
+        updatedAt,
+      });
+
+  if (writeResult.error && writeResult.error.code === "23505") {
+    action = "updated";
+    const retryExistingResult = await loadHistorySessionForWrite({
+      ownerUserId: owner.ownerUserId,
+      remoteId: payload.remoteId,
+      shopId: input.context.selectedShop.shopId,
+      supabase,
+    });
+
+    if (retryExistingResult.error || !retryExistingResult.data) {
+      return {
+        code: "db_failure",
+        message: shopAdminActionResult("db_failure").message,
+        ok: false,
+        remoteId: payload.remoteId,
+      };
+    }
+
+    const retryUpdateResult = await updateSupplierImportHistorySession({
+      existingShopId: retryExistingResult.data.shop_id,
+      ownerUserId: owner.ownerUserId,
+      payload,
+      supabase,
+      updatedAt: nowIso(),
+    });
+
+    if (retryUpdateResult.error || !retryUpdateResult.data) {
+      return {
+        code: "db_failure",
+        message: shopAdminActionResult("db_failure").message,
+        ok: false,
+        remoteId: payload.remoteId,
+      };
+    }
+  } else if (writeResult.error) {
+    return {
+      code: "db_failure",
+      message: shopAdminActionResult("db_failure").message,
+      ok: false,
+      remoteId: payload.remoteId,
+    };
+  } else if (existingResult.data && !writeResult.data) {
+    return {
+      code: "not_found",
+      message: shopAdminActionResult("not_found").message,
+      ok: false,
+      remoteId: payload.remoteId,
+    };
+  }
+
+  const auditEventId = await writeHistoryAudit({
+    code: "success",
+    context: input.context,
+    operation: action === "created" ? "create" : "update",
+    owner,
+    remoteId: payload.remoteId,
+    rowCount: payload.rowCount,
+    severity: "info",
+    supabase,
+  });
+  const syncResult = await emitHistorySyncEvent({
+    context: input.context,
+    eventType: "history_changed",
+    metadata: {
+      import_mode: "supplier",
+      source_workflow: "supplier_import",
+    },
+    operation: action === "created" ? "create" : "update",
+    owner,
+    remoteId: payload.remoteId,
+    rowCount: payload.rowCount,
+    seedTimestamp: payload.payloadHash,
+    supabase,
+  });
+
+  if (!auditEventId) {
+    return {
+      code: "db_failure",
+      message: shopAdminActionResult("db_failure").message,
+      ok: false,
+      remoteId: payload.remoteId,
+    };
+  }
+
+  if (!syncResult.ok) {
+    return {
+      code: syncResult.code,
+      message: shopAdminActionResult(syncResult.code).message,
+      ok: false,
+      remoteId: payload.remoteId,
+    };
+  }
+
+  return {
+    action,
+    displayName: payload.displayName,
+    href:
+      `/shop/history/${encodeURIComponent(payload.remoteId)}` +
+      `?shop_id=${encodeURIComponent(input.context.selectedShop.shopId)}`,
+    ok: true,
+    remoteId: payload.remoteId,
+    rowCount: payload.rowCount,
+  };
 }
 
 export async function createHistoryEntry(
@@ -892,6 +1549,205 @@ export async function updateHistoryEntry(
     seedTimestamp,
     supabase: ready.supabase,
   });
+
+  return finalizeHistoryMutation({
+    auditEventId,
+    context: ready.context,
+    remoteId,
+    syncResult,
+  });
+}
+
+export async function updateHistoryEntryGeneratedRows(
+  input: HistoryEntryGeneratedRowsUpdateInput,
+): Promise<ShopAdminActionResult> {
+  const remoteId = normalizeRemoteId(input.remoteId);
+
+  if (!isUuid(remoteId)) {
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors: { remoteId: "History remote_id must be a lowercase UUID." },
+      ok: false,
+    });
+  }
+
+  if (input.rows.length === 0 || input.rows.length > HISTORY_ENTRY_MAX_ROWS) {
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors: { rows: "At least one bounded History row edit is required." },
+      ok: false,
+    });
+  }
+
+  const ready = await resolveHistoryWriteContext(input.requestedShopId);
+
+  if (!ready.ok) {
+    return ready.result;
+  }
+
+  const existingResult = await loadHistorySessionForWrite({
+    ownerUserId: ready.owner.ownerUserId,
+    remoteId,
+    shopId: ready.context.selectedShop.shopId,
+    supabase: ready.supabase,
+  });
+
+  if (existingResult.error) {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: ready.context.selectedShop.shopId,
+      targetId: remoteId,
+    });
+  }
+
+  if (!existingResult.data) {
+    return shopAdminActionResult("not_found", {
+      ok: false,
+      shopId: ready.context.selectedShop.shopId,
+      targetId: remoteId,
+    });
+  }
+
+  if (existingResult.data.deleted_at) {
+    return shopAdminActionResult("invalid_state", {
+      ok: false,
+      shopId: ready.context.selectedShop.shopId,
+      targetId: remoteId,
+    });
+  }
+
+  if (existingResult.data.payload_version !== SESSION_PAYLOAD_VERSION) {
+    return shopAdminActionResult("invalid_state", {
+      fieldErrors: {
+        rows: "Only payload v2 History Entries can be edited from generated rows.",
+      },
+      ok: false,
+      shopId: ready.context.selectedShop.shopId,
+      targetId: remoteId,
+    });
+  }
+
+  const data = jsonGridFromExistingData(existingResult.data.data);
+
+  if (data.length === 0) {
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors: { rows: "History rows are required." },
+      ok: false,
+      shopId: ready.context.selectedShop.shopId,
+      targetId: remoteId,
+    });
+  }
+
+  const patched = applyGeneratedRowPatches({
+    data,
+    overlay: existingResult.data.session_overlay,
+    patches: input.rows,
+  });
+
+  if (!patched.ok) {
+    const fieldErrors = Object.fromEntries(
+      Object.entries(patched.fieldErrors).filter(
+        (entry): entry is [string, string] => typeof entry[1] === "string",
+      ),
+    );
+
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors,
+      ok: false,
+      shopId: ready.context.selectedShop.shopId,
+      targetId: remoteId,
+    });
+  }
+
+  if (patched.changedRows.length === 0) {
+    return shopAdminActionResult("success", {
+      ok: true,
+      shopId: ready.context.selectedShop.shopId,
+      targetId: remoteId,
+    });
+  }
+
+  const currentData = JSON.stringify(data);
+  const nextData = JSON.stringify(patched.data);
+  const currentOverlay = JSON.stringify(existingResult.data.session_overlay);
+  const nextOverlay = JSON.stringify(patched.overlay);
+  const changed = currentData !== nextData || currentOverlay !== nextOverlay;
+
+  if (!changed) {
+    return shopAdminActionResult("success", {
+      ok: true,
+      shopId: ready.context.selectedShop.shopId,
+      targetId: remoteId,
+    });
+  }
+
+  const expectedUpdatedAt =
+    input.expectedUpdatedAt ??
+    input.rows.find((row) => row.expectedUpdatedAt)?.expectedUpdatedAt;
+
+  if (expectedUpdatedAt && expectedUpdatedAt !== existingResult.data.updated_at) {
+    return shopAdminActionResult("conflict", {
+      ok: false,
+      shopId: ready.context.selectedShop.shopId,
+      targetId: remoteId,
+    });
+  }
+
+  const updateResult = await updateGeneratedRowsHistorySessionForWrite({
+    data: patched.data,
+    existingShopId: existingResult.data.shop_id,
+    ownerUserId: ready.owner.ownerUserId,
+    overlay: patched.overlay,
+    remoteId,
+    supabase: ready.supabase,
+    updatedAt: nowIso(),
+  });
+
+  if (updateResult.error) {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: ready.context.selectedShop.shopId,
+      targetId: remoteId,
+    });
+  }
+
+  if (!updateResult.data) {
+    return shopAdminActionResult("not_found", {
+      ok: false,
+      shopId: ready.context.selectedShop.shopId,
+      targetId: remoteId,
+    });
+  }
+
+  const changedRowCount = patched.changedRows.length;
+  const metadata = {
+    changed_fields: patched.changedFields,
+    changed_rows: patched.changedRows,
+    operation_detail: "generated_row_edit",
+    source_workflow: "history_detail_generated_screen",
+  } satisfies Record<string, Json>;
+  const [auditEventId, syncResult] = await Promise.all([
+    writeHistoryAudit({
+      code: "success",
+      context: ready.context,
+      metadata,
+      operation: "update",
+      owner: ready.owner,
+      remoteId,
+      rowCount: changedRowCount,
+      severity: "info",
+      supabase: ready.supabase,
+    }),
+    emitHistorySyncEvent({
+      context: ready.context,
+      eventType: "history_changed",
+      metadata,
+      operation: "update",
+      owner: ready.owner,
+      remoteId,
+      rowCount: changedRowCount,
+      seedTimestamp: updateResult.data.updated_at,
+      supabase: ready.supabase,
+    }),
+  ]);
 
   return finalizeHistoryMutation({
     auditEventId,

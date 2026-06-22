@@ -272,6 +272,18 @@ function formatTime(
   return value ? formatTimestampUtc(value, locale) : fallback;
 }
 
+function syncDiagnosticLabel(row: ShopDeviceRegistryRow, t: (value: string) => string) {
+  if (row.status !== "active") {
+    return t("Registry blocks client traffic");
+  }
+
+  if (!row.syncActivity) {
+    return t("Active registry; no linked sync event");
+  }
+
+  return t("Active registry; sync event linked");
+}
+
 function buildFilterHref({
   filter,
   requestedShopId,
@@ -681,6 +693,10 @@ function DeviceCard({
               t("No sync event")
             )
           }
+        />
+        <DeviceMetaItem
+          label={t("Registry / sync")}
+          value={syncDiagnosticLabel(row, t)}
         />
       </dl>
 

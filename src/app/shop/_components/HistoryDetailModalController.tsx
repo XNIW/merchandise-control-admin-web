@@ -1,6 +1,17 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  type ReactNode,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import {
+  buildHistoryDetailSyncAnalysisModel,
+  SyncAnalysisPanel,
+} from "./SyncAnalysisPanel";
 
 type HistoryDetailField = {
   key: string;
@@ -14,12 +25,18 @@ type HistoryDetailModalRow = {
   itemCode: string;
   barcode: string;
   productName: string;
-  quantity: string;
+  sourceQuantity: string;
+  countedQuantity: string;
   purchasePrice: string;
-  retailPrice: string;
+  salePrice: string;
   completion: string;
   productId: string | null;
   productLabel: string | null;
+  productState: "active" | "archived" | "unresolved";
+  oldPurchasePrice: string | null;
+  oldRetailPrice: string | null;
+  stockQuantity: string | null;
+  values: string;
 };
 
 type HistoryDetailModalReadModel = {
@@ -40,9 +57,14 @@ type HistoryDetailModalReadModel = {
     fields: HistoryDetailField[];
     sessionAnalysis: {
       completeCount: number;
+      entryDate: string;
       missingCount: number;
+      orderTotal: string;
+      paymentTotal: string;
       rowCount: number;
       state: "active" | "tombstone";
+      syncStateLabel: string;
+      totalQuantity: string;
       updatedAt: string;
     } | null;
   } | null;
@@ -61,19 +83,147 @@ type HistoryDetailModalReadModel = {
   }>;
 };
 
-type HistoryTab = "rows" | "missing" | "products" | "sync";
-type HistoryRowFilter = "all" | "completed" | "ignored" | "missing";
+type HistoryDetailPatchResponse = {
+  result?: {
+    code: string;
+    fieldErrors?: Record<string, string>;
+    message: string;
+    ok: boolean;
+  };
+  status: string;
+};
 
-const tabs: Array<{ key: HistoryTab; label: string }> = [
-  { key: "rows", label: "Rows preview" },
-  { key: "missing", label: "Missing / errors" },
-  { key: "products", label: "Linked products" },
-  { key: "sync", label: "Sync events" },
+type HistoryRowEditDraft = {
+  complete: boolean;
+  countedQuantity: string;
+  salePrice: string;
+};
+
+type HistoryTab = "analysis" | "rows" | "missing" | "products" | "sync";
+type HistoryRowFilter = "all" | "completed" | "ignored" | "missing";
+type HistoryDetailIconName =
+  | "calendar"
+  | "check"
+  | "clock"
+  | "device"
+  | "file"
+  | "folder"
+  | "link"
+  | "package"
+  | "source"
+  | "sync"
+  | "truck"
+  | "warning";
+
+const tabs: Array<{ icon: HistoryDetailIconName; key: HistoryTab; label: string }> = [
+  { icon: "file", key: "rows", label: "Rows preview" },
+  { icon: "sync", key: "analysis", label: "Sync analysis" },
+  { icon: "warning", key: "missing", label: "Missing / errors" },
+  { icon: "package", key: "products", label: "Linked products" },
+  { icon: "sync", key: "sync", label: "Sync events" },
 ];
 
 type TranslateFn = (value: string) => string;
 
 const identityTranslate: TranslateFn = (value) => value;
+
+function HistoryDetailIcon({ name }: { name: HistoryDetailIconName }) {
+  const commonProps = {
+    "aria-hidden": true,
+    className: "size-4 shrink-0",
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeWidth: 1.8,
+    viewBox: "0 0 24 24",
+  };
+  const paths: Record<HistoryDetailIconName, ReactNode> = {
+    calendar: (
+      <>
+        <rect height="16" rx="2" width="18" x="3" y="5" />
+        <path d="M8 3v4" />
+        <path d="M16 3v4" />
+        <path d="M3 10h18" />
+      </>
+    ),
+    check: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <path d="m8.5 12 2.4 2.4 4.8-5" />
+      </>
+    ),
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 8v5l3 2" />
+      </>
+    ),
+    device: (
+      <>
+        <rect height="16" rx="2" width="10" x="7" y="4" />
+        <path d="M11 18h2" />
+      </>
+    ),
+    file: (
+      <>
+        <path d="M6 3h8l4 4v14H6V3Z" />
+        <path d="M14 3v5h5" />
+      </>
+    ),
+    folder: (
+      <>
+        <path d="M4 6h7l2 2h7v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z" />
+        <path d="M8 13h8" />
+      </>
+    ),
+    link: (
+      <>
+        <path d="M10 13a4 4 0 0 0 5.7 0l2.3-2.3a4 4 0 0 0-5.7-5.7l-1 1" />
+        <path d="M14 11a4 4 0 0 0-5.7 0L6 13.3A4 4 0 0 0 11.7 19l1-1" />
+      </>
+    ),
+    package: (
+      <>
+        <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+        <path d="M4.5 7.5 12 12l7.5-4.5" />
+        <path d="M12 12v9" />
+      </>
+    ),
+    source: (
+      <>
+        <path d="M5 5h14v14H5z" />
+        <path d="M9 9h6" />
+        <path d="M9 13h6" />
+      </>
+    ),
+    sync: (
+      <>
+        <path d="M4 12a8 8 0 0 1 13.6-5.6" />
+        <path d="M18 3v4h-4" />
+        <path d="M20 12a8 8 0 0 1-13.6 5.6" />
+        <path d="M6 21v-4h4" />
+      </>
+    ),
+    truck: (
+      <>
+        <path d="M3 8h11v8H3z" />
+        <path d="M14 11h4l3 3v2h-7" />
+        <circle cx="7" cy="18" r="2" />
+        <circle cx="18" cy="18" r="2" />
+      </>
+    ),
+    warning: (
+      <>
+        <path d="M12 4 3 20h18L12 4Z" />
+        <path d="M12 9v5" />
+        <path d="M12 17h.01" />
+      </>
+    ),
+  };
+
+  return <svg {...commonProps}>{paths[name]}</svg>;
+}
 
 function fieldValue(
   value: string | number | null | undefined,
@@ -117,50 +267,156 @@ function isUnresolvedValue(value: string | null | undefined) {
 }
 
 function displayCell(value: string | null | undefined) {
-  return isUnresolvedValue(value) ? "-" : String(value);
+  return isUnresolvedValue(value) ? "—" : String(value);
 }
 
-function isIgnoredHistoryRow(row: HistoryDetailModalRow) {
-  if (row.rowNumber !== "1") {
+function editableCell(value: string | null | undefined) {
+  return isUnresolvedValue(value) ? "" : String(value);
+}
+
+function parseDetailNumber(value: string | null | undefined) {
+  const raw = editableCell(value).trim();
+
+  if (!raw) {
+    return null;
+  }
+
+  const normalized = raw
+    .replace(/[^\d,.-]/g, "")
+    .replace(/(?<=\d)[.,](?=\d{3}(?:\D|$))/g, "")
+    .replace(",", ".");
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatDetailNumber(value: number) {
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+  }).format(value);
+}
+
+function formatSignedDetailNumber(value: number) {
+  if (value === 0) {
+    return "0";
+  }
+
+  return `${value > 0 ? "+" : ""}${formatDetailNumber(value)}`;
+}
+
+function numbersMatch(left: string | null | undefined, right: string | null | undefined) {
+  const leftNumber = parseDetailNumber(left);
+  const rightNumber = parseDetailNumber(right);
+
+  if (leftNumber === null || rightNumber === null) {
     return false;
   }
 
+  return leftNumber === rightNumber;
+}
+
+function shouldShowOldPrice(
+  oldValue: string | null | undefined,
+  currentValue: string | null | undefined,
+) {
+  const oldNumber = parseDetailNumber(oldValue);
+
+  if (oldNumber === null || oldNumber === 0) {
+    return false;
+  }
+
+  return !numbersMatch(oldValue, currentValue);
+}
+
+function deriveCompleteFromCountedQuantity(
+  row: HistoryDetailModalRow,
+  countedQuantity: string,
+  fallbackComplete: boolean,
+) {
+  const supplierQuantity = parseDetailNumber(row.sourceQuantity);
+  const counted = parseDetailNumber(countedQuantity);
+
+  if (counted === null || counted <= 0) {
+    return false;
+  }
+
+  if (supplierQuantity === null) {
+    return fallbackComplete;
+  }
+
+  return counted >= supplierQuantity;
+}
+
+function baseRowEdit(row: HistoryDetailModalRow): HistoryRowEditDraft {
+  const countedQuantity = editableCell(row.countedQuantity);
+
+  return {
+    complete: deriveCompleteFromCountedQuantity(
+      row,
+      countedQuantity,
+      row.completion === "Complete",
+    ),
+    countedQuantity,
+    salePrice: editableCell(row.salePrice),
+  };
+}
+
+function rowDraft(
+  row: HistoryDetailModalRow,
+  edits: Record<string, HistoryRowEditDraft> = {},
+) {
+  return edits[row.rowKey] ?? baseRowEdit(row);
+}
+
+function isIgnoredHistoryRow(row: HistoryDetailModalRow) {
   const tokens = [
+    row.rowNumber,
     row.itemCode,
     row.barcode,
     row.productName,
-    row.quantity,
+    row.sourceQuantity,
+    row.countedQuantity,
     row.purchasePrice,
-    row.retailPrice,
+    row.salePrice,
+    row.values,
   ]
     .join(" ")
     .toLowerCase();
   const headerMatches = [
-    "barcode",
-    "item",
-    "product",
-    "quantity",
-    "purchase",
-    "retail",
-  ].filter((token) => tokens.includes(token));
+    /\bbarcode\b/,
+    /\bitem(\s+code|\s+number)?\b/,
+    /\bproduct(\s+name)?\b/,
+    /\bquantity\b|\bqty\b/,
+    /\bpurchase\b/,
+    /\bretail\b/,
+  ].filter((pattern) => pattern.test(tokens));
 
   return headerMatches.length >= 2;
 }
 
-function rowFilterKind(row: HistoryDetailModalRow): HistoryRowFilter {
+function rowFilterKind(
+  row: HistoryDetailModalRow,
+  draft: HistoryRowEditDraft = baseRowEdit(row),
+): HistoryRowFilter {
   if (isIgnoredHistoryRow(row)) {
     return "ignored";
   }
 
-  return row.productId || row.completion === "Complete" ? "completed" : "missing";
+  return draft.complete ? "completed" : "missing";
 }
 
-function countRowsByKind(rows: readonly HistoryDetailModalRow[]) {
+function countRowsByKind(
+  rows: readonly HistoryDetailModalRow[],
+  edits: Record<string, HistoryRowEditDraft> = {},
+) {
   return rows.reduce(
     (counts, row) => {
-      const kind = rowFilterKind(row);
+      const kind = rowFilterKind(row, rowDraft(row, edits));
       counts[kind] += 1;
-      counts.all += 1;
+      if (kind !== "ignored") {
+        counts.all += 1;
+      }
 
       return counts;
     },
@@ -168,21 +424,169 @@ function countRowsByKind(rows: readonly HistoryDetailModalRow[]) {
   );
 }
 
+function initialRowEdits(rows: readonly HistoryDetailModalRow[]) {
+  return Object.fromEntries(
+    rows.map((row) => [
+      row.rowKey,
+      baseRowEdit(row),
+    ]),
+  ) as Record<string, HistoryRowEditDraft>;
+}
+
+type HistoryRowVisualState = "complete" | "ignored" | "partial" | "unresolved";
+
+function rowVisualState(
+  row: HistoryDetailModalRow,
+  draft: HistoryRowEditDraft,
+): HistoryRowVisualState {
+  if (isIgnoredHistoryRow(row)) {
+    return "ignored";
+  }
+
+  if (!row.productId) {
+    return "unresolved";
+  }
+
+  const supplierQuantity = parseDetailNumber(row.sourceQuantity);
+  const counted = parseDetailNumber(effectiveCountedQuantity(row, draft));
+
+  if (counted === null || counted <= 0) {
+    return "unresolved";
+  }
+
+  if (supplierQuantity === null) {
+    return draft.complete ? "complete" : "unresolved";
+  }
+
+  return counted >= supplierQuantity ? "complete" : "partial";
+}
+
+function rowStateClasses(state: HistoryRowVisualState) {
+  if (state === "complete") {
+    return "border-emerald-200 bg-emerald-50/80 text-emerald-950";
+  }
+
+  if (state === "partial") {
+    return "border-amber-200 bg-amber-50/90 text-amber-950";
+  }
+
+  if (state === "ignored") {
+    return "border-zinc-200 bg-zinc-50 text-zinc-600";
+  }
+
+  return "border-zinc-100 bg-white text-zinc-950";
+}
+
+function productStatusClasses(state: HistoryDetailModalRow["productState"]) {
+  if (state === "archived") {
+    return "border-amber-200 bg-amber-50 text-amber-800";
+  }
+
+  if (state === "active") {
+    return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  }
+
+  return "border-zinc-200 bg-white text-zinc-600";
+}
+
+function effectiveCountedQuantity(row: HistoryDetailModalRow, draft: HistoryRowEditDraft) {
+  return draft.countedQuantity || editableCell(row.countedQuantity);
+}
+
+function effectiveSalePrice(row: HistoryDetailModalRow, draft: HistoryRowEditDraft) {
+  return draft.salePrice || editableCell(row.salePrice);
+}
+
+function rowQuantityDelta(row: HistoryDetailModalRow, draft: HistoryRowEditDraft) {
+  const supplier = parseDetailNumber(row.sourceQuantity);
+  const counted = parseDetailNumber(effectiveCountedQuantity(row, draft));
+
+  if (supplier === null || counted === null) {
+    return null;
+  }
+
+  return counted - supplier;
+}
+
+function rowTotalValue(row: HistoryDetailModalRow, draft: HistoryRowEditDraft) {
+  const counted = parseDetailNumber(effectiveCountedQuantity(row, draft));
+  const salePrice = parseDetailNumber(effectiveSalePrice(row, draft));
+
+  if (counted === null || salePrice === null) {
+    return null;
+  }
+
+  return counted * salePrice;
+}
+
+function paymentTotalFromRows(
+  rows: readonly HistoryDetailModalRow[],
+  edits: Record<string, HistoryRowEditDraft>,
+) {
+  let total = 0;
+  let hasValue = false;
+
+  for (const row of rows) {
+    if (isIgnoredHistoryRow(row)) {
+      continue;
+    }
+
+    const draft = rowDraft(row, edits);
+
+    if (!draft.complete) {
+      continue;
+    }
+
+    const counted =
+      parseDetailNumber(effectiveCountedQuantity(row, draft)) ??
+      parseDetailNumber(row.sourceQuantity);
+    const salePrice =
+      parseDetailNumber(effectiveSalePrice(row, draft)) ??
+      parseDetailNumber(row.purchasePrice);
+
+    if (counted === null || salePrice === null) {
+      continue;
+    }
+
+    total += counted * salePrice;
+    hasValue = true;
+  }
+
+  return hasValue ? formatDetailNumber(total) : null;
+}
+
 function SummaryCard({
+  icon,
   label,
   value,
 }: {
+  icon: HistoryDetailIconName;
   label: string;
   value: string;
 }) {
+  const compactValue = value.length > 24 || value.includes("/");
+
   return (
-    <article className="min-w-0 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-      <p className="text-xs font-semibold uppercase tracking-normal text-zinc-500">
-        {label}
-      </p>
-      <p className="mt-2 break-words text-lg font-semibold text-zinc-950 [overflow-wrap:anywhere]">
-        {value}
-      </p>
+    <article className="min-w-0 rounded-md border border-zinc-200 bg-zinc-50 p-2.5">
+      <div className="flex min-w-0 items-start gap-2">
+        <span className="grid size-7 shrink-0 place-items-center rounded-md border border-zinc-200 bg-white text-emerald-800">
+          <HistoryDetailIcon name={icon} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-normal text-zinc-500">
+            {label}
+          </p>
+          <p
+            className={[
+              "mt-1 break-words font-semibold text-zinc-950 [overflow-wrap:anywhere]",
+              compactValue ? "line-clamp-2 text-sm leading-5" : "text-base",
+            ].join(" ")}
+            title={value}
+          >
+            {value}
+          </p>
+        </div>
+      </div>
     </article>
   );
 }
@@ -202,22 +606,38 @@ function HistorySkeleton() {
 }
 
 function RowsTable({
+  editable = false,
+  edits = {},
   filter,
   labels,
+  onEdit,
+  onComplete,
   onFilterChange,
   rows,
+  saving = false,
   showFilters = true,
 }: {
+  editable?: boolean;
+  edits?: Record<string, HistoryRowEditDraft>;
   filter: HistoryRowFilter;
   labels?: Record<string, string>;
+  onEdit?: (
+    rowKey: string,
+    field: "countedQuantity" | "salePrice",
+    value: string,
+  ) => void;
+  onComplete?: (rowKey: string, value: boolean) => void;
   onFilterChange: (filter: HistoryRowFilter) => void;
   rows: readonly HistoryDetailModalRow[];
+  saving?: boolean;
   showFilters?: boolean;
 }) {
   const translate = (value: string) => labels?.[value] ?? value;
-  const counts = countRowsByKind(rows);
+  const counts = countRowsByKind(rows, edits);
   const visibleRows =
-    filter === "all" ? rows : rows.filter((row) => rowFilterKind(row) === filter);
+    filter === "all"
+      ? rows.filter((row) => rowFilterKind(row, rowDraft(row, edits)) !== "ignored")
+      : rows.filter((row) => rowFilterKind(row, rowDraft(row, edits)) === filter);
   const filters: Array<{ key: HistoryRowFilter; label: string; show?: boolean }> = [
     { key: "all", label: "All" },
     { key: "missing", label: "Missing" },
@@ -249,78 +669,262 @@ function RowsTable({
           ))}
       </div>
       ) : null}
-      <div className="max-h-[min(52vh,34rem)] overflow-auto rounded-md border border-zinc-200">
-      <table className="w-full min-w-[72rem] text-left text-sm">
+      <div
+        className="h-[min(64dvh,44rem)] min-h-80 overflow-y-auto overflow-x-hidden rounded-md border border-zinc-200"
+        data-history-detail-rows-frame
+      >
+      <table className="w-full table-fixed text-left text-sm">
+        <colgroup>
+          <col className="w-[4%]" />
+          <col className="w-[34%]" />
+          <col className="w-[9%]" />
+          <col className="w-[9%]" />
+          <col className="w-[11%]" />
+          <col className="w-[13%]" />
+          <col className="w-[10%]" />
+          <col className="w-[10%]" />
+        </colgroup>
         <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-normal text-zinc-500">
           <tr>
-            <th className="px-3 py-2">{translate("No.")}</th>
-            <th className="px-3 py-2">{translate("Item code")}</th>
-            <th className="px-3 py-2">{translate("Barcode")}</th>
-            <th className="px-3 py-2">{translate("Product name")}</th>
-            <th className="px-3 py-2">{translate("Quantity")}</th>
-            <th className="px-3 py-2">{translate("Purchase")}</th>
-            <th className="px-3 py-2">{translate("Retail")}</th>
-            <th className="px-3 py-2">{translate("Completed / Missing")}</th>
-            <th className="px-3 py-2">{translate("Product detail")}</th>
+            <th className="bg-zinc-50 px-2 py-2" rowSpan={2}>
+              {translate("No.")}
+            </th>
+            <th className="px-2 py-2" rowSpan={2}>
+              {translate("Product")}
+            </th>
+            <th className="border-l border-zinc-200 px-2 py-2" colSpan={2}>
+              {translate("Recognized from file")}
+            </th>
+            <th className="border-l border-zinc-200 px-2 py-2" colSpan={3}>
+              {translate("Import values")}
+            </th>
+            <th className="px-2 py-2" rowSpan={2}>
+              {translate("Product detail")}
+            </th>
+          </tr>
+          <tr className="border-t border-zinc-200">
+            <th className="border-l border-zinc-200 px-2 py-2">
+              <span className="sr-only">{translate("Quantity")}</span>
+              {translate("Supplier Qty")}
+            </th>
+            <th className="px-2 py-2">{translate("Purchase")}</th>
+            <th className="border-l border-zinc-200 px-2 py-2">
+              {translate("Counted Qty")}
+            </th>
+            <th className="px-2 py-2">
+              <span className="sr-only">{translate("Retail")}</span>
+              {translate("Sale Price")}
+            </th>
+            <th className="px-2 py-2">{translate("Status")}</th>
           </tr>
         </thead>
         <tbody>
           {visibleRows.length > 0 ? (
             visibleRows.map((row) => {
-              const kind = rowFilterKind(row);
+              const draft = rowDraft(row, edits);
+              const kind = rowFilterKind(row, draft);
+              const visualState = rowVisualState(row, draft);
+              const canEditRow = editable && kind !== "ignored";
+              const oldPurchaseVisible = shouldShowOldPrice(
+                row.oldPurchasePrice,
+                row.purchasePrice,
+              );
+              const oldRetailVisible = shouldShowOldPrice(
+                row.oldRetailPrice,
+                effectiveSalePrice(row, draft),
+              );
+              const quantityDelta = rowQuantityDelta(row, draft);
+              const rowTotal = rowTotalValue(row, draft);
+              const productStatus =
+                row.productState === "archived"
+                  ? translate("Archived")
+                  : row.productState === "active"
+                    ? translate("In catalog")
+                    : translate("No match");
               const status =
                 kind === "ignored"
                   ? translate("Ignored header row")
-                  : kind === "completed"
+                  : visualState === "complete"
                     ? translate("Completed")
-                    : translate("Missing");
+                    : visualState === "partial"
+                      ? translate("Partial")
+                      : row.productId
+                        ? translate("Missing")
+                        : translate("No match");
 
               return (
-              <tr className="border-t border-zinc-100" key={row.rowKey}>
-                <td className="px-3 py-2 font-mono text-xs">{row.rowNumber}</td>
-                <td className="max-w-40 truncate px-3 py-2 font-mono text-xs" title={displayCell(row.itemCode)}>
-                  {displayCell(row.itemCode)}
+              <tr
+                className={[
+                  "border-t align-top transition-colors",
+                  rowStateClasses(visualState),
+                ].join(" ")}
+                data-history-detail-row
+                data-history-row-key={row.rowKey}
+                data-history-row-state={visualState}
+                key={row.rowKey}
+              >
+                <td className="px-2 py-2 font-mono text-xs">
+                  {row.rowNumber}
                 </td>
-                <td className="max-w-44 truncate px-3 py-2 font-mono text-xs" title={displayCell(row.barcode)}>
-                  {displayCell(row.barcode)}
+                <td className="min-w-0 px-2 py-2" title={displayCell(row.productName)}>
+                  <div className="min-w-0 space-y-1.5">
+                    <p className="truncate font-medium text-zinc-950" title={displayCell(row.productName)}>
+                      {displayCell(row.productName)}
+                    </p>
+                    <p className="mt-0.5 truncate font-mono text-xs text-zinc-500">
+                      <span className="sr-only">{translate("Item code")} </span>
+                      {displayCell(row.itemCode)}
+                      <span className="mx-1 text-zinc-300">/</span>
+                      <span className="sr-only">{translate("Barcode")} </span>
+                      {displayCell(row.barcode)}
+                    </p>
+                    <div className="flex min-w-0 flex-wrap gap-1.5 text-[11px] leading-4">
+                      <span
+                        className={[
+                          "inline-flex max-w-full items-center rounded-md border px-1.5 py-0.5 font-semibold",
+                          productStatusClasses(row.productState),
+                        ].join(" ")}
+                      >
+                        <span className="truncate">{productStatus}</span>
+                      </span>
+                      {row.stockQuantity ? (
+                        <span className="inline-flex rounded-md border border-zinc-200 bg-white/70 px-1.5 py-0.5 text-zinc-600">
+                          {translate("Stock")} {displayCell(row.stockQuantity)}
+                        </span>
+                      ) : null}
+                      {oldPurchaseVisible ? (
+                        <span className="inline-flex rounded-md border border-zinc-200 bg-white/70 px-1.5 py-0.5 text-zinc-600">
+                          {translate("Old purchase")} {displayCell(row.oldPurchasePrice)}
+                        </span>
+                      ) : null}
+                      {oldRetailVisible ? (
+                        <span className="inline-flex rounded-md border border-zinc-200 bg-white/70 px-1.5 py-0.5 text-zinc-600">
+                          {translate("Old retail")} {displayCell(row.oldRetailPrice)}
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
                 </td>
-                <td className="max-w-72 truncate px-3 py-2" title={displayCell(row.productName)}>
-                  {displayCell(row.productName)}
-                </td>
-                <td className="px-3 py-2">{displayCell(row.quantity)}</td>
-                <td className="px-3 py-2">{displayCell(row.purchasePrice)}</td>
-                <td className="px-3 py-2">{displayCell(row.retailPrice)}</td>
-                <td className="px-3 py-2">
+                <td className="border-l border-zinc-100 px-2 py-2 font-mono text-sm">
                   <span
-                    className={[
-                      "inline-flex rounded-md border px-2 py-1 text-xs font-semibold",
-                      kind === "ignored"
-                        ? "border-zinc-200 bg-zinc-50 text-zinc-700"
-                        : kind === "completed"
-                          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
-                          : "border-amber-200 bg-amber-50 text-amber-800",
-                    ].join(" ")}
+                    className="inline-flex max-w-full rounded-md bg-white/70 px-2 py-1 text-zinc-700"
+                    title={displayCell(row.sourceQuantity)}
                   >
-                    {status}
+                    <span className="truncate">{displayCell(row.sourceQuantity)}</span>
                   </span>
                 </td>
-                <td className="px-3 py-2">
+                <td className="px-2 py-2 font-mono text-sm">
+                  <span
+                    className="inline-flex max-w-full rounded-md bg-white/70 px-2 py-1 text-zinc-700"
+                    title={displayCell(row.purchasePrice)}
+                  >
+                    <span className="truncate">{displayCell(row.purchasePrice)}</span>
+                  </span>
+                </td>
+                <td className="border-l border-zinc-100 px-2 py-2">
+                  {canEditRow ? (
+                    <input
+                      aria-label={`${translate("Counted Qty")} ${row.rowNumber}`}
+                      className="h-8 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+                      disabled={saving}
+                      inputMode="decimal"
+                      onChange={(event) =>
+                        onEdit?.(row.rowKey, "countedQuantity", event.target.value)
+                      }
+                      value={draft.countedQuantity}
+                    />
+                  ) : (
+                    displayCell(row.countedQuantity)
+                  )}
+                  {quantityDelta !== null ? (
+                    <p
+                      className={[
+                        "mt-1 truncate text-[11px] font-medium",
+                        quantityDelta < 0
+                          ? "text-amber-700"
+                          : quantityDelta > 0
+                            ? "text-sky-700"
+                            : "text-emerald-700",
+                      ].join(" ")}
+                      title={`${translate("Delta")} ${formatSignedDetailNumber(quantityDelta)}`}
+                    >
+                      {translate("Delta")} {formatSignedDetailNumber(quantityDelta)}
+                    </p>
+                  ) : null}
+                </td>
+                <td className="px-2 py-2">
+                  {canEditRow ? (
+                    <input
+                      aria-label={`${translate("Sale Price")} ${row.rowNumber}`}
+                      className="h-8 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+                      disabled={saving}
+                      inputMode="decimal"
+                      onChange={(event) =>
+                        onEdit?.(row.rowKey, "salePrice", event.target.value)
+                      }
+                      value={draft.salePrice}
+                    />
+                  ) : (
+                    displayCell(row.salePrice)
+                  )}
+                  <p className="mt-1 truncate text-[11px] font-medium text-zinc-600">
+                    {translate("Row total")}{" "}
+                    {rowTotal === null ? "—" : formatDetailNumber(rowTotal)}
+                  </p>
+                </td>
+                <td className="px-2 py-2">
+                  {canEditRow ? (
+                    <label className="inline-flex min-w-0 max-w-full items-center gap-1.5 text-xs font-medium text-zinc-800">
+                      <input
+                        aria-label={`${translate("Complete")} ${row.rowNumber}`}
+                        checked={draft.complete}
+                        className="size-4 rounded border-zinc-300 text-emerald-700 focus:ring-emerald-700"
+                        disabled={saving}
+                        onChange={(event) =>
+                          onComplete?.(row.rowKey, event.target.checked)
+                        }
+                        type="checkbox"
+                      />
+                      <span className="truncate">
+                        {status}
+                      </span>
+                    </label>
+                  ) : (
+                    <span
+                      className={[
+                        "inline-flex rounded-md border px-2 py-1 text-xs font-semibold",
+                        visualState === "ignored"
+                          ? "border-zinc-200 bg-zinc-50 text-zinc-700"
+                          : visualState === "complete"
+                            ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+                            : visualState === "partial"
+                              ? "border-amber-200 bg-amber-50 text-amber-800"
+                              : "border-zinc-200 bg-white text-zinc-700",
+                      ].join(" ")}
+                    >
+                      {status}
+                    </span>
+                  )}
+                </td>
+                <td className="px-2 py-2">
                   {row.productId && kind !== "ignored" ? (
                     <a
-                      className="inline-flex h-8 items-center rounded-md border border-zinc-300 px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
+                      className="inline-flex h-8 max-w-full items-center rounded-md border border-zinc-300 px-2 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
                       data-product-detail-id={row.productId}
                       data-product-detail-trigger
                       href={`/shop/products/${encodeURIComponent(row.productId)}`}
                     >
-                      {translate("Detail")}
+                      {translate("Open")}
                     </a>
                   ) : (
                     <span
                       aria-disabled="true"
-                      className="inline-flex h-8 items-center rounded-md border border-zinc-200 px-2.5 text-xs font-medium text-zinc-500"
+                      className="inline-flex h-8 max-w-full items-center rounded-md border border-zinc-200 px-2 text-xs font-medium text-zinc-500"
                       title={translate("Product not resolved from barcode or item code")}
                     >
-                      {kind === "ignored" ? translate("Ignored") : translate("No product match")}
+                      <span className="truncate">
+                        {kind === "ignored" ? translate("Ignored") : translate("No match")}
+                      </span>
                     </span>
                   )}
                 </td>
@@ -329,7 +933,7 @@ function RowsTable({
             })
           ) : (
             <tr>
-              <td className="px-3 py-5 text-zinc-500" colSpan={9}>
+              <td className="px-3 py-5 text-zinc-500" colSpan={8}>
                 {translate("No bounded row data is available for this entry.")}
               </td>
             </tr>
@@ -355,9 +959,15 @@ export function HistoryDetailModalController({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [readModel, setReadModel] = useState<HistoryDetailModalReadModel | null>(null);
+  const [rowEdits, setRowEdits] = useState<Record<string, HistoryRowEditDraft>>({});
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const detail = readModel?.detail ?? null;
   const translate = useCallback((value: string) => labels?.[value] ?? value, [labels]);
   const titleId = "history-detail-modal-title";
+  const canEditRows =
+    detail?.kind === "shared_sheet_session" &&
+    detail.sessionAnalysis?.state === "active";
 
   const loadEntry = useCallback(
     async (entryId: string) => {
@@ -380,11 +990,13 @@ export function HistoryDetailModalController({
 
         if (!response.ok || body.status !== "ready") {
           setReadModel(body);
+          setRowEdits(initialRowEdits(body.rows ?? []));
           setError(body.reason || "History detail is not available.");
           return;
         }
 
         setReadModel(body);
+        setRowEdits(initialRowEdits(body.rows ?? []));
       } catch {
         setError("History detail could not be loaded.");
       } finally {
@@ -400,6 +1012,8 @@ export function HistoryDetailModalController({
       setTab("rows");
       setRowFilter("all");
       setReadModel(null);
+      setRowEdits({});
+      setSaveMessage(null);
       void loadEntry(entryId);
     },
     [loadEntry],
@@ -408,6 +1022,161 @@ export function HistoryDetailModalController({
     setOpen(false);
     window.setTimeout(() => lastTriggerRef.current?.focus(), 0);
   }, []);
+  const updateRowEdit = useCallback(
+    (
+      rowKey: string,
+      field: "countedQuantity" | "salePrice",
+      value: string,
+    ) => {
+      const row = readModel?.rows.find((item) => item.rowKey === rowKey);
+
+      setRowEdits((current) => {
+        const base = row
+          ? rowDraft(row, current)
+          : {
+              complete: current[rowKey]?.complete ?? false,
+              countedQuantity: current[rowKey]?.countedQuantity ?? "",
+              salePrice: current[rowKey]?.salePrice ?? "",
+            };
+        const nextDraft = {
+          ...base,
+          [field]: value,
+        };
+
+        if (row && field === "countedQuantity") {
+          nextDraft.complete = deriveCompleteFromCountedQuantity(
+            row,
+            value,
+            base.complete,
+          );
+        }
+
+        return {
+          ...current,
+          [rowKey]: nextDraft,
+        };
+      });
+      setSaveMessage(null);
+    },
+    [readModel?.rows],
+  );
+  const updateRowComplete = useCallback(
+    (rowKey: string, value: boolean) => {
+      const row = readModel?.rows.find((item) => item.rowKey === rowKey);
+
+      setRowEdits((current) => {
+        const base = row
+          ? rowDraft(row, current)
+          : {
+              complete: current[rowKey]?.complete ?? false,
+              countedQuantity: current[rowKey]?.countedQuantity ?? "",
+              salePrice: current[rowKey]?.salePrice ?? "",
+            };
+
+        return {
+          ...current,
+          [rowKey]: {
+            ...base,
+            complete: value
+              ? row
+                ? deriveCompleteFromCountedQuantity(
+                    row,
+                    base.countedQuantity,
+                    true,
+                  )
+                : false
+              : false,
+          },
+        };
+      });
+      setSaveMessage(null);
+    },
+    [readModel?.rows],
+  );
+  const rowEditPatches = useMemo(() => {
+    const rows = readModel?.rows ?? [];
+
+    return rows
+      .map((row) => {
+        const draft = rowDraft(row, rowEdits);
+        const countedQuantityChanged =
+          draft.countedQuantity !== editableCell(row.countedQuantity);
+        const salePriceChanged = draft.salePrice !== editableCell(row.salePrice);
+        const completeChanged = draft.complete !== (row.completion === "Complete");
+
+        if (!countedQuantityChanged && !salePriceChanged && !completeChanged) {
+          return null;
+        }
+
+        return {
+          complete: draft.complete,
+          countedQuantity: draft.countedQuantity,
+          rowKey: row.rowKey,
+          salePrice: draft.salePrice,
+        };
+      })
+      .filter((row): row is {
+        complete: boolean;
+        countedQuantity: string;
+        rowKey: string;
+        salePrice: string;
+      } => Boolean(row));
+  }, [readModel?.rows, rowEdits]);
+  const hasRowEditChanges = rowEditPatches.length > 0;
+  const saveGeneratedRows = useCallback(async () => {
+    if (!detail || !canEditRows || rowEditPatches.length === 0) {
+      return;
+    }
+
+    const params = new URLSearchParams({ entry_id: detail.entryId });
+
+    if (requestedShopId) {
+      params.set("shop_id", requestedShopId);
+    }
+
+    setSaving(true);
+    setError(null);
+    setSaveMessage(null);
+
+    try {
+      const response = await fetch(`/shop/history/detail?${params.toString()}`, {
+        body: JSON.stringify({
+          expectedUpdatedAt: detail.sessionAnalysis?.updatedAt,
+          rows: rowEditPatches,
+        }),
+        cache: "no-store",
+        credentials: "same-origin",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        method: "PATCH",
+      });
+      const body = (await response.json()) as HistoryDetailPatchResponse;
+
+      if (!response.ok || body.result?.ok !== true) {
+        const fieldError = body.result?.fieldErrors
+          ? Object.values(body.result.fieldErrors)[0]
+          : null;
+        setError(fieldError ?? body.result?.message ?? translate("Save failed"));
+        return;
+      }
+
+      await loadEntry(detail.entryId);
+      setSaveMessage(translate("History Entry updated"));
+    } catch {
+      setError(translate("Save failed"));
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    canEditRows,
+    detail,
+    loadEntry,
+    requestedShopId,
+    rowEditPatches,
+    translate,
+  ]);
 
   useEffect(() => {
     const onClick = (event: MouseEvent) => {
@@ -457,38 +1226,77 @@ export function HistoryDetailModalController({
 
   const summaryCards = useMemo(() => {
     const rows = readModel?.rows ?? [];
-    const rowCounts = countRowsByKind(rows);
-    const completed =
-      detail?.sessionAnalysis?.completeCount ?? rowCounts.completed;
-    const missing =
-      detail?.sessionAnalysis?.missingCount ?? readModel?.missingRows.length ?? 0;
-    const rowsInFile =
-      detail?.sessionAnalysis?.rowCount ?? detail?.recordCount ?? rows.length;
-    const sourceValue = detail?.sourceDeviceId ?? detail?.source ?? null;
-
-    return [
+    const rowCounts = countRowsByKind(rows, rowEdits);
+    const completed = rowCounts.completed;
+    const missing = rowCounts.missing;
+    const items = completed + missing;
+    const livePaymentTotal = paymentTotalFromRows(rows, rowEdits);
+    const cards: Array<{
+      icon: HistoryDetailIconName;
+      label: string;
+      value: string;
+    }> = [
       {
-        label: translate("Products detected"),
-        value: String(readModel?.linkedProducts.length ?? 0),
+        icon: "package" as const,
+        label: translate("Items"),
+        value: String(items),
       },
       {
-        label: translate("Rows in file"),
-        value: String(rowsInFile),
+        icon: "file" as const,
+        label: translate("Total quantity"),
+        value: fieldValue(detail?.sessionAnalysis?.totalQuantity, translate),
       },
       {
-        label: translate("Completed"),
-        value: String(completed),
+        icon: "truck" as const,
+        label: translate("Order"),
+        value: fieldValue(detail?.sessionAnalysis?.orderTotal, translate),
       },
       {
-        label: translate("Missing products"),
+        icon: "check" as const,
+        label: translate("Paid"),
+        value: fieldValue(
+          livePaymentTotal ?? detail?.sessionAnalysis?.paymentTotal,
+          translate,
+        ),
+      },
+      {
+        icon: "warning" as const,
+        label: translate("Missing"),
         value: String(missing),
       },
       {
-        label: detail?.sourceDeviceId ? translate("Device") : translate("Source"),
-        value: fieldValue(sourceValue, translate),
+        icon: "source" as const,
+        label: translate("Source"),
+        value: fieldValue(detail?.source, translate),
       },
     ];
-  }, [detail, readModel, translate]);
+
+    if (detail?.sourceDeviceId) {
+      cards.push({
+        icon: "device" as const,
+        label: translate("Device"),
+        value: detail.sourceDeviceId,
+      });
+    }
+
+    return cards;
+  }, [detail, readModel, rowEdits, translate]);
+  const syncAnalysisModel = useMemo(() => {
+    const rows = readModel?.rows ?? [];
+    const rowCounts = countRowsByKind(rows, rowEdits);
+    const unresolvedProductRowCount = rows.filter(
+      (row) => rowFilterKind(row, rowDraft(row, rowEdits)) !== "ignored" && !row.productId,
+    ).length;
+
+    return buildHistoryDetailSyncAnalysisModel({
+      detail,
+      linkedProductCount: readModel?.linkedProducts.length,
+      missingRowCount: rowCounts.missing,
+      rowCount: rows.length,
+      syncEvents: readModel?.syncEvents,
+      unresolvedProductRowCount,
+    });
+  }, [detail, readModel, rowEdits]);
 
   if (!open) {
     return null;
@@ -510,49 +1318,112 @@ export function HistoryDetailModalController({
             <>
               <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white">
                 <div className="flex min-w-0 flex-col gap-3 px-4 py-3 lg:flex-row lg:items-start lg:justify-between">
-                  <div className="min-w-0">
-                    <h2
-                      className="line-clamp-2 break-words text-xl font-semibold leading-7 text-zinc-950 [overflow-wrap:anywhere]"
-                      id={titleId}
-                      title={detail?.title ?? translate("History entry detail")}
-                    >
-                      {detail?.title ?? translate("History entry detail")}
-                    </h2>
-                    <p className="mt-1 break-words text-sm text-zinc-600 [overflow-wrap:anywhere]">
-                      {fieldValue(detailField(readModel, "supplier"), translate)} / {fieldValue(detailField(readModel, "category"), translate)}
-                    </p>
-                    <div className="mt-2 flex flex-wrap gap-2">
-                      <span className="inline-flex rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">
-                        {detail?.kind === "sync_event"
-                          ? translate("Sync event")
-                          : translate("History entry")}
-                      </span>
-                      <span className="inline-flex rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-700">
-                        {translate("Created")} {formatDate(detail?.createdAt, translate)}
-                      </span>
-                      <span
-                        className={[
-                          "inline-flex rounded-md border px-2 py-1 text-xs font-semibold",
-                          detail?.sessionAnalysis?.state === "tombstone"
-                            ? "border-amber-200 bg-amber-50 text-amber-800"
-                            : "border-emerald-200 bg-emerald-50 text-emerald-800",
-                        ].join(" ")}
+                  <div className="flex min-w-0 items-start gap-3">
+                    <span className="mt-0.5 grid size-10 shrink-0 place-items-center rounded-md border border-sky-200 bg-sky-50 text-sky-800">
+                      <HistoryDetailIcon name="file" />
+                    </span>
+                    <div className="min-w-0">
+                      <h2
+                        className="line-clamp-2 break-words text-xl font-semibold leading-7 text-zinc-950 [overflow-wrap:anywhere]"
+                        id={titleId}
+                        title={detail?.title ?? translate("History entry detail")}
                       >
-                        {detail?.sessionAnalysis?.state === "tombstone"
-                          ? translate("Deleted")
-                          : detail?.kind === "sync_event"
-                            ? translate("Synced")
-                            : translate("Active")}
-                      </span>
+                        {detail?.title ?? translate("History entry detail")}
+                      </h2>
+                      <div className="mt-2 flex min-w-0 flex-wrap gap-2 text-xs text-zinc-700">
+                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1">
+                          <HistoryDetailIcon name="truck" />
+                          <span className="min-w-0 truncate">
+                            {fieldValue(detailField(readModel, "supplier"), translate)}
+                          </span>
+                        </span>
+                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1">
+                          <HistoryDetailIcon name="folder" />
+                          <span className="min-w-0 truncate">
+                            {fieldValue(detailField(readModel, "category"), translate)}
+                          </span>
+                        </span>
+                        <span className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1">
+                          <HistoryDetailIcon name="source" />
+                          <span className="min-w-0 truncate">
+                            {fieldValue(detail?.source, translate)}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">
+                          <HistoryDetailIcon name={detail?.kind === "sync_event" ? "sync" : "file"} />
+                          {detail?.kind === "sync_event"
+                            ? translate("Sync event")
+                            : translate("History entry")}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-700">
+                          <HistoryDetailIcon name="calendar" />
+                          {translate(
+                            detail?.kind === "shared_sheet_session"
+                              ? "Entry date"
+                              : "Created",
+                          )}{" "}
+                          {formatDate(
+                            detail?.sessionAnalysis?.entryDate ?? detail?.createdAt,
+                            translate,
+                          )}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-700">
+                          <HistoryDetailIcon name="clock" />
+                          {translate("Updated")}{" "}
+                          {formatDate(detail?.sessionAnalysis?.updatedAt, translate)}
+                        </span>
+                        <span
+                          className={[
+                            "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold",
+                            detail?.sessionAnalysis?.state === "tombstone"
+                              ? "border-amber-200 bg-amber-50 text-amber-800"
+                              : "border-emerald-200 bg-emerald-50 text-emerald-800",
+                          ].join(" ")}
+                        >
+                          <HistoryDetailIcon
+                            name={
+                              detail?.sessionAnalysis?.state === "tombstone"
+                                ? "warning"
+                                : "check"
+                            }
+                          />
+                          {detail?.sessionAnalysis?.state === "tombstone"
+                            ? translate("Deleted")
+                            : detail?.kind === "sync_event"
+                              ? translate("Synced")
+                              : translate("Active")}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                  <button
-                    className="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800"
-                    onClick={closeModal}
-                    type="button"
-                  >
-                    {translate("Close")}
-                  </button>
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {canEditRows ? (
+                      <button
+                        className={[
+                          "inline-flex h-9 items-center justify-center rounded-md border px-3 text-sm font-medium",
+                          hasRowEditChanges && !saving
+                            ? "border-emerald-700 bg-emerald-900 text-white hover:bg-emerald-800"
+                            : "border-zinc-200 bg-zinc-100 text-zinc-500",
+                        ].join(" ")}
+                        disabled={!hasRowEditChanges || saving}
+                        onClick={() => void saveGeneratedRows()}
+                        type="button"
+                      >
+                        {saving
+                          ? translate("Saving")
+                          : translate("Save changes")}
+                      </button>
+                    ) : null}
+                    <button
+                      className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800"
+                      onClick={closeModal}
+                      type="button"
+                    >
+                      {translate("Close")}
+                    </button>
+                  </div>
                 </div>
               </header>
 
@@ -562,11 +1433,21 @@ export function HistoryDetailModalController({
                     {error}
                   </p>
                 ) : null}
+                {saveMessage ? (
+                  <p className="mb-4 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-950">
+                    {saveMessage}
+                  </p>
+                ) : null}
                 {detail ? (
                   <div className="grid gap-5">
-                    <section className="grid gap-3 md:grid-cols-5">
+                    <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
                       {summaryCards.map((card) => (
-                        <SummaryCard key={card.label} label={card.label} value={card.value} />
+                        <SummaryCard
+                          icon={card.icon}
+                          key={card.label}
+                          label={card.label}
+                          value={card.value}
+                        />
                       ))}
                     </section>
 
@@ -580,7 +1461,7 @@ export function HistoryDetailModalController({
                           aria-controls={`history-detail-panel-${item.key}`}
                           aria-selected={tab === item.key}
                           className={[
-                            "h-10 shrink-0 border-b-2 px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700",
+                            "inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700",
                             tab === item.key
                               ? "border-emerald-700 text-emerald-800"
                               : "border-transparent text-zinc-600 hover:text-zinc-950",
@@ -591,6 +1472,7 @@ export function HistoryDetailModalController({
                           role="tab"
                           type="button"
                         >
+                          <HistoryDetailIcon name={item.icon} />
                           {translate(item.label)}
                         </button>
                       ))}
@@ -603,10 +1485,28 @@ export function HistoryDetailModalController({
                         role="tabpanel"
                       >
                         <RowsTable
+                          editable={canEditRows}
+                          edits={rowEdits}
                           filter={rowFilter}
                           labels={labels}
+                          onComplete={updateRowComplete}
+                          onEdit={updateRowEdit}
                           onFilterChange={setRowFilter}
                           rows={readModel?.rows ?? []}
+                          saving={saving}
+                        />
+                      </section>
+                    ) : null}
+
+                    {tab === "analysis" ? (
+                      <section
+                        aria-labelledby="history-detail-tab-analysis"
+                        id="history-detail-panel-analysis"
+                        role="tabpanel"
+                      >
+                        <SyncAnalysisPanel
+                          labels={labels}
+                          model={syncAnalysisModel}
                         />
                       </section>
                     ) : null}

@@ -3,13 +3,17 @@ import {
   CatalogActionPanel,
   type CatalogSupplierOption,
 } from "@/app/shop/_components/CatalogActionPanel";
+import {
+  CatalogEntityList,
+  CatalogEntityPagination,
+} from "@/app/shop/_components/CatalogEntityList";
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
-import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
 import { resolveShopActionContext } from "@/server/shop-admin/action-context";
 import {
+  getShopCatalogOptionsReadModel,
   getShopSuppliersPageReadModel,
   type ShopCatalogOptionsReadModel,
 } from "@/server/shop-admin/inventory-read-model";
@@ -24,9 +28,13 @@ export const dynamic = "force-dynamic";
 
 type ShopPageSearchParams = Promise<{
   action?: string | string[];
+  page?: string | string[];
+  pageSize?: string | string[];
+  q?: string | string[];
   query?: string | string[];
   result?: string | string[];
   shop_id?: string | string[];
+  state?: string | string[];
   supplier_action?: string | string[];
   supplier_id?: string | string[];
 }>;
@@ -40,20 +48,74 @@ function getParam(
   return Array.isArray(value) ? value[0] : value;
 }
 
-function buildClearFiltersHref(requestedShopId?: string) {
-  if (!requestedShopId) {
-    return "/shop/suppliers";
+function getFirstParam(
+  searchParams: Record<string, string | string[] | undefined>,
+  keys: readonly string[],
+) {
+  for (const key of keys) {
+    const value = getParam(searchParams, key);
+
+    if (value) {
+      return value;
+    }
   }
 
-  return `/shop/suppliers?${new URLSearchParams({
-    shop_id: requestedShopId,
-  }).toString()}`;
+  return undefined;
+}
+
+function normalizeCatalogEntityState(value?: string) {
+  return value === "archived" || value === "all" ? value : "active";
+}
+
+function normalizePageSize(value?: string) {
+  return value === "25" || value === "50" || value === "100" || value === "200"
+    ? value
+    : "10";
+}
+
+function buildSuppliersHref(input: {
+  page?: number | string | null;
+  pageSize?: number | string | null;
+  query?: string | null;
+  requestedShopId?: string | null;
+  state?: string | null;
+}) {
+  const nextParams = new URLSearchParams();
+
+  if (input.requestedShopId) {
+    nextParams.set("shop_id", input.requestedShopId);
+  }
+
+  if (input.query) {
+    nextParams.set("q", input.query);
+  }
+
+  if (input.state && input.state !== "active") {
+    nextParams.set("state", input.state);
+  }
+
+  if (input.page && String(input.page) !== "1") {
+    nextParams.set("page", String(input.page));
+  }
+
+  if (input.pageSize && String(input.pageSize) !== "10") {
+    nextParams.set("pageSize", String(input.pageSize));
+  }
+
+  const query = nextParams.toString();
+
+  return query ? `/shop/suppliers?${query}` : "/shop/suppliers";
+}
+
+function buildClearFiltersHref(requestedShopId?: string) {
+  return buildSuppliersHref({ requestedShopId });
 }
 
 function mapSupplierOptions(
   rows: ShopCatalogOptionsReadModel["suppliers"],
 ): CatalogSupplierOption[] {
   return rows.map((supplier) => ({
+    activeProductsCount: supplier.activeProductsCount,
     name: supplier.name,
     supplierId: supplier.supplierId,
   }));
@@ -77,13 +139,30 @@ function buildSupplierActionHref(
   supplierId: string,
 ) {
   const nextParams = new URLSearchParams();
+  const requestedShopId = getParam(params, "shop_id");
+  const searchQuery = getFirstParam(params, ["q", "query"]);
+  const page = getParam(params, "page");
+  const pageSize = normalizePageSize(getParam(params, "pageSize"));
+  const state = normalizeCatalogEntityState(getParam(params, "state"));
 
-  for (const key of ["shop_id", "query"]) {
-    const value = getParam(params, key);
+  if (requestedShopId) {
+    nextParams.set("shop_id", requestedShopId);
+  }
 
-    if (value) {
-      nextParams.set(key, value);
-    }
+  if (searchQuery) {
+    nextParams.set("q", searchQuery);
+  }
+
+  if (state !== "active") {
+    nextParams.set("state", state);
+  }
+
+  if (page && page !== "1") {
+    nextParams.set("page", page);
+  }
+
+  if (pageSize !== "10") {
+    nextParams.set("pageSize", pageSize);
   }
 
   nextParams.set("supplier_action", action);
@@ -98,8 +177,8 @@ function SupplierRowActions({
   row,
 }: {
   labels: {
-    archive: string;
-    update: string;
+    delete: string;
+    rename: string;
   };
   params: Record<string, string | string[] | undefined>;
   row: AdminDataTableRow;
@@ -113,8 +192,8 @@ function SupplierRowActions({
   return (
     <div className="flex min-w-0 flex-wrap gap-2">
       {[
-        { action: "edit" as const, label: labels.update },
-        { action: "archive" as const, label: labels.archive },
+        { action: "edit" as const, label: labels.rename },
+        { action: "archive" as const, label: labels.delete },
       ].map((item) => (
         <a
           key={item.action}
@@ -136,26 +215,60 @@ export default async function ShopSuppliersPage({
   const { dictionary } = await getI18n();
   const params = await searchParams;
   const requestedShopId = getParam(params, "shop_id");
-  const activeFilterCount = [getParam(params, "query")].filter((value) =>
+  const selectedQuery = getFirstParam(params, ["q", "query"]) ?? "";
+  const selectedState = normalizeCatalogEntityState(getParam(params, "state"));
+  const selectedPage = getParam(params, "page") ?? "1";
+  const selectedPageSize = normalizePageSize(getParam(params, "pageSize"));
+  const activeFilterCount = [
+    selectedQuery,
+    selectedState === "active" ? undefined : selectedState,
+  ].filter((value) =>
     Boolean(value?.trim()),
   ).length;
   const [catalogReadModel, suppliersContext] = await Promise.all([
-    getShopSuppliersPageReadModel({ requestedShopId }),
+    getShopSuppliersPageReadModel({
+      filters: {
+        query: selectedQuery,
+        state: selectedState,
+      },
+      page: selectedPage,
+      pageSize: selectedPageSize,
+      requestedShopId,
+    }),
     resolveShopActionContext(requestedShopId, "suppliers.write"),
   ]);
+  const catalogOptionsReadModel = suppliersContext.status === "ready"
+    ? await getShopCatalogOptionsReadModel({ requestedShopId })
+    : catalogReadModel;
   const section = await getShopSectionForRequest("suppliers", requestedShopId, {
     catalogOptionsReadModel: catalogReadModel,
     catalogFilters: {
-      query: getParam(params, "query"),
+      query: selectedQuery,
+      state: selectedState,
     },
   });
   const canManageSuppliers = suppliersContext.status === "ready";
-  const supplierOptions = mapSupplierOptions(catalogReadModel.suppliers);
+  const supplierOptions = mapSupplierOptions(catalogOptionsReadModel.suppliers);
   const supplierDialog = getSupplierDialog(getParam(params, "supplier_action"));
   const supplierDialogId = getParam(params, "supplier_id") ?? "";
   const rowActionLabels = {
-    archive: translateText(dictionary, "Archive"),
-    update: translateText(dictionary, "Update"),
+    delete: translateText(dictionary, "Delete"),
+    rename: translateText(dictionary, "Rename"),
+  };
+  const listLabels = {
+    actions: translateText(dictionary, "Rename or delete"),
+    linkedProducts: translateText(dictionary, "linked products"),
+    updated: translateText(dictionary, "Updated"),
+  };
+  const paginationLabels = {
+    applyPage: translateText(dictionary, "Go"),
+    goToPage: translateText(dictionary, "Go to page"),
+    next: translateText(dictionary, "Next"),
+    of: translateText(dictionary, "of"),
+    page: translateText(dictionary, "Page"),
+    pagination: translateText(dictionary, "Suppliers pagination"),
+    previous: translateText(dictionary, "Previous"),
+    rowsOnThisPage: translateText(dictionary, "Rows on this page"),
   };
   const catalogToolbar = canManageSuppliers ? (
     <CatalogActionPanel
@@ -171,46 +284,82 @@ export default async function ShopSuppliersPage({
 
   return (
     <div className="grid gap-5">
-      <form
-        action="/shop/suppliers"
-        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_auto]`}
-      >
-        {requestedShopId ? (
-          <input name="shop_id" type="hidden" value={requestedShopId} />
-        ) : null}
-        <label className="grid gap-1 text-sm font-medium text-zinc-800">
-          {dictionary.shopFilters.search}
-          <input
-            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
-            defaultValue={getParam(params, "query") ?? ""}
-            name="query"
-            type="search"
-          />
-        </label>
-        <div className="flex flex-wrap items-end gap-2 self-end">
-          <button className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white">
-            {dictionary.common.applyFilters}
-          </button>
-          {activeFilterCount > 0 ? (
-            <a
-              className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800"
-              href={buildClearFiltersHref(requestedShopId)}
-            >
-              {dictionary.common.clearFilters}
-            </a>
-          ) : null}
-        </div>
-      </form>
-      <ActionResultBanner
-        action={getParam(params, "action")}
-        result={getParam(params, "result")}
-      />
       <ShopSectionPage
-        liveDataToolbar={catalogToolbar}
+        beforeLiveData={
+          <>
+            <form
+              action="/shop/suppliers"
+              className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3 shadow-sm md:grid-cols-[minmax(0,1fr)_minmax(0,9rem)_auto]"
+              method="get"
+            >
+              {requestedShopId ? (
+                <input name="shop_id" type="hidden" value={requestedShopId} />
+              ) : null}
+              <input name="page" type="hidden" value="1" />
+              <label className="grid gap-1 text-sm font-medium text-zinc-800">
+                {dictionary.shopFilters.search}
+                <input
+                  className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+                  defaultValue={selectedQuery}
+                  name="q"
+                  type="search"
+                />
+              </label>
+              <label className="grid gap-1 text-sm font-medium text-zinc-800">
+                {translateText(dictionary, "Page size")}
+                <select
+                  className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+                  defaultValue={selectedPageSize}
+                  name="pageSize"
+                >
+                  <option value="10">10</option>
+                  <option value="25">25</option>
+                  <option value="50">50</option>
+                  <option value="100">100</option>
+                  <option value="200">200</option>
+                </select>
+              </label>
+              <div className="flex flex-wrap items-end gap-2 self-end">
+                <button className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white">
+                  {dictionary.common.applyFilters}
+                </button>
+                {activeFilterCount > 0 ? (
+                  <a
+                    className="rounded-md border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-800"
+                    href={buildClearFiltersHref(requestedShopId)}
+                  >
+                    {dictionary.common.clearFilters}
+                  </a>
+                ) : null}
+              </div>
+            </form>
+            {catalogToolbar}
+            <ActionResultBanner
+              action={getParam(params, "action")}
+              result={getParam(params, "result")}
+            />
+            <CatalogEntityPagination
+              basePath="/shop/suppliers"
+              filters={catalogReadModel.filters}
+              labels={paginationLabels}
+              pagination={catalogReadModel.pagination}
+              placement="top"
+              requestedShopId={requestedShopId}
+            />
+          </>
+        }
+        renderLiveData={({ liveData, rowActions }) => (
+          <CatalogEntityList
+            icon="supplier"
+            labels={listLabels}
+            liveData={liveData}
+            rowActions={rowActions}
+          />
+        )}
         rowActions={
           canManageSuppliers
             ? {
-                label: dictionary.common.actions,
+                label: listLabels.actions,
                 render: (row) => (
                   <SupplierRowActions
                     labels={rowActionLabels}
@@ -222,6 +371,14 @@ export default async function ShopSuppliersPage({
             : undefined
         }
         section={section}
+      />
+      <CatalogEntityPagination
+        basePath="/shop/suppliers"
+        filters={catalogReadModel.filters}
+        labels={paginationLabels}
+        pagination={catalogReadModel.pagination}
+        placement="bottom"
+        requestedShopId={requestedShopId}
       />
     </div>
   );

@@ -65,7 +65,7 @@ test("TASK-052 Shop diagnostics are centralized in the sidebar instead of repeat
   const shopSections = readProjectFile("src/components/shop/shopSections.ts");
   const dictionary = readProjectFile("src/i18n/dictionaries.ts");
 
-  assert.doesNotMatch(sectionPage, /<details/);
+  assert.match(sectionPage, /Technical details/);
   assert.doesNotMatch(sectionPage, />\s*Diagnostics\s*</);
   assert.doesNotMatch(sectionPage, /GuardrailNotice/);
   assert.doesNotMatch(shell, /GuardrailNotice/);

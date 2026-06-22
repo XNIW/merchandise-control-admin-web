@@ -4,8 +4,8 @@
 
 - ID: `TASK-078`
 - Titolo: `Admin Console Product and History Entry detail modals`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
+- Stato: `DONE_RECONCILED`
+- Fase attuale: `DONE_RECONCILED`
 - Data apertura: `2026-06-20`
 - Origine: brief utente allegato `Titolo: TASK-078 - Admin Console Product and History Entry Detail Modals Contes...`
 - File Master Plan: `docs/MASTER-PLAN.md`
@@ -54,8 +54,8 @@ primo render, per non riaprire il problema prestazionale emerso in `TASK-077B`.
 | CA-02 | Product Detail Modal carica on-demand, mostra summary, tabs e azioni principali. | `PASS` |
 | CA-03 | Product Edit e nello stesso modal con Save/Cancel e server actions esistenti. | `PASS` |
 | CA-04 | History Entry Detail Modal carica on-demand righe, missing/errors, prodotti collegati, sync events e diagnostica redatta/collapsed. | `PASS` |
-| CA-05 | History Entries list e piu leggibile senza usare il read model pieno nel primo render. | `PASS_WITH_NOTES` |
-| CA-06 | Check reali eseguiti o motivati `NOT_RUN`/`BLOCKED`. | `PASS_WITH_WARNINGS` |
+| CA-05 | History Entries list e piu leggibile senza usare il read model pieno nel primo render. | `PASS` |
+| CA-06 | Check reali eseguiti o motivati `NOT_RUN`/`BLOCKED`. | `PASS` |
 
 ## Fonti lette
 
@@ -97,20 +97,34 @@ primo render, per non riaprire il problema prestazionale emerso in `TASK-077B`.
 - Aggiornata la History Entries list con layout card/table ibrido; i conteggi
   pesanti restano differiti al Detail.
 
-## Handoff REVIEW
+## Final Review / DONE Reconciliation
 
-Verdict: `REVIEW`.
+Verdict: `DONE_RECONCILED`.
 
-I modali sono pronti per revisione funzionale e visiva. La scelta
-prestazionale principale e conservativa: Product detail, History rows e raw
-diagnostics passano da route handler on-demand e non vengono aggiunti al read
-model di primo render della pagina Products.
+Il task base e riconciliato con i follow-up `TASK-078B` e `TASK-078C`.
+Product detail, Product edit inline, History Entry detail e History Entries
+list sono stati verificati con review statica, gate foundation e visual QA
+locale autenticata con fixture sintetica. La scelta prestazionale resta
+conservativa: Product detail, History rows e raw diagnostics passano da route
+handler on-demand e non vengono aggiunti al read model di primo render.
 
-Check finali: targeted TASK-078 `PASS` 5/5, `typecheck` PASS, `lint` PASS,
-`security:scan` PASS, `test:foundation` PASS 414/414, `build` e `verify`
+Correzioni finali applicate durante la riconciliazione:
+
+- chiuse le stringhe i18n mancanti per label History tecniche e light-list;
+- rimossa una regressione prestazionale che richiamava `loadHistorySummary`
+  nel read model light della History list;
+- aggiornato lo smoke locale alla copia paginazione `at least`;
+- reso piu compatto il valore lungo `Source` nelle summary card History.
+- riallineato il guardrail statico TASK-054 al nuovo ultimo task chiuso
+  `TASK-078C`.
+
+Check finali: targeted TASK-078 `PASS` 5/5, targeted History sync console
+`PASS` 6/6, targeted Product list readability `PASS` 6/6, targeted i18n
+TASK-062/TASK-068 `PASS`, `security:scan` PASS, `test:foundation` PASS
+414/414, `typecheck` PASS, `lint` PASS, `build` e `verify`
 `PASS_WITH_WARNINGS` per warning noti Next `middleware` deprecato e Node
-`DEP0205`, `git diff --check` PASS, probe HTTP locale `/shop/products` PASS
-su dev server esistente `127.0.0.1:3055`.
+`DEP0205`, `test:shop:local` PASS 5/5, Playwright visual TASK-078C locale
+`PASS`, `git diff --check` PASS.
 
 ## Check
 

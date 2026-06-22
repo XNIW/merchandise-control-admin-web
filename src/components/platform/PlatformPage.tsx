@@ -16,7 +16,7 @@ import {
 } from "@/i18n/translate-sections";
 import { isAccountIdentitySummary } from "@/lib/account-identity";
 import { PlatformMasterDetail } from "./PlatformMasterDetail";
-import type { PlatformSection, RowDetailField } from "./platformData";
+import type { PlatformSection, RowDetailField, StatItem } from "./platformData";
 
 type PlatformPageProps = {
   children?: ReactNode;
@@ -70,6 +70,21 @@ const mutedBadgeValues = new Set([
   "Not configured",
   "Unassigned",
 ]);
+
+const technicalStatLabels = new Set([
+  "Boundary",
+  "Catalog scope",
+  "Diagnostics",
+  "Mapping",
+  "Read boundary",
+  "Rows",
+  "Source",
+  "Supabase",
+]);
+
+function isTechnicalStat(stat: StatItem) {
+  return technicalStatLabels.has(stat.label);
+}
 
 function badgeClassForValue(value: string, label?: string) {
   const normalizedLabel = label ?? "";
@@ -275,6 +290,22 @@ export async function PlatformPage({
       />
     </div>
   );
+  const statPairs = localizedSection.stats.map((stat, index) => ({
+    source: section.stats[index] ?? stat,
+    stat,
+  }));
+  const preferredStats = statPairs.filter(
+    (entry) => !isTechnicalStat(entry.source),
+  );
+  const primaryStatPairs = (
+    preferredStats.length > 0 ? preferredStats : statPairs
+  ).slice(0, 4);
+  const primaryStatSourceLabels = new Set(
+    primaryStatPairs.map((entry) => entry.source.label),
+  );
+  const secondaryStatPairs = statPairs.filter(
+    (entry) => !primaryStatSourceLabels.has(entry.source.label),
+  );
 
   return (
     <AppShell
@@ -302,6 +333,41 @@ export async function PlatformPage({
           </nav>
         ) : null}
 
+        <section
+          aria-label={`${localizedSection.title} metrics`}
+          className="grid gap-3 md:grid-cols-3 xl:grid-cols-4"
+        >
+          {primaryStatPairs.map(({ stat }) => (
+            <StatCard key={stat.label} stat={stat} />
+          ))}
+        </section>
+
+        {secondaryStatPairs.length > 0 ? (
+          <details className="rounded-md border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700">
+            <summary className="cursor-pointer font-semibold text-slate-950">
+              {translateText(dictionary, "Technical details")}
+            </summary>
+            <dl className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+              {secondaryStatPairs.map(({ stat }) => (
+                <div
+                  className="min-w-0 rounded-md border border-slate-200 bg-slate-50 px-3 py-2"
+                  key={stat.label}
+                >
+                  <dt className="text-xs font-semibold text-slate-500">
+                    {stat.label}
+                  </dt>
+                  <dd className="mt-1 break-words text-sm font-semibold text-slate-950 [overflow-wrap:anywhere]">
+                    {stat.value}
+                  </dd>
+                  <dd className="mt-0.5 break-words text-xs leading-5 text-slate-600 [overflow-wrap:anywhere]">
+                    {stat.detail}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </details>
+        ) : null}
+
         {localizedSection.purposeItems &&
         localizedSection.purposeItems.length > 0 ? (
           <section
@@ -325,15 +391,6 @@ export async function PlatformPage({
             </dl>
           </section>
         ) : null}
-
-        <section
-          aria-label={`${localizedSection.title} metrics`}
-          className="grid gap-3 md:grid-cols-3 xl:grid-cols-4"
-        >
-          {localizedSection.stats.map((stat) => (
-            <StatCard key={stat.label} stat={stat} />
-          ))}
-        </section>
 
         {hasDetailSections ? (
           <section

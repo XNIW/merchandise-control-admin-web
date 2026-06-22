@@ -10,9 +10,9 @@ import {
   type UiTextMap,
 } from "@/app/shop/_components/ImportExportActionPanel";
 import {
-  archiveCategoryAction,
+  archiveCategoryWithStrategyAction,
   archiveProductAction,
-  archiveSupplierAction,
+  archiveSupplierWithStrategyAction,
   createCategoryAction,
   createProductAction,
   createSupplierAction,
@@ -21,6 +21,7 @@ import {
   updateProductAction,
   updateSupplierAction,
 } from "@/app/shop/actions";
+import { CreatableCatalogCombobox } from "@/app/shop/_components/CreatableCatalogCombobox";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 
 export type CatalogProductOption = {
@@ -37,11 +38,13 @@ export type CatalogProductOption = {
 };
 
 export type CatalogCategoryOption = {
+  activeProductsCount: number;
   categoryId: string;
   name: string;
 };
 
 export type CatalogSupplierOption = {
+  activeProductsCount: number;
   name: string;
   supplierId: string;
 };
@@ -371,36 +374,24 @@ function CreatableSupplierField({
   const defaultSupplier = suppliers.find(
     (supplier) => supplier.supplierId === defaultSupplierId,
   );
-  const [supplierName, setSupplierName] = useState(defaultSupplier?.name ?? "");
-  const selectedSupplier = suppliers.find(
-    (supplier) =>
-      supplier.name.toLowerCase() === supplierName.trim().toLowerCase(),
-  );
 
   return (
-    <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-800">
-      Existing supplier or new supplier name
-      <input
-        className={catalogInputClassName}
-        list="supplier-options"
-        name="supplierName"
-        onChange={(event) => setSupplierName(event.currentTarget.value)}
-        value={supplierName}
-      />
-      <input
-        name="supplierId"
-        type="hidden"
-        value={selectedSupplier?.supplierId ?? ""}
-      />
-      <datalist id="supplier-options">
-        {suppliers.map((supplier) => (
-          <option key={supplier.supplierId} value={supplier.name} />
-        ))}
-      </datalist>
-      <span className="text-xs font-normal text-zinc-500">
-        Select an existing supplier or type a new supplier name.
-      </span>
-    </label>
+    <CreatableCatalogCombobox
+      className={catalogInputClassName}
+      createLabel="Create new supplier"
+      defaultId={defaultSupplierId}
+      defaultName={defaultSupplier?.name}
+      description="Select an existing supplier or type a new supplier name."
+      idName="supplierId"
+      label="Existing supplier or new supplier name"
+      name="supplierName"
+      noResultsLabel="No supplier suggestions"
+      options={suppliers.map((supplier) => ({
+        id: supplier.supplierId,
+        name: supplier.name,
+      }))}
+      suggestionsLabel="Supplier suggestions"
+    />
   );
 }
 
@@ -414,36 +405,24 @@ function CreatableCategoryField({
   const defaultCategory = categories.find(
     (category) => category.categoryId === defaultCategoryId,
   );
-  const [categoryName, setCategoryName] = useState(defaultCategory?.name ?? "");
-  const selectedCategory = categories.find(
-    (category) =>
-      category.name.toLowerCase() === categoryName.trim().toLowerCase(),
-  );
 
   return (
-    <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-800">
-      Existing category or new category name
-      <input
-        className={catalogInputClassName}
-        list="category-options"
-        name="categoryName"
-        onChange={(event) => setCategoryName(event.currentTarget.value)}
-        value={categoryName}
-      />
-      <input
-        name="categoryId"
-        type="hidden"
-        value={selectedCategory?.categoryId ?? ""}
-      />
-      <datalist id="category-options">
-        {categories.map((category) => (
-          <option key={category.categoryId} value={category.name} />
-        ))}
-      </datalist>
-      <span className="text-xs font-normal text-zinc-500">
-        Select an existing category or type a new category name.
-      </span>
-    </label>
+    <CreatableCatalogCombobox
+      className={catalogInputClassName}
+      createLabel="Create new category"
+      defaultId={defaultCategoryId}
+      defaultName={defaultCategory?.name}
+      description="Select an existing category or type a new category name."
+      idName="categoryId"
+      label="Existing category or new category name"
+      name="categoryName"
+      noResultsLabel="No category suggestions"
+      options={categories.map((category) => ({
+        id: category.categoryId,
+        name: category.name,
+      }))}
+      suggestionsLabel="Category suggestions"
+    />
   );
 }
 
@@ -578,6 +557,10 @@ function SelectedEntitySummary({ children }: { children: React.ReactNode }) {
       {children}
     </p>
   );
+}
+
+function linkedProductsLabel(count: number, t: (value: string) => string) {
+  return `${count} ${t("linked products")}`;
 }
 
 function ProductsDialogs({
@@ -880,6 +863,14 @@ function CategoryDialogs({
   const selectedCategory = categories.find(
     (category) => category.categoryId === selectedEntityId,
   );
+  const replacementCategoryOptions = categories
+    .filter((category) => category.categoryId !== selectedCategory?.categoryId)
+    .map((category) => ({
+      id: category.categoryId,
+      label: category.name,
+    }));
+  const selectedCategoryLinkedProducts =
+    selectedCategory?.activeProductsCount ?? 0;
 
   return (
     <>
@@ -902,7 +893,7 @@ function CategoryDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "editCategory"}
-        title={t("Update category")}
+        title={t("Rename category")}
       >
         <DialogFormShell>
           <form action={updateCategoryAction} className={catalogFormClassName}>
@@ -915,7 +906,8 @@ function CategoryDialogs({
                   value={selectedCategory.categoryId}
                 />
                 <SelectedEntitySummary>
-                  {t("Updating")} {selectedCategory.name}
+                  {t("Renaming")} {selectedCategory.name} ·{" "}
+                  {linkedProductsLabel(selectedCategoryLinkedProducts, t)}
                 </SelectedEntitySummary>
               </>
             ) : (
@@ -934,7 +926,7 @@ function CategoryDialogs({
               required
             />
             <button className={catalogButtonClassName}>
-              {t("Update category")}
+              {t("Rename category")}
             </button>
           </form>
         </DialogFormShell>
@@ -943,48 +935,179 @@ function CategoryDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "archiveCategory"}
-        title={t("Archive category")}
+        title={t("Delete category")}
       >
-        <DialogFormShell>
-          <form action={archiveCategoryAction} className={catalogFormClassName}>
-            <HiddenShopInput selectedShopId={selectedShopId} />
-            {selectedCategory ? (
-              <>
-                <input
-                  name="categoryId"
-                  type="hidden"
-                  value={selectedCategory.categoryId}
+        <div className="grid gap-3">
+          <p className="text-sm leading-6 text-zinc-600">
+            {selectedCategory
+              ? `${selectedCategory.name} ${t("is linked to")} ${linkedProductsLabel(
+                  selectedCategoryLinkedProducts,
+                  t,
+                )}.`
+              : t("Choose the category to delete.")}
+          </p>
+          {selectedCategoryLinkedProducts === 0 ? (
+            <DialogFormShell>
+              <form
+                action={archiveCategoryWithStrategyAction}
+                className={catalogFormClassName}
+              >
+                <HiddenShopInput selectedShopId={selectedShopId} />
+                <input name="strategy" type="hidden" value="delete_if_unused" />
+                {selectedCategory ? (
+                  <>
+                    <input
+                      name="categoryId"
+                      type="hidden"
+                      value={selectedCategory.categoryId}
+                    />
+                    <SelectedEntitySummary>
+                      {t("Deleting")} {selectedCategory.name}
+                    </SelectedEntitySummary>
+                  </>
+                ) : (
+                  <EntityPicker
+                    defaultEntityId={selectedEntityId}
+                    emptyLabel={t("Select category")}
+                    label={t("Category")}
+                    name="categoryId"
+                    options={categoryOptions}
+                  />
+                )}
+                <TextInput
+                  description={t(auditReasonDescription)}
+                  label={t("Reason")}
+                  maxLength={240}
+                  name="reason"
+                  required
                 />
-                <SelectedEntitySummary>
-                  {t("Archiving")} {selectedCategory.name}
-                </SelectedEntitySummary>
-              </>
-            ) : (
-              <EntityPicker
-                defaultEntityId={selectedEntityId}
-                emptyLabel={t("Select category")}
-                label={t("Category")}
-                name="categoryId"
-                options={categoryOptions}
-              />
-            )}
-            <TextInput
-              description={t(auditReasonDescription)}
-              label={t("Reason")}
-              maxLength={240}
-              name="reason"
-              required
-            />
-            <TextInput
-              label="Type ARCHIVE as confirmation"
-              name="confirmation"
-              required
-            />
-            <button className={catalogArchiveButtonClassName}>
-              {t("Archive category")}
-            </button>
-          </form>
-        </DialogFormShell>
+                <TextInput
+                  label="Type ARCHIVE as confirmation"
+                  name="confirmation"
+                  required
+                />
+                <button className={catalogArchiveButtonClassName}>
+                  {t("Delete category")}
+                </button>
+              </form>
+            </DialogFormShell>
+          ) : (
+            <>
+              <DialogFormShell>
+                <form
+                  action={archiveCategoryWithStrategyAction}
+                  className={catalogFormClassName}
+                >
+                  <HiddenShopInput selectedShopId={selectedShopId} />
+                  <input
+                    name="categoryId"
+                    type="hidden"
+                    value={selectedCategory?.categoryId ?? ""}
+                  />
+                  <input name="strategy" type="hidden" value="replace_existing" />
+                  <SelectedEntitySummary>
+                    {t("Replace with existing")} ·{" "}
+                    {linkedProductsLabel(selectedCategoryLinkedProducts, t)}
+                  </SelectedEntitySummary>
+                  <EntityPicker
+                    emptyLabel={t("Select category")}
+                    label={t("Replacement category")}
+                    name="replacementId"
+                    options={replacementCategoryOptions}
+                  />
+                  <TextInput
+                    description={t(auditReasonDescription)}
+                    label={t("Reason")}
+                    maxLength={240}
+                    name="reason"
+                    required
+                  />
+                  <TextInput
+                    label="Type ARCHIVE as confirmation"
+                    name="confirmation"
+                    required
+                  />
+                  <button className={catalogArchiveButtonClassName}>
+                    {t("Replace and delete")}
+                  </button>
+                </form>
+              </DialogFormShell>
+
+              <DialogFormShell>
+                <form
+                  action={archiveCategoryWithStrategyAction}
+                  className={catalogFormClassName}
+                >
+                  <HiddenShopInput selectedShopId={selectedShopId} />
+                  <input
+                    name="categoryId"
+                    type="hidden"
+                    value={selectedCategory?.categoryId ?? ""}
+                  />
+                  <input name="strategy" type="hidden" value="create_replacement" />
+                  <SelectedEntitySummary>
+                    {t("Create new and replace")} ·{" "}
+                    {linkedProductsLabel(selectedCategoryLinkedProducts, t)}
+                  </SelectedEntitySummary>
+                  <TextInput
+                    label={t("Replacement category name")}
+                    name="replacementName"
+                    required
+                  />
+                  <TextInput
+                    description={t(auditReasonDescription)}
+                    label={t("Reason")}
+                    maxLength={240}
+                    name="reason"
+                    required
+                  />
+                  <TextInput
+                    label="Type ARCHIVE as confirmation"
+                    name="confirmation"
+                    required
+                  />
+                  <button className={catalogArchiveButtonClassName}>
+                    {t("Create, replace and delete")}
+                  </button>
+                </form>
+              </DialogFormShell>
+
+              <DialogFormShell>
+                <form
+                  action={archiveCategoryWithStrategyAction}
+                  className={catalogFormClassName}
+                >
+                  <HiddenShopInput selectedShopId={selectedShopId} />
+                  <input
+                    name="categoryId"
+                    type="hidden"
+                    value={selectedCategory?.categoryId ?? ""}
+                  />
+                  <input name="strategy" type="hidden" value="clear_assignments" />
+                  <SelectedEntitySummary>
+                    {t("Remove assignment")} ·{" "}
+                    {linkedProductsLabel(selectedCategoryLinkedProducts, t)}
+                  </SelectedEntitySummary>
+                  <TextInput
+                    description={t(auditReasonDescription)}
+                    label={t("Reason")}
+                    maxLength={240}
+                    name="reason"
+                    required
+                  />
+                  <TextInput
+                    label="Type ARCHIVE as confirmation"
+                    name="confirmation"
+                    required
+                  />
+                  <button className={catalogArchiveButtonClassName}>
+                    {t("Remove assignment and delete")}
+                  </button>
+                </form>
+              </DialogFormShell>
+            </>
+          )}
+        </div>
       </CatalogDialog>
     </>
   );
@@ -1012,6 +1135,14 @@ function SupplierDialogs({
   const selectedSupplier = suppliers.find(
     (supplier) => supplier.supplierId === selectedEntityId,
   );
+  const replacementSupplierOptions = suppliers
+    .filter((supplier) => supplier.supplierId !== selectedSupplier?.supplierId)
+    .map((supplier) => ({
+      id: supplier.supplierId,
+      label: supplier.name,
+    }));
+  const selectedSupplierLinkedProducts =
+    selectedSupplier?.activeProductsCount ?? 0;
 
   return (
     <>
@@ -1034,7 +1165,7 @@ function SupplierDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "editSupplier"}
-        title={t("Update supplier")}
+        title={t("Rename supplier")}
       >
         <DialogFormShell>
           <form action={updateSupplierAction} className={catalogFormClassName}>
@@ -1047,7 +1178,8 @@ function SupplierDialogs({
                   value={selectedSupplier.supplierId}
                 />
                 <SelectedEntitySummary>
-                  {t("Updating")} {selectedSupplier.name}
+                  {t("Renaming")} {selectedSupplier.name} ·{" "}
+                  {linkedProductsLabel(selectedSupplierLinkedProducts, t)}
                 </SelectedEntitySummary>
               </>
             ) : (
@@ -1066,7 +1198,7 @@ function SupplierDialogs({
               required
             />
             <button className={catalogButtonClassName}>
-              {t("Update supplier")}
+              {t("Rename supplier")}
             </button>
           </form>
         </DialogFormShell>
@@ -1075,48 +1207,179 @@ function SupplierDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "archiveSupplier"}
-        title={t("Archive supplier")}
+        title={t("Delete supplier")}
       >
-        <DialogFormShell>
-          <form action={archiveSupplierAction} className={catalogFormClassName}>
-            <HiddenShopInput selectedShopId={selectedShopId} />
-            {selectedSupplier ? (
-              <>
-                <input
-                  name="supplierId"
-                  type="hidden"
-                  value={selectedSupplier.supplierId}
+        <div className="grid gap-3">
+          <p className="text-sm leading-6 text-zinc-600">
+            {selectedSupplier
+              ? `${selectedSupplier.name} ${t("is linked to")} ${linkedProductsLabel(
+                  selectedSupplierLinkedProducts,
+                  t,
+                )}.`
+              : t("Choose the supplier to delete.")}
+          </p>
+          {selectedSupplierLinkedProducts === 0 ? (
+            <DialogFormShell>
+              <form
+                action={archiveSupplierWithStrategyAction}
+                className={catalogFormClassName}
+              >
+                <HiddenShopInput selectedShopId={selectedShopId} />
+                <input name="strategy" type="hidden" value="delete_if_unused" />
+                {selectedSupplier ? (
+                  <>
+                    <input
+                      name="supplierId"
+                      type="hidden"
+                      value={selectedSupplier.supplierId}
+                    />
+                    <SelectedEntitySummary>
+                      {t("Deleting")} {selectedSupplier.name}
+                    </SelectedEntitySummary>
+                  </>
+                ) : (
+                  <EntityPicker
+                    defaultEntityId={selectedEntityId}
+                    emptyLabel={t("Select supplier")}
+                    label={t("Supplier")}
+                    name="supplierId"
+                    options={supplierOptions}
+                  />
+                )}
+                <TextInput
+                  description={t(auditReasonDescription)}
+                  label={t("Reason")}
+                  maxLength={240}
+                  name="reason"
+                  required
                 />
-                <SelectedEntitySummary>
-                  {t("Archiving")} {selectedSupplier.name}
-                </SelectedEntitySummary>
-              </>
-            ) : (
-              <EntityPicker
-                defaultEntityId={selectedEntityId}
-                emptyLabel={t("Select supplier")}
-                label={t("Supplier")}
-                name="supplierId"
-                options={supplierOptions}
-              />
-            )}
-            <TextInput
-              description={t(auditReasonDescription)}
-              label={t("Reason")}
-              maxLength={240}
-              name="reason"
-              required
-            />
-            <TextInput
-              label="Type ARCHIVE as confirmation"
-              name="confirmation"
-              required
-            />
-            <button className={catalogArchiveButtonClassName}>
-              {t("Archive supplier")}
-            </button>
-          </form>
-        </DialogFormShell>
+                <TextInput
+                  label="Type ARCHIVE as confirmation"
+                  name="confirmation"
+                  required
+                />
+                <button className={catalogArchiveButtonClassName}>
+                  {t("Delete supplier")}
+                </button>
+              </form>
+            </DialogFormShell>
+          ) : (
+            <>
+              <DialogFormShell>
+                <form
+                  action={archiveSupplierWithStrategyAction}
+                  className={catalogFormClassName}
+                >
+                  <HiddenShopInput selectedShopId={selectedShopId} />
+                  <input
+                    name="supplierId"
+                    type="hidden"
+                    value={selectedSupplier?.supplierId ?? ""}
+                  />
+                  <input name="strategy" type="hidden" value="replace_existing" />
+                  <SelectedEntitySummary>
+                    {t("Replace with existing")} ·{" "}
+                    {linkedProductsLabel(selectedSupplierLinkedProducts, t)}
+                  </SelectedEntitySummary>
+                  <EntityPicker
+                    emptyLabel={t("Select supplier")}
+                    label={t("Replacement supplier")}
+                    name="replacementId"
+                    options={replacementSupplierOptions}
+                  />
+                  <TextInput
+                    description={t(auditReasonDescription)}
+                    label={t("Reason")}
+                    maxLength={240}
+                    name="reason"
+                    required
+                  />
+                  <TextInput
+                    label="Type ARCHIVE as confirmation"
+                    name="confirmation"
+                    required
+                  />
+                  <button className={catalogArchiveButtonClassName}>
+                    {t("Replace and delete")}
+                  </button>
+                </form>
+              </DialogFormShell>
+
+              <DialogFormShell>
+                <form
+                  action={archiveSupplierWithStrategyAction}
+                  className={catalogFormClassName}
+                >
+                  <HiddenShopInput selectedShopId={selectedShopId} />
+                  <input
+                    name="supplierId"
+                    type="hidden"
+                    value={selectedSupplier?.supplierId ?? ""}
+                  />
+                  <input name="strategy" type="hidden" value="create_replacement" />
+                  <SelectedEntitySummary>
+                    {t("Create new and replace")} ·{" "}
+                    {linkedProductsLabel(selectedSupplierLinkedProducts, t)}
+                  </SelectedEntitySummary>
+                  <TextInput
+                    label={t("Replacement supplier name")}
+                    name="replacementName"
+                    required
+                  />
+                  <TextInput
+                    description={t(auditReasonDescription)}
+                    label={t("Reason")}
+                    maxLength={240}
+                    name="reason"
+                    required
+                  />
+                  <TextInput
+                    label="Type ARCHIVE as confirmation"
+                    name="confirmation"
+                    required
+                  />
+                  <button className={catalogArchiveButtonClassName}>
+                    {t("Create, replace and delete")}
+                  </button>
+                </form>
+              </DialogFormShell>
+
+              <DialogFormShell>
+                <form
+                  action={archiveSupplierWithStrategyAction}
+                  className={catalogFormClassName}
+                >
+                  <HiddenShopInput selectedShopId={selectedShopId} />
+                  <input
+                    name="supplierId"
+                    type="hidden"
+                    value={selectedSupplier?.supplierId ?? ""}
+                  />
+                  <input name="strategy" type="hidden" value="clear_assignments" />
+                  <SelectedEntitySummary>
+                    {t("Remove assignment")} ·{" "}
+                    {linkedProductsLabel(selectedSupplierLinkedProducts, t)}
+                  </SelectedEntitySummary>
+                  <TextInput
+                    description={t(auditReasonDescription)}
+                    label={t("Reason")}
+                    maxLength={240}
+                    name="reason"
+                    required
+                  />
+                  <TextInput
+                    label="Type ARCHIVE as confirmation"
+                    name="confirmation"
+                    required
+                  />
+                  <button className={catalogArchiveButtonClassName}>
+                    {t("Remove assignment and delete")}
+                  </button>
+                </form>
+              </DialogFormShell>
+            </>
+          )}
+        </div>
       </CatalogDialog>
     </>
   );

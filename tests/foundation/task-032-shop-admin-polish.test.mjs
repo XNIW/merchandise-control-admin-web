@@ -35,10 +35,12 @@ test("TASK-032 catalog filters expose operator copy and a clear path", () => {
 test("TASK-032 category and supplier lists expose ids required by action forms", () => {
   const sectionData = readProjectFile("src/server/shop-admin/shop-section-data.ts");
 
-  assert.match(sectionData, /\{ key: "categoryId", label: "Category id" \}/);
+  assert.match(sectionData, /rowKey: category\.categoryId/);
   assert.match(sectionData, /categoryId: category\.categoryId/);
-  assert.match(sectionData, /\{ key: "supplierId", label: "Supplier id" \}/);
+  assert.match(sectionData, /id: category\.categoryId/);
+  assert.match(sectionData, /rowKey: supplier\.supplierId/);
   assert.match(sectionData, /supplierId: supplier\.supplierId/);
+  assert.match(sectionData, /id: supplier\.supplierId/);
 });
 
 test("TASK-032 evidence tracks Shop Admin polish decisions", () => {

@@ -71,7 +71,7 @@ test("TASK-077 Staff resolves rows and permissions in one server-only bundle", (
   assertContains(staffReadModel, "canManageRolePermissionsFromAccess");
 });
 
-test("TASK-077 History list avoids count exact, diagnostics and legacy-heavy first paint", () => {
+test("TASK-077 History list avoids count exact and legacy-heavy first paint", () => {
   const historyPage = read("src/app/shop/history/page.tsx");
   const historyReadModel = read("src/server/shop-admin/history-read-model.ts");
   const sectionData = read("src/server/shop-admin/shop-section-data.ts");
@@ -86,7 +86,8 @@ test("TASK-077 History list avoids count exact, diagnostics and legacy-heavy fir
   assert.doesNotMatch(historyPage, /getShopHistoryReadModel/);
   assert.doesNotMatch(listBody, /loadHistorySummary/);
   assert.doesNotMatch(listBody, /count:\s*"exact"/);
-  assert.doesNotMatch(listBody, /shared_sheet_session_diagnostics/);
+  assertContains(listBody, "loadHistoryListDiagnostics");
+  assertContains(listBody, "shared_sheet_session_diagnostics");
   assertContains(listBody, "loadHistoryListSessions");
   assertContains(sectionData, "readModel.listMode === \"light\"");
   assertContains(sectionData, "Diagnostics");

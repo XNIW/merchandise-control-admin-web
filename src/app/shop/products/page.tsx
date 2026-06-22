@@ -6,6 +6,7 @@ import type {
 } from "@/app/shop/_components/CatalogActionPanel";
 import { HistoryDetailModalController } from "@/app/shop/_components/HistoryDetailModalController";
 import { ProductDetailModalController } from "@/app/shop/_components/ProductDetailModalController";
+import { ProductSearchCombobox } from "@/app/shop/products/_components/ProductSearchCombobox";
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
@@ -171,11 +172,11 @@ function buildClearFiltersHref(requestedShopId?: string, pageSize?: string) {
 }
 
 const filterLabelClassName =
-  "grid min-w-0 gap-1 text-sm font-medium text-zinc-800";
+  "grid min-w-0 gap-1 text-xs font-medium text-zinc-700";
 const filterInputClassName =
-  "h-10 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none";
+  "h-9 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2.5 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none";
 const filterButtonClassName =
-  "inline-flex h-10 items-center justify-center gap-1.5 rounded-md px-4 text-sm font-medium";
+  "inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium";
 
 type ProductsIconName =
   | "archive"
@@ -352,6 +353,7 @@ function mapCategoryOptions(
   rows: readonly ShopInventoryCategory[],
 ): CatalogCategoryOption[] {
   return rows.map((category) => ({
+    activeProductsCount: category.activeProductsCount,
     categoryId: category.categoryId,
     name: category.name,
   }));
@@ -361,6 +363,7 @@ function mapSupplierOptions(
   rows: readonly ShopInventorySupplier[],
 ): CatalogSupplierOption[] {
   return rows.map((supplier) => ({
+    activeProductsCount: supplier.activeProductsCount,
     name: supplier.name,
     supplierId: supplier.supplierId,
   }));
@@ -455,9 +458,14 @@ function buildProductsPageSection(input: {
             ? "Read blocked"
             : "Unavailable",
       metrics: [
-        metric("Total products", "0", "Server-side count unavailable", "muted"),
-        metric("Current page rows", "0", "No fallback rows are rendered", "muted"),
-        metric("Catalog scope", catalogScopeLabel(page.catalogScope), page.reason, "warning"),
+        metric(
+          "Total products",
+          "Total unavailable",
+          "Server-side count unavailable",
+          "muted",
+        ),
+        metric("Results", "0", "No fallback rows are rendered", "muted"),
+        metric("Filters", String(activeFilterCount), "Search/category/supplier/state"),
       ],
       liveData: {
         title: "Shop catalog data",
@@ -489,21 +497,6 @@ function buildProductsPageSection(input: {
       : page.filters.state === "all"
         ? page.summary.productsTotal
         : page.summary.activeProducts;
-  const hasRowsOnPage = pagination.currentPageRows > 0;
-  const loadedLowerBoundCount =
-    !hasRowsOnPage
-      ? 0
-      : pagination.totalCountStatus === "exact"
-        ? pagination.totalCount > pagination.rangeEnd
-          ? pagination.rangeEnd + 1
-          : pagination.rangeEnd
-        : pagination.rangeEnd + (pagination.hasNextPage ? 1 : 0);
-  const lowerBoundValue =
-    pagination.totalCountStatus === "exact" &&
-    hasRowsOnPage &&
-    pagination.totalCount <= pagination.rangeEnd
-      ? formatNumber(loadedLowerBoundCount)
-      : `${formatNumber(loadedLowerBoundCount)}+`;
   const pageRange =
     pagination.rangeStart > 0 && pagination.rangeEnd > 0
       ? `${formatNumber(pagination.rangeStart)}-${formatNumber(
@@ -516,75 +509,34 @@ function buildProductsPageSection(input: {
     description:
       pagination.totalCountStatus === "exact"
         ? "Shop catalog products for the verified selected shop. Rows are paginated server-side with exact count and current page range."
-        : "Shop catalog products for the verified selected shop. First paint loads the current page and defers exact totals.",
+        : "Shop catalog products for the verified selected shop. Rows are paginated server-side; exact count is unavailable for this request.",
     status: pagination.currentPageRows > 0 ? "Live actions" : "Products empty",
     metrics: [
       metric(
-        "Exact total",
+        "Total products",
         pagination.totalCountStatus === "exact"
           ? formatNumber(exactTotalForState)
-          : "Calculating...",
+          : "Total unavailable",
         pagination.totalCountStatus === "exact"
-          ? "Server-side catalog count for the selected state"
-          : "Deferred to keep first paint lightweight",
+          ? "Selected state total"
+          : "Server-side count unavailable",
       ),
       metric(
-        "Filtered exact total",
+        "Results",
         pagination.totalCountStatus === "exact"
           ? formatNumber(pagination.totalCount)
-          : "Calculating...",
+          : formatRange(page),
         pagination.totalCountStatus === "exact"
-          ? "Server-side filtered rows"
-          : "Search/filter count is server-side and still deferred",
-      ),
-      metric(
-        "Loaded lower bound",
-        lowerBoundValue,
-        pagination.totalCountStatus === "exact"
-          ? "Fallback page lower bound; exact total is shown separately"
-          : "Pagination lower bound from loaded pages, not a catalog total",
-        "warning",
-      ),
-      metric(
-        "Current page",
-        pageRange,
-        `${formatNumber(pagination.currentPageRows)} rows rendered`,
-      ),
-      metric(
-        "Current page rows",
-        formatNumber(pagination.currentPageRows),
-        "Showing current page",
-      ),
-      ...(pagination.totalCountStatus === "exact"
-        ? [
-            metric(
-              "Archived products",
-              formatNumber(page.summary.archivedProducts),
-              "Mapped catalog total",
-            ),
-            metric(
-              "Price history rows",
-              formatNumber(page.summary.priceRows),
-              "Mapped catalog total",
-            ),
-          ]
-        : []),
-      metric(
-        "Range",
-        formatRange(page),
-        pagination.totalCountStatus === "exact"
-          ? `Page ${pagination.page} of ${pagination.totalPages}`
-          : pagination.hasNextPage
-            ? `Page ${pagination.page} of ${pagination.totalPages}+`
-            : `Page ${pagination.page}`,
+          ? `${pageRange} shown on this page`
+          : "Filtered range loaded",
       ),
       metric("Filters", String(activeFilterCount), "Search/category/supplier/state"),
       metric(
-        "Search scope",
-        "Server-side",
-        "Search runs across all matching products before pagination",
-        "good",
+        "Page",
+        `${pagination.page}/${pagination.totalPages}`,
+        `${formatNumber(pagination.currentPageRows)} rows rendered`,
       ),
+      metric("Range", formatRange(page), page.reason),
       metric("Catalog scope", catalogScopeLabel(page.catalogScope), page.reason, "good"),
       metric("Writes", "Audited", "Create/update/archive/restore via server actions", "good"),
     ],
@@ -593,7 +545,7 @@ function buildProductsPageSection(input: {
       description:
         pagination.totalCountStatus === "exact"
           ? "Only current page rows are rendered. Search and filters run server-side before count/range."
-          : "Only current page rows are rendered. Search and filters run server-side across the catalog; exact totals and heavy summary counts are deferred from first paint.",
+          : "Only current page rows are rendered. Search and filters run server-side across the catalog.",
       columns: [
         { key: "productId", label: "Product id", cellVariant: "code" },
         {
@@ -635,10 +587,6 @@ function getProductDialog(action?: string) {
     return "newProduct" as const;
   }
 
-  if (action === "edit") {
-    return "editProduct" as const;
-  }
-
   if (action === "archive") {
     return "archiveProduct" as const;
   }
@@ -672,7 +620,6 @@ function canOpenProductDialog(
 ) {
   switch (dialog) {
     case "newProduct":
-    case "editProduct":
     case "archiveProduct":
     case "restoreProduct":
       return permissions.canManageProducts;
@@ -688,7 +635,7 @@ function canOpenProductDialog(
 
 function buildProductActionHref(
   params: Record<string, string | string[] | undefined>,
-  action: "archive" | "edit" | "restore",
+  action: "archive" | "restore",
   productId: string,
 ) {
   const nextParams = new URLSearchParams();
@@ -777,9 +724,10 @@ function buildProductDetailHref(
     nextParams.set("pageSize", pageSize);
   }
 
-  const query = nextParams.toString();
+  nextParams.set("product_action", "detail");
+  nextParams.set("product_id", productId);
 
-  return `/shop/products/${encodeURIComponent(productId)}${query ? `?${query}` : ""}`;
+  return `/shop/products?${nextParams.toString()}`;
 }
 
 function buildProductGlobalActionHref(
@@ -839,7 +787,6 @@ function ProductRowActions({
   labels: {
     archive: string;
     detail: string;
-    edit: string;
     restore: string;
   };
   params: Record<string, string | string[] | undefined>;
@@ -855,10 +802,7 @@ function ProductRowActions({
   const actions = canManageProducts
     ? isArchived
       ? [{ action: "restore" as const, icon: "restore" as const, label: labels.restore }]
-      : [
-          { action: "edit" as const, icon: "pencil" as const, label: labels.edit },
-          { action: "archive" as const, icon: "archive" as const, label: labels.archive },
-        ]
+      : [{ action: "archive" as const, icon: "archive" as const, label: labels.archive }]
     : [];
 
   return (
@@ -882,13 +826,8 @@ function ProductRowActions({
           aria-label={`${item.label}: ${productLabel}`}
           className={[
             "inline-flex h-8 items-center gap-1.5 rounded-md border bg-white px-2.5 text-xs font-medium",
-            item.action === "edit"
-              ? "border-zinc-300 text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
-              : "border-amber-200 text-amber-900 hover:border-amber-400",
+            "border-amber-200 text-amber-900 hover:border-amber-400",
           ].join(" ")}
-          data-product-detail-id={item.action === "edit" ? productId : undefined}
-          data-product-detail-mode={item.action === "edit" ? "edit" : undefined}
-          data-product-detail-trigger={item.action === "edit" ? "" : undefined}
           href={buildProductActionHref(params, item.action, productId)}
         >
           <ProductsIcon name={item.icon} />
@@ -1004,6 +943,19 @@ function columnLabel(
   return liveData.columns.find((column) => column.key === key)?.label ?? key;
 }
 
+function compactMetricLabel(label: string, key: string) {
+  switch (key) {
+    case "purchasePrice":
+      return "Purchase";
+    case "retailPrice":
+      return "Retail";
+    case "stockQuantity":
+      return "Stock";
+    default:
+      return label;
+  }
+}
+
 function hasRowValue(row: AdminDataTableRow, key: string) {
   return row[key] === "true";
 }
@@ -1012,38 +964,6 @@ function rowString(row: AdminDataTableRow, key: string) {
   const value = row[key];
 
   return typeof value === "string" ? value : "";
-}
-
-function ProductInfoLine({
-  code,
-  icon,
-  label,
-  value,
-}: {
-  code?: boolean;
-  icon: ProductsIconName;
-  label: string;
-  value: string;
-}) {
-  return (
-    <div className="min-w-0">
-      <dt className="flex items-center gap-1.5 text-[0.72rem] font-semibold uppercase tracking-normal text-zinc-500">
-        <ProductsIcon name={icon} />
-        {label}
-      </dt>
-      <dd
-        className={[
-          "mt-1 min-w-0 text-sm leading-5 text-zinc-800",
-          code
-            ? "max-w-full overflow-x-auto whitespace-nowrap rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs text-zinc-950"
-            : "break-words [overflow-wrap:anywhere]",
-        ].join(" ")}
-        title={value}
-      >
-        {value}
-      </dd>
-    </div>
-  );
 }
 
 function ProductMetric({
@@ -1056,15 +976,208 @@ function ProductMetric({
   value: string;
 }) {
   return (
-    <div className="rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5">
-      <dt className="flex items-center gap-1.5 text-[0.72rem] font-semibold uppercase tracking-normal text-zinc-500">
+    <div className="grid min-w-0 gap-1 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1.5">
+      <dt
+        className="flex min-w-0 items-center gap-1.5 truncate whitespace-nowrap text-xs font-medium tracking-normal text-zinc-500"
+        title={label}
+      >
         <ProductsIcon name={icon} />
-        {label}
+        <span className="min-w-0 truncate">{label}</span>
       </dt>
-      <dd className="mt-1 font-mono text-sm font-semibold text-zinc-950">
+      <dd
+        className="line-clamp-1 min-w-0 break-words font-mono text-base font-semibold leading-5 text-zinc-950 [overflow-wrap:anywhere]"
+        title={value}
+      >
         {value}
       </dd>
     </div>
+  );
+}
+
+function ProductCodeBlock({
+  barcode,
+  barcodeLabel,
+  itemNumber,
+  itemNumberLabel,
+  labels,
+}: {
+  barcode: string;
+  barcodeLabel: string;
+  itemNumber: string;
+  itemNumberLabel: string;
+  labels: ProductCatalogListLabels;
+}) {
+  return (
+    <section
+      className="min-w-0 rounded-md border border-zinc-200 bg-white p-2"
+      data-product-cell="codes"
+      data-product-codes
+    >
+      <h3 className="sr-only">{labels.codes}</h3>
+      <dl className="grid min-w-0 gap-1.5">
+        {[
+          { icon: "barcode" as const, label: barcodeLabel, value: barcode },
+          { icon: "tag" as const, label: itemNumberLabel, value: itemNumber },
+        ].map((item) => (
+          <div
+            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-md bg-zinc-50 px-2 py-1.5"
+            key={item.label}
+          >
+            <dt className="sr-only">{item.label}</dt>
+            <dd
+              aria-label={`${item.label}: ${item.value}`}
+              className="flex min-w-0 items-center gap-1.5 font-mono text-xs leading-5 text-zinc-900"
+              title={item.value}
+            >
+              <ProductsIcon name={item.icon} />
+              <span className="line-clamp-1 min-w-0 break-words [overflow-wrap:anywhere]">
+                {item.value}
+              </span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function ProductClassificationBlock({
+  categoryLabel,
+  categoryName,
+  labels,
+  supplierLabel,
+  supplierName,
+}: {
+  categoryLabel: string;
+  categoryName: string;
+  labels: ProductCatalogListLabels;
+  supplierLabel: string;
+  supplierName: string;
+}) {
+  return (
+    <section
+      className="min-w-0 rounded-md border border-zinc-200 bg-white p-2"
+      data-product-cell="classification"
+      data-product-classification
+    >
+      <h3 className="sr-only">{labels.classification}</h3>
+      <dl className="grid min-w-0 gap-1.5">
+        {[
+          {
+            icon: "supplier" as const,
+            label: supplierLabel,
+            value: supplierName,
+          },
+          {
+            icon: "category" as const,
+            label: categoryLabel,
+            value: categoryName,
+          },
+        ].map((item) => (
+          <div
+            className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center gap-2 rounded-md bg-zinc-50 px-2 py-1.5"
+            key={item.label}
+          >
+            <dt className="sr-only">{item.label}</dt>
+            <dd
+              aria-label={`${item.label}: ${item.value}`}
+              className="flex min-w-0 items-center gap-1.5 text-sm leading-5 text-zinc-800"
+              title={item.value}
+            >
+              <ProductsIcon name={item.icon} />
+              <span className="line-clamp-1 min-w-0 break-words [overflow-wrap:anywhere]">
+                {item.value}
+              </span>
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </section>
+  );
+}
+
+function ProductPriceStockBlock({
+  className = "",
+  labels,
+  metrics,
+}: {
+  className?: string;
+  labels: ProductCatalogListLabels;
+  metrics: ProductDisplayMetric[];
+}) {
+  return (
+    <section
+      className={[
+        "min-w-0 rounded-md border border-zinc-200 bg-white p-2",
+        className,
+      ].join(" ")}
+      data-product-cell="pricing-stock"
+      data-product-pricing-stock
+    >
+      <h3 className="sr-only">{labels.pricingStock}</h3>
+      {metrics.length > 0 ? (
+        <dl className="grid min-w-0 gap-1.5 sm:grid-cols-3 md:grid-cols-[repeat(auto-fit,minmax(7.5rem,1fr))]">
+          {metrics.map((metric) => (
+            <ProductMetric
+              icon={metric.icon}
+              key={metric.label}
+              label={metric.label}
+              value={metric.value}
+            />
+          ))}
+        </dl>
+      ) : (
+        <p className="text-sm text-zinc-500">{labels.noPricingStock}</p>
+      )}
+    </section>
+  );
+}
+
+function ProductStatusBlock({
+  archivedAt,
+  isArchived,
+  labels,
+  state,
+  updatedArchived,
+  updatedAt,
+}: {
+  archivedAt: string;
+  isArchived: boolean;
+  labels: ProductCatalogListLabels;
+  state: string;
+  updatedArchived: string;
+  updatedAt: string;
+}) {
+  const dateValue = (isArchived ? archivedAt : updatedAt) || updatedArchived;
+
+  return (
+    <section
+      className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end"
+      data-product-cell="status"
+      data-product-status
+    >
+      <h3 className="sr-only">{labels.statusUpdated}</h3>
+      <span
+        className={[
+          "inline-flex shrink-0 items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-xs font-semibold",
+          isArchived
+            ? "border-amber-200 bg-amber-50 text-amber-800"
+            : "border-emerald-200 bg-emerald-50 text-emerald-800",
+        ].join(" ")}
+      >
+        <ProductsIcon name={isArchived ? "archive" : "package"} />
+        {state}
+      </span>
+      <span
+        className="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1.5 text-xs leading-5 text-zinc-600"
+        title={dateValue}
+      >
+        <ProductsIcon name="clock" />
+        <span className="min-w-0 break-words [overflow-wrap:anywhere]">
+          {dateValue}
+        </span>
+      </span>
+    </section>
   );
 }
 
@@ -1093,8 +1206,6 @@ function ProductCatalogList({
     <div className="grid gap-3" data-product-catalog-list role="list">
       {liveData.rows.map((row) => {
         const isArchived = hasRowValue(row, "isArchived");
-        const hasSupplier = hasRowValue(row, "hasSupplier");
-        const hasCategory = hasRowValue(row, "hasCategory");
         const archivedAt = rowString(row, "archivedAt");
         const barcode = rowString(row, "barcode");
         const categoryName = rowString(row, "categoryName");
@@ -1114,7 +1225,10 @@ function ProductCatalogList({
         if (hasRowValue(row, "hasPurchasePrice")) {
           pricingMetricCandidates.push({
             icon: "price",
-            label: columnLabel(liveData, "purchasePrice"),
+            label: compactMetricLabel(
+              columnLabel(liveData, "purchasePrice"),
+              "purchasePrice",
+            ),
             value: purchasePrice,
           });
         }
@@ -1122,7 +1236,10 @@ function ProductCatalogList({
         if (hasRowValue(row, "hasRetailPrice")) {
           pricingMetricCandidates.push({
             icon: "price",
-            label: columnLabel(liveData, "retailPrice"),
+            label: compactMetricLabel(
+              columnLabel(liveData, "retailPrice"),
+              "retailPrice",
+            ),
             value: retailPrice,
           });
         }
@@ -1130,7 +1247,10 @@ function ProductCatalogList({
         if (hasRowValue(row, "hasStockQuantity")) {
           pricingMetricCandidates.push({
             icon: "stock",
-            label: columnLabel(liveData, "stockQuantity"),
+            label: compactMetricLabel(
+              columnLabel(liveData, "stockQuantity"),
+              "stockQuantity",
+            ),
             value: stockQuantity,
           });
         }
@@ -1141,14 +1261,18 @@ function ProductCatalogList({
 
         return (
           <article
-            className="grid min-w-0 gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm [contain-intrinsic-size:220px] [content-visibility:auto] lg:grid-cols-[minmax(13rem,1.35fr)_minmax(9rem,0.85fr)_minmax(9rem,0.85fr)_minmax(9rem,0.85fr)_minmax(8rem,0.75fr)_minmax(10rem,auto)] lg:items-start"
+            className="grid min-w-0 gap-2.5 rounded-md border border-zinc-200 bg-white p-3 shadow-sm [contain-intrinsic-size:180px] [content-visibility:auto]"
             data-product-catalog-row
             key={row.rowKey}
             role="listitem"
           >
-            <section className="min-w-0" data-product-identity>
-              <h3 className="sr-only">{labels.productIdentity}</h3>
-              <div className="flex min-w-0 items-start gap-3">
+            <div className="grid min-w-0 gap-3 xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start">
+              <section
+                className="flex min-w-0 items-start gap-3"
+                data-product-cell="identity"
+                data-product-identity
+              >
+                <h3 className="sr-only">{labels.productIdentity}</h3>
                 <span
                   aria-hidden="true"
                   className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800"
@@ -1164,146 +1288,65 @@ function ProductCatalogList({
                   </p>
                   {hasRowValue(row, "hasSecondName") ? (
                     <p
-                      className="mt-1 line-clamp-1 break-words text-sm leading-5 text-zinc-600 [overflow-wrap:anywhere]"
+                      className="line-clamp-1 break-words text-sm leading-5 text-zinc-600 [overflow-wrap:anywhere]"
                       title={secondName}
                     >
                       {secondName}
                     </p>
                   ) : null}
-                  {hasSupplier || hasCategory ? (
-                    <p
-                      className="mt-1 flex min-w-0 items-center gap-1.5 text-sm leading-5 text-zinc-600"
-                      title={[supplierName, categoryName]
-                        .filter(Boolean)
-                        .join(" / ")}
-                    >
-                      <ProductsIcon name={hasSupplier ? "supplier" : "category"} />
-                      <span className="min-w-0 truncate">
-                        {[supplierName, categoryName].filter(Boolean).join(" / ")}
-                      </span>
-                    </p>
-                  ) : null}
-                  <dl className="mt-2">
-                    <div className="inline-flex max-w-full items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs text-zinc-600">
-                      <dt className="font-semibold">
-                        {columnLabel(liveData, "productId")}
-                      </dt>
-                      <dd className="min-w-0 truncate font-mono text-zinc-900">
-                        {productId}
-                      </dd>
-                    </div>
-                  </dl>
+                  <p
+                    aria-label={`${columnLabel(liveData, "productId")}: ${productId}`}
+                    className="mt-1 break-words font-mono text-[0.7rem] tracking-normal text-zinc-500 [overflow-wrap:anywhere]"
+                    title={productId}
+                  >
+                    {productId}
+                  </p>
                 </div>
-              </div>
-            </section>
-
-            <section className="min-w-0" data-product-codes>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
-                {labels.codes}
-              </h3>
-              <dl className="grid min-w-0 gap-2">
-                <ProductInfoLine
-                  code
-                  icon="barcode"
-                  label={columnLabel(liveData, "barcode")}
-                  value={barcode}
-                />
-                <ProductInfoLine
-                  code
-                  icon="tag"
-                  label={columnLabel(liveData, "itemNumber")}
-                  value={itemNumber}
-                />
-              </dl>
-            </section>
-
-            <section className="min-w-0">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
-                {labels.classification}
-              </h3>
-              <dl className="grid min-w-0 gap-2">
-                {hasSupplier ? (
-                  <ProductInfoLine
-                    icon="supplier"
-                    label={columnLabel(liveData, "supplierName")}
-                    value={supplierName}
-                  />
-                ) : null}
-                {hasCategory ? (
-                  <ProductInfoLine
-                    icon="category"
-                    label={columnLabel(liveData, "categoryName")}
-                    value={categoryName}
-                  />
-                ) : null}
-                {!hasSupplier && !hasCategory ? (
-                  <div>
-                    <dt className="sr-only">{labels.classification}</dt>
-                    <dd className="text-sm text-zinc-500">{supplierName}</dd>
-                  </div>
-                ) : null}
-              </dl>
-            </section>
-
-            <section className="min-w-0">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
-                {labels.pricingStock}
-              </h3>
-              {pricingMetrics.length > 0 ? (
-                <dl className="grid min-w-0 gap-2">
-                  {pricingMetrics.map((metric) => (
-                    <ProductMetric
-                      icon={metric.icon}
-                      key={metric.label}
-                      label={metric.label}
-                      value={metric.value}
-                    />
-                  ))}
-                </dl>
-              ) : (
-                <p className="text-sm text-zinc-500">{labels.noPricingStock}</p>
-              )}
-            </section>
-
-            <section className="min-w-0">
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
-                {labels.statusUpdated}
-              </h3>
-              <dl className="grid min-w-0 gap-2">
-                <div>
-                  <dt className="sr-only">{columnLabel(liveData, "state")}</dt>
-                  <dd>
-                    <span
-                      className={[
-                        "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold",
-                        isArchived
-                          ? "border-amber-200 bg-amber-50 text-amber-800"
-                          : "border-emerald-200 bg-emerald-50 text-emerald-800",
-                      ].join(" ")}
-                    >
-                      <ProductsIcon name={isArchived ? "archive" : "package"} />
-                      {state}
-                    </span>
-                  </dd>
-                </div>
-                <ProductInfoLine
-                  icon="clock"
-                  label={isArchived ? labels.archived : labels.updated}
-                  value={
-                    (isArchived ? archivedAt : updatedAt) || updatedArchived
-                  }
-                />
-              </dl>
-            </section>
-
-            {rowActions ? (
-              <section className="min-w-0">
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-normal text-zinc-500">
-                  {rowActions.label}
-                </h3>
-                {rowActions.render(row)}
               </section>
-            ) : null}
+
+              <div className="grid min-w-0 gap-2 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-start xl:min-w-[18rem] xl:justify-items-end">
+                <ProductStatusBlock
+                  archivedAt={archivedAt}
+                  isArchived={isArchived}
+                  labels={labels}
+                  state={state}
+                  updatedArchived={updatedArchived}
+                  updatedAt={updatedAt}
+                />
+                {rowActions ? (
+                  <section
+                    className="min-w-0 sm:justify-self-end"
+                    data-product-actions
+                    data-product-cell="actions"
+                  >
+                    <h3 className="sr-only">{rowActions.label}</h3>
+                    {rowActions.render(row)}
+                  </section>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="grid min-w-0 gap-2.5 md:grid-cols-2 min-[1400px]:grid-cols-[minmax(11.5rem,0.85fr)_minmax(11.5rem,0.85fr)_minmax(17rem,1.2fr)]">
+              <ProductCodeBlock
+                barcode={barcode}
+                barcodeLabel={columnLabel(liveData, "barcode")}
+                itemNumber={itemNumber}
+                itemNumberLabel={columnLabel(liveData, "itemNumber")}
+                labels={labels}
+              />
+              <ProductClassificationBlock
+                categoryLabel={columnLabel(liveData, "categoryName")}
+                categoryName={categoryName}
+                labels={labels}
+                supplierLabel={columnLabel(liveData, "supplierName")}
+                supplierName={supplierName}
+              />
+              <ProductPriceStockBlock
+                className="md:col-span-2 min-[1400px]:col-span-1"
+                labels={labels}
+                metrics={pricingMetrics}
+              />
+            </div>
           </article>
         );
       })}
@@ -1593,7 +1636,6 @@ export default async function ShopProductsPage({
   const rowActionLabels = {
     archive: translateText(dictionary, "Archive"),
     detail: translateText(dictionary, "Detail"),
-    edit: translateText(dictionary, "Edit"),
     restore: translateText(dictionary, "Restore"),
   };
   const paginationLabels = {
@@ -1691,141 +1733,161 @@ export default async function ShopProductsPage({
 
   return (
     <div className="grid gap-5">
-      <form
-        action="/shop/products"
-        className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm lg:sticky lg:top-3 lg:z-20`}
-        method="get"
-      >
-        {requestedShopId ? (
-          <input name="shop_id" type="hidden" value={requestedShopId} />
-        ) : null}
-        <input name="page" type="hidden" value="1" />
-        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
-            <p className="text-sm font-semibold text-zinc-950">
-              {translateText(dictionary, "Search and filters")}
-            </p>
-            {activeFilterCount > 0 ? (
-              <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">
-                <ProductsIcon name="filter" />
-                {translateText(dictionary, "Filters active")}: {activeFilterCount}
-              </span>
-            ) : null}
-          </div>
-          {catalogCommandBar}
-        </div>
-        <div className="grid gap-3 md:grid-cols-[minmax(16rem,1.35fr)_minmax(0,190px)_minmax(0,190px)_minmax(0,150px)_minmax(0,130px)_auto] md:items-end">
-          <label className={filterLabelClassName}>
-            <span className="inline-flex items-center gap-1.5">
-              <ProductsIcon name="search" />
-              {filterLabels.search}
-            </span>
-            <input
-              className={filterInputClassName}
-              defaultValue={selectedQuery}
-              name="q"
-              placeholder={filterLabels.searchPlaceholder}
-              type="search"
-            />
-          </label>
-          <label className={filterLabelClassName}>
-            {filterLabels.category}
-            <select
-              className={filterInputClassName}
-              defaultValue={selectedCategoryId}
-              name="category"
-            >
-              <option value="">{filterLabels.allCategories}</option>
-              {categoryOptions.map((category) => (
-                <option key={category.categoryId} value={category.categoryId}>
-                  {category.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={filterLabelClassName}>
-            {filterLabels.supplier}
-            <select
-              className={filterInputClassName}
-              defaultValue={selectedSupplierId}
-              name="supplier"
-            >
-              <option value="">{filterLabels.allSuppliers}</option>
-              {supplierOptions.map((supplier) => (
-                <option key={supplier.supplierId} value={supplier.supplierId}>
-                  {supplier.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className={filterLabelClassName}>
-            {filterLabels.state}
-            <select
-              className={filterInputClassName}
-              defaultValue={selectedState}
-              name="state"
-            >
-              <option value="active">{translateText(dictionary, "Active")}</option>
-              <option value="archived">{filterLabels.archived}</option>
-              <option value="all">{filterLabels.allStates}</option>
-            </select>
-          </label>
-          <label className={filterLabelClassName}>
-            {translateText(dictionary, "Page size")}
-            <select
-              className={filterInputClassName}
-              defaultValue={selectedPageSize}
-              name="pageSize"
-            >
-              <option value="10">10</option>
-              <option value="25">25</option>
-              <option value="50">50</option>
-              <option value="100">100</option>
-              <option value="200">200</option>
-            </select>
-          </label>
-          <div className="flex min-w-0 flex-wrap items-end gap-2 self-end">
-            <button
-              className={`${filterButtonClassName} bg-zinc-950 text-white hover:bg-zinc-800`}
-              type="submit"
-            >
-              <ProductsIcon name="filter" />
-              {dictionary.common.applyFilters}
-            </button>
-            <a
-              className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
-              href={buildClearFiltersHref(requestedShopId, selectedPageSize)}
-            >
-              {translateText(dictionary, "Reset filters")}
-            </a>
-          </div>
-        </div>
-      </form>
-      {catalogDialogPanel}
-      <ProductDetailModalController
-        canManageProducts={canManageProducts}
-        categories={categoryOptions}
-        labels={dictionary.exact}
-        requestedShopId={requestedShopId}
-        selectedShopId={selectedShopId}
-        suppliers={supplierOptions}
-      />
-      <HistoryDetailModalController
-        labels={dictionary.exact}
-        requestedShopId={requestedShopId}
-      />
-      <ActionResultBanner
-        action={getParam(params, "action")}
-        result={getParam(params, "result")}
-      />
-      <ProductsPagination
-        id="products-page-jump-top"
-        labels={paginationLabels}
-        page={productsPage}
-        placement="top"
-        requestedShopId={requestedShopId}
-      />
       <ShopSectionPage
+        beforeLiveData={
+          <>
+            <form
+              action="/shop/products"
+              className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3 shadow-sm"
+              method="get"
+            >
+              {requestedShopId ? (
+                <input name="shop_id" type="hidden" value={requestedShopId} />
+              ) : null}
+              <input name="page" type="hidden" value="1" />
+              <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div className="flex min-w-0 flex-wrap items-center gap-2">
+                  <p className="text-sm font-semibold text-zinc-950">
+                    {translateText(dictionary, "Search and filters")}
+                  </p>
+                  {activeFilterCount > 0 ? (
+                    <span className="inline-flex items-center gap-1 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">
+                      <ProductsIcon name="filter" />
+                      {translateText(dictionary, "Filters active")}:{" "}
+                      {activeFilterCount}
+                    </span>
+                  ) : null}
+                </div>
+                {catalogCommandBar}
+              </div>
+              <div className="grid gap-2 md:grid-cols-[minmax(14rem,1.35fr)_minmax(0,170px)_minmax(0,170px)_minmax(0,132px)_minmax(0,112px)_auto] md:items-end">
+                <label className={filterLabelClassName}>
+                  <span className="inline-flex items-center gap-1.5">
+                    <ProductsIcon name="search" />
+                    {filterLabels.search}
+                  </span>
+                  <ProductSearchCombobox
+                    defaultValue={selectedQuery}
+                    inputClassName={filterInputClassName}
+                    loadingLabel={translateText(dictionary, "Loading suggestions")}
+                    noResultsLabel={translateText(dictionary, "No matching products")}
+                    placeholder={filterLabels.searchPlaceholder}
+                    purchaseLabel={translateText(dictionary, "Purchase")}
+                    retailLabel={translateText(dictionary, "Retail")}
+                    stockLabel={translateText(dictionary, "Stock")}
+                    suggestionsLabel={translateText(dictionary, "Product suggestions")}
+                  />
+                </label>
+                <label className={filterLabelClassName}>
+                  {filterLabels.category}
+                  <select
+                    className={filterInputClassName}
+                    defaultValue={selectedCategoryId}
+                    name="category"
+                  >
+                    <option value="">{filterLabels.allCategories}</option>
+                    {categoryOptions.map((category) => (
+                      <option
+                        key={category.categoryId}
+                        value={category.categoryId}
+                      >
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={filterLabelClassName}>
+                  {filterLabels.supplier}
+                  <select
+                    className={filterInputClassName}
+                    defaultValue={selectedSupplierId}
+                    name="supplier"
+                  >
+                    <option value="">{filterLabels.allSuppliers}</option>
+                    {supplierOptions.map((supplier) => (
+                      <option
+                        key={supplier.supplierId}
+                        value={supplier.supplierId}
+                      >
+                        {supplier.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={filterLabelClassName}>
+                  {filterLabels.state}
+                  <select
+                    className={filterInputClassName}
+                    defaultValue={selectedState}
+                    name="state"
+                  >
+                    <option value="active">
+                      {translateText(dictionary, "Active")}
+                    </option>
+                    <option value="archived">{filterLabels.archived}</option>
+                    <option value="all">{filterLabels.allStates}</option>
+                  </select>
+                </label>
+                <label className={filterLabelClassName}>
+                  {translateText(dictionary, "Page size")}
+                  <select
+                    className={filterInputClassName}
+                    defaultValue={selectedPageSize}
+                    name="pageSize"
+                  >
+                    <option value="10">10</option>
+                    <option value="25">25</option>
+                    <option value="50">50</option>
+                    <option value="100">100</option>
+                    <option value="200">200</option>
+                  </select>
+                </label>
+                <div className="flex min-w-0 flex-wrap items-end gap-2 self-end">
+                  <button
+                    className={`${filterButtonClassName} bg-zinc-950 text-white hover:bg-zinc-800`}
+                    type="submit"
+                  >
+                    <ProductsIcon name="filter" />
+                    {dictionary.common.applyFilters}
+                  </button>
+                  <a
+                    className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+                    href={buildClearFiltersHref(
+                      requestedShopId,
+                      selectedPageSize,
+                    )}
+                  >
+                    {translateText(dictionary, "Reset filters")}
+                  </a>
+                </div>
+              </div>
+            </form>
+            {catalogDialogPanel}
+            <ProductDetailModalController
+              canManageProducts={canManageProducts}
+              categories={categoryOptions}
+              labels={dictionary.exact}
+              requestedShopId={requestedShopId}
+              selectedShopId={selectedShopId}
+              suppliers={supplierOptions}
+            />
+            <HistoryDetailModalController
+              labels={dictionary.exact}
+              requestedShopId={requestedShopId}
+            />
+            <ActionResultBanner
+              action={getParam(params, "action")}
+              result={getParam(params, "result")}
+            />
+            <ProductsPagination
+              id="products-page-jump-top"
+              labels={paginationLabels}
+              page={productsPage}
+              placement="top"
+              requestedShopId={requestedShopId}
+            />
+          </>
+        }
         renderLiveData={({ liveData, rowActions }) => (
           <ProductCatalogList
             labels={catalogListLabels}

@@ -19,7 +19,7 @@ test("TASK-026 catalog lists expose search/filter controls for products, categor
   ]) {
     const page = readProjectFile(path);
 
-    assert.match(page, /name="query"/, `${path} must expose a query filter`);
+    assert.match(page, /name="(?:q|query)"/, `${path} must expose a query filter`);
     if (key === "products") {
       assert.match(page, /getShopInventoryProductsPage/);
       assert.match(page, /getShopCatalogOptionsReadModel/);

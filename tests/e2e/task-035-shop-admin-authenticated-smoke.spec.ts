@@ -869,6 +869,48 @@ async function createTask068KProducts(
   );
 }
 
+async function createTask080CatalogEntities(
+  runtime: Extract<Runtime, { status: "ready" }>,
+  fixture: Task035Fixture,
+) {
+  const supabase = createClient<Database>(
+    runtime.supabaseUrl,
+    runtime.serviceRoleKey,
+    {
+      auth: {
+        autoRefreshToken: false,
+        detectSessionInUrl: false,
+        persistSession: false,
+      },
+    },
+  );
+  const categories = Array.from({ length: 16 }, (_, index) => {
+    const padded = String(index + 1).padStart(3, "0");
+
+    return {
+      name: `TASK035 Category Page ${padded}`,
+      owner_user_id: fixture.userId,
+    };
+  });
+  const suppliers = Array.from({ length: 16 }, (_, index) => {
+    const padded = String(index + 1).padStart(3, "0");
+
+    return {
+      name: `TASK035 Supplier Page ${padded}`,
+      owner_user_id: fixture.userId,
+    };
+  });
+
+  await must(
+    "TASK080_CATEGORIES_CREATE",
+    supabase.from("inventory_categories").insert(categories),
+  );
+  await must(
+    "TASK080_SUPPLIERS_CREATE",
+    supabase.from("inventory_suppliers").insert(suppliers),
+  );
+}
+
 async function countTask035ResidualRows(
   supabase: AdminClient,
   input: {
@@ -1412,16 +1454,13 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         firstCatalogRow.locator("[data-product-identity]"),
       ).toContainText(/TASK035/);
       await expect(
-        firstCatalogRow.locator("[data-product-codes]"),
-      ).toContainText("Barcode");
-      await expect(
-        firstCatalogRow.locator("[data-product-codes]"),
-      ).toContainText("Item number");
+        firstCatalogRow.locator('[data-product-codes] svg[aria-hidden="true"]'),
+      ).toHaveCount(2);
       await expect(
         firstCatalogRow.locator(
           '[data-product-action-toolbar] svg[aria-hidden="true"]',
         ),
-      ).toHaveCount(3);
+      ).toHaveCount(2);
 
       const shopNavigation = page.getByRole("navigation", {
         name: "Shop sections",
@@ -1464,9 +1503,9 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         name: "Products pagination bottom",
       });
 
-      await expect(topPagination).toContainText(/1-10 of 11\+/);
+      await expect(topPagination).toContainText(/1-10 of at least 11/);
       await expect(topPagination).toContainText("Page 1 of 2+");
-      await expect(bottomPagination).toContainText(/1-10 of 11\+/);
+      await expect(bottomPagination).toContainText(/1-10 of at least 11/);
       await expect(bottomPagination).toContainText("Page 1 of 2+");
 
       await topPagination.getByRole("link", { name: /Next: page 2/ }).click();
@@ -1515,6 +1554,184 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
           document.documentElement.clientWidth + 1,
       );
       expect(hasDocumentOverflow).toBe(false);
+    } finally {
+      const cleanup = await fixture.cleanup();
+
+      expect(cleanup.cleanupErrors).toEqual([]);
+      expect(cleanup.userDeleted).toBe(true);
+      expect(cleanup.residualRows).toBe(0);
+    }
+  });
+
+  test("TASK-068E product detail stays open from list detail after idle and save", async ({
+    page,
+  }) => {
+    test.setTimeout(90_000);
+
+    if (runtime.status !== "ready") {
+      test.skip(true, runtime.reason);
+      return;
+    }
+
+    const fixture = await createTask035Fixture(runtime);
+
+    try {
+      await createTask068KProducts(runtime, fixture);
+      await signInWithTask035Credentials(page, fixture);
+      await page.goto(`/shop/products?shop_id=${fixture.shopId}`);
+
+      const firstCatalogRow = page
+        .locator("[data-product-catalog-row]")
+        .first();
+      await expect(
+        firstCatalogRow.getByRole("link", { name: /^Detail:/ }),
+      ).toBeVisible();
+      await expect(
+        firstCatalogRow.getByRole("link", { name: /^Edit:/ }),
+      ).toHaveCount(0);
+      await firstCatalogRow.getByRole("link", { name: /^Detail:/ }).click();
+
+      const dialog = page
+        .getByRole("dialog")
+        .filter({ has: page.getByRole("tab", { name: "Overview" }) })
+        .first();
+      await expect(dialog).toBeVisible();
+      expect(new URL(page.url()).searchParams.get("product_action")).not.toBe(
+        "edit",
+      );
+
+      const productNameInput = dialog.getByLabel("Product name");
+      await expect(productNameInput).toBeVisible();
+      const initialProductName = await productNameInput.inputValue();
+      const editedProductName = `${initialProductName} QA`;
+      const saveButton = dialog.getByRole("button", { name: "Save" });
+
+      await expect(saveButton).toBeDisabled();
+      await productNameInput.fill(editedProductName);
+      await expect(saveButton).toBeEnabled();
+      await page.waitForTimeout(16_000);
+      await expect(dialog).toBeVisible();
+      await expect(productNameInput).toHaveValue(editedProductName);
+
+      await saveButton.click();
+      await expect(productNameInput).toHaveValue(editedProductName);
+      await expect(saveButton).toBeDisabled({ timeout: 10_000 });
+      await page.waitForTimeout(16_000);
+      await expect(dialog).toBeVisible();
+      await expect(productNameInput).toHaveValue(editedProductName);
+      await expect(
+        page.locator("[data-product-catalog-list]"),
+      ).toBeVisible();
+    } finally {
+      const cleanup = await fixture.cleanup();
+
+      expect(cleanup.cleanupErrors).toEqual([]);
+      expect(cleanup.userDeleted).toBe(true);
+      expect(cleanup.residualRows).toBe(0);
+    }
+  });
+
+  test("TASK-079 catalog pagination and supplier import options smoke", async ({
+    page,
+  }) => {
+    if (runtime.status !== "ready") {
+      test.skip(true, runtime.reason);
+      return;
+    }
+
+    const fixture = await createTask035Fixture(runtime);
+
+    try {
+      await createTask080CatalogEntities(runtime, fixture);
+      await signInWithTask035Credentials(page, fixture);
+
+      await page.goto(`/shop/categories?shop_id=${fixture.shopId}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Categories" }),
+      ).toBeVisible();
+      await expect(page.locator("[data-catalog-entity-card]")).toHaveCount(10);
+
+      const categoriesTopPagination = page.getByRole("navigation", {
+        name: "Categories pagination top",
+      });
+      await expect(categoriesTopPagination).toContainText(/1-10 of 17/);
+      await categoriesTopPagination.getByRole("link", { name: "Next" }).click();
+      await expect(page).toHaveURL(/[\?&]page=2(?:&|$)/);
+      await expect(page).toHaveURL(new RegExp(`shop_id=${fixture.shopId}`));
+
+      await page.getByLabel("Search").fill("TASK035 Category Page 014");
+      await page.getByLabel("Search").press("Enter");
+      await expect(page).toHaveURL(/[\?&]q=TASK035\+Category\+Page\+014(?:&|$)/);
+      await expect(page).not.toHaveURL(/[\?&]page=2(?:&|$)/);
+      await expect(page.getByText("TASK035 Category Page 014")).toBeVisible();
+
+      await page
+        .getByLabel("Page size")
+        .selectOption("25");
+      await page.getByRole("button", { name: "Apply filters" }).click();
+      await expect(page).toHaveURL(/[\?&]pageSize=25(?:&|$)/);
+
+      await page.goto(
+        `/shop/categories?shop_id=${fixture.shopId}&q=TASK035+Category+Page+014&pageSize=25`,
+      );
+      await page
+        .locator("[data-catalog-entity-card]")
+        .filter({ hasText: "TASK035 Category Page 014" })
+        .getByRole("link", { name: "Rename" })
+        .click();
+      await expect(
+        page.getByRole("dialog", { name: "Rename category" }),
+      ).toBeVisible();
+      await expect(page).toHaveURL(/[\?&]category_action=edit(?:&|$)/);
+      await expect(page).toHaveURL(/[\?&]q=TASK035\+Category\+Page\+014(?:&|$)/);
+      await page.screenshot({
+        fullPage: true,
+        path: "docs/TASKS/EVIDENCE/TASK-079/browser/browser-categories-pagination-search.png",
+      });
+
+      await page.goto(`/shop/suppliers?shop_id=${fixture.shopId}`);
+      await expect(
+        page.getByRole("heading", { level: 1, name: "Suppliers" }),
+      ).toBeVisible();
+      await expect(page.locator("[data-catalog-entity-card]")).toHaveCount(10);
+
+      const suppliersTopPagination = page.getByRole("navigation", {
+        name: "Suppliers pagination top",
+      });
+      await expect(suppliersTopPagination).toContainText(/1-10 of 17/);
+      await suppliersTopPagination.getByRole("link", { name: "Next" }).click();
+      await expect(page).toHaveURL(/[\?&]page=2(?:&|$)/);
+      await expect(page).toHaveURL(new RegExp(`shop_id=${fixture.shopId}`));
+
+      await page.getByLabel("Search").fill("TASK035 Supplier Page 014");
+      await page.getByLabel("Search").press("Enter");
+      await expect(page).toHaveURL(/[\?&]q=TASK035\+Supplier\+Page\+014(?:&|$)/);
+      await expect(page.getByText("TASK035 Supplier Page 014")).toBeVisible();
+
+      await page
+        .locator("[data-catalog-entity-card]")
+        .filter({ hasText: "TASK035 Supplier Page 014" })
+        .getByRole("link", { name: "Rename" })
+        .click();
+      await expect(
+        page.getByRole("dialog", { name: "Rename supplier" }),
+      ).toBeVisible();
+      await expect(page).toHaveURL(/[\?&]supplier_action=edit(?:&|$)/);
+      await expect(page).toHaveURL(/[\?&]q=TASK035\+Supplier\+Page\+014(?:&|$)/);
+      await page.screenshot({
+        fullPage: true,
+        path: "docs/TASKS/EVIDENCE/TASK-079/browser/browser-suppliers-pagination-search.png",
+      });
+
+      await page.goto(`/shop/products?shop_id=${fixture.shopId}`);
+      await page.getByRole("button", { name: "Import supplier Excel" }).click();
+      await expect(
+        page.getByRole("dialog", { name: "Supplier workbook preview" }),
+      ).toBeVisible();
+      await page.screenshot({
+        fullPage: true,
+        path: "docs/TASKS/EVIDENCE/TASK-079/browser/browser-products-import-supplier-dialog-smoke.png",
+      });
     } finally {
       const cleanup = await fixture.cleanup();
 

@@ -105,8 +105,8 @@ test("TASK-055 products filter bar aligns fields and keeps server query params",
   assertContains(dictionary, "Search barcode, item number, product name");
   assertContains(page, "filterInputClassName");
   assertContains(page, "filterButtonClassName");
-  assertContains(page, "h-10 w-full min-w-0");
-  assertContains(page, "md:grid-cols-[minmax(16rem,1.35fr)_minmax(0,190px)_minmax(0,190px)_minmax(0,150px)_minmax(0,130px)_auto]");
+  assertContains(page, "h-9 w-full min-w-0");
+  assertContains(page, "md:grid-cols-[minmax(14rem,1.35fr)_minmax(0,170px)_minmax(0,170px)_minmax(0,132px)_minmax(0,112px)_auto]");
   assertContains(page, "category_id");
   assertContains(page, "supplier_id");
   assertContains(page, "name=\"state\"");
@@ -272,10 +272,6 @@ test("TASK-055 review fix 3 keeps Shop Admin surfaces on one shared content fram
 
   for (const relativePath of [
     "src/app/shop/products/page.tsx",
-    "src/app/shop/categories/page.tsx",
-    "src/app/shop/suppliers/page.tsx",
-    "src/app/shop/sync/page.tsx",
-    "src/app/shop/audit/page.tsx",
     "src/app/shop/settings/page.tsx",
     "src/app/shop/_components/ActionResultBanner.tsx",
     "src/app/shop/_components/CatalogActionPanel.tsx",
@@ -287,13 +283,19 @@ test("TASK-055 review fix 3 keeps Shop Admin surfaces on one shared content fram
     assertContains(read(relativePath), "SHOP_ADMIN_CONTENT_FRAME_CLASS", relativePath);
   }
 
+  for (const relativePath of [
+    "src/app/shop/categories/page.tsx",
+    "src/app/shop/suppliers/page.tsx",
+    "src/app/shop/sync/page.tsx",
+    "src/app/shop/audit/page.tsx",
+    "src/app/shop/history/page.tsx",
+  ]) {
+    assertContains(read(relativePath), "beforeLiveData", relativePath);
+  }
+
   const localFrameSources = [
     sectionPage,
     read("src/app/shop/products/page.tsx"),
-    read("src/app/shop/categories/page.tsx"),
-    read("src/app/shop/suppliers/page.tsx"),
-    read("src/app/shop/sync/page.tsx"),
-    read("src/app/shop/audit/page.tsx"),
     read("src/app/shop/settings/page.tsx"),
     read("src/app/shop/_components/CatalogActionPanel.tsx"),
     read("src/app/shop/_components/ImportExportActionPanel.tsx"),

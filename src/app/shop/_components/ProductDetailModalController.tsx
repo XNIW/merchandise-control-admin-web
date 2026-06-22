@@ -1,6 +1,7 @@
 "use client";
 
 import {
+  type ReactNode,
   useActionState,
   useCallback,
   useEffect,
@@ -19,6 +20,7 @@ import type {
   CatalogCategoryOption,
   CatalogSupplierOption,
 } from "@/app/shop/_components/CatalogActionPanel";
+import { CreatableCatalogCombobox } from "@/app/shop/_components/CreatableCatalogCombobox";
 
 type ProductDetailModalProduct = {
   productId: string;
@@ -86,7 +88,38 @@ type ProductTab =
   | "history"
   | "advanced";
 
-type ProductMode = "edit" | "view";
+type ProductDraft = {
+  barcode: string;
+  categoryName: string;
+  itemNumber: string;
+  productName: string;
+  purchasePrice: string;
+  retailPrice: string;
+  secondProductName: string;
+  stockQuantity: string;
+  supplierName: string;
+};
+
+type ProductDetailIconName =
+  | "archive"
+  | "barcode"
+  | "box"
+  | "cart"
+  | "check"
+  | "clock"
+  | "close"
+  | "copy"
+  | "folder"
+  | "id"
+  | "link"
+  | "pencil"
+  | "priceTag"
+  | "save"
+  | "sync"
+  | "tag"
+  | "truck"
+  | "warehouse"
+  | "warning";
 
 const initialActionState: ShopAdminActionState = {
   code: "success",
@@ -94,17 +127,164 @@ const initialActionState: ShopAdminActionState = {
   ok: true,
 };
 
-const tabs: Array<{ key: ProductTab; label: string }> = [
-  { key: "overview", label: "Overview" },
-  { key: "prices", label: "Prices" },
-  { key: "inventory", label: "Inventory / Sync" },
-  { key: "history", label: "History entries" },
-  { key: "advanced", label: "Advanced" },
+const tabs: Array<{ icon: ProductDetailIconName; key: ProductTab; label: string }> = [
+  { icon: "box", key: "overview", label: "Overview" },
+  { icon: "priceTag", key: "prices", label: "Prices" },
+  { icon: "warehouse", key: "inventory", label: "Inventory / Sync" },
+  { icon: "sync", key: "history", label: "History entries" },
+  { icon: "warning", key: "advanced", label: "Advanced" },
 ];
 
 type TranslateFn = (value: string) => string;
 
 const identityTranslate: TranslateFn = (value) => value;
+
+function ProductDetailIcon({ name }: { name: ProductDetailIconName }) {
+  const commonProps = {
+    "aria-hidden": true,
+    className: "size-4 shrink-0",
+    fill: "none",
+    stroke: "currentColor",
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    strokeWidth: 1.8,
+    viewBox: "0 0 24 24",
+  };
+  const paths: Record<ProductDetailIconName, ReactNode> = {
+    archive: (
+      <>
+        <path d="M4 7h16" />
+        <path d="M6 7v12h12V7" />
+        <path d="M9 11h6" />
+        <path d="M8 4h8l1 3H7l1-3Z" />
+      </>
+    ),
+    barcode: (
+      <>
+        <path d="M4 5v14" />
+        <path d="M7 5v14" />
+        <path d="M11 5v14" />
+        <path d="M14 5v14" />
+        <path d="M17 5v14" />
+        <path d="M20 5v14" />
+      </>
+    ),
+    box: (
+      <>
+        <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+        <path d="M4.5 7.5 12 12l7.5-4.5" />
+        <path d="M12 12v9" />
+      </>
+    ),
+    cart: (
+      <>
+        <path d="M4 5h2l2 10h9l2-7H7" />
+        <circle cx="10" cy="19" r="1.5" />
+        <circle cx="17" cy="19" r="1.5" />
+      </>
+    ),
+    check: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <path d="m8.5 12 2.4 2.4 4.8-5" />
+      </>
+    ),
+    clock: (
+      <>
+        <circle cx="12" cy="12" r="8" />
+        <path d="M12 8v5l3 2" />
+      </>
+    ),
+    close: (
+      <>
+        <path d="M7 7l10 10" />
+        <path d="M17 7 7 17" />
+      </>
+    ),
+    copy: (
+      <>
+        <rect height="10" rx="2" width="10" x="8" y="8" />
+        <path d="M6 16H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+      </>
+    ),
+    folder: (
+      <>
+        <path d="M4 6h7l2 2h7v10a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6Z" />
+        <path d="M8 13h8" />
+      </>
+    ),
+    id: (
+      <>
+        <rect height="14" rx="2" width="18" x="3" y="5" />
+        <path d="M7 10h5" />
+        <path d="M7 14h10" />
+      </>
+    ),
+    link: (
+      <>
+        <path d="M10 13a4 4 0 0 0 5.7 0l2.3-2.3a4 4 0 0 0-5.7-5.7l-1 1" />
+        <path d="M14 11a4 4 0 0 0-5.7 0L6 13.3A4 4 0 0 0 11.7 19l1-1" />
+      </>
+    ),
+    pencil: (
+      <>
+        <path d="M4 20h4l11-11a2.8 2.8 0 0 0-4-4L4 16v4Z" />
+        <path d="m13.5 6.5 4 4" />
+      </>
+    ),
+    priceTag: (
+      <>
+        <path d="M4 5v6l8 8 7-7-8-7H4Z" />
+        <circle cx="8" cy="9" r="1" />
+      </>
+    ),
+    save: (
+      <>
+        <path d="M5 4h12l2 2v14H5V4Z" />
+        <path d="M8 4v6h8" />
+        <path d="M8 20v-6h8v6" />
+      </>
+    ),
+    sync: (
+      <>
+        <path d="M4 12a8 8 0 0 1 13.6-5.6" />
+        <path d="M18 3v4h-4" />
+        <path d="M20 12a8 8 0 0 1-13.6 5.6" />
+        <path d="M6 21v-4h4" />
+      </>
+    ),
+    tag: (
+      <>
+        <path d="M4 5v6l8 8 7-7-8-7H4Z" />
+        <circle cx="8" cy="9" r="1" />
+      </>
+    ),
+    truck: (
+      <>
+        <path d="M3 8h11v8H3z" />
+        <path d="M14 11h4l3 3v2h-7" />
+        <circle cx="7" cy="18" r="2" />
+        <circle cx="18" cy="18" r="2" />
+      </>
+    ),
+    warehouse: (
+      <>
+        <path d="M4 10 12 5l8 5v10H4V10Z" />
+        <path d="M8 20v-6h8v6" />
+        <path d="M8 10h8" />
+      </>
+    ),
+    warning: (
+      <>
+        <path d="M12 4 3 20h18L12 4Z" />
+        <path d="M12 9v5" />
+        <path d="M12 17h.01" />
+      </>
+    ),
+  };
+
+  return <svg {...commonProps}>{paths[name]}</svg>;
+}
 
 function fieldValue(
   value: string | number | null | undefined,
@@ -137,6 +317,63 @@ function formatNumber(
     : new Intl.NumberFormat("en-US").format(value);
 }
 
+function numberInputValue(value: number | null | undefined) {
+  return value === null || value === undefined ? "" : String(value);
+}
+
+function blankProductDraft(): ProductDraft {
+  return {
+    barcode: "",
+    categoryName: "",
+    itemNumber: "",
+    productName: "",
+    purchasePrice: "",
+    retailPrice: "",
+    secondProductName: "",
+    stockQuantity: "",
+    supplierName: "",
+  };
+}
+
+function productDraftFromProduct(
+  product: ProductDetailModalProduct,
+): ProductDraft {
+  return {
+    barcode: product.barcode,
+    categoryName: product.categoryName ?? "",
+    itemNumber: product.itemNumber ?? "",
+    productName: product.productName ?? "",
+    purchasePrice: numberInputValue(product.purchasePrice),
+    retailPrice: numberInputValue(product.retailPrice),
+    secondProductName: product.secondProductName ?? "",
+    stockQuantity: numberInputValue(product.stockQuantity),
+    supplierName: product.supplierName ?? "",
+  };
+}
+
+function areProductDraftsEqual(left: ProductDraft, right: ProductDraft) {
+  return (
+    left.barcode === right.barcode &&
+    left.categoryName === right.categoryName &&
+    left.itemNumber === right.itemNumber &&
+    left.productName === right.productName &&
+    left.purchasePrice === right.purchasePrice &&
+    left.retailPrice === right.retailPrice &&
+    left.secondProductName === right.secondProductName &&
+    left.stockQuantity === right.stockQuantity &&
+    left.supplierName === right.supplierName
+  );
+}
+
+function isProductDraftDirty(
+  product: ProductDetailModalProduct,
+  draft: ProductDraft,
+) {
+  const initial = productDraftFromProduct(product);
+
+  return !areProductDraftsEqual(draft, initial);
+}
+
 function translateToken(value: string | null | undefined, translate: TranslateFn) {
   const normalized = (value ?? "").trim().toLowerCase();
 
@@ -155,6 +392,27 @@ function translateToken(value: string | null | undefined, translate: TranslateFn
   return translate(labels[normalized] ?? value ?? "Unknown");
 }
 
+function mobileMappingDescription(
+  value: string | null | undefined,
+  translate: TranslateFn,
+) {
+  const normalized = (value ?? "").trim().toLowerCase();
+
+  if (normalized === "mapped") {
+    return translate("Mapped to mobile inventory");
+  }
+
+  if (normalized === "legacy_owner_bridge") {
+    return translate("Legacy mobile bridge is in use");
+  }
+
+  if (normalized === "not_mapped") {
+    return translate("No mobile inventory mapping is active");
+  }
+
+  return translate("Mapping state is not available");
+}
+
 function ActionMessage({ state }: { state: ShopAdminActionState }) {
   if (!state.message) {
     return null;
@@ -163,7 +421,7 @@ function ActionMessage({ state }: { state: ShopAdminActionState }) {
   return (
     <p
       className={[
-        "rounded-md border px-3 py-2 text-sm",
+        "inline-flex max-w-full rounded-md border px-3 py-2 text-xs font-medium",
         state.ok
           ? "border-emerald-200 bg-emerald-50 text-emerald-900"
           : "border-amber-200 bg-amber-50 text-amber-950",
@@ -180,7 +438,7 @@ function DialogShell({
   title,
   titleId,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   title: string;
   titleId: string;
 }) {
@@ -216,28 +474,93 @@ function ProductSkeleton() {
 }
 
 function SummaryCard({
+  icon,
   label,
   value,
 }: {
+  icon: ProductDetailIconName;
   label: string;
   value: string;
 }) {
   return (
     <article className="min-w-0 rounded-md border border-zinc-200 bg-zinc-50 p-3">
-      <p className="text-xs font-semibold uppercase tracking-normal text-zinc-500">
-        {label}
-      </p>
-      <p className="mt-2 break-words text-lg font-semibold text-zinc-950 [overflow-wrap:anywhere]">
-        {value}
-      </p>
+      <div className="flex min-w-0 items-start gap-3">
+        <span className="grid size-8 shrink-0 place-items-center rounded-md border border-zinc-200 bg-white text-emerald-800">
+          <ProductDetailIcon name={icon} />
+        </span>
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-normal text-zinc-500">
+            {label}
+          </p>
+          <p className="mt-1 break-words text-lg font-semibold text-zinc-950 [overflow-wrap:anywhere]">
+            {value}
+          </p>
+        </div>
+      </div>
     </article>
+  );
+}
+
+function CopyChip({
+  icon,
+  label,
+  translate,
+  value,
+}: {
+  icon: ProductDetailIconName;
+  label: string;
+  translate: TranslateFn;
+  value: string | null | undefined;
+}) {
+  const [copied, setCopied] = useState(false);
+  const displayValue = fieldValue(value, translate);
+  const canCopy = value !== null && value !== undefined && value !== "";
+
+  return (
+    <button
+      aria-label={`${translate("Copy")} ${label}: ${displayValue}`}
+      className={[
+        "inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-medium",
+        canCopy
+          ? "border-zinc-200 bg-zinc-50 text-zinc-800 hover:border-emerald-300 hover:text-emerald-800"
+          : "cursor-default border-zinc-200 bg-zinc-50 text-zinc-500",
+      ].join(" ")}
+      disabled={!canCopy}
+      onClick={() => {
+        if (!canCopy || !navigator.clipboard) {
+          return;
+        }
+
+        void navigator.clipboard.writeText(value).then(() => {
+          setCopied(true);
+          window.setTimeout(() => setCopied(false), 1200);
+        });
+      }}
+      title={displayValue}
+      type="button"
+    >
+      <ProductDetailIcon name={icon} />
+      <span className="shrink-0 font-semibold">{label}</span>
+      <span className="min-w-0 truncate font-mono">{displayValue}</span>
+      {canCopy ? (
+        <span className="shrink-0 text-zinc-400">
+          {copied ? translate("Copied") : <ProductDetailIcon name="copy" />}
+        </span>
+      ) : null}
+    </button>
   );
 }
 
 function DetailGrid({
   rows,
 }: {
-  rows: Array<{ label: string; mono?: boolean; value: string }>;
+  rows: Array<{
+    description?: string;
+    icon: ProductDetailIconName;
+    label: string;
+    mono?: boolean;
+    value: string;
+  }>;
 }) {
   return (
     <dl className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -246,20 +569,32 @@ function DetailGrid({
           className="min-w-0 rounded-md border border-zinc-200 bg-white p-3"
           key={row.label}
         >
-          <dt className="text-xs font-semibold uppercase tracking-normal text-zinc-500">
-            {row.label}
-          </dt>
-          <dd
-            className={[
-              "mt-1 text-sm text-zinc-900",
-              row.mono
-                ? "overflow-x-auto whitespace-nowrap font-mono text-xs"
-                : "break-words [overflow-wrap:anywhere]",
-            ].join(" ")}
-            title={row.value}
-          >
-            {row.value}
-          </dd>
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="mt-0.5 grid size-8 shrink-0 place-items-center rounded-md border border-zinc-200 bg-zinc-50 text-emerald-800">
+              <ProductDetailIcon name={row.icon} />
+            </span>
+            <div className="min-w-0">
+              <dt className="text-xs font-semibold uppercase tracking-normal text-zinc-500">
+                {row.label}
+              </dt>
+              <dd
+                className={[
+                  "mt-1 text-sm text-zinc-900",
+                  row.mono
+                    ? "overflow-x-auto whitespace-nowrap font-mono text-xs"
+                    : "break-words [overflow-wrap:anywhere]",
+                ].join(" ")}
+                title={row.value}
+              >
+                {row.value}
+              </dd>
+              {row.description ? (
+                <dd className="mt-1 text-xs leading-5 text-zinc-500">
+                  {row.description}
+                </dd>
+              ) : null}
+            </div>
+          </div>
         </div>
       ))}
     </dl>
@@ -267,25 +602,57 @@ function DetailGrid({
 }
 
 function DetailSection({
+  icon,
   rows,
   title,
 }: {
-  rows: Array<{ label: string; mono?: boolean; value: string }>;
+  icon: ProductDetailIconName;
+  rows: Array<{
+    description?: string;
+    icon: ProductDetailIconName;
+    label: string;
+    mono?: boolean;
+    value: string;
+  }>;
   title: string;
 }) {
   return (
     <section className="grid gap-3">
-      <h3 className="text-sm font-semibold text-zinc-950">{title}</h3>
+      <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-950">
+        <span className="grid size-7 place-items-center rounded-md border border-zinc-200 bg-zinc-50 text-emerald-800">
+          <ProductDetailIcon name={icon} />
+        </span>
+        {title}
+      </h3>
       <DetailGrid rows={rows} />
     </section>
   );
 }
 
-function ProductEditForm({
+function FormSectionHeader({
+  icon,
+  title,
+}: {
+  icon: ProductDetailIconName;
+  title: string;
+}) {
+  return (
+    <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-950">
+      <span className="grid size-7 place-items-center rounded-md border border-zinc-200 bg-zinc-50 text-emerald-800">
+        <ProductDetailIcon name={icon} />
+      </span>
+      {title}
+    </h3>
+  );
+}
+
+function ProductOverviewForm({
   action,
   categories,
+  draft,
   formId,
   labels,
+  onDraftChange,
   pending,
   product,
   selectedShopId,
@@ -293,122 +660,152 @@ function ProductEditForm({
 }: {
   action: (formData: FormData) => void;
   categories: CatalogCategoryOption[];
+  draft: ProductDraft;
   formId: string;
   labels?: Record<string, string>;
+  onDraftChange: (draft: ProductDraft) => void;
   pending: boolean;
   product: ProductDetailModalProduct;
   selectedShopId?: string | null;
   suppliers: CatalogSupplierOption[];
 }) {
   const translate = (value: string) => labels?.[value] ?? value;
+  const fieldClassName =
+    "h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 outline-none focus-visible:ring-2 focus-visible:ring-emerald-700";
+
+  function updateDraft(field: keyof ProductDraft, value: string) {
+    onDraftChange({ ...draft, [field]: value });
+  }
 
   return (
-    <form action={action} aria-busy={pending} className="grid gap-4" id={formId}>
+    <form
+      action={action}
+      aria-busy={pending}
+      className="grid gap-4"
+      data-product-overview-edit-form
+      id={formId}
+    >
       {selectedShopId ? <input name="shop_id" type="hidden" value={selectedShopId} /> : null}
       <input name="productId" type="hidden" value={product.productId} />
       <section className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3">
-        <h3 className="text-sm font-semibold text-zinc-950">{translate("Identity")}</h3>
+        <FormSectionHeader icon="id" title={translate("Identity")} />
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <label className="grid gap-1 text-sm font-medium text-zinc-800">
             {translate("Barcode")}
             <input
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950"
-              defaultValue={product.barcode}
+              className={fieldClassName}
               name="barcode"
+              onChange={(event) => updateDraft("barcode", event.currentTarget.value)}
               required
+              value={draft.barcode}
             />
           </label>
           <label className="grid gap-1 text-sm font-medium text-zinc-800">
             {translate("Item code")}
             <input
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950"
-              defaultValue={product.itemNumber ?? ""}
+              className={fieldClassName}
               name="itemNumber"
+              onChange={(event) => updateDraft("itemNumber", event.currentTarget.value)}
+              value={draft.itemNumber}
             />
           </label>
           <label className="grid gap-1 text-sm font-medium text-zinc-800 md:col-span-2 xl:col-span-1">
             {translate("Product name")}
             <input
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950"
-              defaultValue={product.productName ?? ""}
+              className={fieldClassName}
               name="productName"
+              onChange={(event) => updateDraft("productName", event.currentTarget.value)}
               required
+              value={draft.productName}
             />
           </label>
           <label className="grid gap-1 text-sm font-medium text-zinc-800">
             {translate("Second name")}
             <input
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950"
-              defaultValue={product.secondProductName ?? ""}
+              className={fieldClassName}
               name="secondProductName"
+              onChange={(event) => updateDraft("secondProductName", event.currentTarget.value)}
+              value={draft.secondProductName}
             />
           </label>
         </div>
       </section>
       <section className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3">
-        <h3 className="text-sm font-semibold text-zinc-950">{translate("Classification")}</h3>
+        <FormSectionHeader icon="truck" title={translate("Classification")} />
         <div className="grid gap-3 md:grid-cols-2">
-          <label className="grid gap-1 text-sm font-medium text-zinc-800">
-            {translate("Supplier")}
-            <input
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950"
-              defaultValue={product.supplierName ?? ""}
-              list="product-detail-suppliers"
-              name="supplierName"
-            />
-            <datalist id="product-detail-suppliers">
-              {suppliers.map((supplier) => (
-                <option key={supplier.supplierId} value={supplier.name} />
-              ))}
-            </datalist>
-          </label>
-          <label className="grid gap-1 text-sm font-medium text-zinc-800">
-            {translate("Category")}
-            <input
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950"
-              defaultValue={product.categoryName ?? ""}
-              list="product-detail-categories"
-              name="categoryName"
-            />
-            <datalist id="product-detail-categories">
-              {categories.map((category) => (
-                <option key={category.categoryId} value={category.name} />
-              ))}
-            </datalist>
-          </label>
+          <CreatableCatalogCombobox
+            className="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950"
+            createLabel={translate("Create new supplier")}
+            defaultId={product.supplierId}
+            defaultName={product.supplierName}
+            idName="supplierId"
+            label={translate("Supplier")}
+            name="supplierName"
+            noResultsLabel={translate("No supplier suggestions")}
+            onNameChange={(value) => updateDraft("supplierName", value)}
+            options={suppliers.map((supplier) => ({
+              id: supplier.supplierId,
+              name: supplier.name,
+            }))}
+            suggestionsLabel={translate("Supplier suggestions")}
+            value={draft.supplierName}
+          />
+          <CreatableCatalogCombobox
+            className="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950"
+            createLabel={translate("Create new category")}
+            defaultId={product.categoryId}
+            defaultName={product.categoryName}
+            idName="categoryId"
+            label={translate("Category")}
+            name="categoryName"
+            noResultsLabel={translate("No category suggestions")}
+            onNameChange={(value) => updateDraft("categoryName", value)}
+            options={categories.map((category) => ({
+              id: category.categoryId,
+              name: category.name,
+            }))}
+            suggestionsLabel={translate("Category suggestions")}
+            value={draft.categoryName}
+          />
         </div>
       </section>
       <section className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3">
-        <h3 className="text-sm font-semibold text-zinc-950">{translate("Pricing / stock")}</h3>
+        <FormSectionHeader icon="warehouse" title={translate("Pricing / stock")} />
         <div className="grid gap-3 md:grid-cols-3">
           <label className="grid gap-1 text-sm font-medium text-zinc-800">
             {translate("Stock quantity")}
             <input
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950"
-              defaultValue={product.stockQuantity ?? ""}
+              className={fieldClassName}
+              min="0"
               name="stockQuantity"
+              onChange={(event) => updateDraft("stockQuantity", event.currentTarget.value)}
               step="1"
               type="number"
+              value={draft.stockQuantity}
             />
           </label>
           <label className="grid gap-1 text-sm font-medium text-zinc-800">
             {translate("Purchase price")}
             <input
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950"
-              defaultValue={product.purchasePrice ?? ""}
+              className={fieldClassName}
+              min="0"
               name="purchasePrice"
+              onChange={(event) => updateDraft("purchasePrice", event.currentTarget.value)}
               step="0.01"
               type="number"
+              value={draft.purchasePrice}
             />
           </label>
           <label className="grid gap-1 text-sm font-medium text-zinc-800">
             {translate("Retail price")}
             <input
-              className="h-10 rounded-md border border-zinc-300 px-3 text-sm text-zinc-950"
-              defaultValue={product.retailPrice ?? ""}
+              className={fieldClassName}
+              min="0"
               name="retailPrice"
+              onChange={(event) => updateDraft("retailPrice", event.currentTarget.value)}
               step="0.01"
               type="number"
+              value={draft.retailPrice}
             />
           </label>
         </div>
@@ -496,14 +893,14 @@ export function ProductDetailModalController({
   const router = useRouter();
   const lastTriggerRef = useRef<HTMLElement | null>(null);
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<ProductMode>("view");
   const [tab, setTab] = useState<ProductTab>("overview");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [readModel, setReadModel] = useState<ProductDetailModalReadModel | null>(null);
   const translate = useCallback((value: string) => labels?.[value] ?? value, [labels]);
   const titleId = "product-detail-modal-title";
-  const editFormId = "product-detail-edit-form";
+  const overviewFormId = "product-detail-overview-form";
+  const [draft, setDraft] = useState<ProductDraft>(blankProductDraft);
   const loadProduct = useCallback(
     async (productId: string) => {
       const params = new URLSearchParams({ product_id: productId });
@@ -525,12 +922,17 @@ export function ProductDetailModalController({
 
         if (!response.ok || body.status !== "ready") {
           setReadModel(body);
+          setDraft(blankProductDraft());
           setError(body.reason || "Product detail is not available.");
           return;
         }
 
         setReadModel(body);
+        setDraft(
+          body.product ? productDraftFromProduct(body.product) : blankProductDraft(),
+        );
       } catch {
+        setDraft(blankProductDraft());
         setError("Product detail could not be loaded.");
       } finally {
         setLoading(false);
@@ -545,7 +947,7 @@ export function ProductDetailModalController({
   const refreshProductAfterAction = useCallback(
     (state: ShopAdminActionState) => {
       if (state.ok && state.targetId) {
-        setMode("view");
+        setTab("overview");
         void loadProduct(state.targetId);
         router.refresh();
       }
@@ -577,13 +979,14 @@ export function ProductDetailModalController({
   );
   const product = readModel?.product ?? null;
   const effectiveShopId = selectedShopId ?? requestedShopId ?? undefined;
+  const draftDirty = product ? isProductDraftDirty(product, draft) : false;
 
   const openProduct = useCallback(
-    (productId: string, initialMode: ProductMode = "view") => {
+    (productId: string) => {
       setOpen(true);
-      setMode(initialMode);
       setTab("overview");
       setReadModel(null);
+      setDraft(blankProductDraft());
       void loadProduct(productId);
     },
     [loadProduct],
@@ -611,18 +1014,32 @@ export function ProductDetailModalController({
 
       event.preventDefault();
       lastTriggerRef.current = trigger;
-      openProduct(
-        productId,
-        trigger.dataset.productDetailMode === "edit" && canManageProducts
-          ? "edit"
-          : "view",
-      );
+      openProduct(productId);
     };
 
     document.addEventListener("click", onClick);
 
     return () => document.removeEventListener("click", onClick);
-  }, [canManageProducts, openProduct]);
+  }, [openProduct]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const action = params.get("product_action");
+
+    if (action !== "detail" && action !== "edit") {
+      return;
+    }
+
+    const productId = params.get("product_id");
+
+    if (!productId) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => openProduct(productId), 0);
+
+    return () => window.clearTimeout(timeout);
+  }, [openProduct]);
 
   useEffect(() => {
     if (!open) {
@@ -646,12 +1063,28 @@ export function ProductDetailModalController({
     }
 
     return [
-      { label: translate("Stock"), value: formatNumber(product.stockQuantity, translate) },
-      { label: translate("Purchase price"), value: formatNumber(product.purchasePrice, translate) },
-      { label: translate("Retail price"), value: formatNumber(product.retailPrice, translate) },
       {
-        label: translate("Last sync / update"),
+        icon: product.state === "archived" ? ("archive" as const) : ("check" as const),
+        label: translate("Status"),
+        value:
+          product.state === "archived"
+            ? translate("Archived")
+            : translate("Active"),
+      },
+      {
+        icon: "clock" as const,
+        label: translate("Last update"),
         value: formatDate(readModel?.diagnostics.lastSyncAt ?? product.updatedAt, translate),
+      },
+      {
+        icon: "box" as const,
+        label: translate("Catalog scope"),
+        value: translateToken(readModel?.diagnostics.catalogScope, translate),
+      },
+      {
+        icon: "link" as const,
+        label: translate("Mobile mapping"),
+        value: translateToken(readModel?.diagnostics.mappingState, translate),
       },
     ];
   }, [product, readModel, translate]);
@@ -672,79 +1105,99 @@ export function ProductDetailModalController({
         <>
           <header className="sticky top-0 z-20 border-b border-zinc-200 bg-white">
             <div className="flex min-w-0 flex-col gap-3 px-4 py-3 lg:flex-row lg:items-start lg:justify-between">
-              <div className="min-w-0">
-                <h2
-                  className="line-clamp-2 break-words text-xl font-semibold leading-7 text-zinc-950 [overflow-wrap:anywhere]"
-                  id={titleId}
-                  title={product?.productName ?? translate("Product detail")}
-                >
-                  {product?.productName ?? translate("Product detail")}
-                </h2>
-                <p className="mt-1 break-words text-sm text-zinc-600 [overflow-wrap:anywhere]">
-                  {translate("Barcode")}{" "}
-                  <span className="font-mono text-xs">{fieldValue(product?.barcode, translate)}</span>
-                  {" / "}
-                  {translate("Item code")}{" "}
-                  <span className="font-mono text-xs">{fieldValue(product?.itemNumber, translate)}</span>
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <span
-                    className={[
-                      "inline-flex rounded-md border px-2 py-1 text-xs font-semibold",
-                      product?.state === "archived"
-                        ? "border-amber-200 bg-amber-50 text-amber-800"
-                        : "border-emerald-200 bg-emerald-50 text-emerald-800",
-                    ].join(" ")}
+              <div className="flex min-w-0 items-start gap-3">
+                <span className="mt-0.5 grid size-10 shrink-0 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800">
+                  <ProductDetailIcon name="box" />
+                </span>
+                <div className="min-w-0">
+                  <h2
+                    className="line-clamp-2 break-words text-xl font-semibold leading-7 text-zinc-950 [overflow-wrap:anywhere]"
+                    id={titleId}
+                    title={product?.productName ?? translate("Product detail")}
                   >
-                    {product?.state === "archived" ? translate("Archived") : translate("Active")}
-                  </span>
-                  {readModel && readModel.status !== "ready" ? (
-                    <span className="inline-flex rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
-                      {translate("Sync issue")}
+                    {product?.productName ?? translate("Product detail")}
+                  </h2>
+                  <div className="mt-2 flex min-w-0 flex-wrap gap-2">
+                    <CopyChip
+                      icon="barcode"
+                      label={translate("Barcode")}
+                      translate={translate}
+                      value={product?.barcode}
+                    />
+                    <CopyChip
+                      icon="tag"
+                      label={translate("Item code")}
+                      translate={translate}
+                      value={product?.itemNumber}
+                    />
+                  </div>
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <span
+                      className={[
+                        "inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-xs font-semibold",
+                        product?.state === "archived"
+                          ? "border-amber-200 bg-amber-50 text-amber-800"
+                          : "border-emerald-200 bg-emerald-50 text-emerald-800",
+                      ].join(" ")}
+                    >
+                      <ProductDetailIcon
+                        name={
+                          product?.state === "archived" ? "archive" : "check"
+                        }
+                      />
+                      {product?.state === "archived"
+                        ? translate("Archived")
+                        : translate("Active")}
                     </span>
-                  ) : null}
-                  {readModel?.diagnostics.historyRows ? (
-                    <span className="inline-flex rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">
-                      {translate("Mobile history")}
-                    </span>
-                  ) : null}
+                    {readModel && readModel.status !== "ready" ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-800">
+                        <ProductDetailIcon name="warning" />
+                        {translate("Sync issue")}
+                      </span>
+                    ) : null}
+                    {readModel?.diagnostics.historyRows ? (
+                      <span className="inline-flex items-center gap-1.5 rounded-md border border-sky-200 bg-sky-50 px-2 py-1 text-xs font-semibold text-sky-800">
+                        <ProductDetailIcon name="sync" />
+                        {translate("Mobile history")}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
               </div>
               <div className="flex shrink-0 flex-wrap gap-2">
                 {canManageProducts && product ? (
-                  mode === "edit" ? (
-                    <>
-                      <button
-                        className="inline-flex h-9 items-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 hover:border-zinc-400"
-                        onClick={() => setMode("view")}
-                        type="button"
-                      >
-                        {translate("Cancel")}
-                      </button>
-                      <button
-                        className="inline-flex h-9 items-center rounded-md bg-zinc-950 px-3 text-sm font-medium text-white disabled:opacity-60"
-                        disabled={updatePending}
-                        form={editFormId}
-                        type="submit"
-                      >
-                        {updatePending ? translate("Saving") : translate("Save")}
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      className="inline-flex h-9 items-center rounded-md bg-emerald-900 px-3 text-sm font-medium text-white hover:bg-emerald-800"
-                      onClick={() => setMode("edit")}
-                      type="button"
-                    >
-                      {translate("Edit")}
-                    </button>
-                  )
+                  <>
+                    {tab === "overview" ? (
+                      <>
+                        <button
+                          className="inline-flex h-9 items-center gap-1.5 rounded-md bg-zinc-950 px-3 text-sm font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={!draftDirty || updatePending}
+                          form={overviewFormId}
+                          type="submit"
+                        >
+                          <ProductDetailIcon name="save" />
+                          {updatePending ? translate("Saving") : translate("Save")}
+                        </button>
+                        {draftDirty ? (
+                          <button
+                            className="inline-flex h-9 items-center gap-1.5 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 hover:border-zinc-400"
+                            onClick={() => setDraft(productDraftFromProduct(product))}
+                            type="button"
+                          >
+                            <ProductDetailIcon name="close" />
+                            {translate("Reset changes")}
+                          </button>
+                        ) : null}
+                      </>
+                    ) : null}
+                  </>
                 ) : null}
                 <button
-                  className="inline-flex h-9 items-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800"
                   onClick={closeModal}
                   type="button"
                 >
+                  <ProductDetailIcon name="close" />
                   {translate("Close")}
                 </button>
               </div>
@@ -768,37 +1221,26 @@ export function ProductDetailModalController({
               <div className="grid gap-5">
                 <section className="grid gap-3 md:grid-cols-4">
                   {summaryCards.map((card) => (
-                    <SummaryCard key={card.label} label={card.label} value={card.value} />
+                    <SummaryCard
+                      icon={card.icon}
+                      key={card.label}
+                      label={card.label}
+                      value={card.value}
+                    />
                   ))}
                 </section>
 
-                {mode === "edit" ? (
-                  <section className="grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-4">
-                    <ProductEditForm
-                      action={updateAction}
-                      categories={categories}
-                      formId={editFormId}
-                      labels={labels}
-                      pending={updatePending}
-                      product={product}
-                      selectedShopId={effectiveShopId}
-                      suppliers={suppliers}
-                    />
-                  </section>
-                ) : null}
-
-                {mode === "view" ? (
-                  <nav
-                    aria-label={translate("Product detail tabs")}
-                    className="flex min-w-0 gap-2 overflow-x-auto border-b border-zinc-200"
-                    role="tablist"
-                  >
+                <nav
+                  aria-label={translate("Product detail tabs")}
+                  className="flex min-w-0 gap-2 overflow-x-auto border-b border-zinc-200"
+                  role="tablist"
+                >
                   {tabs.map((item) => (
                     <button
                       aria-controls={`product-detail-panel-${item.key}`}
                       aria-selected={tab === item.key}
                       className={[
-                        "h-10 shrink-0 border-b-2 px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700",
+                        "inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700",
                         tab === item.key
                           ? "border-emerald-700 text-emerald-800"
                           : "border-transparent text-zinc-600 hover:text-zinc-950",
@@ -809,63 +1251,132 @@ export function ProductDetailModalController({
                       role="tab"
                       type="button"
                     >
+                      <ProductDetailIcon name={item.icon} />
                       {translate(item.label)}
+                      {item.key === "prices" && readModel?.prices.length ? (
+                        <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[0.68rem] font-semibold text-zinc-600">
+                          {readModel.prices.length}
+                        </span>
+                      ) : null}
+                      {item.key === "history" && readModel?.historyEntries.length ? (
+                        <span className="rounded-md bg-zinc-100 px-1.5 py-0.5 text-[0.68rem] font-semibold text-zinc-600">
+                          {readModel.historyEntries.length}
+                        </span>
+                      ) : null}
                     </button>
                   ))}
-                  </nav>
-                ) : null}
+                </nav>
 
-                {mode === "view" && tab === "overview" ? (
+                {tab === "overview" ? (
                   <section
                     aria-labelledby="product-detail-tab-overview"
                     className="grid gap-4"
                     id="product-detail-panel-overview"
                     role="tabpanel"
                   >
-                    <DetailSection
-                      title={translate("Identity")}
-                      rows={[
-                        { label: translate("Product id"), mono: true, value: product.productId },
-                        { label: translate("Barcode"), mono: true, value: product.barcode },
-                        { label: translate("Item code"), mono: true, value: fieldValue(product.itemNumber, translate) },
-                        { label: translate("Product name"), value: fieldValue(product.productName, translate) },
-                        { label: translate("Second name"), value: fieldValue(product.secondProductName, translate) },
-                      ]}
-                    />
-                    <DetailSection
-                      title={translate("Classification")}
-                      rows={[
-                        { label: translate("Supplier"), value: fieldValue(product.supplierName, translate) },
-                        { label: translate("Category"), value: fieldValue(product.categoryName, translate) },
-                        {
-                          label: translate("Status"),
-                          value: product.state === "archived" ? translate("Archived") : translate("Active"),
-                        },
-                      ]}
-                    />
-                    <DetailSection
-                      title={translate("Pricing / stock")}
-                      rows={[
-                        { label: translate("Stock quantity"), value: formatNumber(product.stockQuantity, translate) },
-                        { label: translate("Purchase price"), value: formatNumber(product.purchasePrice, translate) },
-                        { label: translate("Retail price"), value: formatNumber(product.retailPrice, translate) },
-                      ]}
-                    />
-                    <DetailSection
-                      title={translate("Sync state")}
-                      rows={[
-                        { label: translate("Updated"), value: formatDate(product.updatedAt, translate) },
-                        { label: translate("Archived"), value: formatDate(product.deletedAt, translate) },
-                        {
-                          label: translate("Last sync"),
-                          value: formatDate(readModel?.diagnostics.lastSyncAt, translate),
-                        },
-                      ]}
-                    />
+                    {canManageProducts ? (
+                      <ProductOverviewForm
+                        action={updateAction}
+                        categories={categories}
+                        draft={draft}
+                        formId={overviewFormId}
+                        labels={labels}
+                        onDraftChange={setDraft}
+                        pending={updatePending}
+                        product={product}
+                        selectedShopId={effectiveShopId}
+                        suppliers={suppliers}
+                      />
+                    ) : (
+                      <>
+                        <DetailSection
+                          icon="id"
+                          title={translate("Product identity")}
+                          rows={[
+                            {
+                              icon: "id",
+                              label: translate("Product id"),
+                              mono: true,
+                              value: product.productId,
+                            },
+                            {
+                              icon: "barcode",
+                              label: translate("Barcode"),
+                              mono: true,
+                              value: product.barcode,
+                            },
+                            {
+                              icon: "tag",
+                              label: translate("Item code"),
+                              mono: true,
+                              value: fieldValue(product.itemNumber, translate),
+                            },
+                            {
+                              icon: "box",
+                              label: translate("Product name"),
+                              value: fieldValue(product.productName, translate),
+                            },
+                            {
+                              icon: "tag",
+                              label: translate("Second name"),
+                              value: fieldValue(product.secondProductName, translate),
+                            },
+                          ]}
+                        />
+                        <DetailSection
+                          icon="folder"
+                          title={translate("Classification")}
+                          rows={[
+                            {
+                              icon: "truck",
+                              label: translate("Supplier"),
+                              value: fieldValue(product.supplierName, translate),
+                            },
+                            {
+                              icon: "folder",
+                              label: translate("Category"),
+                              value: fieldValue(product.categoryName, translate),
+                            },
+                            {
+                              icon: product.state === "archived" ? "archive" : "check",
+                              label: translate("Status"),
+                              value: product.state === "archived" ? translate("Archived") : translate("Active"),
+                            },
+                          ]}
+                        />
+                        <DetailSection
+                          icon="sync"
+                          title={translate("Mobile sync")}
+                          rows={[
+                            {
+                              description: translate("Latest product row update visible to Admin Web"),
+                              icon: "clock",
+                              label: translate("Updated"),
+                              value: formatDate(product.updatedAt, translate),
+                            },
+                            {
+                              description: translate("Archived products remain restorable from Advanced"),
+                              icon: "archive",
+                              label: translate("Archived"),
+                              value: formatDate(product.deletedAt, translate),
+                            },
+                            {
+                              description: mobileMappingDescription(
+                                readModel?.diagnostics.mappingState,
+                                translate,
+                              ),
+                              icon: "sync",
+                              label: translate("Last sync"),
+                              value: formatDate(readModel?.diagnostics.lastSyncAt, translate),
+                            },
+                          ]}
+                        />
+                      </>
+                    )}
                   </section>
                 ) : null}
 
-                {mode === "view" && tab === "prices" ? (
+                {tab === "prices" ? (
                   <section
                     aria-labelledby="product-detail-tab-prices"
                     className="grid gap-4"
@@ -874,52 +1385,62 @@ export function ProductDetailModalController({
                   >
                     <div className="grid gap-3 md:grid-cols-2">
                       <SummaryCard
+                        icon="cart"
                         label={translate("Current purchase price")}
                         value={formatNumber(product.purchasePrice, translate)}
                       />
                       <SummaryCard
+                        icon="priceTag"
                         label={translate("Current retail price")}
                         value={formatNumber(product.retailPrice, translate)}
                       />
                     </div>
-                    <div className="overflow-x-auto rounded-md border border-zinc-200">
-                      <table className="w-full min-w-[56rem] text-left text-sm">
-                        <thead className="bg-zinc-50 text-xs uppercase tracking-normal text-zinc-500">
-                          <tr>
-                            <th className="px-3 py-2">{translate("Type")}</th>
-                            <th className="px-3 py-2">{translate("Price")}</th>
-                            <th className="px-3 py-2">{translate("Effective")}</th>
-                            <th className="px-3 py-2">{translate("Source")}</th>
-                            <th className="px-3 py-2">{translate("Note")}</th>
-                            <th className="px-3 py-2">{translate("Created")}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {readModel?.prices.length ? (
-                            readModel.prices.map((price) => (
-                              <tr className="border-t border-zinc-100" key={price.priceId}>
-                                <td className="px-3 py-2">{translateToken(price.type, translate)}</td>
-                                <td className="px-3 py-2">{formatNumber(price.price, translate)}</td>
-                                <td className="px-3 py-2">{formatDate(price.effectiveAt, translate)}</td>
-                                <td className="px-3 py-2">{fieldValue(price.source, translate)}</td>
-                                <td className="px-3 py-2">{fieldValue(price.note, translate)}</td>
-                                <td className="px-3 py-2">{formatDate(price.createdAt, translate)}</td>
-                              </tr>
-                            ))
-                          ) : (
-                            <tr>
-                              <td className="px-3 py-5 text-zinc-500" colSpan={6}>
-                                {translate("No previous price changes are recorded for this product.")}
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
-                    </div>
+                    {readModel?.prices.length ? (
+                      <div className="grid gap-3">
+                        {readModel.prices.map((price) => (
+                          <article
+                            className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-start"
+                            key={price.priceId}
+                          >
+                            <span className="grid size-9 place-items-center rounded-md border border-zinc-200 bg-zinc-50 text-emerald-800">
+                              <ProductDetailIcon name="priceTag" />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-zinc-950">
+                                {translateToken(price.type, translate)} · {formatNumber(price.price, translate)}
+                              </p>
+                              <p className="mt-1 break-words text-xs leading-5 text-zinc-600 [overflow-wrap:anywhere]">
+                                {translate("Source")}: {fieldValue(price.source, translate)}
+                                {" · "}
+                                {translate("Note")}: {fieldValue(price.note, translate)}
+                              </p>
+                            </div>
+                            <dl className="grid gap-1 text-xs text-zinc-600 md:text-right">
+                              <div>
+                                <dt className="font-semibold text-zinc-500">
+                                  {translate("Effective")}
+                                </dt>
+                                <dd>{formatDate(price.effectiveAt, translate)}</dd>
+                              </div>
+                              <div>
+                                <dt className="font-semibold text-zinc-500">
+                                  {translate("Created")}
+                                </dt>
+                                <dd>{formatDate(price.createdAt, translate)}</dd>
+                              </div>
+                            </dl>
+                          </article>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="rounded-md border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600">
+                        {translate("No previous price changes are recorded for this product.")}
+                      </p>
+                    )}
                   </section>
                 ) : null}
 
-                {mode === "view" && tab === "inventory" ? (
+                {tab === "inventory" ? (
                   <section
                     aria-labelledby="product-detail-tab-inventory"
                     className="grid gap-4"
@@ -927,32 +1448,50 @@ export function ProductDetailModalController({
                     role="tabpanel"
                   >
                     <DetailSection
+                      icon="warehouse"
                       title={translate("Inventory / Sync")}
                       rows={[
-                        { label: translate("Stock quantity"), value: formatNumber(product.stockQuantity, translate) },
                         {
+                          icon: "warehouse",
+                          label: translate("Stock quantity"),
+                          value: formatNumber(product.stockQuantity, translate),
+                        },
+                        {
+                          description: translate("Source used by the admin product read model"),
+                          icon: "box",
                           label: translate("Catalog scope"),
                           value: translateToken(readModel?.diagnostics.catalogScope, translate),
                         },
                         {
+                          description: mobileMappingDescription(
+                            readModel?.diagnostics.mappingState,
+                            translate,
+                          ),
+                          icon: "link",
                           label: translate("Mobile mapping"),
                           value: translateToken(readModel?.diagnostics.mappingState, translate),
                         },
                         {
+                          icon: "folder",
                           label: translate("Selected shop"),
                           value: fieldValue(readModel?.diagnostics.selectedShopName, translate),
                         },
                         {
+                          icon: "sync",
                           label: translate("Last sync"),
                           value: formatDate(readModel?.diagnostics.lastSyncAt, translate),
                         },
-                        { label: translate("Last update"), value: formatDate(product.updatedAt, translate) },
+                        {
+                          icon: "clock",
+                          label: translate("Last update"),
+                          value: formatDate(product.updatedAt, translate),
+                        },
                       ]}
                     />
                   </section>
                 ) : null}
 
-                {mode === "view" && tab === "history" ? (
+                {tab === "history" ? (
                   <section
                     aria-labelledby="product-detail-tab-history"
                     className="grid gap-3"
@@ -993,7 +1532,7 @@ export function ProductDetailModalController({
                   </section>
                 ) : null}
 
-                {mode === "view" && tab === "advanced" ? (
+                {tab === "advanced" ? (
                   <section
                     aria-labelledby="product-detail-tab-advanced"
                     className="grid gap-4"
@@ -1007,15 +1546,33 @@ export function ProductDetailModalController({
                       <div className="mt-3">
                         <DetailGrid
                           rows={[
-                            { label: translate("Read status"), value: readModel?.status ?? translate("Unknown") },
-                            { label: translate("Reason"), value: fieldValue(readModel?.reason, translate) },
-                            { label: translate("Price rows"), value: String(readModel?.diagnostics.priceRows ?? 0) },
-                            { label: translate("History rows"), value: String(readModel?.diagnostics.historyRows ?? 0) },
                             {
+                              icon: "check",
+                              label: translate("Read status"),
+                              value: readModel?.status ?? translate("Unknown"),
+                            },
+                            {
+                              icon: "warning",
+                              label: translate("Reason"),
+                              value: fieldValue(readModel?.reason, translate),
+                            },
+                            {
+                              icon: "priceTag",
+                              label: translate("Price rows"),
+                              value: String(readModel?.diagnostics.priceRows ?? 0),
+                            },
+                            {
+                              icon: "sync",
+                              label: translate("History rows"),
+                              value: String(readModel?.diagnostics.historyRows ?? 0),
+                            },
+                            {
+                              icon: "box",
                               label: translate("Catalog scope"),
                               value: translateToken(readModel?.diagnostics.catalogScope, translate),
                             },
                             {
+                              icon: "link",
                               label: translate("Mapping state"),
                               value: translateToken(readModel?.diagnostics.mappingState, translate),
                             },

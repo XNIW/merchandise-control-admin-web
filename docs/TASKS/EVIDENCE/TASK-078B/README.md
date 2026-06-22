@@ -3,7 +3,7 @@
 ## Stato
 
 - Task: `TASK-078B`
-- Fase: `REVIEW`
+- Fase: `DONE_RECONCILED`
 - Data: `2026-06-20`
 - Esecutore: `Codex`
 
@@ -24,6 +24,19 @@
   shortcut disabilitato quando non risolto e diagnostics redatti collassati.
 - Nuove label collegate a `dictionary.exact` per IT/ES/ZH senza shadow dei
   corrective maps.
+
+## Final Review / DONE Reconciliation
+
+- Stato finale: `DONE_RECONCILED`.
+- Il precedente limite di screenshot autenticati e superato da Playwright locale
+  autenticato con fixture sintetica `TASK078C_*`.
+- Problemi trovati e corretti:
+  - i18n incompleto per nuove label History list/detail;
+  - History list light aveva reintrodotto una summary exact;
+  - smoke locale da aggiornare alla copia pagination `at least`;
+  - summary card `Source` troppo alta con supplier/category lunghi.
+  - guardrail statico TASK-054 da aggiornare al nuovo ultimo task chiuso.
+- Nessun commit, stage, push, deploy o Supabase apply eseguito.
 
 ## File toccati per TASK-078B
 
@@ -55,6 +68,8 @@
 | Comando | Stato | Note |
 |---|---|---|
 | `node --test tests/foundation/task-078-product-history-detail-modals.test.mjs` | `PASS` | 5/5 dopo aggiornamento assert su `Advanced`, lista light e diagnostics collassati. |
+| `node --test tests/foundation/task-history-sync-console.test.mjs` | `PASS` | 6/6. Guardrail History/sync console. |
+| `node --test tests/foundation/task-068m-product-list-readability-icons.test.mjs` | `PASS` | 6/6. Product list readability/actions. |
 | `node --test tests/foundation/task-062-global-i18n-locale.test.mjs` | `PASS` | 8/8; conferma copertura exact non-English. |
 | `node --test tests/foundation/task-068-security-i18n-audit.test.mjs` | `PASS` | 6/6; conferma nessuno shadow corrective/base exact. |
 | `npm run typecheck` | `PASS` | `next typegen && tsc --noEmit`. |
@@ -63,17 +78,16 @@
 | `npm run test:foundation` | `PASS` | 414/414. Primo run fallito su i18n shadow introdotto dal polish; rimosse chiavi duplicate e rerun verde. |
 | `npm run build` | `PASS_WITH_WARNINGS` | Warning noti: Next `middleware` deprecato verso `proxy`, Node `[DEP0205]`. |
 | `npm run verify` | `PASS_WITH_WARNINGS` | Ripete lint/typecheck/security/build; stessi warning build. |
+| `npm run test:shop:local` | `PASS` | 5/5. Primo run di riconciliazione ha richiesto aggiornamento test pagination; rerun verde. |
+| `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3050 node scripts/testing/run-playwright-target.mjs local tests/e2e/task-078c-product-history-visual-local.spec.ts --project=chromium-desktop` | `PASS` | 1/1. Visual QA locale autenticata con screenshot evidence TASK-078C. |
 | `git diff --check` | `PASS` | Nessun whitespace error. |
 | `curl -I --max-time 5 http://127.0.0.1:3055/shop/products` | `PASS` | Dev server gia attivo, risposta `HTTP/1.1 200 OK`. |
 
-## NOT_RUN / rischi residui
+## Rischi residui
 
-- Visual browser screenshot dei modali: `NOT_RUN_AUTH_REQUIRED`. Serve una
-  sessione autenticata con dataset reale e prodotti/history entry presenti per
-  aprire i modal e catturare screenshot significativi.
 - Focus trap completo non aggiunto: implementati `aria-labelledby`,
   `Escape`, tab roles e restore focus al trigger. Un focus trap completo puo
-  essere validato in follow-up dopo QA browser autenticata, soprattutto per i
+  essere validato in follow-up separato, soprattutto per i
   collegamenti incrociati Product -> History e History -> Product.
 - La riga header viene marcata `Ignored header row` solo quando e riga `1` e
   contiene segnali verificabili da header; casi ambigui restano visibili.
@@ -82,6 +96,5 @@
 
 ## Prossima fase
 
-`REVIEW`: controllare UX reale su desktop/mobile con dati lunghi, prodotti
-archiviati, righe missing e history entries con sync events. Nessun `DONE`
-marcato da Codex.
+Nessuna fase repo-controllabile aperta per `TASK-078B`. Eventuali prove con
+dati reali/lunghi o focus trap completo vanno aperte come follow-up separato.

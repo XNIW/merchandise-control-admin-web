@@ -1,5 +1,6 @@
 import "server-only";
 
+import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import { resolveShopAdminDataAccess } from "./data-access";
@@ -156,11 +157,19 @@ export type ShopHistoryOverlayStatus =
   | "too_large"
   | "legacy_v1";
 
+export type ShopHistorySyncState =
+  | "failed"
+  | "not_available"
+  | "pending"
+  | "success";
+
 export type ShopHistorySessionAnalysis = {
   remoteId: string;
   displayName: string;
+  displayTitle: string;
   supplier: string;
   category: string;
+  entryDate: string;
   timestamp: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -180,7 +189,14 @@ export type ShopHistorySessionAnalysis = {
   editableRows: number;
   completeRows: number;
   relatedSyncEventCount: number;
+  diagnosticsAvailable: boolean;
   latestRelatedSyncAt: string | null;
+  latestRelatedSyncEvent: string | null;
+  orderTotal: string;
+  paymentTotal: string;
+  syncState: ShopHistorySyncState;
+  syncStateLabel: string;
+  totalQuantity: string;
 };
 
 export type ShopHistorySession = ShopHistorySessionAnalysis & {
@@ -192,13 +208,18 @@ export type ShopHistoryTablePreviewRow = {
   rowKey: string;
   rowNumber: string;
   complete: string;
+  countedQuantity: string;
   editable: string;
   item: string;
   barcode: string;
   name: string;
   quantity: string;
+  oldPurchasePrice: string;
+  oldRetailPrice: string;
   purchasePrice: string;
   retailPrice: string;
+  salePrice: string;
+  sourceQuantity: string;
   values: string;
 };
 
@@ -211,6 +232,14 @@ export type ShopHistorySummary = {
   syncEventsTotalAvailable: boolean;
 };
 
+export type ShopHistoryStatusFilter =
+  | "active_issues"
+  | "active"
+  | "all"
+  | "deleted"
+  | "issues"
+  | "technical";
+
 export type ShopHistoryReadModel = {
   status: ShopHistoryReadModelStatus;
   selectedShop: ShopAdminShellShop | null;
@@ -218,6 +247,25 @@ export type ShopHistoryReadModel = {
   listMode?: "light";
   syncEvents: readonly ShopSyncEventActivity[];
   sessions: readonly ShopHistorySession[];
+  filters?: {
+    month: string | null;
+    query: string | null;
+    status: ShopHistoryStatusFilter;
+  };
+  pagination?: {
+    currentPageRows: number;
+    from: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+    page: number;
+    pageSize: 10 | 25 | 50 | 100 | 200;
+    rangeEnd: number;
+    rangeStart: number;
+    to: number;
+    totalCount: number;
+    totalCountStatus: "deferred" | "exact";
+    totalPages: number;
+  };
   summary: ShopHistorySummary;
   readOnly: true;
   source: "supabase_server";
@@ -267,6 +315,13 @@ export type ShopHistoryDetailReadModel = {
 
 type GetShopHistoryReadModelOptions = {
   client?: SupabaseServerClient | null;
+  filters?: {
+    month?: string | null;
+    query?: string | null;
+    status?: ShopHistoryStatusFilter | string | null;
+  };
+  page?: number | string | null;
+  pageSize?: number | string | null;
   requestedShopId?: string | null;
 };
 
@@ -294,8 +349,9 @@ const emptyDetail = {
 const SESSION_PAYLOAD_VERSION = 2;
 const SESSION_OVERLAY_SCHEMA = 1;
 const SESSION_OVERLAY_MAX_BYTES = 512 * 1024;
-const HISTORY_PREVIEW_ROW_LIMIT = 8;
+const HISTORY_PREVIEW_ROW_LIMIT = 200;
 export const HISTORY_LIGHT_LIST_LIMIT = 200;
+const HISTORY_LIST_PAGE_SIZES = [10, 25, 50, 100, 200] as const;
 const HISTORY_CELL_MAX_LENGTH = 120;
 
 export type SessionDataSummary = {
@@ -714,21 +770,55 @@ function inferName(row: readonly string[], barcode: string) {
 
 type HistoryPreviewColumn =
   | "barcode"
+  | "countedQuantity"
+  | "complete"
   | "item"
   | "name"
+  | "oldPurchasePrice"
+  | "oldRetailPrice"
   | "purchasePrice"
   | "quantity"
   | "retailPrice"
+  | "salePrice"
   | "rowNumber";
 
 function normalizeHeaderCell(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return value
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 function inferHistoryPreviewColumns(headerRow: readonly string[]) {
   const columns: Partial<Record<HistoryPreviewColumn, number>> = {};
 
   headerRow.forEach((cell, index) => {
+    if (cell === "RetailPrice") {
+      columns.salePrice ??= index;
+      return;
+    }
+
+    if (cell === "realQuantity") {
+      columns.countedQuantity ??= index;
+      return;
+    }
+
+    if (cell === "complete") {
+      columns.complete ??= index;
+      return;
+    }
+
+    if (cell === "oldPurchasePrice") {
+      columns.oldPurchasePrice ??= index;
+      return;
+    }
+
+    if (cell === "oldRetailPrice") {
+      columns.oldRetailPrice ??= index;
+      return;
+    }
+
     const normalized = normalizeHeaderCell(cell);
 
     if (!normalized) {
@@ -737,7 +827,7 @@ function inferHistoryPreviewColumns(headerRow: readonly string[]) {
 
     if (
       columns.rowNumber === undefined &&
-      /^(no|n|row|row number|#)$/.test(normalized)
+      /^(no|n|row|row number|source row|source index|#)$/.test(normalized)
     ) {
       columns.rowNumber = index;
       return;
@@ -776,6 +866,14 @@ function inferHistoryPreviewColumns(headerRow: readonly string[]) {
     }
 
     if (
+      columns.countedQuantity === undefined &&
+      /^(real quantity|counted quantity|import quantity)$/.test(normalized)
+    ) {
+      columns.countedQuantity = index;
+      return;
+    }
+
+    if (
       columns.purchasePrice === undefined &&
       /^(purchase|purchase price|buy price|cost)$/.test(normalized)
     ) {
@@ -784,10 +882,38 @@ function inferHistoryPreviewColumns(headerRow: readonly string[]) {
     }
 
     if (
+      columns.oldPurchasePrice === undefined &&
+      /^(old purchase|old purchase price|previous purchase|previous purchase price)$/.test(
+        normalized,
+      )
+    ) {
+      columns.oldPurchasePrice = index;
+      return;
+    }
+
+    if (
       columns.retailPrice === undefined &&
-      /^(retail|retail price|sell price|sale price|price)$/.test(normalized)
+      /^(retail|retail price|list price|source retail price)$/.test(normalized)
     ) {
       columns.retailPrice = index;
+      return;
+    }
+
+    if (
+      columns.oldRetailPrice === undefined &&
+      /^(old retail|old retail price|previous retail|previous retail price)$/.test(
+        normalized,
+      )
+    ) {
+      columns.oldRetailPrice = index;
+      return;
+    }
+
+    if (
+      columns.salePrice === undefined &&
+      /^(sale price|sell price|selling price|final price)$/.test(normalized)
+    ) {
+      columns.salePrice = index;
     }
   });
 
@@ -799,6 +925,100 @@ function historyPreviewColumnValue(
   columnIndex: number | undefined,
 ) {
   return columnIndex === undefined ? "" : (row[columnIndex] ?? "");
+}
+
+function numericHistoryCell(value: string | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value.trim().replace(/\s+/g, "").replace(",", ".");
+
+  if (!normalized) {
+    return null;
+  }
+
+  const parsed = Number(normalized);
+
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatHistoryAmount(value: number | null) {
+  if (value === null || !Number.isFinite(value)) {
+    return "Not available";
+  }
+
+  return new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+    minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
+  }).format(value);
+}
+
+function historyBusinessMetrics(input: {
+  data: Json | null;
+  overlayStatus: ShopHistoryOverlayStatus;
+  sessionOverlay: Json | null;
+}) {
+  const grid = stringGridFromJson(input.data);
+  const columns = inferHistoryPreviewColumns(grid[0] ?? []);
+  const overlay =
+    input.overlayStatus === "ok"
+      ? previewOverlay(input.sessionOverlay)
+      : { complete: [], editable: [] };
+  let totalQuantity = 0;
+  let orderTotal = 0;
+  let paymentTotal = 0;
+  let hasQuantity = false;
+  let hasOrder = false;
+  let hasPayment = false;
+
+  for (let rowIndex = 1; rowIndex < grid.length; rowIndex += 1) {
+    const row = grid[rowIndex] ?? [];
+    const sourceQuantity = numericHistoryCell(
+      historyPreviewColumnValue(row, columns.quantity),
+    );
+    const purchasePrice = numericHistoryCell(
+      historyPreviewColumnValue(row, columns.purchasePrice),
+    );
+
+    if (sourceQuantity !== null) {
+      totalQuantity += sourceQuantity;
+      hasQuantity = true;
+    }
+
+    if (sourceQuantity !== null && purchasePrice !== null) {
+      orderTotal += sourceQuantity * purchasePrice;
+      hasOrder = true;
+    }
+
+    if (overlay.complete[rowIndex] !== true) {
+      continue;
+    }
+
+    const editableRow = overlay.editable[rowIndex] ?? [];
+    const countedQuantity =
+      numericHistoryCell(editableRow[0]) ??
+      numericHistoryCell(
+        historyPreviewColumnValue(row, columns.countedQuantity),
+      ) ??
+      sourceQuantity;
+    const salePrice =
+      numericHistoryCell(editableRow[1]) ??
+      numericHistoryCell(historyPreviewColumnValue(row, columns.salePrice)) ??
+      numericHistoryCell(historyPreviewColumnValue(row, columns.retailPrice)) ??
+      purchasePrice;
+
+    if (countedQuantity !== null && salePrice !== null) {
+      paymentTotal += countedQuantity * salePrice;
+      hasPayment = true;
+    }
+  }
+
+  return {
+    orderTotal: formatHistoryAmount(hasOrder ? orderTotal : null),
+    paymentTotal: formatHistoryAmount(hasPayment ? paymentTotal : null),
+    totalQuantity: formatHistoryAmount(hasQuantity ? totalQuantity : null),
+  };
 }
 
 function firstHistoryDataCell(
@@ -839,6 +1059,19 @@ export function safeHistoryTablePreview({
     const item =
       historyPreviewColumnValue(row, columns.item) ||
       firstHistoryDataCell(row, [columns.rowNumber]);
+    const sourceQuantity = historyPreviewColumnValue(row, columns.quantity);
+    const oldPurchasePrice = historyPreviewColumnValue(
+      row,
+      columns.oldPurchasePrice,
+    );
+    const oldRetailPrice = historyPreviewColumnValue(row, columns.oldRetailPrice);
+    const countedQuantity =
+      editableRow[0]?.trim() ||
+      historyPreviewColumnValue(row, columns.countedQuantity);
+    const sourceRetailPrice = historyPreviewColumnValue(row, columns.retailPrice);
+    const salePrice =
+      editableRow[1]?.trim() ||
+      historyPreviewColumnValue(row, columns.salePrice);
 
     return {
       rowKey: `preview:${index + 1}`,
@@ -851,6 +1084,7 @@ export function safeHistoryTablePreview({
           ? "Complete"
           : "Missing"
         : "Overlay unavailable",
+      countedQuantity: safeHistoryCell(countedQuantity, 24),
       editable:
         !canUseOverlay
           ? "Overlay unavailable"
@@ -860,15 +1094,16 @@ export function safeHistoryTablePreview({
       item: safeHistoryCell(item),
       barcode: safeHistoryCell(barcode),
       name: safeHistoryCell(name),
+      oldPurchasePrice: safeHistoryCell(oldPurchasePrice, 24),
+      oldRetailPrice: safeHistoryCell(oldRetailPrice, 24),
       purchasePrice: safeHistoryCell(
         historyPreviewColumnValue(row, columns.purchasePrice),
         24,
       ),
-      quantity: safeHistoryCell(historyPreviewColumnValue(row, columns.quantity), 24),
-      retailPrice: safeHistoryCell(
-        historyPreviewColumnValue(row, columns.retailPrice),
-        24,
-      ),
+      quantity: safeHistoryCell(sourceQuantity, 24),
+      retailPrice: safeHistoryCell(sourceRetailPrice, 24),
+      salePrice: safeHistoryCell(salePrice, 24),
+      sourceQuantity: safeHistoryCell(sourceQuantity, 24),
       values: row.slice(0, 6).map((cell) => safeHistoryCell(cell, 28)).join(" | "),
     };
   });
@@ -915,10 +1150,13 @@ export function mapRelatedHistorySyncEvents(
 ) {
   const normalizedRemoteId = remoteId.trim().toLowerCase();
 
-  return events.filter(
-    (event) =>
-      event.domain === "history" && event.sessionIds.includes(normalizedRemoteId),
-  );
+  return events
+    .filter(
+      (event) =>
+        event.domain === "history" &&
+        event.sessionIds.includes(normalizedRemoteId),
+    )
+    .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
 function sourceScopeDisplayName(sourceScope: ShopHistorySourceScope) {
@@ -928,6 +1166,130 @@ function sourceScopeDisplayName(sourceScope: ShopHistorySourceScope) {
   };
 
   return labels[sourceScope];
+}
+
+function compactHistoryDisplayValue(value: string | null | undefined) {
+  return (value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeHistoryPage(value: GetShopHistoryReadModelOptions["page"]) {
+  const numericValue = Math.floor(Number(value));
+
+  return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : 1;
+}
+
+function normalizeHistoryPageSize(
+  value: GetShopHistoryReadModelOptions["pageSize"],
+): 10 | 25 | 50 | 100 | 200 {
+  const numericValue = Number(value);
+
+  return HISTORY_LIST_PAGE_SIZES.includes(
+    numericValue as (typeof HISTORY_LIST_PAGE_SIZES)[number],
+  )
+    ? (numericValue as 10 | 25 | 50 | 100 | 200)
+    : 10;
+}
+
+function normalizeHistoryStatusFilter(
+  value: GetShopHistoryReadModelOptions["filters"] extends infer Filters
+    ? Filters extends { status?: infer Status }
+      ? Status
+      : never
+    : never,
+): ShopHistoryStatusFilter {
+  if (isHistoryActiveIssuesAlias(typeof value === "string" ? value : null)) {
+    return "active_issues";
+  }
+
+  return value === "active" ||
+    value === "all" ||
+    value === "deleted" ||
+    value === "issues" ||
+    value === "technical"
+    ? value
+    : "active_issues";
+}
+
+function normalizeHistoryFilterValue(value: string | null | undefined) {
+  const normalized = value?.replace(/\s+/g, " ").trim();
+
+  return normalized ? normalized.slice(0, 120) : null;
+}
+
+function hasActiveHistoryListFilters(
+  filters: NonNullable<ShopHistoryReadModel["filters"]>,
+) {
+  return Boolean(filters.month || filters.query || filters.status !== "active_issues");
+}
+
+function isHistoryActiveIssuesAlias(value: string | null | undefined) {
+  return value === "active_issues" || value === "active_with_issues";
+}
+
+function normalizeHistoryMonthFilter(value: string | null | undefined) {
+  const normalized = value?.trim();
+
+  return normalized && /^\d{4}-\d{2}$/.test(normalized) ? normalized : null;
+}
+
+function historyMonthBounds(month: string | null) {
+  if (!month) {
+    return null;
+  }
+
+  const [year, monthNumber] = month.split("-").map(Number);
+  const start = new Date(Date.UTC(year, monthNumber - 1, 1));
+
+  if (Number.isNaN(start.getTime())) {
+    return null;
+  }
+
+  const end = new Date(Date.UTC(year, monthNumber, 1));
+
+  return {
+    end: end.toISOString(),
+    start: start.toISOString(),
+  };
+}
+
+function sanitizeHistorySearchQuery(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const normalized = value
+    .replace(/[,%*]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 120);
+
+  return normalized || null;
+}
+
+function historyDateLabel(value: string | null | undefined) {
+  const compact = compactHistoryDisplayValue(value);
+
+  if (!compact) {
+    return "date not set";
+  }
+
+  const date = new Date(compact);
+
+  if (Number.isNaN(date.getTime())) {
+    return compact.slice(0, 16);
+  }
+
+  return date.toISOString().slice(0, 10);
+}
+
+function compactRemoteId(value: string) {
+  const compact = compactHistoryDisplayValue(value);
+
+  if (compact.length <= 32) {
+    return compact;
+  }
+
+  return `${compact.slice(0, 20)}...${compact.slice(-8)}`;
 }
 
 function isUserFacingHistoryIdentifier(value: string | null | undefined) {
@@ -941,14 +1303,114 @@ function isUserFacingHistoryIdentifier(value: string | null | undefined) {
   );
 }
 
+function isGenericHistoryDisplayName(value: string | null | undefined) {
+  const normalized = compactHistoryDisplayValue(value).toLowerCase();
+
+  return (
+    normalized.length === 0 ||
+    normalized === "history" ||
+    normalized === "history entry" ||
+    normalized === "mobile history" ||
+    normalized === "mobile history entry" ||
+    normalized === "manual entry" ||
+    normalized === "shared sheet session" ||
+    normalized === "not set" ||
+    normalized === "untitled"
+  );
+}
+
 function isTechnicalHistorySessionIdentity(input: {
   display_name: string | null | undefined;
   remote_id: string | null | undefined;
 }) {
   return (
     !isUserFacingHistoryIdentifier(input.remote_id) ||
-    !isUserFacingHistoryIdentifier(input.display_name)
+      !isUserFacingHistoryIdentifier(input.display_name)
   );
+}
+
+export function resolveHistorySessionEntryDate(input: {
+  timestamp?: string | null | undefined;
+  updated_at?: string | null | undefined;
+  updatedAt?: string | null | undefined;
+}) {
+  return (
+    compactHistoryDisplayValue(input.timestamp) ||
+    compactHistoryDisplayValue(input.updated_at) ||
+    compactHistoryDisplayValue(input.updatedAt)
+  );
+}
+
+export function buildHistorySessionDisplayTitle(input: {
+  category?: string | null | undefined;
+  display_name?: string | null | undefined;
+  displayName?: string | null | undefined;
+  is_manual_entry?: boolean | null | undefined;
+  isManualEntry?: boolean | null | undefined;
+  remote_id?: string | null | undefined;
+  remoteId?: string | null | undefined;
+  supplier?: string | null | undefined;
+  timestamp?: string | null | undefined;
+  updated_at?: string | null | undefined;
+  updatedAt?: string | null | undefined;
+}) {
+  const displayName = compactHistoryDisplayValue(
+    input.display_name ?? input.displayName,
+  );
+  const remoteId = compactHistoryDisplayValue(input.remote_id ?? input.remoteId);
+
+  if (
+    !isGenericHistoryDisplayName(displayName) &&
+    isUserFacingHistoryIdentifier(displayName) &&
+    displayName.toLowerCase() !== remoteId.toLowerCase()
+  ) {
+    return displayName;
+  }
+
+  const isManualEntry = Boolean(input.is_manual_entry ?? input.isManualEntry);
+  const entryDate = resolveHistorySessionEntryDate(input);
+
+  if (isManualEntry) {
+    return `Manual inventory - ${historyDateLabel(entryDate)}`;
+  }
+
+  const supplier = compactHistoryDisplayValue(input.supplier);
+  const category = compactHistoryDisplayValue(input.category);
+  const supplierCategory = [supplier, category].filter(Boolean).join(" / ");
+
+  if (supplierCategory) {
+    return supplierCategory;
+  }
+
+  return remoteId ? `History ${compactRemoteId(remoteId)}` : "History entry";
+}
+
+export function deriveHistorySessionSyncState(
+  relatedEvents: readonly ShopSyncEventActivity[],
+) {
+  const latestEvent = relatedEvents[0] ?? null;
+
+  if (!latestEvent) {
+    return {
+      latestRelatedSyncAt: null,
+      latestRelatedSyncEvent: null,
+      syncState: "not_available" as const,
+      syncStateLabel: "Sync state not available",
+    };
+  }
+
+  const labels: Record<Exclude<ShopHistorySyncState, "not_available">, string> = {
+    failed: "Sync failed",
+    pending: "Sync pending",
+    success: "Synced",
+  };
+
+  return {
+    latestRelatedSyncAt: latestEvent.createdAt,
+    latestRelatedSyncEvent: latestEvent.eventType,
+    syncState: latestEvent.status,
+    syncStateLabel: `${labels[latestEvent.status]}: ${latestEvent.eventType}`,
+  };
 }
 
 function overlayStatusDisplayName(status: ShopHistoryOverlayStatus) {
@@ -1036,15 +1498,24 @@ function mapLegacySessionDetailRow(
   };
 }
 
-function mapSessionList(row: ScopedSharedSheetSessionListRow): ShopHistorySession {
+function mapSessionList(
+  row: ScopedSharedSheetSessionListRow,
+  events: readonly ShopSyncEventActivity[],
+): ShopHistorySession {
   const overlayStatus: ShopHistoryOverlayStatus =
     row.payload_version < SESSION_PAYLOAD_VERSION ? "legacy_v1" : "ok";
+  const relatedEvents = mapRelatedHistorySyncEvents(row.remote_id, events);
+  const syncState = deriveHistorySessionSyncState(relatedEvents);
+  const entryDate = resolveHistorySessionEntryDate(row);
+  const displayTitle = buildHistorySessionDisplayTitle(row);
 
   return {
     remoteId: row.remote_id,
     displayName: row.display_name,
+    displayTitle,
     supplier: row.supplier,
     category: row.category,
+    entryDate,
     timestamp: row.timestamp,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -1063,8 +1534,12 @@ function mapSessionList(row: ScopedSharedSheetSessionListRow): ShopHistorySessio
     overlayBytes: 0,
     editableRows: 0,
     completeRows: 0,
-    relatedSyncEventCount: 0,
-    latestRelatedSyncAt: null,
+    relatedSyncEventCount: relatedEvents.length,
+    diagnosticsAvailable: false,
+    ...syncState,
+    orderTotal: "Not available",
+    paymentTotal: "Not available",
+    totalQuantity: "Not available",
     dataSummary: "Deferred to detail",
     overlaySummary: "Deferred to detail",
   };
@@ -1080,13 +1555,23 @@ function mapSession(
     payloadVersion: row.payload_version,
     sessionOverlay: row.session_overlay,
   });
+  const businessMetrics = historyBusinessMetrics({
+    data: row.data,
+    overlayStatus: overlayAnalysis.overlayStatus,
+    sessionOverlay: row.session_overlay,
+  });
   const relatedEvents = mapRelatedHistorySyncEvents(row.remote_id, events);
+  const syncState = deriveHistorySessionSyncState(relatedEvents);
+  const entryDate = resolveHistorySessionEntryDate(row);
+  const displayTitle = buildHistorySessionDisplayTitle(row);
 
   return {
     remoteId: row.remote_id,
     displayName: row.display_name,
+    displayTitle,
     supplier: row.supplier,
     category: row.category,
+    entryDate,
     timestamp: row.timestamp,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -1106,7 +1591,11 @@ function mapSession(
     editableRows: overlayAnalysis.editableRows,
     completeRows: overlayAnalysis.completeRows,
     relatedSyncEventCount: relatedEvents.length,
-    latestRelatedSyncAt: relatedEvents[0]?.createdAt ?? null,
+    diagnosticsAvailable: true,
+    ...syncState,
+    orderTotal: businessMetrics.orderTotal,
+    paymentTotal: businessMetrics.paymentTotal,
+    totalQuantity: businessMetrics.totalQuantity,
     dataSummary: summarizeJson(row.data),
     overlaySummary: summarizeJson(row.session_overlay),
   };
@@ -1117,13 +1606,18 @@ function mapSessionDiagnostics(
   events: readonly ShopSyncEventActivity[],
 ): ShopHistorySession {
   const relatedEvents = mapRelatedHistorySyncEvents(row.remote_id, events);
+  const syncState = deriveHistorySessionSyncState(relatedEvents);
   const overlayStatus = row.overlay_status as ShopHistoryOverlayStatus;
+  const entryDate = resolveHistorySessionEntryDate(row);
+  const displayTitle = buildHistorySessionDisplayTitle(row);
 
   return {
     remoteId: row.remote_id,
     displayName: row.display_name,
+    displayTitle,
     supplier: row.supplier,
     category: row.category,
+    entryDate,
     timestamp: row.timestamp,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
@@ -1143,7 +1637,11 @@ function mapSessionDiagnostics(
     editableRows: row.editable_rows,
     completeRows: row.complete_rows,
     relatedSyncEventCount: relatedEvents.length,
-    latestRelatedSyncAt: relatedEvents[0]?.createdAt ?? null,
+    diagnosticsAvailable: true,
+    ...syncState,
+    orderTotal: "Not available",
+    paymentTotal: "Not available",
+    totalQuantity: "Not available",
     dataSummary: row.data_summary,
     overlaySummary: row.overlay_summary,
   };
@@ -1190,11 +1688,50 @@ type HistoryCountTable = {
   ) => HistoryCountQuery;
 };
 
+type HistoryListQuery<Row> = {
+  eq: (column: string, value: string) => HistoryListQuery<Row>;
+  gt: (column: string, value: number | string) => HistoryListQuery<Row>;
+  gte: (column: string, value: string) => HistoryListQuery<Row>;
+  is: (column: string, value: null) => HistoryListQuery<Row>;
+  lt: (column: string, value: string) => HistoryListQuery<Row>;
+  not: (
+    column: string,
+    operator: string,
+    value: null | string,
+  ) => HistoryListQuery<Row>;
+  or: (filters: string) => HistoryListQuery<Row>;
+  order: (
+    column: string,
+    options: {
+      ascending: boolean;
+    },
+  ) => HistoryListQuery<Row>;
+  range: (
+    from: number,
+    to: number,
+  ) => PromiseLike<{
+    count: number | null;
+    data: Row[] | null;
+    error: unknown | null;
+  }>;
+};
+
+type HistoryListTable<Row> = {
+  select: (
+    columns: string,
+    options?: {
+      count: "exact";
+    },
+  ) => HistoryListQuery<Row>;
+};
+
 type SupportedHistoryCountTable =
+  | "shared_sheet_sessions"
   | "shared_sheet_session_diagnostics"
   | "sync_events";
 
 const SUPPORTED_HISTORY_TOTAL_TABLES = [
+  "shared_sheet_sessions",
   "shared_sheet_session_diagnostics",
   "sync_events",
 ] as const satisfies readonly SupportedHistoryCountTable[];
@@ -1378,6 +1915,38 @@ async function loadHistorySummary(input: {
   };
 }
 
+async function loadShopScopedHistoryPresence(input: {
+  selectedShopId: string;
+  supabase: SupabaseServerClient;
+}) {
+  const [diagnosticsResult, sessionsResult] = await Promise.all([
+    countHistoryRows({
+      scope: {
+        kind: "shop_scoped",
+        shopId: input.selectedShopId,
+      },
+      supabase: input.supabase,
+      table: "shared_sheet_session_diagnostics",
+    }),
+    countHistoryRows({
+      scope: {
+        kind: "shop_scoped",
+        shopId: input.selectedShopId,
+      },
+      supabase: input.supabase,
+      table: "shared_sheet_sessions",
+    }),
+  ]);
+  const error = diagnosticsResult.error ?? sessionsResult.error ?? null;
+  const count = (diagnosticsResult.count ?? 0) + (sessionsResult.count ?? 0);
+
+  return {
+    count,
+    error,
+    hasRows: count > 0,
+  };
+}
+
 async function resolveHistorySourceState(
   supabase: SupabaseServerClient,
   selectedShop: ShopAdminShellShop,
@@ -1404,6 +1973,20 @@ async function resolveHistorySourceState(
   const sourceError = mappedSourceResult.error ?? blockingSourceResult.error;
 
   if (sourceError) {
+    const shopScopedHistoryPresence = await loadShopScopedHistoryPresence({
+      selectedShopId: selectedShop.shopId,
+      supabase,
+    });
+
+    if (!shopScopedHistoryPresence.error && shopScopedHistoryPresence.hasRows) {
+      return {
+        blockingSource: null,
+        error: null,
+        legacyOwnerUserId: null,
+        mapping: null,
+      };
+    }
+
     return { error: sourceError };
   }
 
@@ -1657,7 +2240,7 @@ function mapSessionDetail(
   return {
     entryId: `session:${row.remote_id}`,
     kind: "shared_sheet_session",
-    title: row.display_name,
+    title: analysis.displayTitle,
     source: [row.supplier, row.category].filter(Boolean).join(" / ") || "Unknown",
     sourceDeviceId: null,
     eventType: row.deleted_at ? "history_tombstone" : "history_session",
@@ -1690,8 +2273,12 @@ function mapSessionDetail(
       detailField("category", "Category", row.category),
       detailField("manual", "Manual entry", row.is_manual_entry),
       detailField("version", "Payload version", row.payload_version),
+      detailField("entryDate", "Entry date", analysis.entryDate),
       detailField("rows", "Data rows", analysis.rowCount),
       detailField("columns", "Columns", analysis.columnCount),
+      detailField("totalQuantity", "Total quantity", analysis.totalQuantity),
+      detailField("orderTotal", "Order total", analysis.orderTotal),
+      detailField("paymentTotal", "Paid total", analysis.paymentTotal),
       detailField("completed", "Completed rows", analysis.completeCount),
       detailField("missing", "Missing rows", analysis.missingCount),
       detailField("overlay", "Overlay status", overlayStatusDisplayName(analysis.overlayStatus)),
@@ -1701,6 +2288,7 @@ function mapSessionDetail(
       detailField("editableRows", "Editable rows", analysis.editableRows),
       detailField("completeRows", "Complete flags", analysis.completeRows),
       detailField("relatedEvents", "Related sync events", relatedSyncEvents.length),
+      detailField("syncState", "Sync state", analysis.syncStateLabel),
       detailField("tables", "Tables involved", "shared_sheet_sessions"),
       detailField("payload", "Payload summary", payloadSummary),
       detailField("raw", "Redacted JSON", rawJsonPreview),
@@ -1722,18 +2310,220 @@ const historyListSessionSelect =
   "remote_id,shop_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,is_manual_entry";
 const legacyHistoryListSessionSelect =
   "remote_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,is_manual_entry";
+const historyDiagnosticsSessionSelect =
+  "remote_id,shop_id,owner_user_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,is_manual_entry,data_rows,item_rows,column_count,overlay_status,overlay_schema,overlay_bytes,editable_rows,complete_rows,complete_count,missing_count,data_summary,overlay_summary";
 
-async function loadHistoryListSessions(input: {
+function applyHistoryListFilters<Row>(
+  query: HistoryListQuery<Row>,
+  filters: NonNullable<ShopHistoryReadModel["filters"]>,
+  mode: "diagnostics" | "sessions",
+) {
+  let nextQuery = query;
+  const monthBounds = historyMonthBounds(filters.month);
+  const searchQuery = sanitizeHistorySearchQuery(filters.query);
+
+  if (filters.status === "deleted") {
+    nextQuery = nextQuery.not("deleted_at", "is", null);
+  } else if (filters.status !== "all") {
+    nextQuery = nextQuery.is("deleted_at", null);
+  }
+
+  if (mode === "diagnostics" && filters.status === "issues") {
+    nextQuery = nextQuery.or("missing_count.gt.0,overlay_status.neq.ok");
+  }
+
+  if (monthBounds) {
+    nextQuery = nextQuery
+      .gte("timestamp", monthBounds.start)
+      .lt("timestamp", monthBounds.end);
+  }
+
+  if (searchQuery) {
+    nextQuery = nextQuery.or(
+      [
+        `remote_id.ilike.*${searchQuery}*`,
+        `display_name.ilike.*${searchQuery}*`,
+        `supplier.ilike.*${searchQuery}*`,
+        `category.ilike.*${searchQuery}*`,
+      ].join(","),
+    );
+  }
+
+  return nextQuery;
+}
+
+function compareHistoryListRows(
+  left: { remote_id: string; timestamp: string; updated_at: string },
+  right: { remote_id: string; timestamp: string; updated_at: string },
+) {
+  return (
+    right.timestamp.localeCompare(left.timestamp) ||
+    right.updated_at.localeCompare(left.updated_at) ||
+    left.remote_id.localeCompare(right.remote_id)
+  );
+}
+
+function mergeHistoryPageRows<Row extends { remote_id: string; timestamp: string; updated_at: string }>(
+  primaryRows: readonly Row[],
+  fallbackRows: readonly Row[],
+  pageSize: number,
+) {
+  return mergeRowsByKey(primaryRows, fallbackRows, (row) => row.remote_id)
+    .sort(compareHistoryListRows)
+    .slice(0, pageSize);
+}
+
+async function loadHistoryListDiagnostics(input: {
+  filters: NonNullable<ShopHistoryReadModel["filters"]>;
+  from: number;
   legacyOwnerUserId: string | null;
+  pageSize: number;
   selectedShop: ShopAdminShellShop;
   supabase: SupabaseServerClient;
+  to: number;
 }) {
-  const directSessionsResult = await input.supabase
-    .from("shared_sheet_sessions")
-    .select(historyListSessionSelect)
-    .eq("shop_id", input.selectedShop.shopId)
-    .order("updated_at", { ascending: false })
-    .limit(HISTORY_LIGHT_LIST_LIMIT);
+  const diagnosticsTable = input.supabase.from(
+    "shared_sheet_session_diagnostics",
+  ) as unknown as HistoryListTable<SharedSheetSessionDiagnosticsRow>;
+  const directDiagnosticsQuery = applyHistoryListFilters(
+    diagnosticsTable
+      .select(historyDiagnosticsSessionSelect, { count: "exact" })
+      .eq("shop_id", input.selectedShop.shopId),
+    input.filters,
+    "diagnostics",
+  )
+    .order("timestamp", { ascending: false })
+    .order("remote_id", { ascending: true });
+  const directDiagnosticsResult = await directDiagnosticsQuery.range(
+    input.from,
+    input.to,
+  );
+
+  if (
+    directDiagnosticsResult.error &&
+    !isLegacyHistorySchemaError(directDiagnosticsResult.error)
+  ) {
+    return {
+      diagnostics: [] as ScopedSharedSheetSessionDiagnosticsRow[],
+      error: directDiagnosticsResult.error,
+      fallbackToSessions: false,
+      totalCount: 0,
+      totalCountStatus: "deferred" as const,
+    };
+  }
+
+  if (directDiagnosticsResult.error) {
+    return {
+      diagnostics: [] as ScopedSharedSheetSessionDiagnosticsRow[],
+      error: null,
+      fallbackToSessions: true,
+      totalCount: 0,
+      totalCountStatus: "deferred" as const,
+    };
+  }
+
+  const directDiagnostics: ScopedSharedSheetSessionDiagnosticsRow[] = ((
+    directDiagnosticsResult.data ?? []
+  ) as SharedSheetSessionDiagnosticsRow[]).map((row) => ({
+    ...row,
+    sourceScope: "shop_scoped" as const,
+  }));
+
+  if (!input.legacyOwnerUserId) {
+    return {
+      diagnostics: directDiagnostics,
+      error: null,
+      fallbackToSessions: false,
+      totalCount: directDiagnosticsResult.count ?? directDiagnostics.length,
+      totalCountStatus: "exact" as const,
+    };
+  }
+
+  const legacyDiagnosticsQuery = applyHistoryListFilters(
+    diagnosticsTable
+      .select(historyDiagnosticsSessionSelect, { count: "exact" })
+      .is("shop_id", null)
+      .eq("owner_user_id", input.legacyOwnerUserId),
+    input.filters,
+    "diagnostics",
+  )
+    .order("timestamp", { ascending: false })
+    .order("remote_id", { ascending: true });
+  const legacyDiagnosticsResult = await legacyDiagnosticsQuery.range(
+    input.from,
+    input.to,
+  );
+
+  if (
+    legacyDiagnosticsResult.error &&
+    !isLegacyHistorySchemaError(legacyDiagnosticsResult.error)
+  ) {
+    return {
+      diagnostics: directDiagnostics,
+      error: legacyDiagnosticsResult.error,
+      fallbackToSessions: false,
+      totalCount: directDiagnosticsResult.count ?? directDiagnostics.length,
+      totalCountStatus: "deferred" as const,
+    };
+  }
+
+  if (legacyDiagnosticsResult.error) {
+    return {
+      diagnostics: directDiagnostics,
+      error: null,
+      fallbackToSessions: directDiagnostics.length === 0,
+      totalCount: directDiagnosticsResult.count ?? directDiagnostics.length,
+      totalCountStatus: "deferred" as const,
+    };
+  }
+
+  const legacyDiagnostics: ScopedSharedSheetSessionDiagnosticsRow[] = ((
+    legacyDiagnosticsResult.data ?? []
+  ) as SharedSheetSessionDiagnosticsRow[]).map((row) => ({
+    ...row,
+    sourceScope: "legacy_owner_bridge" as const,
+  }));
+
+  return {
+    diagnostics: mergeHistoryPageRows(
+      directDiagnostics,
+      legacyDiagnostics,
+      input.pageSize,
+    ),
+    error: null,
+    fallbackToSessions: false,
+    totalCount:
+      (directDiagnosticsResult.count ?? directDiagnostics.length) +
+      (legacyDiagnosticsResult.count ?? legacyDiagnostics.length),
+    totalCountStatus: "exact" as const,
+  };
+}
+
+async function loadHistoryListSessions(input: {
+  filters: NonNullable<ShopHistoryReadModel["filters"]>;
+  from: number;
+  legacyOwnerUserId: string | null;
+  pageSize: number;
+  selectedShop: ShopAdminShellShop;
+  supabase: SupabaseServerClient;
+  to: number;
+}) {
+  const sessionsTable = input.supabase.from(
+    "shared_sheet_sessions",
+  ) as unknown as HistoryListTable<SharedSheetSessionListRow>;
+  const directSessionsQuery = applyHistoryListFilters(
+    sessionsTable
+      .select(historyListSessionSelect, { count: "exact" })
+      .eq("shop_id", input.selectedShop.shopId),
+    input.filters,
+    "sessions",
+  )
+    .order("timestamp", { ascending: false })
+    .order("remote_id", { ascending: true });
+  const directSessionsResult = await directSessionsQuery.range(
+    input.from,
+    input.to,
+  );
 
   if (
     directSessionsResult.error &&
@@ -1742,6 +2532,8 @@ async function loadHistoryListSessions(input: {
     return {
       error: directSessionsResult.error,
       sessions: [] as ScopedSharedSheetSessionListRow[],
+      totalCount: 0,
+      totalCountStatus: "deferred" as const,
     };
   }
 
@@ -1759,15 +2551,24 @@ async function loadHistoryListSessions(input: {
     return {
       error: null,
       sessions: directSessions,
+      totalCount: directSessionsResult.count ?? directSessions.length,
+      totalCountStatus: directSessionsResult.error ? "deferred" as const : "exact" as const,
     };
   }
 
-  const ownerSessionsResult = await input.supabase
-    .from("shared_sheet_sessions")
-    .select(historyListSessionSelect)
-    .eq("owner_user_id", input.legacyOwnerUserId)
-    .order("updated_at", { ascending: false })
-    .limit(HISTORY_LIGHT_LIST_LIMIT);
+  const ownerSessionsQuery = applyHistoryListFilters(
+    sessionsTable
+      .select(historyListSessionSelect, { count: "exact" })
+      .eq("owner_user_id", input.legacyOwnerUserId),
+    input.filters,
+    "sessions",
+  )
+    .order("timestamp", { ascending: false })
+    .order("remote_id", { ascending: true });
+  const ownerSessionsResult = await ownerSessionsQuery.range(
+    input.from,
+    input.to,
+  );
 
   if (
     ownerSessionsResult.error &&
@@ -1776,6 +2577,8 @@ async function loadHistoryListSessions(input: {
     return {
       error: ownerSessionsResult.error,
       sessions: directSessions,
+      totalCount: directSessionsResult.count ?? directSessions.length,
+      totalCountStatus: "deferred" as const,
     };
   }
 
@@ -1783,17 +2586,29 @@ async function loadHistoryListSessions(input: {
     ownerSessionsResult.error &&
     isLegacyHistorySchemaError(ownerSessionsResult.error)
   ) {
-    const legacyOwnerSessionsResult = await input.supabase
-      .from("shared_sheet_sessions")
-      .select(legacyHistoryListSessionSelect)
-      .eq("owner_user_id", input.legacyOwnerUserId)
-      .order("updated_at", { ascending: false })
-      .limit(HISTORY_LIGHT_LIST_LIMIT);
+    const legacySessionsTable = input.supabase.from(
+      "shared_sheet_sessions",
+    ) as unknown as HistoryListTable<LegacySharedSheetSessionListRow>;
+    const legacyOwnerSessionsQuery = applyHistoryListFilters(
+      legacySessionsTable
+        .select(legacyHistoryListSessionSelect, { count: "exact" })
+        .eq("owner_user_id", input.legacyOwnerUserId),
+      input.filters,
+      "sessions",
+    )
+      .order("timestamp", { ascending: false })
+      .order("remote_id", { ascending: true });
+    const legacyOwnerSessionsResult = await legacyOwnerSessionsQuery.range(
+      input.from,
+      input.to,
+    );
 
     if (legacyOwnerSessionsResult.error) {
       return {
         error: legacyOwnerSessionsResult.error,
         sessions: directSessions,
+        totalCount: directSessionsResult.count ?? directSessions.length,
+        totalCountStatus: "deferred" as const,
       };
     }
 
@@ -1804,11 +2619,15 @@ async function loadHistoryListSessions(input: {
 
     return {
       error: null,
-      sessions: mergeRowsByKey(
+      sessions: mergeHistoryPageRows(
         directSessions,
         legacySessions,
-        (session) => session.remote_id,
+        input.pageSize,
       ),
+      totalCount:
+        (directSessionsResult.count ?? directSessions.length) +
+        (legacyOwnerSessionsResult.count ?? legacySessions.length),
+      totalCountStatus: "exact" as const,
     };
   }
 
@@ -1823,18 +2642,136 @@ async function loadHistoryListSessions(input: {
 
   return {
     error: null,
-    sessions: mergeRowsByKey(
+    sessions: mergeHistoryPageRows(
       ownerSessions,
       directSessions,
-      (session) => session.remote_id,
+      input.pageSize,
     ),
+    totalCount:
+      (ownerSessionsResult.count ?? ownerSessions.length) +
+      (directSessionsResult.count ?? directSessions.length),
+    totalCountStatus: "exact" as const,
   };
+}
+
+async function loadHistoryListMetricSessions(input: {
+  legacyOwnerUserId: string | null;
+  remoteIds: readonly string[];
+  selectedShop: ShopAdminShellShop;
+  supabase: SupabaseAdminClient | SupabaseServerClient;
+}) {
+  if (input.remoteIds.length === 0) {
+    return [];
+  }
+
+  const directSessionsResult = await input.supabase
+    .from("shared_sheet_sessions")
+    .select(
+      "remote_id,shop_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,is_manual_entry,data,session_overlay",
+    )
+    .eq("shop_id", input.selectedShop.shopId)
+    .in("remote_id", input.remoteIds)
+    .order("timestamp", { ascending: false })
+    .limit(input.remoteIds.length);
+
+  const directSessions: ScopedSharedSheetSessionRow[] =
+    directSessionsResult.error
+      ? []
+      : ((directSessionsResult.data ?? []) as SharedSheetSessionRow[]).map(
+          (row) => ({
+            ...row,
+            sourceScope: "shop_scoped" as const,
+          }),
+        );
+
+  if (!input.legacyOwnerUserId) {
+    return directSessions;
+  }
+
+  const ownerSessionsResult = await input.supabase
+    .from("shared_sheet_sessions")
+    .select(
+      "remote_id,shop_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,is_manual_entry,data,session_overlay",
+    )
+    .eq("owner_user_id", input.legacyOwnerUserId)
+    .in("remote_id", input.remoteIds)
+    .order("timestamp", { ascending: false })
+    .limit(input.remoteIds.length);
+
+  if (ownerSessionsResult.error && !isLegacyHistorySchemaError(ownerSessionsResult.error)) {
+    return directSessions;
+  }
+
+  if (ownerSessionsResult.error && isLegacyHistorySchemaError(ownerSessionsResult.error)) {
+    const legacyOwnerSessionsResult = await input.supabase
+      .from("shared_sheet_sessions")
+      .select(
+        "remote_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,is_manual_entry,data,session_overlay",
+      )
+      .eq("owner_user_id", input.legacyOwnerUserId)
+      .in("remote_id", input.remoteIds)
+      .order("timestamp", { ascending: false })
+      .limit(input.remoteIds.length);
+
+    if (legacyOwnerSessionsResult.error) {
+      return directSessions;
+    }
+
+    const legacySessions = ((legacyOwnerSessionsResult.data ??
+      []) as LegacySharedSheetSessionRow[]).map((row) =>
+      mapLegacySessionRow(row, "legacy_owner_bridge"),
+    );
+
+    return mergeRowsByKey(
+      directSessions,
+      legacySessions,
+      (session) => session.remote_id,
+    );
+  }
+
+  const ownerSessions = ((ownerSessionsResult.data ??
+    []) as SharedSheetSessionRow[]).map((row) => ({
+    ...row,
+    sourceScope:
+      row.shop_id === input.selectedShop.shopId
+        ? ("shop_scoped" as const)
+        : ("legacy_owner_bridge" as const),
+  }));
+
+  return mergeRowsByKey(
+    ownerSessions,
+    directSessions,
+    (session) => session.remote_id,
+  );
 }
 
 export async function getShopHistoryListReadModel(
   options: GetShopHistoryReadModelOptions = {},
 ): Promise<ShopHistoryReadModel> {
   const access = await resolveShopAdminDataAccess(options);
+  const page = normalizeHistoryPage(options.page);
+  const pageSize = normalizeHistoryPageSize(options.pageSize);
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+  const filters: NonNullable<ShopHistoryReadModel["filters"]> = {
+    month: normalizeHistoryMonthFilter(options.filters?.month),
+    query: normalizeHistoryFilterValue(options.filters?.query),
+    status: normalizeHistoryStatusFilter(options.filters?.status ?? null),
+  };
+  const emptyPagination: NonNullable<ShopHistoryReadModel["pagination"]> = {
+    currentPageRows: 0,
+    from,
+    hasNextPage: false,
+    hasPreviousPage: page > 1,
+    page,
+    pageSize,
+    rangeEnd: 0,
+    rangeStart: 0,
+    to,
+    totalCount: 0,
+    totalCountStatus: "deferred",
+    totalPages: 1,
+  };
 
   if (access.status !== "ready") {
     return {
@@ -1843,6 +2780,8 @@ export async function getShopHistoryListReadModel(
           ? access.status
           : "unauthorized",
       ...emptyRows,
+      filters,
+      pagination: emptyPagination,
       listMode: "light",
       readOnly: true,
       source: "supabase_server",
@@ -1861,6 +2800,8 @@ export async function getShopHistoryListReadModel(
       syncEvents: [],
       sessions: [],
       summary: emptyRows.summary,
+      filters,
+      pagination: emptyPagination,
       listMode: "light",
       readOnly: true,
       source: "supabase_server",
@@ -1871,24 +2812,96 @@ export async function getShopHistoryListReadModel(
 
   const mapping = sourceState.mapping ?? null;
   const legacyOwnerUserId = sourceState.legacyOwnerUserId ?? null;
-  const sessionResult = await loadHistoryListSessions({
+  const syncEventsResult = await loadHistorySyncEventsForShop(
+    supabase,
+    selectedShop,
     legacyOwnerUserId,
+  );
+  const syncEvents = syncEventsResult.error ? [] : syncEventsResult.events;
+  const diagnosticsResult = await loadHistoryListDiagnostics({
+    filters,
+    from,
+    legacyOwnerUserId,
+    pageSize,
     selectedShop,
     supabase,
+    to,
   });
+
+  if (diagnosticsResult.error) {
+    return {
+      status: "error",
+      selectedShop,
+      mapping,
+      syncEvents,
+      sessions: [],
+      summary: emptyRows.summary,
+      filters,
+      pagination: emptyPagination,
+      listMode: "light",
+      readOnly: true,
+      source: "supabase_server",
+      reason: "Lightweight mobile history rows could not be loaded through RLS.",
+      error: redactHistoryReadModelError(diagnosticsResult.error),
+    };
+  }
+
+  const sessionResult = diagnosticsResult.fallbackToSessions
+    ? await loadHistoryListSessions({
+        filters,
+        from,
+        legacyOwnerUserId,
+        pageSize,
+        selectedShop,
+        supabase,
+        to,
+      })
+    : {
+        error: null,
+        sessions: [] as ScopedSharedSheetSessionListRow[],
+        totalCount: diagnosticsResult.totalCount,
+        totalCountStatus: diagnosticsResult.totalCountStatus,
+      };
+  const metricSessions =
+    diagnosticsResult.diagnostics.length > 0
+      ? await loadHistoryListMetricSessions({
+          legacyOwnerUserId,
+          remoteIds: diagnosticsResult.diagnostics.map(
+            (session) => session.remote_id,
+          ),
+          selectedShop,
+          supabase,
+        })
+      : [];
+  const metricSessionsByRemoteId = new Map(
+    metricSessions.map((session) => [
+      session.remote_id,
+      mapSession(session, syncEvents),
+    ]),
+  );
+  const shopScopedHistoryPresence =
+    sourceState.blockingSource && !legacyOwnerUserId
+      ? await loadShopScopedHistoryPresence({
+          selectedShopId: selectedShop.shopId,
+          supabase,
+        })
+      : { count: 0, error: null, hasRows: false };
 
   if (sessionResult.error) {
     return {
       status: "error",
       selectedShop,
       mapping,
-      syncEvents: [],
+      syncEvents,
       sessions: [],
       summary: emptyRows.summary,
+      filters,
+      pagination: emptyPagination,
       listMode: "light",
       readOnly: true,
       source: "supabase_server",
-      reason: "Lightweight mobile history rows could not be loaded through RLS.",
+      reason:
+        "Lightweight mobile history fallback rows could not be loaded through RLS.",
       error: redactHistoryReadModelError(sessionResult.error),
     };
   }
@@ -1896,7 +2909,9 @@ export async function getShopHistoryListReadModel(
   if (
     sourceState.blockingSource &&
     !legacyOwnerUserId &&
-    sessionResult.sessions.length === 0
+    page === 1 &&
+    !hasActiveHistoryListFilters(filters) &&
+    !shopScopedHistoryPresence.hasRows
   ) {
     return {
       status: "unmapped",
@@ -1905,6 +2920,8 @@ export async function getShopHistoryListReadModel(
       syncEvents: [],
       sessions: [],
       summary: emptyRows.summary,
+      filters,
+      pagination: emptyPagination,
       listMode: "light",
       readOnly: true,
       source: "supabase_server",
@@ -1913,35 +2930,91 @@ export async function getShopHistoryListReadModel(
     };
   }
 
-  const sessions = sessionResult.sessions.map(mapSessionList);
+  const sessions =
+    diagnosticsResult.diagnostics.length > 0
+      ? diagnosticsResult.diagnostics.map((session) => {
+          const diagnosticsSession = mapSessionDiagnostics(session, syncEvents);
+          const metricSession = metricSessionsByRemoteId.get(session.remote_id);
+
+          return metricSession
+            ? {
+                ...diagnosticsSession,
+                orderTotal: metricSession.orderTotal,
+                paymentTotal: metricSession.paymentTotal,
+                totalQuantity: metricSession.totalQuantity,
+              }
+            : diagnosticsSession;
+        })
+      : sessionResult.sessions.map((session) =>
+          mapSessionList(session, syncEvents),
+        );
+  const totalCount = diagnosticsResult.fallbackToSessions
+    ? sessionResult.totalCount
+    : diagnosticsResult.totalCount;
+  const totalCountStatus = diagnosticsResult.fallbackToSessions
+    ? sessionResult.totalCountStatus
+    : diagnosticsResult.totalCountStatus;
+  const totalPages =
+    totalCountStatus === "exact" && totalCount > 0
+      ? Math.max(1, Math.ceil(totalCount / pageSize))
+      : Math.max(1, page + (sessions.length >= pageSize ? 1 : 0));
+  const rangeStart = sessions.length === 0 ? 0 : from + 1;
+  const rangeEnd = sessions.length === 0 ? 0 : from + sessions.length;
   const latestChangedAt = sessions.reduce<string | null>(
     (latest, session) =>
-      !latest || session.updatedAt > latest ? session.updatedAt : latest,
+      !latest || session.entryDate > latest ? session.entryDate : latest,
     null,
   );
+  let historyListReason =
+    "Lightweight mobile history list loaded from shared_sheet_session_diagnostics server-side.";
+
+  if (diagnosticsResult.fallbackToSessions) {
+    historyListReason =
+      "Lightweight mobile history list loaded from shared_sheet_sessions fallback; diagnostics are deferred to detail.";
+  } else if (
+    legacyOwnerUserId &&
+    sessions.some((session) => session.sourceScope === "legacy_owner_bridge")
+  ) {
+    historyListReason =
+      "Lightweight mobile history list loaded from diagnostics with legacy owner fallback.";
+  }
 
   return {
     status: "ready",
     selectedShop,
     mapping,
-    syncEvents: [],
+    syncEvents,
     sessions,
+    filters,
+    pagination: {
+      currentPageRows: sessions.length,
+      from,
+      hasNextPage:
+        totalCountStatus === "exact" ? page < totalPages : sessions.length >= pageSize,
+      hasPreviousPage: page > 1,
+      page,
+      pageSize,
+      rangeEnd,
+      rangeStart,
+      to,
+      totalCount,
+      totalCountStatus,
+      totalPages,
+    },
     summary: {
-      historySessionsTotal: sessions.length,
-      historySessionsTotalAvailable: false,
+      historySessionsTotal: totalCount,
+      historySessionsTotalAvailable: totalCountStatus === "exact",
       latestChangedAt,
-      latestFailedSyncEvents: 0,
-      syncEventsTotal: 0,
-      syncEventsTotalAvailable: false,
+      latestFailedSyncEvents: syncEvents.filter(
+        (event) => event.status === "failed",
+      ).length,
+      syncEventsTotal: syncEvents.length,
+      syncEventsTotalAvailable: !syncEventsResult.error,
     },
     listMode: "light",
     readOnly: true,
     source: "supabase_server",
-    reason:
-      legacyOwnerUserId &&
-      sessions.some((session) => session.sourceScope === "legacy_owner_bridge")
-        ? "Lightweight mobile history list loaded with legacy owner fallback."
-        : "Lightweight mobile history list loaded server-side.",
+    reason: historyListReason,
   };
 }
 
@@ -2244,9 +3317,7 @@ export async function getShopHistoryReadModel(
 
   const directSessionsResult = await supabase
     .from("shared_sheet_session_diagnostics")
-    .select(
-      "remote_id,shop_id,owner_user_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,is_manual_entry,data_rows,item_rows,column_count,overlay_status,overlay_schema,overlay_bytes,editable_rows,complete_rows,complete_count,missing_count,data_summary,overlay_summary",
-    )
+    .select(historyDiagnosticsSessionSelect)
     .eq("shop_id", selectedShop.shopId)
     .order("updated_at", { ascending: false })
     .limit(50);
@@ -2363,9 +3434,7 @@ export async function getShopHistoryReadModel(
 
     const legacySessionsResult = await supabase
       .from("shared_sheet_session_diagnostics")
-      .select(
-        "remote_id,shop_id,owner_user_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,is_manual_entry,data_rows,item_rows,column_count,overlay_status,overlay_schema,overlay_bytes,editable_rows,complete_rows,complete_count,missing_count,data_summary,overlay_summary",
-      )
+      .select(historyDiagnosticsSessionSelect)
       .is("shop_id", null)
       .eq("owner_user_id", legacyOwnerUserId)
       .order("updated_at", { ascending: false })

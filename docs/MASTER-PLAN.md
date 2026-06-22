@@ -2791,18 +2791,38 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Stato TASK-077B: `DONE_RECONCILED`
 - File subtask TASK-077B: `docs/TASKS/TASK-077B-products-platform-lightweight-read-models.md`
 - Evidence TASK-077B: `docs/TASKS/EVIDENCE/TASK-077B/README.md`
+- Stato TASK-078: `DONE_RECONCILED`
+- Fase TASK-078: `DONE_RECONCILED`
+- Task TASK-078: `TASK-078 - Admin Console Product and History Entry detail modals`
+- File task TASK-078: `docs/TASKS/TASK-078-admin-console-product-history-detail-modals.md`
+- Evidence TASK-078: `docs/TASKS/EVIDENCE/TASK-078/README.md`
+- Stato TASK-078B: `DONE_RECONCILED`
+- Fase TASK-078B: `DONE_RECONCILED`
+- Task TASK-078B: `TASK-078B - Product and History Detail Modal UI Polish`
+- File task TASK-078B: `docs/TASKS/TASK-078B-product-history-detail-modal-ui-polish.md`
+- Evidence TASK-078B: `docs/TASKS/EVIDENCE/TASK-078B/README.md`
+- Stato TASK-078C: `DONE_RECONCILED`
+- Fase TASK-078C: `DONE_RECONCILED`
+- Task TASK-078C: `TASK-078C - Product Detail visual polish and History Entries month-grouped UX`
+- File task TASK-078C: `docs/TASKS/TASK-078C-product-history-visual-polish-month-grouping.md`
+- Evidence TASK-078C: `docs/TASKS/EVIDENCE/TASK-078C/README.md`
+- Stato TASK-079: `REVIEW_READY_FOR_USER_VISUAL_CHECK`
+- Fase TASK-079: `REVIEW`
+- Task TASK-079: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
+- File task TASK-079: `docs/TASKS/TASK-079-history-entry-catalog-pagination-unified.md`
+- Evidence TASK-079: `docs/TASKS/EVIDENCE/TASK-079/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Task attivo: `NESSUNO`
-- Task precedente: `TASK-077B - Performance architecture fix: Products + Master Console lightweight read models`
-- Ultimo task chiuso: `TASK-077B - Performance architecture fix: Products + Master Console lightweight read models`
-- Ultimo task completato: `TASK-077B - Performance architecture fix: Products + Master Console lightweight read models`
-- File task corrente: `NESSUNO`
-- Evidence task corrente: `NESSUNO`
-- Stato task: `IDLE`
-- Fase: `IDLE`
-- Milestone interna: `IDLE`
-- Responsabile: `N/A`
+- Task attivo: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
+- Task precedente: `TASK-078C - Product Detail visual polish and History Entries month-grouped UX`
+- Ultimo task chiuso: `TASK-078C - Product Detail visual polish and History Entries month-grouped UX`
+- Ultimo task completato: `TASK-078C - Product Detail visual polish and History Entries month-grouped UX`
+- File task corrente: `docs/TASKS/TASK-079-history-entry-catalog-pagination-unified.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-079/README.md`
+- Stato task: `REVIEW_READY_FOR_USER_VISUAL_CHECK`
+- Fase: `REVIEW`
+- Milestone interna: `TASK_079_UNIFIED_REVIEW_READY_FOR_USER_VISUAL_CHECK`
+- Responsabile: `REVIEWER`
 - Branch previsto: `main` / no branch creation requested
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -3440,6 +3460,278 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
   `/shop/products` PASS su dev server esistente `127.0.0.1:3055`. Visual
   screenshot modali `NOT_RUN_AUTH_REQUIRED`; non eseguiti commit, stage, push,
   deploy o Supabase apply.
+- Handoff TASK-078C 2026-06-20: follow-up visual polish e month-grouped UX per
+  Product Detail, Product Edit, Product list, History Entries e History Entry
+  Detail. Stato operativo `REVIEW`, non `DONE`. Product modal ora usa icone,
+  chip barcode/item code copiabili, summary cards e sezioni Overview/Prices/
+  Inventory piu leggibili; Product list mostra supplier/category e mantiene
+  azioni Detail/Edit/Archive visibili senza caricare detail nel first render.
+  History list usa client filters sulle righe visibili, default
+  `Active + issues`, search, filtro periodo e grouping per mese; History detail
+  mostra rows/missing/linked/sync con diagnostics redatti collassati e preview
+  Excel header-aware per No., item code, barcode, product, quantity, purchase e
+  retail. Guardrail performance invariato: `/shop/products` usa
+  `includeExactTotals: false`, `/shop/history` usa il read model list light e i
+  dettagli restano lazy/no-store. Gate finali: visual Playwright locale con
+  fixture sintetica TASK078C `PASS`, `test:foundation` PASS 414/414, targeted
+  TASK-078 PASS 5/5, targeted i18n TASK-062/TASK-068 PASS, `typecheck` PASS,
+  `lint` PASS, `security:scan` PASS, `git diff --check` PASS. Nessun commit,
+  stage, push, deploy, production apply o Supabase apply eseguito.
+- Final Review / DONE Reconciliation TASK-078/TASK-078B/TASK-078C 2026-06-20:
+  su richiesta esplicita utente, eseguita review completa e corretti i difetti
+  repo-controllabili trovati. Stati finali: `TASK-078` `DONE_RECONCILED`,
+  `TASK-078B` `DONE_RECONCILED`, `TASK-078C` `DONE_RECONCILED`. Correzioni:
+  label i18n History list/detail mancanti, regressione `loadHistorySummary`
+  nella History list light, test smoke locale ancora legato alla vecchia copia
+  pagination `11+`, summary card History `Source` troppo alta con valori
+  lunghi, guardrail statico TASK-054 non aggiornato al nuovo ultimo task
+  chiuso. Guardrail confermati: `/shop/products` resta light con
+  `includeExactTotals: false`; `/shop/history` usa il read model list bounded
+  senza summary exact nel first render; Product/History detail sono lazy via
+  route handler no-store; diagnostics redatti/collassati. Gate finali:
+  targeted TASK-078 PASS 5/5, targeted History sync console PASS 6/6,
+  targeted Product list readability PASS 6/6, targeted i18n TASK-062/TASK-068
+  PASS, `security:scan` PASS, `test:foundation` PASS 414/414, `typecheck`
+  PASS, `lint` PASS, `build` PASS_WITH_WARNINGS, `verify` PASS_WITH_WARNINGS,
+  `test:shop:local` PASS 5/5, visual Playwright TASK-078C locale PASS,
+  cleanup locale TASK078C PASS con count redatti a zero, `git diff --check`
+  PASS. Warning residui: convenzione Next.js `middleware` deprecata in favore
+  di `proxy` e Node `[DEP0205]`; nessun commit, stage, push, deploy,
+  production apply o Supabase apply eseguito. Worktree note:
+  `src/app/shop/_components/DeviceRegistryView.tsx` resta modifica fuori
+  scope preesistente e non e inclusa nella riconciliazione TASK-078C.
+- Avvio TASK-079 2026-06-21: aperto da brief utente allegato
+  `TASK-0XX - History Entry list/detail mobile parity read-only`.
+  File task legacy:
+  `docs/TASKS/EVIDENCE/TASK-079/legacy-task-files/TASK-079-history-entry-read-only-mobile-parity.md`.
+  Scope: allineare lista e Detail History Entries alla UX mobile Android/iOS in
+  sola lettura; data primaria da timestamp/data sessione reale, `updated_at`
+  solo secondario, titolo sessione centralizzato, summary/stati derivati solo
+  da diagnostici/metadata/overlay/sync events reali, Detail read-only con
+  quantita/prezzi estratti preservati e diagnostica redatta collassata. Vietati
+  editing quantita/prezzi, realtime sync, migration, nuove colonne, nuove
+  dipendenze, endpoint mutativi, service-role client/browser, Android/iOS/POS,
+  commit, stage, push, deploy e Supabase apply. Stato iniziale: `EXECUTION`,
+  non `DONE`.
+- Handoff TASK-079 2026-06-21: stato operativo `REVIEW`, non `DONE`.
+  Implementati helper server-side `buildHistorySessionDisplayTitle`,
+  `resolveHistorySessionEntryDate` e `deriveHistorySessionSyncState`; lista
+  History light usa `shared_sheet_session_diagnostics` quando disponibile,
+  raggruppa/filtra su `timestamp`/`entryDate`, mantiene `updated_at` solo come
+  `Updated`, mostra summary righe/completed/missing/overlay e sync-state solo da
+  dati reali o fallback `Sync state not available`. Detail modal resta
+  read-only/no-store, header sticky mostra supplier/category/source/date/status,
+  diagnostica redatta resta collassata e `quantity`/`purchasePrice`/
+  `retailPrice` estratti da `ShopHistoryTablePreviewRow` non vengono piu
+  sovrascritti quando presenti. Check reali: targeted TASK-079 PASS 3/3,
+  `typecheck` PASS, `lint` PASS, `build` PASS_WITH_WARNINGS per warning noti
+  `middleware`/`DEP0205`, `verify` PASS_WITH_WARNINGS, `git diff --check`
+  PASS. Guardrail extra TASK-078 eseguito e `FAIL_NON_GATE` 1/5 su Products
+  page preesistente (`includeExactTotals: false` static check), non corretto in
+  TASK-079 per evitare scope creep. Nessun commit, stage, push, deploy,
+  migration o Supabase apply.
+- Avvio TASK-079B 2026-06-21: aperto da brief utente allegato
+  `TASK-079B - Supplier Import to Canonical History Entry + Mobile Sync`.
+  File task legacy:
+  `docs/TASKS/EVIDENCE/TASK-079/legacy-task-files/TASK-079B-supplier-import-canonical-history-mobile-sync.md`.
+  Scope: dopo Apply/import supplier confermato creare o aggiornare una History
+  Entry canonica in `shared_sheet_sessions` compatibile Android/iOS, senza side
+  effect in preview, con `remote_id` stabile/idempotente, data semantica in
+  `timestamp`, overlay mobile-compatible, `shop_id` selezionato, owner mapping
+  quando richiesto dal bridge, sync event solo se supportato dal contratto reale
+  e UI successo con link History. Include fix diretto del guardrail Products
+  `includeExactTotals: false` se ancora regressivo. Vietati migration/schema,
+  nuove dependency, campi inventati, secret/client service-role, modifiche
+  mobile/POS, commit, stage, push, deploy e Supabase apply. Stato iniziale:
+  `EXECUTION`, non `DONE`.
+- Handoff TASK-079B 2026-06-21: stato operativo `REVIEW`, non `DONE`.
+  Implementato mapper canonico supplier import -> History Entry in
+  `shared_sheet_sessions`: `remote_id` UUID lowercase deterministico da
+  `shop_id` + `preview_digest`, `timestamp` UTC `yyyy-MM-dd HH:mm:ss`,
+  `payload_version: 2`, `session_overlay.overlay_schema: 1`, `data` come
+  `[[String]]`, `is_manual_entry: false`, supplier/category summary,
+  `deleted_at: null`, `shop_id` e `owner_user_id`. Apply supplier confermato
+  crea o aggiorna la stessa entry in modo idempotente, gestisce race `23505`,
+  scrive audit e `sync_events` solo con contratto mobile reale
+  `domain="history"`, `event_type="history_changed"`,
+  `entity_ids.session_ids`. Preview resta side-effect-free. UI import avvisa
+  che l'Apply creera/aggiornera una History Entry e dopo successo mostra link
+  a `/shop/history/<remote_id>?shop_id=<shop_id>`. Corretto anche Products a
+  `includeExactTotals: false`. Contratto Android/iOS verificato da source
+  reale; smoke browser import->History e smoke Android/iOS non eseguiti per
+  harness/credenziali locali mutative non pronti, documentati in evidence come
+  `NOT_RUN`. Check reali: targeted TASK-079B PASS 3/3, targeted TASK-078 PASS
+  5/5, targeted TASK-079 PASS 3/3, targeted TASK-077 PASS 8/8, `typecheck`
+  PASS, `lint` PASS, `build` PASS_WITH_WARNINGS per warning noti
+  `middleware`/`DEP0205`, `verify` PASS_WITH_WARNINGS, `test:foundation` PASS
+  420/420, `git diff --check` PASS. Nessun commit, stage, push, deploy,
+  migration, production apply o Supabase apply.
+- Avvio TASK-079C 2026-06-21: aperto da brief utente allegato
+  `TASK-079C - History Entry UX, Detail Performance, Editable Generated Screen
+  Parity`. Scope: migliorare lista History Entries in stile mobile, rendere il
+  Detail piu veloce e operativo in stile generated/import supplier, permettere
+  modifica sicura di `quantity` e `retail/sale price`, aggiornare
+  `shared_sheet_sessions.data`, `session_overlay`, audit e
+  `sync_events.history_changed`, verificare browser/Admin Web e creare harness
+  local-only per Android/iOS se non e disponibile un harness reale. Vietati
+  nuove dependency, schema/migration/RLS/RPC, tabelle web-only, service-role
+  client/browser, secret, commit, stage, push, deploy e Supabase apply. Stato
+  iniziale: `EXECUTION`, non `DONE`.
+- Handoff TASK-079C 2026-06-21: stato operativo
+  `REVIEW_READY_FOR_DONE`, non `DONE`. Lista History Entries resa piu
+  mobile-like con chip `Rows`/`Completed`/`Missing`/`Sync`, diagnostica fuori
+  dalla card primaria e chip mese selezionato. Detail History Entry reso piu
+  operativo con summary, tabs, tabella sticky, risoluzione prodotti batch via
+  `getShopInventoryProductsByCodes` invece del lookup N+1 bounded precedente,
+  e editing sicuro di `quantity` e `retail/sale price`; `purchasePrice` resta
+  read-only. Save server-side aggiorna `shared_sheet_sessions.data`,
+  `session_overlay.editable[row][0/1]`, `updated_at`, audit redatto e
+  `sync_events.history_changed` con `entity_ids.session_ids`; no-op idempotente
+  senza audit/sync duplicati e conflict check opzionale via `expectedUpdatedAt`.
+  Browser locale Playwright PASS su fixture Supabase sintetica: login, Detail,
+  modifica `4 -> 7` e `18.75 -> 21.5`, verifica DB `data` e overlay.
+  Contratto Android/iOS verificato con harness source-based local-only su fonti
+  reali mobile/Admin Web. Gate finali: TASK-079C 4/4 PASS, TASK-078 5/5 PASS,
+  TASK-079B 3/3 PASS, suite mirata 15/15 PASS, browser Playwright locale PASS
+  1/1, mobile contract smoke PASS, `lint` PASS, `typecheck` PASS,
+  `test:foundation` PASS 424/424, `verify` PASS_WITH_WARNINGS per warning noti
+  Next.js `middleware` deprecato e Node `[DEP0205]`, `git diff --check` PASS.
+  Nessun commit, stage, push, deploy, migration, production apply o Supabase
+  apply eseguito.
+- Review blocker TASK-079C 2026-06-21: la review utente ha bloccato il passaggio
+  a `DONE`. Il 079C confondeva la quantita sorgente del file con la quantita
+  contata/modificata dall'utente, poteva usare il prezzo retail sorgente al posto
+  del `RetailPrice` generato, lasciava la lista troppo tecnica e considerava
+  completamento/diagnostica in modo non allineato ad Android/iOS. Stato 079C
+  declassato a `REVIEW_WITH_BLOCKERS_SUPERSEDED_BY_TASK_079D`.
+- Avvio TASK-079D 2026-06-21: aperto da brief utente allegato
+  `TASK-079D - History Entry Review Fix: Mobile Semantics, Counted Quantity,
+  Sale Price, iOS-like UI`. Scope: documentare contratto Android/iOS reale,
+  separare `quantity` sorgente da `realQuantity`/`session_overlay.editable[0]`,
+  separare `purchasePrice` sorgente da `RetailPrice`/`session_overlay.editable[1]`,
+  aggiornare `complete` via `session_overlay.complete`, rendere lista/detail
+  business/mobile-like, aggiornare test e browser check locale. Stato iniziale:
+  `EXECUTION`, non `DONE`.
+- Handoff TASK-079D 2026-06-21: stato operativo
+  `REVIEW_WITH_USER_VISUAL_CHECK_REQUIRED`, non `DONE`. Corretto il blocker di
+  079C: supplier import emette generated mobile columns `realQuantity`,
+  `RetailPrice`, `complete`; save generated scrive `realQuantity`,
+  `RetailPrice`, `complete`, overlay `editable[0/1]` e `complete`, preservando
+  source `quantity`, `purchasePrice` e campi prodotto/barcode/item. Lista
+  History resa business/mobile-like con supplier title, category/source context,
+  summary `Items`, `Total quantity`, `Order`, `Paid`, `Missing`; detail table
+  separa `Recognized from file` (`Supplier Qty`, `Purchase`) da `Import values`
+  (`Counted Qty`, `Sale Price`, `Status`) seguendo gli screenshot mobile/supplier
+  forniti dall'utente. Browser locale Playwright PASS 1/1 e screenshot salvati
+  in `docs/TASKS/EVIDENCE/TASK-079/legacy-evidence/TASK-079D/`. Gate mirati History PASS; gate globali
+  con blocker esterni fuori scope: `npm run lint`/`verify` falliscono su
+  `src/app/shop/products/_components/ProductSearchCombobox.tsx`, e
+  `test:foundation` resta 426/428 per guardrail Products/Catalog
+  TASK-032/TASK-068M. `typecheck`, `security:scan`, `build` e `git diff --check`
+  PASS/PASS_WITH_WARNINGS come da evidence. Nessun commit, stage, push, deploy,
+  migration, production apply o Supabase apply eseguito.
+- Avvio TASK-079E 2026-06-21: aperto da brief utente allegato
+  `TASK-079E - History Entry Compact Layout, No Horizontal Scroll, Shared Sync Analysis`.
+  Scope: polish visuale su 079D senza cambiare contratto mobile; lista History
+  piu compatta; Detail desktop senza scroll orizzontale e con tabella compatta
+  grouped `Recognized from file` / `Import values`; pannello condiviso
+  Sync/Import Analysis per History Detail e Products -> Import Supplier Apply,
+  usando solo dati bounded gia disponibili e `Not available` dove assenti.
+  Stato iniziale: `EXECUTION`, non `DONE`.
+- Handoff TASK-079E 2026-06-21: stato operativo
+  `REVIEW_READY_FOR_USER_VISUAL_CHECK`, non `DONE`. Lista History resa piu
+  compatta con metriche business in tile; Detail generated rimosso
+  `min-w-[82rem]` e usa tabella `table-fixed` dentro frame
+  `overflow-y-auto overflow-x-hidden`, preservando grouped headers
+  `Recognized from file` / `Import values` e semantica mobile 079D
+  (`quantity`/`purchasePrice` read-only, `realQuantity`/`RetailPrice`/`complete`
+  generated editabili). Aggiunto `SyncAnalysisPanel` condiviso tra History
+  Detail e Products -> Import Supplier Apply, con dati reali bounded,
+  `Not available` per campi assenti e link `Open History Entry` post-apply.
+  Evidence visuale salvata in
+  `docs/TASKS/EVIDENCE/TASK-079/legacy-evidence/TASK-079E/`. Check mirati
+  079-079E PASS 18/18, smoke mobile PASS, browser History PASS 1/1, browser
+  Products import PASS 7/7, `lint` PASS, `typecheck` PASS, `build`
+  PASS_WITH_WARNINGS e `git diff --check` PASS. Gate globali residui fuori
+  scope: `security:scan`/`verify` falliscono su
+  `src/server/shop-admin/catalog-mutations.ts`; `test:foundation` 434/437 per
+  TASK-015 catalog CRUD, Win7POS sibling guardrail e TASK-032
+  category/supplier IDs. Nessun commit, stage, push, deploy, migration,
+  production apply o Supabase apply eseguito.
+- Avvio TASK-079F 2026-06-21: aperto da brief utente allegato
+  `TASK-079F - History Entry Row State Colors, Vertical Scroll, Product Price Context`
+  e screenshot mobile. Scope: rifinire History list/detail preservando il
+  contratto 079D/079E, con `Missing products` rosso quando >0, scroll verticale
+  interno del Detail rows table per 50+ righe, righe intere colorate secondo
+  source iOS/Android, auto-complete visuale su `Counted Qty >= Supplier Qty`,
+  contesto prodotto compatto con stato catalogo, vecchi prezzi solo se diversi,
+  stock, totale riga e delta quantita. Vietati schema/migration/dependency,
+  N+1/full catalog load, secret/service-role client, commit, stage, push,
+  deploy e Supabase apply. Stato iniziale: `EXECUTION`, non `DONE`.
+- Handoff TASK-079F 2026-06-21: stato operativo
+  `REVIEW_READY_FOR_USER_VISUAL_CHECK`, non `DONE`. Regole mobile verificate
+  da source iOS/Android: complete verde, partial/shortage amber, prodotto non
+  risolto neutro, counted vuoto/inferiore incompleto e counted >= supplier
+  completo salvo override manuale. Lista History aggiornata con label/valore
+  `Missing products` rose/red solo quando >0. Detail rows ora usa preview
+  bounded 200 righe, frame `overflow-y-auto overflow-x-hidden`, no horizontal
+  scroll desktop, colori intera riga `complete` verde / `partial` amber /
+  `unresolved` neutro. Auto-complete live aggiorna `session_overlay.complete`
+  in base a `Counted Qty >= Supplier Qty`; source `quantity` e `purchasePrice`
+  restano read-only, save tocca solo generated `realQuantity`, `RetailPrice`
+  e overlay. Aggiunto contesto compatto per riga: stato catalogo, stock, old
+  purchase/retail solo se disponibili e diversi, delta quantita e row total.
+  Browser locale PASS su fixture 62 righe con screenshot in
+  `docs/TASKS/EVIDENCE/TASK-079/legacy-evidence/TASK-079F/`. Check mirati 079-079F PASS 22/22,
+  mobile source-contract smoke PASS, Playwright locale PASS 1/1, scoped ESLint
+  079F PASS, `typecheck` PASS, `build` PASS_WITH_WARNINGS e `git diff --check`
+  PASS. Gate globali residui fuori scope: `lint`/`verify` falliscono su
+  `ProductDetailModalController.tsx`, `security:scan` su
+  `catalog-mutations.ts`, `test:foundation` 437/441 per TASK-015, Win7POS
+  sibling, TASK-032 e TASK-057. Nessun commit, stage, push, deploy, migration,
+  production apply o Supabase apply eseguito.
+- Handoff TASK-080 2026-06-21: stato operativo
+  `REVIEW_READY_FOR_USER_VISUAL_CHECK`, non `DONE`. Categories e Suppliers
+  ora usano read model paginato server-side con default 10 righe, search
+  `q/query`, filtro `state`, count/range e `.range(...)`; le pagine preservano
+  `shop_id`, `page`, `pageSize`, query e `state` tra filtri, pagination e
+  action row. UI resa compatta con `CatalogEntityList` condiviso, stato
+  Active/Archived e linked product count bounded sulla pagina corrente. Products
+  e Import Supplier Wizard continuano a usare catalog options complete separate
+  dal read model paginato. Evidence visuale legacy in
+  `docs/TASKS/EVIDENCE/TASK-079/legacy-evidence/TASK-080/`: categories pagination/search/edit, suppliers
+  pagination/search/edit e Products import supplier dialog. Check reali:
+  History 079-079F PASS 23/23, TASK-080/regression statiche PASS 31/31,
+  Playwright locale TASK-080 PASS 1/1, `npm run lint` PASS, `npm run typecheck`
+  PASS, `npm run build` PASS_WITH_WARNINGS e `git diff --check` PASS. Gate
+  globali residui fuori scope: `security:scan`/`verify` e `test:foundation`
+  restano bloccati da `src/server/shop-admin/catalog-mutations.ts` guardrail.
+  Category/Supplier restore resta follow-up per assenza di boundary restore
+  audited dedicata. Nessun commit, stage, push, deploy, migration, production
+  apply o Supabase apply eseguito.
+- Riconciliazione governance TASK-079 2026-06-21: gli ex `TASK-079B`,
+  `TASK-079C`, `TASK-079D`, `TASK-079E`, `TASK-079F` e l'ex `TASK-080` sono
+  stati consolidati come sottosezioni del `TASK-079` canonico. Il solo file task
+  corrente in root e
+  `docs/TASKS/TASK-079-history-entry-catalog-pagination-unified.md`; i task
+  legacy sono stati spostati in
+  `docs/TASKS/EVIDENCE/TASK-079/legacy-task-files/` e le evidence legacy in
+  `docs/TASKS/EVIDENCE/TASK-079/legacy-evidence/`. Il tracking corrente resta
+  `REVIEW_READY_FOR_USER_VISUAL_CHECK`, non `DONE`.
+- Handoff TASK-079 unificato 2026-06-21: completate le correzioni finali
+  richieste su governance, History pagination e row-state colori. `/shop/history`
+  non usa piu il fallback `Read blocked` per `page > 1`, filtri attivi o pagine
+  out-of-range leggibili; nel Detail History `Counted Qty` vuota o `0` resta
+  neutra/bianca, `> 0 && < Supplier Qty` e amber, `>= Supplier Qty` e verde.
+  Screenshot finali salvati in `docs/TASKS/EVIDENCE/TASK-079/browser/`.
+  Check reali: mirati TASK-079/Catalog PASS 32/32, mirati con TASK-028 PASS
+  38/38, `lint` PASS, `typecheck` PASS, `build` PASS_WITH_WARNINGS per warning
+  noti `middleware`/`DEP0205`, smoke mobile PASS, Playwright Catalog PASS 1/1,
+  Playwright History PASS 1/1, `git diff --check` PASS. Gate globali residui:
+  `security:scan` FAIL_EXTERNAL su `src/server/shop-admin/catalog-mutations.ts`;
+  `verify` FAIL_EXTERNAL per lo stesso security scan; `test:foundation`
+  FAIL_EXTERNAL 2 fail derivati dallo stesso blocker. Nessun commit, stage,
+  push, deploy, migration, production apply o Supabase apply eseguito.
 
 ## Regole di avanzamento
 

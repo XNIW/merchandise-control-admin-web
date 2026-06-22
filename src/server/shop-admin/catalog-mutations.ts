@@ -7,6 +7,10 @@ import {
   type ShopAdminActionResult,
 } from "./action-context";
 import {
+  getShopCatalogOptionsReadModel,
+  getShopInventoryProductsPage,
+} from "./inventory-read-model";
+import {
   emitCatalogMutationSyncEvent,
   type CatalogSyncEntity,
   type CatalogSyncOperation,
@@ -38,6 +42,18 @@ type CatalogArchiveInput = {
   id: string;
   reason?: string;
   requestedShopId?: string;
+};
+
+export type CatalogEntityArchiveStrategy =
+  | "clear_assignments"
+  | "create_replacement"
+  | "delete_if_unused"
+  | "replace_existing";
+
+type CatalogRelationArchiveInput = CatalogArchiveInput & {
+  replacementId?: string;
+  replacementName?: string;
+  strategy: CatalogEntityArchiveStrategy;
 };
 
 type ReadyShopActionContext = Extract<
@@ -303,6 +319,288 @@ export async function archiveCategory(
       }),
     { entity: "category", operation: "archive" },
   );
+}
+
+async function collectLinkedActiveProductIds(input: {
+  entity: "category" | "supplier";
+  id: string;
+  requestedShopId?: string;
+}): Promise<{ ids: string[] } | ShopAdminActionResult> {
+  const ids: string[] = [];
+
+  for (let page = 1; page <= 200; page += 1) {
+    const productsPage = await getShopInventoryProductsPage({
+      filters:
+        input.entity === "supplier"
+          ? {
+              state: "active",
+              supplierId: input.id,
+            }
+          : {
+              categoryId: input.id,
+              state: "active",
+            },
+      includeExactTotals: false,
+      page,
+      pageSize: 200,
+      requestedShopId: input.requestedShopId,
+    });
+
+    if (productsPage.status !== "ready") {
+      return shopAdminActionResult("unauthorized_or_unmapped", { ok: false });
+    }
+
+    ids.push(...productsPage.products.map((product) => product.productId));
+
+    if (!productsPage.pagination.hasNextPage) {
+      return { ids };
+    }
+  }
+
+  return shopAdminActionResult("invalid_state", { ok: false });
+}
+
+async function validateReplacementEntity(input: {
+  entity: "category" | "supplier";
+  originalId: string;
+  replacementId: string;
+  requestedShopId?: string;
+}): Promise<ShopAdminActionResult | null> {
+  if (!input.replacementId || input.replacementId === input.originalId) {
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors: {
+        replacementId:
+          "Choose another active catalog row as the replacement.",
+      },
+      ok: false,
+    });
+  }
+
+  const readModel = await getShopCatalogOptionsReadModel({
+    requestedShopId: input.requestedShopId,
+  });
+
+  if (readModel.status !== "ready") {
+    return shopAdminActionResult("unauthorized_or_unmapped", { ok: false });
+  }
+
+  const exists =
+    input.entity === "supplier"
+      ? readModel.suppliers.some(
+          (supplier) => supplier.supplierId === input.replacementId,
+        )
+      : readModel.categories.some(
+          (category) => category.categoryId === input.replacementId,
+        );
+
+  if (!exists) {
+    return shopAdminActionResult(
+      input.entity === "supplier" ? "invalid_supplier" : "invalid_category",
+      { ok: false },
+    );
+  }
+
+  return null;
+}
+
+async function createReplacementEntity(input: {
+  entity: "category" | "supplier";
+  name?: string;
+  requestedShopId?: string;
+}): Promise<string | ShopAdminActionResult> {
+  const name = input.name?.trim();
+
+  if (!name) {
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors: {
+        replacementName: "Replacement name is required.",
+      },
+      ok: false,
+    });
+  }
+
+  const result =
+    input.entity === "supplier"
+      ? await createSupplier({ name, requestedShopId: input.requestedShopId })
+      : await createCategory({ name, requestedShopId: input.requestedShopId });
+
+  if (!result.ok || !result.targetId) {
+    return result.ok
+      ? shopAdminActionResult("db_failure", { ok: false })
+      : result;
+  }
+
+  return result.targetId;
+}
+
+async function updateLinkedProductAssignments(input: {
+  context: ReadyShopActionContext;
+  entity: "category" | "supplier";
+  productIds: readonly string[];
+  replacementId: string | null;
+}): Promise<ShopAdminActionResult | null> {
+  const now = new Date().toISOString();
+  const payload =
+    input.entity === "supplier"
+      ? {
+          supplier_id: input.replacementId,
+          updated_at: now,
+        }
+      : {
+          category_id: input.replacementId,
+          updated_at: now,
+        };
+
+  for (let index = 0; index < input.productIds.length; index += 100) {
+    const chunk = input.productIds.slice(index, index + 100);
+    const { data, error } = await input.context.supabase
+      .from("inventory_products")
+      .update(payload)
+      .in("id", chunk)
+      .select("id");
+
+    if (error) {
+      return shopAdminActionResult("db_failure", {
+        ok: false,
+        shopId: input.context.selectedShop.shopId,
+      });
+    }
+
+    if ((data?.length ?? 0) !== chunk.length) {
+      return shopAdminActionResult("partial_failure", {
+        ok: false,
+        shopId: input.context.selectedShop.shopId,
+      });
+    }
+  }
+
+  return null;
+}
+
+async function archiveCatalogEntityWithStrategy(input: {
+  archive: (archiveInput: CatalogArchiveInput) => Promise<ShopAdminActionResult>;
+  entity: "category" | "supplier";
+  permission: "categories.write" | "suppliers.write";
+  relationInput: CatalogRelationArchiveInput;
+}) {
+  const { relationInput } = input;
+
+  if (!relationInput.id) {
+    return shopAdminActionResult("validation_failed", { ok: false });
+  }
+
+  const reason = catalogReasonRequired(relationInput);
+
+  if (typeof reason !== "string") {
+    return reason;
+  }
+
+  const context = await resolveShopActionContext(
+    relationInput.requestedShopId,
+    input.permission,
+  );
+
+  if (context.status !== "ready") {
+    return context.result;
+  }
+
+  const linkedProducts = await collectLinkedActiveProductIds({
+    entity: input.entity,
+    id: relationInput.id,
+    requestedShopId: relationInput.requestedShopId,
+  });
+
+  if ("ok" in linkedProducts) {
+    return linkedProducts;
+  }
+
+  if (
+    relationInput.strategy === "delete_if_unused" &&
+    linkedProducts.ids.length > 0
+  ) {
+    return shopAdminActionResult("invalid_state", {
+      fieldErrors: {
+        strategy:
+          "This row is linked to active products. Choose a reassignment strategy before deleting it.",
+      },
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+
+  let replacementId: string | null = null;
+
+  if (relationInput.strategy === "replace_existing") {
+    replacementId = cleanUuid(relationInput.replacementId) ?? "";
+    const replacementError = await validateReplacementEntity({
+      entity: input.entity,
+      originalId: relationInput.id,
+      replacementId,
+      requestedShopId: relationInput.requestedShopId,
+    });
+
+    if (replacementError) {
+      return replacementError;
+    }
+  } else if (relationInput.strategy === "create_replacement") {
+    const createdReplacement = await createReplacementEntity({
+      entity: input.entity,
+      name: relationInput.replacementName,
+      requestedShopId: relationInput.requestedShopId,
+    });
+
+    if (typeof createdReplacement !== "string") {
+      return createdReplacement;
+    }
+
+    replacementId = createdReplacement;
+  } else if (relationInput.strategy === "clear_assignments") {
+    replacementId = null;
+  }
+
+  if (
+    linkedProducts.ids.length > 0 &&
+    relationInput.strategy !== "delete_if_unused"
+  ) {
+    const updateError = await updateLinkedProductAssignments({
+      context,
+      entity: input.entity,
+      productIds: linkedProducts.ids,
+      replacementId,
+    });
+
+    if (updateError) {
+      return updateError;
+    }
+  }
+
+  return input.archive({
+    id: relationInput.id,
+    reason,
+    requestedShopId: relationInput.requestedShopId,
+  });
+}
+
+export async function archiveSupplierWithStrategy(
+  input: CatalogRelationArchiveInput,
+): Promise<ShopAdminActionResult> {
+  return archiveCatalogEntityWithStrategy({
+    archive: archiveSupplier,
+    entity: "supplier",
+    permission: "suppliers.write",
+    relationInput: input,
+  });
+}
+
+export async function archiveCategoryWithStrategy(
+  input: CatalogRelationArchiveInput,
+): Promise<ShopAdminActionResult> {
+  return archiveCatalogEntityWithStrategy({
+    archive: archiveCategory,
+    entity: "category",
+    permission: "categories.write",
+    relationInput: input,
+  });
 }
 
 export function validateCatalogProductInput(input: ProductMutationInput) {

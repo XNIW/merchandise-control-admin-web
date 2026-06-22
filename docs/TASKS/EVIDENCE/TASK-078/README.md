@@ -3,7 +3,7 @@
 ## Stato
 
 - Task: `TASK-078`
-- Fase: `REVIEW`
+- Fase: `DONE_RECONCILED`
 - Data: `2026-06-20`
 - Esecutore: `Codex`
 
@@ -23,6 +23,19 @@
   follow-up `TASK-078B` ha rimosso il fallback `Open Detail` dai valori dati.
 - Products first render resta su `getShopInventoryProductsPage` con
   `includeExactTotals: false`; detail/history rows/diagnostics sono on-demand.
+
+## Final Review / DONE Reconciliation
+
+- Stato finale: `DONE_RECONCILED`.
+- Riconciliato con `TASK-078B` e `TASK-078C` dopo review statica, performance,
+  i18n, security, visual QA locale e smoke shop locale.
+- Problemi trovati e corretti:
+  - i18n incompleto per alcune label History list/detail;
+  - regressione `loadHistorySummary` nel read model light di History list;
+  - smoke locale ancora legato alla vecchia copia paginazione `11+`;
+  - summary card History `Source` troppo alta con valori lunghi.
+  - guardrail statico TASK-054 non aggiornato al nuovo ultimo task chiuso.
+- Nessun commit, stage, push, deploy o Supabase apply eseguito.
 
 ## File toccati
 
@@ -55,12 +68,18 @@
 | Comando | Stato | Note |
 |---|---|---|
 | `node --test tests/foundation/task-078-product-history-detail-modals.test.mjs` | `PASS` | 5/5. Primo run aveva una asserzione statica troppo letterale su `setMode`, corretta e rerun verde. |
+| `node --test tests/foundation/task-history-sync-console.test.mjs` | `PASS` | 6/6. Guardrail History/sync console. |
+| `node --test tests/foundation/task-068m-product-list-readability-icons.test.mjs` | `PASS` | 6/6. Product list readability/actions. |
+| `node --test tests/foundation/task-062-global-i18n-locale.test.mjs` | `PASS` | 8/8. Locale exact e rendering timestamp. |
+| `node --test tests/foundation/task-068-security-i18n-audit.test.mjs` | `PASS` | 6/6. Nessuno shadow corrective/base exact. |
 | `npm run typecheck` | `PASS` | `next typegen && tsc --noEmit`. |
 | `npm run lint` | `PASS` | ESLint senza errori. |
 | `npm run security:scan` | `PASS` | `Security scan passed.` |
-| `npm run test:foundation` | `PASS` | 414/414. |
+| `npm run test:foundation` | `PASS` | 414/414. Primo run di riconciliazione ha intercettato `loadHistorySummary` nella History list light; corretto e rerun verde. |
 | `npm run build` | `PASS_WITH_WARNINGS` | Primo tentativo bloccato da lock di un `next build` concorrente; atteso exit PID e rerun verde. Warning noti: `middleware` deprecato verso `proxy`, Node `[DEP0205]`. |
 | `npm run verify` | `PASS_WITH_WARNINGS` | Ripete lint/typecheck/security/build; stessi warning build. |
+| `npm run test:shop:local` | `PASS` | 5/5. Primo run di riconciliazione ha richiesto l'aggiornamento della copia pagination `at least`; rerun verde. |
+| `PLAYWRIGHT_BASE_URL=http://127.0.0.1:3050 node scripts/testing/run-playwright-target.mjs local tests/e2e/task-078c-product-history-visual-local.spec.ts --project=chromium-desktop` | `PASS` | 1/1. Fixture sintetica TASK078C e screenshot evidence aggiornata. |
 | `git diff --check` | `PASS` | Nessun whitespace error. |
 | `curl -I --max-time 5 http://127.0.0.1:3055/shop/products` | `PASS` | Dev server gia attivo, risposta `HTTP/1.1 200 OK`. |
 
@@ -72,13 +91,11 @@
 - La History list non carica conteggi pesanti nel primo render; dopo
   `TASK-078B` i valori mancanti sono descritti con una nota deferred invece di
   usare `Open Detail` come dato.
-- Serve smoke browser autenticato su dataset reale/staging per validare
-  layout, focus e dimensioni con dati lunghi.
-- Smoke browser autenticato e Playwright visuale non eseguiti: richiedono una
-  sessione/dataset autenticato reale; i gate automatici e il probe HTTP locale
-  sono verdi.
+- Visual QA locale autenticata eseguita con fixture sintetica. Dati reali o
+  staging possono ancora esporre casi estremi di lunghezza supplier/category,
+  ma non sono prerequisito per il `DONE_RECONCILED` repo-controllabile.
 
 ## Prossima fase
 
-`REVIEW`: validare UX e behavior su Products e History. Il task non e marcato
-`DONE`; richiede conferma esplicita dell'utente.
+Nessuna fase repo-controllabile aperta per `TASK-078`. Eventuali validazioni
+con dati reali/staging lunghi vanno aperte come follow-up separato.
