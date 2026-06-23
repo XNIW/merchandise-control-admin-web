@@ -2605,6 +2605,7 @@ async function loadHistoryListSessions(input: {
   const ownerSessionsQuery = applyHistoryListFilters(
     sessionsTable
       .select(historyListSessionSelect, { count: "exact" })
+      .is("shop_id", null)
       .eq("owner_user_id", input.legacyOwnerUserId),
     input.filters,
     "sessions",
@@ -2709,10 +2710,7 @@ async function loadHistoryListSessions(input: {
   const ownerSessions = ((ownerSessionsResult.data ??
     []) as SharedSheetSessionListRow[]).map((row) => ({
     ...row,
-    sourceScope:
-      row.shop_id === input.selectedShop.shopId
-        ? ("shop_scoped" as const)
-        : ("legacy_owner_bridge" as const),
+    sourceScope: "legacy_owner_bridge" as const,
   }));
 
   return {
@@ -2769,6 +2767,7 @@ async function loadHistoryListMetricSessions(input: {
     .select(
       "remote_id,shop_id,display_name,supplier,category,timestamp,updated_at,deleted_at,payload_version,is_manual_entry,data,session_overlay",
     )
+    .is("shop_id", null)
     .eq("owner_user_id", input.legacyOwnerUserId)
     .in("remote_id", input.remoteIds)
     .order("timestamp", { ascending: false })
@@ -2808,10 +2807,7 @@ async function loadHistoryListMetricSessions(input: {
   const ownerSessions = ((ownerSessionsResult.data ??
     []) as SharedSheetSessionRow[]).map((row) => ({
     ...row,
-    sourceScope:
-      row.shop_id === input.selectedShop.shopId
-        ? ("shop_scoped" as const)
-        : ("legacy_owner_bridge" as const),
+    sourceScope: "legacy_owner_bridge" as const,
   }));
 
   return mergeRowsByKey(

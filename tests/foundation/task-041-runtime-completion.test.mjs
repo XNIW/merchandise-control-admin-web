@@ -76,6 +76,7 @@ test("TASK-041 opens only verified runtime implementation gates", () => {
   const supabaseConfig = readProjectFile("supabase/config.toml");
   const salesRoute = readProjectFile("src/app/api/pos/sales/sync/route.ts");
   const salesService = readProjectFile("src/server/pos-auth/sales-sync.ts");
+  const catalogPull = readProjectFile("src/server/pos-auth/catalog-pull.ts");
   const salesMigration = readdirSync(join(root, "supabase/migrations")).find((file) =>
     /task_041_pos_sales_sync_foundation/i.test(file),
   );
@@ -109,10 +110,42 @@ test("TASK-041 opens only verified runtime implementation gates", () => {
     "duplicate",
     "conflict",
     "cleanup_ok",
+    "validateSalesLineProductScope",
+    "product_scope_mismatch",
+    "invalid_product_id_count",
     "source: \"TASK-041\"",
   ]) {
     assertContains(salesService, required);
   }
+
+  assert.match(
+    salesService,
+    /\.from\("shop_inventory_sources"\)[\s\S]*\.eq\("shop_id", shopId\)[\s\S]*\.is\("disabled_at", null\)/,
+  );
+  assert.match(
+    salesService,
+    /\.from\("inventory_products"\)[\s\S]*\.in\("id", productChunk\)[\s\S]*\.is\("deleted_at", null\)/,
+  );
+  assert.match(
+    salesService,
+    /row\.shop_id === shopId[\s\S]*row\.shop_id === null[\s\S]*row\.owner_user_id === ownerUserId/,
+  );
+  for (const required of [
+    "filterCatalogPricesByProductScope",
+    "authorizedProductIds",
+    "price_product_scope_validation",
+    "prices: mergeCatalogRowsById(shopPrices, legacyPrices)",
+  ]) {
+    assertContains(catalogPull, required);
+  }
+  assert.match(
+    catalogPull,
+    /row\.shop_id === input\.shopId[\s\S]*row\.shop_id === null[\s\S]*row\.owner_user_id === input\.ownerUserId/,
+  );
+  assert.match(
+    catalogPull,
+    /const scopedPriceRows = await filterCatalogPricesByProductScope[\s\S]*const priceRows = scopedPriceRows\.prices\.sort[\s\S]*const pricePage = pageCatalogScopeRows\(\s*priceRows/,
+  );
 
   for (const required of [
     "create table if not exists public.pos_sales_sync_batches",

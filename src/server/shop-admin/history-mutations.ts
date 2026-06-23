@@ -714,6 +714,7 @@ async function resolveHistoryWriteContext(requestedShopId: string | undefined) {
 }
 
 async function loadHistorySessionForWrite(input: {
+  allowLegacyOwnerBridge: boolean;
   ownerUserId: string;
   remoteId: string;
   shopId: string;
@@ -734,6 +735,12 @@ async function loadHistorySessionForWrite(input: {
 
   if (directResult.data) {
     return directResult;
+  }
+
+  if (!input.allowLegacyOwnerBridge) {
+    return directResult.error && isLegacyHistorySchemaError(directResult.error)
+      ? directResult
+      : { data: null, error: null };
   }
 
   if (directResult.error && isLegacyHistorySchemaError(directResult.error)) {
@@ -977,7 +984,8 @@ async function updateSupplierImportHistorySession(input: {
   let query = input.supabase
     .from("shared_sheet_sessions")
     .update(row)
-    .eq("remote_id", input.payload.remoteId);
+    .eq("remote_id", input.payload.remoteId)
+    .eq("owner_user_id", input.ownerUserId);
 
   query = input.existingShopId
     ? query.eq("shop_id", input.existingShopId)
@@ -997,6 +1005,7 @@ async function updateSupplierImportHistorySession(input: {
     .from("shared_sheet_sessions")
     .update(legacyRow)
     .eq("remote_id", input.payload.remoteId)
+    .eq("owner_user_id", input.ownerUserId)
     .select("remote_id,updated_at,deleted_at")
     .maybeSingle<HistorySessionMutationRow>();
 }
@@ -1198,6 +1207,7 @@ export async function upsertSupplierImportHistoryEntry(
     supplierName: input.supplierName,
   });
   const existingResult = await loadHistorySessionForWrite({
+    allowLegacyOwnerBridge: owner.catalogScope === "legacy_owner_bridge",
     ownerUserId: owner.ownerUserId,
     remoteId: payload.remoteId,
     shopId: input.context.selectedShop.shopId,
@@ -1234,6 +1244,7 @@ export async function upsertSupplierImportHistoryEntry(
   if (writeResult.error && writeResult.error.code === "23505") {
     action = "updated";
     const retryExistingResult = await loadHistorySessionForWrite({
+      allowLegacyOwnerBridge: owner.catalogScope === "legacy_owner_bridge",
       ownerUserId: owner.ownerUserId,
       remoteId: payload.remoteId,
       shopId: input.context.selectedShop.shopId,
@@ -1435,6 +1446,7 @@ export async function updateHistoryEntry(
   }
 
   const existingResult = await loadHistorySessionForWrite({
+    allowLegacyOwnerBridge: ready.owner.catalogScope === "legacy_owner_bridge",
     ownerUserId: ready.owner.ownerUserId,
     remoteId,
     shopId: ready.context.selectedShop.shopId,
@@ -1584,6 +1596,7 @@ export async function updateHistoryEntryGeneratedRows(
   }
 
   const existingResult = await loadHistorySessionForWrite({
+    allowLegacyOwnerBridge: ready.owner.catalogScope === "legacy_owner_bridge",
     ownerUserId: ready.owner.ownerUserId,
     remoteId,
     shopId: ready.context.selectedShop.shopId,
@@ -1785,6 +1798,7 @@ export async function tombstoneHistoryEntry(input: {
   }
 
   const existingResult = await loadHistorySessionForWrite({
+    allowLegacyOwnerBridge: ready.owner.catalogScope === "legacy_owner_bridge",
     ownerUserId: ready.owner.ownerUserId,
     remoteId,
     shopId: ready.context.selectedShop.shopId,

@@ -21,6 +21,7 @@ import type {
   CatalogSupplierOption,
 } from "@/app/shop/_components/CatalogActionPanel";
 import { CreatableCatalogCombobox } from "@/app/shop/_components/CreatableCatalogCombobox";
+import { useModalFocusTrap } from "@/app/shop/_components/useModalFocusTrap";
 
 type ProductDetailModalProduct = {
   productId: string;
@@ -435,13 +436,17 @@ function ActionMessage({ state }: { state: ShopAdminActionState }) {
 
 function DialogShell({
   children,
+  onClose,
   title,
   titleId,
 }: {
   children: ReactNode;
+  onClose?: () => void;
   title: string;
   titleId: string;
 }) {
+  const dialogRef = useModalFocusTrap<HTMLElement>(true, onClose);
+
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto overflow-x-hidden bg-zinc-950/35 p-0 sm:p-6">
       <div className="flex min-h-full min-w-0 items-center justify-center">
@@ -450,7 +455,9 @@ function DialogShell({
           aria-labelledby={titleId}
           aria-modal="true"
           className="flex h-dvh max-h-dvh w-full min-w-0 flex-col overflow-hidden rounded-none bg-white shadow-xl sm:h-auto sm:max-h-[calc(100dvh-48px)] sm:w-[min(1120px,calc(100vw-48px))] sm:rounded-md xl:w-[min(1200px,calc(100vw-72px))]"
+          ref={dialogRef}
           role="dialog"
+          tabIndex={-1}
         >
           {children}
         </section>
@@ -1041,22 +1048,6 @@ export function ProductDetailModalController({
     return () => window.clearTimeout(timeout);
   }, [openProduct]);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        closeModal();
-      }
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [closeModal, open]);
-
   const summaryCards = useMemo(() => {
     if (!product) {
       return [];
@@ -1092,13 +1083,23 @@ export function ProductDetailModalController({
     Boolean(updateState.message) ||
     Boolean(archiveState.message) ||
     Boolean(restoreState.message);
+  const closeDisabled = updatePending || archivePending || restorePending;
+  const requestCloseModal = useCallback(() => {
+    if (!closeDisabled) {
+      closeModal();
+    }
+  }, [closeDisabled, closeModal]);
 
   if (!open) {
     return null;
   }
 
   return (
-    <DialogShell title={translate("Product detail")} titleId={titleId}>
+    <DialogShell
+      onClose={closeDisabled ? undefined : requestCloseModal}
+      title={translate("Product detail")}
+      titleId={titleId}
+    >
       {loading && !readModel ? (
         <ProductSkeleton />
       ) : (
@@ -1193,8 +1194,9 @@ export function ProductDetailModalController({
                   </>
                 ) : null}
                 <button
-                  className="inline-flex h-9 items-center gap-1.5 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800"
-                  onClick={closeModal}
+                  className="inline-flex h-9 items-center gap-1.5 rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={closeDisabled}
+                  onClick={requestCloseModal}
                   type="button"
                 >
                   <ProductDetailIcon name="close" />
@@ -1233,12 +1235,10 @@ export function ProductDetailModalController({
                 <nav
                   aria-label={translate("Product detail tabs")}
                   className="flex min-w-0 gap-2 overflow-x-auto border-b border-zinc-200"
-                  role="tablist"
                 >
                   {tabs.map((item) => (
                     <button
-                      aria-controls={`product-detail-panel-${item.key}`}
-                      aria-selected={tab === item.key}
+                      aria-pressed={tab === item.key}
                       className={[
                         "inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700",
                         tab === item.key
@@ -1248,7 +1248,6 @@ export function ProductDetailModalController({
                       id={`product-detail-tab-${item.key}`}
                       key={item.key}
                       onClick={() => setTab(item.key)}
-                      role="tab"
                       type="button"
                     >
                       <ProductDetailIcon name={item.icon} />
@@ -1272,7 +1271,6 @@ export function ProductDetailModalController({
                     aria-labelledby="product-detail-tab-overview"
                     className="grid gap-4"
                     id="product-detail-panel-overview"
-                    role="tabpanel"
                   >
                     {canManageProducts ? (
                       <ProductOverviewForm
@@ -1381,7 +1379,6 @@ export function ProductDetailModalController({
                     aria-labelledby="product-detail-tab-prices"
                     className="grid gap-4"
                     id="product-detail-panel-prices"
-                    role="tabpanel"
                   >
                     <div className="grid gap-3 md:grid-cols-2">
                       <SummaryCard
@@ -1445,7 +1442,6 @@ export function ProductDetailModalController({
                     aria-labelledby="product-detail-tab-inventory"
                     className="grid gap-4"
                     id="product-detail-panel-inventory"
-                    role="tabpanel"
                   >
                     <DetailSection
                       icon="warehouse"
@@ -1496,7 +1492,6 @@ export function ProductDetailModalController({
                     aria-labelledby="product-detail-tab-history"
                     className="grid gap-3"
                     id="product-detail-panel-history"
-                    role="tabpanel"
                   >
                     {readModel?.historyEntries.length ? (
                       readModel.historyEntries.map((entry) => (
@@ -1537,7 +1532,6 @@ export function ProductDetailModalController({
                     aria-labelledby="product-detail-tab-advanced"
                     className="grid gap-4"
                     id="product-detail-panel-advanced"
-                    role="tabpanel"
                   >
                     <details className="rounded-md border border-zinc-200 bg-zinc-50 p-3">
                       <summary className="cursor-pointer text-sm font-semibold text-zinc-950">

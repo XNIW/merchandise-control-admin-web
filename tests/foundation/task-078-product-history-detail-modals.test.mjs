@@ -21,7 +21,7 @@ test("TASK-078 product page mounts lazy detail modals without expanding first pa
   const productsPage = read("src/app/shop/products/page.tsx");
 
   assertContains(productsPage, "getShopInventoryProductsPage");
-  assertContains(productsPage, "includeExactTotals: true");
+  assertContains(productsPage, "includeExactTotals: false");
   assertContains(productsPage, "ProductDetailModalController");
   assertContains(productsPage, "HistoryDetailModalController");
   assertContains(productsPage, "data-product-detail-trigger");
@@ -70,6 +70,7 @@ test("TASK-078 product detail modal supports editable overview/actions and tabbe
   const controller = read(
     "src/app/shop/_components/ProductDetailModalController.tsx",
   );
+  const focusTrap = read("src/app/shop/_components/useModalFocusTrap.ts");
   const actions = read("src/app/shop/actions.ts");
 
   assertContains(controller, "fetch(`/shop/products/detail?");
@@ -98,7 +99,13 @@ test("TASK-078 product detail modal supports editable overview/actions and tabbe
   assertContains(controller, "No previous price changes are recorded for this product.");
   assertContains(controller, "Save");
   assertContains(controller, "Close");
+  assertContains(controller, "const closeDisabled = updatePending || archivePending || restorePending");
+  assertContains(controller, "onClose={closeDisabled ? undefined : requestCloseModal}");
+  assertContains(controller, "disabled={closeDisabled}");
   assertContains(controller, "data-history-detail-trigger");
+  assertContains(focusTrap, "modalFocusTrapStack");
+  assertContains(focusTrap, "modalFocusTrapStack[modalFocusTrapStack.length - 1] !== trapId");
+  assert.doesNotMatch(controller, /document\.addEventListener\("keydown"/);
   assert.doesNotMatch(controller, /ProductQuickEditForm|data-product-quick-edit-form|quickEditFormId|translate\("Full edit"\)|mode === "edit"|Editing product/);
   assertContains(actions, "export async function updateProductInlineAction");
   assertContains(actions, "export async function archiveProductInlineAction");
@@ -164,7 +171,11 @@ test("TASK-078 history detail modal exposes rows, missing, links and collapsed d
   assertContains(controller, "Status");
   assertContains(controller, "data-product-detail-trigger");
   assertContains(controller, "<details");
+  assertContains(controller, "const closeDisabled = saving");
+  assertContains(controller, "closeDisabled ? undefined : requestCloseModal");
+  assertContains(controller, "disabled={closeDisabled}");
   assertContains(controller, 'return isUnresolvedValue(value) ? "—" : String(value);');
+  assert.doesNotMatch(controller, /document\.addEventListener\("keydown"/);
   assert.doesNotMatch(controller, /Authorization|process\.env|SUPABASE|service[_-]?role/i);
   assert.doesNotMatch(controller, /JSON\.stringify\(readModel\)/);
   assert.doesNotMatch(controller, /<details[^>]*open/);

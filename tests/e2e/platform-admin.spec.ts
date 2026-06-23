@@ -264,11 +264,11 @@ test.describe("Admin Web smoke", () => {
       page.getByRole("link", { name: /Master Console|Open Master Console/ }),
     ).toHaveCount(0);
     await expect(page.locator('a[href="/auth/login?next=/platform"]')).toHaveCount(0);
-    await expectAuthHref(page.getByRole("tab", { name: "Admin account" }), {
+    await expectAuthHref(page.getByRole("link", { name: "Admin account" }), {
       mode: "admin-account",
       next: "/shop",
     });
-    await expectAuthHref(page.getByRole("tab", { name: "Shop code" }), {
+    await expectAuthHref(page.getByRole("link", { name: "Shop code" }), {
       mode: "shop-code",
       next: "/shop",
     });
@@ -324,13 +324,13 @@ test.describe("Admin Web smoke", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Admin Console sign in" }),
     ).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Admin account" })).toHaveAttribute(
-      "aria-selected",
-      "true",
+    await expect(page.getByRole("link", { name: "Admin account" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
-    await expect(page.getByRole("tab", { name: "Shop code" })).toHaveAttribute(
-      "aria-selected",
-      "false",
+    await expect(page.getByRole("link", { name: "Shop code" })).not.toHaveAttribute(
+      "aria-current",
+      "page",
     );
     await expect(
       page.getByRole("form", { exact: true, name: "Admin account sign in" }),
@@ -353,7 +353,7 @@ test.describe("Admin Web smoke", () => {
       page.getByRole("form", { exact: true, name: "Master Console sign in" }),
     ).toBeVisible();
     await expect(page.getByRole("tablist")).toHaveCount(0);
-    await expect(page.getByRole("tab", { name: "Shop code" })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Shop code" })).toHaveCount(0);
     await expect(page.getByLabel("Shop code")).toHaveCount(0);
     await expect(page.locator('a[href="/auth/login?next=/shop&mode=shop-code"]')).toHaveCount(
       0,
@@ -371,13 +371,13 @@ test.describe("Admin Web smoke", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Admin Console sign in" }),
     ).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Admin account" })).toHaveAttribute(
-      "aria-selected",
-      "true",
+    await expect(page.getByRole("link", { name: "Admin account" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
-    await expect(page.getByRole("tab", { name: "Shop code" })).toHaveAttribute(
-      "aria-selected",
-      "false",
+    await expect(page.getByRole("link", { name: "Shop code" })).not.toHaveAttribute(
+      "aria-current",
+      "page",
     );
     await expect(page.getByText("Admin account credentials")).toBeVisible();
     await expect(
@@ -395,13 +395,15 @@ test.describe("Admin Web smoke", () => {
     await expect(
       page.getByRole("heading", { level: 1, name: "Admin Console sign in" }),
     ).toBeVisible();
-    await expect(page.getByRole("tab", { name: "Admin account" })).toHaveAttribute(
-      "aria-selected",
-      "false",
+    await expect(
+      page.getByRole("link", { name: "Admin account" }),
+    ).not.toHaveAttribute(
+      "aria-current",
+      "page",
     );
-    await expect(page.getByRole("tab", { name: "Shop code" })).toHaveAttribute(
-      "aria-selected",
-      "true",
+    await expect(page.getByRole("link", { name: "Shop code" })).toHaveAttribute(
+      "aria-current",
+      "page",
     );
     await expect(page.getByText("Shop code credentials")).toBeVisible();
     await expect(page.getByRole("form", { name: "Shop code sign in" })).toBeVisible();

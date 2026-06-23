@@ -28,8 +28,11 @@ test("TASK-016 global audit has list, detail, filters, and redacted metadata", (
   assert.match(detailPage, /getPlatformAuditDetailForRequest/);
   assert.match(detailPage, /eventId/);
   assert.match(readModel, /\.from\("audit_logs"\)/);
+  assert.match(readModel, /actor_staff_id/);
   assert.match(readModel, /metadata_redacted/);
   assert.match(readModel, /redactPlatformMetadata/);
+  assert.match(sectionData, /function auditActorCell/);
+  assert.match(sectionData, /POS staff \$\{shortId\(log\.actor_staff_id\)\}/);
   assert.match(sectionData, /actor|shop|area|action|target|severity|date/i);
   assert.doesNotMatch(`${detailPage}\n${sectionData}\n${readModel}`, /credential_hash|access_token|refresh_token|magic_link|pin_hash|password_hash/i);
 });

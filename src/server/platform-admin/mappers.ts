@@ -174,6 +174,7 @@ export function mapAuditLogRow(row: AuditLogRowCandidate): AuditLog {
   return {
     audit_log_id: row.audit_log_id,
     actor_profile_id: row.actor_profile_id ?? undefined,
+    actor_staff_id: row.actor_staff_id ?? undefined,
     scope: normalizePlatformScope(row.scope),
     shop_id: row.shop_id ?? undefined,
     event: row.event ?? row.event_key,

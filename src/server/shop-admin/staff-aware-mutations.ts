@@ -909,6 +909,43 @@ function staffBulkOwnerRowError(
   };
 }
 
+async function loadScopedInventoryRowIds(
+  context: StaffAwareContext,
+  input: {
+    ids: readonly string[];
+    ownerUserId: string;
+    table: "inventory_categories" | "inventory_products" | "inventory_suppliers";
+  },
+) {
+  const scopedIds = new Set<string>();
+  const ids = Array.from(new Set(input.ids.filter(Boolean)));
+
+  for (const idChunk of chunkRows(ids, 100)) {
+    const { data, error } = await context.supabase
+      .from(input.table)
+      .select("id,shop_id,owner_user_id")
+      .in("id", idChunk)
+      .is("deleted_at", null);
+
+    if (error) {
+      return { ids: scopedIds, ok: false as const };
+    }
+
+    for (const row of data ?? []) {
+      if (
+        isInventoryScopedToShop(row, {
+          ownerUserId: input.ownerUserId,
+          shopId: context.selectedShop.shopId,
+        })
+      ) {
+        scopedIds.add(row.id);
+      }
+    }
+  }
+
+  return { ids: scopedIds, ok: true as const };
+}
+
 export async function applyStaffAwareBulkProductImport(
   context: StaffAwareContext,
   productPayload: readonly StaffAwareBulkProductImportPayload[],
@@ -934,10 +971,31 @@ export async function applyStaffAwareBulkProductImport(
     STAFF_AWARE_BULK_PRODUCT_IMPORT_CHUNK_SIZE,
   )).entries()) {
     const updatedAt = nowIso();
+    const scopedProductIds = await loadScopedInventoryRowIds(context, {
+      ids: productChunk.map((product) => product.product_id ?? ""),
+      ownerUserId: owner.ownerUserId,
+      table: "inventory_products",
+    });
+
+    if (!scopedProductIds.ok) {
+      failedRows += productChunk.length;
+      rowErrors.push({
+        field: "products",
+        message:
+          "Products import chunk failed while validating shop-scoped product references.",
+        row: chunkIndex + 1,
+        sheet: "Products",
+      });
+      continue;
+    }
+
     const productRows = productChunk.map((product) => ({
       barcode: product.barcode,
       category_id: product.category_id ?? null,
-      id: product.product_id ?? randomUUID(),
+      id:
+        product.product_id && scopedProductIds.ids.has(product.product_id)
+          ? product.product_id
+          : randomUUID(),
       item_number: product.item_number ?? null,
       owner_user_id: owner.ownerUserId,
       product_name: product.product_name,
@@ -1011,7 +1069,45 @@ export async function applyStaffAwareBulkPriceHistoryImport(
     pricePayload,
     STAFF_AWARE_BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE,
   )).entries()) {
-    const priceRows = priceChunk.map((price) => ({
+    const scopedProductIds = await loadScopedInventoryRowIds(context, {
+      ids: priceChunk.map((price) => price.product_id),
+      ownerUserId: owner.ownerUserId,
+      table: "inventory_products",
+    });
+
+    if (!scopedProductIds.ok) {
+      failedRows += priceChunk.length;
+      rowErrors.push({
+        field: "product_id",
+        message:
+          "Price history import chunk failed while validating shop-scoped product references.",
+        row: chunkIndex + 1,
+        sheet: "PriceHistory",
+      });
+      continue;
+    }
+
+    const scopedPriceChunk = priceChunk.filter((price) =>
+      scopedProductIds.ids.has(price.product_id),
+    );
+    const rejectedRows = priceChunk.length - scopedPriceChunk.length;
+
+    if (rejectedRows > 0) {
+      failedRows += rejectedRows;
+      rowErrors.push({
+        field: "product_id",
+        message:
+          "PriceHistory product reference is not available in this shop.",
+        row: chunkIndex + 1,
+        sheet: "PriceHistory",
+      });
+    }
+
+    if (scopedPriceChunk.length === 0) {
+      continue;
+    }
+
+    const priceRows = scopedPriceChunk.map((price) => ({
       created_at: price.created_at ?? price.effective_at,
       effective_at: price.effective_at,
       id: price.price_id ?? randomUUID(),
@@ -1032,7 +1128,7 @@ export async function applyStaffAwareBulkPriceHistoryImport(
       .select("id");
 
     if (error) {
-      failedRows += priceChunk.length;
+      failedRows += scopedPriceChunk.length;
       rowErrors.push({
         field: "priceHistory",
         message:
@@ -1045,7 +1141,7 @@ export async function applyStaffAwareBulkPriceHistoryImport(
 
     const appliedRows = data ?? [];
     priceHistoryApplied += appliedRows.length;
-    failedRows += Math.max(priceChunk.length - appliedRows.length, 0);
+    failedRows += Math.max(scopedPriceChunk.length - appliedRows.length, 0);
   }
 
   return {

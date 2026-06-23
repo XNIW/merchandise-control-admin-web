@@ -21,6 +21,7 @@ import {
   updateSupplierAction,
 } from "@/app/shop/actions";
 import { CreatableCatalogCombobox } from "@/app/shop/_components/CreatableCatalogCombobox";
+import { useModalFocusTrap } from "@/app/shop/_components/useModalFocusTrap";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 
 export type CatalogProductOption = {
@@ -254,6 +255,10 @@ function CatalogDialog({
 }) {
   const titleId = useId();
   const t = useCatalogActionText();
+  const dialogRef = useModalFocusTrap<HTMLElement>(
+    open,
+    closeDisabled ? undefined : onClose,
+  );
 
   if (!open) {
     return null;
@@ -270,7 +275,9 @@ function CatalogDialog({
               ? "sm:w-[min(1500px,calc(100vw-96px))] sm:max-w-none"
               : "max-w-3xl"
           }`}
+          ref={dialogRef}
           role="dialog"
+          tabIndex={-1}
         >
           <div className="sticky top-0 z-20 flex min-w-0 items-center justify-between gap-3 border-b border-zinc-200 bg-white px-4 py-3">
             <div className="flex min-w-0 flex-1 items-center gap-2">

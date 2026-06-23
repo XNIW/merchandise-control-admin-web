@@ -2,6 +2,7 @@
 
 import { headers } from "next/headers";
 import { redirect, RedirectType } from "next/navigation";
+import { safeInternalNextPath } from "@/lib/auth/oauth-redirect";
 import {
   authenticateStaffManagerWebLogin,
   type StaffWebLoginCode,
@@ -32,14 +33,10 @@ function normalizeVisibleCode(raw: string) {
   return raw.trim().toUpperCase().slice(0, 32);
 }
 
-function isSafeInternalNextPath(value: string) {
-  return value.startsWith("/") && !value.startsWith("//");
-}
-
 function nextPathFromForm(formData: FormData) {
   const requested = value(formData, "next");
 
-  return isSafeInternalNextPath(requested) ? requested : "/shop";
+  return safeInternalNextPath(requested, "/shop");
 }
 
 function submittedValues(formData: FormData): ShopCodeLoginFormState["values"] {

@@ -22,6 +22,7 @@ type AuditLogRow = Pick<
   Tables<"audit_logs">,
   | "audit_log_id"
   | "actor_profile_id"
+  | "actor_staff_id"
   | "event_key"
   | "severity"
   | "result"
@@ -35,7 +36,9 @@ export type ShopAuditReadModelStatus = ShopAdminReadModelStatus;
 
 export type ShopAuditEvent = {
   actorIdentity: AccountIdentitySummary | null;
+  actorKind: "personal_account" | "pos_staff" | "system";
   actorProfileId: string | null;
+  actorStaffId: string | null;
   auditLogId: string;
   createdAt: string;
   eventKey: string;
@@ -146,6 +149,12 @@ function mapAuditEvent(
   row: AuditLogRow,
   identitiesByProfileId: ReadonlyMap<string, PlatformAuthIdentitySummary> = new Map(),
 ): ShopAuditEvent {
+  const actorKind = row.actor_profile_id
+    ? "personal_account"
+    : row.actor_staff_id
+      ? "pos_staff"
+      : "system";
+
   return {
     actorIdentity: row.actor_profile_id
       ? identityFromAuthSummary(
@@ -153,7 +162,9 @@ function mapAuditEvent(
           identitiesByProfileId.get(row.actor_profile_id),
         )
       : null,
+    actorKind,
     actorProfileId: row.actor_profile_id,
+    actorStaffId: row.actor_staff_id,
     auditLogId: row.audit_log_id,
     createdAt: row.created_at,
     eventKey: row.event_key,
@@ -231,7 +242,7 @@ export async function getShopAuditReadModel(
   let query = access.supabase
     .from("audit_logs")
     .select(
-      "audit_log_id,actor_profile_id,scope,shop_id,event_key,severity,result,target_type,target_id,metadata_redacted,created_at",
+      "audit_log_id,actor_profile_id,actor_staff_id,scope,shop_id,event_key,severity,result,target_type,target_id,metadata_redacted,created_at",
     )
     .eq("scope", "shop")
     .eq("shop_id", selectedShop.shopId);
@@ -331,7 +342,7 @@ export async function getShopAuditDetailReadModel(
   const auditResult = await access.supabase
     .from("audit_logs")
     .select(
-      "audit_log_id,actor_profile_id,scope,shop_id,event_key,severity,result,target_type,target_id,metadata_redacted,created_at",
+      "audit_log_id,actor_profile_id,actor_staff_id,scope,shop_id,event_key,severity,result,target_type,target_id,metadata_redacted,created_at",
     )
     .eq("scope", "shop")
     .eq("shop_id", selectedShop.shopId)

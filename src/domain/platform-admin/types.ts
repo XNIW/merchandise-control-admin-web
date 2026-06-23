@@ -79,6 +79,7 @@ export type Permission = {
 export type AuditLog = {
   audit_log_id: string;
   actor_profile_id?: string;
+  actor_staff_id?: string;
   scope: PlatformScope;
   shop_id?: string;
   event: string;
@@ -115,6 +116,7 @@ export type PlatformDeviceOverview = {
 export type PlatformSyncOverview = {
   sync_event_id: string;
   owner_user_id: string;
+  shop_id?: string;
   store_id?: string;
   source?: string;
   source_device_id?: string;

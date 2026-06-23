@@ -72,6 +72,9 @@ test("TASK-079C detail performance uses bounded batch product resolving", () => 
 test("TASK-079C generated row edit route remains server-side while TASK-079D owns semantics", () => {
   const historyMutations = read("src/server/shop-admin/history-mutations.ts");
   const historyReadModel = read("src/server/shop-admin/history-read-model.ts");
+  const inventoryReadModel = read(
+    "src/server/shop-admin/inventory-read-model.ts",
+  );
   const detailRoute = read("src/app/shop/history/detail/route.ts");
   const controller = read(
     "src/app/shop/_components/HistoryDetailModalController.tsx",
@@ -82,7 +85,31 @@ test("TASK-079C generated row edit route remains server-side while TASK-079D own
   assertContains(historyReadModel, "product name");
   assertContains(historyReadModel, "purchase price");
   assertContains(historyReadModel, "retail price");
+  assert.match(
+    historyReadModel,
+    /\.select\(historyListSessionSelect[\s\S]{0,160}\.is\("shop_id", null\)[\s\S]{0,80}\.eq\("owner_user_id", input\.legacyOwnerUserId\)/,
+    "legacy shared_sheet_sessions list fallback must be constrained to shop_id IS NULL",
+  );
+  assert.match(
+    historyReadModel,
+    /\.select\(\s*"remote_id,shop_id[\s\S]{0,220}\.is\("shop_id", null\)[\s\S]{0,80}\.eq\("owner_user_id", input\.legacyOwnerUserId\)/,
+    "legacy shared_sheet_sessions detail fallback must be constrained to shop_id IS NULL",
+  );
+  assertContains(inventoryReadModel, "filterPricesByCatalogProductScope");
+  assert.match(
+    inventoryReadModel,
+    /row\.shop_id === input\.selectedShopId[\s\S]*row\.shop_id === null[\s\S]*row\.owner_user_id === input\.legacyOwnerUserId/,
+    "inventory price fallback must validate the referenced product scope",
+  );
   assertContains(historyMutations, "updateHistoryEntryGeneratedRows");
+  assertContains(historyMutations, "allowLegacyOwnerBridge");
+  assertContains(historyMutations, 'owner.catalogScope === "legacy_owner_bridge"');
+  assertContains(historyMutations, 'ready.owner.catalogScope === "legacy_owner_bridge"');
+  assert.match(
+    historyMutations,
+    /if \(!input\.allowLegacyOwnerBridge\)[\s\S]*\{ data: null, error: null \}/,
+    "history writers must not use legacy owner bridge unless the selected shop has an explicit mapped source",
+  );
   assertContains(historyMutations, "parseLocalizedNumberText");
   assertContains(historyMutations, "ensureHistoryGeneratedColumns");
   assertContains(historyMutations, "realQuantity");
@@ -98,6 +125,12 @@ test("TASK-079C generated row edit route remains server-side while TASK-079D own
   assertContains(historyMutations, "expectedUpdatedAt && expectedUpdatedAt !== existingResult.data.updated_at");
   assertContains(historyMutations, "Promise.all([");
   assertContains(detailRoute, "export async function PATCH");
+  assertContains(detailRoute, "MAX_HISTORY_DETAIL_PATCH_JSON_BYTES = 64 * 1024");
+  assertContains(detailRoute, "guardHistoryDetailPatchRequest(request)");
+  assertContains(detailRoute, 'resolveShopActionContext(requestedShopId, "history.write")');
+  assertContains(detailRoute, "await request.text()");
+  assertContains(detailRoute, "JSON.parse(bodyText)");
+  assert.doesNotMatch(detailRoute, /await request\.json\(\)/);
   assertContains(detailRoute, "updateHistoryEntryGeneratedRows");
   assertContains(detailRoute, "countedQuantity: optionalString(record.countedQuantity)");
   assertContains(detailRoute, "salePrice: optionalString(record.salePrice)");

@@ -3284,6 +3284,9 @@ function applySupplierWorkbookRows(
 
 function buildProductIdMaps(products: readonly ShopInventoryProduct[]) {
   return {
+    byImportedProductId: new Map(
+      products.map((product) => [product.productId, product.productId]),
+    ),
     byBarcode: new Map(
       products.map((product) => [product.barcode.toLowerCase(), product.productId]),
     ),
@@ -3304,6 +3307,10 @@ function rememberProductId(
   row: ParsedProductRow,
   productId: string,
 ) {
+  if (row.productId) {
+    maps.byImportedProductId.set(row.productId, productId);
+  }
+
   maps.byProductId.add(productId);
 
   if (row.barcode) {
@@ -3321,6 +3328,14 @@ function resolvePriceHistoryProductId(
 ) {
   if (row.productId && maps.byProductId.has(row.productId)) {
     return row.productId;
+  }
+
+  if (row.productId) {
+    const byImportedProductId = maps.byImportedProductId.get(row.productId);
+
+    if (byImportedProductId) {
+      return byImportedProductId;
+    }
   }
 
   if (row.productBarcode) {
@@ -3475,6 +3490,42 @@ function* chunkRows<T>(rows: readonly T[], chunkSize: number) {
   }
 }
 
+function rememberAppliedProductReference(
+  maps: ReturnType<typeof buildProductIdMaps>,
+  payloadRows: readonly StaffAwareBulkProductImportPayload[],
+  product: {
+    barcode?: string | null;
+    itemNumber?: string | null;
+    productId: string;
+  },
+) {
+  const barcodeKey = product.barcode?.toLowerCase() ?? "";
+  const itemNumberKey = product.itemNumber?.toLowerCase() ?? "";
+  const sourceRow = payloadRows.find((row) => {
+    const rowBarcode = row.barcode?.toLowerCase() ?? "";
+    const rowItemNumber = row.item_number?.toLowerCase() ?? "";
+
+    return (
+      (barcodeKey.length > 0 && rowBarcode === barcodeKey) ||
+      (itemNumberKey.length > 0 && rowItemNumber === itemNumberKey)
+    );
+  });
+
+  if (sourceRow?.product_id) {
+    maps.byImportedProductId.set(sourceRow.product_id, product.productId);
+  }
+
+  maps.byProductId.add(product.productId);
+
+  if (product.barcode) {
+    maps.byBarcode.set(product.barcode.toLowerCase(), product.productId);
+  }
+
+  if (product.itemNumber) {
+    maps.byItemNumber.set(product.itemNumber.toLowerCase(), product.productId);
+  }
+}
+
 async function applyBulkProductImport(
   context: ReadyShopActionContext,
   rows: readonly ParsedProductRow[],
@@ -3494,7 +3545,7 @@ async function applyBulkProductImport(
       barcode: merged.barcode,
       category_id: merged.categoryId,
       item_number: merged.itemNumber,
-      product_id: row.productId ?? existing?.productId,
+      product_id: existing?.productId ?? row.productId,
       product_name: merged.productName,
       purchase_price: merged.purchasePrice,
       retail_price: merged.retailPrice,
@@ -3511,21 +3562,7 @@ async function applyBulkProductImport(
     );
 
     for (const product of productImport.productIds) {
-      productIdMaps.byProductId.add(product.productId);
-
-      if (product.barcode) {
-        productIdMaps.byBarcode.set(
-          product.barcode.toLowerCase(),
-          product.productId,
-        );
-      }
-
-      if (product.itemNumber) {
-        productIdMaps.byItemNumber.set(
-          product.itemNumber.toLowerCase(),
-          product.productId,
-        );
-      }
+      rememberAppliedProductReference(productIdMaps, productPayload, product);
     }
 
     return productImport;
@@ -3579,15 +3616,11 @@ async function applyBulkProductImport(
         continue;
       }
 
-      productIdMaps.byProductId.add(productId);
-
-      if (barcode) {
-        productIdMaps.byBarcode.set(barcode.toLowerCase(), productId);
-      }
-
-      if (itemNumber) {
-        productIdMaps.byItemNumber.set(itemNumber.toLowerCase(), productId);
-      }
+      rememberAppliedProductReference(productIdMaps, productPayload, {
+        barcode,
+        itemNumber,
+        productId,
+      });
     }
 
     const rpcFailedRows = numberFromPayload(payload.failedRows);

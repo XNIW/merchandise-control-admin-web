@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { useActionState, useMemo } from "react";
+import { useActionState, useId, useMemo } from "react";
 import {
   accountSignInAction,
   googleSignInAction,
@@ -71,6 +71,7 @@ export function AuthForm({
     accountSignInAction,
     initialState,
   );
+  const messageId = useId();
   const nextPath = useMemo(() => {
     const requested = searchParams.get("next");
 
@@ -122,6 +123,7 @@ export function AuthForm({
             {labels.email}
           </label>
           <input
+            aria-describedby={state.message ? messageId : undefined}
             id="email"
             name="email"
             type="email"
@@ -139,6 +141,7 @@ export function AuthForm({
             {labels.password}
           </label>
           <input
+            aria-describedby={state.message ? messageId : undefined}
             id="password"
             name="password"
             type="password"
@@ -158,8 +161,9 @@ export function AuthForm({
 
         {state.message ? (
           <p
-            role="status"
-            aria-live="polite"
+            aria-live={state.status === "blocked" ? "assertive" : "polite"}
+            id={messageId}
+            role={state.status === "blocked" ? "alert" : "status"}
             className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
           >
             {state.message}

@@ -27,6 +27,19 @@ test("TASK-016 global devices overview uses device authorization registry and sy
   assert.match(page, /getPlatformSectionForRequest\("devices"/);
   assert.match(readModel, /\.from\("shop_devices"\)/);
   assert.match(readModel, /\.from\("sync_events"\)/);
+  assert.match(
+    readModel,
+    /"id,owner_user_id,shop_id,store_id,source,source_device_id,domain,event_type,changed_count,metadata,created_at"/,
+  );
+  assert.match(readModel, /shop_id: row\.shop_id \?\? undefined/);
+  assert.match(readModel, /event\.shop_id \?\? shopByOwner\.get\(event\.owner_user_id\)/);
+  assert.match(sectionData, /syncEvents\.find\(\(event\) => event\.shop_id === shopId\)/);
+  assert.match(sectionData, /!event\.shop_id && ownerIds\.has\(event\.owner_user_id\)/);
+  assert.match(
+    sectionData,
+    /event\.shop_id === shopId \|\|[\s\S]{0,140}\(!event\.shop_id && ownerIds\.has\(event\.owner_user_id\)\)/,
+  );
+  assert.match(sectionData, /event\.shop_id \?\?[\s\S]{0,120}mapping\.ownerUserId === event\.owner_user_id/);
   assert.match(sectionData, /source_device_id/);
   assert.match(sectionData, /device authorization/i);
   assert.match(migration, /shop_devices_select_platform_admin/);

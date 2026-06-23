@@ -194,10 +194,22 @@ test("TASK-079B apply writes canonical history but preview remains side-effect f
   assertContains(historyMutations, "session_ids: [input.remoteId]");
   assertContains(historyMutations, 'source_workflow: "supplier_import"');
   assertContains(historyMutations, 'writeResult.error.code === "23505"');
+  const supplierUpdateBlock = historyMutations.slice(
+    historyMutations.indexOf("async function updateSupplierImportHistorySession"),
+    historyMutations.indexOf("async function tombstoneHistorySessionForWrite"),
+  );
+  assert.match(
+    supplierUpdateBlock,
+    /\.eq\("remote_id", input\.payload\.remoteId\)[\s\S]{0,140}\.eq\("owner_user_id", input\.ownerUserId\)/,
+  );
+  assert.match(
+    supplierUpdateBlock,
+    /\.update\(legacyRow\)[\s\S]{0,180}\.eq\("remote_id", input\.payload\.remoteId\)[\s\S]{0,140}\.eq\("owner_user_id", input\.ownerUserId\)/,
+  );
   assertContains(ui, "Applying this supplier import will create or update");
   assertContains(ui, "historyEntry?:");
   assertContains(ui, "setApplyResult(result)");
-  assertContains(productsPage, "includeExactTotals: true");
+  assertContains(productsPage, "includeExactTotals: false");
   assertContains(mobileContract, "remote_id` must be a lowercase UUID string");
   assertContains(mobileContract, "`payload_version = 2`");
   assertContains(mobileContract, "`overlay_schema = 1`");

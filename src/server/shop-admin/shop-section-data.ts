@@ -608,7 +608,7 @@ function auditEventRow(log: ShopAuditEvent): ShopSectionTableRow {
   return {
     rowKey: log.auditLogId,
     event: log.eventKey,
-    actor: log.actorIdentity ?? shortId(log.actorProfileId),
+    actor: auditActorLabel(log),
     severity: formatToken(log.severity),
     result: formatToken(log.result),
     target: log.targetType
@@ -617,6 +617,46 @@ function auditEventRow(log: ShopAuditEvent): ShopSectionTableRow {
     metadata: log.metadataSummary,
     created: formatDateTime(log.createdAt),
   };
+}
+
+function auditActorLabel(log: ShopAuditEvent) {
+  if (log.actorIdentity) {
+    return log.actorIdentity;
+  }
+
+  if (log.actorKind === "pos_staff") {
+    return `POS staff ${shortId(log.actorStaffId)}`;
+  }
+
+  return shortId(log.actorProfileId);
+}
+
+function auditActorText(log: ShopAuditEvent) {
+  if (log.actorIdentity?.email) {
+    return log.actorIdentity.email;
+  }
+
+  if (log.actorIdentity?.displayName) {
+    return log.actorIdentity.displayName;
+  }
+
+  if (log.actorKind === "pos_staff") {
+    return `POS staff ${shortId(log.actorStaffId)}`;
+  }
+
+  return shortId(log.actorProfileId);
+}
+
+function auditActorProviderLabel(log: ShopAuditEvent) {
+  if (log.actorKind === "pos_staff") {
+    return "POS staff credential";
+  }
+
+  if (log.actorKind === "personal_account") {
+    return log.actorIdentity?.originLabel ?? "Personal account";
+  }
+
+  return "System";
 }
 
 export function buildAuditSection(readModel: ShopAuditReadModel): ShopSection {
@@ -3329,14 +3369,11 @@ export function buildAuditDetailSection(
         { field: "Event", value: event.eventKey },
         {
           field: "Actor",
-          value:
-            event.actorIdentity?.email ??
-            event.actorIdentity?.displayName ??
-            shortId(event.actorProfileId),
+          value: event.actorIdentity?.email ?? auditActorText(event),
         },
         {
           field: "Actor provider",
-          value: event.actorIdentity?.originLabel ?? "Origin unavailable",
+          value: auditActorProviderLabel(event),
         },
         { field: "Severity", value: formatToken(event.severity) },
         { field: "Result", value: formatToken(event.result) },

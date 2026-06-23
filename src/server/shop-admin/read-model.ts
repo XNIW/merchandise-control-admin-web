@@ -47,6 +47,7 @@ type AuditLogReadRow = Pick<
   AuditLogRow,
   | "audit_log_id"
   | "actor_profile_id"
+  | "actor_staff_id"
   | "event_key"
   | "severity"
   | "result"
@@ -98,8 +99,10 @@ export type ShopAdminReadModelMember = {
 
 export type ShopAdminReadModelAuditLog = {
   actorIdentity: AccountIdentitySummary | null;
+  actorKind: "personal_account" | "pos_staff" | "system";
   auditLogId: string;
   actorProfileId: string | null;
+  actorStaffId: string | null;
   eventKey: string;
   severity: string;
   result: string;
@@ -243,6 +246,12 @@ function mapAuditLogRow(
   row: AuditLogReadRow,
   identitiesByProfileId: ReadonlyMap<string, PlatformAuthIdentitySummary> = new Map(),
 ): ShopAdminReadModelAuditLog {
+  const actorKind = row.actor_profile_id
+    ? "personal_account"
+    : row.actor_staff_id
+      ? "pos_staff"
+      : "system";
+
   return {
     actorIdentity: row.actor_profile_id
       ? identityFromAuthSummary(
@@ -250,8 +259,10 @@ function mapAuditLogRow(
           identitiesByProfileId.get(row.actor_profile_id),
         )
       : null,
+    actorKind,
     auditLogId: row.audit_log_id,
     actorProfileId: row.actor_profile_id,
+    actorStaffId: row.actor_staff_id,
     eventKey: row.event_key,
     severity: row.severity,
     result: row.result,
@@ -332,7 +343,7 @@ export async function getShopAdminReadModel(
   const auditLogsResult = await supabase
     .from("audit_logs")
     .select(
-      "audit_log_id,actor_profile_id,scope,shop_id,event_key,severity,result,target_type,target_id,created_at",
+      "audit_log_id,actor_profile_id,actor_staff_id,scope,shop_id,event_key,severity,result,target_type,target_id,created_at",
     )
     .eq("shop_id", selectedShop.shopId)
     .eq("scope", "shop")

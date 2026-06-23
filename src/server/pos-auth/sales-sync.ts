@@ -62,6 +62,14 @@ type ExistingSaleRow = Pick<
   Tables<"pos_sales">,
   "client_sale_id" | "idempotency_key" | "payload_hash" | "pos_sale_id" | "status"
 >;
+type InventorySourceRow = Pick<
+  Tables<"shop_inventory_sources">,
+  "mapping_state" | "owner_user_id" | "shop_id"
+>;
+type InventoryProductScopeRow = Pick<
+  Tables<"inventory_products">,
+  "id" | "owner_user_id" | "shop_id"
+>;
 
 type PosSalesSyncFailureCode =
   | "conflict"
@@ -286,6 +294,16 @@ function stableHash(value: unknown) {
 
 function hasDuplicateValues(values: readonly (number | string)[]) {
   return new Set(values).size !== values.length;
+}
+
+function chunkValues<T>(values: readonly T[], chunkSize: number) {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < values.length; index += chunkSize) {
+    chunks.push(values.slice(index, index + chunkSize));
+  }
+
+  return chunks;
 }
 
 function amountsClose(left: number, right: number) {
@@ -839,6 +857,100 @@ async function findExistingSales(
   return { error: null, rows: [...rowsById.values()] };
 }
 
+function productIdsForSales(sales: readonly ParsedSale[]) {
+  const productIds = new Set<string>();
+
+  for (const sale of sales) {
+    for (const line of sale.lines) {
+      if (line.productId) {
+        productIds.add(line.productId);
+      }
+    }
+  }
+
+  return [...productIds];
+}
+
+async function validateSalesLineProductScope(
+  supabase: SupabaseAdminClient,
+  sales: readonly ParsedSale[],
+  shopId: string,
+) {
+  const productIds = productIdsForSales(sales);
+
+  if (productIds.length === 0) {
+    return { ok: true as const, productIdCount: 0 };
+  }
+
+  const mappingResult = await supabase
+    .from("shop_inventory_sources")
+    .select("shop_id,owner_user_id,mapping_state")
+    .eq("shop_id", shopId)
+    .is("disabled_at", null)
+    .limit(10);
+
+  if (mappingResult.error) {
+    return {
+      code: "db_failure" as const,
+      invalidProductCount: 0,
+      ok: false as const,
+      productIdCount: productIds.length,
+      reason: "inventory_mapping_lookup_failed",
+    };
+  }
+
+  const mappingRows = (mappingResult.data ?? []) as InventorySourceRow[];
+  const ownerUserId =
+    mappingRows.find((row) => row.mapping_state === "mapped" && row.owner_user_id)
+      ?.owner_user_id ?? null;
+  const scopedProductIds = new Set<string>();
+
+  for (const productChunk of chunkValues(productIds, 100)) {
+    const productsResult = await supabase
+      .from("inventory_products")
+      .select("id,owner_user_id,shop_id")
+      .in("id", productChunk)
+      .is("deleted_at", null)
+      .returns<InventoryProductScopeRow[]>();
+
+    if (productsResult.error) {
+      return {
+        code: "db_failure" as const,
+        invalidProductCount: 0,
+        ok: false as const,
+        productIdCount: productIds.length,
+        reason: "inventory_product_scope_lookup_failed",
+      };
+    }
+
+    for (const row of productsResult.data ?? []) {
+      const shopScoped = row.shop_id === shopId;
+      const mappedLegacyScoped =
+        row.shop_id === null && Boolean(ownerUserId) && row.owner_user_id === ownerUserId;
+
+      if (shopScoped || mappedLegacyScoped) {
+        scopedProductIds.add(row.id);
+      }
+    }
+  }
+
+  const invalidProductCount = productIds.filter(
+    (productId) => !scopedProductIds.has(productId),
+  ).length;
+
+  if (invalidProductCount > 0) {
+    return {
+      code: "validation_failed" as const,
+      invalidProductCount,
+      ok: false as const,
+      productIdCount: productIds.length,
+      reason: "product_scope_mismatch",
+    };
+  }
+
+  return { ok: true as const, productIdCount: productIds.length };
+}
+
 async function cleanupPosSalesBatch(
   supabase: SupabaseAdminClient,
   batchId: string,
@@ -1000,6 +1112,33 @@ export async function handlePosSalesSync(
     }
 
     duplicateSales.push(existing);
+  }
+
+  const productScope = await validateSalesLineProductScope(
+    supabase,
+    acceptedSales,
+    shop.shop_id,
+  );
+
+  if (!productScope.ok) {
+    return auditedFailure(supabase, {
+      code: productScope.code,
+      metadata: {
+        ...requestMetadata(meta),
+        accepted_sale_count: acceptedSales.length,
+        duplicate_sale_count: duplicateSales.length,
+        invalid_product_id_count: productScope.invalidProductCount,
+        line_count: lineCount,
+        product_id_count: productScope.productIdCount,
+        reason: productScope.reason,
+        sale_count: parsed.sales.length,
+      },
+      shopId: shop.shop_id,
+      staffId: staff.staff_id,
+      status: productScope.code === "db_failure" ? 500 : 400,
+      targetId: session.pos_session_id,
+      targetType: "pos_session",
+    });
   }
 
   const batchInsert: TablesInsert<"pos_sales_sync_batches"> = {

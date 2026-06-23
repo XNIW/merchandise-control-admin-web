@@ -3071,10 +3071,43 @@ function checkTask016PlatformAdminConsole() {
   }
 
   if (
+    !/"id,owner_user_id,shop_id,store_id,source,source_device_id,domain,event_type,changed_count,metadata,created_at"/.test(
+      readModel,
+    ) ||
+    !/shop_id: row\.shop_id \?\? undefined/.test(readModel) ||
+    !/event\.shop_id \?\? shopByOwner\.get\(event\.owner_user_id\)/.test(
+      readModel,
+    ) ||
+    !/syncEvents\.find\(\(event\) => event\.shop_id === shopId\)/.test(
+      sectionData,
+    ) ||
+    !/event\.shop_id \?\?[\s\S]{0,140}mapping\.ownerUserId === event\.owner_user_id/.test(
+      sectionData,
+    )
+  ) {
+    addFailure(
+      "TASK-016 Platform sync attribution must prefer sync_events.shop_id before legacy owner mapping",
+    );
+  }
+
+  if (
     !/metadata_redacted/.test(readModel) ||
     !/redactPlatformMetadata/.test(readModel)
   ) {
     addFailure("TASK-016 audit reads must use redacted metadata summaries");
+  }
+
+  if (
+    !/"audit_log_id,actor_profile_id,actor_staff_id,scope,shop_id,event_key,severity,result,target_type,target_id,metadata_redacted,created_at"/.test(
+      readModel,
+    ) ||
+    !/actor_staff_id: row\.actor_staff_id \?\? undefined/.test(readModel) ||
+    !/function auditActorCell/.test(sectionData) ||
+    !/POS staff \$\{shortId\(log\.actor_staff_id\)\}/.test(sectionData)
+  ) {
+    addFailure(
+      "TASK-016 Platform audit must preserve staff/POS actor identity through actor_staff_id",
+    );
   }
 
   if (
@@ -5157,6 +5190,9 @@ function checkTask038PosManagerWebLogin() {
     "hasStaffFullShopAdminWebAccess",
     "staff.web.login.success",
     "staff.web.login.failure",
+    "actor_staff_id: input.actorStaffId ?? null",
+    "revokeStaffWebSession",
+    "staff_web_login_audit_failed",
     "staff.web.logout",
   ]) {
     if (!auth.includes(requiredSnippet)) {
@@ -5171,6 +5207,19 @@ function checkTask038PosManagerWebLogin() {
   ) {
     addFailure(
       "TASK-038 staff web runtime must not use browser storage or runtime logging",
+    );
+  }
+
+  if (
+    !/const auditOk = await writeStaffWebAudit[\s\S]*actorStaffId: staff\.staff_id[\s\S]*if \(!auditOk\)[\s\S]*revokeStaffWebSession[\s\S]*return staffWebLoginResult\("database_error"\)[\s\S]*await setStaffWebCookie\(sessionToken, expiresAt\)/.test(
+      auth,
+    ) ||
+    /await setStaffWebCookie\(sessionToken, expiresAt\)[\s\S]{0,260}await writeStaffWebAudit\(supabase,\s*\{\s*code: "success"/.test(
+      auth,
+    )
+  ) {
+    addFailure(
+      "TASK-038 staff web login must fail closed when the success audit write fails",
     );
   }
 
@@ -5197,6 +5246,15 @@ function checkTask038PosManagerWebLogin() {
 
   if (!/"use server"/.test(loginActions)) {
     addFailure(`${loginActionsPath} must be a Server Actions module`);
+  }
+
+  if (
+    !loginActions.includes('safeInternalNextPath(requested, "/shop")') ||
+    /function isSafeInternalNextPath/.test(loginActions)
+  ) {
+    addFailure(
+      `${loginActionsPath} must reuse the shared safeInternalNextPath helper for staff login redirects`,
+    );
   }
 
   for (const requiredSnippet of ["shopCode", "staffCode", "credential"]) {
@@ -5678,6 +5736,7 @@ function checkTask041RuntimeCompletion() {
     "tests/foundation/task-041-runtime-completion.test.mjs";
   const salesRoutePath = "src/app/api/pos/sales/sync/route.ts";
   const salesServicePath = "src/server/pos-auth/sales-sync.ts";
+  const catalogPullPath = "src/server/pos-auth/catalog-pull.ts";
   const posRouteSecurityPath = "src/app/api/pos/_shared/pos-route-security.ts";
   const databaseTypesPath = "src/lib/supabase/database.types.ts";
   const masterPlan = read("docs/MASTER-PLAN.md");
@@ -5688,6 +5747,7 @@ function checkTask041RuntimeCompletion() {
     foundationTestPath,
     salesRoutePath,
     salesServicePath,
+    catalogPullPath,
     posRouteSecurityPath,
     databaseTypesPath,
     "wrangler.jsonc",
@@ -5706,6 +5766,7 @@ function checkTask041RuntimeCompletion() {
   const devSupabaseCheck = read("scripts/dev-supabase-check.mjs");
   const salesRoute = read(salesRoutePath);
   const salesService = read(salesServicePath);
+  const catalogPull = read(catalogPullPath);
   const posRouteSecurity = read(posRouteSecurityPath);
   const databaseTypes = read(databaseTypesPath);
   const wranglerConfig = read("wrangler.jsonc");
@@ -5807,11 +5868,45 @@ function checkTask041RuntimeCompletion() {
     "duplicate",
     "conflict",
     "cleanup_ok",
+    "validateSalesLineProductScope",
+    "product_scope_mismatch",
+    "invalid_product_id_count",
     'source: "TASK-041"',
   ]) {
     if (!salesService.includes(requiredSnippet)) {
       addFailure(`${salesServicePath} must include ${requiredSnippet}`);
     }
+  }
+
+  if (
+    !/\.from\("shop_inventory_sources"\)[\s\S]*\.eq\("shop_id", shopId\)[\s\S]*\.is\("disabled_at", null\)/.test(
+      salesService,
+    ) ||
+    !/\.from\("inventory_products"\)[\s\S]*\.in\("id", productChunk\)[\s\S]*\.is\("deleted_at", null\)/.test(
+      salesService,
+    ) ||
+    !/row\.shop_id === shopId[\s\S]*row\.shop_id === null[\s\S]*row\.owner_user_id === ownerUserId/.test(
+      salesService,
+    )
+  ) {
+    addFailure(
+      `${salesServicePath} must validate POS sales line product_id scope against the shop catalog before insert`,
+    );
+  }
+
+  if (
+    !/filterCatalogPricesByProductScope/.test(catalogPull) ||
+    !/price_product_scope_validation/.test(catalogPull) ||
+    !/row\.shop_id === input\.shopId[\s\S]*row\.shop_id === null[\s\S]*row\.owner_user_id === input\.ownerUserId/.test(
+      catalogPull,
+    ) ||
+    !/const scopedPriceRows = await filterCatalogPricesByProductScope[\s\S]*const priceRows = scopedPriceRows\.prices\.sort[\s\S]*const pricePage = pageCatalogScopeRows\(\s*priceRows/.test(
+      catalogPull,
+    )
+  ) {
+    addFailure(
+      `${catalogPullPath} must validate POS catalog price rows against the referenced product shop scope before returning them`,
+    );
   }
 
   if (/SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(salesRoute)) {
@@ -7124,6 +7219,37 @@ function checkTask057ShopCatalogWorkspace() {
   }
 }
 
+function checkStaffAwareBulkImportScoping() {
+  const staffAwareMutations = read(
+    "src/server/shop-admin/staff-aware-mutations.ts",
+  );
+  const workbook = read("src/server/shop-admin/import-export-workbook.ts");
+
+  if (!staffAwareMutations.includes("loadScopedInventoryRowIds")) {
+    addFailure(
+      "staff-aware bulk import must validate caller-provided IDs against shop scope.",
+    );
+  }
+
+  if (/id:\s*product\.product_id\s*\?\?\s*randomUUID\(\)/.test(staffAwareMutations)) {
+    addFailure(
+      "staff-aware bulk product import must not trust workbook product_id for inserts.",
+    );
+  }
+
+  if (!staffAwareMutations.includes("scopedProductIds.ids.has(price.product_id)")) {
+    addFailure(
+      "staff-aware bulk price history import must reject product_id values outside the selected shop.",
+    );
+  }
+
+  if (!workbook.includes("product_id: existing?.productId ?? row.productId")) {
+    addFailure(
+      "bulk import payload must prefer the scoped existing product ID over a workbook product_id.",
+    );
+  }
+}
+
 function checkTask058CloudflareOpenNextHardening() {
   const requiredPaths = [
     "docs/TASKS/TASK-058-cloudflare-opennext-staging-hardening.md",
@@ -7535,6 +7661,7 @@ checkTask045PlatformMasterConsoleFinalReview();
 checkTask046TestTargetSeparation();
 checkTask053AuthorizationStaffSafeReadBoundary();
 checkTask057ShopCatalogWorkspace();
+checkStaffAwareBulkImportScoping();
 checkTask058CloudflareOpenNextHardening();
 checkTask065GoogleOauthRedirect();
 checkTask064PlatformUsersFoundation();

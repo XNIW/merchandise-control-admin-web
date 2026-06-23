@@ -123,6 +123,7 @@ export function ProductSearchCombobox({
     () => (isOpen ? suggestions : []),
     [isOpen, suggestions],
   );
+  const listboxVisible = isOpen && (isLoading || normalizedQuery.length >= 2);
 
   const submitSuggestion = (suggestion: ProductSearchSuggestion) => {
     setValue(suggestion.searchValue);
@@ -174,7 +175,7 @@ export function ProductSearchCombobox({
         aria-activedescendant={activeDescendant}
         aria-autocomplete="list"
         aria-controls={listboxId}
-        aria-expanded={isOpen && suggestions.length > 0}
+        aria-expanded={listboxVisible}
         className={inputClassName}
         name={name}
         onBlur={() => {
@@ -192,7 +193,7 @@ export function ProductSearchCombobox({
         type="search"
         value={value}
       />
-      {isOpen && (isLoading || normalizedQuery.length >= 2) ? (
+      {listboxVisible ? (
         <div
           className="absolute left-0 right-0 top-[calc(100%+0.35rem)] z-30 overflow-hidden rounded-md border border-zinc-200 bg-white shadow-lg"
           role="presentation"
@@ -260,12 +261,22 @@ export function ProductSearchCombobox({
             {!isLoading &&
             normalizedQuery.length >= 2 &&
             visibleSuggestions.length === 0 ? (
-              <li className="px-3 py-2 text-sm text-zinc-500">
+              <li
+                aria-disabled="true"
+                aria-selected="false"
+                className="px-3 py-2 text-sm text-zinc-500"
+                role="option"
+              >
                 {noResultsLabel}
               </li>
             ) : null}
             {isLoading ? (
-              <li className="px-3 py-2 text-sm text-zinc-500">
+              <li
+                aria-disabled="true"
+                aria-selected="false"
+                className="px-3 py-2 text-sm text-zinc-500"
+                role="option"
+              >
                 {loadingLabel}
               </li>
             ) : null}

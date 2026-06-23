@@ -24,7 +24,7 @@ test("TASK-053 root redirects directly to Admin Console login without public sel
   assert.doesNotMatch(rootPage, /Master Console/);
 });
 
-test("TASK-053 auth login shell switches between Master and Admin tab modes", () => {
+test("TASK-053 auth login shell switches between Master and Admin login modes", () => {
   const loginPage = readProjectFile("src/app/auth/login/page.tsx");
   const loginAction = readProjectFile("src/app/auth/login/actions.ts");
   const authForm = readProjectFile("src/components/auth/AuthForm.tsx");
@@ -41,10 +41,13 @@ test("TASK-053 auth login shell switches between Master and Admin tab modes", ()
   assert.match(loginI18nSource, /Admin Console sign in/);
   assert.match(loginI18nSource, /Admin account credentials/);
   assert.match(loginI18nSource, /Shop code credentials/);
-  assert.match(loginPage, /role="tablist"/);
-  assert.match(loginPage, /role="tab"/);
-  assert.match(loginPage, /aria-selected=\{activeLoginMode === "admin-account"\}/);
-  assert.match(loginPage, /aria-selected=\{activeLoginMode === "shop-code"\}/);
+  assert.match(loginPage, /aria-label=\{dictionary\.authLogin\.tabAriaLabel\}/);
+  assert.doesNotMatch(loginPage, /role="tablist"/);
+  assert.doesNotMatch(loginPage, /role="tab"/);
+  assert.doesNotMatch(loginPage, /aria-selected=/);
+  assert.match(loginPage, /aria-current=\{/);
+  assert.match(loginPage, /activeLoginMode === "admin-account" \? "page" : undefined/);
+  assert.match(loginPage, /activeLoginMode === "shop-code" \? "page" : undefined/);
   assert.match(loginPage, /loginHref\(nextPath, "admin-account"\)/);
   assert.match(loginPage, /loginHref\(nextPath, "shop-code"\)/);
   assert.match(loginPage, /new URLSearchParams\(\{/);

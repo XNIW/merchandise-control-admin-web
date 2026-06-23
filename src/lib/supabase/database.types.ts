@@ -2317,6 +2317,7 @@ export type Database = {
           p_entity_ids?: Json
           p_event_type: string
           p_metadata?: Json
+          p_shop_id?: string
           p_source?: string
           p_source_device_id?: string
           p_store_id?: string
@@ -2449,6 +2450,25 @@ export type Database = {
           p_display_name?: string
           p_metadata?: Json
         }
+        Returns: Json
+      }
+      mobile_linked_shops: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      shop_device_register_for_shop: {
+        Args: {
+          p_app_version?: string
+          p_device_identifier: string
+          p_device_type?: string
+          p_display_name?: string
+          p_metadata?: Json
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      shop_device_status_for_shop: {
+        Args: { p_device_identifier: string; p_shop_id: string }
         Returns: Json
       }
       shop_device_status_current_owner: {

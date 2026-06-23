@@ -1577,7 +1577,7 @@ export default async function ShopProductsPage({
           state: selectedState,
           supplierId: selectedSupplierId,
         },
-        includeExactTotals: true,
+        includeExactTotals: false,
         page: selectedPage,
         pageSize: selectedPageSize,
         perfTrace,

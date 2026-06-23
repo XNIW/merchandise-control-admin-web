@@ -12,6 +12,7 @@ import {
   buildHistoryDetailSyncAnalysisModel,
   SyncAnalysisPanel,
 } from "./SyncAnalysisPanel";
+import { useModalFocusTrap } from "@/app/shop/_components/useModalFocusTrap";
 
 type HistoryDetailField = {
   key: string;
@@ -648,32 +649,35 @@ function RowsTable({
   return (
     <div className="grid gap-3">
       {showFilters ? (
-      <div className="flex min-w-0 flex-wrap gap-2" aria-label={translate("Row filters")}>
-        {filters
-          .filter((item) => item.show ?? true)
-          .map((item) => (
-            <button
-              aria-pressed={filter === item.key}
-              className={[
-                "inline-flex h-8 items-center rounded-md border px-2.5 text-xs font-semibold",
-                filter === item.key
-                  ? "border-emerald-700 bg-emerald-50 text-emerald-800"
-                  : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300",
-              ].join(" ")}
-              key={item.key}
-              onClick={() => onFilterChange(item.key)}
-              type="button"
-            >
-              {translate(item.label)} {counts[item.key]}
-            </button>
-          ))}
-      </div>
+        <div
+          className="flex min-w-0 flex-wrap gap-2"
+          aria-label={translate("Row filters")}
+        >
+          {filters
+            .filter((item) => item.show ?? true)
+            .map((item) => (
+              <button
+                aria-pressed={filter === item.key}
+                className={[
+                  "inline-flex h-8 items-center rounded-md border px-2.5 text-xs font-semibold",
+                  filter === item.key
+                    ? "border-emerald-700 bg-emerald-50 text-emerald-800"
+                    : "border-zinc-200 bg-white text-zinc-700 hover:border-zinc-300",
+                ].join(" ")}
+                key={item.key}
+                onClick={() => onFilterChange(item.key)}
+                type="button"
+              >
+                {translate(item.label)} {counts[item.key]}
+              </button>
+            ))}
+        </div>
       ) : null}
       <div
         className="h-[min(64dvh,44rem)] min-h-80 overflow-y-auto overflow-x-hidden rounded-md border border-zinc-200"
         data-history-detail-rows-frame
       >
-      <table className="w-full table-fixed text-left text-sm">
+        <table className="w-full table-fixed text-left text-sm">
         <colgroup>
           <col className="w-[4%]" />
           <col className="w-[34%]" />
@@ -686,36 +690,44 @@ function RowsTable({
         </colgroup>
         <thead className="sticky top-0 z-10 bg-zinc-50 text-xs uppercase tracking-normal text-zinc-500">
           <tr>
-            <th className="bg-zinc-50 px-2 py-2" rowSpan={2}>
+            <th className="bg-zinc-50 px-2 py-2" rowSpan={2} scope="col">
               {translate("No.")}
             </th>
-            <th className="px-2 py-2" rowSpan={2}>
+            <th className="px-2 py-2" rowSpan={2} scope="col">
               {translate("Product")}
             </th>
-            <th className="border-l border-zinc-200 px-2 py-2" colSpan={2}>
+            <th
+              className="border-l border-zinc-200 px-2 py-2"
+              colSpan={2}
+              scope="colgroup"
+            >
               {translate("Recognized from file")}
             </th>
-            <th className="border-l border-zinc-200 px-2 py-2" colSpan={3}>
+            <th
+              className="border-l border-zinc-200 px-2 py-2"
+              colSpan={3}
+              scope="colgroup"
+            >
               {translate("Import values")}
             </th>
-            <th className="px-2 py-2" rowSpan={2}>
+            <th className="px-2 py-2" rowSpan={2} scope="col">
               {translate("Product detail")}
             </th>
           </tr>
           <tr className="border-t border-zinc-200">
-            <th className="border-l border-zinc-200 px-2 py-2">
+            <th className="border-l border-zinc-200 px-2 py-2" scope="col">
               <span className="sr-only">{translate("Quantity")}</span>
               {translate("Supplier Qty")}
             </th>
-            <th className="px-2 py-2">{translate("Purchase")}</th>
-            <th className="border-l border-zinc-200 px-2 py-2">
+            <th className="px-2 py-2" scope="col">{translate("Purchase")}</th>
+            <th className="border-l border-zinc-200 px-2 py-2" scope="col">
               {translate("Counted Qty")}
             </th>
-            <th className="px-2 py-2">
+            <th className="px-2 py-2" scope="col">
               <span className="sr-only">{translate("Retail")}</span>
               {translate("Sale Price")}
             </th>
-            <th className="px-2 py-2">{translate("Status")}</th>
+            <th className="px-2 py-2" scope="col">{translate("Status")}</th>
           </tr>
         </thead>
         <tbody>
@@ -1208,22 +1220,6 @@ export function HistoryDetailModalController({
     return () => document.removeEventListener("click", onClick);
   }, [openEntry]);
 
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        closeModal();
-      }
-    };
-
-    document.addEventListener("keydown", onKeyDown);
-
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [closeModal, open]);
-
   const summaryCards = useMemo(() => {
     const rows = readModel?.rows ?? [];
     const rowCounts = countRowsByKind(rows, rowEdits);
@@ -1297,6 +1293,16 @@ export function HistoryDetailModalController({
       unresolvedProductRowCount,
     });
   }, [detail, readModel, rowEdits]);
+  const closeDisabled = saving;
+  const requestCloseModal = useCallback(() => {
+    if (!closeDisabled) {
+      closeModal();
+    }
+  }, [closeDisabled, closeModal]);
+  const dialogRef = useModalFocusTrap<HTMLElement>(
+    open,
+    closeDisabled ? undefined : requestCloseModal,
+  );
 
   if (!open) {
     return null;
@@ -1310,7 +1316,9 @@ export function HistoryDetailModalController({
           aria-labelledby={titleId}
           aria-modal="true"
           className="flex h-dvh max-h-dvh w-full min-w-0 flex-col overflow-hidden rounded-none bg-white shadow-xl sm:h-auto sm:max-h-[calc(100dvh-48px)] sm:w-[min(1120px,calc(100vw-48px))] sm:rounded-md xl:w-[min(1200px,calc(100vw-72px))]"
+          ref={dialogRef}
           role="dialog"
+          tabIndex={-1}
         >
           {loading && !readModel ? (
             <HistorySkeleton />
@@ -1417,8 +1425,9 @@ export function HistoryDetailModalController({
                       </button>
                     ) : null}
                     <button
-                      className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800"
-                      onClick={closeModal}
+                      className="inline-flex h-9 items-center justify-center rounded-md border border-zinc-300 px-3 text-sm font-medium text-zinc-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={closeDisabled}
+                      onClick={requestCloseModal}
                       type="button"
                     >
                       {translate("Close")}
@@ -1454,12 +1463,10 @@ export function HistoryDetailModalController({
                     <nav
                       aria-label={translate("History detail tabs")}
                       className="flex min-w-0 gap-2 overflow-x-auto border-b border-zinc-200"
-                      role="tablist"
                     >
                       {tabs.map((item) => (
                         <button
-                          aria-controls={`history-detail-panel-${item.key}`}
-                          aria-selected={tab === item.key}
+                          aria-pressed={tab === item.key}
                           className={[
                             "inline-flex h-10 shrink-0 items-center gap-1.5 border-b-2 px-3 text-sm font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700",
                             tab === item.key
@@ -1469,7 +1476,6 @@ export function HistoryDetailModalController({
                           id={`history-detail-tab-${item.key}`}
                           key={item.key}
                           onClick={() => setTab(item.key)}
-                          role="tab"
                           type="button"
                         >
                           <HistoryDetailIcon name={item.icon} />
@@ -1482,7 +1488,6 @@ export function HistoryDetailModalController({
                       <section
                         aria-labelledby="history-detail-tab-rows"
                         id="history-detail-panel-rows"
-                        role="tabpanel"
                       >
                         <RowsTable
                           editable={canEditRows}
@@ -1502,7 +1507,6 @@ export function HistoryDetailModalController({
                       <section
                         aria-labelledby="history-detail-tab-analysis"
                         id="history-detail-panel-analysis"
-                        role="tabpanel"
                       >
                         <SyncAnalysisPanel
                           labels={labels}
@@ -1516,7 +1520,6 @@ export function HistoryDetailModalController({
                         aria-labelledby="history-detail-tab-missing"
                         className="grid gap-4"
                         id="history-detail-panel-missing"
-                        role="tabpanel"
                       >
                         {(readModel?.missingRows.length ?? 0) > 0 ? (
                           <RowsTable
@@ -1545,7 +1548,6 @@ export function HistoryDetailModalController({
                         aria-labelledby="history-detail-tab-products"
                         className="grid gap-3"
                         id="history-detail-panel-products"
-                        role="tabpanel"
                       >
                         {readModel?.linkedProducts.length ? (
                           readModel.linkedProducts.map((row) => (
@@ -1586,7 +1588,6 @@ export function HistoryDetailModalController({
                         aria-labelledby="history-detail-tab-sync"
                         className="overflow-x-auto rounded-md border border-zinc-200"
                         id="history-detail-panel-sync"
-                        role="tabpanel"
                       >
                         <table className="w-full min-w-[56rem] text-left text-sm">
                           <thead className="bg-zinc-50 text-xs uppercase tracking-normal text-zinc-500">

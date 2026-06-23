@@ -40,7 +40,11 @@ test("TASK-052 login page labels Master only for exact platform next path", () =
   assert.match(loginI18nSource, /Admin Console sign in/);
   assert.match(loginI18nSource, /Admin account credentials/);
   assert.match(loginI18nSource, /Shop code credentials/);
-  assert.match(loginPage, /role="tablist"/);
+  assert.match(loginPage, /aria-label=\{dictionary\.authLogin\.tabAriaLabel\}/);
+  assert.doesNotMatch(loginPage, /role="tablist"/);
+  assert.doesNotMatch(loginPage, /role="tab"/);
+  assert.doesNotMatch(loginPage, /aria-selected=/);
+  assert.match(loginPage, /aria-current=\{/);
   assert.doesNotMatch(loginPage, /Back to console selection/);
   assert.doesNotMatch(loginPage, /Use Shop code sign in/);
   assert.match(authForm, /isSafeInternalNextPath/);

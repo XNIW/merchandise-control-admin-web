@@ -295,6 +295,7 @@ function normalizeSeverity(value: string): AuditLog["severity"] {
 function mapAuditRow(row: AuditLogRowCandidate): AuditLog {
   return {
     actor_profile_id: row.actor_profile_id ?? undefined,
+    actor_staff_id: row.actor_staff_id ?? undefined,
     audit_log_id: row.audit_log_id,
     created_at: row.created_at,
     event: row.event ?? row.event_key,
@@ -348,6 +349,7 @@ function mapSyncRow(row: Tables["sync_events"]["Row"]): PlatformSyncOverview {
     event_type: row.event_type,
     metadata_summary: limitText(redactPlatformMetadata(row.metadata)),
     owner_user_id: row.owner_user_id,
+    shop_id: row.shop_id ?? undefined,
     source: row.source ?? undefined,
     source_device_id: row.source_device_id ?? undefined,
     store_id: row.store_id ?? undefined,
@@ -650,7 +652,7 @@ function buildDataHealth(input: {
   );
   const recentSyncShopIds = new Set(
     input.syncEvents
-      .map((event) => shopByOwner.get(event.owner_user_id))
+      .map((event) => event.shop_id ?? shopByOwner.get(event.owner_user_id))
       .filter((shopId): shopId is string => Boolean(shopId)),
   );
 
@@ -1073,7 +1075,7 @@ async function loadRows(
           supabase
             .from("audit_logs")
             .select(
-              "audit_log_id,actor_profile_id,scope,shop_id,event_key,severity,result,target_type,target_id,metadata_redacted,created_at",
+              "audit_log_id,actor_profile_id,actor_staff_id,scope,shop_id,event_key,severity,result,target_type,target_id,metadata_redacted,created_at",
             )
             .order("created_at", { ascending: false })
             .limit(auditLogLimit),
@@ -1095,7 +1097,7 @@ async function loadRows(
           supabase
             .from("sync_events")
             .select(
-              "id,owner_user_id,store_id,source,source_device_id,domain,event_type,changed_count,metadata,created_at",
+              "id,owner_user_id,shop_id,store_id,source,source_device_id,domain,event_type,changed_count,metadata,created_at",
             )
             .order("created_at", { ascending: false })
             .limit(300),

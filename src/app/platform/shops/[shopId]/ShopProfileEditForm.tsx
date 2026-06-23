@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormEvent, MouseEvent } from "react";
-import { useEffect, useId, useRef, useState } from "react";
+import { useCallback, useId, useState } from "react";
+import { useModalFocusTrap } from "@/app/shop/_components/useModalFocusTrap";
 import type {
   PlatformShopProfileFormValues,
   PlatformShopProfileUpdateState,
@@ -87,30 +88,20 @@ export function ShopProfileEditForm({
   const dialogId = useId();
   const titleId = useId();
   const descriptionId = useId();
-  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [formValues, setFormValues] = useState(initialValues);
   const [isDialogOpen, setDialogOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [state, setState] =
     useState<PlatformShopProfileUpdateState>(emptyState);
-
-  useEffect(() => {
-    if (!isDialogOpen) {
-      return;
+  const requestClose = useCallback(() => {
+    if (!pending) {
+      setDialogOpen(false);
     }
-
-    closeButtonRef.current?.focus();
-
-    function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setDialogOpen(false);
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown);
-
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [isDialogOpen]);
+  }, [pending]);
+  const dialogRef = useModalFocusTrap<HTMLDivElement>(
+    isDialogOpen,
+    pending ? undefined : requestClose,
+  );
 
   function updateValue(key: keyof PlatformShopProfileFormValues, value: string) {
     setFormValues((current) => ({
@@ -120,8 +111,8 @@ export function ShopProfileEditForm({
   }
 
   function handleBackdropMouseDown(event: MouseEvent<HTMLDivElement>) {
-    if (event.target === event.currentTarget) {
-      setDialogOpen(false);
+    if (!pending && event.target === event.currentTarget) {
+      requestClose();
     }
   }
 
@@ -194,7 +185,9 @@ export function ShopProfileEditForm({
               aria-modal="true"
               className="max-h-[calc(100vh-2rem)] w-full overflow-y-auto rounded-md border border-slate-200 bg-white shadow-xl"
               id={dialogId}
+              ref={dialogRef}
               role="dialog"
+              tabIndex={-1}
             >
               <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-slate-200 bg-white px-4 py-4 sm:px-5">
                 <div className="min-w-0">
@@ -213,9 +206,9 @@ export function ShopProfileEditForm({
                 </div>
                 <button
                   aria-label="Close edit shop profile dialog"
-                  className="inline-flex h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950"
-                  onClick={() => setDialogOpen(false)}
-                  ref={closeButtonRef}
+                  className="inline-flex h-9 items-center justify-center rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50"
+                  disabled={pending}
+                  onClick={requestClose}
                   type="button"
                 >
                   Close
@@ -376,8 +369,9 @@ export function ShopProfileEditForm({
 
                   <div className="flex flex-col-reverse gap-2 border-t border-slate-200 pt-4 sm:flex-row sm:justify-end">
                     <button
-                      className="inline-flex h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950 sm:w-fit"
-                      onClick={() => setDialogOpen(false)}
+                      className="inline-flex h-10 w-full items-center justify-center rounded-md border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-800 outline-none hover:bg-slate-100 focus-visible:ring-2 focus-visible:ring-slate-950 disabled:cursor-not-allowed disabled:opacity-50 sm:w-fit"
+                      disabled={pending}
+                      onClick={requestClose}
                       type="button"
                     >
                       Cancel

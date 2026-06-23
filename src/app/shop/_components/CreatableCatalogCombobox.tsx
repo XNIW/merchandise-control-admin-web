@@ -223,7 +223,12 @@ export function CreatableCatalogCombobox({
               </li>
             ) : null}
             {visibleOptions.length === 0 && !canCreate ? (
-              <li className="px-3 py-2 text-sm text-zinc-500">
+              <li
+                aria-disabled="true"
+                aria-selected="false"
+                className="px-3 py-2 text-sm text-zinc-500"
+                role="option"
+              >
                 {noResultsLabel}
               </li>
             ) : null}

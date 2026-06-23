@@ -128,10 +128,24 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
     "hasStaffFullShopAdminWebAccess",
     "staff.web.login.success",
     "staff.web.login.failure",
+    "actor_staff_id: input.actorStaffId ?? null",
+    "revokeStaffWebSession",
+    "staff_web_login_audit_failed",
     "staff.web.logout",
   ]) {
     assertContains(auth, required);
   }
+
+  assert.match(
+    auth,
+    /const auditOk = await writeStaffWebAudit[\s\S]*actorStaffId: staff\.staff_id[\s\S]*if \(!auditOk\)[\s\S]*revokeStaffWebSession[\s\S]*return staffWebLoginResult\("database_error"\)[\s\S]*await setStaffWebCookie\(sessionToken, expiresAt\)/,
+    "staff web login must not set a valid cookie until success audit is written",
+  );
+  assert.doesNotMatch(
+    auth,
+    /await setStaffWebCookie\(sessionToken, expiresAt\)[\s\S]{0,260}await writeStaffWebAudit\(supabase,\s*\{\s*code: "success"/,
+    "staff web login must not set the cookie before writing the success audit",
+  );
 
   assertContains(permissions, "SHOP_STAFF_WEB_PERMISSION_TREE");
   assertContains(permissions, "shop_admin.full_access");
@@ -143,7 +157,9 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
   assertContains(loginPage, 'mode: "shop-code"');
   assertContains(loginActions, "\"use server\"");
   assertContains(loginActions, "nextPathFromForm");
+  assertContains(loginActions, 'safeInternalNextPath(requested, "/shop")');
   assertContains(loginActions, "redirect(nextPath, RedirectType.replace)");
+  assert.doesNotMatch(loginActions, /function isSafeInternalNextPath/);
   assertContains(logoutRoute, "logoutStaffWebSession");
   assertContains(shopLayout, "resolveShopAdminDataAccess");
   assertContains(shopLayout, "principal.kind");

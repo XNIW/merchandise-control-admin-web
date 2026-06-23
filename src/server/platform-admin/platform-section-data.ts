@@ -433,6 +433,24 @@ function accountIdentityForProfileId(
   });
 }
 
+function auditActorCell(
+  log: AuditLog,
+  readModel: PlatformAdminLiveReadModel,
+) {
+  if (log.actor_profile_id) {
+    return (
+      accountIdentityForProfileId(log.actor_profile_id, readModel) ??
+      profileNameById(readModel.profiles, log.actor_profile_id)
+    );
+  }
+
+  if (log.actor_staff_id) {
+    return `POS staff ${shortId(log.actor_staff_id)}`;
+  }
+
+  return "System";
+}
+
 function profileSyncStateLabel(state: PlatformProfileSyncState) {
   switch (state) {
     case "auth_only":
@@ -1018,7 +1036,12 @@ function latestSyncForShop(
       .map((mapping) => mapping.ownerUserId as string),
   );
 
-  return syncEvents.find((event) => ownerIds.has(event.owner_user_id));
+  return (
+    syncEvents.find((event) => event.shop_id === shopId) ??
+    syncEvents.find(
+      (event) => !event.shop_id && ownerIds.has(event.owner_user_id),
+    )
+  );
 }
 
 function syncEventsForShop(
@@ -1032,7 +1055,11 @@ function syncEventsForShop(
       .map((mapping) => mapping.ownerUserId as string),
   );
 
-  return syncEvents.filter((event) => ownerIds.has(event.owner_user_id));
+  return syncEvents.filter(
+    (event) =>
+      event.shop_id === shopId ||
+      (!event.shop_id && ownerIds.has(event.owner_user_id)),
+  );
 }
 
 function staffSafeReadIssue(readModel: PlatformAdminLiveReadModel) {
@@ -4057,8 +4084,8 @@ function buildAudit(readModel: PlatformAdminLiveReadModel): PlatformSection {
     rows: readModel.auditLogs.map(
       (log): TableRow => ({
         actor:
-          accountIdentityForProfileId(log.actor_profile_id, readModel) ??
-          profileNameById(readModel.profiles, log.actor_profile_id),
+          accountIdentityForProfileId(log.actor_profile_id ?? undefined, readModel) ??
+          auditActorCell(log, readModel),
         date: log.created_at,
         event: log.event,
         rowKey: log.audit_log_id,
@@ -4449,9 +4476,11 @@ function syncRow(
   event: PlatformSyncOverview,
   readModel: PlatformAdminLiveReadModel,
 ): TableRow {
-  const shopId = readModel.shopOwnerMappings.find(
-    (mapping) => mapping.ownerUserId === event.owner_user_id,
-  )?.shopId;
+  const shopId =
+    event.shop_id ??
+    readModel.shopOwnerMappings.find(
+      (mapping) => mapping.ownerUserId === event.owner_user_id,
+    )?.shopId;
 
   return {
     date: event.created_at,
@@ -4467,9 +4496,11 @@ function historyRow(
   event: PlatformSyncOverview,
   readModel: PlatformAdminLiveReadModel,
 ): TableRow {
-  const shopId = readModel.shopOwnerMappings.find(
-    (mapping) => mapping.ownerUserId === event.owner_user_id,
-  )?.shopId;
+  const shopId =
+    event.shop_id ??
+    readModel.shopOwnerMappings.find(
+      (mapping) => mapping.ownerUserId === event.owner_user_id,
+    )?.shopId;
 
   return {
     date: event.created_at,
@@ -4858,9 +4889,7 @@ function buildAuditDetail(
     rows: event
       ? [
           {
-            actor:
-              accountIdentityForProfileId(event.actor_profile_id, readModel) ??
-              profileNameById(readModel.profiles, event.actor_profile_id),
+            actor: auditActorCell(event, readModel),
             date: event.created_at,
             event: event.event,
             rowKey: event.audit_log_id,

@@ -35,6 +35,10 @@ type ProductRow = Pick<
   | "deleted_at"
   | "updated_at"
 >;
+type ProductScopeRow = Pick<
+  Tables<"inventory_products">,
+  "id" | "owner_user_id" | "shop_id"
+>;
 type CategoryRow = Pick<
   Tables<"inventory_categories">,
   "deleted_at" | "id" | "name" | "shop_id" | "updated_at"
@@ -599,6 +603,90 @@ function mergeRowsById<Row extends { id: string }>(
   }
 
   return rows;
+}
+
+function chunkValues<T>(values: readonly T[], chunkSize: number) {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < values.length; index += chunkSize) {
+    chunks.push(values.slice(index, index + chunkSize));
+  }
+
+  return chunks;
+}
+
+async function filterPricesByCatalogProductScope(input: {
+  legacyOwnerOnlySchema: boolean;
+  legacyOwnerUserId: string | null;
+  prices: readonly PriceRow[];
+  selectedShopId: string;
+  supabase: SupabaseServerClient;
+}): Promise<{ error: unknown; prices: PriceRow[] }> {
+  if (input.prices.length === 0) {
+    return { error: null, prices: [] };
+  }
+
+  const productIds = Array.from(
+    new Set(
+      input.prices
+        .map((price) => price.product_id)
+        .filter(
+          (productId): productId is string =>
+            typeof productId === "string" && productId.length > 0,
+        ),
+    ),
+  );
+
+  if (productIds.length === 0) {
+    return { error: null, prices: [] };
+  }
+
+  const scopedProductIds = new Set<string>();
+
+  for (const idChunk of chunkValues(productIds, 500)) {
+    const query = input.legacyOwnerOnlySchema
+      ? input.supabase
+          .from("inventory_products")
+          .select("id")
+          .eq("owner_user_id", input.legacyOwnerUserId ?? "")
+          .in("id", idChunk)
+      : input.supabase
+          .from("inventory_products")
+          .select("id,shop_id,owner_user_id")
+          .in("id", idChunk);
+
+    const { data, error } = await query;
+
+    if (error) {
+      return { error, prices: [] };
+    }
+
+    if (input.legacyOwnerOnlySchema) {
+      for (const row of (data ?? []) as Array<Pick<ProductScopeRow, "id">>) {
+        scopedProductIds.add(row.id);
+      }
+      continue;
+    }
+
+    for (const row of (data ?? []) as ProductScopeRow[]) {
+      if (
+        row.shop_id === input.selectedShopId ||
+        (row.shop_id === null &&
+          input.legacyOwnerUserId &&
+          row.owner_user_id === input.legacyOwnerUserId)
+      ) {
+        scopedProductIds.add(row.id);
+      }
+    }
+  }
+
+  return {
+    error: null,
+    prices: input.prices.filter((price) =>
+      typeof price.product_id === "string" &&
+      scopedProductIds.has(price.product_id),
+    ),
+  };
 }
 
 function hasAnyShopRows(
@@ -1686,7 +1774,36 @@ export async function getShopInventoryReadModel(
   );
   const categories = mergeRowsById(shopCategories, legacyCategories);
   const suppliers = mergeRowsById(shopSuppliers, legacySuppliers);
-  const prices = mergeRowsById(shopPrices, legacyPrices);
+  const scopedPricesResult = await filterPricesByCatalogProductScope({
+    legacyOwnerOnlySchema,
+    legacyOwnerUserId,
+    prices: mergeRowsById(shopPrices, legacyPrices),
+    selectedShopId: selectedShop.shopId,
+    supabase,
+  });
+
+  if (scopedPricesResult.error) {
+    return {
+      status: "error",
+      catalogScope: "blocked",
+      legacyOwnerUserId,
+      selectedShop,
+      mapping,
+      products: products.map(mapProduct),
+      archivedProducts: archivedProducts.map(mapProduct),
+      categories: categories.map(mapCategory),
+      suppliers: suppliers.map(mapSupplier),
+      prices: [],
+      summary: emptySummary,
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Catalog price rows could not be validated against shop-scoped products.",
+      error: redactInventoryReadModelError(scopedPricesResult.error),
+    };
+  }
+
+  const prices = scopedPricesResult.prices;
   const catalogScope: ShopInventoryCatalogScope =
     shopScopedRowsPresent || !legacyOwnerUserId
       ? "shop_scoped"

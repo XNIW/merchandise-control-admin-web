@@ -197,6 +197,7 @@ async function getSupabaseForStaffWeb() {
 async function writeStaffWebAudit(
   supabase: SupabaseAdminClient,
   input: {
+    actorStaffId?: string;
     code: string;
     eventKey: string;
     metadata?: JsonRecord;
@@ -209,6 +210,7 @@ async function writeStaffWebAudit(
 ) {
   const { error } = await supabase.from("audit_logs").insert({
     actor_profile_id: null,
+    actor_staff_id: input.actorStaffId ?? null,
     event_key: input.eventKey,
     metadata_redacted: {
       code: input.code,
@@ -222,6 +224,24 @@ async function writeStaffWebAudit(
     target_id: input.targetId,
     target_type: input.targetType,
   });
+
+  return !error;
+}
+
+async function revokeStaffWebSession(
+  supabase: SupabaseAdminClient,
+  sessionId: string,
+  reason: string,
+) {
+  const { error } = await supabase
+    .from("staff_web_sessions")
+    .update({
+      revoked_at: nowIso(),
+      revoked_reason: reason,
+      status: "revoked",
+      updated_at: nowIso(),
+    })
+    .eq("staff_web_session_id", sessionId);
 
   return !error;
 }
@@ -643,8 +663,8 @@ export async function authenticateStaffManagerWebLogin(
       return staffWebLoginResult("database_error");
     }
 
-    await setStaffWebCookie(sessionToken, expiresAt);
-    await writeStaffWebAudit(supabase, {
+    const auditOk = await writeStaffWebAudit(supabase, {
+      actorStaffId: staff.staff_id,
       code: "success",
       eventKey: "staff.web.login.success",
       metadata,
@@ -654,6 +674,19 @@ export async function authenticateStaffManagerWebLogin(
       targetId: staff.staff_id,
       targetType: "staff",
     });
+
+    if (!auditOk) {
+      await revokeStaffWebSession(
+        supabase,
+        sessionResult.data.staff_web_session_id,
+        "staff_web_login_audit_failed",
+      );
+      await clearStaffWebCookie();
+
+      return staffWebLoginResult("database_error");
+    }
+
+    await setStaffWebCookie(sessionToken, expiresAt);
 
     return staffWebLoginResult("success");
   } catch {
@@ -823,16 +856,13 @@ export async function logoutStaffWebSession() {
       >();
 
     if (sessionResult.data) {
-      await supabase
-        .from("staff_web_sessions")
-        .update({
-          revoked_at: nowIso(),
-          revoked_reason: "staff_web_logout",
-          status: "revoked",
-          updated_at: nowIso(),
-        })
-        .eq("staff_web_session_id", sessionResult.data.staff_web_session_id);
+      await revokeStaffWebSession(
+        supabase,
+        sessionResult.data.staff_web_session_id,
+        "staff_web_logout",
+      );
       await writeStaffWebAudit(supabase, {
+        actorStaffId: sessionResult.data.staff_id,
         code: "success",
         eventKey: "staff.web.logout",
         metadata: {

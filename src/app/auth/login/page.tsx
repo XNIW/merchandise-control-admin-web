@@ -46,7 +46,7 @@ function loginHref(nextPath: string, mode: "admin-account" | "shop-code") {
   return `/auth/login?${params.toString()}`;
 }
 
-function tabClassName(isActive: boolean) {
+function loginModeLinkClassName(isActive: boolean) {
   return [
     "inline-flex h-10 items-center justify-center rounded-md px-3 text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2",
     isActive
@@ -160,23 +160,28 @@ export default async function PlatformAdminLoginPage({
 
           {!isMasterConsole ? (
             <nav
-              role="tablist"
               aria-label={dictionary.authLogin.tabAriaLabel}
               className="mb-5 grid grid-cols-2 gap-2"
             >
               <Link
-                role="tab"
-                aria-selected={activeLoginMode === "admin-account"}
+                aria-current={
+                  activeLoginMode === "admin-account" ? "page" : undefined
+                }
                 href={loginHref(nextPath, "admin-account")}
-                className={tabClassName(activeLoginMode === "admin-account")}
+                className={loginModeLinkClassName(
+                  activeLoginMode === "admin-account",
+                )}
               >
                 {dictionary.authLogin.adminAccountTab}
               </Link>
               <Link
-                role="tab"
-                aria-selected={activeLoginMode === "shop-code"}
+                aria-current={
+                  activeLoginMode === "shop-code" ? "page" : undefined
+                }
                 href={loginHref(nextPath, "shop-code")}
-                className={tabClassName(activeLoginMode === "shop-code")}
+                className={loginModeLinkClassName(
+                  activeLoginMode === "shop-code",
+                )}
               >
                 {dictionary.authLogin.shopCodeTab}
               </Link>

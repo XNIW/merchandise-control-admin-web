@@ -103,6 +103,10 @@ type PriceRow = Pick<
   | "source"
   | "type"
 >;
+type ProductScopeRow = Pick<
+  Tables<"inventory_products">,
+  "id" | "owner_user_id" | "shop_id"
+>;
 
 type JsonRecord = { [key: string]: Json | undefined };
 
@@ -352,6 +356,72 @@ function compareCreatedCatalogRows<
   const byCreatedAt = Date.parse(left.created_at) - Date.parse(right.created_at);
 
   return byCreatedAt === 0 ? left.id.localeCompare(right.id) : byCreatedAt;
+}
+
+function chunkValues<T>(values: readonly T[], chunkSize: number) {
+  const chunks: T[][] = [];
+
+  for (let index = 0; index < values.length; index += chunkSize) {
+    chunks.push(values.slice(index, index + chunkSize));
+  }
+
+  return chunks;
+}
+
+async function filterCatalogPricesByProductScope(
+  supabase: SupabaseAdminClient,
+  input: {
+    ownerUserId: string | null;
+    prices: readonly PriceRow[];
+    shopId: string;
+  },
+) {
+  const productIds = Array.from(
+    new Set(
+      input.prices
+        .map((price) => price.product_id)
+        .filter(
+          (productId): productId is string =>
+            typeof productId === "string" && productId.length > 0,
+        ),
+    ),
+  );
+
+  if (productIds.length === 0) {
+    return { error: null, prices: [...input.prices] };
+  }
+
+  const authorizedProductIds = new Set<string>();
+
+  for (const productChunk of chunkValues(productIds, 500)) {
+    const { data, error } = await supabase
+      .from("inventory_products")
+      .select("id,shop_id,owner_user_id")
+      .in("id", productChunk);
+
+    if (error) {
+      return { error, prices: [] };
+    }
+
+    for (const row of (data ?? []) as ProductScopeRow[]) {
+      if (
+        row.shop_id === input.shopId ||
+        (row.shop_id === null &&
+          Boolean(input.ownerUserId) &&
+          row.owner_user_id === input.ownerUserId)
+      ) {
+        authorizedProductIds.add(row.id);
+      }
+    }
+  }
+
+  return {
+    error: null,
+    prices: input.prices.filter((price) =>
+      typeof price.product_id === "string" &&
+      authorizedProductIds.has(price.product_id),
+    ),
+  };
 }
 
 function pageCatalogScopeRows<Row extends { id: string }>(
@@ -844,7 +914,27 @@ export async function handlePosCatalogPull(
     shopSuppliers,
     legacySuppliers,
   ).sort(compareUpdatedCatalogRows);
-  const priceRows = mergeCatalogRowsById(shopPrices, legacyPrices).sort(
+  const scopedPriceRows = await filterCatalogPricesByProductScope(supabase, {
+    ownerUserId,
+    prices: mergeCatalogRowsById(shopPrices, legacyPrices),
+    shopId: session.shop_id,
+  });
+
+  if (scopedPriceRows.error) {
+    return auditedFailure(supabase, {
+      code: "db_failure",
+      metadata: {
+        ...requestMetadata(meta),
+        reason: "price_product_scope_validation",
+      },
+      shopId: session.shop_id,
+      status: 500,
+      targetId: session.shop_device_id,
+      targetType: "device",
+    });
+  }
+
+  const priceRows = scopedPriceRows.prices.sort(
     compareCreatedCatalogRows,
   );
   const productPage = pageCatalogScopeRows(

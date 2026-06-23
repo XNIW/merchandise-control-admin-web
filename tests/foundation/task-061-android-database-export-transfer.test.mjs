@@ -85,11 +85,29 @@ test("TASK-061 parser exposes Android database detection and sheet summaries", (
     "priceHistoryRetail",
     "normalizeWorkbookText",
     "PriceHistory product reference must match a product in this shop or workbook.",
+    "byImportedProductId",
+    "rememberAppliedProductReference",
     "shop_catalog_import_price_history",
     "oldPrice=${oldPrice}",
   ]) {
     assertContains(workbookSource, required);
   }
+
+  assert.match(
+    workbookSource,
+    /maps\.byImportedProductId\.set\(row\.productId, productId\)/,
+    "single product apply must remember workbook productId aliases",
+  );
+  assert.match(
+    workbookSource,
+    /const byImportedProductId = maps\.byImportedProductId\.get\(row\.productId\)/,
+    "PriceHistory resolution must check workbook productId aliases",
+  );
+  assert.match(
+    workbookSource,
+    /maps\.byImportedProductId\.set\(sourceRow\.product_id, product\.productId\)/,
+    "bulk product apply must remember source productId aliases",
+  );
 
   assertContains(workbookSource, '"Código de barras"');
   assertContains(workbookSource, '"Compra (Antiguo)"');
@@ -298,6 +316,18 @@ test("TASK-061 staff manager database apply uses server-side staff-aware bulk wr
   assertContains(staffAwareMutations, 'from("inventory_products")');
   assertContains(staffAwareMutations, 'from("inventory_product_prices")');
   assertContains(staffAwareMutations, "resolveInventoryOwner(context)");
+  assertContains(staffAwareMutations, "loadScopedInventoryRowIds");
+  assertContains(staffAwareMutations, "scopedProductIds.ids.has");
+  assertContains(staffAwareMutations, "randomUUID()");
+  assert.doesNotMatch(
+    staffAwareMutations,
+    /id:\s*product\.product_id\s*\?\?\s*randomUUID\(\)/,
+    "staff bulk import must not trust caller-provided product IDs for inserts",
+  );
+  assertContains(
+    workbookSource,
+    "product_id: existing?.productId ?? row.productId",
+  );
   assertContains(workbookSource, "shop_catalog_import_products");
   assertContains(workbookSource, "shop_catalog_import_price_history");
   assert.match(
