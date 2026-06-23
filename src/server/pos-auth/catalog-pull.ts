@@ -7,6 +7,12 @@ import {
 } from "@/lib/supabase/admin";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import {
+  buildPosShopPayload,
+  POS_SHOP_SELECT,
+  type PosShopPayload,
+  type PosShopPayloadRow,
+} from "./shop-payload";
+import {
   buildNextCatalogSyncCursor,
   catalogPriceTimestampFor,
   catalogRangeFor,
@@ -21,10 +27,7 @@ import {
 } from "./catalog-sync-contract";
 import { verifyPosSecret } from "./tokens";
 
-type ShopRow = Pick<
-  Tables<"shops">,
-  "shop_code" | "shop_id" | "shop_name" | "shop_status"
->;
+type ShopRow = PosShopPayloadRow;
 type StaffAccountRow = Pick<
   Tables<"staff_accounts">,
   | "credential_status"
@@ -86,11 +89,11 @@ type ProductRow = Pick<
 >;
 type CategoryRow = Pick<
   Tables<"inventory_categories">,
-  "deleted_at" | "id" | "name" | "shop_id" | "updated_at"
+  "deleted_at" | "id" | "name" | "owner_user_id" | "shop_id" | "updated_at"
 >;
 type SupplierRow = Pick<
   Tables<"inventory_suppliers">,
-  "deleted_at" | "id" | "name" | "shop_id" | "updated_at"
+  "deleted_at" | "id" | "name" | "owner_user_id" | "shop_id" | "updated_at"
 >;
 type PriceRow = Pick<
   Tables<"inventory_product_prices">,
@@ -185,11 +188,7 @@ type PosCatalogEndpointResult =
         ok: true;
         schemaVersion: 2;
         serverTime: string;
-        shop: {
-          shopCode: string;
-          shopId: string;
-          shopName: string;
-        };
+        shop: PosShopPayload;
         syncCursor: string;
         syncMode: "delta" | "full_refresh";
         updatedSince: string | null;
@@ -432,6 +431,60 @@ function pageCatalogScopeRows<Row extends { id: string }>(
   return pageCatalogRows(rows.slice(range.from, range.to + 1), limit);
 }
 
+async function includeReferencedCatalogRows<
+  Row extends { id: string; owner_user_id: string | null; shop_id: string | null },
+>(
+  supabase: SupabaseAdminClient,
+  input: {
+    ownerUserId: string | null;
+    rows: readonly Row[];
+    referencedIds: readonly string[];
+    select: string;
+    shopId: string;
+    table: "inventory_categories" | "inventory_suppliers";
+  },
+) {
+  const rows = [...input.rows];
+  const seen = new Set(rows.map((row) => row.id));
+  const missingIds = Array.from(
+    new Set(
+      input.referencedIds.filter(
+        (id) => typeof id === "string" && id.length > 0 && !seen.has(id),
+      ),
+    ),
+  );
+
+  if (missingIds.length === 0) {
+    return { error: null, rows };
+  }
+
+  for (const idChunk of chunkValues(missingIds, 500)) {
+    const { data, error } = await supabase
+      .from(input.table)
+      .select(input.select)
+      .in("id", idChunk);
+
+    if (error) {
+      return { error, rows };
+    }
+
+    for (const row of (data ?? []) as unknown as Row[]) {
+      const isAuthorized =
+        row.shop_id === input.shopId ||
+        (row.shop_id === null &&
+          Boolean(input.ownerUserId) &&
+          row.owner_user_id === input.ownerUserId);
+
+      if (isAuthorized && !seen.has(row.id)) {
+        rows.push(row);
+        seen.add(row.id);
+      }
+    }
+  }
+
+  return { error: null, rows };
+}
+
 async function getSupabaseForPosCatalog() {
   const config = resolveSupabaseAdminConfig();
 
@@ -581,7 +634,7 @@ export async function handlePosCatalogPull(
         .maybeSingle<PosDeviceCredentialRow>(),
       supabase
         .from("shops")
-        .select("shop_id,shop_code,shop_name,shop_status")
+        .select(POS_SHOP_SELECT)
         .eq("shop_id", session.shop_id)
         .maybeSingle<ShopRow>(),
       supabase
@@ -709,7 +762,7 @@ export async function handlePosCatalogPull(
 
   let categoriesQuery = supabase
     .from("inventory_categories")
-    .select("id,shop_id,name,updated_at,deleted_at")
+    .select("id,shop_id,owner_user_id,name,updated_at,deleted_at")
     .eq("shop_id", session.shop_id)
     .lte("updated_at", syncOptions.upperBound)
     .order("updated_at", { ascending: true })
@@ -717,7 +770,7 @@ export async function handlePosCatalogPull(
 
   let suppliersQuery = supabase
     .from("inventory_suppliers")
-    .select("id,shop_id,name,updated_at,deleted_at")
+    .select("id,shop_id,owner_user_id,name,updated_at,deleted_at")
     .eq("shop_id", session.shop_id)
     .lte("updated_at", syncOptions.upperBound)
     .order("updated_at", { ascending: true })
@@ -800,7 +853,7 @@ export async function handlePosCatalogPull(
 
     let legacyCategoriesQuery = supabase
       .from("inventory_categories")
-      .select("id,shop_id,name,updated_at,deleted_at")
+      .select("id,shop_id,owner_user_id,name,updated_at,deleted_at")
       .is("shop_id", null)
       .eq("owner_user_id", ownerUserId)
       .lte("updated_at", syncOptions.upperBound)
@@ -809,7 +862,7 @@ export async function handlePosCatalogPull(
 
     let legacySuppliersQuery = supabase
       .from("inventory_suppliers")
-      .select("id,shop_id,name,updated_at,deleted_at")
+      .select("id,shop_id,owner_user_id,name,updated_at,deleted_at")
       .is("shop_id", null)
       .eq("owner_user_id", ownerUserId)
       .lte("updated_at", syncOptions.upperBound)
@@ -957,12 +1010,68 @@ export async function handlePosCatalogPull(
     priceRange,
     syncOptions.limit,
   );
+  const referencedCategoryRows = await includeReferencedCatalogRows<CategoryRow>(
+    supabase,
+    {
+      ownerUserId,
+      referencedIds: productPage.rows
+        .map((product) => product.category_id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+      rows: categoryPage.rows,
+      select: "id,shop_id,owner_user_id,name,updated_at,deleted_at",
+      shopId: session.shop_id,
+      table: "inventory_categories",
+    },
+  );
+
+  if (referencedCategoryRows.error) {
+    return auditedFailure(supabase, {
+      code: "db_failure",
+      metadata: {
+        ...requestMetadata(meta),
+        reason: "referenced_category_lookup",
+      },
+      shopId: session.shop_id,
+      status: 500,
+      targetId: session.shop_device_id,
+      targetType: "device",
+    });
+  }
+
+  const referencedSupplierRows = await includeReferencedCatalogRows<SupplierRow>(
+    supabase,
+    {
+      ownerUserId,
+      referencedIds: productPage.rows
+        .map((product) => product.supplier_id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+      rows: supplierPage.rows,
+      select: "id,shop_id,owner_user_id,name,updated_at,deleted_at",
+      shopId: session.shop_id,
+      table: "inventory_suppliers",
+    },
+  );
+
+  if (referencedSupplierRows.error) {
+    return auditedFailure(supabase, {
+      code: "db_failure",
+      metadata: {
+        ...requestMetadata(meta),
+        reason: "referenced_supplier_lookup",
+      },
+      shopId: session.shop_id,
+      status: 500,
+      targetId: session.shop_device_id,
+      targetType: "device",
+    });
+  }
+
   const { active: products, tombstones: productTombstones } =
     splitCatalogTombstones(productPage.rows);
   const { active: categories, tombstones: categoryTombstones } =
-    splitCatalogTombstones(categoryPage.rows);
+    splitCatalogTombstones(referencedCategoryRows.rows);
   const { active: suppliers, tombstones: supplierTombstones } =
-    splitCatalogTombstones(supplierPage.rows);
+    splitCatalogTombstones(referencedSupplierRows.rows);
   const prices = pricePage.rows;
   const pageState: Record<CatalogSyncEntity, CatalogPageState> = {
     categories: {
@@ -985,10 +1094,10 @@ export async function handlePosCatalogPull(
   const hasMore = hasMoreCatalogRows(pageState);
   const syncCursor = buildNextCatalogSyncCursor(syncOptions, pageState);
   const catalogVersion = computeCatalogVersion({
-    categories: categoryPage.rows,
+    categories: referencedCategoryRows.rows,
     prices,
     products: productPage.rows,
-    suppliers: supplierPage.rows,
+    suppliers: referencedSupplierRows.rows,
   });
   const auditOk = await writePosCatalogAudit(supabase, {
     code: "success",
@@ -1083,9 +1192,7 @@ export async function handlePosCatalogPull(
       schemaVersion: 2,
       serverTime: syncOptions.upperBound,
       shop: {
-        shopCode: shop.shop_code,
-        shopId: shop.shop_id,
-        shopName: shop.shop_name,
+        ...buildPosShopPayload(shop),
       },
       syncCursor,
       syncMode: syncOptions.mode,

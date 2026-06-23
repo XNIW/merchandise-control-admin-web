@@ -71,7 +71,7 @@ test("TASK-035 artifacts define authenticated Shop Admin QA scope and DONE hando
   );
   assert.match(
     masterPlan,
-    /Ultimo task completato: `TASK-035|Ultimo task completato: `TASK-036|Ultimo task completato: `TASK-037|Ultimo task completato: `TASK-038|Ultimo task completato: `TASK-039|Ultimo task completato: `TASK-054|Ultimo task completato: `TASK-056|Ultimo task completato: `TASK-057|Ultimo task completato: `TASK-059|Ultimo task completato: `TASK-060|Ultimo task completato: `TASK-061|Ultimo task completato: `TASK-073|Ultimo task completato: `TASK-074|Ultimo task completato: `TASK-077B/,
+    /Ultimo task completato: `TASK-035|Ultimo task completato: `TASK-036|Ultimo task completato: `TASK-037|Ultimo task completato: `TASK-038|Ultimo task completato: `TASK-039|Ultimo task completato: `TASK-054|Ultimo task completato: `TASK-056|Ultimo task completato: `TASK-057|Ultimo task completato: `TASK-059|Ultimo task completato: `TASK-060|Ultimo task completato: `TASK-061|Ultimo task completato: `TASK-073|Ultimo task completato: `TASK-074|Ultimo task completato: `TASK-077B|Ultimo task completato: `TASK-081/,
   );
   assert.match(masterPlan, /Stato TASK-034: `DONE_RECONCILED_WITH_NOTES`/);
   assert.match(task, /Stato: `DONE`/);

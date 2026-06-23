@@ -210,7 +210,7 @@ function SummaryGrid({ summary }: { summary: ShopPosRevenueSummary }) {
       />
       <MetricCard
         detail="Ventas con documento compatible."
-        label="Incasso documentado"
+        label="Incasso documentato"
         value={money(summary.documentedRevenueClp)}
       />
       <MetricCard

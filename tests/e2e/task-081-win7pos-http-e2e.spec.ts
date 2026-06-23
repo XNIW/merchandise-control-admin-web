@@ -1,7 +1,7 @@
 import { expect, test, type APIRequestContext, type Page } from "@playwright/test";
 import { spawnSync } from "node:child_process";
 import { randomBytes, randomUUID, scrypt } from "node:crypto";
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
@@ -55,6 +55,7 @@ type PosAuth = {
 };
 
 type HarnessState = {
+  catalogDbPath?: string;
   dataset?: Dataset;
   runtime?: RuntimeEnv;
   sessionJsonPath?: string;
@@ -65,7 +66,7 @@ const state: HarnessState = {};
 const screenshotDir = "/tmp/task081-win7pos-http";
 
 function fail(message: string): never {
-  throw new Error(`TASK081_WIN7HTTP_E2E: ${message}`);
+  throw new Error(`TASK081Z_WIN7HTTP_E2E: ${message}`);
 }
 
 function nowIso() {
@@ -221,7 +222,7 @@ async function activeTask081Win7HttpShopIds(supabase: SupabaseClient, shopId?: s
   const query = supabase.from("shops").select("shop_id,shop_code");
   const { data, error } = shopId
     ? await query.eq("shop_id", shopId)
-    : await query.like("shop_code", "TASK081_WIN7HTTP_%");
+    : await query.like("shop_code", "TASK081Z_WIN7HTTP_%");
 
   if (error) {
     fail(`synthetic shop lookup: ${formatSupabaseError(error)}`);
@@ -318,7 +319,7 @@ async function cleanupSyntheticDataset(
           updated_at: timestamp,
         })
         .eq("shop_id", shopId)
-        .like("staff_code", "TASK081_WIN7HTTP_POS_%"),
+        .like("staff_code", "TASK081Z_WIN7HTTP_POS_%"),
     );
     await must(
       "mapping soft cleanup",
@@ -375,7 +376,7 @@ async function cleanupSyntheticDataset(
           updated_at: timestamp,
         })
         .eq("owner_user_id", ownerUserId)
-        .like("barcode", "TASK081_WIN7HTTP_BARCODE_%"),
+        .like("barcode", "TASK081Z_WIN7HTTP_BARCODE_%"),
     );
     await must(
       "category tombstone",
@@ -386,7 +387,7 @@ async function cleanupSyntheticDataset(
           updated_at: timestamp,
         })
         .eq("owner_user_id", ownerUserId)
-        .like("name", "TASK081_WIN7HTTP_CATEGORY_%"),
+        .like("name", "TASK081Z_WIN7HTTP_CATEGORY_%"),
     );
     await must(
       "supplier tombstone",
@@ -397,7 +398,7 @@ async function cleanupSyntheticDataset(
           updated_at: timestamp,
         })
         .eq("owner_user_id", ownerUserId)
-        .like("name", "TASK081_WIN7HTTP_SUPPLIER_%"),
+        .like("name", "TASK081Z_WIN7HTTP_SUPPLIER_%"),
     );
     await must(
       "profile disable",
@@ -440,13 +441,13 @@ async function verifyCleanup(supabase: SupabaseClient, dataset: Dataset) {
 
 async function setupSyntheticDataset(supabase: SupabaseClient): Promise<Dataset> {
   const runId = safeRunId();
-  const email = `task081-win7http-${runId.toLowerCase()}@example.test`;
+  const email = `task081z-win7http-${runId.toLowerCase()}@example.test`;
   const password = `Task081-${randomBytes(18).toString("base64url")}`;
   const posCredential = `Task081-Win7POS-${randomBytes(14).toString("base64url")}`;
-  const shopCode = `TASK081_WIN7HTTP_${runId}`;
-  const staffCode = `TASK081_WIN7HTTP_POS_${runId}`;
-  const productBarcode = `TASK081_WIN7HTTP_BARCODE_${runId}`;
-  const productName = `TASK081_WIN7HTTP_PRODUCT_${runId}`;
+  const shopCode = `TASK081Z_WIN7HTTP_${runId}`;
+  const staffCode = `TASK081Z_WIN7HTTP_POS_${runId}`;
+  const productBarcode = `TASK081Z_WIN7HTTP_BARCODE_${runId}`;
+  const productName = `TASK081Z_WIN7HTTP_PRODUCT_${runId}`;
   const timestamp = nowIso();
 
   await cleanupSyntheticDataset(supabase, {
@@ -458,7 +459,7 @@ async function setupSyntheticDataset(supabase: SupabaseClient): Promise<Dataset>
     email_confirm: true,
     password,
     user_metadata: {
-      source: "TASK-081-WIN7HTTP",
+      source: "TASK-081Z-WIN7HTTP",
     },
   });
 
@@ -473,7 +474,7 @@ async function setupSyntheticDataset(supabase: SupabaseClient): Promise<Dataset>
     "profile upsert",
     supabase.from("profiles").upsert(
       {
-        display_name: `TASK081 Win7HTTP Owner ${runId}`,
+        display_name: `TASK081Z Win7HTTP Owner ${runId}`,
         profile_id: ownerUserId,
         profile_status: "active",
       },
@@ -487,7 +488,7 @@ async function setupSyntheticDataset(supabase: SupabaseClient): Promise<Dataset>
       .insert({
         created_by_profile_id: ownerUserId,
         shop_code: shopCode,
-        shop_name: `TASK081 Win7HTTP Shop ${runId}`,
+        shop_name: `TASK081Z Win7HTTP Shop ${runId}`,
         shop_status: "active",
       })
       .select("shop_id,shop_code")
@@ -513,7 +514,7 @@ async function setupSyntheticDataset(supabase: SupabaseClient): Promise<Dataset>
         credential_status: "active",
         credential_updated_at: timestamp,
         credential_version: 1,
-        display_name: `TASK081 Win7HTTP POS Staff ${runId}`,
+        display_name: `TASK081Z Win7HTTP POS Staff ${runId}`,
         failed_attempts: 0,
         must_change_credential: false,
         role_key: "cashier",
@@ -540,7 +541,7 @@ async function setupSyntheticDataset(supabase: SupabaseClient): Promise<Dataset>
     supabase
       .from("inventory_suppliers")
       .insert({
-        name: `TASK081_WIN7HTTP_SUPPLIER_${runId}`,
+        name: `TASK081Z_WIN7HTTP_SUPPLIER_${runId}`,
         owner_user_id: ownerUserId,
       })
       .select("id")
@@ -551,7 +552,7 @@ async function setupSyntheticDataset(supabase: SupabaseClient): Promise<Dataset>
     supabase
       .from("inventory_categories")
       .insert({
-        name: `TASK081_WIN7HTTP_CATEGORY_${runId}`,
+        name: `TASK081Z_WIN7HTTP_CATEGORY_${runId}`,
         owner_user_id: ownerUserId,
       })
       .select("id")
@@ -564,7 +565,7 @@ async function setupSyntheticDataset(supabase: SupabaseClient): Promise<Dataset>
       .insert({
         barcode: productBarcode,
         category_id: category.id,
-        item_number: `TASK081_WIN7HTTP_ITEM_${runId}`,
+        item_number: `TASK081Z_WIN7HTTP_ITEM_${runId}`,
         owner_user_id: ownerUserId,
         product_name: productName,
         purchase_price: 100,
@@ -585,7 +586,7 @@ async function setupSyntheticDataset(supabase: SupabaseClient): Promise<Dataset>
         owner_user_id: ownerUserId,
         price: 100,
         product_id: product.id,
-        source: "TASK-081-WIN7HTTP",
+        source: "TASK-081Z-WIN7HTTP",
         type: "PURCHASE",
       },
       {
@@ -595,7 +596,7 @@ async function setupSyntheticDataset(supabase: SupabaseClient): Promise<Dataset>
         owner_user_id: ownerUserId,
         price: 1000,
         product_id: product.id,
-        source: "TASK-081-WIN7HTTP",
+        source: "TASK-081Z-WIN7HTTP",
         type: "RETAIL",
       },
     ]),
@@ -603,7 +604,7 @@ async function setupSyntheticDataset(supabase: SupabaseClient): Promise<Dataset>
 
   return {
     categoryId: category.id,
-    deviceIdentifier: `TASK081_WIN7HTTP_DEVICE_${runId}`,
+    deviceIdentifier: `TASK081Z_WIN7HTTP_DEVICE_${runId}`,
     email,
     ownerUserId,
     password,
@@ -627,13 +628,13 @@ async function firstLogin(request: APIRequestContext, dataset: Dataset): Promise
       device: {
         appVersion: "TASK081-win7http-e2e",
         deviceIdentifier: dataset.deviceIdentifier,
-        displayName: `TASK081 Win7HTTP Device ${dataset.runId}`,
+        displayName: `TASK081Z Win7HTTP Device ${dataset.runId}`,
       },
       shopCode: dataset.shopCode,
       staffCode: dataset.staffCode,
     },
     headers: {
-      "User-Agent": "TASK081 Win7HTTP E2E",
+      "User-Agent": "TASK081Z Win7HTTP E2E",
     },
   });
   const body = await response.json();
@@ -651,7 +652,7 @@ async function firstLogin(request: APIRequestContext, dataset: Dataset): Promise
 
 function writeSessionJson(dataset: Dataset, auth: PosAuth) {
   mkdirSync(screenshotDir, { recursive: true });
-  const sessionJsonPath = join(screenshotDir, `task081-win7http-${dataset.runId}-session.json`);
+  const sessionJsonPath = join(screenshotDir, `task081z-win7http-${dataset.runId}-session.json`);
   writeFileSync(
     sessionJsonPath,
     JSON.stringify({
@@ -669,7 +670,17 @@ function writeSessionJson(dataset: Dataset, auth: PosAuth) {
   return sessionJsonPath;
 }
 
-function runWin7PosHttpHarness(input: { baseUrl: string; dataset: Dataset; sessionJsonPath: string }) {
+function cleanupSessionJsonFiles() {
+  mkdirSync(screenshotDir, { recursive: true });
+
+  for (const entry of readdirSync(screenshotDir)) {
+    if (entry.endsWith("-session.json")) {
+      rmSync(join(screenshotDir, entry), { force: true });
+    }
+  }
+}
+
+function runWin7PosCli(input: { args: string[]; dataset: Dataset; timeout?: number }) {
   const win7Repo = process.env.WIN7POS_REPO_PATH ?? resolve(process.cwd(), "..", "Win7POS");
   const cliProject = join(win7Repo, "src", "Win7POS.Cli", "Win7POS.Cli.csproj");
   const result = spawnSync(
@@ -681,11 +692,7 @@ function runWin7PosHttpHarness(input: { baseUrl: string; dataset: Dataset; sessi
       "-c",
       "Release",
       "--",
-      "--task081-sales-sync-http-harness",
-      "--base-url",
-      input.baseUrl,
-      "--session-json",
-      input.sessionJsonPath,
+      ...input.args,
     ],
     {
       cwd: win7Repo,
@@ -694,14 +701,29 @@ function runWin7PosHttpHarness(input: { baseUrl: string; dataset: Dataset; sessi
         ...process.env,
         DOTNET_CLI_TELEMETRY_OPTOUT: "1",
       },
-      timeout: 120_000,
+      timeout: input.timeout ?? 120_000,
     },
   );
   const output = [result.stdout, result.stderr].filter(Boolean).join("\n");
 
   if (result.status !== 0) {
-    fail(`Win7POS HTTP harness failed for ${input.dataset.runId}\n${output}`);
+    fail(`Win7POS CLI harness failed for ${input.dataset.runId}\n${output}`);
   }
+
+  return output;
+}
+
+function runWin7PosHttpHarness(input: { baseUrl: string; dataset: Dataset; sessionJsonPath: string }) {
+  const output = runWin7PosCli({
+    args: [
+      "--task081-sales-sync-http-harness",
+      "--base-url",
+      input.baseUrl,
+      "--session-json",
+      input.sessionJsonPath,
+    ],
+    dataset: input.dataset,
+  });
 
   expect(output).toContain("TASK-081 Win7POS HTTP sales sync harness: PASS");
   expect(output).toContain("accepted=6");
@@ -709,6 +731,86 @@ function runWin7PosHttpHarness(input: { baseUrl: string; dataset: Dataset; sessi
   expect(output).toContain("duplicate=ok");
   expect(output).toContain("conflict=ok");
   expect(output).toContain("auth_denied_retry=1");
+  return output;
+}
+
+function runWin7PosCatalogPriceHarness(input: {
+  baseUrl: string;
+  dataset: Dataset;
+  expected: {
+    itemNumber: string;
+    productName: string;
+    purchasePrice: number;
+    retailPrice: number;
+    stock: number;
+  };
+  expectTombstone?: boolean;
+  sessionJsonPath: string;
+}) {
+  mkdirSync(screenshotDir, { recursive: true });
+  const dbPath = state.catalogDbPath ?? join(screenshotDir, `task081z-win7http-${input.dataset.runId}-catalog.db`);
+  state.catalogDbPath = dbPath;
+
+  const args = [
+    "--task081-catalog-price-sync-harness",
+    "--base-url",
+    input.baseUrl,
+    "--session-json",
+    input.sessionJsonPath,
+    "--db",
+    dbPath,
+    "--expected-barcode",
+    input.dataset.productBarcode,
+    "--expected-product-name",
+    input.expected.productName,
+    "--expected-item-number",
+    input.expected.itemNumber,
+    "--expected-supplier-name",
+    `TASK081Z_WIN7HTTP_SUPPLIER_${input.dataset.runId}`,
+    "--expected-category-name",
+    `TASK081Z_WIN7HTTP_CATEGORY_${input.dataset.runId}`,
+    "--expected-purchase-price",
+    String(input.expected.purchasePrice),
+    "--expected-retail-price",
+    String(input.expected.retailPrice),
+    "--expected-stock",
+    String(input.expected.stock),
+  ];
+
+  if (input.expectTombstone) {
+    args.push("--expect-tombstone");
+  }
+
+  const output = runWin7PosCli({
+    args,
+    dataset: input.dataset,
+  });
+
+  expect(output).toContain("TASK-081Z catalog price sync harness: PASS");
+  expect(output).toContain("PASS_CATALOG_PRICE_SYNC_RUNTIME");
+  return output;
+}
+
+function runWin7PosOfflineReconnectHarness(input: {
+  baseUrl: string;
+  dataset: Dataset;
+  sessionJsonPath: string;
+}) {
+  const output = runWin7PosCli({
+    args: [
+      "--task081-offline-reconnect-harness",
+      "--base-url",
+      input.baseUrl,
+      "--session-json",
+      input.sessionJsonPath,
+    ],
+    dataset: input.dataset,
+  });
+
+  expect(output).toContain("TASK-081Z offline reconnect harness: PASS");
+  expect(output).toContain("PASS_OFFLINE_RECONNECT_RUNTIME");
+  expect(output).toContain("pending_final=0");
+  expect(output).toContain("duplicate=ok");
   return output;
 }
 
@@ -726,6 +828,65 @@ async function expectProductStock(
       .maybeSingle(),
   );
   expect(Number(product.stock_quantity), "product stock").toBe(expected);
+}
+
+async function updateCatalogForDeltaPull(supabase: SupabaseClient, dataset: Dataset) {
+  const timestamp = nowIso();
+
+  await must(
+    "catalog delta product update",
+    supabase
+      .from("inventory_products")
+      .update({
+        item_number: `TASK081Z_WIN7HTTP_ITEM_${dataset.runId}_UPDATED`,
+        product_name: `${dataset.productName}_UPDATED`,
+        purchase_price: 120,
+        retail_price: 1250,
+        stock_quantity: 14,
+        updated_at: timestamp,
+      })
+      .eq("id", dataset.productId),
+  );
+  await must(
+    "catalog delta price insert",
+    supabase.from("inventory_product_prices").insert([
+      {
+        created_at: legacyTimestamp(),
+        effective_at: legacyTimestamp(),
+        id: randomUUID(),
+        owner_user_id: dataset.ownerUserId,
+        price: 120,
+        product_id: dataset.productId,
+        source: "TASK-081Z-CATALOG-DELTA",
+        type: "PURCHASE",
+      },
+      {
+        created_at: legacyTimestamp(),
+        effective_at: legacyTimestamp(),
+        id: randomUUID(),
+        owner_user_id: dataset.ownerUserId,
+        price: 1250,
+        product_id: dataset.productId,
+        source: "TASK-081Z-CATALOG-DELTA",
+        type: "RETAIL",
+      },
+    ]),
+  );
+}
+
+async function tombstoneCatalogProduct(supabase: SupabaseClient, dataset: Dataset) {
+  const timestamp = nowIso();
+
+  await must(
+    "catalog tombstone product",
+    supabase
+      .from("inventory_products")
+      .update({
+        deleted_at: timestamp,
+        updated_at: timestamp,
+      })
+      .eq("id", dataset.productId),
+  );
 }
 
 async function verifyDatabaseState(supabase: SupabaseClient, dataset: Dataset) {
@@ -807,7 +968,7 @@ async function verifyDatabaseState(supabase: SupabaseClient, dataset: Dataset) {
   expect(auditLogs.some((row) => row.metadata_redacted?.code === "duplicate_batch" && row.result === "success")).toBe(true);
   expect(auditLogs.some((row) => row.metadata_redacted?.code === "conflict_batch" && row.result === "blocked")).toBe(true);
 
-  await expectProductStock(supabase, dataset.productId, 7);
+  await expectProductStock(supabase, dataset.productId, 11);
 }
 
 async function fetchBrowserJson(page: Page, path: string) {
@@ -848,6 +1009,27 @@ async function verifyRevenueApi(page: Page, dataset: Dataset) {
   )).toBe(true);
 }
 
+async function verifyOfflineReconnectRevenueApi(page: Page, dataset: Dataset) {
+  const { body, status } = await fetchBrowserJson(
+    page,
+    `/api/shop/pos/revenue?shop_id=${dataset.shopId}`,
+  );
+
+  expect(status, JSON.stringify(body)).toBe(200);
+  expect(body.status).toBe("ready");
+  expect(body.today.netRevenueClp).toBe(3250);
+  expect(body.today.documentedRevenueClp).toBe(2750);
+  expect(body.today.cashClp).toBe(2500);
+  expect(body.today.cardClp).toBe(750);
+  expect(body.today.refundCount).toBe(1);
+  expect(body.today.voidCount).toBe(1);
+  expect(body.month.summary.netRevenueClp).toBe(3250);
+  expect(body.year.summary.netRevenueClp).toBe(3550);
+  expect(body.recentSales.some((row: { saleNumber: string | null }) =>
+    row.saleNumber === `TASK081-OFFLINE-${dataset.runId}-SALE`,
+  )).toBe(true);
+}
+
 async function loginShopAdmin(page: Page, dataset: Dataset) {
   await page.goto(`/auth/login?next=/shop/pos?shop_id=${dataset.shopId}`);
   await expect(page.getByLabel("Email")).toBeVisible();
@@ -869,7 +1051,7 @@ async function verifyRevenueUi(page: Page, dataset: Dataset, mode: "desktop" | "
   ).toBeVisible();
   await expectText("Incasso completo");
   await expectText("$2.250");
-  await expectText("Incasso documentado");
+  await expectText("Incasso documentato");
   await expectText("$1.750");
   await expectText("Da verificare");
   await expectText("$500");
@@ -887,11 +1069,12 @@ async function verifyRevenueUi(page: Page, dataset: Dataset, mode: "desktop" | "
   mkdirSync(screenshotDir, { recursive: true });
   await page.screenshot({
     fullPage: false,
-    path: join(screenshotDir, `task081-win7http-${dataset.runId}-${mode}.png`),
+    path: join(screenshotDir, `task081z-win7http-${dataset.runId}-${mode}.png`),
   });
 }
 
 test.beforeAll(async () => {
+  cleanupSessionJsonFiles();
   const runtime = loadLocalSupabaseEnv();
   const supabase = createAdminClient(runtime);
   const dataset = await setupSyntheticDataset(supabase);
@@ -902,8 +1085,14 @@ test.beforeAll(async () => {
 });
 
 test.afterAll(async () => {
+  cleanupSessionJsonFiles();
+
   if (state.sessionJsonPath) {
     rmSync(state.sessionJsonPath, { force: true });
+  }
+
+  if (state.catalogDbPath) {
+    rmSync(state.catalogDbPath, { force: true });
   }
 
   if (state.supabase && state.dataset) {
@@ -930,6 +1119,31 @@ test("TASK-081 Win7POS real HTTP sales sync, revenue UI, stock and cleanup E2E",
   const auth = await firstLogin(request, dataset);
   const sessionJsonPath = writeSessionJson(dataset, auth);
   const baseUrl = process.env.PLAYWRIGHT_BASE_URL ?? "http://127.0.0.1:3050";
+  runWin7PosCatalogPriceHarness({
+    baseUrl,
+    dataset,
+    expected: {
+      itemNumber: `TASK081Z_WIN7HTTP_ITEM_${dataset.runId}`,
+      productName: dataset.productName,
+      purchasePrice: 100,
+      retailPrice: 1000,
+      stock: 10,
+    },
+    sessionJsonPath,
+  });
+  await updateCatalogForDeltaPull(supabase, dataset);
+  runWin7PosCatalogPriceHarness({
+    baseUrl,
+    dataset,
+    expected: {
+      itemNumber: `TASK081Z_WIN7HTTP_ITEM_${dataset.runId}_UPDATED`,
+      productName: `${dataset.productName}_UPDATED`,
+      purchasePrice: 120,
+      retailPrice: 1250,
+      stock: 14,
+    },
+    sessionJsonPath,
+  });
   runWin7PosHttpHarness({ baseUrl, dataset, sessionJsonPath });
 
   await verifyDatabaseState(supabase, dataset);
@@ -941,6 +1155,28 @@ test("TASK-081 Win7POS real HTTP sales sync, revenue UI, stock and cleanup E2E",
   await page.setViewportSize({ height: 844, width: 390 });
   await page.reload();
   await verifyRevenueUi(page, dataset, "mobile");
+
+  runWin7PosOfflineReconnectHarness({ baseUrl, dataset, sessionJsonPath });
+  await expectProductStock(supabase, dataset.productId, 10);
+  await page.setViewportSize({ height: 900, width: 1280 });
+  await page.reload();
+  await verifyOfflineReconnectRevenueApi(page, dataset);
+  await expect(page.getByText(`TASK081-OFFLINE-${dataset.runId}-SALE`, { exact: true }).first()).toBeVisible();
+
+  await tombstoneCatalogProduct(supabase, dataset);
+  runWin7PosCatalogPriceHarness({
+    baseUrl,
+    dataset,
+    expectTombstone: true,
+    expected: {
+      itemNumber: `TASK081Z_WIN7HTTP_ITEM_${dataset.runId}_UPDATED`,
+      productName: `${dataset.productName}_UPDATED`,
+      purchasePrice: 120,
+      retailPrice: 1250,
+      stock: 10,
+    },
+    sessionJsonPath,
+  });
 
   const publicClient = createPublicClient(runtime);
   const signIn = await publicClient.auth.signInWithPassword({

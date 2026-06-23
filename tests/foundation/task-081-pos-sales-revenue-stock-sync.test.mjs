@@ -109,6 +109,67 @@ test("TASK-081 Admin Web sales sync stays strict, idempotent and ledger-backed",
   assert.doesNotMatch(migration, /on delete cascade/i);
 });
 
+test("TASK-081 UX/Product alignment keeps POS payload official and revenue read-only", () => {
+  const shopPayload = readProjectFile("src/server/pos-auth/shop-payload.ts");
+  const firstLogin = readProjectFile("src/server/pos-auth/service.ts");
+  const catalogPull = readProjectFile("src/server/pos-auth/catalog-pull.ts");
+  const salesSync = readProjectFile("src/server/pos-auth/sales-sync.ts");
+  const revenueRoute = readProjectFile("src/app/api/shop/pos/revenue/route.ts");
+  const saleDetailRoute = readProjectFile(
+    "src/app/api/shop/pos/revenue/sale-detail/route.ts",
+  );
+  const readModel = readProjectFile("src/server/shop-admin/pos-revenue-read-model.ts");
+  const dashboard = readProjectFile("src/app/shop/pos/PosRevenueDashboard.tsx");
+
+  for (const required of [
+    "POS_SHOP_SELECT",
+    "company_rut",
+    "business_giro",
+    "business_address",
+    "business_city",
+    "legal_representative_rut",
+    "fiscal_identity_locked_by_platform",
+    'source: "supabase_admin_server" as const',
+    "buildPosShopPayload",
+  ]) {
+    assertContains(shopPayload, required);
+  }
+
+  for (const source of [firstLogin, catalogPull, salesSync]) {
+    assertContains(source, "POS_SHOP_SELECT");
+    assertContains(source, "buildPosShopPayload(shop)");
+  }
+
+  assertContains(readModel, "readOnly: true");
+  assertContains(readModel, 'source: "supabase_admin_server"');
+  assertContains(readModel, "staleAfterSeconds: 30");
+  assert.match(
+    readModel,
+    /\.from\("pos_sales"\)[\s\S]*\.eq\("shop_id", selectedShop\.shopId\)[\s\S]*\.limit\(/,
+  );
+  assert.doesNotMatch(readModel, /\.(insert|update|delete|upsert|rpc)\(/);
+
+  for (const route of [revenueRoute, saleDetailRoute]) {
+    assertContains(route, '"Cache-Control": "no-store"');
+    assert.doesNotMatch(route, /\.(insert|update|delete|upsert|rpc)\(/);
+  }
+
+  for (const required of [
+    "AbortController",
+    "document.hidden",
+    "cache: \"no-store\"",
+    "window.setInterval",
+    "10_000",
+    "Incasso completo",
+    "Incasso documentato",
+    "Da verificare",
+    "Aggiornato:",
+  ]) {
+    assertContains(dashboard, required);
+  }
+  assert.doesNotMatch(dashboard, /Incasso documentado/);
+});
+
 test(
   "TASK-081 Win7POS refund and void sync preserve product, redacted payload and failed_blocked retries",
   { skip: !existsSync(win7PosRoot) },
@@ -129,6 +190,16 @@ test(
     const syncBuilder = readWin7PosFile(
       "src/Win7POS.Data/Online/PosSalesSyncRequestBuilder.cs",
     );
+    const shopSnapshot = readWin7PosFile(
+      "src/Win7POS.Data/Repositories/ShopOfficialSnapshotRepository.cs",
+    );
+    const shopSettings = readWin7PosFile(
+      "src/Win7POS.Wpf/Pos/Dialogs/ShopSettingsViewModel.cs",
+    );
+    const syncStatus = readWin7PosFile(
+      "src/Win7POS.Wpf/Pos/Online/PosSyncStatusReader.cs",
+    );
+    const paymentVm = readWin7PosFile("src/Win7POS.Wpf/Pos/Dialogs/PaymentViewModel.cs");
 
     assertContains(saleKind, "Void = 2");
     assertContains(refundModels, "public long? ProductId { get; set; }");
@@ -142,6 +213,7 @@ test(
     assertContains(productRepository, "o.status IN ('pending', 'retry')");
     assertContains(productRepository, "stockQty = stockQtyToWrite");
     assertContains(cliProgram, "--task081-sales-sync-harness");
+    assertContains(cliProgram, "--task081-shop-cache-harness");
     assertContains(cliProgram, "--task081-sales-sync-http-harness");
     assertContains(cliProgram, "Catalog pull should preserve local stock while sales sync outbox is pending.");
     assertContains(cliProgram, "TASK-081 sales sync harness: PASS");
@@ -154,6 +226,12 @@ test(
     assertContains(syncBuilder, "SessionToken = null");
     assertContains(syncBuilder, "PaidClp = payments.Sum");
     assertContains(syncService, "MaxAttemptsBeforeBlocked = 12");
+    assertContains(shopSnapshot, "pos.official_shop.");
+    assertContains(shopSettings, "Sola lettura. Dati ufficiali gestiti da Master Console");
+    assertContains(syncStatus, "Vendite in coda");
+    assertContains(syncStatus, "Ultima vendita inviata");
+    assertContains(paymentVm, "La carta non può superare il saldo da pagare");
+    assertContains(paymentVm, "Resto (solo contanti)");
 
     assert.doesNotMatch(syncService, /payloadJson\s*=\s*Serialize\(request\)/);
     assert.doesNotMatch(syncBuilder, /payloadJson\s*=\s*Serialize\(request\)/);

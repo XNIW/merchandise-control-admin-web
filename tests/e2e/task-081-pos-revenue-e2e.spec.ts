@@ -946,7 +946,7 @@ async function verifyRevenueUi(page: Page, dataset: Dataset, mode: "desktop" | "
   ).toBeVisible();
   await expectText("Incasso completo");
   await expectText("$10.400");
-  await expectText("Incasso documentado");
+  await expectText("Incasso documentato");
   await expectText("$1.000");
   await expectText("Da verificare");
   await expectText("$9.400");

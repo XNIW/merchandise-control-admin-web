@@ -2640,10 +2640,10 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Preferire npm scripts semplici e verificabili.
 - Eventuale CLI/tooling dedicato va trattato come task futuro separato, non dentro `TASK-002`.
 
-## Tracking corrente
+## Tracking storico pre-TASK-081
 
-- Stato globale attuale: `REVIEW`
-- Ultimo task completato: `TASK-077B - Performance architecture fix: Products + Master Console lightweight read models`
+- Stato globale nello snapshot storico: `REVIEW`
+- Ultimo task completato nello snapshot: `TASK-077B - Performance architecture fix: Products + Master Console lightweight read models`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
 - Stato TASK-017: `DONE`
@@ -2811,23 +2811,24 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-079: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
 - File task TASK-079: `docs/TASKS/TASK-079-history-entry-catalog-pagination-unified.md`
 - Evidence TASK-079: `docs/TASKS/EVIDENCE/TASK-079/README.md`
-- Stato TASK-081: `REVIEW`
-- Fase TASK-081: `READY_FOR_DONE_CONFIRMATION_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`
-- Task TASK-081: `TASK-081 - Win7POS Sales Sync, Daily/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`
+- Stato TASK-081: `DONE_RECONCILED_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`
+- Fase TASK-081: `DONE_RECONCILED_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`
+- Task TASK-081: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - File task TASK-081: `docs/TASKS/TASK-081-win7pos-sales-revenue-stock-sync.md`
 - Evidence TASK-081: `docs/TASKS/EVIDENCE/TASK-081/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Task attivo: `TASK-081 - Win7POS Sales Sync, Daily/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`
+- Stato globale attuale: `IDLE`
+- Task attivo: `NESSUNO`
 - Task precedente: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
-- Ultimo task chiuso: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
-- Ultimo task completato: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
-- File task corrente: `docs/TASKS/TASK-081-win7pos-sales-revenue-stock-sync.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-081/README.md`
-- Stato task: `ACTIVE`
-- Fase: `REVIEW`
-- Milestone interna: `TASK_081_READY_FOR_DONE_CONFIRMATION_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`
-- Responsabile: `CODEX_HANDOFF_TO_REVIEW`
+- Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
+- Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
+- File task corrente: `NESSUNO`
+- Evidence task corrente: `NESSUNO`
+- Stato task: `IDLE`
+- Fase: `IDLE`
+- Milestone interna: `TASK_081_DONE_RECONCILED_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`
+- Responsabile: `NESSUNO`
 - Branch previsto: `main` / no branch creation requested
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -3065,7 +3066,7 @@ production apply `NOT_RUN_PRODUCTION_FORBIDDEN`; TASK-058 resta
   e production deploy `NOT_RUN`. TASK-058 resta
   `REVIEW_WITH_EXTERNAL_BLOCKERS`; TASK-040/TASK-041/TASK-042, Win7POS live,
   Sales Sync live, Cloudflare production, DNS e WAF non sono promossi.
-- Snapshot pre-TASK-055 2026-06-11: Stato globale attuale: `IDLE`;
+- Snapshot pre-TASK-055 2026-06-11: stato globale nello snapshot: `IDLE`;
   Task attivo: `NESSUNO`.
 - TASK-055 aperto il 2026-06-11: polish UI Shop Admin Console per menu laterale, header shop con nome/RUT/shop code, filtri products, card categories, card import/export e copy roles. Scope esplicitamente limitato a UI e piccolo arricchimento server-side di dati shop gia disponibili; vietati schema/migration/RLS/RPC, role editor, CRUD ruoli, nuove dipendenze, dati finti, service-role client/browser, commit/push/stage e deploy production. Handoff Codex pronto per `REVIEW`, non `DONE`. Check freschi: targeted TASK-055 RED/GREEN PASS 6/6, targeted legacy PASS 13/13, `lint` PASS, `typecheck` PASS, `security:scan` PASS, `test:foundation` PASS 247/247, `build` e `verify` PASS_WITH_WARNINGS per warning noti Next/Node, `test:shop-admin-auth-smoke` PASS 4/4 con Supabase locale e env process-only, visual check via screenshot Playwright autenticato.
 - Review-fix Codex TASK-055 2026-06-11: header `SHOP WORKSPACE` ora mostra il nome shop reale e `Company RUT` formattato (`12.345.678-9`) senza `Shop code:` nel topbar/header e senza fallback da `company_rut` a `shop_code`; Settings Shop Admin e read-only, con copy `Master Console only`, form/update rimossi e mutation server-only fail-closed `SHOP_SETTINGS_MANAGED_BY_MASTER_CONSOLE`. Fix screenshot utente: per staff manager `ShopLayout` usa ora `access.selectedShop` gia arricchito da `loadStaffShellShop`, non `principal.shop.shopCode`, quindi non mostra piu `Shop name not configured` / `Company RUT: Not configured` quando Settings ha i dati. Al momento del fix TASK-055 restava in `REVIEW`. Check finali: targeted TASK-055 RED review-fix/GREEN 7/7, targeted layout staff RED/GREEN 7/7, TASK-039 targeted 4/4, TASK-051 targeted 6/6, `test:foundation` 248/248, `lint` PASS, `typecheck` PASS, `security:scan` PASS, `build` PASS_WITH_WARNINGS, `verify` PASS_WITH_WARNINGS, `test:shop-admin-auth-smoke` PASS 4/4 con Supabase locale mappato process-only.
@@ -3809,7 +3810,7 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
   payload builder, CLI `--task081-sales-sync-http-harness` con SQLite/outbox,
   Admin Web local HTTP `/api/pos/sales/sync`, accepted=6,
   `pending_after_accept=0`, duplicate ok, conflict ok e auth denied retry.
-  Aggiunto `test:task081:win7-http` con dataset `TASK081_WIN7HTTP_*`,
+  Aggiunto `test:task081:win7-http` con dataset `TASK081Z_WIN7HTTP_*`,
   verifica DB/API/UI `/shop/pos` desktop/mobile e cleanup. Creato release pack
   x86 win-x86 `dist/TASK-081/Win7POS-TASK081-HTTP-20260623-113808`
   con manifest/checksum/runbook, `e_sqlite3.dll`, zip e copie in
@@ -3821,6 +3822,91 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
   1/1 e `test:task081:win7-http` 1/1 PASS.
   Stato resta `READY_FOR_DONE_CONFIRMATION_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`,
   non `DONE`.
+- TASK-081Z full-sync closure 2026-06-23: aggiunti catalog-price full/delta
+  runtime e offline reconnect runtime dentro `test:task081:win7-http`; Admin Web
+  catalog pull ora include categorie/fornitori referenziati dai prodotti della
+  pagina anche in bridge legacy owner; Win7POS catalog apply persiste price
+  history, drena `hasMore`, preserva stock con outbox `failed_blocked`, e
+  sincronizza pending prima del catalog pull in bootstrap/heartbeat. Check
+  finali freschi: Admin Web `lint`, `typecheck`, `security:scan`,
+  `test:foundation` 461/461, `build`, `test:task081:e2e` 1/1,
+  `test:task081:win7-http` 1/1; Supabase `migration list --local`,
+  `migration up --local`, `db lint --local --schema public,app_private
+  --fail-on error`; Win7POS CLI/WPF x86 build, `--task081-sales-sync-harness`,
+  scanner online/client/bootstrap/catalog/dialog e `git diff --check` PASS.
+  Creato release pack
+  `/Users/minxiang/Projects/Win7POS/dist/TASK-081Z/Win7POS-TASK081Z-FULLSYNC-20260623-133315`
+  senza PDB, con `e_sqlite3.dll`, manifest/checksum/file list; copiato e
+  validato in `.win7pos-vm/drop/Win7POS`,
+  `.win7pos-vm/shared-win7/Win7POS` e
+  `.win7pos-physical/bridge/drop/Win7POS`. Tentativo guest/fisico: `utmctl`
+  vede due VM Windows 7 `stopped`; `utmctl start` su entrambi gli UUID va in
+  timeout/hang e lo status resta `stopped`; job fisico `smoke-pos` creato ma
+  non processato da runner e poi rimosso per evitare esecuzione tardiva.
+  In quel passaggio lo stato documentato era
+  `READY_FOR_DONE_CONFIRMATION_WITH_WIN7_LAUNCH_ISSUE_DOCUMENTED`; la
+  riconciliazione corrente e registrata nel bullet finale TASK-081.
+- TASK-081 final physical runtime gate 2026-06-23: rieseguiti gate locali
+  Admin Web (`lint`, `typecheck`, `security:scan`, `test:foundation` 461/461,
+  `build`, `test:task081:e2e` 1/1, `test:task081:win7-http` 1/1), Supabase
+  locale (`migration list`, `migration up`, `db lint --schema
+  public,app_private --fail-on error`) e Win7POS (CLI/WPF x86 build,
+  `--task081-sales-sync-harness`, scanner PowerShell). Avviato Admin Web
+  non-production su `0.0.0.0:3062` e verificati endpoint POS con `GET 405`,
+  `POST {}` `400 no-store`, `/shop/pos` `200`; per Win7 fisico resta richiesta
+  HTTPS non-production per policy base URL. Creato pack physical
+  `/Users/minxiang/Projects/Win7POS/dist/TASK-081Z/Win7POS-TASK081Z-PHYSICAL-20260623-180100`
+  con zip, SHA256 `65b6ac7ea05ccd77f92d9a451c61fe6fc0728928a50393c3da5f5df39bed91e4`,
+  36 file app, `e_sqlite3.dll`, no PDB/MDB e path mapping debug; drop VM/shared
+  e bridge aggiornati/validati e bridge script riallineato. Tentativi VM
+  concreti: `open -a UTM "/Users/minxiang/Downloads/Windows 7.utm"`, start
+  `B634...` timeout 60s, start `F97...` timeout 20s, entrambi restano
+  `stopped`, nessun QEMU Win7. Bridge fisico: job `env-report` e `smoke-pos`
+  creati con `--execute`, non processati dopo attesa, spostati in `failed`
+  come `manual-stale`; report `physical-win7-20260623-180800` con zero
+  outbox/log/screenshot. In quel passaggio lo stato documentato era
+  `READY_FOR_DONE_CONFIRMATION_WITH_WIN7_LAUNCH_ISSUE_DOCUMENTED`; la
+  riconciliazione corrente e registrata nel bullet finale TASK-081.
+- TASK-081 UX/product alignment final patch 2026-06-23: Admin Web POS payload
+  shop allineato ai dati ufficiali (`shop_id`, `shop_code`, RUT/company,
+  indirizzo, giro, legal representative, status, source e updated_at);
+  Win7POS salva snapshot read-only `pos.official_shop.*`, lo usa offline per
+  settings/ricevute/boleta e rimuove il path pubblico locale `SaveShopInfoAsync`.
+  Aggiunta UX status sync con online/offline, ultimo catalogo, ultima vendita,
+  pending/retry/blocked ed errore redatto; revenue copy riallineata a incasso
+  completo/documento/non stampata senza hidden/fake/SII Web. Gate rieseguiti:
+  Admin Web `npm run verify`, `npm run test:foundation` 462/462,
+  `test:task081:e2e` 1/1, `test:task081:win7-http` 1/1; Supabase local
+  migration list/up/lint pass; Win7POS CLI/WPF Release x86 build pass,
+  `--task081-sales-sync-harness` pass, `--task081-shop-cache-harness` TEST PASS,
+  scanner baseline e UX pass. Creato pack
+  `/Users/minxiang/Projects/Win7POS/dist/TASK-081Z/Win7POS-TASK081Z-UX-20260623-152414`
+  con zip SHA256 `9d5bb67aae198a15fb593f47868a643888d23be73ccfe3ac741f85ed1d2c23a2`,
+  36 file, `e_sqlite3.dll`, no PDB/MDB e redaction scan pulita; drop
+  `.win7pos-vm/drop/Win7POS`, `.win7pos-vm/shared-win7/Win7POS` e
+  `.win7pos-physical/bridge/drop/Win7POS` aggiornati/validati. Win7 fisico/VM
+  resta issue esterno gia documentato; in quel passaggio lo stato documentato
+  era `READY_FOR_DONE_CONFIRMATION_WITH_WIN7_LAUNCH_ISSUE_DOCUMENTED`; la
+  riconciliazione corrente e registrata nel bullet finale TASK-081.
+- TASK-081 final review / DONE reconciliation 2026-06-23: review severa finale
+  completata su Admin Web e Win7POS. Difetti repo-controllabili corretti:
+  rimosso da `src/Win7POS.Wpf/Pos/PaymentView.xaml.cs` un commento legacy
+  `SII Web`/area fiscale disattivata, aggiunto `PendingSalesText` al tooltip
+  sync della shell WPF e rimossa dall'UI operatore la stampa del path assoluto
+  del PDF boleta. Gate finali rieseguiti: Admin Web `lint`, `typecheck`,
+  `security:scan`, `test:foundation` 462/462, `build`, `verify`,
+  `test:task081:e2e` 1/1, `test:task081:win7-http` 1/1; Supabase local
+  migration list/up/lint pass; Win7POS CLI build pass con warning NU1903
+  preesistente, WPF x86 build pass 0 warning/0 error, sales sync harness pass,
+  shop-cache harness TEST PASS, scanner online/bootstrap/catalog/dialog e
+  UX/read-only/sync/revenue `ALL PASS`; release pack/drop TASK-081Z FINAL
+  verificati con zip SHA256
+  `0af5246d456a1a8190eaf6a84c72eb4d949601d4a7760fd1176ae1836c7385b4`,
+  36 file, `e_sqlite3.dll`, no PDB/MDB e redaction scan pulita. Nessun
+  file staged, nessun commit/push/deploy/Supabase production apply.
+  Win7 physical/VM runtime resta `EXTERNAL_TEST_PENDING`: UTM/bridge gia
+  tentati nei gate precedenti, nessun PASS fisico dichiarato. Stato finale
+  `DONE_RECONCILED_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`.
 
 ## Regole di avanzamento
 

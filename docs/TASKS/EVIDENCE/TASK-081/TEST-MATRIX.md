@@ -1,54 +1,52 @@
-# TASK-081 Test Matrix
+# TASK-081 Final Test Matrix
 
-Legenda stato: `PENDING`, `PASS`, `FAIL`, `NOT_RUN`, `BLOCKED_EXTERNAL`.
+Legenda stato: `PASS_STATIC`, `PASS_BUILD`, `PASS_HARNESS`, `PASS_E2E`, `PASS_RUNTIME`, `PASS_DROP`, `PASS_WITH_WARNING`, `NOT_RUN`, `BLOCKED_EXTERNAL`.
 
 | # | Scenario | Repo | Verifica eseguita | Risultato | Stato |
 |---:|---|---|---|---|---|
-| 1 | Governance task attivo e handoff | Admin Web | Master Plan/task/evidence aggiornati, foundation mirato TASK-081 | TASK-081 attivo `REVIEW`, fase `READY_FOR_DONE_CONFIRMATION_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`, non `DONE`; TASK-081 foundation mirato `2/2` | `PASS` |
-| 2 | POS bootstrap/sessione trusted | Admin Web, Win7POS | `npm run security:scan`, `check-pos-online-bootstrap.ps1`, `check-pos-online-client.ps1` | security scan passed; scanner Win7POS `ALL PASS` | `PASS` |
-| 3 | Catalog pull resta bounded e compatibile | Admin Web, Win7POS | `check-pos-catalog-pull.ps1`, `npm run test:foundation` | scanner `ALL PASS`; foundation `461/461` | `PASS` |
-| 4 | Shop data read-only Win7POS | Win7POS | WPF x86 build, `check-dialog-standards.ps1`, review ShopSettings | build `0 errori`; dialog standards `ALL PASS` | `PASS` |
-| 5 | Shop data read-only Shop Admin | Admin Web | existing settings boundary, `npm run test:foundation` | Master Console resta owner delle mutazioni shop; foundation `461/461` | `PASS` |
-| 6 | Sales sync v2 payload/handler strict | Admin Web | `npm run typecheck`, `npm run security:scan`, `task-081-pos-sales-revenue-stock-sync.test.mjs` | parser v2 strict, enum invalidi rifiutati, scanner passed | `PASS` |
-| 7 | Duplicate retry/idempotency response | Admin Web | foundation TASK-081 test, static review handler | duplicate batch risponde `code: "success"`, sale `duplicate`, `posSaleId` esistente | `PASS` |
-| 8 | Stock movement idempotente e retry repair | Admin Web/Supabase | foundation TASK-081 test, `supabase migration up --local`, pg queries locali | advisory lock presente, duplicate repair presente, trigger append-only presenti | `PASS` |
-| 9 | Win7POS offline sale + outbox | Win7POS | Core/Data/CLI/WPF Release builds + `--task081-sales-sync-harness` + HTTP harness | WPF `0 errori`; CLI harness `PASS`, sales=3, stock=10, outbox acked/retry/failed_blocked; HTTP harness accepted=6 pending_after_accept=0; CLI build warning NU1903 preesistente | `PASS` |
-| 10 | Win7POS reconnect/retry/quarantine | Win7POS | WPF build + foundation TASK-081 test + CLI harness + HTTP harness | retry/backoff, `failed_blocked`, max attempt, payload redatto e status DB runtime verificati; HTTP 401/403 resta retry senza perdita vendita | `PASS` |
-| 11 | Refund/full void stock reversal | Win7POS/Admin Web | WPF build + foundation TASK-081 test + sales-sync handler + CLI harness | `SaleKind.Void`, `ProductId` preservato, `stockQuantityDelta` reversal, server e locale `void_reverse` | `PASS` |
-| 12 | Ledger signed revenue | Admin Web/Supabase | typecheck, foundation TASK-081 test, local migration lint | ledger CLP signed, tax refund/void negative, detail API ledger-backed | `PASS` |
-| 13 | Dashboard incasso oggi/mese/anno | Admin Web | build/lint mirati + TASK-081 Playwright E2E locale + TASK-081 Win7POS HTTP E2E | `/shop/pos` desktop/mobile e API revenue autenticata verificati su dati sintetici reali Admin Web e su vendite arrivate dal CLI Win7POS HTTP | `PASS` |
-| 14 | No secret/service-role leak | Entrambi | `npm run security:scan`, Win7POS PowerShell scanners | Admin Web security passed; Win7POS scanners `ALL PASS` | `PASS` |
-| 15 | Supabase locale TASK-081 | Admin Web/Supabase | `supabase migration up --local`, `supabase db lint --local --schema public --fail-on warning`, pg queries | migration locale applicata; lint no schema errors; oggetti TASK-081 presenti | `PASS` |
-| 16 | POS local negative harness | Admin Web | TASK-081 Playwright E2E locale | schema/date/enum invalidi, malformed JSON, body oversize, device/staff/shop/session/cross-shop negati | `PASS` |
-| 17 | POS local positive harness | Admin Web/Supabase | TASK-081 Playwright E2E locale | dataset sintetico `TASK081_E2E_*`, first-login, sales sync, duplicate, conflict, stock warnings, browser UI, cleanup zero-attivi | `PASS` |
-| 18 | Win7POS real HTTP positive harness | Admin Web/Supabase/Win7POS | `npm run test:task081:win7-http` | dataset `TASK081_WIN7HTTP_*`, first-login, CLI Win7POS HTTP harness, 6 sales accepted, duplicate/conflict/auth-denied retry, stock final 7, API/UI desktop/mobile, cleanup zero-attivi | `PASS` |
-| 19 | Win7POS release pack x86 | Win7POS | `dotnet publish ... -r win-x86`, `validate-drop.sh`, `prepare-test-drop.sh` | pack `dist/TASK-081/Win7POS-TASK081-HTTP-20260623-113808`, zip/checksum/runbook, `e_sqlite3.dll` presente, VM/physical drop count 42 | `PASS` |
-| 20 | POS fisico/guest Windows 7, stampante, rete offline reale | Win7POS | discovery/dry-run only | UTM trovato ma `utmctl list` mostra VM Windows 7 `stopped`; bridge fisico solo dry-run; smoke guest/fisico non avviato | `NOT_RUN` |
-| 21 | Supabase remote/staging/production apply e deploy | Admin Web | vietato dallo scope | nessun apply remoto/deploy eseguito | `NOT_RUN` |
+| 1 | Governance task attivo e handoff | Admin Web | Master Plan/task/evidence aggiornati | TASK-081 `DONE_RECONCILED_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`; Master Plan torna `IDLE`; task attivo `NESSUNO`; nessun file staged | `PASS_STATIC` |
+| 2 | Admin Web quality gates | Admin Web | `npm run verify`, `npm run test:foundation` | lint/typecheck/security/build pass; foundation `462/462` | `PASS_BUILD` |
+| 3 | Supabase locale | Admin Web/Supabase | `supabase migration list --local`, `supabase migration up --local`, `supabase db lint --local --schema public,app_private --fail-on error` | migrations local/remote allineate; local DB up to date; no schema errors | `PASS_RUNTIME` |
+| 4 | Sales sync v2 strict/idempotente | Admin Web/Supabase | foundation TASK-081 + Playwright TASK-081 | parser strict, duplicate/conflict/negative auth/payload coperti | `PASS_E2E` |
+| 5 | Ledger/revenue dashboard | Admin Web/Supabase | `npm run test:task081:e2e` | dataset `TASK081_E2E_*`, first-login, sales sync, API revenue, UI `/shop/pos` desktop/mobile, cleanup | `PASS_E2E` |
+| 6 | Catalog pull full/delta/tombstone | Admin Web/Win7POS | `npm run test:task081:win7-http` + CLI `--task081-catalog-price-sync-harness` | `PASS_CATALOG_PRICE_SYNC_RUNTIME`; prodotto/categoria/fornitore/prezzi/stock/cursor/version, delta e tombstone verificati | `PASS_RUNTIME` |
+| 7 | Win7POS HTTP sales sync | Admin Web/Win7POS | `npm run test:task081:win7-http` + CLI `--task081-sales-sync-http-harness` | 6 sales accepted da outbox SQLite reale, duplicate ok, conflict ok, auth denied retry, stock server verificato | `PASS_E2E` |
+| 8 | Offline-first reconnect | Admin Web/Win7POS | `npm run test:task081:win7-http` + CLI `--task081-offline-reconnect-harness` | endpoint non raggiungibile -> retry -> reconnect accepted -> duplicate safe; `pending_final=0`; UI/API include sale offline | `PASS_RUNTIME` |
+| 9 | Win7POS local outbox/refund/void | Win7POS | `dotnet run --project src/Win7POS.Cli/Win7POS.Cli.csproj -c Release -- --task081-sales-sync-harness` | `TASK-081 sales sync harness: PASS`, `sales=3 stock=10 outbox=acked/retry/failed_blocked` | `PASS_HARNESS` |
+| 10 | Win7POS build x86 | Win7POS | CLI build, WPF build x86 | CLI build exit 0 con NU1903 preesistente; WPF x86 build `0 warning/0 error` | `PASS_BUILD` |
+| 11 | Win7POS baseline scanners | Win7POS | `check-pos-online-client.ps1`, `check-pos-online-bootstrap.ps1`, `check-pos-catalog-pull.ps1`, `check-dialog-standards.ps1` | tutti `=== RESULT: ALL PASS ===` | `PASS_STATIC` |
+| 12 | Shop official data read-only/offline cache | Win7POS/Admin Web | `check-pos-shop-data-readonly.ps1`, `--task081-shop-cache-harness`, foundation TASK-081 UX test | payload shop ufficiale completo; snapshot `pos.official_shop.*`; no `SaveShopInfoAsync`; no mutation shop POS; cache persisted/refreshed/read offline | `PASS_HARNESS` |
+| 13 | Sync status UX | Win7POS | `check-pos-sync-status-ux.ps1` | status strip/pannello con online/offline, ultimo catalogo, ultima vendita inviata, pending/retry/blocked, errori redatti; no token/session exposure | `PASS_STATIC` |
+| 14 | Revenue UX alignment | Win7POS/Admin Web | `check-pos-revenue-copy.ps1`, TASK-081 E2E, TASK-081 Win7 HTTP E2E | incasso completo resta visibile; boleta/PDF e non stampata sono status documento; no hidden/fake/SII Web copy; carta non supera saldo residuo | `PASS_E2E` |
+| 15 | Session/redaction cleanup | Entrambi | `find /tmp/task081-win7pos-http -name '*session.json'`, `rg` secret patterns su pack/drop | nessun session JSON residuo; nessun secret/token/JWT/service-role/path assoluto locale nel pack/drop TASK-081Z FINAL | `PASS_RUNTIME` |
+| 16 | Release pack TASK-081Z FINAL | Win7POS | `dotnet publish ... -r win-x86 --self-contained false -p:DebugType=none -p:DebugSymbols=false -p:PathMap=...`, `validate-drop.sh`, checksum/redaction scan | pack `dist/TASK-081Z/Win7POS-TASK081Z-FINAL-20260623-161612`, zip SHA256 `0af5246...c7385b4`, 36 app files, `e_sqlite3.dll`, no PDB/MDB, no local path/debug token match | `PASS_DROP` |
+| 17 | VM/physical drops | Win7POS | publish finale, physical bridge copy, `validate-drop.sh --expect-config`, redaction scan | `.win7pos-vm/drop/Win7POS`, `.win7pos-vm/shared-win7/Win7POS`, `.win7pos-physical/bridge/drop/Win7POS` aggiornati dal pack FINAL e validati | `PASS_DROP` |
+| 18 | UTM Windows 7 launch | Win7POS | `utmctl list/status`, `open -a UTM ~/Downloads/Windows 7.utm`, `utmctl start` with controlled timeout on both UUIDs, process check | both VMs `stopped`; `B634...` timeout 60s, `F97...` timeout 20s; no Win7 QEMU process; UTM registry/path issue documented | `BLOCKED_EXTERNAL` |
+| 19 | Physical Win7 bridge smoke | Win7POS | `send-physical-win7-job.sh --job env-report --execute`, `--job smoke-pos --execute`, 60s wait, cleanup, collector | jobs created but no runner processed them; moved to `failed/*manual-stale*`; report `physical-win7-20260623-180800` has 0 outbox/log/screenshot | `BLOCKED_EXTERNAL` |
+| 20 | Production/staging apply/deploy | Admin Web/Supabase | vietato dallo scope | nessun Supabase remote/staging/production apply, nessun deploy, nessun commit/stage/push | `NOT_RUN` |
+| 21 | Final review fixes | Win7POS | review diff + scanner revenue/read-only/sync + WPF build | rimosso commento legacy `SII Web`; tooltip sync include pending/retry/blocked; UI boleta non mostra path assoluto PDF; scanner UX/read-only/sync/revenue restano `ALL PASS` | `PASS_STATIC` |
 
 ## Gate Log
 
-### Gate 1 - Contract Freeze
+### Gate A - Local Code And Schema
 
-- File: `INTEGRATION-CONTRACT.md`, `TEST-MATRIX.md`.
-- Esito: contratto payload/response/idempotenza/source of truth definito prima delle patch finali.
+- Admin Web: `lint`, `typecheck`, `security:scan`, `test:foundation`, `build` pass.
+- Supabase local: migration list/up/lint pass con schema `public,app_private`.
+- Win7POS: CLI/WPF x86 build pass; scanner Win7POS baseline e UX pass.
 
-### Gate 2 - Fix-All Review
+### Gate B - Full Sync Runtime Local
 
-- Fix applicati: parser strict, duplicate ack con `posSaleId`, stock duplicate repair, append-only ledger/stock, tax sign, sale detail ledger-backed, Win7POS void/refund product preservation, outbox redaction, retry `failed_blocked`.
-- Esito: Admin Web lint/typecheck/security/foundation/build pass; Win7POS Release WPF x86 pass; Supabase local apply/lint pass.
+- `npm run test:task081:win7-http` pass.
+- Copertura: first-login, catalog full/delta/tombstone, sales sync HTTP reale, revenue API/UI, offline reconnect, duplicate safe e cleanup.
 
-### Gate 3 - E2E Alignment Closure
+### Gate C - Release/Bridge
 
-- Fix applicati: Playwright E2E TASK-081, package script `test:task081:e2e`, stock warning DB-side, Win7POS `void_reverse`, catalog stock preservation con pending outbox, CLI runtime harness.
-- Esito: TASK-081 E2E `1 passed`; TASK-081 foundation `2/2` pass; Admin Web build pass; Win7POS CLI harness pass; WPF x86 build pass.
+- Release pack TASK-081Z FINAL creato, zippato e validato.
+- VM/physical/shared drops aggiornati dal pack FINAL e validati.
+- UTM launch issue documentato con due UUID Windows 7 che restano `stopped`.
+- Physical bridge env/smoke non processati da runner; job ripuliti come manual-stale, quindi non dichiarato PASS.
 
-### Gate 4 - Final HTTP/Release Closure
+### Gate D - Final Reconciliation
 
-- Fix applicati: client/DTO/sessione Win7POS condivisi in Core, builder payload sales sync condiviso in Data, WPF e CLI allineati sullo stesso builder, CLI `--task081-sales-sync-http-harness`, Playwright `test:task081:win7-http`, release pack x86 win-x86 con manifest/checksum/runbook.
-- Esito: Win7POS HTTP E2E `1 passed`; CLI HTTP harness `accepted=6 pending_after_accept=0 duplicate=ok conflict=ok auth_denied_retry=1`; publish/drop validate pass; UTM/physical bridge non avviati per runner esterno non attivo.
-
-### Gate 5 - Handoff
-
-- Stato proposto: `READY_FOR_DONE_CONFIRMATION_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`.
-- Non `DONE`: serve conferma esplicita utente; prova fisica Win7POS/hardware resta nota esterna non eseguibile su questo host.
+- Stato finale: `DONE_RECONCILED_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`.
+- Runtime WPF su guest/fisico Windows 7 e hardware reale restano `EXTERNAL_TEST_PENDING`; non e stato dichiarato superato il test fisico Windows 7 e non e stato dichiarato completato il runtime fisico.

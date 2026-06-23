@@ -7,13 +7,19 @@ import {
   type SupabaseAdminClient,
 } from "@/lib/supabase/admin";
 import type { Json, Tables, TablesInsert } from "@/lib/supabase/database.types";
+import {
+  buildPosShopPayload,
+  POS_SHOP_SELECT,
+  type PosShopPayload,
+  type PosShopPayloadRow,
+} from "./shop-payload";
 import { verifyPosSecret } from "./tokens";
 
 export const MAX_POS_SALES_SYNC_JSON_BODY_BYTES = 256 * 1024;
 
 type JsonRecord = { [key: string]: Json | undefined };
 
-type ShopRow = Pick<Tables<"shops">, "shop_code" | "shop_id" | "shop_status">;
+type ShopRow = PosShopPayloadRow;
 type StaffAccountRow = Pick<
   Tables<"staff_accounts">,
   | "credential_status"
@@ -109,10 +115,7 @@ type PosSalesSyncEndpointResult =
           status: "accepted" | "duplicate";
         }>;
         serverTime: string;
-        shop: {
-          shopCode: string;
-          shopId: string;
-        };
+        shop: PosShopPayload;
       };
       status: 200;
     };
@@ -1158,7 +1161,7 @@ async function validatePosSession(
         .maybeSingle<PosDeviceCredentialRow>(),
       supabase
         .from("shops")
-        .select("shop_id,shop_code,shop_status")
+        .select(POS_SHOP_SELECT)
         .eq("shop_id", session.shop_id)
         .maybeSingle<ShopRow>(),
       supabase
@@ -2185,8 +2188,7 @@ export async function handlePosSalesSync(
         }),
         serverTime,
         shop: {
-          shopCode: shop.shop_code,
-          shopId: shop.shop_id,
+          ...buildPosShopPayload(shop),
         },
       },
       status: 200,
@@ -2584,8 +2586,7 @@ export async function handlePosSalesSync(
       }),
       serverTime,
       shop: {
-        shopCode: shop.shop_code,
-        shopId: shop.shop_id,
+        ...buildPosShopPayload(shop),
       },
     },
     status: 200,

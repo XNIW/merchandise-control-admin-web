@@ -7,12 +7,15 @@ import {
 } from "@/lib/supabase/admin";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import { verifyStaffCredential } from "@/server/shop-admin/staff-credentials";
+import {
+  buildPosShopPayload,
+  POS_SHOP_SELECT,
+  type PosShopPayload,
+  type PosShopPayloadRow,
+} from "./shop-payload";
 import { generatePosSecret, hashPosSecret, verifyPosSecret } from "./tokens";
 
-type ShopRow = Pick<
-  Tables<"shops">,
-  "shop_code" | "shop_id" | "shop_name" | "shop_status"
->;
+type ShopRow = PosShopPayloadRow;
 type StaffAccountRow = Pick<
   Tables<"staff_accounts">,
   | "credential_hash"
@@ -87,11 +90,7 @@ type PosFirstLoginSuccessBody = {
     posSessionId: string;
     sessionToken: string;
   };
-  shop: {
-    shopCode: string;
-    shopId: string;
-    shopName: string;
-  };
+  shop: PosShopPayload;
   staff: {
     credentialVersion: number;
     displayName: string;
@@ -521,7 +520,7 @@ export async function handlePosFirstLogin(
 
   const shopResult = await supabase
     .from("shops")
-    .select("shop_id,shop_code,shop_name,shop_status")
+    .select(POS_SHOP_SELECT)
     .eq("shop_code", parsed.shopCode)
     .maybeSingle<ShopRow>();
 
@@ -821,9 +820,7 @@ export async function handlePosFirstLogin(
         sessionToken,
       },
       shop: {
-        shopCode: shop.shop_code,
-        shopId: shop.shop_id,
-        shopName: shop.shop_name,
+        ...buildPosShopPayload(shop),
       },
       staff: {
         credentialVersion: staff.credential_version,
@@ -936,7 +933,7 @@ export async function handlePosHeartbeat(
         .maybeSingle<PosDeviceCredentialRow>(),
       supabase
         .from("shops")
-        .select("shop_id,shop_code,shop_name,shop_status")
+        .select(POS_SHOP_SELECT)
         .eq("shop_id", session.shop_id)
         .maybeSingle<ShopRow>(),
       supabase
