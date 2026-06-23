@@ -77,9 +77,9 @@ Non configura deploy automatici e non richiede secret.
 - Nessun deploy production configurato.
 - Nessun email provider collegato.
 - Sync Center ancora read-only.
-- Foundation backend POS per sessioni/dispositivi presente; nessun client POS reale ancora collegato.
-- Nessuna integrazione Android/iOS/POS reale end-to-end.
-- Nessun sales sync POS.
+- Foundation backend POS per sessioni/dispositivi presente; Win7POS usa il bridge offline-first TASK-081 per sales sync quando configurato.
+- Nessuna integrazione Android/iOS/POS fisica reale end-to-end verificata su hardware in questo repository.
+- Sales sync POS disponibile via `/api/pos/sales/sync` e Win7POS outbox; deploy/apply production restano fuori scope.
 - Google OAuth e predisposto repo-side e verificato in locale per account personali quando il runtime fornisce client ID/secret reali tramite env locali/deploy. I valori reali non devono stare nel repository. Apple e WeChat non sono operativi.
 
 Per modifiche Next.js leggere prima le guide pertinenti in `node_modules/next/dist/docs/`, come richiesto da `AGENTS.md`.

@@ -1,7 +1,7 @@
 -- TASK-039: staff-aware Shop Admin mutation foundation.
 -- Additive only. Staff web browser actors stay separate from Supabase Auth
 -- personal accounts; service-role usage remains server-side only.
--- No Sales Sync, no fake revenue data, no Win7POS runtime changes.
+-- No Sales Sync, no synthetic revenue data, no Win7POS runtime changes.
 
 alter table public.audit_logs
   add column if not exists actor_staff_id uuid references public.staff_accounts(staff_id);

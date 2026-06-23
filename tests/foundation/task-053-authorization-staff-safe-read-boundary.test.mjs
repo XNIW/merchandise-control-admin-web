@@ -58,7 +58,10 @@ test("TASK-053 documents the authorization architecture", () => {
     masterPlan,
     /Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`/,
   );
-  assert.match(masterPlan, /Task attivo: `(NONE|NESSUNO)`/);
+  assert.match(
+    masterPlan,
+    /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`/,
+  );
   assert.match(masterPlan, /Stato TASK-054: `DONE`/);
   assert.match(masterPlan, /Verdict TASK-054: `DONE_WITH_NOTES`/);
 });

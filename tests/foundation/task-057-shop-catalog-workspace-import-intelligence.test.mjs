@@ -70,7 +70,7 @@ test("TASK-057 governance is DONE_RECONCILED after TASK-058 confirmation", () =>
   assertContains(masterPlan, "Verdict TASK-057: `DONE_RECONCILED`");
   assert.match(
     masterPlan,
-    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`/,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`/,
   );
 });
 

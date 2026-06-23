@@ -35,7 +35,7 @@ test("TASK-056 tracking is DONE_RECONCILED after final DONE gate", () => {
 
   assert.match(
     masterPlan,
-    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`/,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`/,
   );
   assertContains(masterPlan, "Stato TASK-055: `DONE_RECONCILED`");
   assertContains(masterPlan, "Stato TASK-056: `DONE_RECONCILED`");

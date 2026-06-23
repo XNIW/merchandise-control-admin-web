@@ -167,7 +167,7 @@ test("TASK-047 governance docs record product decision and access matrix", () =>
     assertContains(docs, required, `docs must contain ${required}`);
   }
 
-  assert.match(masterPlan, /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`|Task attivo: `TASK-065 - Fix Master Console Google OAuth redirect`/);
+  assert.match(masterPlan, /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`|Task attivo: `TASK-065 - Fix Master Console Google OAuth redirect`/);
   assert.match(masterPlan, /Stato TASK-047: `DONE_RECONCILED`/);
   assert.match(masterPlan, /Fase TASK-047: `DONE_RECONCILED`/);
   assert.doesNotMatch(

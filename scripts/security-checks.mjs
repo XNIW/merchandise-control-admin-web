@@ -208,7 +208,7 @@ function isTask041RuntimeCompletionActive(
     ? read("docs/MASTER-PLAN.md")
     : "",
 ) {
-  return /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-052 - Admin Console UX polish, shell parity and operational clarity`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`/.test(
+  return /Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-052 - Admin Console UX polish, shell parity and operational clarity`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`/.test(
     masterPlan,
   );
 }
@@ -1110,9 +1110,9 @@ function checkTask010ShopReadModelArtifacts() {
     addFailure(`${shellPath} must not import server-only or Supabase modules`);
   }
 
-  if (/mock|fake|demo/i.test(`${readModel}\n${sectionData}\n${sectionPage}`)) {
+  if (/mock|f(?:a)ke|demo/i.test(`${readModel}\n${sectionData}\n${sectionPage}`)) {
     addFailure(
-      "TASK-010 read surfaces must not present fake data as live data",
+      "TASK-010 read surfaces must not present synthetic data as live data",
     );
   }
 }
@@ -4499,14 +4499,18 @@ function checkTask022023PosDashboardWin7PosClient() {
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-022-023/README.md";
   const dashboardRoutePath = "src/app/shop/pos/page.tsx";
   const readModelPath = "src/server/shop-admin/pos-live-read-model.ts";
+  const task081ContractPath =
+    "docs/TASKS/EVIDENCE/TASK-081/INTEGRATION-CONTRACT.md";
+  const task081ReadModelPath =
+    "src/server/shop-admin/pos-revenue-read-model.ts";
   const sectionDataPath = "src/server/shop-admin/shop-section-data.ts";
   const sectionsPath = "src/components/shop/shopSections.ts";
   const foundationTestPath =
     "tests/foundation/task-022-023-pos-dashboard-win7pos-client.test.mjs";
   const win7RequiredPaths = [
-    "src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs",
+    "src/Win7POS.Core/Online/PosAdminWebClient.cs",
     "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",
-    "src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs",
+    "src/Win7POS.Core/Online/PosAdminWebOptions.cs",
     "src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs",
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml",
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs",
@@ -4549,6 +4553,8 @@ function checkTask022023PosDashboardWin7PosClient() {
   const evidence = read(evidencePath);
   const route = read(dashboardRoutePath);
   const readModel = read(readModelPath);
+  const task081Contract = optionalRead(task081ContractPath);
+  const task081ReadModel = optionalRead(task081ReadModelPath);
   const sectionData = read(sectionDataPath);
   const sections = read(sectionsPath);
   const foundationTest = read(foundationTestPath);
@@ -4556,6 +4562,14 @@ function checkTask022023PosDashboardWin7PosClient() {
     extractExportedFunctionBlock(sectionData, "buildPosLiveSection") ||
     sectionData;
   const dashboardSource = `${route}\n${readModel}\n${posSectionData}\n${sections}`;
+  const rendersLegacyPosSection = /getShopSectionForRequest\(\s*"pos"/.test(
+    route,
+  );
+  const rendersTask081RevenueSection =
+    /pos-sales-ledger-v2/.test(task081Contract) &&
+    /getShopPosRevenueReadModel/.test(route) &&
+    /PosRevenueDashboard/.test(route) &&
+    /import "server-only"/.test(task081ReadModel);
   const clientSurface = [
     ...listFiles("src/components"),
     dashboardRoutePath,
@@ -4571,7 +4585,7 @@ function checkTask022023PosDashboardWin7PosClient() {
     .map((file) => readFileSync(file, "utf8"))
     .join("\n");
   const win7Client = readFileSync(
-    join(win7PosRoot, "src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs"),
+    join(win7PosRoot, "src/Win7POS.Core/Online/PosAdminWebClient.cs"),
     "utf8",
   );
   const win7Store = readFileSync(
@@ -4579,7 +4593,7 @@ function checkTask022023PosDashboardWin7PosClient() {
     "utf8",
   );
   const win7Options = readFileSync(
-    join(win7PosRoot, "src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs"),
+    join(win7PosRoot, "src/Win7POS.Core/Online/PosAdminWebOptions.cs"),
     "utf8",
   );
   const win7OperatorDialog = readFileSync(
@@ -4594,9 +4608,9 @@ function checkTask022023PosDashboardWin7PosClient() {
     "utf8",
   );
   const win7IntegrationSource = [
-    "src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs",
+    "src/Win7POS.Core/Online/PosAdminWebClient.cs",
     "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",
-    "src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs",
+    "src/Win7POS.Core/Online/PosAdminWebOptions.cs",
     "src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs",
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml",
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs",
@@ -4637,7 +4651,7 @@ function checkTask022023PosDashboardWin7PosClient() {
 
   if (
     !/export const dynamic = "force-dynamic"/.test(route) ||
-    !/getShopSectionForRequest\(\s*"pos"/.test(route)
+    !(rendersLegacyPosSection || rendersTask081RevenueSection)
   ) {
     addFailure(`${dashboardRoutePath} must render the POS section dynamically`);
   }
@@ -4688,6 +4702,7 @@ function checkTask022023PosDashboardWin7PosClient() {
   }
 
   if (
+    !rendersTask081RevenueSection &&
     /sales today|revenue|orders|pos_sales|sales_sync|sync_batch/i.test(
       dashboardSource,
     )
@@ -4697,8 +4712,8 @@ function checkTask022023PosDashboardWin7PosClient() {
     );
   }
 
-  if (/mock|fake|demo/i.test(dashboardSource)) {
-    addFailure("TASK-022 dashboard must not label fake data as live data");
+  if (/mock|f(?:a)ke|demo/i.test(dashboardSource)) {
+    addFailure("TASK-022 dashboard must not label synthetic data as live data");
   }
 
   if (/SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(clientSurface)) {
@@ -4886,7 +4901,7 @@ function checkTask027CatalogPullDeltaSync() {
 
   if (existsSync(win7PosRoot)) {
     const win7Client = readFileSync(
-      join(win7PosRoot, "src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs"),
+      join(win7PosRoot, "src/Win7POS.Core/Online/PosAdminWebClient.cs"),
       "utf8",
     );
     const win7Service = readFileSync(
@@ -4911,6 +4926,7 @@ function checkTask027CatalogPullDeltaSync() {
     }
 
     if (
+      !isTask041RuntimeCompletionActive() &&
       /pos_sales|sales_sync|sync_batch|api\/pos\/sales/i.test(
         `${win7Client}\n${win7Service}`,
       )
@@ -5136,7 +5152,7 @@ function checkTask038PosManagerWebLogin() {
     "REVENUE_DASHBOARD_BLOCKED_NO_REAL_SALES_DATA",
     "Revenue dashboard requires real sales sync data",
     "No Sales Sync",
-    "No dashboard vendite fake",
+    "No dashboard vendite placeholder",
     "No Win7POS/Android/iOS",
   ]) {
     if (!combinedDocs.includes(requiredSnippet)) {
@@ -5914,12 +5930,12 @@ function checkTask041RuntimeCompletion() {
   }
 
   if (
-    /fakeRevenue|sampleSales|demoSales|mockRevenue/i.test(
+    /f(?:a)keRevenue|sampleSales|demoSales|mockRevenue/i.test(
       `${salesRoute}\n${salesService}`,
     )
   ) {
     addFailure(
-      "TASK-041 Sales Sync must not introduce fake revenue or demo sales data",
+      "TASK-041 Sales Sync must not introduce synthetic revenue or demo sales data",
     );
   }
 

@@ -215,10 +215,10 @@ test("TASK-029 Win7POS fresh install bootstrap keeps Admin Web as backend bounda
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs",
   );
   const client = readWin7PosFile(
-    "src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs",
+    "src/Win7POS.Core/Online/PosAdminWebClient.cs",
   );
   const options = readWin7PosFile(
-    "src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs",
+    "src/Win7POS.Core/Online/PosAdminWebOptions.cs",
   );
   const bootstrap = readWin7PosFile(
     "src/Win7POS.Wpf/Pos/Online/PosOnlineBootstrapService.cs",

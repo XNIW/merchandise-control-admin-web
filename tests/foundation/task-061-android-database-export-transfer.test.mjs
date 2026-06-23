@@ -47,7 +47,10 @@ test("TASK-061 governance tracks Android database export handoff", () => {
   assertContains(task, "TASK-061 - Android database export compatibility");
   assertContains(task, "Stato: `DONE`");
   assertContains(task, "Fase attuale: `DONE_RECONCILED`");
-  assertContains(masterPlan, "Task attivo: `NESSUNO`");
+  assert.match(
+    masterPlan,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`/,
+  );
   assertContains(masterPlan, "Stato TASK-061: `DONE`");
   assertContains(masterPlan, "Fase TASK-061: `DONE_RECONCILED`");
   assertContains(evidence, "Verdict corrente: `DONE`");

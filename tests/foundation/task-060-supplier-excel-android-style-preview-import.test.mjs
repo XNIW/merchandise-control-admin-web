@@ -76,7 +76,10 @@ test("TASK-060 governance is DONE after explicit confirmation", () => {
   assertContains(task, "Fase attuale: `DONE`");
   assertContains(evidence, "Verdict corrente: `DONE`");
   assertContains(masterPlan, "Stato TASK-060: `DONE`");
-  assertContains(masterPlan, "Task attivo: `NESSUNO`");
+  assert.match(
+    masterPlan,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`/,
+  );
   assertContains(task, "workbook reale");
   assertContains(evidence, "Nessun secret/raw workbook");
   assertContains(evidence, "conferma esplicita utente ricevuta");

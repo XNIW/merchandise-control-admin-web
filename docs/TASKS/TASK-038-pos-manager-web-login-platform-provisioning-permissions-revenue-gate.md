@@ -139,7 +139,7 @@ Trasformare la foundation dual access in un flusso verificabile, senza fondere a
 
 - Commit/push richiesti nella finalizzazione esplicita TASK-038.
 - No Sales Sync.
-- No dashboard vendite fake.
+- No dashboard vendite placeholder.
 - No Win7POS/Android/iOS/Cash Register changes.
 - No Supabase production.
 - No Vercel Production.

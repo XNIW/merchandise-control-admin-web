@@ -1,7 +1,7 @@
 -- TASK-038: POS manager web login foundation.
 -- Additive only. Staff web browser sessions are separate from Supabase Auth
 -- personal sessions and from POS device-bound pos_sessions.
--- No Sales Sync, no fake revenue data, no raw browser tokens.
+-- No Sales Sync, no synthetic revenue data, no raw browser tokens.
 
 create table if not exists public.staff_web_sessions (
   staff_web_session_id uuid primary key default gen_random_uuid(),

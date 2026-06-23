@@ -53,7 +53,7 @@ test("TASK-052 Shop navigation keeps POS and Staff inside Admin Console", () => 
 
   assert.match(sections, /label: "POS \/ Staff"/);
   assert.match(sections, /key: "staff", label: "Staff", href: "\/shop\/staff"/);
-  assert.match(sections, /key: "pos", label: "POS Live", href: "\/shop\/pos"/);
+  assert.match(sections, /key: "pos", label: "Incassi POS", href: "\/shop\/pos"/);
   assert.match(sections, /key: "devices", label: "Devices", href: "\/shop\/devices"/);
   assert.doesNotMatch(sections, /POS\/Staff console|third console|terza console/i);
   assert.doesNotMatch(sections, /rowKey:\s*["'](?:demo|mock|placeholder)/i);

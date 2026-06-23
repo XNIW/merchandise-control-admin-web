@@ -67,7 +67,7 @@ test("TASK-050 records the active review reconciliation task and preserves block
 
   assert.match(
     masterPlan,
-    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`/,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`/,
   );
   assert.doesNotMatch(docs, /TASK-040: `DONE/);
   assert.doesNotMatch(docs, /TASK-041: `DONE/);

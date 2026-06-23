@@ -45,7 +45,10 @@ test("TASK-058 governance reconciles TASK-057 before opening Cloudflare executio
   assertContains(task057, "DONE_RECONCILED");
   assertContains(evidence057, "DONE_RECONCILED");
   assertContains(masterPlan, "Stato TASK-057: `DONE_RECONCILED`");
-  assertContains(masterPlan, "Task attivo: `TASK-058 - Cloudflare/OpenNext Staging Hardening and Deployment Governance`");
+  assert.match(
+    masterPlan,
+    /Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`/,
+  );
 
   for (const required of [
     "TASK-058",

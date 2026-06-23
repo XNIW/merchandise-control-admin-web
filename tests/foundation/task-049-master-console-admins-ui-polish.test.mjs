@@ -279,7 +279,7 @@ test("TASK-049 docs and evidence record DONE reconciliation without external PAS
 
   assert.match(
     masterPlan,
-    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`/,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`/,
   );
   assert.match(docs, /Stato TASK-049: `DONE_RECONCILED`/);
 });

@@ -2642,7 +2642,7 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 
 ## Tracking corrente
 
-- Stato globale attuale: `IDLE`
+- Stato globale attuale: `REVIEW`
 - Ultimo task completato: `TASK-077B - Performance architecture fix: Products + Master Console lightweight read models`
 - Stato TASK-015: `DONE`
 - Fase TASK-015: `DONE_RECONCILED`
@@ -2811,18 +2811,23 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-079: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
 - File task TASK-079: `docs/TASKS/TASK-079-history-entry-catalog-pagination-unified.md`
 - Evidence TASK-079: `docs/TASKS/EVIDENCE/TASK-079/README.md`
+- Stato TASK-081: `REVIEW`
+- Fase TASK-081: `READY_FOR_DONE_CONFIRMATION_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`
+- Task TASK-081: `TASK-081 - Win7POS Sales Sync, Daily/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`
+- File task TASK-081: `docs/TASKS/TASK-081-win7pos-sales-revenue-stock-sync.md`
+- Evidence TASK-081: `docs/TASKS/EVIDENCE/TASK-081/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Task attivo: `NESSUNO`
-- Task precedente: `TASK-078C - Product Detail visual polish and History Entries month-grouped UX`
+- Task attivo: `TASK-081 - Win7POS Sales Sync, Daily/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`
+- Task precedente: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
 - Ultimo task chiuso: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
 - Ultimo task completato: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
-- File task corrente: `docs/TASKS/TASK-079-history-entry-catalog-pagination-unified.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-079/README.md`
-- Stato task: `DONE_RECONCILED`
-- Fase: `DONE_RECONCILED`
-- Milestone interna: `TASK_079_DONE_RECONCILED`
-- Responsabile: `DONE_RECONCILED`
+- File task corrente: `docs/TASKS/TASK-081-win7pos-sales-revenue-stock-sync.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-081/README.md`
+- Stato task: `ACTIVE`
+- Fase: `REVIEW`
+- Milestone interna: `TASK_081_READY_FOR_DONE_CONFIRMATION_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`
+- Responsabile: `CODEX_HANDOFF_TO_REVIEW`
 - Branch previsto: `main` / no branch creation requested
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
@@ -3769,6 +3774,53 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
   Node `[DEP0205]`. Nessun commit, stage, push, deploy, migration, Supabase
   apply, History Save o import apply eseguito. Stato finale:
   `DONE_RECONCILED`.
+- Avvio TASK-081 2026-06-22: aperto da brief utente e addendum
+  `TASK-081 - Win7POS Sales Sync, Daily/Monthly Revenue, Stock Sync and Shop
+  Admin Realtime Dashboard`. Scope: integrare Win7POS offline-first con Admin
+  Web/Supabase per vendite, pagamenti, fiscal/document status, incasso
+  giornaliero, registro mensile, stock decrement/reversal, outbox/retry,
+  idempotenza, dashboard Shop Admin responsive e audit/security/performance.
+  Admin Web e Win7POS baseline allineati a `origin/main` e clean prima delle
+  modifiche. Stato iniziale: `EXECUTION`, non `DONE`.
+- Handoff TASK-081 2026-06-23: implementati migration/read model/dashboard
+  Admin Web, `pos-sales-ledger-v2`, stock RPC idempotente, Win7POS
+  `sales_sync_outbox`, sync service con retry, stock locale e impostazioni shop
+  read-only. Check reali: Admin Web `lint`, `typecheck`, `security:scan`,
+  `test:foundation` 459/459 e `build` exit 0; Win7POS Data build exit 0, WPF
+  x86 build exit 0, scanner PowerShell POS online/catalog/dialog/bootstrap
+  `ALL PASS`. Nessun commit, stage, push, deploy o Supabase production apply.
+  Residui: POS fisico Windows 7/stampante/rete reale non disponibili; deploy e
+  apply vietati dallo scope. Stato handoff precedente: REVIEW_READY, poi
+  superato dall'addendum E2E alignment closure; non `DONE`.
+- Completion addendum TASK-081 2026-06-23: aggiunto E2E locale reale
+  `tests/e2e/task-081-pos-revenue-e2e.spec.ts` con dataset sintetico
+  `TASK081_E2E_*`, first-login POS, `/api/pos/sales/sync`, duplicate/conflict,
+  negative auth/payload, API revenue autenticata, UI `/shop/pos`
+  desktop/mobile screenshot fuori repo e cleanup zero-attivi. Aggiunto harness
+  runtime Win7POS CLI `--task081-sales-sync-harness` per SQLite reale,
+  sale/refund/void stock, outbox ack/retry/failed_blocked e protezione catalog
+  stock con outbox pending. Check addendum reali: TASK-081 Playwright 1/1 PASS
+  via `next start` locale; foundation mirato 2/2 PASS; Admin Web build PASS;
+  Win7POS CLI harness PASS; Win7POS WPF x86 build PASS. Stato handoff:
+  `READY_FOR_DONE_CONFIRMATION_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`, non `DONE`.
+- Final alignment closure TASK-081 2026-06-23: aggiunto percorso Win7POS HTTP
+  reale senza POST sintetico diretto: client/DTO/sessione spostati in Core,
+  builder sales sync condiviso in Data, WPF e CLI allineati sullo stesso
+  payload builder, CLI `--task081-sales-sync-http-harness` con SQLite/outbox,
+  Admin Web local HTTP `/api/pos/sales/sync`, accepted=6,
+  `pending_after_accept=0`, duplicate ok, conflict ok e auth denied retry.
+  Aggiunto `test:task081:win7-http` con dataset `TASK081_WIN7HTTP_*`,
+  verifica DB/API/UI `/shop/pos` desktop/mobile e cleanup. Creato release pack
+  x86 win-x86 `dist/TASK-081/Win7POS-TASK081-HTTP-20260623-113808`
+  con manifest/checksum/runbook, `e_sqlite3.dll`, zip e copie in
+  `.win7pos-vm/drop/Win7POS`, `.win7pos-physical/bridge/drop/Win7POS` e
+  `/Users/minxiang/Projects/Win7POSBridge/outbox/TASK-081-win7pos-http-release-20260623-113808`.
+  `utmctl list` mostra due VM Windows 7 `stopped`; bridge fisico dry-run.
+  Gate finali rieseguiti dopo la closure: Admin Web `lint`, `typecheck`,
+  `security:scan`, `test:foundation` 461/461, `build`, `test:task081:e2e`
+  1/1 e `test:task081:win7-http` 1/1 PASS.
+  Stato resta `READY_FOR_DONE_CONFIRMATION_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`,
+  non `DONE`.
 
 ## Regole di avanzamento
 

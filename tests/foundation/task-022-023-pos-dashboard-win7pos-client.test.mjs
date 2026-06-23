@@ -144,7 +144,7 @@ test("TASK-022_023 governance artifacts track execution without marking DONE", (
   );
   assert.match(
     masterPlan,
-    /Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`|Task attivo: `TASK-026 - Shop Admin product catalog foundation`|Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`|Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`/,
+    /Task attivo: `TASK-022_023 - POS live dashboard \+ Win7POS first login trusted device`|Task attivo: `TASK-026 - Shop Admin product catalog foundation`|Task attivo: `TASK-027 - Catalog pull delta sync and POS catalog hardening`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`|Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `(NONE|NESSUNO)`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`/,
   );
   assert.match(
     masterPlan,
@@ -155,12 +155,14 @@ test("TASK-022_023 governance artifacts track execution without marking DONE", (
 test("Admin Web POS live dashboard is Shop Admin read-only and uses real POS tables only", () => {
   const routePath = "src/app/shop/pos/page.tsx";
   const readModelPath = "src/server/shop-admin/pos-live-read-model.ts";
+  const revenueReadModelPath = "src/server/shop-admin/pos-revenue-read-model.ts";
   const sectionDataPath = "src/server/shop-admin/shop-section-data.ts";
   const sectionsPath = "src/components/shop/shopSections.ts";
 
   for (const relativePath of [
     routePath,
     readModelPath,
+    revenueReadModelPath,
     sectionDataPath,
     sectionsPath,
   ]) {
@@ -173,6 +175,7 @@ test("Admin Web POS live dashboard is Shop Admin read-only and uses real POS tab
 
   const route = readProjectFile(routePath);
   const readModel = readProjectFile(readModelPath);
+  const revenueReadModel = readProjectFile(revenueReadModelPath);
   const sectionData = readProjectFile(sectionDataPath);
   const sections = readProjectFile(sectionsPath);
   const posLiveSection = extractExportedFunctionBlock(
@@ -183,8 +186,14 @@ test("Admin Web POS live dashboard is Shop Admin read-only and uses real POS tab
   const dashboardSource = `${route}\n${readModel}\n${posLiveSection}\n${sections}`;
 
   assert.match(route, /export const dynamic = "force-dynamic"/);
-  assert.match(route, /getShopSectionForRequest\(\s*"pos"/);
+  assert.match(route, /getShopPosRevenueReadModel/);
+  assert.match(route, /PosRevenueDashboard/);
   assert.doesNotMatch(route, /^["']use client["'];?/m);
+
+  assert.match(revenueReadModel, /import "server-only"/);
+  assert.match(revenueReadModel, /createSupabaseAdminClient/);
+  assert.match(revenueReadModel, /resolveShopAdminDataAccess/);
+  assert.doesNotMatch(revenueReadModel, /\.(insert|update|delete|upsert|rpc)\s*\(/);
 
   assert.match(readModel, /import "server-only"/);
   assert.match(readModel, /createSupabaseAdminClient/);
@@ -219,10 +228,6 @@ test("Admin Web POS live dashboard is Shop Admin read-only and uses real POS tab
     sectionData,
     /field: "Sales \/ revenue"[\s\S]*value: "Not configured"[\s\S]*detail: "POS sales sync is not connected yet"/,
   );
-  assert.doesNotMatch(
-    dashboardSource,
-    /sales today|revenue|orders|pos_sales|sales_sync|sync_batch/i,
-  );
   assert.doesNotMatch(dashboardSource, /mock|fake|demo/i);
 });
 
@@ -238,9 +243,9 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
   assert.equal(existsSync(win7PosRoot), true, "Win7POS repo is missing");
 
   const requiredPaths = [
-    "src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs",
+    "src/Win7POS.Core/Online/PosAdminWebClient.cs",
     "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",
-    "src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs",
+    "src/Win7POS.Core/Online/PosAdminWebOptions.cs",
     "src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs",
     "src/Win7POS.Wpf/Pos/Online/PosOnlineBootstrapService.cs",
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml",
@@ -256,13 +261,13 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
   }
 
   const client = readWin7PosFile(
-    "src/Win7POS.Wpf/Pos/Online/PosAdminWebClient.cs",
+    "src/Win7POS.Core/Online/PosAdminWebClient.cs",
   );
   const store = readWin7PosFile(
     "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",
   );
   const options = readWin7PosFile(
-    "src/Win7POS.Wpf/Pos/Online/PosAdminWebOptions.cs",
+    "src/Win7POS.Core/Online/PosAdminWebOptions.cs",
   );
   const identity = readWin7PosFile(
     "src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs",
@@ -287,6 +292,7 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
   assert.match(client, /Timeout\s*=/);
   assert.match(client, /\/api\/pos\/auth\/first-login/);
   assert.match(client, /\/api\/pos\/session\/heartbeat/);
+  assert.match(client, /\/api\/pos\/sales\/sync/);
   assert.match(client, /shopCode/);
   assert.match(client, /staffCode/);
   assert.match(client, /credential/);
@@ -314,10 +320,8 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
     combined,
     /pin\s*=\s*["'][0-9]{4,6}["']|password\s*=\s*["'][^"']+["']/i,
   );
-  assert.doesNotMatch(
-    combined,
-    /pos_sales|sales_sync|sync_batch|api\/pos\/sales/i,
-  );
+  assert.match(combined, /PosSalesSyncService/);
+  assert.match(combined, /sales_sync_outbox/);
 });
 
 test("TASK-022_023 security scanner covers Admin Web and Win7POS constraints", () => {

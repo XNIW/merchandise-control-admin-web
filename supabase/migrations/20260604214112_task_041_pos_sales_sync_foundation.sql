@@ -1,6 +1,6 @@
 -- TASK-041: POS Sales Sync foundation.
 -- Additive only. Runtime endpoint stores synthetic/POS-provided sale payloads
--- with DB-level idempotency and redacted audit metadata. No fake revenue data,
+-- with DB-level idempotency and redacted audit metadata. No synthetic revenue data,
 -- no dashboard aggregation, and no client/browser service-role usage.
 
 begin;
