@@ -9,11 +9,13 @@
 - Worker staging: `merchandise-control-admin-web-staging`
 - Admin Web status: `DONE_READY_FOR_USER_REVIEW`
 - Win7POS status: `READY_FOR_WIN7POS_ONLINE_RETEST`
+- Overall final review status: `READY_FOR_USER_REVIEW_AND_WIN7_RETEST`
 - Overall status: `READY_FOR_USER_REVIEW_AND_WIN7_RETEST`
 - Nessun deploy production o Supabase production apply eseguito.
 - Nessun secret letto, stampato o salvato.
 - Staging workers.dev deployato con Version ID finale `118fde99-acde-424a-9c60-87ab429af8df`.
 - Win7POS commit/push eseguito su `main`: `a70ed4f` (`TASK-084 simplify Win7POS online linking`).
+- Final hardening Admin Web: CI/package deploy staging usa `--minify`; runtime workers.dev verificato, nessun production deploy.
 
 ## Baseline git e dipendenze
 
@@ -483,3 +485,273 @@ exit 0
 - Browser QA Google reale puo richiedere account/sessione/2FA utente.
 - Windows 7 fisico/VM non e dichiarato PASS senza runtime reale.
 - Production deploy e Supabase production apply sono vietati dallo scope.
+
+## Final Review / Missing Completion Hardening - 2026-06-25
+
+### Mandatory repo sync
+
+Admin Web:
+
+```text
+git fetch origin main
+git pull --ff-only
+Risultato: Already up to date.
+Local HEAD: ad1e19da TASK-084 complete workers.dev staging and POS release readiness
+origin/main: ad1e19da TASK-084 complete workers.dev staging and POS release readiness
+Working tree prima del fix finale: solo file TASK-084 modificati da Codex piu untracked SSD_HEALTH_REPORT.md non stageato.
+```
+
+Win7POS:
+
+```text
+git fetch origin main
+git pull --ff-only
+Risultato: Already up to date.
+Local/origin HEAD: a70ed4f TASK-084 simplify Win7POS online linking
+TASK-083 richiesto: 2be295f e confermato antenato di main.
+Untracked legacy dist/TASK-081* non stageati.
+```
+
+### Cloudflare workers.dev version and size gate
+
+```text
+npx wrangler deployments list --env staging
+npx wrangler deployments status --env staging
+Active Version ID: 118fde99-acde-424a-9c60-87ab429af8df
+Traffic: 100%
+Created: 2026-06-24T23:59:59.205Z
+exit 0
+```
+
+```text
+npx wrangler deploy --dry-run --env staging
+Total Upload: 3142.22 KiB gzip
+exit 0
+```
+
+```text
+npx wrangler deploy --dry-run --env staging --minify
+Total Upload: 2688.10 KiB gzip
+exit 0
+```
+
+Fix finale applicato in Admin Web:
+
+- `package.json` `cf:deploy:staging` usa `npx wrangler deploy --env staging --keep-vars --minify`.
+- `.github/workflows/cloudflare.yml` usa `--minify` per deploy staging e production.
+- Nessun deploy production eseguito.
+- Nessun redeploy runtime dopo questo fix, perche la modifica e CI/package-only; il runtime workers.dev attivo `118fde99-acde-424a-9c60-87ab429af8df` e stato verificato con smoke esterni.
+
+### External browser QA workers.dev
+
+```text
+Target: https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev
+Supabase project: jpgoimipbothfgkokyvm
+Service-role key: loaded only in process memory, never printed.
+Temporary staff PIN: generated only in memory, never printed.
+```
+
+```text
+publicBrowser.desktop:
+  adminLogin PASS
+  shopCodeLogin PASS
+  platformGuard PASS
+  shopGuard PASS
+publicBrowser.mobile:
+  adminLogin PASS
+  shopCodeLogin PASS
+  platformGuard PASS
+  shopGuard PASS
+googleOAuth:
+  routeRedirect PASS
+  browserNavigationHost google
+shopCode:
+  login PASS
+  shopStaff PASS
+  platformDenied PASS
+  logout PASS
+  cookieCleared PASS
+personalLogout:
+  platform PASS
+  shopPersonal PASS
+cleanup:
+  baselineActiveStaffSessions 5
+  newActiveStaffWebSessions 0
+  activeSyntheticDevices 0
+  activeSyntheticPosSessions 0
+  activeSyntheticDeviceCredentials 0
+  staffCredentialRestored checked_after_restore
+status PASS
+exit 0
+```
+
+Nota: le 5 staff session attive baseline erano preesistenti per lo shop manager staging `1001`; lo smoke non ne ha lasciate di nuove.
+
+### POS API valid first-login smoke
+
+Lo smoke workers.dev ha usato una credenziale staff temporanea in memoria, una device key sintetica e payload valido per il contratto POS. Non sono stati stampati o salvati PIN, token o secret.
+
+```text
+posApi:
+  get405 PASS
+  firstLogin200 PASS
+  heartbeat200 PASS
+  catalogPull200 PASS
+  pinEcho PASS_NO_ECHO
+cleanup:
+  activeSyntheticDevices 0
+  activeSyntheticPosSessions 0
+  activeSyntheticDeviceCredentials 0
+status PASS
+exit 0
+```
+
+### ReleasePack artifact validation
+
+```text
+gh run view 28137596679 --json ...
+Workflow: Release Pack
+Run ID: 28137596679
+Conclusion: success
+Commit: a70ed4fff8cab5c23d27aae54294c347d9ca760d
+Job pack: success
+```
+
+```text
+Wrapper artifact:
+/tmp/task084-win7pos-releasepack/Win7POS-ReleasePack-x86-artifact.zip
+SHA256: f027e0233bb262a5a23df0291df6b1aef42e1ff17b3999dbf03b885e56d00e56
+
+Internal ReleasePack:
+/tmp/task084-win7pos-releasepack/extracted/Win7POS_20260625_0004.zip
+SHA256: 8555f15768b86a63b7dfd7a2aad71500d9736dbf40865fd1def6a32766d8e5f8
+```
+
+Required files present in the internal zip:
+
+```text
+Win7POS.Wpf.exe
+Win7POS.Wpf.exe.config
+Win7POS.Core.dll
+Win7POS.Data.dll
+e_sqlite3.dll
+VERSION.txt
+README_RUN.txt
+APP-FILES.txt
+SHA256SUMS.txt
+set-admin-web-staging-url.bat
+```
+
+Validators:
+
+```text
+pwsh -NoProfile -File scripts/check-release-pack-completeness.ps1 -ReleasePackSource /tmp/task084-win7pos-releasepack/extracted/Win7POS_20260625_0004.zip
+=== RESULT: ALL PASS ===
+exit 0
+```
+
+```text
+pwsh -NoProfile -File scripts/check-pos-startup-win7-safe.ps1 -ReleasePackSource /tmp/task084-win7pos-releasepack/extracted/Win7POS_20260625_0004.zip
+=== RESULT: ALL PASS ===
+exit 0
+```
+
+```text
+pwsh -NoProfile -File scripts/check-pos-online-linking-task084b.ps1 -ReleasePackSource /tmp/task084-win7pos-releasepack/extracted/Win7POS_20260625_0004.zip
+PASS: ReleasePack staging helper writes expected Admin Web config
+PASS: README_RUN.txt documents simplified online linking and staging helper
+PASS: RELEASE_CHECKLIST.txt includes staging helper and simplified linking checks
+=== RESULT: ALL PASS ===
+exit 0
+```
+
+### Final Admin Web gates after hardening
+
+```text
+git diff --check
+exit 0
+```
+
+```text
+npm run security:scan
+exit 0
+```
+
+```text
+npm run test:foundation
+tests 462
+pass 462
+fail 0
+exit 0
+```
+
+```text
+npm run typecheck
+exit 0
+```
+
+```text
+npm run lint
+exit 0
+```
+
+```text
+npm run build
+exit 0
+Warnings: Next.js middleware convention deprecated; Node DEP0205 module.register deprecation.
+```
+
+```text
+npm run verify
+lint/typecheck/security:scan/build: PASS
+exit 0
+Warnings: Next.js middleware convention deprecated; Node DEP0205 module.register deprecation.
+```
+
+```text
+npm run cf:build
+exit 0
+Warnings: Next.js middleware convention deprecated; Node DEP0205; OpenNext copy warnings for compress-commons/crc32-stream/zip-stream.
+```
+
+```text
+npm run smoke:cloudflare:local
+PASS home/login/platform/shop/products guards.
+PASS POS first-login/session-heartbeat/catalog-pull/sales-sync POST {} guards.
+PASS POS first-login/session-heartbeat/catalog-pull/sales-sync GET 405 no-store guards.
+PASS catalog upload/export/template guards.
+exit 0
+```
+
+```text
+PLAYWRIGHT_BASE_URL=... NEXT_PUBLIC_SUPABASE_URL=... SUPABASE_PROJECT_REF=... ALLOWED_STAGING_SUPABASE_PROJECT_REFS=... ALLOW_STAGING_E2E=yes CONFIRM_STAGING_E2E=yes npm run smoke:staging
+1 passed
+exit 0
+```
+
+### Exact Win7POS retest steps
+
+1. Scaricare l'artifact GitHub Actions `Win7POS-ReleasePack-x86` dal run `28137596679`.
+2. Estrarre `Win7POS_20260625_0004.zip`.
+3. Eseguire `set-admin-web-staging-url.bat` come amministratore, oppure scrivere `%ProgramData%\Win7POS\pos-admin-web.config` con `AdminWebBaseUrl=https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev`.
+4. Avviare `Win7POS.Wpf.exe` su Windows 7 fisico/VM.
+5. Aprire il flusso `Collega POS online`.
+6. Inserire solo shop code, staff code e PIN/password; non inserire URL o nome device nella UI normale.
+7. Verificare first-login, heartbeat e catalog pull.
+8. Eseguire sales sync solo durante il retest fisico previsto, usando dati sintetici.
+
+### Not run / residuals
+
+- Windows 7 fisico/VM first-login: `NOT_RUN_PHYSICAL_RUNTIME_REQUIRED`.
+- Windows 7 fisico/VM catalog pull: `NOT_RUN_PHYSICAL_RUNTIME_REQUIRED`.
+- Windows 7 fisico/VM sales sync: `NOT_RUN_PHYSICAL_RUNTIME_REQUIRED`.
+- Production deploy: `NOT_RUN_OUT_OF_SCOPE`.
+- Supabase production apply: `NOT_RUN_OUT_OF_SCOPE`.
+- Local Docker/Supabase OAuth smoke: `LOCAL_DOCKER_NOT_REQUIRED_FOR_REMOTE_STAGING`.
+
+### Final status for review
+
+- Admin Web: `DONE_READY_FOR_USER_REVIEW`.
+- Win7POS: `READY_FOR_WIN7POS_ONLINE_RETEST`.
+- Overall: `READY_FOR_USER_REVIEW_AND_WIN7_RETEST`.
+- Formal task state remains `REVIEW_READY`; Codex did not mark `DONE`.

@@ -174,7 +174,7 @@ test("TASK-041 opens only verified runtime implementation gates", () => {
   assert.deepEqual(deployScripts, [
     [
       "cf:deploy:staging",
-      "npm run cf:build && npx wrangler deploy --env staging --keep-vars",
+      "npm run cf:build && npx wrangler deploy --env staging --keep-vars --minify",
     ],
   ]);
   assertContains(wranglerConfig, "nodejs_compat");

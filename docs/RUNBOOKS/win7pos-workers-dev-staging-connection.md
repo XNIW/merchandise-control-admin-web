@@ -76,9 +76,10 @@ Comandi non-production:
 
 ```bash
 npm run cf:build
-npx wrangler deploy --dry-run --env staging
+npx wrangler deploy --dry-run --env staging --minify
 npx wrangler deploy --env staging --keep-vars --minify
 npx wrangler deployments list --env staging
+npx wrangler deployments status --env staging
 ```
 
 Nota: su account con limite Worker 3 MiB, `--minify` e necessario per questo
@@ -107,6 +108,23 @@ Atteso:
 HTTP 400/401/503
 Cache-Control: no-store
 ```
+
+Probe valido POS first-login:
+
+- usare solo credenziali sintetiche di staging;
+- non stampare PIN, token, session token, device token o service-role key;
+- aspettarsi `HTTP 200` solo con shop code/staff code/PIN validi e device key sintetica autorizzata dal flusso;
+- dopo il test revocare device/sessioni sintetiche e ripristinare eventuale credential temporanea.
+
+Retest Win7POS fisico:
+
+1. Scaricare l'artifact GitHub Actions `Win7POS-ReleasePack-x86` dal run validato.
+2. Estrarre lo zip interno `Win7POS_YYYYMMDD_HHMM.zip`.
+3. Eseguire `set-admin-web-staging-url.bat` come amministratore, oppure scrivere `%ProgramData%\Win7POS\pos-admin-web.config`.
+4. Avviare Win7POS.
+5. Aprire `Collega POS online`.
+6. Inserire solo shop code, staff code e PIN/password.
+7. Verificare first-login, heartbeat e catalog pull; eseguire sales sync solo se incluso nel retest fisico.
 
 ## Guardrail sicurezza
 

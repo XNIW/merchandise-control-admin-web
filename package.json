@@ -12,7 +12,7 @@
     "build": "next build",
     "cf:build": "opennextjs-cloudflare build",
     "cf:preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-    "cf:deploy:staging": "npm run cf:build && npx wrangler deploy --env staging --keep-vars",
+    "cf:deploy:staging": "npm run cf:build && npx wrangler deploy --env staging --keep-vars --minify",
     "smoke:cloudflare:local": "node scripts/testing/cloudflare-local-smoke.mjs",
     "smoke:oauth:local": "node scripts/testing/task-065-oauth-local-provider-smoke.mjs",
     "test:cloudflare:local": "CF_SMOKE_SKIP_BUILD=1 node scripts/testing/cloudflare-local-smoke.mjs",

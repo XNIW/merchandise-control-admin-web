@@ -55,9 +55,9 @@ L'addendum TASK-084B estende lo scope Win7POS:
 | CA-05 | Cookie staff web secure non dipende da URL Supabase; HTTP locale funziona e staging resta secure. | `PASS` |
 | CA-06 | Win7POS TASK-084B UI semplificata, URL in env/config/advanced, device automatico e scanner dedicato. | `PASS` |
 | CA-07 | Runbook workers.dev include URL staging, config Win7POS e divieto di path `/auth/login`/`/shop`. | `PASS` |
-| CA-08 | Gate Admin Web: `security:scan`, `test:foundation`, `typecheck`, `lint`, `build`, `verify`, `cf:build`, smoke Cloudflare locale. | `PASS_WITH_WARNINGS` |
+| CA-08 | Gate Admin Web: `security:scan`, `test:foundation`, `typecheck`, `lint`, `build`, `verify`, `cf:build`, smoke Cloudflare locale e dry-run Worker minificato. | `PASS_WITH_WARNINGS` |
 | CA-09 | Gate Win7POS: scanner PowerShell e build WPF Release x86. | `PASS` |
-| CA-10 | Staging workers.dev deploy autorizzato eseguito con `wrangler deploy --env staging --keep-vars --minify` e smoke remoto. | `PASS_WITH_MINIFY_NOTE` |
+| CA-10 | Staging workers.dev deploy autorizzato eseguito con `wrangler deploy --env staging --keep-vars --minify`, smoke remoto desktop/mobile e POS first-login valido. | `PASS_WITH_MINIFY_CI_HARDENING` |
 | CA-11 | ReleasePack Win7POS GitHub generato, scaricato e validato con artifact-mode. | `PASS` |
 | CA-12 | Handoff contiene file toccati, evidence, rischi residui e prossima fase review. | `PASS` |
 
@@ -111,3 +111,20 @@ Win7POS:
 - Windows 7 fisico/VM resta dipendente da runner o macchina reale disponibile; ReleasePack e pronto per retest online.
 - Staging workers.dev e non production; custom domain/DNS production resta fuori scope.
 - `npm run smoke:oauth:local` resta `BLOCKED_LOCAL_SUPABASE_REQUIRED` per Docker/Supabase locale non disponibile su questo host.
+
+## Final review hardening - 2026-06-25
+
+Esito Codex: `READY_FOR_USER_REVIEW_AND_WIN7_RETEST`, senza marcare il task `DONE`.
+
+- Admin Web runtime verificato su workers.dev Version ID `118fde99-acde-424a-9c60-87ab429af8df`.
+- Admin Web local/origin verificati allineati a `ad1e19da` prima del fix finale CI/package `--minify`.
+- Win7POS local/origin verificati allineati a `a70ed4f`; commit richiesto TASK-083 `2be295f` confermato come antenato su `main`.
+- Fix finale Admin Web: `cf:deploy:staging`, workflow staging e workflow production usano `wrangler deploy ... --minify`; non e stato eseguito deploy production.
+- Dry-run Cloudflare non minificato: `3142.22 KiB gzip`, ancora oltre/sul limite pratico 3 MiB; dry-run con `--minify`: `2688.10 KiB gzip`, `PASS`.
+- Browser QA esterno workers.dev: desktop e mobile `PASS` per login admin, login shop-code, platform guard e shop guard.
+- Google OAuth: route/form `PASS`, navigazione browser arriva a `accounts.google.com` con callback workers.dev redatto; nessuna credenziale Google o 2FA inserita.
+- Shop-code/staff login reale workers.dev: `PASS`; logout staff `PASS`; cookie staff cleared `PASS`; credential temporanea ripristinata e sessioni sintetiche revocate.
+- POS API smoke workers.dev con payload valido: `first-login 200`, `heartbeat 200`, `catalog pull 200`, PIN non ecoato `PASS_NO_ECHO`.
+- Personal logout platform/shop workers.dev: `PASS`; dati sintetici cleanup completato.
+- ReleasePack Win7POS GitHub run `28137596679`: `success`, artifact `Win7POS-ReleasePack-x86`, `APP-FILES.txt` e `SHA256SUMS.txt` presenti e validatori artifact-mode `PASS`.
+- Residuo obbligatorio: Windows 7 fisico/VM, catalog pull fisico e sales sync fisico restano `NOT_RUN` finche non esiste una prova runtime reale.

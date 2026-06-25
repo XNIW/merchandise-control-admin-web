@@ -165,7 +165,7 @@ jobs:
       - name: Deploy Worker staging
         run: |
           export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
-          npx wrangler deploy --env staging --keep-vars
+          npx wrangler deploy --env staging --keep-vars --minify
 
       - name: Install Playwright browsers
         if: >-
@@ -227,4 +227,4 @@ jobs:
       - name: Deploy Worker production
         run: |
           export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
-          npx wrangler deploy --env production --keep-vars
+          npx wrangler deploy --env production --keep-vars --minify

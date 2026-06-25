@@ -2835,6 +2835,24 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Milestone interna: `TASK_084_WORKERS_DEV_STAGING_AUTH_LOGOUT_WIN7POS_PUBLIC_CONNECTION`
 - Responsabile: `REVIEWER`
 - Branch previsto: `main` / no branch creation requested
+- Final review hardening TASK-084 2026-06-25: Admin Web e Win7POS riallineati a
+  `origin/main` (`ad1e19da` Admin Web pre-fix hardening, `a70ed4f`
+  Win7POS; TASK-083 `2be295f` confermato antenato). Cloudflare staging
+  workers.dev attivo su Version ID `118fde99-acde-424a-9c60-87ab429af8df`
+  al 100%. Corretto il deploy CI/package Admin Web per usare sempre
+  `wrangler deploy ... --minify`: dry-run non minificato `3142.22 KiB gzip`,
+  dry-run minificato `2688.10 KiB gzip`. Browser QA esterno workers.dev
+  desktop/mobile PASS per login admin/shop-code e guard; Google OAuth arriva
+  a `accounts.google.com` con callback workers.dev senza inserire credenziali.
+  Shop-code/staff login reale PASS con credential temporanea in memoria,
+  logout/cookie cleanup PASS. POS API smoke valido PASS (`first-login 200`,
+  `heartbeat 200`, `catalog pull 200`, `PIN no echo`). ReleasePack Win7POS
+  run `28137596679` success, artifact con `APP-FILES.txt` e `SHA256SUMS.txt`
+  validato. Stato operativo: Admin Web `DONE_READY_FOR_USER_REVIEW`,
+  Win7POS `READY_FOR_WIN7POS_ONLINE_RETEST`, overall
+  `READY_FOR_USER_REVIEW_AND_WIN7_RETEST`; task formale resta
+  `REVIEW_READY`, non `DONE`. Windows 7 fisico/VM, catalog pull fisico e
+  sales sync fisico restano `NOT_RUN_PHYSICAL_RUNTIME_REQUIRED`.
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
 - Task Vercel parcheggiato: `TASK-031 - Vercel Preview retry after environment docs`
