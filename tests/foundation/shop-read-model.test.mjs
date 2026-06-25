@@ -151,6 +151,31 @@ test("TASK-068H products page uses server-side pagination count and range", () =
   assert.match(productsPage, /getShopInventoryProductsPage/);
 });
 
+test("TASK-085 products page shows exact totals through count-only path", () => {
+  const inventoryReadModel = readProjectFile(
+    "src/server/shop-admin/inventory-read-model.ts",
+  );
+  const productsPage = readProjectFile("src/app/shop/products/page.tsx");
+
+  for (const required of [
+    "includeExactTotals?: boolean | \"count-only\"",
+    "countProductsPage",
+    "inventory_products.page.countOnly",
+    "head: true",
+    "includeExactTotals: \"count-only\"",
+    "Current filters exact total",
+  ]) {
+    assert.match(
+      `${inventoryReadModel}\n${productsPage}`,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+      `TASK-085 count-only contract must contain ${required}`,
+    );
+  }
+
+  assert.doesNotMatch(productsPage, /Total unavailable/);
+  assert.doesNotMatch(productsPage, /Server-side count unavailable/);
+});
+
 test("TASK-068H products filters and search stay server-side", () => {
   const inventoryReadModel = readProjectFile(
     "src/server/shop-admin/inventory-read-model.ts",

@@ -21,7 +21,7 @@ test("TASK-078 product page mounts lazy detail modals without expanding first pa
   const productsPage = read("src/app/shop/products/page.tsx");
 
   assertContains(productsPage, "getShopInventoryProductsPage");
-  assertContains(productsPage, "includeExactTotals: false");
+  assertContains(productsPage, 'includeExactTotals: "count-only"');
   assertContains(productsPage, "ProductDetailModalController");
   assertContains(productsPage, "HistoryDetailModalController");
   assertContains(productsPage, "data-product-detail-trigger");

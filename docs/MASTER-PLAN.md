@@ -2821,20 +2821,41 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-084: `TASK-084 - Admin Web workers.dev staging, auth/logout fixes, and Win7POS public connection`
 - File task TASK-084: `docs/TASKS/TASK-084-admin-web-workers-dev-staging-auth-logout-win7pos-public-connection.md`
 - Evidence TASK-084: `docs/TASKS/EVIDENCE/TASK-084/README.md`
+- Stato TASK-085: `REVIEW_READY`
+- Fase TASK-085: `REVIEW`
+- Task TASK-085: `TASK-085 - Fix workers.dev mobile OAuth and product totals readiness`
+- File task TASK-085: `docs/TASKS/TASK-085-workers-dev-mobile-oauth-products-count-readiness.md`
+- Evidence TASK-085: `docs/TASKS/EVIDENCE/TASK-085/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
 - Stato globale attuale: `REVIEW`
-- Task attivo: `TASK-084 - Admin Web workers.dev staging, auth/logout fixes, and Win7POS public connection`
-- Task precedente: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
+- Task attivo: `TASK-085 - Fix workers.dev mobile OAuth and product totals readiness`
+- Task precedente: `TASK-084 - Admin Web workers.dev staging, auth/logout fixes, and Win7POS public connection`
 - Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-084-admin-web-workers-dev-staging-auth-logout-win7pos-public-connection.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-084/README.md`
+- File task corrente: `docs/TASKS/TASK-085-workers-dev-mobile-oauth-products-count-readiness.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-085/README.md`
 - Stato task: `REVIEW_READY`
 - Fase: `REVIEW`
-- Milestone interna: `TASK_084_WORKERS_DEV_STAGING_AUTH_LOGOUT_WIN7POS_PUBLIC_CONNECTION`
+- Milestone interna: `TASK_085_WORKERS_DEV_MOBILE_OAUTH_PRODUCTS_COUNT_READINESS`
 - Responsabile: `REVIEWER`
 - Branch previsto: `main` / no branch creation requested
+- Completion addendum TASK-085 2026-06-25: fix correttivo post TASK-084 per
+  workers.dev mobile. Rimossa la probe OAuth provider server-side da route/action
+  Google, riducendo il click path mobile a `signInWithOAuth` + redirect
+  full-page no-store. `/shop/products` ora usa `includeExactTotals:
+  "count-only"` con count esatto `head: true` filtrato, senza riattivare i
+  summary catalogo pesanti e senza copy `Total unavailable` /
+  `Server-side count unavailable`. Cloudflare staging redeployato su Version ID
+  `81195e59-fdda-430c-8c33-911ee444d367` al 100%. Smoke workers.dev mobile
+  OAuth PASS 5/5 fino a `accounts.google.com`; smoke prodotti autenticato PASS
+  con exact total visibile e cleanup credential/sessioni; POS API valido PASS
+  (`first-login 200`, `heartbeat 200`, `catalog pull 200`, credential non
+  ecoata). Win7POS non fisico ricontrollato con scanner online/startup/linking
+  e build Release x86 PASS (`Avvisi: 0`, `Errori: 0`). Stato operativo:
+  `READY_FOR_USER_REVIEW_AND_WIN7_RETEST`; task formale resta `REVIEW_READY`,
+  non `DONE`. Windows 7 fisico/VM, catalog pull fisico e sales sync fisico
+  restano `NOT_RUN_PHYSICAL_RUNTIME_REQUIRED`.
 - Final review hardening TASK-084 2026-06-25: Admin Web e Win7POS riallineati a
   `origin/main` (`ad1e19da` Admin Web pre-fix hardening, `a70ed4f`
   Win7POS; TASK-083 `2be295f` confermato antenato). Cloudflare staging

@@ -209,7 +209,7 @@ test("TASK-079B apply writes canonical history but preview remains side-effect f
   assertContains(ui, "Applying this supplier import will create or update");
   assertContains(ui, "historyEntry?:");
   assertContains(ui, "setApplyResult(result)");
-  assertContains(productsPage, "includeExactTotals: false");
+  assertContains(productsPage, 'includeExactTotals: "count-only"');
   assertContains(mobileContract, "remote_id` must be a lowercase UUID string");
   assertContains(mobileContract, "`payload_version = 2`");
   assertContains(mobileContract, "`overlay_schema = 1`");

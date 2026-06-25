@@ -15,6 +15,7 @@
     "cf:deploy:staging": "npm run cf:build && npx wrangler deploy --env staging --keep-vars --minify",
     "smoke:cloudflare:local": "node scripts/testing/cloudflare-local-smoke.mjs",
     "smoke:oauth:local": "node scripts/testing/task-065-oauth-local-provider-smoke.mjs",
+    "smoke:task085:staging": "node scripts/testing/task-085-workers-dev-runtime-smoke.mjs",
     "test:cloudflare:local": "CF_SMOKE_SKIP_BUILD=1 node scripts/testing/cloudflare-local-smoke.mjs",
     "start": "next start",
     "lint": "eslint",

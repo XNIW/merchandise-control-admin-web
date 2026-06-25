@@ -17,6 +17,12 @@
 - Win7POS commit/push eseguito su `main`: `a70ed4f` (`TASK-084 simplify Win7POS online linking`).
 - Final hardening Admin Web: CI/package deploy staging usa `--minify`; runtime workers.dev verificato, nessun production deploy.
 
+## Addendum TASK-085
+
+TASK-085 ha chiuso i due blocker post-review rimasti su workers.dev mobile:
+`Google OAuth 1102` e `/shop/products` exact total. Evidence corrente:
+`docs/TASKS/EVIDENCE/TASK-085/README.md`.
+
 ## Baseline git e dipendenze
 
 Admin Web:

@@ -256,7 +256,7 @@ type GetShopInventoryReadModelOptions = {
 type GetShopInventoryProductsPageOptions = {
   client?: SupabaseServerClient | null;
   filters?: ShopInventoryProductsPageFilters;
-  includeExactTotals?: boolean;
+  includeExactTotals?: boolean | "count-only";
   page?: number | string | null;
   pageSize?: number | string | null;
   perfTrace?: AdminWebPerfTrace;
@@ -356,6 +356,24 @@ type ProductPageTable = {
       count: "exact";
     },
   ) => ProductPageQuery;
+};
+
+type ProductCountQuery = {
+  eq: (column: string, value: string) => ProductCountQuery;
+  in: (column: string, values: string[]) => ProductCountQuery;
+  is: (column: string, value: null) => ProductCountQuery;
+  not: (column: string, operator: string, value: null) => ProductCountQuery;
+  or: (filters: string) => ProductCountQuery;
+} & PromiseLike<CountResult>;
+
+type ProductCountTable = {
+  select: (
+    columns: string,
+    options: {
+      count: "exact";
+      head: true;
+    },
+  ) => ProductCountQuery;
 };
 
 type CatalogEntityProductCountRow = {
@@ -805,8 +823,15 @@ function sanitizeProductSearchQuery(value: string | null) {
   return normalized || null;
 }
 
-function applyProductsPageFilters(
-  query: ProductPageQuery,
+type ProductFilterableQuery<Query> = {
+  eq: (column: string, value: string) => Query;
+  is: (column: string, value: null) => Query;
+  not: (column: string, operator: string, value: null) => Query;
+  or: (filters: string) => Query;
+};
+
+function applyProductsPageFilters<Query extends ProductFilterableQuery<Query>>(
+  query: Query,
   filters: ShopInventoryProductsPage["filters"],
 ) {
   let nextQuery = query;
@@ -1194,6 +1219,44 @@ async function fetchProductsPage(input: {
         pageQuery,
       )
     : pageQuery;
+}
+
+async function countProductsPage(input: {
+  filters: ShopInventoryProductsPage["filters"];
+  legacyOwnerOnlySchema: boolean;
+  legacyOwnerUserId: string | null;
+  perfTrace?: AdminWebPerfTrace;
+  selectedShopId: string;
+  source: "legacy_owner_bridge" | "shop_scoped";
+  supabase: SupabaseServerClient;
+}) {
+  input.perfTrace?.query("inventory_products.page.countOnly");
+
+  const productsTable = input.supabase.from(
+    "inventory_products",
+  ) as unknown as ProductCountTable;
+  let query = productsTable.select("id", {
+    count: "exact",
+    head: true,
+  });
+
+  if (input.source === "shop_scoped") {
+    query = query.eq("shop_id", input.selectedShopId);
+  } else if (input.legacyOwnerOnlySchema) {
+    query = query.eq("owner_user_id", input.legacyOwnerUserId ?? "");
+  } else {
+    query = query
+      .is("shop_id", null)
+      .eq("owner_user_id", input.legacyOwnerUserId ?? "");
+  }
+
+  query = applyProductsPageFilters(query, input.filters);
+
+  return input.perfTrace
+    ? input.perfTrace.time("inventory_products.page.countOnly.query", async () =>
+        ((await query) as CountResult),
+      )
+    : ((await query) as CountResult);
 }
 
 function normalizeLookupCodes(values: readonly string[]) {
@@ -2896,7 +2959,10 @@ export async function getShopInventoryProductsPage(
     : await resolveShopAdminDataAccess(accessOptions);
   const page = normalizeProductPage(options.page);
   const pageSize = normalizeProductPageSize(options.pageSize);
+  const includeCountOnlyExactTotal = options.includeExactTotals === "count-only";
   const includeExactTotals = options.includeExactTotals !== false;
+  const includePageSelectExactCount =
+    includeExactTotals && !includeCountOnlyExactTotal;
   const requestedFrom = (page - 1) * pageSize;
   const requestedTo = requestedFrom + pageSize - 1;
   const filters: ShopInventoryProductsPage["filters"] = {
@@ -3043,7 +3109,7 @@ export async function getShopInventoryProductsPage(
   const catalogScope: ShopInventoryCatalogScope = useLegacyOwnerBridge
     ? "legacy_owner_bridge"
     : "shop_scoped";
-  const catalogSummaryResult = includeExactTotals
+  const catalogSummaryResult = includePageSelectExactCount
     ? await loadCatalogSummary({
         legacyOwnerOnlySchema,
         legacyOwnerUserId,
@@ -3075,10 +3141,43 @@ export async function getShopInventoryProductsPage(
     };
   }
 
+  const countOnlyResult = includeCountOnlyExactTotal
+    ? await countProductsPage({
+        filters,
+        legacyOwnerOnlySchema,
+        legacyOwnerUserId,
+        perfTrace,
+        selectedShopId: selectedShop.shopId,
+        source: catalogScope,
+        supabase,
+      })
+    : {
+        count: null,
+        error: null,
+      };
+
+  if (countOnlyResult.error) {
+    return {
+      status: "error",
+      catalogScope: "blocked",
+      legacyOwnerUserId,
+      selectedShop,
+      mapping,
+      products: [],
+      filters,
+      summary: emptySummary,
+      pagination: emptyPagination,
+      readOnly: true,
+      source: "supabase_server",
+      reason: "Mapped catalog filtered total could not be loaded through RLS.",
+      error: redactInventoryReadModelError(countOnlyResult.error),
+    };
+  }
+
   let productsResult = await fetchProductsPage({
     filters,
     from: requestedFrom,
-    includeExactCount: includeExactTotals,
+    includeExactCount: includePageSelectExactCount,
     legacyOwnerOnlySchema,
     legacyOwnerUserId,
     perfTrace,
@@ -3112,7 +3211,9 @@ export async function getShopInventoryProductsPage(
   let fetchedRows = productsResult.data ?? [];
   let rows = includeExactTotals ? fetchedRows : fetchedRows.slice(0, pageSize);
   let hasNextPage = includeExactTotals ? false : fetchedRows.length > pageSize;
-  const exactTotalCount = productsResult.count ?? rows.length;
+  const exactTotalCount =
+    (includeCountOnlyExactTotal ? countOnlyResult.count : productsResult.count) ??
+    rows.length;
   const totalCount = includeExactTotals
     ? exactTotalCount
     : requestedFrom + rows.length + (hasNextPage ? 1 : 0);
@@ -3129,7 +3230,7 @@ export async function getShopInventoryProductsPage(
     productsResult = await fetchProductsPage({
       filters,
       from,
-      includeExactCount: includeExactTotals,
+      includeExactCount: includePageSelectExactCount,
       legacyOwnerOnlySchema,
       legacyOwnerUserId,
       perfTrace,
@@ -3171,7 +3272,14 @@ export async function getShopInventoryProductsPage(
     ? clampedPage < totalPages
     : hasNextPage;
   const summary = includeExactTotals
-    ? catalogSummaryResult.summary
+    ? includeCountOnlyExactTotal
+      ? {
+          ...emptySummary,
+          activeProducts: filters.state === "archived" ? 0 : totalCount,
+          archivedProducts: filters.state === "archived" ? totalCount : 0,
+          productsTotal: totalCount,
+        }
+      : catalogSummaryResult.summary
     : {
         ...emptySummary,
         activeProducts: filters.state === "archived" ? 0 : totalCount,
@@ -3207,10 +3315,14 @@ export async function getShopInventoryProductsPage(
     reason:
       catalogScope === "legacy_owner_bridge"
         ? includeExactTotals
-          ? "Legacy mobile bridge product rows loaded through owner_user_id from shop_inventory_sources with exact count."
+          ? includeCountOnlyExactTotal
+            ? "Legacy mobile bridge product rows loaded through owner_user_id from shop_inventory_sources with exact count-only total."
+            : "Legacy mobile bridge product rows loaded through owner_user_id from shop_inventory_sources with exact count."
           : "Legacy mobile bridge product rows loaded through owner_user_id from shop_inventory_sources with exact totals deferred from first paint."
         : includeExactTotals
-          ? "Shop-scoped product rows loaded server-side with exact count and range for the verified selected shop."
+          ? includeCountOnlyExactTotal
+            ? "Shop-scoped product rows loaded server-side with exact count-only total and range for the verified selected shop."
+            : "Shop-scoped product rows loaded server-side with exact count and range for the verified selected shop."
           : "Shop-scoped product rows loaded server-side with exact totals deferred from first paint.",
   };
 }

@@ -4,10 +4,7 @@ import { headers } from "next/headers";
 import { redirect, RedirectType } from "next/navigation";
 import {
   buildOAuthCallbackUrl,
-  hasInvalidGoogleOAuthClientIdLocation,
   hasMisconfiguredOAuthRedirectUrl,
-  isOAuthProviderNotEnabledBody,
-  isGoogleOAuthAccountsLocation,
   loginResultUrl,
   requestOriginFromHeaders,
   safeInternalNextPath,
@@ -42,51 +39,6 @@ function blocked(message: string): AccountSignInState {
     message,
     status: "blocked",
   };
-}
-
-const oauthAuthorizeProbeTimeoutMs = 3_000;
-
-async function probeOAuthAuthorizeUrl(oauthUrl: string) {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => {
-    controller.abort();
-  }, oauthAuthorizeProbeTimeoutMs);
-
-  try {
-    const response = await fetch(oauthUrl, {
-      cache: "no-store",
-      redirect: "manual",
-      signal: controller.signal,
-    });
-
-    if (response.status >= 300 && response.status < 400) {
-      const location = response.headers.get("location");
-
-      if (!isGoogleOAuthAccountsLocation(location)) {
-        return "blocked";
-      }
-
-      if (hasInvalidGoogleOAuthClientIdLocation(location)) {
-        return "client_id_invalid";
-      }
-
-      return "redirect";
-    }
-
-    if (response.status === 400) {
-      const body = await response.text();
-
-      return isOAuthProviderNotEnabledBody(body)
-        ? "provider_not_enabled"
-        : "blocked";
-    }
-
-    return response.status >= 400 ? "blocked" : "passthrough";
-  } catch {
-    return "blocked";
-  } finally {
-    clearTimeout(timeout);
-  }
 }
 
 export async function accountSignInAction(
@@ -155,26 +107,6 @@ export async function googleSignInAction(formData: FormData): Promise<void> {
       loginResultUrl(nextPath, "oauth_redirect_misconfigured"),
       RedirectType.replace,
     );
-  }
-
-  const authorizeProbe = await probeOAuthAuthorizeUrl(data.url);
-
-  if (authorizeProbe === "client_id_invalid") {
-    redirect(
-      loginResultUrl(nextPath, "oauth_google_client_id_invalid"),
-      RedirectType.replace,
-    );
-  }
-
-  if (authorizeProbe === "provider_not_enabled") {
-    redirect(
-      loginResultUrl(nextPath, "oauth_provider_not_enabled"),
-      RedirectType.replace,
-    );
-  }
-
-  if (authorizeProbe === "blocked") {
-    redirect(loginResultUrl(nextPath, "oauth_blocked"), RedirectType.replace);
   }
 
   redirect(data.url, RedirectType.replace);

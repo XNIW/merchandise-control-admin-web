@@ -69,7 +69,7 @@ test("TASK-068E products search suggestions stay server-side and lightweight", (
 
   assertContains(page, "ProductSearchCombobox");
   assertContains(page, "defaultValue={selectedQuery}");
-  assertContains(page, "includeExactTotals: false");
+  assertContains(page, 'includeExactTotals: "count-only"');
   assertContains(page, "\"Total products\"");
   assertContains(page, "\"Results\"");
   assertContains(page, "\"Filters\"");

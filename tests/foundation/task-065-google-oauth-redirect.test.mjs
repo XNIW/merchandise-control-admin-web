@@ -163,26 +163,19 @@ test("TASK-065 Google OAuth action uses current origin callback and guarded prov
   assert.match(action, /buildOAuthCallbackUrl\(origin, nextPath\)/);
   assert.match(action, /redirectTo:\s*buildOAuthCallbackUrl\(origin, nextPath\)/);
   assert.match(action, /hasMisconfiguredOAuthRedirectUrl\(data\.url, origin\)/);
-  assert.match(action, /probeOAuthAuthorizeUrl\(data\.url\)/);
-  assert.match(action, /oauthAuthorizeProbeTimeoutMs = 3_000/);
-  assert.match(action, /new AbortController\(\)/);
-  assert.match(action, /signal: controller\.signal/);
-  assert.match(action, /clearTimeout\(timeout\)/);
-  assert.match(action, /isGoogleOAuthAccountsLocation\(location\)/);
-  assert.match(action, /hasInvalidGoogleOAuthClientIdLocation\(location\)/);
-  assert.match(action, /redirect:\s*"manual"/);
-  assert.match(action, /oauth_google_client_id_invalid/);
-  assert.match(action, /oauth_provider_not_enabled/);
   assert.match(action, /oauth_redirect_misconfigured/);
   assert.doesNotMatch(action, /NEXT_PUBLIC_VERCEL_URL|VERCEL_URL|vercel\.app/);
+  assert.doesNotMatch(action, /probeOAuthAuthorizeUrl|oauthAuthorizeProbeTimeoutMs/);
+  assert.doesNotMatch(action, /fetch\(oauthUrl/);
   assert.match(route, /export async function GET\(request: NextRequest\)/);
   assert.match(route, /requestOriginFromRequest\(request\) \|\| requestUrl\.origin/);
   assert.match(route, /buildOAuthCallbackUrl\(origin, nextPath\)/);
   assert.match(route, /hasUnsafeInternalNextPath\(requestedNext\)/);
   assert.match(route, /loginErrorUrl\(origin, "\/", "unsafe_next"\)/);
-  assert.match(route, /redirect:\s*"manual"/);
   assert.match(route, /hasMisconfiguredOAuthRedirectUrl\(data\.url, origin\)/);
   assert.match(route, /NextResponse\.redirect\(data\.url\)/);
+  assert.doesNotMatch(route, /probeOAuthAuthorizeUrl|oauthAuthorizeProbeTimeoutMs/);
+  assert.doesNotMatch(route, /fetch\(oauthUrl/);
 });
 
 test("TASK-065 callback preserves safe next on handled OAuth errors", () => {

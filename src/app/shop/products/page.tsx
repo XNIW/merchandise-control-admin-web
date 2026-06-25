@@ -113,7 +113,7 @@ function formatRange(page: ShopInventoryProductsPage) {
   const totalSuffix =
     pagination.totalCountStatus === "exact"
       ? formatNumber(pagination.totalCount)
-      : `at least ${formatNumber(pagination.totalCount)}`;
+      : "loading total...";
 
   return `${formatNumber(pagination.rangeStart)}-${formatNumber(
     pagination.rangeEnd,
@@ -460,8 +460,8 @@ function buildProductsPageSection(input: {
       metrics: [
         metric(
           "Total products",
-          "Total unavailable",
-          "Server-side count unavailable",
+          "Unable to load total",
+          "Exact count could not be loaded for this request",
           "muted",
         ),
         metric("Results", "0", "No fallback rows are rendered", "muted"),
@@ -516,10 +516,10 @@ function buildProductsPageSection(input: {
         "Total products",
         pagination.totalCountStatus === "exact"
           ? formatNumber(exactTotalForState)
-          : "Total unavailable",
+          : "Loading total...",
         pagination.totalCountStatus === "exact"
-          ? "Selected state total"
-          : "Server-side count unavailable",
+          ? "Current filters exact total"
+          : "Exact count is loading separately",
       ),
       metric(
         "Results",
@@ -1577,7 +1577,7 @@ export default async function ShopProductsPage({
           state: selectedState,
           supplierId: selectedSupplierId,
         },
-        includeExactTotals: false,
+        includeExactTotals: "count-only",
         page: selectedPage,
         pageSize: selectedPageSize,
         perfTrace,

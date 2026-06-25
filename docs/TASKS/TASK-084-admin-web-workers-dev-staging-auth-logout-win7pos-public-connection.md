@@ -128,3 +128,13 @@ Esito Codex: `READY_FOR_USER_REVIEW_AND_WIN7_RETEST`, senza marcare il task `DON
 - Personal logout platform/shop workers.dev: `PASS`; dati sintetici cleanup completato.
 - ReleasePack Win7POS GitHub run `28137596679`: `success`, artifact `Win7POS-ReleasePack-x86`, `APP-FILES.txt` e `SHA256SUMS.txt` presenti e validatori artifact-mode `PASS`.
 - Residuo obbligatorio: Windows 7 fisico/VM, catalog pull fisico e sales sync fisico restano `NOT_RUN` finche non esiste una prova runtime reale.
+
+## Addendum correttivo TASK-085 - 2026-06-25
+
+TASK-085 prosegue TASK-084 senza chiuderlo a `DONE`: corregge il 1102 mobile
+workers.dev su Google OAuth rimuovendo la probe provider server-side e ripristina
+il totale esatto filtrato su `/shop/products` con modalita count-only. Handoff ed
+evidence correnti:
+
+- `docs/TASKS/TASK-085-workers-dev-mobile-oauth-products-count-readiness.md`
+- `docs/TASKS/EVIDENCE/TASK-085/README.md`
