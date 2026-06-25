@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import {
   createSupabaseAdminClient,
   resolveSupabaseAdminConfig,
@@ -70,6 +70,9 @@ export type StaffWebLoginInput = {
 };
 
 export type StaffWebRequestMeta = {
+  forwardedHost?: string | null;
+  forwardedProto?: string | null;
+  host?: string | null;
   userAgent?: string | null;
 };
 
@@ -177,11 +180,63 @@ export function verifyStaffWebSecret(secret: string, expectedHash: string) {
   return candidate.length === expected.length && timingSafeEqual(candidate, expected);
 }
 
-export function isSecureStaffWebCookie() {
+export function isSecureStaffWebCookie(meta: StaffWebRequestMeta = {}) {
+  return resolveStaffWebCookieSecure(meta);
+}
+
+function firstHeaderValue(value: string | null | undefined) {
+  return value?.split(",")[0]?.trim() || "";
+}
+
+function hostnameFromHost(host: string) {
+  if (host.startsWith("[") && host.includes("]")) {
+    return host.slice(1, host.indexOf("]"));
+  }
+
+  return host.split(":")[0] ?? "";
+}
+
+function isLocalStaffWebHost(hostname: string) {
   return (
-    process.env.NODE_ENV === "production" ||
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.startsWith("https://") === true
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1"
   );
+}
+
+function resolveStaffWebCookieSecure(meta: StaffWebRequestMeta = {}) {
+  const proto = firstHeaderValue(meta.forwardedProto);
+  const host = firstHeaderValue(meta.forwardedHost ?? meta.host);
+  const hostname = hostnameFromHost(host);
+
+  if (proto === "https") {
+    return true;
+  }
+
+  if (proto === "http" && isLocalStaffWebHost(hostname)) {
+    return false;
+  }
+
+  if (!proto && isLocalStaffWebHost(hostname)) {
+    return false;
+  }
+
+  return true;
+}
+
+async function currentStaffWebRequestMeta(): Promise<StaffWebRequestMeta> {
+  try {
+    const headerStore = await headers();
+
+    return {
+      forwardedHost: headerStore.get("x-forwarded-host"),
+      forwardedProto: headerStore.get("x-forwarded-proto"),
+      host: headerStore.get("host"),
+      userAgent: headerStore.get("user-agent"),
+    };
+  } catch {
+    return {};
+  }
 }
 
 async function getSupabaseForStaffWeb() {
@@ -379,7 +434,11 @@ function isStaffEligibleForWebLogin(
   );
 }
 
-async function setStaffWebCookie(sessionToken: string, expiresAt: string) {
+async function setStaffWebCookie(
+  sessionToken: string,
+  expiresAt: string,
+  meta: StaffWebRequestMeta,
+) {
   const cookieStore = await cookies();
 
   cookieStore.set(STAFF_WEB_SESSION_COOKIE, sessionToken, {
@@ -387,20 +446,22 @@ async function setStaffWebCookie(sessionToken: string, expiresAt: string) {
     httpOnly: true,
     path: "/",
     sameSite: "lax",
-    secure: isSecureStaffWebCookie(),
+    secure: resolveStaffWebCookieSecure(meta),
   });
 }
 
-async function clearStaffWebCookie() {
+async function clearStaffWebCookie(meta?: StaffWebRequestMeta) {
   const cookieStore = await cookies();
+  const cookieMeta = meta ?? (await currentStaffWebRequestMeta());
 
   try {
     cookieStore.set(STAFF_WEB_SESSION_COOKIE, "", {
+      expires: new Date(0),
       httpOnly: true,
       maxAge: 0,
       path: "/",
       sameSite: "lax",
-      secure: isSecureStaffWebCookie(),
+      secure: resolveStaffWebCookieSecure(cookieMeta),
     });
   } catch {
     // Server Components cannot always mutate cookies; authorization still fails closed.
@@ -681,12 +742,12 @@ export async function authenticateStaffManagerWebLogin(
         sessionResult.data.staff_web_session_id,
         "staff_web_login_audit_failed",
       );
-      await clearStaffWebCookie();
+      await clearStaffWebCookie(meta);
 
       return staffWebLoginResult("database_error");
     }
 
-    await setStaffWebCookie(sessionToken, expiresAt);
+    await setStaffWebCookie(sessionToken, expiresAt, meta);
 
     return staffWebLoginResult("success");
   } catch {

@@ -53,9 +53,18 @@ test("TASK-079 is the only current root task for history and catalog pagination"
   ]);
   assertContains(currentBlock, "Stato TASK-079: `DONE_RECONCILED`");
   assertContains(currentBlock, "Task TASK-079: `TASK-079 - History Entry and Catalog Pagination Unified Completion`");
-  assertContains(currentBlock, "File task corrente: `NESSUNO`");
-  assertContains(currentBlock, "Evidence task corrente: `NESSUNO`");
-  assertContains(currentBlock, "Task attivo: `NESSUNO`");
+  assert.match(
+    currentBlock,
+    /File task corrente: `(NESSUNO|docs\/TASKS\/TASK-084-admin-web-workers-dev-staging-auth-logout-win7pos-public-connection\.md)`/,
+  );
+  assert.match(
+    currentBlock,
+    /Evidence task corrente: `(NESSUNO|docs\/TASKS\/EVIDENCE\/TASK-084\/README\.md)`/,
+  );
+  assert.match(
+    currentBlock,
+    /Task attivo: `(NESSUNO|TASK-084 - Admin Web workers\.dev staging, auth\/logout fixes, and Win7POS public connection)`/,
+  );
   assert.doesNotMatch(currentBlock, /TASK-079[B-F]|TASK-080/);
   assertContains(canonicalTask, "079.1 History Entry read-only mobile parity");
   assertContains(canonicalTask, "079.10 Final QA and review");

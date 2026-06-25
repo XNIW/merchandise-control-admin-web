@@ -1,5 +1,9 @@
 import { handlePosHeartbeat } from "@/server/pos-auth/service";
-import { posJsonResponse, readPosJsonBody } from "../../_shared/pos-route-security";
+import {
+  posJsonResponse,
+  posMethodNotAllowedResponse,
+  readPosJsonBody,
+} from "../../_shared/pos-route-security";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -10,4 +14,8 @@ export async function POST(request: Request) {
   });
 
   return posJsonResponse(result.body, result.status);
+}
+
+export function GET() {
+  return posMethodNotAllowedResponse();
 }

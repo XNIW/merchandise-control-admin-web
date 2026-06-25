@@ -2816,19 +2816,24 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-081: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - File task TASK-081: `docs/TASKS/TASK-081-win7pos-sales-revenue-stock-sync.md`
 - Evidence TASK-081: `docs/TASKS/EVIDENCE/TASK-081/README.md`
+- Stato TASK-084: `REVIEW_READY`
+- Fase TASK-084: `REVIEW`
+- Task TASK-084: `TASK-084 - Admin Web workers.dev staging, auth/logout fixes, and Win7POS public connection`
+- File task TASK-084: `docs/TASKS/TASK-084-admin-web-workers-dev-staging-auth-logout-win7pos-public-connection.md`
+- Evidence TASK-084: `docs/TASKS/EVIDENCE/TASK-084/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `IDLE`
-- Task attivo: `NESSUNO`
-- Task precedente: `TASK-079 - History Entry and Catalog Pagination Unified Completion`
+- Stato globale attuale: `REVIEW`
+- Task attivo: `TASK-084 - Admin Web workers.dev staging, auth/logout fixes, and Win7POS public connection`
+- Task precedente: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `NESSUNO`
-- Evidence task corrente: `NESSUNO`
-- Stato task: `IDLE`
-- Fase: `IDLE`
-- Milestone interna: `TASK_081_DONE_RECONCILED_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`
-- Responsabile: `NESSUNO`
+- File task corrente: `docs/TASKS/TASK-084-admin-web-workers-dev-staging-auth-logout-win7pos-public-connection.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-084/README.md`
+- Stato task: `REVIEW_READY`
+- Fase: `REVIEW`
+- Milestone interna: `TASK_084_WORKERS_DEV_STAGING_AUTH_LOGOUT_WIN7POS_PUBLIC_CONNECTION`
+- Responsabile: `REVIEWER`
 - Branch previsto: `main` / no branch creation requested
 - Task precedente non chiuso: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`
 - Stato task precedente: `REVIEW` / `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`

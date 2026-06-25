@@ -20,6 +20,8 @@ const securityHeaderExpectations = [
       "object-src 'none'",
       "base-uri 'self'",
       "form-action 'self'",
+      "https://*.supabase.co",
+      "https://accounts.google.com",
     ],
   },
   {

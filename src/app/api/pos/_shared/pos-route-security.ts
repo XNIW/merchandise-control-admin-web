@@ -99,3 +99,16 @@ export function posJsonResponse(body: unknown, status: number) {
     status,
   });
 }
+
+export function posMethodNotAllowedResponse(allowedMethods = "POST") {
+  return Response.json(
+    { error: "method_not_allowed" },
+    {
+      headers: {
+        ...POS_JSON_HEADERS,
+        Allow: allowedMethods,
+      },
+      status: 405,
+    },
+  );
+}

@@ -7,7 +7,8 @@ export type OAuthLoginResultCode =
   | "oauth_not_configured"
   | "oauth_origin_missing"
   | "oauth_provider_not_enabled"
-  | "oauth_redirect_misconfigured";
+  | "oauth_redirect_misconfigured"
+  | "unsafe_next";
 
 export function isSafeInternalNextPath(
   value: string | null | undefined,
@@ -25,6 +26,28 @@ export function safeInternalNextPath(
   fallback = "/",
 ) {
   return isSafeInternalNextPath(value) ? value : fallback;
+}
+
+export function hasUnsafeInternalNextPath(value: string | null | undefined) {
+  return Boolean(value && !isSafeInternalNextPath(value));
+}
+
+export function isSafeShopAdminNextPath(
+  value: string | null | undefined,
+): value is string {
+  return Boolean(
+    isSafeInternalNextPath(value) &&
+      (value === "/shop" ||
+        value.startsWith("/shop/") ||
+        value.startsWith("/shop?")),
+  );
+}
+
+export function safeShopAdminNextPath(
+  value: string | null | undefined,
+  fallback = "/shop",
+) {
+  return isSafeShopAdminNextPath(value) ? value : fallback;
 }
 
 export function firstHeaderValue(value: string | null | undefined) {
@@ -49,17 +72,52 @@ export function safeHttpOrigin(value: string | null | undefined) {
   }
 }
 
+function forwardedProto(headers: { get(name: string): string | null }) {
+  const proto = firstHeaderValue(headers.get("x-forwarded-proto"));
+
+  if (proto === "https" || proto === "http") {
+    return proto;
+  }
+
+  try {
+    const cfVisitor = headers.get("cf-visitor");
+    const parsed = cfVisitor ? JSON.parse(cfVisitor) : null;
+    const scheme = parsed?.scheme;
+
+    return scheme === "https" || scheme === "http" ? scheme : "";
+  } catch {
+    return "";
+  }
+}
+
+function hostnameFromHost(host: string) {
+  const normalized = host.trim();
+
+  if (normalized.startsWith("[") && normalized.includes("]")) {
+    return normalized.slice(1, normalized.indexOf("]"));
+  }
+
+  return normalized.split(":")[0] ?? "";
+}
+
+function isLocalHostname(hostname: string) {
+  return (
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "::1"
+  );
+}
+
 export function requestOriginFromHeaders(headers: {
   get(name: string): string | null;
 }) {
-  const forwardedProto = firstHeaderValue(headers.get("x-forwarded-proto"));
-  const proto =
-    forwardedProto === "https" || forwardedProto === "http"
-      ? forwardedProto
-      : "http";
+  const protoFromHeaders = forwardedProto(headers);
   const host = firstHeaderValue(
     headers.get("x-forwarded-host") ?? headers.get("host"),
   );
+  const hostname = hostnameFromHost(host);
+  const proto =
+    protoFromHeaders || (isLocalHostname(hostname) ? "http" : "https");
   const hostOrigin = safeHttpOrigin(host ? `${proto}://${host}` : null);
 
   if (hostOrigin) {
@@ -67,6 +125,23 @@ export function requestOriginFromHeaders(headers: {
   }
 
   return safeHttpOrigin(headers.get("origin"));
+}
+
+export function requestOriginFromRequest(request: {
+  headers: { get(name: string): string | null };
+  url: string;
+}) {
+  const headerOrigin = requestOriginFromHeaders(request.headers);
+
+  if (headerOrigin) {
+    return headerOrigin;
+  }
+
+  try {
+    return safeHttpOrigin(new URL(request.url).origin);
+  } catch {
+    return "";
+  }
 }
 
 export function buildOAuthCallbackUrl(origin: string, nextPath: string) {

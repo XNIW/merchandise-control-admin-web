@@ -3,7 +3,7 @@
 ## Stato
 
 - Task origine: `TASK-026`
-- Ultimo aggiornamento: `TASK-029`
+- Ultimo aggiornamento: `TASK-084B`
 - Stato: `REVIEW`
 - Data: `2026-06-01`
 - Ambito: catalogo prodotti Shop Admin verso Win7POS.
@@ -34,7 +34,9 @@
 
 - Da TASK-029, su DB SQLite vuoto Win7POS tenta il bootstrap online prima del wizard locale.
 - Il flusso cliente normale usa `POST /api/pos/auth/first-login` con `shopCode`, `staffCode`, PIN/password e nome dispositivo verso Admin Web POS API.
-- Se manca l'Admin Web Base URL, il dialog lo presenta all'operatore come `Indirizzo pannello` e lo salva localmente in `pos-admin-web.config`.
+- Da TASK-084B, il flusso operatore normale non mostra un campo URL e non chiede un nome dispositivo editabile. L'Admin Web Base URL arriva da `WIN7POS_ADMIN_WEB_BASE_URL`, da `C:\ProgramData\Win7POS\pos-admin-web.config` con `AdminWebBaseUrl=...`, oppure dal pannello avanzato `Impostazioni avanzate / Server` usato da supporto tecnico.
+- Win7POS deve accettare come base URL solo HTTPS pubblico/staging o HTTP loopback locale. URL con path/query/fragment come `/auth/login` o `/shop` non sono validi. HTTP LAN non-loopback richiede solo override development `WIN7POS_ALLOW_INSECURE_LAN_ADMIN_WEB=1` e non va abilitato in release.
+- Il nome dispositivo inviato nel first-login e generato automaticamente da hostname locale sanitizzato, senza username, MAC address, serial number o path locali.
 - Il trusted device token e il session token sono salvati nel file trusted-device protetti con DPAPI Windows.
 - Il PIN/password non viene salvato in chiaro; viene riusato solo per creare un hash/salt locale tramite il meccanismo PIN esistente, cosi il POS puo lavorare offline dopo il bootstrap.
 - Il mirror locale staff salva solo mapping e metadata non segreti: shop/staff id/code, role key, credential version e sync metadata.

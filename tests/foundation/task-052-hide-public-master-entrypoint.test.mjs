@@ -33,7 +33,7 @@ test("TASK-052 login page labels Master only for exact platform next path", () =
   assert.match(loginPage, /type LoginPageSearchParams = Promise/);
   assert.match(loginPage, /searchParams: LoginPageSearchParams/);
   assert.match(loginPage, /const query = await searchParams/);
-  assert.match(loginPage, /next === "\/platform"/);
+  assert.match(loginPage, /safeNextPath === "\/platform"/);
   assert.match(loginPage, /mode === "shop-code"/);
   assert.match(loginI18nSource, /Master Console sign in/);
   assert.match(loginI18nSource, /Master Console credentials/);

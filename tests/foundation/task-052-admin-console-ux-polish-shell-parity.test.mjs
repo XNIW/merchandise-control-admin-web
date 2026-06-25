@@ -18,7 +18,7 @@ test("TASK-052 Shop shell has logout, sticky desktop sidebar, and no global read
   assert.match(shell, /principalKind: "personal_account" \| "pos_staff_manager"/);
   assert.match(shell, /principalKind === "pos_staff_manager"/);
   assert.match(shell, /"\/shop\/staff-logout"/);
-  assert.match(shell, /"\/auth\/logout"/);
+  assert.match(shell, /"\/auth\/logout\?next=\/shop"/);
   assert.match(shell, /prefetch=\{false\}/);
   assert.match(shell, /\{logoutLabel\}/);
   assert.match(dictionary, /logout: "Logout"/);
@@ -41,9 +41,9 @@ test("TASK-052 protected console shells disable auth-breaking prefetch", () => {
   assert.match(shopShell, /const href = buildShopHref\(item\.href\);[\s\S]{0,180}href=\{href\}[\s\S]{0,120}prefetch=\{false\}/);
   assert.match(
     shopShell,
-    /<form[\s\S]*principalKind === "pos_staff_manager"[\s\S]*"\/shop\/staff-logout"[\s\S]*"\/auth\/logout"[\s\S]*method="get"[\s\S]*>\s*<button[\s\S]*type="submit"[\s\S]*>\s*\{logoutLabel\}\s*<\/button>/,
+    /<form[\s\S]*principalKind === "pos_staff_manager"[\s\S]*"\/shop\/staff-logout"[\s\S]*"\/auth\/logout\?next=\/shop"[\s\S]*method="get"[\s\S]*>\s*<button[\s\S]*type="submit"[\s\S]*>\s*\{logoutLabel\}\s*<\/button>/,
   );
-  assert.match(platformShell, /<form[\s\S]*action="\/auth\/logout"[\s\S]*method="get"[\s\S]*>\s*<button[\s\S]*type="submit"[\s\S]*>\s*\{dictionary\.common\.logout\}\s*<\/button>/);
+  assert.match(platformShell, /<form[\s\S]*action="\/auth\/logout\?next=\/platform"[\s\S]*method="get"[\s\S]*>\s*<button[\s\S]*type="submit"[\s\S]*>\s*\{dictionary\.common\.logout\}\s*<\/button>/);
   assert.doesNotMatch(platformShell, /href="\/auth\/logout"[\s\S]{0,120}prefetch=\{false\}/);
   assert.match(platformNav, /href=\{item\.href\}[\s\S]{0,120}prefetch=\{false\}/);
 });

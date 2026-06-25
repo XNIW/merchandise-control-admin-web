@@ -1,17 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { loginErrorUrl, safeInternalNextPath } from "@/lib/auth/oauth-redirect";
+import {
+  loginErrorUrl,
+  requestOriginFromRequest,
+  safeInternalNextPath,
+} from "@/lib/auth/oauth-redirect";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url);
+  const origin = requestOriginFromRequest(request) || requestUrl.origin;
   const code = requestUrl.searchParams.get("code");
   const nextPath = safeInternalNextPath(requestUrl.searchParams.get("next"));
 
   if (!code) {
     return NextResponse.redirect(
-      loginErrorUrl(requestUrl.origin, nextPath, "callback_missing_code"),
+      loginErrorUrl(origin, nextPath, "callback_missing_code"),
     );
   }
 
@@ -19,7 +24,7 @@ export async function GET(request: NextRequest) {
 
   if (!supabase) {
     return NextResponse.redirect(
-      loginErrorUrl(requestUrl.origin, nextPath, "auth_not_configured"),
+      loginErrorUrl(origin, nextPath, "auth_not_configured"),
     );
   }
 
@@ -27,9 +32,9 @@ export async function GET(request: NextRequest) {
 
   if (error) {
     return NextResponse.redirect(
-      loginErrorUrl(requestUrl.origin, nextPath, "callback_blocked"),
+      loginErrorUrl(origin, nextPath, "callback_blocked"),
     );
   }
 
-  return NextResponse.redirect(new URL(nextPath, requestUrl.origin));
+  return NextResponse.redirect(new URL(nextPath, origin));
 }

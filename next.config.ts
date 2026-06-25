@@ -4,7 +4,7 @@ const securityHeaders = [
   {
     key: "Content-Security-Policy",
     value:
-      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self'",
+      "frame-ancestors 'none'; object-src 'none'; base-uri 'self'; form-action 'self' https://*.supabase.co https://accounts.google.com",
   },
   {
     key: "Permissions-Policy",

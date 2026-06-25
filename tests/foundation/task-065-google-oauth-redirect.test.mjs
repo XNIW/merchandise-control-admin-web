@@ -42,6 +42,8 @@ test("TASK-065 OAuth redirect helper exists and blocks stale Vercel redirects", 
 
   assert.match(helper, /buildOAuthCallbackUrl/);
   assert.match(helper, /requestOriginFromHeaders/);
+  assert.match(helper, /requestOriginFromRequest/);
+  assert.match(helper, /safeShopAdminNextPath/);
   assert.match(helper, /isGoogleOAuthAccountsLocation/);
   assert.match(helper, /hasInvalidGoogleOAuthClientIdLocation/);
   assert.match(helper, /hasMisconfiguredOAuthRedirectUrl/);
@@ -71,6 +73,23 @@ test("TASK-065 OAuth redirect helper behavior rejects unsafe paths and stale red
   assert.equal(helper.safeInternalNextPath("/\\evil.example/path"), "/");
   assert.equal(helper.safeInternalNextPath("/\u0000evil"), "/");
   assert.equal(helper.safeInternalNextPath("https://evil.example/path"), "/");
+  assert.equal(helper.hasUnsafeInternalNextPath("https://evil.example/path"), true);
+  assert.equal(helper.safeShopAdminNextPath("/shop/products"), "/shop/products");
+  assert.equal(helper.safeShopAdminNextPath("/platform/main"), "/shop");
+  assert.equal(
+    helper.requestOriginFromHeaders({
+      get(name) {
+        return {
+          "x-forwarded-proto": "https",
+          "x-forwarded-host":
+            "merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev",
+          host: "internal.example",
+          origin: "https://evil.example",
+        }[name] ?? null;
+      },
+    }),
+    "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev",
+  );
   assert.equal(
     helper.buildOAuthCallbackUrl(currentOrigin, "//evil"),
     "http://127.0.0.1:3050/auth/callback?next=%2F",
@@ -139,6 +158,7 @@ test("TASK-065 OAuth helper behavior classifies provider and Google client-id fa
 
 test("TASK-065 Google OAuth action uses current origin callback and guarded provider URL", () => {
   const action = readProjectFile("src/app/auth/login/actions.ts");
+  const route = readProjectFile("src/app/auth/oauth/google/route.ts");
 
   assert.match(action, /buildOAuthCallbackUrl\(origin, nextPath\)/);
   assert.match(action, /redirectTo:\s*buildOAuthCallbackUrl\(origin, nextPath\)/);
@@ -155,16 +175,25 @@ test("TASK-065 Google OAuth action uses current origin callback and guarded prov
   assert.match(action, /oauth_provider_not_enabled/);
   assert.match(action, /oauth_redirect_misconfigured/);
   assert.doesNotMatch(action, /NEXT_PUBLIC_VERCEL_URL|VERCEL_URL|vercel\.app/);
+  assert.match(route, /export async function GET\(request: NextRequest\)/);
+  assert.match(route, /requestOriginFromRequest\(request\) \|\| requestUrl\.origin/);
+  assert.match(route, /buildOAuthCallbackUrl\(origin, nextPath\)/);
+  assert.match(route, /hasUnsafeInternalNextPath\(requestedNext\)/);
+  assert.match(route, /loginErrorUrl\(origin, "\/", "unsafe_next"\)/);
+  assert.match(route, /redirect:\s*"manual"/);
+  assert.match(route, /hasMisconfiguredOAuthRedirectUrl\(data\.url, origin\)/);
+  assert.match(route, /NextResponse\.redirect\(data\.url\)/);
 });
 
 test("TASK-065 callback preserves safe next on handled OAuth errors", () => {
   const callback = readProjectFile("src/app/auth/callback/route.ts");
 
   assert.match(callback, /safeInternalNextPath/);
-  assert.match(callback, /loginErrorUrl\(requestUrl\.origin, nextPath, "callback_missing_code"\)/);
-  assert.match(callback, /loginErrorUrl\(requestUrl\.origin, nextPath, "auth_not_configured"\)/);
-  assert.match(callback, /loginErrorUrl\(requestUrl\.origin, nextPath, "callback_blocked"\)/);
-  assert.match(callback, /NextResponse\.redirect\(new URL\(nextPath, requestUrl\.origin\)\)/);
+  assert.match(callback, /requestOriginFromRequest\(request\) \|\| requestUrl\.origin/);
+  assert.match(callback, /loginErrorUrl\(origin, nextPath, "callback_missing_code"\)/);
+  assert.match(callback, /loginErrorUrl\(origin, nextPath, "auth_not_configured"\)/);
+  assert.match(callback, /loginErrorUrl\(origin, nextPath, "callback_blocked"\)/);
+  assert.match(callback, /NextResponse\.redirect\(new URL\(nextPath, origin\)\)/);
 });
 
 test("TASK-065 login UI displays OAuth and callback failures for account login", () => {
@@ -185,6 +214,8 @@ test("TASK-065 login UI displays OAuth and callback failures for account login",
   assert.match(authForm, /viewBox="0 0 18 18"/);
   assert.match(authForm, /<GoogleIcon \/>/);
   assert.match(authForm, /<span>\{labels\.googleSubmit\}<\/span>/);
+  assert.match(authForm, /action="\/auth\/oauth\/google"/);
+  assert.match(authForm, /method="get"/);
   assert.doesNotMatch(authForm, /<img|cdn|gstatic|googleusercontent/i);
   assert.match(dictionaries, /oauth_redirect_misconfigured/);
   assert.match(dictionaries, /oauth_google_client_id_invalid/);

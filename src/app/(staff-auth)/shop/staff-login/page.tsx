@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { safeShopAdminNextPath } from "@/lib/auth/oauth-redirect";
 
 export const dynamic = "force-dynamic";
 
@@ -11,11 +12,7 @@ function firstParam(value: string | string[] | undefined) {
 }
 
 function safeNextPath(value: string | undefined) {
-  if (!value?.startsWith("/") || value.startsWith("//")) {
-    return "/shop";
-  }
-
-  return value;
+  return safeShopAdminNextPath(value, "/shop");
 }
 
 export default async function StaffManagerWebLoginPage({

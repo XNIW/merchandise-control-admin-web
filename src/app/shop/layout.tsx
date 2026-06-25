@@ -24,8 +24,8 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
   if (access.status !== "ready") {
     const loginHref =
       access.status === "session_expired" || access.status === "no_active_session"
-        ? "/shop/staff-login?next=/shop"
-        : "/auth/login?next=/shop";
+        ? "/auth/login?mode=shop-code&next=/shop"
+        : "/auth/login?mode=admin-account&next=/shop";
 
     return (
       <AccessState

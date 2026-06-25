@@ -96,6 +96,9 @@ test("TASK-029 POS API route handlers enforce JSON content type, body limit and 
     "JSON.parse",
     "Cache-Control",
     "no-store",
+    "posMethodNotAllowedResponse",
+    "method_not_allowed",
+    "Allow",
   ]) {
     assertContains(helper, required);
   }
@@ -105,6 +108,8 @@ test("TASK-029 POS API route handlers enforce JSON content type, body limit and 
 
     assertContains(route, "readPosJsonBody");
     assertContains(route, "posJsonResponse");
+    assertContains(route, "posMethodNotAllowedResponse");
+    assertContains(route, "export function GET()");
     assertContains(route, 'export const runtime = "nodejs"');
     assertContains(route, 'export const dynamic = "force-dynamic"');
     assert.doesNotMatch(route, /request\.json\(\)/);
@@ -154,6 +159,11 @@ test("TASK-029 POS JSON helper rejects unsafe bodies and parses valid JSON", asy
 
   const response = helper.posJsonResponse({ ok: false }, 400);
   assert.equal(response.headers.get("cache-control"), "no-store");
+
+  const methodResponse = helper.posMethodNotAllowedResponse();
+  assert.equal(methodResponse.status, 405);
+  assert.equal(methodResponse.headers.get("cache-control"), "no-store");
+  assert.equal(methodResponse.headers.get("allow"), "POST");
 });
 
 test("TASK-029 documents staging, blockers and handoff without production-ready claim", () => {
@@ -254,10 +264,11 @@ test("TASK-029 Win7POS fresh install bootstrap keeps Admin Web as backend bounda
     "remote_credential_version",
     "PosCatalogPullService",
     "Recovery/dev",
-    "Indirizzo pannello",
+    "Impostazioni avanzate / Server",
+    "AdminWebBaseUrl",
     "Codice negozio",
     "Codice staff",
-    "Nome dispositivo",
+    "PosDeviceIdentity.GetStableDisplayName",
     "CredentialBox.Clear",
     "MaxResponseBodyBytes",
     "ReadResponseBodyAsync",
@@ -270,7 +281,7 @@ test("TASK-029 Win7POS fresh install bootstrap keeps Admin Web as backend bounda
   assert.doesNotMatch(runtimeCombined, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
   assert.doesNotMatch(runtimeCombined, /NEXT_PUBLIC_SUPABASE|supabase\.co/i);
   assert.doesNotMatch(runtimeCombined, /mcpos_(device|session)_[A-Za-z0-9_-]+/);
-  assert.doesNotMatch(dialogXaml, /Shop code|Staff code|Nome device|token trusted/i);
+  assert.doesNotMatch(dialogXaml, /Shop code|Staff code|Nome device|Indirizzo pannello|token trusted/i);
   assert.doesNotMatch(bootstrap, /shop code|staff code/);
   assert.doesNotMatch(mainWindow, /ModernMessageDialog\.Show[\s\S]{0,180}ex\.Message/);
   assert.match(dialog, /finally[\s\S]*CredentialBox\.Clear\(\)/);

@@ -151,6 +151,8 @@ test("TASK-068 global security headers cover common browser attack classes", () 
   assertContains(config, "object-src 'none'");
   assertContains(config, "base-uri 'self'");
   assertContains(config, "form-action 'self'");
+  assertContains(config, "https://*.supabase.co");
+  assertContains(config, "https://accounts.google.com");
   assertContains(config, "camera=(), microphone=(), geolocation=()");
   assertContains(config, "payment=(), usb=(), bluetooth=(), serial=()");
   assertContains(config, "strict-origin-when-cross-origin");

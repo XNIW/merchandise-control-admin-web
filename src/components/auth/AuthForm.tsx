@@ -4,7 +4,6 @@ import { useSearchParams } from "next/navigation";
 import { useActionState, useId, useMemo } from "react";
 import {
   accountSignInAction,
-  googleSignInAction,
   type AccountSignInState,
 } from "@/app/auth/login/actions";
 import { isSafeInternalNextPath } from "@/lib/auth/oauth-redirect";
@@ -81,9 +80,10 @@ export function AuthForm({
   return (
     <div className="grid gap-4">
       <form
-        action={googleSignInAction}
+        action="/auth/oauth/google"
         aria-label={`${formLabel} Google`}
         className="grid"
+        method="get"
       >
         <input name="next" type="hidden" value={nextPath} />
         <button

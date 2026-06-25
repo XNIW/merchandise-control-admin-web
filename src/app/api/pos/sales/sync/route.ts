@@ -2,7 +2,11 @@ import {
   handlePosSalesSync,
   MAX_POS_SALES_SYNC_JSON_BODY_BYTES,
 } from "@/server/pos-auth/sales-sync";
-import { posJsonResponse, readPosJsonBody } from "../../_shared/pos-route-security";
+import {
+  posJsonResponse,
+  posMethodNotAllowedResponse,
+  readPosJsonBody,
+} from "../../_shared/pos-route-security";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -19,4 +23,8 @@ export async function POST(request: Request) {
   );
 
   return posJsonResponse(result.body, result.status);
+}
+
+export function GET() {
+  return posMethodNotAllowedResponse();
 }

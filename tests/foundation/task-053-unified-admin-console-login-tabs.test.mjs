@@ -34,7 +34,7 @@ test("TASK-053 auth login shell switches between Master and Admin login modes", 
 
   assert.match(loginPage, /type LoginPageSearchParams = Promise/);
   assert.match(loginPage, /const query = await searchParams/);
-  assert.match(loginPage, /next === "\/platform"/);
+  assert.match(loginPage, /safeNextPath === "\/platform"/);
   assert.match(loginPage, /mode === "shop-code"/);
   assert.match(loginI18nSource, /Master Console sign in/);
   assert.match(loginI18nSource, /Master Console credentials/);

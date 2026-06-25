@@ -5197,7 +5197,7 @@ function checkTask038PosManagerWebLogin() {
     "STAFF_WEB_SESSION_COOKIE",
     "httpOnly: true",
     'sameSite: "lax"',
-    "secure: isSecureStaffWebCookie",
+    "resolveStaffWebCookieSecure",
     "hashStaffWebSecret",
     "verifyStaffCredential",
     "staff_web_sessions",
@@ -5227,10 +5227,10 @@ function checkTask038PosManagerWebLogin() {
   }
 
   if (
-    !/const auditOk = await writeStaffWebAudit[\s\S]*actorStaffId: staff\.staff_id[\s\S]*if \(!auditOk\)[\s\S]*revokeStaffWebSession[\s\S]*return staffWebLoginResult\("database_error"\)[\s\S]*await setStaffWebCookie\(sessionToken, expiresAt\)/.test(
+    !/const auditOk = await writeStaffWebAudit[\s\S]*actorStaffId: staff\.staff_id[\s\S]*if \(!auditOk\)[\s\S]*revokeStaffWebSession[\s\S]*return staffWebLoginResult\("database_error"\)[\s\S]*await setStaffWebCookie\(sessionToken, expiresAt, meta\)/.test(
       auth,
     ) ||
-    /await setStaffWebCookie\(sessionToken, expiresAt\)[\s\S]{0,260}await writeStaffWebAudit\(supabase,\s*\{\s*code: "success"/.test(
+    /await setStaffWebCookie\(sessionToken, expiresAt, meta\)[\s\S]{0,260}await writeStaffWebAudit\(supabase,\s*\{\s*code: "success"/.test(
       auth,
     )
   ) {
@@ -5265,11 +5265,11 @@ function checkTask038PosManagerWebLogin() {
   }
 
   if (
-    !loginActions.includes('safeInternalNextPath(requested, "/shop")') ||
+    !loginActions.includes('safeShopAdminNextPath(requested, "/shop")') ||
     /function isSafeInternalNextPath/.test(loginActions)
   ) {
     addFailure(
-      `${loginActionsPath} must reuse the shared safeInternalNextPath helper for staff login redirects`,
+      `${loginActionsPath} must reuse the shared safeShopAdminNextPath helper for staff login redirects`,
     );
   }
 
@@ -6384,9 +6384,9 @@ function checkTask043PlatformAdminRuntimeFixes() {
     (/\{dictionary\.common\.logout\}/.test(appShell) &&
       /logout:\s*"Logout"/.test(optionalRead("src/i18n/dictionaries.ts")));
 
-  if (!/action="\/auth\/logout"/.test(appShell) || !exposesPlatformLogout) {
+  if (!/action="\/auth\/logout\?next=\/platform"/.test(appShell) || !exposesPlatformLogout) {
     addFailure(
-      `${appShellPath} must expose visible native Logout to /auth/logout`,
+      `${appShellPath} must expose visible native Logout to /auth/logout?next=/platform`,
     );
   }
 

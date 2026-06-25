@@ -37,7 +37,8 @@ type AuthLoginMessageCode =
   | "oauth_not_configured"
   | "oauth_origin_missing"
   | "oauth_provider_not_enabled"
-  | "oauth_redirect_misconfigured";
+  | "oauth_redirect_misconfigured"
+  | "unsafe_next";
 
 export type Dictionary = {
   access: {
@@ -5410,6 +5411,8 @@ const en: Dictionary = {
         "Google sign-in is not enabled in the local Supabase Auth configuration. Add the Google OAuth client ID and secret, then restart Supabase.",
       oauth_redirect_misconfigured:
         "Google sign-in is misconfigured: Supabase returned an old Vercel redirect. Update Supabase Auth URLs before retrying.",
+      unsafe_next:
+        "The requested sign-in destination is not valid. Open the console again and retry.",
     },
     safetyBadges: [
       "SSR session",
@@ -5613,6 +5616,8 @@ const it: Dictionary = {
         "Accesso Google non abilitato nella configurazione locale Supabase Auth. Aggiungi client ID e secret OAuth Google, poi riavvia Supabase.",
       oauth_redirect_misconfigured:
         "Accesso Google configurato male: Supabase ha restituito un vecchio redirect Vercel. Aggiorna gli URL Auth Supabase e riprova.",
+      unsafe_next:
+        "La destinazione richiesta per l'accesso non e valida. Riapri la console e riprova.",
     },
     safetyBadges: [
       "Sessione SSR",
@@ -5819,6 +5824,8 @@ const es: Dictionary = {
         "El ingreso con Google no esta habilitado en la configuracion local de Supabase Auth. Agrega el client ID y secret OAuth de Google, luego reinicia Supabase.",
       oauth_redirect_misconfigured:
         "El ingreso con Google esta mal configurado: Supabase devolvio un redirect antiguo de Vercel. Actualiza los URL de Auth Supabase e intenta de nuevo.",
+      unsafe_next:
+        "El destino solicitado para ingresar no es valido. Abre la consola de nuevo e intenta otra vez.",
     },
     safetyBadges: [
       "Sesion SSR",
@@ -6015,6 +6022,7 @@ const zhCN: Dictionary = {
         "本地 Supabase Auth 配置未启用 Google 登录。请添加 Google OAuth client ID 和 secret，然后重启 Supabase。",
       oauth_redirect_misconfigured:
         "Google 登录配置错误：Supabase 返回了旧的 Vercel redirect。请更新 Supabase Auth URL 后重试。",
+      unsafe_next: "请求的登录目标无效。请重新打开控制台后重试。",
     },
     safetyBadges: ["SSR 会话", "服务端读取", "浏览器无 service key"],
     shopCodeTab: "店铺代码",

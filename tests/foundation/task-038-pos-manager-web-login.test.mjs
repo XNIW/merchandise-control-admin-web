@@ -119,7 +119,7 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
     "STAFF_WEB_SESSION_COOKIE",
     "httpOnly: true",
     "sameSite: \"lax\"",
-    "secure: isSecureStaffWebCookie",
+    "resolveStaffWebCookieSecure",
     "hashStaffWebSecret",
     "verifyStaffCredential",
     "staff_web_sessions",
@@ -138,12 +138,12 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
 
   assert.match(
     auth,
-    /const auditOk = await writeStaffWebAudit[\s\S]*actorStaffId: staff\.staff_id[\s\S]*if \(!auditOk\)[\s\S]*revokeStaffWebSession[\s\S]*return staffWebLoginResult\("database_error"\)[\s\S]*await setStaffWebCookie\(sessionToken, expiresAt\)/,
+    /const auditOk = await writeStaffWebAudit[\s\S]*actorStaffId: staff\.staff_id[\s\S]*if \(!auditOk\)[\s\S]*revokeStaffWebSession[\s\S]*return staffWebLoginResult\("database_error"\)[\s\S]*await setStaffWebCookie\(sessionToken, expiresAt, meta\)/,
     "staff web login must not set a valid cookie until success audit is written",
   );
   assert.doesNotMatch(
     auth,
-    /await setStaffWebCookie\(sessionToken, expiresAt\)[\s\S]{0,260}await writeStaffWebAudit\(supabase,\s*\{\s*code: "success"/,
+    /await setStaffWebCookie\(sessionToken, expiresAt, meta\)[\s\S]{0,260}await writeStaffWebAudit\(supabase,\s*\{\s*code: "success"/,
     "staff web login must not set the cookie before writing the success audit",
   );
 
@@ -157,10 +157,13 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
   assertContains(loginPage, 'mode: "shop-code"');
   assertContains(loginActions, "\"use server\"");
   assertContains(loginActions, "nextPathFromForm");
-  assertContains(loginActions, 'safeInternalNextPath(requested, "/shop")');
+  assertContains(loginActions, 'safeShopAdminNextPath(requested, "/shop")');
   assertContains(loginActions, "redirect(nextPath, RedirectType.replace)");
   assert.doesNotMatch(loginActions, /function isSafeInternalNextPath/);
   assertContains(logoutRoute, "logoutStaffWebSession");
+  assertContains(logoutRoute, "response.cookies.set");
+  assertContains(logoutRoute, "STAFF_WEB_SESSION_COOKIE");
+  assertContains(logoutRoute, "isSecureStaffWebCookie");
   assertContains(shopLayout, "resolveShopAdminDataAccess");
   assertContains(shopLayout, "principal.kind");
   assert.doesNotMatch(`${auth}\n${shopCodeLoginForm}\n${loginPage}\n${loginActions}\n${logoutRoute}`, /localStorage|sessionStorage|console\.(log|debug|info|warn|error)/);

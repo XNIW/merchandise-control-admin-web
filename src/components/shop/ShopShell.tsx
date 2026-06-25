@@ -691,7 +691,7 @@ export function ShopShell({
                   action={
                     principalKind === "pos_staff_manager"
                       ? "/shop/staff-logout"
-                      : "/auth/logout"
+                      : "/auth/logout?next=/shop"
                   }
                   method="get"
                 >

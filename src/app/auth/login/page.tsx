@@ -2,7 +2,10 @@ import Link from "next/link";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { ShopCodeLoginForm } from "@/components/auth/ShopCodeLoginForm";
-import { safeInternalNextPath } from "@/lib/auth/oauth-redirect";
+import {
+  safeInternalNextPath,
+  safeShopAdminNextPath,
+} from "@/lib/auth/oauth-redirect";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
@@ -64,10 +67,15 @@ export default async function PlatformAdminLoginPage({
   const mode = getSingleSearchParamValue(query.mode);
   const result = getSingleSearchParamValue(query.result);
   const error = getSingleSearchParamValue(query.error);
-  const nextPath = safeInternalNextPath(next, "/shop");
-  const isMasterConsole = next === "/platform";
+  const safeNextPath = safeInternalNextPath(next, "/shop");
+  const isMasterConsole =
+    safeNextPath === "/platform" || safeNextPath.startsWith("/platform/");
   const activeLoginMode =
     !isMasterConsole && mode === "shop-code" ? "shop-code" : "admin-account";
+  const nextPath =
+    activeLoginMode === "shop-code"
+      ? safeShopAdminNextPath(next, "/shop")
+      : safeNextPath;
   const content = isMasterConsole
     ? dictionary.authLogin.master
     : {
