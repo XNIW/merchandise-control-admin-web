@@ -8,8 +8,10 @@ import {
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import { verifyStaffCredential } from "@/server/shop-admin/staff-credentials";
 import {
+  buildPosPolicyPayload,
   buildPosShopPayload,
   POS_SHOP_SELECT,
+  type PosPolicyPayload,
   type PosShopPayload,
   type PosShopPayloadRow,
 } from "./shop-payload";
@@ -84,6 +86,8 @@ type PosFirstLoginSuccessBody = {
     trusted: true;
   };
   ok: true;
+  policy: PosPolicyPayload;
+  serverTime: string;
   session: {
     expiresAt: string;
     heartbeatAfterSeconds: number;
@@ -104,6 +108,7 @@ type PosFirstLoginSuccessBody = {
 type PosHeartbeatSuccessBody = {
   code: "success";
   ok: true;
+  serverTime: string;
   session: {
     expiresAt: string;
     heartbeatAfterSeconds: number;
@@ -122,6 +127,9 @@ export type PosEndpointResult =
     };
 
 export type PosRequestMeta = {
+  clientRequestId?: string;
+  requestId?: string;
+  route?: string;
   userAgent?: string;
 };
 
@@ -293,6 +301,9 @@ function parseHeartbeatInput(input: unknown): ParsedHeartbeatInput | null {
 
 function requestMetadata(meta: PosRequestMeta): JsonRecord {
   return {
+    ...(meta.clientRequestId ? { client_request_id: meta.clientRequestId } : {}),
+    ...(meta.requestId ? { request_id: meta.requestId } : {}),
+    ...(meta.route ? { route: meta.route } : {}),
     user_agent_length: meta.userAgent?.length ?? 0,
     user_agent_present: Boolean(meta.userAgent),
   };
@@ -420,7 +431,7 @@ async function clearSuccessfulCredentialAttempt(
   supabase: SupabaseAdminClient,
   staff: StaffAccountRow,
 ) {
-  await supabase
+  const { error } = await supabase
     .from("staff_accounts")
     .update({
       credential_status: "active",
@@ -431,13 +442,15 @@ async function clearSuccessfulCredentialAttempt(
     })
     .eq("staff_id", staff.staff_id)
     .eq("shop_id", staff.shop_id);
+
+  return !error;
 }
 
 async function revokeActiveDeviceCredentials(
   supabase: SupabaseAdminClient,
   shopDeviceId: string,
 ) {
-  await supabase
+  const { error } = await supabase
     .from("pos_device_credentials")
     .update({
       revoked_at: nowIso(),
@@ -448,6 +461,8 @@ async function revokeActiveDeviceCredentials(
     .eq("shop_device_id", shopDeviceId)
     .eq("status", "active")
     .is("revoked_at", null);
+
+  return !error;
 }
 
 async function cleanupFailedFirstLogin(
@@ -687,8 +702,30 @@ export async function handlePosFirstLogin(
   }
 
   const device = deviceResult.data;
-  await clearSuccessfulCredentialAttempt(supabase, staff);
-  await revokeActiveDeviceCredentials(supabase, device.shop_device_id);
+  const credentialAttemptClearOk = await clearSuccessfulCredentialAttempt(
+    supabase,
+    staff,
+  );
+  const priorDeviceCredentialsRevokedOk = await revokeActiveDeviceCredentials(
+    supabase,
+    device.shop_device_id,
+  );
+
+  if (!credentialAttemptClearOk || !priorDeviceCredentialsRevokedOk) {
+    return auditedDenied(supabase, {
+      code: "db_failure",
+      eventKey: "pos.auth.first_login.failure",
+      metadata: {
+        ...requestMetadata(meta),
+        credential_attempt_clear_ok: credentialAttemptClearOk,
+        prior_device_credentials_revoked_ok: priorDeviceCredentialsRevokedOk,
+      },
+      shopId: shop.shop_id,
+      status: 500,
+      targetId: device.shop_device_id,
+      targetType: "device",
+    });
+  }
 
   const trustedDeviceToken = generatePosSecret("device");
   const sessionToken = generatePosSecret("session");
@@ -813,6 +850,8 @@ export async function handlePosFirstLogin(
         trusted: true,
       },
       ok: true,
+      policy: buildPosPolicyPayload(),
+      serverTime: nowIso(),
       session: {
         expiresAt: sessionResult.data.expires_at,
         heartbeatAfterSeconds: HEARTBEAT_AFTER_SECONDS,
@@ -1120,6 +1159,7 @@ export async function handlePosHeartbeat(
     body: {
       code: "success",
       ok: true,
+      serverTime: nowIso(),
       session: {
         expiresAt,
         heartbeatAfterSeconds: HEARTBEAT_AFTER_SECONDS,

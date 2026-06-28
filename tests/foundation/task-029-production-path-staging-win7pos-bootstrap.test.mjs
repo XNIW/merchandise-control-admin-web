@@ -83,6 +83,7 @@ test("TASK-029 POS API route handlers enforce JSON content type, body limit and 
     "src/app/api/pos/auth/first-login/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
+    "src/app/api/pos/sales/sync/route.ts",
   ];
 
   assert.equal(existsSync(join(root, helperPath)), true, `${helperPath} is missing`);
@@ -109,7 +110,14 @@ test("TASK-029 POS API route handlers enforce JSON content type, body limit and 
     assertContains(route, "readPosJsonBody");
     assertContains(route, "posJsonResponse");
     assertContains(route, "posMethodNotAllowedResponse");
-    assertContains(route, "export function GET()");
+    assertContains(route, "createPosRouteRequestContext");
+    assertContains(route, "clientRequestId");
+    assertContains(route, "requestId");
+    assertContains(route, "route:");
+    assertContains(route, "function methodNotAllowed(request: Request)");
+    for (const method of ["DELETE", "GET", "HEAD", "OPTIONS", "PATCH", "PUT"]) {
+      assertContains(route, `methodNotAllowed as ${method}`);
+    }
     assertContains(route, 'export const runtime = "nodejs"');
     assertContains(route, 'export const dynamic = "force-dynamic"');
     assert.doesNotMatch(route, /request\.json\(\)/);
@@ -157,13 +165,49 @@ test("TASK-029 POS JSON helper rejects unsafe bodies and parses valid JSON", asy
   assert.equal(invalidJson, null);
   assert.equal(oversizedBody, null);
 
-  const response = helper.posJsonResponse({ ok: false }, 400);
+  const context = helper.createPosRouteRequestContext(
+    new Request("http://localhost/api/pos/auth/first-login", {
+      headers: { "x-client-request-id": "TASK032-CLIENT-REQUEST" },
+    }),
+    "pos.auth.first-login",
+  );
+  const response = helper.posJsonResponse({ ok: false }, 400, context);
+  const responseBody = await response.json();
   assert.equal(response.headers.get("cache-control"), "no-store");
+  assert.equal(response.headers.get("x-client-request-id"), "TASK032-CLIENT-REQUEST");
+  assert.match(response.headers.get("x-request-id") ?? "", /^posreq_[0-9a-f-]{36}$/i);
+  assert.deepEqual(responseBody, {
+    clientRequestId: "TASK032-CLIENT-REQUEST",
+    ok: false,
+    requestId: context.serverRequestId,
+  });
 
-  const methodResponse = helper.posMethodNotAllowedResponse();
+  const methodResponse = helper.posMethodNotAllowedResponse("POST", context);
+  const methodBody = await methodResponse.json();
   assert.equal(methodResponse.status, 405);
   assert.equal(methodResponse.headers.get("cache-control"), "no-store");
+  assert.equal(methodResponse.headers.get("x-request-id"), context.serverRequestId);
   assert.equal(methodResponse.headers.get("allow"), "POST");
+  assert.deepEqual(methodBody, {
+    clientRequestId: "TASK032-CLIENT-REQUEST",
+    code: "method_not_allowed",
+    message: "Method not allowed.",
+    ok: false,
+    requestId: context.serverRequestId,
+  });
+
+  const sensitiveContext = helper.createPosRouteRequestContext(
+    new Request("http://localhost/api/pos/auth/first-login", {
+      headers: { "x-client-request-id": "mcpos_session_SHOULD_NOT_ECHO" },
+    }),
+    "pos.auth.first-login",
+  );
+  const sensitiveResponse = helper.posJsonResponse({ ok: false }, 401, sensitiveContext);
+  const sensitiveBody = await sensitiveResponse.json();
+  assert.equal(sensitiveContext.clientRequestId, undefined);
+  assert.equal(sensitiveResponse.headers.get("x-client-request-id"), null);
+  assert.equal("clientRequestId" in sensitiveBody, false);
+  assert.match(sensitiveBody.requestId, /^posreq_[0-9a-f-]{36}$/i);
 });
 
 test("TASK-029 documents staging, blockers and handoff without production-ready claim", () => {

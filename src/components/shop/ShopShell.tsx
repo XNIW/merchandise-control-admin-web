@@ -350,59 +350,70 @@ function ShopNavigation({
     router.prefetch(href);
   }
 
+  function renderNavigationLink(item: ShopNavigationItem) {
+    const isActive = item.key === currentActive;
+    const href = buildShopHref(item.href);
+
+    return (
+      <Link
+        key={item.key}
+        href={href}
+        prefetch={false}
+        aria-current={isActive ? "page" : undefined}
+        onClick={(event) =>
+          onNavigate({
+            event,
+            href,
+            key: item.key,
+            label: item.label,
+          })
+        }
+        onFocus={() => handleNavigationIntent(item)}
+        onMouseEnter={() => handleNavigationIntent(item)}
+        onTouchStart={() => handleNavigationIntent(item)}
+        data-prefetch-ready={prefetchedItems.has(item.key)}
+        data-shop-nav-item={item.key}
+        className={[
+          "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border-l-2 px-3 py-2 text-sm font-medium outline-none transition lg:min-h-0 lg:px-2.5 lg:py-1.5",
+          "whitespace-nowrap",
+          "focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
+          isActive
+            ? "border-emerald-700 bg-emerald-50 text-emerald-950"
+            : "border-transparent text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950",
+        ].join(" ")}
+      >
+        <ShopNavigationIcon itemKey={item.key} />
+        {item.label}
+      </Link>
+    );
+  }
+
+  const visibleNavigationItems = navigationSections.flatMap((section) =>
+    section.items.filter((item) => !item.hiddenFromPrimaryNav),
+  );
+
   return (
     <nav
       aria-label={labels.navigationAria}
-      className="space-y-2 lg:max-h-[calc(100vh-15rem)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1"
+      className="lg:max-h-[calc(100vh-15rem)] lg:min-h-0 lg:flex-1 lg:overflow-y-auto lg:pr-1"
     >
-      {navigationSections.map((section: ShopNavigationSection) => (
-        <section key={section.key} className="space-y-1">
-          <p className="px-2 text-[10px] font-semibold uppercase tracking-normal text-zinc-500">
-            {section.label}
-          </p>
-          <div className="-mx-1 flex gap-1 overflow-x-auto px-1 pb-1 lg:mx-0 lg:grid lg:gap-1 lg:px-0 lg:pb-0">
-            {section.items
-              .filter((item) => !item.hiddenFromPrimaryNav)
-              .map((item) => {
-                const isActive = item.key === currentActive;
-                const href = buildShopHref(item.href);
-
-                return (
-                  <Link
-                    key={item.key}
-                    href={href}
-                    prefetch={false}
-                    aria-current={isActive ? "page" : undefined}
-                    onClick={(event) =>
-                      onNavigate({
-                        event,
-                        href,
-                        key: item.key,
-                        label: item.label,
-                      })
-                    }
-                    onFocus={() => handleNavigationIntent(item)}
-                    onMouseEnter={() => handleNavigationIntent(item)}
-                    onTouchStart={() => handleNavigationIntent(item)}
-                    data-prefetch-ready={prefetchedItems.has(item.key)}
-                    data-shop-nav-item={item.key}
-                    className={[
-                      "inline-flex shrink-0 items-center gap-2 rounded-md border-l-2 px-2.5 py-1.5 text-sm font-medium outline-none transition",
-                      "whitespace-nowrap",
-                      "focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
-                      isActive
-                        ? "border-emerald-700 bg-emerald-50 text-emerald-950"
-                        : "border-transparent text-zinc-600 hover:bg-zinc-50 hover:text-zinc-950",
-                    ].join(" ")}
-                  >
-                    <ShopNavigationIcon itemKey={item.key} />
-                    {item.label}
-                  </Link>
-                );
-              })}
-          </div>
-        </section>
-      ))}
+      <div className="-mx-1 flex gap-1 overflow-x-auto overscroll-x-contain px-1 pb-1 [scroll-snap-type:x_proximity] lg:hidden">
+        {visibleNavigationItems.map((item) => renderNavigationLink(item))}
+      </div>
+      <div className="hidden space-y-2 lg:block">
+        {navigationSections.map((section: ShopNavigationSection) => (
+          <section key={section.key} className="space-y-1">
+            <p className="px-2 text-[10px] font-semibold uppercase tracking-normal text-zinc-500">
+              {section.label}
+            </p>
+            <div className="-mx-1 grid gap-1 px-1 pb-1 lg:mx-0 lg:px-0 lg:pb-0">
+              {section.items
+                .filter((item) => !item.hiddenFromPrimaryNav)
+                .map((item) => renderNavigationLink(item))}
+            </div>
+          </section>
+        ))}
+      </div>
     </nav>
   );
 }
@@ -565,7 +576,7 @@ export function ShopShell({
           aria-label={labels.navigationAria}
           className="border-b border-zinc-200 bg-white lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto lg:border-b-0 lg:border-r"
         >
-          <div className="flex min-h-full flex-col gap-5 px-4 py-5 lg:min-h-0">
+          <div className="flex min-h-full flex-col gap-4 px-4 py-4 lg:min-h-0 lg:gap-5 lg:py-5">
             <div className="flex items-center gap-3 px-2">
               <div
                 aria-hidden="true"
@@ -593,7 +604,7 @@ export function ShopShell({
               onNavigate={handleNavigation}
             />
 
-            <div className="mt-auto rounded-md border border-emerald-200 bg-emerald-50/70 p-2.5">
+            <div className="mt-auto hidden rounded-md border border-emerald-200 bg-emerald-50/70 p-2.5 lg:block">
               <p className="text-xs font-semibold uppercase tracking-normal text-emerald-900">
                 {labels.shopSafety}
               </p>
@@ -657,7 +668,7 @@ export function ShopShell({
                       aria-label={labels.switchShop}
                       value={selectedShop?.shopId ?? ""}
                       onChange={handleShopChange}
-                      className="h-9 min-w-52 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20"
+                      className="h-11 w-full rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/20 sm:w-auto md:h-9 md:min-w-52"
                     >
                       {availableShops.map((shop) => (
                         <option key={shop.shopId} value={shop.shopId}>
@@ -669,7 +680,7 @@ export function ShopShell({
                 ) : null}
 
                 {!canSwitchShops && selectedShop ? (
-                  <p className="rounded-md border border-zinc-200 bg-zinc-50 px-2.5 py-1 text-xs font-medium text-zinc-700">
+                  <p className="inline-flex min-h-11 items-center rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-700 md:min-h-0 md:px-2.5 md:py-1 md:text-xs">
                     {labels.singleShopWorkspace}
                   </p>
                 ) : null}
@@ -696,7 +707,7 @@ export function ShopShell({
                   method="get"
                 >
                   <button
-                    className="rounded-md border border-zinc-300 bg-white px-2.5 py-1 text-xs font-semibold text-zinc-700 outline-none transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2"
+                    className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 md:min-h-0 md:px-2.5 md:py-1 md:text-xs"
                     type="submit"
                   >
                     {logoutLabel}

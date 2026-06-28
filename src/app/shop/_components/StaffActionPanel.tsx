@@ -164,7 +164,7 @@ function TextInput({
     <label className="grid gap-1 text-sm font-medium text-zinc-800">
       {label}
       <input
-        className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+        className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none sm:min-h-0"
         name={name}
         required={required}
         type="text"
@@ -182,7 +182,7 @@ function CredentialKindSelect({
     <label className="grid gap-1 text-sm font-medium text-zinc-800">
       {labels.credentialType}
       <select
-        className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+        className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none sm:min-h-0"
         name="credentialKind"
         required
       >
@@ -245,7 +245,7 @@ export function StaffActionPanel({
           <label className="grid gap-1 text-sm font-medium text-zinc-800">
             {labels.role}
             <select
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+              className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none sm:min-h-0"
               name="roleKey"
               required
             >
@@ -254,7 +254,7 @@ export function StaffActionPanel({
               <option value="viewer">{labels.roleOptions.viewer}</option>
             </select>
           </label>
-          <button className="rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white">
+          <button className="min-h-11 rounded-md bg-zinc-950 px-4 py-2 text-sm font-medium text-white sm:min-h-0">
             {labels.createStaff}
           </button>
         </form>
@@ -278,7 +278,7 @@ export function StaffActionPanel({
             name="confirmation"
             required
           />
-          <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
+          <button className="min-h-11 rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950 sm:min-h-0">
             {labels.resetCredential}
           </button>
         </form>
@@ -301,7 +301,7 @@ export function StaffActionPanel({
             name="confirmation"
             required
           />
-          <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
+          <button className="min-h-11 rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950 sm:min-h-0">
             {labels.suspend}
           </button>
         </form>
@@ -320,7 +320,7 @@ export function StaffActionPanel({
             name="confirmation"
             required
           />
-          <button className="rounded-md border border-emerald-400 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-950">
+          <button className="min-h-11 rounded-md border border-emerald-400 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-950 sm:min-h-0">
             {labels.reactivate}
           </button>
         </form>
@@ -339,7 +339,7 @@ export function StaffActionPanel({
             name="confirmation"
             required
           />
-          <button className="rounded-md border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950">
+          <button className="min-h-11 rounded-md border border-zinc-400 bg-zinc-100 px-4 py-2 text-sm font-medium text-zinc-950 sm:min-h-0">
             {labels.archive}
           </button>
         </form>
@@ -361,7 +361,7 @@ export function StaffActionPanel({
             name="confirmation"
             required
           />
-          <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
+          <button className="min-h-11 rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950 sm:min-h-0">
             {labels.forceRotation}
           </button>
         </form>
@@ -380,7 +380,7 @@ export function StaffActionPanel({
             name="confirmation"
             required
           />
-          <button className="rounded-md border border-emerald-400 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-950">
+          <button className="min-h-11 rounded-md border border-emerald-400 bg-emerald-50 px-4 py-2 text-sm font-medium text-emerald-950 sm:min-h-0">
             {labels.clearLockout}
           </button>
         </form>
@@ -399,7 +399,7 @@ export function StaffActionPanel({
             name="confirmation"
             required
           />
-          <button className="rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-950">
+          <button className="min-h-11 rounded-md border border-red-300 bg-red-50 px-4 py-2 text-sm font-medium text-red-950 sm:min-h-0">
             {labels.revokeWebAccess}
           </button>
         </form>
@@ -418,7 +418,7 @@ export function StaffActionPanel({
             name="confirmation"
             required
           />
-          <button className="rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950">
+          <button className="min-h-11 rounded-md border border-amber-400 bg-amber-50 px-4 py-2 text-sm font-medium text-amber-950 sm:min-h-0">
             {labels.revokeSessions}
           </button>
         </form>
@@ -434,7 +434,7 @@ export function StaffActionPanel({
             <label className="grid gap-1 text-sm font-medium text-zinc-800">
               {labels.role}
               <select
-                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+                className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none sm:min-h-0"
                 name="roleKey"
                 required
               >
@@ -446,7 +446,7 @@ export function StaffActionPanel({
             <label className="grid gap-1 text-sm font-medium text-zinc-800">
               {labels.template}
               <select
-                className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+                className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none sm:min-h-0"
                 name="templateKey"
               >
                 <option value="">{labels.custom}</option>
@@ -460,7 +460,7 @@ export function StaffActionPanel({
             <div className="grid gap-2 sm:grid-cols-2">
               {staffWebPermissions.map((permission) => (
                 <label
-                  className="flex items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800"
+                  className="flex min-h-11 items-center gap-2 rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-800 sm:min-h-0"
                   key={permission}
                 >
                   <input name="permissions" type="checkbox" value={permission} />
@@ -473,7 +473,7 @@ export function StaffActionPanel({
               name="confirmation"
               required
             />
-            <button className="rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950">
+            <button className="min-h-11 rounded-md border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-950 sm:min-h-0">
               {labels.updatePermissions}
             </button>
           </form>

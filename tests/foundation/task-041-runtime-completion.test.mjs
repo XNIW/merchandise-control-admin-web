@@ -166,8 +166,12 @@ test("TASK-041 opens only verified runtime implementation gates", () => {
 
   assert.equal(pkg.devDependencies?.["@opennextjs/cloudflare"], "^1.19.11");
   assert.ok(pkg.devDependencies?.wrangler);
-  assertContains(pkg.scripts?.["cf:build"] ?? "", "opennextjs-cloudflare build");
+  assertContains(pkg.scripts?.["cf:build"] ?? "", "scripts/cloudflare-build.mjs");
   assertContains(pkg.scripts?.["cf:preview"] ?? "", "opennextjs-cloudflare preview");
+  const cloudflareBuildScript = readProjectFile("scripts/cloudflare-build.mjs");
+  assertContains(cloudflareBuildScript, "opennextjs-cloudflare");
+  assertContains(cloudflareBuildScript, "NextResponse\\.next");
+  assertContains(cloudflareBuildScript, "refusing to omit it for Cloudflare build");
   const deployScripts = Object.entries(pkg.scripts ?? {}).filter(([, command]) =>
     /opennextjs-cloudflare deploy|wrangler deploy|--prod/.test(command),
   );
@@ -180,8 +184,8 @@ test("TASK-041 opens only verified runtime implementation gates", () => {
   assertContains(wranglerConfig, "nodejs_compat");
   assertContains(wranglerConfig, "merchandise-control-admin-web-staging");
   assertContains(openNextConfig, "defineCloudflareConfig");
-  assert.equal(existsSync(join(root, "src/proxy.ts")), false);
-  assert.equal(existsSync(join(root, "src/middleware.ts")), true);
+  assert.equal(existsSync(join(root, "src/proxy.ts")), true);
+  assert.equal(existsSync(join(root, "src/middleware.ts")), false);
 
   assertContains(scanner, "checkTask041RuntimeCompletion");
   assertContains(devSupabaseCheck, "--mode=");

@@ -26,6 +26,7 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  allowedDevOrigins: ["127.0.0.1"],
   async headers() {
     return [
       {
@@ -35,7 +36,7 @@ const nextConfig: NextConfig = {
     ];
   },
   poweredByHeader: false,
-  serverExternalPackages: ["read-excel-file", "unzipper", "write-excel-file"],
+  serverExternalPackages: ["read-excel-file", "unzipper-esm", "write-excel-file"],
 };
 
 export default nextConfig;

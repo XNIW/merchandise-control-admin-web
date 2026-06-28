@@ -52,13 +52,13 @@ const deviceActionCardClassName =
   "flex min-h-[14rem] min-w-0 flex-col rounded-md border border-zinc-200 bg-white p-4 shadow-sm";
 const deviceFormClassName = "mt-3 flex min-w-0 flex-1 flex-col gap-3";
 const deviceInputClassName =
-  "h-10 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none";
+  "h-11 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none sm:h-10";
 const deviceButtonClassName =
-  "mt-auto inline-flex h-10 w-full items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-medium text-white sm:w-auto";
+  "mt-auto inline-flex h-11 w-full items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-medium text-white sm:h-10 sm:w-auto";
 const deviceWarningButtonClassName =
-  "mt-auto inline-flex h-10 w-full items-center justify-center rounded-md border border-amber-400 bg-amber-50 px-4 text-sm font-medium text-amber-950 sm:w-auto";
+  "mt-auto inline-flex h-11 w-full items-center justify-center rounded-md border border-amber-400 bg-amber-50 px-4 text-sm font-medium text-amber-950 sm:h-10 sm:w-auto";
 const deviceSuccessButtonClassName =
-  "mt-auto inline-flex h-10 w-full items-center justify-center rounded-md border border-emerald-400 bg-emerald-50 px-4 text-sm font-medium text-emerald-950 sm:w-auto";
+  "mt-auto inline-flex h-11 w-full items-center justify-center rounded-md border border-emerald-400 bg-emerald-50 px-4 text-sm font-medium text-emerald-950 sm:h-10 sm:w-auto";
 
 function HiddenShopInput({ selectedShopId }: { selectedShopId?: string }) {
   return selectedShopId ? (
@@ -102,7 +102,7 @@ export function DeviceActionPanel({
     <details
       className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} rounded-md border border-slate-200 bg-white p-5`}
     >
-      <summary className="cursor-pointer text-base font-semibold text-slate-950">
+      <summary className="flex min-h-11 cursor-pointer items-center text-base font-semibold text-slate-950 sm:min-h-0">
         {title}
       </summary>
       <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">

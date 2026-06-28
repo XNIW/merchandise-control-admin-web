@@ -57,6 +57,7 @@ export const SHOP_STAFF_WEB_PERMISSION_TREE = [
     permissions: [
       { key: "pos.dashboard.read", label: "Read POS dashboard" },
       { key: "sync.read", label: "Read sync status" },
+      { key: "sync.write", label: "Manage sync recovery notes" },
     ],
   },
 ] as const;
@@ -82,6 +83,7 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "settings.write",
     "pos.dashboard.read",
     "sync.read",
+    "sync.write",
   ],
   catalog_manager: [
     "catalog.read",
@@ -218,6 +220,10 @@ function staffPermissionForShopAdminPermission(
 
   if (permission === "history.view" || permission === "history.read") {
     return "sync.read";
+  }
+
+  if (permission === "sync.manage") {
+    return "sync.write";
   }
 
   return null;

@@ -56,6 +56,7 @@ import {
   tombstoneHistoryEntry,
   updateHistoryEntry,
 } from "@/server/shop-admin/history-mutations";
+import { recordPosSyncRecoveryAction } from "@/server/shop-admin/pos-sync-recovery-mutations";
 
 export type ShopAdminActionState = ShopAdminActionResult & {
   temporaryCredential?: string;
@@ -627,6 +628,21 @@ export async function tombstoneHistoryEntryAction(formData: FormData) {
       remoteId,
       requestedShopId: requestedShopId(formData),
     }),
+  );
+}
+
+export async function recordPosSyncRecoveryActionAction(formData: FormData) {
+  const shopId = requestedShopId(formData);
+
+  resultRedirect(
+    "/shop/sync",
+    await recordPosSyncRecoveryAction({
+      actionType: formString(formData, "actionType"),
+      note: optionalFormString(formData, "note"),
+      requestedShopId: shopId,
+      targetRef: formString(formData, "targetRef"),
+    }),
+    shopId,
   );
 }
 

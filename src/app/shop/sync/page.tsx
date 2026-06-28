@@ -1,8 +1,11 @@
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
+import { getShopPosSyncRecoveryReadModel } from "@/server/shop-admin/pos-sync-recovery-read-model";
 import { getShopSectionForRequest } from "@/server/shop-admin/shop-section-data";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
+import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
+import { PosSyncRecoveryPanel } from "./PosSyncRecoveryPanel";
 
 export function generateMetadata() {
   return createLocalizedPageMetadata("Sync Center");
@@ -27,8 +30,10 @@ const syncClearFiltersClassName =
   "inline-flex h-10 w-full items-center justify-center rounded-md border border-zinc-300 px-4 text-sm font-medium text-zinc-800 md:w-auto";
 
 type ShopPageSearchParams = Promise<{
+  action?: string | string[];
   domain?: string | string[];
   query?: string | string[];
+  result?: string | string[];
   shop_id?: string | string[];
   source?: string | string[];
   status?: string | string[];
@@ -90,93 +95,103 @@ export default async function ShopSyncPage({
     sourceFilter,
     statusFilter,
   ].filter(Boolean).length;
-  const section = await getShopSectionForRequest(
-    "sync",
-    requestedShopId,
-    {
-      syncFilters: {
-        domain: domainFilter,
-        query: queryFilter,
-        source: sourceFilter,
-        status: statusFilter,
+  const [section, recovery] = await Promise.all([
+    getShopSectionForRequest(
+      "sync",
+      requestedShopId,
+      {
+        syncFilters: {
+          domain: domainFilter,
+          query: queryFilter,
+          source: sourceFilter,
+          status: statusFilter,
+        },
       },
-    },
-  );
+    ),
+    getShopPosSyncRecoveryReadModel({ requestedShopId }),
+  ]);
 
   return (
     <div className="grid gap-5">
       <ShopSectionPage
         beforeLiveData={
-          <form action="/shop/sync" className={syncFilterFormClassName}>
-            {requestedShopId ? (
-              <input name="shop_id" type="hidden" value={requestedShopId} />
-            ) : null}
-            <label className={syncFilterLabelClassName}>
-              {dictionary.shopFilters.search}
-              <input
-                className={syncFilterInputClassName}
-                defaultValue={queryFilter ?? ""}
-                maxLength={SYNC_FILTER_MAX_LENGTH}
-                name="query"
-                placeholder={translateText(dictionary, "Search sync events")}
-                type="search"
-              />
-            </label>
-            <label className={syncFilterLabelClassName}>
-              {translateText(dictionary, "Domain")}
-              <input
-                className={syncFilterInputClassName}
-                defaultValue={domainFilter ?? ""}
-                maxLength={SYNC_FILTER_MAX_LENGTH}
-                name="domain"
-                placeholder={translateText(dictionary, "Domain")}
-                type="text"
-              />
-            </label>
-            <label className={syncFilterLabelClassName}>
-              {translateText(dictionary, "Source or device")}
-              <input
-                className={syncFilterInputClassName}
-                defaultValue={sourceFilter ?? ""}
-                maxLength={SYNC_FILTER_MAX_LENGTH}
-                name="source"
-                placeholder={translateText(dictionary, "Device or source")}
-                type="text"
-              />
-            </label>
-            <label className={syncFilterLabelClassName}>
-              {translateText(dictionary, "Status")}
-              <select
-                className={syncFilterSelectClassName}
-                defaultValue={statusFilter ?? ""}
-                name="status"
-              >
-                <option value="">{translateText(dictionary, "Any")}</option>
-                <option value="pending">
-                  {translateText(dictionary, "Pending")}
-                </option>
-                <option value="success">
-                  {translateText(dictionary, "Success")}
-                </option>
-                <option value="failed">
-                  {translateText(dictionary, "Failed")}
-                </option>
-              </select>
-            </label>
-            <div className={syncFilterActionsClassName}>
-              <button className={syncFilterButtonClassName}>
-                {dictionary.common.applyFilters}
-              </button>
-              {activeFilterCount > 0 ? (
-                <a
-                  className={syncClearFiltersClassName}
-                  href={buildClearFiltersHref(requestedShopId)}
-                >
-                  {dictionary.common.clearFilters}
-                </a>
+          <div className="grid gap-4">
+            <form action="/shop/sync" className={syncFilterFormClassName}>
+              {requestedShopId ? (
+                <input name="shop_id" type="hidden" value={requestedShopId} />
               ) : null}
-            </div>
-          </form>
+              <label className={syncFilterLabelClassName}>
+                {dictionary.shopFilters.search}
+                <input
+                  className={syncFilterInputClassName}
+                  defaultValue={queryFilter ?? ""}
+                  maxLength={SYNC_FILTER_MAX_LENGTH}
+                  name="query"
+                  placeholder={translateText(dictionary, "Search sync events")}
+                  type="search"
+                />
+              </label>
+              <label className={syncFilterLabelClassName}>
+                {translateText(dictionary, "Domain")}
+                <input
+                  className={syncFilterInputClassName}
+                  defaultValue={domainFilter ?? ""}
+                  maxLength={SYNC_FILTER_MAX_LENGTH}
+                  name="domain"
+                  placeholder={translateText(dictionary, "Domain")}
+                  type="text"
+                />
+              </label>
+              <label className={syncFilterLabelClassName}>
+                {translateText(dictionary, "Source or device")}
+                <input
+                  className={syncFilterInputClassName}
+                  defaultValue={sourceFilter ?? ""}
+                  maxLength={SYNC_FILTER_MAX_LENGTH}
+                  name="source"
+                  placeholder={translateText(dictionary, "Device or source")}
+                  type="text"
+                />
+              </label>
+              <label className={syncFilterLabelClassName}>
+                {translateText(dictionary, "Status")}
+                <select
+                  className={syncFilterSelectClassName}
+                  defaultValue={statusFilter ?? ""}
+                  name="status"
+                >
+                  <option value="">{translateText(dictionary, "Any")}</option>
+                  <option value="pending">
+                    {translateText(dictionary, "Pending")}
+                  </option>
+                  <option value="success">
+                    {translateText(dictionary, "Success")}
+                  </option>
+                  <option value="failed">
+                    {translateText(dictionary, "Failed")}
+                  </option>
+                </select>
+              </label>
+              <div className={syncFilterActionsClassName}>
+                <button className={syncFilterButtonClassName}>
+                  {dictionary.common.applyFilters}
+                </button>
+                {activeFilterCount > 0 ? (
+                  <a
+                    className={syncClearFiltersClassName}
+                    href={buildClearFiltersHref(requestedShopId)}
+                  >
+                    {dictionary.common.clearFilters}
+                  </a>
+                ) : null}
+              </div>
+            </form>
+            <ActionResultBanner
+              action={getParam(params, "action")}
+              result={getParam(params, "result")}
+            />
+            <PosSyncRecoveryPanel model={recovery} />
+          </div>
         }
         section={section}
       />

@@ -751,11 +751,14 @@ export type Database = {
       pos_sale_lines: {
         Row: {
           barcode: string | null
+          amount_clp: number | null
           client_line_id: string
           created_at: string
           item_number: string | null
+          line_type: string
           line_position: number
           line_total: number
+          local_product_id: string | null
           metadata_redacted: Json
           pos_sale_id: string
           pos_sale_line_id: string
@@ -764,15 +767,22 @@ export type Database = {
           product_name: string | null
           quantity: number
           shop_id: string
+          stock_issue_code: string | null
+          stock_quantity_delta: number
+          stock_sync_status: string
+          unit_amount_clp: number | null
           unit_price: number
         }
         Insert: {
           barcode?: string | null
+          amount_clp?: number | null
           client_line_id: string
           created_at?: string
           item_number?: string | null
+          line_type?: string
           line_position: number
           line_total: number
+          local_product_id?: string | null
           metadata_redacted?: Json
           pos_sale_id: string
           pos_sale_line_id?: string
@@ -781,15 +791,22 @@ export type Database = {
           product_name?: string | null
           quantity: number
           shop_id: string
+          stock_issue_code?: string | null
+          stock_quantity_delta?: number
+          stock_sync_status?: string
+          unit_amount_clp?: number | null
           unit_price: number
         }
         Update: {
           barcode?: string | null
+          amount_clp?: number | null
           client_line_id?: string
           created_at?: string
           item_number?: string | null
+          line_type?: string
           line_position?: number
           line_total?: number
+          local_product_id?: string | null
           metadata_redacted?: Json
           pos_sale_id?: string
           pos_sale_line_id?: string
@@ -798,6 +815,10 @@ export type Database = {
           product_name?: string | null
           quantity?: number
           shop_id?: string
+          stock_issue_code?: string | null
+          stock_quantity_delta?: number
+          stock_sync_status?: string
+          unit_amount_clp?: number | null
           unit_price?: number
         }
         Relationships: [
@@ -831,80 +852,356 @@ export type Database = {
           },
         ]
       }
+      pos_revenue_ledger_entries: {
+        Row: {
+          amount_clp: number
+          barcode: string | null
+          business_date: string | null
+          client_entry_id: string
+          created_at: string
+          currency: string
+          entry_type: string
+          item_number: string | null
+          line_position: number | null
+          local_product_id: string | null
+          metadata_redacted: Json
+          occurred_at: string
+          original_client_entry_id: string | null
+          payment_method: string | null
+          pos_revenue_ledger_entry_id: string
+          pos_sale_id: string
+          pos_sales_sync_batch_id: string
+          pos_session_id: string | null
+          product_id: string | null
+          product_name: string | null
+          quantity: number | null
+          shop_device_id: string
+          shop_id: string
+          staff_id: string | null
+        }
+        Insert: {
+          amount_clp: number
+          barcode?: string | null
+          business_date?: string | null
+          client_entry_id: string
+          created_at?: string
+          currency?: string
+          entry_type: string
+          item_number?: string | null
+          line_position?: number | null
+          local_product_id?: string | null
+          metadata_redacted?: Json
+          occurred_at: string
+          original_client_entry_id?: string | null
+          payment_method?: string | null
+          pos_revenue_ledger_entry_id?: string
+          pos_sale_id: string
+          pos_sales_sync_batch_id: string
+          pos_session_id?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          quantity?: number | null
+          shop_device_id: string
+          shop_id: string
+          staff_id?: string | null
+        }
+        Update: {
+          amount_clp?: number
+          barcode?: string | null
+          business_date?: string | null
+          client_entry_id?: string
+          created_at?: string
+          currency?: string
+          entry_type?: string
+          item_number?: string | null
+          line_position?: number | null
+          local_product_id?: string | null
+          metadata_redacted?: Json
+          occurred_at?: string
+          original_client_entry_id?: string | null
+          payment_method?: string | null
+          pos_revenue_ledger_entry_id?: string
+          pos_sale_id?: string
+          pos_sales_sync_batch_id?: string
+          pos_session_id?: string | null
+          product_id?: string | null
+          product_name?: string | null
+          quantity?: number | null
+          shop_device_id?: string
+          shop_id?: string
+          staff_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_revenue_ledger_entries_pos_sale_id_fkey"
+            columns: ["pos_sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["pos_sale_id"]
+          },
+          {
+            foreignKeyName: "pos_revenue_ledger_entries_pos_sales_sync_batch_id_fkey"
+            columns: ["pos_sales_sync_batch_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales_sync_batches"
+            referencedColumns: ["pos_sales_sync_batch_id"]
+          },
+          {
+            foreignKeyName: "pos_revenue_ledger_entries_pos_session_id_fkey"
+            columns: ["pos_session_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sessions"
+            referencedColumns: ["pos_session_id"]
+          },
+          {
+            foreignKeyName: "pos_revenue_ledger_entries_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_revenue_ledger_entries_shop_device_id_fkey"
+            columns: ["shop_device_id"]
+            isOneToOne: false
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "pos_revenue_ledger_entries_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "pos_revenue_ledger_entries_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pos_revenue_ledger_entries_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
+      pos_sale_stock_movements: {
+        Row: {
+          created_at: string
+          issue_code: string | null
+          metadata_redacted: Json
+          movement_key: string
+          movement_kind: string
+          pos_sale_id: string
+          pos_sale_line_id: string | null
+          pos_sale_stock_movement_id: string
+          product_id: string | null
+          quantity_delta: number
+          shop_id: string
+          status: string
+          stock_after: number | null
+          stock_before: number | null
+        }
+        Insert: {
+          created_at?: string
+          issue_code?: string | null
+          metadata_redacted?: Json
+          movement_key: string
+          movement_kind: string
+          pos_sale_id: string
+          pos_sale_line_id?: string | null
+          pos_sale_stock_movement_id?: string
+          product_id?: string | null
+          quantity_delta: number
+          shop_id: string
+          status: string
+          stock_after?: number | null
+          stock_before?: number | null
+        }
+        Update: {
+          created_at?: string
+          issue_code?: string | null
+          metadata_redacted?: Json
+          movement_key?: string
+          movement_kind?: string
+          pos_sale_id?: string
+          pos_sale_line_id?: string | null
+          pos_sale_stock_movement_id?: string
+          product_id?: string | null
+          quantity_delta?: number
+          shop_id?: string
+          status?: string
+          stock_after?: number | null
+          stock_before?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_sale_stock_movements_pos_sale_id_fkey"
+            columns: ["pos_sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["pos_sale_id"]
+          },
+          {
+            foreignKeyName: "pos_sale_stock_movements_pos_sale_line_id_fkey"
+            columns: ["pos_sale_line_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sale_lines"
+            referencedColumns: ["pos_sale_line_id"]
+          },
+          {
+            foreignKeyName: "pos_sale_stock_movements_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_sale_stock_movements_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
       pos_sales: {
         Row: {
           business_date: string | null
+          business_kind: string
+          change_amount_clp: number
+          client_original_sale_id: string | null
           client_sale_id: string
           created_at: string
           currency: string
+          discount_amount_clp: number | null
           discount_total: number
+          fiscal_document_number_redacted: string | null
+          fiscal_document_type: string | null
+          fiscal_printed_at: string | null
+          fiscal_status: string
+          gross_amount_clp: number | null
           idempotency_key: string
           metadata_redacted: Json
+          net_amount_clp: number | null
           occurred_at: string
+          original_pos_sale_id: string | null
           payload_hash: string
+          paid_amount_clp: number | null
           pos_sale_id: string
           pos_sales_sync_batch_id: string
           pos_session_id: string
+          reversal_reason_redacted: string | null
           sale_number: string | null
           shop_code: string
           shop_device_id: string
           shop_id: string
+          source_schema_version: string
           staff_id: string
           status: string
+          stock_sync_status: string
+          stock_warning_count: number
           subtotal: number
+          tax_amount_clp: number
           tax_total: number
           total: number
           updated_at: string
         }
         Insert: {
           business_date?: string | null
+          business_kind?: string
+          change_amount_clp?: number
+          client_original_sale_id?: string | null
           client_sale_id: string
           created_at?: string
           currency?: string
+          discount_amount_clp?: number | null
           discount_total?: number
+          fiscal_document_number_redacted?: string | null
+          fiscal_document_type?: string | null
+          fiscal_printed_at?: string | null
+          fiscal_status?: string
+          gross_amount_clp?: number | null
           idempotency_key: string
           metadata_redacted?: Json
+          net_amount_clp?: number | null
           occurred_at: string
+          original_pos_sale_id?: string | null
           payload_hash: string
+          paid_amount_clp?: number | null
           pos_sale_id?: string
           pos_sales_sync_batch_id: string
           pos_session_id: string
+          reversal_reason_redacted?: string | null
           sale_number?: string | null
           shop_code: string
           shop_device_id: string
           shop_id: string
+          source_schema_version?: string
           staff_id: string
           status?: string
+          stock_sync_status?: string
+          stock_warning_count?: number
           subtotal?: number
+          tax_amount_clp?: number
           tax_total?: number
           total: number
           updated_at?: string
         }
         Update: {
           business_date?: string | null
+          business_kind?: string
+          change_amount_clp?: number
+          client_original_sale_id?: string | null
           client_sale_id?: string
           created_at?: string
           currency?: string
+          discount_amount_clp?: number | null
           discount_total?: number
+          fiscal_document_number_redacted?: string | null
+          fiscal_document_type?: string | null
+          fiscal_printed_at?: string | null
+          fiscal_status?: string
+          gross_amount_clp?: number | null
           idempotency_key?: string
           metadata_redacted?: Json
+          net_amount_clp?: number | null
           occurred_at?: string
+          original_pos_sale_id?: string | null
           payload_hash?: string
+          paid_amount_clp?: number | null
           pos_sale_id?: string
           pos_sales_sync_batch_id?: string
           pos_session_id?: string
+          reversal_reason_redacted?: string | null
           sale_number?: string | null
           shop_code?: string
           shop_device_id?: string
           shop_id?: string
+          source_schema_version?: string
           staff_id?: string
           status?: string
+          stock_sync_status?: string
+          stock_warning_count?: number
           subtotal?: number
+          tax_amount_clp?: number
           tax_total?: number
           total?: number
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pos_sales_original_pos_sale_id_fkey"
+            columns: ["original_pos_sale_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sales"
+            referencedColumns: ["pos_sale_id"]
+          },
           {
             foreignKeyName: "pos_sales_pos_sales_sync_batch_id_fkey"
             columns: ["pos_sales_sync_batch_id"]
@@ -1955,6 +2252,154 @@ export type Database = {
       }
     }
     Views: {
+      pos_revenue_daily_summary_v: {
+        Row: {
+          business_date: string | null
+          card_received_clp: number | null
+          cash_received_clp: number | null
+          change_given_clp: number | null
+          discounts_clp: number | null
+          documented_revenue_clp: number | null
+          gross_sales_clp: number | null
+          latest_ledger_at: string | null
+          net_revenue_clp: number | null
+          other_received_clp: number | null
+          refund_count: number | null
+          refunds_clp: number | null
+          sale_count: number | null
+          shop_id: string | null
+          stock_warning_count: number | null
+          transaction_count: number | null
+          transfer_received_clp: number | null
+          verification_revenue_clp: number | null
+          void_count: number | null
+        }
+        Insert: {
+          business_date?: string | null
+          card_received_clp?: number | null
+          cash_received_clp?: number | null
+          change_given_clp?: number | null
+          discounts_clp?: number | null
+          documented_revenue_clp?: number | null
+          gross_sales_clp?: number | null
+          latest_ledger_at?: string | null
+          net_revenue_clp?: number | null
+          other_received_clp?: number | null
+          refund_count?: number | null
+          refunds_clp?: number | null
+          sale_count?: number | null
+          shop_id?: string | null
+          stock_warning_count?: number | null
+          transaction_count?: number | null
+          transfer_received_clp?: number | null
+          verification_revenue_clp?: number | null
+          void_count?: number | null
+        }
+        Update: {
+          business_date?: string | null
+          card_received_clp?: number | null
+          cash_received_clp?: number | null
+          change_given_clp?: number | null
+          discounts_clp?: number | null
+          documented_revenue_clp?: number | null
+          gross_sales_clp?: number | null
+          latest_ledger_at?: string | null
+          net_revenue_clp?: number | null
+          other_received_clp?: number | null
+          refund_count?: number | null
+          refunds_clp?: number | null
+          sale_count?: number | null
+          shop_id?: string | null
+          stock_warning_count?: number | null
+          transaction_count?: number | null
+          transfer_received_clp?: number | null
+          verification_revenue_clp?: number | null
+          void_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_revenue_ledger_entries_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      pos_revenue_monthly_summary_v: {
+        Row: {
+          card_received_clp: number | null
+          cash_received_clp: number | null
+          change_given_clp: number | null
+          discounts_clp: number | null
+          documented_revenue_clp: number | null
+          gross_sales_clp: number | null
+          latest_ledger_at: string | null
+          month_start: string | null
+          net_revenue_clp: number | null
+          other_received_clp: number | null
+          refund_count: number | null
+          refunds_clp: number | null
+          sale_count: number | null
+          shop_id: string | null
+          stock_warning_count: number | null
+          transaction_count: number | null
+          transfer_received_clp: number | null
+          verification_revenue_clp: number | null
+          void_count: number | null
+        }
+        Insert: {
+          card_received_clp?: number | null
+          cash_received_clp?: number | null
+          change_given_clp?: number | null
+          discounts_clp?: number | null
+          documented_revenue_clp?: number | null
+          gross_sales_clp?: number | null
+          latest_ledger_at?: string | null
+          month_start?: string | null
+          net_revenue_clp?: number | null
+          other_received_clp?: number | null
+          refund_count?: number | null
+          refunds_clp?: number | null
+          sale_count?: number | null
+          shop_id?: string | null
+          stock_warning_count?: number | null
+          transaction_count?: number | null
+          transfer_received_clp?: number | null
+          verification_revenue_clp?: number | null
+          void_count?: number | null
+        }
+        Update: {
+          card_received_clp?: number | null
+          cash_received_clp?: number | null
+          change_given_clp?: number | null
+          discounts_clp?: number | null
+          documented_revenue_clp?: number | null
+          gross_sales_clp?: number | null
+          latest_ledger_at?: string | null
+          month_start?: string | null
+          net_revenue_clp?: number | null
+          other_received_clp?: number | null
+          refund_count?: number | null
+          refunds_clp?: number | null
+          sale_count?: number | null
+          shop_id?: string | null
+          stock_warning_count?: number | null
+          transaction_count?: number | null
+          transfer_received_clp?: number | null
+          verification_revenue_clp?: number | null
+          void_count?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_revenue_ledger_entries_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
       shared_sheet_session_diagnostics: {
         Row: {
           category: string
@@ -2109,6 +2554,24 @@ export type Database = {
       }
     }
     Functions: {
+      pos_apply_sale_stock_movement: {
+        Args: {
+          p_metadata_redacted?: Json
+          p_movement_key: string
+          p_movement_kind: string
+          p_pos_sale_id: string
+          p_pos_sale_line_id: string | null
+          p_product_id: string | null
+          p_quantity_delta: number
+          p_shop_id: string
+        }
+        Returns: {
+          issue_code: string | null
+          status: string
+          stock_after: number | null
+          stock_before: number | null
+        }[]
+      }
       platform_create_pos_first_shop: {
         Args: {
           p_business_address: string

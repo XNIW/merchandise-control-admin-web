@@ -507,6 +507,7 @@ test("TASK-057 parser surfaces detection metadata and escapes formula fields", (
     "selectProductSheet",
     "confidence",
     "readOoxmlWorkbookFallback",
+    "unzipper-esm",
     "unzipper.Open.buffer",
     "DOMParser",
   ]) {

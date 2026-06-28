@@ -404,6 +404,7 @@ function checkReadOnlyContracts() {
     "src/server/shop-admin/settings-mutations.ts",
     "src/server/shop-admin/staff-aware-mutations.ts",
     "src/server/shop-admin/history-mutations.ts",
+    "src/server/shop-admin/pos-sync-recovery-mutations.ts",
     "src/server/shop-admin/sync-event-writer.ts",
     "src/server/platform-admin/shop-actions.ts",
     "src/server/platform-admin/staff-manager-provisioning.ts",
@@ -1637,9 +1638,7 @@ function checkPlatformAdminBootstrapScript() {
 }
 
 function checkSupabaseProxyLifecycle() {
-  const proxyEntryPath = isTask041RuntimeCompletionActive()
-    ? "src/middleware.ts"
-    : "src/proxy.ts";
+  const proxyEntryPath = "src/proxy.ts";
   const proxyHelperPath = "src/lib/supabase/proxy.ts";
 
   for (const requiredPath of [proxyEntryPath, proxyHelperPath]) {
@@ -1652,14 +1651,14 @@ function checkSupabaseProxyLifecycle() {
   const proxyEntry = read(proxyEntryPath);
   const proxyHelper = read(proxyHelperPath);
 
-  if (
-    proxyEntryPath === "src/middleware.ts"
-      ? !/export async function middleware/.test(proxyEntry)
-      : !/export async function proxy/.test(proxyEntry)
-  ) {
+  if (!/export function proxy/.test(proxyEntry)) {
     addFailure(
-      `${proxyEntryPath} must export the Supabase SSR request lifecycle function`,
+      `${proxyEntryPath} must export the Cloudflare-compatible Next proxy function`,
     );
+  }
+
+  if (existsSync(join(root, "src/middleware.ts"))) {
+    addFailure("src/middleware.ts must not remain after Next proxy migration");
   }
 
   if (
@@ -1672,6 +1671,20 @@ function checkSupabaseProxyLifecycle() {
 
   if (!/favicon\.ico/.test(proxyEntry)) {
     addFailure(`${proxyEntryPath} must avoid favicon requests`);
+  }
+
+  if (!/NextResponse\.next\(\)/.test(proxyEntry)) {
+    addFailure(`${proxyEntryPath} must remain a lightweight pass-through proxy`);
+  }
+
+  if (/@supabase\/ssr|updateSupabaseSession/.test(proxyEntry)) {
+    addFailure(
+      `${proxyEntryPath} must not import Supabase SSR helpers because OpenNext Cloudflare rejects Node middleware`,
+    );
+  }
+
+  if (/SUPABASE_SERVICE_ROLE_KEY|SERVICE_ROLE|service_role/i.test(proxyEntry)) {
+    addFailure(`${proxyEntryPath} must not use service-role secrets`);
   }
 
   if (
@@ -4309,6 +4322,8 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     "pos.session.heartbeat.success",
     "pos.session.heartbeat.failure",
     "pos.device.revoked_enforced",
+    "credentialAttemptClearOk",
+    "priorDeviceCredentialsRevokedOk",
   ]) {
     if (!service.includes(requiredSnippet)) {
       addFailure(`${servicePath} must include ${requiredSnippet}`);
@@ -4427,6 +4442,12 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
       /export async function GET/.test(route)
     ) {
       addFailure("TASK-021 POS routes must expose POST only");
+    }
+
+    if (!/methodNotAllowed as HEAD/.test(route)) {
+      addFailure(
+        "TASK-021 POS routes must explicitly reject HEAD with the shared method guard",
+      );
     }
 
     if (/SUPABASE_SERVICE_ROLE_KEY|credential_hash|service_role/i.test(route)) {
@@ -5768,7 +5789,7 @@ function checkTask041RuntimeCompletion() {
     databaseTypesPath,
     "wrangler.jsonc",
     "open-next.config.ts",
-    "src/middleware.ts",
+    "src/proxy.ts",
   ]) {
     if (!existsSync(join(root, requiredPath))) {
       addFailure(`${requiredPath} is missing for TASK-041`);
@@ -5862,6 +5883,12 @@ function checkTask041RuntimeCompletion() {
 
   if (/export async function GET/.test(salesRoute)) {
     addFailure(`${salesRoutePath} must expose POST only`);
+  }
+
+  if (!/methodNotAllowed as HEAD/.test(salesRoute)) {
+    addFailure(
+      `${salesRoutePath} must explicitly reject HEAD with the shared method guard`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -6022,9 +6049,9 @@ function checkTask041RuntimeCompletion() {
     addFailure("open-next.config.ts must define the Cloudflare adapter config");
   }
 
-  if (existsSync(join(root, "src/proxy.ts"))) {
+  if (existsSync(join(root, "src/middleware.ts"))) {
     addFailure(
-      "TASK-041 Cloudflare build must avoid Next 16 Node-only src/proxy.ts",
+      "TASK-041 Cloudflare build must use Next 16 src/proxy.ts instead of deprecated src/middleware.ts",
     );
   }
 

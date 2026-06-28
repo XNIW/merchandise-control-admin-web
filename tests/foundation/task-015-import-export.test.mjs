@@ -16,8 +16,9 @@ test("TASK-015 import/export readiness declares Excel workbook contract and safe
 
   assert.equal(existsSync(join(root, modulePath)), true, `${modulePath} is missing`);
   assert.equal(existsSync(join(root, workbookPath)), true, `${workbookPath} is missing`);
-  assert.equal(packageJson.dependencies["read-excel-file"], "^9.0.10");
-  assert.equal(packageJson.dependencies["write-excel-file"], "^4.0.7");
+  assert.equal(packageJson.dependencies["read-excel-file"], "^9.2.0");
+  assert.equal(packageJson.dependencies["unzipper-esm"], "^0.13.2");
+  assert.equal(packageJson.dependencies["write-excel-file"], "^4.1.1");
 
   const moduleSource = readProjectFile(modulePath);
   const workbookSource = readProjectFile(workbookPath);
@@ -25,6 +26,7 @@ test("TASK-015 import/export readiness declares Excel workbook contract and safe
   assert.match(moduleSource, /import "server-only"/);
   assert.match(workbookSource, /import "server-only"/);
   assert.match(workbookSource, /read-excel-file/);
+  assert.match(workbookSource, /unzipper-esm/);
   assert.match(workbookSource, /write-excel-file/);
   assert.match(moduleSource, /EXCEL_WORKBOOK_SHEETS/);
   assert.match(moduleSource, /Products/);

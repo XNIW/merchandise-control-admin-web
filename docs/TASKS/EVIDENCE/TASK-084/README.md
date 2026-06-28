@@ -761,3 +761,52 @@ exit 0
 - Win7POS: `READY_FOR_WIN7POS_ONLINE_RETEST`.
 - Overall: `READY_FOR_USER_REVIEW_AND_WIN7_RETEST`.
 - Formal task state remains `REVIEW_READY`; Codex did not mark `DONE`.
+
+## TASK-086 closure retest - 2026-06-25
+
+Status after mobile UI polish review: `REVIEW_READY`, not `DONE`.
+
+Local/Android Admin Web:
+
+```text
+Android Emulator/Chrome local login admin/shop-code: PASS, no horizontal overflow, smallTargetCount=0.
+Android OAuth entry point: redacted=https://accounts.google.com/v3/signin/identifier providerReached=true.
+Android products authenticated: PASS, exactTotalVisible=true, rangeVisible=true, productActionToolbars=10.
+Desktop sanity login, /shop, /shop/products: PASS, docW==vw, layout preserved.
+```
+
+Admin Web local gates:
+
+```text
+npm run security:scan PASS
+npm run test:foundation PASS (463/463)
+npm run typecheck PASS
+npm run lint PASS
+npm run build PASS
+npm run verify PASS
+npm run cf:build PASS (exit 0; OpenNext copy warnings noted)
+```
+
+Staging workers.dev regression:
+
+```text
+npm run smoke:task085:staging
+FAIL oauth login 1 rendered forbidden runtime/error copy.
+Observed mobile body text: Error 1102 / Worker exceeded resource limits.
+```
+
+Decision: TASK-084 remains `REVIEW_READY`; closure to `DONE` is deferred until
+workers.dev staging is healthy or redeployed and the TASK-085 staging smoke is
+green. Windows 7 physical/VM retest remains an external residual risk.
+
+Reviewer retest 2026-06-28:
+
+```text
+PLAYWRIGHT_BASE_URL=https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev npm run smoke:task085:staging
+oauth mobile 1..5: PASS provider=true accounts.google.com/v3/signin/identifier
+products authenticated smoke: SKIP, TASK085_SHOP_CODE/STAFF_CODE/STAFF_PIN not set
+exit 0
+```
+
+Decision update: workers.dev OAuth staging is healthy again, but TASK-084 remains
+`REVIEW_READY`, not `DONE`, pending user review and external Win7POS retest.

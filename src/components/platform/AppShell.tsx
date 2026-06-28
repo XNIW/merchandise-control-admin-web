@@ -224,7 +224,7 @@ function Topbar({
           </span>
           <form action="/auth/logout?next=/platform" method="get">
             <button
-              className="rounded-md border border-slate-300 bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 outline-none transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2"
+              className="min-h-11 rounded-md border border-slate-300 bg-white px-3 text-sm font-semibold text-slate-700 outline-none transition hover:border-slate-400 hover:bg-slate-50 hover:text-slate-950 focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 md:min-h-0 md:px-2.5 md:py-1 md:text-xs"
               type="submit"
             >
               {dictionary.common.logout}

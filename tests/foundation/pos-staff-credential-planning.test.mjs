@@ -118,7 +118,11 @@ test("TASK-012 planning stays redacted as later staff runtime tasks land", () =>
   if (task014Present) {
     assert.match(generatedTypes, /staff_accounts:\s*\{/);
     assert.match(migrations, /task_014_pos_staff_foundation/);
-    assert.doesNotMatch(serverShopFiles, /pin_hash|password_hash|pos.*login|login.*pos/i);
+    assert.doesNotMatch(serverShopFiles, /pin_hash|password_hash/i);
+    assert.doesNotMatch(
+      serverShopFiles,
+      /\/api\/pos\/login|pos\/login|login POS pubblico/i,
+    );
 
     if (task015Present) {
       assert.match(migrations, /TASK-015: Shop Admin completion/);

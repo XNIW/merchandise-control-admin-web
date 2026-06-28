@@ -413,7 +413,7 @@ function DeviceFilters({
           return (
             <Link
               className={[
-                "inline-flex h-9 items-center rounded-md border px-3 text-sm font-medium",
+                "inline-flex min-h-11 items-center rounded-md border px-3 py-2 text-sm font-medium sm:h-9 sm:min-h-0 sm:py-0",
                 isActive
                   ? "border-emerald-600 bg-emerald-50 text-emerald-800"
                   : "border-slate-200 bg-white text-slate-700 hover:border-emerald-300 hover:text-emerald-700",
@@ -438,7 +438,7 @@ function DeviceFilters({
           {t("Search devices")}
         </label>
         <input
-          className="h-10 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+          className="h-11 min-w-0 flex-1 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 shadow-sm focus:border-emerald-600 focus:outline-none sm:h-10"
           defaultValue={searchQuery}
           id="device-search"
           name="device_q"
@@ -446,7 +446,7 @@ function DeviceFilters({
           type="search"
         />
         <button
-          className="inline-flex h-10 items-center rounded-md bg-slate-950 px-4 text-sm font-medium text-white"
+          className="inline-flex h-11 items-center rounded-md bg-slate-950 px-4 text-sm font-medium text-white sm:h-10"
           type="submit"
         >
           {t("Search")}
@@ -484,7 +484,7 @@ function InlineActionDetails({
 }) {
   return (
     <details className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2">
-      <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+      <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-slate-800 sm:min-h-0">
         {label}
       </summary>
       <div className="mt-3">{children}</div>
@@ -509,7 +509,7 @@ function InlineTextInput({
     <label className="grid gap-1 text-sm font-medium text-slate-800">
       {label}
       <input
-        className="h-10 min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+        className="h-11 min-w-0 rounded-md border border-slate-300 bg-white px-3 text-sm text-slate-950 shadow-sm focus:border-emerald-600 focus:outline-none sm:h-10"
         defaultValue={defaultValue}
         name={name}
         placeholder={placeholder}
@@ -547,7 +547,7 @@ function InlineDeviceActions({
             required
           />
           <button
-            className="inline-flex h-10 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-medium text-white"
+            className="inline-flex h-11 items-center justify-center rounded-md bg-slate-950 px-4 text-sm font-medium text-white sm:h-10"
             type="submit"
           >
             {t("Rename")}
@@ -570,7 +570,7 @@ function InlineDeviceActions({
               />
             </div>
             <button
-              className="inline-flex h-10 w-full items-center justify-center rounded-md border border-emerald-300 bg-emerald-50 px-4 text-sm font-medium text-emerald-950 sm:w-fit"
+              className="inline-flex h-11 w-full items-center justify-center rounded-md border border-emerald-300 bg-emerald-50 px-4 text-sm font-medium text-emerald-950 sm:h-10 sm:w-fit"
               type="submit"
             >
               {t("Reactivate device")}
@@ -592,7 +592,7 @@ function InlineDeviceActions({
               />
             </div>
             <button
-              className="inline-flex h-10 w-full items-center justify-center rounded-md border border-amber-300 bg-amber-50 px-4 text-sm font-medium text-amber-950 sm:w-fit"
+              className="inline-flex h-11 w-full items-center justify-center rounded-md border border-amber-300 bg-amber-50 px-4 text-sm font-medium text-amber-950 sm:h-10 sm:w-fit"
               type="submit"
             >
               {t("Revoke device")}
@@ -650,7 +650,7 @@ function DeviceCard({
           </p>
         </div>
         <Link
-          className="inline-flex h-9 items-center justify-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-emerald-300 hover:text-emerald-700"
+          className="inline-flex min-h-11 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:border-emerald-300 hover:text-emerald-700 sm:h-9 sm:min-h-0 sm:w-auto sm:py-0"
           href={detailHref}
         >
           {t("Details")}
@@ -683,7 +683,7 @@ function DeviceCard({
           value={
             row.syncActivity && historyHref ? (
               <Link
-                className="text-emerald-700 underline-offset-4 hover:underline"
+                className="inline-flex min-h-11 items-center text-emerald-700 underline-offset-4 hover:underline sm:min-h-0"
                 href={historyHref}
               >
                 {row.syncActivity.latestDomain} /{" "}
@@ -701,7 +701,7 @@ function DeviceCard({
       </dl>
 
       <details className="mt-4 border-t border-slate-200 pt-3">
-        <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+        <summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-slate-800 sm:min-h-0">
           {t("Technical details")}
         </summary>
         <dl className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -816,7 +816,7 @@ function DiagnosticDevices({
 
   return (
     <details className="rounded-md border border-slate-200 bg-white p-5">
-      <summary className="cursor-pointer text-base font-semibold text-slate-950">
+      <summary className="flex min-h-11 cursor-pointer items-center text-base font-semibold text-slate-950 sm:min-h-0">
         {t("Diagnostic / test devices")} ({devices.length})
       </summary>
       <p className="mt-2 text-sm leading-6 text-slate-600">
@@ -854,7 +854,7 @@ function SyncActivityHints({
 }) {
   return (
     <details className="rounded-md border border-slate-200 bg-white p-5">
-      <summary className="cursor-pointer text-base font-semibold text-slate-950">
+      <summary className="flex min-h-11 cursor-pointer items-center text-base font-semibold text-slate-950 sm:min-h-0">
         {t("Sync activity hints")} ({clients.length})
       </summary>
       <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-600">
@@ -901,7 +901,7 @@ function SyncActivityHints({
                 />
               </dl>
               <Link
-                className="mt-3 inline-flex text-sm font-medium text-emerald-700 underline-offset-4 hover:underline"
+                className="mt-3 inline-flex min-h-11 items-center text-sm font-medium text-emerald-700 underline-offset-4 hover:underline sm:min-h-0"
                 href={withRequestedShopId(client.historyHref, requestedShopId)}
               >
                 {t("Open sync history")}

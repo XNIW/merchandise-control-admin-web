@@ -118,6 +118,34 @@ Esito Codex: `READY_FOR_USER_REVIEW_AND_WIN7_RETEST`, senza marcare il task `DON
 
 - Admin Web runtime verificato su workers.dev Version ID `118fde99-acde-424a-9c60-87ab429af8df`.
 - Admin Web local/origin verificati allineati a `ad1e19da` prima del fix finale CI/package `--minify`.
+
+## Closure review TASK-086 - 2026-06-25
+
+Esito: resta `REVIEW_READY`, non `DONE`.
+
+- Mobile UX polish TASK-086 ha validato localmente login admin/shop-code,
+  Google OAuth entry point, Shop Admin, products, staff, POS e devices su
+  Android Emulator/Chrome reale e Playwright Pixel/iPhone.
+- Desktop sanity login, `/shop`, `/shop/products` PASS e layout desktop
+  preservato tramite classi responsive.
+- Android/local TASK-085 regression PASS: OAuth arriva a
+  `accounts.google.com/v3/signin/identifier` con URL redatto; products mobile
+  mostra exact total e range.
+- Gate locali Admin Web PASS: `security:scan`, `test:foundation`, `typecheck`,
+  `lint`, `build`, `verify`, `cf:build`.
+- Gate staging workers.dev richiesto per closure non PASS: due run di
+  `npm run smoke:task085:staging` falliscono sulla pagina login mobile con
+  Cloudflare `Error 1102` / `Worker exceeded resource limits`, prima del click
+  Google.
+
+Decisione: TASK-084 non viene chiuso a `DONE` in questa review; rimane in
+review utente con Win7POS fisico/VM e staging 1102 come rischi residui da
+ritestare fuori dal polish mobile TASK-086.
+
+Retest reviewer 2026-06-28: `PLAYWRIGHT_BASE_URL=https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev npm run smoke:task085:staging`
+termina `0`; OAuth mobile workers.dev `PASS` 5/5, products authenticated smoke
+`SKIP` per env staff mancanti. TASK-084 resta `REVIEW_READY`, non `DONE`, in
+attesa di review utente e retest Win7POS esterno.
 - Win7POS local/origin verificati allineati a `a70ed4f`; commit richiesto TASK-083 `2be295f` confermato come antenato su `main`.
 - Fix finale Admin Web: `cf:deploy:staging`, workflow staging e workflow production usano `wrangler deploy ... --minify`; non e stato eseguito deploy production.
 - Dry-run Cloudflare non minificato: `3142.22 KiB gzip`, ancora oltre/sul limite pratico 3 MiB; dry-run con `--minify`: `2688.10 KiB gzip`, `PASS`.

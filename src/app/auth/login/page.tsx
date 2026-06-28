@@ -51,7 +51,7 @@ function loginHref(nextPath: string, mode: "admin-account" | "shop-code") {
 
 function loginModeLinkClassName(isActive: boolean) {
   return [
-    "inline-flex h-10 items-center justify-center rounded-md px-3 text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2",
+    "inline-flex h-11 items-center justify-center rounded-md px-3 text-sm font-semibold outline-none transition focus-visible:ring-2 focus-visible:ring-slate-950 focus-visible:ring-offset-2 sm:h-10",
     isActive
       ? "bg-slate-950 text-white shadow-sm"
       : "border border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50 hover:text-slate-950",

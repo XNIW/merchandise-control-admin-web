@@ -133,7 +133,7 @@ export async function ShopSectionPage({
 
       {secondaryMetricPairs.length > 0 ? (
         <details className="rounded-md border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-700 shadow-sm">
-          <summary className="cursor-pointer font-medium text-zinc-900">
+          <summary className="flex min-h-11 cursor-pointer items-center font-medium text-zinc-900 sm:min-h-0">
             {translateText(dictionary, "Technical details")}
           </summary>
           <dl className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">

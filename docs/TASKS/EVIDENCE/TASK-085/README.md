@@ -239,3 +239,57 @@ Physical Windows 7/VM retest: `NOT_RUN_PHYSICAL_RUNTIME_REQUIRED`.
 Verdict: `READY_FOR_USER_REVIEW_AND_WIN7_RETEST`.
 
 Next phase: reviewer validates TASK-085 and user decides whether to confirm `DONE`.
+
+## TASK-086 closure retest - 2026-06-25
+
+Status after mobile UI polish review: `REVIEW_READY`, not `DONE`.
+
+Local/Android regression:
+
+```text
+Android Emulator/Chrome local:
+login admin vw=411 docW=411 overflowX=false smallTargetCount=0
+login shop-code vw=411 docW=411 overflowX=false smallTargetCount=0
+OAuth entry redacted=https://accounts.google.com/v3/signin/identifier providerReached=true
+products auth vw=411 docW=411 overflowX=false productActionToolbars=10 exactTotalVisible=true rangeVisible=true smallTargetCount=0
+```
+
+Code review:
+
+```text
+/auth/oauth/google: no provider probe server-side.
+/shop/products: includeExactTotals="count-only"; count exact uses head:true.
+```
+
+Staging workers.dev regression:
+
+```text
+PLAYWRIGHT_BASE_URL=https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev npm run smoke:task085:staging
+[task-085-smoke] FAIL oauth login 1 rendered forbidden runtime/error copy.
+exit 1
+
+TASK085_OAUTH_REPEAT_COUNT=1 PLAYWRIGHT_BASE_URL=... npm run smoke:task085:staging
+[task-085-smoke] FAIL oauth login 1 rendered forbidden runtime/error copy.
+exit 1
+
+Observed mobile body text:
+Error 1102
+Worker exceeded resource limits
+```
+
+Decision: TASK-085 remains `REVIEW_READY` until workers.dev staging smoke is
+green again. No OAuth full URL, token, cookie, PIN, password, shop code or
+service-role was printed.
+
+Reviewer retest 2026-06-28:
+
+```text
+PLAYWRIGHT_BASE_URL=https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev npm run smoke:task085:staging
+oauth mobile 1..5: PASS provider=true accounts.google.com/v3/signin/identifier
+products authenticated smoke: SKIP, TASK085_SHOP_CODE/STAFF_CODE/STAFF_PIN not set
+exit 0
+```
+
+Decision update: workers.dev OAuth staging is green again. TASK-085 remains
+`REVIEW_READY`, not `DONE`, pending user review and any authenticated products
+staging rerun with dedicated staff test credentials.

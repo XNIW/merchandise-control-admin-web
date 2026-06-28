@@ -105,7 +105,8 @@ test("TASK-055 products filter bar aligns fields and keeps server query params",
   assertContains(dictionary, "Search barcode, item number, product name");
   assertContains(page, "filterInputClassName");
   assertContains(page, "filterButtonClassName");
-  assertContains(page, "h-9 w-full min-w-0");
+  assertContains(page, "h-11 w-full min-w-0");
+  assertContains(page, "md:h-9");
   assertContains(page, "md:grid-cols-[minmax(14rem,1.35fr)_minmax(0,170px)_minmax(0,170px)_minmax(0,132px)_minmax(0,112px)_auto]");
   assertContains(page, "category_id");
   assertContains(page, "supplier_id");
@@ -210,7 +211,8 @@ test("TASK-055 review fix 2 aligns Devices action cards like catalog cards", () 
   assertContains(devicePanel, "deviceSuccessButtonClassName");
   assertContains(devicePanel, "min-h-[");
   assertContains(devicePanel, "min-w-0 flex-col");
-  assertContains(devicePanel, "h-10 w-full min-w-0");
+  assertContains(devicePanel, "h-11 w-full min-w-0");
+  assertContains(devicePanel, "sm:h-10");
   assertContains(devicePanel, "mt-auto");
   assertContains(devicePanel, "md:grid-cols-2");
   assertContains(devicePanel, "xl:grid-cols-4");

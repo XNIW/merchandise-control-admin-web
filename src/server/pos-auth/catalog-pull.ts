@@ -7,11 +7,14 @@ import {
 } from "@/lib/supabase/admin";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import {
+  buildPosPolicyPayload,
   buildPosShopPayload,
   POS_SHOP_SELECT,
+  type PosPolicyPayload,
   type PosShopPayload,
   type PosShopPayloadRow,
 } from "./shop-payload";
+import { POS_CATALOG_SCHEMA_VERSION } from "./pos-contract";
 import {
   buildNextCatalogSyncCursor,
   catalogPriceTimestampFor,
@@ -186,7 +189,8 @@ type PosCatalogEndpointResult =
         generatedAt: string;
         hasMore: boolean;
         ok: true;
-        schemaVersion: 2;
+        policy: PosPolicyPayload;
+        schemaVersion: typeof POS_CATALOG_SCHEMA_VERSION;
         serverTime: string;
         shop: PosShopPayload;
         syncCursor: string;
@@ -197,6 +201,9 @@ type PosCatalogEndpointResult =
     };
 
 export type PosCatalogPullRequestMeta = {
+  clientRequestId?: string;
+  requestId?: string;
+  route?: string;
   userAgent?: string;
 };
 
@@ -313,6 +320,9 @@ function parseCatalogPullInput(
 
 function requestMetadata(meta: PosCatalogPullRequestMeta): JsonRecord {
   return {
+    ...(meta.clientRequestId ? { client_request_id: meta.clientRequestId } : {}),
+    ...(meta.requestId ? { request_id: meta.requestId } : {}),
+    ...(meta.route ? { route: meta.route } : {}),
     source: "TASK-027",
     user_agent_length: meta.userAgent?.length ?? 0,
     user_agent_present: Boolean(meta.userAgent),
@@ -1189,7 +1199,8 @@ export async function handlePosCatalogPull(
       generatedAt: serverTime,
       hasMore,
       ok: true,
-      schemaVersion: 2,
+      policy: buildPosPolicyPayload(),
+      schemaVersion: POS_CATALOG_SCHEMA_VERSION,
       serverTime: syncOptions.upperBound,
       shop: {
         ...buildPosShopPayload(shop),

@@ -211,24 +211,25 @@ test("TASK-005K live auth browser gate is opt-in and non-persistent", () => {
   assert.doesNotMatch(liveAuthTest, /console\.(log|debug|info|warn|error)/);
 });
 
-test("TASK-005H Supabase SSR proxy refreshes sessions without authz decisions", () => {
-  const proxyEntryPath = existsSync(join(root, "src/proxy.ts"))
-    ? "src/proxy.ts"
-    : "src/middleware.ts";
+test("TASK-005H Cloudflare-compatible proxy keeps session authz outside middleware", () => {
+  const proxyEntryPath = "src/proxy.ts";
   const proxyHelperPath = "src/lib/supabase/proxy.ts";
 
   assert.equal(existsSync(join(root, proxyEntryPath)), true);
   assert.equal(existsSync(join(root, proxyHelperPath)), true);
+  assert.equal(existsSync(join(root, "src/middleware.ts")), false);
 
   const proxyEntry = readProjectFile(proxyEntryPath);
   const proxyHelper = readProjectFile(proxyHelperPath);
 
-  assert.match(proxyEntry, /export async function (proxy|middleware)/);
-  assert.match(proxyEntry, /updateSupabaseSession/);
+  assert.match(proxyEntry, /export function proxy/);
+  assert.match(proxyEntry, /NextResponse\.next\(\)/);
   assert.match(proxyEntry, /matcher/);
   assert.match(proxyEntry, /_next\/static/);
   assert.match(proxyEntry, /_next\/image/);
   assert.match(proxyEntry, /favicon\.ico/);
+  assert.doesNotMatch(proxyEntry, /updateSupabaseSession|@supabase\/ssr/);
+  assert.doesNotMatch(proxyEntry, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
 
   assert.match(proxyHelper, /createServerClient/);
   assert.match(proxyHelper, /NextResponse\.next/);

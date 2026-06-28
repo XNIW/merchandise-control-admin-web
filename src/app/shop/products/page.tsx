@@ -174,9 +174,9 @@ function buildClearFiltersHref(requestedShopId?: string, pageSize?: string) {
 const filterLabelClassName =
   "grid min-w-0 gap-1 text-xs font-medium text-zinc-700";
 const filterInputClassName =
-  "h-9 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-2.5 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none";
+  "h-11 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none md:h-9 md:px-2.5";
 const filterButtonClassName =
-  "inline-flex h-9 items-center justify-center gap-1.5 rounded-md px-3 text-sm font-medium";
+  "inline-flex min-h-11 items-center justify-center gap-1.5 rounded-md px-3 py-2 text-sm font-medium md:h-9 md:min-h-0 md:py-0";
 
 type ProductsIconName =
   | "archive"
@@ -807,12 +807,12 @@ function ProductRowActions({
 
   return (
     <div
-      className="flex min-w-0 flex-wrap gap-2 lg:justify-end"
+      className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap lg:justify-end"
       data-product-action-toolbar
     >
       <a
         aria-label={`${labels.detail}: ${productLabel}`}
-        className="inline-flex h-8 items-center gap-1.5 rounded-md border border-emerald-700 bg-emerald-900 px-2.5 text-xs font-medium text-white hover:bg-emerald-800"
+        className="inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-md border border-emerald-700 bg-emerald-900 px-3 text-sm font-medium text-white hover:bg-emerald-800 sm:h-8 sm:min-h-0 sm:w-auto sm:px-2.5 sm:text-xs"
         data-product-detail-id={productId}
         data-product-detail-trigger
         href={buildProductDetailHref(params, productId)}
@@ -825,7 +825,7 @@ function ProductRowActions({
           key={item.action}
           aria-label={`${item.label}: ${productLabel}`}
           className={[
-            "inline-flex h-8 items-center gap-1.5 rounded-md border bg-white px-2.5 text-xs font-medium",
+            "inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-md border bg-white px-3 text-sm font-medium sm:h-8 sm:min-h-0 sm:w-auto sm:px-2.5 sm:text-xs",
             "border-amber-200 text-amber-900 hover:border-amber-400",
           ].join(" ")}
           href={buildProductActionHref(params, item.action, productId)}
@@ -900,12 +900,12 @@ function ProductCatalogToolbar({
 
   return (
     <div
-      className="flex min-w-0 flex-wrap gap-2 sm:justify-end"
+      className="flex min-w-0 flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end"
       data-product-catalog-command-bar
     >
       {actions.map((item) => (
         <a
-          className="inline-flex h-10 min-w-0 items-center justify-center gap-1.5 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900 shadow-sm hover:border-emerald-400 hover:text-emerald-800"
+          className="inline-flex min-h-11 w-full min-w-0 items-center justify-start gap-1.5 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:border-emerald-400 hover:text-emerald-800 sm:h-10 sm:w-auto sm:justify-center sm:py-0"
           href={buildProductGlobalActionHref(params, item.action)}
           key={item.action}
           role="button"
@@ -1423,11 +1423,11 @@ function ProductsPagination({
           {labels.rowsOnThisPage}: {pagination.currentPageRows}
         </p>
       </div>
-      <div className="flex min-w-0 flex-wrap items-end gap-2">
+      <div className="grid min-w-0 grid-cols-2 items-stretch gap-2 sm:flex sm:flex-wrap sm:items-end">
         {hasPrevious ? (
           <a
             aria-label={`${labels.first}: ${pageAriaLabel} 1`}
-            className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+            className={`${filterButtonClassName} hidden border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800 sm:inline-flex`}
             href={buildProductsHref({
               ...baseLinkInput,
               page: 1,
@@ -1439,7 +1439,7 @@ function ProductsPagination({
         ) : (
           <span
             aria-disabled="true"
-            className={`${filterButtonClassName} border border-zinc-200 text-zinc-400`}
+            className={`${filterButtonClassName} hidden border border-zinc-200 text-zinc-400 sm:inline-flex`}
           >
             <ProductsIcon name="chevronLeft" />
             {labels.first}
@@ -1448,7 +1448,7 @@ function ProductsPagination({
         {hasPrevious ? (
           <a
             aria-label={`${labels.previous}: ${pageAriaLabel} ${previousPage}`}
-            className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+            className={`${filterButtonClassName} w-full border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800 sm:w-auto`}
             href={buildProductsHref({
               ...baseLinkInput,
               page: previousPage,
@@ -1459,14 +1459,14 @@ function ProductsPagination({
         ) : (
           <span
             aria-disabled="true"
-            className={`${filterButtonClassName} border border-zinc-200 text-zinc-400`}
+            className={`${filterButtonClassName} w-full border border-zinc-200 text-zinc-400 sm:w-auto`}
           >
             {labels.previous}
           </span>
         )}
         <form
           action="/shop/products"
-          className="flex min-w-0 flex-wrap items-end gap-2"
+          className="col-span-2 grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-end gap-2 sm:flex sm:flex-wrap"
         >
           {hiddenFields.map(([name, value]) => (
             <input key={name} name={name} type="hidden" value={value} />
@@ -1474,7 +1474,7 @@ function ProductsPagination({
           <label className="grid gap-1 text-xs font-semibold uppercase tracking-normal text-zinc-500">
             {labels.goToPage}
             <input
-              className="h-10 w-24 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
+              className="h-11 w-full min-w-0 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none sm:h-10 sm:w-24"
               defaultValue={String(pagination.page)}
               id={id}
               inputMode="numeric"
@@ -1495,7 +1495,7 @@ function ProductsPagination({
         {hasNext ? (
           <a
             aria-label={`${labels.next}: ${pageAriaLabel} ${nextPage}`}
-            className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+            className={`${filterButtonClassName} w-full border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800 sm:w-auto`}
             href={buildProductsHref({
               ...baseLinkInput,
               page: nextPage,
@@ -1507,7 +1507,7 @@ function ProductsPagination({
         ) : (
           <span
             aria-disabled="true"
-            className={`${filterButtonClassName} border border-zinc-200 text-zinc-400`}
+            className={`${filterButtonClassName} w-full border border-zinc-200 text-zinc-400 sm:w-auto`}
           >
             {labels.next}
             <ProductsIcon name="chevronRight" />
@@ -1516,7 +1516,7 @@ function ProductsPagination({
         {hasExactTotal && hasNext ? (
           <a
             aria-label={`${labels.last}: ${pageAriaLabel} ${pagination.totalPages}`}
-            className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+            className={`${filterButtonClassName} hidden border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800 sm:inline-flex`}
             href={buildProductsHref({
               ...baseLinkInput,
               page: pagination.totalPages,
@@ -1528,7 +1528,7 @@ function ProductsPagination({
         ) : (
           <span
             aria-disabled="true"
-            className={`${filterButtonClassName} border border-zinc-200 text-zinc-400`}
+            className={`${filterButtonClassName} hidden border border-zinc-200 text-zinc-400 sm:inline-flex`}
           >
             {labels.last}
             <ProductsIcon name="chevronRight" />
@@ -1842,16 +1842,16 @@ export default async function ShopProductsPage({
                     <option value="200">200</option>
                   </select>
                 </label>
-                <div className="flex min-w-0 flex-wrap items-end gap-2 self-end">
+                <div className="grid min-w-0 grid-cols-2 items-end gap-2 self-end md:flex md:flex-wrap">
                   <button
-                    className={`${filterButtonClassName} bg-zinc-950 text-white hover:bg-zinc-800`}
+                    className={`${filterButtonClassName} w-full bg-zinc-950 text-white hover:bg-zinc-800 md:w-auto`}
                     type="submit"
                   >
                     <ProductsIcon name="filter" />
                     {dictionary.common.applyFilters}
                   </button>
                   <a
-                    className={`${filterButtonClassName} border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800`}
+                    className={`${filterButtonClassName} w-full border border-zinc-300 text-zinc-800 hover:border-emerald-400 hover:text-emerald-800 md:w-auto`}
                     href={buildClearFiltersHref(
                       requestedShopId,
                       selectedPageSize,

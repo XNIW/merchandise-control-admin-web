@@ -1,0 +1,12 @@
+import { NextResponse, type NextRequest } from "next/server";
+
+export function proxy(_request: NextRequest) {
+  void _request;
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: [
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml)$).*)",
+  ],
+};

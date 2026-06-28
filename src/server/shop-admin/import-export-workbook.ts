@@ -4,7 +4,7 @@ import { createHash } from "node:crypto";
 import { DOMParser, type Element as XmlElement } from "@xmldom/xmldom";
 import * as SheetJS from "@e965/xlsx";
 import readXlsxFile, { type SheetData } from "read-excel-file/node";
-import * as unzipper from "unzipper";
+import * as unzipper from "unzipper-esm";
 import writeXlsxFile, {
   type SheetData as WritableSheetData,
 } from "write-excel-file/node";

@@ -39,7 +39,7 @@ test("TASK-081 Admin Web sales sync stays strict, idempotent and ledger-backed",
   for (const required of [
     "enumValueOrNull",
     "function parseSchemaVersion(input: Record<string, unknown>): PosSalesSchemaVersion | null",
-    "return value === \"pos-sales-ledger-v2\" ? \"pos-sales-ledger-v2\" : null",
+    "return value === POS_SALES_SCHEMA_VERSION ? POS_SALES_SCHEMA_VERSION : null",
     ".map((payment, index) => parsePayment(payment, index, strict))",
     "businessKind === \"void\" ? \"voided\" : parseFiscalStatus(fiscal, strict)",
     "duplicateSaleIdByClientId",

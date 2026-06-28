@@ -459,6 +459,7 @@ function redactSensitiveText(value: string) {
 
   if (
     /bearer\s+[a-z0-9._-]+/i.test(trimmed) ||
+    /mcpos_(?:device|session)_[a-z0-9_-]+/i.test(trimmed) ||
     /\beyJ[a-zA-Z0-9_-]{20,}\.[a-zA-Z0-9_-]{10,}/.test(trimmed) ||
     /\b(?:sk|pk|rk|sbp|ghp|github_pat)_[a-z0-9_]{12,}/i.test(trimmed) ||
     /\b(password|secret|token|credential|refresh[_-]?token|access[_-]?token|pin)\b/i.test(

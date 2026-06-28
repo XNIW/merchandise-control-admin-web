@@ -47,16 +47,31 @@ test("TASK-032 local POS harness is scriptable, negative-safe and dataset-gated"
     "BLOCKED_DATASET_NOT_CONFIGURED",
     "BLOCKED_DATASET_SETUP",
     "PASS_LOCAL_POS_E2E_WITH_CLEANUP",
+    "PASS_STAGING_POS_E2E_WITH_CLEANUP",
     "PASS_NEGATIVE_HARNESS_ONLY",
     "TASK032_POS_E2E_ENABLE_POSITIVE",
     "TASK032_POS_E2E_BASE_URL",
+    "TASK032_POS_E2E_ALLOW_DATASET_SETUP",
+    "TASK032_POS_E2E_ALLOW_CLEANUP",
+    "TASK032_POS_E2E_TEST_RUN_ID",
     "TASK032_POS_E2E_SHOP_CODE",
     "TASK032_POS_E2E_STAFF_CODE",
     "TASK032_POS_E2E_PIN_OR_PASSWORD",
     "TASK032_POS_E2E_DEVICE_NAME",
-    "TASK032_POS_E2E_CLEANUP_CONFIRMED",
+    "TASK032_POS_E2E_ALLOW_STAGING",
+    "TASK032_POS_E2E_STAGING_DRY_RUN",
+    "TASK032_POS_E2E_STAGING_HOST_ALLOWLIST",
+    "TASK032_POS_E2E_STAGING_PROJECT_REF",
+    "TASK032_POS_E2E_REQUIRE_STAGING_TARGET",
+    "TASK032_POS_E2E_REQUIRE_TEST_MARKER",
+    "Staging POS E2E requires an allowlisted non-local staging Admin Web and Supabase target",
     "NEXT_PUBLIC_SUPABASE_URL",
     "SUPABASE_SERVICE_ROLE_KEY",
+    "/api/pos/sales/sync",
+    "schemaVersion",
+    "pos-sales-ledger-v2",
+    "duplicateSaleCount",
+    "stockQuantityAfterDuplicate",
   ]) {
     assert.match(script, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
@@ -103,6 +118,93 @@ test("TASK-032 local POS harness redacts URL credentials even on startup failure
   assert.doesNotMatch(output, /operator:redacted-test-credential/);
   assert.doesNotMatch(output, /redacted-test-credential/);
   assert.match(output, /127\.0\.0\.1/);
+});
+
+test("TASK-032 staging POS harness dry-run is allowlisted and data-safe", () => {
+  const result = spawnSync("node", ["scripts/pos-local-e2e-harness.mjs"], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co",
+      TASK032_POS_E2E_ALLOW_CLEANUP: "yes",
+      TASK032_POS_E2E_ALLOW_DATASET_SETUP: "yes",
+      TASK032_POS_E2E_ALLOW_STAGING: "yes",
+      TASK032_POS_E2E_BASE_URL: "https://pos-staging.example.test",
+      TASK032_POS_E2E_ENABLE_POSITIVE: "yes",
+      TASK032_POS_E2E_REQUIRE_TEST_MARKER: "TASK032",
+      TASK032_POS_E2E_STAGING_DRY_RUN: "yes",
+      TASK032_POS_E2E_STAGING_HOST_ALLOWLIST: "pos-staging.example.test",
+      TASK032_POS_E2E_STAGING_PROJECT_REF: "abcdefghijklmnopqrst",
+      TASK032_POS_E2E_TEST_RUN_ID: "STAGE01",
+    },
+  });
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+
+  assert.equal(parsed.status, "PASS_STAGING_PRECHECK_DRY_RUN");
+  assert.equal(parsed.stagingPrecheck.wouldCreateData, false);
+  assert.equal(parsed.stagingPrecheck.wouldSendSales, false);
+  assert.equal(parsed.stagingPrecheck.cleanup.truncate, false);
+  assert.equal(parsed.stagingPrecheck.dataset.marker, "TASK032");
+  assert.match(
+    parsed.stagingPrecheck.dataset.shopCodePrefix,
+    /^TASK032_TEST_SHOP_STAGE01/,
+  );
+  assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /SUPABASE_SERVICE_ROLE_KEY|sb_secret_|mcpos_/);
+});
+
+test("TASK-032 staging POS harness fails closed without explicit staging allowlist", () => {
+  const result = spawnSync("node", ["scripts/pos-local-e2e-harness.mjs"], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      ...process.env,
+      NEXT_PUBLIC_SUPABASE_URL: "https://abcdefghijklmnopqrst.supabase.co",
+      TASK032_POS_E2E_ALLOW_CLEANUP: "yes",
+      TASK032_POS_E2E_ALLOW_DATASET_SETUP: "yes",
+      TASK032_POS_E2E_BASE_URL: "https://pos-staging.example.test",
+      TASK032_POS_E2E_ENABLE_POSITIVE: "yes",
+      TASK032_POS_E2E_REQUIRE_TEST_MARKER: "TASK032",
+      TASK032_POS_E2E_STAGING_DRY_RUN: "yes",
+      TASK032_POS_E2E_STAGING_HOST_ALLOWLIST: "pos-staging.example.test",
+      TASK032_POS_E2E_STAGING_PROJECT_REF: "abcdefghijklmnopqrst",
+      TASK032_POS_E2E_TEST_RUN_ID: "STAGE01",
+    },
+  });
+
+  assert.notEqual(result.status, 0);
+  const parsed = JSON.parse(result.stdout);
+
+  assert.equal(parsed.ok, false);
+  assert.equal(parsed.status, "BLOCKED_DATASET_SETUP");
+  assert.match(
+    parsed.stagingPrecheck.missing.join(","),
+    /TASK032_POS_E2E_ALLOW_STAGING/,
+  );
+});
+
+test("TASK-032 staging POS harness command requires explicit non-local staging target", () => {
+  const packageJson = readProjectFile("package.json");
+  const result = spawnSync("npm", ["run", "test:pos-staging-harness"], {
+    cwd: root,
+    encoding: "utf8",
+    env: {
+      HOME: process.env.HOME,
+      PATH: process.env.PATH,
+    },
+  });
+  const output = `${result.stdout}\n${result.stderr}`;
+
+  assert.match(
+    packageJson,
+    /TASK032_POS_E2E_REQUIRE_STAGING_TARGET=yes/,
+  );
+  assert.notEqual(result.status, 0);
+  assert.match(output, /TASK032_POS_E2E_BASE_URL/);
+  assert.match(output, /NEXT_PUBLIC_SUPABASE_URL/);
+  assert.doesNotMatch(output, /SUPABASE_SERVICE_ROLE_KEY=.*[A-Za-z0-9]/);
 });
 
 test("TASK-032 local POS harness evidence remains tied to the active mega-task", () => {

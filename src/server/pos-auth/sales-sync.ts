@@ -13,6 +13,11 @@ import {
   type PosShopPayload,
   type PosShopPayloadRow,
 } from "./shop-payload";
+import {
+  POS_LEGACY_SALES_SCHEMA_VERSION,
+  POS_SALES_SCHEMA_VERSION,
+  type PosSalesSchemaVersion,
+} from "./pos-contract";
 import { verifyPosSecret } from "./tokens";
 
 export const MAX_POS_SALES_SYNC_JSON_BODY_BYTES = 256 * 1024;
@@ -121,11 +126,13 @@ type PosSalesSyncEndpointResult =
     };
 
 export type PosSalesSyncRequestMeta = {
+  clientRequestId?: string;
   idempotencyKeyHeader?: string;
+  requestId?: string;
+  route?: string;
   userAgent?: string;
 };
 
-type PosSalesSchemaVersion = "pos-sales-v1" | "pos-sales-ledger-v2";
 type PosSaleBusinessKind = "refund" | "sale" | "void";
 type PosLedgerLineType = "adjustment" | "discount" | "item" | "tax";
 type PosPaymentMethod = "card" | "cash" | "other" | "transfer";
@@ -217,6 +224,8 @@ const SAFE_TEXT_PATTERN = /^[\w .:/#@-]+$/u;
 const NUMERIC_TEXT_PATTERN = /^-?\d+(?:\.\d+)?$/;
 const INTEGER_TEXT_PATTERN = /^-?\d+$/;
 const CONTROL_CHAR_PATTERN = /[\u0000-\u001F\u007F]/g;
+const SENSITIVE_TEXT_PATTERN =
+  /(mcpos_(?:device|session)_|bearer\s+|token|secret|password|credential|pin|access[_-]?token|refresh[_-]?token|eyJ)/i;
 
 function failure(
   code: PosSalesSyncFailureCode,
@@ -289,6 +298,20 @@ function normalizeText(value: string, maxLength: number) {
     .trim()
     .replace(/\s+/g, " ")
     .slice(0, maxLength);
+}
+
+function redactPosFreeText(value: string) {
+  const normalized = normalizeText(value, 240);
+
+  if (!normalized) {
+    return null;
+  }
+
+  return SENSITIVE_TEXT_PATTERN.test(normalized) ? "[redacted]" : normalized;
+}
+
+function containsSensitiveText(value: string | null | undefined) {
+  return Boolean(value && SENSITIVE_TEXT_PATTERN.test(value));
 }
 
 function safeText(value: string, maxLength: number) {
@@ -407,6 +430,9 @@ function isStaffUsable(staff: StaffAccountRow | null) {
 
 function requestMetadata(meta: PosSalesSyncRequestMeta): JsonRecord {
   return {
+    ...(meta.clientRequestId ? { client_request_id: meta.clientRequestId } : {}),
+    ...(meta.requestId ? { request_id: meta.requestId } : {}),
+    ...(meta.route ? { route: meta.route } : {}),
     source: "TASK-041",
     task_081_sales_ledger_enabled: true,
     user_agent_length: meta.userAgent?.length ?? 0,
@@ -470,11 +496,11 @@ function enumValueOrNull<T extends string>(
 function parseSchemaVersion(input: Record<string, unknown>): PosSalesSchemaVersion | null {
   const value = stringField(input, "schemaVersion", "schema_version").trim();
 
-  if (!value || value === "pos-sales-v1") {
-    return "pos-sales-v1";
+  if (!value || value === POS_LEGACY_SALES_SCHEMA_VERSION) {
+    return POS_LEGACY_SALES_SCHEMA_VERSION;
   }
 
-  return value === "pos-sales-ledger-v2" ? "pos-sales-ledger-v2" : null;
+  return value === POS_SALES_SCHEMA_VERSION ? POS_SALES_SCHEMA_VERSION : null;
 }
 
 function parseBusinessKind(
@@ -649,16 +675,16 @@ function parseLine(
     `line-${index + 1}`;
   const linePosition = Math.trunc(numberField(input, "linePosition", "line_position") ?? index + 1);
   const quantity = positiveQuantity(numberField(input, "quantity", "qty"));
-  const lineType = parseLineType(input, schemaVersion === "pos-sales-ledger-v2");
+  const lineType = parseLineType(input, schemaVersion === POS_SALES_SCHEMA_VERSION);
   const amountClp =
-    schemaVersion === "pos-sales-ledger-v2"
+    schemaVersion === POS_SALES_SCHEMA_VERSION
       ? clpAmount(
           integerField(input, "amountClp", "amount_clp", "lineTotalClp", "line_total_clp"),
           { signed: true },
         )
       : null;
   const unitAmountClp =
-    schemaVersion === "pos-sales-ledger-v2"
+    schemaVersion === POS_SALES_SCHEMA_VERSION
       ? clpAmount(integerField(input, "unitAmountClp", "unit_amount_clp", "unitPriceClp"))
       : null;
   const unitPrice = positiveAmount(
@@ -673,7 +699,7 @@ function parseLine(
   const localProductId =
     safeText(stringField(input, "localProductId", "local_product_id"), 120) || null;
   const stockQuantityDelta =
-    schemaVersion === "pos-sales-ledger-v2"
+    schemaVersion === POS_SALES_SCHEMA_VERSION
       ? numberField(input, "stockQuantityDelta", "stock_quantity_delta")
       : null;
   const defaultStockDelta =
@@ -694,9 +720,9 @@ function parseLine(
     quantity === null ||
     unitPrice === null ||
     lineTotal === null ||
-    (schemaVersion === "pos-sales-v1" &&
+    (schemaVersion === POS_LEGACY_SALES_SCHEMA_VERSION &&
       !amountsClose(Number((quantity * unitPrice).toFixed(2)), lineTotal)) ||
-    (schemaVersion === "pos-sales-ledger-v2" && amountClp === null) ||
+    (schemaVersion === POS_SALES_SCHEMA_VERSION && amountClp === null) ||
     Math.abs(normalizedStockDelta) > 999999 ||
     (productId && !UUID_PATTERN.test(productId))
   ) {
@@ -733,9 +759,14 @@ function parseSale(
   const idempotencyKey =
     safeText(stringField(input, "idempotencyKey", "idempotency_key"), 200) ||
     clientSaleId;
+
+  if (containsSensitiveText(clientSaleId) || containsSensitiveText(idempotencyKey)) {
+    return null;
+  }
+
   const occurredAt = parseIsoTimestamp(stringField(input, "occurredAt", "occurred_at"));
   const currency = normalizeCode(stringField(input, "currency") || "CLP");
-  const strict = schemaVersion === "pos-sales-ledger-v2";
+  const strict = schemaVersion === POS_SALES_SCHEMA_VERSION;
   const businessKind = parseBusinessKind(input, strict);
 
   if (!businessKind) {
@@ -744,31 +775,31 @@ function parseSale(
 
   const amounts = childRecord(input, "amounts");
   const grossAmountClp =
-    schemaVersion === "pos-sales-ledger-v2"
+    schemaVersion === POS_SALES_SCHEMA_VERSION
       ? clpAmount(
           integerField(amounts, "grossClp", "gross_clp", "subtotalClp", "subtotal_clp"),
         )
       : null;
   const discountAmountClp =
-    schemaVersion === "pos-sales-ledger-v2"
+    schemaVersion === POS_SALES_SCHEMA_VERSION
       ? clpAmount(integerField(amounts, "discountClp", "discount_clp"))
       : null;
   const taxAmountClp =
-    schemaVersion === "pos-sales-ledger-v2"
+    schemaVersion === POS_SALES_SCHEMA_VERSION
       ? clpAmount(integerField(amounts, "taxClp", "tax_clp")) ?? 0
       : null;
   const netAmountFromPayload =
-    schemaVersion === "pos-sales-ledger-v2"
+    schemaVersion === POS_SALES_SCHEMA_VERSION
       ? clpAmount(integerField(amounts, "netClp", "net_clp", "totalClp", "total_clp"), {
           signed: true,
         })
       : null;
   const paidAmountClp =
-    schemaVersion === "pos-sales-ledger-v2"
+    schemaVersion === POS_SALES_SCHEMA_VERSION
       ? clpAmount(integerField(amounts, "paidClp", "paid_clp"), { signed: true })
       : null;
   const changeAmountClp =
-    schemaVersion === "pos-sales-ledger-v2"
+    schemaVersion === POS_SALES_SCHEMA_VERSION
       ? clpAmount(integerField(amounts, "changeClp", "change_clp")) ?? 0
       : 0;
   const subtotal = positiveAmount(
@@ -784,7 +815,7 @@ function parseSale(
       (taxAmountClp === null ? null : Math.abs(taxAmountClp)),
   );
   const derivedNetAmountClp =
-    schemaVersion === "pos-sales-ledger-v2" &&
+    schemaVersion === POS_SALES_SCHEMA_VERSION &&
     grossAmountClp !== null &&
     discountAmountClp !== null &&
     taxAmountClp !== null
@@ -809,13 +840,13 @@ function parseSale(
       ? parsedPayments
       : parseDerivedPayments(input, netAmountClp);
   const lineAmountTotalClp =
-    schemaVersion === "pos-sales-ledger-v2"
+    schemaVersion === POS_SALES_SCHEMA_VERSION
       ? lines.reduce((sum, line) => sum + (line.amountClp ?? 0), 0)
       : null;
   const hasDiscountLine = lines.some((line) => line.lineType === "discount");
   const hasTaxLine = lines.some((line) => line.lineType === "tax");
   const lineNetAmountClp =
-    schemaVersion === "pos-sales-ledger-v2" &&
+    schemaVersion === POS_SALES_SCHEMA_VERSION &&
     lineAmountTotalClp !== null &&
     discountAmountClp !== null &&
     taxAmountClp !== null
@@ -839,8 +870,9 @@ function parseSale(
       ),
       160,
     ) || null;
-  const reversalReasonRedacted =
-    normalizeText(stringField(input, "reversalReason", "reversal_reason"), 240) || null;
+  const reversalReasonRedacted = redactPosFreeText(
+    stringField(input, "reversalReason", "reversal_reason"),
+  );
   const fiscalStatus =
     businessKind === "void" ? "voided" : parseFiscalStatus(fiscal, strict);
   const saleNumber = safeText(stringField(input, "saleNumber", "sale_number", "saleCode"), 80) || null;
@@ -850,24 +882,24 @@ function parseSale(
     !clientSaleId ||
     !idempotencyKey ||
     !occurredAt ||
-    (schemaVersion === "pos-sales-ledger-v2"
+    (schemaVersion === POS_SALES_SCHEMA_VERSION
       ? currency !== "CLP"
       : !/^[A-Z]{3}$/.test(currency)) ||
     subtotal === null ||
     discountTotal === null ||
     taxTotal === null ||
     total === null ||
-    (schemaVersion === "pos-sales-ledger-v2" && netAmountClp === null) ||
-    (schemaVersion === "pos-sales-ledger-v2" &&
+    (schemaVersion === POS_SALES_SCHEMA_VERSION && netAmountClp === null) ||
+    (schemaVersion === POS_SALES_SCHEMA_VERSION &&
       (grossAmountClp === null || discountAmountClp === null || taxAmountClp === null)) ||
-    (schemaVersion === "pos-sales-ledger-v2" && !businessDate) ||
-    (schemaVersion === "pos-sales-ledger-v2" &&
+    (schemaVersion === POS_SALES_SCHEMA_VERSION && !businessDate) ||
+    (schemaVersion === POS_SALES_SCHEMA_VERSION &&
       derivedNetAmountClp !== null &&
       netAmountClp !== derivedNetAmountClp) ||
-    (schemaVersion === "pos-sales-ledger-v2" &&
+    (schemaVersion === POS_SALES_SCHEMA_VERSION &&
       lineNetAmountClp !== null &&
       netAmountClp !== lineNetAmountClp) ||
-    (schemaVersion === "pos-sales-ledger-v2" &&
+    (schemaVersion === POS_SALES_SCHEMA_VERSION &&
       !paymentTotalsAreConsistent({
         changeAmountClp,
         netAmountClp: netAmountClp ?? 0,
@@ -881,7 +913,7 @@ function parseSale(
     hasDuplicateValues(lines.map((line) => line.clientLineId)) ||
     hasDuplicateValues(lines.map((line) => line.linePosition)) ||
     hasDuplicateValues(payments.map((payment) => payment.clientPaymentId)) ||
-    (schemaVersion === "pos-sales-v1" &&
+    (schemaVersion === POS_LEGACY_SALES_SCHEMA_VERSION &&
       !saleTotalsAreConsistent({
         discountTotal,
         lines,
@@ -969,11 +1001,15 @@ function parseSalesSyncInput(
   const sessionToken = stringField(input, "sessionToken", "session_token");
   const shopDeviceId = stringField(input, "shopDeviceId", "shop_device_id");
   const shopCode = normalizeCode(stringField(input, "shopCode", "shop_code"));
-  const appVersion = normalizeText(stringField(input, "appVersion", "app_version"), 80) || undefined;
+  const appVersionRaw = normalizeText(stringField(input, "appVersion", "app_version"), 80);
+  const appVersion =
+    appVersionRaw && !containsSensitiveText(appVersionRaw) ? appVersionRaw : undefined;
 
   if (
     !clientBatchId ||
     !idempotencyKey ||
+    containsSensitiveText(clientBatchId) ||
+    containsSensitiveText(idempotencyKey) ||
     !UUID_PATTERN.test(posSessionId) ||
     !UUID_PATTERN.test(shopDeviceId) ||
     deviceToken.length === 0 ||
@@ -1504,43 +1540,6 @@ type StockMovementRpcRow = {
   stock_before: number | null;
 };
 
-type DbMutationError = {
-  code?: string;
-  message?: string;
-};
-
-type UntypedSupabaseMutationTable = {
-  insert(rows: readonly Record<string, unknown>[] | Record<string, unknown>): Promise<{
-    error: DbMutationError | null;
-  }>;
-  select<Row>(columns: string): {
-    in(column: string, values: readonly string[]): Promise<{
-      data: Row[] | null;
-      error: DbMutationError | null;
-    }>;
-  };
-  update(values: Record<string, unknown>): {
-    eq(column: string, value: string): Promise<{
-      error: DbMutationError | null;
-    }>;
-  };
-};
-
-type UntypedSupabaseRpcClient = {
-  from(table: string): UntypedSupabaseMutationTable;
-  rpc(
-    fn: "pos_apply_sale_stock_movement",
-    args: Record<string, unknown>,
-  ): Promise<{
-    data: StockMovementRpcRow[] | null;
-    error: DbMutationError | null;
-  }>;
-};
-
-function untypedSupabase(client: SupabaseAdminClient) {
-  return client as unknown as UntypedSupabaseRpcClient;
-}
-
 function signedLineAmountClp(line: ParsedSalesLine, sale: ParsedSale) {
   const amount = line.amountClp ?? Math.round(line.lineTotal);
 
@@ -1787,12 +1786,11 @@ async function findExistingSaleLinesForSales(
   const rows: InsertedLineRow[] = [];
 
   for (const saleIdChunk of chunkValues(saleIds, 100)) {
-    const result = await untypedSupabase(supabase)
+    const result = await supabase
       .from("pos_sale_lines")
-      .select<InsertedLineRow>(
-        "pos_sale_line_id,pos_sale_id,client_line_id,product_id,stock_quantity_delta",
-      )
-      .in("pos_sale_id", saleIdChunk);
+      .select("pos_sale_line_id,pos_sale_id,client_line_id,product_id,stock_quantity_delta")
+      .in("pos_sale_id", saleIdChunk)
+      .returns<InsertedLineRow[]>();
 
     if (result.error) {
       return { error: result.error, rows: [] };
@@ -1835,7 +1833,7 @@ async function applyStockMovements(input: {
   const stockStatusesBySaleId = new Map<string, StockMovementRpcRow[]>();
 
   for (const sale of input.sales) {
-    if (sale.sourceSchemaVersion !== "pos-sales-ledger-v2") {
+    if (sale.sourceSchemaVersion !== POS_SALES_SCHEMA_VERSION) {
       continue;
     }
 
@@ -1869,23 +1867,25 @@ async function applyStockMovements(input: {
       }
 
       const movementKind = stockMovementKind(sale, line.stockQuantityDelta);
-      const movement = await untypedSupabase(input.supabase).rpc(
-        "pos_apply_sale_stock_movement",
-        {
-          p_metadata_redacted: {
-            client_line_id_present: true,
-            client_sale_id_present: true,
-            source: "TASK-081",
+      const movement = await input.supabase
+        .rpc(
+          "pos_apply_sale_stock_movement",
+          {
+            p_metadata_redacted: {
+              client_line_id_present: true,
+              client_sale_id_present: true,
+              source: "TASK-081",
+            },
+            p_movement_key: `${input.shopId}:${input.session.shop_device_id}:${sale.clientSaleId}:${line.clientLineId}:${movementKind}`,
+            p_movement_kind: movementKind,
+            p_pos_sale_id: saleId,
+            p_pos_sale_line_id: insertedLine.pos_sale_line_id,
+            p_product_id: scopedProductId(line.productId, input.productScope.scopedProductIds),
+            p_quantity_delta: line.stockQuantityDelta,
+            p_shop_id: input.shopId,
           },
-          p_movement_key: `${input.shopId}:${input.session.shop_device_id}:${sale.clientSaleId}:${line.clientLineId}:${movementKind}`,
-          p_movement_kind: movementKind,
-          p_pos_sale_id: saleId,
-          p_pos_sale_line_id: insertedLine.pos_sale_line_id,
-          p_product_id: scopedProductId(line.productId, input.productScope.scopedProductIds),
-          p_quantity_delta: line.stockQuantityDelta,
-          p_shop_id: input.shopId,
-        },
-      );
+        )
+        .returns<StockMovementRpcRow[]>();
 
       if (movement.error || !movement.data?.[0]) {
         return {
@@ -1910,7 +1910,7 @@ async function applyStockMovements(input: {
       existing.push(stockResult);
       stockStatusesBySaleId.set(saleId, existing);
 
-      const lineStatusUpdate = await untypedSupabase(input.supabase)
+      const lineStatusUpdate = await input.supabase
         .from("pos_sale_lines")
         .update({
           stock_issue_code: stockResult.issue_code,
@@ -1950,7 +1950,7 @@ async function applyStockMovements(input: {
         : stockRows.some((row) => row.status === "stock_conflict")
           ? "stock_conflict"
           : "stock_warning";
-    const saleStatusUpdate = await untypedSupabase(input.supabase)
+    const saleStatusUpdate = await input.supabase
       .from("pos_sales")
       .update({
         stock_sync_status: saleStockStatus,
@@ -2033,7 +2033,8 @@ export async function handlePosSalesSync(
       code: duplicate ? "duplicate_batch" : "conflict_batch",
       metadata: {
         ...requestMetadata(meta),
-        client_batch_id_present: true,
+        app_version: parsed.appVersion ?? null,
+        client_batch_id: parsed.clientBatchId,
         line_count: lineCount,
         sale_count: parsed.sales.length,
       },
@@ -2233,7 +2234,8 @@ export async function handlePosSalesSync(
         code: "conflict",
         metadata: {
           ...requestMetadata(meta),
-          client_sale_id_present: true,
+          client_batch_id: parsed.clientBatchId,
+          client_sale_id: sale.clientSaleId,
           sale_count: parsed.sales.length,
         },
         shopId: shop.shop_id,
@@ -2276,7 +2278,7 @@ export async function handlePosSalesSync(
 
   const hasV1ProductScopeMismatch = acceptedSales.some(
     (sale) =>
-      sale.sourceSchemaVersion === "pos-sales-v1" &&
+      sale.sourceSchemaVersion === POS_LEGACY_SALES_SCHEMA_VERSION &&
       sale.lines.some(
         (line) => line.productId && !productScope.scopedProductIds.has(line.productId),
       ),
@@ -2313,7 +2315,7 @@ export async function handlePosSalesSync(
       duplicate_sale_count: duplicateSales.length,
       source: "TASK-041",
       source_schema_version: parsed.schemaVersion,
-      task_081_sales_ledger_enabled: parsed.schemaVersion === "pos-sales-ledger-v2",
+      task_081_sales_ledger_enabled: parsed.schemaVersion === POS_SALES_SCHEMA_VERSION,
     },
     payload_hash: parsed.batchPayloadHash,
     pos_session_id: session.pos_session_id,
@@ -2343,7 +2345,7 @@ export async function handlePosSalesSync(
   }
 
   const batchId = batchResult.data.pos_sales_sync_batch_id;
-  const saleRows: Array<TablesInsert<"pos_sales"> & Record<string, unknown>> = acceptedSales.map((sale) => ({
+  const saleRows: Array<TablesInsert<"pos_sales">> = acceptedSales.map((sale) => ({
     business_date: sale.businessDate,
     business_kind: sale.businessKind,
     change_amount_clp: sale.changeAmountClp,
@@ -2362,7 +2364,7 @@ export async function handlePosSalesSync(
       line_count: sale.lines.length,
       source: "TASK-041",
       source_schema_version: sale.sourceSchemaVersion,
-      task_081_sales_ledger_enabled: sale.sourceSchemaVersion === "pos-sales-ledger-v2",
+      task_081_sales_ledger_enabled: sale.sourceSchemaVersion === POS_SALES_SCHEMA_VERSION,
     },
     net_amount_clp: sale.netAmountClp,
     occurred_at: sale.occurredAt,
@@ -2379,9 +2381,9 @@ export async function handlePosSalesSync(
     staff_id: staff.staff_id,
     status: "accepted",
     stock_sync_status:
-      sale.sourceSchemaVersion === "pos-sales-ledger-v2" ? "not_applicable" : "not_applicable",
+      sale.sourceSchemaVersion === POS_SALES_SCHEMA_VERSION ? "not_applicable" : "not_applicable",
     subtotal: sale.subtotal,
-    tax_amount_clp: sale.taxAmountClp,
+    tax_amount_clp: sale.taxAmountClp ?? 0,
     tax_total: sale.taxTotal,
     total: sale.total,
   }));
@@ -2389,7 +2391,7 @@ export async function handlePosSalesSync(
     saleRows.length > 0
       ? await supabase
           .from("pos_sales")
-          .insert(saleRows as TablesInsert<"pos_sales">[])
+          .insert(saleRows)
           .select("pos_sale_id,client_sale_id")
           .returns<Array<Pick<Tables<"pos_sales">, "client_sale_id" | "pos_sale_id">>>()
       : { data: [], error: null };
@@ -2414,7 +2416,7 @@ export async function handlePosSalesSync(
   const insertedSaleByClientId = new Map(
     insertedSales.data.map((sale) => [sale.client_sale_id, sale.pos_sale_id]),
   );
-  const lineRows: Array<TablesInsert<"pos_sale_lines"> & Record<string, unknown>> = acceptedSales.flatMap((sale) => {
+  const lineRows: Array<TablesInsert<"pos_sale_lines">> = acceptedSales.flatMap((sale) => {
     const saleId = insertedSaleByClientId.get(sale.clientSaleId);
 
     if (!saleId) {
@@ -2433,7 +2435,7 @@ export async function handlePosSalesSync(
       metadata_redacted: {
         source: "TASK-041",
         source_schema_version: sale.sourceSchemaVersion,
-        task_081_sales_ledger_enabled: sale.sourceSchemaVersion === "pos-sales-ledger-v2",
+        task_081_sales_ledger_enabled: sale.sourceSchemaVersion === POS_SALES_SCHEMA_VERSION,
       },
       pos_sale_id: saleId,
       pos_sales_sync_batch_id: batchId,
@@ -2443,7 +2445,7 @@ export async function handlePosSalesSync(
       shop_id: shop.shop_id,
       stock_quantity_delta: line.stockQuantityDelta,
       stock_sync_status:
-        sale.sourceSchemaVersion === "pos-sales-ledger-v2" ? "not_applicable" : "not_applicable",
+        sale.sourceSchemaVersion === POS_SALES_SCHEMA_VERSION ? "not_applicable" : "not_applicable",
       unit_amount_clp: line.unitAmountClp,
       unit_price: line.unitPrice,
     }));
@@ -2452,7 +2454,7 @@ export async function handlePosSalesSync(
     lineRows.length > 0
       ? await supabase
           .from("pos_sale_lines")
-          .insert(lineRows as TablesInsert<"pos_sale_lines">[])
+          .insert(lineRows)
           .select(
             "pos_sale_line_id,pos_sale_id,client_line_id,product_id,stock_quantity_delta",
           )
@@ -2477,7 +2479,7 @@ export async function handlePosSalesSync(
   }
 
   const ledgerRows = acceptedSales.flatMap((sale) =>
-    sale.sourceSchemaVersion === "pos-sales-ledger-v2"
+    sale.sourceSchemaVersion === POS_SALES_SCHEMA_VERSION
       ? buildLedgerRows({
           batchId,
           insertedSaleByClientId,
@@ -2491,7 +2493,7 @@ export async function handlePosSalesSync(
   );
   const ledgerInsert =
     ledgerRows.length > 0
-      ? await untypedSupabase(supabase)
+      ? await supabase
           .from("pos_revenue_ledger_entries")
           .insert(ledgerRows)
       : { error: null };
@@ -2535,6 +2537,9 @@ export async function handlePosSalesSync(
     metadata: {
       ...requestMetadata(meta),
       accepted_sale_count: acceptedSales.length,
+      app_version: parsed.appVersion ?? null,
+      client_batch_id: parsed.clientBatchId,
+      conflict_count: 0,
       duplicate_sale_count: duplicateSales.length,
       line_count: lineCount,
       ledger_entry_count: ledgerRows.length,

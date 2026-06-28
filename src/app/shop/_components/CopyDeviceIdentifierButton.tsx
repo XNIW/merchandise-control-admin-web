@@ -29,7 +29,7 @@ export function CopyDeviceIdentifierButton({
   return (
     <button
       aria-live="polite"
-      className="inline-flex h-8 items-center rounded-md border border-slate-200 bg-white px-2.5 text-xs font-medium text-slate-700 hover:border-emerald-300 hover:text-emerald-700"
+      className="inline-flex min-h-11 items-center rounded-md border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 hover:border-emerald-300 hover:text-emerald-700 sm:h-8 sm:min-h-0 sm:px-2.5 sm:text-xs"
       onClick={copyIdentifier}
       type="button"
     >

@@ -55,15 +55,15 @@ test("TASK-079 is the only current root task for history and catalog pagination"
   assertContains(currentBlock, "Task TASK-079: `TASK-079 - History Entry and Catalog Pagination Unified Completion`");
   assert.match(
     currentBlock,
-    /File task corrente: `(NESSUNO|docs\/TASKS\/TASK-084-admin-web-workers-dev-staging-auth-logout-win7pos-public-connection\.md|docs\/TASKS\/TASK-085-workers-dev-mobile-oauth-products-count-readiness\.md)`/,
+    /File task corrente: `(NESSUNO|docs\/TASKS\/TASK-084-admin-web-workers-dev-staging-auth-logout-win7pos-public-connection\.md|docs\/TASKS\/TASK-085-workers-dev-mobile-oauth-products-count-readiness\.md|docs\/TASKS\/TASK-086-mobile-ui-emulator-polish\.md)`/,
   );
   assert.match(
     currentBlock,
-    /Evidence task corrente: `(NESSUNO|docs\/TASKS\/EVIDENCE\/TASK-084\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-085\/README\.md)`/,
+    /Evidence task corrente: `(NESSUNO|docs\/TASKS\/EVIDENCE\/TASK-084\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-085\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-086\/README\.md)`/,
   );
   assert.match(
     currentBlock,
-    /Task attivo: `(NESSUNO|TASK-084 - Admin Web workers\.dev staging, auth\/logout fixes, and Win7POS public connection|TASK-085 - Fix workers\.dev mobile OAuth and product totals readiness)`/,
+    /Task attivo: `(NESSUNO|TASK-084 - Admin Web workers\.dev staging, auth\/logout fixes, and Win7POS public connection|TASK-085 - Fix workers\.dev mobile OAuth and product totals readiness|TASK-086 - Mobile UI Emulator Polish)`/,
   );
   assert.doesNotMatch(currentBlock, /TASK-079[B-F]|TASK-080/);
   assertContains(canonicalTask, "079.1 History Entry read-only mobile parity");

@@ -2826,20 +2826,48 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-085: `TASK-085 - Fix workers.dev mobile OAuth and product totals readiness`
 - File task TASK-085: `docs/TASKS/TASK-085-workers-dev-mobile-oauth-products-count-readiness.md`
 - Evidence TASK-085: `docs/TASKS/EVIDENCE/TASK-085/README.md`
+- Stato TASK-086: `REVIEW_READY`
+- Fase TASK-086: `REVIEW`
+- Task TASK-086: `TASK-086 - Mobile UI Emulator Polish`
+- File task TASK-086: `docs/TASKS/TASK-086-mobile-ui-emulator-polish.md`
+- Evidence TASK-086: `docs/TASKS/EVIDENCE/TASK-086/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
 - Stato globale attuale: `REVIEW`
-- Task attivo: `TASK-085 - Fix workers.dev mobile OAuth and product totals readiness`
-- Task precedente: `TASK-084 - Admin Web workers.dev staging, auth/logout fixes, and Win7POS public connection`
+- Task attivo: `TASK-086 - Mobile UI Emulator Polish`
+- Task precedente: `TASK-085 - Fix workers.dev mobile OAuth and product totals readiness`
 - Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-085-workers-dev-mobile-oauth-products-count-readiness.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-085/README.md`
+- File task corrente: `docs/TASKS/TASK-086-mobile-ui-emulator-polish.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-086/README.md`
 - Stato task: `REVIEW_READY`
 - Fase: `REVIEW`
-- Milestone interna: `TASK_085_WORKERS_DEV_MOBILE_OAUTH_PRODUCTS_COUNT_READINESS`
+- Milestone interna: `TASK_086_MOBILE_UI_EMULATOR_POLISH`
 - Responsabile: `REVIEWER`
 - Branch previsto: `main` / no branch creation requested
+- Completion review TASK-086 2026-06-25: mobile UX QA reale eseguita con
+  Android Emulator/Chrome via `adb reverse` + CDP e Playwright Pixel/iPhone.
+  Fix mobile-only applicati a login tabs/language switcher, ShopShell nav e
+  topbar, products filters/actions/pagination, staff forms, device filters e
+  details/actions, piu Platform mobile nav/logout. Desktop sanity login,
+  `/shop`, `/shop/products` PASS senza overflow; layout desktop preservato con
+  breakpoint `sm:`/`md:`/`lg:`. Products mobile autenticato PASS: exact total e
+  range visibili, 10 toolbar azioni, nessun small target residuo. Android
+  Chrome reale PASS: login admin/shop-code senza overflow, Google entry point
+  redatto su `accounts.google.com/v3/signin/identifier`, products autenticato
+  con exact total. Gate locali PASS: `security:scan`, `test:foundation`
+  (`463` pass), `typecheck`, `lint`, `build`, `verify`, `cf:build`. Staging
+  workers.dev TASK-085 smoke invece FAIL due volte prima del click Google:
+  login mobile renderizza Cloudflare `Error 1102` / `Worker exceeded resource
+  limits`. Per questo TASK-084 e TASK-085 restano `REVIEW_READY`, non `DONE`;
+  TASK-086 resta `REVIEW_READY` con mobile polish completo e closure DONE
+  differita fino a staging smoke verde o redeploy/analisi Worker logs.
+- Reviewer retest TASK-085 staging 2026-06-28: `PLAYWRIGHT_BASE_URL=https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev npm run smoke:task085:staging`
+  termina `0`; OAuth mobile workers.dev `PASS` 5/5 con redirect redatto a
+  `accounts.google.com/v3/signin/identifier`. Products authenticated smoke
+  resta `SKIP` per assenza di `TASK085_SHOP_CODE`/`STAFF_CODE`/`STAFF_PIN`
+  nella shell review. TASK-084/TASK-085/TASK-086 restano `REVIEW_READY`, non
+  `DONE`, finche l'utente non conferma la chiusura.
 - Completion addendum TASK-085 2026-06-25: fix correttivo post TASK-084 per
   workers.dev mobile. Rimossa la probe OAuth provider server-side da route/action
   Google, riducendo il click path mobile a `signInWithOAuth` + redirect

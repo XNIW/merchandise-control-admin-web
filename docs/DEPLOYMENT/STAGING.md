@@ -4,9 +4,10 @@
 
 - Task origine: `TASK-029`
 - Data: `2026-06-02`
-- Stato deploy pubblico HTTPS: `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
-- Stato Cloudflare/OpenNext: staging workers.dev `PASS` dopo TASK-058; custom
-  domain/WAF/rate-limit restano `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`.
+- Stato deploy Vercel Preview: `BLOCKED_VERCEL_NON_MAIN_BRANCH_GENERATES_PRODUCTION_DEPLOYMENT`
+- Stato deploy pubblico HTTPS corrente: Cloudflare/OpenNext workers.dev `PASS`
+  su `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev`.
+- Custom domain/WAF/rate-limit: `READY_TO_CONFIGURE_DOMAIN_REQUIRED`.
 - No production: nessun deploy production deve essere eseguito da questo task.
 - Guardrail corrente: Git Integration Vercel disconnessa e `vercel.json` con `git.deploymentEnabled=false`.
 
@@ -57,16 +58,25 @@ Staging Cloudflare corrente:
 - worker: `merchandise-control-admin-web-staging`;
 - URL workers.dev:
   `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev`;
+- ultimo deploy verificato: 2026-06-28, version ID `9e58a836-5ff6-4ead-aef3-464435418451`;
 - dominio staging desiderato: `UNKNOWN`;
 - Cloudflare account: `PASS_READ_ONLY`;
-- Cloudflare zone/custom domain: `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`;
-- Supabase staging project: `PASS_GUARDRAIL_PARTIAL_TIMEOUT`, guardrail staging
-  passa con env process-only ma `projects list` non conclude entro timeout;
+- Cloudflare zone/custom domain: `READY_TO_CONFIGURE_DOMAIN_REQUIRED`;
+- Supabase staging project: `PASS_SCHEMA_ONLINE`, project ref redatto
+  `jpgo...kyvm`; migration TASK-081 applicata al remoto con
+  `supabase db push --linked`;
+- POS staging harness: `PASS_STAGING_POS_E2E_WITH_CLEANUP` contro workers.dev e
+  Supabase remoto, dataset sintetico `TASK032_*`; run finale post-deploy
+  `STGDBP` PASS con cleanup verificato;
+- smoke mobile OAuth workers.dev: `PASS`, 5/5 redirect a Google Accounts senza
+  Cloudflare 1102;
+- cleanup globale TASK032 online: `PASS_TASK032_ACTIVE_OPERATIONAL_ZERO`;
+- readiness command: `npm run staging:check`;
 - comando previsto per ripetere staging dopo autenticazione e secret:
 
 ```bash
 npm run cf:build
-npx wrangler deploy --env staging --keep-vars
+npx wrangler deploy --env staging --keep-vars --minify
 ```
 
 Blocker corrente:
@@ -80,10 +90,10 @@ Blocker corrente:
 - `wrangler.jsonc`: nessun `account_id`, `routes` o custom domain configurato;
 - `gh api .../environments/cloudflare-staging`: `PASS`;
 - `gh api .../environments/cloudflare-production`: `PASS`, approval richiesto;
-- custom domain: `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`;
-- DNS: `BLOCKED_CLOUDFLARE_ZONE_NOT_CONFIGURED`;
+- custom domain: `READY_TO_CONFIGURE_DOMAIN_REQUIRED`;
+- DNS: `READY_TO_CONFIGURE_DOMAIN_REQUIRED`;
 - Supabase staging project:
-  `PASS_GUARDRAIL_PARTIAL_TIMEOUT`;
+  `PASS_SCHEMA_ONLINE`, project ref redatto `jpgo...kyvm`;
 - Supabase Auth URLs: `BLOCKED_SUPABASE_AUTH_URLS_MANUAL_STEP`;
 - staging remote smoke: `PASS` nella run TASK-058 post-rotazione `27450388578`.
 
@@ -92,6 +102,140 @@ Cloudflare staging remoto. Production deploy e DNS cutover sono fuori fase e
 richiedono tutti i gate staging `PASS` piu conferma esplicita dell'utente.
 Se permessi Cloudflare, GitHub o Supabase mancano, non tentare workaround:
 produrre checklist `BLOCKED`.
+
+### Custom domain staging
+
+Stato: `READY_TO_CONFIGURE`.
+
+Non esiste nel repository un dominio staging autorizzato. Non configurare un
+dominio inventato e non rimuovere `workers.dev`. Quando il dominio viene deciso
+dal proprietario DNS/Cloudflare, usare uno dei due percorsi sotto.
+
+Check automatico:
+
+```bash
+npm run cf:check:custom-domain
+```
+
+Senza env `STAGING_CUSTOM_DOMAIN` il check esce `0` con stato
+`READY_TO_CONFIGURE`. Con `STAGING_CUSTOM_DOMAIN=<dominio-autorizzato>` verifica
+HTTPS, root/login e POS API negative; fallisce se il dominio configurato non e
+operativo.
+
+Percorso dashboard Cloudflare:
+
+1. Cloudflare Dashboard -> Workers & Pages -> worker
+   `merchandise-control-admin-web-staging`.
+2. Settings -> Domains & Routes -> Add -> Custom Domain.
+3. Inserire il dominio staging autorizzato, per esempio
+   `<staging-admin-domain>`.
+4. Lasciare che Cloudflare crei il record DNS gestito per il custom domain.
+
+Percorso config Wrangler, solo dopo dominio autorizzato:
+
+```jsonc
+{
+  "env": {
+    "staging": {
+      "routes": [
+        {
+          "pattern": "<staging-admin-domain>",
+          "custom_domain": true
+        }
+      ]
+    }
+  }
+}
+```
+
+Poi eseguire solo staging:
+
+```bash
+npm run cf:deploy:staging
+```
+
+Verifiche minime sul custom domain:
+
+```bash
+curl -I "https://<staging-admin-domain>/"
+curl -i -X POST "https://<staging-admin-domain>/api/pos/auth/first-login" -H "content-type: application/json" --data '{}'
+curl -i -X POST "https://<staging-admin-domain>/api/pos/session/heartbeat" -H "content-type: application/json" --data '{}'
+curl -i -X POST "https://<staging-admin-domain>/api/pos/catalog/pull" -H "content-type: application/json" --data '{}'
+curl -i -X POST "https://<staging-admin-domain>/api/pos/sales/sync" -H "content-type: application/json" --data '{}'
+```
+
+Acceptance custom domain: HTTPS valido, redirect login atteso, POS API con JSON
+error controllato, `Cache-Control: no-store`, nessun stack trace e nessun token.
+Aggiornare anche gli allowlist Supabase Auth/Google OAuth esterni se il dominio
+custom diventa il target operativo. Fallback pubblico verificato finche manca il
+dominio: `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev`.
+
+### Staging readiness command
+
+```bash
+npm run staging:check
+```
+
+Il comando non deploya e non stampa secret. Controlla:
+
+- workers.dev HTTPS, redirect login e security headers;
+- POS API negative con JSON error contract e `Cache-Control: no-store`;
+- custom domain se `STAGING_CUSTOM_DOMAIN` e definito;
+- Supabase CLI/migration linked se CLI disponibile;
+- cleanup TASK032 active zero se env server-side sono disponibili;
+- POS staging harness dry-run se project ref e Supabase URL sono disponibili.
+
+Check parziali:
+
+```bash
+npm run cf:check:staging
+npm run cf:check:custom-domain
+npm run supabase:check
+```
+
+### Supabase CLI tooling
+
+Supabase CLI osservata in questa workstation: `2.107.0` da Homebrew
+(`/opt/homebrew/bin/supabase`). Versione minima/testata repo: `2.107.0`.
+Versione patch consigliata al momento della review: `2.108.0`.
+
+Check:
+
+```bash
+npm run supabase:check
+```
+
+Il comando verifica CLI, stampa solo versione/stato e poi esegue
+`supabase migration list --linked`. Un update patch disponibile non blocca
+staging se migration linked, build e harness passano. Update manuale:
+
+```bash
+brew upgrade supabase
+```
+
+### Warning deploy OpenNext/Wrangler
+
+Ultimo triage 2026-06-28:
+
+- `direct-eval`: `RESOLVED`. Aggiornati `read-excel-file` a `^9.2.0` e
+  `write-excel-file` a `^4.1.1`; il fallback OOXML ora usa `unzipper-esm`
+  diretto. La catena `read-excel-file -> unzipper -> bluebird` non e piu
+  installata.
+- `duplicate-object-key` su chiave `euro`: `RESOLVED` nella build/deploy
+  corrente dopo la riduzione bundle Excel; non compare piu nel log deploy.
+- `[DEP0190]`: originato da
+  `node_modules/@opennextjs/cloudflare/dist/cli/commands/utils/run-wrangler.js`,
+  che usa `spawnSync(..., { shell: true })` per invocare Wrangler.
+- `Failed to copy` per `compress-commons`, `crc32-stream`, `zip-stream`:
+  `RESOLVED` con l'update `write-excel-file@^4.1.1`; la catena
+  `archiver-node -> zip-stream -> compress-commons -> crc32-stream` non e piu
+  installata.
+
+Ricerca repo su codice runtime applicativo: nessun `eval(` o `new Function`
+nostro; `src/middleware.ts` non esiste e `src/proxy.ts` e il punto proxy attuale.
+Non silenziare i
+warning con `NODE_NO_WARNINGS=1`; sono esterni al codice applicativo e non
+bloccano staging perche build/deploy/smoke/harness passano.
 
 Dettagli operativi: `docs/DEPLOYMENT/CLOUDFLARE-MIGRATION.md`.
 Rollback: `docs/DEPLOYMENT/CLOUDFLARE-ROLLBACK.md`.
@@ -163,6 +307,9 @@ Configurare solo nell'ambiente staging/hosting, mai nel repository:
 - `SUPABASE_SERVICE_ROLE_KEY`
 
 `SUPABASE_SERVICE_ROLE_KEY` deve restare server-side. Non deve essere esposta in client component, browser bundle, log, evidence o file di configurazione committati.
+Se per `supabase migration list --linked` viene usata una credenziale DB reale
+in una shell temporanea, ruotarla dopo la review e non copiarla in report, log,
+script o documentazione.
 
 ## Comandi previsti
 

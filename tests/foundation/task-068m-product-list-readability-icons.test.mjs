@@ -101,7 +101,8 @@ test("TASK-068M Master Console sidebar has no-dependency decorative icons", () =
   assertContains(platformNav, "PlatformNavigationIcon");
   assertContains(platformNav, "aria-hidden\": true");
   assertContains(platformNav, "<PlatformNavigationIcon itemKey={item.key} />");
-  assertContains(platformNav, "inline-flex shrink-0 items-center gap-2");
+  assertContains(platformNav, "inline-flex min-h-11 shrink-0 items-center gap-2");
+  assertContains(platformNav, "lg:min-h-0");
 
   for (const key of [
     "overview",

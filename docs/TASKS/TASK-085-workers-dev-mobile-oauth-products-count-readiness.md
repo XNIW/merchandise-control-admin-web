@@ -88,6 +88,35 @@ Fix: introdotta modalita `includeExactTotals: "count-only"` per eseguire un `cou
 - POS API workers.dev valid smoke: first-login 200, heartbeat 200, catalog pull 200, credential echo false.
 - Win7POS scanners/build: PASS; build Release x86 `Avvisi: 0`, `Errori: 0`.
 
+## Closure review TASK-086 - 2026-06-25
+
+Esito: resta `REVIEW_READY`, non `DONE`.
+
+- Code review TASK-086 conferma che `/auth/oauth/google` e la server action
+  legacy non reintroducono probe provider server-side.
+- Code review TASK-086 conferma che `/shop/products` usa ancora
+  `includeExactTotals: "count-only"` con count exact `head: true`, senza fetch
+  completo 19k per il totale.
+- Android Emulator/Chrome locale e Playwright mobile locale arrivano a
+  `accounts.google.com/v3/signin/identifier` con URL redatto.
+- Products mobile autenticato locale mostra exact total e range visibile.
+- Gate locali TASK-086 passano: `security:scan`, `test:foundation`, `typecheck`,
+  `lint`, `build`, `verify`, `cf:build`.
+- Gate staging workers.dev non e verde al momento della closure review:
+  `npm run smoke:task085:staging` fallisce prima del click Google per
+  Cloudflare `Error 1102` / `Worker exceeded resource limits` sulla pagina
+  login mobile.
+
+Decisione: TASK-085 non viene chiuso a `DONE` finche lo smoke staging
+workers.dev non torna verde dopo staging sano, redeploy staging autorizzato o
+analisi Worker logs.
+
+Retest reviewer 2026-06-28: `PLAYWRIGHT_BASE_URL=https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev npm run smoke:task085:staging`
+termina `0`; OAuth mobile workers.dev `PASS` 5/5 verso
+`accounts.google.com/v3/signin/identifier`. Products authenticated smoke resta
+`SKIP` per assenza di env staff dedicate. TASK-085 resta `REVIEW_READY`, non
+`DONE`, in attesa di review utente.
+
 ## Rischi residui
 
 - Completamento Google reale puo richiedere sessione utente/2FA: non eseguito e non necessario per questo smoke.

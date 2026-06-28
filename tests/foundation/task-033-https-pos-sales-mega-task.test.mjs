@@ -92,12 +92,17 @@ test("TASK-033 security scanner permits only the explicit active task and keeps 
   assert.match(masterPlan, /Prossima azione consigliata:/);
 });
 
-test("TASK-033 POS harness can opt into approved HTTPS non-production tunnels without Vercel", () => {
+test("TASK-033 POS harness can opt into allowlisted HTTPS staging without Vercel", () => {
   const harness = readProjectFile("scripts/pos-local-e2e-harness.mjs");
 
   for (const required of [
-    "TASK033_POS_E2E_ALLOW_HTTPS_NON_PRODUCTION",
-    "isHttpsNonProductionUrl",
+    "TASK032_POS_E2E_ALLOW_STAGING",
+    "TASK032_POS_E2E_STAGING_HOST_ALLOWLIST",
+    "TASK032_POS_E2E_STAGING_PROJECT_REF",
+    "TASK032_POS_E2E_STAGING_DRY_RUN",
+    "validatePositiveTarget",
+    "isExplicitNonProductionHostname",
+    "supabaseProjectRefFromUrl",
     "loca.lt",
     "trycloudflare.com",
     "ngrok",
@@ -107,9 +112,10 @@ test("TASK-033 POS harness can opt into approved HTTPS non-production tunnels wi
     assertContains(harness, required);
   }
 
-  assert.match(harness, /Admin Web base URL must be localhost or 127\.0\.0\.1 unless TASK033/);
-  assert.match(harness, /protocol !== "https:"/);
-  assert.match(harness, /hostname\.endsWith\("vercel\.app"\)/);
+  assert.match(harness, /both be local or both be explicitly allowlisted staging/);
+  assert.match(harness, /parsedBaseUrl\.protocol !== "https:"/);
+  assert.match(harness, /baseHost\.endsWith\("vercel\.app"\)/);
+  assert.match(harness, /Supabase URL does not match the allowlisted staging project ref/);
 });
 
 test("TASK-033 sales sync planning is complete but blocks foundation until live Win7POS is executable", () => {

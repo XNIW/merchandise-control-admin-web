@@ -1,4 +1,4 @@
-declare module "unzipper" {
+declare module "unzipper-esm" {
   export type ZipEntry = {
     buffer(): Promise<Buffer>;
     path: string;

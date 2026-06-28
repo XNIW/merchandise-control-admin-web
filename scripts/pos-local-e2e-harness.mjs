@@ -17,12 +17,23 @@ const HTTPS_NON_PRODUCTION_TUNNEL_HOST_SUFFIXES = [
 const POSITIVE_ENV_KEYS = [
   "NEXT_PUBLIC_SUPABASE_URL",
   "SUPABASE_SERVICE_ROLE_KEY",
-  "TASK032_POS_E2E_SHOP_CODE",
-  "TASK032_POS_E2E_STAFF_CODE",
-  "TASK032_POS_E2E_PIN_OR_PASSWORD",
-  "TASK032_POS_E2E_DEVICE_NAME",
-  "TASK032_POS_E2E_CLEANUP_CONFIRMED",
+  "TASK032_POS_E2E_ALLOW_DATASET_SETUP",
+  "TASK032_POS_E2E_ALLOW_CLEANUP",
 ];
+const STAGING_DRY_RUN_FLAG = "TASK032_POS_E2E_STAGING_DRY_RUN";
+const STAGING_ENV_KEYS = [
+  "NEXT_PUBLIC_SUPABASE_URL",
+  "TASK032_POS_E2E_ALLOW_DATASET_SETUP",
+  "TASK032_POS_E2E_ALLOW_CLEANUP",
+  "TASK032_POS_E2E_ALLOW_STAGING",
+  "TASK032_POS_E2E_STAGING_HOST_ALLOWLIST",
+  "TASK032_POS_E2E_STAGING_PROJECT_REF",
+  "TASK032_POS_E2E_TEST_RUN_ID",
+];
+const SYNTHETIC_SHOP_CODE_PREFIX = "TASK032_TEST_SHOP_";
+const SYNTHETIC_STAFF_CODE_PREFIX = "TASK032_POS_";
+const SYNTHETIC_DEVICE_PREFIX = "TASK032_DEVICE_";
+const SYNTHETIC_SALES_PREFIX = "TASK032";
 const STAFF_CREDENTIAL_SCHEME = "scrypt-v1";
 const STAFF_KEY_LENGTH = 64;
 const STAFF_SALT_BYTES = 16;
@@ -130,29 +141,179 @@ function isLocalUrl(value) {
   }
 }
 
-function isHttpsNonProductionUrl(value) {
+function splitEnvList(value) {
+  return String(value ?? "")
+    .split(/[\s,]+/)
+    .map((entry) => entry.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function hostnameFromUrl(value) {
+  try {
+    return new URL(value).hostname.toLowerCase();
+  } catch {
+    return "";
+  }
+}
+
+function isExplicitNonProductionHostname(hostname) {
+  const normalized = hostname.toLowerCase();
+
+  return (
+    /(^|[-.])(dev|stage|staging|test|qa|sandbox)([-.]|$)/.test(normalized) ||
+    HTTPS_NON_PRODUCTION_TUNNEL_HOST_SUFFIXES.some(
+      (suffix) => normalized === suffix || normalized.endsWith(`.${suffix}`),
+    )
+  );
+}
+
+function supabaseProjectRefFromUrl(value) {
   try {
     const url = new URL(value);
     const hostname = url.hostname.toLowerCase();
+    const suffix = ".supabase.co";
 
-    if (url.protocol !== "https:") {
-      return false;
+    if (url.protocol !== "https:" || !hostname.endsWith(suffix)) {
+      return "";
     }
 
-    if (url.username || url.password) {
-      return false;
-    }
-
-    if (hostname.endsWith("vercel.app")) {
-      return false;
-    }
-
-    return HTTPS_NON_PRODUCTION_TUNNEL_HOST_SUFFIXES.some(
-      (suffix) => hostname === suffix || hostname.endsWith(`.${suffix}`),
-    );
+    return hostname.slice(0, -suffix.length);
   } catch {
-    return false;
+    return "";
   }
+}
+
+function syntheticCode(prefix, runId, maxLength = 32) {
+  const normalizedRunId = normalizeRunId(runId) || safeRunId();
+  const availableLength = maxLength - prefix.length;
+
+  if (availableLength < 6) {
+    throw new Error(`Synthetic prefix ${prefix} leaves insufficient identifier space.`);
+  }
+
+  const uniqueSuffix = safeRunId().slice(0, 4);
+  const candidate = `${normalizedRunId}${uniqueSuffix}`;
+
+  if (candidate.length <= availableLength) {
+    return `${prefix}${candidate}`.toUpperCase();
+  }
+
+  const headLength = availableLength - uniqueSuffix.length - 1;
+
+  return `${prefix}${normalizedRunId.slice(0, headLength)}_${uniqueSuffix}`.toUpperCase();
+}
+
+function syntheticRequiredPrefix(prefix, runId, maxLength = 32) {
+  const normalizedRunId = normalizeRunId(runId);
+  const availableLength = maxLength - prefix.length;
+
+  if (!normalizedRunId || availableLength <= 0) {
+    return prefix.toUpperCase();
+  }
+
+  if (normalizedRunId.length + 4 <= availableLength) {
+    return `${prefix}${normalizedRunId}`.toUpperCase();
+  }
+
+  return `${prefix}${normalizedRunId.slice(0, Math.max(1, availableLength - 5))}`.toUpperCase();
+}
+
+function redactProjectRef(value) {
+  const ref = String(value ?? "");
+
+  if (ref.length <= 8) {
+    return ref ? "[REDACTED_PROJECT_REF]" : "";
+  }
+
+  return `${ref.slice(0, 4)}...${ref.slice(-4)}`;
+}
+
+function configuredTestMarker() {
+  return envValue("TASK032_POS_E2E_REQUIRE_TEST_MARKER") || SYNTHETIC_SALES_PREFIX;
+}
+
+function validateRequiredTestMarker() {
+  const marker = configuredTestMarker();
+
+  if (marker !== SYNTHETIC_SALES_PREFIX) {
+    return datasetBlocked("Test marker must be exactly TASK032 for positive POS E2E.", {
+      marker,
+    });
+  }
+
+  return { marker, ok: true };
+}
+
+function validatePositiveTarget(supabaseUrl) {
+  const baseIsLocal = isLocalUrl(baseUrl.toString());
+  const supabaseIsLocal = isLocalUrl(supabaseUrl);
+
+  if (baseIsLocal && supabaseIsLocal) {
+    return {
+      baseHost: hostnameFromUrl(baseUrl.toString()),
+      ok: true,
+      targetKind: "local",
+    };
+  }
+
+  if (baseIsLocal || supabaseIsLocal) {
+    return datasetBlocked(
+      "Admin Web base URL and Supabase URL must both be local or both be explicitly allowlisted staging.",
+    );
+  }
+
+  if (envValue("TASK032_POS_E2E_ALLOW_STAGING") !== "yes") {
+    return datasetBlocked("Staging POS E2E requires TASK032_POS_E2E_ALLOW_STAGING=yes.");
+  }
+
+  let parsedBaseUrl;
+  try {
+    parsedBaseUrl = new URL(baseUrl.toString());
+  } catch {
+    return datasetBlocked("Admin Web base URL is invalid.");
+  }
+
+  const baseHost = parsedBaseUrl.hostname.toLowerCase();
+  const hostAllowlist = splitEnvList(envValue("TASK032_POS_E2E_STAGING_HOST_ALLOWLIST"));
+  const expectedProjectRef = envValue("TASK032_POS_E2E_STAGING_PROJECT_REF")
+    .toLowerCase();
+  const actualProjectRef = supabaseProjectRefFromUrl(supabaseUrl);
+
+  if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password) {
+    return datasetBlocked("Staging Admin Web base URL must be HTTPS without URL credentials.");
+  }
+
+  if (baseHost.endsWith("vercel.app")) {
+    return datasetBlocked("Vercel preview/production hosts are not allowed for POS positive staging E2E.");
+  }
+
+  if (!hostAllowlist.includes(baseHost)) {
+    return datasetBlocked("Staging Admin Web host is not in TASK032_POS_E2E_STAGING_HOST_ALLOWLIST.", {
+      baseHost,
+    });
+  }
+
+  if (!isExplicitNonProductionHostname(baseHost)) {
+    return datasetBlocked("Staging Admin Web host must contain an explicit non-production label.");
+  }
+
+  if (!/^[a-z0-9-]{6,63}$/.test(expectedProjectRef)) {
+    return datasetBlocked("TASK032_POS_E2E_STAGING_PROJECT_REF is missing or invalid.");
+  }
+
+  if (actualProjectRef !== expectedProjectRef) {
+    return datasetBlocked("Supabase URL does not match the allowlisted staging project ref.", {
+      expectedProjectRef: redactProjectRef(expectedProjectRef),
+      supabaseProjectRef: actualProjectRef ? redactProjectRef(actualProjectRef) : "unresolved",
+    });
+  }
+
+  return {
+    baseHost,
+    ok: true,
+    stagingProjectRef: actualProjectRef,
+    targetKind: "staging",
+  };
 }
 
 function redactError(error) {
@@ -185,6 +346,8 @@ function datasetBlocked(reason, extra = {}) {
 
 function validatePositiveConfig() {
   const enabled = envValue("TASK032_POS_E2E_ENABLE_POSITIVE") === "yes";
+  const requiresStagingTarget =
+    envValue("TASK032_POS_E2E_REQUIRE_STAGING_TARGET") === "yes";
 
   if (!enabled) {
     return {
@@ -195,7 +358,10 @@ function validatePositiveConfig() {
     };
   }
 
-  const missing = POSITIVE_ENV_KEYS.filter((key) => !envValue(key));
+  const requiredEnvKeys = requiresStagingTarget
+    ? Array.from(new Set([...POSITIVE_ENV_KEYS, ...STAGING_ENV_KEYS, "TASK032_POS_E2E_BASE_URL"]))
+    : POSITIVE_ENV_KEYS;
+  const missing = requiredEnvKeys.filter((key) => !envValue(key));
 
   if (missing.length > 0) {
     return datasetBlocked("Positive POS E2E is missing required env names.", {
@@ -203,42 +369,74 @@ function validatePositiveConfig() {
     });
   }
 
-  if (envValue("TASK032_POS_E2E_CLEANUP_CONFIRMED") !== "yes") {
-    return datasetBlocked("Cleanup must be explicitly confirmed before positive POS E2E.");
+  if (envValue("TASK032_POS_E2E_ALLOW_DATASET_SETUP") !== "yes") {
+    return datasetBlocked("Dataset setup must be explicitly allowed before positive POS E2E.");
   }
 
-  if (!isLocalUrl(baseUrl.toString())) {
-    const task033HttpsAllowed =
-      envValue("TASK033_POS_E2E_ALLOW_HTTPS_NON_PRODUCTION") === "yes";
+  if (envValue("TASK032_POS_E2E_ALLOW_CLEANUP") !== "yes") {
+    return datasetBlocked("Cleanup must be explicitly allowed before positive POS E2E.");
+  }
 
-    if (!task033HttpsAllowed || !isHttpsNonProductionUrl(baseUrl.toString())) {
-      return datasetBlocked(
-        "Admin Web base URL must be localhost or 127.0.0.1 unless TASK033 uses an approved HTTPS non-production tunnel.",
-      );
-    }
+  const markerCheck = validateRequiredTestMarker();
+  if (!markerCheck.ok) {
+    return markerCheck;
   }
 
   const supabaseUrl = envValue("NEXT_PUBLIC_SUPABASE_URL");
+  const target = validatePositiveTarget(supabaseUrl);
 
-  if (!isLocalUrl(supabaseUrl)) {
-    return datasetBlocked("Supabase URL must be local for TASK-032 POS E2E.");
+  if (!target.ok) {
+    return target;
   }
 
-  const shopCode = envValue("TASK032_POS_E2E_SHOP_CODE").toUpperCase();
-  const staffCode = envValue("TASK032_POS_E2E_STAFF_CODE").toUpperCase();
-  const deviceName = envValue("TASK032_POS_E2E_DEVICE_NAME");
-  const posCredential = envValue("TASK032_POS_E2E_PIN_OR_PASSWORD");
-
-  if (!shopCode.startsWith("TASK032_TEST_SHOP_")) {
-    return datasetBlocked("Shop code must use TASK032_TEST_SHOP_ prefix.");
+  if (requiresStagingTarget && target.targetKind !== "staging") {
+    return datasetBlocked(
+      "Staging POS E2E requires an allowlisted non-local staging Admin Web and Supabase target.",
+    );
   }
 
-  if (!staffCode.startsWith("TASK032_POS_")) {
-    return datasetBlocked("Staff code must use TASK032_POS_ prefix.");
+  const requestedRunId = normalizeRunId(envValue("TASK032_POS_E2E_TEST_RUN_ID"));
+
+  if (target.targetKind === "staging" && !requestedRunId) {
+    return datasetBlocked("Staging POS E2E requires TASK032_POS_E2E_TEST_RUN_ID with at least 6 safe characters.");
   }
 
-  if (!deviceName.startsWith("TASK032_DEVICE_")) {
-    return datasetBlocked("Device name must use TASK032_DEVICE_ prefix.");
+  const runId = requestedRunId
+    ? `${requestedRunId}${safeRunId().slice(0, 4)}`
+    : safeRunId();
+  const identifierRunId = requestedRunId || runId;
+  const shopCode = (
+    envValue("TASK032_POS_E2E_SHOP_CODE") || syntheticCode(SYNTHETIC_SHOP_CODE_PREFIX, identifierRunId)
+  ).toUpperCase();
+  const staffCode = (
+    envValue("TASK032_POS_E2E_STAFF_CODE") || syntheticCode(SYNTHETIC_STAFF_CODE_PREFIX, identifierRunId)
+  ).toUpperCase();
+  const deviceName =
+    envValue("TASK032_POS_E2E_DEVICE_NAME") ||
+    `${SYNTHETIC_DEVICE_PREFIX}${identifierRunId}${safeRunId().slice(0, 4)}`;
+  const posCredential =
+    envValue("TASK032_POS_E2E_PIN_OR_PASSWORD") ||
+    `Task032-POS-${randomBytes(12).toString("base64url")}`;
+
+  if (!shopCode.startsWith(SYNTHETIC_SHOP_CODE_PREFIX)) {
+    return datasetBlocked(`Shop code must use ${SYNTHETIC_SHOP_CODE_PREFIX} prefix.`);
+  }
+
+  if (!staffCode.startsWith(SYNTHETIC_STAFF_CODE_PREFIX)) {
+    return datasetBlocked(`Staff code must use ${SYNTHETIC_STAFF_CODE_PREFIX} prefix.`);
+  }
+
+  if (!deviceName.startsWith(SYNTHETIC_DEVICE_PREFIX)) {
+    return datasetBlocked(`Device name must use ${SYNTHETIC_DEVICE_PREFIX} prefix.`);
+  }
+
+  if (
+    target.targetKind === "staging" &&
+    (!shopCode.startsWith(syntheticRequiredPrefix(SYNTHETIC_SHOP_CODE_PREFIX, requestedRunId)) ||
+      !staffCode.startsWith(syntheticRequiredPrefix(SYNTHETIC_STAFF_CODE_PREFIX, requestedRunId)) ||
+      !deviceName.toUpperCase().includes(requestedRunId))
+  ) {
+    return datasetBlocked("Staging synthetic identifiers must include TASK032_POS_E2E_TEST_RUN_ID.");
   }
 
   if (posCredential.length < 8) {
@@ -249,10 +447,86 @@ function validatePositiveConfig() {
     deviceName,
     ok: true,
     posCredential,
+    runId,
     serviceRoleKey: envValue("SUPABASE_SERVICE_ROLE_KEY"),
     shopCode,
     staffCode,
+    stagingProjectRef: redactProjectRef(target.stagingProjectRef),
     supabaseUrl,
+    targetKind: target.targetKind,
+    testMarker: markerCheck.marker,
+    testRunId: requestedRunId || runId,
+  };
+}
+
+function validateStagingDryRunConfig() {
+  if (envValue(STAGING_DRY_RUN_FLAG) !== "yes") {
+    return datasetBlocked("Staging dry-run requires TASK032_POS_E2E_STAGING_DRY_RUN=yes.");
+  }
+
+  if (envValue("TASK032_POS_E2E_ENABLE_POSITIVE") !== "yes") {
+    return datasetBlocked("Staging dry-run requires TASK032_POS_E2E_ENABLE_POSITIVE=yes.");
+  }
+
+  const missing = STAGING_ENV_KEYS.filter((key) => !envValue(key));
+
+  if (missing.length > 0) {
+    return datasetBlocked("Staging dry-run is missing required env names.", {
+      missing,
+    });
+  }
+
+  if (envValue("TASK032_POS_E2E_ALLOW_DATASET_SETUP") !== "yes") {
+    return datasetBlocked("Dataset setup must be explicitly allowed for staging precheck.");
+  }
+
+  if (envValue("TASK032_POS_E2E_ALLOW_CLEANUP") !== "yes") {
+    return datasetBlocked("Cleanup must be explicitly allowed for staging precheck.");
+  }
+
+  const markerCheck = validateRequiredTestMarker();
+  if (!markerCheck.ok) {
+    return markerCheck;
+  }
+
+  const requestedRunId = normalizeRunId(envValue("TASK032_POS_E2E_TEST_RUN_ID"));
+  if (!requestedRunId) {
+    return datasetBlocked("Staging dry-run requires TASK032_POS_E2E_TEST_RUN_ID with at least 6 safe characters.");
+  }
+
+  const target = validatePositiveTarget(envValue("NEXT_PUBLIC_SUPABASE_URL"));
+  if (!target.ok) {
+    return target;
+  }
+
+  if (target.targetKind !== "staging") {
+    return datasetBlocked("Staging dry-run must target an allowlisted non-local staging environment.");
+  }
+
+  const shopCodePrefix = syntheticRequiredPrefix(SYNTHETIC_SHOP_CODE_PREFIX, requestedRunId);
+
+  return {
+    baseHost: target.baseHost,
+    cleanup: {
+      appendOnlySalesRows: "retained_with_TASK032_marker",
+      scope: "shop_code_prefix_and_shop_id_after_setup",
+      shopCodePrefix,
+      truncate: false,
+    },
+    dataset: {
+      devicePrefix: `${SYNTHETIC_DEVICE_PREFIX}${requestedRunId}`,
+      marker: markerCheck.marker,
+      productBarcodePrefix: `TASK032_BARCODE_${requestedRunId}`,
+      shopCodePrefix,
+      staffCodePrefix: `${SYNTHETIC_STAFF_CODE_PREFIX}${requestedRunId}`,
+      testRunId: requestedRunId,
+    },
+    ok: true,
+    serviceRolePresent: Boolean(envValue("SUPABASE_SERVICE_ROLE_KEY")),
+    stagingProjectRef: redactProjectRef(target.stagingProjectRef),
+    status: "PASS_STAGING_PRECHECK_DRY_RUN",
+    wouldCreateData: false,
+    wouldSendSales: false,
   };
 }
 
@@ -307,8 +581,22 @@ function legacyTimestamp(date = new Date()) {
   return date.toISOString().slice(0, 19).replace("T", " ");
 }
 
+function dateOnly(date = new Date()) {
+  return date.toISOString().slice(0, 10);
+}
+
 function safeRunId() {
   return randomUUID().replaceAll("-", "").slice(0, 8).toUpperCase();
+}
+
+function normalizeRunId(value) {
+  const normalized = String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "")
+    .slice(0, 16);
+
+  return normalized.length >= 6 ? normalized : "";
 }
 
 async function mustSingle(label, query) {
@@ -333,11 +621,21 @@ async function mustOk(label, query) {
   }
 }
 
-async function queryShopIds(client, shopCode) {
+async function queryShopIds(client, input = {}) {
   const query = client.from("shops").select("shop_id,shop_code");
-  const { data, error } = shopCode
-    ? await query.eq("shop_code", shopCode)
-    : await query.like("shop_code", "TASK032_TEST_SHOP_%");
+  let result;
+
+  if (input.shopCode) {
+    result = await query.eq("shop_code", input.shopCode);
+  } else if (input.shopCodeLike) {
+    result = await query.like("shop_code", input.shopCodeLike);
+  } else if (input.allTask032) {
+    result = await query.like("shop_code", `${SYNTHETIC_SHOP_CODE_PREFIX}%`);
+  } else {
+    return [];
+  }
+
+  const { data, error } = result;
 
   if (error) {
     throw new DatasetSetupError("Existing synthetic shop lookup failed.", {
@@ -373,11 +671,90 @@ async function queryOwnerIdsForShops(client, shopIds) {
   ];
 }
 
+function applySyntheticStaffScope(query, input) {
+  if (input.allTask032) {
+    return query.like("staff_code", `${SYNTHETIC_STAFF_CODE_PREFIX}%`);
+  }
+
+  if (input.staffCodeLike) {
+    return query.like("staff_code", input.staffCodeLike);
+  }
+
+  return query.eq("staff_code", input.staffCode);
+}
+
+async function countSelectedRows(label, query) {
+  const { data, error } = await query;
+
+  if (error) {
+    throw new DatasetSetupError(`${label} failed.`, {
+      error: redactError(error),
+    });
+  }
+
+  return data?.length ?? 0;
+}
+
+async function cleanupSyntheticSalesRecords(client, shopId) {
+  const batchLookup = await client
+    .from("pos_sales_sync_batches")
+    .select("pos_sales_sync_batch_id")
+    .eq("shop_id", shopId)
+    .like("client_batch_id", `${SYNTHETIC_SALES_PREFIX}%`);
+  const saleLookup = await client
+    .from("pos_sales")
+    .select("pos_sale_id")
+    .eq("shop_id", shopId)
+    .like("client_sale_id", `${SYNTHETIC_SALES_PREFIX}%`);
+
+  if (batchLookup.error || saleLookup.error) {
+    throw new DatasetSetupError("Synthetic sales cleanup lookup failed.", {
+      error: redactError(batchLookup.error ?? saleLookup.error),
+    });
+  }
+
+  const batchIds = (batchLookup.data ?? []).map((row) => row.pos_sales_sync_batch_id);
+  const saleIds = (saleLookup.data ?? []).map((row) => row.pos_sale_id);
+  const summary = {
+    immutableLedgerRowsRetained: 0,
+    immutableSaleLineRowsRetained: 0,
+    immutableSaleRowsRetained: saleIds.length,
+    immutableSalesBatchRowsRetained: batchIds.length,
+    immutableStockMovementRowsRetained: 0,
+  };
+
+  if (saleIds.length > 0) {
+    summary.immutableStockMovementRowsRetained += await countSelectedRows(
+      "Synthetic stock movement retention count",
+      client
+        .from("pos_sale_stock_movements")
+        .select("pos_sale_stock_movement_id")
+        .in("pos_sale_id", saleIds),
+    );
+    summary.immutableLedgerRowsRetained += await countSelectedRows(
+      "Synthetic ledger retention count",
+      client
+        .from("pos_revenue_ledger_entries")
+        .select("pos_revenue_ledger_entry_id")
+        .in("pos_sale_id", saleIds),
+    );
+    summary.immutableSaleLineRowsRetained += await countSelectedRows(
+      "Synthetic sale line retention count",
+      client
+        .from("pos_sale_lines")
+        .select("pos_sale_line_id")
+        .in("pos_sale_id", saleIds),
+    );
+  }
+
+  return summary;
+}
+
 async function cleanupSyntheticDataset(client, input) {
   const timestamp = nowIso();
   const shopIds = input.shopId
     ? [input.shopId]
-    : await queryShopIds(client, input.allTask032 ? undefined : input.shopCode);
+    : await queryShopIds(client, input);
   const ownerIds = input.ownerUserId
     ? [input.ownerUserId]
     : await queryOwnerIdsForShops(client, shopIds);
@@ -385,7 +762,14 @@ async function cleanupSyntheticDataset(client, input) {
     activeCredentialRowsTouched: 0,
     activeDeviceRowsTouched: 0,
     activeSessionRowsTouched: 0,
+    authUsersDeleted: 0,
+    authUsersDeleteSkipped: 0,
     inventoryOwnersTouched: ownerIds.length,
+    immutableLedgerRowsRetained: 0,
+    immutableSaleLineRowsRetained: 0,
+    immutableSaleRowsRetained: 0,
+    immutableSalesBatchRowsRetained: 0,
+    immutableStockMovementRowsRetained: 0,
     shopRowsTouched: shopIds.length,
   };
 
@@ -396,6 +780,15 @@ async function cleanupSyntheticDataset(client, input) {
     if (!actorProfileId) {
       throw new DatasetSetupError("Synthetic shop cleanup has no owner actor.");
     }
+
+    const salesCleanup = await cleanupSyntheticSalesRecords(client, shopId);
+    summary.immutableLedgerRowsRetained += salesCleanup.immutableLedgerRowsRetained;
+    summary.immutableSaleLineRowsRetained += salesCleanup.immutableSaleLineRowsRetained;
+    summary.immutableSaleRowsRetained += salesCleanup.immutableSaleRowsRetained;
+    summary.immutableSalesBatchRowsRetained +=
+      salesCleanup.immutableSalesBatchRowsRetained;
+    summary.immutableStockMovementRowsRetained +=
+      salesCleanup.immutableStockMovementRowsRetained;
 
     const activeSessions = await client
       .from("pos_sessions")
@@ -452,33 +845,21 @@ async function cleanupSyntheticDataset(client, input) {
 
     await mustOk(
       "Synthetic staff archive",
-      (input.allTask032
-        ? client
-            .from("staff_accounts")
-            .update({
-              credential_hash: null,
-              credential_kind: null,
-              credential_status: "rotation_required",
-              credential_updated_at: null,
-              must_change_credential: true,
-              status: "archived",
-              updated_at: timestamp,
-            })
-            .eq("shop_id", shopId)
-            .like("staff_code", "TASK032_POS_%")
-        : client
-        .from("staff_accounts")
-        .update({
-          credential_hash: null,
-          credential_kind: null,
-          credential_status: "rotation_required",
-          credential_updated_at: null,
-          must_change_credential: true,
-          status: "archived",
-          updated_at: timestamp,
-        })
-        .eq("shop_id", shopId)
-            .eq("staff_code", input.staffCode)),
+      applySyntheticStaffScope(
+        client
+          .from("staff_accounts")
+          .update({
+            credential_hash: null,
+            credential_kind: null,
+            credential_status: "rotation_required",
+            credential_updated_at: null,
+            must_change_credential: true,
+            status: "archived",
+            updated_at: timestamp,
+          })
+          .eq("shop_id", shopId),
+        input,
+      ),
     );
 
     await mustOk(
@@ -525,10 +906,33 @@ async function cleanupSyntheticDataset(client, input) {
   }
 
   for (const ownerUserId of ownerIds) {
-    await mustOk(
-      "Synthetic price cleanup",
-      client.from("inventory_product_prices").delete().eq("owner_user_id", ownerUserId),
-    );
+    const syntheticProducts = await client
+      .from("inventory_products")
+      .select("id")
+      .eq("owner_user_id", ownerUserId)
+      .like("barcode", "TASK032_BARCODE_%");
+
+    if (syntheticProducts.error) {
+      throw new DatasetSetupError("Synthetic price product lookup failed.", {
+        error: redactError(syntheticProducts.error),
+      });
+    }
+
+    const syntheticProductIds = (syntheticProducts.data ?? [])
+      .map((row) => row.id)
+      .filter(Boolean);
+
+    if (syntheticProductIds.length > 0) {
+      await mustOk(
+        "Synthetic price cleanup",
+        client
+          .from("inventory_product_prices")
+          .delete()
+          .eq("owner_user_id", ownerUserId)
+          .eq("source", "TASK-032")
+          .in("product_id", syntheticProductIds),
+      );
+    }
 
     await mustOk(
       "Synthetic product tombstone",
@@ -578,6 +982,14 @@ async function cleanupSyntheticDataset(client, input) {
         .eq("profile_id", ownerUserId)
         .neq("profile_status", "disabled"),
     );
+
+    const authDelete = await client.auth.admin.deleteUser(ownerUserId);
+
+    if (authDelete.error) {
+      summary.authUsersDeleteSkipped += 1;
+    } else {
+      summary.authUsersDeleted += 1;
+    }
   }
 
   return {
@@ -590,7 +1002,7 @@ async function cleanupSyntheticDataset(client, input) {
 async function verifyCleanup(client, input) {
   const shopIds = input.shopId
     ? [input.shopId]
-    : await queryShopIds(client, input.allTask032 ? undefined : input.shopCode);
+    : await queryShopIds(client, input);
   const ownerIds = input.ownerUserId
     ? [input.ownerUserId]
     : await queryOwnerIdsForShops(client, shopIds);
@@ -605,6 +1017,11 @@ async function verifyCleanup(client, input) {
     activeTestCategories: 0,
     activeTestProducts: 0,
     activeTestSuppliers: 0,
+    retainedImmutableLedgerRows: 0,
+    retainedImmutableSaleLines: 0,
+    retainedImmutableSales: 0,
+    retainedImmutableSalesBatches: 0,
+    retainedImmutableStockMovements: 0,
   };
 
   if (shopIds.length > 0) {
@@ -616,6 +1033,11 @@ async function verifyCleanup(client, input) {
       credentials,
       mappings,
       members,
+      salesBatches,
+      sales,
+      saleLines,
+      ledger,
+      stockMovements,
     ] = await Promise.all([
       (input.allTask032
         ? client
@@ -632,7 +1054,12 @@ async function verifyCleanup(client, input) {
         .from("staff_accounts")
         .select("staff_id")
         .in("shop_id", shopIds)
-        .like("staff_code", input.allTask032 ? "TASK032_POS_%" : input.staffCode)
+        .like(
+          "staff_code",
+          input.allTask032
+            ? `${SYNTHETIC_STAFF_CODE_PREFIX}%`
+            : input.staffCodeLike ?? input.staffCode,
+        )
         .neq("status", "archived"),
       client
         .from("shop_devices")
@@ -660,6 +1087,31 @@ async function verifyCleanup(client, input) {
         .select("shop_member_id")
         .in("shop_id", shopIds)
         .eq("membership_status", "active"),
+      client
+        .from("pos_sales_sync_batches")
+        .select("pos_sales_sync_batch_id")
+        .in("shop_id", shopIds)
+        .like("client_batch_id", `${SYNTHETIC_SALES_PREFIX}%`),
+      client
+        .from("pos_sales")
+        .select("pos_sale_id")
+        .in("shop_id", shopIds)
+        .like("client_sale_id", `${SYNTHETIC_SALES_PREFIX}%`),
+      client
+        .from("pos_sale_lines")
+        .select("pos_sale_line_id")
+        .in("shop_id", shopIds)
+        .like("client_line_id", `${SYNTHETIC_SALES_PREFIX}%`),
+      client
+        .from("pos_revenue_ledger_entries")
+        .select("pos_revenue_ledger_entry_id")
+        .in("shop_id", shopIds)
+        .like("client_entry_id", `%${SYNTHETIC_SALES_PREFIX}%`),
+      client
+        .from("pos_sale_stock_movements")
+        .select("pos_sale_stock_movement_id")
+        .in("shop_id", shopIds)
+        .like("movement_key", `%${SYNTHETIC_SALES_PREFIX}%`),
     ]);
 
     for (const [label, result] of Object.entries({
@@ -670,6 +1122,11 @@ async function verifyCleanup(client, input) {
       activeShopMembers: members,
       activeShops: shops,
       activeStaff: staff,
+      retainedImmutableLedgerRows: ledger,
+      retainedImmutableSaleLines: saleLines,
+      retainedImmutableSales: sales,
+      retainedImmutableSalesBatches: salesBatches,
+      retainedImmutableStockMovements: stockMovements,
     })) {
       if (result.error) {
         throw new DatasetSetupError(`Cleanup verification query failed: ${label}.`, {
@@ -718,25 +1175,36 @@ async function verifyCleanup(client, input) {
     }
   }
 
-  const leftovers = Object.values(counts).reduce((total, value) => total + value, 0);
+  const activeLeftovers = Object.entries(counts)
+    .filter(([key]) => !key.startsWith("retainedImmutable"))
+    .reduce((total, [, value]) => total + value, 0);
 
   return {
     counts,
-    ok: leftovers === 0,
-    status: leftovers === 0 ? "CLEANUP_VERIFIED" : "CLEANUP_LEFTOVERS_FOUND",
+    ok: activeLeftovers === 0,
+    status: activeLeftovers === 0 ? "CLEANUP_VERIFIED" : "CLEANUP_LEFTOVERS_FOUND",
   };
 }
 
 async function setupSyntheticDataset(client, config) {
-  const runId = safeRunId();
+  const runId = config.runId;
   const timestamp = nowIso();
   const ownerEmail = `task032-test-${runId.toLowerCase()}@example.invalid`;
   const generatedAuthSecret = randomBytes(24).toString("base64url");
 
-  await cleanupSyntheticDataset(client, {
-    allTask032: true,
-    reason: "task032_pre_setup_cleanup",
-  });
+  await cleanupSyntheticDataset(
+    client,
+    config.targetKind === "staging"
+      ? {
+          reason: "task032_pre_setup_cleanup",
+          shopCodeLike: `${syntheticRequiredPrefix(SYNTHETIC_SHOP_CODE_PREFIX, config.testRunId)}%`,
+          staffCodeLike: `${syntheticRequiredPrefix(SYNTHETIC_STAFF_CODE_PREFIX, config.testRunId)}%`,
+        }
+      : {
+          allTask032: true,
+          reason: "task032_pre_setup_cleanup",
+        },
+  );
 
   const userResult = await client.auth.admin.createUser({
     email: ownerEmail,
@@ -761,12 +1229,15 @@ async function setupSyntheticDataset(client, config) {
   const staffHash = await hashStaffCredential(config.posCredential);
 
   await mustOk(
-    "Synthetic profile insert",
-    client.from("profiles").insert({
-      display_name: `TASK032_TEST_OWNER_${runId}`,
-      profile_id: ownerUserId,
-      profile_status: "active",
-    }),
+    "Synthetic profile upsert",
+    client.from("profiles").upsert(
+      {
+        display_name: `TASK032_TEST_OWNER_${runId}`,
+        profile_id: ownerUserId,
+        profile_status: "active",
+      },
+      { onConflict: "profile_id" },
+    ),
   );
 
   const shop = await mustSingle(
@@ -914,10 +1385,12 @@ async function setupSyntheticDataset(client, config) {
 }
 
 async function postJson(path, body) {
+  const clientRequestId = `TASK032-${safeRunId()}`;
   const response = await fetch(endpointUrl(path), {
     body: JSON.stringify(body),
     headers: {
       "Content-Type": "application/json",
+      "X-Client-Request-Id": clientRequestId,
       "User-Agent": "TASK-032 local POS harness",
     },
     method: "POST",
@@ -934,35 +1407,85 @@ async function postJson(path, body) {
   return {
     body: parsedBody,
     cacheControl: response.headers.get("Cache-Control") ?? "",
+    clientRequestId,
     noStore: (response.headers.get("Cache-Control") ?? "")
       .toLowerCase()
       .includes("no-store"),
+    requestId: response.headers.get("X-Request-Id") ?? parsedBody?.requestId ?? "",
+    status: response.status,
+    text,
+  };
+}
+
+async function postSalesJson(body) {
+  const clientRequestId = `TASK032-${safeRunId()}`;
+  const response = await fetch(endpointUrl("/api/pos/sales/sync"), {
+    body: JSON.stringify(body),
+    headers: {
+      "Content-Type": "application/json",
+      "Idempotency-Key": String(body.batch?.idempotencyKey ?? ""),
+      "X-Client-Request-Id": clientRequestId,
+      "User-Agent": "TASK-032 local POS harness",
+    },
+    method: "POST",
+  });
+  const text = await response.text();
+  let parsedBody = null;
+
+  try {
+    parsedBody = JSON.parse(text);
+  } catch {
+    parsedBody = null;
+  }
+
+  return {
+    body: parsedBody,
+    cacheControl: response.headers.get("Cache-Control") ?? "",
+    clientRequestId,
+    noStore: (response.headers.get("Cache-Control") ?? "")
+      .toLowerCase()
+      .includes("no-store"),
+    requestId: response.headers.get("X-Request-Id") ?? parsedBody?.requestId ?? "",
     status: response.status,
     text,
   };
 }
 
 async function runNegativeCase(testCase) {
+  const clientRequestId = `TASK032-${safeRunId()}`;
   const response = await fetch(endpointUrl(testCase.path), {
     body: testCase.body,
     headers: {
       "Content-Type": testCase.contentType,
+      "X-Client-Request-Id": clientRequestId,
       "User-Agent": "TASK-032 local POS harness",
     },
     method: "POST",
   });
   const text = await response.text();
+  let parsedBody = null;
+
+  try {
+    parsedBody = JSON.parse(text);
+  } catch {
+    parsedBody = null;
+  }
+
   const cacheControl = response.headers.get("Cache-Control") ?? "";
   const statusOk = response.status >= 400 && response.status < 600;
   const noStore = cacheControl.toLowerCase().includes("no-store");
   const redacted = !sensitiveTextPattern.test(text);
+  const requestId = response.headers.get("X-Request-Id") ?? parsedBody?.requestId ?? "";
+  const requestIdOk = /^posreq_[0-9a-f-]{36}$/i.test(requestId);
 
   return {
     cacheControl,
+    clientRequestId,
     name: testCase.name,
-    ok: statusOk && noStore && redacted,
+    ok: statusOk && noStore && redacted && requestIdOk,
     path: testCase.path,
     redacted,
+    requestId,
     status: response.status,
   };
 }
@@ -973,6 +1496,187 @@ function assertNoStore(label, result) {
       status: result.status,
     });
   }
+}
+
+function syntheticSale(dataset, input = {}) {
+  const amountClp = input.amountClp ?? 1000;
+  const businessDate = dateOnly();
+  const clientSaleId = `${SYNTHETIC_SALES_PREFIX}_${dataset.runId}_SALE_1`;
+  const occurredAt = `${businessDate}T14:00:00.000Z`;
+
+  return {
+    amounts: {
+      changeClp: 0,
+      discountClp: 0,
+      grossClp: amountClp,
+      netClp: amountClp,
+      paidClp: amountClp,
+      taxClp: 0,
+    },
+    businessDate,
+    clientSaleId,
+    currency: "CLP",
+    fiscal: {
+      documentNumber: `TASK032-F-${dataset.runId}`,
+      documentType: "boleta",
+      printedAt: occurredAt,
+      status: "printed_local_pdf",
+    },
+    idempotencyKey: `${SYNTHETIC_SALES_PREFIX}_IDEM_${dataset.runId}_SALE_1`,
+    kind: "sale",
+    lines: [
+      {
+        amountClp,
+        clientLineId: `${SYNTHETIC_SALES_PREFIX}_${dataset.runId}_LINE_1`,
+        linePosition: 1,
+        lineTotal: amountClp,
+        lineType: "item",
+        productId: dataset.productId,
+        productName: dataset.productName,
+        quantity: 1,
+        stockQuantityDelta: -1,
+        unitAmountClp: amountClp,
+        unitPrice: amountClp,
+      },
+    ],
+    occurredAt,
+    payments: [
+      {
+        amountClp,
+        changeClp: 0,
+        clientPaymentId: `${SYNTHETIC_SALES_PREFIX}_${dataset.runId}_PAYMENT_1`,
+        method: "cash",
+      },
+    ],
+    saleNumber: `${SYNTHETIC_SALES_PREFIX}-${dataset.runId}-SALE-1`,
+    total: amountClp,
+  };
+}
+
+function salesPayload(input) {
+  return {
+    ...input.auth,
+    appVersion: "TASK-032-local",
+    batch: {
+      clientBatchId: `${SYNTHETIC_SALES_PREFIX}_BATCH_${input.dataset.runId}`,
+      idempotencyKey: `${SYNTHETIC_SALES_PREFIX}_IDEM_BATCH_${input.dataset.runId}`,
+    },
+    sales: [input.sale],
+    schemaVersion: "pos-sales-ledger-v2",
+    shopCode: input.dataset.shopCode,
+  };
+}
+
+function parseSalesSyncSuccess(result, label, expectedStatus) {
+  assertNoStore(label, result);
+
+  if (
+    result.status !== 200 ||
+    !result.body ||
+    result.body.ok !== true ||
+    result.body.batch?.status !== expectedStatus
+  ) {
+    throw new E2EAssertionError(`${label} did not return expected sales status.`, {
+      code: result.body?.code,
+      status: result.status,
+      syncStatus: result.body?.batch?.status,
+    });
+  }
+
+  return result.body;
+}
+
+function parseSalesSyncConflict(result) {
+  assertNoStore("sales conflict", result);
+
+  if (result.status !== 409 || result.body?.ok !== false || result.body?.code !== "conflict") {
+    throw new E2EAssertionError("Sales conflict check did not return stable 409 conflict.", {
+      code: result.body?.code,
+      status: result.status,
+    });
+  }
+
+  return true;
+}
+
+async function verifySalesPersistence(client, dataset, sale) {
+  const productResult = await client
+    .from("inventory_products")
+    .select("stock_quantity")
+    .eq("id", dataset.productId)
+    .eq("owner_user_id", dataset.ownerUserId)
+    .maybeSingle();
+  const salesResult = await client
+    .from("pos_sales")
+    .select("pos_sale_id,status,stock_sync_status,stock_warning_count")
+    .eq("shop_id", dataset.shopId)
+    .eq("client_sale_id", sale.clientSaleId)
+    .maybeSingle();
+
+  if (productResult.error || salesResult.error || !salesResult.data) {
+    throw new E2EAssertionError("Sales persistence lookup failed.", {
+      productError: redactError(productResult.error),
+      saleError: redactError(salesResult.error),
+    });
+  }
+
+  const posSaleId = salesResult.data.pos_sale_id;
+  const [ledger, movements, audit] = await Promise.all([
+    client
+      .from("pos_revenue_ledger_entries")
+      .select("pos_revenue_ledger_entry_id")
+      .eq("shop_id", dataset.shopId)
+      .eq("pos_sale_id", posSaleId),
+    client
+      .from("pos_sale_stock_movements")
+      .select("pos_sale_stock_movement_id,status")
+      .eq("shop_id", dataset.shopId)
+      .eq("pos_sale_id", posSaleId),
+    client
+      .from("audit_logs")
+      .select("audit_log_id")
+      .eq("shop_id", dataset.shopId)
+      .eq("event_key", "pos.sales.sync.success")
+      .eq("target_type", "pos_sales_sync_batch")
+      .limit(5),
+  ]);
+
+  for (const [label, result] of Object.entries({ audit, ledger, movements })) {
+    if (result.error) {
+      throw new E2EAssertionError(`Sales ${label} verification failed.`, {
+        error: redactError(result.error),
+      });
+    }
+  }
+
+  const stockQuantity = Number(productResult.data?.stock_quantity);
+
+  if (
+    stockQuantity !== 6 ||
+    salesResult.data.status !== "accepted" ||
+    salesResult.data.stock_sync_status !== "applied" ||
+    Number(salesResult.data.stock_warning_count) !== 0 ||
+    (ledger.data?.length ?? 0) === 0 ||
+    !(movements.data ?? []).some((row) => row.status === "applied") ||
+    (audit.data?.length ?? 0) === 0
+  ) {
+    throw new E2EAssertionError("Sales persistence verification failed.", {
+      auditRows: audit.data?.length ?? 0,
+      ledgerRows: ledger.data?.length ?? 0,
+      movementRows: movements.data?.length ?? 0,
+      saleStatus: salesResult.data.status,
+      stockQuantity,
+      stockSyncStatus: salesResult.data.stock_sync_status,
+    });
+  }
+
+  return {
+    auditRows: audit.data?.length ?? 0,
+    ledgerRows: ledger.data?.length ?? 0,
+    movementRows: movements.data?.length ?? 0,
+    posSaleId,
+    stockQuantity,
+  };
 }
 
 function parseFirstLoginSuccess(result) {
@@ -1056,6 +1760,7 @@ function redactPositiveResult(input) {
     heartbeat: input.heartbeat,
     malformedResponseGuard: input.malformedResponseGuard,
     ok: input.ok,
+    salesSync: input.salesSync,
     setup: input.setup,
     status: input.status,
     tombstoneRestore: input.tombstoneRestore,
@@ -1162,6 +1867,41 @@ async function runPositiveE2E(client, config, dataset) {
     });
   }
 
+  const sale = syntheticSale(dataset);
+  const payload = salesPayload({ auth, dataset, sale });
+  const acceptedResult = await postSalesJson(payload);
+  const accepted = parseSalesSyncSuccess(acceptedResult, "sales accepted", "accepted");
+
+  if (
+    accepted.batch.acceptedSaleCount !== 1 ||
+    accepted.batch.duplicateSaleCount !== 0 ||
+    accepted.sales?.[0]?.status !== "accepted"
+  ) {
+    throw new E2EAssertionError("Sales accepted response counts are not stable.", {
+      batch: accepted.batch,
+      saleStatus: accepted.sales?.[0]?.status,
+    });
+  }
+
+  const duplicateResult = await postSalesJson(payload);
+  const duplicate = parseSalesSyncSuccess(duplicateResult, "sales duplicate", "duplicate");
+
+  if (
+    duplicate.batch.duplicateSaleCount !== 1 ||
+    duplicate.sales?.[0]?.status !== "duplicate"
+  ) {
+    throw new E2EAssertionError("Sales duplicate response counts are not stable.", {
+      batch: duplicate.batch,
+      saleStatus: duplicate.sales?.[0]?.status,
+    });
+  }
+
+  const conflictSale = syntheticSale(dataset, { amountClp: 1100 });
+  const conflictResult = await postSalesJson(salesPayload({ auth, dataset, sale: conflictSale }));
+  parseSalesSyncConflict(conflictResult);
+
+  const salesPersistence = await verifySalesPersistence(client, dataset, sale);
+
   return redactPositiveResult({
     catalogFull: {
       categories: fullCatalog.catalog.categories.length,
@@ -1186,8 +1926,22 @@ async function runPositiveE2E(client, config, dataset) {
       productBarcode: dataset.productBarcode,
       shopCode: dataset.shopCode,
       staffCode: dataset.staffCode,
+      testRunId: config.testRunId,
     },
-    status: "PASS_LOCAL_POS_E2E_READY_FOR_CLEANUP",
+    salesSync: {
+      acceptedSaleCount: accepted.batch.acceptedSaleCount,
+      auditRows: salesPersistence.auditRows,
+      conflictStatus: conflictResult.status,
+      duplicateSaleCount: duplicate.batch.duplicateSaleCount,
+      ledgerRows: salesPersistence.ledgerRows,
+      movementRows: salesPersistence.movementRows,
+      posSaleIdPresent: Boolean(salesPersistence.posSaleId),
+      stockQuantityAfterDuplicate: salesPersistence.stockQuantity,
+    },
+    status:
+      config.targetKind === "staging"
+        ? "PASS_STAGING_POS_E2E_READY_FOR_CLEANUP"
+        : "PASS_LOCAL_POS_E2E_READY_FOR_CLEANUP",
     tombstoneRestore: {
       restoreSeen,
       restoreStatus: restoreCatalogResult.status,
@@ -1238,12 +1992,12 @@ async function runPositiveFlow() {
     if (dataset) {
       try {
         const cleanupExecution = await cleanupSyntheticDataset(client, {
-          allTask032: true,
+          allTask032: config.targetKind !== "staging",
           ...dataset,
           reason: "task032_positive_e2e_cleanup",
         });
         const cleanupVerification = await verifyCleanup(client, {
-          allTask032: true,
+          allTask032: config.targetKind !== "staging",
           ...dataset,
         });
         cleanup = {
@@ -1289,7 +2043,10 @@ async function runPositiveFlow() {
     ok: true,
     positive: {
       ...positive,
-      status: "PASS_LOCAL_POS_E2E_WITH_CLEANUP",
+      status:
+        config.targetKind === "staging"
+          ? "PASS_STAGING_POS_E2E_WITH_CLEANUP"
+          : "PASS_LOCAL_POS_E2E_WITH_CLEANUP",
     },
   };
 }
@@ -1300,6 +2057,79 @@ function outputIsSecretSafe(output) {
 
 async function main() {
   const startedAt = new Date().toISOString();
+
+  if (envValue(STAGING_DRY_RUN_FLAG) === "yes") {
+    const stagingPrecheck = validateStagingDryRunConfig();
+    const output = {
+      baseUrl: baseUrlForOutput(),
+      finishedAt: new Date().toISOString(),
+      ok: stagingPrecheck.ok,
+      stagingPrecheck,
+      startedAt,
+      status: stagingPrecheck.status,
+    };
+
+    if (!outputIsSecretSafe(output)) {
+      console.error(
+        JSON.stringify(
+          {
+            ok: false,
+            status: "CHANGES_REQUIRED",
+            reason: "Harness output failed secret redaction guard.",
+          },
+          null,
+          2,
+        ),
+      );
+      process.exitCode = 1;
+      return;
+    }
+
+    console.log(JSON.stringify(output, null, 2));
+
+    if (!output.ok) {
+      process.exitCode = 1;
+    }
+
+    return;
+  }
+
+  if (envValue("TASK032_POS_E2E_REQUIRE_STAGING_TARGET") === "yes") {
+    const positiveConfig = validatePositiveConfig();
+
+    if (!positiveConfig.ok) {
+      const output = {
+        baseUrl: baseUrlForOutput(),
+        cleanup: { status: "NOT_RUN_NO_DATASET_CREATED" },
+        finishedAt: new Date().toISOString(),
+        ok: false,
+        positive: positiveConfig,
+        startedAt,
+        status: positiveConfig.status,
+      };
+
+      if (!outputIsSecretSafe(output)) {
+        console.error(
+          JSON.stringify(
+            {
+              ok: false,
+              status: "CHANGES_REQUIRED",
+              reason: "Harness output failed secret redaction guard.",
+            },
+            null,
+            2,
+          ),
+        );
+        process.exitCode = 1;
+        return;
+      }
+
+      console.log(JSON.stringify(output, null, 2));
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   const negative = [];
 
   for (const testCase of negativeCases) {

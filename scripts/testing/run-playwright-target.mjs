@@ -93,6 +93,9 @@ let env = {
   ...process.env,
   TEST_TARGET: target,
 };
+// Playwright enables colored output in child processes; an inherited NO_COLOR
+// creates noisy Node warnings without changing test behavior.
+delete env.NO_COLOR;
 
 if (target === "local") {
   env = loadLocalSupabaseEnv(env);

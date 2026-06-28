@@ -27,6 +27,7 @@ export type ShopAdminPermission =
   | "settings.read"
   | "settings.manage"
   | "settings.write"
+  | "sync.manage"
   | "audit.view"
   | "audit.read";
 
@@ -69,6 +70,7 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "settings.read",
     "settings.manage",
     "settings.write",
+    "sync.manage",
     "audit.view",
     "audit.read",
   ],
@@ -93,6 +95,7 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "devices.read",
     "settings.view",
     "settings.read",
+    "sync.manage",
     "audit.view",
     "audit.read",
   ],

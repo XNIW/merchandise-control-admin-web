@@ -63,7 +63,7 @@ export function LanguageSwitcher({
         id="admin-locale"
         aria-label={label}
         className={[
-          "h-8 min-w-28 rounded-md border px-2 text-xs font-medium outline-none transition focus:ring-2",
+          "h-11 min-w-28 rounded-md border px-3 text-sm font-medium outline-none transition focus:ring-2 md:h-8 md:px-2 md:text-xs",
           toneClassNames[tone],
         ].join(" ")}
         onChange={handleLocaleChange}

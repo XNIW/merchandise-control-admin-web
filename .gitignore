@@ -27,6 +27,7 @@
 # misc
 .DS_Store
 *.pem
+/SSD_HEALTH_REPORT.md
 
 # debug
 npm-debug.log*
