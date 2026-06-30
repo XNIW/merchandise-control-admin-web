@@ -12,6 +12,11 @@ import {
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type AccountSignInState = {
+  code:
+    | "auth_not_configured"
+    | "idle"
+    | "sign_in_blocked"
+    | "validation_failed";
   message: string;
   status: "idle" | "blocked";
 };
@@ -34,9 +39,10 @@ async function requestOrigin() {
   return requestOriginFromHeaders(headerStore);
 }
 
-function blocked(message: string): AccountSignInState {
+function blocked(code: AccountSignInState["code"]): AccountSignInState {
   return {
-    message,
+    code,
+    message: "",
     status: "blocked",
   };
 }
@@ -50,13 +56,13 @@ export async function accountSignInAction(
   const password = value(formData, "password");
 
   if (!email || !password) {
-    return blocked("Email and password are required.");
+    return blocked("validation_failed");
   }
 
   const supabase = await createSupabaseServerClient();
 
   if (!supabase) {
-    return blocked("Supabase runtime is not configured for server sign-in.");
+    return blocked("auth_not_configured");
   }
 
   const { error } = await supabase.auth.signInWithPassword({
@@ -65,7 +71,7 @@ export async function accountSignInAction(
   });
 
   if (error) {
-    return blocked("Sign-in was blocked. Check the account and try again.");
+    return blocked("sign_in_blocked");
   }
 
   redirect(nextPath, RedirectType.replace);

@@ -430,11 +430,11 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
     "ConfigureAwait(false)",
   ]);
   assertContainsAll(statusReader, [
-    "Sync in corso",
+    'T("sync.inProgress")',
     "IsSyncing",
-    "Bloccate/attenzione",
-    "Chiamare manager/assistenza",
-    "Restore DB: verificare stato sincronizzazione",
+    'T("sync.blockedAttention")',
+    'T("sync.callSupport")',
+    'T("sync.restoreVerifyBeforeClose")',
     "pos.restore.needs_sync_review",
   ]);
   assertContainsAll(workflow, [

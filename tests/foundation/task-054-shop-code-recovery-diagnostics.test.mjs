@@ -82,6 +82,8 @@ test("TASK-054 provisioning and recovery hash generated 5 digit PINs with the te
 test("TASK-054 staff web auth returns diagnostic login failure codes without exposing secrets", () => {
   const auth = readProjectFile("src/server/shop-admin/staff-web-auth.ts");
   const actions = readProjectFile("src/app/(staff-auth)/shop/staff-login/actions.ts");
+  const form = readProjectFile("src/components/auth/ShopCodeLoginForm.tsx");
+  const dictionaries = readProjectFile("src/i18n/dictionaries.ts");
 
   for (const required of [
     "shop_not_found",
@@ -98,10 +100,13 @@ test("TASK-054 staff web auth returns diagnostic login failure codes without exp
   }
 
   assertContains(actions, "sign_in_blocked");
+  assertContains(actions, "staffWebDiagnosticFailureCodes");
   assertContains(actions, "publicStaffWebLoginCode(result.code)");
   assertContains(actions, "code: publicCode");
+  assertContains(actions, "messageForStaffWebLoginCode(publicCode)");
+  assertContains(form, "labels.messages[state.code]");
   assertContains(
-    actions,
+    dictionaries,
     "Sign-in was blocked. Check the credentials or try again later.",
   );
   assert.doesNotMatch(actions, /Shop code was not found|Staff code was not found/);

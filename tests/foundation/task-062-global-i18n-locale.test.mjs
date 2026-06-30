@@ -111,7 +111,9 @@ test("TASK-062 defines a global locale contract with cookie fallback", () => {
 
   assert.match(serverLocale, /import "server-only"/);
   assert.match(serverLocale, /await cookies\(\)/);
-  assert.match(serverLocale, /normalizeLocale/);
+  assert.match(serverLocale, /await headers\(\)/);
+  assert.match(serverLocale, /normalizeLocaleAlias/);
+  assert.match(serverLocale, /accept-language/);
 
   for (const localeKey of ["en", "it", "es", "zh-CN"]) {
     const escapedKey = localeKey.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");

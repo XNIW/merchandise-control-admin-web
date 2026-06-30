@@ -342,15 +342,16 @@ function ProductPicker({
   products?: CatalogProductOption[];
 }) {
   const allProducts = [...products, ...archivedProducts];
+  const t = useCatalogActionText();
 
   return (
     <>
       <SelectField
         defaultValue={defaultProductId ?? ""}
-        label="Product"
+        label={t("Product")}
         name="productId"
       >
-        <option value="">Select product</option>
+        <option value="">{t("Select product")}</option>
         {allProducts.map((product) => (
           <option key={product.productId} value={product.productId}>
             {product.barcode} -{" "}
@@ -361,8 +362,8 @@ function ProductPicker({
         ))}
       </SelectField>
       <TextInput
-        description="Fallback when the product is not listed."
-        label="Product id / barcode fallback"
+        description={t("Fallback when the product is not listed.")}
+        label={t("Product id / barcode fallback")}
         name="productLookup"
       />
     </>
@@ -379,23 +380,24 @@ function CreatableSupplierField({
   const defaultSupplier = suppliers.find(
     (supplier) => supplier.supplierId === defaultSupplierId,
   );
+  const t = useCatalogActionText();
 
   return (
     <CreatableCatalogCombobox
       className={catalogInputClassName}
-      createLabel="Create new supplier"
+      createLabel={t("Create new supplier")}
       defaultId={defaultSupplierId}
       defaultName={defaultSupplier?.name}
-      description="Select an existing supplier or type a new supplier name."
+      description={t("Select an existing supplier or type a new supplier name.")}
       idName="supplierId"
-      label="Existing supplier or new supplier name"
+      label={t("Existing supplier or new supplier name")}
       name="supplierName"
-      noResultsLabel="No supplier suggestions"
+      noResultsLabel={t("No supplier suggestions")}
       options={suppliers.map((supplier) => ({
         id: supplier.supplierId,
         name: supplier.name,
       }))}
-      suggestionsLabel="Supplier suggestions"
+      suggestionsLabel={t("Supplier suggestions")}
     />
   );
 }
@@ -410,23 +412,24 @@ function CreatableCategoryField({
   const defaultCategory = categories.find(
     (category) => category.categoryId === defaultCategoryId,
   );
+  const t = useCatalogActionText();
 
   return (
     <CreatableCatalogCombobox
       className={catalogInputClassName}
-      createLabel="Create new category"
+      createLabel={t("Create new category")}
       defaultId={defaultCategoryId}
       defaultName={defaultCategory?.name}
-      description="Select an existing category or type a new category name."
+      description={t("Select an existing category or type a new category name.")}
       idName="categoryId"
-      label="Existing category or new category name"
+      label={t("Existing category or new category name")}
       name="categoryName"
-      noResultsLabel="No category suggestions"
+      noResultsLabel={t("No category suggestions")}
       options={categories.map((category) => ({
         id: category.categoryId,
         name: category.name,
       }))}
-      suggestionsLabel="Category suggestions"
+      suggestionsLabel={t("Category suggestions")}
     />
   );
 }
@@ -500,17 +503,19 @@ function ProductFields({
   categories: CatalogCategoryOption[];
   suppliers: CatalogSupplierOption[];
 }) {
+  const t = useCatalogActionText();
+
   return (
     <>
-      <TextInput label="Barcode" name="barcode" required />
-      <TextInput label="Product name" name="productName" required />
-      <TextInput label="Second name" name="secondProductName" />
-      <TextInput label="Item number" name="itemNumber" />
+      <TextInput label={t("Barcode")} name="barcode" required />
+      <TextInput label={t("Product name")} name="productName" required />
+      <TextInput label={t("Second name")} name="secondProductName" />
+      <TextInput label={t("Item number")} name="itemNumber" />
       <CreatableSupplierField suppliers={suppliers} />
       <CreatableCategoryField categories={categories} />
-      <TextInput label="Purchase price" name="purchasePrice" type="number" />
-      <TextInput label="Retail price" name="retailPrice" type="number" />
-      <TextInput label="Stock quantity" name="stockQuantity" type="number" />
+      <TextInput label={t("Purchase price")} name="purchasePrice" type="number" />
+      <TextInput label={t("Retail price")} name="retailPrice" type="number" />
+      <TextInput label={t("Stock quantity")} name="stockQuantity" type="number" />
     </>
   );
 }
@@ -610,7 +615,7 @@ function ProductsDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "newProduct"}
-        title="New product"
+        title={t("New product")}
       >
         <DialogFormShell>
           <form action={createProductAction} className={catalogFormClassName}>
@@ -624,7 +629,7 @@ function ProductsDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "archiveProduct"}
-        title="Archive product"
+        title={t("Archive product")}
       >
         <DialogFormShell>
           <form action={archiveProductAction} className={catalogFormClassName}>
@@ -668,7 +673,7 @@ function ProductsDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "restoreProduct"}
-        title="Restore product"
+        title={t("Restore product")}
       >
         <p className="mb-3 text-sm leading-6 text-zinc-600">
           {t("Archived products can be restored with an audit reason.")}
@@ -718,7 +723,7 @@ function ProductsDialogs({
         onClose={() => setOpenDialog(null)}
         open={openDialog === "importSupplier"}
         size="wide"
-        title="Supplier workbook preview"
+        title={t("Supplier workbook preview")}
       >
         {canImport ? (
           <SupplierExcelImportWizard
@@ -736,7 +741,7 @@ function ProductsDialogs({
       <CatalogDialog
         onClose={() => setOpenDialog(null)}
         open={openDialog === "exportCatalog"}
-        title="Export catalog Excel"
+        title={t("Export catalog Excel")}
       >
         {canExport ? (
           <CatalogExportPanel
@@ -753,7 +758,7 @@ function ProductsDialogs({
         onClose={() => setOpenDialog(null)}
         open={openDialog === "advancedTransfer"}
         size="wide"
-        title="Database transfer"
+        title={t("Database transfer")}
       >
         {canImport ? (
           <DatabaseTransferPanel
@@ -910,7 +915,7 @@ function CategoryDialogs({
                   required
                 />
                 <TextInput
-                  label="Type ARCHIVE as confirmation"
+                  label={t("Type ARCHIVE as confirmation")}
                   name="confirmation"
                   required
                 />
@@ -951,7 +956,7 @@ function CategoryDialogs({
                     required
                   />
                   <TextInput
-                    label="Type ARCHIVE as confirmation"
+                    label={t("Type ARCHIVE as confirmation")}
                     name="confirmation"
                     required
                   />
@@ -990,7 +995,7 @@ function CategoryDialogs({
                     required
                   />
                   <TextInput
-                    label="Type ARCHIVE as confirmation"
+                    label={t("Type ARCHIVE as confirmation")}
                     name="confirmation"
                     required
                   />
@@ -1024,7 +1029,7 @@ function CategoryDialogs({
                     required
                   />
                   <TextInput
-                    label="Type ARCHIVE as confirmation"
+                    label={t("Type ARCHIVE as confirmation")}
                     name="confirmation"
                     required
                   />
@@ -1182,7 +1187,7 @@ function SupplierDialogs({
                   required
                 />
                 <TextInput
-                  label="Type ARCHIVE as confirmation"
+                  label={t("Type ARCHIVE as confirmation")}
                   name="confirmation"
                   required
                 />
@@ -1223,7 +1228,7 @@ function SupplierDialogs({
                     required
                   />
                   <TextInput
-                    label="Type ARCHIVE as confirmation"
+                    label={t("Type ARCHIVE as confirmation")}
                     name="confirmation"
                     required
                   />
@@ -1262,7 +1267,7 @@ function SupplierDialogs({
                     required
                   />
                   <TextInput
-                    label="Type ARCHIVE as confirmation"
+                    label={t("Type ARCHIVE as confirmation")}
                     name="confirmation"
                     required
                   />
@@ -1296,7 +1301,7 @@ function SupplierDialogs({
                     required
                   />
                   <TextInput
-                    label="Type ARCHIVE as confirmation"
+                    label={t("Type ARCHIVE as confirmation")}
                     name="confirmation"
                     required
                   />

@@ -1,7 +1,9 @@
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { getShopCatalogDetailSectionForRequest } from "@/server/shop-admin/shop-section-data";
+import { getI18n } from "@/i18n/get-locale";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
+import { translateText } from "@/i18n/translate-sections";
 
 export function generateMetadata() {
   return createLocalizedPageMetadata("Product Detail");
@@ -31,9 +33,11 @@ function buildHistoryDetailHref(entryId: string, requestedShopId?: string) {
 }
 
 function ProductHistoryRowActions({
+  label,
   requestedShopId,
   row,
 }: {
+  label: string;
   requestedShopId?: string;
   row: AdminDataTableRow;
 }) {
@@ -46,7 +50,7 @@ function ProductHistoryRowActions({
       className="inline-flex h-8 items-center rounded-md border border-zinc-300 bg-white px-2.5 text-xs font-medium text-zinc-900 hover:border-emerald-400 hover:text-emerald-800"
       href={buildHistoryDetailHref(row.rowKey, requestedShopId)}
     >
-      History detail
+      {label}
     </a>
   );
 }
@@ -59,6 +63,7 @@ export default async function ShopProductDetailPage({
   searchParams: ShopPageSearchParams;
 }) {
   const [{ productId }, query] = await Promise.all([params, searchParams]);
+  const { dictionary } = await getI18n();
   const requestedShopId = getRequestedShopId(query);
   const section = await getShopCatalogDetailSectionForRequest(
     "product",
@@ -70,10 +75,11 @@ export default async function ShopProductDetailPage({
     <ShopSectionPage
       section={section}
       secondaryRowActions={{
-        label: "Detail",
+        label: translateText(dictionary, "Detail"),
         renderForTable: (table) => table.title === "History entries",
         render: (row) => (
           <ProductHistoryRowActions
+            label={translateText(dictionary, "History detail")}
             requestedShopId={requestedShopId}
             row={row}
           />

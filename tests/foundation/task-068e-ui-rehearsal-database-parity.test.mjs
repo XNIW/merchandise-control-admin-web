@@ -112,9 +112,12 @@ test("TASK-068E products catalog cards stay compact without visible technical se
   assertContains(page, "repeat(auto-fit,minmax(7.5rem,1fr))");
   assertContains(page, "line-clamp-1 min-w-0 break-words font-mono text-base font-semibold");
   assertContains(page, "compactMetricLabel(");
-  assertContains(page, "return \"Purchase\";");
-  assertContains(page, "return \"Retail\";");
-  assertContains(page, "return \"Stock\";");
+  assertContains(page, "return labels.purchase;");
+  assertContains(page, "return labels.retail;");
+  assertContains(page, "return labels.stock;");
+  assertContains(page, "purchase: translateText(dictionary, \"Purchase\")");
+  assertContains(page, "retail: translateText(dictionary, \"Retail\")");
+  assertContains(page, "stock: translateText(dictionary, \"Stock\")");
   assertContains(page, "data-product-actions");
   assertContains(page, "<dt className=\"sr-only\">{item.label}</dt>");
   assertContains(page, "aria-label={`${item.label}: ${item.value}`}");

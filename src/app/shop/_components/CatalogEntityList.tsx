@@ -1,5 +1,6 @@
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import type { ShopSection } from "@/components/shop/shopSections";
+import type { SupportedLocale } from "@/i18n/locales";
 import type { ReactNode } from "react";
 
 type CatalogEntityListProps = {
@@ -34,8 +35,19 @@ export type CatalogEntityPaginationFilters = {
   state?: string | null;
 };
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("en-US").format(value);
+const intlLocaleBySupportedLocale: Record<SupportedLocale, string> = {
+  en: "en-US",
+  es: "es-CL",
+  it: "it-IT",
+  "zh-CN": "zh-CN",
+};
+
+function intlLocale(locale: SupportedLocale = "en") {
+  return intlLocaleBySupportedLocale[locale] ?? intlLocaleBySupportedLocale.en;
+}
+
+function formatNumber(value: number, locale: SupportedLocale = "en") {
+  return new Intl.NumberFormat(intlLocale(locale)).format(value);
 }
 
 function buildCatalogEntityHref(input: {
@@ -77,6 +89,7 @@ export function CatalogEntityPagination({
   basePath,
   filters,
   labels,
+  locale = "en",
   pagination,
   placement,
   requestedShopId,
@@ -85,6 +98,7 @@ export function CatalogEntityPagination({
   filters: CatalogEntityPaginationFilters;
   labels: {
     applyPage: string;
+    atLeast: string;
     goToPage: string;
     next: string;
     of: string;
@@ -93,6 +107,7 @@ export function CatalogEntityPagination({
     previous: string;
     rowsOnThisPage: string;
   };
+  locale?: SupportedLocale;
   pagination: CatalogEntityPaginationState;
   placement: "bottom" | "top";
   requestedShopId?: string | null;
@@ -104,13 +119,14 @@ export function CatalogEntityPagination({
     : pagination.page + 1;
   const range =
     pagination.rangeStart > 0 && pagination.rangeEnd > 0
-      ? `${formatNumber(pagination.rangeStart)}-${formatNumber(
+      ? `${formatNumber(pagination.rangeStart, locale)}-${formatNumber(
           pagination.rangeEnd,
+          locale,
         )}`
       : "0";
   const totalLabel = hasExactTotal
-    ? formatNumber(pagination.totalCount)
-    : `at least ${formatNumber(pagination.totalCount)}`;
+    ? formatNumber(pagination.totalCount, locale)
+    : `${labels.atLeast} ${formatNumber(pagination.totalCount, locale)}`;
   const baseLinkInput = {
     basePath,
     pageSize: pagination.pageSize,
@@ -141,7 +157,7 @@ export function CatalogEntityPagination({
               : ""}
         </p>
         <p className="mt-1 text-xs text-zinc-500">
-          {labels.rowsOnThisPage}: {pagination.currentPageRows}
+          {labels.rowsOnThisPage}: {formatNumber(pagination.currentPageRows, locale)}
         </p>
       </div>
       <div className="flex min-w-0 flex-wrap items-end gap-2">

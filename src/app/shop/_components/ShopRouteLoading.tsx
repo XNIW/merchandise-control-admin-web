@@ -21,11 +21,11 @@ export function ShopRouteLoading({
   title,
 }: ShopRouteLoadingProps) {
   void eyebrow;
+  void title;
 
   return (
     <div
       aria-busy="true"
-      aria-label={`${title} loading`}
       className="grid gap-5"
       data-shop-route-loading
       data-shop-route-loading-section={dataAttribute}

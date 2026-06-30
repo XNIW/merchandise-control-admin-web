@@ -22,6 +22,7 @@ import type {
 } from "@/app/shop/_components/CatalogActionPanel";
 import { CreatableCatalogCombobox } from "@/app/shop/_components/CreatableCatalogCombobox";
 import { useModalFocusTrap } from "@/app/shop/_components/useModalFocusTrap";
+import type { SupportedLocale } from "@/i18n/locales";
 
 type ProductDetailModalProduct = {
   productId: string;
@@ -77,6 +78,7 @@ type ProductDetailModalControllerProps = {
   canManageProducts: boolean;
   categories?: CatalogCategoryOption[];
   labels?: Record<string, string>;
+  locale?: SupportedLocale;
   requestedShopId?: string | null;
   selectedShopId?: string | null;
   suppliers?: CatalogSupplierOption[];
@@ -299,6 +301,7 @@ function fieldValue(
 function formatDate(
   value: string | null | undefined,
   translate: TranslateFn = identityTranslate,
+  locale: SupportedLocale = "en",
 ) {
   if (!value) {
     return translate("Not set");
@@ -306,16 +309,33 @@ function formatDate(
 
   const date = new Date(value);
 
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat(intlLocale(locale), {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date);
 }
 
 function formatNumber(
   value: number | null | undefined,
   translate: TranslateFn = identityTranslate,
+  locale: SupportedLocale = "en",
 ) {
   return value === null || value === undefined
     ? translate("Not set")
-    : new Intl.NumberFormat("en-US").format(value);
+    : new Intl.NumberFormat(intlLocale(locale)).format(value);
+}
+
+const intlLocaleBySupportedLocale: Record<SupportedLocale, string> = {
+  en: "en-US",
+  es: "es-CL",
+  it: "it-IT",
+  "zh-CN": "zh-CN",
+};
+
+function intlLocale(locale: SupportedLocale = "en") {
+  return intlLocaleBySupportedLocale[locale] ?? intlLocaleBySupportedLocale.en;
 }
 
 function numberInputValue(value: number | null | undefined) {
@@ -893,6 +913,7 @@ export function ProductDetailModalController({
   canManageProducts,
   categories = [],
   labels,
+  locale = "en",
   requestedShopId,
   selectedShopId,
   suppliers = [],
@@ -930,7 +951,7 @@ export function ProductDetailModalController({
         if (!response.ok || body.status !== "ready") {
           setReadModel(body);
           setDraft(blankProductDraft());
-          setError(body.reason || "Product detail is not available.");
+          setError(body.reason || translate("Product detail is not available."));
           return;
         }
 
@@ -940,12 +961,20 @@ export function ProductDetailModalController({
         );
       } catch {
         setDraft(blankProductDraft());
-        setError("Product detail could not be loaded.");
+        setError(translate("Product detail could not be loaded."));
       } finally {
         setLoading(false);
       }
     },
-    [requestedShopId],
+    [requestedShopId, translate],
+  );
+  const formatModalDate = useCallback(
+    (value: string | null | undefined) => formatDate(value, translate, locale),
+    [locale, translate],
+  );
+  const formatModalNumber = useCallback(
+    (value: number | null | undefined) => formatNumber(value, translate, locale),
+    [locale, translate],
   );
   const closeModal = useCallback(() => {
     setOpen(false);
@@ -1065,7 +1094,7 @@ export function ProductDetailModalController({
       {
         icon: "clock" as const,
         label: translate("Last update"),
-        value: formatDate(readModel?.diagnostics.lastSyncAt ?? product.updatedAt, translate),
+        value: formatModalDate(readModel?.diagnostics.lastSyncAt ?? product.updatedAt),
       },
       {
         icon: "box" as const,
@@ -1078,7 +1107,7 @@ export function ProductDetailModalController({
         value: translateToken(readModel?.diagnostics.mappingState, translate),
       },
     ];
-  }, [product, readModel, translate]);
+  }, [formatModalDate, product, readModel, translate]);
   const hasActionMessage =
     Boolean(updateState.message) ||
     Boolean(archiveState.message) ||
@@ -1350,13 +1379,13 @@ export function ProductDetailModalController({
                               description: translate("Latest product row update visible to Admin Web"),
                               icon: "clock",
                               label: translate("Updated"),
-                              value: formatDate(product.updatedAt, translate),
+                              value: formatModalDate(product.updatedAt),
                             },
                             {
                               description: translate("Archived products remain restorable from Advanced"),
                               icon: "archive",
                               label: translate("Archived"),
-                              value: formatDate(product.deletedAt, translate),
+                              value: formatModalDate(product.deletedAt),
                             },
                             {
                               description: mobileMappingDescription(
@@ -1365,7 +1394,7 @@ export function ProductDetailModalController({
                               ),
                               icon: "sync",
                               label: translate("Last sync"),
-                              value: formatDate(readModel?.diagnostics.lastSyncAt, translate),
+                              value: formatModalDate(readModel?.diagnostics.lastSyncAt),
                             },
                           ]}
                         />
@@ -1384,12 +1413,12 @@ export function ProductDetailModalController({
                       <SummaryCard
                         icon="cart"
                         label={translate("Current purchase price")}
-                        value={formatNumber(product.purchasePrice, translate)}
+                        value={formatModalNumber(product.purchasePrice)}
                       />
                       <SummaryCard
                         icon="priceTag"
                         label={translate("Current retail price")}
-                        value={formatNumber(product.retailPrice, translate)}
+                        value={formatModalNumber(product.retailPrice)}
                       />
                     </div>
                     {readModel?.prices.length ? (
@@ -1404,7 +1433,7 @@ export function ProductDetailModalController({
                             </span>
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-zinc-950">
-                                {translateToken(price.type, translate)} · {formatNumber(price.price, translate)}
+                                {translateToken(price.type, translate)} · {formatModalNumber(price.price)}
                               </p>
                               <p className="mt-1 break-words text-xs leading-5 text-zinc-600 [overflow-wrap:anywhere]">
                                 {translate("Source")}: {fieldValue(price.source, translate)}
@@ -1417,13 +1446,13 @@ export function ProductDetailModalController({
                                 <dt className="font-semibold text-zinc-500">
                                   {translate("Effective")}
                                 </dt>
-                                <dd>{formatDate(price.effectiveAt, translate)}</dd>
+                                <dd>{formatModalDate(price.effectiveAt)}</dd>
                               </div>
                               <div>
                                 <dt className="font-semibold text-zinc-500">
                                   {translate("Created")}
                                 </dt>
-                                <dd>{formatDate(price.createdAt, translate)}</dd>
+                                <dd>{formatModalDate(price.createdAt)}</dd>
                               </div>
                             </dl>
                           </article>
@@ -1450,7 +1479,7 @@ export function ProductDetailModalController({
                         {
                           icon: "warehouse",
                           label: translate("Stock quantity"),
-                          value: formatNumber(product.stockQuantity, translate),
+                          value: formatModalNumber(product.stockQuantity),
                         },
                         {
                           description: translate("Source used by the admin product read model"),
@@ -1475,12 +1504,12 @@ export function ProductDetailModalController({
                         {
                           icon: "sync",
                           label: translate("Last sync"),
-                          value: formatDate(readModel?.diagnostics.lastSyncAt, translate),
+                          value: formatModalDate(readModel?.diagnostics.lastSyncAt),
                         },
                         {
                           icon: "clock",
                           label: translate("Last update"),
-                          value: formatDate(product.updatedAt, translate),
+                          value: formatModalDate(product.updatedAt),
                         },
                       ]}
                     />

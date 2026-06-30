@@ -274,7 +274,8 @@ test("TASK-039 exposes staff lifecycle, permission template and account profile 
     "SHOP_STAFF_WEB_ROLE_TEMPLATES",
     "Staff web access",
     "Session status",
-    "Password reset email",
+    "accountProfile",
+    "passwordReset",
     "resetPasswordForEmail",
     "canManageRolePermissions",
   ]) {

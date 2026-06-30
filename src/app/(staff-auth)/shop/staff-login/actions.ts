@@ -66,34 +66,27 @@ const staffWebIdentityFailureCodes = new Set<StaffWebLoginCode>([
   "staff_not_found",
 ]);
 
+const staffWebDiagnosticFailureCodes = new Set<StaffWebLoginCode>([
+  "database_error",
+  "server_admin_not_configured",
+  "unknown_error",
+  "validation_failed",
+]);
+
 function publicStaffWebLoginCode(code: StaffWebLoginCode): PublicShopCodeLoginFormCode {
-  return staffWebIdentityFailureCodes.has(code) ? "sign_in_blocked" : code;
+  if (staffWebIdentityFailureCodes.has(code)) {
+    return "sign_in_blocked";
+  }
+
+  if (staffWebDiagnosticFailureCodes.has(code)) {
+    return code;
+  }
+
+  return code;
 }
 
 function messageForStaffWebLoginCode(code: PublicShopCodeLoginFormCode) {
-  const signInBlockedMessage =
-    "Sign-in was blocked. Check the credentials or try again later.";
-  const messages: Record<PublicShopCodeLoginFormCode, string> = {
-    credential_invalid: signInBlockedMessage,
-    database_error:
-      "Sign-in could not be verified because of a server/database error.",
-    idle: "",
-    locked: signInBlockedMessage,
-    not_configured: "Shop-code staff access is not configured in this runtime.",
-    server_admin_not_configured:
-      "Sign-in cannot be verified because the server admin runtime is not configured.",
-    shop_inactive: signInBlockedMessage,
-    shop_not_found: signInBlockedMessage,
-    sign_in_blocked: signInBlockedMessage,
-    staff_inactive: signInBlockedMessage,
-    staff_not_allowed: signInBlockedMessage,
-    staff_not_found: signInBlockedMessage,
-    success: "",
-    unknown_error: "Sign-in could not be verified. Try again.",
-    validation_failed: "Check Shop code, Staff code, and PIN/password and try again.",
-  };
-
-  return messages[code];
+  return code === "idle" || code === "success" ? "" : code;
 }
 
 async function authenticateFromFormData(

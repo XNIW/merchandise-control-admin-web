@@ -17,6 +17,7 @@ import {
 } from "@/components/shop/shopSections";
 import type { Dictionary } from "@/i18n/dictionaries";
 import { getI18n } from "@/i18n/get-locale";
+import type { SupportedLocale } from "@/i18n/locales";
 import { translateText } from "@/i18n/translate-sections";
 import { createAdminWebPerfTrace } from "@/server/admin-web-perf";
 import {
@@ -96,8 +97,19 @@ function normalizePageSize(value?: string) {
     : "10";
 }
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("en-US").format(value);
+const intlLocaleBySupportedLocale: Record<SupportedLocale, string> = {
+  en: "en-US",
+  es: "es-CL",
+  it: "it-IT",
+  "zh-CN": "zh-CN",
+};
+
+function intlLocale(locale: SupportedLocale = "en") {
+  return intlLocaleBySupportedLocale[locale] ?? intlLocaleBySupportedLocale.en;
+}
+
+function formatNumber(value: number, locale: SupportedLocale = "en") {
+  return new Intl.NumberFormat(intlLocale(locale)).format(value);
 }
 
 function jsonByteLength(value: unknown) {
@@ -108,16 +120,21 @@ function jsonByteLength(value: unknown) {
   }
 }
 
-function formatRange(page: ShopInventoryProductsPage) {
+function formatRange(
+  page: ShopInventoryProductsPage,
+  labels: { loadingTotal: string; of: string },
+  locale: SupportedLocale = "en",
+) {
   const { pagination } = page;
   const totalSuffix =
     pagination.totalCountStatus === "exact"
-      ? formatNumber(pagination.totalCount)
-      : "loading total...";
+      ? formatNumber(pagination.totalCount, locale)
+      : labels.loadingTotal;
 
-  return `${formatNumber(pagination.rangeStart)}-${formatNumber(
+  return `${formatNumber(pagination.rangeStart, locale)}-${formatNumber(
     pagination.rangeEnd,
-  )} of ${totalSuffix}`;
+    locale,
+  )} ${labels.of} ${totalSuffix}`;
 }
 
 function buildProductsHref(input: {
@@ -442,10 +459,12 @@ function productRow(
 function buildProductsPageSection(input: {
   activeFilterCount: number;
   categories: readonly ShopInventoryCategory[];
+  locale: SupportedLocale;
   page: ShopInventoryProductsPage;
+  rangeLabels: { loadingTotal: string; of: string };
   suppliers: readonly ShopInventorySupplier[];
 }): ShopSection {
-  const { activeFilterCount, page } = input;
+  const { activeFilterCount, locale, page, rangeLabels } = input;
 
   if (page.status !== "ready") {
     return {
@@ -499,8 +518,9 @@ function buildProductsPageSection(input: {
         : page.summary.activeProducts;
   const pageRange =
     pagination.rangeStart > 0 && pagination.rangeEnd > 0
-      ? `${formatNumber(pagination.rangeStart)}-${formatNumber(
+      ? `${formatNumber(pagination.rangeStart, locale)}-${formatNumber(
           pagination.rangeEnd,
+          locale,
         )}`
       : "0";
 
@@ -515,8 +535,8 @@ function buildProductsPageSection(input: {
       metric(
         "Total products",
         pagination.totalCountStatus === "exact"
-          ? formatNumber(exactTotalForState)
-          : "Loading total...",
+          ? formatNumber(exactTotalForState, locale)
+          : rangeLabels.loadingTotal,
         pagination.totalCountStatus === "exact"
           ? "Current filters exact total"
           : "Exact count is loading separately",
@@ -524,8 +544,8 @@ function buildProductsPageSection(input: {
       metric(
         "Results",
         pagination.totalCountStatus === "exact"
-          ? formatNumber(pagination.totalCount)
-          : formatRange(page),
+          ? formatNumber(pagination.totalCount, locale)
+          : formatRange(page, rangeLabels, locale),
         pagination.totalCountStatus === "exact"
           ? `${pageRange} shown on this page`
           : "Filtered range loaded",
@@ -534,9 +554,9 @@ function buildProductsPageSection(input: {
       metric(
         "Page",
         `${pagination.page}/${pagination.totalPages}`,
-        `${formatNumber(pagination.currentPageRows)} rows rendered`,
+        `${formatNumber(pagination.currentPageRows, locale)} rows rendered`,
       ),
-      metric("Range", formatRange(page), page.reason),
+      metric("Range", formatRange(page, rangeLabels, locale), page.reason),
       metric("Catalog scope", catalogScopeLabel(page.catalogScope), page.reason, "good"),
       metric("Writes", "Audited", "Create/update/archive/restore via server actions", "good"),
     ],
@@ -926,7 +946,10 @@ type ProductCatalogListLabels = {
   noPricingStock: string;
   pricingStock: string;
   productIdentity: string;
+  purchase: string;
+  retail: string;
   statusUpdated: string;
+  stock: string;
   updated: string;
 };
 
@@ -943,14 +966,18 @@ function columnLabel(
   return liveData.columns.find((column) => column.key === key)?.label ?? key;
 }
 
-function compactMetricLabel(label: string, key: string) {
+function compactMetricLabel(
+  label: string,
+  key: string,
+  labels: ProductCatalogListLabels,
+) {
   switch (key) {
     case "purchasePrice":
-      return "Purchase";
+      return labels.purchase;
     case "retailPrice":
-      return "Retail";
+      return labels.retail;
     case "stockQuantity":
-      return "Stock";
+      return labels.stock;
     default:
       return label;
   }
@@ -1228,6 +1255,7 @@ function ProductCatalogList({
             label: compactMetricLabel(
               columnLabel(liveData, "purchasePrice"),
               "purchasePrice",
+              labels,
             ),
             value: purchasePrice,
           });
@@ -1239,6 +1267,7 @@ function ProductCatalogList({
             label: compactMetricLabel(
               columnLabel(liveData, "retailPrice"),
               "retailPrice",
+              labels,
             ),
             value: retailPrice,
           });
@@ -1250,6 +1279,7 @@ function ProductCatalogList({
             label: compactMetricLabel(
               columnLabel(liveData, "stockQuantity"),
               "stockQuantity",
+              labels,
             ),
             value: stockQuantity,
           });
@@ -1357,6 +1387,7 @@ function ProductCatalogList({
 function ProductsPagination({
   id,
   labels,
+  locale,
   page,
   placement,
   requestedShopId,
@@ -1367,6 +1398,7 @@ function ProductsPagination({
     first: string;
     goToPage: string;
     last: string;
+    loadingTotal: string;
     next: string;
     of: string;
     page: string;
@@ -1374,6 +1406,7 @@ function ProductsPagination({
     previous: string;
     rowsOnThisPage: string;
   };
+  locale: SupportedLocale;
   page: ShopInventoryProductsPage;
   placement: "top" | "bottom";
   requestedShopId?: string | null;
@@ -1412,7 +1445,7 @@ function ProductsPagination({
     >
       <div className="min-w-0">
         <p className="font-medium text-zinc-900">
-          {formatRange(page)} · {labels.page} {pagination.page}
+          {formatRange(page, labels, locale)} · {labels.page} {pagination.page}
           {hasExactTotal
             ? ` ${labels.of} ${pagination.totalPages}`
             : hasNext
@@ -1420,7 +1453,7 @@ function ProductsPagination({
               : ""}
         </p>
         <p className="mt-1 text-xs text-zinc-500">
-          {labels.rowsOnThisPage}: {pagination.currentPageRows}
+          {labels.rowsOnThisPage}: {formatNumber(pagination.currentPageRows, locale)}
         </p>
       </div>
       <div className="grid min-w-0 grid-cols-2 items-stretch gap-2 sm:flex sm:flex-wrap sm:items-end">
@@ -1544,7 +1577,7 @@ export default async function ShopProductsPage({
 }: {
   searchParams: ShopPageSearchParams;
 }) {
-  const { dictionary } = await getI18n();
+  const { dictionary, locale } = await getI18n();
   const params = await searchParams;
   const requestedShopId = getParam(params, "shop_id");
   const selectedQuery = getFirstParam(params, ["q", "search", "query"]) ?? "";
@@ -1625,12 +1658,17 @@ export default async function ShopProductsPage({
     supplierOptions: mapSupplierOptions(catalogOptions.suppliers),
   }));
   const section = await perfTrace.time("buildProductsPageSection", async () =>
-    buildProductsPageSection({
-      activeFilterCount,
-      categories: catalogOptions.categories,
-      page: productsPage,
-      suppliers: catalogOptions.suppliers,
-    }),
+	    buildProductsPageSection({
+	      activeFilterCount,
+	      categories: catalogOptions.categories,
+	      locale,
+	      page: productsPage,
+	      rangeLabels: {
+	        loadingTotal: translateText(dictionary, "loading total..."),
+	        of: translateText(dictionary, "of"),
+	      },
+	      suppliers: catalogOptions.suppliers,
+	    }),
   );
   const productDialogId = getParam(params, "product_id") ?? "";
   const rowActionLabels = {
@@ -1643,6 +1681,7 @@ export default async function ShopProductsPage({
     first: translateText(dictionary, "First"),
     goToPage: translateText(dictionary, "Go to page"),
     last: translateText(dictionary, "Last"),
+    loadingTotal: translateText(dictionary, "loading total..."),
     next: translateText(dictionary, "Next"),
     of: translateText(dictionary, "of"),
     page: translateText(dictionary, "Page"),
@@ -1658,7 +1697,10 @@ export default async function ShopProductsPage({
     noPricingStock: translateText(dictionary, "No pricing or stock values"),
     pricingStock: translateText(dictionary, "Pricing / stock"),
     productIdentity: translateText(dictionary, "Product identity"),
+    purchase: translateText(dictionary, "Purchase"),
+    retail: translateText(dictionary, "Retail"),
     statusUpdated: translateText(dictionary, "Status / updated"),
+    stock: translateText(dictionary, "Stock"),
     updated: translateText(dictionary, "Updated"),
   };
   const catalogToolbarLabels = {
@@ -1770,6 +1812,7 @@ export default async function ShopProductsPage({
                     defaultValue={selectedQuery}
                     inputClassName={filterInputClassName}
                     loadingLabel={translateText(dictionary, "Loading suggestions")}
+                    locale={locale}
                     noResultsLabel={translateText(dictionary, "No matching products")}
                     placeholder={filterLabels.searchPlaceholder}
                     purchaseLabel={translateText(dictionary, "Purchase")}
@@ -1866,14 +1909,16 @@ export default async function ShopProductsPage({
             <ProductDetailModalController
               canManageProducts={canManageProducts}
               categories={categoryOptions}
-              labels={dictionary.exact}
-              requestedShopId={requestedShopId}
+	              labels={dictionary.exact}
+	              locale={locale}
+	              requestedShopId={requestedShopId}
               selectedShopId={selectedShopId}
               suppliers={supplierOptions}
             />
             <HistoryDetailModalController
-              labels={dictionary.exact}
-              requestedShopId={requestedShopId}
+	              labels={dictionary.exact}
+	              locale={locale}
+	              requestedShopId={requestedShopId}
             />
             <ActionResultBanner
               action={getParam(params, "action")}
@@ -1881,8 +1926,9 @@ export default async function ShopProductsPage({
             />
             <ProductsPagination
               id="products-page-jump-top"
-              labels={paginationLabels}
-              page={productsPage}
+	              labels={paginationLabels}
+	              locale={locale}
+	              page={productsPage}
               placement="top"
               requestedShopId={requestedShopId}
             />
@@ -1910,8 +1956,9 @@ export default async function ShopProductsPage({
       />
       <ProductsPagination
         id="products-page-jump-bottom"
-        labels={paginationLabels}
-        page={productsPage}
+	        labels={paginationLabels}
+	        locale={locale}
+	        page={productsPage}
         placement="bottom"
         requestedShopId={requestedShopId}
       />

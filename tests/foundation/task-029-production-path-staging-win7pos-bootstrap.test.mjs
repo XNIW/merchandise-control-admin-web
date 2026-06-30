@@ -268,6 +268,9 @@ test("TASK-029 Win7POS fresh install bootstrap keeps Admin Web as backend bounda
   const dialog = readWin7PosFile(
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs",
   );
+  const posLegacyTranslations = readWin7PosFile(
+    "src/Win7POS.Wpf/Localization/PosTranslations.LegacyReachable.cs",
+  );
   const client = readWin7PosFile(
     "src/Win7POS.Core/Online/PosAdminWebClient.cs",
   );
@@ -288,6 +291,7 @@ test("TASK-029 Win7POS fresh install bootstrap keeps Admin Web as backend bounda
     firstRunCode,
     dialogXaml,
     dialog,
+    posLegacyTranslations,
     options,
     bootstrap,
     userRepo,
@@ -310,6 +314,8 @@ test("TASK-029 Win7POS fresh install bootstrap keeps Admin Web as backend bounda
     "Recovery/dev",
     "Impostazioni avanzate / Server",
     "AdminWebBaseUrl",
+    "onlineFirstLogin.shopCode",
+    "onlineFirstLogin.staffCode",
     "Codice negozio",
     "Codice staff",
     "PosDeviceIdentity.GetStableDisplayName",

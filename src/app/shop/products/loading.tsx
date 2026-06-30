@@ -13,7 +13,6 @@ export default function ShopProductsLoading() {
   return (
     <div
       aria-busy="true"
-      aria-label="Products loading"
       className="grid gap-5"
       data-products-loading
     >

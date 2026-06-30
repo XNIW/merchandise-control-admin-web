@@ -11,12 +11,14 @@ import type { Dictionary } from "@/i18n/dictionaries";
 
 type AuthFormProps = {
   labels: Dictionary["authForm"];
+  messages: Dictionary["authLogin"]["messages"];
   isConfigured: boolean;
   formLabel?: string;
   resultMessage?: string;
 };
 
 const initialState: AccountSignInState = {
+  code: "idle",
   message: "",
   status: "idle",
 };
@@ -63,6 +65,7 @@ export function AuthForm({
   formLabel = "Admin account sign in",
   isConfigured,
   labels,
+  messages,
   resultMessage,
 }: AuthFormProps) {
   const searchParams = useSearchParams();
@@ -76,6 +79,8 @@ export function AuthForm({
 
     return isSafeRequestedNextPath(requested) ? requested : "/";
   }, [searchParams]);
+  const stateMessage =
+    state.code !== "idle" ? messages[state.code] || state.message : "";
 
   return (
     <div className="grid gap-4">
@@ -123,7 +128,7 @@ export function AuthForm({
             {labels.email}
           </label>
           <input
-            aria-describedby={state.message ? messageId : undefined}
+            aria-describedby={stateMessage ? messageId : undefined}
             id="email"
             name="email"
             type="email"
@@ -141,7 +146,7 @@ export function AuthForm({
             {labels.password}
           </label>
           <input
-            aria-describedby={state.message ? messageId : undefined}
+            aria-describedby={stateMessage ? messageId : undefined}
             id="password"
             name="password"
             type="password"
@@ -159,14 +164,14 @@ export function AuthForm({
           {pending ? labels.pending : labels.submit}
         </button>
 
-        {state.message ? (
+        {stateMessage ? (
           <p
             aria-live={state.status === "blocked" ? "assertive" : "polite"}
             id={messageId}
             role={state.status === "blocked" ? "alert" : "status"}
             className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
           >
-            {state.message}
+            {stateMessage}
           </p>
         ) : null}
       </form>

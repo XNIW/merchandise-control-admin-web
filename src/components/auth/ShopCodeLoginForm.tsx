@@ -73,6 +73,7 @@ export function ShopCodeLoginForm({
   );
   const credentialRef = useRef<HTMLInputElement>(null);
   const formKey = `${state.code}:${state.values.shopCode}:${state.values.staffCode}`;
+  const stateMessage = labels.messages[state.code] || state.message;
 
   useEffect(() => {
     if (!state.ok && state.shouldFocusCredential) {
@@ -144,13 +145,13 @@ export function ShopCodeLoginForm({
         </button>
       </form>
 
-      {state.message ? (
+      {stateMessage ? (
         <p
           role={state.ok ? "status" : "alert"}
           aria-live="polite"
           className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800"
         >
-          {state.message}
+          {stateMessage}
         </p>
       ) : null}
     </>

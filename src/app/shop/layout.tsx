@@ -73,6 +73,7 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
       availableShops={availableShops}
       labels={dictionary.shopShell}
       languageSwitcherLabel={dictionary.languageSwitcher.label}
+      loadingLabel={translateText(dictionary, "Loading...")}
       locale={locale}
       logoutLabel={dictionary.common.logout}
       navigationSections={translateShopNavigationSections(

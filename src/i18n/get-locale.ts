@@ -1,17 +1,29 @@
 import "server-only";
 
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getDictionary, type Dictionary } from "./dictionaries";
 import {
   LOCALE_COOKIE_NAME,
-  normalizeLocale,
+  normalizeLocaleAlias,
+  resolvePreferredLocaleFromAcceptLanguage,
   type SupportedLocale,
 } from "./locales";
 
 export async function getLocale(): Promise<SupportedLocale> {
   const cookieStore = await cookies();
+  const cookieLocale = normalizeLocaleAlias(
+    cookieStore.get(LOCALE_COOKIE_NAME)?.value,
+  );
 
-  return normalizeLocale(cookieStore.get(LOCALE_COOKIE_NAME)?.value);
+  if (cookieLocale) {
+    return cookieLocale;
+  }
+
+  const requestHeaders = await headers();
+
+  return resolvePreferredLocaleFromAcceptLanguage(
+    requestHeaders.get("accept-language"),
+  );
 }
 
 export async function getI18n(): Promise<{

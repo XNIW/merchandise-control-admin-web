@@ -38,13 +38,47 @@ type AuthLoginMessageCode =
   | "oauth_origin_missing"
   | "oauth_provider_not_enabled"
   | "oauth_redirect_misconfigured"
-  | "unsafe_next";
+  | "sign_in_blocked"
+  | "unsafe_next"
+  | "validation_failed";
 
 export type Dictionary = {
   access: {
     accessRequired: string;
     signIn: string;
     titles: Record<string, string>;
+  };
+  accountProfile: {
+    adminHome: string;
+    description: string;
+    email: string;
+    eyebrow: string;
+    lastSignIn: string;
+    noPersonalSession: string;
+    notAvailable: string;
+    notConfigured: string;
+    notSignedIn: string;
+    passwordReset: {
+      description: string;
+      messages: {
+        idle: string;
+        not_configured: string;
+        success: string;
+        unauthorized: string;
+        update_failed: string;
+      };
+      pending: string;
+      submit: string;
+      title: string;
+    };
+    securityDescription: string;
+    securityTitle: string;
+    sessionDescription: string;
+    sessionTitle: string;
+    signOut: string;
+    signedIn: string;
+    title: string;
+    userId: string;
   };
   actionResults: Record<string, string>;
   authForm: {
@@ -535,6 +569,118 @@ const itExact: Record<string, string> = {
   "Suspend": "Sospendi",
   "Template": "Template",
   "Type ARCHIVE as confirmation": "Digita ARCHIVE come conferma",
+  "Select product": "Seleziona prodotto",
+  "Fallback when the product is not listed.":
+    "Fallback quando il prodotto non e in elenco.",
+  "Product id / barcode fallback": "Fallback ID prodotto / barcode",
+  "Create new supplier": "Crea nuovo fornitore",
+  "Select an existing supplier or type a new supplier name.":
+    "Seleziona un fornitore esistente o digita un nuovo nome fornitore.",
+  "Existing supplier or new supplier name":
+    "Fornitore esistente o nuovo nome fornitore",
+  "No supplier suggestions": "Nessun suggerimento fornitore",
+  "Supplier suggestions": "Suggerimenti fornitori",
+  "Create new category": "Crea nuova categoria",
+  "Select an existing category or type a new category name.":
+    "Seleziona una categoria esistente o digita un nuovo nome categoria.",
+  "Existing category or new category name":
+    "Categoria esistente o nuovo nome categoria",
+  "No category suggestions": "Nessun suggerimento categoria",
+  "Category suggestions": "Suggerimenti categorie",
+  "Rename category": "Rinomina categoria",
+  "Delete category": "Elimina categoria",
+  "Replace with existing": "Sostituisci con esistente",
+  "Replacement category": "Categoria sostitutiva",
+  "Remove assignment and delete": "Rimuovi assegnazione ed elimina",
+  "Rename supplier": "Rinomina fornitore",
+  "Delete supplier": "Elimina fornitore",
+  "Replacement supplier": "Fornitore sostitutivo",
+  "Create mobile history entry": "Crea voce storico mobile",
+  "Create History Entry": "Crea voce storico",
+  "POS Revenue": "Incassi POS",
+  "POS revenue unavailable": "Incassi POS non disponibili",
+  "Full POS revenue, documented view, and differences to verify for":
+    "Incasso POS completo, vista documentata e differenze da verificare per",
+  "Refresh...": "Refresh...",
+  "Today": "Oggi",
+  "stock warnings": "warning stock",
+  "Recent sales": "Vendite recenti",
+  "Bounded detail for the latest synchronized sales.":
+    "Dettaglio bounded delle ultime vendite sincronizzate.",
+  "Time": "Ora",
+  "Sale": "Vendita",
+  "Document": "Documento",
+  "Loading...": "Caricamento...",
+  "Detail unavailable.": "Dettaglio non disponibile.",
+  "Sale line": "Riga vendita",
+  "Qty": "Q.ta",
+  "No synchronized POS sales.": "Nessuna vendita POS sincronizzata.",
+  "Monthly history": "Storico mensile",
+  "Daily totals for selected month.": "Totali giornalieri del mese selezionato.",
+  "Day": "Giorno",
+  "Full": "Completo",
+  "Documented": "Documentato",
+  "To verify": "Da verificare",
+  "No revenue in selected month.": "Nessun incasso nel mese selezionato.",
+  "Annual history": "Storico annuale",
+  "Monthly trend for selected year.": "Trend mensile dell'anno selezionato.",
+  "No revenue in selected year.": "Nessun incasso nell'anno selezionato.",
+  "Sync and stock warnings": "Sync e warning stock",
+  "Latest batches": "Ultimi batch",
+  "No batches received.": "Nessun batch ricevuto.",
+  "Stock warnings": "Warning stock",
+  "No stock warnings.": "Nessun warning stock.",
+  "Full revenue": "Incasso completo",
+  "Documented revenue": "Incasso documentato",
+  "Includes all real POS sales.": "Include tutte le vendite reali del POS.",
+  "Sales with compatible document.": "Vendite con documento compatibile.",
+  "Difference visible for review.": "Differenza visibile per review.",
+  "average ticket": "ticket medio",
+  "Change given": "Resto consegnato",
+  "Card payments.": "Pagamenti con carta.",
+  "View details": "Vedi dettagli",
+  "Server shop-scoped view for POS batches, conflicts, stock warnings, audit failures, and append-only recovery actions.":
+    "Vista server shop-scoped per batch POS, conflitti, stock warning, audit failure e recovery action append-only.",
+  "Recovery unavailable": "Recovery non disponibile",
+  "Latest batch": "Ultimo batch",
+  "No batch": "Nessun batch",
+  "Server has no POS batch": "Server senza batch POS",
+  "Batch status": "Stato batch",
+  "Batch sales": "Vendite batch",
+  "lines": "righe",
+  "No server ack": "Nessun ack server",
+  "Server-side rows need review":
+    "Sono presenti righe server-side da controllare",
+  "No recent server-side anomaly": "Nessuna anomalia server-side recente",
+  "No server-side sale in conflict, failed, or needs-attention state, and no recent stock warning for this shop.":
+    "Nessuna vendita server-side in conflict/failed/needs attention e nessuno stock warning recente per questa shop.",
+  "Safe recovery actions": "Recovery action sicure",
+  "Actions below write append-only audit entries only. They do not delete outbox records, modify sales, move stock, or force server ack.":
+    "Le azioni sotto scrivono solo audit append-only. Non cancellano outbox, non modificano vendite, non muovono stock e non forzano ack server.",
+  "general note": "nota generale",
+  "Mark as reviewed": "Segna come verificato",
+  "Add internal note": "Aggiungi nota interna",
+  "Request POS retry (audit only)": "Richiedi retry POS (audit only)",
+  "Redacted internal note": "Nota interna redatta",
+  "Operational context for manager/support. Do not enter tokens, PINs, or passwords.":
+    "Contesto operativo per manager/assistenza. Non inserire token, PIN o password.",
+  "Record recovery action": "Registra recovery action",
+  "Copy/export technical context": "Copia/esporta contesto tecnico",
+  "POS sales requiring review": "Vendite POS che richiedono verifica",
+  "No server-side sale with anomalous status.":
+    "Nessuna vendita server-side con stato anomalo.",
+  "Movement": "Movimento",
+  "No recent unresolved_product, stock_conflict, or failed warning.":
+    "Nessun unresolved_product, stock_conflict o failed recente.",
+  "Recent POS audit failures": "Audit failure POS recenti",
+  "Redacted metadata": "Metadata redatti",
+  "No recent POS sales sync audit failure.":
+    "Nessun audit failure POS sales sync recente.",
+  "Recorded POS recovery actions": "Recovery action POS registrate",
+  "No recovery action recorded for this shop.":
+    "Nessuna recovery action registrata per questa shop.",
+  "Information unavailable server-side":
+    "Informazioni non disponibili server-side",
   "Type CLEAR as confirmation": "Digita CLEAR come conferma",
   "Type PERMISSIONS as confirmation": "Digita PERMISSIONS come conferma",
   "Type REACTIVATE as confirmation": "Digita REACTIVATE come conferma",
@@ -1747,6 +1893,118 @@ const esExact: Record<string, string> = {
   "Suspend": "Suspender",
   "Template": "Plantilla",
   "Type ARCHIVE as confirmation": "Escribe ARCHIVE como confirmacion",
+  "Select product": "Seleccionar producto",
+  "Fallback when the product is not listed.":
+    "Respaldo cuando el producto no esta en la lista.",
+  "Product id / barcode fallback": "Respaldo ID producto / codigo de barras",
+  "Create new supplier": "Crear nuevo proveedor",
+  "Select an existing supplier or type a new supplier name.":
+    "Selecciona un proveedor existente o escribe un nuevo nombre de proveedor.",
+  "Existing supplier or new supplier name":
+    "Proveedor existente o nuevo nombre de proveedor",
+  "No supplier suggestions": "Sin sugerencias de proveedores",
+  "Supplier suggestions": "Sugerencias de proveedores",
+  "Create new category": "Crear nueva categoria",
+  "Select an existing category or type a new category name.":
+    "Selecciona una categoria existente o escribe un nuevo nombre de categoria.",
+  "Existing category or new category name":
+    "Categoria existente o nuevo nombre de categoria",
+  "No category suggestions": "Sin sugerencias de categorias",
+  "Category suggestions": "Sugerencias de categorias",
+  "Rename category": "Renombrar categoria",
+  "Delete category": "Eliminar categoria",
+  "Replace with existing": "Reemplazar por existente",
+  "Replacement category": "Categoria de reemplazo",
+  "Remove assignment and delete": "Quitar asignacion y eliminar",
+  "Rename supplier": "Renombrar proveedor",
+  "Delete supplier": "Eliminar proveedor",
+  "Replacement supplier": "Proveedor de reemplazo",
+  "Create mobile history entry": "Crear entrada de historial movil",
+  "Create History Entry": "Crear entrada de historial",
+  "POS Revenue": "Ingresos POS",
+  "POS revenue unavailable": "Ingresos POS no disponibles",
+  "Full POS revenue, documented view, and differences to verify for":
+    "Ingreso POS completo, vista documentada y diferencias por verificar para",
+  "Refresh...": "Actualizando...",
+  "Today": "Hoy",
+  "stock warnings": "alertas de stock",
+  "Recent sales": "Ventas recientes",
+  "Bounded detail for the latest synchronized sales.":
+    "Detalle acotado de las ultimas ventas sincronizadas.",
+  "Time": "Hora",
+  "Sale": "Venta",
+  "Document": "Documento",
+  "Loading...": "Cargando...",
+  "Detail unavailable.": "Detalle no disponible.",
+  "Sale line": "Linea de venta",
+  "Qty": "Cant.",
+  "No synchronized POS sales.": "No hay ventas POS sincronizadas.",
+  "Monthly history": "Historial mensual",
+  "Daily totals for selected month.": "Totales diarios del mes seleccionado.",
+  "Day": "Dia",
+  "Full": "Completo",
+  "Documented": "Documentado",
+  "To verify": "Por verificar",
+  "No revenue in selected month.": "No hay ingresos en el mes seleccionado.",
+  "Annual history": "Historial anual",
+  "Monthly trend for selected year.": "Tendencia mensual del año seleccionado.",
+  "No revenue in selected year.": "No hay ingresos en el año seleccionado.",
+  "Sync and stock warnings": "Sincronizacion y alertas de stock",
+  "Latest batches": "Ultimos lotes",
+  "No batches received.": "No se recibieron lotes.",
+  "Stock warnings": "Alertas de stock",
+  "No stock warnings.": "Sin alertas de stock.",
+  "Full revenue": "Ingreso completo",
+  "Documented revenue": "Ingreso documentado",
+  "Includes all real POS sales.": "Incluye todas las ventas reales del POS.",
+  "Sales with compatible document.": "Ventas con documento compatible.",
+  "Difference visible for review.": "Diferencia visible para revision.",
+  "average ticket": "ticket promedio",
+  "Change given": "Vuelto entregado",
+  "Card payments.": "Pagos con tarjeta.",
+  "View details": "Ver detalles",
+  "Server shop-scoped view for POS batches, conflicts, stock warnings, audit failures, and append-only recovery actions.":
+    "Vista server por shop para lotes POS, conflictos, alertas de stock, fallas de auditoria y acciones de recuperacion append-only.",
+  "Recovery unavailable": "Recuperacion no disponible",
+  "Latest batch": "Ultimo lote",
+  "No batch": "Sin lote",
+  "Server has no POS batch": "El servidor no tiene lote POS",
+  "Batch status": "Estado del lote",
+  "Batch sales": "Ventas del lote",
+  "lines": "lineas",
+  "No server ack": "Sin ack del servidor",
+  "Server-side rows need review":
+    "Hay filas server-side que requieren revision",
+  "No recent server-side anomaly": "Sin anomalias server-side recientes",
+  "No server-side sale in conflict, failed, or needs-attention state, and no recent stock warning for this shop.":
+    "No hay ventas server-side en conflict/failed/needs attention ni alertas de stock recientes para este shop.",
+  "Safe recovery actions": "Acciones de recuperacion seguras",
+  "Actions below write append-only audit entries only. They do not delete outbox records, modify sales, move stock, or force server ack.":
+    "Las acciones abajo solo escriben auditoria append-only. No eliminan outbox, no modifican ventas, no mueven stock y no fuerzan ack del servidor.",
+  "general note": "nota general",
+  "Mark as reviewed": "Marcar como revisado",
+  "Add internal note": "Agregar nota interna",
+  "Request POS retry (audit only)": "Solicitar retry POS (solo auditoria)",
+  "Redacted internal note": "Nota interna redactada",
+  "Operational context for manager/support. Do not enter tokens, PINs, or passwords.":
+    "Contexto operativo para gerente/soporte. No ingreses tokens, PIN ni contraseñas.",
+  "Record recovery action": "Registrar accion de recuperacion",
+  "Copy/export technical context": "Copiar/exportar contexto tecnico",
+  "POS sales requiring review": "Ventas POS que requieren revision",
+  "No server-side sale with anomalous status.":
+    "No hay ventas server-side con estado anomalo.",
+  "Movement": "Movimiento",
+  "No recent unresolved_product, stock_conflict, or failed warning.":
+    "Sin unresolved_product, stock_conflict o failed reciente.",
+  "Recent POS audit failures": "Fallas de auditoria POS recientes",
+  "Redacted metadata": "Metadata redactada",
+  "No recent POS sales sync audit failure.":
+    "No hay fallas recientes de auditoria en sales sync POS.",
+  "Recorded POS recovery actions": "Acciones de recuperacion POS registradas",
+  "No recovery action recorded for this shop.":
+    "No hay acciones de recuperacion registradas para este shop.",
+  "Information unavailable server-side":
+    "Informacion no disponible server-side",
   "Type CLEAR as confirmation": "Escribe CLEAR como confirmacion",
   "Type PERMISSIONS as confirmation": "Escribe PERMISSIONS como confirmacion",
   "Type REACTIVATE as confirmation": "Escribe REACTIVATE como confirmacion",
@@ -2934,6 +3192,109 @@ const zhExact: Record<string, string> = {
   "Suspend": "暂停",
   "Template": "模板",
   "Type ARCHIVE as confirmation": "输入 ARCHIVE 以确认",
+  "Select product": "选择商品",
+  "Fallback when the product is not listed.": "商品不在列表中时使用的备用值。",
+  "Product id / barcode fallback": "商品ID / 条码备用值",
+  "Create new supplier": "创建新供应商",
+  "Select an existing supplier or type a new supplier name.":
+    "选择现有供应商，或输入新的供应商名称。",
+  "Existing supplier or new supplier name": "现有供应商或新供应商名称",
+  "No supplier suggestions": "无供应商建议",
+  "Supplier suggestions": "供应商建议",
+  "Create new category": "创建新分类",
+  "Select an existing category or type a new category name.":
+    "选择现有分类，或输入新的分类名称。",
+  "Existing category or new category name": "现有分类或新分类名称",
+  "No category suggestions": "无分类建议",
+  "Category suggestions": "分类建议",
+  "Rename category": "重命名分类",
+  "Delete category": "删除分类",
+  "Replace with existing": "替换为现有项",
+  "Replacement category": "替换分类",
+  "Remove assignment and delete": "移除分配并删除",
+  "Rename supplier": "重命名供应商",
+  "Delete supplier": "删除供应商",
+  "Replacement supplier": "替换供应商",
+  "Create mobile history entry": "创建移动端历史条目",
+  "Create History Entry": "创建历史条目",
+  "POS Revenue": "POS 收入",
+  "POS revenue unavailable": "POS 收入不可用",
+  "Full POS revenue, documented view, and differences to verify for":
+    "完整 POS 收入、凭证视图和待核对差异，店铺：",
+  "Refresh...": "刷新中...",
+  "Today": "今天",
+  "stock warnings": "库存警告",
+  "Recent sales": "最近销售",
+  "Bounded detail for the latest synchronized sales.": "最近同步销售的限定详情。",
+  "Time": "时间",
+  "Sale": "销售",
+  "Document": "凭证",
+  "Loading...": "加载中...",
+  "Detail unavailable.": "详情不可用。",
+  "Sale line": "销售行",
+  "Qty": "数量",
+  "No synchronized POS sales.": "没有已同步的 POS 销售。",
+  "Monthly history": "月度历史",
+  "Daily totals for selected month.": "所选月份的每日总计。",
+  "Day": "日期",
+  "Full": "完整",
+  "Documented": "有凭证",
+  "To verify": "待核对",
+  "No revenue in selected month.": "所选月份没有收入。",
+  "Annual history": "年度历史",
+  "Monthly trend for selected year.": "所选年份的月度趋势。",
+  "No revenue in selected year.": "所选年份没有收入。",
+  "Sync and stock warnings": "同步和库存警告",
+  "Latest batches": "最新批次",
+  "No batches received.": "未收到批次。",
+  "Stock warnings": "库存警告",
+  "No stock warnings.": "没有库存警告。",
+  "Full revenue": "完整收入",
+  "Documented revenue": "有凭证收入",
+  "Includes all real POS sales.": "包含所有真实 POS 销售。",
+  "Sales with compatible document.": "带兼容凭证的销售。",
+  "Difference visible for review.": "可供审核的可见差异。",
+  "average ticket": "平均客单价",
+  "Change given": "已找零",
+  "Card payments.": "银行卡付款。",
+  "View details": "查看详情",
+  "Server shop-scoped view for POS batches, conflicts, stock warnings, audit failures, and append-only recovery actions.":
+    "按店铺范围显示 POS 批次、冲突、库存警告、审计失败和仅追加的恢复操作。",
+  "Recovery unavailable": "恢复不可用",
+  "Latest batch": "最新批次",
+  "No batch": "无批次",
+  "Server has no POS batch": "服务器没有 POS 批次",
+  "Batch status": "批次状态",
+  "Batch sales": "批次销售",
+  "lines": "行",
+  "No server ack": "无服务器确认",
+  "Server-side rows need review": "存在需要审核的服务器端行",
+  "No recent server-side anomaly": "最近没有服务器端异常",
+  "No server-side sale in conflict, failed, or needs-attention state, and no recent stock warning for this shop.":
+    "该店铺没有处于 conflict、failed 或 needs-attention 状态的服务器端销售，也没有最近库存警告。",
+  "Safe recovery actions": "安全恢复操作",
+  "Actions below write append-only audit entries only. They do not delete outbox records, modify sales, move stock, or force server ack.":
+    "以下操作只写入仅追加审计记录，不会删除 outbox、修改销售、移动库存或强制服务器确认。",
+  "general note": "一般备注",
+  "Mark as reviewed": "标记为已审核",
+  "Add internal note": "添加内部备注",
+  "Request POS retry (audit only)": "请求 POS 重试（仅审计）",
+  "Redacted internal note": "已脱敏内部备注",
+  "Operational context for manager/support. Do not enter tokens, PINs, or passwords.":
+    "面向经理/支持的运营上下文。不要输入令牌、PIN 或密码。",
+  "Record recovery action": "记录恢复操作",
+  "Copy/export technical context": "复制/导出技术上下文",
+  "POS sales requiring review": "需要审核的 POS 销售",
+  "No server-side sale with anomalous status.": "没有状态异常的服务器端销售。",
+  "Movement": "库存变动",
+  "No recent unresolved_product, stock_conflict, or failed warning.":
+    "最近没有 unresolved_product、stock_conflict 或 failed 警告。",
+  "Recent POS audit failures": "最近 POS 审计失败",
+  "Redacted metadata": "已脱敏元数据",
+  "No recent POS sales sync audit failure.": "最近没有 POS 销售同步审计失败。",
+  "Recorded POS recovery actions": "已记录的 POS 恢复操作",
+  "No recovery action recorded for this shop.": "该店铺没有记录恢复操作。",
+  "Information unavailable server-side": "服务器端不可用信息",
   "Type CLEAR as confirmation": "输入 CLEAR 以确认",
   "Type PERMISSIONS as confirmation": "输入 PERMISSIONS 以确认",
   "Type REACTIVATE as confirmation": "输入 REACTIVATE 以确认",
@@ -3727,6 +4088,44 @@ const itRenderedCorrectiveExact: Record<string, string> = {
   "Account Profile": "Profilo account",
   "Admin Web for MerchandiseControl Platform and Shop consoles.":
     "Admin Web per le console Platform e Shop di MerchandiseControl.",
+  "at least": "almeno",
+  "Auth safety status": "Stato sicurezza accesso",
+  "loading total...": "totale in caricamento...",
+  "Categories pagination": "Paginazione categorie",
+  "Suppliers pagination": "Paginazione fornitori",
+  "Card": "Carta",
+  "accepted": "accettate",
+  "Batch": "Batch",
+  "Cash": "Contanti",
+  "conflict": "conflitti",
+  "Device / staff": "Dispositivo / staff",
+  "duplicate": "duplicate",
+  "History detail": "Dettaglio storico",
+  "History detail could not be loaded.": "Impossibile caricare il dettaglio storico.",
+  "History detail is not available.": "Dettaglio storico non disponibile.",
+  "Leave empty to keep current rows": "Lascia vuoto per mantenere le righe correnti",
+  "Live": "Live",
+  "n/a": "n/d",
+  "Offline": "Offline",
+  "Other": "Altro",
+  "POS Sync Recovery": "Recovery sync POS",
+  "Rows (optional on update)": "Righe (opzionali in aggiornamento)",
+  "Refund": "Reso",
+  "Refund / Void": "Reso / storno",
+  "sales": "vendite",
+  "Shop Admin / POS": "Shop Admin / POS",
+  "Stale": "Obsoleto",
+  "Stock warnings POS": "Warning stock POS",
+  "Supplier workbook preview": "Preview workbook fornitori",
+  "Target recovery": "Recupero target",
+  "Tombstone mobile history entry": "Tombstone voce storico mobile",
+  "Tombstone History Entry": "Tombstone voce storico",
+  "Type TOMBSTONE to confirm": "Digita TOMBSTONE per confermare",
+  "Update mobile history entry": "Aggiorna voce storico mobile",
+  "Update History Entry": "Aggiorna voce storico",
+  "Transfer": "Bonifico",
+  "Transfer / Other": "Bonifico / altro",
+  "Void": "Storno",
   "Audit Event Detail": "Dettaglio evento audit",
   "Category Detail": "Dettaglio categoria",
   "Console Sign In": "Accesso console",
@@ -3734,6 +4133,7 @@ const itRenderedCorrectiveExact: Record<string, string> = {
   "History Detail": "Dettaglio storico",
   "Member Detail": "Dettaglio membro",
   "Product Detail": "Dettaglio prodotto",
+  "Prices": "Prezzi",
   "Advanced": "Avanzato",
   "All": "Tutti",
   "Cancel": "Annulla",
@@ -3843,6 +4243,9 @@ const itRenderedCorrectiveExact: Record<string, string> = {
   "Price rows": "Righe prezzo",
   "Price": "Prezzo",
   "Product detail": "Dettaglio prodotto",
+  "Product detail could not be loaded.":
+    "Impossibile caricare il dettaglio prodotto.",
+  "Product detail is not available.": "Dettaglio prodotto non disponibile.",
   "Product detail tabs": "Tab dettaglio prodotto",
   "Product not resolved from barcode or item code":
     "Prodotto non risolto da codice a barre o codice articolo",
@@ -4253,6 +4656,44 @@ const esRenderedCorrectiveExact: Record<string, string> = {
   "Account Profile": "Perfil de cuenta",
   "Admin Web for MerchandiseControl Platform and Shop consoles.":
     "Admin Web para las consolas Platform y Shop de MerchandiseControl.",
+  "at least": "al menos",
+  "Auth safety status": "Estado de seguridad de ingreso",
+  "loading total...": "total cargando...",
+  "Categories pagination": "Paginacion categorias",
+  "Suppliers pagination": "Paginacion proveedores",
+  "Card": "Tarjeta",
+  "accepted": "aceptadas",
+  "Batch": "Batch",
+  "Cash": "Efectivo",
+  "conflict": "conflictos",
+  "Device / staff": "Dispositivo / staff",
+  "duplicate": "duplicadas",
+  "History detail": "Detalle historial",
+  "History detail could not be loaded.": "No se pudo cargar el detalle historial.",
+  "History detail is not available.": "El detalle historial no esta disponible.",
+  "Leave empty to keep current rows": "Deja vacio para mantener las filas actuales",
+  "Live": "En vivo",
+  "n/a": "n/d",
+  "Offline": "Offline",
+  "Other": "Otro",
+  "POS Sync Recovery": "Recovery sync POS",
+  "Rows (optional on update)": "Filas (opcionales al actualizar)",
+  "Refund": "Devolucion",
+  "Refund / Void": "Devolucion / anulacion",
+  "sales": "ventas",
+  "Shop Admin / POS": "Shop Admin / POS",
+  "Stale": "Desactualizado",
+  "Stock warnings POS": "Warnings stock POS",
+  "Supplier workbook preview": "Preview workbook proveedores",
+  "Target recovery": "Destino recovery",
+  "Tombstone mobile history entry": "Tombstone entrada de historial movil",
+  "Tombstone History Entry": "Tombstone entrada de historial",
+  "Type TOMBSTONE to confirm": "Escribe TOMBSTONE para confirmar",
+  "Update mobile history entry": "Actualizar entrada de historial movil",
+  "Update History Entry": "Actualizar entrada de historial",
+  "Transfer": "Transferencia",
+  "Transfer / Other": "Transferencia / otro",
+  "Void": "Anulacion",
   "Audit Event Detail": "Detalle evento de auditoria",
   "Category Detail": "Detalle categoria",
   "Console Sign In": "Inicio de sesion consola",
@@ -4260,6 +4701,7 @@ const esRenderedCorrectiveExact: Record<string, string> = {
   "History Detail": "Detalle historial",
   "Member Detail": "Detalle miembro",
   "Product Detail": "Detalle producto",
+  "Prices": "Precios",
   "Advanced": "Avanzado",
   "All": "Todos",
   "Cancel": "Cancelar",
@@ -4369,6 +4811,8 @@ const esRenderedCorrectiveExact: Record<string, string> = {
   "Price rows": "Filas de precio",
   "Price": "Precio",
   "Product detail": "Detalle producto",
+  "Product detail could not be loaded.": "No se pudo cargar el detalle producto.",
+  "Product detail is not available.": "El detalle producto no esta disponible.",
   "Product detail tabs": "Pestanas del detalle producto",
   "Product not resolved from barcode or item code":
     "Producto no resuelto por codigo de barras o codigo articulo",
@@ -4798,6 +5242,44 @@ const zhRenderedCorrectiveExact: Record<string, string> = {
   "Account Profile": "账号资料",
   "Admin Web for MerchandiseControl Platform and Shop consoles.":
     "用于 MerchandiseControl 平台和店铺控制台的 Admin Web。",
+  "at least": "至少",
+  "Auth safety status": "登录安全状态",
+  "loading total...": "总数加载中...",
+  "Categories pagination": "分类分页",
+  "Suppliers pagination": "供应商分页",
+  "Card": "银行卡",
+  "accepted": "已接受",
+  "Batch": "批次",
+  "Cash": "现金",
+  "conflict": "冲突",
+  "Device / staff": "设备 / 员工",
+  "duplicate": "重复",
+  "History detail": "历史详情",
+  "History detail could not be loaded.": "无法加载历史详情。",
+  "History detail is not available.": "历史详情不可用。",
+  "Leave empty to keep current rows": "留空以保留当前行",
+  "Live": "实时",
+  "n/a": "不可用",
+  "Offline": "离线",
+  "Other": "其他",
+  "POS Sync Recovery": "POS 同步恢复",
+  "Rows (optional on update)": "行（更新时可选）",
+  "Refund": "退货",
+  "Refund / Void": "退货 / 作废",
+  "sales": "销售",
+  "Shop Admin / POS": "店铺管理 / POS",
+  "Stale": "过期",
+  "Stock warnings POS": "POS 库存警告",
+  "Supplier workbook preview": "供应商工作簿预览",
+  "Target recovery": "恢复目标",
+  "Tombstone mobile history entry": "停用移动历史条目",
+  "Tombstone History Entry": "停用历史条目",
+  "Type TOMBSTONE to confirm": "输入 TOMBSTONE 以确认",
+  "Update mobile history entry": "更新移动历史条目",
+  "Update History Entry": "更新历史条目",
+  "Transfer": "转账",
+  "Transfer / Other": "转账 / 其他",
+  "Void": "作废",
   "Audit Event Detail": "审计事件详情",
   "Category Detail": "分类详情",
   "Console Sign In": "控制台登录",
@@ -4805,6 +5287,7 @@ const zhRenderedCorrectiveExact: Record<string, string> = {
   "History Detail": "历史详情",
   "Member Detail": "成员详情",
   "Product Detail": "商品详情",
+  "Prices": "价格",
   "Advanced": "高级",
   "All": "全部",
   "Cancel": "取消",
@@ -4907,6 +5390,8 @@ const zhRenderedCorrectiveExact: Record<string, string> = {
   "Price rows": "价格行",
   "Price": "价格",
   "Product detail": "商品详情",
+  "Product detail could not be loaded.": "无法加载商品详情。",
+  "Product detail is not available.": "商品详情不可用。",
   "Product detail tabs": "商品详情标签",
   "Product not resolved from barcode or item code": "无法通过条码或商品编码解析商品",
   "Products detected": "检测到的商品",
@@ -5339,6 +5824,42 @@ const en: Dictionary = {
       viewer_only: "Admin access required",
     },
   },
+  accountProfile: {
+    adminHome: "Admin home",
+    description:
+      "Personal account session details for Admin Web. Staff web sessions remain separate under Shop Admin.",
+    email: "Email",
+    eyebrow: "Account",
+    lastSignIn: "Last sign in",
+    noPersonalSession: "No personal session",
+    notAvailable: "Not available",
+    notConfigured: "Supabase Auth is not configured in this runtime.",
+    notSignedIn: "Not signed in",
+    passwordReset: {
+      description:
+        "Request a Supabase Auth reset link for the signed-in personal account.",
+      messages: {
+        idle: "",
+        not_configured: "Supabase Auth is not configured in this runtime.",
+        success: "Password reset email requested for the current account.",
+        unauthorized:
+          "Sign in with a personal admin account before requesting a reset.",
+        update_failed: "Password reset email could not be sent.",
+      },
+      pending: "Sending",
+      submit: "Send reset email",
+      title: "Password reset email",
+    },
+    securityDescription: "Account changes stay inside Supabase Auth flows.",
+    securityTitle: "Security",
+    sessionDescription:
+      "Session status is read from Supabase SSR cookies on the server.",
+    sessionTitle: "Session status",
+    signOut: "Sign out",
+    signedIn: "Signed in",
+    title: "Profile",
+    userId: "User id",
+  },
   actionResults: {
     conflict: "Duplicate active value blocked.",
     db_failure: "The database action failed without exposing internal details.",
@@ -5399,6 +5920,8 @@ const en: Dictionary = {
       callback_missing_code:
         "Google sign-in did not return a valid callback. Try again.",
       idle: "",
+      sign_in_blocked:
+        "Sign-in was blocked. Check the account and try again.",
       oauth_blocked:
         "Google sign-in is blocked by the current Supabase or Google configuration.",
       oauth_google_client_id_invalid:
@@ -5413,6 +5936,7 @@ const en: Dictionary = {
         "Google sign-in is misconfigured: Supabase returned an old Vercel redirect. Update Supabase Auth URLs before retrying.",
       unsafe_next:
         "The requested sign-in destination is not valid. Open the console again and retry.",
+      validation_failed: "Email and password are required.",
     },
     safetyBadges: [
       "SSR session",
@@ -5543,6 +6067,44 @@ const it: Dictionary = {
       viewer_only: "Accesso admin richiesto",
     },
   },
+  accountProfile: {
+    adminHome: "Home admin",
+    description:
+      "Dettagli sessione account personale per Admin Web. Le sessioni web staff restano separate sotto Shop Admin.",
+    email: "Email",
+    eyebrow: "Account",
+    lastSignIn: "Ultimo accesso",
+    noPersonalSession: "Nessuna sessione personale",
+    notAvailable: "Non disponibile",
+    notConfigured: "Supabase Auth non e configurata in questo runtime.",
+    notSignedIn: "Accesso non effettuato",
+    passwordReset: {
+      description:
+        "Richiedi un link di reset Supabase Auth per l'account personale connesso.",
+      messages: {
+        idle: "",
+        not_configured: "Supabase Auth non e configurata in questo runtime.",
+        success:
+          "Email di reset password richiesta per l'account corrente.",
+        unauthorized:
+          "Accedi con un account admin personale prima di richiedere un reset.",
+        update_failed: "Impossibile inviare l'email di reset password.",
+      },
+      pending: "Invio in corso",
+      submit: "Invia email reset",
+      title: "Email reset password",
+    },
+    securityDescription:
+      "Le modifiche account restano nei flussi Supabase Auth.",
+    securityTitle: "Sicurezza",
+    sessionDescription:
+      "Lo stato sessione viene letto dai cookie Supabase SSR sul server.",
+    sessionTitle: "Stato sessione",
+    signOut: "Esci",
+    signedIn: "Accesso effettuato",
+    title: "Profilo",
+    userId: "ID utente",
+  },
   actionResults: {
     conflict: "Valore attivo duplicato bloccato.",
     db_failure: "Azione database fallita senza esporre dettagli interni.",
@@ -5604,6 +6166,8 @@ const it: Dictionary = {
       callback_missing_code:
         "Accesso Google senza callback valido. Riprova.",
       idle: "",
+      sign_in_blocked:
+        "Accesso bloccato. Controlla l'account e riprova.",
       oauth_blocked:
         "Accesso Google bloccato dalla configurazione Supabase o Google corrente.",
       oauth_google_client_id_invalid:
@@ -5618,6 +6182,7 @@ const it: Dictionary = {
         "Accesso Google configurato male: Supabase ha restituito un vecchio redirect Vercel. Aggiorna gli URL Auth Supabase e riprova.",
       unsafe_next:
         "La destinazione richiesta per l'accesso non e valida. Riapri la console e riprova.",
+      validation_failed: "Email e password sono obbligatorie.",
     },
     safetyBadges: [
       "Sessione SSR",
@@ -5751,6 +6316,45 @@ const es: Dictionary = {
       viewer_only: "Acceso admin requerido",
     },
   },
+  accountProfile: {
+    adminHome: "Inicio admin",
+    description:
+      "Detalles de sesion de cuenta personal para Admin Web. Las sesiones web staff permanecen separadas bajo Shop Admin.",
+    email: "Email",
+    eyebrow: "Cuenta",
+    lastSignIn: "Ultimo inicio de sesion",
+    noPersonalSession: "Sin sesion personal",
+    notAvailable: "No disponible",
+    notConfigured: "Supabase Auth no esta configurado en este runtime.",
+    notSignedIn: "No has iniciado sesion",
+    passwordReset: {
+      description:
+        "Solicita un link de restablecimiento Supabase Auth para la cuenta personal conectada.",
+      messages: {
+        idle: "",
+        not_configured: "Supabase Auth no esta configurado en este runtime.",
+        success:
+          "Email de restablecimiento de password solicitado para la cuenta actual.",
+        unauthorized:
+          "Inicia sesion con una cuenta admin personal antes de solicitar un restablecimiento.",
+        update_failed:
+          "No se pudo enviar el email de restablecimiento de password.",
+      },
+      pending: "Enviando",
+      submit: "Enviar email de restablecimiento",
+      title: "Email de restablecimiento de password",
+    },
+    securityDescription:
+      "Los cambios de cuenta permanecen dentro de los flujos de Supabase Auth.",
+    securityTitle: "Seguridad",
+    sessionDescription:
+      "El estado de sesion se lee desde cookies Supabase SSR en el servidor.",
+    sessionTitle: "Estado de sesion",
+    signOut: "Salir",
+    signedIn: "Sesion iniciada",
+    title: "Perfil",
+    userId: "ID usuario",
+  },
   actionResults: {
     conflict: "Valor activo duplicado bloqueado.",
     db_failure: "La accion de base de datos fallo sin exponer detalles internos.",
@@ -5812,6 +6416,8 @@ const es: Dictionary = {
       callback_missing_code:
         "Google no devolvio un callback valido. Intenta de nuevo.",
       idle: "",
+      sign_in_blocked:
+        "Ingreso bloqueado. Revisa la cuenta e intenta de nuevo.",
       oauth_blocked:
         "El ingreso con Google esta bloqueado por la configuracion Supabase o Google actual.",
       oauth_google_client_id_invalid:
@@ -5826,6 +6432,7 @@ const es: Dictionary = {
         "El ingreso con Google esta mal configurado: Supabase devolvio un redirect antiguo de Vercel. Actualiza los URL de Auth Supabase e intenta de nuevo.",
       unsafe_next:
         "El destino solicitado para ingresar no es valido. Abre la consola de nuevo e intenta otra vez.",
+      validation_failed: "Email y contraseña son obligatorios.",
     },
     safetyBadges: [
       "Sesion SSR",
@@ -5959,6 +6566,39 @@ const zhCN: Dictionary = {
       viewer_only: "需要管理员权限",
     },
   },
+  accountProfile: {
+    adminHome: "管理首页",
+    description:
+      "Admin Web 的个人账号会话详情。员工 Web 会话仍在 Shop Admin 下单独管理。",
+    email: "邮箱",
+    eyebrow: "账号",
+    lastSignIn: "上次登录",
+    noPersonalSession: "无个人会话",
+    notAvailable: "不可用",
+    notConfigured: "此运行时未配置 Supabase Auth。",
+    notSignedIn: "未登录",
+    passwordReset: {
+      description: "为已登录的个人账号请求 Supabase Auth 重置链接。",
+      messages: {
+        idle: "",
+        not_configured: "此运行时未配置 Supabase Auth。",
+        success: "已为当前账号请求密码重置邮件。",
+        unauthorized: "请先使用个人管理员账号登录，再请求重置。",
+        update_failed: "无法发送密码重置邮件。",
+      },
+      pending: "发送中",
+      submit: "发送重置邮件",
+      title: "密码重置邮件",
+    },
+    securityDescription: "账号变更保留在 Supabase Auth 流程内。",
+    securityTitle: "安全",
+    sessionDescription: "会话状态在服务端从 Supabase SSR cookie 读取。",
+    sessionTitle: "会话状态",
+    signOut: "退出登录",
+    signedIn: "已登录",
+    title: "资料",
+    userId: "用户 ID",
+  },
   actionResults: {
     conflict: "已阻止重复的启用值。",
     db_failure: "数据库操作失败，未暴露内部详情。",
@@ -6013,6 +6653,7 @@ const zhCN: Dictionary = {
       callback_blocked: "Google 登录未完成。请检查账号后重试。",
       callback_missing_code: "Google 登录未返回有效 callback。请重试。",
       idle: "",
+      sign_in_blocked: "登录被阻止。请检查账号后重试。",
       oauth_blocked: "当前 Supabase 或 Google 配置阻止了 Google 登录。",
       oauth_google_client_id_invalid:
         "此 Supabase target 的 Google 登录 OAuth client ID 缺失或仍是 placeholder。",
@@ -6023,6 +6664,7 @@ const zhCN: Dictionary = {
       oauth_redirect_misconfigured:
         "Google 登录配置错误：Supabase 返回了旧的 Vercel redirect。请更新 Supabase Auth URL 后重试。",
       unsafe_next: "请求的登录目标无效。请重新打开控制台后重试。",
+      validation_failed: "邮箱和密码为必填项。",
     },
     safetyBadges: ["SSR 会话", "服务端读取", "浏览器无 service key"],
     shopCodeTab: "店铺代码",

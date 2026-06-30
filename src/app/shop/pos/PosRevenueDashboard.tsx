@@ -1,6 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  formatDate as formatLocalizedDate,
+  formatDateTime as formatLocalizedDateTime,
+} from "@/i18n/format";
+import type { SupportedLocale } from "@/i18n/locales";
 
 type ShopPosRevenueSummary = {
   cardClp: number;
@@ -94,6 +99,8 @@ type ShopPosRevenueReadModel = {
 
 type Props = {
   initialData: ShopPosRevenueReadModel;
+  labels?: Record<string, string>;
+  locale: SupportedLocale;
   month: string;
   shopId?: string;
   year: string;
@@ -114,31 +121,60 @@ type SaleDetailState =
   | { lines: SaleDetailLine[]; status: "ready" }
   | { message: string; status: "error" };
 
-const currencyFormatter = new Intl.NumberFormat("es-CL", {
-  currency: "CLP",
-  maximumFractionDigits: 0,
-  style: "currency",
-});
+const intlLocaleBySupportedLocale: Record<SupportedLocale, string> = {
+  en: "en-US",
+  es: "es-CL",
+  it: "it-IT",
+  "zh-CN": "zh-CN",
+};
 
-const dateTimeFormatter = new Intl.DateTimeFormat("es-CL", {
-  dateStyle: "short",
-  timeStyle: "short",
-});
-
-function money(value: number) {
-  return currencyFormatter.format(value);
+function intlLocale(locale: SupportedLocale) {
+  return intlLocaleBySupportedLocale[locale] ?? intlLocaleBySupportedLocale.en;
 }
 
-function formatDateTime(value: string | null | undefined) {
-  if (!value) {
-    return "Sin datos";
+function money(locale: SupportedLocale, value: number) {
+  return new Intl.NumberFormat(intlLocale(locale), {
+    currency: "CLP",
+    maximumFractionDigits: 0,
+    style: "currency",
+  }).format(value);
+}
+
+function parseDateOnly(value: string | null | undefined) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value ?? "");
+
+  if (!match) {
+    return null;
   }
 
-  const timestamp = Date.parse(value);
+  return new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]));
+}
 
-  return Number.isFinite(timestamp)
-    ? dateTimeFormatter.format(new Date(timestamp))
-    : "Sin datos";
+function parseMonthOnly(value: string | null | undefined) {
+  const match = /^(\d{4})-(\d{2})$/.exec(value ?? "");
+
+  if (!match) {
+    return null;
+  }
+
+  return new Date(Number(match[1]), Number(match[2]) - 1, 1);
+}
+
+function formatBusinessDate(locale: SupportedLocale, value: string) {
+  return formatLocalizedDate(locale, parseDateOnly(value) ?? value);
+}
+
+function formatBusinessMonth(locale: SupportedLocale, value: string) {
+  const date = parseMonthOnly(value);
+
+  if (!date) {
+    return value;
+  }
+
+  return new Intl.DateTimeFormat(intlLocale(locale), {
+    month: "long",
+    year: "numeric",
+  }).format(date);
 }
 
 function toneForRealtime(status: ShopPosRevenueReadModel["realtime"]["status"]) {
@@ -153,16 +189,19 @@ function toneForRealtime(status: ShopPosRevenueReadModel["realtime"]["status"]) 
   return "border-rose-200 bg-rose-50 text-rose-900";
 }
 
-function realtimeLabel(status: ShopPosRevenueReadModel["realtime"]["status"]) {
+function realtimeLabel(
+  status: ShopPosRevenueReadModel["realtime"]["status"],
+  t: (value: string) => string,
+) {
   if (status === "live") {
-    return "Live";
+    return t("Live");
   }
 
   if (status === "stale") {
-    return "Stale";
+    return t("Stale");
   }
 
-  return "Offline";
+  return t("Offline");
 }
 
 function metricClass(tone: "good" | "neutral" | "warning") {
@@ -199,45 +238,57 @@ function MetricCard({
   );
 }
 
-function SummaryGrid({ summary }: { summary: ShopPosRevenueSummary }) {
+function SummaryGrid({
+  locale,
+  summary,
+  t,
+}: {
+  locale: SupportedLocale;
+  summary: ShopPosRevenueSummary;
+  t: (value: string) => string;
+}) {
   return (
     <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
       <MetricCard
-        detail="Incluye todas las ventas reales del POS."
-        label="Incasso completo"
+        detail={t("Includes all real POS sales.")}
+        label={t("Full revenue")}
         tone="good"
-        value={money(summary.netRevenueClp)}
+        value={money(locale, summary.netRevenueClp)}
       />
       <MetricCard
-        detail="Ventas con documento compatible."
-        label="Incasso documentato"
-        value={money(summary.documentedRevenueClp)}
+        detail={t("Sales with compatible document.")}
+        label={t("Documented revenue")}
+        value={money(locale, summary.documentedRevenueClp)}
       />
       <MetricCard
-        detail="Diferencia visible para revisión."
-        label="Da verificare"
+        detail={t("Difference visible for review.")}
+        label={t("To verify")}
         tone={summary.verificationRevenueClp === 0 ? "neutral" : "warning"}
-        value={money(summary.verificationRevenueClp)}
+        value={money(locale, summary.verificationRevenueClp)}
       />
       <MetricCard
-        detail={`${summary.transactionCount} ventas, ticket medio ${money(summary.ticketAverageClp)}.`}
-        label="Vendite"
+        detail={`${summary.transactionCount} ${t("sales")}, ${t("average ticket")} ${money(locale, summary.ticketAverageClp)}.`}
+        label={t("Sales")}
         value={`${summary.transactionCount}`}
       />
       <MetricCard
-        detail={`Cambio entregado: ${money(summary.changeGivenClp)}.`}
-        label="Cash"
-        value={money(summary.cashClp)}
-      />
-      <MetricCard detail="Pagos con tarjeta." label="Card" value={money(summary.cardClp)} />
-      <MetricCard
-        detail={`Transfer ${money(summary.transferClp)} · Other ${money(summary.otherClp)}.`}
-        label="Transfer / Other"
-        value={money(summary.transferClp + summary.otherClp)}
+        detail={`${t("Change given")}: ${money(locale, summary.changeGivenClp)}.`}
+        label={t("Cash")}
+        value={money(locale, summary.cashClp)}
       />
       <MetricCard
-        detail={`${summary.refundCount} refund · ${summary.voidCount} void.`}
-        label="Refund / Void"
+        detail={t("Card payments.")}
+        label={t("Card")}
+        value={money(locale, summary.cardClp)}
+      />
+      <MetricCard
+        detail={`${t("Transfer")} ${money(locale, summary.transferClp)} · ${t("Other")} ${money(locale, summary.otherClp)}.`}
+        label={t("Transfer / Other")}
+        value={money(locale, summary.transferClp + summary.otherClp)}
+      />
+      <MetricCard
+        detail={`${summary.refundCount} ${t("Refund")} · ${summary.voidCount} ${t("Void")}.`}
+        label={t("Refund / Void")}
         tone={summary.refundCount + summary.voidCount > 0 ? "warning" : "neutral"}
         value={`${summary.refundCount + summary.voidCount}`}
       />
@@ -276,6 +327,8 @@ function saleDetailUrl(input: { posSaleId: string; shopId?: string }) {
 
 export function PosRevenueDashboard({
   initialData,
+  labels = {},
+  locale,
   month: initialMonth,
   shopId,
   year: initialYear,
@@ -287,6 +340,7 @@ export function PosRevenueDashboard({
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
   const [saleDetails, setSaleDetails] = useState<Record<string, SaleDetailState>>({});
   const abortRef = useRef<AbortController | null>(null);
+  const t = useCallback((value: string) => labels[value] ?? value, [labels]);
 
   const fetchData = useCallback(async () => {
     if (document.hidden) {
@@ -379,13 +433,13 @@ export function PosRevenueDashboard({
         setSaleDetails((current) => ({
           ...current,
           [saleId]: {
-            message: "Detalle no disponible.",
+            message: t("Detail unavailable."),
             status: "error",
           },
         }));
       }
     },
-    [saleDetails, shopId],
+    [saleDetails, shopId, t],
   );
 
   const statusClass = useMemo(
@@ -396,7 +450,7 @@ export function PosRevenueDashboard({
   if (data.status !== "ready") {
     return (
       <section className="rounded-md border border-amber-200 bg-amber-50 p-5 text-amber-950">
-        <p className="font-semibold">Incassi POS non disponibili</p>
+        <p className="font-semibold">{t("POS revenue unavailable")}</p>
         <p className="mt-1 text-sm">{data.reason}</p>
       </section>
     );
@@ -407,25 +461,25 @@ export function PosRevenueDashboard({
       <header className="grid gap-4 rounded-md border border-slate-200 bg-white p-5 lg:grid-cols-[1fr_auto] lg:items-end">
         <div>
           <p className="text-xs font-semibold uppercase tracking-normal text-slate-500">
-            Shop Admin / POS
+            {t("Shop Admin / POS")}
           </p>
           <h1 className="mt-1 text-2xl font-semibold text-slate-950">
-            Incassi POS
+            {t("POS Revenue")}
           </h1>
           <p className="mt-2 max-w-3xl text-sm text-slate-600">
-            Incasso completo gestionale, vista documentata e differenze da
-            verificare per {data.selectedShop?.shopName}.
+            {t("Full POS revenue, documented view, and differences to verify for")}{" "}
+            {data.selectedShop?.shopName}.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <span className={`rounded-md border px-3 py-2 text-sm font-medium ${statusClass}`}>
-            {realtimeLabel(data.realtime.status)}
+            {realtimeLabel(data.realtime.status, t)}
           </span>
           <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            Aggiornato: {formatDateTime(data.realtime.lastSyncAt)}
+            {t("Updated")}: {formatLocalizedDateTime(locale, data.realtime.lastSyncAt)}
           </span>
           <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-            {isRefreshing ? "Refresh..." : `${data.realtime.deviceCount} POS`}
+            {isRefreshing ? t("Refresh...") : `${data.realtime.deviceCount} POS`}
           </span>
         </div>
       </header>
@@ -433,24 +487,28 @@ export function PosRevenueDashboard({
       <section className="grid gap-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Oggi</h2>
-            <p className="text-sm text-slate-600">{data.filters.today}</p>
+            <h2 className="text-lg font-semibold text-slate-950">{t("Today")}</h2>
+            <p className="text-sm text-slate-600">
+              {formatBusinessDate(locale, data.filters.today)}
+            </p>
           </div>
           {data.today.stockWarningCount > 0 ? (
             <span className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-              {data.today.stockWarningCount} warning stock
+              {data.today.stockWarningCount} {t("stock warnings")}
             </span>
           ) : null}
         </div>
-        <SummaryGrid summary={data.today} />
+        <SummaryGrid locale={locale} summary={data.today} t={t} />
       </section>
 
       <section className="grid gap-3 rounded-md border border-slate-200 bg-white p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Vendite recenti</h2>
+            <h2 className="text-lg font-semibold text-slate-950">
+              {t("Recent sales")}
+            </h2>
             <p className="text-sm text-slate-600">
-              Dettaglio bounded delle ultime vendite sincronizzate.
+              {t("Bounded detail for the latest synchronized sales.")}
             </p>
           </div>
         </div>
@@ -458,14 +516,14 @@ export function PosRevenueDashboard({
           <table className="min-w-[960px] w-full border-collapse text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-xs uppercase tracking-normal text-slate-500">
-                <th className="py-2 pr-3">Ora</th>
-                <th className="py-2 pr-3">Vendita</th>
-                <th className="py-2 pr-3">Staff</th>
-                <th className="py-2 pr-3">Device</th>
-                <th className="py-2 pr-3">Totale</th>
-                <th className="py-2 pr-3">Documento</th>
-                <th className="py-2 pr-3">Stock</th>
-                <th className="py-2 pr-3">Dettaglio</th>
+                <th className="py-2 pr-3">{t("Time")}</th>
+                <th className="py-2 pr-3">{t("Sale")}</th>
+                <th className="py-2 pr-3">{t("Staff")}</th>
+                <th className="py-2 pr-3">{t("Device")}</th>
+                <th className="py-2 pr-3">{t("Total")}</th>
+                <th className="py-2 pr-3">{t("Document")}</th>
+                <th className="py-2 pr-3">{t("Stock")}</th>
+                <th className="py-2 pr-3">{t("Detail")}</th>
               </tr>
             </thead>
             <tbody>
@@ -475,7 +533,9 @@ export function PosRevenueDashboard({
 
                 return (
                   <tr className="border-b border-slate-100 align-top" key={sale.posSaleId}>
-                    <td className="py-3 pr-3">{formatDateTime(sale.occurredAt)}</td>
+                    <td className="py-3 pr-3">
+                      {formatLocalizedDateTime(locale, sale.occurredAt)}
+                    </td>
                     <td className="py-3 pr-3">
                       <p className="font-medium text-slate-950">
                         {sale.saleNumber ?? sale.clientSaleId}
@@ -484,7 +544,9 @@ export function PosRevenueDashboard({
                     </td>
                     <td className="py-3 pr-3">{sale.staff}</td>
                     <td className="py-3 pr-3">{sale.device}</td>
-                    <td className="py-3 pr-3 font-medium">{money(sale.totalClp)}</td>
+                    <td className="py-3 pr-3 font-medium">
+                      {money(locale, sale.totalClp)}
+                    </td>
                     <td className="py-3 pr-3">{sale.fiscalStatus}</td>
                     <td className="py-3 pr-3">
                       {sale.stockStatus}
@@ -496,12 +558,14 @@ export function PosRevenueDashboard({
                         onClick={() => void loadSaleDetail(sale)}
                         type="button"
                       >
-                        {expanded ? "Chiudi" : "Apri"}
+                        {expanded ? t("Close") : t("Open")}
                       </button>
                       {expanded ? (
                         <div className="mt-3 min-w-[320px] rounded-md border border-slate-200 bg-slate-50 p-3">
                           {detail.status === "loading" ? (
-                            <p className="text-sm text-slate-600">Caricamento...</p>
+                            <p className="text-sm text-slate-600">
+                              {t("Loading...")}
+                            </p>
                           ) : detail.status === "error" ? (
                             <p className="text-sm text-rose-700">{detail.message}</p>
                           ) : detail.status === "ready" ? (
@@ -512,11 +576,13 @@ export function PosRevenueDashboard({
                                   key={`${sale.posSaleId}-${index}`}
                                 >
                                   <p className="font-medium text-slate-900">
-                                    {line.productName ?? line.barcode ?? "Riga vendita"}
+                                    {line.productName ?? line.barcode ?? t("Sale line")}
                                   </p>
                                   <p className="text-xs text-slate-600">
-                                    Qty {line.quantity} · {money(line.unitPriceClp)} ·{" "}
-                                    {money(line.lineTotalClp)} · {line.entryType}
+                                    {t("Qty")} {line.quantity} ·{" "}
+                                    {money(locale, line.unitPriceClp)} ·{" "}
+                                    {money(locale, line.lineTotalClp)} ·{" "}
+                                    {line.entryType}
                                   </p>
                                 </div>
                               ))}
@@ -531,7 +597,7 @@ export function PosRevenueDashboard({
               {data.recentSales.length === 0 ? (
                 <tr>
                   <td className="py-6 text-center text-slate-500" colSpan={8}>
-                    Nessuna vendita POS sincronizzata.
+                    {t("No synchronized POS sales.")}
                   </td>
                 </tr>
               ) : null}
@@ -543,8 +609,12 @@ export function PosRevenueDashboard({
       <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Storico mensile</h2>
-            <p className="text-sm text-slate-600">Totali giornalieri del mese selezionato.</p>
+            <h2 className="text-lg font-semibold text-slate-950">
+              {t("Monthly history")}
+            </h2>
+            <p className="text-sm text-slate-600">
+              {t("Daily totals for selected month.")}
+            </p>
           </div>
           <input
             className="rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -553,26 +623,32 @@ export function PosRevenueDashboard({
             value={month}
           />
         </div>
-        <SummaryGrid summary={data.month.summary} />
+        <SummaryGrid locale={locale} summary={data.month.summary} t={t} />
         <div className="overflow-x-auto">
           <table className="min-w-[720px] w-full text-left text-sm">
             <thead>
               <tr className="border-b border-slate-200 text-xs uppercase tracking-normal text-slate-500">
-                <th className="py-2 pr-3">Giorno</th>
-                <th className="py-2 pr-3">Completo</th>
-                <th className="py-2 pr-3">Documentato</th>
-                <th className="py-2 pr-3">Da verificare</th>
-                <th className="py-2 pr-3">Vendite</th>
-                <th className="py-2 pr-3">Warning</th>
+                <th className="py-2 pr-3">{t("Day")}</th>
+                <th className="py-2 pr-3">{t("Full")}</th>
+                <th className="py-2 pr-3">{t("Documented")}</th>
+                <th className="py-2 pr-3">{t("To verify")}</th>
+                <th className="py-2 pr-3">{t("Sales")}</th>
+                <th className="py-2 pr-3">{t("Warning")}</th>
               </tr>
             </thead>
             <tbody>
               {data.month.days.map((day) => (
                 <tr className="border-b border-slate-100" key={day.businessDate}>
-                  <td className="py-2 pr-3">{day.businessDate}</td>
-                  <td className="py-2 pr-3">{money(day.netRevenueClp)}</td>
-                  <td className="py-2 pr-3">{money(day.documentedRevenueClp)}</td>
-                  <td className="py-2 pr-3">{money(day.verificationRevenueClp)}</td>
+                  <td className="py-2 pr-3">
+                    {formatBusinessDate(locale, day.businessDate)}
+                  </td>
+                  <td className="py-2 pr-3">{money(locale, day.netRevenueClp)}</td>
+                  <td className="py-2 pr-3">
+                    {money(locale, day.documentedRevenueClp)}
+                  </td>
+                  <td className="py-2 pr-3">
+                    {money(locale, day.verificationRevenueClp)}
+                  </td>
                   <td className="py-2 pr-3">{day.transactionCount}</td>
                   <td className="py-2 pr-3">{day.stockWarningCount}</td>
                 </tr>
@@ -580,7 +656,7 @@ export function PosRevenueDashboard({
               {data.month.days.length === 0 ? (
                 <tr>
                   <td className="py-5 text-center text-slate-500" colSpan={6}>
-                    Nessun incasso nel mese selezionato.
+                    {t("No revenue in selected month.")}
                   </td>
                 </tr>
               ) : null}
@@ -592,8 +668,12 @@ export function PosRevenueDashboard({
       <section className="grid gap-4 rounded-md border border-slate-200 bg-white p-4">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold text-slate-950">Storico annuale</h2>
-            <p className="text-sm text-slate-600">Trend mensile dell&apos;anno selezionato.</p>
+            <h2 className="text-lg font-semibold text-slate-950">
+              {t("Annual history")}
+            </h2>
+            <p className="text-sm text-slate-600">
+              {t("Monthly trend for selected year.")}
+            </p>
           </div>
           <input
             className="w-28 rounded-md border border-slate-300 px-3 py-2 text-sm"
@@ -604,49 +684,64 @@ export function PosRevenueDashboard({
             value={year}
           />
         </div>
-        <SummaryGrid summary={data.year.summary} />
+        <SummaryGrid locale={locale} summary={data.year.summary} t={t} />
         <div className="grid gap-2">
           {data.year.months.map((row) => (
             <div
               className="grid gap-2 rounded-md border border-slate-200 p-3 sm:grid-cols-[120px_1fr_1fr_1fr_80px]"
               key={row.month}
             >
-              <span className="font-medium text-slate-950">{row.month}</span>
-              <span>Completo {money(row.netRevenueClp)}</span>
-              <span>Documentato {money(row.documentedRevenueClp)}</span>
-              <span>Da verificare {money(row.verificationRevenueClp)}</span>
-              <span>{row.stockWarningCount} warn</span>
+              <span className="font-medium text-slate-950">
+                {formatBusinessMonth(locale, row.month)}
+              </span>
+              <span>
+                {t("Full")} {money(locale, row.netRevenueClp)}
+              </span>
+              <span>
+                {t("Documented")} {money(locale, row.documentedRevenueClp)}
+              </span>
+              <span>
+                {t("To verify")} {money(locale, row.verificationRevenueClp)}
+              </span>
+              <span>
+                {row.stockWarningCount} {t("Warning")}
+              </span>
             </div>
           ))}
           {data.year.months.length === 0 ? (
             <p className="rounded-md border border-slate-200 p-4 text-center text-sm text-slate-500">
-              Nessun incasso nell&apos;anno selezionato.
+              {t("No revenue in selected year.")}
             </p>
           ) : null}
         </div>
       </section>
 
       <section className="grid gap-3 rounded-md border border-slate-200 bg-white p-4">
-        <h2 className="text-lg font-semibold text-slate-950">Sync e warning stock</h2>
+        <h2 className="text-lg font-semibold text-slate-950">
+          {t("Sync and stock warnings")}
+        </h2>
         <div className="grid gap-3 lg:grid-cols-2">
           <div className="rounded-md border border-slate-200 p-3">
-            <h3 className="font-semibold text-slate-900">Ultimi batch</h3>
+            <h3 className="font-semibold text-slate-900">{t("Latest batches")}</h3>
             <div className="mt-3 grid gap-2">
               {data.syncBatches.slice(0, 6).map((batch) => (
                 <div className="rounded-md bg-slate-50 p-3 text-sm" key={batch.syncBatchId}>
                   <p className="font-medium text-slate-900">{batch.clientBatchId}</p>
                   <p className="text-slate-600">
-                    {batch.status} · {batch.saleCount} vendite · {formatDateTime(batch.receivedAt)}
+                    {batch.status} · {batch.saleCount} {t("sales")} ·{" "}
+                    {formatLocalizedDateTime(locale, batch.receivedAt)}
                   </p>
                 </div>
               ))}
               {data.syncBatches.length === 0 ? (
-                <p className="text-sm text-slate-500">Nessun batch ricevuto.</p>
+                <p className="text-sm text-slate-500">
+                  {t("No batches received.")}
+                </p>
               ) : null}
             </div>
           </div>
           <div className="rounded-md border border-slate-200 p-3">
-            <h3 className="font-semibold text-slate-900">Warning stock</h3>
+            <h3 className="font-semibold text-slate-900">{t("Stock warnings")}</h3>
             <div className="mt-3 grid gap-2">
               {data.stockWarnings.slice(0, 6).map((warning) => (
                 <div
@@ -655,13 +750,13 @@ export function PosRevenueDashboard({
                 >
                   <p className="font-medium">{warning.status}</p>
                   <p>
-                    {warning.movementKind} · delta {warning.quantityDelta} ·{" "}
-                    {warning.issueCode ?? "review"}
+                    {warning.movementKind} · {t("Delta")} {warning.quantityDelta} ·{" "}
+                    {warning.issueCode ?? t("Review")}
                   </p>
                 </div>
               ))}
               {data.stockWarnings.length === 0 ? (
-                <p className="text-sm text-slate-500">Nessun warning stock.</p>
+                <p className="text-sm text-slate-500">{t("No stock warnings.")}</p>
               ) : null}
             </div>
           </div>

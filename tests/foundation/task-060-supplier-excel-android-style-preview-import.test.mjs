@@ -93,7 +93,7 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
 
   assertContains(catalogPanel, 'size?: "default" | "wide"');
   assertContains(catalogPanel, 'size="wide"');
-  assertContains(catalogPanel, 'title="Supplier workbook preview"');
+  assertContains(catalogPanel, 'title={t("Supplier workbook preview")}');
   assertContains(catalogPanel, "overflow-y-auto overflow-x-hidden");
   assertContains(catalogPanel, "max-h-[calc(100vh-64px)]");
   assertContains(catalogPanel, "sm:w-[min(1500px,calc(100vw-96px))]");

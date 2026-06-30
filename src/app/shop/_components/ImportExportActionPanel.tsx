@@ -2793,7 +2793,7 @@ function ImportWizard({
           ) : null}
           <IssueList
             issues={preview.rowErrors}
-            title="Blocked rows"
+            title={t("Blocked rows")}
             tone="danger"
           />
           <IssueList
@@ -2905,7 +2905,7 @@ function ImportWizard({
           ) : null}
           <IssueList
             issues={preview.rowErrors}
-            title="Blocked rows"
+            title={t("Blocked rows")}
             tone="danger"
           />
           {isDatabase && (preview.sheetSummaries?.length ?? 0) > 0 ? (

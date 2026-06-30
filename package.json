@@ -21,6 +21,7 @@
     "test:cloudflare:local": "CF_SMOKE_SKIP_BUILD=1 node scripts/testing/cloudflare-local-smoke.mjs",
     "start": "next start",
     "lint": "eslint",
+    "i18n:check": "node scripts/i18n-contract-scan.mjs",
     "typecheck": "next typegen && rm -rf .next/types && tsc --noEmit",
     "verify": "npm run lint && npm run typecheck && npm run security:scan && npm run build",
     "verify:task072:devices": "node scripts/verify-task-072-device-supabase.mjs",

@@ -13,6 +13,7 @@ import {
   SyncAnalysisPanel,
 } from "./SyncAnalysisPanel";
 import { useModalFocusTrap } from "@/app/shop/_components/useModalFocusTrap";
+import type { SupportedLocale } from "@/i18n/locales";
 
 type HistoryDetailField = {
   key: string;
@@ -238,6 +239,7 @@ function fieldValue(
 function formatDate(
   value: string | null | undefined,
   translate: TranslateFn = identityTranslate,
+  locale: SupportedLocale = "en",
 ) {
   if (!value) {
     return translate("Not set");
@@ -245,7 +247,12 @@ function formatDate(
 
   const date = new Date(value);
 
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
+  return Number.isNaN(date.getTime())
+    ? value
+    : new Intl.DateTimeFormat(intlLocale(locale), {
+        dateStyle: "medium",
+        timeStyle: "short",
+      }).format(date);
 }
 
 function detailField(
@@ -291,19 +298,30 @@ function parseDetailNumber(value: string | null | undefined) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function formatDetailNumber(value: number) {
-  return new Intl.NumberFormat("en-US", {
+const intlLocaleBySupportedLocale: Record<SupportedLocale, string> = {
+  en: "en-US",
+  es: "es-CL",
+  it: "it-IT",
+  "zh-CN": "zh-CN",
+};
+
+function intlLocale(locale: SupportedLocale = "en") {
+  return intlLocaleBySupportedLocale[locale] ?? intlLocaleBySupportedLocale.en;
+}
+
+function formatDetailNumber(value: number, locale: SupportedLocale = "en") {
+  return new Intl.NumberFormat(intlLocale(locale), {
     maximumFractionDigits: 2,
     minimumFractionDigits: Number.isInteger(value) ? 0 : 2,
   }).format(value);
 }
 
-function formatSignedDetailNumber(value: number) {
+function formatSignedDetailNumber(value: number, locale: SupportedLocale = "en") {
   if (value === 0) {
     return "0";
   }
 
-  return `${value > 0 ? "+" : ""}${formatDetailNumber(value)}`;
+  return `${value > 0 ? "+" : ""}${formatDetailNumber(value, locale)}`;
 }
 
 function numbersMatch(left: string | null | undefined, right: string | null | undefined) {
@@ -523,6 +541,7 @@ function rowTotalValue(row: HistoryDetailModalRow, draft: HistoryRowEditDraft) {
 function paymentTotalFromRows(
   rows: readonly HistoryDetailModalRow[],
   edits: Record<string, HistoryRowEditDraft>,
+  locale: SupportedLocale = "en",
 ) {
   let total = 0;
   let hasValue = false;
@@ -553,7 +572,7 @@ function paymentTotalFromRows(
     hasValue = true;
   }
 
-  return hasValue ? formatDetailNumber(total) : null;
+  return hasValue ? formatDetailNumber(total, locale) : null;
 }
 
 function SummaryCard({
@@ -611,6 +630,7 @@ function RowsTable({
   edits = {},
   filter,
   labels,
+  locale = "en",
   onEdit,
   onComplete,
   onFilterChange,
@@ -622,6 +642,7 @@ function RowsTable({
   edits?: Record<string, HistoryRowEditDraft>;
   filter: HistoryRowFilter;
   labels?: Record<string, string>;
+  locale?: SupportedLocale;
   onEdit?: (
     rowKey: string,
     field: "countedQuantity" | "salePrice",
@@ -858,9 +879,9 @@ function RowsTable({
                             ? "text-sky-700"
                             : "text-emerald-700",
                       ].join(" ")}
-                      title={`${translate("Delta")} ${formatSignedDetailNumber(quantityDelta)}`}
+                      title={`${translate("Delta")} ${formatSignedDetailNumber(quantityDelta, locale)}`}
                     >
-                      {translate("Delta")} {formatSignedDetailNumber(quantityDelta)}
+                      {translate("Delta")} {formatSignedDetailNumber(quantityDelta, locale)}
                     </p>
                   ) : null}
                 </td>
@@ -881,7 +902,7 @@ function RowsTable({
                   )}
                   <p className="mt-1 truncate text-[11px] font-medium text-zinc-600">
                     {translate("Row total")}{" "}
-                    {rowTotal === null ? "—" : formatDetailNumber(rowTotal)}
+                    {rowTotal === null ? "—" : formatDetailNumber(rowTotal, locale)}
                   </p>
                 </td>
                 <td className="px-2 py-2">
@@ -959,9 +980,11 @@ function RowsTable({
 
 export function HistoryDetailModalController({
   labels,
+  locale = "en",
   requestedShopId,
 }: {
   labels?: Record<string, string>;
+  locale?: SupportedLocale;
   requestedShopId?: string | null;
 }) {
   const lastTriggerRef = useRef<HTMLElement | null>(null);
@@ -976,6 +999,10 @@ export function HistoryDetailModalController({
   const [saving, setSaving] = useState(false);
   const detail = readModel?.detail ?? null;
   const translate = useCallback((value: string) => labels?.[value] ?? value, [labels]);
+  const formatModalDate = useCallback(
+    (value: string | null | undefined) => formatDate(value, translate, locale),
+    [locale, translate],
+  );
   const titleId = "history-detail-modal-title";
   const canEditRows =
     detail?.kind === "shared_sheet_session" &&
@@ -1003,19 +1030,19 @@ export function HistoryDetailModalController({
         if (!response.ok || body.status !== "ready") {
           setReadModel(body);
           setRowEdits(initialRowEdits(body.rows ?? []));
-          setError(body.reason || "History detail is not available.");
+          setError(body.reason || translate("History detail is not available."));
           return;
         }
 
         setReadModel(body);
         setRowEdits(initialRowEdits(body.rows ?? []));
       } catch {
-        setError("History detail could not be loaded.");
+        setError(translate("History detail could not be loaded."));
       } finally {
         setLoading(false);
       }
     },
-    [requestedShopId],
+    [requestedShopId, translate],
   );
 
   const openEntry = useCallback(
@@ -1226,7 +1253,7 @@ export function HistoryDetailModalController({
     const completed = rowCounts.completed;
     const missing = rowCounts.missing;
     const items = completed + missing;
-    const livePaymentTotal = paymentTotalFromRows(rows, rowEdits);
+    const livePaymentTotal = paymentTotalFromRows(rows, rowEdits, locale);
     const cards: Array<{
       icon: HistoryDetailIconName;
       label: string;
@@ -1276,7 +1303,7 @@ export function HistoryDetailModalController({
     }
 
     return cards;
-  }, [detail, readModel, rowEdits, translate]);
+  }, [detail, locale, readModel, rowEdits, translate]);
   const syncAnalysisModel = useMemo(() => {
     const rows = readModel?.rows ?? [];
     const rowCounts = countRowsByKind(rows, rowEdits);
@@ -1372,15 +1399,14 @@ export function HistoryDetailModalController({
                               ? "Entry date"
                               : "Created",
                           )}{" "}
-                          {formatDate(
+                          {formatModalDate(
                             detail?.sessionAnalysis?.entryDate ?? detail?.createdAt,
-                            translate,
                           )}
                         </span>
                         <span className="inline-flex items-center gap-1.5 rounded-md border border-zinc-200 bg-zinc-50 px-2 py-1 text-xs font-semibold text-zinc-700">
                           <HistoryDetailIcon name="clock" />
                           {translate("Updated")}{" "}
-                          {formatDate(detail?.sessionAnalysis?.updatedAt, translate)}
+                          {formatModalDate(detail?.sessionAnalysis?.updatedAt)}
                         </span>
                         <span
                           className={[
@@ -1492,9 +1518,10 @@ export function HistoryDetailModalController({
                         <RowsTable
                           editable={canEditRows}
                           edits={rowEdits}
-                          filter={rowFilter}
-                          labels={labels}
-                          onComplete={updateRowComplete}
+	                          filter={rowFilter}
+	                          labels={labels}
+	                          locale={locale}
+	                          onComplete={updateRowComplete}
                           onEdit={updateRowEdit}
                           onFilterChange={setRowFilter}
                           rows={readModel?.rows ?? []}
@@ -1523,9 +1550,10 @@ export function HistoryDetailModalController({
                       >
                         {(readModel?.missingRows.length ?? 0) > 0 ? (
                           <RowsTable
-                            filter="all"
-                            labels={labels}
-                            onFilterChange={() => undefined}
+	                            filter="all"
+	                            labels={labels}
+	                            locale={locale}
+	                            onFilterChange={() => undefined}
                             rows={readModel?.missingRows ?? []}
                             showFilters={false}
                           />
@@ -1609,7 +1637,7 @@ export function HistoryDetailModalController({
                                   <td className="px-3 py-2">{fieldValue(event.sourceDeviceId ?? event.source, translate)}</td>
                                   <td className="px-3 py-2">{event.changedCount}</td>
                                   <td className="px-3 py-2">{displayCell(event.clientEventId)}</td>
-                                  <td className="px-3 py-2">{formatDate(event.createdAt, translate)}</td>
+	                                  <td className="px-3 py-2">{formatModalDate(event.createdAt)}</td>
                                 </tr>
                               ))
                             ) : (

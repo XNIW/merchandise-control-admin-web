@@ -4,10 +4,10 @@
 
 - ID: `TASK-062`
 - Titolo: `Global i18n locale`
-- Stato: `DONE`
-- Fase attuale: `DONE_RECONCILED`
+- Stato: `DONE_CODE_READY`
+- Fase attuale: `DONE_CODE_READY`
 - Responsabile attuale: `NONE`
-- Verdict tecnico: `DONE`
+- Verdict tecnico: `DONE_CODE_READY`
 - Data apertura: `2026-06-15`
 - File Master Plan: `docs/MASTER-PLAN.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-062/README.md`
@@ -89,7 +89,19 @@ scelta.
 
 ## Handoff
 
-- Fase corrente: `DONE_RECONCILED`.
+- Fase corrente: `DONE_CODE_READY`.
 - Gate finali completati nel worktree di integrazione; closure finale
   autorizzata dal prompt utente con review A/B/C, staging selettivo, commit e
   push su `main`.
+
+## Addendum finale Admin Web + Win7POS i18n - 2026-06-30
+
+- Stato operativo finale: `DONE_CODE_READY`, non `VERIFIED_RUNTIME`.
+- i18n Admin Web + Win7POS completato per `en`, `es`, `it`, `zh-CN`.
+- Gate completati: Admin runtime smoke locale, scanner statici, test
+  foundation, lint, typecheck, security scan, Next build, Win7POS Release x86
+  build, dialog standards e package di validazione runtime Win7POS.
+- Nota runtime: Windows 7 physical/VM runtime validation unavailable; code,
+  build, static scanner, Admin runtime smoke, POS x86 build and validation
+  package are complete. Runtime WPF validation remains documented as
+  external/manual evidence only if environment becomes available.

@@ -137,7 +137,10 @@ export default async function PlatformAdminLoginPage({
             </p>
           </div>
 
-          <div className="flex flex-wrap gap-2" aria-label="Auth safety status">
+          <div
+            className="flex flex-wrap gap-2"
+            aria-label={translateText(dictionary, "Auth safety status")}
+          >
             {dictionary.authLogin.safetyBadges.map((badge, index) => (
               <span
                 key={badge}
@@ -201,6 +204,7 @@ export default async function PlatformAdminLoginPage({
               isConfigured={isConfigured}
               formLabel={content.formLabel}
               labels={dictionary.authForm}
+              messages={dictionary.authLogin.messages}
               resultMessage={
                 authLoginMessage(
                   dictionary.authLogin.messages,

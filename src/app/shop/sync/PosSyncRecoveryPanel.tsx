@@ -1,4 +1,6 @@
 import { SectionCard } from "@/components/admin/SectionCard";
+import { formatDateTime as formatLocalizedDateTime } from "@/i18n/format";
+import type { SupportedLocale } from "@/i18n/locales";
 import type { ShopPosSyncRecoveryReadModel } from "@/server/shop-admin/pos-sync-recovery-read-model";
 import { recordPosSyncRecoveryActionAction } from "@/app/shop/actions";
 
@@ -17,35 +19,49 @@ function shortId(value: string | null | undefined) {
   return value.length > 18 ? `${value.slice(0, 8)}...${value.slice(-6)}` : value;
 }
 
-function formatTimestamp(value: string | null | undefined) {
-  if (!value) {
-    return "n/a";
-  }
+const intlLocaleBySupportedLocale: Record<SupportedLocale, string> = {
+  en: "en-US",
+  es: "es-CL",
+  it: "it-IT",
+  "zh-CN": "zh-CN",
+};
 
-  return new Intl.DateTimeFormat("es-CL", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "America/Santiago",
-  }).format(new Date(value));
+function intlLocale(locale: SupportedLocale) {
+  return intlLocaleBySupportedLocale[locale] ?? intlLocaleBySupportedLocale.en;
 }
 
-function formatClp(value: number) {
-  return new Intl.NumberFormat("es-CL", {
+function formatTimestamp(
+  locale: SupportedLocale,
+  value: string | null | undefined,
+  t: (value: string) => string,
+) {
+  if (!value) {
+    return t("n/a");
+  }
+
+  return formatLocalizedDateTime(locale, value);
+}
+
+function formatClp(locale: SupportedLocale, value: number) {
+  return new Intl.NumberFormat(intlLocale(locale), {
     currency: "CLP",
     maximumFractionDigits: 0,
     style: "currency",
   }).format(value);
 }
 
-function statusCountText(counts: Record<string, number>) {
+function statusCountText(counts: Record<string, number>, t: (value: string) => string) {
   const entries = Object.entries(counts);
 
   return entries.length > 0
     ? entries.map(([status, count]) => `${status}: ${count}`).join(" | ")
-    : "n/a";
+    : t("n/a");
 }
 
-function recoveryTargetOptions(model: ShopPosSyncRecoveryReadModel) {
+function recoveryTargetOptions(
+  model: ShopPosSyncRecoveryReadModel,
+  t: (value: string) => string,
+) {
   const options: Array<{ label: string; value: string }> = [];
 
   if (!model.selectedShop) {
@@ -53,27 +69,27 @@ function recoveryTargetOptions(model: ShopPosSyncRecoveryReadModel) {
   }
 
   options.push({
-    label: `Shop ${model.selectedShop.shopCode} - nota generale`,
+    label: `${t("Shop")} ${model.selectedShop.shopCode} - ${t("general note")}`,
     value: `pos_shop|${model.selectedShop.shopId}`,
   });
 
   if (model.latestBatch) {
     options.push({
-      label: `Batch ${shortId(model.latestBatch.clientBatchId)} (${model.latestBatch.status})`,
+      label: `${t("Batch")} ${shortId(model.latestBatch.clientBatchId)} (${model.latestBatch.status})`,
       value: `pos_sales_sync_batch|${model.latestBatch.salesSyncBatchId}`,
     });
   }
 
   for (const sale of model.issueSales.slice(0, 20)) {
     options.push({
-      label: `Vendita ${sale.saleNumber ?? shortId(sale.clientSaleId)} (${sale.status})`,
+      label: `${t("Sale")} ${sale.saleNumber ?? shortId(sale.clientSaleId)} (${sale.status})`,
       value: `pos_sale|${sale.posSaleId}`,
     });
   }
 
   for (const warning of model.stockWarnings.slice(0, 20)) {
     options.push({
-      label: `Stock ${shortId(warning.movementKey)} (${warning.status})`,
+      label: `${t("Stock")} ${shortId(warning.movementKey)} (${warning.status})`,
       value: `pos_sale_stock_movement|${warning.posSaleStockMovementId}`,
     });
   }
@@ -122,10 +138,15 @@ function recoveryContextText(model: ShopPosSyncRecoveryReadModel) {
 }
 
 export function PosSyncRecoveryPanel({
+  labels = {},
+  locale,
   model,
 }: {
+  labels?: Record<string, string>;
+  locale: SupportedLocale;
   model: ShopPosSyncRecoveryReadModel;
 }) {
+  const t = (value: string) => labels[value] ?? value;
   const selectedShopId = model.selectedShop?.shopId;
   const posHref = selectedShopId
     ? `/shop/pos?${new URLSearchParams({ shop_id: selectedShopId }).toString()}`
@@ -134,7 +155,7 @@ export function PosSyncRecoveryPanel({
     model.issueSales.length > 0 ||
     model.recentFailures.length > 0 ||
     model.stockWarnings.length > 0;
-  const actionTargets = recoveryTargetOptions(model);
+  const actionTargets = recoveryTargetOptions(model, t);
 
   return (
     <SectionCard
@@ -143,64 +164,66 @@ export function PosSyncRecoveryPanel({
           className="inline-flex h-10 items-center justify-center rounded-md border border-zinc-300 px-4 text-sm font-medium text-zinc-800"
           href={posHref}
         >
-          Vedi dettagli
+          {t("View details")}
         </a>
       }
-      description="Vista server shop-scoped per batch POS, conflitti, stock warnings, audit failure e recovery actions append-only."
-      title="POS Sync Recovery"
+      description={t(
+        "Server shop-scoped view for POS batches, conflicts, stock warnings, audit failures, and append-only recovery actions.",
+      )}
+      title={t("POS Sync Recovery")}
       titleId="pos-sync-recovery-title"
     >
       {model.status !== "ready" ? (
         <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm leading-6 text-amber-950">
-          Recovery non disponibile: {model.error?.message ?? model.reason}
+          {t("Recovery unavailable")}: {model.error?.message ?? model.reason}
         </div>
       ) : (
         <div className="grid gap-5">
           <dl className="grid gap-0 overflow-hidden rounded-md border border-zinc-200 md:grid-cols-4">
             <div className="border-b border-zinc-200 px-3 py-2 md:border-b-0 md:border-r">
               <dt className="text-xs font-semibold uppercase tracking-normal text-zinc-500">
-                Ultimo batch
+                {t("Latest batch")}
               </dt>
               <dd className="mt-1 text-sm font-semibold text-zinc-950">
                 {model.latestBatch
                   ? shortId(model.latestBatch.clientBatchId)
-                  : "Nessun batch"}
+                  : t("No batch")}
               </dd>
               <dd className="text-xs leading-5 text-zinc-500">
                 {model.latestBatch
-                  ? formatTimestamp(model.latestBatch.receivedAt)
-                  : "Server senza batch POS"}
+                  ? formatTimestamp(locale, model.latestBatch.receivedAt, t)
+                  : t("Server has no POS batch")}
               </dd>
             </div>
             <div className="border-b border-zinc-200 px-3 py-2 md:border-b-0 md:border-r">
               <dt className="text-xs font-semibold uppercase tracking-normal text-zinc-500">
-                Stato batch
+                {t("Batch status")}
               </dt>
               <dd className="mt-1 text-sm font-semibold text-zinc-950">
-                {model.latestBatch?.status ?? "n/a"}
+                {model.latestBatch?.status ?? t("n/a")}
               </dd>
               <dd className="text-xs leading-5 text-zinc-500">
-                {statusCountText(model.batchStatusCounts)}
+                {statusCountText(model.batchStatusCounts, t)}
               </dd>
             </div>
             <div className="border-b border-zinc-200 px-3 py-2 md:border-b-0 md:border-r">
               <dt className="text-xs font-semibold uppercase tracking-normal text-zinc-500">
-                Vendite batch
+                {t("Batch sales")}
               </dt>
               <dd className="mt-1 text-sm font-semibold text-zinc-950">
                 {model.latestBatch
-                  ? `${model.latestBatch.saleCount} vendite / ${model.latestBatch.lineCount} righe`
-                  : "n/a"}
+                  ? `${model.latestBatch.saleCount} ${t("sales")} / ${model.latestBatch.lineCount} ${t("lines")}`
+                  : t("n/a")}
               </dd>
               <dd className="text-xs leading-5 text-zinc-500">
                 {model.latestBatch
-                  ? `accepted ${model.latestBatch.acceptedSaleCount}, duplicate ${model.latestBatch.duplicateSaleCount}, conflict ${model.latestBatch.conflictCount}`
-                  : "Nessun ack server"}
+                  ? `${t("accepted")} ${model.latestBatch.acceptedSaleCount}, ${t("duplicate")} ${model.latestBatch.duplicateSaleCount}, ${t("conflict")} ${model.latestBatch.conflictCount}`
+                  : t("No server ack")}
               </dd>
             </div>
             <div className="px-3 py-2">
               <dt className="text-xs font-semibold uppercase tracking-normal text-zinc-500">
-                Da verificare
+                {t("To verify")}
               </dt>
               <dd className="mt-1 text-sm font-semibold text-zinc-950">
                 {model.issueSales.length +
@@ -209,28 +232,29 @@ export function PosSyncRecoveryPanel({
               </dd>
               <dd className="text-xs leading-5 text-zinc-500">
                 {hasIssues
-                  ? "Sono presenti righe server-side da controllare"
-                  : "Nessuna anomalia server-side recente"}
+                  ? t("Server-side rows need review")
+                  : t("No recent server-side anomaly")}
               </dd>
             </div>
           </dl>
 
           {!hasIssues ? (
             <div className="rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm leading-6 text-emerald-950">
-              Nessuna vendita server-side in conflict/failed/needs attention e
-              nessuno stock warning recente per questa shop.
+              {t(
+                "No server-side sale in conflict, failed, or needs-attention state, and no recent stock warning for this shop.",
+              )}
             </div>
           ) : null}
 
           <div className="grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
             <div>
               <h3 className="text-sm font-semibold text-zinc-950">
-                Recovery actions sicure
+                {t("Safe recovery actions")}
               </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-600">
-                Le azioni sotto scrivono solo audit append-only. Non cancellano
-                outbox, non modificano vendite, non muovono stock e non forzano
-                ack server.
+                {t(
+                  "Actions below write append-only audit entries only. They do not delete outbox records, modify sales, move stock, or force server ack.",
+                )}
               </p>
             </div>
             <form
@@ -241,7 +265,7 @@ export function PosSyncRecoveryPanel({
                 <input name="shop_id" type="hidden" value={selectedShopId} />
               ) : null}
               <label className="grid gap-1 text-sm font-medium text-zinc-800">
-                Target recovery
+                {t("Target recovery")}
                 <select
                   className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950"
                   name="targetRef"
@@ -255,37 +279,39 @@ export function PosSyncRecoveryPanel({
                 </select>
               </label>
               <label className="grid gap-1 text-sm font-medium text-zinc-800">
-                Azione
+                {t("Action")}
                 <select
                   className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950"
                   name="actionType"
                   required
                 >
-                  <option value="mark_reviewed">Segna come verificato</option>
-                  <option value="add_note">Aggiungi nota interna</option>
+                  <option value="mark_reviewed">{t("Mark as reviewed")}</option>
+                  <option value="add_note">{t("Add internal note")}</option>
                   <option value="request_pos_retry">
-                    Richiedi retry POS (audit only)
+                    {t("Request POS retry (audit only)")}
                   </option>
                 </select>
               </label>
               <label className="grid gap-1 text-sm font-medium text-zinc-800 lg:col-span-2">
-                Nota interna redatta
+                {t("Redacted internal note")}
                 <textarea
                   className="min-h-20 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950"
                   maxLength={600}
                   name="note"
-                  placeholder="Contesto operativo per manager/assistenza. Non inserire token, PIN o password."
+                  placeholder={t(
+                    "Operational context for manager/support. Do not enter tokens, PINs, or passwords.",
+                  )}
                 />
               </label>
               <div className="flex flex-wrap gap-2 lg:col-span-2">
                 <button className="inline-flex h-10 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-medium text-white">
-                  Registra recovery action
+                  {t("Record recovery action")}
                 </button>
               </div>
             </form>
             <details className="rounded-md border border-zinc-200 bg-white p-3">
               <summary className="cursor-pointer text-sm font-medium text-zinc-800">
-                Copia/Esporta contesto tecnico
+                {t("Copy/export technical context")}
               </summary>
               <textarea
                 className="mt-3 min-h-32 w-full rounded-md border border-zinc-300 bg-zinc-50 px-3 py-2 font-mono text-xs text-zinc-700"
@@ -299,16 +325,16 @@ export function PosSyncRecoveryPanel({
             <div className="overflow-x-auto rounded-md border border-zinc-200">
               <table className={recoveryTableClassName}>
                 <caption className="sr-only">
-                  Vendite POS che richiedono verifica
+                  {t("POS sales requiring review")}
                 </caption>
                 <thead className="bg-zinc-50">
                   <tr>
-                    <th className={recoveryThClassName}>Vendita</th>
-                    <th className={recoveryThClassName}>Stato</th>
-                    <th className={recoveryThClassName}>Stock</th>
-                    <th className={recoveryThClassName}>Totale</th>
-                    <th className={recoveryThClassName}>Device / staff</th>
-                    <th className={recoveryThClassName}>Ora</th>
+                    <th className={recoveryThClassName}>{t("Sale")}</th>
+                    <th className={recoveryThClassName}>{t("Status")}</th>
+                    <th className={recoveryThClassName}>{t("Stock")}</th>
+                    <th className={recoveryThClassName}>{t("Total")}</th>
+                    <th className={recoveryThClassName}>{t("Device / staff")}</th>
+                    <th className={recoveryThClassName}>{t("Time")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100 bg-white">
@@ -328,21 +354,21 @@ export function PosSyncRecoveryPanel({
                           {sale.stockStatus} ({sale.stockWarningCount})
                         </td>
                         <td className={recoveryTdClassName}>
-                          {formatClp(sale.netAmountClp)}
+                          {formatClp(locale, sale.netAmountClp)}
                         </td>
                         <td className={recoveryTdClassName}>
                           <div>{sale.device}</div>
                           <div className="text-xs text-zinc-500">{sale.staff}</div>
                         </td>
                         <td className={recoveryTdClassName}>
-                          {formatTimestamp(sale.occurredAt)}
+                          {formatTimestamp(locale, sale.occurredAt, t)}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
                       <td className={recoveryTdClassName} colSpan={6}>
-                        Nessuna vendita server-side con stato anomalo.
+                        {t("No server-side sale with anomalous status.")}
                       </td>
                     </tr>
                   )}
@@ -352,15 +378,15 @@ export function PosSyncRecoveryPanel({
 
             <div className="overflow-x-auto rounded-md border border-zinc-200">
               <table className={recoveryTableClassName}>
-                <caption className="sr-only">Stock warnings POS</caption>
+                <caption className="sr-only">{t("Stock warnings POS")}</caption>
                 <thead className="bg-zinc-50">
                   <tr>
-                    <th className={recoveryThClassName}>Movimento</th>
-                    <th className={recoveryThClassName}>Stato</th>
-                    <th className={recoveryThClassName}>Issue</th>
-                    <th className={recoveryThClassName}>Quantita</th>
-                    <th className={recoveryThClassName}>Stock</th>
-                    <th className={recoveryThClassName}>Ora</th>
+                    <th className={recoveryThClassName}>{t("Movement")}</th>
+                    <th className={recoveryThClassName}>{t("Status")}</th>
+                    <th className={recoveryThClassName}>{t("Issue")}</th>
+                    <th className={recoveryThClassName}>{t("Quantity")}</th>
+                    <th className={recoveryThClassName}>{t("Stock")}</th>
+                    <th className={recoveryThClassName}>{t("Time")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100 bg-white">
@@ -372,28 +398,28 @@ export function PosSyncRecoveryPanel({
                             {warning.movementKind}
                           </div>
                           <div className="text-xs text-zinc-500">
-                            sale {shortId(warning.posSaleId)}
+                            {t("Sale")} {shortId(warning.posSaleId)}
                           </div>
                         </td>
                         <td className={recoveryTdClassName}>{warning.status}</td>
                         <td className={recoveryTdClassName}>
-                          {warning.issueCode ?? "n/a"}
+                          {warning.issueCode ?? t("n/a")}
                         </td>
                         <td className={recoveryTdClassName}>
                           {warning.quantityDelta}
                         </td>
                         <td className={recoveryTdClassName}>
-                          {warning.stockBefore ?? "n/a"} - {warning.stockAfter ?? "n/a"}
+                          {warning.stockBefore ?? t("n/a")} - {warning.stockAfter ?? t("n/a")}
                         </td>
                         <td className={recoveryTdClassName}>
-                          {formatTimestamp(warning.createdAt)}
+                          {formatTimestamp(locale, warning.createdAt, t)}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
                       <td className={recoveryTdClassName} colSpan={6}>
-                        Nessun unresolved_product, stock_conflict o failed recente.
+                        {t("No recent unresolved_product, stock_conflict, or failed warning.")}
                       </td>
                     </tr>
                   )}
@@ -403,14 +429,14 @@ export function PosSyncRecoveryPanel({
 
             <div className="overflow-x-auto rounded-md border border-zinc-200">
               <table className={recoveryTableClassName}>
-                <caption className="sr-only">Audit failure POS recenti</caption>
+                <caption className="sr-only">{t("Recent POS audit failures")}</caption>
                 <thead className="bg-zinc-50">
                   <tr>
-                    <th className={recoveryThClassName}>Evento</th>
-                    <th className={recoveryThClassName}>Risultato</th>
-                    <th className={recoveryThClassName}>Target</th>
-                    <th className={recoveryThClassName}>Metadata redatti</th>
-                    <th className={recoveryThClassName}>Ora</th>
+                    <th className={recoveryThClassName}>{t("Event")}</th>
+                    <th className={recoveryThClassName}>{t("Result")}</th>
+                    <th className={recoveryThClassName}>{t("Target")}</th>
+                    <th className={recoveryThClassName}>{t("Redacted metadata")}</th>
+                    <th className={recoveryThClassName}>{t("Time")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100 bg-white">
@@ -422,20 +448,20 @@ export function PosSyncRecoveryPanel({
                           {event.result} / {event.severity}
                         </td>
                         <td className={recoveryTdClassName}>
-                          {event.targetType ?? "n/a"} {shortId(event.targetId)}
+                          {event.targetType ?? t("n/a")} {shortId(event.targetId)}
                         </td>
                         <td className={recoveryTdClassName}>
                           <code className="text-xs">{event.metadataPreview}</code>
                         </td>
                         <td className={recoveryTdClassName}>
-                          {formatTimestamp(event.createdAt)}
+                          {formatTimestamp(locale, event.createdAt, t)}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
                       <td className={recoveryTdClassName} colSpan={5}>
-                        Nessun audit failure POS sales sync recente.
+                        {t("No recent POS sales sync audit failure.")}
                       </td>
                     </tr>
                   )}
@@ -446,14 +472,14 @@ export function PosSyncRecoveryPanel({
             <div className="overflow-x-auto rounded-md border border-zinc-200">
               <table className={recoveryTableClassName}>
                 <caption className="sr-only">
-                  Recovery actions POS registrate
+                  {t("Recorded POS recovery actions")}
                 </caption>
                 <thead className="bg-zinc-50">
                   <tr>
-                    <th className={recoveryThClassName}>Azione</th>
-                    <th className={recoveryThClassName}>Target</th>
-                    <th className={recoveryThClassName}>Metadata redatti</th>
-                    <th className={recoveryThClassName}>Ora</th>
+                    <th className={recoveryThClassName}>{t("Action")}</th>
+                    <th className={recoveryThClassName}>{t("Target")}</th>
+                    <th className={recoveryThClassName}>{t("Redacted metadata")}</th>
+                    <th className={recoveryThClassName}>{t("Time")}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100 bg-white">
@@ -469,20 +495,20 @@ export function PosSyncRecoveryPanel({
                           </div>
                         </td>
                         <td className={recoveryTdClassName}>
-                          {action.targetType ?? "n/a"} {shortId(action.targetId)}
+                          {action.targetType ?? t("n/a")} {shortId(action.targetId)}
                         </td>
                         <td className={recoveryTdClassName}>
                           <code className="text-xs">{action.metadataPreview}</code>
                         </td>
                         <td className={recoveryTdClassName}>
-                          {formatTimestamp(action.createdAt)}
+                          {formatTimestamp(locale, action.createdAt, t)}
                         </td>
                       </tr>
                     ))
                   ) : (
                     <tr>
                       <td className={recoveryTdClassName} colSpan={4}>
-                        Nessuna recovery action registrata per questa shop.
+                        {t("No recovery action recorded for this shop.")}
                       </td>
                     </tr>
                   )}
@@ -493,7 +519,7 @@ export function PosSyncRecoveryPanel({
 
           <div className="rounded-md border border-zinc-200 bg-zinc-50 px-3 py-2 text-xs leading-5 text-zinc-600">
             <p className="font-semibold text-zinc-700">
-              Informazioni non disponibili server-side
+              {t("Information unavailable server-side")}
             </p>
             <ul className="mt-1 list-disc space-y-1 pl-4">
               {model.unavailableNotes.map((note) => (

@@ -160,10 +160,10 @@ test("TASK-081 UX/Product alignment keeps POS payload official and revenue read-
     "cache: \"no-store\"",
     "window.setInterval",
     "10_000",
-    "Incasso completo",
-    "Incasso documentato",
-    "Da verificare",
-    "Aggiornato:",
+    "Full revenue",
+    "Documented revenue",
+    "To verify",
+    "Updated",
   ]) {
     assertContains(dashboard, required);
   }
@@ -227,11 +227,11 @@ test(
     assertContains(syncBuilder, "PaidClp = payments.Sum");
     assertContains(syncService, "MaxAttemptsBeforeBlocked = 12");
     assertContains(shopSnapshot, "pos.official_shop.");
-    assertContains(shopSettings, "Sola lettura. Dati ufficiali gestiti da Master Console");
-    assertContains(syncStatus, "Vendite in coda");
-    assertContains(syncStatus, "Ultima vendita inviata");
-    assertContains(paymentVm, "La carta non può superare il saldo da pagare");
-    assertContains(paymentVm, "Resto (solo contanti)");
+    assertContains(shopSettings, "settings.shopReadOnlyOfflineCache");
+    assertContains(syncStatus, "T(\"sync.pendingSales\")");
+    assertContains(syncStatus, "T(\"sync.lastSaleSent\")");
+    assertContains(paymentVm, "payment.cardOverBalance");
+    assertContains(paymentVm, "payment.changeCashOnly");
 
     assert.doesNotMatch(syncService, /payloadJson\s*=\s*Serialize\(request\)/);
     assert.doesNotMatch(syncBuilder, /payloadJson\s*=\s*Serialize\(request\)/);

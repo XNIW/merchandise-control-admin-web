@@ -8,6 +8,7 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
+import type { SupportedLocale } from "@/i18n/locales";
 
 type ProductSearchSuggestion = {
   barcode: string;
@@ -25,6 +26,7 @@ type ProductSearchComboboxProps = {
   defaultValue?: string;
   inputClassName: string;
   loadingLabel: string;
+  locale?: SupportedLocale;
   name?: string;
   noResultsLabel: string;
   placeholder: string;
@@ -34,14 +36,28 @@ type ProductSearchComboboxProps = {
   suggestionsLabel: string;
 };
 
-function formatSuggestionNumber(value: number | null) {
-  return value === null ? null : new Intl.NumberFormat("en-US").format(value);
+const intlLocaleBySupportedLocale: Record<SupportedLocale, string> = {
+  en: "en-US",
+  es: "es-CL",
+  it: "it-IT",
+  "zh-CN": "zh-CN",
+};
+
+function intlLocale(locale: SupportedLocale = "en") {
+  return intlLocaleBySupportedLocale[locale] ?? intlLocaleBySupportedLocale.en;
+}
+
+function formatSuggestionNumber(value: number | null, locale: SupportedLocale = "en") {
+  return value === null
+    ? null
+    : new Intl.NumberFormat(intlLocale(locale)).format(value);
 }
 
 export function ProductSearchCombobox({
   defaultValue = "",
   inputClassName,
   loadingLabel,
+  locale = "en",
   name = "q",
   noResultsLabel,
   placeholder,
@@ -209,9 +225,9 @@ export function ProductSearchCombobox({
                 suggestion.productName ??
                 suggestion.secondProductName ??
                 suggestion.barcode;
-              const purchase = formatSuggestionNumber(suggestion.purchasePrice);
-              const retail = formatSuggestionNumber(suggestion.retailPrice);
-              const stock = formatSuggestionNumber(suggestion.stockQuantity);
+              const purchase = formatSuggestionNumber(suggestion.purchasePrice, locale);
+              const retail = formatSuggestionNumber(suggestion.retailPrice, locale);
+              const stock = formatSuggestionNumber(suggestion.stockQuantity, locale);
 
               return (
                 <li

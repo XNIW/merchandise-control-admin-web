@@ -82,7 +82,7 @@ export default async function ShopSyncPage({
 }: {
   searchParams: ShopPageSearchParams;
 }) {
-  const { dictionary } = await getI18n();
+  const { dictionary, locale } = await getI18n();
   const params = await searchParams;
   const requestedShopId = getParam(params, "shop_id");
   const queryFilter = getBoundedFilterParam(params, "query");
@@ -190,7 +190,11 @@ export default async function ShopSyncPage({
               action={getParam(params, "action")}
               result={getParam(params, "result")}
             />
-            <PosSyncRecoveryPanel model={recovery} />
+            <PosSyncRecoveryPanel
+              labels={dictionary.exact}
+              locale={locale}
+              model={recovery}
+            />
           </div>
         }
         section={section}

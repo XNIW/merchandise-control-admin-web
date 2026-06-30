@@ -3979,6 +3979,16 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
   Win7 physical/VM runtime resta `EXTERNAL_TEST_PENDING`: UTM/bridge gia
   tentati nei gate precedenti, nessun PASS fisico dichiarato. Stato finale
   `DONE_RECONCILED_WITH_EXTERNAL_WIN7_PHYSICAL_NOTE`.
+- Admin Web + Win7POS i18n final closure 2026-06-30: chiusura release
+  coordinator autorizzata dal prompt utente come `DONE_CODE_READY`, non
+  `VERIFIED_RUNTIME`. i18n completato per `en`, `es`, `it`, `zh-CN`; Admin
+  runtime smoke locale, scanner statici, test foundation, lint, typecheck,
+  security scan, Next build, Win7POS Release x86 build, dialog standards e
+  package runtime/manuale Win7POS risultano completati. Windows 7 physical/VM
+  runtime validation unavailable; code, build, static scanner, Admin runtime
+  smoke, POS x86 build and validation package are complete. Runtime WPF
+  validation remains documented as external/manual evidence only if environment
+  becomes available. Nessun claim `VERIFIED_DONE_READY`.
 
 ## Regole di avanzamento
 

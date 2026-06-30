@@ -111,8 +111,8 @@ test("TASK-087 Admin Web exposes read-only POS Sync Recovery and explicit POS po
 
   assertContains(syncPage, "PosSyncRecoveryPanel");
   assertContains(recoveryPanel, "POS Sync Recovery");
-  assertContains(recoveryPanel, "Vedi dettagli");
-  assertContains(recoveryPanel, "Informazioni non disponibili server-side");
+  assertContains(recoveryPanel, "View details");
+  assertContains(recoveryPanel, "Information unavailable server-side");
   assert.doesNotMatch(recoveryPanel, /Forza sync|Risolvi stock|Cancella errore/);
   assert.doesNotMatch(recoveryModel, /\.(insert|update|delete|upsert|rpc)\(/);
 });
@@ -156,10 +156,10 @@ test(
     assertContains(policySnapshot, "transfer_payment_not_supported_by_win7pos");
     assertContains(bootstrap, "PosOnlinePolicySnapshot.SaveAsync(_factory, response.Policy)");
     assertContains(catalog, "PosOnlinePolicySnapshot.SaveAsync(_factory, response?.Policy)");
-    assertContains(syncStatus, "Richiede attenzione");
-    assertContains(syncStatus, "Vendite bloccate");
+    assertContains(syncStatus, "T(\"sync.requiresAttention\")");
+    assertContains(syncStatus, "T(\"sync.blockedSales\")");
     assertContains(syncStatus, "pos.restore.needs_sync_review");
-    assertContains(syncStatus, "Policy POS:");
+    assertContains(syncStatus, "T(\"sync.policyPos\")");
 
     for (const required of [
       "public async Task<DbRestoreResult> RestoreDbAsync",
@@ -171,10 +171,10 @@ test(
       assertContains(workflow, required);
     }
 
-    assertContains(maintenance, "Backup prima del ripristino");
-    assertContains(maintenance, "restore consentito solo dopo verifica");
+    assertContains(maintenance, "PosLocalization.F(\"dbMaintenance.preRestoreBackup\"");
+    assertContains(maintenance, "PosLocalization.T(\"dbMaintenance.restoreSyncReview\")");
     assertContains(workflow, "HasUnresolvedSalesSyncOutboxAsync");
-    assertContains(workflow, "Ripristino sospeso");
+    assertContains(workflow, "PosLocalization.T(\"dbMaintenance.restoreBlockedUnresolvedSales\")");
     assertContains(logger, "MaxLogBytes");
     assertContains(logger, "RotateIfNeeded");
     assertContains(logger, "RetainedLogFiles = 5");

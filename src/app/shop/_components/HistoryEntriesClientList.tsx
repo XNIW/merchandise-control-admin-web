@@ -3,6 +3,7 @@
 import { type ReactNode, useMemo } from "react";
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import type { ShopSection } from "@/components/shop/shopSections";
+import type { SupportedLocale } from "@/i18n/locales";
 
 type HistoryStatusFilter =
   | "active_issues"
@@ -27,6 +28,7 @@ type HistoryEntriesClientListProps = {
   detailLabel: string;
   labels?: Record<string, string>;
   liveData: NonNullable<ShopSection["liveData"]>;
+  locale: SupportedLocale;
   pagination?: HistoryPaginationState;
   rawRows: AdminDataTableRow[];
   requestedShopId?: string | null;
@@ -155,10 +157,6 @@ function rowString(row: AdminDataTableRow, key: string) {
 
 function translateLabel(labels: Record<string, string> | undefined, value: string) {
   return labels?.[value] ?? value;
-}
-
-function formatNumber(value: number) {
-  return new Intl.NumberFormat("en-US").format(value);
 }
 
 function buildHistoryHref(input: {
@@ -299,14 +297,33 @@ function monthKey(date: Date | null) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
 }
 
-function monthTitle(key: string, labels?: Record<string, string>) {
+const intlLocaleBySupportedLocale: Record<SupportedLocale, string> = {
+  en: "en-US",
+  es: "es-CL",
+  it: "it-IT",
+  "zh-CN": "zh-CN",
+};
+
+function intlLocale(locale: SupportedLocale) {
+  return intlLocaleBySupportedLocale[locale] ?? intlLocaleBySupportedLocale.en;
+}
+
+function formatNumber(value: number, locale: SupportedLocale = "en") {
+  return new Intl.NumberFormat(intlLocale(locale)).format(value);
+}
+
+function monthTitle(
+  key: string,
+  labels?: Record<string, string>,
+  locale: SupportedLocale = "en",
+) {
   if (key === "unknown") {
     return translateLabel(labels, "Unknown month");
   }
 
   const [year, month] = key.split("-").map(Number);
 
-  return new Intl.DateTimeFormat("en-US", {
+  return new Intl.DateTimeFormat(intlLocale(locale), {
     month: "long",
     year: "numeric",
   }).format(new Date(year, month - 1, 1));
@@ -438,12 +455,14 @@ function StatusBadge({
 function HistoryPagination({
   filters,
   labels,
+  locale = "en",
   pagination,
   placement,
   requestedShopId,
 }: {
   filters: NonNullable<HistoryEntriesClientListProps["selectedFilters"]>;
   labels?: Record<string, string>;
+  locale?: SupportedLocale;
   pagination?: HistoryPaginationState;
   placement: "bottom" | "top";
   requestedShopId?: string | null;
@@ -473,14 +492,16 @@ function HistoryPagination({
   ].filter((field): field is [string, string] => Boolean(field));
   const range =
     pagination.rangeStart > 0 && pagination.rangeEnd > 0
-      ? `${formatNumber(pagination.rangeStart)}-${formatNumber(
+      ? `${formatNumber(pagination.rangeStart, locale)}-${formatNumber(
           pagination.rangeEnd,
+          locale,
         )}`
       : "0";
   const totalLabel = hasExactTotal
-    ? formatNumber(pagination.totalCount)
+    ? formatNumber(pagination.totalCount, locale)
     : `${translateLabel(labels, "at least")} ${formatNumber(
         pagination.totalCount,
+        locale,
       )}`;
 
   return (
@@ -578,6 +599,7 @@ export function HistoryEntriesClientList({
   detailLabel,
   labels,
   liveData,
+  locale,
   pagination,
   rawRows,
   requestedShopId,
@@ -790,6 +812,7 @@ export function HistoryEntriesClientList({
       <HistoryPagination
         filters={filters}
         labels={labels}
+        locale={locale}
         pagination={pagination}
         placement="top"
         requestedShopId={requestedShopId}
@@ -824,7 +847,7 @@ export function HistoryEntriesClientList({
                 <div className="flex min-w-0 flex-wrap items-center justify-between gap-2 border-b border-zinc-200 pb-2">
                   <h3 className="flex items-center gap-2 text-sm font-semibold text-zinc-950">
                     <HistoryListIcon name="calendar" />
-                    {monthTitle(key, labels)}
+                    {monthTitle(key, labels, locale)}
                     <span className="rounded-md bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600">
                       {groupEntries.length}
                     </span>
@@ -1006,6 +1029,7 @@ export function HistoryEntriesClientList({
       <HistoryPagination
         filters={filters}
         labels={labels}
+        locale={locale}
         pagination={pagination}
         placement="bottom"
         requestedShopId={requestedShopId}

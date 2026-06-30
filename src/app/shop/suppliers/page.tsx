@@ -212,7 +212,7 @@ export default async function ShopSuppliersPage({
 }: {
   searchParams: ShopPageSearchParams;
 }) {
-  const { dictionary } = await getI18n();
+  const { dictionary, locale } = await getI18n();
   const params = await searchParams;
   const requestedShopId = getParam(params, "shop_id");
   const selectedQuery = getFirstParam(params, ["q", "query"]) ?? "";
@@ -262,6 +262,7 @@ export default async function ShopSuppliersPage({
   };
   const paginationLabels = {
     applyPage: translateText(dictionary, "Go"),
+    atLeast: translateText(dictionary, "at least"),
     goToPage: translateText(dictionary, "Go to page"),
     next: translateText(dictionary, "Next"),
     of: translateText(dictionary, "of"),
@@ -345,6 +346,7 @@ export default async function ShopSuppliersPage({
               basePath="/shop/suppliers"
               filters={catalogReadModel.filters}
               labels={paginationLabels}
+              locale={locale}
               pagination={catalogReadModel.pagination}
               placement="top"
               requestedShopId={requestedShopId}
@@ -379,6 +381,7 @@ export default async function ShopSuppliersPage({
         basePath="/shop/suppliers"
         filters={catalogReadModel.filters}
         labels={paginationLabels}
+        locale={locale}
         pagination={catalogReadModel.pagination}
         placement="bottom"
         requestedShopId={requestedShopId}

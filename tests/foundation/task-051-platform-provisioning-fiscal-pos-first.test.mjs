@@ -458,6 +458,7 @@ test("TASK-051 server boundaries generate credentials server-side and keep raw v
   const shopCodeLoginForm = readProjectFile(
     "src/components/auth/ShopCodeLoginForm.tsx",
   );
+  const dictionaries = readProjectFile("src/i18n/dictionaries.ts");
   const managerPin = readProjectFile(
     "src/server/platform-admin/temporary-manager-pin.ts",
   );
@@ -571,7 +572,7 @@ test("TASK-051 server boundaries generate credentials server-side and keep raw v
   assertContains(staffLoginActions, "server_admin_not_configured");
   assertContains(shopCodeLoginForm, "server_admin_not_configured");
   assertContains(
-    `${staffLoginActions}\n${shopCodeLoginForm}`,
+    dictionaries,
     "Sign-in cannot be verified because the server admin runtime is not configured.",
   );
   assertContains(validation, "normalizeRut");

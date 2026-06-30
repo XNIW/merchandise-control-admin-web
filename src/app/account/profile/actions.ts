@@ -4,14 +4,14 @@ import { revalidatePath } from "next/cache";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type AccountProfileActionState = {
-  code: "not_configured" | "success" | "unauthorized" | "update_failed";
+  code: "idle" | "not_configured" | "success" | "unauthorized" | "update_failed";
   message: string;
   ok: boolean;
 };
 
 export const initialAccountProfileActionState: AccountProfileActionState = {
-  code: "success",
-  message: "Action ready.",
+  code: "idle",
+  message: "",
   ok: true,
 };
 
@@ -25,7 +25,7 @@ export async function sendPasswordResetEmailAction(
   if (!supabase) {
     return {
       code: "not_configured",
-      message: "Supabase Auth is not configured in this runtime.",
+      message: "",
       ok: false,
     };
   }
@@ -36,7 +36,7 @@ export async function sendPasswordResetEmailAction(
   if (userError || !email) {
     return {
       code: "unauthorized",
-      message: "Sign in with a personal admin account before requesting a reset.",
+      message: "",
       ok: false,
     };
   }
@@ -48,14 +48,14 @@ export async function sendPasswordResetEmailAction(
   if (error) {
     return {
       code: "update_failed",
-      message: "Password reset email could not be sent.",
+      message: "",
       ok: false,
     };
   }
 
   return {
     code: "success",
-    message: "Password reset email requested for the current account.",
+    message: "",
     ok: true,
   };
 }

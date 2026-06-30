@@ -9,6 +9,7 @@ import { getShopHistoryListReadModel } from "@/server/shop-admin/history-read-mo
 import { buildHistorySection } from "@/server/shop-admin/shop-section-data";
 import { getI18n } from "@/i18n/get-locale";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
+import type { Dictionary } from "@/i18n/dictionaries";
 import { translateText } from "@/i18n/translate-sections";
 
 export function generateMetadata() {
@@ -54,14 +55,18 @@ function getFirstParam(
 }
 
 function HistoryEntryCreateForm({
+  dictionary,
   requestedShopId,
 }: {
+  dictionary: Dictionary;
   requestedShopId?: string;
 }) {
+  const t = (value: string) => translateText(dictionary, value);
+
   return (
     <form
       action={createHistoryEntryAction}
-      aria-label="Create mobile history entry"
+      aria-label={t("Create mobile history entry")}
       className="grid gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm"
     >
       {requestedShopId ? (
@@ -69,7 +74,7 @@ function HistoryEntryCreateForm({
       ) : null}
       <div className="grid gap-3 md:grid-cols-3">
         <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-800">
-          Entry name
+          {t("Entry name")}
           <input
             className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
             name="displayName"
@@ -77,14 +82,14 @@ function HistoryEntryCreateForm({
           />
         </label>
         <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-800">
-          Supplier
+          {t("Supplier")}
           <input
             className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
             name="supplier"
           />
         </label>
         <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-800">
-          Category
+          {t("Category")}
           <input
             className="h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
             name="category"
@@ -92,7 +97,7 @@ function HistoryEntryCreateForm({
         </label>
       </div>
       <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-800">
-        Rows
+        {t("Rows")}
         <textarea
           className="min-h-32 rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-950 shadow-sm focus:border-emerald-600 focus:outline-none"
           name="rowsText"
@@ -106,10 +111,10 @@ function HistoryEntryCreateForm({
             name="completeRows"
             type="checkbox"
           />
-          Complete rows
+          {t("Complete rows")}
         </label>
         <button className="inline-flex h-10 items-center justify-center rounded-md bg-zinc-950 px-4 text-sm font-medium text-white">
-          Create History Entry
+          {t("Create History Entry")}
         </button>
       </div>
     </form>
@@ -128,7 +133,7 @@ export default async function ShopHistoryPage({
   const selectedStatus = getParam(params, "status") ?? "active_issues";
   const selectedPage = getParam(params, "page") ?? "1";
   const selectedPageSize = getParam(params, "pageSize") ?? "10";
-  const [{ dictionary }, readModel, writeContext] = await Promise.all([
+  const [{ dictionary, locale }, readModel, writeContext] = await Promise.all([
     getI18n(),
     getShopHistoryListReadModel({
       filters: {
@@ -157,16 +162,21 @@ export default async function ShopHistoryPage({
             />
             <HistoryDetailModalController
               labels={dictionary.exact}
+              locale={locale}
               requestedShopId={requestedShopId}
             />
             <ProductDetailModalController
               canManageProducts={false}
               labels={dictionary.exact}
+              locale={locale}
               requestedShopId={requestedShopId}
               selectedShopId={readModel.selectedShop?.shopId ?? requestedShopId}
             />
             {canWriteHistory ? (
-              <HistoryEntryCreateForm requestedShopId={requestedShopId} />
+              <HistoryEntryCreateForm
+                dictionary={dictionary}
+                requestedShopId={requestedShopId}
+              />
             ) : null}
           </>
         }
@@ -175,6 +185,7 @@ export default async function ShopHistoryPage({
             detailLabel={translateText(dictionary, "Detail")}
             labels={dictionary.exact}
             liveData={liveData}
+            locale={locale}
             pagination={readModel.pagination}
             rawRows={section.liveData?.rows ?? []}
             requestedShopId={requestedShopId}

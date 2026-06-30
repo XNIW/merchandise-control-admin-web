@@ -32,6 +32,7 @@ type ShopShellProps = {
   children: ReactNode;
   labels: Dictionary["shopShell"];
   languageSwitcherLabel: string;
+  loadingLabel: string;
   locale: SupportedLocale;
   logoutLabel: string;
   navigationSections: readonly ShopNavigationSection[];
@@ -260,14 +261,16 @@ function SkeletonBlock({ className }: { className: string }) {
 function ShopPendingNavigationSkeleton({
   itemKey,
   label,
+  loadingLabel,
 }: {
   itemKey: ShopSectionKey;
   label: string;
+  loadingLabel: string;
 }) {
   return (
     <div
       aria-busy="true"
-      aria-label={`${label} loading`}
+      aria-label={`${label} ${loadingLabel}`}
       className="grid gap-5"
       data-shop-route-loading
       data-shop-route-loading-section={itemKey}
@@ -277,14 +280,16 @@ function ShopPendingNavigationSkeleton({
     >
       <section className={`${SHOP_ADMIN_CONTENT_FRAME_CLASS} grid gap-2`}>
         <p className="text-xs font-semibold uppercase tracking-normal text-emerald-700">
-          Loading
+          {loadingLabel}
         </p>
         <p className="flex min-w-0 items-center gap-3 text-2xl font-semibold leading-8 text-zinc-950">
           <span
             aria-hidden="true"
             className="size-2.5 shrink-0 rounded-full bg-emerald-600"
           />
-          <span className="min-w-0 truncate">Loading {label}</span>
+          <span className="min-w-0 truncate">
+            {loadingLabel} {label}
+          </span>
         </p>
         <SkeletonBlock className="h-4 w-full max-w-2xl" />
       </section>
@@ -423,6 +428,7 @@ export function ShopShell({
   children,
   labels,
   languageSwitcherLabel,
+  loadingLabel,
   locale,
   logoutLabel,
   navigationSections,
@@ -728,6 +734,7 @@ export function ShopShell({
               <ShopPendingNavigationSkeleton
                 itemKey={visiblePendingNavigation.key}
                 label={visiblePendingNavigation.label}
+                loadingLabel={loadingLabel}
               />
             ) : (
               children
