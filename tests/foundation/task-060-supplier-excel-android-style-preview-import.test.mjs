@@ -51,6 +51,19 @@ function loadTypeScriptModuleWithPrivateExports(relativePath, exportNames = []) 
       return {};
     }
 
+    if (id === "./import-export-readiness") {
+      return {
+        EXCEL_WORKBOOK_SHEETS: ["Products", "Suppliers", "Categories"],
+        FORMULA_INJECTION_PATTERN: /^[=+\-@\t\r]/,
+        MAX_IMPORT_BYTES: 5 * 1024 * 1024,
+        MAX_IMPORT_ROWS: 5000,
+        sanitizeSpreadsheetCell(value) {
+          const text = String(value ?? "");
+          return /^[=+\-@\t\r]/.test(text) ? `'${text}` : text;
+        },
+      };
+    }
+
     if (id.startsWith("./") || id.startsWith("@/")) {
       return new Proxy(
         {},
@@ -299,15 +312,21 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
     "Step 3 must not repeat workbook file or default supplier/category settings",
   );
   assertContains(importPanel, "!edit.category?.trim()");
+  assertContains(importPanel, "edit.skip !== true");
+  assertContains(importPanel, "!edit.barcode?.trim()");
   assertContains(importPanel, "!edit.purchasePrice?.trim()");
   assertContains(importPanel, "!edit.retailPrice?.trim()");
   assertContains(importPanel, "!edit.quantity?.trim()");
   assertContains(importPanel, "!edit.supplier?.trim()");
+  assertContains(importPanel, 'value={edit.barcode ?? ""}');
   assertContains(importPanel, 'value={edit.purchasePrice ?? ""}');
   assertContains(importPanel, 'value={edit.quantity ?? ""}');
   assertContains(importPanel, 'value={edit.retailPrice ?? ""}');
   assertContains(importPanel, 'value={edit.supplier ?? ""}');
   assertContains(importPanel, 'value={edit.category ?? ""}');
+  assertContains(importPanel, "Skip supplier import row");
+  assertContains(importPanel, "Skip row");
+  assertContains(importPanel, "unresolvedSupplierBlockedRows(preview, edits, mode)");
   assertContains(importPanel, "Calculate retail price from purchase price");
   assertContains(importPanel, "setBulkMarkupPercent");
   assertContains(importPanel, "setBulkRoundTo");
@@ -354,6 +373,11 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   );
   assertContains(workbook, "workbookKindFromBytes");
   assertContains(workbook, 'workbookKindFromBytes(input.bytes) === "xls"');
+  assertContains(workbook, "skip?: boolean");
+  assertContains(workbook, "parseAdjustmentBarcode");
+  assertContains(workbook, "adjustment.skip === true");
+  assertContains(workbook, "correctedBarcodeRows");
+  assertContains(workbook, 'issue.field === "barcode"');
 });
 
 test("TASK-060 import auth separates expired session from permission denied UX", () => {
@@ -939,13 +963,17 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     "for (const row of productsToApply)",
     "supplierImportHistoryRows(productsToApply, readModel)",
     "applySupplierWorkbookRows",
-    "const products = parsed.products.map((product)",
-    "const existing = findProduct(readModel.products, product)",
+    "const products = parsed.products.flatMap((product)",
+    "if (adjustment?.skip === true)",
+    "const adjustedBarcode = maybeText(adjustment?.barcode)",
+    "const productForLookup = adjustedBarcode",
+    "const existing = findProduct(readModel.products, productForLookup)",
     "manualSupplierName",
     "manualCategoryName",
     "defaultSupplierName",
     "defaultCategoryName",
-    'barcode: product.barcode || existing?.barcode || ""',
+    'barcode: adjustedBarcode ?? (product.barcode || existing?.barcode || "")',
+    "rowErrors = parsed.rowErrors.filter",
     "productId: existing?.productId ?? product.productId",
     'productName: product.productName || existing?.productName || ""',
     "product.retailPrice ??",
@@ -981,7 +1009,7 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     workbook.match(
       /function applySupplierWorkbookRows[\s\S]*?function buildProductIdMaps/,
     )?.[0] ?? "",
-    /Supplier import can update quantity or retail price only|flatMap/,
+    /Supplier import can update quantity or retail price only/,
     "supplier path must not fail closed on new product rows",
   );
   assertContains(contract, '"missing_required_retail_price"');
@@ -1039,6 +1067,130 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     /NUMERIC_COMPATIBLE_MAPPING_FIELDS[\s\S]*"discount"[\s\S]*"discountedPrice"[\s\S]*"oldPurchasePrice"[\s\S]*"oldRetailPrice"[\s\S]*"realQuantity"[\s\S]*"totalPrice"[\s\S]*"purchasePrice"[\s\S]*"quantity"/,
     "numeric supplier fields must be guarded by sample compatibility checks",
   );
+});
+
+test("TASK-060 supplier row adjustments can correct or skip missing barcode rows", () => {
+  const {
+    applySupplierWorkbookRows,
+    catalogImportRowFingerprint,
+    validateRowAdjustments,
+  } = loadTypeScriptModuleWithPrivateExports(
+    "src/server/shop-admin/import-export-workbook.ts",
+    [
+      "applySupplierWorkbookRows",
+      "catalogImportRowFingerprint",
+      "validateRowAdjustments",
+    ],
+  );
+  const parsed = {
+    categories: [],
+    confidence: 1,
+    detectedFormat: {
+      confidence: "high",
+      ignoredSheets: [],
+      isPartial: false,
+      kind: "generic_product_import",
+      label: "Supplier import",
+      missingSheets: [],
+      presentSheets: [],
+    },
+    detectedHeaderRow: 1,
+    detectedMapping: {},
+    digest: "digest",
+    droppedRows: 0,
+    fileDigest: "file",
+    importMode: "supplier",
+    mappingOverride: {},
+    originalColumns: [],
+    priceHistory: [],
+    products: [
+      {
+        barcode: "",
+        itemNumber: "CORRECT-ME",
+        productName: "Correct barcode row",
+        purchasePrice: 100,
+        quantity: 1,
+        retailPrice: 150,
+        rowNumber: 2,
+      },
+      {
+        barcode: "",
+        itemNumber: "SKIP-ME",
+        productName: "Skip barcode row",
+        purchasePrice: 100,
+        quantity: 1,
+        retailPrice: 150,
+        rowNumber: 3,
+      },
+    ],
+    previewRows: [],
+    previewRowsTruncated: false,
+    rawPreviewColumns: [],
+    rawPreviewRows: [],
+    rawWorkbookContextRows: [],
+    recognizedColumnSources: {},
+    rowErrors: [
+      {
+        field: "barcode",
+        message: "Barcode is required.",
+        row: 2,
+        sheet: "Products",
+      },
+      {
+        field: "barcode",
+        message: "Barcode is required.",
+        row: 3,
+        sheet: "Products",
+      },
+    ],
+    rowWarnings: [],
+    selectedProductSheet: "Products",
+    sheetSummaries: [],
+    suppliers: [],
+    unmappedColumns: [],
+    validRows: 2,
+    workbookMetadata: {
+      fileName: "fixture.xlsx",
+      headerRow: 1,
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      parsedRows: 2,
+      previewRowsLimit: 50,
+      previewRowsTruncated: false,
+      selectedSheet: "Products",
+      sheetNames: ["Products"],
+      sizeBytes: 1,
+      totalRows: 3,
+    },
+  };
+  const adjustments = validateRowAdjustments(
+    parsed,
+    JSON.stringify([
+      {
+        barcode: "1234567890123",
+        rowFingerprint: catalogImportRowFingerprint(parsed.products[0]),
+        rowNumber: 2,
+      },
+      {
+        rowFingerprint: catalogImportRowFingerprint(parsed.products[1]),
+        rowNumber: 3,
+        skip: true,
+      },
+    ]),
+  );
+
+  assert.equal(adjustments.valid, true);
+  assert.equal(adjustments.adjustments.length, 2);
+
+  const adjusted = applySupplierWorkbookRows(
+    parsed,
+    adjustments.adjustments,
+    { categories: [], products: [], suppliers: [] },
+  );
+
+  assert.equal(adjusted.products.length, 1);
+  assert.equal(adjusted.products[0].barcode, "1234567890123");
+  assert.equal(adjusted.products[0].itemNumber, "CORRECT-ME");
+  assert.equal(adjusted.rowErrors.length, 0);
 });
 
 test("TASK-060 workbook parser accepts XLSX, legacy XLS and HTML-Excel safely", () => {

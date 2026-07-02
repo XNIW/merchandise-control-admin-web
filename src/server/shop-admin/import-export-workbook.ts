@@ -317,12 +317,14 @@ export type CatalogWorkbookSheetSummary = {
 };
 
 export type CatalogWorkbookRowAdjustment = {
+  barcode?: string;
   category?: string;
   purchasePrice?: number | null;
   quantity?: number | null;
   retailPrice?: number | null;
   rowFingerprint: string;
   rowNumber: number;
+  skip?: boolean;
   supplier?: string;
 };
 
@@ -3050,7 +3052,7 @@ function parseAdjustmentNumber(
 
 function parseAdjustmentText(
   value: unknown,
-  field: "category" | "supplier",
+  field: "barcode" | "category" | "supplier",
   rowNumber: number,
 ) {
   if (value === undefined || value === null || value === "") {
@@ -3084,6 +3086,28 @@ function parseAdjustmentText(
   }
 
   return { ok: true as const, value: normalized || undefined };
+}
+
+function parseAdjustmentBarcode(value: unknown, rowNumber: number) {
+  const parsed = parseAdjustmentText(value, "barcode", rowNumber);
+
+  if (!parsed.ok || parsed.value === undefined) {
+    return parsed;
+  }
+
+  if (!isValidProductBarcode(parsed.value)) {
+    return {
+      error: {
+        field: "barcode",
+        message: "Adjustment barcode must contain 8, 12, or 13 digits.",
+        row: rowNumber,
+        sheet: "Products",
+      } satisfies WorkbookRowError,
+      ok: false as const,
+    };
+  }
+
+  return parsed;
 }
 
 function normalizeDefaultAssignment(value: string | undefined) {
@@ -3258,6 +3282,18 @@ function validateRowAdjustments(
       continue;
     }
 
+    const skip = record.skip === true;
+
+    if (skip) {
+      adjustments.push({
+        rowFingerprint,
+        rowNumber,
+        skip: true,
+      });
+      continue;
+    }
+
+    const barcode = parseAdjustmentBarcode(record.barcode, rowNumber);
     const retailPrice = parseAdjustmentNumber(
       record.retailPrice,
       "retailPrice",
@@ -3284,6 +3320,10 @@ function validateRowAdjustments(
       rowNumber,
     );
 
+    if (!barcode.ok) {
+      rowErrors.push(barcode.error);
+    }
+
     if (!retailPrice.ok) {
       rowErrors.push(retailPrice.error);
     }
@@ -3305,18 +3345,21 @@ function validateRowAdjustments(
     }
 
     if (
+      barcode.ok &&
       retailPrice.ok &&
       purchasePrice.ok &&
       quantity.ok &&
       supplier.ok &&
       category.ok &&
-      (retailPrice.value !== undefined ||
+      (barcode.value !== undefined ||
+        retailPrice.value !== undefined ||
         purchasePrice.value !== undefined ||
         quantity.value !== undefined ||
         supplier.value !== undefined ||
         category.value !== undefined)
     ) {
       adjustments.push({
+        barcode: barcode.value,
         category: category.value,
         purchasePrice: purchasePrice.value,
         quantity: quantity.value,
@@ -3399,15 +3442,33 @@ function applySupplierWorkbookRows(
   const adjustmentsByRow = new Map(
     adjustments.map((adjustment) => [adjustment.rowNumber, adjustment]),
   );
+  const skippedRows = new Set(
+    adjustments
+      .filter((adjustment) => adjustment.skip === true)
+      .map((adjustment) => adjustment.rowNumber),
+  );
+  const correctedBarcodeRows = new Set(
+    adjustments
+      .filter((adjustment) => adjustment.barcode)
+      .map((adjustment) => adjustment.rowNumber),
+  );
   const defaultSupplierName = normalizeDefaultAssignment(
     defaults.defaultSupplierName,
   );
   const defaultCategoryName = normalizeDefaultAssignment(
     defaults.defaultCategoryName,
   );
-  const products = parsed.products.map((product) => {
+  const products = parsed.products.flatMap((product) => {
     const adjustment = adjustmentsByRow.get(product.rowNumber);
-    const existing = findProduct(readModel.products, product);
+    if (adjustment?.skip === true) {
+      return [];
+    }
+
+    const adjustedBarcode = maybeText(adjustment?.barcode);
+    const productForLookup = adjustedBarcode
+      ? { ...product, barcode: adjustedBarcode }
+      : product;
+    const existing = findProduct(readModel.products, productForLookup);
     const manualSupplierName =
       maybeText(adjustment?.supplier) ??
       defaultSupplierName;
@@ -3439,9 +3500,9 @@ function applySupplierWorkbookRows(
       readModel.categories,
     );
 
-    return {
+    return [{
       ...product,
-      barcode: product.barcode || existing?.barcode || "",
+      barcode: adjustedBarcode ?? (product.barcode || existing?.barcode || ""),
       categoryId,
       categoryName: undefined,
       itemNumber:
@@ -3478,14 +3539,28 @@ function applySupplierWorkbookRows(
           : adjustment.quantity,
       supplierId,
       supplierName: undefined,
-    };
+    }];
   });
+  const rowErrors = parsed.rowErrors.filter((issue) => {
+    if (skippedRows.has(issue.row)) {
+      return false;
+    }
+    if (issue.field === "barcode" && correctedBarcodeRows.has(issue.row)) {
+      return false;
+    }
+    return true;
+  });
+  const rowWarnings = parsed.rowWarnings.filter(
+    (issue) => !skippedRows.has(issue.row),
+  );
 
   return {
     ...parsed,
     categories: [],
     priceHistory: [],
     products,
+    rowErrors,
+    rowWarnings,
     suppliers: [],
     previewRows: parsedPreviewRows(products),
   };

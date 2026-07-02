@@ -251,10 +251,12 @@ type ApplyResponse = {
 };
 
 type EditedRow = {
+  barcode?: string;
   category?: string;
   purchasePrice?: string;
   quantity?: string;
   retailPrice?: string;
+  skip?: boolean;
   supplier?: string;
 };
 
@@ -2078,6 +2080,46 @@ function PreviewTable({
                 </td>
                 <td className="px-3 py-3">
                   <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    <label className="flex items-center gap-2 text-xs font-medium text-zinc-700">
+                      <input
+                        aria-label={`${t("Skip supplier import row")} ${row.rowNumber}`}
+                        checked={edit.skip === true}
+                        className="h-4 w-4 rounded border-zinc-300"
+                        onChange={(event) => {
+                          const checked = event.currentTarget.checked;
+
+                          setEdits((current) => ({
+                            ...current,
+                            [row.rowNumber]: {
+                              ...current[row.rowNumber],
+                              skip: checked,
+                            },
+                          }));
+                        }}
+                        type="checkbox"
+                      />
+                      {t("Skip row")}
+                    </label>
+                    <label className="grid gap-1 text-xs font-medium text-zinc-700">
+                      {t("Barcode")}
+                      <input
+                        aria-label={`${t("Barcode to import for row")} ${row.rowNumber}`}
+                        className={importExportInputClassName}
+                        inputMode="numeric"
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
+
+                          setEdits((current) => ({
+                            ...current,
+                            [row.rowNumber]: {
+                              ...current[row.rowNumber],
+                              barcode: value,
+                            },
+                          }));
+                        }}
+                        value={edit.barcode ?? ""}
+                      />
+                    </label>
                     <label className="grid gap-1 text-xs font-medium text-zinc-700">
                       {t("Purchase price")}
                       <input
@@ -2202,6 +2244,8 @@ function rowAdjustments(
 
       if (
         mode === "supplier" &&
+        edit.skip !== true &&
+        !edit.barcode?.trim() &&
         !edit.category?.trim() &&
         !edit.purchasePrice?.trim() &&
         !edit.retailPrice?.trim() &&
@@ -2212,6 +2256,7 @@ function rowAdjustments(
       }
 
       return {
+        barcode: edit.barcode === undefined ? undefined : edit.barcode,
         category:
           edit.category === undefined ? undefined : edit.category,
         purchasePrice:
@@ -2222,11 +2267,49 @@ function rowAdjustments(
           edit.retailPrice === undefined ? undefined : edit.retailPrice,
         rowFingerprint: row.rowFingerprint,
         rowNumber: row.rowNumber,
+        skip: edit.skip === true ? true : undefined,
         supplier:
           edit.supplier === undefined ? undefined : edit.supplier,
       };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);
+}
+
+function unresolvedSupplierBlockedRows(
+  preview: PreviewResponse | null,
+  edits: Record<number, EditedRow>,
+  mode: ImportMode,
+) {
+  const rawBlockedRows = preview?.summary?.blockedRows ?? preview?.summary?.errors ?? 0;
+
+  if (!preview || mode !== "supplier") {
+    return rawBlockedRows;
+  }
+
+  const unresolvedRows = new Set<number>();
+
+  for (const issue of preview.rowErrors ?? []) {
+    const rowEdit = edits[issue.row] ?? {};
+
+    if (rowEdit.skip === true) {
+      continue;
+    }
+
+    if (issue.field === "barcode" && rowEdit.barcode?.trim()) {
+      continue;
+    }
+
+    if (
+      issue.code === "missing_required_retail_price" &&
+      rowEdit.retailPrice?.trim()
+    ) {
+      continue;
+    }
+
+    unresolvedRows.add(issue.row || -1);
+  }
+
+  return unresolvedRows.size;
 }
 
 function ImportWizard({
@@ -2394,8 +2477,7 @@ function ImportWizard({
     previewRows,
     t,
   ]);
-  const blockedRows =
-    preview?.summary?.blockedRows ?? preview?.summary?.errors ?? 0;
+  const blockedRows = unresolvedSupplierBlockedRows(preview, edits, mode);
   const showProductMappingEditor = preview
     ? !isDatabase ||
       (hasPresentProductSheet(preview) && !androidDatabaseExportDetected)
