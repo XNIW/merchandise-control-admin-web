@@ -3,6 +3,8 @@ export type CatalogImportRowIssueCode =
   | "duplicate_product_barcode"
   | "duplicate_product_sku"
   | "duplicate_supplier_name"
+  | "missing_product_identity"
+  | "missing_required_retail_price"
   | "product_barcode_conflict"
   | "unknown_category"
   | "unknown_supplier";
@@ -17,22 +19,39 @@ export type CatalogImportRowIssue = {
 
 export type CatalogImportProductRow = {
   barcode: string;
-  categoryId?: string;
-  categoryName?: string;
+  category?: string;
+  complete?: boolean | string;
   discount?: number;
   discountedPrice?: number;
   itemNumber?: string;
-  lineTotal?: number;
-  productId?: string;
   productName: string;
+  oldPurchasePrice?: number;
+  oldRetailPrice?: number;
   purchasePrice?: number;
+  quantity?: number;
+  realQuantity?: number;
   retailPrice?: number;
   rowNumber: number;
   secondProductName?: string;
+  supplier?: string;
+  totalPrice?: number;
+};
+
+type CatalogImportBoundaryLegacyProductFields = {
+  categoryName?: string;
   stockQuantity?: number;
-  supplierId?: string;
   supplierName?: string;
 };
+
+type CatalogImportBoundaryIdentityProductFields = {
+  categoryId?: string;
+  productId?: string;
+  supplierId?: string;
+};
+
+type CatalogImportBoundaryProductFields =
+  & CatalogImportBoundaryIdentityProductFields
+  & CatalogImportBoundaryLegacyProductFields;
 
 export type CatalogImportSupplierRow = {
   name: string;
@@ -54,37 +73,41 @@ export type CatalogImportParsedRows = {
 
 export type CatalogImportField =
   | "barcode"
-  | "categoryId"
-  | "categoryName"
+  | "category"
+  | "complete"
   | "discount"
   | "discountedPrice"
   | "itemNumber"
-  | "lineTotal"
-  | "productId"
+  | "oldPurchasePrice"
+  | "oldRetailPrice"
   | "productName"
   | "purchasePrice"
+  | "quantity"
+  | "realQuantity"
   | "retailPrice"
+  | "rowNumber"
   | "secondProductName"
-  | "stockQuantity"
-  | "supplierId"
-  | "supplierName";
+  | "supplier"
+  | "totalPrice";
 
 export const CATALOG_IMPORT_FIELDS = [
   "barcode",
-  "categoryId",
-  "categoryName",
+  "category",
+  "complete",
   "discount",
   "discountedPrice",
   "itemNumber",
-  "lineTotal",
-  "productId",
+  "oldPurchasePrice",
+  "oldRetailPrice",
   "productName",
   "purchasePrice",
+  "quantity",
+  "realQuantity",
   "retailPrice",
+  "rowNumber",
   "secondProductName",
-  "stockQuantity",
-  "supplierId",
-  "supplierName",
+  "supplier",
+  "totalPrice",
 ] as const satisfies readonly CatalogImportField[];
 
 export type CatalogImportColumnSource = {
@@ -125,8 +148,8 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "條碼",
     "条形码",
   ],
-  categoryId: ["category_id", "categoria_id", "id_categoria"],
-  categoryName: [
+  category: [
+    "category",
     "category_name",
     "category",
     "categoria",
@@ -143,6 +166,7 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "ref",
     "sku",
     "codice",
+    "codice prodotto",
     "codice articolo",
     "product_code",
     "product code",
@@ -171,7 +195,6 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "货号",
     "貨號",
   ],
-  productId: ["product_id", "id"],
   productName: [
     "product_name",
     "product name",
@@ -230,6 +253,8 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "retail",
     "sale_price",
     "sale price",
+    "prezzo vendita",
+    "prezzo di vendita",
     "precio_venta",
     "precio de venta",
     "precio venta",
@@ -271,7 +296,25 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "折后单价(含税)",
     "折後單價(含稅)",
   ],
-  lineTotal: [
+  oldPurchasePrice: [
+    "oldPurchasePrice",
+    "old_purchase_price",
+    "old purchase price",
+    "previous purchase price",
+    "prevPurchase",
+    "prev purchase",
+  ],
+  oldRetailPrice: [
+    "oldRetailPrice",
+    "old_retail_price",
+    "old retail price",
+    "previous retail price",
+    "prevRetail",
+    "prev retail",
+  ],
+  totalPrice: [
+    "totalPrice",
+    "total_price",
     "line_total",
     "line total",
     "total_price",
@@ -321,7 +364,8 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "西語名稱",
     "物料描述",
   ],
-  stockQuantity: [
+  quantity: [
+    "quantity",
     "stock_quantity",
     "stock",
     "stockquantity",
@@ -348,8 +392,37 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "库存数量",
     "庫存數量",
   ],
-  supplierId: ["supplier_id", "proveedor_id", "id_proveedor"],
-  supplierName: [
+  realQuantity: [
+    "realQuantity",
+    "real_quantity",
+    "real quantity",
+    "actual quantity",
+    "quantita reale",
+    "quantità reale",
+    "cantidad real",
+    "实际数量",
+    "實際數量",
+  ],
+  rowNumber: [
+    "rowNumber",
+    "row_number",
+    "row",
+    "rowno",
+    "no",
+    "n.",
+    "serial",
+    "serialnumber",
+    "progressivo",
+    "numeroriga",
+    "numero",
+    "número",
+    "序号",
+    "序號",
+    "行号",
+    "#",
+  ],
+  supplier: [
+    "supplier",
     "supplier_name",
     "supplier",
     "suppliername",
@@ -364,6 +437,15 @@ export const CATALOG_IMPORT_COLUMN_ALIASES: Record<
     "fabricante",
     "供应商",
     "供應商",
+  ],
+  complete: [
+    "complete",
+    "completed",
+    "completo",
+    "completa",
+    "completato",
+    "completata",
+    "完成",
   ],
 };
 
@@ -426,12 +508,11 @@ export type CatalogImportHeaderDetection = {
 export function normalizeCatalogImportHeader(value: unknown) {
   return String(value ?? "")
     .normalize("NFD")
-    .replace(/\p{Diacritic}/gu, "")
+    .replace(/\p{M}/gu, "")
     .trim()
     .toLowerCase()
-    .replace(/[\s\-./]+/g, "_")
-    .replace(/_+/g, "_")
-    .replace(/^_|_$/g, "");
+    .replace(/[\s_]+/g, "")
+    .replace(/[^\p{L}\p{N}]/gu, "");
 }
 
 const normalizedImportAliases = new Map<string, CatalogImportField>();
@@ -444,7 +525,13 @@ for (const [field, aliases] of Object.entries(
   }
 }
 
-function headerDetectionScore(headers: Map<CatalogImportField, number>) {
+const ANDROID_REQUIRED_IMPORT_FIELDS = [
+  "barcode",
+  "productName",
+  "purchasePrice",
+] as const satisfies readonly CatalogImportField[];
+
+function headerDetectionScore(headers: ReadonlyMap<CatalogImportField, number>) {
   let score = headers.size;
 
   if (headers.has("barcode")) {
@@ -462,34 +549,10 @@ function headerDetectionScore(headers: Map<CatalogImportField, number>) {
   return score;
 }
 
-function headerColumnLabel(row: readonly unknown[] | undefined, index: number) {
-  return String(row?.[index] ?? "").trim();
-}
-
-function aliasColumnSources(
-  row: readonly unknown[] | undefined,
-  headers: ReadonlyMap<CatalogImportField, number>,
-) {
-  const sources: Partial<Record<CatalogImportField, CatalogImportColumnSource>> = {};
-
-  for (const [field, columnIndex] of headers.entries()) {
-    sources[field] = {
-      columnIndex,
-      columnLabel: headerColumnLabel(row, columnIndex) || undefined,
-      confidence:
-        field === "barcode" || field === "productName" ? "high" : "medium",
-      reason: "header-alias",
-      source: "alias",
-    };
-  }
-
-  return sources;
-}
-
 function withGeneratedMinimumSources(
   sources: Partial<Record<CatalogImportField, CatalogImportColumnSource>>,
 ) {
-  for (const field of ["barcode", "productName"] satisfies CatalogImportField[]) {
+  for (const field of ANDROID_REQUIRED_IMPORT_FIELDS) {
     if (!sources[field]) {
       sources[field] = {
         columnIndex: null,
@@ -508,13 +571,27 @@ function stringValue(value: unknown) {
 }
 
 function numberLike(value: unknown) {
-  const normalized = stringValue(value).replace(/[^\d,.-]/g, "");
+  const clean = stringValue(value).replace(/\s+/g, "");
 
-  if (!normalized) {
+  if (!clean) {
     return null;
   }
 
-  const numeric = Number(normalized.replace(",", "."));
+  let normalized = clean;
+
+  if (/^-?\d{1,3}(\.\d{3})*,\d+$/.test(clean)) {
+    normalized = clean.replace(/\./g, "").replace(",", ".");
+  } else if (/^-?\d{1,3}(,\d{3})*\.\d+$/.test(clean)) {
+    normalized = clean.replace(/,/g, "");
+  } else if (/^-?[1-9]\d{0,2}(,\d{3})+$/.test(clean)) {
+    normalized = clean.replace(/,/g, "");
+  } else if (/^-?[1-9]\d{0,2}(\.\d{3})+$/.test(clean)) {
+    normalized = clean.replace(/\./g, "");
+  } else {
+    normalized = clean.replace(",", ".");
+  }
+
+  const numeric = Number(normalized);
 
   return Number.isFinite(numeric) ? numeric : null;
 }
@@ -525,11 +602,27 @@ function rowLooksProductDataLike(row: readonly unknown[]) {
     .length;
   const textCount = values.length - numericCount;
 
-  return values.length >= 4 && numericCount >= 2 && textCount >= 1;
+  return numericCount >= 3 && textCount >= 1;
 }
 
 function ratio(count: number, total: number) {
   return total > 0 ? count / total : 0;
+}
+
+function isPatternBarcode(value: string) {
+  const digits = value.replace(/\D/g, "");
+
+  return digits.length === 8 || digits.length === 12 ||
+    digits.length === 13;
+}
+
+function isPatternItemNumber(value: string) {
+  const compact = value.trim();
+
+  return compact.length >= 4 &&
+    compact.length <= 12 &&
+    /[\p{L}\p{N}]/u.test(compact) &&
+    !isPatternBarcode(compact);
 }
 
 function scorePatternColumn(
@@ -537,7 +630,9 @@ function scorePatternColumn(
   values: readonly unknown[],
 ) {
   const nonBlank = values.map(stringValue).filter(Boolean);
-  const numeric = nonBlank.map(numberLike).filter((value) => value !== null);
+  const numeric = nonBlank
+    .map(numberLike)
+    .filter((value): value is number => value !== null);
 
   if (nonBlank.length < 2) {
     return 0;
@@ -545,35 +640,31 @@ function scorePatternColumn(
 
   if (field === "barcode") {
     return ratio(
-      nonBlank.filter((value) => /^\d{8,14}$/.test(value.replace(/\D/g, "")))
-        .length,
+      nonBlank.filter(isPatternBarcode).length,
       nonBlank.length,
     );
   }
 
   if (field === "itemNumber") {
     return ratio(
-      nonBlank.filter((value) => {
-        const compact = value.replace(/\s+/g, "");
-
-        return compact.length >= 3 &&
-          compact.length <= 16 &&
-          /[A-Za-z0-9]/.test(compact) &&
-          !/^\d{8,14}$/.test(compact);
-      }).length,
+      nonBlank.filter(isPatternItemNumber).length,
       nonBlank.length,
     );
   }
 
   if (field === "productName" || field === "secondProductName") {
     return ratio(
-      nonBlank.filter((value) => value.length >= 3 && numberLike(value) === null)
+      nonBlank.filter((value) =>
+        value.length >= 3 &&
+        numberLike(value) === null &&
+        !isPatternItemNumber(value)
+      )
         .length,
       nonBlank.length,
     );
   }
 
-  if (field === "stockQuantity") {
+  if (field === "quantity") {
     return ratio(
       numeric.filter((value) =>
         Number.isInteger(value) && value >= 0 && value <= 100_000
@@ -585,12 +676,27 @@ function scorePatternColumn(
   if (
     field === "purchasePrice" ||
     field === "retailPrice" ||
-    field === "discount" ||
     field === "discountedPrice" ||
-    field === "lineTotal"
+    field === "totalPrice"
   ) {
     return ratio(
-      numeric.filter((value) => value >= 0 && value <= 100_000_000).length,
+      numeric.filter((value) => value > 0 && value <= 100_000_000).length,
+      nonBlank.length,
+    );
+  }
+
+  if (field === "discount") {
+    return ratio(
+      nonBlank.filter((value) =>
+        /^(0[.,]\d{1,2}|\d{1,2}%?)$/.test(value.trim())
+      ).length,
+      nonBlank.length,
+    );
+  }
+
+  if (field === "rowNumber") {
+    return ratio(
+      nonBlank.filter((value) => /^\d{1,6}$/.test(value.trim())).length,
       nonBlank.length,
     );
   }
@@ -603,6 +709,7 @@ function selectPatternColumn(
   rows: readonly (readonly unknown[])[],
   usedColumns: ReadonlySet<number>,
   maxColumnCount: number,
+  threshold = 0.7,
 ) {
   const candidates = Array.from({ length: maxColumnCount }, (_value, columnIndex) => {
     const score = usedColumns.has(columnIndex)
@@ -614,20 +721,178 @@ function selectPatternColumn(
     right.score - left.score || left.columnIndex - right.columnIndex,
   );
   const selected = candidates[0];
-  const runnerUp = candidates[1];
 
-  if (!selected || selected.score < 0.72) {
-    return null;
-  }
-
-  if (runnerUp && selected.score - runnerUp.score < 0.12) {
+  if (!selected || selected.score < threshold) {
     return null;
   }
 
   return selected;
 }
 
-function detectPatternImportHeaderRow(
+function addPatternColumnSource(
+  sources: Partial<Record<CatalogImportField, CatalogImportColumnSource>>,
+  field: CatalogImportField,
+  columnIndex: number,
+  score: number,
+) {
+  sources[field] = {
+    columnIndex,
+    confidence: score >= 0.9 ? "high" : "medium",
+    reason: "pattern-score",
+    score,
+    source: "pattern",
+  };
+}
+
+function multiplicationMatch(
+  rows: readonly (readonly unknown[])[],
+  quantityColumn: number,
+  purchaseColumn: number,
+  totalColumn: number,
+) {
+  let informative = 0;
+  let matches = 0;
+
+  for (const row of rows.slice(0, 40)) {
+    const quantity = numberLike(row[quantityColumn]);
+    const purchase = numberLike(row[purchaseColumn]);
+    const total = numberLike(row[totalColumn]);
+
+    if (quantity === null || purchase === null || total === null) {
+      continue;
+    }
+
+    informative += 1;
+    const expected = quantity * purchase;
+    const epsilon = 0.1 * Math.max(expected, 1);
+
+    if (Math.abs(total - expected) <= epsilon) {
+      matches += 1;
+    }
+  }
+
+  return ratio(matches, informative);
+}
+
+function inferPurchaseAndTotal(
+  headers: Map<CatalogImportField, number>,
+  sources: Partial<Record<CatalogImportField, CatalogImportColumnSource>>,
+  sampleRows: readonly (readonly unknown[])[],
+  usedColumns: Set<number>,
+  maxColumnCount: number,
+) {
+  const quantityColumn = headers.get("quantity");
+
+  if (quantityColumn !== undefined && !headers.has("purchasePrice")) {
+    let bestPurchase = -1;
+    let bestTotal = -1;
+    let bestMatch = 0;
+
+    for (let purchaseColumn = 0; purchaseColumn < maxColumnCount; purchaseColumn += 1) {
+      if (usedColumns.has(purchaseColumn)) {
+        continue;
+      }
+
+      for (let totalColumn = 0; totalColumn < maxColumnCount; totalColumn += 1) {
+        if (totalColumn === purchaseColumn || usedColumns.has(totalColumn)) {
+          continue;
+        }
+
+        const match = multiplicationMatch(
+          sampleRows,
+          quantityColumn,
+          purchaseColumn,
+          totalColumn,
+        );
+
+        if (match > bestMatch) {
+          bestMatch = match;
+          bestPurchase = purchaseColumn;
+          bestTotal = totalColumn;
+        }
+      }
+    }
+
+    if (bestMatch >= 0.7) {
+      headers.set("purchasePrice", bestPurchase);
+      headers.set("totalPrice", bestTotal);
+      usedColumns.add(bestPurchase);
+      usedColumns.add(bestTotal);
+      addPatternColumnSource(sources, "purchasePrice", bestPurchase, bestMatch);
+      addPatternColumnSource(sources, "totalPrice", bestTotal, bestMatch);
+      return;
+    }
+  }
+
+  if (!headers.has("purchasePrice")) {
+    const selected = selectPatternColumn(
+      "purchasePrice",
+      sampleRows,
+      usedColumns,
+      maxColumnCount,
+      0.7,
+    );
+
+    if (selected) {
+      headers.set("purchasePrice", selected.columnIndex);
+      usedColumns.add(selected.columnIndex);
+      addPatternColumnSource(
+        sources,
+        "purchasePrice",
+        selected.columnIndex,
+        selected.score,
+      );
+    }
+  }
+}
+
+function inferPatternColumns(
+  headers: Map<CatalogImportField, number>,
+  sources: Partial<Record<CatalogImportField, CatalogImportColumnSource>>,
+  sampleRows: readonly (readonly unknown[])[],
+  hasHeader: boolean,
+) {
+  const maxColumnCount = Math.max(0, ...sampleRows.map((row) => row.length));
+  const usedColumns = new Set(headers.values());
+  const assign = (field: CatalogImportField, threshold: number) => {
+    if (headers.has(field)) {
+      return;
+    }
+
+    const selected = selectPatternColumn(
+      field,
+      sampleRows,
+      usedColumns,
+      maxColumnCount,
+      threshold,
+    );
+
+    if (!selected) {
+      return;
+    }
+
+    headers.set(field, selected.columnIndex);
+    usedColumns.add(selected.columnIndex);
+    addPatternColumnSource(sources, field, selected.columnIndex, selected.score);
+  };
+
+  assign("barcode", 0.7);
+  assign("productName", 0.5);
+  assign("itemNumber", 0.5);
+  assign("quantity", 0.7);
+  inferPurchaseAndTotal(headers, sources, sampleRows, usedColumns, maxColumnCount);
+
+  if (!hasHeader) {
+    assign("retailPrice", 0.7);
+    assign("secondProductName", 0.5);
+    assign("supplier", 0.5);
+    assign("discount", 0.5);
+    assign("discountedPrice", 0.7);
+    assign("rowNumber", 0.5);
+  }
+}
+
+export function detectCatalogImportHeaderRow(
   rows: readonly (readonly unknown[])[],
 ): CatalogImportHeaderDetection | null {
   const dataStartRowIndex = rows
@@ -638,100 +903,53 @@ function detectPatternImportHeaderRow(
     return null;
   }
 
-  const sampleRows = rows
-    .slice(dataStartRowIndex, dataStartRowIndex + 40)
-    .filter(rowLooksProductDataLike);
-  const maxColumnCount = Math.max(0, ...sampleRows.map((row) => row.length));
+  const hasHeader = dataStartRowIndex > 0;
+  const headerRowIndex = hasHeader ? dataStartRowIndex - 1 : null;
+  const headerRow = headerRowIndex === null ? undefined : rows[headerRowIndex];
   const headers = new Map<CatalogImportField, number>();
   const recognizedColumnSources: Partial<Record<CatalogImportField, CatalogImportColumnSource>> = {};
-  const usedColumns = new Set<number>();
 
-  for (const field of [
-    "barcode",
-    "itemNumber",
-    "productName",
-    "stockQuantity",
-    "purchasePrice",
-    "retailPrice",
-  ] satisfies CatalogImportField[]) {
-    const selected = selectPatternColumn(
-      field,
-      sampleRows,
-      usedColumns,
-      maxColumnCount,
-    );
+  if (headerRow) {
+    for (const [index, cell] of headerRow.entries()) {
+      const field = normalizedImportAliases.get(normalizeCatalogImportHeader(cell));
 
-    if (!selected) {
-      continue;
+      if (field && !headers.has(field)) {
+        headers.set(field, index);
+        recognizedColumnSources[field] = {
+          columnIndex: index,
+          columnLabel: stringValue(cell) || undefined,
+          confidence:
+            field === "barcode" || field === "productName" ||
+              field === "purchasePrice"
+              ? "high"
+              : "medium",
+          reason: "header-alias",
+          source: "alias",
+        };
+      }
     }
-
-    headers.set(field, selected.columnIndex);
-    usedColumns.add(selected.columnIndex);
-    recognizedColumnSources[field] = {
-      columnIndex: selected.columnIndex,
-      confidence: selected.score >= 0.9 ? "high" : "medium",
-      reason: "pattern-score",
-      score: selected.score,
-      source: "pattern",
-    };
   }
 
-  if (!headers.has("barcode") || !(headers.has("productName") || headers.has("itemNumber"))) {
-    return null;
-  }
+  const sampleRows = rows
+    .slice(dataStartRowIndex, dataStartRowIndex + 40)
+    .filter((row) => row.some((cell) => stringValue(cell).length > 0));
+
+  inferPatternColumns(
+    headers,
+    recognizedColumnSources,
+    sampleRows,
+    hasHeader,
+  );
 
   return {
     dataStartRowIndex,
-    headerRowIndex: null,
+    headerRowIndex,
     headers,
     recognizedColumnSources: withGeneratedMinimumSources(
       recognizedColumnSources,
     ),
     score: headerDetectionScore(headers),
   };
-}
-
-export function detectCatalogImportHeaderRow(
-  rows: readonly (readonly unknown[])[],
-): CatalogImportHeaderDetection | null {
-  let best: CatalogImportHeaderDetection | null = null;
-
-  for (const [headerRowIndex, row] of rows.slice(0, 25).entries()) {
-    const headers = new Map<CatalogImportField, number>();
-
-    for (const [index, cell] of row.entries()) {
-      const field = normalizedImportAliases.get(normalizeCatalogImportHeader(cell));
-
-      if (field && !headers.has(field)) {
-        headers.set(field, index);
-      }
-    }
-
-    const score = headerDetectionScore(headers);
-
-    const hasStrongIdentity =
-      headers.has("barcode") &&
-      (headers.has("productName") || headers.has("itemNumber"));
-    const hasGeneratedBarcodeCandidate =
-      headers.has("productName") && headers.has("itemNumber");
-
-    if (
-      (hasStrongIdentity || hasGeneratedBarcodeCandidate) &&
-      (!best || score > best.score)
-    ) {
-      best = {
-        dataStartRowIndex: headerRowIndex + 1,
-        headerRowIndex,
-        headers,
-        recognizedColumnSources: withGeneratedMinimumSources(
-          aliasColumnSources(row, headers),
-        ),
-        score,
-      };
-    }
-  }
-
-  return best ?? detectPatternImportHeaderRow(rows);
 }
 
 function normalized(value: string | null | undefined) {
@@ -789,6 +1007,45 @@ function duplicateRows<T>(
   return duplicates;
 }
 
+function duplicateRowGroups<T>(
+  rows: readonly T[],
+  getKey: (row: T) => string | null | undefined,
+) {
+  const groups = new Map<string, T[]>();
+
+  for (const row of rows) {
+    const key = normalized(getKey(row));
+
+    if (!key) {
+      continue;
+    }
+
+    const group = groups.get(key) ?? [];
+    group.push(row);
+    groups.set(key, group);
+  }
+
+  return new Map([...groups].filter(([, group]) => group.length > 1));
+}
+
+function effectiveLastProductRows(
+  rows: readonly CatalogImportProductRow[],
+) {
+  const byBarcode = new Map<string, CatalogImportProductRow>();
+  const withoutBarcode: CatalogImportProductRow[] = [];
+
+  for (const row of rows) {
+    const key = normalized(row.barcode);
+    if (!key) {
+      withoutBarcode.push(row);
+      continue;
+    }
+    byBarcode.set(key, row);
+  }
+
+  return [...withoutBarcode, ...byBarcode.values()];
+}
+
 export function validateCatalogImportRows(
   parsed: CatalogImportParsedRows,
   existing: CatalogImportExistingRows,
@@ -827,7 +1084,7 @@ export function validateCatalogImportRows(
     parsed.categories,
     (category) => category.name,
   );
-  const duplicateProductsByBarcode = duplicateRows(
+  const duplicateProductBarcodeGroups = duplicateRowGroups(
     parsed.products,
     (product) => product.barcode,
   );
@@ -836,16 +1093,18 @@ export function validateCatalogImportRows(
     (product) => product.itemNumber,
   );
 
-  for (const product of duplicateProductsByBarcode) {
-    rowErrors.push(
-      issue(
-        "duplicate_product_barcode",
-        "Products",
-        product.rowNumber,
-        "barcode",
-        "Product barcode appears more than once in the workbook.",
-      ),
-    );
+  for (const group of duplicateProductBarcodeGroups.values()) {
+    for (const product of group) {
+      rowWarnings.push(
+        issue(
+          "duplicate_product_barcode",
+          "Products",
+          product.rowNumber,
+          "barcode",
+          "Product barcode appears more than once in the workbook; the last occurrence is used.",
+        ),
+      );
+    }
   }
 
   for (const product of duplicateProductsBySku) {
@@ -887,8 +1146,9 @@ export function validateCatalogImportRows(
   const updatedProductIds = new Set<string>();
 
   for (const product of parsed.products) {
-    const existingById = product.productId
-      ? existingProductsById.get(normalized(product.productId))
+    const boundaryProduct = product as CatalogImportProductRow & CatalogImportBoundaryProductFields;
+    const existingById = boundaryProduct.productId
+      ? existingProductsById.get(normalized(boundaryProduct.productId))
       : undefined;
     const existingByBarcode = existingProductsByBarcode.get(
       normalized(product.barcode),
@@ -901,7 +1161,7 @@ export function validateCatalogImportRows(
     ) {
       rowErrors.push(
         issue(
-          "product_barcode_conflict",
+          "missing_product_identity",
           "Products",
           product.rowNumber,
           "barcode",
@@ -910,16 +1170,36 @@ export function validateCatalogImportRows(
       );
     }
 
-    if (!duplicateProductsByBarcode.has(product)) {
-      const target = existingByBarcode ?? existingById;
+    const target = existingByBarcode ?? existingById;
 
-      if (target) {
-        updatedProductIds.add(target.productId);
-      }
+    if (!target && !product.productName && !product.itemNumber) {
+      rowErrors.push(
+        issue(
+          "product_barcode_conflict",
+          "Products",
+          product.rowNumber,
+          "productName",
+          "New product requires productName or itemNumber.",
+        ),
+      );
     }
 
-    if (product.supplierId) {
-      const supplierExists = existingSuppliersById.has(normalized(product.supplierId));
+    if (!target && product.retailPrice === undefined) {
+      rowErrors.push(
+        issue(
+          "missing_required_retail_price",
+          "Products",
+          product.rowNumber,
+          "retailPrice",
+          "New product requires retailPrice before supplier import apply.",
+        ),
+      );
+    }
+
+    if (boundaryProduct.supplierId) {
+      const supplierExists = existingSuppliersById.has(
+        normalized(boundaryProduct.supplierId),
+      );
 
       if (!supplierExists) {
         rowErrors.push(
@@ -932,8 +1212,10 @@ export function validateCatalogImportRows(
           ),
         );
       }
-    } else if (product.supplierName) {
-      const supplierName = normalized(product.supplierName);
+    } else if (product.supplier ?? boundaryProduct.supplierName) {
+      const supplierName = normalized(
+        product.supplier ?? boundaryProduct.supplierName,
+      );
       const supplierExists =
         existingSuppliersByName.has(supplierName) ||
         workbookSuppliersByName.has(supplierName);
@@ -944,15 +1226,17 @@ export function validateCatalogImportRows(
             "unknown_supplier",
             "Products",
             product.rowNumber,
-            "supplierName",
+            "supplier",
             "Supplier name must exist in the active catalog or Suppliers sheet.",
           ),
         );
       }
     }
 
-    if (product.categoryId) {
-      const categoryExists = existingCategoriesById.has(normalized(product.categoryId));
+    if (boundaryProduct.categoryId) {
+      const categoryExists = existingCategoriesById.has(
+        normalized(boundaryProduct.categoryId),
+      );
 
       if (!categoryExists) {
         rowErrors.push(
@@ -965,8 +1249,10 @@ export function validateCatalogImportRows(
           ),
         );
       }
-    } else if (product.categoryName) {
-      const categoryName = normalized(product.categoryName);
+    } else if (product.category ?? boundaryProduct.categoryName) {
+      const categoryName = normalized(
+        product.category ?? boundaryProduct.categoryName,
+      );
       const categoryExists =
         existingCategoriesByName.has(categoryName) ||
         workbookCategoriesByName.has(categoryName);
@@ -977,7 +1263,7 @@ export function validateCatalogImportRows(
             "unknown_category",
             "Products",
             product.rowNumber,
-            "categoryName",
+            "category",
             "Category name must exist in the active catalog or Categories sheet.",
           ),
         );
@@ -985,10 +1271,21 @@ export function validateCatalogImportRows(
     }
   }
 
-  const duplicateProductRows = new Set([
-    ...duplicateProductsByBarcode,
-  ]);
-  const effectiveProductRows = parsed.products.length - duplicateProductRows.size;
+  const effectiveProducts = effectiveLastProductRows(parsed.products);
+  for (const product of effectiveProducts) {
+    const boundaryProduct = product as CatalogImportProductRow & CatalogImportBoundaryProductFields;
+    const existingById = boundaryProduct.productId
+      ? existingProductsById.get(normalized(boundaryProduct.productId))
+      : undefined;
+    const existingByBarcode = existingProductsByBarcode.get(
+      normalized(product.barcode),
+    );
+    const target = existingByBarcode ?? existingById;
+    if (target) {
+      updatedProductIds.add(target.productId);
+    }
+  }
+  const effectiveProductRows = effectiveProducts.length;
 
   return {
     rowErrors,
@@ -1021,16 +1318,21 @@ export function mergeProductImportForApply(
   existing: CatalogImportExistingProduct | undefined,
   lookups: CatalogImportLookupMaps,
 ) {
-  const categoryFromName = row.categoryName
-    ? lookups.categoryIdsByName.get(normalized(row.categoryName))
+  const boundaryRow = row as CatalogImportProductRow & CatalogImportBoundaryProductFields;
+  const categoryName = row.category ?? boundaryRow.categoryName;
+  const supplierName = row.supplier ?? boundaryRow.supplierName;
+  const quantity = row.realQuantity ?? row.quantity ?? boundaryRow.stockQuantity;
+  const categoryFromName = categoryName
+    ? lookups.categoryIdsByName.get(normalized(categoryName))
     : undefined;
-  const supplierFromName = row.supplierName
-    ? lookups.supplierIdsByName.get(normalized(row.supplierName))
+  const supplierFromName = supplierName
+    ? lookups.supplierIdsByName.get(normalized(supplierName))
     : undefined;
 
   return {
     barcode: textOrExisting(row.barcode, existing?.barcode ?? null) ?? "",
-    categoryId: row.categoryId ?? categoryFromName ?? existing?.categoryId ?? undefined,
+    categoryId:
+      boundaryRow.categoryId ?? categoryFromName ?? existing?.categoryId ?? undefined,
     itemNumber: textOrExisting(row.itemNumber, existing?.itemNumber ?? null),
     productName:
       textOrExisting(row.productName, existing?.productName ?? null) ?? "",
@@ -1040,7 +1342,8 @@ export function mergeProductImportForApply(
       row.secondProductName,
       existing?.secondProductName ?? null,
     ),
-    stockQuantity: valueOrExisting(row.stockQuantity, existing?.stockQuantity),
-    supplierId: row.supplierId ?? supplierFromName ?? existing?.supplierId ?? undefined,
+    stockQuantity: valueOrExisting(quantity, existing?.stockQuantity),
+    supplierId:
+      boundaryRow.supplierId ?? supplierFromName ?? existing?.supplierId ?? undefined,
   };
 }

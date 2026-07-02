@@ -8,7 +8,6 @@ import * as unzipper from "unzipper-esm";
 import writeXlsxFile, {
   type SheetData as WritableSheetData,
 } from "write-excel-file/node";
-import { parseLocalizedNumberText } from "@/lib/localized-number";
 import type { Json } from "@/lib/supabase/database.types";
 import {
   createCategory,
@@ -23,6 +22,7 @@ import {
   mapShopAdminRpcResult,
   resolveShopActionContext,
   shopAdminActionResult,
+  type ShopAdminActionCode,
   type ShopAdminActionResult,
 } from "./action-context";
 import {
@@ -57,6 +57,10 @@ import {
   type StaffAwareBulkPriceHistoryImportPayload,
   type StaffAwareBulkProductImportPayload,
 } from "./staff-aware-mutations";
+import {
+  emitCatalogBulkProductImportSyncEvent,
+  emitPriceHistoryImportSyncEvent,
+} from "./sync-event-writer";
 import { upsertSupplierImportHistoryEntry } from "./history-mutations";
 import type { SupplierImportHistoryGridRow } from "./supplier-import-history-entry-contract";
 
@@ -90,20 +94,17 @@ const MAX_ROW_ADJUSTMENTS_JSON_BYTES = 64_000;
 const MAX_MAPPING_OVERRIDE_JSON_BYTES = 8_000;
 const MAX_PRODUCT_BARCODE_LENGTH = 96;
 const SAFETY_FORMULA_ESCAPE_CODE = "safety_formula_escape";
-const SUPPLIER_ALWAYS_EXCLUDED_MAPPING_FIELDS = new Set<CatalogImportField>([
-  "retailPrice",
-]);
-const SUPPLIER_DEFAULT_EXCLUDED_MAPPING_FIELDS = new Set<CatalogImportField>([
-  "discount",
-  "discountedPrice",
-  "lineTotal",
-]);
+const SUPPLIER_ALWAYS_EXCLUDED_MAPPING_FIELDS = new Set<CatalogImportField>();
+const SUPPLIER_DEFAULT_EXCLUDED_MAPPING_FIELDS = new Set<CatalogImportField>();
 const NUMERIC_COMPATIBLE_MAPPING_FIELDS = new Set<CatalogImportField>([
   "discount",
   "discountedPrice",
-  "lineTotal",
+  "oldPurchasePrice",
+  "oldRetailPrice",
+  "realQuantity",
+  "totalPrice",
   "purchasePrice",
-  "stockQuantity",
+  "quantity",
 ]);
 
 type CatalogWorkbookImportMode = "supplier" | "database";
@@ -263,15 +264,15 @@ export type CatalogWorkbookMetadata = {
 
 export type CatalogWorkbookPreviewRow = {
   barcode: string;
-  categoryName?: string;
+  category?: string;
   currentPurchasePrice?: number;
   currentRetailPrice?: number;
-  currentStockQuantity?: number;
+  currentQuantity?: number;
   itemNumber?: string;
   productName: string;
   recognizedDiscount?: number;
   recognizedDiscountedPrice?: number;
-  recognizedLineTotal?: number;
+  recognizedTotalPrice?: number;
   recognizedPurchasePrice?: number;
   recognizedQuantity?: number;
   recognizedRetailPrice?: number;
@@ -280,8 +281,9 @@ export type CatalogWorkbookPreviewRow = {
   rowNumber: number;
   secondProductName?: string;
   status: "Ready" | "Warning" | "Blocked" | "Duplicate" | "Update" | "New";
-  stockQuantity?: number;
-  supplierName?: string;
+  quantity?: number;
+  supplier?: string;
+  totalPrice?: number;
   warnings: number;
 };
 
@@ -315,12 +317,13 @@ export type CatalogWorkbookSheetSummary = {
 };
 
 export type CatalogWorkbookRowAdjustment = {
-  categoryName?: string;
+  category?: string;
+  purchasePrice?: number | null;
+  quantity?: number | null;
   retailPrice?: number | null;
   rowFingerprint: string;
   rowNumber: number;
-  stockQuantity?: number | null;
-  supplierName?: string;
+  supplier?: string;
 };
 
 export type CatalogWorkbookPreview = ShopAdminActionResult & {
@@ -483,7 +486,7 @@ function catalogImportRowFingerprint(row: ParsedProductRow) {
     productName: row.productName,
     retailPrice: row.retailPrice ?? null,
     rowNumber: row.rowNumber,
-    stockQuantity: row.stockQuantity ?? null,
+    quantity: row.quantity ?? row.stockQuantity ?? null,
   });
 }
 
@@ -682,6 +685,35 @@ function productTextValue(
   return normalizeWorkbookText(value);
 }
 
+const PRODUCT_BOUNDARY_HEADER_ALIASES = {
+  categoryId: ["category_id", "categoria_id", "id_categoria"],
+  productId: ["product_id", "id"],
+  supplierId: ["supplier_id", "proveedor_id", "id_proveedor"],
+} as const;
+
+function productBoundaryTextValue(
+  rows: SheetData,
+  detection: NonNullable<ReturnType<typeof detectCatalogImportHeaderRow>>,
+  row: readonly unknown[],
+  field: keyof typeof PRODUCT_BOUNDARY_HEADER_ALIASES,
+) {
+  if (detection.headerRowIndex === null) {
+    return "";
+  }
+
+  const headerRow = rows[detection.headerRowIndex];
+  const aliases = new Set(
+    PRODUCT_BOUNDARY_HEADER_ALIASES[field].map((alias) =>
+      normalizeCatalogImportHeader(alias),
+    ),
+  );
+  const columnIndex = headerRow.findIndex((cell) =>
+    aliases.has(normalizeCatalogImportHeader(cell)),
+  );
+
+  return columnIndex < 0 ? "" : normalizeWorkbookText(row[columnIndex]);
+}
+
 function productNumberValue(
   headers: ReadonlyMap<CatalogImportField, number>,
   row: readonly unknown[],
@@ -732,7 +764,29 @@ function productReferenceNumberValue(
 }
 
 function parseWorkbookNumber(value: string) {
-  return parseLocalizedNumberText(value);
+  const clean = value.trim().replace(/\s+/g, "");
+
+  if (!clean) {
+    return Number.NaN;
+  }
+
+  if (/^-?\d{1,3}(\.\d{3})*,\d+$/.test(clean)) {
+    return Number(clean.replace(/\./g, "").replace(",", "."));
+  }
+
+  if (/^-?\d{1,3}(,\d{3})*\.\d+$/.test(clean)) {
+    return Number(clean.replace(/,/g, ""));
+  }
+
+  if (/^-?[1-9]\d{0,2}(,\d{3})+$/.test(clean)) {
+    return Number(clean.replace(/,/g, ""));
+  }
+
+  if (/^-?[1-9]\d{0,2}(\.\d{3})+$/.test(clean)) {
+    return Number(clean.replace(/\./g, ""));
+  }
+
+  return Number(clean.replace(",", "."));
 }
 
 function getSheetRows(
@@ -1085,7 +1139,7 @@ function hasPlausibleProductIdentity(
   const secondProductName = productTextValue(headers, row, "secondProductName");
 
   return (
-    /^\d{8,14}$/.test(barcode.replace(/\D/g, "")) ||
+    isValidProductBarcode(barcode) ||
     itemNumber.length >= 4 ||
     (productName.length >= 3 && !Number.isFinite(parseWorkbookNumber(productName))) ||
     (secondProductName.length >= 3 &&
@@ -1098,7 +1152,9 @@ function barcodeDigits(value: string) {
 }
 
 function isValidProductBarcode(value: string) {
-  return /^\d{8,14}$/.test(barcodeDigits(value));
+  const digits = barcodeDigits(value);
+
+  return digits.length === 8 || digits.length === 12 || digits.length === 13;
 }
 
 function isAndroidDatabaseBarcodeTooLong(value: string) {
@@ -1771,22 +1827,23 @@ function parsedPreviewRows(
 ): CatalogWorkbookPreviewRow[] {
   return products.slice(0, MAX_PREVIEW_ROWS).map((product) => ({
     barcode: product.barcode,
-    categoryName: product.categoryName,
+    category: product.category ?? product.categoryName,
     itemNumber: product.itemNumber,
     productName: product.productName,
     recognizedDiscount: product.discount,
     recognizedDiscountedPrice: product.discountedPrice,
-    recognizedLineTotal: product.lineTotal,
+    recognizedTotalPrice: product.totalPrice,
     recognizedPurchasePrice: product.purchasePrice,
-    recognizedQuantity: product.stockQuantity,
+    recognizedQuantity: product.quantity,
     recognizedRetailPrice: product.retailPrice,
     retailPrice: product.retailPrice,
     rowFingerprint: catalogImportRowFingerprint(product),
     rowNumber: product.rowNumber,
     secondProductName: product.secondProductName,
     status: "Ready",
-    stockQuantity: product.stockQuantity,
-    supplierName: product.supplierName,
+    quantity: product.quantity,
+    supplier: product.supplier ?? product.supplierName,
+    totalPrice: product.totalPrice,
     warnings: 0,
   }));
 }
@@ -1879,6 +1936,35 @@ function parseProducts(
       row,
       "productName",
     );
+    const itemNumber =
+      productTextValue(detection.headers, row, "itemNumber") || undefined;
+    const categoryName =
+      productTextValue(detection.headers, row, "category") || undefined;
+    const supplierName =
+      productTextValue(detection.headers, row, "supplier") || undefined;
+    const totalPrice = productReferenceNumberValue(
+      detection.headers,
+      row,
+      "totalPrice",
+    );
+    const realQuantity = productNumberValue(
+      detection.headers,
+      row,
+      "realQuantity",
+      sheet,
+      rowNumber,
+      "realQuantity",
+      rowErrors,
+    );
+    const quantity = realQuantity ?? productNumberValue(
+      detection.headers,
+      row,
+      "quantity",
+      sheet,
+      rowNumber,
+      "quantity",
+      rowErrors,
+    );
 
     if (!barcode) {
       rowErrors.push({
@@ -1901,16 +1987,7 @@ function parseProducts(
     } else if (!options.allowFlexibleBarcode && !isValidProductBarcode(barcode)) {
       rowErrors.push({
         field: "barcode",
-        message: "Barcode must contain 8 to 14 digits.",
-        row: rowNumber,
-        sheet,
-      });
-    }
-
-    if (!productName) {
-      rowErrors.push({
-        field: "productName",
-        message: "Product name is required.",
+        message: "Barcode must contain 8, 12, or 13 digits.",
         row: rowNumber,
         sheet,
       });
@@ -1918,21 +1995,31 @@ function parseProducts(
 
     parsed.push({
       barcode,
+      category: categoryName,
       categoryId:
-        productTextValue(detection.headers, row, "categoryId") || undefined,
-      categoryName:
-        productTextValue(detection.headers, row, "categoryName") || undefined,
+        productBoundaryTextValue(rows, detection, row, "categoryId") || undefined,
+      categoryName,
+      complete:
+        productTextValue(detection.headers, row, "complete") || undefined,
       discount: productReferenceNumberValue(detection.headers, row, "discount"),
       discountedPrice: productReferenceNumberValue(
         detection.headers,
         row,
         "discountedPrice",
       ),
-      itemNumber:
-        productTextValue(detection.headers, row, "itemNumber") || undefined,
-      lineTotal: productReferenceNumberValue(detection.headers, row, "lineTotal"),
+      itemNumber,
+      oldPurchasePrice: productReferenceNumberValue(
+        detection.headers,
+        row,
+        "oldPurchasePrice",
+      ),
+      oldRetailPrice: productReferenceNumberValue(
+        detection.headers,
+        row,
+        "oldRetailPrice",
+      ),
       productId:
-        productTextValue(detection.headers, row, "productId") || undefined,
+        productBoundaryTextValue(rows, detection, row, "productId") || undefined,
       productName,
       purchasePrice: productNumberValue(
         detection.headers,
@@ -1943,6 +2030,8 @@ function parseProducts(
         "purchasePrice",
         rowErrors,
       ),
+      quantity,
+      realQuantity,
       retailPrice: productNumberValue(
         detection.headers,
         row,
@@ -1956,19 +2045,12 @@ function parseProducts(
       secondProductName:
         productTextValue(detection.headers, row, "secondProductName") ||
         undefined,
-      stockQuantity: productNumberValue(
-        detection.headers,
-        row,
-        "stockQuantity",
-        sheet,
-        rowNumber,
-        "stockQuantity",
-        rowErrors,
-      ),
+      stockQuantity: quantity,
+      supplier: supplierName,
       supplierId:
-        productTextValue(detection.headers, row, "supplierId") || undefined,
-      supplierName:
-        productTextValue(detection.headers, row, "supplierName") || undefined,
+        productBoundaryTextValue(rows, detection, row, "supplierId") || undefined,
+      supplierName,
+      totalPrice,
     });
   }
 
@@ -1980,8 +2062,9 @@ function parseProducts(
     droppedRows,
     products: parsed,
     recognizedColumnSources: detection.recognizedColumnSources,
-    validRows: parsed.filter((product) => product.barcode && product.productName)
-      .length,
+    validRows: parsed.filter((product) =>
+      product.barcode && (product.productName || product.itemNumber)
+    ).length,
   };
 }
 
@@ -2377,10 +2460,12 @@ async function parseWorkbook(
 
   const formulaEscapeFields = new Set([
     "barcode",
+    "category",
     "categoryName",
     "itemNumber",
     "productName",
     "secondProductName",
+    "supplier",
     "supplierName",
   ]);
 
@@ -2837,7 +2922,7 @@ function decorateCatalogPreviewRows(
       ...row,
       currentPurchasePrice: maybeNumber(existing?.purchasePrice),
       currentRetailPrice: maybeNumber(existing?.retailPrice),
-      currentStockQuantity: maybeNumber(existing?.stockQuantity),
+      currentQuantity: maybeNumber(existing?.stockQuantity),
       status,
       warnings: warningsByRow.get(row.rowNumber) ?? 0,
     };
@@ -2846,14 +2931,16 @@ function decorateCatalogPreviewRows(
 
 function parseAdjustmentNumber(
   value: unknown,
-  field: "retailPrice" | "stockQuantity",
+  field: "purchasePrice" | "quantity" | "retailPrice",
   rowNumber: number,
 ) {
   if (value === undefined || value === null || value === "") {
     return { ok: true as const, value: undefined };
   }
 
-  const numeric = typeof value === "number" ? value : Number(value);
+  const numeric = typeof value === "number"
+    ? value
+    : parseWorkbookNumber(String(value));
 
   if (!Number.isFinite(numeric) || numeric < 0) {
     return {
@@ -2872,7 +2959,7 @@ function parseAdjustmentNumber(
 
 function parseAdjustmentText(
   value: unknown,
-  field: "categoryName" | "supplierName",
+  field: "category" | "supplier",
   rowNumber: number,
 ) {
   if (value === undefined || value === null || value === "") {
@@ -3085,19 +3172,24 @@ function validateRowAdjustments(
       "retailPrice",
       rowNumber,
     );
-    const stockQuantity = parseAdjustmentNumber(
-      record.stockQuantity,
-      "stockQuantity",
+    const purchasePrice = parseAdjustmentNumber(
+      record.purchasePrice,
+      "purchasePrice",
       rowNumber,
     );
-    const supplierName = parseAdjustmentText(
-      record.supplierName,
-      "supplierName",
+    const quantity = parseAdjustmentNumber(
+      record.quantity,
+      "quantity",
       rowNumber,
     );
-    const categoryName = parseAdjustmentText(
-      record.categoryName,
-      "categoryName",
+    const supplier = parseAdjustmentText(
+      record.supplier,
+      "supplier",
+      rowNumber,
+    );
+    const category = parseAdjustmentText(
+      record.category,
+      "category",
       rowNumber,
     );
 
@@ -3105,35 +3197,42 @@ function validateRowAdjustments(
       rowErrors.push(retailPrice.error);
     }
 
-    if (!stockQuantity.ok) {
-      rowErrors.push(stockQuantity.error);
+    if (!purchasePrice.ok) {
+      rowErrors.push(purchasePrice.error);
     }
 
-    if (!supplierName.ok) {
-      rowErrors.push(supplierName.error);
+    if (!quantity.ok) {
+      rowErrors.push(quantity.error);
     }
 
-    if (!categoryName.ok) {
-      rowErrors.push(categoryName.error);
+    if (!supplier.ok) {
+      rowErrors.push(supplier.error);
+    }
+
+    if (!category.ok) {
+      rowErrors.push(category.error);
     }
 
     if (
       retailPrice.ok &&
-      stockQuantity.ok &&
-      supplierName.ok &&
-      categoryName.ok &&
+      purchasePrice.ok &&
+      quantity.ok &&
+      supplier.ok &&
+      category.ok &&
       (retailPrice.value !== undefined ||
-        stockQuantity.value !== undefined ||
-        supplierName.value !== undefined ||
-        categoryName.value !== undefined)
+        purchasePrice.value !== undefined ||
+        quantity.value !== undefined ||
+        supplier.value !== undefined ||
+        category.value !== undefined)
     ) {
       adjustments.push({
-        categoryName: categoryName.value,
+        category: category.value,
+        purchasePrice: purchasePrice.value,
+        quantity: quantity.value,
         retailPrice: retailPrice.value,
         rowFingerprint,
         rowNumber,
-        stockQuantity: stockQuantity.value,
-        supplierName: supplierName.value,
+        supplier: supplier.value,
       });
     }
   }
@@ -3169,15 +3268,22 @@ function applyRowAdjustments(
 
     return {
       ...product,
+      purchasePrice:
+        adjustment.purchasePrice === undefined || adjustment.purchasePrice === null
+          ? product.purchasePrice
+          : adjustment.purchasePrice,
       retailPrice:
         adjustment.retailPrice === undefined || adjustment.retailPrice === null
           ? product.retailPrice
           : adjustment.retailPrice,
+      quantity:
+        adjustment.quantity === undefined || adjustment.quantity === null
+          ? (product.quantity ?? product.stockQuantity)
+          : adjustment.quantity,
       stockQuantity:
-        adjustment.stockQuantity === undefined ||
-        adjustment.stockQuantity === null
+        adjustment.quantity === undefined || adjustment.quantity === null
           ? product.stockQuantity
-          : adjustment.stockQuantity,
+          : adjustment.quantity,
     };
   });
 
@@ -3212,9 +3318,11 @@ function applySupplierWorkbookRows(
     const adjustment = adjustmentsByRow.get(product.rowNumber);
     const existing = findProduct(readModel.products, product);
     const manualSupplierName =
-      maybeText(adjustment?.supplierName) ?? defaultSupplierName;
+      maybeText(adjustment?.supplier) ??
+      defaultSupplierName;
     const manualCategoryName =
-      maybeText(adjustment?.categoryName) ?? defaultCategoryName;
+      maybeText(adjustment?.category) ??
+      defaultCategoryName;
     const supplierReferenceRow = manualSupplierName
       ? {
           ...product,
@@ -3251,22 +3359,32 @@ function applySupplierWorkbookRows(
       productId: existing?.productId ?? product.productId,
       productName: product.productName || existing?.productName || "",
       purchasePrice:
-        product.purchasePrice === undefined
-          ? maybeNumber(existing?.purchasePrice)
-          : product.purchasePrice,
+        adjustment?.purchasePrice !== undefined && adjustment.purchasePrice !== null
+          ? adjustment.purchasePrice
+          : (product.purchasePrice === undefined
+            ? maybeNumber(existing?.purchasePrice)
+            : product.purchasePrice),
       retailPrice:
         adjustment?.retailPrice === undefined || adjustment.retailPrice === null
-          ? (existing ? maybeNumber(existing.retailPrice) : undefined)
+          ? (product.retailPrice ??
+            (existing ? maybeNumber(existing.retailPrice) : undefined))
           : adjustment.retailPrice,
       secondProductName:
         maybeText(product.secondProductName) ??
         maybeText(existing?.secondProductName) ??
         undefined,
       stockQuantity:
-        adjustment?.stockQuantity === undefined ||
-        adjustment.stockQuantity === null
-          ? (existing ? maybeNumber(existing.stockQuantity) : undefined)
-          : adjustment.stockQuantity,
+        adjustment?.quantity === undefined ||
+        adjustment.quantity === null
+          ? (product.quantity ??
+            (existing ? maybeNumber(existing.stockQuantity) : undefined))
+          : adjustment.quantity,
+      quantity:
+        adjustment?.quantity === undefined ||
+        adjustment.quantity === null
+          ? (product.quantity ??
+            (existing ? maybeNumber(existing.stockQuantity) : undefined))
+          : adjustment.quantity,
       supplierId,
       supplierName: undefined,
     };
@@ -3490,6 +3608,106 @@ function* chunkRows<T>(rows: readonly T[], chunkSize: number) {
   }
 }
 
+function effectiveProductRowsLastWins(
+  rows: readonly ParsedProductRow[],
+): ParsedProductRow[] {
+  const byBarcode = new Map<string, ParsedProductRow>();
+  const withoutBarcode: ParsedProductRow[] = [];
+
+  for (const row of rows) {
+    const key = row.barcode.trim().toLowerCase();
+    if (!key) {
+      withoutBarcode.push(row);
+      continue;
+    }
+    byBarcode.set(key, row);
+  }
+
+  return [...withoutBarcode, ...byBarcode.values()];
+}
+
+function bulkProductSyncEventError(code: ShopAdminActionCode): WorkbookRowError {
+  return {
+    code,
+    field: "sync_events",
+    message:
+      "Products were applied, but the catalog sync event could not be recorded.",
+    row: 0,
+    sheet: "Products",
+  };
+}
+
+function priceHistorySyncEventError(code: ShopAdminActionCode): WorkbookRowError {
+  return {
+    code,
+    field: "sync_events",
+    message:
+      "PriceHistory rows were applied, but the prices sync event could not be recorded.",
+    row: 0,
+    sheet: "PriceHistory",
+  };
+}
+
+async function emitBulkProductImportSyncEvents(
+  context: ReadyShopActionContext,
+  productIds: readonly string[],
+) {
+  for (const productIdChunk of chunkRows(productIds, BULK_PRODUCT_IMPORT_CHUNK_SIZE)) {
+    const syncResult = await emitCatalogBulkProductImportSyncEvent({
+      context,
+      productIds: productIdChunk,
+    });
+
+    if (!syncResult.ok) {
+      return syncResult.code;
+    }
+  }
+
+  return null;
+}
+
+async function emitPriceHistoryImportSyncEvents(
+  context: ReadyShopActionContext,
+  priceIds: readonly string[],
+) {
+  const syncResult = await emitPriceHistoryImportSyncEvent({
+    context,
+    priceIds,
+  });
+
+  return syncResult.ok ? null : syncResult.code;
+}
+
+function priceIdsFromPayload(value: unknown) {
+  const payload = payloadRecord(value);
+  const rawPriceIds = payload.priceIds;
+
+  if (!Array.isArray(rawPriceIds)) {
+    return [];
+  }
+
+  const priceIds: string[] = [];
+
+  for (const item of rawPriceIds) {
+    if (typeof item === "string") {
+      priceIds.push(item);
+      continue;
+    }
+
+    if (!item || typeof item !== "object") {
+      continue;
+    }
+
+    const priceId = (item as Record<string, unknown>).priceId;
+
+    if (typeof priceId === "string") {
+      priceIds.push(priceId);
+    }
+  }
+
+  return priceIds;
+}
+
 function rememberAppliedProductReference(
   maps: ReturnType<typeof buildProductIdMaps>,
   payloadRows: readonly StaffAwareBulkProductImportPayload[],
@@ -3565,7 +3783,21 @@ async function applyBulkProductImport(
       rememberAppliedProductReference(productIdMaps, productPayload, product);
     }
 
-    return productImport;
+    const syncEventFailure = await emitBulkProductImportSyncEvents(
+      context,
+      productImport.productIds.map((product) => product.productId),
+    );
+
+    return syncEventFailure
+      ? {
+          ...productImport,
+          rowErrors: [
+            ...productImport.rowErrors,
+            bulkProductSyncEventError(syncEventFailure),
+          ],
+          syncEventFailure,
+        }
+      : productImport;
   }
 
   let failedRows = 0;
@@ -3600,6 +3832,7 @@ async function applyBulkProductImport(
     const productIds = Array.isArray(payload.productIds)
       ? payload.productIds
       : [];
+    const appliedProductIds: string[] = [];
 
     for (const product of productIds) {
       if (!product || typeof product !== "object") {
@@ -3616,6 +3849,7 @@ async function applyBulkProductImport(
         continue;
       }
 
+      appliedProductIds.push(productId);
       rememberAppliedProductReference(productIdMaps, productPayload, {
         barcode,
         itemNumber,
@@ -3641,6 +3875,22 @@ async function applyBulkProductImport(
       ? rpcFailedRows
       : productChunk.length;
     productsApplied += rpcProductsApplied;
+
+    const syncEventFailure = await emitBulkProductImportSyncEvents(
+      context,
+      appliedProductIds,
+    );
+
+    if (syncEventFailure) {
+      rowErrors.push(bulkProductSyncEventError(syncEventFailure));
+
+      return {
+        failedRows,
+        productsApplied,
+        rowErrors,
+        syncEventFailure,
+      };
+    }
   }
 
   return {
@@ -4007,6 +4257,7 @@ export async function applyCatalogWorkbookImport(
     ]),
   );
   const productIdMaps = buildProductIdMaps(readModel.products);
+  const productsToApply = effectiveProductRowsLastWins(adjustedParsed.products);
   let suppliersApplied = 0;
   let categoriesApplied = 0;
   let productsApplied = 0;
@@ -4056,10 +4307,10 @@ export async function applyCatalogWorkbookImport(
     }
   }
 
-  if (adjustedParsed.products.length >= BULK_PRODUCT_IMPORT_THRESHOLD) {
+  if (productsToApply.length >= BULK_PRODUCT_IMPORT_THRESHOLD) {
     const productImport = await applyBulkProductImport(
       context,
-      adjustedParsed.products,
+      productsToApply,
       readModel.products,
       supplierIdsByName,
       categoryIdsByName,
@@ -4069,8 +4320,30 @@ export async function applyCatalogWorkbookImport(
     productsApplied += productImport.productsApplied;
     failedRows += productImport.failedRows;
     applyRowErrors.push(...productImport.rowErrors);
+
+    const syncEventFailure = "syncEventFailure" in productImport
+      ? productImport.syncEventFailure
+      : null;
+
+    if (syncEventFailure) {
+      return {
+        ...shopAdminActionResult(syncEventFailure, {
+          ok: false,
+          shopId: context.selectedShop.shopId,
+        }),
+        previewDigest: boundPreviewDigest,
+        rowErrors: applyRowErrors,
+        summary: {
+          categoriesApplied,
+          failedRows,
+          priceHistoryApplied,
+          productsApplied,
+          suppliersApplied,
+        },
+      };
+    }
   } else {
-    for (const row of adjustedParsed.products) {
+    for (const row of productsToApply) {
       const existing = findProduct(readModel.products, row);
       const productInput: ProductMutationInput = {
         ...mergeProductImportForApply(row, existing, {
@@ -4141,6 +4414,32 @@ export async function applyCatalogWorkbookImport(
       priceHistoryApplied += priceImport.priceHistoryApplied;
       failedRows += priceImport.failedRows;
       applyRowErrors.push(...priceImport.rowErrors);
+
+      const syncEventFailure = await emitPriceHistoryImportSyncEvents(
+        context,
+        priceImport.priceIds,
+      );
+
+      if (syncEventFailure) {
+        return {
+          ...shopAdminActionResult(syncEventFailure, {
+            ok: false,
+            shopId: context.selectedShop.shopId,
+          }),
+          previewDigest: boundPreviewDigest,
+          rowErrors: [
+            ...applyRowErrors,
+            priceHistorySyncEventError(syncEventFailure),
+          ],
+          summary: {
+            categoriesApplied,
+            failedRows,
+            priceHistoryApplied,
+            productsApplied,
+            suppliersApplied,
+          },
+        };
+      }
     } else {
       for (const priceChunk of chunkRows(
         pricePayload,
@@ -4173,6 +4472,7 @@ export async function applyCatalogWorkbookImport(
           const rpcPriceHistoryApplied = numberFromPayload(
             payload.priceHistoryApplied,
           );
+          const priceIds = priceIdsFromPayload(data);
           const rpcOk = rpcResultOk(data);
 
           priceHistoryApplied += rpcPriceHistoryApplied;
@@ -4188,6 +4488,55 @@ export async function applyCatalogWorkbookImport(
           failedRows += rpcOk || rpcFailedRows > 0 || rpcPriceHistoryApplied > 0
             ? rpcFailedRows
             : priceChunk.length;
+
+          if (rpcPriceHistoryApplied > 0 && priceIds.length !== rpcPriceHistoryApplied) {
+            const code: ShopAdminActionCode = "db_failure";
+
+            return {
+              ...shopAdminActionResult(code, {
+                ok: false,
+                shopId: context.selectedShop.shopId,
+              }),
+              previewDigest: boundPreviewDigest,
+              rowErrors: [
+                ...applyRowErrors,
+                priceHistorySyncEventError(code),
+              ],
+              summary: {
+                categoriesApplied,
+                failedRows,
+                priceHistoryApplied,
+                productsApplied,
+                suppliersApplied,
+              },
+            };
+          }
+
+          const syncEventFailure = await emitPriceHistoryImportSyncEvents(
+            context,
+            priceIds,
+          );
+
+          if (syncEventFailure) {
+            return {
+              ...shopAdminActionResult(syncEventFailure, {
+                ok: false,
+                shopId: context.selectedShop.shopId,
+              }),
+              previewDigest: boundPreviewDigest,
+              rowErrors: [
+                ...applyRowErrors,
+                priceHistorySyncEventError(syncEventFailure),
+              ],
+              summary: {
+                categoriesApplied,
+                failedRows,
+                priceHistoryApplied,
+                productsApplied,
+                suppliersApplied,
+              },
+            };
+          }
         }
       }
     }
@@ -4233,7 +4582,7 @@ export async function applyCatalogWorkbookImport(
   if (
     adjustedParsed.importMode === "supplier" &&
     failedRows === 0 &&
-    adjustedParsed.products.length > 0
+    productsToApply.length > 0
   ) {
     const historyResult = await upsertSupplierImportHistoryEntry({
       appliedAt: new Date(),
@@ -4241,7 +4590,7 @@ export async function applyCatalogWorkbookImport(
       context,
       fileName: input.fileName,
       previewDigest: boundPreviewDigest,
-      rows: supplierImportHistoryRows(adjustedParsed.products, readModel),
+      rows: supplierImportHistoryRows(productsToApply, readModel),
       supplierName: defaultValidation.defaultSupplierName,
     });
 

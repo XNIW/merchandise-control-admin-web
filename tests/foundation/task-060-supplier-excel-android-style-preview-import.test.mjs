@@ -22,7 +22,19 @@ function assertContains(source, required, label = required) {
   assert.match(source, new RegExp(escapeRegExp(required)), label);
 }
 
+function exportedTypeBlock(source, typeName) {
+  const match = source.match(
+    new RegExp(`export type ${escapeRegExp(typeName)} = \\{[\\s\\S]*?\\n\\};`),
+  );
+  assert.ok(match, `${typeName} type block was not found`);
+  return match[0];
+}
+
 function loadTypeScriptModule(relativePath) {
+  return loadTypeScriptModuleWithPrivateExports(relativePath);
+}
+
+function loadTypeScriptModuleWithPrivateExports(relativePath, exportNames = []) {
   const absolutePath = join(root, relativePath);
   const source = readFileSync(absolutePath, "utf8");
   const transpiled = ts.transpileModule(source, {
@@ -34,16 +46,41 @@ function loadTypeScriptModule(relativePath) {
     fileName: relativePath,
   });
   const cjsModule = { exports: {} };
+  function requireFromTest(id) {
+    if (id === "server-only") {
+      return {};
+    }
+
+    if (id.startsWith("./") || id.startsWith("@/")) {
+      return new Proxy(
+        {},
+        {
+          get() {
+            return () => {
+              throw new Error(`Stubbed dependency ${id} was invoked`);
+            };
+          },
+        },
+      );
+    }
+
+    return requireForTranspiledModule(id);
+  }
+
   const context = createContext({
     Buffer,
     exports: cjsModule.exports,
     module: cjsModule,
-    require: requireForTranspiledModule,
+    require: requireFromTest,
   });
 
-  new Script(transpiled.outputText, { filename: relativePath }).runInContext(
-    context,
-  );
+  const privateExports = exportNames
+    .map((name) => `module.exports.${name} = ${name};`)
+    .join("\n");
+
+  new Script(`${transpiled.outputText}\n${privateExports}`, {
+    filename: relativePath,
+  }).runInContext(context);
 
   return cjsModule.exports;
 }
@@ -146,7 +183,7 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
     "Show raw workbook context",
     "Column mapping",
     "Use enabled columns are included in the digest and product preview.",
-    "Optional references start off until you turn them on.",
+    "Detected canonical columns start enabled and can be ignored manually.",
     "Use",
     "Requirement",
     "Detected Excel column",
@@ -198,11 +235,8 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
     assertContains(importPanel, required);
   }
 
-  assert.doesNotMatch(
-    importPanel,
-    /Supplier for row|Category for row/,
-    "supplier/category per-row override inputs must not be in the main supplier preview table",
-  );
+  assertContains(importPanel, "Supplier to import for row");
+  assertContains(importPanel, "Category to import for row");
 
   assertContains(importPanel, "rowAdjustments(previewRows, edits, mode)");
   assertContains(importPanel, 'mode === "supplier"');
@@ -210,12 +244,20 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   assertContains(importPanel, "{isDatabase ? (");
   assertContains(
     importPanel,
-    "Optional references start off until you turn them on.",
+    "Detected canonical columns start enabled and can be ignored manually.",
   );
   assertContains(importPanel, "<DefaultImportSettings");
   assertContains(importPanel, "visibleSupplierMappingFields");
   assertContains(importPanel, "supplierHiddenMappingFields");
   assertContains(importPanel, "optionalDefaultOffFields");
+  assertContains(
+    importPanel,
+    "const supplierHiddenMappingFields = new Set<CatalogImportField>();",
+  );
+  assertContains(
+    importPanel,
+    "const optionalDefaultOffFields = new Set<CatalogImportField>();",
+  );
   assertContains(importPanel, "numericMappingFields");
   assertContains(importPanel, "isNumericColumnCompatible");
   assertContains(importPanel, "numericMappingIssues");
@@ -256,14 +298,24 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
     /DefaultImportSettings|Default supplier|Workbook file/,
     "Step 3 must not repeat workbook file or default supplier/category settings",
   );
-  assertContains(importPanel, "!edit.categoryName?.trim()");
+  assertContains(importPanel, "!edit.category?.trim()");
+  assertContains(importPanel, "!edit.purchasePrice?.trim()");
   assertContains(importPanel, "!edit.retailPrice?.trim()");
-  assertContains(importPanel, "!edit.stockQuantity?.trim()");
-  assertContains(importPanel, "!edit.supplierName?.trim()");
-  assertContains(importPanel, 'value={edit.stockQuantity ?? ""}');
+  assertContains(importPanel, "!edit.quantity?.trim()");
+  assertContains(importPanel, "!edit.supplier?.trim()");
+  assertContains(importPanel, 'value={edit.purchasePrice ?? ""}');
+  assertContains(importPanel, 'value={edit.quantity ?? ""}');
   assertContains(importPanel, 'value={edit.retailPrice ?? ""}');
+  assertContains(importPanel, 'value={edit.supplier ?? ""}');
+  assertContains(importPanel, 'value={edit.category ?? ""}');
+  assertContains(importPanel, "Calculate retail price from purchase price");
+  assertContains(importPanel, "setBulkMarkupPercent");
+  assertContains(importPanel, "setBulkRoundTo");
+  assertContains(importPanel, "setBulkOnlyEmptyRetailPrice");
+  assertContains(importPanel, "Apply only where retailPrice is empty");
+  assertContains(importPanel, "Purchase price is never copied into retail price automatically.");
   assertContains(importPanel, 'value={edit.retailPrice ?? ""}');
-  assertContains(importPanel, 'value={edit.stockQuantity ?? ""}');
+  assertContains(importPanel, 'value={edit.quantity ?? ""}');
   assertContains(importPanel, 'list="supplier-import-supplier-options"');
   assertContains(importPanel, 'list="supplier-import-category-options"');
   assertContains(
@@ -283,20 +335,21 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   assertContains(importPanel, "recognizedRetailPrice");
   assertContains(importPanel, "recognizedDiscount");
   assertContains(importPanel, "recognizedDiscountedPrice");
-  assertContains(importPanel, "recognizedLineTotal");
+  assertContains(importPanel, "recognizedTotalPrice");
   assertContains(importPanel, "currentPurchasePrice");
   assertContains(importPanel, "currentRetailPrice");
-  assertContains(importPanel, "currentStockQuantity");
+  assertContains(importPanel, "currentQuantity");
   assertContains(importPanel, "secondProductName");
   assert.match(
     importPanel,
     /if \(!result\.ok\) \{[\s\S]*handleImportFailure\(result\);[\s\S]*setPreview\(null\);[\s\S]*return;[\s\S]*\}[\s\S]*setPreview\(result\);/,
     "failed preview responses must not render a fake preview state",
   );
-  assert.doesNotMatch(
-    importPanel,
-    /filledAdjustmentCount|Enter at least one quantity or retail price to import/,
-    "supplier apply should allow creating products even when quantity/retail inputs are left empty",
+  const contract = read("src/server/shop-admin/catalog-import-contract.ts");
+  assertContains(contract, '"missing_required_retail_price"');
+  assertContains(
+    contract,
+    "New product requires retailPrice before supplier import apply.",
   );
 });
 
@@ -431,10 +484,10 @@ test("TASK-060 header detection accepts shifted multilingual Android-style alias
   assert.equal(aliases.retailPrice.includes("售价"), false);
   assert.ok(aliases.discount.includes("折扣"));
   assert.ok(aliases.discountedPrice.includes("售价"));
-  assert.ok(aliases.lineTotal.includes("总价"));
-  assert.ok(aliases.stockQuantity.includes("unds."));
-  assert.ok(aliases.stockQuantity.includes("数量"));
-  assert.ok(aliases.supplierName.includes("empresa proveedora"));
+  assert.ok(aliases.totalPrice.includes("总价"));
+  assert.ok(aliases.quantity.includes("unds."));
+  assert.ok(aliases.quantity.includes("数量"));
+  assert.ok(aliases.supplier.includes("empresa proveedora"));
 
   const detection = detectCatalogImportHeaderRow([
     ["Supplier workbook generated by vendor"],
@@ -468,10 +521,10 @@ test("TASK-060 header detection accepts shifted multilingual Android-style alias
   assert.equal(detection.headers.get("itemNumber"), 1);
   assert.equal(detection.headers.get("productName"), 2);
   assert.equal(detection.headers.get("secondProductName"), 3);
-  assert.equal(detection.headers.get("stockQuantity"), 4);
+  assert.equal(detection.headers.get("quantity"), 4);
   assert.equal(detection.headers.get("purchasePrice"), 5);
   assert.equal(detection.headers.get("retailPrice"), 6);
-  assert.equal(detection.headers.get("supplierName"), 7);
+  assert.equal(detection.headers.get("supplier"), 7);
   assert.equal(detection.recognizedColumnSources.barcode.source, "alias");
   assert.equal(
     detection.recognizedColumnSources.barcode.columnLabel,
@@ -523,11 +576,11 @@ test("TASK-060 Dingli-like supplier header is detected from shifted Chinese orde
   assert.equal(detection.headers.get("barcode"), 2);
   assert.equal(detection.headers.get("productName"), 3);
   assert.equal(detection.headers.get("secondProductName"), 4);
-  assert.equal(detection.headers.get("stockQuantity"), 5);
+  assert.equal(detection.headers.get("quantity"), 5);
   assert.equal(detection.headers.get("purchasePrice"), 6);
   assert.equal(detection.headers.get("discount"), 7);
   assert.equal(detection.headers.get("discountedPrice"), 8);
-  assert.equal(detection.headers.get("lineTotal"), 9);
+  assert.equal(detection.headers.get("totalPrice"), 9);
   assert.equal(detection.headers.has("retailPrice"), false);
 });
 
@@ -538,7 +591,7 @@ test("TASK-060 Belina-like supplier header maps aliases without IMP(CLP) retail 
   } = loadTypeScriptModule("src/server/shop-admin/catalog-import-contract.ts");
 
   assert.ok(aliases.itemNumber.includes("ref"));
-  assert.ok(aliases.stockQuantity.includes("cnt"));
+  assert.ok(aliases.quantity.includes("cnt"));
   assert.ok(aliases.secondProductName.includes("local descripcion"));
 
   const detection = detectCatalogImportHeaderRow([
@@ -570,10 +623,10 @@ test("TASK-060 Belina-like supplier header maps aliases without IMP(CLP) retail 
   assert.equal(detection.headers.get("barcode"), 1);
   assert.equal(detection.headers.get("productName"), 2);
   assert.equal(detection.headers.get("secondProductName"), 3);
-  assert.equal(detection.headers.get("stockQuantity"), 4);
+  assert.equal(detection.headers.get("quantity"), 4);
   assert.equal(detection.headers.get("purchasePrice"), 5);
   assert.equal(detection.headers.has("retailPrice"), false);
-  assert.equal(detection.headers.has("categoryName"), false);
+  assert.equal(detection.headers.has("category"), false);
 });
 
 test("TASK-060 pattern fallback maps stable supplier sheets without a header row", () => {
@@ -593,7 +646,7 @@ test("TASK-060 pattern fallback maps stable supplier sheets without a header row
   assert.equal(detection.dataStartRowIndex, 0);
   assert.equal(detection.headers.get("barcode"), 0);
   assert.equal(detection.headers.get("productName"), 2);
-  assert.equal(detection.headers.get("stockQuantity"), 3);
+  assert.equal(detection.headers.get("quantity"), 3);
   assert.equal(detection.headers.get("purchasePrice"), 4);
   assert.equal(detection.recognizedColumnSources.barcode.source, "pattern");
   assert.equal(detection.recognizedColumnSources.productName.source, "pattern");
@@ -605,9 +658,9 @@ test("TASK-060 generated metadata records missing required identity columns cons
   );
 
   const detection = detectCatalogImportHeaderRow([
-    ["codice articolo", "中文名", "quantità", "pre/u"],
-    ["ART-001", "Cafe tostado", 12, 1.25],
-    ["ART-002", "Yerba mate", 8, 2.1],
+    ["codice articolo", "中文名", "quantità", "pre/u", "totale"],
+    ["ART-001", "Cafe tostado", 12, 1.25, 15],
+    ["ART-002", "Yerba mate", 8, 2.1, 16.8],
   ]);
 
   assert.ok(detection, "generated-barcode candidate was not detected");
@@ -618,22 +671,242 @@ test("TASK-060 generated metadata records missing required identity columns cons
   assert.equal(detection.recognizedColumnSources.productName.source, "alias");
 });
 
+test("TASK-060 Android parseNumber supplier cases stay exact", () => {
+  const { parseWorkbookNumber } = loadTypeScriptModuleWithPrivateExports(
+    "src/server/shop-admin/import-export-workbook.ts",
+    ["parseWorkbookNumber"],
+  );
+  const fixture = JSON.parse(
+    read("tests/fixtures/supplier-import/android-canonical-sample.json"),
+  );
+
+  for (const [raw, expected] of Object.entries(fixture.parseNumberResults)) {
+    assert.equal(parseWorkbookNumber(raw), expected);
+  }
+});
+
+test("TASK-060 canonical Android supplier fixture drives preview validation summary", () => {
+  const {
+    CATALOG_IMPORT_FIELDS: catalogImportFields,
+    detectCatalogImportHeaderRow,
+    effectiveLastProductRows,
+    validateCatalogImportRows,
+  } = loadTypeScriptModuleWithPrivateExports(
+    "src/server/shop-admin/catalog-import-contract.ts",
+    ["effectiveLastProductRows"],
+  );
+  const fixture = JSON.parse(
+    read("tests/fixtures/supplier-import/android-canonical-sample.json"),
+  );
+
+  const detection = detectCatalogImportHeaderRow(fixture.sampleRows);
+  assert.ok(detection, "canonical supplier fixture header was not detected");
+  assert.equal(detection.headerRowIndex, 0);
+
+  const sheetDetection = detectCatalogImportHeaderRow(fixture.sheetRows);
+  assert.ok(sheetDetection, "fixture with metadata rows was not detected");
+  assert.equal(
+    sheetDetection.headerRowIndex,
+    fixture.metadataRowsBeforeHeader.length,
+  );
+
+  for (const rows of Object.values(fixture.aliasSamples)) {
+    const aliasDetection = detectCatalogImportHeaderRow(rows);
+    assert.ok(aliasDetection, "alias sample header was not detected");
+    assert.deepEqual(
+      [...aliasDetection.headers]
+        .sort((a, b) => a[1] - b[1])
+        .map(([field]) => field),
+      fixture.normalizedHeader,
+    );
+  }
+
+  const headerlessDetection = detectCatalogImportHeaderRow(
+    fixture.headerlessSample.rows,
+  );
+  assert.ok(headerlessDetection, "headerless fixture sample was not detected");
+  assert.equal(headerlessDetection.headerRowIndex, null);
+  assert.deepEqual(
+    [...headerlessDetection.headers]
+      .sort((a, b) => a[1] - b[1])
+      .map(([field]) => field),
+    fixture.headerlessSample.normalizedHeader,
+  );
+
+  const normalizedHeaderByColumn = [];
+  for (const [field, columnIndex] of detection.headers) {
+    normalizedHeaderByColumn[columnIndex] = field;
+  }
+  assert.deepEqual(
+    normalizedHeaderByColumn.filter(Boolean),
+    fixture.normalizedHeader,
+  );
+
+  const headerSource = Object.fromEntries(
+    Object.keys(fixture.headerSource).map((field) => [
+      field,
+      detection.recognizedColumnSources[field]?.source,
+    ]),
+  );
+  assert.deepEqual(headerSource, fixture.headerSource);
+  assert.deepEqual(
+    [...catalogImportFields].sort(),
+    [...fixture.publicKeysAudit.allowed].sort(),
+  );
+
+  const canonicalProducts = [
+    {
+      barcode: "9999999900001",
+      category: "Categoria A",
+      itemNumber: "EX-001",
+      productName: "Existing rename",
+      purchasePrice: 100,
+      quantity: 3,
+      retailPrice: 150,
+      rowNumber: 2,
+      supplier: "Fornitore A",
+    },
+    {
+      barcode: "8888888800008",
+      category: "Categoria A",
+      productName: "Duplicate first",
+      purchasePrice: 200,
+      quantity: 1,
+      retailPrice: 250,
+      rowNumber: 3,
+      supplier: "Fornitore A",
+    },
+    {
+      barcode: "8888888800008",
+      category: "Categoria A",
+      productName: "Duplicate last",
+      purchasePrice: 220,
+      quantity: 2,
+      retailPrice: 270,
+      rowNumber: 4,
+      supplier: "Fornitore A",
+    },
+    {
+      barcode: "7777777700007",
+      category: "Categoria B",
+      itemNumber: "ART-777",
+      productName: "",
+      purchasePrice: 100,
+      quantity: 1,
+      retailPrice: 160,
+      rowNumber: 5,
+      supplier: "Fornitore B",
+    },
+  ];
+  const effectiveProducts = effectiveLastProductRows(canonicalProducts);
+  const duplicateLast = effectiveProducts.find(
+    (product) => product.barcode === "8888888800008",
+  );
+  assert.equal(duplicateLast.productName, "Duplicate last");
+  assert.equal(duplicateLast.quantity, 2);
+  assert.equal(
+    effectiveProducts.filter((product) => product.barcode === "8888888800008")
+      .length,
+    1,
+  );
+
+  const validation = validateCatalogImportRows(
+    {
+      categories: [],
+      products: canonicalProducts,
+      suppliers: [],
+    },
+    {
+      categories: [
+        { categoryId: "cat-a", name: "Categoria A" },
+        { categoryId: "cat-b", name: "Categoria B" },
+      ],
+      products: [
+        {
+          barcode: "9999999900001",
+          categoryId: "cat-a",
+          itemNumber: "EX-001",
+          productId: "prod-existing",
+          productName: "Existing old",
+          purchasePrice: 90,
+          retailPrice: 140,
+          secondProductName: null,
+          supplierId: "sup-a",
+        },
+      ],
+      suppliers: [
+        { name: "Fornitore A", supplierId: "sup-a" },
+        { name: "Fornitore B", supplierId: "sup-b" },
+      ],
+    },
+  );
+
+  assert.equal(validation.summary.products, fixture.dataRowsCount);
+  assert.equal(validation.summary.newProducts, fixture.newProducts);
+  assert.equal(validation.summary.updatedProducts, fixture.updatedProducts);
+  assert.equal(validation.summary.errors, fixture.errors.length);
+  assert.equal(validation.summary.errors === 0, fixture.canApply);
+  const duplicateWarningRows = validation.rowWarnings
+    .filter((warning) => warning.code === "duplicate_product_barcode")
+    .map((warning) => warning.row);
+  assert.equal(duplicateWarningRows.length > 0 ? 1 : 0, fixture.warnings);
+  assert.equal(
+    JSON.stringify(duplicateWarningRows),
+    JSON.stringify(fixture.duplicateWarning.rows),
+  );
+
+  const missingRetailValidation = validateCatalogImportRows(
+    {
+      categories: [],
+      products: [
+        {
+          barcode: fixture.retailMissingNewProduct.barcode,
+          itemNumber: "ART-NO-RETAIL",
+          productName: "",
+          purchasePrice: 100,
+          quantity: 1,
+          rowNumber: 10,
+        },
+      ],
+      suppliers: [],
+    },
+    {
+      categories: [],
+      products: [],
+      suppliers: [],
+    },
+  );
+  assert.equal(
+    JSON.stringify(missingRetailValidation.rowErrors.map((issue) => issue.code)),
+    JSON.stringify(["missing_required_retail_price"]),
+  );
+
+  for (const key of fixture.publicKeysAudit.forbidden) {
+    assert.equal(
+      fixture.previewRows.some((row) => Object.hasOwn(row, key)),
+      false,
+      `${key} leaked into fixture previewRows`,
+    );
+  }
+});
+
 test("TASK-060 supplier apply creates products and binds digests to shop context", () => {
   const workbook = read("src/server/shop-admin/import-export-workbook.ts");
+  const contract = read("src/server/shop-admin/catalog-import-contract.ts");
 
   for (const required of [
     "write_staff_shop_admin_audit",
     'context.principalKind === "pos_staff_manager"',
     "recognizedColumnSources",
     "recognizedPurchasePrice: product.purchasePrice",
-    "recognizedQuantity: product.stockQuantity",
+    "recognizedQuantity: product.quantity",
     "recognizedRetailPrice: product.retailPrice",
     "recognizedDiscount: product.discount",
     "recognizedDiscountedPrice: product.discountedPrice",
-    "recognizedLineTotal: product.lineTotal",
+    "recognizedTotalPrice: product.totalPrice",
     "currentPurchasePrice",
     "currentRetailPrice",
-    "currentStockQuantity",
+    "currentQuantity",
     "SUPPLIER_DEFAULT_EXCLUDED_MAPPING_FIELDS",
     "SUPPLIER_ALWAYS_EXCLUDED_MAPPING_FIELDS",
     "NUMERIC_COMPATIBLE_MAPPING_FIELDS",
@@ -656,6 +929,11 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     "const requiredConfirmation =",
     'importMode === "database" ? "IMPORT DATABASE" : "APPLY"',
     "normalizedConfirmation !== requiredConfirmation",
+    "effectiveProductRowsLastWins",
+    "const productsToApply = effectiveProductRowsLastWins(adjustedParsed.products);",
+    "productsToApply.length >= BULK_PRODUCT_IMPORT_THRESHOLD",
+    "for (const row of productsToApply)",
+    "supplierImportHistoryRows(productsToApply, readModel)",
     "applySupplierWorkbookRows",
     "const products = parsed.products.map((product)",
     "const existing = findProduct(readModel.products, product)",
@@ -666,16 +944,18 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     'barcode: product.barcode || existing?.barcode || ""',
     "productId: existing?.productId ?? product.productId",
     'productName: product.productName || existing?.productName || ""',
+    "product.retailPrice ??",
+    "product.quantity ??",
     "categories: []",
     "priceHistory: []",
     "suppliers: []",
     'parsed.importMode === "supplier"',
-    "supplierName.value !== undefined",
-    "categoryName.value !== undefined",
+    "supplier.value !== undefined",
+    "category.value !== undefined",
     "hasPlausibleProductIdentity",
     "numericCells >= 2",
     "!isValidProductBarcode(barcode) && !hasProductNameText",
-    "Barcode must contain 8 to 14 digits.",
+    "Barcode must contain 8, 12, or 13 digits.",
   ]) {
     assertContains(workbook, required);
   }
@@ -700,11 +980,8 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     /Supplier import can update quantity or retail price only|flatMap/,
     "supplier path must not fail closed on new product rows",
   );
-  assert.doesNotMatch(
-    workbook,
-    /At least one quantity or retail price must be filled before applying supplier import/,
-    "supplier apply must allow new products with empty quantity and retail inputs",
-  );
+  assertContains(contract, '"missing_required_retail_price"');
+  assertContains(contract, "product.retailPrice === undefined");
   assert.match(
     workbook,
     /rawPreviewRows: productPreviewRows\([\s\S]*rawWorkbookContextRows: rawPreviewRows\(/,
@@ -725,14 +1002,37 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     /const MAX_PRODUCT_SAMPLE_ROWS = 5;/,
     "product row sample must be bounded to five product rows",
   );
-  assert.match(
+  assertContains(
     workbook,
-    /SUPPLIER_ALWAYS_EXCLUDED_MAPPING_FIELDS[\s\S]*"retailPrice"/,
-    "supplier mapping must never use retailPrice from workbook columns",
+    "const SUPPLIER_ALWAYS_EXCLUDED_MAPPING_FIELDS = new Set<CatalogImportField>();",
+    "supplier mapping must allow canonical retailPrice when the workbook exposes it",
+  );
+  assertContains(
+    workbook,
+    "const SUPPLIER_DEFAULT_EXCLUDED_MAPPING_FIELDS = new Set<CatalogImportField>();",
+    "supplier mapping must keep detected canonical supplemental fields unless the user disables them",
+  );
+  const previewRowType = exportedTypeBlock(
+    workbook,
+    "CatalogWorkbookPreviewRow",
+  );
+  const rowAdjustmentType = exportedTypeBlock(
+    workbook,
+    "CatalogWorkbookRowAdjustment",
+  );
+  assert.doesNotMatch(
+    previewRowType,
+    /stockQuantity|supplierName|categoryName/,
+    "supplier preview row DTO must not expose forbidden public import keys",
+  );
+  assert.doesNotMatch(
+    rowAdjustmentType,
+    /stockQuantity|supplierName|categoryName/,
+    "supplier row adjustments must use canonical quantity/supplier/category",
   );
   assert.match(
     workbook,
-    /NUMERIC_COMPATIBLE_MAPPING_FIELDS[\s\S]*"discount"[\s\S]*"discountedPrice"[\s\S]*"lineTotal"[\s\S]*"purchasePrice"[\s\S]*"stockQuantity"/,
+    /NUMERIC_COMPATIBLE_MAPPING_FIELDS[\s\S]*"discount"[\s\S]*"discountedPrice"[\s\S]*"oldPurchasePrice"[\s\S]*"oldRetailPrice"[\s\S]*"realQuantity"[\s\S]*"totalPrice"[\s\S]*"purchasePrice"[\s\S]*"quantity"/,
     "numeric supplier fields must be guarded by sample compatibility checks",
   );
 });

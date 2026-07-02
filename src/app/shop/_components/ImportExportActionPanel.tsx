@@ -58,17 +58,22 @@ type CatalogOption = {
 
 type CatalogImportField =
   | "barcode"
-  | "categoryName"
+  | "category"
+  | "complete"
   | "discount"
   | "discountedPrice"
   | "itemNumber"
-  | "lineTotal"
+  | "oldPurchasePrice"
+  | "oldRetailPrice"
   | "productName"
   | "purchasePrice"
+  | "quantity"
+  | "realQuantity"
   | "retailPrice"
+  | "rowNumber"
   | "secondProductName"
-  | "stockQuantity"
-  | "supplierName";
+  | "supplier"
+  | "totalPrice";
 
 type MappingOverrideState = Partial<Record<CatalogImportField, number | null>>;
 
@@ -90,15 +95,15 @@ type ImportIssue = {
 
 type PreviewRow = {
   barcode: string;
-  categoryName?: string;
+  category?: string;
   currentPurchasePrice?: number;
   currentRetailPrice?: number;
-  currentStockQuantity?: number;
+  currentQuantity?: number;
   itemNumber?: string;
   productName: string;
   recognizedDiscount?: number;
   recognizedDiscountedPrice?: number;
-  recognizedLineTotal?: number;
+  recognizedTotalPrice?: number;
   recognizedPurchasePrice?: number;
   recognizedQuantity?: number;
   recognizedRetailPrice?: number;
@@ -107,8 +112,9 @@ type PreviewRow = {
   rowNumber: number;
   secondProductName?: string;
   status: "Ready" | "Warning" | "Blocked" | "Duplicate" | "Update" | "New";
-  stockQuantity?: number;
-  supplierName?: string;
+  quantity?: number;
+  supplier?: string;
+  totalPrice?: number;
   warnings: number;
 };
 
@@ -245,10 +251,11 @@ type ApplyResponse = {
 };
 
 type EditedRow = {
-  categoryName?: string;
+  category?: string;
+  purchasePrice?: string;
+  quantity?: string;
   retailPrice?: string;
-  stockQuantity?: string;
-  supplierName?: string;
+  supplier?: string;
 };
 
 const ImportExportLabelsContext = createContext<UiTextMap | undefined>(
@@ -297,35 +304,34 @@ const canonicalMappingFields: Array<{
   },
   { field: "itemNumber", label: "Item number", strength: "recommended" },
   { field: "secondProductName", label: "Second name", strength: "recommended" },
-  { field: "stockQuantity", label: "Quantity", strength: "recommended" },
+  { field: "rowNumber", label: "Row number", strength: "optional" },
+  { field: "quantity", label: "Quantity", strength: "recommended" },
+  { field: "realQuantity", label: "Real quantity", strength: "optional" },
   { field: "purchasePrice", label: "Purchase price", strength: "recommended" },
   { field: "retailPrice", label: "Retail price", strength: "optional" },
   { field: "discount", label: "Discount", strength: "optional" },
   { field: "discountedPrice", label: "Discounted price", strength: "optional" },
-  { field: "lineTotal", label: "Total price", strength: "optional" },
-  { field: "supplierName", label: "Supplier", strength: "optional" },
-  { field: "categoryName", label: "Category", strength: "optional" },
+  { field: "totalPrice", label: "Total price", strength: "optional" },
+  { field: "oldPurchasePrice", label: "Old purchase price", strength: "optional" },
+  { field: "oldRetailPrice", label: "Old retail price", strength: "optional" },
+  { field: "complete", label: "Complete", strength: "optional" },
+  { field: "supplier", label: "Supplier", strength: "optional" },
+  { field: "category", label: "Category", strength: "optional" },
 ];
-const supplierHiddenMappingFields = new Set<CatalogImportField>([
-  "categoryName",
-  "retailPrice",
-  "supplierName",
-]);
+const supplierHiddenMappingFields = new Set<CatalogImportField>();
 const visibleSupplierMappingFields = canonicalMappingFields.filter(
   (entry) => !supplierHiddenMappingFields.has(entry.field),
 );
-const optionalDefaultOffFields = new Set<CatalogImportField>([
-  "discount",
-  "discountedPrice",
-  "lineTotal",
-  "retailPrice",
-]);
+const optionalDefaultOffFields = new Set<CatalogImportField>();
 const numericMappingFields = new Set<CatalogImportField>([
   "discount",
   "discountedPrice",
-  "lineTotal",
+  "oldPurchasePrice",
+  "oldRetailPrice",
+  "realQuantity",
+  "totalPrice",
   "purchasePrice",
-  "stockQuantity",
+  "quantity",
 ]);
 
 function shopQuery(selectedShopId?: string) {
@@ -402,6 +408,18 @@ function compactColumnDisplayLabel(column: RawPreviewColumn | undefined) {
 
 function parsePreviewNumber(value: string) {
   return parseLocalizedNumberText(value);
+}
+
+function formatEditableNumber(value: number) {
+  return Number.isInteger(value) ? String(value) : value.toFixed(2);
+}
+
+function roundToNearest(value: number, step: number) {
+  if (!Number.isFinite(step) || step <= 0) {
+    return value;
+  }
+
+  return Math.round(value / step) * step;
 }
 
 function columnSampleValues(
@@ -1620,7 +1638,7 @@ function ColumnMappingEditor({
           </h3>
           <p className="mt-1 text-xs leading-5 text-zinc-600">
             {t(
-              "Use enabled columns are included in the digest and product preview. Optional references start off until you turn them on.",
+              "Use enabled columns are included in the digest and product preview. Detected canonical columns start enabled and can be ignored manually.",
             )}
           </p>
         </div>
@@ -1934,8 +1952,12 @@ function PreviewTable({
                   <td className="whitespace-normal px-3 py-2 leading-5">
                     {row.secondProductName ?? ""}
                   </td>
-                  <td className="px-3 py-2">{row.supplierName ?? ""}</td>
-                  <td className="px-3 py-2">{row.categoryName ?? ""}</td>
+                  <td className="px-3 py-2">
+                    {row.supplier ?? ""}
+                  </td>
+                  <td className="px-3 py-2">
+                    {row.category ?? ""}
+                  </td>
                   <td className="px-3 py-2 font-mono text-xs">
                     {displayNumber(row.recognizedPurchasePrice)}
                   </td>
@@ -1945,7 +1967,7 @@ function PreviewTable({
                     )}
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">
-                    {displayNumber(row.recognizedQuantity ?? row.stockQuantity)}
+                    {displayNumber(row.recognizedQuantity ?? row.quantity)}
                   </td>
                 </tr>
               );
@@ -1982,14 +2004,14 @@ function PreviewTable({
             const currentMetrics = [
               numberMetric("Purchase", row.currentPurchasePrice),
               numberMetric("Retail", row.currentRetailPrice),
-              numberMetric("Stock", row.currentStockQuantity),
+              numberMetric("Stock", row.currentQuantity),
             ].filter((metric): metric is NumberMetric => metric !== null);
             const recognizedMetrics = [
               numberMetric("Qty", row.recognizedQuantity),
               numberMetric("Purchase", row.recognizedPurchasePrice),
               numberMetric("Discount", row.recognizedDiscount),
               numberMetric("Discounted price", row.recognizedDiscountedPrice),
-              numberMetric("Total price", row.recognizedLineTotal),
+              numberMetric("Total price", row.recognizedTotalPrice),
             ].filter((metric): metric is NumberMetric => metric !== null);
 
             return (
@@ -2048,7 +2070,27 @@ function PreviewTable({
                   <MetricGrid metrics={recognizedMetrics} responsive />
                 </td>
                 <td className="px-3 py-3">
-                  <div className="grid gap-2 sm:grid-cols-2">
+                  <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                    <label className="grid gap-1 text-xs font-medium text-zinc-700">
+                      {t("Purchase price")}
+                      <input
+                        aria-label={`${t("Purchase price to import for row")} ${row.rowNumber}`}
+                        className={importExportInputClassName}
+                        inputMode="decimal"
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
+
+                          setEdits((current) => ({
+                            ...current,
+                            [row.rowNumber]: {
+                              ...current[row.rowNumber],
+                              purchasePrice: value,
+                            },
+                          }));
+                        }}
+                        value={edit.purchasePrice ?? ""}
+                      />
+                    </label>
                     <label className="grid gap-1 text-xs font-medium text-zinc-700">
                       {t("Quantity")}
                       <input
@@ -2062,11 +2104,11 @@ function PreviewTable({
                             ...current,
                             [row.rowNumber]: {
                               ...current[row.rowNumber],
-                              stockQuantity: value,
+                              quantity: value,
                             },
                           }));
                         }}
-                        value={edit.stockQuantity ?? ""}
+                        value={edit.quantity ?? ""}
                       />
                     </label>
                     <label className="grid gap-1 text-xs font-medium text-zinc-700">
@@ -2087,6 +2129,44 @@ function PreviewTable({
                           }));
                         }}
                         value={edit.retailPrice ?? ""}
+                      />
+                    </label>
+                    <label className="grid gap-1 text-xs font-medium text-zinc-700">
+                      {t("Supplier")}
+                      <input
+                        aria-label={`${t("Supplier to import for row")} ${row.rowNumber}`}
+                        className={importExportInputClassName}
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
+
+                          setEdits((current) => ({
+                            ...current,
+                            [row.rowNumber]: {
+                              ...current[row.rowNumber],
+                              supplier: value,
+                            },
+                          }));
+                        }}
+                        value={edit.supplier ?? ""}
+                      />
+                    </label>
+                    <label className="grid gap-1 text-xs font-medium text-zinc-700">
+                      {t("Category")}
+                      <input
+                        aria-label={`${t("Category to import for row")} ${row.rowNumber}`}
+                        className={importExportInputClassName}
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
+
+                          setEdits((current) => ({
+                            ...current,
+                            [row.rowNumber]: {
+                              ...current[row.rowNumber],
+                              category: value,
+                            },
+                          }));
+                        }}
+                        value={edit.category ?? ""}
                       />
                     </label>
                   </div>
@@ -2115,25 +2195,28 @@ function rowAdjustments(
 
       if (
         mode === "supplier" &&
-        !edit.categoryName?.trim() &&
+        !edit.category?.trim() &&
+        !edit.purchasePrice?.trim() &&
         !edit.retailPrice?.trim() &&
-        !edit.stockQuantity?.trim() &&
-        !edit.supplierName?.trim()
+        !edit.quantity?.trim() &&
+        !edit.supplier?.trim()
       ) {
         return null;
       }
 
       return {
-        categoryName:
-          edit.categoryName === undefined ? undefined : edit.categoryName,
+        category:
+          edit.category === undefined ? undefined : edit.category,
+        purchasePrice:
+          edit.purchasePrice === undefined ? undefined : edit.purchasePrice,
+        quantity:
+          edit.quantity === undefined ? undefined : edit.quantity,
         retailPrice:
           edit.retailPrice === undefined ? undefined : edit.retailPrice,
         rowFingerprint: row.rowFingerprint,
         rowNumber: row.rowNumber,
-        stockQuantity:
-          edit.stockQuantity === undefined ? undefined : edit.stockQuantity,
-        supplierName:
-          edit.supplierName === undefined ? undefined : edit.supplierName,
+        supplier:
+          edit.supplier === undefined ? undefined : edit.supplier,
       };
     })
     .filter((row): row is NonNullable<typeof row> => row !== null);
@@ -2163,6 +2246,10 @@ function ImportWizard({
   const [applyConfirmation, setApplyConfirmation] = useState("");
   const [applyResult, setApplyResult] = useState<ApplyResponse | null>(null);
   const [authPrompt, setAuthPrompt] = useState<AuthPrompt | null>(null);
+  const [bulkMarkupPercent, setBulkMarkupPercent] = useState("30");
+  const [bulkOnlyEmptyRetailPrice, setBulkOnlyEmptyRetailPrice] =
+    useState(true);
+  const [bulkRoundTo, setBulkRoundTo] = useState("100");
   const [defaultCategoryName, setDefaultCategoryName] = useState("");
   const [defaultSupplierName, setDefaultSupplierName] = useState("");
   const [edits, setEdits] = useState<Record<number, EditedRow>>({});
@@ -2204,10 +2291,11 @@ function ImportWizard({
       previewRows.filter((row) => {
         const edit = edits[row.rowNumber];
         const edited =
-          Boolean(edit?.categoryName?.trim()) ||
+          Boolean(edit?.category?.trim()) ||
+          Boolean(edit?.purchasePrice?.trim()) ||
           Boolean(edit?.retailPrice?.trim()) ||
-          Boolean(edit?.stockQuantity?.trim()) ||
-          Boolean(edit?.supplierName?.trim());
+          Boolean(edit?.quantity?.trim()) ||
+          Boolean(edit?.supplier?.trim());
         const hasIssue =
           row.status === "Blocked" ||
           row.status === "Duplicate" ||
@@ -2224,6 +2312,81 @@ function ImportWizard({
     () => displayedPreviewRows.slice(0, 20),
     [displayedPreviewRows],
   );
+  const applyBulkRetailPrices = useCallback(() => {
+    const markupPercent = parsePreviewNumber(bulkMarkupPercent);
+    const roundTo = parsePreviewNumber(bulkRoundTo);
+
+    if (!Number.isFinite(markupPercent)) {
+      setError(t("Enter a valid markup percentage."));
+
+      return;
+    }
+
+    if (!Number.isFinite(roundTo) || roundTo <= 0) {
+      setError(t("Enter a valid rounding step."));
+
+      return;
+    }
+
+    let changedRows = 0;
+
+    setEdits((current) => {
+      const next = { ...current };
+
+      for (const row of previewRows) {
+        const edit = current[row.rowNumber] ?? {};
+        const typedRetailPrice = edit.retailPrice?.trim() ?? "";
+        const hasSourceRetailPrice =
+          row.recognizedRetailPrice !== undefined || row.retailPrice !== undefined;
+
+        if (
+          bulkOnlyEmptyRetailPrice &&
+          (typedRetailPrice.length > 0 || hasSourceRetailPrice)
+        ) {
+          continue;
+        }
+
+        const typedPurchasePrice = edit.purchasePrice?.trim() ?? "";
+        const purchasePrice =
+          typedPurchasePrice.length > 0
+            ? parsePreviewNumber(typedPurchasePrice)
+            : row.recognizedPurchasePrice;
+
+        if (
+          purchasePrice === undefined ||
+          !Number.isFinite(purchasePrice) ||
+          purchasePrice <= 0
+        ) {
+          continue;
+        }
+
+        const retailPrice = roundToNearest(
+          purchasePrice * (1 + markupPercent / 100),
+          roundTo,
+        );
+
+        next[row.rowNumber] = {
+          ...edit,
+          retailPrice: formatEditableNumber(retailPrice),
+        };
+        changedRows += 1;
+      }
+
+      return next;
+    });
+
+    if (changedRows === 0) {
+      setError(t("No supplier rows have a purchase price available for bulk pricing."));
+    } else {
+      setError("");
+    }
+  }, [
+    bulkMarkupPercent,
+    bulkOnlyEmptyRetailPrice,
+    bulkRoundTo,
+    previewRows,
+    t,
+  ]);
   const blockedRows =
     preview?.summary?.blockedRows ?? preview?.summary?.errors ?? 0;
   const showProductMappingEditor = preview
@@ -3018,6 +3181,62 @@ function ImportWizard({
                   ) : null}
                 </div>
               </div>
+              <section className="grid gap-3 rounded-md border border-zinc-200 bg-zinc-50 p-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <h4 className="text-sm font-semibold text-zinc-950">
+                      {t("Calculate retail price from purchase price")}
+                    </h4>
+                    <p className="mt-1 text-sm leading-5 text-zinc-600">
+                      {t(
+                        "Creates explicit retailPrice edits. Purchase price is never copied into retail price automatically.",
+                      )}
+                    </p>
+                  </div>
+                  <button
+                    className={importExportButtonClassName}
+                    onClick={applyBulkRetailPrices}
+                    type="button"
+                  >
+                    {t("Apply calculation")}
+                  </button>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-[minmax(8rem,12rem)_minmax(8rem,12rem)_minmax(12rem,1fr)]">
+                  <label className="grid gap-1 text-xs font-medium text-zinc-700">
+                    {t("Markup percent")}
+                    <input
+                      className={importExportInputClassName}
+                      inputMode="decimal"
+                      onChange={(event) =>
+                        setBulkMarkupPercent(event.currentTarget.value)
+                      }
+                      value={bulkMarkupPercent}
+                    />
+                  </label>
+                  <label className="grid gap-1 text-xs font-medium text-zinc-700">
+                    {t("Round to")}
+                    <select
+                      className={importExportInputClassName}
+                      onChange={(event) => setBulkRoundTo(event.currentTarget.value)}
+                      value={bulkRoundTo}
+                    >
+                      <option value="10">10</option>
+                      <option value="50">50</option>
+                      <option value="100">100</option>
+                    </select>
+                  </label>
+                  <label className="inline-flex items-center gap-2 self-end text-sm text-zinc-700">
+                    <input
+                      checked={bulkOnlyEmptyRetailPrice}
+                      onChange={(event) =>
+                        setBulkOnlyEmptyRetailPrice(event.currentTarget.checked)
+                      }
+                      type="checkbox"
+                    />
+                    {t("Apply only where retailPrice is empty")}
+                  </label>
+                </div>
+              </section>
               <PreviewTable
                 edits={edits}
                 isDatabase={isDatabase}

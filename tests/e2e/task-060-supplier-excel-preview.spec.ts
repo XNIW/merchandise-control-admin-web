@@ -1065,7 +1065,7 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       expect(newProduct?.supplier_id).toBe(fixture.supplierId);
       expect(newProduct?.category_id).toBe(fixture.categoryId);
       expect(Number(newProduct?.purchase_price)).toBe(3.1);
-      expect(newProduct?.retail_price).toBeNull();
+      expect(Number(newProduct?.retail_price)).toBe(9.99);
       expect(newProduct?.stock_quantity).toBeNull();
     } finally {
       const cleanupErrors = await fixture.cleanup();
@@ -1151,9 +1151,12 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       ).toHaveCount(0);
 
       const quantityInput = dialog.getByLabel(/Quantity to import for row/).first();
+      const retailInput = dialog.getByLabel(/Retail price to import for row/).first();
 
       await expect(quantityInput).toHaveValue("");
+      await expect(retailInput).toHaveValue("");
       await quantityInput.fill("12");
+      await retailInput.fill("9.99");
       await dialog.getByLabel("Confirm APPLY").fill("APPLY");
       await dialog.getByRole("button", { name: "Apply confirmed import" }).click();
       await expect(dialog.getByText("Result summary")).toBeVisible({
@@ -1189,7 +1192,7 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       expect(newProduct?.supplier_id).toBe(fixture.supplierId);
       expect(newProduct?.category_id).toBe(fixture.categoryId);
       expect(Number(newProduct?.purchase_price)).toBe(22.22);
-      expect(newProduct?.retail_price).toBeNull();
+      expect(Number(newProduct?.retail_price)).toBe(9.99);
       expect(newProduct?.stock_quantity).toBeNull();
     } finally {
       const cleanupErrors = await fixture.cleanup();
