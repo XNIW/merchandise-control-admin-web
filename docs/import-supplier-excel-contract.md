@@ -65,6 +65,14 @@ Boundary mappings:
 - Admin: canonical preview/import rows map to API/database schema only inside server apply/merge functions.
 - Win7POS: `itemNumber -> ImportRow.ArticleCode / product_meta.article_code`, `productName -> ImportRow.Name / products.name`, `secondProductName -> ImportRow.Name2 / product_meta.name2`, `retailPrice -> ImportRow.UnitPrice / products.unitPrice`, `purchasePrice -> ImportRow.Cost / product_meta.purchase_price`, `quantity -> ImportRow.Stock / product_meta.stock_qty`, `supplier -> SupplierName` inside the adapter, `category -> CategoryName` inside the adapter.
 
+Operational policy:
+- Files that parse cleanly and have retail prices are `ready_to_apply`.
+- Files with wrong or ambiguous detection are valid Step 2 states: the user must map the source column to the canonical key or disable the wrong column, then rerun preview.
+- Files with new products and empty `retailPrice` are valid Step 3 states: the user must type `retailPrice` or use the bulk helper before apply.
+- Rows without barcode are business data issues: the user must correct or remove those rows before apply.
+- Admin web import is for normal/smaller workbooks. Workbooks over the Admin upload limit must show a clear message telling the user to use Win7POS supplier Excel import or split the workbook. Win7POS offline import is the recommended route for large/complex supplier files and store-side offline operation.
+
 Evidence:
 - Admin: `tests/foundation/task-060-supplier-excel-android-style-preview-import.test.mjs` loads `tests/fixtures/supplier-import/android-canonical-sample.json` and asserts metadata/headerless/IT/ES/ZH fixture cases, canonical header, `headerSource`, duplicate warning rows, parseNumber parity, missing-new-`retailPrice` blocker, `canApply`, and public preview field names.
+- Admin real-file policy: `SUPPLIER_EXCEL_SMOKE_DIR=<folder> node --test tests/foundation/supplier-excel-drive-smoke.mjs` exercises all Drive workbooks available locally, accepts parser/preview success, and expects the explicit `file_too_large` route for over-limit workbooks.
 - Shared fixture: `tests/fixtures/supplier-import/android-canonical-sample.json`.
