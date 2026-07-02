@@ -87,6 +87,7 @@ export async function POST(request: Request) {
     previewDigest: formString(formData, "previewDigest"),
     requestedShopId,
     rowAdjustments: formString(formData, "rowAdjustments"),
+    syncPreviewDigest: formString(formData, "syncPreviewDigest") || undefined,
   });
 
   return noStoreJson(result, statusForImportResult(result.code, result.ok));

@@ -33,7 +33,7 @@ type ImportExportActionPanelProps = {
 export type UiTextMap = Record<string, string>;
 
 type ImportMode = "supplier" | "database";
-type ImportWizardStep = "workbook" | "mapping" | "preview";
+type ImportWizardStep = "workbook" | "mapping" | "preview" | "sync";
 type AuthPrincipalKind = "personal_account" | "pos_staff_manager";
 type AuthPrompt = {
   href: string;
@@ -118,6 +118,61 @@ type PreviewRow = {
   warnings: number;
 };
 
+type SyncDiff = {
+  after: number | string | null;
+  before: number | string | null;
+  field: CatalogImportField;
+};
+
+type SyncProductRow = {
+  barcode: string;
+  category?: string;
+  itemNumber?: string;
+  productName: string;
+  purchasePrice?: number | null;
+  quantity?: number | null;
+  retailPrice?: number | null;
+  rowNumber: number;
+  secondProductName?: string;
+  supplier?: string;
+};
+
+type SyncUpdateRow = {
+  barcode: string;
+  diffs: SyncDiff[];
+  existing: SyncProductRow;
+  rowNumber: number;
+  updated: SyncProductRow;
+};
+
+type SyncSkippedRow = {
+  barcode: string;
+  itemNumber?: string;
+  productName?: string;
+  rowNumber: number;
+};
+
+type SupplierSyncPreview = {
+  canApply: boolean;
+  errors: ImportIssue[];
+  fingerprint: string;
+  newProducts: SyncProductRow[];
+  noChangeRows: SyncProductRow[];
+  skippedRows: SyncSkippedRow[];
+  summary: {
+    errors: number;
+    newProducts: number;
+    noChangeRows: number;
+    nonSkippedRows: number;
+    skippedRows: number;
+    totalRows: number;
+    updatedProducts: number;
+    warnings: number;
+  };
+  updatedProducts: SyncUpdateRow[];
+  warnings: ImportIssue[];
+};
+
 type DetectedFormat = {
   confidence: "high" | "low" | "medium";
   ignoredSheets: string[];
@@ -193,6 +248,8 @@ type PreviewResponse = {
   safetyNotes?: ImportIssue[];
   selectedProductSheet?: string;
   sheetSummaries?: SheetSummary[];
+  syncPreview?: SupplierSyncPreview;
+  syncPreviewDigest?: string;
   summary?: {
     blockedRows?: number;
     categories: number;
@@ -1122,12 +1179,16 @@ function WizardSteps({
     : [
         { key: "workbook", label: "Workbook file" },
         { key: "mapping", label: "Check columns" },
-        { key: "preview", label: "Import preview" },
+        { key: "preview", label: "Row correction" },
+        { key: "sync", label: "Sync Database" },
       ];
   const activeIndex = steps.findIndex((entry) => entry.key === step);
 
   return (
-    <ol className="grid gap-2 text-sm sm:grid-cols-3" data-import-wizard-steps>
+    <ol
+      className={`grid gap-2 text-sm ${isDatabase ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}
+      data-import-wizard-steps
+    >
       {steps.map((entry, index) => {
         const isActive = entry.key === step;
         const isComplete = index < activeIndex;
@@ -1193,8 +1254,14 @@ function wizardStepDescription({
     );
   }
 
+  if (step === "preview") {
+    return t(
+      "Edit barcode, prices, quantity, supplier, category or skip rows. Continue to Sync DB before applying.",
+    );
+  }
+
   return t(
-    "No catalog rows are changed in preview. Review counts, then edit only quantity or retail price values you want to import before typing APPLY.",
+    "Review DB inserts, updates, no-change rows, skipped rows, warnings and blockers before final apply.",
   );
 }
 
@@ -1476,7 +1543,9 @@ function WizardHeader({
   const t = useImportExportText();
   const isWorkbookStep = step === "workbook";
   const backLabel =
-    step === "preview"
+    step === "sync"
+      ? "Back to row correction"
+      : step === "preview"
       ? isDatabase
         ? "Back to check workbook"
         : "Back to check columns"
@@ -2229,6 +2298,216 @@ function PreviewTable({
   );
 }
 
+function syncDisplayValue(value: number | string | null | undefined) {
+  if (value === null || value === undefined || value === "") {
+    return "-";
+  }
+
+  return typeof value === "number" ? displayNumber(value) : value;
+}
+
+function SyncProductTable({
+  rows,
+}: {
+  rows: readonly SyncProductRow[];
+}) {
+  const t = useImportExportText();
+
+  if (rows.length === 0) {
+    return (
+      <p className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-600">
+        {t("No rows in this group.")}
+      </p>
+    );
+  }
+
+  return (
+    <div className="max-h-72 overflow-auto rounded-md border border-zinc-200">
+      <table className="min-w-[72rem] divide-y divide-zinc-200 text-left text-sm">
+        <thead className="sticky top-0 bg-white text-xs uppercase tracking-normal text-zinc-500">
+          <tr>
+            <th className="px-3 py-2">{t("Row")}</th>
+            <th className="px-3 py-2">{t("Barcode")}</th>
+            <th className="px-3 py-2">{t("Item number")}</th>
+            <th className="px-3 py-2">{t("Product name")}</th>
+            <th className="px-3 py-2">{t("Retail price")}</th>
+            <th className="px-3 py-2">{t("Purchase price")}</th>
+            <th className="px-3 py-2">{t("Quantity")}</th>
+            <th className="px-3 py-2">{t("Supplier")}</th>
+            <th className="px-3 py-2">{t("Category")}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-zinc-100">
+          {rows.map((row) => (
+            <tr key={`${row.rowNumber}:${row.barcode}`}>
+              <td className="px-3 py-2 font-mono text-xs">{row.rowNumber}</td>
+              <td className="px-3 py-2 font-mono text-xs">{row.barcode}</td>
+              <td className="px-3 py-2">{row.itemNumber ?? ""}</td>
+              <td className="px-3 py-2">{row.productName}</td>
+              <td className="px-3 py-2 font-mono text-xs">
+                {syncDisplayValue(row.retailPrice)}
+              </td>
+              <td className="px-3 py-2 font-mono text-xs">
+                {syncDisplayValue(row.purchasePrice)}
+              </td>
+              <td className="px-3 py-2 font-mono text-xs">
+                {syncDisplayValue(row.quantity)}
+              </td>
+              <td className="px-3 py-2">{row.supplier ?? ""}</td>
+              <td className="px-3 py-2">{row.category ?? ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SupplierSyncPreviewPanel({
+  syncPreview,
+}: {
+  syncPreview: SupplierSyncPreview;
+}) {
+  const t = useImportExportText();
+  const summaryItems = [
+    [t("Nuovi"), syncPreview.summary.newProducts],
+    [t("Aggiornamenti"), syncPreview.summary.updatedProducts],
+    [t("Senza modifiche"), syncPreview.summary.noChangeRows],
+    [t("Skippati"), syncPreview.summary.skippedRows],
+    [t("Warning"), syncPreview.summary.warnings],
+    [t("Errori"), syncPreview.summary.errors],
+  ];
+
+  return (
+    <section className="grid gap-4" data-import-step="sync-db-review">
+      <div>
+        <h3 className="text-base font-semibold text-zinc-950">
+          {t("Sync Database")}
+        </h3>
+        <p className="mt-1 text-sm leading-6 text-zinc-600">
+          {t(
+            "Review exactly what will be inserted, updated, left unchanged or skipped before final apply.",
+          )}
+        </p>
+      </div>
+      <dl className="grid gap-2 sm:grid-cols-3 xl:grid-cols-6">
+        {summaryItems.map(([label, value]) => (
+          <div
+            className="rounded-md border border-zinc-200 bg-zinc-50 p-3"
+            key={label}
+          >
+            <dt className="text-xs font-medium uppercase tracking-normal text-zinc-500">
+              {label}
+            </dt>
+            <dd className="mt-1 text-xl font-semibold text-zinc-950">{value}</dd>
+          </div>
+        ))}
+      </dl>
+      <details className="rounded-md border border-zinc-200 bg-white p-3" open>
+        <summary className="cursor-pointer text-sm font-semibold text-zinc-950">
+          {t("Nuovi")}
+        </summary>
+        <div className="mt-3">
+          <SyncProductTable rows={syncPreview.newProducts} />
+        </div>
+      </details>
+      <details className="rounded-md border border-zinc-200 bg-white p-3" open>
+        <summary className="cursor-pointer text-sm font-semibold text-zinc-950">
+          {t("Aggiornamenti")}
+        </summary>
+        <div className="mt-3 max-h-80 overflow-auto rounded-md border border-zinc-200">
+          <table className="min-w-[72rem] divide-y divide-zinc-200 text-left text-sm">
+            <thead className="sticky top-0 bg-white text-xs uppercase tracking-normal text-zinc-500">
+              <tr>
+                <th className="px-3 py-2">{t("Row")}</th>
+                <th className="px-3 py-2">{t("Barcode")}</th>
+                <th className="px-3 py-2">{t("Before")}</th>
+                <th className="px-3 py-2">{t("After")}</th>
+                <th className="px-3 py-2">{t("Diff")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {syncPreview.updatedProducts.map((row) => (
+                <tr key={`${row.rowNumber}:${row.barcode}`}>
+                  <td className="px-3 py-2 font-mono text-xs">
+                    {row.rowNumber}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs">{row.barcode}</td>
+                  <td className="px-3 py-2">
+                    {row.existing.productName}
+                    <span className="block font-mono text-xs text-zinc-500">
+                      {syncDisplayValue(row.existing.retailPrice)} /{" "}
+                      {syncDisplayValue(row.existing.quantity)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    {row.updated.productName}
+                    <span className="block font-mono text-xs text-zinc-500">
+                      {syncDisplayValue(row.updated.retailPrice)} /{" "}
+                      {syncDisplayValue(row.updated.quantity)}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2">
+                    <ul className="grid gap-1">
+                      {row.diffs.map((diff) => (
+                        <li key={diff.field}>
+                          <span className="font-medium">{diff.field}</span>:{" "}
+                          {syncDisplayValue(diff.before)}
+                          {" -> "}
+                          {syncDisplayValue(diff.after)}
+                        </li>
+                      ))}
+                    </ul>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <details className="rounded-md border border-zinc-200 bg-white p-3">
+        <summary className="cursor-pointer text-sm font-semibold text-zinc-950">
+          {t("Senza modifiche")}
+        </summary>
+        <div className="mt-3">
+          <SyncProductTable rows={syncPreview.noChangeRows} />
+        </div>
+      </details>
+      <details className="rounded-md border border-zinc-200 bg-white p-3">
+        <summary className="cursor-pointer text-sm font-semibold text-zinc-950">
+          {t("Skippati")}
+        </summary>
+        <div className="mt-3 max-h-72 overflow-auto rounded-md border border-zinc-200">
+          <table className="w-full divide-y divide-zinc-200 text-left text-sm">
+            <thead className="bg-white text-xs uppercase tracking-normal text-zinc-500">
+              <tr>
+                <th className="px-3 py-2">{t("Original row")}</th>
+                <th className="px-3 py-2">{t("Barcode")}</th>
+                <th className="px-3 py-2">{t("Item number")}</th>
+                <th className="px-3 py-2">{t("Product name")}</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-zinc-100">
+              {syncPreview.skippedRows.map((row) => (
+                <tr key={`${row.rowNumber}:${row.barcode}`}>
+                  <td className="px-3 py-2 font-mono text-xs">
+                    {row.rowNumber}
+                  </td>
+                  <td className="px-3 py-2 font-mono text-xs">{row.barcode}</td>
+                  <td className="px-3 py-2">{row.itemNumber ?? ""}</td>
+                  <td className="px-3 py-2">{row.productName ?? ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+      <IssueList issues={syncPreview.warnings} title={t("Warning")} />
+      <IssueList issues={syncPreview.errors} title={t("Errori")} tone="danger" />
+    </section>
+  );
+}
+
 function rowAdjustments(
   previewRows: readonly PreviewRow[],
   edits: Record<number, EditedRow>,
@@ -2355,6 +2634,11 @@ function ImportWizard({
   const [showEditedRowsOnly, setShowEditedRowsOnly] = useState(false);
   const [showIssueRowsOnly, setShowIssueRowsOnly] = useState(false);
   const [step, setStep] = useState<ImportWizardStep>("workbook");
+  const [syncPreview, setSyncPreview] = useState<SupplierSyncPreview | null>(
+    null,
+  );
+  const [syncPreviewDigest, setSyncPreviewDigest] = useState("");
+  const [syncPreviewStale, setSyncPreviewStale] = useState(false);
   const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const previewRequestId = useRef(0);
@@ -2381,6 +2665,8 @@ function ImportWizard({
       previewRows.filter((row) => {
         const edit = edits[row.rowNumber];
         const edited =
+          edit?.skip === true ||
+          Boolean(edit?.barcode?.trim()) ||
           Boolean(edit?.category?.trim()) ||
           Boolean(edit?.purchasePrice?.trim()) ||
           Boolean(edit?.retailPrice?.trim()) ||
@@ -2402,6 +2688,16 @@ function ImportWizard({
     () => displayedPreviewRows.slice(0, 20),
     [displayedPreviewRows],
   );
+  const clearSyncPreviewState = useCallback(() => {
+    setSyncPreview(null);
+    setSyncPreviewDigest("");
+    setSyncPreviewStale(false);
+  }, []);
+  const invalidateSyncPreview = useCallback(() => {
+    setSyncPreviewStale(true);
+    setApplyConfirmation("");
+    setApplyResult(null);
+  }, []);
   const applyBulkRetailPrices = useCallback(() => {
     const markupPercent = parsePreviewNumber(bulkMarkupPercent);
     const roundTo = parsePreviewNumber(bulkRoundTo);
@@ -2420,6 +2716,7 @@ function ImportWizard({
 
     let changedRows = 0;
 
+    invalidateSyncPreview();
     setEdits((current) => {
       const next = { ...current };
 
@@ -2474,9 +2771,37 @@ function ImportWizard({
     bulkMarkupPercent,
     bulkOnlyEmptyRetailPrice,
     bulkRoundTo,
+    invalidateSyncPreview,
     previewRows,
     t,
   ]);
+  const updateEdits = useCallback<
+    Dispatch<SetStateAction<Record<number, EditedRow>>>
+  >(
+    (value) => {
+      invalidateSyncPreview();
+      setEdits(value);
+    },
+    [invalidateSyncPreview],
+  );
+  const setDefaultSupplierNameAndInvalidate = useCallback<
+    Dispatch<SetStateAction<string>>
+  >(
+    (value) => {
+      invalidateSyncPreview();
+      setDefaultSupplierName(value);
+    },
+    [invalidateSyncPreview],
+  );
+  const setDefaultCategoryNameAndInvalidate = useCallback<
+    Dispatch<SetStateAction<string>>
+  >(
+    (value) => {
+      invalidateSyncPreview();
+      setDefaultCategoryName(value);
+    },
+    [invalidateSyncPreview],
+  );
   const blockedRows = unresolvedSupplierBlockedRows(preview, edits, mode);
   const showProductMappingEditor = preview
     ? !isDatabase ||
@@ -2500,16 +2825,25 @@ function ImportWizard({
       : [];
   const canApply =
     Boolean(file && preview?.previewDigest) &&
-    step === "preview" &&
+    (isDatabase
+      ? step === "preview"
+      : step === "sync" &&
+        syncPreview?.canApply === true &&
+        Boolean(syncPreviewDigest) &&
+        !syncPreviewStale) &&
     applyConfirmation.trim().toUpperCase() === confirmationWord &&
     blockedRows === 0 &&
     !authPrompt &&
     !isApplying;
   const applyDisabledReason =
-    step !== "preview"
+    (!isDatabase && step !== "sync") || (isDatabase && step !== "preview")
       ? t("Continue to import preview before apply.")
       : !preview?.previewDigest
         ? t("Preview is required before apply.")
+        : !isDatabase && syncPreviewStale
+          ? t("Sync DB preview is stale. Recalculate Sync DB before apply.")
+        : !isDatabase && !syncPreview?.canApply
+          ? t("Resolve Sync DB errors before apply.")
         : blockedRows > 0
           ? t("Fix blocked rows before apply.")
           : applyConfirmation.trim().toUpperCase() !== confirmationWord
@@ -2529,6 +2863,7 @@ function ImportWizard({
     setPreview(null);
     setShowEditedRowsOnly(false);
     setShowIssueRowsOnly(false);
+    clearSyncPreviewState();
     setStep("workbook");
   }
 
@@ -2573,6 +2908,7 @@ function ImportWizard({
     setApplyResult(null);
     setAuthPrompt(null);
     setEdits({});
+    clearSyncPreviewState();
     setError("");
 
     if (!file) {
@@ -2639,15 +2975,105 @@ function ImportWizard({
     await requestPreview();
   }
 
+  async function requestSyncPreview() {
+    setApplyResult(null);
+    setApplyConfirmation("");
+    setAuthPrompt(null);
+    setError("");
+
+    if (!file || !preview?.previewDigest) {
+      setError(t("Preview the workbook before continuing."));
+      return;
+    }
+
+    if (step !== "preview") {
+      setError(t("Return to row correction before recalculating Sync DB."));
+      return;
+    }
+
+    if (blockedRows > 0) {
+      setError(t("Fix blocked rows before continuing."));
+      return;
+    }
+
+    const formData = new FormData();
+    const mappingOverride = mappingOverridePayload(mappingOverrides);
+
+    formData.set("workbook", file);
+    formData.set("importMode", mode);
+    formData.set("defaultSupplierName", defaultSupplierName);
+    formData.set("defaultCategoryName", defaultCategoryName);
+    formData.set(
+      "rowAdjustments",
+      JSON.stringify(rowAdjustments(previewRows, edits, mode)),
+    );
+    if (mappingOverride) {
+      formData.set("mappingOverride", mappingOverride);
+    }
+
+    appendShopId(formData, selectedShopId);
+    setIsPreviewing(true);
+
+    try {
+      const response = await fetch(
+        importEndpoint("/shop/import-export/preview", selectedShopId),
+        {
+          body: formData,
+          credentials: "same-origin",
+          method: "POST",
+        },
+      );
+      const result = await readJsonResponse<PreviewResponse>(response);
+
+      if (!result.syncPreview) {
+        if (!result.ok) {
+          handleImportFailure(result);
+          return;
+        }
+
+        setError(t("Sync DB preview was not returned by the server."));
+        return;
+      }
+
+      setAuthPrompt(null);
+      setSyncPreview(result.syncPreview);
+      setSyncPreviewDigest(
+        result.syncPreviewDigest || result.syncPreview.fingerprint,
+      );
+      setSyncPreviewStale(false);
+      setStep("sync");
+      setError(
+        result.syncPreview.canApply
+          ? ""
+          : t("Resolve Sync DB errors before apply."),
+      );
+    } catch {
+      setError(t("Preview failed before the server returned a response."));
+    } finally {
+      setIsPreviewing(false);
+    }
+  }
+
   async function applyWorkbook(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setApplyResult(null);
     setAuthPrompt(null);
     setError("");
 
-    if (!file || !preview?.previewDigest || step !== "preview") {
+    if (
+      !file ||
+      !preview?.previewDigest ||
+      step !== (isDatabase ? "preview" : "sync")
+    ) {
       setError(t("Continue to import preview before applying it."));
       return;
+    }
+
+    if (!isDatabase) {
+      if (!syncPreviewDigest || !syncPreview?.canApply || syncPreviewStale) {
+        setError(t("Recalculate Sync DB before apply."));
+        return;
+      }
     }
 
     const formData = new FormData();
@@ -2664,6 +3090,7 @@ function ImportWizard({
     if (!isDatabase) {
       formData.set("defaultSupplierName", defaultSupplierName);
       formData.set("defaultCategoryName", defaultCategoryName);
+      formData.set("syncPreviewDigest", syncPreviewDigest);
     }
 
     formData.set(
@@ -2710,6 +3137,7 @@ function ImportWizard({
     setApplyConfirmation("");
     setApplyResult(null);
     setEdits({});
+    clearSyncPreviewState();
     setError("");
     setStep("mapping");
   }
@@ -2741,7 +3169,11 @@ function ImportWizard({
 
   const goBackFromStep = useCallback(() => {
     setStep((currentStep) =>
-      currentStep === "preview" ? "mapping" : "workbook",
+      currentStep === "sync"
+        ? "preview"
+        : currentStep === "preview"
+          ? "mapping"
+          : "workbook",
     );
   }, []);
   const headerBackState = useMemo<HeaderBackState | null>(() => {
@@ -2751,7 +3183,9 @@ function ImportWizard({
 
     return {
       label:
-        step === "preview"
+        step === "sync"
+          ? t("Back to row correction")
+          : step === "preview"
           ? isDatabase
             ? t("Back to check workbook")
             : t("Back to check columns")
@@ -3004,8 +3438,8 @@ function ImportWizard({
                 categoryNames={categoryNames}
                 defaultCategoryName={defaultCategoryName}
                 defaultSupplierName={defaultSupplierName}
-                setDefaultCategoryName={setDefaultCategoryName}
-                setDefaultSupplierName={setDefaultSupplierName}
+                setDefaultCategoryName={setDefaultCategoryNameAndInvalidate}
+                setDefaultSupplierName={setDefaultSupplierNameAndInvalidate}
                 supplierNames={supplierNames}
               />
             </section>
@@ -3330,22 +3764,98 @@ function ImportWizard({
                 edits={edits}
                 isDatabase={isDatabase}
                 previewRows={displayedPreviewRows}
-                setEdits={setEdits}
+                setEdits={updateEdits}
               />
             </>
           ) : null}
+          {isDatabase ? (
+            <form
+              className="sticky bottom-0 z-30 -mx-3 border-t border-zinc-200 bg-white px-3 py-3"
+              encType="multipart/form-data"
+              onSubmit={applyWorkbook}
+            >
+              <div className="grid gap-2 lg:grid-cols-[auto_minmax(12rem,18rem)_auto_minmax(12rem,1fr)] lg:items-center">
+                <label
+                  className="text-sm font-medium text-zinc-800"
+                  htmlFor={`${fileInputId}-apply-confirmation`}
+                >
+                  {t("Confirm")} {confirmationWord}
+                </label>
+                <input
+                  aria-label={`${t("Confirm")} ${confirmationWord}`}
+                  className={`${importExportInputClassName} lg:max-w-72`}
+                  disabled={isApplying}
+                  id={`${fileInputId}-apply-confirmation`}
+                  onChange={(event) =>
+                    setApplyConfirmation(event.currentTarget.value)
+                  }
+                  value={applyConfirmation}
+                />
+                <button
+                  className={`${importExportWarningButtonClassName} lg:w-auto lg:min-w-56`}
+                  disabled={!canApply}
+                >
+                  {isApplying
+                    ? t("Importing database...")
+                    : t("Import database workbook")}
+                </button>
+                {applyDisabledReason ? (
+                  <p className="text-xs leading-5 text-zinc-500 lg:text-right">
+                    {applyDisabledReason}
+                  </p>
+                ) : null}
+              </div>
+            </form>
+          ) : (
+            <div className="sticky bottom-0 z-30 -mx-3 flex flex-wrap items-center justify-end gap-2 border-t border-zinc-200 bg-white px-3 py-3">
+              <button
+                className={importExportButtonClassName}
+                disabled={isPreviewing || blockedRows > 0}
+                onClick={() => {
+                  void requestSyncPreview();
+                }}
+                type="button"
+              >
+                {isPreviewing
+                  ? t("Previewing...")
+                  : syncPreview
+                    ? t("Ricalcola Sync DB")
+                    : t("Continua a Sync DB")}
+              </button>
+              {blockedRows > 0 ? (
+                <p className="text-xs leading-5 text-zinc-500">
+                  {t("Fix blocked rows before continuing.")}
+                </p>
+              ) : syncPreviewStale ? (
+                <p className="text-xs leading-5 text-zinc-500">
+                  {t("Sync DB preview is stale. Recalculate Sync DB before apply.")}
+                </p>
+              ) : null}
+            </div>
+          )}
+        </div>
+      ) : null}
+      {!isDatabase && preview && syncPreview && step === "sync" ? (
+        <div
+          aria-busy={isApplying}
+          className="grid min-h-0 min-w-0 max-w-full gap-4 overflow-hidden rounded-md border border-zinc-200 bg-white p-3"
+          data-import-step="sync-db"
+        >
+          {syncPreviewStale ? (
+            <section
+              className="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+              role="alert"
+            >
+              {t("Sync DB preview is stale. Recalculate Sync DB before apply.")}
+            </section>
+          ) : null}
+          <SupplierSyncPreviewPanel syncPreview={syncPreview} />
           <form
             className="sticky bottom-0 z-30 -mx-3 border-t border-zinc-200 bg-white px-3 py-3"
             encType="multipart/form-data"
             onSubmit={applyWorkbook}
           >
-            <div
-              className={`grid gap-2 lg:items-center ${
-                isDatabase
-                  ? "lg:grid-cols-[auto_minmax(12rem,18rem)_auto_minmax(12rem,1fr)]"
-                  : "lg:grid-cols-[auto_minmax(14rem,1fr)_auto_minmax(12rem,auto)]"
-              }`}
-            >
+            <div className="grid gap-2 lg:grid-cols-[auto_minmax(14rem,1fr)_auto_minmax(12rem,auto)] lg:items-center">
               <label
                 className="text-sm font-medium text-zinc-800"
                 htmlFor={`${fileInputId}-apply-confirmation`}
@@ -3354,7 +3864,7 @@ function ImportWizard({
               </label>
               <input
                 aria-label={`${t("Confirm")} ${confirmationWord}`}
-                className={`${importExportInputClassName} ${isDatabase ? "lg:max-w-72" : ""}`}
+                className={importExportInputClassName}
                 disabled={isApplying}
                 id={`${fileInputId}-apply-confirmation`}
                 onChange={(event) =>
@@ -3363,16 +3873,10 @@ function ImportWizard({
                 value={applyConfirmation}
               />
               <button
-                className={`${isDatabase ? importExportWarningButtonClassName : importExportButtonClassName} lg:w-auto lg:min-w-56`}
+                className={`${importExportButtonClassName} lg:w-auto lg:min-w-56`}
                 disabled={!canApply}
               >
-                {isApplying
-                  ? isDatabase
-                    ? t("Importing database...")
-                    : t("Applying...")
-                  : isDatabase
-                    ? t("Import database workbook")
-                    : t("Apply confirmed import")}
+                {isApplying ? t("Applying...") : t("Apply confirmed import")}
               </button>
               {applyDisabledReason ? (
                 <p className="text-xs leading-5 text-zinc-500 lg:text-right">

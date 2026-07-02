@@ -76,12 +76,15 @@ export async function POST(request: Request) {
   const result = await parseCatalogWorkbookPreview({
     bytes: Buffer.from(await file.arrayBuffer()),
     fileName: file.name,
+    defaultCategoryName: formString(formData, "defaultCategoryName") || undefined,
+    defaultSupplierName: formString(formData, "defaultSupplierName") || undefined,
     importMode: formString(formData, "importMode") === "database"
       ? "database"
       : "supplier",
     mappingOverride: formString(formData, "mappingOverride") || undefined,
     mimeType: file.type,
     requestedShopId,
+    rowAdjustments: formString(formData, "rowAdjustments") || undefined,
   });
 
   return noStoreJson(result, statusForImportResult(result.code, result.ok));

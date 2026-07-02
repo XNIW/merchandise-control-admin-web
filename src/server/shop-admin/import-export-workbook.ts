@@ -129,7 +129,10 @@ type CatalogWorkbookInput = {
   importMode?: CatalogWorkbookImportMode;
   mappingOverride?: string;
   mimeType: string;
+  defaultCategoryName?: string;
+  defaultSupplierName?: string;
   requestedShopId?: string;
+  rowAdjustments?: string;
 };
 
 type WorkbookRowError = {
@@ -328,6 +331,61 @@ export type CatalogWorkbookRowAdjustment = {
   supplier?: string;
 };
 
+export type CatalogWorkbookSyncDiff = {
+  after: string | number | null;
+  before: string | number | null;
+  field: CatalogImportField;
+};
+
+export type CatalogWorkbookSyncProductRow = {
+  barcode: string;
+  category?: string;
+  itemNumber?: string;
+  productName: string;
+  purchasePrice?: number | null;
+  quantity?: number | null;
+  retailPrice?: number | null;
+  rowNumber: number;
+  secondProductName?: string;
+  supplier?: string;
+};
+
+export type CatalogWorkbookSyncUpdateRow = {
+  barcode: string;
+  diffs: CatalogWorkbookSyncDiff[];
+  existing: CatalogWorkbookSyncProductRow;
+  rowNumber: number;
+  updated: CatalogWorkbookSyncProductRow;
+};
+
+export type CatalogWorkbookSyncSkippedRow = {
+  barcode: string;
+  itemNumber?: string;
+  productName?: string;
+  rowNumber: number;
+};
+
+export type CatalogWorkbookSyncPreview = {
+  canApply: boolean;
+  errors: WorkbookRowError[];
+  fingerprint: string;
+  newProducts: CatalogWorkbookSyncProductRow[];
+  noChangeRows: CatalogWorkbookSyncProductRow[];
+  skippedRows: CatalogWorkbookSyncSkippedRow[];
+  summary: {
+    errors: number;
+    newProducts: number;
+    noChangeRows: number;
+    nonSkippedRows: number;
+    skippedRows: number;
+    totalRows: number;
+    updatedProducts: number;
+    warnings: number;
+  };
+  updatedProducts: CatalogWorkbookSyncUpdateRow[];
+  warnings: WorkbookRowError[];
+};
+
 export type CatalogWorkbookPreview = ShopAdminActionResult & {
   confidence?: number;
   detectedFormat?: CatalogWorkbookDetectedFormat;
@@ -346,6 +404,8 @@ export type CatalogWorkbookPreview = ShopAdminActionResult & {
   safetyNotes?: WorkbookRowError[];
   selectedProductSheet?: string;
   sheetSummaries?: CatalogWorkbookSheetSummary[];
+  syncPreview?: CatalogWorkbookSyncPreview;
+  syncPreviewDigest?: string;
   summary?: {
     blockedRows?: number;
     categories: number;
@@ -2881,6 +2941,298 @@ function readModelAsExistingRows(
   };
 }
 
+function syncText(value: string | null | undefined) {
+  return value?.trim() || "";
+}
+
+function syncNumber(value: number | null | undefined) {
+  return value === undefined ? null : value;
+}
+
+function syncValue(value: string | number | null | undefined) {
+  return typeof value === "string" ? syncText(value) : syncNumber(value);
+}
+
+function syncValuesEqual(
+  left: string | number | null | undefined,
+  right: string | number | null | undefined,
+) {
+  const normalizedLeft = syncValue(left);
+  const normalizedRight = syncValue(right);
+
+  if (typeof normalizedLeft === "number" || typeof normalizedRight === "number") {
+    return normalizedLeft === normalizedRight;
+  }
+
+  return String(normalizedLeft ?? "").toLowerCase() ===
+    String(normalizedRight ?? "").toLowerCase();
+}
+
+function supplierCategoryNameMaps(
+  readModel: Pick<
+    Awaited<ReturnType<typeof getShopInventoryReadModel>>,
+    "categories" | "suppliers"
+  >,
+) {
+  return {
+    categoriesById: new Map(
+      readModel.categories.map((category) => [category.categoryId, category.name]),
+    ),
+    suppliersById: new Map(
+      readModel.suppliers.map((supplier) => [supplier.supplierId, supplier.name]),
+    ),
+  };
+}
+
+function syncRowFromExistingProduct(
+  product: ShopInventoryProduct,
+  readModel: Pick<
+    Awaited<ReturnType<typeof getShopInventoryReadModel>>,
+    "categories" | "suppliers"
+  >,
+): CatalogWorkbookSyncProductRow {
+  const maps = supplierCategoryNameMaps(readModel);
+
+  return {
+    barcode: product.barcode,
+    category: product.categoryId
+      ? maps.categoriesById.get(product.categoryId)
+      : undefined,
+    itemNumber: product.itemNumber ?? undefined,
+    productName: product.productName ?? "",
+    purchasePrice: product.purchasePrice,
+    quantity: product.stockQuantity,
+    retailPrice: product.retailPrice,
+    rowNumber: 0,
+    secondProductName: product.secondProductName ?? undefined,
+    supplier: product.supplierId ? maps.suppliersById.get(product.supplierId) : undefined,
+  };
+}
+
+function syncRowFromParsedProduct(
+  row: ParsedProductRow,
+  merged: ReturnType<typeof mergeProductImportForApply>,
+  readModel: Pick<
+    Awaited<ReturnType<typeof getShopInventoryReadModel>>,
+    "categories" | "suppliers"
+  >,
+): CatalogWorkbookSyncProductRow {
+  const maps = supplierCategoryNameMaps(readModel);
+
+  return {
+    barcode: merged.barcode,
+    category:
+      row.category ??
+      (merged.categoryId ? maps.categoriesById.get(merged.categoryId) : undefined),
+    itemNumber: merged.itemNumber ?? undefined,
+    productName: merged.productName,
+    purchasePrice: merged.purchasePrice,
+    quantity: merged.stockQuantity,
+    retailPrice: merged.retailPrice,
+    rowNumber: row.rowNumber,
+    secondProductName: merged.secondProductName ?? undefined,
+    supplier:
+      row.supplier ??
+      (merged.supplierId ? maps.suppliersById.get(merged.supplierId) : undefined),
+  };
+}
+
+function addSyncDiff(
+  diffs: CatalogWorkbookSyncDiff[],
+  field: CatalogImportField,
+  before: string | number | null | undefined,
+  after: string | number | null | undefined,
+) {
+  if (syncValuesEqual(before, after)) {
+    return;
+  }
+
+  diffs.push({
+    after: syncValue(after),
+    before: syncValue(before),
+    field,
+  });
+}
+
+function syncDiffs(
+  existing: CatalogWorkbookSyncProductRow,
+  updated: CatalogWorkbookSyncProductRow,
+) {
+  const diffs: CatalogWorkbookSyncDiff[] = [];
+
+  addSyncDiff(diffs, "itemNumber", existing.itemNumber, updated.itemNumber);
+  addSyncDiff(diffs, "productName", existing.productName, updated.productName);
+  addSyncDiff(
+    diffs,
+    "secondProductName",
+    existing.secondProductName,
+    updated.secondProductName,
+  );
+  addSyncDiff(
+    diffs,
+    "purchasePrice",
+    existing.purchasePrice,
+    updated.purchasePrice,
+  );
+  addSyncDiff(diffs, "retailPrice", existing.retailPrice, updated.retailPrice);
+  addSyncDiff(diffs, "quantity", existing.quantity, updated.quantity);
+  addSyncDiff(diffs, "supplier", existing.supplier, updated.supplier);
+  addSyncDiff(diffs, "category", existing.category, updated.category);
+
+  return diffs;
+}
+
+function supplierSyncPreviewFingerprint(input: {
+  boundPreviewDigest: string;
+  preview: Omit<CatalogWorkbookSyncPreview, "fingerprint">;
+}) {
+  return createHash("sha256")
+    .update(JSON.stringify({
+      boundPreviewDigest: input.boundPreviewDigest,
+      errors: input.preview.errors,
+      newProducts: input.preview.newProducts,
+      noChangeRows: input.preview.noChangeRows,
+      skippedRows: input.preview.skippedRows,
+      updatedProducts: input.preview.updatedProducts,
+      warnings: input.preview.warnings,
+    }))
+    .digest("hex");
+}
+
+function finalDuplicateBarcodeErrors(
+  products: readonly ParsedProductRow[],
+): WorkbookRowError[] {
+  const byBarcode = new Map<string, ParsedProductRow[]>();
+
+  for (const product of products) {
+    const barcode = product.barcode.trim().toLowerCase();
+    if (!barcode) {
+      continue;
+    }
+
+    byBarcode.set(barcode, [...(byBarcode.get(barcode) ?? []), product]);
+  }
+
+  return [...byBarcode.entries()].flatMap(([, rows]) =>
+    rows.length <= 1
+      ? []
+      : rows.map((row) => ({
+          code: "duplicate_final_barcode",
+          field: "barcode",
+          message:
+            "Final supplier import contains duplicate non-skipped barcode rows.",
+          row: row.rowNumber,
+          sheet: "Products",
+        } satisfies WorkbookRowError)),
+  );
+}
+
+function buildSupplierSyncPreview(input: {
+  adjustedParsed: ParsedWorkbook;
+  adjustments: readonly CatalogWorkbookRowAdjustment[];
+  boundPreviewDigest: string;
+  readModel: Pick<
+    Awaited<ReturnType<typeof getShopInventoryReadModel>>,
+    "categories" | "products" | "suppliers"
+  >;
+  rowErrors: readonly WorkbookRowError[];
+  rowWarnings: readonly WorkbookRowError[];
+  sourceParsed: ParsedWorkbook;
+}): CatalogWorkbookSyncPreview {
+  const supplierIdsByName = new Map(
+    input.readModel.suppliers.map((supplier) => [
+      supplier.name.toLowerCase(),
+      supplier.supplierId,
+    ]),
+  );
+  const categoryIdsByName = new Map(
+    input.readModel.categories.map((category) => [
+      category.name.toLowerCase(),
+      category.categoryId,
+    ]),
+  );
+  const skippedRows = new Set(
+    input.adjustments
+      .filter((adjustment) => adjustment.skip === true)
+      .map((adjustment) => adjustment.rowNumber),
+  );
+  const skippedPreviewRows = input.sourceParsed.products
+    .filter((product) => skippedRows.has(product.rowNumber))
+    .map((product) => ({
+      barcode: product.barcode,
+      itemNumber: product.itemNumber,
+      productName: product.productName,
+      rowNumber: product.rowNumber,
+    }));
+  const duplicateErrors = finalDuplicateBarcodeErrors(input.adjustedParsed.products);
+  const errors = [...input.rowErrors, ...duplicateErrors];
+  const warnings = [...input.rowWarnings];
+  const effectiveProducts = effectiveProductRowsLastWins(input.adjustedParsed.products);
+  const newProducts: CatalogWorkbookSyncProductRow[] = [];
+  const updatedProducts: CatalogWorkbookSyncUpdateRow[] = [];
+  const noChangeRows: CatalogWorkbookSyncProductRow[] = [];
+
+  for (const row of effectiveProducts) {
+    const existing = findProduct(input.readModel.products, row);
+    const merged = mergeProductImportForApply(row, existing, {
+      categoryIdsByName,
+      supplierIdsByName,
+    });
+    const updated = syncRowFromParsedProduct(row, merged, input.readModel);
+
+    if (!existing) {
+      newProducts.push(updated);
+      continue;
+    }
+
+    const current = {
+      ...syncRowFromExistingProduct(existing, input.readModel),
+      rowNumber: row.rowNumber,
+    };
+    const diffs = syncDiffs(current, updated);
+
+    if (diffs.length === 0) {
+      noChangeRows.push(updated);
+    } else {
+      updatedProducts.push({
+        barcode: updated.barcode,
+        diffs,
+        existing: current,
+        rowNumber: row.rowNumber,
+        updated,
+      });
+    }
+  }
+
+  const withoutFingerprint = {
+    canApply: errors.length === 0,
+    errors,
+    newProducts,
+    noChangeRows,
+    skippedRows: skippedPreviewRows,
+    summary: {
+      errors: errors.length,
+      newProducts: newProducts.length,
+      noChangeRows: noChangeRows.length,
+      nonSkippedRows: effectiveProducts.length,
+      skippedRows: skippedPreviewRows.length,
+      totalRows: input.sourceParsed.products.length,
+      updatedProducts: updatedProducts.length,
+      warnings: warnings.length,
+    },
+    updatedProducts,
+    warnings,
+  } satisfies Omit<CatalogWorkbookSyncPreview, "fingerprint">;
+
+  return {
+    ...withoutFingerprint,
+    fingerprint: supplierSyncPreviewFingerprint({
+      boundPreviewDigest: input.boundPreviewDigest,
+      preview: withoutFingerprint,
+    }),
+  };
+}
+
 function buildParsedProductReferenceSets(
   products: readonly ParsedProductRow[],
   readModel: Pick<Awaited<ReturnType<typeof getShopInventoryReadModel>>, "products">,
@@ -4156,23 +4508,65 @@ export async function parseCatalogWorkbookPreview(
     parsedDigest: parsed.digest,
     shopId: context.selectedShop.shopId,
   });
+
+  let previewParsed = parsed;
+  let syncPreview: CatalogWorkbookSyncPreview | undefined;
+  let syncAdjustments: CatalogWorkbookRowAdjustment[] = [];
+
+  if (parsed.importMode === "supplier" && input.rowAdjustments !== undefined) {
+    const defaultValidation = validateDefaultAssignments({
+      defaultCategoryName: input.defaultCategoryName,
+      defaultSupplierName: input.defaultSupplierName,
+    });
+
+    if (!defaultValidation.valid) {
+      return {
+        ...defaultValidation,
+        previewDigest: boundPreviewDigest,
+      };
+    }
+
+    const adjustmentValidation = validateRowAdjustments(
+      parsed,
+      input.rowAdjustments,
+    );
+
+    if (!adjustmentValidation.valid) {
+      return {
+        ...adjustmentValidation,
+        previewDigest: boundPreviewDigest,
+      };
+    }
+
+    syncAdjustments = adjustmentValidation.adjustments;
+    previewParsed = applySupplierWorkbookRows(
+      parsed,
+      syncAdjustments,
+      readModel,
+      {
+        defaultCategoryName: defaultValidation.defaultCategoryName,
+        defaultSupplierName: defaultValidation.defaultSupplierName,
+      },
+    );
+  }
+
   const validation = validateCatalogImportRows(
-    parsed,
+    previewParsed,
     readModelAsExistingRows(readModel),
   );
-  const priceHistoryRowErrors = validatePriceHistoryRows(parsed, readModel);
+  const priceHistoryRowErrors = validatePriceHistoryRows(previewParsed, readModel);
   const rawRowErrors = [
-    ...parsed.rowErrors,
+    ...previewParsed.rowErrors,
     ...validation.rowErrors,
     ...priceHistoryRowErrors,
   ];
-  const rowErrors = parsed.importMode === "supplier"
+  const rowErrors = previewParsed.importMode === "supplier"
     ? supplierVisibleRowErrors(rawRowErrors)
     : rawRowErrors;
   const rawRowWarnings = [
-    ...parsed.rowWarnings,
+    ...previewParsed.rowWarnings,
     ...validation.rowWarnings,
-    ...(parsed.importMode === "supplier"
+    ...(previewParsed.importMode === "supplier"
       ? supplierReferenceWarnings(rawRowErrors)
       : []),
   ];
@@ -4181,12 +4575,12 @@ export async function parseCatalogWorkbookPreview(
     (issue) => !isSafetySanitizationIssue(issue),
   );
   const sheetSummaries = decorateSheetSummaries(
-    parsed.sheetSummaries,
+    previewParsed.sheetSummaries,
     rowErrors,
     rowWarnings,
   );
   const previewRows = decorateCatalogPreviewRows(
-    parsed,
+    previewParsed,
     rowErrors,
     rowWarnings,
     readModel,
@@ -4194,15 +4588,27 @@ export async function parseCatalogWorkbookPreview(
   const duplicates = rowErrors.filter((issue) =>
     (issue.code ?? "").startsWith("duplicate_"),
   ).length;
-  const supplierChanges = supplierChangeSummary(parsed.suppliers, readModel);
-  const categoryChanges = categoryChangeSummary(parsed.categories, readModel);
-  const priceHistoryPurchase = parsed.priceHistory.filter(
+  const supplierChanges = supplierChangeSummary(previewParsed.suppliers, readModel);
+  const categoryChanges = categoryChangeSummary(previewParsed.categories, readModel);
+  const priceHistoryPurchase = previewParsed.priceHistory.filter(
     (row) => row.type === "PURCHASE",
   ).length;
-  const priceHistoryRetail = parsed.priceHistory.filter(
+  const priceHistoryRetail = previewParsed.priceHistory.filter(
     (row) => row.type === "RETAIL",
   ).length;
   const blockedRows = uniqueIssueRowCount(rowErrors);
+
+  if (parsed.importMode === "supplier" && input.rowAdjustments !== undefined) {
+    syncPreview = buildSupplierSyncPreview({
+      adjustedParsed: previewParsed,
+      adjustments: syncAdjustments,
+      boundPreviewDigest,
+      readModel,
+      rowErrors,
+      rowWarnings,
+      sourceParsed: parsed,
+    });
+  }
 
   const auditResult = await auditImportExport(
     context.selectedShop.shopId,
@@ -4214,17 +4620,17 @@ export async function parseCatalogWorkbookPreview(
       confidence: parsed.confidence,
       detectedHeaderRow: parsed.detectedHeaderRow,
       digest: boundPreviewDigest,
-      droppedRows: parsed.droppedRows,
+      droppedRows: previewParsed.droppedRows,
       fileDigest: parsed.fileDigest,
       importMode: parsed.importMode,
       errors: rowErrors.length,
       "no_purge": true,
-      priceHistory: parsed.priceHistory.length,
-      products: parsed.products.length,
+      priceHistory: previewParsed.priceHistory.length,
+      products: previewParsed.products.length,
       "preview.valid": rowErrors.length === 0,
       selectedProductSheet: parsed.selectedProductSheet,
       safetySanitizations: safetyNotes.length,
-      validRows: parsed.validRows,
+      validRows: previewParsed.validRows,
       warnings: rowWarnings.length,
     },
   );
@@ -4245,7 +4651,7 @@ export async function parseCatalogWorkbookPreview(
     originalColumns: parsed.originalColumns,
     previewDigest: boundPreviewDigest,
     previewRows,
-    previewRowsTruncated: parsed.previewRowsTruncated,
+    previewRowsTruncated: previewParsed.previewRowsTruncated,
     rawPreviewColumns: parsed.rawPreviewColumns,
     rawPreviewRows: parsed.rawPreviewRows,
     rawWorkbookContextRows: parsed.rawWorkbookContextRows,
@@ -4255,22 +4661,24 @@ export async function parseCatalogWorkbookPreview(
     safetyNotes,
     selectedProductSheet: parsed.selectedProductSheet,
     sheetSummaries,
+    syncPreview,
+    syncPreviewDigest: syncPreview?.fingerprint,
     summary: {
       ...validation.summary,
       blockedRows,
       duplicates,
-      droppedRows: parsed.droppedRows,
+      droppedRows: previewParsed.droppedRows,
       errors: rowErrors.length,
       newCategories: categoryChanges.newCategories,
       newSuppliers: supplierChanges.newSuppliers,
       operationalWarnings: rowWarnings.length,
-      priceHistory: parsed.priceHistory.length,
+      priceHistory: previewParsed.priceHistory.length,
       priceHistoryPurchase,
       priceHistoryRetail,
       safetySanitizations: safetyNotes.length,
       updatedCategories: categoryChanges.updatedCategories,
       updatedSuppliers: supplierChanges.updatedSuppliers,
-      validRows: parsed.validRows,
+      validRows: previewParsed.validRows,
       warnings: rowWarnings.length,
     },
     unmappedColumns: parsed.unmappedColumns,
@@ -4285,6 +4693,7 @@ export async function applyCatalogWorkbookImport(
     defaultSupplierName?: string;
     previewDigest: string;
     rowAdjustments?: string;
+    syncPreviewDigest?: string;
   },
 ): Promise<CatalogWorkbookApplyResult> {
   const context = await resolveShopActionContext(
@@ -4374,6 +4783,8 @@ export async function applyCatalogWorkbookImport(
     )
     : applyRowAdjustments(parsed, adjustmentValidation.adjustments);
 
+  let supplierSyncPreview: CatalogWorkbookSyncPreview | undefined;
+
   if (adjustedParsed.rowErrors.length > 0) {
     return {
       ...shopAdminActionResult("validation_failed", {
@@ -4399,6 +4810,55 @@ export async function applyCatalogWorkbookImport(
     ? supplierVisibleRowErrors(rawRowErrors)
     : rawRowErrors;
 
+  if (adjustedParsed.importMode === "supplier") {
+    const rawRowWarnings = [
+      ...adjustedParsed.rowWarnings,
+      ...validation.rowWarnings,
+      ...supplierReferenceWarnings(rawRowErrors),
+    ];
+    const rowWarnings = rawRowWarnings.filter(
+      (issue) => !isSafetySanitizationIssue(issue),
+    );
+    supplierSyncPreview = buildSupplierSyncPreview({
+      adjustedParsed,
+      adjustments: adjustmentValidation.adjustments,
+      boundPreviewDigest,
+      readModel,
+      rowErrors,
+      rowWarnings,
+      sourceParsed: parsed,
+    });
+
+    if (!input.syncPreviewDigest) {
+      return shopAdminActionResult("preview_required", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
+    }
+
+    if (input.syncPreviewDigest !== supplierSyncPreview.fingerprint) {
+      return {
+        ...shopAdminActionResult("preview_mismatch", {
+          ok: false,
+          shopId: context.selectedShop.shopId,
+        }),
+        previewDigest: boundPreviewDigest,
+        rowErrors: supplierSyncPreview.errors,
+      };
+    }
+
+    if (!supplierSyncPreview.canApply) {
+      return {
+        ...shopAdminActionResult("validation_failed", {
+          ok: false,
+          shopId: context.selectedShop.shopId,
+        }),
+        previewDigest: boundPreviewDigest,
+        rowErrors: supplierSyncPreview.errors,
+      };
+    }
+  }
+
   if (rowErrors.length > 0) {
     return {
       ...shopAdminActionResult("validation_failed", {
@@ -4423,7 +4883,20 @@ export async function applyCatalogWorkbookImport(
     ]),
   );
   const productIdMaps = buildProductIdMaps(readModel.products);
-  const productsToApply = effectiveProductRowsLastWins(adjustedParsed.products);
+  const effectiveProductsToApply = effectiveProductRowsLastWins(adjustedParsed.products);
+  const changedSupplierRows = new Set(
+    adjustedParsed.importMode === "supplier" && supplierSyncPreview
+      ? [
+          ...supplierSyncPreview.newProducts.map((row) => `${row.rowNumber}:${row.barcode}`),
+          ...supplierSyncPreview.updatedProducts.map((row) => `${row.rowNumber}:${row.barcode}`),
+        ]
+      : [],
+  );
+  const productsToApply = adjustedParsed.importMode === "supplier"
+    ? effectiveProductsToApply.filter((row) =>
+        changedSupplierRows.has(`${row.rowNumber}:${row.barcode}`),
+      )
+    : effectiveProductsToApply;
   let suppliersApplied = 0;
   let categoriesApplied = 0;
   let productsApplied = 0;

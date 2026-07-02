@@ -205,6 +205,22 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
     "Re-run preview with mapping",
     "Continue to import preview",
     'data-import-step="import-preview"',
+    'data-import-step="sync-db-review"',
+    'type ImportWizardStep = "workbook" | "mapping" | "preview" | "sync"',
+    "SupplierSyncPreviewPanel",
+    "requestSyncPreview",
+    "syncPreviewDigest",
+    'formData.set("syncPreviewDigest", syncPreviewDigest)',
+    "syncPreviewStale",
+    "invalidateSyncPreview",
+    "setSyncPreviewStale(true)",
+    'step === "sync"',
+    "Ricalcola Sync DB",
+    "Continua a Sync DB",
+    "Back to row correction",
+    "Resolve Sync DB errors before apply.",
+    "Sync DB preview is stale. Recalculate Sync DB before apply.",
+    "Review DB inserts, updates, no-change rows, skipped rows, warnings and blockers before final apply.",
     "Back to check columns",
     "Back to workbook file",
     "onHeaderBackStateChange?: (state: HeaderBackState | null) => void",
@@ -359,6 +375,16 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   assertContains(importPanel, "currentRetailPrice");
   assertContains(importPanel, "currentQuantity");
   assertContains(importPanel, "secondProductName");
+  assertContains(importPanel, "Nuovi");
+  assertContains(importPanel, "Aggiornamenti");
+  assertContains(importPanel, "Senza modifiche");
+  assertContains(importPanel, "Skippati");
+  assertContains(importPanel, "Errori");
+  assert.match(
+    importPanel,
+    /step !== \(isDatabase \? "preview" : "sync"\)/,
+    "supplier apply must be available only from Sync Database Step 4",
+  );
   assert.match(
     importPanel,
     /if \(!result\.ok\) \{[\s\S]*handleImportFailure\(result\);[\s\S]*setPreview\(null\);[\s\S]*return;[\s\S]*\}[\s\S]*setPreview\(result\);/,
@@ -378,6 +404,28 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   assertContains(workbook, "adjustment.skip === true");
   assertContains(workbook, "correctedBarcodeRows");
   assertContains(workbook, 'issue.field === "barcode"');
+  assertContains(workbook, "buildSupplierSyncPreview");
+  assertContains(workbook, "CatalogWorkbookSyncPreview");
+  assertContains(workbook, "duplicate_final_barcode");
+  assertContains(workbook, "supplierSyncPreviewFingerprint");
+  assertContains(workbook, "input.syncPreviewDigest");
+  assertContains(workbook, "input.syncPreviewDigest !== supplierSyncPreview.fingerprint");
+  assertContains(workbook, "supplierSyncPreview.canApply");
+  assertContains(workbook, "newProducts");
+  assertContains(workbook, "updatedProducts");
+  assertContains(workbook, "noChangeRows");
+  assertContains(workbook, "skippedRows");
+  assertContains(workbook, "changedSupplierRows");
+  const previewRoute = read("src/app/shop/import-export/preview/route.ts");
+  const applyRoute = read("src/app/shop/import-export/apply/route.ts");
+  assertContains(
+    previewRoute,
+    'rowAdjustments: formString(formData, "rowAdjustments") || undefined',
+  );
+  assertContains(
+    applyRoute,
+    'syncPreviewDigest: formString(formData, "syncPreviewDigest") || undefined',
+  );
 });
 
 test("TASK-060 import auth separates expired session from permission denied UX", () => {
@@ -958,7 +1006,8 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     'importMode === "database" ? "IMPORT DATABASE" : "APPLY"',
     "normalizedConfirmation !== requiredConfirmation",
     "effectiveProductRowsLastWins",
-    "const productsToApply = effectiveProductRowsLastWins(adjustedParsed.products);",
+    "const effectiveProductsToApply = effectiveProductRowsLastWins(adjustedParsed.products);",
+    'const productsToApply = adjustedParsed.importMode === "supplier"',
     "productsToApply.length >= BULK_PRODUCT_IMPORT_THRESHOLD",
     "for (const row of productsToApply)",
     "supplierImportHistoryRows(productsToApply, readModel)",
