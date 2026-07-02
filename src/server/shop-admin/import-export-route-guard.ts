@@ -28,7 +28,7 @@ function invalidCatalogImportRequest(
 ) {
   const message =
     requestCode === "file_too_large"
-      ? "The workbook is larger than the allowed import limit."
+      ? "The workbook is over the 5 MB Admin import limit. Use Win7POS supplier Excel import for large supplier files, or split the workbook and retry here."
       : "Invalid catalog import request.";
 
   return noStoreJson(

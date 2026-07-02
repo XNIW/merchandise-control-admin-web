@@ -490,6 +490,13 @@ function importErrorMessage(
     );
   }
 
+  if (result.code === "file_too_large") {
+    return translateUiText(
+      labels,
+      "The workbook is over the 5 MB Admin import limit. Use Win7POS supplier Excel import for large supplier files, or split the workbook and retry here.",
+    );
+  }
+
   if (mode === "database" && result.code === "preview_mismatch") {
     return translateUiText(
       labels,

@@ -514,13 +514,18 @@ function bindPreviewDigestToShop(input: {
 function validateWorkbookFile(input: CatalogWorkbookInput) {
   const lowerName = input.fileName.toLowerCase();
   const extensionOk = lowerName.endsWith(".xlsx") || lowerName.endsWith(".xls");
-  const mimeOk = WORKBOOK_MIME_TYPES.has(input.mimeType.toLowerCase());
+  const lowerMimeType = input.mimeType.toLowerCase();
+  const mimeOk =
+    WORKBOOK_MIME_TYPES.has(lowerMimeType) ||
+    lowerMimeType === "" ||
+    lowerMimeType === "application/octet-stream";
+  const signatureOk = workbookKindFromBytes(input.bytes) !== "unknown";
 
   if (input.bytes.byteLength > MAX_IMPORT_BYTES) {
     return shopAdminActionResult("file_too_large", { ok: false });
   }
 
-  if (!extensionOk || !mimeOk) {
+  if ((!extensionOk && !signatureOk) || !mimeOk) {
     return shopAdminActionResult("invalid_file_type", { ok: false });
   }
 
@@ -529,6 +534,36 @@ function validateWorkbookFile(input: CatalogWorkbookInput) {
 
 function isLegacyWorkbookName(fileName: string) {
   return fileName.toLowerCase().endsWith(".xls");
+}
+
+function workbookKindFromBytes(bytes: Buffer) {
+  if (
+    bytes.byteLength >= 4 &&
+    bytes[0] === 0x50 &&
+    bytes[1] === 0x4b &&
+    bytes[2] === 0x03 &&
+    bytes[3] === 0x04
+  ) {
+    return "xlsx";
+  }
+  if (
+    bytes.byteLength >= 8 &&
+    bytes[0] === 0xd0 &&
+    bytes[1] === 0xcf &&
+    bytes[2] === 0x11 &&
+    bytes[3] === 0xe0 &&
+    bytes[4] === 0xa1 &&
+    bytes[5] === 0xb1 &&
+    bytes[6] === 0x1a &&
+    bytes[7] === 0xe1
+  ) {
+    return "xls";
+  }
+  return "unknown";
+}
+
+function isLegacyWorkbook(input: CatalogWorkbookInput) {
+  return isLegacyWorkbookName(input.fileName) || workbookKindFromBytes(input.bytes) === "xls";
 }
 
 function normalizeLabel(value: unknown) {
@@ -2082,9 +2117,63 @@ function parseXmlDocument(xml: string, path: string) {
 }
 
 function xmlText(node: XmlElement) {
-  return Array.from(node.getElementsByTagName("t"))
+  return xmlElements(node, "t")
     .map((entry) => entry.textContent ?? "")
     .join("");
+}
+
+type XmlElementContainer = {
+  getElementsByTagName(name: string): {
+    item(index: number): XmlElement | null;
+    length: number;
+  };
+};
+
+function xmlElements(node: XmlElementContainer, localName: string) {
+  const entries = node.getElementsByTagName("*");
+  const matches: XmlElement[] = [];
+
+  for (let index = 0; index < entries.length; index += 1) {
+    const entry = entries.item(index);
+
+    if (!entry) {
+      continue;
+    }
+
+    const candidate = entry as XmlElement & { localName?: string };
+
+    if (
+      candidate.localName === localName ||
+      candidate.nodeName === localName ||
+      candidate.nodeName.endsWith(`:${localName}`)
+    ) {
+      matches.push(entry);
+    }
+  }
+
+  return matches;
+}
+
+function xmlAttribute(node: XmlElement, name: string) {
+  const direct = node.getAttribute(name);
+
+  if (direct) {
+    return direct;
+  }
+
+  const localName = name.includes(":") ? name.split(":").pop() ?? name : name;
+  for (const attribute of Array.from(node.attributes ?? [])) {
+    if (
+      attribute.name === name ||
+      attribute.name === localName ||
+      attribute.name.endsWith(`:${localName}`) ||
+      attribute.localName === localName
+    ) {
+      return attribute.value;
+    }
+  }
+
+  return null;
 }
 
 async function zipText(directory: OoxmlZipDirectory, path: string) {
@@ -2116,15 +2205,15 @@ function parseOoxmlCellValue(
   cell: XmlElement,
   sharedStrings: readonly string[],
 ): string | number | boolean {
-  const type = cell.getAttribute("t");
+  const type = xmlAttribute(cell, "t");
 
   if (type === "inlineStr") {
-    const inlineString = cell.getElementsByTagName("is")[0];
+    const inlineString = xmlElements(cell, "is")[0];
 
     return inlineString ? xmlText(inlineString as XmlElement) : "";
   }
 
-  const rawValue = cell.getElementsByTagName("v")[0]?.textContent ?? "";
+  const rawValue = xmlElements(cell, "v")[0]?.textContent ?? "";
 
   if (type === "s") {
     return sharedStrings[Number(rawValue)] ?? "";
@@ -2156,9 +2245,7 @@ async function readOoxmlSharedStrings(directory: OoxmlZipDirectory) {
 
   const document = parseXmlDocument(xml, "xl/sharedStrings.xml");
 
-  return Array.from(document.getElementsByTagName("si")).map((item) =>
-    xmlText(item),
-  );
+  return xmlElements(document, "si").map((item) => xmlText(item));
 }
 
 async function readOoxmlWorksheet(
@@ -2175,16 +2262,16 @@ async function readOoxmlWorksheet(
   const document = parseXmlDocument(xml, path);
   const parsedRows: SheetData = [];
 
-  for (const row of Array.from(document.getElementsByTagName("row"))) {
-    const rowNumber = Number(row.getAttribute("r"));
+  for (const row of xmlElements(document, "row")) {
+    const rowNumber = Number(xmlAttribute(row, "r"));
     const targetRowIndex = Number.isFinite(rowNumber)
       ? Math.max(0, rowNumber - 1)
       : parsedRows.length;
-    const cells = Array.from(row.getElementsByTagName("c"));
+    const cells = xmlElements(row, "c");
     const parsedRow: Array<string | number | boolean | null> = [];
 
     for (const cell of cells) {
-      const cellRef = cell.getAttribute("r") ?? "";
+      const cellRef = xmlAttribute(cell, "r") ?? "";
       const columnIndex = columnIndexFromCellRef(cellRef);
 
       parsedRow[columnIndex] = parseOoxmlCellValue(cell, sharedStrings);
@@ -2218,11 +2305,9 @@ async function readOoxmlWorkbookFallback(bytes: Buffer) {
   );
   const relationshipTargets = new Map<string, string>();
 
-  for (const relationship of Array.from(
-    relationships.getElementsByTagName("Relationship"),
-  )) {
-    const id = relationship.getAttribute("Id");
-    const target = relationship.getAttribute("Target");
+  for (const relationship of xmlElements(relationships, "Relationship")) {
+    const id = xmlAttribute(relationship, "Id");
+    const target = xmlAttribute(relationship, "Target");
 
     if (id && target) {
       relationshipTargets.set(id, relationshipTargetPath(target));
@@ -2232,9 +2317,9 @@ async function readOoxmlWorkbookFallback(bytes: Buffer) {
   const sharedStrings = await readOoxmlSharedStrings(directory);
   const sheets: Array<{ data: SheetData; sheet: string }> = [];
 
-  for (const sheet of Array.from(workbook.getElementsByTagName("sheet"))) {
-    const name = sheet.getAttribute("name") ?? "Sheet";
-    const relationshipId = sheet.getAttribute("r:id");
+  for (const sheet of xmlElements(workbook, "sheet")) {
+    const name = xmlAttribute(sheet, "name") ?? "Sheet";
+    const relationshipId = xmlAttribute(sheet, "r:id");
     const targetPath = relationshipId
       ? relationshipTargets.get(relationshipId)
       : null;
@@ -2295,25 +2380,31 @@ function readSheetJsWorkbook(bytes: Buffer) {
 }
 
 async function readWorkbookSheets(input: CatalogWorkbookInput) {
-  if (isLegacyWorkbookName(input.fileName)) {
+  if (isLegacyWorkbook(input)) {
     return readSheetJsWorkbook(input.bytes);
   }
 
   try {
-    return await readXlsxFile<number>(input.bytes);
-  } catch {
-    try {
-      const ooxmlSheets = await readOoxmlWorkbookFallback(input.bytes);
+    const sheets = await readXlsxFile<number>(input.bytes);
 
-      if (ooxmlSheets.length > 0) {
-        return ooxmlSheets;
-      }
-    } catch {
-      // Fall through to the SheetJS reader, which also handles HTML-Excel files.
+    if (sheets.length > 0) {
+      return sheets;
     }
-
-    return readSheetJsWorkbook(input.bytes);
+  } catch {
+    // Fall through to the OOXML and SheetJS readers below.
   }
+
+  try {
+    const ooxmlSheets = await readOoxmlWorkbookFallback(input.bytes);
+
+    if (ooxmlSheets.length > 0) {
+      return ooxmlSheets;
+    }
+  } catch {
+    // Fall through to the SheetJS reader, which also handles HTML-Excel files.
+  }
+
+  return readSheetJsWorkbook(input.bytes);
 }
 
 function selectProductSheet(

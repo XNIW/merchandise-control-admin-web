@@ -346,11 +346,14 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
     "failed preview responses must not render a fake preview state",
   );
   const contract = read("src/server/shop-admin/catalog-import-contract.ts");
+  const workbook = read("src/server/shop-admin/import-export-workbook.ts");
   assertContains(contract, '"missing_required_retail_price"');
   assertContains(
     contract,
     "New product requires retailPrice before supplier import apply.",
   );
+  assertContains(workbook, "workbookKindFromBytes");
+  assertContains(workbook, 'workbookKindFromBytes(input.bytes) === "xls"');
 });
 
 test("TASK-060 import auth separates expired session from permission denied UX", () => {
@@ -431,6 +434,7 @@ test("TASK-060 import auth separates expired session from permission denied UX",
     "setPreview(null);",
     "You do not have permission to import catalog data for this shop.",
     "Session expired. Please sign in again.",
+    "The workbook is over the 5 MB Admin import limit. Use Win7POS supplier Excel import for large supplier files, or split the workbook and retry here.",
     "For security, the browser will ask you to select the workbook again",
     "Sign in again",
     "disabled={isPreviewing || !file || Boolean(authPrompt)}",

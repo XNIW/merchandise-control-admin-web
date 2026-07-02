@@ -97,21 +97,19 @@ test("supplier Excel Drive smoke parses real workbooks without exposing rows", a
     "src/server/shop-admin/import-export-readiness.ts",
   );
 
-  const files = readdirSync(folder)
-    .filter((name) => /\.xlsx?$/i.test(name))
-    .sort();
+  const files = listExcelLikeFiles(folder);
   assert.ok(files.length > 0, "No supplier Excel files found");
 
   const summaries = [];
-  for (const fileName of files) {
-    const path = join(folder, fileName);
+  for (const path of files) {
+    const fileName = path.slice(folder.length + 1);
     const sizeBytes = statSync(path).size;
-    const extension = extname(fileName).toLowerCase();
+    const workbookType = workbookTypeFor(path);
     const parsed = await parseWorkbook({
       bytes: readFileSync(path),
       fileName,
       importMode: "supplier",
-      mimeType: extension === ".xls"
+      mimeType: workbookType === "xls"
         ? "application/vnd.ms-excel"
         : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
@@ -147,3 +145,45 @@ test("supplier Excel Drive smoke parses real workbooks without exposing rows", a
 
   console.log(JSON.stringify({ fileCount: summaries.length, ok: true, files: summaries }));
 });
+
+function listExcelLikeFiles(folder) {
+  const files = [];
+  for (const entry of readdirSync(folder, { withFileTypes: true })) {
+    const path = join(folder, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...listExcelLikeFiles(path));
+      continue;
+    }
+    if (!entry.isFile() || entry.name.startsWith("~$")) {
+      continue;
+    }
+    if (workbookTypeFor(path)) {
+      files.push(path);
+    }
+  }
+  return files.sort();
+}
+
+function workbookTypeFor(path) {
+  const extension = extname(path).toLowerCase();
+  if (extension === ".xls") return "xls";
+  if (extension === ".xlsx") return "xlsx";
+  const head = readFileSync(path, { encoding: null, flag: "r" }).subarray(0, 8);
+  if (head.length >= 4 && head[0] === 0x50 && head[1] === 0x4b && head[2] === 0x03 && head[3] === 0x04) {
+    return "xlsx";
+  }
+  if (
+    head.length >= 8 &&
+    head[0] === 0xd0 &&
+    head[1] === 0xcf &&
+    head[2] === 0x11 &&
+    head[3] === 0xe0 &&
+    head[4] === 0xa1 &&
+    head[5] === 0xb1 &&
+    head[6] === 0x1a &&
+    head[7] === 0xe1
+  ) {
+    return "xls";
+  }
+  return "";
+}
