@@ -141,6 +141,12 @@ test("TASK-061 database transfer UI is multi-sheet and not product-only editable
     "data-database-sheet-samples",
     "Check workbook",
     "Review import",
+    "Sync Database",
+    "Continue to Sync DB before apply.",
+    'step !== "sync"',
+    'formData.set("syncPreviewDigest", syncPreviewDigest)',
+    "data-sync-review-tabs",
+    "data-sync-review-search",
     "Android database columns were recognized automatically.",
     "Advanced mapping",
     "DatabaseReviewSummary",
@@ -375,11 +381,8 @@ test("TASK-061 duplicate Android item numbers stay non-blocking and do not reduc
   const contract = read("src/server/shop-admin/catalog-import-contract.ts");
 
   assertContains(contract, "duplicateProductsBySku");
-  assert.match(
-    contract,
-    /const duplicateProductRows = new Set\(\[\s*\.\.\.duplicateProductsByBarcode,\s*\]\);/,
-    "only duplicate barcodes should reduce effective product rows",
-  );
+  assertContains(contract, "const effectiveProducts = effectiveLastProductRows(parsed.products);");
+  assertContains(contract, "const effectiveProductRows = effectiveProducts.length;");
   assert.doesNotMatch(
     contract,
     /duplicateProductRows = new Set\(\[[\s\S]*duplicateProductsBySku/,

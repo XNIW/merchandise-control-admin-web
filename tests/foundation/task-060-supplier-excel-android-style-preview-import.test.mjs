@@ -242,7 +242,7 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
     "Retail price to import",
     "Review product rows. Recognized values are read-only; only typed",
     "Mapping changed. Re-run preview with mapping before continuing.",
-    "Continue to import preview before apply.",
+    "Continue to Sync DB before apply.",
     "Session expired. Please sign in again.",
     "Sign in again",
     "You do not have permission to import catalog data for this shop.",
@@ -380,11 +380,22 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   assertContains(importPanel, "Senza modifiche");
   assertContains(importPanel, "Skippati");
   assertContains(importPanel, "Errori");
+  assertContains(importPanel, "type SyncReviewTab");
+  assertContains(importPanel, 'role="tablist"');
+  assertContains(importPanel, "data-sync-review-tabs");
+  assertContains(importPanel, "data-sync-review-tab={tab.key}");
+  assertContains(importPanel, "data-sync-review-search");
+  assertContains(importPanel, "Search barcode, name, item number, supplier or category");
+  assertContains(importPanel, "syncProductMatches");
+  assertContains(importPanel, "syncUpdateMatches");
+  assertContains(importPanel, "syncIssueMatches");
   assert.match(
     importPanel,
-    /step !== \(isDatabase \? "preview" : "sync"\)/,
-    "supplier apply must be available only from Sync Database Step 4",
+    /step !== "sync"/,
+    "apply must be available only from Sync Database Step 4",
   );
+  assertContains(importPanel, "Continue to Sync DB before apply.");
+  assertContains(importPanel, "{ key: \"sync\", label: \"Sync Database\" }");
   assert.match(
     importPanel,
     /if \(!result\.ok\) \{[\s\S]*handleImportFailure\(result\);[\s\S]*setPreview\(null\);[\s\S]*return;[\s\S]*\}[\s\S]*setPreview\(result\);/,
@@ -409,8 +420,8 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   assertContains(workbook, "duplicate_final_barcode");
   assertContains(workbook, "supplierSyncPreviewFingerprint");
   assertContains(workbook, "input.syncPreviewDigest");
-  assertContains(workbook, "input.syncPreviewDigest !== supplierSyncPreview.fingerprint");
-  assertContains(workbook, "supplierSyncPreview.canApply");
+  assertContains(workbook, "input.syncPreviewDigest !== syncPreview.fingerprint");
+  assertContains(workbook, "!syncPreview.canApply");
   assertContains(workbook, "newProducts");
   assertContains(workbook, "updatedProducts");
   assertContains(workbook, "noChangeRows");
@@ -1007,7 +1018,7 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     "normalizedConfirmation !== requiredConfirmation",
     "effectiveProductRowsLastWins",
     "const effectiveProductsToApply = effectiveProductRowsLastWins(adjustedParsed.products);",
-    'const productsToApply = adjustedParsed.importMode === "supplier"',
+    "const productsToApply = effectiveProductsToApply.filter((row)",
     "productsToApply.length >= BULK_PRODUCT_IMPORT_THRESHOLD",
     "for (const row of productsToApply)",
     "supplierImportHistoryRows(productsToApply, readModel)",

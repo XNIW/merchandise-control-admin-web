@@ -173,6 +173,14 @@ type SupplierSyncPreview = {
   warnings: ImportIssue[];
 };
 
+type SyncReviewTab =
+  | "new"
+  | "updated"
+  | "noChange"
+  | "skipped"
+  | "warnings"
+  | "errors";
+
 type DetectedFormat = {
   confidence: "high" | "low" | "medium";
   ignoredSheets: string[];
@@ -1175,6 +1183,7 @@ function WizardSteps({
         { key: "workbook", label: "Workbook" },
         { key: "mapping", label: "Check workbook" },
         { key: "preview", label: "Review import" },
+        { key: "sync", label: "Sync Database" },
       ]
     : [
         { key: "workbook", label: "Workbook file" },
@@ -1186,7 +1195,7 @@ function WizardSteps({
 
   return (
     <ol
-      className={`grid gap-2 text-sm ${isDatabase ? "sm:grid-cols-3" : "sm:grid-cols-4"}`}
+      className="grid gap-2 text-sm sm:grid-cols-4"
       data-import-wizard-steps
     >
       {steps.map((entry, index) => {
@@ -1237,8 +1246,14 @@ function wizardStepDescription({
       );
     }
 
+    if (step === "preview") {
+      return t(
+        "Review entity counts and blocked rows, then continue to Sync DB before importing.",
+      );
+    }
+
     return t(
-      "Review entity counts and blocked rows before confirming the database transfer.",
+      "Review DB inserts, updates, no-change rows, skipped rows, warnings and blockers before final apply.",
     );
   }
 
@@ -2363,20 +2378,238 @@ function SyncProductTable({
   );
 }
 
+function syncSearchText(value: unknown) {
+  return String(value ?? "").toLowerCase();
+}
+
+function syncProductMatches(row: SyncProductRow, query: string) {
+  if (!query) {
+    return true;
+  }
+
+  return [
+    row.barcode,
+    row.category,
+    row.itemNumber,
+    row.productName,
+    row.purchasePrice,
+    row.quantity,
+    row.retailPrice,
+    row.rowNumber,
+    row.secondProductName,
+    row.supplier,
+  ].some((value) => syncSearchText(value).includes(query));
+}
+
+function syncUpdateMatches(row: SyncUpdateRow, query: string) {
+  if (!query) {
+    return true;
+  }
+
+  return (
+    syncProductMatches(row.existing, query) ||
+    syncProductMatches(row.updated, query) ||
+    row.diffs.some((diff) =>
+      [diff.field, diff.before, diff.after].some((value) =>
+        syncSearchText(value).includes(query),
+      ),
+    )
+  );
+}
+
+function syncSkippedMatches(row: SyncSkippedRow, query: string) {
+  if (!query) {
+    return true;
+  }
+
+  return [row.barcode, row.itemNumber, row.productName, row.rowNumber].some(
+    (value) => syncSearchText(value).includes(query),
+  );
+}
+
+function syncIssueMatches(issue: ImportIssue, query: string) {
+  if (!query) {
+    return true;
+  }
+
+  return [
+    issue.code,
+    issue.field,
+    issue.message,
+    issue.row,
+    issue.sheet,
+  ].some((value) => syncSearchText(value).includes(query));
+}
+
+function SyncUpdatedTable({ rows }: { rows: readonly SyncUpdateRow[] }) {
+  const t = useImportExportText();
+
+  if (rows.length === 0) {
+    return (
+      <p className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-600">
+        {t("No rows in this group.")}
+      </p>
+    );
+  }
+
+  return (
+    <div className="max-h-80 overflow-auto rounded-md border border-zinc-200">
+      <table className="min-w-[72rem] divide-y divide-zinc-200 text-left text-sm">
+        <thead className="sticky top-0 bg-white text-xs uppercase tracking-normal text-zinc-500">
+          <tr>
+            <th className="px-3 py-2">{t("Row")}</th>
+            <th className="px-3 py-2">{t("Barcode")}</th>
+            <th className="px-3 py-2">{t("Before")}</th>
+            <th className="px-3 py-2">{t("After")}</th>
+            <th className="px-3 py-2">{t("Diff")}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-zinc-100">
+          {rows.map((row) => (
+            <tr key={`${row.rowNumber}:${row.barcode}`}>
+              <td className="px-3 py-2 font-mono text-xs">{row.rowNumber}</td>
+              <td className="px-3 py-2 font-mono text-xs">{row.barcode}</td>
+              <td className="px-3 py-2">
+                {row.existing.productName}
+                <span className="block font-mono text-xs text-zinc-500">
+                  {syncDisplayValue(row.existing.retailPrice)} /{" "}
+                  {syncDisplayValue(row.existing.quantity)}
+                </span>
+              </td>
+              <td className="px-3 py-2">
+                {row.updated.productName}
+                <span className="block font-mono text-xs text-zinc-500">
+                  {syncDisplayValue(row.updated.retailPrice)} /{" "}
+                  {syncDisplayValue(row.updated.quantity)}
+                </span>
+              </td>
+              <td className="px-3 py-2">
+                <ul className="grid gap-1">
+                  {row.diffs.map((diff) => (
+                    <li key={diff.field}>
+                      <span className="font-medium">{diff.field}</span>:{" "}
+                      {syncDisplayValue(diff.before)}
+                      {" -> "}
+                      {syncDisplayValue(diff.after)}
+                    </li>
+                  ))}
+                </ul>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SyncSkippedTable({ rows }: { rows: readonly SyncSkippedRow[] }) {
+  const t = useImportExportText();
+
+  if (rows.length === 0) {
+    return (
+      <p className="rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm text-zinc-600">
+        {t("No rows in this group.")}
+      </p>
+    );
+  }
+
+  return (
+    <div className="max-h-72 overflow-auto rounded-md border border-zinc-200">
+      <table className="w-full divide-y divide-zinc-200 text-left text-sm">
+        <thead className="bg-white text-xs uppercase tracking-normal text-zinc-500">
+          <tr>
+            <th className="px-3 py-2">{t("Original row")}</th>
+            <th className="px-3 py-2">{t("Barcode")}</th>
+            <th className="px-3 py-2">{t("Item number")}</th>
+            <th className="px-3 py-2">{t("Product name")}</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-zinc-100">
+          {rows.map((row) => (
+            <tr key={`${row.rowNumber}:${row.barcode}`}>
+              <td className="px-3 py-2 font-mono text-xs">{row.rowNumber}</td>
+              <td className="px-3 py-2 font-mono text-xs">{row.barcode}</td>
+              <td className="px-3 py-2">{row.itemNumber ?? ""}</td>
+              <td className="px-3 py-2">{row.productName ?? ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 function SupplierSyncPreviewPanel({
   syncPreview,
 }: {
   syncPreview: SupplierSyncPreview;
 }) {
   const t = useImportExportText();
+  const [activeTab, setActiveTab] = useState<SyncReviewTab>("new");
+  const [query, setQuery] = useState("");
+  const normalizedQuery = query.trim().toLowerCase();
+  const filteredNewProducts = syncPreview.newProducts.filter((row) =>
+    syncProductMatches(row, normalizedQuery),
+  );
+  const filteredUpdatedProducts = syncPreview.updatedProducts.filter((row) =>
+    syncUpdateMatches(row, normalizedQuery),
+  );
+  const filteredNoChangeRows = syncPreview.noChangeRows.filter((row) =>
+    syncProductMatches(row, normalizedQuery),
+  );
+  const filteredSkippedRows = syncPreview.skippedRows.filter((row) =>
+    syncSkippedMatches(row, normalizedQuery),
+  );
+  const filteredWarnings = syncPreview.warnings.filter((issue) =>
+    syncIssueMatches(issue, normalizedQuery),
+  );
+  const filteredErrors = syncPreview.errors.filter((issue) =>
+    syncIssueMatches(issue, normalizedQuery),
+  );
   const summaryItems = [
-    [t("Nuovi"), syncPreview.summary.newProducts],
-    [t("Aggiornamenti"), syncPreview.summary.updatedProducts],
-    [t("Senza modifiche"), syncPreview.summary.noChangeRows],
-    [t("Skippati"), syncPreview.summary.skippedRows],
-    [t("Warning"), syncPreview.summary.warnings],
-    [t("Errori"), syncPreview.summary.errors],
+    [t("Nuovi"), syncPreview.summary.newProducts] as const,
+    [t("Aggiornamenti"), syncPreview.summary.updatedProducts] as const,
+    [t("Senza modifiche"), syncPreview.summary.noChangeRows] as const,
+    [t("Skippati"), syncPreview.summary.skippedRows] as const,
+    [t("Warning"), syncPreview.summary.warnings] as const,
+    [t("Errori"), syncPreview.summary.errors] as const,
   ];
+  const tabs: Array<{ count: number; key: SyncReviewTab; label: string }> = [
+    { count: syncPreview.summary.newProducts, key: "new", label: t("Nuovi") },
+    {
+      count: syncPreview.summary.updatedProducts,
+      key: "updated",
+      label: t("Aggiornamenti"),
+    },
+    {
+      count: syncPreview.summary.noChangeRows,
+      key: "noChange",
+      label: t("Senza modifiche"),
+    },
+    {
+      count: syncPreview.summary.skippedRows,
+      key: "skipped",
+      label: t("Skippati"),
+    },
+    { count: syncPreview.summary.warnings, key: "warnings", label: t("Warning") },
+    { count: syncPreview.summary.errors, key: "errors", label: t("Errori") },
+  ];
+
+  const tabPanel =
+    activeTab === "new" ? (
+      <SyncProductTable rows={filteredNewProducts} />
+    ) : activeTab === "updated" ? (
+      <SyncUpdatedTable rows={filteredUpdatedProducts} />
+    ) : activeTab === "noChange" ? (
+      <SyncProductTable rows={filteredNoChangeRows} />
+    ) : activeTab === "skipped" ? (
+      <SyncSkippedTable rows={filteredSkippedRows} />
+    ) : activeTab === "warnings" ? (
+      <IssueList issues={filteredWarnings} title={t("Warning")} />
+    ) : (
+      <IssueList issues={filteredErrors} title={t("Errori")} tone="danger" />
+    );
 
   return (
     <section className="grid gap-4" data-import-step="sync-db-review">
@@ -2403,107 +2636,52 @@ function SupplierSyncPreviewPanel({
           </div>
         ))}
       </dl>
-      <details className="rounded-md border border-zinc-200 bg-white p-3" open>
-        <summary className="cursor-pointer text-sm font-semibold text-zinc-950">
-          {t("Nuovi")}
-        </summary>
-        <div className="mt-3">
-          <SyncProductTable rows={syncPreview.newProducts} />
-        </div>
-      </details>
-      <details className="rounded-md border border-zinc-200 bg-white p-3" open>
-        <summary className="cursor-pointer text-sm font-semibold text-zinc-950">
-          {t("Aggiornamenti")}
-        </summary>
-        <div className="mt-3 max-h-80 overflow-auto rounded-md border border-zinc-200">
-          <table className="min-w-[72rem] divide-y divide-zinc-200 text-left text-sm">
-            <thead className="sticky top-0 bg-white text-xs uppercase tracking-normal text-zinc-500">
-              <tr>
-                <th className="px-3 py-2">{t("Row")}</th>
-                <th className="px-3 py-2">{t("Barcode")}</th>
-                <th className="px-3 py-2">{t("Before")}</th>
-                <th className="px-3 py-2">{t("After")}</th>
-                <th className="px-3 py-2">{t("Diff")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {syncPreview.updatedProducts.map((row) => (
-                <tr key={`${row.rowNumber}:${row.barcode}`}>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {row.rowNumber}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">{row.barcode}</td>
-                  <td className="px-3 py-2">
-                    {row.existing.productName}
-                    <span className="block font-mono text-xs text-zinc-500">
-                      {syncDisplayValue(row.existing.retailPrice)} /{" "}
-                      {syncDisplayValue(row.existing.quantity)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    {row.updated.productName}
-                    <span className="block font-mono text-xs text-zinc-500">
-                      {syncDisplayValue(row.updated.retailPrice)} /{" "}
-                      {syncDisplayValue(row.updated.quantity)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    <ul className="grid gap-1">
-                      {row.diffs.map((diff) => (
-                        <li key={diff.field}>
-                          <span className="font-medium">{diff.field}</span>:{" "}
-                          {syncDisplayValue(diff.before)}
-                          {" -> "}
-                          {syncDisplayValue(diff.after)}
-                        </li>
-                      ))}
-                    </ul>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
-      <details className="rounded-md border border-zinc-200 bg-white p-3">
-        <summary className="cursor-pointer text-sm font-semibold text-zinc-950">
-          {t("Senza modifiche")}
-        </summary>
-        <div className="mt-3">
-          <SyncProductTable rows={syncPreview.noChangeRows} />
-        </div>
-      </details>
-      <details className="rounded-md border border-zinc-200 bg-white p-3">
-        <summary className="cursor-pointer text-sm font-semibold text-zinc-950">
-          {t("Skippati")}
-        </summary>
-        <div className="mt-3 max-h-72 overflow-auto rounded-md border border-zinc-200">
-          <table className="w-full divide-y divide-zinc-200 text-left text-sm">
-            <thead className="bg-white text-xs uppercase tracking-normal text-zinc-500">
-              <tr>
-                <th className="px-3 py-2">{t("Original row")}</th>
-                <th className="px-3 py-2">{t("Barcode")}</th>
-                <th className="px-3 py-2">{t("Item number")}</th>
-                <th className="px-3 py-2">{t("Product name")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-zinc-100">
-              {syncPreview.skippedRows.map((row) => (
-                <tr key={`${row.rowNumber}:${row.barcode}`}>
-                  <td className="px-3 py-2 font-mono text-xs">
-                    {row.rowNumber}
-                  </td>
-                  <td className="px-3 py-2 font-mono text-xs">{row.barcode}</td>
-                  <td className="px-3 py-2">{row.itemNumber ?? ""}</td>
-                  <td className="px-3 py-2">{row.productName ?? ""}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </details>
-      <IssueList issues={syncPreview.warnings} title={t("Warning")} />
-      <IssueList issues={syncPreview.errors} title={t("Errori")} tone="danger" />
+      <label className="grid gap-1 text-sm font-medium text-zinc-700">
+        {t("Search Sync DB review")}
+        <input
+          className={importExportInputClassName}
+          data-sync-review-search
+          onChange={(event) => setQuery(event.currentTarget.value)}
+          placeholder={t("Search barcode, name, item number, supplier or category")}
+          value={query}
+        />
+      </label>
+      <div
+        className="flex flex-wrap gap-2"
+        data-sync-review-tabs
+        role="tablist"
+      >
+        {tabs.map((tab) => {
+          const active = activeTab === tab.key;
+
+          return (
+            <button
+              aria-selected={active}
+              className={`rounded-md border px-3 py-2 text-sm font-medium ${
+                active
+                  ? "border-emerald-500 bg-emerald-50 text-emerald-950"
+                  : "border-zinc-200 bg-white text-zinc-700"
+              }`}
+              data-sync-review-tab={tab.key}
+              key={tab.key}
+              onClick={() => setActiveTab(tab.key)}
+              role="tab"
+              type="button"
+            >
+              {tab.label}{" "}
+              <span className="font-mono text-xs text-zinc-500">
+                {tab.count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+      <section
+        className="rounded-md border border-zinc-200 bg-white p-3"
+        role="tabpanel"
+      >
+        {tabPanel}
+      </section>
     </section>
   );
 }
@@ -2825,24 +3003,22 @@ function ImportWizard({
       : [];
   const canApply =
     Boolean(file && preview?.previewDigest) &&
-    (isDatabase
-      ? step === "preview"
-      : step === "sync" &&
-        syncPreview?.canApply === true &&
-        Boolean(syncPreviewDigest) &&
-        !syncPreviewStale) &&
+    step === "sync" &&
+    syncPreview?.canApply === true &&
+    Boolean(syncPreviewDigest) &&
+    !syncPreviewStale &&
     applyConfirmation.trim().toUpperCase() === confirmationWord &&
     blockedRows === 0 &&
     !authPrompt &&
     !isApplying;
   const applyDisabledReason =
-    (!isDatabase && step !== "sync") || (isDatabase && step !== "preview")
-      ? t("Continue to import preview before apply.")
+    step !== "sync"
+      ? t("Continue to Sync DB before apply.")
       : !preview?.previewDigest
         ? t("Preview is required before apply.")
-        : !isDatabase && syncPreviewStale
+        : syncPreviewStale
           ? t("Sync DB preview is stale. Recalculate Sync DB before apply.")
-        : !isDatabase && !syncPreview?.canApply
+        : !syncPreview?.canApply
           ? t("Resolve Sync DB errors before apply.")
         : blockedRows > 0
           ? t("Fix blocked rows before apply.")
@@ -3063,17 +3239,15 @@ function ImportWizard({
     if (
       !file ||
       !preview?.previewDigest ||
-      step !== (isDatabase ? "preview" : "sync")
+      step !== "sync"
     ) {
-      setError(t("Continue to import preview before applying it."));
+      setError(t("Continue to Sync DB before apply."));
       return;
     }
 
-    if (!isDatabase) {
-      if (!syncPreviewDigest || !syncPreview?.canApply || syncPreviewStale) {
-        setError(t("Recalculate Sync DB before apply."));
-        return;
-      }
+    if (!syncPreviewDigest || !syncPreview?.canApply || syncPreviewStale) {
+      setError(t("Recalculate Sync DB before apply."));
+      return;
     }
 
     const formData = new FormData();
@@ -3087,10 +3261,10 @@ function ImportWizard({
       formData.set("mappingOverride", mappingOverride);
     }
 
+    formData.set("syncPreviewDigest", syncPreviewDigest);
     if (!isDatabase) {
       formData.set("defaultSupplierName", defaultSupplierName);
       formData.set("defaultCategoryName", defaultCategoryName);
-      formData.set("syncPreviewDigest", syncPreviewDigest);
     }
 
     formData.set(
@@ -3184,7 +3358,9 @@ function ImportWizard({
     return {
       label:
         step === "sync"
-          ? t("Back to row correction")
+          ? isDatabase
+            ? t("Back to import review")
+            : t("Back to row correction")
           : step === "preview"
           ? isDatabase
             ? t("Back to check workbook")
@@ -3768,74 +3944,34 @@ function ImportWizard({
               />
             </>
           ) : null}
-          {isDatabase ? (
-            <form
-              className="sticky bottom-0 z-30 -mx-3 border-t border-zinc-200 bg-white px-3 py-3"
-              encType="multipart/form-data"
-              onSubmit={applyWorkbook}
+          <div className="sticky bottom-0 z-30 -mx-3 flex flex-wrap items-center justify-end gap-2 border-t border-zinc-200 bg-white px-3 py-3">
+            <button
+              className={importExportButtonClassName}
+              disabled={isPreviewing || blockedRows > 0}
+              onClick={() => {
+                void requestSyncPreview();
+              }}
+              type="button"
             >
-              <div className="grid gap-2 lg:grid-cols-[auto_minmax(12rem,18rem)_auto_minmax(12rem,1fr)] lg:items-center">
-                <label
-                  className="text-sm font-medium text-zinc-800"
-                  htmlFor={`${fileInputId}-apply-confirmation`}
-                >
-                  {t("Confirm")} {confirmationWord}
-                </label>
-                <input
-                  aria-label={`${t("Confirm")} ${confirmationWord}`}
-                  className={`${importExportInputClassName} lg:max-w-72`}
-                  disabled={isApplying}
-                  id={`${fileInputId}-apply-confirmation`}
-                  onChange={(event) =>
-                    setApplyConfirmation(event.currentTarget.value)
-                  }
-                  value={applyConfirmation}
-                />
-                <button
-                  className={`${importExportWarningButtonClassName} lg:w-auto lg:min-w-56`}
-                  disabled={!canApply}
-                >
-                  {isApplying
-                    ? t("Importing database...")
-                    : t("Import database workbook")}
-                </button>
-                {applyDisabledReason ? (
-                  <p className="text-xs leading-5 text-zinc-500 lg:text-right">
-                    {applyDisabledReason}
-                  </p>
-                ) : null}
-              </div>
-            </form>
-          ) : (
-            <div className="sticky bottom-0 z-30 -mx-3 flex flex-wrap items-center justify-end gap-2 border-t border-zinc-200 bg-white px-3 py-3">
-              <button
-                className={importExportButtonClassName}
-                disabled={isPreviewing || blockedRows > 0}
-                onClick={() => {
-                  void requestSyncPreview();
-                }}
-                type="button"
-              >
-                {isPreviewing
-                  ? t("Previewing...")
-                  : syncPreview
-                    ? t("Ricalcola Sync DB")
-                    : t("Continua a Sync DB")}
-              </button>
-              {blockedRows > 0 ? (
-                <p className="text-xs leading-5 text-zinc-500">
-                  {t("Fix blocked rows before continuing.")}
-                </p>
-              ) : syncPreviewStale ? (
-                <p className="text-xs leading-5 text-zinc-500">
-                  {t("Sync DB preview is stale. Recalculate Sync DB before apply.")}
-                </p>
-              ) : null}
-            </div>
-          )}
+              {isPreviewing
+                ? t("Previewing...")
+                : syncPreview
+                  ? t("Ricalcola Sync DB")
+                  : t("Continua a Sync DB")}
+            </button>
+            {blockedRows > 0 ? (
+              <p className="text-xs leading-5 text-zinc-500">
+                {t("Fix blocked rows before continuing.")}
+              </p>
+            ) : syncPreviewStale ? (
+              <p className="text-xs leading-5 text-zinc-500">
+                {t("Sync DB preview is stale. Recalculate Sync DB before apply.")}
+              </p>
+            ) : null}
+          </div>
         </div>
       ) : null}
-      {!isDatabase && preview && syncPreview && step === "sync" ? (
+      {preview && syncPreview && step === "sync" ? (
         <div
           aria-busy={isApplying}
           className="grid min-h-0 min-w-0 max-w-full gap-4 overflow-hidden rounded-md border border-zinc-200 bg-white p-3"
@@ -3873,10 +4009,16 @@ function ImportWizard({
                 value={applyConfirmation}
               />
               <button
-                className={`${importExportButtonClassName} lg:w-auto lg:min-w-56`}
+                className={`${isDatabase ? importExportWarningButtonClassName : importExportButtonClassName} lg:w-auto lg:min-w-56`}
                 disabled={!canApply}
               >
-                {isApplying ? t("Applying...") : t("Apply confirmed import")}
+                {isApplying
+                  ? isDatabase
+                    ? t("Importing database...")
+                    : t("Applying...")
+                  : isDatabase
+                    ? t("Import database workbook")
+                    : t("Apply confirmed import")}
               </button>
               {applyDisabledReason ? (
                 <p className="text-xs leading-5 text-zinc-500 lg:text-right">

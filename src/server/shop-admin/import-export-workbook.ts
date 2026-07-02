@@ -4598,7 +4598,10 @@ export async function parseCatalogWorkbookPreview(
   ).length;
   const blockedRows = uniqueIssueRowCount(rowErrors);
 
-  if (parsed.importMode === "supplier" && input.rowAdjustments !== undefined) {
+  if (
+    parsed.importMode === "database" ||
+    (parsed.importMode === "supplier" && input.rowAdjustments !== undefined)
+  ) {
     syncPreview = buildSupplierSyncPreview({
       adjustedParsed: previewParsed,
       adjustments: syncAdjustments,
@@ -4783,8 +4786,6 @@ export async function applyCatalogWorkbookImport(
     )
     : applyRowAdjustments(parsed, adjustmentValidation.adjustments);
 
-  let supplierSyncPreview: CatalogWorkbookSyncPreview | undefined;
-
   if (adjustedParsed.rowErrors.length > 0) {
     return {
       ...shopAdminActionResult("validation_failed", {
@@ -4809,54 +4810,53 @@ export async function applyCatalogWorkbookImport(
   const rowErrors = adjustedParsed.importMode === "supplier"
     ? supplierVisibleRowErrors(rawRowErrors)
     : rawRowErrors;
+  const rawRowWarnings = [
+    ...adjustedParsed.rowWarnings,
+    ...validation.rowWarnings,
+    ...(adjustedParsed.importMode === "supplier"
+      ? supplierReferenceWarnings(rawRowErrors)
+      : []),
+  ];
+  const rowWarnings = rawRowWarnings.filter(
+    (issue) => !isSafetySanitizationIssue(issue),
+  );
+  const syncPreview = buildSupplierSyncPreview({
+    adjustedParsed,
+    adjustments: adjustmentValidation.adjustments,
+    boundPreviewDigest,
+    readModel,
+    rowErrors,
+    rowWarnings,
+    sourceParsed: parsed,
+  });
 
-  if (adjustedParsed.importMode === "supplier") {
-    const rawRowWarnings = [
-      ...adjustedParsed.rowWarnings,
-      ...validation.rowWarnings,
-      ...supplierReferenceWarnings(rawRowErrors),
-    ];
-    const rowWarnings = rawRowWarnings.filter(
-      (issue) => !isSafetySanitizationIssue(issue),
-    );
-    supplierSyncPreview = buildSupplierSyncPreview({
-      adjustedParsed,
-      adjustments: adjustmentValidation.adjustments,
-      boundPreviewDigest,
-      readModel,
-      rowErrors,
-      rowWarnings,
-      sourceParsed: parsed,
+  if (!input.syncPreviewDigest) {
+    return shopAdminActionResult("preview_required", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
     });
+  }
 
-    if (!input.syncPreviewDigest) {
-      return shopAdminActionResult("preview_required", {
+  if (input.syncPreviewDigest !== syncPreview.fingerprint) {
+    return {
+      ...shopAdminActionResult("preview_mismatch", {
         ok: false,
         shopId: context.selectedShop.shopId,
-      });
-    }
+      }),
+      previewDigest: boundPreviewDigest,
+      rowErrors: syncPreview.errors,
+    };
+  }
 
-    if (input.syncPreviewDigest !== supplierSyncPreview.fingerprint) {
-      return {
-        ...shopAdminActionResult("preview_mismatch", {
-          ok: false,
-          shopId: context.selectedShop.shopId,
-        }),
-        previewDigest: boundPreviewDigest,
-        rowErrors: supplierSyncPreview.errors,
-      };
-    }
-
-    if (!supplierSyncPreview.canApply) {
-      return {
-        ...shopAdminActionResult("validation_failed", {
-          ok: false,
-          shopId: context.selectedShop.shopId,
-        }),
-        previewDigest: boundPreviewDigest,
-        rowErrors: supplierSyncPreview.errors,
-      };
-    }
+  if (!syncPreview.canApply) {
+    return {
+      ...shopAdminActionResult("validation_failed", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      }),
+      previewDigest: boundPreviewDigest,
+      rowErrors: syncPreview.errors,
+    };
   }
 
   if (rowErrors.length > 0) {
@@ -4885,18 +4885,14 @@ export async function applyCatalogWorkbookImport(
   const productIdMaps = buildProductIdMaps(readModel.products);
   const effectiveProductsToApply = effectiveProductRowsLastWins(adjustedParsed.products);
   const changedSupplierRows = new Set(
-    adjustedParsed.importMode === "supplier" && supplierSyncPreview
-      ? [
-          ...supplierSyncPreview.newProducts.map((row) => `${row.rowNumber}:${row.barcode}`),
-          ...supplierSyncPreview.updatedProducts.map((row) => `${row.rowNumber}:${row.barcode}`),
-        ]
-      : [],
+    [
+      ...syncPreview.newProducts.map((row) => `${row.rowNumber}:${row.barcode}`),
+      ...syncPreview.updatedProducts.map((row) => `${row.rowNumber}:${row.barcode}`),
+    ],
   );
-  const productsToApply = adjustedParsed.importMode === "supplier"
-    ? effectiveProductsToApply.filter((row) =>
-        changedSupplierRows.has(`${row.rowNumber}:${row.barcode}`),
-      )
-    : effectiveProductsToApply;
+  const productsToApply = effectiveProductsToApply.filter((row) =>
+    changedSupplierRows.has(`${row.rowNumber}:${row.barcode}`),
+  );
   let suppliersApplied = 0;
   let categoriesApplied = 0;
   let productsApplied = 0;
