@@ -3099,34 +3099,6 @@ function supplierSyncPreviewFingerprint(input: {
     .digest("hex");
 }
 
-function finalDuplicateBarcodeErrors(
-  products: readonly ParsedProductRow[],
-): WorkbookRowError[] {
-  const byBarcode = new Map<string, ParsedProductRow[]>();
-
-  for (const product of products) {
-    const barcode = product.barcode.trim().toLowerCase();
-    if (!barcode) {
-      continue;
-    }
-
-    byBarcode.set(barcode, [...(byBarcode.get(barcode) ?? []), product]);
-  }
-
-  return [...byBarcode.entries()].flatMap(([, rows]) =>
-    rows.length <= 1
-      ? []
-      : rows.map((row) => ({
-          code: "duplicate_final_barcode",
-          field: "barcode",
-          message:
-            "Final supplier import contains duplicate non-skipped barcode rows.",
-          row: row.rowNumber,
-          sheet: "Products",
-        } satisfies WorkbookRowError)),
-  );
-}
-
 function buildSupplierSyncPreview(input: {
   adjustedParsed: ParsedWorkbook;
   adjustments: readonly CatalogWorkbookRowAdjustment[];
@@ -3164,8 +3136,7 @@ function buildSupplierSyncPreview(input: {
       productName: product.productName,
       rowNumber: product.rowNumber,
     }));
-  const duplicateErrors = finalDuplicateBarcodeErrors(input.adjustedParsed.products);
-  const errors = [...input.rowErrors, ...duplicateErrors];
+  const errors = [...input.rowErrors];
   const warnings = [...input.rowWarnings];
   const effectiveProducts = effectiveProductRowsLastWins(input.adjustedParsed.products);
   const newProducts: CatalogWorkbookSyncProductRow[] = [];

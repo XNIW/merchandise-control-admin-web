@@ -1172,14 +1172,19 @@ export function validateCatalogImportRows(
 
     const target = existingByBarcode ?? existingById;
 
-    if (!target && !product.productName && !product.itemNumber) {
+    if (
+      !target &&
+      !product.productName &&
+      !product.secondProductName &&
+      !product.itemNumber
+    ) {
       rowErrors.push(
         issue(
           "product_barcode_conflict",
           "Products",
           product.rowNumber,
           "productName",
-          "New product requires productName or itemNumber.",
+          "New product requires productName, secondProductName or itemNumber.",
         ),
       );
     }
@@ -1335,7 +1340,9 @@ export function mergeProductImportForApply(
       boundaryRow.categoryId ?? categoryFromName ?? existing?.categoryId ?? undefined,
     itemNumber: textOrExisting(row.itemNumber, existing?.itemNumber ?? null),
     productName:
-      textOrExisting(row.productName, existing?.productName ?? null) ?? "",
+      textOrExisting(row.productName, existing?.productName ?? null) ??
+      (existing ? undefined : textOrExisting(row.secondProductName, null)) ??
+      "",
     purchasePrice: valueOrExisting(row.purchasePrice, existing?.purchasePrice),
     retailPrice: valueOrExisting(row.retailPrice, existing?.retailPrice),
     secondProductName: textOrExisting(

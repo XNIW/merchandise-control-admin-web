@@ -64,6 +64,12 @@ function loadTypeScriptModuleWithPrivateExports(relativePath, exportNames = []) 
       };
     }
 
+    if (id === "./catalog-import-contract") {
+      return loadTypeScriptModule(
+        "src/server/shop-admin/catalog-import-contract.ts",
+      );
+    }
+
     if (id.startsWith("./") || id.startsWith("@/")) {
       return new Proxy(
         {},
@@ -417,7 +423,12 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   assertContains(workbook, 'issue.field === "barcode"');
   assertContains(workbook, "buildSupplierSyncPreview");
   assertContains(workbook, "CatalogWorkbookSyncPreview");
-  assertContains(workbook, "duplicate_final_barcode");
+  assertContains(workbook, "effectiveProductRowsLastWins");
+  assert.doesNotMatch(
+    workbook,
+    /duplicate_final_barcode/,
+    "duplicate barcodes must remain warning-only and use last occurrence in sync preview",
+  );
   assertContains(workbook, "supplierSyncPreviewFingerprint");
   assertContains(workbook, "input.syncPreviewDigest");
   assertContains(workbook, "input.syncPreviewDigest !== syncPreview.fingerprint");
@@ -1251,6 +1262,205 @@ test("TASK-060 supplier row adjustments can correct or skip missing barcode rows
   assert.equal(adjusted.products[0].barcode, "1234567890123");
   assert.equal(adjusted.products[0].itemNumber, "CORRECT-ME");
   assert.equal(adjusted.rowErrors.length, 0);
+});
+
+test("TASK-090 supplier sync preview treats duplicate final barcodes as warning-only last-wins rows", () => {
+  const { buildSupplierSyncPreview } = loadTypeScriptModuleWithPrivateExports(
+    "src/server/shop-admin/import-export-workbook.ts",
+    ["buildSupplierSyncPreview"],
+  );
+  const products = [
+    {
+      barcode: "0900000000001",
+      itemNumber: "DUP-FIRST",
+      productName: "Duplicate first",
+      purchasePrice: 10,
+      quantity: 1,
+      retailPrice: 20,
+      rowNumber: 2,
+    },
+    {
+      barcode: "0900000000001",
+      itemNumber: "DUP-LAST",
+      productName: "Duplicate winner",
+      purchasePrice: 11,
+      quantity: 2,
+      retailPrice: 22,
+      rowNumber: 3,
+    },
+  ];
+  const parsed = {
+    categories: [],
+    confidence: 1,
+    detectedFormat: {
+      confidence: "high",
+      ignoredSheets: [],
+      isPartial: false,
+      kind: "generic_product_import",
+      label: "Supplier import",
+      missingSheets: [],
+      presentSheets: [],
+    },
+    detectedHeaderRow: 1,
+    detectedMapping: {},
+    digest: "digest",
+    droppedRows: 0,
+    fileDigest: "file",
+    importMode: "supplier",
+    mappingOverride: {},
+    originalColumns: [],
+    priceHistory: [],
+    products,
+    previewRows: [],
+    previewRowsTruncated: false,
+    rawPreviewColumns: [],
+    rawPreviewRows: [],
+    rawWorkbookContextRows: [],
+    recognizedColumnSources: {},
+    rowErrors: [],
+    rowWarnings: [],
+    selectedProductSheet: "Products",
+    sheetSummaries: [],
+    suppliers: [],
+    unmappedColumns: [],
+    validRows: products.length,
+    workbookMetadata: {
+      fileName: "fixture.xlsx",
+      headerRow: 1,
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      parsedRows: products.length,
+      previewRowsLimit: 50,
+      previewRowsTruncated: false,
+      selectedSheet: "Products",
+      sheetNames: ["Products"],
+      sizeBytes: 1,
+      totalRows: 3,
+    },
+  };
+  const rowWarnings = products.map((product) => ({
+    code: "duplicate_product_barcode",
+    field: "barcode",
+    message:
+      "Product barcode appears more than once in the workbook; the last occurrence is used.",
+    row: product.rowNumber,
+    sheet: "Products",
+  }));
+
+  const preview = buildSupplierSyncPreview({
+    adjustedParsed: parsed,
+    adjustments: [],
+    boundPreviewDigest: "digest",
+    readModel: { categories: [], products: [], suppliers: [] },
+    rowErrors: [],
+    rowWarnings,
+    sourceParsed: parsed,
+  });
+
+  assert.equal(preview.canApply, true);
+  assert.equal(preview.errors.length, 0);
+  assert.equal(preview.warnings.length, 2);
+  assert.equal(preview.newProducts.length, 1);
+  assert.equal(preview.newProducts[0].barcode, "0900000000001");
+  assert.equal(preview.newProducts[0].itemNumber, "DUP-LAST");
+  assert.equal(preview.newProducts[0].productName, "Duplicate winner");
+  assert.equal(preview.newProducts[0].quantity, 2);
+  assert.equal(preview.newProducts[0].rowNumber, 3);
+  assert.equal(preview.summary.nonSkippedRows, 1);
+  assert.equal(preview.summary.errors, 0);
+  assert.equal(preview.summary.warnings, 2);
+});
+
+test("TASK-090 supplier sync preview accepts Android secondProductName identity fallback", () => {
+  const { buildSupplierSyncPreview } = loadTypeScriptModuleWithPrivateExports(
+    "src/server/shop-admin/import-export-workbook.ts",
+    ["buildSupplierSyncPreview"],
+  );
+  const { validateCatalogImportRows } = loadTypeScriptModule(
+    "src/server/shop-admin/catalog-import-contract.ts",
+  );
+  const products = [
+    {
+      barcode: "0900000000002",
+      itemNumber: "",
+      productName: "",
+      secondProductName: "Only secondary name",
+      purchasePrice: 10,
+      quantity: 1,
+      retailPrice: 20,
+      rowNumber: 2,
+    },
+  ];
+  const parsed = {
+    categories: [],
+    confidence: 1,
+    detectedFormat: {
+      confidence: "high",
+      ignoredSheets: [],
+      isPartial: false,
+      kind: "generic_product_import",
+      label: "Supplier import",
+      missingSheets: [],
+      presentSheets: [],
+    },
+    detectedHeaderRow: 1,
+    detectedMapping: {},
+    digest: "digest",
+    droppedRows: 0,
+    fileDigest: "file",
+    importMode: "supplier",
+    mappingOverride: {},
+    originalColumns: [],
+    priceHistory: [],
+    products,
+    previewRows: [],
+    previewRowsTruncated: false,
+    rawPreviewColumns: [],
+    rawPreviewRows: [],
+    rawWorkbookContextRows: [],
+    recognizedColumnSources: {},
+    rowErrors: [],
+    rowWarnings: [],
+    selectedProductSheet: "Products",
+    sheetSummaries: [],
+    suppliers: [],
+    unmappedColumns: [],
+    validRows: products.length,
+    workbookMetadata: {
+      fileName: "fixture.xlsx",
+      headerRow: 1,
+      mimeType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      parsedRows: products.length,
+      previewRowsLimit: 50,
+      previewRowsTruncated: false,
+      selectedSheet: "Products",
+      sheetNames: ["Products"],
+      sizeBytes: 1,
+      totalRows: 2,
+    },
+  };
+  const validation = validateCatalogImportRows(parsed, {
+    categories: [],
+    products: [],
+    suppliers: [],
+  });
+
+  assert.equal(validation.rowErrors.length, 0);
+
+  const preview = buildSupplierSyncPreview({
+    adjustedParsed: parsed,
+    adjustments: [],
+    boundPreviewDigest: "digest",
+    readModel: { categories: [], products: [], suppliers: [] },
+    rowErrors: validation.rowErrors,
+    rowWarnings: validation.rowWarnings,
+    sourceParsed: parsed,
+  });
+
+  assert.equal(preview.canApply, true);
+  assert.equal(preview.errors.length, 0);
+  assert.equal(preview.newProducts.length, 1);
+  assert.equal(preview.newProducts[0].productName, "Only secondary name");
+  assert.equal(preview.newProducts[0].secondProductName, "Only secondary name");
 });
 
 test("TASK-060 workbook parser accepts XLSX, legacy XLS and HTML-Excel safely", () => {
