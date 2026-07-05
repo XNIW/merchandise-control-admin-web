@@ -1246,6 +1246,108 @@ export type Database = {
           },
         ]
       }
+      pos_catalog_import_batches: {
+        Row: {
+          accepted_item_count: number
+          client_import_id: string
+          conflict_count: number
+          created_at: string
+          duplicate_item_count: number
+          idempotency_key: string
+          metadata_redacted: Json
+          payload_hash: string
+          pos_catalog_import_batch_id: string
+          pos_session_id: string | null
+          product_count: number
+          received_at: string
+          schema_version: string
+          shop_device_id: string
+          shop_id: string
+          source: string
+          staff_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_item_count?: number
+          client_import_id: string
+          conflict_count?: number
+          created_at?: string
+          duplicate_item_count?: number
+          idempotency_key: string
+          metadata_redacted?: Json
+          payload_hash: string
+          pos_catalog_import_batch_id?: string
+          pos_session_id?: string | null
+          product_count?: number
+          received_at?: string
+          schema_version?: string
+          shop_device_id: string
+          shop_id: string
+          source?: string
+          staff_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_item_count?: number
+          client_import_id?: string
+          conflict_count?: number
+          created_at?: string
+          duplicate_item_count?: number
+          idempotency_key?: string
+          metadata_redacted?: Json
+          payload_hash?: string
+          pos_catalog_import_batch_id?: string
+          pos_session_id?: string | null
+          product_count?: number
+          received_at?: string
+          schema_version?: string
+          shop_device_id?: string
+          shop_id?: string
+          source?: string
+          staff_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_catalog_import_batches_pos_session_id_fkey"
+            columns: ["pos_session_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sessions"
+            referencedColumns: ["pos_session_id"]
+          },
+          {
+            foreignKeyName: "pos_catalog_import_batches_shop_device_id_fkey"
+            columns: ["shop_device_id"]
+            isOneToOne: false
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "pos_catalog_import_batches_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "pos_catalog_import_batches_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pos_catalog_import_batches_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
       pos_sales_sync_batches: {
         Row: {
           client_batch_id: string

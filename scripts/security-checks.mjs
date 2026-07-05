@@ -115,6 +115,10 @@ function optionalRead(relativePath) {
   return existsSync(join(root, relativePath)) ? read(relativePath) : "";
 }
 
+function baseNameFromRelativePath(relativePath) {
+  return relativePath.split(/[\\/]/).pop() ?? relativePath;
+}
+
 function extractExportedFunctionBlock(source, functionName) {
   const signature = `export function ${functionName}`;
   const start = source.indexOf(signature);
@@ -3945,6 +3949,7 @@ function checkTask019PosAuthFoundationImplementation() {
   const allowedTask021PosRoutes = new Set([
     "src/app/api/pos/_shared/pos-route-security.ts",
     "src/app/api/pos/auth/first-login/route.ts",
+    "src/app/api/pos/catalog/import-sync/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
@@ -4100,6 +4105,7 @@ function checkTask020Win7PosIntegrationPlanning() {
   const allowedTask021PosRoutes = new Set([
     "src/app/api/pos/_shared/pos-route-security.ts",
     "src/app/api/pos/auth/first-login/route.ts",
+    "src/app/api/pos/catalog/import-sync/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
@@ -4202,6 +4208,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const allowedPosRoutes = new Set([
     posRouteSecurityPath,
     firstLoginRoutePath,
+    "src/app/api/pos/catalog/import-sync/route.ts",
     catalogPullRoutePath,
     heartbeatRoutePath,
   ]);
@@ -4991,9 +4998,7 @@ function checkTask037ShopAdminDualAccessModel() {
   const foundationTest = read(foundationTestPath);
   const masterPlan = read("docs/MASTER-PLAN.md");
   const combinedDocs = `${task}\n${evidence}\n${architecture}\n${masterPlan}`;
-  const migrationNames = listFiles("supabase/migrations").map(
-    (file) => file.split("/").pop() ?? file,
-  );
+  const migrationNames = listFiles("supabase/migrations").map(baseNameFromRelativePath);
   const appRouteFiles = listFiles("src/app");
 
   for (const requiredSnippet of [
@@ -5114,7 +5119,7 @@ function checkTask038PosManagerWebLogin() {
   const foundationTestPath =
     "tests/foundation/task-038-pos-manager-web-login.test.mjs";
   const migrationName = listFiles("supabase/migrations")
-    .map((file) => file.split("/").pop() ?? file)
+    .map(baseNameFromRelativePath)
     .find((file) => /task_038_pos_manager_web_login/i.test(file));
 
   for (const requiredPath of [
