@@ -1,15 +1,19 @@
 import { spawn } from "node:child_process";
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
 const root = process.cwd();
 const foundationDir = join(root, "tests", "foundation");
+const textNormalizer = pathToFileURL(
+  join(root, "scripts", "testing", "foundation-text-normalizer.mjs"),
+).href;
 const testFiles = readdirSync(foundationDir)
   .filter((name) => name.endsWith(".test.mjs"))
   .sort()
   .map((name) => join(foundationDir, name));
 
-const child = spawn(process.execPath, ["--test", ...testFiles], {
+const child = spawn(process.execPath, ["--import", textNormalizer, "--test", ...testFiles], {
   cwd: root,
   env: process.env,
   stdio: ["ignore", "pipe", "pipe"],

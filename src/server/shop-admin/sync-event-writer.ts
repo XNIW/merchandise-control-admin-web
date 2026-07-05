@@ -42,6 +42,21 @@ type CatalogSyncRow = Pick<
   "deleted_at" | "id" | "owner_user_id" | "shop_id" | "updated_at"
 >;
 type LegacyCatalogSyncRow = Omit<CatalogSyncRow, "shop_id">;
+type ProductBulkSyncRow = Pick<
+  Tables<"inventory_products">,
+  "deleted_at" | "id" | "owner_user_id" | "shop_id" | "updated_at"
+>;
+type LegacyProductBulkSyncRow = Omit<ProductBulkSyncRow, "shop_id">;
+type PriceBulkSyncRow = Pick<
+  Tables<"inventory_product_prices">,
+  "created_at" | "effective_at" | "id" | "owner_user_id" | "product_id" | "shop_id"
+>;
+type LegacyPriceBulkSyncRow = Omit<PriceBulkSyncRow, "shop_id">;
+type OwnerShopSyncRow = {
+  id: string;
+  owner_user_id: string;
+  shop_id: string | null;
+};
 
 type AdminWebSyncEventInput = {
   changedCount?: number;
@@ -125,6 +140,37 @@ function actorKind(context: ReadyShopActionContext) {
   return context.principalKind;
 }
 
+function uniqueNonEmptyIds(ids: readonly string[]) {
+  return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean))).sort();
+}
+
+function shortSyncDigest(parts: readonly string[]) {
+  return createHash("sha256").update(parts.join("\u001f")).digest("hex").slice(0, 32);
+}
+
+function catalogScopeForRows(rows: readonly OwnerShopSyncRow[]) {
+  return rows.every((row) => row.shop_id === null)
+    ? "legacy_owner_bridge"
+    : "shop_scoped";
+}
+
+function groupRowsByOwnerAndShop<T extends OwnerShopSyncRow>(
+  rows: readonly T[],
+  selectedShopId: string,
+) {
+  const groups = new Map<string, T[]>();
+
+  for (const row of rows) {
+    const groupShopId = row.shop_id ?? selectedShopId;
+    const key = `${row.owner_user_id}:${groupShopId}`;
+    const group = groups.get(key) ?? [];
+    group.push(row);
+    groups.set(key, group);
+  }
+
+  return groups;
+}
+
 async function loadCatalogSyncRow(
   supabase: SupabaseAdminClient,
   entity: CatalogSyncEntity,
@@ -151,6 +197,62 @@ async function loadCatalogSyncRow(
   return {
     data: legacyResult.data
       ? ({ ...legacyResult.data, shop_id: null } satisfies CatalogSyncRow)
+      : null,
+    error: legacyResult.error,
+  };
+}
+
+async function loadProductBulkSyncRows(
+  supabase: SupabaseAdminClient,
+  ids: readonly string[],
+) {
+  const result = await supabase
+    .from("inventory_products")
+    .select("id,owner_user_id,shop_id,updated_at,deleted_at")
+    .in("id", ids)
+    .returns<ProductBulkSyncRow[]>();
+
+  if (!result.error || !isLegacySyncSchemaError(result.error)) {
+    return result;
+  }
+
+  const legacyResult = await supabase
+    .from("inventory_products")
+    .select("id,owner_user_id,updated_at,deleted_at")
+    .in("id", ids)
+    .returns<LegacyProductBulkSyncRow[]>();
+
+  return {
+    data: legacyResult.data
+      ? legacyResult.data.map((row) => ({ ...row, shop_id: null }))
+      : null,
+    error: legacyResult.error,
+  };
+}
+
+async function loadPriceBulkSyncRows(
+  supabase: SupabaseAdminClient,
+  ids: readonly string[],
+) {
+  const result = await supabase
+    .from("inventory_product_prices")
+    .select("id,owner_user_id,shop_id,product_id,created_at,effective_at")
+    .in("id", ids)
+    .returns<PriceBulkSyncRow[]>();
+
+  if (!result.error || !isLegacySyncSchemaError(result.error)) {
+    return result;
+  }
+
+  const legacyResult = await supabase
+    .from("inventory_product_prices")
+    .select("id,owner_user_id,product_id,created_at,effective_at")
+    .in("id", ids)
+    .returns<LegacyPriceBulkSyncRow[]>();
+
+  return {
+    data: legacyResult.data
+      ? legacyResult.data.map((row) => ({ ...row, shop_id: null }))
       : null,
     error: legacyResult.error,
   };
@@ -257,4 +359,151 @@ export async function emitCatalogMutationSyncEvent(input: {
     shopId,
     supabase,
   });
+}
+
+export async function emitCatalogBulkProductImportSyncEvent(input: {
+  context: ReadyShopActionContext;
+  productIds: readonly string[];
+}): Promise<SyncWriteResult> {
+  const productIds = uniqueNonEmptyIds(input.productIds);
+
+  if (productIds.length === 0) {
+    return { ok: true };
+  }
+
+  const supabase = adminClientForContext(input.context);
+
+  if (!supabase) {
+    return { code: "not_configured", ok: false };
+  }
+
+  const { data, error } = await loadProductBulkSyncRows(supabase, productIds);
+
+  if (error) {
+    return { code: "db_failure", ok: false };
+  }
+
+  if (!data || data.length !== productIds.length) {
+    return { code: "not_found", ok: false };
+  }
+
+  for (const rows of groupRowsByOwnerAndShop(
+    data,
+    input.context.selectedShop.shopId,
+  ).values()) {
+    const rowIds = rows.map((row) => row.id).sort();
+    const rowVersions = rows
+      .map((row) => `${row.id}:${row.updated_at}:${row.deleted_at ?? "active"}`)
+      .sort();
+    const representative = rows[0];
+
+    const syncResult = await writeAdminWebSyncEvent({
+      changedCount: rowIds.length,
+      clientEventSeed: [
+        "catalog",
+        "product",
+        "bulk_import",
+        representative.owner_user_id,
+        representative.shop_id ?? input.context.selectedShop.shopId,
+        shortSyncDigest(rowVersions),
+      ].join(":"),
+      domain: "catalog",
+      entityIds: {
+        product_ids: rowIds,
+      },
+      eventType: "catalog_changed",
+      metadata: {
+        actor_kind: actorKind(input.context),
+        catalog_scope: catalogScopeForRows(rows),
+        entity_type: "product",
+        operation: "bulk_import",
+        payload_version: 1,
+      },
+      ownerUserId: representative.owner_user_id,
+      shopId: representative.shop_id ?? input.context.selectedShop.shopId,
+      supabase,
+    });
+
+    if (!syncResult.ok) {
+      return syncResult;
+    }
+  }
+
+  return { ok: true };
+}
+
+export async function emitPriceHistoryImportSyncEvent(input: {
+  context: ReadyShopActionContext;
+  priceIds: readonly string[];
+}): Promise<SyncWriteResult> {
+  const priceIds = uniqueNonEmptyIds(input.priceIds);
+
+  if (priceIds.length === 0) {
+    return { ok: true };
+  }
+
+  const supabase = adminClientForContext(input.context);
+
+  if (!supabase) {
+    return { code: "not_configured", ok: false };
+  }
+
+  const { data, error } = await loadPriceBulkSyncRows(supabase, priceIds);
+
+  if (error) {
+    return { code: "db_failure", ok: false };
+  }
+
+  if (!data || data.length !== priceIds.length) {
+    return { code: "not_found", ok: false };
+  }
+
+  const seedTimestamp = new Date().toISOString();
+
+  for (const rows of groupRowsByOwnerAndShop(
+    data,
+    input.context.selectedShop.shopId,
+  ).values()) {
+    const rowIds = rows.map((row) => row.id).sort();
+    const productIds = uniqueNonEmptyIds(rows.map((row) => row.product_id));
+    const rowVersions = rows
+      .map((row) => `${row.id}:${row.product_id}:${row.created_at}:${row.effective_at}`)
+      .sort();
+    const representative = rows[0];
+
+    const syncResult = await writeAdminWebSyncEvent({
+      changedCount: rowIds.length,
+      clientEventSeed: [
+        "prices",
+        "bulk_import",
+        representative.owner_user_id,
+        representative.shop_id ?? input.context.selectedShop.shopId,
+        seedTimestamp,
+        shortSyncDigest(rowVersions),
+      ].join(":"),
+      domain: "prices",
+      entityIds: {
+        price_ids: rowIds,
+        product_ids: productIds,
+      },
+      eventType: "prices_changed",
+      metadata: {
+        actor_kind: actorKind(input.context),
+        catalog_scope: catalogScopeForRows(rows),
+        operation: "bulk_import",
+        payload_version: 1,
+        price_count: rowIds.length,
+        product_count: productIds.length,
+      },
+      ownerUserId: representative.owner_user_id,
+      shopId: representative.shop_id ?? input.context.selectedShop.shopId,
+      supabase,
+    });
+
+    if (!syncResult.ok) {
+      return syncResult;
+    }
+  }
+
+  return { ok: true };
 }

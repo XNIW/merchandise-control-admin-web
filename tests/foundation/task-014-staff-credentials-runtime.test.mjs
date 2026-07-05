@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { readFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
 import test from "node:test";
 import ts from "typescript";
 
@@ -12,7 +13,7 @@ async function loadCredentialModule() {
   const source = readFileSync(
     join(root, "src/server/shop-admin/staff-credentials.ts"),
     "utf8",
-  ).replace(/^import "server-only";\n\n/, "");
+  ).replace(/^import "server-only";\r?\n\r?\n/, "");
   const tempDir = await mkdtemp(join(tmpdir(), "task-014-staff-credentials-"));
   const modulePath = join(tempDir, "staff-credentials.mjs");
   const { outputText } = ts.transpileModule(source, {
@@ -26,7 +27,7 @@ async function loadCredentialModule() {
   await writeFile(modulePath, outputText, "utf8");
 
   return {
-    module: await import(modulePath),
+    module: await import(pathToFileURL(modulePath).href),
     cleanup: () => rm(tempDir, { force: true, recursive: true }),
   };
 }

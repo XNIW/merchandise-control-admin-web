@@ -8,7 +8,10 @@ const ts = require("typescript");
 
 const root = process.cwd();
 const adminLocales = ["en", "es", "it", "zh-CN"];
-const posRoot = resolve(root, "..", "Win7POS");
+const posRoot = resolve(
+  process.env.WIN7POS_REPO_PATH?.trim() || join(root, "..", "Win7POS"),
+);
+const normalizedPosRoot = posRoot.replace(/\\/g, "/");
 const posLocalizationDirectory = join(posRoot, "src/Win7POS.Wpf/Localization");
 
 const requiredAdminExactKeys = [
@@ -212,6 +215,14 @@ const technicalLiteralReasons = new Map([
 const xamlAllowedLiteralPattern =
   /^(?:\s*|[#0-9,.:;_\-/\s*()]+|\+ ?[0-9]+|\.{2,}|-|–|—|\?|…|☰|🔒|🔓)$/;
 
+function normalizePathSeparators(path) {
+  return path.replace(/\\/g, "/");
+}
+
+function posRelativePath(filePath) {
+  return normalizePathSeparators(filePath).slice(normalizedPosRoot.length + 1);
+}
+
 function collectFiles(directory, predicate, output = []) {
   for (const entry of readdirSync(directory)) {
     const fullPath = join(directory, entry);
@@ -323,7 +334,7 @@ function collectPosLocKeyUsages() {
   );
 
   for (const filePath of files) {
-    const relativePath = filePath.slice(posRoot.length + 1);
+    const relativePath = posRelativePath(filePath);
     const source = readFileSync(filePath, "utf8");
     const lines = source.split(/\r?\n/);
 
@@ -351,7 +362,8 @@ function collectPosCodeKeyUsages() {
   const usages = [];
   const files = collectFiles(join(posRoot, "src/Win7POS.Wpf"), (filePath) =>
     filePath.endsWith(".cs") &&
-    (!filePath.includes("/Localization/") || filePath.endsWith("/Localization/PosReceiptLocalization.cs")),
+    (!posRelativePath(filePath).includes("/Localization/") ||
+      posRelativePath(filePath).endsWith("/Localization/PosReceiptLocalization.cs")),
   );
   const patterns = [
     /PosLocalization\.Current\.(?:Text|Format)\(\s*"([^"]+)"/g,
@@ -359,7 +371,7 @@ function collectPosCodeKeyUsages() {
   ];
 
   for (const filePath of files) {
-    const relativePath = filePath.slice(posRoot.length + 1);
+    const relativePath = posRelativePath(filePath);
     const source = readFileSync(filePath, "utf8");
     const lines = source.split(/\r?\n/);
 
@@ -531,7 +543,7 @@ function scanPosXamlHardcodedText() {
   );
 
   for (const filePath of files) {
-    const relativePath = filePath.slice(posRoot.length + 1);
+    const relativePath = posRelativePath(filePath);
     const source = readFileSync(filePath, "utf8");
     const lines = source.split(/\r?\n/);
 
