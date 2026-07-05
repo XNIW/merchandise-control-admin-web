@@ -37,7 +37,7 @@
     "platform:local:dev": "node scripts/platform/local-dev-server.mjs",
     "platform:cloud:dev": "node scripts/platform/cloud-dev-server.mjs",
     "platform:cloud:probe": "node scripts/platform/cloud-target-probe.mjs",
-    "test:foundation": "node --test tests/foundation/*.test.mjs",
+    "test:foundation": "node scripts/run-foundation-tests.mjs",
     "test:e2e": "playwright test",
     "test:e2e:local": "node scripts/testing/run-playwright-target.mjs local tests/e2e",
     "test:e2e:staging": "node scripts/testing/run-playwright-target.mjs staging tests/e2e/staging",
