@@ -78,7 +78,7 @@ function listFiles(start, includeEnvTemplates = false) {
   for (const entry of entries) {
     const absolutePath = join(absoluteStart, entry);
     const stats = statSync(absolutePath);
-    const relativePath = relative(root, absolutePath);
+    const relativePath = relative(root, absolutePath).replace(/\\/g, "/");
 
     if (stats.isDirectory()) {
       if (!excludedDirectories.has(entry)) {
@@ -2663,7 +2663,7 @@ function checkTask015ShopAdminConsole() {
     }
 
     if (
-      /select\("\*"\)|\.from\([^)]+\)[\s\S]*\.(insert|update|delete|upsert)\s*\(/.test(
+      /select\("\*"\)|\.from\(\s*["'`][^"'`]+["'`]\s*\)[\s\S]*\.(insert|update|delete|upsert)\s*\(/.test(
         contents,
       )
     ) {
