@@ -136,18 +136,28 @@ Non fare ora:
 - non fondere account personale e staff POS.
 
 Nota cross-platform: per mutazioni catalogo/history da Admin Web, il segnale
-mobile passa da `sync_events` scritto server-side nello stesso flusso applicativo.
-CRUD catalogo e history falliscono chiuso a livello response se `sync_events`
-non viene registrato. `TASK-089` estende lo stesso guardrail al bulk import
-prodotti con un `catalog_changed` aggregato per chunk riuscito e al workbook
-PriceHistory con `prices_changed` aggregato su `inventory_product_prices` reali.
-La RPC `shop_catalog_import_price_history` ritorna gli `priceIds` realmente
-inseriti o aggiornati, inclusi i casi di upsert su unique business key, e il
-writer usa `price_ids` e `product_ids` bounded invece di ricostruire righe per
-euristica. Non e una transazione atomica: se la mutazione DB riesce e l'evento
-fallisce, il dato puo restare persistito ma la response torna errore. Non esiste
-oggi un outbox/relay durevole Admin Web per ritentare `sync_events` dopo un
-errore parziale, e non va aggiunto senza un task separato.
+mobile passa da `sync_events` scritto server-side nello stesso flusso
+applicativo. CRUD catalogo e history falliscono chiuso a livello response se
+`sync_events` non viene registrato. `TASK-089` estende lo stesso guardrail al
+bulk import prodotti con un `catalog_changed` aggregato per chunk riuscito e al
+workbook PriceHistory con `prices_changed` aggregato su
+`inventory_product_prices` reali. La RPC `shop_catalog_import_price_history`
+ritorna gli `priceIds` realmente inseriti o aggiornati, inclusi i casi di upsert
+su unique business key, e il writer usa `price_ids` e `product_ids` bounded
+invece di ricostruire righe per euristica.
+
+`TASK-100` chiude il gap atomico per Admin Web personal-account catalog CRUD:
+le azioni create/update/archive/restore usano `*_with_sync` RPC wrappers che
+scrivono catalog row, audit result and `sync_events` write in one PostgreSQL transaction.
+Se il target row non viene risolto o il write `sync_events` fallisce con errore
+non duplicato, la funzione solleva errore e la mutazione catalogo viene
+rollbackata. Il path POS catalog import usa gia `pos_catalog_import_apply_v2`,
+che applica prodotti/categorie/fornitori/prezzi, ledger import, audit e
+`sync_events` nella stessa transazione atomica. Rimangono separati e fail-closed
+i workflow workbook/history non coperti dai wrapper catalog CRUD: se la mutazione
+DB riesce e l'evento fallisce, la response torna errore. Non esiste oggi un
+outbox/relay durevole Admin Web per ritentare `sync_events` dopo un errore
+parziale, e non va aggiunto senza un task separato.
 
 ## Idempotenza
 

@@ -62,7 +62,7 @@ test("TASK-015 catalog CRUD is implemented through audited shop-scoped RPCs", ()
   ]) {
     assert.match(migration, new RegExp(`create or replace function public\\.${rpcName}`));
     assert.match(migration, new RegExp(`grant execute on function public\\.${rpcName}`));
-    assert.match(mutations, new RegExp(`\\.rpc\\("${rpcName}"`));
+    assert.match(mutations, new RegExp(`\\.rpc\\("${rpcName}_with_sync"`));
   }
 
   for (const requiredSql of [
