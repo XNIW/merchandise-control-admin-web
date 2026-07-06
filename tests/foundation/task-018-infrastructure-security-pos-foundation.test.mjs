@@ -9,6 +9,13 @@ function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
 }
 
+function stripYamlJob(source, jobName) {
+  return source.replace(
+    new RegExp(`\\n  ${jobName}:[\\s\\S]*?(?=\\n  [A-Za-z0-9_-]+:\\n|\\n\\S|$)`),
+    "\n",
+  );
+}
+
 test("TASK-018 creates a minimal CI pipeline without deploy or secrets", () => {
   const workflowPath = ".github/workflows/ci.yml";
 
@@ -33,7 +40,30 @@ test("TASK-018 creates a minimal CI pipeline without deploy or secrets", () => {
     assert.match(workflow, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
   }
 
-  assert.doesNotMatch(workflow, /deploy|vercel|netlify|SUPABASE_SERVICE_ROLE|service_role/i);
+  const baseWorkflow = stripYamlJob(workflow, "task-094-staging-e2e");
+  assert.doesNotMatch(baseWorkflow, /deploy|vercel|netlify|SUPABASE_SERVICE_ROLE|service_role/i);
+
+  const task094Job = workflow.match(
+    /\n  task-094-staging-e2e:[\s\S]*?(?=\n  [A-Za-z0-9_-]+:\n|\n\S|$)/,
+  )?.[0];
+  assert.ok(task094Job, "TASK-094 staging E2E job is missing");
+  for (const required of [
+    "if: github.event_name == 'workflow_dispatch'",
+    "environment: cloudflare-staging",
+    "SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
+    "Verify TASK-094 migration files before live E2E",
+    "20260705120000_task_094_pos_catalog_import_sync.sql",
+    "20260706120000_task_094_pos_catalog_import_apply_rpc.sql",
+    "20260706143000_task_094_pos_catalog_import_ack_replay.sql",
+    "npm run test:pos-catalog-import-staging-e2e",
+  ]) {
+    assert.match(task094Job, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
+  assert.doesNotMatch(task094Job, /deploy|vercel|netlify/i);
+  assert.doesNotMatch(
+    task094Job,
+    /SUPABASE_DB_PASSWORD|echo\s+\$SUPABASE_SERVICE_ROLE_KEY|console\.log\(process\.env\.SUPABASE_SERVICE_ROLE_KEY\)/,
+  );
 });
 
 test("TASK-018 CI smoke script uses next start after build", () => {

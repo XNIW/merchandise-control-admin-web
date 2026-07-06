@@ -182,7 +182,8 @@ test("TASK-079B apply writes canonical history but preview remains side-effect f
   assertContains(workbook, "upsertSupplierImportHistoryEntry");
   assertContains(workbook, 'adjustedParsed.importMode === "supplier"');
   assertContains(workbook, "failedRows === 0");
-  assertContains(workbook, "supplierImportHistoryRows(adjustedParsed.products, readModel)");
+  assertContains(workbook, "effectiveProductRowsLastWins(adjustedParsed.products)");
+  assertContains(workbook, "supplierImportHistoryRows(productsToApply, readModel)");
   assertContains(workbook, "historyEntry");
   assertContains(historyMutations, "buildSupplierImportHistoryEntryPayload");
   assertContains(historyMutations, "insertSupplierImportHistorySession");

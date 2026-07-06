@@ -151,6 +151,7 @@ test("TASK-058 Cloudflare local smoke covers guards, no-store and secret redacti
     "/shop/products",
     "/api/pos/auth/first-login",
     "/api/pos/session/heartbeat",
+    "/api/pos/catalog/import-sync",
     "/api/pos/catalog/pull",
     "/api/pos/sales/sync",
     "POS method guard",
@@ -179,6 +180,7 @@ test("TASK-058 sensitive route handlers stay node runtime and no-store", () => {
   const posRoutePaths = [
     "src/app/api/pos/auth/first-login/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
+    "src/app/api/pos/catalog/import-sync/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/sales/sync/route.ts",
   ];
@@ -242,6 +244,7 @@ test("TASK-058 runbooks document staging blockers, WAF, rollback and environment
     "/shop/import-export",
     "/api/pos/auth/first-login",
     "/api/pos/session/heartbeat",
+    "/api/pos/catalog/import-sync",
     "/api/pos/catalog/pull",
     "/api/pos/sales/sync",
     "log-first",

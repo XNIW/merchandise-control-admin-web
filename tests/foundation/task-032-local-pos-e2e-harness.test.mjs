@@ -187,12 +187,18 @@ test("TASK-032 staging POS harness fails closed without explicit staging allowli
 
 test("TASK-032 staging POS harness command requires explicit non-local staging target", () => {
   const packageJson = readProjectFile("package.json");
-  const result = spawnSync("npm", ["run", "test:pos-staging-harness"], {
+  const result = spawnSync(process.execPath, ["scripts/pos-local-e2e-harness.mjs"], {
     cwd: root,
     encoding: "utf8",
     env: {
       HOME: process.env.HOME,
       PATH: process.env.PATH,
+      TASK032_POS_E2E_ALLOW_CLEANUP: "yes",
+      TASK032_POS_E2E_ALLOW_DATASET_SETUP: "yes",
+      TASK032_POS_E2E_ALLOW_STAGING: "yes",
+      TASK032_POS_E2E_ENABLE_POSITIVE: "yes",
+      TASK032_POS_E2E_REQUIRE_STAGING_TARGET: "yes",
+      TASK032_POS_E2E_REQUIRE_TEST_MARKER: "TASK032",
     },
   });
   const output = `${result.stdout}\n${result.stderr}`;

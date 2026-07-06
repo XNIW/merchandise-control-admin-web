@@ -1325,6 +1325,12 @@ type ParsedProductsResult = {
   recognizedColumnSources: ParsedWorkbook["recognizedColumnSources"];
   validRows: number;
 };
+const legacyDetectedMappingFields = new Set([
+  "categoryName",
+  "lineTotal",
+  "stockQuantity",
+  "supplierName",
+]);
 
 function detectionMapping(
   rows: SheetData,
@@ -1336,6 +1342,10 @@ function detectionMapping(
   const mapping: ParsedWorkbook["detectedMapping"] = {};
 
   for (const [field, columnIndex] of detection.headers.entries()) {
+    if (legacyDetectedMappingFields.has(field)) {
+      continue;
+    }
+
     const source = detection.recognizedColumnSources[field];
 
     if (source?.source === "generated") {

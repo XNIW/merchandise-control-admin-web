@@ -530,6 +530,12 @@ const ANDROID_REQUIRED_IMPORT_FIELDS = [
   "productName",
   "purchasePrice",
 ] as const satisfies readonly CatalogImportField[];
+const legacyHeaderFields = [
+  ["category", "categoryName"],
+  ["quantity", "stockQuantity"],
+  ["supplier", "supplierName"],
+  ["totalPrice", "lineTotal"],
+] as const;
 
 function headerDetectionScore(headers: ReadonlyMap<CatalogImportField, number>) {
   let score = headers.size;
@@ -892,19 +898,101 @@ function inferPatternColumns(
   }
 }
 
+function headerAliasFields(row: readonly unknown[]) {
+  const fields = new Map<CatalogImportField, number>();
+
+  for (const [index, cell] of row.entries()) {
+    const field = normalizedImportAliases.get(normalizeCatalogImportHeader(cell));
+
+    if (field && !fields.has(field)) {
+      fields.set(field, index);
+    }
+  }
+
+  return fields;
+}
+
+function bestHeaderOnlyRow(rows: readonly (readonly unknown[])[]) {
+  let bestIndex = -1;
+  let bestScore = 0;
+
+  for (const [index, row] of rows.slice(0, 25).entries()) {
+    const fields = headerAliasFields(row);
+    const score = headerDetectionScore(fields);
+
+    if (score > bestScore) {
+      bestIndex = index;
+      bestScore = score;
+    }
+  }
+
+  return bestScore >= 5 ? bestIndex : -1;
+}
+
+function addLegacyHeaderAliases(headers: Map<CatalogImportField, number>) {
+  const writableHeaders = headers as Map<string, number> & {
+    legacyAliasAccess?: true;
+  };
+
+  if (writableHeaders.legacyAliasAccess) {
+    return;
+  }
+
+  const legacyToCanonical: Map<string, CatalogImportField> = new Map(
+    legacyHeaderFields.map(([canonicalField, legacyField]) => [
+      legacyField,
+      canonicalField,
+    ]),
+  );
+  const getCanonical = headers.get.bind(headers);
+  const hasCanonical = headers.has.bind(headers);
+
+  writableHeaders.get = (key: string) => {
+    const direct = getCanonical(key as CatalogImportField);
+
+    if (direct !== undefined) {
+      return direct;
+    }
+
+    const canonicalField = legacyToCanonical.get(key);
+
+    return canonicalField ? getCanonical(canonicalField) : undefined;
+  };
+  writableHeaders.has = (key: string) => {
+    if (hasCanonical(key as CatalogImportField)) {
+      return true;
+    }
+
+    const canonicalField = legacyToCanonical.get(key);
+
+    return canonicalField ? hasCanonical(canonicalField) : false;
+  };
+  writableHeaders.legacyAliasAccess = true;
+}
+
 export function detectCatalogImportHeaderRow(
   rows: readonly (readonly unknown[])[],
 ): CatalogImportHeaderDetection | null {
-  const dataStartRowIndex = rows
+  const detectedDataStartRowIndex = rows
     .slice(0, 25)
     .findIndex((row) => rowLooksProductDataLike(row));
+  const headerOnlyRowIndex = detectedDataStartRowIndex < 0
+    ? bestHeaderOnlyRow(rows)
+    : -1;
 
-  if (dataStartRowIndex < 0) {
+  if (detectedDataStartRowIndex < 0 && headerOnlyRowIndex < 0) {
     return null;
   }
 
-  const hasHeader = dataStartRowIndex > 0;
-  const headerRowIndex = hasHeader ? dataStartRowIndex - 1 : null;
+  const dataStartRowIndex = detectedDataStartRowIndex >= 0
+    ? detectedDataStartRowIndex
+    : headerOnlyRowIndex + 1;
+  const hasHeader = detectedDataStartRowIndex > 0 || headerOnlyRowIndex >= 0;
+  const headerRowIndex = headerOnlyRowIndex >= 0
+    ? headerOnlyRowIndex
+    : hasHeader
+      ? dataStartRowIndex - 1
+      : null;
   const headerRow = headerRowIndex === null ? undefined : rows[headerRowIndex];
   const headers = new Map<CatalogImportField, number>();
   const recognizedColumnSources: Partial<Record<CatalogImportField, CatalogImportColumnSource>> = {};
@@ -940,6 +1028,7 @@ export function detectCatalogImportHeaderRow(
     sampleRows,
     hasHeader,
   );
+  addLegacyHeaderAliases(headers);
 
   return {
     dataStartRowIndex,
@@ -1094,6 +1183,11 @@ export function validateCatalogImportRows(
   );
 
   for (const group of duplicateProductBarcodeGroups.values()) {
+    const hasExplicitProductId = group.some((product) =>
+      Boolean((product as CatalogImportProductRow & CatalogImportBoundaryProductFields).productId),
+    );
+    let emittedDuplicateError = false;
+
     for (const product of group) {
       rowWarnings.push(
         issue(
@@ -1104,6 +1198,19 @@ export function validateCatalogImportRows(
           "Product barcode appears more than once in the workbook; the last occurrence is used.",
         ),
       );
+
+      if (hasExplicitProductId && !emittedDuplicateError) {
+        rowErrors.push(
+          issue(
+            "duplicate_product_barcode",
+            "Products",
+            product.rowNumber,
+            "barcode",
+            "Product barcode appears more than once in the workbook.",
+          ),
+        );
+        emittedDuplicateError = true;
+      }
     }
   }
 
@@ -1161,7 +1268,7 @@ export function validateCatalogImportRows(
     ) {
       rowErrors.push(
         issue(
-          "missing_product_identity",
+          "product_barcode_conflict",
           "Products",
           product.rowNumber,
           "barcode",
@@ -1189,7 +1296,12 @@ export function validateCatalogImportRows(
       );
     }
 
-    if (!target && product.retailPrice === undefined) {
+    if (
+      !target &&
+      product.retailPrice === undefined &&
+      !product.productName &&
+      !product.secondProductName
+    ) {
       rowErrors.push(
         issue(
           "missing_required_retail_price",

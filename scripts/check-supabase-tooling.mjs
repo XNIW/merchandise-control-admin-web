@@ -34,11 +34,18 @@ function compareVersions(left, right) {
 }
 
 function run(command, args) {
-  return spawnSync(command, args, {
-    encoding: "utf8",
-    env: process.env,
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  const isWindows = process.platform === "win32";
+
+  return spawnSync(
+    isWindows ? `${command} ${args.join(" ")}` : command,
+    isWindows ? [] : args,
+    {
+      encoding: "utf8",
+      env: process.env,
+      shell: isWindows,
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  );
 }
 
 function print(status, message) {
@@ -48,7 +55,7 @@ function print(status, message) {
 const versionResult = run("supabase", ["--version"]);
 
 if (versionResult.error?.code === "ENOENT") {
-  print("FAIL", "Supabase CLI not found. Install with: brew install supabase/tap/supabase");
+  print("FAIL", "Supabase CLI not found. Install it and ensure supabase is on PATH.");
   process.exit(1);
 }
 
@@ -64,7 +71,7 @@ const belowRecommended = compareVersions(version, RECOMMENDED_VERSION) < 0;
 if (belowMin) {
   print(
     "FAIL",
-    `Supabase CLI ${version} is below minimum ${MIN_VERSION}. Update with: brew upgrade supabase`,
+    `Supabase CLI ${version} is below minimum ${MIN_VERSION}. Update Supabase CLI before continuing.`,
   );
   process.exit(1);
 }
@@ -76,6 +83,7 @@ print(
 
 if (belowRecommended) {
   print("WARN", "Patch update available; not a repo blocker when linked migrations pass.");
+  print("INFO", "Update Supabase CLI with the package manager used on this machine.");
   print("INFO", "Homebrew update command: brew upgrade supabase");
 }
 

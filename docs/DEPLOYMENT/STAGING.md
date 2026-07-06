@@ -87,6 +87,9 @@ Blocker corrente:
   letto;
 - `npx wrangler whoami`: `PASS`, account utente verificato;
 - `npx wrangler deployments list --env staging`: `ROLLBACK_READ_ONLY_VERIFIED`;
+- GitHub Actions staging dispatch: `PASS`, run `28775731673` on branch
+  `fix/pos-catalog-import-sync-api`, head `b1b87c8`, with deploy and staging
+  smoke jobs successful before the current local patch;
 - `wrangler.jsonc`: nessun `account_id`, `routes` o custom domain configurato;
 - `gh api .../environments/cloudflare-staging`: `PASS`;
 - `gh api .../environments/cloudflare-production`: `PASS`, approval richiesto;
@@ -180,6 +183,7 @@ Il comando non deploya e non stampa secret. Controlla:
 
 - workers.dev HTTPS, redirect login e security headers;
 - POS API negative con JSON error contract e `Cache-Control: no-store`;
+  include `/api/pos/catalog/import-sync`;
 - custom domain se `STAGING_CUSTOM_DOMAIN` e definito;
 - Supabase CLI/migration linked se CLI disponibile;
 - cleanup TASK032 active zero se env server-side sono disponibili;
@@ -349,6 +353,7 @@ Solo dopo URL HTTPS reale:
 curl -i "$STAGING_URL/"
 curl -i -X POST "$STAGING_URL/api/pos/auth/first-login" -H "content-type: application/json" --data '{}'
 curl -i -X POST "$STAGING_URL/api/pos/session/heartbeat" -H "content-type: application/json" --data '{}'
+curl -i -X POST "$STAGING_URL/api/pos/catalog/import-sync" -H "content-type: application/json" --data '{}'
 curl -i -X POST "$STAGING_URL/api/pos/catalog/pull" -H "content-type: application/json" --data '{}'
 ```
 

@@ -59,6 +59,7 @@ test("TASK-089 POS API routes keep server-side no-store JSON boundaries", () => 
   for (const route of [
     "src/app/api/pos/auth/first-login/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
+    "src/app/api/pos/catalog/import-sync/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/sales/sync/route.ts",
   ]) {
@@ -83,6 +84,10 @@ test("TASK-089 POS API routes keep server-side no-store JSON boundaries", () => 
     ]);
   }
 
+  assert.match(
+    readProjectFile("src/app/api/pos/catalog/import-sync/route.ts"),
+    /MAX_POS_CATALOG_IMPORT_JSON_BODY_BYTES/,
+  );
   assert.match(
     readProjectFile("src/app/api/pos/sales/sync/route.ts"),
     /MAX_POS_SALES_SYNC_JSON_BODY_BYTES/,
@@ -117,6 +122,7 @@ test("TASK-089 POS contracts expose explicit version, time and conservative poli
   assertContainsAll(posContract, [
     'POS_POLICY_CONTRACT_VERSION = "pos-policy-v1"',
     "POS_CATALOG_SCHEMA_VERSION = 2",
+    'POS_CATALOG_IMPORT_SCHEMA_VERSION = "pos-catalog-import-v1"',
     'POS_SALES_SCHEMA_VERSION = "pos-sales-ledger-v2"',
     'POS_LEGACY_SALES_SCHEMA_VERSION = "pos-sales-v1"',
     'POS_SUPPORTED_PAYMENT_METHODS = ["cash", "card", "other"]',
@@ -213,7 +219,9 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
   ]);
   assertContainsAll(recoveryMutations, [
     'import "server-only"',
-    'resolveShopActionContext(\n    input.requestedShopId,\n    "sync.manage"',
+    "resolveShopActionContext(",
+    "input.requestedShopId",
+    '"sync.manage"',
     ".from(\"audit_logs\")",
     ".insert({",
     "redactShopAdminJson",
@@ -230,14 +238,14 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
   assert.doesNotMatch(recoveryMutations, /\.from\("pos_sale_stock_movements"\)\s*\.\s*(update|delete|upsert)/);
   assert.doesNotMatch(recoveryMutations, /force.*ack|delete.*outbox|truncate/i);
   assertContainsAll(recoveryPanel, [
-    "Recovery actions sicure",
-    "Registra recovery action",
-    "Copia/Esporta contesto tecnico",
+    "Safe recovery actions",
+    "Record recovery action",
+    "Copy/export technical context",
     "auditFailure",
     "recoveryAction",
     "audit-only",
     "sales/stock/outbox",
-    "non modificano vendite",
+    "modify sales",
     "recoveryActions",
   ]);
   assertContainsAll(shopActions, ["recordPosSyncRecoveryActionAction"]);
@@ -380,6 +388,7 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
   assertContainsAll(client, [
     "/api/pos/auth/first-login",
     "/api/pos/session/heartbeat",
+    "/api/pos/catalog/import-sync",
     "/api/pos/catalog/pull",
     "/api/pos/sales/sync",
     "TimeSpan.FromSeconds(10)",

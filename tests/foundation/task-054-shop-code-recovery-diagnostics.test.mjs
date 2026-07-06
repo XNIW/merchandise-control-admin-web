@@ -3,6 +3,7 @@ import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import test from "node:test";
 import ts from "typescript";
 
@@ -22,7 +23,7 @@ function assertContains(source, required, label = required) {
 
 async function loadCredentialModule() {
   const source = readProjectFile("src/server/shop-admin/staff-credentials.ts")
-    .replace(/^import "server-only";\n\n/, "");
+    .replace(/^import "server-only";\r?\n\r?\n/, "");
   const tempDir = await mkdtemp(join(tmpdir(), "task-054-staff-credentials-"));
   const modulePath = join(tempDir, "staff-credentials.mjs");
   const { outputText } = ts.transpileModule(source, {
@@ -37,7 +38,7 @@ async function loadCredentialModule() {
 
   return {
     cleanup: () => rm(tempDir, { force: true, recursive: true }),
-    module: await import(modulePath),
+    module: await import(pathToFileURL(modulePath).href),
   };
 }
 

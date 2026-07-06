@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, extname, join, relative } from "node:path";
 import { test } from "node:test";
@@ -10,7 +10,8 @@ const require = createRequire(import.meta.url);
 const ts = require("typescript");
 
 const root = process.cwd();
-const posRoot = join(root, "..", "Win7POS");
+const posRoot = process.env.WIN7POS_REPO_PATH?.trim() || join(root, "..", "Win7POS");
+const requireWin7PosRepo = process.env.REQUIRE_WIN7POS_REPO === "1";
 const tsModuleCache = new Map();
 
 function readProjectFile(relativePath) {
@@ -19,6 +20,10 @@ function readProjectFile(relativePath) {
 
 function readPosFile(relativePath) {
   return readFileSync(join(posRoot, relativePath), "utf8");
+}
+
+function shouldSkipMissingWin7PosRepo() {
+  return !existsSync(posRoot) && !requireWin7PosRepo;
 }
 
 function loadTsModule(relativePath) {
@@ -88,7 +93,12 @@ function parsePosTranslationEntries() {
   return entries;
 }
 
-test("i18n contract validates Admin Web and Win7POS locales", () => {
+test("i18n contract validates Admin Web and Win7POS locales", (t) => {
+  if (shouldSkipMissingWin7PosRepo()) {
+    t.skip("SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE: Win7POS repo is not available");
+    return;
+  }
+
   const output = execFileSync(
     process.execPath,
     ["scripts/i18n-contract-scan.mjs"],
@@ -140,7 +150,12 @@ test("i18n contract validates Admin Web and Win7POS locales", () => {
   }
 });
 
-test("i18n contract scanner fails on missing keys and placeholder mismatches", () => {
+test("i18n contract scanner fails on missing keys and placeholder mismatches", (t) => {
+  if (shouldSkipMissingWin7PosRepo()) {
+    t.skip("SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE: Win7POS repo is not available");
+    return;
+  }
+
   for (const [fault, expected] of [
     ["admin-missing-exact", /missing exact key/],
     ["admin-placeholder-mismatch", /exact placeholder mismatch/],
@@ -331,7 +346,12 @@ test("Admin route locale smoke covers cookie precedence, html lang and core rout
   assert.match(historyDetail, /formatDate\(value, translate, locale\)/);
 });
 
-test("Win7POS localization static harness covers fallback, persistence, receipts and refresh hooks", () => {
+test("Win7POS localization static harness covers fallback, persistence, receipts and refresh hooks", (t) => {
+  if (shouldSkipMissingWin7PosRepo()) {
+    t.skip("SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE: Win7POS repo is not available");
+    return;
+  }
+
   const posLocalization = readPosFile("src/Win7POS.Wpf/Localization/PosLocalization.cs");
   const appSettingKeys = readPosFile("src/Win7POS.Wpf/Infrastructure/AppSettingKeys.cs");
   const receiptLocalization = readPosFile("src/Win7POS.Wpf/Localization/PosReceiptLocalization.cs");

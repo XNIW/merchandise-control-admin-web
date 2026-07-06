@@ -31,6 +31,7 @@
 | Staff/device actions | `/shop/staff`, `/shop/devices`, `/shop/members` | Rate limit su mutazioni, WAF managed rules | high | Protegge reset credential, revoke device e membership. |
 | POS first login | `/api/pos/auth/first-login` | Rate limit per IP + shop/staff code redatti | high | Burst o enumerazione devono essere challenge/block. |
 | POS heartbeat | `/api/pos/session/heartbeat` | Soglie piu alte per device attivo, block su anomalie | medium | Evitare falsi positivi sui POS legittimi. |
+| POS catalog import sync | `/api/pos/catalog/import-sync` | Rate limit per device/session + payload anomaly su JSON import bounded | high | Loggare envelope, conteggi/status/hash/requestId; mai righe workbook, token, remote id raw list completa o service-role. |
 | POS catalog pull | `/api/pos/catalog/pull` | Rate limit per device/session, payload JSON bound | medium | Gia protetto da auth token applicativo. |
 | POS sales sync | `/api/pos/sales/sync` | Rate limit per device/session + payload anomaly | high | Loggare conteggi e status, non righe vendita. |
 
@@ -48,6 +49,11 @@ Queste soglie sono conservative e vanno validate in staging:
 - `/api/pos/auth/first-login`: 12 POST/min/IP, poi challenge/block.
 - `/api/pos/session/heartbeat`: 120 POST/min/IP con esclusione per staging POS
   noto, poi log-first.
+- `/api/pos/catalog/import-sync`: 20 POST/min/IP, poi log-first; challenge o
+  block solo dopo validazione staging per evitare falsi positivi su import bulk.
+  La route applicativa limita il body JSON e delega ledger/catalogo/prezzi/eventi
+  a RPC Supabase transazionale server-side; la WAF non deve ispezionare o salvare
+  righe workbook complete.
 - `/api/pos/catalog/pull`: 60 POST/min/IP, poi log-first.
 - `/api/pos/sales/sync`: 30 POST/min/IP, poi log-first.
 

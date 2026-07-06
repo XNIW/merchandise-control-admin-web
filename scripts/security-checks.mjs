@@ -78,7 +78,7 @@ function listFiles(start, includeEnvTemplates = false) {
   for (const entry of entries) {
     const absolutePath = join(absoluteStart, entry);
     const stats = statSync(absolutePath);
-    const relativePath = relative(root, absolutePath);
+    const relativePath = relative(root, absolutePath).replace(/\\/g, "/");
 
     if (stats.isDirectory()) {
       if (!excludedDirectories.has(entry)) {
@@ -113,6 +113,10 @@ function read(relativePath) {
 
 function optionalRead(relativePath) {
   return existsSync(join(root, relativePath)) ? read(relativePath) : "";
+}
+
+function baseNameFromRelativePath(relativePath) {
+  return relativePath.split(/[\\/]/).pop() ?? relativePath;
 }
 
 function extractExportedFunctionBlock(source, functionName) {
@@ -2659,7 +2663,7 @@ function checkTask015ShopAdminConsole() {
     }
 
     if (
-      /select\("\*"\)|\.from\([^)]+\)[\s\S]*\.(insert|update|delete|upsert)\s*\(/.test(
+      /select\("\*"\)|\.from\(\s*["'`][^"'`]+["'`]\s*\)[\s\S]*\.(insert|update|delete|upsert)\s*\(/.test(
         contents,
       )
     ) {
@@ -3540,10 +3544,46 @@ function checkTask018InfrastructureSecurityPosFoundation() {
     }
   }
 
-  if (/SUPABASE_SERVICE_ROLE|service_role|vercel|netlify/i.test(workflow)) {
+  const task094JobMatch = workflow.match(
+    /\n  task-094-staging-e2e:[\s\S]*?(?=\n  [A-Za-z0-9_-]+:\n|\n\S|$)/,
+  );
+  const workflowWithoutTask094 = workflow.replace(
+    /\n  task-094-staging-e2e:[\s\S]*?(?=\n  [A-Za-z0-9_-]+:\n|\n\S|$)/,
+    "\n",
+  );
+
+  if (/SUPABASE_SERVICE_ROLE|service_role|vercel|netlify/i.test(workflowWithoutTask094)) {
     addFailure(
       `${workflowPath} must not configure service-role secrets or deploy providers`,
     );
+  }
+
+  if (task094JobMatch) {
+    const task094Job = task094JobMatch[0];
+    for (const required of [
+      "if: github.event_name == 'workflow_dispatch'",
+      "environment: cloudflare-staging",
+      "SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
+      "Verify TASK-094 migration files before live E2E",
+      "20260705120000_task_094_pos_catalog_import_sync.sql",
+      "20260706120000_task_094_pos_catalog_import_apply_rpc.sql",
+      "20260706143000_task_094_pos_catalog_import_ack_replay.sql",
+      "npm run test:pos-catalog-import-staging-e2e",
+    ]) {
+      if (!task094Job.includes(required)) {
+        addFailure(`${workflowPath} TASK-094 staging job must include ${required}`);
+      }
+    }
+    if (/deploy|vercel|netlify/i.test(task094Job)) {
+      addFailure(`${workflowPath} TASK-094 staging job must not deploy`);
+    }
+    if (
+      /SUPABASE_DB_PASSWORD|echo\s+\$SUPABASE_SERVICE_ROLE_KEY|console\.log\(process\.env\.SUPABASE_SERVICE_ROLE_KEY\)/.test(
+        task094Job,
+      )
+    ) {
+      addFailure(`${workflowPath} TASK-094 staging job must not print secrets`);
+    }
   }
 
   const smokeScript = packageJson.scripts?.["test:ui-smoke:ci"] ?? "";
@@ -3945,6 +3985,7 @@ function checkTask019PosAuthFoundationImplementation() {
   const allowedTask021PosRoutes = new Set([
     "src/app/api/pos/_shared/pos-route-security.ts",
     "src/app/api/pos/auth/first-login/route.ts",
+    "src/app/api/pos/catalog/import-sync/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
@@ -4100,6 +4141,7 @@ function checkTask020Win7PosIntegrationPlanning() {
   const allowedTask021PosRoutes = new Set([
     "src/app/api/pos/_shared/pos-route-security.ts",
     "src/app/api/pos/auth/first-login/route.ts",
+    "src/app/api/pos/catalog/import-sync/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
@@ -4202,6 +4244,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const allowedPosRoutes = new Set([
     posRouteSecurityPath,
     firstLoginRoutePath,
+    "src/app/api/pos/catalog/import-sync/route.ts",
     catalogPullRoutePath,
     heartbeatRoutePath,
   ]);
@@ -4991,9 +5034,7 @@ function checkTask037ShopAdminDualAccessModel() {
   const foundationTest = read(foundationTestPath);
   const masterPlan = read("docs/MASTER-PLAN.md");
   const combinedDocs = `${task}\n${evidence}\n${architecture}\n${masterPlan}`;
-  const migrationNames = listFiles("supabase/migrations").map(
-    (file) => file.split("/").pop() ?? file,
-  );
+  const migrationNames = listFiles("supabase/migrations").map(baseNameFromRelativePath);
   const appRouteFiles = listFiles("src/app");
 
   for (const requiredSnippet of [
@@ -5114,7 +5155,7 @@ function checkTask038PosManagerWebLogin() {
   const foundationTestPath =
     "tests/foundation/task-038-pos-manager-web-login.test.mjs";
   const migrationName = listFiles("supabase/migrations")
-    .map((file) => file.split("/").pop() ?? file)
+    .map(baseNameFromRelativePath)
     .find((file) => /task_038_pos_manager_web_login/i.test(file));
 
   for (const requiredPath of [
@@ -7660,6 +7701,61 @@ function checkTask072CrossPlatformSync() {
   }
 }
 
+function checkTask094PosCatalogImportSync() {
+  const routePath = "src/app/api/pos/catalog/import-sync/route.ts";
+  const servicePath = "src/server/pos-auth/catalog-import-sync.ts";
+  const ackReplayMigrationPath =
+    "supabase/migrations/20260706143000_task_094_pos_catalog_import_ack_replay.sql";
+  const route = optionalRead(routePath);
+  const service = optionalRead(servicePath);
+  const ackReplayMigration = optionalRead(ackReplayMigrationPath);
+
+  if (!route || !service || !ackReplayMigration) {
+    addFailure("TASK-094 POS catalog import sync artifacts are missing");
+    return;
+  }
+
+  if (!/import "server-only"/.test(service)) {
+    addFailure(`${servicePath} must remain server-only`);
+  }
+
+  if (/createSupabaseAdminClient|SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(route)) {
+    addFailure(`${routePath} must not expose Supabase admin/service-role access`);
+  }
+
+  if (!/\.rpc\("pos_catalog_import_apply_v2"/.test(service)) {
+    addFailure(`${servicePath} must call the durable TASK-094 RPC v2`);
+  }
+
+  if (
+    /\.from\("inventory_(products|product_prices|categories|suppliers)"\)[\s\S]{0,240}\.(insert|update|upsert|delete)\s*\(/.test(
+      service,
+    )
+  ) {
+    addFailure(
+      `${servicePath} must not write POS catalog import rows outside the transactional RPC`,
+    );
+  }
+
+  if (/metadata_redacted:[\s\S]{0,160}(deviceToken|sessionToken|device_token|session_token)/.test(service)) {
+    addFailure(`${servicePath} must not write POS tokens into redacted metadata`);
+  }
+
+  for (const requiredSnippet of [
+    "add column if not exists ack_response",
+    "create or replace function public.pos_catalog_import_apply_v2",
+    "hashtext(p_client_import_id)",
+    "hashtext(p_idempotency_key)",
+    "v_existing.ack_response",
+    "set ack_response = v_result",
+    "grant execute on function public.pos_catalog_import_apply_v2",
+  ]) {
+    if (!ackReplayMigration.includes(requiredSnippet)) {
+      addFailure(`${ackReplayMigrationPath} must include ${requiredSnippet}`);
+    }
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -7709,6 +7805,7 @@ checkTask058CloudflareOpenNextHardening();
 checkTask065GoogleOauthRedirect();
 checkTask064PlatformUsersFoundation();
 checkTask072CrossPlatformSync();
+checkTask094PosCatalogImportSync();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

@@ -3,6 +3,7 @@ import "server-only";
 export const POS_POLICY_CONTRACT_VERSION = "pos-policy-v1" as const;
 export const POS_CATALOG_SCHEMA_VERSION = 2 as const;
 export const POS_CATALOG_CAPABILITY_VERSION = "catalog-v2" as const;
+export const POS_CATALOG_IMPORT_SCHEMA_VERSION = "pos-catalog-import-v1" as const;
 export const POS_LEGACY_SALES_SCHEMA_VERSION = "pos-sales-v1" as const;
 export const POS_SALES_SCHEMA_VERSION = "pos-sales-ledger-v2" as const;
 

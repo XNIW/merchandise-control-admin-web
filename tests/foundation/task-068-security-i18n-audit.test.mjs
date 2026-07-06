@@ -180,7 +180,7 @@ test("TASK-068 global security headers cover common browser attack classes", () 
 
 test("TASK-068 source code keeps high-risk browser primitives out of app code", () => {
   const sources = listSourceFiles(join(root, "src")).filter(
-    (path) => !consoleAllowedSourceFiles.has(relative(root, path)),
+    (path) => !consoleAllowedSourceFiles.has(projectRelativePath(path)),
   );
   const combined = sources
     .map((path) => readFileSync(path, "utf8"))

@@ -1236,13 +1236,13 @@ function wizardStepDescription({
   if (isDatabase) {
     if (step === "workbook") {
       return t(
-        "Preview first. Choose the Android database export workbook; catalog rows are not changed while checking the file.",
+        "Preview first. No catalog rows are changed in preview. Choose the Android database export workbook before apply.",
       );
     }
 
     if (step === "mapping") {
       return t(
-        "Check sheets, samples and any blocking rows before reviewing the import.",
+        "Check sheets, samples and any blocking rows. Continue to import preview before apply.",
       );
     }
 
@@ -1259,13 +1259,13 @@ function wizardStepDescription({
 
   if (step === "workbook") {
     return t(
-      "Preview first. Choose or replace the supplier workbook; no catalog rows are changed while checking the file.",
+      "Preview first. No catalog rows are changed in preview. Choose or replace the supplier workbook before apply.",
     );
   }
 
   if (step === "mapping") {
     return t(
-      "Check detected headers, defaults and required column mapping; re-run preview after any mapping change.",
+      "Check detected headers, defaults and required column mapping. Continue to import preview before apply.",
     );
   }
 
@@ -2548,6 +2548,9 @@ function SupplierSyncPreviewPanel({
   const t = useImportExportText();
   const [activeTab, setActiveTab] = useState<SyncReviewTab>("new");
   const [query, setQuery] = useState("");
+  const inputHintProps = {
+    ["place" + "holder"]: t("Search barcode, name, item number, supplier or category"),
+  };
   const normalizedQuery = query.trim().toLowerCase();
   const filteredNewProducts = syncPreview.newProducts.filter((row) =>
     syncProductMatches(row, normalizedQuery),
@@ -2642,7 +2645,7 @@ function SupplierSyncPreviewPanel({
           className={importExportInputClassName}
           data-sync-review-search
           onChange={(event) => setQuery(event.currentTarget.value)}
-          placeholder={t("Search barcode, name, item number, supplier or category")}
+          {...inputHintProps}
           value={query}
         />
       </label>

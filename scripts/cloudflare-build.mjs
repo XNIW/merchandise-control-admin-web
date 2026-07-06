@@ -33,12 +33,18 @@ function assertProxyIsSafeToOmitForCloudflare() {
 function runOpenNextBuild() {
   const command =
     process.platform === "win32" ? "opennextjs-cloudflare.cmd" : "opennextjs-cloudflare";
+  const args = ["build"];
 
-  return spawnSync(command, ["build"], {
-    cwd: root,
-    env: process.env,
-    stdio: "inherit",
-  });
+  return spawnSync(
+    process.platform === "win32" ? `${command} ${args.join(" ")}` : command,
+    process.platform === "win32" ? [] : args,
+    {
+      cwd: root,
+      env: process.env,
+      shell: process.platform === "win32",
+      stdio: "inherit",
+    },
+  );
 }
 
 const shouldRestoreProxy = assertProxyIsSafeToOmitForCloudflare();

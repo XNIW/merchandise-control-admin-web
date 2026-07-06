@@ -54,7 +54,7 @@ test("TASK-087 database types include TASK-081 ledger, stock and RPC contract", 
     /Array<TablesInsert<"pos_sale_lines"> & Record<string, unknown>>/,
   );
   assert.doesNotMatch(salesSync, /untypedSupabase/);
-  assertContains(salesSync, '.rpc(\n          "pos_apply_sale_stock_movement"');
+  assert.match(salesSync, /\.rpc\(\r?\n          "pos_apply_sale_stock_movement"/);
   assertContains(salesSync, '.from("pos_revenue_ledger_entries")');
 });
 
