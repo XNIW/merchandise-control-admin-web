@@ -8,11 +8,12 @@ Current status: `READY_FOR_STAGING_E2E_AFTER_OWNER_SECRET`
 
 | Area | Status | Evidence |
 | --- | --- | --- |
-| Workers staging deploy | `PASS` | GitHub Actions workflow `cloudflare.yml`, run `28761814972`, conclusion `success`. |
+| Workers staging deploy | `PASS` | GitHub Actions workflow `cloudflare.yml`, run `28763455797`, conclusion `success`; deploy job `85283293516`. |
+| Workers live version | `PASS` | Current staging Version ID `2daadf35-036c-491e-9ecc-944fbc4def68`. |
 | Workers URL | `PASS` | `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev` |
-| GET import-sync | `PASS` | `405 method_not_allowed`, `cache-control: no-store`, request id `posreq_153aec65-55c8-4313-9222-67c134cd293f`. |
-| POST empty body | `PASS` | `400 validation_failed`, `cache-control: no-store`, request id `posreq_00881edd-a623-4943-86b7-60d205ff4818`. |
-| POST invalid auth | `PASS` | `401 auth_denied`, `cache-control: no-store`, request id `posreq_4e7c29e9-1cd3-43d9-9f55-3b6392e6c379`. |
+| GET import-sync | `PASS` | `405 method_not_allowed`, `cache-control: no-store`, request id `posreq_fe7908b0-9bb7-4cd6-aa15-2a833d61c41a`. |
+| POST empty body | `PASS` | `400 validation_failed`, `cache-control: no-store`, request id `posreq_60fcdfac-a76a-4815-bf2f-c811088ecfbf`. |
+| POST invalid auth | `PASS` | `401 auth_denied`, `cache-control: no-store`, request id `posreq_63a1019e-697f-46d8-b4f5-8d2353323c8d`. |
 | Supabase CLI | `PASS` | `supabase 2.109.0`; `node scripts/check-supabase-tooling.mjs` passes on Windows. |
 | Staging Supabase config | `CONFIGURED_MASKED` | Project ref `jpgoimipbothfgkokyvm`; host `jpgoimipbothfgkokyvm.supabase.co`; repo/env variables and Cloudflare staging secrets present by name. |
 | Admin local verify | `PASS` | `npm run security:scan`, `npm run test:foundation`, `npm run typecheck`, `npm run lint`, `npm run build`, `npm run verify`. |
