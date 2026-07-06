@@ -161,31 +161,34 @@ jobs:
 
           SUPABASE_DB_URL=""
           for poolerHost in "${SUPABASE_POOLER_HOSTS[@]}"; do
-            candidate="$(
-              SUPABASE_POOLER_HOST="$poolerHost" node <<'NODE'
+            for poolerPort in 5432 6543; do
+              candidate="$(
+                SUPABASE_POOLER_HOST="$poolerHost" SUPABASE_POOLER_PORT="$poolerPort" node <<'NODE'
           const password = process.env.SUPABASE_DB_PASSWORD || "";
           const projectRef = process.env.SUPABASE_PROJECT_REF || "";
           const poolerHost = process.env.SUPABASE_POOLER_HOST || "";
+          const poolerPort = process.env.SUPABASE_POOLER_PORT || "5432";
 
-          if (!password || !projectRef || !poolerHost) {
+          if (!password || !projectRef || !poolerHost || !/^\d+$/.test(poolerPort)) {
             console.error("Missing Supabase DB push inputs.");
             process.exit(1);
           }
 
           process.stdout.write(
-            `postgresql://postgres.${projectRef}:${encodeURIComponent(password)}@${poolerHost}:6543/postgres?sslmode=require`,
+            `postgresql://postgres.${projectRef}:${encodeURIComponent(password)}@${poolerHost}:${poolerPort}/postgres?sslmode=require`,
           );
           NODE
-            )"
-            if timeout 30s npx --yes supabase@2.109.0 db push --dry-run --db-url "$candidate" --yes >"$RUNNER_TEMP/supabase-db-push-dry-run.log" 2>&1; then
-              SUPABASE_DB_URL="$candidate"
-              echo "Supabase transaction pooler selected: $poolerHost"
-              break
-            fi
+              )"
+              if timeout 30s npx --yes supabase@2.109.0 db push --dry-run --db-url "$candidate" --yes >"$RUNNER_TEMP/supabase-db-push-dry-run.log" 2>&1; then
+                SUPABASE_DB_URL="$candidate"
+                echo "Supabase IPv4 pooler selected: $poolerHost:$poolerPort"
+                break 2
+              fi
+            done
           done
 
           if [ -z "$SUPABASE_DB_URL" ]; then
-            echo "No Supabase IPv4 transaction pooler host accepted the staging credentials."
+            echo "No Supabase IPv4 pooler host accepted the staging credentials."
             sed -E 's#postgresql://[^[:space:]]+#postgresql://[REDACTED]#g' "$RUNNER_TEMP/supabase-db-push-dry-run.log" || true
             exit 1
           fi
