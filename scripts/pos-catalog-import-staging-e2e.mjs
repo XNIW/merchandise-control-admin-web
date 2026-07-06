@@ -819,7 +819,7 @@ async function sqlProof(client, dataset, serverImportId) {
     serverImportId
       ? client
           .from("sync_events")
-          .select("sync_event_id,domain")
+          .select("id,domain")
           .eq("shop_id", dataset.shopId)
           .eq("batch_id", serverImportId)
       : { data: [], error: null },
