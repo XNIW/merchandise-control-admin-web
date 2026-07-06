@@ -231,6 +231,10 @@ export default async function ShopCategoriesPage({
         query: selectedQuery,
         state: selectedState,
       },
+      includeExactTotals:
+        activeFilterCount > 0 || Boolean(getParam(params, "category_action"))
+          ? false
+          : true,
       page: selectedPage,
       pageSize: selectedPageSize,
       requestedShopId,

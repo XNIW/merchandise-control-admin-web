@@ -89,6 +89,66 @@ Le versioni sono centralizzate in `src/server/pos-auth/pos-contract.ts` e replic
 
 Campi non supportati sono dichiarati come limited/unsupported. Win7POS deve ignorare campi additivi non conosciuti e non deve abilitare feature non dichiarate.
 
+## Sync Incrementale Catalogo
+
+`/api/pos/catalog/pull` e gia incrementale lato contratto POS:
+
+- senza cursor restituisce `syncMode=full_refresh` e solo righe attive per prodotti, categorie e fornitori;
+- con `updatedSince` o `syncCursor` restituisce `syncMode=delta`, include tombstone logici e conserva un `upperBound` server-side stabile per evitare drift durante la paginazione;
+- `syncCursor` e stateless: il server non salva watermark per dispositivo, il client POS conserva e reinvia il cursor ricevuto;
+- quando non ci sono altre pagine il cursor finale torna a essere un timestamp ISO compatibile con `updatedSince`;
+- quando ci sono altre pagine il cursor opaco `catalog-v1:*` conserva `lowerBound`, `upperBound` e offset separati per `products`, `categories`, `suppliers` e `prices`.
+
+Questo cursor e intenzionalmente offset-based, non keyset. Il catalog pull POS
+non legge piu pagine profonde in modo cumulativo: sceglie uno scope deterministico
+per shop, `shop_scoped` quando esistono righe shop-scoped, altrimenti
+`legacy_owner_bridge` quando il mapping owner legacy e presente, e applica
+`range(from, to)` direttamente alle query Supabase per prodotti, categorie,
+fornitori e prezzi. La pagina in memoria taglia solo `limit`/`limit+1` sulle righe
+gia windowed dal database. Categorie e fornitori referenziati dai prodotti della
+pagina possono essere aggiunti per ID per mantenere risolvibili i nomi locali, ma
+non cambiano gli offset di drain.
+
+Verifica migration e benchmark locale:
+
+- presenti indici business/unique shop-scoped su barcode, item number e nomi catalogo;
+- presente `inventory_product_prices(shop_id, product_id, created_at)`;
+- presenti indici `sync_events(owner_user_id, id)` e `sync_events(owner_user_id, shop_id, id)` per orchestratori Android/iOS;
+- prima di `TASK-089` non risultavano indici dedicati `inventory_products(shop_id, updated_at, id)`, `inventory_categories(shop_id, updated_at, id)`, `inventory_suppliers(shop_id, updated_at, id)`, `inventory_product_prices(shop_id, created_at, id)` o equivalenti legacy `owner_user_id, updated_at/id`;
+- `TASK_SYNC_PERF_*` locale ha misurato `EXPLAIN (ANALYZE, BUFFERS)` su 12.000 prodotti shop-scoped, 24.000 prezzi shop-scoped, 3.000 categorie, 2.500 fornitori, piu 6.000 prodotti legacy e 12.000 prezzi legacy;
+- prima degli indici, le query equivalenti al catalog pull facevano `Seq Scan + Sort`; il caso peggiore misurato era `inventory_product_prices` pagina profonda, circa 25,8 ms locali per 10.001 righe lette;
+- `20260628180000_task_089_catalog_delta_indexes.sql` aggiunge solo indici btree additivi per `(shop_id, updated_at, id)`, `(shop_id, created_at, id)` e gli equivalenti legacy parziali `WHERE shop_id is null`;
+- dopo la migration locale, gli stessi piani usano `Index Only Scan`, senza sort esplicito; prodotti profondi circa 2,1 ms locali e prezzi profondi circa 2,5 ms locali.
+
+Decisione: tenere `catalog-v1` offset-based, usare range bounded `from -> to` e
+mantenere gli indici additivi. Il costo della pagina profonda non cresce piu per
+letture `range(0, offset + limit)`; resta comunque possibile valutare
+`catalog-v2` keyset se metriche runtime su cataloghi molto grandi mostrano P95/P99
+non accettabili. Un eventuale v2 deve restare backward-compatible e accettare
+ancora cursor `catalog-v1`.
+
+Non fare ora:
+
+- non trasformare Admin Web in un orchestratore Android/iOS;
+- non aggiungere local offline queue nel browser;
+- non usare `/shop/sync` come comando di force sync client-side;
+- non introdurre altri indici senza piano query reale;
+- non fondere account personale e staff POS.
+
+Nota cross-platform: per mutazioni catalogo/history da Admin Web, il segnale
+mobile passa da `sync_events` scritto server-side nello stesso flusso applicativo.
+CRUD catalogo e history falliscono chiuso a livello response se `sync_events`
+non viene registrato. `TASK-089` estende lo stesso guardrail al bulk import
+prodotti con un `catalog_changed` aggregato per chunk riuscito e al workbook
+PriceHistory con `prices_changed` aggregato su `inventory_product_prices` reali.
+La RPC `shop_catalog_import_price_history` ritorna gli `priceIds` realmente
+inseriti o aggiornati, inclusi i casi di upsert su unique business key, e il
+writer usa `price_ids` e `product_ids` bounded invece di ricostruire righe per
+euristica. Non e una transazione atomica: se la mutazione DB riesce e l'evento
+fallisce, il dato puo restare persistito ma la response torna errore. Non esiste
+oggi un outbox/relay durevole Admin Web per ritentare `sync_events` dopo un
+errore parziale, e non va aggiunto senza un task separato.
+
 ## Idempotenza
 
 - Batch: `clientBatchId`, `idempotencyKey`, `payloadHash`.

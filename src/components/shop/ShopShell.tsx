@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
+  useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ChangeEvent,
   type MouseEvent,
@@ -13,6 +15,7 @@ import {
 import { LanguageSwitcher } from "@/components/language-switcher";
 import type { Dictionary } from "@/i18n/dictionaries";
 import type { SupportedLocale } from "@/i18n/locales";
+import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "./shopLayout";
 import type { ShopNavigationSection, ShopSectionKey } from "./shopSections";
 
@@ -258,6 +261,19 @@ function SkeletonBlock({ className }: { className: string }) {
   );
 }
 
+function activeElementIsFormField() {
+  if (typeof document === "undefined") {
+    return false;
+  }
+
+  const activeElement = document.activeElement;
+
+  return activeElement instanceof HTMLInputElement ||
+    activeElement instanceof HTMLSelectElement ||
+    activeElement instanceof HTMLTextAreaElement ||
+    activeElement?.getAttribute("contenteditable") === "true";
+}
+
 function ShopPendingNavigationSkeleton({
   itemKey,
   label,
@@ -442,6 +458,8 @@ export function ShopShell({
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
+  const focusRefreshTimerRef = useRef<number | null>(null);
+  const lastFocusRefreshAtRef = useRef(0);
   const requestedShopId = searchParams.get("shop_id");
   const [optimisticActive, setOptimisticActive] = useState<{
     key: ShopSectionKey;
@@ -480,6 +498,7 @@ export function ShopShell({
     availableShops.find((shop) => shop.shopId === requestedShopId) ??
     availableShops.find((shop) => shop.shopId === selectedShopId) ??
     availableShops[0];
+  const activeShopId = selectedShop?.shopId ?? null;
   const selectedShopName = shopDisplayName(selectedShop, labels);
   const selectedShopIdentity = shopIdentityLine(selectedShop, labels);
   const currentPageKey = visiblePendingNavigation?.key ?? pathnameItem?.key ?? null;
@@ -515,6 +534,29 @@ export function ShopShell({
     router.push(`${pathname}?${nextSearchParams.toString()}`);
   }
 
+  const scheduleCurrentShopRouteRefresh = useCallback(() => {
+    if (document.visibilityState !== "visible" || activeElementIsFormField()) {
+      return;
+    }
+
+    const now = Date.now();
+
+    if (now - lastFocusRefreshAtRef.current < 2_000) {
+      return;
+    }
+
+    lastFocusRefreshAtRef.current = now;
+
+    if (focusRefreshTimerRef.current !== null) {
+      window.clearTimeout(focusRefreshTimerRef.current);
+    }
+
+    focusRefreshTimerRef.current = window.setTimeout(() => {
+      focusRefreshTimerRef.current = null;
+      router.refresh();
+    }, 200);
+  }, [router]);
+
   useEffect(() => {
     if (!pendingNavigation || pendingNavigationTargetReached) {
       return;
@@ -527,6 +569,65 @@ export function ShopShell({
 
     return () => window.clearTimeout(timeout);
   }, [pendingNavigation, pendingNavigationTargetReached]);
+
+  useEffect(() => {
+    function handleVisibilityChange() {
+      if (document.visibilityState === "visible") {
+        scheduleCurrentShopRouteRefresh();
+      }
+    }
+
+    function handlePageShow(event: PageTransitionEvent) {
+      if (event.persisted) {
+        scheduleCurrentShopRouteRefresh();
+      }
+    }
+
+    window.addEventListener("focus", scheduleCurrentShopRouteRefresh);
+    window.addEventListener("pageshow", handlePageShow);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", scheduleCurrentShopRouteRefresh);
+      window.removeEventListener("pageshow", handlePageShow);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+
+      if (focusRefreshTimerRef.current !== null) {
+        window.clearTimeout(focusRefreshTimerRef.current);
+        focusRefreshTimerRef.current = null;
+      }
+    };
+  }, [scheduleCurrentShopRouteRefresh]);
+
+  useEffect(() => {
+    if (!activeShopId) {
+      return;
+    }
+
+    const supabase = createSupabaseBrowserClient();
+
+    if (!supabase) {
+      return;
+    }
+
+    const channel = supabase
+      .channel(`shop-sync-events:${activeShopId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "sync_events",
+          filter: `shop_id=eq.${activeShopId}`,
+        },
+        () => scheduleCurrentShopRouteRefresh(),
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [activeShopId, scheduleCurrentShopRouteRefresh]);
 
   function handleNavigation(input: {
     event: MouseEvent<HTMLAnchorElement>;

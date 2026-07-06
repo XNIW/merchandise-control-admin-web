@@ -435,10 +435,9 @@ async function filterCatalogPricesByProductScope(
 
 function pageCatalogScopeRows<Row extends { id: string }>(
   rows: readonly Row[],
-  range: { from: number; to: number },
   limit: number,
 ) {
-  return pageCatalogRows(rows.slice(range.from, range.to + 1), limit);
+  return pageCatalogRows(rows, limit);
 }
 
 async function includeReferencedCatalogRows<
@@ -493,6 +492,35 @@ async function includeReferencedCatalogRows<
   }
 
   return { error: null, rows };
+}
+
+async function hasShopCatalogRows(
+  supabase: SupabaseAdminClient,
+  shopId: string,
+) {
+  const [products, categories, suppliers, prices] = await Promise.all([
+    supabase.from("inventory_products").select("id").eq("shop_id", shopId).limit(1),
+    supabase.from("inventory_categories").select("id").eq("shop_id", shopId).limit(1),
+    supabase.from("inventory_suppliers").select("id").eq("shop_id", shopId).limit(1),
+    supabase
+      .from("inventory_product_prices")
+      .select("id")
+      .eq("shop_id", shopId)
+      .limit(1),
+  ]);
+
+  const error =
+    products.error ?? categories.error ?? suppliers.error ?? prices.error ?? null;
+
+  return {
+    error,
+    hasRows: Boolean(
+      (products.data ?? []).length > 0 ||
+        (categories.data ?? []).length > 0 ||
+        (suppliers.data ?? []).length > 0 ||
+        (prices.data ?? []).length > 0,
+    ),
+  };
 }
 
 async function getSupabaseForPosCatalog() {
@@ -751,6 +779,23 @@ export async function handlePosCatalogPull(
     (row) => row.mapping_state !== "mapped",
   );
   const ownerUserId = mappedSource?.owner_user_id ?? null;
+  const shopCatalogRowsProbe = await hasShopCatalogRows(
+    supabase,
+    session.shop_id,
+  );
+
+  if (shopCatalogRowsProbe.error) {
+    return auditedFailure(supabase, {
+      code: "db_failure",
+      metadata: requestMetadata(meta),
+      shopId: session.shop_id,
+      status: 500,
+      targetId: session.shop_device_id,
+      targetType: "device",
+    });
+  }
+
+  const useLegacyOwnerBridge = Boolean(ownerUserId) && !shopCatalogRowsProbe.hasRows;
 
   const syncOptions = parsed.syncOptions;
   const productRange = catalogRangeFor(syncOptions, "products");
@@ -812,12 +857,19 @@ export async function handlePosCatalogPull(
   }
 
   const [productsResult, categoriesResult, suppliersResult, pricesResult] =
-    await Promise.all([
-      productsQuery.range(0, productRange.to),
-      categoriesQuery.range(0, categoryRange.to),
-      suppliersQuery.range(0, supplierRange.to),
-      pricesQuery.range(0, priceRange.to),
-    ]);
+    useLegacyOwnerBridge
+      ? [
+          { data: [], error: null },
+          { data: [], error: null },
+          { data: [], error: null },
+          { data: [], error: null },
+        ]
+      : await Promise.all([
+          productsQuery.range(productRange.from, productRange.to),
+          categoriesQuery.range(categoryRange.from, categoryRange.to),
+          suppliersQuery.range(supplierRange.from, supplierRange.to),
+          pricesQuery.range(priceRange.from, priceRange.to),
+        ]);
 
   if (
     productsResult.error ||
@@ -839,17 +891,12 @@ export async function handlePosCatalogPull(
   const shopCategories = (categoriesResult.data ?? []) as CategoryRow[];
   const shopSuppliers = (suppliersResult.data ?? []) as SupplierRow[];
   const shopPrices = (pricesResult.data ?? []) as PriceRow[];
-  const shopScopedRowsPresent =
-    shopProducts.length > 0 ||
-    shopCategories.length > 0 ||
-    shopSuppliers.length > 0 ||
-    shopPrices.length > 0;
   let legacyProducts: ProductRow[] = [];
   let legacyCategories: CategoryRow[] = [];
   let legacySuppliers: SupplierRow[] = [];
   let legacyPrices: PriceRow[] = [];
 
-  if (ownerUserId) {
+  if (useLegacyOwnerBridge && ownerUserId) {
     let legacyProductsQuery = supabase
       .from("inventory_products")
       .select(
@@ -923,10 +970,10 @@ export async function handlePosCatalogPull(
       legacySuppliersResult,
       legacyPricesResult,
     ] = await Promise.all([
-      legacyProductsQuery.range(0, productRange.to),
-      legacyCategoriesQuery.range(0, categoryRange.to),
-      legacySuppliersQuery.range(0, supplierRange.to),
-      legacyPricesQuery.range(0, priceRange.to),
+      legacyProductsQuery.range(productRange.from, productRange.to),
+      legacyCategoriesQuery.range(categoryRange.from, categoryRange.to),
+      legacySuppliersQuery.range(supplierRange.from, supplierRange.to),
+      legacyPricesQuery.range(priceRange.from, priceRange.to),
     ]);
 
     if (
@@ -951,7 +998,7 @@ export async function handlePosCatalogPull(
     legacyPrices = (legacyPricesResult.data ?? []) as PriceRow[];
   }
 
-  if (!ownerUserId && blockingSource && !shopScopedRowsPresent) {
+  if (!ownerUserId && blockingSource && !shopCatalogRowsProbe.hasRows) {
     return auditedFailure(supabase, {
       code: "unmapped",
       metadata: requestMetadata(meta),
@@ -962,10 +1009,9 @@ export async function handlePosCatalogPull(
     });
   }
 
-  const catalogScope =
-    shopScopedRowsPresent || !ownerUserId
-      ? "shop_scoped"
-      : "legacy_owner_bridge";
+  const catalogScope = useLegacyOwnerBridge
+    ? "legacy_owner_bridge"
+    : "shop_scoped";
   const productRows = mergeCatalogRowsById(shopProducts, legacyProducts).sort(
     compareUpdatedCatalogRows,
   );
@@ -1002,22 +1048,18 @@ export async function handlePosCatalogPull(
   );
   const productPage = pageCatalogScopeRows(
     productRows,
-    productRange,
     syncOptions.limit,
   );
   const categoryPage = pageCatalogScopeRows(
     categoryRows,
-    categoryRange,
     syncOptions.limit,
   );
   const supplierPage = pageCatalogScopeRows(
     supplierRows,
-    supplierRange,
     syncOptions.limit,
   );
   const pricePage = pageCatalogScopeRows(
     priceRows,
-    priceRange,
     syncOptions.limit,
   );
   const referencedCategoryRows = await includeReferencedCatalogRows<CategoryRow>(

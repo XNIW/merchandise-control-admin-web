@@ -27,6 +27,7 @@ type ShopPageSearchParams = Promise<{
   query?: string | string[];
   result?: string | string[];
   shop_id?: string | string[];
+  state?: string | string[];
   status?: string | string[];
 }>;
 
@@ -130,7 +131,8 @@ export default async function ShopHistoryPage({
   const requestedShopId = getParam(params, "shop_id");
   const selectedQuery = getFirstParam(params, ["q", "query"]) ?? "";
   const selectedMonth = getParam(params, "month") ?? "";
-  const selectedStatus = getParam(params, "status") ?? "active_issues";
+  const selectedStatus =
+    getFirstParam(params, ["status", "state"]) ?? "active_issues";
   const selectedPage = getParam(params, "page") ?? "1";
   const selectedPageSize = getParam(params, "pageSize") ?? "10";
   const [{ dictionary, locale }, readModel, writeContext] = await Promise.all([

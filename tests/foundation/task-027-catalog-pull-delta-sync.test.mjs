@@ -162,6 +162,120 @@ test("TASK-027 catalog sync helper validates updated_since, limits, cursors and 
   assert.equal(cursorPull.options.offsets.products, 2);
 });
 
+test("TASK-027 catalog cursor guardrail covers modes, limit clamp, final cursor and paged offsets", () => {
+  const helper = loadTypeScriptModule(
+    "src/server/pos-auth/catalog-sync-contract.ts",
+  );
+  const serverTime = "2026-06-01T12:00:00.000Z";
+  const fullPull = helper.parseCatalogSyncOptions({}, serverTime);
+  const deltaPull = helper.parseCatalogSyncOptions(
+    {
+      limit: helper.MAX_CATALOG_SYNC_LIMIT + 50,
+      updatedSince: "2026-06-01T10:00:00.000Z",
+    },
+    serverTime,
+  );
+
+  assert.equal(fullPull.ok, true);
+  assert.equal(fullPull.options.mode, "full_refresh");
+  assert.equal(fullPull.options.cursorSource, "none");
+  assert.equal(fullPull.options.lowerBound, null);
+
+  assert.equal(deltaPull.ok, true);
+  assert.equal(deltaPull.options.mode, "delta");
+  assert.equal(deltaPull.options.limit, helper.MAX_CATALOG_SYNC_LIMIT);
+  assert.equal(deltaPull.options.lowerBound, "2026-06-01T10:00:00.000Z");
+
+  const finalCursor = helper.buildNextCatalogSyncCursor(deltaPull.options, {
+    categories: { hasMore: false, returned: 1 },
+    prices: { hasMore: false, returned: 2 },
+    products: { hasMore: false, returned: 3 },
+    suppliers: { hasMore: false, returned: 4 },
+  });
+
+  assert.equal(finalCursor, deltaPull.options.upperBound);
+
+  const pagedCursor = helper.buildNextCatalogSyncCursor(deltaPull.options, {
+    categories: { hasMore: false, returned: 1 },
+    prices: { hasMore: true, returned: 2 },
+    products: { hasMore: true, returned: 3 },
+    suppliers: { hasMore: false, returned: 4 },
+  });
+  const pagedPull = helper.parseCatalogSyncOptions(
+    {
+      limit: 25,
+      syncCursor: pagedCursor,
+    },
+    "2026-06-01T12:05:00.000Z",
+  );
+
+  assert.equal(pagedPull.ok, true);
+  assert.equal(pagedPull.options.mode, "delta");
+  assert.equal(pagedPull.options.lowerBound, deltaPull.options.lowerBound);
+  assert.equal(pagedPull.options.upperBound, deltaPull.options.upperBound);
+  assert.equal(
+    JSON.stringify(pagedPull.options.offsets),
+    JSON.stringify({
+      categories: 1,
+      prices: 2,
+      products: 3,
+      suppliers: 4,
+    }),
+  );
+
+  const invalidCursorPull = helper.parseCatalogSyncOptions(
+    { syncCursor: "catalog-v1:not-json" },
+    serverTime,
+  );
+  const wrongVersionCursor = `catalog-v1:${Buffer.from(
+    JSON.stringify({
+      lowerBound: "2026-06-01T10:00:00.000Z",
+      offsets: {
+        categories: 0,
+        prices: 0,
+        products: 0,
+        suppliers: 0,
+      },
+      upperBound: serverTime,
+      version: 2,
+    }),
+  ).toString("base64url")}`;
+  const badOffsetCursor = `catalog-v1:${Buffer.from(
+    JSON.stringify({
+      lowerBound: "2026-06-01T10:00:00.000Z",
+      offsets: {
+        categories: 0,
+        prices: -1,
+        products: 0,
+        suppliers: 0,
+      },
+      upperBound: serverTime,
+      version: 1,
+    }),
+  ).toString("base64url")}`;
+  const wrongVersionPull = helper.parseCatalogSyncOptions(
+    { syncCursor: wrongVersionCursor },
+    serverTime,
+  );
+  const badOffsetPull = helper.parseCatalogSyncOptions(
+    { syncCursor: badOffsetCursor },
+    serverTime,
+  );
+  const futureUpdatedSincePull = helper.parseCatalogSyncOptions(
+    { updated_since: "2026-06-01T12:01:00.001Z" },
+    serverTime,
+  );
+
+  assert.equal(invalidCursorPull.ok, false);
+  assert.equal(invalidCursorPull.code, "validation_failed");
+  assert.equal(wrongVersionPull.ok, false);
+  assert.equal(wrongVersionPull.code, "validation_failed");
+  assert.equal(badOffsetPull.ok, false);
+  assert.equal(badOffsetPull.code, "validation_failed");
+  assert.equal(futureUpdatedSincePull.ok, false);
+  assert.equal(futureUpdatedSincePull.code, "validation_failed");
+});
+
 test("TASK-027 catalog sync helper maps active rows, tombstones and catalog version from representative data", () => {
   const helper = loadTypeScriptModule(
     "src/server/pos-auth/catalog-sync-contract.ts",
@@ -249,6 +363,10 @@ test("TASK-027 POS catalog pull service supports delta contract without destruct
     "catalogVersion",
     "hasMore",
     "tombstones",
+    "splitCatalogTombstones",
+    "product_tombstones",
+    "category_tombstones",
+    "supplier_tombstones",
     "deletedAt",
     "syncMode: syncOptions.mode",
     "buildNextCatalogSyncCursor",
@@ -276,6 +394,36 @@ test("TASK-027 POS catalog pull service supports delta contract without destruct
   assert.doesNotMatch(combined, /truncate|purge|replace_all|full\s+delete/i);
   assert.doesNotMatch(combined, /sale_lines|sales_sync|payment|cash_close|bidirectional/i);
   assert.match(scanner, /checkTask027CatalogPullDeltaSync/);
+});
+
+test("TASK-027 catalog delta performance indexes stay additive and aligned with cursor-v1", () => {
+  const migration = readProjectFile(
+    "supabase/migrations/20260628180000_task_089_catalog_delta_indexes.sql",
+  );
+  const architecture = readProjectFile("docs/POS_SYNC_ARCHITECTURE.md");
+
+  for (const required of [
+    "inventory_products_shop_updated_id_idx",
+    "inventory_categories_shop_updated_id_idx",
+    "inventory_suppliers_shop_updated_id_idx",
+    "inventory_product_prices_shop_created_id_idx",
+    "inventory_products_legacy_owner_updated_id_idx",
+    "inventory_categories_legacy_owner_updated_id_idx",
+    "inventory_suppliers_legacy_owner_updated_id_idx",
+    "inventory_product_prices_legacy_owner_created_id_idx",
+    "create index if not exists",
+    "where shop_id is null",
+    "where shop_id is not null",
+  ]) {
+    assert.match(migration, new RegExp(escapeRegExp(required)));
+  }
+
+  assert.doesNotMatch(migration, /\b(drop|alter table|create table|policy)\b/i);
+  assert.doesNotMatch(migration, /concurrently/i);
+  assert.match(architecture, /TASK_SYNC_PERF_\*/);
+  assert.match(architecture, /EXPLAIN \(ANALYZE, BUFFERS\)/);
+  assert.match(architecture, /catalog-v1/);
+  assert.match(architecture, /catalog-v2/);
 });
 
 test("TASK-027 Shop Admin diagnostics expose real catalog pull audit state", () => {

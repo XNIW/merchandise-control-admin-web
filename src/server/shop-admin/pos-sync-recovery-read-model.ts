@@ -21,6 +21,7 @@ type BatchRow = Pick<
   | "conflict_count"
   | "created_at"
   | "line_count"
+  | "metadata_redacted"
   | "pos_sales_sync_batch_id"
   | "received_at"
   | "sale_count"
@@ -238,6 +239,21 @@ function numberValue(value: number | string | null | undefined) {
   return 0;
 }
 
+function metadataRecord(value: Json | null) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? value
+    : null;
+}
+
+function metadataCount(value: Json | null, key: string) {
+  const record = metadataRecord(value);
+  const candidate = record?.[key];
+
+  return typeof candidate === "number" || typeof candidate === "string"
+    ? numberValue(candidate)
+    : null;
+}
+
 function displayDevice(row: DeviceRow | undefined) {
   if (!row) {
     return "Device non disponibile";
@@ -268,11 +284,18 @@ function mapLatestBatch(
     return null;
   }
 
+  const acceptedSaleCount =
+    metadataCount(row.metadata_redacted, "accepted_sale_count") ??
+    (row.status === "accepted" ? row.sale_count : 0);
+  const duplicateSaleCount =
+    metadataCount(row.metadata_redacted, "duplicate_sale_count") ??
+    (row.status === "duplicate" ? row.sale_count : 0);
+
   return {
-    acceptedSaleCount: row.status === "accepted" ? row.sale_count : 0,
+    acceptedSaleCount,
     clientBatchId: row.client_batch_id,
     conflictCount: row.conflict_count,
-    duplicateSaleCount: row.status === "duplicate" ? row.sale_count : 0,
+    duplicateSaleCount,
     lineCount: row.line_count,
     receivedAt: row.received_at ?? row.created_at,
     salesSyncBatchId: row.pos_sales_sync_batch_id,
@@ -400,7 +423,7 @@ export async function getShopPosSyncRecoveryReadModel(
     adminClient
       .from("pos_sales_sync_batches")
       .select(
-        "pos_sales_sync_batch_id,client_batch_id,status,sale_count,line_count,conflict_count,shop_device_id,staff_id,received_at,created_at",
+        "pos_sales_sync_batch_id,client_batch_id,status,sale_count,line_count,conflict_count,metadata_redacted,shop_device_id,staff_id,received_at,created_at",
       )
       .eq("shop_id", selectedShop.shopId)
       .order("created_at", { ascending: false })

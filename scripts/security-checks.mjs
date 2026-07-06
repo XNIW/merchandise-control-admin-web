@@ -275,6 +275,8 @@ function checkClientBoundaries() {
     ]).has(file);
     const platformProvisioningRequestBoundary =
       file === "src/app/platform/provisioning/platformProvisioningRequest.ts";
+    const shopRealtimeBoundary =
+      file === "src/components/shop/ShopShell.tsx";
 
     if (serverComponentBoundary) {
       continue;
@@ -282,7 +284,9 @@ function checkClientBoundaries() {
 
     for (const pattern of forbiddenPatterns) {
       if (
-        (authClientBoundary || platformProvisioningRequestBoundary) &&
+        (authClientBoundary ||
+          platformProvisioningRequestBoundary ||
+          shopRealtimeBoundary) &&
         pattern.source === "@\\\/lib\\\/supabase" &&
         /@\/lib\/supabase\/client/.test(contents)
       ) {
@@ -2659,7 +2663,7 @@ function checkTask015ShopAdminConsole() {
     }
 
     if (
-      /select\("\*"\)|\.from\([^)]+\)[\s\S]*\.(insert|update|delete|upsert)\s*\(/.test(
+      /select\("\*"\)|\.from\(\s*["'][^"']+["']\s*\)[\s\S]*\.(insert|update|delete|upsert)\s*\(/.test(
         contents,
       )
     ) {

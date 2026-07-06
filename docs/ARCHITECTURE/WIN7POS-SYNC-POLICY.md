@@ -21,6 +21,7 @@
 - Nel primo pull vengono inviate solo righe attive. Nel delta vengono inviate righe attive aggiornate e tombstone per righe con `deleted_at`.
 - Il `sync cursor` e reale: timestamp ISO quando la pagina e completa, cursor opaco `catalog-v1:*` quando `hasMore = true`.
 - Win7POS deve reinviare il cursor salvato nel campo `syncCursor`; `updated_since`/`updatedSince` resta solo input timestamp compatibile con client legacy o cursor timestamp.
+- Il cursor opaco Admin Web e stateless e offset-based per entity, perche il server fonde righe shop-scoped e legacy `owner_user_id` prima del page slice. `TASK-089` ha misurato EXPLAIN locale e aggiunto indici catalog delta timestamp/id; un eventuale keyset cursor `catalog-v2` resta follow-up compatibile solo se metriche runtime piu grandi lo giustificano.
 - TASK-028 consente a Win7POS di applicare tombstone prodotto come stato locale non distruttivo (`is_active = 0`, `remote_deleted_at`) usando `remote_product_id`; nessun purge o `DELETE` fisico e richiesto dal pull.
 
 ### Win7POS -> Supabase

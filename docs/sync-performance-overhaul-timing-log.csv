@@ -1,0 +1,27 @@
+timestamp,area,step,status,elapsed_ms,evidence
+2026-07-06T11:00:00-04:00,admin_web,security_scan,PASS,,npm run security:scan
+2026-07-06T11:00:00-04:00,admin_web,foundation_sync_architecture,PASS,46,WIN7POS_REPO_PATH=/tmp/merchandise-control-admin-web-win7pos-not-in-scope node --test tests/foundation/task-089-sync-architecture-excellence.test.mjs
+2026-07-06T11:00:00-04:00,admin_web,lint,PASS,,npm run lint
+2026-07-06T11:00:00-04:00,admin_web,typecheck,PASS,,npm run typecheck
+2026-07-06T11:00:00-04:00,admin_web,build,PASS,,npm run build
+2026-07-06T11:00:00-04:00,admin_web,cf_check_staging_before_deploy,PASS,,npm run cf:check:staging
+2026-07-06T11:00:00-04:00,admin_web,cf_deploy_staging,PASS,15990,Current Version ID 787f30c3-91b4-4814-9bd5-c50bdff0eaab
+2026-07-06T11:00:00-04:00,admin_web,cf_check_staging_after_deploy,PASS,,npm run cf:check:staging
+2026-07-06T11:00:00-04:00,staging_browser,admin_products_page_authenticated,PASS,5474,Browser laterale Codex opened /shop/products with authenticated shop session
+2026-07-06T11:00:00-04:00,staging_browser,qa_fixture_route_public_probe,PASS,,curl returned HTTP 400 validation_failed without auth cookies
+2026-07-06T11:00:00-04:00,staging_browser,qa_fixture_browser_navigation,FAIL_BLOCKED_BROWSER_CLIENT,,Browser lateral navigation to /shop/qa-sync-fixture blocked with net::ERR_BLOCKED_BY_CLIENT
+2026-07-06T11:00:00-04:00,android,apply_status_unit_tests,PASS,23000,./gradlew testDebugUnitTest DefaultInventoryRepositoryTest and AppDatabaseMigrationTest
+2026-07-06T11:08:00-04:00,android,debug_unit_and_assemble_checks,PASS,28000,./gradlew testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --console=plain
+2026-07-06T11:14:00-04:00,android,install_debug_apks,PASS,10000,./gradlew :app:installDebug :app:installDebugAndroidTest --console=plain installed on Medium_Phone_API_35
+2026-07-06T11:00:00-04:00,ios,apply_status_sim_tests,PASS,,XcodeBuildMCP test_sim SyncEventIncrementalDomainApplyServiceTests and Task119AutomaticArchitectureTests; 23 passed 0 failed
+2026-07-06T11:00:00-04:00,hygiene,git_diff_check_admin_android_ios,PASS,,git diff --check in all three repos
+2026-07-06T11:00:00-04:00,sync_e2e,T0_ui_submit,FAIL_BLOCKED_BROWSER_CLIENT,,Official live UI/fixture submit could not start from Browser lateral because QA route navigation was blocked by client
+2026-07-06T11:00:00-04:00,sync_e2e,T1_server_mutation_start,FAIL_BLOCKED_T0,,No official T0 submit reached staging mutation path
+2026-07-06T11:00:00-04:00,sync_e2e,T2_server_mutation_done,FAIL_BLOCKED_T0,,No official T0 submit reached staging mutation path
+2026-07-06T11:00:00-04:00,sync_e2e,T3_sync_event_created,FAIL_BLOCKED_T0_AND_ATOMICITY,,No official staging mutation event was produced in this run; Admin writes remain compensation-only rather than DB-atomic
+2026-07-06T11:00:00-04:00,sync_e2e,T4_realtime_received,FAIL_BLOCKED_NO_LIVE_EVENT,,No live staging event available for Admin/Android/iOS realtime timestamp
+2026-07-06T11:00:00-04:00,sync_e2e,T5_targeted_fetch_start,FAIL_BLOCKED_NO_MOBILE_LIVE_HARNESS,,Android/iOS live harness was not executing against the new SYNC_PERF final event
+2026-07-06T11:00:00-04:00,sync_e2e,T6_targeted_fetch_done,FAIL_BLOCKED_NO_MOBILE_LIVE_HARNESS,,Android/iOS live harness was not executing against the new SYNC_PERF final event
+2026-07-06T11:00:00-04:00,sync_e2e,T7_local_apply_done,FAIL_BLOCKED_NO_MOBILE_LIVE_HARNESS,,Android/iOS local apply timestamp unavailable for the new SYNC_PERF final event
+2026-07-06T11:00:00-04:00,sync_e2e,T8_local_store_or_ui_visible,FAIL_BLOCKED_NO_MOBILE_LIVE_HARNESS,,Android/iOS local store/UI visibility unavailable for the new SYNC_PERF final event
+2026-07-06T11:00:00-04:00,sync_e2e,T9_other_platform_visible_or_admin_refresh_done,FAIL_BLOCKED_NO_CROSS_PLATFORM_LIVE_MATRIX,,A-F cross-platform visibility/focus matrix was not completed with new SYNC_PERF final timings

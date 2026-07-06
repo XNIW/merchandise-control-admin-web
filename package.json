@@ -52,6 +52,7 @@
     "test:shop:cloud-performance:task077": "node scripts/testing/task-077-shop-cloud-performance.mjs",
     "test:task081:e2e": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-081-pos-revenue-e2e.spec.ts --project=chromium-desktop",
     "test:task081:win7-http": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-081-win7pos-http-e2e.spec.ts --project=chromium-desktop",
+    "check:pos-catalog-paging": "node scripts/check-pos-catalog-paging.mjs",
     "smoke:staging": "node scripts/testing/run-playwright-target.mjs staging tests/e2e/staging/platform-staging-smoke.spec.ts --project=chromium-desktop",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:ui": "playwright test --ui",

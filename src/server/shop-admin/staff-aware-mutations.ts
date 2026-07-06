@@ -1056,6 +1056,7 @@ export async function applyStaffAwareBulkPriceHistoryImport(
   if (!owner.ok) {
     return {
       failedRows: pricePayload.length,
+      priceIds: [] as string[],
       priceHistoryApplied: 0,
       rowErrors: [staffBulkOwnerRowError(owner, "PriceHistory")],
     };
@@ -1063,6 +1064,7 @@ export async function applyStaffAwareBulkPriceHistoryImport(
 
   let failedRows = 0;
   let priceHistoryApplied = 0;
+  const priceIds: string[] = [];
   const rowErrors: StaffAwareBulkImportRowError[] = [];
 
   for (const [chunkIndex, priceChunk] of Array.from(chunkRows(
@@ -1140,12 +1142,14 @@ export async function applyStaffAwareBulkPriceHistoryImport(
     }
 
     const appliedRows = data ?? [];
+    priceIds.push(...appliedRows.map((row) => row.id));
     priceHistoryApplied += appliedRows.length;
     failedRows += Math.max(scopedPriceChunk.length - appliedRows.length, 0);
   }
 
   return {
     failedRows,
+    priceIds,
     priceHistoryApplied,
     rowErrors,
   };
