@@ -183,3 +183,53 @@ test("TASK-094 migrations store import batches and apply them transactionally", 
     "pos_catalog_import_apply_v2: {",
   ]);
 });
+
+test("TASK-094 staging E2E harness proves positive catalog import without leaking secrets", () => {
+  const packageJson = readProjectFile("package.json");
+  const harness = readProjectFile("scripts/pos-catalog-import-staging-e2e.mjs");
+  const workflow = readProjectFile(".github/workflows/task-094-staging-e2e.yml");
+
+  assertContainsAll(packageJson, [
+    "test:pos-catalog-import-staging-e2e",
+    "scripts/pos-catalog-import-staging-e2e.mjs",
+  ]);
+  assertContainsAll(harness, [
+    "TASK094_POS_E2E_ALLOW_STAGING",
+    "TASK094_POS_E2E_STAGING_HOST_ALLOWLIST",
+    "TASK094_POS_E2E_STAGING_PROJECT_REF",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "POST",
+    "/api/pos/catalog/import-sync",
+    "/api/pos/catalog/pull",
+    "method_not_allowed",
+    "validation_failed",
+    "auth_denied",
+    "accepted",
+    "duplicate",
+    "conflict",
+    "pos_catalog_import_batches",
+    "ackResponseStored",
+    "syncEventDomains",
+    "cleanupTask094",
+    "verifyTask094Cleanup",
+  ]);
+  assertContainsAll(workflow, [
+    "TASK-094 Staging E2E",
+    "workflow_dispatch",
+    "cloudflare-staging",
+    "SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}",
+    "SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
+    "supabase@2.109.0 db push",
+    "npm run test:pos-catalog-import-staging-e2e",
+  ]);
+  assert.doesNotMatch(
+    harness,
+    /\.delete\(|deleteUser|console\.log\([^)]*(SUPABASE_SERVICE_ROLE_KEY|sessionToken|deviceToken|trustedDeviceToken|mcpos_)/,
+    "TASK-094 staging harness must use soft cleanup and must not print secrets",
+  );
+  assert.doesNotMatch(
+    workflow,
+    /echo\s+\$(SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)|console\.log\(process\.env\.(SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)\)/,
+    "TASK-094 workflow must not print service-role secrets",
+  );
+});

@@ -62,6 +62,7 @@
     "test:pos-local-harness": "node scripts/pos-local-e2e-harness.mjs",
     "test:pos-staging-harness:dry-run": "TASK032_POS_E2E_ENABLE_POSITIVE=yes TASK032_POS_E2E_ALLOW_DATASET_SETUP=yes TASK032_POS_E2E_ALLOW_CLEANUP=yes TASK032_POS_E2E_ALLOW_STAGING=yes TASK032_POS_E2E_STAGING_DRY_RUN=yes TASK032_POS_E2E_REQUIRE_TEST_MARKER=TASK032 node scripts/pos-local-e2e-harness.mjs",
     "test:pos-staging-harness": "TASK032_POS_E2E_ENABLE_POSITIVE=yes TASK032_POS_E2E_ALLOW_DATASET_SETUP=yes TASK032_POS_E2E_ALLOW_CLEANUP=yes TASK032_POS_E2E_ALLOW_STAGING=yes TASK032_POS_E2E_REQUIRE_STAGING_TARGET=yes TASK032_POS_E2E_REQUIRE_TEST_MARKER=TASK032 node scripts/pos-local-e2e-harness.mjs",
+    "test:pos-catalog-import-staging-e2e": "TASK094_POS_E2E_ALLOW_STAGING=yes node scripts/pos-catalog-import-staging-e2e.mjs",
     "playwright:install": "playwright install chromium",
     "verify:full": "npm run verify && npm run test:ui-smoke"
   },

@@ -1057,20 +1057,16 @@ export async function handlePosCatalogImportSync(
   meta: PosCatalogImportRequestMeta = {},
 ): Promise<PosCatalogImportEndpointResult> {
   const serverTime = new Date().toISOString();
+  const parsed = parseCatalogImportInput(input);
+
+  if (!parsed) {
+    return failure("validation_failed", 400);
+  }
+
   const supabase = await getSupabaseForPosCatalogImport();
 
   if (!supabase) {
     return failure("not_configured", 503);
-  }
-
-  const parsed = parseCatalogImportInput(input);
-
-  if (!parsed) {
-    return auditedFailure(supabase, {
-      code: "validation_failed",
-      metadata: requestMetadata(meta),
-      status: 400,
-    });
   }
 
   const auth = await validatePosCatalogImportAuth(supabase, parsed, meta);
