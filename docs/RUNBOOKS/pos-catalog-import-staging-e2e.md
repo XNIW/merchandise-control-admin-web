@@ -1,18 +1,30 @@
 # POS catalog import staging E2E runbook
 
-Status date: 2026-07-05
+Status date: 2026-07-06 UTC / 2026-07-05 host locale
 
-Current status: `E2E_STAGING_PENDING`
+Current status: `READY_FOR_STAGING_E2E_AFTER_OWNER_SECRET`
 
-Verified in this environment:
-- Workers staging public smoke: `PASS`
-- URL: `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev`
+## Verified in this environment
 
-Missing in this environment:
-- Staging Supabase URL/project ref: `STAGING_SUPABASE_URL_MISSING`
-- Supabase CLI: `SUPABASE_CLI_MISSING`
-- Deploy credentials/approval for Cloudflare staging: `STAGING_DEPLOY_PERMISSION_MISSING`
-- Windows 7 physical runtime evidence: `WIN7_HARDWARE_NOT_AVAILABLE`
+| Area | Status | Evidence |
+| --- | --- | --- |
+| Workers staging deploy | `PASS` | GitHub Actions workflow `cloudflare.yml`, run `28761814972`, conclusion `success`. |
+| Workers URL | `PASS` | `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev` |
+| GET import-sync | `PASS` | `405 method_not_allowed`, `cache-control: no-store`, request id `posreq_153aec65-55c8-4313-9222-67c134cd293f`. |
+| POST empty body | `PASS` | `400 validation_failed`, `cache-control: no-store`, request id `posreq_00881edd-a623-4943-86b7-60d205ff4818`. |
+| POST invalid auth | `PASS` | `401 auth_denied`, `cache-control: no-store`, request id `posreq_4e7c29e9-1cd3-43d9-9f55-3b6392e6c379`. |
+| Supabase CLI | `PASS` | `supabase 2.109.0`; `node scripts/check-supabase-tooling.mjs` passes on Windows. |
+| Staging Supabase config | `CONFIGURED_MASKED` | Project ref `jpgoimipbothfgkokyvm`; host `jpgoimipbothfgkokyvm.supabase.co`; repo/env variables and Cloudflare staging secrets present by name. |
+| Admin local verify | `PASS` | `npm run security:scan`, `npm run test:foundation`, `npm run typecheck`, `npm run lint`, `npm run build`, `npm run verify`. |
+
+## Remaining owner-gated inputs
+
+| Gate | Current status | Next action |
+| --- | --- | --- |
+| Supabase CLI login | `SUPABASE_OWNER_PERMISSION_REQUIRED` | Complete `supabase login --no-browser --output-format text`; then run linked migration commands below. |
+| TASK-094 migration on staging | `PENDING_SUPABASE_OWNER_AUTH` | Apply `supabase/migrations/20260705120000_task_094_pos_catalog_import_sync.sql` with `supabase db push --linked`. |
+| Positive staging E2E dataset/session | `PENDING_SUPABASE_OWNER_AUTH` | Seed/create synthetic staging shop/staff/device and save a local session JSON in `C:\Temp`. |
+| Windows 7 physical runtime | `WIN7_PHYSICAL_MACHINE_REQUIRED` | Run the downloaded Win7POS GitHub artifact on a Win7 SP1 machine/VM. |
 
 ## Required staging inputs
 
@@ -24,32 +36,39 @@ PowerShell:
 $env:TEST_TARGET = "staging"
 $env:ALLOW_STAGING_E2E = "yes"
 $env:CONFIRM_STAGING_E2E = "yes"
-$env:NEXT_PUBLIC_SUPABASE_URL = "https://<staging-project-ref>.supabase.co"
-$env:SUPABASE_PROJECT_REF = "<staging-project-ref>"
-$env:STAGING_SUPABASE_PROJECT_REF = "<staging-project-ref>"
-$env:ALLOWED_STAGING_SUPABASE_PROJECT_REFS = "<staging-project-ref>"
+$env:NEXT_PUBLIC_SUPABASE_URL = "https://jpgoimipbothfgkokyvm.supabase.co"
+$env:SUPABASE_PROJECT_REF = "jpgoimipbothfgkokyvm"
+$env:STAGING_SUPABASE_PROJECT_REF = "jpgoimipbothfgkokyvm"
+$env:ALLOWED_STAGING_SUPABASE_PROJECT_REFS = "jpgoimipbothfgkokyvm"
 $env:SUPABASE_SERVICE_ROLE_KEY = "<server-only-staging-service-role-key>"
 $env:TASK032_POS_E2E_BASE_URL = "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev"
 $env:TASK032_POS_E2E_STAGING_HOST_ALLOWLIST = "merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev"
-$env:TASK032_POS_E2E_STAGING_PROJECT_REF = "<staging-project-ref>"
-$env:TASK032_POS_E2E_TEST_RUN_ID = "STG0705"
+$env:TASK032_POS_E2E_STAGING_PROJECT_REF = "jpgoimipbothfgkokyvm"
+$env:TASK032_POS_E2E_TEST_RUN_ID = "STG0706"
 ```
+
+`SUPABASE_SERVICE_ROLE_KEY` must be process-only for the local harness. Never commit it, print it, or write it into repo docs.
 
 ## Deploy and migration gate
 
-Run after Cloudflare and Supabase credentials are available:
+Cloudflare staging deploy is already `PASS`. Re-run only if code changes.
+
+After Supabase owner auth:
 
 ```powershell
-npm run cf:deploy:staging
-node scripts/db/staging-status.mjs
+supabase projects list
+supabase link --project-ref jpgoimipbothfgkokyvm
 supabase migration list --linked
 supabase db push --linked
+node scripts/db/staging-status.mjs
 node scripts/staging-readiness-check.mjs
 ```
 
 Expected status before Win7POS E2E:
+
 - `db-staging` reports staging URL/project ref allowlisted.
 - `staging-readiness-check` reports public smoke, linked migrations, cleanup active zero and POS staging harness dry-run as `PASS`.
+- `public.pos_catalog_import_batches` exists with RLS forced, grants only to server-side role, and no client/browser access.
 
 ## Admin Web positive POS harness
 
@@ -80,7 +99,7 @@ Session file shape:
   "deviceToken": "<redacted-device-token>",
   "posSessionId": "<staging-pos-session-id>",
   "sessionToken": "<redacted-session-token>",
-  "shopCode": "TASK032_TEST_SHOP_STG0705",
+  "shopCode": "TASK032_TEST_SHOP_STG0706",
   "shopDeviceId": "<staging-shop-device-id>"
 }
 ```
@@ -92,6 +111,7 @@ C:\Dev\dotnet10\dotnet.exe run --project C:\Dev\Win7POS-full-audit\src\Win7POS.C
 ```
 
 Expected output:
+
 - `CATALOG IMPORT SYNC HTTP HARNESS PASS`
 - The local outbox row is `acked`.
 - The staging server records the import batch with schema `pos-catalog-import-v1`.
@@ -99,10 +119,12 @@ Expected output:
 
 ## Closure statuses
 
-Use only these statuses for this gate:
+Use these statuses for the residual staging gate:
+
 - `PASS_STAGING_POS_E2E_WITH_CLEANUP`
-- `E2E_STAGING_PENDING`
-- `STAGING_SUPABASE_URL_MISSING`
-- `SUPABASE_CLI_MISSING`
-- `STAGING_DEPLOY_PERMISSION_MISSING`
-- `WIN7_HARDWARE_NOT_AVAILABLE`
+- `READY_FOR_STAGING_E2E_AFTER_OWNER_SECRET`
+- `SUPABASE_OWNER_PERMISSION_REQUIRED`
+- `WIN7_PHYSICAL_MACHINE_REQUIRED`
+- `HARDWARE_REQUIRED_WITH_ARTIFACT_AND_CHECKLIST`
+
+Do not use the old unresolved statuses `E2E_STAGING_PENDING`, `STAGING_SUPABASE_URL_MISSING`, `SUPABASE_CLI_MISSING`, `STAGING_DEPLOY_PERMISSION_MISSING`, or `WIN7_HARDWARE_NOT_AVAILABLE` unless documenting historical state.
