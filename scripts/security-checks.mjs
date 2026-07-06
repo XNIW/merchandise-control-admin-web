@@ -7665,6 +7665,61 @@ function checkTask072CrossPlatformSync() {
   }
 }
 
+function checkTask094PosCatalogImportSync() {
+  const routePath = "src/app/api/pos/catalog/import-sync/route.ts";
+  const servicePath = "src/server/pos-auth/catalog-import-sync.ts";
+  const ackReplayMigrationPath =
+    "supabase/migrations/20260706143000_task_094_pos_catalog_import_ack_replay.sql";
+  const route = optionalRead(routePath);
+  const service = optionalRead(servicePath);
+  const ackReplayMigration = optionalRead(ackReplayMigrationPath);
+
+  if (!route || !service || !ackReplayMigration) {
+    addFailure("TASK-094 POS catalog import sync artifacts are missing");
+    return;
+  }
+
+  if (!/import "server-only"/.test(service)) {
+    addFailure(`${servicePath} must remain server-only`);
+  }
+
+  if (/createSupabaseAdminClient|SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(route)) {
+    addFailure(`${routePath} must not expose Supabase admin/service-role access`);
+  }
+
+  if (!/\.rpc\("pos_catalog_import_apply_v2"/.test(service)) {
+    addFailure(`${servicePath} must call the durable TASK-094 RPC v2`);
+  }
+
+  if (
+    /\.from\("inventory_(products|product_prices|categories|suppliers)"\)[\s\S]{0,240}\.(insert|update|upsert|delete)\s*\(/.test(
+      service,
+    )
+  ) {
+    addFailure(
+      `${servicePath} must not write POS catalog import rows outside the transactional RPC`,
+    );
+  }
+
+  if (/metadata_redacted:[\s\S]{0,160}(deviceToken|sessionToken|device_token|session_token)/.test(service)) {
+    addFailure(`${servicePath} must not write POS tokens into redacted metadata`);
+  }
+
+  for (const requiredSnippet of [
+    "add column if not exists ack_response",
+    "create or replace function public.pos_catalog_import_apply_v2",
+    "hashtext(p_client_import_id)",
+    "hashtext(p_idempotency_key)",
+    "v_existing.ack_response",
+    "set ack_response = v_result",
+    "grant execute on function public.pos_catalog_import_apply_v2",
+  ]) {
+    if (!ackReplayMigration.includes(requiredSnippet)) {
+      addFailure(`${ackReplayMigrationPath} must include ${requiredSnippet}`);
+    }
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -7714,6 +7769,7 @@ checkTask058CloudflareOpenNextHardening();
 checkTask065GoogleOauthRedirect();
 checkTask064PlatformUsersFoundation();
 checkTask072CrossPlatformSync();
+checkTask094PosCatalogImportSync();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

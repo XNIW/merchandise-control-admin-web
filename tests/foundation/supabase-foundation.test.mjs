@@ -53,7 +53,13 @@ test("package scripts wire the static security harness into verify", () => {
   const pkg = JSON.parse(readProjectFile("package.json"));
 
   assert.equal(pkg.scripts["security:scan"], "node scripts/security-checks.mjs");
-  assert.match(pkg.scripts.verify, /security:scan/);
+
+  if (/security:scan/.test(pkg.scripts.verify)) {
+    return;
+  }
+
+  assert.match(pkg.scripts.verify, /scripts\/verify\.mjs/);
+  assert.match(readProjectFile("scripts/verify.mjs"), /scripts\/security-checks\.mjs/);
 });
 
 test("typecheck regenerates Next route types before TypeScript validation", () => {

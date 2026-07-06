@@ -866,7 +866,7 @@ async function applyCatalogImport(
   | { applied: AppliedCatalogImport; error?: never }
   | { applied?: never; error: "conflict" | "db_failure" | "validation_failed" }
 > {
-  const result = await supabase.rpc("pos_catalog_import_apply_v1", {
+  const result = await supabase.rpc("pos_catalog_import_apply_v2", {
     p_batch_created_at: parsed.batchCreatedAt,
     p_client_import_id: parsed.clientImportId,
     p_idempotency_key: parsed.idempotencyKey,

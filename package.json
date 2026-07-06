@@ -23,7 +23,7 @@
     "lint": "eslint",
     "i18n:check": "node scripts/i18n-contract-scan.mjs",
     "typecheck": "next typegen && node -e \"require('node:fs').rmSync('.next/types', { recursive: true, force: true })\" && tsc --noEmit",
-    "verify": "npm run lint && npm run typecheck && npm run security:scan && npm run build",
+    "verify": "node scripts/verify.mjs",
     "verify:task072:devices": "node scripts/verify-task-072-device-supabase.mjs",
     "security:scan": "node scripts/security-checks.mjs",
     "staging:check": "node scripts/staging-readiness-check.mjs",

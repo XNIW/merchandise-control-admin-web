@@ -67,7 +67,7 @@ test("TASK-094 catalog import service validates POS auth, idempotency and catalo
     "idempotencyKey",
     "payloadHash",
     "payload_hash",
-    "pos_catalog_import_apply_v1",
+    "pos_catalog_import_apply_v2",
     "conflict",
     "sourceFileNameIsSafe",
     "SENSITIVE_TEXT_PATTERN",
@@ -100,6 +100,9 @@ test("TASK-094 migrations store import batches and apply them transactionally", 
   );
   const applyMigration = readProjectFile(
     "supabase/migrations/20260706120000_task_094_pos_catalog_import_apply_rpc.sql",
+  );
+  const ackReplayMigration = readProjectFile(
+    "supabase/migrations/20260706143000_task_094_pos_catalog_import_ack_replay.sql",
   );
   const databaseTypes = readProjectFile("src/lib/supabase/database.types.ts");
 
@@ -139,6 +142,24 @@ test("TASK-094 migrations store import batches and apply them transactionally", 
     "to service_role",
     "commit;",
   ]);
+  assertContainsAll(ackReplayMigration, [
+    "add column if not exists ack_response jsonb not null default '{}'::jsonb",
+    "create or replace function public.pos_catalog_import_apply_v2",
+    "pg_advisory_xact_lock",
+    "hashtext(p_client_import_id)",
+    "hashtext(p_idempotency_key)",
+    "ack_response",
+    "public.pos_catalog_import_apply_v1",
+    "set ack_response = v_result",
+    "grant execute on function public.pos_catalog_import_apply_v2",
+    "to service_role",
+    "commit;",
+  ]);
+  assert.match(
+    ackReplayMigration,
+    /if v_existing\.status in \('accepted', 'duplicate', 'idempotent'\)[\s\S]*ack_response[\s\S]*return jsonb_set/,
+    "duplicate ACKs must replay the persisted ACK response instead of reconstructing from mutable catalog rows",
+  );
   assert.doesNotMatch(
     applyMigration,
     /insert into public\.sync_events[\s\S]{0,800}values\s*\([\s\r\n]*p_client_import_id,/,
@@ -154,5 +175,7 @@ test("TASK-094 migrations store import batches and apply them transactionally", 
     "source: string",
     "status: string",
     "metadata_redacted: Json",
+    "ack_response: Json",
+    "pos_catalog_import_apply_v2: {",
   ]);
 });

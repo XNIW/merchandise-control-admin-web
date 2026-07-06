@@ -1248,6 +1248,7 @@ export type Database = {
       }
       pos_catalog_import_batches: {
         Row: {
+          ack_response: Json
           accepted_item_count: number
           client_import_id: string
           conflict_count: number
@@ -1269,6 +1270,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          ack_response?: Json
           accepted_item_count?: number
           client_import_id: string
           conflict_count?: number
@@ -1290,6 +1292,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          ack_response?: Json
           accepted_item_count?: number
           client_import_id?: string
           conflict_count?: number
@@ -2657,6 +2660,25 @@ export type Database = {
     }
     Functions: {
       pos_catalog_import_apply_v1: {
+        Args: {
+          p_batch_created_at: string
+          p_client_import_id: string
+          p_idempotency_key: string
+          p_items: Json
+          p_metadata_redacted?: Json
+          p_owner_user_id: string
+          p_payload_hash: string
+          p_pos_session_id: string
+          p_schema_version: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_source: string
+          p_staff_id: string
+          p_summary?: Json
+        }
+        Returns: Json
+      }
+      pos_catalog_import_apply_v2: {
         Args: {
           p_batch_created_at: string
           p_client_import_id: string
