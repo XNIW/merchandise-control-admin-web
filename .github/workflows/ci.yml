@@ -82,6 +82,7 @@ jobs:
       STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
       SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_POOLER_HOST: ${{ vars.SUPABASE_POOLER_HOST || vars.STAGING_SUPABASE_POOLER_HOST }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       TASK094_POS_E2E_ALLOW_STAGING: "yes"
       TASK094_POS_E2E_BASE_URL: ${{ vars.CLOUDFLARE_STAGING_URL }}
@@ -125,22 +126,70 @@ jobs:
       - name: Push Supabase staging migrations
         run: |
           set -euo pipefail
-          SUPABASE_DB_URL="$(
+          npx --yes supabase@2.109.0 --version
+          mapfile -t SUPABASE_POOLER_HOSTS < <(
             node <<'NODE'
+          const explicit = (process.env.SUPABASE_POOLER_HOST || "").trim();
+          const regions = [
+            "sa-east-1",
+            "us-east-1",
+            "us-west-1",
+            "us-west-2",
+            "ca-central-1",
+            "eu-west-1",
+            "eu-west-2",
+            "eu-west-3",
+            "eu-central-1",
+            "eu-north-1",
+            "ap-south-1",
+            "ap-southeast-1",
+            "ap-southeast-2",
+            "ap-northeast-1",
+            "ap-northeast-2",
+            "ap-east-1",
+            "me-central-1",
+            "af-south-1",
+          ];
+          const hosts = explicit
+            ? [explicit]
+            : regions.map((region) => `aws-0-${region}.pooler.supabase.com`);
+          for (const host of hosts) {
+            console.log(host);
+          }
+          NODE
+          )
+
+          SUPABASE_DB_URL=""
+          for poolerHost in "${SUPABASE_POOLER_HOSTS[@]}"; do
+            candidate="$(
+              SUPABASE_POOLER_HOST="$poolerHost" node <<'NODE'
           const password = process.env.SUPABASE_DB_PASSWORD || "";
           const projectRef = process.env.SUPABASE_PROJECT_REF || "";
+          const poolerHost = process.env.SUPABASE_POOLER_HOST || "";
 
-          if (!password || !projectRef) {
+          if (!password || !projectRef || !poolerHost) {
             console.error("Missing Supabase DB push inputs.");
             process.exit(1);
           }
 
           process.stdout.write(
-            `postgresql://postgres:${encodeURIComponent(password)}@db.${projectRef}.supabase.co:5432/postgres`,
+            `postgresql://postgres.${projectRef}:${encodeURIComponent(password)}@${poolerHost}:6543/postgres?sslmode=require`,
           );
           NODE
-          )"
-          npx --yes supabase@2.109.0 --version
+            )"
+            if timeout 30s npx --yes supabase@2.109.0 db push --dry-run --db-url "$candidate" --yes >"$RUNNER_TEMP/supabase-db-push-dry-run.log" 2>&1; then
+              SUPABASE_DB_URL="$candidate"
+              echo "Supabase transaction pooler selected: $poolerHost"
+              break
+            fi
+          done
+
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "No Supabase IPv4 transaction pooler host accepted the staging credentials."
+            sed -E 's#postgresql://[^[:space:]]+#postgresql://[REDACTED]#g' "$RUNNER_TEMP/supabase-db-push-dry-run.log" || true
+            exit 1
+          fi
+
           npx --yes supabase@2.109.0 db push --db-url "$SUPABASE_DB_URL" --yes
 
       - name: Run TASK-094 catalog import staging E2E
