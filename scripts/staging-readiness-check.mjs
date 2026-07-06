@@ -9,8 +9,14 @@ const WORKERS_DEV_URL =
 const POS_ENDPOINTS = [
   "/api/pos/auth/first-login",
   "/api/pos/session/heartbeat",
+  "/api/pos/catalog/import-sync",
   "/api/pos/catalog/pull",
   "/api/pos/sales/sync",
+];
+const REQUIRED_TASK094_MIGRATIONS = [
+  "20260705120000",
+  "20260706120000",
+  "20260706143000",
 ];
 const SENSITIVE_PATTERN =
   /\b(stack|trace|SUPABASE_SERVICE_ROLE_KEY|service_role|mcpos_(?:device|session)_[A-Za-z0-9_-]+|trustedDeviceToken|sessionToken|deviceToken|pin|password)\b/i;
@@ -190,7 +196,21 @@ function runSupabaseLinkedCheck() {
     return;
   }
 
-  addResult("Supabase linked migrations", "PASS", true);
+  const missing = REQUIRED_TASK094_MIGRATIONS.filter(
+    (version) => !migrations.stdout.includes(version),
+  );
+
+  if (missing.length > 0) {
+    addResult(
+      "Supabase linked migrations",
+      "FAIL",
+      true,
+      `missing TASK-094 migrations: ${missing.join(", ")}`,
+    );
+    return;
+  }
+
+  addResult("Supabase linked migrations", "PASS", true, "TASK-094 migrations present");
 }
 
 async function checkTask032Cleanup() {

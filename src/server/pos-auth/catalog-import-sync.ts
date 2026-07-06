@@ -81,8 +81,10 @@ export type PosCatalogImportEndpointResult =
   | {
       body: {
         batch: {
+          attemptCount: number;
           clientImportId: string;
           idempotencyKey: string;
+          payloadHash: string;
           posCatalogImportBatchId: string;
           serverImportId: string;
           serverRequestId: string;
@@ -152,6 +154,7 @@ type ParsedCatalogImportItem = {
 
 type ParsedCatalogImportInput = {
   appVersion?: string;
+  attemptCount: number;
   batchCreatedAt: string;
   clientImportId: string;
   declaredPayloadHash?: string;
@@ -472,6 +475,7 @@ function parseCatalogImportInput(input: unknown): ParsedCatalogImportInput | nul
     stringField(batch, "sourceFileName", "source_file_name"),
     120,
   );
+  const attemptCount = integerField(batch, "attemptCount", "attempt_count") ?? 0;
   const deviceToken = stringField(input, "deviceToken", "device_token");
   const sessionToken = stringField(input, "sessionToken", "session_token");
   const posSessionId = stringField(input, "posSessionId", "pos_session_id");
@@ -486,6 +490,7 @@ function parseCatalogImportInput(input: unknown): ParsedCatalogImportInput | nul
     !batchCreatedAt ||
     !clientImportId ||
     !idempotencyKey ||
+    attemptCount <= 0 ||
     !sourceFileNameIsSafe(sourceFileName) ||
     !UUID_PATTERN.test(posSessionId) ||
     !UUID_PATTERN.test(shopDeviceId) ||
@@ -562,6 +567,7 @@ function parseCatalogImportInput(input: unknown): ParsedCatalogImportInput | nul
 
   return {
     appVersion,
+    attemptCount,
     batchCreatedAt,
     clientImportId,
     declaredPayloadHash: declaredPayloadHash || undefined,
@@ -1009,8 +1015,10 @@ function successResponse(input: {
   return {
     body: {
       batch: {
+        attemptCount: input.parsed.attemptCount,
         clientImportId: input.parsed.clientImportId,
         idempotencyKey: input.parsed.idempotencyKey,
+        payloadHash: input.parsed.declaredPayloadHash ?? input.parsed.payloadHash,
         posCatalogImportBatchId: input.applied.batchId,
         serverImportId,
         serverRequestId,
