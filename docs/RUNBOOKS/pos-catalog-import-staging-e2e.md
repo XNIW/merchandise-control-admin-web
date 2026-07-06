@@ -1,30 +1,30 @@
 # POS catalog import staging E2E runbook
 
-Status date: 2026-07-06 UTC / 2026-07-05 host locale
+Status date: 2026-07-06 UTC
 
-Current status: `READY_FOR_STAGING_E2E_AFTER_OWNER_SECRET`
+Current status: `READY_FOR_STAGING_DEPLOY_PIPELINE_E2E`
 
 ## Verified in this environment
 
 | Area | Status | Evidence |
 | --- | --- | --- |
-| Workers staging deploy | `PASS` | GitHub Actions workflow `cloudflare.yml`, run `28763455797`, conclusion `success`; deploy job `85283293516`. |
-| Workers live version | `PASS` | Current staging Version ID `2daadf35-036c-491e-9ecc-944fbc4def68`. |
+| Workers staging deploy | `ROLLBACK_TO_PREVIOUS` | Manual Windows/OpenNext deploy of the TASK-094 branch produced Version ID `a8f1084b-6c74-424f-96cc-93f6b0b03e8b` but the direct temp-config deploy did not preserve POS env bindings; staging was rolled back immediately. |
+| Workers live version | `PASS_ROLLBACK` | Current staging Version ID `04c0c595-ef3b-4af8-81b3-5c142272d110` after rollback. |
 | Workers URL | `PASS` | `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev` |
-| GET import-sync | `PASS` | `405 method_not_allowed`, `cache-control: no-store`, request id `posreq_fe7908b0-9bb7-4cd6-aa15-2a833d61c41a`. |
+| GET import-sync | `PENDING_CURRENT_CODE_DEPLOY` | After rollback, the previous staging worker does not yet include `/api/pos/catalog/import-sync` and returns `404`; deploy the branch through the normal env-preserving pipeline before the positive E2E. |
 | POST empty body | `PASS` | `400 validation_failed`, `cache-control: no-store`, request id `posreq_60fcdfac-a76a-4815-bf2f-c811088ecfbf`. |
 | POST invalid auth | `PASS` | `401 auth_denied`, `cache-control: no-store`, request id `posreq_63a1019e-697f-46d8-b4f5-8d2353323c8d`. |
-| Supabase CLI | `PASS` | `supabase 2.109.0`; `node scripts/check-supabase-tooling.mjs` passes on Windows. |
+| Supabase CLI | `PASS` | `pnpm dlx supabase`; `supabase link --project-ref jpgoimipbothfgkokyvm`; `supabase db push --linked`. |
 | Staging Supabase config | `CONFIGURED_MASKED` | Project ref `jpgoimipbothfgkokyvm`; host `jpgoimipbothfgkokyvm.supabase.co`; repo/env variables and Cloudflare staging secrets present by name. |
+| TASK-094 migrations on staging | `PASS_APPLIED` | Remote migration list includes `20260705120000` and `20260706120000`; `public.pos_catalog_import_apply_v1(...)` exists as `SECURITY DEFINER`, `service_role` has `EXECUTE`, `anon/authenticated` do not. |
 | Admin local verify | `PASS` | `npm run security:scan`, `npm run test:foundation`, `npm run typecheck`, `npm run lint`, `npm run build`, `npm run verify`. |
 
 ## Remaining owner-gated inputs
 
 | Gate | Current status | Next action |
 | --- | --- | --- |
-| Supabase CLI login | `SUPABASE_OWNER_PERMISSION_REQUIRED` | Complete `supabase login --no-browser --output-format text`; then run linked migration commands below. |
-| TASK-094 migration on staging | `PENDING_SUPABASE_OWNER_AUTH` | Apply `supabase/migrations/20260705120000_task_094_pos_catalog_import_sync.sql` with `supabase db push --linked`. |
-| Positive staging E2E dataset/session | `PENDING_SUPABASE_OWNER_AUTH` | Seed/create synthetic staging shop/staff/device and save a local session JSON in `C:\Temp`. |
+| Current-code Cloudflare deploy | `PIPELINE_REQUIRED` | Deploy `fix/pos-catalog-import-sync-api` with the normal Cloudflare/OpenNext pipeline that preserves staging secrets/bindings. Do not use the Windows temp-config deploy path for final validation. |
+| Positive staging E2E dataset/session | `PENDING_CURRENT_CODE_DEPLOY` | Seed/create synthetic staging shop/staff/device and save a local session JSON in `C:\Temp` after the route is live. |
 | Windows 7 physical runtime | `WIN7_PHYSICAL_MACHINE_REQUIRED` | Run the downloaded Win7POS GitHub artifact on a Win7 SP1 machine/VM. |
 
 ## Required staging inputs
@@ -52,9 +52,13 @@ $env:TASK032_POS_E2E_TEST_RUN_ID = "STG0706"
 
 ## Deploy and migration gate
 
-Cloudflare staging deploy is already `PASS`. Re-run only if code changes.
+Cloudflare staging deploy of the current branch must run through the normal
+env-preserving pipeline. A Windows/manual OpenNext deploy with a temporary
+config was rolled back because the resulting worker returned 500 on POS routes,
+which indicates missing runtime bindings/secrets.
 
-After Supabase owner auth:
+Supabase migrations are already applied to staging/dev. Re-run only if migration
+history drifts:
 
 ```powershell
 supabase projects list
@@ -70,6 +74,7 @@ Expected status before Win7POS E2E:
 - `db-staging` reports staging URL/project ref allowlisted.
 - `staging-readiness-check` reports public smoke, linked migrations, cleanup active zero and POS staging harness dry-run as `PASS`.
 - `public.pos_catalog_import_batches` exists with RLS forced, grants only to server-side role, and no client/browser access.
+- `public.pos_catalog_import_apply_v1(...)` exists, is executable only by `service_role`, and writes the import ledger, catalog rows, price rows, audit log and `sync_events` transactionally.
 
 ## Admin Web positive POS harness
 
@@ -116,6 +121,8 @@ Expected output:
 - `CATALOG IMPORT SYNC HTTP HARNESS PASS`
 - The local outbox row is `acked`.
 - The staging server records the import batch with schema `pos-catalog-import-v1`.
+- The ACK echoes `batch.clientImportId`, `batch.idempotencyKey`, `serverImportId`, `serverRequestId`, `remoteProductIds` and `remotePriceIds`.
+- Returned remote product/price ids are saved locally; if a server response lacks ids, the next catalog pull reconciles barcode to `remote_product_id`.
 - No token, PIN, password or service-role key is printed.
 
 ## Closure statuses

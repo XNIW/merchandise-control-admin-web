@@ -1,12 +1,12 @@
 import "server-only";
 
-import { createHash, randomUUID } from "node:crypto";
+import { createHash } from "node:crypto";
 import {
   createSupabaseAdminClient,
   resolveSupabaseAdminConfig,
   type SupabaseAdminClient,
 } from "@/lib/supabase/admin";
-import type { Json, Tables, TablesInsert } from "@/lib/supabase/database.types";
+import type { Json, Tables } from "@/lib/supabase/database.types";
 import {
   buildPosShopPayload,
   POS_SHOP_SELECT,
@@ -61,38 +61,6 @@ type InventorySourceRow = Pick<
   Tables<"shop_inventory_sources">,
   "mapping_state" | "owner_user_id" | "shop_id"
 >;
-type ProductRow = Pick<
-  Tables<"inventory_products">,
-  | "barcode"
-  | "category_id"
-  | "id"
-  | "item_number"
-  | "owner_user_id"
-  | "product_name"
-  | "purchase_price"
-  | "retail_price"
-  | "second_product_name"
-  | "shop_id"
-  | "stock_quantity"
-  | "supplier_id"
->;
-type CategoryRow = Pick<
-  Tables<"inventory_categories">,
-  "id" | "name" | "owner_user_id" | "shop_id"
->;
-type SupplierRow = Pick<
-  Tables<"inventory_suppliers">,
-  "id" | "name" | "owner_user_id" | "shop_id"
->;
-type ExistingImportBatchRow = Pick<
-  Tables<"pos_catalog_import_batches">,
-  | "client_import_id"
-  | "idempotency_key"
-  | "payload_hash"
-  | "pos_catalog_import_batch_id"
-  | "status"
->;
-
 type PosCatalogImportFailureCode =
   | "auth_denied"
   | "conflict"
@@ -114,17 +82,39 @@ export type PosCatalogImportEndpointResult =
       body: {
         batch: {
           clientImportId: string;
+          idempotencyKey: string;
           posCatalogImportBatchId: string;
+          serverImportId: string;
+          serverRequestId: string;
           status: "accepted" | "duplicate" | "idempotent";
         };
         code: "success";
         items: Array<{
+          barcode?: string;
           clientItemId: string;
           code?: string;
+          priceType?: "purchase" | "retail";
+          remotePriceId?: string;
           remoteProductId?: string;
           status: "accepted" | "duplicate" | "skipped";
         }>;
+        nextAction: "catalog_pull";
         ok: true;
+        pullRequired: true;
+        remotePriceIds: Array<{
+          barcode: string;
+          clientItemId: string;
+          priceType: "purchase" | "retail";
+          remotePriceId: string;
+          remoteProductId?: string;
+        }>;
+        remoteProductIds: Array<{
+          barcode: string;
+          clientItemId: string;
+          remoteProductId: string;
+        }>;
+        serverImportId: string;
+        serverRequestId: string;
         serverTime: string;
         shop: PosShopPayload;
         summary: {
@@ -194,12 +184,30 @@ type PosCatalogImportAuthContext = {
 
 type AppliedCatalogImport = {
   acceptedItemCount: number;
+  batchId: string;
+  duplicateItemCount: number;
   items: Array<{
+    barcode?: string;
     clientItemId: string;
+    priceType?: "purchase" | "retail";
+    remotePriceId?: string;
     remoteProductId?: string;
-    status: "accepted" | "skipped";
+    status: "accepted" | "duplicate" | "skipped";
   }>;
   productCount: number;
+  remotePriceIds: Array<{
+    barcode: string;
+    clientItemId: string;
+    priceType: "purchase" | "retail";
+    remotePriceId: string;
+    remoteProductId?: string;
+  }>;
+  remoteProductIds: Array<{
+    barcode: string;
+    clientItemId: string;
+    remoteProductId: string;
+  }>;
+  status: "accepted" | "duplicate" | "idempotent";
 };
 
 const UUID_PATTERN =
@@ -311,17 +319,6 @@ function parseIsoTimestamp(value: string) {
   }
 
   return new Date(timestamp).toISOString();
-}
-
-function catalogTimestampText(value: string) {
-  const date = new Date(value);
-  const pad = (part: number) => String(part).padStart(2, "0");
-
-  return `${date.getUTCFullYear()}-${pad(date.getUTCMonth() + 1)}-${pad(
-    date.getUTCDate(),
-  )} ${pad(date.getUTCHours())}:${pad(date.getUTCMinutes())}:${pad(
-    date.getUTCSeconds(),
-  )}`;
 }
 
 function stableHash(value: unknown) {
@@ -860,434 +857,186 @@ async function validatePosCatalogImportAuth(
   };
 }
 
-async function findExistingImportBatch(
-  supabase: SupabaseAdminClient,
-  parsed: ParsedCatalogImportInput,
-  session: PosSessionRow,
-) {
-  const [byIdempotency, byClientImport] = await Promise.all([
-    supabase
-      .from("pos_catalog_import_batches")
-      .select(
-        "pos_catalog_import_batch_id,client_import_id,idempotency_key,payload_hash,status",
-      )
-      .eq("shop_id", session.shop_id)
-      .eq("shop_device_id", session.shop_device_id)
-      .eq("idempotency_key", parsed.idempotencyKey)
-      .maybeSingle<ExistingImportBatchRow>(),
-    supabase
-      .from("pos_catalog_import_batches")
-      .select(
-        "pos_catalog_import_batch_id,client_import_id,idempotency_key,payload_hash,status",
-      )
-      .eq("shop_id", session.shop_id)
-      .eq("shop_device_id", session.shop_device_id)
-      .eq("client_import_id", parsed.clientImportId)
-      .maybeSingle<ExistingImportBatchRow>(),
-  ]);
-
-  if (byIdempotency.error || byClientImport.error) {
-    return { data: null, error: byIdempotency.error ?? byClientImport.error };
-  }
-
-  return { data: byIdempotency.data ?? byClientImport.data ?? null, error: null };
-}
-
-async function ensureCatalogNameRow(
-  supabase: SupabaseAdminClient,
-  input: {
-    name: string | null;
-    ownerUserId: string;
-    shopId: string;
-    table: "inventory_categories" | "inventory_suppliers";
-  },
-) {
-  if (!input.name) {
-    return { error: null, id: null };
-  }
-
-  const selectColumns = "id,shop_id,owner_user_id,name";
-  const [shopScoped, legacyScoped] = await Promise.all([
-    supabase
-      .from(input.table)
-      .select(selectColumns)
-      .eq("shop_id", input.shopId)
-      .eq("owner_user_id", input.ownerUserId)
-      .eq("name", input.name)
-      .is("deleted_at", null)
-      .maybeSingle<CategoryRow | SupplierRow>(),
-    supabase
-      .from(input.table)
-      .select(selectColumns)
-      .is("shop_id", null)
-      .eq("owner_user_id", input.ownerUserId)
-      .eq("name", input.name)
-      .is("deleted_at", null)
-      .maybeSingle<CategoryRow | SupplierRow>(),
-  ]);
-
-  if (shopScoped.error || legacyScoped.error) {
-    return { error: shopScoped.error ?? legacyScoped.error, id: null };
-  }
-
-  const existing = shopScoped.data ?? legacyScoped.data;
-
-  if (existing) {
-    return { error: null, id: existing.id };
-  }
-
-  const insertResult = await supabase
-    .from(input.table)
-    .insert({
-      name: input.name,
-      owner_user_id: input.ownerUserId,
-      shop_id: input.shopId,
-      updated_at: new Date().toISOString(),
-    })
-    .select("id")
-    .maybeSingle<Pick<CategoryRow | SupplierRow, "id">>();
-
-  return {
-    error: insertResult.error,
-    id: insertResult.data?.id ?? null,
-  };
-}
-
-async function loadExistingProductsByBarcode(
-  supabase: SupabaseAdminClient,
-  input: {
-    barcodes: readonly string[];
-    ownerUserId: string;
-    shopId: string;
-  },
-) {
-  if (input.barcodes.length === 0) {
-    return { error: null, rows: [] as ProductRow[] };
-  }
-
-  const columns =
-    "id,shop_id,owner_user_id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id";
-  const [shopScoped, legacyScoped] = await Promise.all([
-    supabase
-      .from("inventory_products")
-      .select(columns)
-      .eq("shop_id", input.shopId)
-      .eq("owner_user_id", input.ownerUserId)
-      .in("barcode", input.barcodes)
-      .is("deleted_at", null),
-    supabase
-      .from("inventory_products")
-      .select(columns)
-      .is("shop_id", null)
-      .eq("owner_user_id", input.ownerUserId)
-      .in("barcode", input.barcodes)
-      .is("deleted_at", null),
-  ]);
-
-  if (shopScoped.error || legacyScoped.error) {
-    return { error: shopScoped.error ?? legacyScoped.error, rows: [] };
-  }
-
-  return {
-    error: null,
-    rows: [
-      ...((shopScoped.data ?? []) as ProductRow[]),
-      ...((legacyScoped.data ?? []) as ProductRow[]),
-    ],
-  };
-}
-
-async function insertPriceRows(
-  supabase: SupabaseAdminClient,
-  input: {
-    batchCreatedAt: string;
-    ownerUserId: string;
-    rows: Array<{
-      productId: string;
-      purchasePrice: number | null;
-      retailPrice: number | null;
-      shopId: string | null;
-    }>;
-  },
-) {
-  const effectiveAt = catalogTimestampText(input.batchCreatedAt);
-  const createdAt = catalogTimestampText(new Date().toISOString());
-  const priceRows: Array<TablesInsert<"inventory_product_prices">> = [];
-
-  for (const row of input.rows) {
-    if (row.purchasePrice !== null) {
-      priceRows.push({
-        created_at: createdAt,
-        effective_at: effectiveAt,
-        id: randomUUID(),
-        owner_user_id: input.ownerUserId,
-        price: row.purchasePrice,
-        product_id: row.productId,
-        shop_id: row.shopId,
-        source: "pos_supplier_excel",
-        type: "PURCHASE",
-      });
-    }
-
-    if (row.retailPrice !== null) {
-      priceRows.push({
-        created_at: createdAt,
-        effective_at: effectiveAt,
-        id: randomUUID(),
-        owner_user_id: input.ownerUserId,
-        price: row.retailPrice,
-        product_id: row.productId,
-        shop_id: row.shopId,
-        source: "pos_supplier_excel",
-        type: "RETAIL",
-      });
-    }
-  }
-
-  if (priceRows.length === 0) {
-    return null;
-  }
-
-  const { error } = await supabase.from("inventory_product_prices").insert(priceRows);
-  return error;
-}
-
 async function applyCatalogImport(
   supabase: SupabaseAdminClient,
   parsed: ParsedCatalogImportInput,
   context: PosCatalogImportAuthContext,
+  meta: PosCatalogImportRequestMeta,
 ): Promise<
   | { applied: AppliedCatalogImport; error?: never }
-  | { applied?: never; error: "db_failure" | "validation_failed" }
+  | { applied?: never; error: "conflict" | "db_failure" | "validation_failed" }
 > {
-  const writeItems = parsed.items.filter(
-    (item) => item.changeKind === "new" || item.changeKind === "updated",
-  );
-  const barcodes = Array.from(new Set(writeItems.map((item) => item.barcode)));
-  const productsResult = await loadExistingProductsByBarcode(supabase, {
-    barcodes,
-    ownerUserId: context.ownerUserId,
-    shopId: context.session.shop_id,
+  const result = await supabase.rpc("pos_catalog_import_apply_v1", {
+    p_batch_created_at: parsed.batchCreatedAt,
+    p_client_import_id: parsed.clientImportId,
+    p_idempotency_key: parsed.idempotencyKey,
+    p_items: parsed.items as unknown as Json,
+    p_metadata_redacted: requestMetadata(meta) as Json,
+    p_owner_user_id: context.ownerUserId,
+    p_payload_hash: parsed.payloadHash,
+    p_pos_session_id: context.session.pos_session_id,
+    p_schema_version: parsed.schemaVersion,
+    p_shop_device_id: context.session.shop_device_id,
+    p_shop_id: context.session.shop_id,
+    p_source: parsed.source,
+    p_staff_id: context.staff.staff_id,
+    p_summary: parsed.summary as unknown as Json,
   });
 
-  if (productsResult.error) {
+  if (result.error || !isRecord(result.data)) {
     return { error: "db_failure" };
   }
 
-  const productByBarcode = new Map(
-    productsResult.rows.map((row) => [row.barcode.toUpperCase(), row]),
-  );
-  const priceInputs: Parameters<typeof insertPriceRows>[1]["rows"] = [];
-  const itemAcks: AppliedCatalogImport["items"] = [];
-  let acceptedItemCount = 0;
-
-  for (const item of parsed.items) {
-    if (item.changeKind === "skipped" || item.changeKind === "no_change") {
-      itemAcks.push({ clientItemId: item.clientItemId, status: "skipped" });
-      continue;
-    }
-
-    const existing = productByBarcode.get(item.barcode.toUpperCase()) ?? null;
-    const [categoryResult, supplierResult] = await Promise.all([
-      ensureCatalogNameRow(supabase, {
-        name: item.category,
-        ownerUserId: context.ownerUserId,
-        shopId: context.session.shop_id,
-        table: "inventory_categories",
-      }),
-      ensureCatalogNameRow(supabase, {
-        name: item.supplier,
-        ownerUserId: context.ownerUserId,
-        shopId: context.session.shop_id,
-        table: "inventory_suppliers",
-      }),
-    ]);
-
-    if (categoryResult.error || supplierResult.error) {
-      return { error: "db_failure" };
-    }
-
-    const nextProduct = {
-      barcode: item.barcode,
-      category_id: categoryResult.id ?? existing?.category_id ?? null,
-      deleted_at: null,
-      item_number: item.itemNumber ?? existing?.item_number ?? null,
-      owner_user_id: context.ownerUserId,
-      product_name: item.productName ?? existing?.product_name ?? item.barcode,
-      purchase_price: item.purchasePrice ?? existing?.purchase_price ?? null,
-      retail_price: item.retailPrice ?? existing?.retail_price ?? null,
-      second_product_name:
-        item.secondProductName ?? existing?.second_product_name ?? null,
-      shop_id: existing?.shop_id ?? context.session.shop_id,
-      stock_quantity: item.quantity ?? existing?.stock_quantity ?? null,
-      supplier_id: supplierResult.id ?? existing?.supplier_id ?? null,
-      updated_at: new Date().toISOString(),
+  const data = result.data;
+  if (data.ok !== true) {
+    const code = stringField(data, "code");
+    return {
+      error:
+        code === "conflict"
+          ? "conflict"
+          : code === "validation_failed"
+            ? "validation_failed"
+            : "db_failure",
     };
-    let productId: string;
-
-    if (existing) {
-      const updateResult = await supabase
-        .from("inventory_products")
-        .update(nextProduct)
-        .eq("id", existing.id)
-        .eq("owner_user_id", context.ownerUserId)
-        .select("id,shop_id,owner_user_id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id")
-        .maybeSingle<ProductRow>();
-
-      if (updateResult.error || !updateResult.data) {
-        return { error: "db_failure" };
-      }
-
-      productId = updateResult.data.id;
-      productByBarcode.set(item.barcode.toUpperCase(), updateResult.data);
-    } else {
-      const insertResult = await supabase
-        .from("inventory_products")
-        .insert(nextProduct)
-        .select("id,shop_id,owner_user_id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id")
-        .maybeSingle<ProductRow>();
-
-      if (insertResult.error || !insertResult.data) {
-        return { error: "db_failure" };
-      }
-
-      productId = insertResult.data.id;
-      productByBarcode.set(item.barcode.toUpperCase(), insertResult.data);
-    }
-
-    priceInputs.push({
-      productId,
-      purchasePrice:
-        item.purchasePrice !== null && item.purchasePrice !== existing?.purchase_price
-          ? item.purchasePrice
-          : null,
-      retailPrice:
-        item.retailPrice !== null && item.retailPrice !== existing?.retail_price
-          ? item.retailPrice
-          : null,
-      shopId: nextProduct.shop_id,
-    });
-    itemAcks.push({
-      clientItemId: item.clientItemId,
-      remoteProductId: productId,
-      status: "accepted",
-    });
-    acceptedItemCount++;
   }
 
-  const priceError = await insertPriceRows(supabase, {
-    batchCreatedAt: parsed.batchCreatedAt,
-    ownerUserId: context.ownerUserId,
-    rows: priceInputs,
-  });
-
-  if (priceError) {
-    return { error: "db_failure" };
-  }
+  const summary = childRecord(data, "summary");
+  const status = stringField(data, "status");
 
   return {
     applied: {
-      acceptedItemCount,
-      items: itemAcks,
-      productCount: writeItems.length,
+      acceptedItemCount: integerField(summary, "acceptedItemCount") ?? 0,
+      batchId: stringField(data, "batchId"),
+      duplicateItemCount: integerField(summary, "duplicateItemCount") ?? 0,
+      items: parseAppliedItems(data.items),
+      productCount: integerField(summary, "productCount") ?? 0,
+      remotePriceIds: parseRemotePriceIds(data.remotePriceIds),
+      remoteProductIds: parseRemoteProductIds(data.remoteProductIds),
+      status:
+        status === "duplicate" || status === "idempotent" ? status : "accepted",
     },
   };
 }
 
-async function createProcessingBatch(
-  supabase: SupabaseAdminClient,
-  parsed: ParsedCatalogImportInput,
-  context: PosCatalogImportAuthContext,
-  meta: PosCatalogImportRequestMeta,
-) {
-  const insert: TablesInsert<"pos_catalog_import_batches"> = {
-    client_import_id: parsed.clientImportId,
-    idempotency_key: parsed.idempotencyKey,
-    metadata_redacted: {
-      ...requestMetadata(meta),
-      app_version_present: Boolean(parsed.appVersion),
-      declared_payload_hash_present: Boolean(parsed.declaredPayloadHash),
-      item_count: parsed.items.length,
-      source_file_present: Boolean(parsed.sourceFileName),
-      summary_new_products: parsed.summary.newProducts,
-      summary_updated_products: parsed.summary.updatedProducts,
-    },
-    payload_hash: parsed.payloadHash,
-    pos_session_id: context.session.pos_session_id,
-    product_count: 0,
-    schema_version: parsed.schemaVersion,
-    shop_device_id: context.session.shop_device_id,
-    shop_id: context.session.shop_id,
-    source: parsed.source,
-    staff_id: context.staff.staff_id,
-    status: "processing",
-  };
-  const result = await supabase
-    .from("pos_catalog_import_batches")
-    .insert(insert)
-    .select("pos_catalog_import_batch_id")
-    .maybeSingle<Pick<Tables<"pos_catalog_import_batches">, "pos_catalog_import_batch_id">>();
+function parseAppliedItems(input: unknown): AppliedCatalogImport["items"] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
 
-  return { error: result.error, id: result.data?.pos_catalog_import_batch_id ?? null };
+  return input
+    .filter(isRecord)
+    .map((item) => {
+      const status = stringField(item, "status");
+      const priceType = normalizedPriceType(stringField(item, "priceType"));
+
+      return {
+        ...(stringField(item, "barcode") ? { barcode: stringField(item, "barcode") } : {}),
+        clientItemId: stringField(item, "clientItemId") || "unknown",
+        ...(priceType ? { priceType } : {}),
+        ...(stringField(item, "remotePriceId")
+          ? { remotePriceId: stringField(item, "remotePriceId") }
+          : {}),
+        ...(stringField(item, "remoteProductId")
+          ? { remoteProductId: stringField(item, "remoteProductId") }
+          : {}),
+        status:
+          status === "duplicate" || status === "skipped" ? status : "accepted",
+      };
+    });
 }
 
-async function updateBatchStatus(
-  supabase: SupabaseAdminClient,
-  input: {
-    acceptedItemCount?: number;
-    batchId: string;
-    duplicateItemCount?: number;
-    productCount?: number;
-    status: "accepted" | "failed" | "processing";
-  },
-) {
-  const { error } = await supabase
-    .from("pos_catalog_import_batches")
-    .update({
-      ...(input.acceptedItemCount !== undefined
-        ? { accepted_item_count: input.acceptedItemCount }
-        : {}),
-      ...(input.duplicateItemCount !== undefined
-        ? { duplicate_item_count: input.duplicateItemCount }
-        : {}),
-      ...(input.productCount !== undefined ? { product_count: input.productCount } : {}),
-      status: input.status,
-      updated_at: new Date().toISOString(),
-    })
-    .eq("pos_catalog_import_batch_id", input.batchId);
+function parseRemoteProductIds(input: unknown): AppliedCatalogImport["remoteProductIds"] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
 
-  return error;
+  return input
+    .filter(isRecord)
+    .map((item) => ({
+      barcode: stringField(item, "barcode"),
+      clientItemId: stringField(item, "clientItemId"),
+      remoteProductId: stringField(item, "remoteProductId"),
+    }))
+    .filter((item) => item.barcode && item.clientItemId && item.remoteProductId);
+}
+
+function parseRemotePriceIds(input: unknown): AppliedCatalogImport["remotePriceIds"] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .filter(isRecord)
+    .map((item) => ({
+      barcode: stringField(item, "barcode"),
+      clientItemId: stringField(item, "clientItemId"),
+      priceType: normalizedPriceType(stringField(item, "priceType")),
+      remotePriceId: stringField(item, "remotePriceId"),
+      ...(stringField(item, "remoteProductId")
+        ? { remoteProductId: stringField(item, "remoteProductId") }
+        : {}),
+    }))
+    .filter(
+      (
+        item,
+      ): item is AppliedCatalogImport["remotePriceIds"][number] =>
+        Boolean(
+          item.barcode &&
+            item.clientItemId &&
+            item.priceType &&
+            item.remotePriceId,
+        ),
+    );
+}
+
+function normalizedPriceType(value: string): "purchase" | "retail" | undefined {
+  const normalized = value.trim().toLowerCase();
+  return normalized === "purchase" || normalized === "retail"
+    ? normalized
+    : undefined;
 }
 
 function successResponse(input: {
   applied: AppliedCatalogImport;
-  batchId: string;
   parsed: ParsedCatalogImportInput;
+  requestId?: string;
   serverTime: string;
   shop: ShopRow;
-  status: "accepted" | "duplicate" | "idempotent";
 }): PosCatalogImportEndpointResult {
+  const serverImportId = input.applied.batchId;
+  const serverRequestId = input.requestId ?? "";
+
   return {
     body: {
       batch: {
         clientImportId: input.parsed.clientImportId,
-        posCatalogImportBatchId: input.batchId,
-        status: input.status,
+        idempotencyKey: input.parsed.idempotencyKey,
+        posCatalogImportBatchId: input.applied.batchId,
+        serverImportId,
+        serverRequestId,
+        status: input.applied.status,
       },
       code: "success",
       items: input.applied.items.map((item) => ({
+        ...(item.barcode ? { barcode: item.barcode } : {}),
         clientItemId: item.clientItemId,
+        ...(item.priceType ? { priceType: item.priceType } : {}),
+        ...(item.remotePriceId ? { remotePriceId: item.remotePriceId } : {}),
         ...(item.remoteProductId ? { remoteProductId: item.remoteProductId } : {}),
-        status: input.status === "accepted" ? item.status : "duplicate",
+        status: input.applied.status === "accepted" ? item.status : "duplicate",
       })),
+      nextAction: "catalog_pull",
       ok: true,
+      pullRequired: true,
+      remotePriceIds: input.applied.remotePriceIds,
+      remoteProductIds: input.applied.remoteProductIds,
+      serverImportId,
+      serverRequestId,
       serverTime: input.serverTime,
       shop: buildPosShopPayload(input.shop),
       summary: {
-        acceptedItemCount:
-          input.status === "accepted" ? input.applied.acceptedItemCount : 0,
-        duplicateItemCount:
-          input.status === "accepted" ? 0 : input.parsed.items.length,
+        acceptedItemCount: input.applied.acceptedItemCount,
+        duplicateItemCount: input.applied.duplicateItemCount,
         productCount: input.applied.productCount,
       },
     },
@@ -1323,103 +1072,13 @@ export async function handlePosCatalogImportSync(
   }
 
   const { session, shop, staff } = auth.context;
-  const existingBatch = await findExistingImportBatch(supabase, parsed, session);
+  const appliedResult = await applyCatalogImport(supabase, parsed, auth.context, meta);
 
-  if (existingBatch.error) {
-    return auditedFailure(supabase, {
-      code: "db_failure",
-      metadata: requestMetadata(meta),
-      shopId: session.shop_id,
-      staffId: staff.staff_id,
-      status: 500,
-      targetId: session.pos_session_id,
-      targetType: "pos_session",
-    });
-  }
-
-  if (existingBatch.data) {
-    const duplicate =
-      existingBatch.data.payload_hash === parsed.payloadHash &&
-      existingBatch.data.client_import_id === parsed.clientImportId &&
-      existingBatch.data.idempotency_key === parsed.idempotencyKey;
-
-    const auditOk = await writePosCatalogImportAudit(supabase, {
-      code: duplicate ? "duplicate_batch" : "conflict_batch",
-      metadata: {
-        ...requestMetadata(meta),
-        item_count: parsed.items.length,
-      },
-      result: duplicate ? "success" : "blocked",
-      severity: duplicate ? "info" : "warning",
-      shopId: session.shop_id,
-      staffId: staff.staff_id,
-      targetId: existingBatch.data.pos_catalog_import_batch_id,
-      targetType: "pos_catalog_import_batch",
-    });
-
-    if (!auditOk) {
-      return failure("db_failure", 500);
-    }
-
-    if (!duplicate) {
+  if (appliedResult.error) {
+    if (appliedResult.error === "conflict") {
       return failure("conflict", 409);
     }
 
-    if (existingBatch.data.status === "processing") {
-      return failure("db_failure", 500);
-    }
-
-    if (existingBatch.data.status !== "failed") {
-      return successResponse({
-        applied: {
-          acceptedItemCount: 0,
-          items: parsed.items.map((item) => ({
-            clientItemId: item.clientItemId,
-            status: "skipped",
-          })),
-          productCount: parsed.items.filter(
-            (item) => item.changeKind === "new" || item.changeKind === "updated",
-          ).length,
-        },
-        batchId: existingBatch.data.pos_catalog_import_batch_id,
-        parsed,
-        serverTime,
-        shop,
-        status: "duplicate",
-      });
-    }
-
-    const markProcessingError = await updateBatchStatus(supabase, {
-      batchId: existingBatch.data.pos_catalog_import_batch_id,
-      status: "processing",
-    });
-
-    if (markProcessingError) {
-      return failure("db_failure", 500);
-    }
-  }
-
-  const batchId =
-    existingBatch.data?.status === "failed"
-      ? existingBatch.data.pos_catalog_import_batch_id
-      : (await createProcessingBatch(supabase, parsed, auth.context, meta)).id;
-
-  if (!batchId) {
-    return auditedFailure(supabase, {
-      code: "db_failure",
-      metadata: requestMetadata(meta),
-      shopId: session.shop_id,
-      staffId: staff.staff_id,
-      status: 500,
-      targetId: session.pos_session_id,
-      targetType: "pos_session",
-    });
-  }
-
-  const appliedResult = await applyCatalogImport(supabase, parsed, auth.context);
-
-  if (appliedResult.error) {
-    await updateBatchStatus(supabase, { batchId, status: "failed" });
     return auditedFailure(supabase, {
       code: appliedResult.error,
       metadata: {
@@ -1429,57 +1088,16 @@ export async function handlePosCatalogImportSync(
       shopId: session.shop_id,
       staffId: staff.staff_id,
       status: appliedResult.error === "validation_failed" ? 400 : 500,
-      targetId: batchId,
-      targetType: "pos_catalog_import_batch",
+      targetId: session.pos_session_id,
+      targetType: "pos_session",
     });
-  }
-
-  const updateError = await updateBatchStatus(supabase, {
-    acceptedItemCount: appliedResult.applied.acceptedItemCount,
-    batchId,
-    duplicateItemCount: 0,
-    productCount: appliedResult.applied.productCount,
-    status: "accepted",
-  });
-
-  if (updateError) {
-    return auditedFailure(supabase, {
-      code: "db_failure",
-      metadata: requestMetadata(meta),
-      shopId: session.shop_id,
-      staffId: staff.staff_id,
-      status: 500,
-      targetId: batchId,
-      targetType: "pos_catalog_import_batch",
-    });
-  }
-
-  const auditOk = await writePosCatalogImportAudit(supabase, {
-    code: "accepted",
-    metadata: {
-      ...requestMetadata(meta),
-      accepted_item_count: appliedResult.applied.acceptedItemCount,
-      item_count: parsed.items.length,
-      product_count: appliedResult.applied.productCount,
-    },
-    result: "success",
-    severity: "info",
-    shopId: session.shop_id,
-    staffId: staff.staff_id,
-    targetId: batchId,
-    targetType: "pos_catalog_import_batch",
-  });
-
-  if (!auditOk) {
-    return failure("db_failure", 500);
   }
 
   return successResponse({
     applied: appliedResult.applied,
-    batchId,
     parsed,
+    requestId: meta.requestId,
     serverTime,
     shop,
-    status: "accepted",
   });
 }

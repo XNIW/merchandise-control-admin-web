@@ -61,13 +61,13 @@ test("TASK-094 catalog import service validates POS auth, idempotency and catalo
     "MAX_POS_CATALOG_IMPORT_JSON_BODY_BYTES = 512 * 1024",
     "POS_CATALOG_IMPORT_SCHEMA_VERSION",
     "verifyPosSecret",
-    "pos_catalog_import_batches",
     'source: "supplier_excel"',
     "schemaVersion",
     "clientImportId",
     "idempotencyKey",
     "payloadHash",
     "payload_hash",
+    "pos_catalog_import_apply_v1",
     "conflict",
     "sourceFileNameIsSafe",
     "SENSITIVE_TEXT_PATTERN",
@@ -79,24 +79,31 @@ test("TASK-094 catalog import service validates POS auth, idempotency and catalo
     ".eq(\"shop_id\", session.shop_id)",
     ".eq(\"shop_device_id\", session.shop_device_id)",
     "buildPosShopPayload(input.shop)",
-    "inventory_products",
-    "inventory_product_prices",
-    "inventory_categories",
-    "inventory_suppliers",
-    'type: "PURCHASE"',
-    'type: "RETAIL"',
-    'source: "pos_supplier_excel"',
+    "remoteProductIds",
+    "remotePriceIds",
+    "serverImportId",
+    "serverRequestId",
+    "pullRequired",
+    'nextAction: "catalog_pull"',
   ]);
+  assert.doesNotMatch(
+    service,
+    /\.from\("inventory_(products|product_prices|categories|suppliers)"\)[\s\S]{0,200}\.(insert|update|upsert|delete)/,
+    "catalog writes must stay inside the transactional RPC",
+  );
   assert.doesNotMatch(service, /metadata_redacted:[\s\S]{0,120}(deviceToken|sessionToken|device_token|session_token)/);
 });
 
-test("TASK-094 migration stores import batches with RLS and service-role only access", () => {
-  const migration = readProjectFile(
+test("TASK-094 migrations store import batches and apply them transactionally", () => {
+  const ledgerMigration = readProjectFile(
     "supabase/migrations/20260705120000_task_094_pos_catalog_import_sync.sql",
+  );
+  const applyMigration = readProjectFile(
+    "supabase/migrations/20260706120000_task_094_pos_catalog_import_apply_rpc.sql",
   );
   const databaseTypes = readProjectFile("src/lib/supabase/database.types.ts");
 
-  assertContainsAll(migration, [
+  assertContainsAll(ledgerMigration, [
     "create table if not exists public.pos_catalog_import_batches",
     "client_import_id",
     "idempotency_key",
@@ -113,8 +120,33 @@ test("TASK-094 migration stores import batches with RLS and service-role only ac
     "grant all on table public.pos_catalog_import_batches to service_role",
     "commit;",
   ]);
+  assertContainsAll(applyMigration, [
+    "create or replace function public.pos_catalog_import_apply_v1",
+    "pg_advisory_xact_lock",
+    "for update",
+    "public.pos_catalog_import_batches",
+    "public.inventory_products",
+    "public.inventory_product_prices",
+    "public.inventory_categories",
+    "public.inventory_suppliers",
+    "on conflict on constraint inventory_product_prices_owner_product_type_effective_uniq",
+    "insert into public.sync_events",
+    "insert into public.audit_logs",
+    "'remoteProductIds'",
+    "'remotePriceIds'",
+    "revoke all on function public.pos_catalog_import_apply_v1",
+    "grant execute on function public.pos_catalog_import_apply_v1",
+    "to service_role",
+    "commit;",
+  ]);
+  assert.doesNotMatch(
+    applyMigration,
+    /insert into public\.sync_events[\s\S]{0,800}values\s*\([\s\r\n]*p_client_import_id,/,
+    "sync_events.batch_id must use the server UUID batch id, not the non-UUID POS clientImportId",
+  );
   assertContainsAll(databaseTypes, [
     "pos_catalog_import_batches: {",
+    "pos_catalog_import_apply_v1: {",
     "client_import_id: string",
     "idempotency_key: string",
     "payload_hash: string",
