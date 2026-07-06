@@ -50,9 +50,11 @@ test("TASK-018 creates a minimal CI pipeline without deploy or secrets", () => {
   for (const required of [
     "if: github.event_name == 'workflow_dispatch'",
     "environment: cloudflare-staging",
-    "SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}",
     "SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
-    "supabase@2.109.0 db push",
+    "Verify TASK-094 migration files before live E2E",
+    "20260705120000_task_094_pos_catalog_import_sync.sql",
+    "20260706120000_task_094_pos_catalog_import_apply_rpc.sql",
+    "20260706143000_task_094_pos_catalog_import_ack_replay.sql",
     "npm run test:pos-catalog-import-staging-e2e",
   ]) {
     assert.match(task094Job, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
@@ -60,7 +62,7 @@ test("TASK-018 creates a minimal CI pipeline without deploy or secrets", () => {
   assert.doesNotMatch(task094Job, /deploy|vercel|netlify/i);
   assert.doesNotMatch(
     task094Job,
-    /echo\s+\$(SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)|console\.log\(process\.env\.(SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)\)/,
+    /SUPABASE_DB_PASSWORD|echo\s+\$SUPABASE_SERVICE_ROLE_KEY|console\.log\(process\.env\.SUPABASE_SERVICE_ROLE_KEY\)/,
   );
 });
 

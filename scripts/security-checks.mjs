@@ -3563,9 +3563,11 @@ function checkTask018InfrastructureSecurityPosFoundation() {
     for (const required of [
       "if: github.event_name == 'workflow_dispatch'",
       "environment: cloudflare-staging",
-      "SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}",
       "SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
-      "supabase@2.109.0 db push",
+      "Verify TASK-094 migration files before live E2E",
+      "20260705120000_task_094_pos_catalog_import_sync.sql",
+      "20260706120000_task_094_pos_catalog_import_apply_rpc.sql",
+      "20260706143000_task_094_pos_catalog_import_ack_replay.sql",
       "npm run test:pos-catalog-import-staging-e2e",
     ]) {
       if (!task094Job.includes(required)) {
@@ -3576,7 +3578,7 @@ function checkTask018InfrastructureSecurityPosFoundation() {
       addFailure(`${workflowPath} TASK-094 staging job must not deploy`);
     }
     if (
-      /echo\s+\$(SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)|console\.log\(process\.env\.(SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)\)/.test(
+      /SUPABASE_DB_PASSWORD|echo\s+\$SUPABASE_SERVICE_ROLE_KEY|console\.log\(process\.env\.SUPABASE_SERVICE_ROLE_KEY\)/.test(
         task094Job,
       )
     ) {

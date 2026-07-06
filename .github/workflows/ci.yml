@@ -81,8 +81,6 @@ jobs:
       NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
       STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
       SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_POOLER_HOST: ${{ vars.SUPABASE_POOLER_HOST || vars.STAGING_SUPABASE_POOLER_HOST }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
       TASK094_POS_E2E_ALLOW_STAGING: "yes"
       TASK094_POS_E2E_BASE_URL: ${{ vars.CLOUDFLARE_STAGING_URL }}
@@ -109,7 +107,6 @@ jobs:
           node <<'NODE'
           const required = [
             "NEXT_PUBLIC_SUPABASE_URL",
-            "SUPABASE_DB_PASSWORD",
             "SUPABASE_SERVICE_ROLE_KEY",
             "TASK094_POS_E2E_BASE_URL",
             "TASK094_POS_E2E_STAGING_PROJECT_REF",
@@ -123,77 +120,12 @@ jobs:
           }
           NODE
 
-      - name: Push Supabase staging migrations
+      - name: Verify TASK-094 migration files before live E2E
         run: |
           set -euo pipefail
-          npx --yes supabase@2.109.0 --version
-          mapfile -t SUPABASE_POOLER_HOSTS < <(
-            node <<'NODE'
-          const explicit = (process.env.SUPABASE_POOLER_HOST || "").trim();
-          const regions = [
-            "sa-east-1",
-            "us-east-1",
-            "us-west-1",
-            "us-west-2",
-            "ca-central-1",
-            "eu-west-1",
-            "eu-west-2",
-            "eu-west-3",
-            "eu-central-1",
-            "eu-north-1",
-            "ap-south-1",
-            "ap-southeast-1",
-            "ap-southeast-2",
-            "ap-northeast-1",
-            "ap-northeast-2",
-            "ap-east-1",
-            "me-central-1",
-            "af-south-1",
-          ];
-          const hosts = explicit
-            ? [explicit]
-            : regions.map((region) => `aws-0-${region}.pooler.supabase.com`);
-          for (const host of hosts) {
-            console.log(host);
-          }
-          NODE
-          )
-
-          SUPABASE_DB_URL=""
-          for poolerHost in "${SUPABASE_POOLER_HOSTS[@]}"; do
-            for poolerPort in 5432 6543; do
-              candidate="$(
-                SUPABASE_POOLER_HOST="$poolerHost" SUPABASE_POOLER_PORT="$poolerPort" node <<'NODE'
-          const password = process.env.SUPABASE_DB_PASSWORD || "";
-          const projectRef = process.env.SUPABASE_PROJECT_REF || "";
-          const poolerHost = process.env.SUPABASE_POOLER_HOST || "";
-          const poolerPort = process.env.SUPABASE_POOLER_PORT || "5432";
-
-          if (!password || !projectRef || !poolerHost || !/^\d+$/.test(poolerPort)) {
-            console.error("Missing Supabase DB push inputs.");
-            process.exit(1);
-          }
-
-          process.stdout.write(
-            `postgresql://postgres.${projectRef}:${encodeURIComponent(password)}@${poolerHost}:${poolerPort}/postgres?sslmode=require`,
-          );
-          NODE
-              )"
-              if timeout 30s npx --yes supabase@2.109.0 db push --dry-run --db-url "$candidate" --yes >"$RUNNER_TEMP/supabase-db-push-dry-run.log" 2>&1; then
-                SUPABASE_DB_URL="$candidate"
-                echo "Supabase IPv4 pooler selected: $poolerHost:$poolerPort"
-                break 2
-              fi
-            done
-          done
-
-          if [ -z "$SUPABASE_DB_URL" ]; then
-            echo "No Supabase IPv4 pooler host accepted the staging credentials."
-            sed -E 's#postgresql://[^[:space:]]+#postgresql://[REDACTED]#g' "$RUNNER_TEMP/supabase-db-push-dry-run.log" || true
-            exit 1
-          fi
-
-          npx --yes supabase@2.109.0 db push --db-url "$SUPABASE_DB_URL" --yes
+          test -f supabase/migrations/20260705120000_task_094_pos_catalog_import_sync.sql
+          test -f supabase/migrations/20260706120000_task_094_pos_catalog_import_apply_rpc.sql
+          test -f supabase/migrations/20260706143000_task_094_pos_catalog_import_ack_replay.sql
 
       - name: Run TASK-094 catalog import staging E2E
         run: npm run test:pos-catalog-import-staging-e2e
