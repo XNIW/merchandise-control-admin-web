@@ -68,3 +68,80 @@ jobs:
 
       - name: Diff whitespace check
         run: git diff --check
+
+  task-094-staging-e2e:
+    name: TASK-094 staging E2E
+    needs: verify
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare-staging
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TASK094_POS_E2E_ALLOW_STAGING: "yes"
+      TASK094_POS_E2E_BASE_URL: ${{ vars.CLOUDFLARE_STAGING_URL }}
+      TASK094_POS_E2E_STAGING_HOST_ALLOWLIST: merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev
+      TASK094_POS_E2E_STAGING_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      TASK094_POS_E2E_TEST_RUN_ID: STG${{ github.run_id }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify staging E2E inputs
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const required = [
+            "NEXT_PUBLIC_SUPABASE_URL",
+            "SUPABASE_DB_PASSWORD",
+            "SUPABASE_SERVICE_ROLE_KEY",
+            "TASK094_POS_E2E_BASE_URL",
+            "TASK094_POS_E2E_STAGING_PROJECT_REF",
+          ];
+          const status = Object.fromEntries(
+            required.map((key) => [key, Boolean(process.env[key])]),
+          );
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((present) => !present)) {
+            process.exit(1);
+          }
+          NODE
+
+      - name: Push Supabase staging migrations
+        run: |
+          set -euo pipefail
+          SUPABASE_DB_URL="$(
+            node <<'NODE'
+          const password = process.env.SUPABASE_DB_PASSWORD || "";
+          const projectRef = process.env.SUPABASE_PROJECT_REF || "";
+
+          if (!password || !projectRef) {
+            console.error("Missing Supabase DB push inputs.");
+            process.exit(1);
+          }
+
+          process.stdout.write(
+            `postgresql://postgres:${encodeURIComponent(password)}@db.${projectRef}.supabase.co:5432/postgres`,
+          );
+          NODE
+          )"
+          npx --yes supabase@2.109.0 --version
+          npx --yes supabase@2.109.0 db push --db-url "$SUPABASE_DB_URL" --yes
+
+      - name: Run TASK-094 catalog import staging E2E
+        run: npm run test:pos-catalog-import-staging-e2e

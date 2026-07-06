@@ -186,6 +186,7 @@ test("TASK-094 migrations store import batches and apply them transactionally", 
 
 test("TASK-094 staging E2E harness proves positive catalog import without leaking secrets", () => {
   const packageJson = readProjectFile("package.json");
+  const ciWorkflow = readProjectFile(".github/workflows/ci.yml");
   const harness = readProjectFile("scripts/pos-catalog-import-staging-e2e.mjs");
   const workflow = readProjectFile(".github/workflows/task-094-staging-e2e.yml");
 
@@ -222,6 +223,16 @@ test("TASK-094 staging E2E harness proves positive catalog import without leakin
     "supabase@2.109.0 db push",
     "npm run test:pos-catalog-import-staging-e2e",
   ]);
+  assertContainsAll(ciWorkflow, [
+    "TASK-094 staging E2E",
+    "github.event_name == 'workflow_dispatch'",
+    "environment: cloudflare-staging",
+    "TASK-094 catalog import staging E2E",
+    "SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}",
+    "SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
+    "supabase@2.109.0 db push",
+    "npm run test:pos-catalog-import-staging-e2e",
+  ]);
   assert.doesNotMatch(
     harness,
     /\.delete\(|deleteUser|console\.log\([^)]*(SUPABASE_SERVICE_ROLE_KEY|sessionToken|deviceToken|trustedDeviceToken|mcpos_)/,
@@ -231,5 +242,10 @@ test("TASK-094 staging E2E harness proves positive catalog import without leakin
     workflow,
     /echo\s+\$(SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)|console\.log\(process\.env\.(SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)\)/,
     "TASK-094 workflow must not print service-role secrets",
+  );
+  assert.doesNotMatch(
+    ciWorkflow,
+    /echo\s+\$(SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)|console\.log\(process\.env\.(SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)\)/,
+    "CI workflow must not print Supabase secrets",
   );
 });

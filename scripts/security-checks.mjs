@@ -3544,10 +3544,44 @@ function checkTask018InfrastructureSecurityPosFoundation() {
     }
   }
 
-  if (/SUPABASE_SERVICE_ROLE|service_role|vercel|netlify/i.test(workflow)) {
+  const task094JobMatch = workflow.match(
+    /\n  task-094-staging-e2e:[\s\S]*?(?=\n  [A-Za-z0-9_-]+:\n|\n\S|$)/,
+  );
+  const workflowWithoutTask094 = workflow.replace(
+    /\n  task-094-staging-e2e:[\s\S]*?(?=\n  [A-Za-z0-9_-]+:\n|\n\S|$)/,
+    "\n",
+  );
+
+  if (/SUPABASE_SERVICE_ROLE|service_role|vercel|netlify/i.test(workflowWithoutTask094)) {
     addFailure(
       `${workflowPath} must not configure service-role secrets or deploy providers`,
     );
+  }
+
+  if (task094JobMatch) {
+    const task094Job = task094JobMatch[0];
+    for (const required of [
+      "if: github.event_name == 'workflow_dispatch'",
+      "environment: cloudflare-staging",
+      "SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}",
+      "SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}",
+      "supabase@2.109.0 db push",
+      "npm run test:pos-catalog-import-staging-e2e",
+    ]) {
+      if (!task094Job.includes(required)) {
+        addFailure(`${workflowPath} TASK-094 staging job must include ${required}`);
+      }
+    }
+    if (/deploy|vercel|netlify/i.test(task094Job)) {
+      addFailure(`${workflowPath} TASK-094 staging job must not deploy`);
+    }
+    if (
+      /echo\s+\$(SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)|console\.log\(process\.env\.(SUPABASE_DB_PASSWORD|SUPABASE_SERVICE_ROLE_KEY)\)/.test(
+        task094Job,
+      )
+    ) {
+      addFailure(`${workflowPath} TASK-094 staging job must not print secrets`);
+    }
   }
 
   const smokeScript = packageJson.scripts?.["test:ui-smoke:ci"] ?? "";
