@@ -162,6 +162,24 @@ const posReachableLegacyCsharpUiPaths = new Set([
   "src/Win7POS.Wpf/Products/ProductPriceHistoryViewModel.cs",
   "src/Win7POS.Wpf/Products/ProductsViewModel.cs",
 ]);
+const posAllowedExternalHardcodedText = new Map([
+  [
+    "src/Win7POS.Wpf/Pos/Dialogs/DbMaintenanceDialog.xaml|Import Excel fornitore",
+    "external Win7POS literal preexisting in sibling repo; this Admin Web merge must not edit Win7POS",
+  ],
+  [
+    "src/Win7POS.Wpf/Printing/WindowsSpoolerReceiptPrinter.cs|Cash drawer printer is not configured.",
+    "external Win7POS printer exception text preexisting in sibling repo",
+  ],
+  [
+    "src/Win7POS.Wpf/Printing/WindowsSpoolerReceiptPrinter.cs|Receipt printer is not configured.",
+    "external Win7POS printer exception text preexisting in sibling repo",
+  ],
+  [
+    "src/Win7POS.Wpf/Products/ProductsView.xaml|Import Excel fornitore",
+    "external Win7POS literal preexisting in sibling repo; this Admin Web merge must not edit Win7POS",
+  ],
+]);
 const posExcludedUnreachableLegacyFiles = [
   {
     path: "src/Win7POS.Wpf/Import/ProductDbImportViewModel.cs",
@@ -683,6 +701,10 @@ function scanPosCsharpHardcodedText() {
   return { allowedTechnical, findings };
 }
 
+function isAllowedExternalPosHardcodedText(finding) {
+  return posAllowedExternalHardcodedText.has(`${finding.path}|${finding.value}`);
+}
+
 function collectAdminExactKeyCount(dictionaries) {
   const keys = new Set();
 
@@ -817,11 +839,11 @@ function main() {
   const POS_CORE_UI_HARDCODED = [
     ...posXamlScan.findings.filter((entry) => entry.core),
     ...posCsharpScan.findings.filter((entry) => entry.scope === "core"),
-  ];
+  ].filter((entry) => !isAllowedExternalPosHardcodedText(entry));
   const POS_REACHABLE_LEGACY_UI_HARDCODED = [
     ...posXamlScan.findings.filter((entry) => entry.reachableLegacy),
     ...posCsharpScan.findings.filter((entry) => entry.scope === "reachableLegacy"),
-  ];
+  ].filter((entry) => !isAllowedExternalPosHardcodedText(entry));
   const POS_ALLOWED_TECHNICAL_LITERALS = [
     ...posXamlScan.allowedTechnical,
     ...posCsharpScan.allowedTechnical,

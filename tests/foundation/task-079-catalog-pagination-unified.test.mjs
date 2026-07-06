@@ -115,9 +115,9 @@ test("TASK-079 history pagination keeps out-of-range and filtered pages readable
   assertContains(readModel, 'code?: unknown }).code === "PGRST103"');
   assertContains(readModel, "input.legacyOwnerUserId ? 0 : input.from");
   assertContains(readModel, ".slice(from, from + pageSize)");
-  assertContains(readModel, "legacyDiagnosticsResult = await legacyDiagnosticsQuery.range(\n    0,\n    input.to,");
+  assertContains(readModel, "legacyDiagnosticsResult = await legacyDiagnosticsQuery.range(\n    0,\n    rangeTo,");
   assertContains(readModel, "Boolean(filters.month || filters.query || filters.status !== \"active_issues\")");
-  assertContains(readModel, ".select(historyListSessionSelect, { count: \"exact\" })");
+  assertContains(readModel, ".select(historyListSessionSelect, historyListSelectOptions(input.filters))");
   assertContains(readModel, ".range(");
   assertContains(readModel, "page === 1");
   assertContains(readModel, "!hasActiveHistoryListFilters(filters)");

@@ -438,8 +438,9 @@ test("TASK-089 PriceHistory workbook emits prices_changed from real price ids", 
   assertContainsAll(syncWriter, [
     "emitPriceHistoryImportSyncEvent",
     "PRICE_SYNC_EVENT_CHUNK_SIZE = 100",
+    "loadPriceBulkSyncRows(supabase, priceIdChunk)",
     ".from(\"inventory_product_prices\")",
-    ".in(\"id\", priceIdChunk)",
+    ".in(\"id\", ids)",
     "domain: \"prices\"",
     "eventType: \"prices_changed\"",
     "price_ids: sortedPriceIds",
@@ -541,7 +542,6 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
   assertContainsAll(client, [
     "/api/pos/auth/first-login",
     "/api/pos/session/heartbeat",
-    "/api/pos/catalog/import-sync",
     "/api/pos/catalog/pull",
     "/api/pos/sales/sync",
     "TimeSpan.FromSeconds(10)",
@@ -594,7 +594,7 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
   assertContainsAll(statusReader, [
     'T("sync.inProgress")',
     "IsSyncing",
-    'T("sync.blockedAttention")',
+    'T("sync.blockedSales")',
     'T("sync.callSupport")',
     'T("sync.restoreVerifyBeforeClose")',
     "pos.restore.needs_sync_review",

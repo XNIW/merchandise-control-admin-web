@@ -125,8 +125,8 @@ test("i18n contract validates Admin Web and Win7POS locales", (t) => {
       item.path.endsWith("ProductDbImportViewModel.cs"),
     ),
   );
-  assert.equal(result.posHardcodedXamlCandidates.coreCount, 0);
-  assert.equal(result.posHardcodedXamlCandidates.legacyCount, 0);
+  assert.equal(result.POS_CORE_UI_HARDCODED.count, 0);
+  assert.equal(result.POS_REACHABLE_LEGACY_UI_HARDCODED.count, 0);
   assert.ok(result.posLocalizationFiles >= 2);
   assert.ok(result.posUsedCodeKeys > 0);
   assert.ok(result.posUsedXamlKeys > 0);

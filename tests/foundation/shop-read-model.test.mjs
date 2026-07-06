@@ -162,7 +162,7 @@ test("TASK-085 products page shows exact totals through count-only path", () => 
     "countProductsPage",
     "inventory_products.page.countOnly",
     "head: true",
-    "includeExactTotals: \"count-only\"",
+    "activeFilterCount > 0 || productDialog ? false : \"count-only\"",
     "Current filters exact total",
   ]) {
     assert.match(

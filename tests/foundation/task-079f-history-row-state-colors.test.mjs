@@ -126,9 +126,9 @@ test("TASK-079F history list pagination and filters are URL-driven server-side",
   assertContains(readModel, 'code?: unknown }).code === "PGRST103"');
   assertContains(readModel, "input.legacyOwnerUserId ? 0 : input.from");
   assertContains(readModel, ".slice(from, from + pageSize)");
-  assertContains(readModel, "legacyOwnerSessionsResult = await legacyOwnerSessionsQuery.range(\n      0,\n      input.to,");
-  assertContains(readModel, ".select(historyDiagnosticsSessionSelect, { count: \"exact\" })");
-  assertContains(readModel, ".select(historyListSessionSelect, { count: \"exact\" })");
+  assertContains(readModel, "legacyOwnerSessionsResult = await legacyOwnerSessionsQuery.range(\n      0,\n      rangeTo,");
+  assertContains(readModel, ".select(historyDiagnosticsSessionSelect, historyListSelectOptions(input.filters))");
+  assertContains(readModel, ".select(historyListSessionSelect, historyListSelectOptions(input.filters))");
   assertContains(readModel, ".range(");
   assertContains(readModel, "pagination: {");
   assert.doesNotMatch(readModel, /\.limit\(HISTORY_LIGHT_LIST_LIMIT\)/);
