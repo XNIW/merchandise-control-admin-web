@@ -2959,10 +2959,6 @@ export async function getShopInventoryProductsPage(
     : await resolveShopAdminDataAccess(accessOptions);
   const page = normalizeProductPage(options.page);
   const pageSize = normalizeProductPageSize(options.pageSize);
-  const includeCountOnlyExactTotal = options.includeExactTotals === "count-only";
-  const includeExactTotals = options.includeExactTotals !== false;
-  const includePageSelectExactCount =
-    includeExactTotals && !includeCountOnlyExactTotal;
   const requestedFrom = (page - 1) * pageSize;
   const requestedTo = requestedFrom + pageSize - 1;
   const filters: ShopInventoryProductsPage["filters"] = {
@@ -2971,6 +2967,18 @@ export async function getShopInventoryProductsPage(
     state: normalizeProductStateFilter(options.filters?.state),
     supplierId: normalizeProductFilterValue(options.filters?.supplierId),
   };
+  const hasActiveFilters = Boolean(
+    filters.categoryId ||
+      filters.query ||
+      filters.supplierId ||
+      filters.state !== "active",
+  );
+  const includeCountOnlyExactTotal =
+    !hasActiveFilters && options.includeExactTotals === "count-only";
+  const includeExactTotals =
+    !hasActiveFilters && options.includeExactTotals !== false;
+  const includePageSelectExactCount =
+    includeExactTotals && !includeCountOnlyExactTotal;
   const emptyPagination = {
     currentPageRows: 0,
     from: requestedFrom,

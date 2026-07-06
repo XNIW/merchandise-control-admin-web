@@ -1594,6 +1594,7 @@ export default async function ShopProductsPage({
     selectedSupplierId,
     selectedState === "active" ? undefined : selectedState,
   ].filter((value) => Boolean(value?.trim())).length;
+  const productDialog = getProductDialog(getParam(params, "product_action"));
   const perfTrace = createAdminWebPerfTrace("shop.products", {
     activeFilterCount,
     hasRequestedShopId: Boolean(requestedShopId),
@@ -1610,7 +1611,8 @@ export default async function ShopProductsPage({
           state: selectedState,
           supplierId: selectedSupplierId,
         },
-        includeExactTotals: "count-only",
+        includeExactTotals:
+          activeFilterCount > 0 || productDialog ? false : "count-only",
         page: selectedPage,
         pageSize: selectedPageSize,
         perfTrace,
@@ -1632,7 +1634,6 @@ export default async function ShopProductsPage({
     pageAccess.status === "ready"
       ? pageAccess.selectedShop.shopId
       : (productsPage.selectedShop?.shopId ?? requestedShopId);
-  const productDialog = getProductDialog(getParam(params, "product_action"));
   const canOpenRequestedProductDialog = canOpenProductDialog(productDialog, {
     canExport,
     canImport,

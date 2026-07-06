@@ -1,6 +1,10 @@
 import "server-only";
 
-import type { SupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  createSupabaseAdminClient,
+  resolveSupabaseAdminConfig,
+  type SupabaseAdminClient,
+} from "@/lib/supabase/admin";
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import { resolveShopAdminDataAccess } from "./data-access";
@@ -324,6 +328,7 @@ type GetShopHistoryReadModelOptions = {
   pageSize?: number | string | null;
   requestedShopId?: string | null;
 };
+type ShopHistoryReadClient = SupabaseAdminClient | SupabaseServerClient;
 
 const emptyRows = {
   selectedShop: null,
@@ -1726,6 +1731,38 @@ type HistoryListTable<Row> = {
   ) => HistoryListQuery<Row>;
 };
 
+function historyListSelectOptions(
+  filters: NonNullable<ShopHistoryReadModel["filters"]>,
+) {
+  return hasActiveHistoryListFilters(filters)
+    ? undefined
+    : ({ count: "exact" } as const);
+}
+
+function historyListRangeTo(input: {
+  filters: NonNullable<ShopHistoryReadModel["filters"]>;
+  to: number;
+}) {
+  return hasActiveHistoryListFilters(input.filters) ? input.to + 1 : input.to;
+}
+
+function historyListTotal(input: {
+  count: number | null | undefined;
+  from: number;
+  rowCount: number;
+  usesDeferredCount: boolean;
+}) {
+  return input.usesDeferredCount
+    ? input.from + input.rowCount
+    : input.count ?? input.rowCount;
+}
+
+function historyListTotalStatus(
+  filters: NonNullable<ShopHistoryReadModel["filters"]>,
+) {
+  return hasActiveHistoryListFilters(filters) ? "deferred" as const : "exact" as const;
+}
+
 type SupportedHistoryCountTable =
   | "shared_sheet_sessions"
   | "shared_sheet_session_diagnostics"
@@ -2364,6 +2401,17 @@ function compareHistoryListRows(
   );
 }
 
+function compareMappedHistorySessions(
+  left: { remoteId: string; timestamp: string; updatedAt: string },
+  right: { remoteId: string; timestamp: string; updatedAt: string },
+) {
+  return (
+    right.timestamp.localeCompare(left.timestamp) ||
+    right.updatedAt.localeCompare(left.updatedAt) ||
+    left.remoteId.localeCompare(right.remoteId)
+  );
+}
+
 function isHistoryRangeNotSatisfiableError(error: unknown) {
   return (
     Boolean(error) &&
@@ -2391,15 +2439,17 @@ async function loadHistoryListDiagnostics(input: {
   legacyOwnerUserId: string | null;
   pageSize: number;
   selectedShop: ShopAdminShellShop;
-  supabase: SupabaseServerClient;
+  supabase: ShopHistoryReadClient;
   to: number;
 }) {
   const diagnosticsTable = input.supabase.from(
     "shared_sheet_session_diagnostics",
   ) as unknown as HistoryListTable<SharedSheetSessionDiagnosticsRow>;
+  const usesDeferredCount = hasActiveHistoryListFilters(input.filters);
+  const rangeTo = historyListRangeTo(input);
   const directDiagnosticsQuery = applyHistoryListFilters(
     diagnosticsTable
-      .select(historyDiagnosticsSessionSelect, { count: "exact" })
+      .select(historyDiagnosticsSessionSelect, historyListSelectOptions(input.filters))
       .eq("shop_id", input.selectedShop.shopId),
     input.filters,
     "diagnostics",
@@ -2408,7 +2458,7 @@ async function loadHistoryListDiagnostics(input: {
     .order("remote_id", { ascending: true });
   const directDiagnosticsResult = await directDiagnosticsQuery.range(
     input.legacyOwnerUserId ? 0 : input.from,
-    input.to,
+    rangeTo,
   );
 
   if (isHistoryRangeNotSatisfiableError(directDiagnosticsResult.error)) {
@@ -2446,24 +2496,31 @@ async function loadHistoryListDiagnostics(input: {
 
   const directDiagnostics: ScopedSharedSheetSessionDiagnosticsRow[] = ((
     directDiagnosticsResult.data ?? []
-  ) as SharedSheetSessionDiagnosticsRow[]).map((row) => ({
-    ...row,
-    sourceScope: "shop_scoped" as const,
-  }));
+  ) as SharedSheetSessionDiagnosticsRow[])
+    .slice(0, input.legacyOwnerUserId ? undefined : input.pageSize)
+    .map((row) => ({
+      ...row,
+      sourceScope: "shop_scoped" as const,
+    }));
 
   if (!input.legacyOwnerUserId) {
     return {
       diagnostics: directDiagnostics,
       error: null,
       fallbackToSessions: false,
-      totalCount: directDiagnosticsResult.count ?? directDiagnostics.length,
-      totalCountStatus: "exact" as const,
+      totalCount: historyListTotal({
+        count: directDiagnosticsResult.count,
+        from: input.from,
+        rowCount: directDiagnostics.length,
+        usesDeferredCount,
+      }),
+      totalCountStatus: historyListTotalStatus(input.filters),
     };
   }
 
   const legacyDiagnosticsQuery = applyHistoryListFilters(
     diagnosticsTable
-      .select(historyDiagnosticsSessionSelect, { count: "exact" })
+      .select(historyDiagnosticsSessionSelect, historyListSelectOptions(input.filters))
       .is("shop_id", null)
       .eq("owner_user_id", input.legacyOwnerUserId),
     input.filters,
@@ -2473,7 +2530,7 @@ async function loadHistoryListDiagnostics(input: {
     .order("remote_id", { ascending: true });
   const legacyDiagnosticsResult = await legacyDiagnosticsQuery.range(
     0,
-    input.to,
+    rangeTo,
   );
 
   if (isHistoryRangeNotSatisfiableError(legacyDiagnosticsResult.error)) {
@@ -2520,20 +2577,22 @@ async function loadHistoryListDiagnostics(input: {
     ...row,
     sourceScope: "legacy_owner_bridge" as const,
   }));
+  const mergedDiagnostics = mergeHistoryPageRows(
+    directDiagnostics,
+    legacyDiagnostics,
+    input.pageSize,
+    input.from,
+  );
 
   return {
-    diagnostics: mergeHistoryPageRows(
-      directDiagnostics,
-      legacyDiagnostics,
-      input.pageSize,
-      input.from,
-    ),
+    diagnostics: mergedDiagnostics,
     error: null,
     fallbackToSessions: false,
-    totalCount:
-      (directDiagnosticsResult.count ?? directDiagnostics.length) +
-      (legacyDiagnosticsResult.count ?? legacyDiagnostics.length),
-    totalCountStatus: "exact" as const,
+    totalCount: usesDeferredCount
+      ? input.from + mergedDiagnostics.length
+      : (directDiagnosticsResult.count ?? directDiagnostics.length) +
+        (legacyDiagnosticsResult.count ?? legacyDiagnostics.length),
+    totalCountStatus: historyListTotalStatus(input.filters),
   };
 }
 
@@ -2543,15 +2602,17 @@ async function loadHistoryListSessions(input: {
   legacyOwnerUserId: string | null;
   pageSize: number;
   selectedShop: ShopAdminShellShop;
-  supabase: SupabaseServerClient;
+  supabase: ShopHistoryReadClient;
   to: number;
 }) {
   const sessionsTable = input.supabase.from(
     "shared_sheet_sessions",
   ) as unknown as HistoryListTable<SharedSheetSessionListRow>;
+  const usesDeferredCount = hasActiveHistoryListFilters(input.filters);
+  const rangeTo = historyListRangeTo(input);
   const directSessionsQuery = applyHistoryListFilters(
     sessionsTable
-      .select(historyListSessionSelect, { count: "exact" })
+      .select(historyListSessionSelect, historyListSelectOptions(input.filters))
       .eq("shop_id", input.selectedShop.shopId),
     input.filters,
     "sessions",
@@ -2560,7 +2621,7 @@ async function loadHistoryListSessions(input: {
     .order("remote_id", { ascending: true });
   const directSessionsResult = await directSessionsQuery.range(
     input.legacyOwnerUserId ? 0 : input.from,
-    input.to,
+    rangeTo,
   );
 
   if (isHistoryRangeNotSatisfiableError(directSessionsResult.error)) {
@@ -2587,25 +2648,32 @@ async function loadHistoryListSessions(input: {
   const directSessions: ScopedSharedSheetSessionListRow[] =
     directSessionsResult.error
       ? []
-      : ((directSessionsResult.data ?? []) as SharedSheetSessionListRow[]).map(
-          (row) => ({
+      : ((directSessionsResult.data ?? []) as SharedSheetSessionListRow[])
+          .slice(0, input.legacyOwnerUserId ? undefined : input.pageSize)
+          .map((row) => ({
             ...row,
             sourceScope: "shop_scoped" as const,
-          }),
-        );
+          }));
 
   if (!input.legacyOwnerUserId) {
     return {
       error: null,
       sessions: directSessions,
-      totalCount: directSessionsResult.count ?? directSessions.length,
-      totalCountStatus: directSessionsResult.error ? "deferred" as const : "exact" as const,
+      totalCount: historyListTotal({
+        count: directSessionsResult.count,
+        from: input.from,
+        rowCount: directSessions.length,
+        usesDeferredCount: usesDeferredCount || Boolean(directSessionsResult.error),
+      }),
+      totalCountStatus: directSessionsResult.error
+        ? "deferred" as const
+        : historyListTotalStatus(input.filters),
     };
   }
 
   const ownerSessionsQuery = applyHistoryListFilters(
     sessionsTable
-      .select(historyListSessionSelect, { count: "exact" })
+      .select(historyListSessionSelect, historyListSelectOptions(input.filters))
       .is("shop_id", null)
       .eq("owner_user_id", input.legacyOwnerUserId),
     input.filters,
@@ -2615,7 +2683,7 @@ async function loadHistoryListSessions(input: {
     .order("remote_id", { ascending: true });
   const ownerSessionsResult = await ownerSessionsQuery.range(
     0,
-    input.to,
+    rangeTo,
   );
 
   if (isHistoryRangeNotSatisfiableError(ownerSessionsResult.error)) {
@@ -2653,7 +2721,7 @@ async function loadHistoryListSessions(input: {
     ) as unknown as HistoryListTable<LegacySharedSheetSessionListRow>;
     const legacyOwnerSessionsQuery = applyHistoryListFilters(
       legacySessionsTable
-        .select(legacyHistoryListSessionSelect, { count: "exact" })
+        .select(legacyHistoryListSessionSelect, historyListSelectOptions(input.filters))
         .eq("owner_user_id", input.legacyOwnerUserId),
       input.filters,
       "sessions",
@@ -2662,7 +2730,7 @@ async function loadHistoryListSessions(input: {
       .order("remote_id", { ascending: true });
     const legacyOwnerSessionsResult = await legacyOwnerSessionsQuery.range(
       0,
-      input.to,
+      rangeTo,
     );
 
     if (isHistoryRangeNotSatisfiableError(legacyOwnerSessionsResult.error)) {
@@ -2692,19 +2760,21 @@ async function loadHistoryListSessions(input: {
       []) as LegacySharedSheetSessionListRow[]).map((row) =>
       mapLegacySessionListRow(row, "legacy_owner_bridge"),
     );
+    const mergedSessions = mergeHistoryPageRows(
+      directSessions,
+      legacySessions,
+      input.pageSize,
+      input.from,
+    );
 
     return {
       error: null,
-      sessions: mergeHistoryPageRows(
-        directSessions,
-        legacySessions,
-        input.pageSize,
-        input.from,
-      ),
-      totalCount:
-        (directSessionsResult.count ?? directSessions.length) +
-        (legacyOwnerSessionsResult.count ?? legacySessions.length),
-      totalCountStatus: "exact" as const,
+      sessions: mergedSessions,
+      totalCount: usesDeferredCount
+        ? input.from + mergedSessions.length
+        : (directSessionsResult.count ?? directSessions.length) +
+          (legacyOwnerSessionsResult.count ?? legacySessions.length),
+      totalCountStatus: historyListTotalStatus(input.filters),
     };
   }
 
@@ -2713,19 +2783,21 @@ async function loadHistoryListSessions(input: {
     ...row,
     sourceScope: "legacy_owner_bridge" as const,
   }));
+  const mergedSessions = mergeHistoryPageRows(
+    ownerSessions,
+    directSessions,
+    input.pageSize,
+    input.from,
+  );
 
   return {
     error: null,
-    sessions: mergeHistoryPageRows(
-      ownerSessions,
-      directSessions,
-      input.pageSize,
-      input.from,
-    ),
-    totalCount:
-      (ownerSessionsResult.count ?? ownerSessions.length) +
-      (directSessionsResult.count ?? directSessions.length),
-    totalCountStatus: "exact" as const,
+    sessions: mergedSessions,
+    totalCount: usesDeferredCount
+      ? input.from + mergedSessions.length
+      : (ownerSessionsResult.count ?? ownerSessions.length) +
+        (directSessionsResult.count ?? directSessions.length),
+    totalCountStatus: historyListTotalStatus(input.filters),
   };
 }
 
@@ -2863,6 +2935,10 @@ export async function getShopHistoryListReadModel(
   }
 
   const { selectedShop, supabase } = access;
+  const historyListClient =
+    access.principalKind === "personal_account"
+      ? createSupabaseAdminClient(resolveSupabaseAdminConfig()) ?? supabase
+      : supabase;
   const sourceState = await resolveHistorySourceState(supabase, selectedShop);
 
   if (sourceState.error) {
@@ -2897,7 +2973,7 @@ export async function getShopHistoryListReadModel(
     legacyOwnerUserId,
     pageSize,
     selectedShop,
-    supabase,
+    supabase: historyListClient,
     to,
   });
 
@@ -2919,22 +2995,27 @@ export async function getShopHistoryListReadModel(
     };
   }
 
-  const sessionResult = diagnosticsResult.fallbackToSessions
-    ? await loadHistoryListSessions({
-        filters,
-        from,
-        legacyOwnerUserId,
-        pageSize,
-        selectedShop,
-        supabase,
-        to,
-      })
-    : {
-        error: null,
-        sessions: [] as ScopedSharedSheetSessionListRow[],
-        totalCount: diagnosticsResult.totalCount,
-        totalCountStatus: diagnosticsResult.totalCountStatus,
-      };
+  const supplementDiagnosticsWithSessions =
+    !diagnosticsResult.fallbackToSessions &&
+    hasActiveHistoryListFilters(filters);
+  const sessionResult =
+    diagnosticsResult.fallbackToSessions ||
+    supplementDiagnosticsWithSessions
+      ? await loadHistoryListSessions({
+          filters,
+          from,
+          legacyOwnerUserId,
+          pageSize,
+          selectedShop,
+          supabase: historyListClient,
+          to,
+        })
+      : {
+          error: null,
+          sessions: [] as ScopedSharedSheetSessionListRow[],
+          totalCount: diagnosticsResult.totalCount,
+          totalCountStatus: diagnosticsResult.totalCountStatus,
+        };
   const metricSessions =
     diagnosticsResult.diagnostics.length > 0
       ? await loadHistoryListMetricSessions({
@@ -2943,7 +3024,7 @@ export async function getShopHistoryListReadModel(
             (session) => session.remote_id,
           ),
           selectedShop,
-          supabase,
+          supabase: historyListClient,
         })
       : [];
   const metricSessionsByRemoteId = new Map(
@@ -3003,27 +3084,45 @@ export async function getShopHistoryListReadModel(
     };
   }
 
-  const sessions =
-    diagnosticsResult.diagnostics.length > 0
-      ? diagnosticsResult.diagnostics.map((session) => {
-          const diagnosticsSession = mapSessionDiagnostics(session, syncEvents);
-          const metricSession = metricSessionsByRemoteId.get(session.remote_id);
+  const sessions = (() => {
+    if (diagnosticsResult.diagnostics.length > 0) {
+      const diagnosticsSessions = diagnosticsResult.diagnostics.map((session) => {
+        const diagnosticsSession = mapSessionDiagnostics(session, syncEvents);
+        const metricSession = metricSessionsByRemoteId.get(session.remote_id);
 
-          return metricSession
-            ? {
-                ...diagnosticsSession,
-                orderTotal: metricSession.orderTotal,
-                paymentTotal: metricSession.paymentTotal,
-                totalQuantity: metricSession.totalQuantity,
-              }
-            : diagnosticsSession;
-        })
-      : sessionResult.sessions.map((session) =>
-          mapSessionList(session, syncEvents),
-        );
+        return metricSession
+          ? {
+              ...diagnosticsSession,
+              orderTotal: metricSession.orderTotal,
+              paymentTotal: metricSession.paymentTotal,
+              totalQuantity: metricSession.totalQuantity,
+            }
+          : diagnosticsSession;
+      });
+      const supplementalSessions = supplementDiagnosticsWithSessions
+        ? sessionResult.sessions.map((session) =>
+            mapSessionList(session, syncEvents),
+          )
+        : [];
+
+      return mergeRowsByKey(
+        diagnosticsSessions,
+        supplementalSessions,
+        (session) => session.remoteId,
+      )
+        .sort(compareMappedHistorySessions)
+        .slice(0, pageSize);
+    }
+
+    return sessionResult.sessions.map((session) =>
+      mapSessionList(session, syncEvents),
+    );
+  })();
   const totalCount = diagnosticsResult.fallbackToSessions
     ? sessionResult.totalCount
-    : diagnosticsResult.totalCount;
+    : supplementDiagnosticsWithSessions
+      ? from + sessions.length
+      : diagnosticsResult.totalCount;
   const totalCountStatus = diagnosticsResult.fallbackToSessions
     ? sessionResult.totalCountStatus
     : diagnosticsResult.totalCountStatus;

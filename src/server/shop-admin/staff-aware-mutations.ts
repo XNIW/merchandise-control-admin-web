@@ -1056,15 +1056,15 @@ export async function applyStaffAwareBulkPriceHistoryImport(
   if (!owner.ok) {
     return {
       failedRows: pricePayload.length,
-      priceIds: [],
+      priceIds: [] as string[],
       priceHistoryApplied: 0,
       rowErrors: [staffBulkOwnerRowError(owner, "PriceHistory")],
     };
   }
 
   let failedRows = 0;
-  const priceIds: string[] = [];
   let priceHistoryApplied = 0;
+  const priceIds: string[] = [];
   const rowErrors: StaffAwareBulkImportRowError[] = [];
 
   for (const [chunkIndex, priceChunk] of Array.from(chunkRows(

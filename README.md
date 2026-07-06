@@ -45,6 +45,7 @@ Aprire [http://localhost:3000](http://localhost:3000).
 ```bash
 npm run security:scan
 npm run test:foundation
+npm run check:pos-catalog-paging
 npm run typecheck
 npm run lint
 npm run build

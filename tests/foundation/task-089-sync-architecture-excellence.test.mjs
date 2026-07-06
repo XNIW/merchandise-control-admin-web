@@ -206,6 +206,12 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
     'import "server-only"',
     "resolveShopAdminDataAccess",
     ".eq(\"shop_id\", selectedShop.shopId)",
+    "metadata_redacted",
+    "accepted_sale_count",
+    "duplicate_sale_count",
+    "metadataCount(row.metadata_redacted",
+    "metadataCount(row.metadata_redacted, \"accepted_sale_count\") ??",
+    "metadataCount(row.metadata_redacted, \"duplicate_sale_count\") ??",
     "readOnly: true",
     "recoveryActionsAppendOnly: true",
     'source: "supabase_admin_server"',
@@ -331,6 +337,13 @@ test("TASK-089 positive harness remains staging-allowlisted and cleanup-safe", (
 test("TASK-089 cross-platform docs keep data contract aligned without mobile runtime changes", () => {
   const architecture = readProjectFile("docs/POS_SYNC_ARCHITECTURE.md");
   const runbook = readProjectFile("docs/POS_SYNC_DEBUGGING_RUNBOOK.md");
+  const migration = readProjectFile(
+    "supabase/migrations/20260628180000_task_089_catalog_delta_indexes.sql",
+  );
+  const syncWriter = readProjectFile("src/server/shop-admin/sync-event-writer.ts");
+  const workbookImport = readProjectFile(
+    "src/server/shop-admin/import-export-workbook.ts",
+  );
 
   assertContainsAll(architecture, [
     "Cross-platform Data Contract",
@@ -349,6 +362,14 @@ test("TASK-089 cross-platform docs keep data contract aligned without mobile run
     "Debugging E Observability",
     "POS_SYNC_DEBUGGING_RUNBOOK.md",
     "X-Request-Id",
+    "TASK_SYNC_PERF_*",
+    "EXPLAIN (ANALYZE, BUFFERS)",
+    "Index Only Scan",
+    "catalog-v1",
+    "catalog-v2",
+    "bulk import",
+    "prodotti con un `catalog_changed` aggregato",
+    "transazione atomica",
   ]);
   assertContainsAll(runbook, [
     "Observability Matrix",
@@ -360,6 +381,138 @@ test("TASK-089 cross-platform docs keep data contract aligned without mobile run
     "audit_logs metadata_redacted",
     "Non cancellare `sales_sync_outbox`",
   ]);
+  assertContainsAll(migration, [
+    "inventory_products_shop_updated_id_idx",
+    "inventory_product_prices_shop_created_id_idx",
+    "inventory_products_legacy_owner_updated_id_idx",
+    "inventory_product_prices_legacy_owner_created_id_idx",
+  ]);
+  assertContainsAll(syncWriter, [
+    "emitCatalogBulkProductImportSyncEvent",
+    "bulk_import",
+    "product_ids",
+    "catalog_changed",
+    "changedCount: sortedProductIds.length",
+  ]);
+  assertContainsAll(workbookImport, [
+    "emitBulkProductImportSyncEvents",
+    "syncEventFailure",
+    "bulkProductSyncEventError",
+    "Products were applied, but the catalog sync event could not be recorded.",
+  ]);
+});
+
+test("TASK-089 PriceHistory workbook emits prices_changed from real price ids", () => {
+  const architecture = readProjectFile("docs/POS_SYNC_ARCHITECTURE.md");
+  const migration = readProjectFile(
+    "supabase/migrations/20260628183000_task_089_price_history_sync_event_ids.sql",
+  );
+  const syncWriter = readProjectFile("src/server/shop-admin/sync-event-writer.ts");
+  const workbookImport = readProjectFile(
+    "src/server/shop-admin/import-export-workbook.ts",
+  );
+  const staffAwareMutations = readProjectFile(
+    "src/server/shop-admin/staff-aware-mutations.ts",
+  );
+
+  assertContainsAll(architecture, [
+    "PriceHistory",
+    "`prices_changed`",
+    "`price_ids`",
+    "`product_ids`",
+    "fallisce",
+    "response torna errore",
+  ]);
+  assertContainsAll(migration, [
+    "shop_catalog_import_price_history",
+    "v_price_ids",
+    "v_actual_price_id",
+    "returning id into v_actual_price_id",
+    "'priceIds'",
+    "'priceId'",
+    "'productId'",
+    "'shopId'",
+    "'ownerUserId'",
+    "grant execute on function public.shop_catalog_import_price_history",
+  ]);
+  assertContainsAll(syncWriter, [
+    "emitPriceHistoryImportSyncEvent",
+    "PRICE_SYNC_EVENT_CHUNK_SIZE = 100",
+    ".from(\"inventory_product_prices\")",
+    ".in(\"id\", priceIdChunk)",
+    "domain: \"prices\"",
+    "eventType: \"prices_changed\"",
+    "price_ids: sortedPriceIds",
+    "product_ids: sortedProductIds",
+    "changedCount: sortedPriceIds.length",
+  ]);
+  assertContainsAll(workbookImport, [
+    "priceIdsFromPayload",
+    "payload.priceIds",
+    "emitPriceHistoryImportSyncEvents",
+    "priceHistorySyncEventError",
+    "PriceHistory rows were applied, but the prices sync event could not be recorded.",
+    "shopAdminActionResult(syncEventFailure",
+  ]);
+  assertContainsAll(staffAwareMutations, [
+    "const priceIds: string[] = []",
+    ".from(\"inventory_product_prices\")",
+    ".select(\"id\")",
+    "priceIds.push(...appliedRows.map((row) => row.id))",
+    "priceIds,",
+  ]);
+  assert.doesNotMatch(workbookImport, /priceHistoryApplied[\s\S]{0,400}prices_changed/);
+  assert.doesNotMatch(syncWriter, /eventType: "prices_changed"[\s\S]{0,500}product_ids: sortedProductIds[\s\S]{0,200}price_ids: sortedProductIds/);
+});
+
+test("TASK-089 Admin shell listens to shop-scoped sync_events for near-realtime refresh", () => {
+  const shopShell = readProjectFile("src/components/shop/ShopShell.tsx");
+  const browserClient = readProjectFile("src/lib/supabase/client.ts");
+
+  assertContainsAll(shopShell, [
+    "createSupabaseBrowserClient",
+    "scheduleCurrentShopRouteRefresh",
+    "shop-sync-events:",
+    '"postgres_changes"',
+    'table: "sync_events"',
+    "filter: `shop_id=eq.${activeShopId}`",
+    "supabase.removeChannel(channel)",
+    "router.refresh()",
+  ]);
+  assertContainsAll(browserClient, [
+    "NEXT_PUBLIC_SUPABASE_URL",
+    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+    "createBrowserClient<Database>",
+  ]);
+  assert.doesNotMatch(shopShell, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
+  assert.doesNotMatch(browserClient, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
+});
+
+test("TASK-089 Admin sync event writer has retry compensation without silent success", () => {
+  const syncWriter = readProjectFile("src/server/shop-admin/sync-event-writer.ts");
+  const catalogMutations = readProjectFile("src/server/shop-admin/catalog-mutations.ts");
+  const historyMutations = readProjectFile("src/server/shop-admin/history-mutations.ts");
+
+  assertContainsAll(syncWriter, [
+    "SYNC_EVENT_WRITE_RETRY_DELAYS_MS",
+    "isRetryableSyncEventWriteError",
+    "insertSyncEventWithLegacyFallback",
+    "waitForSyncEventRetry",
+    "lastError = outcome.error",
+    "if (!isRetryableSyncEventWriteError(outcome.error))",
+    "return { code: \"db_failure\", ok: false }",
+  ]);
+  assertContainsAll(catalogMutations, [
+    "const syncResult = await emitCatalogMutationSyncEvent",
+    "if (syncResult.ok)",
+    "shopAdminActionResult(syncResult.code",
+  ]);
+  assertContainsAll(historyMutations, [
+    "writeAdminWebSyncEvent",
+    "shopAdminActionResult(syncResult.code",
+  ]);
+  assert.doesNotMatch(syncWriter, /console\.error\([\s\S]{0,300}owner_user_id/);
+  assert.doesNotMatch(syncWriter, /console\.(error|warn|log)/);
 });
 
 test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) => {

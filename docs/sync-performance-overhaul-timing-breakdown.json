@@ -1,0 +1,161 @@
+{
+  "task": "Sync Performance Overhaul Admin Web / Android / iOS",
+  "date": "2026-07-06",
+  "updatedAt": "2026-07-06T11:00:00-04:00",
+  "finalStatus": "FAIL_WITH_EXACT_REMAINING_BOTTLENECKS",
+  "testAccount": "x***@gmail.com",
+  "stagingAdminUrl": "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev",
+  "stagingDeploy": {
+    "status": "PASS",
+    "versionId": "787f30c3-91b4-4814-9bd5-c50bdff0eaab",
+    "command": "npm run cf:deploy:staging",
+    "productionDeploy": false
+  },
+  "thresholdsMs": {
+    "writeConfirmIdeal": 1500,
+    "writeConfirmAcceptable": 3000,
+    "syncEventCreated": 500,
+    "realtimeReceive": 2000,
+    "targetedFetch": 2000,
+    "localApply": 1000,
+    "foregroundOrFocus": 5000,
+    "normalEndToEnd": 5000
+  },
+  "t0ToT9": [
+    {
+      "label": "T0_ui_submit",
+      "status": "FAIL_BLOCKED_BROWSER_CLIENT",
+      "elapsedMs": null,
+      "reason": "Browser laterale Codex was authenticated on /shop/products, but direct navigation to the staging QA fixture path was blocked with net::ERR_BLOCKED_BY_CLIENT."
+    },
+    {
+      "label": "T1_server_mutation_start",
+      "status": "FAIL_BLOCKED_T0",
+      "elapsedMs": null,
+      "reason": "No official live UI/fixture submit reached the staging mutation path."
+    },
+    {
+      "label": "T2_server_mutation_done",
+      "status": "FAIL_BLOCKED_T0",
+      "elapsedMs": null,
+      "reason": "No official live UI/fixture submit reached the staging mutation path."
+    },
+    {
+      "label": "T3_sync_event_created",
+      "status": "FAIL_BLOCKED_T0_AND_ATOMICITY",
+      "elapsedMs": null,
+      "reason": "No final SYNC_PERF staging event was created in this run; Admin mutation + sync_event is still retry-compensated request flow, not one DB transaction/RPC."
+    },
+    {
+      "label": "T4_realtime_received",
+      "status": "FAIL_BLOCKED_NO_LIVE_EVENT",
+      "elapsedMs": null,
+      "reason": "No new staging event existed for Admin/Android/iOS realtime timestamping."
+    },
+    {
+      "label": "T5_targeted_fetch_start",
+      "status": "FAIL_BLOCKED_NO_MOBILE_LIVE_HARNESS",
+      "elapsedMs": null,
+      "reason": "Android/iOS live harness was not executing against a new final staging event."
+    },
+    {
+      "label": "T6_targeted_fetch_done",
+      "status": "FAIL_BLOCKED_NO_MOBILE_LIVE_HARNESS",
+      "elapsedMs": null,
+      "reason": "Android/iOS targeted fetch completion could not be timestamped for a new final staging event."
+    },
+    {
+      "label": "T7_local_apply_done",
+      "status": "FAIL_BLOCKED_NO_MOBILE_LIVE_HARNESS",
+      "elapsedMs": null,
+      "reason": "Android/iOS local apply timestamp was unavailable for a new final staging event."
+    },
+    {
+      "label": "T8_local_store_or_ui_visible",
+      "status": "FAIL_BLOCKED_NO_MOBILE_LIVE_HARNESS",
+      "elapsedMs": null,
+      "reason": "Android/iOS local store or UI visibility timestamp was unavailable for a new final staging event."
+    },
+    {
+      "label": "T9_other_platform_visible_or_admin_refresh_done",
+      "status": "FAIL_BLOCKED_NO_CROSS_PLATFORM_LIVE_MATRIX",
+      "elapsedMs": null,
+      "reason": "A-F cross-platform staging matrix was not completed with a new final SYNC_PERF run."
+    }
+  ],
+  "matrix": {
+    "A_admin_to_android_ios": {
+      "status": "FAIL_BLOCKED_NO_FINAL_T0_T9",
+      "reason": "Admin staging fixture/UI final write could not be driven through Browser lateral QA route; no new final event was available for Android/iOS."
+    },
+    "B_android_to_admin_ios": {
+      "status": "FAIL_BLOCKED_NO_LIVE_DEVICE_RUN",
+      "reason": "No new Android live write with final SYNC_PERF prefix was executed and timestamped through Admin/iOS."
+    },
+    "C_ios_to_admin_android": {
+      "status": "FAIL_BLOCKED_NO_LIVE_DEVICE_RUN",
+      "reason": "No new iOS live write with final SYNC_PERF prefix was executed and timestamped through Admin/Android."
+    },
+    "D_android_foreground_resume": {
+      "status": "FAIL_BLOCKED_NO_FINAL_LIVE_RESUME_RUN",
+      "reason": "Android foreground/resume was covered by local/unit apply-status tests only, not a new final live staging T0-T9 run."
+    },
+    "E_ios_foreground_resume": {
+      "status": "FAIL_BLOCKED_NO_FINAL_LIVE_RESUME_RUN",
+      "reason": "iOS foreground/resume was covered by simulator tests only, not a new final live staging T0-T9 run."
+    },
+    "F_admin_browser_visibility_focus": {
+      "status": "FAIL_BLOCKED_NO_LIVE_EVENT",
+      "reason": "Admin staging /shop/products authenticated page opened, but no new live event reached it for realtime/focus timing."
+    }
+  },
+  "verification": {
+    "adminWeb": {
+      "securityScan": { "status": "PASS", "command": "npm run security:scan" },
+      "foundationSyncArchitecture": {
+        "status": "PASS",
+        "command": "WIN7POS_REPO_PATH=/tmp/merchandise-control-admin-web-win7pos-not-in-scope node --test tests/foundation/task-089-sync-architecture-excellence.test.mjs",
+        "durationMs": 46,
+        "skippedExternalScope": "Win7POS"
+      },
+      "lint": { "status": "PASS", "command": "npm run lint" },
+      "typecheck": { "status": "PASS", "command": "npm run typecheck" },
+      "build": { "status": "PASS", "command": "npm run build" },
+      "cfCheckStagingAfterDeploy": { "status": "PASS", "command": "npm run cf:check:staging" }
+    },
+    "android": {
+      "applyStatusUnitTests": {
+        "status": "PASS",
+        "command": "./gradlew testDebugUnitTest --tests com.example.merchandisecontrolsplitview.data.DefaultInventoryRepositoryTest --tests com.example.merchandisecontrolsplitview.data.AppDatabaseMigrationTest --console=plain"
+      },
+      "debugUnitAndAssembleChecks": {
+        "status": "PASS",
+        "command": "./gradlew testDebugUnitTest :app:assembleDebug :app:assembleDebugAndroidTest --console=plain",
+        "durationMs": 28000
+      },
+      "installDebugApks": {
+        "status": "PASS",
+        "command": "./gradlew :app:installDebug :app:installDebugAndroidTest --console=plain",
+        "durationMs": 10000,
+        "device": "Medium_Phone_API_35"
+      }
+    },
+    "ios": {
+      "applyStatusSimulatorTests": {
+        "status": "PASS",
+        "command": "XcodeBuildMCP test_sim -only-testing:iOSMerchandiseControlTests/SyncEventIncrementalDomainApplyServiceTests -only-testing:iOSMerchandiseControlTests/Task119AutomaticArchitectureTests",
+        "passed": 23,
+        "failed": 0
+      }
+    },
+    "hygiene": {
+      "gitDiffCheck": "PASS in Admin Web, Android, iOS"
+    }
+  },
+  "remainingBottlenecks": [
+    "Admin mutation + sync_event is still not DB-atomic; current patch adds retry compensation without silent success.",
+    "Browser lateral blocks the staging QA fixture route with net::ERR_BLOCKED_BY_CLIENT, so official final T0_ui_submit cannot be produced through that route in this run.",
+    "Android/iOS live device harnesses were not running with a new final SYNC_PERF event, so T5-T8 and A-F live matrix cannot be claimed.",
+    "Admin realtime browser code is deployed and the authenticated page opens, but T4/T9 were not verified with a new live event after deploy."
+  ]
+}

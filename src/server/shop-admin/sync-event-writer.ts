@@ -36,6 +36,12 @@ type SyncWriteResult =
       code: "not_configured" | "db_failure" | "not_found";
       ok: false;
     };
+type SyncEventInsertOutcome =
+  | { ok: true }
+  | {
+      error: unknown;
+      ok: false;
+    };
 
 type CatalogSyncRow = Pick<
   Tables<"inventory_categories">,
@@ -112,10 +118,25 @@ function syncEventTypeForCatalogOperation(operation: CatalogSyncOperation) {
   return operation === "archive" ? "catalog_tombstone" : "catalog_changed";
 }
 
+function catalogScopeForRow(row: { shop_id: string | null }) {
+  return row.shop_id ? "shop_scoped" : "legacy_owner_bridge";
+}
+
 function buildAdminWebClientEventId(seed: string) {
   const digest = createHash("sha256").update(seed).digest("hex").slice(0, 48);
 
   return `admin_web:${digest}`;
+}
+
+function uniqueSorted(values: readonly string[]) {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)))
+    .sort();
+}
+
+function* chunkRows<T>(rows: readonly T[], chunkSize: number) {
+  for (let index = 0; index < rows.length; index += chunkSize) {
+    yield rows.slice(index, index + chunkSize);
+  }
 }
 
 function isDuplicateSyncEventError(error: unknown) {
@@ -123,6 +144,41 @@ function isDuplicateSyncEventError(error: unknown) {
     Boolean(error) &&
     typeof error === "object" &&
     (error as { code?: unknown }).code === "23505"
+  );
+}
+
+function syncEventErrorCode(error: unknown) {
+  return error && typeof error === "object"
+    ? String((error as { code?: unknown }).code ?? "")
+    : "";
+}
+
+function syncEventErrorStatus(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return 0;
+  }
+
+  const status = (error as { status?: unknown }).status;
+
+  return typeof status === "number" ? status : 0;
+}
+
+function isRetryableSyncEventWriteError(error: unknown) {
+  const code = syncEventErrorCode(error);
+  const status = syncEventErrorStatus(error);
+
+  return (
+    status === 408 ||
+    status === 409 ||
+    status === 429 ||
+    status >= 500 ||
+    code === "08000" ||
+    code === "08003" ||
+    code === "08006" ||
+    code === "40001" ||
+    code === "40P01" ||
+    code === "53300" ||
+    code === "57P03"
   );
 }
 
@@ -136,39 +192,100 @@ function isLegacySyncSchemaError(error: unknown) {
   return code === "42703" || code === "PGRST204" || code === "PGRST205";
 }
 
+const SYNC_EVENT_WRITE_RETRY_DELAYS_MS = [0, 120, 360] as const;
+
+async function waitForSyncEventRetry(attemptIndex: number) {
+  const delayMs = SYNC_EVENT_WRITE_RETRY_DELAYS_MS[attemptIndex] ?? 0;
+
+  if (delayMs <= 0) {
+    return;
+  }
+
+  await new Promise((resolve) => setTimeout(resolve, delayMs));
+}
+
 function actorKind(context: ReadyShopActionContext) {
   return context.principalKind;
 }
 
-function uniqueNonEmptyIds(ids: readonly string[]) {
-  return Array.from(new Set(ids.map((id) => id.trim()).filter(Boolean))).sort();
-}
-
 function shortSyncDigest(parts: readonly string[]) {
-  return createHash("sha256").update(parts.join("\u001f")).digest("hex").slice(0, 32);
+  return createHash("sha256")
+    .update(parts.join("\u001f"))
+    .digest("hex")
+    .slice(0, 32);
 }
 
-function catalogScopeForRows(rows: readonly OwnerShopSyncRow[]) {
-  return rows.every((row) => row.shop_id === null)
-    ? "legacy_owner_bridge"
-    : "shop_scoped";
-}
-
-function groupRowsByOwnerAndShop<T extends OwnerShopSyncRow>(
+function groupRowsByOwnerShopAndScope<T extends OwnerShopSyncRow>(
   rows: readonly T[],
   selectedShopId: string,
 ) {
-  const groups = new Map<string, T[]>();
+  const groups = new Map<
+    string,
+    {
+      ownerUserId: string;
+      rows: T[];
+      scope: "legacy_owner_bridge" | "shop_scoped";
+      shopId: string;
+    }
+  >();
 
   for (const row of rows) {
-    const groupShopId = row.shop_id ?? selectedShopId;
-    const key = `${row.owner_user_id}:${groupShopId}`;
-    const group = groups.get(key) ?? [];
-    group.push(row);
-    groups.set(key, group);
+    const scope = catalogScopeForRow(row);
+    const shopId = row.shop_id ?? selectedShopId;
+    const key = [row.owner_user_id, shopId, scope].join(":");
+    const group = groups.get(key);
+
+    if (group) {
+      group.rows.push(row);
+      continue;
+    }
+
+    groups.set(key, {
+      ownerUserId: row.owner_user_id,
+      rows: [row],
+      scope,
+      shopId,
+    });
   }
 
   return groups;
+}
+
+async function insertSyncEventWithLegacyFallback(
+  input: AdminWebSyncEventInput,
+  row: {
+    changed_count: number;
+    client_event_id: string;
+    domain: AdminWebSyncDomain;
+    entity_ids: Json;
+    event_type: AdminWebSyncEventType;
+    metadata: Record<string, Json>;
+    owner_user_id: string;
+    shop_id: string | null;
+    source: "admin_web";
+    source_device_id: null;
+  },
+): Promise<SyncEventInsertOutcome> {
+  const { error } = await input.supabase.from("sync_events").insert(row);
+
+  if (!error || isDuplicateSyncEventError(error)) {
+    return { ok: true };
+  }
+
+  if (isLegacySyncSchemaError(error)) {
+    const legacyRow = omitShopId(row);
+    const { error: legacyError } = await input.supabase
+      .from("sync_events")
+      .insert(legacyRow);
+
+    if (!legacyError || isDuplicateSyncEventError(legacyError)) {
+      return { ok: true };
+    }
+
+    return { error: legacyError, ok: false };
+  }
+
+  return { error, ok: false };
 }
 
 async function loadCatalogSyncRow(
@@ -276,25 +393,30 @@ export async function writeAdminWebSyncEvent(
     metadata,
     owner_user_id: input.ownerUserId,
     shop_id: input.shopId,
-    source: "admin_web",
+    source: "admin_web" as const,
     source_device_id: null,
   };
 
-  const { error } = await input.supabase.from("sync_events").insert(row);
+  let lastError: unknown = null;
 
-  if (!error || isDuplicateSyncEventError(error)) {
-    return { ok: true };
-  }
+  for (const attemptIndex of SYNC_EVENT_WRITE_RETRY_DELAYS_MS.keys()) {
+    await waitForSyncEventRetry(attemptIndex);
 
-  if (isLegacySyncSchemaError(error)) {
-    const legacyRow = omitShopId(row);
-    const { error: legacyError } = await input.supabase
-      .from("sync_events")
-      .insert(legacyRow);
+    const outcome = await insertSyncEventWithLegacyFallback(input, row);
 
-    if (!legacyError || isDuplicateSyncEventError(legacyError)) {
+    if (outcome.ok) {
       return { ok: true };
     }
+
+    lastError = outcome.error;
+
+    if (!isRetryableSyncEventWriteError(outcome.error)) {
+      break;
+    }
+  }
+
+  if (lastError && isDuplicateSyncEventError(lastError)) {
+    return { ok: true };
   }
 
   return { code: "db_failure", ok: false };
@@ -349,7 +471,7 @@ export async function emitCatalogMutationSyncEvent(input: {
     eventType: syncEventTypeForCatalogOperation(input.operation),
     metadata: {
       actor_kind: actorKind(input.context),
-      catalog_scope: data.shop_id ? "shop_scoped" : "legacy_owner_bridge",
+      catalog_scope: catalogScopeForRow(data),
       entity_type: input.entity,
       operation:
         input.operation === "archive" ? "tombstone" : input.operation,
@@ -365,7 +487,7 @@ export async function emitCatalogBulkProductImportSyncEvent(input: {
   context: ReadyShopActionContext;
   productIds: readonly string[];
 }): Promise<SyncWriteResult> {
-  const productIds = uniqueNonEmptyIds(input.productIds);
+  const productIds = uniqueSorted(input.productIds);
 
   if (productIds.length === 0) {
     return { ok: true };
@@ -383,60 +505,64 @@ export async function emitCatalogBulkProductImportSyncEvent(input: {
     return { code: "db_failure", ok: false };
   }
 
-  if (!data || data.length !== productIds.length) {
+  const rows = data ?? [];
+
+  if (rows.length !== productIds.length) {
     return { code: "not_found", ok: false };
   }
 
-  for (const rows of groupRowsByOwnerAndShop(
-    data,
+  for (const group of groupRowsByOwnerShopAndScope(
+    rows,
     input.context.selectedShop.shopId,
   ).values()) {
-    const rowIds = rows.map((row) => row.id).sort();
-    const rowVersions = rows
+    const sortedProductIds = group.rows.map((row) => row.id).sort();
+    const rowVersions = group.rows
       .map((row) => `${row.id}:${row.updated_at}:${row.deleted_at ?? "active"}`)
       .sort();
-    const representative = rows[0];
-
-    const syncResult = await writeAdminWebSyncEvent({
-      changedCount: rowIds.length,
+    const digest = shortSyncDigest(rowVersions);
+    const result = await writeAdminWebSyncEvent({
+      changedCount: sortedProductIds.length,
       clientEventSeed: [
         "catalog",
         "product",
         "bulk_import",
-        representative.owner_user_id,
-        representative.shop_id ?? input.context.selectedShop.shopId,
-        shortSyncDigest(rowVersions),
+        group.ownerUserId,
+        group.shopId,
+        group.scope,
+        digest,
       ].join(":"),
       domain: "catalog",
       entityIds: {
-        product_ids: rowIds,
+        product_ids: sortedProductIds,
       },
       eventType: "catalog_changed",
       metadata: {
         actor_kind: actorKind(input.context),
-        catalog_scope: catalogScopeForRows(rows),
+        catalog_scope: group.scope,
         entity_type: "product",
         operation: "bulk_import",
         payload_version: 1,
       },
-      ownerUserId: representative.owner_user_id,
-      shopId: representative.shop_id ?? input.context.selectedShop.shopId,
+      ownerUserId: group.ownerUserId,
+      shopId: group.shopId,
       supabase,
     });
 
-    if (!syncResult.ok) {
-      return syncResult;
+    if (!result.ok) {
+      return result;
     }
   }
 
   return { ok: true };
 }
 
+const PRICE_SYNC_EVENT_CHUNK_SIZE = 100;
+
 export async function emitPriceHistoryImportSyncEvent(input: {
   context: ReadyShopActionContext;
   priceIds: readonly string[];
 }): Promise<SyncWriteResult> {
-  const priceIds = uniqueNonEmptyIds(input.priceIds);
+  const priceIds = uniqueSorted(input.priceIds);
 
   if (priceIds.length === 0) {
     return { ok: true };
@@ -448,60 +574,68 @@ export async function emitPriceHistoryImportSyncEvent(input: {
     return { code: "not_configured", ok: false };
   }
 
-  const { data, error } = await loadPriceBulkSyncRows(supabase, priceIds);
+  for (const priceIdChunk of chunkRows(priceIds, PRICE_SYNC_EVENT_CHUNK_SIZE)) {
+    const { data, error } = await loadPriceBulkSyncRows(supabase, priceIdChunk);
 
-  if (error) {
-    return { code: "db_failure", ok: false };
-  }
+    if (error) {
+      return { code: "db_failure", ok: false };
+    }
 
-  if (!data || data.length !== priceIds.length) {
-    return { code: "not_found", ok: false };
-  }
+    const rows = data ?? [];
 
-  const seedTimestamp = new Date().toISOString();
+    if (rows.length !== priceIdChunk.length) {
+      return { code: "not_found", ok: false };
+    }
 
-  for (const rows of groupRowsByOwnerAndShop(
-    data,
-    input.context.selectedShop.shopId,
-  ).values()) {
-    const rowIds = rows.map((row) => row.id).sort();
-    const productIds = uniqueNonEmptyIds(rows.map((row) => row.product_id));
-    const rowVersions = rows
-      .map((row) => `${row.id}:${row.product_id}:${row.created_at}:${row.effective_at}`)
-      .sort();
-    const representative = rows[0];
+    for (const group of groupRowsByOwnerShopAndScope(
+      rows,
+      input.context.selectedShop.shopId,
+    ).values()) {
+      const sortedPriceIds = uniqueSorted(group.rows.map((row) => row.id));
+      const sortedProductIds = uniqueSorted(
+        group.rows.map((row) => row.product_id),
+      );
+      const rowVersions = group.rows
+        .map(
+          (row) =>
+            `${row.id}:${row.product_id}:${row.created_at}:${row.effective_at}`,
+        )
+        .sort();
+      const digest = shortSyncDigest(rowVersions);
+      const result = await writeAdminWebSyncEvent({
+        changedCount: sortedPriceIds.length,
+        clientEventSeed: [
+          "prices",
+          "price_history",
+          "workbook_import",
+          group.ownerUserId,
+          group.shopId,
+          group.scope,
+          digest,
+        ].join(":"),
+        domain: "prices",
+        entityIds: {
+          price_ids: sortedPriceIds,
+          product_ids: sortedProductIds,
+        },
+        eventType: "prices_changed",
+        metadata: {
+          actor_kind: actorKind(input.context),
+          catalog_scope: group.scope,
+          entity_type: "price_history",
+          operation: "workbook_import",
+          payload_version: 1,
+          price_count: sortedPriceIds.length,
+          product_count: sortedProductIds.length,
+        },
+        ownerUserId: group.ownerUserId,
+        shopId: group.shopId,
+        supabase,
+      });
 
-    const syncResult = await writeAdminWebSyncEvent({
-      changedCount: rowIds.length,
-      clientEventSeed: [
-        "prices",
-        "bulk_import",
-        representative.owner_user_id,
-        representative.shop_id ?? input.context.selectedShop.shopId,
-        seedTimestamp,
-        shortSyncDigest(rowVersions),
-      ].join(":"),
-      domain: "prices",
-      entityIds: {
-        price_ids: rowIds,
-        product_ids: productIds,
-      },
-      eventType: "prices_changed",
-      metadata: {
-        actor_kind: actorKind(input.context),
-        catalog_scope: catalogScopeForRows(rows),
-        operation: "bulk_import",
-        payload_version: 1,
-        price_count: rowIds.length,
-        product_count: productIds.length,
-      },
-      ownerUserId: representative.owner_user_id,
-      shopId: representative.shop_id ?? input.context.selectedShop.shopId,
-      supabase,
-    });
-
-    if (!syncResult.ok) {
-      return syncResult;
+      if (!result.ok) {
+        return result;
+      }
     }
   }
 

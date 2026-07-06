@@ -279,6 +279,8 @@ function checkClientBoundaries() {
     ]).has(file);
     const platformProvisioningRequestBoundary =
       file === "src/app/platform/provisioning/platformProvisioningRequest.ts";
+    const shopRealtimeBoundary =
+      file === "src/components/shop/ShopShell.tsx";
 
     if (serverComponentBoundary) {
       continue;
@@ -286,7 +288,9 @@ function checkClientBoundaries() {
 
     for (const pattern of forbiddenPatterns) {
       if (
-        (authClientBoundary || platformProvisioningRequestBoundary) &&
+        (authClientBoundary ||
+          platformProvisioningRequestBoundary ||
+          shopRealtimeBoundary) &&
         pattern.source === "@\\\/lib\\\/supabase" &&
         /@\/lib\/supabase\/client/.test(contents)
       ) {
