@@ -2966,16 +2966,47 @@ export type Database = {
         Args: { p_category_id: string; p_reason?: string; p_shop_id: string }
         Returns: Json
       }
+      shop_catalog_archive_category_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_category_id: string
+          p_reason?: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
       shop_catalog_archive_product: {
         Args: { p_product_id: string; p_reason?: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_archive_product_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_product_id: string
+          p_reason?: string
+          p_shop_id: string
+        }
         Returns: Json
       }
       shop_catalog_archive_supplier: {
         Args: { p_reason?: string; p_shop_id: string; p_supplier_id: string }
         Returns: Json
       }
+      shop_catalog_archive_supplier_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_reason?: string
+          p_shop_id: string
+          p_supplier_id: string
+        }
+        Returns: Json
+      }
       shop_catalog_create_category: {
         Args: { p_name: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_create_category_with_sync: {
+        Args: { p_actor_kind?: string; p_name: string; p_shop_id: string }
         Returns: Json
       }
       shop_catalog_create_product: {
@@ -2993,8 +3024,28 @@ export type Database = {
         }
         Returns: Json
       }
+      shop_catalog_create_product_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_barcode: string
+          p_category_id?: string
+          p_item_number?: string
+          p_product_name?: string
+          p_purchase_price?: number
+          p_retail_price?: number
+          p_second_product_name?: string
+          p_shop_id: string
+          p_stock_quantity?: number
+          p_supplier_id?: string
+        }
+        Returns: Json
+      }
       shop_catalog_create_supplier: {
         Args: { p_name: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_create_supplier_with_sync: {
+        Args: { p_actor_kind?: string; p_name: string; p_shop_id: string }
         Returns: Json
       }
       shop_catalog_import_price_history: {
@@ -3009,8 +3060,26 @@ export type Database = {
         Args: { p_product_id: string; p_reason?: string; p_shop_id: string }
         Returns: Json
       }
+      shop_catalog_restore_product_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_product_id: string
+          p_reason?: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
       shop_catalog_update_category: {
         Args: { p_category_id: string; p_name: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_update_category_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_category_id: string
+          p_name: string
+          p_shop_id: string
+        }
         Returns: Json
       }
       shop_catalog_update_product: {
@@ -3029,8 +3098,34 @@ export type Database = {
         }
         Returns: Json
       }
+      shop_catalog_update_product_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_barcode: string
+          p_category_id?: string
+          p_item_number?: string
+          p_product_id: string
+          p_product_name?: string
+          p_purchase_price?: number
+          p_retail_price?: number
+          p_second_product_name?: string
+          p_shop_id: string
+          p_stock_quantity?: number
+          p_supplier_id?: string
+        }
+        Returns: Json
+      }
       shop_catalog_update_supplier: {
         Args: { p_name: string; p_shop_id: string; p_supplier_id: string }
+        Returns: Json
+      }
+      shop_catalog_update_supplier_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_name: string
+          p_shop_id: string
+          p_supplier_id: string
+        }
         Returns: Json
       }
       shop_device_reactivate: {

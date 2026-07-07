@@ -306,6 +306,7 @@ test("TASK-089 positive harness remains staging-allowlisted and cleanup-safe", (
     "cf:check:custom-domain",
     "cf:check:staging",
     "staging:check",
+    "scripts/run-with-env.mjs",
     "supabase:check",
     "test:pos-staging-harness:dry-run",
     "TASK032_POS_E2E_STAGING_DRY_RUN=yes",

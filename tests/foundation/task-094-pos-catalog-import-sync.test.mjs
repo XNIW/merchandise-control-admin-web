@@ -192,6 +192,8 @@ test("TASK-094 staging E2E harness proves positive catalog import without leakin
 
   assertContainsAll(packageJson, [
     "test:pos-catalog-import-staging-e2e",
+    "scripts/run-with-env.mjs",
+    "TASK094_POS_E2E_ALLOW_STAGING=yes",
     "scripts/pos-catalog-import-staging-e2e.mjs",
   ]);
   assertContainsAll(harness, [

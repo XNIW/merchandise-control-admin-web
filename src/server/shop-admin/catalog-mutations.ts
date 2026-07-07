@@ -174,7 +174,7 @@ async function rpcResult(
     });
   }
 
-  return withSyncEvent(mapShopAdminRpcResult(data));
+  return mapShopAdminRpcResult(data);
 }
 
 export async function createSupplier(
@@ -192,7 +192,8 @@ export async function createSupplier(
     "suppliers.write",
     (context) => createSupplierAsStaff(context, { name: input.name }),
     (context) =>
-      context.supabase.rpc("shop_catalog_create_supplier", {
+      context.supabase.rpc("shop_catalog_create_supplier_with_sync", {
+        p_actor_kind: context.principalKind,
         p_name: input.name,
         p_shop_id: context.selectedShop.shopId,
       }),
@@ -215,7 +216,8 @@ export async function updateSupplier(
     "suppliers.write",
     (context) => updateSupplierAsStaff(context, { id: input.id, name: input.name }),
     (context) =>
-      context.supabase.rpc("shop_catalog_update_supplier", {
+      context.supabase.rpc("shop_catalog_update_supplier_with_sync", {
+        p_actor_kind: context.principalKind,
         p_name: input.name,
         p_shop_id: context.selectedShop.shopId,
         p_supplier_id: input.id,
@@ -243,7 +245,8 @@ export async function archiveSupplier(
     (context) =>
       archiveSupplierAsStaff(context, { id: input.id, reason }),
     (context) =>
-      context.supabase.rpc("shop_catalog_archive_supplier", {
+      context.supabase.rpc("shop_catalog_archive_supplier_with_sync", {
+        p_actor_kind: context.principalKind,
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,
         p_supplier_id: input.id,
@@ -267,7 +270,8 @@ export async function createCategory(
     "categories.write",
     (context) => createCategoryAsStaff(context, { name: input.name }),
     (context) =>
-      context.supabase.rpc("shop_catalog_create_category", {
+      context.supabase.rpc("shop_catalog_create_category_with_sync", {
+        p_actor_kind: context.principalKind,
         p_name: input.name,
         p_shop_id: context.selectedShop.shopId,
       }),
@@ -290,7 +294,8 @@ export async function updateCategory(
     "categories.write",
     (context) => updateCategoryAsStaff(context, { id: input.id, name: input.name }),
     (context) =>
-      context.supabase.rpc("shop_catalog_update_category", {
+      context.supabase.rpc("shop_catalog_update_category_with_sync", {
+        p_actor_kind: context.principalKind,
         p_category_id: input.id,
         p_name: input.name,
         p_shop_id: context.selectedShop.shopId,
@@ -318,7 +323,8 @@ export async function archiveCategory(
     (context) =>
       archiveCategoryAsStaff(context, { id: input.id, reason }),
     (context) =>
-      context.supabase.rpc("shop_catalog_archive_category", {
+      context.supabase.rpc("shop_catalog_archive_category_with_sync", {
+        p_actor_kind: context.principalKind,
         p_category_id: input.id,
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,
@@ -656,7 +662,8 @@ export async function createProduct(
         supplierId: cleanUuid(input.supplierId),
       }),
     (context) =>
-      context.supabase.rpc("shop_catalog_create_product", {
+      context.supabase.rpc("shop_catalog_create_product_with_sync", {
+        p_actor_kind: context.principalKind,
         p_barcode: input.barcode,
         p_category_id: cleanUuid(input.categoryId),
         p_item_number: input.itemNumber,
@@ -698,7 +705,8 @@ export async function updateProduct(
         supplierId: cleanUuid(input.supplierId),
       }),
     (context) =>
-      context.supabase.rpc("shop_catalog_update_product", {
+      context.supabase.rpc("shop_catalog_update_product_with_sync", {
+        p_actor_kind: context.principalKind,
         p_barcode: input.barcode,
         p_category_id: cleanUuid(input.categoryId),
         p_item_number: input.itemNumber,
@@ -733,7 +741,8 @@ export async function archiveProduct(
     "products.write",
     (context) => archiveProductAsStaff(context, { id: input.id, reason }),
     (context) =>
-      context.supabase.rpc("shop_catalog_archive_product", {
+      context.supabase.rpc("shop_catalog_archive_product_with_sync", {
+        p_actor_kind: context.principalKind,
         p_product_id: input.id,
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,
@@ -760,7 +769,8 @@ export async function restoreProduct(
     "products.write",
     (context) => restoreProductAsStaff(context, { id: input.id, reason }),
     (context) =>
-      context.supabase.rpc("shop_catalog_restore_product", {
+      context.supabase.rpc("shop_catalog_restore_product_with_sync", {
+        p_actor_kind: context.principalKind,
         p_product_id: input.id,
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,
