@@ -121,7 +121,10 @@ test(
   "TASK-087 Win7POS handles policy, blocked sync UX, restore pre-backup and log rotation",
   { skip: !existsSync(win7PosRoot) },
   () => {
-    const client = readWin7PosFile("src/Win7POS.Core/Online/PosAdminWebClient.cs");
+    const client = readWin7PosFile("src/Win7POS.Data/Online/PosAdminWebClient.cs");
+    const transportContracts = readWin7PosFile(
+      "src/Win7POS.Core/Online/PosOnlineTransportContracts.cs",
+    );
     const policySnapshot = readWin7PosFile(
       "src/Win7POS.Wpf/Pos/Online/PosOnlinePolicySnapshot.cs",
     );
@@ -149,7 +152,7 @@ test(
       "PosTaxPolicyResponse",
       "PosStaffPolicyResponse",
     ]) {
-      assertContains(client, required);
+      assertContains(transportContracts, required);
     }
 
     assertContains(policySnapshot, "pos.policy.contract_version");
@@ -182,7 +185,7 @@ test(
     assertContains(readme, "pre-backup `pos_pre_restore_yyyyMMdd_HHmmss.db`");
     assertContains(checklist, "Hardware verification remains `EXTERNAL_NOT_RUN`");
 
-    assert.doesNotMatch(client, /pinHash|passwordHash|credentialHash/);
+    assert.doesNotMatch(`${client}\n${transportContracts}`, /pinHash|passwordHash|credentialHash/);
     assert.doesNotMatch(policySnapshot, /PIN|password|token/i);
   },
 );

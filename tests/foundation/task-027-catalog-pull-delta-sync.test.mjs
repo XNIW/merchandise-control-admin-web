@@ -460,9 +460,10 @@ test("TASK-027 existing Win7POS catalog client uses saved cursor and light retry
 
   assert.equal(existsSync(win7PosRoot), true, "Win7POS repo is missing");
 
-  const client = readWin7PosFile(
-    "src/Win7POS.Core/Online/PosAdminWebClient.cs",
-  );
+  const client = [
+    readWin7PosFile("src/Win7POS.Data/Online/PosAdminWebClient.cs"),
+    readWin7PosFile("src/Win7POS.Core/Online/PosOnlineTransportContracts.cs"),
+  ].join("\n");
   const service = readWin7PosFile(
     "src/Win7POS.Wpf/Pos/Online/PosCatalogPullService.cs",
   );

@@ -4576,7 +4576,8 @@ function checkTask022023PosDashboardWin7PosClient() {
   const foundationTestPath =
     "tests/foundation/task-022-023-pos-dashboard-win7pos-client.test.mjs";
   const win7RequiredPaths = [
-    "src/Win7POS.Core/Online/PosAdminWebClient.cs",
+    "src/Win7POS.Core/Online/PosOnlineTransportContracts.cs",
+    "src/Win7POS.Data/Online/PosAdminWebClient.cs",
     "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",
     "src/Win7POS.Core/Online/PosAdminWebOptions.cs",
     "src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs",
@@ -4653,7 +4654,7 @@ function checkTask022023PosDashboardWin7PosClient() {
     .map((file) => readFileSync(file, "utf8"))
     .join("\n");
   const win7Client = readFileSync(
-    join(win7PosRoot, "src/Win7POS.Core/Online/PosAdminWebClient.cs"),
+    join(win7PosRoot, "src/Win7POS.Data/Online/PosAdminWebClient.cs"),
     "utf8",
   );
   const win7Store = readFileSync(
@@ -4676,7 +4677,8 @@ function checkTask022023PosDashboardWin7PosClient() {
     "utf8",
   );
   const win7IntegrationSource = [
-    "src/Win7POS.Core/Online/PosAdminWebClient.cs",
+    "src/Win7POS.Core/Online/PosOnlineTransportContracts.cs",
+    "src/Win7POS.Data/Online/PosAdminWebClient.cs",
     "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",
     "src/Win7POS.Core/Online/PosAdminWebOptions.cs",
     "src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs",
@@ -4968,10 +4970,16 @@ function checkTask027CatalogPullDeltaSync() {
   }
 
   if (existsSync(win7PosRoot)) {
-    const win7Client = readFileSync(
-      join(win7PosRoot, "src/Win7POS.Core/Online/PosAdminWebClient.cs"),
-      "utf8",
-    );
+    const win7Client = [
+      readFileSync(
+        join(win7PosRoot, "src/Win7POS.Data/Online/PosAdminWebClient.cs"),
+        "utf8",
+      ),
+      readFileSync(
+        join(win7PosRoot, "src/Win7POS.Core/Online/PosOnlineTransportContracts.cs"),
+        "utf8",
+      ),
+    ].join("\n");
     const win7Service = readFileSync(
       join(win7PosRoot, "src/Win7POS.Wpf/Pos/Online/PosCatalogPullService.cs"),
       "utf8",

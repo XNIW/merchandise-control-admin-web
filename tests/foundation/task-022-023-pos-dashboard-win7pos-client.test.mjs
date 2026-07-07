@@ -243,7 +243,8 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
   assert.equal(existsSync(win7PosRoot), true, "Win7POS repo is missing");
 
   const requiredPaths = [
-    "src/Win7POS.Core/Online/PosAdminWebClient.cs",
+    "src/Win7POS.Core/Online/PosOnlineTransportContracts.cs",
+    "src/Win7POS.Data/Online/PosAdminWebClient.cs",
     "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",
     "src/Win7POS.Core/Online/PosAdminWebOptions.cs",
     "src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs",
@@ -261,7 +262,7 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
   }
 
   const client = readWin7PosFile(
-    "src/Win7POS.Core/Online/PosAdminWebClient.cs",
+    "src/Win7POS.Data/Online/PosAdminWebClient.cs",
   );
   const store = readWin7PosFile(
     "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",

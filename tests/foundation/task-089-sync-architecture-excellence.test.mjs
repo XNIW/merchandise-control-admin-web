@@ -523,7 +523,7 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
     return;
   }
 
-  const client = readWin7PosFile("src/Win7POS.Core/Online/PosAdminWebClient.cs");
+  const client = readWin7PosFile("src/Win7POS.Data/Online/PosAdminWebClient.cs");
   const builder = readWin7PosFile(
     "src/Win7POS.Data/Online/PosSalesSyncRequestBuilder.cs",
   );

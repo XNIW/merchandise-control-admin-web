@@ -271,9 +271,10 @@ test("TASK-029 Win7POS fresh install bootstrap keeps Admin Web as backend bounda
   const posLegacyTranslations = readWin7PosFile(
     "src/Win7POS.Wpf/Localization/PosTranslations.LegacyReachable.cs",
   );
-  const client = readWin7PosFile(
-    "src/Win7POS.Core/Online/PosAdminWebClient.cs",
-  );
+  const client = [
+    readWin7PosFile("src/Win7POS.Data/Online/PosAdminWebClient.cs"),
+    readWin7PosFile("src/Win7POS.Core/Online/PosOnlineTransportContracts.cs"),
+  ].join("\n");
   const options = readWin7PosFile(
     "src/Win7POS.Core/Online/PosAdminWebOptions.cs",
   );
