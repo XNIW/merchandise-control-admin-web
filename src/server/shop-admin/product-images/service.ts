@@ -77,6 +77,19 @@ function statusForRpcCode(code: string) {
   return 503;
 }
 
+function canonicalProductImagePath(input: {
+  path: string | null;
+  productId: string;
+  shopId: string;
+  variant: "main" | "thumb";
+  versionId: string;
+}) {
+  return (
+    input.path ===
+    `shops/${input.shopId}/products/${input.productId}/primary/${input.versionId}/${input.variant}.jpg`
+  );
+}
+
 function resolveAdminClient() {
   const config = resolveSupabaseAdminConfig();
   return config.status === "configured"
@@ -500,35 +513,69 @@ export async function removeProductImage(
 
   const status = textField(rpc.status) ?? "already_removed";
   if (status === "already_removed") {
-    return serviceResult(200, { ok: true, status });
+    return serviceResult(200, {
+      currentImageVersionId: null,
+      ok: true,
+      operation: "remove",
+      productId: input.productId,
+      shopId: input.shopId,
+      status,
+      versionId: input.expectedVersionId,
+    });
   }
 
   const mainPath = textField(rpc.main_path);
   const thumbPath = textField(rpc.thumb_path);
-  let cleanupStatus: "complete" | "pending" = "pending";
-
-  if (mainPath && thumbPath) {
-    const storageResult = await admin.storage
-      .from(PRODUCT_IMAGE_BUCKET)
-      .remove([mainPath, thumbPath]);
-    cleanupStatus = storageResult.error ? "pending" : "complete";
-
-    await admin.rpc("product_image_record_cleanup", {
-      p_actor_kind: actor.actorKind,
-      p_actor_profile_id: actor.actorProfileId,
-      p_error_code: storageResult.error ? "storage_delete_failed" : undefined,
-      p_product_id: input.productId,
-      p_shop_id: input.shopId,
-      p_source: "api_remove",
-      p_success: !storageResult.error,
-      p_version_id: input.expectedVersionId,
-    });
+  const versionId = textField(rpc.version_id);
+  if (
+    status !== "removed" ||
+    versionId !== input.expectedVersionId ||
+    !mainPath ||
+    !thumbPath ||
+    !canonicalProductImagePath({
+      path: mainPath,
+      productId: input.productId,
+      shopId: input.shopId,
+      variant: "main",
+      versionId: input.expectedVersionId,
+    }) ||
+    !canonicalProductImagePath({
+      path: thumbPath,
+      productId: input.productId,
+      shopId: input.shopId,
+      variant: "thumb",
+      versionId: input.expectedVersionId,
+    })
+  ) {
+    return safeFailure("backend_contract_invalid");
   }
+
+  const storageResult = await admin.storage
+    .from(PRODUCT_IMAGE_BUCKET)
+    .remove([mainPath, thumbPath]);
+  const cleanupStatus: "complete" | "pending" = storageResult.error
+    ? "pending"
+    : "complete";
+
+  await admin.rpc("product_image_record_cleanup", {
+    p_actor_kind: actor.actorKind,
+    p_actor_profile_id: actor.actorProfileId,
+    p_error_code: storageResult.error ? "storage_delete_failed" : undefined,
+    p_product_id: input.productId,
+    p_shop_id: input.shopId,
+    p_source: "api_remove",
+    p_success: !storageResult.error,
+    p_version_id: input.expectedVersionId,
+  });
 
   return serviceResult(200, {
     cleanupStatus,
+    currentImageVersionId: null,
     imageUpdatedAt: textField(rpc.image_updated_at),
     ok: true,
+    operation: "remove",
+    productId: input.productId,
+    shopId: input.shopId,
     status,
     versionId: input.expectedVersionId,
   });

@@ -4,10 +4,10 @@ import { createHash } from "node:crypto";
 import type { ProductImageActorKind } from "./auth";
 
 export function createProductImageCacheScope(
-  actorKind: ProductImageActorKind,
+  _actorKind: ProductImageActorKind,
   actorProfileId: string,
 ) {
   return createHash("sha256")
-    .update(`${actorKind}:${actorProfileId}`)
+    .update(`product-image-account:${actorProfileId}`)
     .digest("hex");
 }

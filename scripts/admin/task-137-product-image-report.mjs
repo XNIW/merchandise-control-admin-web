@@ -13,6 +13,10 @@ const targetArg = process.argv
   .slice(2)
   .find((argument) => argument.startsWith("--target="));
 const target = targetArg?.slice("--target=".length) ?? "";
+const shopIdArg = process.argv
+  .slice(2)
+  .find((argument) => argument.startsWith("--shop-id="));
+const shopId = shopIdArg?.slice("--shop-id=".length) ?? "";
 const databasePageSize = 1_000;
 const storagePageSize = 100;
 const maximumRows = 50_000;
@@ -20,6 +24,12 @@ const maximumStorageObjects = 50_000;
 const maximumStoragePrefixes = 100_000;
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const uuidSegment =
+  "[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}";
+const canonicalObjectPathPattern = new RegExp(
+  `^shops/(${uuidSegment})/products/(${uuidSegment})/primary/(${uuidSegment})/(main|thumb)\\.jpg$`,
+  "i",
+);
 
 function fail(code, message) {
   console.error(`[task137-image-report] FAIL ${code}: ${message}`);
@@ -96,6 +106,7 @@ async function readAllRows(client, table, columns) {
     const result = await client
       .from(table)
       .select(columns)
+      .eq("shop_id", shopId)
       .range(offset, offset + databasePageSize - 1);
     if (result.error) {
       fail("DATABASE_REPORT_READ_FAILED", `Unable to read ${table}.`);
@@ -109,9 +120,26 @@ async function readAllRows(client, table, columns) {
   }
 }
 
+async function readScopedProducts(client, productIds) {
+  const rows = [];
+  const uniqueIds = [...new Set(productIds)];
+  for (let offset = 0; offset < uniqueIds.length; offset += databasePageSize) {
+    const ids = uniqueIds.slice(offset, offset + databasePageSize);
+    const result = await client
+      .from("inventory_products")
+      .select("id,shop_id,primary_image_version_id")
+      .in("id", ids);
+    if (result.error) {
+      fail("DATABASE_REPORT_READ_FAILED", "Unable to read scoped products.");
+    }
+    rows.push(...(result.data ?? []));
+  }
+  return rows;
+}
+
 async function readStorageObjects(bucket) {
   const objects = [];
-  const prefixes = [""];
+  const prefixes = [`shops/${shopId}`];
   const queued = new Set(prefixes);
 
   for (let prefixIndex = 0; prefixIndex < prefixes.length; prefixIndex += 1) {
@@ -130,7 +158,7 @@ async function readStorageObjects(bucket) {
       }
       const page = result.data ?? [];
       for (const item of page) {
-        const objectPath = prefix ? `${prefix}/${item.name}` : item.name;
+        const objectPath = `${prefix}/${item.name}`;
         if (item.metadata && typeof item.metadata === "object") {
           objects.push({
             path: objectPath,
@@ -159,6 +187,9 @@ function numeric(value) {
 }
 
 async function main() {
+  if (!uuidPattern.test(shopId)) {
+    fail("SHOP_ID_REQUIRED", "Pass one canonical --shop-id=<uuid> scope.");
+  }
   const env = resolveEnv();
   if (!env.SUPABASE_SERVICE_ROLE_KEY) {
     fail("SERVER_KEY_REQUIRED", "A server-only key is required in process memory.");
@@ -177,21 +208,27 @@ async function main() {
     },
   );
 
-  const [versions, products, storageObjects] = await Promise.all([
+  const [versions, storageObjects] = await Promise.all([
     readAllRows(
       client,
       "inventory_product_image_versions",
-      "id,shop_id,status,main_path,thumb_path,verified_main_bytes,verified_thumb_bytes,verified_main_width,verified_main_height,verified_thumb_width,verified_thumb_height",
+      "id,shop_id,product_id,status,main_path,thumb_path,verified_main_bytes,verified_thumb_bytes,verified_main_width,verified_main_height,verified_thumb_width,verified_thumb_height",
     ),
-    readAllRows(client, "inventory_products", "shop_id,primary_image_version_id"),
     readStorageObjects(client.storage.from("product-images")),
   ]);
+  const products = await readScopedProducts(
+    client,
+    versions.map((version) => version.product_id),
+  );
 
   const versionsById = new Map(versions.map((version) => [version.id, version]));
   const lifecyclePaths = new Set(
     versions.flatMap((version) => [version.main_path, version.thumb_path]),
   );
   const currentProducts = products.filter((product) => product.primary_image_version_id);
+  const danglingCurrentReferences = currentProducts.filter(
+    (product) => !versionsById.has(product.primary_image_version_id),
+  );
   const currentVersions = currentProducts
     .map((product) => versionsById.get(product.primary_image_version_id))
     .filter(Boolean);
@@ -232,7 +269,7 @@ async function main() {
   }
 
   for (const product of currentProducts) {
-    const entry = shopEntry(product.shop_id);
+    const entry = shopEntry(shopId);
     entry.currentImages += 1;
     const version = versionsById.get(product.primary_image_version_id);
     if (version) {
@@ -243,9 +280,9 @@ async function main() {
 
   let malformedStorageObjects = 0;
   for (const object of storageObjects) {
-    const parts = object.path.split("/");
-    if (parts[0] === "shops" && uuidPattern.test(parts[1] ?? "")) {
-      shopEntry(parts[1]).storageBytes += object.bytes;
+    const match = object.path.match(canonicalObjectPathPattern);
+    if (match?.[1]?.toLowerCase() === shopId.toLowerCase()) {
+      shopEntry(shopId).storageBytes += object.bytes;
     } else {
       malformedStorageObjects += 1;
     }
@@ -264,6 +301,7 @@ async function main() {
 
   info("target", target);
   info("mode", "read-only");
+  info("shop_hash", hashShopId(shopId));
   info("current_image_count", currentProducts.length);
   info("ready_version_count", lifecycleStatus.ready);
   info("current_verified_bytes", currentVerifiedBytes);
@@ -280,11 +318,35 @@ async function main() {
     "missing_current_object_count",
     [...expectedCurrentPaths].filter((objectPath) => !storagePaths.has(objectPath)).length,
   );
+  info("dangling_current_reference_count", danglingCurrentReferences.length);
   info("malformed_object_count", malformedStorageObjects);
   info("above_budget_version_count", aboveBudgetVersions.length);
   info("lifecycle_status", JSON.stringify(lifecycleStatus));
   info("per_shop", JSON.stringify(perShopReport));
-  info("result", "PASS");
+  info("execution_result", "PASS");
+
+  const missingCurrentObjectCount = [...expectedCurrentPaths].filter(
+    (objectPath) => !storagePaths.has(objectPath),
+  ).length;
+  const unreferencedObjectCount = storageObjects.filter(
+    (object) => !lifecyclePaths.has(object.path),
+  ).length;
+  const healthResult =
+    missingCurrentObjectCount > 0 ||
+    danglingCurrentReferences.length > 0 ||
+    malformedStorageObjects > 0 ||
+    aboveBudgetVersions.length > 0
+      ? "FAIL"
+      : unreferencedObjectCount > 0
+        ? "WARN"
+        : "PASS";
+  info("health_result", healthResult);
+  if (healthResult === "FAIL") {
+    fail(
+      "IMAGE_HEALTH_CHECK_FAILED",
+      "One or more scoped image integrity invariants failed.",
+    );
+  }
 }
 
 main().catch(() => {

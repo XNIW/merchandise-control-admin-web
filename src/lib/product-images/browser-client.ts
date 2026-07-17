@@ -437,12 +437,20 @@ export function safeProductImageStorageUrl(
     mode === "upload"
       ? "/storage/v1/object/upload/sign/product-images/"
       : "/storage/v1/object/sign/product-images/";
+  const objectPath = url.pathname.startsWith(marker)
+    ? url.pathname.slice(marker.length)
+    : "";
+  const canonicalObjectPath = new RegExp(
+    `^shops/${UUID_PATTERN.source.slice(1, -1)}/products/${UUID_PATTERN.source.slice(1, -1)}/primary/${UUID_PATTERN.source.slice(1, -1)}/(?:main|thumb)\\.jpg$`,
+    "i",
+  );
   if (
     (url.protocol !== "https:" && !localHttp) ||
     url.origin !== storageOrigin ||
     url.username !== "" ||
     url.password !== "" ||
-    !url.pathname.startsWith(marker)
+    url.hash !== "" ||
+    !canonicalObjectPath.test(objectPath)
   ) {
     throw imageError("image_signed_url_invalid");
   }
@@ -559,6 +567,46 @@ function requestSignedRead(ref: ProductImageRef) {
   );
 }
 
+type SignedReadResolution = {
+  cacheScope: string;
+  item: ReadResponseItem;
+};
+
+export async function downloadProductImageWithOneAuthRefresh(input: {
+  download: (signedUrl: string) => Promise<Response>;
+  ref: ProductImageRef;
+  resolveSignedRead: () => Promise<SignedReadResolution>;
+}) {
+  assertRef(input.ref);
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    const resolved = await input.resolveSignedRead();
+    if (resolved.item.status !== "ready" || !resolved.item.signedUrl) {
+      throw imageError("image_not_found");
+    }
+
+    const response = await input.download(resolved.item.signedUrl);
+    if (!response.ok) {
+      if (
+        attempt === 0 &&
+        (response.status === 401 || response.status === 403)
+      ) {
+        continue;
+      }
+      throw imageError(`image_download_failed_${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const maxBytes =
+      input.ref.variant === "main" ? MAIN_MAX_BYTES : THUMB_MAX_BYTES;
+    if (blob.type !== "image/jpeg" || blob.size < 1 || blob.size > maxBytes) {
+      throw imageError("image_download_invalid");
+    }
+    return { blob, cacheScope: resolved.cacheScope };
+  }
+
+  throw imageError("image_download_failed");
+}
+
 export async function loadProductImage(
   ref: ProductImageRef,
   knownCacheScope?: string,
@@ -578,35 +626,25 @@ export async function loadProductImage(
     throw imageError("image_offline_not_cached");
   }
 
-  const resolved = await requestSignedRead(ref);
-  if (resolved.item.status !== "ready" || !resolved.item.signedUrl) {
-    throw imageError("image_not_found");
-  }
-  const response = await fetch(
-    safeProductImageStorageUrl(resolved.item.signedUrl, "read"),
-    {
-      cache: "no-store",
-      credentials: "omit",
-    },
-  );
-  if (!response.ok) {
-    throw imageError("image_download_failed");
-  }
-  const blob = await response.blob();
-  const maxBytes = ref.variant === "main" ? MAIN_MAX_BYTES : THUMB_MAX_BYTES;
-  if (blob.type !== "image/jpeg" || blob.size < 1 || blob.size > maxBytes) {
-    throw imageError("image_download_invalid");
-  }
-  await cacheProductImageBlob(resolved.cacheScope, ref, blob);
+  const downloaded = await downloadProductImageWithOneAuthRefresh({
+    download: (signedUrl) =>
+      fetch(safeProductImageStorageUrl(signedUrl, "read"), {
+        cache: "no-store",
+        credentials: "omit",
+      }),
+    ref,
+    resolveSignedRead: () => requestSignedRead(ref),
+  });
+  await cacheProductImageBlob(downloaded.cacheScope, ref, downloaded.blob);
   await purgeProductImageCache({
-    cacheScope: resolved.cacheScope,
+    cacheScope: downloaded.cacheScope,
     keepVersionId: ref.versionId,
     productId: ref.productId,
     shopId: ref.shopId,
   });
   return {
-    cacheScope: resolved.cacheScope,
-    objectUrl: URL.createObjectURL(blob),
+    cacheScope: downloaded.cacheScope,
+    objectUrl: URL.createObjectURL(downloaded.blob),
     source: "network",
   };
 }
@@ -711,7 +749,15 @@ export async function removeProductImage(input: {
   shopId: string;
   versionId: string;
 }) {
-  const response = await postJson<{ ok?: boolean; status?: string }>(
+  const response = await postJson<{
+    currentImageVersionId?: null;
+    ok?: boolean;
+    operation?: string;
+    productId?: string;
+    shopId?: string;
+    status?: string;
+    versionId?: string;
+  }>(
     "/api/shop/product-images/remove",
     {
       expectedVersionId: input.versionId,
@@ -719,8 +765,16 @@ export async function removeProductImage(input: {
       shopId: input.shopId,
     },
   );
-  if (response.ok !== true) {
-    throw imageError("image_remove_failed");
+  if (
+    response.ok !== true ||
+    response.operation !== "remove" ||
+    response.productId !== input.productId ||
+    response.shopId !== input.shopId ||
+    response.versionId !== input.versionId ||
+    response.currentImageVersionId !== null ||
+    (response.status !== "removed" && response.status !== "already_removed")
+  ) {
+    throw imageError("image_remove_contract_invalid");
   }
-  return response.status ?? "removed";
+  return response.status;
 }
