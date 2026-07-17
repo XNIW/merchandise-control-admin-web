@@ -427,27 +427,34 @@ della modifica. Win7POS e fuori dalla superficie consentita.
 - Admin registra preprocess browser isolato (`24,8 ms`) e heap JavaScript
   campionato; Android copre ora la fixture sintetica `48 MP` (`41 ms`, nessun
   OOM). Entrambe le misure sono nei rispettivi ledger durevoli;
-- il workspace `security-diff-scan` feature-only e aperto ma non ha ricevuto
-  Start scan dal pannello Security; nessun Deep Scan o fallback alternativo e
-  stato avviato;
+- il Changes scan pre-fix ufficiale, base `38f02bd9` e head vulnerabile
+  `2f166b51`, si e concluso con copertura `35/35` e quattro finding Medium ad
+  alta confidenza riconducibili al denied-audit cross-shop. La remediation
+  comune e le regressioni locali sono pronte per il freeze; il nuovo Changes
+  scan post-fix sul commit pulito resta `PENDING`, con Deep Scan disattivato;
 - nessuna operazione production; commit locali separati creati, nessun branch
   ancora pubblicato.
 
 ### Stato handoff
 
-- Supabase locale: migration applicate, pgTAP finale `76/76`, dry-run vuoto, cleanup
-  e report finale a residuo zero;
-- Admin clean merge: foundation `20/20`, pgTAP `76/76`, i18n e `verify`
-  (lint, typecheck, scanner, build) `PASS`; E2E corrente `NOT_RUN` senza browser
-  scelto, baseline precedente preservata;
+- Supabase locale: migration applicate, pgTAP catalogo `76/76` e regressione
+  denied-audit `32/32 PASS`, lint DB zero errori, dry-run vuoto, cleanup e
+  report finale a residuo zero;
+- Admin post-fix: foundation `20/20`, typecheck, lint, i18n e build `PASS`;
+  E2E cross-shop sulle quattro route `1/1 PASS` ed E2E lifecycle completo
+  `1/1 PASS`, con residui fixture/Auth/Storage `0`; screenshot sintetico della
+  build corrente rigenerato e ispezionato. `npm run verify` e
+  `npm run security:scan` sono `BLOCKED_EXTERNAL_PREREQUISITE` perche il
+  checkout Win7POS read-only corrente non contiene piu il file storico atteso
+  dallo scanner Admin;
 - Android clean merge: unit mirati, `assembleDebug` e `lintDebug` `PASS`;
   instrumentation baseline `3/3` e rerun invalidato precedente `1/1` restano
   evidence preservata;
 - iOS clean merge: build Debug e suite Product Images `22/22 PASS`; sync
   baseline `46/46` e localizzazioni baseline `8/8` preservate;
-- commit locali: Admin fino a `aa916929` più riconciliazione clean-merge
-  `SELF`, Android fino a `c21de31`, iOS fino a `21db5edb`; worktree validate
-  completati, Security Changes scan pendente;
+- commit locali: Admin fino a `2f166b51` piu remediation/freeze corrente
+  `SELF`, Android fino a `c21de31`, iOS fino a `21db5edb`; nuovo Security
+  Changes scan post-fix pendente;
 - blocker 1: parity live Admin/Android/iOS sullo stesso target non-production
   `NOT_RUN`;
 - blocker 2: security-diff-scan ufficiale in attesa di avvio dal workspace;

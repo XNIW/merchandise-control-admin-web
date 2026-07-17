@@ -78,8 +78,8 @@ I file sono creati solo quando esiste evidence reale da registrare.
 Stato al passaggio in review:
 
 - `00`-`08`: compilati con evidence eseguita;
-- `09`: vecchia selezione working-tree stale, non riusata; scan committed
-  ancora `NOT_STARTED`;
+- `09`: baseline pre-fix committed e sanitizzata; remediation DB e regressioni
+  post-fix locali registrate; nuovo scan sul commit finale ancora `PENDING`;
 - `10`: handoff conclusivo `REVIEW_WITH_BLOCKERS`;
 - `11`: manifest di inclusione/esclusione riallineato ai commit reali;
 - `12`: checkpoint `VALIDATION_PASS`;
@@ -155,6 +155,25 @@ Stato al passaggio in review:
   `21db5edb`, docs Admin nel commit corrente;
 - validazione in worktree puliti: `PASS`; Codex Security Changes scan:
   `NOT_STARTED`;
-- audit visuale con screenshot della build corrente: `NOT_RUN` perché non è
-  stato indicato un browser. Lo screenshot storico sintetico LOCALT137A resta
-  evidence del run precedente, non viene promosso a QA visuale corrente.
+- screenshot sintetico rigenerato dalla build locale corrente e ispezionato
+  visivamente: `PASS`; dettaglio prodotto, immagine primaria, placeholder e
+  controlli risultano leggibili e coerenti. È evidence headless su fixture
+  sintetica, non una prova su device fisico o su ambiente live.
+
+### Remediation audit cross-shop post-scan
+
+- baseline vulnerabile ufficiale: base `38f02bd9`, head `2f166b51`, Changes
+  scan completo `35/35`, quattro finding Medium/high-confidence con una sola
+  root cause;
+- migration additiva `20260717200129` sul denied-audit RPC comune, con binding
+  actor/shop e product/shop prima dell'audit sink;
+- reset/migration locale `PASS`, lint DB zero errori, pgTAP TASK-137 `76/76` e
+  regressione denial `32/32 PASS`;
+- PoC originale invariata post-fix: `FAIL 6/9` atteso, quattro chiamate
+  `permission_denied`, victim-shop audit rows `0`, metadata vittima `0`;
+- foundation TASK-137 `20/20`, typecheck, lint, i18n e build `PASS`;
+- report read-only e cleanup dry-run locali `PASS`, residui sintetici `0`;
+- E2E HTTP cross-shop `1/1 PASS`, lifecycle completo `1/1 PASS`, residui
+  fixture/auth/Storage `0`; nuovo Changes scan: `PENDING`;
+- `npm run verify`: `BLOCKED_EXTERNAL_PREREQUISITE` sul Win7POS read-only
+  corrente, che non contiene più il file storico atteso dallo scanner Admin.

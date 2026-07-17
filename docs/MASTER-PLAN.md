@@ -2877,6 +2877,18 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   attende Start nel workspace dedicato. Stato `REVIEW_WITH_BLOCKERS`, non
   `DONE`; Win7POS intatto. Commit locali separati creati; validazione pulita,
   Security e pubblicazione ancora pendenti, nessun deploy production.
+- Release checkpoint TASK-137 2026-07-17: il Changes scan ufficiale pre-fix
+  (base `38f02bd9`, head `2f166b51`) ha coperto `35/35` file e validato quattro
+  finding Medium/high-confidence con una sola root cause nel denied-audit
+  immagini cross-shop. La remediation additiva sul confine RPC comune e
+  coperta da pgTAP `32/32`, E2E HTTP sulle quattro route `1/1`, E2E lifecycle
+  `1/1`, PoC originale ora `FAIL 6/9` atteso e residui locali zero; foundation
+  `20/20`, typecheck, lint, i18n e build restano verdi. Il rerun monolitico
+  `verify` e `BLOCKED_EXTERNAL_PREREQUISITE` per un file storico non piu
+  presente nel repository Win7POS read-only, che resta intatto. Il nuovo
+  Changes scan post-fix sul commit congelato e la pubblicazione ordinata
+  Admin/Android/iOS restano pendenti; Deep Scan e operazioni production restano
+  esclusi. Stato invariato `REVIEW_WITH_BLOCKERS`, non `DONE`.
 - Apertura TASK-088 2026-07-15: il Deep Security Scan finale sulla snapshot
   immutabile multi-repository ha validato sette finding High/P1
   (`DSC-008`, `DSC-072`, `DSC-073`, `DSC-075`, `DSC-093`, `DSC-094`,

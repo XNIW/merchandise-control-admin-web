@@ -2,11 +2,17 @@
 
 ## Stato
 
-`BLOCKED_SETUP_NOT_STARTED`
+`BLOCKED_POST_FIX_BRANCH_NOT_FROZEN`
 
-La precedente selezione working-tree e stale e non deve essere riutilizzata.
-Non copreva in modo immutabile i file untracked e precede le patch minime del
-consolidamento Mac.
+Il Changes scan pre-fix ufficiale è conservato in `pre-fix/`: base
+`38f02bd969e55df91ff41d3905661da8dfdb145a`, head vulnerabile
+`2f166b51e7d3ff68f8f01593cb68845788e7be9a`, copertura `35/35`, quattro
+finding Medium/high-confidence e PoC vulnerabile `9/9 PASS`. Non viene
+riutilizzato come prova post-fix.
+
+La migration di remediation, i test, i due E2E locali e la PoC post-fix sono
+registrati in `post-fix/`. Il nuovo scan resta bloccato soltanto fino al freeze
+del commit finale.
 
 Il nuovo scan obbligatorio e un **Changes scan** sul repository Admin Web con:
 
@@ -16,7 +22,8 @@ Il nuovo scan obbligatorio e un **Changes scan** sul repository Admin Web con:
 - Deep scan disattivato;
 - nessuna modifica del branch dopo il freeze.
 
-Conseguenze finche l'utente non avvia il nuovo scan:
+Conseguenze finché il branch post-fix non viene committato e l'utente non avvia
+il nuovo scan:
 
 - preflight, threat model, discovery, validation e attack-path ufficiali non
   sono conclusi;

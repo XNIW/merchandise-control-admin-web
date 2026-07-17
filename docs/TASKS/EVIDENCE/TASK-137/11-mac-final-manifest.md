@@ -131,10 +131,13 @@ asserzioni obsolete sulle scritture finanziarie dirette.
 - `supabase/migrations/20260717072959_task_137_product_catalog_images.sql`
 - `supabase/migrations/20260717073607_task_137_product_catalog_images_sync_fix.sql`
 - `supabase/migrations/20260717170000_task_137_product_image_cleanup_hardening.sql`
+- `supabase/migrations/20260717200129_task_137_product_image_denied_audit_guard.sql`
 
 ## TASK-137 — test (`E. TASK137_TEST`)
 
 - `supabase/tests/task_137_product_catalog_images.sql`
+- `supabase/tests/task_137_product_image_denied_audit_regression.sql`
+- `tests/e2e/task-137-cross-shop-denied-audit.spec.ts`
 - `tests/foundation/task-137-product-catalog-images.test.mjs`
 - `tests/e2e/task-137-product-catalog-images-local.spec.ts`
 
@@ -168,6 +171,20 @@ senza allargare la whitelist ad altre famiglie.
 - `docs/TASKS/EVIDENCE/TASK-137/07-cleanup-and-baseline.md`
 - `docs/TASKS/EVIDENCE/TASK-137/08-storage-cost-and-operations.md`
 - `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/README.md`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/pre-fix/README.md`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/pre-fix/coverage.json`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/pre-fix/findings.json`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/pre-fix/report.md`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/pre-fix/scan-manifest.json`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/pre-fix/findings/cross-shop-denied-audit-injection/cross-shop-denied-audit-injection.md`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/pre-fix/findings/cross-shop-denied-audit-injection/poc/README.md`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/pre-fix/findings/cross-shop-denied-audit-injection/poc/cross-shop-denied-audit.sql`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/pre-fix/findings/cross-shop-denied-audit-injection/poc/representative-output.txt`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/pre-fix/hardening/hardening.json`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/pre-fix/hardening/hardening.md`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/post-fix/README.md`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/post-fix/poc-original-post-fix.txt`
+- `docs/TASKS/EVIDENCE/TASK-137/09-security-diff-scan/post-fix/regression-results.txt`
 - `docs/TASKS/EVIDENCE/TASK-137/10-final-handoff.md`
 - `docs/TASKS/EVIDENCE/TASK-137/README.md`
 - `docs/TASKS/EVIDENCE/TASK-137/admin-web-local-e2e.json`

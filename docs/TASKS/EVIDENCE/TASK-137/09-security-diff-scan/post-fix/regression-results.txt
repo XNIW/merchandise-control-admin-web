@@ -1,0 +1,25 @@
+Local post-fix regression evidence
+
+task_137_product_catalog_images.sql ................. ok
+Files=1, Tests=76
+Result: PASS
+
+task_137_product_image_denied_audit_regression.sql .. ok
+Files=1, Tests=32
+Result: PASS
+
+Database lint schemas: public, app_private
+Schema errors: 0
+Result: PASS
+
+HTTP cross-shop route regression
+Files=1, Tests=1
+Result: PASS
+
+Admin product-image lifecycle regression
+Files=1, Tests=1
+Result: PASS
+
+Synthetic auth/database/Storage residue after both runs: 0
+
+No remote Supabase environment was used.

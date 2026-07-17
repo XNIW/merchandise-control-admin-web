@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import type { CDPSession } from "@playwright/test";
 import type { Database } from "../../src/lib/supabase/database.types";
@@ -53,10 +53,12 @@ async function jsHeapUsedBytes(session: CDPSession) {
 
 function runtime(): Runtime {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() ?? "";
+  const baseUrl = process.env.PLAYWRIGHT_BASE_URL?.trim() ?? "";
   const publishableKey =
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim() ?? "";
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() ?? "";
   let local = false;
+  let appLocal = false;
   try {
     const url = new URL(supabaseUrl);
     local =
@@ -66,9 +68,18 @@ function runtime(): Runtime {
   } catch {
     local = false;
   }
+  try {
+    const url = new URL(baseUrl);
+    appLocal =
+      url.protocol === "http:" &&
+      ["127.0.0.1", "localhost", "::1"].includes(url.hostname);
+  } catch {
+    appLocal = false;
+  }
   if (
     process.env.TEST_TARGET !== "local" ||
     !local ||
+    !appLocal ||
     !publishableKey ||
     !serviceRoleKey
   ) {
@@ -121,26 +132,17 @@ function baseline(): Baseline {
   return JSON.parse(output) as Baseline;
 }
 
-async function must<T>(
-  label: string,
-  operation: PromiseLike<{ data: T; error: unknown }>,
-) {
-  const result = await operation;
-  if (result.error) {
-    throw new Error(`BLOCKED_TASK137_${label}`);
-  }
-  return result.data;
-}
-
-async function mustSingle<T>(
-  label: string,
-  operation: PromiseLike<{ data: T | null; error: unknown }>,
-) {
-  const data = await must(label, operation);
-  if (!data) {
-    throw new Error(`BLOCKED_TASK137_${label}_MISSING`);
-  }
-  return data;
+function queryJson<T>(sql: string) {
+  const output = execFileSync(
+    "psql",
+    [localDatabaseUrl(), "-Atq", "-v", "ON_ERROR_STOP=1", "-c", sql],
+    {
+      encoding: "utf8",
+      env: { ...process.env, PGCONNECT_TIMEOUT: "5" },
+      stdio: ["ignore", "pipe", "pipe"],
+    },
+  ).trim();
+  return JSON.parse(output) as T;
 }
 
 function deleteFixtureDatabaseRows(input: {
@@ -155,12 +157,17 @@ function deleteFixtureDatabaseRows(input: {
   }
   const sql = `
     begin;
+    select set_config('request.jwt.claims', '{"role":"service_role"}', true);
     alter table public.audit_logs disable trigger user;
     delete from public.audit_logs where shop_id = '${input.shopId}';
     alter table public.audit_logs enable trigger user;
     alter table public.sync_events disable trigger user;
     delete from public.sync_events where shop_id = '${input.shopId}';
     alter table public.sync_events enable trigger user;
+    update public.inventory_products
+    set primary_image_version_id = null,
+        primary_image_updated_at = null
+    where id = '${input.productId}';
     delete from public.inventory_product_image_versions where product_id = '${input.productId}';
     delete from public.shop_inventory_sources where shop_id = '${input.shopId}';
     delete from public.shop_members where shop_id = '${input.shopId}';
@@ -206,8 +213,8 @@ async function createFixture(
   }
   const userId = maybeUserId;
 
-  let shopId = "";
-  let productId = "";
+  const shopId = randomUUID();
+  const productId = randomUUID();
 
   async function cleanup() {
     if (productId) {
@@ -242,71 +249,96 @@ async function createFixture(
   }
 
   try {
-    await must(
-      "PROFILE_CREATE",
-      admin.from("profiles").upsert(
-        {
-          display_name: `TASK137 Owner ${nonce}`,
-          profile_id: userId,
-          profile_status: "active",
-        },
-        { onConflict: "profile_id" },
-      ),
+    execFileSync(
+      "psql",
+      [
+        localDatabaseUrl(),
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        `
+          begin;
+          insert into public.profiles (profile_id, display_name, profile_status)
+          values ('${userId}','TASK137 Owner ${nonce}','active')
+          on conflict (profile_id) do update
+          set display_name = excluded.display_name,
+              profile_status = excluded.profile_status;
+
+          insert into public.shops (
+            shop_id,
+            shop_code,
+            shop_name,
+            shop_status,
+            created_by_profile_id,
+            status_changed_by_profile_id
+          )
+          values (
+            '${shopId}',
+            'TASK137_${nonce}',
+            'TASK137 Image Shop ${nonce}',
+            'active',
+            '${userId}',
+            '${userId}'
+          );
+
+          insert into public.shop_members (
+            profile_id,
+            shop_id,
+            role_key,
+            membership_status,
+            invited_by_profile_id
+          )
+          values ('${userId}','${shopId}','shop_owner','active','${userId}');
+
+          insert into public.shop_inventory_sources (
+            owner_user_id,
+            shop_id,
+            source_kind,
+            mapping_state,
+            verified_at,
+            verified_by_profile_id,
+            created_by_profile_id
+          )
+          values (
+            '${userId}',
+            '${shopId}',
+            'mobile_owner',
+            'mapped',
+            now(),
+            '${userId}',
+            '${userId}'
+          );
+
+          insert into public.inventory_products (
+            id,
+            owner_user_id,
+            shop_id,
+            barcode,
+            item_number,
+            product_name,
+            purchase_price,
+            retail_price,
+            stock_quantity
+          )
+          values (
+            '${productId}',
+            '${userId}',
+            '${shopId}',
+            'TASK137_BARCODE_${nonce}',
+            'TASK137_ITEM_${nonce}',
+            '${productName}',
+            10.5,
+            14.75,
+            9
+          );
+          commit;
+        `,
+      ],
+      {
+        env: { ...process.env, PGCONNECT_TIMEOUT: "5" },
+        stdio: "ignore",
+      },
     );
-    const shop = await mustSingle<{ shop_id: string }>(
-      "SHOP_CREATE",
-      admin
-        .from("shops")
-        .insert({
-          created_by_profile_id: userId,
-          shop_code: `TASK137_${nonce}`,
-          shop_name: `TASK137 Image Shop ${nonce}`,
-          shop_status: "active",
-          status_changed_by_profile_id: userId,
-        })
-        .select("shop_id")
-        .single(),
-    );
-    shopId = shop.shop_id;
-    await must(
-      "MEMBERSHIP_CREATE",
-      admin.from("shop_members").insert({
-        invited_by_profile_id: userId,
-        membership_status: "active",
-        profile_id: userId,
-        role_key: "shop_owner",
-        shop_id: shopId,
-      }),
-    );
-    await must(
-      "MAPPING_CREATE",
-      admin.from("shop_inventory_sources").insert({
-        created_by_profile_id: userId,
-        mapping_state: "mapped",
-        owner_user_id: userId,
-        shop_id: shopId,
-        source_kind: "mobile_owner",
-        verified_at: new Date().toISOString(),
-        verified_by_profile_id: userId,
-      }),
-    );
-    const product = await mustSingle<{ id: string }>(
-      "PRODUCT_CREATE",
-      admin
-        .from("inventory_products")
-        .insert({
-          barcode: `TASK137_BARCODE_${nonce}`,
-          item_number: `TASK137_ITEM_${nonce}`,
-          owner_user_id: userId,
-          product_name: productName,
-          purchase_price: 10.5,
-          retail_price: 14.75,
-          stock_quantity: 9,
-        })
-        .select("id")
-        .single(),
-    );
-    productId = product.id;
     return { cleanup, email, password, productId, productName, shopId, userId };
   } catch (error) {
     await cleanup();
@@ -384,9 +416,6 @@ test("TASK-137 local Admin image upload, no-op, offline cache, remove and cleanu
   const target = runtime();
   const before = baseline();
   const fixture = await createFixture(target, before);
-  const admin = createClient<Database>(target.supabaseUrl, target.serviceRoleKey, {
-    auth: { autoRefreshToken: false, persistSession: false },
-  });
   let browserPerformance: {
     inputBytes: number;
     inputHeight: number;
@@ -464,37 +493,40 @@ test("TASK-137 local Admin image upload, no-op, offline cache, remove and cleanu
       timeout: 30_000,
     });
 
-    const product = await mustSingle<{
+    const product = queryJson<{
       primary_image_updated_at: string | null;
       primary_image_version_id: string | null;
-    }>(
-      "PRODUCT_IMAGE_READ",
-      admin
-        .from("inventory_products")
-        .select("primary_image_version_id,primary_image_updated_at")
-        .eq("id", fixture.productId)
-        .single(),
-    );
+    }>(`
+      select json_build_object(
+        'primary_image_version_id', primary_image_version_id,
+        'primary_image_updated_at', primary_image_updated_at
+      )::text
+      from public.inventory_products
+      where id = '${fixture.productId}';
+    `);
     expect(product.primary_image_version_id).toMatch(UUID_PATTERN);
     expect(product.primary_image_updated_at).toBeTruthy();
     const versionId = product.primary_image_version_id as string;
-    const version = await mustSingle<{
+    expect(versionId).toMatch(UUID_PATTERN);
+    const version = queryJson<{
       cleanup_status: string;
       expected_main_bytes: number;
       expected_thumb_bytes: number;
       status: string;
       verified_main_bytes: number | null;
       verified_thumb_bytes: number | null;
-    }>(
-      "IMAGE_VERSION_READ",
-      admin
-        .from("inventory_product_image_versions")
-        .select(
-          "status,cleanup_status,expected_main_bytes,expected_thumb_bytes,verified_main_bytes,verified_thumb_bytes",
-        )
-        .eq("id", versionId)
-        .single(),
-    );
+    }>(`
+      select json_build_object(
+        'status', status,
+        'cleanup_status', cleanup_status,
+        'expected_main_bytes', expected_main_bytes,
+        'expected_thumb_bytes', expected_thumb_bytes,
+        'verified_main_bytes', verified_main_bytes,
+        'verified_thumb_bytes', verified_thumb_bytes
+      )::text
+      from public.inventory_product_image_versions
+      where id = '${versionId}';
+    `);
     expect(version.status).toBe("ready");
     expect(version.cleanup_status).toBe("not_due");
     expect(version.expected_main_bytes).toBeLessThanOrEqual(1024 * 1024);
@@ -502,19 +534,19 @@ test("TASK-137 local Admin image upload, no-op, offline cache, remove and cleanu
     expect(version.verified_main_bytes).toBe(version.expected_main_bytes);
     expect(version.verified_thumb_bytes).toBe(version.expected_thumb_bytes);
 
-    const readyVersions = await admin
-      .from("inventory_product_image_versions")
-      .select("id", { count: "exact", head: true })
-      .eq("product_id", fixture.productId);
-    expect(readyVersions.error).toBeNull();
-    expect(readyVersions.count).toBe(1);
-    const syncAfterFinalize = await admin
-      .from("sync_events")
-      .select("id", { count: "exact", head: true })
-      .eq("shop_id", fixture.shopId)
-      .eq("source", "product_image_api");
-    expect(syncAfterFinalize.error).toBeNull();
-    expect(syncAfterFinalize.count).toBe(1);
+    const readyVersions = queryJson<number>(`
+      select to_json(count(*)::integer)::text
+      from public.inventory_product_image_versions
+      where product_id = '${fixture.productId}';
+    `);
+    expect(readyVersions).toBe(1);
+    const syncAfterFinalize = queryJson<number>(`
+      select to_json(count(*)::integer)::text
+      from public.sync_events
+      where shop_id = '${fixture.shopId}'
+        and source = 'product_image_api';
+    `);
+    expect(syncAfterFinalize).toBe(1);
 
     await expect(editor.getByRole("img", { name: fixture.productName })).toBeVisible();
     const cacheKeys = await page.evaluate(async () => {
@@ -541,17 +573,19 @@ test("TASK-137 local Admin image upload, no-op, offline cache, remove and cleanu
     await expect(editor.getByText("This image is already current.")).toBeVisible({
       timeout: 30_000,
     });
-    const versionsAfterNoop = await admin
-      .from("inventory_product_image_versions")
-      .select("id", { count: "exact", head: true })
-      .eq("product_id", fixture.productId);
-    const syncAfterNoop = await admin
-      .from("sync_events")
-      .select("id", { count: "exact", head: true })
-      .eq("shop_id", fixture.shopId)
-      .eq("source", "product_image_api");
-    expect(versionsAfterNoop.count).toBe(1);
-    expect(syncAfterNoop.count).toBe(1);
+    const versionsAfterNoop = queryJson<number>(`
+      select to_json(count(*)::integer)::text
+      from public.inventory_product_image_versions
+      where product_id = '${fixture.productId}';
+    `);
+    const syncAfterNoop = queryJson<number>(`
+      select to_json(count(*)::integer)::text
+      from public.sync_events
+      where shop_id = '${fixture.shopId}'
+        and source = 'product_image_api';
+    `);
+    expect(versionsAfterNoop).toBe(1);
+    expect(syncAfterNoop).toBe(1);
 
     await page.getByRole("button", { name: "Prices" }).click();
     await page.context().setOffline(true);
@@ -574,28 +608,27 @@ test("TASK-137 local Admin image upload, no-op, offline cache, remove and cleanu
     await expect(editor.getByText("Product image removed.")).toBeVisible({
       timeout: 30_000,
     });
-    const removedProduct = await mustSingle<{
+    const removedProduct = queryJson<{
       primary_image_version_id: string | null;
-    }>(
-      "REMOVED_PRODUCT_READ",
-      admin
-        .from("inventory_products")
-        .select("primary_image_version_id")
-        .eq("id", fixture.productId)
-        .single(),
-    );
+    }>(`
+      select json_build_object(
+        'primary_image_version_id', primary_image_version_id
+      )::text
+      from public.inventory_products
+      where id = '${fixture.productId}';
+    `);
     expect(removedProduct.primary_image_version_id).toBeNull();
-    const removedVersion = await mustSingle<{
+    const removedVersion = queryJson<{
       cleanup_status: string;
       status: string;
-    }>(
-      "REMOVED_VERSION_READ",
-      admin
-        .from("inventory_product_image_versions")
-        .select("status,cleanup_status")
-        .eq("id", versionId)
-        .single(),
-    );
+    }>(`
+      select json_build_object(
+        'status', status,
+        'cleanup_status', cleanup_status
+      )::text
+      from public.inventory_product_image_versions
+      where id = '${versionId}';
+    `);
     expect(removedVersion.status).toBe("removed");
     expect(removedVersion.cleanup_status).toBe("complete");
 
@@ -613,26 +646,35 @@ test("TASK-137 local Admin image upload, no-op, offline cache, remove and cleanu
     );
     expect(repeatedRemove.status).toBe(200);
     expect(repeatedRemove.body).toMatchObject({ ok: true, status: "already_removed" });
-    const syncAfterRemove = await admin
-      .from("sync_events")
-      .select("id", { count: "exact", head: true })
-      .eq("shop_id", fixture.shopId)
-      .eq("source", "product_image_api");
-    expect(syncAfterRemove.count).toBe(2);
+    const syncAfterRemove = queryJson<number>(`
+      select to_json(count(*)::integer)::text
+      from public.sync_events
+      where shop_id = '${fixture.shopId}'
+        and source = 'product_image_api';
+    `);
+    expect(syncAfterRemove).toBe(2);
 
-    const audit = await admin
-      .from("audit_logs")
-      .select("event_key,metadata_redacted")
-      .eq("shop_id", fixture.shopId)
-      .like("event_key", "shop.product_image.%");
-    expect(audit.error).toBeNull();
-    expect(audit.data?.some((row) => row.event_key === "shop.product_image.finalized")).toBe(
+    const audit = queryJson<
+      Array<{ event_key: string; metadata_redacted: unknown }>
+    >(`
+      select coalesce(
+        json_agg(json_build_object(
+          'event_key', event_key,
+          'metadata_redacted', metadata_redacted
+        )),
+        '[]'::json
+      )::text
+      from public.audit_logs
+      where shop_id = '${fixture.shopId}'
+        and event_key like 'shop.product_image.%';
+    `);
+    expect(audit.some((row) => row.event_key === "shop.product_image.finalized")).toBe(
       true,
     );
-    expect(audit.data?.some((row) => row.event_key === "shop.product_image.removed")).toBe(
+    expect(audit.some((row) => row.event_key === "shop.product_image.removed")).toBe(
       true,
     );
-    const auditText = JSON.stringify(audit.data ?? []);
+    const auditText = JSON.stringify(audit);
     expect(auditText).not.toMatch(
       /signed_url|upload_url|main_path|thumb_path|token|image_bytes|exif|gps|local_path/i,
     );

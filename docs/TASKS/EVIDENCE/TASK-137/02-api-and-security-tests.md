@@ -18,7 +18,9 @@ ratio e assenza APP1/EXIF prima della finalizzazione.
 
 - test foundation post-hardening e clean-merge authorization: `20/20 PASS`;
 - pgTAP/RLS post-hardening: `76/76 PASS`;
-- scanner repository `scripts/security-checks.mjs`: `PASS`;
+- scanner repository `scripts/security-checks.mjs`: baseline clean-merge
+  storica `PASS` con repository esterno saltato dal meccanismo nativo; rerun
+  corrente con Win7POS read-only reale `BLOCKED_EXTERNAL_PREREQUISITE`;
 - test regressione scanner TASK-027 storico: `8/8 PASS`; la modifica locale
   preesistente a quel file è esclusa dal commit TASK-137;
 - API/E2E locale: intent, 2 PUT, finalize, read privata, checksum no-op,
@@ -40,6 +42,12 @@ presenti nel worktree, incluse senza ampliare il runtime Win7POS:
    prefisso dinamico `notice.` come chiave letterale.
 
 Sono stati aggiornati soltanto i gate Admin e il resolver autorizzativo
-necessario alle nuove letture. Win7POS non e stato modificato. `npm run verify`
-e `npm run i18n:check` terminano `PASS`; lo scan repository salta esplicitamente
-il checkout Win7POS nel worktree pulito tramite il meccanismo nativo.
+necessario alle nuove letture. Win7POS non e stato modificato. Nel run storico
+clean-merge `npm run verify` e `npm run i18n:check` terminarono `PASS`, con il
+repository esterno saltato dal meccanismo nativo. Nel rerun finale corrente,
+`npm run i18n:check` resta `PASS`, mentre `npm run verify` e
+`npm run security:scan` sono `BLOCKED_EXTERNAL_PREREQUISITE`: il checkout
+Win7POS reale e read-only non contiene piu il file storico
+`OperatorLoginDialog.xaml.cs` richiesto dallo scanner Admin. Typecheck, lint,
+foundation TASK-137 e build sono stati rieseguiti separatamente con esito
+`PASS`.

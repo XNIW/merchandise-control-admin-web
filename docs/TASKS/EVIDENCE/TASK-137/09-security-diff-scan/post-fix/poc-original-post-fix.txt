@@ -1,0 +1,20 @@
+Original vulnerable-behavior PoC, unchanged, executed against the local
+post-fix schema.
+
+Four RPC assertions:
+  have: permission_denied
+  want: denied_recorded
+
+Victim-shop audit assertion:
+  have: 0
+  want: 4
+
+Victim product metadata assertion:
+  have: 0
+  want: 4
+
+Failed tests: 3-7, 9
+Files=1, Tests=9, Failed=6
+Result: FAIL (expected because the vulnerable behavior is no longer present)
+
+The transaction rolled back. No staging or production target was used.

@@ -1,0 +1,9 @@
+$ supabase test db --local ./cross-shop-denied-audit.sql
+
+Connecting to local database...
+cross-shop-denied-audit.sql .. ok
+All tests successful.
+Files=1, Tests=9, 0 wallclock secs
+Result: PASS
+
+exit_code=0

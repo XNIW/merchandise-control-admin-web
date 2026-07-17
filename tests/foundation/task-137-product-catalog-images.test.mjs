@@ -217,7 +217,7 @@ test("TASK-137 bounded JSON reader rejects wrong media type and oversized bodies
 });
 
 test("TASK-137 migration keeps Storage private and RPCs service-only", async () => {
-  const [migration, cleanupHardening] = await Promise.all([
+  const [migration, cleanupHardening, deniedAuditGuard] = await Promise.all([
     readFile(
       new URL(
         "../../supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
@@ -228,6 +228,13 @@ test("TASK-137 migration keeps Storage private and RPCs service-only", async () 
     readFile(
       new URL(
         "../../supabase/migrations/20260717170000_task_137_product_image_cleanup_hardening.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../../supabase/migrations/20260717200129_task_137_product_image_denied_audit_guard.sql",
         import.meta.url,
       ),
       "utf8",
@@ -260,6 +267,34 @@ test("TASK-137 migration keeps Storage private and RPCs service-only", async () 
     /grant execute on function public\.product_image_prepare_cleanup[^;]+to service_role/,
   );
   assert.doesNotMatch(cleanupHardening, /signed_url|upload_url|main_path'.*metadata/i);
+  const actorGuard = deniedAuditGuard.indexOf(
+    "app_private.product_image_actor_can_read",
+  );
+  const productGuard = deniedAuditGuard.indexOf(
+    "app_private.product_image_product_is_in_shop",
+  );
+  const auditSink = deniedAuditGuard.indexOf(
+    "app_private.write_product_image_audit",
+  );
+  assert.match(
+    deniedAuditGuard,
+    /security definer[\s\S]*set search_path = public, app_private, pg_temp/,
+  );
+  assert.match(deniedAuditGuard, /coalesce\(auth\.role\(\), ''\) <> 'service_role'/);
+  assert.match(
+    deniedAuditGuard,
+    /grant select on table[\s\S]*public\.profiles,[\s\S]*public\.shops,[\s\S]*public\.shop_members,[\s\S]*public\.platform_admins[\s\S]*to service_role/,
+  );
+  assert.ok(actorGuard >= 0 && actorGuard < auditSink);
+  assert.ok(productGuard >= 0 && productGuard < auditSink);
+  assert.match(
+    deniedAuditGuard,
+    /revoke all on function public\.product_image_record_denied[\s\S]*from public, anon, authenticated/,
+  );
+  assert.match(
+    deniedAuditGuard,
+    /grant execute on function public\.product_image_record_denied[\s\S]*to service_role/,
+  );
 });
 
 test("TASK-137 sync payload contains product IDs but no object path or URL", async () => {
@@ -302,8 +337,13 @@ test("TASK-137 routes are no-store and never accept image bytes", async () => {
   assert.match(contract, /"Cache-Control": "no-store"/);
   for (const route of routes) {
     assert.match(route, /readProductImageJson/);
+    assert.match(route, /recordProductImageDenied/);
     assert.doesNotMatch(route, /formData\(|arrayBuffer\(|File\b|Blob\b/);
   }
+  assert.match(routes[0], /operation: "intent"/);
+  assert.match(routes[1], /operation: "finalize"/);
+  assert.match(routes[2], /operation: "read"/);
+  assert.match(routes[3], /operation: "remove"/);
 });
 
 test("TASK-137 and preserved POS reads enforce their requested permission", async () => {
