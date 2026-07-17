@@ -222,6 +222,10 @@ function staffPermissionForShopAdminPermission(
     return "sync.read";
   }
 
+  if (permission === "pos.dashboard.read") {
+    return "pos.dashboard.read";
+  }
+
   if (permission === "sync.manage") {
     return "sync.write";
   }

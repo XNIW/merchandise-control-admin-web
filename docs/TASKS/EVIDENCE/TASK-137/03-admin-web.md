@@ -51,10 +51,10 @@ non garantisce di catturare un massimo tra due campioni. Artefatto durevole:
 
 ## Gate finali
 
-- test foundation TASK-137 post-hardening: `19/19 PASS`;
+- test foundation TASK-137 post-hardening: `20/20 PASS`;
 - `npm run typecheck`: `PASS`;
-- `npm run lint`, `npm run build`, `npm run verify`: baseline precedente
-  `PASS`; clean-worktree rerun post-merge ancora pendente;
+- `npm run verify` nel clean merge: `PASS` (lint, typecheck, scanner e build);
+- `npm run i18n:check`: `PASS` sul checkout Win7POS read-only corrente;
 - scanner TASK-027 mirato: `8/8 PASS`.
 
 Il primo build sandboxed non poteva scaricare il font configurato; il rerun

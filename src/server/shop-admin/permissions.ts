@@ -18,6 +18,7 @@ export type ShopAdminPermission =
   | "history.write"
   | "members.view"
   | "members.manage"
+  | "pos.dashboard.read"
   | "staff.view"
   | "staff.manage"
   | "devices.view_activity"
@@ -61,6 +62,7 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "history.write",
     "members.view",
     "members.manage",
+    "pos.dashboard.read",
     "staff.view",
     "staff.manage",
     "devices.view_activity",
@@ -89,6 +91,7 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "history.read",
     "history.write",
     "members.view",
+    "pos.dashboard.read",
     "staff.view",
     "staff.manage",
     "devices.view_activity",
@@ -107,6 +110,7 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "history.view",
     "history.read",
     "members.view",
+    "pos.dashboard.read",
     "staff.view",
     "devices.view_activity",
     "devices.read",

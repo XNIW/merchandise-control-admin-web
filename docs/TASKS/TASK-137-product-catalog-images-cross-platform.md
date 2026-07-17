@@ -437,15 +437,17 @@ della modifica. Win7POS e fuori dalla superficie consentita.
 
 - Supabase locale: migration applicate, pgTAP finale `76/76`, dry-run vuoto, cleanup
   e report finale a residuo zero;
-- Admin: foundation finale `19/19`, typecheck ed ESLint mirato `PASS`; verify,
-  build ed E2E baseline precedenti verdi, gate puliti ancora da rieseguire;
-- Android: unit baseline `25/25`, instrumentation baseline `3/3` e rerun del
-  caso invalidato `1/1`, fixture `48 MP` senza OOM, assemble/lint baseline
-  `PASS`;
-- iOS: suite Product Images finale `22/22`, sync baseline `46/46`,
-  localizzazioni `8/8`, build Debug baseline `PASS`;
-- commit locali: Admin fino a `96051fc6`, Android fino a `c21de31`, iOS fino a
-  `21db5edb`; worktree validate e Security Changes scan ancora pendenti;
+- Admin clean merge: foundation `20/20`, pgTAP `76/76`, i18n e `verify`
+  (lint, typecheck, scanner, build) `PASS`; E2E corrente `NOT_RUN` senza browser
+  scelto, baseline precedente preservata;
+- Android clean merge: unit mirati, `assembleDebug` e `lintDebug` `PASS`;
+  instrumentation baseline `3/3` e rerun invalidato precedente `1/1` restano
+  evidence preservata;
+- iOS clean merge: build Debug e suite Product Images `22/22 PASS`; sync
+  baseline `46/46` e localizzazioni baseline `8/8` preservate;
+- commit locali: Admin fino a `aa916929` più riconciliazione clean-merge
+  `SELF`, Android fino a `c21de31`, iOS fino a `21db5edb`; worktree validate
+  completati, Security Changes scan pendente;
 - blocker 1: parity live Admin/Android/iOS sullo stesso target non-production
   `NOT_RUN`;
 - blocker 2: security-diff-scan ufficiale in attesa di avvio dal workspace;

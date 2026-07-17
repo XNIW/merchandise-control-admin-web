@@ -37,7 +37,7 @@ risultato vuoto. Staging e production non sono stati usati.
 ## Risultati
 
 - pgTAP TASK-137 post-hardening: `76/76 PASS`;
-- test foundation schema/contratto post-hardening: `19/19 PASS`;
+- test foundation schema/contratto post-hardening: `20/20 PASS`;
 - bucket privato, limite, MIME, grant, RLS, exact path, no-op, duplicate,
   replace, stale remove, remove, cleanup e redaction verificati;
 - nessuna migration production e nessuna modifica staging.

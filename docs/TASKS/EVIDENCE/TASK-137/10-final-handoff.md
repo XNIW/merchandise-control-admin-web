@@ -2,8 +2,9 @@
 
 Questo documento fotografa il primo handoff locale. Lo stato corrente è nel
 checkpoint `12-publish-checkpoint.md`: commit locali creati sui tre repository,
-Admin pgTAP `76/76`, foundation `19/19`, Android rerun invalidato `1/1`, iOS
-`22/22`; validazione pulita e Security Changes scan restano pendenti. Le frasi
+Admin pgTAP `76/76`, foundation clean-merge `20/20`, Android rerun invalidato
+`1/1`, iOS `22/22`; la validazione pulita è completa e il Security Changes
+scan resta pendente. Le frasi
 successive su “nessun commit” descrivono soltanto quel checkpoint storico.
 
 ## Stato

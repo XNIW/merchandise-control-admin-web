@@ -114,6 +114,10 @@ La whitelist seguente è esaustiva. Tutti i path non elencati restano esclusi da
 - `src/server/shop-admin/page-access.ts`
 - `src/server/shop-admin/detail-modal-read-model.ts`
 
+`scripts/security-checks.mjs` contiene anche il solo hunk `H` necessario a
+verificare la RPC atomica e i pgTAP TASK-088 gia congelati, sostituendo le
+asserzioni obsolete sulle scritture finanziarie dirette.
+
 ## TASK-137 — Admin UI (`B. TASK137_ADMIN_UI`)
 
 - `src/lib/product-images/browser-client.ts`
@@ -133,6 +137,22 @@ La whitelist seguente è esaustiva. Tutti i path non elencati restano esclusi da
 - `supabase/tests/task_137_product_catalog_images.sql`
 - `tests/foundation/task-137-product-catalog-images.test.mjs`
 - `tests/e2e/task-137-product-catalog-images-local.spec.ts`
+
+## Dipendenza validata emersa nel clean merge (`I. OTHER_VALIDATED_PROJECT_WORK`)
+
+- `src/server/shop-admin/data-access.ts`
+- `src/server/shop-admin/permissions.ts`
+- `src/server/shop-admin/staff-web-permissions.ts`
+- `scripts/i18n-contract-scan.mjs`
+
+Inclusione limitata agli hunk che rendono effettivo `requiredPermission` per le
+letture prodotto TASK-137 e per la route POS TASK-088 già congelata. Sono
+escluse le altre modifiche locali presenti sugli stessi file; la regressione è
+coperta dal test foundation TASK-137 e dai gate del worktree pulito. I due soli
+path i18n `OperatorSwitchDialog` riallineano il gate al checkout Win7POS
+read-only corrente senza modificarlo; il prefisso dinamico whitelisted
+`notice.` evita di trattare una concatenazione runtime come chiave letterale,
+senza allargare la whitelist ad altre famiglie.
 
 ## TASK-137 — governance ed evidence (`G. TASK137_DOCUMENTATION`)
 
@@ -165,7 +185,8 @@ La whitelist seguente è esaustiva. Tutti i path non elencati restano esclusi da
 - Tutti i tracked dirty non elencati sono `L. UNRELATED_PRESERVE`; `artifacts/`,
   build/cache/log/xcresult e altri output sono `J. GENERATED_EXCLUDE`; config
   locali, database, token/sessioni/cookie/secret/signed URL sono
-  `K. SENSITIVE_EXCLUDE`. Nessun `I. OTHER_VALIDATED_PROJECT_WORK` o
-  `M. UNKNOWN_BLOCK` viene incluso.
+  `K. SENSITIVE_EXCLUDE`. Nessun `M. UNKNOWN_BLOCK` viene incluso; la sola
+  categoria `I. OTHER_VALIDATED_PROJECT_WORK` ammessa comprende soltanto i
+  quattro path elencati sopra.
 - La `.gitattributes` TASK-088 resta confinata agli artifact byte-preserved già
   congelati; non copre sorgenti e non viene estesa da TASK-137.

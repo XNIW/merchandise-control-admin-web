@@ -16,7 +16,7 @@ ratio e assenza APP1/EXIF prima della finalizzazione.
 
 ## Controlli eseguiti
 
-- test foundation post-hardening: `19/19 PASS`;
+- test foundation post-hardening e clean-merge authorization: `20/20 PASS`;
 - pgTAP/RLS post-hardening: `76/76 PASS`;
 - scanner repository `scripts/security-checks.mjs`: `PASS`;
 - test regressione scanner TASK-027 storico: `8/8 PASS`; la modifica locale
@@ -27,12 +27,19 @@ ratio e assenza APP1/EXIF prima della finalizzazione.
   riferimento prodotto client-managed: negati dai test SQL/contratto;
 - audit e sync payload: nessun path, token, signed URL o byte.
 
-Il primo `npm run verify` finale ha evidenziato due problemi di harness:
+La validazione clean-merge ha evidenziato e risolto dipendenze di harness gia
+presenti nel worktree, incluse senza ampliare il runtime Win7POS:
 
 1. il pattern generico interpretava `node:crypto.createHash().update()` come
    mutazione Supabase;
 2. il gate Win7 TASK-027 richiedeva una forma sintattica superata, mentre il
    checkout pulito usa `requestCursor` con la stessa garanzia shop-bound.
+3. il gate TASK-041 richiedeva ancora scritture finanziarie dirette rimosse
+   dalla RPC atomica TASK-088; ora verifica migration e pgTAP congelati.
+4. il gate i18n usava il vecchio `OperatorLoginDialog` e interpretava il
+   prefisso dinamico `notice.` come chiave letterale.
 
-Sono stati aggiornati soltanto allowlist e test scanner Admin. Win7POS non e
-stato modificato. Il rerun `npm run verify` e terminato `PASS`.
+Sono stati aggiornati soltanto i gate Admin e il resolver autorizzativo
+necessario alle nuove letture. Win7POS non e stato modificato. `npm run verify`
+e `npm run i18n:check` terminano `PASS`; lo scan repository salta esplicitamente
+il checkout Win7POS nel worktree pulito tramite il meccanismo nativo.

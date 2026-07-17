@@ -306,6 +306,53 @@ test("TASK-137 routes are no-store and never accept image bytes", async () => {
   }
 });
 
+test("TASK-137 and preserved POS reads enforce their requested permission", async () => {
+  const [dataAccess, inventoryReadModel, permissions, posRoute, staffPermissions] =
+    await Promise.all([
+      readFile(
+        new URL("../../src/server/shop-admin/data-access.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../../src/server/shop-admin/inventory-read-model.ts",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(
+        new URL("../../src/server/shop-admin/permissions.ts", import.meta.url),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../../src/app/api/shop/pos/revenue/sale-detail/route.ts",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      readFile(
+        new URL(
+          "../../src/server/shop-admin/staff-web-permissions.ts",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+    ]);
+
+  assert.match(inventoryReadModel, /requiredPermission: "products\.read"/);
+  assert.match(posRoute, /requiredPermission: "pos\.dashboard\.read"/);
+  assert.match(dataAccess, /requiredPermission\?: ShopAdminPermission/);
+  assert.match(dataAccess, /canShopAdmin\(access\.selectedShop\.role/);
+  assert.match(dataAccess, /canStaffWebPerformShopAdminAction\(/);
+  assert.match(dataAccess, /status: "unauthorized"/);
+  assert.match(permissions, /\| "pos\.dashboard\.read"/);
+  assert.match(
+    staffPermissions,
+    /permission === "pos\.dashboard\.read"[\s\S]*return "pos\.dashboard\.read"/,
+  );
+});
+
 test("TASK-137 server never logs signed URLs, tokens or image bytes", async () => {
   const service = await readFile(
     new URL(

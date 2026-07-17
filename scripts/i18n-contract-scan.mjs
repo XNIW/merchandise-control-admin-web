@@ -13,6 +13,22 @@ const posRoot = resolve(
 );
 const normalizedPosRoot = posRoot.replace(/\\/g, "/");
 const posLocalizationDirectory = join(posRoot, "src/Win7POS.Wpf/Localization");
+const allowedPosDynamicKeyUsages = new Map([
+  [
+    "notice.",
+    {
+      path: "src/Win7POS.Wpf/Pos/PosViewModel.cs",
+      requiredKeys: [
+        "notice.info",
+        "notice.success",
+        "notice.warning",
+        "notice.error",
+      ],
+      suffix:
+        /^\s*\+\s*StatusToastSeverity\.ToString\(\)\.ToLowerInvariant\(\)/,
+    },
+  ],
+]);
 
 const requiredAdminExactKeys = [
   "Select product",
@@ -83,7 +99,7 @@ const forbiddenPosUiFragments = [
 
 const posScreenCoverageFiles = [
   ["MainWindow", "src/Win7POS.Wpf/MainWindow.xaml"],
-  ["Operator login", "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml"],
+  ["Operator switch", "src/Win7POS.Wpf/Pos/Dialogs/OperatorSwitchDialog.xaml"],
   ["POS/cart", "src/Win7POS.Wpf/Pos/PosView.xaml"],
   ["Payment", "src/Win7POS.Wpf/Pos/PaymentView.xaml"],
   ["Discount", "src/Win7POS.Wpf/Pos/Dialogs/DiscountDialog.xaml"],
@@ -130,7 +146,7 @@ const posCoreCsharpUiPaths = new Set([
   "src/Win7POS.Wpf/Pos/Dialogs/DbMaintenanceViewModel.cs",
   "src/Win7POS.Wpf/Pos/Dialogs/DiscountDialog.xaml.cs",
   "src/Win7POS.Wpf/Pos/Dialogs/DiscountViewModel.cs",
-  "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml.cs",
+  "src/Win7POS.Wpf/Pos/Dialogs/OperatorSwitchDialog.xaml.cs",
   "src/Win7POS.Wpf/Pos/Dialogs/PaymentViewModel.cs",
   "src/Win7POS.Wpf/Pos/Dialogs/PrinterSettingsViewModel.cs",
   "src/Win7POS.Wpf/Pos/Dialogs/RefundDialog.xaml.cs",
@@ -396,6 +412,16 @@ function collectPosCodeKeyUsages() {
     lines.forEach((line, index) => {
       for (const pattern of patterns) {
         for (const match of line.matchAll(pattern)) {
+          const suffix = line.slice((match.index ?? 0) + match[0].length);
+          const dynamicKeyUsage = allowedPosDynamicKeyUsages.get(match[1]);
+
+          if (
+            dynamicKeyUsage?.path === relativePath &&
+            dynamicKeyUsage.suffix.test(suffix)
+          ) {
+            continue;
+          }
+
           usages.push({
             key: match[1],
             line: index + 1,
@@ -800,6 +826,14 @@ function main() {
   ).map((filePath) => [filePath, readFileSync(filePath, "utf8")]);
   const posEntries = parsePosEntries(posSources, errors);
   applyInjectedPosFault(posEntries);
+
+  for (const dynamicKeyUsage of allowedPosDynamicKeyUsages.values()) {
+    for (const requiredKey of dynamicKeyUsage.requiredKeys) {
+      if (!posEntries.has(requiredKey)) {
+        errors.push(`pos: missing dynamic translation key ${requiredKey}`);
+      }
+    }
+  }
 
   if (posEntries.size < 80) {
     errors.push(`pos: expected translation catalog, found ${posEntries.size} entries`);

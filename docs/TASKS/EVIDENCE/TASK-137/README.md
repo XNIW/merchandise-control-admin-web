@@ -82,7 +82,7 @@ Stato al passaggio in review:
   ancora `NOT_STARTED`;
 - `10`: handoff conclusivo `REVIEW_WITH_BLOCKERS`;
 - `11`: manifest di inclusione/esclusione riallineato ai commit reali;
-- `12`: checkpoint `COMMITS_CREATED`;
+- `12`: checkpoint `VALIDATION_PASS`;
 - runtime live cross-client: `NOT_RUN`, blocker esplicito e non mascherato.
 
 ## Run eseguiti
@@ -149,11 +149,12 @@ Stato al passaggio in review:
 
 ### Consolidamento Mac post-hardening
 
-- Admin: pgTAP TASK-137 `76/76`, foundation `19/19`, typecheck, ESLint mirato,
+- Admin: pgTAP TASK-137 `76/76`, foundation `20/20`, typecheck, ESLint mirato,
   check script e diff mirato `PASS`;
 - commit locali separati nei tre repository; docs Android `c21de31`, docs iOS
   `21db5edb`, docs Admin nel commit corrente;
-- validazione in worktree puliti e Codex Security Changes scan: pendenti;
+- validazione in worktree puliti: `PASS`; Codex Security Changes scan:
+  `NOT_STARTED`;
 - audit visuale con screenshot della build corrente: `NOT_RUN` perché non è
   stato indicato un browser. Lo screenshot storico sintetico LOCALT137A resta
   evidence del run precedente, non viene promosso a QA visuale corrente.

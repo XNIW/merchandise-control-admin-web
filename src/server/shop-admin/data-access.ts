@@ -21,7 +21,12 @@ import {
   resolveStaffWebSessionPrincipal,
   STAFF_WEB_SESSION_MISSING_REASON,
 } from "./staff-web-auth";
+import {
+  canShopAdmin,
+  type ShopAdminPermission,
+} from "./permissions";
 import type { ShopAdminShellShop } from "./shop-access";
+import { canStaffWebPerformShopAdminAction } from "./staff-web-permissions";
 
 export type ShopAdminDataClient = SupabaseAdminClient | SupabaseServerClient;
 
@@ -56,6 +61,7 @@ export type ShopAdminDataAccess =
 type ResolveShopAdminDataAccessOptions = {
   client?: SupabaseServerClient | null;
   requestedShopId?: string | null;
+  requiredPermission?: ShopAdminPermission;
   strictRequestedShop?: boolean;
 };
 
@@ -331,12 +337,29 @@ const resolveShopAdminDataAccessForRequest = cache(
 export async function resolveShopAdminDataAccess(
   options: ResolveShopAdminDataAccessOptions = {},
 ): Promise<ShopAdminDataAccess> {
-  if (options.client) {
-    return resolveShopAdminDataAccessUncached(options);
+  const access = options.client
+    ? await resolveShopAdminDataAccessUncached(options)
+    : await resolveShopAdminDataAccessForRequest(
+        options.requestedShopId ?? null,
+        options.strictRequestedShop === true,
+      );
+
+  if (access.status !== "ready" || !options.requiredPermission) {
+    return access;
   }
 
-  return resolveShopAdminDataAccessForRequest(
-    options.requestedShopId ?? null,
-    options.strictRequestedShop === true,
-  );
+  const authorized =
+    access.principalKind === "personal_account"
+      ? canShopAdmin(access.selectedShop.role, options.requiredPermission)
+      : canStaffWebPerformShopAdminAction(
+          access.principal.permissions,
+          options.requiredPermission,
+        );
+
+  return authorized
+    ? access
+    : {
+        reason: `Required shop permission is missing: ${options.requiredPermission}.`,
+        status: "unauthorized",
+      };
 }
