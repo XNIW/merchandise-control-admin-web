@@ -1,0 +1,5287 @@
+{
+  "cleanup": {
+    "adminResidueChecks": 6,
+    "androidResidueMarkerPresent": true,
+    "codes": {
+      "TASK088_ADMIN_CODE": 0,
+      "TASK088_ANDROID_DRY": 0,
+      "TASK088_ANDROID_EXECUTE": 0,
+      "TASK088_COUNTS_CODE": 0,
+      "TASK088_IOS_DRY": 0,
+      "TASK088_IOS_EXECUTE": 0,
+      "TASK088_RESIDUE_CODE": 0,
+      "TASK088_SUPABASE_DRY": 0,
+      "TASK088_SUPABASE_EXECUTE": 0
+    },
+    "iosCleanupPlanId": "cleanup-TASK-088-20260716T193151Z-ios-final-sync",
+    "remoteCountsAfter": {
+      "categories": {
+        "active": 73,
+        "all": 139,
+        "deleted": 66,
+        "dirty": 0,
+        "localOnly": 0,
+        "pending": 0,
+        "userVisible": null
+      },
+      "history_entries": {
+        "active": 84,
+        "all": 179,
+        "deleted": 95,
+        "dirty": 0,
+        "localOnly": 0,
+        "pending": 0,
+        "userVisible": 80
+      },
+      "product_prices": {
+        "active": 41231,
+        "all": 41364,
+        "deleted": 0,
+        "dirty": 0,
+        "localOnly": 0,
+        "pending": 0,
+        "userVisible": null
+      },
+      "products": {
+        "active": 19885,
+        "all": 19985,
+        "deleted": 100,
+        "dirty": 0,
+        "localOnly": 0,
+        "pending": 0,
+        "userVisible": null
+      },
+      "suppliers": {
+        "active": 104,
+        "all": 170,
+        "deleted": 66,
+        "dirty": 0,
+        "localOnly": 0,
+        "pending": 0,
+        "userVisible": null
+      }
+    },
+    "remoteCountsBefore": {
+      "categories": {
+        "active": 73,
+        "all": 139,
+        "deleted": 66,
+        "dirty": 0,
+        "localOnly": 0,
+        "pending": 0,
+        "userVisible": null
+      },
+      "history_entries": {
+        "active": 84,
+        "all": 179,
+        "deleted": 95,
+        "dirty": 0,
+        "localOnly": 0,
+        "pending": 0,
+        "userVisible": 80
+      },
+      "product_prices": {
+        "active": 41231,
+        "all": 41364,
+        "deleted": 0,
+        "dirty": 0,
+        "localOnly": 0,
+        "pending": 0,
+        "userVisible": null
+      },
+      "products": {
+        "active": 19885,
+        "all": 19985,
+        "deleted": 100,
+        "dirty": 0,
+        "localOnly": 0,
+        "pending": 0,
+        "userVisible": null
+      },
+      "suppliers": {
+        "active": 104,
+        "all": 170,
+        "deleted": 66,
+        "dirty": 0,
+        "localOnly": 0,
+        "pending": 0,
+        "userVisible": null
+      }
+    },
+    "remoteNonFixtureBaselinePreserved": true,
+    "status": "PASS",
+    "supabaseCleanupPlanId": "cleanup-TASK-088-20260716T193151Z-TASK_SYNC_FINAL_20260714_LOCALK84_"
+  },
+  "clock": {
+    "authority": "macCoordinator",
+    "forbidCrossDeviceClockSubtraction": true,
+    "latencyClock": "monotonic_ns",
+    "wallClockUse": "metadataOnly"
+  },
+  "coverageFailures": [
+    {
+      "actual": 14,
+      "groupId": "admin-to-ios:Product",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Product",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Product",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Product",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Product",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Product",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Product",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Product",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Product",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Product",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Product",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Product",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Product",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Product",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Product",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Product",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Product",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Product",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Product",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Product",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Product",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Product",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Product",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Product",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Product",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Product",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Product",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Product",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Product",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Product",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Product",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Product",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Product",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Product",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Product",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Category",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Category",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Category",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Category",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Category",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Category",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Category",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Category",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Category",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Category",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Category",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Category",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Category",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Category",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Category",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Category",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Category",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Category",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Category",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Category",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Category",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Category",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Category",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Category",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Category",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Category",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Category",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Category",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Category",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Category",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Category",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Category",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Category",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Category",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Category",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Category",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Category",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Category",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Category",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Category",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Category",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Category",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Supplier",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Supplier",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Supplier",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Supplier",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Supplier",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Supplier",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:Supplier",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Supplier",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Supplier",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Supplier",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Supplier",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Supplier",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Supplier",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:Supplier",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Supplier",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Supplier",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Supplier",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Supplier",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Supplier",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Supplier",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:Supplier",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Supplier",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Supplier",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Supplier",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Supplier",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Supplier",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Supplier",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:Supplier",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Supplier",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Supplier",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Supplier",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Supplier",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Supplier",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Supplier",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:Supplier",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Supplier",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Supplier",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Supplier",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Supplier",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Supplier",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Supplier",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:Supplier",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:ProductPrice",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:ProductPrice",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:ProductPrice",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:ProductPrice",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:ProductPrice",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:ProductPrice",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-android:ProductPrice",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:ProductPrice",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:ProductPrice",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:ProductPrice",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:ProductPrice",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:ProductPrice",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:ProductPrice",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "admin-to-ios:ProductPrice",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:ProductPrice",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:ProductPrice",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:ProductPrice",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:ProductPrice",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:ProductPrice",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:ProductPrice",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:ProductPrice",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:ProductPrice",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:ProductPrice",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:ProductPrice",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:ProductPrice",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:ProductPrice",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:ProductPrice",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:ProductPrice",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:ProductPrice",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:ProductPrice",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:ProductPrice",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:ProductPrice",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:ProductPrice",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:ProductPrice",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:ProductPrice",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:ProductPrice",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:ProductPrice",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:ProductPrice",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:ProductPrice",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:ProductPrice",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:ProductPrice",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:ProductPrice",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryEntry",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryEntry",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryEntry",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryEntry",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryEntry",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryEntry",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryEntry",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryEntry",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryEntry",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryEntry",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryEntry",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryEntry",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryEntry",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryEntry",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryEntry",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryEntry",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryEntry",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryEntry",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryEntry",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryEntry",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryEntry",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryEntry",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryEntry",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryEntry",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryEntry",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryEntry",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryEntry",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryEntry",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryRows",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryRows",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryRows",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryRows",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryRows",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryRows",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-admin:HistoryRows",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryRows",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryRows",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryRows",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryRows",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryRows",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryRows",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "android-to-ios:HistoryRows",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryRows",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryRows",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryRows",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryRows",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryRows",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryRows",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-admin:HistoryRows",
+      "required": 1,
+      "scenario": "staleConflict"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryRows",
+      "required": 20,
+      "scenario": "warm"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryRows",
+      "required": 5,
+      "scenario": "coldRestart"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryRows",
+      "required": 3,
+      "scenario": "noOp"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryRows",
+      "required": 1,
+      "scenario": "burst10"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryRows",
+      "required": 1,
+      "scenario": "offlineReconnect"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryRows",
+      "required": 1,
+      "scenario": "duplicate"
+    },
+    {
+      "actual": 0,
+      "groupId": "ios-to-android:HistoryRows",
+      "required": 1,
+      "scenario": "staleConflict"
+    }
+  ],
+  "environment": "local",
+  "failureGroups": [
+    "admin:android:Product",
+    "admin:ios:Product"
+  ],
+  "generatedAt": "2026-07-16T19:42:58.094027+00:00",
+  "globalScenarios": [
+    "restart",
+    "offline",
+    "reconnect",
+    "shopSwitch",
+    "accountSwitch",
+    "processKillRelaunch",
+    "pendingOutboxDrain"
+  ],
+  "groupCount": 32,
+  "groupScenarioSummaries": [
+    {
+      "destination": "android",
+      "entity": "Product",
+      "scenario": "burst10",
+      "source": "admin",
+      "statistics": {
+        "count": 1,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 2818.479,
+        "meanMs": 2818.479,
+        "measuredCount": 1,
+        "minMs": 2818.479,
+        "p50Ms": 2818.479,
+        "p90Ms": 2818.479,
+        "p95Ms": 2818.479,
+        "p99Ms": 2818.479,
+        "stddevMs": 0.0
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "scenario": "coldRestart",
+      "source": "admin",
+      "statistics": {
+        "count": 5,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 1137.885,
+        "meanMs": 812.78,
+        "measuredCount": 5,
+        "minMs": 563.863,
+        "p50Ms": 688.848,
+        "p90Ms": 1137.885,
+        "p95Ms": 1137.885,
+        "p99Ms": 1137.885,
+        "stddevMs": 232.419
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "scenario": "duplicate",
+      "source": "admin",
+      "statistics": {
+        "count": 1,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 1117.428,
+        "meanMs": 1117.428,
+        "measuredCount": 1,
+        "minMs": 1117.428,
+        "p50Ms": 1117.428,
+        "p90Ms": 1117.428,
+        "p95Ms": 1117.428,
+        "p99Ms": 1117.428,
+        "stddevMs": 0.0
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "scenario": "noOp",
+      "source": "admin",
+      "statistics": {
+        "count": 3,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 570.013,
+        "meanMs": 497.547,
+        "measuredCount": 3,
+        "minMs": 450.31,
+        "p50Ms": 472.317,
+        "p90Ms": 570.013,
+        "p95Ms": 570.013,
+        "p99Ms": 570.013,
+        "stddevMs": 52.023
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "scenario": "offlineReconnect",
+      "source": "admin",
+      "statistics": {
+        "count": 1,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 580.402,
+        "meanMs": 580.402,
+        "measuredCount": 1,
+        "minMs": 580.402,
+        "p50Ms": 580.402,
+        "p90Ms": 580.402,
+        "p95Ms": 580.402,
+        "p99Ms": 580.402,
+        "stddevMs": 0.0
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "scenario": "staleConflict",
+      "source": "admin",
+      "statistics": {
+        "count": 1,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 465.68,
+        "meanMs": 465.68,
+        "measuredCount": 1,
+        "minMs": 465.68,
+        "p50Ms": 465.68,
+        "p90Ms": 465.68,
+        "p95Ms": 465.68,
+        "p99Ms": 465.68,
+        "stddevMs": 0.0
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "scenario": "warm",
+      "source": "admin",
+      "statistics": {
+        "count": 20,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 1669.574,
+        "meanMs": 722.655,
+        "measuredCount": 20,
+        "minMs": 517.795,
+        "p50Ms": 603.346,
+        "p90Ms": 1059.378,
+        "p95Ms": 1574.803,
+        "p99Ms": 1669.574,
+        "stddevMs": 318.865
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "ios",
+      "entity": "Product",
+      "scenario": "warm",
+      "source": "admin",
+      "statistics": {
+        "count": 14,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 9595.406,
+        "meanMs": 2109.354,
+        "measuredCount": 14,
+        "minMs": 1343.308,
+        "p50Ms": 1517.125,
+        "p90Ms": 1774.779,
+        "p95Ms": 9595.406,
+        "p99Ms": 9595.406,
+        "stddevMs": 2079.921
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    }
+  ],
+  "groupSummaries": [
+    {
+      "allScenarioStatistics": {
+        "count": 32,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 2818.479,
+        "meanMs": 780.988,
+        "measuredCount": 32,
+        "minMs": 450.31,
+        "p50Ms": 603.346,
+        "p90Ms": 1137.885,
+        "p95Ms": 1669.574,
+        "p99Ms": 2818.479,
+        "stddevMs": 468.71
+      },
+      "burstStatistics": {
+        "count": 1,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 2818.479,
+        "meanMs": 2818.479,
+        "measuredCount": 1,
+        "minMs": 2818.479,
+        "p50Ms": 2818.479,
+        "p90Ms": 2818.479,
+        "p95Ms": 2818.479,
+        "p99Ms": 2818.479,
+        "stddevMs": 0.0
+      },
+      "destination": "android",
+      "entity": "Product",
+      "source": "admin",
+      "statistics": {
+        "count": 31,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 1669.574,
+        "meanMs": 715.263,
+        "measuredCount": 31,
+        "minMs": 450.31,
+        "p50Ms": 603.346,
+        "p90Ms": 1117.428,
+        "p95Ms": 1574.803,
+        "p99Ms": 1669.574,
+        "stddevMs": 297.559
+      },
+      "threshold": {
+        "burstIntegrityComplete": true,
+        "burstWithinLatencyBudget": true,
+        "integrityComplete": true,
+        "status": "FAIL",
+        "thresholds": {
+          "burstMaxMs": 5000.0,
+          "maxMs": 3000.0,
+          "p50Ms": 1000.0,
+          "p95Ms": 1500.0
+        },
+        "withinLatencyBudget": false
+      },
+      "verdict": "FAIL"
+    },
+    {
+      "allScenarioStatistics": {
+        "count": 14,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 9595.406,
+        "meanMs": 2109.354,
+        "measuredCount": 14,
+        "minMs": 1343.308,
+        "p50Ms": 1517.125,
+        "p90Ms": 1774.779,
+        "p95Ms": 9595.406,
+        "p99Ms": 9595.406,
+        "stddevMs": 2079.921
+      },
+      "burstStatistics": {
+        "count": 0,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": null,
+        "meanMs": null,
+        "measuredCount": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p90Ms": null,
+        "p95Ms": null,
+        "p99Ms": null,
+        "stddevMs": null
+      },
+      "destination": "ios",
+      "entity": "Product",
+      "source": "admin",
+      "statistics": {
+        "count": 14,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 9595.406,
+        "meanMs": 2109.354,
+        "measuredCount": 14,
+        "minMs": 1343.308,
+        "p50Ms": 1517.125,
+        "p90Ms": 1774.779,
+        "p95Ms": 9595.406,
+        "p99Ms": 9595.406,
+        "stddevMs": 2079.921
+      },
+      "threshold": {
+        "burstIntegrityComplete": true,
+        "burstWithinLatencyBudget": "NOT_MEASURED",
+        "integrityComplete": true,
+        "status": "FAIL",
+        "thresholds": {
+          "burstMaxMs": 5000.0,
+          "maxMs": 3000.0,
+          "p50Ms": 1000.0,
+          "p95Ms": 1500.0
+        },
+        "withinLatencyBudget": false
+      },
+      "verdict": "FAIL"
+    }
+  ],
+  "groups": [
+    {
+      "destination": "android",
+      "entity": "Product",
+      "groupId": "admin-to-android:Product",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "admin"
+    },
+    {
+      "destination": "ios",
+      "entity": "Product",
+      "groupId": "admin-to-ios:Product",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "admin"
+    },
+    {
+      "destination": "admin",
+      "entity": "Product",
+      "groupId": "android-to-admin:Product",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "android"
+    },
+    {
+      "destination": "ios",
+      "entity": "Product",
+      "groupId": "android-to-ios:Product",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "android"
+    },
+    {
+      "destination": "admin",
+      "entity": "Product",
+      "groupId": "ios-to-admin:Product",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "ios"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "groupId": "ios-to-android:Product",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "ios"
+    },
+    {
+      "destination": "android",
+      "entity": "Category",
+      "groupId": "admin-to-android:Category",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "admin"
+    },
+    {
+      "destination": "ios",
+      "entity": "Category",
+      "groupId": "admin-to-ios:Category",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "admin"
+    },
+    {
+      "destination": "admin",
+      "entity": "Category",
+      "groupId": "android-to-admin:Category",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "android"
+    },
+    {
+      "destination": "ios",
+      "entity": "Category",
+      "groupId": "android-to-ios:Category",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "android"
+    },
+    {
+      "destination": "admin",
+      "entity": "Category",
+      "groupId": "ios-to-admin:Category",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "ios"
+    },
+    {
+      "destination": "android",
+      "entity": "Category",
+      "groupId": "ios-to-android:Category",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "ios"
+    },
+    {
+      "destination": "android",
+      "entity": "Supplier",
+      "groupId": "admin-to-android:Supplier",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "admin"
+    },
+    {
+      "destination": "ios",
+      "entity": "Supplier",
+      "groupId": "admin-to-ios:Supplier",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "admin"
+    },
+    {
+      "destination": "admin",
+      "entity": "Supplier",
+      "groupId": "android-to-admin:Supplier",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "android"
+    },
+    {
+      "destination": "ios",
+      "entity": "Supplier",
+      "groupId": "android-to-ios:Supplier",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "android"
+    },
+    {
+      "destination": "admin",
+      "entity": "Supplier",
+      "groupId": "ios-to-admin:Supplier",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "ios"
+    },
+    {
+      "destination": "android",
+      "entity": "Supplier",
+      "groupId": "ios-to-android:Supplier",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "tombstone"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "ios"
+    },
+    {
+      "destination": "android",
+      "entity": "ProductPrice",
+      "groupId": "admin-to-android:ProductPrice",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "append",
+        "correction"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "admin"
+    },
+    {
+      "destination": "ios",
+      "entity": "ProductPrice",
+      "groupId": "admin-to-ios:ProductPrice",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "append",
+        "correction"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "admin"
+    },
+    {
+      "destination": "admin",
+      "entity": "ProductPrice",
+      "groupId": "android-to-admin:ProductPrice",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "append",
+        "correction"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "android"
+    },
+    {
+      "destination": "ios",
+      "entity": "ProductPrice",
+      "groupId": "android-to-ios:ProductPrice",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "append",
+        "correction"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "android"
+    },
+    {
+      "destination": "admin",
+      "entity": "ProductPrice",
+      "groupId": "ios-to-admin:ProductPrice",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "append",
+        "correction"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "ios"
+    },
+    {
+      "destination": "android",
+      "entity": "ProductPrice",
+      "groupId": "ios-to-android:ProductPrice",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "append",
+        "correction"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "ios"
+    },
+    {
+      "destination": "admin",
+      "entity": "HistoryEntry",
+      "groupId": "android-to-admin:HistoryEntry",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "android"
+    },
+    {
+      "destination": "ios",
+      "entity": "HistoryEntry",
+      "groupId": "android-to-ios:HistoryEntry",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "android"
+    },
+    {
+      "destination": "admin",
+      "entity": "HistoryEntry",
+      "groupId": "ios-to-admin:HistoryEntry",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "ios"
+    },
+    {
+      "destination": "android",
+      "entity": "HistoryEntry",
+      "groupId": "ios-to-android:HistoryEntry",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "ios"
+    },
+    {
+      "destination": "admin",
+      "entity": "HistoryRows",
+      "groupId": "android-to-admin:HistoryRows",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "append",
+        "edit"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "android"
+    },
+    {
+      "destination": "ios",
+      "entity": "HistoryRows",
+      "groupId": "android-to-ios:HistoryRows",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "append",
+        "edit"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "android"
+    },
+    {
+      "destination": "admin",
+      "entity": "HistoryRows",
+      "groupId": "ios-to-admin:HistoryRows",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "append",
+        "edit"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "ios"
+    },
+    {
+      "destination": "android",
+      "entity": "HistoryRows",
+      "groupId": "ios-to-android:HistoryRows",
+      "operations": [
+        "create",
+        "update",
+        "repeated_update",
+        "noop",
+        "append",
+        "edit"
+      ],
+      "sampleRequirements": {
+        "burst10": 1,
+        "coldRestart": 5,
+        "duplicate": 1,
+        "noOp": 3,
+        "offlineReconnect": 1,
+        "staleConflict": 1,
+        "warm": 20
+      },
+      "source": "ios"
+    }
+  ],
+  "historicalBaseline": {
+    "androidToIos": {
+      "maxMs": 448.0,
+      "p50Ms": 408.0,
+      "p95Ms": 445.0
+    },
+    "iosToAndroid": {
+      "maxMs": 1027.0,
+      "p50Ms": 911.0,
+      "p95Ms": 954.0
+    }
+  },
+  "prefix": "TASK_SYNC_FINAL_20260714_LOCALK84_",
+  "regressionLimitRatio": 1.25,
+  "requiredSampleFields": [
+    "source",
+    "destination",
+    "entity",
+    "operation",
+    "scenario",
+    "correlationId",
+    "fixtureId",
+    "shopIdHash",
+    "entityIdHash",
+    "serverRequestIdHash",
+    "eventIdHash",
+    "t0MonotonicNs",
+    "serverObservedMonotonicNs",
+    "destinationObservedMonotonicNs",
+    "destinationApplyLatencyMs",
+    "queryCount",
+    "pageCount",
+    "recordCount",
+    "payloadBytes",
+    "retryCount",
+    "fullPull",
+    "pendingBefore",
+    "pendingAfter",
+    "checkpointBeforeHash",
+    "checkpointAfterHash",
+    "result"
+  ],
+  "samples": [
+    {
+      "checkpointAfterHash": "fb2f73f87c88",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-01",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15478013977000,
+      "entity": "Product",
+      "entityIdHash": "b269288abd14",
+      "eventIdHash": "2ea47e6c3404",
+      "fixtureId": "G001-warm-01",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 1,
+      "payloadBytes": 368,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 2,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 1385.124,
+      "serverObservedMonotonicNs": 15477729527000,
+      "serverRequestIdHash": "300d1037b8a7",
+      "serverToDestinationLatencyMs": 284.45,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15476344403000,
+      "totalEndToEndLatencyMs": 1669.574
+    },
+    {
+      "checkpointAfterHash": "490d3f320e42",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-02",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15490138284000,
+      "entity": "Product",
+      "entityIdHash": "012030dcfc17",
+      "eventIdHash": "97be1a1e44bb",
+      "fixtureId": "G001-warm-02",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 1,
+      "payloadBytes": 420,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 5,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 4,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 646.072,
+      "serverObservedMonotonicNs": 15489209553000,
+      "serverRequestIdHash": "e0d04658c0b7",
+      "serverToDestinationLatencyMs": 928.731,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15488563481000,
+      "totalEndToEndLatencyMs": 1574.803
+    },
+    {
+      "checkpointAfterHash": "db6b1352e51c",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-03",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15499879014000,
+      "entity": "Product",
+      "entityIdHash": "1259edbf5050",
+      "eventIdHash": "a4e29eb889e0",
+      "fixtureId": "G001-warm-03",
+      "fullPull": false,
+      "operation": "tombstone",
+      "pageCount": 1,
+      "payloadBytes": 423,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 4,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 3,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 353.26,
+      "serverObservedMonotonicNs": 15499562562000,
+      "serverRequestIdHash": "ee036627e054",
+      "serverToDestinationLatencyMs": 316.452,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15499209302000,
+      "totalEndToEndLatencyMs": 669.712
+    },
+    {
+      "checkpointAfterHash": "d149efa23cca",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-04",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15510436835000,
+      "entity": "Product",
+      "entityIdHash": "4f8866222ba4",
+      "eventIdHash": "89b796f312d0",
+      "fixtureId": "G001-warm-04",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 1,
+      "payloadBytes": 420,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 2,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 333.574,
+      "serverObservedMonotonicNs": 15510178270000,
+      "serverRequestIdHash": "97dc48537fef",
+      "serverToDestinationLatencyMs": 258.565,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15509844696000,
+      "totalEndToEndLatencyMs": 592.139
+    },
+    {
+      "checkpointAfterHash": "28d7cb84e447",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-05",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15516165156000,
+      "entity": "Product",
+      "entityIdHash": "19f940f91c94",
+      "eventIdHash": "e5875bbabf18",
+      "fixtureId": "G001-warm-05",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 1,
+      "payloadBytes": 368,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 2,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 1,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 383.096,
+      "serverObservedMonotonicNs": 15515937295000,
+      "serverRequestIdHash": "4d577bf025ff",
+      "serverToDestinationLatencyMs": 227.861,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15515554199000,
+      "totalEndToEndLatencyMs": 610.957
+    },
+    {
+      "checkpointAfterHash": "35bb78127c4f",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-06",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15525554306000,
+      "entity": "Product",
+      "entityIdHash": "91d3f6c311c8",
+      "eventIdHash": "33b9e36ba84e",
+      "fixtureId": "G001-warm-06",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 1,
+      "payloadBytes": 420,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 2,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 1,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 368.115,
+      "serverObservedMonotonicNs": 15525345467000,
+      "serverRequestIdHash": "37d439b2267e",
+      "serverToDestinationLatencyMs": 208.839,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15524977352000,
+      "totalEndToEndLatencyMs": 576.954
+    },
+    {
+      "checkpointAfterHash": "03f654824d01",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-07",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15535702326000,
+      "entity": "Product",
+      "entityIdHash": "a1557962832f",
+      "eventIdHash": "b7ad802c70c8",
+      "fixtureId": "G001-warm-07",
+      "fullPull": false,
+      "operation": "tombstone",
+      "pageCount": 1,
+      "payloadBytes": 423,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 4,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 3,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 717.167,
+      "serverObservedMonotonicNs": 15535360115000,
+      "serverRequestIdHash": "6f4096cdc491",
+      "serverToDestinationLatencyMs": 342.211,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15534642948000,
+      "totalEndToEndLatencyMs": 1059.378
+    },
+    {
+      "checkpointAfterHash": "03ffeecfb819",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-08",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15547482455000,
+      "entity": "Product",
+      "entityIdHash": "c7ee0326ad1d",
+      "eventIdHash": "191cc3d67af6",
+      "fixtureId": "G001-warm-08",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 1,
+      "payloadBytes": 420,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 2,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 342.881,
+      "serverObservedMonotonicNs": 15547221990000,
+      "serverRequestIdHash": "3972ebe4cc1d",
+      "serverToDestinationLatencyMs": 260.465,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15546879109000,
+      "totalEndToEndLatencyMs": 603.346
+    },
+    {
+      "checkpointAfterHash": "4ed8be64ca1b",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-09",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15552799201000,
+      "entity": "Product",
+      "entityIdHash": "f8a4758514fd",
+      "eventIdHash": "fa25748779cf",
+      "fixtureId": "G001-warm-09",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 1,
+      "payloadBytes": 368,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 2,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 366.268,
+      "serverObservedMonotonicNs": 15552536573000,
+      "serverRequestIdHash": "487241a8d5a4",
+      "serverToDestinationLatencyMs": 262.628,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15552170305000,
+      "totalEndToEndLatencyMs": 628.896
+    },
+    {
+      "checkpointAfterHash": "c18da8721686",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-10",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15562509744000,
+      "entity": "Product",
+      "entityIdHash": "bfe5ea717ec7",
+      "eventIdHash": "ce2600a68d02",
+      "fixtureId": "G001-warm-10",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 1,
+      "payloadBytes": 420,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 2,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 1,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 357.333,
+      "serverObservedMonotonicNs": 15562292080000,
+      "serverRequestIdHash": "70e2b3841a3a",
+      "serverToDestinationLatencyMs": 217.664,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15561934747000,
+      "totalEndToEndLatencyMs": 574.997
+    },
+    {
+      "checkpointAfterHash": "c9bf2018442a",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-11",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15573089109000,
+      "entity": "Product",
+      "entityIdHash": "0ab002907a93",
+      "eventIdHash": "6093934d6e42",
+      "fixtureId": "G001-warm-11",
+      "fullPull": false,
+      "operation": "tombstone",
+      "pageCount": 1,
+      "payloadBytes": 423,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 2,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 1,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 368.208,
+      "serverObservedMonotonicNs": 15572870061000,
+      "serverRequestIdHash": "a163da95739d",
+      "serverToDestinationLatencyMs": 219.048,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15572501853000,
+      "totalEndToEndLatencyMs": 587.256
+    },
+    {
+      "checkpointAfterHash": "f297a22509d7",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-12",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15582522528000,
+      "entity": "Product",
+      "entityIdHash": "b6541957aea1",
+      "eventIdHash": "e1fbf2542345",
+      "fixtureId": "G001-warm-12",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 1,
+      "payloadBytes": 420,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 1,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 343.01,
+      "serverObservedMonotonicNs": 15582338665000,
+      "serverRequestIdHash": "3fd4ed3dd9cf",
+      "serverToDestinationLatencyMs": 183.863,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15581995655000,
+      "totalEndToEndLatencyMs": 526.873
+    },
+    {
+      "checkpointAfterHash": "a32c58ef2254",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-13",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15587014276000,
+      "entity": "Product",
+      "entityIdHash": "79f33724db7e",
+      "eventIdHash": "2cc4f00d8e70",
+      "fixtureId": "G001-warm-13",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 1,
+      "payloadBytes": 368,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 2,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 353.02,
+      "serverObservedMonotonicNs": 15586769715000,
+      "serverRequestIdHash": "9c6ded28ffba",
+      "serverToDestinationLatencyMs": 244.561,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15586416695000,
+      "totalEndToEndLatencyMs": 597.581
+    },
+    {
+      "checkpointAfterHash": "09d4056ab495",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-14",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15596035467000,
+      "entity": "Product",
+      "entityIdHash": "91cb7cff119a",
+      "eventIdHash": "c3528c99248c",
+      "fixtureId": "G001-warm-14",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 1,
+      "payloadBytes": 420,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 2,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 340.232,
+      "serverObservedMonotonicNs": 15595748509000,
+      "serverRequestIdHash": "3b701643dad4",
+      "serverToDestinationLatencyMs": 286.958,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15595408277000,
+      "totalEndToEndLatencyMs": 627.19
+    },
+    {
+      "checkpointAfterHash": "06c06a20cafb",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-15",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15605799169000,
+      "entity": "Product",
+      "entityIdHash": "5de51b32762d",
+      "eventIdHash": "e73f2bb628d0",
+      "fixtureId": "G001-warm-15",
+      "fullPull": false,
+      "operation": "tombstone",
+      "pageCount": 1,
+      "payloadBytes": 423,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 1,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 367.005,
+      "serverObservedMonotonicNs": 15605648379000,
+      "serverRequestIdHash": "c38fbac0a611",
+      "serverToDestinationLatencyMs": 150.79,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15605281374000,
+      "totalEndToEndLatencyMs": 517.795
+    },
+    {
+      "checkpointAfterHash": "9a47f769d7bf",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-16",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15615826452000,
+      "entity": "Product",
+      "entityIdHash": "5e02718d5a6b",
+      "eventIdHash": "9844a7c1f4bf",
+      "fixtureId": "G001-warm-16",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 1,
+      "payloadBytes": 420,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 2,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 371.781,
+      "serverObservedMonotonicNs": 15615542016000,
+      "serverRequestIdHash": "26ddcbf9bf05",
+      "serverToDestinationLatencyMs": 284.436,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15615170235000,
+      "totalEndToEndLatencyMs": 656.217
+    },
+    {
+      "checkpointAfterHash": "336120f10ba4",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-17",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15621130642000,
+      "entity": "Product",
+      "entityIdHash": "cad32f0a8b74",
+      "eventIdHash": "153d4056443f",
+      "fixtureId": "G001-warm-17",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 1,
+      "payloadBytes": 368,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 2,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 1,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 346.827,
+      "serverObservedMonotonicNs": 15620910719000,
+      "serverRequestIdHash": "684e87909b0f",
+      "serverToDestinationLatencyMs": 219.923,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15620563892000,
+      "totalEndToEndLatencyMs": 566.75
+    },
+    {
+      "checkpointAfterHash": "06c9e43d1287",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-18",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15630479431000,
+      "entity": "Product",
+      "entityIdHash": "aabff4f50349",
+      "eventIdHash": "1a17eb9a78c1",
+      "fixtureId": "G001-warm-18",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 1,
+      "payloadBytes": 420,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 2,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 1,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 338.488,
+      "serverObservedMonotonicNs": 15630263191000,
+      "serverRequestIdHash": "4121aacf7470",
+      "serverToDestinationLatencyMs": 216.24,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15629924703000,
+      "totalEndToEndLatencyMs": 554.728
+    },
+    {
+      "checkpointAfterHash": "12d060c367de",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-19",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15639691826000,
+      "entity": "Product",
+      "entityIdHash": "41cd87f7bcb6",
+      "eventIdHash": "dc762512ed30",
+      "fixtureId": "G001-warm-19",
+      "fullPull": false,
+      "operation": "tombstone",
+      "pageCount": 1,
+      "payloadBytes": 423,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 2,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 362.425,
+      "serverObservedMonotonicNs": 15639402048000,
+      "serverRequestIdHash": "2d5f7567234e",
+      "serverToDestinationLatencyMs": 289.778,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15639039623000,
+      "totalEndToEndLatencyMs": 652.203
+    },
+    {
+      "checkpointAfterHash": "292538a65fd7",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-warm-20",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15648657462000,
+      "entity": "Product",
+      "entityIdHash": "747023d1cc7b",
+      "eventIdHash": "038bf512e035",
+      "fixtureId": "G001-warm-20",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 1,
+      "payloadBytes": 420,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 2,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 321.26,
+      "serverObservedMonotonicNs": 15648372974000,
+      "serverRequestIdHash": "b59c0aa7ecbf",
+      "serverToDestinationLatencyMs": 284.488,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15648051714000,
+      "totalEndToEndLatencyMs": 605.748
+    },
+    {
+      "checkpointAfterHash": "6e17f7196e0c",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-coldRestart-01",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15655491725000,
+      "entity": "Product",
+      "entityIdHash": "bad7aed07809",
+      "eventIdHash": "b92141476d11",
+      "fixtureId": "G001-coldRestart-01",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 1,
+      "payloadBytes": 396,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 5,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 4,
+      "scenario": "coldRestart",
+      "serverCommitLatencyMs": 363.438,
+      "serverObservedMonotonicNs": 15654811217000,
+      "serverRequestIdHash": "6abb581537ab",
+      "serverToDestinationLatencyMs": 680.508,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15654447779000,
+      "totalEndToEndLatencyMs": 1043.946
+    },
+    {
+      "checkpointAfterHash": "c9bc8558b5cd",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-coldRestart-02",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15666890349000,
+      "entity": "Product",
+      "entityIdHash": "dbdd9dc38322",
+      "eventIdHash": "702e6e06028a",
+      "fixtureId": "G001-coldRestart-02",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 1,
+      "payloadBytes": 448,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 2,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 1,
+      "scenario": "coldRestart",
+      "serverCommitLatencyMs": 350.21,
+      "serverObservedMonotonicNs": 15666676696000,
+      "serverRequestIdHash": "02f0aaaae246",
+      "serverToDestinationLatencyMs": 213.653,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15666326486000,
+      "totalEndToEndLatencyMs": 563.863
+    },
+    {
+      "checkpointAfterHash": "363f42e8734a",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-coldRestart-03",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15678439796000,
+      "entity": "Product",
+      "entityIdHash": "52a2af6b4ac6",
+      "eventIdHash": "a496b50d3090",
+      "fixtureId": "G001-coldRestart-03",
+      "fullPull": false,
+      "operation": "tombstone",
+      "pageCount": 1,
+      "payloadBytes": 451,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 5,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 4,
+      "scenario": "coldRestart",
+      "serverCommitLatencyMs": 498.808,
+      "serverObservedMonotonicNs": 15677800719000,
+      "serverRequestIdHash": "d83e5c5be50d",
+      "serverToDestinationLatencyMs": 639.077,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15677301911000,
+      "totalEndToEndLatencyMs": 1137.885
+    },
+    {
+      "checkpointAfterHash": "80e107ee3ba1",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-coldRestart-04",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15689422502000,
+      "entity": "Product",
+      "entityIdHash": "29c5ab46b1a7",
+      "eventIdHash": "49cc2a1812f9",
+      "fixtureId": "G001-coldRestart-04",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 1,
+      "payloadBytes": 448,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 2,
+      "scenario": "coldRestart",
+      "serverCommitLatencyMs": 337.952,
+      "serverObservedMonotonicNs": 15689131094000,
+      "serverRequestIdHash": "658c981f54de",
+      "serverToDestinationLatencyMs": 291.408,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15688793142000,
+      "totalEndToEndLatencyMs": 629.36
+    },
+    {
+      "checkpointAfterHash": "d66d71c37254",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-coldRestart-05",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15695763984000,
+      "entity": "Product",
+      "entityIdHash": "06dc69273339",
+      "eventIdHash": "7e28c8b34666",
+      "fixtureId": "G001-coldRestart-05",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 1,
+      "payloadBytes": 396,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 4,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 3,
+      "scenario": "coldRestart",
+      "serverCommitLatencyMs": 357.802,
+      "serverObservedMonotonicNs": 15695432938000,
+      "serverRequestIdHash": "1eb145bc7f7a",
+      "serverToDestinationLatencyMs": 331.046,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15695075136000,
+      "totalEndToEndLatencyMs": 688.848
+    },
+    {
+      "checkpointAfterHash": "d66d71c37254",
+      "checkpointBeforeHash": "d66d71c37254",
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-noOp-01",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15701014463000,
+      "entity": "Product",
+      "entityIdHash": "b269288abd14",
+      "eventIdHash": null,
+      "fixtureId": "G001-warm-01",
+      "fullPull": false,
+      "operation": "noop",
+      "pageCount": 1,
+      "payloadBytes": 416,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 2,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "noOp",
+      "serverCommitLatencyMs": 462.276,
+      "serverObservedMonotonicNs": 15700906726000,
+      "serverRequestIdHash": "72bc7cb51cf6",
+      "serverToDestinationLatencyMs": 107.737,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15700444450000,
+      "totalEndToEndLatencyMs": 570.013
+    },
+    {
+      "checkpointAfterHash": "d66d71c37254",
+      "checkpointBeforeHash": "d66d71c37254",
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-noOp-02",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15705945072000,
+      "entity": "Product",
+      "entityIdHash": "b269288abd14",
+      "eventIdHash": null,
+      "fixtureId": "G001-warm-01",
+      "fullPull": false,
+      "operation": "noop",
+      "pageCount": 1,
+      "payloadBytes": 416,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 2,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "noOp",
+      "serverCommitLatencyMs": 333.956,
+      "serverObservedMonotonicNs": 15705828718000,
+      "serverRequestIdHash": "48a1b8efaabb",
+      "serverToDestinationLatencyMs": 116.354,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15705494762000,
+      "totalEndToEndLatencyMs": 450.31
+    },
+    {
+      "checkpointAfterHash": "d66d71c37254",
+      "checkpointBeforeHash": "d66d71c37254",
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-noOp-03",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15710283003000,
+      "entity": "Product",
+      "entityIdHash": "b269288abd14",
+      "eventIdHash": null,
+      "fixtureId": "G001-warm-01",
+      "fullPull": false,
+      "operation": "noop",
+      "pageCount": 1,
+      "payloadBytes": 416,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 2,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "noOp",
+      "serverCommitLatencyMs": 363.187,
+      "serverObservedMonotonicNs": 15710173873000,
+      "serverRequestIdHash": "1dbb21ead21e",
+      "serverToDestinationLatencyMs": 109.13,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15709810686000,
+      "totalEndToEndLatencyMs": 472.317
+    },
+    {
+      "checkpointAfterHash": "884486e0e1e2",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-burst10-01",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15717218099000,
+      "entity": "Product",
+      "entityIdHash": "b7d251fbc775",
+      "eventIdHash": "14f940e854a0",
+      "fixtureId": "G001-burst10-01",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 1,
+      "payloadBytes": 3890,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 5,
+      "recordCount": 20,
+      "result": "PASS",
+      "retryCount": 4,
+      "scenario": "burst10",
+      "serverCommitLatencyMs": 629.162,
+      "serverObservedMonotonicNs": 15715028782000,
+      "serverRequestIdHash": "f48c2c6160fc",
+      "serverToDestinationLatencyMs": 2189.317,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15714399620000,
+      "totalEndToEndLatencyMs": 2818.479
+    },
+    {
+      "checkpointAfterHash": "044135b038e6",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-offlineReconnect-01",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15722486225000,
+      "entity": "Product",
+      "entityIdHash": "6c9817d489ad",
+      "eventIdHash": "7f6d885d438d",
+      "fixtureId": "G001-offlineReconnect-01",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 1,
+      "payloadBytes": 427,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 2,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 1,
+      "scenario": "offlineReconnect",
+      "serverCommitLatencyMs": 361.518,
+      "serverObservedMonotonicNs": 15722267341000,
+      "serverRequestIdHash": "c512909ea6cd",
+      "serverToDestinationLatencyMs": 218.884,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15721905823000,
+      "totalEndToEndLatencyMs": 580.402
+    },
+    {
+      "checkpointAfterHash": "662ac33770aa",
+      "checkpointBeforeHash": "662ac33770aa",
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-duplicate-01",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15728412361000,
+      "entity": "Product",
+      "entityIdHash": "e60e32f4f6ec",
+      "eventIdHash": null,
+      "fixtureId": "G001-duplicate-01",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 0,
+      "payloadBytes": 445,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 0,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "duplicate",
+      "serverCommitLatencyMs": 1014.802,
+      "serverObservedMonotonicNs": 15728309735000,
+      "serverRequestIdHash": "e9fb516068d5",
+      "serverToDestinationLatencyMs": 102.626,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15727294933000,
+      "totalEndToEndLatencyMs": 1117.428
+    },
+    {
+      "checkpointAfterHash": "9ba37a22e4f5",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G001-staleConflict-01",
+      "destination": "android",
+      "destinationApplyLatencyMs": null,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15737691922000,
+      "entity": "Product",
+      "entityIdHash": "aac1c5720273",
+      "eventIdHash": "668b554a0226",
+      "fixtureId": "G001-staleConflict-01",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 0,
+      "payloadBytes": 464,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 0,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "staleConflict",
+      "serverCommitLatencyMs": 358.809,
+      "serverObservedMonotonicNs": 15737585051000,
+      "serverRequestIdHash": "ca6ce0751644",
+      "serverToDestinationLatencyMs": 106.871,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15737226242000,
+      "totalEndToEndLatencyMs": 465.68
+    },
+    {
+      "checkpointAfterHash": "97f72eb0197b",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-01",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 736,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15753717380000,
+      "entity": "Product",
+      "entityIdHash": "8c5538705c52",
+      "eventIdHash": "9a5b4780673b",
+      "fixtureId": "G002-warm-01",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 3,
+      "payloadBytes": 398,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 370.906,
+      "serverObservedMonotonicNs": 15752744978000,
+      "serverRequestIdHash": "eb4711a5068f",
+      "serverToDestinationLatencyMs": 972.402,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15752374072000,
+      "totalEndToEndLatencyMs": 1343.308
+    },
+    {
+      "checkpointAfterHash": "1648683fce1b",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-02",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 739,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15788056240000,
+      "entity": "Product",
+      "entityIdHash": "b14d570d1250",
+      "eventIdHash": "6f589c10b7d2",
+      "fixtureId": "G002-warm-02",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 3,
+      "payloadBytes": 450,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 360.269,
+      "serverObservedMonotonicNs": 15787073049000,
+      "serverRequestIdHash": "ecaff7e3431b",
+      "serverToDestinationLatencyMs": 983.191,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15786712780000,
+      "totalEndToEndLatencyMs": 1343.46
+    },
+    {
+      "checkpointAfterHash": "78c8822eccc9",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-03",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 820,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15813626654000,
+      "entity": "Product",
+      "entityIdHash": "4cc352497653",
+      "eventIdHash": "7ac40e461d62",
+      "fixtureId": "G002-warm-03",
+      "fullPull": false,
+      "operation": "tombstone",
+      "pageCount": 3,
+      "payloadBytes": 453,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 393.328,
+      "serverObservedMonotonicNs": 15812546929000,
+      "serverRequestIdHash": "9b7da4896553",
+      "serverToDestinationLatencyMs": 1079.725,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15812153601000,
+      "totalEndToEndLatencyMs": 1473.053
+    },
+    {
+      "checkpointAfterHash": "103330f9cca6",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-04",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 780,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15836679414000,
+      "entity": "Product",
+      "entityIdHash": "5c67aa3c93ca",
+      "eventIdHash": "4ca8b75c83c5",
+      "fixtureId": "G002-warm-04",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 3,
+      "payloadBytes": 450,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 436.982,
+      "serverObservedMonotonicNs": 15835602180000,
+      "serverRequestIdHash": "8204769b5524",
+      "serverToDestinationLatencyMs": 1077.234,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15835165198000,
+      "totalEndToEndLatencyMs": 1514.216
+    },
+    {
+      "checkpointAfterHash": "ca0d9e7273c9",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-05",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 795,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15843601843000,
+      "entity": "Product",
+      "entityIdHash": "906c3c9fef79",
+      "eventIdHash": "a4891e56e751",
+      "fixtureId": "G002-warm-05",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 3,
+      "payloadBytes": 398,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 447.97,
+      "serverObservedMonotonicNs": 15842532688000,
+      "serverRequestIdHash": "4d5f148adf76",
+      "serverToDestinationLatencyMs": 1069.155,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15842084718000,
+      "totalEndToEndLatencyMs": 1517.125
+    },
+    {
+      "checkpointAfterHash": "1c4fba56f321",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-06",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 896,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15877371154000,
+      "entity": "Product",
+      "entityIdHash": "b1a8bf2768e7",
+      "eventIdHash": "9a675a0aad50",
+      "fixtureId": "G002-warm-06",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 3,
+      "payloadBytes": 450,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 474.457,
+      "serverObservedMonotonicNs": 15876213261000,
+      "serverRequestIdHash": "e50e20d41494",
+      "serverToDestinationLatencyMs": 1157.893,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15875738804000,
+      "totalEndToEndLatencyMs": 1632.35
+    },
+    {
+      "checkpointAfterHash": "f71a6b4573d3",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-07",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 779,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15901807033000,
+      "entity": "Product",
+      "entityIdHash": "47dbbe657bb5",
+      "eventIdHash": "aa7e59c203a3",
+      "fixtureId": "G002-warm-07",
+      "fullPull": false,
+      "operation": "tombstone",
+      "pageCount": 3,
+      "payloadBytes": 453,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 480.841,
+      "serverObservedMonotonicNs": 15900753733000,
+      "serverRequestIdHash": "01f4aa435a06",
+      "serverToDestinationLatencyMs": 1053.3,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15900272892000,
+      "totalEndToEndLatencyMs": 1534.141
+    },
+    {
+      "checkpointAfterHash": "b969b01c158e",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-08",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 797,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15924132523000,
+      "entity": "Product",
+      "entityIdHash": "4f84cf6a9e27",
+      "eventIdHash": "d992114b1065",
+      "fixtureId": "G002-warm-08",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 3,
+      "payloadBytes": 450,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 381.297,
+      "serverObservedMonotonicNs": 15923081034000,
+      "serverRequestIdHash": "7c13940869b8",
+      "serverToDestinationLatencyMs": 1051.489,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15922699737000,
+      "totalEndToEndLatencyMs": 1432.786
+    },
+    {
+      "checkpointAfterHash": "df4e0207f66e",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-09",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 750,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15930652199000,
+      "entity": "Product",
+      "entityIdHash": "eaf774191866",
+      "eventIdHash": "7139ab7cf1b6",
+      "fixtureId": "G002-warm-09",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 3,
+      "payloadBytes": 398,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 436.608,
+      "serverObservedMonotonicNs": 15929569442000,
+      "serverRequestIdHash": "e95182e3fb88",
+      "serverToDestinationLatencyMs": 1082.757,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15929132834000,
+      "totalEndToEndLatencyMs": 1519.365
+    },
+    {
+      "checkpointAfterHash": "f70494633820",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-10",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 864,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15963863259000,
+      "entity": "Product",
+      "entityIdHash": "38d0fabe5c3d",
+      "eventIdHash": "1bd537e63568",
+      "fixtureId": "G002-warm-10",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 3,
+      "payloadBytes": 450,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 455.74,
+      "serverObservedMonotonicNs": 15962753222000,
+      "serverRequestIdHash": "04e003f7547d",
+      "serverToDestinationLatencyMs": 1110.037,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15962297482000,
+      "totalEndToEndLatencyMs": 1565.777
+    },
+    {
+      "checkpointAfterHash": "4b6fe8cd512a",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-11",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 850,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 15986909580000,
+      "entity": "Product",
+      "entityIdHash": "c817bda6dc4c",
+      "eventIdHash": "e81d1ccca0d0",
+      "fixtureId": "G002-warm-11",
+      "fullPull": false,
+      "operation": "tombstone",
+      "pageCount": 3,
+      "payloadBytes": 453,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 418.395,
+      "serverObservedMonotonicNs": 15985814693000,
+      "serverRequestIdHash": "90cf285ed520",
+      "serverToDestinationLatencyMs": 1094.887,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 15985396298000,
+      "totalEndToEndLatencyMs": 1513.282
+    },
+    {
+      "checkpointAfterHash": "b0cc10087a35",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-12",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 891,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 16011636423000,
+      "entity": "Product",
+      "entityIdHash": "13353d48cafc",
+      "eventIdHash": "a4c297314886",
+      "fixtureId": "G002-warm-12",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 3,
+      "payloadBytes": 450,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 616.03,
+      "serverObservedMonotonicNs": 16010477674000,
+      "serverRequestIdHash": "c72b91cf4919",
+      "serverToDestinationLatencyMs": 1158.749,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 16009861644000,
+      "totalEndToEndLatencyMs": 1774.779
+    },
+    {
+      "checkpointAfterHash": "5dbfd76e584f",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-13",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 832,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 16019367620000,
+      "entity": "Product",
+      "entityIdHash": "38e10553f33b",
+      "eventIdHash": "20da79609871",
+      "fixtureId": "G002-warm-13",
+      "fullPull": false,
+      "operation": "create",
+      "pageCount": 3,
+      "payloadBytes": 398,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 659.924,
+      "serverObservedMonotonicNs": 16018255638000,
+      "serverRequestIdHash": "91925b96ee51",
+      "serverToDestinationLatencyMs": 1111.982,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 16017595714000,
+      "totalEndToEndLatencyMs": 1771.906
+    },
+    {
+      "checkpointAfterHash": "67bf8bb9a963",
+      "checkpointBeforeHash": null,
+      "clockAuthority": "macCoordinator.monotonic_ns",
+      "contractChecks": {
+        "burstOk": true,
+        "destinationCodeOk": true,
+        "destinationStatus": "PASS",
+        "destinationStatusAllowed": true,
+        "identityMatches": true,
+        "noFullPull": true,
+        "noOpOk": true,
+        "pendingOk": true,
+        "sourceCodeOk": true,
+        "sourceStatus": "PASS",
+        "sourceStatusAllowed": true
+      },
+      "correlationId": "G002-warm-14",
+      "destination": "ios",
+      "destinationApplyLatencyMs": 864,
+      "destinationFailureReason": null,
+      "destinationHttpStatus": null,
+      "destinationObservedMonotonicNs": 16061341400000,
+      "entity": "Product",
+      "entityIdHash": "9655075bdb8f",
+      "eventIdHash": "aa87ad157d55",
+      "fixtureId": "G002-warm-14",
+      "fullPull": false,
+      "operation": "update",
+      "pageCount": 3,
+      "payloadBytes": 450,
+      "pendingAfter": 0,
+      "pendingBefore": 0,
+      "queryCount": 3,
+      "recordCount": 2,
+      "result": "PASS",
+      "retryCount": 0,
+      "scenario": "warm",
+      "serverCommitLatencyMs": 8410.5,
+      "serverObservedMonotonicNs": 16060156494000,
+      "serverRequestIdHash": "7ae627191c81",
+      "serverToDestinationLatencyMs": 1184.906,
+      "shopIdHash": "7ac6b447bc7b",
+      "source": "admin",
+      "sourceFailureReason": null,
+      "sourceHttpStatus": null,
+      "t0MonotonicNs": 16051745994000,
+      "totalEndToEndLatencyMs": 9595.406
+    }
+  ],
+  "schemaVersion": "2.0",
+  "sessionRefresh": {
+    "attemptCount": 3,
+    "failureCount": 0,
+    "lastFailure": null,
+    "status": "PASS",
+    "strategy": "before_matrix_between_groups_and_before_admin_cleanup_checks",
+    "successCount": 3
+  },
+  "source": "live.final-sync-matrix",
+  "status": "FAIL",
+  "summaries": [
+    {
+      "destination": "android",
+      "entity": "Product",
+      "operation": "create",
+      "scenario": "burst10",
+      "source": "admin",
+      "statistics": {
+        "count": 1,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 2818.479,
+        "meanMs": 2818.479,
+        "measuredCount": 1,
+        "minMs": 2818.479,
+        "p50Ms": 2818.479,
+        "p90Ms": 2818.479,
+        "p95Ms": 2818.479,
+        "p99Ms": 2818.479,
+        "stddevMs": 0.0
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "operation": "create",
+      "scenario": "coldRestart",
+      "source": "admin",
+      "statistics": {
+        "count": 2,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 1043.946,
+        "meanMs": 866.397,
+        "measuredCount": 2,
+        "minMs": 688.848,
+        "p50Ms": 688.848,
+        "p90Ms": 1043.946,
+        "p95Ms": 1043.946,
+        "p99Ms": 1043.946,
+        "stddevMs": 177.549
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "operation": "create",
+      "scenario": "duplicate",
+      "source": "admin",
+      "statistics": {
+        "count": 1,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 1117.428,
+        "meanMs": 1117.428,
+        "measuredCount": 1,
+        "minMs": 1117.428,
+        "p50Ms": 1117.428,
+        "p90Ms": 1117.428,
+        "p95Ms": 1117.428,
+        "p99Ms": 1117.428,
+        "stddevMs": 0.0
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "operation": "create",
+      "scenario": "offlineReconnect",
+      "source": "admin",
+      "statistics": {
+        "count": 1,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 580.402,
+        "meanMs": 580.402,
+        "measuredCount": 1,
+        "minMs": 580.402,
+        "p50Ms": 580.402,
+        "p90Ms": 580.402,
+        "p95Ms": 580.402,
+        "p99Ms": 580.402,
+        "stddevMs": 0.0
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "operation": "create",
+      "scenario": "warm",
+      "source": "admin",
+      "statistics": {
+        "count": 5,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 1669.574,
+        "meanMs": 814.752,
+        "measuredCount": 5,
+        "minMs": 566.75,
+        "p50Ms": 610.957,
+        "p90Ms": 1669.574,
+        "p95Ms": 1669.574,
+        "p99Ms": 1669.574,
+        "stddevMs": 427.893
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "operation": "noop",
+      "scenario": "noOp",
+      "source": "admin",
+      "statistics": {
+        "count": 3,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 570.013,
+        "meanMs": 497.547,
+        "measuredCount": 3,
+        "minMs": 450.31,
+        "p50Ms": 472.317,
+        "p90Ms": 570.013,
+        "p95Ms": 570.013,
+        "p99Ms": 570.013,
+        "stddevMs": 52.023
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "operation": "tombstone",
+      "scenario": "coldRestart",
+      "source": "admin",
+      "statistics": {
+        "count": 1,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 1137.885,
+        "meanMs": 1137.885,
+        "measuredCount": 1,
+        "minMs": 1137.885,
+        "p50Ms": 1137.885,
+        "p90Ms": 1137.885,
+        "p95Ms": 1137.885,
+        "p99Ms": 1137.885,
+        "stddevMs": 0.0
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "operation": "tombstone",
+      "scenario": "warm",
+      "source": "admin",
+      "statistics": {
+        "count": 5,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 1059.378,
+        "meanMs": 697.269,
+        "measuredCount": 5,
+        "minMs": 517.795,
+        "p50Ms": 652.203,
+        "p90Ms": 1059.378,
+        "p95Ms": 1059.378,
+        "p99Ms": 1059.378,
+        "stddevMs": 188.8
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "operation": "update",
+      "scenario": "coldRestart",
+      "source": "admin",
+      "statistics": {
+        "count": 2,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 629.36,
+        "meanMs": 596.611,
+        "measuredCount": 2,
+        "minMs": 563.863,
+        "p50Ms": 563.863,
+        "p90Ms": 629.36,
+        "p95Ms": 629.36,
+        "p99Ms": 629.36,
+        "stddevMs": 32.748
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "operation": "update",
+      "scenario": "staleConflict",
+      "source": "admin",
+      "statistics": {
+        "count": 1,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 465.68,
+        "meanMs": 465.68,
+        "measuredCount": 1,
+        "minMs": 465.68,
+        "p50Ms": 465.68,
+        "p90Ms": 465.68,
+        "p95Ms": 465.68,
+        "p99Ms": 465.68,
+        "stddevMs": 0.0
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "android",
+      "entity": "Product",
+      "operation": "update",
+      "scenario": "warm",
+      "source": "admin",
+      "statistics": {
+        "count": 10,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 1574.803,
+        "meanMs": 689.299,
+        "measuredCount": 10,
+        "minMs": 526.873,
+        "p50Ms": 592.139,
+        "p90Ms": 656.217,
+        "p95Ms": 1574.803,
+        "p99Ms": 1574.803,
+        "stddevMs": 297.163
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "ios",
+      "entity": "Product",
+      "operation": "create",
+      "scenario": "warm",
+      "source": "admin",
+      "statistics": {
+        "count": 4,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 1771.906,
+        "meanMs": 1537.926,
+        "measuredCount": 4,
+        "minMs": 1343.308,
+        "p50Ms": 1517.125,
+        "p90Ms": 1771.906,
+        "p95Ms": 1771.906,
+        "p99Ms": 1771.906,
+        "stddevMs": 152.807
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "ios",
+      "entity": "Product",
+      "operation": "tombstone",
+      "scenario": "warm",
+      "source": "admin",
+      "statistics": {
+        "count": 3,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 1534.141,
+        "meanMs": 1506.825,
+        "measuredCount": 3,
+        "minMs": 1473.053,
+        "p50Ms": 1513.282,
+        "p90Ms": 1534.141,
+        "p95Ms": 1534.141,
+        "p99Ms": 1534.141,
+        "stddevMs": 25.354
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    },
+    {
+      "destination": "ios",
+      "entity": "Product",
+      "operation": "update",
+      "scenario": "warm",
+      "source": "admin",
+      "statistics": {
+        "count": 7,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": 9595.406,
+        "meanMs": 2694.111,
+        "measuredCount": 7,
+        "minMs": 1343.46,
+        "p50Ms": 1565.777,
+        "p90Ms": 9595.406,
+        "p95Ms": 9595.406,
+        "p99Ms": 9595.406,
+        "stddevMs": 2820.356
+      },
+      "task123Regression": {
+        "over25Percent": false,
+        "status": "NOT_APPLICABLE"
+      },
+      "threshold": {
+        "status": "REPORTED_AT_GROUP_LEVEL"
+      },
+      "verdict": "REPORTED_AT_GROUP_LEVEL"
+    }
+  ],
+  "task123DirectionComparisons": [
+    {
+      "baselineMetric": "TASK-123.totalPropagationMs",
+      "comparison": {
+        "comparisons": {
+          "maxMs": {
+            "baselineMs": 1027.0,
+            "currentMs": null,
+            "over25Percent": false,
+            "ratio": null
+          },
+          "p50Ms": {
+            "baselineMs": 911.0,
+            "currentMs": null,
+            "over25Percent": false,
+            "ratio": null
+          },
+          "p95Ms": {
+            "baselineMs": 954.0,
+            "currentMs": null,
+            "over25Percent": false,
+            "ratio": null
+          }
+        },
+        "over25Percent": false,
+        "status": "PASS"
+      },
+      "destination": "android",
+      "metric": "serverToDestinationLatencyMs",
+      "scenario": "warm",
+      "source": "ios",
+      "statistics": {
+        "count": 0,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": null,
+        "meanMs": null,
+        "measuredCount": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p90Ms": null,
+        "p95Ms": null,
+        "p99Ms": null,
+        "stddevMs": null
+      }
+    },
+    {
+      "baselineMetric": "TASK-123.totalPropagationMs",
+      "comparison": {
+        "comparisons": {
+          "maxMs": {
+            "baselineMs": 448.0,
+            "currentMs": null,
+            "over25Percent": false,
+            "ratio": null
+          },
+          "p50Ms": {
+            "baselineMs": 408.0,
+            "currentMs": null,
+            "over25Percent": false,
+            "ratio": null
+          },
+          "p95Ms": {
+            "baselineMs": 445.0,
+            "currentMs": null,
+            "over25Percent": false,
+            "ratio": null
+          }
+        },
+        "over25Percent": false,
+        "status": "PASS"
+      },
+      "destination": "ios",
+      "metric": "serverToDestinationLatencyMs",
+      "scenario": "warm",
+      "source": "android",
+      "statistics": {
+        "count": 0,
+        "failureRate": 0.0,
+        "failures": 0,
+        "maxMs": null,
+        "meanMs": null,
+        "measuredCount": 0,
+        "minMs": null,
+        "p50Ms": null,
+        "p90Ms": null,
+        "p95Ms": null,
+        "p99Ms": null,
+        "stddevMs": null
+      }
+    }
+  ],
+  "taskId": "TASK-088",
+  "thresholds": {
+    "burstMaxMs": 5000.0,
+    "maxMs": 3000.0,
+    "p50Ms": 1000.0,
+    "p95Ms": 1500.0
+  }
+}

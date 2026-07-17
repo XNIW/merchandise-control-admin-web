@@ -1,0 +1,6 @@
+{"path":"android/app/src/androidTest/java/com/example/merchandisecontrolsplitview/Task103CrossPlatformAcceptanceTest.kt","area":"android"}
+{"path":"ios/iOSMerchandiseControlTests/Task103CrossPlatformAcceptanceTests.swift","area":"ios"}
+{"path":"ios/tests/test_final_sync_contract.py","area":"ios"}
+{"path":"ios/tools/agent/lib/final_sync.sh","area":"ios"}
+{"path":"ios/tools/agent/lib/final_sync_contract.py","area":"ios"}
+{"path":"ios/tools/agent/lib/task088_supabase_rest.mjs","area":"ios"}

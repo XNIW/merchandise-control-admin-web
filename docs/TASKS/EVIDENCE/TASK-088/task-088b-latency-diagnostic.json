@@ -1,0 +1,374 @@
+{
+  "schema_version": "1.0",
+  "task_id": "TASK-088B",
+  "generated_at": "2026-07-17T06:30:16Z",
+  "decision": "NO_PRODUCTION_PATCH_AND_PRESERVE_LOCALK125_STOP",
+  "source_reports": {
+    "LOCALK84": "ios-coordinator/agent-runs/20260716T193151Z-live-final-sync-matrix-task-TASK-088-prefix-TASK_SYNC_FINAL_20260714_LOCALK84_-environment-local-p4547.json",
+    "LOCALK97T": "ios-coordinator/agent-runs/20260717T011202Z-live-final-sync-matrix-task-TASK-088-prefix-TASK_SYNC_FINAL_20260714_LOCALK97T_-environment-local-mode-admin-ios-product-update-warm-32-p62200.json",
+    "LOCALK99T": "ios-coordinator/agent-runs/20260717T012728Z-live-final-sync-matrix-task-TASK-088-prefix-TASK_SYNC_FINAL_20260714_LOCALK99T_-environment-local-mode-admin-ios-product-update-warm-32-p7125.json",
+    "LOCALK118M": "ios-coordinator/agent-runs/20260717T033858Z-live-final-sync-matrix-task-TASK-088-prefix-TASK_SYNC_FINAL_20260714_LOCALK118M_-environment-local-mode-full-p55339.json",
+    "LOCALK123": "ios-coordinator/agent-runs/20260717T053132Z-live-final-sync-matrix-task-TASK-088-prefix-TASK_SYNC_FINAL_20260714_LOCALK123_-environment-local-mode-ios-admin-product-create-warm-32-p19066.json",
+    "LOCALK124": "ios-coordinator/agent-runs/20260717T053732Z-live-final-sync-matrix-task-TASK-088-prefix-TASK_SYNC_FINAL_20260714_LOCALK124_-environment-local-mode-ios-admin-product-create-warm-32-p44070.json",
+    "LOCALK125": "ios-coordinator/agent-runs/20260717T054430Z-live-final-sync-matrix-task-TASK-088-prefix-TASK_SYNC_FINAL_20260714_LOCALK125_-environment-local-mode-full-p69539.json"
+  },
+  "metric_definition": {
+    "clock_authority": "macCoordinator.monotonic_ns",
+    "end_to_end": "destinationObservedMonotonicNs - t0MonotonicNs",
+    "server_to_destination": "destinationObservedMonotonicNs - serverObservedMonotonicNs",
+    "percentile_method": "nearest_rank",
+    "standard_thresholds_ms": {
+      "p50": 1000.0,
+      "p95": 1500.0,
+      "max": 3000.0
+    },
+    "burst10_max_ms": 5000.0,
+    "phase_additivity": "iOS internal phase markers may overlap and must not be summed"
+  },
+  "localk84_root_cause": {
+    "correlation_id": "G002-warm-14",
+    "direction": "Admin -> iOS",
+    "entity": "Product",
+    "operation": "update",
+    "scenario": "warm",
+    "functional_result": "PASS",
+    "total_end_to_end_ms": 9595.406,
+    "admin_commit_coordinator_ms": 8410.5,
+    "admin_commit_share": 0.8765,
+    "server_to_ios_ms": 1184.906,
+    "ios_apply_marker_ms": 864.0,
+    "post_commit_residual_ms": 320.906,
+    "post_commit_residual_definition": "server-to-iOS minus iOS apply marker; old K84 telemetry does not separate sync-event visibility, polling/network and runner observation inside this residual",
+    "full_pull": false,
+    "pending_before": 0,
+    "pending_after": 0,
+    "checkpoint_advanced": true,
+    "verified_segment": "Admin commit/coordinator",
+    "production_ios_bottleneck_proven": false
+  },
+  "targeted_runs": [
+    {
+      "run": "LOCALK97T",
+      "direction": "Admin -> iOS Product update warm",
+      "samples": 32,
+      "p50_ms": 783.173,
+      "p95_ms": 923.354,
+      "p99_ms": 1016.153,
+      "max_ms": 1016.153,
+      "failures": 0,
+      "cleanup": "PASS"
+    },
+    {
+      "run": "LOCALK99T",
+      "direction": "Admin -> iOS Product update warm",
+      "samples": 32,
+      "p50_ms": 883.089,
+      "p95_ms": 1355.491,
+      "p99_ms": 1447.981,
+      "max_ms": 1447.981,
+      "failures": 0,
+      "cleanup": "PASS"
+    },
+    {
+      "run": "LOCALK123",
+      "direction": "iOS -> Admin Product create warm",
+      "samples": 32,
+      "p50_ms": 862.632,
+      "p95_ms": 1248.463,
+      "p99_ms": 1338.623,
+      "max_ms": 1338.623,
+      "failures": 0,
+      "full_pulls": 0,
+      "cleanup": "PASS",
+      "baseline_preserved": true
+    },
+    {
+      "run": "LOCALK124",
+      "direction": "iOS -> Admin Product create warm",
+      "samples": 32,
+      "p50_ms": 834.865,
+      "p95_ms": 1058.543,
+      "p99_ms": 1385.247,
+      "max_ms": 1385.247,
+      "failures": 0,
+      "full_pulls": 0,
+      "cleanup": "PASS",
+      "baseline_preserved": true
+    }
+  ],
+  "localk125": {
+    "status": "FAIL",
+    "samples_completed": 128,
+    "samples_required": 1024,
+    "completion_ratio": 0.125,
+    "partial_global_statistics": {
+      "scope": "128 completed samples including burst10 samples",
+      "percentile_method": "nearest_rank",
+      "p50_ms": 821.154,
+      "p95_ms": 1282.011,
+      "p99_ms": 3120.301,
+      "max_ms": 4853.488,
+      "functional_failures": 0,
+      "aggregate_gate_failures": 2
+    },
+    "exact_stop": "after G004 Android -> iOS Product and before G005",
+    "functional_failures": 0,
+    "full_pulls": 0,
+    "failure_groups": [
+      "android:ios:Product",
+      "task123:android:ios:warm"
+    ],
+    "completed_group_metrics": [
+      {
+        "group": "G001",
+        "direction": "Admin -> Android Product",
+        "non_burst_count": 31,
+        "p50_ms": 838.096,
+        "p95_ms": 1114.742,
+        "p99_ms": 1139.939,
+        "max_ms": 1139.939,
+        "burst10_max_ms": 2778.597,
+        "status": "PASS"
+      },
+      {
+        "group": "G002",
+        "direction": "Admin -> iOS Product",
+        "non_burst_count": 31,
+        "p50_ms": 785.379,
+        "p95_ms": 1082.515,
+        "p99_ms": 1282.011,
+        "max_ms": 1282.011,
+        "burst10_max_ms": 1704.279,
+        "status": "PASS"
+      },
+      {
+        "group": "G003",
+        "direction": "Android -> Admin Product",
+        "non_burst_count": 31,
+        "p50_ms": 688.726,
+        "p95_ms": 1265.314,
+        "p99_ms": 1850.577,
+        "max_ms": 1850.577,
+        "burst10_max_ms": 3120.301,
+        "status": "PASS"
+      },
+      {
+        "group": "G004",
+        "direction": "Android -> iOS Product",
+        "non_burst_count": 31,
+        "p50_ms": 1008.715,
+        "p95_ms": 1253.091,
+        "p99_ms": 1520.728,
+        "max_ms": 1520.728,
+        "burst10_max_ms": 4853.488,
+        "status": "FAIL_P50"
+      }
+    ],
+    "first_gate_failure": {
+      "type": "aggregate_non_burst_p50",
+      "group": "G004 Android -> iOS Product",
+      "actual_ms": 1008.715,
+      "limit_ms": 1000.0,
+      "delta_ms": 8.715,
+      "functional_sample_failures": 0,
+      "single_sample_hard_failure": false
+    },
+    "task123_comparison": {
+      "comparability": "NOT_DEMONSTRATED",
+      "metric": "warm serverToDestinationLatencyMs",
+      "current_p50_ms": 510.84,
+      "baseline_p50_ms": 408.0,
+      "p50_ratio": 1.252,
+      "current_p95_ms": 589.232,
+      "baseline_p95_ms": 445.0,
+      "p95_ratio": 1.324,
+      "current_max_ms": 671.273,
+      "baseline_max_ms": 448.0,
+      "max_ratio": 1.498
+    },
+    "cleanup": {
+      "status": "PASS",
+      "residue_count": 0,
+      "admin_residue_checks": 6,
+      "android_residue_marker_present": true,
+      "remote_non_fixture_baseline_preserved": true,
+      "session_refresh_attempts": 5,
+      "session_refresh_successes": 5,
+      "session_refresh_failures": 0,
+      "codes": {
+        "TASK088_ADMIN_CODE": 0,
+        "TASK088_ANDROID_DRY": 0,
+        "TASK088_ANDROID_EXECUTE": 0,
+        "TASK088_COUNTS_CODE": 0,
+        "TASK088_IOS_DRY": 0,
+        "TASK088_IOS_EXECUTE": 0,
+        "TASK088_RESIDUE_CODE": 0,
+        "TASK088_SUPABASE_DRY": 0,
+        "TASK088_SUPABASE_EXECUTE": 0
+      }
+    },
+    "durable_xcresult_count": 103,
+    "durable_xcresult_directory": "ios-coordinator/xcresults/LOCALK125"
+  },
+  "g004_k118m_vs_k125": {
+    "scope": "31 non-burst samples per run",
+    "scenario_counts": {
+      "warm": 20,
+      "coldRestart": 5,
+      "noOp": 3,
+      "offlineReconnect": 1,
+      "duplicate": 1,
+      "staleConflict": 1
+    },
+    "group_summary": [
+      {
+        "run": "K118M",
+        "status": "PASS",
+        "sample_count": 31,
+        "p50_ms": 957.773,
+        "p95_ms": 1300.042,
+        "p99_ms": 1305.077,
+        "max_ms": 1305.077,
+        "mean_ms": 907.756,
+        "burst10_max_ms": 4529.717,
+        "source_p50_ms": 468.201,
+        "server_to_ios_p50_ms": 498.892,
+        "ios_apply_p50_ms": 400.0,
+        "functional_failures": 0
+      },
+      {
+        "run": "K125",
+        "status": "FAIL_P50",
+        "sample_count": 31,
+        "p50_ms": 1008.715,
+        "p95_ms": 1253.091,
+        "p99_ms": 1520.728,
+        "max_ms": 1520.728,
+        "mean_ms": 929.239,
+        "burst10_max_ms": 4853.488,
+        "source_p50_ms": 479.309,
+        "server_to_ios_p50_ms": 513.983,
+        "ios_apply_p50_ms": 437.0,
+        "functional_failures": 0
+      }
+    ],
+    "phase_comparison": [
+      {
+        "phase": "end_to_end",
+        "k118m_p50_ms": 957.773,
+        "k125_p50_ms": 1008.715,
+        "k118m_mean_ms": 907.756,
+        "k125_mean_ms": 929.239,
+        "k118m_p95_ms": 1300.042,
+        "k125_p95_ms": 1253.091,
+        "k118m_max_ms": 1305.077,
+        "k125_max_ms": 1520.728,
+        "paired_median_delta_ms": 29.64
+      },
+      {
+        "phase": "source_coordinator",
+        "k118m_p50_ms": 468.201,
+        "k125_p50_ms": 479.309,
+        "k118m_mean_ms": 431.024,
+        "k125_mean_ms": 427.03,
+        "k118m_p95_ms": 732.819,
+        "k125_p95_ms": 739.89,
+        "k118m_max_ms": 755.292,
+        "k125_max_ms": 898.673,
+        "paired_median_delta_ms": -4.727,
+        "mean_delta_ms": -3.994
+      },
+      {
+        "phase": "server_to_ios",
+        "k118m_p50_ms": 498.892,
+        "k125_p50_ms": 513.983,
+        "k118m_mean_ms": 476.732,
+        "k125_mean_ms": 502.21,
+        "k118m_p95_ms": 579.016,
+        "k125_p95_ms": 622.055,
+        "k118m_max_ms": 600.01,
+        "k125_max_ms": 671.273,
+        "paired_median_delta_ms": 24.858,
+        "mean_delta_ms": 25.477
+      },
+      {
+        "phase": "ios_apply_marker",
+        "k118m_p50_ms": 400.0,
+        "k125_p50_ms": 437.0,
+        "k118m_mean_ms": 380.226,
+        "k125_mean_ms": 423.806,
+        "k118m_p95_ms": 497.0,
+        "k125_p95_ms": 549.0,
+        "k118m_max_ms": 516.0,
+        "k125_max_ms": 608.0,
+        "paired_median_delta_ms": 48.0,
+        "mean_delta_ms": 43.581
+      },
+      {
+        "phase": "sync_event_visibility_and_fetch",
+        "k118m_p50_ms": 106.0,
+        "k125_p50_ms": 103.0,
+        "k118m_mean_ms": 106.613,
+        "k125_mean_ms": 105.742,
+        "k118m_p95_ms": 131.0,
+        "k125_p95_ms": 122.0,
+        "k118m_max_ms": 134.0,
+        "k125_max_ms": 123.0,
+        "paired_median_delta_ms": 0.0,
+        "mean_delta_ms": -0.871
+      },
+      {
+        "phase": "domain_fetch",
+        "k118m_p50_ms": 191.0,
+        "k125_p50_ms": 181.0,
+        "k118m_mean_ms": 161.774,
+        "k125_mean_ms": 148.419,
+        "k118m_p95_ms": 283.0,
+        "k125_p95_ms": 225.0,
+        "k118m_max_ms": 308.0,
+        "k125_max_ms": 234.0,
+        "paired_median_delta_ms": -8.0,
+        "mean_delta_ms": -13.355
+      },
+      {
+        "phase": "domain_apply_and_persistence",
+        "k118m_p50_ms": 29.0,
+        "k125_p50_ms": 43.0,
+        "k118m_mean_ms": 26.548,
+        "k125_mean_ms": 36.742,
+        "k118m_p95_ms": 43.0,
+        "k125_p95_ms": 47.0,
+        "k118m_max_ms": 52.0,
+        "k125_max_ms": 48.0,
+        "paired_median_delta_ms": 11.0,
+        "mean_delta_ms": 10.194
+      },
+      {
+        "phase": "runner_final_observation",
+        "k118m_p50_ms": 159.0,
+        "k125_p50_ms": 192.0,
+        "k118m_mean_ms": 161.677,
+        "k125_mean_ms": 194.097,
+        "k118m_p95_ms": 188.0,
+        "k125_p95_ms": 215.0,
+        "k118m_max_ms": 193.0,
+        "k125_max_ms": 216.0,
+        "paired_median_delta_ms": 33.0,
+        "mean_delta_ms": 32.419
+      }
+    ],
+    "verified": [
+      "The K125 source coordinator mean is unchanged within 4 ms versus K118M.",
+      "The K125 server-to-iOS mean is 25.477 ms higher.",
+      "Sync-event visibility/fetch and domain fetch did not regress.",
+      "iOS apply and runner-observation markers are higher, but their intervals overlap and are not additive.",
+      "No sample failed functionally and no full pull occurred."
+    ],
+    "not_proven": [
+      "A production iOS regression.",
+      "A network-only regression.",
+      "Physical Android/iOS parity, because the TASK-123 baseline runtime is not demonstrated comparable to the current emulator/simulator pair."
+    ]
+  },
+  "recommended_next_step": "Do not patch production or relax thresholds. Preserve LOCALK125. Before another full matrix, obtain a comparable runtime or add a reviewed test-harness-only targeted Android-to-iOS Product mode and require two stable 32-sample passes."
+}

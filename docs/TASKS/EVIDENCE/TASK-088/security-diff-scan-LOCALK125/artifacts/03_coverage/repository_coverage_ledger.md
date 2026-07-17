@@ -1,0 +1,13 @@
+# Repository coverage ledger
+
+| Row | Path | Review | Outcome | Evidence note |
+| --- | --- | --- | --- | --- |
+| D001 | `android/app/src/androidTest/java/com/example/merchandisecontrolsplitview/Task103CrossPlatformAcceptanceTest.kt` | full_file_review | not_applicable | Test-only final-sync driver. Prefix/shop/session checks and quoted enum/regex-constrained inputs preserve the operator boundary. No secret emission or command injection found. Non-reportable hardening: SQLite LIKE uses unescaped underscore wildcards, so exact-prefix semantics are not literal for near matches. |
+| D002 | `ios/iOSMerchandiseControlTests/Task103CrossPlatformAcceptanceTests.swift` | full_file_review | not_applicable | Test-only driver uses bounded canonical /tmp gates, scoped runtime/session input, and no token marker output. No reportable path found. Non-reportable evidence gaps: internal observer/auth retries are not reflected in retryCount; automatic CatalogPushService timing is aggregated as remoteMutationMs. |
+| D003 | `ios/tests/test_final_sync_contract.py` | full_file_review | not_applicable | Harness contract regression tests; validates prefix, stop-first, cleanup, normalization and metric projection. No executable attacker boundary or candidate found. |
+| D004 | `ios/tools/agent/lib/final_sync.sh` | full_file_review | suppressed | Privileged local operator harness preserves single-runner, stop-first-failure, cleanup-always, partial ledger and quoted constrained driver inputs. No reportable remote path. Hardening notes: configurable refresh-script path is an operator trust anchor; six Admin residue responses are counted rather than semantically checking recordCount. |
+| D005 | `ios/tools/agent/lib/final_sync_contract.py` | full_file_review | not_applicable | Deterministic normalization, nearest-rank statistics and threshold projection. No dangerous sink. It preserves caller telemetry but does not prove semantic attribution of every phase field. |
+| D006 | `ios/tools/agent/lib/task088_supabase_rest.mjs` | full_file_review | suppressed | Privileged local service-role helper validates HTTPS, exact run prefix, cleanup enablement, scoped owner/shop UUIDs, absolute normalized 0600-style event-id file, numeric bounded IDs and redacts the service key from errors. No secret output observed. Existing defense-in-depth gap remains: arbitrary operator-supplied HTTPS origin is not pinned to the approved Supabase project; this is not a remote application boundary. |
+
+Reconciliation: 6/6 deep-review rows have exactly one completion receipt. No candidate directory or candidate ledger is required because discovery emitted no candidate.
+

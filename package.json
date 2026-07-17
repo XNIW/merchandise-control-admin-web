@@ -60,6 +60,8 @@
     "test:ui-smoke:ci": "node scripts/run-with-env.mjs PLAYWRIGHT_BASE_URL=http://127.0.0.1:3003 PLAYWRIGHT_WEB_SERVER_COMMAND=\"npm run start -- --hostname 127.0.0.1 --port 3003\" PLAYWRIGHT_REUSE_SERVER=0 -- playwright test tests/e2e/platform-admin.spec.ts --project=chromium-desktop",
     "test:ui-live-auth": "node scripts/run-with-env.mjs PLAYWRIGHT_BASE_URL=http://127.0.0.1:3002 PLAYWRIGHT_WEB_SERVER_COMMAND=\"npm run start -- --hostname 127.0.0.1 --port 3002\" PLAYWRIGHT_REUSE_SERVER=0 -- playwright test tests/e2e/platform-admin-live-auth.spec.ts --project=chromium-desktop",
     "test:shop-admin-auth-smoke": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-035-shop-admin-authenticated-smoke.spec.ts --project=chromium-desktop",
+    "task137:images:cleanup": "node scripts/admin/task-137-product-image-cleanup.mjs",
+    "task137:images:report": "node scripts/admin/task-137-product-image-report.mjs",
     "test:pos-local-harness": "node scripts/pos-local-e2e-harness.mjs",
     "test:pos-staging-harness:dry-run": "node scripts/run-with-env.mjs TASK032_POS_E2E_ENABLE_POSITIVE=yes TASK032_POS_E2E_ALLOW_DATASET_SETUP=yes TASK032_POS_E2E_ALLOW_CLEANUP=yes TASK032_POS_E2E_ALLOW_STAGING=yes TASK032_POS_E2E_STAGING_DRY_RUN=yes TASK032_POS_E2E_REQUIRE_TEST_MARKER=TASK032 -- node scripts/pos-local-e2e-harness.mjs",
     "test:pos-staging-harness": "node scripts/run-with-env.mjs TASK032_POS_E2E_ENABLE_POSITIVE=yes TASK032_POS_E2E_ALLOW_DATASET_SETUP=yes TASK032_POS_E2E_ALLOW_CLEANUP=yes TASK032_POS_E2E_ALLOW_STAGING=yes TASK032_POS_E2E_REQUIRE_STAGING_TARGET=yes TASK032_POS_E2E_REQUIRE_TEST_MARKER=TASK032 -- node scripts/pos-local-e2e-harness.mjs",

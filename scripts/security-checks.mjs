@@ -405,6 +405,18 @@ function checkReadOnlyContracts() {
         "shop_catalog_import_products",
       ]),
     ],
+    [
+      "src/server/shop-admin/product-images/service.ts",
+      new Set([
+        "product_image_fail_version",
+        "product_image_record_denied",
+        "product_image_create_intent",
+        "product_image_finalize",
+        "product_image_remove",
+        "product_image_record_cleanup",
+        "product_image_resolve_read_paths",
+      ]),
+    ],
   ]);
   const allowedDirectMutationPatternFiles = new Set([
     "src/server/shop-admin/import-export-workbook.ts",
@@ -416,6 +428,11 @@ function checkReadOnlyContracts() {
     "src/server/shop-admin/sync-event-writer.ts",
     "src/server/platform-admin/shop-actions.ts",
     "src/server/platform-admin/staff-manager-provisioning.ts",
+    // These modules use node:crypto's createHash().update(), which matches the
+    // deliberately broad mutation heuristic. Supabase writes remain confined
+    // to the explicitly allowlisted server-only RPCs above.
+    "src/server/shop-admin/product-images/cache-scope.ts",
+    "src/server/shop-admin/product-images/service.ts",
   ]);
 
   for (const file of serverFiles) {

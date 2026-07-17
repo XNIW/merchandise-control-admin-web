@@ -8,12 +8,14 @@ import type {
 import { canShopAdmin } from "./permissions";
 import type { ShopAdminShellShop } from "./shop-access";
 import { canStaffWebPerformShopAdminAction } from "./staff-web-permissions";
+import { createProductImageCacheScope } from "./product-images/cache-scope";
 
 export type ShopPageAccessBundle =
   | {
       canExport: boolean;
       canImport: boolean;
       canManageProducts: boolean;
+      imageCacheScope: string | null;
       principalKind: "personal_account" | "pos_staff_manager";
       selectedShop: ShopAdminShellShop;
       status: "ready";
@@ -44,6 +46,10 @@ export async function resolveShopPageAccessBundle(
       canExport: canShopAdmin(access.selectedShop.role, "catalog.export"),
       canImport: canShopAdmin(access.selectedShop.role, "catalog.import"),
       canManageProducts: canShopAdmin(access.selectedShop.role, "products.write"),
+      imageCacheScope: createProductImageCacheScope(
+        "personal_account",
+        access.principal.userId,
+      ),
       principalKind: "personal_account",
       selectedShop: access.selectedShop,
       status: "ready",
@@ -64,6 +70,7 @@ export async function resolveShopPageAccessBundle(
       access.principal.permissions,
       "products.write",
     ),
+    imageCacheScope: null,
     principalKind: "pos_staff_manager",
     selectedShop: access.selectedShop,
     status: "ready",

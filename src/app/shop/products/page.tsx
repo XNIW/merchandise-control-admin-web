@@ -6,6 +6,7 @@ import type {
 } from "@/app/shop/_components/CatalogActionPanel";
 import { HistoryDetailModalController } from "@/app/shop/_components/HistoryDetailModalController";
 import { ProductDetailModalController } from "@/app/shop/_components/ProductDetailModalController";
+import { ProductImageThumbnail } from "@/app/shop/_components/ProductImageControls";
 import { ProductSearchCombobox } from "@/app/shop/products/_components/ProductSearchCombobox";
 import type { AdminDataTableRow } from "@/components/admin/AdminDataTable";
 import { ShopSectionPage } from "@/components/shop/ShopSectionPage";
@@ -436,6 +437,8 @@ function productRow(
     barcode: product.barcode,
     itemNumber: product.itemNumber ?? "Not set",
     productName: product.productName ?? "Unnamed",
+    primaryImageUpdatedAt: product.primaryImageUpdatedAt ?? "",
+    primaryImageVersionId: product.primaryImageVersionId ?? "",
     secondName: product.secondProductName ?? "Not set",
     supplierName: product.supplierId
       ? (suppliers.get(product.supplierId)?.name ?? "Unknown")
@@ -1209,16 +1212,22 @@ function ProductStatusBlock({
 }
 
 function ProductCatalogList({
+  imageCacheScope,
+  imageLabels,
   labels,
   liveData,
   rowActions,
+  shopId,
 }: {
+  imageCacheScope?: string;
+  imageLabels?: Record<string, string>;
   labels: ProductCatalogListLabels;
   liveData: NonNullable<ShopSection["liveData"]>;
   rowActions?: {
     label: string;
     render: (row: AdminDataTableRow) => ReactNode;
   };
+  shopId?: string;
 }) {
   if (liveData.rows.length === 0) {
     return (
@@ -1239,6 +1248,10 @@ function ProductCatalogList({
         const itemNumber = rowString(row, "itemNumber");
         const productId = rowString(row, "productId");
         const productName = rowString(row, "productName");
+        const primaryImageVersionId = rowString(
+          row,
+          "primaryImageVersionId",
+        );
         const purchasePrice = rowString(row, "purchasePrice");
         const retailPrice = rowString(row, "retailPrice");
         const secondName = rowString(row, "secondName");
@@ -1303,12 +1316,14 @@ function ProductCatalogList({
                 data-product-identity
               >
                 <h3 className="sr-only">{labels.productIdentity}</h3>
-                <span
-                  aria-hidden="true"
-                  className="mt-0.5 grid size-9 shrink-0 place-items-center rounded-md border border-emerald-200 bg-emerald-50 text-emerald-800"
-                >
-                  <ProductsIcon name="package" />
-                </span>
+                <ProductImageThumbnail
+                  cacheScope={imageCacheScope}
+                  labels={imageLabels}
+                  productId={productId}
+                  productName={productName}
+                  shopId={shopId}
+                  versionId={primaryImageVersionId || null}
+                />
                 <div className="min-w-0">
                   <p
                     className="line-clamp-2 break-words text-base font-semibold leading-6 text-zinc-950 [overflow-wrap:anywhere]"
@@ -1634,6 +1649,10 @@ export default async function ShopProductsPage({
     pageAccess.status === "ready"
       ? pageAccess.selectedShop.shopId
       : (productsPage.selectedShop?.shopId ?? requestedShopId);
+  const imageCacheScope =
+    pageAccess.status === "ready"
+      ? (pageAccess.imageCacheScope ?? undefined)
+      : undefined;
   const canOpenRequestedProductDialog = canOpenProductDialog(productDialog, {
     canExport,
     canImport,
@@ -1910,6 +1929,7 @@ export default async function ShopProductsPage({
             <ProductDetailModalController
               canManageProducts={canManageProducts}
               categories={categoryOptions}
+	              imageCacheScope={imageCacheScope}
 	              labels={dictionary.exact}
 	              locale={locale}
 	              requestedShopId={requestedShopId}
@@ -1937,9 +1957,12 @@ export default async function ShopProductsPage({
         }
         renderLiveData={({ liveData, rowActions }) => (
           <ProductCatalogList
+            imageCacheScope={imageCacheScope}
+            imageLabels={dictionary.exact}
             labels={catalogListLabels}
             liveData={liveData}
             rowActions={rowActions}
+            shopId={selectedShopId ?? undefined}
           />
         )}
         rowActions={{
