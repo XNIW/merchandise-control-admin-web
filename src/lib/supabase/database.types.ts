@@ -368,6 +368,168 @@ export type Database = {
           },
         ]
       }
+      inventory_product_image_versions: {
+        Row: {
+          actor_kind: string
+          cleanup_attempts: number
+          cleanup_last_error_code: string | null
+          cleanup_status: string
+          cleanup_updated_at: string | null
+          created_at: string
+          expected_main_bytes: number
+          expected_main_height: number
+          expected_main_mime_type: string
+          expected_main_sha256: string
+          expected_main_width: number
+          expected_thumb_bytes: number
+          expected_thumb_height: number
+          expected_thumb_mime_type: string
+          expected_thumb_sha256: string
+          expected_thumb_width: number
+          expires_at: string
+          finalized_at: string | null
+          finalized_by_profile_id: string | null
+          id: string
+          main_path: string
+          previous_version_id: string | null
+          product_id: string
+          removed_at: string | null
+          requested_by_profile_id: string
+          shop_id: string
+          status: string
+          superseded_at: string | null
+          thumb_path: string
+          verified_main_bytes: number | null
+          verified_main_height: number | null
+          verified_main_mime_type: string | null
+          verified_main_sha256: string | null
+          verified_main_width: number | null
+          verified_thumb_bytes: number | null
+          verified_thumb_height: number | null
+          verified_thumb_mime_type: string | null
+          verified_thumb_sha256: string | null
+          verified_thumb_width: number | null
+        }
+        Insert: {
+          actor_kind: string
+          cleanup_attempts?: number
+          cleanup_last_error_code?: string | null
+          cleanup_status?: string
+          cleanup_updated_at?: string | null
+          created_at?: string
+          expected_main_bytes: number
+          expected_main_height: number
+          expected_main_mime_type?: string
+          expected_main_sha256: string
+          expected_main_width: number
+          expected_thumb_bytes: number
+          expected_thumb_height: number
+          expected_thumb_mime_type?: string
+          expected_thumb_sha256: string
+          expected_thumb_width: number
+          expires_at?: string
+          finalized_at?: string | null
+          finalized_by_profile_id?: string | null
+          id?: string
+          main_path: string
+          previous_version_id?: string | null
+          product_id: string
+          removed_at?: string | null
+          requested_by_profile_id: string
+          shop_id: string
+          status?: string
+          superseded_at?: string | null
+          thumb_path: string
+          verified_main_bytes?: number | null
+          verified_main_height?: number | null
+          verified_main_mime_type?: string | null
+          verified_main_sha256?: string | null
+          verified_main_width?: number | null
+          verified_thumb_bytes?: number | null
+          verified_thumb_height?: number | null
+          verified_thumb_mime_type?: string | null
+          verified_thumb_sha256?: string | null
+          verified_thumb_width?: number | null
+        }
+        Update: {
+          actor_kind?: string
+          cleanup_attempts?: number
+          cleanup_last_error_code?: string | null
+          cleanup_status?: string
+          cleanup_updated_at?: string | null
+          created_at?: string
+          expected_main_bytes?: number
+          expected_main_height?: number
+          expected_main_mime_type?: string
+          expected_main_sha256?: string
+          expected_main_width?: number
+          expected_thumb_bytes?: number
+          expected_thumb_height?: number
+          expected_thumb_mime_type?: string
+          expected_thumb_sha256?: string
+          expected_thumb_width?: number
+          expires_at?: string
+          finalized_at?: string | null
+          finalized_by_profile_id?: string | null
+          id?: string
+          main_path?: string
+          previous_version_id?: string | null
+          product_id?: string
+          removed_at?: string | null
+          requested_by_profile_id?: string
+          shop_id?: string
+          status?: string
+          superseded_at?: string | null
+          thumb_path?: string
+          verified_main_bytes?: number | null
+          verified_main_height?: number | null
+          verified_main_mime_type?: string | null
+          verified_main_sha256?: string | null
+          verified_main_width?: number | null
+          verified_thumb_bytes?: number | null
+          verified_thumb_height?: number | null
+          verified_thumb_mime_type?: string | null
+          verified_thumb_sha256?: string | null
+          verified_thumb_width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inventory_product_image_versions_finalized_by_profile_id_fkey"
+            columns: ["finalized_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "inventory_product_image_versions_previous_version_id_fkey"
+            columns: ["previous_version_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_product_image_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_product_image_versions_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_product_image_versions_requested_by_profile_id_fkey"
+            columns: ["requested_by_profile_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "inventory_product_image_versions_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
       inventory_product_prices: {
         Row: {
           created_at: string
@@ -430,6 +592,8 @@ export type Database = {
           id: string
           item_number: string | null
           owner_user_id: string
+          primary_image_updated_at: string | null
+          primary_image_version_id: string | null
           product_name: string | null
           purchase_price: number | null
           retail_price: number | null
@@ -446,6 +610,8 @@ export type Database = {
           id?: string
           item_number?: string | null
           owner_user_id: string
+          primary_image_updated_at?: string | null
+          primary_image_version_id?: string | null
           product_name?: string | null
           purchase_price?: number | null
           retail_price?: number | null
@@ -462,6 +628,8 @@ export type Database = {
           id?: string
           item_number?: string | null
           owner_user_id?: string
+          primary_image_updated_at?: string | null
+          primary_image_version_id?: string | null
           product_name?: string | null
           purchase_price?: number | null
           retail_price?: number | null
@@ -477,6 +645,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "inventory_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inventory_products_primary_image_version_id_fkey"
+            columns: ["primary_image_version_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_product_image_versions"
             referencedColumns: ["id"]
           },
           {
@@ -760,6 +935,7 @@ export type Database = {
           line_total: number
           local_product_id: string | null
           metadata_redacted: Json
+          original_pos_sale_line_id: string | null
           pos_sale_id: string
           pos_sale_line_id: string
           pos_sales_sync_batch_id: string
@@ -784,6 +960,7 @@ export type Database = {
           line_total: number
           local_product_id?: string | null
           metadata_redacted?: Json
+          original_pos_sale_line_id?: string | null
           pos_sale_id: string
           pos_sale_line_id?: string
           pos_sales_sync_batch_id: string
@@ -808,6 +985,7 @@ export type Database = {
           line_total?: number
           local_product_id?: string | null
           metadata_redacted?: Json
+          original_pos_sale_line_id?: string | null
           pos_sale_id?: string
           pos_sale_line_id?: string
           pos_sales_sync_batch_id?: string
@@ -822,6 +1000,13 @@ export type Database = {
           unit_price?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "pos_sale_lines_original_pos_sale_line_id_fkey"
+            columns: ["original_pos_sale_line_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sale_lines"
+            referencedColumns: ["pos_sale_line_id"]
+          },
           {
             foreignKeyName: "pos_sale_lines_pos_sale_id_fkey"
             columns: ["pos_sale_id"]
@@ -2036,6 +2221,7 @@ export type Database = {
           failed_attempts: number
           last_login_at: string | null
           locked_until: string | null
+          max_discount_percent: number
           must_change_credential: boolean
           role_key: string
           session_invalidated_at: string | null
@@ -2062,6 +2248,7 @@ export type Database = {
           failed_attempts?: number
           last_login_at?: string | null
           locked_until?: string | null
+          max_discount_percent?: number
           must_change_credential?: boolean
           role_key: string
           session_invalidated_at?: string | null
@@ -2088,6 +2275,7 @@ export type Database = {
           failed_attempts?: number
           last_login_at?: string | null
           locked_until?: string | null
+          max_discount_percent?: number
           must_change_credential?: boolean
           role_key?: string
           session_invalidated_at?: string | null
@@ -2659,6 +2847,113 @@ export type Database = {
       }
     }
     Functions: {
+      product_image_create_intent: {
+        Args: {
+          p_actor_kind: string
+          p_actor_profile_id: string
+          p_main_bytes: number
+          p_main_height: number
+          p_main_sha256: string
+          p_main_width: number
+          p_product_id: string
+          p_shop_id: string
+          p_thumb_bytes: number
+          p_thumb_height: number
+          p_thumb_sha256: string
+          p_thumb_width: number
+        }
+        Returns: Json
+      }
+      product_image_fail_version: {
+        Args: {
+          p_actor_kind: string
+          p_actor_profile_id: string
+          p_error_code: string
+          p_product_id: string
+          p_shop_id: string
+          p_version_id: string
+        }
+        Returns: Json
+      }
+      product_image_finalize: {
+        Args: {
+          p_actor_kind: string
+          p_actor_profile_id: string
+          p_main_bytes: number
+          p_main_height: number
+          p_main_sha256: string
+          p_main_width: number
+          p_product_id: string
+          p_shop_id: string
+          p_thumb_bytes: number
+          p_thumb_height: number
+          p_thumb_sha256: string
+          p_thumb_width: number
+          p_version_id: string
+        }
+        Returns: Json
+      }
+      product_image_record_cleanup: {
+        Args: {
+          p_actor_kind: string
+          p_actor_profile_id: string
+          p_error_code?: string
+          p_product_id: string
+          p_shop_id: string
+          p_source?: string
+          p_success: boolean
+          p_version_id: string
+        }
+        Returns: Json
+      }
+      product_image_record_denied: {
+        Args: {
+          p_actor_kind: string
+          p_actor_profile_id: string
+          p_code: string
+          p_operation: string
+          p_product_id: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      product_image_remove: {
+        Args: {
+          p_actor_kind: string
+          p_actor_profile_id: string
+          p_expected_version_id: string
+          p_product_id: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      product_image_resolve_read_paths: {
+        Args: {
+          p_actor_kind: string
+          p_actor_profile_id: string
+          p_refs: Json
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      record_staff_credential_failure: {
+        Args: {
+          p_lockout_attempts?: number
+          p_lockout_seconds?: number
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      record_staff_web_login_failure: {
+        Args: {
+          p_attempt_key_hash: string
+          p_lockout_attempts?: number
+          p_lockout_seconds?: number
+          p_metadata_redacted?: Json
+        }
+        Returns: Json
+      }
       pos_catalog_import_apply_v1: {
         Args: {
           p_batch_created_at: string
@@ -2714,6 +3009,22 @@ export type Database = {
           stock_after: number | null
           stock_before: number | null
         }[]
+      }
+      pos_sales_sync_apply_v1: {
+        Args: {
+          p_client_batch_id: string
+          p_idempotency_key: string
+          p_metadata_redacted?: Json
+          p_payload_hash: string
+          p_pos_session_id: string
+          p_sales: Json
+          p_schema_version: string
+          p_shop_code: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
       }
       platform_create_pos_first_shop: {
         Args: {
@@ -2966,16 +3277,47 @@ export type Database = {
         Args: { p_category_id: string; p_reason?: string; p_shop_id: string }
         Returns: Json
       }
+      shop_catalog_archive_category_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_category_id: string
+          p_reason?: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
       shop_catalog_archive_product: {
         Args: { p_product_id: string; p_reason?: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_archive_product_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_product_id: string
+          p_reason?: string
+          p_shop_id: string
+        }
         Returns: Json
       }
       shop_catalog_archive_supplier: {
         Args: { p_reason?: string; p_shop_id: string; p_supplier_id: string }
         Returns: Json
       }
+      shop_catalog_archive_supplier_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_reason?: string
+          p_shop_id: string
+          p_supplier_id: string
+        }
+        Returns: Json
+      }
       shop_catalog_create_category: {
         Args: { p_name: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_create_category_with_sync: {
+        Args: { p_actor_kind?: string; p_name: string; p_shop_id: string }
         Returns: Json
       }
       shop_catalog_create_product: {
@@ -2993,8 +3335,28 @@ export type Database = {
         }
         Returns: Json
       }
+      shop_catalog_create_product_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_barcode: string
+          p_category_id?: string
+          p_item_number?: string
+          p_product_name?: string
+          p_purchase_price?: number
+          p_retail_price?: number
+          p_second_product_name?: string
+          p_shop_id: string
+          p_stock_quantity?: number
+          p_supplier_id?: string
+        }
+        Returns: Json
+      }
       shop_catalog_create_supplier: {
         Args: { p_name: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_create_supplier_with_sync: {
+        Args: { p_actor_kind?: string; p_name: string; p_shop_id: string }
         Returns: Json
       }
       shop_catalog_import_price_history: {
@@ -3009,8 +3371,26 @@ export type Database = {
         Args: { p_product_id: string; p_reason?: string; p_shop_id: string }
         Returns: Json
       }
+      shop_catalog_restore_product_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_product_id: string
+          p_reason?: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
       shop_catalog_update_category: {
         Args: { p_category_id: string; p_name: string; p_shop_id: string }
+        Returns: Json
+      }
+      shop_catalog_update_category_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_category_id: string
+          p_name: string
+          p_shop_id: string
+        }
         Returns: Json
       }
       shop_catalog_update_product: {
@@ -3029,8 +3409,34 @@ export type Database = {
         }
         Returns: Json
       }
+      shop_catalog_update_product_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_barcode: string
+          p_category_id?: string
+          p_item_number?: string
+          p_product_id: string
+          p_product_name?: string
+          p_purchase_price?: number
+          p_retail_price?: number
+          p_second_product_name?: string
+          p_shop_id: string
+          p_stock_quantity?: number
+          p_supplier_id?: string
+        }
+        Returns: Json
+      }
       shop_catalog_update_supplier: {
         Args: { p_name: string; p_shop_id: string; p_supplier_id: string }
+        Returns: Json
+      }
+      shop_catalog_update_supplier_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_name: string
+          p_shop_id: string
+          p_supplier_id: string
+        }
         Returns: Json
       }
       shop_device_reactivate: {

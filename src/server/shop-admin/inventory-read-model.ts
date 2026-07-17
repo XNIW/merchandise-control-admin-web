@@ -28,6 +28,8 @@ type ProductRow = Pick<
   | "second_product_name"
   | "purchase_price"
   | "retail_price"
+  | "primary_image_updated_at"
+  | "primary_image_version_id"
   | "shop_id"
   | "stock_quantity"
   | "supplier_id"
@@ -82,6 +84,8 @@ export type ShopInventoryProduct = {
   barcode: string;
   itemNumber: string | null;
   productName: string | null;
+  primaryImageUpdatedAt: string | null;
+  primaryImageVersionId: string | null;
   secondProductName: string | null;
   purchasePrice: number | null;
   retailPrice: number | null;
@@ -544,6 +548,8 @@ function mapProduct(row: ProductRow): ShopInventoryProduct {
     barcode: row.barcode,
     itemNumber: row.item_number,
     productName: row.product_name,
+    primaryImageUpdatedAt: row.primary_image_updated_at,
+    primaryImageVersionId: row.primary_image_version_id,
     secondProductName: row.second_product_name,
     purchasePrice: row.purchase_price,
     retailPrice: row.retail_price,
@@ -595,9 +601,9 @@ function mapPrice(row: PriceRow): ShopInventoryPrice {
 }
 
 const productSelect =
-  "id,shop_id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,deleted_at,updated_at";
+  "id,shop_id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,deleted_at,primary_image_version_id,primary_image_updated_at,updated_at";
 const legacyProductSelect =
-  "id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,deleted_at,updated_at";
+  "id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,deleted_at,primary_image_version_id,primary_image_updated_at,updated_at";
 const categorySelect = "id,shop_id,name,updated_at,deleted_at";
 const legacyCategorySelect = "id,name,updated_at,deleted_at";
 const supplierSelect = "id,shop_id,name,updated_at,deleted_at";
@@ -1457,11 +1463,15 @@ export async function getShopInventoryReadModel(
   options: GetShopInventoryReadModelOptions = {},
 ): Promise<ShopInventoryReadModel> {
   const { perfTrace } = options;
+  const accessOptions = {
+    ...options,
+    requiredPermission: "catalog.view" as const,
+  };
   const access = perfTrace
     ? await perfTrace.time("resolveShopAdminDataAccess.inventoryReadModel", () =>
-        resolveShopAdminDataAccess(options),
+        resolveShopAdminDataAccess(accessOptions),
       )
-    : await resolveShopAdminDataAccess(options);
+    : await resolveShopAdminDataAccess(accessOptions);
 
   if (access.status !== "ready") {
     return {
@@ -1926,6 +1936,7 @@ export async function getShopCatalogOptionsReadModel(
   const accessOptions = {
     client: options.client,
     requestedShopId: options.requestedShopId,
+    requiredPermission: "catalog.view" as const,
   };
   const { perfTrace } = options;
   const access = perfTrace
@@ -2214,6 +2225,10 @@ async function getShopCatalogEntityPageReadModel(
   const accessOptions = {
     client: options.client,
     requestedShopId: options.requestedShopId,
+    requiredPermission:
+      entity === "categories"
+        ? ("categories.read" as const)
+        : ("suppliers.read" as const),
   };
   const { perfTrace } = options;
   const page = normalizeCatalogEntityPage(options.page);
@@ -2512,7 +2527,10 @@ export async function getShopSuppliersPageReadModel(
 export async function getShopInventoryProductDetailReadModel(
   options: GetShopInventoryProductDetailOptions,
 ): Promise<ShopInventoryReadModel> {
-  const access = await resolveShopAdminDataAccess(options);
+  const access = await resolveShopAdminDataAccess({
+    ...options,
+    requiredPermission: "products.read",
+  });
 
   if (access.status !== "ready") {
     return {
@@ -2769,6 +2787,7 @@ export async function getShopInventoryProductsByCodes(
   const access = await resolveShopAdminDataAccess({
     client: options.client,
     requestedShopId: options.requestedShopId,
+    requiredPermission: "products.read",
   });
 
   if (access.status !== "ready") {
@@ -2950,6 +2969,7 @@ export async function getShopInventoryProductsPage(
   const accessOptions = {
     client: options.client,
     requestedShopId: options.requestedShopId,
+    requiredPermission: "products.read" as const,
   };
   const { perfTrace } = options;
   const access = perfTrace

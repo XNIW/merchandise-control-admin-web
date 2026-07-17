@@ -23,6 +23,8 @@ export type ProductDetailModalProduct = {
   barcode: string;
   itemNumber: string | null;
   productName: string | null;
+  primaryImageUpdatedAt: string | null;
+  primaryImageVersionId: string | null;
   secondProductName: string | null;
   purchasePrice: number | null;
   retailPrice: number | null;
@@ -243,6 +245,8 @@ export async function getShopProductDetailModalReadModel(input: {
       itemNumber: product.itemNumber,
       productId: product.productId,
       productName: product.productName,
+      primaryImageUpdatedAt: product.primaryImageUpdatedAt,
+      primaryImageVersionId: product.primaryImageVersionId,
       purchasePrice: product.purchasePrice,
       retailPrice: product.retailPrice,
       secondProductName: product.secondProductName,
