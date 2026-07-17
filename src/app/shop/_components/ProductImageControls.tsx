@@ -40,6 +40,7 @@ function useProductImageObjectUrl(input: {
   variant: ProductImageVariant;
   versionId: string | null;
 }) {
+  const [reloadToken, setReloadToken] = useState(0);
   const [state, setState] = useState<{
     objectUrl: string | null;
     status: "empty" | "error" | "loading" | "ready";
@@ -98,19 +99,32 @@ function useProductImageObjectUrl(input: {
     input.shopId,
     input.variant,
     input.versionId,
+    reloadToken,
   ]);
 
-  return state;
+  return { ...state, retry: () => setReloadToken((value) => value + 1) };
 }
 
-function ImagePlaceholder({ compact = false }: { compact?: boolean }) {
+function ImagePlaceholder({
+  compact = false,
+  label,
+  status,
+}: {
+  compact?: boolean;
+  label: string;
+  status: "empty" | "error" | "loading";
+}) {
   return (
     <span
-      aria-hidden="true"
+      aria-label={label}
+      aria-live={status === "loading" || status === "error" ? "polite" : undefined}
       className={[
         "grid shrink-0 place-items-center rounded-md border border-zinc-200 bg-zinc-50 text-zinc-400",
-        compact ? "size-12" : "aspect-square w-full min-h-40",
+        compact ? "size-14" : "aspect-square w-full min-h-40",
+        status === "loading" ? "animate-pulse" : "",
+        status === "error" ? "border-amber-200 bg-amber-50 text-amber-700" : "",
       ].join(" ")}
+      role="img"
     >
       <svg
         className={compact ? "size-5" : "size-10"}
@@ -133,15 +147,18 @@ export function ProductImageThumbnail({
   cacheScope,
   productId,
   productName,
+  labels,
   shopId,
   versionId,
 }: {
   cacheScope?: string;
+  labels?: ProductImageLabels;
   productId: string;
   productName: string;
   shopId?: string;
   versionId?: string | null;
 }) {
+  const translate = (value: string) => labels?.[value] ?? value;
   const image = useProductImageObjectUrl({
     cacheScope,
     productId,
@@ -151,7 +168,20 @@ export function ProductImageThumbnail({
   });
 
   if (image.status !== "ready" || !image.objectUrl) {
-    return <ImagePlaceholder compact />;
+    const status = image.status === "ready" ? "error" : image.status;
+    const label =
+      status === "loading"
+        ? translate("Loading product image")
+        : status === "error"
+          ? translate("Product image unavailable")
+          : translate("No product image");
+    return (
+      <ImagePlaceholder
+        compact
+        label={`${label}: ${productName}`}
+        status={status}
+      />
+    );
   }
 
   return (
@@ -159,7 +189,7 @@ export function ProductImageThumbnail({
     // eslint-disable-next-line @next/next/no-img-element
     <img
       alt={productName}
-      className="size-12 shrink-0 rounded-md border border-zinc-200 bg-white object-cover"
+      className="size-14 shrink-0 rounded-md border border-zinc-200 bg-white object-cover"
       decoding="async"
       loading="lazy"
       src={image.objectUrl}
@@ -173,12 +203,14 @@ function CurrentProductImage({
   productId,
   shopId,
   versionId,
+  translate,
 }: {
   alt: string;
   cacheScope?: string;
   productId: string;
   shopId: string;
   versionId: string | null;
+  translate: (value: string) => string;
 }) {
   const image = useProductImageObjectUrl({
     cacheScope,
@@ -189,7 +221,27 @@ function CurrentProductImage({
   });
 
   if (image.status !== "ready" || !image.objectUrl) {
-    return <ImagePlaceholder />;
+    const status = image.status === "ready" ? "error" : image.status;
+    const label =
+      status === "loading"
+        ? translate("Loading product image")
+        : status === "error"
+          ? translate("Product image unavailable")
+          : translate("No product image");
+    return (
+      <div className="grid gap-2">
+        <ImagePlaceholder label={label} status={status} />
+        {status === "error" ? (
+          <button
+            className="min-h-10 rounded-md border border-zinc-300 bg-white px-3 text-sm font-medium text-zinc-900"
+            onClick={image.retry}
+            type="button"
+          >
+            {translate("Retry image")}
+          </button>
+        ) : null}
+      </div>
+    );
   }
 
   return (
@@ -424,6 +476,7 @@ export function ProductImageEditor({
             cacheScope={cacheScope}
             productId={productId}
             shopId={shopId}
+            translate={translate}
             versionId={currentVersionId}
           />
         )}

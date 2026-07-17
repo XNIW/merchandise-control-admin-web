@@ -1213,12 +1213,14 @@ function ProductStatusBlock({
 
 function ProductCatalogList({
   imageCacheScope,
+  imageLabels,
   labels,
   liveData,
   rowActions,
   shopId,
 }: {
   imageCacheScope?: string;
+  imageLabels?: Record<string, string>;
   labels: ProductCatalogListLabels;
   liveData: NonNullable<ShopSection["liveData"]>;
   rowActions?: {
@@ -1316,7 +1318,8 @@ function ProductCatalogList({
                 <h3 className="sr-only">{labels.productIdentity}</h3>
                 <ProductImageThumbnail
                   cacheScope={imageCacheScope}
-                  productId={row.rowKey ?? ""}
+                  labels={imageLabels}
+                  productId={productId}
                   productName={productName}
                   shopId={shopId}
                   versionId={primaryImageVersionId || null}
@@ -1955,6 +1958,7 @@ export default async function ShopProductsPage({
         renderLiveData={({ liveData, rowActions }) => (
           <ProductCatalogList
             imageCacheScope={imageCacheScope}
+            imageLabels={dictionary.exact}
             labels={catalogListLabels}
             liveData={liveData}
             rowActions={rowActions}
