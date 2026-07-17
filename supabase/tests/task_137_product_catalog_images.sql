@@ -4,7 +4,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(58);
+select plan(76);
 
 select has_table(
   'public',
@@ -34,6 +34,18 @@ select has_function(
   'product_image_finalize',
   array['uuid','text','uuid','uuid','uuid','text','integer','integer','integer','text','integer','integer','integer'],
   'TASK-137 finalize RPC exists'
+);
+select has_function(
+  'public',
+  'product_image_prepare_cleanup',
+  array['uuid','uuid','uuid'],
+  'TASK-137 lifecycle cleanup preparation RPC exists'
+);
+select has_function(
+  'public',
+  'product_image_prepare_orphan_cleanup',
+  array['uuid','text'],
+  'TASK-137 orphan cleanup preparation RPC exists'
 );
 
 select ok(
@@ -72,6 +84,22 @@ select ok(
     'EXECUTE'
   ),
   'service_role can execute server-only intent RPC'
+);
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.product_image_prepare_cleanup(uuid,uuid,uuid)',
+    'EXECUTE'
+  ),
+  'authenticated cannot execute cleanup preparation'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.product_image_prepare_cleanup(uuid,uuid,uuid)',
+    'EXECUTE'
+  ),
+  'service_role can execute cleanup preparation'
 );
 
 insert into auth.users (
@@ -439,6 +467,35 @@ select is(
 );
 
 select is(
+  public.product_image_prepare_cleanup(
+    '10000000-0000-4000-8000-000000000137',
+    '20000000-0000-4000-8000-000000000137',
+    (select (value->>'version_id')::uuid from task137_state where key = 'intent2')
+  )->>'code',
+  'invalid_state_or_not_found',
+  'cleanup preparation cannot target the current ready version'
+);
+select is(
+  public.product_image_record_cleanup(
+    '00000000-0000-4000-8000-000000000137','personal_account',
+    '10000000-0000-4000-8000-000000000137','20000000-0000-4000-8000-000000000137',
+    (select (value->>'version_id')::uuid from task137_state where key = 'intent2'),
+    true,null,'admin_script'
+  )->>'code',
+  'invalid_state_or_not_found',
+  'cleanup recording cannot mutate the current ready version'
+);
+select is(
+  public.product_image_prepare_cleanup(
+    '10000000-0000-4000-8000-000000000237',
+    '20000000-0000-4000-8000-000000000137',
+    (select (value->>'version_id')::uuid from task137_state where key = 'intent1')
+  )->>'code',
+  'invalid_state_or_not_found',
+  'cleanup preparation is fail-closed across shops'
+);
+
+select is(
   public.product_image_remove(
     '00000000-0000-4000-8000-000000000137','personal_account',
     '10000000-0000-4000-8000-000000000137','20000000-0000-4000-8000-000000000137',
@@ -523,6 +580,30 @@ select is(
   'suspended member cannot resolve read paths'
 );
 
+update public.inventory_product_image_versions
+set removed_at = now() - interval '25 hours',
+    cleanup_updated_at = now() - interval '25 hours'
+where id = (select (value->>'version_id')::uuid from task137_state where key = 'intent2');
+
+insert into task137_state (key, value)
+select 'prepare_removed2', public.product_image_prepare_cleanup(
+  '10000000-0000-4000-8000-000000000137',
+  '20000000-0000-4000-8000-000000000137',
+  (select (value->>'version_id')::uuid from task137_state where key = 'intent2')
+);
+select is(
+  (select value->>'code' from task137_state where key = 'prepare_removed2'),
+  'cleanup_prepared',
+  'aged removed version is prepared for cleanup after the grace period'
+);
+select is(
+  (select value->>'main_path' from task137_state where key = 'prepare_removed2'),
+  'shops/10000000-0000-4000-8000-000000000137/products/20000000-0000-4000-8000-000000000137/primary/'
+    || (select value->>'version_id' from task137_state where key = 'intent2')
+    || '/main.jpg',
+  'cleanup preparation returns only the canonical scoped main path'
+);
+
 select is(
   public.product_image_record_cleanup(
     '00000000-0000-4000-8000-000000000137','personal_account',
@@ -542,6 +623,106 @@ select is(
   'complete',
   'removed lifecycle row records cleanup complete'
 );
+
+insert into task137_state (key, value)
+select 'intent3', public.product_image_create_intent(
+  '00000000-0000-4000-8000-000000000137','personal_account',
+  '10000000-0000-4000-8000-000000000137','20000000-0000-4000-8000-000000000137',
+  repeat('e',64),720000,1600,1200,repeat('f',64),87000,384,288
+);
+select is(
+  (select value->>'status' from task137_state where key = 'intent3'),
+  'upload_required',
+  'cleanup fixture creates a pending upload version'
+);
+update public.inventory_product_image_versions
+set created_at = now() - interval '27 hours',
+    expires_at = now() - interval '25 hours',
+    cleanup_updated_at = now() - interval '25 hours'
+where id = (select (value->>'version_id')::uuid from task137_state where key = 'intent3');
+
+insert into task137_state (key, value)
+select 'prepare_pending3', public.product_image_prepare_cleanup(
+  '10000000-0000-4000-8000-000000000137',
+  '20000000-0000-4000-8000-000000000137',
+  (select (value->>'version_id')::uuid from task137_state where key = 'intent3')
+);
+select is(
+  (select value->>'code' from task137_state where key = 'prepare_pending3'),
+  'cleanup_prepared',
+  'expired pending version transitions before cleanup preparation'
+);
+select is(
+  (
+    select status || ':' || cleanup_status
+    from public.inventory_product_image_versions
+    where id = (select (value->>'version_id')::uuid from task137_state where key = 'intent3')
+  ),
+  'failed:pending',
+  'expired pending lifecycle is persisted as failed and cleanup-pending'
+);
+select ok(
+  exists (
+    select 1 from public.audit_logs
+    where shop_id = '10000000-0000-4000-8000-000000000137'
+      and event_key = 'shop.product_image.cleanup_expired_pending'
+      and result = 'success'
+  ),
+  'expired pending cleanup transition is audit logged'
+);
+
+insert into task137_state (key, value)
+select 'prepare_orphan', public.product_image_prepare_orphan_cleanup(
+  '10000000-0000-4000-8000-000000000137',
+  'shops/10000000-0000-4000-8000-000000000137/products/20000000-0000-4000-8000-000000000137/primary/70000000-0000-4000-8000-000000000137/main.jpg'
+);
+select is(
+  (select value->>'code' from task137_state where key = 'prepare_orphan'),
+  'orphan_cleanup_prepared',
+  'canonical object without lifecycle row is prepared as an orphan'
+);
+select is(
+  public.product_image_prepare_orphan_cleanup(
+    '10000000-0000-4000-8000-000000000137',
+    'shops/10000000-0000-4000-8000-000000000137/products/not-a-uuid/primary/70000000-0000-4000-8000-000000000137/main.jpg'
+  )->>'code',
+  'path_contract_invalid',
+  'orphan preparation rejects malformed canonical identifiers'
+);
+select is(
+  public.product_image_prepare_orphan_cleanup(
+    '10000000-0000-4000-8000-000000000137',
+    'shops/10000000-0000-4000-8000-000000000237/products/20000000-0000-4000-8000-000000000137/primary/70000000-0000-4000-8000-000000000137/main.jpg'
+  )->>'code',
+  'path_contract_invalid',
+  'orphan preparation rejects a cross-shop object path'
+);
+select is(
+  public.product_image_record_orphan_cleanup(
+    '10000000-0000-4000-8000-000000000137',
+    '20000000-0000-4000-8000-000000000137',
+    '70000000-0000-4000-8000-000000000137',
+    'main',true,12345,null
+  )->>'code',
+  'orphan_cleanup_complete',
+  'successful orphan deletion is recorded without persisting its path'
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000137","role":"authenticated"}',
+  true
+);
+select is(
+  public.product_image_prepare_cleanup(
+    '10000000-0000-4000-8000-000000000137',
+    '20000000-0000-4000-8000-000000000137',
+    (select (value->>'version_id')::uuid from task137_state where key = 'intent3')
+  )->>'code',
+  'permission_denied',
+  'cleanup preparation rejects non-service JWT roles at runtime'
+);
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 select ok(
   exists (

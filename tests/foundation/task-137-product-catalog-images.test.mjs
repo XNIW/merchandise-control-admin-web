@@ -6,7 +6,10 @@ import {
   isCanonicalProductImageObjectPath,
   isEligibleProductImageOrphan,
 } from "../../scripts/admin/task-137-product-image-cleanup.mjs";
-import { safeProductImageStorageUrl } from "../../src/lib/product-images/browser-client.ts";
+import {
+  downloadProductImageWithOneAuthRefresh,
+  safeProductImageStorageUrl,
+} from "../../src/lib/product-images/browser-client.ts";
 import {
   PRODUCT_IMAGE_MAIN_MAX_BYTES,
   PRODUCT_IMAGE_READ_BATCH_LIMIT,
@@ -214,13 +217,22 @@ test("TASK-137 bounded JSON reader rejects wrong media type and oversized bodies
 });
 
 test("TASK-137 migration keeps Storage private and RPCs service-only", async () => {
-  const migration = await readFile(
-    new URL(
-      "../../supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
-      import.meta.url,
+  const [migration, cleanupHardening] = await Promise.all([
+    readFile(
+      new URL(
+        "../../supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+        import.meta.url,
+      ),
+      "utf8",
     ),
-    "utf8",
-  );
+    readFile(
+      new URL(
+        "../../supabase/migrations/20260717170000_task_137_product_image_cleanup_hardening.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
 
   assert.match(migration, /'product-images',[\s\S]*?false,[\s\S]*?1048576/);
   assert.match(
@@ -239,6 +251,15 @@ test("TASK-137 migration keeps Storage private and RPCs service-only", async () 
     migration,
     /revoke all on function public\.product_image_create_intent[^;]+from public, anon, authenticated/,
   );
+  assert.match(cleanupHardening, /product_image_prepare_cleanup/);
+  assert.match(cleanupHardening, /primary_image_version_id = p_version_id/);
+  assert.match(cleanupHardening, /now\(\) - interval '24 hours'/);
+  assert.match(cleanupHardening, /product_image_record_orphan_cleanup/);
+  assert.match(
+    cleanupHardening,
+    /grant execute on function public\.product_image_prepare_cleanup[^;]+to service_role/,
+  );
+  assert.doesNotMatch(cleanupHardening, /signed_url|upload_url|main_path'.*metadata/i);
 });
 
 test("TASK-137 sync payload contains product IDs but no object path or URL", async () => {
@@ -337,17 +358,18 @@ test("TASK-137 signed Storage URLs stay bound to the configured Supabase origin"
   globalThis.window = { location: { origin: "https://admin.task137.invalid" } };
 
   try {
+    const canonicalPath = `shops/${SHOP_ID}/products/${PRODUCT_ID}/primary/${VERSION_ID}/main.jpg`;
     assert.equal(
       safeProductImageStorageUrl(
-        "https://project-137.supabase.co/storage/v1/object/sign/product-images/shops/path.jpg?token=redacted",
+        `https://project-137.supabase.co/storage/v1/object/sign/product-images/${canonicalPath}?token=redacted`,
         "read",
       ),
-      "https://project-137.supabase.co/storage/v1/object/sign/product-images/shops/path.jpg?token=redacted",
+      `https://project-137.supabase.co/storage/v1/object/sign/product-images/${canonicalPath}?token=redacted`,
     );
     assert.throws(
       () =>
         safeProductImageStorageUrl(
-          "https://attacker.invalid/storage/v1/object/sign/product-images/shops/path.jpg?token=redacted",
+          `https://attacker.invalid/storage/v1/object/sign/product-images/${canonicalPath}?token=redacted`,
           "read",
         ),
       /image_signed_url_invalid/,
@@ -356,6 +378,14 @@ test("TASK-137 signed Storage URLs stay bound to the configured Supabase origin"
       () =>
         safeProductImageStorageUrl(
           "https://project-137.supabase.co/redirect/storage/v1/object/sign/product-images/path.jpg",
+          "read",
+        ),
+      /image_signed_url_invalid/,
+    );
+    assert.throws(
+      () =>
+        safeProductImageStorageUrl(
+          `https://project-137.supabase.co/storage/v1/object/sign/product-images/shops/${SHOP_ID}/products/${PRODUCT_ID}/primary/${VERSION_ID}/../main.jpg?token=redacted`,
           "read",
         ),
       /image_signed_url_invalid/,
@@ -374,16 +404,94 @@ test("TASK-137 signed Storage URLs stay bound to the configured Supabase origin"
   }
 });
 
+test("TASK-137 signed read refreshes once only after Storage auth expiry", async () => {
+  let downloadCount = 0;
+  let resolveCount = 0;
+  const result = await downloadProductImageWithOneAuthRefresh({
+    download: async () => {
+      downloadCount += 1;
+      return downloadCount === 1
+        ? new Response(null, { status: 403 })
+        : new Response(new Blob([jpeg(32, 24)], { type: "image/jpeg" }), {
+            status: 200,
+          });
+    },
+    ref: {
+      productId: PRODUCT_ID,
+      shopId: SHOP_ID,
+      variant: "thumb",
+      versionId: VERSION_ID,
+    },
+    resolveSignedRead: async () => {
+      resolveCount += 1;
+      return {
+        cacheScope: "a".repeat(64),
+        item: {
+          productId: PRODUCT_ID,
+          signedUrl: `https://example.invalid/read-${resolveCount}`,
+          status: "ready",
+          variant: "thumb",
+          versionId: VERSION_ID,
+        },
+      };
+    },
+  });
+
+  assert.equal(downloadCount, 2);
+  assert.equal(resolveCount, 2);
+  assert.equal(result.blob.type, "image/jpeg");
+});
+
+test("TASK-137 signed read never retries invalid image bytes", async () => {
+  let downloadCount = 0;
+  let resolveCount = 0;
+
+  await assert.rejects(
+    downloadProductImageWithOneAuthRefresh({
+      download: async () => {
+        downloadCount += 1;
+        return new Response(new Blob([Uint8Array.from([1, 2, 3])]), {
+          status: 200,
+        });
+      },
+      ref: {
+        productId: PRODUCT_ID,
+        shopId: SHOP_ID,
+        variant: "thumb",
+        versionId: VERSION_ID,
+      },
+      resolveSignedRead: async () => {
+        resolveCount += 1;
+        return {
+          cacheScope: "a".repeat(64),
+          item: {
+            productId: PRODUCT_ID,
+            signedUrl: "https://example.invalid/read",
+            status: "ready",
+            variant: "thumb",
+            versionId: VERSION_ID,
+          },
+        };
+      },
+    }),
+    /image_download_invalid/,
+  );
+
+  assert.equal(downloadCount, 1);
+  assert.equal(resolveCount, 1);
+});
+
 test("TASK-137 cleanup selects only aged canonical objects without lifecycle rows", () => {
   const path = `${"shops/10000000-0000-4000-8000-000000000137"}/products/${PRODUCT_ID}/primary/${VERSION_ID}/main.jpg`;
   const cutoffTime = Date.parse("2026-07-17T12:00:00Z");
 
-  assert.equal(isCanonicalProductImageObjectPath(path), true);
+  assert.equal(isCanonicalProductImageObjectPath(path, SHOP_ID), true);
   assert.equal(
     isEligibleProductImageOrphan(
       { createdAt: "2026-07-16T11:59:59Z", path },
       new Set(),
       cutoffTime,
+      SHOP_ID,
     ),
     true,
   );
@@ -392,6 +500,7 @@ test("TASK-137 cleanup selects only aged canonical objects without lifecycle row
       { createdAt: "2026-07-16T11:59:59Z", path },
       new Set([path]),
       cutoffTime,
+      SHOP_ID,
     ),
     false,
   );
@@ -400,6 +509,7 @@ test("TASK-137 cleanup selects only aged canonical objects without lifecycle row
       { createdAt: "2026-07-17T12:00:01Z", path },
       new Set(),
       cutoffTime,
+      SHOP_ID,
     ),
     false,
   );
@@ -408,6 +518,16 @@ test("TASK-137 cleanup selects only aged canonical objects without lifecycle row
       { createdAt: "2026-07-16T11:59:59Z", path: "unscoped/main.jpg" },
       new Set(),
       cutoffTime,
+      SHOP_ID,
+    ),
+    false,
+  );
+  assert.equal(
+    isEligibleProductImageOrphan(
+      { createdAt: "2026-07-16T11:59:59Z", path },
+      new Set(),
+      cutoffTime,
+      "40000000-0000-4000-8000-000000000137",
     ),
     false,
   );
@@ -437,6 +557,9 @@ test("TASK-137 UI keeps image upload separate from product form and cleanup defa
   assert.match(cleanup, /const execute = args\.has\("--execute"\)/);
   assert.match(cleanup, /mode=\$\{execute \? "execute" : "dry-run"\}/);
   assert.match(cleanup, /const batchLimit = 100/);
+  assert.match(cleanup, /SHOP_ID_REQUIRED/);
+  assert.match(cleanup, /product_image_prepare_cleanup/);
+  assert.match(cleanup, /product_image_record_orphan_cleanup/);
   assert.doesNotMatch(cleanup, /console\.log\([^\n]*(main_path|thumb_path)/);
 });
 
@@ -461,6 +584,9 @@ test("TASK-137 operational report is bounded, read-only and redacts shop and obj
   assert.match(report, /storage_total_bytes/);
   assert.match(report, /unreferenced_object_count/);
   assert.match(report, /above_budget_version_count/);
+  assert.match(report, /health_result/);
+  assert.match(report, /IMAGE_HEALTH_CHECK_FAILED/);
+  assert.match(report, /canonicalObjectPathPattern/);
   assert.match(report, /hashShopId/);
   assert.doesNotMatch(report, /info\([^\n]*(main_path|thumb_path|objectPath)/);
   assert.doesNotMatch(report, /\.(insert|delete|upsert|remove)\s*\(/);
