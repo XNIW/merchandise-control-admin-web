@@ -66,7 +66,10 @@ export async function GET(request: Request) {
     );
   }
 
-  const access = await resolveShopAdminDataAccess({ requestedShopId });
+  const access = await resolveShopAdminDataAccess({
+    requestedShopId,
+    requiredPermission: "pos.dashboard.read",
+  });
 
   if (access.status !== "ready") {
     return NextResponse.json(
