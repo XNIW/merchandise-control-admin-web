@@ -1,5 +1,10 @@
 # TASK-137 post-fix security evidence
 
+> Snapshot storico: questa directory documenta soltanto la prima remediation
+> denied-audit Product Images. Il successivo scan consolidato a `3bd380c6` ha
+> aperto sette finding ulteriori, gestiti nel ledger
+> `../../13-release-security-remediation.md` e nel checkpoint `12`.
+
 Evidence locale sanitizzata della correzione del confused deputy nel denied
 audit delle product image. Questa directory non sostituisce il nuovo Codex
 Security Changes scan: lo scan post-fix resta un gate separato sul commit
@@ -59,7 +64,8 @@ finale identica.
   reale e read-only è pulito su `5160b7c`, ma non contiene più il file storico
   `OperatorLoginDialog.xaml.cs` richiesto dallo scanner Admin. Typecheck,
   build, lint, i18n e foundation TASK-137 restano controlli separati eseguiti.
-- Nuovo Codex Security Changes scan sul commit finale: `PENDING`.
+- Il Changes scan successivo su `3bd380c6` e stato completato; la nuova
+  scansione post-remediation dei sette finding resta `PENDING`.
 - Chiusura manuale dei quattro finding nello snapshot storico:
   `MANUAL_CLOSURE_PENDING` se il workbench non li riconcilia automaticamente.
 

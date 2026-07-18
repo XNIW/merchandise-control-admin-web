@@ -313,7 +313,7 @@ della modifica. Win7POS e fuori dalla superficie consentita.
 | CA-09 | Sync incrementale propaga finalize/remove senza blob, URL o full pull. | `PASS_CONTRACT / LIVE_NOT_RUN` |
 | CA-10 | Duplicate/no-op/stale/offline/reconnect/account switch restano corretti. | `PASS` |
 | CA-11 | Cleanup dry-run/execute su fixture sintetiche lascia residuo zero e preserva baseline. | `PASS` |
-| CA-12 | Build/test/gate dei tre repository e security-diff-scan feature-only passano. | `BLOCKED_SCAN_NOT_STARTED` |
+| CA-12 | Build/test/gate dei tre repository e security-diff-scan feature-only passano. | `BLOCKED_REMEDIATION_RESCAN_PENDING` |
 | CA-13 | Evidence durevole include costi, limiti, metriche, file e risultati reali. | `PASS_WITH_DECLARED_GAPS` |
 | CA-14 | Nessun file Win7POS, force push, deploy o production apply. | `PASS` |
 
@@ -432,18 +432,34 @@ della modifica. Win7POS e fuori dalla superficie consentita.
   alta confidenza riconducibili al denied-audit cross-shop. La remediation
   comune e le regressioni locali sono pronte per il freeze; il nuovo Changes
   scan post-fix sul commit pulito resta `PENDING`, con Deep Scan disattivato;
+- il successivo Changes scan consolidato sulla snapshot
+  `38f02bd9..3bd380c6` ha chiuso `36/36` righe e validato sette finding
+  aggiuntivi nel confine catalogo/history/sync/lifecycle/POS; il task e tornato
+  in `FIX` con approvazione utente per una patch additiva e regressioni
+  mirate prima di un nuovo freeze Security;
+- la remediation release additiva e applicata localmente: due migration
+  `20260717235400`/`20260717235500`, nuovo pgTAP catalogo `41/41`, suite POS
+  `38/38`, suite DB completa `241 PASS` e foundation in-scope `48/48`. I PoC
+  cross-shop, price-header, lifecycle shop, mixed-sign e `pos.pay` non
+  raggiungono piu i sink vulnerabili e lasciano residuo zero;
+- la fixture QA ProductPrice e stata resa compatibile con il contratto
+  append-only: un `update` valida il target shop-scoped e crea una nuova
+  versione deterministica; nessuna riga storica viene riscritta;
+- le asserzioni foundation storiche usate dalla CI sono state riallineate alla
+  singola RPC POS atomica e allo stato `imageBusy`, senza modificare il runtime
+  finanziario o riaprire la matrice TASK-088;
 - nessuna operazione production; commit locali separati creati, nessun branch
   ancora pubblicato.
 
 ### Stato handoff
 
-- Supabase locale: migration applicate, pgTAP catalogo `76/76` e regressione
-  denied-audit `32/32 PASS`, lint DB zero errori, dry-run vuoto, cleanup e
-  report finale a residuo zero;
-- Admin post-fix: foundation `20/20`, typecheck, lint, i18n e build `PASS`;
-  E2E cross-shop sulle quattro route `1/1 PASS` ed E2E lifecycle completo
-  `1/1 PASS`, con residui fixture/Auth/Storage `0`; screenshot sintetico della
-  build corrente rigenerato e ispezionato. `npm run verify` e
+- Supabase locale: migration applicate, suite completa `241 PASS`, release
+  catalogo `41/41`, POS `38/38`, lint DB zero errori, dry-run up-to-date e
+  residuo PoC zero;
+- Admin post-fix: foundation in-scope `48/48`, riallineamento CI `19/19`,
+  typecheck, lint, i18n e build `PASS`; gli E2E storici cross-shop/lifecycle
+  restano `1/1 PASS` ciascuno e il rerun finale post-remediation e pendente
+  prima del freeze. `npm run verify` e
   `npm run security:scan` sono `BLOCKED_EXTERNAL_PREREQUISITE` perche il
   checkout Win7POS read-only corrente non contiene piu il file storico atteso
   dallo scanner Admin;
@@ -457,5 +473,6 @@ della modifica. Win7POS e fuori dalla superficie consentita.
   Changes scan post-fix pendente;
 - blocker 1: parity live Admin/Android/iOS sullo stesso target non-production
   `NOT_RUN`;
-- blocker 2: security-diff-scan ufficiale in attesa di avvio dal workspace;
+- blocker 2: nuovo security-diff-scan ufficiale post-remediation in attesa di
+  avvio sul commit clean;
 - fase: `REVIEW_WITH_BLOCKERS`, mai `DONE` senza review utente.

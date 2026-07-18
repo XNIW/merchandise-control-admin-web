@@ -82,6 +82,9 @@ test("TASK-041 opens only verified runtime implementation gates", () => {
   );
   assert.ok(salesMigration, "TASK-041 Sales Sync migration is missing");
   const salesMigrationSource = readProjectFile(`supabase/migrations/${salesMigration}`);
+  const atomicSalesMigrationSource = readProjectFile(
+    "supabase/migrations/20260717235500_task_137_release_pos_financial_hardening.sql",
+  );
   const databaseTypes = readProjectFile("src/lib/supabase/database.types.ts");
   const wranglerConfig = readProjectFile("wrangler.jsonc");
   const openNextConfig = readProjectFile("open-next.config.ts");
@@ -103,33 +106,43 @@ test("TASK-041 opens only verified runtime implementation gates", () => {
     "MAX_SYNC_LINES = 1000",
     "hasDuplicateValues",
     "saleTotalsAreConsistent",
-    "cleanupPosSalesBatch",
+    "paymentDirectionsAreConsistent",
     "quantity * unitPrice",
     "businessDateRaw.length > 0",
     "metadata_redacted",
     "duplicate",
     "conflict",
-    "cleanup_ok",
-    "validateSalesLineProductScope",
-    "product_scope_mismatch",
-    "invalid_product_id_count",
-    "source: \"TASK-041\"",
+    "atomicSalesRpcResponse",
+    "atomicSalesFailureCode",
+    "pos_sales_sync_apply_v1",
+    "p_sales: parsed.sales as unknown as Json",
+    "atomic_sales_rpc_failed",
+    "atomic_sales_rpc_rejected",
+    "source: \"TASK-088\"",
   ]) {
     assertContains(salesService, required);
   }
 
   assert.match(
     salesService,
-    /\.from\("shop_inventory_sources"\)[\s\S]*\.eq\("shop_id", shopId\)[\s\S]*\.is\("disabled_at", null\)/,
+    /const rpcResult = await supabase\.rpc\("pos_sales_sync_apply_v1"/,
   );
-  assert.match(
+  assert.doesNotMatch(
     salesService,
-    /\.from\("inventory_products"\)[\s\S]*\.in\("id", productChunk\)[\s\S]*\.is\("deleted_at", null\)/,
+    /\.from\("(?:pos_sales_sync_batches|pos_sales|pos_sale_lines|pos_revenue_ledger_entries)"\)[\s\S]{0,120}\.(?:insert|update|upsert|delete)\(/,
   );
-  assert.match(
-    salesService,
-    /row\.shop_id === shopId[\s\S]*row\.shop_id === null[\s\S]*row\.owner_user_id === ownerUserId/,
-  );
+  for (const required of [
+    "and session_row.shop_id = p_shop_id",
+    "where batch_row.shop_id = p_shop_id",
+    "where existing.shop_id = p_shop_id",
+    "product_scope_mismatch",
+    "insert into public.pos_revenue_ledger_entries (",
+    "from public.pos_apply_sale_stock_movement(",
+    "exception",
+    ") to service_role;",
+  ]) {
+    assertContains(atomicSalesMigrationSource, required);
+  }
   for (const required of [
     "filterCatalogPricesByProductScope",
     "authorizedProductIds",

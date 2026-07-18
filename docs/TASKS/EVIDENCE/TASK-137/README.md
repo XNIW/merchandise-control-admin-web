@@ -72,17 +72,20 @@ aa939159f1c02c9a4b525246406926cd172a5f72  iOSMerchandiseControl/Sync/Automatic/C
 - `10-final-handoff.md`
 - `11-mac-final-manifest.md`
 - `12-publish-checkpoint.md`
+- `13-release-security-remediation.md`
 
 I file sono creati solo quando esiste evidence reale da registrare.
 
 Stato al passaggio in review:
 
 - `00`-`08`: compilati con evidence eseguita;
-- `09`: baseline pre-fix committed e sanitizzata; remediation DB e regressioni
-  post-fix locali registrate; nuovo scan sul commit finale ancora `PENDING`;
+- `09`: conserva il primo scan pre-fix e registra il successivo scan
+  consolidato `36/36` con sette finding; remediation locale completata e nuovo
+  scan post-remediation ancora `PENDING`;
 - `10`: handoff conclusivo `REVIEW_WITH_BLOCKERS`;
 - `11`: manifest di inclusione/esclusione riallineato ai commit reali;
-- `12`: checkpoint `VALIDATION_PASS`;
+- `12`: checkpoint release `REMEDIATION_RESCAN_PENDING`;
+- `13`: ledger dei sette finding, remediation, PoC e gate reali;
 - runtime live cross-client: `NOT_RUN`, blocker esplicito e non mascherato.
 
 ## Run eseguiti
@@ -177,3 +180,22 @@ Stato al passaggio in review:
   fixture/auth/Storage `0`; nuovo Changes scan: `PENDING`;
 - `npm run verify`: `BLOCKED_EXTERNAL_PREREQUISITE` sul Win7POS read-only
   corrente, che non contiene più il file storico atteso dallo scanner Admin.
+
+### Release Security remediation
+
+- Changes scan ufficiale consolidato:
+  `276dd0cb-1c47-4bae-b2c2-8e8343bfebb1`;
+- range immutabile:
+  `38f02bd969e55df91ff41d3905661da8dfdb145a..3bd380c64b24b21fffa8922d61b0d1675156d7dc`;
+- worklist `36/36`, coverage classificata `partial`, Deep Scan `OFF`;
+- finding validati: `3 High / 2 Medium / 2 Low`;
+- remediation: due migration additive, parser POS fail-fast, fixture QA prezzo
+  append-only e regressioni dinamiche/statiche;
+- database locale: suite completa `241 PASS`, catalog Security `41/41`, POS
+  Security `38/38`, lint zero errori e dry-run up-to-date;
+- foundation in-scope dopo la compatibilità QA/CI: `48/48 PASS`;
+- PoC originali: cross-shop e lifecycle negati, price update divergente
+  `price_idempotency_conflict`, mixed-sign `validation_failed`, `pos.pay`
+  falso/assente `denied`, residuo fixture `0`;
+- nuovo Changes scan post-remediation: `PENDING` sul prossimo commit clean;
+- dettaglio autoritativo: `13-release-security-remediation.md`.

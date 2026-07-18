@@ -27,6 +27,9 @@ function assertContains(source, required, label = required) {
 test("TASK-087 database types include TASK-081 ledger, stock and RPC contract", () => {
   const types = readProjectFile("src/lib/supabase/database.types.ts");
   const salesSync = readProjectFile("src/server/pos-auth/sales-sync.ts");
+  const atomicSalesMigration = readProjectFile(
+    "supabase/migrations/20260717235500_task_137_release_pos_financial_hardening.sql",
+  );
 
   for (const required of [
     "pos_revenue_ledger_entries",
@@ -54,8 +57,9 @@ test("TASK-087 database types include TASK-081 ledger, stock and RPC contract", 
     /Array<TablesInsert<"pos_sale_lines"> & Record<string, unknown>>/,
   );
   assert.doesNotMatch(salesSync, /untypedSupabase/);
-  assert.match(salesSync, /\.rpc\(\r?\n          "pos_apply_sale_stock_movement"/);
-  assertContains(salesSync, '.from("pos_revenue_ledger_entries")');
+  assert.match(salesSync, /\.rpc\(\s*"pos_sales_sync_apply_v1"/);
+  assertContains(atomicSalesMigration, "from public.pos_apply_sale_stock_movement(");
+  assertContains(atomicSalesMigration, "insert into public.pos_revenue_ledger_entries (");
 });
 
 test("TASK-087 Admin Web exposes read-only POS Sync Recovery and explicit POS policy", () => {

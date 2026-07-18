@@ -635,6 +635,17 @@ function paymentTotalsAreConsistent(input: {
   );
 }
 
+function paymentDirectionsAreConsistent(
+  businessKind: PosSaleBusinessKind,
+  payments: readonly ParsedPayment[],
+) {
+  return businessKind === "sale"
+    ? payments.every((payment) => payment.amountClp >= 0)
+    : payments.every(
+        (payment) => payment.amountClp <= 0 && payment.changeClp === 0,
+      );
+}
+
 function parseLine(
   input: unknown,
   index: number,
@@ -894,6 +905,8 @@ function parseSale(
     (schemaVersion === POS_SALES_SCHEMA_VERSION &&
       lineNetAmountClp !== null &&
       netAmountClp !== lineNetAmountClp) ||
+    (schemaVersion === POS_SALES_SCHEMA_VERSION &&
+      !paymentDirectionsAreConsistent(businessKind, payments)) ||
     (schemaVersion === POS_SALES_SCHEMA_VERSION &&
       !paymentTotalsAreConsistent({
         changeAmountClp,

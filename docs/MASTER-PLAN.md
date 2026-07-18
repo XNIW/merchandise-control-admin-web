@@ -2852,10 +2852,10 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-137/README.md`
 - Stato task: `REVIEW_WITH_BLOCKERS`
 - Fase: `REVIEW`
-- Milestone interna: `TASK_137_IMPLEMENTED_CONTRACT_PARITY_LIVE_BLOCKED`
+- Milestone interna: `TASK_137_RELEASE_SECURITY_REMEDIATION_RESCAN_PENDING`
 - Responsabile: `CLAUDE/CHATGPT_REVIEWER`
 - Branch/worktree: consolidamento locale sul branch
-  `integrate/mac-final-admin-20260717T150455Z`; checkout dirty preesistente
+  `validate/mac-final-admin-20260717T150455Z`; checkout dirty preesistente
   preservato, nessun push o deploy production eseguito.
 - Apertura TASK-137 2026-07-16: addendum operativo utente ricevuto dopo la
   chiusura delle lane TASK-088B e Win7POS. Creato il prossimo ID globale libero
@@ -2889,6 +2889,26 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   Changes scan post-fix sul commit congelato e la pubblicazione ordinata
   Admin/Android/iOS restano pendenti; Deep Scan e operazioni production restano
   esclusi. Stato invariato `REVIEW_WITH_BLOCKERS`, non `DONE`.
+- Consolidated release Security scan TASK-137 2026-07-17: il Changes scan
+  ufficiale sulla snapshot immutabile `38f02bd9..3bd380c6` ha chiuso
+  `36/36` righe e indicizzato sette finding validati: tre High cross-shop
+  su supplier/category/history e sync event, due Medium su price history e
+  lifecycle shop, due Low sul confine finanziario POS. Deep Scan e rimasto
+  disattivato; nessun ambiente live e stato usato. L'approvazione utente
+  riporta TASK-137 in `FIX` per una remediation additiva, regressioni, nuovi
+  gate e un nuovo Changes scan prima della pubblicazione ordinata.
+- Handoff remediation release TASK-137 2026-07-17: i sette finding del scan
+  consolidato sono stati corretti con due migration additive, guardie tenant
+  catalog/history/event, lifecycle shop attivo, storico prezzi append-only,
+  direzione tender POS e permesso indipendente `pos.pay`. I PoC originali non
+  riproducono piu i sink vulnerabili; pgTAP completo `241 PASS`, regressioni
+  catalogo `41/41`, POS `38/38`, foundation in-scope `48/48`, typecheck, lint,
+  i18n e build sono verdi. La fixture QA ProductPrice ora appende una versione
+  deterministica invece di riscrivere lo storico. Il nuovo Changes scan sul
+  commit clean e la pubblicazione ordinata Admin/Android/iOS restano gate
+  pendenti; parity live, migration staging/dev e device fisici restano blocker
+  dichiarati. Stato `REVIEW_WITH_BLOCKERS`, non `DONE`; Deep Scan e operazioni
+  production restano esclusi.
 - Apertura TASK-088 2026-07-15: il Deep Security Scan finale sulla snapshot
   immutabile multi-repository ha validato sette finding High/P1
   (`DSC-008`, `DSC-072`, `DSC-073`, `DSC-075`, `DSC-093`, `DSC-094`,

@@ -370,8 +370,10 @@ function deterministicUuid(seed: string) {
   ].join("-");
 }
 
-function finalSyncTimestamp(value?: string) {
-  return value ?? "2026-07-15 12:00:00";
+function finalSyncTimestamp(value?: string, appendVersion = false) {
+  return (
+    value ?? (appendVersion ? "2026-07-15 12:00:01" : "2026-07-15 12:00:00")
+  );
 }
 
 function requireTargetId(result: ShopAdminActionResult, step: string) {
@@ -1136,8 +1138,54 @@ async function mutateFinalProductPrice(
   }
 
   const base = finalSyncBase(input);
+  const appendVersion = operation === "update";
+  const existingPriceId = existingRecordId(input, observation);
   let setupPerformed = false;
   let productId = input.data.productId;
+  let targetPrice: {
+    id: string;
+    product_id: string;
+    type: string;
+  } | null = null;
+
+  if (appendVersion) {
+    if (!existingPriceId) {
+      return {
+        result: shopAdminActionResult("not_found", { ok: false }),
+        setupPerformed,
+      };
+    }
+
+    const { data, error } = await context.supabase
+      .from("inventory_product_prices")
+      .select("id,product_id,type")
+      .eq("id", existingPriceId)
+      .eq("shop_id", context.selectedShop.shopId)
+      .maybeSingle<{ id: string; product_id: string; type: string }>();
+
+    if (error || !data) {
+      return {
+        result: shopAdminActionResult(error ? "db_failure" : "not_found", {
+          ok: false,
+        }),
+        setupPerformed,
+      };
+    }
+
+    targetPrice = data;
+
+    if (
+      (productId && productId !== targetPrice.product_id) ||
+      (input.data.type && input.data.type !== targetPrice.type)
+    ) {
+      return {
+        result: shopAdminActionResult("not_found", { ok: false }),
+        setupPerformed,
+      };
+    }
+
+    productId = targetPrice.product_id;
+  }
 
   if (!productId) {
     const productResult = await getShopInventoryProductsPage({
@@ -1194,12 +1242,15 @@ async function mutateFinalProductPrice(
     };
   }
 
-  const type = input.data.type ?? "RETAIL";
-  const effectiveAt = finalSyncTimestamp(input.data.effectiveAt);
-  const existingPriceId = existingRecordId(input, observation);
+  const type = input.data.type ?? targetPrice?.type ?? "RETAIL";
+  const effectiveAt = finalSyncTimestamp(input.data.effectiveAt, appendVersion);
   const priceId =
-    existingPriceId ??
-    deterministicUuid(`${input.prefix}:${input.fixtureId}:${productId}:${type}:${effectiveAt}`);
+    appendVersion
+      ? deterministicUuid(
+          `${input.prefix}:${input.fixtureId}:${productId}:${type}:${effectiveAt}:append`,
+        )
+      : existingPriceId ??
+        deterministicUuid(`${input.prefix}:${input.fixtureId}:${productId}:${type}:${effectiveAt}`);
   const price =
     input.data.price ?? (operation === "update" || existingPriceId ? 102 : 101);
   const priceRow = {
@@ -1214,22 +1265,13 @@ async function mutateFinalProductPrice(
     source: input.data.source ?? `${base}_SOURCE`,
     type,
   };
-  const writeResult =
-    operation === "update"
-      ? await context.supabase
-          .from("inventory_product_prices")
-          .update(priceRow)
-          .eq("id", priceId)
-          .eq("shop_id", context.selectedShop.shopId)
-          .select("id")
-          .maybeSingle<{ id: string }>()
-      : await context.supabase
-          .from("inventory_product_prices")
-          .upsert(priceRow, {
-            onConflict: "owner_user_id,product_id,type,effective_at",
-          })
-          .select("id")
-          .maybeSingle<{ id: string }>();
+  const writeResult = await context.supabase
+    .from("inventory_product_prices")
+    .upsert(priceRow, {
+      onConflict: "owner_user_id,product_id,type,effective_at",
+    })
+    .select("id")
+    .maybeSingle<{ id: string }>();
 
   if (writeResult.error || !writeResult.data) {
     return {

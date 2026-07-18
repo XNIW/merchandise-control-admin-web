@@ -1,11 +1,10 @@
 # 10 - Handoff storico pre-consolidamento TASK-137
 
-Questo documento fotografa il primo handoff locale. Lo stato corrente è nel
-checkpoint `12-publish-checkpoint.md`: commit locali creati sui tre repository,
-Admin pgTAP `76/76`, foundation clean-merge `20/20`, Android rerun invalidato
-`1/1`, iOS `22/22`; la validazione pulita è completa e il Security Changes
-scan resta pendente. Le frasi
-successive su “nessun commit” descrivono soltanto quel checkpoint storico.
+Questo documento fotografa il primo handoff locale. Lo stato corrente e nei
+checkpoint `12-publish-checkpoint.md` e
+`13-release-security-remediation.md`. Le frasi successive su
+`BLOCKED_SETUP_NOT_STARTED`, “nessun commit” e “nessun push” descrivono
+soltanto quello snapshot storico e non lo stato release corrente.
 
 ## Stato
 

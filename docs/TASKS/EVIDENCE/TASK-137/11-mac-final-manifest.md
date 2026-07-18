@@ -1,7 +1,7 @@
 # Manifest consolidamento finale Mac — Admin Web
 
 Data: 2026-07-17
-Repository: `/Users/minxiang/Projects/merchandise-control-admin-web`
+Repository: Admin Web canonico
 Stato iniziale: `main` @ `20f430f8c6e73865a94f4ceba7d5719f82746dfe`; `origin/main` @ `38f02bd969e55df91ff41d3905661da8dfdb145a`; ahead/behind `0/5`; worktree sporco.
 Branch di separazione: `integrate/mac-final-admin-20260717T150455Z`.
 Branch di validazione previsto: `validate/mac-final-admin-20260717T150455Z`.
@@ -13,7 +13,12 @@ Commit locali già creati:
 - `205da0a6` — verifica TASK-137 iniziale;
 - `cf76fe36` — hardening lifecycle Storage/signed read;
 - `cfd101b7` — UI thumbnail/placeholder;
-- `96051fc6` — regressioni finali.
+- `96051fc6` — regressioni finali;
+- `bfec822e` — merge locale TASK-088B/TASK-137;
+- `2f166b51` — riconciliazione clean-merge;
+- `8891ee20` — fix denied-audit cross-shop;
+- `3bd380c6` — checkpoint scan consolidato;
+- `SELF` — remediation release, gate CI e freeze per il nuovo scan.
 
 Metadati comuni: repository Admin canonico; ogni path nelle sezioni include ha
 `include=yes`, motivo/evidence/dipendenze assegnati dalla sezione. I path `A`
@@ -132,6 +137,8 @@ asserzioni obsolete sulle scritture finanziarie dirette.
 - `supabase/migrations/20260717073607_task_137_product_catalog_images_sync_fix.sql`
 - `supabase/migrations/20260717170000_task_137_product_image_cleanup_hardening.sql`
 - `supabase/migrations/20260717200129_task_137_product_image_denied_audit_guard.sql`
+- `supabase/migrations/20260717235400_task_137_release_catalog_security_hardening.sql`
+- `supabase/migrations/20260717235500_task_137_release_pos_financial_hardening.sql`
 
 ## TASK-137 — test (`E. TASK137_TEST`)
 
@@ -140,6 +147,31 @@ asserzioni obsolete sulle scritture finanziarie dirette.
 - `tests/e2e/task-137-cross-shop-denied-audit.spec.ts`
 - `tests/foundation/task-137-product-catalog-images.test.mjs`
 - `tests/e2e/task-137-product-catalog-images-local.spec.ts`
+- `supabase/tests/task_137_release_catalog_security.sql`
+- `tests/foundation/task-137-release-security-hardening.test.mjs`
+
+## TASK-137 — release Security e compatibilita CI (`N. TASK137_RELEASE_SECURITY`)
+
+- `src/app/shop/qa-sync-fixture/route.ts`
+- `src/server/pos-auth/sales-sync.ts`
+- `supabase/tests/dsc_008_072_073_inventory_product_dml_rls.sql`
+- `supabase/tests/dsc_093_094_134_pos_sales_security.sql`
+- `tests/foundation/task-088-final-sync-qa-fixture.test.mjs`
+- `tests/foundation/task-088-pos-sales-reversal-parser.test.mjs`
+- `tests/foundation/task-041-runtime-completion.test.mjs`
+- `tests/foundation/task-054-shop-admin-auth-navigation.test.mjs`
+- `tests/foundation/task-055-shop-admin-ui-polish.test.mjs`
+- `tests/foundation/task-078-product-history-detail-modals.test.mjs`
+- `tests/foundation/task-079-catalog-pagination-unified.test.mjs`
+- `tests/foundation/task-081-pos-sales-revenue-stock-sync.test.mjs`
+- `tests/foundation/task-087-pos-p1-hardening.test.mjs`
+- `tests/foundation/task-089-sync-architecture-excellence.test.mjs`
+
+La route QA e attribuita congiuntamente al freeze TASK-088 e alla compatibilita
+TASK-137: valida il prezzo target shop-scoped e appende una versione, senza
+riaprire la matrice 1024/K125. I test storici elencati sono cambiati soltanto
+per riflettere la singola RPC POS atomica, lo stato `imageBusy` e TASK-137 come
+task corrente; nessun runtime storico aggiuntivo e stato rifattorizzato.
 
 ## Dipendenza validata emersa nel clean merge (`I. OTHER_VALIDATED_PROJECT_WORK`)
 
@@ -192,6 +224,7 @@ senza allargare la whitelist ad altre famiglie.
 - `docs/TASKS/EVIDENCE/TASK-137/admin-web-product-image-local.png`
 - `docs/TASKS/EVIDENCE/TASK-137/11-mac-final-manifest.md`
 - `docs/TASKS/EVIDENCE/TASK-137/12-publish-checkpoint.md`
+- `docs/TASKS/EVIDENCE/TASK-137/13-release-security-remediation.md`
 
 ## Esclusioni esplicite
 

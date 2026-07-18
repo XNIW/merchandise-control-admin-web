@@ -324,3 +324,100 @@ test("TASK-088 payment/header change mismatch is rejected before the RPC", async
   assert.equal(result.body.code, "validation_failed");
   assert.equal(harness.rpcCalls.length, 0);
 });
+
+test("TASK-137 mixed-sign sale tenders are rejected before the RPC", async () => {
+  const harness = loadSalesSyncService(acceptedRpcResponse());
+  const payload = zeroDiscountSalePayload();
+  payload.sales[0].payments = [
+    {
+      amountClp: -900,
+      changeClp: 0,
+      clientPaymentId: "task137-negative-cash",
+      method: "cash",
+    },
+    {
+      amountClp: 1000,
+      changeClp: 0,
+      clientPaymentId: "task137-positive-card",
+      method: "card",
+    },
+  ];
+
+  const result = await harness.service.handlePosSalesSync(payload);
+
+  assert.equal(result.status, 400);
+  assert.equal(result.body.code, "validation_failed");
+  assert.equal(harness.rpcCalls.length, 0);
+});
+
+test("TASK-137 refund cannot hide a positive tender behind change", async () => {
+  const harness = loadSalesSyncService(acceptedRpcResponse());
+  const payload = reversalPayload({ discountClp: 10, netClp: -95, taxClp: 5 });
+  payload.sales[0].amounts.paidClp = 100;
+  payload.sales[0].amounts.changeClp = 195;
+  payload.sales[0].payments = [
+    {
+      amountClp: 100,
+      changeClp: 195,
+      clientPaymentId: "task137-positive-refund-cash",
+      method: "cash",
+    },
+  ];
+
+  const result = await harness.service.handlePosSalesSync(payload);
+
+  assert.equal(result.status, 400);
+  assert.equal(result.body.code, "validation_failed");
+  assert.equal(harness.rpcCalls.length, 0);
+});
+
+test("TASK-137 void with a positive tender component is rejected before the RPC", async () => {
+  const harness = loadSalesSyncService(acceptedRpcResponse());
+  const payload = reversalPayload({ discountClp: 10, netClp: -95, taxClp: 5 });
+  payload.sales[0].kind = "void";
+  payload.sales[0].payments = [
+    {
+      amountClp: -100,
+      changeClp: 0,
+      clientPaymentId: "task137-negative-void-cash",
+      method: "cash",
+    },
+    {
+      amountClp: 5,
+      changeClp: 0,
+      clientPaymentId: "task137-positive-void-card",
+      method: "card",
+    },
+  ];
+
+  const result = await harness.service.handlePosSalesSync(payload);
+
+  assert.equal(result.status, 400);
+  assert.equal(result.body.code, "validation_failed");
+  assert.equal(harness.rpcCalls.length, 0);
+});
+
+test("TASK-137 valid nonnegative split tender still reaches the RPC", async () => {
+  const harness = loadSalesSyncService(acceptedRpcResponse());
+  const payload = zeroDiscountSalePayload();
+  payload.sales[0].payments = [
+    {
+      amountClp: 40,
+      changeClp: 0,
+      clientPaymentId: "task137-split-cash",
+      method: "cash",
+    },
+    {
+      amountClp: 60,
+      changeClp: 0,
+      clientPaymentId: "task137-split-card",
+      method: "card",
+    },
+  ];
+
+  const result = await harness.service.handlePosSalesSync(payload);
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.ok, true);
+  assert.equal(harness.rpcCalls.length, 1);
+});

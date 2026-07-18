@@ -99,7 +99,11 @@ test("TASK-078 product detail modal supports editable overview/actions and tabbe
   assertContains(controller, "No previous price changes are recorded for this product.");
   assertContains(controller, "Save");
   assertContains(controller, "Close");
-  assertContains(controller, "const closeDisabled = updatePending || archivePending || restorePending");
+  assertContains(
+    controller,
+    "updatePending || archivePending || restorePending || imageBusy",
+  );
+  assertContains(controller, "onBusyChange={setImageBusy}");
   assertContains(controller, "onClose={closeDisabled ? undefined : requestCloseModal}");
   assertContains(controller, "disabled={closeDisabled}");
   assertContains(controller, "data-history-detail-trigger");

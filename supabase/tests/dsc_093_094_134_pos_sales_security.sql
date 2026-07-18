@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(26);
+select plan(38);
 
 insert into auth.users (
   instance_id, id, aud, role, email, raw_app_meta_data, raw_user_meta_data,
@@ -32,7 +32,7 @@ insert into public.staff_accounts (
   (
     '30000000-0000-4000-8000-000000000093',
     '10000000-0000-4000-8000-000000000093',
-    'DSC093ADMIN', 'DSC POS admin', 'pos_admin', 'active',
+    'DSC093ADMIN', 'DSC POS manager', 'manager', 'active',
     'pin', '$scrypt-v1$pgTAP-fixture-not-a-real-credential', now(),
     'active', 1, false, 10
   ),
@@ -106,11 +106,13 @@ insert into public.pos_sessions (
 insert into public.staff_role_permissions (
   shop_id, role_key, permission_key, enabled
 ) values
-  ('10000000-0000-4000-8000-000000000093', 'pos_admin', 'pos.sell', true),
-  ('10000000-0000-4000-8000-000000000093', 'pos_admin', 'pos.refund', true),
-  ('10000000-0000-4000-8000-000000000093', 'pos_admin', 'pos.void', true),
-  ('10000000-0000-4000-8000-000000000093', 'pos_admin', 'pos.discount', true),
-  ('10000000-0000-4000-8000-000000000093', 'cashier', 'pos.sell', true)
+  ('10000000-0000-4000-8000-000000000093', 'manager', 'pos.sell', true),
+  ('10000000-0000-4000-8000-000000000093', 'manager', 'pos.pay', true),
+  ('10000000-0000-4000-8000-000000000093', 'manager', 'pos.refund', true),
+  ('10000000-0000-4000-8000-000000000093', 'manager', 'pos.void', true),
+  ('10000000-0000-4000-8000-000000000093', 'manager', 'pos.discount', true),
+  ('10000000-0000-4000-8000-000000000093', 'cashier', 'pos.sell', true),
+  ('10000000-0000-4000-8000-000000000093', 'cashier', 'pos.pay', true)
 on conflict (shop_id, role_key, permission_key)
 do update set enabled = excluded.enabled;
 
@@ -278,7 +280,7 @@ select is(
 update public.staff_role_permissions
 set enabled = false
 where shop_id = '10000000-0000-4000-8000-000000000093'
-  and role_key = 'pos_admin'
+  and role_key = 'manager'
   and permission_key = 'pos.sell';
 select is(
   (
@@ -299,7 +301,7 @@ select is(
 update public.staff_role_permissions
 set enabled = true
 where shop_id = '10000000-0000-4000-8000-000000000093'
-  and role_key = 'pos_admin'
+  and role_key = 'manager'
   and permission_key = 'pos.sell';
 
 select is(
@@ -338,7 +340,7 @@ insert into public.staff_role_permissions (
   shop_id, role_key, permission_key, enabled
 ) values (
   '10000000-0000-4000-8000-000000000093',
-  'pos_admin', 'pos.discount_over_limit', true
+  'manager', 'pos.discount_over_limit', true
 );
 select is(
   (
@@ -825,6 +827,330 @@ select is(
       ))
     ) -> 'batch' ->> 'status'
   ), 'duplicate', 'idempotent retry is duplicate'
+);
+
+create temporary table task137_pos_sink_before as
+select
+  (select count(*) from public.pos_sales_sync_batches) as batches,
+  (select count(*) from public.pos_sales) as sales,
+  (select count(*) from public.pos_sale_lines) as lines,
+  (select count(*) from public.pos_revenue_ledger_entries) as ledger,
+  (select count(*) from public.pos_sale_stock_movements) as movements,
+  (select stock_quantity from public.inventory_products
+    where id = '20000000-0000-4000-8000-000000000093') as stock;
+
+select is(
+  (
+    pg_temp.dsc_apply(
+      'task137-mixed-sale',
+      '30000000-0000-4000-8000-000000000093',
+      '60000000-0000-4000-8000-000000000093',
+      jsonb_build_array(
+        jsonb_set(
+          pg_temp.dsc_sale(
+            'task137-mixed-sale-row', 'sale', null,
+            jsonb_build_array(pg_temp.dsc_line(
+              'task137-mixed-sale-line',
+              '20000000-0000-4000-8000-000000000093',
+              1, 100, 100, -1
+            )), 100, 0, 0, 100
+          ),
+          '{payments}',
+          jsonb_build_array(
+            jsonb_build_object(
+              'clientPaymentId', 'task137-mixed-sale-cash',
+              'method', 'cash',
+              'amountClp', -900,
+              'changeClp', 0
+            ),
+            jsonb_build_object(
+              'clientPaymentId', 'task137-mixed-sale-card',
+              'method', 'card',
+              'amountClp', 1000,
+              'changeClp', 0
+            )
+          )
+        )
+      )
+    ) ->> 'code'
+  ),
+  'validation_failed',
+  'TASK-137 sale with mixed-sign tenders is denied before sinks'
+);
+
+select is(
+  (
+    pg_temp.dsc_apply(
+      'task137-positive-refund',
+      '30000000-0000-4000-8000-000000000093',
+      '60000000-0000-4000-8000-000000000093',
+      jsonb_build_array(
+        jsonb_set(
+          jsonb_set(
+            jsonb_set(
+              pg_temp.dsc_sale(
+                'task137-positive-refund-row', 'refund', 'original-sale',
+                jsonb_build_array(pg_temp.dsc_line(
+                  'task137-positive-refund-line',
+                  '20000000-0000-4000-8000-000000000093',
+                  1, 100, -100, 1, 'original-line'
+                )), 100, 10, 5, -95
+              ),
+              '{paidAmountClp}',
+              '100'::jsonb
+            ),
+            '{changeAmountClp}',
+            '195'::jsonb
+          ),
+          '{payments}',
+          jsonb_build_array(jsonb_build_object(
+            'clientPaymentId', 'task137-positive-refund-cash',
+            'method', 'cash',
+            'amountClp', 100,
+            'changeClp', 195
+          ))
+        )
+      )
+    ) ->> 'code'
+  ),
+  'validation_failed',
+  'TASK-137 refund cannot use positive tender and compensating change'
+);
+
+select is(
+  (
+    pg_temp.dsc_apply(
+      'task137-mixed-void',
+      '30000000-0000-4000-8000-000000000093',
+      '60000000-0000-4000-8000-000000000093',
+      jsonb_build_array(
+        jsonb_set(
+          pg_temp.dsc_sale(
+            'task137-mixed-void-row', 'void', 'original-sale',
+            jsonb_build_array(pg_temp.dsc_line(
+              'task137-mixed-void-line',
+              '20000000-0000-4000-8000-000000000093',
+              1, 100, -100, 1, 'original-line'
+            )), 100, 10, 5, -95
+          ),
+          '{payments}',
+          jsonb_build_array(
+            jsonb_build_object(
+              'clientPaymentId', 'task137-mixed-void-cash',
+              'method', 'cash',
+              'amountClp', -100,
+              'changeClp', 0
+            ),
+            jsonb_build_object(
+              'clientPaymentId', 'task137-mixed-void-card',
+              'method', 'card',
+              'amountClp', 5,
+              'changeClp', 0
+            )
+          )
+        )
+      )
+    ) ->> 'code'
+  ),
+  'validation_failed',
+  'TASK-137 void with a positive tender component is denied before sinks'
+);
+
+update public.staff_role_permissions
+set enabled = false
+where shop_id = '10000000-0000-4000-8000-000000000093'
+  and role_key = 'manager'
+  and permission_key = 'pos.pay';
+select is(
+  (
+    pg_temp.dsc_apply(
+      'task137-pay-disabled',
+      '30000000-0000-4000-8000-000000000093',
+      '60000000-0000-4000-8000-000000000093',
+      jsonb_build_array(pg_temp.dsc_sale(
+        'task137-pay-disabled-sale', 'sale', null,
+        jsonb_build_array(pg_temp.dsc_line(
+          'task137-pay-disabled-line',
+          '20000000-0000-4000-8000-000000000093',
+          1, 100, 100, -1
+        )), 100, 0, 0, 100
+      ))
+    ) ->> 'code'
+  ),
+  'denied',
+  'TASK-137 disabled pos.pay permission denies a valid sale'
+);
+
+select is(
+  (
+    pg_temp.dsc_apply(
+      'task137-pay-disabled-refund',
+      '30000000-0000-4000-8000-000000000093',
+      '60000000-0000-4000-8000-000000000093',
+      jsonb_build_array(pg_temp.dsc_sale(
+        'task137-pay-disabled-refund-row', 'refund', 'original-sale',
+        jsonb_build_array(pg_temp.dsc_line(
+          'task137-pay-disabled-refund-line',
+          '20000000-0000-4000-8000-000000000093',
+          1, 100, -100, 1, 'original-line'
+        )), 100, 10, 5, -95
+      ))
+    ) ->> 'code'
+  ),
+  'denied',
+  'TASK-137 disabled pos.pay permission denies a direction-valid refund'
+);
+
+select is(
+  (
+    pg_temp.dsc_apply(
+      'task137-pay-disabled-void',
+      '30000000-0000-4000-8000-000000000093',
+      '60000000-0000-4000-8000-000000000093',
+      jsonb_build_array(pg_temp.dsc_sale(
+        'task137-pay-disabled-void-row', 'void', 'original-sale',
+        jsonb_build_array(pg_temp.dsc_line(
+          'task137-pay-disabled-void-line',
+          '20000000-0000-4000-8000-000000000093',
+          1, 100, -100, 1, 'original-line'
+        )), 100, 10, 5, -95
+      ))
+    ) ->> 'code'
+  ),
+  'denied',
+  'TASK-137 disabled pos.pay permission denies a direction-valid void'
+);
+
+delete from public.staff_role_permissions
+where shop_id = '10000000-0000-4000-8000-000000000093'
+  and role_key = 'manager'
+  and permission_key = 'pos.pay';
+select is(
+  (
+    pg_temp.dsc_apply(
+      'task137-pay-missing',
+      '30000000-0000-4000-8000-000000000093',
+      '60000000-0000-4000-8000-000000000093',
+      jsonb_build_array(pg_temp.dsc_sale(
+        'task137-pay-missing-sale', 'sale', null,
+        jsonb_build_array(pg_temp.dsc_line(
+          'task137-pay-missing-line',
+          '20000000-0000-4000-8000-000000000093',
+          1, 100, 100, -1
+        )), 100, 0, 0, 100
+      ))
+    ) ->> 'code'
+  ),
+  'denied',
+  'TASK-137 missing pos.pay permission fails closed'
+);
+
+select ok(
+  (
+    select before.batches = (select count(*) from public.pos_sales_sync_batches)
+      and before.sales = (select count(*) from public.pos_sales)
+      and before.lines = (select count(*) from public.pos_sale_lines)
+      and before.ledger = (select count(*) from public.pos_revenue_ledger_entries)
+      and before.movements = (select count(*) from public.pos_sale_stock_movements)
+      and before.stock = (
+        select stock_quantity from public.inventory_products
+        where id = '20000000-0000-4000-8000-000000000093'
+      )
+    from task137_pos_sink_before before
+  ),
+  'TASK-137 direction and payment-permission denials leave every sink unchanged'
+);
+
+insert into public.staff_role_permissions (
+  shop_id, role_key, permission_key, enabled
+) values (
+  '10000000-0000-4000-8000-000000000093',
+  'manager',
+  'pos.pay',
+  true
+);
+select is(
+  (
+    pg_temp.dsc_apply(
+      'task137-pay-enabled',
+      '30000000-0000-4000-8000-000000000093',
+      '60000000-0000-4000-8000-000000000093',
+      jsonb_build_array(pg_temp.dsc_sale(
+        'task137-pay-enabled-sale', 'sale', null,
+        jsonb_build_array(pg_temp.dsc_line(
+          'task137-pay-enabled-line',
+          '20000000-0000-4000-8000-000000000093',
+          1, 100, 100, -1
+        )), 100, 0, 0, 100
+      ))
+    ) ->> 'code'
+  ),
+  'success',
+  'TASK-137 enabled operation and pos.pay permissions accept the sale'
+);
+
+select is(
+  (
+    select count(*)
+    from public.pos_revenue_ledger_entries entry
+    join public.pos_sales sale
+      on sale.pos_sale_id = entry.pos_sale_id
+    where sale.client_sale_id = 'task137-pay-enabled-sale'
+      and entry.entry_type = 'payment'
+      and entry.amount_clp = 100
+  ),
+  1::bigint,
+  'TASK-137 accepted sale writes exactly one positive payment ledger entry'
+);
+
+update public.staff_role_permissions
+set enabled = false
+where shop_id = '10000000-0000-4000-8000-000000000093'
+  and role_key = 'manager'
+  and permission_key = 'pos.pay';
+select is(
+  (
+    pg_temp.dsc_apply(
+      'task137-pay-enabled',
+      '30000000-0000-4000-8000-000000000093',
+      '60000000-0000-4000-8000-000000000093',
+      jsonb_build_array(pg_temp.dsc_sale(
+        'task137-pay-enabled-sale', 'sale', null,
+        jsonb_build_array(pg_temp.dsc_line(
+          'task137-pay-enabled-line',
+          '20000000-0000-4000-8000-000000000093',
+          1, 100, 100, -1
+        )), 100, 0, 0, 100
+      ))
+    ) ->> 'code'
+  ),
+  'denied',
+  'TASK-137 revoked pos.pay denies replay before idempotency lookup'
+);
+
+update public.staff_role_permissions
+set enabled = true
+where shop_id = '10000000-0000-4000-8000-000000000093'
+  and role_key = 'manager'
+  and permission_key = 'pos.pay';
+select is(
+  (
+    pg_temp.dsc_apply(
+      'task137-pay-enabled',
+      '30000000-0000-4000-8000-000000000093',
+      '60000000-0000-4000-8000-000000000093',
+      jsonb_build_array(pg_temp.dsc_sale(
+        'task137-pay-enabled-sale', 'sale', null,
+        jsonb_build_array(pg_temp.dsc_line(
+          'task137-pay-enabled-line',
+          '20000000-0000-4000-8000-000000000093',
+          1, 100, 100, -1
+        )), 100, 0, 0, 100
+      ))
+    ) -> 'batch' ->> 'status'
+  ),
+  'duplicate',
+  'TASK-137 re-enabled pos.pay permits an idempotent duplicate replay'
 );
 
 -- Structural only: a single pgTAP connection cannot prove concurrent blocking.

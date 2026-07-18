@@ -431,13 +431,16 @@ select lives_ok(
   $dml$,
   'active manager can insert an owner-bound shop product price'
 );
-select is(
-  pg_temp.dsc_update_inventory_product_price(
-    '30000000-0000-4000-8000-000000000109',
-    'Manager price update succeeds'
-  ),
-  1::bigint,
-  'active manager can update an owner-bound shop product price'
+select throws_ok(
+  $dml$
+    select pg_temp.dsc_update_inventory_product_price(
+      '30000000-0000-4000-8000-000000000109',
+      'Divergent historical rewrite must fail'
+    )
+  $dml$,
+  '23505',
+  'price_idempotency_conflict',
+  'active manager cannot rewrite an append-only product price'
 );
 select throws_ok(
   $dml$

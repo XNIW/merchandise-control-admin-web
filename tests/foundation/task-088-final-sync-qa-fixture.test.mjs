@@ -128,7 +128,17 @@ test("TASK-088 final mode never writes History and treats ProductPrice tombstone
   assert.match(priceMutation, /operation === "archive" \? "tombstone"/);
   assert.match(finalRunner, /result = "N\/A_NOT_REQUIRED"/);
   assert.match(priceMutation, /emitPriceHistoryImportSyncEvent/);
+  assert.match(priceMutation, /const appendVersion = operation === "update"/);
+  assert.match(priceMutation, /\.select\("id,product_id,type"\)/);
+  assert.match(priceMutation, /\.eq\("id", existingPriceId\)/);
+  assert.match(priceMutation, /productId = targetPrice\.product_id/);
+  assert.match(
+    priceMutation,
+    /finalSyncTimestamp\(input\.data\.effectiveAt, appendVersion\)/,
+  );
+  assert.match(priceMutation, /effectiveAt}:append/);
   assert.match(priceMutation, /onConflict: "owner_user_id,product_id,type,effective_at"/);
+  assert.doesNotMatch(priceMutation, /\.update\(priceRow\)/);
   assert.doesNotMatch(priceMutation, /\.delete\(/);
 });
 

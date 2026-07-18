@@ -169,7 +169,7 @@ test("TASK-054 task and Master Plan tracking are aligned for DONE reconciliation
   assertContains(masterPlan, "Verdict TASK-053: `DONE`");
   assertContains(masterPlan, "Stato TASK-054: `DONE`");
   assertContains(masterPlan, "Fase TASK-054: `DONE`");
-  assert.match(masterPlan, /Stato globale attuale: `(IDLE|REVIEW|EXECUTION|REVIEW_WITH_EXTERNAL_BLOCKERS|TASK_ACTIVE)`/);
+  assert.match(masterPlan, /Stato globale attuale: `(IDLE|REVIEW|EXECUTION|REVIEW_WITH_BLOCKERS|REVIEW_WITH_EXTERNAL_BLOCKERS|TASK_ACTIVE)`/);
   assertContains(masterPlan, "TASK-054C");
   assertContains(masterPlan, "Safari reale verificato");
   assertContains(masterPlan, "Final DONE confirmation");
@@ -177,7 +177,7 @@ test("TASK-054 task and Master Plan tracking are aligned for DONE reconciliation
   assertContains(masterPlan, "Safari reale via `safaridriver` PASS su server dedicato");
   assert.match(
     masterPlan,
-    /Task attivo: `(NESSUNO|Nessuno)`|Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`|Task attivo: `TASK-065 - Fix Master Console Google OAuth redirect`|Task attivo: `TASK-075 - Admin Web performance audit e Products navigation latency fix`/,
+    /Task attivo: `(NESSUNO|Nessuno)`|Task attivo: `TASK-057 - Shop Catalog Workspace: prodotti, categorie, fornitori e import Excel intelligente`|Task attivo: `TASK-058 - Cloudflare\/OpenNext Staging Hardening and Deployment Governance`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`|Task attivo: `TASK-065 - Fix Master Console Google OAuth redirect`|Task attivo: `TASK-075 - Admin Web performance audit e Products navigation latency fix`|Task attivo: `TASK-137 - Product Catalog Images cross-platform`/,
   );
   assertContains(masterPlan, "Stato TASK-055: `DONE_RECONCILED`");
   assertContains(masterPlan, "Stato TASK-056: `DONE_RECONCILED`");

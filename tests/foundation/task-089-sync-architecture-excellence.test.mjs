@@ -174,6 +174,12 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
     "src/server/shop-admin/staff-web-permissions.ts",
   );
   const securityChecks = readProjectFile("scripts/security-checks.mjs");
+  const atomicSalesMigration = readProjectFile(
+    "supabase/migrations/20260717235500_task_137_release_pos_financial_hardening.sql",
+  );
+  const stockMigration = readProjectFile(
+    "supabase/migrations/20260622213000_task_081_pos_revenue_stock_sync.sql",
+  );
 
   assertContainsAll(catalog, [
     '.eq("shop_id", session.shop_id)',
@@ -185,15 +191,17 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
   ]);
   assertContainsAll(sales, [
     ".eq(\"shop_id\", session.shop_id)",
-    ".eq(\"shop_id\", shopId)",
-    ".eq(\"idempotency_key\", parsed.idempotencyKey)",
-    ".eq(\"client_batch_id\", parsed.clientBatchId)",
-    "existing.payload_hash !== sale.payloadHash",
-    'return failure("conflict", 409)',
-    'status: "duplicate"',
-    "pos_apply_sale_stock_movement",
-    "p_movement_key",
-    "unresolved_product",
+    "p_shop_id: shop.shop_id",
+    "p_client_batch_id: parsed.clientBatchId",
+    "p_idempotency_key: parsed.idempotencyKey",
+    "p_payload_hash: parsed.batchPayloadHash",
+    '.rpc("pos_sales_sync_apply_v1"',
+    "atomicSalesRpcResponse",
+    "atomicSalesFailureCode",
+    "failureStatusForAtomicCode",
+    'input.code === "conflict"',
+    "return 409",
+    'status: "accepted" | "duplicate"',
     "pos.sales.sync.success",
     "pos.sales.sync.failure",
     "request_id",
@@ -201,6 +209,22 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
     "redactPosFreeText",
     "containsSensitiveText(clientBatchId)",
     "containsSensitiveText(idempotencyKey)",
+  ]);
+  assertContainsAll(atomicSalesMigration, [
+    "and session_row.shop_id = p_shop_id",
+    "where batch_row.shop_id = p_shop_id",
+    "batch_row.client_batch_id = p_client_batch_id",
+    "batch_row.idempotency_key = p_idempotency_key",
+    "v_existing_batch.payload_hash <> p_payload_hash",
+    "where existing.shop_id = p_shop_id",
+    "v_existing_sale.payload_hash <> v_sale ->> 'payloadHash'",
+    "'status', 'duplicate'",
+    "insert into public.pos_revenue_ledger_entries (",
+    "from public.pos_apply_sale_stock_movement(",
+  ]);
+  assertContainsAll(stockMigration, [
+    "p_movement_key text",
+    "'unresolved_product'",
   ]);
   assertContainsAll(recovery, [
     'import "server-only"',

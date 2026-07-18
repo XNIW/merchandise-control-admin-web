@@ -5850,6 +5850,14 @@ function checkTask041RuntimeCompletion() {
     "supabase/migrations/20260715130000_dsc_093_094_134_pos_sales_security.sql";
   const salesSecurityPgTapPath =
     "supabase/tests/dsc_093_094_134_pos_sales_security.sql";
+  const task137CatalogSecurityMigrationPath =
+    "supabase/migrations/20260717235400_task_137_release_catalog_security_hardening.sql";
+  const task137PosSecurityMigrationPath =
+    "supabase/migrations/20260717235500_task_137_release_pos_financial_hardening.sql";
+  const task137CatalogSecurityPgTapPath =
+    "supabase/tests/task_137_release_catalog_security.sql";
+  const task137SecurityFoundationPath =
+    "tests/foundation/task-137-release-security-hardening.test.mjs";
   const masterPlan = read("docs/MASTER-PLAN.md");
 
   for (const requiredPath of [
@@ -5863,6 +5871,10 @@ function checkTask041RuntimeCompletion() {
     databaseTypesPath,
     salesSecurityMigrationPath,
     salesSecurityPgTapPath,
+    task137CatalogSecurityMigrationPath,
+    task137PosSecurityMigrationPath,
+    task137CatalogSecurityPgTapPath,
+    task137SecurityFoundationPath,
     "wrangler.jsonc",
     "open-next.config.ts",
     "src/proxy.ts",
@@ -5884,6 +5896,12 @@ function checkTask041RuntimeCompletion() {
   const databaseTypes = read(databaseTypesPath);
   const salesSecurityMigration = read(salesSecurityMigrationPath);
   const salesSecurityPgTap = read(salesSecurityPgTapPath);
+  const task137CatalogSecurityMigration = read(
+    task137CatalogSecurityMigrationPath,
+  );
+  const task137PosSecurityMigration = read(task137PosSecurityMigrationPath);
+  const task137CatalogSecurityPgTap = read(task137CatalogSecurityPgTapPath);
+  const task137SecurityFoundation = read(task137SecurityFoundationPath);
   const wranglerConfig = read("wrangler.jsonc");
   const openNextConfig = read("open-next.config.ts");
   const packageJson = JSON.parse(read("package.json"));
@@ -5986,6 +6004,7 @@ function checkTask041RuntimeCompletion() {
     "conflict",
     "suppliedStockDelta !== normalizedStockDelta",
     "clientOriginalLineId",
+    "paymentDirectionsAreConsistent",
     'supabase.rpc("pos_sales_sync_apply_v1"',
     'reason: "atomic_sales_rpc_rejected"',
   ]) {
@@ -6035,6 +6054,60 @@ function checkTask041RuntimeCompletion() {
   }
 
   for (const requiredSnippet of [
+    "create or replace function public.pos_sales_sync_apply_v1",
+    "v_business_kind = 'sale'",
+    "v_business_kind in ('refund', 'void')",
+    "permission.permission_key = 'pos.pay'",
+    "on conflict (shop_id, role_key, permission_key) do nothing",
+    "from authenticated",
+    "to service_role",
+  ]) {
+    if (!task137PosSecurityMigration.includes(requiredSnippet)) {
+      addFailure(
+        `${task137PosSecurityMigrationPath} must include ${requiredSnippet}`,
+      );
+    }
+  }
+
+  if (
+    (task137PosSecurityMigration.match(
+      /permission\.permission_key = 'pos\.pay'/g,
+    )?.length ?? 0) !== 2
+  ) {
+    addFailure(
+      `${task137PosSecurityMigrationPath} must enforce pos.pay before idempotency and inside the per-sale loop`,
+    );
+  }
+
+  for (const requiredSnippet of [
+    "is_active_shop_catalog_writer",
+    "profile.profile_status = 'active'",
+    "member.membership_status = 'active'",
+    "shop.shop_status = 'active'",
+    "is_shop_catalog_row_write_allowed",
+    "mobile atomic sync row scope is not authorized",
+    "price_idempotency_conflict",
+  ]) {
+    if (!task137CatalogSecurityMigration.includes(requiredSnippet)) {
+      addFailure(
+        `${task137CatalogSecurityMigrationPath} must include ${requiredSnippet}`,
+      );
+    }
+  }
+
+  const task137PriceGuard = task137CatalogSecurityMigration.slice(
+    task137CatalogSecurityMigration.indexOf(
+      "create or replace function app_private.guard_mobile_product_price_append_only",
+    ),
+  );
+
+  if (/mobile_sync_request_source\(\)/.test(task137PriceGuard)) {
+    addFailure(
+      `${task137CatalogSecurityMigrationPath} must enforce append-only price history independently of request headers`,
+    );
+  }
+
+  for (const requiredSnippet of [
     "cashier discount denied",
     "disabled role permission denied",
     "discount within cap accepted",
@@ -6059,6 +6132,43 @@ function checkTask041RuntimeCompletion() {
     if (!salesSecurityPgTap.includes(requiredSnippet)) {
       addFailure(`${salesSecurityPgTapPath} must include ${requiredSnippet}`);
     }
+  }
+
+  for (const requiredSnippet of [
+    "sale with mixed-sign tenders is denied before sinks",
+    "refund cannot use positive tender and compensating change",
+    "disabled pos.pay permission denies a valid sale",
+    "missing pos.pay permission fails closed",
+    "revoked pos.pay denies replay before idempotency lookup",
+    "leave every sink unchanged",
+  ]) {
+    if (!salesSecurityPgTap.includes(requiredSnippet)) {
+      addFailure(`${salesSecurityPgTapPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "cross-shop supplier insert is denied",
+    "cross-shop category insert is denied",
+    "cross-shop history insert is denied",
+    "trigger independently rejects a cross-shop row",
+    "omitted headers cannot bypass append-only price history",
+    "suspended shop rejects direct product insert",
+    "catalog RPC remains fail-closed for an archived shop",
+  ]) {
+    if (!task137CatalogSecurityPgTap.includes(requiredSnippet)) {
+      addFailure(`${task137CatalogSecurityPgTapPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    !task137SecurityFoundation.includes(
+      "TASK-137 release ships dynamic regressions for all seven validated findings",
+    )
+  ) {
+    addFailure(
+      `${task137SecurityFoundationPath} must freeze the seven-finding regression matrix`,
+    );
   }
 
   if (
