@@ -1247,6 +1247,7 @@ function ProductCatalogList({
         const categoryName = rowString(row, "categoryName");
         const itemNumber = rowString(row, "itemNumber");
         const productId = rowString(row, "productId");
+        const productReferenceId = row.rowKey;
         const productName = rowString(row, "productName");
         const primaryImageVersionId = rowString(
           row,
@@ -1319,7 +1320,7 @@ function ProductCatalogList({
                 <ProductImageThumbnail
                   cacheScope={imageCacheScope}
                   labels={imageLabels}
-                  productId={productId}
+                  productId={productReferenceId}
                   productName={productName}
                   shopId={shopId}
                   versionId={primaryImageVersionId || null}

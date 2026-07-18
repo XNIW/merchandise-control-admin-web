@@ -2841,22 +2841,58 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-137: `TASK-137 - Product Catalog Images cross-platform`
 - File task TASK-137: `docs/TASKS/TASK-137-product-catalog-images-cross-platform.md`
 - Evidence TASK-137: `docs/TASKS/EVIDENCE/TASK-137/README.md`
+- Stato TASK-138: `DONE`
+- Fase TASK-138: `DONE_RECONCILED`
+- Verdict TASK-138: `RELEASE_READY_WITH_MEASURED_GATES`
+- Task TASK-138: `TASK-138 - Product Images Runtime Completion, UX e Live Parity`
+- File task TASK-138: `docs/TASKS/TASK-138-product-images-runtime-completion-ux-live-parity.md`
+- Evidence TASK-138: `docs/TASKS/EVIDENCE/TASK-138/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `REVIEW_WITH_BLOCKERS`
-- Task attivo: `TASK-137 - Product Catalog Images cross-platform`
-- Task precedente: `TASK-088 - Final multi-platform P1 security remediation and staging validation` (`REVIEW_WITH_ENVIRONMENTAL_PERFORMANCE_BLOCKER`, non riaperto)
+- Stato globale attuale: `IDLE`
+- Task attivo: `NESSUNO`
+- Task precedente: `TASK-137 - Product Catalog Images cross-platform` (`REVIEW_WITH_BLOCKERS`, non riaperto e non chiuso)
 - Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-137-product-catalog-images-cross-platform.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-137/README.md`
-- Stato task: `REVIEW_WITH_BLOCKERS`
-- Fase: `REVIEW`
-- Milestone interna: `TASK_137_RELEASE_SECURITY_REMEDIATION_RESCAN_PENDING`
-- Responsabile: `CLAUDE/CHATGPT_REVIEWER`
-- Branch/worktree: consolidamento locale sul branch
-  `validate/mac-final-admin-20260717T150455Z`; checkout dirty preesistente
-  preservato, nessun push o deploy production eseguito.
+- File task corrente: `docs/TASKS/TASK-138-product-images-runtime-completion-ux-live-parity.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-138/README.md`
+- Stato task: `DONE`
+- Fase: `DONE_RECONCILED`
+- Milestone interna: `TASK_138_RELEASE_READY_WITH_MEASURED_GATES`
+- Responsabile: `USER_CONFIRMED_RELEASE`
+- Branch/worktree: worktree detached pulito da
+  `a20fdaf6ce9ed862d1c0fc0123ee355d4ff9fbdc`; checkout dirty preesistente
+  preservato, nessun commit, push, merge o deploy production autorizzato.
+- Apertura TASK-138 2026-07-18: follow-up esplicito TASK-137 per completare
+  runtime, UX e parity live non-production su Admin Web, Android e iOS. Prima
+  delle modifiche runtime e stata registrata la matrice requisito/stato/test/gap
+  e sono stati predisposti worktree puliti separati. Gli `origin/main` locali
+  coincidono con gli SHA congelati; `git fetch origin main` e
+  `BLOCKED_ENV_DNS` (`Could not resolve host: github.com`). TASK-137 conserva
+  integralmente `REVIEW_WITH_BLOCKERS`; Win7POS e production restano esclusi.
+  La sequenza obbligatoria e baseline black-box -> backend locale e fixture
+  multi-ruolo -> client -> parity/evidence -> handoff `REVIEW`, mai `DONE`.
+- Optimization pass TASK-138 2026-07-18: Admin locale chiude worker
+  main->thumb, lease/cache bounded e visual desktop/tablet/390 px; Android
+  chiude JVM `68/68`, Emulator `3/3` e lease LRU `256`; iOS chiude XCTest
+  `33 PASS`/`1 SKIP` su 34 e cache/lease/progressive bounded. Cleanup finale
+  DB/Storage/Auth/manifest `0`. Verdict resta `REVIEW_WITH_BLOCKERS`: parity
+  image locale Android bloccata dal contratto origin signed URL, parity iOS
+  bloccata dal path config ruotato da Xcode, screenshot mobile/staging/device
+  fisici non chiusi. Follow-up Admin: distribuzione post-worker chiusa con 12
+  fixture valide rappresentative + 3 negative, main/thumb, timing di fase,
+  memoria pagina campionata e proiezioni storage separate. Evidence
+  consolidata in `docs/TASKS/EVIDENCE/TASK-138/09-optimization-review.md`;
+  nessun commit, push, merge, deploy o migration production.
+- Chiusura TASK-138 2026-07-18: su richiesta esplicita dell'utente sono stati
+  completati i gate mancanti e la parity locale bidirezionale replace/read/remove
+  tra Admin, Android e iOS. Gate finali: Admin typecheck/lint/build/security/i18n
+  e foundation `6/6`; Android JVM `74/74`, assemble app/test, lint e visual
+  emulator; iOS Analyze e 40 test (`37 PASS`, `3 SKIP` opt-in attesi,
+  `0 failure`). Cleanup scoped verificato con DB/Storage/Auth tutti a zero.
+  Verdict `RELEASE_READY_WITH_MEASURED_GATES`, stato `DONE`; staging autenticato
+  e device fisici restano note esterne, non PASS. Evidence finale:
+  `docs/TASKS/EVIDENCE/TASK-138/11-final-release-review.md`.
 - Apertura TASK-137 2026-07-16: addendum operativo utente ricevuto dopo la
   chiusura delle lane TASK-088B e Win7POS. Creato il prossimo ID globale libero
   e congelato il contratto immagini prima di migration o patch mobile. Scope:

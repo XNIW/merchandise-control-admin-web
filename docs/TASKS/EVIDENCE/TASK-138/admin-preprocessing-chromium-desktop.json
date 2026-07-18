@@ -1,0 +1,1650 @@
+{
+  "acceptedRepresentative": 12,
+  "cancelled48MP": "PASS",
+  "distributions": {
+    "inputBytes": {
+      "count": 12,
+      "maximum": 2150687,
+      "mean": 235991,
+      "minimum": 329,
+      "p50": 23509,
+      "p90": 281519,
+      "p95": 2150687
+    },
+    "mainBytes": {
+      "count": 12,
+      "maximum": 764587,
+      "mean": 77866,
+      "minimum": 821,
+      "p50": 10811,
+      "p90": 53019,
+      "p95": 764587
+    },
+    "memoryMaximumSampledDeltaBytes": {
+      "count": 12,
+      "maximum": 29080188,
+      "mean": 8263329,
+      "minimum": 0,
+      "p50": 7885496,
+      "p90": 10854608,
+      "p95": 29080188
+    },
+    "thumbBytes": {
+      "count": 12,
+      "maximum": 14696,
+      "mean": 3227,
+      "minimum": 821,
+      "p50": 1408,
+      "p90": 7470,
+      "p95": 14696
+    },
+    "timingBrowserTotalMs": {
+      "count": 12,
+      "maximum": 113.2,
+      "mean": 58.592,
+      "minimum": 20.8,
+      "p50": 49.2,
+      "p90": 92.2,
+      "p95": 113.2
+    },
+    "timingDecodeAndValidateMs": {
+      "count": 12,
+      "maximum": 47.8,
+      "mean": 8.692,
+      "minimum": 0.5,
+      "p50": 4.2,
+      "p90": 16.7,
+      "p95": 47.8
+    },
+    "timingMainEncodeMs": {
+      "count": 12,
+      "maximum": 45.5,
+      "mean": 23.1,
+      "minimum": 5.7,
+      "p50": 24.8,
+      "p90": 36.1,
+      "p95": 45.5
+    },
+    "timingMetadataHashMs": {
+      "count": 12,
+      "maximum": 0.7,
+      "mean": 0.267,
+      "minimum": 0.1,
+      "p50": 0.2,
+      "p90": 0.4,
+      "p95": 0.7
+    },
+    "timingThumbEncodeMs": {
+      "count": 12,
+      "maximum": 3.2,
+      "mean": 2.075,
+      "minimum": 0.2,
+      "p50": 2.3,
+      "p90": 2.5,
+      "p95": 3.2
+    },
+    "totalBytes": {
+      "count": 12,
+      "maximum": 779283,
+      "mean": 81093,
+      "minimum": 1642,
+      "p50": 12148,
+      "p90": 60489,
+      "p95": 779283
+    }
+  },
+  "generatedAt": "2026-07-18T18:12:57.027Z",
+  "maximumTimerGapMsSample": 102.7,
+  "measurements": [
+    {
+      "input": {
+        "bytes": 22769,
+        "channels": 3,
+        "decodedHeight": 1600,
+        "decodedWidth": 2400,
+        "encodedHeight": 1600,
+        "encodedWidth": 2400,
+        "format": "jpeg",
+        "hasAlpha": false,
+        "hasProfile": false,
+        "isProgressive": false,
+        "mimeType": "image/jpeg",
+        "orientation": null,
+        "pages": 1
+      },
+      "memory": {
+        "afterBytes": 22856724,
+        "beforeBytes": 24808088,
+        "maximumSampledBytes": 26023564,
+        "maximumSampledDeltaBytes": 1215476,
+        "sampleCount": 46,
+        "samplingIntervalMs": 20
+      },
+      "metadataRemoval": {
+        "main": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        },
+        "result": "PASS_NO_EXIF_XMP_IPTC",
+        "thumb": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        }
+      },
+      "name": "landscape.jpg",
+      "noUpscale": {
+        "main": true,
+        "thumb": true
+      },
+      "output": {
+        "main": {
+          "actualSha256": "2a0ae160e631902bf5cb0a5eabb151953d62d1be91ddc299b02655d18959bd70",
+          "bytes": 10811,
+          "declared": {
+            "bytes": 10811,
+            "height": 1067,
+            "mimeType": "image/jpeg",
+            "sha256": "2a0ae160e631902bf5cb0a5eabb151953d62d1be91ddc299b02655d18959bd70",
+            "width": 1600
+          },
+          "height": 1067,
+          "width": 1600,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "thumb": {
+          "actualSha256": "58ed0fe539a3828d2a13ee460fee84de2186a2446e8fede603c4b2771b3c6ef7",
+          "bytes": 1337,
+          "declared": {
+            "bytes": 1337,
+            "height": 256,
+            "mimeType": "image/jpeg",
+            "sha256": "58ed0fe539a3828d2a13ee460fee84de2186a2446e8fede603c4b2771b3c6ef7",
+            "width": 384
+          },
+          "height": 256,
+          "width": 384,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "totalBytes": 12148
+      },
+      "rendering": {
+        "durationMeasureMs": 92.20000000298023,
+        "mainBytes": 10811,
+        "mainHeight": 1067,
+        "mainWidth": 1600,
+        "maximumTimerGapMs": 46.30000001192093,
+        "previewHeight": 1067,
+        "previewWidth": 1600,
+        "summaryText": "Main 1600 × 1067 · 11 KiB · Thumb 384 × 256 · 2 KiB",
+        "thumbBytes": 1337,
+        "thumbHeight": 256,
+        "thumbWidth": 384
+      },
+      "result": "PASS",
+      "timing": {
+        "browserTotalMs": 92.20000000298023,
+        "decodeAndValidateMs": 4.299999997019768,
+        "mainEncodeMs": 28.200000002980232,
+        "metadataHashMs": 0.4000000059604645,
+        "pipelineMs": 35.599999994039536,
+        "thumbEncodeMs": 2.3999999910593033,
+        "runtime": "worker"
+      }
+    },
+    {
+      "input": {
+        "bytes": 22769,
+        "channels": 3,
+        "decodedHeight": 2400,
+        "decodedWidth": 1600,
+        "encodedHeight": 2400,
+        "encodedWidth": 1600,
+        "format": "jpeg",
+        "hasAlpha": false,
+        "hasProfile": false,
+        "isProgressive": false,
+        "mimeType": "image/jpeg",
+        "orientation": null,
+        "pages": 1
+      },
+      "memory": {
+        "afterBytes": 28524520,
+        "beforeBytes": 27525700,
+        "maximumSampledBytes": 28524520,
+        "maximumSampledDeltaBytes": 998820,
+        "sampleCount": 8,
+        "samplingIntervalMs": 20
+      },
+      "metadataRemoval": {
+        "main": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        },
+        "result": "PASS_NO_EXIF_XMP_IPTC",
+        "thumb": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        }
+      },
+      "name": "portrait.jpg",
+      "noUpscale": {
+        "main": true,
+        "thumb": true
+      },
+      "output": {
+        "main": {
+          "actualSha256": "02157135e4862085cb1071da51bcef461e1536afa79bc4886d3aca086c5dc401",
+          "bytes": 10811,
+          "declared": {
+            "bytes": 10811,
+            "height": 1600,
+            "mimeType": "image/jpeg",
+            "sha256": "02157135e4862085cb1071da51bcef461e1536afa79bc4886d3aca086c5dc401",
+            "width": 1067
+          },
+          "height": 1600,
+          "width": 1067,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "thumb": {
+          "actualSha256": "201ad1c9f6c2a43b02b3fcf9334c46147bb3ebe010dbc6af9942cfa05c801441",
+          "bytes": 1337,
+          "declared": {
+            "bytes": 1337,
+            "height": 384,
+            "mimeType": "image/jpeg",
+            "sha256": "201ad1c9f6c2a43b02b3fcf9334c46147bb3ebe010dbc6af9942cfa05c801441",
+            "width": 256
+          },
+          "height": 384,
+          "width": 256,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "totalBytes": 12148
+      },
+      "rendering": {
+        "durationMeasureMs": 75.90000000596046,
+        "mainBytes": 10811,
+        "mainHeight": 1600,
+        "mainWidth": 1067,
+        "maximumTimerGapMs": 42.70000000298023,
+        "previewHeight": 1600,
+        "previewWidth": 1067,
+        "summaryText": "Main 1067 × 1600 · 11 KiB · Thumb 256 × 384 · 2 KiB",
+        "thumbBytes": 1337,
+        "thumbHeight": 384,
+        "thumbWidth": 256
+      },
+      "result": "PASS",
+      "timing": {
+        "browserTotalMs": 75.80000001192093,
+        "decodeAndValidateMs": 4,
+        "mainEncodeMs": 27.69999998807907,
+        "metadataHashMs": 0.20000000298023224,
+        "pipelineMs": 34.3999999910593,
+        "thumbEncodeMs": 2.199999988079071,
+        "runtime": "worker"
+      }
+    },
+    {
+      "input": {
+        "bytes": 23707,
+        "channels": 3,
+        "decodedHeight": 2000,
+        "decodedWidth": 2000,
+        "encodedHeight": 2000,
+        "encodedWidth": 2000,
+        "format": "jpeg",
+        "hasAlpha": false,
+        "hasProfile": false,
+        "isProgressive": false,
+        "mimeType": "image/jpeg",
+        "orientation": null,
+        "pages": 1
+      },
+      "memory": {
+        "afterBytes": 30097136,
+        "beforeBytes": 19867744,
+        "maximumSampledBytes": 30097136,
+        "maximumSampledDeltaBytes": 10229392,
+        "sampleCount": 7,
+        "samplingIntervalMs": 20
+      },
+      "metadataRemoval": {
+        "main": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        },
+        "result": "PASS_NO_EXIF_XMP_IPTC",
+        "thumb": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        }
+      },
+      "name": "square.jpg",
+      "noUpscale": {
+        "main": true,
+        "thumb": true
+      },
+      "output": {
+        "main": {
+          "actualSha256": "a9f9195fff73e4cec3efeed7722ae40741bc3b392a3bee0a0f568a8272efa92a",
+          "bytes": 15761,
+          "declared": {
+            "bytes": 15761,
+            "height": 1600,
+            "mimeType": "image/jpeg",
+            "sha256": "a9f9195fff73e4cec3efeed7722ae40741bc3b392a3bee0a0f568a8272efa92a",
+            "width": 1600
+          },
+          "height": 1600,
+          "width": 1600,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "thumb": {
+          "actualSha256": "bf3d968be56c5a5074c3c59617f668e6eac2160092dfb752f97d6895713ef8d7",
+          "bytes": 1625,
+          "declared": {
+            "bytes": 1625,
+            "height": 384,
+            "mimeType": "image/jpeg",
+            "sha256": "bf3d968be56c5a5074c3c59617f668e6eac2160092dfb752f97d6895713ef8d7",
+            "width": 384
+          },
+          "height": 384,
+          "width": 384,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "totalBytes": 17386
+      },
+      "rendering": {
+        "durationMeasureMs": 46.400000005960464,
+        "mainBytes": 15761,
+        "mainHeight": 1600,
+        "mainWidth": 1600,
+        "maximumTimerGapMs": 21.200000002980232,
+        "previewHeight": 1600,
+        "previewWidth": 1600,
+        "summaryText": "Main 1600 × 1600 · 16 KiB · Thumb 384 × 384 · 2 KiB",
+        "thumbBytes": 1625,
+        "thumbHeight": 384,
+        "thumbWidth": 384
+      },
+      "result": "PASS",
+      "timing": {
+        "browserTotalMs": 46.30000001192093,
+        "decodeAndValidateMs": 4.200000002980232,
+        "mainEncodeMs": 24.799999997019768,
+        "metadataHashMs": 0.29999999701976776,
+        "pipelineMs": 32.79999999701977,
+        "thumbEncodeMs": 3.2000000029802322,
+        "runtime": "worker"
+      }
+    },
+    {
+      "input": {
+        "bytes": 23509,
+        "channels": 4,
+        "decodedHeight": 900,
+        "decodedWidth": 1200,
+        "encodedHeight": 900,
+        "encodedWidth": 1200,
+        "format": "png",
+        "hasAlpha": true,
+        "hasProfile": false,
+        "isProgressive": false,
+        "mimeType": "image/png",
+        "orientation": null,
+        "pages": 1
+      },
+      "memory": {
+        "afterBytes": 29542032,
+        "beforeBytes": 20650852,
+        "maximumSampledBytes": 29542032,
+        "maximumSampledDeltaBytes": 8891180,
+        "sampleCount": 4,
+        "samplingIntervalMs": 20
+      },
+      "metadataRemoval": {
+        "main": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        },
+        "result": "PASS_NO_EXIF_XMP_IPTC",
+        "thumb": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        }
+      },
+      "name": "alpha.png",
+      "noUpscale": {
+        "main": true,
+        "thumb": true
+      },
+      "output": {
+        "main": {
+          "actualSha256": "c59e1be68ea5eee82a77b6c645d30f2ea146efff19a459b0f186c4379f9a9805",
+          "bytes": 7173,
+          "declared": {
+            "bytes": 7173,
+            "height": 900,
+            "mimeType": "image/jpeg",
+            "sha256": "c59e1be68ea5eee82a77b6c645d30f2ea146efff19a459b0f186c4379f9a9805",
+            "width": 1200
+          },
+          "height": 900,
+          "width": 1200,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "thumb": {
+          "actualSha256": "82a891ae9c8222629bdd2a8589a8be775523cac0523c93caa1b521fd0c4c983d",
+          "bytes": 1408,
+          "declared": {
+            "bytes": 1408,
+            "height": 288,
+            "mimeType": "image/jpeg",
+            "sha256": "82a891ae9c8222629bdd2a8589a8be775523cac0523c93caa1b521fd0c4c983d",
+            "width": 384
+          },
+          "height": 288,
+          "width": 384,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "totalBytes": 8581
+      },
+      "rendering": {
+        "durationMeasureMs": 26.100000008940697,
+        "mainBytes": 7173,
+        "mainHeight": 900,
+        "mainWidth": 1200,
+        "maximumTimerGapMs": 18.799999997019768,
+        "previewHeight": 900,
+        "previewWidth": 1200,
+        "summaryText": "Main 1200 × 900 · 8 KiB · Thumb 384 × 288 · 2 KiB",
+        "thumbBytes": 1408,
+        "thumbHeight": 288,
+        "thumbWidth": 384
+      },
+      "result": "PASS",
+      "timing": {
+        "browserTotalMs": 26.100000008940697,
+        "decodeAndValidateMs": 1.2999999970197678,
+        "mainEncodeMs": 7.5,
+        "metadataHashMs": 0.20000000298023224,
+        "pipelineMs": 11,
+        "thumbEncodeMs": 1.9000000059604645,
+        "runtime": "worker"
+      }
+    },
+    {
+      "input": {
+        "bytes": 13669,
+        "channels": 3,
+        "decodedHeight": 1800,
+        "decodedWidth": 1200,
+        "encodedHeight": 1200,
+        "encodedWidth": 1800,
+        "format": "jpeg",
+        "hasAlpha": false,
+        "hasProfile": true,
+        "isProgressive": false,
+        "mimeType": "image/jpeg",
+        "orientation": 6,
+        "pages": 1
+      },
+      "memory": {
+        "afterBytes": 28899516,
+        "beforeBytes": 20512264,
+        "maximumSampledBytes": 28899516,
+        "maximumSampledDeltaBytes": 8387252,
+        "sampleCount": 4,
+        "samplingIntervalMs": 20
+      },
+      "metadataRemoval": {
+        "main": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        },
+        "result": "PASS_NO_EXIF_XMP_IPTC",
+        "thumb": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        }
+      },
+      "name": "orientation-6.jpg",
+      "noUpscale": {
+        "main": true,
+        "thumb": true
+      },
+      "output": {
+        "main": {
+          "actualSha256": "ce6bca6e02fd0ce65111ba073e5fe4642e447bdec8c607cc6f4df50b9fa6c28f",
+          "bytes": 10810,
+          "declared": {
+            "bytes": 10810,
+            "height": 1600,
+            "mimeType": "image/jpeg",
+            "sha256": "ce6bca6e02fd0ce65111ba073e5fe4642e447bdec8c607cc6f4df50b9fa6c28f",
+            "width": 1067
+          },
+          "height": 1600,
+          "width": 1067,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "thumb": {
+          "actualSha256": "2e3da0b7e41a8c03e066363daf9ff7e8458e1bd5656707e5935e024088a7fa1e",
+          "bytes": 1336,
+          "declared": {
+            "bytes": 1336,
+            "height": 384,
+            "mimeType": "image/jpeg",
+            "sha256": "2e3da0b7e41a8c03e066363daf9ff7e8458e1bd5656707e5935e024088a7fa1e",
+            "width": 256
+          },
+          "height": 384,
+          "width": 256,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "totalBytes": 12146
+      },
+      "rendering": {
+        "durationMeasureMs": 38.5,
+        "mainBytes": 10810,
+        "mainHeight": 1600,
+        "mainWidth": 1067,
+        "maximumTimerGapMs": 20.69999998807907,
+        "previewHeight": 1600,
+        "previewWidth": 1067,
+        "summaryText": "Main 1067 × 1600 · 11 KiB · Thumb 256 × 384 · 2 KiB",
+        "thumbBytes": 1336,
+        "thumbHeight": 384,
+        "thumbWidth": 256
+      },
+      "result": "PASS",
+      "timing": {
+        "browserTotalMs": 38.5,
+        "decodeAndValidateMs": 2.7000000029802322,
+        "mainEncodeMs": 18.700000002980232,
+        "metadataHashMs": 0.29999999701976776,
+        "pipelineMs": 24.299999997019768,
+        "thumbEncodeMs": 2.4000000059604645,
+        "runtime": "worker"
+      }
+    },
+    {
+      "input": {
+        "bytes": 329,
+        "channels": 3,
+        "decodedHeight": 80,
+        "decodedWidth": 120,
+        "encodedHeight": 80,
+        "encodedWidth": 120,
+        "format": "jpeg",
+        "hasAlpha": false,
+        "hasProfile": false,
+        "isProgressive": false,
+        "mimeType": "image/jpeg",
+        "orientation": null,
+        "pages": 1
+      },
+      "memory": {
+        "afterBytes": 27586324,
+        "beforeBytes": 19700828,
+        "maximumSampledBytes": 27586324,
+        "maximumSampledDeltaBytes": 7885496,
+        "sampleCount": 4,
+        "samplingIntervalMs": 20
+      },
+      "metadataRemoval": {
+        "main": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        },
+        "result": "PASS_NO_EXIF_XMP_IPTC",
+        "thumb": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        }
+      },
+      "name": "small-no-upscale.jpg",
+      "noUpscale": {
+        "main": true,
+        "thumb": true
+      },
+      "output": {
+        "main": {
+          "actualSha256": "507707455b6dc6210edb06684828870cfbc1c9b1fd4736e344c97f788e7e9d90",
+          "bytes": 821,
+          "declared": {
+            "bytes": 821,
+            "height": 80,
+            "mimeType": "image/jpeg",
+            "sha256": "507707455b6dc6210edb06684828870cfbc1c9b1fd4736e344c97f788e7e9d90",
+            "width": 120
+          },
+          "height": 80,
+          "width": 120,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "thumb": {
+          "actualSha256": "f9c0b0cf69e01e321e47e2856bdf43b1ae436111df108b2017b1d2e782a01c23",
+          "bytes": 821,
+          "declared": {
+            "bytes": 821,
+            "height": 80,
+            "mimeType": "image/jpeg",
+            "sha256": "f9c0b0cf69e01e321e47e2856bdf43b1ae436111df108b2017b1d2e782a01c23",
+            "width": 120
+          },
+          "height": 80,
+          "width": 120,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "totalBytes": 1642
+      },
+      "rendering": {
+        "durationMeasureMs": 20.799999997019768,
+        "mainBytes": 821,
+        "mainHeight": 80,
+        "mainWidth": 120,
+        "maximumTimerGapMs": 18.099999994039536,
+        "previewHeight": 80,
+        "previewWidth": 120,
+        "summaryText": "Main 120 × 80 · 1 KiB · Thumb 120 × 80 · 1 KiB",
+        "thumbBytes": 821,
+        "thumbHeight": 80,
+        "thumbWidth": 120
+      },
+      "result": "PASS",
+      "timing": {
+        "browserTotalMs": 20.799999997019768,
+        "decodeAndValidateMs": 0.5,
+        "mainEncodeMs": 5.699999988079071,
+        "metadataHashMs": 0.10000000894069672,
+        "pipelineMs": 6.5,
+        "thumbEncodeMs": 0.20000000298023224,
+        "runtime": "worker"
+      }
+    },
+    {
+      "input": {
+        "bytes": 281519,
+        "channels": 3,
+        "decodedHeight": 6000,
+        "decodedWidth": 8000,
+        "encodedHeight": 6000,
+        "encodedWidth": 8000,
+        "format": "jpeg",
+        "hasAlpha": false,
+        "hasProfile": false,
+        "isProgressive": false,
+        "mimeType": "image/jpeg",
+        "orientation": null,
+        "pages": 1
+      },
+      "memory": {
+        "afterBytes": 19754740,
+        "beforeBytes": 31519116,
+        "maximumSampledBytes": 36771020,
+        "maximumSampledDeltaBytes": 5251904,
+        "sampleCount": 12,
+        "samplingIntervalMs": 20
+      },
+      "metadataRemoval": {
+        "main": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        },
+        "result": "PASS_NO_EXIF_XMP_IPTC",
+        "thumb": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        }
+      },
+      "name": "48mp.jpg",
+      "noUpscale": {
+        "main": true,
+        "thumb": true
+      },
+      "output": {
+        "main": {
+          "actualSha256": "edeee1658e82abc33d4546e5c4b9ae3fd69cf3ec625b3961c1c1cc7f1da88320",
+          "bytes": 12011,
+          "declared": {
+            "bytes": 12011,
+            "height": 1200,
+            "mimeType": "image/jpeg",
+            "sha256": "edeee1658e82abc33d4546e5c4b9ae3fd69cf3ec625b3961c1c1cc7f1da88320",
+            "width": 1600
+          },
+          "height": 1200,
+          "width": 1600,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "thumb": {
+          "actualSha256": "be7ec5fbc09b2ded494e04c690239a1e1058fbf4de230f2c71ef0eb7221da342",
+          "bytes": 1409,
+          "declared": {
+            "bytes": 1409,
+            "height": 288,
+            "mimeType": "image/jpeg",
+            "sha256": "be7ec5fbc09b2ded494e04c690239a1e1058fbf4de230f2c71ef0eb7221da342",
+            "width": 384
+          },
+          "height": 288,
+          "width": 384,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "totalBytes": 13420
+      },
+      "rendering": {
+        "durationMeasureMs": 113.19999998807907,
+        "mainBytes": 12011,
+        "mainHeight": 1200,
+        "mainWidth": 1600,
+        "maximumTimerGapMs": 24.299999997019768,
+        "previewHeight": 1200,
+        "previewWidth": 1600,
+        "summaryText": "Main 1600 × 1200 · 12 KiB · Thumb 384 × 288 · 2 KiB",
+        "thumbBytes": 1409,
+        "thumbHeight": 288,
+        "thumbWidth": 384
+      },
+      "result": "PASS",
+      "timing": {
+        "browserTotalMs": 113.19999998807907,
+        "decodeAndValidateMs": 47.80000001192093,
+        "mainEncodeMs": 45.5,
+        "metadataHashMs": 0.20000000298023224,
+        "pipelineMs": 98.30000001192093,
+        "thumbEncodeMs": 2.5,
+        "runtime": "worker"
+      }
+    },
+    {
+      "input": {
+        "bytes": 17951,
+        "channels": 3,
+        "decodedHeight": 1400,
+        "decodedWidth": 2100,
+        "encodedHeight": 1400,
+        "encodedWidth": 2100,
+        "format": "jpeg",
+        "hasAlpha": false,
+        "hasProfile": false,
+        "isProgressive": true,
+        "mimeType": "image/jpeg",
+        "orientation": null,
+        "pages": 1
+      },
+      "memory": {
+        "afterBytes": 31423452,
+        "beforeBytes": 23703096,
+        "maximumSampledBytes": 31423452,
+        "maximumSampledDeltaBytes": 7720356,
+        "sampleCount": 8,
+        "samplingIntervalMs": 20
+      },
+      "metadataRemoval": {
+        "main": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        },
+        "result": "PASS_NO_EXIF_XMP_IPTC",
+        "thumb": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        }
+      },
+      "name": "progressive.jpg",
+      "noUpscale": {
+        "main": true,
+        "thumb": true
+      },
+      "output": {
+        "main": {
+          "actualSha256": "eeffe2d3d2759b58bc7712f4debb43e585a23b50b0d9ffaefd6eb9f607860bfb",
+          "bytes": 10811,
+          "declared": {
+            "bytes": 10811,
+            "height": 1067,
+            "mimeType": "image/jpeg",
+            "sha256": "eeffe2d3d2759b58bc7712f4debb43e585a23b50b0d9ffaefd6eb9f607860bfb",
+            "width": 1600
+          },
+          "height": 1067,
+          "width": 1600,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "thumb": {
+          "actualSha256": "5fa0d34a867175a2e9467a07964db698f7f15e48af611a21dff011fdfbb233fd",
+          "bytes": 1337,
+          "declared": {
+            "bytes": 1337,
+            "height": 256,
+            "mimeType": "image/jpeg",
+            "sha256": "5fa0d34a867175a2e9467a07964db698f7f15e48af611a21dff011fdfbb233fd",
+            "width": 384
+          },
+          "height": 256,
+          "width": 384,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "totalBytes": 12148
+      },
+      "rendering": {
+        "durationMeasureMs": 64,
+        "mainBytes": 10811,
+        "mainHeight": 1067,
+        "mainWidth": 1600,
+        "maximumTimerGapMs": 33.5,
+        "previewHeight": 1067,
+        "previewWidth": 1600,
+        "summaryText": "Main 1600 × 1067 · 11 KiB · Thumb 384 × 256 · 2 KiB",
+        "thumbBytes": 1337,
+        "thumbHeight": 256,
+        "thumbWidth": 384
+      },
+      "result": "PASS",
+      "timing": {
+        "browserTotalMs": 64,
+        "decodeAndValidateMs": 7.299999997019768,
+        "mainEncodeMs": 15.899999991059303,
+        "metadataHashMs": 0.20000000298023224,
+        "pipelineMs": 25.899999991059303,
+        "thumbEncodeMs": 2.3999999910593033,
+        "runtime": "worker"
+      }
+    },
+    {
+      "input": {
+        "bytes": 107646,
+        "channels": 3,
+        "decodedHeight": 1600,
+        "decodedWidth": 2400,
+        "encodedHeight": 1600,
+        "encodedWidth": 2400,
+        "format": "jpeg",
+        "hasAlpha": false,
+        "hasProfile": false,
+        "isProgressive": false,
+        "mimeType": "image/jpeg",
+        "orientation": null,
+        "pages": 1
+      },
+      "memory": {
+        "afterBytes": 18257932,
+        "beforeBytes": 22281656,
+        "maximumSampledBytes": 30926928,
+        "maximumSampledDeltaBytes": 8645272,
+        "sampleCount": 8,
+        "samplingIntervalMs": 20
+      },
+      "metadataRemoval": {
+        "main": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        },
+        "result": "PASS_NO_EXIF_XMP_IPTC",
+        "thumb": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        }
+      },
+      "name": "packaging-text.jpg",
+      "noUpscale": {
+        "main": true,
+        "thumb": true
+      },
+      "output": {
+        "main": {
+          "actualSha256": "1f00b6087e1edea05347aff45b1b21ce69d7c7f01705a48dbae9ac6d069ef00d",
+          "bytes": 53019,
+          "declared": {
+            "bytes": 53019,
+            "height": 1067,
+            "mimeType": "image/jpeg",
+            "sha256": "1f00b6087e1edea05347aff45b1b21ce69d7c7f01705a48dbae9ac6d069ef00d",
+            "width": 1600
+          },
+          "height": 1067,
+          "width": 1600,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "thumb": {
+          "actualSha256": "5e6f2730757ec9b16ad1d9c379c9f029c1ff985c7000160d3cd26718df723444",
+          "bytes": 7470,
+          "declared": {
+            "bytes": 7470,
+            "height": 256,
+            "mimeType": "image/jpeg",
+            "sha256": "5e6f2730757ec9b16ad1d9c379c9f029c1ff985c7000160d3cd26718df723444",
+            "width": 384
+          },
+          "height": 256,
+          "width": 384,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "totalBytes": 60489
+      },
+      "rendering": {
+        "durationMeasureMs": 68.59999999403954,
+        "mainBytes": 53019,
+        "mainHeight": 1067,
+        "mainWidth": 1600,
+        "maximumTimerGapMs": 36.79999999701977,
+        "previewHeight": 1067,
+        "previewWidth": 1600,
+        "summaryText": "Main 1600 × 1067 · 52 KiB · Thumb 384 × 256 · 8 KiB",
+        "thumbBytes": 7470,
+        "thumbHeight": 256,
+        "thumbWidth": 384
+      },
+      "result": "PASS",
+      "timing": {
+        "browserTotalMs": 68.59999999403954,
+        "decodeAndValidateMs": 4.5,
+        "mainEncodeMs": 27.30000001192093,
+        "metadataHashMs": 0.29999999701976776,
+        "pipelineMs": 34.400000005960464,
+        "thumbEncodeMs": 2.2000000029802322,
+        "runtime": "worker"
+      }
+    },
+    {
+      "input": {
+        "bytes": 2150687,
+        "channels": 3,
+        "decodedHeight": 1280,
+        "decodedWidth": 1920,
+        "encodedHeight": 1280,
+        "encodedWidth": 1920,
+        "format": "jpeg",
+        "hasAlpha": false,
+        "hasProfile": false,
+        "isProgressive": false,
+        "mimeType": "image/jpeg",
+        "orientation": null,
+        "pages": 1
+      },
+      "memory": {
+        "afterBytes": 25451948,
+        "beforeBytes": 22690188,
+        "maximumSampledBytes": 51770376,
+        "maximumSampledDeltaBytes": 29080188,
+        "sampleCount": 12,
+        "samplingIntervalMs": 20
+      },
+      "metadataRemoval": {
+        "main": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        },
+        "result": "PASS_NO_EXIF_XMP_IPTC",
+        "thumb": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        }
+      },
+      "name": "deterministic-noise.jpg",
+      "noUpscale": {
+        "main": true,
+        "thumb": true
+      },
+      "output": {
+        "main": {
+          "actualSha256": "73368ef0ae2ecd2165f9df18d9ced5d40bdd289ae0861ca54d2317a242011bba",
+          "bytes": 764587,
+          "declared": {
+            "bytes": 764587,
+            "height": 1067,
+            "mimeType": "image/jpeg",
+            "sha256": "73368ef0ae2ecd2165f9df18d9ced5d40bdd289ae0861ca54d2317a242011bba",
+            "width": 1600
+          },
+          "height": 1067,
+          "width": 1600,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "thumb": {
+          "actualSha256": "560f953aee8c2743050d459c9b4d96fc759675cf56da4401811509c8dab98393",
+          "bytes": 14696,
+          "declared": {
+            "bytes": 14696,
+            "height": 256,
+            "mimeType": "image/jpeg",
+            "sha256": "560f953aee8c2743050d459c9b4d96fc759675cf56da4401811509c8dab98393",
+            "width": 384
+          },
+          "height": 256,
+          "width": 384,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "totalBytes": 779283
+      },
+      "rendering": {
+        "durationMeasureMs": 74.19999998807907,
+        "mainBytes": 764587,
+        "mainHeight": 1067,
+        "mainWidth": 1600,
+        "maximumTimerGapMs": 102.70000000298023,
+        "previewHeight": 1067,
+        "previewWidth": 1600,
+        "summaryText": "Main 1600 × 1067 · 747 KiB · Thumb 384 × 256 · 15 KiB",
+        "thumbBytes": 14696,
+        "thumbHeight": 256,
+        "thumbWidth": 384
+      },
+      "result": "PASS",
+      "timing": {
+        "browserTotalMs": 74.19999998807907,
+        "decodeAndValidateMs": 16.700000002980232,
+        "mainEncodeMs": 36.099999994039536,
+        "metadataHashMs": 0.7000000029802322,
+        "pipelineMs": 56.29999999701977,
+        "thumbEncodeMs": 2.3999999910593033,
+        "runtime": "worker"
+      }
+    },
+    {
+      "input": {
+        "bytes": 50063,
+        "channels": 3,
+        "decodedHeight": 1600,
+        "decodedWidth": 2400,
+        "encodedHeight": 1600,
+        "encodedWidth": 2400,
+        "format": "jpeg",
+        "hasAlpha": false,
+        "hasProfile": false,
+        "isProgressive": false,
+        "mimeType": "image/jpeg",
+        "orientation": null,
+        "pages": 1
+      },
+      "memory": {
+        "afterBytes": 40508948,
+        "beforeBytes": 29654340,
+        "maximumSampledBytes": 40508948,
+        "maximumSampledDeltaBytes": 10854608,
+        "sampleCount": 7,
+        "samplingIntervalMs": 20
+      },
+      "metadataRemoval": {
+        "main": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        },
+        "result": "PASS_NO_EXIF_XMP_IPTC",
+        "thumb": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        }
+      },
+      "name": "dark-low-contrast.jpg",
+      "noUpscale": {
+        "main": true,
+        "thumb": true
+      },
+      "output": {
+        "main": {
+          "actualSha256": "7dd43429871ced0159bfc975f8151a685c8e56c8131f28c186dcac5440cf96a7",
+          "bytes": 17833,
+          "declared": {
+            "bytes": 17833,
+            "height": 1067,
+            "mimeType": "image/jpeg",
+            "sha256": "7dd43429871ced0159bfc975f8151a685c8e56c8131f28c186dcac5440cf96a7",
+            "width": 1600
+          },
+          "height": 1067,
+          "width": 1600,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "thumb": {
+          "actualSha256": "5c0260d1d80e0756d7e9967a5a8378ec21d36dbe4a83c8218307e610a0a9f72e",
+          "bytes": 2539,
+          "declared": {
+            "bytes": 2539,
+            "height": 256,
+            "mimeType": "image/jpeg",
+            "sha256": "5c0260d1d80e0756d7e9967a5a8378ec21d36dbe4a83c8218307e610a0a9f72e",
+            "width": 384
+          },
+          "height": 256,
+          "width": 384,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "totalBytes": 20372
+      },
+      "rendering": {
+        "durationMeasureMs": 49.20000000298023,
+        "mainBytes": 17833,
+        "mainHeight": 1067,
+        "mainWidth": 1600,
+        "maximumTimerGapMs": 20.599999994039536,
+        "previewHeight": 1067,
+        "previewWidth": 1600,
+        "summaryText": "Main 1600 × 1067 · 18 KiB · Thumb 384 × 256 · 3 KiB",
+        "thumbBytes": 2539,
+        "thumbHeight": 256,
+        "thumbWidth": 384
+      },
+      "result": "PASS",
+      "timing": {
+        "browserTotalMs": 49.20000000298023,
+        "decodeAndValidateMs": 4.200000002980232,
+        "mainEncodeMs": 28.400000005960464,
+        "metadataHashMs": 0.19999998807907104,
+        "pipelineMs": 35.3999999910593,
+        "thumbEncodeMs": 2.300000011920929,
+        "runtime": "worker"
+      }
+    },
+    {
+      "input": {
+        "bytes": 117276,
+        "channels": 3,
+        "decodedHeight": 1200,
+        "decodedWidth": 5000,
+        "encodedHeight": 1200,
+        "encodedWidth": 5000,
+        "format": "jpeg",
+        "hasAlpha": false,
+        "hasProfile": false,
+        "isProgressive": false,
+        "mimeType": "image/jpeg",
+        "orientation": null,
+        "pages": 1
+      },
+      "memory": {
+        "afterBytes": 25896624,
+        "beforeBytes": 44559164,
+        "maximumSampledBytes": 44559164,
+        "maximumSampledDeltaBytes": 0,
+        "sampleCount": 4,
+        "samplingIntervalMs": 20
+      },
+      "metadataRemoval": {
+        "main": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        },
+        "result": "PASS_NO_EXIF_XMP_IPTC",
+        "thumb": {
+          "exif": false,
+          "icc": true,
+          "iptc": false,
+          "xmp": false
+        }
+      },
+      "name": "panorama.jpg",
+      "noUpscale": {
+        "main": true,
+        "thumb": true
+      },
+      "output": {
+        "main": {
+          "actualSha256": "3cf1f3fda6b96eca2644aede390b0a855552a26e7ab180e45d37a53056d15ea8",
+          "bytes": 19942,
+          "declared": {
+            "bytes": 19942,
+            "height": 384,
+            "mimeType": "image/jpeg",
+            "sha256": "3cf1f3fda6b96eca2644aede390b0a855552a26e7ab180e45d37a53056d15ea8",
+            "width": 1600
+          },
+          "height": 384,
+          "width": 1600,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "thumb": {
+          "actualSha256": "c082d9881966eb40ce70462f072212bb7722891237b5591405a4c97a7382bc90",
+          "bytes": 3405,
+          "declared": {
+            "bytes": 3405,
+            "height": 92,
+            "mimeType": "image/jpeg",
+            "sha256": "c082d9881966eb40ce70462f072212bb7722891237b5591405a4c97a7382bc90",
+            "width": 384
+          },
+          "height": 92,
+          "width": 384,
+          "jpegMarkersValid": true,
+          "metadataSegments": {
+            "exif": false,
+            "icc": true,
+            "iptc": false,
+            "xmp": false
+          },
+          "mimeType": "image/jpeg"
+        },
+        "totalBytes": 23347
+      },
+      "rendering": {
+        "durationMeasureMs": 34.20000000298023,
+        "mainBytes": 19942,
+        "mainHeight": 384,
+        "mainWidth": 1600,
+        "maximumTimerGapMs": 18.200000002980232,
+        "previewHeight": 384,
+        "previewWidth": 1600,
+        "summaryText": "Main 1600 × 384 · 20 KiB · Thumb 384 × 92 · 4 KiB",
+        "thumbBytes": 3405,
+        "thumbHeight": 92,
+        "thumbWidth": 384
+      },
+      "result": "PASS",
+      "timing": {
+        "browserTotalMs": 34.20000000298023,
+        "decodeAndValidateMs": 6.799999997019768,
+        "mainEncodeMs": 11.399999991059303,
+        "metadataHashMs": 0.10000000894069672,
+        "pipelineMs": 19.299999997019768,
+        "thumbEncodeMs": 0.7999999970197678,
+        "runtime": "worker"
+      }
+    },
+    {
+      "input": {
+        "bytes": 4,
+        "mimeType": "image/jpeg"
+      },
+      "memory": {
+        "afterBytes": 35714340,
+        "beforeBytes": 29128176,
+        "maximumSampledBytes": 35714340,
+        "maximumSampledDeltaBytes": 6586164,
+        "sampleCount": 4,
+        "samplingIntervalMs": 20
+      },
+      "name": "corrupt.jpg",
+      "reason": "decode_failed",
+      "result": "REJECTED_AS_EXPECTED"
+    },
+    {
+      "input": {
+        "bytes": 22769,
+        "mimeType": "application/octet-stream"
+      },
+      "memory": {
+        "afterBytes": 43161212,
+        "beforeBytes": 35714340,
+        "maximumSampledBytes": 43161212,
+        "maximumSampledDeltaBytes": 7446872,
+        "sampleCount": 4,
+        "samplingIntervalMs": 20
+      },
+      "name": "wrong-mime.jpg",
+      "reason": "mime_rejected",
+      "result": "REJECTED_AS_EXPECTED"
+    },
+    {
+      "input": {
+        "bytes": 85,
+        "mimeType": "image/gif"
+      },
+      "memory": {
+        "afterBytes": 31582280,
+        "beforeBytes": 43161212,
+        "maximumSampledBytes": 50453344,
+        "maximumSampledDeltaBytes": 7292132,
+        "sampleCount": 5,
+        "samplingIntervalMs": 20
+      },
+      "name": "animated-multiframe.gif",
+      "reason": "animated_format_rejected",
+      "result": "REJECTED_AS_EXPECTED"
+    }
+  ],
+  "memoryMethod": {
+    "caveat": "CDP page JS heap checkpoints sampled every 20 ms; excludes complete worker, canvas and native decode memory and is not an absolute process peak.",
+    "metric": "Performance.getMetrics.JSHeapUsedSize",
+    "source": "Chromium DevTools Protocol page session"
+  },
+  "percentileMethod": "nearest-rank over 12 accepted representative outputs",
+  "rejectedValidation": 3,
+  "result": "PASS",
+  "sampleCount": 15,
+  "schemaVersion": 2,
+  "storageAssumptions": {
+    "bytesPerVersion": "one main object plus one thumb object",
+    "excludes": "superseded versions, object metadata, pending objects, backups and egress",
+    "percentileTotal": "computed over paired main+thumb outputs, not by summing marginal percentiles",
+    "unit": "decimal GB"
+  },
+  "storageProjections": [
+    {
+      "imageCount": 1,
+      "profiles": {
+        "mean": {
+          "mainGbDecimal": 0.000077866,
+          "thumbGbDecimal": 0.000003227,
+          "totalGbDecimal": 0.000081093
+        },
+        "p50": {
+          "mainGbDecimal": 0.000010811,
+          "thumbGbDecimal": 0.000001408,
+          "totalGbDecimal": 0.000012148
+        },
+        "p90": {
+          "mainGbDecimal": 0.000053019,
+          "thumbGbDecimal": 0.00000747,
+          "totalGbDecimal": 0.000060489
+        },
+        "p95": {
+          "mainGbDecimal": 0.000764587,
+          "thumbGbDecimal": 0.000014696,
+          "totalGbDecimal": 0.000779283
+        }
+      }
+    },
+    {
+      "imageCount": 1000,
+      "profiles": {
+        "mean": {
+          "mainGbDecimal": 0.077866,
+          "thumbGbDecimal": 0.003227,
+          "totalGbDecimal": 0.081093
+        },
+        "p50": {
+          "mainGbDecimal": 0.010811,
+          "thumbGbDecimal": 0.001408,
+          "totalGbDecimal": 0.012148
+        },
+        "p90": {
+          "mainGbDecimal": 0.053019,
+          "thumbGbDecimal": 0.00747,
+          "totalGbDecimal": 0.060489
+        },
+        "p95": {
+          "mainGbDecimal": 0.764587,
+          "thumbGbDecimal": 0.014696,
+          "totalGbDecimal": 0.779283
+        }
+      }
+    },
+    {
+      "imageCount": 10000,
+      "profiles": {
+        "mean": {
+          "mainGbDecimal": 0.77866,
+          "thumbGbDecimal": 0.03227,
+          "totalGbDecimal": 0.81093
+        },
+        "p50": {
+          "mainGbDecimal": 0.10811,
+          "thumbGbDecimal": 0.01408,
+          "totalGbDecimal": 0.12148
+        },
+        "p90": {
+          "mainGbDecimal": 0.53019,
+          "thumbGbDecimal": 0.0747,
+          "totalGbDecimal": 0.60489
+        },
+        "p95": {
+          "mainGbDecimal": 7.64587,
+          "thumbGbDecimal": 0.14696,
+          "totalGbDecimal": 7.79283
+        }
+      }
+    },
+    {
+      "imageCount": 20000,
+      "profiles": {
+        "mean": {
+          "mainGbDecimal": 1.55732,
+          "thumbGbDecimal": 0.06454,
+          "totalGbDecimal": 1.62186
+        },
+        "p50": {
+          "mainGbDecimal": 0.21622,
+          "thumbGbDecimal": 0.02816,
+          "totalGbDecimal": 0.24296
+        },
+        "p90": {
+          "mainGbDecimal": 1.06038,
+          "thumbGbDecimal": 0.1494,
+          "totalGbDecimal": 1.20978
+        },
+        "p95": {
+          "mainGbDecimal": 15.29174,
+          "thumbGbDecimal": 0.29392,
+          "totalGbDecimal": 15.58566
+        }
+      }
+    },
+    {
+      "imageCount": 100000,
+      "profiles": {
+        "mean": {
+          "mainGbDecimal": 7.7866,
+          "thumbGbDecimal": 0.3227,
+          "totalGbDecimal": 8.1093
+        },
+        "p50": {
+          "mainGbDecimal": 1.0811,
+          "thumbGbDecimal": 0.1408,
+          "totalGbDecimal": 1.2148
+        },
+        "p90": {
+          "mainGbDecimal": 5.3019,
+          "thumbGbDecimal": 0.747,
+          "totalGbDecimal": 6.0489
+        },
+        "p95": {
+          "mainGbDecimal": 76.4587,
+          "thumbGbDecimal": 1.4696,
+          "totalGbDecimal": 77.9283
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "cacheEntries": 0,
+  "heapDeltaBytesSample": 59016256,
+  "peakConcurrentStorageRequests": 0,
+  "readBatchSizes": [
+    1,
+    1
+  ],
+  "referencedProducts": 2,
+  "renderedProducts": 200,
+  "result": "PASS"
+}
