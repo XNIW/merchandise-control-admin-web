@@ -1,0 +1,36 @@
+{
+  "task": "TASK-137",
+  "run_id": "LOCALT137C",
+  "target": "Supabase local + Chromium desktop",
+  "runtime_kind": "browser-local-e2e",
+  "result": "PASS 1/1",
+  "source": {
+    "synthetic": true,
+    "mime_type": "image/png",
+    "bytes": 929526,
+    "width": 1200,
+    "height": 900
+  },
+  "preprocess": {
+    "elapsed_milliseconds": 24.799999997019768,
+    "measurement": "Performance.measure around decode, resize, JPEG encode and SHA-256"
+  },
+  "javascript_heap": {
+    "before_bytes": 6071148,
+    "after_bytes": 10229388,
+    "observed_peak_bytes": 22478432,
+    "observed_peak_delta_from_before_bytes": 16407284,
+    "sampling_interval_milliseconds": 5,
+    "limitation": "CDP JSHeapUsedSize sample; not whole-browser RSS and not a guaranteed absolute peak"
+  },
+  "output": {
+    "main_bytes": 21907,
+    "thumb_bytes": 5980,
+    "total_bytes": 27887
+  },
+  "cleanup": {
+    "image_objects_after": 0,
+    "image_versions_after": 0,
+    "baseline_preserved": true
+  }
+}

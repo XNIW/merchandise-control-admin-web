@@ -2831,20 +2831,128 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-086: `TASK-086 - Mobile UI Emulator Polish`
 - File task TASK-086: `docs/TASKS/TASK-086-mobile-ui-emulator-polish.md`
 - Evidence TASK-086: `docs/TASKS/EVIDENCE/TASK-086/README.md`
+- Stato TASK-088: `REVIEW_WITH_ENVIRONMENTAL_PERFORMANCE_BLOCKER`
+- Fase TASK-088: `REVIEW`
+- Task TASK-088: `TASK-088 - Final multi-platform P1 security remediation and staging validation`
+- File task TASK-088: `docs/TASKS/TASK-088-final-multiplatform-p1-security-remediation.md`
+- Evidence TASK-088: `docs/TASKS/EVIDENCE/TASK-088/README.md`
+- Stato TASK-137: `REVIEW_WITH_BLOCKERS`
+- Fase TASK-137: `REVIEW`
+- Task TASK-137: `TASK-137 - Product Catalog Images cross-platform`
+- File task TASK-137: `docs/TASKS/TASK-137-product-catalog-images-cross-platform.md`
+- Evidence TASK-137: `docs/TASKS/EVIDENCE/TASK-137/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `REVIEW`
-- Task attivo: `TASK-086 - Mobile UI Emulator Polish`
-- Task precedente: `TASK-085 - Fix workers.dev mobile OAuth and product totals readiness`
+- Stato globale attuale: `REVIEW_WITH_BLOCKERS`
+- Task attivo: `TASK-137 - Product Catalog Images cross-platform`
+- Task precedente: `TASK-088 - Final multi-platform P1 security remediation and staging validation` (`REVIEW_WITH_ENVIRONMENTAL_PERFORMANCE_BLOCKER`, non riaperto)
 - Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-086-mobile-ui-emulator-polish.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-086/README.md`
-- Stato task: `REVIEW_READY`
+- File task corrente: `docs/TASKS/TASK-137-product-catalog-images-cross-platform.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-137/README.md`
+- Stato task: `REVIEW_WITH_BLOCKERS`
 - Fase: `REVIEW`
-- Milestone interna: `TASK_086_MOBILE_UI_EMULATOR_POLISH`
-- Responsabile: `REVIEWER`
-- Branch previsto: `main` / no branch creation requested
+- Milestone interna: `TASK_137_RELEASE_SECURITY_REMEDIATION_RESCAN_PENDING`
+- Responsabile: `CLAUDE/CHATGPT_REVIEWER`
+- Branch/worktree: consolidamento locale sul branch
+  `validate/mac-final-admin-20260717T150455Z`; checkout dirty preesistente
+  preservato, nessun push o deploy production eseguito.
+- Apertura TASK-137 2026-07-16: addendum operativo utente ricevuto dopo la
+  chiusura delle lane TASK-088B e Win7POS. Creato il prossimo ID globale libero
+  e congelato il contratto immagini prima di migration o patch mobile. Scope:
+  Admin Web, Android, iOS e Supabase privato; Win7POS esplicitamente escluso.
+  TASK-088 conserva integralmente stato ed evidence
+  `REVIEW_WITH_ENVIRONMENTAL_PERFORMANCE_BLOCKER`/LOCALK125 come coda review,
+  senza restart o nuovi run.
+  Nel consolidamento finale commit/push normali sono autorizzati dopo i gate;
+  restano vietati force push, deploy/apply production e nuovo Deep Security Scan.
+- Handoff TASK-137 2026-07-17: backend locale, Admin, Android e iOS
+  implementati e verificati senza dipendenze nuove. Post-hardening: pgTAP
+  `76/76`, Admin foundation `19/19` + typecheck/ESLint mirato, Android unit
+  baseline `25/25` + instrumentation baseline `3/3` e rerun invalidato `1/1`,
+  iOS image `22/22` + sync baseline `46/46` +
+  localizzazioni/build. Cleanup e report locale: zero immagini, oggetti,
+  orfani e fuori-budget; baseline preservata. La parity runtime sul medesimo
+  shop Supabase tra i tre client e `NOT_RUN`; il security-diff-scan ufficiale
+  attende Start nel workspace dedicato. Stato `REVIEW_WITH_BLOCKERS`, non
+  `DONE`; Win7POS intatto. Commit locali separati creati; validazione pulita,
+  Security e pubblicazione ancora pendenti, nessun deploy production.
+- Release checkpoint TASK-137 2026-07-17: il Changes scan ufficiale pre-fix
+  (base `38f02bd9`, head `2f166b51`) ha coperto `35/35` file e validato quattro
+  finding Medium/high-confidence con una sola root cause nel denied-audit
+  immagini cross-shop. La remediation additiva sul confine RPC comune e
+  coperta da pgTAP `32/32`, E2E HTTP sulle quattro route `1/1`, E2E lifecycle
+  `1/1`, PoC originale ora `FAIL 6/9` atteso e residui locali zero; foundation
+  `20/20`, typecheck, lint, i18n e build restano verdi. Il rerun monolitico
+  `verify` e `BLOCKED_EXTERNAL_PREREQUISITE` per un file storico non piu
+  presente nel repository Win7POS read-only, che resta intatto. Il nuovo
+  Changes scan post-fix sul commit congelato e la pubblicazione ordinata
+  Admin/Android/iOS restano pendenti; Deep Scan e operazioni production restano
+  esclusi. Stato invariato `REVIEW_WITH_BLOCKERS`, non `DONE`.
+- Consolidated release Security scan TASK-137 2026-07-17: il Changes scan
+  ufficiale sulla snapshot immutabile `38f02bd9..3bd380c6` ha chiuso
+  `36/36` righe e indicizzato sette finding validati: tre High cross-shop
+  su supplier/category/history e sync event, due Medium su price history e
+  lifecycle shop, due Low sul confine finanziario POS. Deep Scan e rimasto
+  disattivato; nessun ambiente live e stato usato. L'approvazione utente
+  riporta TASK-137 in `FIX` per una remediation additiva, regressioni, nuovi
+  gate e un nuovo Changes scan prima della pubblicazione ordinata.
+- Handoff remediation release TASK-137 2026-07-17: i sette finding del scan
+  consolidato sono stati corretti con due migration additive, guardie tenant
+  catalog/history/event, lifecycle shop attivo, storico prezzi append-only,
+  direzione tender POS e permesso indipendente `pos.pay`. I PoC originali non
+  riproducono piu i sink vulnerabili; pgTAP completo `241 PASS`, regressioni
+  catalogo `41/41`, POS `38/38`, foundation in-scope `48/48`, typecheck, lint,
+  i18n e build sono verdi. La fixture QA ProductPrice ora appende una versione
+  deterministica invece di riscrivere lo storico. Il nuovo Changes scan sul
+  commit clean e la pubblicazione ordinata Admin/Android/iOS restano gate
+  pendenti; parity live, migration staging/dev e device fisici restano blocker
+  dichiarati. Stato `REVIEW_WITH_BLOCKERS`, non `DONE`; Deep Scan e operazioni
+  production restano esclusi.
+- Apertura TASK-088 2026-07-15: il Deep Security Scan finale sulla snapshot
+  immutabile multi-repository ha validato sette finding High/P1
+  (`DSC-008`, `DSC-072`, `DSC-073`, `DSC-075`, `DSC-093`, `DSC-094`,
+  `DSC-134`). TASK-086 resta `REVIEW_READY` e non viene chiuso; il suo scope
+  vieta migration Supabase e non puo ospitare la remediation. TASK-088 e
+  quindi l'unico task attivo in `FIX`, con patch separate su RLS catalogo,
+  validazione sales discount/refund/void e lease offline Win7POS. Nessun
+  finding e dichiarato risolto prima di test reali, staging non-production e
+  security diff scan post-fix su snapshot scoped immutabile.
+- Handoff TASK-088 LOCALK84 2026-07-16: i gate canonici Admin, Android, iOS,
+  Win7POS e Supabase dev sono stati preservati e riconciliati. La matrice
+  finale si è fermata al primo hard failure al campione `46/1024`
+  (`G002-warm-14`, Admin -> iOS Product update warm): risultato applicativo
+  `PASS`, latenza `9595.406 ms` oltre max `3000 ms`; `46` risultati
+  applicativi PASS, `0` application failure, `1` hard latency failure,
+  p50/p95/max globali `656.217/1774.779/9595.406 ms`. Cleanup automatico
+  `PASS`, residuo remoto `0`, baseline non-fixture preservata e refresh
+  sessione `3/3`. I sette High/P1 non sopravvivono nel post-fix, ma restano
+  aperti/non chiusi nel workbench; `DSC-075` mantiene il gap di prova fisica
+  Win7. Il `security-diff-scan` scoped sigillato riporta `0` nuovi finding
+  reportabili con `62/62` file contabilizzati e coverage `partial`
+  esplicitamente limitata dall'assenza dei worker vietati dall'addendum.
+  Report:
+  `/private/tmp/codex-security-scans/TASK-088-postfix-multirepo/task088-k84-20260716T195843Z/report.md`.
+  Stato handoff: `REVIEW_WITH_BLOCKERS`, non `DONE`; nessun nuovo Deep Scan,
+  commit, push o deploy production.
+- Resume TASK-088B LOCALK125 2026-07-17: la ricostruzione di K84 attribuisce
+  `8410.500/9595.406 ms` al commit/coordinator Admin e non dimostra un bug nel
+  servizio produttivo iOS; nessuna patch produttiva e nessuna soglia
+  rilassata. I run mirati Admin -> iOS K97T/K99T e iOS -> Admin K123/K124
+  passano ciascuno `32/32`. Il run completo K125 si arresta dopo `128/1024`,
+  al gate aggregato successivo a G004 e prima di G005: `128` risultati
+  funzionali PASS, `0` failure applicative, `0` full pull. G004 Android -> iOS
+  Product fallisce p50 non-burst `1008.715 ms` contro `1000 ms`; p95
+  `1253.091 ms`, max `1520.728 ms` e burst `4853.488 ms` restano entro soglia.
+  Cleanup `PASS`, residuo `0`, baseline non-fixture preservata, refresh
+  sessione `5/5`. La comparabilità TASK-123 tra runtime non è dimostrata e non
+  viene dichiarata parity fisica. Il security diff scan post-K125 copre
+  `6/6` file delta full-file, riconcilia `56/62` file byte-identici a K84,
+  riporta `0` finding reportabili e coverage `partial`; i sette High/P1
+  sono invariati/non regressi ma restano aperti/non chiusi. Report durevole:
+  `docs/TASKS/EVIDENCE/TASK-088/security-diff-scan-LOCALK125/report.md`.
+  Stato `REVIEW_WITH_ENVIRONMENTAL_PERFORMANCE_BLOCKER`, non `DONE`; nessun commit, push,
+  deploy production o nuovo Deep Security Scan.
 - Completion review TASK-086 2026-06-25: mobile UX QA reale eseguita con
   Android Emulator/Chrome via `adb reverse` + CDP e Playwright Pixel/iPhone.
   Fix mobile-only applicati a login tabs/language switcher, ShopShell nav e

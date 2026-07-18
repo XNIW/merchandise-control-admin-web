@@ -405,6 +405,18 @@ function checkReadOnlyContracts() {
         "shop_catalog_import_products",
       ]),
     ],
+    [
+      "src/server/shop-admin/product-images/service.ts",
+      new Set([
+        "product_image_fail_version",
+        "product_image_record_denied",
+        "product_image_create_intent",
+        "product_image_finalize",
+        "product_image_remove",
+        "product_image_record_cleanup",
+        "product_image_resolve_read_paths",
+      ]),
+    ],
   ]);
   const allowedDirectMutationPatternFiles = new Set([
     "src/server/shop-admin/import-export-workbook.ts",
@@ -416,6 +428,11 @@ function checkReadOnlyContracts() {
     "src/server/shop-admin/sync-event-writer.ts",
     "src/server/platform-admin/shop-actions.ts",
     "src/server/platform-admin/staff-manager-provisioning.ts",
+    // These modules use node:crypto's createHash().update(), which matches the
+    // deliberately broad mutation heuristic. Supabase writes remain confined
+    // to the explicitly allowlisted server-only RPCs above.
+    "src/server/shop-admin/product-images/cache-scope.ts",
+    "src/server/shop-admin/product-images/service.ts",
   ]);
 
   for (const file of serverFiles) {
@@ -5829,6 +5846,18 @@ function checkTask041RuntimeCompletion() {
   const catalogPullPath = "src/server/pos-auth/catalog-pull.ts";
   const posRouteSecurityPath = "src/app/api/pos/_shared/pos-route-security.ts";
   const databaseTypesPath = "src/lib/supabase/database.types.ts";
+  const salesSecurityMigrationPath =
+    "supabase/migrations/20260715130000_dsc_093_094_134_pos_sales_security.sql";
+  const salesSecurityPgTapPath =
+    "supabase/tests/dsc_093_094_134_pos_sales_security.sql";
+  const task137CatalogSecurityMigrationPath =
+    "supabase/migrations/20260717235400_task_137_release_catalog_security_hardening.sql";
+  const task137PosSecurityMigrationPath =
+    "supabase/migrations/20260717235500_task_137_release_pos_financial_hardening.sql";
+  const task137CatalogSecurityPgTapPath =
+    "supabase/tests/task_137_release_catalog_security.sql";
+  const task137SecurityFoundationPath =
+    "tests/foundation/task-137-release-security-hardening.test.mjs";
   const masterPlan = read("docs/MASTER-PLAN.md");
 
   for (const requiredPath of [
@@ -5840,6 +5869,12 @@ function checkTask041RuntimeCompletion() {
     catalogPullPath,
     posRouteSecurityPath,
     databaseTypesPath,
+    salesSecurityMigrationPath,
+    salesSecurityPgTapPath,
+    task137CatalogSecurityMigrationPath,
+    task137PosSecurityMigrationPath,
+    task137CatalogSecurityPgTapPath,
+    task137SecurityFoundationPath,
     "wrangler.jsonc",
     "open-next.config.ts",
     "src/proxy.ts",
@@ -5859,6 +5894,14 @@ function checkTask041RuntimeCompletion() {
   const catalogPull = read(catalogPullPath);
   const posRouteSecurity = read(posRouteSecurityPath);
   const databaseTypes = read(databaseTypesPath);
+  const salesSecurityMigration = read(salesSecurityMigrationPath);
+  const salesSecurityPgTap = read(salesSecurityPgTapPath);
+  const task137CatalogSecurityMigration = read(
+    task137CatalogSecurityMigrationPath,
+  );
+  const task137PosSecurityMigration = read(task137PosSecurityMigrationPath);
+  const task137CatalogSecurityPgTap = read(task137CatalogSecurityPgTapPath);
+  const task137SecurityFoundation = read(task137SecurityFoundationPath);
   const wranglerConfig = read("wrangler.jsonc");
   const openNextConfig = read("open-next.config.ts");
   const packageJson = JSON.parse(read("package.json"));
@@ -5953,40 +5996,198 @@ function checkTask041RuntimeCompletion() {
     "payload_hash",
     "hasDuplicateValues",
     "saleTotalsAreConsistent",
-    "cleanupPosSalesBatch",
     "quantity * unitPrice",
     "businessDateRaw.length > 0",
-    "pos_sales_sync_batches",
-    "pos_sales",
-    "pos_sale_lines",
     "metadata_redacted",
     "actor_staff_id",
     "duplicate",
     "conflict",
-    "cleanup_ok",
-    "validateSalesLineProductScope",
-    "product_scope_mismatch",
-    "invalid_product_id_count",
-    'source: "TASK-041"',
+    "suppliedStockDelta !== normalizedStockDelta",
+    "clientOriginalLineId",
+    "paymentDirectionsAreConsistent",
+    'supabase.rpc("pos_sales_sync_apply_v1"',
+    'reason: "atomic_sales_rpc_rejected"',
   ]) {
     if (!salesService.includes(requiredSnippet)) {
       addFailure(`${salesServicePath} must include ${requiredSnippet}`);
     }
   }
 
+  for (const requiredSnippet of [
+    "create or replace function public.pos_sales_sync_apply_v1",
+    "jsonb_array_length(p_sales) between 1 and 100",
+    "v_line_count > 1000",
+    "pg_advisory_xact_lock",
+    "insert into public.pos_sales_sync_batches",
+    "insert into public.pos_sales (",
+    "insert into public.pos_sale_lines (",
+    "insert into public.pos_revenue_ledger_entries (",
+    "product.retail_price",
+    "v_authoritative_gross",
+    "v_discount_cap_percent",
+    "staff.max_discount_percent",
+    "public.staff_role_permissions",
+    "pos.discount_over_limit",
+    "clientOriginalLineId",
+    "original_pos_sale_line_id",
+    "v_original_line_candidate_count <> 1",
+    "v_already_reversed_quantity",
+    "v_already_reversed_value_clp",
+    "v_pending_reversal_quantity",
+    "v_historical_unbound_quantity",
+    "historical_reversal_ambiguous",
+    "v_derived_reversal_discount_clp",
+    "v_derived_reversal_tax_clp",
+    "reversal_quantity_exceeds_residual",
+    "reversal_value_exceeds_residual",
+    "original_sale_value_exceeds_residual",
+    "for update of session_row, staff, device, credential, shop",
+    "from public.pos_apply_sale_stock_movement(",
+    "when sqlstate 'P8801'",
+    "when sqlstate 'P8803' or unique_violation",
+    "from authenticated",
+    "to service_role",
+  ]) {
+    if (!salesSecurityMigration.includes(requiredSnippet)) {
+      addFailure(`${salesSecurityMigrationPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "create or replace function public.pos_sales_sync_apply_v1",
+    "v_business_kind = 'sale'",
+    "v_business_kind in ('refund', 'void')",
+    "permission.permission_key = 'pos.pay'",
+    "on conflict (shop_id, role_key, permission_key) do nothing",
+    "from authenticated",
+    "to service_role",
+  ]) {
+    if (!task137PosSecurityMigration.includes(requiredSnippet)) {
+      addFailure(
+        `${task137PosSecurityMigrationPath} must include ${requiredSnippet}`,
+      );
+    }
+  }
+
   if (
-    !/\.from\("shop_inventory_sources"\)[\s\S]*\.eq\("shop_id", shopId\)[\s\S]*\.is\("disabled_at", null\)/.test(
-      salesService,
-    ) ||
-    !/\.from\("inventory_products"\)[\s\S]*\.in\("id", productChunk\)[\s\S]*\.is\("deleted_at", null\)/.test(
-      salesService,
-    ) ||
-    !/row\.shop_id === shopId[\s\S]*row\.shop_id === null[\s\S]*row\.owner_user_id === ownerUserId/.test(
+    (task137PosSecurityMigration.match(
+      /permission\.permission_key = 'pos\.pay'/g,
+    )?.length ?? 0) !== 2
+  ) {
+    addFailure(
+      `${task137PosSecurityMigrationPath} must enforce pos.pay before idempotency and inside the per-sale loop`,
+    );
+  }
+
+  for (const requiredSnippet of [
+    "is_active_shop_catalog_writer",
+    "profile.profile_status = 'active'",
+    "member.membership_status = 'active'",
+    "shop.shop_status = 'active'",
+    "is_shop_catalog_row_write_allowed",
+    "mobile atomic sync row scope is not authorized",
+    "price_idempotency_conflict",
+  ]) {
+    if (!task137CatalogSecurityMigration.includes(requiredSnippet)) {
+      addFailure(
+        `${task137CatalogSecurityMigrationPath} must include ${requiredSnippet}`,
+      );
+    }
+  }
+
+  const task137PriceGuard = task137CatalogSecurityMigration.slice(
+    task137CatalogSecurityMigration.indexOf(
+      "create or replace function app_private.guard_mobile_product_price_append_only",
+    ),
+  );
+
+  if (/mobile_sync_request_source\(\)/.test(task137PriceGuard)) {
+    addFailure(
+      `${task137CatalogSecurityMigrationPath} must enforce append-only price history independently of request headers`,
+    );
+  }
+
+  for (const requiredSnippet of [
+    "cashier discount denied",
+    "disabled role permission denied",
+    "discount within cap accepted",
+    "discount over cap denied",
+    "over-limit permission accepted",
+    "catalog price mismatch denied",
+    "duplicate lines same original denied",
+    "historical unbound reversal consumes residual",
+    "historical unbound ambiguity denied",
+    "cumulative second refund denied",
+    "legacy Win gross-only reversal payload rejected",
+    "corrected Win item-only proportional reversal accepted",
+    "corrected Win reversal persists one bound item and proportional headers",
+    "corrected Win reversal ledger matches proportional net",
+    "revoked device denied",
+    "revoked credential denied",
+    "session invalidation denied",
+    "failed batch rolls back every sink",
+    "idempotent retry is duplicate",
+    "structural source contract auth row locks precede advisory lock",
+  ]) {
+    if (!salesSecurityPgTap.includes(requiredSnippet)) {
+      addFailure(`${salesSecurityPgTapPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "sale with mixed-sign tenders is denied before sinks",
+    "refund cannot use positive tender and compensating change",
+    "disabled pos.pay permission denies a valid sale",
+    "missing pos.pay permission fails closed",
+    "revoked pos.pay denies replay before idempotency lookup",
+    "leave every sink unchanged",
+  ]) {
+    if (!salesSecurityPgTap.includes(requiredSnippet)) {
+      addFailure(`${salesSecurityPgTapPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "cross-shop supplier insert is denied",
+    "cross-shop category insert is denied",
+    "cross-shop history insert is denied",
+    "trigger independently rejects a cross-shop row",
+    "omitted headers cannot bypass append-only price history",
+    "suspended shop rejects direct product insert",
+    "catalog RPC remains fail-closed for an archived shop",
+  ]) {
+    if (!task137CatalogSecurityPgTap.includes(requiredSnippet)) {
+      addFailure(`${task137CatalogSecurityPgTapPath} must include ${requiredSnippet}`);
+    }
+  }
+
+  if (
+    !task137SecurityFoundation.includes(
+      "TASK-137 release ships dynamic regressions for all seven validated findings",
+    )
+  ) {
+    addFailure(
+      `${task137SecurityFoundationPath} must freeze the seven-finding regression matrix`,
+    );
+  }
+
+  if (
+    !/from public\.inventory_products product[\s\S]*product\.deleted_at is null[\s\S]*product\.shop_id = p_shop_id[\s\S]*product\.shop_id is null[\s\S]*public\.shop_inventory_sources source[\s\S]*source\.mapping_state = 'mapped'[\s\S]*source\.disabled_at is null[\s\S]*for update/.test(
+      salesSecurityMigration,
+    )
+  ) {
+    addFailure(
+      `${salesSecurityMigrationPath} must lock and validate POS sale product scope against the authoritative shop catalog`,
+    );
+  }
+
+  if (
+    /\.from\("pos_sales_sync_batches"\)\s*\.insert|\.from\("pos_sales"\)\s*\.insert|\.from\("pos_sale_lines"\)\s*\.insert|\.from\("pos_revenue_ledger_entries"\)\s*\.insert/.test(
       salesService,
     )
   ) {
     addFailure(
-      `${salesServicePath} must validate POS sales line product_id scope against the shop catalog before insert`,
+      `${salesServicePath} must not bypass the atomic POS Sales Sync RPC with direct financial writes`,
     );
   }
 
@@ -6050,6 +6251,8 @@ function checkTask041RuntimeCompletion() {
     "pos_sales_sync_batches",
     "pos_sales",
     "pos_sale_lines",
+    "original_pos_sale_line_id",
+    "pos_sales_sync_apply_v1",
   ]) {
     if (!databaseTypes.includes(requiredSnippet)) {
       addFailure(`${databaseTypesPath} must include ${requiredSnippet}`);

@@ -35,6 +35,9 @@ test("TASK-081 Admin Web sales sync stays strict, idempotent and ledger-backed",
   const migration = readProjectFile(
     "supabase/migrations/20260622213000_task_081_pos_revenue_stock_sync.sql",
   );
+  const atomicSalesMigration = readProjectFile(
+    "supabase/migrations/20260717235500_task_137_release_pos_financial_hardening.sql",
+  );
 
   for (const required of [
     "enumValueOrNull",
@@ -42,12 +45,14 @@ test("TASK-081 Admin Web sales sync stays strict, idempotent and ledger-backed",
     "return value === POS_SALES_SCHEMA_VERSION ? POS_SALES_SCHEMA_VERSION : null",
     ".map((payment, index) => parsePayment(payment, index, strict))",
     "businessKind === \"void\" ? \"voided\" : parseFiscalStatus(fiscal, strict)",
-    "duplicateSaleIdByClientId",
-    "duplicateStockRepair",
+    "paymentDirectionsAreConsistent",
+    "atomicSalesRpcResponse",
+    "atomicSalesFailureCode",
+    "pos_sales_sync_apply_v1",
     "code: \"success\"",
-    "reason: \"stock_movement_rpc_failed\"",
-    "reason: \"stock_sale_line_missing\"",
-    "stockApplication.stockMovementSaleCount",
+    "reason: \"atomic_sales_rpc_failed\"",
+    "reason: \"atomic_sales_rpc_rejected\"",
+    "atomicResult.batch.duplicateSaleCount",
   ]) {
     assertContains(salesSync, required);
   }
@@ -55,9 +60,20 @@ test("TASK-081 Admin Web sales sync stays strict, idempotent and ledger-backed",
   assert.doesNotMatch(salesSync, /code:\s*"duplicate"/);
   assert.doesNotMatch(salesSync, /posSaleId:\s*null/);
   assert.match(
-    salesSync,
-    /line\.lineType === "tax"[\s\S]*sale\.businessKind === "sale" \? Math\.abs\(amount\) : -Math\.abs\(amount\)/,
+    atomicSalesMigration,
+    /when v_line_type = 'tax' and v_business_kind <> 'sale' then -abs\(v_line_amount_clp\)[\s\S]*when v_business_kind = 'sale' then abs\(v_line_amount_clp\)[\s\S]*else -abs\(v_line_amount_clp\)/,
   );
+
+  for (const required of [
+    "v_existing_batch.payload_hash <> p_payload_hash",
+    "v_existing_sale.payload_hash <> v_sale ->> 'payloadHash'",
+    "'status', 'duplicate'",
+    "insert into public.pos_revenue_ledger_entries (",
+    "from public.pos_apply_sale_stock_movement(",
+    "exception",
+  ]) {
+    assertContains(atomicSalesMigration, required);
+  }
 
   assertContains(saleDetailRoute, '.from("pos_revenue_ledger_entries")');
   assertContains(saleDetailRoute, "lineTotalClp = numberValue(line.amount_clp)");

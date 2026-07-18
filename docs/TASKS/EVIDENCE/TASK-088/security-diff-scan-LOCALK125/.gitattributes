@@ -1,0 +1,2 @@
+# Historical scan artifacts are immutable receipts; preserve and treat them as binary diffs.
+artifacts/** -diff

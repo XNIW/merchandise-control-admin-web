@@ -1,0 +1,34 @@
+{
+  "documentType": "codex-security.hardening-analysis",
+  "schemaVersion": "1.0",
+  "analysisId": "hardening_final",
+  "sourceScan": {
+    "scanId": "18ce2671-83b2-41f3-ab0a-c9f0996063b5",
+    "targetRevision": "2f166b51e7d3ff68f8f01593cb68845788e7be9a",
+    "sourceDrift": "none"
+  },
+  "assessment": {
+    "outcome": "local_remediation_preferred",
+    "summary": "The single Medium/P2 cross-shop audit finding is localized to one privileged RPC, and existing actor/shop and product/shop helpers support a proportionate tactical fix."
+  },
+  "constraints": {
+    "profile": "balanced",
+    "changeHorizons": [
+      "incremental"
+    ],
+    "nonNegotiables": [
+      "Preserve tenant isolation at every service-role and SECURITY DEFINER write boundary.",
+      "Keep Win7POS read-only and outside this analysis.",
+      "Do not treat a proposed guard as remediation until it is implemented and revalidated."
+    ],
+    "assumptions": [
+      "No measured latency or memory budget was supplied.",
+      "The public product-image API shape should remain compatible.",
+      "Deployment-specific edge throttling was not measured."
+    ]
+  },
+  "opportunities": [],
+  "openQuestions": [
+    "Whether deployment-edge rate limiting already constrains repeated denied requests remains unverified; it does not replace the RPC authorization guard."
+  ]
+}

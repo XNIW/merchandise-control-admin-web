@@ -1,0 +1,132 @@
+{
+  "documentType": "codex-security.scan-manifest",
+  "scan": {
+    "artifacts": [
+      {
+        "mediaType": "application/json",
+        "path": "findings.json",
+        "sha256": "7bc1302681589dcaaeddd6c9c89a01daf17af9b010261fe00a33b0e0c201a90f"
+      },
+      {
+        "mediaType": "application/json",
+        "path": "coverage.json",
+        "sha256": "75b3aa10ab83a224bbc7864a8a574376af58704be4490f400dd48d6438d1b7c1"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/01_context/baseline_receipts.md",
+        "sha256": "354f6a55ae38933819685cdec03649d1437ae4df4b6ed479fe9c203e5b2cfd70"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/01_context/snapshot_inventory.tsv",
+        "sha256": "9888c97d1e8cb40f690d76810c3a861a697956baa2808bf2f7bb0f830689062b"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/01_context/threat_model.md",
+        "sha256": "d01522a0933ed5553f1aa5f7ee08866f2474a18eea2e39b87e9680076d2a0ac7"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/02_discovery/finding_discovery_report.md",
+        "sha256": "2c484dad33507a9a98051b31aa29072221fa8d5170a1db256934fa1342b6be85"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/02_discovery/work_ledger.jsonl",
+        "sha256": "7f8f5ff6a658e15c2b2c117167c2a952047f3b8fb52bebc8a885b0016a6ea3bd"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/03_coverage/repository_coverage_ledger.md",
+        "sha256": "a4b844d2124f7ee20fa6ed4c3cdfdc48d292a803f30de0c0962b542ebca203d6"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/03_coverage/reviewed_surfaces.md",
+        "sha256": "1a37e7831fdb261b3d1fd195725944e31d2caab9ede7743026ead57fb1ec1a8a"
+      }
+    ],
+    "completedAt": "2026-07-17T07:01:59Z",
+    "coverageRef": "coverage.json",
+    "findingsRef": "findings.json",
+    "id": "task088b-k125-20260717T064203Z",
+    "producer": {
+      "name": "codex-security-plugin",
+      "version": "0.1.11"
+    },
+    "scope": {
+      "artifactsReviewed": [
+        "current 62-row content-hash inventory and six-row delta manifest",
+        "sealed K84 candidate validation and attack-path receipts",
+        "K123/K124 targeted-run and K125 partial-matrix durable evidence",
+        "current Android/iOS acceptance tests and local final-sync harness/contract files"
+      ],
+      "context": "The repository-wide threat model was regenerated for this scan and bound to the current 62-file snapshot. The sealed K84 scan is baseline evidence only; no new Deep Security Scan was started. The seven inherited High/P1 findings remain open/unclosed.",
+      "excludePaths": [],
+      "includePaths": [
+        "android/app/src/androidTest/java/com/example/merchandisecontrolsplitview/Task103CrossPlatformAcceptanceTest.kt",
+        "ios/iOSMerchandiseControlTests/Task103CrossPlatformAcceptanceTests.swift",
+        "ios/tests/test_final_sync_contract.py",
+        "ios/tools/agent/lib/final_sync.sh",
+        "ios/tools/agent/lib/final_sync_contract.py",
+        "ios/tools/agent/lib/task088_supabase_rest.mjs"
+      ],
+      "limitations": [
+        "The K84 scan preserved file hashes and receipts rather than source copies, so a text-hunk K84-to-K125 patch cannot be reconstructed; the current versions of all six changed files were reviewed in full.",
+        "The complete 32 x 32 matrix was not achieved: K125 stopped after 128/1024 at the first aggregate failure boundary after G004.",
+        "Account/shop switch scenarios were not reached by K125 live execution, although focused platform tests cover those invariants.",
+        "The physical Win7 runtime checklist for DSC-075 remains external.",
+        "Several local harness telemetry fields are coarse or undercount retries; they must not be treated as more precise than the end-to-end monotonic measurements."
+      ],
+      "runtimeStatus": "Executed evidence preserved by TASK-088B: iOS apply tests 8/8 and selected regression 2/2 PASS, iOS Debug build PASS, Android equivalent tests 234/234 PASS, Android Debug build PASS, shared final-sync contract 60/60 PASS; K123 and K124 targeted groups 32/32 PASS; K125 stopped after 128/1024 on the G004 p50/comparator aggregate gates with zero functional sample failures, mandatory cleanup PASS, residue zero and baseline preserved.",
+      "summary": "Security diff review of the six Android/iOS acceptance-test and local final-sync harness files whose current hashes differ from the sealed K84 62-file TASK-088 snapshot. All six were full-file reviewed; no reportable candidate survived discovery.",
+      "validationMode": "Read-only full-file discovery over 6/6 delta rows plus byte-identity reconciliation of the seven inherited High/P1 root-control chains against sealed K84 receipts."
+    },
+    "sealedAt": "2026-07-17T07:01:59Z",
+    "startedAt": "2026-07-17T06:42:03Z",
+    "status": "completed",
+    "target": {
+      "displayName": "TASK-088B K84-to-K125 multi-repository harness delta",
+      "kind": "git_diff",
+      "snapshotDigest": "codex-security-snapshot/v1:sha256:0afa24035024319761e65904b8db99f0b53acbbf94ebbb60cc7b8f2a85ec855b",
+      "targetId": "target_sha256_e397bf80dd7dc00072a915a325ef14b3d4f9b62642baa0ca2a73495f459cc360"
+    },
+    "threatModel": {
+      "assets": [
+        "shop and tenant isolation",
+        "membership and staff authorization",
+        "product, price, stock, sale, refund, void and ledger integrity",
+        "POS device/session credentials",
+        "auditability and idempotency",
+        "bounded offline authority"
+      ],
+      "assumptions": [
+        "Supabase, platform signing identities, developer/CI identities and operating-system administrator access are not compromised.",
+        "Physical Win7 hardware and unstable real networks are external runtime validation surfaces rather than assumed controls."
+      ],
+      "attackerCapabilities": [
+        "valid low-privilege viewer, suspended owner, cashier, refund-capable operator, or formerly valid offline operator",
+        "control of client JSON, identifiers, quantities, values, timing and direct Data API requests",
+        "physical access to a POS endpoint without operating-system administrator compromise"
+      ],
+      "securityObjectives": [
+        "fail closed on demotion, suspension, cross-shop identifiers and legacy compatibility paths",
+        "derive authority and financial economics from locked server state",
+        "bind reversals to exact original sale lines and cumulative residuals",
+        "expire offline authority from authenticated server time and prevent in-process rollback",
+        "keep service-role material server-side and evidence redacted",
+        "restrict QA mutation to non-production synthetic fixtures with mandatory cleanup"
+      ],
+      "summary": "MerchandiseControl is a shop-scoped multi-platform retail system in which Supabase RLS and transactional RPCs protect tenant/catalog/financial integrity, Admin Web protects server-only POS credentials and APIs, mobile clients synchronize authenticated shop state, and Win7POS crosses a bounded offline authorization boundary.",
+      "trustBoundaries": [
+        "authenticated browser/mobile direct Supabase DML to RLS",
+        "POS request input to Admin Web and service-role-only transactional RPC",
+        "central POS session state to Win7POS offline trusted state",
+        "privileged QA harness target/session/prefix to synthetic staging mutation and cleanup"
+      ]
+    }
+  },
+  "schemaVersion": "1.0"
+}

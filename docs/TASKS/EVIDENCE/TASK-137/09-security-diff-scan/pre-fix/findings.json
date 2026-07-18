@@ -1,0 +1,830 @@
+{
+  "documentType": "codex-security.findings",
+  "findings": [
+    {
+      "attackPath": {
+        "dataflow": {
+          "evidenceRefs": [
+            "intent-denied-input",
+            "service-role-forward",
+            "rpc-missing-tenant-guard",
+            "victim-audit-insert"
+          ],
+          "outcome": "persistent victim-shop intent-denied event and product metadata",
+          "sink": "shop-scoped `audit_logs` insert",
+          "source": "authenticated request body identifiers",
+          "summary": "request `shopId` and `productId` -> intent denial branch -> `recordProductImageDenied()` -> service-role `product_image_record_denied` -> `write_product_image_audit` -> victim `audit_logs` row"
+        },
+        "evidenceRefs": [
+          "intent-denied-input",
+          "rpc-missing-tenant-guard",
+          "victim-audit-insert"
+        ],
+        "impact": {
+          "level": "medium",
+          "why": "The write crosses a tenant boundary in a security audit stream but does not expose or mutate image/catalog state."
+        },
+        "likelihood": {
+          "level": "high",
+          "why": "The path is remote, needs only an ordinary account plus a valid shop UUID, and no route-level rate limit was found."
+        },
+        "limitations": [
+          "The injected event is marked blocked and retains the real actor profile.",
+          "No image bytes, signed URLs, credentials, or existing audit rows are read or changed."
+        ],
+        "reachability": {
+          "attacker": "ordinary active authenticated personal account",
+          "entrypoint": "POST `/api/shop/product-images/intent`",
+          "outcome": "repeatable unauthorized write into the victim shop's audit namespace",
+          "preconditions": [
+            "valid victim shop UUID",
+            "product UUID supplied in the request"
+          ],
+          "summary": "The attacker needs an active personal account and a valid victim shop UUID; victim-shop membership is not required. The route is a normal POST endpoint and the sink is reached specifically after the business action is denied."
+        },
+        "summary": "An ordinary active account submits a known victim shop and product UUID to the intent endpoint. Authorization denies the upload intent, but the denial handler invokes a service-role RPC that writes the selected tenant audit event."
+      },
+      "codeEvidence": [
+        {
+          "code": "const auth = await resolveProductImageRequestActor(\n  request,\n  input.shopId,\n  \"products.write\",\n);\nif (auth.status !== \"authorized\") {\n  await recordProductImageDenied({\n    actorKind: auth.actorKind,\n    actorProfileId: auth.actorProfileId,\n    code: auth.code,\n    operation: \"intent\",\n    productId: input.productId,\n    shopId: input.shopId,\n  });",
+          "endLine": 39,
+          "explanation": "The membership decision correctly blocks the intent, but the denial side effect carries request-derived `shopId` and `productId` into `recordProductImageDenied()`.",
+          "id": "intent-denied-input",
+          "label": "Intent denial forwards caller-selected shop and product",
+          "language": "typescript",
+          "path": "src/app/api/shop/product-images/intent/route.ts",
+          "role": "entrypoint",
+          "startLine": 26
+        },
+        {
+          "code": "const admin = resolveAdminClient();\nif (!admin) {\n  return;\n}\n\nawait admin.rpc(\"product_image_record_denied\", {\n  p_actor_kind: input.actorKind ?? \"personal_account\",\n  p_actor_profile_id: input.actorProfileId,\n  p_code: input.code,\n  p_operation: input.operation,\n  p_product_id: input.productId,\n  p_shop_id: input.shopId,\n});",
+          "endLine": 140,
+          "explanation": "The helper preserves both attacker-selected resource identifiers while changing authority to the server-only service-role client.",
+          "id": "service-role-forward",
+          "label": "Shared helper crosses into service-role authority",
+          "language": "typescript",
+          "path": "src/server/shop-admin/product-images/service.ts",
+          "role": "propagation",
+          "startLine": 128
+        },
+        {
+          "code": "begin\n  if not exists (select 1 from public.shops where shop_id = p_shop_id) then\n    return jsonb_build_object('ok', false, 'code', 'not_found');\n  end if;\n  if v_operation not in ('intent', 'finalize', 'read', 'remove', 'request') then\n    v_operation := 'request';\n  end if;\n  if v_code !~ '^[a-z0-9_]{1,64}$' then\n    v_code := 'permission_denied';\n  end if;\n\n  v_audit_id := app_private.write_product_image_audit(\n    p_actor_profile_id,\n    p_shop_id,\n    'shop.product_image.' || v_operation || '_denied',\n    'warning',\n    'blocked',\n    p_product_id,\n    null,\n    v_code,\n    case when p_actor_kind in ('personal_account', 'platform_admin')\n      then p_actor_kind else 'personal_account' end\n  );\n\n  return jsonb_build_object('ok', true, 'code', 'denied_recorded', 'audit_event_id', v_audit_id);",
+          "endLine": 1279,
+          "explanation": "The privileged RPC validates only that `p_shop_id` names an existing shop before passing the actor, shop, and product to the audit writer; it never proves the actor or product belongs to that shop.",
+          "id": "rpc-missing-tenant-guard",
+          "label": "Denied-audit RPC checks shop existence but not actor binding",
+          "language": "sql",
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "root_control",
+          "startLine": 1255
+        },
+        {
+          "code": "insert into public.audit_logs (\n  actor_profile_id,\n  scope,\n  shop_id,\n  event_key,\n  severity,\n  result,\n  target_type,\n  target_id,\n  metadata_redacted\n)\nvalues (\n  p_actor_profile_id,\n  'shop',\n  p_shop_id,\n  p_event_key,\n  case when p_severity in ('info', 'warning', 'critical') then p_severity else 'warning' end,\n  case when p_result in ('success', 'blocked', 'simulated') then p_result else 'blocked' end,\n  'inventory_product_image',\n  coalesce(p_version_id::text, p_product_id::text),\n  jsonb_strip_nulls(\n    jsonb_build_object(\n      'actor_kind', p_actor_kind,\n      'code', p_code,\n      'product_id', p_product_id,\n      'source', 'product_image_api',",
+          "endLine": 375,
+          "explanation": "The sink turns the unbound `p_shop_id` into the row's tenant scope and records `p_product_id` as both target and redacted metadata.",
+          "id": "victim-audit-insert",
+          "label": "Audit sink persists the supplied shop and product",
+          "language": "sql",
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "sink",
+          "startLine": 350
+        },
+        {
+          "code": "and (\n  (\n    p_actor_kind = 'personal_account'\n    and exists (\n      select 1\n      from public.shop_members member\n      where member.profile_id = p_actor_profile_id\n        and member.shop_id = p_shop_id\n        and member.membership_status = 'active'\n        and member.role_key in ('shop_owner', 'shop_manager', 'viewer')\n    )\n  )\n  or (\n    p_actor_kind = 'platform_admin'\n    and exists (\n      select 1\n      from public.platform_admins platform_admin\n      where platform_admin.profile_id = p_actor_profile_id\n        and platform_admin.status = 'active'\n        and platform_admin.revoked_at is null\n    )\n  )\n)",
+          "endLine": 280,
+          "explanation": "`product_image_actor_can_read` already defines the actor/shop relationship suitable for same-shop denial auditing, including viewers and active platform administrators.",
+          "id": "expected-actor-shop-control",
+          "label": "Existing helper expresses the missing actor-to-shop invariant",
+          "language": "sql",
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "expected_control",
+          "startLine": 258
+        }
+      ],
+      "confidence": {
+        "level": "high",
+        "rationale": "The committed route-to-service-role-to-RPC trace is direct, and a rolled-back local pgTAP PoC passed 9/9 assertions, including the intent variant and victim-shop audit row."
+      },
+      "extensions": {
+        "candidateId": "ADM-S1-001",
+        "ledgerRowId": "ADM-S1-001-intent",
+        "reportId": "intent"
+      },
+      "findingId": "csf_1b16f28aec59f96fdf69b9e6",
+      "fingerprints": {
+        "algorithm": "codex-security/v1",
+        "primary": "codex-security/v1:sha256:fd6129b8d66e194e4395b58937495254d1eb93b87442f56c77be321100a5edc8"
+      },
+      "identity": {
+        "anchor": "product-image-denied-audit-missing-tenant-binding",
+        "instance": "intent"
+      },
+      "locations": [
+        {
+          "endLine": 1266,
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "root_control",
+          "startLine": 1256
+        },
+        {
+          "endLine": 39,
+          "path": "src/app/api/shop/product-images/intent/route.ts",
+          "role": "entrypoint",
+          "startLine": 26
+        },
+        {
+          "endLine": 140,
+          "path": "src/server/shop-admin/product-images/service.ts",
+          "role": "wrapper",
+          "startLine": 128
+        },
+        {
+          "endLine": 375,
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "sink",
+          "startLine": 350
+        }
+      ],
+      "occurrenceId": "occ_f9cb5fa1051b71f61fd15f62",
+      "preventiveControls": [
+        "Enforce tenant authorization inside every service-role or SECURITY DEFINER write RPC.",
+        "Bind both actor/shop and resource/shop identities before persistent side effects.",
+        "Add route-level throttling and multi-shop denial monitoring only as defense in depth."
+      ],
+      "provenance": {
+        "source": "codex-security-diff-scan"
+      },
+      "remediation": "Inside `product_image_record_denied`, reject any actor that fails `app_private.product_image_actor_can_read(p_actor_profile_id, p_shop_id, p_actor_kind)` and any product that fails `app_private.product_image_product_is_in_shop(p_product_id, p_shop_id)` before calling `write_product_image_audit`.",
+      "remediationTests": [
+        "A Shop A member receives `permission_denied` and creates zero Shop B audit rows through the intent variant.",
+        "A Shop B viewer can still create a same-shop write-denied audit event.",
+        "A same-shop actor cannot attach a product that belongs to another shop.",
+        "Direct `anon` and `authenticated` execute privileges remain revoked."
+      ],
+      "rootCause": {
+        "evidenceRefs": [
+          "intent-denied-input",
+          "service-role-forward",
+          "rpc-missing-tenant-guard",
+          "victim-audit-insert",
+          "expected-actor-shop-control"
+        ],
+        "summary": "The invariant is that a shop-scoped audit write must be authorized for the final shop and resource identity at the privileged boundary. The intent route correctly denies the business action but forwards request-derived `shopId` and `productId` to a service-role helper. `product_image_record_denied` verifies only that the shop exists, then writes those identifiers into `audit_logs` without reapplying the actor/shop or product/shop controls already available in the migration."
+      },
+      "ruleId": "improper-authorization.denied-audit",
+      "severity": {
+        "changeConditions": "Raise severity if the injected events trigger privileged automation, suppress real alerts, or enable broader tenant-state mutation. Lower severity if deployment evidence proves the route cannot reach the RPC or an independent tenant-binding control prevents the write.",
+        "level": "medium",
+        "rationale": "The path is remotely reachable by an ordinary active account and produces a persistent cross-tenant audit write without victim-shop membership. Impact is limited to audit integrity and operational noise: the intent remains denied, the real actor is retained, and no image, signed URL, catalog data, credential, or product state is exposed or changed."
+      },
+      "summary": "An active authenticated account can submit another shop's identifiers to the product-image intent route. The upload intent is denied, but the denial branch forwards those identifiers through a service-role client to a SECURITY DEFINER RPC that writes a victim-scoped audit event without actor/shop or product/shop binding.",
+      "taxonomy": {
+        "category": "Improper authorization / cross-tenant confused deputy",
+        "cwe": [
+          "CWE-862"
+        ]
+      },
+      "title": "Denied product-image intent can inject a victim-shop audit event",
+      "validation": {
+        "assertions": [
+          "The attacker profile is active only in Shop A and cannot read or write product images in Shop B.",
+          "The intent denial RPC accepts Shop B and its product under service-role authority.",
+          "The persisted audit row is scoped to Shop B and records the Shop B product identifier.",
+          "The full pgTAP file completed 9/9 and rolled back."
+        ],
+        "evidenceRefs": [
+          "intent-denied-input",
+          "service-role-forward",
+          "rpc-missing-tenant-guard",
+          "victim-audit-insert"
+        ],
+        "limitations": [
+          "The PoC exercised the committed database RPC rather than a deployed Supabase Auth HTTP session.",
+          "Deployment-edge rate limiting and alerting were not measured."
+        ],
+        "method": "targeted local pgTAP integration PoC plus exact static route-to-RPC trace",
+        "summary": "A rolled-back two-shop fixture proved the attacker had neither read nor write permission in the victim shop. The intent call still returned `denied_recorded`, and the combined four-operation fixture produced four victim-shop audit rows and zero attacker-shop rows."
+      },
+      "writeup": {
+        "reportPath": "findings/cross-shop-denied-audit-injection/cross-shop-denied-audit-injection.md"
+      }
+    },
+    {
+      "attackPath": {
+        "dataflow": {
+          "evidenceRefs": [
+            "finalize-denied-input",
+            "service-role-forward",
+            "rpc-missing-tenant-guard",
+            "victim-audit-insert"
+          ],
+          "outcome": "persistent victim-shop finalize-denied event and product metadata",
+          "sink": "shop-scoped `audit_logs` insert",
+          "source": "authenticated request body identifiers",
+          "summary": "request `shopId` and `productId` -> finalize denial branch -> `recordProductImageDenied()` -> service-role `product_image_record_denied` -> `write_product_image_audit` -> victim `audit_logs` row"
+        },
+        "evidenceRefs": [
+          "finalize-denied-input",
+          "rpc-missing-tenant-guard",
+          "victim-audit-insert"
+        ],
+        "impact": {
+          "level": "medium",
+          "why": "The write crosses a tenant boundary in a security audit stream but does not expose or mutate image/catalog state."
+        },
+        "likelihood": {
+          "level": "high",
+          "why": "The path is remote, needs only an ordinary account plus a valid shop UUID, and no route-level rate limit was found."
+        },
+        "limitations": [
+          "The injected event is marked blocked and retains the real actor profile.",
+          "No image bytes, signed URLs, credentials, or existing audit rows are read or changed."
+        ],
+        "reachability": {
+          "attacker": "ordinary active authenticated personal account",
+          "entrypoint": "POST `/api/shop/product-images/finalize`",
+          "outcome": "repeatable unauthorized write into the victim shop's audit namespace",
+          "preconditions": [
+            "valid victim shop UUID",
+            "product UUID supplied in the request"
+          ],
+          "summary": "The attacker needs an active personal account and a valid victim shop UUID; victim-shop membership is not required. The route is a normal POST endpoint and the sink is reached specifically after the business action is denied."
+        },
+        "summary": "An ordinary active account submits a known victim shop and product UUID to the finalize endpoint. Authorization denies finalization, but the denial handler invokes a service-role RPC that writes the selected tenant audit event."
+      },
+      "codeEvidence": [
+        {
+          "code": "const auth = await resolveProductImageRequestActor(\n  request,\n  input.shopId,\n  \"products.write\",\n);\nif (auth.status !== \"authorized\") {\n  await recordProductImageDenied({\n    actorKind: auth.actorKind,\n    actorProfileId: auth.actorProfileId,\n    code: auth.code,\n    operation: \"finalize\",\n    productId: input.productId,\n    shopId: input.shopId,\n  });",
+          "endLine": 39,
+          "explanation": "The membership decision correctly blocks finalization, but the denial side effect carries request-derived `shopId` and `productId` into `recordProductImageDenied()`.",
+          "id": "finalize-denied-input",
+          "label": "Finalize denial forwards caller-selected shop and product",
+          "language": "typescript",
+          "path": "src/app/api/shop/product-images/finalize/route.ts",
+          "role": "entrypoint",
+          "startLine": 26
+        },
+        {
+          "code": "const admin = resolveAdminClient();\nif (!admin) {\n  return;\n}\n\nawait admin.rpc(\"product_image_record_denied\", {\n  p_actor_kind: input.actorKind ?? \"personal_account\",\n  p_actor_profile_id: input.actorProfileId,\n  p_code: input.code,\n  p_operation: input.operation,\n  p_product_id: input.productId,\n  p_shop_id: input.shopId,\n});",
+          "endLine": 140,
+          "explanation": "The helper preserves both attacker-selected resource identifiers while changing authority to the server-only service-role client.",
+          "id": "service-role-forward",
+          "label": "Shared helper crosses into service-role authority",
+          "language": "typescript",
+          "path": "src/server/shop-admin/product-images/service.ts",
+          "role": "propagation",
+          "startLine": 128
+        },
+        {
+          "code": "begin\n  if not exists (select 1 from public.shops where shop_id = p_shop_id) then\n    return jsonb_build_object('ok', false, 'code', 'not_found');\n  end if;\n  if v_operation not in ('intent', 'finalize', 'read', 'remove', 'request') then\n    v_operation := 'request';\n  end if;\n  if v_code !~ '^[a-z0-9_]{1,64}$' then\n    v_code := 'permission_denied';\n  end if;\n\n  v_audit_id := app_private.write_product_image_audit(\n    p_actor_profile_id,\n    p_shop_id,\n    'shop.product_image.' || v_operation || '_denied',\n    'warning',\n    'blocked',\n    p_product_id,\n    null,\n    v_code,\n    case when p_actor_kind in ('personal_account', 'platform_admin')\n      then p_actor_kind else 'personal_account' end\n  );\n\n  return jsonb_build_object('ok', true, 'code', 'denied_recorded', 'audit_event_id', v_audit_id);",
+          "endLine": 1279,
+          "explanation": "The privileged RPC validates only that `p_shop_id` names an existing shop before passing the actor, shop, and product to the audit writer; it never proves the actor or product belongs to that shop.",
+          "id": "rpc-missing-tenant-guard",
+          "label": "Denied-audit RPC checks shop existence but not actor binding",
+          "language": "sql",
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "root_control",
+          "startLine": 1255
+        },
+        {
+          "code": "insert into public.audit_logs (\n  actor_profile_id,\n  scope,\n  shop_id,\n  event_key,\n  severity,\n  result,\n  target_type,\n  target_id,\n  metadata_redacted\n)\nvalues (\n  p_actor_profile_id,\n  'shop',\n  p_shop_id,\n  p_event_key,\n  case when p_severity in ('info', 'warning', 'critical') then p_severity else 'warning' end,\n  case when p_result in ('success', 'blocked', 'simulated') then p_result else 'blocked' end,\n  'inventory_product_image',\n  coalesce(p_version_id::text, p_product_id::text),\n  jsonb_strip_nulls(\n    jsonb_build_object(\n      'actor_kind', p_actor_kind,\n      'code', p_code,\n      'product_id', p_product_id,\n      'source', 'product_image_api',",
+          "endLine": 375,
+          "explanation": "The sink turns the unbound `p_shop_id` into the row's tenant scope and records `p_product_id` as both target and redacted metadata.",
+          "id": "victim-audit-insert",
+          "label": "Audit sink persists the supplied shop and product",
+          "language": "sql",
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "sink",
+          "startLine": 350
+        },
+        {
+          "code": "and (\n  (\n    p_actor_kind = 'personal_account'\n    and exists (\n      select 1\n      from public.shop_members member\n      where member.profile_id = p_actor_profile_id\n        and member.shop_id = p_shop_id\n        and member.membership_status = 'active'\n        and member.role_key in ('shop_owner', 'shop_manager', 'viewer')\n    )\n  )\n  or (\n    p_actor_kind = 'platform_admin'\n    and exists (\n      select 1\n      from public.platform_admins platform_admin\n      where platform_admin.profile_id = p_actor_profile_id\n        and platform_admin.status = 'active'\n        and platform_admin.revoked_at is null\n    )\n  )\n)",
+          "endLine": 280,
+          "explanation": "`product_image_actor_can_read` already defines the actor/shop relationship suitable for same-shop denial auditing, including viewers and active platform administrators.",
+          "id": "expected-actor-shop-control",
+          "label": "Existing helper expresses the missing actor-to-shop invariant",
+          "language": "sql",
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "expected_control",
+          "startLine": 258
+        }
+      ],
+      "confidence": {
+        "level": "high",
+        "rationale": "The committed route-to-service-role-to-RPC trace is direct, and a rolled-back local pgTAP PoC passed 9/9 assertions, including the finalize variant and victim-shop audit row."
+      },
+      "extensions": {
+        "candidateId": "ADM-S1-001",
+        "ledgerRowId": "ADM-S1-001-finalize",
+        "reportId": "finalize"
+      },
+      "findingId": "csf_8ccc66b18b5c5c29473e05c9",
+      "fingerprints": {
+        "algorithm": "codex-security/v1",
+        "primary": "codex-security/v1:sha256:1c99f3a681386a46276fab2987d14d449ad7105eb040a4c2041185f83abaa204"
+      },
+      "identity": {
+        "anchor": "product-image-denied-audit-missing-tenant-binding",
+        "instance": "finalize"
+      },
+      "locations": [
+        {
+          "endLine": 1266,
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "root_control",
+          "startLine": 1256
+        },
+        {
+          "endLine": 39,
+          "path": "src/app/api/shop/product-images/finalize/route.ts",
+          "role": "entrypoint",
+          "startLine": 26
+        },
+        {
+          "endLine": 140,
+          "path": "src/server/shop-admin/product-images/service.ts",
+          "role": "wrapper",
+          "startLine": 128
+        },
+        {
+          "endLine": 375,
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "sink",
+          "startLine": 350
+        }
+      ],
+      "occurrenceId": "occ_07bc34f57aca6933b18afe8d",
+      "preventiveControls": [
+        "Enforce tenant authorization inside every service-role or SECURITY DEFINER write RPC.",
+        "Bind both actor/shop and resource/shop identities before persistent side effects.",
+        "Add route-level throttling and multi-shop denial monitoring only as defense in depth."
+      ],
+      "provenance": {
+        "source": "codex-security-diff-scan"
+      },
+      "remediation": "Inside `product_image_record_denied`, reject any actor that fails `app_private.product_image_actor_can_read(p_actor_profile_id, p_shop_id, p_actor_kind)` and any product that fails `app_private.product_image_product_is_in_shop(p_product_id, p_shop_id)` before calling `write_product_image_audit`.",
+      "remediationTests": [
+        "A Shop A member receives `permission_denied` and creates zero Shop B audit rows through the finalize variant.",
+        "A Shop B viewer can still create a same-shop write-denied audit event.",
+        "A same-shop actor cannot attach a product that belongs to another shop.",
+        "Direct `anon` and `authenticated` execute privileges remain revoked."
+      ],
+      "rootCause": {
+        "evidenceRefs": [
+          "finalize-denied-input",
+          "service-role-forward",
+          "rpc-missing-tenant-guard",
+          "victim-audit-insert",
+          "expected-actor-shop-control"
+        ],
+        "summary": "The invariant is that a shop-scoped audit write must be authorized for the final shop and resource identity at the privileged boundary. The finalize route correctly denies the business action but forwards request-derived `shopId` and `productId` to a service-role helper. `product_image_record_denied` verifies only that the shop exists, then writes those identifiers into `audit_logs` without reapplying the actor/shop or product/shop controls already available in the migration."
+      },
+      "ruleId": "improper-authorization.denied-audit",
+      "severity": {
+        "changeConditions": "Raise severity if the injected events trigger privileged automation, suppress real alerts, or enable broader tenant-state mutation. Lower severity if deployment evidence proves the route cannot reach the RPC or an independent tenant-binding control prevents the write.",
+        "level": "medium",
+        "rationale": "The path is remotely reachable by an ordinary active account and produces a persistent cross-tenant audit write without victim-shop membership. Impact is limited to audit integrity and operational noise: finalization remains denied, the real actor is retained, and no image, signed URL, catalog data, credential, or product state is exposed or changed."
+      },
+      "summary": "An active authenticated account can submit another shop's identifiers to the product-image finalize route. Finalization is denied, but the denial branch forwards those identifiers through a service-role client to a SECURITY DEFINER RPC that writes a victim-scoped audit event without actor/shop or product/shop binding.",
+      "taxonomy": {
+        "category": "Improper authorization / cross-tenant confused deputy",
+        "cwe": [
+          "CWE-862"
+        ]
+      },
+      "title": "Denied product-image finalize can inject a victim-shop audit event",
+      "validation": {
+        "assertions": [
+          "The attacker profile is active only in Shop A and cannot read or write product images in Shop B.",
+          "The finalize denial RPC accepts Shop B and its product under service-role authority.",
+          "The persisted audit row is scoped to Shop B and records the Shop B product identifier.",
+          "The full pgTAP file completed 9/9 and rolled back."
+        ],
+        "evidenceRefs": [
+          "finalize-denied-input",
+          "service-role-forward",
+          "rpc-missing-tenant-guard",
+          "victim-audit-insert"
+        ],
+        "limitations": [
+          "The PoC exercised the committed database RPC rather than a deployed Supabase Auth HTTP session.",
+          "Deployment-edge rate limiting and alerting were not measured."
+        ],
+        "method": "targeted local pgTAP integration PoC plus exact static route-to-RPC trace",
+        "summary": "A rolled-back two-shop fixture proved the attacker had neither read nor write permission in the victim shop. The finalize call still returned `denied_recorded`, and the combined four-operation fixture produced four victim-shop audit rows and zero attacker-shop rows."
+      }
+    },
+    {
+      "attackPath": {
+        "dataflow": {
+          "evidenceRefs": [
+            "read-denied-input",
+            "service-role-forward",
+            "rpc-missing-tenant-guard",
+            "victim-audit-insert"
+          ],
+          "outcome": "persistent victim-shop read-denied event and product metadata",
+          "sink": "shop-scoped `audit_logs` insert",
+          "source": "authenticated request body identifiers",
+          "summary": "request `shopId` and first `productId` -> read denial branch -> `recordProductImageDenied()` -> service-role `product_image_record_denied` -> `write_product_image_audit` -> victim `audit_logs` row"
+        },
+        "evidenceRefs": [
+          "read-denied-input",
+          "rpc-missing-tenant-guard",
+          "victim-audit-insert"
+        ],
+        "impact": {
+          "level": "medium",
+          "why": "The write crosses a tenant boundary in a security audit stream but does not expose signed URLs or image/catalog state."
+        },
+        "likelihood": {
+          "level": "high",
+          "why": "The path is remote, needs only an ordinary account plus a valid shop UUID, and no route-level rate limit was found."
+        },
+        "limitations": [
+          "The injected event is marked blocked and retains the real actor profile.",
+          "No image bytes, signed URLs, credentials, or existing audit rows are read or changed."
+        ],
+        "reachability": {
+          "attacker": "ordinary active authenticated personal account",
+          "entrypoint": "POST `/api/shop/product-images/read-urls`",
+          "outcome": "repeatable unauthorized write into the victim shop's audit namespace",
+          "preconditions": [
+            "valid victim shop UUID",
+            "at least one product UUID supplied in `refs`"
+          ],
+          "summary": "The attacker needs an active personal account and a valid victim shop UUID; victim-shop membership is not required. The route is a normal POST endpoint and the sink is reached specifically after the business action is denied."
+        },
+        "summary": "An ordinary active account submits a known victim shop and product UUID to the read-URL endpoint. Authorization denies the signed read URL, but the denial handler invokes a service-role RPC that writes the selected tenant audit event."
+      },
+      "codeEvidence": [
+        {
+          "code": "const auth = await resolveProductImageRequestActor(\n  request,\n  input.shopId,\n  \"products.read\",\n);\nif (auth.status !== \"authorized\") {\n  await recordProductImageDenied({\n    actorKind: auth.actorKind,\n    actorProfileId: auth.actorProfileId,\n    code: auth.code,\n    operation: \"read\",\n    productId: input.refs[0]?.productId,\n    shopId: input.shopId,\n  });",
+          "endLine": 37,
+          "explanation": "The membership decision correctly blocks signed read URL issuance, but the denial side effect carries request-derived `shopId` and the first `productId` into `recordProductImageDenied()`.",
+          "id": "read-denied-input",
+          "label": "Read denial forwards caller-selected shop and first product",
+          "language": "typescript",
+          "path": "src/app/api/shop/product-images/read-urls/route.ts",
+          "role": "entrypoint",
+          "startLine": 24
+        },
+        {
+          "code": "const admin = resolveAdminClient();\nif (!admin) {\n  return;\n}\n\nawait admin.rpc(\"product_image_record_denied\", {\n  p_actor_kind: input.actorKind ?? \"personal_account\",\n  p_actor_profile_id: input.actorProfileId,\n  p_code: input.code,\n  p_operation: input.operation,\n  p_product_id: input.productId,\n  p_shop_id: input.shopId,\n});",
+          "endLine": 140,
+          "explanation": "The helper preserves both attacker-selected resource identifiers while changing authority to the server-only service-role client.",
+          "id": "service-role-forward",
+          "label": "Shared helper crosses into service-role authority",
+          "language": "typescript",
+          "path": "src/server/shop-admin/product-images/service.ts",
+          "role": "propagation",
+          "startLine": 128
+        },
+        {
+          "code": "begin\n  if not exists (select 1 from public.shops where shop_id = p_shop_id) then\n    return jsonb_build_object('ok', false, 'code', 'not_found');\n  end if;\n  if v_operation not in ('intent', 'finalize', 'read', 'remove', 'request') then\n    v_operation := 'request';\n  end if;\n  if v_code !~ '^[a-z0-9_]{1,64}$' then\n    v_code := 'permission_denied';\n  end if;\n\n  v_audit_id := app_private.write_product_image_audit(\n    p_actor_profile_id,\n    p_shop_id,\n    'shop.product_image.' || v_operation || '_denied',\n    'warning',\n    'blocked',\n    p_product_id,\n    null,\n    v_code,\n    case when p_actor_kind in ('personal_account', 'platform_admin')\n      then p_actor_kind else 'personal_account' end\n  );\n\n  return jsonb_build_object('ok', true, 'code', 'denied_recorded', 'audit_event_id', v_audit_id);",
+          "endLine": 1279,
+          "explanation": "The privileged RPC validates only that `p_shop_id` names an existing shop before passing the actor, shop, and product to the audit writer; it never proves the actor or product belongs to that shop.",
+          "id": "rpc-missing-tenant-guard",
+          "label": "Denied-audit RPC checks shop existence but not actor binding",
+          "language": "sql",
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "root_control",
+          "startLine": 1255
+        },
+        {
+          "code": "insert into public.audit_logs (\n  actor_profile_id,\n  scope,\n  shop_id,\n  event_key,\n  severity,\n  result,\n  target_type,\n  target_id,\n  metadata_redacted\n)\nvalues (\n  p_actor_profile_id,\n  'shop',\n  p_shop_id,\n  p_event_key,\n  case when p_severity in ('info', 'warning', 'critical') then p_severity else 'warning' end,\n  case when p_result in ('success', 'blocked', 'simulated') then p_result else 'blocked' end,\n  'inventory_product_image',\n  coalesce(p_version_id::text, p_product_id::text),\n  jsonb_strip_nulls(\n    jsonb_build_object(\n      'actor_kind', p_actor_kind,\n      'code', p_code,\n      'product_id', p_product_id,\n      'source', 'product_image_api',",
+          "endLine": 375,
+          "explanation": "The sink turns the unbound `p_shop_id` into the row's tenant scope and records `p_product_id` as both target and redacted metadata.",
+          "id": "victim-audit-insert",
+          "label": "Audit sink persists the supplied shop and product",
+          "language": "sql",
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "sink",
+          "startLine": 350
+        },
+        {
+          "code": "and (\n  (\n    p_actor_kind = 'personal_account'\n    and exists (\n      select 1\n      from public.shop_members member\n      where member.profile_id = p_actor_profile_id\n        and member.shop_id = p_shop_id\n        and member.membership_status = 'active'\n        and member.role_key in ('shop_owner', 'shop_manager', 'viewer')\n    )\n  )\n  or (\n    p_actor_kind = 'platform_admin'\n    and exists (\n      select 1\n      from public.platform_admins platform_admin\n      where platform_admin.profile_id = p_actor_profile_id\n        and platform_admin.status = 'active'\n        and platform_admin.revoked_at is null\n    )\n  )\n)",
+          "endLine": 280,
+          "explanation": "`product_image_actor_can_read` already defines the actor/shop relationship suitable for same-shop denial auditing, including viewers and active platform administrators.",
+          "id": "expected-actor-shop-control",
+          "label": "Existing helper expresses the missing actor-to-shop invariant",
+          "language": "sql",
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "expected_control",
+          "startLine": 258
+        }
+      ],
+      "confidence": {
+        "level": "high",
+        "rationale": "The committed route-to-service-role-to-RPC trace is direct, and a rolled-back local pgTAP PoC passed 9/9 assertions, including the read variant and victim-shop audit row."
+      },
+      "extensions": {
+        "candidateId": "ADM-S1-001",
+        "ledgerRowId": "ADM-S1-001-read",
+        "reportId": "read-urls"
+      },
+      "findingId": "csf_e19d24a05ce9985760f30f80",
+      "fingerprints": {
+        "algorithm": "codex-security/v1",
+        "primary": "codex-security/v1:sha256:9990fbcfe6a2f556a1f033e80d0746cffd237c6d7812b93de2acd67b78dd3aa9"
+      },
+      "identity": {
+        "anchor": "product-image-denied-audit-missing-tenant-binding",
+        "instance": "read-urls"
+      },
+      "locations": [
+        {
+          "endLine": 1266,
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "root_control",
+          "startLine": 1256
+        },
+        {
+          "endLine": 37,
+          "path": "src/app/api/shop/product-images/read-urls/route.ts",
+          "role": "entrypoint",
+          "startLine": 24
+        },
+        {
+          "endLine": 140,
+          "path": "src/server/shop-admin/product-images/service.ts",
+          "role": "wrapper",
+          "startLine": 128
+        },
+        {
+          "endLine": 375,
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "sink",
+          "startLine": 350
+        }
+      ],
+      "occurrenceId": "occ_82b2d266e13badcb3a2122aa",
+      "preventiveControls": [
+        "Enforce tenant authorization inside every service-role or SECURITY DEFINER write RPC.",
+        "Bind both actor/shop and resource/shop identities before persistent side effects.",
+        "Add route-level throttling and multi-shop denial monitoring only as defense in depth."
+      ],
+      "provenance": {
+        "source": "codex-security-diff-scan"
+      },
+      "remediation": "Inside `product_image_record_denied`, reject any actor that fails `app_private.product_image_actor_can_read(p_actor_profile_id, p_shop_id, p_actor_kind)` and any product that fails `app_private.product_image_product_is_in_shop(p_product_id, p_shop_id)` before calling `write_product_image_audit`.",
+      "remediationTests": [
+        "A Shop A member receives `permission_denied` and creates zero Shop B audit rows through the read variant.",
+        "A Shop B viewer can still create a same-shop read-denied audit event when another read control rejects the request.",
+        "A same-shop actor cannot attach a product that belongs to another shop.",
+        "Direct `anon` and `authenticated` execute privileges remain revoked."
+      ],
+      "rootCause": {
+        "evidenceRefs": [
+          "read-denied-input",
+          "service-role-forward",
+          "rpc-missing-tenant-guard",
+          "victim-audit-insert",
+          "expected-actor-shop-control"
+        ],
+        "summary": "The invariant is that a shop-scoped audit write must be authorized for the final shop and resource identity at the privileged boundary. The read-URL route correctly denies the business action but forwards request-derived `shopId` and the first `productId` to a service-role helper. `product_image_record_denied` verifies only that the shop exists, then writes those identifiers into `audit_logs` without reapplying the actor/shop or product/shop controls already available in the migration."
+      },
+      "ruleId": "improper-authorization.denied-audit",
+      "severity": {
+        "changeConditions": "Raise severity if the injected events trigger privileged automation, suppress real alerts, or enable broader tenant-state mutation. Lower severity if deployment evidence proves the route cannot reach the RPC or an independent tenant-binding control prevents the write.",
+        "level": "medium",
+        "rationale": "The path is remotely reachable by an ordinary active account and produces a persistent cross-tenant audit write without victim-shop membership. Impact is limited to audit integrity and operational noise: read URL issuance remains denied, the real actor is retained, and no image, signed URL, catalog data, credential, or product state is exposed or changed."
+      },
+      "summary": "An active authenticated account can submit another shop's identifiers to the product-image read-URL route. The read is denied, but the denial branch forwards the requested shop and first product reference through a service-role client to a SECURITY DEFINER RPC that writes a victim-scoped audit event without actor/shop or product/shop binding.",
+      "taxonomy": {
+        "category": "Improper authorization / cross-tenant confused deputy",
+        "cwe": [
+          "CWE-862"
+        ]
+      },
+      "title": "Denied product-image read can inject a victim-shop audit event",
+      "validation": {
+        "assertions": [
+          "The attacker profile is active only in Shop A and cannot read or write product images in Shop B.",
+          "The read denial RPC accepts Shop B and its product under service-role authority.",
+          "The persisted audit row is scoped to Shop B and records the Shop B product identifier.",
+          "The full pgTAP file completed 9/9 and rolled back."
+        ],
+        "evidenceRefs": [
+          "read-denied-input",
+          "service-role-forward",
+          "rpc-missing-tenant-guard",
+          "victim-audit-insert"
+        ],
+        "limitations": [
+          "The PoC exercised the committed database RPC rather than a deployed Supabase Auth HTTP session.",
+          "Deployment-edge rate limiting and alerting were not measured."
+        ],
+        "method": "targeted local pgTAP integration PoC plus exact static route-to-RPC trace",
+        "summary": "A rolled-back two-shop fixture proved the attacker had neither read nor write permission in the victim shop. The read call still returned `denied_recorded`, and the combined four-operation fixture produced four victim-shop audit rows and zero attacker-shop rows."
+      }
+    },
+    {
+      "attackPath": {
+        "dataflow": {
+          "evidenceRefs": [
+            "remove-denied-input",
+            "service-role-forward",
+            "rpc-missing-tenant-guard",
+            "victim-audit-insert"
+          ],
+          "outcome": "persistent victim-shop remove-denied event and product metadata",
+          "sink": "shop-scoped `audit_logs` insert",
+          "source": "authenticated request body identifiers",
+          "summary": "request `shopId` and `productId` -> remove denial branch -> `recordProductImageDenied()` -> service-role `product_image_record_denied` -> `write_product_image_audit` -> victim `audit_logs` row"
+        },
+        "evidenceRefs": [
+          "remove-denied-input",
+          "rpc-missing-tenant-guard",
+          "victim-audit-insert"
+        ],
+        "impact": {
+          "level": "medium",
+          "why": "The write crosses a tenant boundary in a security audit stream but does not remove or otherwise mutate image/catalog state."
+        },
+        "likelihood": {
+          "level": "high",
+          "why": "The path is remote, needs only an ordinary account plus a valid shop UUID, and no route-level rate limit was found."
+        },
+        "limitations": [
+          "The injected event is marked blocked and retains the real actor profile.",
+          "No image bytes, signed URLs, credentials, or existing audit rows are read or changed."
+        ],
+        "reachability": {
+          "attacker": "ordinary active authenticated personal account",
+          "entrypoint": "POST `/api/shop/product-images/remove`",
+          "outcome": "repeatable unauthorized write into the victim shop's audit namespace",
+          "preconditions": [
+            "valid victim shop UUID",
+            "product UUID supplied in the request"
+          ],
+          "summary": "The attacker needs an active personal account and a valid victim shop UUID; victim-shop membership is not required. The route is a normal POST endpoint and the sink is reached specifically after the business action is denied."
+        },
+        "summary": "An ordinary active account submits a known victim shop and product UUID to the remove endpoint. Authorization denies removal, but the denial handler invokes a service-role RPC that writes the selected tenant audit event."
+      },
+      "codeEvidence": [
+        {
+          "code": "const auth = await resolveProductImageRequestActor(\n  request,\n  input.shopId,\n  \"products.write\",\n);\nif (auth.status !== \"authorized\") {\n  await recordProductImageDenied({\n    actorKind: auth.actorKind,\n    actorProfileId: auth.actorProfileId,\n    code: auth.code,\n    operation: \"remove\",\n    productId: input.productId,\n    shopId: input.shopId,\n  });",
+          "endLine": 39,
+          "explanation": "The membership decision correctly blocks removal, but the denial side effect carries request-derived `shopId` and `productId` into `recordProductImageDenied()`.",
+          "id": "remove-denied-input",
+          "label": "Remove denial forwards caller-selected shop and product",
+          "language": "typescript",
+          "path": "src/app/api/shop/product-images/remove/route.ts",
+          "role": "entrypoint",
+          "startLine": 26
+        },
+        {
+          "code": "const admin = resolveAdminClient();\nif (!admin) {\n  return;\n}\n\nawait admin.rpc(\"product_image_record_denied\", {\n  p_actor_kind: input.actorKind ?? \"personal_account\",\n  p_actor_profile_id: input.actorProfileId,\n  p_code: input.code,\n  p_operation: input.operation,\n  p_product_id: input.productId,\n  p_shop_id: input.shopId,\n});",
+          "endLine": 140,
+          "explanation": "The helper preserves both attacker-selected resource identifiers while changing authority to the server-only service-role client.",
+          "id": "service-role-forward",
+          "label": "Shared helper crosses into service-role authority",
+          "language": "typescript",
+          "path": "src/server/shop-admin/product-images/service.ts",
+          "role": "propagation",
+          "startLine": 128
+        },
+        {
+          "code": "begin\n  if not exists (select 1 from public.shops where shop_id = p_shop_id) then\n    return jsonb_build_object('ok', false, 'code', 'not_found');\n  end if;\n  if v_operation not in ('intent', 'finalize', 'read', 'remove', 'request') then\n    v_operation := 'request';\n  end if;\n  if v_code !~ '^[a-z0-9_]{1,64}$' then\n    v_code := 'permission_denied';\n  end if;\n\n  v_audit_id := app_private.write_product_image_audit(\n    p_actor_profile_id,\n    p_shop_id,\n    'shop.product_image.' || v_operation || '_denied',\n    'warning',\n    'blocked',\n    p_product_id,\n    null,\n    v_code,\n    case when p_actor_kind in ('personal_account', 'platform_admin')\n      then p_actor_kind else 'personal_account' end\n  );\n\n  return jsonb_build_object('ok', true, 'code', 'denied_recorded', 'audit_event_id', v_audit_id);",
+          "endLine": 1279,
+          "explanation": "The privileged RPC validates only that `p_shop_id` names an existing shop before passing the actor, shop, and product to the audit writer; it never proves the actor or product belongs to that shop.",
+          "id": "rpc-missing-tenant-guard",
+          "label": "Denied-audit RPC checks shop existence but not actor binding",
+          "language": "sql",
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "root_control",
+          "startLine": 1255
+        },
+        {
+          "code": "insert into public.audit_logs (\n  actor_profile_id,\n  scope,\n  shop_id,\n  event_key,\n  severity,\n  result,\n  target_type,\n  target_id,\n  metadata_redacted\n)\nvalues (\n  p_actor_profile_id,\n  'shop',\n  p_shop_id,\n  p_event_key,\n  case when p_severity in ('info', 'warning', 'critical') then p_severity else 'warning' end,\n  case when p_result in ('success', 'blocked', 'simulated') then p_result else 'blocked' end,\n  'inventory_product_image',\n  coalesce(p_version_id::text, p_product_id::text),\n  jsonb_strip_nulls(\n    jsonb_build_object(\n      'actor_kind', p_actor_kind,\n      'code', p_code,\n      'product_id', p_product_id,\n      'source', 'product_image_api',",
+          "endLine": 375,
+          "explanation": "The sink turns the unbound `p_shop_id` into the row's tenant scope and records `p_product_id` as both target and redacted metadata.",
+          "id": "victim-audit-insert",
+          "label": "Audit sink persists the supplied shop and product",
+          "language": "sql",
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "sink",
+          "startLine": 350
+        },
+        {
+          "code": "and (\n  (\n    p_actor_kind = 'personal_account'\n    and exists (\n      select 1\n      from public.shop_members member\n      where member.profile_id = p_actor_profile_id\n        and member.shop_id = p_shop_id\n        and member.membership_status = 'active'\n        and member.role_key in ('shop_owner', 'shop_manager', 'viewer')\n    )\n  )\n  or (\n    p_actor_kind = 'platform_admin'\n    and exists (\n      select 1\n      from public.platform_admins platform_admin\n      where platform_admin.profile_id = p_actor_profile_id\n        and platform_admin.status = 'active'\n        and platform_admin.revoked_at is null\n    )\n  )\n)",
+          "endLine": 280,
+          "explanation": "`product_image_actor_can_read` already defines the actor/shop relationship suitable for same-shop denial auditing, including viewers and active platform administrators.",
+          "id": "expected-actor-shop-control",
+          "label": "Existing helper expresses the missing actor-to-shop invariant",
+          "language": "sql",
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "expected_control",
+          "startLine": 258
+        }
+      ],
+      "confidence": {
+        "level": "high",
+        "rationale": "The committed route-to-service-role-to-RPC trace is direct, and a rolled-back local pgTAP PoC passed 9/9 assertions, including the remove variant and victim-shop audit row."
+      },
+      "extensions": {
+        "candidateId": "ADM-S1-001",
+        "ledgerRowId": "ADM-S1-001-remove",
+        "reportId": "remove"
+      },
+      "findingId": "csf_0e52bfc429f1f3c1af42b97f",
+      "fingerprints": {
+        "algorithm": "codex-security/v1",
+        "primary": "codex-security/v1:sha256:9f5ac3f148f0c756e047a3fe3c8078be0a8748c74e1d49b5e4ab04d535406bdf"
+      },
+      "identity": {
+        "anchor": "product-image-denied-audit-missing-tenant-binding",
+        "instance": "remove"
+      },
+      "locations": [
+        {
+          "endLine": 1266,
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "root_control",
+          "startLine": 1256
+        },
+        {
+          "endLine": 39,
+          "path": "src/app/api/shop/product-images/remove/route.ts",
+          "role": "entrypoint",
+          "startLine": 26
+        },
+        {
+          "endLine": 140,
+          "path": "src/server/shop-admin/product-images/service.ts",
+          "role": "wrapper",
+          "startLine": 128
+        },
+        {
+          "endLine": 375,
+          "path": "supabase/migrations/20260717072959_task_137_product_catalog_images.sql",
+          "role": "sink",
+          "startLine": 350
+        }
+      ],
+      "occurrenceId": "occ_75d739fdb4b02e5dee1912c1",
+      "preventiveControls": [
+        "Enforce tenant authorization inside every service-role or SECURITY DEFINER write RPC.",
+        "Bind both actor/shop and resource/shop identities before persistent side effects.",
+        "Add route-level throttling and multi-shop denial monitoring only as defense in depth."
+      ],
+      "provenance": {
+        "source": "codex-security-diff-scan"
+      },
+      "remediation": "Inside `product_image_record_denied`, reject any actor that fails `app_private.product_image_actor_can_read(p_actor_profile_id, p_shop_id, p_actor_kind)` and any product that fails `app_private.product_image_product_is_in_shop(p_product_id, p_shop_id)` before calling `write_product_image_audit`.",
+      "remediationTests": [
+        "A Shop A member receives `permission_denied` and creates zero Shop B audit rows through the remove variant.",
+        "A Shop B viewer can still create a same-shop write-denied audit event.",
+        "A same-shop actor cannot attach a product that belongs to another shop.",
+        "Direct `anon` and `authenticated` execute privileges remain revoked."
+      ],
+      "rootCause": {
+        "evidenceRefs": [
+          "remove-denied-input",
+          "service-role-forward",
+          "rpc-missing-tenant-guard",
+          "victim-audit-insert",
+          "expected-actor-shop-control"
+        ],
+        "summary": "The invariant is that a shop-scoped audit write must be authorized for the final shop and resource identity at the privileged boundary. The remove route correctly denies the business action but forwards request-derived `shopId` and `productId` to a service-role helper. `product_image_record_denied` verifies only that the shop exists, then writes those identifiers into `audit_logs` without reapplying the actor/shop or product/shop controls already available in the migration."
+      },
+      "ruleId": "improper-authorization.denied-audit",
+      "severity": {
+        "changeConditions": "Raise severity if the injected events trigger privileged automation, suppress real alerts, or enable broader tenant-state mutation. Lower severity if deployment evidence proves the route cannot reach the RPC or an independent tenant-binding control prevents the write.",
+        "level": "medium",
+        "rationale": "The path is remotely reachable by an ordinary active account and produces a persistent cross-tenant audit write without victim-shop membership. Impact is limited to audit integrity and operational noise: removal remains denied, the real actor is retained, and no image, signed URL, catalog data, credential, or product state is exposed or changed."
+      },
+      "summary": "An active authenticated account can submit another shop's identifiers to the product-image remove route. Removal is denied, but the denial branch forwards those identifiers through a service-role client to a SECURITY DEFINER RPC that writes a victim-scoped audit event without actor/shop or product/shop binding.",
+      "taxonomy": {
+        "category": "Improper authorization / cross-tenant confused deputy",
+        "cwe": [
+          "CWE-862"
+        ]
+      },
+      "title": "Denied product-image removal can inject a victim-shop audit event",
+      "validation": {
+        "assertions": [
+          "The attacker profile is active only in Shop A and cannot read or write product images in Shop B.",
+          "The remove denial RPC accepts Shop B and its product under service-role authority.",
+          "The persisted audit row is scoped to Shop B and records the Shop B product identifier.",
+          "The full pgTAP file completed 9/9 and rolled back."
+        ],
+        "evidenceRefs": [
+          "remove-denied-input",
+          "service-role-forward",
+          "rpc-missing-tenant-guard",
+          "victim-audit-insert"
+        ],
+        "limitations": [
+          "The PoC exercised the committed database RPC rather than a deployed Supabase Auth HTTP session.",
+          "Deployment-edge rate limiting and alerting were not measured."
+        ],
+        "method": "targeted local pgTAP integration PoC plus exact static route-to-RPC trace",
+        "summary": "A rolled-back two-shop fixture proved the attacker had neither read nor write permission in the victim shop. The remove call still returned `denied_recorded`, and the combined four-operation fixture produced four victim-shop audit rows and zero attacker-shop rows."
+      }
+    }
+  ],
+  "scanId": "18ce2671-83b2-41f3-ab0a-c9f0996063b5",
+  "schemaVersion": "1.0"
+}

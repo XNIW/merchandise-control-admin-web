@@ -1,0 +1,132 @@
+{
+  "completeness": "partial",
+  "deferred": [
+    {
+      "id": "physical-win7-runtime",
+      "paths": [
+        "win7pos/src/Win7POS.Core/Online/PosOfflineAuthorizationLeasePolicy.cs",
+        "win7pos/src/Win7POS.Wpf/Pos/Online/PosOfflineAuthorizationLeaseGuard.cs",
+        "win7pos/src/Win7POS.Wpf/Infrastructure/Security/OperatorSession.cs"
+      ],
+      "reason": "The physical Win7 release-package runtime checklist was not executed on this host.",
+      "surfaceIds": [
+        "surface_inherited_win7_lease"
+      ]
+    },
+    {
+      "id": "full-final-sync-parity",
+      "paths": [
+        "android/app/src/androidTest/java/com/example/merchandisecontrolsplitview/Task103CrossPlatformAcceptanceTest.kt",
+        "ios/iOSMerchandiseControlTests/Task103CrossPlatformAcceptanceTests.swift",
+        "ios/tests/test_final_sync_contract.py",
+        "ios/tools/agent/lib/final_sync.sh",
+        "ios/tools/agent/lib/final_sync_contract.py"
+      ],
+      "reason": "K125 stopped after G004 at 128/1024, so later groups including live account/shop-switch coverage were not executed.",
+      "surfaceIds": [
+        "surface_k125_runtime_evidence"
+      ]
+    }
+  ],
+  "documentType": "codex-security.coverage",
+  "excludePaths": [],
+  "explicitExclusions": [
+    {
+      "pattern": "production targets, production credentials and production deployment",
+      "reason": "Explicitly prohibited; no production system was accessed or changed."
+    },
+    {
+      "pattern": "new Deep Security Scan",
+      "reason": "Explicitly prohibited; the sealed K84 scan was used only as read-only baseline evidence."
+    },
+    {
+      "pattern": "files outside the six hash-different K84-to-K125 rows",
+      "reason": "This is a precise post-K84 diff scan. The 56 byte-identical rows reuse sealed K84 receipts and unrelated dirty-worktree files remain outside scope."
+    },
+    {
+      "pattern": "Product Catalog Images implementation",
+      "reason": "The later product requirement is queued and was not allowed to contaminate TASK-088B or this security snapshot."
+    }
+  ],
+  "includePaths": [
+    "android/app/src/androidTest/java/com/example/merchandisecontrolsplitview/Task103CrossPlatformAcceptanceTest.kt",
+    "ios/iOSMerchandiseControlTests/Task103CrossPlatformAcceptanceTests.swift",
+    "ios/tests/test_final_sync_contract.py",
+    "ios/tools/agent/lib/final_sync.sh",
+    "ios/tools/agent/lib/final_sync_contract.py",
+    "ios/tools/agent/lib/task088_supabase_rest.mjs"
+  ],
+  "inventoryStrategy": "custom",
+  "mode": "diff",
+  "openQuestions": [
+    {
+      "followUpPrompt": "Run the existing physical Win7 release checklist against the final published Win7POS SHA and capture redacted pass/fail evidence.",
+      "question": "Does the current Win7POS release deny login, operator switch, override and sale commit at exact lease expiry on physical Win7 hardware?"
+    },
+    {
+      "followUpPrompt": "After TASK-088B review, require each Admin residue response to assert zero records, count bounded internal retries explicitly, pin operator-script/session paths and rerun only the invalidated harness contract tests.",
+      "question": "Should a later harness-only task make residue semantics and retry telemetry exact without invalidating preserved K125 evidence?"
+    }
+  ],
+  "scanId": "task088b-k125-20260717T064203Z",
+  "schemaVersion": "1.0",
+  "surfaces": [
+    {
+      "disposition": "no_issue_found",
+      "id": "surface_delta_full_review",
+      "label": "K84-to-K125 Android/iOS final-sync delta",
+      "notes": "All 6/6 changed test/harness files received full-file review. No reportable candidate was found; hardening/evidence notes remain documented.",
+      "receiptRefs": [
+        "artifacts/02_discovery/work_ledger.jsonl",
+        "artifacts/02_discovery/finding_discovery_report.md",
+        "artifacts/03_coverage/repository_coverage_ledger.md",
+        "artifacts/03_coverage/reviewed_surfaces.md"
+      ],
+      "riskArea": "session and shop binding, command/path handling, retry visibility, cleanup scope and evidence integrity"
+    },
+    {
+      "disposition": "rejected",
+      "id": "surface_inherited_rls",
+      "label": "Inherited product and product-price DML authorization controls",
+      "notes": "DSC-008, DSC-072 and DSC-073 root-control files are byte-identical to K84 and not regressed. The original findings remain open/unclosed.",
+      "receiptRefs": [
+        "artifacts/01_context/baseline_receipts.md",
+        "artifacts/01_context/snapshot_inventory.tsv"
+      ],
+      "riskArea": "RLS authorization, membership lifecycle and cross-shop isolation"
+    },
+    {
+      "disposition": "rejected",
+      "id": "surface_inherited_pos_sales",
+      "label": "Inherited POS sales and reversal controls",
+      "notes": "DSC-093, DSC-094 and DSC-134 root-control files are byte-identical to K84 and not regressed. The original findings remain open/unclosed.",
+      "receiptRefs": [
+        "artifacts/01_context/baseline_receipts.md",
+        "artifacts/01_context/snapshot_inventory.tsv"
+      ],
+      "riskArea": "financial authorization, concurrency, residuals and original-line binding"
+    },
+    {
+      "disposition": "needs_follow_up",
+      "id": "surface_inherited_win7_lease",
+      "label": "Inherited Win7POS offline authorization lease",
+      "notes": "DSC-075 code and receipts are unchanged and no source regression was found; physical Win7 runtime proof remains external.",
+      "receiptRefs": [
+        "artifacts/01_context/baseline_receipts.md",
+        "artifacts/01_context/threat_model.md"
+      ],
+      "riskArea": "offline session lifetime and protected action gating"
+    },
+    {
+      "disposition": "needs_follow_up",
+      "id": "surface_k125_runtime_evidence",
+      "label": "K125 final-sync runtime and cleanup evidence",
+      "notes": "K125 stopped exactly after 128/1024 on aggregate G004 gates, with zero functional failures and cleanup/baseline PASS. Full cross-platform performance and physical-device parity are not demonstrated.",
+      "receiptRefs": [
+        "artifacts/02_discovery/finding_discovery_report.md",
+        "artifacts/03_coverage/reviewed_surfaces.md"
+      ],
+      "riskArea": "first-failure preservation, residue, baseline and parity claims"
+    }
+  ]
+}

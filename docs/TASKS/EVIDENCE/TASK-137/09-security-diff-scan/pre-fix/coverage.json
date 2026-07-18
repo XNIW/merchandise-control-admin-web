@@ -1,0 +1,101 @@
+{
+  "completeness": "complete",
+  "deferred": [],
+  "documentType": "codex-security.coverage",
+  "excludePaths": [],
+  "explicitExclusions": [
+    {
+      "pattern": "external Win7POS repository",
+      "reason": "User-directed read-only preservation boundary outside the Admin scan target; no Win7POS files were modified or scanned."
+    }
+  ],
+  "includePaths": [
+    "."
+  ],
+  "inventoryStrategy": "diff",
+  "mode": "branch_diff",
+  "openQuestions": [
+    {
+      "followUpPrompt": "Inspect Cloudflare and application rate-limit configuration for the four product-image routes at 2f166b51e7d3ff68f8f01593cb68845788e7be9a, without treating throttling as a substitute for tenant authorization.",
+      "question": "Do deployment-edge controls rate-limit repeated denied product-image requests?"
+    }
+  ],
+  "scanId": "18ce2671-83b2-41f3-ab0a-c9f0996063b5",
+  "schemaVersion": "1.0",
+  "surfaces": [
+    {
+      "disposition": "reported",
+      "id": "product-image-authorization-and-audit",
+      "label": "Product-image route authorization and privileged denial audit",
+      "notes": "Four independently triggerable denied routes share one missing actor/shop and product/shop guard in product_image_record_denied; each became a canonical finding instance.",
+      "receiptRefs": [
+        "artifacts/02_discovery/worker_receipts/ADM-S1.json",
+        "artifacts/02_discovery/worker_receipts/ADM-S5.json",
+        "artifacts/05_findings/ADM-S1-001/candidate_ledger.jsonl"
+      ],
+      "riskArea": "Tenant authorization and service-role confused deputy"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "product-image-service-storage-browser",
+      "label": "Product-image service, request contracts, JPEG validation, Storage, and browser cache",
+      "notes": "Reviewed full service and browser flows; authorization-rechecking RPCs, canonical paths, immutable uploads, byte verification, and scoped cache keys closed the evaluated hypotheses.",
+      "receiptRefs": [
+        "artifacts/02_discovery/worker_receipts/ADM-S2.json"
+      ],
+      "riskArea": "Signed capabilities, canonical paths, validation, cache isolation, and lifecycle races"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "admin-ui-and-permissions",
+      "label": "Admin product-image UI, page access, and permission presentation",
+      "notes": "Server-derived permissions remain authoritative; React escaping and scoped identifiers prevented a surviving UI or client-side candidate.",
+      "receiptRefs": [
+        "artifacts/02_discovery/worker_receipts/ADM-S3.json"
+      ],
+      "riskArea": "UI-only authorization, XSS, signed URL exposure, and cache-scope propagation"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "admin-data-access-read-models",
+      "label": "Admin data access, read models, staff permission mapping, and generated types",
+      "notes": "Server-resolved shops and explicit permissions remain bound to queries; no cross-shop read or unsafe DTO survived.",
+      "receiptRefs": [
+        "artifacts/02_discovery/worker_receipts/ADM-S4.json"
+      ],
+      "riskArea": "Shop selection, staff authorization, service-role queries, and DTO disclosure"
+    },
+    {
+      "disposition": "reported",
+      "id": "database-rls-rpcs-and-sync",
+      "label": "Supabase product-image, inventory, sync, and cleanup database controls",
+      "notes": "The denial-audit RPC duplicate root cause maps to the reported route instances; other reviewed RLS, sync, cleanup, and service-role controls had no surviving candidate.",
+      "receiptRefs": [
+        "artifacts/02_discovery/worker_receipts/ADM-S5.json",
+        "artifacts/05_findings/ADM-S1-001/validation_report.md",
+        "artifacts/05_findings/ADM-S1-001/attack_path_analysis_report.md"
+      ],
+      "riskArea": "RLS, grants, SECURITY DEFINER functions, transactionality, and shop binding"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "pos-qa-and-security-gates",
+      "label": "POS sales security, sale detail, QA fixture, and native security gates",
+      "notes": "Full-file review found the changed paths fail closed with bounded inputs, service-role-only atomic RPCs, shop constraints, and active gate dispatch.",
+      "receiptRefs": [
+        "artifacts/02_discovery/worker_receipts/ADM-S6.json"
+      ],
+      "riskArea": "Token binding, replay, financial atomicity, fixture exposure, and scanner masking"
+    },
+    {
+      "disposition": "no_issue_found",
+      "id": "operations-i18n-and-package-scripts",
+      "label": "Product-image operations, reporting, localization scanner, and package scripts",
+      "notes": "Local/staging allowlists, explicit execution flags, canonical path checks, redacted output, and non-shell npm aliases prevented a surviving operational candidate.",
+      "receiptRefs": [
+        "artifacts/02_discovery/worker_receipts/ADM-S7.json"
+      ],
+      "riskArea": "Destructive target selection, secret logging, command construction, and developer tooling"
+    }
+  ]
+}

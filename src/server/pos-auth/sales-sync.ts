@@ -6,7 +6,7 @@ import {
   resolveSupabaseAdminConfig,
   type SupabaseAdminClient,
 } from "@/lib/supabase/admin";
-import type { Json, Tables, TablesInsert } from "@/lib/supabase/database.types";
+import type { Json, Tables } from "@/lib/supabase/database.types";
 import {
   buildPosShopPayload,
   POS_SHOP_SELECT,
@@ -28,6 +28,7 @@ type ShopRow = PosShopPayloadRow;
 type StaffAccountRow = Pick<
   Tables<"staff_accounts">,
   | "credential_status"
+  | "credential_expires_at"
   | "credential_version"
   | "locked_until"
   | "must_change_credential"
@@ -60,26 +61,6 @@ type PosSessionRow = Pick<
   | "staff_credential_version"
   | "staff_id"
   | "status"
->;
-type ExistingBatchRow = Pick<
-  Tables<"pos_sales_sync_batches">,
-  | "client_batch_id"
-  | "idempotency_key"
-  | "payload_hash"
-  | "pos_sales_sync_batch_id"
-  | "status"
->;
-type ExistingSaleRow = Pick<
-  Tables<"pos_sales">,
-  "client_sale_id" | "idempotency_key" | "payload_hash" | "pos_sale_id" | "status"
->;
-type InventorySourceRow = Pick<
-  Tables<"shop_inventory_sources">,
-  "mapping_state" | "owner_user_id" | "shop_id"
->;
-type InventoryProductScopeRow = Pick<
-  Tables<"inventory_products">,
-  "id" | "owner_user_id" | "shop_id"
 >;
 
 type PosSalesSyncFailureCode =
@@ -149,6 +130,7 @@ type ParsedSalesLine = {
   amountClp: number | null;
   barcode: string | null;
   clientLineId: string;
+  clientOriginalLineId: string | null;
   itemNumber: string | null;
   lineType: PosLedgerLineType;
   linePosition: number;
@@ -365,16 +347,6 @@ function hasDuplicateValues(values: readonly (number | string)[]) {
   return new Set(values).size !== values.length;
 }
 
-function chunkValues<T>(values: readonly T[], chunkSize: number) {
-  const chunks: T[][] = [];
-
-  for (let index = 0; index < values.length; index += chunkSize) {
-    chunks.push(values.slice(index, index + chunkSize));
-  }
-
-  return chunks;
-}
-
 function amountsClose(left: number, right: number) {
   return Math.abs(left - right) <= CENT_TOLERANCE;
 }
@@ -423,6 +395,8 @@ function isStaffUsable(staff: StaffAccountRow | null) {
   return (
     staff.status === "active" &&
     staff.credential_status === "active" &&
+    (!staff.credential_expires_at ||
+      isFutureTimestamp(staff.credential_expires_at)) &&
     !staff.must_change_credential &&
     !isFutureTimestamp(staff.locked_until)
   );
@@ -656,8 +630,20 @@ function paymentTotalsAreConsistent(input: {
 
   return (
     tendered === expectedPaid &&
+    change === input.changeAmountClp &&
     tendered - change === input.netAmountClp
   );
+}
+
+function paymentDirectionsAreConsistent(
+  businessKind: PosSaleBusinessKind,
+  payments: readonly ParsedPayment[],
+) {
+  return businessKind === "sale"
+    ? payments.every((payment) => payment.amountClp >= 0)
+    : payments.every(
+        (payment) => payment.amountClp <= 0 && payment.changeClp === 0,
+      );
 }
 
 function parseLine(
@@ -673,6 +659,17 @@ function parseLine(
   const clientLineId =
     safeText(stringField(input, "clientLineId", "client_line_id"), 160) ||
     `line-${index + 1}`;
+  const clientOriginalLineId =
+    safeText(
+      stringField(
+        input,
+        "clientOriginalLineId",
+        "client_original_line_id",
+        "originalClientLineId",
+        "original_client_line_id",
+      ),
+      160,
+    ) || null;
   const linePosition = Math.trunc(numberField(input, "linePosition", "line_position") ?? index + 1);
   const quantity = positiveQuantity(numberField(input, "quantity", "qty"));
   const lineType = parseLineType(input, schemaVersion === POS_SALES_SCHEMA_VERSION);
@@ -709,8 +706,10 @@ function parseLine(
         ? -(quantity ?? 0)
         : quantity ?? 0;
   const normalizedStockDelta =
+    Number(defaultStockDelta.toFixed(3));
+  const suppliedStockDelta =
     stockQuantityDelta === null
-      ? defaultStockDelta
+      ? normalizedStockDelta
       : Number(stockQuantityDelta.toFixed(3));
 
   if (
@@ -723,6 +722,7 @@ function parseLine(
     (schemaVersion === POS_LEGACY_SALES_SCHEMA_VERSION &&
       !amountsClose(Number((quantity * unitPrice).toFixed(2)), lineTotal)) ||
     (schemaVersion === POS_SALES_SCHEMA_VERSION && amountClp === null) ||
+    suppliedStockDelta !== normalizedStockDelta ||
     Math.abs(normalizedStockDelta) > 999999 ||
     (productId && !UUID_PATTERN.test(productId))
   ) {
@@ -733,6 +733,7 @@ function parseLine(
     amountClp,
     barcode: safeText(stringField(input, "barcode"), 80) || null,
     clientLineId,
+    clientOriginalLineId,
     itemNumber: safeText(stringField(input, "itemNumber", "item_number"), 80) || null,
     lineType,
     linePosition,
@@ -850,9 +851,13 @@ function parseSale(
     lineAmountTotalClp !== null &&
     discountAmountClp !== null &&
     taxAmountClp !== null
-      ? lineAmountTotalClp -
-        (hasDiscountLine ? 0 : discountAmountClp) +
-        (hasTaxLine ? 0 : taxAmountClp)
+      ? businessKind === "sale"
+        ? lineAmountTotalClp -
+          (hasDiscountLine ? 0 : discountAmountClp) +
+          (hasTaxLine ? 0 : taxAmountClp)
+        : lineAmountTotalClp +
+          (hasDiscountLine ? 0 : discountAmountClp) -
+          (hasTaxLine ? 0 : taxAmountClp)
       : null;
   const fiscal = childRecord(input, "fiscal");
   const fiscalPrintedAtRaw = stringField(fiscal, "printedAt", "printed_at");
@@ -893,12 +898,15 @@ function parseSale(
     (schemaVersion === POS_SALES_SCHEMA_VERSION &&
       (grossAmountClp === null || discountAmountClp === null || taxAmountClp === null)) ||
     (schemaVersion === POS_SALES_SCHEMA_VERSION && !businessDate) ||
+    (businessKind !== "sale" && !clientOriginalSaleId) ||
     (schemaVersion === POS_SALES_SCHEMA_VERSION &&
       derivedNetAmountClp !== null &&
       netAmountClp !== derivedNetAmountClp) ||
     (schemaVersion === POS_SALES_SCHEMA_VERSION &&
       lineNetAmountClp !== null &&
       netAmountClp !== lineNetAmountClp) ||
+    (schemaVersion === POS_SALES_SCHEMA_VERSION &&
+      !paymentDirectionsAreConsistent(businessKind, payments)) ||
     (schemaVersion === POS_SALES_SCHEMA_VERSION &&
       !paymentTotalsAreConsistent({
         changeAmountClp,
@@ -1203,7 +1211,7 @@ async function validatePosSession(
       supabase
         .from("staff_accounts")
         .select(
-          "staff_id,shop_id,status,credential_version,credential_status,locked_until,must_change_credential,session_invalidated_at",
+          "staff_id,shop_id,status,credential_version,credential_status,credential_expires_at,locked_until,must_change_credential,session_invalidated_at",
         )
         .eq("staff_id", session.staff_id)
         .eq("shop_id", session.shop_id)
@@ -1294,693 +1302,132 @@ async function validatePosSession(
   };
 }
 
-async function findExistingBatch(
-  supabase: SupabaseAdminClient,
-  parsed: ParsedSalesSyncInput,
-  shopId: string,
-) {
-  const byIdempotency = await supabase
-    .from("pos_sales_sync_batches")
-    .select("pos_sales_sync_batch_id,client_batch_id,idempotency_key,payload_hash,status")
-    .eq("shop_id", shopId)
-    .eq("shop_device_id", parsed.shopDeviceId)
-    .eq("idempotency_key", parsed.idempotencyKey)
-    .maybeSingle<ExistingBatchRow>();
+type AtomicSalesRpcResponse = {
+  batch: {
+    acceptedSaleCount: number;
+    clientBatchId: string;
+    conflictCount: number;
+    duplicateSaleCount: number;
+    lineCount: number;
+    posSalesSyncBatchId: string;
+    saleCount: number;
+    status: "accepted" | "duplicate";
+  };
+  code: "success";
+  ok: true;
+  sales: Array<{
+    clientSaleId: string;
+    posSaleId: string | null;
+    status: "accepted" | "duplicate";
+  }>;
+};
 
-  if (byIdempotency.error || byIdempotency.data) {
-    return byIdempotency;
+function atomicSalesRpcResponse(input: unknown): AtomicSalesRpcResponse | null {
+  if (
+    !isRecord(input) ||
+    input.ok !== true ||
+    input.code !== "success" ||
+    !isRecord(input.batch) ||
+    !Array.isArray(input.sales)
+  ) {
+    return null;
   }
 
-  return supabase
-    .from("pos_sales_sync_batches")
-    .select("pos_sales_sync_batch_id,client_batch_id,idempotency_key,payload_hash,status")
-    .eq("shop_id", shopId)
-    .eq("shop_device_id", parsed.shopDeviceId)
-    .eq("client_batch_id", parsed.clientBatchId)
-    .maybeSingle<ExistingBatchRow>();
-}
-
-async function findExistingSales(
-  supabase: SupabaseAdminClient,
-  parsed: ParsedSalesSyncInput,
-  shopId: string,
-) {
-  const clientSaleIds = parsed.sales.map((sale) => sale.clientSaleId);
-  const idempotencyKeys = parsed.sales.map((sale) => sale.idempotencyKey);
-  const [byClientSale, byIdempotency] = await Promise.all([
-    supabase
-      .from("pos_sales")
-      .select("pos_sale_id,client_sale_id,idempotency_key,payload_hash,status")
-      .eq("shop_id", shopId)
-      .eq("shop_device_id", parsed.shopDeviceId)
-      .in("client_sale_id", clientSaleIds)
-      .returns<ExistingSaleRow[]>(),
-    supabase
-      .from("pos_sales")
-      .select("pos_sale_id,client_sale_id,idempotency_key,payload_hash,status")
-      .eq("shop_id", shopId)
-      .eq("shop_device_id", parsed.shopDeviceId)
-      .in("idempotency_key", idempotencyKeys)
-      .returns<ExistingSaleRow[]>(),
-  ]);
-
-  if (byClientSale.error) {
-    return { error: byClientSale.error, rows: [] };
-  }
-
-  if (byIdempotency.error) {
-    return { error: byIdempotency.error, rows: [] };
-  }
-
-  const rowsById = new Map<string, ExistingSaleRow>();
-
-  for (const row of [...(byClientSale.data ?? []), ...(byIdempotency.data ?? [])]) {
-    rowsById.set(row.pos_sale_id, row);
-  }
-
-  return { error: null, rows: [...rowsById.values()] };
-}
-
-function productIdsForSales(sales: readonly ParsedSale[]) {
-  const productIds = new Set<string>();
-
-  for (const sale of sales) {
-    for (const line of sale.lines) {
-      if (line.productId) {
-        productIds.add(line.productId);
+  const batch = input.batch;
+  const status =
+    batch.status === "accepted" || batch.status === "duplicate"
+      ? batch.status
+      : null;
+  const sales = input.sales
+    .map((sale) => {
+      if (
+        !isRecord(sale) ||
+        typeof sale.clientSaleId !== "string" ||
+        (sale.posSaleId !== null && typeof sale.posSaleId !== "string") ||
+        (sale.status !== "accepted" && sale.status !== "duplicate")
+      ) {
+        return null;
       }
-    }
-  }
 
-  return [...productIds];
-}
-
-async function validateSalesLineProductScope(
-  supabase: SupabaseAdminClient,
-  sales: readonly ParsedSale[],
-  shopId: string,
-): Promise<ProductScopeResolution> {
-  const productIds = productIdsForSales(sales);
-
-  if (productIds.length === 0) {
-    return {
-      invalidProductCount: 0,
-      ok: true,
-      productIdCount: 0,
-      scopedProductIds: new Set<string>(),
-    };
-  }
-
-  const mappingResult = await supabase
-    .from("shop_inventory_sources")
-    .select("shop_id,owner_user_id,mapping_state")
-    .eq("shop_id", shopId)
-    .is("disabled_at", null)
-    .limit(10);
-
-  if (mappingResult.error) {
-    return {
-      code: "db_failure" as const,
-      invalidProductCount: 0,
-      ok: false as const,
-      productIdCount: productIds.length,
-      reason: "inventory_mapping_lookup_failed",
-      scopedProductIds: new Set<string>(),
-    };
-  }
-
-  const mappingRows = (mappingResult.data ?? []) as InventorySourceRow[];
-  const ownerUserId =
-    mappingRows.find((row) => row.mapping_state === "mapped" && row.owner_user_id)
-      ?.owner_user_id ?? null;
-  const scopedProductIds = new Set<string>();
-
-  for (const productChunk of chunkValues(productIds, 100)) {
-    const productsResult = await supabase
-      .from("inventory_products")
-      .select("id,owner_user_id,shop_id")
-      .in("id", productChunk)
-      .is("deleted_at", null)
-      .returns<InventoryProductScopeRow[]>();
-
-    if (productsResult.error) {
       return {
-        code: "db_failure" as const,
-        invalidProductCount: 0,
-        ok: false as const,
-        productIdCount: productIds.length,
-        reason: "inventory_product_scope_lookup_failed",
-        scopedProductIds: new Set<string>(),
+        clientSaleId: sale.clientSaleId,
+        posSaleId: sale.posSaleId,
+        status: sale.status,
       };
-    }
+    })
+    .filter(
+      (
+        sale,
+      ): sale is {
+        clientSaleId: string;
+        posSaleId: string | null;
+        status: "accepted" | "duplicate";
+      } => Boolean(sale),
+    );
 
-    for (const row of productsResult.data ?? []) {
-      const shopScoped = row.shop_id === shopId;
-      const mappedLegacyScoped =
-        row.shop_id === null && Boolean(ownerUserId) && row.owner_user_id === ownerUserId;
-
-      if (shopScoped || mappedLegacyScoped) {
-        scopedProductIds.add(row.id);
-      }
-    }
+  if (
+    !status ||
+    typeof batch.acceptedSaleCount !== "number" ||
+    typeof batch.clientBatchId !== "string" ||
+    typeof batch.conflictCount !== "number" ||
+    typeof batch.duplicateSaleCount !== "number" ||
+    typeof batch.lineCount !== "number" ||
+    typeof batch.posSalesSyncBatchId !== "string" ||
+    typeof batch.saleCount !== "number" ||
+    sales.length !== input.sales.length
+  ) {
+    return null;
   }
-
-  const invalidProductCount = productIds.filter(
-    (productId) => !scopedProductIds.has(productId),
-  ).length;
 
   return {
-    invalidProductCount,
-    ok: true,
-    productIdCount: productIds.length,
-    scopedProductIds,
-  };
-}
-
-async function cleanupPosSalesBatch(
-  supabase: SupabaseAdminClient,
-  batchId: string,
-) {
-  const { error } = await supabase
-    .from("pos_sales_sync_batches")
-    .delete()
-    .eq("pos_sales_sync_batch_id", batchId);
-
-  return !error;
-}
-
-type InsertedLineRow = {
-  client_line_id: string;
-  pos_sale_id: string;
-  pos_sale_line_id: string;
-  product_id: string | null;
-  stock_quantity_delta: number;
-};
-
-type PosRevenueLedgerEntryInsert = {
-  amount_clp: number;
-  barcode: string | null;
-  business_date: string | null;
-  client_entry_id: string;
-  currency: "CLP";
-  entry_type:
-    | "change"
-    | "discount"
-    | "item"
-    | "payment"
-    | "refund_item"
-    | "refund_payment"
-    | "tax"
-    | "void_marker";
-  item_number: string | null;
-  line_position: number | null;
-  local_product_id: string | null;
-  metadata_redacted: JsonRecord;
-  occurred_at: string;
-  original_client_entry_id: string | null;
-  payment_method: PosPaymentMethod | null;
-  pos_sale_id: string;
-  pos_sales_sync_batch_id: string;
-  pos_session_id: string;
-  product_id: string | null;
-  product_name: string | null;
-  quantity: number | null;
-  shop_device_id: string;
-  shop_id: string;
-  staff_id: string;
-};
-
-type ProductScopeResolution =
-  | {
-      code?: never;
-      invalidProductCount: number;
-      ok: true;
-      productIdCount: number;
-      reason?: never;
-      scopedProductIds: Set<string>;
-    }
-  | {
-      code: "db_failure";
-      invalidProductCount: number;
-      ok: false;
-      productIdCount: number;
-      reason: string;
-      scopedProductIds: Set<string>;
-    };
-
-type StockMovementRpcRow = {
-  issue_code: string | null;
-  status:
-    | "applied"
-    | "failed"
-    | "not_applicable"
-    | "stock_conflict"
-    | "unresolved_product";
-  stock_after: number | null;
-  stock_before: number | null;
-};
-
-function signedLineAmountClp(line: ParsedSalesLine, sale: ParsedSale) {
-  const amount = line.amountClp ?? Math.round(line.lineTotal);
-
-  if (line.lineType === "discount") {
-    return -Math.abs(amount);
-  }
-
-  if (line.lineType === "tax") {
-    return sale.businessKind === "sale" ? Math.abs(amount) : -Math.abs(amount);
-  }
-
-  return sale.businessKind === "sale" ? Math.abs(amount) : -Math.abs(amount);
-}
-
-function ledgerEntryType(line: ParsedSalesLine, sale: ParsedSale) {
-  if (line.lineType === "discount") {
-    return "discount" as const;
-  }
-
-  if (line.lineType === "tax") {
-    return "tax" as const;
-  }
-
-  return sale.businessKind === "sale" ? ("item" as const) : ("refund_item" as const);
-}
-
-function buildLedgerRows(input: {
-  batchId: string;
-  insertedSaleByClientId: Map<string, string>;
-  sale: ParsedSale;
-  scopedProductIds: Set<string>;
-  session: PosSessionRow;
-  shopId: string;
-  staffId: string;
-}) {
-  const saleId = input.insertedSaleByClientId.get(input.sale.clientSaleId);
-
-  if (!saleId) {
-    return [];
-  }
-
-  const rows: PosRevenueLedgerEntryInsert[] = input.sale.lines.map((line) => ({
-    amount_clp: signedLineAmountClp(line, input.sale),
-    barcode: line.barcode,
-    business_date: input.sale.businessDate,
-    client_entry_id: `line:${line.clientLineId}`,
-    currency: "CLP",
-    entry_type: ledgerEntryType(line, input.sale),
-    item_number: line.itemNumber,
-    line_position: line.linePosition,
-    local_product_id: line.localProductId,
-    metadata_redacted: {
-      line_type: line.lineType,
-      source: "TASK-081",
+    batch: {
+      acceptedSaleCount: batch.acceptedSaleCount,
+      clientBatchId: batch.clientBatchId,
+      conflictCount: batch.conflictCount,
+      duplicateSaleCount: batch.duplicateSaleCount,
+      lineCount: batch.lineCount,
+      posSalesSyncBatchId: batch.posSalesSyncBatchId,
+      saleCount: batch.saleCount,
+      status,
     },
-    occurred_at: input.sale.occurredAt,
-    original_client_entry_id: null,
-    payment_method: null,
-    pos_sale_id: saleId,
-    pos_sales_sync_batch_id: input.batchId,
-    pos_session_id: input.session.pos_session_id,
-    product_id: scopedProductId(line.productId, input.scopedProductIds),
-    product_name: line.productName,
-    quantity: line.quantity,
-    shop_device_id: input.session.shop_device_id,
-    shop_id: input.shopId,
-    staff_id: input.staffId,
-  }));
-  const hasDiscountLine = input.sale.lines.some((line) => line.lineType === "discount");
-  const hasTaxLine = input.sale.lines.some((line) => line.lineType === "tax");
-
-  if (!hasDiscountLine && input.sale.discountAmountClp && input.sale.discountAmountClp > 0) {
-    rows.push({
-      amount_clp: -Math.abs(input.sale.discountAmountClp),
-      barcode: null,
-      business_date: input.sale.businessDate,
-      client_entry_id: "summary:discount",
-      currency: "CLP",
-      entry_type: "discount",
-      item_number: null,
-      line_position: null,
-      local_product_id: null,
-      metadata_redacted: {
-        source: "TASK-081",
-      },
-      occurred_at: input.sale.occurredAt,
-      original_client_entry_id: null,
-      payment_method: null,
-      pos_sale_id: saleId,
-      pos_sales_sync_batch_id: input.batchId,
-      pos_session_id: input.session.pos_session_id,
-      product_id: null,
-      product_name: null,
-      quantity: null,
-      shop_device_id: input.session.shop_device_id,
-      shop_id: input.shopId,
-      staff_id: input.staffId,
-    });
-  }
-
-  if (!hasTaxLine && input.sale.taxAmountClp && input.sale.taxAmountClp > 0) {
-    rows.push({
-      amount_clp:
-        input.sale.businessKind === "sale"
-          ? input.sale.taxAmountClp
-          : -Math.abs(input.sale.taxAmountClp),
-      barcode: null,
-      business_date: input.sale.businessDate,
-      client_entry_id: "summary:tax",
-      currency: "CLP",
-      entry_type: "tax",
-      item_number: null,
-      line_position: null,
-      local_product_id: null,
-      metadata_redacted: {
-        source: "TASK-081",
-      },
-      occurred_at: input.sale.occurredAt,
-      original_client_entry_id: null,
-      payment_method: null,
-      pos_sale_id: saleId,
-      pos_sales_sync_batch_id: input.batchId,
-      pos_session_id: input.session.pos_session_id,
-      product_id: null,
-      product_name: null,
-      quantity: null,
-      shop_device_id: input.session.shop_device_id,
-      shop_id: input.shopId,
-      staff_id: input.staffId,
-    });
-  }
-
-  for (const payment of input.sale.payments) {
-    rows.push({
-      amount_clp: payment.amountClp,
-      barcode: null,
-      business_date: input.sale.businessDate,
-      client_entry_id: `payment:${payment.clientPaymentId}`,
-      currency: "CLP",
-      entry_type:
-        input.sale.businessKind === "sale" ? "payment" : "refund_payment",
-      item_number: null,
-      line_position: null,
-      local_product_id: null,
-      metadata_redacted: {
-        source: "TASK-081",
-      },
-      occurred_at: input.sale.occurredAt,
-      original_client_entry_id: null,
-      payment_method: payment.method,
-      pos_sale_id: saleId,
-      pos_sales_sync_batch_id: input.batchId,
-      pos_session_id: input.session.pos_session_id,
-      product_id: null,
-      product_name: null,
-      quantity: null,
-      shop_device_id: input.session.shop_device_id,
-      shop_id: input.shopId,
-      staff_id: input.staffId,
-    });
-
-    if (payment.changeClp > 0) {
-      rows.push({
-        amount_clp: -Math.abs(payment.changeClp),
-        barcode: null,
-        business_date: input.sale.businessDate,
-        client_entry_id: `change:${payment.clientPaymentId}`,
-        currency: "CLP",
-        entry_type: "change",
-        item_number: null,
-        line_position: null,
-        local_product_id: null,
-        metadata_redacted: {
-          source: "TASK-081",
-        },
-        occurred_at: input.sale.occurredAt,
-        original_client_entry_id: null,
-        payment_method: payment.method,
-        pos_sale_id: saleId,
-        pos_sales_sync_batch_id: input.batchId,
-        pos_session_id: input.session.pos_session_id,
-        product_id: null,
-        product_name: null,
-        quantity: null,
-        shop_device_id: input.session.shop_device_id,
-        shop_id: input.shopId,
-        staff_id: input.staffId,
-      });
-    }
-  }
-
-  if (input.sale.businessKind === "void") {
-    rows.push({
-      amount_clp: 0,
-      barcode: null,
-      business_date: input.sale.businessDate,
-      client_entry_id: `void:${input.sale.clientSaleId}`,
-      currency: "CLP",
-      entry_type: "void_marker",
-      item_number: null,
-      line_position: null,
-      local_product_id: null,
-      metadata_redacted: {
-        source: "TASK-081",
-      },
-      occurred_at: input.sale.occurredAt,
-      original_client_entry_id: input.sale.clientOriginalSaleId,
-      payment_method: null,
-      pos_sale_id: saleId,
-      pos_sales_sync_batch_id: input.batchId,
-      pos_session_id: input.session.pos_session_id,
-      product_id: null,
-      product_name: null,
-      quantity: null,
-      shop_device_id: input.session.shop_device_id,
-      shop_id: input.shopId,
-      staff_id: input.staffId,
-    });
-  }
-
-  return rows;
-}
-
-function scopedProductId(productId: string | null, scopedProductIds: Set<string>) {
-  return productId && scopedProductIds.has(productId) ? productId : null;
-}
-
-function stockMovementKind(sale: ParsedSale, quantityDelta: number) {
-  if (quantityDelta === 0) {
-    return "no_stock";
-  }
-
-  if (sale.businessKind === "void") {
-    return "void_reverse";
-  }
-
-  return quantityDelta < 0 ? "sale_decrement" : "refund_increment";
-}
-
-async function findExistingSaleLinesForSales(
-  supabase: SupabaseAdminClient,
-  saleIds: readonly string[],
-) {
-  const rows: InsertedLineRow[] = [];
-
-  for (const saleIdChunk of chunkValues(saleIds, 100)) {
-    const result = await supabase
-      .from("pos_sale_lines")
-      .select("pos_sale_line_id,pos_sale_id,client_line_id,product_id,stock_quantity_delta")
-      .in("pos_sale_id", saleIdChunk)
-      .returns<InsertedLineRow[]>();
-
-    if (result.error) {
-      return { error: result.error, rows: [] };
-    }
-
-    rows.push(...(result.data ?? []));
-  }
-
-  return { error: null, rows };
-}
-
-type StockApplicationResult =
-  | {
-      ok: true;
-      stockMovementSaleCount: number;
-    }
-  | {
-      ok: false;
-      result: PosSalesSyncEndpointResult;
-    };
-
-async function applyStockMovements(input: {
-  lineRows: readonly InsertedLineRow[];
-  meta: PosSalesSyncRequestMeta;
-  productScope: ProductScopeResolution & { ok: true };
-  saleIdByClientId: ReadonlyMap<string, string>;
-  sales: readonly ParsedSale[];
-  session: PosSessionRow;
-  shopId: string;
-  staffId: string;
-  supabase: SupabaseAdminClient;
-  targetId: string;
-}): Promise<StockApplicationResult> {
-  const insertedLineBySaleAndClientLineId = new Map(
-    input.lineRows.map((line) => [
-      `${line.pos_sale_id}:${line.client_line_id}`,
-      line,
-    ]),
-  );
-  const stockStatusesBySaleId = new Map<string, StockMovementRpcRow[]>();
-
-  for (const sale of input.sales) {
-    if (sale.sourceSchemaVersion !== POS_SALES_SCHEMA_VERSION) {
-      continue;
-    }
-
-    const saleId = input.saleIdByClientId.get(sale.clientSaleId);
-
-    if (!saleId) {
-      continue;
-    }
-
-    for (const line of sale.lines) {
-      const insertedLine = insertedLineBySaleAndClientLineId.get(
-        `${saleId}:${line.clientLineId}`,
-      );
-
-      if (!insertedLine) {
-        return {
-          ok: false,
-          result: await auditedFailure(input.supabase, {
-            code: "db_failure",
-            metadata: {
-              ...requestMetadata(input.meta),
-              reason: "stock_sale_line_missing",
-            },
-            shopId: input.shopId,
-            staffId: input.staffId,
-            status: 500,
-            targetId: input.targetId,
-            targetType: "pos_sales_sync_batch",
-          }),
-        };
-      }
-
-      const movementKind = stockMovementKind(sale, line.stockQuantityDelta);
-      const movement = await input.supabase
-        .rpc(
-          "pos_apply_sale_stock_movement",
-          {
-            p_metadata_redacted: {
-              client_line_id_present: true,
-              client_sale_id_present: true,
-              source: "TASK-081",
-            },
-            p_movement_key: `${input.shopId}:${input.session.shop_device_id}:${sale.clientSaleId}:${line.clientLineId}:${movementKind}`,
-            p_movement_kind: movementKind,
-            p_pos_sale_id: saleId,
-            p_pos_sale_line_id: insertedLine.pos_sale_line_id,
-            p_product_id: scopedProductId(line.productId, input.productScope.scopedProductIds),
-            p_quantity_delta: line.stockQuantityDelta,
-            p_shop_id: input.shopId,
-          },
-        )
-        .returns<StockMovementRpcRow[]>();
-
-      if (movement.error || !movement.data?.[0]) {
-        return {
-          ok: false,
-          result: await auditedFailure(input.supabase, {
-            code: "db_failure",
-            metadata: {
-              ...requestMetadata(input.meta),
-              reason: "stock_movement_rpc_failed",
-            },
-            shopId: input.shopId,
-            staffId: input.staffId,
-            status: 500,
-            targetId: input.targetId,
-            targetType: "pos_sales_sync_batch",
-          }),
-        };
-      }
-
-      const stockResult = movement.data[0];
-      const existing = stockStatusesBySaleId.get(saleId) ?? [];
-      existing.push(stockResult);
-      stockStatusesBySaleId.set(saleId, existing);
-
-      const lineStatusUpdate = await input.supabase
-        .from("pos_sale_lines")
-        .update({
-          stock_issue_code: stockResult.issue_code,
-          stock_sync_status: stockResult.status,
-        })
-        .eq("pos_sale_line_id", insertedLine.pos_sale_line_id);
-
-      if (lineStatusUpdate.error) {
-        return {
-          ok: false,
-          result: await auditedFailure(input.supabase, {
-            code: "db_failure",
-            metadata: {
-              ...requestMetadata(input.meta),
-              reason: "stock_line_status_update_failed",
-            },
-            shopId: input.shopId,
-            staffId: input.staffId,
-            status: 500,
-            targetId: input.targetId,
-            targetType: "pos_sales_sync_batch",
-          }),
-        };
-      }
-    }
-  }
-
-  for (const [saleId, stockRows] of stockStatusesBySaleId) {
-    const warningCount = stockRows.filter(
-      (row) => row.status !== "applied" && row.status !== "not_applicable",
-    ).length;
-    const saleStockStatus =
-      warningCount === 0
-        ? stockRows.some((row) => row.status === "applied")
-          ? "applied"
-          : "not_applicable"
-        : stockRows.some((row) => row.status === "stock_conflict")
-          ? "stock_conflict"
-          : "stock_warning";
-    const saleStatusUpdate = await input.supabase
-      .from("pos_sales")
-      .update({
-        stock_sync_status: saleStockStatus,
-        stock_warning_count: warningCount,
-      })
-      .eq("pos_sale_id", saleId);
-
-    if (saleStatusUpdate.error) {
-      return {
-        ok: false,
-        result: await auditedFailure(input.supabase, {
-          code: "db_failure",
-          metadata: {
-            ...requestMetadata(input.meta),
-            reason: "stock_sale_status_update_failed",
-          },
-          shopId: input.shopId,
-          staffId: input.staffId,
-          status: 500,
-          targetId: input.targetId,
-          targetType: "pos_sales_sync_batch",
-        }),
-      };
-    }
-  }
-
-  return {
+    code: "success",
     ok: true,
-    stockMovementSaleCount: stockStatusesBySaleId.size,
+    sales,
   };
+}
+
+function atomicSalesFailureCode(input: unknown): PosSalesSyncFailureCode {
+  if (!isRecord(input) || input.ok !== false) {
+    return "db_failure";
+  }
+
+  if (
+    input.code === "conflict" ||
+    input.code === "denied" ||
+    input.code === "validation_failed"
+  ) {
+    return input.code;
+  }
+
+  return "db_failure";
+}
+
+function failureStatusForAtomicCode(
+  code: PosSalesSyncFailureCode,
+): 400 | 401 | 409 | 500 {
+  if (code === "validation_failed") {
+    return 400;
+  }
+
+  if (code === "denied") {
+    return 401;
+  }
+
+  if (code === "conflict") {
+    return 409;
+  }
+
+  return 500;
 }
 
 export async function handlePosSalesSync(
@@ -1996,7 +1443,7 @@ export async function handlePosSalesSync(
 
   const parsed = parseSalesSyncInput(input, meta);
 
-  if (!parsed) {
+  if (!parsed || parsed.schemaVersion !== POS_SALES_SCHEMA_VERSION) {
     return auditedFailure(supabase, {
       code: "validation_failed",
       metadata: requestMetadata(meta),
@@ -2011,588 +1458,96 @@ export async function handlePosSalesSync(
   }
 
   const { session, shop, staff } = auth.context;
-  const lineCount = parsed.sales.reduce((sum, sale) => sum + sale.lines.length, 0);
-  const existingBatch = await findExistingBatch(supabase, parsed, shop.shop_id);
-
-  if (existingBatch.error) {
-    return auditedFailure(supabase, {
-      code: "db_failure",
-      metadata: requestMetadata(meta),
-      shopId: shop.shop_id,
-      staffId: staff.staff_id,
-      status: 500,
-      targetId: session.pos_session_id,
-      targetType: "pos_session",
-    });
-  }
-
-  if (existingBatch.data) {
-    const duplicate = existingBatch.data.payload_hash === parsed.batchPayloadHash;
-
-    const auditOk = await writePosSalesAudit(supabase, {
-      code: duplicate ? "duplicate_batch" : "conflict_batch",
-      metadata: {
-        ...requestMetadata(meta),
-        app_version: parsed.appVersion ?? null,
-        client_batch_id: parsed.clientBatchId,
-        line_count: lineCount,
-        sale_count: parsed.sales.length,
-      },
-      result: duplicate ? "success" : "blocked",
-      severity: duplicate ? "info" : "warning",
-      shopId: shop.shop_id,
-      staffId: staff.staff_id,
-      targetId: existingBatch.data.pos_sales_sync_batch_id,
-      targetType: "pos_sales_sync_batch",
-    });
-
-    if (!auditOk) {
-      return failure("db_failure", 500);
-    }
-
-    if (!duplicate) {
-      return failure("conflict", 409);
-    }
-
-    const duplicateExistingSales = await findExistingSales(supabase, parsed, shop.shop_id);
-
-    if (duplicateExistingSales.error) {
-      return auditedFailure(supabase, {
-        code: "db_failure",
-        metadata: requestMetadata(meta),
-        shopId: shop.shop_id,
-        staffId: staff.staff_id,
-        status: 500,
-        targetId: existingBatch.data.pos_sales_sync_batch_id,
-        targetType: "pos_sales_sync_batch",
-      });
-    }
-
-    const duplicateByClientSaleId = new Map(
-      duplicateExistingSales.rows.map((row) => [row.client_sale_id, row]),
-    );
-    const duplicateByIdempotencyKey = new Map(
-      duplicateExistingSales.rows.map((row) => [row.idempotency_key, row]),
-    );
-    const duplicateSaleIdByClientId = new Map<string, string>();
-
-    for (const sale of parsed.sales) {
-      const existing =
-        duplicateByClientSaleId.get(sale.clientSaleId) ??
-        duplicateByIdempotencyKey.get(sale.idempotencyKey);
-
-      if (!existing) {
-        return auditedFailure(supabase, {
-          code: "db_failure",
-          metadata: {
-            ...requestMetadata(meta),
-            reason: "duplicate_sale_missing",
-          },
-          shopId: shop.shop_id,
-          staffId: staff.staff_id,
-          status: 500,
-          targetId: existingBatch.data.pos_sales_sync_batch_id,
-          targetType: "pos_sales_sync_batch",
-        });
-      }
-
-      duplicateSaleIdByClientId.set(sale.clientSaleId, existing.pos_sale_id);
-    }
-
-    const duplicateProductScope = await validateSalesLineProductScope(
-      supabase,
-      parsed.sales,
-      shop.shop_id,
-    );
-
-    if (!duplicateProductScope.ok) {
-      return auditedFailure(supabase, {
-        code: "db_failure",
-        metadata: {
-          ...requestMetadata(meta),
-          invalid_product_id_count: duplicateProductScope.invalidProductCount,
-          product_id_count: duplicateProductScope.productIdCount,
-          reason: duplicateProductScope.reason,
-        },
-        shopId: shop.shop_id,
-        staffId: staff.staff_id,
-        status: 500,
-        targetId: existingBatch.data.pos_sales_sync_batch_id,
-        targetType: "pos_sales_sync_batch",
-      });
-    }
-
-    const duplicateLineRows = await findExistingSaleLinesForSales(
-      supabase,
-      [...duplicateSaleIdByClientId.values()],
-    );
-
-    if (duplicateLineRows.error) {
-      return auditedFailure(supabase, {
-        code: "db_failure",
-        metadata: {
-          ...requestMetadata(meta),
-          reason: "duplicate_sale_line_lookup_failed",
-        },
-        shopId: shop.shop_id,
-        staffId: staff.staff_id,
-        status: 500,
-        targetId: existingBatch.data.pos_sales_sync_batch_id,
-        targetType: "pos_sales_sync_batch",
-      });
-    }
-
-    const duplicateStockRepair = await applyStockMovements({
-      lineRows: duplicateLineRows.rows,
-      meta,
-      productScope: duplicateProductScope,
-      saleIdByClientId: duplicateSaleIdByClientId,
-      sales: parsed.sales,
-      session,
-      shopId: shop.shop_id,
-      staffId: staff.staff_id,
-      supabase,
-      targetId: existingBatch.data.pos_sales_sync_batch_id,
-    });
-
-    if (!duplicateStockRepair.ok) {
-      return duplicateStockRepair.result;
-    }
-
-    return {
-      body: {
-        batch: {
-          acceptedSaleCount: 0,
-          clientBatchId: parsed.clientBatchId,
-          conflictCount: 0,
-          duplicateSaleCount: parsed.sales.length,
-          lineCount,
-          posSalesSyncBatchId: existingBatch.data.pos_sales_sync_batch_id,
-          saleCount: parsed.sales.length,
-          status: "duplicate",
-        },
-        code: "success",
-        ok: true,
-        sales: parsed.sales.map((sale) => {
-          const existing =
-            duplicateByClientSaleId.get(sale.clientSaleId) ??
-            duplicateByIdempotencyKey.get(sale.idempotencyKey);
-
-          return {
-            clientSaleId: sale.clientSaleId,
-            posSaleId:
-              existing?.pos_sale_id ??
-              duplicateSaleIdByClientId.get(sale.clientSaleId) ??
-              null,
-            status: "duplicate",
-          };
-        }),
-        serverTime,
-        shop: {
-          ...buildPosShopPayload(shop),
-        },
-      },
-      status: 200,
-    };
-  }
-
-  const existingSales = await findExistingSales(supabase, parsed, shop.shop_id);
-
-  if (existingSales.error) {
-    return auditedFailure(supabase, {
-      code: "db_failure",
-      metadata: requestMetadata(meta),
-      shopId: shop.shop_id,
-      staffId: staff.staff_id,
-      status: 500,
-      targetId: session.pos_session_id,
-      targetType: "pos_session",
-    });
-  }
-
-  const existingByClientSaleId = new Map(
-    existingSales.rows.map((row) => [row.client_sale_id, row]),
-  );
-  const existingByIdempotencyKey = new Map(
-    existingSales.rows.map((row) => [row.idempotency_key, row]),
-  );
-  const duplicateSales: ExistingSaleRow[] = [];
-  const acceptedSales: ParsedSale[] = [];
-
-  for (const sale of parsed.sales) {
-    const existing =
-      existingByClientSaleId.get(sale.clientSaleId) ??
-      existingByIdempotencyKey.get(sale.idempotencyKey);
-
-    if (!existing) {
-      acceptedSales.push(sale);
-      continue;
-    }
-
-    if (existing.payload_hash !== sale.payloadHash) {
-      return auditedFailure(supabase, {
-        code: "conflict",
-        metadata: {
-          ...requestMetadata(meta),
-          client_batch_id: parsed.clientBatchId,
-          client_sale_id: sale.clientSaleId,
-          sale_count: parsed.sales.length,
-        },
-        shopId: shop.shop_id,
-        staffId: staff.staff_id,
-        status: 409,
-        targetId: existing.pos_sale_id,
-        targetType: "pos_sale",
-      });
-    }
-
-    duplicateSales.push(existing);
-  }
-
-  const productScope = await validateSalesLineProductScope(
-    supabase,
-    acceptedSales,
-    shop.shop_id,
+  const lineCount = parsed.sales.reduce(
+    (sum, sale) => sum + sale.lines.length,
+    0,
   );
 
-  if (!productScope.ok) {
-    return auditedFailure(supabase, {
-      code: "db_failure",
-      metadata: {
-        ...requestMetadata(meta),
-        accepted_sale_count: acceptedSales.length,
-        duplicate_sale_count: duplicateSales.length,
-        invalid_product_id_count: productScope.invalidProductCount,
-        line_count: lineCount,
-        product_id_count: productScope.productIdCount,
-        reason: productScope.reason,
-        sale_count: parsed.sales.length,
-      },
-      shopId: shop.shop_id,
-      staffId: staff.staff_id,
-      status: 500,
-      targetId: session.pos_session_id,
-      targetType: "pos_session",
-    });
-  }
-
-  const hasV1ProductScopeMismatch = acceptedSales.some(
-    (sale) =>
-      sale.sourceSchemaVersion === POS_LEGACY_SALES_SCHEMA_VERSION &&
-      sale.lines.some(
-        (line) => line.productId && !productScope.scopedProductIds.has(line.productId),
-      ),
-  );
-
-  if (hasV1ProductScopeMismatch) {
-    return auditedFailure(supabase, {
-      code: "validation_failed",
-      metadata: {
-        ...requestMetadata(meta),
-        accepted_sale_count: acceptedSales.length,
-        duplicate_sale_count: duplicateSales.length,
-        invalid_product_id_count: productScope.invalidProductCount,
-        line_count: lineCount,
-        product_id_count: productScope.productIdCount,
-        reason: "product_scope_mismatch",
-        sale_count: parsed.sales.length,
-      },
-      shopId: shop.shop_id,
-      staffId: staff.staff_id,
-      status: 400,
-      targetId: session.pos_session_id,
-      targetType: "pos_session",
-    });
-  }
-
-  const batchInsert: TablesInsert<"pos_sales_sync_batches"> = {
-    client_batch_id: parsed.clientBatchId,
-    conflict_count: 0,
-    idempotency_key: parsed.idempotencyKey,
-    line_count: lineCount,
-    metadata_redacted: {
+  const rpcResult = await supabase.rpc("pos_sales_sync_apply_v1", {
+    p_client_batch_id: parsed.clientBatchId,
+    p_idempotency_key: parsed.idempotencyKey,
+    p_metadata_redacted: {
       app_version_present: Boolean(parsed.appVersion),
-      duplicate_sale_count: duplicateSales.length,
-      source: "TASK-041",
+      source: "TASK-088",
       source_schema_version: parsed.schemaVersion,
-      task_081_sales_ledger_enabled: parsed.schemaVersion === POS_SALES_SCHEMA_VERSION,
     },
-    payload_hash: parsed.batchPayloadHash,
-    pos_session_id: session.pos_session_id,
-    sale_count: parsed.sales.length,
-    shop_code: shop.shop_code,
-    shop_device_id: session.shop_device_id,
-    shop_id: shop.shop_id,
-    staff_id: staff.staff_id,
-    status: "accepted",
-  };
-  const batchResult = await supabase
-    .from("pos_sales_sync_batches")
-    .insert(batchInsert)
-    .select("pos_sales_sync_batch_id")
-    .maybeSingle<Pick<Tables<"pos_sales_sync_batches">, "pos_sales_sync_batch_id">>();
+    p_payload_hash: parsed.batchPayloadHash,
+    p_pos_session_id: session.pos_session_id,
+    p_sales: parsed.sales as unknown as Json,
+    p_schema_version: parsed.schemaVersion,
+    p_shop_code: shop.shop_code,
+    p_shop_device_id: session.shop_device_id,
+    p_shop_id: shop.shop_id,
+    p_staff_id: staff.staff_id,
+  });
 
-  if (batchResult.error || !batchResult.data) {
+  if (rpcResult.error) {
+    const code =
+      rpcResult.error.code === "23505" ? "conflict" : "db_failure";
     return auditedFailure(supabase, {
-      code: batchResult.error?.code === "23505" ? "conflict" : "db_failure",
-      metadata: requestMetadata(meta),
+      code,
+      metadata: {
+        ...requestMetadata(meta),
+        reason: "atomic_sales_rpc_failed",
+      },
       shopId: shop.shop_id,
       staffId: staff.staff_id,
-      status: batchResult.error?.code === "23505" ? 409 : 500,
+      status: code === "conflict" ? 409 : 500,
       targetId: session.pos_session_id,
       targetType: "pos_session",
     });
   }
 
-  const batchId = batchResult.data.pos_sales_sync_batch_id;
-  const saleRows: Array<TablesInsert<"pos_sales">> = acceptedSales.map((sale) => ({
-    business_date: sale.businessDate,
-    business_kind: sale.businessKind,
-    change_amount_clp: sale.changeAmountClp,
-    client_original_sale_id: sale.clientOriginalSaleId,
-    client_sale_id: sale.clientSaleId,
-    currency: sale.currency,
-    discount_amount_clp: sale.discountAmountClp,
-    discount_total: sale.discountTotal,
-    fiscal_document_number_redacted: sale.fiscalDocumentNumberRedacted,
-    fiscal_document_type: sale.fiscalDocumentType,
-    fiscal_printed_at: sale.fiscalPrintedAt,
-    fiscal_status: sale.fiscalStatus,
-    gross_amount_clp: sale.grossAmountClp,
-    idempotency_key: sale.idempotencyKey,
-    metadata_redacted: {
-      line_count: sale.lines.length,
-      source: "TASK-041",
-      source_schema_version: sale.sourceSchemaVersion,
-      task_081_sales_ledger_enabled: sale.sourceSchemaVersion === POS_SALES_SCHEMA_VERSION,
-    },
-    net_amount_clp: sale.netAmountClp,
-    occurred_at: sale.occurredAt,
-    paid_amount_clp: sale.paidAmountClp,
-    payload_hash: sale.payloadHash,
-    pos_sales_sync_batch_id: batchId,
-    pos_session_id: session.pos_session_id,
-    reversal_reason_redacted: sale.reversalReasonRedacted,
-    sale_number: sale.saleNumber,
-    shop_code: shop.shop_code,
-    shop_device_id: session.shop_device_id,
-    shop_id: shop.shop_id,
-    source_schema_version: sale.sourceSchemaVersion,
-    staff_id: staff.staff_id,
-    status: "accepted",
-    stock_sync_status:
-      sale.sourceSchemaVersion === POS_SALES_SCHEMA_VERSION ? "not_applicable" : "not_applicable",
-    subtotal: sale.subtotal,
-    tax_amount_clp: sale.taxAmountClp ?? 0,
-    tax_total: sale.taxTotal,
-    total: sale.total,
-  }));
-  const insertedSales =
-    saleRows.length > 0
-      ? await supabase
-          .from("pos_sales")
-          .insert(saleRows)
-          .select("pos_sale_id,client_sale_id")
-          .returns<Array<Pick<Tables<"pos_sales">, "client_sale_id" | "pos_sale_id">>>()
-      : { data: [], error: null };
+  const atomicResult = atomicSalesRpcResponse(rpcResult.data);
 
-  if (insertedSales.error || !insertedSales.data) {
-    const cleanupOk = await cleanupPosSalesBatch(supabase, batchId);
-
+  if (!atomicResult) {
+    const code = atomicSalesFailureCode(rpcResult.data);
     return auditedFailure(supabase, {
-      code: insertedSales.error?.code === "23505" ? "conflict" : "db_failure",
+      code,
       metadata: {
         ...requestMetadata(meta),
-        cleanup_ok: cleanupOk,
+        reason: "atomic_sales_rpc_rejected",
       },
       shopId: shop.shop_id,
       staffId: staff.staff_id,
-      status: insertedSales.error?.code === "23505" ? 409 : 500,
-      targetId: batchId,
-      targetType: "pos_sales_sync_batch",
+      status: failureStatusForAtomicCode(code),
+      targetId: session.pos_session_id,
+      targetType: "pos_session",
     });
   }
 
-  const insertedSaleByClientId = new Map(
-    insertedSales.data.map((sale) => [sale.client_sale_id, sale.pos_sale_id]),
-  );
-  const lineRows: Array<TablesInsert<"pos_sale_lines">> = acceptedSales.flatMap((sale) => {
-    const saleId = insertedSaleByClientId.get(sale.clientSaleId);
-
-    if (!saleId) {
-      return [];
-    }
-
-    return sale.lines.map((line) => ({
-      amount_clp: line.amountClp,
-      barcode: line.barcode,
-      client_line_id: line.clientLineId,
-      item_number: line.itemNumber,
-      line_type: line.lineType,
-      line_position: line.linePosition,
-      line_total: line.lineTotal,
-      local_product_id: line.localProductId,
-      metadata_redacted: {
-        source: "TASK-041",
-        source_schema_version: sale.sourceSchemaVersion,
-        task_081_sales_ledger_enabled: sale.sourceSchemaVersion === POS_SALES_SCHEMA_VERSION,
-      },
-      pos_sale_id: saleId,
-      pos_sales_sync_batch_id: batchId,
-      product_id: scopedProductId(line.productId, productScope.scopedProductIds),
-      product_name: line.productName,
-      quantity: line.quantity,
-      shop_id: shop.shop_id,
-      stock_quantity_delta: line.stockQuantityDelta,
-      stock_sync_status:
-        sale.sourceSchemaVersion === POS_SALES_SCHEMA_VERSION ? "not_applicable" : "not_applicable",
-      unit_amount_clp: line.unitAmountClp,
-      unit_price: line.unitPrice,
-    }));
-  });
-  const lineInsert =
-    lineRows.length > 0
-      ? await supabase
-          .from("pos_sale_lines")
-          .insert(lineRows)
-          .select(
-            "pos_sale_line_id,pos_sale_id,client_line_id,product_id,stock_quantity_delta",
-          )
-          .returns<InsertedLineRow[]>()
-      : { data: [], error: null };
-
-  if (lineInsert.error || !lineInsert.data) {
-    const cleanupOk = await cleanupPosSalesBatch(supabase, batchId);
-
-    return auditedFailure(supabase, {
-      code: lineInsert.error?.code === "23505" ? "conflict" : "db_failure",
-      metadata: {
-        ...requestMetadata(meta),
-        cleanup_ok: cleanupOk,
-      },
-      shopId: shop.shop_id,
-      staffId: staff.staff_id,
-      status: lineInsert.error?.code === "23505" ? 409 : 500,
-      targetId: batchId,
-      targetType: "pos_sales_sync_batch",
-    });
-  }
-
-  const ledgerRows = acceptedSales.flatMap((sale) =>
-    sale.sourceSchemaVersion === POS_SALES_SCHEMA_VERSION
-      ? buildLedgerRows({
-          batchId,
-          insertedSaleByClientId,
-          sale,
-          scopedProductIds: productScope.scopedProductIds,
-          session,
-          shopId: shop.shop_id,
-          staffId: staff.staff_id,
-        })
-      : [],
-  );
-  const ledgerInsert =
-    ledgerRows.length > 0
-      ? await supabase
-          .from("pos_revenue_ledger_entries")
-          .insert(ledgerRows)
-      : { error: null };
-
-  if (ledgerInsert.error) {
-    const cleanupOk = await cleanupPosSalesBatch(supabase, batchId);
-
-    return auditedFailure(supabase, {
-      code: ledgerInsert.error.code === "23505" ? "conflict" : "db_failure",
-      metadata: {
-        ...requestMetadata(meta),
-        cleanup_ok: cleanupOk,
-      },
-      shopId: shop.shop_id,
-      staffId: staff.staff_id,
-      status: ledgerInsert.error.code === "23505" ? 409 : 500,
-      targetId: batchId,
-      targetType: "pos_sales_sync_batch",
-    });
-  }
-
-  const stockApplication = await applyStockMovements({
-    lineRows: lineInsert.data ?? [],
-    meta,
-    productScope,
-    saleIdByClientId: insertedSaleByClientId,
-    sales: acceptedSales,
-    session,
-    shopId: shop.shop_id,
-    staffId: staff.staff_id,
-    supabase,
-    targetId: batchId,
-  });
-
-  if (!stockApplication.ok) {
-    return stockApplication.result;
-  }
-
-  const successAuditOk = await writePosSalesAudit(supabase, {
-    code: "success",
+  const auditOk = await writePosSalesAudit(supabase, {
+    code:
+      atomicResult.batch.status === "duplicate"
+        ? "duplicate_batch"
+        : "success",
     metadata: {
       ...requestMetadata(meta),
-      accepted_sale_count: acceptedSales.length,
+      accepted_sale_count: atomicResult.batch.acceptedSaleCount,
       app_version: parsed.appVersion ?? null,
       client_batch_id: parsed.clientBatchId,
-      conflict_count: 0,
-      duplicate_sale_count: duplicateSales.length,
+      duplicate_sale_count: atomicResult.batch.duplicateSaleCount,
       line_count: lineCount,
-      ledger_entry_count: ledgerRows.length,
       sale_count: parsed.sales.length,
       source_schema_version: parsed.schemaVersion,
-      stock_movement_sale_count: stockApplication.stockMovementSaleCount,
     },
     result: "success",
     severity: "info",
     shopId: shop.shop_id,
     staffId: staff.staff_id,
-    targetId: batchId,
+    targetId: atomicResult.batch.posSalesSyncBatchId,
     targetType: "pos_sales_sync_batch",
   });
 
-  if (!successAuditOk) {
+  if (!auditOk) {
     return failure("db_failure", 500);
   }
 
-  const duplicateByClientId = new Map(
-    duplicateSales.map((sale) => [sale.client_sale_id, sale]),
-  );
-
   return {
     body: {
-      batch: {
-        acceptedSaleCount: acceptedSales.length,
-        clientBatchId: parsed.clientBatchId,
-        conflictCount: 0,
-        duplicateSaleCount: duplicateSales.length,
-        lineCount,
-        posSalesSyncBatchId: batchId,
-        saleCount: parsed.sales.length,
-        status: "accepted",
-      },
-      code: "success",
-      ok: true,
-      sales: parsed.sales.map((sale) => {
-        const duplicate = duplicateByClientId.get(sale.clientSaleId);
-
-        return {
-          clientSaleId: sale.clientSaleId,
-          posSaleId:
-            insertedSaleByClientId.get(sale.clientSaleId) ??
-            duplicate?.pos_sale_id ??
-            null,
-          status: duplicate ? "duplicate" : "accepted",
-        };
-      }),
+      ...atomicResult,
       serverTime,
-      shop: {
-        ...buildPosShopPayload(shop),
-      },
+      shop: buildPosShopPayload(shop),
     },
     status: 200,
   };

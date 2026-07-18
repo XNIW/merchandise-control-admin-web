@@ -21,6 +21,7 @@ import type {
   CatalogSupplierOption,
 } from "@/app/shop/_components/CatalogActionPanel";
 import { CreatableCatalogCombobox } from "@/app/shop/_components/CreatableCatalogCombobox";
+import { ProductImageEditor } from "@/app/shop/_components/ProductImageControls";
 import { useModalFocusTrap } from "@/app/shop/_components/useModalFocusTrap";
 import type { SupportedLocale } from "@/i18n/locales";
 
@@ -29,6 +30,8 @@ type ProductDetailModalProduct = {
   barcode: string;
   itemNumber: string | null;
   productName: string | null;
+  primaryImageUpdatedAt: string | null;
+  primaryImageVersionId: string | null;
   secondProductName: string | null;
   purchasePrice: number | null;
   retailPrice: number | null;
@@ -77,6 +80,7 @@ type ProductDetailModalReadModel = {
 type ProductDetailModalControllerProps = {
   canManageProducts: boolean;
   categories?: CatalogCategoryOption[];
+  imageCacheScope?: string;
   labels?: Record<string, string>;
   locale?: SupportedLocale;
   requestedShopId?: string | null;
@@ -912,6 +916,7 @@ function ProductArchiveForm({
 export function ProductDetailModalController({
   canManageProducts,
   categories = [],
+  imageCacheScope,
   labels,
   locale = "en",
   requestedShopId,
@@ -924,6 +929,7 @@ export function ProductDetailModalController({
   const [tab, setTab] = useState<ProductTab>("overview");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageBusy, setImageBusy] = useState(false);
   const [readModel, setReadModel] = useState<ProductDetailModalReadModel | null>(null);
   const translate = useCallback((value: string) => labels?.[value] ?? value, [labels]);
   const titleId = "product-detail-modal-title";
@@ -1112,7 +1118,8 @@ export function ProductDetailModalController({
     Boolean(updateState.message) ||
     Boolean(archiveState.message) ||
     Boolean(restoreState.message);
-  const closeDisabled = updatePending || archivePending || restorePending;
+  const closeDisabled =
+    updatePending || archivePending || restorePending || imageBusy;
   const requestCloseModal = useCallback(() => {
     if (!closeDisabled) {
       closeModal();
@@ -1301,6 +1308,26 @@ export function ProductDetailModalController({
                     className="grid gap-4"
                     id="product-detail-panel-overview"
                   >
+                    {effectiveShopId ? (
+                      <ProductImageEditor
+                        cacheScope={imageCacheScope}
+                        canManage={
+                          canManageProducts && Boolean(imageCacheScope)
+                        }
+                        currentVersionId={product.primaryImageVersionId}
+                        labels={labels}
+                        onBusyChange={setImageBusy}
+                        onChanged={() => {
+                          void loadProduct(product.productId);
+                          router.refresh();
+                        }}
+                        productId={product.productId}
+                        productName={
+                          product.productName ?? translate("Unnamed product")
+                        }
+                        shopId={effectiveShopId}
+                      />
+                    ) : null}
                     {canManageProducts ? (
                       <ProductOverviewForm
                         action={updateAction}

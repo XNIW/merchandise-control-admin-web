@@ -1,0 +1,147 @@
+{
+  "documentType": "codex-security.scan-manifest",
+  "scan": {
+    "artifacts": [
+      {
+        "mediaType": "application/json",
+        "path": "findings.json",
+        "sha256": "872c7a08f14734e370740d7a9ca060c2692cfef8549f3dce58bef3fa055d6f01"
+      },
+      {
+        "mediaType": "application/json",
+        "path": "coverage.json",
+        "sha256": "c6ed3ace7173106d37efcba739cce8b0e7df27914e38363f12f3326afeed81e3"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/02_discovery/worker_receipts/ADM-S1.json",
+        "sha256": "50512660bd68eca00b6c4175f4f437ef21ee32f52d2a0ae2a17f4809d777ca69"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/02_discovery/worker_receipts/ADM-S2.json",
+        "sha256": "0c6445b16a9ca552139a326c1eda7d46ffa1044365a1d0f8ed2fad8b948d830c"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/02_discovery/worker_receipts/ADM-S3.json",
+        "sha256": "94b9cc930380c5d25088aa896dfac37be0a4a08f74d68c84b0d5a46dfa251249"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/02_discovery/worker_receipts/ADM-S4.json",
+        "sha256": "0a73d5f11c936e706b3c69c8e78aca20831aa8648f3f05ed65206456bc1d65b3"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/02_discovery/worker_receipts/ADM-S5.json",
+        "sha256": "da7c299f44f7113fc75f60d51adb34e6db0837ab16db491a757d30bb1a1713c4"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/02_discovery/worker_receipts/ADM-S6.json",
+        "sha256": "089058dd48390e2d6ca2ecc3c8d6ef51372727cb13c670773a70c15a6bb17edf"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/02_discovery/worker_receipts/ADM-S7.json",
+        "sha256": "69a3836e554302ae15525cb63c199301a94d2acf98d759fe7ab75dadc71af5f7"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/05_findings/ADM-S1-001/attack_path_analysis_report.md",
+        "sha256": "b683dbf707d7fec80bf9c192af88b5ce001917643f6af014b313680632fa571c"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/05_findings/ADM-S1-001/candidate_ledger.jsonl",
+        "sha256": "f856303338d681911f85a67730da6b527db7fd303ee5c2b607279c6deeefb446"
+      },
+      {
+        "mediaType": "application/octet-stream",
+        "path": "artifacts/05_findings/ADM-S1-001/validation_report.md",
+        "sha256": "8fa97cc325b63ba3e0f8f21c75c8682c1e32427c9ce0b1ef14dddf85efc45bee"
+      }
+    ],
+    "completedAt": "2026-07-17T19:35:20Z",
+    "coverageRef": "coverage.json",
+    "findingsRef": "findings.json",
+    "hardening": {
+      "portfolioPath": "hardening/hardening.md"
+    },
+    "id": "18ce2671-83b2-41f3-ab0a-c9f0996063b5",
+    "producer": {
+      "name": "codex-security-plugin",
+      "version": "0.1.11"
+    },
+    "scope": {
+      "artifactsReviewed": [
+        "35 changed-file review rows and seven worker receipts",
+        "product-image routes, authorization, service-role helper, Storage service, UI, and browser cache",
+        "Supabase migrations, RLS, grants, SECURITY DEFINER RPCs, and pgTAP contracts",
+        "Admin data access, POS sales and QA fixture changes, operational scripts, scanners, and localization"
+      ],
+      "context": "The threat model was generated during the scan from repository source and deployment documentation. This was a Changes scan; Deep Scan remained disabled. Win7POS was external, read-only, and outside the target.",
+      "excludePaths": [],
+      "includePaths": [
+        "."
+      ],
+      "limitations": [
+        "The route-to-RPC path was validated statically and at the local database RPC boundary; no deployed HTTP session was exercised.",
+        "Deployment-edge rate limiting and alerting were not measured.",
+        "Staging/dev migrations, production behavior, and live cross-client parity were not exercised."
+      ],
+      "runtimeStatus": "Targeted local pgTAP validation passed 9/9 in a rolled-back transaction. No live HTTP, staging, production, or cross-client run was performed.",
+      "summary": "Committed Changes review of the Admin consolidation diff from 38f02bd969e55df91ff41d3905661da8dfdb145a through 2f166b51e7d3ff68f8f01593cb68845788e7be9a. All 35 changed-file worklist rows were read in full.",
+      "validationMode": "Exact committed source trace plus targeted local pgTAP integration PoC"
+    },
+    "sealedAt": "2026-07-17T19:35:20Z",
+    "startedAt": "2026-07-17T18:18:06Z",
+    "status": "completed",
+    "target": {
+      "baseRevision": "38f02bd969e55df91ff41d3905661da8dfdb145a",
+      "displayName": "merchandise-control-validate-admin-20260717T150455Z",
+      "headRevision": "2f166b51e7d3ff68f8f01593cb68845788e7be9a",
+      "kind": "git_diff",
+      "remote": "https://github.com/XNIW/merchandise-control-admin-web.git",
+      "snapshotDigest": "codex-security-snapshot/v1:sha256:80d0ac6f423142d40d1a3ebb2a0e3ef44b5d20d59840b730f806cc7c8523daed",
+      "targetId": "target_sha256_fad9083fc958bc71f2eb8ec0afa0a6a7ec9649ac044c88a3001b44ae86539aec"
+    },
+    "threatModel": {
+      "assets": [
+        "shop-to-shop tenant isolation and role authorization",
+        "catalog, inventory, sales, product-image, and audit integrity",
+        "personal-account sessions, POS credentials and device/session tokens",
+        "the server-only Supabase service-role capability",
+        "private product-image objects, signed URLs, and canonical object paths"
+      ],
+      "assumptions": [
+        "Supabase token signing, managed Postgres/Storage, TLS termination, and Cloudflare isolation are trusted platform dependencies.",
+        "A fully compromised operator, developer workstation, CI control plane, or production secret store is outside this repository-level model.",
+        "Local test harnesses are not production entry points unless an operator explicitly deploys or runs them."
+      ],
+      "attackerCapabilities": [
+        "authenticate with an ordinary active personal account",
+        "choose request shop, product, image-version, and operation identifiers",
+        "repeat remote requests and observe application responses",
+        "supply bounded image metadata and uploaded bytes to authorized image flows"
+      ],
+      "securityObjectives": [
+        "verify client-supplied shop identifiers rather than treating them as authority",
+        "enforce viewer, manager, owner, staff, and platform-admin permissions server-side",
+        "bind every service-role RPC argument and persistent side effect to the resolved actor and tenant",
+        "keep private Storage capabilities short-lived, canonical, tenant-bound, and version-bound",
+        "preserve redacted, attributable, tenant-correct audit records"
+      ],
+      "summary": "MerchandiseControl Admin Web is a multi-tenant Next.js service backed by Supabase Auth, Postgres, RLS, SECURITY DEFINER RPCs, and private Storage. The highest-risk boundary in this diff is the transition from an authenticated request to server-side service-role authority, where every caller-selected shop and resource identifier must be rebound to the resolved actor before a persistent write.",
+      "trustBoundaries": [
+        "browser or device input to Next.js routes and server actions",
+        "Next.js server to Supabase through session/publishable clients",
+        "Next.js server to Supabase through the service-role client",
+        "Next.js server to private Storage and signed bearer capabilities",
+        "operator tooling to local, staging, and production services"
+      ]
+    }
+  },
+  "schemaVersion": "1.0"
+}

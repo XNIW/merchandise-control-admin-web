@@ -1,0 +1,60 @@
+{
+  "run_id": "LOCALT137A",
+  "target": "local",
+  "started_at_utc": "2026-07-17T08:06:48.492Z",
+  "duration_ms": 11871,
+  "runner": "playwright chromium-desktop",
+  "result": "PASS 1/1",
+  "checks": {
+    "private_two_object_upload": "PASS",
+    "server_finalize_validation": "PASS",
+    "duplicate_checksum_noop": "PASS",
+    "offline_account_shop_version_cache": "PASS",
+    "remove": "PASS",
+    "duplicate_remove_noop": "PASS",
+    "audit_redaction": "PASS",
+    "exact_baseline_restore": "PASS"
+  },
+  "verified_bytes": {
+    "main": 21907,
+    "thumb": 5980,
+    "total": 27887
+  },
+  "sync_event_counts": {
+    "after_finalize": 1,
+    "after_duplicate_finalize": 1,
+    "after_remove": 2,
+    "after_duplicate_remove": 2
+  },
+  "baseline_before": {
+    "audit_logs": 1711,
+    "auth_users": 205,
+    "image_objects": 0,
+    "image_versions": 0,
+    "inventory_mappings": 79,
+    "products": 289,
+    "profiles": 205,
+    "shop_members": 84,
+    "shops": 180,
+    "sync_events": 228
+  },
+  "baseline_after": {
+    "audit_logs": 1711,
+    "auth_users": 205,
+    "image_objects": 0,
+    "image_versions": 0,
+    "inventory_mappings": 79,
+    "products": 289,
+    "profiles": 205,
+    "shop_members": 84,
+    "shops": 180,
+    "sync_events": 228
+  },
+  "redaction": {
+    "contains_secret": false,
+    "contains_signed_url": false,
+    "contains_object_path": false,
+    "contains_image_bytes": false
+  },
+  "production_touched": false
+}
