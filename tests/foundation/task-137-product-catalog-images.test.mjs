@@ -422,11 +422,18 @@ test("TASK-137 browser pipeline freezes preprocessing, direct PUT and account-sc
   assert.match(client, /qualities: \[0\.82, 0\.76, 0\.7\]/);
   assert.match(client, /minimumSide: 640/);
   assert.match(client, /minimumSide: 128/);
-  assert.match(client, /Math\.floor\(maximumSide \* 0\.85\)/);
+  assert.match(
+    client,
+    /const OUTPUT_SIDE_FACTORS = \[1, 0\.85, 0\.72, 0\.61, 0\.52, 0\.44, 0\.4\] as const/,
+  );
+  assert.match(
+    client,
+    /OUTPUT_SIDE_FACTORS\.map\(\(factor\) =>[\s\S]*Math\.floor\(maximum \* factor\)/,
+  );
   assert.match(client, /PRODUCT_IMAGE_PREPROCESS_MEASURE/);
   assert.match(client, /performance\.measure\(PRODUCT_IMAGE_PREPROCESS_MEASURE/);
   assert.match(client, /context\.fillStyle = "#ffffff"/);
-  assert.match(client, /crypto\.subtle\.digest\("SHA-256"/);
+  assert.match(client, /crypto\.subtle\.digest\(\s*"SHA-256"/);
   assert.match(client, /const body = new FormData\(\)/);
   assert.match(client, /method: "PUT"/);
   assert.match(client, /"x-upsert": "false"/);
