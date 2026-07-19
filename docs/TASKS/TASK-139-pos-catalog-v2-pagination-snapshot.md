@@ -70,9 +70,17 @@ SYNC-2 e PERF-1.
 
 Implementazione e review cumulativa locale completate sul branch dedicato con
 verdetto `P0=0`, `P1=0`; tutti i finding P2 sul cursore sono stati corretti e
-coperti da regressioni. I gate applicativi locali sono verdi; il reset/pgTAP
-reale richiede Docker e viene eseguito dal job CI Supabase separato su Linux.
+coperti da regressioni. I gate applicativi locali sono verdi; migration e
+pgTAP sono passati nel job CI Supabase separato su Linux sull'HEAD pubblicato
+`53b9f47286b994af65c71b4e93d0a05be505e161`. La QA cloud isolata ha inoltre
+riprodotto il cap PostgREST e drenato senza skip/duplicati i dataset sintetici
+da 19.763 e 100.000 prodotti; una mutazione tra pagine ha causato il rifiuto
+fail-closed della continuation. Il progetto QA temporaneo e stato eliminato e
+il link locale e stato ripristinato su `merchandisecontrol-dev`, senza apply su
+dev o production.
+
 Il client Win7POS corrente conserva un limite bootstrap fisso di 120 pagine:
 la sostituzione con un budget derivato dal summary authoritative appartiene al
 successivo PR client SYNC-1. Nessun deploy/apply production eseguito o
-autorizzato. Stato `REVIEW`, in attesa di CI sull'HEAD pubblicato e QA isolata.
+autorizzato. Stato `REVIEW`, in attesa del nuovo giro CI sull'HEAD contenente
+questa evidence e del merge normale della PR.

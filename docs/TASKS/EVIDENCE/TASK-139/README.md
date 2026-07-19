@@ -72,9 +72,46 @@ Evidence incrementale per paginazione e snapshot catalogo POS v2.
 
 ## Operazioni esterne
 
-- Database staging/QA apply: `NOT_RUN` prima della review/CI del PR.
+- Tentativo di preview branch sul progetto dev: `BLOCKED_EXTERNAL_402`, perche
+  Supabase Branching richiede un piano Pro; nessun branch e stato creato e
+  nessuna modifica e stata applicata al progetto dev.
+- Fallback autorizzato: progetto cloud QA nano isolato
+  `merchandisecontrol-task139-qa` (`qglljgyhflcbtzlsbqkq`, `sa-east-1`), con
+  soli utenti/shop/cataloghi sintetici e nessun dato production.
+- `supabase db push --linked --dry-run --include-all`: `PASS` sul progetto QA.
+- Apply ordinato dell'intero stack migration, inclusa TASK-139: `PASS` sul
+  progetto QA.
+- `supabase test db --linked task139.sql` da Windows:
+  `BLOCKED_ENV_NO_DOCKER`; il comando pgTAP della CLI usa comunque il runner
+  Docker locale. Lo stesso stack migration e pgTAP e passato nel job CI Linux.
+- Regressione Data API reale: richiesta `Range: 0-1000` sulla fixture da
+  100.000 prodotti ha restituito HTTP `206`, `1000` righe e
+  `Content-Range: 0-999/100000`, riproducendo il cap senza modificarlo.
+- Drain RPC cloud da `19763`: `PASS`, `20` pagine, ultima pagina `763`,
+  `0` duplicati e replay deterministico.
+- Drain RPC cloud da `100000`: `PASS`, `100` pagine, ultima pagina `1000`,
+  `0` duplicati e replay deterministico.
+- Mutazione tra pagina 1 e continuation: revisione `1 -> 2`; risposta
+  `snapshot_changed`, senza proprieta `rows`: `PASS_FAIL_CLOSED`.
+- Advisor Supabase dopo DDL: `0` rilievi TASK-139 tra `85` security e `140`
+  performance; gli avvisi presenti riguardano oggetti dello stack storico.
+- Cleanup: progetto QA eliminato definitivamente dopo i test; elenco progetti
+  nuovamente limitato a `merchandisecontrol-dev`, con link locale ripristinato.
 - Database production apply: `NOT_RUN` e non autorizzato.
 - Deploy Cloudflare staging/production: `NOT_RUN`.
+
+## CI sull'HEAD pubblicato
+
+HEAD `53b9f47286b994af65c71b4e93d0a05be505e161`:
+
+- `Database migrations and pgTAP`: `PASS`, intero stack migration e test SQL.
+- `Verify`: `PASS`.
+- `Cloudflare build`: `PASS`, incluso packaging OpenNext e smoke locale Linux.
+- `TASK-094 staging E2E`, `Deploy staging` e `Deploy production`: `SKIPPED`
+  come previsto dalle condizioni workflow; nessun deploy e stato eseguito.
+
+Questa evidence genera una nuova HEAD documentale: prima del merge restano
+obbligatori i check verdi anche su tale commit esatto.
 
 ## Review cumulativa
 
@@ -86,5 +123,6 @@ Evidence incrementale per paginazione e snapshot catalogo POS v2.
 - Limite client Win7POS osservato: `MaxBootstrapCatalogPullPages=120`; il
   catalogo da 100.000 prodotti con lane prezzi richiede un budget superiore.
   Correzione assegnata al PR client SYNC-1, senza mescolare repository/PR.
-- Stato handoff: `REVIEW`; CI database/pgTAP e packaging Linux restano gate
-  obbligatori sull'HEAD esatto prima del merge.
+- Stato handoff: `REVIEW`; P0/P1/P2 aperti `0`. Migration, pgTAP, packaging
+  Linux e QA cloud isolata sono verdi; resta il rerun CI sull'HEAD documentale
+  esatta prima del merge normale.
