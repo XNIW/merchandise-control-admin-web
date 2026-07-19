@@ -2847,22 +2847,27 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-138: `TASK-138 - Product Images Runtime Completion, UX e Live Parity`
 - File task TASK-138: `docs/TASKS/TASK-138-product-images-runtime-completion-ux-live-parity.md`
 - Evidence TASK-138: `docs/TASKS/EVIDENCE/TASK-138/README.md`
+- Stato TASK-139: `REVIEW`
+- Fase TASK-139: `REVIEW`
+- Task TASK-139: `TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness`
+- File task TASK-139: `docs/TASKS/TASK-139-pos-catalog-v2-pagination-snapshot.md`
+- Evidence TASK-139: `docs/TASKS/EVIDENCE/TASK-139/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `IDLE`
-- Task attivo: `NESSUNO`
+- Stato globale attuale: `REVIEW`
+- Task attivo: `TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness`
 - Task precedente: `TASK-137 - Product Catalog Images cross-platform` (`REVIEW_WITH_BLOCKERS`, non riaperto e non chiuso)
 - Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-138-product-images-runtime-completion-ux-live-parity.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-138/README.md`
-- Stato task: `DONE`
-- Fase: `DONE_RECONCILED`
-- Milestone interna: `TASK_138_RELEASE_READY_WITH_MEASURED_GATES`
-- Responsabile: `USER_CONFIRMED_RELEASE`
-- Branch/worktree: worktree detached pulito da
-  `a20fdaf6ce9ed862d1c0fc0123ee355d4ff9fbdc`; checkout dirty preesistente
-  preservato, nessun commit, push, merge o deploy production autorizzato.
+- File task corrente: `docs/TASKS/TASK-139-pos-catalog-v2-pagination-snapshot.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-139/README.md`
+- Stato task: `REVIEW`
+- Fase: `REVIEW`
+- Milestone interna: `TASK_139_CATALOG_V2_SERVER_REVIEW_CI_PENDING`
+- Responsabile: `CODEX`
+- Branch/worktree: `codex/catalog-v2-pagination-20260719-130212` da baseline
+  esatta `c30cf3f2b44e1bf67a2c3bcbdcd0b2cc6a9328a4`; backup branch e bundle
+  creati prima delle modifiche, nessun deploy/apply production autorizzato.
 - Apertura TASK-138 2026-07-18: follow-up esplicito TASK-137 per completare
   runtime, UX e parity live non-production su Admin Web, Android e iOS. Prima
   delle modifiche runtime e stata registrata la matrice requisito/stato/test/gap
@@ -4133,6 +4138,23 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
   smoke, POS x86 build and validation package are complete. Runtime WPF
   validation remains documented as external/manual evidence only if environment
   becomes available. Nessun claim `VERIFIED_DONE_READY`.
+- TASK-139 backend handoff 2026-07-19: root cause del termine prematuro a 1.000
+  righe confermata nell'interazione tra range inclusivo `limit+1` e
+  `api.max_rows=1000`. Implementata RPC atomica snapshot-safe con keyset e
+  revisioni monotone, summary authoritative, cursore HMAC session/device/shop
+  bound, heartbeat revisionale additivo e job CI Linux per migration/pgTAP.
+  La review cumulativa termina con `P0=0`, `P1=0`; tutti i P2 trovati sono
+  stati corretti: lo scope owner legacy e ora una chiave opaca e l'intero
+  dominio numerico accettato resta entro il cap Win7POS di 512 caratteri con
+  precisione timestamp a microsecondi; anche UUID PostgreSQL v7/nil sono
+  accettati alla frontiera di pagina. Gate locali freschi PASS: typecheck,
+  lint, security e foundation con repository Win7POS obbligatorio, i18n,
+  checker paging, test TASK-139 e verify/build. `cf:build` packaging e pgTAP
+  locale restano `BLOCKED_ENV` rispettivamente per symlink Windows e assenza
+  Docker; la CI Linux sull'HEAD esatto e il gate autorevole. Rilevato nel client
+  corrente `MaxBootstrapCatalogPullPages=120`: il budget summary-derived per
+  cataloghi 100k+prezzi resta nello scope separato SYNC-1. Stato `REVIEW`, non
+  `DONE`; nessun apply/deploy production.
 
 ## Regole di avanzamento
 

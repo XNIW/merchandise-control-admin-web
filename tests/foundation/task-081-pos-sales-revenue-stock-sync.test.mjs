@@ -226,14 +226,14 @@ test(
     assertContains(saleRepository, "void_reverse");
     assertContains(saleRepository, "status = 'failed_blocked'");
     assertContains(productRepository, "JOIN local_stock_movements m ON m.sale_id = o.sale_id");
-    assertContains(productRepository, "o.status IN ('pending', 'retry')");
+    assertContains(productRepository, "o.status IN ('pending', 'retry', 'in_progress', 'failed_blocked')");
     assertContains(productRepository, "stockQty = stockQtyToWrite");
     assertContains(cliProgram, "--task081-sales-sync-harness");
     assertContains(cliProgram, "--task081-shop-cache-harness");
     assertContains(cliProgram, "--task081-sales-sync-http-harness");
     assertContains(cliProgram, "Catalog pull should preserve local stock while sales sync outbox is pending.");
     assertContains(cliProgram, "TASK-081 sales sync harness: PASS");
-    assertContains(syncService, "PosSalesSyncRequestBuilder.BuildAsync");
+    assertContains(syncService, "PosSalesSyncRequestBuilder.DeserializeCanonical");
     assertContains(syncService, "SerializeRedacted(request)");
     assertContains(syncBuilder, "sale.Kind == (int)SaleKind.Void");
     assertContains(syncBuilder, "saleKind =");

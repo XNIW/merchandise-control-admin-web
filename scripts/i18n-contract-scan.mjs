@@ -28,6 +28,37 @@ const allowedPosDynamicKeyUsages = new Map([
         /^\s*\+\s*StatusToastSeverity\.ToString\(\)\.ToLowerInvariant\(\)/,
     },
   ],
+  [
+    "customerDisplay.error.",
+    {
+      paths: [
+        "src/Win7POS.Wpf/MainWindow.xaml.cs",
+        "src/Win7POS.Wpf/Pos/Dialogs/CustomerDisplaySettingsDialog.xaml.cs",
+      ],
+      requiredKeys: [
+        "customerDisplay.error.same_monitor",
+        "customerDisplay.error.customer_monitor_required",
+        "customerDisplay.error.no_monitors",
+        "customerDisplay.error.extend_required",
+        "customerDisplay.error.selected_monitor_missing",
+        "customerDisplay.error.customer_monitor_unavailable",
+        "customerDisplay.error.actionFailed",
+      ],
+      suffix: /^\s*\+/,
+    },
+  ],
+  [
+    "customerDisplay.settings.topology.",
+    {
+      path: "src/Win7POS.Wpf/Pos/Dialogs/CustomerDisplaySettingsViewModel.cs",
+      requiredKeys: [
+        "customerDisplay.settings.topology.single",
+        "customerDisplay.settings.topology.extended",
+        "customerDisplay.settings.topology.duplicate",
+      ],
+      suffix: /^\s*\+/,
+    },
+  ],
 ]);
 
 const requiredAdminExactKeys = [
@@ -110,6 +141,9 @@ const posScreenCoverageFiles = [
   ["Printer settings", "src/Win7POS.Wpf/Pos/Dialogs/PrinterSettingsDialog.xaml"],
   ["DB maintenance", "src/Win7POS.Wpf/Pos/Dialogs/DbMaintenanceDialog.xaml"],
   ["Shop settings", "src/Win7POS.Wpf/Pos/Dialogs/ShopSettingsDialog.xaml"],
+  ["Settings hub", "src/Win7POS.Wpf/Pos/Dialogs/SettingsHubDialog.xaml"],
+  ["Language settings", "src/Win7POS.Wpf/Pos/Dialogs/LanguageSettingsDialog.xaml"],
+  ["Customer display settings", "src/Win7POS.Wpf/Pos/Dialogs/CustomerDisplaySettingsDialog.xaml"],
 ];
 
 const posCoreXamlPaths = new Set(posScreenCoverageFiles.map(([, relativePath]) => relativePath));
@@ -153,6 +187,10 @@ const posCoreCsharpUiPaths = new Set([
   "src/Win7POS.Wpf/Pos/Dialogs/RefundViewModel.cs",
   "src/Win7POS.Wpf/Pos/Dialogs/SalesRegisterViewModel.cs",
   "src/Win7POS.Wpf/Pos/Dialogs/ShopSettingsViewModel.cs",
+  "src/Win7POS.Wpf/Pos/Dialogs/SettingsHubDialog.xaml.cs",
+  "src/Win7POS.Wpf/Pos/Dialogs/LanguageSettingsDialog.xaml.cs",
+  "src/Win7POS.Wpf/Pos/Dialogs/CustomerDisplaySettingsDialog.xaml.cs",
+  "src/Win7POS.Wpf/Pos/Dialogs/CustomerDisplaySettingsViewModel.cs",
   "src/Win7POS.Wpf/Pos/Online/PosSyncStatusReader.cs",
   "src/Win7POS.Wpf/Printing/WindowsSpoolerReceiptPrinter.cs",
 ]);
@@ -190,6 +228,10 @@ const posAllowedExternalHardcodedText = new Map([
   [
     "src/Win7POS.Wpf/Printing/WindowsSpoolerReceiptPrinter.cs|Receipt printer is not configured.",
     "external Win7POS printer exception text preexisting in sibling repo",
+  ],
+  [
+    "src/Win7POS.Wpf/Printing/WindowsSpoolerReceiptPrinter.cs|Receipt exceeded the safe page limit.",
+    "external Win7POS internal print-loop safety exception; this Admin Web merge must not edit Win7POS",
   ],
   [
     "src/Win7POS.Wpf/Products/ProductsView.xaml|Import Excel fornitore",
@@ -416,7 +458,8 @@ function collectPosCodeKeyUsages() {
           const dynamicKeyUsage = allowedPosDynamicKeyUsages.get(match[1]);
 
           if (
-            dynamicKeyUsage?.path === relativePath &&
+            (dynamicKeyUsage?.path === relativePath ||
+              dynamicKeyUsage?.paths?.includes(relativePath)) &&
             dynamicKeyUsage.suffix.test(suffix)
           ) {
             continue;

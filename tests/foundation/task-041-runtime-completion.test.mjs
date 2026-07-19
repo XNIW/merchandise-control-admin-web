@@ -144,20 +144,23 @@ test("TASK-041 opens only verified runtime implementation gates", () => {
     assertContains(atomicSalesMigrationSource, required);
   }
   for (const required of [
-    "filterCatalogPricesByProductScope",
-    "authorizedProductIds",
-    "price_product_scope_validation",
-    "prices: mergeCatalogRowsById(shopPrices, legacyPrices)",
+    "loadCatalogPageV2",
+    "expectedRevision",
+    "expectedScopeKey",
+    "expectedScopeKind",
   ]) {
     assertContains(catalogPull, required);
   }
-  assert.match(
-    catalogPull,
-    /row\.shop_id === input\.shopId[\s\S]*row\.shop_id === null[\s\S]*row\.owner_user_id === input\.ownerUserId/,
+  const catalogRevision = readProjectFile(
+    "src/server/pos-auth/catalog-revision.ts",
   );
+  const catalogV2Migration = readProjectFile(
+    "supabase/migrations/20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql",
+  );
+  assert.match(catalogRevision, /rpc\("pos_catalog_pull_page_v2"/);
   assert.match(
-    catalogPull,
-    /const scopedPriceRows = await filterCatalogPricesByProductScope[\s\S]*const priceRows = scopedPriceRows\.prices\.sort[\s\S]*const pricePage = pageCatalogScopeRows\(\s*priceRows/,
+    catalogV2Migration,
+    /from public\.inventory_product_prices row[\s\S]*product\.id = row\.product_id[\s\S]*product\.shop_id = p_shop_id[\s\S]*product\.owner_user_id = resolved\.scope_id/,
   );
 
   for (const required of [

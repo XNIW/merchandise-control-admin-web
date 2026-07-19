@@ -800,16 +800,27 @@ test("TASK-057 read model prefers shop_id and keeps legacy owner bridge as fallb
 
 test("TASK-057 POS catalog pull uses shop_id catalog rows before legacy mapping", () => {
   const catalogPull = read("src/server/pos-auth/catalog-pull.ts");
+  const catalogRevision = read("src/server/pos-auth/catalog-revision.ts");
+  const catalogMigration = read(
+    "supabase/migrations/20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql",
+  );
 
   for (const required of [
-    "catalogScope",
-    "shop_scoped",
-    "legacy_owner_bridge",
-    ".eq(\"shop_id\", session.shop_id)",
-    ".eq(\"owner_user_id\", ownerUserId)",
+    "loadCatalogPageV2",
   ]) {
     assertContains(catalogPull, required);
   }
+
+  for (const required of [
+    "resolve_pos_catalog_scope_v2",
+    "shop_scoped",
+    "legacy_owner_bridge",
+    "row.shop_id = p_shop_id",
+    "row.owner_user_id = resolved.scope_id",
+  ]) {
+    assertContains(catalogMigration, required);
+  }
+  assertContains(catalogRevision, 'rpc("pos_catalog_pull_page_v2"');
 
   assert.doesNotMatch(
     catalogPull,

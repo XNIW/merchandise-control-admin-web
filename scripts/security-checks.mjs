@@ -4685,7 +4685,7 @@ function checkTask022023PosDashboardWin7PosClient() {
   const win7OperatorDialog = readFileSync(
     join(
       win7PosRoot,
-      "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml.cs",
+      "src/Win7POS.Wpf/Pos/Dialogs/OperatorSwitchDialog.xaml.cs",
     ),
     "utf8",
   );
@@ -4701,8 +4701,8 @@ function checkTask022023PosDashboardWin7PosClient() {
     "src/Win7POS.Wpf/Pos/Online/PosDeviceIdentity.cs",
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml",
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs",
-    "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml",
-    "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml.cs",
+    "src/Win7POS.Wpf/Pos/Dialogs/OperatorSwitchDialog.xaml",
+    "src/Win7POS.Wpf/Pos/Dialogs/OperatorSwitchDialog.xaml.cs",
     "src/Win7POS.Wpf/MainWindow.xaml.cs",
   ]
     .map((relativePath) =>
@@ -4838,8 +4838,10 @@ function checkTask022023PosDashboardWin7PosClient() {
   }
 
   if (
-    !/PosOnlineFirstLoginDialog/.test(win7OperatorDialog) ||
-    !/TryRefreshTrustedPosSessionAsync/.test(win7MainWindow)
+    !/PosAccessRequested/.test(win7OperatorDialog) ||
+    !/PosOnlineFirstLoginDialog/.test(win7MainWindow) ||
+    !/StartupHeartbeatTimeout/.test(win7MainWindow) ||
+    !/HeartbeatAsync/.test(win7MainWindow)
   ) {
     addFailure("Win7POS must expose first login UI and startup heartbeat");
   }
@@ -4880,6 +4882,9 @@ function checkTask027CatalogPullDeltaSync() {
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-027/README.md";
   const helperPath = "src/server/pos-auth/catalog-sync-contract.ts";
   const servicePath = "src/server/pos-auth/catalog-pull.ts";
+  const revisionPath = "src/server/pos-auth/catalog-revision.ts";
+  const v2MigrationPath =
+    "supabase/migrations/20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql";
   const readModelPath = "src/server/shop-admin/pos-live-read-model.ts";
   const sectionDataPath = "src/server/shop-admin/shop-section-data.ts";
   const foundationTestPath =
@@ -4890,6 +4895,8 @@ function checkTask027CatalogPullDeltaSync() {
     evidencePath,
     helperPath,
     servicePath,
+    revisionPath,
+    v2MigrationPath,
     readModelPath,
     sectionDataPath,
     foundationTestPath,
@@ -4904,10 +4911,12 @@ function checkTask027CatalogPullDeltaSync() {
   const evidence = read(evidencePath);
   const helper = read(helperPath);
   const service = read(servicePath);
+  const revision = read(revisionPath);
+  const v2Migration = read(v2MigrationPath);
   const readModel = read(readModelPath);
   const sectionData = read(sectionDataPath);
   const foundationTest = read(foundationTestPath);
-  const combined = `${task}\n${evidence}\n${helper}\n${service}\n${readModel}\n${sectionData}`;
+  const combined = `${task}\n${evidence}\n${helper}\n${service}\n${revision}\n${v2Migration}\n${readModel}\n${sectionData}`;
 
   for (const requiredSnippet of [
     "updated_since",
@@ -4936,13 +4945,21 @@ function checkTask027CatalogPullDeltaSync() {
     }
   }
 
-  if (!/\.eq\("owner_user_id", ownerUserId\)/.test(service)) {
+  if (
+    !/loadCatalogPageV2/.test(service) ||
+    !/resolved\.scope_kind = 'shop_scoped'[\s\S]*row\.shop_id = p_shop_id[\s\S]*resolved\.scope_kind = 'legacy_owner_bridge'[\s\S]*row\.owner_user_id = resolved\.scope_id/.test(
+      v2Migration,
+    )
+  ) {
     addFailure("TASK-027 catalog pull must remain owner/shop scoped");
   }
 
   if (
-    !/\.gte\("updated_at", syncOptions\.lowerBound\)/.test(service) ||
-    !/\.range\(/.test(service)
+    !/p_lower_bound/.test(v2Migration) ||
+    !/\(row\.updated_at, row\.id\) > \(p_after_updated_at, p_after_id\)/.test(
+      v2Migration,
+    ) ||
+    !/limit p_limit \+ 1/.test(v2Migration)
   ) {
     addFailure(
       "TASK-027 catalog pull must use updated_at lower bound and pagination",
@@ -5006,7 +5023,8 @@ function checkTask027CatalogPullDeltaSync() {
       "pos.catalog.last_sync_cursor",
       "CatalogPullWithRetryAsync",
       "Task.Delay",
-      "SyncCursor = await LoadLastCursorAsync",
+      "EnsureAndLoadCursorAsync",
+      "SyncCursor = requestCursor",
       'DataMember(Name = "syncCursor"',
       'DataMember(Name = "updated_since"',
       'DataMember(Name = "tombstones"',
@@ -5844,6 +5862,9 @@ function checkTask041RuntimeCompletion() {
   const salesRoutePath = "src/app/api/pos/sales/sync/route.ts";
   const salesServicePath = "src/server/pos-auth/sales-sync.ts";
   const catalogPullPath = "src/server/pos-auth/catalog-pull.ts";
+  const catalogRevisionPath = "src/server/pos-auth/catalog-revision.ts";
+  const catalogV2MigrationPath =
+    "supabase/migrations/20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql";
   const posRouteSecurityPath = "src/app/api/pos/_shared/pos-route-security.ts";
   const databaseTypesPath = "src/lib/supabase/database.types.ts";
   const salesSecurityMigrationPath =
@@ -5867,6 +5888,8 @@ function checkTask041RuntimeCompletion() {
     salesRoutePath,
     salesServicePath,
     catalogPullPath,
+    catalogRevisionPath,
+    catalogV2MigrationPath,
     posRouteSecurityPath,
     databaseTypesPath,
     salesSecurityMigrationPath,
@@ -5892,6 +5915,8 @@ function checkTask041RuntimeCompletion() {
   const salesRoute = read(salesRoutePath);
   const salesService = read(salesServicePath);
   const catalogPull = read(catalogPullPath);
+  const catalogRevision = read(catalogRevisionPath);
+  const catalogV2Migration = read(catalogV2MigrationPath);
   const posRouteSecurity = read(posRouteSecurityPath);
   const databaseTypes = read(databaseTypesPath);
   const salesSecurityMigration = read(salesSecurityMigrationPath);
@@ -6192,13 +6217,10 @@ function checkTask041RuntimeCompletion() {
   }
 
   if (
-    !/filterCatalogPricesByProductScope/.test(catalogPull) ||
-    !/price_product_scope_validation/.test(catalogPull) ||
-    !/row\.shop_id === input\.shopId[\s\S]*row\.shop_id === null[\s\S]*row\.owner_user_id === input\.ownerUserId/.test(
-      catalogPull,
-    ) ||
-    !/const scopedPriceRows = await filterCatalogPricesByProductScope[\s\S]*const priceRows = scopedPriceRows\.prices\.sort[\s\S]*const pricePage = pageCatalogScopeRows\(\s*priceRows/.test(
-      catalogPull,
+    !/loadCatalogPageV2/.test(catalogPull) ||
+    !/rpc\("pos_catalog_pull_page_v2"/.test(catalogRevision) ||
+    !/from public\.inventory_product_prices row[\s\S]*product\.id = row\.product_id[\s\S]*product\.shop_id = p_shop_id[\s\S]*product\.owner_user_id = resolved\.scope_id/.test(
+      catalogV2Migration,
     )
   ) {
     addFailure(

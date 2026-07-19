@@ -15,6 +15,11 @@ import {
   type PosShopPayload,
   type PosShopPayloadRow,
 } from "./shop-payload";
+import {
+  buildCatalogRevision,
+  loadCatalogRevisionV2,
+  normalizeCatalogRevision,
+} from "./catalog-revision";
 import { generatePosSecret, hashPosSecret, verifyPosSecret } from "./tokens";
 
 type ShopRow = PosShopPayloadRow;
@@ -106,7 +111,10 @@ type PosFirstLoginSuccessBody = {
 };
 
 type PosHeartbeatSuccessBody = {
+  catalogChangesAvailable?: boolean;
+  catalogRevision?: string;
   code: "success";
+  nextPollAfterSeconds?: number;
   ok: true;
   serverTime: string;
   session: {
@@ -144,6 +152,8 @@ type ParsedFirstLoginInput = {
 
 type ParsedHeartbeatInput = {
   appVersion?: string;
+  catalogRevision: string | null;
+  catalogRevisionPresent: boolean;
   deviceToken: string;
   posSessionId: string;
   sessionToken: string;
@@ -155,6 +165,7 @@ const STAFF_CODE_PATTERN = /^[A-Z0-9][A-Z0-9_-]{1,31}$/;
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const HEARTBEAT_AFTER_SECONDS = 60;
+const CATALOG_POLL_AFTER_SECONDS = 30;
 const SESSION_TTL_SECONDS = 12 * 60 * 60;
 const DEVICE_TTL_SECONDS = 180 * 24 * 60 * 60;
 const LOCKOUT_ATTEMPTS = 5;
@@ -274,6 +285,11 @@ function parseHeartbeatInput(input: unknown): ParsedHeartbeatInput | null {
   const appVersion =
     normalizeLabel(stringField(input, "appVersion", "app_version"), 80) ||
     undefined;
+  const catalogRevisionRaw = stringField(
+    input,
+    "catalogRevision",
+    "catalog_revision",
+  );
   const deviceToken = stringField(input, "deviceToken", "device_token");
   const posSessionId = stringField(input, "posSessionId", "pos_session_id");
   const sessionToken = stringField(input, "sessionToken", "session_token");
@@ -292,6 +308,8 @@ function parseHeartbeatInput(input: unknown): ParsedHeartbeatInput | null {
 
   return {
     appVersion,
+    catalogRevision: normalizeCatalogRevision(catalogRevisionRaw),
+    catalogRevisionPresent: catalogRevisionRaw.length > 0,
     deviceToken,
     posSessionId,
     sessionToken,
@@ -1137,11 +1155,28 @@ export async function handlePosHeartbeat(
     });
   }
 
+  // Catalog hints are optional by contract. A revision lookup failure must not
+  // turn an otherwise valid authorization heartbeat into an outage.
+  const revisionDescriptor = await loadCatalogRevisionV2(
+    supabase,
+    session.shop_id,
+  );
+  const catalogRevision = revisionDescriptor
+    ? buildCatalogRevision(session.shop_id, revisionDescriptor)
+    : null;
+  const catalogChangesAvailable = catalogRevision
+    ? parsed.catalogRevision !== catalogRevision
+    : null;
+
   const auditOk = await writePosAudit(supabase, {
     code: "success",
     eventKey: "pos.session.heartbeat.success",
     metadata: {
       ...requestMetadata(meta),
+      catalog_changes_available: catalogChangesAvailable,
+      catalog_hint_available: Boolean(catalogRevision),
+      catalog_revision_present: parsed.catalogRevisionPresent,
+      catalog_revision_valid: Boolean(parsed.catalogRevision),
       heartbeat_count: session.heartbeat_count + 1,
     },
     result: "success",
@@ -1157,6 +1192,13 @@ export async function handlePosHeartbeat(
 
   return {
     body: {
+      ...(catalogRevision && catalogChangesAvailable !== null
+        ? {
+            catalogChangesAvailable,
+            catalogRevision,
+            nextPollAfterSeconds: CATALOG_POLL_AFTER_SECONDS,
+          }
+        : {}),
       code: "success",
       ok: true,
       serverTime: nowIso(),

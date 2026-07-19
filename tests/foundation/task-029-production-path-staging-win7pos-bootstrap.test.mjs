@@ -323,7 +323,8 @@ test("TASK-029 Win7POS fresh install bootstrap keeps Admin Web as backend bounda
     "CredentialBox.Clear",
     "MaxResponseBodyBytes",
     "ReadResponseBodyAsync",
-    "FirstRunSetupDialog.OnCreateAdminClick",
+    "new FirstRunSetupDialog(_factory)",
+    "OnRecoveryClick",
     "codice negozio, codice staff",
   ]) {
     assertContains(`${combined}\n${client}`, required);

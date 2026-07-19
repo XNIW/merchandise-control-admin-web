@@ -542,6 +542,7 @@ export type Database = {
           shop_id: string | null
           source: string | null
           type: string
+          updated_at: string
         }
         Insert: {
           created_at: string
@@ -554,6 +555,7 @@ export type Database = {
           shop_id?: string | null
           source?: string | null
           type: string
+          updated_at?: string
         }
         Update: {
           created_at?: string
@@ -566,6 +568,7 @@ export type Database = {
           shop_id?: string | null
           source?: string | null
           type?: string
+          updated_at?: string
         }
         Relationships: [
           {
@@ -2970,6 +2973,29 @@ export type Database = {
           p_source: string
           p_staff_id: string
           p_summary?: Json
+        }
+        Returns: Json
+      }
+      pos_catalog_pull_page_v2: {
+        Args: {
+          p_after_id: string | null
+          p_after_updated_at: string | null
+          p_entity: string | null
+          p_expected_revision: string | null
+          p_expected_scope_key: string | null
+          p_expected_scope_kind: string | null
+          p_include_manifest: boolean
+          p_limit: number
+          p_lower_bound: string | null
+          p_mode: string
+          p_shop_id: string
+          p_snapshot_at: string | null
+        }
+        Returns: Json
+      }
+      pos_catalog_revision_v2: {
+        Args: {
+          p_shop_id: string
         }
         Returns: Json
       }
