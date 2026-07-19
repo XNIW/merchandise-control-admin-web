@@ -46,8 +46,12 @@ test("TASK-026 Admin Web exposes a trusted POS catalog pull endpoint without sal
 
   const route = readProjectFile(routePath);
   const service = readProjectFile(servicePath);
+  const revision = readProjectFile("src/server/pos-auth/catalog-revision.ts");
+  const migration = readProjectFile(
+    "supabase/migrations/20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql",
+  );
   const routeSecurity = readProjectFile(routeSecurityPath);
-  const combined = `${route}\n${service}\n${routeSecurity}`;
+  const combined = `${route}\n${service}\n${revision}\n${migration}\n${routeSecurity}`;
 
   assert.match(route, /handlePosCatalogPull/);
   assert.match(combined, /Cache-Control/);
@@ -57,11 +61,12 @@ test("TASK-026 Admin Web exposes a trusted POS catalog pull endpoint without sal
   assert.match(service, /\.from\("pos_sessions"\)/);
   assert.match(service, /\.from\("pos_device_credentials"\)/);
   assert.match(service, /\.from\("shop_devices"\)/);
-  assert.match(service, /\.from\("shop_inventory_sources"\)/);
-  assert.match(service, /\.from\("inventory_products"\)/);
-  assert.match(service, /\.from\("inventory_categories"\)/);
-  assert.match(service, /\.from\("inventory_suppliers"\)/);
-  assert.match(service, /syncMode: syncOptions\.mode|syncMode: "full_refresh"/);
+  assert.match(revision, /rpc\("pos_catalog_pull_page_v2"/);
+  assert.match(migration, /from public\.shop_inventory_sources/);
+  assert.match(migration, /from public\.inventory_products/);
+  assert.match(migration, /from public\.inventory_categories/);
+  assert.match(migration, /from public\.inventory_suppliers/);
+  assert.match(service, /syncMode: sync\.mode/);
   assert.match(service, /pos\.catalog\.pull/);
   assert.doesNotMatch(combined, /sale_lines|sales_sync|payment|cash_close|bidirectional/i);
   assert.doesNotMatch(combined, /trustedDeviceToken/i);

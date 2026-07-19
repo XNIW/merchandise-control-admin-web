@@ -170,7 +170,7 @@ test(
 
     for (const required of [
       "public async Task<DbRestoreResult> RestoreDbAsync",
-      "CreateDbBackupCopyNoLock(\"pos_pre_restore_\")",
+      "CreateDbBackupNoLockAsync(\"pos_pre_restore_\")",
       "KeyRestoreNeedsSyncReview",
       "IntegrityCheckAsync",
       "syncReview",

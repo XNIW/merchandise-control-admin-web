@@ -264,6 +264,9 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
   const client = readWin7PosFile(
     "src/Win7POS.Data/Online/PosAdminWebClient.cs",
   );
+  const transportContracts = readWin7PosFile(
+    "src/Win7POS.Core/Online/PosOnlineTransportContracts.cs",
+  );
   const store = readWin7PosFile(
     "src/Win7POS.Wpf/Pos/Online/PosTrustedDeviceStore.cs",
   );
@@ -280,7 +283,7 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs",
   );
   const operatorDialog = readWin7PosFile(
-    "src/Win7POS.Wpf/Pos/Dialogs/OperatorLoginDialog.xaml.cs",
+    "src/Win7POS.Wpf/Pos/Dialogs/OperatorSwitchDialog.xaml.cs",
   );
   const mainWindow = readWin7PosFile("src/Win7POS.Wpf/MainWindow.xaml.cs");
   const combined = combinedWin7PosSource();
@@ -294,9 +297,9 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
   assert.match(client, /\/api\/pos\/auth\/first-login/);
   assert.match(client, /\/api\/pos\/session\/heartbeat/);
   assert.match(client, /\/api\/pos\/sales\/sync/);
-  assert.match(client, /shopCode/);
-  assert.match(client, /staffCode/);
-  assert.match(client, /credential/);
+  assert.match(transportContracts, /DataMember\(Name = "shopCode"/);
+  assert.match(transportContracts, /DataMember\(Name = "staffCode"/);
+  assert.match(transportContracts, /DataMember\(Name = "credential"/);
   assert.doesNotMatch(client, /console\./i);
 
   assert.match(store, /ProtectedData\.Protect/);
@@ -312,8 +315,10 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
 
   assert.match(identity, /Guid\.NewGuid/);
   assert.match(`${loginDialog}\n${bootstrap}`, /FirstLoginAsync/);
-  assert.match(operatorDialog, /PosOnlineFirstLoginDialog/);
-  assert.match(mainWindow, /TryRefreshTrustedPosSessionAsync/);
+  assert.match(operatorDialog, /PosAccessRequested/);
+  assert.match(mainWindow, /PosOnlineFirstLoginDialog/);
+  assert.match(mainWindow, /StartupHeartbeatTimeout/);
+  assert.match(mainWindow, /HeartbeatAsync/);
 
   assert.doesNotMatch(combined, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
   assert.doesNotMatch(combined, /mcpos_(device|session)_[A-Za-z0-9_-]+/);

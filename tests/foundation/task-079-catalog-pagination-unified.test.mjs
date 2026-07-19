@@ -56,15 +56,15 @@ test("TASK-079 is the only current root task for history and catalog pagination"
   assertContains(currentBlock, "Task TASK-079: `TASK-079 - History Entry and Catalog Pagination Unified Completion`");
   assert.match(
     currentBlock,
-    /File task corrente: `(NESSUNO|docs\/TASKS\/TASK-084-admin-web-workers-dev-staging-auth-logout-win7pos-public-connection\.md|docs\/TASKS\/TASK-085-workers-dev-mobile-oauth-products-count-readiness\.md|docs\/TASKS\/TASK-086-mobile-ui-emulator-polish\.md|docs\/TASKS\/TASK-137-product-catalog-images-cross-platform\.md|docs\/TASKS\/TASK-138-product-images-runtime-completion-ux-live-parity\.md)`/,
+    /File task corrente: `(NESSUNO|docs\/TASKS\/TASK-084-admin-web-workers-dev-staging-auth-logout-win7pos-public-connection\.md|docs\/TASKS\/TASK-085-workers-dev-mobile-oauth-products-count-readiness\.md|docs\/TASKS\/TASK-086-mobile-ui-emulator-polish\.md|docs\/TASKS\/TASK-137-product-catalog-images-cross-platform\.md|docs\/TASKS\/TASK-138-product-images-runtime-completion-ux-live-parity\.md|docs\/TASKS\/TASK-139-pos-catalog-v2-pagination-snapshot\.md)`/,
   );
   assert.match(
     currentBlock,
-    /Evidence task corrente: `(NESSUNO|docs\/TASKS\/EVIDENCE\/TASK-084\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-085\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-086\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-137\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-138\/README\.md)`/,
+    /Evidence task corrente: `(NESSUNO|docs\/TASKS\/EVIDENCE\/TASK-084\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-085\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-086\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-137\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-138\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-139\/README\.md)`/,
   );
   assert.match(
     currentBlock,
-    /Task attivo: `(NESSUNO|TASK-084 - Admin Web workers\.dev staging, auth\/logout fixes, and Win7POS public connection|TASK-085 - Fix workers\.dev mobile OAuth and product totals readiness|TASK-086 - Mobile UI Emulator Polish|TASK-137 - Product Catalog Images cross-platform|TASK-138 - Product Images Runtime Completion, UX e Live Parity)`/,
+    /Task attivo: `(NESSUNO|TASK-084 - Admin Web workers\.dev staging, auth\/logout fixes, and Win7POS public connection|TASK-085 - Fix workers\.dev mobile OAuth and product totals readiness|TASK-086 - Mobile UI Emulator Polish|TASK-137 - Product Catalog Images cross-platform|TASK-138 - Product Images Runtime Completion, UX e Live Parity|TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness)`/,
   );
   assert.doesNotMatch(currentBlock, /TASK-079[B-F]|TASK-080/);
   assertContains(canonicalTask, "079.1 History Entry read-only mobile parity");
@@ -116,7 +116,11 @@ test("TASK-079 history pagination keeps out-of-range and filtered pages readable
   assertContains(readModel, 'code?: unknown }).code === "PGRST103"');
   assertContains(readModel, "input.legacyOwnerUserId ? 0 : input.from");
   assertContains(readModel, ".slice(from, from + pageSize)");
-  assertContains(readModel, "legacyDiagnosticsResult = await legacyDiagnosticsQuery.range(\n    0,\n    rangeTo,");
+  assertContains(readModel, "legacyDiagnosticsResult = await legacyDiagnosticsQuery.range(");
+  assert.match(
+    readModel,
+    /legacyDiagnosticsResult = await legacyDiagnosticsQuery\.range\(\s*0,\s*rangeTo,/,
+  );
   assertContains(readModel, "Boolean(filters.month || filters.query || filters.status !== \"active_issues\")");
   assertContains(readModel, ".select(historyListSessionSelect, historyListSelectOptions(input.filters))");
   assertContains(readModel, ".range(");
@@ -130,7 +134,10 @@ test("TASK-079 history pagination keeps out-of-range and filtered pages readable
   );
   assertContains(list, "Search, status, month and pagination run server-side");
   assertContains(list, "HistoryPagination");
-  assertContains(list, "href={buildHistoryHref({\n                requestedShopId,\n              })}");
+  assert.match(
+    list,
+    /href=\{buildHistoryHref\(\{\s*requestedShopId,\s*\}\)\}/,
+  );
 });
 
 test("TASK-079 row colors treat counted zero as neutral and positive shortage as amber", () => {

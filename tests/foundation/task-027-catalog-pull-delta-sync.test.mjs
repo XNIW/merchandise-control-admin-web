@@ -350,17 +350,22 @@ test("TASK-027 POS catalog pull service supports delta contract without destruct
   const routePath = "src/app/api/pos/catalog/pull/route.ts";
   const routeSecurityPath = "src/app/api/pos/_shared/pos-route-security.ts";
   const service = readProjectFile(servicePath);
+  const revision = readProjectFile("src/server/pos-auth/catalog-revision.ts");
   const route = readProjectFile(routePath);
   const routeSecurity = readProjectFile(routeSecurityPath);
   const scanner = readProjectFile("scripts/security-checks.mjs");
-  const combined = `${service}\n${route}\n${routeSecurity}`;
+  const combined = `${service}\n${revision}\n${route}\n${routeSecurity}`;
 
   for (const required of [
-    "parseCatalogSyncOptions",
-    "updated_since",
+    "parseCatalogSyncRequest",
+    "resolveCatalogSyncRequest",
+    "loadCatalogPageV2",
+    "buildCatalogV2Cursor",
     "syncCursor",
     "serverTime",
+    "catalogRevision",
     "catalogVersion",
+    "catalogSummary",
     "hasMore",
     "tombstones",
     "splitCatalogTombstones",
@@ -368,21 +373,20 @@ test("TASK-027 POS catalog pull service supports delta contract without destruct
     "category_tombstones",
     "supplier_tombstones",
     "deletedAt",
-    "syncMode: syncOptions.mode",
-    "buildNextCatalogSyncCursor",
-    "computeCatalogVersion",
+    "syncMode: sync.mode",
+    "snapshotAt",
   ]) {
     assert.match(combined, new RegExp(escapeRegExp(required)));
   }
 
-  assert.match(service, /sync_cursor_preview/);
-  assert.doesNotMatch(service, /sync_cursor:\s*syncCursor/);
+  assert.match(service, /cursorFingerprint/);
+  assert.doesNotMatch(service, /sync_cursor:\s*(syncCursor|parsed\.syncRequest\.syncCursor)/);
 
   for (const required of [
-    '.eq("owner_user_id", ownerUserId)',
-    '.gte("updated_at", syncOptions.lowerBound)',
-    '.lte("updated_at", syncOptions.upperBound)',
-    ".range(",
+    'rpc("pos_catalog_pull_page_v2"',
+    "expectedRevision",
+    "expectedScopeKey",
+    "expectedScopeKind",
     "deleted_at",
     "Cache-Control",
     "no-store",
@@ -390,7 +394,8 @@ test("TASK-027 POS catalog pull service supports delta contract without destruct
     assert.match(combined, new RegExp(escapeRegExp(required)));
   }
 
-  assert.doesNotMatch(combined, /\.(delete|upsert)\s*\(/);
+  assert.doesNotMatch(service, /\.(delete|upsert)\s*\(/);
+  assert.doesNotMatch(service, /\.range\s*\(/);
   assert.doesNotMatch(combined, /truncate|purge|replace_all|full\s+delete/i);
   assert.doesNotMatch(combined, /sale_lines|sales_sync|payment|cash_close|bidirectional/i);
   assert.match(scanner, /checkTask027CatalogPullDeltaSync/);
@@ -471,13 +476,14 @@ test("TASK-027 existing Win7POS catalog client uses saved cursor and light retry
 
   for (const required of [
     "pos.catalog.last_sync_cursor",
-    "LoadLastCursorAsync",
-    "StoreCatalogDiagnosticsAsync(result.Value",
-    "StoreLastSyncAsync(response.SyncCursor",
+    "StoreCatalogDiagnosticsAsync(",
+    "StoreLastSyncAsync(",
+    "lastResponse.SyncCursor",
     "CatalogPullWithRetryAsync",
     "Task.Delay",
     "MaxCatalogPullAttempts",
-    "SyncCursor = await LoadLastCursorAsync",
+    "EnsureAndLoadCursorAsync",
+    "SyncCursor = requestCursor",
   ]) {
     assert.match(service, new RegExp(escapeRegExp(required)));
   }
@@ -531,7 +537,7 @@ test("TASK-027 governance artifacts document contract, evidence and DONE reconci
   assert.match(masterPlan, /TASK-027 - Catalog pull delta sync and POS catalog hardening/);
   assert.match(
     masterPlan,
-    /Task attivo: `NESSUNO`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`|Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`/,
+    /Task attivo: `NESSUNO`|Task attivo: `TASK-028 - Catalog CRUD, Excel import\/export, and Win7POS catalog pull E2E`|Task attivo: `TASK-029 - Production path: staging, Win7POS bootstrap, POS API hardening`|Task attivo: `TASK-030 - Vercel deployment configuration diagnosis and safe main reconciliation`|Task attivo: `TASK-032 - Full project progression mega-task`|Task attivo: `TASK-033 - Controlled TASK-032 review \+ HTTPS non-production \+ Win7POS live E2E \+ POS reconciliation \+ sales sync foundation`|Task attivo: `TASK-034 - Unified project progression: VM pause, Admin Web polish, Shop hardening, Win7POS non-VM hardening, sales sync planning`|Task attivo: `TASK-035 - Authenticated Admin Web QA \+ Shop Admin smoke harness`|Task attivo: `TASK-036 - Admin Web web readiness, local dev, Cloudflared staging, Shop UX, Sync Center and production hardening`|Task attivo: `TASK-038 - POS manager web login, Platform provisioning, role permission tree, and real revenue dashboard gate`|Task attivo: `TASK-039 - Staff-aware Shop Admin completion, permission tree, lifecycle, staging, Win7POS gate and sales foundation`|Task attivo: `TASK-040 - Runtime Readiness: Supabase Apply, Non-Production Staging, Win7POS Live E2E and Sales Sync Foundation`|Task attivo: `TASK-041 - Runtime Completion: Supabase, Cloudflare\/OpenNext Staging, Sales Sync and Win7POS E2E`|Task attivo: `TASK-042 - TASK-041 Review, CI retry and Win7POS physical E2E bridge`|Task attivo: `TASK-043 - Platform Admin runtime fixes`|Task attivo: `TASK-044 - Platform provisioning UX, runtime and Operations cleanup`|Task attivo: `TASK-046 - Test target separation: local vs staging`|Task attivo: `TASK-047 - Align Master Console and Admin Console access model`|Task attivo: `TASK-048 - Master Console secondary sections clarity and UX polish`|Task attivo: `TASK-049 - Master Console Admins UI\/UX polish`|Task attivo: `TASK-050 - Review and DONE reconciliation for TASK-040..TASK-049`|Task attivo: `TASK-053 - Authorization architecture and staff safe read boundary fix`|Task attivo: `TASK-054 - Stabilizzare Shop Admin auth navigation e ripulire sidebar\/diagnostics`|Task attivo: `TASK-081 - Win7POS Sales Sync, Daily\/Monthly Revenue, Stock Sync and Shop Admin POS Revenue`|Task attivo: `TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness`/,
   );
   assert.match(
     masterPlan,

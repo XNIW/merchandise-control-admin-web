@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import {
   createSupabaseAdminClient,
   resolveSupabaseAdminConfig,
@@ -16,18 +17,22 @@ import {
 } from "./shop-payload";
 import { POS_CATALOG_SCHEMA_VERSION } from "./pos-contract";
 import {
-  buildNextCatalogSyncCursor,
-  catalogPriceTimestampFor,
-  catalogRangeFor,
-  computeCatalogVersion,
-  hasMoreCatalogRows,
-  pageCatalogRows,
-  parseCatalogSyncOptions,
+  buildCatalogV2Cursor,
+  catalogV2TimestampsEqual,
+  nextCatalogV2Lane,
+  parseCatalogSyncRequest,
+  resolveCatalogSyncRequest,
   splitCatalogTombstones,
-  type CatalogPageState,
-  type CatalogSyncEntity,
-  type CatalogSyncOptions,
+  type CatalogSyncRequest,
+  type CatalogV2CursorContext,
+  type CatalogV2Lane,
+  type CatalogV2Manifest,
 } from "./catalog-sync-contract";
+import {
+  buildCatalogRevision,
+  loadCatalogPageV2,
+  type CatalogPageV2,
+} from "./catalog-revision";
 import { verifyPosSecret } from "./tokens";
 
 type ShopRow = PosShopPayloadRow;
@@ -70,10 +75,6 @@ type PosSessionRow = Pick<
   | "staff_id"
   | "status"
 >;
-type InventorySourceRow = Pick<
-  Tables<"shop_inventory_sources">,
-  "mapping_state" | "owner_user_id" | "shop_id"
->;
 type ProductRow = Pick<
   Tables<"inventory_products">,
   | "barcode"
@@ -85,18 +86,17 @@ type ProductRow = Pick<
   | "purchase_price"
   | "retail_price"
   | "second_product_name"
-  | "shop_id"
   | "stock_quantity"
   | "supplier_id"
   | "updated_at"
 >;
 type CategoryRow = Pick<
   Tables<"inventory_categories">,
-  "deleted_at" | "id" | "name" | "owner_user_id" | "shop_id" | "updated_at"
+  "deleted_at" | "id" | "name" | "updated_at"
 >;
 type SupplierRow = Pick<
   Tables<"inventory_suppliers">,
-  "deleted_at" | "id" | "name" | "owner_user_id" | "shop_id" | "updated_at"
+  "deleted_at" | "id" | "name" | "updated_at"
 >;
 type PriceRow = Pick<
   Tables<"inventory_product_prices">,
@@ -105,23 +105,72 @@ type PriceRow = Pick<
   | "id"
   | "price"
   | "product_id"
-  | "shop_id"
   | "source"
   | "type"
->;
-type ProductScopeRow = Pick<
-  Tables<"inventory_products">,
-  "id" | "owner_user_id" | "shop_id"
+  | "updated_at"
 >;
 
 type JsonRecord = { [key: string]: Json | undefined };
 
 type PosCatalogFailureCode =
+  | "catalog_cursor_expired"
+  | "catalog_cursor_rejected"
   | "db_failure"
   | "denied"
   | "not_configured"
   | "unmapped"
   | "validation_failed";
+
+type CatalogPayload = {
+  categories: Array<{
+    categoryId: string;
+    name: string;
+    updatedAt: string;
+  }>;
+  prices: Array<{
+    effectiveAt: string;
+    price: number;
+    priceId: string;
+    productId: string;
+    source: string | null;
+    type: string;
+  }>;
+  products: Array<{
+    barcode: string;
+    categoryId: string | null;
+    itemNumber: string | null;
+    productId: string;
+    productName: string | null;
+    purchasePrice: number | null;
+    retailPrice: number | null;
+    secondProductName: string | null;
+    stockQuantity: number | null;
+    supplierId: string | null;
+    updatedAt: string;
+  }>;
+  suppliers: Array<{
+    name: string;
+    supplierId: string;
+    updatedAt: string;
+  }>;
+  tombstones: {
+    categories: Array<{
+      categoryId: string;
+      deletedAt: string;
+      updatedAt: string;
+    }>;
+    products: Array<{
+      deletedAt: string;
+      productId: string;
+      updatedAt: string;
+    }>;
+    suppliers: Array<{
+      deletedAt: string;
+      supplierId: string;
+      updatedAt: string;
+    }>;
+  };
+};
 
 type PosCatalogEndpointResult =
   | {
@@ -134,56 +183,9 @@ type PosCatalogEndpointResult =
     }
   | {
       body: {
-        catalog: {
-          categories: Array<{
-            categoryId: string;
-            name: string;
-            updatedAt: string;
-          }>;
-          prices: Array<{
-            effectiveAt: string;
-            price: number;
-            priceId: string;
-            productId: string;
-            source: string | null;
-            type: string;
-          }>;
-          products: Array<{
-            barcode: string;
-            categoryId: string | null;
-            itemNumber: string | null;
-            productId: string;
-            productName: string | null;
-            purchasePrice: number | null;
-            retailPrice: number | null;
-            secondProductName: string | null;
-            stockQuantity: number | null;
-            supplierId: string | null;
-            updatedAt: string;
-          }>;
-          suppliers: Array<{
-            name: string;
-            supplierId: string;
-            updatedAt: string;
-          }>;
-          tombstones: {
-            categories: Array<{
-              categoryId: string;
-              deletedAt: string;
-              updatedAt: string;
-            }>;
-            products: Array<{
-              deletedAt: string;
-              productId: string;
-              updatedAt: string;
-            }>;
-            suppliers: Array<{
-              deletedAt: string;
-              supplierId: string;
-              updatedAt: string;
-            }>;
-          };
-        };
+        catalog: CatalogPayload;
+        catalogRevision: string;
+        catalogSummary: CatalogV2Manifest["catalogSummary"];
         catalogVersion: string;
         code: "success";
         generatedAt: string;
@@ -193,6 +195,7 @@ type PosCatalogEndpointResult =
         schemaVersion: typeof POS_CATALOG_SCHEMA_VERSION;
         serverTime: string;
         shop: PosShopPayload;
+        snapshotAt: string;
         syncCursor: string;
         syncMode: "delta" | "full_refresh";
         updatedSince: string | null;
@@ -213,12 +216,13 @@ type ParsedCatalogPullInput = {
   posSessionId: string;
   sessionToken: string;
   shopDeviceId: string;
-  syncOptions: CatalogSyncOptions;
+  syncRequest: CatalogSyncRequest;
 };
 
 const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const MAX_POS_SECRET_LENGTH = 256;
+const CATALOG_CURSOR_TTL_SECONDS = 7 * 24 * 60 * 60;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -261,9 +265,12 @@ function failure(
       ? "POS catalog backend is not configured."
       : code === "validation_failed"
         ? "Request payload is invalid."
-        : code === "unmapped"
-          ? "This shop has a legacy catalog bridge that is not mapped."
-          : "POS catalog pull was denied.";
+        : code === "catalog_cursor_expired" ||
+            code === "catalog_cursor_rejected"
+          ? "Catalog continuation was rejected."
+          : code === "unmapped"
+            ? "This shop has a legacy catalog bridge that is not mapped."
+            : "POS catalog pull was denied.";
 
   return {
     body: {
@@ -275,10 +282,7 @@ function failure(
   };
 }
 
-function parseCatalogPullInput(
-  input: unknown,
-  serverTime: string,
-): ParsedCatalogPullInput | null {
+function parseCatalogPullInput(input: unknown): ParsedCatalogPullInput | null {
   if (!isRecord(input)) {
     return null;
   }
@@ -290,8 +294,10 @@ function parseCatalogPullInput(
   const posSessionId = stringField(input, "posSessionId", "pos_session_id");
   const sessionToken = stringField(input, "sessionToken", "session_token");
   const shopDeviceId = stringField(input, "shopDeviceId", "shop_device_id");
+  const syncRequest = parseCatalogSyncRequest(input);
 
   if (
+    !syncRequest ||
     !UUID_PATTERN.test(posSessionId) ||
     !UUID_PATTERN.test(shopDeviceId) ||
     deviceToken.length === 0 ||
@@ -302,19 +308,13 @@ function parseCatalogPullInput(
     return null;
   }
 
-  const syncOptions = parseCatalogSyncOptions(input, serverTime);
-
-  if (!syncOptions.ok) {
-    return null;
-  }
-
   return {
     appVersion,
     deviceToken,
     posSessionId,
     sessionToken,
     shopDeviceId,
-    syncOptions: syncOptions.options,
+    syncRequest,
   };
 }
 
@@ -323,204 +323,19 @@ function requestMetadata(meta: PosCatalogPullRequestMeta): JsonRecord {
     ...(meta.clientRequestId ? { client_request_id: meta.clientRequestId } : {}),
     ...(meta.requestId ? { request_id: meta.requestId } : {}),
     ...(meta.route ? { route: meta.route } : {}),
-    source: "TASK-027",
+    source: "TASK-139",
     user_agent_length: meta.userAgent?.length ?? 0,
     user_agent_present: Boolean(meta.userAgent),
   };
 }
 
-function previewSyncCursor(syncCursor: string) {
-  return syncCursor.startsWith("catalog-v1:")
-    ? `${syncCursor.slice(0, 24)}...`
-    : syncCursor;
-}
-
-function mergeCatalogRowsById<Row extends { id: string }>(
-  shopRows: readonly Row[],
-  legacyRows: readonly Row[],
-) {
-  const rows = [...shopRows];
-  const seen = new Set(shopRows.map((row) => row.id));
-
-  for (const row of legacyRows) {
-    if (!seen.has(row.id)) {
-      rows.push(row);
-    }
-  }
-
-  return rows;
-}
-
-function compareUpdatedCatalogRows<
-  Row extends { id: string; updated_at: string },
->(left: Row, right: Row) {
-  const byUpdatedAt = Date.parse(left.updated_at) - Date.parse(right.updated_at);
-
-  return byUpdatedAt === 0 ? left.id.localeCompare(right.id) : byUpdatedAt;
-}
-
-function compareCreatedCatalogRows<
-  Row extends { created_at: string; id: string },
->(left: Row, right: Row) {
-  const byCreatedAt = Date.parse(left.created_at) - Date.parse(right.created_at);
-
-  return byCreatedAt === 0 ? left.id.localeCompare(right.id) : byCreatedAt;
-}
-
-function chunkValues<T>(values: readonly T[], chunkSize: number) {
-  const chunks: T[][] = [];
-
-  for (let index = 0; index < values.length; index += chunkSize) {
-    chunks.push(values.slice(index, index + chunkSize));
-  }
-
-  return chunks;
-}
-
-async function filterCatalogPricesByProductScope(
-  supabase: SupabaseAdminClient,
-  input: {
-    ownerUserId: string | null;
-    prices: readonly PriceRow[];
-    shopId: string;
-  },
-) {
-  const productIds = Array.from(
-    new Set(
-      input.prices
-        .map((price) => price.product_id)
-        .filter(
-          (productId): productId is string =>
-            typeof productId === "string" && productId.length > 0,
-        ),
-    ),
-  );
-
-  if (productIds.length === 0) {
-    return { error: null, prices: [...input.prices] };
-  }
-
-  const authorizedProductIds = new Set<string>();
-
-  for (const productChunk of chunkValues(productIds, 500)) {
-    const { data, error } = await supabase
-      .from("inventory_products")
-      .select("id,shop_id,owner_user_id")
-      .in("id", productChunk);
-
-    if (error) {
-      return { error, prices: [] };
-    }
-
-    for (const row of (data ?? []) as ProductScopeRow[]) {
-      if (
-        row.shop_id === input.shopId ||
-        (row.shop_id === null &&
-          Boolean(input.ownerUserId) &&
-          row.owner_user_id === input.ownerUserId)
-      ) {
-        authorizedProductIds.add(row.id);
-      }
-    }
-  }
-
-  return {
-    error: null,
-    prices: input.prices.filter((price) =>
-      typeof price.product_id === "string" &&
-      authorizedProductIds.has(price.product_id),
-    ),
-  };
-}
-
-function pageCatalogScopeRows<Row extends { id: string }>(
-  rows: readonly Row[],
-  limit: number,
-) {
-  return pageCatalogRows(rows, limit);
-}
-
-async function includeReferencedCatalogRows<
-  Row extends { id: string; owner_user_id: string | null; shop_id: string | null },
->(
-  supabase: SupabaseAdminClient,
-  input: {
-    ownerUserId: string | null;
-    rows: readonly Row[];
-    referencedIds: readonly string[];
-    select: string;
-    shopId: string;
-    table: "inventory_categories" | "inventory_suppliers";
-  },
-) {
-  const rows = [...input.rows];
-  const seen = new Set(rows.map((row) => row.id));
-  const missingIds = Array.from(
-    new Set(
-      input.referencedIds.filter(
-        (id) => typeof id === "string" && id.length > 0 && !seen.has(id),
-      ),
-    ),
-  );
-
-  if (missingIds.length === 0) {
-    return { error: null, rows };
-  }
-
-  for (const idChunk of chunkValues(missingIds, 500)) {
-    const { data, error } = await supabase
-      .from(input.table)
-      .select(input.select)
-      .in("id", idChunk);
-
-    if (error) {
-      return { error, rows };
-    }
-
-    for (const row of (data ?? []) as unknown as Row[]) {
-      const isAuthorized =
-        row.shop_id === input.shopId ||
-        (row.shop_id === null &&
-          Boolean(input.ownerUserId) &&
-          row.owner_user_id === input.ownerUserId);
-
-      if (isAuthorized && !seen.has(row.id)) {
-        rows.push(row);
-        seen.add(row.id);
-      }
-    }
-  }
-
-  return { error: null, rows };
-}
-
-async function hasShopCatalogRows(
-  supabase: SupabaseAdminClient,
-  shopId: string,
-) {
-  const [products, categories, suppliers, prices] = await Promise.all([
-    supabase.from("inventory_products").select("id").eq("shop_id", shopId).limit(1),
-    supabase.from("inventory_categories").select("id").eq("shop_id", shopId).limit(1),
-    supabase.from("inventory_suppliers").select("id").eq("shop_id", shopId).limit(1),
-    supabase
-      .from("inventory_product_prices")
-      .select("id")
-      .eq("shop_id", shopId)
-      .limit(1),
-  ]);
-
-  const error =
-    products.error ?? categories.error ?? suppliers.error ?? prices.error ?? null;
-
-  return {
-    error,
-    hasRows: Boolean(
-      (products.data ?? []).length > 0 ||
-        (categories.data ?? []).length > 0 ||
-        (suppliers.data ?? []).length > 0 ||
-        (prices.data ?? []).length > 0,
-    ),
-  };
+function cursorFingerprint(syncCursor: string) {
+  return syncCursor
+    ? `sha256:${createHash("sha256")
+        .update(syncCursor, "utf8")
+        .digest("hex")
+        .slice(0, 16)}`
+    : "none";
 }
 
 async function getSupabaseForPosCatalog() {
@@ -530,7 +345,10 @@ async function getSupabaseForPosCatalog() {
     return null;
   }
 
-  return createSupabaseAdminClient(config);
+  const supabase = createSupabaseAdminClient(config);
+  return supabase
+    ? { cursorSigningKey: config.serviceRoleKey, supabase }
+    : null;
 }
 
 async function writePosCatalogAudit(
@@ -604,18 +422,228 @@ function isStaffUsable(staff: StaffAccountRow | null) {
   );
 }
 
+function isStringOrNull(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function isNumberOrNull(value: unknown): value is number | null {
+  return value === null || typeof value === "number";
+}
+
+function isTimestamp(value: unknown): value is string {
+  return typeof value === "string" && Number.isFinite(Date.parse(value));
+}
+
+function parseCategoryRows(page: CatalogPageV2) {
+  if (page.entity !== "categories") {
+    return [] as CategoryRow[];
+  }
+
+  if (
+    !page.rows.every(
+      (row) =>
+        typeof row.id === "string" &&
+        typeof row.name === "string" &&
+        isTimestamp(row.updated_at) &&
+        isStringOrNull(row.deleted_at),
+    )
+  ) {
+    return null;
+  }
+
+  return page.rows as unknown as CategoryRow[];
+}
+
+function parseSupplierRows(page: CatalogPageV2) {
+  if (page.entity !== "suppliers") {
+    return [] as SupplierRow[];
+  }
+
+  if (
+    !page.rows.every(
+      (row) =>
+        typeof row.id === "string" &&
+        typeof row.name === "string" &&
+        isTimestamp(row.updated_at) &&
+        isStringOrNull(row.deleted_at),
+    )
+  ) {
+    return null;
+  }
+
+  return page.rows as unknown as SupplierRow[];
+}
+
+function parseProductRows(page: CatalogPageV2) {
+  if (page.entity !== "products") {
+    return [] as ProductRow[];
+  }
+
+  if (
+    !page.rows.every(
+      (row) =>
+        typeof row.id === "string" &&
+        typeof row.barcode === "string" &&
+        isTimestamp(row.updated_at) &&
+        isStringOrNull(row.deleted_at) &&
+        isStringOrNull(row.category_id) &&
+        isStringOrNull(row.item_number) &&
+        isStringOrNull(row.product_name) &&
+        isStringOrNull(row.second_product_name) &&
+        isStringOrNull(row.supplier_id) &&
+        isNumberOrNull(row.purchase_price) &&
+        isNumberOrNull(row.retail_price) &&
+        isNumberOrNull(row.stock_quantity),
+    )
+  ) {
+    return null;
+  }
+
+  return page.rows as unknown as ProductRow[];
+}
+
+function parsePriceRows(page: CatalogPageV2) {
+  if (page.entity !== "prices") {
+    return [] as PriceRow[];
+  }
+
+  if (
+    !page.rows.every(
+      (row) =>
+        typeof row.id === "string" &&
+        typeof row.product_id === "string" &&
+        typeof row.type === "string" &&
+        typeof row.price === "number" &&
+        typeof row.effective_at === "string" &&
+        typeof row.created_at === "string" &&
+        isTimestamp(row.updated_at) &&
+        isStringOrNull(row.source),
+    )
+  ) {
+    return null;
+  }
+
+  return page.rows as unknown as PriceRow[];
+}
+
+function emptyCatalog(): CatalogPayload {
+  return {
+    categories: [],
+    prices: [],
+    products: [],
+    suppliers: [],
+    tombstones: {
+      categories: [],
+      products: [],
+      suppliers: [],
+    },
+  };
+}
+
+function mapCatalogPage(page: CatalogPageV2): CatalogPayload | null {
+  const categoryRows = parseCategoryRows(page);
+  const supplierRows = parseSupplierRows(page);
+  const productRows = parseProductRows(page);
+  const priceRows = parsePriceRows(page);
+
+  if (!categoryRows || !supplierRows || !productRows || !priceRows) {
+    return null;
+  }
+
+  const { active: categories, tombstones: categoryTombstones } =
+    splitCatalogTombstones(categoryRows);
+  const { active: suppliers, tombstones: supplierTombstones } =
+    splitCatalogTombstones(supplierRows);
+  const { active: products, tombstones: productTombstones } =
+    splitCatalogTombstones(productRows);
+  const catalog = emptyCatalog();
+
+  catalog.categories = categories.map((category) => ({
+    categoryId: category.id,
+    name: category.name,
+    updatedAt: category.updated_at,
+  }));
+  catalog.suppliers = suppliers.map((supplier) => ({
+    name: supplier.name,
+    supplierId: supplier.id,
+    updatedAt: supplier.updated_at,
+  }));
+  catalog.products = products.map((product) => ({
+    barcode: product.barcode,
+    categoryId: product.category_id,
+    itemNumber: product.item_number,
+    productId: product.id,
+    productName: product.product_name,
+    purchasePrice: product.purchase_price,
+    retailPrice: product.retail_price,
+    secondProductName: product.second_product_name,
+    stockQuantity: product.stock_quantity,
+    supplierId: product.supplier_id,
+    updatedAt: product.updated_at,
+  }));
+  catalog.prices = priceRows.map((price) => ({
+    effectiveAt: price.effective_at,
+    price: price.price,
+    priceId: price.id,
+    productId: price.product_id,
+    source: price.source,
+    type: price.type,
+  }));
+  catalog.tombstones.categories = categoryTombstones.map((category) => ({
+    categoryId: category.id,
+    deletedAt: category.deleted_at ?? category.updated_at,
+    updatedAt: category.updated_at,
+  }));
+  catalog.tombstones.suppliers = supplierTombstones.map((supplier) => ({
+    deletedAt: supplier.deleted_at ?? supplier.updated_at,
+    supplierId: supplier.id,
+    updatedAt: supplier.updated_at,
+  }));
+  catalog.tombstones.products = productTombstones.map((product) => ({
+    deletedAt: product.deleted_at ?? product.updated_at,
+    productId: product.id,
+    updatedAt: product.updated_at,
+  }));
+
+  return catalog;
+}
+
+function rowCountFor(catalog: CatalogPayload, lane: CatalogV2Lane | "done") {
+  switch (lane) {
+    case "categories":
+      return catalog.categories.length + catalog.tombstones.categories.length;
+    case "suppliers":
+      return catalog.suppliers.length + catalog.tombstones.suppliers.length;
+    case "products":
+      return catalog.products.length + catalog.tombstones.products.length;
+    case "prices":
+      return catalog.prices.length;
+    default:
+      return 0;
+  }
+}
+
+function lastKey(page: CatalogPageV2) {
+  const last = page.rows[page.rows.length - 1];
+
+  return last && typeof last.id === "string" && isTimestamp(last.updated_at)
+    ? { id: last.id, updatedAt: last.updated_at }
+    : null;
+}
+
 export async function handlePosCatalogPull(
   input: unknown,
   meta: PosCatalogPullRequestMeta = {},
 ): Promise<PosCatalogEndpointResult> {
-  const serverTime = nowIso();
-  const supabase = await getSupabaseForPosCatalog();
+  const requestTime = nowIso();
+  const backend = await getSupabaseForPosCatalog();
 
-  if (!supabase) {
+  if (!backend) {
     return failure("not_configured", 503);
   }
 
-  const parsed = parseCatalogPullInput(input, serverTime);
+  const { cursorSigningKey, supabase } = backend;
+  const parsed = parseCatalogPullInput(input);
 
   if (!parsed) {
     return auditedFailure(supabase, {
@@ -753,133 +781,98 @@ export async function handlePosCatalogPull(
     });
   }
 
-  const mappingResult = await supabase
-    .from("shop_inventory_sources")
-    .select("shop_id,owner_user_id,mapping_state")
-    .eq("shop_id", session.shop_id)
-    .is("disabled_at", null)
-    .limit(10);
+  const cursorContext: CatalogV2CursorContext = {
+    posSessionId: session.pos_session_id,
+    shopDeviceId: session.shop_device_id,
+    shopId: session.shop_id,
+    signingKey: cursorSigningKey,
+  };
+  const syncResolution = resolveCatalogSyncRequest(
+    parsed.syncRequest,
+    requestTime,
+    cursorContext,
+  );
 
-  if (mappingResult.error) {
+  if (!syncResolution.ok) {
+    const cursorFailure =
+      syncResolution.code === "catalog_cursor_expired" ||
+      syncResolution.code === "catalog_cursor_rejected";
+
     return auditedFailure(supabase, {
-      code: "db_failure",
-      metadata: requestMetadata(meta),
+      code: syncResolution.code,
+      metadata: {
+        ...requestMetadata(meta),
+        cursor_fingerprint: cursorFingerprint(parsed.syncRequest.syncCursor),
+      },
       shopId: session.shop_id,
-      status: 500,
+      status: cursorFailure ? 409 : 400,
       targetId: session.shop_device_id,
       targetType: "device",
     });
   }
 
-  const mappingRows = (mappingResult.data ?? []) as InventorySourceRow[];
-  const mappedSource = mappingRows.find(
-    (row) => row.mapping_state === "mapped" && row.owner_user_id,
-  );
-  const blockingSource = mappingRows.find(
-    (row) => row.mapping_state !== "mapped",
-  );
-  const ownerUserId = mappedSource?.owner_user_id ?? null;
-  const shopCatalogRowsProbe = await hasShopCatalogRows(
-    supabase,
-    session.shop_id,
-  );
+  const sync = syncResolution.request;
+  const continuation = sync.continuation;
+  const page = await loadCatalogPageV2(supabase, {
+    afterId: continuation?.afterId ?? null,
+    afterUpdatedAt: continuation?.afterUpdatedAt ?? null,
+    entity: continuation?.lane ?? null,
+    expectedRevision: continuation?.revision ?? null,
+    expectedScopeKey: continuation?.scopeKey ?? null,
+    expectedScopeKind: continuation?.scopeKind ?? null,
+    includeManifest: !continuation,
+    limit: sync.limit,
+    lowerBound: sync.lowerBound,
+    mode: sync.mode,
+    shopId: session.shop_id,
+    snapshotAt: sync.snapshotAt,
+  });
 
-  if (shopCatalogRowsProbe.error) {
+  if (page.status !== "ok") {
+    const code: PosCatalogFailureCode =
+      page.status === "unmapped"
+        ? "unmapped"
+        : page.status === "snapshot_changed"
+          ? "catalog_cursor_rejected"
+          : "db_failure";
+
     return auditedFailure(supabase, {
-      code: "db_failure",
-      metadata: requestMetadata(meta),
+      code,
+      metadata: {
+        ...requestMetadata(meta),
+        cursor_fingerprint: cursorFingerprint(parsed.syncRequest.syncCursor),
+        reason:
+          page.status === "snapshot_changed"
+            ? "snapshot_revision_or_scope_changed"
+            : page.status,
+      },
       shopId: session.shop_id,
-      status: 500,
+      status: code === "unmapped" || code === "catalog_cursor_rejected" ? 409 : 500,
       targetId: session.shop_device_id,
       targetType: "device",
     });
   }
 
-  const useLegacyOwnerBridge = Boolean(ownerUserId) && !shopCatalogRowsProbe.hasRows;
-
-  const syncOptions = parsed.syncOptions;
-  const productRange = catalogRangeFor(syncOptions, "products");
-  const categoryRange = catalogRangeFor(syncOptions, "categories");
-  const supplierRange = catalogRangeFor(syncOptions, "suppliers");
-  const priceRange = catalogRangeFor(syncOptions, "prices");
-  const priceUpperBound = catalogPriceTimestampFor(syncOptions.upperBound);
-  const priceLowerBound = catalogPriceTimestampFor(syncOptions.lowerBound);
-
-  let productsQuery = supabase
-    .from("inventory_products")
-    .select(
-      "id,shop_id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,updated_at,deleted_at",
-    )
-    .eq("shop_id", session.shop_id)
-    .lte("updated_at", syncOptions.upperBound)
-    .order("updated_at", { ascending: true })
-    .order("id", { ascending: true });
-
-  let categoriesQuery = supabase
-    .from("inventory_categories")
-    .select("id,shop_id,owner_user_id,name,updated_at,deleted_at")
-    .eq("shop_id", session.shop_id)
-    .lte("updated_at", syncOptions.upperBound)
-    .order("updated_at", { ascending: true })
-    .order("id", { ascending: true });
-
-  let suppliersQuery = supabase
-    .from("inventory_suppliers")
-    .select("id,shop_id,owner_user_id,name,updated_at,deleted_at")
-    .eq("shop_id", session.shop_id)
-    .lte("updated_at", syncOptions.upperBound)
-    .order("updated_at", { ascending: true })
-    .order("id", { ascending: true });
-
-  let pricesQuery = supabase
-    .from("inventory_product_prices")
-    .select("id,shop_id,product_id,type,price,effective_at,source,created_at")
-    .eq("shop_id", session.shop_id)
-    .order("created_at", { ascending: true })
-    .order("id", { ascending: true });
-
-  if (syncOptions.lowerBound) {
-    productsQuery = productsQuery.gte("updated_at", syncOptions.lowerBound);
-    categoriesQuery = categoriesQuery.gte("updated_at", syncOptions.lowerBound);
-    suppliersQuery = suppliersQuery.gte("updated_at", syncOptions.lowerBound);
-
-    if (priceLowerBound) {
-      pricesQuery = pricesQuery.gte("created_at", priceLowerBound);
-    }
-  } else {
-    productsQuery = productsQuery.is("deleted_at", null);
-    categoriesQuery = categoriesQuery.is("deleted_at", null);
-    suppliersQuery = suppliersQuery.is("deleted_at", null);
-  }
-
-  if (priceUpperBound) {
-    pricesQuery = pricesQuery.lte("created_at", priceUpperBound);
-  }
-
-  const [productsResult, categoriesResult, suppliersResult, pricesResult] =
-    useLegacyOwnerBridge
-      ? [
-          { data: [], error: null },
-          { data: [], error: null },
-          { data: [], error: null },
-          { data: [], error: null },
-        ]
-      : await Promise.all([
-          productsQuery.range(productRange.from, productRange.to),
-          categoriesQuery.range(categoryRange.from, categoryRange.to),
-          suppliersQuery.range(supplierRange.from, supplierRange.to),
-          pricesQuery.range(priceRange.from, priceRange.to),
-        ]);
+  const manifest = page.manifest ?? continuation?.manifest ?? null;
+  const catalog = mapCatalogPage(page);
 
   if (
-    productsResult.error ||
-    categoriesResult.error ||
-    suppliersResult.error ||
-    pricesResult.error
+    !manifest ||
+    !catalog ||
+    (page.entityHasMore && page.rows.length !== sync.limit) ||
+    (continuation &&
+      (!catalogV2TimestampsEqual(page.snapshotAt, continuation.snapshotAt) ||
+        page.entity !== continuation.lane ||
+        page.revision !== continuation.revision ||
+        page.scopeKey !== continuation.scopeKey ||
+        page.scopeKind !== continuation.scopeKind))
   ) {
     return auditedFailure(supabase, {
       code: "db_failure",
-      metadata: requestMetadata(meta),
+      metadata: {
+        ...requestMetadata(meta),
+        reason: "catalog_v2_page_contract_invalid",
+      },
       shopId: session.shop_id,
       status: 500,
       targetId: session.shop_device_id,
@@ -887,104 +880,34 @@ export async function handlePosCatalogPull(
     });
   }
 
-  const shopProducts = (productsResult.data ?? []) as ProductRow[];
-  const shopCategories = (categoriesResult.data ?? []) as CategoryRow[];
-  const shopSuppliers = (suppliersResult.data ?? []) as SupplierRow[];
-  const shopPrices = (pricesResult.data ?? []) as PriceRow[];
-  let legacyProducts: ProductRow[] = [];
-  let legacyCategories: CategoryRow[] = [];
-  let legacySuppliers: SupplierRow[] = [];
-  let legacyPrices: PriceRow[] = [];
+  const revisionDescriptor = {
+    revision: page.revision,
+    scopeKey: page.scopeKey,
+    scopeKind: page.scopeKind,
+  } as const;
+  const catalogRevision = buildCatalogRevision(
+    session.shop_id,
+    revisionDescriptor,
+  );
+  const nextLane =
+    page.entity === "done" || page.entityHasMore
+      ? null
+      : nextCatalogV2Lane(page.entity, manifest.windowCounts);
+  const hasMore = page.entityHasMore || nextLane !== null;
+  const key = lastKey(page);
+  let syncCursor = page.snapshotAt;
 
-  if (useLegacyOwnerBridge && ownerUserId) {
-    let legacyProductsQuery = supabase
-      .from("inventory_products")
-      .select(
-        "id,shop_id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,stock_quantity,supplier_id,category_id,updated_at,deleted_at",
-      )
-      .is("shop_id", null)
-      .eq("owner_user_id", ownerUserId)
-      .lte("updated_at", syncOptions.upperBound)
-      .order("updated_at", { ascending: true })
-      .order("id", { ascending: true });
+  if (hasMore) {
+    const lane =
+      page.entityHasMore && page.entity !== "done" ? page.entity : nextLane;
 
-    let legacyCategoriesQuery = supabase
-      .from("inventory_categories")
-      .select("id,shop_id,owner_user_id,name,updated_at,deleted_at")
-      .is("shop_id", null)
-      .eq("owner_user_id", ownerUserId)
-      .lte("updated_at", syncOptions.upperBound)
-      .order("updated_at", { ascending: true })
-      .order("id", { ascending: true });
-
-    let legacySuppliersQuery = supabase
-      .from("inventory_suppliers")
-      .select("id,shop_id,owner_user_id,name,updated_at,deleted_at")
-      .is("shop_id", null)
-      .eq("owner_user_id", ownerUserId)
-      .lte("updated_at", syncOptions.upperBound)
-      .order("updated_at", { ascending: true })
-      .order("id", { ascending: true });
-
-    let legacyPricesQuery = supabase
-      .from("inventory_product_prices")
-      .select("id,shop_id,product_id,type,price,effective_at,source,created_at")
-      .is("shop_id", null)
-      .eq("owner_user_id", ownerUserId)
-      .order("created_at", { ascending: true })
-      .order("id", { ascending: true });
-
-    if (syncOptions.lowerBound) {
-      legacyProductsQuery = legacyProductsQuery.gte(
-        "updated_at",
-        syncOptions.lowerBound,
-      );
-      legacyCategoriesQuery = legacyCategoriesQuery.gte(
-        "updated_at",
-        syncOptions.lowerBound,
-      );
-      legacySuppliersQuery = legacySuppliersQuery.gte(
-        "updated_at",
-        syncOptions.lowerBound,
-      );
-
-      if (priceLowerBound) {
-        legacyPricesQuery = legacyPricesQuery.gte(
-          "created_at",
-          priceLowerBound,
-        );
-      }
-    } else {
-      legacyProductsQuery = legacyProductsQuery.is("deleted_at", null);
-      legacyCategoriesQuery = legacyCategoriesQuery.is("deleted_at", null);
-      legacySuppliersQuery = legacySuppliersQuery.is("deleted_at", null);
-    }
-
-    if (priceUpperBound) {
-      legacyPricesQuery = legacyPricesQuery.lte("created_at", priceUpperBound);
-    }
-
-    const [
-      legacyProductsResult,
-      legacyCategoriesResult,
-      legacySuppliersResult,
-      legacyPricesResult,
-    ] = await Promise.all([
-      legacyProductsQuery.range(productRange.from, productRange.to),
-      legacyCategoriesQuery.range(categoryRange.from, categoryRange.to),
-      legacySuppliersQuery.range(supplierRange.from, supplierRange.to),
-      legacyPricesQuery.range(priceRange.from, priceRange.to),
-    ]);
-
-    if (
-      legacyProductsResult.error ||
-      legacyCategoriesResult.error ||
-      legacySuppliersResult.error ||
-      legacyPricesResult.error
-    ) {
+    if (!lane || (page.entityHasMore && !key)) {
       return auditedFailure(supabase, {
         code: "db_failure",
-        metadata: requestMetadata(meta),
+        metadata: {
+          ...requestMetadata(meta),
+          reason: "catalog_v2_next_cursor_invalid",
+        },
         shopId: session.shop_id,
         status: 500,
         targetId: session.shop_device_id,
@@ -992,186 +915,64 @@ export async function handlePosCatalogPull(
       });
     }
 
-    legacyProducts = (legacyProductsResult.data ?? []) as ProductRow[];
-    legacyCategories = (legacyCategoriesResult.data ?? []) as CategoryRow[];
-    legacySuppliers = (legacySuppliersResult.data ?? []) as SupplierRow[];
-    legacyPrices = (legacyPricesResult.data ?? []) as PriceRow[];
+    try {
+      syncCursor = buildCatalogV2Cursor(
+        {
+          afterId: page.entityHasMore ? key?.id ?? null : null,
+          afterUpdatedAt: page.entityHasMore ? key?.updatedAt ?? null : null,
+          expiresAtUnixSeconds:
+            continuation?.expiresAtUnixSeconds ??
+            Math.floor(Date.parse(page.snapshotAt) / 1000) +
+              CATALOG_CURSOR_TTL_SECONDS,
+          lane,
+          lowerBound: sync.lowerBound,
+          manifest,
+          mode: sync.mode,
+          pageSize: sync.limit,
+          revision: page.revision,
+          scopeKey: page.scopeKey,
+          scopeKind: page.scopeKind,
+          snapshotAt: page.snapshotAt,
+        },
+        cursorContext,
+      );
+    } catch {
+      return auditedFailure(supabase, {
+        code: "db_failure",
+        metadata: {
+          ...requestMetadata(meta),
+          reason: "catalog_v2_cursor_build_failed",
+        },
+        shopId: session.shop_id,
+        status: 500,
+        targetId: session.shop_device_id,
+        targetType: "device",
+      });
+    }
   }
 
-  if (!ownerUserId && blockingSource && !shopCatalogRowsProbe.hasRows) {
-    return auditedFailure(supabase, {
-      code: "unmapped",
-      metadata: requestMetadata(meta),
-      shopId: session.shop_id,
-      status: 409,
-      targetId: session.shop_device_id,
-      targetType: "device",
-    });
-  }
-
-  const catalogScope = useLegacyOwnerBridge
-    ? "legacy_owner_bridge"
-    : "shop_scoped";
-  const productRows = mergeCatalogRowsById(shopProducts, legacyProducts).sort(
-    compareUpdatedCatalogRows,
-  );
-  const categoryRows = mergeCatalogRowsById(
-    shopCategories,
-    legacyCategories,
-  ).sort(compareUpdatedCatalogRows);
-  const supplierRows = mergeCatalogRowsById(
-    shopSuppliers,
-    legacySuppliers,
-  ).sort(compareUpdatedCatalogRows);
-  const scopedPriceRows = await filterCatalogPricesByProductScope(supabase, {
-    ownerUserId,
-    prices: mergeCatalogRowsById(shopPrices, legacyPrices),
-    shopId: session.shop_id,
-  });
-
-  if (scopedPriceRows.error) {
-    return auditedFailure(supabase, {
-      code: "db_failure",
-      metadata: {
-        ...requestMetadata(meta),
-        reason: "price_product_scope_validation",
-      },
-      shopId: session.shop_id,
-      status: 500,
-      targetId: session.shop_device_id,
-      targetType: "device",
-    });
-  }
-
-  const priceRows = scopedPriceRows.prices.sort(
-    compareCreatedCatalogRows,
-  );
-  const productPage = pageCatalogScopeRows(
-    productRows,
-    syncOptions.limit,
-  );
-  const categoryPage = pageCatalogScopeRows(
-    categoryRows,
-    syncOptions.limit,
-  );
-  const supplierPage = pageCatalogScopeRows(
-    supplierRows,
-    syncOptions.limit,
-  );
-  const pricePage = pageCatalogScopeRows(
-    priceRows,
-    syncOptions.limit,
-  );
-  const referencedCategoryRows = await includeReferencedCatalogRows<CategoryRow>(
-    supabase,
-    {
-      ownerUserId,
-      referencedIds: productPage.rows
-        .map((product) => product.category_id)
-        .filter((id): id is string => typeof id === "string" && id.length > 0),
-      rows: categoryPage.rows,
-      select: "id,shop_id,owner_user_id,name,updated_at,deleted_at",
-      shopId: session.shop_id,
-      table: "inventory_categories",
-    },
-  );
-
-  if (referencedCategoryRows.error) {
-    return auditedFailure(supabase, {
-      code: "db_failure",
-      metadata: {
-        ...requestMetadata(meta),
-        reason: "referenced_category_lookup",
-      },
-      shopId: session.shop_id,
-      status: 500,
-      targetId: session.shop_device_id,
-      targetType: "device",
-    });
-  }
-
-  const referencedSupplierRows = await includeReferencedCatalogRows<SupplierRow>(
-    supabase,
-    {
-      ownerUserId,
-      referencedIds: productPage.rows
-        .map((product) => product.supplier_id)
-        .filter((id): id is string => typeof id === "string" && id.length > 0),
-      rows: supplierPage.rows,
-      select: "id,shop_id,owner_user_id,name,updated_at,deleted_at",
-      shopId: session.shop_id,
-      table: "inventory_suppliers",
-    },
-  );
-
-  if (referencedSupplierRows.error) {
-    return auditedFailure(supabase, {
-      code: "db_failure",
-      metadata: {
-        ...requestMetadata(meta),
-        reason: "referenced_supplier_lookup",
-      },
-      shopId: session.shop_id,
-      status: 500,
-      targetId: session.shop_device_id,
-      targetType: "device",
-    });
-  }
-
-  const { active: products, tombstones: productTombstones } =
-    splitCatalogTombstones(productPage.rows);
-  const { active: categories, tombstones: categoryTombstones } =
-    splitCatalogTombstones(referencedCategoryRows.rows);
-  const { active: suppliers, tombstones: supplierTombstones } =
-    splitCatalogTombstones(referencedSupplierRows.rows);
-  const prices = pricePage.rows;
-  const pageState: Record<CatalogSyncEntity, CatalogPageState> = {
-    categories: {
-      hasMore: categoryPage.hasMore,
-      returned: categoryPage.returned,
-    },
-    prices: {
-      hasMore: pricePage.hasMore,
-      returned: pricePage.returned,
-    },
-    products: {
-      hasMore: productPage.hasMore,
-      returned: productPage.returned,
-    },
-    suppliers: {
-      hasMore: supplierPage.hasMore,
-      returned: supplierPage.returned,
-    },
-  };
-  const hasMore = hasMoreCatalogRows(pageState);
-  const syncCursor = buildNextCatalogSyncCursor(syncOptions, pageState);
-  const catalogVersion = computeCatalogVersion({
-    categories: referencedCategoryRows.rows,
-    prices,
-    products: productPage.rows,
-    suppliers: referencedSupplierRows.rows,
-  });
   const auditOk = await writePosCatalogAudit(supabase, {
     code: "success",
     metadata: {
       ...requestMetadata(meta),
       app_version_present: Boolean(parsed.appVersion),
-      catalog_scope: catalogScope,
-      catalog_version: catalogVersion,
-      categories: categories.length,
-      category_tombstones: categoryTombstones.length,
-      cursor_source: syncOptions.cursorSource,
+      catalog_revision: catalogRevision,
+      catalog_scope: page.scopeKind,
+      categories: catalog.categories.length,
+      category_tombstones: catalog.tombstones.categories.length,
+      cursor_fingerprint: cursorFingerprint(syncCursor),
+      cursor_source: sync.cursorSource,
+      entity: page.entity,
       has_more: hasMore,
-      prices: prices.length,
-      products: products.length,
-      product_tombstones: productTombstones.length,
-      server_time: syncOptions.upperBound,
-      supplier_tombstones: supplierTombstones.length,
-      suppliers: suppliers.length,
-      sync_cursor_present: Boolean(syncCursor),
-      sync_cursor_preview: previewSyncCursor(syncCursor),
-      sync_mode: syncOptions.mode,
-      updated_since: syncOptions.lowerBound,
+      page_rows: rowCountFor(catalog, page.entity),
+      prices: catalog.prices.length,
+      products: catalog.products.length,
+      product_tombstones: catalog.tombstones.products.length,
+      snapshot_at: page.snapshotAt,
+      supplier_tombstones: catalog.tombstones.suppliers.length,
+      suppliers: catalog.suppliers.length,
+      sync_mode: sync.mode,
+      updated_since: sync.lowerBound,
     },
     result: "success",
     severity: "info",
@@ -1186,70 +987,22 @@ export async function handlePosCatalogPull(
 
   return {
     body: {
-      catalog: {
-        categories: categories.map((category) => ({
-          categoryId: category.id,
-          name: category.name,
-          updatedAt: category.updated_at,
-        })),
-        prices: prices.map((price) => ({
-          effectiveAt: price.effective_at,
-          price: price.price,
-          priceId: price.id,
-          productId: price.product_id,
-          source: price.source,
-          type: price.type,
-        })),
-        products: products.map((product) => ({
-          barcode: product.barcode,
-          categoryId: product.category_id,
-          itemNumber: product.item_number,
-          productId: product.id,
-          productName: product.product_name,
-          purchasePrice: product.purchase_price,
-          retailPrice: product.retail_price,
-          secondProductName: product.second_product_name,
-          stockQuantity: product.stock_quantity,
-          supplierId: product.supplier_id,
-          updatedAt: product.updated_at,
-        })),
-        suppliers: suppliers.map((supplier) => ({
-          name: supplier.name,
-          supplierId: supplier.id,
-          updatedAt: supplier.updated_at,
-        })),
-        tombstones: {
-          categories: categoryTombstones.map((category) => ({
-            categoryId: category.id,
-            deletedAt: category.deleted_at ?? category.updated_at,
-            updatedAt: category.updated_at,
-          })),
-          products: productTombstones.map((product) => ({
-            deletedAt: product.deleted_at ?? product.updated_at,
-            productId: product.id,
-            updatedAt: product.updated_at,
-          })),
-          suppliers: supplierTombstones.map((supplier) => ({
-            deletedAt: supplier.deleted_at ?? supplier.updated_at,
-            supplierId: supplier.id,
-            updatedAt: supplier.updated_at,
-          })),
-        },
-      },
-      catalogVersion,
+      catalog,
+      catalogRevision,
+      catalogSummary: manifest.catalogSummary,
+      catalogVersion: catalogRevision,
       code: "success",
-      generatedAt: serverTime,
+      generatedAt: requestTime,
       hasMore,
       ok: true,
       policy: buildPosPolicyPayload(),
       schemaVersion: POS_CATALOG_SCHEMA_VERSION,
-      serverTime: syncOptions.upperBound,
-      shop: {
-        ...buildPosShopPayload(shop),
-      },
+      serverTime: page.snapshotAt,
+      shop: buildPosShopPayload(shop),
+      snapshotAt: page.snapshotAt,
       syncCursor,
-      syncMode: syncOptions.mode,
-      updatedSince: syncOptions.lowerBound,
+      syncMode: sync.mode,
+      updatedSince: sync.lowerBound,
     },
     status: 200,
   };

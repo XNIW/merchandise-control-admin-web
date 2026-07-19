@@ -360,6 +360,9 @@ test("TASK-028 Win7POS catalog pull persists cursor diagnostics and applies tomb
   const repository = readWin7PosFile(
     "src/Win7POS.Data/Repositories/ProductRepository.cs",
   );
+  const batchRepository = readWin7PosFile(
+    "src/Win7POS.Data/Repositories/RemoteCatalogBatchRepository.cs",
+  );
   const initializer = readWin7PosFile("src/Win7POS.Data/DbInitializer.cs");
   const scanner = readWin7PosFile("scripts/check-pos-catalog-pull.ps1");
 
@@ -382,7 +385,7 @@ test("TASK-028 Win7POS catalog pull persists cursor diagnostics and applies tomb
     "LastCatalogHasMoreSettingKey",
     "LastCatalogVersionSettingKey",
     "StoreCatalogFailureAsync",
-    "ApplyRemoteProductTombstoneAsync",
+    "RemoteCatalogBatchRepository",
     "StoreCatalogDiagnosticsAsync",
     "result.Value.HasMore",
     "result.Value.CatalogVersion",
@@ -400,6 +403,9 @@ test("TASK-028 Win7POS catalog pull persists cursor diagnostics and applies tomb
   }
 
   assertContains(repository, "ApplyRemoteProductTombstoneAsync");
+  assertContains(batchRepository, "ApplyRemoteProductTombstoneInTransactionAsync");
+  assertContains(batchRepository, "CategoryRepository.ApplyRemoteTombstoneInTransactionAsync");
+  assertContains(batchRepository, "SupplierRepository.ApplyRemoteTombstoneInTransactionAsync");
   assertContains(repository, "COALESCE(is_active, 1) = 1");
   assertContains(repository, "UPDATE products");
   assertContains(initializer, "COALESCE(is_active, 1) = 1");

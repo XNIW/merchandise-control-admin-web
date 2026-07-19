@@ -158,6 +158,12 @@ test("TASK-089 POS contracts expose explicit version, time and conservative poli
 
 test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock invariants", () => {
   const catalog = readProjectFile("src/server/pos-auth/catalog-pull.ts");
+  const catalogRevision = readProjectFile(
+    "src/server/pos-auth/catalog-revision.ts",
+  );
+  const catalogMigration = readProjectFile(
+    "supabase/migrations/20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql",
+  );
   const sales = readProjectFile("src/server/pos-auth/sales-sync.ts");
   const recovery = readProjectFile(
     "src/server/shop-admin/pos-sync-recovery-read-model.ts",
@@ -182,12 +188,22 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
   );
 
   assertContainsAll(catalog, [
-    '.eq("shop_id", session.shop_id)',
-    '.order("updated_at", { ascending: true })',
-    '.order("id", { ascending: true })',
+    "loadCatalogPageV2",
+    "buildCatalogV2Cursor",
     "splitCatalogTombstones",
-    "buildNextCatalogSyncCursor",
+    "catalogVersion: catalogRevision",
     "hasMore",
+  ]);
+  assertContainsAll(catalogRevision, [
+    '.rpc("pos_catalog_pull_page_v2"',
+    "expectedRevision",
+    "expectedScopeKey",
+  ]);
+  assertContainsAll(catalogMigration, [
+    "row.shop_id = p_shop_id",
+    "order by row.updated_at, row.id",
+    "limit p_limit + 1",
+    "product.id = row.product_id",
   ]);
   assertContainsAll(sales, [
     ".eq(\"shop_id\", session.shop_id)",
@@ -548,6 +564,9 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
   }
 
   const client = readWin7PosFile("src/Win7POS.Data/Online/PosAdminWebClient.cs");
+  const transportContracts = readWin7PosFile(
+    "src/Win7POS.Core/Online/PosOnlineTransportContracts.cs",
+  );
   const builder = readWin7PosFile(
     "src/Win7POS.Data/Online/PosSalesSyncRequestBuilder.cs",
   );
@@ -564,7 +583,7 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
   const logger = readWin7PosFile("src/Win7POS.Wpf/Infrastructure/FileLogger.cs");
   const debugCheck = readWin7PosFile("scripts/check-pos-debug-logging.ps1");
 
-  assertContainsAll(client, [
+  assertContainsAll(`${client}\n${transportContracts}`, [
     "/api/pos/auth/first-login",
     "/api/pos/session/heartbeat",
     "/api/pos/catalog/pull",
@@ -626,7 +645,7 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
   ]);
   assertContainsAll(workflow, [
     "QueueSalesOutboxSyncNoThrow",
-    "CreateDbBackupCopyNoLock",
+    "CreateDbBackupNoLockAsync",
     "pos_pre_restore_",
     "KeyRestoreNeedsSyncReview",
     "KeyRestoreLastPreBackupPath",
@@ -636,9 +655,9 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
     "POS DB pre-restore backup created",
   ]);
   assertContainsAll(logger, [
-    "sessionToken",
-    "deviceToken",
-    "trustedDeviceToken",
+    "session[_-]?token",
+    "device[_-]?token",
+    "trusted[_-]?device[_-]?token",
     "Authorization",
     "mcpos_",
     "db_password",
