@@ -47,7 +47,14 @@ test("TASK-010 selected shop query param is never an authorization source", () =
   assert.match(readModel, /requestedShopId/);
   assert.match(dataAccess, /availableShops\.find/);
   assert.match(dataAccess, /principal\.selectedShop/);
-  assert.match(dataAccess, /strictRequestedShop/);
+  assert.match(
+    dataAccess,
+    /options\.strictRequestedShop !== false[\s\S]{0,120}options\.requestedShopId[\s\S]{0,120}!requestedShop/,
+  );
+  assert.match(
+    dataAccess,
+    /options\.strictRequestedShop !== false,\s*\n\s*\)/,
+  );
   assert.doesNotMatch(readModel, /\.eq\("shop_id", requestedShopId\)/);
   assert.doesNotMatch(readModel, /\.eq\("shop_id", selectedShopId\)/);
   assert.match(sectionData, /getShopAdminReadModel/);
