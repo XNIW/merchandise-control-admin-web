@@ -1,0 +1,105 @@
+name: Final staging authenticated performance
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_product_count:
+        description: "Expected active products in the real staging tenant"
+        required: true
+        default: "19763"
+      repeat_each:
+        description: "Serial samples per public route"
+        required: true
+        default: "3"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: final-staging-auth-performance
+  cancel-in-progress: false
+
+env:
+  CI: true
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  authenticated-public-routes:
+    name: Auth, tenant isolation and public route latency
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: cloudflare-staging
+
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF || vars.SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      PLAYWRIGHT_BASE_URL: ${{ vars.CLOUDFLARE_STAGING_URL }}
+      PLAYWRIGHT_DISABLE_WEB_SERVER: "1"
+      CONFIRM_TASK077_REAL_SHOP_READONLY: "yes"
+      TASK077_APP_TARGET: staging
+      TASK077_CAPTURE_PAYLOAD_BYTES: "yes"
+      TASK077_ENFORCE_THRESHOLDS: "yes"
+      TASK077_EXPECTED_PRODUCT_COUNT: ${{ inputs.expected_product_count }}
+      TASK077_PERF_DATASET: real-shop
+      TASK077_PERF_PHASE: final-staging
+
+    steps:
+      - name: Checkout exact SHA
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify protected staging inputs
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const required = [
+            "NEXT_PUBLIC_SUPABASE_URL",
+            "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+            "SUPABASE_PROJECT_REF",
+            "SUPABASE_SERVICE_ROLE_KEY",
+            "ALLOWED_STAGING_SUPABASE_PROJECT_REFS",
+            "PLAYWRIGHT_BASE_URL",
+          ];
+          const status = Object.fromEntries(
+            required.map((key) => [key, Boolean(process.env[key])]),
+          );
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((present) => !present)) {
+            process.exit(1);
+          }
+          NODE
+
+      - name: Run authenticated public route samples
+        run: >-
+          npm run test:shop:cloud-performance:task077 --
+          --workers=1
+          --repeat-each=${{ inputs.repeat_each }}
+
+      - name: Upload redacted performance evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: final-staging-auth-performance-${{ github.run_id }}
+          path: |
+            docs/TASKS/EVIDENCE/TASK-077/task-077-cloud-performance-real-shop-final-staging.json
+            docs/TASKS/EVIDENCE/TASK-077B/task-077b-shop-performance-real-shop-final-staging.json
+            test-results/
+          if-no-files-found: error
+          retention-days: 30

@@ -15,7 +15,11 @@ test.use({
 type AdminClient = SupabaseClient<Database>;
 
 type RealShopTarget = {
+  crossShopId: string;
   email: string;
+  priceCount: number;
+  productCount: number;
+  profileId: string;
   shopId: string;
   source: "env" | "discovered";
 };
@@ -216,14 +220,10 @@ async function resolveRealShopTarget(
 ): Promise<RealShopTarget> {
   const envShopId = optionalEnv("TASK077_REAL_SHOP_ID");
   const envEmail = optionalEnv("TASK077_REAL_SHOP_USER_EMAIL");
-
-  if (envShopId && envEmail) {
-    return {
-      email: envEmail,
-      shopId: envShopId,
-      source: "env",
-    };
-  }
+  const expectedProductCount = Number.parseInt(
+    optionalEnv("TASK077_EXPECTED_PRODUCT_COUNT") ?? "0",
+    10,
+  );
 
   let query = supabase
     .from("shops")
@@ -250,6 +250,7 @@ async function resolveRealShopTarget(
   const rows = ((data ?? []) as ShopCandidateRow[]).filter(
     (row) => envShopId || !isSyntheticShopCode(row.shop_code),
   );
+  const candidates: Array<Omit<RealShopTarget, "crossShopId">> = [];
 
   for (const row of rows) {
     for (const member of row.shop_members ?? []) {
@@ -260,13 +261,88 @@ async function resolveRealShopTarget(
       const email = envEmail ?? (await emailForProfile(supabase, member.profile_id));
 
       if (email) {
-        return {
+        const [sourceResult, priceResult] = await Promise.all([
+          supabase
+            .from("shop_inventory_sources")
+            .select("owner_user_id")
+            .eq("shop_id", row.shop_id)
+            .eq("mapping_state", "mapped")
+            .maybeSingle(),
+          supabase
+            .from("inventory_product_prices")
+            .select("id", { count: "exact", head: true })
+            .eq("shop_id", row.shop_id),
+        ]);
+        const ownerUserId = sourceResult.data?.owner_user_id;
+
+        if (sourceResult.error || !ownerUserId || priceResult.error) {
+          continue;
+        }
+        const productResult = await supabase
+          .from("inventory_products")
+          .select("id", { count: "exact", head: true })
+          .eq("owner_user_id", ownerUserId)
+          .is("deleted_at", null);
+
+        if (productResult.error) {
+          continue;
+        }
+
+        candidates.push({
           email,
+          priceCount: priceResult.count ?? 0,
+          productCount: productResult.count ?? 0,
+          profileId: member.profile_id,
           shopId: row.shop_id,
           source: envShopId || envEmail ? "env" : "discovered",
-        };
+        });
       }
     }
+  }
+
+  const selected =
+    candidates.find(
+      (candidate) =>
+        expectedProductCount > 0 &&
+        candidate.productCount === expectedProductCount,
+    ) ??
+    candidates.sort((left, right) => right.productCount - left.productCount)[0];
+
+  if (selected) {
+    const { data: otherShops, error: otherShopsError } = await supabase
+      .from("shops")
+      .select(
+        "shop_id,shop_members(profile_id,membership_status)",
+      )
+      .eq("shop_status", "active")
+      .neq("shop_id", selected.shopId)
+      .limit(50);
+
+    if (otherShopsError) {
+      throw new Error(
+        `BLOCKED_TASK077_CROSS_SHOP_DISCOVERY: ${formatSupabaseError(otherShopsError)}`,
+      );
+    }
+
+    const crossShop = (otherShops ?? []).find(
+      (shop) =>
+        !(shop.shop_members ?? []).some(
+          (member) =>
+            member.profile_id === selected.profileId &&
+            member.membership_status === "active",
+        ),
+    );
+
+    if (!crossShop?.shop_id) {
+      throw new Error(
+        "BLOCKED_TASK077_CROSS_SHOP_UNAVAILABLE: one active shop outside the selected actor tenant is required.",
+      );
+    }
+
+    return {
+      ...selected,
+      crossShopId: crossShop.shop_id,
+    };
   }
 
   throw new Error(
@@ -354,6 +430,43 @@ async function signInWithMagicLink(page: Page, target: RealShopTarget) {
   );
   await page.goto(routeUrl("/shop/overview", target.shopId).toString());
   await expectRouteTitle(page, "Overview", 20_000);
+}
+
+async function assertCrossTenantDenied(page: Page, target: RealShopTarget) {
+  const result = await page.evaluate(async (crossShopId) => {
+    const response = await fetch("/shop/qa-sync-fixture", {
+      body: JSON.stringify({
+        confirm: "staging-sync-final",
+        correlationId: "Task077CrossTenant",
+        entity: "product",
+        fixtureId: "Task077CrossTenant",
+        mode: "final",
+        operation: "observe",
+        prefix: "TASK_SYNC_FINAL_20260723_Task077_",
+        scenario: "observe",
+        shopId: crossShopId,
+      }),
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+
+    return {
+      body: await response.json(),
+      cacheControl: response.headers.get("cache-control"),
+      status: response.status,
+    };
+  }, target.crossShopId);
+
+  expect(result.status).toBe(403);
+  expect(result.cacheControl).toContain("no-store");
+  expect(result.body).toMatchObject({
+    marker: "TASK_SYNC_FINAL_ADMIN_V1",
+    ok: false,
+    result: "denied",
+  });
 }
 
 async function expectRouteTitle(page: Page, title: string, timeout = 12_000) {
@@ -661,6 +774,8 @@ function writeReport(input: {
     phase: input.phase,
     shop: {
       id: "redacted",
+      priceCount: input.target.priceCount,
+      productCount: input.target.productCount,
       source: input.target.source,
     },
     target: {
@@ -692,6 +807,10 @@ test("TASK-077 measures real Shop Admin read-only cloud data latency", async ({
   expect(process.env.CONFIRM_TASK077_REAL_SHOP_READONLY).toBe("yes");
 
   const target = await resolveRealShopTarget(createAdminClient());
+  const expectedProductCount = Number.parseInt(
+    optionalEnv("TASK077_EXPECTED_PRODUCT_COUNT") ?? "0",
+    10,
+  );
   const measurements: RouteMeasurement[] = [];
   const routeConsoleErrors: string[] = [];
   const routes = selectedRouteChecks();
@@ -706,6 +825,11 @@ test("TASK-077 measures real Shop Admin read-only cloud data latency", async ({
   });
 
   await signInWithMagicLink(page, target);
+  await assertCrossTenantDenied(page, target);
+
+  if (expectedProductCount > 0) {
+    expect(target.productCount).toBe(expectedProductCount);
+  }
 
   for (const route of routes) {
     routeConsoleErrors.length = 0;
