@@ -183,19 +183,38 @@ jobs:
       - name: Restore every backup component into the isolated target
         run: |
           set -euo pipefail
+          platform_owner() {
+            local schema_name="$1"
+            docker run --rm --network host -e PGPASSWORD=postgres postgres:17 \
+              psql -X -qAt -v ON_ERROR_STOP=1 \
+                -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+                -c "select r.rolname from pg_namespace n join pg_roles r on r.oid = n.nspowner where n.nspname = '$schema_name'"
+          }
+          auth_owner="$(platform_owner auth)"
+          storage_owner="$(platform_owner storage)"
+          for platform_owner_name in "$auth_owner" "$storage_owner"; do
+            [[ "$platform_owner_name" =~ ^[a-z_][a-z0-9_]*$ ]] || {
+              echo 'isolated_restore_platform_owner_invalid' >&2
+              exit 1
+            }
+          done
           docker run --rm --network host \
             -e PGPASSWORD=postgres -v "$PWD/_backup:/backup:ro" postgres:17 \
             psql -X --single-transaction -v ON_ERROR_STOP=1 \
               -h 127.0.0.1 -p 54322 -U postgres -d postgres \
               -f /backup/roles.sql \
               -f /backup/schema.sql \
-              -f /backup/auth-schema.sql \
-              -f /backup/storage-schema.sql \
               -f /backup/migrations-schema.sql \
               -c 'SET session_replication_role = replica' \
-              -f /backup/data.sql \
+              -c "SET ROLE \"$auth_owner\"" \
+              -f /backup/auth-schema.sql \
               -f /backup/auth-data.sql \
+              -c 'RESET ROLE' \
+              -c "SET ROLE \"$storage_owner\"" \
+              -f /backup/storage-schema.sql \
               -f /backup/storage-data.sql \
+              -c 'RESET ROLE' \
+              -f /backup/data.sql \
               -f /backup/migrations-data.sql
 
       - name: Validate restored schema, data, policies and catalog-v2 boundary
