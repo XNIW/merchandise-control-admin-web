@@ -108,12 +108,13 @@ jobs:
           node <<'NODE'
           const { readdirSync, readFileSync, writeFileSync } = require("node:fs");
           const local = readdirSync("supabase/migrations")
-            .filter((name) => /^\d{14}_.+\.sql$/.test(name))
-            .map((fileName) => ({
-              version: fileName.slice(0, 14),
-              name: fileName.slice(15, -4),
-              fileName,
-            }))
+            .map((fileName) => {
+              const match = fileName.match(/^(\d{8}|\d{14})_(.+)\.sql$/);
+              return match
+                ? { version: match[1], name: match[2], fileName }
+                : null;
+            })
+            .filter(Boolean)
             .sort((a, b) => a.version.localeCompare(b.version));
           const duplicates = local.filter(
             (entry, index) =>
