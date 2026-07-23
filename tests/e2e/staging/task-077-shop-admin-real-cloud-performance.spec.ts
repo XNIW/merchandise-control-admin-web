@@ -738,7 +738,10 @@ async function measureRouteNavigation(
   const startedAt = await page.evaluate(() => window.performance.now());
   const wallStartedAt = nodePerformance.now();
   try {
-    await link.click({ timeout: 3_000 });
+    // The sampler owns the pending/final readiness clocks below. Trigger the
+    // hydrated link without Playwright's navigation auto-wait so that a slow
+    // route is measured by those clocks instead of being mislabeled click_failed.
+    await link.evaluate((element) => (element as HTMLAnchorElement).click());
   } catch (error) {
     page.off("response", responseHandler);
 
