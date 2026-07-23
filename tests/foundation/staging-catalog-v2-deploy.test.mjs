@@ -11,6 +11,7 @@ const workflow = readFileSync(
 
 test("catalog-v2 staging workflow proves the exact delta before apply", () => {
   assert.match(workflow, /EXPECTED_MIGRATION_VERSION: "20260719170600"/);
+  assert.match(workflow, /\(\\d\{8\}\|\\d\{14\}\)/);
   assert.match(workflow, /remoteOnly\.length/);
   assert.match(workflow, /nameMismatches\.length/);
   assert.match(
