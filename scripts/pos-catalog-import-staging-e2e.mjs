@@ -845,42 +845,116 @@ async function runHttpProofs(baseUrl, dataset, auth) {
   assertStatus("Conflict import-sync", conflict, 409, "conflict");
 
   const pullStart = Date.now();
-  const catalogPull = await requestJson(
-    baseUrl,
-    "POST",
-    "/api/pos/catalog/pull",
-    {
-      ...authPayload(auth),
-      appVersion: "task-094-e2e",
-      limit: 50,
-    },
-    `task094-catalog-pull-${dataset.runId}`,
-  );
+  const aggregateCatalog = {
+    categories: [],
+    prices: [],
+    products: [],
+    suppliers: [],
+  };
+  const aggregateTombstones = {
+    categories: [],
+    products: [],
+    suppliers: [],
+  };
+  const catalogPullRequestIds = [];
+  let catalogPull = null;
+  let catalogInvariant = null;
+  let syncCursor = "";
+  let catalogPullPages = 0;
+
+  do {
+    catalogPullPages += 1;
+    if (catalogPullPages > 12) {
+      throw new E2EError("Catalog-v2 pull exceeded the bounded page count.");
+    }
+
+    catalogPull = await requestJson(
+      baseUrl,
+      "POST",
+      "/api/pos/catalog/pull",
+      {
+        ...authPayload(auth),
+        appVersion: "task-094-e2e",
+        limit: 50,
+        ...(syncCursor ? { syncCursor } : {}),
+      },
+      `task094-catalog-pull-${dataset.runId}-${catalogPullPages}`,
+    );
+    const catalog = catalogPull.body?.catalog;
+    if (
+      catalogPull.status !== 200 ||
+      catalogPull.body?.ok !== true ||
+      !catalogPull.noStore ||
+      !Array.isArray(catalog?.categories) ||
+      !Array.isArray(catalog?.prices) ||
+      !Array.isArray(catalog?.products) ||
+      !Array.isArray(catalog?.suppliers) ||
+      !Array.isArray(catalog?.tombstones?.categories) ||
+      !Array.isArray(catalog?.tombstones?.products) ||
+      !Array.isArray(catalog?.tombstones?.suppliers)
+    ) {
+      throw new E2EError("Catalog-v2 page contract after import failed.", {
+        requestId: requestIdFrom(catalogPull),
+        status: catalogPull.status,
+      });
+    }
+
+    const currentInvariant = JSON.stringify({
+      catalogRevision: catalogPull.body.catalogRevision,
+      catalogSummary: catalogPull.body.catalogSummary,
+      snapshotAt: catalogPull.body.snapshotAt,
+      syncMode: catalogPull.body.syncMode,
+    });
+    catalogInvariant ??= currentInvariant;
+    if (currentInvariant !== catalogInvariant) {
+      throw new E2EError("Catalog-v2 snapshot changed across continuation pages.");
+    }
+
+    aggregateCatalog.categories.push(...catalog.categories);
+    aggregateCatalog.prices.push(...catalog.prices);
+    aggregateCatalog.products.push(...catalog.products);
+    aggregateCatalog.suppliers.push(...catalog.suppliers);
+    aggregateTombstones.categories.push(...catalog.tombstones.categories);
+    aggregateTombstones.products.push(...catalog.tombstones.products);
+    aggregateTombstones.suppliers.push(...catalog.tombstones.suppliers);
+    catalogPullRequestIds.push(requestIdFrom(catalogPull));
+
+    if (catalogPull.body.hasMore !== true) {
+      syncCursor = "";
+      break;
+    }
+    syncCursor =
+      typeof catalogPull.body.syncCursor === "string"
+        ? catalogPull.body.syncCursor
+        : "";
+    if (!syncCursor.startsWith("catalog-v2:")) {
+      throw new E2EError("Catalog-v2 continuation cursor is missing.");
+    }
+  } while (syncCursor);
+
   if (
-    catalogPull.status !== 200 ||
-    catalogPull.body?.ok !== true ||
-    !Array.isArray(catalogPull.body?.catalog?.products) ||
-    !catalogPull.body.catalog.products.some((product) => product.barcode === dataset.barcode) ||
-    !Array.isArray(catalogPull.body?.catalog?.prices) ||
-    catalogPull.body.catalog.prices.length < 2
+    !aggregateCatalog.products.some(
+      (product) => product.barcode === dataset.barcode,
+    ) ||
+    aggregateCatalog.prices.length < 2
   ) {
-    throw new E2EError("Catalog pull proof after import failed.", {
-      requestId: requestIdFrom(catalogPull),
-      status: catalogPull.status,
-      productCount: catalogPull.body?.catalog?.products?.length,
-      priceCount: catalogPull.body?.catalog?.prices?.length,
+    throw new E2EError("Catalog-v2 complete snapshot proof after import failed.", {
+      pageCount: catalogPullPages,
+      productCount: aggregateCatalog.products.length,
+      priceCount: aggregateCatalog.prices.length,
     });
   }
 
   return {
     timings: {
       catalogPullMs: Date.now() - pullStart,
+      catalogPullPages,
       importMs: Date.now() - acceptedStart,
     },
     requestIds: {
       accepted: requestIdFrom(accepted),
       authDenied: requestIdFrom(invalidAuthResult),
-      catalogPull: requestIdFrom(catalogPull),
+      catalogPull: catalogPullRequestIds,
       conflict: requestIdFrom(conflict),
       duplicate: requestIdFrom(duplicate),
       get405: requestIdFrom(getResult),
