@@ -282,13 +282,13 @@ jobs:
               -f /backup/auth-schema.sql \
               -f /backup/auth-data.sql \
               -c 'RESET ROLE' \
+              -c 'DROP SCHEMA app_private CASCADE' \
+              -f /backup/schema.sql \
+              -f /backup/post-schema-auth-triggers.sql \
               -c "SET ROLE \"$storage_owner\"" \
               -f /backup/storage-schema.sql \
               -f /backup/storage-data.sql \
               -c 'RESET ROLE' \
-              -c 'DROP SCHEMA app_private CASCADE' \
-              -f /backup/schema.sql \
-              -f /backup/post-schema-auth-triggers.sql \
               -f /backup/migrations-schema.sql \
               -f /backup/data.sql \
               -f /backup/migrations-data.sql
