@@ -1,0 +1,292 @@
+name: Staging Catalog V2 Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Validate only, or apply the single catalog-v2 migration"
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+      apply_confirmation:
+        description: "For apply, enter APPLY_CATALOG_V2_STAGING"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-catalog-v2-migration
+  cancel-in-progress: false
+
+env:
+  SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+  EXPECTED_MIGRATION_VERSION: "20260719170600"
+  EXPECTED_MIGRATION_FILE: 20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql
+
+jobs:
+  migrate:
+    name: Guarded dry-run and optional apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare-staging
+
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Verify immutable staging inputs
+        env:
+          REQUESTED_MODE: ${{ inputs.mode }}
+          APPLY_CONFIRMATION: ${{ inputs.apply_confirmation }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const mode = process.env.REQUESTED_MODE || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          let urlMatchesProject = false;
+          try {
+            urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
+          } catch {}
+          const status = {
+            mainBranch: process.env.GITHUB_REF === "refs/heads/main",
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            allowedProject: allowed.includes(ref),
+            urlMatchesProject,
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+            supportedMode: mode === "dry-run" || mode === "apply",
+            applyConfirmationOk:
+              mode !== "apply" ||
+              process.env.APPLY_CONFIRMATION === "APPLY_CATALOG_V2_STAGING",
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build protected database URL
+        run: |
+          set -euo pipefail
+          mkdir -p _staging-migration/evidence
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(`postgresql://postgres.${ref}:${encodeURIComponent(password)}@${host}:5432/postgres?sslmode=require`);
+          NODE
+          )"
+          echo "::add-mask::$SOURCE_DB_URL"
+          printf '%s' "$SOURCE_DB_URL" > _staging-migration/source-db-url
+          chmod 600 _staging-migration/source-db-url
+
+      - name: Prove the exact remote-to-local migration delta
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _staging-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -F $'\t' -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select version, name from supabase_migrations.schema_migrations order by version" \
+              > _staging-migration/evidence/remote-ledger.tsv
+          node <<'NODE'
+          const { readdirSync, readFileSync, writeFileSync } = require("node:fs");
+          const local = readdirSync("supabase/migrations")
+            .filter((name) => /^\d{14}_.+\.sql$/.test(name))
+            .map((fileName) => ({
+              version: fileName.slice(0, 14),
+              name: fileName.slice(15, -4),
+              fileName,
+            }))
+            .sort((a, b) => a.version.localeCompare(b.version));
+          const duplicates = local.filter(
+            (entry, index) =>
+              index > 0 && entry.version === local[index - 1].version,
+          );
+          if (duplicates.length) {
+            throw new Error(`duplicate_local_versions:${duplicates.map((row) => row.version).join(",")}`);
+          }
+          const remote = readFileSync(
+            "_staging-migration/evidence/remote-ledger.tsv",
+            "utf8",
+          )
+            .trim()
+            .split(/\r?\n/)
+            .filter(Boolean)
+            .map((line) => {
+              const [version, name] = line.split("\t");
+              return { version, name };
+            });
+          const localByVersion = new Map(local.map((row) => [row.version, row]));
+          const remoteOnly = remote.filter((row) => !localByVersion.has(row.version));
+          const nameMismatches = remote.filter((row) => {
+            const match = localByVersion.get(row.version);
+            return match && match.name !== row.name;
+          });
+          const remoteVersions = new Set(remote.map((row) => row.version));
+          const pending = local.filter((row) => !remoteVersions.has(row.version));
+          const expected = [
+            {
+              version: process.env.EXPECTED_MIGRATION_VERSION,
+              name: "task_139_pos_catalog_v2_pagination_snapshot",
+              fileName: process.env.EXPECTED_MIGRATION_FILE,
+            },
+          ];
+          const status = {
+            status: "PASS",
+            workflowCommit: process.env.GITHUB_SHA,
+            projectRef: process.env.STAGING_SUPABASE_PROJECT_REF,
+            remoteMigrationCount: remote.length,
+            localMigrationCount: local.length,
+            remoteOnly,
+            nameMismatches,
+            pending,
+          };
+          if (
+            remoteOnly.length ||
+            nameMismatches.length ||
+            JSON.stringify(pending) !== JSON.stringify(expected)
+          ) status.status = "FAIL";
+          writeFileSync(
+            "_staging-migration/evidence/delta.json",
+            `${JSON.stringify(status, null, 2)}\n`,
+          );
+          console.log(JSON.stringify({
+            status: status.status,
+            remoteMigrationCount: status.remoteMigrationCount,
+            localMigrationCount: status.localMigrationCount,
+            pending: status.pending,
+          }));
+          if (status.status !== "PASS") process.exit(1);
+          NODE
+
+      - name: Supabase CLI dry-run
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _staging-migration/source-db-url)"
+          npx --yes supabase@2.109.0 \
+            --workdir "$PWD" \
+            db push \
+            --dry-run \
+            --db-url "$SOURCE_DB_URL" \
+            2>&1 | tee _staging-migration/evidence/supabase-dry-run.txt
+          grep -F "$EXPECTED_MIGRATION_VERSION" \
+            _staging-migration/evidence/supabase-dry-run.txt
+
+      - name: Apply the single approved migration
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _staging-migration/source-db-url)"
+          npx --yes supabase@2.109.0 \
+            --workdir "$PWD" \
+            db push \
+            --db-url "$SOURCE_DB_URL" \
+            --yes \
+            2>&1 | tee _staging-migration/evidence/supabase-apply.txt
+          grep -F "$EXPECTED_MIGRATION_VERSION" \
+            _staging-migration/evidence/supabase-apply.txt
+
+      - name: Verify catalog-v2 schema, grants, indexes and backfill
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _staging-migration/source-db-url)"
+          cat > _staging-migration/post-verify.sql <<'SQL'
+          select jsonb_pretty(jsonb_build_object(
+            'migrationLedgerExact', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260719170600'
+                and name = 'task_139_pos_catalog_v2_pagination_snapshot'
+            ),
+            'revisionFunctionPresent',
+              to_regprocedure('public.pos_catalog_revision_v2(uuid)') is not null,
+            'pageFunctionPresent',
+              to_regprocedure('public.pos_catalog_pull_page_v2(uuid,text,timestamptz,timestamptz,text,timestamptz,uuid,integer,text,text,text,boolean)') is not null,
+            'serviceRoleRevisionExecute',
+              has_function_privilege('service_role', 'public.pos_catalog_revision_v2(uuid)', 'execute'),
+            'serviceRolePageExecute',
+              has_function_privilege('service_role', 'public.pos_catalog_pull_page_v2(uuid,text,timestamptz,timestamptz,text,timestamptz,uuid,integer,text,text,text,boolean)', 'execute'),
+            'anonRevisionDenied',
+              not has_function_privilege('anon', 'public.pos_catalog_revision_v2(uuid)', 'execute'),
+            'authenticatedRevisionDenied',
+              not has_function_privilege('authenticated', 'public.pos_catalog_revision_v2(uuid)', 'execute'),
+            'anonPageDenied',
+              not has_function_privilege('anon', 'public.pos_catalog_pull_page_v2(uuid,text,timestamptz,timestamptz,text,timestamptz,uuid,integer,text,text,text,boolean)', 'execute'),
+            'authenticatedPageDenied',
+              not has_function_privilege('authenticated', 'public.pos_catalog_pull_page_v2(uuid,text,timestamptz,timestamptz,text,timestamptz,uuid,integer,text,text,text,boolean)', 'execute'),
+            'shopPriceIndexPresent',
+              to_regclass('public.inventory_product_prices_shop_updated_id_v2_idx') is not null,
+            'ownerPriceIndexPresent',
+              to_regclass('public.inventory_product_prices_owner_updated_id_v2_idx') is not null,
+            'priceUpdatedAtNullCount',
+              (select count(*) from public.inventory_product_prices where updated_at is null),
+            'revisionRows',
+              (select count(*) from app_private.pos_catalog_revisions),
+            'shopRows',
+              (select count(*) from public.shops)
+          ));
+          SQL
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD/_staging-migration:/migration" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /migration/post-verify.sql \
+              > _staging-migration/evidence/post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const report = JSON.parse(
+            readFileSync("_staging-migration/evidence/post-verify.json", "utf8"),
+          );
+          const requiredTrue = [
+            "migrationLedgerExact",
+            "revisionFunctionPresent",
+            "pageFunctionPresent",
+            "serviceRoleRevisionExecute",
+            "serviceRolePageExecute",
+            "anonRevisionDenied",
+            "authenticatedRevisionDenied",
+            "anonPageDenied",
+            "authenticatedPageDenied",
+            "shopPriceIndexPresent",
+            "ownerPriceIndexPresent",
+          ];
+          console.log(JSON.stringify(report));
+          if (
+            requiredTrue.some((key) => report[key] !== true) ||
+            Number(report.priceUpdatedAtNullCount) !== 0 ||
+            Number(report.revisionRows) < Number(report.shopRows)
+          ) process.exit(1);
+          NODE
+
+      - name: Remove protected connection material
+        if: always()
+        run: rm -f _staging-migration/source-db-url _staging-migration/post-verify.sql
+
+      - name: Upload non-secret migration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-catalog-v2-migration-${{ github.run_id }}
+          path: _staging-migration/evidence
+          if-no-files-found: error
+          retention-days: 14
