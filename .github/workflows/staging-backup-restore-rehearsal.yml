@@ -165,7 +165,7 @@ jobs:
               AND pg_get_function_identity_arguments(p.oid) = ''
           )
           SELECT format(
-            'CREATE SCHEMA IF NOT EXISTS app_private;%sALTER SCHEMA app_private OWNER TO %I;%s%s%sALTER FUNCTION %s OWNER TO %I;',
+            'CREATE SCHEMA IF NOT EXISTS app_private;%sALTER SCHEMA app_private OWNER TO %I;%s%s;%sALTER FUNCTION %s OWNER TO %I;',
             E'\n',
             schema_owner,
             E'\n',
