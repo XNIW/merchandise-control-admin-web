@@ -146,6 +146,65 @@ jobs:
           supabase_dump --file _backup/migrations-data.sql --schema supabase_migrations --use-copy --data-only
           for backupFile in _backup/*.sql; do test -s "$backupFile"; done
 
+      - name: Derive the exact Auth bootstrap prerequisite from the source snapshot
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _backup/source-db-url)"
+          cat > _backup/preauth-app-private.sql.query <<'SQL'
+          WITH target_function AS (
+            SELECT
+              p.oid AS function_oid,
+              function_owner.rolname AS function_owner,
+              schema_owner.rolname AS schema_owner
+            FROM pg_proc p
+            JOIN pg_namespace n ON n.oid = p.pronamespace
+            JOIN pg_roles function_owner ON function_owner.oid = p.proowner
+            JOIN pg_roles schema_owner ON schema_owner.oid = n.nspowner
+            WHERE n.nspname = 'app_private'
+              AND p.proname = 'task064_ensure_profile_for_auth_user'
+              AND pg_get_function_identity_arguments(p.oid) = ''
+          )
+          SELECT format(
+            'CREATE SCHEMA IF NOT EXISTS app_private;%sALTER SCHEMA app_private OWNER TO %I;%s%s%sALTER FUNCTION %s OWNER TO %I;',
+            E'\n',
+            schema_owner,
+            E'\n',
+            pg_get_functiondef(function_oid),
+            E'\n',
+            function_oid::regprocedure,
+            function_owner
+          )
+          FROM target_function;
+          SQL
+          docker run --rm --network host \
+            -e PGPASSWORD="$SUPABASE_DB_PASSWORD" -e PGSSLMODE=require \
+            -v "$PWD/_backup:/backup:ro" postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /backup/preauth-app-private.sql.query > _backup/preauth-app-private.sql
+          grep -Fx 'CREATE SCHEMA IF NOT EXISTS app_private;' _backup/preauth-app-private.sql >/dev/null
+          grep -F 'CREATE OR REPLACE FUNCTION app_private.task064_ensure_profile_for_auth_user()' _backup/preauth-app-private.sql >/dev/null
+          awk '
+            /^-- Name: app_private; Type: SCHEMA; / {
+              skipping = 1
+              app_private_schema_blocks += 1
+              next
+            }
+            /^-- Name: task064_ensure_profile_for_auth_user\(\); Type: FUNCTION; Schema: app_private; / {
+              skipping = 1
+              app_private_function_blocks += 1
+              next
+            }
+            /^-- Name: / { skipping = 0 }
+            !skipping { print }
+            END {
+              if (app_private_schema_blocks != 1 || app_private_function_blocks != 1) {
+                exit 42
+              }
+            }
+          ' _backup/schema.sql > _backup/application-schema.sql
+          test -s _backup/application-schema.sql
+
       - name: Back up storage objects and encrypted object inventory
         run: |
           set -euo pipefail
@@ -218,9 +277,9 @@ jobs:
             psql -X --single-transaction -v ON_ERROR_STOP=1 \
               -h 127.0.0.1 -p 54322 -U supabase_admin -d postgres \
               -f /backup/roles.sql \
-              -f /backup/schema.sql \
               -c 'DROP SCHEMA IF EXISTS storage CASCADE' \
               -c 'DROP SCHEMA IF EXISTS auth CASCADE' \
+              -f /backup/preauth-app-private.sql \
               -c 'SET session_replication_role = replica' \
               -c "SET ROLE \"$auth_owner\"" \
               -f /backup/auth-schema.sql \
@@ -230,7 +289,7 @@ jobs:
               -f /backup/storage-schema.sql \
               -f /backup/storage-data.sql \
               -c 'RESET ROLE' \
-              -f /backup/schema.sql \
+              -f /backup/application-schema.sql \
               -f /backup/migrations-schema.sql \
               -f /backup/data.sql \
               -f /backup/migrations-data.sql
@@ -252,6 +311,7 @@ jobs:
           printf '%s\n' 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJIHwCZNTl6s7c6sxrEH93D4pyJDwe2hfTab8fqbIs3t Win7POS staging reconciliation backup recipient' > _backup/backup-recipient.pub
           tar -C _backup -czf _backup/staging-backup.tar.gz \
             roles.sql schema.sql data.sql \
+            preauth-app-private.sql application-schema.sql \
             auth-schema.sql auth-data.sql \
             storage-schema.sql storage-data.sql \
             migrations-schema.sql migrations-data.sql \
