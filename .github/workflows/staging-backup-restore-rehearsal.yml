@@ -89,8 +89,20 @@ jobs:
       - name: Start an isolated compatible Supabase restore target
         run: |
           set -euo pipefail
-          npx --yes supabase@2.109.0 start --yes \
-            --exclude analytics,edge-runtime,functions,imgproxy,inbucket,kong,meta,realtime,rest,storage,studio,vector
+          mkdir -p _restore-target/supabase
+          cp supabase/config.toml _restore-target/supabase/config.toml
+          npx --yes supabase@2.109.0 --workdir "$PWD/_restore-target" start --yes --ignore-health-check
+          for attempt in {1..30}; do
+            if docker run --rm --network host -e PGPASSWORD=postgres postgres:17 \
+              psql -X -qAt -v ON_ERROR_STOP=1 \
+                -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+                -c 'select 1' >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'isolated_restore_postgres_not_ready' >&2
+          exit 1
 
       - name: Build the source database URL without logging credentials
         run: |
@@ -257,4 +269,4 @@ jobs:
 
       - name: Remove isolated restore target
         if: always()
-        run: npx --yes supabase@2.109.0 stop --no-backup || true
+        run: npx --yes supabase@2.109.0 --workdir "$PWD/_restore-target" stop --no-backup || true
