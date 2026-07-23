@@ -136,7 +136,6 @@ jobs:
           }
           supabase_dump --file _backup/roles.sql --role-only
           supabase_dump --file _backup/schema.sql
-          supabase_dump --file _backup/app-private-schema.sql --schema app_private
           supabase_dump --file _backup/data.sql --use-copy --data-only \
             --exclude storage.buckets_vectors --exclude storage.vector_indexes
           supabase_dump --file _backup/auth-schema.sql --schema auth
@@ -219,9 +218,9 @@ jobs:
             psql -X --single-transaction -v ON_ERROR_STOP=1 \
               -h 127.0.0.1 -p 54322 -U supabase_admin -d postgres \
               -f /backup/roles.sql \
+              -f /backup/schema.sql \
               -c 'DROP SCHEMA IF EXISTS storage CASCADE' \
               -c 'DROP SCHEMA IF EXISTS auth CASCADE' \
-              -f /backup/app-private-schema.sql \
               -c 'SET session_replication_role = replica' \
               -c "SET ROLE \"$auth_owner\"" \
               -f /backup/auth-schema.sql \
@@ -252,7 +251,7 @@ jobs:
           set -euo pipefail
           printf '%s\n' 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJIHwCZNTl6s7c6sxrEH93D4pyJDwe2hfTab8fqbIs3t Win7POS staging reconciliation backup recipient' > _backup/backup-recipient.pub
           tar -C _backup -czf _backup/staging-backup.tar.gz \
-            roles.sql schema.sql app-private-schema.sql data.sql \
+            roles.sql schema.sql data.sql \
             auth-schema.sql auth-data.sql \
             storage-schema.sql storage-data.sql \
             migrations-schema.sql migrations-data.sql \
