@@ -7,8 +7,8 @@ on:
         description: "Expected active products in the real staging tenant"
         required: true
         default: "19763"
-      repeat_each:
-        description: "Serial samples per public route"
+      route_sample_count:
+        description: "Serial samples per public route in one auth session"
         required: true
         default: "3"
 
@@ -47,6 +47,7 @@ jobs:
       TASK077_EXPECTED_PRODUCT_COUNT: ${{ inputs.expected_product_count }}
       TASK077_PERF_DATASET: real-shop
       TASK077_PERF_PHASE: final-staging
+      TASK077_ROUTE_SAMPLE_COUNT: ${{ inputs.route_sample_count }}
 
     steps:
       - name: Checkout exact SHA
@@ -89,10 +90,7 @@ jobs:
           NODE
 
       - name: Run authenticated public route samples
-        run: >-
-          npm run test:shop:cloud-performance:task077 --
-          --workers=1
-          --repeat-each=${{ inputs.repeat_each }}
+        run: npm run test:shop:cloud-performance:task077 -- --workers=1
 
       - name: Upload redacted performance evidence
         if: always()

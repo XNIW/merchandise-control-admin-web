@@ -15,8 +15,14 @@ test.use({
 type AdminClient = SupabaseClient<Database>;
 
 type RealShopTarget = {
-  crossShopId: string;
   email: string;
+  isolation: {
+    crossShopId: string;
+    email: string;
+    profileId: string;
+    shopId: string;
+  };
+  platformAdmin: boolean;
   priceCount: number;
   productCount: number;
   profileId: string;
@@ -162,6 +168,18 @@ function optionalEnv(name: string) {
   return process.env[name]?.trim() || null;
 }
 
+function routeSampleCount() {
+  const parsed = Number.parseInt(optionalEnv("TASK077_ROUTE_SAMPLE_COUNT") ?? "1", 10);
+
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 20) {
+    throw new Error(
+      "BLOCKED_TASK077_ROUTE_SAMPLE_COUNT: use an integer from 1 through 20.",
+    );
+  }
+
+  return parsed;
+}
+
 function formatSupabaseError(error: unknown) {
   if (!error || typeof error !== "object") {
     return String(error);
@@ -250,7 +268,7 @@ async function resolveRealShopTarget(
   const rows = ((data ?? []) as ShopCandidateRow[]).filter(
     (row) => envShopId || !isSyntheticShopCode(row.shop_code),
   );
-  const candidates: Array<Omit<RealShopTarget, "crossShopId">> = [];
+  const candidates: Array<Omit<RealShopTarget, "isolation">> = [];
 
   for (const row of rows) {
     for (const member of row.shop_members ?? []) {
@@ -261,7 +279,7 @@ async function resolveRealShopTarget(
       const email = envEmail ?? (await emailForProfile(supabase, member.profile_id));
 
       if (email) {
-        const [sourceResult, priceResult] = await Promise.all([
+        const [sourceResult, priceResult, platformResult] = await Promise.all([
           supabase
             .from("shop_inventory_sources")
             .select("owner_user_id")
@@ -272,10 +290,20 @@ async function resolveRealShopTarget(
             .from("inventory_product_prices")
             .select("id", { count: "exact", head: true })
             .eq("shop_id", row.shop_id),
+          supabase
+            .from("platform_admins")
+            .select("profile_id", { count: "exact", head: true })
+            .eq("profile_id", member.profile_id)
+            .eq("status", "active"),
         ]);
         const ownerUserId = sourceResult.data?.owner_user_id;
 
-        if (sourceResult.error || !ownerUserId || priceResult.error) {
+        if (
+          sourceResult.error ||
+          !ownerUserId ||
+          priceResult.error ||
+          platformResult.error
+        ) {
           continue;
         }
         const productResult = await supabase
@@ -290,6 +318,7 @@ async function resolveRealShopTarget(
 
         candidates.push({
           email,
+          platformAdmin: (platformResult.count ?? 0) > 0,
           priceCount: priceResult.count ?? 0,
           productCount: productResult.count ?? 0,
           profileId: member.profile_id,
@@ -309,13 +338,25 @@ async function resolveRealShopTarget(
     candidates.sort((left, right) => right.productCount - left.productCount)[0];
 
   if (selected) {
+    const isolation = candidates.find(
+      (candidate) =>
+        !candidate.platformAdmin &&
+        candidate.profileId !== selected.profileId,
+    );
+
+    if (!isolation) {
+      throw new Error(
+        "BLOCKED_TASK077_NON_PLATFORM_ACTOR_UNAVAILABLE: one mapped active non-platform shop owner/manager is required.",
+      );
+    }
+
     const { data: otherShops, error: otherShopsError } = await supabase
       .from("shops")
       .select(
         "shop_id,shop_members(profile_id,membership_status)",
       )
       .eq("shop_status", "active")
-      .neq("shop_id", selected.shopId)
+      .neq("shop_id", isolation.shopId)
       .limit(50);
 
     if (otherShopsError) {
@@ -328,7 +369,7 @@ async function resolveRealShopTarget(
       (shop) =>
         !(shop.shop_members ?? []).some(
           (member) =>
-            member.profile_id === selected.profileId &&
+            member.profile_id === isolation.profileId &&
             member.membership_status === "active",
         ),
     );
@@ -341,7 +382,12 @@ async function resolveRealShopTarget(
 
     return {
       ...selected,
-      crossShopId: crossShop.shop_id,
+      isolation: {
+        crossShopId: crossShop.shop_id,
+        email: isolation.email,
+        profileId: isolation.profileId,
+        shopId: isolation.shopId,
+      },
     };
   }
 
@@ -432,7 +478,10 @@ async function signInWithMagicLink(page: Page, target: RealShopTarget) {
   await expectRouteTitle(page, "Overview", 20_000);
 }
 
-async function assertCrossTenantDenied(page: Page, target: RealShopTarget) {
+async function assertCrossTenantDenied(
+  page: Page,
+  target: RealShopTarget["isolation"],
+) {
   const result = await page.evaluate(async (crossShopId) => {
     const response = await fetch("/shop/qa-sync-fixture", {
       body: JSON.stringify({
@@ -814,6 +863,7 @@ test("TASK-077 measures real Shop Admin read-only cloud data latency", async ({
   const measurements: RouteMeasurement[] = [];
   const routeConsoleErrors: string[] = [];
   const routes = selectedRouteChecks();
+  const samples = routeSampleCount();
 
   page.on("console", (message) => {
     if (message.type() === "error") {
@@ -824,32 +874,39 @@ test("TASK-077 measures real Shop Admin read-only cloud data latency", async ({
     routeConsoleErrors.push(error.message.slice(0, 300));
   });
 
+  await signInWithMagicLink(page, {
+    ...target,
+    email: target.isolation.email,
+    shopId: target.isolation.shopId,
+  });
+  await assertCrossTenantDenied(page, target.isolation);
   await signInWithMagicLink(page, target);
-  await assertCrossTenantDenied(page, target);
 
   if (expectedProductCount > 0) {
     expect(target.productCount).toBe(expectedProductCount);
   }
 
-  for (const route of routes) {
-    routeConsoleErrors.length = 0;
-    measurements.push(
-      await measureRouteNavigation(
-        page,
-        context,
+  for (let sample = 0; sample < samples; sample += 1) {
+    for (const route of routes) {
+      routeConsoleErrors.length = 0;
+      measurements.push(
+        await measureRouteNavigation(
+          page,
+          context,
+          target,
+          route,
+          routeConsoleErrors,
+        ),
+      );
+      writeReport({
+        measurements,
+        phase: process.env.TASK077_PERF_PHASE ?? "manual",
         target,
-        route,
-        routeConsoleErrors,
-      ),
-    );
-    writeReport({
-      measurements,
-      phase: process.env.TASK077_PERF_PHASE ?? "manual",
-      target,
-    });
+      });
+    }
   }
 
-  expect(measurements).toHaveLength(routes.length);
+  expect(measurements).toHaveLength(routes.length * samples);
 
   if (process.env.TASK077_ENFORCE_THRESHOLDS === "yes") {
     expect(
