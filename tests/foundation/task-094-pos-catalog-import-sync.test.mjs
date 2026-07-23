@@ -215,6 +215,9 @@ test("TASK-094 staging E2E harness proves positive catalog import without leakin
     "syncEventDomains",
     "cleanupTask094",
     "verifyTask094Cleanup",
+    "platform_create_shop",
+    "platform_soft_delete_shop",
+    "shop_staff_create",
   ]);
   assertContainsAll(workflow, [
     "TASK-094 Staging E2E",
@@ -243,6 +246,11 @@ test("TASK-094 staging E2E harness proves positive catalog import without leakin
     harness,
     /\.delete\(|deleteUser|console\.log\([^)]*(SUPABASE_SERVICE_ROLE_KEY|sessionToken|deviceToken|trustedDeviceToken|mcpos_)/,
     "TASK-094 staging harness must use soft cleanup and must not print secrets",
+  );
+  assert.doesNotMatch(
+    harness,
+    /\.from\("shops"\)\s*\.insert|\.from\("shops"\)\s*\.update|\.from\("staff_accounts"\)\s*\.insert/,
+    "TASK-094 must use audited authenticated RPCs across TASK-140 boundaries",
   );
   assert.doesNotMatch(
     workflow,

@@ -146,14 +146,6 @@ async function mustOk(label, query) {
   }
 }
 
-async function mustSingle(label, query) {
-  const { data, error } = await query;
-  if (error || !data) {
-    throw new E2EError(`${label} failed.`, { error: redactError(error) });
-  }
-  return data;
-}
-
 function buildClient(supabaseUrl, serviceRoleKey) {
   return createClient(supabaseUrl, serviceRoleKey, {
     auth: {
@@ -168,10 +160,47 @@ function buildClient(supabaseUrl, serviceRoleKey) {
   });
 }
 
+async function buildAuthenticatedClient(
+  supabaseUrl,
+  serviceRoleKey,
+  email,
+  password,
+) {
+  const client = createClient(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        "X-Client-Info": "merchandise-control-admin-web/task-094-authenticated-fixture",
+      },
+    },
+  });
+  const { data, error } = await client.auth.signInWithPassword({ email, password });
+  if (error || !data.session) {
+    throw new E2EError("TASK094 fixture actor authentication failed.", {
+      error: redactError(error),
+    });
+  }
+  return client;
+}
+
+async function mustAction(label, query) {
+  const { data, error } = await query;
+  if (error || data?.ok !== true) {
+    throw new E2EError(`${label} failed.`, {
+      actionCode: data?.code,
+      error: redactError(error),
+    });
+  }
+  return data;
+}
+
 async function queryTask094ShopIds(client) {
   const { data, error } = await client
     .from("shops")
-    .select("shop_id,created_by_profile_id")
+    .select("shop_id,shop_code,shop_status,created_by_profile_id")
     .like("shop_code", `${SHOP_PREFIX}%`);
   if (error) {
     throw new E2EError("TASK094 shop lookup failed.", { error: redactError(error) });
@@ -179,7 +208,7 @@ async function queryTask094ShopIds(client) {
   return data ?? [];
 }
 
-async function cleanupTask094(client, reason) {
+async function cleanupTask094(client, reason, platformClient = null) {
   const timestamp = nowIso();
   const shops = await queryTask094ShopIds(client);
   const shopIds = shops.map((shop) => shop.shop_id).filter(Boolean);
@@ -244,24 +273,20 @@ async function cleanupTask094(client, reason) {
         .in("shop_id", shopIds)
         .eq("membership_status", "active"),
     );
-    for (const shop of shops) {
-      const actorProfileId = shop.created_by_profile_id;
-      await mustOk(
-        "TASK094 shop archive",
-        client
-          .from("shops")
-          .update({
-            archived_at: timestamp,
-            archived_by_profile_id: actorProfileId,
-            shop_status: "archived",
-            status_reason_redacted: reason,
-            status_changed_at: timestamp,
-            status_changed_by_profile_id: actorProfileId,
-            suspended_at: null,
-            suspended_by_profile_id: null,
-            updated_at: timestamp,
-          })
-          .eq("shop_id", shop.shop_id),
+    for (const shop of shops.filter((candidate) => candidate.shop_status !== "archived")) {
+      if (!platformClient) {
+        throw new E2EError(
+          "TASK094 active shop cleanup requires an authenticated platform actor.",
+          { shopId: shop.shop_id },
+        );
+      }
+      await mustAction(
+        "TASK094 audited shop archive",
+        platformClient.rpc("platform_soft_delete_shop", {
+          p_reason: reason,
+          p_shop_code_confirmation: shop.shop_code,
+          p_shop_id: shop.shop_id,
+        }),
       );
     }
   }
@@ -423,9 +448,52 @@ async function verifyTask094Cleanup(client) {
   };
 }
 
-async function setupDataset(client, runId) {
+async function cleanupFixtureActors(client, state, reason) {
+  const timestamp = nowIso();
+  if (state.platformActorId) {
+    await mustOk(
+      "TASK094 platform actor revoke",
+      client
+        .from("platform_admins")
+        .update({
+          reason_redacted: reason,
+          revoked_at: timestamp,
+          revoked_by_profile_id: state.platformActorId,
+          status: "revoked",
+        })
+        .eq("profile_id", state.platformActorId)
+        .eq("status", "active"),
+    );
+  }
+
+  const profileIds = [state.ownerUserId, state.platformActorId].filter(Boolean);
+  if (profileIds.length > 0) {
+    await mustOk(
+      "TASK094 fixture profiles disable",
+      client
+        .from("profiles")
+        .update({
+          disabled_at: timestamp,
+          profile_status: "disabled",
+          updated_at: timestamp,
+        })
+        .in("profile_id", profileIds),
+    );
+  }
+}
+
+async function setupDataset(
+  client,
+  runId,
+  supabaseUrl,
+  serviceRoleKey,
+  state,
+) {
   const ownerEmail = `task094-test-${runId.toLowerCase()}@example.invalid`;
   const ownerSecret = randomBytes(24).toString("base64url");
+  const platformEmail =
+    `task094-platform-${runId.toLowerCase()}@example.invalid`;
+  const platformSecret = randomBytes(24).toString("base64url");
   const credential = `Task094-${runId}-Credential!`;
   const staffHash = await hashStaffCredential(credential);
   const timestamp = nowIso();
@@ -443,69 +511,102 @@ async function setupDataset(client, runId) {
   }
 
   const ownerUserId = userResult.data.user.id;
+  state.ownerUserId = ownerUserId;
+  const platformUserResult = await client.auth.admin.createUser({
+    email: platformEmail,
+    email_confirm: true,
+    password: platformSecret,
+    user_metadata: { source: MARKER },
+  });
+  if (platformUserResult.error || !platformUserResult.data.user) {
+    throw new E2EError("TASK094 platform auth user creation failed.", {
+      error: redactError(platformUserResult.error),
+    });
+  }
+  const platformActorId = platformUserResult.data.user.id;
+  state.platformActorId = platformActorId;
   const shopCode = `${SHOP_PREFIX}${runId}`.slice(0, 32);
   const staffCode = `${STAFF_PREFIX}${runId}`.slice(0, 32);
 
   await mustOk(
-    "TASK094 profile upsert",
+    "TASK094 fixture profiles upsert",
     client.from("profiles").upsert(
-      {
-        display_name: `TASK094_TEST_OWNER_${runId}`,
-        profile_id: ownerUserId,
-        profile_status: "active",
-      },
+      [
+        {
+          display_name: `TASK094_TEST_OWNER_${runId}`,
+          profile_id: ownerUserId,
+          profile_status: "active",
+        },
+        {
+          display_name: `TASK094_TEST_PLATFORM_${runId}`,
+          profile_id: platformActorId,
+          profile_status: "active",
+        },
+      ],
       { onConflict: "profile_id" },
     ),
   );
-  const shop = await mustSingle(
-    "TASK094 shop insert",
-    client
-      .from("shops")
-      .insert({
-        created_by_profile_id: ownerUserId,
-        shop_code: shopCode,
-        shop_name: `TASK094_TEST_SHOP_${runId}`,
-        shop_status: "active",
-      })
-      .select("shop_id,shop_code")
-      .maybeSingle(),
-  );
   await mustOk(
-    "TASK094 shop member insert",
-    client.from("shop_members").insert({
-      membership_status: "active",
-      profile_id: ownerUserId,
-      role_key: "shop_owner",
-      shop_id: shop.shop_id,
+    "TASK094 platform fixture bootstrap",
+    client.from("platform_admins").insert({
+      granted_by_profile_id: platformActorId,
+      profile_id: platformActorId,
+      reason_redacted: "TASK094 isolated staging fixture",
+      status: "active",
     }),
   );
-  const staff = await mustSingle(
-    "TASK094 staff insert",
-    client
-      .from("staff_accounts")
-      .insert({
-        credential_hash: staffHash,
-        credential_kind: "password",
-        credential_status: "active",
-        credential_updated_at: timestamp,
-        credential_version: 1,
-        display_name: `TASK094_POS_STAFF_${runId}`,
-        failed_attempts: 0,
-        must_change_credential: false,
-        role_key: "cashier",
-        shop_id: shop.shop_id,
-        staff_code: staffCode,
-        status: "active",
-      })
-      .select("staff_id,staff_code")
-      .maybeSingle(),
+  const platformClient = await buildAuthenticatedClient(
+    supabaseUrl,
+    serviceRoleKey,
+    platformEmail,
+    platformSecret,
   );
+  state.platformClient = platformClient;
+  const shopAction = await mustAction(
+    "TASK094 audited shop create",
+    platformClient.rpc("platform_create_shop", {
+      p_owner_profile_id: ownerUserId,
+      p_reason: "TASK094 isolated staging fixture",
+      p_shop_code: shopCode,
+      p_shop_name: `TASK094_TEST_SHOP_${runId}`,
+    }),
+  );
+  const shopId = shopAction.shop_id;
+  if (!shopId) {
+    throw new E2EError("TASK094 audited shop create returned no shop id.");
+  }
+  state.shopId = shopId;
+
+  const ownerClient = await buildAuthenticatedClient(
+    supabaseUrl,
+    serviceRoleKey,
+    ownerEmail,
+    ownerSecret,
+  );
+  const staffAction = await mustAction(
+    "TASK094 audited staff create",
+    ownerClient.rpc("shop_staff_create", {
+      p_credential_expires_at: null,
+      p_credential_hash: staffHash,
+      p_credential_kind: "password",
+      p_display_name: `TASK094_POS_STAFF_${runId}`,
+      p_role_key: "cashier",
+      p_shop_id: shopId,
+      p_staff_code: staffCode,
+    }),
+  );
+  const staffId = staffAction.target_id;
+  if (!staffId) {
+    throw new E2EError("TASK094 audited staff create returned no staff id.");
+  }
+
   await mustOk(
     "TASK094 inventory source insert",
     client.from("shop_inventory_sources").insert({
+      created_by_profile_id: ownerUserId,
       mapping_state: "mapped",
       owner_user_id: ownerUserId,
-      shop_id: shop.shop_id,
+      shop_id: shopId,
       source_kind: "mobile_owner",
       verified_at: timestamp,
       verified_by_profile_id: ownerUserId,
@@ -518,12 +619,14 @@ async function setupDataset(client, runId) {
     credential,
     deviceIdentifier: `${DEVICE_PREFIX}${runId}`,
     ownerUserId,
+    platformActorId,
+    platformClient,
     productName: `TASK094_TEST_PRODUCT_${runId}`,
     runId,
-    shopCode: shop.shop_code,
-    shopId: shop.shop_id,
-    staffCode: staff.staff_code,
-    staffId: staff.staff_id,
+    shopCode,
+    shopId,
+    staffCode,
+    staffId,
     supplierName: `${SUPPLIER_PREFIX}${runId}`,
   };
 }
@@ -871,6 +974,12 @@ async function main() {
 
   const client = buildClient(supabaseUrl, serviceRoleKey);
   const runId = uniqueRunId();
+  const fixtureState = {
+    ownerUserId: null,
+    platformActorId: null,
+    platformClient: null,
+    shopId: null,
+  };
   let dataset = null;
   let auth = null;
   let httpProof = null;
@@ -878,12 +987,30 @@ async function main() {
 
   await cleanupTask094(client, "task094_pre_setup_cleanup");
   try {
-    dataset = await setupDataset(client, runId);
+    dataset = await setupDataset(
+      client,
+      runId,
+      supabaseUrl,
+      serviceRoleKey,
+      fixtureState,
+    );
     auth = await firstLogin(baseUrl, dataset);
     httpProof = await runHttpProofs(baseUrl, dataset, auth);
     proof = await sqlProof(client, dataset, httpProof.serverImportId);
   } finally {
-    await cleanupTask094(client, "task094_final_cleanup");
+    try {
+      await cleanupTask094(
+        client,
+        "task094_final_cleanup",
+        fixtureState.platformClient,
+      );
+    } finally {
+      await cleanupFixtureActors(
+        client,
+        fixtureState,
+        "task094_final_cleanup",
+      );
+    }
   }
 
   const cleanup = await verifyTask094Cleanup(client);
