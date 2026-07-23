@@ -293,6 +293,12 @@ async function resolveRealShopTarget(
     (row) => envShopId || !isSyntheticShopCode(row.shop_code),
   );
   const candidates: Array<Omit<RealShopTarget, "isolation">> = [];
+  const discoveryDiagnostics = {
+    authLookupErrors: 0,
+    membersWithoutAuthEmail: 0,
+    productQueryErrors: 0,
+    sourceOrCountQueryErrors: 0,
+  };
 
   for (const row of rows) {
     for (const member of row.shop_members ?? []) {
@@ -300,7 +306,19 @@ async function resolveRealShopTarget(
         continue;
       }
 
-      const email = envEmail ?? emailByProfile.get(member.profile_id) ?? null;
+      let email = envEmail ?? emailByProfile.get(member.profile_id) ?? null;
+
+      if (!email && !envEmail) {
+        const { data: authUser, error: authUserError } =
+          await supabase.auth.admin.getUserById(member.profile_id);
+
+        if (authUserError) {
+          discoveryDiagnostics.authLookupErrors += 1;
+          continue;
+        }
+
+        email = authUser.user?.email ?? null;
+      }
 
       if (email) {
         const [sourceResult, priceResult, platformResult] = await Promise.all([
@@ -328,6 +346,7 @@ async function resolveRealShopTarget(
           priceResult.error ||
           platformResult.error
         ) {
+          discoveryDiagnostics.sourceOrCountQueryErrors += 1;
           continue;
         }
         const productResult = await supabase
@@ -337,6 +356,7 @@ async function resolveRealShopTarget(
           .is("deleted_at", null);
 
         if (productResult.error) {
+          discoveryDiagnostics.productQueryErrors += 1;
           continue;
         }
 
@@ -349,6 +369,8 @@ async function resolveRealShopTarget(
           shopId: row.shop_id,
           source: envShopId || envEmail ? "env" : "discovered",
         });
+      } else {
+        discoveryDiagnostics.membersWithoutAuthEmail += 1;
       }
     }
   }
@@ -370,7 +392,13 @@ async function resolveRealShopTarget(
 
     if (!isolation) {
       throw new Error(
-        "BLOCKED_TASK077_NON_PLATFORM_ACTOR_UNAVAILABLE: one mapped active non-platform shop owner/manager is required.",
+        "BLOCKED_TASK077_NON_PLATFORM_ACTOR_UNAVAILABLE: " +
+          "one mapped active non-platform shop owner/manager is required; " +
+          `rows=${rows.length} candidates=${candidates.length} ` +
+          `auth_lookup_errors=${discoveryDiagnostics.authLookupErrors} ` +
+          `members_without_auth_email=${discoveryDiagnostics.membersWithoutAuthEmail} ` +
+          `source_or_count_query_errors=${discoveryDiagnostics.sourceOrCountQueryErrors} ` +
+          `product_query_errors=${discoveryDiagnostics.productQueryErrors}.`,
       );
     }
 
