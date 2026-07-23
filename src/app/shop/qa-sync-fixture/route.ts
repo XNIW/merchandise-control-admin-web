@@ -358,6 +358,12 @@ function finalSyncBase(input: FinalSyncRequest) {
   return `${input.prefix}${input.fixtureId}_${input.entity.toUpperCase()}`;
 }
 
+function finalSyncReadPermission(entity: FinalSyncEntity) {
+  return entity === "history_entry" || entity === "history_rows"
+    ? ("history.view" as const)
+    : ("catalog.view" as const);
+}
+
 function deterministicUuid(seed: string) {
   const digest = createHash("sha256").update(seed).digest("hex");
 
@@ -1318,6 +1324,23 @@ async function runFinalSyncRequest(
     readOnlyOperation ||
     (input.scenario === "duplicate" && Boolean(input.entityId)) ||
     (input.operation !== "create" && !input.entityId);
+  if (readOnlyOperation) {
+    const readContext = await resolveShopActionContext(
+      input.shopId,
+      finalSyncReadPermission(input.entity),
+    );
+    if (readContext.status !== "ready") {
+      return finalJson(
+        {
+          code: readContext.result.code,
+          marker: FINAL_SYNC_MARKER,
+          ok: false,
+          result: "denied",
+        },
+        finalActionStatus(readContext.result),
+      );
+    }
+  }
   const beforeResult = needsPreMutationRead
     ? await observeFinalSync(input)
     : ({ ok: true, observation: emptyFinalSyncObservation() } as const);
