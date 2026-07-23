@@ -144,6 +144,22 @@ jobs:
           supabase_dump --file _backup/storage-data.sql --schema storage --use-copy --data-only
           supabase_dump --file _backup/migrations-schema.sql --schema supabase_migrations
           supabase_dump --file _backup/migrations-data.sql --schema supabase_migrations --use-copy --data-only
+          grep -E '^COPY auth\.' _backup/data.sql >/dev/null
+          awk '
+            /^COPY (auth|storage|supabase_migrations)\./ {
+              skipping = 1
+              next
+            }
+            skipping && /^\\\.$/ {
+              skipping = 0
+              next
+            }
+            !skipping { print }
+            END {
+              if (skipping) exit 42
+            }
+          ' _backup/data.sql > _backup/application-data.sql
+          test -s _backup/application-data.sql
           for backupFile in _backup/*.sql; do test -s "$backupFile"; done
 
       - name: Derive the exact Auth bootstrap prerequisite from the source snapshot
@@ -290,7 +306,7 @@ jobs:
               -f /backup/storage-data.sql \
               -c 'RESET ROLE' \
               -f /backup/migrations-schema.sql \
-              -f /backup/data.sql \
+              -f /backup/application-data.sql \
               -f /backup/migrations-data.sql
 
       - name: Validate restored schema, data, policies and catalog-v2 boundary
@@ -309,7 +325,7 @@ jobs:
           set -euo pipefail
           printf '%s\n' 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJIHwCZNTl6s7c6sxrEH93D4pyJDwe2hfTab8fqbIs3t Win7POS staging reconciliation backup recipient' > _backup/backup-recipient.pub
           tar -C _backup -czf _backup/staging-backup.tar.gz \
-            roles.sql schema.sql data.sql \
+            roles.sql schema.sql data.sql application-data.sql \
             preauth-app-private.sql post-schema-auth-triggers.sql \
             auth-schema.sql auth-data.sql \
             storage-schema.sql storage-data.sql \
