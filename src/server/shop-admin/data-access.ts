@@ -276,7 +276,11 @@ async function resolveShopAdminDataAccessUncached(
           )
         : null;
 
-      if (options.strictRequestedShop && options.requestedShopId && !requestedShop) {
+      if (
+        options.strictRequestedShop !== false &&
+        options.requestedShopId &&
+        !requestedShop
+      ) {
         return {
           reason: "Requested shop is not authorized for this principal.",
           status: "unauthorized",
@@ -341,7 +345,7 @@ export async function resolveShopAdminDataAccess(
     ? await resolveShopAdminDataAccessUncached(options)
     : await resolveShopAdminDataAccessForRequest(
         options.requestedShopId ?? null,
-        options.strictRequestedShop === true,
+        options.strictRequestedShop !== false,
       );
 
   if (access.status !== "ready" || !options.requiredPermission) {

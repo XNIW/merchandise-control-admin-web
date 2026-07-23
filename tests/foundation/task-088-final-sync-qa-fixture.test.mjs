@@ -181,6 +181,14 @@ test("TASK-088 final observation and residue checks use bounded Admin read model
   assert.match(observe, /row\.barcode\.startsWith\(observationBase\)/);
   assert.match(observe, /row\.remoteId\.startsWith\(observationBase\)/);
   assert.match(observe, /row\.source\?\.startsWith\(observationBase\)/);
+  assert.match(
+    route,
+    /if \(readOnlyOperation\) \{[\s\S]*resolveShopActionContext\([\s\S]*input\.shopId,[\s\S]*finalSyncReadPermission\(input\.entity\)[\s\S]*readContext\.status !== "ready"[\s\S]*result: "denied"/,
+  );
+  assert.match(
+    route,
+    /entity === "history_entry" \|\| entity === "history_rows"[\s\S]*"history\.view"[\s\S]*"catalog\.view"/,
+  );
 });
 
 test("TASK-088 final Admin updates use the cross-platform NAME_UPDATED contract", () => {

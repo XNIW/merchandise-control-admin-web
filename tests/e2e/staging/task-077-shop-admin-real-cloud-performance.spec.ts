@@ -289,10 +289,10 @@ async function resolveRealShopTarget(
     );
   }
 
-  const rows = ((data ?? []) as ShopCandidateRow[]).filter(
-    (row) => envShopId || !isSyntheticShopCode(row.shop_code),
-  );
-  const candidates: Array<Omit<RealShopTarget, "isolation">> = [];
+  const rows = (data ?? []) as ShopCandidateRow[];
+  const candidates: Array<
+    Omit<RealShopTarget, "isolation"> & { syntheticShop: boolean }
+  > = [];
 
   for (const row of rows) {
     for (const member of row.shop_members ?? []) {
@@ -348,6 +348,7 @@ async function resolveRealShopTarget(
           profileId: member.profile_id,
           shopId: row.shop_id,
           source: envShopId || envEmail ? "env" : "discovered",
+          syntheticShop: isSyntheticShopCode(row.shop_code),
         });
       }
     }
@@ -359,7 +360,9 @@ async function resolveRealShopTarget(
         expectedProductCount > 0 &&
         candidate.productCount === expectedProductCount,
     ) ??
-    candidates.sort((left, right) => right.productCount - left.productCount)[0];
+    candidates
+      .filter((candidate) => envShopId || !candidate.syntheticShop)
+      .sort((left, right) => right.productCount - left.productCount)[0];
 
   if (selected) {
     const isolation = candidates.find(
@@ -405,13 +408,19 @@ async function resolveRealShopTarget(
     }
 
     return {
-      ...selected,
+      email: selected.email,
       isolation: {
         crossShopId: crossShop.shop_id,
         email: isolation.email,
         profileId: isolation.profileId,
         shopId: isolation.shopId,
       },
+      platformAdmin: selected.platformAdmin,
+      priceCount: selected.priceCount,
+      productCount: selected.productCount,
+      profileId: selected.profileId,
+      shopId: selected.shopId,
+      source: selected.source,
     };
   }
 
@@ -729,7 +738,10 @@ async function measureRouteNavigation(
   const startedAt = await page.evaluate(() => window.performance.now());
   const wallStartedAt = nodePerformance.now();
   try {
-    await link.click({ timeout: 3_000 });
+    // The sampler owns the pending/final readiness clocks below. Trigger the
+    // hydrated link without Playwright's navigation auto-wait so that a slow
+    // route is measured by those clocks instead of being mislabeled click_failed.
+    await link.evaluate((element) => (element as HTMLAnchorElement).click());
   } catch (error) {
     page.off("response", responseHandler);
 
@@ -905,6 +917,10 @@ test("TASK-077 measures real Shop Admin read-only cloud data latency", async ({
   });
   await assertCrossTenantDenied(page, target.isolation);
   await signInWithMagicLink(page, target);
+  // Start from an authenticated route outside the measured set so the first
+  // Overview sample is a real transition with an observable replacement.
+  await page.goto(routeUrl("/shop/members", target.shopId).toString());
+  await expectRouteTitle(page, "Members", 20_000);
 
   if (expectedProductCount > 0) {
     expect(target.productCount).toBe(expectedProductCount);
