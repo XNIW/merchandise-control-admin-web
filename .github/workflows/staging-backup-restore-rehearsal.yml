@@ -118,6 +118,15 @@ jobs:
           printf '%s' "$SOURCE_DB_URL" > _backup/source-db-url
           chmod 600 _backup/source-db-url
 
+      - name: Verify the isolated target administrative restore account
+        run: |
+          set -euo pipefail
+          docker run --rm --network host -e PGPASSWORD=postgres postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              -h 127.0.0.1 -p 54322 -U supabase_admin -d postgres \
+              -c "select case when current_user = 'supabase_admin' then 'isolated_restore_admin_ready' else 'isolated_restore_admin_unexpected' end" \
+            | grep -Fx 'isolated_restore_admin_ready'
+
       - name: Create complete database and ledger dumps
         run: |
           set -euo pipefail
@@ -187,7 +196,7 @@ jobs:
             local schema_name="$1"
             docker run --rm --network host -e PGPASSWORD=postgres postgres:17 \
               psql -X -qAt -v ON_ERROR_STOP=1 \
-                -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+                -h 127.0.0.1 -p 54322 -U supabase_admin -d postgres \
                 -c "select r.rolname from pg_namespace n join pg_roles r on r.oid = n.nspowner where n.nspname = '$schema_name'"
           }
           auth_owner="$(platform_owner auth)"
@@ -201,7 +210,8 @@ jobs:
           docker run --rm --network host \
             -e PGPASSWORD=postgres -v "$PWD/_backup:/backup:ro" postgres:17 \
             psql -X --single-transaction -v ON_ERROR_STOP=1 \
-              -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+              -h 127.0.0.1 -p 54322 -U supabase_admin -d postgres \
+              -f /backup/roles.sql \
               -f /backup/schema.sql \
               -f /backup/migrations-schema.sql \
               -c 'SET session_replication_role = replica' \
@@ -214,8 +224,7 @@ jobs:
               -f /backup/storage-data.sql \
               -c 'RESET ROLE' \
               -f /backup/data.sql \
-              -f /backup/migrations-data.sql \
-              -f /backup/roles.sql
+              -f /backup/migrations-data.sql
 
       - name: Validate restored schema, data, policies and catalog-v2 boundary
         run: |
@@ -223,7 +232,7 @@ jobs:
           docker run --rm --network host \
             -e PGPASSWORD=postgres -v "$PWD/_backup:/backup:ro" postgres:17 \
             psql -X -qAt -v ON_ERROR_STOP=1 \
-              -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+              -h 127.0.0.1 -p 54322 -U supabase_admin -d postgres \
               -f /backup/application-fingerprint.sql > _backup/restored-fingerprint.json
           jq -e . _backup/restored-fingerprint.json >/dev/null
           diff --unified <(jq -S . _backup/source-fingerprint.json) <(jq -S . _backup/restored-fingerprint.json)
