@@ -340,7 +340,7 @@ jobs:
             auth-schema.sql auth-data.sql \
             storage-schema.sql storage-data.sql \
             migrations-schema.sql migrations-data.sql \
-            storage storage-object-inventory.json \
+            storage \
             source-fingerprint.json restored-fingerprint.json
           plaintextSha256="$(sha256sum _backup/staging-backup.tar.gz | awk '{print $1}')"
           plaintextBytes="$(wc -c < _backup/staging-backup.tar.gz | tr -d ' ')"
