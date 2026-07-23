@@ -304,9 +304,11 @@ jobs:
               -c 'SET session_replication_role = replica' \
               -c "SET ROLE \"$auth_owner\"" \
               -f /backup/auth-schema.sql \
-              -f /backup/auth-data.sql \
               -c 'RESET ROLE' \
               -c 'DROP SCHEMA app_private CASCADE' \
+              -c "SET ROLE \"$auth_owner\"" \
+              -f /backup/auth-data.sql \
+              -c 'RESET ROLE' \
               -f /backup/schema.sql \
               -f /backup/post-schema-auth-triggers.sql \
               -c "SET ROLE \"$storage_owner\"" \
