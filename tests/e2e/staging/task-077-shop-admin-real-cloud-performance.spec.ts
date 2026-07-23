@@ -917,6 +917,10 @@ test("TASK-077 measures real Shop Admin read-only cloud data latency", async ({
   });
   await assertCrossTenantDenied(page, target.isolation);
   await signInWithMagicLink(page, target);
+  // Start from an authenticated route outside the measured set so the first
+  // Overview sample is a real transition with an observable replacement.
+  await page.goto(routeUrl("/shop/members", target.shopId).toString());
+  await expectRouteTitle(page, "Members", 20_000);
 
   if (expectedProductCount > 0) {
     expect(target.productCount).toBe(expectedProductCount);

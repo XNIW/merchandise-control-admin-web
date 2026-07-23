@@ -181,4 +181,5 @@ test("TASK-077 cloud performance harness covers real-shop and fixture datasets",
   );
   assertContains(spec, "(element as HTMLAnchorElement).click()");
   assert.doesNotMatch(spec, /await link\.click\(/);
+  assertContains(spec, 'routeUrl("/shop/members", target.shopId)');
 });
