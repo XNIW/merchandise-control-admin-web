@@ -289,10 +289,10 @@ async function resolveRealShopTarget(
     );
   }
 
-  const rows = ((data ?? []) as ShopCandidateRow[]).filter(
-    (row) => envShopId || !isSyntheticShopCode(row.shop_code),
-  );
-  const candidates: Array<Omit<RealShopTarget, "isolation">> = [];
+  const rows = (data ?? []) as ShopCandidateRow[];
+  const candidates: Array<
+    Omit<RealShopTarget, "isolation"> & { syntheticShop: boolean }
+  > = [];
 
   for (const row of rows) {
     for (const member of row.shop_members ?? []) {
@@ -348,6 +348,7 @@ async function resolveRealShopTarget(
           profileId: member.profile_id,
           shopId: row.shop_id,
           source: envShopId || envEmail ? "env" : "discovered",
+          syntheticShop: isSyntheticShopCode(row.shop_code),
         });
       }
     }
@@ -359,7 +360,9 @@ async function resolveRealShopTarget(
         expectedProductCount > 0 &&
         candidate.productCount === expectedProductCount,
     ) ??
-    candidates.sort((left, right) => right.productCount - left.productCount)[0];
+    candidates
+      .filter((candidate) => envShopId || !candidate.syntheticShop)
+      .sort((left, right) => right.productCount - left.productCount)[0];
 
   if (selected) {
     const isolation = candidates.find(
@@ -405,13 +408,19 @@ async function resolveRealShopTarget(
     }
 
     return {
-      ...selected,
+      email: selected.email,
       isolation: {
         crossShopId: crossShop.shop_id,
         email: isolation.email,
         profileId: isolation.profileId,
         shopId: isolation.shopId,
       },
+      platformAdmin: selected.platformAdmin,
+      priceCount: selected.priceCount,
+      productCount: selected.productCount,
+      profileId: selected.profileId,
+      shopId: selected.shopId,
+      source: selected.source,
     };
   }
 
