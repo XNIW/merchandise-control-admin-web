@@ -154,7 +154,7 @@ jobs:
           supabase_dump --file _backup/migrations-schema.sql --schema supabase_migrations
           schema_data_dump supabase_migrations migrations-data.sql
           awk '
-            /^COPY (auth|storage|supabase_migrations)\./ {
+            /^COPY "?(auth|storage|supabase_migrations)"?\./ {
               skipping = 1
               next
             }
