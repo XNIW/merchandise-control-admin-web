@@ -69,6 +69,15 @@ From an exact commit containing these files:
 
 No `reset`, `repair`, `squash`, remote seed, or destructive push is allowed.
 
+The executable implementation is
+`.github/workflows/staging-catalog-v2-deploy.yml`. It uses the protected
+`cloudflare-staging` environment and has two separate dispatch modes:
+
+- `dry-run`, which must complete before any write;
+- `apply`, which additionally requires the literal confirmation
+  `APPLY_CATALOG_V2_STAGING` and repeats the exact-delta proof and dry-run
+  before applying.
+
 ## Apply and recovery plan
 
 Apply only the one dry-run-approved catalog-v2 migration from the same exact
