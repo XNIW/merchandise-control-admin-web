@@ -6152,7 +6152,7 @@ function checkTask041RuntimeCompletion() {
     "session invalidation denied",
     "failed batch rolls back every sink",
     "idempotent retry is duplicate",
-    "structural source contract auth row locks precede advisory lock",
+    "structural source contract wrapper auth locks precede delegated advisory lock",
   ]) {
     if (!salesSecurityPgTap.includes(requiredSnippet)) {
       addFailure(`${salesSecurityPgTapPath} must include ${requiredSnippet}`);
