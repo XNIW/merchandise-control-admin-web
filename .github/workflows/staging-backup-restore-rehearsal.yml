@@ -220,6 +220,7 @@ jobs:
               -f /backup/roles.sql \
               -c 'DROP SCHEMA IF EXISTS storage CASCADE' \
               -c 'DROP SCHEMA IF EXISTS auth CASCADE' \
+              -c 'CREATE SCHEMA IF NOT EXISTS app_private AUTHORIZATION postgres' \
               -c 'SET session_replication_role = replica' \
               -c "SET ROLE \"$auth_owner\"" \
               -f /backup/auth-schema.sql \
