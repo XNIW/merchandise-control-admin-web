@@ -232,23 +232,40 @@ async function resolveRealShopTarget(
     optionalEnv("TASK077_EXPECTED_PRODUCT_COUNT") ?? "0",
     10,
   );
-  const { data: userPage, error: userListError } =
-    await supabase.auth.admin.listUsers({
-      page: 1,
-      perPage: 1_000,
-    });
+  const emailByProfile = new Map<string, string>();
+  let userPageNumber = 1;
 
-  if (userListError) {
-    throw new Error(
-      `BLOCKED_TASK077_AUTH_USER_LIST: ${formatSupabaseError(userListError)}`,
-    );
+  while (true) {
+    const { data: userPage, error: userListError } =
+      await supabase.auth.admin.listUsers({
+        page: userPageNumber,
+        perPage: 1_000,
+      });
+
+    if (userListError) {
+      throw new Error(
+        `BLOCKED_TASK077_AUTH_USER_LIST: page=${userPageNumber} ${formatSupabaseError(userListError)}`,
+      );
+    }
+
+    for (const user of userPage.users ?? []) {
+      if (user.email) {
+        emailByProfile.set(user.id, user.email);
+      }
+    }
+
+    if (userPage.nextPage === null) {
+      break;
+    }
+
+    if (userPage.nextPage <= userPageNumber) {
+      throw new Error(
+        `BLOCKED_TASK077_AUTH_USER_LIST: invalid pagination nextPage=${userPage.nextPage} currentPage=${userPageNumber}`,
+      );
+    }
+
+    userPageNumber = userPage.nextPage;
   }
-
-  const emailByProfile = new Map(
-    (userPage.users ?? [])
-      .filter((user) => Boolean(user.email))
-      .map((user) => [user.id, user.email as string]),
-  );
 
   let query = supabase
     .from("shops")
