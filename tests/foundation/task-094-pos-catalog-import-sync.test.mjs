@@ -218,6 +218,9 @@ test("TASK-094 staging E2E harness proves positive catalog import without leakin
     "platform_create_shop",
     "platform_soft_delete_shop",
     "shop_staff_create",
+    "catalogPullPages",
+    'syncCursor.startsWith("catalog-v2:")',
+    "Catalog-v2 snapshot changed across continuation pages",
   ]);
   assertContainsAll(workflow, [
     "TASK-094 Staging E2E",
