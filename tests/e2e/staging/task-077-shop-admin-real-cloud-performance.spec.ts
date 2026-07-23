@@ -223,16 +223,6 @@ function isSyntheticShopCode(value: string | null | undefined) {
   return /^(TASK|TEST|FIXTURE|DEMO)[0-9_-]/i.test(value ?? "");
 }
 
-async function emailForProfile(supabase: AdminClient, profileId: string) {
-  const { data, error } = await supabase.auth.admin.getUserById(profileId);
-
-  if (error) {
-    return null;
-  }
-
-  return data.user?.email ?? null;
-}
-
 async function resolveRealShopTarget(
   supabase: AdminClient,
 ): Promise<RealShopTarget> {
@@ -241,6 +231,23 @@ async function resolveRealShopTarget(
   const expectedProductCount = Number.parseInt(
     optionalEnv("TASK077_EXPECTED_PRODUCT_COUNT") ?? "0",
     10,
+  );
+  const { data: userPage, error: userListError } =
+    await supabase.auth.admin.listUsers({
+      page: 1,
+      perPage: 1_000,
+    });
+
+  if (userListError) {
+    throw new Error(
+      `BLOCKED_TASK077_AUTH_USER_LIST: ${formatSupabaseError(userListError)}`,
+    );
+  }
+
+  const emailByProfile = new Map(
+    (userPage.users ?? [])
+      .filter((user) => Boolean(user.email))
+      .map((user) => [user.id, user.email as string]),
   );
 
   let query = supabase
@@ -276,7 +283,7 @@ async function resolveRealShopTarget(
         continue;
       }
 
-      const email = envEmail ?? (await emailForProfile(supabase, member.profile_id));
+      const email = envEmail ?? emailByProfile.get(member.profile_id) ?? null;
 
       if (email) {
         const [sourceResult, priceResult, platformResult] = await Promise.all([
