@@ -442,7 +442,7 @@ async function assertCrossTenantDenied(page: Page, target: RealShopTarget) {
         fixtureId: "Task077CrossTenant",
         mode: "final",
         operation: "observe",
-        prefix: "TASK_SYNC_FINAL_20260723_Task077_",
+        prefix: "TASK_SYNC_FINAL_20260714_Task077_",
         scenario: "observe",
         shopId: crossShopId,
       }),

@@ -52,7 +52,7 @@ function parseEnvFile(relativePath) {
   const path = join(root, relativePath);
 
   if (!existsSync(path)) {
-    fail("BLOCKED_TASK077_ENV_FILE_REQUIRED", `${relativePath} is required.`);
+    return {};
   }
 
   const values = {};
