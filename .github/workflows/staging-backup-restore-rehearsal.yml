@@ -202,7 +202,6 @@ jobs:
             -e PGPASSWORD=postgres -v "$PWD/_backup:/backup:ro" postgres:17 \
             psql -X --single-transaction -v ON_ERROR_STOP=1 \
               -h 127.0.0.1 -p 54322 -U postgres -d postgres \
-              -f /backup/roles.sql \
               -f /backup/schema.sql \
               -f /backup/migrations-schema.sql \
               -c 'SET session_replication_role = replica' \
@@ -215,7 +214,8 @@ jobs:
               -f /backup/storage-data.sql \
               -c 'RESET ROLE' \
               -f /backup/data.sql \
-              -f /backup/migrations-data.sql
+              -f /backup/migrations-data.sql \
+              -f /backup/roles.sql
 
       - name: Validate restored schema, data, policies and catalog-v2 boundary
         run: |
