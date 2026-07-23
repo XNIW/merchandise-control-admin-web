@@ -157,26 +157,32 @@ jobs:
         run: |
           set -euo pipefail
           cat > _backup/application-fingerprint.sql <<'SQL'
-          WITH application_schemas AS (
+          WITH restored_schemas AS (
             SELECT oid, nspname
             FROM pg_namespace
-            WHERE nspname IN ('public', 'app_private', 'supabase_migrations')
+            WHERE nspname IN ('public', 'app_private', 'auth', 'storage', 'supabase_migrations')
           )
           SELECT jsonb_build_object(
-            'tables', (SELECT count(*) FROM pg_class c JOIN application_schemas n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'p')),
-            'functions', (SELECT count(*) FROM pg_proc p JOIN application_schemas n ON n.oid = p.pronamespace WHERE p.prokind = 'f'),
-            'triggers', (SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN application_schemas n ON n.oid = c.relnamespace WHERE NOT t.tgisinternal),
-            'rlsTables', (SELECT count(*) FROM pg_class c JOIN application_schemas n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'p') AND c.relrowsecurity),
-            'policies', (SELECT count(*) FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid JOIN application_schemas n ON n.oid = c.relnamespace),
-            'foreignKeys', (SELECT count(*) FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN application_schemas n ON n.oid = c.relnamespace WHERE k.contype = 'f'),
-            'indexes', (SELECT count(*) FROM pg_index i JOIN pg_class c ON c.oid = i.indrelid JOIN application_schemas n ON n.oid = c.relnamespace),
-            'constraints', (SELECT count(*) FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN application_schemas n ON n.oid = c.relnamespace WHERE k.contype IN ('c', 'u', 'p', 'f')),
+            'tables', (SELECT count(*) FROM pg_class c JOIN restored_schemas n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'p')),
+            'functions', (SELECT count(*) FROM pg_proc p JOIN restored_schemas n ON n.oid = p.pronamespace WHERE p.prokind = 'f'),
+            'triggers', (SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN restored_schemas n ON n.oid = c.relnamespace WHERE NOT t.tgisinternal),
+            'rlsTables', (SELECT count(*) FROM pg_class c JOIN restored_schemas n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'p') AND c.relrowsecurity),
+            'policies', (SELECT count(*) FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid JOIN restored_schemas n ON n.oid = c.relnamespace),
+            'foreignKeys', (SELECT count(*) FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN restored_schemas n ON n.oid = c.relnamespace WHERE k.contype = 'f'),
+            'indexes', (SELECT count(*) FROM pg_index i JOIN pg_class c ON c.oid = i.indrelid JOIN restored_schemas n ON n.oid = c.relnamespace),
+            'constraints', (SELECT count(*) FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN restored_schemas n ON n.oid = c.relnamespace WHERE k.contype IN ('c', 'u', 'p', 'f')),
             'migrationLedger', (SELECT count(*) FROM supabase_migrations.schema_migrations),
             'catalogV2Functions', (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.proname IN ('pos_catalog_revision_v2', 'pos_catalog_pull_page_v2')),
             'catalogRows', jsonb_build_object(
               'categories', (SELECT count(*) FROM public.inventory_categories),
               'suppliers', (SELECT count(*) FROM public.inventory_suppliers),
               'products', (SELECT count(*) FROM public.inventory_products)
+            ),
+            'platformRows', jsonb_build_object(
+              'authUsers', (SELECT count(*) FROM auth.users),
+              'authSessions', (SELECT count(*) FROM auth.sessions),
+              'storageBuckets', (SELECT count(*) FROM storage.buckets),
+              'storageObjects', (SELECT count(*) FROM storage.objects)
             )
           );
           SQL
@@ -212,8 +218,8 @@ jobs:
             psql -X --single-transaction -v ON_ERROR_STOP=1 \
               -h 127.0.0.1 -p 54322 -U supabase_admin -d postgres \
               -f /backup/roles.sql \
-              -f /backup/schema.sql \
-              -f /backup/migrations-schema.sql \
+              -c 'DROP SCHEMA IF EXISTS storage CASCADE' \
+              -c 'DROP SCHEMA IF EXISTS auth CASCADE' \
               -c 'SET session_replication_role = replica' \
               -c "SET ROLE \"$auth_owner\"" \
               -f /backup/auth-schema.sql \
@@ -223,6 +229,8 @@ jobs:
               -f /backup/storage-schema.sql \
               -f /backup/storage-data.sql \
               -c 'RESET ROLE' \
+              -f /backup/schema.sql \
+              -f /backup/migrations-schema.sql \
               -f /backup/data.sql \
               -f /backup/migrations-data.sql
 
