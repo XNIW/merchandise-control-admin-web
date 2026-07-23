@@ -6,6 +6,8 @@ import test from "node:test";
 const root = process.cwd();
 const migrationPath =
   "supabase/migrations/20260715130000_dsc_093_094_134_pos_sales_security.sql";
+const task140MigrationPath =
+  "supabase/migrations/20260719090000_task_140_auth_concurrency_hardening.sql";
 
 function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
@@ -126,23 +128,29 @@ test("TASK-088 HTTP parser binds header change to payment ledger change", () => 
 
 test("TASK-088 classifies the single-session lock-order check as structural", () => {
   const migration = readProjectFile(migrationPath).toLowerCase();
+  const task140Migration = readProjectFile(task140MigrationPath).toLowerCase();
   const pgTap = readProjectFile(
     "supabase/tests/dsc_093_094_134_pos_sales_security.sql",
   );
-  const authRowLock = migration.indexOf(
+  const advisoryLock = migration.indexOf("perform pg_advisory_xact_lock(");
+  const authRowLock = task140Migration.indexOf(
     "for update of session_row, staff, device, credential, shop",
   );
-  const advisoryLock = migration.indexOf("perform pg_advisory_xact_lock(");
+  const delegateCall = task140Migration.indexOf(
+    "task140_pos_sales_sync_apply_v1_task137",
+    authRowLock,
+  );
 
+  assert.ok(advisoryLock >= 0);
   assert.ok(authRowLock >= 0);
-  assert.ok(advisoryLock > authRowLock);
+  assert.ok(delegateCall > authRowLock);
   assert.match(
     pgTap,
     /Structural only: a single pgTAP connection cannot prove concurrent blocking/i,
   );
   assert.match(
     pgTap,
-    /structural source contract auth row locks precede advisory lock/i,
+    /structural source contract wrapper auth locks precede delegated advisory lock/i,
   );
   assert.doesNotMatch(pgTap, /concurrent lock contract serializes/i);
 });
