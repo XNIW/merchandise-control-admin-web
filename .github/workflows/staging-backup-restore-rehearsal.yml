@@ -184,26 +184,23 @@ jobs:
               -f /backup/preauth-app-private.sql.query > _backup/preauth-app-private.sql
           grep -Fx 'CREATE SCHEMA IF NOT EXISTS app_private;' _backup/preauth-app-private.sql >/dev/null
           grep -F 'CREATE OR REPLACE FUNCTION app_private.task064_ensure_profile_for_auth_user()' _backup/preauth-app-private.sql >/dev/null
-          awk '
-            /^-- Name: app_private; Type: SCHEMA; / {
-              skipping = 1
-              app_private_schema_blocks += 1
-              next
-            }
-            /^-- Name: task064_ensure_profile_for_auth_user\(\); Type: FUNCTION; Schema: app_private; / {
-              skipping = 1
-              app_private_function_blocks += 1
-              next
-            }
-            /^-- Name: / { skipping = 0 }
-            !skipping { print }
-            END {
-              if (app_private_schema_blocks != 1 || app_private_function_blocks != 1) {
-                exit 42
-              }
-            }
-          ' _backup/schema.sql > _backup/application-schema.sql
-          test -s _backup/application-schema.sql
+          cat > _backup/post-schema-auth-triggers.sql.query <<'SQL'
+          SELECT pg_get_triggerdef(t.oid) || ';'
+          FROM pg_trigger t
+          JOIN pg_class c ON c.oid = t.tgrelid
+          JOIN pg_namespace n ON n.oid = c.relnamespace
+          WHERE n.nspname = 'auth'
+            AND NOT t.tgisinternal
+            AND pg_get_triggerdef(t.oid) LIKE '%app_private.%'
+          ORDER BY c.relname, t.tgname;
+          SQL
+          docker run --rm --network host \
+            -e PGPASSWORD="$SUPABASE_DB_PASSWORD" -e PGSSLMODE=require \
+            -v "$PWD/_backup:/backup:ro" postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /backup/post-schema-auth-triggers.sql.query > _backup/post-schema-auth-triggers.sql
+          grep -F 'CREATE TRIGGER' _backup/post-schema-auth-triggers.sql >/dev/null
 
       - name: Back up storage objects and encrypted object inventory
         run: |
@@ -289,7 +286,9 @@ jobs:
               -f /backup/storage-schema.sql \
               -f /backup/storage-data.sql \
               -c 'RESET ROLE' \
-              -f /backup/application-schema.sql \
+              -c 'DROP SCHEMA app_private CASCADE' \
+              -f /backup/schema.sql \
+              -f /backup/post-schema-auth-triggers.sql \
               -f /backup/migrations-schema.sql \
               -f /backup/data.sql \
               -f /backup/migrations-data.sql
@@ -311,7 +310,7 @@ jobs:
           printf '%s\n' 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJIHwCZNTl6s7c6sxrEH93D4pyJDwe2hfTab8fqbIs3t Win7POS staging reconciliation backup recipient' > _backup/backup-recipient.pub
           tar -C _backup -czf _backup/staging-backup.tar.gz \
             roles.sql schema.sql data.sql \
-            preauth-app-private.sql application-schema.sql \
+            preauth-app-private.sql post-schema-auth-triggers.sql \
             auth-schema.sql auth-data.sql \
             storage-schema.sql storage-data.sql \
             migrations-schema.sql migrations-data.sql \
