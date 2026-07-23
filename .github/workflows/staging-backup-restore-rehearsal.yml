@@ -1,0 +1,260 @@
+name: Staging Backup and Restore Rehearsal
+
+on:
+  workflow_dispatch:
+    inputs:
+      retention_days:
+        description: "Encrypted artifact retention period (1-90 days)"
+        required: true
+        default: "30"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-backup-restore-rehearsal
+  cancel-in-progress: false
+
+env:
+  CI: true
+  NEXT_TELEMETRY_DISABLED: "1"
+  SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+
+jobs:
+  backup-and-restore:
+    name: Encrypted staging backup and isolated restore
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: cloudflare-staging
+
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install storage backup dependency tree
+        run: npm ci --ignore-scripts
+
+      - name: Verify staging inputs without exposing values
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          const passwordPresent = Boolean(process.env.SUPABASE_DB_PASSWORD);
+          const serviceRolePresent = Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY);
+          let urlMatchesProject = false;
+          try {
+            urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
+          } catch {}
+          const status = {
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            allowedProject: allowed.includes(ref),
+            urlMatchesProject,
+            databasePasswordPresent: passwordPresent,
+            serviceRolePresent,
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Install verified age encryption binary
+        run: |
+          set -euo pipefail
+          mkdir -p _backup/bin
+          curl --fail --silent --show-error --location \
+            --output _backup/age.tar.gz \
+            https://github.com/FiloSottile/age/releases/download/v1.3.1/age-v1.3.1-linux-amd64.tar.gz
+          echo "bdc69c09cbdd6cf8b1f333d372a1f58247b3a33146406333e30c0f26e8f51377  _backup/age.tar.gz" | sha256sum --check --status
+          tar -xzf _backup/age.tar.gz -C _backup/bin --strip-components=1
+          test -x _backup/bin/age
+
+      - name: Start an isolated compatible Supabase restore target
+        run: |
+          set -euo pipefail
+          npx --yes supabase@2.109.0 start --yes \
+            --exclude analytics,edge-runtime,functions,imgproxy,inbucket,kong,meta,realtime,rest,storage,studio,vector
+
+      - name: Build the source database URL without logging credentials
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(`postgresql://postgres.${ref}:${encodeURIComponent(password)}@${host}:5432/postgres?sslmode=require`);
+          NODE
+          )"
+          printf '%s' "$SOURCE_DB_URL" > _backup/source-db-url
+          chmod 600 _backup/source-db-url
+
+      - name: Create complete database and ledger dumps
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _backup/source-db-url)"
+          supabase_dump() {
+            npx --yes supabase@2.109.0 db dump --db-url "$SOURCE_DB_URL" "$@"
+          }
+          supabase_dump --file _backup/roles.sql --role-only
+          supabase_dump --file _backup/schema.sql
+          supabase_dump --file _backup/data.sql --use-copy --data-only \
+            --exclude storage.buckets_vectors --exclude storage.vector_indexes
+          supabase_dump --file _backup/auth-schema.sql --schema auth
+          supabase_dump --file _backup/auth-data.sql --schema auth --use-copy --data-only
+          supabase_dump --file _backup/storage-schema.sql --schema storage
+          supabase_dump --file _backup/storage-data.sql --schema storage --use-copy --data-only
+          supabase_dump --file _backup/migrations-schema.sql --schema supabase_migrations
+          supabase_dump --file _backup/migrations-data.sql --schema supabase_migrations --use-copy --data-only
+          for backupFile in _backup/*.sql; do test -s "$backupFile"; done
+
+      - name: Back up storage objects and encrypted object inventory
+        run: |
+          set -euo pipefail
+          STAGING_BACKUP_OUTPUT_DIR="$PWD/_backup/storage" \
+            node scripts/staging-backup-storage.mjs | tee _backup/storage-backup-summary.json
+          jq -e '.status == "PASS"' _backup/storage-backup-summary.json >/dev/null
+
+      - name: Capture the source application fingerprint
+        run: |
+          set -euo pipefail
+          cat > _backup/application-fingerprint.sql <<'SQL'
+          WITH application_schemas AS (
+            SELECT oid, nspname
+            FROM pg_namespace
+            WHERE nspname IN ('public', 'app_private', 'supabase_migrations')
+          )
+          SELECT jsonb_build_object(
+            'tables', (SELECT count(*) FROM pg_class c JOIN application_schemas n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'p')),
+            'functions', (SELECT count(*) FROM pg_proc p JOIN application_schemas n ON n.oid = p.pronamespace WHERE p.prokind = 'f'),
+            'triggers', (SELECT count(*) FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid JOIN application_schemas n ON n.oid = c.relnamespace WHERE NOT t.tgisinternal),
+            'rlsTables', (SELECT count(*) FROM pg_class c JOIN application_schemas n ON n.oid = c.relnamespace WHERE c.relkind IN ('r', 'p') AND c.relrowsecurity),
+            'policies', (SELECT count(*) FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid JOIN application_schemas n ON n.oid = c.relnamespace),
+            'foreignKeys', (SELECT count(*) FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN application_schemas n ON n.oid = c.relnamespace WHERE k.contype = 'f'),
+            'indexes', (SELECT count(*) FROM pg_index i JOIN pg_class c ON c.oid = i.indrelid JOIN application_schemas n ON n.oid = c.relnamespace),
+            'constraints', (SELECT count(*) FROM pg_constraint k JOIN pg_class c ON c.oid = k.conrelid JOIN application_schemas n ON n.oid = c.relnamespace WHERE k.contype IN ('c', 'u', 'p', 'f')),
+            'migrationLedger', (SELECT count(*) FROM supabase_migrations.schema_migrations),
+            'catalogV2Functions', (SELECT count(*) FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE n.nspname = 'public' AND p.proname IN ('pos_catalog_revision_v2', 'pos_catalog_pull_page_v2')),
+            'catalogRows', jsonb_build_object(
+              'categories', (SELECT count(*) FROM public.inventory_categories),
+              'suppliers', (SELECT count(*) FROM public.inventory_suppliers),
+              'products', (SELECT count(*) FROM public.inventory_products)
+            )
+          );
+          SQL
+          docker run --rm --network host \
+            -e PGPASSWORD="$SUPABASE_DB_PASSWORD" -e PGSSLMODE=require \
+            -v "$PWD/_backup:/backup:ro" postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              -h "$SOURCE_POOLER_HOST" -p 5432 \
+              -U "postgres.$STAGING_SUPABASE_PROJECT_REF" -d postgres \
+              -f /backup/application-fingerprint.sql > _backup/source-fingerprint.json
+          jq -e . _backup/source-fingerprint.json >/dev/null
+
+      - name: Restore every backup component into the isolated target
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            -e PGPASSWORD=postgres -v "$PWD/_backup:/backup:ro" postgres:17 \
+            psql -X --single-transaction -v ON_ERROR_STOP=1 \
+              -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+              -f /backup/roles.sql \
+              -f /backup/schema.sql \
+              -f /backup/auth-schema.sql \
+              -f /backup/storage-schema.sql \
+              -f /backup/migrations-schema.sql \
+              -c 'SET session_replication_role = replica' \
+              -f /backup/data.sql \
+              -f /backup/auth-data.sql \
+              -f /backup/storage-data.sql \
+              -f /backup/migrations-data.sql
+
+      - name: Validate restored schema, data, policies and catalog-v2 boundary
+        run: |
+          set -euo pipefail
+          docker run --rm --network host \
+            -e PGPASSWORD=postgres -v "$PWD/_backup:/backup:ro" postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+              -f /backup/application-fingerprint.sql > _backup/restored-fingerprint.json
+          jq -e . _backup/restored-fingerprint.json >/dev/null
+          diff --unified <(jq -S . _backup/source-fingerprint.json) <(jq -S . _backup/restored-fingerprint.json)
+
+      - name: Package, checksum and encrypt the verified backup
+        run: |
+          set -euo pipefail
+          printf '%s\n' 'ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJIHwCZNTl6s7c6sxrEH93D4pyJDwe2hfTab8fqbIs3t Win7POS staging reconciliation backup recipient' > _backup/backup-recipient.pub
+          tar -C _backup -czf _backup/staging-backup.tar.gz \
+            roles.sql schema.sql data.sql \
+            auth-schema.sql auth-data.sql \
+            storage-schema.sql storage-data.sql \
+            migrations-schema.sql migrations-data.sql \
+            storage storage-object-inventory.json \
+            source-fingerprint.json restored-fingerprint.json
+          plaintextSha256="$(sha256sum _backup/staging-backup.tar.gz | awk '{print $1}')"
+          plaintextBytes="$(wc -c < _backup/staging-backup.tar.gz | tr -d ' ')"
+          _backup/bin/age -R _backup/backup-recipient.pub \
+            -o _backup/staging-backup.tar.gz.age _backup/staging-backup.tar.gz
+          encryptedSha256="$(sha256sum _backup/staging-backup.tar.gz.age | awk '{print $1}')"
+          encryptedBytes="$(wc -c < _backup/staging-backup.tar.gz.age | tr -d ' ')"
+          sourceFingerprintSha256="$(sha256sum _backup/source-fingerprint.json | awk '{print $1}')"
+          restoredFingerprintSha256="$(sha256sum _backup/restored-fingerprint.json | awk '{print $1}')"
+          storageSummary="$(cat _backup/storage-backup-summary.json)"
+          jq -n \
+            --arg projectRef "$STAGING_SUPABASE_PROJECT_REF" \
+            --arg commit "$GITHUB_SHA" \
+            --arg createdAt "$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg cliVersion "$(npx --yes supabase@2.109.0 --version)" \
+            --arg pgVersion "$(docker run --rm postgres:17 pg_dump --version)" \
+            --arg plaintextSha256 "$plaintextSha256" \
+            --arg encryptedSha256 "$encryptedSha256" \
+            --arg sourceFingerprintSha256 "$sourceFingerprintSha256" \
+            --arg restoredFingerprintSha256 "$restoredFingerprintSha256" \
+            --argjson plaintextBytes "$plaintextBytes" \
+            --argjson encryptedBytes "$encryptedBytes" \
+            --argjson storage "$storageSummary" \
+            '{projectRef:$projectRef,database:"postgres",createdAtUtc:$createdAt,workflowCommit:$commit,toolVersions:{supabaseCli:$cliVersion,pgDump:$pgVersion},format:"SQL logical backup plus storage-object archive",encryption:{tool:"age v1.3.1",recipientType:"ssh-ed25519",plaintextRetained:false},plaintextArchive:{bytes:$plaintextBytes,sha256:$plaintextSha256},encryptedArchive:{bytes:$encryptedBytes,sha256:$encryptedSha256},storage:$storage,sourceFingerprintSha256:$sourceFingerprintSha256,restoredFingerprintSha256:$restoredFingerprintSha256}' \
+            > _backup/staging-backup-manifest.json
+          jq -n \
+            --arg createdAt "$(date --utc +%Y-%m-%dT%H:%M:%SZ)" \
+            --arg sourceFingerprintSha256 "$sourceFingerprintSha256" \
+            --arg restoredFingerprintSha256 "$restoredFingerprintSha256" \
+            '{status:"PASS",executedAtUtc:$createdAt,restoreTarget:"isolated Supabase CLI local stack on GitHub-hosted runner",validations:{schemaDataPolicyTriggerForeignKeyIndexConstraintFingerprint:true,migrationLedger:true,catalogV2ObjectsEquivalent:true},sourceFingerprintSha256:$sourceFingerprintSha256,restoredFingerprintSha256:$restoredFingerprintSha256}' \
+            > _backup/staging-restore-rehearsal.json
+          jq -e '.status == "PASS" and .sourceFingerprintSha256 == .restoredFingerprintSha256' _backup/staging-restore-rehearsal.json >/dev/null
+          rm -f _backup/source-db-url _backup/*.sql _backup/staging-backup.tar.gz _backup/age.tar.gz _backup/backup-recipient.pub _backup/storage-backup-summary.json
+          rm -rf _backup/storage _backup/bin
+
+      - name: Upload only encrypted backup and sanitized evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-backup-restore-rehearsal-${{ github.run_id }}
+          path: |
+            _backup/staging-backup.tar.gz.age
+            _backup/staging-backup-manifest.json
+            _backup/staging-restore-rehearsal.json
+            _backup/source-fingerprint.json
+            _backup/restored-fingerprint.json
+          if-no-files-found: error
+          retention-days: ${{ inputs.retention_days }}
+
+      - name: Remove isolated restore target
+        if: always()
+        run: npx --yes supabase@2.109.0 stop --no-backup || true
