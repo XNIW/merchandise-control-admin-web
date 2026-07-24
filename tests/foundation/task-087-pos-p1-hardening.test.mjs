@@ -161,8 +161,22 @@ test(
 
     assertContains(policySnapshot, "pos.policy.contract_version");
     assertContains(policySnapshot, "transfer_payment_not_supported_by_win7pos");
-    assertContains(bootstrap, "PosOnlinePolicySnapshot.SaveAsync(_factory, response.Policy)");
-    assertContains(catalog, "PosOnlinePolicySnapshot.SaveAsync(_factory, response?.Policy)");
+    assertContains(
+      bootstrap,
+      "PosOnlineCompatibilityValidator.ValidatePolicy(response.Policy)",
+    );
+    assertContains(
+      bootstrap,
+      "response.Policy,\n                                    activatedGeneration",
+    );
+    assertContains(
+      catalog,
+      "PosOnlineCompatibilityValidator.ValidateCatalogPull(result.Value)",
+    );
+    assertContains(
+      catalog,
+      "PosOnlinePolicySnapshot.SaveAsync(_factory, response?.Policy, generation)",
+    );
     assertContains(syncStatus, "T(\"sync.requiresAttention\")");
     assertContains(syncStatus, "T(\"sync.blockedSales\")");
     assertContains(syncStatus, "pos.restore.needs_sync_review");
