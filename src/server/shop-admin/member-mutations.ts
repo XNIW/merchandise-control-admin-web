@@ -40,7 +40,7 @@ async function memberRpcResult(
   call: (
     context: Extract<
       Awaited<ReturnType<typeof resolveShopActionContext>>,
-      { status: "ready" }
+      { principalKind: "personal_account"; status: "ready" }
     >,
   ) => PromiseLike<{ data: unknown; error: unknown }>,
 ): Promise<ShopAdminActionResult> {
@@ -51,6 +51,13 @@ async function memberRpcResult(
 
   if (context.status !== "ready") {
     return context.result;
+  }
+
+  if (context.principalKind !== "personal_account") {
+    return shopAdminActionResult("permission_denied", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
   }
 
   const { data, error } = await call(context);

@@ -46,23 +46,36 @@ import {
 import {
   getShopInventoryReadModel,
   type ShopInventoryCategory,
+  type ShopInventoryReadModel,
   type ShopInventoryPrice,
   type ShopInventoryProduct,
   type ShopInventorySupplier,
 } from "./inventory-read-model";
 import {
-  applyStaffAwareBulkPriceHistoryImport,
   applyStaffAwareBulkProductImport,
+  applyStaffAwareBulkPriceHistoryImport,
   write_staff_shop_admin_audit,
   type StaffAwareBulkPriceHistoryImportPayload,
   type StaffAwareBulkProductImportPayload,
 } from "./staff-aware-mutations";
+import { callStaffWebCatalogRead } from "./staff-web-lease-bound-rpc";
 import {
   emitCatalogBulkProductImportSyncEvent,
   emitPriceHistoryImportSyncEvent,
 } from "./sync-event-writer";
 import { upsertSupplierImportHistoryEntry } from "./history-mutations";
-import type { SupplierImportHistoryGridRow } from "./supplier-import-history-entry-contract";
+import {
+  formatMobileHistoryTimestamp,
+  type SupplierImportHistoryGridRow,
+} from "./supplier-import-history-entry-contract";
+import {
+  CATALOG_WORKBOOK_EXPORT_LIMITS,
+  CatalogWorkbookExportResourceError,
+  collectBoundedWorkbookPages,
+  createCatalogWorkbookExportResourceEnvelope,
+  finalizeBoundedWorkbookExport,
+  type CatalogWorkbookExportMetrics,
+} from "./workbook-export-resource-envelope";
 
 const XLSX_CONTENT_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
@@ -84,6 +97,10 @@ const WORKBOOK_MIME_TYPES = new Set([
 const BULK_PRODUCT_IMPORT_THRESHOLD = 500;
 const BULK_PRODUCT_IMPORT_CHUNK_SIZE = 500;
 const BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE = 1_000;
+// Supplier/category writes intentionally remain row-scoped for their detailed
+// audit semantics. Keep their worst-case event contribution below the 10k
+// recovery scan budget; products/prices are transactionally aggregated.
+const MAX_IMPORT_DIMENSION_EVENT_ROWS = 5_000;
 const MAX_PREVIEW_ROWS = 500;
 const MAX_RAW_PREVIEW_ROWS = 14;
 const MAX_RAW_PREVIEW_CELLS = 24;
@@ -106,6 +123,20 @@ const NUMERIC_COMPATIBLE_MAPPING_FIELDS = new Set<CatalogImportField>([
   "purchasePrice",
   "quantity",
 ]);
+type CatalogWorkbookReadResource = Pick<
+  ReturnType<typeof createCatalogWorkbookExportResourceEnvelope>,
+  "assertCounts" | "assertPreflight" | "observeConcurrency" | "run" | "signal"
+>;
+const unboundedCatalogWorkbookReadSignal = new AbortController().signal;
+const unboundedCatalogWorkbookReadResource: CatalogWorkbookReadResource = {
+  assertCounts() {},
+  assertPreflight() {},
+  observeConcurrency() {},
+  async run(operation) {
+    return await operation(new AbortController().signal);
+  },
+  signal: unboundedCatalogWorkbookReadSignal,
+};
 
 type CatalogWorkbookImportMode = "supplier" | "database";
 type CatalogWorkbookDetectedFormatKind =
@@ -146,26 +177,6 @@ type ReadyShopActionContext = Extract<
   Awaited<ReturnType<typeof resolveShopActionContext>>,
   { status: "ready" }
 >;
-type CatalogExportPriceRow = {
-  created_at: string;
-  effective_at: string;
-  id: string;
-  note: string | null;
-  price: number;
-  product_id: string;
-  shop_id: string | null;
-  source: string | null;
-  type: string;
-};
-type CatalogExportPagedQuery<Row> = {
-  range: (
-    from: number,
-    to: number,
-  ) => PromiseLike<{
-    data: Row[] | null;
-    error: unknown | null;
-  }>;
-};
 type ParsedSupplierRow = {
   name: string;
   rowNumber: number;
@@ -455,6 +466,7 @@ export type CatalogWorkbookExport = ShopAdminActionResult & {
   buffer?: Buffer;
   contentType?: string;
   fileName?: string;
+  metrics?: CatalogWorkbookExportMetrics;
 };
 
 function previewDigest(bytes: Buffer) {
@@ -1008,16 +1020,56 @@ function parseCategories(rows: SheetData, rowErrors: WorkbookRowError[]) {
 
 function workbookDateText(value: unknown) {
   if (value instanceof Date) {
-    return value.toISOString();
+    return Number.isNaN(value.getTime())
+      ? ""
+      : formatMobileHistoryTimestamp(value);
   }
 
   if (typeof value === "number" && value > 20_000 && value < 80_000) {
     const date = new Date(Math.round((value - 25569) * 86_400_000));
 
-    return date.toISOString().replace("T", " ").slice(0, 19);
+    return formatMobileHistoryTimestamp(date);
   }
 
-  return normalizeWorkbookText(value);
+  const normalized = normalizeWorkbookText(value);
+
+  if (!normalized) {
+    return "";
+  }
+
+  const legacyMatch = normalized.match(
+    /^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/,
+  );
+
+  if (legacyMatch) {
+    const [, year, month, day, hour, minute, second] = legacyMatch;
+    const parsed = new Date(
+      Date.UTC(
+        Number(year),
+        Number(month) - 1,
+        Number(day),
+        Number(hour),
+        Number(minute),
+        Number(second),
+      ),
+    );
+
+    return formatMobileHistoryTimestamp(parsed) === normalized ? normalized : "";
+  }
+
+  if (
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?(?:Z|[+-]\d{2}:\d{2})$/.test(
+      normalized,
+    )
+  ) {
+    const parsed = new Date(normalized);
+
+    return Number.isNaN(parsed.getTime())
+      ? ""
+      : formatMobileHistoryTimestamp(parsed);
+  }
+
+  return "";
 }
 
 function priceHistoryTextValue(
@@ -1069,10 +1121,22 @@ function priceHistoryNumberValue(
 
   const numeric = parseWorkbookNumber(rawValue);
 
-  if (!Number.isFinite(numeric) || numeric < 0) {
+  const scaled = numeric * 1_000;
+  const hasSubMillPrecision =
+    Number.isFinite(scaled) &&
+    Math.abs(scaled - Math.round(scaled)) >
+      Number.EPSILON * Math.max(1, Math.abs(scaled)) * 4;
+
+  if (
+    !Number.isFinite(numeric) ||
+    numeric < 0 ||
+    numeric > 999_999_999_999.999 ||
+    hasSubMillPrecision
+  ) {
     rowErrors.push({
       field,
-      message: "Value must be a non-negative number.",
+      message:
+        "Value must be a non-negative finite number with at most three decimal places.",
       row: rowNumber,
       sheet,
     });
@@ -2621,6 +2685,10 @@ async function parseWorkbook(
     return shopAdminActionResult("row_limit_exceeded", { ok: false });
   }
 
+  if (suppliers.length + categories.length > MAX_IMPORT_DIMENSION_EVENT_ROWS) {
+    return shopAdminActionResult("row_limit_exceeded", { ok: false });
+  }
+
   const formulaEscapeFields = new Set([
     "barcode",
     "category",
@@ -3970,35 +4038,372 @@ function resolvePriceHistoryProductId(
   return undefined;
 }
 
-function numberFromPayload(value: unknown) {
-  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+function nonnegativeSafeIntegerFromPayload(value: unknown) {
+  return typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= 0
+    ? value
+    : null;
 }
 
-async function fetchCatalogExportRows<Row>(
-  queryFactory: () => CatalogExportPagedQuery<Row>,
-) {
-  const rows: Row[] = [];
+/**
+ * Workbook preview/apply/export needs a complete, internally consistent view
+ * of the catalog. Personal accounts obtain that view through their normal RLS
+ * reader. Staff must instead consume the already lease-bound, revision-pinned
+ * snapshot RPC; exposing a table client here would reintroduce the boundary
+ * this task deliberately removed.
+ */
+const STAFF_WORKBOOK_SNAPSHOT_PAGE_LIMITS = {
+  categories: 240,
+  prices: 120,
+  products: 60,
+  suppliers: 240,
+} as const;
 
-  for (let from = 0; ; from += BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE) {
-    const result = await queryFactory().range(
-      from,
-      from + BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE - 1,
-    );
+type StaffWorkbookSnapshotEntity =
+  keyof typeof STAFF_WORKBOOK_SNAPSHOT_PAGE_LIMITS;
+type StaffWorkbookCatalogScope = Exclude<
+  ShopInventoryReadModel["catalogScope"],
+  "blocked"
+>;
+type StaffWorkbookSnapshotScope = {
+  catalogScope: StaffWorkbookCatalogScope;
+  key: string;
+  legacyOwnerUserId: string | null;
+  mapping: ShopInventoryReadModel["mapping"];
+};
+type CatalogWorkbookSnapshotSummary = ShopInventoryReadModel["summary"] & {
+  workbookTextBytes: number;
+};
+type StaffWorkbookSnapshotEnvelope = {
+  pagination: {
+    hasMore: boolean;
+    nextAfterId: string | null;
+  };
+  revision: string;
+  rows: Record<string, unknown>[];
+  scope: StaffWorkbookSnapshotScope;
+  summary: CatalogWorkbookSnapshotSummary | null;
+};
+type StaffWorkbookSnapshotFailure = {
+  code: string;
+  kind: "failure";
+};
+type StaffWorkbookSnapshotSuccess = {
+  envelope: StaffWorkbookSnapshotEnvelope;
+  kind: "success";
+};
 
-    if (result.error) {
-      return { error: result.error, rows };
-    }
+const STAFF_WORKBOOK_SCOPE_KEY_PATTERN = /^[0-9a-f]{64}$/;
+const STAFF_WORKBOOK_REVISION_PATTERN = /^(0|[1-9][0-9]{0,18})$/;
 
-    const page = result.data ?? [];
-    rows.push(...page);
+function recordValue(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
 
-    if (page.length < BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE) {
-      return { error: null, rows };
-    }
+function nullableStringValue(value: unknown): value is string | null {
+  return value === null || typeof value === "string";
+}
+
+function nullableFiniteNumberValue(value: unknown): value is number | null {
+  return value === null || (typeof value === "number" && Number.isFinite(value));
+}
+
+function validSnapshotTimestamp(value: unknown): value is string {
+  return (
+    typeof value === "string" &&
+    value.length > 0 &&
+    value.length <= 64 &&
+    Number.isFinite(Date.parse(value))
+  );
+}
+
+function validNullableSnapshotTimestamp(value: unknown): value is string | null {
+  return value === null || validSnapshotTimestamp(value);
+}
+
+function validNullableUuid(value: unknown): value is string | null {
+  return value === null || isCanonicalUuid(value);
+}
+
+function nonnegativeSafeInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
+}
+
+function parseStaffWorkbookSnapshotSummary(
+  value: unknown,
+): CatalogWorkbookSnapshotSummary | null {
+  const summary = recordValue(value);
+
+  if (!summary) {
+    return null;
   }
+
+  const activeProducts = summary.activeProducts;
+  const archivedProducts = summary.archivedProducts;
+  const categories = summary.categories;
+  const priceRows = summary.priceRows;
+  const productsTotal = summary.productsTotal;
+  const suppliers = summary.suppliers;
+  const workbookTextBytes = summary.workbookTextBytes;
+
+  if (
+    !nonnegativeSafeInteger(activeProducts) ||
+    !nonnegativeSafeInteger(archivedProducts) ||
+    !nonnegativeSafeInteger(categories) ||
+    !nonnegativeSafeInteger(priceRows) ||
+    !nonnegativeSafeInteger(productsTotal) ||
+    !nonnegativeSafeInteger(suppliers) ||
+    !nonnegativeSafeInteger(workbookTextBytes) ||
+    productsTotal !== activeProducts + archivedProducts
+  ) {
+    return null;
+  }
+
+  return {
+    activeProducts,
+    archivedProducts,
+    categories,
+    priceRows,
+    productsTotal,
+    suppliers,
+    workbookTextBytes,
+  };
 }
 
-function mapCatalogExportPrice(row: CatalogExportPriceRow): ShopInventoryPrice {
+function parseStaffWorkbookSnapshotScope(
+  value: unknown,
+): StaffWorkbookSnapshotScope | null {
+  const scope = recordValue(value);
+
+  if (!scope) {
+    return null;
+  }
+
+  const catalogScope = scope.kind;
+  const key = scope.key;
+  const legacyOwnerUserId = scope.legacyOwnerUserId;
+
+  if (
+    (catalogScope !== "shop_scoped" &&
+      catalogScope !== "legacy_owner_bridge" &&
+      catalogScope !== "authorized_shop_plus_legacy") ||
+    typeof key !== "string" ||
+    !STAFF_WORKBOOK_SCOPE_KEY_PATTERN.test(key) ||
+    !validNullableUuid(legacyOwnerUserId) ||
+    (catalogScope === "shop_scoped" && legacyOwnerUserId !== null) ||
+    (catalogScope !== "shop_scoped" && !isCanonicalUuid(legacyOwnerUserId))
+  ) {
+    return null;
+  }
+
+  const rawMapping = scope.mapping;
+  let mapping: ShopInventoryReadModel["mapping"] = null;
+
+  if (rawMapping !== null) {
+    const source = recordValue(rawMapping);
+
+    if (
+      !source ||
+      !isCanonicalUuid(source.id) ||
+      !isCanonicalUuid(source.ownerUserId) ||
+      source.state !== "mapped" ||
+      source.kind !== "mobile_owner" ||
+      !validSnapshotTimestamp(source.verifiedAt)
+    ) {
+      return null;
+    }
+
+    mapping = {
+      mappingId: source.id,
+      mappingState: source.state,
+      ownerUserId: source.ownerUserId,
+      sourceKind: source.kind,
+      verifiedAt: source.verifiedAt,
+    };
+  }
+
+  if (
+    catalogScope !== "shop_scoped" &&
+    (!mapping || mapping.ownerUserId !== legacyOwnerUserId)
+  ) {
+    return null;
+  }
+
+  return {
+    catalogScope,
+    key,
+    legacyOwnerUserId,
+    mapping,
+  };
+}
+
+function parseStaffWorkbookSnapshotEnvelope(
+  data: unknown,
+  expected: {
+    revision?: string;
+    scopeKey?: string;
+    shopId: string;
+    summaryRequired: boolean;
+  },
+): StaffWorkbookSnapshotSuccess | StaffWorkbookSnapshotFailure {
+  const root = recordValue(data);
+  const code = typeof root?.code === "string" ? root.code : "db_failure";
+  const revision = root?.revision;
+
+  if (
+    !root ||
+    root.ok !== true ||
+    code !== "success" ||
+    root.schemaVersion !== "shop-catalog-admin-read-v1" ||
+    root.shopId !== expected.shopId ||
+    root.operation !== "snapshot_page" ||
+    typeof revision !== "string" ||
+    !STAFF_WORKBOOK_REVISION_PATTERN.test(revision) ||
+    !Array.isArray(root.rows)
+  ) {
+    return { code, kind: "failure" };
+  }
+
+  const scope = parseStaffWorkbookSnapshotScope(root.scope);
+  const pagination = recordValue(root.pagination);
+  const summary = root.summary === null
+    ? null
+    : parseStaffWorkbookSnapshotSummary(root.summary);
+  const nextAfterId = pagination?.nextAfterId;
+
+  if (
+    !scope ||
+    !pagination ||
+    typeof pagination.hasMore !== "boolean" ||
+    !validNullableUuid(nextAfterId) ||
+    (expected.summaryRequired && !summary) ||
+    (expected.revision !== undefined && revision !== expected.revision) ||
+    (expected.scopeKey !== undefined && scope.key !== expected.scopeKey)
+  ) {
+    return { code: "validation_failed", kind: "failure" };
+  }
+
+  const rows = root.rows.map(recordValue);
+
+  if (rows.some((row) => row === null)) {
+    return { code: "validation_failed", kind: "failure" };
+  }
+
+  return {
+    envelope: {
+      pagination: {
+        hasMore: pagination.hasMore,
+        nextAfterId,
+      },
+      revision,
+      rows: rows as Record<string, unknown>[],
+      scope,
+      summary,
+    },
+    kind: "success",
+  };
+}
+
+function mapStaffWorkbookSnapshotProduct(
+  row: Record<string, unknown>,
+): ShopInventoryProduct | null {
+  if (
+    !isCanonicalUuid(row.id) ||
+    typeof row.barcode !== "string" ||
+    !nullableStringValue(row.item_number) ||
+    !nullableStringValue(row.product_name) ||
+    !nullableStringValue(row.second_product_name) ||
+    !nullableFiniteNumberValue(row.purchase_price) ||
+    !nullableFiniteNumberValue(row.retail_price) ||
+    !nullableFiniteNumberValue(row.stock_quantity) ||
+    !validNullableUuid(row.supplier_id) ||
+    !validNullableUuid(row.category_id) ||
+    !validNullableUuid(row.primary_image_version_id) ||
+    !validNullableSnapshotTimestamp(row.primary_image_updated_at) ||
+    !validNullableSnapshotTimestamp(row.deleted_at) ||
+    !validSnapshotTimestamp(row.updated_at)
+  ) {
+    return null;
+  }
+
+  return {
+    barcode: row.barcode,
+    categoryId: row.category_id,
+    deletedAt: row.deleted_at,
+    itemNumber: row.item_number,
+    primaryImageUpdatedAt: row.primary_image_updated_at,
+    primaryImageVersionId: row.primary_image_version_id,
+    productId: row.id,
+    productName: row.product_name,
+    purchasePrice: row.purchase_price,
+    retailPrice: row.retail_price,
+    secondProductName: row.second_product_name,
+    stockQuantity: row.stock_quantity,
+    supplierId: row.supplier_id,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapStaffWorkbookSnapshotCategory(
+  row: Record<string, unknown>,
+): Omit<ShopInventoryCategory, "activeProductsCount"> | null {
+  if (
+    !isCanonicalUuid(row.id) ||
+    typeof row.name !== "string" ||
+    !validNullableSnapshotTimestamp(row.deleted_at) ||
+    !validSnapshotTimestamp(row.updated_at)
+  ) {
+    return null;
+  }
+
+  return {
+    categoryId: row.id,
+    deletedAt: row.deleted_at,
+    name: row.name,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapStaffWorkbookSnapshotSupplier(
+  row: Record<string, unknown>,
+): Omit<ShopInventorySupplier, "activeProductsCount"> | null {
+  if (
+    !isCanonicalUuid(row.id) ||
+    typeof row.name !== "string" ||
+    !validNullableSnapshotTimestamp(row.deleted_at) ||
+    !validSnapshotTimestamp(row.updated_at)
+  ) {
+    return null;
+  }
+
+  return {
+    deletedAt: row.deleted_at,
+    name: row.name,
+    supplierId: row.id,
+    updatedAt: row.updated_at,
+  };
+}
+
+function mapStaffWorkbookSnapshotPrice(
+  row: Record<string, unknown>,
+): ShopInventoryPrice | null {
+  if (
+    !isCanonicalUuid(row.id) ||
+    !isCanonicalUuid(row.product_id) ||
+    typeof row.type !== "string" ||
+    typeof row.price !== "number" ||
+    !Number.isFinite(row.price) ||
+    !validSnapshotTimestamp(row.effective_at) ||
+    !nullableStringValue(row.note) ||
+    !nullableStringValue(row.source) ||
+    !validSnapshotTimestamp(row.created_at)
+  ) {
+    return null;
+  }
+
   return {
     createdAt: row.created_at,
     effectiveAt: row.effective_at,
@@ -4011,74 +4416,441 @@ function mapCatalogExportPrice(row: CatalogExportPriceRow): ShopInventoryPrice {
   };
 }
 
-function mergeCatalogExportPriceRows(
-  shopRows: readonly CatalogExportPriceRow[],
-  legacyRows: readonly CatalogExportPriceRow[],
+function sameStaffWorkbookSnapshotSummary(
+  left: CatalogWorkbookSnapshotSummary,
+  right: CatalogWorkbookSnapshotSummary,
 ) {
-  const rows = [...shopRows];
-  const seen = new Set(shopRows.map((row) => row.id));
-
-  for (const row of legacyRows) {
-    if (!seen.has(row.id)) {
-      rows.push(row);
-      seen.add(row.id);
-    }
-  }
-
-  return rows;
+  return (
+    left.activeProducts === right.activeProducts &&
+    left.archivedProducts === right.archivedProducts &&
+    left.categories === right.categories &&
+    left.priceRows === right.priceRows &&
+    left.productsTotal === right.productsTotal &&
+    left.suppliers === right.suppliers &&
+    left.workbookTextBytes === right.workbookTextBytes
+  );
 }
 
-async function fetchCatalogExportPriceRows(
+async function callCatalogWorkbookSnapshotRead(
   context: ReadyShopActionContext,
-  legacyOwnerUserId: string | null,
+  request: Record<string, Json | undefined>,
+  signal: AbortSignal,
 ) {
-  const priceSelect =
-    "id,shop_id,product_id,type,price,effective_at,note,source,created_at";
-  const shopPricesResult = await fetchCatalogExportRows<CatalogExportPriceRow>(
-    () =>
-      context.supabase
-        .from("inventory_product_prices")
-        .select(priceSelect)
-        .eq("shop_id", context.selectedShop.shopId)
-        .order("created_at", {
-          ascending: false,
-        }) as unknown as CatalogExportPagedQuery<CatalogExportPriceRow>,
-  );
-
-  if (shopPricesResult.error) {
-    return { error: shopPricesResult.error, prices: [] };
+  if (context.principalKind === "pos_staff_manager") {
+    return await callStaffWebCatalogRead(
+      context,
+      "snapshot_page",
+      request,
+      signal,
+    );
   }
 
-  if (!legacyOwnerUserId) {
-    return {
-      error: null,
-      prices: shopPricesResult.rows.map(mapCatalogExportPrice),
-    };
-  }
+  const rpc = context.supabase.rpc("shop_catalog_admin_read_v1", {
+    p_operation: "snapshot_page",
+    p_request: request,
+    p_shop_id: context.selectedShop.shopId,
+  });
+  return await rpc.abortSignal(signal);
+}
 
-  const legacyPricesResult = await fetchCatalogExportRows<CatalogExportPriceRow>(
-    () =>
-      context.supabase
-        .from("inventory_product_prices")
-        .select(priceSelect)
-        .is("shop_id", null)
-        .eq("owner_user_id", legacyOwnerUserId)
-        .order("created_at", {
-          ascending: false,
-        }) as unknown as CatalogExportPagedQuery<CatalogExportPriceRow>,
-  );
-
-  if (legacyPricesResult.error) {
-    return { error: legacyPricesResult.error, prices: [] };
-  }
+function staffWorkbookSnapshotFailure(
+  context: ReadyShopActionContext,
+  code: string,
+): ShopInventoryReadModel {
+  const sessionFailure = code === "session_expired" || code === "permission_denied";
 
   return {
-    error: null,
-    prices: mergeCatalogExportPriceRows(
-      shopPricesResult.rows,
-      legacyPricesResult.rows,
-    ).map(mapCatalogExportPrice),
+    archivedProducts: [],
+    catalogScope: "blocked",
+    categories: [],
+    error: sessionFailure
+      ? undefined
+      : {
+          code: "staff_workbook_snapshot_unavailable",
+          message: "Shop inventory read model could not be loaded.",
+        },
+    legacyOwnerUserId: null,
+    mapping: null,
+    prices: [],
+    products: [],
+    readOnly: true,
+    reason: sessionFailure
+      ? "Staff catalog snapshot lease is no longer valid."
+      : "Staff catalog workbook snapshot could not be verified.",
+    selectedShop: context.selectedShop,
+    source: "supabase_server",
+    status: sessionFailure ? "unauthorized" : "error",
+    summary: {
+      activeProducts: 0,
+      archivedProducts: 0,
+      categories: 0,
+      priceRows: 0,
+      productsTotal: 0,
+      suppliers: 0,
+    },
+    suppliers: [],
   };
+}
+
+async function loadStaffWorkbookSnapshotRows(
+  context: ReadyShopActionContext,
+  manifest: StaffWorkbookSnapshotEnvelope,
+  entity: StaffWorkbookSnapshotEntity,
+  expectedCount: number,
+  resource: CatalogWorkbookReadResource,
+): Promise<{ code: string; rows: Record<string, unknown>[] } | null> {
+  const limit = STAFF_WORKBOOK_SNAPSHOT_PAGE_LIMITS[entity];
+  const maximumRows =
+    entity === "products"
+      ? CATALOG_WORKBOOK_EXPORT_LIMITS.products
+      : entity === "prices"
+        ? CATALOG_WORKBOOK_EXPORT_LIMITS.prices
+        : entity === "categories"
+          ? CATALOG_WORKBOOK_EXPORT_LIMITS.categories
+          : CATALOG_WORKBOOK_EXPORT_LIMITS.suppliers;
+
+  try {
+    const rows = await collectBoundedWorkbookPages<Record<string, unknown>>({
+      expectedCount,
+      getId(row) {
+        return isCanonicalUuid(row.id) ? row.id : null;
+      },
+      loadPage: async ({ afterId, limit: pageLimit, signal }) => {
+        const request = {
+          ...(afterId ? { afterId } : {}),
+          entity,
+          expectedRevision: manifest.revision,
+          expectedScopeKey: manifest.scope.key,
+          limit: pageLimit,
+          state:
+            entity === "categories" || entity === "suppliers"
+              ? "active"
+              : "all",
+        };
+        const rpc = await resource.run(async (operationSignal) =>
+          await callCatalogWorkbookSnapshotRead(
+            context,
+            request,
+            operationSignal,
+          ),
+        );
+        if (rpc.error) throw new Error("staff_workbook_page_db_failure");
+        const parsed = parseStaffWorkbookSnapshotEnvelope(rpc.data, {
+          revision: manifest.revision,
+          scopeKey: manifest.scope.key,
+          shopId: context.selectedShop.shopId,
+          summaryRequired: false,
+        });
+        if (parsed.kind === "failure") {
+          throw new Error(`staff_workbook_page_${parsed.code}`);
+        }
+        if (signal.aborted) {
+          throw new CatalogWorkbookExportResourceError(
+            signal.reason === "resource_deadline_exceeded"
+              ? "resource_deadline_exceeded"
+              : "request_cancelled",
+          );
+        }
+        return {
+          hasMore: parsed.envelope.pagination.hasMore,
+          nextAfterId: parsed.envelope.pagination.nextAfterId,
+          rows: parsed.envelope.rows,
+        };
+      },
+      maxRows: maximumRows,
+      pageSize: limit,
+      signal: resource.signal,
+    });
+    return { code: "success", rows };
+  } catch (error) {
+    if (error instanceof CatalogWorkbookExportResourceError) throw error;
+    const message = error instanceof Error ? error.message : "";
+    if (message === "staff_workbook_page_db_failure") {
+      return { code: "db_failure", rows: [] };
+    }
+    return {
+      code: message.startsWith("staff_workbook_page_")
+        ? message.slice("staff_workbook_page_".length)
+        : "validation_failed",
+      rows: [],
+    };
+  }
+}
+
+async function getStaffWorkbookInventoryReadModel(
+  context: ReadyShopActionContext,
+  resource: CatalogWorkbookReadResource,
+): Promise<ShopInventoryReadModel> {
+  let manifestRpc: Awaited<
+    ReturnType<typeof callCatalogWorkbookSnapshotRead>
+  >;
+
+  try {
+    manifestRpc = await resource.run(async (signal) =>
+      await callCatalogWorkbookSnapshotRead(
+        context,
+        { entity: "manifest" },
+        signal,
+      ),
+    );
+  } catch (error) {
+    if (error instanceof CatalogWorkbookExportResourceError) throw error;
+    return staffWorkbookSnapshotFailure(context, "db_failure");
+  }
+
+  if (manifestRpc.error) {
+    return staffWorkbookSnapshotFailure(context, "db_failure");
+  }
+
+  const manifestResult = parseStaffWorkbookSnapshotEnvelope(manifestRpc.data, {
+    shopId: context.selectedShop.shopId,
+    summaryRequired: true,
+  });
+
+  if (manifestResult.kind === "failure") {
+    return staffWorkbookSnapshotFailure(
+      context,
+      manifestResult.code,
+    );
+  }
+
+  const manifest = manifestResult.envelope;
+  const summary = manifest.summary;
+
+  if (!summary) {
+    return staffWorkbookSnapshotFailure(context, "validation_failed");
+  }
+  resource.assertPreflight({
+    categories: summary.categories,
+    prices: summary.priceRows,
+    products: summary.productsTotal,
+    sourceTextBytes: summary.workbookTextBytes,
+    suppliers: summary.suppliers,
+  });
+
+  try {
+    const [productsPage, suppliersPage] = await Promise.all([
+      loadStaffWorkbookSnapshotRows(
+        context,
+        manifest,
+        "products",
+        summary.productsTotal,
+        resource,
+      ),
+      loadStaffWorkbookSnapshotRows(
+        context,
+        manifest,
+        "suppliers",
+        summary.suppliers,
+        resource,
+      ),
+    ]);
+    const [categoriesPage, pricesPage] = await Promise.all([
+      loadStaffWorkbookSnapshotRows(
+        context,
+        manifest,
+        "categories",
+        summary.categories,
+        resource,
+      ),
+      loadStaffWorkbookSnapshotRows(
+        context,
+        manifest,
+        "prices",
+        summary.priceRows,
+        resource,
+      ),
+    ]);
+
+    if (!productsPage || productsPage.code !== "success") {
+      return staffWorkbookSnapshotFailure(
+        context,
+        productsPage?.code ?? "validation_failed",
+      );
+    }
+
+    if (!suppliersPage || suppliersPage.code !== "success") {
+      return staffWorkbookSnapshotFailure(
+        context,
+        suppliersPage?.code ?? "validation_failed",
+      );
+    }
+
+    if (!categoriesPage || categoriesPage.code !== "success") {
+      return staffWorkbookSnapshotFailure(
+        context,
+        categoriesPage?.code ?? "validation_failed",
+      );
+    }
+
+    if (!pricesPage || pricesPage.code !== "success") {
+      return staffWorkbookSnapshotFailure(
+        context,
+        pricesPage?.code ?? "validation_failed",
+      );
+    }
+
+    const finalManifestRpc = await resource.run(async (signal) =>
+      await callCatalogWorkbookSnapshotRead(
+        context,
+        {
+          entity: "manifest",
+          expectedRevision: manifest.revision,
+          expectedScopeKey: manifest.scope.key,
+        },
+        signal,
+      ),
+    );
+
+    if (finalManifestRpc.error) {
+      return staffWorkbookSnapshotFailure(context, "db_failure");
+    }
+
+    const finalManifestResult = parseStaffWorkbookSnapshotEnvelope(
+      finalManifestRpc.data,
+      {
+        revision: manifest.revision,
+        scopeKey: manifest.scope.key,
+        shopId: context.selectedShop.shopId,
+        summaryRequired: true,
+      },
+    );
+
+    if (finalManifestResult.kind === "failure") {
+      return staffWorkbookSnapshotFailure(
+        context,
+        finalManifestResult.code,
+      );
+    }
+
+    const finalSummary = finalManifestResult.envelope.summary;
+
+    if (
+      !finalSummary ||
+      !sameStaffWorkbookSnapshotSummary(summary, finalSummary)
+    ) {
+      return staffWorkbookSnapshotFailure(context, "validation_failed");
+    }
+
+    const products = productsPage.rows.map(mapStaffWorkbookSnapshotProduct);
+    const suppliers = suppliersPage.rows.map(mapStaffWorkbookSnapshotSupplier);
+    const categories = categoriesPage.rows.map(mapStaffWorkbookSnapshotCategory);
+    const prices = pricesPage.rows.map(mapStaffWorkbookSnapshotPrice);
+
+    if (
+      products.some((row) => row === null) ||
+      suppliers.some((row) => row === null) ||
+      categories.some((row) => row === null) ||
+      prices.some((row) => row === null)
+    ) {
+      return staffWorkbookSnapshotFailure(context, "validation_failed");
+    }
+
+    const mappedProducts = products as ShopInventoryProduct[];
+    const mappedSuppliers = suppliers as Array<
+      Omit<ShopInventorySupplier, "activeProductsCount">
+    >;
+    const mappedCategories = categories as Array<
+      Omit<ShopInventoryCategory, "activeProductsCount">
+    >;
+    const mappedPrices = prices as ShopInventoryPrice[];
+    const productIds = new Set(mappedProducts.map((product) => product.productId));
+
+    if (mappedPrices.some((price) => !productIds.has(price.productId))) {
+      return staffWorkbookSnapshotFailure(context, "validation_failed");
+    }
+
+    const activeProducts = mappedProducts.filter((product) => product.deletedAt === null);
+    const archivedProducts = mappedProducts.filter(
+      (product) => product.deletedAt !== null,
+    );
+    const categoryCounts = new Map<string, number>();
+    const supplierCounts = new Map<string, number>();
+
+    for (const product of activeProducts) {
+      if (product.categoryId) {
+        categoryCounts.set(
+          product.categoryId,
+          (categoryCounts.get(product.categoryId) ?? 0) + 1,
+        );
+      }
+
+      if (product.supplierId) {
+        supplierCounts.set(
+          product.supplierId,
+          (supplierCounts.get(product.supplierId) ?? 0) + 1,
+        );
+      }
+    }
+
+    const activeCategories = mappedCategories
+      .filter((category) => category.deletedAt === null)
+      .map((category) => ({
+        ...category,
+        activeProductsCount: categoryCounts.get(category.categoryId) ?? 0,
+      }));
+    const activeSuppliers = mappedSuppliers
+      .filter((supplier) => supplier.deletedAt === null)
+      .map((supplier) => ({
+        ...supplier,
+        activeProductsCount: supplierCounts.get(supplier.supplierId) ?? 0,
+      }));
+
+    if (
+      activeProducts.length !== summary.activeProducts ||
+      archivedProducts.length !== summary.archivedProducts ||
+      activeCategories.length !== summary.categories ||
+      activeSuppliers.length !== summary.suppliers ||
+      mappedPrices.length !== summary.priceRows
+    ) {
+      return staffWorkbookSnapshotFailure(context, "validation_failed");
+    }
+
+    return {
+      archivedProducts,
+      catalogScope: manifest.scope.catalogScope,
+      categories: activeCategories,
+      legacyOwnerUserId: manifest.scope.legacyOwnerUserId,
+      mapping: manifest.scope.mapping,
+      prices: mappedPrices,
+      products: activeProducts,
+      readOnly: true,
+      reason:
+        "Revision-pinned, lease-bound staff catalog snapshot verified for workbook use.",
+      selectedShop: context.selectedShop,
+      source: "supabase_server",
+      status: "ready",
+      summary,
+      suppliers: activeSuppliers,
+    };
+  } catch (error) {
+    if (error instanceof CatalogWorkbookExportResourceError) throw error;
+    return staffWorkbookSnapshotFailure(context, "db_failure");
+  }
+}
+
+async function getCatalogWorkbookReadModel(
+  context: ReadyShopActionContext,
+  resource?: CatalogWorkbookReadResource,
+): Promise<ShopInventoryReadModel> {
+  const readResource = resource ?? unboundedCatalogWorkbookReadResource;
+  if (resource || context.principalKind === "pos_staff_manager") {
+    return getStaffWorkbookInventoryReadModel(context, readResource);
+  }
+
+  if (!resource) {
+    return getShopInventoryReadModel({
+      client: context.supabase,
+      requestedShopId: context.selectedShop.shopId,
+      rowLimit: "all",
+    });
+  }
+
+  return getShopInventoryReadModel({
+    client: context.supabase,
+    requestedShopId: context.selectedShop.shopId,
+    rowLimit: "all",
+  });
 }
 
 function payloadRecord(data: unknown) {
@@ -4094,11 +4866,47 @@ function payloadRecord(data: unknown) {
 }
 
 function rpcResultOk(data: unknown) {
-  if (!data || typeof data !== "object" || !("ok" in data)) {
-    return true;
+  return Boolean(
+    data &&
+      typeof data === "object" &&
+      !Array.isArray(data) &&
+      (data as { ok?: unknown }).ok === true &&
+      (data as { code?: unknown }).code === "success",
+  );
+}
+
+function rpcChunkResultMatchesCounts(
+  data: unknown,
+  applied: number | null,
+  failed: number | null,
+  expectedRows: number,
+) {
+  if (
+    applied === null ||
+    failed === null ||
+    applied + failed !== expectedRows
+  ) {
+    return false;
   }
 
-  return (data as { ok?: unknown }).ok === true;
+  if (failed === 0) {
+    return rpcResultOk(data);
+  }
+
+  return Boolean(
+    data &&
+      typeof data === "object" &&
+      !Array.isArray(data) &&
+      (data as { ok?: unknown }).ok === false &&
+      (data as { code?: unknown }).code === "partial_failure",
+  );
+}
+
+const CANONICAL_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+function isCanonicalUuid(value: unknown): value is string {
+  return typeof value === "string" && CANONICAL_UUID_PATTERN.test(value);
 }
 
 function* chunkRows<T>(rows: readonly T[], chunkSize: number) {
@@ -4188,7 +4996,7 @@ function priceIdsFromPayload(value: unknown) {
   const priceIds: string[] = [];
 
   for (const item of rawPriceIds) {
-    if (typeof item === "string") {
+    if (isCanonicalUuid(item)) {
       priceIds.push(item);
       continue;
     }
@@ -4199,17 +5007,47 @@ function priceIdsFromPayload(value: unknown) {
 
     const priceId = (item as Record<string, unknown>).priceId;
 
-    if (typeof priceId === "string") {
+    if (isCanonicalUuid(priceId)) {
       priceIds.push(priceId);
     }
   }
 
-  return priceIds;
+  return priceIds.length === new Set(priceIds).size ? priceIds : [];
+}
+
+type ProductPayloadReferenceIndex = {
+  byBarcode: ReadonlyMap<string, StaffAwareBulkProductImportPayload>;
+  byItemNumber: ReadonlyMap<string, StaffAwareBulkProductImportPayload>;
+  byRequestedProductId: ReadonlyMap<
+    string,
+    StaffAwareBulkProductImportPayload
+  >;
+};
+
+function buildProductPayloadReferenceIndex(
+  payloadRows: readonly StaffAwareBulkProductImportPayload[],
+): ProductPayloadReferenceIndex {
+  const byBarcode = new Map<string, StaffAwareBulkProductImportPayload>();
+  const byItemNumber = new Map<string, StaffAwareBulkProductImportPayload>();
+  const byRequestedProductId = new Map<
+    string,
+    StaffAwareBulkProductImportPayload
+  >();
+
+  for (const row of payloadRows) {
+    const barcode = row.barcode.trim().toLowerCase();
+    const itemNumber = row.item_number?.trim().toLowerCase() ?? "";
+    if (barcode) byBarcode.set(barcode, row);
+    if (itemNumber) byItemNumber.set(itemNumber, row);
+    if (row.product_id) byRequestedProductId.set(row.product_id, row);
+  }
+
+  return { byBarcode, byItemNumber, byRequestedProductId };
 }
 
 function rememberAppliedProductReference(
   maps: ReturnType<typeof buildProductIdMaps>,
-  payloadRows: readonly StaffAwareBulkProductImportPayload[],
+  payloadRows: ProductPayloadReferenceIndex,
   product: {
     barcode?: string | null;
     itemNumber?: string | null;
@@ -4218,15 +5056,12 @@ function rememberAppliedProductReference(
 ) {
   const barcodeKey = product.barcode?.toLowerCase() ?? "";
   const itemNumberKey = product.itemNumber?.toLowerCase() ?? "";
-  const sourceRow = payloadRows.find((row) => {
-    const rowBarcode = row.barcode?.toLowerCase() ?? "";
-    const rowItemNumber = row.item_number?.toLowerCase() ?? "";
-
-    return (
-      (barcodeKey.length > 0 && rowBarcode === barcodeKey) ||
-      (itemNumberKey.length > 0 && rowItemNumber === itemNumberKey)
-    );
-  });
+  const sourceRow =
+    payloadRows.byRequestedProductId.get(product.productId) ??
+    (barcodeKey ? payloadRows.byBarcode.get(barcodeKey) : undefined) ??
+    (itemNumberKey
+      ? payloadRows.byItemNumber.get(itemNumberKey)
+      : undefined);
 
   if (sourceRow?.product_id) {
     maps.byImportedProductId.set(sourceRow.product_id, product.productId);
@@ -4271,6 +5106,8 @@ async function applyBulkProductImport(
       supplier_id: merged.supplierId,
     };
   });
+  const productPayloadReferences =
+    buildProductPayloadReferenceIndex(productPayload);
 
   if (context.principalKind === "pos_staff_manager") {
     const productImport = await applyStaffAwareBulkProductImport(
@@ -4279,7 +5116,11 @@ async function applyBulkProductImport(
     );
 
     for (const product of productImport.productIds) {
-      rememberAppliedProductReference(productIdMaps, productPayload, product);
+      rememberAppliedProductReference(
+        productIdMaps,
+        productPayloadReferences,
+        product,
+      );
     }
 
     const syncEventFailure = await emitBulkProductImportSyncEvents(
@@ -4302,11 +5143,14 @@ async function applyBulkProductImport(
   let failedRows = 0;
   let productsApplied = 0;
   const rowErrors: WorkbookRowError[] = [];
+  const productChunks = Array.from(
+    chunkRows(productPayload, BULK_PRODUCT_IMPORT_CHUNK_SIZE),
+  );
 
-  for (const [chunkIndex, productChunk] of Array.from(chunkRows(
-    productPayload,
-    BULK_PRODUCT_IMPORT_CHUNK_SIZE,
-  )).entries()) {
+  for (const [chunkIndex, productChunk] of productChunks.entries()) {
+    const remainingRows = productChunks
+      .slice(chunkIndex)
+      .reduce((count, chunk) => count + chunk.length, 0);
     const { data, error } = await context.supabase.rpc(
       "shop_catalog_import_products",
       {
@@ -4316,7 +5160,7 @@ async function applyBulkProductImport(
     );
 
     if (error) {
-      failedRows += productChunk.length;
+      failedRows += remainingRows;
       rowErrors.push({
         field: "products",
         message:
@@ -4324,13 +5168,18 @@ async function applyBulkProductImport(
         row: chunkIndex + 1,
         sheet: "Products",
       });
-      continue;
+      break;
     }
 
     const payload = payloadRecord(data);
     const productIds = Array.isArray(payload.productIds)
       ? payload.productIds
       : [];
+    const appliedProducts: Array<{
+      barcode: string;
+      itemNumber: string;
+      productId: string;
+    }> = [];
     const appliedProductIds: string[] = [];
 
     for (const product of productIds) {
@@ -4339,7 +5188,7 @@ async function applyBulkProductImport(
       }
 
       const row = product as Record<string, unknown>;
-      const productId = typeof row.productId === "string" ? row.productId : "";
+      const productId = isCanonicalUuid(row.productId) ? row.productId : "";
       const barcode = typeof row.barcode === "string" ? row.barcode : "";
       const itemNumber =
         typeof row.itemNumber === "string" ? row.itemNumber : "";
@@ -4349,31 +5198,54 @@ async function applyBulkProductImport(
       }
 
       appliedProductIds.push(productId);
-      rememberAppliedProductReference(productIdMaps, productPayload, {
+      appliedProducts.push({
         barcode,
         itemNumber,
         productId,
       });
     }
 
-    const rpcFailedRows = numberFromPayload(payload.failedRows);
-    const rpcProductsApplied = numberFromPayload(payload.productsApplied);
-    const rpcOk = rpcResultOk(data);
+    const rpcFailedRows = nonnegativeSafeIntegerFromPayload(payload.failedRows);
+    const rpcProductsApplied = nonnegativeSafeIntegerFromPayload(
+      payload.productsApplied,
+    );
+    const idsAreExact =
+      rpcProductsApplied !== null &&
+      appliedProductIds.length === rpcProductsApplied &&
+      appliedProductIds.length === new Set(appliedProductIds).size;
+    const validResult =
+      idsAreExact &&
+      rpcChunkResultMatchesCounts(
+        data,
+        rpcProductsApplied,
+        rpcFailedRows,
+        productChunk.length,
+      );
 
-    if (!rpcOk) {
+    if (!validResult) {
+      failedRows += remainingRows;
       rowErrors.push({
         field: "products",
         message:
-          "Products import chunk returned a failed result. Re-run preview before retrying.",
+          "Products import chunk returned an invalid result. Re-run preview before retrying.",
         row: chunkIndex + 1,
         sheet: "Products",
       });
+      break;
+    }
+    const appliedCount = rpcProductsApplied ?? 0;
+    const failedCount = rpcFailedRows ?? 0;
+
+    for (const product of appliedProducts) {
+      rememberAppliedProductReference(
+        productIdMaps,
+        productPayloadReferences,
+        product,
+      );
     }
 
-    failedRows += rpcOk || rpcFailedRows > 0 || rpcProductsApplied > 0
-      ? rpcFailedRows
-      : productChunk.length;
-    productsApplied += rpcProductsApplied;
+    failedRows += failedCount;
+    productsApplied += appliedCount;
 
     const syncEventFailure = await emitBulkProductImportSyncEvents(
       context,
@@ -4390,12 +5262,27 @@ async function applyBulkProductImport(
         syncEventFailure,
       };
     }
+
+    if (failedCount > 0) {
+      failedRows += productChunks
+        .slice(chunkIndex + 1)
+        .reduce((count, chunk) => count + chunk.length, 0);
+      rowErrors.push({
+        field: "products",
+        message:
+          "Products import stopped after a partial chunk. Re-run preview before retrying.",
+        row: chunkIndex + 1,
+        sheet: "Products",
+      });
+      break;
+    }
   }
 
   return {
     failedRows,
     productsApplied,
     rowErrors,
+    stoppedEarly: rowErrors.length > 0,
   };
 }
 
@@ -4418,6 +5305,7 @@ async function auditImportExport(
       code,
       eventKey,
       metadata: jsonRecordMetadata(metadata),
+      requiredPermission: permission,
       result,
       severity: result === "failure" ? "critical" : "info",
       targetId: context.selectedShop.shopId,
@@ -4471,11 +5359,7 @@ export async function parseCatalogWorkbookPreview(
     return parsed;
   }
 
-  const readModel = await getShopInventoryReadModel({
-    client: context.supabase,
-    requestedShopId: context.selectedShop.shopId,
-    rowLimit: "all",
-  });
+  const readModel = await getCatalogWorkbookReadModel(context);
 
   if (readModel.status !== "ready") {
     return shopAdminActionResult("unauthorized_or_unmapped", {
@@ -4717,11 +5601,7 @@ export async function applyCatalogWorkbookImport(
     return parsed;
   }
 
-  const readModel = await getShopInventoryReadModel({
-    client: context.supabase,
-    requestedShopId: context.selectedShop.shopId,
-    rowLimit: "all",
-  });
+  const readModel = await getCatalogWorkbookReadModel(context);
 
   if (readModel.status !== "ready") {
     return shopAdminActionResult("unauthorized_or_unmapped", {
@@ -4879,6 +5759,7 @@ export async function applyCatalogWorkbookImport(
   let productsApplied = 0;
   let priceHistoryApplied = 0;
   let failedRows = 0;
+  let bulkApplyStopped = false;
   const applyRowErrors: WorkbookRowError[] = [];
 
   for (const row of adjustedParsed.suppliers) {
@@ -4936,6 +5817,7 @@ export async function applyCatalogWorkbookImport(
     productsApplied += productImport.productsApplied;
     failedRows += productImport.failedRows;
     applyRowErrors.push(...productImport.rowErrors);
+    bulkApplyStopped = productImport.stoppedEarly === true;
 
     const syncEventFailure = "syncEventFailure" in productImport
       ? productImport.syncEventFailure
@@ -4990,7 +5872,7 @@ export async function applyCatalogWorkbookImport(
     }
   }
 
-  if (adjustedParsed.priceHistory.length > 0) {
+  if (!bulkApplyStopped && adjustedParsed.priceHistory.length > 0) {
     const pricePayload: StaffAwareBulkPriceHistoryImportPayload[] =
       adjustedParsed.priceHistory
       .map((row) => {
@@ -5030,6 +5912,7 @@ export async function applyCatalogWorkbookImport(
       priceHistoryApplied += priceImport.priceHistoryApplied;
       failedRows += priceImport.failedRows;
       applyRowErrors.push(...priceImport.rowErrors);
+      bulkApplyStopped = priceImport.stoppedEarly;
 
       const syncEventFailure = await emitPriceHistoryImportSyncEvents(
         context,
@@ -5057,13 +5940,18 @@ export async function applyCatalogWorkbookImport(
         };
       }
     } else {
-      for (const priceChunk of chunkRows(
-        pricePayload,
-        BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE,
-      )) {
+      const priceChunks = Array.from(
+        chunkRows(pricePayload, BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE),
+      );
+
+      for (const [chunkIndex, priceChunk] of priceChunks.entries()) {
         if (priceChunk.length === 0) {
           continue;
         }
+
+        const remainingRows = priceChunks
+          .slice(chunkIndex)
+          .reduce((count, chunk) => count + chunk.length, 0);
 
         const { data, error } = await context.supabase.rpc(
           "shop_catalog_import_price_history",
@@ -5074,7 +5962,7 @@ export async function applyCatalogWorkbookImport(
         );
 
         if (error) {
-          failedRows += priceChunk.length;
+          failedRows += remainingRows;
           applyRowErrors.push({
             field: "priceHistory",
             message:
@@ -5082,51 +5970,44 @@ export async function applyCatalogWorkbookImport(
             row: 0,
             sheet: "PriceHistory",
           });
+          break;
         } else {
           const payload = payloadRecord(data);
-          const rpcFailedRows = numberFromPayload(payload.failedRows);
-          const rpcPriceHistoryApplied = numberFromPayload(
+          const rpcFailedRows = nonnegativeSafeIntegerFromPayload(
+            payload.failedRows,
+          );
+          const rpcPriceHistoryApplied = nonnegativeSafeIntegerFromPayload(
             payload.priceHistoryApplied,
           );
           const priceIds = priceIdsFromPayload(data);
-          const rpcOk = rpcResultOk(data);
+          const idsAreExact =
+            rpcPriceHistoryApplied !== null &&
+            priceIds.length === rpcPriceHistoryApplied;
+          const validResult =
+            idsAreExact &&
+            rpcChunkResultMatchesCounts(
+              data,
+              rpcPriceHistoryApplied,
+              rpcFailedRows,
+              priceChunk.length,
+            );
 
-          priceHistoryApplied += rpcPriceHistoryApplied;
-          if (!rpcOk) {
+          if (!validResult) {
+            failedRows += remainingRows;
             applyRowErrors.push({
               field: "priceHistory",
               message:
-                "Price history import chunk returned a failed result. Re-run preview before retrying.",
+                "Price history import chunk returned an invalid result. Re-run preview before retrying.",
               row: 0,
               sheet: "PriceHistory",
             });
+            break;
           }
-          failedRows += rpcOk || rpcFailedRows > 0 || rpcPriceHistoryApplied > 0
-            ? rpcFailedRows
-            : priceChunk.length;
+          const appliedCount = rpcPriceHistoryApplied ?? 0;
+          const failedCount = rpcFailedRows ?? 0;
 
-          if (rpcPriceHistoryApplied > 0 && priceIds.length !== rpcPriceHistoryApplied) {
-            const code: ShopAdminActionCode = "db_failure";
-
-            return {
-              ...shopAdminActionResult(code, {
-                ok: false,
-                shopId: context.selectedShop.shopId,
-              }),
-              previewDigest: boundPreviewDigest,
-              rowErrors: [
-                ...applyRowErrors,
-                priceHistorySyncEventError(code),
-              ],
-              summary: {
-                categoriesApplied,
-                failedRows,
-                priceHistoryApplied,
-                productsApplied,
-                suppliersApplied,
-              },
-            };
-          }
+          priceHistoryApplied += appliedCount;
+          failedRows += failedCount;
 
           const syncEventFailure = await emitPriceHistoryImportSyncEvents(
             context,
@@ -5152,6 +6033,20 @@ export async function applyCatalogWorkbookImport(
                 suppliersApplied,
               },
             };
+          }
+
+          if (failedCount > 0) {
+            failedRows += priceChunks
+              .slice(chunkIndex + 1)
+              .reduce((count, chunk) => count + chunk.length, 0);
+            applyRowErrors.push({
+              field: "priceHistory",
+              message:
+                "Price history import stopped after a partial chunk. Re-run preview before retrying.",
+              row: 0,
+              sheet: "PriceHistory",
+            });
+            break;
           }
         }
       }
@@ -5311,96 +6206,150 @@ function categorySheet(categories: readonly ShopInventoryCategory[]): WritableSh
   ];
 }
 
+async function serializeBoundedCatalogWorkbook(
+  sheets: { data: WritableSheetData; sheet: string }[],
+  signal: AbortSignal,
+) {
+  if (signal.aborted) {
+    throw new CatalogWorkbookExportResourceError(
+      signal.reason === "resource_deadline_exceeded"
+        ? "resource_deadline_exceeded"
+        : "request_cancelled",
+    );
+  }
+  // write-excel-file materializes all worksheet XML before producing either a
+  // stream or a buffer. The authoritative preflight therefore bounds source
+  // text and worst-case expansion before this allocation; toStream() would not
+  // reduce peak memory and would create a misleading streaming guarantee.
+  const buffer = await writeXlsxFile(sheets).toBuffer();
+  if (signal.aborted) {
+    throw new CatalogWorkbookExportResourceError(
+      signal.reason === "resource_deadline_exceeded"
+        ? "resource_deadline_exceeded"
+        : "request_cancelled",
+    );
+  }
+  return buffer;
+}
+
 export async function buildCatalogWorkbookExport(
   requestedShopId?: string,
+  options: {
+    deadlineMs?: number;
+    signal?: AbortSignal;
+  } = {},
 ): Promise<CatalogWorkbookExport> {
   const context = await resolveShopActionContext(requestedShopId, "catalog.export");
 
   if (context.status !== "ready") {
     return context.result;
   }
+  const resource = createCatalogWorkbookExportResourceEnvelope(options);
 
-  const readModel = await getShopInventoryReadModel({
-    client: context.supabase,
-    requestedShopId: context.selectedShop.shopId,
-    rowLimit: "all",
-  });
+  try {
+    const readModel = await getCatalogWorkbookReadModel(context, resource);
 
-  if (readModel.status !== "ready") {
-    return shopAdminActionResult("unauthorized_or_unmapped", {
-      ok: false,
-      shopId: context.selectedShop.shopId,
+    if (readModel.status !== "ready") {
+      return shopAdminActionResult("unauthorized_or_unmapped", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
+    }
+
+    const finalized = await finalizeBoundedWorkbookExport({
+      audit: (metrics) =>
+        auditImportExport(
+          context.selectedShop.shopId,
+          "catalog.export",
+          "shop.catalog.export",
+          "success",
+          "success",
+          {
+            categories: readModel.categories.length,
+            priceHistory: readModel.prices.length,
+            products: readModel.products.length,
+            resourceDeadlineMs: metrics.deadlineMs,
+            resourceElapsedMs: metrics.elapsedMs,
+            resourceEstimatedBytes: metrics.estimatedBytes,
+            resourceFinalBytes: metrics.finalBytes,
+            resourcePeakConcurrency: metrics.peakConcurrency,
+            resourceSourceTextBytes: metrics.sourceTextBytes,
+            resourceTotalCells: metrics.totalCells,
+            resourceTotalRows: metrics.totalRows,
+            suppliers: readModel.suppliers.length,
+          },
+        ),
+      counts: {
+        categories: readModel.categories.length,
+        prices: readModel.prices.length,
+        products:
+          readModel.products.length + readModel.archivedProducts.length,
+        suppliers: readModel.suppliers.length,
+      },
+      resource,
+      serialize: (signal) =>
+        serializeBoundedCatalogWorkbook([
+          { data: productSheet(readModel.products), sheet: "Products" },
+          { data: supplierSheet(readModel.suppliers), sheet: "Suppliers" },
+          { data: categorySheet(readModel.categories), sheet: "Categories" },
+          {
+            data: [
+              [
+                "price_id",
+                "product_id",
+                "type",
+                "price",
+                "effective_at",
+                "source",
+                "note",
+              ],
+              ...readModel.prices.map((price) => [
+                price.priceId,
+                price.productId,
+                stringCell(price.type),
+                price.price,
+                price.effectiveAt,
+                stringCell(price.source),
+                stringCell(price.note),
+              ]),
+            ],
+            sheet: "PriceHistory",
+          },
+        ], signal),
     });
-  }
+    const { auditResult, buffer, metrics } = finalized;
 
-  const exportPrices = await fetchCatalogExportPriceRows(
-    context,
-    readModel.legacyOwnerUserId,
-  );
+    if (!auditResult.ok) {
+      return auditResult;
+    }
 
-  if (exportPrices.error) {
+    return {
+      ...shopAdminActionResult("success", {
+        ok: true,
+        shopId: context.selectedShop.shopId,
+      }),
+      buffer,
+      contentType: XLSX_CONTENT_TYPE,
+      fileName: "shop-catalog-export.xlsx",
+      metrics,
+    };
+  } catch (error) {
+    if (error instanceof CatalogWorkbookExportResourceError) {
+      return {
+        ...shopAdminActionResult(error.code, {
+          ok: false,
+          shopId: context.selectedShop.shopId,
+        }),
+        metrics: resource.metrics(),
+      };
+    }
     return shopAdminActionResult("db_failure", {
       ok: false,
       shopId: context.selectedShop.shopId,
     });
+  } finally {
+    resource.dispose();
   }
-
-  const buffer = await writeXlsxFile([
-    { data: productSheet(readModel.products), sheet: "Products" },
-    { data: supplierSheet(readModel.suppliers), sheet: "Suppliers" },
-    { data: categorySheet(readModel.categories), sheet: "Categories" },
-    {
-      data: [
-        [
-          "price_id",
-          "product_id",
-          "type",
-          "price",
-          "effective_at",
-          "source",
-          "note",
-        ],
-        ...exportPrices.prices.map((price) => [
-          price.priceId,
-          price.productId,
-          stringCell(price.type),
-          price.price,
-          price.effectiveAt,
-          stringCell(price.source),
-          stringCell(price.note),
-        ]),
-      ],
-      sheet: "PriceHistory",
-    },
-  ]).toBuffer();
-
-  const auditResult = await auditImportExport(
-    context.selectedShop.shopId,
-    "catalog.export",
-    "shop.catalog.export",
-    "success",
-    "success",
-    {
-      categories: readModel.categories.length,
-      priceHistory: exportPrices.prices.length,
-      products: readModel.products.length,
-      suppliers: readModel.suppliers.length,
-    },
-  );
-
-  if (!auditResult.ok) {
-    return auditResult;
-  }
-
-  return {
-    ...shopAdminActionResult("success", {
-      ok: true,
-      shopId: context.selectedShop.shopId,
-    }),
-    buffer,
-    contentType: XLSX_CONTENT_TYPE,
-    fileName: "shop-catalog-export.xlsx",
-  };
 }
 
 export async function buildCatalogImportTemplate(): Promise<CatalogWorkbookExport> {

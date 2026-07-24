@@ -25,6 +25,10 @@ import {
 } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import {
+  readSafeSyncEvents,
+  type SafeSyncEventRow,
+} from "@/server/sync-events/read-boundary";
+import {
   createAdminWebPerfTrace,
   type AdminWebPerfTrace,
 } from "@/server/admin-web-perf";
@@ -341,19 +345,19 @@ function mapDeviceRow(row: Tables["shop_devices"]["Row"]): PlatformDeviceOvervie
   };
 }
 
-function mapSyncRow(row: Tables["sync_events"]["Row"]): PlatformSyncOverview {
+function mapSyncRow(row: SafeSyncEventRow): PlatformSyncOverview {
   return {
-    changed_count: row.changed_count,
-    created_at: row.created_at,
+    changed_count: row.changedCount,
+    created_at: row.createdAt,
     domain: row.domain,
-    event_type: row.event_type,
+    event_type: row.eventType,
     metadata_summary: limitText(redactPlatformMetadata(row.metadata)),
-    owner_user_id: row.owner_user_id,
-    shop_id: row.shop_id ?? undefined,
+    owner_user_id: row.ownerUserId,
+    shop_id: row.shopId ?? undefined,
     source: row.source ?? undefined,
-    source_device_id: row.source_device_id ?? undefined,
-    store_id: row.store_id ?? undefined,
-    sync_event_id: String(row.id),
+    source_device_key: row.sourceDeviceKey ?? undefined,
+    store_id: row.storeId ?? undefined,
+    sync_event_id: row.eventId,
   };
 }
 
@@ -489,16 +493,21 @@ async function safeCountOwnerRows(
       );
       break;
     case "sync_events":
-      result = await tracedQuery(
+      {
+        const safeResult = await tracedQuery(
         perfTrace,
         "platform.mobile_inventory.sync_events.count",
-        () =>
-          supabase
-            .from("sync_events")
-            .select(selectOwnerOnly, countOptions)
-            .eq("owner_user_id", ownerUserId),
-      );
-      break;
+          () =>
+            readSafeSyncEvents(supabase, {
+              limit: 1,
+              ownerUserId,
+            }),
+        );
+
+        return safeResult.error
+          ? { count: null, errorMessage: safeResult.error }
+          : { count: safeResult.data.totalCount, errorMessage: null };
+      }
   }
 
   if (result.error) {
@@ -1094,13 +1103,7 @@ async function loadRows(
       : Promise.resolve(skippedRowsResult),
     includeSyncEvents
       ? tracedQuery(perfTrace, "platform.sync_events.list", () =>
-          supabase
-            .from("sync_events")
-            .select(
-              "id,owner_user_id,shop_id,store_id,source,source_device_id,domain,event_type,changed_count,metadata,created_at",
-            )
-            .order("created_at", { ascending: false })
-            .limit(300),
+          readSafeSyncEvents(supabase, { limit: 300 }),
         )
       : Promise.resolve(skippedRowsResult),
     includeStaffSafeRows
@@ -1236,9 +1239,9 @@ async function loadRows(
   const shopDevices = (devicesResult.data ?? []).map((row) =>
     mapDeviceRow(row as Tables["shop_devices"]["Row"]),
   );
-  const syncEvents = (syncResult.data ?? []).map((row) =>
-    mapSyncRow(row as Tables["sync_events"]["Row"]),
-  );
+  const syncEvents = (
+    Array.isArray(syncResult.data) ? [] : syncResult.data?.rows ?? []
+  ).map(mapSyncRow);
   const visibleAccountIds = new Set([
     ...profiles.map((profile) => profile.profile_id),
     ...authIdentities.map((identity) => identity.authUserId),

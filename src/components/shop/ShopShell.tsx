@@ -15,7 +15,6 @@ import {
 import { LanguageSwitcher } from "@/components/language-switcher";
 import type { Dictionary } from "@/i18n/dictionaries";
 import type { SupportedLocale } from "@/i18n/locales";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "./shopLayout";
 import type { ShopNavigationSection, ShopSectionKey } from "./shopSections";
 
@@ -604,28 +603,68 @@ export function ShopShell({
       return;
     }
 
-    const supabase = createSupabaseBrowserClient();
+    let stopped = false;
+    let timer: number | null = null;
+    let lastMarker: string | null = null;
+    let failureCount = 0;
+    const controller = new AbortController();
 
-    if (!supabase) {
-      return;
-    }
+    const schedule = (delay: number) => {
+      if (stopped) {
+        return;
+      }
+      timer = window.setTimeout(poll, delay);
+    };
 
-    const channel = supabase
-      .channel(`shop-sync-events:${activeShopId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "sync_events",
-          filter: `shop_id=eq.${activeShopId}`,
-        },
-        () => scheduleCurrentShopRouteRefresh(),
-      )
-      .subscribe();
+    const poll = async () => {
+      if (stopped) {
+        return;
+      }
+
+      if (document.visibilityState !== "visible" || !navigator.onLine) {
+        schedule(3_000);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/shop/sync-event-marker?shopId=${encodeURIComponent(activeShopId)}`,
+          { cache: "no-store", signal: controller.signal },
+        );
+        const payload = (await response.json()) as { eventMarker?: unknown };
+
+        if (stopped) {
+          return;
+        }
+
+        if (!response.ok || typeof payload.eventMarker !== "string") {
+          throw new Error("sync_event_marker_unavailable");
+        }
+
+        if (lastMarker === null || payload.eventMarker !== lastMarker) {
+          scheduleCurrentShopRouteRefresh();
+        }
+
+        lastMarker = payload.eventMarker;
+        failureCount = 0;
+        schedule(3_000);
+      } catch {
+        if (stopped) {
+          return;
+        }
+        failureCount = Math.min(failureCount + 1, 4);
+        schedule(Math.min(3_000 * 2 ** failureCount, 30_000));
+      }
+    };
+
+    schedule(0);
 
     return () => {
-      void supabase.removeChannel(channel);
+      stopped = true;
+      controller.abort();
+      if (timer !== null) {
+        window.clearTimeout(timer);
+      }
     };
   }, [activeShopId, scheduleCurrentShopRouteRefresh]);
 
@@ -811,7 +850,7 @@ export function ShopShell({
                       ? "/shop/staff-logout"
                       : "/auth/logout?next=/shop"
                   }
-                  method="get"
+                  method="post"
                 >
                   <button
                     className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 md:min-h-0 md:px-2.5 md:py-1 md:text-xs"

@@ -79,9 +79,11 @@ export default async function AccountProfilePage() {
               <Link className="font-medium text-zinc-700 underline" href="/">
                 {labels.adminHome}
               </Link>
-              <Link className="font-medium text-zinc-700 underline" href="/auth/logout">
-                {labels.signOut}
-              </Link>
+              <form action="/auth/logout" method="post">
+                <button className="font-medium text-zinc-700 underline" type="submit">
+                  {labels.signOut}
+                </button>
+              </form>
             </div>
           </SectionCard>
         </div>

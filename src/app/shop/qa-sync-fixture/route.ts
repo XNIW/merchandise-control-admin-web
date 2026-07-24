@@ -35,6 +35,7 @@ import {
   type SupabaseServerClient,
 } from "@/lib/supabase/server";
 import { emitPriceHistoryImportSyncEvent } from "@/server/shop-admin/sync-event-writer";
+import { readSafeSyncEvents } from "@/server/sync-events/read-boundary";
 
 export const dynamic = "force-dynamic";
 
@@ -740,19 +741,17 @@ async function observeFinalCheckpointExact(input: FinalSyncRequest) {
     return { checkpoint: null, status: "not_configured" };
   }
 
-  const { data, error } = await supabase
-    .from("sync_events")
-    .select("id")
-    .eq("shop_id", input.shopId)
-    .order("id", { ascending: false })
-    .limit(1);
+  const { data, error } = await readSafeSyncEvents(supabase, {
+    limit: 1,
+    shopId: input.shopId,
+  });
 
   if (error) {
     return { checkpoint: null, status: "db_failure" };
   }
 
   return {
-    checkpoint: data?.[0]?.id ? String(data[0].id) : null,
+    checkpoint: data?.maxId ?? null,
     status: "ready",
   };
 }
@@ -931,6 +930,32 @@ async function observeFinalSync(input: FinalSyncRequest): Promise<
       records,
     },
   };
+}
+
+async function observeFinalSyncAfterMutation(input: FinalSyncRequest) {
+  let lastFailure:
+    | { code: string; ok: false; status: number }
+    | { observation: FinalSyncObservation; ok: true }
+    | null = null;
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, attempt * 50));
+    }
+    const observed = await observeFinalSync(input);
+    lastFailure = observed;
+    if (
+      observed.ok &&
+      observed.observation.entityId === input.entityId &&
+      observed.observation.recordCount === 1 &&
+      observed.observation.eventId !== null &&
+      observed.observation.checkpoint !== null
+    ) {
+      return observed;
+    }
+  }
+
+  return lastFailure;
 }
 
 function existingRecordId(input: FinalSyncRequest, observation: FinalSyncObservation) {
@@ -1137,6 +1162,16 @@ async function mutateFinalProductPrice(
     return { result: context.result, setupPerformed: false };
   }
 
+  if (context.principalKind !== "personal_account") {
+    return {
+      result: shopAdminActionResult("permission_denied", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      }),
+      setupPerformed: false,
+    };
+  }
+
   const base = finalSyncBase(input);
   const appendVersion = operation === "update";
   const existingPriceId = existingRecordId(input, observation);
@@ -1173,10 +1208,11 @@ async function mutateFinalProductPrice(
     }
 
     targetPrice = data;
+    const existingTargetPrice = targetPrice;
 
     if (
-      (productId && productId !== targetPrice.product_id) ||
-      (input.data.type && input.data.type !== targetPrice.type)
+      (productId && productId !== existingTargetPrice.product_id) ||
+      (input.data.type && input.data.type !== existingTargetPrice.type)
     ) {
       return {
         result: shopAdminActionResult("not_found", { ok: false }),
@@ -1184,7 +1220,7 @@ async function mutateFinalProductPrice(
       };
     }
 
-    productId = targetPrice.product_id;
+    productId = existingTargetPrice.product_id;
   }
 
   if (!productId) {
@@ -1310,6 +1346,41 @@ async function runFinalSyncRequest(
   payloadBytes: number,
 ) {
   const startedAt = Date.now();
+  const fixtureAccess = await resolveShopActionContext(
+    input.shopId,
+    "products.write",
+  );
+
+  // This fixture intentionally exercises only the personal-account path. The
+  // staff path must cross an in-transaction lease-bound RPC, while the price
+  // probe below performs a direct RLS-backed write for isolated QA evidence.
+  // Never let a staff session reach that probe after its initial web-session
+  // resolution.
+  if (fixtureAccess.status !== "ready") {
+    return finalJson(
+      {
+        code: fixtureAccess.result.code,
+        marker: FINAL_SYNC_MARKER,
+        ok: false,
+        result: "fixture_access_denied",
+        source: "admin_web_qa_sync_fixture",
+      },
+      finalActionStatus(fixtureAccess.result),
+    );
+  }
+  if (fixtureAccess.principalKind !== "personal_account") {
+    return finalJson(
+      {
+        code: "personal_account_required",
+        marker: FINAL_SYNC_MARKER,
+        ok: false,
+        result: "fixture_staff_path_not_supported",
+        source: "admin_web_qa_sync_fixture",
+      },
+      403,
+    );
+  }
+
   const readOnlyOperation =
     input.operation === "noop" ||
     input.operation === "observe" ||
@@ -1321,21 +1392,38 @@ async function runFinalSyncRequest(
   const beforeResult = needsPreMutationRead
     ? await observeFinalSync(input)
     : ({ ok: true, observation: emptyFinalSyncObservation() } as const);
+  const beforeCheckpointResult = readOnlyOperation
+    ? null
+    : await observeFinalCheckpointExact(input);
   const beforeReadElapsedMs = Date.now() - startedAt;
 
-  if (!beforeResult.ok) {
+  if (
+    !beforeResult.ok ||
+    beforeCheckpointResult?.status === "db_failure" ||
+    beforeCheckpointResult?.status === "not_configured"
+  ) {
+    const failureCode = !beforeResult.ok
+      ? beforeResult.code
+      : `read_${beforeCheckpointResult?.status ?? "db_failure"}`;
+    const failureStatus = !beforeResult.ok
+      ? beforeResult.status
+      : finalReadFailureStatus(beforeCheckpointResult?.status ?? "db_failure");
     return finalJson(
       {
-        code: beforeResult.code,
+        code: failureCode,
         marker: FINAL_SYNC_MARKER,
         ok: false,
         result: "denied",
       },
-      beforeResult.status,
+      failureStatus,
     );
   }
 
-  const before = beforeResult.observation;
+  const before = {
+    ...beforeResult.observation,
+    checkpoint:
+      beforeCheckpointResult?.checkpoint ?? beforeResult.observation.checkpoint,
+  };
   let actionResult = shopAdminActionResult("success", {
     ok: true,
     shopId: input.shopId,
@@ -1407,19 +1495,77 @@ async function runFinalSyncRequest(
   };
   const afterResult = readOnlyOperation
     ? beforeResult
-    : ({
-        ok: true,
-        observation: {
-          ...emptyFinalSyncObservation(),
-          catalogScope: before.catalogScope,
-          entityId: observationInput.entityId ?? null,
-          recordCount: observationInput.entityId ? 1 : 0,
-          records: before.records,
-        },
-      } as const);
-  const after = afterResult.ok ? afterResult.observation : before;
+    : await observeFinalSyncAfterMutation(observationInput);
+  if (!afterResult?.ok) {
+    return finalJson(
+      {
+        code: afterResult?.code ?? "post_mutation_not_observed",
+        correlationId: input.correlationId,
+        entity: input.entity,
+        fixtureId: input.fixtureId,
+        marker: FINAL_SYNC_MARKER,
+        mode: input.mode,
+        ok: false,
+        operation: input.operation,
+        requestId: input.requestId,
+        result: "post_mutation_not_observed",
+        shopId: input.shopId,
+        source: "admin_web_qa_sync_fixture",
+        status: "FAIL",
+      },
+      afterResult?.status ?? 409,
+    );
+  }
+  const after = afterResult.observation;
+  const mutationObservationVerified =
+    readOnlyOperation ||
+    (Boolean(observationInput.entityId) &&
+      after.entityId === observationInput.entityId &&
+      after.recordCount === 1 &&
+      after.eventId !== null &&
+      after.checkpoint !== null &&
+      (input.scenario === "duplicate" ||
+        before.checkpoint === null ||
+        after.checkpoint !== before.checkpoint));
+  if (!mutationObservationVerified) {
+    return finalJson(
+      {
+        checkpointAfter: after.checkpoint,
+        checkpointBefore: before.checkpoint,
+        code: after.eventId ? "checkpoint_not_advanced" : "sync_event_not_observed",
+        correlationId: input.correlationId,
+        entity: input.entity,
+        entityId: observationInput.entityId,
+        eventId: after.eventId,
+        fixtureId: input.fixtureId,
+        marker: FINAL_SYNC_MARKER,
+        mode: input.mode,
+        ok: false,
+        operation: input.operation,
+        requestId: input.requestId,
+        result: "post_mutation_not_verified",
+        shopId: input.shopId,
+        source: "admin_web_qa_sync_fixture",
+        status: "FAIL",
+      },
+      409,
+    );
+  }
+  if (input.operation === "residue" && after.recordCount !== 0) {
+    return finalJson(
+      {
+        code: "residue_present",
+        marker: FINAL_SYNC_MARKER,
+        ok: false,
+        recordCount: after.recordCount,
+        result: "residue_present",
+        status: "FAIL",
+      },
+      409,
+    );
+  }
   const afterReadElapsedMs = Date.now() - startedAt - serverCommitElapsedMs;
-  const eventId = actionResult.auditEventId ?? after.eventId ?? before.eventId;
+  const eventId = after.eventId ?? before.eventId;
   const elapsedMs = Date.now() - startedAt;
   const scenarioReason =
     input.scenario === "burst10"
@@ -1444,6 +1590,7 @@ async function runFinalSyncRequest(
     entity: input.entity,
     entityId: actionResult.targetId ?? after.entityId,
     eventId,
+    auditEventId: actionResult.auditEventId ?? null,
     fixtureId: input.fixtureId,
     fullPull: false,
     marker: FINAL_SYNC_MARKER,
@@ -1475,7 +1622,13 @@ async function runFinalSyncRequest(
     setupPerformed,
     shopId: input.shopId,
     source: "admin_web_qa_sync_fixture",
-    status: result === "N/A_NOT_REQUIRED" ? result : "PASS",
+    // This endpoint proves only its own bounded server observation. It has no
+    // authority to claim Android/iOS delivery, relaunch stability, image
+    // cache parity, or a client-side E2E result.
+    e2eVerified: false,
+    status: result === "N/A_NOT_REQUIRED"
+      ? result
+      : "SERVER_MUTATION_OBSERVED",
     totalElapsedMs: elapsedMs,
   });
 }

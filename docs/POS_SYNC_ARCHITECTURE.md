@@ -135,29 +135,26 @@ Non fare ora:
 - non introdurre altri indici senza piano query reale;
 - non fondere account personale e staff POS.
 
-Nota cross-platform: per mutazioni catalogo/history da Admin Web, il segnale
-mobile passa da `sync_events` scritto server-side nello stesso flusso
-applicativo. CRUD catalogo e history falliscono chiuso a livello response se
-`sync_events` non viene registrato. `TASK-089` estende lo stesso guardrail al
-bulk import prodotti con un `catalog_changed` aggregato per chunk riuscito e al
-workbook PriceHistory con `prices_changed` aggregato su
-`inventory_product_prices` reali. La RPC `shop_catalog_import_price_history`
-ritorna gli `priceIds` realmente inseriti o aggiornati, inclusi i casi di upsert
-su unique business key, e il writer usa `price_ids` e `product_ids` bounded
-invece di ricostruire righe per euristica.
+`TASK-100`: Admin Web personal-account catalog CRUD usa `*_with_sync` RPC wrappers. La catalog row, audit result and `sync_events` write in one PostgreSQL transaction; un errore fa rollback dell'intera mutazione e non pubblica un
+catalogo senza il relativo segnale di sync.
 
-`TASK-100` chiude il gap atomico per Admin Web personal-account catalog CRUD:
-le azioni create/update/archive/restore usano `*_with_sync` RPC wrappers che
-scrivono catalog row, audit result and `sync_events` write in one PostgreSQL transaction.
-Se il target row non viene risolto o il write `sync_events` fallisce con errore
-non duplicato, la funzione solleva errore e la mutazione catalogo viene
-rollbackata. Il path POS catalog import usa gia `pos_catalog_import_apply_v2`,
-che applica prodotti/categorie/fornitori/prezzi, ledger import, audit e
-`sync_events` nella stessa transazione atomica. Rimangono separati e fail-closed
-i workflow workbook/history non coperti dai wrapper catalog CRUD: se la mutazione
-DB riesce e l'evento fallisce, la response torna errore. Non esiste oggi un
-outbox/relay durevole Admin Web per ritentare `sync_events` dopo un errore
-parziale, e non va aggiunto senza un task separato.
+Nota cross-platform: ogni mutazione di catalogo, PriceHistory e History Entry
+pubblica `sync_events` tramite trigger PostgreSQL statement-level nella stessa transazione della riga business: il segnale e la mutazione condividono la stessa transazione. Gli eventi sono raggruppati per owner/shop,
+bounded per dominio e contengono gli ID completi (`supplier_ids`, `category_ids`,
+`product_ids`, `price_ids`, `session_ids`). Un errore di pubblicazione esegue il
+rollback dell'intera transazione: non esiste uno stato "dati applicati, evento
+mancante". Le RPC di bulk import prodotti e `shop_catalog_import_price_history`
+validano inoltre lease e scope prima e dopo il lavoro; il path POS mantiene la
+stessa proprieta atomica. Il writer applicativo storico resta solo come
+compatibility acknowledgement no-op per call site precedenti e non effettua un
+secondo write o retry di `sync_events` dopo il commit.
+
+I tipi evento rimangono semanticamente stabili: `catalog_changed` /
+`catalog_tombstone` per il catalogo, `prices_changed` per le versioni prezzo e
+`history_changed` / `history_tombstone` per la cronologia. I riferimenti
+`product_ids` in un evento `prices_changed` sono relazioni di supporto, non
+incrementano `changed_count`: quel conteggio corrisponde esattamente ai
+`price_ids` distinti.
 
 ## Idempotenza
 

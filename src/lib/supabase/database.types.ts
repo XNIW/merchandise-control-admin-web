@@ -2850,6 +2850,16 @@ export type Database = {
       }
     }
     Functions: {
+      admin_sync_event_read_v1: {
+        Args: {
+          p_domains?: string[] | null
+          p_event_id?: string | null
+          p_limit?: number
+          p_owner_user_id?: string | null
+          p_shop_id?: string | null
+        }
+        Returns: Json
+      }
       product_image_create_intent: {
         Args: {
           p_actor_kind: string
@@ -2930,6 +2940,15 @@ export type Database = {
         }
         Returns: Json
       }
+      product_image_revalidate_access_v1: {
+        Args: {
+          p_actor_kind: string
+          p_actor_profile_id: string
+          p_permission: string
+          p_shop_id: string
+        }
+        Returns: boolean
+      }
       product_image_resolve_read_paths: {
         Args: {
           p_actor_kind: string
@@ -2956,6 +2975,106 @@ export type Database = {
           p_metadata_redacted?: Json
         }
         Returns: Json
+      }
+      staff_web_login_commit_v1: {
+        Args: {
+          p_attempt_key_hash: string
+          p_expected_credential_version: number
+          p_expires_at: string
+          p_metadata_redacted?: Json
+          p_session_token_hash: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      staff_web_catalog_mutate_v1: {
+        Args: {
+          p_expected_credential_version: number
+          p_operation: string
+          p_payload: Json
+          p_session_token_hash: string
+          p_shop_id: string
+          p_staff_id: string
+          p_staff_web_session_id: string
+        }
+        Returns: Json
+      }
+      staff_web_lifecycle_mutate_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_operation: string
+          p_payload: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      staff_web_audit_event_v1: {
+        Args: {
+          p_code: string
+          p_event_key: string
+          p_expected_credential_version: number
+          p_metadata: Json
+          p_required_permission: string
+          p_result: string
+          p_session_token_hash: string
+          p_severity: string
+          p_shop_id: string
+          p_staff_id: string
+          p_staff_web_session_id: string
+          p_target_id: string | null
+          p_target_type: string
+        }
+        Returns: Json
+      }
+      staff_web_history_mutate_v1: {
+        Args: {
+          p_expected_credential_version: number | null
+          p_operation: string
+          p_payload: Json
+          p_session_token_hash: string | null
+          p_shop_id: string
+          p_staff_id: string | null
+          p_staff_web_session_id: string | null
+        }
+        Returns: Json
+      }
+      staff_web_login_failure_v1: {
+        Args: {
+          p_affect_staff?: boolean
+          p_attempt_key_hash: string
+          p_code: string
+          p_expected_credential_version?: number | null
+          p_metadata_redacted: Json
+          p_shop_id?: string | null
+          p_staff_id?: string | null
+        }
+        Returns: Json
+      }
+      staff_web_login_lookup_v1: {
+        Args: {
+          p_attempt_key_hash: string
+          p_shop_code: string
+          p_staff_code: string
+        }
+        Returns: Json
+      }
+      staff_web_session_resolve_v1: {
+        Args: {
+          p_session_token_hash: string
+        }
+        Returns: Json
+      }
+      staff_web_session_revoke_v1: {
+        Args: {
+          p_reason: string
+          p_record_logout?: boolean
+          p_session_token_hash: string
+        }
+        Returns: boolean
       }
       pos_catalog_import_apply_v1: {
         Args: {
@@ -2993,8 +3112,44 @@ export type Database = {
         }
         Returns: Json
       }
+      pos_catalog_pull_page_for_lease_v3: {
+        Args: {
+          p_after_id: string | null
+          p_after_updated_at: string | null
+          p_entity: string | null
+          p_expected_revision: string | null
+          p_expected_scope_key: string | null
+          p_expected_scope_kind: string | null
+          p_include_manifest: boolean
+          p_limit: number
+          p_lower_bound: string | null
+          p_mode: string
+          p_pos_session_id: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_snapshot_at: string | null
+          p_staff_id: string
+        }
+        Returns: Json
+      }
       pos_catalog_revision_v2: {
         Args: {
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      pos_catalog_revision_for_lease_v3: {
+        Args: {
+          p_pos_session_id: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_catalog_import_scope_v1: {
+        Args: {
+          p_shop_device_id: string
           p_shop_id: string
         }
         Returns: Json
@@ -3017,6 +3172,118 @@ export type Database = {
           p_summary?: Json
         }
         Returns: Json
+      }
+      pos_runtime_audit_write_v1: {
+        Args: {
+          p_code: string
+          p_event_key: string
+          p_metadata_redacted?: Json
+          p_result: string
+          p_severity: string
+          p_shop_id?: string | null
+          p_staff_id?: string | null
+          p_target_id?: string | null
+          p_target_type?: string | null
+        }
+        Returns: string
+      }
+      pos_runtime_first_login_commit_v1: {
+        Args: {
+          p_app_version: string
+          p_device_display_name: string
+          p_device_expires_at: string
+          p_device_identifier: string
+          p_device_token_hash: string
+          p_expected_credential_version: number
+          p_metadata_redacted?: Json
+          p_session_expires_at: string
+          p_session_token_hash: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_runtime_first_login_commit_v2: {
+        Args: {
+          p_app_version: string
+          p_device_display_name: string
+          p_device_identifier: string
+          p_device_token_hash: string
+          p_device_ttl_seconds: number
+          p_expected_credential_version: number
+          p_metadata_redacted?: Json
+          p_session_token_hash: string
+          p_session_ttl_seconds: number
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_runtime_first_login_failure_v1: {
+        Args: {
+          p_expected_credential_version: number
+          p_lockout_attempts: number
+          p_lockout_seconds: number
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_runtime_first_login_lookup_v1: {
+        Args: {
+          p_device_identifier: string
+          p_shop_code: string
+          p_staff_code: string
+        }
+        Returns: Json
+      }
+      pos_runtime_heartbeat_touch_v1: {
+        Args: {
+          p_app_version: string
+          p_expires_at: string
+          p_pos_session_id: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_runtime_lease_v1: {
+        Args: {
+          p_pos_session_id: string
+          p_shop_device_id: string
+        }
+        Returns: Json
+      }
+      pos_runtime_lease_publish_success_v1: {
+        Args: {
+          p_pos_session_id: string
+          p_publication_kind: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_runtime_lease_publish_success_v2: {
+        Args: {
+          p_expected_catalog_revision?: string | null
+          p_expected_catalog_scope_key?: string | null
+          p_pos_session_id: string
+          p_publication_kind: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_runtime_mark_session_v1: {
+        Args: {
+          p_pos_session_id: string
+          p_reason: string
+          p_status: string
+        }
+        Returns: boolean
       }
       pos_apply_sale_stock_movement: {
         Args: {
@@ -3265,29 +3532,23 @@ export type Database = {
           p_source_device_id?: string
           p_store_id?: string
         }
-        Returns: {
-          batch_id: string | null
-          changed_count: number
-          client_event_id: string | null
-          created_at: string
-          domain: string
-          entity_ids: Json | null
-          event_type: string
-          expires_at: string | null
-          id: number
-          metadata: Json
-          owner_user_id: string
-          shop_id: string | null
-          source: string | null
-          source_device_id: string | null
-          store_id: string | null
+        Returns: Database["public"]["Tables"]["sync_events"]["Row"]
+      }
+      record_sync_event_v6: {
+        Args: {
+          p_batch_id?: string
+          p_changed_count?: number
+          p_client_event_id?: string
+          p_domain: string
+          p_entity_ids?: Json
+          p_event_type: string
+          p_metadata?: Json
+          p_shop_id?: string
+          p_source?: string
+          p_source_device_id?: string
+          p_store_id?: string
         }
-        SetofOptions: {
-          from: "*"
-          to: "sync_events"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: Json
       }
       shop_admin_audit_event: {
         Args: {
@@ -3582,6 +3843,83 @@ export type Database = {
       }
       shop_staff_suspend: {
         Args: { p_reason?: string; p_shop_id: string; p_staff_id: string }
+        Returns: Json
+      }
+      shop_catalog_admin_read_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_operation: string
+          p_request?: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      shop_pos_recovery_action_v1: {
+        Args: {
+          p_action_type: string
+          p_actor_profile_id: string
+          p_note_redacted?: string | null
+          p_shop_id: string
+          p_target_id: string
+          p_target_type: string
+        }
+        Returns: Json
+      }
+      shop_sync_recovery_checkpoint_v1: {
+        Args: {
+          p_device_identifier: string
+          p_expected_baseline_scope_key?: string | null
+          p_shop_id: string
+          p_verified_baseline_id?: string
+        }
+        Returns: Json
+      }
+      shop_sync_convergence_marker_v1: {
+        Args: {
+          p_device_identifier: string
+          p_expected_baseline_scope_key?: string | null
+          p_shop_id: string
+          p_verified_baseline_id?: string
+        }
+        Returns: Json
+      }
+      shop_sync_recovery_page_v1: {
+        Args: {
+          p_after_id?: string | null
+          p_device_identifier: string
+          p_domain: string
+          p_expected_domain_event_max_id?: string | null
+          p_expected_event_max_id?: string | null
+          p_expected_scope_key?: string | null
+          p_limit?: number
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      shop_sync_event_page_v1: {
+        Args: {
+          p_after_id?: string
+          p_device_identifier: string
+          p_expected_event_max_id?: string | null
+          p_expected_scope_key?: string | null
+          p_limit?: number
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      shop_sync_rows_by_ids_v1: {
+        Args: {
+          p_device_identifier: string
+          p_domain: string
+          p_entity_ids: string[]
+          p_expected_domain_event_max_id?: string | null
+          p_expected_event_max_id?: string | null
+          p_expected_scope_key?: string | null
+          p_shop_id: string
+        }
         Returns: Json
       }
     }

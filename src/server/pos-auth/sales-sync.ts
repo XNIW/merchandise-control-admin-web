@@ -9,7 +9,6 @@ import {
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import {
   buildPosShopPayload,
-  POS_SHOP_SELECT,
   type PosShopPayload,
   type PosShopPayloadRow,
 } from "./shop-payload";
@@ -19,6 +18,7 @@ import {
   type PosSalesSchemaVersion,
 } from "./pos-contract";
 import { verifyPosSecret } from "./tokens";
+import { loadPosRuntimeLease, writePosRuntimeAudit } from "./runtime-boundary";
 
 export const MAX_POS_SALES_SYNC_JSON_BODY_BYTES = 256 * 1024;
 
@@ -36,18 +36,6 @@ type StaffAccountRow = Pick<
   | "shop_id"
   | "staff_id"
   | "status"
->;
-type ShopDeviceRow = Pick<Tables<"shop_devices">, "shop_device_id" | "shop_id" | "status">;
-type PosDeviceCredentialRow = Pick<
-  Tables<"pos_device_credentials">,
-  | "expires_at"
-  | "pos_device_credential_id"
-  | "shop_device_id"
-  | "shop_id"
-  | "staff_credential_version"
-  | "staff_id"
-  | "status"
-  | "token_hash"
 >;
 type PosSessionRow = Pick<
   Tables<"pos_sessions">,
@@ -1081,26 +1069,20 @@ async function writePosSalesAudit(
     targetType?: string;
   },
 ) {
-  const { error } = await supabase.from("audit_logs").insert({
-    actor_profile_id: null,
-    actor_staff_id: input.staffId ?? null,
-    event_key:
+  return writePosRuntimeAudit(supabase, {
+    code: input.code,
+    eventKey:
       input.result === "success"
         ? "pos.sales.sync.success"
         : "pos.sales.sync.failure",
-    metadata_redacted: {
-      code: input.code,
-      ...(input.metadata ?? {}),
-    },
+    metadata: input.metadata,
     result: input.result,
-    scope: input.shopId ? "shop" : "global",
     severity: input.severity,
-    shop_id: input.shopId ?? null,
-    target_id: input.targetId,
-    target_type: input.targetType,
+    shopId: input.shopId,
+    staffId: input.staffId,
+    targetId: input.targetId,
+    targetType: input.targetType,
   });
-
-  return !error;
 }
 
 async function auditedFailure(
@@ -1154,16 +1136,12 @@ async function validatePosSession(
   parsed: ParsedSalesSyncInput,
   meta: PosSalesSyncRequestMeta,
 ): Promise<PosSalesSyncAuthResult> {
-  const sessionResult = await supabase
-    .from("pos_sessions")
-    .select(
-      "pos_session_id,shop_id,shop_device_id,staff_id,pos_device_credential_id,session_token_hash,staff_credential_version,status,issued_at,expires_at",
-    )
-    .eq("pos_session_id", parsed.posSessionId)
-    .eq("shop_device_id", parsed.shopDeviceId)
-    .maybeSingle<PosSessionRow>();
+  const lease = await loadPosRuntimeLease(supabase, {
+    posSessionId: parsed.posSessionId,
+    shopDeviceId: parsed.shopDeviceId,
+  });
 
-  if (sessionResult.error) {
+  if (lease.status === "db_failure") {
     return {
       result: await auditedFailure(supabase, {
         code: "db_failure",
@@ -1173,7 +1151,17 @@ async function validatePosSession(
     };
   }
 
-  const session = sessionResult.data;
+  if (lease.status === "denied") {
+    return {
+      result: await auditedFailure(supabase, {
+        code: "denied",
+        metadata: requestMetadata(meta),
+        status: 401,
+      }),
+    };
+  }
+
+  const { credential, device, session, shop, staff } = lease;
   const sessionValid = Boolean(
     session &&
       session.status === "active" &&
@@ -1181,72 +1169,19 @@ async function validatePosSession(
       verifyPosSecret(parsed.sessionToken, session.session_token_hash),
   );
 
-  if (!session || !sessionValid) {
+  if (!sessionValid) {
     return {
       result: await auditedFailure(supabase, {
         code: "denied",
         metadata: requestMetadata(meta),
-        shopId: session?.shop_id,
-        status: 401,
-        targetId: session?.pos_session_id,
-        targetType: session ? "pos_session" : undefined,
-      }),
-    };
-  }
-
-  const [credentialResult, shopResult, staffResult, deviceResult] =
-    await Promise.all([
-      supabase
-        .from("pos_device_credentials")
-        .select(
-          "pos_device_credential_id,shop_id,shop_device_id,staff_id,token_hash,staff_credential_version,status,expires_at",
-        )
-        .eq("pos_device_credential_id", session.pos_device_credential_id)
-        .maybeSingle<PosDeviceCredentialRow>(),
-      supabase
-        .from("shops")
-        .select(POS_SHOP_SELECT)
-        .eq("shop_id", session.shop_id)
-        .maybeSingle<ShopRow>(),
-      supabase
-        .from("staff_accounts")
-        .select(
-          "staff_id,shop_id,status,credential_version,credential_status,credential_expires_at,locked_until,must_change_credential,session_invalidated_at",
-        )
-        .eq("staff_id", session.staff_id)
-        .eq("shop_id", session.shop_id)
-        .maybeSingle<StaffAccountRow>(),
-      supabase
-        .from("shop_devices")
-        .select("shop_device_id,shop_id,status")
-        .eq("shop_device_id", session.shop_device_id)
-        .eq("shop_id", session.shop_id)
-        .maybeSingle<ShopDeviceRow>(),
-    ]);
-
-  if (
-    credentialResult.error ||
-    shopResult.error ||
-    staffResult.error ||
-    deviceResult.error
-  ) {
-    return {
-      result: await auditedFailure(supabase, {
-        code: "db_failure",
-        metadata: requestMetadata(meta),
         shopId: session.shop_id,
-        staffId: session.staff_id,
-        status: 500,
+        status: 401,
         targetId: session.pos_session_id,
         targetType: "pos_session",
       }),
     };
   }
 
-  const credential = credentialResult.data;
-  const shop = shopResult.data;
-  const staff = staffResult.data;
-  const device = deviceResult.data;
   const credentialMatchesSession = Boolean(
     credential &&
       credential.pos_device_credential_id === session.pos_device_credential_id &&
@@ -1263,26 +1198,25 @@ async function validatePosSession(
   const runtimeValid = Boolean(
     credentialMatchesSession &&
       credentialValid &&
-      shop?.shop_status === "active" &&
+      shop.shop_status === "active" &&
       (!parsed.shopCode || parsed.shopCode === shop.shop_code) &&
       isStaffUsable(staff) &&
-      device?.status === "active" &&
-      staff &&
-      staff.credential_version === credential?.staff_credential_version &&
+      device.status === "active" &&
+      staff.credential_version === credential.staff_credential_version &&
       session.staff_credential_version === staff.credential_version &&
       !isAfterTimestamp(staff.session_invalidated_at, session.issued_at),
   );
 
-  if (!runtimeValid || !shop || !staff) {
+  if (!runtimeValid) {
     return {
       result: await auditedFailure(supabase, {
         code: "denied",
         metadata: {
           ...requestMetadata(meta),
           app_version_present: Boolean(parsed.appVersion),
-          device_resolved: Boolean(device),
-          shop_resolved: Boolean(shop),
-          staff_resolved: Boolean(staff),
+          device_resolved: true,
+          shop_resolved: true,
+          staff_resolved: true,
         },
         shopId: session.shop_id,
         staffId: session.staff_id,
@@ -1322,7 +1256,11 @@ type AtomicSalesRpcResponse = {
   }>;
 };
 
-function atomicSalesRpcResponse(input: unknown): AtomicSalesRpcResponse | null {
+function atomicSalesRpcResponse(
+  input: unknown,
+  expected: ParsedSalesSyncInput,
+  expectedLineCount: number,
+): AtomicSalesRpcResponse | null {
   if (
     !isRecord(input) ||
     input.ok !== true ||
@@ -1334,6 +1272,11 @@ function atomicSalesRpcResponse(input: unknown): AtomicSalesRpcResponse | null {
   }
 
   const batch = input.batch;
+  const acceptedSaleCount = integerField(batch, "acceptedSaleCount");
+  const conflictCount = integerField(batch, "conflictCount");
+  const duplicateSaleCount = integerField(batch, "duplicateSaleCount");
+  const lineCount = integerField(batch, "lineCount");
+  const saleCount = integerField(batch, "saleCount");
   const status =
     batch.status === "accepted" || batch.status === "duplicate"
       ? batch.status
@@ -1343,7 +1286,10 @@ function atomicSalesRpcResponse(input: unknown): AtomicSalesRpcResponse | null {
       if (
         !isRecord(sale) ||
         typeof sale.clientSaleId !== "string" ||
-        (sale.posSaleId !== null && typeof sale.posSaleId !== "string") ||
+        (sale.posSaleId !== null &&
+          (typeof sale.posSaleId !== "string" ||
+            sale.posSaleId !== sale.posSaleId.toLowerCase() ||
+            !UUID_PATTERN.test(sale.posSaleId))) ||
         (sale.status !== "accepted" && sale.status !== "duplicate")
       ) {
         return null;
@@ -1367,27 +1313,48 @@ function atomicSalesRpcResponse(input: unknown): AtomicSalesRpcResponse | null {
 
   if (
     !status ||
-    typeof batch.acceptedSaleCount !== "number" ||
-    typeof batch.clientBatchId !== "string" ||
-    typeof batch.conflictCount !== "number" ||
-    typeof batch.duplicateSaleCount !== "number" ||
-    typeof batch.lineCount !== "number" ||
+    acceptedSaleCount === null ||
+    acceptedSaleCount < 0 ||
+    batch.clientBatchId !== expected.clientBatchId ||
+    conflictCount !== 0 ||
+    duplicateSaleCount === null ||
+    duplicateSaleCount < 0 ||
+    lineCount !== expectedLineCount ||
     typeof batch.posSalesSyncBatchId !== "string" ||
-    typeof batch.saleCount !== "number" ||
+    batch.posSalesSyncBatchId !== batch.posSalesSyncBatchId.toLowerCase() ||
+    !UUID_PATTERN.test(batch.posSalesSyncBatchId) ||
+    saleCount !== expected.sales.length ||
     sales.length !== input.sales.length
+  ) {
+    return null;
+  }
+
+  const expectedSaleIds = new Set(expected.sales.map((sale) => sale.clientSaleId));
+  const returnedSaleIds = sales.map((sale) => sale.clientSaleId);
+  const acceptedCount = sales.filter((sale) => sale.status === "accepted").length;
+  const duplicateCount = sales.length - acceptedCount;
+  if (
+    returnedSaleIds.some((clientSaleId) => !expectedSaleIds.has(clientSaleId)) ||
+    new Set(returnedSaleIds).size !== returnedSaleIds.length ||
+    acceptedCount !== acceptedSaleCount ||
+    duplicateCount !== duplicateSaleCount ||
+    acceptedCount + duplicateCount !== saleCount ||
+    sales.some((sale) => sale.posSaleId === null) ||
+    (status === "duplicate" && acceptedCount !== 0) ||
+    (status === "accepted" && acceptedCount === 0)
   ) {
     return null;
   }
 
   return {
     batch: {
-      acceptedSaleCount: batch.acceptedSaleCount,
+      acceptedSaleCount,
       clientBatchId: batch.clientBatchId,
-      conflictCount: batch.conflictCount,
-      duplicateSaleCount: batch.duplicateSaleCount,
-      lineCount: batch.lineCount,
+      conflictCount,
+      duplicateSaleCount,
+      lineCount,
       posSalesSyncBatchId: batch.posSalesSyncBatchId,
-      saleCount: batch.saleCount,
+      saleCount,
       status,
     },
     code: "success",
@@ -1498,7 +1465,11 @@ export async function handlePosSalesSync(
     });
   }
 
-  const atomicResult = atomicSalesRpcResponse(rpcResult.data);
+  const atomicResult = atomicSalesRpcResponse(
+    rpcResult.data,
+    parsed,
+    lineCount,
+  );
 
   if (!atomicResult) {
     const code = atomicSalesFailureCode(rpcResult.data);

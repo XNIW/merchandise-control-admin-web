@@ -495,7 +495,10 @@ export type CatalogV2CursorState = {
   pageSize: number;
   revision: string;
   scopeKey: string;
-  scopeKind: "legacy_owner_bridge" | "shop_scoped";
+  scopeKind:
+    | "authorized_shop_plus_legacy"
+    | "legacy_owner_bridge"
+    | "shop_scoped";
   snapshotAt: string;
 };
 
@@ -525,7 +528,7 @@ type CatalogCursorV2Payload = {
   a: string;
   e: "c" | "p" | "r" | "s";
   i: string | null;
-  k: "l" | "s";
+  k: "l" | "m" | "s";
   l: string | null;
   m: "d" | "f";
   q: string;
@@ -551,6 +554,34 @@ const wireToLane: Record<CatalogCursorV2Payload["e"], CatalogV2Lane> = {
   r: "prices",
   s: "suppliers",
 };
+
+const scopeKindToWire: Record<
+  CatalogV2CursorState["scopeKind"],
+  CatalogCursorV2Payload["k"]
+> = {
+  authorized_shop_plus_legacy: "m",
+  legacy_owner_bridge: "l",
+  shop_scoped: "s",
+};
+
+const wireToScopeKind: Record<
+  CatalogCursorV2Payload["k"],
+  CatalogV2CursorState["scopeKind"]
+> = {
+  l: "legacy_owner_bridge",
+  m: "authorized_shop_plus_legacy",
+  s: "shop_scoped",
+};
+
+function encodeScopeKind(value: CatalogV2CursorState["scopeKind"]) {
+  const encoded = scopeKindToWire[value];
+
+  if (!encoded) {
+    throw new Error("catalog_v2_cursor_identity_invalid");
+  }
+
+  return encoded;
+}
 
 // PostgreSQL's uuid type accepts every canonical 128-bit value; catalog row
 // keys must therefore not be restricted to RFC versions 1-5 or one variant.
@@ -816,7 +847,7 @@ function catalogV2PayloadFor(
     ]),
     e: laneToWire[state.lane],
     i: state.afterId === null ? null : encodeCompactUuid(state.afterId),
-    k: state.scopeKind === "shop_scoped" ? "s" : "l",
+    k: encodeScopeKind(state.scopeKind),
     l:
       state.lowerBound === null
         ? null
@@ -939,7 +970,7 @@ export function decodeCatalogV2Cursor(
       (payload.i !== null && !afterId) ||
       !scopeKey ||
       !revision ||
-      (payload.k !== "s" && payload.k !== "l") ||
+      (payload.k !== "s" && payload.k !== "l" && payload.k !== "m") ||
       (payload.m !== "f" && payload.m !== "d") ||
       pageSize === null ||
       pageSize < 1 ||
@@ -983,7 +1014,7 @@ export function decodeCatalogV2Cursor(
         pageSize,
         revision,
         scopeKey,
-        scopeKind: payload.k === "s" ? "shop_scoped" : "legacy_owner_bridge",
+        scopeKind: wireToScopeKind[payload.k],
         snapshotAt,
       },
     };

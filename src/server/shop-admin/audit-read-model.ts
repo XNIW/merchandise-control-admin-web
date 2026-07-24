@@ -192,7 +192,10 @@ async function resolveAuditAccess(
     }
   | ShopAuditReadModel
 > {
-  const access = await resolveShopAdminDataAccess(options);
+  const access = await resolveShopAdminDataAccess({
+    ...options,
+    requiredPermission: "audit.read",
+  });
 
   if (access.status !== "ready") {
     return {
@@ -205,6 +208,18 @@ async function resolveAuditAccess(
       readOnly: true,
       source: "supabase_server",
       reason: access.reason,
+    };
+  }
+
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      ...emptyRows,
+      filters: {},
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Audit reads require a lease-bound staff read operation that is not available for this surface.",
     };
   }
 

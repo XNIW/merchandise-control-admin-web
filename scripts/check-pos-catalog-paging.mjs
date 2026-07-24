@@ -11,8 +11,11 @@ function read(relativePath) {
 const catalogPull = read("src/server/pos-auth/catalog-pull.ts");
 const catalogContract = read("src/server/pos-auth/catalog-sync-contract.ts");
 const catalogRevision = read("src/server/pos-auth/catalog-revision.ts");
-const migration = read(
+const catalogV2Migration = read(
   "supabase/migrations/20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql",
+);
+const leaseMigration = read(
+  "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql",
 );
 
 assert.match(catalogPull, /loadCatalogPageV2/);
@@ -22,7 +25,12 @@ assert.match(catalogPull, /cursorFingerprint/);
 assert.doesNotMatch(catalogPull, /\.range\s*\(/);
 assert.doesNotMatch(catalogPull, /sync_cursor:\s*syncCursor/);
 
-assert.match(catalogRevision, /rpc\("pos_catalog_pull_page_v2"/);
+assert.match(catalogRevision, /rpc\("pos_catalog_revision_for_lease_v3"/);
+assert.match(catalogRevision, /rpc\("pos_catalog_pull_page_for_lease_v3"/);
+assert.match(catalogRevision, /p_pos_session_id:/);
+assert.match(catalogRevision, /p_shop_device_id:/);
+assert.match(catalogRevision, /p_staff_id:/);
+assert.doesNotMatch(catalogRevision, /rpc\("pos_catalog_(?:revision|pull_page)_v2"/);
 assert.match(catalogRevision, /snapshotAt,/);
 assert.doesNotMatch(
   catalogRevision,
@@ -38,26 +46,50 @@ assert.match(
   /"categories",\s*"suppliers",\s*"products",\s*"prices"/,
 );
 
-assert.match(migration, /returns jsonb/);
-assert.match(migration, /language plpgsql\s+stable/);
-assert.match(migration, /limit p_limit \+ 1/);
-assert.match(migration, /jsonb_array_length\(candidates\) > p_limit/);
+assert.match(catalogV2Migration, /returns jsonb/);
+assert.match(catalogV2Migration, /language plpgsql\s+stable/);
+assert.match(catalogV2Migration, /limit p_limit \+ 1/);
+assert.match(catalogV2Migration, /jsonb_array_length\(candidates\) > p_limit/);
 assert.match(
-  migration,
+  catalogV2Migration,
   /grant execute on function public\.pos_catalog_pull_page_v2[\s\S]*to service_role/,
 );
-assert.match(migration, /from public, anon, authenticated/);
+assert.match(catalogV2Migration, /from public, anon, authenticated/);
 assert.match(
-  migration,
+  catalogV2Migration,
   /referencing old table as old_rows new table as new_rows/,
 );
 assert.match(
-  migration,
+  catalogV2Migration,
   /created_at::timestamp without time zone at time zone 'UTC'/,
 );
 assert.doesNotMatch(
-  migration,
+  catalogV2Migration,
   /pos_catalog_revisions[\s\S]{0,200}references public\.shops/,
+);
+assert.match(
+  leaseMigration,
+  /create or replace function public\.pos_catalog_revision_for_lease_v3[\s\S]*app_private\.pos_runtime_lease_is_valid_v1[\s\S]*return public\.pos_catalog_revision_v2/,
+);
+assert.match(
+  leaseMigration,
+  /create function public\.pos_catalog_pull_page_for_lease_v3[\s\S]*app_private\.pos_runtime_lease_is_valid_v1[\s\S]*return public\.pos_catalog_pull_page_v2/,
+);
+assert.match(
+  leaseMigration,
+  /revoke all on function public\.pos_catalog_revision_v2\(uuid\)\s+from service_role/,
+);
+assert.match(
+  leaseMigration,
+  /revoke all on function public\.pos_catalog_pull_page_v2\([\s\S]*\) from service_role/,
+);
+assert.match(
+  leaseMigration,
+  /grant execute on function public\.pos_catalog_revision_for_lease_v3[\s\S]*to service_role/,
+);
+assert.match(
+  leaseMigration,
+  /grant execute on function public\.pos_catalog_pull_page_for_lease_v3[\s\S]*to service_role/,
 );
 
 console.log(

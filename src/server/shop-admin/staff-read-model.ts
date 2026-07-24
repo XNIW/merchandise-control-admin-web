@@ -1,6 +1,5 @@
 import "server-only";
 
-import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import { resolveShopAdminDataAccess } from "./data-access";
@@ -61,7 +60,7 @@ export type ShopStaffPageBundle = {
   readModel: ShopStaffReadModel;
 };
 
-type StaffReadClient = SupabaseAdminClient | SupabaseServerClient;
+type StaffReadClient = SupabaseServerClient;
 type ResolvedShopStaffAccess = Awaited<
   ReturnType<typeof resolveShopAdminDataAccess>
 >;
@@ -198,6 +197,17 @@ async function staffReadModelFromAccess(
     return blockedStaffReadModel(access);
   }
 
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      ...emptyRows,
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Staff account reads require a lease-bound staff read operation that is not available for this surface.",
+    };
+  }
+
   const { selectedShop, supabase } = access;
   const staffResult = await loadStaffAccounts(supabase, selectedShop);
 
@@ -257,7 +267,10 @@ function canManageRolePermissionsFromAccess(access: ResolvedShopStaffAccess) {
 export async function getShopStaffReadModel(
   options: GetShopStaffReadModelOptions = {},
 ): Promise<ShopStaffReadModel> {
-  const access = await resolveShopAdminDataAccess(options);
+  const access = await resolveShopAdminDataAccess({
+    ...options,
+    requiredPermission: "staff.view",
+  });
 
   return staffReadModelFromAccess(access);
 }
@@ -266,6 +279,7 @@ export async function resolveStaffPageBundle(
   requestedShopId?: string | null,
 ): Promise<ShopStaffPageBundle> {
   const access = await resolveShopAdminDataAccess({
+    requiredPermission: "staff.view",
     requestedShopId,
     strictRequestedShop: true,
   });

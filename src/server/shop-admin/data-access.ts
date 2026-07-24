@@ -2,11 +2,6 @@ import "server-only";
 
 import { cache } from "react";
 import {
-  createSupabaseAdminClient,
-  resolveSupabaseAdminConfig,
-  type SupabaseAdminClient,
-} from "@/lib/supabase/admin";
-import {
   createSupabaseServerClient,
   resolveSupabaseServerConfig,
   type SupabaseServerClient,
@@ -28,7 +23,7 @@ import {
 import type { ShopAdminShellShop } from "./shop-access";
 import { canStaffWebPerformShopAdminAction } from "./staff-web-permissions";
 
-export type ShopAdminDataClient = SupabaseAdminClient | SupabaseServerClient;
+export type ShopAdminDataClient = SupabaseServerClient;
 
 export type ShopAdminDataAccess =
   | {
@@ -43,7 +38,6 @@ export type ShopAdminDataAccess =
       principal: ShopAdminPosStaffManagerPrincipal;
       selectedShop: ShopAdminShellShop;
       status: "ready";
-      supabase: SupabaseAdminClient;
     }
   | {
       reason: string;
@@ -69,14 +63,6 @@ type BlockedShopAdminDataAccess = Extract<
   ShopAdminDataAccess,
   { status: Exclude<ShopAdminDataAccess["status"], "ready"> }
 >;
-
-type StaffShellShopRow = {
-  company_rut?: string | null;
-  shop_code: string;
-  shop_id: string;
-  shop_name: string;
-  shop_status: string;
-};
 
 function statusForAccessState(
   status: string,
@@ -116,53 +102,6 @@ function staffShellShop(input: {
   };
 }
 
-async function loadStaffShellShop(
-  adminClient: SupabaseAdminClient,
-  input: {
-    shopCode: string;
-    shopId: string;
-  },
-): Promise<ShopAdminShellShop> {
-  const fiscalResult = await adminClient
-    .from("shops")
-    .select("shop_id,shop_code,shop_name,shop_status,company_rut")
-    .eq("shop_id", input.shopId)
-    .maybeSingle();
-
-  if (!fiscalResult.error && fiscalResult.data) {
-    const shop = fiscalResult.data as StaffShellShopRow;
-
-    return {
-      companyRut: shop.company_rut ?? undefined,
-      role: "shop_manager",
-      shopCode: shop.shop_code,
-      shopId: shop.shop_id,
-      shopName: shop.shop_name,
-      shopStatus: shop.shop_status,
-    };
-  }
-
-  const baseResult = await adminClient
-    .from("shops")
-    .select("shop_id,shop_code,shop_name,shop_status")
-    .eq("shop_id", input.shopId)
-    .maybeSingle();
-
-  if (!baseResult.error && baseResult.data) {
-    const shop = baseResult.data as StaffShellShopRow;
-
-    return {
-      role: "shop_manager",
-      shopCode: shop.shop_code,
-      shopId: shop.shop_id,
-      shopName: shop.shop_name,
-      shopStatus: shop.shop_status,
-    };
-  }
-
-  return staffShellShop(input);
-}
-
 function toPersonalAccountBlockedAccess(
   personalResolution: Exclude<ShopAdminPrincipalResolution, { status: "ready" }>,
 ): BlockedShopAdminDataAccess {
@@ -195,26 +134,13 @@ async function resolveShopAdminDataAccessUncached(
       };
     }
 
-    const adminConfig = resolveSupabaseAdminConfig();
-
-    if (adminConfig.status !== "configured") {
-      return {
-        reason:
-          "Supabase admin runtime is required for staff web Admin Console data access.",
-        status: "not_configured",
-      };
-    }
-
-    const adminClient = createSupabaseAdminClient(adminConfig);
-
-    if (!adminClient) {
-      return {
-        reason: "Supabase admin client is unavailable for staff web data access.",
-        status: "not_configured",
-      };
-    }
-
-    const selectedShop = await loadStaffShellShop(adminClient, staffShop);
+    const selectedShop = staffShellShop({
+      companyRut: staffShop.companyRut,
+      shopCode: staffShop.shopCode,
+      shopId: staffShop.shopId,
+      shopName: staffShop.shopName,
+      shopStatus: staffShop.shopStatus,
+    });
 
     if (selectedShop.shopStatus !== "active") {
       return {
@@ -228,7 +154,6 @@ async function resolveShopAdminDataAccessUncached(
       principal: staffResolution.principal,
       selectedShop,
       status: "ready",
-      supabase: adminClient,
     };
   }
 
@@ -362,4 +287,53 @@ export async function resolveShopAdminDataAccess(
         reason: `Required shop permission is missing: ${options.requiredPermission}.`,
         status: "unauthorized",
       };
+}
+
+export async function revalidateShopAdminDataAccessForPublish(
+  access: Extract<ShopAdminDataAccess, { status: "ready" }>,
+  requiredPermission: ShopAdminPermission,
+) {
+  if (access.principalKind === "personal_account") {
+    const refreshed = await resolveCurrentShopAdminPrincipal(access.supabase);
+    if (
+      refreshed.status !== "ready" ||
+      refreshed.principal.kind !== "personal_account" ||
+      refreshed.principal.userId !== access.principal.userId
+    ) {
+      return false;
+    }
+    const refreshedShop = refreshed.principal.availableShops.find(
+      (shop) => shop.shopId === access.selectedShop.shopId,
+    );
+    return Boolean(
+      refreshedShop &&
+        refreshedShop.shopStatus === "active" &&
+        refreshedShop.role === access.selectedShop.role &&
+        canShopAdmin(refreshedShop.role, requiredPermission),
+    );
+  }
+
+  const refreshed = await resolveStaffWebSessionPrincipal();
+  if (
+    refreshed.status !== "ready" ||
+    refreshed.principal.kind !== "pos_staff_manager"
+  ) {
+    return false;
+  }
+  const previousSession = access.principal.staffWebSession;
+  const refreshedSession = refreshed.principal.staffWebSession;
+  return Boolean(
+    previousSession &&
+      refreshedSession &&
+      refreshed.principal.shop.shopId === access.selectedShop.shopId &&
+      refreshed.principal.shop.shopStatus === "active" &&
+      refreshed.principal.staff.staffId === access.principal.staff.staffId &&
+      refreshedSession.sessionId === previousSession.sessionId &&
+      refreshedSession.sessionTokenHash === previousSession.sessionTokenHash &&
+      refreshedSession.credentialVersion === previousSession.credentialVersion &&
+      canStaffWebPerformShopAdminAction(
+        refreshed.principal.permissions,
+        requiredPermission,
+      ),
+  );
 }

@@ -1,3 +1,5 @@
+import { preflightInputImageDimensions } from "./input-dimensions.ts";
+
 const MAIN_MAX_SIDE = 1600;
 const MAIN_TARGET_BYTES = 750 * 1024;
 const MAIN_MAX_BYTES = 1024 * 1024;
@@ -39,23 +41,9 @@ async function assertInput(file: File) {
   if (file.type !== "image/jpeg" && file.type !== "image/png") {
     fail("image_input_format_unsupported");
   }
-  const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-  const jpeg =
-    header.length >= 3 &&
-    header[0] === 0xff &&
-    header[1] === 0xd8 &&
-    header[2] === 0xff;
-  const png =
-    header.length >= 8 &&
-    header[0] === 0x89 &&
-    header[1] === 0x50 &&
-    header[2] === 0x4e &&
-    header[3] === 0x47 &&
-    header[4] === 0x0d &&
-    header[5] === 0x0a &&
-    header[6] === 0x1a &&
-    header[7] === 0x0a;
-  if (!jpeg && !png) fail("image_input_format_unsupported");
+  if (!(await preflightInputImageDimensions(file, MAX_INPUT_PIXELS))) {
+    fail("image_dimensions_invalid");
+  }
 }
 
 function outputDimensions(width: number, height: number, maximumSide: number) {

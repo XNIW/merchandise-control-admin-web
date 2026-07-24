@@ -144,6 +144,53 @@ export function requestOriginFromRequest(request: {
   }
 }
 
+/**
+ * Reject every ambiguous request before a cookie-backed logout mutation.
+ *
+ * Browser form posts provide both `Origin` and Fetch Metadata. Requiring the
+ * complete origin (scheme and port included) prevents a cross-site navigation
+ * from turning a logout endpoint into a state-changing GET replacement.
+ */
+export function isSameOriginPostRequest(request: {
+  headers: { get(name: string): string | null };
+  method: string;
+  url: string;
+}) {
+  if (request.method.toUpperCase() !== "POST") {
+    return false;
+  }
+
+  const fetchSite = firstHeaderValue(
+    request.headers.get("sec-fetch-site"),
+  ).toLowerCase();
+  const rawOrigin = firstHeaderValue(request.headers.get("origin"));
+  const origin = safeHttpOrigin(rawOrigin);
+  const effectiveHost = firstHeaderValue(
+    request.headers.get("x-forwarded-host") ?? request.headers.get("host"),
+  ).toLowerCase();
+
+  if (
+    fetchSite !== "same-origin" ||
+    !origin ||
+    rawOrigin !== origin ||
+    !effectiveHost
+  ) {
+    return false;
+  }
+
+  try {
+    const parsedOrigin = new URL(origin);
+    const requestOrigin = requestOriginFromRequest(request);
+
+    return (
+      parsedOrigin.host === effectiveHost &&
+      parsedOrigin.origin === requestOrigin
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function buildOAuthCallbackUrl(origin: string, nextPath: string) {
   const callbackUrl = new URL("/auth/callback", origin);
   callbackUrl.searchParams.set("next", safeInternalNextPath(nextPath));

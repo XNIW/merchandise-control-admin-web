@@ -7,7 +7,10 @@ import {
 } from "@/lib/supabase/admin";
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Database, Json, Tables } from "@/lib/supabase/database.types";
-import { resolveShopAdminDataAccess } from "./data-access";
+import {
+  resolveShopAdminDataAccess,
+  revalidateShopAdminDataAccessForPublish,
+} from "./data-access";
 import type { ShopAdminShellShop } from "./shop-access";
 import type {
   ShopAdminReadModelError,
@@ -350,11 +353,18 @@ async function resolvePosLiveAccess(
   options: GetShopPosLiveReadModelOptions,
 ): Promise<
   | {
+      access: Extract<
+        Awaited<ReturnType<typeof resolveShopAdminDataAccess>>,
+        { principalKind: "personal_account"; status: "ready" }
+      >;
       selectedShop: ShopAdminShellShop;
     }
   | ShopPosLiveReadModel
 > {
-  const access = await resolveShopAdminDataAccess(options);
+  const access = await resolveShopAdminDataAccess({
+    ...options,
+    requiredPermission: "pos.dashboard.read",
+  });
 
   if (access.status !== "ready") {
     return {
@@ -369,7 +379,19 @@ async function resolvePosLiveAccess(
     };
   }
 
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      ...emptyRows,
+      readOnly: true,
+      source: "supabase_admin_server",
+      reason:
+        "POS live reads require a lease-bound staff read operation that is not available for this surface.",
+    };
+  }
+
   return {
+    access,
     selectedShop: access.selectedShop,
   };
 }
@@ -496,6 +518,23 @@ export async function getShopPosLiveReadModel(
     sessionRows: sessionsResult.data ?? [],
     staffRows: staffResult.data ?? [],
   });
+
+  if (
+    !(await revalidateShopAdminDataAccessForPublish(
+      access.access,
+      "pos.dashboard.read",
+    ))
+  ) {
+    return {
+      status: "unauthorized",
+      selectedShop,
+      devices: [],
+      summary: emptySummary,
+      readOnly: true,
+      source: "supabase_admin_server",
+      reason: "Shop access changed before POS live data publication.",
+    };
+  }
 
   return {
     status: "ready",

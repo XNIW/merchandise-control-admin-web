@@ -10,10 +10,8 @@ import type { Json, Tables } from "@/lib/supabase/database.types";
 import {
   buildPosPolicyPayload,
   buildPosShopPayload,
-  POS_SHOP_SELECT,
   type PosPolicyPayload,
   type PosShopPayload,
-  type PosShopPayloadRow,
 } from "./shop-payload";
 import { POS_CATALOG_SCHEMA_VERSION } from "./pos-contract";
 import {
@@ -25,7 +23,6 @@ import {
   splitCatalogTombstones,
   type CatalogSyncRequest,
   type CatalogV2CursorContext,
-  type CatalogV2Lane,
   type CatalogV2Manifest,
 } from "./catalog-sync-contract";
 import {
@@ -34,8 +31,12 @@ import {
   type CatalogPageV2,
 } from "./catalog-revision";
 import { verifyPosSecret } from "./tokens";
+import {
+  loadPosRuntimeLease,
+  publishPosRuntimeLeaseSuccess,
+  writePosRuntimeAudit,
+} from "./runtime-boundary";
 
-type ShopRow = PosShopPayloadRow;
 type StaffAccountRow = Pick<
   Tables<"staff_accounts">,
   | "credential_status"
@@ -44,34 +45,6 @@ type StaffAccountRow = Pick<
   | "must_change_credential"
   | "session_invalidated_at"
   | "shop_id"
-  | "staff_id"
-  | "status"
->;
-type ShopDeviceRow = Pick<
-  Tables<"shop_devices">,
-  "shop_device_id" | "shop_id" | "status"
->;
-type PosDeviceCredentialRow = Pick<
-  Tables<"pos_device_credentials">,
-  | "expires_at"
-  | "pos_device_credential_id"
-  | "shop_device_id"
-  | "shop_id"
-  | "staff_credential_version"
-  | "staff_id"
-  | "status"
-  | "token_hash"
->;
-type PosSessionRow = Pick<
-  Tables<"pos_sessions">,
-  | "expires_at"
-  | "issued_at"
-  | "pos_device_credential_id"
-  | "pos_session_id"
-  | "session_token_hash"
-  | "shop_device_id"
-  | "shop_id"
-  | "staff_credential_version"
   | "staff_id"
   | "status"
 >;
@@ -113,6 +86,7 @@ type PriceRow = Pick<
 type JsonRecord = { [key: string]: Json | undefined };
 
 type PosCatalogFailureCode =
+  | "catalog_integrity_blocked"
   | "catalog_cursor_expired"
   | "catalog_cursor_rejected"
   | "db_failure"
@@ -261,7 +235,9 @@ function failure(
   status: 400 | 401 | 409 | 500 | 503,
 ): PosCatalogEndpointResult {
   const message =
-    code === "not_configured"
+    code === "catalog_integrity_blocked"
+      ? "Catalog integrity requires recovery before POS sync can continue."
+      : code === "not_configured"
       ? "POS catalog backend is not configured."
       : code === "validation_failed"
         ? "Request payload is invalid."
@@ -363,25 +339,19 @@ async function writePosCatalogAudit(
     targetType?: string;
   },
 ) {
-  const { error } = await supabase.from("audit_logs").insert({
-    actor_profile_id: null,
-    event_key:
+  return writePosRuntimeAudit(supabase, {
+    code: input.code,
+    eventKey:
       input.result === "success"
         ? "pos.catalog.pull.success"
         : "pos.catalog.pull.failure",
-    metadata_redacted: {
-      code: input.code,
-      ...(input.metadata ?? {}),
-    },
+    metadata: input.metadata,
     result: input.result,
-    scope: input.shopId ? "shop" : "global",
     severity: input.severity,
-    shop_id: input.shopId ?? null,
-    target_id: input.targetId,
-    target_type: input.targetType,
+    shopId: input.shopId,
+    targetId: input.targetId,
+    targetType: input.targetType,
   });
-
-  return !error;
 }
 
 async function auditedFailure(
@@ -608,21 +578,6 @@ function mapCatalogPage(page: CatalogPageV2): CatalogPayload | null {
   return catalog;
 }
 
-function rowCountFor(catalog: CatalogPayload, lane: CatalogV2Lane | "done") {
-  switch (lane) {
-    case "categories":
-      return catalog.categories.length + catalog.tombstones.categories.length;
-    case "suppliers":
-      return catalog.suppliers.length + catalog.tombstones.suppliers.length;
-    case "products":
-      return catalog.products.length + catalog.tombstones.products.length;
-    case "prices":
-      return catalog.prices.length;
-    default:
-      return 0;
-  }
-}
-
 function lastKey(page: CatalogPageV2) {
   const last = page.rows[page.rows.length - 1];
 
@@ -653,16 +608,12 @@ export async function handlePosCatalogPull(
     });
   }
 
-  const sessionResult = await supabase
-    .from("pos_sessions")
-    .select(
-      "pos_session_id,shop_id,shop_device_id,staff_id,pos_device_credential_id,session_token_hash,staff_credential_version,status,issued_at,expires_at",
-    )
-    .eq("pos_session_id", parsed.posSessionId)
-    .eq("shop_device_id", parsed.shopDeviceId)
-    .maybeSingle<PosSessionRow>();
+  const lease = await loadPosRuntimeLease(supabase, {
+    posSessionId: parsed.posSessionId,
+    shopDeviceId: parsed.shopDeviceId,
+  });
 
-  if (sessionResult.error) {
+  if (lease.status === "db_failure") {
     return auditedFailure(supabase, {
       code: "db_failure",
       metadata: requestMetadata(meta),
@@ -670,7 +621,15 @@ export async function handlePosCatalogPull(
     });
   }
 
-  const session = sessionResult.data;
+  if (lease.status === "denied") {
+    return auditedFailure(supabase, {
+      code: "denied",
+      metadata: requestMetadata(meta),
+      status: 401,
+    });
+  }
+
+  const { credential, device, session, shop, staff } = lease;
   const sessionValid = Boolean(
     session &&
       session.status === "active" &&
@@ -678,67 +637,17 @@ export async function handlePosCatalogPull(
       verifyPosSecret(parsed.sessionToken, session.session_token_hash),
   );
 
-  if (!session || !sessionValid) {
+  if (!sessionValid) {
     return auditedFailure(supabase, {
       code: "denied",
       metadata: requestMetadata(meta),
-      shopId: session?.shop_id,
-      status: 401,
-      targetId: session?.pos_session_id,
-      targetType: session ? "pos_session" : undefined,
-    });
-  }
-
-  const [credentialResult, shopResult, staffResult, deviceResult] =
-    await Promise.all([
-      supabase
-        .from("pos_device_credentials")
-        .select(
-          "pos_device_credential_id,shop_id,shop_device_id,staff_id,token_hash,staff_credential_version,status,expires_at",
-        )
-        .eq("pos_device_credential_id", session.pos_device_credential_id)
-        .maybeSingle<PosDeviceCredentialRow>(),
-      supabase
-        .from("shops")
-        .select(POS_SHOP_SELECT)
-        .eq("shop_id", session.shop_id)
-        .maybeSingle<ShopRow>(),
-      supabase
-        .from("staff_accounts")
-        .select(
-          "staff_id,shop_id,status,credential_version,credential_status,locked_until,must_change_credential,session_invalidated_at",
-        )
-        .eq("staff_id", session.staff_id)
-        .eq("shop_id", session.shop_id)
-        .maybeSingle<StaffAccountRow>(),
-      supabase
-        .from("shop_devices")
-        .select("shop_device_id,shop_id,status")
-        .eq("shop_device_id", session.shop_device_id)
-        .eq("shop_id", session.shop_id)
-        .maybeSingle<ShopDeviceRow>(),
-    ]);
-
-  if (
-    credentialResult.error ||
-    shopResult.error ||
-    staffResult.error ||
-    deviceResult.error
-  ) {
-    return auditedFailure(supabase, {
-      code: "db_failure",
-      metadata: requestMetadata(meta),
       shopId: session.shop_id,
-      status: 500,
+      status: 401,
       targetId: session.pos_session_id,
       targetType: "pos_session",
     });
   }
 
-  const credential = credentialResult.data;
-  const shop = shopResult.data;
-  const staff = staffResult.data;
-  const device = deviceResult.data;
   const credentialMatchesSession = Boolean(
     credential &&
       credential.pos_device_credential_id === session.pos_device_credential_id &&
@@ -755,24 +664,23 @@ export async function handlePosCatalogPull(
   const runtimeValid = Boolean(
     credentialMatchesSession &&
       credentialValid &&
-      shop?.shop_status === "active" &&
+      shop.shop_status === "active" &&
       isStaffUsable(staff) &&
-      device?.status === "active" &&
-      staff &&
-      staff.credential_version === credential?.staff_credential_version &&
+      device.status === "active" &&
+      staff.credential_version === credential.staff_credential_version &&
       session.staff_credential_version === staff.credential_version &&
       !isAfterTimestamp(staff.session_invalidated_at, session.issued_at),
   );
 
-  if (!runtimeValid || !shop) {
+  if (!runtimeValid) {
     return auditedFailure(supabase, {
       code: "denied",
       metadata: {
         ...requestMetadata(meta),
         app_version_present: Boolean(parsed.appVersion),
-        device_resolved: Boolean(device),
-        shop_resolved: Boolean(shop),
-        staff_resolved: Boolean(staff),
+        device_resolved: true,
+        shop_resolved: true,
+        staff_resolved: true,
       },
       shopId: session.shop_id,
       status: 401,
@@ -824,14 +732,21 @@ export async function handlePosCatalogPull(
     limit: sync.limit,
     lowerBound: sync.lowerBound,
     mode: sync.mode,
+    posSessionId: session.pos_session_id,
+    shopDeviceId: session.shop_device_id,
     shopId: session.shop_id,
     snapshotAt: sync.snapshotAt,
+    staffId: session.staff_id,
   });
 
   if (page.status !== "ok") {
     const code: PosCatalogFailureCode =
-      page.status === "unmapped"
+      page.status === "denied"
+        ? "denied"
+        : page.status === "unmapped"
         ? "unmapped"
+        : page.status === "integrity_blocked"
+          ? "catalog_integrity_blocked"
         : page.status === "snapshot_changed"
           ? "catalog_cursor_rejected"
           : "db_failure";
@@ -847,7 +762,14 @@ export async function handlePosCatalogPull(
             : page.status,
       },
       shopId: session.shop_id,
-      status: code === "unmapped" || code === "catalog_cursor_rejected" ? 409 : 500,
+      status:
+        code === "denied"
+          ? 401
+          : code === "unmapped" ||
+        code === "catalog_integrity_blocked" ||
+        code === "catalog_cursor_rejected"
+          ? 409
+          : 500,
       targetId: session.shop_device_id,
       targetType: "device",
     });
@@ -859,7 +781,7 @@ export async function handlePosCatalogPull(
   if (
     !manifest ||
     !catalog ||
-    (page.entityHasMore && page.rows.length !== sync.limit) ||
+    (page.entityHasMore && page.rows.length !== page.pageLimit) ||
     (continuation &&
       (!catalogV2TimestampsEqual(page.snapshotAt, continuation.snapshotAt) ||
         page.entity !== continuation.lane ||
@@ -951,59 +873,48 @@ export async function handlePosCatalogPull(
     }
   }
 
-  const auditOk = await writePosCatalogAudit(supabase, {
-    code: "success",
-    metadata: {
-      ...requestMetadata(meta),
-      app_version_present: Boolean(parsed.appVersion),
-      catalog_revision: catalogRevision,
-      catalog_scope: page.scopeKind,
-      categories: catalog.categories.length,
-      category_tombstones: catalog.tombstones.categories.length,
-      cursor_fingerprint: cursorFingerprint(syncCursor),
-      cursor_source: sync.cursorSource,
-      entity: page.entity,
-      has_more: hasMore,
-      page_rows: rowCountFor(catalog, page.entity),
-      prices: catalog.prices.length,
-      products: catalog.products.length,
-      product_tombstones: catalog.tombstones.products.length,
-      snapshot_at: page.snapshotAt,
-      supplier_tombstones: catalog.tombstones.suppliers.length,
-      suppliers: catalog.suppliers.length,
-      sync_mode: sync.mode,
-      updated_since: sync.lowerBound,
-    },
-    result: "success",
-    severity: "info",
-    shopId: session.shop_id,
-    targetId: session.shop_device_id,
-    targetType: "device",
-  });
+  const successBody = {
+    catalog,
+    catalogRevision,
+    catalogSummary: manifest.catalogSummary,
+    catalogVersion: catalogRevision,
+    code: "success" as const,
+    generatedAt: requestTime,
+    hasMore,
+    ok: true as const,
+    policy: buildPosPolicyPayload(),
+    schemaVersion: POS_CATALOG_SCHEMA_VERSION,
+    serverTime: page.snapshotAt,
+    shop: buildPosShopPayload(shop),
+    snapshotAt: page.snapshotAt,
+    syncCursor,
+    syncMode: sync.mode,
+    updatedSince: sync.lowerBound,
+  };
 
-  if (!auditOk) {
+  // Build the complete body first, then make this the last await before
+  // release.  The RPC rechecks the locked POS lease and writes the only
+  // success audit atomically; a stale page/cursor is never exposed.
+  const publication = await publishPosRuntimeLeaseSuccess(supabase, {
+    catalogPublication: {
+      expectedRevision: page.revision,
+      expectedScopeKey: page.scopeKey,
+    },
+    posSessionId: session.pos_session_id,
+    publicationKind: "catalog_pull",
+    shopDeviceId: session.shop_device_id,
+    shopId: session.shop_id,
+    staffId: session.staff_id,
+  });
+  if (publication.status === "denied") {
+    return failure("denied", 401);
+  }
+  if (publication.status === "stale_catalog") {
+    return failure("catalog_cursor_rejected", 409);
+  }
+  if (publication.status !== "ok") {
     return failure("db_failure", 500);
   }
 
-  return {
-    body: {
-      catalog,
-      catalogRevision,
-      catalogSummary: manifest.catalogSummary,
-      catalogVersion: catalogRevision,
-      code: "success",
-      generatedAt: requestTime,
-      hasMore,
-      ok: true,
-      policy: buildPosPolicyPayload(),
-      schemaVersion: POS_CATALOG_SCHEMA_VERSION,
-      serverTime: page.snapshotAt,
-      shop: buildPosShopPayload(shop),
-      snapshotAt: page.snapshotAt,
-      syncCursor,
-      syncMode: sync.mode,
-      updatedSince: sync.lowerBound,
-    },
-    status: 200,
-  };
+  return { body: successBody, status: 200 };
 }

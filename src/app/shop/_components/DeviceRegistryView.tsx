@@ -118,9 +118,13 @@ function metadataObject(value: unknown) {
     : {};
 }
 
-function metadataString(value: unknown, key = ""): unknown {
+function metadataString(value: unknown, key = "", depth = 0): unknown {
   if (secretKeyPattern.test(key)) {
     return "[redacted]";
+  }
+
+  if (depth >= 4) {
+    return "[truncated]";
   }
 
   if (typeof value === "string") {
@@ -130,7 +134,7 @@ function metadataString(value: unknown, key = ""): unknown {
   }
 
   if (Array.isArray(value)) {
-    return value.slice(0, 6).map((item) => metadataString(item));
+    return value.slice(0, 6).map((item) => metadataString(item, "", depth + 1));
   }
 
   if (value && typeof value === "object") {
@@ -139,7 +143,7 @@ function metadataString(value: unknown, key = ""): unknown {
         .slice(0, 12)
         .map(([childKey, childValue]) => [
           childKey,
-          metadataString(childValue, childKey),
+          metadataString(childValue, childKey, depth + 1),
         ]),
     );
   }
@@ -204,7 +208,7 @@ function isDiagnosticDevice(row: ShopDeviceRegistryRow) {
     row.deviceIdentifier,
     row.deviceType,
     row.displayName,
-    JSON.stringify(row.metadataRedacted ?? {}),
+    JSON.stringify(metadataString(row.metadataRedacted)),
   ]
     .filter(Boolean)
     .join(" ")

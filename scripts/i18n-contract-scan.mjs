@@ -59,6 +59,18 @@ const allowedPosDynamicKeyUsages = new Map([
       suffix: /^\s*\+/,
     },
   ],
+  [
+    "sync.center.revision.",
+    {
+      path: "src/Win7POS.Wpf/Pos/Dialogs/SyncCenterViewModel.cs",
+      requiredKeys: [
+        "sync.center.revision.match",
+        "sync.center.revision.mismatch",
+        "sync.center.revision.unknown",
+      ],
+      suffix: /^\s*\+/,
+    },
+  ],
 ]);
 
 const requiredAdminExactKeys = [

@@ -216,12 +216,13 @@ export function buildOverviewSection(
     metrics: [
       metric("Shop", shop.shopCode, shop.shopName, "good"),
       metric("Status", formatToken(shop.shopStatus), "Current shop state"),
+      metric("Data scope", "Shop profile", "Permission-scoped server read"),
       metric(
-        "Members",
-        String(readModel.members.length),
-        "Visible shop members",
+        "Other domains",
+        "Isolated",
+        "Members and audit require their own permissions",
+        "good",
       ),
-      metric("Audit events", String(readModel.auditLogs.length), "Latest rows"),
     ],
     liveData: {
       title: "Live shop data",
@@ -1040,6 +1041,7 @@ function inventoryStatusLabel(status: ShopInventoryReadModel["status"]) {
 function catalogScopeLabel(scope: ShopInventoryCatalogScope) {
   const labels: Record<ShopInventoryCatalogScope, string> = {
     blocked: "Mapping required",
+    authorized_shop_plus_legacy: "Shop and legacy bridge",
     legacy_owner_bridge: "Legacy mobile bridge",
     shop_scoped: "Shop scoped",
   };
@@ -2609,7 +2611,7 @@ export function buildSyncSection(
   return {
     ...shopSections.sync,
     description:
-      "Sync Center for mapped mobile events. Admin Web records technical sync_events after catalog and history mutations while classifying states without triggering synchronization.",
+      "Sync Center for mapped mobile events. Database triggers record technical sync_events atomically with Admin Web catalog, price and history mutations while the UI remains read-only for client synchronization.",
     status:
       readModel.summary.syncEventsTotal > 0 ? "Read-only mapped" : "Sync empty",
     metrics: [
@@ -3617,14 +3619,21 @@ export async function getShopSectionForRequest(
     return buildRolesSection();
   }
 
-  const readModel = await getShopAdminReadModel({ requestedShopId });
-
   switch (key) {
     case "overview": {
+      const readModel = await getShopAdminReadModel({
+        requestedShopId,
+        view: "overview",
+      });
       return buildOverviewSection(readModel);
     }
-    case "members":
+    case "members": {
+      const readModel = await getShopAdminReadModel({
+        requestedShopId,
+        view: "members",
+      });
       return buildMembersSection(readModel);
+    }
     case "audit": {
       const auditReadModel = await getShopAuditReadModel({
         eventQuery: options.auditFilters?.eventQuery,
@@ -3636,8 +3645,13 @@ export async function getShopSectionForRequest(
 
       return buildAuditSection(auditReadModel);
     }
-    case "settings":
+    case "settings": {
+      const readModel = await getShopAdminReadModel({
+        requestedShopId,
+        view: "settings",
+      });
       return buildSettingsSection(readModel);
+    }
     default:
       return shopSections[key];
   }
@@ -3679,7 +3693,10 @@ export async function getShopMemberDetailSectionForRequest(
   memberId: string,
   requestedShopId?: string | null,
 ): Promise<ShopSection> {
-  const readModel = await getShopAdminReadModel({ requestedShopId });
+  const readModel = await getShopAdminReadModel({
+    requestedShopId,
+    view: "members",
+  });
 
   return buildMemberDetailSection(readModel, memberId);
 }

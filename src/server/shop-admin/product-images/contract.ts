@@ -1,14 +1,15 @@
+import { isPostgresUuid } from "../../shared/postgres-uuid.ts";
+
 export const PRODUCT_IMAGE_BUCKET = "product-images";
 export const PRODUCT_IMAGE_JSON_BODY_LIMIT = 16 * 1024;
 export const PRODUCT_IMAGE_MAIN_MAX_BYTES = 1024 * 1024;
 export const PRODUCT_IMAGE_MAIN_MAX_SIDE = 1600;
 export const PRODUCT_IMAGE_THUMB_MAX_BYTES = 90 * 1024;
 export const PRODUCT_IMAGE_THUMB_MAX_SIDE = 384;
-export const PRODUCT_IMAGE_READ_BATCH_LIMIT = 100;
+export const PRODUCT_IMAGE_READ_BATCH_LIMIT = 16;
+export const PRODUCT_IMAGE_READ_RESPONSE_LIMIT = 64 * 1024;
 export const PRODUCT_IMAGE_READ_URL_TTL_SECONDS = 5 * 60;
 
-const UUID_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const SHA256_PATTERN = /^[0-9a-f]{64}$/;
 
 export type ProductImageVariant = "main" | "thumb";
@@ -56,7 +57,7 @@ function isObject(value: unknown): value is JsonObject {
 }
 
 function isUuid(value: unknown): value is string {
-  return typeof value === "string" && UUID_PATTERN.test(value);
+  return isPostgresUuid(value);
 }
 
 function isIntegerInRange(

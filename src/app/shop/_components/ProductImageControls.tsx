@@ -621,7 +621,7 @@ export function ProductImageEditor({
     () => () => {
       operationControllerRef.current?.abort();
     },
-    [],
+    [cacheScope, shopId],
   );
 
   const preparedSummary = useMemo(() => {
@@ -738,6 +738,8 @@ export function ProductImageEditor({
                 versionId: result.versionId,
               },
               prepared.main.blob,
+              prepared.main.metadata,
+              result.boundaryGeneration,
             ),
             cacheProductImageBlob(
               effectiveScope,
@@ -748,9 +750,12 @@ export function ProductImageEditor({
                 versionId: result.versionId,
               },
               prepared.thumb.blob,
+              prepared.thumb.metadata,
+              result.boundaryGeneration,
             ),
           ]);
           await purgeProductImageCache({
+            boundaryGeneration: result.boundaryGeneration,
             cacheScope: effectiveScope,
             keepVersionId: result.versionId,
             productId,
@@ -782,24 +787,34 @@ export function ProductImageEditor({
   }
 
   async function remove() {
-    if (!currentVersionId || !online) {
+    if (!cacheScope || !currentVersionId || !online) {
       setMessage({
         text: translate("A network connection is required to remove an image."),
         tone: "error",
       });
       return;
     }
+    operationControllerRef.current?.abort();
+    const controller = new AbortController();
+    operationControllerRef.current = controller;
     setBusy(true);
     setMessage({ text: translate("Removing image…"), tone: "info" });
     try {
-      await removeProductImage({
+      const result = await removeProductImage({
+        cacheScope,
         productId,
         shopId,
+        signal: controller.signal,
         versionId: currentVersionId,
       });
       if (cacheScope) {
         try {
-          await purgeProductImageCache({ cacheScope, productId, shopId });
+          await purgeProductImageCache({
+            boundaryGeneration: result.boundaryGeneration,
+            cacheScope,
+            productId,
+            shopId,
+          });
         } catch {
           // Remote removal is authoritative; cache cleanup is best effort.
         }
@@ -815,7 +830,10 @@ export function ProductImageEditor({
     } catch (error) {
       setMessage({ text: friendlyImageError(error, translate), tone: "error" });
     } finally {
-      setBusy(false);
+      if (operationControllerRef.current === controller) {
+        operationControllerRef.current = null;
+        setBusy(false);
+      }
     }
   }
 

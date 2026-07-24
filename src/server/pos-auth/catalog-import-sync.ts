@@ -15,6 +15,7 @@ import {
 } from "./shop-payload";
 import { POS_CATALOG_IMPORT_SCHEMA_VERSION } from "./pos-contract";
 import { verifyPosSecret } from "./tokens";
+import { loadPosRuntimeLease, writePosRuntimeAudit } from "./runtime-boundary";
 
 export const MAX_POS_CATALOG_IMPORT_JSON_BODY_BYTES = 512 * 1024;
 
@@ -32,7 +33,6 @@ type StaffAccountRow = Pick<
   | "staff_id"
   | "status"
 >;
-type ShopDeviceRow = Pick<Tables<"shop_devices">, "shop_device_id" | "shop_id" | "status">;
 type PosDeviceCredentialRow = Pick<
   Tables<"pos_device_credentials">,
   | "expires_at"
@@ -57,15 +57,12 @@ type PosSessionRow = Pick<
   | "staff_id"
   | "status"
 >;
-type InventorySourceRow = Pick<
-  Tables<"shop_inventory_sources">,
-  "mapping_state" | "owner_user_id" | "shop_id"
->;
 type PosCatalogImportFailureCode =
   | "auth_denied"
   | "conflict"
   | "db_failure"
   | "not_configured"
+  | "scope_changed"
   | "validation_failed";
 type PosCatalogImportFailureStatus = 400 | 401 | 409 | 500 | 503;
 
@@ -627,26 +624,20 @@ async function writePosCatalogImportAudit(
     targetType?: string;
   },
 ) {
-  const { error } = await supabase.from("audit_logs").insert({
-    actor_profile_id: null,
-    actor_staff_id: input.staffId ?? null,
-    event_key:
+  return writePosRuntimeAudit(supabase, {
+    code: input.code,
+    eventKey:
       input.result === "success"
         ? "pos.catalog.import_sync.success"
         : "pos.catalog.import_sync.failure",
-    metadata_redacted: {
-      code: input.code,
-      ...(input.metadata ?? {}),
-    },
+    metadata: input.metadata,
     result: input.result,
-    scope: input.shopId ? "shop" : "global",
     severity: input.severity,
-    shop_id: input.shopId ?? null,
-    target_id: input.targetId,
-    target_type: input.targetType,
+    shopId: input.shopId,
+    staffId: input.staffId,
+    targetId: input.targetId,
+    targetType: input.targetType,
   });
-
-  return !error;
 }
 
 async function auditedFailure(
@@ -687,16 +678,12 @@ async function validatePosCatalogImportAuth(
   | { context: PosCatalogImportAuthContext; result?: never }
   | { context?: never; result: PosCatalogImportEndpointResult }
 > {
-  const sessionResult = await supabase
-    .from("pos_sessions")
-    .select(
-      "pos_session_id,shop_id,shop_device_id,staff_id,pos_device_credential_id,session_token_hash,staff_credential_version,status,issued_at,expires_at",
-    )
-    .eq("pos_session_id", parsed.posSessionId)
-    .eq("shop_device_id", parsed.shopDeviceId)
-    .maybeSingle<PosSessionRow>();
+  const lease = await loadPosRuntimeLease(supabase, {
+    posSessionId: parsed.posSessionId,
+    shopDeviceId: parsed.shopDeviceId,
+  });
 
-  if (sessionResult.error) {
+  if (lease.status === "db_failure") {
     return {
       result: await auditedFailure(supabase, {
         code: "db_failure",
@@ -706,7 +693,17 @@ async function validatePosCatalogImportAuth(
     };
   }
 
-  const session = sessionResult.data;
+  if (lease.status === "denied") {
+    return {
+      result: await auditedFailure(supabase, {
+        code: "auth_denied",
+        metadata: requestMetadata(meta),
+        status: 401,
+      }),
+    };
+  }
+
+  const { credential, device, session, shop, staff } = lease;
   const sessionValid = Boolean(
     session &&
       session.status === "active" &&
@@ -714,61 +711,30 @@ async function validatePosCatalogImportAuth(
       verifyPosSecret(parsed.sessionToken, session.session_token_hash),
   );
 
-  if (!session || !sessionValid) {
+  if (!sessionValid) {
     return {
       result: await auditedFailure(supabase, {
         code: "auth_denied",
         metadata: requestMetadata(meta),
-        shopId: session?.shop_id,
+        shopId: session.shop_id,
         status: 401,
-        targetId: session?.pos_session_id,
-        targetType: session ? "pos_session" : undefined,
+        targetId: session.pos_session_id,
+        targetType: "pos_session",
       }),
     };
   }
 
-  const [credentialResult, shopResult, staffResult, deviceResult, mappingResult] =
-    await Promise.all([
-      supabase
-        .from("pos_device_credentials")
-        .select(
-          "pos_device_credential_id,shop_id,shop_device_id,staff_id,token_hash,staff_credential_version,status,expires_at",
-        )
-        .eq("pos_device_credential_id", session.pos_device_credential_id)
-        .maybeSingle<PosDeviceCredentialRow>(),
-      supabase
-        .from("shops")
-        .select(POS_SHOP_SELECT)
-        .eq("shop_id", session.shop_id)
-        .maybeSingle<ShopRow>(),
-      supabase
-        .from("staff_accounts")
-        .select(
-          "staff_id,shop_id,status,credential_version,credential_status,locked_until,must_change_credential,session_invalidated_at",
-        )
-        .eq("staff_id", session.staff_id)
-        .eq("shop_id", session.shop_id)
-        .maybeSingle<StaffAccountRow>(),
-      supabase
-        .from("shop_devices")
-        .select("shop_device_id,shop_id,status")
-        .eq("shop_device_id", session.shop_device_id)
-        .eq("shop_id", session.shop_id)
-        .maybeSingle<ShopDeviceRow>(),
-      supabase
-        .from("shop_inventory_sources")
-        .select("shop_id,owner_user_id,mapping_state")
-        .eq("shop_id", session.shop_id)
-        .is("disabled_at", null)
-        .limit(10),
-    ]);
+  const scopeResult = await supabase.rpc("pos_catalog_import_scope_v1", {
+    p_shop_device_id: session.shop_device_id,
+    p_shop_id: session.shop_id,
+  });
 
   if (
-    credentialResult.error ||
-    shopResult.error ||
-    staffResult.error ||
-    deviceResult.error ||
-    mappingResult.error
+    scopeResult.error ||
+    !isRecord(scopeResult.data) ||
+    (scopeResult.data.status !== "ok" &&
+      scopeResult.data.status !== "unmapped" &&
+      scopeResult.data.status !== "device_denied")
   ) {
     return {
       result: await auditedFailure(supabase, {
@@ -782,13 +748,11 @@ async function validatePosCatalogImportAuth(
     };
   }
 
-  const credential = credentialResult.data;
-  const shop = shopResult.data;
-  const staff = staffResult.data;
-  const device = deviceResult.data;
-  const mappedSource = ((mappingResult.data ?? []) as InventorySourceRow[]).find(
-    (row) => row.mapping_state === "mapped" && row.owner_user_id,
-  );
+  const scope = scopeResult.data as Record<string, unknown>;
+  const scopeStatus = stringField(scope, "status");
+  const mappedOwnerId = stringField(scope, "ownerUserId");
+  const mappingResolved =
+    scopeStatus === "ok" && UUID_PATTERN.test(mappedOwnerId);
   const credentialMatchesSession = Boolean(
     credential &&
       credential.pos_device_credential_id === session.pos_device_credential_id &&
@@ -805,30 +769,30 @@ async function validatePosCatalogImportAuth(
   const runtimeValid = Boolean(
     credentialMatchesSession &&
       credentialValid &&
-      shop?.shop_status === "active" &&
+      shop.shop_status === "active" &&
       (!parsed.shopCode || parsed.shopCode === shop.shop_code) &&
       isStaffUsable(staff) &&
-      device?.status === "active" &&
-      staff &&
-      staff.credential_version === credential?.staff_credential_version &&
+      device.status === "active" &&
+      scopeStatus !== "device_denied" &&
+      staff.credential_version === credential.staff_credential_version &&
       session.staff_credential_version === staff.credential_version &&
       !isAfterTimestamp(staff.session_invalidated_at, session.issued_at),
   );
 
-  if (!runtimeValid || !shop || !staff) {
+  if (!runtimeValid) {
     return {
       result: await auditedFailure(supabase, {
         code: "auth_denied",
         metadata: {
           ...requestMetadata(meta),
           app_version_present: Boolean(parsed.appVersion),
-          device_resolved: Boolean(device),
-          shop_code_matches: !parsed.shopCode || parsed.shopCode === shop?.shop_code,
-          shop_resolved: Boolean(shop),
-          staff_resolved: Boolean(staff),
+          device_resolved: scopeStatus !== "device_denied",
+          shop_code_matches: !parsed.shopCode || parsed.shopCode === shop.shop_code,
+          shop_resolved: true,
+          staff_resolved: true,
         },
         shopId: session.shop_id,
-        staffId: staff?.staff_id,
+        staffId: staff.staff_id,
         status: 401,
         targetId: session.pos_session_id,
         targetType: "pos_session",
@@ -836,7 +800,7 @@ async function validatePosCatalogImportAuth(
     };
   }
 
-  if (!mappedSource?.owner_user_id) {
+  if (!mappingResolved) {
     return {
       result: await auditedFailure(supabase, {
         code: "not_configured",
@@ -855,7 +819,7 @@ async function validatePosCatalogImportAuth(
 
   return {
     context: {
-      ownerUserId: mappedSource.owner_user_id,
+      ownerUserId: mappedOwnerId,
       session,
       shop,
       staff,
@@ -870,7 +834,16 @@ async function applyCatalogImport(
   meta: PosCatalogImportRequestMeta,
 ): Promise<
   | { applied: AppliedCatalogImport; error?: never }
-  | { applied?: never; error: "conflict" | "db_failure" | "validation_failed" }
+  | {
+      applied?: never;
+      error:
+        | "auth_denied"
+        | "conflict"
+        | "db_failure"
+        | "not_configured"
+        | "scope_changed"
+        | "validation_failed";
+    }
 > {
   const result = await supabase.rpc("pos_catalog_import_apply_v2", {
     p_batch_created_at: parsed.batchCreatedAt,
@@ -898,8 +871,14 @@ async function applyCatalogImport(
     const code = stringField(data, "code");
     return {
       error:
-        code === "conflict"
+        code === "auth_denied"
+          ? "auth_denied"
+          : code === "conflict"
           ? "conflict"
+          : code === "not_configured"
+            ? "not_configured"
+            : code === "scope_changed"
+              ? "scope_changed"
           : code === "validation_failed"
             ? "validation_failed"
             : "db_failure",
@@ -908,91 +887,296 @@ async function applyCatalogImport(
 
   const summary = childRecord(data, "summary");
   const status = stringField(data, "status");
+  const applied = parseAppliedCatalogImport(data, summary, status, parsed);
+
+  return applied ? { applied } : { error: "db_failure" };
+}
+
+function canonicalResponseUuid(value: string) {
+  return value === value.toLowerCase() && UUID_PATTERN.test(value)
+    ? value
+    : null;
+}
+
+function parseAppliedCatalogImport(
+  data: Record<string, unknown>,
+  summary: Record<string, unknown>,
+  statusValue: string,
+  parsed: ParsedCatalogImportInput,
+): AppliedCatalogImport | null {
+  const status =
+    statusValue === "accepted" ||
+    statusValue === "duplicate" ||
+    statusValue === "idempotent"
+      ? statusValue
+      : null;
+  const batchId = canonicalResponseUuid(stringField(data, "batchId"));
+  const acceptedItemCount = integerField(summary, "acceptedItemCount");
+  const duplicateItemCount = integerField(summary, "duplicateItemCount");
+  const productCount = integerField(summary, "productCount");
+  if (
+    !status ||
+    !batchId ||
+    acceptedItemCount === null ||
+    duplicateItemCount === null ||
+    productCount === null ||
+    acceptedItemCount < 0 ||
+    duplicateItemCount < 0 ||
+    productCount < 0 ||
+    !Array.isArray(data.items) ||
+    !Array.isArray(data.remoteProductIds) ||
+    !Array.isArray(data.remotePriceIds) ||
+    data.items.length !== parsed.items.length
+  ) {
+    return null;
+  }
+
+  const expectedByClientId = new Map(
+    parsed.items.map((item) => [item.clientItemId, item]),
+  );
+  const changedItems = parsed.items.filter(
+    (item) => item.changeKind === "new" || item.changeKind === "updated",
+  );
+  const changedByClientId = new Map(
+    changedItems.map((item) => [item.clientItemId, item]),
+  );
+  const productMapCandidates =
+    status === "accepted" ? changedByClientId : expectedByClientId;
+  const items = data.items.map((value) => {
+    if (!isRecord(value)) return null;
+    const clientItemId = stringField(value, "clientItemId");
+    const expected = expectedByClientId.get(clientItemId);
+    const barcode = stringField(value, "barcode");
+    const responseStatus = stringField(value, "status");
+    const originalStatus =
+      expected?.changeKind === "new" || expected?.changeKind === "updated"
+        ? "accepted"
+        : "skipped";
+    const responseStatusValid =
+      status === "accepted"
+        ? responseStatus === originalStatus
+        : responseStatus === "duplicate" || responseStatus === originalStatus;
+    const priceType = normalizedPriceType(stringField(value, "priceType"));
+    const remoteProductId = stringField(value, "remoteProductId");
+    const remotePriceId = stringField(value, "remotePriceId");
+    if (
+      !expected ||
+      barcode !== expected.barcode ||
+      !responseStatusValid ||
+      (remoteProductId && !canonicalResponseUuid(remoteProductId)) ||
+      (remotePriceId && !canonicalResponseUuid(remotePriceId))
+    ) {
+      return null;
+    }
+    return {
+      ...(barcode ? { barcode } : {}),
+      clientItemId,
+      ...(priceType ? { priceType } : {}),
+      ...(remotePriceId ? { remotePriceId } : {}),
+      ...(remoteProductId ? { remoteProductId } : {}),
+      status: responseStatus as AppliedCatalogImport["items"][number]["status"],
+    } as AppliedCatalogImport["items"][number];
+  });
+  if (
+    items.some((item) => item === null) ||
+    new Set(items.map((item) => item?.clientItemId)).size !== items.length
+  ) {
+    return null;
+  }
+
+  const remoteProductIds = data.remoteProductIds.map((value) => {
+    if (!isRecord(value)) return null;
+    const clientItemId = stringField(value, "clientItemId");
+    const barcode = stringField(value, "barcode");
+    const remoteProductId = canonicalResponseUuid(
+      stringField(value, "remoteProductId"),
+    );
+    const expected = productMapCandidates.get(clientItemId);
+    return expected && barcode === expected.barcode && remoteProductId
+      ? { barcode, clientItemId, remoteProductId }
+      : null;
+  });
+  if (
+    remoteProductIds.some((item) => item === null) ||
+    (status === "accepted" &&
+      remoteProductIds.length !== changedItems.length) ||
+    remoteProductIds.length > parsed.items.length ||
+    new Set(remoteProductIds.map((item) => item?.clientItemId)).size !==
+      remoteProductIds.length ||
+    new Set(remoteProductIds.map((item) => item?.remoteProductId)).size !==
+      remoteProductIds.length
+  ) {
+    return null;
+  }
+  const productIdByClientId = new Map(
+    remoteProductIds.map((item) => [item?.clientItemId, item?.remoteProductId]),
+  );
+  if (
+    changedItems.some(
+      (item) => !productIdByClientId.has(item.clientItemId),
+    )
+  ) {
+    return null;
+  }
+  const requiredPriceKeys = new Set(
+    changedItems.flatMap((item) => [
+      ...(item.purchasePrice === null
+        ? []
+        : [`${item.clientItemId}:purchase`]),
+      ...(item.retailPrice === null
+        ? []
+        : [`${item.clientItemId}:retail`]),
+    ]),
+  );
+  const allowedPriceKeys =
+    status === "accepted"
+      ? requiredPriceKeys
+      : new Set(
+          parsed.items.flatMap((item) => [
+            ...(item.purchasePrice === null
+              ? []
+              : [`${item.clientItemId}:purchase`]),
+            ...(item.retailPrice === null
+              ? []
+              : [`${item.clientItemId}:retail`]),
+          ]),
+        );
+  const remotePriceIds = data.remotePriceIds.map((value) => {
+    if (!isRecord(value)) return null;
+    const clientItemId = stringField(value, "clientItemId");
+    const barcode = stringField(value, "barcode");
+    const priceType = normalizedPriceType(stringField(value, "priceType"));
+    const remotePriceId = canonicalResponseUuid(
+      stringField(value, "remotePriceId"),
+    );
+    const remoteProductId = canonicalResponseUuid(
+      stringField(value, "remoteProductId"),
+    );
+    const expected = productMapCandidates.get(clientItemId);
+    if (
+      !expected ||
+      barcode !== expected.barcode ||
+      !priceType ||
+      !allowedPriceKeys.has(`${clientItemId}:${priceType}`) ||
+      !remotePriceId ||
+      !remoteProductId ||
+      remoteProductId !== productIdByClientId.get(clientItemId)
+    ) {
+      return null;
+    }
+    return {
+      barcode,
+      clientItemId,
+      priceType,
+      remotePriceId,
+      remoteProductId,
+    } as AppliedCatalogImport["remotePriceIds"][number];
+  });
+  if (
+    remotePriceIds.some((item) => item === null) ||
+    (status === "accepted" &&
+      remotePriceIds.length !== requiredPriceKeys.size) ||
+    remotePriceIds.length > allowedPriceKeys.size ||
+    new Set(
+      remotePriceIds.map((item) => `${item?.clientItemId}:${item?.priceType}`),
+    ).size !== remotePriceIds.length ||
+    new Set(remotePriceIds.map((item) => item?.remotePriceId)).size !==
+      remotePriceIds.length
+  ) {
+    return null;
+  }
+  const returnedPriceKeys = new Set(
+    remotePriceIds.map((item) => `${item?.clientItemId}:${item?.priceType}`),
+  );
+  if (
+    Array.from(requiredPriceKeys).some((key) => !returnedPriceKeys.has(key))
+  ) {
+    return null;
+  }
+
+  const priceIdByKey = new Map(
+    remotePriceIds.map((item) => [
+      `${item?.clientItemId}:${item?.priceType}`,
+      item?.remotePriceId,
+    ]),
+  );
+  for (const item of items) {
+    if (!item) return null;
+    const expected = expectedByClientId.get(item.clientItemId);
+    if (!expected) return null;
+    const changed = changedByClientId.has(item.clientItemId);
+    if (!changed) {
+      if (status === "accepted") {
+        if (item.remoteProductId || item.remotePriceId || item.priceType) {
+          return null;
+        }
+        continue;
+      }
+      const mappedProductId = productIdByClientId.get(item.clientItemId);
+      if (
+        (item.remoteProductId || mappedProductId) &&
+        item.remoteProductId !== mappedProductId
+      ) {
+        return null;
+      }
+      if (
+        item.priceType ||
+        item.remotePriceId
+      ) {
+        if (
+          !item.priceType ||
+          !item.remotePriceId ||
+          item.remotePriceId !==
+            priceIdByKey.get(`${item.clientItemId}:${item.priceType}`)
+        ) {
+          return null;
+        }
+      }
+      if (item.remoteProductId && !productIdByClientId.has(item.clientItemId)) {
+        return null;
+      }
+      continue;
+    }
+    if (item.remoteProductId !== productIdByClientId.get(item.clientItemId)) {
+      return null;
+    }
+    const chosenPriceType = expected.retailPrice !== null
+      ? "retail"
+      : expected.purchasePrice !== null
+        ? "purchase"
+        : null;
+    if (
+      chosenPriceType === null
+        ? Boolean(item.priceType || item.remotePriceId)
+        : item.priceType !== chosenPriceType ||
+          item.remotePriceId !==
+            priceIdByKey.get(`${item.clientItemId}:${chosenPriceType}`)
+    ) {
+      return null;
+    }
+  }
+
+  const expectedAccepted = status === "accepted" ? changedItems.length : 0;
+  const expectedDuplicate = status === "accepted" ? 0 : changedItems.length;
+  if (
+    acceptedItemCount !== expectedAccepted ||
+    duplicateItemCount !== expectedDuplicate ||
+    productCount !== changedItems.length
+  ) {
+    return null;
+  }
 
   return {
-    applied: {
-      acceptedItemCount: integerField(summary, "acceptedItemCount") ?? 0,
-      batchId: stringField(data, "batchId"),
-      duplicateItemCount: integerField(summary, "duplicateItemCount") ?? 0,
-      items: parseAppliedItems(data.items),
-      productCount: integerField(summary, "productCount") ?? 0,
-      remotePriceIds: parseRemotePriceIds(data.remotePriceIds),
-      remoteProductIds: parseRemoteProductIds(data.remoteProductIds),
-      status:
-        status === "duplicate" || status === "idempotent" ? status : "accepted",
-    },
+    acceptedItemCount,
+    batchId,
+    duplicateItemCount,
+    items: items as AppliedCatalogImport["items"],
+    productCount,
+    remotePriceIds: remotePriceIds as AppliedCatalogImport["remotePriceIds"],
+    remoteProductIds:
+      remoteProductIds as AppliedCatalogImport["remoteProductIds"],
+    status,
   };
-}
-
-function parseAppliedItems(input: unknown): AppliedCatalogImport["items"] {
-  if (!Array.isArray(input)) {
-    return [];
-  }
-
-  return input
-    .filter(isRecord)
-    .map((item) => {
-      const status = stringField(item, "status");
-      const priceType = normalizedPriceType(stringField(item, "priceType"));
-
-      return {
-        ...(stringField(item, "barcode") ? { barcode: stringField(item, "barcode") } : {}),
-        clientItemId: stringField(item, "clientItemId") || "unknown",
-        ...(priceType ? { priceType } : {}),
-        ...(stringField(item, "remotePriceId")
-          ? { remotePriceId: stringField(item, "remotePriceId") }
-          : {}),
-        ...(stringField(item, "remoteProductId")
-          ? { remoteProductId: stringField(item, "remoteProductId") }
-          : {}),
-        status:
-          status === "duplicate" || status === "skipped" ? status : "accepted",
-      };
-    });
-}
-
-function parseRemoteProductIds(input: unknown): AppliedCatalogImport["remoteProductIds"] {
-  if (!Array.isArray(input)) {
-    return [];
-  }
-
-  return input
-    .filter(isRecord)
-    .map((item) => ({
-      barcode: stringField(item, "barcode"),
-      clientItemId: stringField(item, "clientItemId"),
-      remoteProductId: stringField(item, "remoteProductId"),
-    }))
-    .filter((item) => item.barcode && item.clientItemId && item.remoteProductId);
-}
-
-function parseRemotePriceIds(input: unknown): AppliedCatalogImport["remotePriceIds"] {
-  if (!Array.isArray(input)) {
-    return [];
-  }
-
-  return input
-    .filter(isRecord)
-    .map((item) => ({
-      barcode: stringField(item, "barcode"),
-      clientItemId: stringField(item, "clientItemId"),
-      priceType: normalizedPriceType(stringField(item, "priceType")),
-      remotePriceId: stringField(item, "remotePriceId"),
-      ...(stringField(item, "remoteProductId")
-        ? { remoteProductId: stringField(item, "remoteProductId") }
-        : {}),
-    }))
-    .filter(
-      (
-        item,
-      ): item is AppliedCatalogImport["remotePriceIds"][number] =>
-        Boolean(
-          item.barcode &&
-            item.clientItemId &&
-            item.priceType &&
-            item.remotePriceId,
-        ),
-    );
 }
 
 function normalizedPriceType(value: string): "purchase" | "retail" | undefined {
@@ -1083,15 +1267,30 @@ export async function handlePosCatalogImportSync(
       return failure("conflict", 409);
     }
 
+    const mappingChanged = appliedResult.error === "scope_changed";
+    const notConfigured = appliedResult.error === "not_configured";
+    const authDenied = appliedResult.error === "auth_denied";
+
     return auditedFailure(supabase, {
-      code: appliedResult.error,
+      code: mappingChanged ? "not_configured" : appliedResult.error,
       metadata: {
         ...requestMetadata(meta),
         item_count: parsed.items.length,
+        ...(mappingChanged ? { reason: "catalog_scope_changed" } : {}),
+        ...(authDenied ? { reason: "runtime_lease_changed" } : {}),
       },
       shopId: session.shop_id,
       staffId: staff.staff_id,
-      status: appliedResult.error === "validation_failed" ? 400 : 500,
+      status:
+        authDenied
+          ? 401
+          : appliedResult.error === "validation_failed"
+          ? 400
+          : mappingChanged
+            ? 409
+            : notConfigured
+              ? 503
+              : 500,
       targetId: session.pos_session_id,
       targetType: "pos_session",
     });

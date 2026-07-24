@@ -10,7 +10,6 @@ import {
 import {
   registerDeviceAsStaff,
   renameDeviceAsStaff,
-  runStaffAwareShopAdminMutation,
   setDeviceStatusAsStaff,
 } from "./staff-aware-mutations";
 
@@ -56,7 +55,7 @@ async function deviceRpcResult(
   call: (
     context: Extract<
       Awaited<ReturnType<typeof resolveShopActionContext>>,
-      { status: "ready" }
+      { principalKind: "personal_account"; status: "ready" }
     >,
   ) => PromiseLike<{ data: unknown; error: unknown }>,
 ): Promise<ShopAdminActionResult> {
@@ -69,10 +68,8 @@ async function deviceRpcResult(
     return context.result;
   }
 
-  const staffResult = await runStaffAwareShopAdminMutation(context, staffCall);
-
-  if (staffResult) {
-    return staffResult;
+  if (context.principalKind === "pos_staff_manager") {
+    return staffCall(context);
   }
 
   const { data, error } = await call(context);

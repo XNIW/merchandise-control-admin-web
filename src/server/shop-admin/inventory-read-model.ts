@@ -76,6 +76,7 @@ export type ShopInventoryMapping = {
 
 export type ShopInventoryCatalogScope =
   | "blocked"
+  | "authorized_shop_plus_legacy"
   | "legacy_owner_bridge"
   | "shop_scoped";
 
@@ -252,9 +253,18 @@ export type ShopInventoryProductsByCodesReadModel = {
 
 type GetShopInventoryReadModelOptions = {
   client?: SupabaseServerClient | null;
+  onConcurrencyChange?: (active: number) => void;
   perfTrace?: AdminWebPerfTrace;
   requestedShopId?: string | null;
   rowLimit?: number | "all";
+  rowLimits?: Partial<{
+    archivedProducts: number | "all";
+    categories: number | "all";
+    prices: number | "all";
+    products: number | "all";
+    suppliers: number | "all";
+  }>;
+  signal?: AbortSignal;
 };
 
 type GetShopInventoryProductsPageOptions = {
@@ -301,6 +311,7 @@ type InventoryRowsResult<Row> = {
 };
 
 type PagedInventoryQuery<Row> = {
+  abortSignal: (signal: AbortSignal) => PagedInventoryQuery<Row>;
   range: (
     from: number,
     to: number,
@@ -316,6 +327,7 @@ type CountResult = {
 };
 
 type InventoryCountQuery = {
+  abortSignal: (signal: AbortSignal) => InventoryCountQuery;
   eq: (column: string, value: string) => InventoryCountQuery;
   is: (column: string, value: null) => InventoryCountQuery;
   not: (column: string, operator: string, value: null) => InventoryCountQuery;
@@ -644,6 +656,7 @@ async function filterPricesByCatalogProductScope(input: {
   legacyOwnerUserId: string | null;
   prices: readonly PriceRow[];
   selectedShopId: string;
+  signal?: AbortSignal;
   supabase: SupabaseServerClient;
 }): Promise<{ error: unknown; prices: PriceRow[] }> {
   if (input.prices.length === 0) {
@@ -679,7 +692,9 @@ async function filterPricesByCatalogProductScope(input: {
           .select("id,shop_id,owner_user_id")
           .in("id", idChunk);
 
-    const { data, error } = await query;
+    const { data, error } = await (
+      input.signal ? query.abortSignal(input.signal) : query
+    );
 
     if (error) {
       return { error, prices: [] };
@@ -916,6 +931,7 @@ async function countInventoryRows(input: {
   filters?: readonly InventoryCountFilter[];
   perfTrace?: AdminWebPerfTrace;
   scope: InventoryCountScope;
+  signal?: AbortSignal;
   supabase: SupabaseServerClient;
   table: InventoryCountTableName;
 }): Promise<CountResult> {
@@ -949,18 +965,23 @@ async function countInventoryRows(input: {
     query = query.eq(filter.column, filter.value);
   }
 
+  const boundedQuery = input.signal
+    ? query.abortSignal(input.signal)
+    : query;
   return input.perfTrace
     ? await input.perfTrace.time(`${input.table}.count.query`, async () =>
-        ((await query) as CountResult),
+        ((await boundedQuery) as CountResult),
       )
-    : ((await query) as CountResult);
+    : ((await boundedQuery) as CountResult);
 }
 
 async function loadCatalogSummary(input: {
   legacyOwnerOnlySchema: boolean;
   legacyOwnerUserId: string | null;
   perfTrace?: AdminWebPerfTrace;
+  onConcurrencyChange?: (active: number) => void;
   selectedShopId: string;
+  signal?: AbortSignal;
   useLegacyOwnerBridge: boolean;
   supabase: SupabaseServerClient;
 }): Promise<{
@@ -990,42 +1011,47 @@ async function loadCatalogSummary(input: {
     categoriesResult,
     suppliersResult,
     priceRowsResult,
-  ] = await Promise.all([
-    countInventoryRows({
+  ] = await runInventoryReadOperations([
+    () => countInventoryRows({
       deletedState: "active",
       perfTrace: input.perfTrace,
       scope,
+      signal: input.signal,
       supabase: input.supabase,
       table: "inventory_products",
     }),
-    countInventoryRows({
+    () => countInventoryRows({
       deletedState: "archived",
       perfTrace: input.perfTrace,
       scope,
+      signal: input.signal,
       supabase: input.supabase,
       table: "inventory_products",
     }),
-    countInventoryRows({
+    () => countInventoryRows({
       deletedState: "active",
       perfTrace: input.perfTrace,
       scope,
+      signal: input.signal,
       supabase: input.supabase,
       table: "inventory_categories",
     }),
-    countInventoryRows({
+    () => countInventoryRows({
       deletedState: "active",
       perfTrace: input.perfTrace,
       scope,
+      signal: input.signal,
       supabase: input.supabase,
       table: "inventory_suppliers",
     }),
-    countInventoryRows({
+    () => countInventoryRows({
       perfTrace: input.perfTrace,
       scope,
+      signal: input.signal,
       supabase: input.supabase,
       table: "inventory_product_prices",
     }),
-  ]);
+  ] as const, 2, input.onConcurrencyChange);
   const error =
     activeProductsResult.error ??
     archivedProductsResult.error ??
@@ -1418,26 +1444,36 @@ async function fetchProductPriceRows(input: {
 async function fetchInventoryRows<Row>(
   queryFactory: () => PagedInventoryQuery<Row>,
   rowLimit: number | "all",
+  signal?: AbortSignal,
 ): Promise<InventoryRowsResult<Row>> {
-  if (rowLimit !== "all") {
-    const result = await queryFactory().range(0, Math.max(0, rowLimit - 1));
-
-    return {
-      data: result.data ?? [],
-      error: result.error,
-    };
-  }
-
   const data: Row[] = [];
+  const maximumRows = rowLimit === "all"
+    ? Number.POSITIVE_INFINITY
+    : Math.max(0, Math.floor(rowLimit));
+
+  if (maximumRows === 0) {
+    return { data, error: null };
+  }
 
   for (
     let from = 0;
-    ;
+    from < maximumRows;
     from += INVENTORY_READ_MODEL_PAGE_SIZE
   ) {
-    const result = await queryFactory().range(
+    if (signal?.aborted) {
+      return {
+        data,
+        error: new DOMException("Request cancelled.", "AbortError"),
+      };
+    }
+    const pageSize = Math.min(
+      INVENTORY_READ_MODEL_PAGE_SIZE,
+      maximumRows - from,
+    );
+    const query = queryFactory();
+    const result = await (signal ? query.abortSignal(signal) : query).range(
       from,
-      from + INVENTORY_READ_MODEL_PAGE_SIZE - 1,
+      from + pageSize - 1,
     );
 
     if (result.error) {
@@ -1450,13 +1486,55 @@ async function fetchInventoryRows<Row>(
     const rows = result.data ?? [];
     data.push(...rows);
 
-    if (rows.length < INVENTORY_READ_MODEL_PAGE_SIZE) {
+    if (rows.length < pageSize) {
       return {
         data,
         error: null,
       };
     }
   }
+
+  return { data, error: null };
+}
+
+async function runInventoryReadOperations<
+  Operations extends readonly (() => Promise<unknown>)[],
+>(
+  operations: Operations,
+  concurrency = 2,
+  onConcurrencyChange?: (active: number) => void,
+): Promise<{
+  [Index in keyof Operations]: Awaited<ReturnType<Operations[Index]>>;
+}> {
+  const results: unknown[] = new Array(operations.length);
+  let active = 0;
+  let nextIndex = 0;
+  const worker = async () => {
+    while (nextIndex < operations.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      const operation = operations[index];
+      if (operation) {
+        active += 1;
+        onConcurrencyChange?.(active);
+        try {
+          results[index] = await operation();
+        } finally {
+          active -= 1;
+          onConcurrencyChange?.(active);
+        }
+      }
+    }
+  };
+  await Promise.all(
+    Array.from(
+      { length: Math.min(Math.max(1, concurrency), operations.length) },
+      () => worker(),
+    ),
+  );
+  return results as {
+    [Index in keyof Operations]: Awaited<ReturnType<Operations[Index]>>;
+  };
 }
 
 export async function getShopInventoryReadModel(
@@ -1486,8 +1564,26 @@ export async function getShopInventoryReadModel(
     };
   }
 
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      ...emptyRows,
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Full catalog snapshots require a revision-pinned lease-bound staff read operation that is not available for this surface.",
+    };
+  }
+
   const { selectedShop, supabase } = access;
   const rowLimit = options.rowLimit ?? 100;
+  const rowLimits = {
+    archivedProducts: options.rowLimits?.archivedProducts ?? rowLimit,
+    categories: options.rowLimits?.categories ?? rowLimit,
+    prices: options.rowLimits?.prices ?? rowLimit,
+    products: options.rowLimits?.products ?? rowLimit,
+    suppliers: options.rowLimits?.suppliers ?? rowLimit,
+  };
 
   const mappingQuery = supabase
     .from("shop_inventory_sources")
@@ -1500,9 +1596,12 @@ export async function getShopInventoryReadModel(
   const mappingResult = perfTrace
     ? await perfTrace.time(
         "shop_inventory_sources.mapping.options.query",
-        async () => mappingQuery,
+        async () =>
+          options.signal ? mappingQuery.abortSignal(options.signal) : mappingQuery,
       )
-    : await mappingQuery;
+    : await (
+        options.signal ? mappingQuery.abortSignal(options.signal) : mappingQuery
+      );
 
   if (mappingResult.error) {
     return {
@@ -1540,8 +1639,8 @@ export async function getShopInventoryReadModel(
     shopCategoriesResult,
     shopSuppliersResult,
     shopPricesResult,
-  ] = await Promise.all([
-    fetchInventoryRows<ProductRow>(
+  ] = await runInventoryReadOperations([
+    () => fetchInventoryRows<ProductRow>(
       () =>
         supabase
           .from("inventory_products")
@@ -1554,9 +1653,10 @@ export async function getShopInventoryReadModel(
           .order("id", {
             ascending: true,
           }) as unknown as PagedInventoryQuery<ProductRow>,
-      rowLimit,
+      rowLimits.products,
+      options.signal,
     ),
-    fetchInventoryRows<ProductRow>(
+    () => fetchInventoryRows<ProductRow>(
       () =>
         supabase
           .from("inventory_products")
@@ -1569,9 +1669,10 @@ export async function getShopInventoryReadModel(
           .order("id", {
             ascending: true,
           }) as unknown as PagedInventoryQuery<ProductRow>,
-      rowLimit,
+      rowLimits.archivedProducts,
+      options.signal,
     ),
-    fetchInventoryRows<CategoryRow>(
+    () => fetchInventoryRows<CategoryRow>(
       () =>
         supabase
           .from("inventory_categories")
@@ -1584,9 +1685,10 @@ export async function getShopInventoryReadModel(
           .order("id", {
             ascending: true,
           }) as unknown as PagedInventoryQuery<CategoryRow>,
-      rowLimit,
+      rowLimits.categories,
+      options.signal,
     ),
-    fetchInventoryRows<SupplierRow>(
+    () => fetchInventoryRows<SupplierRow>(
       () =>
         supabase
           .from("inventory_suppliers")
@@ -1599,9 +1701,10 @@ export async function getShopInventoryReadModel(
           .order("id", {
             ascending: true,
           }) as unknown as PagedInventoryQuery<SupplierRow>,
-      rowLimit,
+      rowLimits.suppliers,
+      options.signal,
     ),
-    fetchInventoryRows<PriceRow>(
+    () => fetchInventoryRows<PriceRow>(
       () =>
         supabase
           .from("inventory_product_prices")
@@ -1613,9 +1716,10 @@ export async function getShopInventoryReadModel(
           .order("id", {
             ascending: true,
           }) as unknown as PagedInventoryQuery<PriceRow>,
-      rowLimit,
+      rowLimits.prices,
+      options.signal,
     ),
-  ]);
+  ] as const, 2, options.onConcurrencyChange);
 
   const directReadError =
     shopProductsResult.error ??
@@ -1679,8 +1783,8 @@ export async function getShopInventoryReadModel(
       legacyCategoriesResult,
       legacySuppliersResult,
       legacyPricesResult,
-    ] = await Promise.all([
-      fetchInventoryRows<ProductRow>(
+    ] = await runInventoryReadOperations([
+      () => fetchInventoryRows<ProductRow>(
         () =>
           (legacyOwnerOnlySchema
             ? supabase
@@ -1699,9 +1803,10 @@ export async function getShopInventoryReadModel(
             .order("id", {
               ascending: true,
             }) as unknown as PagedInventoryQuery<ProductRow>,
-        rowLimit,
+        rowLimits.products,
+        options.signal,
       ),
-      fetchInventoryRows<ProductRow>(
+      () => fetchInventoryRows<ProductRow>(
         () =>
           (legacyOwnerOnlySchema
             ? supabase
@@ -1720,9 +1825,10 @@ export async function getShopInventoryReadModel(
             .order("id", {
               ascending: true,
             }) as unknown as PagedInventoryQuery<ProductRow>,
-        rowLimit,
+        rowLimits.archivedProducts,
+        options.signal,
       ),
-      fetchInventoryRows<CategoryRow>(
+      () => fetchInventoryRows<CategoryRow>(
         () =>
           (legacyOwnerOnlySchema
             ? supabase
@@ -1741,9 +1847,10 @@ export async function getShopInventoryReadModel(
             .order("id", {
               ascending: true,
             }) as unknown as PagedInventoryQuery<CategoryRow>,
-        rowLimit,
+        rowLimits.categories,
+        options.signal,
       ),
-      fetchInventoryRows<SupplierRow>(
+      () => fetchInventoryRows<SupplierRow>(
         () =>
           (legacyOwnerOnlySchema
             ? supabase
@@ -1762,9 +1869,10 @@ export async function getShopInventoryReadModel(
             .order("id", {
               ascending: true,
             }) as unknown as PagedInventoryQuery<SupplierRow>,
-        rowLimit,
+        rowLimits.suppliers,
+        options.signal,
       ),
-      fetchInventoryRows<PriceRow>(
+      () => fetchInventoryRows<PriceRow>(
         () =>
           (legacyOwnerOnlySchema
             ? supabase
@@ -1782,9 +1890,10 @@ export async function getShopInventoryReadModel(
             .order("id", {
               ascending: true,
             }) as unknown as PagedInventoryQuery<PriceRow>,
-        rowLimit,
+        rowLimits.prices,
+        options.signal,
       ),
-    ]);
+    ] as const, 2, options.onConcurrencyChange);
 
     const legacyReadError =
       legacyProductsResult.error ??
@@ -1852,6 +1961,7 @@ export async function getShopInventoryReadModel(
     legacyOwnerUserId,
     prices: mergeRowsById(shopPrices, legacyPrices),
     selectedShopId: selectedShop.shopId,
+    signal: options.signal,
     supabase,
   });
 
@@ -1884,7 +1994,9 @@ export async function getShopInventoryReadModel(
   const catalogSummaryResult = await loadCatalogSummary({
     legacyOwnerOnlySchema,
     legacyOwnerUserId,
+    onConcurrencyChange: options.onConcurrencyChange,
     selectedShopId: selectedShop.shopId,
+    signal: options.signal,
     supabase,
     useLegacyOwnerBridge: catalogScope === "legacy_owner_bridge",
   });
@@ -1960,6 +2072,22 @@ export async function getShopCatalogOptionsReadModel(
       readOnly: true,
       source: "supabase_server",
       reason: access.reason,
+    };
+  }
+
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      catalogScope: "blocked",
+      legacyOwnerUserId: null,
+      selectedShop: null,
+      mapping: null,
+      categories: [],
+      suppliers: [],
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Catalog option reads require a lease-bound staff read operation that is not available for this surface.",
     };
   }
 
@@ -2280,6 +2408,24 @@ async function getShopCatalogEntityPageReadModel(
     };
   }
 
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      catalogScope: "blocked",
+      legacyOwnerUserId: null,
+      selectedShop: null,
+      mapping: null,
+      categories: [],
+      suppliers: [],
+      filters,
+      pagination: emptyPagination,
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Catalog entity reads require a lease-bound staff read operation that is not available for this surface.",
+    };
+  }
+
   const { selectedShop, supabase } = access;
 
   perfTrace?.query(`shop_inventory_sources.mapping.${entity}Page`);
@@ -2545,6 +2691,17 @@ export async function getShopInventoryProductDetailReadModel(
     };
   }
 
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      ...emptyRows,
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Catalog detail reads require a lease-bound staff read operation that is not available for this surface.",
+    };
+  }
+
   const { selectedShop, supabase } = access;
   const productId = options.productId.trim();
   const mappingResult = await supabase
@@ -2807,6 +2964,21 @@ export async function getShopInventoryProductsByCodes(
     };
   }
 
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      catalogScope: "blocked",
+      legacyOwnerUserId: null,
+      mapping: null,
+      products: [],
+      readOnly: true,
+      reason:
+        "Catalog lookup reads require a lease-bound staff read operation that is not available for this surface.",
+      selectedShop: null,
+      source: "supabase_server",
+    };
+  }
+
   const { selectedShop, supabase } = access;
 
   if (codes.length === 0) {
@@ -3031,6 +3203,24 @@ export async function getShopInventoryProductsPage(
       readOnly: true,
       source: "supabase_server",
       reason: access.reason,
+    };
+  }
+
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      catalogScope: "blocked",
+      legacyOwnerUserId: null,
+      selectedShop: null,
+      mapping: null,
+      products: [],
+      filters,
+      summary: emptySummary,
+      pagination: emptyPagination,
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Catalog page reads require a lease-bound staff read operation that is not available for this surface.",
     };
   }
 

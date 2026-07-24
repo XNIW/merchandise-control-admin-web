@@ -2,6 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 import type { SupabaseAdminClient } from "@/lib/supabase/admin";
+import { isCanonicalPostgresUuid } from "../shared/postgres-uuid.ts";
 import type {
   CatalogV2Lane,
   CatalogV2Manifest,
@@ -9,7 +10,10 @@ import type {
   CatalogV2WindowCounts,
 } from "./catalog-sync-contract";
 
-export type CatalogScopeKind = "legacy_owner_bridge" | "shop_scoped";
+export type CatalogScopeKind =
+  | "authorized_shop_plus_legacy"
+  | "legacy_owner_bridge"
+  | "shop_scoped";
 
 export type CatalogRevisionDescriptor = {
   revision: string;
@@ -21,14 +25,27 @@ export type CatalogPageV2 = CatalogRevisionDescriptor & {
   entity: CatalogV2Lane | "done";
   entityHasMore: boolean;
   manifest: CatalogV2Manifest | null;
+  pageLimit: number;
   rows: readonly Record<string, unknown>[];
+  scopeOwnerId: string | null;
   snapshotAt: string;
   status: "ok";
 };
 
 export type CatalogPageV2Failure = {
-  status: "db_failure" | "invalid" | "snapshot_changed" | "unmapped";
+  status:
+    | "db_failure"
+    | "denied"
+    | "integrity_blocked"
+    | "invalid"
+    | "resource_exceeded"
+    | "snapshot_changed"
+    | "unmapped";
 };
+
+export type CatalogRevisionV2Result =
+  | (CatalogRevisionDescriptor & { status: "ok" })
+  | CatalogPageV2Failure;
 
 const SCOPE_KEY_PATTERN = /^[0-9a-f]{32}$/;
 const REVISION_PATTERN = /^[0-9]{1,19}$/;
@@ -48,13 +65,116 @@ function isSafeCount(value: unknown): value is number {
   );
 }
 
+function canonicalUuid(value: unknown) {
+  return isCanonicalPostgresUuid(value)
+    ? value
+    : null;
+}
+
+function timestampMicros(value: unknown) {
+  if (typeof value !== "string" || !POSTGRES_TIMESTAMP_PATTERN.test(value)) {
+    return null;
+  }
+  const milliseconds = Date.parse(value);
+  if (!Number.isFinite(milliseconds)) {
+    return null;
+  }
+  const fraction = /\.(\d{1,6})(?:Z|[+-]\d{2}:\d{2})$/.exec(value)?.[1] ?? "";
+  const microsWithinMillisecond = Number(
+    fraction.padEnd(6, "0").slice(3, 6),
+  );
+  return BigInt(milliseconds) * BigInt(1_000) + BigInt(microsWithinMillisecond);
+}
+
+function scopeKeyForPage(
+  shopId: string,
+  scopeKind: CatalogScopeKind,
+  scopeOwnerId: string | null,
+) {
+  const scopeId = scopeKind === "shop_scoped" ? shopId : scopeOwnerId;
+  return createHash("sha256")
+    .update(
+      `${shopId.toLowerCase()}:${scopeKind}:${scopeId?.toLowerCase() ?? "-"}`,
+      "utf8",
+    )
+    .digest("hex")
+    .slice(0, 32);
+}
+
+function rowMatchesPageContract(
+  row: Record<string, unknown>,
+  input: { shopId: string },
+  scopeKind: CatalogScopeKind,
+  scopeOwnerId: string | null,
+  entity: CatalogV2Lane,
+  snapshotMicros: bigint,
+) {
+  const id = canonicalUuid(row.id);
+  const ownerUserId = canonicalUuid(row.owner_user_id);
+  const shopId = row.shop_id === null ? null : canonicalUuid(row.shop_id);
+  const updatedAtMicros = timestampMicros(row.updated_at);
+  const scopeMatches =
+    (shopId !== null &&
+      (scopeKind === "shop_scoped" ||
+        scopeKind === "authorized_shop_plus_legacy") &&
+      shopId === input.shopId.toLowerCase()) ||
+    (shopId === null &&
+      (scopeKind === "legacy_owner_bridge" ||
+        scopeKind === "authorized_shop_plus_legacy") &&
+      scopeOwnerId !== null &&
+      ownerUserId === scopeOwnerId);
+  if (
+    id === null ||
+    ownerUserId === null ||
+    (row.shop_id !== null && shopId === null) ||
+    updatedAtMicros === null ||
+    updatedAtMicros > snapshotMicros ||
+    !scopeMatches
+  ) {
+    return null;
+  }
+
+  const deletedAtValid =
+    row.deleted_at === null || timestampMicros(row.deleted_at) !== null;
+  const optionalUuid = (value: unknown) =>
+    value === null || canonicalUuid(value) !== null;
+  const finiteNumberOrNull = (value: unknown) =>
+    value === null || (typeof value === "number" && Number.isFinite(value));
+  const valid =
+    (entity === "categories" || entity === "suppliers")
+      ? typeof row.name === "string" && deletedAtValid
+      : entity === "products"
+        ? typeof row.barcode === "string" &&
+          (row.item_number === null || typeof row.item_number === "string") &&
+          (row.product_name === null || typeof row.product_name === "string") &&
+          (row.second_product_name === null ||
+            typeof row.second_product_name === "string") &&
+          optionalUuid(row.supplier_id) &&
+          optionalUuid(row.category_id) &&
+          finiteNumberOrNull(row.purchase_price) &&
+          finiteNumberOrNull(row.retail_price) &&
+          finiteNumberOrNull(row.stock_quantity) &&
+          deletedAtValid
+        : canonicalUuid(row.product_id) !== null &&
+          typeof row.type === "string" &&
+          typeof row.price === "number" &&
+          Number.isFinite(row.price) &&
+          timestampMicros(row.effective_at) !== null &&
+          timestampMicros(row.created_at) !== null &&
+          (row.source === null || typeof row.source === "string");
+
+  return valid ? { id, updatedAtMicros } : null;
+}
+
 function parseDescriptor(value: Record<string, unknown>) {
   const scopeKind = value.scopeKind;
   const scopeKey = value.scopeKey;
   const revision = value.revision;
 
   if (
-    (scopeKind !== "legacy_owner_bridge" && scopeKind !== "shop_scoped") ||
+    (scopeKind !== "authorized_shop_plus_legacy" &&
+      scopeKind !== "legacy_owner_bridge" &&
+      scopeKind !== "shop_scoped") ||
     typeof scopeKey !== "string" ||
     !SCOPE_KEY_PATTERN.test(scopeKey) ||
     typeof revision !== "string" ||
@@ -127,7 +247,10 @@ function parseManifest(value: unknown): CatalogV2Manifest | null {
 }
 
 function parseStatus(value: unknown): CatalogPageV2Failure["status"] | null {
-  return value === "invalid" ||
+  return value === "denied" ||
+    value === "integrity_blocked" ||
+    value === "invalid" ||
+    value === "resource_exceeded" ||
     value === "snapshot_changed" ||
     value === "unmapped"
     ? value
@@ -167,16 +290,32 @@ export function normalizeCatalogRevision(value: unknown) {
 export async function loadCatalogRevisionV2(
   supabase: SupabaseAdminClient,
   shopId: string,
-): Promise<CatalogRevisionDescriptor | null> {
-  const { data, error } = await supabase.rpc("pos_catalog_revision_v2", {
+  lease: {
+    posSessionId: string;
+    shopDeviceId: string;
+    staffId: string;
+  },
+): Promise<CatalogRevisionV2Result> {
+  const { data, error } = await supabase.rpc("pos_catalog_revision_for_lease_v3", {
+    p_pos_session_id: lease.posSessionId,
+    p_shop_device_id: lease.shopDeviceId,
     p_shop_id: shopId,
+    p_staff_id: lease.staffId,
   });
 
-  if (error || !isRecord(data) || data.status !== "ok") {
-    return null;
+  if (error || !isRecord(data)) {
+    return { status: "db_failure" };
   }
 
-  return parseDescriptor(data);
+  if (data.status !== "ok") {
+    return { status: parseStatus(data.status) ?? "db_failure" };
+  }
+
+  const descriptor = parseDescriptor(data);
+
+  return descriptor
+    ? { ...descriptor, status: "ok" }
+    : { status: "db_failure" };
 }
 
 export async function loadCatalogPageV2(
@@ -192,11 +331,14 @@ export async function loadCatalogPageV2(
     limit: number;
     lowerBound: string | null;
     mode: "delta" | "full_refresh";
+    posSessionId: string;
     shopId: string;
+    shopDeviceId: string;
     snapshotAt: string | null;
+    staffId: string;
   },
 ): Promise<CatalogPageV2 | CatalogPageV2Failure> {
-  const { data, error } = await supabase.rpc("pos_catalog_pull_page_v2", {
+  const { data, error } = await supabase.rpc("pos_catalog_pull_page_for_lease_v3", {
     p_after_id: input.afterId,
     p_after_updated_at: input.afterUpdatedAt,
     p_entity: input.entity,
@@ -207,8 +349,11 @@ export async function loadCatalogPageV2(
     p_limit: input.limit,
     p_lower_bound: input.lowerBound,
     p_mode: input.mode,
+    p_pos_session_id: input.posSessionId,
+    p_shop_device_id: input.shopDeviceId,
     p_shop_id: input.shopId,
     p_snapshot_at: input.snapshotAt,
+    p_staff_id: input.staffId,
   });
 
   if (error || !isRecord(data)) {
@@ -221,29 +366,93 @@ export async function loadCatalogPageV2(
 
   const descriptor = parseDescriptor(data);
   const entity = data.entity;
-  const snapshotAt = data.snapshotAt;
+  const snapshotAt =
+    typeof data.snapshotAt === "string" ? data.snapshotAt : null;
   const rows = data.rows;
+  const pageLimit = data.pageLimit;
+  const rawScopeOwnerId = data.scopeOwnerId;
   const manifest = data.manifest === null ? null : parseManifest(data.manifest);
+  const scopeOwnerId =
+    rawScopeOwnerId === null ? null : canonicalUuid(rawScopeOwnerId);
+  const snapshotMicros = timestampMicros(snapshotAt);
 
   if (
     !descriptor ||
+    !canonicalUuid(input.shopId) ||
     (entity !== "done" &&
       entity !== "categories" &&
       entity !== "suppliers" &&
       entity !== "products" &&
       entity !== "prices") ||
     typeof data.entityHasMore !== "boolean" ||
-    typeof snapshotAt !== "string" ||
-    !POSTGRES_TIMESTAMP_PATTERN.test(snapshotAt) ||
-    !Number.isFinite(Date.parse(snapshotAt)) ||
+    !Number.isSafeInteger(pageLimit) ||
+    (pageLimit as number) < 1 ||
+    (pageLimit as number) > input.limit ||
+    snapshotMicros === null ||
+    (rawScopeOwnerId !== null && scopeOwnerId === null) ||
+    (descriptor?.scopeKind === "shop_scoped" && scopeOwnerId !== null) ||
+    (descriptor?.scopeKind !== "shop_scoped" && scopeOwnerId === null) ||
+    (descriptor !== null &&
+      scopeKeyForPage(input.shopId, descriptor.scopeKind, scopeOwnerId) !==
+        descriptor.scopeKey) ||
+    (input.expectedRevision !== null &&
+      descriptor?.revision !== input.expectedRevision) ||
+    (input.expectedScopeKey !== null &&
+      descriptor?.scopeKey !== input.expectedScopeKey) ||
+    (input.expectedScopeKind !== null &&
+      descriptor?.scopeKind !== input.expectedScopeKind) ||
+    (input.snapshotAt !== null &&
+      timestampMicros(input.snapshotAt) !== snapshotMicros) ||
+    (input.entity !== null && entity !== input.entity) ||
+    ((input.afterId === null) !== (input.afterUpdatedAt === null)) ||
+    (input.afterId !== null && canonicalUuid(input.afterId) === null) ||
+    (input.afterUpdatedAt !== null &&
+      timestampMicros(input.afterUpdatedAt) === null) ||
     !Array.isArray(rows) ||
     rows.length > input.limit ||
+    rows.length > (pageLimit as number) ||
     !rows.every(isRecord) ||
     (input.includeManifest && !manifest) ||
     (!input.includeManifest && manifest !== null) ||
+    (data.entityHasMore && rows.length !== pageLimit) ||
     (entity === "done" && (rows.length !== 0 || data.entityHasMore))
   ) {
     return { status: "db_failure" };
+  }
+
+  if (entity !== "done") {
+    const parsedRows = (rows as Record<string, unknown>[]).map((row) =>
+      rowMatchesPageContract(
+        row,
+        input,
+        descriptor.scopeKind,
+        scopeOwnerId,
+        entity,
+        snapshotMicros,
+      ),
+    );
+    const afterMicros = timestampMicros(input.afterUpdatedAt);
+    const seenIds = new Set<string>();
+    let previous:
+      | { id: string; updatedAtMicros: bigint }
+      | null = input.afterId !== null && afterMicros !== null
+        ? { id: input.afterId.toLowerCase(), updatedAtMicros: afterMicros }
+        : null;
+
+    for (const parsedRow of parsedRows) {
+      if (
+        parsedRow === null ||
+        seenIds.has(parsedRow.id) ||
+        (previous !== null &&
+          (parsedRow.updatedAtMicros < previous.updatedAtMicros ||
+            (parsedRow.updatedAtMicros === previous.updatedAtMicros &&
+              parsedRow.id <= previous.id)))
+      ) {
+        return { status: "db_failure" };
+      }
+      seenIds.add(parsedRow.id);
+      previous = parsedRow;
+    }
   }
 
   return {
@@ -251,8 +460,10 @@ export async function loadCatalogPageV2(
     entity,
     entityHasMore: data.entityHasMore,
     manifest,
+    pageLimit: pageLimit as number,
     rows: rows as Record<string, unknown>[],
-    snapshotAt,
+    scopeOwnerId,
+    snapshotAt: snapshotAt as string,
     status: "ok",
   };
 }

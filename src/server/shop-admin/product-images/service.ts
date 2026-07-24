@@ -13,6 +13,7 @@ import {
   PRODUCT_IMAGE_BUCKET,
   PRODUCT_IMAGE_MAIN_MAX_BYTES,
   PRODUCT_IMAGE_MAIN_MAX_SIDE,
+  PRODUCT_IMAGE_READ_RESPONSE_LIMIT,
   PRODUCT_IMAGE_READ_URL_TTL_SECONDS,
   PRODUCT_IMAGE_THUMB_MAX_BYTES,
   PRODUCT_IMAGE_THUMB_MAX_SIDE,
@@ -20,6 +21,7 @@ import {
   type ProductImageIntentInput,
   type ProductImageReadInput,
   type ProductImageRemoveInput,
+  type ProductImageUploadMetadata,
 } from "./contract";
 import { inspectJpeg } from "./jpeg-validator";
 
@@ -95,6 +97,23 @@ function resolveAdminClient() {
   return config.status === "configured"
     ? createSupabaseAdminClient(config)
     : null;
+}
+
+async function productImageAccessIsPublishable(
+  admin: SupabaseAdminClient,
+  actor: ProductImageRequestActor,
+  permission: "read" | "write",
+) {
+  const { data, error } = await admin.rpc(
+    "product_image_revalidate_access_v1",
+    {
+      p_actor_kind: actor.actorKind,
+      p_actor_profile_id: actor.actorProfileId,
+      p_permission: permission,
+      p_shop_id: actor.shopId,
+    },
+  );
+  return !error && data === true;
 }
 
 async function markVersionFailed(
@@ -192,7 +211,26 @@ export async function createProductImageIntent(
   const thumbPath = textField(rpc.thumb_path);
   const expiresAt = textField(rpc.expires_at);
 
-  if (!versionId || !mainPath || !thumbPath || !expiresAt) {
+  if (
+    !versionId ||
+    !mainPath ||
+    !thumbPath ||
+    !expiresAt ||
+    !canonicalProductImagePath({
+      path: mainPath,
+      productId: input.productId,
+      shopId: input.shopId,
+      variant: "main",
+      versionId,
+    }) ||
+    !canonicalProductImagePath({
+      path: thumbPath,
+      productId: input.productId,
+      shopId: input.shopId,
+      variant: "thumb",
+      versionId,
+    })
+  ) {
     return safeFailure("backend_contract_invalid");
   }
 
@@ -218,6 +256,16 @@ export async function createProductImageIntent(
       "signed_url_creation_failed",
     );
     return safeFailure("storage_unavailable");
+  }
+
+  if (!(await productImageAccessIsPublishable(admin, actor, "write"))) {
+    await markVersionFailed(
+      admin,
+      actor,
+      { productId: input.productId, shopId: input.shopId, versionId },
+      "permission_revoked_before_publication",
+    );
+    return safeFailure("permission_denied", 403);
   }
 
   return serviceResult(201, {
@@ -583,19 +631,27 @@ export async function removeProductImage(
 
 type ResolvedReadItem = {
   code: string;
+  metadata?: ProductImageUploadMetadata;
   objectPath?: string;
   productId: string;
   variant: "main" | "thumb";
   versionId: string;
 };
 
-function parseResolvedReadItems(value: Json | undefined): ResolvedReadItem[] | null {
-  if (!Array.isArray(value)) {
+function integerField(value: Json | undefined) {
+  return typeof value === "number" && Number.isSafeInteger(value) ? value : null;
+}
+
+function parseResolvedReadItems(
+  value: Json | undefined,
+  input: ProductImageReadInput,
+): ResolvedReadItem[] | null {
+  if (!Array.isArray(value) || value.length !== input.refs.length) {
     return null;
   }
 
   const parsed: ResolvedReadItem[] = [];
-  for (const item of value) {
+  for (const [index, item] of value.entries()) {
     if (!item || typeof item !== "object" || Array.isArray(item)) {
       return null;
     }
@@ -605,15 +661,72 @@ function parseResolvedReadItems(value: Json | undefined): ResolvedReadItem[] | n
     const variant = textField(candidate.variant);
     const code = textField(candidate.code);
     const objectPath = textField(candidate.object_path) ?? undefined;
+    const expected = input.refs[index];
     if (
       !productId ||
       !versionId ||
       !code ||
-      (variant !== "main" && variant !== "thumb")
+      (variant !== "main" && variant !== "thumb") ||
+      !expected ||
+      productId !== expected.productId ||
+      versionId !== expected.versionId ||
+      variant !== expected.variant ||
+      (code !== "success" && code !== "not_found")
     ) {
       return null;
     }
-    parsed.push({ code, objectPath, productId, variant, versionId });
+
+    if (code === "not_found") {
+      if (objectPath) return null;
+      parsed.push({ code, productId, variant, versionId });
+      continue;
+    }
+
+    const sha256 = textField(candidate.verified_sha256);
+    const bytes = integerField(candidate.verified_bytes);
+    const width = integerField(candidate.verified_width);
+    const height = integerField(candidate.verified_height);
+    const mimeType = textField(candidate.verified_mime_type);
+    const maxBytes =
+      variant === "main"
+        ? PRODUCT_IMAGE_MAIN_MAX_BYTES
+        : PRODUCT_IMAGE_THUMB_MAX_BYTES;
+    const maxSide =
+      variant === "main"
+        ? PRODUCT_IMAGE_MAIN_MAX_SIDE
+        : PRODUCT_IMAGE_THUMB_MAX_SIDE;
+    if (
+      !objectPath ||
+      !canonicalProductImagePath({
+        path: objectPath,
+        productId,
+        shopId: input.shopId,
+        variant,
+        versionId,
+      }) ||
+      !sha256 ||
+      !/^[0-9a-f]{64}$/.test(sha256) ||
+      bytes === null ||
+      bytes < 1 ||
+      bytes > maxBytes ||
+      width === null ||
+      width < 1 ||
+      width > maxSide ||
+      height === null ||
+      height < 1 ||
+      height > maxSide ||
+      mimeType !== "image/jpeg"
+    ) {
+      return null;
+    }
+    parsed.push({
+      code,
+      metadata: { bytes, height, mimeType, sha256, width },
+      objectPath,
+      productId,
+      variant,
+      versionId,
+    });
   }
   return parsed;
 }
@@ -643,7 +756,7 @@ export async function readProductImageUrls(
     return safeFailure(code, statusForRpcCode(code));
   }
 
-  const resolved = parseResolvedReadItems(rpc.items);
+  const resolved = parseResolvedReadItems(rpc.items, input);
   if (!resolved) {
     return safeFailure("backend_contract_invalid");
   }
@@ -658,14 +771,24 @@ export async function readProductImageUrls(
       .from(PRODUCT_IMAGE_BUCKET)
       .createSignedUrls(paths, PRODUCT_IMAGE_READ_URL_TTL_SECONDS);
 
-    if (signedResult.error || !signedResult.data) {
+    if (
+      signedResult.error ||
+      !signedResult.data ||
+      signedResult.data.length !== paths.length
+    ) {
       return safeFailure("storage_unavailable");
     }
 
-    for (const signed of signedResult.data) {
-      if (signed.path && signed.signedUrl) {
-        signedByPath.set(signed.path, signed.signedUrl);
+    for (const [index, signed] of signedResult.data.entries()) {
+      const expectedPath = paths[index];
+      if (
+        !expectedPath ||
+        signed.path !== expectedPath ||
+        !signed.signedUrl
+      ) {
+        return safeFailure("storage_unavailable");
       }
+      signedByPath.set(expectedPath, signed.signedUrl);
     }
   }
 
@@ -676,11 +799,15 @@ export async function readProductImageUrls(
     const signedUrl = item.objectPath
       ? signedByPath.get(item.objectPath)
       : undefined;
-    return signedUrl
+    if (item.code === "success" && (!signedUrl || !item.metadata)) {
+      return null;
+    }
+    return item.code === "success"
       ? {
           expiresAt,
+          metadata: item.metadata,
           productId: item.productId,
-          signedUrl,
+          signedUrl: signedUrl!,
           status: "ready",
           variant: item.variant,
           versionId: item.versionId,
@@ -693,12 +820,23 @@ export async function readProductImageUrls(
         };
   });
 
-  return serviceResult(200, {
+  if (items.some((item) => item === null)) {
+    return safeFailure("storage_unavailable");
+  }
+
+  const body = {
     cacheScope: createProductImageCacheScope(
       actor.actorKind,
       actor.actorProfileId,
     ),
     items,
     ok: true,
-  });
+  };
+  if (Buffer.byteLength(JSON.stringify(body), "utf8") > PRODUCT_IMAGE_READ_RESPONSE_LIMIT) {
+    return safeFailure("backend_contract_invalid");
+  }
+  if (!(await productImageAccessIsPublishable(admin, actor, "read"))) {
+    return safeFailure("permission_denied", 403);
+  }
+  return serviceResult(200, body);
 }
