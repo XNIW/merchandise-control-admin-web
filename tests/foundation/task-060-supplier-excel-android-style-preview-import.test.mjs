@@ -87,10 +87,15 @@ function loadTypeScriptModuleWithPrivateExports(relativePath, exportNames = []) 
   }
 
   const context = createContext({
+    AbortController,
+    AbortSignal,
     Buffer,
+    TextEncoder,
+    clearTimeout,
     exports: cjsModule.exports,
     module: cjsModule,
     require: requireFromTest,
+    setTimeout,
   });
 
   const privateExports = exportNames

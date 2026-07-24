@@ -268,17 +268,28 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
     "recoveryActions",
     "metadataPreview: stringifyRedactedJson",
   ]);
+  const recoveryActionFence = readProjectFile(
+    "supabase/migrations/20260723053000_task_139_pos_recovery_action_fence.sql",
+  );
   assertContainsAll(recoveryMutations, [
     'import "server-only"',
     "resolveShopActionContext(",
     "input.requestedShopId",
     '"sync.manage"',
-    ".from(\"audit_logs\")",
-    ".insert({",
-    "redactShopAdminJson",
-    "behavior: \"append_only_audit_no_sales_stock_outbox_mutation\"",
+    'adminClient.rpc(',
+    '"shop_pos_recovery_action_v1"',
+    "p_actor_profile_id: context.actorProfileId",
+    "p_shop_id: context.selectedShop.shopId",
+    "p_target_id: target.id",
+    "result.shopId !== context.selectedShop.shopId",
+    "result.targetId !== target.id",
+    "isCanonicalPostgresUuid(result.auditEventId)",
+  ]);
+  assertContainsAll(recoveryActionFence, [
+    "insert into public.audit_logs",
+    "behavior",
+    "append_only_audit_no_sales_stock_outbox_mutation",
     "request_pos_retry_effect",
-    ".eq(\"shop_id\", shopId)",
     "pos.sync.recovery.",
   ]);
   assertContainsAll(readProjectFile("src/server/shop-admin/history-read-model.ts"), [

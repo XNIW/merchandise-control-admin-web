@@ -57,11 +57,37 @@ function loadCatalogRevisionBoundary() {
     fileName: relativePath,
   });
   const cjsModule = { exports: {} };
+  const requireFromBoundary = (id) => {
+    if (id === "../shared/postgres-uuid.ts") {
+      const helperRelativePath = "src/server/shared/postgres-uuid.ts";
+      const helperSource = read(helperRelativePath);
+      const helperTranspiled = ts.transpileModule(helperSource, {
+        compilerOptions: {
+          esModuleInterop: true,
+          module: ts.ModuleKind.CommonJS,
+          target: ts.ScriptTarget.ES2022,
+        },
+        fileName: helperRelativePath,
+      });
+      const helperModule = { exports: {} };
+      new Script(helperTranspiled.outputText, {
+        filename: helperRelativePath,
+      }).runInContext(
+        createContext({
+          exports: helperModule.exports,
+          module: helperModule,
+          require: requireForTranspiledModule,
+        }),
+      );
+      return helperModule.exports;
+    }
+    return requireForTranspiledModule(id);
+  };
   const context = createContext({
     Buffer,
     exports: cjsModule.exports,
     module: cjsModule,
-    require: requireForTranspiledModule,
+    require: requireFromBoundary,
   });
 
   new Script(transpiled.outputText, { filename: relativePath }).runInContext(

@@ -547,8 +547,11 @@ test("TASK-057 full database import treats PriceHistory as first-class shop cata
     "priceHistoryRows",
     "priceHistoryApplied",
     "shop_catalog_import_price_history",
-    "fetchCatalogExportPriceRows",
-    "mergeCatalogExportPriceRows",
+    "getStaffWorkbookInventoryReadModel",
+    "loadStaffWorkbookSnapshotRows",
+    "collectBoundedWorkbookPages",
+    "CATALOG_WORKBOOK_EXPORT_LIMITS",
+    "createCatalogWorkbookExportResourceEnvelope",
     "BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE",
     'rowLimit: "all"',
   ]) {
@@ -613,8 +616,10 @@ test("TASK-057 database apply uses audited bulk product import for large workboo
     "staffCatalogRpc(context, \"bulk_prices\"",
     "callStaffWebCatalogMutation",
     "staff_web_catalog_mutate_v1",
-    ".from(\"inventory_products\")",
-    ".from(\"inventory_product_prices\")",
+    "planStaffAwareBulkChunks",
+    "staffBulkChunkCountsAreValid",
+    "remainingStaffBulkRows",
+    "root.shop_id === context.selectedShop.shopId",
   ]) {
     assertContains(
       `${workbook}\n${staffAwareMutations}\n${staffLeaseBoundary}\n${migration}`,
@@ -846,14 +851,16 @@ test("TASK-057 staff-aware catalog writes use shop_id and catalog scope", () => 
   const mutations = read("src/server/shop-admin/staff-aware-mutations.ts");
 
   for (const required of [
-    "catalogAuditMetadata",
-    "catalog_scope",
-    'source: "admin_web"',
-    "shop_id: context.selectedShop.shopId",
+    "CatalogProductAssignmentScope",
+    "input.scope.selectedShopId",
+    "input.scope.catalogScope",
+    "row.shop_id === input.scope.selectedShopId",
+    "row.owner_user_id === input.scope.legacyOwnerUserId",
     "shop_scoped",
     "legacy_owner_bridge",
     "staffCatalogRpc",
     "callStaffWebCatalogMutation",
+    "root.shop_id === context.selectedShop.shopId",
   ]) {
     assertContains(mutations, required);
   }

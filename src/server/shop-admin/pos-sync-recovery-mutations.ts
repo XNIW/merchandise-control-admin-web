@@ -6,6 +6,7 @@ import {
   type SupabaseAdminClient,
 } from "@/lib/supabase/admin";
 import type { Json } from "@/lib/supabase/database.types";
+import { isCanonicalPostgresUuid } from "@/server/shared/postgres-uuid";
 import {
   resolveShopActionContext,
   shopAdminActionResult,
@@ -162,12 +163,19 @@ export async function recordPosSyncRecoveryAction(input: {
       shopId: context.selectedShop.shopId,
     });
   }
+  if (
+    result.shopId !== context.selectedShop.shopId ||
+    result.targetId !== target.id ||
+    !isCanonicalPostgresUuid(result.auditEventId)
+  ) {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
 
   return shopAdminActionResult("success", {
-    auditEventId:
-      typeof result.auditEventId === "string"
-        ? result.auditEventId
-        : undefined,
+    auditEventId: result.auditEventId,
     ok: true,
     shopId: context.selectedShop.shopId,
     targetId: target.id,
