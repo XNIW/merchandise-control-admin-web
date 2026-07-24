@@ -28,15 +28,6 @@ type PosSyncRecoveryTarget = {
   type: PosSyncRecoveryTargetType;
 };
 
-type ReadyShopActionContext = Extract<
-  Awaited<ReturnType<typeof resolveShopActionContext>>,
-  { status: "ready" }
->;
-type PersonalShopActionContext = Extract<
-  ReadyShopActionContext,
-  { principalKind: "personal_account" }
->;
-
 const allowedActionTypes = new Set<PosSyncRecoveryActionType>([
   "add_note",
   "mark_reviewed",
@@ -87,9 +78,7 @@ function normalizeNote(value: string | undefined) {
   return normalized.slice(0, MAX_NOTE_LENGTH);
 }
 
-function adminClientForContext(
-  context: PersonalShopActionContext,
-): SupabaseAdminClient | null {
+function adminClientForContext(): SupabaseAdminClient | null {
   const config = resolveSupabaseAdminConfig();
 
   if (config.status !== "configured") {
@@ -132,7 +121,7 @@ export async function recordPosSyncRecoveryAction(input: {
     });
   }
 
-  const adminClient = adminClientForContext(context);
+  const adminClient = adminClientForContext();
 
   if (!adminClient) {
     return shopAdminActionResult("not_configured", {

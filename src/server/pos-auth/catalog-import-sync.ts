@@ -9,7 +9,6 @@ import {
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import {
   buildPosShopPayload,
-  POS_SHOP_SELECT,
   type PosShopPayload,
   type PosShopPayloadRow,
 } from "./shop-payload";
@@ -32,17 +31,6 @@ type StaffAccountRow = Pick<
   | "shop_id"
   | "staff_id"
   | "status"
->;
-type PosDeviceCredentialRow = Pick<
-  Tables<"pos_device_credentials">,
-  | "expires_at"
-  | "pos_device_credential_id"
-  | "shop_device_id"
-  | "shop_id"
-  | "staff_credential_version"
-  | "staff_id"
-  | "status"
-  | "token_hash"
 >;
 type PosSessionRow = Pick<
   Tables<"pos_sessions">,

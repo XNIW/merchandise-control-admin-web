@@ -14,7 +14,6 @@ import {
   buildSupplierImportHistoryEntryPayload,
   formatMobileHistoryTimestamp,
   supplierImportHistoryPayloadJson,
-  type SupplierImportHistoryEntryPayload,
   type SupplierImportHistoryGridRow,
 } from "./supplier-import-history-entry-contract";
 import { callStaffWebHistoryMutation } from "./staff-web-lease-bound-rpc";

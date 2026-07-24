@@ -1,7 +1,6 @@
 import "server-only";
 
 import { Buffer } from "node:buffer";
-import { randomUUID } from "node:crypto";
 import type { Json } from "@/lib/supabase/database.types";
 import {
   mapShopAdminRpcResult,
@@ -176,12 +175,6 @@ export type CatalogProductAssignmentScope = {
   selectedShopId: string;
 };
 
-type InventoryScopedRow = {
-  id: string;
-  owner_user_id: string;
-  shop_id: string | null;
-};
-
 type CatalogEntityInput = {
   name: string;
 };
@@ -283,30 +276,6 @@ function nowIso() {
 
 function normalizeLabel(value: string | undefined) {
   return (value ?? "").trim().replace(/\s+/g, " ");
-}
-
-function catalogAuditMetadata(
-  owner: { catalogScope: InventoryCatalogScope },
-  metadata: JsonRecord = {},
-): JsonRecord {
-  return {
-    catalog_scope: owner.catalogScope,
-    source: "admin_web",
-    ...metadata,
-  };
-}
-
-function isInventoryScopedToShop(
-  row: Pick<InventoryScopedRow, "owner_user_id" | "shop_id">,
-  input: {
-    ownerUserId: string;
-    shopId: string;
-  },
-) {
-  return (
-    row.shop_id === input.shopId ||
-    (row.shop_id === null && row.owner_user_id === input.ownerUserId)
-  );
 }
 
 export async function write_staff_shop_admin_audit(

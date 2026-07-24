@@ -1990,7 +1990,6 @@ async function resolveHistorySourceState(
 async function loadHistorySyncEventsForShop(
   supabase: SupabaseServerClient,
   selectedShop: ShopAdminShellShop,
-  _legacyOwnerUserId: string | null,
 ) {
   const result = await readSafeSyncEvents(supabase, {
     domains: ["history"],
@@ -2857,7 +2856,6 @@ export async function getShopHistoryListReadModel(
   const syncEventsResult = await loadHistorySyncEventsForShop(
     supabase,
     selectedShop,
-    legacyOwnerUserId,
   );
   const syncEvents = syncEventsResult.error ? [] : syncEventsResult.events;
   const diagnosticsResult = await loadHistoryListDiagnostics({
@@ -3632,7 +3630,6 @@ export async function getShopHistoryDetailReadModel(
   const historyEventsResult = await loadHistorySyncEventsForShop(
     supabase,
     selectedShop,
-    legacyOwnerUserId,
   );
 
   if (historyEventsResult.error) {

@@ -673,12 +673,24 @@ values (
 insert into public.staff_role_permissions (
   shop_id, role_key, permission_key, enabled
 )
-values (
+select
   '10000000-0000-4000-8000-000000000901',
   'manager',
-  'shop_admin.full_access',
+  permission_key,
   true
-);
+from (
+  values
+    ('catalog.read'),
+    ('catalog.write'),
+    ('catalog.import'),
+    ('catalog.export'),
+    ('staff.read'),
+    ('staff.write'),
+    ('audit.read'),
+    ('sync.read'),
+    ('sync.write'),
+    ('history.write')
+) permissions(permission_key);
 
 insert into public.staff_web_sessions (
   staff_web_session_id, shop_id, staff_id, session_token_hash,
@@ -1320,22 +1332,18 @@ select is(
     'sha256:' || repeat('e', 64),
     1
   )->>'code',
-  'success',
-  'staff lifecycle device registration holds the staff lease through publication'
+  'session_expired',
+  'missing owner-only devices.write invalidates the exact staff lease before device DML'
 );
 set local role postgres;
 select ok(
-  exists (
+  not exists (
     select 1
     from public.shop_devices device
-    join public.audit_logs audit
-      on audit.target_id = device.shop_device_id::text
     where device.shop_id = '10000000-0000-4000-8000-000000000901'
       and device.device_identifier = 'task139-staff-lifecycle-device'
-      and audit.actor_staff_id = '31000000-0000-4000-8000-000000000901'
-      and audit.event_key = 'shop.device.register.success'
   ),
-  'staff lifecycle device registration commits its row and audit together'
+  'denied staff lifecycle device registration creates no row'
 );
 set local role service_role;
 select is(
