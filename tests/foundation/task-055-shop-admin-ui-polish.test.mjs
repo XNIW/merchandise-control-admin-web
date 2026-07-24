@@ -82,16 +82,20 @@ test("TASK-055 Shop shell header shows real shop context and compact sidebar gua
 test("TASK-055 Shop shell access keeps RUT/name enrichment server-side", () => {
   const shopAccess = read("src/server/shop-admin/shop-access.ts");
   const dataAccess = read("src/server/shop-admin/data-access.ts");
+  const staffRuntimeBoundary = read(
+    "src/server/shop-admin/staff-web-runtime-boundary.ts",
+  );
   const shopLayout = read("src/app/shop/layout.tsx");
 
   assertContains(shopAccess, "companyRut?: string");
   assertContains(shopAccess, "company_rut");
   assertContains(shopAccess, "companyRut: shop.company_rut");
-  assertContains(dataAccess, "async function loadStaffShellShop");
-  assertContains(dataAccess, ".from(\"shops\")");
-  assertContains(dataAccess, "company_rut");
-  assertContains(dataAccess, "shopName: shop.shop_name");
-  assertContains(dataAccess, "companyRut: shop.company_rut");
+  assertContains(dataAccess, "function staffShellShop");
+  assertContains(dataAccess, "companyRut: input.companyRut");
+  assertContains(dataAccess, "shopName: shopName || `Shop ${input.shopCode}`");
+  assertContains(staffRuntimeBoundary, "company_rut");
+  assertContains(staffRuntimeBoundary, "shop_name");
+  assert.doesNotMatch(dataAccess, /\.from\("shops"\)/);
   assertContains(shopLayout, "access.selectedShop");
   assert.doesNotMatch(shopLayout, /shopName: principal\.shop\.shopCode/);
   assert.doesNotMatch(`${shopAccess}\n${dataAccess}`, /NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY|service_role/i);

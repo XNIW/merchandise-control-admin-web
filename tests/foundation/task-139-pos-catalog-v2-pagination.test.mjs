@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { join } from "node:path";
@@ -15,7 +16,39 @@ function read(relativePath) {
 
 function loadContract() {
   const relativePath = "src/server/pos-auth/catalog-sync-contract.ts";
-  const transpiled = ts.transpileModule(read(relativePath), {
+  const source = read(relativePath).replace(
+    /^import "server-only";\r?\n\r?\n/,
+    "",
+  );
+  const transpiled = ts.transpileModule(source, {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+    fileName: relativePath,
+  });
+  const cjsModule = { exports: {} };
+  const context = createContext({
+    Buffer,
+    exports: cjsModule.exports,
+    module: cjsModule,
+    require: requireForTranspiledModule,
+  });
+
+  new Script(transpiled.outputText, { filename: relativePath }).runInContext(
+    context,
+  );
+  return cjsModule.exports;
+}
+
+function loadCatalogRevisionBoundary() {
+  const relativePath = "src/server/pos-auth/catalog-revision.ts";
+  const source = read(relativePath).replace(
+    /^import "server-only";\r?\n\r?\n/,
+    "",
+  );
+  const transpiled = ts.transpileModule(source, {
     compilerOptions: {
       esModuleInterop: true,
       module: ts.ModuleKind.CommonJS,
@@ -40,6 +73,29 @@ function loadContract() {
 function rowsFor(count, timestamp = "2026-07-19T17:06:00.123456+00:00") {
   return Array.from({ length: count }, (_, index) => ({
     id: `row-${String(index).padStart(6, "0")}`,
+    updated_at: timestamp,
+  }));
+}
+
+function productBoundaryRows(
+  count,
+  start = 1,
+  timestamp = "2026-07-21T17:06:00.123456+00:00",
+) {
+  return Array.from({ length: count }, (_, offset) => ({
+    barcode: `barcode-${start + offset}`,
+    category_id: null,
+    deleted_at: null,
+    id: `50000000-0000-4000-8000-${String(start + offset).padStart(12, "0")}`,
+    item_number: null,
+    owner_user_id: "60000000-0000-4000-8000-000000000001",
+    product_name: `Product ${start + offset}`,
+    purchase_price: null,
+    retail_price: null,
+    second_product_name: null,
+    shop_id: "33333333-3333-4333-8333-333333333333",
+    stock_quantity: null,
+    supplier_id: null,
     updated_at: timestamp,
   }));
 }
@@ -153,6 +209,31 @@ test("TASK-139 signed cursor is compact, bound, expiring and precision-safe", ()
     true,
   );
   assert.equal(decoded.state.manifest.catalogSummary.products, 100000);
+
+  for (const scopeKind of [
+    "shop_scoped",
+    "legacy_owner_bridge",
+    "authorized_shop_plus_legacy",
+  ]) {
+    const scopedCursor = helper.buildCatalogV2Cursor(
+      { ...state, scopeKind },
+      context,
+    );
+    const scopedDecoded = helper.decodeCatalogV2Cursor(
+      scopedCursor,
+      serverTime,
+      context,
+    );
+
+    assert.equal(scopedDecoded.ok, true);
+    assert.equal(scopedDecoded.state.scopeKind, scopeKind);
+    assert.ok(scopedCursor.length <= helper.MAX_CATALOG_V2_CURSOR_LENGTH);
+  }
+
+  assert.throws(
+    () => helper.buildCatalogV2Cursor({ ...state, scopeKind: "unknown" }, context),
+    /catalog_v2_cursor_identity_invalid/,
+  );
 
   const encodedPayload = cursor
     .slice("catalog-v2:".length, cursor.lastIndexOf("."));
@@ -271,6 +352,111 @@ test("TASK-139 signed cursor is compact, bound, expiring and precision-safe", ()
     helper.decodeCatalogV2Cursor(expired, serverTime, context).code,
     "catalog_cursor_expired",
   );
+});
+
+test("TASK-139 page boundary honors a server lane cap below the requested limit", async () => {
+  const boundary = loadCatalogRevisionBoundary();
+  const calls = [];
+  const manifest = {
+    catalogSummary: {
+      activeProducts: 61,
+      categories: 0,
+      prices: 0,
+      products: 61,
+      suppliers: 0,
+    },
+    windowCounts: {
+      categories: 0,
+      prices: 0,
+      products: 61,
+      suppliers: 0,
+    },
+  };
+  const scopeKey = createHash("sha256")
+    .update(
+      "33333333-3333-4333-8333-333333333333:shop_scoped:33333333-3333-4333-8333-333333333333",
+      "utf8",
+    )
+    .digest("hex")
+    .slice(0, 32);
+  const responses = [
+    {
+      entity: "products",
+      entityHasMore: true,
+      manifest,
+      pageLimit: 60,
+      revision: "61",
+      rows: productBoundaryRows(60),
+      scopeKey,
+      scopeKind: "shop_scoped",
+      scopeOwnerId: null,
+      snapshotAt: "2026-07-21T18:00:00.000000+00:00",
+      status: "ok",
+    },
+    {
+      entity: "products",
+      entityHasMore: false,
+      manifest: null,
+      pageLimit: 60,
+      revision: "61",
+      rows: productBoundaryRows(
+        1,
+        61,
+        "2026-07-21T17:06:00.123457+00:00",
+      ),
+      scopeKey,
+      scopeKind: "shop_scoped",
+      scopeOwnerId: null,
+      snapshotAt: "2026-07-21T18:00:00.000000+00:00",
+      status: "ok",
+    },
+  ];
+  const supabase = {
+    async rpc(name, args) {
+      calls.push({ args, name });
+      return { data: responses.shift(), error: null };
+    },
+  };
+  const base = {
+    afterId: null,
+    afterUpdatedAt: null,
+    entity: null,
+    expectedRevision: null,
+    expectedScopeKey: null,
+    expectedScopeKind: null,
+    includeManifest: true,
+    limit: 500,
+    lowerBound: null,
+    mode: "full_refresh",
+    posSessionId: "11111111-1111-4111-8111-111111111111",
+    shopDeviceId: "22222222-2222-4222-8222-222222222222",
+    shopId: "33333333-3333-4333-8333-333333333333",
+    snapshotAt: null,
+    staffId: "44444444-4444-4444-8444-444444444444",
+  };
+
+  const first = await boundary.loadCatalogPageV2(supabase, base);
+  assert.equal(first.status, "ok");
+  assert.equal(first.pageLimit, 60);
+  assert.equal(first.rows.length, 60);
+  assert.equal(first.entityHasMore, true);
+  assert.equal(calls[0].args.p_limit, 500);
+
+  const second = await boundary.loadCatalogPageV2(supabase, {
+    ...base,
+    afterId: first.rows.at(-1).id,
+    afterUpdatedAt: first.rows.at(-1).updated_at,
+    entity: "products",
+    expectedRevision: first.revision,
+    expectedScopeKey: first.scopeKey,
+    expectedScopeKind: first.scopeKind,
+    includeManifest: false,
+    snapshotAt: first.snapshotAt,
+  });
+  assert.equal(second.status, "ok");
+  assert.equal(second.rows.length, 1);
+  assert.equal(second.entityHasMore, false);
+  assert.equal(calls.length, 2);
 });
 
 test("TASK-139 migration and heartbeat expose only the additive v2 contract", () => {

@@ -8,6 +8,7 @@ import {
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import type { Database } from "../../src/lib/supabase/database.types";
+import { submitSameOriginLogout } from "./logout-helper";
 
 test.use({
   screenshot: "off",
@@ -783,10 +784,7 @@ async function loginAdminAccountSuccessfully(
   await expect(page.getByText(input.shopCode).first()).toBeVisible();
   await assertPasswordIsNotRenderedAfterLogin(page, input.password);
 
-  await page.goto("/auth/logout");
-  await page.waitForURL((url) => url.pathname === "/auth/login", {
-    timeout: 20_000,
-  });
+  await submitSameOriginLogout(page, "shop-account");
   await context.close();
 }
 
@@ -812,10 +810,7 @@ async function loginShopCodeSuccessfully(
   await expect(page.getByText(input.shopCode).first()).toBeVisible();
   await assertPinIsNotRenderedAfterLogin(page, input.pin);
 
-  await page.goto("/shop/staff-logout");
-  await page.waitForURL((url) => url.pathname === "/auth/login", {
-    timeout: 20_000,
-  });
+  await submitSameOriginLogout(page, "shop-staff");
   await context.close();
 }
 

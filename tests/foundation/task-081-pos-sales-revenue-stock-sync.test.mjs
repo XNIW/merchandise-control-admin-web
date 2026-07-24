@@ -152,8 +152,8 @@ test("TASK-081 UX/Product alignment keeps POS payload official and revenue read-
   }
 
   for (const source of [firstLogin, catalogPull, salesSync]) {
-    assertContains(source, "POS_SHOP_SELECT");
-    assertContains(source, "buildPosShopPayload(shop)");
+    assertContains(source, "buildPosShopPayload");
+    assert.doesNotMatch(source, /POS_SHOP_SELECT/);
   }
 
   assertContains(readModel, "readOnly: true");

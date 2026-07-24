@@ -153,35 +153,42 @@ test("TASK-039 server mutations use staff granular permissions and server-only a
   const devices = readProjectFile("src/server/shop-admin/device-mutations.ts");
   const settings = readProjectFile("src/server/shop-admin/settings-mutations.ts");
   const importExport = readProjectFile("src/server/shop-admin/import-export-workbook.ts");
+  const leaseBoundRpc = readProjectFile(
+    "src/server/shop-admin/staff-web-lease-bound-rpc.ts",
+  );
   const combinedMutations = `${catalog}\n${staff}\n${devices}\n${importExport}\n${staffAware}`;
 
   for (const required of [
     'import "server-only"',
     "runStaffAwareShopAdminMutation",
     "write_staff_shop_admin_audit",
-    "actorStaffId",
-    "inventory_suppliers",
-    "inventory_categories",
-    "inventory_products",
-    "staff_accounts",
-    "staff_web_sessions",
-    "staff_role_permissions",
-    "shop_devices",
-    "metadata_redacted",
-    "replaceStaffRolePermissions",
-    "staleStaffWebPermissions",
-    "upsert",
-    "onConflict: \"shop_id,role_key,permission_key\"",
-    "hasStaffFullShopAdminWebAccess(context.staffPermissions)",
-    "code: \"unauthorized\"",
+    "callStaffWebCatalogMutation",
+    "callStaffWebLifecycleMutation",
+    "callStaffWebAuditEvent",
+    'shopAdminActionResult("unauthorized"',
   ]) {
     assertContains(staffAware, required);
   }
 
-  assertContains(staffAware, ".in(\"permission_key\", stalePermissions)");
+  for (const required of [
+    "actorStaffId",
+    "staffWebSession.sessionId",
+    "staffWebSession.sessionTokenHash",
+    'supabase.rpc("staff_web_catalog_mutate_v1"',
+    'supabase.rpc("staff_web_lifecycle_mutate_v1"',
+    'supabase.rpc("staff_web_audit_event_v1"',
+  ]) {
+    assertContains(leaseBoundRpc, required);
+  }
+
   assert.doesNotMatch(
     staffAware,
     /\.from\("staff_role_permissions"\)[\s\S]{0,240}\.delete\(\)[\s\S]{0,240}\.insert\(/,
+  );
+  assert.doesNotMatch(
+    staffAware,
+    /function staffCatalogRpc\([\s\S]{0,800}context\.supabase/,
+    "the staff catalog branch must not regain a generic table client",
   );
   assertContains(settings, "SHOP_SETTINGS_MANAGED_BY_MASTER_CONSOLE");
   assertContains(settings, "shop_settings_managed_by_master_console");
@@ -222,6 +229,11 @@ test("TASK-039 server mutations use staff granular permissions and server-only a
 
   assert.doesNotMatch(staffAware, /SUPABASE_SERVICE_ROLE_KEY|localStorage|sessionStorage|console\./);
   assert.doesNotMatch(combinedMutations, /SUPABASE_SERVICE_ROLE_KEY|localStorage|sessionStorage/);
+  assert.doesNotMatch(
+    leaseBoundRpc,
+    /\.from\(/,
+    "the lease-bound wrapper must expose named RPCs only",
+  );
 });
 
 test("TASK-039 exposes staff lifecycle, permission template and account profile UX without fake sales", () => {

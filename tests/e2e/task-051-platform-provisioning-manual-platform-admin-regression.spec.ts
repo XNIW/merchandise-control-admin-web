@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import type { Database } from "../../src/lib/supabase/database.types";
+import { submitSameOriginLogout } from "./logout-helper";
 
 test.use({
   screenshot: "off",
@@ -522,10 +523,7 @@ async function loginShopCodeSuccessfully(
     page.getByRole("heading", { level: 1, name: "Shop Overview" }),
   ).toBeVisible();
   await expect(page.getByText(input.shopCode).first()).toBeVisible();
-  await page.goto("/shop/staff-logout");
-  await page.waitForURL((url) => url.pathname === "/auth/login", {
-    timeout: 20_000,
-  });
+  await submitSameOriginLogout(page, "shop-staff");
   await context.close();
 }
 

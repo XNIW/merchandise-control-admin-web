@@ -95,6 +95,7 @@ test("TASK-038 migration separates staff web sessions, login attempts and role p
 test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
   const requiredPaths = [
     "src/server/shop-admin/staff-web-auth.ts",
+    "src/server/shop-admin/staff-web-runtime-boundary.ts",
     "src/server/shop-admin/staff-web-permissions.ts",
     "src/components/auth/ShopCodeLoginForm.tsx",
     "src/app/(staff-auth)/shop/staff-login/page.tsx",
@@ -107,6 +108,9 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
   }
 
   const auth = readProjectFile("src/server/shop-admin/staff-web-auth.ts");
+  const runtimeBoundary = readProjectFile(
+    "src/server/shop-admin/staff-web-runtime-boundary.ts",
+  );
   const permissions = readProjectFile("src/server/shop-admin/staff-web-permissions.ts");
   const shopCodeLoginForm = readProjectFile("src/components/auth/ShopCodeLoginForm.tsx");
   const loginPage = readProjectFile("src/app/(staff-auth)/shop/staff-login/page.tsx");
@@ -122,29 +126,49 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
     "resolveStaffWebCookieSecure",
     "hashStaffWebSecret",
     "verifyStaffCredential",
-    "staff_web_sessions",
-    "staff_web_login_attempts",
-    "staff.role_key !== \"manager\"",
-    "hasStaffFullShopAdminWebAccess",
-    "staff.web.login.success",
-    "staff.web.login.failure",
-    "actor_staff_id: input.actorStaffId ?? null",
-    "revokeStaffWebSession",
-    "staff_web_login_audit_failed",
-    "staff.web.logout",
+    "lookupStaffWebLogin",
+    "recordStaffWebLoginFailure",
+    "commitStaffWebLogin",
+    "resolveStaffWebRuntimeSession",
+    "revokeStaffWebRuntimeSession",
+    "resolvePosStaffManagerWebPrincipal",
+    "staff_web_logout",
   ]) {
     assertContains(auth, required);
   }
 
+  for (const required of [
+    'import "server-only"',
+    "staff_web_login_lookup_v1",
+    "staff_web_login_failure_v1",
+    "staff_web_login_commit_v1",
+    "staff_web_session_resolve_v1",
+    "staff_web_session_revoke_v1",
+    "p_session_token_hash",
+    "p_expected_credential_version",
+  ]) {
+    assertContains(runtimeBoundary, required);
+  }
+
   assert.match(
     auth,
-    /const auditOk = await writeStaffWebAudit[\s\S]*actorStaffId: staff\.staff_id[\s\S]*if \(!auditOk\)[\s\S]*revokeStaffWebSession[\s\S]*return staffWebLoginResult\("database_error"\)[\s\S]*await setStaffWebCookie\(sessionToken, expiresAt, meta\)/,
-    "staff web login must not set a valid cookie until success audit is written",
+    /const committed = await commitStaffWebLogin[\s\S]*if \(!committed\)[\s\S]*return staffWebLoginResult\("database_error"\)[\s\S]*if \(!committed\.ok\)[\s\S]*await setStaffWebCookie\(sessionToken, committed\.expiresAt, meta\)/,
+    "staff web login must not set a valid cookie until the lease-bound login commit succeeds",
   );
   assert.doesNotMatch(
     auth,
-    /await setStaffWebCookie\(sessionToken, expiresAt, meta\)[\s\S]{0,260}await writeStaffWebAudit\(supabase,\s*\{\s*code: "success"/,
-    "staff web login must not set the cookie before writing the success audit",
+    /await setStaffWebCookie\(sessionToken, [^)]+\)[\s\S]{0,260}commitStaffWebLogin/,
+    "staff web login must not set the cookie before the lease-bound login commit",
+  );
+  assert.doesNotMatch(
+    auth,
+    /\.from\(["'](?:staff_web_sessions|staff_web_login_attempts|staff_role_permissions)["']\)/,
+    "staff web auth must delegate table persistence to the RPC boundary",
+  );
+  assert.match(
+    auth,
+    /staffStateOverridesAttemptLock[\s\S]*credentialStatus === "active"[\s\S]*lockedUntil === null/,
+    "only an explicit active staff state may override stale login-attempt telemetry",
   );
 
   assertContains(permissions, "SHOP_STAFF_WEB_PERMISSION_TREE");
@@ -161,9 +185,14 @@ test("TASK-038 staff web auth runtime is server-only and cookie based", () => {
   assertContains(loginActions, "redirect(nextPath, RedirectType.replace)");
   assert.doesNotMatch(loginActions, /function isSafeInternalNextPath/);
   assertContains(logoutRoute, "logoutStaffWebSession");
+  assertContains(logoutRoute, "export async function POST");
+  assertContains(logoutRoute, "isSameOriginPostRequest");
+  assertContains(logoutRoute, "NextResponse.redirect(loginUrl, 303)");
+  assertContains(logoutRoute, '"Clear-Site-Data", \'"cache", "storage"\'');
   assertContains(logoutRoute, "response.cookies.set");
   assertContains(logoutRoute, "STAFF_WEB_SESSION_COOKIE");
   assertContains(logoutRoute, "isSecureStaffWebCookie");
+  assert.doesNotMatch(logoutRoute, /export async function GET/);
   assertContains(shopLayout, "resolveShopAdminDataAccess");
   assertContains(shopLayout, "principal.kind");
   assert.doesNotMatch(`${auth}\n${shopCodeLoginForm}\n${loginPage}\n${loginActions}\n${logoutRoute}`, /localStorage|sessionStorage|console\.(log|debug|info|warn|error)/);

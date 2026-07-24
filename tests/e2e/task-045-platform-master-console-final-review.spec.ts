@@ -1,6 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { randomBytes } from "node:crypto";
+import { submitSameOriginLogout } from "./logout-helper";
 
 test.use({
   screenshot: "off",
@@ -830,8 +831,7 @@ test.describe("TASK-045 Platform Master Console final review", () => {
       );
       expect(navMarker).toBe("same_document");
 
-      await page.getByRole("button", { name: "Logout" }).click();
-      await page.waitForURL(/\/auth\/login\?logged_out=1/);
+      await submitSameOriginLogout(page, "platform-account");
       await page.goto("/platform");
       await expect(
         page.getByRole("heading", {

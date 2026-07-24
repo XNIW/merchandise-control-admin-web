@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import { submitSameOriginLogout } from "./logout-helper";
 
 test.use({
   screenshot: "off",
@@ -382,7 +383,7 @@ test.describe("Platform Admin live auth gate", () => {
       );
       await expect(page.getByRole("heading", { name: "Create shop" })).toBeVisible();
 
-      await page.goto("/auth/logout");
+      await submitSameOriginLogout(page, "platform-account");
       await page.goto("/platform");
       await expect(
         page.getByRole("heading", {
@@ -453,7 +454,7 @@ test.describe("Platform Admin live auth gate", () => {
         page.getByRole("heading", { level: 1, name: "Products" }),
       ).toBeVisible();
 
-      await page.goto("/auth/logout");
+      await submitSameOriginLogout(page, "shop-account");
       await page.goto("/shop");
       await expect(
         page.getByRole("heading", {
@@ -587,7 +588,7 @@ test.describe("Platform Admin live auth gate", () => {
         throw new Error("BLOCKED_TASK006_AUDIT_VERIFY_FAILED");
       }
 
-      await page.goto("/auth/logout");
+      await submitSameOriginLogout(page, "platform-account");
       await page.goto("/platform/operations");
       await expect(
         page.getByRole("heading", {

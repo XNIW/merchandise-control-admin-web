@@ -19,9 +19,9 @@ select has_function(
 
 select has_function(
   'app_private',
-  'emit_mobile_row_sync_event',
+  'emit_atomic_sync_events_statement_v1',
   array[]::text[],
-  'TASK-088 atomic trigger function exists'
+  'TASK-088 complete-ID statement trigger function exists'
 );
 
 insert into auth.users (
@@ -93,8 +93,8 @@ select set_config(
 select set_config('request.headers', '{"x-client-info":"supabase-js/2.0"}', true);
 select is(
   (public.mobile_sync_auto_event_capabilities()->>'databaseMutationEmitsSyncEvent')::boolean,
-  false,
-  'Admin/supabase-js does not activate mobile atomic events'
+  true,
+  'database mutations always emit complete-ID events'
 );
 
 select set_config(
@@ -122,6 +122,7 @@ select lives_ok(
   'mobile supplier mutation commits with its event'
 );
 
+set local role postgres;
 select is(
   (
     select count(*)::integer
@@ -133,6 +134,7 @@ select is(
   1,
   'supplier mutation emits exactly one Android catalog event'
 );
+set local role authenticated;
 
 select lives_ok(
   $$
@@ -151,6 +153,7 @@ select lives_ok(
   'identical replay remains successful'
 );
 
+set local role postgres;
 select is(
   (
     select count(*)::integer
@@ -161,6 +164,7 @@ select is(
   1,
   'identical replay does not duplicate the event'
 );
+set local role authenticated;
 
 select lives_ok(
   $$
@@ -171,6 +175,7 @@ select lives_ok(
   'changed replay remains successful'
 );
 
+set local role postgres;
 select is(
   (
     select count(*)::integer
@@ -181,6 +186,7 @@ select is(
   2,
   'changed replay emits a new versioned event'
 );
+set local role authenticated;
 
 select set_config('request.headers', '{"x-client-info":"supabase-js/2.0"}', true);
 select lives_ok(
@@ -197,15 +203,18 @@ select lives_ok(
   'Admin/supabase-js mutation remains available'
 );
 
+set local role postgres;
 select is(
   (
     select count(*)::integer
     from public.sync_events
-    where entity_ids @> '{"category_ids":["22000000-0000-4000-8000-000000000088"]}'::jsonb
+    where source = 'database_atomic'
+      and entity_ids @> '{"category_ids":["22000000-0000-4000-8000-000000000088"]}'::jsonb
   ),
-  0,
-  'Admin/supabase-js mutation does not duplicate its explicit writer'
+  1,
+  'Admin/supabase-js mutation emits one database-atomic event'
 );
+set local role authenticated;
 
 select set_config('request.headers', '{"x-client-info":"supabase-kt/3.6.0"}', true);
 select lives_ok(
@@ -222,15 +231,18 @@ select lives_ok(
   'legacy mobile client without opt-in remains available'
 );
 
+set local role postgres;
 select is(
   (
     select count(*)::integer
     from public.sync_events
-    where entity_ids @> '{"category_ids":["22000000-0000-4000-8000-000000000089"]}'::jsonb
+    where source = 'database_atomic'
+      and entity_ids @> '{"category_ids":["22000000-0000-4000-8000-000000000089"]}'::jsonb
   ),
-  0,
-  'legacy mobile client without opt-in keeps the client outbox contract'
+  1,
+  'legacy mobile client without opt-in emits one database-atomic event'
 );
+set local role authenticated;
 
 select set_config(
   'request.headers',
@@ -258,6 +270,7 @@ select lives_ok(
   'Swift product mutation commits with its event'
 );
 
+set local role postgres;
 select is(
   (
     select count(*)::integer
@@ -270,6 +283,7 @@ select is(
   1,
   'Swift product mutation emits one iOS catalog event'
 );
+set local role authenticated;
 
 select lives_ok(
   $$
@@ -300,6 +314,7 @@ select lives_ok(
   'Swift price mutation commits with its event'
 );
 
+set local role postgres;
 select is(
   (
     select count(*)::integer
@@ -311,6 +326,7 @@ select is(
   1,
   'Swift price mutation emits one iOS prices event'
 );
+set local role authenticated;
 
 select lives_ok(
   $$
@@ -351,6 +367,7 @@ select lives_ok(
   'identical price retry remains successful'
 );
 
+set local role postgres;
 select is(
   (
     select count(*)::integer
@@ -360,6 +377,7 @@ select is(
   1,
   'identical price retry does not duplicate its event'
 );
+set local role authenticated;
 
 select throws_ok(
   $$
@@ -410,6 +428,7 @@ select is(
   'supplier tombstone retry preserves the original timestamp'
 );
 
+set local role postgres;
 select is(
   (
     select count(*)::integer
@@ -420,6 +439,7 @@ select is(
   1,
   'supplier tombstone retry emits exactly one tombstone event'
 );
+set local role authenticated;
 
 select throws_ok(
   $$
@@ -436,16 +456,17 @@ select throws_ok(
       '00000000-0000-4000-8000-000000000088',
       '10000000-0000-4000-8000-000000000088',
       2,
-      '2026-07-15T22:00:00Z',
+      '2026-07-15 22:00:00',
       'TASK-088 invalid atomic session',
       '[]'::jsonb
     )
   $$,
   '22023',
-  'mobile atomic sync entity id must be a uuid',
+  'atomic history entity id is not a canonical UUID',
   'event validation failure rolls back the business mutation'
 );
 
+set local role postgres;
 select is(
   (
     select count(*)::integer
@@ -466,6 +487,7 @@ select is(
   0,
   'atomic event metadata contains no sensitive business fields'
 );
+set local role authenticated;
 
 select * from finish();
 rollback;

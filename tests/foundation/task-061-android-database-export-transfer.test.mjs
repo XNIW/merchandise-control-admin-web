@@ -311,9 +311,16 @@ test("TASK-061 staff manager database apply uses server-side staff-aware bulk wr
   const staffAwareMutations = read(
     "src/server/shop-admin/staff-aware-mutations.ts",
   );
+  const leaseBoundRpc = read(
+    "src/server/shop-admin/staff-web-lease-bound-rpc.ts",
+  );
   const productImportBlock =
     workbookSource.match(
       /async function applyBulkProductImport\([\s\S]*?\n\}/,
+    )?.[0] ?? "";
+  const staffWorkbookReader =
+    workbookSource.match(
+      /async function getStaffWorkbookInventoryReadModel\([\s\S]*?\n\}\n\nasync function getCatalogWorkbookReadModel/,
     )?.[0] ?? "";
 
   assertContains(
@@ -322,12 +329,31 @@ test("TASK-061 staff manager database apply uses server-side staff-aware bulk wr
   );
   assertContains(workbookSource, "applyStaffAwareBulkProductImport");
   assertContains(workbookSource, "applyStaffAwareBulkPriceHistoryImport");
-  assertContains(staffAwareMutations, 'from("inventory_products")');
-  assertContains(staffAwareMutations, 'from("inventory_product_prices")');
-  assertContains(staffAwareMutations, "resolveInventoryOwner(context)");
-  assertContains(staffAwareMutations, "loadScopedInventoryRowIds");
-  assertContains(staffAwareMutations, "scopedProductIds.ids.has");
-  assertContains(staffAwareMutations, "randomUUID()");
+  assertContains(workbookSource, "getStaffWorkbookInventoryReadModel");
+  assertContains(workbookSource, "callStaffWebCatalogRead");
+  assertContains(workbookSource, 'entity: "manifest"');
+  assertContains(workbookSource, "expectedRevision: manifest.revision");
+  assertContains(workbookSource, "expectedScopeKey: manifest.scope.key");
+  assertContains(workbookSource, "sameStaffWorkbookSnapshotSummary");
+  assertContains(workbookSource, "prices: readModel.prices");
+  assert.doesNotMatch(
+    staffWorkbookReader,
+    /context\.supabase|\.from\(/,
+    "the staff workbook reader must not regain a generic table client",
+  );
+  assertContains(staffAwareMutations, "callStaffWebCatalogMutation");
+  assertContains(staffAwareMutations, 'staffCatalogRpc(context, "bulk_products"');
+  assertContains(staffAwareMutations, 'staffCatalogRpc(context, "bulk_prices"');
+  assertContains(leaseBoundRpc, 'supabase.rpc("staff_web_catalog_mutate_v1"');
+  assert.doesNotMatch(
+    leaseBoundRpc,
+    /\.from\(/,
+    "the staff lease-bound RPC adapter must not expose a table-query surface",
+  );
+  assertContains(
+    staffAwareMutations,
+    "CANONICAL_UUID_PATTERN.test(row.productId)",
+  );
   assert.doesNotMatch(
     staffAwareMutations,
     /id:\s*product\.product_id\s*\?\?\s*randomUUID\(\)/,

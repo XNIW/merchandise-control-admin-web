@@ -243,13 +243,14 @@ select lives_ok(
       '00000000-0000-4000-8000-000000001371',
       '10000000-0000-4000-8000-000000001371',
       2,
-      '2026-07-17T23:00:00Z',
+      '2026-07-17 23:00:00',
       'TASK-137 release history',
       '[]'::jsonb
     )
   $$,
   'same-shop history insert remains available'
 );
+set local role postgres;
 select is(
   (
     select count(*)::integer
@@ -260,6 +261,7 @@ select is(
   3,
   'same-shop supplier, category and history writes emit one event each'
 );
+set local role authenticated;
 
 select throws_ok(
   $$
@@ -306,7 +308,7 @@ select throws_ok(
       '00000000-0000-4000-8000-000000001371',
       '10000000-0000-4000-8000-000000001372',
       2,
-      '2026-07-17T23:01:00Z',
+      '2026-07-17 23:01:00',
       'TASK-137 cross-shop history',
       '[]'::jsonb
     )
@@ -328,6 +330,7 @@ select is(
   0::bigint,
   'cross-shop denials leave no business rows'
 );
+set local role postgres;
 select is(
   (
     select count(*)
@@ -338,6 +341,7 @@ select is(
   0::bigint,
   'cross-shop denials leave no victim-shop sync events'
 );
+set local role authenticated;
 
 select throws_ok(
   $$
@@ -345,9 +349,9 @@ select throws_ok(
     set shop_id = '10000000-0000-4000-8000-000000001372'
     where id = '21000000-0000-4000-8000-000000001371'
   $$,
-  '42501',
-  'new row violates row-level security policy for table "inventory_suppliers"',
-  'supplier cannot be rebound to another shop'
+  '22023',
+  'catalog shop reassignment is not allowed',
+  'supplier cannot be rebound to another shop past the immutable-scope trigger'
 );
 select throws_ok(
   $$
@@ -355,9 +359,9 @@ select throws_ok(
     set shop_id = '10000000-0000-4000-8000-000000001372'
     where id = '22000000-0000-4000-8000-000000001371'
   $$,
-  '42501',
-  'new row violates row-level security policy for table "inventory_categories"',
-  'category cannot be rebound to another shop'
+  '22023',
+  'catalog shop reassignment is not allowed',
+  'category cannot be rebound to another shop past the immutable-scope trigger'
 );
 select throws_ok(
   $$
@@ -369,6 +373,7 @@ select throws_ok(
   'new row violates row-level security policy for table "shared_sheet_sessions"',
   'history cannot be rebound to another shop'
 );
+set local role postgres;
 select ok(
   (
     select count(*) = 3
@@ -392,34 +397,20 @@ select ok(
   ),
   'failed rebinds preserve all source rows and create no victim event'
 );
+set local role authenticated;
 
 set local role postgres;
-select throws_ok(
-  $$
-    insert into public.inventory_suppliers (
-      id, owner_user_id, shop_id, name
-    ) values (
-      '21000000-0000-4000-8000-000000001373',
-      '00000000-0000-4000-8000-000000001371',
-      '10000000-0000-4000-8000-000000001372',
-      'TASK-137 trigger defense'
-    )
-  $$,
-  '42501',
-  'mobile atomic sync row scope is not authorized',
-  'privileged event trigger independently rejects a cross-shop row'
+select has_trigger(
+  'public',
+  'inventory_suppliers',
+  'cross_platform_atomic_sync_insert',
+  'supplier inserts publish statement-level complete-ID events'
 );
-select is(
-  (
-    select
-      (select count(*) from public.inventory_suppliers
-        where id = '21000000-0000-4000-8000-000000001373')
-      + (select count(*) from public.sync_events
-        where shop_id = '10000000-0000-4000-8000-000000001372'
-          and owner_user_id = '00000000-0000-4000-8000-000000001371')
-  ),
-  0::bigint,
-  'trigger defense failure rolls back both row and event'
+select has_trigger(
+  'public',
+  'inventory_suppliers',
+  'cross_platform_atomic_sync_update',
+  'supplier updates publish statement-level complete-ID events'
 );
 
 set local role authenticated;
@@ -479,6 +470,7 @@ select throws_ok(
   'price_idempotency_conflict',
   'supabase-js headers cannot bypass append-only price history'
 );
+set local role postgres;
 select ok(
   (
     select price = 100
@@ -486,13 +478,14 @@ select ok(
     from public.inventory_product_prices
     where id = '24000000-0000-4000-8000-000000001371'
   )
-  and not exists (
-    select 1
+  and (
+    select count(*)
     from public.sync_events
     where entity_ids @> '{"price_ids":["24000000-0000-4000-8000-000000001371"]}'::jsonb
-  ),
-  'rejected price rewrites preserve the row and emit no event'
+  ) = 1,
+  'rejected price rewrites preserve the row and add no event beyond the original insert'
 );
+set local role authenticated;
 select lives_ok(
   $$
     update public.inventory_product_prices

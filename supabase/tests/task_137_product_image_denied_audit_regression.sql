@@ -255,7 +255,10 @@ select is(
     select count(*)::integer
     from public.sync_events
     where shop_id = '10000000-0000-4000-8000-000000009237'
-      and source = 'product_image_api'
+      and source = 'database_atomic'
+      and metadata->>'entity_type' = 'product'
+      and metadata->>'operation' = 'update'
+      and entity_ids @> '{"product_ids":["20000000-0000-4000-8000-000000009237"]}'::jsonb
   ),
   0,
   'cross-shop denial audit calls emit no catalog events'

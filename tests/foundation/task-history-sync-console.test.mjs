@@ -42,8 +42,8 @@ test("Mobile History read model analyzes sessions, overlays, and related events 
   assert.match(readModel, /historySessionIds/);
   assert.match(readModel, /session_ids/);
   assert.match(readModel, /sessionIds/);
-  assert.match(readModel, /batch_id,client_event_id/);
-  assert.match(readModel, /clientEventId: row\.client_event_id/);
+  assert.match(readModel, /batchId: row\.batchId/);
+  assert.match(readModel, /clientEventId: row\.clientEventKey/);
   assert.match(readModel, /mapSessionDiagnostics/);
   assert.match(readModel, /shared_sheet_session_diagnostics/);
   assert.match(readModel, /data_rows,item_rows,column_count/);
@@ -56,13 +56,20 @@ test("Mobile History read model analyzes sessions, overlays, and related events 
   assert.match(readModel, /dataSummary\.itemRowCount - completeCount/);
   assert.match(readModel, /sourceScope: "shop_scoped"/);
   assert.match(readModel, /sourceScope: "legacy_owner_bridge"/);
-  assert.match(readModel, /\.eq\("domain", "history"\)/);
+  assert.match(
+    readModel,
+    /readSafeSyncEvents\(supabase, \{[\s\S]*domains: \["history"\][\s\S]*shopId: selectedShop\.shopId/,
+  );
   assert.match(readModel, /\.eq\("mapping_state", "mapped"\)/);
-  assert.match(readModel, /\.neq\("mapping_state", "mapped"\)/);
+  assert.match(
+    readModel,
+    /\.or\("mapping_state\.neq\.mapped,owner_user_id\.is\.null,verified_at\.is\.null"\)/,
+  );
   assert.match(readModel, /\.eq\("owner_user_id", legacyOwnerUserId\)/);
   assert.match(readModel, /\.limit\(1\)/);
   assert.doesNotMatch(readModel, /\.from\("audit_logs"\)/);
-  assert.doesNotMatch(readModel, /\.(insert|update|delete|upsert|rpc)\s*\(/);
+  assert.doesNotMatch(readModel, /\.from\("sync_events"\)/);
+  assert.doesNotMatch(readModel, /\.(insert|update|delete|upsert)\s*\(/);
 
   const listReadModel = readModel.slice(
     readModel.indexOf("export async function getShopHistoryReadModel"),
@@ -119,7 +126,6 @@ test("History summary counts guard unsupported tables and keep overview renderab
     "type SupportedHistoryCountTable",
     "const SUPPORTED_HISTORY_TOTAL_TABLES",
     '"shared_sheet_session_diagnostics"',
-    '"sync_events"',
     "function isSupportedHistoryCountTable",
     "function isHistoryCountTable",
     "function historyCountUnavailableError",
@@ -151,7 +157,11 @@ test("History summary counts guard unsupported tables and keep overview renderab
     );
   }
 
-  assert.match(loadHistorySummary, /table: "sync_events"/);
+  assert.match(loadHistorySummary, /readSafeSyncEvents\(input\.supabase, \{/);
+  assert.match(loadHistorySummary, /domains: \["history", "catalog", "prices"\]/);
+  assert.match(loadHistorySummary, /limit: 1/);
+  assert.match(loadHistorySummary, /shopId: input\.selectedShopId/);
+  assert.match(loadHistorySummary, /syncEventsTotal = syncResult\.data\?\.totalCount \?\? 0/);
   assert.match(loadHistorySummary, /table: "shared_sheet_session_diagnostics"/);
   assert.match(
     readModel,
@@ -167,6 +177,32 @@ test("History summary counts guard unsupported tables and keep overview renderab
   assert.match(dashboardSection, /historyReadModel\.reason/);
   assert.doesNotMatch(dashboardSection, /historyReadModel\.summary\./);
   assert.doesNotMatch(dashboardSection, /historyReadModel\.status !== "ready"/);
+});
+
+test("History sync totals use the verified boundary total instead of the page size", () => {
+  const readModel = readProjectFile(
+    "src/server/shop-admin/history-read-model.ts",
+  );
+  assert.match(
+    readModel,
+    /totalCount: result\.data\.totalCount/,
+    "the scoped History sync-event loader must preserve the verified boundary total",
+  );
+  assert.match(
+    readModel,
+    /syncEventsTotal: syncEventsResult\.totalCount/,
+    "the History list must use the scoped loader's verified total",
+  );
+  assert.match(
+    readModel,
+    /syncEventsTotal: syncEventsResult\.data\.totalCount/,
+    "the direct Sync view must use the verified boundary total",
+  );
+  assert.doesNotMatch(
+    readModel,
+    /syncEventsTotal: syncEvents\.length/,
+    "a page slice must not be presented as the total mapped sync-event count",
+  );
 });
 
 test("History page renders mobile entries first, then sync events and diagnostics", () => {

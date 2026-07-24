@@ -4,7 +4,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(76);
+select plan(80);
 
 select has_table(
   'public',
@@ -46,6 +46,12 @@ select has_function(
   'product_image_prepare_orphan_cleanup',
   array['uuid','text'],
   'TASK-137 orphan cleanup preparation RPC exists'
+);
+select has_function(
+  'public',
+  'product_image_revalidate_access_v1',
+  array['uuid','text','uuid','text'],
+  'TASK-139 signed capability publication fence exists'
 );
 
 select ok(
@@ -101,6 +107,19 @@ select ok(
   ),
   'service_role can execute cleanup preparation'
 );
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.product_image_revalidate_access_v1(uuid,text,uuid,text)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'authenticated',
+    'public.product_image_revalidate_access_v1(uuid,text,uuid,text)',
+    'EXECUTE'
+  ),
+  'only the server boundary can execute the signed capability fence'
+);
 
 insert into auth.users (
   instance_id, id, aud, role, email, raw_app_meta_data, raw_user_meta_data,
@@ -141,6 +160,37 @@ values
 
 insert into public.platform_admins (profile_id, status)
 values ('00000000-0000-4000-8000-000000000537','active');
+
+set local role service_role;
+select ok(
+  public.product_image_revalidate_access_v1(
+    '00000000-0000-4000-8000-000000000137',
+    'personal_account',
+    '10000000-0000-4000-8000-000000000137',
+    'write'
+  ),
+  'active owner passes the final image write publication fence'
+);
+set local role postgres;
+update public.shop_members
+set membership_status = 'suspended', suspended_at = clock_timestamp()
+where profile_id = '00000000-0000-4000-8000-000000000137'
+  and shop_id = '10000000-0000-4000-8000-000000000137';
+set local role service_role;
+select ok(
+  not public.product_image_revalidate_access_v1(
+    '00000000-0000-4000-8000-000000000137',
+    'personal_account',
+    '10000000-0000-4000-8000-000000000137',
+    'write'
+  ),
+  'membership revocation before publication suppresses signed capabilities'
+);
+set local role postgres;
+update public.shop_members
+set membership_status = 'active', suspended_at = null
+where profile_id = '00000000-0000-4000-8000-000000000137'
+  and shop_id = '10000000-0000-4000-8000-000000000137';
 
 insert into public.inventory_products (
   id, owner_user_id, shop_id, barcode, product_name
@@ -235,6 +285,20 @@ create temporary table task137_state (
 );
 
 insert into task137_state (key, value)
+select
+  'atomic_event_baseline',
+  jsonb_build_object(
+    'count', count(*)::integer,
+    'max_id', coalesce(max(id), 0)
+  )
+from public.sync_events
+where shop_id = '10000000-0000-4000-8000-000000000137'
+  and source = 'database_atomic'
+  and domain = 'catalog'
+  and metadata->>'entity_type' = 'product'
+  and entity_ids @> '{"product_ids":["20000000-0000-4000-8000-000000000137"]}'::jsonb;
+
+insert into task137_state (key, value)
 select 'intent1', public.product_image_create_intent(
   '00000000-0000-4000-8000-000000000137',
   'personal_account',
@@ -319,12 +383,16 @@ select is(
 select is(
   (
     select count(*)::integer
-    from public.sync_events
-    where source = 'product_image_api'
+    from public.sync_events event_row
+    cross join task137_state baseline
+    where event_row.id > (baseline.value->>'max_id')::bigint
+      and event_row.source = 'database_atomic'
+      and event_row.domain = 'catalog'
+      and event_row.metadata->>'entity_type' = 'product'
       and entity_ids @> '{"product_ids":["20000000-0000-4000-8000-000000000137"]}'::jsonb
   ),
   1,
-  'first finalize emits exactly one catalog event'
+  'first finalize emits exactly one post-baseline complete-ID catalog event'
 );
 select is(
   public.product_image_finalize(
@@ -337,9 +405,18 @@ select is(
   'duplicate finalize is idempotent'
 );
 select is(
-  (select count(*)::integer from public.sync_events where source = 'product_image_api'),
+  (
+    select count(*)::integer
+    from public.sync_events event_row
+    cross join task137_state baseline
+    where event_row.id > (baseline.value->>'max_id')::bigint
+      and event_row.source = 'database_atomic'
+      and event_row.domain = 'catalog'
+      and event_row.metadata->>'entity_type' = 'product'
+      and event_row.entity_ids @> '{"product_ids":["20000000-0000-4000-8000-000000000137"]}'::jsonb
+  ),
   1,
-  'duplicate finalize does not duplicate the event'
+  'duplicate finalize does not duplicate the post-baseline event'
 );
 
 insert into task137_state (key, value)
@@ -451,9 +528,18 @@ select is(
   'product switches to the replacement version'
 );
 select is(
-  (select count(*)::integer from public.sync_events where source = 'product_image_api'),
+  (
+    select count(*)::integer
+    from public.sync_events event_row
+    cross join task137_state baseline
+    where event_row.id > (baseline.value->>'max_id')::bigint
+      and event_row.source = 'database_atomic'
+      and event_row.domain = 'catalog'
+      and event_row.metadata->>'entity_type' = 'product'
+      and event_row.entity_ids @> '{"product_ids":["20000000-0000-4000-8000-000000000137"]}'::jsonb
+  ),
   2,
-  'replacement emits one additional event'
+  'replacement emits one additional post-baseline event'
 );
 select is(
   (
@@ -535,9 +621,18 @@ select is(
   'remove clears the product current version'
 );
 select is(
-  (select count(*)::integer from public.sync_events where source = 'product_image_api'),
+  (
+    select count(*)::integer
+    from public.sync_events event_row
+    cross join task137_state baseline
+    where event_row.id > (baseline.value->>'max_id')::bigint
+      and event_row.source = 'database_atomic'
+      and event_row.domain = 'catalog'
+      and event_row.metadata->>'entity_type' = 'product'
+      and event_row.entity_ids @> '{"product_ids":["20000000-0000-4000-8000-000000000137"]}'::jsonb
+  ),
   3,
-  'remove emits one additional event'
+  'remove emits one additional post-baseline event'
 );
 select is(
   public.product_image_remove(
@@ -549,9 +644,18 @@ select is(
   'duplicate remove is idempotent'
 );
 select is(
-  (select count(*)::integer from public.sync_events where source = 'product_image_api'),
+  (
+    select count(*)::integer
+    from public.sync_events event_row
+    cross join task137_state baseline
+    where event_row.id > (baseline.value->>'max_id')::bigint
+      and event_row.source = 'database_atomic'
+      and event_row.domain = 'catalog'
+      and event_row.metadata->>'entity_type' = 'product'
+      and event_row.entity_ids @> '{"product_ids":["20000000-0000-4000-8000-000000000137"]}'::jsonb
+  ),
   3,
-  'duplicate remove does not duplicate the event'
+  'duplicate remove does not duplicate the post-baseline event'
 );
 select is(
   public.product_image_resolve_read_paths(
@@ -745,15 +849,42 @@ select ok(
   'image audit metadata contains no forbidden sensitive fields'
 );
 select ok(
-  not exists (
-    select 1 from public.sync_events
-    where source = 'product_image_api'
+  exists (
+    select 1
+    from public.sync_events event_row
+    cross join task137_state baseline
+    where event_row.id > (baseline.value->>'max_id')::bigint
+      and event_row.source = 'database_atomic'
+      and event_row.domain = 'catalog'
+      and event_row.event_type = 'catalog_changed'
+      and event_row.changed_count = 1
+      and event_row.entity_ids =
+        '{"product_ids":["20000000-0000-4000-8000-000000000137"]}'::jsonb
+      and event_row.metadata @> jsonb_build_object(
+        'atomic_trigger', true,
+        'entity_type', 'product',
+        'operation', 'update',
+        'payload_version', 1,
+        'producer_epoch', 'database-atomic-complete-entity-ids-v1',
+        'source', 'database_atomic',
+        'status', 'success'
+      )
+  )
+  and not exists (
+    select 1
+    from public.sync_events event_row
+    cross join task137_state baseline
+    where event_row.id > (baseline.value->>'max_id')::bigint
+      and event_row.source = 'database_atomic'
+      and event_row.domain = 'catalog'
+      and event_row.metadata->>'entity_type' = 'product'
+      and event_row.entity_ids @> '{"product_ids":["20000000-0000-4000-8000-000000000137"]}'::jsonb
       and (
-        metadata::text ~* '(path|token|signed.?url|shops/)'
-        or entity_ids ?| array['main_path','thumb_path','token','signed_url']
+        event_row.metadata::text ~* '(path|token|signed.?url|shops/)'
+        or event_row.entity_ids ?| array['main_path','thumb_path','token','signed_url']
       )
   ),
-  'image sync events contain only product IDs and redacted metadata'
+  'post-baseline image events are complete-ID database-atomic records with redacted metadata'
 );
 select is(
   (

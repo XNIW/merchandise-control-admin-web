@@ -106,7 +106,9 @@ test("TASK-047 keeps route guards technical while documenting equivalent shop ac
   assertContains(dataAccess, "resolveStaffWebSessionPrincipal");
   assertContains(dataAccess, 'principal.kind === "personal_account"');
   assertContains(dataAccess, 'principalKind: "pos_staff_manager"');
-  assertContains(dataAccess, "adminClient");
+  assertContains(dataAccess, "staffShellShop");
+  assertContains(dataAccess, "staffResolution.principal.shop");
+  assert.doesNotMatch(dataAccess, /createSupabaseAdminClient|adminClient/);
 });
 
 test("TASK-047 governance docs record product decision and access matrix", () => {

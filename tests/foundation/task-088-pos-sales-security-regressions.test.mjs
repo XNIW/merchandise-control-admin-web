@@ -124,7 +124,7 @@ test("TASK-088 HTTP parser binds header change to payment ledger change", () => 
   assert.match(salesSync, /tendered - change === input\.netAmountClp/);
 });
 
-test("TASK-088 classifies the single-session lock-order check as structural", () => {
+test("TASK-088 classifies lease and lock ordering checks as structural", () => {
   const migration = readProjectFile(migrationPath).toLowerCase();
   const pgTap = readProjectFile(
     "supabase/tests/dsc_093_094_134_pos_sales_security.sql",
@@ -142,7 +142,7 @@ test("TASK-088 classifies the single-session lock-order check as structural", ()
   );
   assert.match(
     pgTap,
-    /structural source contract auth row locks precede advisory lock/i,
+    /sales boundary validates its lease before unchecked writes and lease locks before wall-clock expiry check/i,
   );
   assert.doesNotMatch(pgTap, /concurrent lock contract serializes/i);
 });

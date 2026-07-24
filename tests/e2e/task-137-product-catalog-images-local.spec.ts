@@ -544,7 +544,11 @@ test("TASK-137 local Admin image upload, no-op, offline cache, remove and cleanu
       select to_json(count(*)::integer)::text
       from public.sync_events
       where shop_id = '${fixture.shopId}'
-        and source = 'product_image_api';
+        and source = 'database_atomic'
+        and domain = 'catalog'
+        and metadata->>'entity_type' = 'product'
+        and metadata->>'operation' = 'update'
+        and entity_ids @> '{"product_ids":["${fixture.productId}"]}'::jsonb;
     `);
     expect(syncAfterFinalize).toBe(1);
 
@@ -582,7 +586,11 @@ test("TASK-137 local Admin image upload, no-op, offline cache, remove and cleanu
       select to_json(count(*)::integer)::text
       from public.sync_events
       where shop_id = '${fixture.shopId}'
-        and source = 'product_image_api';
+        and source = 'database_atomic'
+        and domain = 'catalog'
+        and metadata->>'entity_type' = 'product'
+        and metadata->>'operation' = 'update'
+        and entity_ids @> '{"product_ids":["${fixture.productId}"]}'::jsonb;
     `);
     expect(versionsAfterNoop).toBe(1);
     expect(syncAfterNoop).toBe(1);
@@ -650,7 +658,11 @@ test("TASK-137 local Admin image upload, no-op, offline cache, remove and cleanu
       select to_json(count(*)::integer)::text
       from public.sync_events
       where shop_id = '${fixture.shopId}'
-        and source = 'product_image_api';
+        and source = 'database_atomic'
+        and domain = 'catalog'
+        and metadata->>'entity_type' = 'product'
+        and metadata->>'operation' = 'update'
+        and entity_ids @> '{"product_ids":["${fixture.productId}"]}'::jsonb;
     `);
     expect(syncAfterRemove).toBe(2);
 

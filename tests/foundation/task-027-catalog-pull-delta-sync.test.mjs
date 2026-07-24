@@ -369,9 +369,9 @@ test("TASK-027 POS catalog pull service supports delta contract without destruct
     "hasMore",
     "tombstones",
     "splitCatalogTombstones",
-    "product_tombstones",
-    "category_tombstones",
-    "supplier_tombstones",
+    "productTombstones",
+    "categoryTombstones",
+    "supplierTombstones",
     "deletedAt",
     "syncMode: sync.mode",
     "snapshotAt",
@@ -383,7 +383,11 @@ test("TASK-027 POS catalog pull service supports delta contract without destruct
   assert.doesNotMatch(service, /sync_cursor:\s*(syncCursor|parsed\.syncRequest\.syncCursor)/);
 
   for (const required of [
-    'rpc("pos_catalog_pull_page_v2"',
+    'rpc("pos_catalog_revision_for_lease_v3"',
+    'rpc("pos_catalog_pull_page_for_lease_v3"',
+    "p_pos_session_id",
+    "p_shop_device_id",
+    "p_staff_id",
     "expectedRevision",
     "expectedScopeKey",
     "expectedScopeKind",
@@ -399,6 +403,70 @@ test("TASK-027 POS catalog pull service supports delta contract without destruct
   assert.doesNotMatch(combined, /truncate|purge|replace_all|full\s+delete/i);
   assert.doesNotMatch(combined, /sale_lines|sales_sync|payment|cash_close|bidirectional/i);
   assert.match(scanner, /checkTask027CatalogPullDeltaSync/);
+});
+
+test("TASK-027 POS publishes a catalog page only through the final locked lease fence", () => {
+  const service = readProjectFile("src/server/pos-auth/catalog-pull.ts");
+  const heartbeatService = readProjectFile("src/server/pos-auth/service.ts");
+  const migration = readProjectFile(
+    "supabase/migrations/20260722021500_task_139_pos_runtime_publish_fence.sql",
+  );
+  const scopeLeaseMigration = readProjectFile(
+    "supabase/migrations/20260722022500_task_139_pos_catalog_scope_lease.sql",
+  );
+  const bodyIndex = service.lastIndexOf("const successBody = {");
+  const publicationIndex = service.lastIndexOf(
+    "publishPosRuntimeLeaseSuccess(supabase",
+  );
+  const returnIndex = service.lastIndexOf("return { body: successBody, status: 200 };");
+
+  assert.ok(bodyIndex >= 0 && publicationIndex > bodyIndex && returnIndex > publicationIndex);
+  assert.match(service.slice(bodyIndex), /publicationKind: "catalog_pull"/);
+  assert.match(service.slice(bodyIndex), /catalogPublication:/);
+  assert.match(service.slice(bodyIndex), /publication\.status === "stale_catalog"/);
+  assert.doesNotMatch(service.slice(bodyIndex), /writePosCatalogAudit\(/);
+  const heartbeatBodyIndex = heartbeatService.lastIndexOf("const successBody = {");
+  const heartbeatPublicationIndex = heartbeatService.lastIndexOf(
+    "publishPosRuntimeLeaseSuccess(supabase",
+  );
+  const heartbeatReturnIndex = heartbeatService.lastIndexOf(
+    "return { body: successBody, status: 200 };",
+  );
+  assert.ok(
+    heartbeatBodyIndex >= 0 &&
+      heartbeatPublicationIndex > heartbeatBodyIndex &&
+      heartbeatReturnIndex > heartbeatPublicationIndex,
+  );
+  assert.match(
+    heartbeatService.slice(heartbeatBodyIndex),
+    /publicationKind: "heartbeat"/,
+  );
+  assert.doesNotMatch(heartbeatService.slice(heartbeatBodyIndex), /writePosAudit\(/);
+  for (const required of [
+    "public.pos_runtime_lease_publish_success_v1",
+    "app_private.pos_runtime_lease_is_valid_v1",
+    "'pos.catalog.pull.success'",
+    "'pos.session.heartbeat.success'",
+    "to service_role",
+  ]) {
+    assert.match(migration, new RegExp(escapeRegExp(required)));
+  }
+  for (const required of [
+    "create or replace function app_private.resolve_pos_catalog_scope_v2",
+    "language plpgsql\nvolatile",
+    "perform app_private.lock_catalog_scope_pair_v1",
+    "from public.shop_inventory_sources source\n  where source.shop_id = p_shop_id\n  for share",
+    "pg_catalog.isfinite(source.created_at)",
+    "pg_catalog.isfinite(source.verified_at)",
+    "alter function public.pos_catalog_revision_v2(uuid) volatile",
+    "alter function public.pos_catalog_pull_page_v2",
+    "public.pos_runtime_lease_publish_success_v2",
+    "p_expected_catalog_scope_key <> v_scope_key",
+    "p_expected_catalog_revision <> v_revision::text",
+    "'status', 'stale_catalog'",
+  ]) {
+    assert.match(scopeLeaseMigration, new RegExp(escapeRegExp(required)));
+  }
 });
 
 test("TASK-027 catalog delta performance indexes stay additive and aligned with cursor-v1", () => {

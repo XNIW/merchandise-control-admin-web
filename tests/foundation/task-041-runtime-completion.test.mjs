@@ -157,7 +157,13 @@ test("TASK-041 opens only verified runtime implementation gates", () => {
   const catalogV2Migration = readProjectFile(
     "supabase/migrations/20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql",
   );
-  assert.match(catalogRevision, /rpc\("pos_catalog_pull_page_v2"/);
+  const catalogV3Migration = readProjectFile(
+    "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql",
+  );
+  assert.match(catalogRevision, /rpc\("pos_catalog_pull_page_for_lease_v3"/);
+  assert.match(catalogV3Migration, /p_expected_revision/);
+  assert.match(catalogV3Migration, /p_expected_scope_key/);
+  assert.match(catalogV3Migration, /p_expected_scope_kind/);
   assert.match(
     catalogV2Migration,
     /from public\.inventory_product_prices row[\s\S]*product\.id = row\.product_id[\s\S]*product\.shop_id = p_shop_id[\s\S]*product\.owner_user_id = resolved\.scope_id/,

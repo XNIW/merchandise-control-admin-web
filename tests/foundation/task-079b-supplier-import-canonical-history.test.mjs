@@ -186,27 +186,14 @@ test("TASK-079B apply writes canonical history but preview remains side-effect f
   assertContains(workbook, "supplierImportHistoryRows(productsToApply, readModel)");
   assertContains(workbook, "historyEntry");
   assertContains(historyMutations, "buildSupplierImportHistoryEntryPayload");
-  assertContains(historyMutations, "insertSupplierImportHistorySession");
-  assertContains(historyMutations, "updateSupplierImportHistorySession");
-  assertContains(historyMutations, "deleted_at: null");
-  assertContains(historyMutations, "is_manual_entry: input.payload.isManualEntry");
-  assertContains(historyMutations, "payload_version: input.payload.payloadVersion");
-  assertContains(historyMutations, 'eventType: "history_changed"');
-  assertContains(historyMutations, "session_ids: [input.remoteId]");
-  assertContains(historyMutations, 'source_workflow: "supplier_import"');
-  assertContains(historyMutations, 'writeResult.error.code === "23505"');
-  const supplierUpdateBlock = historyMutations.slice(
-    historyMutations.indexOf("async function updateSupplierImportHistorySession"),
-    historyMutations.indexOf("async function tombstoneHistorySessionForWrite"),
-  );
-  assert.match(
-    supplierUpdateBlock,
-    /\.eq\("remote_id", input\.payload\.remoteId\)[\s\S]{0,140}\.eq\("owner_user_id", input\.ownerUserId\)/,
-  );
-  assert.match(
-    supplierUpdateBlock,
-    /\.update\(legacyRow\)[\s\S]{0,180}\.eq\("remote_id", input\.payload\.remoteId\)[\s\S]{0,140}\.eq\("owner_user_id", input\.ownerUserId\)/,
-  );
+  assertContains(historyMutations, "callStaffWebHistoryMutation");
+  assertContains(historyMutations, "staffHistoryRpc");
+  assertContains(historyMutations, '"upsert_import"');
+  assertContains(historyMutations, "p_expected_credential_version");
+  assertContains(historyMutations, "p_session_token_hash");
+  assertContains(historyMutations, "p_shop_id");
+  assertContains(historyMutations, 'action !== "created" && action !== "updated"');
+  assert.doesNotMatch(historyMutations, /\.from\("shared_sheet_sessions"\)/);
   assertContains(ui, "Applying this supplier import will create or update");
   assertContains(ui, "historyEntry?:");
   assertContains(ui, "setApplyResult(result)");

@@ -26,27 +26,23 @@ test("TASK-016 global devices overview uses device authorization registry and sy
 
   assert.match(page, /getPlatformSectionForRequest\("devices"/);
   assert.match(readModel, /\.from\("shop_devices"\)/);
-  assert.match(readModel, /\.from\("sync_events"\)/);
+  assert.match(readModel, /readSafeSyncEvents/);
+  assert.match(readModel, /SafeSyncEventRow/);
   assert.match(
     readModel,
-    /"id,owner_user_id,shop_id,store_id,source,source_device_id,domain,event_type,changed_count,metadata,created_at"/,
+    /source_device_key: row\.sourceDeviceKey \?\? undefined/,
   );
-  assert.match(readModel, /shop_id: row\.shop_id \?\? undefined/);
-  assert.match(readModel, /event\.shop_id \?\? shopByOwner\.get\(event\.owner_user_id\)/);
-  assert.match(sectionData, /syncEvents\.find\(\(event\) => event\.shop_id === shopId\)/);
-  assert.match(sectionData, /!event\.shop_id && ownerIds\.has\(event\.owner_user_id\)/);
-  assert.match(
-    sectionData,
-    /event\.shop_id === shopId \|\|[\s\S]{0,140}\(!event\.shop_id && ownerIds\.has\(event\.owner_user_id\)\)/,
-  );
-  assert.match(sectionData, /event\.shop_id \?\?[\s\S]{0,120}mapping\.ownerUserId === event\.owner_user_id/);
-  assert.match(sectionData, /source_device_id/);
+  assert.match(readModel, /shop_id: row\.shopId \?\? undefined/);
+  assert.match(sectionData, /source_device_key/);
+  assert.match(sectionData, /source_device_key is redacted sync\/history attribution only\./);
   assert.match(sectionData, /device authorization/i);
   assert.match(migration, /shop_devices_select_platform_admin/);
   assert.match(migration, /sync_events_select_platform_admin/);
   assert.match(migration, /platform_emergency_revoke_device/);
   assert.match(migration, /app_private\.is_platform_admin\(\)/);
-  assert.doesNotMatch(sectionData, /source_device_id[\s\S]{0,120}revoke/i);
+  assert.doesNotMatch(readModel, /\.from\("sync_events"\)/);
+  assert.doesNotMatch(`${readModel}\n${sectionData}`, /source_device_id/);
+  assert.doesNotMatch(sectionData, /source_device_key[\s\S]{0,120}revoke/i);
   assert.doesNotMatch(`${page}\n${readModel}\n${sectionData}`, /device_secret|device_token|credential_hash/i);
 });
 

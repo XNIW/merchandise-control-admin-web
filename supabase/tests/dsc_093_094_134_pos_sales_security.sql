@@ -1159,23 +1159,46 @@ select ok(
   (
     select
       strpos(
-        source.definition,
-        'for update of session_row, staff, device, credential, shop'
+        boundary.definition,
+        'app_private.pos_runtime_lease_is_valid_v1('
       ) > 0
       and strpos(
-        source.definition,
+        boundary.definition,
+        'app_private.pos_runtime_lease_is_valid_v1('
+      ) < strpos(
+        boundary.definition,
+        'public.pos_sales_sync_apply_unchecked_v1('
+      )
+      and strpos(
+        lease.definition,
         'perform pg_advisory_xact_lock('
+      ) > 0
+      and strpos(
+        lease.definition,
+        'for share'
       ) > strpos(
-        source.definition,
-        'for update of session_row, staff, device, credential, shop'
+        lease.definition,
+        'perform pg_advisory_xact_lock('
+      )
+      and strpos(
+        lease.definition,
+        'v_checked_at := clock_timestamp();'
+      ) > strpos(
+        lease.definition,
+        'for share'
       )
     from (
       select pg_get_functiondef(
         'public.pos_sales_sync_apply_v1(uuid,text,uuid,uuid,uuid,text,text,text,text,jsonb,jsonb)'::regprocedure
       ) as definition
-    ) source
+    ) boundary
+    cross join (
+      select pg_get_functiondef(
+        'app_private.pos_runtime_lease_is_valid_v1(uuid,uuid,uuid,uuid)'::regprocedure
+      ) as definition
+    ) lease
   ),
-  'structural source contract auth row locks precede advisory lock'
+  'sales boundary validates its lease before unchecked writes and lease locks before wall-clock expiry check'
 );
 select ok(
   not exists (

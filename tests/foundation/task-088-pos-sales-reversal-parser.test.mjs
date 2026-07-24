@@ -154,6 +154,20 @@ function loadSalesSyncService(rpcData) {
       return { verifyPosSecret: () => true };
     }
 
+    if (id === "./runtime-boundary") {
+      return {
+        loadPosRuntimeLease: async () => ({
+          credential,
+          device,
+          session,
+          shop,
+          staff,
+          status: "ok",
+        }),
+        writePosRuntimeAudit: async () => true,
+      };
+    }
+
     return nativeRequire(id);
   };
   const context = createContext({
@@ -230,11 +244,14 @@ function reversalPayload({ discountClp, netClp, taxClp }) {
   };
 }
 
-function acceptedRpcResponse() {
+function acceptedRpcResponse({
+  clientBatchId = "batch-95",
+  clientSaleId = "refund-95",
+} = {}) {
   return {
     batch: {
       acceptedSaleCount: 1,
-      clientBatchId: "batch-95",
+      clientBatchId,
       conflictCount: 0,
       duplicateSaleCount: 0,
       lineCount: 1,
@@ -246,7 +263,7 @@ function acceptedRpcResponse() {
     ok: true,
     sales: [
       {
-        clientSaleId: "refund-95",
+        clientSaleId,
         posSaleId: "77777777-7777-4777-8777-777777777777",
         status: "accepted",
       },
@@ -303,7 +320,12 @@ test("TASK-088 self-consistent legacy gross-only reversal reaches RPC for author
 });
 
 test("TASK-088 zero-discount sale keeps the strict positive line-net contract", async () => {
-  const harness = loadSalesSyncService(acceptedRpcResponse());
+  const harness = loadSalesSyncService(
+    acceptedRpcResponse({
+      clientBatchId: "batch-sale-100",
+      clientSaleId: "sale-100",
+    }),
+  );
   const result = await harness.service.handlePosSalesSync(zeroDiscountSalePayload());
 
   assert.equal(result.status, 200);
@@ -398,7 +420,12 @@ test("TASK-137 void with a positive tender component is rejected before the RPC"
 });
 
 test("TASK-137 valid nonnegative split tender still reaches the RPC", async () => {
-  const harness = loadSalesSyncService(acceptedRpcResponse());
+  const harness = loadSalesSyncService(
+    acceptedRpcResponse({
+      clientBatchId: "batch-sale-100",
+      clientSaleId: "sale-100",
+    }),
+  );
   const payload = zeroDiscountSalePayload();
   payload.sales[0].payments = [
     {

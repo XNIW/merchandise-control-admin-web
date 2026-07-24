@@ -286,6 +286,9 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
     "src/Win7POS.Wpf/Pos/Dialogs/OperatorSwitchDialog.xaml.cs",
   );
   const mainWindow = readWin7PosFile("src/Win7POS.Wpf/MainWindow.xaml.cs");
+  const syncSupervisor = readWin7PosFile(
+    "src/Win7POS.Wpf/Pos/Online/PosOnlineSyncSupervisorHost.cs",
+  );
   const combined = combinedWin7PosSource();
 
   assert.match(client, /HttpClient/);
@@ -317,8 +320,9 @@ test("Win7POS client implements first login, trusted token storage and heartbeat
   assert.match(`${loginDialog}\n${bootstrap}`, /FirstLoginAsync/);
   assert.match(operatorDialog, /PosAccessRequested/);
   assert.match(mainWindow, /PosOnlineFirstLoginDialog/);
-  assert.match(mainWindow, /StartupHeartbeatTimeout/);
-  assert.match(mainWindow, /HeartbeatAsync/);
+  assert.match(mainWindow, /StartupWatchdogTimeout/);
+  assert.match(mainWindow, /PosOnlineSyncSupervisorHost/);
+  assert.match(syncSupervisor, /RunHeartbeatAsync/);
 
   assert.doesNotMatch(combined, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
   assert.doesNotMatch(combined, /mcpos_(device|session)_[A-Za-z0-9_-]+/);

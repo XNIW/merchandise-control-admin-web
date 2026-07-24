@@ -27,12 +27,16 @@ test("TASK-043 Platform shell exposes a visible safe logout control", () => {
   const dictionary = readProjectFile("src/i18n/dictionaries.ts");
 
   assert.match(appShell, /action="\/auth\/logout\?next=\/platform"/);
-  assert.match(appShell, /method="get"/);
+  assert.match(appShell, /method="post"/);
   assert.match(appShell, /type="submit"/);
   assert.match(appShell, /dictionary\.common\.logout/);
   assert.match(dictionary, /logout: "Logout"/);
+  assert.match(logoutRoute, /export async function POST/);
+  assert.doesNotMatch(logoutRoute, /export async function GET/);
+  assert.match(logoutRoute, /isSameOriginPostRequest/);
   assert.match(logoutRoute, /signOut\(\)/);
-  assert.match(logoutRoute, /NextResponse\.redirect/);
+  assert.match(logoutRoute, /NextResponse\.redirect\(loginUrl, 303\)/);
+  assert.match(logoutRoute, /'"cache", "storage"'/);
 });
 
 test("TASK-043 provisioning unavailable state stays specific and non-generic", () => {

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -11,21 +12,34 @@ import {
   PRODUCT_IMAGE_CACHE_MAX_ENTRIES,
   PRODUCT_IMAGE_DOWNLOAD_CONCURRENCY,
   releaseProductImageObjectUrl,
+  removeProductImage,
   uploadProductImage,
 } from "../../src/lib/product-images/browser-client.ts";
 
 const SHOP_ID = "10000000-0000-4000-8000-000000000138";
 const CACHE_SCOPE = "a".repeat(64);
 const SUPABASE_ORIGIN = "http://127.0.0.1:54321";
+const JPEG_BYTES = Uint8Array.from([0xff, 0xd8, 0xff, 0xd9]);
+const JPEG_SHA256 = createHash("sha256").update(JPEG_BYTES).digest("hex");
 
 function uuid(prefix, index) {
   return `${prefix}0000000-0000-4000-8000-${String(index).padStart(12, "0")}`;
 }
 
 function jpegBlob() {
-  return new Blob([Uint8Array.from([0xff, 0xd8, 0xff, 0xd9])], {
+  return new Blob([JPEG_BYTES], {
     type: "image/jpeg",
   });
+}
+
+function jpegMetadata() {
+  return {
+    bytes: JPEG_BYTES.byteLength,
+    height: 1,
+    mimeType: "image/jpeg",
+    sha256: JPEG_SHA256,
+    width: 1,
+  };
 }
 
 function installBrowserGlobals({ caches } = {}) {
@@ -93,6 +107,8 @@ test("TASK-138 batches 205 visible refs, coalesces duplicates and bounds network
         cacheScope: CACHE_SCOPE,
         items: body.refs.map((ref) => ({
           ...ref,
+          expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+          metadata: jpegMetadata(),
           signedUrl: `${SUPABASE_ORIGIN}/storage/v1/object/sign/product-images/shops/${SHOP_ID}/products/${ref.productId}/primary/${ref.versionId}/${ref.variant}.jpg?token=ephemeral`,
           status: "ready",
         })),
@@ -124,7 +140,7 @@ test("TASK-138 batches 205 visible refs, coalesces duplicates and bounds network
 
     assert.deepEqual(
       readBatchSizes.sort((a, b) => b - a),
-      [100, 100, 5],
+      [...Array(12).fill(16), 13],
     );
     assert.equal(
       readBatchSizes.reduce((sum, size) => sum + size, 0),
@@ -143,11 +159,72 @@ test("TASK-138 batches 205 visible refs, coalesces duplicates and bounds network
   }
 });
 
+test("TASK-138 aborts an active read-URL request only after its final image consumer leaves", async () => {
+  const restore = installBrowserGlobals();
+  const originalFetch = globalThis.fetch;
+  const firstController = new AbortController();
+  const secondController = new AbortController();
+  const ref = {
+    productId: uuid("7", 71),
+    shopId: SHOP_ID,
+    variant: "thumb",
+    versionId: uuid("8", 71),
+  };
+  let activeReadAbortCount = 0;
+  let startRead;
+  const readStarted = new Promise((resolve) => {
+    startRead = resolve;
+  });
+  globalThis.fetch = async (input, init = {}) => {
+    if (String(input) !== "/api/shop/product-images/read-urls") {
+      throw new Error("unexpected request");
+    }
+    startRead();
+    return new Promise((_resolve, reject) => {
+      init.signal?.addEventListener(
+        "abort",
+        () => {
+          activeReadAbortCount += 1;
+          reject(new DOMException("Aborted", "AbortError"));
+        },
+        { once: true },
+      );
+    });
+  };
+
+  try {
+    const first = loadProductImage(ref, undefined, firstController.signal);
+    const second = loadProductImage(ref, undefined, secondController.signal);
+    await readStarted;
+
+    firstController.abort();
+    await assert.rejects(first, /image_operation_cancelled/);
+    assert.equal(
+      activeReadAbortCount,
+      0,
+      "one cancelled consumer must not abort a shared image load",
+    );
+
+    secondController.abort();
+    await assert.rejects(second, /image_operation_cancelled/);
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.equal(
+      activeReadAbortCount,
+      1,
+      "the final consumer cancellation aborts the active read-URL request",
+    );
+  } finally {
+    globalThis.fetch = originalFetch;
+    restore();
+  }
+});
+
 test("TASK-138 keeps signed URL leases memory-only, coalesces consumers and stops after double 403", async () => {
   const restore = installBrowserGlobals();
   const originalFetch = globalThis.fetch;
   let readRequests = 0;
   let storageRequests = 0;
+  let responseCacheScope = CACHE_SCOPE;
   const sharedRef = {
     productId: uuid("4", 1),
     shopId: SHOP_ID,
@@ -172,13 +249,14 @@ test("TASK-138 keeps signed URL leases memory-only, coalesces consumers and stop
       readRequests += 1;
       const body = JSON.parse(String(init.body));
       return Response.json({
-        cacheScope: CACHE_SCOPE,
+        cacheScope: responseCacheScope,
         items: body.refs.map((ref) => ({
           ...ref,
           expiresAt: new Date(
             Date.now() +
               (ref.productId === nearExpiryRef.productId ? 5_000 : 5 * 60_000),
           ).toISOString(),
+          metadata: jpegMetadata(),
           signedUrl: `${SUPABASE_ORIGIN}/storage/v1/object/sign/product-images/shops/${SHOP_ID}/products/${ref.productId}/primary/${ref.versionId}/${ref.variant}.jpg?token=ephemeral-${readRequests}`,
           status: "ready",
         })),
@@ -223,11 +301,15 @@ test("TASK-138 keeps signed URL leases memory-only, coalesces consumers and stop
     assert.equal(readRequests, 5, "one initial lease and one refresh only");
     assert.equal(storageRequests, 6, "double 403 performs no third download");
 
+    responseCacheScope = "b".repeat(64);
     await activateProductImageCacheScope({
-      cacheScope: "b".repeat(64),
+      cacheScope: responseCacheScope,
       shopId: SHOP_ID,
     });
-    const afterScopeSwitch = await loadProductImage(sharedRef, CACHE_SCOPE);
+    const afterScopeSwitch = await loadProductImage(
+      sharedRef,
+      responseCacheScope,
+    );
     releaseProductImageObjectUrl(afterScopeSwitch.objectUrl);
     assert.equal(
       readRequests,
@@ -236,6 +318,170 @@ test("TASK-138 keeps signed URL leases memory-only, coalesces consumers and stop
     );
     assert.equal(storageRequests, 7);
     assert.equal((await getProductImageRuntimeStats()).activeObjectUrls, 0);
+  } finally {
+    globalThis.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("TASK-138 rejects stale A reads after B activation, including an A-B-A switch", async () => {
+  const restore = installBrowserGlobals();
+  const originalFetch = globalThis.fetch;
+  const scopeA = CACHE_SCOPE;
+  const scopeB = "b".repeat(64);
+  const ref = {
+    productId: uuid("4", 40),
+    shopId: SHOP_ID,
+    variant: "thumb",
+    versionId: uuid("5", 40),
+  };
+  let resolveRead;
+  let signalReadStarted;
+  let storageRequests = 0;
+  const readStarted = new Promise((resolve) => {
+    signalReadStarted = resolve;
+  });
+
+  globalThis.fetch = async (input) => {
+    const url = String(input);
+    if (url === "/api/shop/product-images/read-urls") {
+      signalReadStarted();
+      return new Promise((resolve) => {
+        resolveRead = () => resolve(Response.json({
+          cacheScope: scopeA,
+          items: [{
+            ...ref,
+            expiresAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+            metadata: jpegMetadata(),
+            signedUrl: `${SUPABASE_ORIGIN}/storage/v1/object/sign/product-images/shops/${SHOP_ID}/products/${ref.productId}/primary/${ref.versionId}/thumb.jpg?token=stale`,
+            status: "ready",
+          }],
+          ok: true,
+        }));
+      });
+    }
+    if (url.startsWith(`${SUPABASE_ORIGIN}/storage/v1/object/sign/`)) {
+      storageRequests += 1;
+      return new Response(jpegBlob());
+    }
+    throw new Error("unexpected request");
+  };
+
+  try {
+    await activateProductImageCacheScope({ cacheScope: scopeA, shopId: SHOP_ID });
+    const staleLoad = loadProductImage(ref, scopeA);
+    const staleRejection = assert.rejects(
+      staleLoad,
+      /image_(scope_changed|operation_cancelled)/,
+    );
+    await readStarted;
+    await activateProductImageCacheScope({ cacheScope: scopeB, shopId: SHOP_ID });
+    await activateProductImageCacheScope({ cacheScope: scopeA, shopId: SHOP_ID });
+    resolveRead();
+    await staleRejection;
+
+    assert.equal(storageRequests, 0);
+    assert.equal((await getProductImageRuntimeStats()).signedUrlLeases, 0);
+    await activateProductImageCacheScope({ cacheScope: scopeB, shopId: SHOP_ID });
+  } finally {
+    globalThis.fetch = originalFetch;
+    restore();
+  }
+});
+
+test("TASK-138 rejects stale cache commits and remove completions after a scope switch", async () => {
+  const stored = new Map();
+  let putCount = 0;
+  const cache = {
+    async delete(request) {
+      return stored.delete(request.url);
+    },
+    async keys() {
+      return Array.from(stored.keys(), (url) => new Request(url));
+    },
+    async match(request) {
+      return stored.get(request.url)?.clone();
+    },
+    async put(request, response) {
+      putCount += 1;
+      stored.set(request.url, response.clone());
+    },
+  };
+  const restore = installBrowserGlobals({
+    caches: { async open() { return cache; } },
+  });
+  const originalFetch = globalThis.fetch;
+  const scopeA = CACHE_SCOPE;
+  const scopeB = "b".repeat(64);
+  const ref = {
+    productId: uuid("4", 41),
+    shopId: SHOP_ID,
+    variant: "thumb",
+    versionId: uuid("5", 41),
+  };
+  let resolveDecode;
+  let signalDecodeStarted;
+  let resolveRemove;
+  let removeSignal;
+  let signalRemoveStarted;
+  const decodeStarted = new Promise((resolve) => { signalDecodeStarted = resolve; });
+  const removeStarted = new Promise((resolve) => { signalRemoveStarted = resolve; });
+
+  try {
+    await activateProductImageCacheScope({ cacheScope: scopeA, shopId: SHOP_ID });
+    globalThis.createImageBitmap = async () => {
+      signalDecodeStarted();
+      return new Promise((resolve) => {
+        resolveDecode = () => resolve({ close() {}, height: 1, width: 1 });
+      });
+    };
+    const staleCache = cacheProductImageBlob(
+      scopeA,
+      ref,
+      jpegBlob(),
+      jpegMetadata(),
+    );
+    const staleCacheRejection = assert.rejects(staleCache, /image_scope_changed/);
+    await decodeStarted;
+    await activateProductImageCacheScope({ cacheScope: scopeB, shopId: SHOP_ID });
+    resolveDecode();
+    await staleCacheRejection;
+    assert.equal(putCount, 0);
+
+    globalThis.fetch = async (input, init = {}) => {
+      if (String(input) !== "/api/shop/product-images/remove") {
+        throw new Error("unexpected request");
+      }
+      removeSignal = init.signal;
+      signalRemoveStarted();
+      return new Promise((resolve) => {
+        resolveRemove = () => resolve(Response.json({
+          currentImageVersionId: null,
+          ok: true,
+          operation: "remove",
+          productId: ref.productId,
+          shopId: SHOP_ID,
+          status: "removed",
+          versionId: ref.versionId,
+        }));
+      });
+    };
+    const staleRemove = removeProductImage({
+      cacheScope: scopeB,
+      productId: ref.productId,
+      shopId: SHOP_ID,
+      versionId: ref.versionId,
+    });
+    const staleRemoveRejection = assert.rejects(
+      staleRemove,
+      /image_(scope_changed|operation_cancelled)/,
+    );
+    await removeStarted;
+    await activateProductImageCacheScope({ cacheScope: scopeA, shopId: SHOP_ID });
+    assert.equal(removeSignal.aborted, true);
+    resolveRemove();
+    await staleRemoveRejection;
+    await activateProductImageCacheScope({ cacheScope: scopeB, shopId: SHOP_ID });
   } finally {
     globalThis.fetch = originalFetch;
     restore();
@@ -286,11 +532,15 @@ test("TASK-138 rejects corrupt decoded bytes before cache commit and purges old 
   };
 
   try {
+    await activateProductImageCacheScope({
+      cacheScope: CACHE_SCOPE,
+      shopId: SHOP_ID,
+    });
     globalThis.createImageBitmap = async () => {
       throw new Error("decode failed");
     };
     await assert.rejects(
-      cacheProductImageBlob(CACHE_SCOPE, ref, jpegBlob()),
+      cacheProductImageBlob(CACHE_SCOPE, ref, jpegBlob(), jpegMetadata()),
       /image_download_invalid/,
     );
     assert.equal(putCount, 0);
@@ -300,7 +550,7 @@ test("TASK-138 rejects corrupt decoded bytes before cache commit and purges old 
       height: 1,
       width: 1,
     });
-    await cacheProductImageBlob(CACHE_SCOPE, ref, jpegBlob());
+    await cacheProductImageBlob(CACHE_SCOPE, ref, jpegBlob(), jpegMetadata());
     assert.equal(putCount, 1);
 
     await activateProductImageCacheScope({
@@ -328,6 +578,10 @@ test("TASK-138 Cache Storage enforces byte and entry budgets with LRU eviction",
           "Content-Type": "image/jpeg",
           "X-MC-Image-Accessed-At": String(index + 1),
           "X-MC-Image-Bytes": String(1024 * 1024),
+          "X-MC-Image-Height": "1",
+          "X-MC-Image-Mime-Type": "image/jpeg",
+          "X-MC-Image-SHA256": JPEG_SHA256,
+          "X-MC-Image-Width": "1",
         },
       }),
     );
@@ -343,6 +597,10 @@ test("TASK-138 Cache Storage enforces byte and entry budgets with LRU eviction",
           "Content-Type": "image/jpeg",
           "X-MC-Image-Accessed-At": String(index + 1),
           "X-MC-Image-Bytes": "4",
+          "X-MC-Image-Height": "1",
+          "X-MC-Image-Mime-Type": "image/jpeg",
+          "X-MC-Image-SHA256": JPEG_SHA256,
+          "X-MC-Image-Width": "1",
         },
       }),
     );
@@ -378,6 +636,7 @@ test("TASK-138 Cache Storage enforces byte and entry budgets with LRU eviction",
         versionId: uuid("9", 1),
       },
       jpegBlob(),
+      jpegMetadata(),
     );
     const stats = await getProductImageRuntimeStats();
     assert.ok(stats.cacheEntries <= PRODUCT_IMAGE_CACHE_MAX_ENTRIES);
@@ -489,4 +748,6 @@ test("TASK-138 UI gates thumbnails, renders progressive detail and clears image 
   assert.match(worker, /metadataHashMs/);
   assert.match(accountLogout, /Clear-Site-Data/);
   assert.match(staffLogout, /Clear-Site-Data/);
+  assert.match(accountLogout, /'"cache", "storage"'/);
+  assert.match(staffLogout, /'"cache", "storage"'/);
 });

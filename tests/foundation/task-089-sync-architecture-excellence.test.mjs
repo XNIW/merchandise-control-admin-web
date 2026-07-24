@@ -195,7 +195,11 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
     "hasMore",
   ]);
   assertContainsAll(catalogRevision, [
-    '.rpc("pos_catalog_pull_page_v2"',
+    '.rpc("pos_catalog_revision_for_lease_v3"',
+    '.rpc("pos_catalog_pull_page_for_lease_v3"',
+    "p_pos_session_id",
+    "p_shop_device_id",
+    "p_staff_id",
     "expectedRevision",
     "expectedScopeKey",
   ]);
@@ -206,7 +210,8 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
     "product.id = row.product_id",
   ]);
   assertContainsAll(sales, [
-    ".eq(\"shop_id\", session.shop_id)",
+    "loadPosRuntimeLease",
+    "shopId: session.shop_id",
     "p_shop_id: shop.shop_id",
     "p_client_batch_id: parsed.clientBatchId",
     "p_idempotency_key: parsed.idempotencyKey",
@@ -298,7 +303,10 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
   assertContainsAll(permissions, ['| "sync.manage"', '"sync.manage"']);
   assertContainsAll(staffWebPermissions, [
     '{ key: "sync.write", label: "Manage sync recovery notes" }',
+    '{ key: "history.write", label: "Edit history entries" }',
     'permission === "sync.manage"',
+    'permission === "history.write"',
+    'return "history.write"',
   ]);
   assertContainsAll(securityChecks, [
     "src/server/shop-admin/pos-sync-recovery-mutations.ts",
@@ -381,6 +389,9 @@ test("TASK-089 cross-platform docs keep data contract aligned without mobile run
   const migration = readProjectFile(
     "supabase/migrations/20260628180000_task_089_catalog_delta_indexes.sql",
   );
+  const atomicMigration = readProjectFile(
+    "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql",
+  );
   const syncWriter = readProjectFile("src/server/shop-admin/sync-event-writer.ts");
   const workbookImport = readProjectFile(
     "src/server/shop-admin/import-export-workbook.ts",
@@ -409,8 +420,10 @@ test("TASK-089 cross-platform docs keep data contract aligned without mobile run
     "catalog-v1",
     "catalog-v2",
     "bulk import",
-    "prodotti con un `catalog_changed` aggregato",
-    "transazione atomica",
+    "trigger PostgreSQL statement-level",
+    "bounded per dominio",
+    "rollback dell'intera transazione",
+    "compatibility acknowledgement no-op",
   ]);
   assertContainsAll(runbook, [
     "Observability Matrix",
@@ -430,16 +443,24 @@ test("TASK-089 cross-platform docs keep data contract aligned without mobile run
   ]);
   assertContainsAll(syncWriter, [
     "emitCatalogBulkProductImportSyncEvent",
-    "bulk_import",
-    "product_ids",
-    "catalog_changed",
-    "changedCount: sortedProductIds.length",
+    "Catalog, price and history row mutations are published by statement-level",
+    "database triggers in the same transaction",
+    "void input;",
+    "return { ok: true };",
+  ]);
+  assert.doesNotMatch(syncWriter, /record_shop_sync_event_service_v1/);
+  assertContainsAll(atomicMigration, [
+    "app_private.emit_atomic_sync_events_statement_v1",
+    "app_private.prepare_admin_bulk_changed_ids_v1",
+    "app_private.read_admin_bulk_changed_ids_v1",
+    "'product_ids'",
+    "'atomic_trigger', true",
+    "create or replace function public.shop_catalog_import_products",
   ]);
   assertContainsAll(workbookImport, [
+    '"shop_catalog_import_products"',
     "emitBulkProductImportSyncEvents",
-    "syncEventFailure",
-    "bulkProductSyncEventError",
-    "Products were applied, but the catalog sync event could not be recorded.",
+    "productImport.productIds.map((product) => product.productId)",
   ]);
 });
 
@@ -447,6 +468,9 @@ test("TASK-089 PriceHistory workbook emits prices_changed from real price ids", 
   const architecture = readProjectFile("docs/POS_SYNC_ARCHITECTURE.md");
   const migration = readProjectFile(
     "supabase/migrations/20260628183000_task_089_price_history_sync_event_ids.sql",
+  );
+  const atomicMigration = readProjectFile(
+    "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql",
   );
   const syncWriter = readProjectFile("src/server/shop-admin/sync-event-writer.ts");
   const workbookImport = readProjectFile(
@@ -461,8 +485,8 @@ test("TASK-089 PriceHistory workbook emits prices_changed from real price ids", 
     "`prices_changed`",
     "`price_ids`",
     "`product_ids`",
-    "fallisce",
-    "response torna errore",
+    "stessa transazione",
+    "rollback dell'intera transazione",
   ]);
   assertContainsAll(migration, [
     "shop_catalog_import_price_history",
@@ -478,49 +502,61 @@ test("TASK-089 PriceHistory workbook emits prices_changed from real price ids", 
   ]);
   assertContainsAll(syncWriter, [
     "emitPriceHistoryImportSyncEvent",
-    "PRICE_SYNC_EVENT_CHUNK_SIZE = 100",
-    "loadPriceBulkSyncRows(supabase, priceIdChunk)",
-    ".from(\"inventory_product_prices\")",
-    ".in(\"id\", ids)",
-    "domain: \"prices\"",
-    "eventType: \"prices_changed\"",
-    "price_ids: sortedPriceIds",
-    "product_ids: sortedProductIds",
-    "changedCount: sortedPriceIds.length",
+    "Catalog, price and history row mutations are published by statement-level",
+    "void input;",
+    "return { ok: true };",
+  ]);
+  assertContainsAll(atomicMigration, [
+    "when v_domain='prices' then 100",
+    "'price_ids'",
+    "'product_ids'",
+    "'prices_changed'",
+    "create or replace function public.shop_catalog_import_price_history",
+    "v_event_ids := app_private.read_admin_bulk_changed_ids_v1('prices')",
   ]);
   assertContainsAll(workbookImport, [
     "priceIdsFromPayload",
     "payload.priceIds",
     "emitPriceHistoryImportSyncEvents",
-    "priceHistorySyncEventError",
-    "PriceHistory rows were applied, but the prices sync event could not be recorded.",
-    "shopAdminActionResult(syncEventFailure",
+    '"shop_catalog_import_price_history"',
+    "idsAreExact",
   ]);
   assertContainsAll(staffAwareMutations, [
     "const priceIds: string[] = []",
-    ".from(\"inventory_product_prices\")",
-    ".select(\"id\")",
-    "priceIds.push(...appliedRows.map((row) => row.id))",
+    'staffCatalogRpc(context, "bulk_prices"',
+    "payload?.priceIds",
+    "ids.length === appliedCount",
+    "new Set(ids).size === ids.length",
+    "priceIds.push(...(ids as string[]))",
     "priceIds,",
   ]);
   assert.doesNotMatch(workbookImport, /priceHistoryApplied[\s\S]{0,400}prices_changed/);
   assert.doesNotMatch(syncWriter, /eventType: "prices_changed"[\s\S]{0,500}product_ids: sortedProductIds[\s\S]{0,200}price_ids: sortedProductIds/);
 });
 
-test("TASK-089 Admin shell listens to shop-scoped sync_events for near-realtime refresh", () => {
+test("TASK-089 Admin shell polls a redacted shop-authorized event marker", () => {
   const shopShell = readProjectFile("src/components/shop/ShopShell.tsx");
+  const markerRoute = readProjectFile("src/app/shop/sync-event-marker/route.ts");
   const browserClient = readProjectFile("src/lib/supabase/client.ts");
 
   assertContainsAll(shopShell, [
-    "createSupabaseBrowserClient",
     "scheduleCurrentShopRouteRefresh",
-    "shop-sync-events:",
-    '"postgres_changes"',
-    'table: "sync_events"',
-    "filter: `shop_id=eq.${activeShopId}`",
-    "supabase.removeChannel(channel)",
+    "/shop/sync-event-marker?shopId=",
+    'cache: "no-store", signal: controller.signal',
+    "document.visibilityState",
+    "navigator.onLine",
+    "Math.min(3_000 * 2 ** failureCount, 30_000)",
+    "window.clearTimeout(timer)",
     "router.refresh()",
   ]);
+  assertContainsAll(markerRoute, [
+    "resolveShopAdminDataAccess",
+    "readSafeSyncEvents",
+    "access.selectedShop.shopId !== shopId",
+    "limit: 1",
+    '"Cache-Control": "private, no-store"',
+  ]);
+  assert.doesNotMatch(shopShell, /createSupabaseBrowserClient|postgres_changes|table: "sync_events"/);
   assertContainsAll(browserClient, [
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
@@ -530,19 +566,20 @@ test("TASK-089 Admin shell listens to shop-scoped sync_events for near-realtime 
   assert.doesNotMatch(browserClient, /SUPABASE_SERVICE_ROLE_KEY|service_role/i);
 });
 
-test("TASK-089 Admin sync event writer has retry compensation without silent success", () => {
+test("TASK-089 Admin event publication is database-atomic with no post-write retry", () => {
   const syncWriter = readProjectFile("src/server/shop-admin/sync-event-writer.ts");
   const catalogMutations = readProjectFile("src/server/shop-admin/catalog-mutations.ts");
   const historyMutations = readProjectFile("src/server/shop-admin/history-mutations.ts");
+  const migration = readProjectFile(
+    "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql",
+  );
 
   assertContainsAll(syncWriter, [
-    "SYNC_EVENT_WRITE_RETRY_DELAYS_MS",
-    "isRetryableSyncEventWriteError",
-    "insertSyncEventWithLegacyFallback",
-    "waitForSyncEventRetry",
-    "lastError = outcome.error",
-    "if (!isRetryableSyncEventWriteError(outcome.error))",
-    "return { code: \"db_failure\", ok: false }",
+    "Compatibility acknowledgement for legacy call sites",
+    "statement-level",
+    "database triggers in the same transaction",
+    "void input;",
+    "return { ok: true };",
   ]);
   assertContainsAll(catalogMutations, [
     "const syncResult = await emitCatalogMutationSyncEvent",
@@ -550,9 +587,18 @@ test("TASK-089 Admin sync event writer has retry compensation without silent suc
     "shopAdminActionResult(syncResult.code",
   ]);
   assertContainsAll(historyMutations, [
-    "writeAdminWebSyncEvent",
-    "shopAdminActionResult(syncResult.code",
+    'context.supabase.rpc("staff_web_history_mutate_v1"',
+    "staffHistoryRpc",
+    "staffHistoryMutation",
+    'result.ok === (result.code === "success")',
   ]);
+  assertContainsAll(migration, [
+    "app_private.emit_atomic_sync_events_statement_v1",
+    "referencing new table as new_rows for each statement",
+    "'atomic_trigger', true",
+    "create or replace function public.staff_web_history_mutate_v1",
+  ]);
+  assert.doesNotMatch(syncWriter, /SYNC_EVENT_WRITE_RETRY_DELAYS_MS|record_shop_sync_event_service_v1/);
   assert.doesNotMatch(syncWriter, /console\.error\([\s\S]{0,300}owner_user_id/);
   assert.doesNotMatch(syncWriter, /console\.(error|warn|log)/);
 });
