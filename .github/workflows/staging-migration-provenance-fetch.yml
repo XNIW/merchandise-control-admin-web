@@ -1,0 +1,214 @@
+name: Staging Migration Provenance Fetch
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-migration-provenance-fetch
+  cancel-in-progress: false
+
+env:
+  SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+
+jobs:
+  fetch-provenance:
+    name: Fetch eight remote-only migration sources
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare-staging
+
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Verify staging inputs without exposing values
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          let urlMatchesProject = false;
+          try {
+            urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
+          } catch {}
+          const status = {
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            allowedProject: allowed.includes(ref),
+            urlMatchesProject,
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build the source database URL without logging credentials
+        run: |
+          set -euo pipefail
+          mkdir -p _reconciliation
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(`postgresql://postgres.${ref}:${encodeURIComponent(password)}@${host}:5432/postgres?sslmode=require`);
+          NODE
+          )"
+          printf '%s' "$SOURCE_DB_URL" > _reconciliation/source-db-url
+          chmod 600 _reconciliation/source-db-url
+
+      - name: Verify the authoritative remote ledger checksums
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _reconciliation/source-db-url)"
+          cat > _reconciliation/ledger.sql <<'SQL'
+          select
+            version,
+            name,
+            cardinality(statements),
+            octet_length(array_to_string(statements, E';\n\n') || E';\n'),
+            encode(
+              digest(
+                convert_to(array_to_string(statements, E';\n\n') || E';\n', 'UTF8'),
+                'sha256'
+              ),
+              'hex'
+            ),
+            encode(
+              digest(convert_to(statements::text, 'UTF8'), 'sha256'),
+              'hex'
+            )
+          from supabase_migrations.schema_migrations
+          where version in (
+            '20260707183000',
+            '20260707200500',
+            '20260708003000',
+            '20260713010000',
+            '20260713020000',
+            '20260718120000',
+            '20260718235345',
+            '20260719090000'
+          )
+          order by version;
+          SQL
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD/_reconciliation:/reconciliation" postgres:17 \
+            psql -X -qAt -F $'\t' -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /reconciliation/ledger.sql > _reconciliation/remote-ledger.tsv
+          cat > _reconciliation/expected-ledger.tsv <<'TSV'
+          20260707183000	mac_admin_w7pos_009_pos_admin_staff_role	24	20246	77495d2ea4ed00b30454bb8a56dfd1433ceaf24efa022c949a12a2392352c614	d63ead2623d29449465a25cde8d99168366f3cbb46e1763a926a4eef6dae64fa
+          20260707200500	mac_admin_w7pos_009_pos_admin_permission_completion	7	3015	0711d5bd500106603eb9f15422b8e92379e737836d7469a8a7ab8a5ebecbb86e	2e61ac3f5d33c33686b7229ca20cd3e85197a7126324a8aa352c563631f6aed7
+          20260708003000	mac_admin_w7pos_009_pos_admin_permission_remote_repair	7	3025	a298294cf9e9c27d1db33b6baeddd97e5b188c4c4904f6d1a12509929fdf75d3	c526d3f53f40842bc71da2d01a74e1f69373214194480312d70ce05db71a1d45
+          20260713010000	deep_audit_shop_scoped_dml_rls	1	5681	fac79bd4455dcbbf225d1d23784b386c22532cd2b32670907a19da1a524753ee	d0f51b4508df7a61b2370f2615c130a279e2f8f7322ac5863f7803e4e6e70bda
+          20260713020000	deep_audit_atomic_staff_lockout	1	4784	77b57355e087f3a0487ad0eb6b3594c1f2fe4c0a35954f9d21a535b6a30f6751	124d0f34587397f1d5145c1cfaaa70e193675ee8e4298812f27cd4d39f80f352
+          20260718120000	task_139_product_image_cleanup_runs	13	9505	b7be51978f3064a697a7f744d2dbde6da951df710e28e2e1007a48c8426a4836	85f8cc9db4fd9097f2a934f6ef02c1cd33c5c7cce59f3b8f01c99235cf4b2128
+          20260718235345	task_140_staff_pin_reset_login	51	47891	25a58f550bb0223076dc68d9d17f3a7033d9e829c0e8790bd7420a85b06c4b8c	b163c37f3f3880964b0b6f26d120e363635e6f86db8c9f8f9dc223663bd7d365
+          20260719090000	task_140_auth_concurrency_hardening	44	76943	7ab4d8133ec462ccbda16c0dc4106e96b82fccd9760d92e13bb4697a549c7d7a	ec11dcc3d322c5197bf56d572fac67029b1851e113bf5cab55aa56d80e7722a9
+          TSV
+          diff --unified \
+            _reconciliation/expected-ledger.tsv \
+            _reconciliation/remote-ledger.tsv
+
+      - name: Fetch missing migration files from ledger statements
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _reconciliation/source-db-url)"
+          mkdir -p _reconciliation/work
+          cp -R supabase _reconciliation/work/supabase
+          npx --yes supabase@2.109.0 \
+            --workdir "$PWD/_reconciliation/work" \
+            migration fetch \
+            --db-url "$SOURCE_DB_URL" \
+            --yes
+
+      - name: Validate exact recovered file set and create manifest
+        run: |
+          set -euo pipefail
+          mkdir -p _reconciliation/artifact/migrations
+          node <<'NODE'
+          const { createHash } = require("node:crypto");
+          const { copyFileSync, existsSync, readFileSync, writeFileSync } = require("node:fs");
+          const { join } = require("node:path");
+
+          const expected = [
+            ["20260707183000", "mac_admin_w7pos_009_pos_admin_staff_role"],
+            ["20260707200500", "mac_admin_w7pos_009_pos_admin_permission_completion"],
+            ["20260708003000", "mac_admin_w7pos_009_pos_admin_permission_remote_repair"],
+            ["20260713010000", "deep_audit_shop_scoped_dml_rls"],
+            ["20260713020000", "deep_audit_atomic_staff_lockout"],
+            ["20260718120000", "task_139_product_image_cleanup_runs"],
+            ["20260718235345", "task_140_staff_pin_reset_login"],
+            ["20260719090000", "task_140_auth_concurrency_hardening"],
+          ];
+          const migrations = expected.map(([version, name]) => {
+            const fileName = `${version}_${name}.sql`;
+            const source = join(
+              "_reconciliation",
+              "work",
+              "supabase",
+              "migrations",
+              fileName,
+            );
+            if (!existsSync(source)) {
+              throw new Error(`missing_recovered_migration:${fileName}`);
+            }
+            const bytes = readFileSync(source);
+            copyFileSync(
+              source,
+              join("_reconciliation", "artifact", "migrations", fileName),
+            );
+            return {
+              version,
+              name,
+              fileName,
+              bytes: bytes.length,
+              fileSha256: createHash("sha256").update(bytes).digest("hex"),
+            };
+          });
+          writeFileSync(
+            join("_reconciliation", "artifact", "reconciliation-manifest.json"),
+            `${JSON.stringify(
+              {
+                status: "PASS",
+                source: "supabase_migrations.schema_migrations.statements",
+                projectRef: process.env.STAGING_SUPABASE_PROJECT_REF,
+                workflowCommit: process.env.GITHUB_SHA,
+                migrationCount: migrations.length,
+                migrations,
+              },
+              null,
+              2,
+            )}\n`,
+          );
+          NODE
+          cp _reconciliation/remote-ledger.tsv \
+            _reconciliation/artifact/remote-ledger.tsv
+          test "$(find _reconciliation/artifact/migrations -maxdepth 1 -type f -name '*.sql' | wc -l)" -eq 8
+          rm -f _reconciliation/source-db-url _reconciliation/ledger.sql
+
+      - name: Upload recovered source and checksum evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: staging-migration-provenance-${{ github.run_id }}
+          path: _reconciliation/artifact
+          if-no-files-found: error
+          retention-days: 7

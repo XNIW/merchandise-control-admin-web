@@ -401,6 +401,7 @@ function checkReadOnlyContracts() {
       "src/server/shop-admin/import-export-workbook.ts",
       new Set([
         "shop_admin_audit_event",
+        "shop_catalog_admin_read_v1",
         "shop_catalog_import_price_history",
         "shop_catalog_import_products",
       ]),
@@ -434,6 +435,10 @@ function checkReadOnlyContracts() {
       ]),
     ],
     [
+      "src/server/shop-admin/pos-sync-recovery-mutations.ts",
+      new Set(["shop_pos_recovery_action_v1"]),
+    ],
+    [
       "src/server/shop-admin/product-images/service.ts",
       new Set([
         "product_image_fail_version",
@@ -443,6 +448,7 @@ function checkReadOnlyContracts() {
         "product_image_remove",
         "product_image_record_cleanup",
         "product_image_resolve_read_paths",
+        "product_image_revalidate_access_v1",
       ]),
     ],
   ]);
@@ -4262,6 +4268,8 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const tokenPath = "src/server/pos-auth/tokens.ts";
   const servicePath = "src/server/pos-auth/service.ts";
   const runtimeBoundaryPath = "src/server/pos-auth/runtime-boundary.ts";
+  const publicationFenceMigrationPath =
+    "supabase/migrations/20260722022500_task_139_pos_catalog_scope_lease.sql";
   const catalogPullServicePath = "src/server/pos-auth/catalog-pull.ts";
   const posRouteSecurityPath = "src/app/api/pos/_shared/pos-route-security.ts";
   const firstLoginRoutePath = "src/app/api/pos/auth/first-login/route.ts";
@@ -4277,6 +4285,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     tokenPath,
     servicePath,
     runtimeBoundaryPath,
+    publicationFenceMigrationPath,
     posRouteSecurityPath,
     firstLoginRoutePath,
     heartbeatRoutePath,
@@ -4294,6 +4303,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const tokens = read(tokenPath);
   const service = read(servicePath);
   const runtimeBoundary = read(runtimeBoundaryPath);
+  const publicationFenceMigration = read(publicationFenceMigrationPath);
   const catalogPullService = existsSync(join(root, catalogPullServicePath))
     ? read(catalogPullServicePath)
     : "";
@@ -4334,6 +4344,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     tokens,
     service,
     runtimeBoundary,
+    publicationFenceMigration,
     catalogPullService,
     posRouteSecurity,
     firstLoginRoute,
@@ -4432,9 +4443,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     "isStaffLockoutExpired",
     "sessionTokenValid",
     "deviceTokenValid",
-    "pos.auth.first_login.success",
     "pos.auth.first_login.failure",
-    "pos.device.trusted",
     "pos.session.heartbeat.failure",
     "pos.device.revoked_enforced",
     "loadPosRuntimeLease",
@@ -4447,11 +4456,22 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     }
   }
 
+  for (const requiredSnippet of [
+    "pos.auth.first_login.success",
+    "pos.device.trusted",
+  ]) {
+    if (!publicationFenceMigration.includes(requiredSnippet)) {
+      addFailure(
+        `${publicationFenceMigrationPath} must include ${requiredSnippet}`,
+      );
+    }
+  }
+
   if (
-    !/staff\.credential_status === "active"[\s\S]*isStaffLockoutExpired\(staff\)/.test(
+    !/staff\.credential_status === "active"[\s\S]*staff\.credential_status === "locked"[\s\S]*isStaffLockoutExpired\(staff\)/.test(
       service,
     ) ||
-    !/pos_runtime_first_login_commit_v1/.test(runtimeBoundary)
+    !/pos_runtime_first_login_commit_v2/.test(runtimeBoundary)
   ) {
     addFailure(
       `${servicePath} must permit only expired lockout recovery through the atomic POS runtime boundary`,
@@ -4461,7 +4481,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   if (
     !/pos_runtime_first_login_lookup_v1/.test(runtimeBoundary) ||
     !/pos_runtime_first_login_failure_v1/.test(runtimeBoundary) ||
-    !/pos_runtime_first_login_commit_v1/.test(runtimeBoundary) ||
+    !/pos_runtime_first_login_commit_v2/.test(runtimeBoundary) ||
     !/pos_runtime_lease_v1/.test(runtimeBoundary) ||
     !/pos_runtime_lease_publish_success_v2/.test(runtimeBoundary)
   ) {
@@ -6295,6 +6315,7 @@ function checkTask041RuntimeCompletion() {
     "failed batch rolls back every sink",
     "idempotent retry is duplicate",
     "sales boundary validates its lease before unchecked writes and lease locks before wall-clock expiry check",
+    "structural source contract unchecked auth locks precede delegated advisory lock",
   ]) {
     if (!salesSecurityPgTap.includes(requiredSnippet)) {
       addFailure(`${salesSecurityPgTapPath} must include ${requiredSnippet}`);
@@ -7652,8 +7673,10 @@ function checkTask057ShopCatalogWorkspace() {
   if (
     !/shop_catalog_import_products/.test(workbook) ||
     !/shop_catalog_import_price_history/.test(workbook) ||
-    !/fetchCatalogExportPriceRows/.test(workbook) ||
-    !/mergeCatalogExportPriceRows/.test(workbook) ||
+    !/shop_catalog_admin_read_v1/.test(workbook) ||
+    !/createCatalogWorkbookExportResourceEnvelope/.test(workbook) ||
+    !/resource\.assertPreflight/.test(workbook) ||
+    /fetchCatalogExportPriceRows|mergeCatalogExportPriceRows/.test(workbook) ||
     /TASK057_DEBUG|SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(workbook)
   ) {
     addFailure(

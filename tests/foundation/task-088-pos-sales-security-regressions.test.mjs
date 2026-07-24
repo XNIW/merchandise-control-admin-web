@@ -6,6 +6,10 @@ import test from "node:test";
 const root = process.cwd();
 const migrationPath =
   "supabase/migrations/20260715130000_dsc_093_094_134_pos_sales_security.sql";
+const task140MigrationPath =
+  "supabase/migrations/20260719090000_task_140_auth_concurrency_hardening.sql";
+const task139MigrationPath =
+  "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql";
 
 function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
@@ -126,16 +130,32 @@ test("TASK-088 HTTP parser binds header change to payment ledger change", () => 
 
 test("TASK-088 classifies lease and lock ordering checks as structural", () => {
   const migration = readProjectFile(migrationPath).toLowerCase();
+  const task140Migration = readProjectFile(task140MigrationPath).toLowerCase();
+  const task139Migration = readProjectFile(task139MigrationPath).toLowerCase();
   const pgTap = readProjectFile(
     "supabase/tests/dsc_093_094_134_pos_sales_security.sql",
   );
-  const authRowLock = migration.indexOf(
+  const advisoryLock = migration.indexOf("perform pg_advisory_xact_lock(");
+  const authRowLock = task140Migration.indexOf(
     "for update of session_row, staff, device, credential, shop",
   );
-  const advisoryLock = migration.indexOf("perform pg_advisory_xact_lock(");
+  const delegateCall = task140Migration.indexOf(
+    "task140_pos_sales_sync_apply_v1_task137",
+    authRowLock,
+  );
+  const leaseCheck = task139Migration.indexOf(
+    "app_private.pos_runtime_lease_is_valid_v1(",
+  );
+  const uncheckedCall = task139Migration.indexOf(
+    "public.pos_sales_sync_apply_unchecked_v1(",
+    leaseCheck,
+  );
 
+  assert.ok(advisoryLock >= 0);
   assert.ok(authRowLock >= 0);
-  assert.ok(advisoryLock > authRowLock);
+  assert.ok(delegateCall > authRowLock);
+  assert.ok(leaseCheck >= 0);
+  assert.ok(uncheckedCall > leaseCheck);
   assert.match(
     pgTap,
     /Structural only: a single pgTAP connection cannot prove concurrent blocking/i,
@@ -143,6 +163,10 @@ test("TASK-088 classifies lease and lock ordering checks as structural", () => {
   assert.match(
     pgTap,
     /sales boundary validates its lease before unchecked writes and lease locks before wall-clock expiry check/i,
+  );
+  assert.match(
+    pgTap,
+    /structural source contract unchecked auth locks precede delegated advisory lock/i,
   );
   assert.doesNotMatch(pgTap, /concurrent lock contract serializes/i);
 });

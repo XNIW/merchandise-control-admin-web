@@ -16,6 +16,16 @@ type AdminClient = SupabaseClient<Database>;
 
 type RealShopTarget = {
   email: string;
+  isolation: {
+    crossShopId: string;
+    email: string;
+    profileId: string;
+    shopId: string;
+  };
+  platformAdmin: boolean;
+  priceCount: number;
+  productCount: number;
+  profileId: string;
   shopId: string;
   source: "env" | "discovered";
 };
@@ -158,6 +168,18 @@ function optionalEnv(name: string) {
   return process.env[name]?.trim() || null;
 }
 
+function routeSampleCount() {
+  const parsed = Number.parseInt(optionalEnv("TASK077_ROUTE_SAMPLE_COUNT") ?? "1", 10);
+
+  if (!Number.isInteger(parsed) || parsed < 1 || parsed > 20) {
+    throw new Error(
+      "BLOCKED_TASK077_ROUTE_SAMPLE_COUNT: use an integer from 1 through 20.",
+    );
+  }
+
+  return parsed;
+}
+
 function formatSupabaseError(error: unknown) {
   if (!error || typeof error !== "object") {
     return String(error);
@@ -201,28 +223,48 @@ function isSyntheticShopCode(value: string | null | undefined) {
   return /^(TASK|TEST|FIXTURE|DEMO)[0-9_-]/i.test(value ?? "");
 }
 
-async function emailForProfile(supabase: AdminClient, profileId: string) {
-  const { data, error } = await supabase.auth.admin.getUserById(profileId);
-
-  if (error) {
-    return null;
-  }
-
-  return data.user?.email ?? null;
-}
-
 async function resolveRealShopTarget(
   supabase: AdminClient,
 ): Promise<RealShopTarget> {
   const envShopId = optionalEnv("TASK077_REAL_SHOP_ID");
   const envEmail = optionalEnv("TASK077_REAL_SHOP_USER_EMAIL");
+  const expectedProductCount = Number.parseInt(
+    optionalEnv("TASK077_EXPECTED_PRODUCT_COUNT") ?? "0",
+    10,
+  );
+  const emailByProfile = new Map<string, string>();
+  let userPageNumber = 1;
 
-  if (envShopId && envEmail) {
-    return {
-      email: envEmail,
-      shopId: envShopId,
-      source: "env",
-    };
+  while (true) {
+    const { data: userPage, error: userListError } =
+      await supabase.auth.admin.listUsers({
+        page: userPageNumber,
+        perPage: 1_000,
+      });
+
+    if (userListError) {
+      throw new Error(
+        `BLOCKED_TASK077_AUTH_USER_LIST: page=${userPageNumber} ${formatSupabaseError(userListError)}`,
+      );
+    }
+
+    for (const user of userPage.users ?? []) {
+      if (user.email) {
+        emailByProfile.set(user.id, user.email);
+      }
+    }
+
+    if (userPage.nextPage === null) {
+      break;
+    }
+
+    if (userPage.nextPage <= userPageNumber) {
+      throw new Error(
+        `BLOCKED_TASK077_AUTH_USER_LIST: invalid pagination nextPage=${userPage.nextPage} currentPage=${userPageNumber}`,
+      );
+    }
+
+    userPageNumber = userPage.nextPage;
   }
 
   let query = supabase
@@ -247,9 +289,10 @@ async function resolveRealShopTarget(
     );
   }
 
-  const rows = ((data ?? []) as ShopCandidateRow[]).filter(
-    (row) => envShopId || !isSyntheticShopCode(row.shop_code),
-  );
+  const rows = (data ?? []) as ShopCandidateRow[];
+  const candidates: Array<
+    Omit<RealShopTarget, "isolation"> & { syntheticShop: boolean }
+  > = [];
 
   for (const row of rows) {
     for (const member of row.shop_members ?? []) {
@@ -257,16 +300,128 @@ async function resolveRealShopTarget(
         continue;
       }
 
-      const email = envEmail ?? (await emailForProfile(supabase, member.profile_id));
+      const email = envEmail ?? emailByProfile.get(member.profile_id) ?? null;
 
       if (email) {
-        return {
+        const [sourceResult, priceResult, platformResult] = await Promise.all([
+          supabase
+            .from("shop_inventory_sources")
+            .select("owner_user_id")
+            .eq("shop_id", row.shop_id)
+            .eq("mapping_state", "mapped")
+            .maybeSingle(),
+          supabase
+            .from("inventory_product_prices")
+            .select("id", { count: "exact", head: true })
+            .eq("shop_id", row.shop_id),
+          supabase
+            .from("platform_admins")
+            .select("profile_id", { count: "exact", head: true })
+            .eq("profile_id", member.profile_id)
+            .eq("status", "active"),
+        ]);
+        const ownerUserId = sourceResult.data?.owner_user_id;
+
+        if (
+          sourceResult.error ||
+          !ownerUserId ||
+          priceResult.error ||
+          platformResult.error
+        ) {
+          continue;
+        }
+        const productResult = await supabase
+          .from("inventory_products")
+          .select("id", { count: "exact", head: true })
+          .eq("owner_user_id", ownerUserId)
+          .is("deleted_at", null);
+
+        if (productResult.error) {
+          continue;
+        }
+
+        candidates.push({
           email,
+          platformAdmin: (platformResult.count ?? 0) > 0,
+          priceCount: priceResult.count ?? 0,
+          productCount: productResult.count ?? 0,
+          profileId: member.profile_id,
           shopId: row.shop_id,
           source: envShopId || envEmail ? "env" : "discovered",
-        };
+          syntheticShop: isSyntheticShopCode(row.shop_code),
+        });
       }
     }
+  }
+
+  const selected =
+    candidates.find(
+      (candidate) =>
+        expectedProductCount > 0 &&
+        candidate.productCount === expectedProductCount,
+    ) ??
+    candidates
+      .filter((candidate) => envShopId || !candidate.syntheticShop)
+      .sort((left, right) => right.productCount - left.productCount)[0];
+
+  if (selected) {
+    const isolation = candidates.find(
+      (candidate) =>
+        !candidate.platformAdmin &&
+        candidate.profileId !== selected.profileId,
+    );
+
+    if (!isolation) {
+      throw new Error(
+        "BLOCKED_TASK077_NON_PLATFORM_ACTOR_UNAVAILABLE: one mapped active non-platform shop owner/manager is required.",
+      );
+    }
+
+    const { data: otherShops, error: otherShopsError } = await supabase
+      .from("shops")
+      .select(
+        "shop_id,shop_members(profile_id,membership_status)",
+      )
+      .eq("shop_status", "active")
+      .neq("shop_id", isolation.shopId)
+      .limit(50);
+
+    if (otherShopsError) {
+      throw new Error(
+        `BLOCKED_TASK077_CROSS_SHOP_DISCOVERY: ${formatSupabaseError(otherShopsError)}`,
+      );
+    }
+
+    const crossShop = (otherShops ?? []).find(
+      (shop) =>
+        !(shop.shop_members ?? []).some(
+          (member) =>
+            member.profile_id === isolation.profileId &&
+            member.membership_status === "active",
+        ),
+    );
+
+    if (!crossShop?.shop_id) {
+      throw new Error(
+        "BLOCKED_TASK077_CROSS_SHOP_UNAVAILABLE: one active shop outside the selected actor tenant is required.",
+      );
+    }
+
+    return {
+      email: selected.email,
+      isolation: {
+        crossShopId: crossShop.shop_id,
+        email: isolation.email,
+        profileId: isolation.profileId,
+        shopId: isolation.shopId,
+      },
+      platformAdmin: selected.platformAdmin,
+      priceCount: selected.priceCount,
+      productCount: selected.productCount,
+      profileId: selected.profileId,
+      shopId: selected.shopId,
+      source: selected.source,
+    };
   }
 
   throw new Error(
@@ -354,6 +509,46 @@ async function signInWithMagicLink(page: Page, target: RealShopTarget) {
   );
   await page.goto(routeUrl("/shop/overview", target.shopId).toString());
   await expectRouteTitle(page, "Overview", 20_000);
+}
+
+async function assertCrossTenantDenied(
+  page: Page,
+  target: RealShopTarget["isolation"],
+) {
+  const result = await page.evaluate(async (crossShopId) => {
+    const response = await fetch("/shop/qa-sync-fixture", {
+      body: JSON.stringify({
+        confirm: "staging-sync-final",
+        correlationId: "Task077CrossTenant",
+        entity: "product",
+        fixtureId: "Task077CrossTenant",
+        mode: "final",
+        operation: "observe",
+        prefix: "TASK_SYNC_FINAL_20260714_Task077_",
+        scenario: "observe",
+        shopId: crossShopId,
+      }),
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      method: "POST",
+    });
+
+    return {
+      body: await response.json(),
+      cacheControl: response.headers.get("cache-control"),
+      status: response.status,
+    };
+  }, target.crossShopId);
+
+  expect(result.status).toBe(403);
+  expect(result.cacheControl).toContain("no-store");
+  expect(result.body).toMatchObject({
+    marker: "TASK_SYNC_FINAL_ADMIN_V1",
+    ok: false,
+    result: "denied",
+  });
 }
 
 async function expectRouteTitle(page: Page, title: string, timeout = 12_000) {
@@ -543,7 +738,10 @@ async function measureRouteNavigation(
   const startedAt = await page.evaluate(() => window.performance.now());
   const wallStartedAt = nodePerformance.now();
   try {
-    await link.click({ timeout: 3_000 });
+    // The sampler owns the pending/final readiness clocks below. Trigger the
+    // hydrated link without Playwright's navigation auto-wait so that a slow
+    // route is measured by those clocks instead of being mislabeled click_failed.
+    await link.evaluate((element) => (element as HTMLAnchorElement).click());
   } catch (error) {
     page.off("response", responseHandler);
 
@@ -661,6 +859,8 @@ function writeReport(input: {
     phase: input.phase,
     shop: {
       id: "redacted",
+      priceCount: input.target.priceCount,
+      productCount: input.target.productCount,
       source: input.target.source,
     },
     target: {
@@ -692,9 +892,14 @@ test("TASK-077 measures real Shop Admin read-only cloud data latency", async ({
   expect(process.env.CONFIRM_TASK077_REAL_SHOP_READONLY).toBe("yes");
 
   const target = await resolveRealShopTarget(createAdminClient());
+  const expectedProductCount = Number.parseInt(
+    optionalEnv("TASK077_EXPECTED_PRODUCT_COUNT") ?? "0",
+    10,
+  );
   const measurements: RouteMeasurement[] = [];
   const routeConsoleErrors: string[] = [];
   const routes = selectedRouteChecks();
+  const samples = routeSampleCount();
 
   page.on("console", (message) => {
     if (message.type() === "error") {
@@ -705,27 +910,43 @@ test("TASK-077 measures real Shop Admin read-only cloud data latency", async ({
     routeConsoleErrors.push(error.message.slice(0, 300));
   });
 
+  await signInWithMagicLink(page, {
+    ...target,
+    email: target.isolation.email,
+    shopId: target.isolation.shopId,
+  });
+  await assertCrossTenantDenied(page, target.isolation);
   await signInWithMagicLink(page, target);
+  // Start from an authenticated route outside the measured set so the first
+  // Overview sample is a real transition with an observable replacement.
+  await page.goto(routeUrl("/shop/members", target.shopId).toString());
+  await expectRouteTitle(page, "Members", 20_000);
 
-  for (const route of routes) {
-    routeConsoleErrors.length = 0;
-    measurements.push(
-      await measureRouteNavigation(
-        page,
-        context,
-        target,
-        route,
-        routeConsoleErrors,
-      ),
-    );
-    writeReport({
-      measurements,
-      phase: process.env.TASK077_PERF_PHASE ?? "manual",
-      target,
-    });
+  if (expectedProductCount > 0) {
+    expect(target.productCount).toBe(expectedProductCount);
   }
 
-  expect(measurements).toHaveLength(routes.length);
+  for (let sample = 0; sample < samples; sample += 1) {
+    for (const route of routes) {
+      routeConsoleErrors.length = 0;
+      measurements.push(
+        await measureRouteNavigation(
+          page,
+          context,
+          target,
+          route,
+          routeConsoleErrors,
+        ),
+      );
+      writeReport({
+        measurements,
+        phase: process.env.TASK077_PERF_PHASE ?? "manual",
+        target,
+      });
+    }
+  }
+
+  expect(measurements).toHaveLength(routes.length * samples);
 
   if (process.env.TASK077_ENFORCE_THRESHOLDS === "yes") {
     expect(
