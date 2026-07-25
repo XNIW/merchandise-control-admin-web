@@ -8,6 +8,12 @@ const androidRoot =
   process.env.ANDROID_MERCHANDISE_CONTROL_ROOT?.trim() ?? "";
 const iosRoot =
   process.env.IOS_MERCHANDISE_CONTROL_ROOT?.trim() ?? "";
+const mobileContractTestOptions = {
+  skip:
+    !androidRoot && !iosRoot
+      ? "requires explicit Android and iOS repository roots"
+      : false,
+};
 
 function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
@@ -122,7 +128,7 @@ test("TASK-072 Admin Web writes History v2 through an atomic mutation boundary",
   assert.match(historyDetailPage, /detail\.kind !== "shared_sheet_session"/);
 });
 
-test("TASK-072 mobile clients use bounded event RPCs and History v2 rows", () => {
+test("TASK-072 mobile clients use bounded event RPCs and History v2 rows", mobileContractTestOptions, () => {
   assert.ok(
     androidRoot && existsSync(androidRoot),
     "ANDROID_MERCHANDISE_CONTROL_ROOT must name the checked Android repository",

@@ -8,6 +8,12 @@ const androidRoot =
   process.env.ANDROID_MERCHANDISE_CONTROL_ROOT?.trim() ?? "";
 const iosRoot =
   process.env.IOS_MERCHANDISE_CONTROL_ROOT?.trim() ?? "";
+const mobileContractTestOptions = {
+  skip:
+    !androidRoot && !iosRoot
+      ? "requires explicit Android and iOS repository roots"
+      : false,
+};
 
 function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
@@ -223,7 +229,7 @@ test("TASK-072 revoked devices are not reactivated by register or heartbeat path
   assert.match(salesSync, /device\.status === "active"/);
 });
 
-test("TASK-072 Android and iOS use stable install IDs with redacted metadata", () => {
+test("TASK-072 Android and iOS use stable install IDs with redacted metadata", mobileContractTestOptions, () => {
   assert.ok(
     androidRoot && existsSync(androidRoot),
     "ANDROID_MERCHANDISE_CONTROL_ROOT must name the checked Android repository",
