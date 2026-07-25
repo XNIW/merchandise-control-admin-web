@@ -12,6 +12,7 @@ import {
   shopAdminActionResult,
   type ShopAdminActionResult,
 } from "./action-context";
+import { normalizePosSyncRecoveryAuditNote } from "./pos-sync-recovery-note";
 
 export type PosSyncRecoveryActionType =
   | "add_note"
@@ -40,8 +41,6 @@ const allowedTargetTypes = new Set<PosSyncRecoveryTargetType>([
   "pos_sales_sync_batch",
   "pos_shop",
 ]);
-const MAX_NOTE_LENGTH = 600;
-
 function parseActionType(value: string): PosSyncRecoveryActionType | null {
   const normalized = value.trim();
 
@@ -68,15 +67,6 @@ function parseTargetRef(value: string): PosSyncRecoveryTarget | null {
     id,
     type: type as PosSyncRecoveryTargetType,
   };
-}
-
-function normalizeNote(value: string | undefined) {
-  const normalized = (value ?? "")
-    .replace(/[\u0000-\u001f\u007f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return normalized.slice(0, MAX_NOTE_LENGTH);
 }
 
 function adminClientForContext(): SupabaseAdminClient | null {
@@ -113,14 +103,20 @@ export async function recordPosSyncRecoveryAction(input: {
 
   const actionType = parseActionType(input.actionType);
   const target = parseTargetRef(input.targetRef);
-  const note = normalizeNote(input.note);
+  const normalizedNote = normalizePosSyncRecoveryAuditNote(input.note);
 
-  if (!actionType || !target || (actionType === "add_note" && !note)) {
+  if (
+    !actionType ||
+    !target ||
+    normalizedNote.kind === "rejected" ||
+    (actionType === "add_note" && !normalizedNote.value)
+  ) {
     return shopAdminActionResult("validation_failed", {
       ok: false,
       shopId: context.selectedShop.shopId,
     });
   }
+  const note = normalizedNote.value;
 
   const adminClient = adminClientForContext();
 

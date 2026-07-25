@@ -4,7 +4,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(9);
+select plan(11);
 
 select has_function(
   'public',
@@ -80,6 +80,27 @@ select is(
 );
 
 set local role postgres;
+select ok(
+  (
+    select bool_and(
+      app_private.audit_note_is_redacted_v1(sensitive.note) is false
+    )
+    from (
+      values
+        ('password=synthetic-value'),
+        ('PIN: 123456'),
+        ('mcpos_session_syntheticvalue123456'),
+        ('SUPABASE_' || 'SERVICE_ROLE_KEY=synthetic-value'),
+        ('secret=synthetic-value'),
+        ('ghp_syntheticvalue12345678901234567890'),
+        ('sk_live_syntheticvalue123456'),
+        ('Authorization: Basic dXNlcjpwYXNzd29yZA==')
+    ) as sensitive(note)
+  ),
+  'audit-note redaction rejects credentials, sessions and provider key shapes'
+);
+
+set local role service_role;
 select is(
   (
     select count(*)::integer
@@ -95,6 +116,21 @@ select is(
   'successful recovery publication persists one append-only audit'
 );
 
+set local role service_role;
+select is(
+  public.shop_pos_recovery_action_v1(
+    '00000000-0000-4000-8000-000000000139',
+    '10000000-0000-4000-8000-000000000139',
+    'add_note',
+    'pos_shop',
+    '10000000-0000-4000-8000-000000000139',
+    'Bearer eyJhbGciOiJIUzI1NiJ9.payload.signature'
+  )->>'code',
+  'validation_failed',
+  'secret-bearing recovery notes fail closed before append-only audit'
+);
+
+set local role postgres;
 update public.shop_members
 set membership_status = 'suspended',
     suspended_at = clock_timestamp()

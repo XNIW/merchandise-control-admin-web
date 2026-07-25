@@ -146,6 +146,9 @@ test(
       "src/Win7POS.Wpf/Pos/Dialogs/DbMaintenanceViewModel.cs",
     );
     const logger = readWin7PosFile("src/Win7POS.Wpf/Infrastructure/FileLogger.cs");
+    const rotatingLogSink = readWin7PosFile(
+      "src/Win7POS.Core/Logging/RotatingFileLogSink.cs",
+    );
     const readme = readWin7PosFile("README.md");
     const checklist = readWin7PosFile("docs/WIN7_PRODUCTION_SMOKE_CHECKLIST.md");
 
@@ -196,9 +199,10 @@ test(
     assertContains(maintenance, "PosLocalization.T(\"dbMaintenance.restoreSyncReview\")");
     assertContains(workflow, "HasUnresolvedSalesSyncOutboxAsync");
     assertContains(workflow, "PosLocalization.T(\"dbMaintenance.restoreBlockedUnresolvedSales\")");
-    assertContains(logger, "MaxLogBytes");
-    assertContains(logger, "RotateIfNeeded");
-    assertContains(logger, "RetainedLogFiles = 5");
+    assertContains(logger, "ProcessFileLog");
+    assertContains(rotatingLogSink, "DefaultMaxLogBytes");
+    assertContains(rotatingLogSink, "RotateIfNeeded");
+    assertContains(rotatingLogSink, "DefaultRetainedLogFiles = 5");
     assertContains(readme, "Admin Web invia anche una `policy` POS versionata");
     assertContains(readme, "pre-backup `pos_pre_restore_yyyyMMdd_HHmmss.db`");
     assertContains(checklist, "Hardware verification remains `EXTERNAL_NOT_RUN`");

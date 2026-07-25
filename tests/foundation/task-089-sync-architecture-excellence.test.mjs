@@ -630,6 +630,9 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
   const salesRepo = readWin7PosFile(
     "src/Win7POS.Data/Repositories/SaleRepository.cs",
   );
+  const salesOutboxRepo = readWin7PosFile(
+    "src/Win7POS.Data/Repositories/SalesSyncOutboxRepository.cs",
+  );
   const syncService = readWin7PosFile(
     "src/Win7POS.Wpf/Pos/Online/PosSalesSyncService.cs",
   );
@@ -638,6 +641,9 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
   );
   const workflow = readWin7PosFile("src/Win7POS.Wpf/Pos/PosWorkflowService.cs");
   const logger = readWin7PosFile("src/Win7POS.Wpf/Infrastructure/FileLogger.cs");
+  const logSanitizer = readWin7PosFile(
+    "src/Win7POS.Core/Logging/LogSanitizer.cs",
+  );
   const debugCheck = readWin7PosFile("scripts/check-pos-debug-logging.ps1");
 
   assertContainsAll(`${client}\n${transportContracts}`, [
@@ -666,10 +672,13 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
     "Method = PosOnlineContract.PaymentCard",
   ]);
   assertContainsAll(salesRepo, [
-    "PosOnlineContract.SalesSchemaVersion",
+    "SalesSyncOutboxRepository",
     "EnsureClientSaleIdAsync",
     "ApplyLocalStockMovementsAsync",
     "EnqueueSalesSyncOutboxAsync",
+  ]);
+  assertContainsAll(salesOutboxRepo, [
+    "PosOnlineContract.SalesSchemaVersion",
     "INSERT OR IGNORE INTO sales_sync_outbox",
     "payload_hash",
     "ORDER BY id ASC",
@@ -712,6 +721,10 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
     "POS DB pre-restore backup created",
   ]);
   assertContainsAll(logger, [
+    "ProcessFileLog",
+    "LogSanitizer.Sanitize",
+  ]);
+  assertContainsAll(logSanitizer, [
     "session[_-]?token",
     "device[_-]?token",
     "trusted[_-]?device[_-]?token",

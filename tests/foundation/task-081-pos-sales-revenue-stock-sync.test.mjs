@@ -198,6 +198,15 @@ test(
     const productRepository = readWin7PosFile(
       "src/Win7POS.Data/Repositories/ProductRepository.cs",
     );
+    const saleStockMovementWriter = readWin7PosFile(
+      "src/Win7POS.Data/Repositories/SaleStockMovementWriter.cs",
+    );
+    const salesSyncOutboxRepository = readWin7PosFile(
+      "src/Win7POS.Data/Repositories/SalesSyncOutboxRepository.cs",
+    );
+    const remoteProductWriter = readWin7PosFile(
+      "src/Win7POS.Data/Repositories/RemoteCatalogProductWriter.cs",
+    );
     const cliProgram = readWin7PosFile("src/Win7POS.Cli/Program.cs");
     const workflow = readWin7PosFile("src/Win7POS.Wpf/Pos/PosWorkflowService.cs");
     const syncService = readWin7PosFile(
@@ -222,12 +231,15 @@ test(
     assertContains(workflow, "Kind = req.IsFullVoid ? (int)SaleKind.Void : (int)SaleKind.Refund");
     assertContains(workflow, "ProductId = source.ProductId");
     assertContains(workflow, "ProductId = x.ProductId");
-    assertContains(saleRepository, "sale.Kind == (int)SaleKind.Refund || sale.Kind == (int)SaleKind.Void");
-    assertContains(saleRepository, "void_reverse");
-    assertContains(saleRepository, "status = 'failed_blocked'");
-    assertContains(productRepository, "JOIN local_stock_movements m ON m.sale_id = o.sale_id");
-    assertContains(productRepository, "o.status IN ('pending', 'retry', 'in_progress', 'failed_blocked')");
-    assertContains(productRepository, "stockQty = stockQtyToWrite");
+    assertContains(saleRepository, "SaleStockMovementWriter");
+    assertContains(saleRepository, "SalesSyncOutboxRepository");
+    assertContains(saleStockMovementWriter, "sale.Kind == (int)SaleKind.Refund || sale.Kind == (int)SaleKind.Void");
+    assertContains(saleStockMovementWriter, "void_reverse");
+    assertContains(salesSyncOutboxRepository, "status = 'failed_blocked'");
+    assertContains(remoteProductWriter, "JOIN local_stock_movements m ON m.sale_id = o.sale_id");
+    assertContains(remoteProductWriter, "o.status IN ('pending', 'retry', 'in_progress', 'failed_blocked')");
+    assertContains(remoteProductWriter, "stockQty = stockQtyToWrite");
+    assertContains(productRepository, "RemoteCatalogProductWriter");
     assertContains(cliProgram, "--task081-sales-sync-harness");
     assertContains(cliProgram, "--task081-shop-cache-harness");
     assertContains(cliProgram, "--task081-sales-sync-http-harness");

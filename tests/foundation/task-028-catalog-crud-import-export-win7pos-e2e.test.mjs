@@ -360,6 +360,9 @@ test("TASK-028 Win7POS catalog pull persists cursor diagnostics and applies tomb
   const repository = readWin7PosFile(
     "src/Win7POS.Data/Repositories/ProductRepository.cs",
   );
+  const remoteProductWriter = readWin7PosFile(
+    "src/Win7POS.Data/Repositories/RemoteCatalogProductWriter.cs",
+  );
   const batchRepository = readWin7PosFile(
     "src/Win7POS.Data/Repositories/RemoteCatalogBatchRepository.cs",
   );
@@ -398,16 +401,17 @@ test("TASK-028 Win7POS catalog pull persists cursor diagnostics and applies tomb
     "remote_deleted_at",
     "is_active",
   ]) {
-    assertContains(repository, required);
+    assertContains(remoteProductWriter, required);
     assertContains(initializer, required);
   }
 
   assertContains(repository, "ApplyRemoteProductTombstoneAsync");
+  assertContains(repository, "_remoteProductWriter.ApplyRemoteProductTombstoneAsync");
   assertContains(batchRepository, "ApplyRemoteProductTombstoneInTransactionAsync");
   assertContains(batchRepository, "CategoryRepository.ApplyRemoteTombstoneInTransactionAsync");
   assertContains(batchRepository, "SupplierRepository.ApplyRemoteTombstoneInTransactionAsync");
-  assertContains(repository, "COALESCE(is_active, 1) = 1");
-  assertContains(repository, "UPDATE products");
+  assertContains(remoteProductWriter, "COALESCE(is_active, 1) = 1");
+  assertContains(remoteProductWriter, "UPDATE products");
   assertContains(initializer, "COALESCE(is_active, 1) = 1");
 
   for (const required of [
@@ -425,7 +429,10 @@ test("TASK-028 Win7POS catalog pull persists cursor diagnostics and applies tomb
   }
 
   assert.doesNotMatch(service, /DeleteByBarcodeAsync|DELETE FROM products|DELETE FROM product_meta/i);
-  assert.doesNotMatch(`${service}\n${repository}`, /\btruncate\b|replace_all|full\s+delete/i);
+  assert.doesNotMatch(
+    `${service}\n${repository}\n${remoteProductWriter}`,
+    /\btruncate\b|replace_all|full\s+delete/i,
+  );
 });
 
 test("TASK-028 keeps TASK-027 delta sync and documented POS boundaries intact", () => {
