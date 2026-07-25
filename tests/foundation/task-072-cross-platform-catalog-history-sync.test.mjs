@@ -5,11 +5,9 @@ import test from "node:test";
 
 const root = process.cwd();
 const androidRoot =
-  process.env.ANDROID_MERCHANDISE_CONTROL_ROOT?.trim() ||
-  "/Users/minxiang/AndroidStudioProjects/MerchandiseControlSplitView";
+  process.env.ANDROID_MERCHANDISE_CONTROL_ROOT?.trim() ?? "";
 const iosRoot =
-  process.env.IOS_MERCHANDISE_CONTROL_ROOT?.trim() ||
-  "/Users/minxiang/Desktop/iOSMerchandiseControl";
+  process.env.IOS_MERCHANDISE_CONTROL_ROOT?.trim() ?? "";
 
 function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
@@ -19,25 +17,35 @@ function readExternalFile(basePath, relativePath) {
   return readFileSync(join(basePath, relativePath), "utf8");
 }
 
-test("TASK-072 Admin Web catalog mutations emit redacted technical sync_events", () => {
+test("TASK-072 Admin Web catalog mutations publish complete events atomically", () => {
   const writer = readProjectFile("src/server/shop-admin/sync-event-writer.ts");
+  const migration = readProjectFile(
+    "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql",
+  );
   const catalogMutations = readProjectFile(
     "src/server/shop-admin/catalog-mutations.ts",
   );
   const syncSection = readProjectFile("src/server/shop-admin/shop-section-data.ts");
 
   assert.match(writer, /import "server-only"/);
-  assert.match(writer, /\.from\("sync_events"\)\.insert/);
-  assert.match(writer, /source: "admin_web"/);
-  assert.match(writer, /buildAdminWebClientEventId/);
-  assert.match(writer, /createHash\("sha256"\)/);
-  assert.match(writer, /owner_user_id: input\.ownerUserId/);
-  assert.match(writer, /shop_id: input\.shopId/);
-  assert.match(writer, /"supplier_ids"/);
-  assert.match(writer, /"category_ids"/);
-  assert.match(writer, /"product_ids"/);
-  assert.match(writer, /catalog_tombstone/);
+  assert.match(writer, /statement-level[\s\S]*database triggers in the same transaction/);
+  assert.match(writer, /void input;[\s\S]*return \{ ok: true \};/);
+  assert.doesNotMatch(writer, /\.from\("sync_events"\)\.insert/);
+  assert.doesNotMatch(writer, /record_shop_sync_event_service_v1/);
   assert.doesNotMatch(writer, /product_name|barcode|supplier_name|category_name/);
+  for (const required of [
+    "app_private.emit_atomic_sync_events_statement_v1",
+    "'inventory_suppliers'",
+    "'inventory_categories'",
+    "'inventory_products'",
+    "'supplier_ids'",
+    "'category_ids'",
+    "'product_ids'",
+    "'catalog_tombstone'",
+    "'atomic_trigger', true",
+  ]) {
+    assert.match(migration, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+  }
 
   for (const required of [
     '{ entity: "supplier", operation: "create" }',
@@ -57,13 +65,13 @@ test("TASK-072 Admin Web catalog mutations emit redacted technical sync_events",
     );
   }
 
-  assert.match(syncSection, /Admin Web records technical sync_events/);
+  assert.match(syncSection, /Database triggers record technical sync_events atomically/);
   assert.match(syncSection, /Admin Web events/);
   assert.match(syncSection, /Latest cursor/);
   assert.match(syncSection, /Cursor \/ Client event/);
 });
 
-test("TASK-072 Admin Web writes History Entry payload v2 with tombstones, audit, and sync signal", () => {
+test("TASK-072 Admin Web writes History v2 through an atomic mutation boundary", () => {
   const historyMutations = readProjectFile(
     "src/server/shop-admin/history-mutations.ts",
   );
@@ -73,29 +81,37 @@ test("TASK-072 Admin Web writes History Entry payload v2 with tombstones, audit,
     "src/app/shop/history/[entryId]/page.tsx",
   );
   const permissions = readProjectFile("src/server/shop-admin/permissions.ts");
+  const migration = readProjectFile(
+    "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql",
+  );
 
   assert.match(historyMutations, /import "server-only"/);
   assert.match(historyMutations, /SESSION_PAYLOAD_VERSION = 2/);
   assert.match(historyMutations, /SESSION_OVERLAY_SCHEMA = 1/);
   assert.match(historyMutations, /randomUUID\(\)\.toLowerCase\(\)/);
   assert.match(historyMutations, /editable: data\.map\(\(\) => \["", ""\]\)/);
-  assert.match(historyMutations, /\.from\("shared_sheet_sessions"\)\.insert/);
-  assert.match(historyMutations, /\.from\("shared_sheet_sessions"\)/);
-  assert.match(historyMutations, /payload_version: SESSION_PAYLOAD_VERSION/);
-  assert.match(historyMutations, /session_overlay: input\.overlay/);
-  assert.match(historyMutations, /deleted_at: input\.deletedAt/);
-  assert.match(historyMutations, /\.from\("audit_logs"\)[\s\S]*?\.insert/);
-  assert.match(historyMutations, /target_type: "history_session"/);
-  assert.match(historyMutations, /eventType: "history_changed"/);
-  assert.match(historyMutations, /eventType: "history_tombstone"/);
-  assert.match(historyMutations, /session_ids: \[\s*input\.remoteId\s*\]/);
-  assert.match(historyMutations, /ownerUserId: input\.owner\.ownerUserId/);
-  assert.match(historyMutations, /shopId: input\.context\.selectedShop\.shopId/);
-  assert.match(historyMutations, /isLegacyHistorySchemaError/);
-  assert.match(historyMutations, /\.select\("remote_id,updated_at,deleted_at"\)/);
-  assert.match(historyMutations, /const seedTimestamp = updateResult\.data\.updated_at/);
-  assert.match(historyMutations, /seedTimestamp: tombstoneResult\.data\.deleted_at \?\? deletedAt/);
-  assert.doesNotMatch(historyMutations, /\.delete\(/);
+  assert.match(historyMutations, /staff_web_history_mutate_v1/);
+  assert.match(historyMutations, /p_operation: operation/);
+  assert.match(historyMutations, /staffHistoryMutation\(ready\.context, "create"/);
+  assert.match(historyMutations, /staffHistoryMutation\(ready\.context, "update"/);
+  assert.match(historyMutations, /staffHistoryMutation\(ready\.context, "tombstone"/);
+  assert.match(historyMutations, /staffHistoryRpc\(context, "load"/);
+  assert.match(historyMutations, /staffHistoryResultIsBound/);
+  assert.match(historyMutations, /mapShopAdminRpcResult\(data\)/);
+  assert.match(historyMutations, /payloadVersion: SESSION_PAYLOAD_VERSION/);
+  assert.match(
+    historyMutations,
+    /staffHistoryMutation\(ready\.context, "tombstone", \{ remoteId \}\)/,
+  );
+  assert.doesNotMatch(historyMutations, /\.from\("shared_sheet_sessions"\)/);
+  assert.match(historyMutations, /p_session_token_hash:/);
+  assert.match(historyMutations, /p_staff_web_session_id:/);
+  assert.match(migration, /shared_sheet_sessions/);
+  assert.match(migration, /app_private\.emit_atomic_sync_events_statement_v1/);
+  assert.match(migration, /'history_changed'/);
+  assert.match(migration, /'history_tombstone'/);
+  assert.match(migration, /'session_ids'/);
+  assert.match(migration, /'atomic_trigger', true/);
 
   assert.match(permissions, /"history\.write"/);
   assert.match(actions, /createHistoryEntryAction/);
@@ -106,10 +122,15 @@ test("TASK-072 Admin Web writes History Entry payload v2 with tombstones, audit,
   assert.match(historyDetailPage, /detail\.kind !== "shared_sheet_session"/);
 });
 
-test("TASK-072 mobile clients already consume owner-scoped sync_events and History v2 rows", () => {
-  if (!existsSync(androidRoot) || !existsSync(iosRoot)) {
-    return;
-  }
+test("TASK-072 mobile clients use bounded event RPCs and History v2 rows", () => {
+  assert.ok(
+    androidRoot && existsSync(androidRoot),
+    "ANDROID_MERCHANDISE_CONTROL_ROOT must name the checked Android repository",
+  );
+  assert.ok(
+    iosRoot && existsSync(iosRoot),
+    "IOS_MERCHANDISE_CONTROL_ROOT must name the checked iOS repository",
+  );
 
   const androidSyncModels = readExternalFile(
     androidRoot,
@@ -148,7 +169,10 @@ test("TASK-072 mobile clients already consume owner-scoped sync_events and Histo
   assert.match(androidSyncModels, /@SerialName\("category_ids"\)/);
   assert.match(androidSyncModels, /@SerialName\("product_ids"\)/);
   assert.match(androidSyncModels, /@SerialName\("session_ids"\)/);
-  assert.match(androidRemote, /eq\("owner_user_id", ownerUserId\)/);
+  assert.match(androidRemote, /STRICT_SYNC_EVENT_RPC = "record_sync_event_v6"/);
+  assert.match(androidRemote, /LEGACY_SYNC_EVENT_RPC = "record_sync_event"/);
+  assert.match(androidRemote, /sync_event_direct_read_forbidden/);
+  assert.doesNotMatch(androidRemote, /\.from\("sync_events"\)/);
   assert.match(androidRepository, /applyCatalogEventByIds/);
   assert.match(androidRepository, /applyHistoryEventByIds/);
   assert.match(androidSession, /payloadVersion: Int/);

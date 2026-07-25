@@ -1,12 +1,12 @@
 import "server-only";
 
-import {
-  createSupabaseAdminClient,
-  resolveSupabaseAdminConfig,
-  type SupabaseAdminClient,
-} from "@/lib/supabase/admin";
+import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Json, Tables } from "@/lib/supabase/database.types";
+import {
+  readSafeSyncEvents,
+  type SafeSyncEventRow,
+} from "@/server/sync-events/read-boundary";
 import { resolveShopAdminDataAccess } from "./data-access";
 import type { ShopAdminShellShop } from "./shop-access";
 import type {
@@ -22,38 +22,8 @@ type InventorySourceRow = Pick<
   | "mapping_state"
   | "source_kind"
 >;
-type SyncEventRow = Pick<
-  Tables<"sync_events">,
-  | "id"
-  | "shop_id"
-  | "batch_id"
-  | "client_event_id"
-  | "domain"
-  | "event_type"
-  | "source"
-  | "source_device_id"
-  | "changed_count"
-  | "entity_ids"
-  | "metadata"
-  | "created_at"
->;
-type SyncEventDetailRow = Pick<
-  Tables<"sync_events">,
-  | "id"
-  | "shop_id"
-  | "batch_id"
-  | "client_event_id"
-  | "store_id"
-  | "domain"
-  | "event_type"
-  | "source"
-  | "source_device_id"
-  | "changed_count"
-  | "entity_ids"
-  | "metadata"
-  | "created_at"
-  | "expires_at"
->;
+type SyncEventRow = SafeSyncEventRow;
+type SyncEventDetailRow = SafeSyncEventRow;
 type SharedSheetSessionRow = Pick<
   Tables<"shared_sheet_sessions">,
   | "remote_id"
@@ -376,9 +346,7 @@ export type SessionOverlayAnalysis = {
   missingCount: number;
 };
 
-type ScopedSyncEventRow = SyncEventRow & {
-  sourceScope: ShopHistorySourceScope;
-};
+type ScopedSyncEventRow = SyncEventRow;
 
 type ScopedSharedSheetSessionRow = SharedSheetSessionRow & {
   sourceScope: ShopHistorySourceScope;
@@ -396,8 +364,6 @@ type ScopedSharedSheetSessionListRow = SharedSheetSessionListRow & {
 type ScopedSharedSheetSessionDetailRow = SharedSheetSessionDetailRow & {
   sourceScope: ShopHistorySourceScope;
 };
-type LegacySyncEventRow = Omit<SyncEventRow, "shop_id">;
-type LegacySyncEventDetailRow = Omit<SyncEventDetailRow, "shop_id">;
 type LegacySharedSheetSessionRow = Omit<SharedSheetSessionRow, "shop_id">;
 type LegacySharedSheetSessionListRow = Omit<
   SharedSheetSessionListRow,
@@ -1434,40 +1400,22 @@ function overlayStatusDisplayName(status: ShopHistoryOverlayStatus) {
 
 function mapSyncEvent(row: ScopedSyncEventRow): ShopSyncEventActivity {
   return {
-    eventId: String(row.id),
-    batchId: row.batch_id,
-    clientEventId: row.client_event_id,
+    eventId: row.eventId,
+    batchId: row.batchId,
+    clientEventId: row.clientEventKey,
     domain: row.domain,
-    eventType: row.event_type,
-    status: inferSyncStatus(row.metadata, row.event_type),
+    eventType: row.eventType,
+    status: row.requiresFullRecovery
+      ? "failed"
+      : inferSyncStatus(row.metadata, row.eventType),
     sourceScope: row.sourceScope,
     source: row.source,
-    sourceDeviceId: row.source_device_id,
-    changedCount: row.changed_count,
-    sessionIds: normalizeSessionIdsFromSyncEvent(row.entity_ids),
-    entitySummary: summarizeJson(row.entity_ids),
+    sourceDeviceId: row.sourceDeviceKey,
+    changedCount: row.changedCount,
+    sessionIds: normalizeSessionIdsFromSyncEvent(row.entityIds),
+    entitySummary: summarizeJson(row.entityIds),
     metadataSummary: summarizeJson(row.metadata),
-    createdAt: row.created_at,
-  };
-}
-
-function mapLegacySyncEventRow(
-  row: LegacySyncEventRow,
-  sourceScope: ShopHistorySourceScope,
-): ScopedSyncEventRow {
-  return {
-    ...row,
-    shop_id: null,
-    sourceScope,
-  };
-}
-
-function mapLegacySyncEventDetailRow(
-  row: LegacySyncEventDetailRow,
-): SyncEventDetailRow {
-  return {
-    ...row,
-    shop_id: null,
+    createdAt: row.createdAt,
   };
 }
 
@@ -1765,13 +1713,11 @@ function historyListTotalStatus(
 
 type SupportedHistoryCountTable =
   | "shared_sheet_sessions"
-  | "shared_sheet_session_diagnostics"
-  | "sync_events";
+  | "shared_sheet_session_diagnostics";
 
 const SUPPORTED_HISTORY_TOTAL_TABLES = [
   "shared_sheet_sessions",
   "shared_sheet_session_diagnostics",
-  "sync_events",
 ] as const satisfies readonly SupportedHistoryCountTable[];
 
 type HistoryCountScope =
@@ -1916,29 +1862,26 @@ async function loadHistorySummary(input: {
     });
   }
 
-  const results = await Promise.all(
-    scopes.flatMap((scope) => [
-      countHistoryRows({
-        domains: ["history", "catalog", "prices"],
-        scope,
-        supabase: input.supabase,
-        table: "sync_events",
-      }),
+  const [syncResult, ...results] = await Promise.all([
+    readSafeSyncEvents(input.supabase, {
+      domains: ["history", "catalog", "prices"],
+      limit: 1,
+      shopId: input.selectedShopId,
+    }),
+    ...scopes.map((scope) =>
       countHistoryRows({
         scope,
         supabase: input.supabase,
         table: "shared_sheet_session_diagnostics",
       }),
-    ]),
+    ),
+  ]);
+  const error = syncResult.error ?? results.find((result) => result.error)?.error ?? null;
+  const syncEventsTotal = syncResult.data?.totalCount ?? 0;
+  const historySessionsTotal = results.reduce(
+    (total, result) => total + (result.count ?? 0),
+    0,
   );
-  const error = results.find((result) => result.error)?.error ?? null;
-  let syncEventsTotal = 0;
-  let historySessionsTotal = 0;
-
-  for (let index = 0; index < results.length; index += 2) {
-    syncEventsTotal += results[index]?.count ?? 0;
-    historySessionsTotal += results[index + 1]?.count ?? 0;
-  }
 
   return {
     error,
@@ -1995,6 +1938,7 @@ async function resolveHistorySourceState(
       .select("shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind")
       .eq("shop_id", selectedShop.shopId)
       .eq("mapping_state", "mapped")
+      .not("verified_at", "is", null)
       .is("disabled_at", null)
       .order("created_at", { ascending: false })
       .limit(1),
@@ -2002,7 +1946,7 @@ async function resolveHistorySourceState(
       .from("shop_inventory_sources")
       .select("shop_inventory_source_id,shop_id,owner_user_id,mapping_state,source_kind")
       .eq("shop_id", selectedShop.shopId)
-      .neq("mapping_state", "mapped")
+      .or("mapping_state.neq.mapped,owner_user_id.is.null,verified_at.is.null")
       .is("disabled_at", null)
       .order("created_at", { ascending: false })
       .limit(1),
@@ -2046,92 +1990,26 @@ async function resolveHistorySourceState(
 async function loadHistorySyncEventsForShop(
   supabase: SupabaseServerClient,
   selectedShop: ShopAdminShellShop,
-  legacyOwnerUserId: string | null,
 ) {
-  const directResult = await supabase
-    .from("sync_events")
-    .select(
-      "id,shop_id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
-    )
-    .eq("shop_id", selectedShop.shopId)
-    .eq("domain", "history")
-    .order("created_at", { ascending: false })
-    .limit(80);
+  const result = await readSafeSyncEvents(supabase, {
+    domains: ["history"],
+    limit: 160,
+    shopId: selectedShop.shopId,
+  });
 
-  if (directResult.error && !isLegacyHistorySchemaError(directResult.error)) {
-    return { error: directResult.error, events: [] };
-  }
-
-  const directRows: ScopedSyncEventRow[] = directResult.error
-    ? []
-    : ((directResult.data ?? []) as SyncEventRow[]).map(
-        (row) => ({
-          ...row,
-          sourceScope: "shop_scoped" as const,
-        }),
-      );
-
-  if (!legacyOwnerUserId) {
-    return { error: null, events: directRows.map(mapSyncEvent) };
-  }
-
-  const legacyResult = await supabase
-    .from("sync_events")
-    .select(
-      "id,shop_id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
-    )
-    .is("shop_id", null)
-    .eq("owner_user_id", legacyOwnerUserId)
-    .eq("domain", "history")
-    .order("created_at", { ascending: false })
-    .limit(80);
-
-  if (legacyResult.error && !isLegacyHistorySchemaError(legacyResult.error)) {
-    return { error: legacyResult.error, events: directRows.map(mapSyncEvent) };
-  }
-
-  let legacyRows: ScopedSyncEventRow[] = [];
-
-  if (legacyResult.error && isLegacyHistorySchemaError(legacyResult.error)) {
-    const legacyOwnerResult = await supabase
-      .from("sync_events")
-      .select(
-        "id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
-      )
-      .eq("owner_user_id", legacyOwnerUserId)
-      .eq("domain", "history")
-      .order("created_at", { ascending: false })
-      .limit(80);
-
-    if (legacyOwnerResult.error) {
-      return {
-        error: legacyOwnerResult.error,
-        events: directRows.map(mapSyncEvent),
-      };
-    }
-
-    legacyRows = ((legacyOwnerResult.data ?? []) as LegacySyncEventRow[]).map(
-      (row) => mapLegacySyncEventRow(row, "legacy_owner_bridge"),
-    );
-  } else {
-    legacyRows = ((legacyResult.data ?? []) as SyncEventRow[]).map(
-      (row) => ({
-        ...row,
-        sourceScope: "legacy_owner_bridge" as const,
-      }),
-    );
-  }
-  const rows = mergeRowsByKey(directRows, legacyRows, (event) =>
-    String(event.id),
-  );
-
-  return { error: null, events: rows.map(mapSyncEvent) };
+  return result.error
+    ? { error: result.error, events: [], totalCount: 0 }
+    : {
+      error: null,
+      events: result.data.rows.map(mapSyncEvent),
+      totalCount: result.data.totalCount,
+    };
 }
 
 type ParsedHistoryEntry =
   | {
       kind: "sync_event";
-      value: number;
+      value: string;
     }
   | {
       kind: "shared_sheet_session";
@@ -2152,10 +2030,10 @@ export function parseHistoryEntryId(entryId: string): ParsedHistoryEntry {
   }
 
   if (normalized.startsWith("sync:")) {
-    const numericId = Number(normalized.slice("sync:".length));
+    const eventId = normalized.slice("sync:".length);
 
-    if (Number.isSafeInteger(numericId) && numericId > 0) {
-      return { kind: "sync_event", value: numericId };
+    if (/^[1-9][0-9]{0,18}$/.test(eventId)) {
+      return { kind: "sync_event", value: eventId };
     }
   }
 
@@ -2202,28 +2080,28 @@ function summarizeSyncErrors(metadata: Json) {
 }
 
 function mapSyncEventDetail(row: SyncEventDetailRow): ShopHistoryDetail {
-  const payloadSummary = `${summarizeJson(row.entity_ids)}; ${summarizeJson(
+  const payloadSummary = `${summarizeJson(row.entityIds)}; ${summarizeJson(
     row.metadata,
   )}`;
   const rawJsonPreview = stringifyRedactedJson({
-    entity_ids: row.entity_ids,
+    entity_ids: row.entityIds,
     metadata: row.metadata,
   });
 
   return {
-    entryId: `sync:${row.id}`,
+    entryId: `sync:${row.eventId}`,
     kind: "sync_event",
-    title: `${row.domain}:${row.event_type}`,
+    title: `${row.domain}:${row.eventType}`,
     source: row.source ?? "Unknown",
-    sourceDeviceId: row.source_device_id,
-    eventType: row.event_type,
+    sourceDeviceId: row.sourceDeviceKey,
+    eventType: row.eventType,
     tableSummary: row.domain,
-    recordCount: row.changed_count,
+    recordCount: row.changedCount,
     payloadSummary,
     rawJsonPreview,
-    createdAt: row.created_at,
+    createdAt: row.createdAt,
     fields: [
-      detailField("entry", "Entry", `sync:${row.id}`),
+      detailField("entry", "Entry", `sync:${row.eventId}`),
       detailField("type", "Type", "Sync event"),
       detailField("record", "Source table", "sync_events"),
       detailField(
@@ -2232,24 +2110,24 @@ function mapSyncEventDetail(row: SyncEventDetailRow): ShopHistoryDetail {
         "Technical synchronization event linked to mobile history entries; it is not the History Entry itself.",
       ),
       detailField("domain", "Domain", row.domain),
-      detailField("event", "Event type", row.event_type),
+      detailField("event", "Event type", row.eventType),
       detailField("source", "Source", row.source),
-      detailField("device", "Device", row.source_device_id),
-      detailField("store", "Store", row.store_id),
-      detailField("batch", "Batch", row.batch_id),
-      detailField("client", "Client event", row.client_event_id),
-      detailField("records", "Record count", row.changed_count),
+      detailField("device", "Device key", row.sourceDeviceKey),
+      detailField("store", "Store", row.storeId),
+      detailField("batch", "Batch", row.batchId),
+      detailField("client", "Client event key", row.clientEventKey),
+      detailField("records", "Record count", row.changedCount),
       detailField(
         "sessionIds",
         "History session IDs",
-        normalizeSessionIdsFromSyncEvent(row.entity_ids).join(", "),
+        normalizeSessionIdsFromSyncEvent(row.entityIds).join(", "),
       ),
       detailField("tables", "Tables involved", row.domain),
       detailField("payload", "Payload summary", payloadSummary),
       detailField("errors", "Sync errors", summarizeSyncErrors(row.metadata)),
       detailField("raw", "Redacted JSON", rawJsonPreview),
-      detailField("created", "Created", row.created_at),
-      detailField("expires", "Expires", row.expires_at),
+      detailField("created", "Created", row.createdAt),
+      detailField("expires", "Expires", row.expiresAt),
     ],
     sessionAnalysis: null,
     tablePreview: [],
@@ -2893,7 +2771,10 @@ async function loadHistoryListMetricSessions(input: {
 export async function getShopHistoryListReadModel(
   options: GetShopHistoryReadModelOptions = {},
 ): Promise<ShopHistoryReadModel> {
-  const access = await resolveShopAdminDataAccess(options);
+  const access = await resolveShopAdminDataAccess({
+    ...options,
+    requiredPermission: "history.read",
+  });
   const page = normalizeHistoryPage(options.page);
   const pageSize = normalizeHistoryPageSize(options.pageSize);
   const from = (page - 1) * pageSize;
@@ -2934,11 +2815,22 @@ export async function getShopHistoryListReadModel(
     };
   }
 
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      ...emptyRows,
+      filters,
+      pagination: emptyPagination,
+      listMode: "light",
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "History list reads require a lease-bound staff read operation that is not available for this surface.",
+    };
+  }
+
   const { selectedShop, supabase } = access;
-  const historyListClient =
-    access.principalKind === "personal_account"
-      ? createSupabaseAdminClient(resolveSupabaseAdminConfig()) ?? supabase
-      : supabase;
+  const historyListClient = supabase;
   const sourceState = await resolveHistorySourceState(supabase, selectedShop);
 
   if (sourceState.error) {
@@ -2964,7 +2856,6 @@ export async function getShopHistoryListReadModel(
   const syncEventsResult = await loadHistorySyncEventsForShop(
     supabase,
     selectedShop,
-    legacyOwnerUserId,
   );
   const syncEvents = syncEventsResult.error ? [] : syncEventsResult.events;
   const diagnosticsResult = await loadHistoryListDiagnostics({
@@ -3180,7 +3071,7 @@ export async function getShopHistoryListReadModel(
       latestFailedSyncEvents: syncEvents.filter(
         (event) => event.status === "failed",
       ).length,
-      syncEventsTotal: syncEvents.length,
+      syncEventsTotal: syncEventsResult.totalCount,
       syncEventsTotalAvailable: !syncEventsResult.error,
     },
     listMode: "light",
@@ -3193,7 +3084,10 @@ export async function getShopHistoryListReadModel(
 export async function getShopSyncReadModel(
   options: GetShopHistoryReadModelOptions = {},
 ): Promise<ShopHistoryReadModel> {
-  const access = await resolveShopAdminDataAccess(options);
+  const access = await resolveShopAdminDataAccess({
+    ...options,
+    requiredPermission: "history.read",
+  });
 
   if (access.status !== "ready") {
     return {
@@ -3205,6 +3099,17 @@ export async function getShopSyncReadModel(
       readOnly: true,
       source: "supabase_server",
       reason: access.reason,
+    };
+  }
+
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      ...emptyRows,
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Sync reads require a lease-bound staff read operation that is not available for this surface.",
     };
   }
 
@@ -3228,20 +3133,13 @@ export async function getShopSyncReadModel(
 
   const mapping = sourceState.mapping ?? null;
   const legacyOwnerUserId = sourceState.legacyOwnerUserId ?? null;
-  const directSyncEventsResult = await supabase
-    .from("sync_events")
-    .select(
-      "id,shop_id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
-    )
-    .eq("shop_id", selectedShop.shopId)
-    .in("domain", ["history", "catalog", "prices"])
-    .order("created_at", { ascending: false })
-    .limit(25);
+  const syncEventsResult = await readSafeSyncEvents(supabase, {
+    domains: ["history", "catalog", "prices"],
+    limit: 25,
+    shopId: selectedShop.shopId,
+  });
 
-  if (
-    directSyncEventsResult.error &&
-    !isLegacyHistorySchemaError(directSyncEventsResult.error)
-  ) {
+  if (syncEventsResult.error) {
     return {
       status: "error",
       selectedShop,
@@ -3251,96 +3149,17 @@ export async function getShopSyncReadModel(
       summary: emptyRows.summary,
       readOnly: true,
       source: "supabase_server",
-      reason: "Shop-scoped sync events could not be loaded through RLS.",
-      error: redactHistoryReadModelError(directSyncEventsResult.error),
+      reason: "Sanitized sync events could not be loaded for this shop.",
+      error: redactHistoryReadModelError(syncEventsResult.error),
     };
   }
 
-  const directSyncEventRows: ScopedSyncEventRow[] =
-    directSyncEventsResult.error
-      ? []
-      : ((directSyncEventsResult.data ?? []) as SyncEventRow[]).map((row) => ({
-          ...row,
-          sourceScope: "shop_scoped" as const,
-        }));
-  let legacySyncEvents: ScopedSyncEventRow[] = [];
-
-  if (legacyOwnerUserId && directSyncEventRows.length === 0) {
-    const legacySyncEventsResult = await supabase
-      .from("sync_events")
-      .select(
-        "id,shop_id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
-      )
-      .is("shop_id", null)
-      .eq("owner_user_id", legacyOwnerUserId)
-      .in("domain", ["history", "catalog", "prices"])
-      .order("created_at", { ascending: false })
-      .limit(25);
-
-    if (
-      legacySyncEventsResult.error &&
-      !isLegacyHistorySchemaError(legacySyncEventsResult.error)
-    ) {
-      return {
-        status: "error",
-        selectedShop,
-        mapping,
-        syncEvents: [],
-        sessions: [],
-        summary: emptyRows.summary,
-        readOnly: true,
-        source: "supabase_server",
-        reason: "Legacy mobile sync rows could not be loaded through RLS.",
-        error: redactHistoryReadModelError(legacySyncEventsResult.error),
-      };
-    }
-
-    if (
-      legacySyncEventsResult.error &&
-      isLegacyHistorySchemaError(legacySyncEventsResult.error)
-    ) {
-      const legacyOwnerSyncEventsResult = await supabase
-        .from("sync_events")
-        .select(
-          "id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
-        )
-        .eq("owner_user_id", legacyOwnerUserId)
-        .in("domain", ["history", "catalog", "prices"])
-        .order("created_at", { ascending: false })
-        .limit(25);
-
-      if (legacyOwnerSyncEventsResult.error) {
-        return {
-          status: "error",
-          selectedShop,
-          mapping,
-          syncEvents: [],
-          sessions: [],
-          summary: emptyRows.summary,
-          readOnly: true,
-          source: "supabase_server",
-          reason: "Legacy mobile sync rows could not be loaded through RLS.",
-          error: redactHistoryReadModelError(legacyOwnerSyncEventsResult.error),
-        };
-      }
-
-      legacySyncEvents = ((legacyOwnerSyncEventsResult.data ??
-        []) as LegacySyncEventRow[]).map((row) =>
-        mapLegacySyncEventRow(row, "legacy_owner_bridge"),
-      );
-    } else {
-      legacySyncEvents = ((legacySyncEventsResult.data ??
-        []) as SyncEventRow[]).map((row) => ({
-        ...row,
-        sourceScope: "legacy_owner_bridge" as const,
-      }));
-    }
-  }
+  const syncEventRows = syncEventsResult.data.rows;
 
   if (
     sourceState.blockingSource &&
     !legacyOwnerUserId &&
-    directSyncEventRows.length === 0
+    syncEventRows.length === 0
   ) {
     return {
       status: "unmapped",
@@ -3356,11 +3175,7 @@ export async function getShopSyncReadModel(
     };
   }
 
-  const syncEvents = mergeRowsByKey(
-    directSyncEventRows,
-    legacySyncEvents,
-    (event) => String(event.id),
-  ).map(mapSyncEvent);
+  const syncEvents = syncEventRows.map(mapSyncEvent);
   const latestChangedAt = syncEvents.reduce<string | null>(
     (latest, event) =>
       !latest || event.createdAt > latest ? event.createdAt : latest,
@@ -3381,22 +3196,25 @@ export async function getShopSyncReadModel(
       historySessionsTotalAvailable: true,
       latestChangedAt,
       latestFailedSyncEvents,
-      syncEventsTotal: syncEvents.length,
+      syncEventsTotal: syncEventsResult.data.totalCount,
       syncEventsTotalAvailable: true,
     },
     readOnly: true,
     source: "supabase_server",
     reason:
-      legacySyncEvents.length > 0
-        ? "Lightweight sync event list loaded with legacy owner fallback."
-        : "Lightweight sync event list loaded server-side.",
+      syncEventRows.some((event) => event.sourceScope === "legacy_owner_bridge")
+        ? "Lightweight mixed-scope sync event list loaded through the sanitized boundary."
+        : "Lightweight sync event list loaded through the sanitized boundary.",
   };
 }
 
 export async function getShopHistoryReadModel(
   options: GetShopHistoryReadModelOptions = {},
 ): Promise<ShopHistoryReadModel> {
-  const access = await resolveShopAdminDataAccess(options);
+  const access = await resolveShopAdminDataAccess({
+    ...options,
+    requiredPermission: "history.read",
+  });
 
   if (access.status !== "ready") {
     return {
@@ -3408,6 +3226,17 @@ export async function getShopHistoryReadModel(
       readOnly: true,
       source: "supabase_server",
       reason: access.reason,
+    };
+  }
+
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      ...emptyRows,
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "History reads require a lease-bound staff read operation that is not available for this surface.",
     };
   }
 
@@ -3452,20 +3281,13 @@ export async function getShopHistoryReadModel(
     };
   }
 
-  const directSyncEventsResult = await supabase
-    .from("sync_events")
-    .select(
-      "id,shop_id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
-    )
-    .eq("shop_id", selectedShop.shopId)
-    .in("domain", ["history", "catalog", "prices"])
-    .order("created_at", { ascending: false })
-    .limit(50);
+  const syncEventsResult = await readSafeSyncEvents(supabase, {
+    domains: ["history", "catalog", "prices"],
+    limit: 100,
+    shopId: selectedShop.shopId,
+  });
 
-  if (
-    directSyncEventsResult.error &&
-    !isLegacyHistorySchemaError(directSyncEventsResult.error)
-  ) {
+  if (syncEventsResult.error) {
     return {
       status: "error",
       selectedShop,
@@ -3475,17 +3297,12 @@ export async function getShopHistoryReadModel(
       summary: historySummaryResult.summary,
       readOnly: true,
       source: "supabase_server",
-      reason: "Shop-scoped sync events could not be loaded through RLS.",
-      error: redactHistoryReadModelError(directSyncEventsResult.error),
+      reason: "Sanitized sync events could not be loaded for this shop.",
+      error: redactHistoryReadModelError(syncEventsResult.error),
     };
   }
 
-  const directSyncEventRows: ScopedSyncEventRow[] = directSyncEventsResult.error
-    ? []
-    : ((directSyncEventsResult.data ?? []) as SyncEventRow[]).map((row) => ({
-        ...row,
-        sourceScope: "shop_scoped" as const,
-      }));
+  const directSyncEventRows = syncEventsResult.data.rows;
 
   const directSessionsResult = await supabase
     .from("shared_sheet_session_diagnostics")
@@ -3521,89 +3338,10 @@ export async function getShopHistoryReadModel(
           sourceScope: "shop_scoped" as const,
         }));
 
-  let legacySyncEvents: ScopedSyncEventRow[] = [];
   let legacySessions: ScopedSharedSheetSessionDiagnosticsRow[] = [];
   let legacyFullSessions: ScopedSharedSheetSessionRow[] = [];
 
   if (legacyOwnerUserId) {
-    const legacySyncEventsResult = await supabase
-      .from("sync_events")
-      .select(
-        "id,shop_id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
-      )
-      .is("shop_id", null)
-      .eq("owner_user_id", legacyOwnerUserId)
-      .in("domain", ["history", "catalog", "prices"])
-      .order("created_at", { ascending: false })
-      .limit(50);
-
-    if (
-      legacySyncEventsResult.error &&
-      !isLegacyHistorySchemaError(legacySyncEventsResult.error)
-    ) {
-      const directSyncEvents = directSyncEventRows.map(mapSyncEvent);
-
-      return {
-        status: "error",
-        selectedShop,
-        mapping,
-        syncEvents: directSyncEvents,
-        sessions: directSessionRows.map((session) =>
-          mapSessionDiagnostics(session, directSyncEvents),
-        ),
-        summary: historySummaryResult.summary,
-        readOnly: true,
-        source: "supabase_server",
-        reason: "Legacy mobile history rows could not be loaded through RLS.",
-        error: redactHistoryReadModelError(legacySyncEventsResult.error),
-      };
-    }
-
-    if (
-      legacySyncEventsResult.error &&
-      isLegacyHistorySchemaError(legacySyncEventsResult.error)
-    ) {
-      const legacyOwnerSyncEventsResult = await supabase
-        .from("sync_events")
-        .select(
-          "id,batch_id,client_event_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at",
-        )
-        .eq("owner_user_id", legacyOwnerUserId)
-        .in("domain", ["history", "catalog", "prices"])
-        .order("created_at", { ascending: false })
-        .limit(50);
-
-      if (legacyOwnerSyncEventsResult.error) {
-        const directSyncEvents = directSyncEventRows.map(mapSyncEvent);
-
-        return {
-          status: "error",
-          selectedShop,
-          mapping,
-          syncEvents: directSyncEvents,
-          sessions: directSessionRows.map((session) =>
-            mapSessionDiagnostics(session, directSyncEvents),
-          ),
-          summary: historySummaryResult.summary,
-          readOnly: true,
-          source: "supabase_server",
-          reason: "Legacy mobile history rows could not be loaded through RLS.",
-          error: redactHistoryReadModelError(legacyOwnerSyncEventsResult.error),
-        };
-      }
-
-      legacySyncEvents = ((legacyOwnerSyncEventsResult.data ??
-        []) as LegacySyncEventRow[]).map((row) =>
-        mapLegacySyncEventRow(row, "legacy_owner_bridge"),
-      );
-    } else {
-      legacySyncEvents = ((legacySyncEventsResult.data ??
-        []) as SyncEventRow[]).map((row) => ({
-        ...row,
-        sourceScope: "legacy_owner_bridge" as const,
-      }));
-    }
-
     const legacySessionsResult = await supabase
       .from("shared_sheet_session_diagnostics")
       .select(historyDiagnosticsSessionSelect)
@@ -3702,11 +3440,7 @@ export async function getShopHistoryReadModel(
     };
   }
 
-  const syncEventRows = mergeRowsByKey(
-    directSyncEvents,
-    legacySyncEvents,
-    (event) => String(event.id),
-  );
+  const syncEventRows = directSyncEvents;
   const sessionRows = mergeRowsByKey(
     directSessions,
     legacySessions,
@@ -3771,7 +3505,10 @@ export async function getShopHistoryDetailReadModel(
     };
   }
 
-  const access = await resolveShopAdminDataAccess(options);
+  const access = await resolveShopAdminDataAccess({
+    ...options,
+    requiredPermission: "history.read",
+  });
 
   if (access.status !== "ready") {
     return {
@@ -3783,6 +3520,17 @@ export async function getShopHistoryDetailReadModel(
       readOnly: true,
       source: "supabase_server",
       reason: access.reason,
+    };
+  }
+
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      ...emptyDetail,
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "History detail reads require a lease-bound staff read operation that is not available for this surface.",
     };
   }
 
@@ -3806,20 +3554,14 @@ export async function getShopHistoryDetailReadModel(
   const legacyOwnerUserId = sourceState.legacyOwnerUserId ?? null;
 
   if (parsedEntry.kind === "sync_event") {
-    const syncEventResult = await supabase
-      .from("sync_events")
-      .select(
-        "id,shop_id,batch_id,client_event_id,store_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at,expires_at",
-      )
-      .eq("shop_id", selectedShop.shopId)
-      .eq("id", parsedEntry.value)
-      .in("domain", ["history", "catalog", "prices"])
-      .maybeSingle();
+    const syncEventResult = await readSafeSyncEvents(supabase, {
+      domains: ["history", "catalog", "prices"],
+      eventId: parsedEntry.value,
+      limit: 1,
+      shopId: selectedShop.shopId,
+    });
 
-    if (
-      syncEventResult.error &&
-      !isLegacyHistorySchemaError(syncEventResult.error)
-    ) {
+    if (syncEventResult.error) {
       return {
         status: "error",
         selectedShop,
@@ -3827,99 +3569,14 @@ export async function getShopHistoryDetailReadModel(
         detail: null,
         readOnly: true,
         source: "supabase_server",
-        reason: "Shop-scoped sync event detail could not be loaded through RLS.",
+        reason: "Sanitized sync event detail could not be loaded for this shop.",
         error: redactHistoryReadModelError(syncEventResult.error),
       };
     }
 
-    if (!syncEventResult.data && legacyOwnerUserId) {
-      const legacySyncEventResult = await supabase
-        .from("sync_events")
-        .select(
-          "id,shop_id,batch_id,client_event_id,store_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at,expires_at",
-        )
-        .is("shop_id", null)
-        .eq("owner_user_id", legacyOwnerUserId)
-        .eq("id", parsedEntry.value)
-        .in("domain", ["history", "catalog", "prices"])
-        .maybeSingle();
+    const syncEvent = syncEventResult.data.rows[0] ?? null;
 
-      if (
-        legacySyncEventResult.error &&
-        !isLegacyHistorySchemaError(legacySyncEventResult.error)
-      ) {
-        return {
-          status: "error",
-          selectedShop,
-          mapping,
-          detail: null,
-          readOnly: true,
-          source: "supabase_server",
-          reason: "Legacy sync event detail could not be loaded through RLS.",
-          error: redactHistoryReadModelError(legacySyncEventResult.error),
-        };
-      }
-
-      if (legacySyncEventResult.data) {
-        return {
-          status: "ready",
-          selectedShop,
-          mapping,
-          detail: mapSyncEventDetail(legacySyncEventResult.data),
-          readOnly: true,
-          source: "supabase_server",
-          reason:
-            "Legacy sync event detail loaded server-side with recursive redaction.",
-        };
-      }
-
-      if (
-        legacySyncEventResult.error &&
-        isLegacyHistorySchemaError(legacySyncEventResult.error)
-      ) {
-        const legacyOwnerSyncEventResult = await supabase
-          .from("sync_events")
-          .select(
-            "id,batch_id,client_event_id,store_id,domain,event_type,source,source_device_id,changed_count,entity_ids,metadata,created_at,expires_at",
-          )
-          .eq("owner_user_id", legacyOwnerUserId)
-          .eq("id", parsedEntry.value)
-          .in("domain", ["history", "catalog", "prices"])
-          .maybeSingle<LegacySyncEventDetailRow>();
-
-        if (legacyOwnerSyncEventResult.error) {
-          return {
-            status: "error",
-            selectedShop,
-            mapping,
-            detail: null,
-            readOnly: true,
-            source: "supabase_server",
-            reason: "Legacy sync event detail could not be loaded through RLS.",
-            error: redactHistoryReadModelError(
-              legacyOwnerSyncEventResult.error,
-            ),
-          };
-        }
-
-        if (legacyOwnerSyncEventResult.data) {
-          return {
-            status: "ready",
-            selectedShop,
-            mapping,
-            detail: mapSyncEventDetail(
-              mapLegacySyncEventDetailRow(legacyOwnerSyncEventResult.data),
-            ),
-            readOnly: true,
-            source: "supabase_server",
-            reason:
-              "Legacy sync event detail loaded server-side with recursive redaction.",
-          };
-        }
-      }
-    }
-
-    if (!syncEventResult.data && sourceState.blockingSource && !legacyOwnerUserId) {
+    if (!syncEvent && sourceState.blockingSource && !legacyOwnerUserId) {
       return {
         status: "unmapped",
         selectedShop,
@@ -3933,16 +3590,14 @@ export async function getShopHistoryDetailReadModel(
     }
 
     return {
-      status: syncEventResult.data ? "ready" : "not_found",
+      status: syncEvent ? "ready" : "not_found",
       selectedShop,
       mapping,
-      detail: syncEventResult.data
-        ? mapSyncEventDetail(syncEventResult.data)
-        : null,
+      detail: syncEvent ? mapSyncEventDetail(syncEvent) : null,
       readOnly: true,
       source: "supabase_server",
-      reason: syncEventResult.data
-        ? "Shop-scoped sync event detail loaded server-side with recursive redaction."
+      reason: syncEvent
+        ? "Sync event detail loaded through the sanitized shop boundary."
         : "No sync event detail is visible for the verified shop scope.",
     };
   }
@@ -3975,7 +3630,6 @@ export async function getShopHistoryDetailReadModel(
   const historyEventsResult = await loadHistorySyncEventsForShop(
     supabase,
     selectedShop,
-    legacyOwnerUserId,
   );
 
   if (historyEventsResult.error) {

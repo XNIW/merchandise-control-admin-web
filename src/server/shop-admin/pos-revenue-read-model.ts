@@ -7,7 +7,10 @@ import {
 } from "@/lib/supabase/admin";
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/supabase/database.types";
-import { resolveShopAdminDataAccess } from "./data-access";
+import {
+  resolveShopAdminDataAccess,
+  revalidateShopAdminDataAccessForPublish,
+} from "./data-access";
 import type { ShopAdminShellShop } from "./shop-access";
 import type {
   ShopAdminReadModelError,
@@ -478,7 +481,10 @@ function errorResult(
 export async function getShopPosRevenueReadModel(
   options: GetShopPosRevenueReadModelOptions = {},
 ): Promise<ShopPosRevenueReadModel> {
-  const access = await resolveShopAdminDataAccess(options);
+  const access = await resolveShopAdminDataAccess({
+    ...options,
+    requiredPermission: "pos.dashboard.read",
+  });
 
   if (access.status !== "ready") {
     return errorResult(
@@ -487,6 +493,14 @@ export async function getShopPosRevenueReadModel(
         ? access.status
         : "unauthorized",
       access.reason,
+    );
+  }
+
+  if (access.principalKind !== "personal_account") {
+    return errorResult(
+      null,
+      "unauthorized",
+      "POS revenue reads require a lease-bound staff read operation that is not available for this surface.",
     );
   }
 
@@ -688,6 +702,19 @@ export async function getShopPosRevenueReadModel(
     summaryFromRow(todayResult.data).latestLedgerAt,
     ...syncBatches.map((row) => row.receivedAt),
   ]);
+
+  if (
+    !(await revalidateShopAdminDataAccessForPublish(
+      access,
+      "pos.dashboard.read",
+    ))
+  ) {
+    return errorResult(
+      selectedShop,
+      "unauthorized",
+      "Shop access changed before POS revenue data publication.",
+    );
+  }
 
   return {
     status: "ready",

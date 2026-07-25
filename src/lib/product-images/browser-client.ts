@@ -1,3 +1,5 @@
+import { preflightInputImageDimensions } from "./input-dimensions.ts";
+
 const MAIN_MAX_SIDE = 1600;
 const MAIN_TARGET_BYTES = 750 * 1024;
 const MAIN_MAX_BYTES = 1024 * 1024;
@@ -5,7 +7,7 @@ const THUMB_MAX_SIDE = 384;
 const THUMB_MAX_BYTES = 90 * 1024;
 const MAX_INPUT_BYTES = 25 * 1024 * 1024;
 const MAX_INPUT_PIXELS = 64_000_000;
-const READ_BATCH_LIMIT = 100;
+const READ_BATCH_LIMIT = 16;
 const READ_REQUEST_CONCURRENCY = 2;
 export const PRODUCT_IMAGE_DOWNLOAD_CONCURRENCY = 4;
 export const PRODUCT_IMAGE_CACHE_MAX_BYTES = 32 * 1024 * 1024;
@@ -74,14 +76,22 @@ type DecodedImage = {
   width: number;
 };
 
-type ReadResponseItem = {
-  expiresAt?: string;
-  productId: string;
-  signedUrl?: string;
-  status: "not_found" | "ready";
-  variant: ProductImageVariant;
-  versionId: string;
-};
+type ReadResponseItem =
+  | {
+      productId: string;
+      status: "not_found";
+      variant: ProductImageVariant;
+      versionId: string;
+    }
+  | {
+      expiresAt: string;
+      metadata: ProductImageMetadata;
+      productId: string;
+      signedUrl: string;
+      status: "ready";
+      variant: ProductImageVariant;
+      versionId: string;
+    };
 
 type ReadResponse = {
   cacheScope?: string;
@@ -90,6 +100,7 @@ type ReadResponse = {
 };
 
 type PendingRead = {
+  boundaryGeneration: number;
   ref: ProductImageRef;
   reject: (error: Error) => void;
   resolve: (value: { cacheScope: string; item: ReadResponseItem }) => void;
@@ -103,13 +114,68 @@ type SignedUrlLease = {
   lastAccessedAt: number;
 };
 
+type InFlightSignedRead = {
+  boundaryGeneration: number;
+  consumers: number;
+  controller: AbortController;
+  key: string;
+  promise: Promise<SignedReadResolution>;
+  settled: boolean;
+};
+
 let pendingReads: PendingRead[] = [];
 let readFlushQueued = false;
 let activeCacheBoundary = "";
+let productImageBoundaryGeneration = 0;
 let cacheMutationTail: Promise<void> = Promise.resolve();
 const activeProductImageObjectUrls = new Set<string>();
 const signedUrlLeases = new Map<string, SignedUrlLease>();
-const inFlightSignedReads = new Map<string, Promise<SignedReadResolution>>();
+const inFlightSignedReads = new Map<string, InFlightSignedRead>();
+const inFlightBoundaryOperations = new Map<AbortController, number>();
+
+function productImageBoundary(cacheScope: string, shopId: string) {
+  return `${cacheScope}/${shopId}`;
+}
+
+function productImageBoundaryIsCurrent(
+  cacheScope: string,
+  shopId: string,
+  boundaryGeneration: number,
+) {
+  return (
+    boundaryGeneration === productImageBoundaryGeneration &&
+    (activeCacheBoundary.length === 0 ||
+      activeCacheBoundary === productImageBoundary(cacheScope, shopId))
+  );
+}
+
+function assertProductImageBoundaryCurrent(
+  cacheScope: string,
+  shopId: string,
+  boundaryGeneration: number,
+) {
+  if (!productImageBoundaryIsCurrent(cacheScope, shopId, boundaryGeneration)) {
+    throw imageError("image_scope_changed");
+  }
+}
+
+function beginProductImageBoundaryOperation(signal?: AbortSignal) {
+  const controller = new AbortController();
+  const boundaryGeneration = productImageBoundaryGeneration;
+  const forwardAbort = () => controller.abort();
+  signal?.addEventListener("abort", forwardAbort, { once: true });
+  if (signal?.aborted) controller.abort();
+  inFlightBoundaryOperations.set(controller, boundaryGeneration);
+
+  return {
+    boundaryGeneration,
+    release() {
+      signal?.removeEventListener("abort", forwardAbort);
+      inFlightBoundaryOperations.delete(controller);
+    },
+    signal: controller.signal,
+  };
+}
 
 class BoundedScheduler {
   private active = 0;
@@ -189,30 +255,69 @@ function assertRef(ref: ProductImageRef) {
   }
 }
 
+function isProductImageMetadata(
+  value: unknown,
+  variant: ProductImageVariant,
+): value is ProductImageMetadata {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as Record<string, unknown>;
+  const maxBytes = variant === "main" ? MAIN_MAX_BYTES : THUMB_MAX_BYTES;
+  const maxSide = variant === "main" ? MAIN_MAX_SIDE : THUMB_MAX_SIDE;
+  return (
+    candidate.mimeType === "image/jpeg" &&
+    typeof candidate.sha256 === "string" &&
+    /^[0-9a-f]{64}$/.test(candidate.sha256) &&
+    typeof candidate.bytes === "number" &&
+    Number.isSafeInteger(candidate.bytes) &&
+    candidate.bytes >= 1 &&
+    candidate.bytes <= maxBytes &&
+    typeof candidate.width === "number" &&
+    Number.isSafeInteger(candidate.width) &&
+    candidate.width >= 1 &&
+    candidate.width <= maxSide &&
+    typeof candidate.height === "number" &&
+    Number.isSafeInteger(candidate.height) &&
+    candidate.height >= 1 &&
+    candidate.height <= maxSide
+  );
+}
+
+function readResponseItemMatchesRef(
+  value: unknown,
+  ref: ProductImageRef,
+): value is ReadResponseItem {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const item = value as Record<string, unknown>;
+  if (
+    item.productId !== ref.productId ||
+    item.versionId !== ref.versionId ||
+    item.variant !== ref.variant
+  ) {
+    return false;
+  }
+  if (item.status === "not_found") {
+    return item.signedUrl === undefined && item.metadata === undefined;
+  }
+  return (
+    item.status === "ready" &&
+    typeof item.signedUrl === "string" &&
+    item.signedUrl.length > 0 &&
+    typeof item.expiresAt === "string" &&
+    Number.isFinite(Date.parse(item.expiresAt)) &&
+    isProductImageMetadata(item.metadata, ref.variant)
+  );
+}
+
 async function sniffInput(file: File) {
   if (file.type !== "image/jpeg" && file.type !== "image/png") {
     throw imageError("image_input_format_unsupported");
   }
-  const header = new Uint8Array(await file.slice(0, 16).arrayBuffer());
-  const jpeg =
-    header.length >= 3 &&
-    header[0] === 0xff &&
-    header[1] === 0xd8 &&
-    header[2] === 0xff;
-  const png =
-    header.length >= 8 &&
-    header[0] === 0x89 &&
-    header[1] === 0x50 &&
-    header[2] === 0x4e &&
-    header[3] === 0x47 &&
-    header[4] === 0x0d &&
-    header[5] === 0x0a &&
-    header[6] === 0x1a &&
-    header[7] === 0x0a;
-
-  if (!jpeg && !png) {
-    throw imageError("image_input_format_unsupported");
-  }
+  const dimensions = await preflightInputImageDimensions(
+    file,
+    MAX_INPUT_PIXELS,
+  );
+  if (!dimensions) throw imageError("image_dimensions_invalid");
+  return dimensions;
 }
 
 async function decodeInput(file: File): Promise<DecodedImage> {
@@ -569,12 +674,18 @@ function rememberSignedUrlLease(
   cacheScope: string,
   ref: ProductImageRef,
   item: ReadResponseItem,
+  boundaryGeneration: number,
 ) {
   if (
     item.status !== "ready" ||
     !item.signedUrl ||
     !item.expiresAt ||
-    !CACHE_SCOPE_PATTERN.test(cacheScope)
+    !CACHE_SCOPE_PATTERN.test(cacheScope) ||
+    !productImageBoundaryIsCurrent(
+      cacheScope,
+      ref.shopId,
+      boundaryGeneration,
+    )
   ) {
     return;
   }
@@ -598,8 +709,12 @@ function rememberSignedUrlLease(
 function readSignedUrlLease(
   cacheScope: string | undefined,
   ref: ProductImageRef,
+  boundaryGeneration: number,
 ) {
   if (!cacheScope || !CACHE_SCOPE_PATTERN.test(cacheScope)) return null;
+  if (!productImageBoundaryIsCurrent(cacheScope, ref.shopId, boundaryGeneration)) {
+    return null;
+  }
   const key = leaseKey(cacheScope, ref);
   const lease = signedUrlLeases.get(key);
   if (!lease || !leaseIsUsable(lease)) {
@@ -671,8 +786,10 @@ function jpegMarkersAreValid(bytes: Uint8Array) {
 async function validateDecodedProductImage(
   blob: Blob,
   variant: ProductImageVariant,
-) {
+  expected?: ProductImageMetadata,
+): Promise<ProductImageMetadata> {
   const maxBytes = variant === "main" ? MAIN_MAX_BYTES : THUMB_MAX_BYTES;
+  const maxSide = variant === "main" ? MAIN_MAX_SIDE : THUMB_MAX_SIDE;
   if (blob.type !== "image/jpeg" || blob.size < 1 || blob.size > maxBytes) {
     throw imageError("image_download_invalid");
   }
@@ -681,34 +798,130 @@ async function validateDecodedProductImage(
     throw imageError("image_download_invalid");
   }
 
+  let decodedWidth = 0;
+  let decodedHeight = 0;
   if (typeof createImageBitmap === "function") {
     try {
       const bitmap = await createImageBitmap(blob);
-      const valid = bitmap.width > 0 && bitmap.height > 0;
+      decodedWidth = bitmap.width;
+      decodedHeight = bitmap.height;
       bitmap.close();
-      if (valid) return;
     } catch {
       // Fall through to a stable, redacted decode error.
+      throw imageError("image_download_invalid");
     }
-    throw imageError("image_download_invalid");
-  }
-
-  if (typeof Image !== "undefined") {
+  } else if (typeof Image !== "undefined") {
     const objectUrl = createProductImageObjectUrl(blob);
     const image = new Image();
     image.decoding = "async";
     image.src = objectUrl;
     try {
       await image.decode();
-      if (image.naturalWidth < 1 || image.naturalHeight < 1) {
-        throw imageError("image_download_invalid");
-      }
-      return;
+      decodedWidth = image.naturalWidth;
+      decodedHeight = image.naturalHeight;
     } catch {
       throw imageError("image_download_invalid");
     } finally {
       releaseProductImageObjectUrl(objectUrl);
     }
+  } else {
+    throw imageError("image_download_invalid");
+  }
+
+  if (
+    !Number.isSafeInteger(decodedWidth) ||
+    !Number.isSafeInteger(decodedHeight) ||
+    decodedWidth < 1 ||
+    decodedHeight < 1 ||
+    decodedWidth > maxSide ||
+    decodedHeight > maxSide
+  ) {
+    throw imageError("image_download_invalid");
+  }
+
+  const observed: ProductImageMetadata = {
+    bytes: blob.size,
+    height: decodedHeight,
+    mimeType: "image/jpeg",
+    sha256: await sha256(blob),
+    width: decodedWidth,
+  };
+  if (
+    expected &&
+    (observed.bytes !== expected.bytes ||
+      observed.height !== expected.height ||
+      observed.mimeType !== expected.mimeType ||
+      observed.sha256 !== expected.sha256 ||
+      observed.width !== expected.width)
+  ) {
+    throw imageError("image_download_metadata_mismatch");
+  }
+  return observed;
+}
+
+async function readBoundedProductImageResponse(
+  response: Response,
+  variant: ProductImageVariant,
+  signal?: AbortSignal,
+) {
+  const maxBytes = variant === "main" ? MAIN_MAX_BYTES : THUMB_MAX_BYTES;
+  const contentLength = response.headers.get("content-length");
+  if (contentLength !== null) {
+    const parsedLength = Number(contentLength);
+    if (
+      !Number.isSafeInteger(parsedLength) ||
+      parsedLength < 1 ||
+      parsedLength > maxBytes
+    ) {
+      await response.body?.cancel();
+      throw imageError("image_download_invalid");
+    }
+  }
+  const contentType = response.headers
+    .get("content-type")
+    ?.split(";")[0]
+    ?.trim()
+    .toLowerCase();
+  if (contentType !== "image/jpeg" || !response.body) {
+    await response.body?.cancel();
+    throw imageError("image_download_invalid");
+  }
+
+  const reader = response.body.getReader();
+  const chunks: ArrayBuffer[] = [];
+  let total = 0;
+  const cancel = () => {
+    void reader.cancel();
+  };
+  signal?.addEventListener("abort", cancel, { once: true });
+  try {
+    if (signal?.aborted) {
+      await reader.cancel();
+      throw imageError("image_operation_cancelled");
+    }
+    while (true) {
+      if (signal?.aborted) {
+        throw imageError("image_operation_cancelled");
+      }
+      const { done, value } = await reader.read();
+      if (done) break;
+      if (!value) continue;
+      total += value.byteLength;
+      if (total > maxBytes) {
+        await reader.cancel();
+        throw imageError("image_download_invalid");
+      }
+      chunks.push(new Uint8Array(value).buffer);
+    }
+    if (signal?.aborted) {
+      throw imageError("image_operation_cancelled");
+    }
+    if (total < 1) {
+      throw imageError("image_download_invalid");
+    }
+    return new Blob(chunks, { type: "image/jpeg" });
+  } finally {
+    signal?.removeEventListener("abort", cancel);
   }
 }
 
@@ -726,7 +939,11 @@ async function withCacheMutation<T>(operation: () => Promise<T>) {
   }
 }
 
-function cacheResponse(blob: Blob, accessedAt = Date.now()) {
+function cacheResponse(
+  blob: Blob,
+  metadata: ProductImageMetadata,
+  accessedAt = Date.now(),
+) {
   return new Response(blob, {
     headers: {
       "Cache-Control": "private, max-age=31536000, immutable",
@@ -734,8 +951,26 @@ function cacheResponse(blob: Blob, accessedAt = Date.now()) {
       "Content-Type": "image/jpeg",
       "X-MC-Image-Accessed-At": String(accessedAt),
       "X-MC-Image-Bytes": String(blob.size),
+      "X-MC-Image-Height": String(metadata.height),
+      "X-MC-Image-Mime-Type": metadata.mimeType,
+      "X-MC-Image-SHA256": metadata.sha256,
+      "X-MC-Image-Width": String(metadata.width),
     },
   });
+}
+
+function cachedMetadata(
+  response: Response,
+  variant: ProductImageVariant,
+): ProductImageMetadata | null {
+  const metadata = {
+    bytes: Number(response.headers.get("X-MC-Image-Bytes")),
+    height: Number(response.headers.get("X-MC-Image-Height")),
+    mimeType: response.headers.get("X-MC-Image-Mime-Type"),
+    sha256: response.headers.get("X-MC-Image-SHA256"),
+    width: Number(response.headers.get("X-MC-Image-Width")),
+  };
+  return isProductImageMetadata(metadata, variant) ? metadata : null;
 }
 
 async function inspectProductImageCache(cache: Cache) {
@@ -786,28 +1021,66 @@ async function evictProductImageCache(cache: Cache, protectedUrl?: string) {
   return { totalBytes, totalEntries };
 }
 
-async function readCachedBlob(cacheScope: string, ref: ProductImageRef) {
+async function readCachedBlob(
+  cacheScope: string,
+  ref: ProductImageRef,
+  boundaryGeneration: number,
+) {
   if (!("caches" in window)) {
     return null;
   }
+  assertProductImageBoundaryCurrent(
+    cacheScope,
+    ref.shopId,
+    boundaryGeneration,
+  );
   const cache = await caches.open(CACHE_NAME);
   const response = await cache.match(cacheRequest(cacheScope, ref));
   if (!response) {
     return null;
   }
+  const expected = cachedMetadata(response, ref.variant);
+  if (!expected) {
+    await cache.delete(cacheRequest(cacheScope, ref));
+    return null;
+  }
   const blob = await response.blob();
   try {
-    await validateDecodedProductImage(blob, ref.variant);
+    await validateDecodedProductImage(blob, ref.variant, expected);
   } catch {
     await cache.delete(cacheRequest(cacheScope, ref));
     return null;
   }
+  assertProductImageBoundaryCurrent(
+    cacheScope,
+    ref.shopId,
+    boundaryGeneration,
+  );
   try {
     await withCacheMutation(async () => {
-      await cache.put(cacheRequest(cacheScope, ref), cacheResponse(blob));
+      assertProductImageBoundaryCurrent(
+        cacheScope,
+        ref.shopId,
+        boundaryGeneration,
+      );
+      await cache.put(
+        cacheRequest(cacheScope, ref),
+        cacheResponse(blob, expected),
+      );
+      if (!productImageBoundaryIsCurrent(
+        cacheScope,
+        ref.shopId,
+        boundaryGeneration,
+      )) {
+        await cache.delete(cacheRequest(cacheScope, ref));
+        throw imageError("image_scope_changed");
+      }
       await evictProductImageCache(cache, cacheRequest(cacheScope, ref).url);
     });
-  } catch {
+  } catch (error) {
+    if (error instanceof Error && error.message === "image_scope_changed") {
+      throw error;
+    }
     // A valid offline hit remains usable even when best-effort LRU touch fails.
   }
   return blob;
@@ -817,6 +1090,8 @@ export async function cacheProductImageBlob(
   cacheScope: string,
   ref: ProductImageRef,
   blob: Blob,
+  expected: ProductImageMetadata,
+  boundaryGeneration = productImageBoundaryGeneration,
 ) {
   if (!("caches" in window)) {
     return;
@@ -825,11 +1100,34 @@ export async function cacheProductImageBlob(
   if (blob.type !== "image/jpeg" || blob.size < 1 || blob.size > maxBytes) {
     throw imageError("image_cache_blob_invalid");
   }
-  await validateDecodedProductImage(blob, ref.variant);
+  assertProductImageBoundaryCurrent(
+    cacheScope,
+    ref.shopId,
+    boundaryGeneration,
+  );
+  await validateDecodedProductImage(blob, ref.variant, expected);
+  assertProductImageBoundaryCurrent(
+    cacheScope,
+    ref.shopId,
+    boundaryGeneration,
+  );
   await withCacheMutation(async () => {
+    assertProductImageBoundaryCurrent(
+      cacheScope,
+      ref.shopId,
+      boundaryGeneration,
+    );
     const cache = await caches.open(CACHE_NAME);
     const request = cacheRequest(cacheScope, ref);
-    await cache.put(request, cacheResponse(blob));
+    await cache.put(request, cacheResponse(blob, expected));
+    if (!productImageBoundaryIsCurrent(
+      cacheScope,
+      ref.shopId,
+      boundaryGeneration,
+    )) {
+      await cache.delete(request);
+      throw imageError("image_scope_changed");
+    }
     await evictProductImageCache(cache, request.url);
   });
 }
@@ -848,6 +1146,35 @@ export async function activateProductImageCacheScope(input: {
   }
   const boundary = `${input.cacheScope}/${input.shopId}`;
   if (activeCacheBoundary === boundary) return;
+  activeCacheBoundary = boundary;
+  productImageBoundaryGeneration += 1;
+  const activationGeneration = productImageBoundaryGeneration;
+  for (const [controller, boundaryGeneration] of inFlightBoundaryOperations) {
+    if (boundaryGeneration !== activationGeneration) {
+      inFlightBoundaryOperations.delete(controller);
+      controller.abort();
+    }
+  }
+  for (const [key, entry] of inFlightImageLoads) {
+    if (entry.boundaryGeneration !== activationGeneration) {
+      inFlightImageLoads.delete(key);
+      entry.controller.abort();
+    }
+  }
+  for (const pending of pendingReads) {
+    if (pending.boundaryGeneration !== activationGeneration) {
+      pending.reject(imageError("image_scope_changed"));
+    }
+  }
+  pendingReads = pendingReads.filter(
+    (pending) => pending.boundaryGeneration === activationGeneration,
+  );
+  for (const [key, entry] of inFlightSignedReads) {
+    if (entry.boundaryGeneration !== activationGeneration) {
+      inFlightSignedReads.delete(key);
+      entry.controller.abort();
+    }
+  }
   for (const [key, lease] of signedUrlLeases) {
     if (
       lease.cacheScope !== input.cacheScope ||
@@ -858,10 +1185,24 @@ export async function activateProductImageCacheScope(input: {
   }
   if ("caches" in window) {
     await withCacheMutation(async () => {
+      if (!productImageBoundaryIsCurrent(
+        input.cacheScope!,
+        input.shopId!,
+        activationGeneration,
+      )) {
+        return;
+      }
       const cache = await caches.open(CACHE_NAME);
       const keys = await cache.keys();
       const keepPrefix = `/__task137-product-image-cache/${boundary}/`;
       for (const key of keys) {
+        if (!productImageBoundaryIsCurrent(
+          input.cacheScope!,
+          input.shopId!,
+          activationGeneration,
+        )) {
+          return;
+        }
         if (!new URL(key.url).pathname.startsWith(keepPrefix)) {
           await cache.delete(key);
         }
@@ -869,10 +1210,10 @@ export async function activateProductImageCacheScope(input: {
       await evictProductImageCache(cache);
     });
   }
-  activeCacheBoundary = boundary;
 }
 
 export async function purgeProductImageCache(input: {
+  boundaryGeneration?: number;
   cacheScope: string;
   keepVersionId?: string;
   productId: string;
@@ -881,13 +1222,30 @@ export async function purgeProductImageCache(input: {
   if (!CACHE_SCOPE_PATTERN.test(input.cacheScope)) {
     return;
   }
+  const boundaryGeneration =
+    input.boundaryGeneration ?? productImageBoundaryGeneration;
+  assertProductImageBoundaryCurrent(
+    input.cacheScope,
+    input.shopId,
+    boundaryGeneration,
+  );
   try {
     if ("caches" in window) {
       await withCacheMutation(async () => {
+        assertProductImageBoundaryCurrent(
+          input.cacheScope,
+          input.shopId,
+          boundaryGeneration,
+        );
         const cache = await caches.open(CACHE_NAME);
         const keys = await cache.keys();
         const prefix = `/__task137-product-image-cache/${input.cacheScope}/${input.shopId}/${input.productId}/`;
         for (const key of keys) {
+          assertProductImageBoundaryCurrent(
+            input.cacheScope,
+            input.shopId,
+            boundaryGeneration,
+          );
           const pathname = new URL(key.url).pathname;
           if (!pathname.startsWith(prefix)) {
             continue;
@@ -948,6 +1306,7 @@ export function createProductImageObjectUrl(blob: Blob) {
 export function safeProductImageStorageUrl(
   value: string,
   mode: "read" | "upload",
+  expected: ProductImageRef,
 ) {
   const configuredSupabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   if (!configuredSupabaseUrl) {
@@ -972,17 +1331,18 @@ export function safeProductImageStorageUrl(
   const objectPath = url.pathname.startsWith(marker)
     ? url.pathname.slice(marker.length)
     : "";
-  const canonicalObjectPath = new RegExp(
-    `^shops/${UUID_PATTERN.source.slice(1, -1)}/products/${UUID_PATTERN.source.slice(1, -1)}/primary/${UUID_PATTERN.source.slice(1, -1)}/(?:main|thumb)\\.jpg$`,
-    "i",
-  );
+  assertRef(expected);
+  const expectedObjectPath =
+    `shops/${expected.shopId.toLowerCase()}/products/` +
+    `${expected.productId.toLowerCase()}/primary/` +
+    `${expected.versionId.toLowerCase()}/${expected.variant}.jpg`;
   if (
     (url.protocol !== "https:" && !localHttp) ||
     url.origin !== storageOrigin ||
     url.username !== "" ||
     url.password !== "" ||
     url.hash !== "" ||
-    !canonicalObjectPath.test(objectPath)
+    objectPath !== expectedObjectPath
   ) {
     throw imageError("image_signed_url_invalid");
   }
@@ -1055,51 +1415,106 @@ async function flushPendingReads() {
       const operations: Promise<void>[] = [];
       for (let offset = 0; offset < rows.length; offset += READ_BATCH_LIMIT) {
         const chunk = rows.slice(offset, offset + READ_BATCH_LIMIT);
+        const controller = new AbortController();
+        const signals = Array.from(
+          new Set(
+            chunk.flatMap((row) =>
+              row.waiters.flatMap((waiter) =>
+                waiter.signal ? [waiter.signal] : [],
+              ),
+            ),
+          ),
+        );
+        const hasUncancellableWaiter = chunk.some((row) =>
+          row.waiters.some((waiter) => !waiter.signal),
+        );
+        const abortWhenUnused = () => {
+          if (
+            !hasUncancellableWaiter &&
+            signals.length > 0 &&
+            signals.every((signal) => signal.aborted)
+          ) {
+            controller.abort();
+          }
+        };
+        signals.forEach((signal) =>
+          signal.addEventListener("abort", abortWhenUnused, { once: true }),
+        );
+        abortWhenUnused();
         operations.push(
-          readScheduler.run(async () => {
-            try {
-              const response = await postJson<ReadResponse>(
-                "/api/shop/product-images/read-urls",
-                {
-                  refs: chunk.map((row) => ({
-                    productId: row.ref.productId,
-                    variant: row.ref.variant,
-                    versionId: row.ref.versionId,
-                  })),
-                  shopId,
-                },
-              );
-              if (
-                response.ok !== true ||
-                !response.cacheScope ||
-                !CACHE_SCOPE_PATTERN.test(response.cacheScope) ||
-                !Array.isArray(response.items)
-              ) {
-                throw imageError("image_read_contract_invalid");
-              }
-              const items = new Map(
-                response.items.map((item) => [
-                  `${shopId}:${item.productId}:${item.versionId}:${item.variant}`,
-                  item,
-                ]),
-              );
-              for (const row of chunk) {
-                const item = items.get(readKey(row.ref));
-                for (const pending of row.waiters) {
-                  if (pending.signal?.aborted) {
-                    pending.reject(imageError("image_operation_cancelled"));
-                  } else if (!item) {
-                    pending.reject(imageError("image_read_contract_invalid"));
-                  } else {
-                    rememberSignedUrlLease(response.cacheScope, row.ref, item);
-                    pending.resolve({
-                      cacheScope: response.cacheScope,
-                      item,
-                    });
+          readScheduler
+            .run(async () => {
+              try {
+                const response = await postJson<ReadResponse>(
+                  "/api/shop/product-images/read-urls",
+                  {
+                    refs: chunk.map((row) => ({
+                      productId: row.ref.productId,
+                      variant: row.ref.variant,
+                      versionId: row.ref.versionId,
+                    })),
+                    shopId,
+                  },
+                  controller.signal,
+                );
+                if (
+                  response.ok !== true ||
+                  !response.cacheScope ||
+                  !CACHE_SCOPE_PATTERN.test(response.cacheScope) ||
+                  !Array.isArray(response.items) ||
+                  response.items.length !== chunk.length
+                ) {
+                  throw imageError("image_read_contract_invalid");
+                }
+                if (
+                  response.items.some(
+                    (item, index) =>
+                      !chunk[index] ||
+                      !readResponseItemMatchesRef(item, chunk[index].ref),
+                  )
+                ) {
+                  throw imageError("image_read_contract_invalid");
+                }
+                for (const [index, row] of chunk.entries()) {
+                  const item = response.items[index];
+                  for (const pending of row.waiters) {
+                    if (pending.signal?.aborted) {
+                      pending.reject(imageError("image_operation_cancelled"));
+                    } else if (item) {
+                      if (productImageBoundaryIsCurrent(
+                        response.cacheScope,
+                        row.ref.shopId,
+                        pending.boundaryGeneration,
+                      )) {
+                        rememberSignedUrlLease(
+                          response.cacheScope,
+                          row.ref,
+                          item,
+                          pending.boundaryGeneration,
+                        );
+                        pending.resolve({
+                          cacheScope: response.cacheScope,
+                          item,
+                        });
+                      } else {
+                        pending.reject(imageError("image_scope_changed"));
+                      }
+                    } else {
+                      pending.reject(imageError("image_read_contract_invalid"));
+                    }
                   }
                 }
+              } catch (error) {
+                const safeError =
+                  error instanceof Error
+                    ? error
+                    : imageError("image_read_failed");
+                chunk.forEach((row) =>
+                  row.waiters.forEach(({ reject }) => reject(safeError)),
+                );
               }
-            } catch (error) {
+            }, controller.signal)
+            .catch((error) => {
               const safeError =
                 error instanceof Error
                   ? error
@@ -1107,8 +1522,12 @@ async function flushPendingReads() {
               chunk.forEach((row) =>
                 row.waiters.forEach(({ reject }) => reject(safeError)),
               );
-            }
-          }),
+            })
+            .finally(() => {
+              signals.forEach((signal) =>
+                signal.removeEventListener("abort", abortWhenUnused),
+              );
+            }),
         );
       }
       return operations;
@@ -1116,11 +1535,15 @@ async function flushPendingReads() {
   );
 }
 
-function enqueueSignedRead(ref: ProductImageRef) {
+function enqueueSignedRead(
+  ref: ProductImageRef,
+  signal: AbortSignal | undefined,
+  boundaryGeneration: number,
+) {
   assertRef(ref);
   return new Promise<{ cacheScope: string; item: ReadResponseItem }>(
     (resolve, reject) => {
-      pendingReads.push({ ref, reject, resolve });
+      pendingReads.push({ boundaryGeneration, ref, reject, resolve, signal });
       if (!readFlushQueued) {
         readFlushQueued = true;
         queueMicrotask(() => {
@@ -1156,26 +1579,87 @@ async function consumeSignedRead(
   }
 }
 
+function createInFlightSignedRead(
+  key: string,
+  ref: ProductImageRef,
+  boundaryGeneration: number,
+) {
+  const controller = new AbortController();
+  const entry: InFlightSignedRead = {
+    boundaryGeneration,
+    consumers: 0,
+    controller,
+    key,
+    promise: Promise.resolve(null as never),
+    settled: false,
+  };
+  entry.promise = enqueueSignedRead(
+    ref,
+    controller.signal,
+    boundaryGeneration,
+  ).finally(() => {
+    entry.settled = true;
+    if (inFlightSignedReads.get(key) === entry) {
+      inFlightSignedReads.delete(key);
+    }
+  });
+  inFlightSignedReads.set(key, entry);
+  return entry;
+}
+
+async function consumeInFlightSignedRead(
+  entry: InFlightSignedRead,
+  signal?: AbortSignal,
+) {
+  entry.consumers += 1;
+  let released = false;
+  const release = () => {
+    if (released) return;
+    released = true;
+    entry.consumers = Math.max(0, entry.consumers - 1);
+    if (entry.consumers === 0 && !entry.settled) {
+      if (inFlightSignedReads.get(entry.key) === entry) {
+        inFlightSignedReads.delete(entry.key);
+      }
+      entry.controller.abort();
+    }
+  };
+  let abortListener: (() => void) | undefined;
+  try {
+    if (!signal) return await entry.promise;
+    if (signal.aborted) throw imageError("image_operation_cancelled");
+    return await Promise.race([
+      entry.promise,
+      new Promise<never>((_resolve, reject) => {
+        abortListener = () => reject(imageError("image_operation_cancelled"));
+        signal.addEventListener("abort", abortListener, { once: true });
+      }),
+    ]);
+  } finally {
+    if (abortListener) signal?.removeEventListener("abort", abortListener);
+    release();
+  }
+}
+
 function requestSignedRead(
   ref: ProductImageRef,
   signal?: AbortSignal,
   knownCacheScope?: string,
   forceRefresh = false,
+  boundaryGeneration = productImageBoundaryGeneration,
 ) {
   assertRef(ref);
   if (forceRefresh) invalidateSignedUrlLease(knownCacheScope, ref);
-  const cached = forceRefresh ? null : readSignedUrlLease(knownCacheScope, ref);
+  const cached = forceRefresh
+    ? null
+    : readSignedUrlLease(knownCacheScope, ref, boundaryGeneration);
   if (cached) return consumeSignedRead(Promise.resolve(cached), signal);
 
-  const inFlightKey = `${knownCacheScope ?? "unknown"}:${readKey(ref)}`;
-  let promise = inFlightSignedReads.get(inFlightKey);
-  if (!promise) {
-    promise = enqueueSignedRead(ref).finally(() => {
-      inFlightSignedReads.delete(inFlightKey);
-    });
-    inFlightSignedReads.set(inFlightKey, promise);
-  }
-  return consumeSignedRead(promise, signal);
+  const inFlightKey = `${boundaryGeneration}:${knownCacheScope ?? "unknown"}:${readKey(ref)}`;
+  const entry =
+    inFlightSignedReads.get(inFlightKey) ??
+    createInFlightSignedRead(inFlightKey, ref, boundaryGeneration);
+  return consumeInFlightSignedRead(entry, signal);
 }
 
 export async function downloadProductImageWithOneAuthRefresh(input: {
@@ -1183,6 +1667,7 @@ export async function downloadProductImageWithOneAuthRefresh(input: {
   invalidateSignedRead?: (resolved: SignedReadResolution) => void;
   ref: ProductImageRef;
   resolveSignedRead: (forceRefresh: boolean) => Promise<SignedReadResolution>;
+  signal?: AbortSignal;
 }) {
   assertRef(input.ref);
   for (let attempt = 0; attempt < 2; attempt += 1) {
@@ -1203,13 +1688,17 @@ export async function downloadProductImageWithOneAuthRefresh(input: {
       throw imageError(`image_download_failed_${response.status}`);
     }
 
-    const blob = await response.blob();
-    const maxBytes =
-      input.ref.variant === "main" ? MAIN_MAX_BYTES : THUMB_MAX_BYTES;
-    if (blob.type !== "image/jpeg" || blob.size < 1 || blob.size > maxBytes) {
-      throw imageError("image_download_invalid");
-    }
-    return { blob, cacheScope: resolved.cacheScope };
+    const blob = await readBoundedProductImageResponse(
+      response,
+      input.ref.variant,
+      input.signal,
+    );
+    const metadata = await validateDecodedProductImage(
+      blob,
+      input.ref.variant,
+      resolved.item.metadata,
+    );
+    return { blob, cacheScope: resolved.cacheScope, metadata };
   }
 
   throw imageError("image_download_failed");
@@ -1217,11 +1706,13 @@ export async function downloadProductImageWithOneAuthRefresh(input: {
 
 type ProductImageBytesResult = {
   blob: Blob;
+  boundaryGeneration: number;
   cacheScope: string;
   source: "cache" | "network";
 };
 
 type InFlightImageLoad = {
+  boundaryGeneration: number;
   consumers: number;
   controller: AbortController;
   key: string;
@@ -1235,11 +1726,27 @@ async function loadProductImageBytes(
   ref: ProductImageRef,
   knownCacheScope: string | undefined,
   signal: AbortSignal,
+  boundaryGeneration: number,
 ): Promise<ProductImageBytesResult> {
   if (knownCacheScope && CACHE_SCOPE_PATTERN.test(knownCacheScope)) {
-    const cached = await readCachedBlob(knownCacheScope, ref);
+    const cached = await readCachedBlob(
+      knownCacheScope,
+      ref,
+      boundaryGeneration,
+    );
     if (cached) {
-      return { blob: cached, cacheScope: knownCacheScope, source: "cache" };
+      if (signal.aborted) throw imageError("image_operation_cancelled");
+      assertProductImageBoundaryCurrent(
+        knownCacheScope,
+        ref.shopId,
+        boundaryGeneration,
+      );
+      return {
+        blob: cached,
+        boundaryGeneration,
+        cacheScope: knownCacheScope,
+        source: "cache",
+      };
     }
   }
   if (signal.aborted) throw imageError("image_operation_cancelled");
@@ -1251,7 +1758,7 @@ async function loadProductImageBytes(
     download: (signedUrl) =>
       downloadScheduler.run(
         () =>
-          fetch(safeProductImageStorageUrl(signedUrl, "read"), {
+          fetch(safeProductImageStorageUrl(signedUrl, "read", ref), {
             cache: "no-store",
             credentials: "omit",
             signal,
@@ -1259,22 +1766,47 @@ async function loadProductImageBytes(
         signal,
       ),
     ref,
+    signal,
     invalidateSignedRead: (resolved) =>
       invalidateSignedUrlLease(resolved.cacheScope, ref),
     resolveSignedRead: (forceRefresh) =>
-      requestSignedRead(ref, signal, knownCacheScope, forceRefresh),
+      requestSignedRead(
+        ref,
+        signal,
+        knownCacheScope,
+        forceRefresh,
+        boundaryGeneration,
+      ),
   });
-  await validateDecodedProductImage(downloaded.blob, ref.variant);
   if (signal.aborted) throw imageError("image_operation_cancelled");
-  await cacheProductImageBlob(downloaded.cacheScope, ref, downloaded.blob);
+  assertProductImageBoundaryCurrent(
+    downloaded.cacheScope,
+    ref.shopId,
+    boundaryGeneration,
+  );
+  await cacheProductImageBlob(
+    downloaded.cacheScope,
+    ref,
+    downloaded.blob,
+    downloaded.metadata,
+    boundaryGeneration,
+  );
   await purgeProductImageCache({
+    boundaryGeneration,
     cacheScope: downloaded.cacheScope,
     keepVersionId: ref.versionId,
     productId: ref.productId,
     shopId: ref.shopId,
   });
+  if (signal.aborted) throw imageError("image_operation_cancelled");
+  assertProductImageBoundaryCurrent(
+    downloaded.cacheScope,
+    ref.shopId,
+    boundaryGeneration,
+  );
   return {
     blob: downloaded.blob,
+    boundaryGeneration,
     cacheScope: downloaded.cacheScope,
     source: "network",
   };
@@ -1283,10 +1815,12 @@ async function loadProductImageBytes(
 function createInFlightImageLoad(
   key: string,
   ref: ProductImageRef,
+  boundaryGeneration: number,
   knownCacheScope?: string,
 ) {
   const controller = new AbortController();
   const entry: InFlightImageLoad = {
+    boundaryGeneration,
     consumers: 0,
     controller,
     key,
@@ -1297,6 +1831,7 @@ function createInFlightImageLoad(
     ref,
     knownCacheScope,
     controller.signal,
+    boundaryGeneration,
   ).finally(() => {
     entry.settled = true;
     if (inFlightImageLoads.get(key) === entry) {
@@ -1351,11 +1886,22 @@ export async function loadProductImage(
     knownCacheScope && CACHE_SCOPE_PATTERN.test(knownCacheScope)
       ? knownCacheScope
       : undefined;
-  const key = `${normalizedScope ?? "unknown"}:${readKey(ref)}`;
+  const boundaryGeneration = productImageBoundaryGeneration;
+  const key = `${boundaryGeneration}:${normalizedScope ?? "unknown"}:${readKey(ref)}`;
   const entry =
     inFlightImageLoads.get(key) ??
-    createInFlightImageLoad(key, ref, normalizedScope);
+    createInFlightImageLoad(
+      key,
+      ref,
+      boundaryGeneration,
+      normalizedScope,
+    );
   const loaded = await consumeInFlightImageLoad(entry, signal);
+  assertProductImageBoundaryCurrent(
+    loaded.cacheScope,
+    ref.shopId,
+    loaded.boundaryGeneration,
+  );
   return {
     cacheScope: loaded.cacheScope,
     objectUrl: createProductImageObjectUrl(loaded.blob),
@@ -1363,9 +1909,14 @@ export async function loadProductImage(
   };
 }
 
-async function putSignedJpeg(url: string, blob: Blob, signal?: AbortSignal) {
+async function putSignedJpeg(
+  url: string,
+  blob: Blob,
+  expected: ProductImageRef,
+  signal?: AbortSignal,
+) {
   if (blob.type !== "image/jpeg") throw imageError("image_upload_invalid");
-  const uploadUrl = safeProductImageStorageUrl(url, "upload");
+  const uploadUrl = safeProductImageStorageUrl(url, "upload", expected);
   for (let attempt = 0; attempt < 2; attempt += 1) {
     const body = new FormData();
     body.append("cacheControl", "3600");
@@ -1418,6 +1969,9 @@ export async function uploadProductImage(input: {
   shopId: string;
   signal?: AbortSignal;
 }) {
+  const operation = beginProductImageBoundaryOperation(input.signal);
+  const { boundaryGeneration } = operation;
+  try {
   input.onProgress?.("intent");
   const intent = await postJson<IntentResponse>(
     "/api/shop/product-images/intent",
@@ -1427,17 +1981,25 @@ export async function uploadProductImage(input: {
       shopId: input.shopId,
       thumb: input.prepared.thumb.metadata,
     },
-    input.signal,
+    operation.signal,
   );
   if (
     intent.ok !== true ||
+    !intent.cacheScope ||
+    !CACHE_SCOPE_PATTERN.test(intent.cacheScope) ||
     !intent.versionId ||
     !UUID_PATTERN.test(intent.versionId)
   ) {
     throw imageError("image_intent_contract_invalid");
   }
+  assertProductImageBoundaryCurrent(
+    intent.cacheScope,
+    input.shopId,
+    boundaryGeneration,
+  );
   if (intent.status === "noop") {
     return {
+      boundaryGeneration,
       cacheScope: intent.cacheScope,
       status: "noop" as const,
       versionId: intent.versionId,
@@ -1452,16 +2014,43 @@ export async function uploadProductImage(input: {
   }
 
   input.onProgress?.("upload-main");
+  assertProductImageBoundaryCurrent(
+    intent.cacheScope,
+    input.shopId,
+    boundaryGeneration,
+  );
   await putSignedJpeg(
     intent.mainUploadUrl,
     input.prepared.main.blob,
-    input.signal,
+    {
+      productId: input.productId,
+      shopId: input.shopId,
+      variant: "main",
+      versionId: intent.versionId,
+    },
+    operation.signal,
+  );
+  assertProductImageBoundaryCurrent(
+    intent.cacheScope,
+    input.shopId,
+    boundaryGeneration,
   );
   input.onProgress?.("upload-thumb");
   await putSignedJpeg(
     intent.thumbUploadUrl,
     input.prepared.thumb.blob,
-    input.signal,
+    {
+      productId: input.productId,
+      shopId: input.shopId,
+      variant: "thumb",
+      versionId: intent.versionId,
+    },
+    operation.signal,
+  );
+  assertProductImageBoundaryCurrent(
+    intent.cacheScope,
+    input.shopId,
+    boundaryGeneration,
   );
   input.onProgress?.("finalize");
   const finalized = await postJson<FinalizeResponse>(
@@ -1471,7 +2060,7 @@ export async function uploadProductImage(input: {
       shopId: input.shopId,
       versionId: intent.versionId,
     },
-    input.signal,
+    operation.signal,
   );
   if (
     finalized.ok !== true ||
@@ -1481,18 +2070,39 @@ export async function uploadProductImage(input: {
   ) {
     throw imageError("image_finalize_contract_invalid");
   }
+  assertProductImageBoundaryCurrent(
+    intent.cacheScope,
+    input.shopId,
+    boundaryGeneration,
+  );
   return {
+    boundaryGeneration,
     cacheScope: intent.cacheScope,
     status: finalized.status,
     versionId: intent.versionId,
   };
+  } finally {
+    operation.release();
+  }
 }
 
 export async function removeProductImage(input: {
+  cacheScope: string;
   productId: string;
   shopId: string;
+  signal?: AbortSignal;
   versionId: string;
 }) {
+  if (!CACHE_SCOPE_PATTERN.test(input.cacheScope)) {
+    throw imageError("image_cache_scope_invalid");
+  }
+  const operation = beginProductImageBoundaryOperation(input.signal);
+  try {
+    assertProductImageBoundaryCurrent(
+      input.cacheScope,
+      input.shopId,
+      operation.boundaryGeneration,
+    );
   const response = await postJson<{
     currentImageVersionId?: null;
     ok?: boolean;
@@ -1501,11 +2111,15 @@ export async function removeProductImage(input: {
     shopId?: string;
     status?: string;
     versionId?: string;
-  }>("/api/shop/product-images/remove", {
-    expectedVersionId: input.versionId,
-    productId: input.productId,
-    shopId: input.shopId,
-  });
+  }>(
+    "/api/shop/product-images/remove",
+    {
+      expectedVersionId: input.versionId,
+      productId: input.productId,
+      shopId: input.shopId,
+    },
+    operation.signal,
+  );
   if (
     response.ok !== true ||
     response.operation !== "remove" ||
@@ -1517,5 +2131,16 @@ export async function removeProductImage(input: {
   ) {
     throw imageError("image_remove_contract_invalid");
   }
-  return response.status;
+  assertProductImageBoundaryCurrent(
+    input.cacheScope,
+    input.shopId,
+    operation.boundaryGeneration,
+  );
+  return {
+    boundaryGeneration: operation.boundaryGeneration,
+    status: response.status,
+  };
+  } finally {
+    operation.release();
+  }
 }

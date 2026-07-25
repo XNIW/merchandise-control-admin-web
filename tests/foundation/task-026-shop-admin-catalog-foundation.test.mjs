@@ -47,29 +47,40 @@ test("TASK-026 Admin Web exposes a trusted POS catalog pull endpoint without sal
   const route = readProjectFile(routePath);
   const service = readProjectFile(servicePath);
   const revision = readProjectFile("src/server/pos-auth/catalog-revision.ts");
+  const runtimeBoundary = readProjectFile(
+    "src/server/pos-auth/runtime-boundary.ts",
+  );
   const migration = readProjectFile(
     "supabase/migrations/20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql",
   );
+  const currentMigration = readProjectFile(
+    "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql",
+  );
   const routeSecurity = readProjectFile(routeSecurityPath);
-  const combined = `${route}\n${service}\n${revision}\n${migration}\n${routeSecurity}`;
+  const runtimeSurface = `${route}\n${service}\n${revision}\n${runtimeBoundary}\n${migration}\n${routeSecurity}`;
+  const contractSurface = `${runtimeSurface}\n${currentMigration}`;
 
   assert.match(route, /handlePosCatalogPull/);
-  assert.match(combined, /Cache-Control/);
-  assert.match(combined, /no-store/);
+  assert.match(runtimeSurface, /Cache-Control/);
+  assert.match(runtimeSurface, /no-store/);
   assert.match(service, /import "server-only"/);
   assert.match(service, /verifyPosSecret/);
-  assert.match(service, /\.from\("pos_sessions"\)/);
-  assert.match(service, /\.from\("pos_device_credentials"\)/);
-  assert.match(service, /\.from\("shop_devices"\)/);
-  assert.match(revision, /rpc\("pos_catalog_pull_page_v2"/);
+  assert.match(service, /loadPosRuntimeLease/);
+  assert.match(runtimeBoundary, /pos_runtime_lease_v1/);
+  assert.match(revision, /rpc\("pos_catalog_pull_page_for_lease_v3"/);
+  assert.match(revision, /p_expected_revision/);
+  assert.match(revision, /p_expected_scope_key/);
+  assert.match(revision, /p_expected_scope_kind/);
+  assert.match(currentMigration, /pos_catalog_pull_page_for_lease_v3/);
   assert.match(migration, /from public\.shop_inventory_sources/);
   assert.match(migration, /from public\.inventory_products/);
   assert.match(migration, /from public\.inventory_categories/);
   assert.match(migration, /from public\.inventory_suppliers/);
   assert.match(service, /syncMode: sync\.mode/);
   assert.match(service, /pos\.catalog\.pull/);
-  assert.doesNotMatch(combined, /sale_lines|sales_sync|payment|cash_close|bidirectional/i);
-  assert.doesNotMatch(combined, /trustedDeviceToken/i);
+  assert.match(contractSurface, /pos_catalog_pull_page_for_lease_v3/);
+  assert.doesNotMatch(runtimeSurface, /sale_lines|sales_sync|payment|cash_close|bidirectional/i);
+  assert.doesNotMatch(runtimeSurface, /trustedDeviceToken/i);
 });
 
 test("TASK-026 sync policy and evidence document the catalog/POS boundary", () => {

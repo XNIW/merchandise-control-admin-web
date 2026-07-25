@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  isSameOriginPostRequest,
+  requestOriginFromRequest,
+} from "@/lib/auth/oauth-redirect";
+import {
   isSecureStaffWebCookie,
   logoutStaffWebSession,
   STAFF_WEB_SESSION_COOKIE,
@@ -8,15 +12,50 @@ import {
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-export async function GET(request: NextRequest) {
-  await logoutStaffWebSession();
+function noStoreFailure(code: "logout_failed" | "same_origin_required", status: number) {
+  return NextResponse.json(
+    { code },
+    {
+      headers: {
+        "Cache-Control": "no-store, max-age=0",
+      },
+      status,
+    },
+  );
+}
+
+function hardenSuccessfulLogoutResponse(response: NextResponse) {
+  response.headers.set("Cache-Control", "no-store, max-age=0");
+  response.headers.set("Pragma", "no-cache");
+  response.headers.set("Expires", "0");
+  response.headers.set("Clear-Site-Data", '"cache", "storage"');
+  return response;
+}
+
+export async function POST(request: NextRequest) {
+  if (!isSameOriginPostRequest(request)) {
+    return noStoreFailure("same_origin_required", 403);
+  }
+
+  let logout: Awaited<ReturnType<typeof logoutStaffWebSession>>;
+
+  try {
+    logout = await logoutStaffWebSession();
+  } catch {
+    return noStoreFailure("logout_failed", 503);
+  }
+
+  if (!logout.ok) {
+    return noStoreFailure("logout_failed", 503);
+  }
 
   const requestUrl = new URL(request.url);
-  const loginUrl = new URL("/auth/login", requestUrl.origin);
+  const origin = requestOriginFromRequest(request) || requestUrl.origin;
+  const loginUrl = new URL("/auth/login", origin);
   loginUrl.searchParams.set("mode", "shop-code");
   loginUrl.searchParams.set("next", "/shop");
 
-  const response = NextResponse.redirect(loginUrl);
+  const response = NextResponse.redirect(loginUrl, 303);
   response.cookies.set(STAFF_WEB_SESSION_COOKIE, "", {
     expires: new Date(0),
     httpOnly: true,
@@ -30,9 +69,5 @@ export async function GET(request: NextRequest) {
       userAgent: request.headers.get("user-agent"),
     }),
   });
-  response.headers.set("Cache-Control", "no-store, max-age=0");
-  response.headers.set("Pragma", "no-cache");
-  response.headers.set("Expires", "0");
-  response.headers.set("Clear-Site-Data", '"cache"');
-  return response;
+  return hardenSuccessfulLogoutResponse(response);
 }

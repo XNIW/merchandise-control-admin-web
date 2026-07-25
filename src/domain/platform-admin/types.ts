@@ -119,7 +119,7 @@ export type PlatformSyncOverview = {
   shop_id?: string;
   store_id?: string;
   source?: string;
-  source_device_id?: string;
+  source_device_key?: string;
   domain: string;
   event_type: string;
   changed_count: number;

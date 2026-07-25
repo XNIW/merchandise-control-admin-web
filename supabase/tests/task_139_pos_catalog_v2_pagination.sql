@@ -4,7 +4,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(40);
+select plan(45);
 
 select has_table(
   'app_private',
@@ -54,8 +54,8 @@ select is(
     where namespace.nspname = 'public'
       and proc.proname = 'pos_catalog_pull_page_v2'
   ),
-  's',
-  'page RPC is STABLE and sees one statement snapshot'
+  'v',
+  'page RPC is VOLATILE because the scope lease acquires locks before reading'
 );
 select is(
   (
@@ -65,16 +65,16 @@ select is(
     where namespace.nspname = 'public'
       and proc.proname = 'pos_catalog_revision_v2'
   ),
-  's',
-  'revision RPC is STABLE'
+  'v',
+  'revision RPC is VOLATILE because the scope lease acquires locks before reading'
 );
 select ok(
-  has_function_privilege(
+  not has_function_privilege(
     'service_role',
     'public.pos_catalog_pull_page_v2(uuid,text,timestamptz,timestamptz,text,timestamptz,uuid,integer,text,text,text,boolean)',
     'EXECUTE'
   ),
-  'service_role can execute the page RPC'
+  'service_role cannot execute the unleased page RPC directly'
 );
 select ok(
   not has_function_privilege(
@@ -93,12 +93,12 @@ select ok(
   'authenticated cannot execute the page RPC'
 );
 select ok(
-  has_function_privilege(
+  not has_function_privilege(
     'service_role',
     'public.pos_catalog_revision_v2(uuid)',
     'EXECUTE'
   ),
-  'service_role can execute the revision RPC'
+  'service_role cannot execute the unleased revision RPC directly'
 );
 select ok(
   not has_function_privilege(
@@ -124,6 +124,42 @@ select ok(
       'SELECT'
     ),
   'client roles cannot read raw revisions'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.pos_catalog_pull_page_for_lease_v3(uuid,text,timestamptz,timestamptz,text,timestamptz,uuid,integer,text,text,text,boolean,uuid,uuid,uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'anon',
+    'public.pos_catalog_pull_page_for_lease_v3(uuid,text,timestamptz,timestamptz,text,timestamptz,uuid,integer,text,text,text,boolean,uuid,uuid,uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'authenticated',
+    'public.pos_catalog_pull_page_for_lease_v3(uuid,text,timestamptz,timestamptz,text,timestamptz,uuid,integer,text,text,text,boolean,uuid,uuid,uuid)',
+    'EXECUTE'
+  ),
+  'only service_role can execute the lease-bound page wrapper'
+);
+select ok(
+  has_function_privilege(
+    'service_role',
+    'public.pos_catalog_revision_for_lease_v3(uuid,uuid,uuid,uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'anon',
+    'public.pos_catalog_revision_for_lease_v3(uuid,uuid,uuid,uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'authenticated',
+    'public.pos_catalog_revision_for_lease_v3(uuid,uuid,uuid,uuid)',
+    'EXECUTE'
+  ),
+  'only service_role can execute the lease-bound revision wrapper'
 );
 select is(
   (
@@ -173,16 +209,20 @@ select is(
 );
 select is(
   (
-    select trigger_row.tgenabled::text
+    select count(*)::integer
     from pg_trigger trigger_row
     join pg_class table_row on table_row.oid = trigger_row.tgrelid
     join pg_namespace namespace on namespace.oid = table_row.relnamespace
     where namespace.nspname = 'public'
       and table_row.relname = 'inventory_product_prices'
-      and trigger_row.tgname = 'task088_mobile_sync_event'
+      and trigger_row.tgname in (
+        'cross_platform_atomic_sync_insert',
+        'cross_platform_atomic_sync_update'
+      )
+      and trigger_row.tgenabled = 'O'
   ),
-  'O',
-  'the mobile sync-event trigger is re-enabled after the metadata backfill'
+  2,
+  'both complete-ID atomic sync triggers are enabled after the metadata backfill'
 );
 
 insert into auth.users (
@@ -240,15 +280,18 @@ select public.pos_catalog_pull_page_v2(
   p_include_manifest => true
 );
 
-select is(
-  (select jsonb_array_length(payload->'rows') from task139_page_one),
-  1000,
-  'first page contains exactly the requested 1000 rows'
+select ok(
+  (
+    select jsonb_array_length(payload->'rows') = 240
+      and (payload->>'pageLimit')::integer = 240
+    from task139_page_one
+  ),
+  'first page is clamped to the authoritative categories cap of 240 rows'
 );
 select is(
   (select (payload->>'entityHasMore')::boolean from task139_page_one),
   true,
-  'the internal limit+1 sentinel reports the 1001st row'
+  'the bounded page exposes a continuation after its 240-row limit'
 );
 select ok(
   (
@@ -275,8 +318,8 @@ select public.pos_catalog_pull_page_v2(
   p_lower_bound => null,
   p_snapshot_at => (first.payload->>'snapshotAt')::timestamptz,
   p_entity => 'categories',
-  p_after_updated_at => (first.payload->'rows'->999->>'updated_at')::timestamptz,
-  p_after_id => (first.payload->'rows'->999->>'id')::uuid,
+  p_after_updated_at => (first.payload->'rows'->239->>'updated_at')::timestamptz,
+  p_after_id => (first.payload->'rows'->239->>'id')::uuid,
   p_limit => 1000,
   p_expected_revision => first.payload->>'revision',
   p_expected_scope_kind => first.payload->>'scopeKind',
@@ -287,16 +330,16 @@ from task139_page_one first;
 
 select is(
   (select jsonb_array_length(payload->'rows') from task139_page_two),
-  1,
-  'second page contains the single remaining row'
+  240,
+  'second page remains bounded to the authoritative categories cap'
 );
 select is(
   (select (payload->>'entityHasMore')::boolean from task139_page_two),
-  false,
-  'second category page terminates'
+  true,
+  'second category page exposes the next continuation'
 );
 select isnt(
-  (select payload->'rows'->999->>'id' from task139_page_one),
+  (select payload->'rows'->239->>'id' from task139_page_one),
   (select payload->'rows'->0->>'id' from task139_page_two),
   'microsecond keyset continuation does not duplicate the boundary row'
 );
@@ -308,8 +351,8 @@ select is(
       p_lower_bound => null,
       p_snapshot_at => (first.payload->>'snapshotAt')::timestamptz,
       p_entity => 'categories',
-      p_after_updated_at => (first.payload->'rows'->999->>'updated_at')::timestamptz,
-      p_after_id => (first.payload->'rows'->999->>'id')::uuid,
+      p_after_updated_at => (first.payload->'rows'->239->>'updated_at')::timestamptz,
+      p_after_id => (first.payload->'rows'->239->>'id')::uuid,
       p_limit => 1000,
       p_expected_revision => first.payload->>'revision',
       p_expected_scope_kind => first.payload->>'scopeKind',
@@ -320,6 +363,69 @@ select is(
   ),
   (select payload from task139_page_two),
   'replaying the same continuation yields the identical page'
+);
+
+create temporary table task139_page_three (payload jsonb) on commit drop;
+insert into task139_page_three (payload)
+select public.pos_catalog_pull_page_v2(
+  p_shop_id => '10000000-0000-4000-8000-000000001391',
+  p_mode => 'full_refresh',
+  p_lower_bound => null,
+  p_snapshot_at => (second.payload->>'snapshotAt')::timestamptz,
+  p_entity => 'categories',
+  p_after_updated_at => (second.payload->'rows'->239->>'updated_at')::timestamptz,
+  p_after_id => (second.payload->'rows'->239->>'id')::uuid,
+  p_limit => 1000,
+  p_expected_revision => second.payload->>'revision',
+  p_expected_scope_kind => second.payload->>'scopeKind',
+  p_expected_scope_key => second.payload->>'scopeKey',
+  p_include_manifest => false
+)
+from task139_page_two second;
+
+create temporary table task139_page_four (payload jsonb) on commit drop;
+insert into task139_page_four (payload)
+select public.pos_catalog_pull_page_v2(
+  p_shop_id => '10000000-0000-4000-8000-000000001391',
+  p_mode => 'full_refresh',
+  p_lower_bound => null,
+  p_snapshot_at => (third.payload->>'snapshotAt')::timestamptz,
+  p_entity => 'categories',
+  p_after_updated_at => (third.payload->'rows'->239->>'updated_at')::timestamptz,
+  p_after_id => (third.payload->'rows'->239->>'id')::uuid,
+  p_limit => 1000,
+  p_expected_revision => third.payload->>'revision',
+  p_expected_scope_kind => third.payload->>'scopeKind',
+  p_expected_scope_key => third.payload->>'scopeKey',
+  p_include_manifest => false
+)
+from task139_page_three third;
+
+create temporary table task139_page_five (payload jsonb) on commit drop;
+insert into task139_page_five (payload)
+select public.pos_catalog_pull_page_v2(
+  p_shop_id => '10000000-0000-4000-8000-000000001391',
+  p_mode => 'full_refresh',
+  p_lower_bound => null,
+  p_snapshot_at => (fourth.payload->>'snapshotAt')::timestamptz,
+  p_entity => 'categories',
+  p_after_updated_at => (fourth.payload->'rows'->239->>'updated_at')::timestamptz,
+  p_after_id => (fourth.payload->'rows'->239->>'id')::uuid,
+  p_limit => 1000,
+  p_expected_revision => fourth.payload->>'revision',
+  p_expected_scope_kind => fourth.payload->>'scopeKind',
+  p_expected_scope_key => fourth.payload->>'scopeKey',
+  p_include_manifest => false
+)
+from task139_page_four fourth;
+
+select ok(
+  (
+    select jsonb_array_length(payload->'rows') = 41
+      and (payload->>'entityHasMore')::boolean = false
+    from task139_page_five
+  ),
+  'the 1001-category fixture drains in five bounded pages with a 41-row terminal page'
 );
 
 update public.inventory_categories
@@ -343,8 +449,8 @@ select is(
       p_lower_bound => null,
       p_snapshot_at => (first.payload->>'snapshotAt')::timestamptz,
       p_entity => 'categories',
-      p_after_updated_at => (first.payload->'rows'->999->>'updated_at')::timestamptz,
-      p_after_id => (first.payload->'rows'->999->>'id')::uuid,
+      p_after_updated_at => (first.payload->'rows'->239->>'updated_at')::timestamptz,
+      p_after_id => (first.payload->'rows'->239->>'id')::uuid,
       p_limit => 1000,
       p_expected_revision => first.payload->>'revision',
       p_expected_scope_kind => first.payload->>'scopeKind',
@@ -365,8 +471,8 @@ select ok(
         p_lower_bound => null,
         p_snapshot_at => (first.payload->>'snapshotAt')::timestamptz,
         p_entity => 'categories',
-        p_after_updated_at => (first.payload->'rows'->999->>'updated_at')::timestamptz,
-        p_after_id => (first.payload->'rows'->999->>'id')::uuid,
+        p_after_updated_at => (first.payload->'rows'->239->>'updated_at')::timestamptz,
+        p_after_id => (first.payload->'rows'->239->>'id')::uuid,
         p_limit => 1000,
         p_expected_revision => first.payload->>'revision',
         p_expected_scope_kind => first.payload->>'scopeKind',
@@ -410,6 +516,29 @@ values (
   'TASK-139 other-shop product',
   now() - interval '1 minute'
 );
+select throws_ok(
+  $$
+    insert into public.inventory_product_prices (
+      id, owner_user_id, shop_id, product_id, type, price, effective_at,
+      source, created_at
+    ) values (
+      '24900000-0000-4000-8000-000000001393',
+      '00000000-0000-4000-8000-000000001393',
+      '10000000-0000-4000-8000-000000001393',
+      '23900000-0000-4000-8000-000000001392',
+      'RETAIL',
+      139,
+      '2026-07-19 17:06:00',
+      'TASK-139 cross-scope probe',
+      '2026-07-19 17:06:00'
+    )
+  $$,
+  '23503',
+  'price product is outside the authorized catalog scope',
+  'new cross-scope price rows are rejected before they can enter the catalog'
+);
+-- Simulate one historical malformed row without weakening the production guard.
+set local session_replication_role = replica;
 insert into public.inventory_product_prices (
   id, owner_user_id, shop_id, product_id, type, price, effective_at,
   source, created_at
@@ -425,17 +554,8 @@ values (
   'TASK-139 cross-scope probe',
   '2026-07-19 17:06:00'
 );
+set local session_replication_role = origin;
 
-select is(
-  (
-    select scope_kind
-    from app_private.resolve_pos_catalog_scope_v2(
-      '10000000-0000-4000-8000-000000001393'
-    )
-  ),
-  'legacy_owner_bridge',
-  'cross-scope price cannot hide a valid legacy bridge'
-);
 select is(
   (
     public.pos_catalog_pull_page_v2(
@@ -451,10 +571,31 @@ select is(
       p_expected_scope_kind => null,
       p_expected_scope_key => null,
       p_include_manifest => true
-    )->'manifest'->'catalogSummary'->>'prices'
-  )::integer,
-  0,
-  'cross-scope price is excluded from the authoritative manifest'
+    )->>'status'
+  ),
+  'integrity_blocked',
+  'a historical cross-scope price blocks the full snapshot fail-closed'
+);
+select ok(
+  (
+    select not (
+      public.pos_catalog_pull_page_v2(
+      p_shop_id => '10000000-0000-4000-8000-000000001393',
+      p_mode => 'full_refresh',
+      p_lower_bound => null,
+      p_snapshot_at => null,
+      p_entity => null,
+      p_after_updated_at => null,
+      p_after_id => null,
+      p_limit => 1000,
+      p_expected_revision => null,
+      p_expected_scope_kind => null,
+      p_expected_scope_key => null,
+      p_include_manifest => true
+      ) ?| array['rows', 'manifest']
+    )
+  ),
+  'integrity-blocked snapshots expose neither rows nor a partial manifest'
 );
 select ok(
   (
@@ -471,20 +612,27 @@ select is(
     from app_private.pos_catalog_revisions
     where shop_id = '10000000-0000-4000-8000-000000001393'
   ),
-  3::bigint,
-  'mapping, legacy catalog and direct shop price statements advance revision'
+  2::bigint,
+  'mapping and legacy catalog statements advance revision while historical corruption is inert'
 );
-update public.shop_inventory_sources
-set verified_at = verified_at + interval '1 second'
-where shop_id = '10000000-0000-4000-8000-000000001393';
+select throws_ok(
+  $$
+    update public.shop_inventory_sources
+    set verified_at = verified_at + interval '1 second'
+    where shop_id = '10000000-0000-4000-8000-000000001393'
+  $$,
+  '23503',
+  'catalog mapping exposes invalid cross-scope relations',
+  'mapping mutation refuses to publish historical cross-scope corruption'
+);
 select is(
   (
     select revision
     from app_private.pos_catalog_revisions
     where shop_id = '10000000-0000-4000-8000-000000001393'
   ),
-  4::bigint,
-  'mapping update advances revision exactly once'
+  2::bigint,
+  'blocked mapping mutation leaves the revision unchanged'
 );
 
 insert into public.shop_inventory_sources (

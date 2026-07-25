@@ -5,11 +5,9 @@ import test from "node:test";
 
 const root = process.cwd();
 const androidRoot =
-  process.env.ANDROID_MERCHANDISE_CONTROL_ROOT?.trim() ||
-  "/Users/minxiang/AndroidStudioProjects/MerchandiseControlSplitView";
+  process.env.ANDROID_MERCHANDISE_CONTROL_ROOT?.trim() ?? "";
 const iosRoot =
-  process.env.IOS_MERCHANDISE_CONTROL_ROOT?.trim() ||
-  "/Users/minxiang/Desktop/iOSMerchandiseControl";
+  process.env.IOS_MERCHANDISE_CONTROL_ROOT?.trim() ?? "";
 
 function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
@@ -126,7 +124,13 @@ test("TASK-072 devices read model shows registered devices and sync-only hints s
   assert.match(readModel, /lastSeenStaff/);
   assert.match(readModel, /lastSeenPrincipalKind/);
   assert.match(readModel, /!mappingResult\.error/);
-  assert.match(readModel, /if \(!activityResult\.error\)/);
+  assert.match(readModel, /readSafeSyncEvents/);
+  assert.match(readModel, /if \(activityResult\.error\)/);
+  assert.match(
+    readModel,
+    /Device sync activity failed the verified shop event boundary/,
+  );
+  assert.doesNotMatch(readModel, /\.from\("sync_events"\)/);
   assert.doesNotMatch(readModel, /Device sync mapping could not be loaded/);
   assert.doesNotMatch(
     readModel,
@@ -178,6 +182,9 @@ test("TASK-072 revoked devices are not reactivated by register or heartbeat path
   const posAuth = readProjectFile("src/server/pos-auth/service.ts");
   const catalogPull = readProjectFile("src/server/pos-auth/catalog-pull.ts");
   const salesSync = readProjectFile("src/server/pos-auth/sales-sync.ts");
+  const runtimeBoundary = readProjectFile(
+    "src/server/pos-auth/runtime-boundary.ts",
+  );
 
   assert.match(
     migration,
@@ -189,25 +196,42 @@ test("TASK-072 revoked devices are not reactivated by register or heartbeat path
     "export async function registerDeviceAsStaff",
     "export async function renameDeviceAsStaff",
   );
-  assert.doesNotMatch(staffRegister, /\.upsert\(/);
-  assert.match(staffRegister, /existing\.data\?\.status === "revoked"/);
-  assert.match(staffRegister, /existing\.data\?\.status === "suspicious"/);
-  assert.match(staffRegister, /last_seen_staff_id: context\.actorStaffId/);
+  assert.match(
+    staffRegister,
+    /staffLifecycleMutation\(context, "device_register"/,
+  );
+  assert.doesNotMatch(
+    staffRegister,
+    /\.from\("shop_devices"\)|\.upsert\(/,
+    "staff registration must remain in the lease-bound lifecycle RPC",
+  );
+  assert.match(staffAware, /staff_web_lifecycle_mutate_v1/);
 
   assert.match(posAuth, /existingDevice\?\.status === "revoked"/);
   assert.match(posAuth, /existingDevice\?\.status === "suspicious"/);
   assert.match(posAuth, /pos\.device\.revoked_enforced/);
-  assert.match(posAuth, /device\?\.status !== "active"/);
-  assert.match(posAuth, /last_seen_staff_id: staff\.staff_id/);
-  assert.match(posAuth, /last_seen_staff_id: session\.staff_id/);
-  assert.match(catalogPull, /device\?\.status === "active"/);
-  assert.match(salesSync, /device\?\.status === "active"/);
+  assert.match(posAuth, /loadPosRuntimeLease/);
+  assert.match(runtimeBoundary, /staff\.credential_status === "active"/);
+  assert.match(runtimeBoundary, /device\.status === "active"/);
+  assert.match(runtimeBoundary, /device\.revoked_at === null/);
+  assert.match(posAuth, /touchPosHeartbeat\(supabase, \{/);
+  assert.match(posAuth, /staffId: session\.staff_id/);
+  assert.match(runtimeBoundary, /p_staff_id: input\.staffId/);
+  assert.match(posAuth, /publishPosRuntimeLeaseSuccess\(supabase, \{/);
+  assert.match(posAuth, /publicationKind: "heartbeat"/);
+  assert.match(catalogPull, /device\.status === "active"/);
+  assert.match(salesSync, /device\.status === "active"/);
 });
 
 test("TASK-072 Android and iOS use stable install IDs with redacted metadata", () => {
-  if (!existsSync(androidRoot) || !existsSync(iosRoot)) {
-    return;
-  }
+  assert.ok(
+    androidRoot && existsSync(androidRoot),
+    "ANDROID_MERCHANDISE_CONTROL_ROOT must name the checked Android repository",
+  );
+  assert.ok(
+    iosRoot && existsSync(iosRoot),
+    "IOS_MERCHANDISE_CONTROL_ROOT must name the checked iOS repository",
+  );
 
   const androidRegistration = readExternalFile(
     androidRoot,
@@ -276,7 +300,10 @@ test("TASK-072 Android and iOS use stable install IDs with redacted metadata", (
     androidRegistration,
     /getImei|Build\.SERIAL|ANDROID_ID|MAC_ADDRESS|access_token|refresh_token|password|credential_hash/i,
   );
-  assert.match(androidApp, /registerShopDeviceBestEffort\(state, "auth"\)/);
+  assert.match(
+    androidApp,
+    /activateRemoteComponentsForBoundScope\(state, "auth"\)/,
+  );
   assert.match(
     androidApp,
     /registerShopDeviceBestEffort\(authManager\.state\.value, "foreground"\)/,
@@ -286,6 +313,14 @@ test("TASK-072 Android and iOS use stable install IDs with redacted metadata", (
     /registerShopDeviceBestEffort\(authManager\.state\.value, "network"\)/,
   );
   assert.match(androidApp, /startShopDeviceStatusPolling/);
+  assert.match(
+    androidApp,
+    /private suspend fun activateRemoteComponentsForBoundScope[\s\S]*currentAuth\.userId != signedIn\.userId[\s\S]*context\.ownerUserId != signedIn\.userId[\s\S]*!currentBusinessDataScopeAllowsSync\(\)[\s\S]*registerShopDeviceBestEffort\(signedIn, reason\)/,
+  );
+  assert.match(
+    androidApp,
+    /private fun registerShopDeviceBestEffort[\s\S]*!currentBusinessDataScopeAllowsSync\(\)[\s\S]*context\.ownerUserId != signedIn\.userId/,
+  );
   assert.match(androidApp, /DeviceGuardedCatalogRemoteDataSource/);
   assert.match(androidApp, /DeviceGuardedSessionBackupRemoteDataSource/);
   assert.match(androidGuards, /guardedCloudWrite/);
@@ -322,10 +357,10 @@ test("TASK-072 Android and iOS use stable install IDs with redacted metadata", (
   assert.match(iosOrchestrator, /deviceBlocked/);
   assert.match(
     iosAutomaticWriter,
-    /sourceDeviceID: DeviceInstallIDStore\(\)\.deviceInstallID/,
+    /sourceDeviceID: scope\.deviceInstallID/,
   );
   assert.match(
     iosHistoryFactory,
-    /sourceDeviceID: DeviceInstallIDStore\(\)\.deviceInstallID/,
+    /let sourceDeviceID = try DeviceInstallIDStore\(\)\.requireDeviceInstallID\(\)[\s\S]*sourceDeviceID: sourceDeviceID/,
   );
 });

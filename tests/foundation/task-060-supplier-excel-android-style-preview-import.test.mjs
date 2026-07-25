@@ -87,10 +87,15 @@ function loadTypeScriptModuleWithPrivateExports(relativePath, exportNames = []) 
   }
 
   const context = createContext({
+    AbortController,
+    AbortSignal,
     Buffer,
+    TextEncoder,
+    clearTimeout,
     exports: cjsModule.exports,
     module: cjsModule,
     require: requireFromTest,
+    setTimeout,
   });
 
   const privateExports = exportNames
@@ -482,8 +487,9 @@ test("TASK-060 import auth separates expired session from permission denied UX",
     assertContains(actionContext, required);
   }
 
-  assertContains(staffAuth, 'status: "session_expired"');
-  assertContains(staffAuth, 'status: "no_active_session"');
+  assertContains(staffAuth, 'runtimeResult.kind === "expired"');
+  assertContains(staffAuth, '"session_expired"');
+  assertContains(staffAuth, '"no_active_session"');
   assertContains(dataAccess, '"session_expired"');
   assertContains(dataAccess, '"no_active_session"');
 

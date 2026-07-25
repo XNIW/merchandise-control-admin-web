@@ -105,6 +105,12 @@ test("TASK-021 POS endpoint modules stay server-side and redact credentials", ()
   const adminClient = readProjectFile("src/lib/supabase/admin.ts");
   const tokens = readProjectFile("src/server/pos-auth/tokens.ts");
   const service = readProjectFile("src/server/pos-auth/service.ts");
+  const runtimeBoundary = readProjectFile(
+    "src/server/pos-auth/runtime-boundary.ts",
+  );
+  const firstLoginPublicationMigration = readProjectFile(
+    "supabase/migrations/20260722022500_task_139_pos_catalog_scope_lease.sql",
+  );
   const firstLoginRoute = readProjectFile("src/app/api/pos/auth/first-login/route.ts");
   const heartbeatRoute = readProjectFile("src/app/api/pos/session/heartbeat/route.ts");
   const clientSurface = [
@@ -116,7 +122,7 @@ test("TASK-021 POS endpoint modules stay server-side and redact credentials", ()
     .map(readProjectFile)
     .join("\n");
 
-  for (const serverOnlyModule of [adminClient, tokens, service]) {
+  for (const serverOnlyModule of [adminClient, tokens, service, runtimeBoundary]) {
     assert.match(serverOnlyModule, /import "server-only"/);
     assert.doesNotMatch(serverOnlyModule, /console\.(log|debug|info|warn|error)/);
   }
@@ -124,10 +130,12 @@ test("TASK-021 POS endpoint modules stay server-side and redact credentials", ()
   assert.match(adminClient, /SUPABASE_SERVICE_ROLE_KEY/);
   assert.match(service, /verifyStaffCredential/);
   assert.match(service, /hashPosSecret/);
-  assert.match(service, /pos\.auth\.first_login\.success/);
   assert.match(service, /pos\.auth\.first_login\.failure/);
-  assert.match(service, /pos\.device\.trusted/);
-  assert.match(service, /pos\.session\.heartbeat\.success/);
+  assert.match(service, /publishPosRuntimeLeaseSuccess/);
+  assert.match(service, /publicationKind: "first_login"/);
+  assert.match(runtimeBoundary, /pos_runtime_lease_publish_success_v2/);
+  assert.match(firstLoginPublicationMigration, /pos\.auth\.first_login\.success/);
+  assert.match(firstLoginPublicationMigration, /pos\.device\.trusted/);
   assert.match(service, /pos\.session\.heartbeat\.failure/);
   assert.match(service, /pos\.device\.revoked_enforced/);
   assert.doesNotMatch(service, /select\("\*"\)/);
@@ -182,6 +190,9 @@ test("TASK-021 updates security scanner and keeps sales sync out of scope", () =
 
 test("TASK-021 hardens lockout expiry, audit requirements and token failure handling", () => {
   const service = readProjectFile("src/server/pos-auth/service.ts");
+  const runtimeBoundary = readProjectFile(
+    "src/server/pos-auth/runtime-boundary.ts",
+  );
 
   assert.match(service, /const MAX_CREDENTIAL_LENGTH = \d+/);
   assert.match(service, /const MAX_POS_SECRET_LENGTH = \d+/);
@@ -189,12 +200,15 @@ test("TASK-021 hardens lockout expiry, audit requirements and token failure hand
   assert.match(service, /deviceToken\.length > MAX_POS_SECRET_LENGTH/);
   assert.match(service, /sessionToken\.length > MAX_POS_SECRET_LENGTH/);
   assert.match(service, /function isStaffLockoutActive/);
-  assert.match(service, /credential_status: "active"/);
-  assert.match(service, /const auditOk = await writePosAudit/);
-  assert.match(service, /if \(!auditOk\) \{/);
-  assert.match(service, /async function cleanupFailedFirstLogin/);
-  assert.match(service, /const trustedAuditOk = await writePosAudit/);
-  assert.match(service, /const firstLoginAuditOk = await writePosAudit/);
+  assert.match(service, /loadPosRuntimeLease/);
+  assert.match(service, /recordPosFirstLoginFailure/);
+  assert.match(service, /commitPosFirstLogin/);
+  assert.match(service, /publishPosRuntimeLeaseSuccess/);
+  assert.match(runtimeBoundary, /pos_runtime_first_login_lookup_v1/);
+  assert.match(runtimeBoundary, /pos_runtime_first_login_failure_v1/);
+  assert.match(runtimeBoundary, /pos_runtime_first_login_commit_v2/);
+  assert.match(runtimeBoundary, /pos_runtime_lease_v1/);
+  assert.match(runtimeBoundary, /pos_runtime_lease_publish_success_v2/);
   assert.match(service, /const sessionTokenValid = verifyPosSecret/);
   assert.match(service, /const deviceTokenValid =/);
   assert.match(service, /const credentialMatchesSession =/);

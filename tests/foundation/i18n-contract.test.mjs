@@ -134,6 +134,16 @@ test("i18n contract validates Admin Web and Win7POS locales", (t) => {
   assert.ok(result.posReachableZhCnKeyInventory.count > 0);
   assert.ok(Array.isArray(result.posReachableZhCnKeyInventory.items));
 
+  const scanner = readProjectFile("scripts/i18n-contract-scan.mjs");
+  assert.match(scanner, /"sync\.center\.revision\."/);
+  for (const key of [
+    "sync.center.revision.match",
+    "sync.center.revision.mismatch",
+    "sync.center.revision.unknown",
+  ]) {
+    assert.ok(scanner.includes(`"${key}"`), `scanner must require ${key}`);
+  }
+
   for (const key of [
     "settings.language",
     "pos.cart.scannerTitle",

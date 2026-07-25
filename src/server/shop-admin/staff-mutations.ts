@@ -17,8 +17,6 @@ import {
   revokeStaffWebSessionsAsStaff,
   revokeStaffWebAccessAsPersonalAccount,
   revokeStaffWebSessionsAsPersonalAccount,
-  runStaffAwareShopAdminMutation,
-  runStaffWebLifecycleShopAdminMutation,
   setStaffStatusAsStaff,
   updateStaffRolePermissionsAsStaff,
   updateStaffRolePermissionsAsPersonalAccount,
@@ -59,6 +57,10 @@ type ReadyStaffMutationContext = Extract<
 type StaffManagerMutationContext = Extract<
   ReadyStaffMutationContext,
   { principalKind: "pos_staff_manager" }
+>;
+type PersonalStaffMutationContext = Extract<
+  ReadyStaffMutationContext,
+  { principalKind: "personal_account" }
 >;
 
 type ResetCredentialInput = StaffTargetInput & {
@@ -116,7 +118,7 @@ async function staffRpcResult(
     context: StaffManagerMutationContext,
   ) => Promise<ShopAdminActionResult>,
   call: (
-    context: ReadyStaffMutationContext,
+    context: PersonalStaffMutationContext,
   ) => PromiseLike<{ data: unknown; error: unknown }>,
 ): Promise<ShopAdminActionResult> {
   const context = await resolveShopActionContext(requestedShopId, "staff.manage");
@@ -125,10 +127,8 @@ async function staffRpcResult(
     return context.result;
   }
 
-  const staffResult = await runStaffAwareShopAdminMutation(context, staffCall);
-
-  if (staffResult) {
-    return staffResult;
+  if (context.principalKind === "pos_staff_manager") {
+    return staffCall(context);
   }
 
   const { data, error } = await call(context);
@@ -390,7 +390,9 @@ async function staffWebLifecycleResult(
   staffCall: (
     context: StaffManagerMutationContext,
   ) => Promise<ShopAdminActionResult>,
-  personalCall: Parameters<typeof runStaffWebLifecycleShopAdminMutation>[2],
+  personalCall: (
+    context: PersonalStaffMutationContext,
+  ) => Promise<ShopAdminActionResult>,
 ) {
   const context = await resolveShopActionContext(requestedShopId, "staff.manage");
 
@@ -398,11 +400,9 @@ async function staffWebLifecycleResult(
     return context.result;
   }
 
-  return runStaffWebLifecycleShopAdminMutation(
-    context,
-    staffCall,
-    personalCall,
-  );
+  return context.principalKind === "pos_staff_manager"
+    ? staffCall(context)
+    : personalCall(context);
 }
 
 export async function revokeStaffWebAccess(
@@ -426,8 +426,8 @@ export async function revokeStaffWebAccess(
         reason,
         staffId: target.staffId,
       }),
-    (context, supabase) =>
-      revokeStaffWebAccessAsPersonalAccount(context, supabase, {
+    (context) =>
+      revokeStaffWebAccessAsPersonalAccount(context, {
         reason,
         staffId: target.staffId,
       }),
@@ -455,8 +455,8 @@ export async function revokeStaffWebSessions(
         reason,
         staffId: target.staffId,
       }),
-    (context, supabase) =>
-      revokeStaffWebSessionsAsPersonalAccount(context, supabase, {
+    (context) =>
+      revokeStaffWebSessionsAsPersonalAccount(context, {
         reason,
         staffId: target.staffId,
       }),
@@ -478,7 +478,6 @@ export async function updateStaffRolePermissions(
         roleKey: input.roleKey,
         templateKey: input.templateKey,
       }),
-    (context, supabase) =>
-      updateStaffRolePermissionsAsPersonalAccount(context, supabase, input),
+    (context) => updateStaffRolePermissionsAsPersonalAccount(context, input),
   );
 }

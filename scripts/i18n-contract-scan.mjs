@@ -59,6 +59,18 @@ const allowedPosDynamicKeyUsages = new Map([
       suffix: /^\s*\+/,
     },
   ],
+  [
+    "sync.center.revision.",
+    {
+      path: "src/Win7POS.Wpf/Pos/Dialogs/SyncCenterViewModel.cs",
+      requiredKeys: [
+        "sync.center.revision.match",
+        "sync.center.revision.mismatch",
+        "sync.center.revision.unknown",
+      ],
+      suffix: /^\s*\+/,
+    },
+  ],
 ]);
 
 const requiredAdminExactKeys = [
@@ -217,6 +229,10 @@ const posReachableLegacyCsharpUiPaths = new Set([
   "src/Win7POS.Wpf/Products/ProductsViewModel.cs",
 ]);
 const posAllowedExternalHardcodedText = new Map([
+  [
+    "src/Win7POS.Wpf/MainWindow.xaml.cs|catalog_still_unsafe",
+    "external Win7POS internal recovery result code; operator copy is localized on the following ternary branches",
+  ],
   [
     "src/Win7POS.Wpf/Pos/Dialogs/DbMaintenanceDialog.xaml|Import Excel fornitore",
     "external Win7POS literal preexisting in sibling repo; this Admin Web merge must not edit Win7POS",

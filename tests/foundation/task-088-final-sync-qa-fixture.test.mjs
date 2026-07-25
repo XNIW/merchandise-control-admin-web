@@ -72,14 +72,15 @@ test("TASK-088 final Admin sync fixture exposes stable metrics and marker", () =
     "beforeReadElapsedMs",
     "serverCommitElapsedMs",
     "afterReadElapsedMs",
-    'status: result === "N/A_NOT_REQUIRED" ? result : "PASS"',
+    'e2eVerified: false',
+    '"SERVER_MUTATION_OBSERVED"',
     '"Cache-Control": "no-store"',
   ]) {
     assert.match(route, new RegExp(required.replace(/[.*+?^\${}()|[\]\\]/g, "\\$&")));
   }
 });
 
-test("TASK-088 final mutations avoid redundant bounded read-model round trips", () => {
+test("TASK-088 final mutations require a bounded post-mutation observation", () => {
   const route = read("src/app/shop/qa-sync-fixture/route.ts");
   const finalRunner = functionBody(
     route,
@@ -88,18 +89,30 @@ test("TASK-088 final mutations avoid redundant bounded read-model round trips", 
   );
 
   assert.match(finalRunner, /const needsPreMutationRead =/);
+  assert.match(finalRunner, /resolveShopActionContext\([\s\S]*"products\.write"/);
+  assert.match(finalRunner, /fixtureAccess\.principalKind !== "personal_account"/);
+  assert.match(finalRunner, /fixture_staff_path_not_supported/);
   assert.match(
     finalRunner,
     /input\.scenario === "duplicate" && Boolean\(input\.entityId\)/,
   );
   assert.match(finalRunner, /input\.operation !== "create" && !input\.entityId/);
   assert.match(finalRunner, /emptyFinalSyncObservation\(\)/);
-  assert.match(finalRunner, /recordCount: observationInput\.entityId \? 1 : 0/);
-  assert.match(finalRunner, /actionResult\.auditEventId \?\? after\.eventId \?\? before\.eventId/);
+  assert.match(finalRunner, /await observeFinalSyncAfterMutation\(observationInput\)/);
+  assert.match(finalRunner, /after\.entityId === observationInput\.entityId/);
+  assert.match(finalRunner, /after\.eventId !== null/);
+  assert.match(finalRunner, /after\.checkpoint !== before\.checkpoint/);
+  assert.match(finalRunner, /auditEventId: actionResult\.auditEventId \?\? null/);
+  assert.match(finalRunner, /const eventId = after\.eventId \?\? before\.eventId/);
   assert.match(finalRunner, /checkpointAfter: after\.checkpoint \?\? before\.checkpoint/);
   assert.match(finalRunner, /result = "duplicate_replayed"/);
   assert.match(route, /create \? "NAME" : "NAME_UPDATED"/);
-  assert.doesNotMatch(finalRunner, /: await observeFinalSync\(observationInput\)/);
+  assert.doesNotMatch(finalRunner, /actionResult\.auditEventId \?\? after\.eventId/);
+  assert.match(route, /for \(let attempt = 0; attempt < 3; attempt \+= 1\)/);
+  assert.match(route, /post_mutation_not_observed/);
+  assert.match(route, /sync_event_not_observed/);
+  assert.match(route, /checkpoint_not_advanced/);
+  assert.doesNotMatch(finalRunner, /status:[\s\S]{0,100}"PASS"/);
 });
 
 test("TASK-088 final mode never writes History and treats ProductPrice tombstone as append-only N/A", () => {
@@ -131,7 +144,7 @@ test("TASK-088 final mode never writes History and treats ProductPrice tombstone
   assert.match(priceMutation, /const appendVersion = operation === "update"/);
   assert.match(priceMutation, /\.select\("id,product_id,type"\)/);
   assert.match(priceMutation, /\.eq\("id", existingPriceId\)/);
-  assert.match(priceMutation, /productId = targetPrice\.product_id/);
+  assert.match(priceMutation, /productId = existingTargetPrice\.product_id/);
   assert.match(
     priceMutation,
     /finalSyncTimestamp\(input\.data\.effectiveAt, appendVersion\)/,

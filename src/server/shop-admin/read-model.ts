@@ -14,7 +14,6 @@ import { resolveShopAdminDataAccess } from "./data-access";
 
 type ShopRow = Tables<"shops">;
 type ShopMemberRow = Tables<"shop_members">;
-type AuditLogRow = Tables<"audit_logs">;
 type ShopReadRow = Pick<
   ShopRow,
   | "shop_id"
@@ -42,18 +41,6 @@ type ShopMemberReadRow = Pick<
   | "membership_status"
   | "created_at"
   | "updated_at"
->;
-type AuditLogReadRow = Pick<
-  AuditLogRow,
-  | "audit_log_id"
-  | "actor_profile_id"
-  | "actor_staff_id"
-  | "event_key"
-  | "severity"
-  | "result"
-  | "target_type"
-  | "target_id"
-  | "created_at"
 >;
 
 export type ShopAdminReadModelStatus =
@@ -122,9 +109,12 @@ export type ShopAdminReadModel = {
   error?: ShopAdminReadModelError;
 };
 
+type ShopAdminReadModelView = "members" | "overview" | "settings";
+
 type GetShopAdminReadModelOptions = {
   client?: SupabaseServerClient | null;
   requestedShopId?: string | null;
+  view: ShopAdminReadModelView;
 };
 
 const emptyRows = {
@@ -242,40 +232,14 @@ function mapMemberRow(
   };
 }
 
-function mapAuditLogRow(
-  row: AuditLogReadRow,
-  identitiesByProfileId: ReadonlyMap<string, PlatformAuthIdentitySummary> = new Map(),
-): ShopAdminReadModelAuditLog {
-  const actorKind = row.actor_profile_id
-    ? "personal_account"
-    : row.actor_staff_id
-      ? "pos_staff"
-      : "system";
-
-  return {
-    actorIdentity: row.actor_profile_id
-      ? identityFromAuthSummary(
-          row.actor_profile_id,
-          identitiesByProfileId.get(row.actor_profile_id),
-        )
-      : null,
-    actorKind,
-    auditLogId: row.audit_log_id,
-    actorProfileId: row.actor_profile_id,
-    actorStaffId: row.actor_staff_id,
-    eventKey: row.event_key,
-    severity: row.severity,
-    result: row.result,
-    targetType: row.target_type,
-    targetId: row.target_id,
-    createdAt: row.created_at,
-  };
-}
-
 export async function getShopAdminReadModel(
-  options: GetShopAdminReadModelOptions = {},
+  options: GetShopAdminReadModelOptions,
 ): Promise<ShopAdminReadModel> {
-  const access = await resolveShopAdminDataAccess(options);
+  const access = await resolveShopAdminDataAccess({
+    ...options,
+    requiredPermission:
+      options.view === "members" ? "members.view" : "settings.view",
+  });
 
   if (access.status !== "ready") {
     return {
@@ -287,6 +251,17 @@ export async function getShopAdminReadModel(
       readOnly: true,
       source: "supabase_server",
       reason: access.reason,
+    };
+  }
+
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      ...emptyRows,
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Shop and member reads require a lease-bound staff read operation that is not available for this surface.",
     };
   }
 
@@ -318,6 +293,19 @@ export async function getShopAdminReadModel(
 
   const selectedShopRow = shopResult.data as ShopReadRow;
 
+  if (options.view !== "members") {
+    return {
+      status: "ready",
+      selectedShop: mapShopRow(selectedShopRow, selectedShop.role),
+      members: [],
+      auditLogs: [],
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Shop profile read model loaded server-side for the verified selected shop.",
+    };
+  }
+
   const membersResult = await supabase
     .from("shop_members")
     .select(
@@ -340,42 +328,9 @@ export async function getShopAdminReadModel(
     };
   }
 
-  const auditLogsResult = await supabase
-    .from("audit_logs")
-    .select(
-      "audit_log_id,actor_profile_id,actor_staff_id,scope,shop_id,event_key,severity,result,target_type,target_id,created_at",
-    )
-    .eq("shop_id", selectedShop.shopId)
-    .eq("scope", "shop")
-    .order("created_at", { ascending: false })
-    .limit(25);
-
-  if (auditLogsResult.error) {
-    return {
-      status: "error",
-      selectedShop: mapShopRow(selectedShopRow, selectedShop.role),
-      members: ((membersResult.data ?? []) as ShopMemberReadRow[]).map((row) =>
-        mapMemberRow(row),
-      ),
-      auditLogs: [],
-      readOnly: true,
-      source: "supabase_server",
-      reason: "Shop audit logs could not be loaded through the server boundary.",
-      error: redactShopAdminReadModelError(auditLogsResult.error),
-    };
-  }
-
   const memberRows = (membersResult.data ?? []) as ShopMemberReadRow[];
-  const auditRows = (auditLogsResult.data ?? []) as AuditLogReadRow[];
   const scopedProfileIds = Array.from(
-    new Set(
-      [
-        ...memberRows.map((row) => row.profile_id),
-        ...auditRows
-          .map((row) => row.actor_profile_id)
-          .filter((value): value is string => Boolean(value)),
-      ].filter(Boolean),
-    ),
+    new Set(memberRows.map((row) => row.profile_id).filter(Boolean)),
   );
   const identitiesByProfileId =
     await loadScopedAccountIdentityMap(scopedProfileIds);
@@ -384,7 +339,7 @@ export async function getShopAdminReadModel(
     status: "ready",
     selectedShop: mapShopRow(selectedShopRow, selectedShop.role),
     members: memberRows.map((row) => mapMemberRow(row, identitiesByProfileId)),
-    auditLogs: auditRows.map((row) => mapAuditLogRow(row, identitiesByProfileId)),
+    auditLogs: [],
     readOnly: true,
     source: "supabase_server",
     reason:

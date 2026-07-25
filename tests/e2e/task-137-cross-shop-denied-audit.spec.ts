@@ -150,7 +150,8 @@ function victimState(fixture: Fixture): VictimState {
       'syncRows', (
         select count(*) from public.sync_events
         where shop_id = '${fixture.shopBId}'
-          and source = 'product_image_api'
+          and source = 'database_atomic'
+          and entity_ids @> '{"product_ids":["${fixture.productId}"]}'::jsonb
       )
     )::text;
   `);

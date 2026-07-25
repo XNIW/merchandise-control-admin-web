@@ -181,12 +181,14 @@ test("TASK-064 read model merges Auth, profile, and membership summaries safely"
     "mapping.ownerUserId",
     "loadMobileInventoryDataSummaries",
     "safeCountOwnerRows",
+    "readSafeSyncEvents",
+    "SafeSyncEventRow",
+    "source_device_key: row.sourceDeviceKey",
     ".from(\"inventory_products\")",
     ".from(\"inventory_suppliers\")",
     ".from(\"inventory_categories\")",
     ".from(\"inventory_product_prices\")",
     ".from(\"shared_sheet_sessions\")",
-    ".from(\"sync_events\")",
     "authIdentities",
     "authIdentityStatus",
     "runtimeTarget",
@@ -204,7 +206,9 @@ test("TASK-064 read model merges Auth, profile, and membership summaries safely"
   }
 
   assert.doesNotMatch(readModel, /select\("\*"\)|select\('\*'\)/);
-  assert.doesNotMatch(readModel, /\.(insert|update|delete|upsert|rpc)\s*\(/);
+  assert.doesNotMatch(readModel, /\.from\("sync_events"\)/);
+  assert.doesNotMatch(readModel, /source_device_id/);
+  assert.doesNotMatch(readModel, /\.(insert|update|delete|upsert)\s*\(/);
   assert.doesNotMatch(readModel, /raw_user_meta_data|staff_code|credential_hash|password_hash|pin_hash/i);
   assert.doesNotMatch(readModel, /filter\(isUuidLike\)\.slice\(0,\s*200\)/);
 

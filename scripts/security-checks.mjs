@@ -401,9 +401,42 @@ function checkReadOnlyContracts() {
       "src/server/shop-admin/import-export-workbook.ts",
       new Set([
         "shop_admin_audit_event",
+        "shop_catalog_admin_read_v1",
         "shop_catalog_import_price_history",
         "shop_catalog_import_products",
       ]),
+    ],
+    [
+      "src/server/shop-admin/history-mutations.ts",
+      new Set(["staff_web_history_mutate_v1"]),
+    ],
+    [
+      "src/server/shop-admin/staff-aware-mutations.ts",
+      new Set(["staff_web_lifecycle_mutate_v1"]),
+    ],
+    [
+      "src/server/shop-admin/staff-web-lease-bound-rpc.ts",
+      new Set([
+        "staff_web_catalog_mutate_v1",
+        "shop_catalog_admin_read_v1",
+        "staff_web_lifecycle_mutate_v1",
+        "staff_web_audit_event_v1",
+        "staff_web_history_mutate_v1",
+      ]),
+    ],
+    [
+      "src/server/shop-admin/staff-web-runtime-boundary.ts",
+      new Set([
+        "staff_web_login_lookup_v1",
+        "staff_web_login_failure_v1",
+        "staff_web_login_commit_v1",
+        "staff_web_session_resolve_v1",
+        "staff_web_session_revoke_v1",
+      ]),
+    ],
+    [
+      "src/server/shop-admin/pos-sync-recovery-mutations.ts",
+      new Set(["shop_pos_recovery_action_v1"]),
     ],
     [
       "src/server/shop-admin/product-images/service.ts",
@@ -415,6 +448,7 @@ function checkReadOnlyContracts() {
         "product_image_remove",
         "product_image_record_cleanup",
         "product_image_resolve_read_paths",
+        "product_image_revalidate_access_v1",
       ]),
     ],
   ]);
@@ -1030,13 +1064,20 @@ function checkTask010ShopReadModelArtifacts() {
     'status: "error"',
     '.from("shops")',
     '.from("shop_members")',
-    '.from("audit_logs")',
     '.eq("shop_id", selectedShop.shopId)',
-    '.eq("scope", "shop")',
   ]) {
     if (!readModel.includes(requiredSnippet)) {
       addFailure(`${readModelPath} must include ${requiredSnippet}`);
     }
+  }
+
+  if (
+    !/auditLogs: \[\]/.test(readModel) ||
+    /\.from\("audit_logs"\)/.test(readModel)
+  ) {
+    addFailure(
+      `${readModelPath} must keep audit rows out of the general Shop Admin read model instead of issuing a broad table read`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -2700,6 +2741,7 @@ function checkTask015ShopAdminConsole() {
     serverModules["src/server/shop-admin/history-read-model.ts"];
   const deviceReadModel =
     serverModules["src/server/shop-admin/device-read-model.ts"];
+  const syncEventReadBoundary = read("src/server/sync-events/read-boundary.ts");
   const importExportReadiness =
     serverModules["src/server/shop-admin/import-export-readiness.ts"];
   const permissions = serverModules["src/server/shop-admin/permissions.ts"];
@@ -2736,13 +2778,12 @@ function checkTask015ShopAdminConsole() {
   }
 
   for (const requiredSnippet of [
-    '.from("sync_events")',
     '.from("shared_sheet_sessions")',
+    "readSafeSyncEvents",
     "redactShopAdminJson",
     "getShopHistoryDetailReadModel",
     "parseHistoryEntryId",
     "stringifyRedactedJson",
-    '.in("domain", ["history", "catalog", "prices"])',
   ]) {
     if (!historyReadModel.includes(requiredSnippet)) {
       addFailure(`history-read-model.ts must include ${requiredSnippet}`);
@@ -2760,7 +2801,7 @@ function checkTask015ShopAdminConsole() {
   }
 
   if (
-    !/parsedEntry\.kind === "sync_event"[\s\S]*\.eq\("id", parsedEntry\.value\)[\s\S]*\.in\("domain", \["history", "catalog", "prices"\]\)/.test(
+    !/parsedEntry\.kind === "sync_event"[\s\S]*readSafeSyncEvents\(supabase, \{[\s\S]*domains: \["history", "catalog", "prices"\][\s\S]*eventId: parsedEntry\.value[\s\S]*shopId: selectedShop\.shopId/.test(
       historyReadModel,
     )
   ) {
@@ -2782,7 +2823,7 @@ function checkTask015ShopAdminConsole() {
   for (const requiredSnippet of [
     '.from("shop_devices")',
     '.eq("shop_id", selectedShop.shopId)',
-    '.from("sync_events")',
+    "readSafeSyncEvents",
     "deviceDetailHref",
     "revokedAt",
     "lastSeenAt",
@@ -2799,6 +2840,17 @@ function checkTask015ShopAdminConsole() {
   ) {
     addFailure(
       "TASK-015 devices must use the safe shop_devices registry without device secrets",
+    );
+  }
+
+  if (
+    !/admin_sync_event_read_v1/.test(syncEventReadBoundary) ||
+    !/p_domains: normalized\.domains/.test(syncEventReadBoundary) ||
+    !/p_shop_id: normalized\.shopId/.test(syncEventReadBoundary) ||
+    !/canonicalPositiveBigint/.test(syncEventReadBoundary)
+  ) {
+    addFailure(
+      "TASK-015 sync-event reads must use the bounded server RPC with canonical IDs and shop fence.",
     );
   }
 
@@ -3032,6 +3084,7 @@ function checkTask016PlatformAdminConsole() {
     "supabase/migrations/20260531190000_task_016_platform_admin_console.sql";
   const completionMigrationPath =
     "supabase/migrations/20260531210000_task_016_platform_completion.sql";
+  const syncEventReadBoundaryPath = "src/server/sync-events/read-boundary.ts";
 
   void scannerContract;
 
@@ -3070,6 +3123,7 @@ function checkTask016PlatformAdminConsole() {
   const platformLayout = read(platformLayoutPath);
   const migration = read(migrationPath);
   const completionMigration = read(completionMigrationPath);
+  const syncEventReadBoundary = read(syncEventReadBoundaryPath);
   const platformSource = [
     readModel,
     sectionData,
@@ -3104,15 +3158,15 @@ function checkTask016PlatformAdminConsole() {
     addFailure("TASK-016 read model must include global shop_devices overview");
   }
 
-  if (!/\.from\("sync_events"\)/.test(readModel)) {
+  if (!/readSafeSyncEvents\(supabase, \{ limit: 300 \}\)/.test(readModel)) {
     addFailure("TASK-016 read model must include global sync_events overview");
   }
 
   if (
-    !/"id,owner_user_id,shop_id,store_id,source,source_device_id,domain,event_type,changed_count,metadata,created_at"/.test(
-      readModel,
-    ) ||
-    !/shop_id: row\.shop_id \?\? undefined/.test(readModel) ||
+    !/function mapSyncRow\(row: SafeSyncEventRow\)/.test(readModel) ||
+    !/shop_id: row\.shopId \?\? undefined/.test(readModel) ||
+    !/readSafeSyncEvents\(supabase, \{ limit: 300 \}\)/.test(readModel) ||
+    !/admin_sync_event_read_v1/.test(syncEventReadBoundary) ||
     !/event\.shop_id \?\? shopByOwner\.get\(event\.owner_user_id\)/.test(
       readModel,
     ) ||
@@ -4213,6 +4267,9 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const adminClientPath = "src/lib/supabase/admin.ts";
   const tokenPath = "src/server/pos-auth/tokens.ts";
   const servicePath = "src/server/pos-auth/service.ts";
+  const runtimeBoundaryPath = "src/server/pos-auth/runtime-boundary.ts";
+  const publicationFenceMigrationPath =
+    "supabase/migrations/20260722022500_task_139_pos_catalog_scope_lease.sql";
   const catalogPullServicePath = "src/server/pos-auth/catalog-pull.ts";
   const posRouteSecurityPath = "src/app/api/pos/_shared/pos-route-security.ts";
   const firstLoginRoutePath = "src/app/api/pos/auth/first-login/route.ts";
@@ -4227,6 +4284,8 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     adminClientPath,
     tokenPath,
     servicePath,
+    runtimeBoundaryPath,
+    publicationFenceMigrationPath,
     posRouteSecurityPath,
     firstLoginRoutePath,
     heartbeatRoutePath,
@@ -4243,6 +4302,8 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const adminClient = read(adminClientPath);
   const tokens = read(tokenPath);
   const service = read(servicePath);
+  const runtimeBoundary = read(runtimeBoundaryPath);
+  const publicationFenceMigration = read(publicationFenceMigrationPath);
   const catalogPullService = existsSync(join(root, catalogPullServicePath))
     ? read(catalogPullServicePath)
     : "";
@@ -4282,6 +4343,8 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     adminClient,
     tokens,
     service,
+    runtimeBoundary,
+    publicationFenceMigration,
     catalogPullService,
     posRouteSecurity,
     firstLoginRoute,
@@ -4377,44 +4440,64 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     "MAX_CREDENTIAL_LENGTH",
     "MAX_POS_SECRET_LENGTH",
     "isStaffLockoutActive",
-    "cleanupFailedFirstLogin",
+    "isStaffLockoutExpired",
     "sessionTokenValid",
     "deviceTokenValid",
-    "pos.auth.first_login.success",
     "pos.auth.first_login.failure",
-    "pos.device.trusted",
-    "pos.session.heartbeat.success",
     "pos.session.heartbeat.failure",
     "pos.device.revoked_enforced",
-    "credentialAttemptClearOk",
-    "priorDeviceCredentialsRevokedOk",
+    "loadPosRuntimeLease",
+    "recordPosFirstLoginFailure",
+    "commitPosFirstLogin",
+    "publishPosRuntimeLeaseSuccess",
   ]) {
     if (!service.includes(requiredSnippet)) {
       addFailure(`${servicePath} must include ${requiredSnippet}`);
     }
   }
 
-  if (!/credential_status: "active"/.test(service)) {
+  for (const requiredSnippet of [
+    "pos.auth.first_login.success",
+    "pos.device.trusted",
+  ]) {
+    if (!publicationFenceMigration.includes(requiredSnippet)) {
+      addFailure(
+        `${publicationFenceMigrationPath} must include ${requiredSnippet}`,
+      );
+    }
+  }
+
+  if (
+    !/staff\.credential_status === "active"[\s\S]*staff\.credential_status === "locked"[\s\S]*isStaffLockoutExpired\(staff\)/.test(
+      service,
+    ) ||
+    !/pos_runtime_first_login_commit_v2/.test(runtimeBoundary)
+  ) {
     addFailure(
-      `${servicePath} must reactivate expired lockout state after successful credential verification`,
+      `${servicePath} must permit only expired lockout recovery through the atomic POS runtime boundary`,
     );
   }
 
   if (
-    !/const auditOk = await writePosAudit/.test(service) ||
-    !/if \(!auditOk\) \{/.test(service)
+    !/pos_runtime_first_login_lookup_v1/.test(runtimeBoundary) ||
+    !/pos_runtime_first_login_failure_v1/.test(runtimeBoundary) ||
+    !/pos_runtime_first_login_commit_v2/.test(runtimeBoundary) ||
+    !/pos_runtime_lease_v1/.test(runtimeBoundary) ||
+    !/pos_runtime_lease_publish_success_v2/.test(runtimeBoundary)
   ) {
     addFailure(
-      `${servicePath} must fail closed when required audit writes fail`,
+      `${runtimeBoundaryPath} must keep POS login/lease publication in the atomic runtime RPC boundary`,
     );
   }
 
   if (
-    !/const trustedAuditOk = await writePosAudit/.test(service) ||
-    !/const firstLoginAuditOk = await writePosAudit/.test(service)
+    !/publishPosRuntimeLeaseSuccess\(supabase, \{[\s\S]*publicationKind: "heartbeat"/.test(
+      service,
+    ) ||
+    !/pos_runtime_lease_publish_success_v2/.test(runtimeBoundary)
   ) {
     addFailure(
-      `${servicePath} must require both trusted-device and first-login success audits`,
+      `${servicePath} must publish heartbeat success through the lease-fenced atomic boundary`,
     );
   }
 
@@ -4693,6 +4776,13 @@ function checkTask022023PosDashboardWin7PosClient() {
     join(win7PosRoot, "src/Win7POS.Wpf/MainWindow.xaml.cs"),
     "utf8",
   );
+  const win7SyncSupervisor = readFileSync(
+    join(
+      win7PosRoot,
+      "src/Win7POS.Wpf/Pos/Online/PosOnlineSyncSupervisorHost.cs",
+    ),
+    "utf8",
+  );
   const win7IntegrationSource = [
     "src/Win7POS.Core/Online/PosOnlineTransportContracts.cs",
     "src/Win7POS.Data/Online/PosAdminWebClient.cs",
@@ -4703,6 +4793,7 @@ function checkTask022023PosDashboardWin7PosClient() {
     "src/Win7POS.Wpf/Pos/Dialogs/PosOnlineFirstLoginDialog.xaml.cs",
     "src/Win7POS.Wpf/Pos/Dialogs/OperatorSwitchDialog.xaml",
     "src/Win7POS.Wpf/Pos/Dialogs/OperatorSwitchDialog.xaml.cs",
+    "src/Win7POS.Wpf/Pos/Online/PosOnlineSyncSupervisorHost.cs",
     "src/Win7POS.Wpf/MainWindow.xaml.cs",
   ]
     .map((relativePath) =>
@@ -4840,8 +4931,9 @@ function checkTask022023PosDashboardWin7PosClient() {
   if (
     !/PosAccessRequested/.test(win7OperatorDialog) ||
     !/PosOnlineFirstLoginDialog/.test(win7MainWindow) ||
-    !/StartupHeartbeatTimeout/.test(win7MainWindow) ||
-    !/HeartbeatAsync/.test(win7MainWindow)
+    !/StartupWatchdogTimeout/.test(win7MainWindow) ||
+    !/PosOnlineSyncSupervisorHost/.test(win7MainWindow) ||
+    !/RunHeartbeatAsync/.test(win7SyncSupervisor)
   ) {
     addFailure("Win7POS must expose first login UI and startup heartbeat");
   }
@@ -5187,6 +5279,10 @@ function checkTask038PosManagerWebLogin() {
   const evidencePath = "docs/TASKS/EVIDENCE/TASK-038/README.md";
   const architecturePath = "docs/ARCHITECTURE/SHOP-ADMIN-DUAL-ACCESS-MODEL.md";
   const authPath = "src/server/shop-admin/staff-web-auth.ts";
+  const runtimeBoundaryPath =
+    "src/server/shop-admin/staff-web-runtime-boundary.ts";
+  const contractMigrationPath =
+    "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql";
   const permissionsPath = "src/server/shop-admin/staff-web-permissions.ts";
   const shopCodeLoginFormPath = "src/components/auth/ShopCodeLoginForm.tsx";
   const loginPagePath = "src/app/(staff-auth)/shop/staff-login/page.tsx";
@@ -5210,6 +5306,8 @@ function checkTask038PosManagerWebLogin() {
     evidencePath,
     architecturePath,
     authPath,
+    runtimeBoundaryPath,
+    contractMigrationPath,
     permissionsPath,
     shopCodeLoginFormPath,
     loginPagePath,
@@ -5237,6 +5335,8 @@ function checkTask038PosManagerWebLogin() {
   const architecture = read(architecturePath);
   const migration = read(`supabase/migrations/${migrationName}`);
   const auth = read(authPath);
+  const runtimeBoundary = read(runtimeBoundaryPath);
+  const contractMigration = read(contractMigrationPath);
   const permissions = read(permissionsPath);
   const shopCodeLoginForm = read(shopCodeLoginFormPath);
   const loginPage = read(loginPagePath);
@@ -5309,16 +5409,11 @@ function checkTask038PosManagerWebLogin() {
     "resolveStaffWebCookieSecure",
     "hashStaffWebSecret",
     "verifyStaffCredential",
-    "staff_web_sessions",
-    "staff_web_login_attempts",
-    'staff.role_key !== "manager"',
-    "hasStaffFullShopAdminWebAccess",
-    "staff.web.login.success",
-    "staff.web.login.failure",
-    "actor_staff_id: input.actorStaffId ?? null",
-    "revokeStaffWebSession",
-    "staff_web_login_audit_failed",
-    "staff.web.logout",
+    "lookupStaffWebLogin",
+    "recordStaffWebLoginFailure",
+    "commitStaffWebLogin",
+    "resolveStaffWebRuntimeSession",
+    "revokeStaffWebRuntimeSession",
   ]) {
     if (!auth.includes(requiredSnippet)) {
       addFailure(`${authPath} must include ${requiredSnippet}`);
@@ -5336,15 +5431,35 @@ function checkTask038PosManagerWebLogin() {
   }
 
   if (
-    !/const auditOk = await writeStaffWebAudit[\s\S]*actorStaffId: staff\.staff_id[\s\S]*if \(!auditOk\)[\s\S]*revokeStaffWebSession[\s\S]*return staffWebLoginResult\("database_error"\)[\s\S]*await setStaffWebCookie\(sessionToken, expiresAt, meta\)/.test(
-      auth,
-    ) ||
-    /await setStaffWebCookie\(sessionToken, expiresAt, meta\)[\s\S]{0,260}await writeStaffWebAudit\(supabase,\s*\{\s*code: "success"/.test(
-      auth,
-    )
+    !/staff_web_login_lookup_v1/.test(runtimeBoundary) ||
+    !/staff_web_login_failure_v1/.test(runtimeBoundary) ||
+    !/staff_web_login_commit_v1/.test(runtimeBoundary) ||
+    !/staff_web_session_resolve_v1/.test(runtimeBoundary) ||
+    !/staff_web_session_revoke_v1/.test(runtimeBoundary)
   ) {
     addFailure(
-      "TASK-038 staff web login must fail closed when the success audit write fails",
+      "TASK-038 staff web runtime must use the named server-only login/session RPC boundary",
+    );
+  }
+
+  const loginCommitMigration = contractMigration.slice(
+    contractMigration.indexOf(
+      "create or replace function public.staff_web_login_commit_v1",
+    ),
+    contractMigration.indexOf(
+      "create or replace function public.staff_web_session_resolve_v1",
+    ),
+  );
+  if (
+    !/insert into public\.staff_web_sessions/.test(loginCommitMigration) ||
+    !/insert into public\.audit_logs/.test(loginCommitMigration) ||
+    !/'staff\.web\.login\.success'/.test(loginCommitMigration) ||
+    !/staff_web_session_revoke_v1/.test(contractMigration) ||
+    !/'staff\.web\.logout'/.test(contractMigration) ||
+    /\.from\s*\(\s*["'`]/.test(auth)
+  ) {
+    addFailure(
+      "TASK-038 staff web login must atomically publish its audit/session result without direct table access in the auth module",
     );
   }
 
@@ -5399,6 +5514,17 @@ function checkTask038PosManagerWebLogin() {
 
   if (!/logoutStaffWebSession/.test(logoutRoute)) {
     addFailure(`${logoutRoutePath} must call logoutStaffWebSession`);
+  }
+
+  if (
+    !/export async function POST/.test(logoutRoute) ||
+    /export async function GET/.test(logoutRoute) ||
+    !/isSameOriginPostRequest/.test(logoutRoute) ||
+    !/NextResponse\.redirect\(loginUrl, 303\)/.test(logoutRoute)
+  ) {
+    addFailure(
+      `${logoutRoutePath} must use a same-origin POST and a 303 only after verified logout`,
+    );
   }
 
   for (const requiredSnippet of [
@@ -5515,6 +5641,12 @@ function checkTask039StaffAwareShopAdminCompletion() {
     "src/server/shop-admin/staff-web-permissions.ts";
   const staffAwareMutationsPath =
     "src/server/shop-admin/staff-aware-mutations.ts";
+  const staffLeaseBoundaryPath =
+    "src/server/shop-admin/staff-web-lease-bound-rpc.ts";
+  const staffLeaseMigrationPath =
+    "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql";
+  const staffLifecycleMigrationPath =
+    "supabase/migrations/20260722023000_task_139_staff_web_lifecycle_lease.sql";
   const settingsMutationsPath = "src/server/shop-admin/settings-mutations.ts";
   const pageAccessPath = "src/server/shop-admin/page-access.ts";
   const databaseTypesPath = "src/lib/supabase/database.types.ts";
@@ -5538,6 +5670,9 @@ function checkTask039StaffAwareShopAdminCompletion() {
     accessPrincipalPath,
     staffWebPermissionsPath,
     staffAwareMutationsPath,
+    staffLeaseBoundaryPath,
+    staffLeaseMigrationPath,
+    staffLifecycleMigrationPath,
     settingsMutationsPath,
     pageAccessPath,
     databaseTypesPath,
@@ -5557,6 +5692,9 @@ function checkTask039StaffAwareShopAdminCompletion() {
   const accessPrincipal = read(accessPrincipalPath);
   const staffWebPermissions = read(staffWebPermissionsPath);
   const staffAwareMutations = read(staffAwareMutationsPath);
+  const staffLeaseBoundary = read(staffLeaseBoundaryPath);
+  const staffLeaseMigration = read(staffLeaseMigrationPath);
+  const staffLifecycleMigration = read(staffLifecycleMigrationPath);
   const settingsMutations = read(settingsMutationsPath);
   const pageAccess = read(pageAccessPath);
   const databaseTypes = read(databaseTypesPath);
@@ -5655,20 +5793,31 @@ function checkTask039StaffAwareShopAdminCompletion() {
   if (
     !/runStaffAwareShopAdminMutation/.test(staffAwareMutations) ||
     !/write_staff_shop_admin_audit/.test(staffAwareMutations) ||
-    !/actorStaffId/.test(staffAwareMutations) ||
-    !/replaceStaffRolePermissions/.test(staffAwareMutations) ||
-    !/staleStaffWebPermissions/.test(staffAwareMutations) ||
-    !/\.upsert\(/.test(staffAwareMutations) ||
-    !/onConflict: "shop_id,role_key,permission_key"/.test(
-      staffAwareMutations,
+    !/callStaffWebCatalogMutation/.test(staffAwareMutations) ||
+    !/callStaffWebLifecycleMutation/.test(staffAwareMutations) ||
+    !/callStaffWebAuditEvent/.test(staffAwareMutations) ||
+    !/staffCatalogRpc/.test(staffAwareMutations) ||
+    !/shopAdminActionResult\("unauthorized"/.test(staffAwareMutations) ||
+    !/staff_web_catalog_mutate_v1/.test(staffLeaseBoundary) ||
+    !/staff_web_lifecycle_mutate_v1/.test(staffLeaseBoundary) ||
+    !/staff_web_audit_event_v1/.test(staffLeaseBoundary) ||
+    !/p_expected_credential_version/.test(staffLeaseBoundary) ||
+    !/p_session_token_hash/.test(staffLeaseBoundary) ||
+    !/p_shop_id/.test(staffLeaseBoundary) ||
+    !/p_staff_id/.test(staffLeaseBoundary) ||
+    !/p_staff_web_session_id/.test(staffLeaseBoundary) ||
+    !/app_private\.staff_web_runtime_lease_is_valid_v1/.test(
+      staffLeaseMigration,
     ) ||
-    !/hasStaffFullShopAdminWebAccess\(context\.staffPermissions\)/.test(
-      staffAwareMutations,
-    ) ||
-    !/code: "unauthorized"/.test(staffAwareMutations)
+    !/staff_web_catalog_mutate_v1/.test(staffLeaseMigration) ||
+    !/staff_web_lifecycle_mutate_v1/.test(staffLifecycleMigration) ||
+    !/staff_web_audit_event_v1/.test(staffLifecycleMigration) ||
+    !/app_private\.staff_web_runtime_lease_is_valid_v1/.test(
+      staffLifecycleMigration,
+    )
   ) {
     addFailure(
-      `${staffAwareMutationsPath} must implement the staff-aware mutation/audit boundary`,
+      `${staffAwareMutationsPath} must use the lease-bound staff mutation/audit boundary with SQL lease fences`,
     );
   }
 
@@ -5865,6 +6014,8 @@ function checkTask041RuntimeCompletion() {
   const catalogRevisionPath = "src/server/pos-auth/catalog-revision.ts";
   const catalogV2MigrationPath =
     "supabase/migrations/20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql";
+  const catalogV3MigrationPath =
+    "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql";
   const posRouteSecurityPath = "src/app/api/pos/_shared/pos-route-security.ts";
   const databaseTypesPath = "src/lib/supabase/database.types.ts";
   const salesSecurityMigrationPath =
@@ -5917,6 +6068,7 @@ function checkTask041RuntimeCompletion() {
   const catalogPull = read(catalogPullPath);
   const catalogRevision = read(catalogRevisionPath);
   const catalogV2Migration = read(catalogV2MigrationPath);
+  const catalogV3Migration = read(catalogV3MigrationPath);
   const posRouteSecurity = read(posRouteSecurityPath);
   const databaseTypes = read(databaseTypesPath);
   const salesSecurityMigration = read(salesSecurityMigrationPath);
@@ -6024,7 +6176,6 @@ function checkTask041RuntimeCompletion() {
     "quantity * unitPrice",
     "businessDateRaw.length > 0",
     "metadata_redacted",
-    "actor_staff_id",
     "duplicate",
     "conflict",
     "suppliedStockDelta !== normalizedStockDelta",
@@ -6036,6 +6187,17 @@ function checkTask041RuntimeCompletion() {
     if (!salesService.includes(requiredSnippet)) {
       addFailure(`${salesServicePath} must include ${requiredSnippet}`);
     }
+  }
+
+  if (
+    !/writePosRuntimeAudit/.test(salesService) ||
+    !/pos_runtime_audit_write_v1/.test(catalogV3Migration) ||
+    !/actor_profile_id, actor_staff_id/.test(catalogV3Migration) ||
+    !/null, p_staff_id/.test(catalogV3Migration)
+  ) {
+    addFailure(
+      "POS Sales Sync must delegate its audit to the server-only runtime RPC that preserves actor_staff_id",
+    );
   }
 
   for (const requiredSnippet of [
@@ -6152,7 +6314,8 @@ function checkTask041RuntimeCompletion() {
     "session invalidation denied",
     "failed batch rolls back every sink",
     "idempotent retry is duplicate",
-    "structural source contract wrapper auth locks precede delegated advisory lock",
+    "sales boundary validates its lease before unchecked writes and lease locks before wall-clock expiry check",
+    "structural source contract unchecked auth locks precede delegated advisory lock",
   ]) {
     if (!salesSecurityPgTap.includes(requiredSnippet)) {
       addFailure(`${salesSecurityPgTapPath} must include ${requiredSnippet}`);
@@ -6176,7 +6339,9 @@ function checkTask041RuntimeCompletion() {
     "cross-shop supplier insert is denied",
     "cross-shop category insert is denied",
     "cross-shop history insert is denied",
-    "trigger independently rejects a cross-shop row",
+    "supplier cannot be rebound to another shop past the immutable-scope trigger",
+    "category cannot be rebound to another shop past the immutable-scope trigger",
+    "history cannot be rebound to another shop",
     "omitted headers cannot bypass append-only price history",
     "suspended shop rejects direct product insert",
     "catalog RPC remains fail-closed for an archived shop",
@@ -6218,10 +6383,15 @@ function checkTask041RuntimeCompletion() {
 
   if (
     !/loadCatalogPageV2/.test(catalogPull) ||
-    !/rpc\("pos_catalog_pull_page_v2"/.test(catalogRevision) ||
+    !/rpc\("pos_catalog_pull_page_for_lease_v3"/.test(catalogRevision) ||
+    !/p_expected_revision/.test(catalogRevision) ||
+    !/p_expected_scope_key/.test(catalogRevision) ||
+    !/p_expected_scope_kind/.test(catalogRevision) ||
     !/from public\.inventory_product_prices row[\s\S]*product\.id = row\.product_id[\s\S]*product\.shop_id = p_shop_id[\s\S]*product\.owner_user_id = resolved\.scope_id/.test(
       catalogV2Migration,
-    )
+    ) ||
+    !/app_private\.guard_price_product_relation_v1/.test(catalogV3Migration) ||
+    !/cross_platform_catalog_relation_guard/.test(catalogV3Migration)
   ) {
     addFailure(
       `${catalogPullPath} must validate POS catalog price rows against the referenced product shop scope before returning them`,
@@ -6689,7 +6859,11 @@ function checkTask043PlatformAdminRuntimeFixes() {
     (/\{dictionary\.common\.logout\}/.test(appShell) &&
       /logout:\s*"Logout"/.test(optionalRead("src/i18n/dictionaries.ts")));
 
-  if (!/action="\/auth\/logout\?next=\/platform"/.test(appShell) || !exposesPlatformLogout) {
+  if (
+    !/action="\/auth\/logout\?next=\/platform"/.test(appShell) ||
+    !/method="post"/.test(appShell) ||
+    !exposesPlatformLogout
+  ) {
     addFailure(
       `${appShellPath} must expose visible native Logout to /auth/logout?next=/platform`,
     );
@@ -7499,8 +7673,10 @@ function checkTask057ShopCatalogWorkspace() {
   if (
     !/shop_catalog_import_products/.test(workbook) ||
     !/shop_catalog_import_price_history/.test(workbook) ||
-    !/fetchCatalogExportPriceRows/.test(workbook) ||
-    !/mergeCatalogExportPriceRows/.test(workbook) ||
+    !/shop_catalog_admin_read_v1/.test(workbook) ||
+    !/createCatalogWorkbookExportResourceEnvelope/.test(workbook) ||
+    !/resource\.assertPreflight/.test(workbook) ||
+    /fetchCatalogExportPriceRows|mergeCatalogExportPriceRows/.test(workbook) ||
     /TASK057_DEBUG|SUPABASE_SERVICE_ROLE_KEY|service_role/i.test(workbook)
   ) {
     addFailure(
@@ -7545,10 +7721,28 @@ function checkStaffAwareBulkImportScoping() {
     "src/server/shop-admin/staff-aware-mutations.ts",
   );
   const workbook = read("src/server/shop-admin/import-export-workbook.ts");
+  const staffLeaseBoundary = read(
+    "src/server/shop-admin/staff-web-lease-bound-rpc.ts",
+  );
+  const contractMigration = read(
+    "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql",
+  );
 
-  if (!staffAwareMutations.includes("loadScopedInventoryRowIds")) {
+  if (
+    !/staffCatalogRpc\(context, "bulk_products"/.test(staffAwareMutations) ||
+    !/callStaffWebCatalogMutation/.test(staffAwareMutations) ||
+    !/staff_web_catalog_mutate_v1/.test(staffLeaseBoundary) ||
+    /\.from\(/.test(
+      staffAwareMutations.slice(
+        staffAwareMutations.indexOf("export async function applyStaffAwareBulkProductImport"),
+        staffAwareMutations.indexOf("export async function applyStaffAwareBulkPriceHistoryImport"),
+      ),
+    ) ||
+    !/app_private\.guard_product_catalog_relations_v1/.test(contractMigration) ||
+    !/cross_platform_catalog_relation_guard/.test(contractMigration)
+  ) {
     addFailure(
-      "staff-aware bulk import must validate caller-provided IDs against shop scope.",
+      "staff-aware bulk import must use the lease-bound catalog RPC and database relation/scope guard.",
     );
   }
 
@@ -7558,9 +7752,13 @@ function checkStaffAwareBulkImportScoping() {
     );
   }
 
-  if (!staffAwareMutations.includes("scopedProductIds.ids.has(price.product_id)")) {
+  if (
+    !/staffCatalogRpc\(context, "bulk_prices"/.test(staffAwareMutations) ||
+    !/app_private\.guard_price_product_relation_v1/.test(contractMigration) ||
+    !/cross_platform_catalog_relation_guard/.test(contractMigration)
+  ) {
     addFailure(
-      "staff-aware bulk price history import must reject product_id values outside the selected shop.",
+      "staff-aware bulk price history import must use the lease-bound RPC and database product-scope guard.",
     );
   }
 
@@ -7860,10 +8058,13 @@ function checkTask072CrossPlatformSync() {
   const historyMutationsPath = "src/server/shop-admin/history-mutations.ts";
   const permissionsPath = "src/server/shop-admin/permissions.ts";
   const historyRoutePath = "src/app/shop/history/[entryId]/page.tsx";
+  const contractMigrationPath =
+    "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql";
   const writer = optionalRead(writerPath);
   const historyMutations = optionalRead(historyMutationsPath);
   const permissions = optionalRead(permissionsPath);
   const historyRoute = optionalRead(historyRoutePath);
+  const contractMigration = optionalRead(contractMigrationPath);
 
   if (!writer || !historyMutations) {
     return;
@@ -7898,24 +8099,33 @@ function checkTask072CrossPlatformSync() {
     }
   }
 
-  for (const required of [
-    'source: "admin_web"',
-    "source_device_id: null",
-    "buildAdminWebClientEventId",
-    'domain: "history"',
-    'eventType: "history_tombstone"',
-    "SESSION_PAYLOAD_VERSION = 2",
-    "SESSION_OVERLAY_SCHEMA = 1",
-    "randomUUID().toLowerCase()",
-  ]) {
-    if (!writer.includes(required) && !historyMutations.includes(required)) {
-      addFailure(`TASK-072 server write path must include ${required}`);
-    }
+  if (
+    !/Compatibility acknowledgement for legacy call sites/.test(writer) ||
+    !/statement-level[\s\S]*database triggers/.test(writer) ||
+    /\.(rpc|from)\s*\(/.test(writer)
+  ) {
+    addFailure(
+      `${writerPath} must remain a no-op compatibility acknowledgement; history events belong to the atomic database trigger path`,
+    );
   }
 
-  if (!/session_ids:\s*\[\s*input\.remoteId\s*\]/.test(historyMutations)) {
+  if (
+    !/staffHistoryRpc/.test(historyMutations) ||
+    !/staff_web_history_mutate_v1/.test(historyMutations) ||
+    !/"tombstone"/.test(historyMutations) ||
+    !/SESSION_PAYLOAD_VERSION = 2/.test(historyMutations) ||
+    !/SESSION_OVERLAY_SCHEMA = 1/.test(historyMutations) ||
+    !/randomUUID\(\)\.toLowerCase\(\)/.test(historyMutations) ||
+    !contractMigration ||
+    !/staff_web_history_mutate_v1/.test(contractMigration) ||
+    !/app_private\.staff_web_runtime_lease_is_valid_v1/.test(contractMigration) ||
+    !/history_changed/.test(contractMigration) ||
+    !/history_tombstone/.test(contractMigration) ||
+    !/'session_ids'/.test(contractMigration) ||
+    !/sync_event_entity_ids_are_complete/.test(contractMigration)
+  ) {
     addFailure(
-      `${historyMutationsPath} must emit history session_ids for mobile delta apply`,
+      `${historyMutationsPath} and the SQL contract must publish lease-bound history changes with complete session_ids`,
     );
   }
 

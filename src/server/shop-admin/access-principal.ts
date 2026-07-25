@@ -36,10 +36,20 @@ export type ShopAdminPosStaffManagerPrincipal = {
   permissions: readonly string[];
   roleKey: PosStaffWebCurrentRoleKey;
   shop: {
+    companyRut?: string | null;
     shopCode: string;
     shopId: string;
+    shopName?: string | null;
+    shopStatus?: string | null;
   };
   source: "pos_staff_web_session_planned";
+  staffWebSession?: {
+    credentialVersion: number;
+    expiresAt: string;
+    issuedAt: string;
+    sessionId: string;
+    sessionTokenHash: string;
+  };
   staff: {
     staffCode: string;
     staffId: string;
@@ -83,8 +93,12 @@ export type PosStaffManagerWebPrincipalInput =
   PosStaffWebEligibilityInput & {
     shopCode: string | null | undefined;
     shopId: string | null | undefined;
+    shopName?: string | null;
+    shopStatus?: string | null;
+    companyRut?: string | null;
     staffCode: string | null | undefined;
     staffId: string | null | undefined;
+    staffWebSession?: ShopAdminPosStaffManagerPrincipal["staffWebSession"];
   };
 
 function isFutureTimestamp(value: string | null | undefined) {
@@ -189,10 +203,16 @@ export function resolvePosStaffManagerWebPrincipal(
       permissions,
       roleKey: POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY,
       shop: {
+        companyRut: input.companyRut,
         shopCode: input.shopCode,
         shopId: input.shopId,
+        shopName: input.shopName,
+        shopStatus: input.shopStatus,
       },
       source: "pos_staff_web_session_planned",
+      ...(input.staffWebSession
+        ? { staffWebSession: input.staffWebSession }
+        : {}),
       staff: {
         staffCode: input.staffCode,
         staffId: input.staffId,

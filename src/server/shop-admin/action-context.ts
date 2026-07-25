@@ -2,7 +2,6 @@ import "server-only";
 
 import { parseLocalizedNumberText } from "@/lib/localized-number";
 import type { SupabaseServerClient } from "@/lib/supabase/server";
-import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import { resolveShopAdminDataAccess } from "./data-access";
 import { canShopAdmin, type ShopAdminPermission } from "./permissions";
 import type { ShopAdminShellShop } from "./shop-access";
@@ -28,6 +27,9 @@ export type ShopAdminActionCode =
   | "reason_required"
   | "file_too_large"
   | "row_limit_exceeded"
+  | "request_cancelled"
+  | "resource_deadline_exceeded"
+  | "resource_limit_exceeded"
   | "invalid_file_type"
   | "invalid_workbook"
   | "preview_required"
@@ -56,10 +58,14 @@ export type ShopAdminActionContext =
   | {
       actorStaffId: string;
       principalKind: "pos_staff_manager";
+      staffWebSession: {
+        credentialVersion: number;
+        sessionId: string;
+        sessionTokenHash: string;
+      };
       staffPermissions: readonly string[];
       status: "ready";
       selectedShop: ShopAdminShellShop;
-      supabase: SupabaseAdminClient;
     }
   | {
       status: "blocked";
@@ -89,6 +95,9 @@ const messages: Record<ShopAdminActionCode, string> = {
   reason_required: "A reason is required for this sensitive action.",
   file_too_large: "The workbook is larger than the allowed import limit.",
   row_limit_exceeded: "The workbook contains more rows than allowed.",
+  request_cancelled: "The export request was cancelled.",
+  resource_deadline_exceeded: "The export exceeded its execution deadline.",
+  resource_limit_exceeded: "The export exceeds the supported resource limits.",
   invalid_file_type: "Upload a .xlsx or .xls workbook.",
   invalid_workbook: "The workbook could not be read as a valid .xlsx or .xls file.",
   preview_required: "Preview the workbook and confirm before applying it.",
@@ -259,12 +268,26 @@ export async function resolveShopActionContext(
     };
   }
 
+  if (!access.principal.staffWebSession) {
+    return {
+      status: "blocked",
+      result: shopAdminActionResult("no_active_session", {
+        ok: false,
+        shopId: selectedShop.shopId,
+      }),
+    };
+  }
+
   return {
     actorStaffId: access.principal.staff.staffId,
     principalKind: "pos_staff_manager",
+    staffWebSession: {
+      credentialVersion: access.principal.staffWebSession.credentialVersion,
+      sessionId: access.principal.staffWebSession.sessionId,
+      sessionTokenHash: access.principal.staffWebSession.sessionTokenHash,
+    },
     staffPermissions: access.principal.permissions,
     status: "ready",
     selectedShop,
-    supabase: access.supabase,
   };
 }

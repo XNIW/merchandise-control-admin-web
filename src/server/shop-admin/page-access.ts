@@ -1,10 +1,7 @@
 import "server-only";
 
 import { resolveShopAdminDataAccess } from "./data-access";
-import type {
-  ShopAdminDataAccess,
-  ShopAdminDataClient,
-} from "./data-access";
+import type { ShopAdminDataAccess } from "./data-access";
 import { canShopAdmin } from "./permissions";
 import type { ShopAdminShellShop } from "./shop-access";
 import { canStaffWebPerformShopAdminAction } from "./staff-web-permissions";
@@ -19,7 +16,6 @@ export type ShopPageAccessBundle =
       principalKind: "personal_account" | "pos_staff_manager";
       selectedShop: ShopAdminShellShop;
       status: "ready";
-      supabase: ShopAdminDataClient;
     }
   | {
       reason: string;
@@ -53,7 +49,6 @@ export async function resolveShopPageAccessBundle(
       principalKind: "personal_account",
       selectedShop: access.selectedShop,
       status: "ready",
-      supabase: access.supabase,
     };
   }
 
@@ -74,6 +69,5 @@ export async function resolveShopPageAccessBundle(
     principalKind: "pos_staff_manager",
     selectedShop: access.selectedShop,
     status: "ready",
-    supabase: access.supabase,
   };
 }

@@ -43,6 +43,7 @@ test("TASK-065 OAuth redirect helper exists and blocks stale Vercel redirects", 
   assert.match(helper, /buildOAuthCallbackUrl/);
   assert.match(helper, /requestOriginFromHeaders/);
   assert.match(helper, /requestOriginFromRequest/);
+  assert.match(helper, /isSameOriginPostRequest/);
   assert.match(helper, /safeShopAdminNextPath/);
   assert.match(helper, /isGoogleOAuthAccountsLocation/);
   assert.match(helper, /hasInvalidGoogleOAuthClientIdLocation/);
@@ -89,6 +90,64 @@ test("TASK-065 OAuth redirect helper behavior rejects unsafe paths and stale red
       },
     }),
     "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev",
+  );
+  const logoutRequest = ({
+    fetchSite = "same-origin",
+    host = "console.example.test",
+    method = "POST",
+    origin = "https://console.example.test",
+    protocol = "https",
+  } = {}) => {
+    const headers = {
+      host,
+      origin,
+      "sec-fetch-site": fetchSite,
+      "x-forwarded-proto": protocol,
+    };
+
+    return {
+      headers: {
+        get(name) {
+          return headers[name.toLowerCase()] ?? null;
+        },
+      },
+      method,
+      url: `${protocol}://${host}/auth/logout`,
+    };
+  };
+
+  assert.equal(helper.isSameOriginPostRequest(logoutRequest()), true);
+  assert.equal(
+    helper.isSameOriginPostRequest(logoutRequest({ fetchSite: "cross-site" })),
+    false,
+  );
+  assert.equal(
+    helper.isSameOriginPostRequest(logoutRequest({ fetchSite: "same-site" })),
+    false,
+  );
+  assert.equal(
+    helper.isSameOriginPostRequest(logoutRequest({ method: "GET" })),
+    false,
+  );
+  assert.equal(
+    helper.isSameOriginPostRequest(
+      logoutRequest({ origin: "https://other.example.test" }),
+    ),
+    false,
+  );
+  assert.equal(
+    helper.isSameOriginPostRequest(logoutRequest({ origin: "" })),
+    false,
+  );
+  assert.equal(
+    helper.isSameOriginPostRequest(
+      logoutRequest({
+        host: "localhost:3000",
+        origin: "http://localhost:3000",
+        protocol: "http",
+      }),
+    ),
+    true,
   );
   assert.equal(
     helper.buildOAuthCallbackUrl(currentOrigin, "//evil"),

@@ -73,8 +73,13 @@ test("TASK-015 devices use a shop-scoped authorization registry with audited mut
   assert.match(readModel, /import "server-only"/);
   assert.match(readModel, /\.from\("shop_devices"\)/);
   assert.match(readModel, /\.eq\("shop_id", selectedShop\.shopId\)/);
-  assert.match(readModel, /\.from\("sync_events"\)/);
-  assert.match(readModel, /source_device_id/);
+  assert.match(readModel, /readSafeSyncEvents/);
+  assert.doesNotMatch(
+    readModel,
+    /\.from\("sync_events"\)/,
+    "device activity must use the verified sync-event read boundary rather than a direct table scan",
+  );
+  assert.match(readModel, /sourceDeviceKey/);
   assert.match(readModel, /lastSeenAt/);
   assert.match(readModel, /revokedAt/);
   assert.match(mutations, /devices\.manage/);

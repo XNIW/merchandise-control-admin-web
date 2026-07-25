@@ -93,7 +93,7 @@ test("TASK-048 secondary Master Console sections explain purpose, empty state, d
     "Internal diagnostic",
     "No device signals visible",
     "Device authorization comes from shop_devices.",
-    "source_device_id is sync/history attribution only.",
+    "source_device_key is redacted sync/history attribution only.",
     "Daily device management belongs to Admin Console.",
     "/platform/shops",
     "/platform/support",

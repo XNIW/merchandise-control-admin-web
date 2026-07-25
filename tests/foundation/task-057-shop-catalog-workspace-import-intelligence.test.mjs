@@ -547,8 +547,11 @@ test("TASK-057 full database import treats PriceHistory as first-class shop cata
     "priceHistoryRows",
     "priceHistoryApplied",
     "shop_catalog_import_price_history",
-    "fetchCatalogExportPriceRows",
-    "mergeCatalogExportPriceRows",
+    "getStaffWorkbookInventoryReadModel",
+    "loadStaffWorkbookSnapshotRows",
+    "collectBoundedWorkbookPages",
+    "CATALOG_WORKBOOK_EXPORT_LIMITS",
+    "createCatalogWorkbookExportResourceEnvelope",
     "BULK_PRICE_HISTORY_IMPORT_CHUNK_SIZE",
     'rowLimit: "all"',
   ]) {
@@ -558,12 +561,13 @@ test("TASK-057 full database import treats PriceHistory as first-class shop cata
   assertContains(readiness, "MAX_IMPORT_ROWS = 80_000");
   assert.match(
     workbook,
-    /export async function buildCatalogWorkbookExport[\s\S]*rowLimit: "all"/,
+    /async function getCatalogWorkbookReadModel[\s\S]*rowLimit: "all"/,
   );
-  assert.doesNotMatch(
+  assert.match(
     workbook,
-    /buildCatalogWorkbookExport[\s\S]*readModel\.prices\.map/,
+    /buildCatalogWorkbookExport[\s\S]*readModel\.prices/,
   );
+  assert.match(workbook, /getStaffWorkbookInventoryReadModel/);
   assert.doesNotMatch(workbook, /PriceHistory rows are ignored/i);
   assert.doesNotMatch(
     workbook,
@@ -574,6 +578,9 @@ test("TASK-057 full database import treats PriceHistory as first-class shop cata
 test("TASK-057 database apply uses audited bulk product import for large workbooks", () => {
   const workbook = read("src/server/shop-admin/import-export-workbook.ts");
   const staffAwareMutations = read("src/server/shop-admin/staff-aware-mutations.ts");
+  const staffLeaseBoundary = read(
+    "src/server/shop-admin/staff-web-lease-bound-rpc.ts",
+  );
   const migrationPath =
     "supabase/migrations/20260612021252_task_057_bulk_product_import.sql";
 
@@ -593,8 +600,10 @@ test("TASK-057 database apply uses audited bulk product import for large workboo
     "chunkRows",
     "applyStaffAwareBulkProductImport",
     "applyStaffAwareBulkPriceHistoryImport",
-    "for (const [chunkIndex, productChunk] of Array.from(chunkRows",
-    "for (const priceChunk of chunkRows",
+    "const productChunks = Array.from(",
+    "for (const [chunkIndex, productChunk] of productChunks.entries())",
+    "const priceChunks = Array.from(",
+    "for (const [chunkIndex, priceChunk] of priceChunks.entries())",
     "shop_catalog_import_products",
     "productsApplied",
     "productIds",
@@ -603,11 +612,19 @@ test("TASK-057 database apply uses audited bulk product import for large workboo
     "catalog_scope",
     "source",
     "admin_web",
-    "resolveInventoryOwner",
-    ".from(\"inventory_products\")",
-    ".from(\"inventory_product_prices\")",
+    "staffCatalogRpc(context, \"bulk_products\"",
+    "staffCatalogRpc(context, \"bulk_prices\"",
+    "callStaffWebCatalogMutation",
+    "staff_web_catalog_mutate_v1",
+    "planStaffAwareBulkChunks",
+    "staffBulkChunkCountsAreValid",
+    "remainingStaffBulkRows",
+    "root.shop_id === context.selectedShop.shopId",
   ]) {
-    assertContains(`${workbook}\n${staffAwareMutations}\n${migration}`, required);
+    assertContains(
+      `${workbook}\n${staffAwareMutations}\n${staffLeaseBoundary}\n${migration}`,
+      required,
+    );
   }
 
   assert.doesNotMatch(workbook, /TASK057_DEBUG_BULK/);
@@ -820,7 +837,9 @@ test("TASK-057 POS catalog pull uses shop_id catalog rows before legacy mapping"
   ]) {
     assertContains(catalogMigration, required);
   }
-  assertContains(catalogRevision, 'rpc("pos_catalog_pull_page_v2"');
+  assertContains(catalogRevision, 'rpc("pos_catalog_pull_page_for_lease_v3"');
+  assertContains(catalogRevision, "p_expected_revision");
+  assertContains(catalogRevision, "p_expected_scope_key");
 
   assert.doesNotMatch(
     catalogPull,
@@ -832,13 +851,16 @@ test("TASK-057 staff-aware catalog writes use shop_id and catalog scope", () => 
   const mutations = read("src/server/shop-admin/staff-aware-mutations.ts");
 
   for (const required of [
-    "catalogAuditMetadata",
-    "catalog_scope",
-    'source: "admin_web"',
-    "shop_id: context.selectedShop.shopId",
+    "CatalogProductAssignmentScope",
+    "input.scope.selectedShopId",
+    "input.scope.catalogScope",
+    "row.shop_id === input.scope.selectedShopId",
+    "row.owner_user_id === input.scope.legacyOwnerUserId",
     "shop_scoped",
     "legacy_owner_bridge",
-    "assertInventoryRelation",
+    "staffCatalogRpc",
+    "callStaffWebCatalogMutation",
+    "root.shop_id === context.selectedShop.shopId",
   ]) {
     assertContains(mutations, required);
   }

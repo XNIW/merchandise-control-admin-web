@@ -139,7 +139,11 @@ test("TASK-077 Sync first render uses a lightweight sync event read model", () =
   assert.doesNotMatch(syncBody, /loadHistorySummary/);
   assert.doesNotMatch(syncBody, /count:\s*"exact"/);
   assert.doesNotMatch(syncBody, /shared_sheet_session_diagnostics/);
-  assertContains(syncBody, ".limit(25)");
+  assertContains(syncBody, "readSafeSyncEvents(supabase, {");
+  assertContains(syncBody, 'domains: ["history", "catalog", "prices"]');
+  assertContains(syncBody, "limit: 25");
+  assertContains(syncBody, "shopId: selectedShop.shopId");
+  assert.doesNotMatch(syncBody, /\.from\("sync_events"\)/);
 });
 
 test("TASK-077 cloud performance harness covers real-shop and fixture datasets", () => {

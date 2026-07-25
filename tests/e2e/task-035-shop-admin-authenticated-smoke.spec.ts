@@ -4,6 +4,7 @@ import { createHash, randomBytes, scrypt } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import type { Database } from "../../src/lib/supabase/database.types";
+import { submitSameOriginLogout } from "./logout-helper";
 
 test.use({
   screenshot: "off",
@@ -1278,7 +1279,7 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         p_device_identifier: fixture.deviceIdentifier,
         p_device_type: "pos",
         p_display_name: fixture.deviceDisplayName,
-        p_metadata: { source: "TASK035_negative_revoked_register" },
+        p_metadata: {},
         p_shop_id: fixture.shopId,
       });
 
@@ -1332,7 +1333,7 @@ test.describe("TASK-035 Shop Admin authenticated smoke harness", () => {
         path: "docs/TASKS/EVIDENCE/TASK-035/browser-shop-overview-authenticated.png",
       });
 
-      await page.goto("/auth/logout");
+      await submitSameOriginLogout(page, "shop-account");
       await page.goto("/shop");
       await expect(
         page.getByRole("heading", {

@@ -23,13 +23,15 @@ import {
   createProductAsStaff,
   createSupplierAsStaff,
   restoreProductAsStaff,
-  runStaffAwareShopAdminMutation,
   updateCatalogProductAssignments,
   updateCategoryAsStaff,
   updateProductAsStaff,
   updateSupplierAsStaff,
   type CatalogProductAssignmentScope,
 } from "./staff-aware-mutations";
+
+const CANONICAL_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 
 type CatalogEntityInput = {
   name: string;
@@ -65,6 +67,10 @@ type ReadyShopActionContext = Extract<
 type StaffReadyShopActionContext = Extract<
   ReadyShopActionContext,
   { principalKind: "pos_staff_manager" }
+>;
+type PersonalReadyShopActionContext = Extract<
+  ReadyShopActionContext,
+  { principalKind: "personal_account" }
 >;
 type CatalogSyncDescriptor = {
   entity: CatalogSyncEntity;
@@ -127,8 +133,12 @@ async function rpcResult(
   requestedShopId: string | undefined,
   permission: "products.write" | "categories.write" | "suppliers.write",
   staffCall: (context: StaffReadyShopActionContext) => Promise<ShopAdminActionResult>,
-  call: (context: ReadyShopActionContext) => PromiseLike<{ data: unknown; error: unknown }>,
+  call: (context: PersonalReadyShopActionContext) => PromiseLike<{
+    data: unknown;
+    error: unknown;
+  }>,
   syncDescriptor?: CatalogSyncDescriptor,
+  expectedTargetId?: string,
 ): Promise<ShopAdminActionResult> {
   const context = await resolveShopActionContext(requestedShopId, permission);
 
@@ -159,10 +169,8 @@ async function rpcResult(
     });
   };
 
-  const staffResult = await runStaffAwareShopAdminMutation(context, staffCall);
-
-  if (staffResult) {
-    return withSyncEvent(staffResult);
+  if (context.principalKind === "pos_staff_manager") {
+    return withSyncEvent(await staffCall(context));
   }
 
   const { data, error } = await call(context);
@@ -174,7 +182,22 @@ async function rpcResult(
     });
   }
 
-  return mapShopAdminRpcResult(data);
+  const result = mapShopAdminRpcResult(data);
+  const resultIsBound =
+    result.shopId === context.selectedShop.shopId &&
+    result.ok === (result.code === "success") &&
+    (!result.ok || (
+      typeof result.targetId === "string" &&
+      CANONICAL_UUID_PATTERN.test(result.targetId) &&
+      (expectedTargetId === undefined || result.targetId === expectedTargetId)
+    ));
+
+  return resultIsBound
+    ? result
+    : shopAdminActionResult("db_failure", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
 }
 
 export async function createSupplier(
@@ -223,6 +246,7 @@ export async function updateSupplier(
         p_supplier_id: input.id,
       }),
     { entity: "supplier", operation: "update" },
+    input.id,
   );
 }
 
@@ -252,6 +276,7 @@ export async function archiveSupplier(
         p_supplier_id: input.id,
       }),
     { entity: "supplier", operation: "archive" },
+    input.id,
   );
 }
 
@@ -301,6 +326,7 @@ export async function updateCategory(
         p_shop_id: context.selectedShop.shopId,
       }),
     { entity: "category", operation: "update" },
+    input.id,
   );
 }
 
@@ -330,6 +356,7 @@ export async function archiveCategory(
         p_shop_id: context.selectedShop.shopId,
       }),
     { entity: "category", operation: "archive" },
+    input.id,
   );
 }
 
@@ -510,6 +537,16 @@ async function archiveCatalogEntityWithStrategy(input: {
 
   if (context.status !== "ready") {
     return context.result;
+  }
+
+  // The relation preflight is not represented by a lease-bound catalog read
+  // operation yet. Keep the staff path fail-closed instead of reintroducing a
+  // generic privileged reader between the staff lease check and mutation.
+  if (context.principalKind === "pos_staff_manager") {
+    return shopAdminActionResult("permission_denied", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
   }
 
   const linkedProducts = await collectLinkedActiveProductIds({
@@ -720,6 +757,7 @@ export async function updateProduct(
         p_supplier_id: cleanUuid(input.supplierId),
       }),
     { entity: "product", operation: "update" },
+    input.productId,
   );
 }
 
@@ -748,6 +786,7 @@ export async function archiveProduct(
         p_shop_id: context.selectedShop.shopId,
       }),
     { entity: "product", operation: "archive" },
+    input.id,
   );
 }
 
@@ -776,5 +815,6 @@ export async function restoreProduct(
         p_shop_id: context.selectedShop.shopId,
       }),
     { entity: "product", operation: "restore" },
+    input.id,
   );
 }

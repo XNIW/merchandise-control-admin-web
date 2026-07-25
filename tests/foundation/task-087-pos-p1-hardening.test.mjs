@@ -146,6 +146,9 @@ test(
       "src/Win7POS.Wpf/Pos/Dialogs/DbMaintenanceViewModel.cs",
     );
     const logger = readWin7PosFile("src/Win7POS.Wpf/Infrastructure/FileLogger.cs");
+    const rotatingLogSink = readWin7PosFile(
+      "src/Win7POS.Core/Logging/RotatingFileLogSink.cs",
+    );
     const readme = readWin7PosFile("README.md");
     const checklist = readWin7PosFile("docs/WIN7_PRODUCTION_SMOKE_CHECKLIST.md");
 
@@ -161,8 +164,22 @@ test(
 
     assertContains(policySnapshot, "pos.policy.contract_version");
     assertContains(policySnapshot, "transfer_payment_not_supported_by_win7pos");
-    assertContains(bootstrap, "PosOnlinePolicySnapshot.SaveAsync(_factory, response.Policy)");
-    assertContains(catalog, "PosOnlinePolicySnapshot.SaveAsync(_factory, response?.Policy)");
+    assertContains(
+      bootstrap,
+      "PosOnlineCompatibilityValidator.ValidatePolicy(response.Policy)",
+    );
+    assertContains(
+      bootstrap,
+      "response.Policy,\n                                    activatedGeneration",
+    );
+    assertContains(
+      catalog,
+      "PosOnlineCompatibilityValidator.ValidateCatalogPull(result.Value)",
+    );
+    assertContains(
+      catalog,
+      "PosOnlinePolicySnapshot.SaveAsync(_factory, response?.Policy, generation)",
+    );
     assertContains(syncStatus, "T(\"sync.requiresAttention\")");
     assertContains(syncStatus, "T(\"sync.blockedSales\")");
     assertContains(syncStatus, "pos.restore.needs_sync_review");
@@ -182,9 +199,10 @@ test(
     assertContains(maintenance, "PosLocalization.T(\"dbMaintenance.restoreSyncReview\")");
     assertContains(workflow, "HasUnresolvedSalesSyncOutboxAsync");
     assertContains(workflow, "PosLocalization.T(\"dbMaintenance.restoreBlockedUnresolvedSales\")");
-    assertContains(logger, "MaxLogBytes");
-    assertContains(logger, "RotateIfNeeded");
-    assertContains(logger, "RetainedLogFiles = 5");
+    assertContains(logger, "ProcessFileLog");
+    assertContains(rotatingLogSink, "DefaultMaxLogBytes");
+    assertContains(rotatingLogSink, "RotateIfNeeded");
+    assertContains(rotatingLogSink, "DefaultRetainedLogFiles = 5");
     assertContains(readme, "Admin Web invia anche una `policy` POS versionata");
     assertContains(readme, "pre-backup `pos_pre_restore_yyyyMMdd_HHmmss.db`");
     assertContains(checklist, "Hardware verification remains `EXTERNAL_NOT_RUN`");

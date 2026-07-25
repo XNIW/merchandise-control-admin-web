@@ -28,10 +28,8 @@ test("TASK-010 Shop Admin read model is server-only and shop-scoped", () => {
   assert.match(readModel, /status: "error"/);
   assert.match(readModel, /\.from\("shops"\)/);
   assert.match(readModel, /\.from\("shop_members"\)/);
-  assert.match(readModel, /\.from\("audit_logs"\)/);
-  assert.match(readModel, /actor_staff_id/);
   assert.match(readModel, /\.eq\("shop_id", selectedShop\.shopId\)/);
-  assert.match(readModel, /\.eq\("scope", "shop"\)/);
+  assert.doesNotMatch(readModel, /\.from\("audit_logs"\)/);
   assert.doesNotMatch(readModel, /user_metadata|raw_user_meta_data/);
   assert.doesNotMatch(readModel, /Promise\.all\s*\(/);
   assert.doesNotMatch(readModel, /\.(insert|update|delete|upsert|rpc)\s*\(/);
@@ -107,11 +105,10 @@ test("TASK-068E inventory read model supports legacy owner-only mobile schema", 
 });
 
 test("TASK-010 Shop Audit read models preserve personal and POS staff actor identity", () => {
-  const readModel = readProjectFile("src/server/shop-admin/read-model.ts");
   const auditReadModel = readProjectFile("src/server/shop-admin/audit-read-model.ts");
   const sectionData = readProjectFile("src/server/shop-admin/shop-section-data.ts");
 
-  for (const source of [readModel, auditReadModel]) {
+  for (const source of [auditReadModel]) {
     assert.match(source, /actor_staff_id/);
     assert.match(source, /actorKind/);
     assert.match(source, /actorStaffId/);
@@ -121,10 +118,9 @@ test("TASK-010 Shop Audit read models preserve personal and POS staff actor iden
     auditReadModel,
     /"audit_log_id,actor_profile_id,actor_staff_id,scope,shop_id,event_key,severity,result,target_type,target_id,metadata_redacted,created_at"/,
   );
-  assert.match(
-    readModel,
-    /"audit_log_id,actor_profile_id,actor_staff_id,scope,shop_id,event_key,severity,result,target_type,target_id,created_at"/,
-  );
+  assert.match(auditReadModel, /\.from\("audit_logs"\)/);
+  assert.match(auditReadModel, /\.eq\("scope", "shop"\)/);
+  assert.match(auditReadModel, /\.eq\("shop_id", selectedShop\.shopId\)/);
   assert.match(sectionData, /function auditActorLabel/);
   assert.match(sectionData, /POS staff \$\{shortId\(log\.actorStaffId\)\}/);
   assert.match(sectionData, /POS staff credential/);

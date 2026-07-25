@@ -568,7 +568,7 @@ test("TASK-138 200-product viewport starts only visible work and remains bounded
     const heapDelta = Math.max(0, heapAfter - heapBefore);
 
     expect(referencedProducts.size).toBeLessThan(200);
-    expect(readBatchSizes.every((size) => size > 0 && size <= 100)).toBe(true);
+    expect(readBatchSizes.every((size) => size > 0 && size <= 16)).toBe(true);
     expect(peakStorage).toBeLessThanOrEqual(4);
     expect(heapDelta).toBeLessThan(96 * 1024 * 1024);
     const cacheEntries = await page.evaluate(async () => {

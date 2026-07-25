@@ -8,7 +8,10 @@ import {
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Database, Json, Tables } from "@/lib/supabase/database.types";
 import { stringifyRedactedJson } from "./history-read-model";
-import { resolveShopAdminDataAccess } from "./data-access";
+import {
+  resolveShopAdminDataAccess,
+  revalidateShopAdminDataAccessForPublish,
+} from "./data-access";
 import type { ShopAdminShellShop } from "./shop-access";
 import type {
   ShopAdminReadModelError,
@@ -378,7 +381,10 @@ function mapRecoveryAction(row: RecoveryActionRow): PosRecoveryAction {
 export async function getShopPosSyncRecoveryReadModel(
   options: GetShopPosSyncRecoveryReadModelOptions = {},
 ): Promise<ShopPosSyncRecoveryReadModel> {
-  const access = await resolveShopAdminDataAccess(options);
+  const access = await resolveShopAdminDataAccess({
+    ...options,
+    requiredPermission: "history.read",
+  });
 
   if (access.status !== "ready") {
     return errorResult(
@@ -387,6 +393,14 @@ export async function getShopPosSyncRecoveryReadModel(
         ? access.status
         : "unauthorized",
       access.reason,
+    );
+  }
+
+  if (access.principalKind !== "personal_account") {
+    return errorResult(
+      null,
+      "unauthorized",
+      "POS recovery reads require a lease-bound staff read operation that is not available for this surface.",
     );
   }
 
@@ -520,6 +534,16 @@ export async function getShopPosSyncRecoveryReadModel(
       .map((staff) => [staff.staff_id, staff]),
   );
   const batchRows = batchesResult.data ?? [];
+
+  if (
+    !(await revalidateShopAdminDataAccessForPublish(access, "history.read"))
+  ) {
+    return errorResult(
+      selectedShop,
+      "unauthorized",
+      "Shop access changed before POS recovery data publication.",
+    );
+  }
 
   return {
     status: "ready",

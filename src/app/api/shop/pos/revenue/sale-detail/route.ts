@@ -71,7 +71,7 @@ export async function GET(request: Request) {
     requiredPermission: "pos.dashboard.read",
   });
 
-  if (access.status !== "ready") {
+  if (access.status !== "ready" || access.principalKind !== "personal_account") {
     return NextResponse.json(
       { code: "unauthorized", ok: false },
       { status: 401 },

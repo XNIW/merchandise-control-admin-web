@@ -4,7 +4,7 @@ create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 select set_config('request.jwt.claim.role', 'service_role', true);
 
-select plan(38);
+select plan(39);
 
 insert into auth.users (
   instance_id, id, aud, role, email, raw_app_meta_data, raw_user_meta_data,
@@ -1160,6 +1160,51 @@ select ok(
   (
     select
       strpos(
+        boundary.definition,
+        'app_private.pos_runtime_lease_is_valid_v1('
+      ) > 0
+      and strpos(
+        boundary.definition,
+        'app_private.pos_runtime_lease_is_valid_v1('
+      ) < strpos(
+        boundary.definition,
+        'public.pos_sales_sync_apply_unchecked_v1('
+      )
+      and strpos(
+        lease.definition,
+        'perform pg_advisory_xact_lock('
+      ) > 0
+      and strpos(
+        lease.definition,
+        'for share'
+      ) > strpos(
+        lease.definition,
+        'perform pg_advisory_xact_lock('
+      )
+      and strpos(
+        lease.definition,
+        'v_checked_at := clock_timestamp();'
+      ) > strpos(
+        lease.definition,
+        'for share'
+      )
+    from (
+      select pg_get_functiondef(
+        'public.pos_sales_sync_apply_v1(uuid,text,uuid,uuid,uuid,text,text,text,text,jsonb,jsonb)'::regprocedure
+      ) as definition
+    ) boundary
+    cross join (
+      select pg_get_functiondef(
+        'app_private.pos_runtime_lease_is_valid_v1(uuid,uuid,uuid,uuid)'::regprocedure
+      ) as definition
+    ) lease
+  ),
+  'sales boundary validates its lease before unchecked writes and lease locks before wall-clock expiry check'
+);
+select ok(
+  (
+    select
+      strpos(
         source.wrapper_definition,
         'for update of session_row, staff, device, credential, shop'
       ) > 0
@@ -1177,14 +1222,14 @@ select ok(
     from (
       select
         pg_get_functiondef(
-          'public.pos_sales_sync_apply_v1(uuid,text,uuid,uuid,uuid,text,text,text,text,jsonb,jsonb)'::regprocedure
+          'public.pos_sales_sync_apply_unchecked_v1(uuid,text,uuid,uuid,uuid,text,text,text,text,jsonb,jsonb)'::regprocedure
         ) as wrapper_definition,
         pg_get_functiondef(
           'public.task140_pos_sales_sync_apply_v1_task137(uuid,text,uuid,uuid,uuid,text,text,text,text,jsonb,jsonb)'::regprocedure
         ) as delegate_definition
-    ) source
+      ) source
   ),
-  'structural source contract wrapper auth locks precede delegated advisory lock'
+  'structural source contract unchecked auth locks precede delegated advisory lock'
 );
 select ok(
   not exists (

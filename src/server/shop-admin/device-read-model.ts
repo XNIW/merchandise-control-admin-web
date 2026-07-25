@@ -2,6 +2,10 @@ import "server-only";
 
 import type { SupabaseServerClient } from "@/lib/supabase/server";
 import type { Tables } from "@/lib/supabase/database.types";
+import {
+  readSafeSyncEvents,
+  type SafeSyncEventRow,
+} from "@/server/sync-events/read-boundary";
 import { resolveShopAdminDataAccess } from "./data-access";
 import type { ShopAdminShellShop } from "./shop-access";
 import type {
@@ -28,16 +32,7 @@ type ShopDeviceRow = Pick<
   | "created_at"
   | "updated_at"
 >;
-type DeviceActivityRow = Pick<
-  Tables<"sync_events">,
-  | "id"
-  | "domain"
-  | "event_type"
-  | "source"
-  | "source_device_id"
-  | "changed_count"
-  | "created_at"
->;
+type DeviceActivityRow = SafeSyncEventRow;
 type InventorySourceRow = Pick<
   Tables<"shop_inventory_sources">,
   "shop_inventory_source_id" | "owner_user_id" | "mapping_state" | "source_kind"
@@ -146,7 +141,11 @@ function mapDeviceActivities(rows: readonly DeviceActivityRow[]) {
   const byDeviceId = new Map<string, ShopDeviceActivity>();
 
   for (const row of rows) {
-    const deviceId = row.source_device_id;
+    const deviceId = row.registeredShopDeviceId
+      ? `registered:${row.registeredShopDeviceId}`
+      : row.sourceDeviceKey
+        ? `key:${row.sourceDeviceKey}`
+        : null;
 
     if (!deviceId) {
       continue;
@@ -156,21 +155,21 @@ function mapDeviceActivities(rows: readonly DeviceActivityRow[]) {
 
     if (!existing) {
       byDeviceId.set(deviceId, {
-        changedCount: row.changed_count,
+        changedCount: row.changedCount,
         eventCount: 1,
         latestDomain: row.domain,
-        latestEventAt: row.created_at,
-        latestEventId: String(row.id),
-        latestEventType: row.event_type,
+        latestEventAt: row.createdAt,
+        latestEventId: row.eventId,
+        latestEventType: row.eventType,
         source: row.source,
-        sourceDeviceId: deviceId,
+        sourceDeviceId: row.sourceDeviceKey ?? "redacted",
       });
       continue;
     }
 
     byDeviceId.set(deviceId, {
       ...existing,
-      changedCount: existing.changedCount + row.changed_count,
+      changedCount: existing.changedCount + row.changedCount,
       eventCount: existing.eventCount + 1,
     });
   }
@@ -184,7 +183,8 @@ function mapDeviceRow(
   profilesById: Map<string, ProfileDisplayRow>,
   staffById: Map<string, StaffDisplayRow>,
 ): ShopDeviceRegistryRow {
-  const syncActivity = activityByIdentifier.get(row.device_identifier) ?? null;
+  const syncActivity =
+    activityByIdentifier.get(`registered:${row.shop_device_id}`) ?? null;
   const profile = row.last_seen_profile_id
     ? profilesById.get(row.last_seen_profile_id)
     : null;
@@ -237,7 +237,10 @@ function mapDetectedSyncClients(
 export async function getShopDeviceReadModel(
   options: GetShopDeviceReadModelOptions = {},
 ): Promise<ShopDeviceReadModel> {
-  const access = await resolveShopAdminDataAccess(options);
+  const access = await resolveShopAdminDataAccess({
+    ...options,
+    requiredPermission: "devices.read",
+  });
 
   if (access.status !== "ready") {
     return {
@@ -249,6 +252,17 @@ export async function getShopDeviceReadModel(
       readOnly: true,
       source: "supabase_server",
       reason: access.reason,
+    };
+  }
+
+  if (access.principalKind !== "personal_account") {
+    return {
+      status: "unauthorized",
+      ...emptyRows,
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Device reads require a lease-bound staff read operation that is not available for this surface.",
     };
   }
 
@@ -283,6 +297,7 @@ export async function getShopDeviceReadModel(
     .select("shop_inventory_source_id,owner_user_id,mapping_state,source_kind")
     .eq("shop_id", selectedShop.shopId)
     .eq("mapping_state", "mapped")
+    .not("verified_at", "is", null)
     .is("disabled_at", null)
     .maybeSingle();
 
@@ -292,21 +307,27 @@ export async function getShopDeviceReadModel(
       : null;
   let activityByIdentifier = new Map<string, ShopDeviceActivity>();
 
-  if (mapping) {
-    const activityResult = await supabase
-      .from("sync_events")
-      .select(
-        "id,domain,event_type,source,source_device_id,changed_count,created_at",
-      )
-      .eq("owner_user_id", mapping.ownerUserId)
-      .not("source_device_id", "is", null)
-      .order("created_at", { ascending: false })
-      .limit(100);
+  const activityResult = await readSafeSyncEvents(supabase, {
+    limit: 100,
+    shopId: selectedShop.shopId,
+  });
 
-    if (!activityResult.error) {
-      activityByIdentifier = mapDeviceActivities(activityResult.data ?? []);
-    }
+  if (activityResult.error) {
+    return {
+      status: "error",
+      selectedShop,
+      mapping,
+      devices: [],
+      detectedSyncClients: [],
+      readOnly: true,
+      source: "supabase_server",
+      reason:
+        "Device sync activity failed the verified shop event boundary.",
+      error: redactDeviceReadModelError(activityResult.error),
+    };
   }
+
+  activityByIdentifier = mapDeviceActivities(activityResult.data.rows);
 
   const profileIds = Array.from(
     new Set(
@@ -351,7 +372,7 @@ export async function getShopDeviceReadModel(
   }
 
   const registeredIdentifiers = new Set(
-    deviceRows.map((row) => row.device_identifier),
+    deviceRows.map((row) => `registered:${row.shop_device_id}`),
   );
 
   return {

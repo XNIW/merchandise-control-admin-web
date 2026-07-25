@@ -4,6 +4,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { spawnSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
+import { submitSameOriginLogout } from "./logout-helper";
 
 test.use({
   screenshot: "off",
@@ -426,7 +427,7 @@ test.describe("TASK-011 shop onboarding live gate", () => {
         throw new Error("BLOCKED_TASK011_AUDIT_VERIFY_FAILED");
       }
 
-      await page.goto("/auth/logout");
+      await submitSameOriginLogout(page, "platform-account");
       await signInWithMagicLink(page, supabase, owner.email, baseURL, "/shop");
 
       if (

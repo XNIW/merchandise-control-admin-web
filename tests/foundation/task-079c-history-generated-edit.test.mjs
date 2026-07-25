@@ -102,28 +102,23 @@ test("TASK-079C generated row edit route remains server-side while TASK-079D own
     "inventory price fallback must validate the referenced product scope",
   );
   assertContains(historyMutations, "updateHistoryEntryGeneratedRows");
-  assertContains(historyMutations, "allowLegacyOwnerBridge");
-  assertContains(historyMutations, 'owner.catalogScope === "legacy_owner_bridge"');
-  assertContains(historyMutations, 'ready.owner.catalogScope === "legacy_owner_bridge"');
-  assert.match(
-    historyMutations,
-    /if \(!input\.allowLegacyOwnerBridge\)[\s\S]*\{ data: null, error: null \}/,
-    "history writers must not use legacy owner bridge unless the selected shop has an explicit mapped source",
-  );
+  assertContains(historyMutations, "resolveHistoryWriteContext(input.requestedShopId)");
+  assertContains(historyMutations, 'resolveShopActionContext(requestedShopId, "history.write")');
+  assertContains(historyMutations, "callStaffWebHistoryMutation");
+  assertContains(historyMutations, "staffHistoryResultIsBound");
+  assert.doesNotMatch(historyMutations, /allowLegacyOwnerBridge/);
+  assert.doesNotMatch(historyMutations, /\.from\("shared_sheet_sessions"\)/);
   assertContains(historyMutations, "parseLocalizedNumberText");
   assertContains(historyMutations, "ensureHistoryGeneratedColumns");
   assertContains(historyMutations, "realQuantity");
   assertContains(historyMutations, "RetailPrice");
   assertContains(historyMutations, "complete");
-  assertContains(historyMutations, "existingResult.data.payload_version !== SESSION_PAYLOAD_VERSION");
+  assertContains(historyMutations, "existing.payload_version !== SESSION_PAYLOAD_VERSION");
   assertContains(historyMutations, "editable[rowIndex][0] = nextCountedQuantity.value");
   assertContains(historyMutations, "editable[rowIndex][1] = nextSalePrice.value");
-  assertContains(historyMutations, "payload_version: SESSION_PAYLOAD_VERSION");
-  assertContains(historyMutations, 'eventType: "history_changed"');
-  assertContains(historyMutations, 'operation_detail: "generated_row_edit"');
-  assertContains(historyMutations, 'source_workflow: "history_detail_generated_screen"');
-  assertContains(historyMutations, "expectedUpdatedAt && expectedUpdatedAt !== existingResult.data.updated_at");
-  assertContains(historyMutations, "Promise.all([");
+  assertContains(historyMutations, "payloadVersion: SESSION_PAYLOAD_VERSION");
+  assertContains(historyMutations, 'staffHistoryMutation(ready.context, "generated_update", writePayload)');
+  assertContains(historyMutations, "expectedUpdatedAt");
   assertContains(detailRoute, "export async function PATCH");
   assertContains(detailRoute, "MAX_HISTORY_DETAIL_PATCH_JSON_BYTES = 64 * 1024");
   assertContains(detailRoute, "guardHistoryDetailPatchRequest(request)");

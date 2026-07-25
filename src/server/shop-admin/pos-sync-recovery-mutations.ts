@@ -5,13 +5,14 @@ import {
   resolveSupabaseAdminConfig,
   type SupabaseAdminClient,
 } from "@/lib/supabase/admin";
-import type { Json, Tables } from "@/lib/supabase/database.types";
+import type { Json } from "@/lib/supabase/database.types";
+import { isCanonicalPostgresUuid } from "@/server/shared/postgres-uuid";
 import {
   resolveShopActionContext,
   shopAdminActionResult,
   type ShopAdminActionResult,
 } from "./action-context";
-import { redactShopAdminJson } from "./history-read-model";
+import { normalizePosSyncRecoveryAuditNote } from "./pos-sync-recovery-note";
 
 export type PosSyncRecoveryActionType =
   | "add_note"
@@ -29,18 +30,6 @@ type PosSyncRecoveryTarget = {
   type: PosSyncRecoveryTargetType;
 };
 
-type ReadyShopActionContext = Extract<
-  Awaited<ReturnType<typeof resolveShopActionContext>>,
-  { status: "ready" }
->;
-
-type ScopedTargetMetadata = {
-  client_batch_id?: string;
-  client_sale_id?: string;
-  movement_key?: string;
-  status?: string;
-};
-
 const allowedActionTypes = new Set<PosSyncRecoveryActionType>([
   "add_note",
   "mark_reviewed",
@@ -52,8 +41,6 @@ const allowedTargetTypes = new Set<PosSyncRecoveryTargetType>([
   "pos_sales_sync_batch",
   "pos_shop",
 ]);
-const MAX_NOTE_LENGTH = 600;
-
 function parseActionType(value: string): PosSyncRecoveryActionType | null {
   const normalized = value.trim();
 
@@ -82,31 +69,7 @@ function parseTargetRef(value: string): PosSyncRecoveryTarget | null {
   };
 }
 
-function normalizeNote(value: string | undefined) {
-  const normalized = (value ?? "")
-    .replace(/[\u0000-\u001f\u007f]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  return normalized.slice(0, MAX_NOTE_LENGTH);
-}
-
-function actorColumns(context: ReadyShopActionContext) {
-  return {
-    actor_profile_id:
-      context.principalKind === "personal_account" ? context.actorProfileId : null,
-    actor_staff_id:
-      context.principalKind === "pos_staff_manager" ? context.actorStaffId : null,
-  };
-}
-
-function adminClientForContext(
-  context: ReadyShopActionContext,
-): SupabaseAdminClient | null {
-  if (context.principalKind === "pos_staff_manager") {
-    return context.supabase;
-  }
-
+function adminClientForContext(): SupabaseAdminClient | null {
   const config = resolveSupabaseAdminConfig();
 
   if (config.status !== "configured") {
@@ -114,70 +77,6 @@ function adminClientForContext(
   }
 
   return createSupabaseAdminClient(config);
-}
-
-async function loadScopedTarget(
-  supabase: SupabaseAdminClient,
-  shopId: string,
-  target: PosSyncRecoveryTarget,
-): Promise<ScopedTargetMetadata | null> {
-  if (target.type === "pos_shop") {
-    return target.id === shopId ? { status: "shop_scoped" } : null;
-  }
-
-  if (target.type === "pos_sales_sync_batch") {
-    const { data, error } = await supabase
-      .from("pos_sales_sync_batches")
-      .select("client_batch_id,status")
-      .eq("shop_id", shopId)
-      .eq("pos_sales_sync_batch_id", target.id)
-      .maybeSingle<Pick<Tables<"pos_sales_sync_batches">, "client_batch_id" | "status">>();
-
-    if (error || !data) {
-      return null;
-    }
-
-    return {
-      client_batch_id: data.client_batch_id,
-      status: data.status,
-    };
-  }
-
-  if (target.type === "pos_sale") {
-    const { data, error } = await supabase
-      .from("pos_sales")
-      .select("client_sale_id,status")
-      .eq("shop_id", shopId)
-      .eq("pos_sale_id", target.id)
-      .maybeSingle<Pick<Tables<"pos_sales">, "client_sale_id" | "status">>();
-
-    if (error || !data) {
-      return null;
-    }
-
-    return {
-      client_sale_id: data.client_sale_id,
-      status: data.status,
-    };
-  }
-
-  const { data, error } = await supabase
-    .from("pos_sale_stock_movements")
-    .select("movement_key,status")
-    .eq("shop_id", shopId)
-    .eq("pos_sale_stock_movement_id", target.id)
-    .maybeSingle<
-      Pick<Tables<"pos_sale_stock_movements">, "movement_key" | "status">
-    >();
-
-  if (error || !data) {
-    return null;
-  }
-
-  return {
-    movement_key: data.movement_key,
-    status: data.status,
-  };
 }
 
 export async function recordPosSyncRecoveryAction(input: {
@@ -195,18 +94,31 @@ export async function recordPosSyncRecoveryAction(input: {
     return context.result;
   }
 
-  const actionType = parseActionType(input.actionType);
-  const target = parseTargetRef(input.targetRef);
-  const note = normalizeNote(input.note);
-
-  if (!actionType || !target || (actionType === "add_note" && !note)) {
-    return shopAdminActionResult("validation_failed", {
+  if (context.principalKind !== "personal_account") {
+    return shopAdminActionResult("permission_denied", {
       ok: false,
       shopId: context.selectedShop.shopId,
     });
   }
 
-  const adminClient = adminClientForContext(context);
+  const actionType = parseActionType(input.actionType);
+  const target = parseTargetRef(input.targetRef);
+  const normalizedNote = normalizePosSyncRecoveryAuditNote(input.note);
+
+  if (
+    !actionType ||
+    !target ||
+    normalizedNote.kind === "rejected" ||
+    (actionType === "add_note" && !normalizedNote.value)
+  ) {
+    return shopAdminActionResult("validation_failed", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+  const note = normalizedNote.value;
+
+  const adminClient = adminClientForContext();
 
   if (!adminClient) {
     return shopAdminActionResult("not_configured", {
@@ -215,49 +127,43 @@ export async function recordPosSyncRecoveryAction(input: {
     });
   }
 
-  const targetMetadata = await loadScopedTarget(
-    adminClient,
-    context.selectedShop.shopId,
-    target,
+  const { data, error } = await adminClient.rpc(
+    "shop_pos_recovery_action_v1",
+    {
+      p_action_type: actionType,
+      p_actor_profile_id: context.actorProfileId,
+      p_note_redacted: note || null,
+      p_shop_id: context.selectedShop.shopId,
+      p_target_id: target.id,
+      p_target_type: target.type,
+    },
   );
 
-  if (!targetMetadata) {
-    return shopAdminActionResult("not_found", {
+  if (error || !data || typeof data !== "object" || Array.isArray(data)) {
+    return shopAdminActionResult("db_failure", {
       ok: false,
       shopId: context.selectedShop.shopId,
     });
   }
 
-  const metadata = redactShopAdminJson({
-    action_type: actionType,
-    actor_kind: context.principalKind,
-    behavior: "append_only_audit_no_sales_stock_outbox_mutation",
-    note_redacted: note || null,
-    request_pos_retry_effect:
-      actionType === "request_pos_retry"
-        ? "audit_only_pos_polling_not_implemented"
-        : "not_requested",
-    source: "admin_web_pos_sync_recovery",
-    target: targetMetadata,
-  } satisfies Record<string, Json>) as Json;
-
-  const { data, error } = await adminClient
-    .from("audit_logs")
-    .insert({
-      ...actorColumns(context),
-      event_key: `pos.sync.recovery.${actionType}.success`,
-      metadata_redacted: metadata,
-      result: "success",
-      scope: "shop",
-      severity: actionType === "request_pos_retry" ? "warning" : "info",
-      shop_id: context.selectedShop.shopId,
-      target_id: target.id,
-      target_type: target.type,
-    })
-    .select("audit_log_id")
-    .maybeSingle<Pick<Tables<"audit_logs">, "audit_log_id">>();
-
-  if (error) {
+  const result = data as Record<string, Json | undefined>;
+  if (result.ok !== true || result.code !== "success") {
+    const code =
+      result.code === "permission_denied" ||
+      result.code === "not_found" ||
+      result.code === "validation_failed"
+        ? result.code
+        : "db_failure";
+    return shopAdminActionResult(code, {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+  if (
+    result.shopId !== context.selectedShop.shopId ||
+    result.targetId !== target.id ||
+    !isCanonicalPostgresUuid(result.auditEventId)
+  ) {
     return shopAdminActionResult("db_failure", {
       ok: false,
       shopId: context.selectedShop.shopId,
@@ -265,7 +171,7 @@ export async function recordPosSyncRecoveryAction(input: {
   }
 
   return shopAdminActionResult("success", {
-    auditEventId: data?.audit_log_id,
+    auditEventId: result.auditEventId,
     ok: true,
     shopId: context.selectedShop.shopId,
     targetId: target.id,

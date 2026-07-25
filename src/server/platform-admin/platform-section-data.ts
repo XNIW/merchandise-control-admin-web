@@ -4375,7 +4375,7 @@ function buildDevices(readModel: PlatformAdminLiveReadModel): PlatformSection {
   ).length;
   const syncSourceIds = new Set(
     readModel.syncEvents
-      .map((event) => event.source_device_id)
+      .map((event) => event.source_device_key)
       .filter((sourceDeviceId): sourceDeviceId is string =>
         Boolean(sourceDeviceId),
       ),
@@ -4396,7 +4396,7 @@ function buildDevices(readModel: PlatformAdminLiveReadModel): PlatformSection {
     guardrails: [
       "This route is an internal diagnostic deep link, not a top-level Master Console destination.",
       "Device authorization comes from shop_devices.",
-      "source_device_id is sync/history attribution only.",
+      "source_device_key is redacted sync/history attribution only.",
       "Daily device management belongs to Admin Console.",
       "Emergency device action requires server RPC, reason, confirmation, and audit.",
     ],
@@ -4488,7 +4488,7 @@ function syncRow(
     event: `${formatToken(event.event_type)} (${event.changed_count})`,
     rowKey: event.sync_event_id,
     shop: shopNameById(readModel.shops, shopId),
-    source: `${event.source ?? "unknown"} / ${event.source_device_id ?? "no source_device_id"}`,
+    source: `${event.source ?? "unknown"} / ${event.source_device_key ?? "no source device key"}`,
   };
 }
 

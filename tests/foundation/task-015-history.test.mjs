@@ -18,15 +18,17 @@ test("TASK-015 mobile history read model is mapped, redacted, and distinct from 
 
   assert.match(readModel, /import "server-only"/);
   assert.match(readModel, /resolveShopAdminDataAccess/);
+  assert.match(readModel, /readSafeSyncEvents/);
   assert.match(readModel, /\.from\("shop_inventory_sources"\)/);
-  assert.match(readModel, /\.from\("sync_events"\)/);
   assert.match(readModel, /\.from\("shared_sheet_sessions"\)/);
   assert.match(readModel, /\.eq\("owner_user_id", legacyOwnerUserId\)/);
-  assert.match(readModel, /\.in\("domain", \["history", "catalog", "prices"\]\)/);
+  assert.match(readModel, /domains: \["history", "catalog", "prices"\]/);
+  assert.match(readModel, /shopId: selectedShop\.shopId/);
   assert.match(readModel, /redactShopAdminJson/);
   assert.doesNotMatch(readModel, /\.from\("audit_logs"\)/);
   assert.doesNotMatch(readModel, /credential_hash|access_token|refresh_token|magic_link/i);
-  assert.doesNotMatch(readModel, /select\("\*"\)|\.(insert|update|delete|upsert|rpc)\s*\(/);
+  assert.doesNotMatch(readModel, /\.from\("sync_events"\)/);
+  assert.doesNotMatch(readModel, /select\("\*"\)|\.(insert|update|delete|upsert)\s*\(/);
 });
 
 test("TASK-015 history route is part of Shop Admin navigation", () => {
@@ -67,19 +69,20 @@ test("TASK-015 history detail is shop-scoped and recursively redacted", () => {
   assert.match(readModel, /parseHistoryEntryId/);
   assert.match(readModel, /try\s*{[\s\S]*decodeURIComponent\(entryId\)/);
   assert.match(readModel, /catch\s*{[\s\S]*kind: "invalid"/);
-  assert.match(readModel, /\.from\("sync_events"\)/);
+  assert.match(readModel, /readSafeSyncEvents\(supabase, \{/);
   assert.match(readModel, /\.from\("shared_sheet_sessions"\)/);
   assert.match(readModel, /\.eq\("owner_user_id", legacyOwnerUserId\)/);
   assert.match(
     readModel,
-    /parsedEntry\.kind === "sync_event"[\s\S]*\.eq\("id", parsedEntry\.value\)[\s\S]*\.in\("domain", \["history", "catalog", "prices"\]\)/,
+    /parsedEntry\.kind === "sync_event"[\s\S]*domains: \["history", "catalog", "prices"\][\s\S]*eventId: parsedEntry\.value[\s\S]*limit: 1[\s\S]*shopId: selectedShop\.shopId/,
   );
   assert.match(readModel, /\.eq\("remote_id", parsedEntry\.value\)/);
   assert.match(readModel, /redactShopAdminJson/);
   assert.match(readModel, /stringifyRedactedJson/);
   assert.doesNotMatch(readModel, /\.from\("audit_logs"\)/);
+  assert.doesNotMatch(readModel, /\.from\("sync_events"\)/);
   assert.doesNotMatch(readModel, /credential_hash|access_token|refresh_token|magic_link/i);
-  assert.doesNotMatch(readModel, /select\("\*"\)|\.(insert|update|delete|upsert|rpc)\s*\(/);
+  assert.doesNotMatch(readModel, /select\("\*"\)|\.(insert|update|delete|upsert)\s*\(/);
 
   assert.match(sectionData, /buildHistoryDetailSection/);
   assert.match(sectionData, /getShopHistoryDetailSectionForRequest/);
