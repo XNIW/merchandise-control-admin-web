@@ -93,7 +93,7 @@ select ok(
         ('SUPABASE_' || 'SERVICE_ROLE_KEY=synthetic-value'),
         ('secret=synthetic-value'),
         ('ghp_syntheticvalue12345678901234567890'),
-        ('sk_live_syntheticvalue123456'),
+        ('sk_' || 'live_' || 'syntheticvalue123456'),
         ('Authorization: Basic dXNlcjpwYXNzd29yZA==')
     ) as sensitive(note)
   ),

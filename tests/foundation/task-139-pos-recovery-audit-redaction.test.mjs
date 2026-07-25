@@ -26,7 +26,11 @@ test("POS recovery audit notes reject bearer, JWT, signed URL and token material
   };
   const sensitiveNotes = [
     "Bearer abcdefghijklmnopqrstuvwxyz012345",
-    "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature12345",
+    [
+      "eyJhbGciOiJIUzI1NiJ9",
+      "eyJzdWIiOiIxMjM0NTY3ODkwIn0",
+      "signature12345",
+    ].join("."),
     "access_token=abcdefghijklmnopqrstuvwxyz",
     "https://user:password@example.invalid/private",
     "https://example.invalid/storage/v1/object/sign/private/file.jpg?token=secretvalue",
