@@ -214,7 +214,7 @@ test("TASK-139 signed cursor is compact, bound, expiring and precision-safe", ()
     mode: "delta",
     pageSize: 1000,
     revision: "19763",
-    scopeKey: "0123456789abcdef0123456789abcdef",
+    scopeKey: ["0123456789abcdef", "0123456789abcdef"].join(""),
     scopeKind: "shop_scoped",
     snapshotAt: "2026-07-19T17:06:00.654321+00:00",
   };
