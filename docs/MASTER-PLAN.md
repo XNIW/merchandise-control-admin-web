@@ -2859,8 +2859,12 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task precedente: `TASK-137 - Product Catalog Images cross-platform` (`REVIEW_WITH_BLOCKERS`, non riaperto e non chiuso)
 - Ultimo task chiuso: `TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness`
 - Ultimo task completato: `TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness`
-- File task corrente: `NESSUNO` (ultimo: `docs/TASKS/TASK-139-pos-catalog-v2-pagination-snapshot.md`)
-- Evidence task corrente: `NESSUNA` (ultima: `docs/TASKS/EVIDENCE/TASK-139/README.md`)
+- Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
+- Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
+- File task corrente: `NESSUNO`
+- Ultimo file task: `docs/TASKS/TASK-139-pos-catalog-v2-pagination-snapshot.md`
+- Evidence task corrente: `NESSUNO`
+- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-139/README.md`
 - Stato task: `DONE`
 - Fase: `DONE`
 - Milestone interna: `TASK_139_FINAL_REVIEW_CLOSED`
