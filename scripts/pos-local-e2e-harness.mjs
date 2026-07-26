@@ -45,7 +45,9 @@ const STAFF_SCRYPT_PARAMS = {
 const STAFF_SCRYPT_MAXMEM = 64 * 1024 * 1024;
 
 const deriveScrypt = promisify(scrypt);
-const baseUrl = new URL(process.env.TASK032_POS_E2E_BASE_URL ?? DEFAULT_BASE_URL);
+const baseUrl = new URL(
+  process.env.TASK032_POS_E2E_BASE_URL ?? DEFAULT_BASE_URL,
+);
 const sensitiveFragments = [
   "https?:\\/\\/[^\\s/@:]+:[^\\s/@]+@",
   "sb_" + "secret_[A-Za-z0-9_-]+",
@@ -188,7 +190,9 @@ function syntheticCode(prefix, runId, maxLength = 32) {
   const availableLength = maxLength - prefix.length;
 
   if (availableLength < 6) {
-    throw new Error(`Synthetic prefix ${prefix} leaves insufficient identifier space.`);
+    throw new Error(
+      `Synthetic prefix ${prefix} leaves insufficient identifier space.`,
+    );
   }
 
   const uniqueSuffix = safeRunId().slice(0, 4);
@@ -229,16 +233,21 @@ function redactProjectRef(value) {
 }
 
 function configuredTestMarker() {
-  return envValue("TASK032_POS_E2E_REQUIRE_TEST_MARKER") || SYNTHETIC_SALES_PREFIX;
+  return (
+    envValue("TASK032_POS_E2E_REQUIRE_TEST_MARKER") || SYNTHETIC_SALES_PREFIX
+  );
 }
 
 function validateRequiredTestMarker() {
   const marker = configuredTestMarker();
 
   if (marker !== SYNTHETIC_SALES_PREFIX) {
-    return datasetBlocked("Test marker must be exactly TASK032 for positive POS E2E.", {
-      marker,
-    });
+    return datasetBlocked(
+      "Test marker must be exactly TASK032 for positive POS E2E.",
+      {
+        marker,
+      },
+    );
   }
 
   return { marker, ok: true };
@@ -263,7 +272,9 @@ function validatePositiveTarget(supabaseUrl) {
   }
 
   if (envValue("TASK032_POS_E2E_ALLOW_STAGING") !== "yes") {
-    return datasetBlocked("Staging POS E2E requires TASK032_POS_E2E_ALLOW_STAGING=yes.");
+    return datasetBlocked(
+      "Staging POS E2E requires TASK032_POS_E2E_ALLOW_STAGING=yes.",
+    );
   }
 
   let parsedBaseUrl;
@@ -274,38 +285,61 @@ function validatePositiveTarget(supabaseUrl) {
   }
 
   const baseHost = parsedBaseUrl.hostname.toLowerCase();
-  const hostAllowlist = splitEnvList(envValue("TASK032_POS_E2E_STAGING_HOST_ALLOWLIST"));
-  const expectedProjectRef = envValue("TASK032_POS_E2E_STAGING_PROJECT_REF")
-    .toLowerCase();
+  const hostAllowlist = splitEnvList(
+    envValue("TASK032_POS_E2E_STAGING_HOST_ALLOWLIST"),
+  );
+  const expectedProjectRef = envValue(
+    "TASK032_POS_E2E_STAGING_PROJECT_REF",
+  ).toLowerCase();
   const actualProjectRef = supabaseProjectRefFromUrl(supabaseUrl);
 
-  if (parsedBaseUrl.protocol !== "https:" || parsedBaseUrl.username || parsedBaseUrl.password) {
-    return datasetBlocked("Staging Admin Web base URL must be HTTPS without URL credentials.");
+  if (
+    parsedBaseUrl.protocol !== "https:" ||
+    parsedBaseUrl.username ||
+    parsedBaseUrl.password
+  ) {
+    return datasetBlocked(
+      "Staging Admin Web base URL must be HTTPS without URL credentials.",
+    );
   }
 
   if (baseHost.endsWith("vercel.app")) {
-    return datasetBlocked("Vercel preview/production hosts are not allowed for POS positive staging E2E.");
+    return datasetBlocked(
+      "Vercel preview/production hosts are not allowed for POS positive staging E2E.",
+    );
   }
 
   if (!hostAllowlist.includes(baseHost)) {
-    return datasetBlocked("Staging Admin Web host is not in TASK032_POS_E2E_STAGING_HOST_ALLOWLIST.", {
-      baseHost,
-    });
+    return datasetBlocked(
+      "Staging Admin Web host is not in TASK032_POS_E2E_STAGING_HOST_ALLOWLIST.",
+      {
+        baseHost,
+      },
+    );
   }
 
   if (!isExplicitNonProductionHostname(baseHost)) {
-    return datasetBlocked("Staging Admin Web host must contain an explicit non-production label.");
+    return datasetBlocked(
+      "Staging Admin Web host must contain an explicit non-production label.",
+    );
   }
 
   if (!/^[a-z0-9-]{6,63}$/.test(expectedProjectRef)) {
-    return datasetBlocked("TASK032_POS_E2E_STAGING_PROJECT_REF is missing or invalid.");
+    return datasetBlocked(
+      "TASK032_POS_E2E_STAGING_PROJECT_REF is missing or invalid.",
+    );
   }
 
   if (actualProjectRef !== expectedProjectRef) {
-    return datasetBlocked("Supabase URL does not match the allowlisted staging project ref.", {
-      expectedProjectRef: redactProjectRef(expectedProjectRef),
-      supabaseProjectRef: actualProjectRef ? redactProjectRef(actualProjectRef) : "unresolved",
-    });
+    return datasetBlocked(
+      "Supabase URL does not match the allowlisted staging project ref.",
+      {
+        expectedProjectRef: redactProjectRef(expectedProjectRef),
+        supabaseProjectRef: actualProjectRef
+          ? redactProjectRef(actualProjectRef)
+          : "unresolved",
+      },
+    );
   }
 
   return {
@@ -359,7 +393,13 @@ function validatePositiveConfig() {
   }
 
   const requiredEnvKeys = requiresStagingTarget
-    ? Array.from(new Set([...POSITIVE_ENV_KEYS, ...STAGING_ENV_KEYS, "TASK032_POS_E2E_BASE_URL"]))
+    ? Array.from(
+        new Set([
+          ...POSITIVE_ENV_KEYS,
+          ...STAGING_ENV_KEYS,
+          "TASK032_POS_E2E_BASE_URL",
+        ]),
+      )
     : POSITIVE_ENV_KEYS;
   const missing = requiredEnvKeys.filter((key) => !envValue(key));
 
@@ -370,11 +410,15 @@ function validatePositiveConfig() {
   }
 
   if (envValue("TASK032_POS_E2E_ALLOW_DATASET_SETUP") !== "yes") {
-    return datasetBlocked("Dataset setup must be explicitly allowed before positive POS E2E.");
+    return datasetBlocked(
+      "Dataset setup must be explicitly allowed before positive POS E2E.",
+    );
   }
 
   if (envValue("TASK032_POS_E2E_ALLOW_CLEANUP") !== "yes") {
-    return datasetBlocked("Cleanup must be explicitly allowed before positive POS E2E.");
+    return datasetBlocked(
+      "Cleanup must be explicitly allowed before positive POS E2E.",
+    );
   }
 
   const markerCheck = validateRequiredTestMarker();
@@ -395,10 +439,14 @@ function validatePositiveConfig() {
     );
   }
 
-  const requestedRunId = normalizeRunId(envValue("TASK032_POS_E2E_TEST_RUN_ID"));
+  const requestedRunId = normalizeRunId(
+    envValue("TASK032_POS_E2E_TEST_RUN_ID"),
+  );
 
   if (target.targetKind === "staging" && !requestedRunId) {
-    return datasetBlocked("Staging POS E2E requires TASK032_POS_E2E_TEST_RUN_ID with at least 6 safe characters.");
+    return datasetBlocked(
+      "Staging POS E2E requires TASK032_POS_E2E_TEST_RUN_ID with at least 6 safe characters.",
+    );
   }
 
   const runId = requestedRunId
@@ -406,10 +454,12 @@ function validatePositiveConfig() {
     : safeRunId();
   const identifierRunId = requestedRunId || runId;
   const shopCode = (
-    envValue("TASK032_POS_E2E_SHOP_CODE") || syntheticCode(SYNTHETIC_SHOP_CODE_PREFIX, identifierRunId)
+    envValue("TASK032_POS_E2E_SHOP_CODE") ||
+    syntheticCode(SYNTHETIC_SHOP_CODE_PREFIX, identifierRunId)
   ).toUpperCase();
   const staffCode = (
-    envValue("TASK032_POS_E2E_STAFF_CODE") || syntheticCode(SYNTHETIC_STAFF_CODE_PREFIX, identifierRunId)
+    envValue("TASK032_POS_E2E_STAFF_CODE") ||
+    syntheticCode(SYNTHETIC_STAFF_CODE_PREFIX, identifierRunId)
   ).toUpperCase();
   const deviceName =
     envValue("TASK032_POS_E2E_DEVICE_NAME") ||
@@ -419,24 +469,36 @@ function validatePositiveConfig() {
     `Task032-POS-${randomBytes(12).toString("base64url")}`;
 
   if (!shopCode.startsWith(SYNTHETIC_SHOP_CODE_PREFIX)) {
-    return datasetBlocked(`Shop code must use ${SYNTHETIC_SHOP_CODE_PREFIX} prefix.`);
+    return datasetBlocked(
+      `Shop code must use ${SYNTHETIC_SHOP_CODE_PREFIX} prefix.`,
+    );
   }
 
   if (!staffCode.startsWith(SYNTHETIC_STAFF_CODE_PREFIX)) {
-    return datasetBlocked(`Staff code must use ${SYNTHETIC_STAFF_CODE_PREFIX} prefix.`);
+    return datasetBlocked(
+      `Staff code must use ${SYNTHETIC_STAFF_CODE_PREFIX} prefix.`,
+    );
   }
 
   if (!deviceName.startsWith(SYNTHETIC_DEVICE_PREFIX)) {
-    return datasetBlocked(`Device name must use ${SYNTHETIC_DEVICE_PREFIX} prefix.`);
+    return datasetBlocked(
+      `Device name must use ${SYNTHETIC_DEVICE_PREFIX} prefix.`,
+    );
   }
 
   if (
     target.targetKind === "staging" &&
-    (!shopCode.startsWith(syntheticRequiredPrefix(SYNTHETIC_SHOP_CODE_PREFIX, requestedRunId)) ||
-      !staffCode.startsWith(syntheticRequiredPrefix(SYNTHETIC_STAFF_CODE_PREFIX, requestedRunId)) ||
+    (!shopCode.startsWith(
+      syntheticRequiredPrefix(SYNTHETIC_SHOP_CODE_PREFIX, requestedRunId),
+    ) ||
+      !staffCode.startsWith(
+        syntheticRequiredPrefix(SYNTHETIC_STAFF_CODE_PREFIX, requestedRunId),
+      ) ||
       !deviceName.toUpperCase().includes(requestedRunId))
   ) {
-    return datasetBlocked("Staging synthetic identifiers must include TASK032_POS_E2E_TEST_RUN_ID.");
+    return datasetBlocked(
+      "Staging synthetic identifiers must include TASK032_POS_E2E_TEST_RUN_ID.",
+    );
   }
 
   if (posCredential.length < 8) {
@@ -461,11 +523,15 @@ function validatePositiveConfig() {
 
 function validateStagingDryRunConfig() {
   if (envValue(STAGING_DRY_RUN_FLAG) !== "yes") {
-    return datasetBlocked("Staging dry-run requires TASK032_POS_E2E_STAGING_DRY_RUN=yes.");
+    return datasetBlocked(
+      "Staging dry-run requires TASK032_POS_E2E_STAGING_DRY_RUN=yes.",
+    );
   }
 
   if (envValue("TASK032_POS_E2E_ENABLE_POSITIVE") !== "yes") {
-    return datasetBlocked("Staging dry-run requires TASK032_POS_E2E_ENABLE_POSITIVE=yes.");
+    return datasetBlocked(
+      "Staging dry-run requires TASK032_POS_E2E_ENABLE_POSITIVE=yes.",
+    );
   }
 
   const missing = STAGING_ENV_KEYS.filter((key) => !envValue(key));
@@ -477,11 +543,15 @@ function validateStagingDryRunConfig() {
   }
 
   if (envValue("TASK032_POS_E2E_ALLOW_DATASET_SETUP") !== "yes") {
-    return datasetBlocked("Dataset setup must be explicitly allowed for staging precheck.");
+    return datasetBlocked(
+      "Dataset setup must be explicitly allowed for staging precheck.",
+    );
   }
 
   if (envValue("TASK032_POS_E2E_ALLOW_CLEANUP") !== "yes") {
-    return datasetBlocked("Cleanup must be explicitly allowed for staging precheck.");
+    return datasetBlocked(
+      "Cleanup must be explicitly allowed for staging precheck.",
+    );
   }
 
   const markerCheck = validateRequiredTestMarker();
@@ -489,9 +559,13 @@ function validateStagingDryRunConfig() {
     return markerCheck;
   }
 
-  const requestedRunId = normalizeRunId(envValue("TASK032_POS_E2E_TEST_RUN_ID"));
+  const requestedRunId = normalizeRunId(
+    envValue("TASK032_POS_E2E_TEST_RUN_ID"),
+  );
   if (!requestedRunId) {
-    return datasetBlocked("Staging dry-run requires TASK032_POS_E2E_TEST_RUN_ID with at least 6 safe characters.");
+    return datasetBlocked(
+      "Staging dry-run requires TASK032_POS_E2E_TEST_RUN_ID with at least 6 safe characters.",
+    );
   }
 
   const target = validatePositiveTarget(envValue("NEXT_PUBLIC_SUPABASE_URL"));
@@ -500,10 +574,15 @@ function validateStagingDryRunConfig() {
   }
 
   if (target.targetKind !== "staging") {
-    return datasetBlocked("Staging dry-run must target an allowlisted non-local staging environment.");
+    return datasetBlocked(
+      "Staging dry-run must target an allowlisted non-local staging environment.",
+    );
   }
 
-  const shopCodePrefix = syntheticRequiredPrefix(SYNTHETIC_SHOP_CODE_PREFIX, requestedRunId);
+  const shopCodePrefix = syntheticRequiredPrefix(
+    SYNTHETIC_SHOP_CODE_PREFIX,
+    requestedRunId,
+  );
 
   return {
     baseHost: target.baseHost,
@@ -544,6 +623,34 @@ function createSupabaseAdmin(config) {
   });
 }
 
+async function buildAuthenticatedFixtureClient(config, email, password) {
+  const client = createClient(config.supabaseUrl, config.serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    global: {
+      headers: {
+        "X-Client-Info":
+          "merchandise-control-admin-web/task-032-authenticated-fixture",
+      },
+    },
+  });
+  const { data, error } = await client.auth.signInWithPassword({
+    email,
+    password,
+  });
+
+  if (error || !data.session) {
+    throw new DatasetSetupError(
+      "Synthetic fixture actor authentication failed.",
+      { error: redactError(error) },
+    );
+  }
+
+  return client;
+}
+
 function staffHashParams() {
   return [
     `n=${STAFF_SCRYPT_PARAMS.N}`,
@@ -575,10 +682,6 @@ async function hashStaffCredential(plaintext) {
 
 function nowIso() {
   return new Date().toISOString();
-}
-
-function legacyTimestamp(date = new Date()) {
-  return date.toISOString().slice(0, 19).replace("T", " ");
 }
 
 function dateOnly(date = new Date()) {
@@ -621,66 +724,17 @@ async function mustOk(label, query) {
   }
 }
 
-async function queryShopIds(client, input = {}) {
-  const query = client.from("shops").select("shop_id,shop_code");
-  let result;
+async function mustAction(label, query) {
+  const { data, error } = await query;
 
-  if (input.shopCode) {
-    result = await query.eq("shop_code", input.shopCode);
-  } else if (input.shopCodeLike) {
-    result = await query.like("shop_code", input.shopCodeLike);
-  } else if (input.allTask032) {
-    result = await query.like("shop_code", `${SYNTHETIC_SHOP_CODE_PREFIX}%`);
-  } else {
-    return [];
-  }
-
-  const { data, error } = result;
-
-  if (error) {
-    throw new DatasetSetupError("Existing synthetic shop lookup failed.", {
+  if (error || data?.ok !== true) {
+    throw new DatasetSetupError(`${label} failed.`, {
+      actionCode: data?.code,
       error: redactError(error),
     });
   }
 
-  return (data ?? []).map((row) => row.shop_id);
-}
-
-async function queryOwnerIdsForShops(client, shopIds) {
-  if (shopIds.length === 0) {
-    return [];
-  }
-
-  const { data, error } = await client
-    .from("shop_inventory_sources")
-    .select("owner_user_id")
-    .in("shop_id", shopIds);
-
-  if (error) {
-    throw new DatasetSetupError("Existing synthetic owner lookup failed.", {
-      error: redactError(error),
-    });
-  }
-
-  return [
-    ...new Set(
-      (data ?? [])
-        .map((row) => row.owner_user_id)
-        .filter((value) => typeof value === "string" && value.length > 0),
-    ),
-  ];
-}
-
-function applySyntheticStaffScope(query, input) {
-  if (input.allTask032) {
-    return query.like("staff_code", `${SYNTHETIC_STAFF_CODE_PREFIX}%`);
-  }
-
-  if (input.staffCodeLike) {
-    return query.like("staff_code", input.staffCodeLike);
-  }
-
-  return query.eq("staff_code", input.staffCode);
+  return data;
 }
 
 async function countSelectedRows(label, query) {
@@ -713,7 +767,9 @@ async function cleanupSyntheticSalesRecords(client, shopId) {
     });
   }
 
-  const batchIds = (batchLookup.data ?? []).map((row) => row.pos_sales_sync_batch_id);
+  const batchIds = (batchLookup.data ?? []).map(
+    (row) => row.pos_sales_sync_batch_id,
+  );
   const saleIds = (saleLookup.data ?? []).map((row) => row.pos_sale_id);
   const summary = {
     immutableLedgerRowsRetained: 0,
@@ -752,12 +808,15 @@ async function cleanupSyntheticSalesRecords(client, shopId) {
 
 async function cleanupSyntheticDataset(client, input) {
   const timestamp = nowIso();
-  const shopIds = input.shopId
-    ? [input.shopId]
-    : await queryShopIds(client, input);
-  const ownerIds = input.ownerUserId
-    ? [input.ownerUserId]
-    : await queryOwnerIdsForShops(client, shopIds);
+  const shopIds = input.shopId ? [input.shopId] : [];
+  const ownerIds = input.ownerUserId ? [input.ownerUserId] : [];
+  const authUserIds = [
+    ...new Set(
+      [input.ownerUserId, input.platformActorId].filter(
+        (value) => typeof value === "string" && value.length > 0,
+      ),
+    ),
+  ];
   const summary = {
     activeCredentialRowsTouched: 0,
     activeDeviceRowsTouched: 0,
@@ -774,78 +833,86 @@ async function cleanupSyntheticDataset(client, input) {
   };
 
   for (const shopId of shopIds) {
-    const actorProfileId =
-      input.ownerUserId ?? (await queryOwnerIdsForShops(client, [shopId]))[0];
-
-    if (!actorProfileId) {
-      throw new DatasetSetupError("Synthetic shop cleanup has no owner actor.");
-    }
-
     const salesCleanup = await cleanupSyntheticSalesRecords(client, shopId);
-    summary.immutableLedgerRowsRetained += salesCleanup.immutableLedgerRowsRetained;
-    summary.immutableSaleLineRowsRetained += salesCleanup.immutableSaleLineRowsRetained;
+    summary.immutableLedgerRowsRetained +=
+      salesCleanup.immutableLedgerRowsRetained;
+    summary.immutableSaleLineRowsRetained +=
+      salesCleanup.immutableSaleLineRowsRetained;
     summary.immutableSaleRowsRetained += salesCleanup.immutableSaleRowsRetained;
     summary.immutableSalesBatchRowsRetained +=
       salesCleanup.immutableSalesBatchRowsRetained;
     summary.immutableStockMovementRowsRetained +=
       salesCleanup.immutableStockMovementRowsRetained;
 
-    const activeSessions = await client
-      .from("pos_sessions")
-      .update({
-        revoked_at: timestamp,
-        revoked_reason: input.reason,
-        status: "revoked",
-        updated_at: timestamp,
-      })
-      .eq("shop_id", shopId)
-      .eq("status", "active")
-      .select("pos_session_id");
-    if (activeSessions.error) {
-      throw new DatasetSetupError("Synthetic session cleanup failed.", {
-        error: redactError(activeSessions.error),
-      });
+    if (input.posSessionId) {
+      const activeSessions = await client
+        .from("pos_sessions")
+        .update({
+          revoked_at: timestamp,
+          revoked_reason: input.reason,
+          status: "revoked",
+          updated_at: timestamp,
+        })
+        .eq("pos_session_id", input.posSessionId)
+        .eq("shop_id", shopId)
+        .eq("status", "active")
+        .select("pos_session_id");
+      if (activeSessions.error) {
+        throw new DatasetSetupError("Synthetic session cleanup failed.", {
+          error: redactError(activeSessions.error),
+        });
+      }
+      summary.activeSessionRowsTouched += activeSessions.data?.length ?? 0;
     }
-    summary.activeSessionRowsTouched += activeSessions.data?.length ?? 0;
 
-    const activeCredentials = await client
-      .from("pos_device_credentials")
-      .update({
-        revoked_at: timestamp,
-        revoked_reason: input.reason,
-        status: "revoked",
-        updated_at: timestamp,
-      })
-      .eq("shop_id", shopId)
-      .eq("status", "active")
-      .select("pos_device_credential_id");
-    if (activeCredentials.error) {
-      throw new DatasetSetupError("Synthetic device credential cleanup failed.", {
-        error: redactError(activeCredentials.error),
-      });
+    if (input.posDeviceCredentialId) {
+      const activeCredentials = await client
+        .from("pos_device_credentials")
+        .update({
+          revoked_at: timestamp,
+          revoked_reason: input.reason,
+          status: "revoked",
+          updated_at: timestamp,
+        })
+        .eq("pos_device_credential_id", input.posDeviceCredentialId)
+        .eq("shop_id", shopId)
+        .eq("status", "active")
+        .select("pos_device_credential_id");
+      if (activeCredentials.error) {
+        throw new DatasetSetupError(
+          "Synthetic device credential cleanup failed.",
+          {
+            error: redactError(activeCredentials.error),
+          },
+        );
+      }
+      summary.activeCredentialRowsTouched +=
+        activeCredentials.data?.length ?? 0;
     }
-    summary.activeCredentialRowsTouched += activeCredentials.data?.length ?? 0;
 
-    const activeDevices = await client
-      .from("shop_devices")
-      .update({
-        revoked_at: timestamp,
-        status: "revoked",
-        updated_at: timestamp,
-      })
-      .eq("shop_id", shopId)
-      .eq("status", "active")
-      .select("shop_device_id");
-    if (activeDevices.error) {
-      throw new DatasetSetupError("Synthetic device cleanup failed.", {
-        error: redactError(activeDevices.error),
-      });
+    if (input.shopDeviceId) {
+      const activeDevices = await client
+        .from("shop_devices")
+        .update({
+          revoked_at: timestamp,
+          status: "revoked",
+          updated_at: timestamp,
+        })
+        .eq("shop_device_id", input.shopDeviceId)
+        .eq("shop_id", shopId)
+        .eq("status", "active")
+        .select("shop_device_id");
+      if (activeDevices.error) {
+        throw new DatasetSetupError("Synthetic device cleanup failed.", {
+          error: redactError(activeDevices.error),
+        });
+      }
+      summary.activeDeviceRowsTouched += activeDevices.data?.length ?? 0;
     }
-    summary.activeDeviceRowsTouched += activeDevices.data?.length ?? 0;
 
-    await mustOk(
-      "Synthetic staff archive",
-      applySyntheticStaffScope(
+    if (input.staffId) {
+      await mustOk(
+        "Synthetic staff archive",
         client
           .from("staff_accounts")
           .update({
@@ -857,72 +924,68 @@ async function cleanupSyntheticDataset(client, input) {
             status: "archived",
             updated_at: timestamp,
           })
+          .eq("staff_id", input.staffId)
           .eq("shop_id", shopId),
-        input,
-      ),
-    );
+      );
+    }
 
-    await mustOk(
-      "Synthetic mapping disable",
-      client
-        .from("shop_inventory_sources")
-        .update({
-          disabled_at: timestamp,
-        })
-        .eq("shop_id", shopId)
-        .is("disabled_at", null),
-    );
+    if (input.mappingId) {
+      await mustOk(
+        "Synthetic mapping disable",
+        client
+          .from("shop_inventory_sources")
+          .update({
+            disabled_at: timestamp,
+          })
+          .eq("shop_inventory_source_id", input.mappingId)
+          .eq("shop_id", shopId)
+          .is("disabled_at", null),
+      );
+    }
 
-    await mustOk(
-      "Synthetic member suspend",
-      client
-        .from("shop_members")
-        .update({
-          membership_status: "suspended",
-          suspended_at: timestamp,
-          updated_at: timestamp,
-        })
-        .eq("shop_id", shopId)
-        .eq("membership_status", "active"),
-    );
+    if (input.memberId) {
+      await mustOk(
+        "Synthetic member suspend",
+        client
+          .from("shop_members")
+          .update({
+            membership_status: "suspended",
+            suspended_at: timestamp,
+            updated_at: timestamp,
+          })
+          .eq("shop_member_id", input.memberId)
+          .eq("shop_id", shopId)
+          .eq("membership_status", "active"),
+      );
+    }
 
-    await mustOk(
-      "Synthetic shop archive",
+    const shopState = await mustSingle(
+      "Synthetic shop cleanup lookup",
       client
         .from("shops")
-        .update({
-          archived_at: timestamp,
-          archived_by_profile_id: actorProfileId,
-          shop_status: "archived",
-          status_reason_redacted: input.reason,
-          status_changed_at: timestamp,
-          status_changed_by_profile_id: actorProfileId,
-          suspended_at: null,
-          suspended_by_profile_id: null,
-          updated_at: timestamp,
-        })
-        .eq("shop_id", shopId),
+        .select("shop_code,shop_status")
+        .eq("shop_id", shopId)
+        .maybeSingle(),
     );
+    if (shopState.shop_status !== "archived") {
+      if (!input.platformClient) {
+        throw new DatasetSetupError(
+          "Synthetic shop cleanup requires its authenticated platform actor.",
+        );
+      }
+      await mustAction(
+        "Synthetic audited shop archive",
+        input.platformClient.rpc("platform_soft_delete_shop", {
+          p_reason: input.reason,
+          p_shop_code_confirmation: shopState.shop_code,
+          p_shop_id: shopId,
+        }),
+      );
+    }
   }
 
   for (const ownerUserId of ownerIds) {
-    const syntheticProducts = await client
-      .from("inventory_products")
-      .select("id")
-      .eq("owner_user_id", ownerUserId)
-      .like("barcode", "TASK032_BARCODE_%");
-
-    if (syntheticProducts.error) {
-      throw new DatasetSetupError("Synthetic price product lookup failed.", {
-        error: redactError(syntheticProducts.error),
-      });
-    }
-
-    const syntheticProductIds = (syntheticProducts.data ?? [])
-      .map((row) => row.id)
-      .filter(Boolean);
-
-    if (syntheticProductIds.length > 0) {
+    if (input.productId) {
       await mustOk(
         "Synthetic price cleanup",
         client
@@ -930,48 +993,72 @@ async function cleanupSyntheticDataset(client, input) {
           .delete()
           .eq("owner_user_id", ownerUserId)
           .eq("source", "TASK-032")
-          .in("product_id", syntheticProductIds),
+          .eq("product_id", input.productId),
       );
     }
 
-    await mustOk(
-      "Synthetic product tombstone",
-      client
-        .from("inventory_products")
-        .update({
-          deleted_at: timestamp,
-          updated_at: timestamp,
-        })
-        .eq("owner_user_id", ownerUserId)
-        .like("barcode", "TASK032_BARCODE_%"),
-    );
+    if (input.productId) {
+      await mustOk(
+        "Synthetic product tombstone",
+        client
+          .from("inventory_products")
+          .update({
+            deleted_at: timestamp,
+            updated_at: timestamp,
+          })
+          .eq("id", input.productId)
+          .eq("owner_user_id", ownerUserId),
+      );
+    }
 
-    await mustOk(
-      "Synthetic category tombstone",
-      client
-        .from("inventory_categories")
-        .update({
-          deleted_at: timestamp,
-          updated_at: timestamp,
-        })
-        .eq("owner_user_id", ownerUserId)
-        .like("name", "TASK032_TEST_CATEGORY_%"),
-    );
+    if (input.categoryId) {
+      await mustOk(
+        "Synthetic category tombstone",
+        client
+          .from("inventory_categories")
+          .update({
+            deleted_at: timestamp,
+            updated_at: timestamp,
+          })
+          .eq("id", input.categoryId)
+          .eq("owner_user_id", ownerUserId),
+      );
+    }
 
-    await mustOk(
-      "Synthetic supplier tombstone",
-      client
-        .from("inventory_suppliers")
-        .update({
-          deleted_at: timestamp,
-          updated_at: timestamp,
-        })
-        .eq("owner_user_id", ownerUserId)
-        .like("name", "TASK032_TEST_SUPPLIER_%"),
-    );
+    if (input.supplierId) {
+      await mustOk(
+        "Synthetic supplier tombstone",
+        client
+          .from("inventory_suppliers")
+          .update({
+            deleted_at: timestamp,
+            updated_at: timestamp,
+          })
+          .eq("id", input.supplierId)
+          .eq("owner_user_id", ownerUserId),
+      );
+    }
+  }
 
+  if (input.platformActorId) {
     await mustOk(
-      "Synthetic profile disable",
+      "Synthetic platform actor revoke",
+      client
+        .from("platform_admins")
+        .update({
+          reason_redacted: input.reason,
+          revoked_at: timestamp,
+          revoked_by_profile_id: input.platformActorId,
+          status: "revoked",
+        })
+        .eq("profile_id", input.platformActorId)
+        .eq("status", "active"),
+    );
+  }
+
+  if (authUserIds.length > 0) {
+    await mustOk(
+      "Synthetic fixture profiles disable",
       client
         .from("profiles")
         .update({
@@ -979,11 +1066,13 @@ async function cleanupSyntheticDataset(client, input) {
           profile_status: "disabled",
           updated_at: timestamp,
         })
-        .eq("profile_id", ownerUserId)
+        .in("profile_id", authUserIds)
         .neq("profile_status", "disabled"),
     );
+  }
 
-    const authDelete = await client.auth.admin.deleteUser(ownerUserId);
+  for (const authUserId of authUserIds) {
+    const authDelete = await client.auth.admin.deleteUser(authUserId, true);
 
     if (authDelete.error) {
       summary.authUsersDeleteSkipped += 1;
@@ -1000,16 +1089,15 @@ async function cleanupSyntheticDataset(client, input) {
 }
 
 async function verifyCleanup(client, input) {
-  const shopIds = input.shopId
-    ? [input.shopId]
-    : await queryShopIds(client, input);
-  const ownerIds = input.ownerUserId
-    ? [input.ownerUserId]
-    : await queryOwnerIdsForShops(client, shopIds);
+  const shopIds = input.shopId ? [input.shopId] : [];
+  const ownerIds = input.ownerUserId ? [input.ownerUserId] : [];
+  const noMatchId = "00000000-0000-0000-0000-000000000000";
   const counts = {
     activeCredentials: 0,
     activeDevices: 0,
+    activeFixtureProfiles: 0,
     activeMappings: 0,
+    activePlatformAdmins: 0,
     activeSessions: 0,
     activeShopMembers: 0,
     activeShops: 0,
@@ -1039,53 +1127,50 @@ async function verifyCleanup(client, input) {
       ledger,
       stockMovements,
     ] = await Promise.all([
-      (input.allTask032
-        ? client
-            .from("shops")
-            .select("shop_id")
-            .like("shop_code", "TASK032_TEST_SHOP_%")
-            .neq("shop_status", "archived")
-        : client
-            .from("shops")
-            .select("shop_id")
-            .eq("shop_code", input.shopCode)
-            .neq("shop_status", "archived")),
+      client
+        .from("shops")
+        .select("shop_id")
+        .eq("shop_id", input.shopId)
+        .neq("shop_status", "archived"),
       client
         .from("staff_accounts")
         .select("staff_id")
-        .in("shop_id", shopIds)
-        .like(
-          "staff_code",
-          input.allTask032
-            ? `${SYNTHETIC_STAFF_CODE_PREFIX}%`
-            : input.staffCodeLike ?? input.staffCode,
-        )
+        .eq("staff_id", input.staffId ?? noMatchId)
+        .eq("shop_id", input.shopId)
         .neq("status", "archived"),
       client
         .from("shop_devices")
         .select("shop_device_id")
-        .in("shop_id", shopIds)
+        .eq("shop_device_id", input.shopDeviceId ?? noMatchId)
+        .eq("shop_id", input.shopId)
         .eq("status", "active"),
       client
         .from("pos_sessions")
         .select("pos_session_id")
-        .in("shop_id", shopIds)
+        .eq("pos_session_id", input.posSessionId ?? noMatchId)
+        .eq("shop_id", input.shopId)
         .eq("status", "active"),
       client
         .from("pos_device_credentials")
         .select("pos_device_credential_id")
-        .in("shop_id", shopIds)
+        .eq(
+          "pos_device_credential_id",
+          input.posDeviceCredentialId ?? noMatchId,
+        )
+        .eq("shop_id", input.shopId)
         .eq("status", "active"),
       client
         .from("shop_inventory_sources")
         .select("shop_inventory_source_id")
-        .in("shop_id", shopIds)
+        .eq("shop_inventory_source_id", input.mappingId ?? noMatchId)
+        .eq("shop_id", input.shopId)
         .eq("mapping_state", "mapped")
         .is("disabled_at", null),
       client
         .from("shop_members")
         .select("shop_member_id")
-        .in("shop_id", shopIds)
+        .eq("shop_member_id", input.memberId ?? noMatchId)
+        .eq("shop_id", input.shopId)
         .eq("membership_status", "active"),
       client
         .from("pos_sales_sync_batches")
@@ -1129,36 +1214,37 @@ async function verifyCleanup(client, input) {
       retainedImmutableStockMovements: stockMovements,
     })) {
       if (result.error) {
-        throw new DatasetSetupError(`Cleanup verification query failed: ${label}.`, {
-          error: redactError(result.error),
-        });
+        throw new DatasetSetupError(
+          `Cleanup verification query failed: ${label}.`,
+          {
+            error: redactError(result.error),
+          },
+        );
       }
       counts[label] = result.data?.length ?? 0;
     }
   }
 
-  const ownerScopes = input.allTask032 ? [null] : ownerIds;
-
-  for (const ownerUserId of ownerScopes) {
-    const productQuery = client
-      .from("inventory_products")
-      .select("id")
-      .like("barcode", "TASK032_BARCODE_%")
-      .is("deleted_at", null);
-    const categoryQuery = client
-      .from("inventory_categories")
-      .select("id")
-      .like("name", "TASK032_TEST_CATEGORY_%")
-      .is("deleted_at", null);
-    const supplierQuery = client
-      .from("inventory_suppliers")
-      .select("id")
-      .like("name", "TASK032_TEST_SUPPLIER_%")
-      .is("deleted_at", null);
+  for (const ownerUserId of ownerIds) {
     const [products, categories, suppliers] = await Promise.all([
-      ownerUserId ? productQuery.eq("owner_user_id", ownerUserId) : productQuery,
-      ownerUserId ? categoryQuery.eq("owner_user_id", ownerUserId) : categoryQuery,
-      ownerUserId ? supplierQuery.eq("owner_user_id", ownerUserId) : supplierQuery,
+      client
+        .from("inventory_products")
+        .select("id")
+        .eq("id", input.productId ?? noMatchId)
+        .eq("owner_user_id", ownerUserId)
+        .is("deleted_at", null),
+      client
+        .from("inventory_categories")
+        .select("id")
+        .eq("id", input.categoryId ?? noMatchId)
+        .eq("owner_user_id", ownerUserId)
+        .is("deleted_at", null),
+      client
+        .from("inventory_suppliers")
+        .select("id")
+        .eq("id", input.supplierId ?? noMatchId)
+        .eq("owner_user_id", ownerUserId)
+        .is("deleted_at", null),
     ]);
 
     for (const [label, result] of Object.entries({
@@ -1167,11 +1253,50 @@ async function verifyCleanup(client, input) {
       activeTestSuppliers: suppliers,
     })) {
       if (result.error) {
-        throw new DatasetSetupError(`Cleanup verification query failed: ${label}.`, {
-          error: redactError(result.error),
-        });
+        throw new DatasetSetupError(
+          `Cleanup verification query failed: ${label}.`,
+          {
+            error: redactError(result.error),
+          },
+        );
       }
       counts[label] += result.data?.length ?? 0;
+    }
+  }
+
+  const fixtureProfileIds = [
+    ...new Set(
+      [input.ownerUserId, input.platformActorId].filter(
+        (value) => typeof value === "string" && value.length > 0,
+      ),
+    ),
+  ];
+  if (fixtureProfileIds.length > 0) {
+    const [profiles, platformAdmins] = await Promise.all([
+      client
+        .from("profiles")
+        .select("profile_id")
+        .in("profile_id", fixtureProfileIds)
+        .eq("profile_status", "active"),
+      client
+        .from("platform_admins")
+        .select("platform_admin_id")
+        .in("profile_id", fixtureProfileIds)
+        .eq("status", "active")
+        .is("revoked_at", null),
+    ]);
+
+    for (const [label, result] of Object.entries({
+      activeFixtureProfiles: profiles,
+      activePlatformAdmins: platformAdmins,
+    })) {
+      if (result.error) {
+        throw new DatasetSetupError(
+          `Cleanup verification query failed: ${label}.`,
+          { error: redactError(result.error) },
+        );
+      }
+      counts[label] = result.data?.length ?? 0;
     }
   }
 
@@ -1182,36 +1307,25 @@ async function verifyCleanup(client, input) {
   return {
     counts,
     ok: activeLeftovers === 0,
-    status: activeLeftovers === 0 ? "CLEANUP_VERIFIED" : "CLEANUP_LEFTOVERS_FOUND",
+    status:
+      activeLeftovers === 0 ? "CLEANUP_VERIFIED" : "CLEANUP_LEFTOVERS_FOUND",
   };
 }
 
-async function setupSyntheticDataset(client, config) {
+async function setupSyntheticDataset(client, config, lifecycle) {
   const runId = config.runId;
-  const timestamp = nowIso();
   const ownerEmail = `task032-test-${runId.toLowerCase()}@example.invalid`;
-  const generatedAuthSecret = randomBytes(24).toString("base64url");
-
-  await cleanupSyntheticDataset(
-    client,
-    config.targetKind === "staging"
-      ? {
-          reason: "task032_pre_setup_cleanup",
-          shopCodeLike: `${syntheticRequiredPrefix(SYNTHETIC_SHOP_CODE_PREFIX, config.testRunId)}%`,
-          staffCodeLike: `${syntheticRequiredPrefix(SYNTHETIC_STAFF_CODE_PREFIX, config.testRunId)}%`,
-        }
-      : {
-          allTask032: true,
-          reason: "task032_pre_setup_cleanup",
-        },
-  );
+  const platformEmail = `task032-platform-${runId.toLowerCase()}@example.invalid`;
+  const ownerAuthSecret = randomBytes(24).toString("base64url");
+  const platformAuthSecret = randomBytes(24).toString("base64url");
 
   const userResult = await client.auth.admin.createUser({
     email: ownerEmail,
     email_confirm: true,
-    password: generatedAuthSecret,
+    password: ownerAuthSecret,
     user_metadata: {
       source: "TASK-032",
+      test_run_id: config.testRunId,
     },
   });
 
@@ -1222,6 +1336,26 @@ async function setupSyntheticDataset(client, config) {
   }
 
   const ownerUserId = userResult.data.user.id;
+  lifecycle.ownerUserId = ownerUserId;
+  const platformUserResult = await client.auth.admin.createUser({
+    email: platformEmail,
+    email_confirm: true,
+    password: platformAuthSecret,
+    user_metadata: {
+      source: "TASK-032",
+      test_run_id: config.testRunId,
+    },
+  });
+
+  if (platformUserResult.error || !platformUserResult.data.user) {
+    throw new DatasetSetupError(
+      "Synthetic platform auth user creation failed.",
+      { error: redactError(platformUserResult.error) },
+    );
+  }
+
+  const platformActorId = platformUserResult.data.user.id;
+  lifecycle.platformActorId = platformActorId;
   const categoryName = `TASK032_TEST_CATEGORY_${runId}`;
   const supplierName = `TASK032_TEST_SUPPLIER_${runId}`;
   const productBarcode = `TASK032_BARCODE_${runId}`;
@@ -1229,157 +1363,126 @@ async function setupSyntheticDataset(client, config) {
   const staffHash = await hashStaffCredential(config.posCredential);
 
   await mustOk(
-    "Synthetic profile upsert",
+    "Synthetic fixture profiles upsert",
     client.from("profiles").upsert(
-      {
-        display_name: `TASK032_TEST_OWNER_${runId}`,
-        profile_id: ownerUserId,
-        profile_status: "active",
-      },
+      [
+        {
+          display_name: `TASK032_TEST_OWNER_${runId}`,
+          profile_id: ownerUserId,
+          profile_status: "active",
+        },
+        {
+          display_name: `TASK032_TEST_PLATFORM_${runId}`,
+          profile_id: platformActorId,
+          profile_status: "active",
+        },
+      ],
       { onConflict: "profile_id" },
     ),
   );
 
-  const shop = await mustSingle(
-    "Synthetic shop insert",
-    client
-      .from("shops")
-      .insert({
-        created_by_profile_id: ownerUserId,
-        shop_code: config.shopCode,
-        shop_name: `TASK032_TEST_SHOP_${runId}`,
-        shop_status: "active",
-      })
-      .select("shop_id,shop_code")
-      .maybeSingle(),
-  );
-
   await mustOk(
-    "Synthetic shop member insert",
-    client.from("shop_members").insert({
-      membership_status: "active",
-      profile_id: ownerUserId,
-      role_key: "shop_owner",
-      shop_id: shop.shop_id,
+    "Synthetic platform fixture bootstrap",
+    client.from("platform_admins").insert({
+      granted_by_profile_id: platformActorId,
+      profile_id: platformActorId,
+      reason_redacted: "TASK-032 isolated POS harness fixture",
+      status: "active",
     }),
   );
 
-  const staff = await mustSingle(
-    "Synthetic staff insert",
-    client
-      .from("staff_accounts")
-      .insert({
-        credential_hash: staffHash,
-        credential_kind: "password",
-        credential_status: "active",
-        credential_updated_at: timestamp,
-        credential_version: 1,
-        display_name: `TASK032_POS_STAFF_${runId}`,
-        failed_attempts: 0,
-        must_change_credential: false,
-        role_key: "cashier",
-        shop_id: shop.shop_id,
-        staff_code: config.staffCode,
-        status: "active",
-      })
-      .select("staff_id,staff_code")
-      .maybeSingle(),
+  const platformClient = await buildAuthenticatedFixtureClient(
+    config,
+    platformEmail,
+    platformAuthSecret,
   );
-
-  await mustOk(
-    "Synthetic inventory source insert",
-    client.from("shop_inventory_sources").insert({
-      mapping_state: "mapped",
-      owner_user_id: ownerUserId,
-      shop_id: shop.shop_id,
-      source_kind: "mobile_owner",
-      verified_at: timestamp,
-      verified_by_profile_id: ownerUserId,
+  lifecycle.platformClient = platformClient;
+  const shopAction = await mustAction(
+    "Synthetic audited shop create",
+    platformClient.rpc("platform_create_shop", {
+      p_owner_profile_id: ownerUserId,
+      p_reason: "TASK-032 isolated POS harness fixture",
+      p_shop_code: config.shopCode,
+      p_shop_name: `TASK032_TEST_SHOP_${runId}`,
     }),
   );
-
-  const supplier = await mustSingle(
-    "Synthetic supplier insert",
+  const shopId = shopAction.shop_id;
+  if (typeof shopId !== "string" || shopId.length === 0) {
+    throw new DatasetSetupError(
+      "Synthetic audited shop create returned no shop id.",
+    );
+  }
+  lifecycle.shopId = shopId;
+  const ownerMember = await mustSingle(
+    "Synthetic owner membership lookup",
     client
-      .from("inventory_suppliers")
-      .insert({
-        name: supplierName,
-        owner_user_id: ownerUserId,
-      })
-      .select("id,name")
+      .from("shop_members")
+      .select("shop_member_id")
+      .eq("shop_id", shopId)
+      .eq("profile_id", ownerUserId)
       .maybeSingle(),
   );
+  lifecycle.memberId = ownerMember.shop_member_id;
 
-  const category = await mustSingle(
-    "Synthetic category insert",
-    client
-      .from("inventory_categories")
-      .insert({
-        name: categoryName,
-        owner_user_id: ownerUserId,
-      })
-      .select("id,name")
-      .maybeSingle(),
+  const ownerClient = await buildAuthenticatedFixtureClient(
+    config,
+    ownerEmail,
+    ownerAuthSecret,
   );
+  const staffAction = await mustAction(
+    "Synthetic audited staff create",
+    ownerClient.rpc("shop_staff_create", {
+      p_credential_expires_at: null,
+      p_credential_hash: staffHash,
+      p_credential_kind: "password",
+      p_display_name: `TASK032_POS_STAFF_${runId}`,
+      p_role_key: "cashier",
+      p_shop_id: shopId,
+      p_staff_code: config.staffCode,
+    }),
+  );
+  const staffId = staffAction.target_id;
+  if (typeof staffId !== "string" || staffId.length === 0) {
+    throw new DatasetSetupError(
+      "Synthetic audited staff create returned no staff id.",
+    );
+  }
+  lifecycle.staffId = staffId;
 
-  const product = await mustSingle(
-    "Synthetic product insert",
-    client
-      .from("inventory_products")
-      .insert({
-        barcode: productBarcode,
-        category_id: category.id,
-        item_number: `TASK032_ITEM_${runId}`,
-        owner_user_id: ownerUserId,
-        product_name: productName,
-        purchase_price: 10.5,
-        retail_price: 15.75,
-        stock_quantity: 7,
-        supplier_id: supplier.id,
-      })
-      .select("id,barcode,product_name")
-      .maybeSingle(),
+  const mappingAction = await mustAction(
+    "Synthetic audited inventory source map",
+    platformClient.rpc("platform_map_shop_inventory_source", {
+      p_owner_user_id: ownerUserId,
+      p_reason: "TASK-032 isolated POS harness fixture",
+      p_shop_id: shopId,
+    }),
   );
-
-  await mustOk(
-    "Synthetic price insert",
-    client.from("inventory_product_prices").insert([
-      {
-        created_at: legacyTimestamp(),
-        effective_at: legacyTimestamp(),
-        id: randomUUID(),
-        owner_user_id: ownerUserId,
-        price: 10.5,
-        product_id: product.id,
-        source: "TASK-032",
-        type: "PURCHASE",
-      },
-      {
-        created_at: legacyTimestamp(),
-        effective_at: legacyTimestamp(),
-        id: randomUUID(),
-        owner_user_id: ownerUserId,
-        price: 15.75,
-        product_id: product.id,
-        source: "TASK-032",
-        type: "RETAIL",
-      },
-    ]),
-  );
+  const mappingId = mappingAction.shop_inventory_source_id;
+  if (typeof mappingId !== "string" || mappingId.length === 0) {
+    throw new DatasetSetupError(
+      "Synthetic audited inventory source map returned no mapping id.",
+    );
+  }
+  lifecycle.mappingId = mappingId;
 
   return {
-    categoryId: category.id,
+    categoryId: null,
     categoryName,
+    mappingId,
+    memberId: ownerMember.shop_member_id,
     ownerUserId,
+    posDeviceCredentialId: null,
+    posSessionId: null,
     productBarcode,
-    productId: product.id,
+    productId: null,
     productName,
     runId,
-    shopCode: shop.shop_code,
-    shopId: shop.shop_id,
-    staffCode: staff.staff_code,
-    staffId: staff.staff_id,
-    supplierId: supplier.id,
+    shopCode: config.shopCode,
+    shopDeviceId: null,
+    shopId,
+    staffCode: config.staffCode,
+    staffId,
+    supplierId: null,
     supplierName,
   };
 }
@@ -1411,7 +1514,8 @@ async function postJson(path, body) {
     noStore: (response.headers.get("Cache-Control") ?? "")
       .toLowerCase()
       .includes("no-store"),
-    requestId: response.headers.get("X-Request-Id") ?? parsedBody?.requestId ?? "",
+    requestId:
+      response.headers.get("X-Request-Id") ?? parsedBody?.requestId ?? "",
     status: response.status,
     text,
   };
@@ -1445,7 +1549,8 @@ async function postSalesJson(body) {
     noStore: (response.headers.get("Cache-Control") ?? "")
       .toLowerCase()
       .includes("no-store"),
-    requestId: response.headers.get("X-Request-Id") ?? parsedBody?.requestId ?? "",
+    requestId:
+      response.headers.get("X-Request-Id") ?? parsedBody?.requestId ?? "",
     status: response.status,
     text,
   };
@@ -1475,7 +1580,8 @@ async function runNegativeCase(testCase) {
   const statusOk = response.status >= 400 && response.status < 600;
   const noStore = cacheControl.toLowerCase().includes("no-store");
   const redacted = !sensitiveTextPattern.test(text);
-  const requestId = response.headers.get("X-Request-Id") ?? parsedBody?.requestId ?? "";
+  const requestId =
+    response.headers.get("X-Request-Id") ?? parsedBody?.requestId ?? "";
   const requestIdOk = /^posreq_[0-9a-f-]{36}$/i.test(requestId);
 
   return {
@@ -1492,9 +1598,12 @@ async function runNegativeCase(testCase) {
 
 function assertNoStore(label, result) {
   if (!result.noStore) {
-    throw new E2EAssertionError(`${label} did not return Cache-Control no-store.`, {
-      status: result.status,
-    });
+    throw new E2EAssertionError(
+      `${label} did not return Cache-Control no-store.`,
+      {
+        status: result.status,
+      },
+    );
   }
 }
 
@@ -1576,11 +1685,14 @@ function parseSalesSyncSuccess(result, label, expectedStatus) {
     result.body.ok !== true ||
     result.body.batch?.status !== expectedStatus
   ) {
-    throw new E2EAssertionError(`${label} did not return expected sales status.`, {
-      code: result.body?.code,
-      status: result.status,
-      syncStatus: result.body?.batch?.status,
-    });
+    throw new E2EAssertionError(
+      `${label} did not return expected sales status.`,
+      {
+        code: result.body?.code,
+        status: result.status,
+        syncStatus: result.body?.batch?.status,
+      },
+    );
   }
 
   return result.body;
@@ -1589,11 +1701,18 @@ function parseSalesSyncSuccess(result, label, expectedStatus) {
 function parseSalesSyncConflict(result) {
   assertNoStore("sales conflict", result);
 
-  if (result.status !== 409 || result.body?.ok !== false || result.body?.code !== "conflict") {
-    throw new E2EAssertionError("Sales conflict check did not return stable 409 conflict.", {
-      code: result.body?.code,
-      status: result.status,
-    });
+  if (
+    result.status !== 409 ||
+    result.body?.ok !== false ||
+    result.body?.code !== "conflict"
+  ) {
+    throw new E2EAssertionError(
+      "Sales conflict check did not return stable 409 conflict.",
+      {
+        code: result.body?.code,
+        status: result.status,
+      },
+    );
   }
 
   return true;
@@ -1604,7 +1723,7 @@ async function verifySalesPersistence(client, dataset, sale) {
     .from("inventory_products")
     .select("stock_quantity")
     .eq("id", dataset.productId)
-    .eq("owner_user_id", dataset.ownerUserId)
+    .eq("shop_id", dataset.shopId)
     .maybeSingle();
   const salesResult = await client
     .from("pos_sales")
@@ -1697,9 +1816,12 @@ function parseFirstLoginSuccess(result) {
     typeof body.session?.posSessionId !== "string" ||
     typeof body.device?.shopDeviceId !== "string"
   ) {
-    throw new MalformedResponseError("POS first login success response is malformed.", {
-      status: result.status,
-    });
+    throw new MalformedResponseError(
+      "POS first login success response is malformed.",
+      {
+        status: result.status,
+      },
+    );
   }
 
   return body;
@@ -1736,10 +1858,13 @@ function parseCatalogSuccess(result, label) {
     !Array.isArray(result.body.catalog.suppliers) ||
     !result.body.catalog.tombstones
   ) {
-    throw new E2EAssertionError(`${label} did not return a valid catalog payload.`, {
-      code: result.body?.code,
-      status: result.status,
-    });
+    throw new E2EAssertionError(
+      `${label} did not return a valid catalog payload.`,
+      {
+        code: result.body?.code,
+        status: result.status,
+      },
+    );
   }
 
   return result.body;
@@ -1754,8 +1879,208 @@ function authPayload(session) {
   };
 }
 
+function catalogImportPayload(dataset, auth) {
+  const clientItemId = `TASK032_ITEM_${dataset.runId}`;
+
+  return {
+    ...auth,
+    appVersion: "TASK-032-local",
+    batch: {
+      attemptCount: 1,
+      clientImportId: `TASK032_IMPORT_${dataset.runId}`,
+      createdAt: nowIso(),
+      idempotencyKey: `TASK032_IMPORT_IDEM_${dataset.runId}`,
+      sourceFileName: `task032-${dataset.runId}.xlsx`,
+    },
+    items: [
+      {
+        barcode: dataset.productBarcode,
+        category: dataset.categoryName,
+        changeKind: "new",
+        clientItemId,
+        itemNumber: `TASK032_ITEM_NO_${dataset.runId}`,
+        productName: dataset.productName,
+        purchasePrice: 10.5,
+        quantity: 7,
+        retailPrice: 15.75,
+        rowNumber: 1,
+        supplier: dataset.supplierName,
+      },
+    ],
+    payloadHash: `task032_payload_hash_${dataset.runId}`,
+    schemaVersion: "pos-catalog-import-v1",
+    shopCode: dataset.shopCode,
+    shopDeviceId: auth.shopDeviceId,
+    source: "supplier_excel",
+    summary: {
+      newProducts: 1,
+      noChangeRows: 0,
+      skippedRows: 0,
+      updatedProducts: 0,
+      warningCount: 0,
+    },
+  };
+}
+
+function parseCatalogImportSuccess(result, dataset) {
+  assertNoStore("catalog import", result);
+
+  const remoteProductId = result.body?.remoteProductIds?.[0]?.remoteProductId;
+  if (
+    result.status !== 200 ||
+    result.body?.ok !== true ||
+    result.body?.batch?.status !== "accepted" ||
+    result.body?.batch?.clientImportId !== `TASK032_IMPORT_${dataset.runId}` ||
+    typeof remoteProductId !== "string" ||
+    result.body?.remoteProductIds?.length !== 1 ||
+    result.body?.remotePriceIds?.length < 2
+  ) {
+    throw new E2EAssertionError(
+      "Catalog import did not return the canonical accepted contract.",
+      {
+        batchStatus: result.body?.batch?.status,
+        code: result.body?.code,
+        remotePriceCount: result.body?.remotePriceIds?.length ?? 0,
+        remoteProductCount: result.body?.remoteProductIds?.length ?? 0,
+        status: result.status,
+      },
+    );
+  }
+
+  return {
+    remotePriceCount: result.body.remotePriceIds.length,
+    remoteProductId,
+    status: result.status,
+  };
+}
+
+async function loadImportedDatasetIds(client, dataset, remoteProductId) {
+  const [product, category, supplier] = await Promise.all([
+    mustSingle(
+      "Synthetic imported product lookup",
+      client
+        .from("inventory_products")
+        .select("id")
+        .eq("shop_id", dataset.shopId)
+        .eq("barcode", dataset.productBarcode)
+        .maybeSingle(),
+    ),
+    mustSingle(
+      "Synthetic imported category lookup",
+      client
+        .from("inventory_categories")
+        .select("id")
+        .eq("shop_id", dataset.shopId)
+        .eq("name", dataset.categoryName)
+        .maybeSingle(),
+    ),
+    mustSingle(
+      "Synthetic imported supplier lookup",
+      client
+        .from("inventory_suppliers")
+        .select("id")
+        .eq("shop_id", dataset.shopId)
+        .eq("name", dataset.supplierName)
+        .maybeSingle(),
+    ),
+  ]);
+
+  if (product.id !== remoteProductId) {
+    throw new E2EAssertionError(
+      "Catalog import response product id does not match persisted product.",
+    );
+  }
+
+  dataset.categoryId = category.id;
+  dataset.productId = product.id;
+  dataset.supplierId = supplier.id;
+}
+
+async function pullCompleteCatalog(auth) {
+  const aggregate = {
+    categories: [],
+    prices: [],
+    products: [],
+    suppliers: [],
+    tombstones: {
+      categories: [],
+      products: [],
+      suppliers: [],
+    },
+  };
+  let invariant = null;
+  let pageCount = 0;
+  let syncCursor = "";
+  let firstPage = null;
+
+  do {
+    pageCount += 1;
+    if (pageCount > 20) {
+      throw new E2EAssertionError(
+        "Catalog full pull exceeded the bounded page count.",
+      );
+    }
+
+    const result = await postJson("/api/pos/catalog/pull", {
+      ...auth,
+      appVersion: "TASK-032-local",
+      limit: 25,
+      ...(syncCursor ? { syncCursor } : {}),
+    });
+    const page = parseCatalogSuccess(
+      result,
+      `catalog full pull page ${pageCount}`,
+    );
+    firstPage ??= page;
+    const currentInvariant = JSON.stringify({
+      catalogRevision: page.catalogRevision,
+      catalogSummary: page.catalogSummary,
+      snapshotAt: page.snapshotAt,
+      syncMode: page.syncMode,
+    });
+    invariant ??= currentInvariant;
+    if (currentInvariant !== invariant) {
+      throw new E2EAssertionError(
+        "Catalog full pull snapshot changed across continuation pages.",
+      );
+    }
+
+    aggregate.categories.push(...page.catalog.categories);
+    aggregate.prices.push(...(page.catalog.prices ?? []));
+    aggregate.products.push(...page.catalog.products);
+    aggregate.suppliers.push(...page.catalog.suppliers);
+    aggregate.tombstones.categories.push(
+      ...(page.catalog.tombstones.categories ?? []),
+    );
+    aggregate.tombstones.products.push(
+      ...(page.catalog.tombstones.products ?? []),
+    );
+    aggregate.tombstones.suppliers.push(
+      ...(page.catalog.tombstones.suppliers ?? []),
+    );
+
+    if (page.hasMore !== true) {
+      syncCursor = "";
+      break;
+    }
+    syncCursor = typeof page.syncCursor === "string" ? page.syncCursor : "";
+    if (!syncCursor.startsWith("catalog-v2:")) {
+      throw new E2EAssertionError(
+        "Catalog full pull continuation cursor is missing.",
+      );
+    }
+  } while (syncCursor);
+
+  return {
+    ...firstPage,
+    catalog: aggregate,
+    pageCount,
+  };
+}
+
 function redactPositiveResult(input) {
   return {
+    catalogImport: input.catalogImport,
     catalogFull: input.catalogFull,
     heartbeat: input.heartbeat,
     malformedResponseGuard: input.malformedResponseGuard,
@@ -1781,6 +2106,20 @@ async function runPositiveE2E(client, config, dataset) {
   });
   const firstLogin = parseFirstLoginSuccess(firstLoginResult);
   const auth = authPayload(firstLogin);
+  dataset.shopDeviceId = auth.shopDeviceId;
+  dataset.posSessionId = auth.posSessionId;
+  const persistedSession = await mustSingle(
+    "Synthetic POS session exact-ID lookup",
+    client
+      .from("pos_sessions")
+      .select("pos_device_credential_id")
+      .eq("pos_session_id", auth.posSessionId)
+      .eq("shop_device_id", auth.shopDeviceId)
+      .eq("shop_id", dataset.shopId)
+      .eq("staff_id", dataset.staffId)
+      .maybeSingle(),
+  );
+  dataset.posDeviceCredentialId = persistedSession.pos_device_credential_id;
 
   const heartbeatResult = await postJson("/api/pos/session/heartbeat", {
     ...auth,
@@ -1788,128 +2127,92 @@ async function runPositiveE2E(client, config, dataset) {
   });
   const heartbeat = parseHeartbeatSuccess(heartbeatResult);
 
-  const fullCatalogResult = await postJson("/api/pos/catalog/pull", {
-    ...auth,
-    limit: 25,
-  });
-  const fullCatalog = parseCatalogSuccess(fullCatalogResult, "catalog full pull");
+  const catalogImportResult = await postJson(
+    "/api/pos/catalog/import-sync",
+    catalogImportPayload(dataset, auth),
+  );
+  const catalogImport = parseCatalogImportSuccess(catalogImportResult, dataset);
+  await loadImportedDatasetIds(client, dataset, catalogImport.remoteProductId);
+
+  const fullCatalog = await pullCompleteCatalog(auth);
   const productSeen = fullCatalog.catalog.products.some(
     (product) => product.productId === dataset.productId,
   );
 
   if (!productSeen) {
-    throw new E2EAssertionError("Catalog full pull did not include synthetic product.", {
-      products: fullCatalog.catalog.products.length,
-    });
-  }
-
-  const tombstoneAt = nowIso();
-  await mustOk(
-    "Synthetic product tombstone for delta",
-    client
-      .from("inventory_products")
-      .update({
-        deleted_at: tombstoneAt,
-        updated_at: tombstoneAt,
-      })
-      .eq("id", dataset.productId)
-      .eq("owner_user_id", dataset.ownerUserId),
-  );
-
-  const tombstoneCatalogResult = await postJson("/api/pos/catalog/pull", {
-    ...auth,
-    limit: 25,
-    updatedSince: fullCatalog.serverTime,
-  });
-  const tombstoneCatalog = parseCatalogSuccess(
-    tombstoneCatalogResult,
-    "catalog tombstone delta",
-  );
-  const tombstoneSeen = tombstoneCatalog.catalog.tombstones.products.some(
-    (product) => product.productId === dataset.productId,
-  );
-
-  if (!tombstoneSeen) {
-    throw new E2EAssertionError("Catalog delta did not include product tombstone.", {
-      tombstones: tombstoneCatalog.catalog.tombstones.products.length,
-    });
-  }
-
-  const restoreAt = nowIso();
-  await mustOk(
-    "Synthetic product restore for delta",
-    client
-      .from("inventory_products")
-      .update({
-        deleted_at: null,
-        updated_at: restoreAt,
-      })
-      .eq("id", dataset.productId)
-      .eq("owner_user_id", dataset.ownerUserId),
-  );
-
-  const restoreCatalogResult = await postJson("/api/pos/catalog/pull", {
-    ...auth,
-    limit: 25,
-    updatedSince: tombstoneCatalog.serverTime,
-  });
-  const restoreCatalog = parseCatalogSuccess(
-    restoreCatalogResult,
-    "catalog restore delta",
-  );
-  const restoreSeen = restoreCatalog.catalog.products.some(
-    (product) => product.productId === dataset.productId,
-  );
-
-  if (!restoreSeen) {
-    throw new E2EAssertionError("Catalog delta did not include restored product.", {
-      products: restoreCatalog.catalog.products.length,
-    });
+    throw new E2EAssertionError(
+      "Catalog full pull did not include synthetic product.",
+      {
+        products: fullCatalog.catalog.products.length,
+      },
+    );
   }
 
   const sale = syntheticSale(dataset);
   const payload = salesPayload({ auth, dataset, sale });
   const acceptedResult = await postSalesJson(payload);
-  const accepted = parseSalesSyncSuccess(acceptedResult, "sales accepted", "accepted");
+  const accepted = parseSalesSyncSuccess(
+    acceptedResult,
+    "sales accepted",
+    "accepted",
+  );
 
   if (
     accepted.batch.acceptedSaleCount !== 1 ||
     accepted.batch.duplicateSaleCount !== 0 ||
     accepted.sales?.[0]?.status !== "accepted"
   ) {
-    throw new E2EAssertionError("Sales accepted response counts are not stable.", {
-      batch: accepted.batch,
-      saleStatus: accepted.sales?.[0]?.status,
-    });
+    throw new E2EAssertionError(
+      "Sales accepted response counts are not stable.",
+      {
+        batch: accepted.batch,
+        saleStatus: accepted.sales?.[0]?.status,
+      },
+    );
   }
 
   const duplicateResult = await postSalesJson(payload);
-  const duplicate = parseSalesSyncSuccess(duplicateResult, "sales duplicate", "duplicate");
+  const duplicate = parseSalesSyncSuccess(
+    duplicateResult,
+    "sales duplicate",
+    "duplicate",
+  );
 
   if (
     duplicate.batch.duplicateSaleCount !== 1 ||
     duplicate.sales?.[0]?.status !== "duplicate"
   ) {
-    throw new E2EAssertionError("Sales duplicate response counts are not stable.", {
-      batch: duplicate.batch,
-      saleStatus: duplicate.sales?.[0]?.status,
-    });
+    throw new E2EAssertionError(
+      "Sales duplicate response counts are not stable.",
+      {
+        batch: duplicate.batch,
+        saleStatus: duplicate.sales?.[0]?.status,
+      },
+    );
   }
 
   const conflictSale = syntheticSale(dataset, { amountClp: 1100 });
-  const conflictResult = await postSalesJson(salesPayload({ auth, dataset, sale: conflictSale }));
+  const conflictResult = await postSalesJson(
+    salesPayload({ auth, dataset, sale: conflictSale }),
+  );
   parseSalesSyncConflict(conflictResult);
 
   const salesPersistence = await verifySalesPersistence(client, dataset, sale);
 
   return redactPositiveResult({
+    catalogImport: {
+      remotePriceCount: catalogImport.remotePriceCount,
+      remoteProductIdPresent: Boolean(catalogImport.remoteProductId),
+      status: catalogImport.status,
+    },
     catalogFull: {
       categories: fullCatalog.catalog.categories.length,
       hasMore: fullCatalog.hasMore,
       prices: fullCatalog.catalog.prices.length,
+      pages: fullCatalog.pageCount,
       productSeen,
       products: fullCatalog.catalog.products.length,
-      status: fullCatalogResult.status,
+      status: 200,
       suppliers: fullCatalog.catalog.suppliers.length,
       syncMode: fullCatalog.syncMode,
     },
@@ -1943,10 +2246,7 @@ async function runPositiveE2E(client, config, dataset) {
         ? "PASS_STAGING_POS_E2E_READY_FOR_CLEANUP"
         : "PASS_LOCAL_POS_E2E_READY_FOR_CLEANUP",
     tombstoneRestore: {
-      restoreSeen,
-      restoreStatus: restoreCatalogResult.status,
-      tombstoneSeen,
-      tombstoneStatus: tombstoneCatalogResult.status,
+      status: "NOT_RUN_OUT_OF_SCOPE_AFTER_CANONICAL_IMPORT",
     },
     trustedDevice: {
       deviceTrusted: firstLogin.device.trusted === true,
@@ -1970,6 +2270,24 @@ async function runPositiveFlow() {
   }
 
   const client = createSupabaseAdmin(config);
+  const lifecycle = {
+    categoryId: null,
+    mappingId: null,
+    memberId: null,
+    ownerUserId: null,
+    platformActorId: null,
+    platformClient: null,
+    posDeviceCredentialId: null,
+    posSessionId: null,
+    productId: null,
+    runId: config.runId,
+    shopCode: config.shopCode,
+    shopDeviceId: null,
+    shopId: null,
+    staffCode: config.staffCode,
+    staffId: null,
+    supplierId: null,
+  };
   let dataset = null;
   let positive = null;
   let setupError = null;
@@ -1978,27 +2296,35 @@ async function runPositiveFlow() {
   };
 
   try {
-    dataset = await setupSyntheticDataset(client, config);
+    dataset = await setupSyntheticDataset(client, config, lifecycle);
     positive = await runPositiveE2E(client, config, dataset);
   } catch (error) {
     const status =
-      error instanceof DatasetSetupError ? "BLOCKED_DATASET_SETUP" : "CHANGES_REQUIRED";
+      error instanceof DatasetSetupError
+        ? "BLOCKED_DATASET_SETUP"
+        : "CHANGES_REQUIRED";
     setupError = {
       error: redactError(error),
       ok: false,
       status,
     };
   } finally {
-    if (dataset) {
+    if (
+      lifecycle.ownerUserId ||
+      lifecycle.platformActorId ||
+      lifecycle.shopId
+    ) {
       try {
-        const cleanupExecution = await cleanupSyntheticDataset(client, {
-          allTask032: config.targetKind !== "staging",
-          ...dataset,
+        const cleanupScope = {
+          ...lifecycle,
+          ...(dataset ?? {}),
           reason: "task032_positive_e2e_cleanup",
+        };
+        const cleanupExecution = await cleanupSyntheticDataset(client, {
+          ...cleanupScope,
         });
         const cleanupVerification = await verifyCleanup(client, {
-          allTask032: config.targetKind !== "staging",
-          ...dataset,
+          ...cleanupScope,
         });
         cleanup = {
           execution: cleanupExecution,
@@ -2142,7 +2468,9 @@ async function main() {
 
   if (negativeFailed.length > 0) {
     status = "CHANGES_REQUIRED";
-  } else if (positiveFlow.positive.status === "BLOCKED_DATASET_NOT_CONFIGURED") {
+  } else if (
+    positiveFlow.positive.status === "BLOCKED_DATASET_NOT_CONFIGURED"
+  ) {
     status = "PASS_NEGATIVE_HARNESS_ONLY";
   }
 

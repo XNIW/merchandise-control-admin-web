@@ -17,7 +17,11 @@ function proxyMatches(url) {
 }
 
 test("TASK-088 Next proxy migration keeps middleware semantics without deprecated convention", () => {
-  assert.equal(existsSync(join(root, "src/proxy.ts")), true, "src/proxy.ts missing");
+  assert.equal(
+    existsSync(join(root, "src/proxy.ts")),
+    true,
+    "src/proxy.ts missing",
+  );
   assert.equal(
     existsSync(join(root, "src/middleware.ts")),
     false,
@@ -27,12 +31,21 @@ test("TASK-088 Next proxy migration keeps middleware semantics without deprecate
   const proxy = readProjectFile("src/proxy.ts");
 
   assert.match(proxy, /export function proxy\(_request: NextRequest\)/);
-  assert.doesNotMatch(proxy, /function middleware|export async function middleware/);
+  assert.doesNotMatch(
+    proxy,
+    /function middleware|export async function middleware/,
+  );
   assert.doesNotMatch(proxy, /runtime\s*=/);
   assert.match(proxy, /NextResponse\.next\(\)/);
-  assert.doesNotMatch(proxy, /@supabase\/ssr|updateSupabaseSession|SUPABASE_SERVICE_ROLE_KEY|service_role/i);
+  assert.doesNotMatch(
+    proxy,
+    /@supabase\/ssr|updateSupabaseSession|SUPABASE_SERVICE_ROLE_KEY|service_role/i,
+  );
   assert.match(proxy, /_next\/static\|_next\/image\|favicon\.ico/);
-  assert.match(proxy, /svg\|png\|jpg\|jpeg\|gif\|webp\|ico\|css\|js\|map\|txt\|xml/);
+  assert.match(
+    proxy,
+    /svg\|png\|jpg\|jpeg\|gif\|webp\|ico\|css\|js\|map\|txt\|xml/,
+  );
 });
 
 test("TASK-088 proxy matcher keeps app, shop and POS API coverage while excluding assets", () => {
@@ -47,11 +60,7 @@ test("TASK-088 proxy matcher keeps app, shop and POS API coverage while excludin
     "/api/pos/sales/sync",
     "/api/pos/session/heartbeat",
   ]) {
-    assert.equal(
-      proxyMatches(url),
-      true,
-      `${url} should keep proxy coverage`,
-    );
+    assert.equal(proxyMatches(url), true, `${url} should keep proxy coverage`);
   }
 
   for (const url of [
@@ -89,9 +98,11 @@ test("TASK-088 POS positive harness is dataset-gated, sales-aware and cleanup-sa
     "PASS_STAGING_PRECHECK_DRY_RUN",
     "validatePositiveTarget",
     "validateStagingDryRunConfig",
-    "applySyntheticStaffScope",
-    "shopCodeLike",
-    "staffCodeLike",
+    "mappingId",
+    "memberId",
+    "posDeviceCredentialId",
+    "posSessionId",
+    "shopDeviceId",
     "cleanupSyntheticSalesRecords",
     "pos_sale_stock_movements",
     "pos_revenue_ledger_entries",
@@ -104,17 +115,36 @@ test("TASK-088 POS positive harness is dataset-gated, sales-aware and cleanup-sa
     "stockQuantityAfterDuplicate",
     "pos.sales.sync.success",
   ]) {
-    assert.match(script, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(
+      script,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
   }
 
-  assert.match(script, /both be local or both be explicitly allowlisted staging/);
-  assert.match(script, /Staging Admin Web host is not in TASK032_POS_E2E_STAGING_HOST_ALLOWLIST/);
-  assert.match(script, /Supabase URL does not match the allowlisted staging project ref/);
+  assert.match(
+    script,
+    /both be local or both be explicitly allowlisted staging/,
+  );
+  assert.match(
+    script,
+    /Staging Admin Web host is not in TASK032_POS_E2E_STAGING_HOST_ALLOWLIST/,
+  );
+  assert.match(
+    script,
+    /Supabase URL does not match the allowlisted staging project ref/,
+  );
   assert.match(script, /Test marker must be exactly TASK032/);
-  assert.match(script, /Staging synthetic identifiers must include TASK032_POS_E2E_TEST_RUN_ID/);
+  assert.match(
+    script,
+    /Staging synthetic identifiers must include TASK032_POS_E2E_TEST_RUN_ID/,
+  );
   assert.match(script, /baseHost\.endsWith\("vercel\.app"\)/);
   assert.doesNotMatch(script, /\.truncate\(/);
-  assert.doesNotMatch(script, /console\.log\([^)]*(sessionToken|trustedDeviceToken|SUPABASE_SERVICE_ROLE_KEY)/);
+  assert.doesNotMatch(script, /allTask032|shopCodeLike|staffCodeLike/);
+  assert.doesNotMatch(
+    script,
+    /console\.log\([^)]*(sessionToken|trustedDeviceToken|SUPABASE_SERVICE_ROLE_KEY)/,
+  );
   assert.match(readme, /TASK032_POS_E2E_ALLOW_DATASET_SETUP=yes/);
   assert.match(readme, /TASK032_POS_E2E_ALLOW_CLEANUP=yes/);
 });
