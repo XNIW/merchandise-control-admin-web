@@ -11,9 +11,7 @@ import type {
 } from "./catalog-sync-contract";
 
 export type CatalogScopeKind =
-  | "authorized_shop_plus_legacy"
-  | "legacy_owner_bridge"
-  | "shop_scoped";
+  "authorized_shop_plus_legacy" | "legacy_owner_bridge" | "shop_scoped";
 
 export type CatalogRevisionDescriptor = {
   revision: string;
@@ -44,31 +42,26 @@ export type CatalogPageV2Failure = {
 };
 
 export type CatalogRevisionV2Result =
-  | (CatalogRevisionDescriptor & { status: "ok" })
-  | CatalogPageV2Failure;
+  (CatalogRevisionDescriptor & { status: "ok" }) | CatalogPageV2Failure;
 
 const SCOPE_KEY_PATTERN = /^[0-9a-f]{32}$/;
 const REVISION_PATTERN = /^[0-9]{1,19}$/;
 const CATALOG_REVISION_PATTERN = /^catalog:v2:[0-9a-f]{32}$/;
 const POSTGRES_TIMESTAMP_PATTERN =
   /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,6})?(?:Z|[+-]\d{2}:\d{2})$/;
+const LEGACY_PRICE_TIMESTAMP_PATTERN =
+  /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}(?:\.\d{1,6})?$/;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function isSafeCount(value: unknown): value is number {
-  return (
-    typeof value === "number" &&
-    Number.isSafeInteger(value) &&
-    value >= 0
-  );
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 }
 
 function canonicalUuid(value: unknown) {
-  return isCanonicalPostgresUuid(value)
-    ? value
-    : null;
+  return isCanonicalPostgresUuid(value) ? value : null;
 }
 
 function timestampMicros(value: unknown) {
@@ -80,10 +73,27 @@ function timestampMicros(value: unknown) {
     return null;
   }
   const fraction = /\.(\d{1,6})(?:Z|[+-]\d{2}:\d{2})$/.exec(value)?.[1] ?? "";
-  const microsWithinMillisecond = Number(
-    fraction.padEnd(6, "0").slice(3, 6),
-  );
+  const microsWithinMillisecond = Number(fraction.padEnd(6, "0").slice(3, 6));
   return BigInt(milliseconds) * BigInt(1_000) + BigInt(microsWithinMillisecond);
+}
+
+function catalogPriceTimestampIsValid(value: unknown) {
+  if (timestampMicros(value) !== null) {
+    return true;
+  }
+  if (
+    typeof value !== "string" ||
+    !LEGACY_PRICE_TIMESTAMP_PATTERN.test(value)
+  ) {
+    return false;
+  }
+
+  const normalized = value.replace(" ", "T");
+  const parsed = new Date(`${normalized}Z`);
+  return (
+    Number.isFinite(parsed.getTime()) &&
+    parsed.toISOString().slice(0, 19) === normalized.slice(0, 19)
+  );
 }
 
 function scopeKeyForPage(
@@ -141,7 +151,7 @@ function rowMatchesPageContract(
   const finiteNumberOrNull = (value: unknown) =>
     value === null || (typeof value === "number" && Number.isFinite(value));
   const valid =
-    (entity === "categories" || entity === "suppliers")
+    entity === "categories" || entity === "suppliers"
       ? typeof row.name === "string" && deletedAtValid
       : entity === "products"
         ? typeof row.barcode === "string" &&
@@ -159,8 +169,8 @@ function rowMatchesPageContract(
           typeof row.type === "string" &&
           typeof row.price === "number" &&
           Number.isFinite(row.price) &&
-          timestampMicros(row.effective_at) !== null &&
-          timestampMicros(row.created_at) !== null &&
+          catalogPriceTimestampIsValid(row.effective_at) &&
+          catalogPriceTimestampIsValid(row.created_at) &&
           (row.source === null || typeof row.source === "string");
 
   return valid ? { id, updatedAtMicros } : null;
@@ -404,7 +414,7 @@ export async function loadCatalogPageV2(
     (input.snapshotAt !== null &&
       timestampMicros(input.snapshotAt) !== snapshotMicros) ||
     (input.entity !== null && entity !== input.entity) ||
-    ((input.afterId === null) !== (input.afterUpdatedAt === null)) ||
+    (input.afterId === null) !== (input.afterUpdatedAt === null) ||
     (input.afterId !== null && canonicalUuid(input.afterId) === null) ||
     (input.afterUpdatedAt !== null &&
       timestampMicros(input.afterUpdatedAt) === null) ||
@@ -433,9 +443,8 @@ export async function loadCatalogPageV2(
     );
     const afterMicros = timestampMicros(input.afterUpdatedAt);
     const seenIds = new Set<string>();
-    let previous:
-      | { id: string; updatedAtMicros: bigint }
-      | null = input.afterId !== null && afterMicros !== null
+    let previous: { id: string; updatedAtMicros: bigint } | null =
+      input.afterId !== null && afterMicros !== null
         ? { id: input.afterId.toLowerCase(), updatedAtMicros: afterMicros }
         : null;
 

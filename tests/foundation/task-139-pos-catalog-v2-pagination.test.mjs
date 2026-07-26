@@ -257,12 +257,15 @@ test("TASK-139 signed cursor is compact, bound, expiring and precision-safe", ()
   }
 
   assert.throws(
-    () => helper.buildCatalogV2Cursor({ ...state, scopeKind: "unknown" }, context),
+    () =>
+      helper.buildCatalogV2Cursor({ ...state, scopeKind: "unknown" }, context),
     /catalog_v2_cursor_identity_invalid/,
   );
 
-  const encodedPayload = cursor
-    .slice("catalog-v2:".length, cursor.lastIndexOf("."));
+  const encodedPayload = cursor.slice(
+    "catalog-v2:".length,
+    cursor.lastIndexOf("."),
+  );
   const plaintextPayload = Buffer.from(encodedPayload, "base64url").toString(
     "utf8",
   );
@@ -425,11 +428,7 @@ test("TASK-139 page boundary honors a server lane cap below the requested limit"
       manifest: null,
       pageLimit: 60,
       revision: "61",
-      rows: productBoundaryRows(
-        1,
-        61,
-        "2026-07-21T17:06:00.123457+00:00",
-      ),
+      rows: productBoundaryRows(1, 61, "2026-07-21T17:06:00.123457+00:00"),
       scopeKey,
       scopeKind: "shop_scoped",
       scopeOwnerId: null,
@@ -485,6 +484,85 @@ test("TASK-139 page boundary honors a server lane cap below the requested limit"
   assert.equal(calls.length, 2);
 });
 
+test("TASK-139 price page accepts canonical Room timestamps from POS catalog import", async () => {
+  const boundary = loadCatalogRevisionBoundary();
+  const shopId = "33333333-3333-4333-8333-333333333333";
+  const scopeKey = createHash("sha256")
+    .update(`${shopId}:shop_scoped:${shopId}`, "utf8")
+    .digest("hex")
+    .slice(0, 32);
+  const manifest = {
+    catalogSummary: {
+      activeProducts: 1,
+      categories: 0,
+      prices: 1,
+      products: 1,
+      suppliers: 0,
+    },
+    windowCounts: {
+      categories: 0,
+      prices: 1,
+      products: 1,
+      suppliers: 0,
+    },
+  };
+  const supabase = {
+    async rpc() {
+      return {
+        data: {
+          entity: "prices",
+          entityHasMore: false,
+          manifest,
+          pageLimit: 60,
+          revision: "2",
+          rows: [
+            {
+              created_at: "2026-07-26 18:00:00",
+              effective_at: "2026-07-26 17:59:59.123456",
+              id: "50000000-0000-4000-8000-000000000001",
+              owner_user_id: "60000000-0000-4000-8000-000000000001",
+              price: 15.75,
+              product_id: "70000000-0000-4000-8000-000000000001",
+              shop_id: shopId,
+              source: "pos_supplier_excel",
+              type: "RETAIL",
+              updated_at: "2026-07-26T18:00:00.123456+00:00",
+            },
+          ],
+          scopeKey,
+          scopeKind: "shop_scoped",
+          scopeOwnerId: null,
+          snapshotAt: "2026-07-26T18:01:00.000000+00:00",
+          status: "ok",
+        },
+        error: null,
+      };
+    },
+  };
+
+  const page = await boundary.loadCatalogPageV2(supabase, {
+    afterId: null,
+    afterUpdatedAt: null,
+    entity: null,
+    expectedRevision: null,
+    expectedScopeKey: null,
+    expectedScopeKind: null,
+    includeManifest: true,
+    limit: 60,
+    lowerBound: null,
+    mode: "full_refresh",
+    posSessionId: "11111111-1111-4111-8111-111111111111",
+    shopDeviceId: "22222222-2222-4222-8222-222222222222",
+    shopId,
+    snapshotAt: null,
+    staffId: "44444444-4444-4444-8444-444444444444",
+  });
+
+  assert.equal(page.status, "ok");
+  assert.equal(page.entity, "prices");
+  assert.equal(page.rows.length, 1);
+});
+
 test("TASK-139 migration and heartbeat expose only the additive v2 contract", () => {
   const migration = read(
     "supabase/migrations/20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql",
@@ -502,7 +580,10 @@ test("TASK-139 migration and heartbeat expose only the additive v2 contract", ()
   assert.match(migration, /'scopeKey', current_scope_key/);
   assert.doesNotMatch(migration, /'scopeId', resolved\.scope_id/);
   assert.match(migration, /p_include_manifest is null/);
-  assert.match(migration, /p_mode = 'full_refresh' and p_lower_bound is not null/);
+  assert.match(
+    migration,
+    /p_mode = 'full_refresh' and p_lower_bound is not null/,
+  );
   assert.match(migration, /snapshot_changed/);
   assert.match(migration, /product\.id = row\.product_id/);
   assert.match(migration, /product\.deleted_at is null/);
@@ -510,7 +591,10 @@ test("TASK-139 migration and heartbeat expose only the additive v2 contract", ()
     migration,
     /disable trigger task088_mobile_price_append_only;[\s\S]*disable trigger task088_mobile_sync_event;[\s\S]*update public\.inventory_product_prices[\s\S]*enable trigger task088_mobile_sync_event;[\s\S]*enable trigger task088_mobile_price_append_only;/,
   );
-  assert.match(migration, /created_at::timestamp without time zone at time zone 'UTC'/);
+  assert.match(
+    migration,
+    /created_at::timestamp without time zone at time zone 'UTC'/,
+  );
   assert.match(migration, /created_at::timestamptz/);
   assert.match(migration, /to service_role/);
   assert.match(migration, /from public, anon, authenticated/);
