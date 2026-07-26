@@ -5,8 +5,7 @@ import test from "node:test";
 
 const root = process.cwd();
 const defaultWin7PosRoot = "/Users/minxiang/Projects/Win7POS";
-const win7PosRoot =
-  process.env.WIN7POS_REPO_PATH?.trim() || defaultWin7PosRoot;
+const win7PosRoot = process.env.WIN7POS_REPO_PATH?.trim() || defaultWin7PosRoot;
 const requireWin7PosRepo = process.env.REQUIRE_WIN7POS_REPO === "1";
 
 function readProjectFile(relativePath) {
@@ -32,7 +31,9 @@ function shouldSkipMissingWin7PosRepo() {
 }
 
 test("TASK-089 POS API routes keep server-side no-store JSON boundaries", () => {
-  const shared = readProjectFile("src/app/api/pos/_shared/pos-route-security.ts");
+  const shared = readProjectFile(
+    "src/app/api/pos/_shared/pos-route-security.ts",
+  );
   const admin = readProjectFile("src/lib/supabase/admin.ts");
 
   assertContainsAll(shared, [
@@ -99,7 +100,9 @@ test("TASK-089 POS contracts expose explicit version, time and conservative poli
   const posContract = readProjectFile("src/server/pos-auth/pos-contract.ts");
   const shopPayload = readProjectFile("src/server/pos-auth/shop-payload.ts");
   const catalog = readProjectFile("src/server/pos-auth/catalog-pull.ts");
-  const catalogContract = readProjectFile("src/server/pos-auth/catalog-sync-contract.ts");
+  const catalogContract = readProjectFile(
+    "src/server/pos-auth/catalog-sync-contract.ts",
+  );
   const sales = readProjectFile("src/server/pos-auth/sales-sync.ts");
 
   assertContainsAll(service, [
@@ -250,13 +253,13 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
   assertContainsAll(recovery, [
     'import "server-only"',
     "resolveShopAdminDataAccess",
-    ".eq(\"shop_id\", selectedShop.shopId)",
+    '.eq("shop_id", selectedShop.shopId)',
     "metadata_redacted",
     "accepted_sale_count",
     "duplicate_sale_count",
     "metadataCount(row.metadata_redacted",
-    "metadataCount(row.metadata_redacted, \"accepted_sale_count\") ??",
-    "metadataCount(row.metadata_redacted, \"duplicate_sale_count\") ??",
+    'metadataCount(row.metadata_redacted, "accepted_sale_count") ??',
+    'metadataCount(row.metadata_redacted, "duplicate_sale_count") ??',
     "readOnly: true",
     "recoveryActionsAppendOnly: true",
     'source: "supabase_admin_server"',
@@ -276,7 +279,7 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
     "resolveShopActionContext(",
     "input.requestedShopId",
     '"sync.manage"',
-    'adminClient.rpc(',
+    "adminClient.rpc(",
     '"shop_pos_recovery_action_v1"',
     "p_actor_profile_id: context.actorProfileId",
     "p_shop_id: context.selectedShop.shopId",
@@ -292,12 +295,18 @@ test("TASK-089 catalog and sales sync preserve shop scope, idempotency and stock
     "request_pos_retry_effect",
     "pos.sync.recovery.",
   ]);
-  assertContainsAll(readProjectFile("src/server/shop-admin/history-read-model.ts"), [
-    "mcpos_(?:device|session)",
-    "redactSensitiveText",
-  ]);
-  assert.doesNotMatch(recoveryMutations, /\.from\("pos_sales"\)\s*\.\s*(update|delete|upsert)/);
-  assert.doesNotMatch(recoveryMutations, /\.from\("pos_sale_stock_movements"\)\s*\.\s*(update|delete|upsert)/);
+  assertContainsAll(
+    readProjectFile("src/server/shop-admin/history-read-model.ts"),
+    ["mcpos_(?:device|session)", "redactSensitiveText"],
+  );
+  assert.doesNotMatch(
+    recoveryMutations,
+    /\.from\("pos_sales"\)\s*\.\s*(update|delete|upsert)/,
+  );
+  assert.doesNotMatch(
+    recoveryMutations,
+    /\.from\("pos_sale_stock_movements"\)\s*\.\s*(update|delete|upsert)/,
+  );
   assert.doesNotMatch(recoveryMutations, /force.*ack|delete.*outbox|truncate/i);
   assertContainsAll(recoveryPanel, [
     "Safe recovery actions",
@@ -348,19 +357,24 @@ test("TASK-089 positive harness remains staging-allowlisted and cleanup-safe", (
     "syntheticCode(SYNTHETIC_SHOP_CODE_PREFIX, identifierRunId)",
     "syntheticCode(SYNTHETIC_STAFF_CODE_PREFIX, identifierRunId)",
     "SYNTHETIC_DEVICE_PREFIX}${identifierRunId}",
-    "applySyntheticStaffScope",
-    "staffCodeLike",
+    "mappingId",
+    "memberId",
+    "posDeviceCredentialId",
+    "posSessionId",
+    "shopDeviceId",
     "cleanupSyntheticSalesRecords",
     "immutableSaleRowsRetained",
-    "Synthetic price product lookup",
+    "Synthetic price cleanup",
     '.eq("source", "TASK-032")',
-    '.in("product_id", syntheticProductIds)',
+    '.eq("product_id", input.productId)',
+    "deleteUser(authUserId, true)",
     "verifyCleanup",
     "X-Client-Request-Id",
     "requestId",
   ]);
   assert.doesNotMatch(script, /\.truncate\(/);
   assert.doesNotMatch(script, /delete\(\)\s*\.neq|delete\(\)\s*\.not/);
+  assert.doesNotMatch(script, /allTask032|shopCodeLike|staffCodeLike/);
   assertContainsAll(packageJson, [
     "cf:check:custom-domain",
     "cf:check:staging",
@@ -403,7 +417,9 @@ test("TASK-089 cross-platform docs keep data contract aligned without mobile run
   const atomicMigration = readProjectFile(
     "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql",
   );
-  const syncWriter = readProjectFile("src/server/shop-admin/sync-event-writer.ts");
+  const syncWriter = readProjectFile(
+    "src/server/shop-admin/sync-event-writer.ts",
+  );
   const workbookImport = readProjectFile(
     "src/server/shop-admin/import-export-workbook.ts",
   );
@@ -483,7 +499,9 @@ test("TASK-089 PriceHistory workbook emits prices_changed from real price ids", 
   const atomicMigration = readProjectFile(
     "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql",
   );
-  const syncWriter = readProjectFile("src/server/shop-admin/sync-event-writer.ts");
+  const syncWriter = readProjectFile(
+    "src/server/shop-admin/sync-event-writer.ts",
+  );
   const workbookImport = readProjectFile(
     "src/server/shop-admin/import-export-workbook.ts",
   );
@@ -541,13 +559,21 @@ test("TASK-089 PriceHistory workbook emits prices_changed from real price ids", 
     "priceIds.push(...(ids as string[]))",
     "priceIds,",
   ]);
-  assert.doesNotMatch(workbookImport, /priceHistoryApplied[\s\S]{0,400}prices_changed/);
-  assert.doesNotMatch(syncWriter, /eventType: "prices_changed"[\s\S]{0,500}product_ids: sortedProductIds[\s\S]{0,200}price_ids: sortedProductIds/);
+  assert.doesNotMatch(
+    workbookImport,
+    /priceHistoryApplied[\s\S]{0,400}prices_changed/,
+  );
+  assert.doesNotMatch(
+    syncWriter,
+    /eventType: "prices_changed"[\s\S]{0,500}product_ids: sortedProductIds[\s\S]{0,200}price_ids: sortedProductIds/,
+  );
 });
 
 test("TASK-089 Admin shell polls a redacted shop-authorized event marker", () => {
   const shopShell = readProjectFile("src/components/shop/ShopShell.tsx");
-  const markerRoute = readProjectFile("src/app/shop/sync-event-marker/route.ts");
+  const markerRoute = readProjectFile(
+    "src/app/shop/sync-event-marker/route.ts",
+  );
   const browserClient = readProjectFile("src/lib/supabase/client.ts");
 
   assertContainsAll(shopShell, [
@@ -567,7 +593,10 @@ test("TASK-089 Admin shell polls a redacted shop-authorized event marker", () =>
     "limit: 1",
     '"Cache-Control": "private, no-store"',
   ]);
-  assert.doesNotMatch(shopShell, /createSupabaseBrowserClient|postgres_changes|table: "sync_events"/);
+  assert.doesNotMatch(
+    shopShell,
+    /createSupabaseBrowserClient|postgres_changes|table: "sync_events"/,
+  );
   assertContainsAll(browserClient, [
     "NEXT_PUBLIC_SUPABASE_URL",
     "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
@@ -578,9 +607,15 @@ test("TASK-089 Admin shell polls a redacted shop-authorized event marker", () =>
 });
 
 test("TASK-089 Admin event publication is database-atomic with no post-write retry", () => {
-  const syncWriter = readProjectFile("src/server/shop-admin/sync-event-writer.ts");
-  const catalogMutations = readProjectFile("src/server/shop-admin/catalog-mutations.ts");
-  const historyMutations = readProjectFile("src/server/shop-admin/history-mutations.ts");
+  const syncWriter = readProjectFile(
+    "src/server/shop-admin/sync-event-writer.ts",
+  );
+  const catalogMutations = readProjectFile(
+    "src/server/shop-admin/catalog-mutations.ts",
+  );
+  const historyMutations = readProjectFile(
+    "src/server/shop-admin/history-mutations.ts",
+  );
   const migration = readProjectFile(
     "supabase/migrations/20260722013109_cross_platform_sync_event_completeness.sql",
   );
@@ -609,18 +644,25 @@ test("TASK-089 Admin event publication is database-atomic with no post-write ret
     "'atomic_trigger', true",
     "create or replace function public.staff_web_history_mutate_v1",
   ]);
-  assert.doesNotMatch(syncWriter, /SYNC_EVENT_WRITE_RETRY_DELAYS_MS|record_shop_sync_event_service_v1/);
+  assert.doesNotMatch(
+    syncWriter,
+    /SYNC_EVENT_WRITE_RETRY_DELAYS_MS|record_shop_sync_event_service_v1/,
+  );
   assert.doesNotMatch(syncWriter, /console\.error\([\s\S]{0,300}owner_user_id/);
   assert.doesNotMatch(syncWriter, /console\.(error|warn|log)/);
 });
 
 test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) => {
   if (shouldSkipMissingWin7PosRepo()) {
-    t.skip("SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE: Win7POS repo is not available");
+    t.skip(
+      "SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE: Win7POS repo is not available",
+    );
     return;
   }
 
-  const client = readWin7PosFile("src/Win7POS.Data/Online/PosAdminWebClient.cs");
+  const client = readWin7PosFile(
+    "src/Win7POS.Data/Online/PosAdminWebClient.cs",
+  );
   const transportContracts = readWin7PosFile(
     "src/Win7POS.Core/Online/PosOnlineTransportContracts.cs",
   );
@@ -640,7 +682,9 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
     "src/Win7POS.Wpf/Pos/Online/PosSyncStatusReader.cs",
   );
   const workflow = readWin7PosFile("src/Win7POS.Wpf/Pos/PosWorkflowService.cs");
-  const logger = readWin7PosFile("src/Win7POS.Wpf/Infrastructure/FileLogger.cs");
+  const logger = readWin7PosFile(
+    "src/Win7POS.Wpf/Infrastructure/FileLogger.cs",
+  );
   const logSanitizer = readWin7PosFile(
     "src/Win7POS.Core/Logging/LogSanitizer.cs",
   );
@@ -720,10 +764,7 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
     "POS DB restore blocked",
     "POS DB pre-restore backup created",
   ]);
-  assertContainsAll(logger, [
-    "ProcessFileLog",
-    "LogSanitizer.Sanitize",
-  ]);
+  assertContainsAll(logger, ["ProcessFileLog", "LogSanitizer.Sanitize"]);
   assertContainsAll(logSanitizer, [
     "session[_-]?token",
     "device[_-]?token",
