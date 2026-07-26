@@ -3,16 +3,17 @@
 ## Stato corrente
 
 - Task: `TASK-140 - Staff PIN reset e Shop Code login`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
+- Stato task: `DONE`
+- Fase: `DONE`
 - Data apertura: `2026-07-18`
+- Data chiusura: `2026-07-26`
 - Branch: `codex/task-140-staff-pin-reset-login`
 - Baseline `origin/main`:
   `c30cf3f2b44e1bf67a2c3bcbdcd0b2cc6a9328a4`
 - Worktree:
   `/Users/minxiang/.codex/worktrees/task-140-20260718/admin`
-- Verdict corrente: `REVIEW_P1_FIXES_STAGING_ACCEPTANCE_PASS`
-- Handoff corrente: `REVIEW`, non `DONE`
+- Verdict corrente: `DONE_ADMIN_STAGING_ACCEPTANCE_PASS`
+- Handoff corrente: `READY_FOR_WIN7POS_ASUS_RUNTIME_ACCEPTANCE`
 
 ## Addendum final review P1 - 2026-07-19
 
@@ -429,6 +430,16 @@ Root cause chiuse:
 Il redeploy unico è stato eseguito dopo il merge del codice runtime su `main`
 `a8230659cff62ff962a15b6f8010d31c1d99aac7`. Il follow-up contiene soltanto
 test, harness e documentazione: nessun secondo deploy, nessuna migration e
-nessuna modifica runtime. Stato finale del task secondo `AGENTS.md`: `REVIEW`,
-non `DONE`. Handoff:
-`READY_FOR_WIN7POS_ASUS_RUNTIME_ACCEPTANCE`.
+nessuna modifica runtime. Al completamento tecnico lo stato era `REVIEW`;
+l'utente ha fornito la conferma esplicita richiesta il `2026-07-26`.
+
+## Conferma DONE — 2026-07-26
+
+La conferma esplicita dell'utente chiude il gate governance successivo
+all'acceptance completa già documentata.
+
+- Stato finale TASK-140: `DONE`.
+- Verdict: `DONE_ADMIN_STAGING_ACCEPTANCE_PASS`.
+- Handoff successivo: `READY_FOR_WIN7POS_ASUS_RUNTIME_ACCEPTANCE`.
+- Prova fisica Asus: `NOT_RUN_SEPARATE_HANDOFF`; non inclusa né dichiarata
+  completata da questa chiusura.

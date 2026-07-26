@@ -4,10 +4,11 @@
 
 - ID: `TASK-140`
 - Titolo: `Staff PIN reset e Shop Code login`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `REVIEWER_STAFF_ACCEPTANCE_GATE`
+- Stato: `DONE`
+- Fase attuale: `DONE`
+- Responsabile attuale: `COMPLETED`
 - Data apertura: `2026-07-18`
+- Data chiusura: `2026-07-26`
 - Branch: `codex/task-140-staff-pin-reset-login`
 - Worktree:
   `/Users/minxiang/.codex/worktrees/task-140-20260718/admin`
@@ -37,7 +38,8 @@ esatto e cleanup sintetico a zero. I pgTAP correnti e il DB lint linked sono
 verdi. La precedente acceptance Google autenticata resta evidence storica
 della build pre-review; la build corrente ha una acceptance Playwright propria
 `1/1 PASS`. Il task resta in `REVIEW`, mai `DONE` senza conferma esplicita
-dell'utente.
+dell'utente. La conferma è stata poi ricevuta il `2026-07-26`; la sezione
+finale di questo documento registra la transizione autorizzata a `DONE`.
 
 ## Obiettivo
 
@@ -340,6 +342,18 @@ esclusivamente test, harness e documentazione e non richiedono un secondo
 deploy. Nessuna migration nuova, nessun apply/deploy production e nessuna
 nuova Codex Security scan sono stati eseguiti.
 
-Stato governance: `REVIEW`, mai `DONE` da Codex. Handoff separato:
+Stato governance al completamento tecnico: `REVIEW`. Handoff separato:
 `READY_FOR_WIN7POS_ASUS_RUNTIME_ACCEPTANCE`; la prova fisica Asus non è ancora
 dichiarata completata.
+
+## Conferma DONE — 2026-07-26
+
+L'utente ha confermato esplicitamente la chiusura dopo il report finale
+dell'esecuzione. Tutti i criteri Admin/staging risultano verificati, la PR
+`#39` è integrata su `main` e il checkout è stato riconciliato pulito.
+
+Stato finale TASK-140: `DONE`.
+
+La chiusura riguarda esclusivamente il perimetro Admin/staging. L'handoff
+`READY_FOR_WIN7POS_ASUS_RUNTIME_ACCEPTANCE` resta valido e non equivale a un
+PASS della successiva prova fisica Asus.
