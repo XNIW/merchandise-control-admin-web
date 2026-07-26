@@ -4,7 +4,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(11);
+select plan(13);
 
 select has_function(
   'public',
@@ -24,6 +24,19 @@ select ok(
     'EXECUTE'
   ),
   'only the server boundary can execute the recovery publication fence'
+);
+
+set local role postgres;
+select lives_ok(
+  $$ select app_private.prepare_admin_bulk_changed_ids_v1() $$,
+  'Admin bulk changed-ID capture initializes its runtime-only temp table'
+);
+insert into pg_temp.admin_bulk_changed_ids_v1 (domain, entity_id)
+values ('catalog', 'b'), ('catalog', 'a'), ('prices', 'c');
+select is(
+  app_private.read_admin_bulk_changed_ids_v1('catalog'),
+  array['a', 'b']::text[],
+  'Admin bulk changed-ID reader resolves and sorts the runtime-only temp table'
 );
 
 insert into auth.users (
