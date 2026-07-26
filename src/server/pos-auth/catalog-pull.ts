@@ -7,6 +7,7 @@ import {
   type SupabaseAdminClient,
 } from "@/lib/supabase/admin";
 import type { Json, Tables } from "@/lib/supabase/database.types";
+import { isStaffCredentialLockStateUsable } from "@/server/shop-admin/access-principal";
 import {
   buildPosPolicyPayload,
   buildPosShopPayload,
@@ -386,9 +387,11 @@ function isStaffUsable(staff: StaffAccountRow | null) {
   return Boolean(
     staff &&
       staff.status === "active" &&
-      staff.credential_status === "active" &&
-      !staff.must_change_credential &&
-      !isFutureTimestamp(staff.locked_until),
+      isStaffCredentialLockStateUsable({
+        credentialStatus: staff.credential_status,
+        lockedUntil: staff.locked_until,
+      }) &&
+      !staff.must_change_credential,
   );
 }
 

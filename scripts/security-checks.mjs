@@ -5229,11 +5229,19 @@ function checkTask037ShopAdminDualAccessModel() {
     );
   }
 
+  const task140StaffRoleActive = migrationNames.some((file) =>
+    /task_140_staff_pin_reset_login/i.test(file),
+  );
+
   if (
-    !/input\.roleKey === POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY/.test(principal)
+    task140StaffRoleActive
+      ? !/isPosStaffWebAdminRoleKey\(input\.roleKey\)/.test(principal)
+      : !/input\.roleKey === POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY/.test(
+          principal,
+        )
   ) {
     addFailure(
-      `${principalPath} must restrict current staff web eligibility to the verified manager role`,
+      `${principalPath} must restrict current staff web eligibility to the verified manager/POS Admin role contract`,
     );
   }
 

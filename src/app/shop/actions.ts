@@ -60,6 +60,7 @@ import { recordPosSyncRecoveryAction } from "@/server/shop-admin/pos-sync-recove
 
 export type ShopAdminActionState = ShopAdminActionResult & {
   temporaryCredential?: string;
+  temporaryCredentialTargetLabel?: string;
 };
 
 const initialActionState = shopAdminActionResult("success", {
@@ -658,15 +659,22 @@ export async function createStaffAction(
 ): Promise<ShopAdminActionState> {
   void _previousState;
 
+  const displayName = formString(formData, "displayName").trim();
+  const staffCode = formString(formData, "staffCode").trim().toUpperCase();
   const result: StaffMutationResult = await createStaff({
     credentialKind: optionalFormString(formData, "credentialKind"),
-    displayName: formString(formData, "displayName"),
+    displayName,
     requestedShopId: requestedShopId(formData),
     roleKey: formString(formData, "roleKey"),
-    staffCode: formString(formData, "staffCode"),
+    staffCode,
   });
 
-  return normalizeStaffState(result);
+  return result.ok && result.temporaryCredential
+    ? {
+        ...result,
+        temporaryCredentialTargetLabel: `${staffCode} · ${displayName}`,
+      }
+    : result;
 }
 
 export async function resetStaffCredentialAction(
@@ -686,25 +694,26 @@ export async function resetStaffCredentialAction(
     staffId: formString(formData, "staffId"),
   });
 
-  return normalizeStaffState(result);
+  return result;
 }
 
-export async function suspendStaffAction(formData: FormData) {
+export async function suspendStaffAction(
+  _previousState: ShopAdminActionState = initialActionState,
+  formData: FormData,
+): Promise<ShopAdminActionState> {
+  void _previousState;
+
   if (!confirmed(formData, "SUSPEND")) {
-    resultRedirect(
-      "/shop/staff",
-      shopAdminActionResult("validation_failed", { ok: false }),
-    );
+    return shopAdminActionResult("validation_failed", { ok: false });
   }
 
-  resultRedirect(
-    "/shop/staff",
-    await suspendStaff({
-      reason: optionalFormString(formData, "reason"),
-      requestedShopId: requestedShopId(formData),
-      staffId: formString(formData, "staffId"),
-    }),
-  );
+  const result = await suspendStaff({
+    reason: optionalFormString(formData, "reason"),
+    requestedShopId: requestedShopId(formData),
+    staffId: formString(formData, "staffId"),
+  });
+
+  return normalizeStaffState(result);
 }
 
 export async function reactivateStaffAction(formData: FormData) {

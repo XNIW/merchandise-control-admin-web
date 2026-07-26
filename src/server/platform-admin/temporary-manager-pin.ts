@@ -1,7 +1,7 @@
 import "server-only";
 
-import { randomInt } from "node:crypto";
+import { generateStaffPin } from "../shop-admin/staff-credentials";
 
 export function generateTemporaryManagerPin() {
-  return randomInt(10000, 100000).toString();
+  return generateStaffPin();
 }

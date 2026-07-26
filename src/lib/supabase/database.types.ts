@@ -3802,6 +3802,18 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_record_login_failure: {
+        Args: {
+          p_channel: string
+          p_expected_credential_version: number | null
+          p_metadata_redacted: Json
+          p_shop_code: string | null
+          p_shop_id: string | null
+          p_staff_code: string | null
+          p_staff_id: string | null
+        }
+        Returns: Json
+      }
       shop_staff_archive: {
         Args: { p_reason?: string; p_shop_id: string; p_staff_id: string }
         Returns: Json
@@ -3826,8 +3838,55 @@ export type Database = {
         Args: { p_reason: string; p_shop_id: string; p_staff_id: string }
         Returns: Json
       }
+      shop_staff_lifecycle_as_staff_web: {
+        Args: {
+          p_action: string
+          p_actor_staff_id: string
+          p_actor_staff_web_session_id: string
+          p_reason: string
+          p_shop_id: string
+          p_target_staff_id: string
+        }
+        Returns: Json
+      }
+      shop_staff_lifecycle_as_personal_account: {
+        Args: {
+          p_action: string
+          p_reason: string
+          p_shop_id: string
+          p_target_staff_id: string
+        }
+        Returns: Json
+      }
+      shop_staff_mutate_as_staff_web: {
+        Args: {
+          p_action: string
+          p_actor_staff_id: string
+          p_actor_staff_web_session_id: string
+          p_credential_expires_at: string | null
+          p_credential_hash: string | null
+          p_credential_kind: string | null
+          p_display_name: string | null
+          p_reason: string | null
+          p_role_key: string | null
+          p_shop_id: string
+          p_staff_code: string | null
+          p_target_staff_id: string | null
+        }
+        Returns: Json
+      }
       shop_staff_reactivate: {
         Args: { p_reason?: string; p_shop_id: string; p_staff_id: string }
+        Returns: Json
+      }
+      shop_staff_replace_role_permissions_as_web: {
+        Args: {
+          p_actor_staff_id: string | null
+          p_actor_staff_web_session_id: string | null
+          p_permissions: string[]
+          p_role_key: string
+          p_shop_id: string
+        }
         Returns: Json
       }
       shop_staff_reset_credential: {

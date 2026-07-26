@@ -35,12 +35,78 @@ export type ShopAdminPermission =
 export type ShopStaffRole = "cashier" | "manager" | "viewer";
 
 export type ShopStaffPermission =
+  | "shop_admin.full_access"
   | "pos.sell"
   | "pos.pay"
   | "pos.refund"
+  | "pos.void"
+  | "pos.discount"
+  | "pos.discount_over_limit"
   | "catalog.view"
+  | "catalog.manage"
   | "catalog.price_edit"
-  | "register.view";
+  | "catalog.import"
+  | "catalog.export"
+  | "catalog.read"
+  | "catalog.write"
+  | "register.view"
+  | "register.manage"
+  | "users.view"
+  | "users.manage"
+  | "staff.read"
+  | "staff.write"
+  | "devices.read"
+  | "devices.write"
+  | "db.maintenance"
+  | "settings.view"
+  | "settings.write"
+  | "settings.manage"
+  | "settings.read"
+  | "printer.manage"
+  | "sync.manage"
+  | "sync.read"
+  | "sync.write"
+  | "pos.dashboard.read"
+  | "audit.view"
+  | "audit.read";
+
+export const POS_ADMIN_STAFF_PERMISSION_KEYS = [
+  "shop_admin.full_access",
+  "pos.sell",
+  "pos.pay",
+  "pos.refund",
+  "pos.void",
+  "pos.discount",
+  "catalog.view",
+  "catalog.manage",
+  "catalog.price_edit",
+  "catalog.import",
+  "catalog.export",
+  "catalog.read",
+  "catalog.write",
+  "register.view",
+  "register.manage",
+  "users.view",
+  "users.manage",
+  "staff.read",
+  "staff.write",
+  "devices.read",
+  "devices.write",
+  "db.maintenance",
+  "settings.view",
+  "settings.write",
+  "settings.manage",
+  "settings.read",
+  "printer.manage",
+  "sync.manage",
+  "sync.read",
+  "sync.write",
+  "pos.dashboard.read",
+  "audit.view",
+  "audit.read",
+] as const satisfies readonly ShopStaffPermission[];
+
+export type BuiltInShopStaffRole = ShopStaffRole | "pos_admin";
 
 export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
   ShopScopedAdminRole | "viewer",
@@ -122,7 +188,7 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
 };
 
 export const SHOP_STAFF_PERMISSION_MATRIX: Record<
-  ShopStaffRole,
+  BuiltInShopStaffRole,
   readonly ShopStaffPermission[]
 > = {
   cashier: ["pos.sell", "pos.pay", "catalog.view", "register.view"],
@@ -134,6 +200,7 @@ export const SHOP_STAFF_PERMISSION_MATRIX: Record<
     "catalog.price_edit",
     "register.view",
   ],
+  pos_admin: POS_ADMIN_STAFF_PERMISSION_KEYS,
   viewer: ["catalog.view", "register.view"],
 };
 
@@ -154,13 +221,13 @@ export function assertShopAdminPermission(
 }
 
 export function canShopStaff(
-  role: ShopStaffRole,
+  role: BuiltInShopStaffRole,
   permission: ShopStaffPermission,
 ) {
   return SHOP_STAFF_PERMISSION_MATRIX[role]?.includes(permission) ?? false;
 }
 
-export function assertShopStaffHasNoWebAccess(role: ShopStaffRole) {
+export function assertShopStaffHasNoWebAccess(role: BuiltInShopStaffRole) {
   if (SHOP_STAFF_PERMISSION_MATRIX[role]) {
     return true;
   }

@@ -314,6 +314,7 @@ export async function authenticateStaffManagerWebLogin(
       return fail("staff_inactive", { shop, staff });
     }
     const principal = resolvePosStaffManagerWebPrincipal({
+      credentialExpiresAt: staff.credentialExpiresAt,
       credentialStatus: staff.credentialStatus,
       lockedUntil: staff.lockedUntil,
       mustChangeCredential: staff.mustChangeCredential,
@@ -409,6 +410,7 @@ export async function resolveStaffWebSessionPrincipal(): Promise<ShopAdminPrinci
   const runtime = runtimeResult.runtime;
 
   const principal = resolvePosStaffManagerWebPrincipal({
+    credentialExpiresAt: runtime.staff.credentialExpiresAt,
     credentialStatus: runtime.staff.credentialStatus,
     lockedUntil: runtime.staff.lockedUntil,
     mustChangeCredential: runtime.staff.mustChangeCredential,

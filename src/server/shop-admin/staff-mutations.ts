@@ -7,7 +7,10 @@ import {
   shopAdminActionResult,
   type ShopAdminActionResult,
 } from "./action-context";
-import { hashStaffCredential } from "./staff-credentials";
+import {
+  generateStaffPin,
+  hashStaffCredential,
+} from "./staff-credentials";
 import {
   clearStaffLockoutAsStaff,
   createStaffAsStaff,
@@ -67,6 +70,13 @@ type ResetCredentialInput = StaffTargetInput & {
   credentialKind?: string;
 };
 
+const BUILT_IN_STAFF_ROLE_KEYS: readonly string[] = [
+  "cashier",
+  "manager",
+  "pos_admin",
+  "viewer",
+];
+
 function normalizeStaffTarget(input: StaffTargetInput) {
   return {
     reason: input.reason?.trim(),
@@ -81,12 +91,7 @@ function normalizeCredentialKind(value: string | undefined): StaffCredentialKind
 
 export function generateTemporaryStaffCredential(kind: StaffCredentialKind) {
   if (kind === "pin") {
-    const digits = String(randomBytes(4).readUInt32BE(0) % 100000000).padStart(
-      8,
-      "0",
-    );
-
-    return digits;
+    return generateStaffPin();
   }
 
   return randomBytes(12).toString("base64url");
@@ -94,7 +99,12 @@ export function generateTemporaryStaffCredential(kind: StaffCredentialKind) {
 
 async function staffCredentialHash(kind: StaffCredentialKind) {
   const temporaryCredential = generateTemporaryStaffCredential(kind);
-  const credentialHash = await hashStaffCredential(temporaryCredential);
+  const credentialHash =
+    kind === "pin"
+      ? await hashStaffCredential(temporaryCredential, {
+          allowTemporaryPin: true,
+        })
+      : await hashStaffCredential(temporaryCredential);
 
   return { credentialHash, temporaryCredential };
 }
@@ -154,7 +164,7 @@ export async function createStaff(
   if (
     !staffCode ||
     !displayName ||
-    !["cashier", "manager", "viewer"].includes(roleKey)
+    !BUILT_IN_STAFF_ROLE_KEYS.includes(roleKey)
   ) {
     return shopAdminActionResult("validation_failed", {
       fieldErrors: {

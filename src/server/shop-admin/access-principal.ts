@@ -6,16 +6,21 @@ import {
   type ShopAdminShellAccess,
   type ShopAdminShellShop,
 } from "./shop-access";
-import { isShopStaffWebPermission } from "./staff-web-permissions";
+import {
+  isShopStaffWebPermission,
+  OWNER_ONLY_STAFF_WEB_PERMISSIONS,
+} from "./staff-web-permissions";
 
 export const POS_STAFF_WEB_REQUIRED_PERMISSION = "shop_admin.full_access" as const;
 export const STAFF_WEB_LOGIN_NOT_IMPLEMENTED =
   "staff_web_login_not_implemented" as const;
 export const POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY = "manager" as const;
+export const POS_STAFF_WEB_POS_ADMIN_ROLE_KEY = "pos_admin" as const;
 export const POS_STAFF_WEB_FUTURE_ADMIN_ROLE_KEY = "admin" as const;
 
 export type PosStaffWebCurrentRoleKey =
-  typeof POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY;
+  | typeof POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY
+  | typeof POS_STAFF_WEB_POS_ADMIN_ROLE_KEY;
 export type PosStaffWebTargetRoleKey =
   | PosStaffWebCurrentRoleKey
   | typeof POS_STAFF_WEB_FUTURE_ADMIN_ROLE_KEY;
@@ -81,6 +86,7 @@ export type ShopAdminPrincipalResolution =
     };
 
 export type PosStaffWebEligibilityInput = {
+  credentialExpiresAt?: string | null;
   credentialStatus: string | null | undefined;
   lockedUntil?: string | null;
   mustChangeCredential?: boolean | null;
@@ -105,6 +111,28 @@ function isFutureTimestamp(value: string | null | undefined) {
   return Boolean(value && Date.parse(value) > Date.now());
 }
 
+function isElapsedTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return false;
+  }
+
+  const timestamp = Date.parse(value);
+
+  return Number.isFinite(timestamp) && timestamp <= Date.now();
+}
+
+export function isStaffCredentialLockStateUsable(
+  input: Pick<PosStaffWebEligibilityInput, "credentialStatus" | "lockedUntil">,
+) {
+  const { credentialStatus, lockedUntil } = input;
+
+  if (credentialStatus === "active") {
+    return !lockedUntil || isElapsedTimestamp(lockedUntil);
+  }
+
+  return credentialStatus === "locked" && isElapsedTimestamp(lockedUntil);
+}
+
 function hasFullWebPermission(input: PosStaffWebEligibilityInput) {
   return (
     input.permissions?.includes(POS_STAFF_WEB_REQUIRED_PERMISSION) ?? false
@@ -118,15 +146,39 @@ function hasRecognizedWebPermission(input: PosStaffWebEligibilityInput) {
   );
 }
 
+function hasMisdelegatedOwnerOnlyPermission(input: PosStaffWebEligibilityInput) {
+  return (
+    input.roleKey !== POS_STAFF_WEB_POS_ADMIN_ROLE_KEY &&
+    (input.permissions?.some(
+      (permission) =>
+        isShopStaffWebPermission(permission) &&
+        OWNER_ONLY_STAFF_WEB_PERMISSIONS.has(permission),
+    ) ??
+      false)
+  );
+}
+
+const posStaffWebAdminRoleKeys = new Set<string>([
+  POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY,
+  POS_STAFF_WEB_POS_ADMIN_ROLE_KEY,
+]);
+
+export function isPosStaffWebAdminRoleKey(
+  value: string | null | undefined,
+): value is PosStaffWebCurrentRoleKey {
+  return typeof value === "string" && posStaffWebAdminRoleKeys.has(value);
+}
+
 export function isPosStaffEligibleForShopAdminWeb(
   input: PosStaffWebEligibilityInput,
 ) {
   return (
-    input.roleKey === POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY &&
+    isPosStaffWebAdminRoleKey(input.roleKey) &&
+    !hasMisdelegatedOwnerOnlyPermission(input) &&
     input.status === "active" &&
-    input.credentialStatus === "active" &&
+    isStaffCredentialLockStateUsable(input) &&
+    (!input.credentialExpiresAt || isFutureTimestamp(input.credentialExpiresAt)) &&
     input.mustChangeCredential !== true &&
-    !isFutureTimestamp(input.lockedUntil) &&
     (hasFullWebPermission(input) || hasRecognizedWebPermission(input))
   );
 }
@@ -168,7 +220,7 @@ export function resolvePosStaffManagerWebPrincipal(
   if (!isPosStaffEligibleForShopAdminWeb(input)) {
     return {
       reason:
-        "POS staff web access requires an active current-schema manager credential and an explicit staff web permission.",
+        "POS staff web access requires an active POS Admin or compatible manager credential and an explicit staff web permission.",
       status: "unauthorized",
     };
   }
@@ -195,13 +247,16 @@ export function resolvePosStaffManagerWebPrincipal(
     hasFullWebPermission(input)
       ? [POS_STAFF_WEB_REQUIRED_PERMISSION, ...additionalPermissions]
       : additionalPermissions;
+  const roleKey = isPosStaffWebAdminRoleKey(input.roleKey)
+    ? input.roleKey
+    : POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY;
 
   return {
     principal: {
       credentialStatus: "active",
       kind: "pos_staff_manager",
       permissions,
-      roleKey: POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY,
+      roleKey,
       shop: {
         companyRut: input.companyRut,
         shopCode: input.shopCode,

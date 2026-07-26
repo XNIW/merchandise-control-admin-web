@@ -66,7 +66,18 @@ export const SHOP_STAFF_WEB_PERMISSION_TREE = [
 export type ShopStaffWebPermission =
   (typeof SHOP_STAFF_WEB_PERMISSION_TREE)[number]["permissions"][number]["key"];
 
-export type ShopStaffWebRoleKey = "cashier" | "manager" | "viewer";
+export const OWNER_ONLY_STAFF_WEB_PERMISSIONS: ReadonlySet<ShopStaffWebPermission> =
+  new Set([
+    STAFF_WEB_FULL_ACCESS_PERMISSION,
+    "devices.write",
+    "settings.write",
+  ]);
+
+export type ShopStaffWebRoleKey =
+  | "cashier"
+  | "manager"
+  | "pos_admin"
+  | "viewer";
 
 export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
   shop_manager_full: [

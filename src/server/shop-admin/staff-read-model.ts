@@ -12,6 +12,7 @@ import { canShopAdmin } from "./permissions";
 import {
   canStaffWebPerformShopAdminAction,
   hasStaffFullShopAdminWebAccess,
+  OWNER_ONLY_STAFF_WEB_PERMISSIONS,
 } from "./staff-web-permissions";
 
 type StaffSafeRow =
@@ -55,8 +56,10 @@ type GetShopStaffReadModelOptions = {
 };
 
 export type ShopStaffPageBundle = {
+  canManagePosAdminRole: boolean;
   canManageRolePermissions: boolean;
   canManageStaff: boolean;
+  ownerOnlyRoleKeys: readonly string[];
   readModel: ShopStaffReadModel;
 };
 
@@ -69,6 +72,13 @@ const emptyRows = {
   selectedShop: null,
   staffAccounts: [],
 } as const;
+
+const builtInStaffRoleKeys = [
+  "cashier",
+  "manager",
+  "pos_admin",
+  "viewer",
+] as const;
 
 function redactStaffReadModelError(error: unknown): ShopAdminReadModelError {
   const code =
@@ -264,6 +274,53 @@ function canManageRolePermissionsFromAccess(access: ResolvedShopStaffAccess) {
   );
 }
 
+function canManagePosAdminRoleFromAccess(access: ResolvedShopStaffAccess) {
+  if (access.status !== "ready") {
+    return false;
+  }
+
+  if (access.principalKind === "personal_account") {
+    return access.selectedShop.role === "shop_owner";
+  }
+
+  return false;
+}
+
+async function ownerOnlyRoleKeysFromAccess(
+  access: ResolvedShopStaffAccess,
+): Promise<readonly string[]> {
+  if (access.status !== "ready") {
+    return builtInStaffRoleKeys;
+  }
+
+  if (access.principalKind !== "personal_account") {
+    return builtInStaffRoleKeys;
+  }
+
+  const { data, error } = await access.supabase
+    .from("staff_role_permissions")
+    .select("role_key")
+    .eq("shop_id", access.selectedShop.shopId)
+    .eq("enabled", true)
+    .in("permission_key", Array.from(OWNER_ONLY_STAFF_WEB_PERMISSIONS))
+    .limit(100);
+
+  if (error) {
+    return canManagePosAdminRoleFromAccess(access)
+      ? ["pos_admin"]
+      : builtInStaffRoleKeys;
+  }
+
+  return Array.from(
+    new Set([
+      "pos_admin",
+      ...(data ?? [])
+        .map((row) => row.role_key)
+        .filter((roleKey): roleKey is string => Boolean(roleKey)),
+    ]),
+  );
+}
+
 export async function getShopStaffReadModel(
   options: GetShopStaffReadModelOptions = {},
 ): Promise<ShopStaffReadModel> {
@@ -283,10 +340,16 @@ export async function resolveStaffPageBundle(
     requestedShopId,
     strictRequestedShop: true,
   });
+  const [ownerOnlyRoleKeys, readModel] = await Promise.all([
+    ownerOnlyRoleKeysFromAccess(access),
+    staffReadModelFromAccess(access),
+  ]);
 
   return {
+    canManagePosAdminRole: canManagePosAdminRoleFromAccess(access),
     canManageRolePermissions: canManageRolePermissionsFromAccess(access),
     canManageStaff: canManageStaffFromAccess(access),
-    readModel: await staffReadModelFromAccess(access),
+    ownerOnlyRoleKeys,
+    readModel,
   };
 }

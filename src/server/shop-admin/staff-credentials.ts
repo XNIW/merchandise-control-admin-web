@@ -2,11 +2,14 @@ import "server-only";
 
 import {
   randomBytes,
+  randomInt,
   scrypt,
   timingSafeEqual,
   type ScryptOptions,
 } from "node:crypto";
 export const STAFF_CREDENTIAL_SCHEME = "scrypt-v1";
+export const STAFF_PIN_LENGTH = 6;
+export const STAFF_PIN_PATTERN = /^\d{6}$/;
 
 const KEY_LENGTH = 64;
 const SALT_BYTES = 16;
@@ -34,12 +37,16 @@ type ParsedStaffCredentialHash = {
   key: Buffer;
 };
 
+export function generateStaffPin() {
+  return randomInt(0, 1_000_000).toString().padStart(STAFF_PIN_LENGTH, "0");
+}
+
 function assertCredentialInput(
   plaintext: string,
   options: Pick<HashStaffCredentialOptions, "allowTemporaryPin"> = {},
 ) {
   if (options.allowTemporaryPin) {
-    if (!/^\d{5}$/.test(plaintext)) {
+    if (!STAFF_PIN_PATTERN.test(plaintext)) {
       throw new Error("STAFF_TEMPORARY_PIN_INVALID");
     }
 
