@@ -483,9 +483,8 @@ test("TASK-051 server boundaries generate credentials server-side and keep raw v
   assertContains(shopActions, "generateTemporaryManagerPin");
   assertContains(staffProvisioning, "generateTemporaryManagerPin");
   assertContains(managerPin, "export function generateTemporaryManagerPin");
-  assertContains(managerPin, 'from "node:crypto"');
-  assertContains(managerPin, "randomInt(10000, 100000)");
-  assertContains(managerPin, ".toString()");
+  assertContains(managerPin, "generateStaffPin");
+  assertContains(managerPin, "return generateStaffPin()");
   assertContains(shopActions, "hashStaffCredential");
   assertContains(shopActions, "getProvisioningBoundary");
   assertContains(shopActions, "resolvePlatformAdminForRequest");

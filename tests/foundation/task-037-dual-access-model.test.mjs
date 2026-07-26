@@ -97,13 +97,23 @@ test("TASK-037 server foundation defines explicit principals without implementin
 
   assert.match(
     eligibilityBody,
-    /input\.roleKey === POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY/,
+    /isPosStaffWebAdminRoleKey\(input\.roleKey\)/,
   );
   assert.match(eligibilityBody, /input\.status === "active"/);
-  assert.match(eligibilityBody, /input\.credentialStatus === "active"/);
+  assert.match(
+    eligibilityBody,
+    /isStaffCredentialLockStateUsable\(input\)/,
+  );
   assert.match(eligibilityBody, /input\.mustChangeCredential !== true/);
-  assert.match(eligibilityBody, /!isFutureTimestamp\(input\.lockedUntil\)/);
-  assert.match(eligibilityBody, /hasFullWebPermission\(input\)/);
+  assert.match(
+    eligibilityBody,
+    /!input\.credentialExpiresAt \|\| isFutureTimestamp\(input\.credentialExpiresAt\)/,
+  );
+  assert.match(
+    eligibilityBody,
+    /hasFullWebPermission\(input\) \|\| hasRecognizedWebPermission\(input\)/,
+  );
+  assert.match(eligibilityBody, /!hasMisdelegatedOwnerOnlyPermission\(input\)/);
   assert.doesNotMatch(principal, /new Set\(\["manager", "admin"\]\)/);
   assert.doesNotMatch(principal, /posStaffWebRoleKeys\.has/);
   assert.doesNotMatch(principal, /principalCanSelectShop|principalShopRole/);

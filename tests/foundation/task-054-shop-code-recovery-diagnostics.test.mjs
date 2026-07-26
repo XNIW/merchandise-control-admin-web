@@ -42,12 +42,12 @@ async function loadCredentialModule() {
   };
 }
 
-test("TASK-054 temporary manager PIN is 5 numeric digits and hashes only with explicit opt-in", async () => {
+test("TASK-054 temporary manager PIN is 6 numeric digits and hashes only with explicit opt-in", async () => {
   const { cleanup, module } = await loadCredentialModule();
 
   try {
     await assert.rejects(
-      () => module.hashStaffCredential("12345"),
+      () => module.hashStaffCredential("123456"),
       /STAFF_CREDENTIAL_TOO_SHORT/,
     );
     await assert.rejects(
@@ -55,25 +55,25 @@ test("TASK-054 temporary manager PIN is 5 numeric digits and hashes only with ex
       /STAFF_TEMPORARY_PIN_INVALID/,
     );
 
-    const hash = await module.hashStaffCredential("12345", {
+    const hash = await module.hashStaffCredential("123456", {
       allowTemporaryPin: true,
     });
 
-    assert.equal(await module.verifyStaffCredential("12345", hash), true);
-    assert.equal(await module.verifyStaffCredential("54321", hash), false);
+    assert.equal(await module.verifyStaffCredential("123456", hash), true);
+    assert.equal(await module.verifyStaffCredential("654321", hash), false);
   } finally {
     await cleanup();
   }
 });
 
-test("TASK-054 provisioning and recovery hash generated 5 digit PINs with the temporary PIN option", () => {
+test("TASK-054 provisioning and recovery hash generated 6 digit PINs with the temporary PIN option", () => {
   const temporaryPin = readProjectFile("src/server/platform-admin/temporary-manager-pin.ts");
   const staffProvisioning = readProjectFile(
     "src/server/platform-admin/staff-manager-provisioning.ts",
   );
   const shopActions = readProjectFile("src/server/platform-admin/shop-actions.ts");
 
-  assert.match(temporaryPin, /randomInt\(10000, 100000\)\.toString\(\)/);
+  assert.match(temporaryPin, /return generateStaffPin\(\)/);
   assertContains(staffProvisioning, "hashStaffCredential(oneTimeSignInValue, {");
   assertContains(staffProvisioning, "allowTemporaryPin: true");
   assertContains(shopActions, "hashStaffCredential(temporaryCredential, {");

@@ -168,6 +168,12 @@ function loadSalesSyncService(rpcData) {
       };
     }
 
+    if (id === "@/server/shop-admin/access-principal") {
+      return {
+        isStaffCredentialLockStateUsable: () => true,
+      };
+    }
+
     return nativeRequire(id);
   };
   const context = createContext({
