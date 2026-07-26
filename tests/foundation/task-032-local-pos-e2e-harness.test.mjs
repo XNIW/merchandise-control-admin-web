@@ -116,6 +116,16 @@ test("TASK-032 local POS harness is scriptable, negative-safe and dataset-gated"
   );
   assert.match(
     script,
+    /shop_staff_create[\s\S]{0,500}p_role_key:\s*"pos_admin"/,
+    "TASK-032 must provision the canonical POS Admin role so new synthetic shops receive the protected sales permission set",
+  );
+  assert.match(
+    script,
+    /retailPrice:\s*1000/,
+    "TASK-032 catalog fixture price must match the canonical CLP sale amount",
+  );
+  assert.match(
+    script,
     /auth\.admin\.deleteUser\(authUserId,\s*true\)/,
     "TASK-032 auth fixtures must be soft-deleted after exact-ID cleanup",
   );

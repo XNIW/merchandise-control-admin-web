@@ -18,6 +18,7 @@
     "smoke:cloudflare:local": "node scripts/testing/cloudflare-local-smoke.mjs",
     "smoke:oauth:local": "node scripts/testing/task-065-oauth-local-provider-smoke.mjs",
     "smoke:task085:staging": "node scripts/testing/task-085-workers-dev-runtime-smoke.mjs",
+    "smoke:task085:staging:authenticated": "node scripts/testing/task-085-staging-products-fixture.mjs",
     "test:cloudflare:local": "node scripts/run-with-env.mjs CF_SMOKE_SKIP_BUILD=1 -- node scripts/testing/cloudflare-local-smoke.mjs",
     "start": "next start",
     "lint": "eslint",

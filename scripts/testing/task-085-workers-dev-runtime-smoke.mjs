@@ -4,9 +4,11 @@ import { chromium, devices, expect } from "@playwright/test";
 const baseUrl =
   process.env.PLAYWRIGHT_BASE_URL?.trim() || process.env.TASK085_BASE_URL?.trim();
 const repeatCount = Number(process.env.TASK085_OAUTH_REPEAT_COUNT || 5);
-const shopCode = process.env.TASK085_SHOP_CODE?.trim() ?? "";
-const staffCode = process.env.TASK085_STAFF_CODE?.trim() ?? "";
-const staffPin = process.env.TASK085_STAFF_PIN?.trim() ?? "";
+const ownerEmail = process.env.TASK085_OWNER_EMAIL?.trim() ?? "";
+const ownerPassword = process.env.TASK085_OWNER_PASSWORD ?? "";
+const requireAuthenticatedProducts =
+  process.env.TASK085_REQUIRE_AUTHENTICATED_PRODUCTS?.trim().toLowerCase() ===
+  "yes";
 const forbiddenBodyPattern =
   /Error 1102|Worker exceeded resource limits|Total unavailable|Server-side count unavailable/i;
 
@@ -68,6 +70,15 @@ async function runOAuthProbe(browser, origin, index) {
     locale: "en-US",
   });
   const page = await context.newPage();
+  const supabaseProviderHosts = new Set();
+
+  page.on("request", (request) => {
+    const requestUrl = new URL(request.url());
+
+    if (requestUrl.hostname.endsWith(".supabase.co")) {
+      supabaseProviderHosts.add(requestUrl.hostname);
+    }
+  });
 
   try {
     await page.goto(`${origin}/auth/login?mode=admin-account&next=/shop`, {
@@ -114,7 +125,9 @@ async function runOAuthProbe(browser, origin, index) {
     log(
       `PASS oauth mobile ${index}: final=${redactedLocation(
         page.url(),
-      )} provider=${reachedProvider}`,
+      )} provider=${reachedProvider} supabase_host=${
+        supabaseProviderHosts.size > 0 ? "observed" : "not-observed"
+      }`,
     );
   } finally {
     await context.close();
@@ -122,8 +135,14 @@ async function runOAuthProbe(browser, origin, index) {
 }
 
 async function runProductsProbe(browser, origin) {
-  if (!shopCode || !staffCode || !staffPin) {
-    log("SKIP products authenticated smoke: TASK085_SHOP_CODE/STAFF_CODE/STAFF_PIN not set.");
+  if (!ownerEmail || !ownerPassword) {
+    if (requireAuthenticatedProducts) {
+      throw new Error(
+        "TASK085_REQUIRE_AUTHENTICATED_PRODUCTS=yes requires TASK085_OWNER_EMAIL/TASK085_OWNER_PASSWORD.",
+      );
+    }
+
+    log("SKIP products authenticated smoke: TASK085_OWNER_EMAIL/TASK085_OWNER_PASSWORD not set.");
     return;
   }
 
@@ -132,18 +151,80 @@ async function runProductsProbe(browser, origin) {
     locale: "en-US",
   });
   const page = await context.newPage();
+  const navigationPaths = [];
+
+  page.on("framenavigated", (frame) => {
+    if (frame === page.mainFrame()) {
+      const location = new URL(frame.url());
+
+      navigationPaths.push(
+        `${location.pathname}${
+          location.searchParams.has("result")
+            ? `?result=${location.searchParams.get("result")}`
+            : ""
+        }`,
+      );
+    }
+  });
 
   try {
-    await page.goto(`${origin}/auth/login?mode=shop-code&next=/shop/products`, {
-      waitUntil: "domcontentloaded",
+    await page.goto(`${origin}/auth/login?mode=admin-account&next=/shop/products`, {
+      waitUntil: "networkidle",
     });
-    await page.getByRole("textbox", { name: /^shop code$/i }).fill(shopCode);
-    await page.getByRole("textbox", { name: /^staff code$/i }).fill(staffCode);
-    await page.locator('input[name="credential"]').fill(staffPin);
-    await page.getByRole("button", { name: /sign in|access|continue|entra/i }).click();
-    await page.waitForURL((url) => url.origin === origin && url.pathname.startsWith("/shop"), {
-      timeout: 20000,
-    });
+    await page.getByRole("textbox", { name: /^email$/i }).fill(ownerEmail);
+    await page.locator('input[name="password"]').fill(ownerPassword);
+    const submitButton = page.getByRole("button", { name: /^sign in$/i });
+
+    await expect(submitButton).toBeEnabled();
+    const actionResponse = page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url().startsWith(`${origin}/auth/login`),
+      { timeout: 180000 },
+    );
+
+    await submitButton.click();
+    const completedAction = await actionResponse;
+    await page
+      .waitForURL(
+        (url) => url.origin === origin && url.pathname.startsWith("/shop"),
+        { timeout: 10000 },
+      )
+      .catch(() => undefined);
+
+    if (
+      !page
+        .url()
+        .startsWith(`${origin}/shop`)
+    ) {
+      const publicAlerts = (await page.getByRole("alert").allTextContents())
+        .map((value) => value.trim())
+        .filter(Boolean)
+        .join(" ");
+      const currentLocation = new URL(page.url());
+      const safeCookies = (await context.cookies(origin)).map((cookie) => ({
+        domain: cookie.domain,
+        name: cookie.name,
+        path: cookie.path,
+        secure: cookie.secure,
+      }));
+      const actionRedirect =
+        completedAction.headers()["x-action-redirect"] ?? "none";
+
+      throw new Error(
+        [
+          "Products authenticated login did not redirect to /shop.",
+          `action_status=${completedAction.status()}`,
+          `action_redirect=${actionRedirect}`,
+          `location=${currentLocation.pathname}`,
+          `navigations=${navigationPaths.join(">")}`,
+          `cookies=${JSON.stringify(safeCookies)}`,
+          publicAlerts ? `alert=${publicAlerts}` : "",
+        ]
+          .filter(Boolean)
+          .join(" "),
+      );
+    }
     await page.goto(`${origin}/shop/products`, { waitUntil: "domcontentloaded" });
     await assertNoForbiddenBody(page, "products page");
     await expect(page.getByText(/Total products/i).first()).toBeVisible({
