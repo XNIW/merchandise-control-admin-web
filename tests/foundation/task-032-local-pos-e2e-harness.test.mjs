@@ -6,8 +6,7 @@ import test from "node:test";
 
 const root = process.cwd();
 const defaultWin7PosRoot = "/Users/minxiang/Projects/Win7POS";
-const win7PosRoot =
-  process.env.WIN7POS_REPO_PATH?.trim() || defaultWin7PosRoot;
+const win7PosRoot = process.env.WIN7POS_REPO_PATH?.trim() || defaultWin7PosRoot;
 const requireWin7PosRepo = process.env.REQUIRE_WIN7POS_REPO === "1";
 
 function readProjectFile(relativePath) {
@@ -25,7 +24,11 @@ function shouldSkipMissingWin7PosRepo() {
 test("TASK-032 local POS harness is scriptable, negative-safe and dataset-gated", () => {
   const scriptPath = "scripts/pos-local-e2e-harness.mjs";
 
-  assert.equal(existsSync(join(root, scriptPath)), true, `${scriptPath} is missing`);
+  assert.equal(
+    existsSync(join(root, scriptPath)),
+    true,
+    `${scriptPath} is missing`,
+  );
 
   const script = readProjectFile(scriptPath);
   const packageJson = readProjectFile("package.json");
@@ -33,11 +36,25 @@ test("TASK-032 local POS harness is scriptable, negative-safe and dataset-gated"
   for (const required of [
     "/api/pos/auth/first-login",
     "/api/pos/session/heartbeat",
+    "/api/pos/catalog/import-sync",
     "/api/pos/catalog/pull",
+    "catalogImportPayload",
+    "pullCompleteCatalog",
     "setupSyntheticDataset",
     "runPositiveE2E",
     "cleanupSyntheticDataset",
     "verifyCleanup",
+    "platform_create_shop",
+    "platform_map_shop_inventory_source",
+    "platform_soft_delete_shop",
+    "shop_staff_create",
+    "platformActorId",
+    "mappingId",
+    "memberId",
+    "posDeviceCredentialId",
+    "posSessionId",
+    "shopDeviceId",
+    "authenticated platform actor",
     "redactPositiveResult",
     "text/plain",
     "malformed JSON",
@@ -73,25 +90,55 @@ test("TASK-032 local POS harness is scriptable, negative-safe and dataset-gated"
     "duplicateSaleCount",
     "stockQuantityAfterDuplicate",
   ]) {
-    assert.match(script, new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.match(
+      script,
+      new RegExp(required.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
   }
 
-  assert.match(packageJson, /"test:pos-local-harness": "node scripts\/pos-local-e2e-harness\.mjs"/);
+  assert.match(
+    packageJson,
+    /"test:pos-local-harness": "node scripts\/pos-local-e2e-harness\.mjs"/,
+  );
   assert.doesNotMatch(
     script,
     /sb_secret_|mcpos_(device|session)_[A-Za-z0-9_-]+|eyJ[A-Za-z0-9._-]+|password\s*=\s*["'][^"']+["']/i,
+  );
+  assert.doesNotMatch(
+    script,
+    /\.from\(["']shops["']\)\s*\.(?:insert|upsert|update|delete)\s*\(/,
+    "TASK-032 must provision and archive shops through audited RPCs",
+  );
+  assert.doesNotMatch(
+    script,
+    /\.from\(["']staff_accounts["']\)\s*\.(?:insert|upsert)\s*\(/,
+    "TASK-032 must provision staff through the audited shop_staff_create RPC",
+  );
+  assert.match(
+    script,
+    /auth\.admin\.deleteUser\(authUserId,\s*true\)/,
+    "TASK-032 auth fixtures must be soft-deleted after exact-ID cleanup",
+  );
+  assert.doesNotMatch(
+    script,
+    /allTask032|shopCodeLike|staffCodeLike/,
+    "TASK-032 cleanup must not retain a global/prefix mutation mode",
   );
 });
 
 test("TASK-032 local POS harness keeps Win7POS malformed first-login handling in scope", (t) => {
   if (shouldSkipMissingWin7PosRepo()) {
-    t.skip("SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE: Win7POS repo is not available");
+    t.skip(
+      "SKIPPED_EXTERNAL_REPO_NOT_AVAILABLE: Win7POS repo is not available",
+    );
     return;
   }
 
   assert.equal(existsSync(win7PosRoot), true, "Win7POS repo is missing");
 
-  const bootstrapScanner = readWin7PosFile("scripts/check-pos-online-bootstrap.ps1");
+  const bootstrapScanner = readWin7PosFile(
+    "scripts/check-pos-online-bootstrap.ps1",
+  );
 
   assert.match(
     bootstrapScanner,
@@ -109,7 +156,8 @@ test("TASK-032 local POS harness redacts URL credentials even on startup failure
     encoding: "utf8",
     env: {
       ...process.env,
-      TASK032_POS_E2E_BASE_URL: "http://operator:redacted-test-credential@127.0.0.1:9",
+      TASK032_POS_E2E_BASE_URL:
+        "http://operator:redacted-test-credential@127.0.0.1:9",
     },
   });
   const output = `${result.stdout}\n${result.stderr}`;
@@ -152,7 +200,10 @@ test("TASK-032 staging POS harness dry-run is allowlisted and data-safe", () => 
     parsed.stagingPrecheck.dataset.shopCodePrefix,
     /^TASK032_TEST_SHOP_STAGE01/,
   );
-  assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /SUPABASE_SERVICE_ROLE_KEY|sb_secret_|mcpos_/);
+  assert.doesNotMatch(
+    `${result.stdout}\n${result.stderr}`,
+    /SUPABASE_SERVICE_ROLE_KEY|sb_secret_|mcpos_/,
+  );
 });
 
 test("TASK-032 staging POS harness fails closed without explicit staging allowlist", () => {
@@ -187,26 +238,27 @@ test("TASK-032 staging POS harness fails closed without explicit staging allowli
 
 test("TASK-032 staging POS harness command requires explicit non-local staging target", () => {
   const packageJson = readProjectFile("package.json");
-  const result = spawnSync(process.execPath, ["scripts/pos-local-e2e-harness.mjs"], {
-    cwd: root,
-    encoding: "utf8",
-    env: {
-      HOME: process.env.HOME,
-      PATH: process.env.PATH,
-      TASK032_POS_E2E_ALLOW_CLEANUP: "yes",
-      TASK032_POS_E2E_ALLOW_DATASET_SETUP: "yes",
-      TASK032_POS_E2E_ALLOW_STAGING: "yes",
-      TASK032_POS_E2E_ENABLE_POSITIVE: "yes",
-      TASK032_POS_E2E_REQUIRE_STAGING_TARGET: "yes",
-      TASK032_POS_E2E_REQUIRE_TEST_MARKER: "TASK032",
+  const result = spawnSync(
+    process.execPath,
+    ["scripts/pos-local-e2e-harness.mjs"],
+    {
+      cwd: root,
+      encoding: "utf8",
+      env: {
+        HOME: process.env.HOME,
+        PATH: process.env.PATH,
+        TASK032_POS_E2E_ALLOW_CLEANUP: "yes",
+        TASK032_POS_E2E_ALLOW_DATASET_SETUP: "yes",
+        TASK032_POS_E2E_ALLOW_STAGING: "yes",
+        TASK032_POS_E2E_ENABLE_POSITIVE: "yes",
+        TASK032_POS_E2E_REQUIRE_STAGING_TARGET: "yes",
+        TASK032_POS_E2E_REQUIRE_TEST_MARKER: "TASK032",
+      },
     },
-  });
+  );
   const output = `${result.stdout}\n${result.stderr}`;
 
-  assert.match(
-    packageJson,
-    /TASK032_POS_E2E_REQUIRE_STAGING_TARGET=yes/,
-  );
+  assert.match(packageJson, /TASK032_POS_E2E_REQUIRE_STAGING_TARGET=yes/);
   assert.notEqual(result.status, 0);
   assert.match(output, /TASK032_POS_E2E_BASE_URL/);
   assert.match(output, /NEXT_PUBLIC_SUPABASE_URL/);
