@@ -2847,27 +2847,26 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-138: `TASK-138 - Product Images Runtime Completion, UX e Live Parity`
 - File task TASK-138: `docs/TASKS/TASK-138-product-images-runtime-completion-ux-live-parity.md`
 - Evidence TASK-138: `docs/TASKS/EVIDENCE/TASK-138/README.md`
-- Stato TASK-139: `REVIEW`
-- Fase TASK-139: `REVIEW`
+- Stato TASK-139: `DONE`
+- Fase TASK-139: `DONE`
 - Task TASK-139: `TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness`
 - File task TASK-139: `docs/TASKS/TASK-139-pos-catalog-v2-pagination-snapshot.md`
 - Evidence TASK-139: `docs/TASKS/EVIDENCE/TASK-139/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `REVIEW`
-- Task attivo: `TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness`
+- Stato globale attuale: `IDLE`
+- Task attivo: `NESSUNO`
 - Task precedente: `TASK-137 - Product Catalog Images cross-platform` (`REVIEW_WITH_BLOCKERS`, non riaperto e non chiuso)
-- Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-139-pos-catalog-v2-pagination-snapshot.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-139/README.md`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
-- Milestone interna: `TASK_139_CATALOG_V2_SERVER_REVIEW_CI_PENDING`
-- Responsabile: `CODEX`
-- Branch/worktree: `codex/catalog-v2-pagination-20260719-130212` da baseline
-  esatta `c30cf3f2b44e1bf67a2c3bcbdcd0b2cc6a9328a4`; backup branch e bundle
-  creati prima delle modifiche, nessun deploy/apply production autorizzato.
+- Ultimo task chiuso: `TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness`
+- Ultimo task completato: `TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness`
+- File task corrente: `NESSUNO` (ultimo: `docs/TASKS/TASK-139-pos-catalog-v2-pagination-snapshot.md`)
+- Evidence task corrente: `NESSUNA` (ultima: `docs/TASKS/EVIDENCE/TASK-139/README.md`)
+- Stato task: `DONE`
+- Fase: `DONE`
+- Milestone interna: `TASK_139_FINAL_REVIEW_CLOSED`
+- Responsabile: `USER / FINAL REVIEW APPROVED`
+- Branch/worktree: `main`; SHA codice verificata
+  `1743f888d0f4989ca1211ba55b31e43afefa399b`, antenata di `origin/main`.
 - Apertura TASK-138 2026-07-18: follow-up esplicito TASK-137 per completare
   runtime, UX e parity live non-production su Admin Web, Android e iOS. Prima
   delle modifiche runtime e stata registrata la matrice requisito/stato/test/gap
@@ -4155,6 +4154,16 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
   corrente `MaxBootstrapCatalogPullPages=120`: il budget summary-derived per
   cataloghi 100k+prezzi resta nello scope separato SYNC-1. Stato `REVIEW`, non
   `DONE`; nessun apply/deploy production.
+- TASK-139 final review closeout 2026-07-25: review finale approvata
+  esplicitamente dall'utente e task chiuso `DONE`. La SHA codice verificata
+  `1743f888d0f4989ca1211ba55b31e43afefa399b` è su `main` e resta antenata del
+  tip documentale. Workflow esistenti riusati sull'esatta SHA: CI
+  `30173322843` `SUCCESS` (migration/pgTAP, foundation, typecheck, lint, build,
+  UI smoke e diff check) e Cloudflare `30173322834` `SUCCESS` (build OpenNext e
+  smoke locale; deploy staging/production correttamente skipped). P0/P1/P2
+  aperti `0`; nessun deploy Cloudflare, apply migration Supabase o nuovo scan
+  Codex Security eseguito nel closeout. Device/periferiche fisiche restano
+  eventuale evidence esterna non bloccante per la chiusura software.
 
 ## Regole di avanzamento
 

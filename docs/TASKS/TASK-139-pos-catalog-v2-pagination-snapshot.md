@@ -3,12 +3,12 @@
 ## Informazioni generali
 
 - ID: `TASK-139`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `CODEX`
+- Stato: `DONE`
+- Fase attuale: `DONE`
+- Responsabile attuale: `USER / FINAL REVIEW APPROVED`
 - Data apertura: `2026-07-19`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-139/README.md`
-- Branch: `codex/catalog-v2-pagination-20260719-130212`
+- Branch: `main`
 - Dipendenza: Win7POS PR #7 e PR #6 gia fusi prima dell'apertura.
 
 ## Obiettivo
@@ -66,21 +66,30 @@ SYNC-2 e PERF-1.
 - `npm run test:foundation`, `npm run build`, `npm run verify`;
 - `git diff --check` e review cumulativa.
 
-## Stato corrente
+## Stato finale
 
-Implementazione e review cumulativa locale completate sul branch dedicato con
+Implementazione e review cumulativa completate con
 verdetto `P0=0`, `P1=0`; tutti i finding P2 sul cursore sono stati corretti e
 coperti da regressioni. I gate applicativi locali sono verdi; migration e
-pgTAP sono passati nel job CI Supabase separato su Linux sull'HEAD pubblicato
-`53b9f47286b994af65c71b4e93d0a05be505e161`. La QA cloud isolata ha inoltre
+pgTAP sono passati nel job CI Supabase separato su Linux. La QA cloud isolata ha inoltre
 riprodotto il cap PostgREST e drenato senza skip/duplicati i dataset sintetici
 da 19.763 e 100.000 prodotti; una mutazione tra pagine ha causato il rifiuto
 fail-closed della continuation. Il progetto QA temporaneo e stato eliminato e
 il link locale e stato ripristinato su `merchandisecontrol-dev`, senza apply su
 dev o production.
 
-Il client Win7POS corrente conserva un limite bootstrap fisso di 120 pagine:
-la sostituzione con un budget derivato dal summary authoritative appartiene al
-successivo PR client SYNC-1. Nessun deploy/apply production eseguito o
-autorizzato. Stato `REVIEW`, in attesa del nuovo giro CI sull'HEAD contenente
-questa evidence e del merge normale della PR.
+La SHA codice finale verificata è
+`1743f888d0f4989ca1211ba55b31e43afefa399b`: coincideva con `main`,
+`origin/main` e GitHub `main` al preflight ed è antenata del successivo commit
+documentale. I workflow sull'esatta SHA sono verdi:
+
+- CI `30173322843`: `SUCCESS`; migration/pgTAP, foundation, typecheck, lint,
+  build, UI smoke e diff check completati.
+- Cloudflare `30173322834`: `SUCCESS`; build OpenNext e smoke locale completati,
+  deploy staging/production skipped come previsto.
+
+Il contratto server è integrato e i criteri di accettazione 1-8 sono chiusi.
+Il limite client storico è stato consumato dalla successiva integrazione
+cross-repository; non resta un blocker TASK-139. Nessun deploy/apply production
+è stato eseguito o autorizzato. Review finale approvata esplicitamente
+dall'utente il `2026-07-25`: stato `DONE`.

@@ -100,7 +100,7 @@ Evidence incrementale per paginazione e snapshot catalogo POS v2.
 - Database production apply: `NOT_RUN` e non autorizzato.
 - Deploy Cloudflare staging/production: `NOT_RUN`.
 
-## CI sull'HEAD pubblicato
+## CI sul candidato pubblicato
 
 HEAD `53b9f47286b994af65c71b4e93d0a05be505e161`:
 
@@ -110,8 +110,8 @@ HEAD `53b9f47286b994af65c71b4e93d0a05be505e161`:
 - `TASK-094 staging E2E`, `Deploy staging` e `Deploy production`: `SKIPPED`
   come previsto dalle condizioni workflow; nessun deploy e stato eseguito.
 
-Questa evidence genera una nuova HEAD documentale: prima del merge restano
-obbligatori i check verdi anche su tale commit esatto.
+Questa era l'evidence del candidato prima dell'integrazione finale; la sezione
+di closeout seguente registra lo stato autorevole su `main`.
 
 ## Review cumulativa
 
@@ -123,6 +123,22 @@ obbligatori i check verdi anche su tale commit esatto.
 - Limite client Win7POS osservato: `MaxBootstrapCatalogPullPages=120`; il
   catalogo da 100.000 prodotti con lane prezzi richiede un budget superiore.
   Correzione assegnata al PR client SYNC-1, senza mescolare repository/PR.
-- Stato handoff: `REVIEW`; P0/P1/P2 aperti `0`. Migration, pgTAP, packaging
-  Linux e QA cloud isolata sono verdi; resta il rerun CI sull'HEAD documentale
-  esatta prima del merge normale.
+- Stato handoff storico: `REVIEW`; P0/P1/P2 aperti `0`. Migration, pgTAP,
+  packaging Linux e QA cloud isolata erano verdi.
+
+## Final review closeout — 2026-07-25
+
+- Stato finale: `DONE`, con approvazione esplicita dell'utente.
+- SHA codice verificata:
+  `1743f888d0f4989ca1211ba55b31e43afefa399b`.
+- La SHA coincideva con `main`, `origin/main` e GitHub `main` al preflight ed è
+  antenata del successivo commit documentale.
+- CI `30173322843`: `SUCCESS` sull'esatta SHA; migration/pgTAP, foundation,
+  typecheck, lint, build, UI smoke e diff check verdi.
+- Cloudflare `30173322834`: `SUCCESS` sull'esatta SHA; build OpenNext e smoke
+  locale verdi, deploy staging/production skipped.
+- P0/P1/P2 aperti: `0/0/0`.
+- Nessun deploy Cloudflare, apply migration Supabase, test E2E su staging o
+  nuovo scan Codex Security è stato avviato nel closeout.
+- Device, camera, scanner, printer e Windows 7 fisici sono evidence esterna
+  opzionale/non bloccante e non cambiano la closure software.
