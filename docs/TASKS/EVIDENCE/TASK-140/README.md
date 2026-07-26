@@ -385,3 +385,50 @@ rischio architetturale dei grant service-role table-wide; nessuno supera i
 boundary authz/shop/target. Nessun codice runtime, deploy, installazione, write
 database, stage, commit, push o merge è stato eseguito. Stato:
 `REVIEW / REVIEW_READY`, mai `DONE` da Codex.
+
+## Admin staging post-deploy acceptance closeout — 2026-07-26
+
+Questa sezione è additiva e supersede soltanto i risultati obsoleti dei quattro
+blocchi di acceptance. I test finali sono presenti nel checkout canonico
+corrente; nessun PASS deriva da un vecchio worktree.
+
+| Gate | Esito reale | Evidence redatta |
+|---|---|---|
+| migration parity linked | `PASS` | target staging exact-guarded; migration pending `0`; nessuna migration applicata nel closeout post-deploy |
+| pgTAP TASK-140 linked | `PASS 230/230` | `Files=1, Tests=230`, `Result: PASS`; `p_sales=[]` negativo e vendita sintetica positiva separati |
+| Playwright TASK-140 | `PASS 1/1` | Chromium Desktop staging, `6.7m`; sessione revocata fail-closed, nuovo login, owner-only boundary e cleanup esatto |
+| foundation mirati TASK-032/TASK-085/TASK-139/TASK-140 | `PASS 34/34` | eseguiti dal checkout corrente con Win7POS clean exact-`origin/main`; il checkpoint precedente TASK-032/085/140 `12/12` resta superseduto |
+| lint / typecheck / Next build / OpenNext | `PASS` | tutti exit `0`; Next.js `16.2.6` |
+| `npm run verify` | `PASS` | `WIN7POS_REPO_PATH=/Users/minxiang/.codex/worktrees/win7pos-main-20260722`, HEAD `24d6e0d5f82b5c32e48b42d31333459dbc7d4c6b` |
+| Worker readiness pubblico | `PASS` | `cf:check:staging`; workers.dev pubblico raggiungibile |
+| smoke staging / platform | `PASS 1/1 + 1/1` | guard staging e Supabase superati; test read-only |
+| catalog paging | `PASS` | snapshot-bound keyset con sentinel interno `limit+1` |
+| POS harness dry-run | `PASS` | `PASS_STAGING_PRECHECK_DRY_RUN`; nessun dato creato e nessuna vendita inviata |
+| POS harness positivo | `PASS_STAGING_POS_E2E_WITH_CLEANUP` | first-login, heartbeat, catalog, sales/outbox, duplicate/conflict; residue operativo zero |
+| TASK-085 autenticato | `PASS` | OAuth mobile `5/5`; Products autenticato owner sintetico; cleanup active shop/mapping/member/profile/platform-admin a zero |
+| fixture sessione | `PASS_ZERO_RESIDUE` | fixture TASK-140, POS e TASK-085 della sessione chiuse exact-ID |
+| fixture TASK-032 storiche | `PRESERVED_CLASSIFIED` | `33` shop sintetici già archiviati conservati; vendite, ledger e audit immutabili non cancellati |
+| deploy staging | `PASS_STAGING_ONLY` | precedente `dcc1ff4c-02c3-4bad-bf32-4464e355d407`; finale `aeb4e70d-8d66-43c7-b686-91a5d31c99be`; timestamp `2026-07-26T18:31:35.574245Z` |
+| runtime bundle | `PASS` | SHA256 `d05223bf4d44c84108a102ab62aa3bc9c5568f0c3ac2064c37be5cc65c64bc45`; BUILD_ID `dvd3hqd1X34zjqsAB0oSA` |
+| production / client sibling | `NOT_RUN_OUT_OF_SCOPE` | production, Win7POS, Android e iOS non modificati |
+| Codex Security / CodeQL manuale | `NOT_RUN` | non ripetuti; il check locale incorporato in `npm run verify` non è una nuova scansione Codex Security |
+| follow-up GitHub | `PR #39` | commit test/harness `8c17a6e8`; merge e SHA finale sono registrati nel report di closeout |
+
+Root cause chiuse:
+
+1. il pgTAP storico usava un array sales vuoto come caso positivo, mentre il
+   contratto corrente richiede `1–100` vendite;
+2. il Playwright storico pretendeva la riattivazione automatica di una
+   sessione già invalidata;
+3. il POS setup storico inseriva direttamente in `shops`; il primo
+   riallineamento ha inoltre esposto che uno shop sintetico nuovo richiede il
+   ruolo canonico `pos_admin` e un prezzo catalogo coerente con la vendita;
+4. i wrapper smoke non caricavano i guard staging e il Products TASK-085 usava
+   un boundary staff ormai non autorizzato invece dell’owner personale.
+
+Il redeploy unico è stato eseguito dopo il merge del codice runtime su `main`
+`a8230659cff62ff962a15b6f8010d31c1d99aac7`. Il follow-up contiene soltanto
+test, harness e documentazione: nessun secondo deploy, nessuna migration e
+nessuna modifica runtime. Stato finale del task secondo `AGENTS.md`: `REVIEW`,
+non `DONE`. Handoff:
+`READY_FOR_WIN7POS_ASUS_RUNTIME_ACCEPTANCE`.

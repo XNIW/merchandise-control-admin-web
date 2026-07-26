@@ -307,3 +307,39 @@ Gate eseguiti realmente in questo checkpoint:
 Non sono stati rieseguiti né promossi a nuovi PASS i gate staging/pgTAP/build già
 registrati nell'evidence. Nessun deploy, installazione, write database, stage,
 commit, push o merge è stato eseguito da questa review.
+
+## Admin staging post-deploy acceptance closeout — 2026-07-26
+
+Il closeout ha recuperato nel checkout canonico i test TASK-140 necessari e li
+ha riallineati senza modificare il contratto runtime:
+
+- `p_sales = []` resta un caso negativo `validation_failed`, privo di vendite,
+  outbox e side effect; il positivo usa una vendita sintetica valida;
+- una sessione invalidata durante un lock non risorge dopo la scadenza: la
+  vecchia sessione resta respinta e soltanto un nuovo login crea una sessione
+  valida;
+- le azioni built-in protette restano owner-only; il manager staff conserva il
+  boundary di login e lettura previsto dal contratto corrente;
+- le fixture browser sono run-scoped, exact-ID e cleanup fail-closed.
+
+Evidence runtime corrente: pgTAP linked staging `230/230 PASS`; Playwright
+TASK-140 Chromium Desktop `1/1 PASS` in `6.7m`; cleanup operativo della
+sessione a zero. Il POS harness TASK-032 ora provisiona lo shop con
+`platform_create_shop`, lo staff con `shop_staff_create` nel ruolo canonico
+`pos_admin`, e la sorgente inventario con
+`platform_map_shop_inventory_source`; first-login, heartbeat, catalog,
+sales/outbox, duplicate/conflict e cleanup sono `PASS`. Lo smoke TASK-085
+autenticato usa un owner personale sintetico e termina con residui attivi a
+zero. Il follow-up riproducibile è tracciato nella PR `#39`, commit test
+`8c17a6e8`.
+
+Il solo redeploy staging del closeout ha pubblicato la versione
+`aeb4e70d-8d66-43c7-b686-91a5d31c99be` dal codice runtime su `main`
+`a8230659cff62ff962a15b6f8010d31c1d99aac7`. Le modifiche successive sono
+esclusivamente test, harness e documentazione e non richiedono un secondo
+deploy. Nessuna migration nuova, nessun apply/deploy production e nessuna
+nuova Codex Security scan sono stati eseguiti.
+
+Stato governance: `REVIEW`, mai `DONE` da Codex. Handoff separato:
+`READY_FOR_WIN7POS_ASUS_RUNTIME_ACCEPTANCE`; la prova fisica Asus non è ancora
+dichiarata completata.

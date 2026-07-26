@@ -4168,6 +4168,24 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
   aperti `0`; nessun deploy Cloudflare, apply migration Supabase o nuovo scan
   Codex Security eseguito nel closeout. Device/periferiche fisiche restano
   eventuale evidence esterna non bloccante per la chiusura software.
+- TASK-140 Admin staging acceptance closeout 2026-07-26: i test canonici
+  recuperati nel repository corrente sono allineati ai contratti attuali.
+  Il pgTAP TASK-140 è `230/230 PASS`; il Playwright Chromium Desktop è `1/1
+  PASS` in `6.7m` e prova la revoca fail-closed della vecchia sessione, il
+  nuovo login e il cleanup esatto. Il POS harness TASK-032 usa provisioning
+  auditato, ruolo canonico `pos_admin`, catalogo/prezzo coerente e ha chiuso
+  first-login, heartbeat, catalog, sales/outbox, duplicate/conflict e cleanup
+  operativo con `PASS_STAGING_POS_E2E_WITH_CLEANUP`. Lo smoke TASK-085
+  autenticato usa un owner personale sintetico e termina con residui attivi a
+  zero. Il follow-up riproducibile è tracciato nella PR `#39`, commit test
+  `8c17a6e8`. Migration pending `0`; il solo deploy staging autorizzato pubblica la
+  versione `aeb4e70d-8d66-43c7-b686-91a5d31c99be` del codice runtime
+  `a8230659cff62ff962a15b6f8010d31c1d99aac7`. Production e client
+  Win7POS/Android/iOS non sono stati toccati; il checkout Win7POS canonico
+  dirty è stato preservato e `npm run verify` ha usato il worktree clean
+  exact-`origin/main`. Stato governance `REVIEW`, non `DONE`; handoff
+  `READY_FOR_WIN7POS_ASUS_RUNTIME_ACCEPTANCE`, senza dichiarare eseguita la
+  prova fisica.
 
 ## Regole di avanzamento
 
