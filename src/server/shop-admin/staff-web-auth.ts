@@ -131,7 +131,9 @@ export function verifyStaffWebSecret(secret: string, expectedHash: string) {
   const candidate = Buffer.from(hashStaffWebSecret(secret), "utf8");
   const expected = Buffer.from(expectedHash, "utf8");
 
-  return candidate.length === expected.length && timingSafeEqual(candidate, expected);
+  return (
+    candidate.length === expected.length && timingSafeEqual(candidate, expected)
+  );
 }
 
 export function isSecureStaffWebCookie(meta: StaffWebRequestMeta = {}) {
@@ -152,9 +154,7 @@ function hostnameFromHost(host: string) {
 
 function isLocalStaffWebHost(hostname: string) {
   return (
-    hostname === "localhost" ||
-    hostname === "127.0.0.1" ||
-    hostname === "::1"
+    hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1"
   );
 }
 
@@ -329,7 +329,9 @@ export async function authenticateStaffManagerWebLogin(
     if (principal.status !== "ready") {
       return fail("staff_not_allowed", { shop, staff });
     }
-    if (!(await verifyStaffCredential(parsed.credential, staff.credentialHash))) {
+    if (
+      !(await verifyStaffCredential(parsed.credential, staff.credentialHash))
+    ) {
       return fail("credential_invalid", { affectStaff: true, shop, staff });
     }
 
@@ -375,7 +377,8 @@ export async function resolveStaffWebSessionPrincipal(): Promise<ShopAdminPrinci
 
   if (!supabase) {
     return {
-      reason: "Supabase admin runtime is not configured for staff web sessions.",
+      reason:
+        "Supabase admin runtime is not configured for staff web sessions.",
       status: "not_configured",
     };
   }
@@ -394,7 +397,20 @@ export async function resolveStaffWebSessionPrincipal(): Promise<ShopAdminPrinci
   }
 
   if (runtimeResult.kind !== "ok") {
+    const revocation = await revokeStaffWebRuntimeSession(supabase, {
+      reason:
+        runtimeResult.kind === "expired"
+          ? "staff_web_runtime_expired"
+          : "staff_web_runtime_denied",
+      sessionTokenHash,
+    });
     await clearStaffWebCookie();
+    if (revocation === "failed") {
+      return {
+        reason: "Staff web session could not be revoked.",
+        status: "error",
+      };
+    }
     return {
       reason:
         runtimeResult.kind === "expired"

@@ -39,9 +39,7 @@ test("TASK-140 recovered PIN contract remains six-digit and leading-zero safe", 
   const credentials = readProjectFile(
     "src/server/shop-admin/staff-credentials.ts",
   );
-  const mutations = readProjectFile(
-    "src/server/shop-admin/staff-mutations.ts",
-  );
+  const mutations = readProjectFile("src/server/shop-admin/staff-mutations.ts");
   const managerPin = readProjectFile(
     "src/server/platform-admin/temporary-manager-pin.ts",
   );
@@ -58,8 +56,14 @@ test("TASK-140 recovered PIN contract remains six-digit and leading-zero safe", 
     const storedHash = await module.hashStaffCredential("000042", {
       allowTemporaryPin: true,
     });
-    assert.equal(await module.verifyStaffCredential("000042", storedHash), true);
-    assert.equal(await module.verifyStaffCredential("100042", storedHash), false);
+    assert.equal(
+      await module.verifyStaffCredential("000042", storedHash),
+      true,
+    );
+    assert.equal(
+      await module.verifyStaffCredential("100042", storedHash),
+      false,
+    );
   } finally {
     await cleanup();
   }
@@ -87,5 +91,18 @@ test("TASK-140 recovered staff web authorization keeps owner-only boundaries", (
   assert.match(principal, /isStaffCredentialLockStateUsable/);
   assert.match(principal, /credentialExpiresAt/);
   assert.match(principal, /OWNER_ONLY_STAFF_WEB_PERMISSIONS/);
-  assert.match(staffWebAuth, /credentialExpiresAt:\s*staff\.credentialExpiresAt/);
+  assert.match(
+    staffWebAuth,
+    /credentialExpiresAt:\s*staff\.credentialExpiresAt/,
+  );
+  assert.match(
+    staffWebAuth,
+    /if \(runtimeResult\.kind !== "ok"\)[\s\S]*revokeStaffWebRuntimeSession\(supabase,[\s\S]*staff_web_runtime_(?:expired|denied)[\s\S]*await clearStaffWebCookie\(\)/,
+    "a denied or expired runtime lease must durably revoke the session before relying on cookie clearing",
+  );
+  assert.match(
+    staffWebAuth,
+    /if \(revocation === "failed"\)[\s\S]*status: "error"/,
+    "runtime revocation failures must remain fail-closed",
+  );
 });
