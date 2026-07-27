@@ -6,12 +6,13 @@
 - Coordination key: `CATALOG-TEXT-001`
 - Repository: `XNIW/merchandise-control-admin-web`
 - Titolo: `Cross-platform catalog text integrity`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `USER / FINAL CONFIRMATION`
+- Stato: `DONE`
+- Fase attuale: `DONE / USER_CONFIRMED_CLOSURE`
+- Responsabile attuale: `USER / CONFIRMED CLOSURE`
 - Data apertura: `2026-07-27`
 - Branch implementazione: `codex/catalog-text-integrity-admin-20260727`
 - Branch closeout: `codex/catalog-text-integrity-closeout-admin-20260727`
+- Branch chiusura: `codex/catalog-text-integrity-done-admin-20260727`
 - Baseline: `54889a68a65cec39764bbb5479574e942f4d54f1`
 - File Master Plan: `docs/MASTER-PLAN.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-142/README.md`
@@ -30,8 +31,8 @@ cross-platform su Android Emulator e iOS Simulator.
 - Win7POS: `READ_ONLY / NOT_MODIFIED`.
 - Android e iOS: modificati soltanto nei rispettivi repository e task.
 
-La governance locale resta applicabile: Codex prepara il task per `REVIEW` e
-non lo marca autonomamente `DONE`.
+La conferma esplicita dell'utente richiesta dalla governance è stata ricevuta
+il `2026-07-27`; la transizione finale a `DONE` è quindi autorizzata.
 
 ## Scopo
 
@@ -210,8 +211,10 @@ dominio import esistente; nessun placeholder viene inventato.
   `1` supplier, `1` categoria e `7` eventi registrati rimossi; residue fixture
   e shop QA `0`. File temporanei di sessione, build e browser eliminati;
   production e Win7POS restano `NOT_MODIFIED`.
+- `2026-07-27`: l'utente ha confermato esplicitamente che, sulla base dei gate
+  e dell'acceptance documentati, TASK-142 può passare a `DONE`.
 
-## Handoff
+## Chiusura
 
 - Risultato: tutti i criteri TASK-142 sono verificati nel perimetro
   autorizzato; implementazioni integrate, migration/repair staging applicati,
@@ -226,5 +229,5 @@ dominio import esistente; nessun placeholder viene inventato.
   TASK-142 o ha impedito i flussi pubblici verificati.
 - P0/P1/P2/P3 aperti: `0/0/0/0`.
 - Production e Win7POS: `NOT_MODIFIED`.
-- Prossima fase: `REVIEW / READY_FOR_USER_CONFIRMATION`. Codex non marca il
-  task `DONE`; il passaggio finale richiede conferma esplicita dell'utente.
+- Stato finale: `DONE / USER_CONFIRMED_CLOSURE`.
+- Prossima fase: nessuna; eventuali nuovi gap richiedono un task separato.

@@ -2857,31 +2857,31 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-141: `TASK-141 - Win7POS catalog bootstrap staging incident`
 - File task TASK-141: `docs/TASKS/TASK-141-win7pos-catalog-bootstrap-staging-incident.md`
 - Evidence TASK-141: `docs/TASKS/EVIDENCE/TASK-141/README.md`
-- Stato TASK-142: `REVIEW`
-- Fase TASK-142: `REVIEW`
+- Stato TASK-142: `DONE`
+- Fase TASK-142: `DONE / USER_CONFIRMED_CLOSURE`
 - Task TASK-142: `TASK-142 - Cross-platform catalog text integrity`
 - Coordination key TASK-142: `CATALOG-TEXT-001`
 - File task TASK-142: `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
 - Evidence TASK-142: `docs/TASKS/EVIDENCE/TASK-142/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `REVIEW`
-- Task attivo: `TASK-142 - Cross-platform catalog text integrity`
-- Task precedente: `TASK-141 - Win7POS catalog bootstrap staging incident` (`DONE`)
-- Ultimo task chiuso: `TASK-141 - Win7POS catalog bootstrap staging incident`
-- Ultimo task completato: `TASK-141 - Win7POS catalog bootstrap staging incident`
+- Stato globale attuale: `IDLE`
+- Task attivo: `NESSUNO`
+- Task precedente: `TASK-142 - Cross-platform catalog text integrity` (`DONE`)
+- Ultimo task chiuso: `TASK-142 - Cross-platform catalog text integrity`
+- Ultimo task completato: `TASK-142 - Cross-platform catalog text integrity`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - File task corrente: `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
-- Ultimo file task: `docs/TASKS/TASK-141-win7pos-catalog-bootstrap-staging-incident.md`
+- Ultimo file task: `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
 - Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-142/README.md`
-- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-141/README.md`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
-- Milestone interna: `CATALOG_TEXT_POLICY_V1_STAGING_ACCEPTED`
-- Responsabile: `USER / FINAL CONFIRMATION`
+- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-142/README.md`
+- Stato task: `DONE`
+- Fase: `DONE / USER_CONFIRMED_CLOSURE`
+- Milestone interna: `CATALOG_TEXT_POLICY_V1_USER_CONFIRMED_DONE`
+- Responsabile: `USER / CONFIRMED CLOSURE`
 - Branch/worktree:
-  `codex/catalog-text-integrity-closeout-admin-20260727`;
+  `codex/catalog-text-integrity-done-admin-20260727`;
   `/Users/minxiang/.codex/worktrees/catalog-text-integrity-20260727/admin`.
 - Apertura TASK-142 2026-07-27: avviato il coordinamento
   `CATALOG-TEXT-001` su Admin Web, Android e iOS. Baseline Admin
@@ -2922,8 +2922,11 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `c5ae7e81-ded9-43ec-996a-199f7cfa540b`; acceptance Admin/Android/iOS
   bidirezionale `PASS`; paging Win7POS-equivalente completo `PASS`; cleanup
   fixture/eventi/shop QA a residuo `0`. Production e Win7POS
-  `NOT_MODIFIED`. TASK-142 resta `REVIEW / READY_FOR_USER_CONFIRMATION`, non
-  `DONE`, in attesa della conferma esplicita dell'utente.
+  `NOT_MODIFIED`.
+- Chiusura TASK-142 2026-07-27: conferma esplicita utente ricevuta dopo
+  verifica dei gate, dell'acceptance staging e del cleanup. TASK-142 passa a
+  `DONE / USER_CONFIRMED_CLOSURE`; progetto `IDLE`. Nessun nuovo write,
+  deploy o test è stato necessario per la sola transizione documentale.
 - Apertura TASK-138 2026-07-18: follow-up esplicito TASK-137 per completare
   runtime, UX e parity live non-production su Admin Web, Android e iOS. Prima
   delle modifiche runtime e stata registrata la matrice requisito/stato/test/gap
