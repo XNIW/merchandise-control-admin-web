@@ -17,6 +17,7 @@ Regole:
 - Baseline: `54889a68a65cec39764bbb5479574e942f4d54f1`
 - Branch implementazione: `codex/catalog-text-integrity-admin-20260727`
 - Branch closeout: `codex/catalog-text-integrity-closeout-admin-20260727`
+- Branch chiusura: `codex/catalog-text-integrity-done-admin-20260727`
 - Coordination key: `CATALOG-TEXT-001`
 - Admin PR: [#42](https://github.com/XNIW/merchandise-control-admin-web/pull/42),
   merge normale `d52e23da689a713dc55c9528e06b4c68913ef76a`
@@ -168,4 +169,5 @@ Fix applicati e rereviewati:
   preesistenti e non implicano funzioni TASK-142; i flussi pubblici richiesti
   sono passati.
 - P0/P1/P2/P3 aperti: `0/0/0/0`.
-- Stato finale Codex: `REVIEW / READY_FOR_USER_CONFIRMATION`, non `DONE`.
+- Conferma utente esplicita ricevuta il `2026-07-27`.
+- Stato finale: `DONE / USER_CONFIRMED_CLOSURE`.
