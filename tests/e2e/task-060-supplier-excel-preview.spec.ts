@@ -115,8 +115,15 @@ function parseSupabaseStatusEnv(output: string) {
 }
 
 function localSupabaseStatusEnv() {
+  const workdir = process.env.LOCAL_SUPABASE_WORKDIR?.trim();
+  const args = ["status", "--output", "env"];
+
+  if (workdir) {
+    args.push("--workdir", workdir);
+  }
+
   return parseSupabaseStatusEnv(
-    execFileSync("supabase", ["status", "--output", "env"], {
+    execFileSync("supabase", args, {
       encoding: "utf8",
       env: {
         ...process.env,
@@ -410,7 +417,14 @@ async function createTask060Fixture(
   const staffCode = `TASK060_STAFF_${nonce}`;
   const staffCredential = `task060_staff_${randomBytes(18).toString("base64url")}`;
   const attemptKeyHash = hashStaffWebAttemptKey(shopCode, staffCode);
-  const permissions = options.permissions ?? ["shop_admin.full_access"];
+  const permissions = options.permissions ?? [
+    "catalog.read",
+    "catalog.write",
+    "catalog.import",
+    "catalog.export",
+    "history.write",
+    "sync.read",
+  ];
   const now = new Date().toISOString();
   const createdUser = await supabase.auth.admin.createUser({
     email,
@@ -645,7 +659,7 @@ async function writeDingliSupplierWorkbook(path: string) {
       2,
       "TASK060-NEW-ITEM",
       TASK060_NEW_BARCODE,
-      "TASK060 New Dingli Tea",
+      "  TASK060 New\n\tDingli  Tea  ",
       "TASK060 Tea ES",
       14,
       3.1,
@@ -893,29 +907,42 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       await expect(dialog.getByLabel("Barcode column")).toHaveValue("2");
       await expect(dialog.getByLabel("Product name column")).toHaveValue("3");
       await expect(dialog.getByLabel("Second name column")).toHaveValue("4");
-      await expect(dialog.getByLabel("Purchase price column")).toHaveValue("6");
-      await expect(dialog.getByLabel("Retail price column")).toHaveCount(0);
-      await expect(dialog.getByLabel("Use Retail price")).toHaveCount(0);
+      await expect(
+        dialog.getByLabel("Purchase price column", { exact: true }),
+      ).toHaveValue("6");
+      await expect(
+        dialog.getByLabel("Retail price column", { exact: true }),
+      ).toBeDisabled();
+      await expect(
+        dialog.getByLabel("Use Retail price", { exact: true }),
+      ).not.toBeChecked();
       await expect(dialog.getByLabel("Use Barcode")).toBeChecked();
       await expect(dialog.getByLabel("Use Barcode")).toBeDisabled();
       await expect(dialog.getByLabel("Use Product name")).toBeChecked();
       await expect(dialog.getByLabel("Use Product name")).toBeDisabled();
-      await dialog.getByLabel("Purchase price column").selectOption("4");
+      await dialog
+        .getByLabel("Purchase price column", { exact: true })
+        .selectOption("4");
       await expect(
         dialog.getByText("Choose a numeric column before continuing."),
       ).toBeVisible();
       await expect(
         dialog.getByRole("button", { name: "Continue to import preview" }),
       ).toBeDisabled();
-      await dialog.getByLabel("Purchase price column").selectOption("6");
-      await expect(dialog.getByLabel("Use Discount", { exact: true })).not.toBeChecked();
-      await expect(
-        dialog.getByLabel("Use Discounted price", { exact: true }),
-      ).not.toBeChecked();
-      await expect(dialog.getByLabel("Use Total price", { exact: true })).not.toBeChecked();
-      await dialog.getByLabel("Use Discount", { exact: true }).check();
-      await dialog.getByLabel("Use Discounted price", { exact: true }).check();
-      await dialog.getByLabel("Use Total price", { exact: true }).check();
+      await dialog
+        .getByLabel("Purchase price column", { exact: true })
+        .selectOption("6");
+      for (const label of [
+        "Use Discount",
+        "Use Discounted price",
+        "Use Total price",
+      ]) {
+        const checkbox = dialog.getByLabel(label, { exact: true });
+
+        if (!(await checkbox.isChecked())) {
+          await checkbox.check();
+        }
+      }
       await expect(
         dialog.getByText("Mapping changed. Re-run preview with mapping before continuing."),
       ).toBeVisible();
@@ -931,7 +958,9 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       });
       await dialog.getByRole("button", { name: "Continue to import preview" }).click();
       await expect(dialog.getByRole("heading", { name: "Import preview" })).toBeVisible();
-      await expect(dialog.getByRole("heading", { name: "Blocked rows" })).toHaveCount(0);
+      await expect(
+        dialog.getByRole("heading", { name: "Blocked rows" }),
+      ).toBeVisible();
       await expect(dialog.locator('[data-import-step="workbook-file"]')).toHaveCount(0);
       await expect(dialog.getByLabel("Default supplier")).toHaveCount(0);
       await expect(dialog.getByLabel("Default category")).toHaveCount(0);
@@ -961,12 +990,15 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
         dialog.getByRole("cell", { exact: true, name: "TASK060 Cafe" }),
       ).toHaveCount(0);
       await expect(
-        dialog.getByText("TASK060 Existing Cafe"),
-      ).toBeVisible();
+        dialog.getByRole("textbox", { name: "Product name 8" }),
+      ).toHaveValue("TASK060 Existing Cafe");
       await expect(dialog.getByText(TASK060_NEW_BARCODE)).toBeVisible();
       await expect(
-        dialog.getByText("TASK060 New Dingli Tea"),
-      ).toBeVisible();
+        dialog.getByRole("textbox", { name: "Product name 9" }),
+      ).toHaveValue("TASK060 New Dingli Tea");
+      const normalizedMetric = dialog.getByText("Text normalized").locator("..");
+
+      await expect(normalizedMetric).toContainText("1");
       await expect(dialog.getByText("Discount", { exact: true }).first()).toBeVisible();
       await expect(
         dialog.getByText("Discounted price", { exact: true }).first(),
@@ -1016,15 +1048,48 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       await dialog.getByRole("button", { name: "Continue to import preview" }).click();
       await expect(dialog.getByRole("heading", { name: "Import preview" })).toBeVisible();
 
-      const retryRetailInput = dialog.getByLabel(/Retail price to import for row/).first();
+      const retryRetailInputs = dialog.getByLabel(
+        /Retail price to import for row/,
+      );
 
-      await expect(retryRetailInput).toHaveValue("");
-      await retryRetailInput.fill("9.99");
+      for (let index = 0; index < await retryRetailInputs.count(); index += 1) {
+        const input = retryRetailInputs.nth(index);
+
+        await expect(input).toHaveValue("");
+        await input.fill("9.99");
+      }
+      await dialog
+        .getByRole("button", { name: /Continua a Sync DB|Continue to Sync DB/ })
+        .click();
+      await expect(dialog.locator('[data-import-step="sync-db"]')).toBeVisible();
       await dialog.getByLabel("Confirm APPLY").fill("APPLY");
       await expect(
         dialog.getByRole("button", { name: "Apply confirmed import" }),
       ).toBeEnabled();
+      const applyResponsePromise = page.waitForResponse(
+        (response) =>
+          response.request().method() === "POST" &&
+          response.url().includes("/shop/import-export/apply"),
+      );
       await dialog.getByRole("button", { name: "Apply confirmed import" }).click();
+      const applyResponse = await applyResponsePromise;
+      const applyBody = await applyResponse.json();
+
+      expect(
+        applyBody.ok,
+        JSON.stringify({
+          code: applyBody.code,
+          failedRows: applyBody.summary?.failedRows,
+          rowErrors: applyBody.rowErrors?.map(
+            (error: { code?: string; field?: string; sheet?: string }) => ({
+              code: error.code,
+              field: error.field,
+              sheet: error.sheet,
+            }),
+          ),
+          status: applyResponse.status(),
+        }),
+      ).toBe(true);
       await expect(dialog.getByText("Result summary")).toBeVisible({
         timeout: 15_000,
       });
@@ -1057,7 +1122,7 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       expect(existingProduct?.category_id).toBe(fixture.categoryId);
       expect(Number(existingProduct?.purchase_price)).toBe(1.25);
       expect(Number(existingProduct?.retail_price)).toBe(9.99);
-      expect(Number(existingProduct?.stock_quantity)).toBe(5);
+      expect(Number(existingProduct?.stock_quantity)).toBe(7);
       expect(newError).toBeNull();
       expect(newProduct?.item_number).toBe("TASK060-NEW-ITEM");
       expect(newProduct?.product_name).toBe("TASK060 New Dingli Tea");
@@ -1066,7 +1131,7 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       expect(newProduct?.category_id).toBe(fixture.categoryId);
       expect(Number(newProduct?.purchase_price)).toBe(3.1);
       expect(Number(newProduct?.retail_price)).toBe(9.99);
-      expect(newProduct?.stock_quantity).toBeNull();
+      expect(Number(newProduct?.stock_quantity)).toBe(14);
     } finally {
       const cleanupErrors = await fixture.cleanup();
 
@@ -1119,9 +1184,15 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       await expect(dialog.getByLabel("Product name column")).toHaveValue("2");
       await expect(dialog.getByLabel("Second name column")).toHaveValue("3");
       await expect(dialog.getByLabel("Quantity column")).toHaveValue("4");
-      await expect(dialog.getByLabel("Purchase price column")).toHaveValue("5");
-      await expect(dialog.getByLabel("Retail price column")).toHaveCount(0);
-      await expect(dialog.getByLabel("Use Retail price")).toHaveCount(0);
+      await expect(
+        dialog.getByLabel("Purchase price column", { exact: true }),
+      ).toHaveValue("5");
+      await expect(
+        dialog.getByLabel("Retail price column", { exact: true }),
+      ).toBeDisabled();
+      await expect(
+        dialog.getByLabel("Use Retail price", { exact: true }),
+      ).not.toBeChecked();
       await dialog.getByLabel("Default supplier").fill(TASK060_SUPPLIER_NAME);
       await dialog.getByLabel("Default category").fill(TASK060_CATEGORY_NAME);
 
@@ -1151,12 +1222,19 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       ).toHaveCount(0);
 
       const quantityInput = dialog.getByLabel(/Quantity to import for row/).first();
-      const retailInput = dialog.getByLabel(/Retail price to import for row/).first();
+      const retailInputs = dialog.getByLabel(/Retail price to import for row/);
+      const retailInput = retailInputs.first();
 
       await expect(quantityInput).toHaveValue("");
       await expect(retailInput).toHaveValue("");
       await quantityInput.fill("12");
-      await retailInput.fill("9.99");
+      for (let index = 0; index < await retailInputs.count(); index += 1) {
+        await retailInputs.nth(index).fill("9.99");
+      }
+      await dialog
+        .getByRole("button", { name: /Continua a Sync DB|Continue to Sync DB/ })
+        .click();
+      await expect(dialog.locator('[data-import-step="sync-db"]')).toBeVisible();
       await dialog.getByLabel("Confirm APPLY").fill("APPLY");
       await dialog.getByRole("button", { name: "Apply confirmed import" }).click();
       await expect(dialog.getByText("Result summary")).toBeVisible({
@@ -1233,9 +1311,15 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       await expect(dialog.getByLabel("Product name column")).toHaveValue("3");
       await expect(dialog.getByLabel("Second name column")).toHaveValue("4");
       await expect(dialog.getByLabel("Quantity column")).toHaveValue("5");
-      await expect(dialog.getByLabel("Purchase price column")).toHaveValue("6");
-      await expect(dialog.getByLabel("Retail price column")).toHaveCount(0);
-      await expect(dialog.getByLabel("Use Retail price")).toHaveCount(0);
+      await expect(
+        dialog.getByLabel("Purchase price column", { exact: true }),
+      ).toHaveValue("6");
+      await expect(
+        dialog.getByLabel("Retail price column", { exact: true }),
+      ).toBeDisabled();
+      await expect(
+        dialog.getByLabel("Use Retail price", { exact: true }),
+      ).not.toBeChecked();
       await expect(
         dialog.getByRole("columnheader", { name: "条码 (Col 3)" }),
       ).toBeVisible();
@@ -1256,6 +1340,10 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       await expect(dialog.getByLabel(/Quantity to import for row/).first()).toHaveValue("");
       await expect(dialog.getByLabel(/Retail price to import for row/).first()).toHaveValue("");
       await dialog.getByLabel(/Retail price to import for row/).first().fill("9.99");
+      await dialog
+        .getByRole("button", { name: /Continua a Sync DB|Continue to Sync DB/ })
+        .click();
+      await expect(dialog.locator('[data-import-step="sync-db"]')).toBeVisible();
       await dialog.getByLabel("Confirm APPLY").fill("APPLY");
       await dialog.getByRole("button", { name: "Apply confirmed import" }).click();
       await expect(dialog.getByText("Result summary")).toBeVisible({
@@ -1310,9 +1398,15 @@ test.describe("TASK-060 supplier Excel preview/import browser QA", () => {
       await expect(dialog.getByLabel("Product name column")).toHaveValue("2");
       await expect(dialog.getByLabel("Second name column")).toHaveValue("3");
       await expect(dialog.getByLabel("Quantity column")).toHaveValue("4");
-      await expect(dialog.getByLabel("Purchase price column")).toHaveValue("5");
-      await expect(dialog.getByLabel("Retail price column")).toHaveCount(0);
-      await expect(dialog.getByLabel("Use Retail price")).toHaveCount(0);
+      await expect(
+        dialog.getByLabel("Purchase price column", { exact: true }),
+      ).toHaveValue("5");
+      await expect(
+        dialog.getByLabel("Retail price column", { exact: true }),
+      ).toBeDisabled();
+      await expect(
+        dialog.getByLabel("Use Retail price", { exact: true }),
+      ).not.toBeChecked();
       await dialog.getByText("Ignored columns").click();
       await expect(
         dialog

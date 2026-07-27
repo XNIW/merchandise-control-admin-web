@@ -274,6 +274,7 @@ type PreviewResponse = {
     products: number;
     safetySanitizations?: number;
     suppliers: number;
+    textNormalizations?: number;
     updatedCategories?: number;
     updatedProducts: number;
     updatedSuppliers?: number;
@@ -318,9 +319,12 @@ type ApplyResponse = {
 type EditedRow = {
   barcode?: string;
   category?: string;
+  itemNumber?: string;
   purchasePrice?: string;
+  productName?: string;
   quantity?: string;
   retailPrice?: string;
+  secondProductName?: string;
   skip?: boolean;
   supplier?: string;
 };
@@ -759,6 +763,7 @@ function SummaryGrid({
           [t("Price history"), summary.priceHistory],
           [t("Blocked"), summary.blockedRows ?? summary.errors],
           [t("Warnings"), summary.operationalWarnings ?? summary.warnings],
+          [t("Text normalized"), summary.textNormalizations ?? 0],
           [t("Safety"), summary.safetySanitizations ?? 0],
           [t("Ignored"), summary.droppedRows ?? 0],
         ]
@@ -769,6 +774,7 @@ function SummaryGrid({
           [t("Duplicate"), summary.duplicates ?? 0],
           [t("Blocked"), summary.errors],
           [t("Warnings"), summary.warnings],
+          [t("Text normalized"), summary.textNormalizations ?? 0],
           [t("Ignored"), summary.droppedRows ?? 0],
         ];
 
@@ -816,6 +822,7 @@ function DatabaseReviewSummary({ preview }: { preview: PreviewResponse }) {
       `${summary.priceHistoryPurchase ?? 0} / ${summary.priceHistoryRetail ?? 0}`,
     ],
     [t("Blocked rows"), String(summary.blockedRows ?? summary.errors)],
+    [t("Text normalized"), String(summary.textNormalizations ?? 0)],
     [t("Safety notes"), String(summary.safetySanitizations ?? 0)],
   ];
 
@@ -2014,6 +2021,26 @@ function PreviewTable({
           </thead>
           <tbody className="divide-y divide-zinc-100">
             {previewRows.map((row) => {
+              const edit = edits[row.rowNumber] ?? {};
+              const setTextEdit = (
+                field:
+                  | "barcode"
+                  | "category"
+                  | "itemNumber"
+                  | "productName"
+                  | "secondProductName"
+                  | "supplier",
+                value: string,
+              ) => {
+                setEdits((current) => ({
+                  ...current,
+                  [row.rowNumber]: {
+                    ...current[row.rowNumber],
+                    [field]: value,
+                  },
+                }));
+              };
+
               return (
                 <tr
                   className="bg-white"
@@ -2036,20 +2063,69 @@ function PreviewTable({
                     </span>
                   </td>
                   <td className="sticky left-48 z-10 bg-white px-3 py-2 font-mono text-xs">
-                    {row.barcode}
-                  </td>
-                  <td className="px-3 py-2">{row.itemNumber ?? ""}</td>
-                  <td className="whitespace-normal px-3 py-2 leading-5">
-                    {row.productName}
-                  </td>
-                  <td className="whitespace-normal px-3 py-2 leading-5">
-                    {row.secondProductName ?? ""}
-                  </td>
-                  <td className="px-3 py-2">
-                    {row.supplier ?? ""}
+                    <input
+                      aria-label={`${t("Barcode to import for row")} ${row.rowNumber}`}
+                      className={importExportInputClassName}
+                      onChange={(event) =>
+                        setTextEdit("barcode", event.currentTarget.value)
+                      }
+                      value={edit.barcode ?? row.barcode}
+                    />
                   </td>
                   <td className="px-3 py-2">
-                    {row.category ?? ""}
+                    <input
+                      aria-label={`${t("Item number")} ${row.rowNumber}`}
+                      className={importExportInputClassName}
+                      onChange={(event) =>
+                        setTextEdit("itemNumber", event.currentTarget.value)
+                      }
+                      value={edit.itemNumber ?? row.itemNumber ?? ""}
+                    />
+                  </td>
+                  <td className="whitespace-normal px-3 py-2 leading-5">
+                    <input
+                      aria-label={`${t("Product name")} ${row.rowNumber}`}
+                      className={importExportInputClassName}
+                      onChange={(event) =>
+                        setTextEdit("productName", event.currentTarget.value)
+                      }
+                      value={edit.productName ?? row.productName}
+                    />
+                  </td>
+                  <td className="whitespace-normal px-3 py-2 leading-5">
+                    <input
+                      aria-label={`${t("Second name")} ${row.rowNumber}`}
+                      className={importExportInputClassName}
+                      onChange={(event) =>
+                        setTextEdit(
+                          "secondProductName",
+                          event.currentTarget.value,
+                        )
+                      }
+                      value={
+                        edit.secondProductName ?? row.secondProductName ?? ""
+                      }
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      aria-label={`${t("Supplier to import for row")} ${row.rowNumber}`}
+                      className={importExportInputClassName}
+                      onChange={(event) =>
+                        setTextEdit("supplier", event.currentTarget.value)
+                      }
+                      value={edit.supplier ?? row.supplier ?? ""}
+                    />
+                  </td>
+                  <td className="px-3 py-2">
+                    <input
+                      aria-label={`${t("Category to import for row")} ${row.rowNumber}`}
+                      className={importExportInputClassName}
+                      onChange={(event) =>
+                        setTextEdit("category", event.currentTarget.value)
+                      }
+                      value={edit.category ?? row.category ?? ""}
+                    />
                   </td>
                   <td className="px-3 py-2 font-mono text-xs">
                     {displayNumber(row.recognizedPurchasePrice)}
@@ -2133,20 +2209,64 @@ function PreviewTable({
                         {row.barcode}
                       </span>
                       {row.itemNumber ? (
-                        <span className="truncate text-xs text-zinc-500">
-                          {t("Item")} {row.itemNumber}
+                        <span className="text-xs text-zinc-500">
+                          {t("Item")}
                         </span>
                       ) : null}
+                      <input
+                        aria-label={`${t("Item number")} ${row.rowNumber}`}
+                        className={importExportInputClassName}
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
+
+                          setEdits((current) => ({
+                            ...current,
+                            [row.rowNumber]: {
+                              ...current[row.rowNumber],
+                              itemNumber: value,
+                            },
+                          }));
+                        }}
+                        value={edit.itemNumber ?? row.itemNumber ?? ""}
+                      />
                     </div>
                     <div className="grid min-w-0 gap-1">
-                      <span className="whitespace-normal font-medium text-zinc-950">
-                        {row.productName}
-                      </span>
-                      {row.secondProductName ? (
-                        <span className="whitespace-normal text-zinc-600">
-                          {row.secondProductName}
-                        </span>
-                      ) : null}
+                      <input
+                        aria-label={`${t("Product name")} ${row.rowNumber}`}
+                        className={importExportInputClassName}
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
+
+                          setEdits((current) => ({
+                            ...current,
+                            [row.rowNumber]: {
+                              ...current[row.rowNumber],
+                              productName: value,
+                            },
+                          }));
+                        }}
+                        value={edit.productName ?? row.productName}
+                      />
+                      <input
+                        aria-label={`${t("Second name")} ${row.rowNumber}`}
+                        className={importExportInputClassName}
+                        onChange={(event) => {
+                          const value = event.currentTarget.value;
+
+                          setEdits((current) => ({
+                            ...current,
+                            [row.rowNumber]: {
+                              ...current[row.rowNumber],
+                              secondProductName: value,
+                            },
+                          }));
+                        }}
+                        value={
+                          edit.secondProductName ??
+                          row.secondProductName ??
+                          ""
+                        }
+                      />
                     </div>
                   </div>
                 </td>
@@ -2707,9 +2827,12 @@ function rowAdjustments(
         edit.skip !== true &&
         !edit.barcode?.trim() &&
         !edit.category?.trim() &&
+        !edit.itemNumber?.trim() &&
         !edit.purchasePrice?.trim() &&
+        !edit.productName?.trim() &&
         !edit.retailPrice?.trim() &&
         !edit.quantity?.trim() &&
+        !edit.secondProductName?.trim() &&
         !edit.supplier?.trim()
       ) {
         return null;
@@ -2719,14 +2842,22 @@ function rowAdjustments(
         barcode: edit.barcode === undefined ? undefined : edit.barcode,
         category:
           edit.category === undefined ? undefined : edit.category,
+        itemNumber:
+          edit.itemNumber === undefined ? undefined : edit.itemNumber,
         purchasePrice:
           edit.purchasePrice === undefined ? undefined : edit.purchasePrice,
+        productName:
+          edit.productName === undefined ? undefined : edit.productName,
         quantity:
           edit.quantity === undefined ? undefined : edit.quantity,
         retailPrice:
           edit.retailPrice === undefined ? undefined : edit.retailPrice,
         rowFingerprint: row.rowFingerprint,
         rowNumber: row.rowNumber,
+        secondProductName:
+          edit.secondProductName === undefined
+            ? undefined
+            : edit.secondProductName,
         skip: edit.skip === true ? true : undefined,
         supplier:
           edit.supplier === undefined ? undefined : edit.supplier,
@@ -2742,7 +2873,7 @@ function unresolvedSupplierBlockedRows(
 ) {
   const rawBlockedRows = preview?.summary?.blockedRows ?? preview?.summary?.errors ?? 0;
 
-  if (!preview || mode !== "supplier") {
+  if (!preview) {
     return rawBlockedRows;
   }
 
@@ -2751,11 +2882,26 @@ function unresolvedSupplierBlockedRows(
   for (const issue of preview.rowErrors ?? []) {
     const rowEdit = edits[issue.row] ?? {};
 
-    if (rowEdit.skip === true) {
+    if (mode === "supplier" && rowEdit.skip === true) {
       continue;
     }
 
-    if (issue.field === "barcode" && rowEdit.barcode?.trim()) {
+    const correctedText =
+      issue.field === "barcode"
+        ? rowEdit.barcode
+        : issue.field === "category"
+          ? rowEdit.category
+          : issue.field === "itemNumber"
+            ? rowEdit.itemNumber
+            : issue.field === "productName"
+              ? rowEdit.productName
+              : issue.field === "secondProductName"
+                ? rowEdit.secondProductName
+                : issue.field === "supplier"
+                  ? rowEdit.supplier
+                  : undefined;
+
+    if (correctedText?.trim()) {
       continue;
     }
 

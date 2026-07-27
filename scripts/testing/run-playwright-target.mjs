@@ -15,9 +15,15 @@ function fail(message) {
 
 function loadLocalSupabaseEnv(env) {
   let output = "";
+  const workdir = env.LOCAL_SUPABASE_WORKDIR?.trim();
+  const statusArgs = ["status", "--output", "env"];
+
+  if (workdir) {
+    statusArgs.push("--workdir", workdir);
+  }
 
   try {
-    output = execFileSync("supabase", ["status", "--output", "env"], {
+    output = execFileSync("supabase", statusArgs, {
       encoding: "utf8",
       env: {
         ...process.env,
@@ -50,10 +56,22 @@ function loadLocalSupabaseEnv(env) {
 }
 
 function reloadLocalPostgrestSchema() {
+  const workdir = process.env.LOCAL_SUPABASE_WORKDIR?.trim();
+  const queryArgs = [
+    "db",
+    "query",
+    "notify pgrst, 'reload schema';",
+    "--local",
+  ];
+
+  if (workdir) {
+    queryArgs.push("--workdir", workdir);
+  }
+
   try {
     execFileSync(
       "supabase",
-      ["db", "query", "notify pgrst, 'reload schema';", "--local"],
+      queryArgs,
       {
         encoding: "utf8",
         env: {

@@ -7,6 +7,11 @@ import {
   type SupabaseAdminClient,
 } from "@/lib/supabase/admin";
 import type { Json, Tables } from "@/lib/supabase/database.types";
+import {
+  CATALOG_TEXT_LIMITS,
+  canonicalizeCatalogDisplayText,
+  validateCatalogIdentityText,
+} from "@/lib/catalog-text-policy";
 import { isStaffCredentialLockStateUsable } from "@/server/shop-admin/access-principal";
 import {
   buildPosPolicyPayload,
@@ -513,6 +518,32 @@ function emptyCatalog(): CatalogPayload {
   };
 }
 
+function isCanonicalCatalogDisplayText(
+  value: string | null,
+  maxLength: number,
+  required: boolean,
+) {
+  const result = canonicalizeCatalogDisplayText(value ?? "", {
+    maxLength,
+    required,
+  });
+
+  return result.status === "unchanged" && result.value === (value ?? "");
+}
+
+function isCanonicalCatalogIdentityText(
+  value: string | null,
+  maxLength: number,
+  required: boolean,
+) {
+  const result = validateCatalogIdentityText(value ?? "", {
+    maxLength,
+    required,
+  });
+
+  return result.status === "unchanged" && result.value === (value ?? "");
+}
+
 function mapCatalogPage(page: CatalogPageV2): CatalogPayload | null {
   const categoryRows = parseCategoryRows(page);
   const supplierRows = parseSupplierRows(page);
@@ -520,6 +551,56 @@ function mapCatalogPage(page: CatalogPageV2): CatalogPayload | null {
   const priceRows = parsePriceRows(page);
 
   if (!categoryRows || !supplierRows || !productRows || !priceRows) {
+    return null;
+  }
+
+  if (
+    !categoryRows.every(
+      (row) =>
+        isCanonicalCatalogIdentityText(row.id, 256, true) &&
+        isCanonicalCatalogDisplayText(
+          row.name,
+          CATALOG_TEXT_LIMITS.categoryName,
+          true,
+        ),
+    ) ||
+    !supplierRows.every(
+      (row) =>
+        isCanonicalCatalogIdentityText(row.id, 256, true) &&
+        isCanonicalCatalogDisplayText(
+          row.name,
+          CATALOG_TEXT_LIMITS.supplierName,
+          true,
+        ),
+    ) ||
+    !productRows.every(
+      (row) =>
+        isCanonicalCatalogIdentityText(row.id, 256, true) &&
+        isCanonicalCatalogIdentityText(
+          row.barcode,
+          CATALOG_TEXT_LIMITS.barcode,
+          true,
+        ) &&
+        isCanonicalCatalogIdentityText(
+          row.item_number,
+          CATALOG_TEXT_LIMITS.itemNumber,
+          false,
+        ) &&
+        isCanonicalCatalogDisplayText(
+          row.product_name,
+          CATALOG_TEXT_LIMITS.productName,
+          false,
+        ) &&
+        isCanonicalCatalogDisplayText(
+          row.second_product_name,
+          CATALOG_TEXT_LIMITS.secondProductName,
+          false,
+        ) &&
+        isCanonicalCatalogIdentityText(row.category_id, 256, false) &&
+        isCanonicalCatalogIdentityText(row.supplier_id, 256, false) &&
+        Boolean(row.product_name || row.second_product_name || row.item_number),
+    )
+  ) {
     return null;
   }
 

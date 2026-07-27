@@ -2857,25 +2857,63 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-141: `TASK-141 - Win7POS catalog bootstrap staging incident`
 - File task TASK-141: `docs/TASKS/TASK-141-win7pos-catalog-bootstrap-staging-incident.md`
 - Evidence TASK-141: `docs/TASKS/EVIDENCE/TASK-141/README.md`
+- Stato TASK-142: `REVIEW`
+- Fase TASK-142: `REVIEW`
+- Task TASK-142: `TASK-142 - Cross-platform catalog text integrity`
+- Coordination key TASK-142: `CATALOG-TEXT-001`
+- File task TASK-142: `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
+- Evidence TASK-142: `docs/TASKS/EVIDENCE/TASK-142/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `IDLE`
-- Task attivo: `NESSUNO`
-- Task precedente: `TASK-140 - Staff PIN reset e Shop Code login` (`DONE`)
+- Stato globale attuale: `REVIEW`
+- Task attivo: `TASK-142 - Cross-platform catalog text integrity`
+- Task precedente: `TASK-141 - Win7POS catalog bootstrap staging incident` (`DONE`)
 - Ultimo task chiuso: `TASK-141 - Win7POS catalog bootstrap staging incident`
 - Ultimo task completato: `TASK-141 - Win7POS catalog bootstrap staging incident`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `NESSUNO`
+- File task corrente: `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
 - Ultimo file task: `docs/TASKS/TASK-141-win7pos-catalog-bootstrap-staging-incident.md`
-- Evidence task corrente: `NESSUNO`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-142/README.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-141/README.md`
-- Stato task: `DONE`
-- Fase: `DONE`
-- Milestone interna: `TASK_141_STAGING_INCIDENT_CLOSED`
-- Responsabile: `USER / FINAL REVIEW APPROVED`
-- Branch/worktree: `main`; merge SHA codice verificata
-  `7f8104e75533b9dc83d5ef5d1aba28ae17617805`.
+- Stato task: `REVIEW`
+- Fase: `REVIEW`
+- Milestone interna: `CATALOG_TEXT_POLICY_V1_INDEPENDENT_REVIEW`
+- Responsabile: `REVIEWER INDIPENDENTE`
+- Branch/worktree:
+  `codex/catalog-text-integrity-admin-20260727`;
+  `/Users/minxiang/.codex/worktrees/catalog-text-integrity-20260727/admin`.
+- Apertura TASK-142 2026-07-27: avviato il coordinamento
+  `CATALOG-TEXT-001` su Admin Web, Android e iOS. Baseline Admin
+  `54889a68a65cec39764bbb5479574e942f4d54f1`, worktree pulito e target
+  Supabase `merchandisecontrol-dev` verificato come dev/staging allowlisted.
+  Audit preliminare read-only: 245 `product_name` e 111
+  `second_product_name` canonicalizzabili, zero display proibiti/vuoti/
+  over-limit e zero barcode/item number strict invalidi. Production e Win7POS
+  restano `NOT_MODIFIED`.
+- Handoff TASK-142 2026-07-27: contratto/fixture comune congelati con SHA-256
+  `139d63eedea47b54bb63a9289bef5fc6f7372668f209aac7753b586da7ccd9f8`;
+  implementazione Admin consegnata a `REVIEW`. Gate locali: focused foundation
+  25/25, foundation completa PASS, verify PASS, cf:build PASS, Playwright
+  autenticato locale 1/1, reset Supabase isolato PASS, lint SQL PASS, pgTAP
+  14 file/973 test PASS, i18n/paging/diff PASS. Android TASK-140: JVM 860
+  totali, build/lint e Emulator 3/3 PASS. iOS TASK-140: policy 7/7, focused
+  204/204, integration 11/11 e full XCTest 1.308 eseguiti / 35 skip opt-in /
+  zero failure; Release/Analyze/smoke Simulator PASS_WITH_NOTES. XCUITest
+  `NOT_RUN / MISSING_TARGET`.
+  Migration, repair, deploy e acceptance pubblica staging restano
+  `NOT_RUN_PRE_MERGE`; production e Win7POS `NOT_MODIFIED`.
+- Fix review TASK-142 2026-07-27: reviewer indipendente Admin sullo SHA
+  `5722b274` ha aperto P0/P1/P2/P3 `0/2/2/1`. Applicati fix per collisioni
+  identity workbook, restore boundary, PriceHistory strict e POS collision
+  scan. Gate toccati verdi: focused 30/30, foundation completa, lint/typecheck,
+  reset/lint DB, pgTAP 14 file/975 test. Stato resta `REVIEW`;
+  PR/CI/merge e staging restano pendenti.
+- Rereview Admin TASK-142 2026-07-27: un P1 residuo nel raw degli adjustment e
+  un P3 nella copertura POS sono stati corretti in `3f7bedc3`. Reviewer
+  indipendente finale `APPROVED_PRE_PR`, P0/P1/P2/P3 `0/0/0/0`; focused
+  29/29, foundation completa su snapshot Win7POS pulito, verify e cf:build
+  `PASS`. La coordinazione attende review mobile prima del push delle tre PR.
 - Apertura TASK-138 2026-07-18: follow-up esplicito TASK-137 per completare
   runtime, UX e parity live non-production su Admin Web, Android e iOS. Prima
   delle modifiche runtime e stata registrata la matrice requisito/stato/test/gap

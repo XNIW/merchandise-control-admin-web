@@ -35,6 +35,27 @@ export function isLocalSupabaseUrl(value) {
   }
 }
 
+function isIsolatedLocalSupabaseUrl(value, workdir) {
+  if (!workdir || !existsSync(join(workdir, "supabase", "config.toml"))) {
+    return false;
+  }
+
+  try {
+    const url = new URL(value);
+    const port = Number(url.port);
+
+    return (
+      url.protocol === "http:" &&
+      ["127.0.0.1", "localhost", "::1"].includes(url.hostname) &&
+      Number.isInteger(port) &&
+      port >= 1024 &&
+      port <= 65535
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function isStagingSupabaseUrl(value) {
   try {
     const url = new URL(value);
@@ -93,10 +114,16 @@ export function assertLocalTargetEnv(env = process.env) {
     );
   }
 
-  if (!isLocalSupabaseUrl(env.NEXT_PUBLIC_SUPABASE_URL)) {
+  if (
+    !isLocalSupabaseUrl(env.NEXT_PUBLIC_SUPABASE_URL) &&
+    !isIsolatedLocalSupabaseUrl(
+      env.NEXT_PUBLIC_SUPABASE_URL,
+      env.LOCAL_SUPABASE_WORKDIR?.trim(),
+    )
+  ) {
     throw guardedError(
       "BLOCKED_LOCAL_SUPABASE_URL_REQUIRED",
-      "Local tests require NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 or localhost:54321.",
+      "Local tests require the default loopback Supabase URL or a verified LOCAL_SUPABASE_WORKDIR loopback instance.",
     );
   }
 }
