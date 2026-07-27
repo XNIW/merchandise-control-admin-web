@@ -56,15 +56,15 @@ test("TASK-079 is the only current root task for history and catalog pagination"
   assertContains(currentBlock, "Task TASK-079: `TASK-079 - History Entry and Catalog Pagination Unified Completion`");
   assert.match(
     currentBlock,
-    /File task corrente: `(NESSUNO|docs\/TASKS\/TASK-084-admin-web-workers-dev-staging-auth-logout-win7pos-public-connection\.md|docs\/TASKS\/TASK-085-workers-dev-mobile-oauth-products-count-readiness\.md|docs\/TASKS\/TASK-086-mobile-ui-emulator-polish\.md|docs\/TASKS\/TASK-137-product-catalog-images-cross-platform\.md|docs\/TASKS\/TASK-138-product-images-runtime-completion-ux-live-parity\.md|docs\/TASKS\/TASK-139-pos-catalog-v2-pagination-snapshot\.md|docs\/TASKS\/TASK-141-win7pos-catalog-bootstrap-staging-incident\.md|docs\/TASKS\/TASK-142-cross-platform-catalog-text-integrity\.md)`/,
+    /File task corrente: `(NESSUNO|docs\/TASKS\/TASK-084-admin-web-workers-dev-staging-auth-logout-win7pos-public-connection\.md|docs\/TASKS\/TASK-085-workers-dev-mobile-oauth-products-count-readiness\.md|docs\/TASKS\/TASK-086-mobile-ui-emulator-polish\.md|docs\/TASKS\/TASK-137-product-catalog-images-cross-platform\.md|docs\/TASKS\/TASK-138-product-images-runtime-completion-ux-live-parity\.md|docs\/TASKS\/TASK-139-pos-catalog-v2-pagination-snapshot\.md|docs\/TASKS\/TASK-141-win7pos-catalog-bootstrap-staging-incident\.md|docs\/TASKS\/TASK-142-cross-platform-catalog-text-integrity\.md|docs\/TASKS\/TASK-143-admin-staging-catalog-pull-503\.md)`/,
   );
   assert.match(
     currentBlock,
-    /Evidence task corrente: `(NESSUNO|docs\/TASKS\/EVIDENCE\/TASK-084\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-085\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-086\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-137\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-138\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-139\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-141\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-142\/README\.md)`/,
+    /Evidence task corrente: `(NESSUNO|docs\/TASKS\/EVIDENCE\/TASK-084\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-085\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-086\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-137\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-138\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-139\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-141\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-142\/README\.md|docs\/TASKS\/EVIDENCE\/TASK-143\/README\.md)`/,
   );
   assert.match(
     currentBlock,
-    /Task attivo: `(NESSUNO|TASK-084 - Admin Web workers\.dev staging, auth\/logout fixes, and Win7POS public connection|TASK-085 - Fix workers\.dev mobile OAuth and product totals readiness|TASK-086 - Mobile UI Emulator Polish|TASK-137 - Product Catalog Images cross-platform|TASK-138 - Product Images Runtime Completion, UX e Live Parity|TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness|TASK-141 - Win7POS catalog bootstrap staging incident|TASK-142 - Cross-platform catalog text integrity)`/,
+    /Task attivo: `(NESSUNO|TASK-084 - Admin Web workers\.dev staging, auth\/logout fixes, and Win7POS public connection|TASK-085 - Fix workers\.dev mobile OAuth and product totals readiness|TASK-086 - Mobile UI Emulator Polish|TASK-137 - Product Catalog Images cross-platform|TASK-138 - Product Images Runtime Completion, UX e Live Parity|TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness|TASK-141 - Win7POS catalog bootstrap staging incident|TASK-142 - Cross-platform catalog text integrity|TASK-143 - Admin staging catalog pull 503)`/,
   );
   assert.doesNotMatch(currentBlock, /TASK-079[B-F]|TASK-080/);
   assertContains(canonicalTask, "079.1 History Entry read-only mobile parity");

@@ -9,7 +9,10 @@ const redirectOnlyPageFiles = new Set([
   "src/app/(staff-auth)/shop/staff-login/page.tsx",
   "src/app/page.tsx",
 ]);
-const consoleAllowedSourceFiles = new Set(["src/server/admin-web-perf.ts"]);
+const consoleAllowedSourceFiles = new Set([
+  "src/server/admin-web-perf.ts",
+  "src/server/pos-auth/catalog-pull.ts",
+]);
 
 function readProjectFile(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");

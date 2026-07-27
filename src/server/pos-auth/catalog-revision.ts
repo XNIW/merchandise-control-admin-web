@@ -35,6 +35,7 @@ export type CatalogPageV2Failure = {
     | "catalog_rpc_error"
     | "catalog_rpc_response_invalid"
     | "catalog_rpc_statement_timeout"
+    | "catalog_rpc_upstream_unavailable"
     | "catalog_v2_page_contract_invalid";
   stage?: CatalogV2Lane | "manifest";
   status:
@@ -273,6 +274,18 @@ function parseStatus(value: unknown): CatalogPageV2Failure["status"] | null {
     : null;
 }
 
+function catalogRpcFailureReason(code: string | undefined) {
+  if (code === "57014") {
+    return "catalog_rpc_statement_timeout" as const;
+  }
+
+  if (code && (/^08/u.test(code) || /^PGRST00[0-3]$/u.test(code))) {
+    return "catalog_rpc_upstream_unavailable" as const;
+  }
+
+  return "catalog_rpc_error" as const;
+}
+
 export function buildCatalogRevision(
   shopId: string,
   descriptor: CatalogRevisionDescriptor,
@@ -377,10 +390,7 @@ export async function loadCatalogPageV2(
 
   if (error) {
     return {
-      reason:
-        error.code === "57014"
-          ? "catalog_rpc_statement_timeout"
-          : "catalog_rpc_error",
+      reason: catalogRpcFailureReason(error.code),
       stage,
       status: "db_failure",
     };

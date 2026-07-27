@@ -4351,6 +4351,13 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     catalogPullRoute,
     heartbeatRoute,
   ].join("\n");
+  const catalogFailureLogger =
+    catalogPullService.match(
+      /function emitPosCatalogFailureLog\([\s\S]*?\n}\n\nfunction cursorFingerprint/,
+    )?.[0] ?? "";
+  const runtimeSourceWithoutBoundedCatalogFailureLog = catalogFailureLogger
+    ? runtimeSource.replace(catalogFailureLogger, "")
+    : runtimeSource;
 
   for (const requiredSnippet of [
     "Route Handler Next.js",
@@ -4530,8 +4537,27 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     addFailure(`${servicePath} must not use select("*")`);
   }
 
-  if (/console\.(log|debug|info|warn|error)/.test(runtimeSource)) {
+  if (
+    /console\.(log|debug|info|warn|error)/.test(
+      runtimeSourceWithoutBoundedCatalogFailureLog,
+    )
+  ) {
     addFailure("TASK-021 runtime source must not log sensitive details");
+  }
+
+  if (
+    catalogFailureLogger &&
+    (!/console\.error\(\s*JSON\.stringify\(/.test(catalogFailureLogger) ||
+      !/event: "pos\.catalog\.pull\.failure"/.test(catalogFailureLogger) ||
+      !/root: input\.root/.test(catalogFailureLogger) ||
+      !/stage: input\.stage/.test(catalogFailureLogger) ||
+      /\b(userAgent|clientRequestId|authorization|cookie|token|body|error)\b/i.test(
+        catalogFailureLogger.replace(/console\.error/i, ""),
+      ))
+  ) {
+    addFailure(
+      "TASK-143 catalog failure logging must stay structured, bounded and secret-free",
+    );
   }
 
   for (const requiredSnippet of [

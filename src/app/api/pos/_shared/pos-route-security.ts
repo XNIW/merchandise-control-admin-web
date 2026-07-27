@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 export const MAX_POS_JSON_BODY_BYTES = 16 * 1024;
 
@@ -13,6 +13,7 @@ const SENSITIVE_REQUEST_ID_PATTERN =
 
 export type PosRouteRequestContext = {
   clientRequestId?: string;
+  edgeCorrelationHash?: string;
   route: string;
   serverRequestId: string;
 };
@@ -29,6 +30,17 @@ function safeRequestId(value: string | null) {
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
+}
+
+function correlationHash(value: string | null) {
+  const bounded = value?.trim().slice(0, 256) ?? "";
+
+  return bounded
+    ? `sha256:${createHash("sha256")
+        .update(bounded, "utf8")
+        .digest("hex")
+        .slice(0, 12)}`
+    : undefined;
 }
 
 function requestHeaders(context?: PosRouteRequestContext) {
@@ -65,6 +77,7 @@ export function createPosRouteRequestContext(
 
   return {
     clientRequestId,
+    edgeCorrelationHash: correlationHash(request.headers.get("cf-ray")),
     route,
     serverRequestId: `posreq_${randomUUID()}`,
   };

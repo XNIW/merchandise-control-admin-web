@@ -1,4 +1,7 @@
-import { handlePosCatalogPull } from "@/server/pos-auth/catalog-pull";
+import {
+  handlePosCatalogPull,
+  handlePosCatalogRouteFailure,
+} from "@/server/pos-auth/catalog-pull";
 import {
   createPosRouteRequestContext,
   posJsonResponse,
@@ -15,6 +18,7 @@ export async function POST(request: Request) {
   try {
     const result = await handlePosCatalogPull(await readPosJsonBody(request), {
       clientRequestId: context.clientRequestId,
+      edgeCorrelationHash: context.edgeCorrelationHash,
       requestId: context.serverRequestId,
       route: context.route,
       userAgent: request.headers.get("user-agent") ?? undefined,
@@ -22,15 +26,29 @@ export async function POST(request: Request) {
 
     return posJsonResponse(result.body, result.status, context);
   } catch {
-    return posJsonResponse(
-      {
-        code: "db_failure",
-        message: "POS request failed.",
-        ok: false,
-      },
-      500,
-      context,
-    );
+    try {
+      const result = await handlePosCatalogRouteFailure({
+        clientRequestId: context.clientRequestId,
+        edgeCorrelationHash: context.edgeCorrelationHash,
+        requestId: context.serverRequestId,
+        route: context.route,
+        userAgent: request.headers.get("user-agent") ?? undefined,
+      });
+
+      return posJsonResponse(result.body, result.status, context);
+    } catch {
+      return posJsonResponse(
+        {
+          code: "db_failure",
+          message: "POS request failed.",
+          ok: false,
+          root: "unhandled_exception",
+          stage: "catalog_pull",
+        },
+        500,
+        context,
+      );
+    }
   }
 }
 

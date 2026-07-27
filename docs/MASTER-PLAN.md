@@ -2863,26 +2863,31 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Coordination key TASK-142: `CATALOG-TEXT-001`
 - File task TASK-142: `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
 - Evidence TASK-142: `docs/TASKS/EVIDENCE/TASK-142/README.md`
+- Stato TASK-143: `EXECUTION`
+- Fase TASK-143: `EXECUTION / PR_READY`
+- Task TASK-143: `TASK-143 - Admin staging catalog pull 503`
+- File task TASK-143: `docs/TASKS/TASK-143-admin-staging-catalog-pull-503.md`
+- Evidence TASK-143: `docs/TASKS/EVIDENCE/TASK-143/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `IDLE`
-- Task attivo: `NESSUNO`
+- Stato globale attuale: `EXECUTION`
+- Task attivo: `TASK-143 - Admin staging catalog pull 503`
 - Task precedente: `TASK-142 - Cross-platform catalog text integrity` (`DONE`)
 - Ultimo task chiuso: `TASK-142 - Cross-platform catalog text integrity`
 - Ultimo task completato: `TASK-142 - Cross-platform catalog text integrity`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
+- File task corrente: `docs/TASKS/TASK-143-admin-staging-catalog-pull-503.md`
 - Ultimo file task: `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-142/README.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-143/README.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-142/README.md`
-- Stato task: `DONE`
-- Fase: `DONE / USER_CONFIRMED_CLOSURE`
-- Milestone interna: `CATALOG_TEXT_POLICY_V1_USER_CONFIRMED_DONE`
-- Responsabile: `USER / CONFIRMED CLOSURE`
+- Stato task: `EXECUTION`
+- Fase: `EXECUTION / PR_READY`
+- Milestone interna: `STAGING_CATALOG_PULL_503_REVIEW_APPROVED`
+- Responsabile: `CODEX / EXECUTOR`
 - Branch/worktree:
-  `codex/catalog-text-integrity-done-admin-20260727`;
-  `/Users/minxiang/.codex/worktrees/catalog-text-integrity-20260727/admin`.
+  `codex/admin-staging-catalog-pull-503-20260727`;
+  `/Users/minxiang/.codex/worktrees/admin-staging-catalog-pull-503-20260727`.
 - Apertura TASK-142 2026-07-27: avviato il coordinamento
   `CATALOG-TEXT-001` su Admin Web, Android e iOS. Baseline Admin
   `54889a68a65cec39764bbb5479574e942f4d54f1`, worktree pulito e target
@@ -2927,6 +2932,39 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   verifica dei gate, dell'acceptance staging e del cleanup. TASK-142 passa a
   `DONE / USER_CONFIRMED_CLOSURE`; progetto `IDLE`. Nessun nuovo write,
   deploy o test è stato necessario per la sola transizione documentale.
+- Apertura TASK-143 2026-07-27: incidente staging-only catalog pull HTTP `503`
+  congelato alle `2026-07-27T19:31:27.9819345Z`, con request arrivata al
+  server, zero pagine e nessun audit catalogo. Baseline Admin `96e9dc52`,
+  ultimi dieci commit verificati, TASK-142 lasciata `DONE`, PR Win7POS #49
+  merged e handoff `9fe3fa71` letto in sola lettura. Worktree pulito separato
+  creato; diagnosi Worker/edge/Supabase in corso. Production, Win7POS,
+  Android e iOS restano `NOT_MODIFIED`.
+- Diagnosi TASK-143 2026-07-27: correlazione Cloudflare esatta sul Worker
+  `c5ae7e81` alle `19:31:27Z`, status `exceededResources`, CPU `10.000µs`,
+  body zero e nessun subrequest. Bindings staging presenti e Supabase non
+  raggiunto. La versione precedente aveva servito il catalogo reale completo
+  senza overrun. Root cause nel cold path introdotto da TASK-142: import della
+  policy completa di normalizzazione/scrittura nella route read-only. Fix
+  locale con validatore compatto equivalente e diagnostica failure bounded;
+  test TASK-143 e regressioni TASK-139/141/142, paging, security scan,
+  `verify`, build OpenNext e Worker smoke locale verdi. Fase passata a
+  `EXECUTION / PRE_REVIEW`; nessun deploy ancora eseguito.
+- Review TASK-143 2026-07-27: sul feature SHA `ae54c834` rilevati
+  `P0=0/P1=2/P2=2/P3=1`. Corretti fail-closed empty manifest, harness
+  full-drain attraverso handler/cursori/publication, boundary test RPC/POST,
+  semantica request trace/audit e stato report. Fase `FIX / REVIEW_FINDINGS`
+  in attesa del follow-up indipendente sul nuovo SHA.
+- Follow-up TASK-143 2026-07-27: sullo SHA `7dabab6e` restavano `P1=1/P2=1`.
+  Il guard empty-catalog ora usa il summary globale e non rifiuta una delta
+  idempotente con window zero; l'harness applica i clamp RPC reali
+  `240/240/60/120` e drena `676` pagine derivate dal manifest fixture.
+  Il successivo SHA `f876f169` ha rivelato un ultimo P1 tombstone-only:
+  corretto accettando summary globale nonzero oppure delta window nonzero,
+  mentre summary/window entrambi zero restano fail-closed. Test TASK-143
+  `14/14 PASS`; follow-up finale completato sullo SHA successivo.
+- Review finale TASK-143 2026-07-27: SHA `2d848e7d` approvato pre-merge con
+  `P0=0/P1=0/P2=0`; l'unico P3 documentale è stato corretto. Fase
+  `EXECUTION / PR_READY`, nessun deploy ancora eseguito.
 - Apertura TASK-138 2026-07-18: follow-up esplicito TASK-137 per completare
   runtime, UX e parity live non-production su Admin Web, Android e iOS. Prima
   delle modifiche runtime e stata registrata la matrice requisito/stato/test/gap

@@ -60,9 +60,9 @@ test("TASK-141 server diagnostics are bounded to reason, stage and lane", () => 
   const endpoint = read("src/server/pos-auth/catalog-pull.ts");
 
   assert.match(boundary, /catalog_rpc_statement_timeout/);
-  assert.match(boundary, /error\.code === "57014"/);
+  assert.match(boundary, /code === "57014"/);
   assert.match(boundary, /catalog_rpc_response_invalid/);
-  assert.match(endpoint, /source: "TASK-141"/);
+  assert.match(endpoint, /source: "TASK-(141|143)"/);
   assert.match(endpoint, /manifest_requested: !continuation/);
   assert.match(endpoint, /stage: page\.stage/);
   assert.match(endpoint, /row_count: page\.rows\.length/);
