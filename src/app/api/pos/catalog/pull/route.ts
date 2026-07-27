@@ -26,15 +26,29 @@ export async function POST(request: Request) {
 
     return posJsonResponse(result.body, result.status, context);
   } catch {
-    const result = await handlePosCatalogRouteFailure({
-      clientRequestId: context.clientRequestId,
-      edgeCorrelationHash: context.edgeCorrelationHash,
-      requestId: context.serverRequestId,
-      route: context.route,
-      userAgent: request.headers.get("user-agent") ?? undefined,
-    });
+    try {
+      const result = await handlePosCatalogRouteFailure({
+        clientRequestId: context.clientRequestId,
+        edgeCorrelationHash: context.edgeCorrelationHash,
+        requestId: context.serverRequestId,
+        route: context.route,
+        userAgent: request.headers.get("user-agent") ?? undefined,
+      });
 
-    return posJsonResponse(result.body, result.status, context);
+      return posJsonResponse(result.body, result.status, context);
+    } catch {
+      return posJsonResponse(
+        {
+          code: "db_failure",
+          message: "POS request failed.",
+          ok: false,
+          root: "unhandled_exception",
+          stage: "catalog_pull",
+        },
+        500,
+        context,
+      );
+    }
   }
 }
 

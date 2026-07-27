@@ -810,6 +810,53 @@ test("TASK-143 POST catches a Worker exception and returns the audited typed bou
   assert.equal(JSON.stringify(body).includes("secret-worker-exception"), false);
 });
 
+test("TASK-143 POST keeps a typed fallback if the audit boundary itself throws", async () => {
+  const helper = transpileCommonJs(
+    "src/app/api/pos/_shared/pos-route-security.ts",
+    (specifier) =>
+      specifier === "server-only" ? {} : requireForTest(specifier),
+  );
+  const route = transpileCommonJs(
+    "src/app/api/pos/catalog/pull/route.ts",
+    (specifier) => {
+      if (specifier === "@/server/pos-auth/catalog-pull") {
+        return {
+          handlePosCatalogPull: async () => {
+            throw new Error("secret-worker-exception");
+          },
+          handlePosCatalogRouteFailure: async () => {
+            throw new Error("secret-audit-exception");
+          },
+        };
+      }
+      if (specifier === "../../_shared/pos-route-security") {
+        return helper;
+      }
+      return requireForTest(specifier);
+    },
+  );
+  const response = await route.POST(
+    new Request("https://example.invalid/api/pos/catalog/pull", {
+      body: JSON.stringify(validPullInput()),
+      headers: {
+        "content-type": "application/json",
+        "x-client-request-id": "TASK143-FALLBACK",
+      },
+      method: "POST",
+    }),
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 500);
+  assert.equal(body.code, "db_failure");
+  assert.equal(body.message, "POS request failed.");
+  assert.equal(body.root, "unhandled_exception");
+  assert.equal(body.stage, "catalog_pull");
+  assert.match(body.requestId, /^posreq_[0-9a-f-]{36}$/);
+  assert.equal(JSON.stringify(body).includes("secret-worker-exception"), false);
+  assert.equal(JSON.stringify(body).includes("secret-audit-exception"), false);
+});
+
 test("TASK-143 correlation headers are hashed and every failed response gets a server request ID", async () => {
   const helper = transpileCommonJs(
     "src/app/api/pos/_shared/pos-route-security.ts",
@@ -1095,5 +1142,6 @@ test("TASK-143 runtime fix removes the heavy write policy and preserves bounded 
   assert.match(route, /edgeCorrelationHash/);
   assert.doesNotMatch(wrangler, /cpu_ms/);
   assert.doesNotMatch(endpoint, /error\.(?:message|details|hint)/);
+  assert.match(endpoint, /console\.error\(\s*JSON\.stringify\(\{/);
   assert.doesNotMatch(endpoint, /console\.error\((?:input|meta|error)/);
 });
