@@ -52,6 +52,11 @@ import {
 } from "@/server/shop-admin/member-mutations";
 import { getShopInventoryReadModel } from "@/server/shop-admin/inventory-read-model";
 import {
+  CATALOG_TEXT_LIMITS,
+  canonicalizeCatalogDisplayText,
+  catalogTextReasonMessage,
+} from "@/lib/catalog-text-policy";
+import {
   createHistoryEntry,
   tombstoneHistoryEntry,
   updateHistoryEntry,
@@ -113,7 +118,10 @@ function catalogProductInput(formData: FormData) {
 type CatalogRelationKind = "supplier" | "category";
 
 function normalizeCatalogRelationName(value?: string) {
-  return value?.trim().replace(/\s+/g, " ") ?? "";
+  return canonicalizeCatalogDisplayText(value ?? "", {
+    maxLength: CATALOG_TEXT_LIMITS.supplierName,
+    required: false,
+  });
 }
 
 function relationNameKey(value: string) {
@@ -151,7 +159,18 @@ async function lookupCatalogRelation(
   currentName: string | undefined,
 ): Promise<{ id?: string } | ShopAdminActionResult> {
   const requested = requestedShopId(formData);
-  const name = normalizeCatalogRelationName(currentName);
+  const normalizedName = normalizeCatalogRelationName(currentName);
+
+  if (normalizedName.status === "rejected") {
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors: {
+        [`${kind}Name`]: catalogTextReasonMessage(normalizedName.reason),
+      },
+      ok: false,
+    });
+  }
+
+  const name = normalizedName.value;
 
   if (!currentId && !name) {
     return { id: undefined };

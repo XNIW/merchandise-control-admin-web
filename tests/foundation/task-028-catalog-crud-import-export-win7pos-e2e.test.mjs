@@ -180,7 +180,13 @@ test("TASK-028 import contract validates duplicates, conflicts and non-destructi
       { barcode: "A100", productName: "Alpha changed", productId: "product-a", rowNumber: 2 },
       { barcode: "A100", productName: "Duplicate barcode", rowNumber: 3 },
       { barcode: "B200", productName: "Wrong id conflict", productId: "product-a", rowNumber: 4 },
-      { barcode: "C300", productName: "Missing supplier", supplierName: "Missing Supplier", rowNumber: 5 },
+      {
+        barcode: "C300",
+        productName: "Missing supplier",
+        retailPrice: 30,
+        supplierName: "Missing Supplier",
+        rowNumber: 5,
+      },
     ],
     suppliers: [
       { name: "New Supplier", rowNumber: 2 },

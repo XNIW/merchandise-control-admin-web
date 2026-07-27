@@ -1,6 +1,12 @@
 import "server-only";
 
 import {
+  CATALOG_TEXT_LIMITS,
+  canonicalizeCatalogDisplayText,
+  catalogTextReasonMessage,
+  validateCatalogIdentityText,
+} from "@/lib/catalog-text-policy";
+import {
   mapShopAdminRpcResult,
   resolveShopActionContext,
   shopAdminActionResult,
@@ -98,8 +104,122 @@ export type ProductUpdateInput = ProductMutationInput & {
   productId: string;
 };
 
+function catalogDisplayValue(
+  value: string | undefined,
+  options: { maxLength: number; required: boolean },
+) {
+  return canonicalizeCatalogDisplayText(value ?? "", options);
+}
+
+function catalogIdentityValue(
+  value: string | undefined,
+  options: { maxLength: number; required: boolean },
+) {
+  return validateCatalogIdentityText(value ?? "", options);
+}
+
+function canonicalCatalogEntityName(
+  value: string,
+  maxLength: number,
+): { error?: string; value?: string } {
+  const result = catalogDisplayValue(value, {
+    maxLength,
+    required: true,
+  });
+
+  return result.status === "rejected"
+    ? { error: catalogTextReasonMessage(result.reason) }
+    : { value: result.value };
+}
+
+function canonicalCatalogProductInput(input: ProductMutationInput) {
+  const fieldErrors: Record<string, string> = {};
+  const barcode = catalogIdentityValue(input.barcode, {
+    maxLength: CATALOG_TEXT_LIMITS.barcode,
+    required: true,
+  });
+  const itemNumber = catalogIdentityValue(input.itemNumber, {
+    maxLength: CATALOG_TEXT_LIMITS.itemNumber,
+    required: false,
+  });
+  const productName = catalogDisplayValue(input.productName, {
+    maxLength: CATALOG_TEXT_LIMITS.productName,
+    required: false,
+  });
+  const secondProductName = catalogDisplayValue(input.secondProductName, {
+    maxLength: CATALOG_TEXT_LIMITS.secondProductName,
+    required: false,
+  });
+
+  for (const [field, result] of [
+    ["barcode", barcode],
+    ["itemNumber", itemNumber],
+    ["productName", productName],
+    ["secondProductName", secondProductName],
+  ] as const) {
+    if (result.status === "rejected") {
+      fieldErrors[field] = catalogTextReasonMessage(result.reason);
+    }
+  }
+
+  if (
+    hasInvalidNumber(
+      input.purchasePrice,
+      input.retailPrice,
+      input.stockQuantity,
+    )
+  ) {
+    fieldErrors.number = "Prices and quantities must be valid numbers.";
+  }
+
+  if (!nonNegativeFields(input)) {
+    fieldErrors.number = "Prices and quantities cannot be negative.";
+  }
+
+  if (
+    barcode.status === "rejected" ||
+    itemNumber.status === "rejected" ||
+    productName.status === "rejected" ||
+    secondProductName.status === "rejected"
+  ) {
+    return { fieldErrors };
+  }
+
+  const resolvedProductName =
+    productName.value || secondProductName.value || itemNumber.value;
+
+  if (!resolvedProductName) {
+    return {
+      fieldErrors: {
+        ...fieldErrors,
+        productName:
+          "A required catalog text value is empty after normalization.",
+      },
+    };
+  }
+
+  return {
+    fieldErrors,
+    input: {
+      ...input,
+      barcode: barcode.value,
+      itemNumber: itemNumber.value || undefined,
+      productName: resolvedProductName,
+      secondProductName: secondProductName.value || undefined,
+    },
+  };
+}
+
 function cleanUuid(value: string | undefined) {
-  return value && value.trim().length > 0 ? value.trim() : undefined;
+  const result = validateCatalogIdentityText(value ?? "", {
+    maxLength: 256,
+    required: false,
+  });
+
+  return result.status !== "rejected" &&
+    CANONICAL_UUID_PATTERN.test(result.value)
+    ? result.value
+    : undefined;
 }
 
 function hasInvalidNumber(...values: Array<number | undefined>) {
@@ -203,9 +323,14 @@ async function rpcResult(
 export async function createSupplier(
   input: CatalogEntityInput,
 ): Promise<ShopAdminActionResult> {
-  if (!input.name.trim()) {
+  const name = canonicalCatalogEntityName(
+    input.name,
+    CATALOG_TEXT_LIMITS.supplierName,
+  );
+
+  if (!name.value) {
     return shopAdminActionResult("validation_failed", {
-      fieldErrors: { name: "Supplier name is required." },
+      fieldErrors: { name: name.error ?? "Supplier name is required." },
       ok: false,
     });
   }
@@ -213,11 +338,11 @@ export async function createSupplier(
   return rpcResult(
     input.requestedShopId,
     "suppliers.write",
-    (context) => createSupplierAsStaff(context, { name: input.name }),
+    (context) => createSupplierAsStaff(context, { name: name.value! }),
     (context) =>
       context.supabase.rpc("shop_catalog_create_supplier_with_sync", {
         p_actor_kind: context.principalKind,
-        p_name: input.name,
+        p_name: name.value!,
         p_shop_id: context.selectedShop.shopId,
       }),
     { entity: "supplier", operation: "create" },
@@ -227,9 +352,17 @@ export async function createSupplier(
 export async function updateSupplier(
   input: CatalogEntityUpdateInput,
 ): Promise<ShopAdminActionResult> {
-  if (!input.id || !input.name.trim()) {
+  const name = canonicalCatalogEntityName(
+    input.name,
+    CATALOG_TEXT_LIMITS.supplierName,
+  );
+  const supplierId = cleanUuid(input.id);
+
+  if (!supplierId || !name.value) {
     return shopAdminActionResult("validation_failed", {
-      fieldErrors: { name: "Supplier id and name are required." },
+      fieldErrors: {
+        name: name.error ?? "Supplier id and name are required.",
+      },
       ok: false,
     });
   }
@@ -237,23 +370,25 @@ export async function updateSupplier(
   return rpcResult(
     input.requestedShopId,
     "suppliers.write",
-    (context) => updateSupplierAsStaff(context, { id: input.id, name: input.name }),
+    (context) => updateSupplierAsStaff(context, { id: supplierId, name: name.value! }),
     (context) =>
       context.supabase.rpc("shop_catalog_update_supplier_with_sync", {
         p_actor_kind: context.principalKind,
-        p_name: input.name,
+        p_name: name.value!,
         p_shop_id: context.selectedShop.shopId,
-        p_supplier_id: input.id,
+        p_supplier_id: supplierId,
       }),
     { entity: "supplier", operation: "update" },
-    input.id,
+    supplierId,
   );
 }
 
 export async function archiveSupplier(
   input: CatalogArchiveInput,
 ): Promise<ShopAdminActionResult> {
-  if (!input.id) {
+  const supplierId = cleanUuid(input.id);
+
+  if (!supplierId) {
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
@@ -267,25 +402,30 @@ export async function archiveSupplier(
     input.requestedShopId,
     "suppliers.write",
     (context) =>
-      archiveSupplierAsStaff(context, { id: input.id, reason }),
+      archiveSupplierAsStaff(context, { id: supplierId, reason }),
     (context) =>
       context.supabase.rpc("shop_catalog_archive_supplier_with_sync", {
         p_actor_kind: context.principalKind,
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,
-        p_supplier_id: input.id,
+        p_supplier_id: supplierId,
       }),
     { entity: "supplier", operation: "archive" },
-    input.id,
+    supplierId,
   );
 }
 
 export async function createCategory(
   input: CatalogEntityInput,
 ): Promise<ShopAdminActionResult> {
-  if (!input.name.trim()) {
+  const name = canonicalCatalogEntityName(
+    input.name,
+    CATALOG_TEXT_LIMITS.categoryName,
+  );
+
+  if (!name.value) {
     return shopAdminActionResult("validation_failed", {
-      fieldErrors: { name: "Category name is required." },
+      fieldErrors: { name: name.error ?? "Category name is required." },
       ok: false,
     });
   }
@@ -293,11 +433,11 @@ export async function createCategory(
   return rpcResult(
     input.requestedShopId,
     "categories.write",
-    (context) => createCategoryAsStaff(context, { name: input.name }),
+    (context) => createCategoryAsStaff(context, { name: name.value! }),
     (context) =>
       context.supabase.rpc("shop_catalog_create_category_with_sync", {
         p_actor_kind: context.principalKind,
-        p_name: input.name,
+        p_name: name.value!,
         p_shop_id: context.selectedShop.shopId,
       }),
     { entity: "category", operation: "create" },
@@ -307,9 +447,17 @@ export async function createCategory(
 export async function updateCategory(
   input: CatalogEntityUpdateInput,
 ): Promise<ShopAdminActionResult> {
-  if (!input.id || !input.name.trim()) {
+  const name = canonicalCatalogEntityName(
+    input.name,
+    CATALOG_TEXT_LIMITS.categoryName,
+  );
+  const categoryId = cleanUuid(input.id);
+
+  if (!categoryId || !name.value) {
     return shopAdminActionResult("validation_failed", {
-      fieldErrors: { name: "Category id and name are required." },
+      fieldErrors: {
+        name: name.error ?? "Category id and name are required.",
+      },
       ok: false,
     });
   }
@@ -317,23 +465,25 @@ export async function updateCategory(
   return rpcResult(
     input.requestedShopId,
     "categories.write",
-    (context) => updateCategoryAsStaff(context, { id: input.id, name: input.name }),
+    (context) => updateCategoryAsStaff(context, { id: categoryId, name: name.value! }),
     (context) =>
       context.supabase.rpc("shop_catalog_update_category_with_sync", {
         p_actor_kind: context.principalKind,
-        p_category_id: input.id,
-        p_name: input.name,
+        p_category_id: categoryId,
+        p_name: name.value!,
         p_shop_id: context.selectedShop.shopId,
       }),
     { entity: "category", operation: "update" },
-    input.id,
+    categoryId,
   );
 }
 
 export async function archiveCategory(
   input: CatalogArchiveInput,
 ): Promise<ShopAdminActionResult> {
-  if (!input.id) {
+  const categoryId = cleanUuid(input.id);
+
+  if (!categoryId) {
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
@@ -347,16 +497,16 @@ export async function archiveCategory(
     input.requestedShopId,
     "categories.write",
     (context) =>
-      archiveCategoryAsStaff(context, { id: input.id, reason }),
+      archiveCategoryAsStaff(context, { id: categoryId, reason }),
     (context) =>
       context.supabase.rpc("shop_catalog_archive_category_with_sync", {
         p_actor_kind: context.principalKind,
-        p_category_id: input.id,
+        p_category_id: categoryId,
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,
       }),
     { entity: "category", operation: "archive" },
-    input.id,
+    categoryId,
   );
 }
 
@@ -519,8 +669,9 @@ async function archiveCatalogEntityWithStrategy(input: {
   relationInput: CatalogRelationArchiveInput;
 }) {
   const { relationInput } = input;
+  const relationId = cleanUuid(relationInput.id);
 
-  if (!relationInput.id) {
+  if (!relationId) {
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
@@ -551,7 +702,7 @@ async function archiveCatalogEntityWithStrategy(input: {
 
   const linkedProducts = await collectLinkedActiveProductIds({
     entity: input.entity,
-    id: relationInput.id,
+    id: relationId,
     requestedShopId: relationInput.requestedShopId,
   });
 
@@ -579,7 +730,7 @@ async function archiveCatalogEntityWithStrategy(input: {
     replacementId = cleanUuid(relationInput.replacementId) ?? "";
     const replacementError = await validateReplacementEntity({
       entity: input.entity,
-      originalId: relationInput.id,
+      originalId: relationId,
       replacementId,
       requestedShopId: relationInput.requestedShopId,
     });
@@ -621,7 +772,7 @@ async function archiveCatalogEntityWithStrategy(input: {
   }
 
   return input.archive({
-    id: relationInput.id,
+    id: relationId,
     reason,
     requestedShopId: relationInput.requestedShopId,
   });
@@ -650,67 +801,52 @@ export async function archiveCategoryWithStrategy(
 }
 
 export function validateCatalogProductInput(input: ProductMutationInput) {
-  const fieldErrors: Record<string, string> = {};
-
-  if (!input.barcode.trim()) {
-    fieldErrors.barcode = "Barcode is required.";
-  }
-
-  if (!input.productName.trim()) {
-    fieldErrors.productName = "Product name is required.";
-  }
-
-  if (
-    hasInvalidNumber(
-      input.purchasePrice,
-      input.retailPrice,
-      input.stockQuantity,
-    )
-  ) {
-    fieldErrors.number = "Prices and quantities must be valid numbers.";
-  }
-
-  if (!nonNegativeFields(input)) {
-    fieldErrors.number = "Prices and quantities cannot be negative.";
-  }
-
-  return fieldErrors;
+  return canonicalCatalogProductInput(input).fieldErrors;
 }
 
 export async function createProduct(
   input: ProductMutationInput,
 ): Promise<ShopAdminActionResult> {
-  const fieldErrors = validateCatalogProductInput(input);
+  const canonical = canonicalCatalogProductInput(input);
+  const { fieldErrors } = canonical;
 
-  if (Object.keys(fieldErrors).length > 0) {
+  if (Object.keys(fieldErrors).length > 0 || !canonical.input) {
     return shopAdminActionResult("validation_failed", {
       fieldErrors,
       ok: false,
     });
   }
 
+  const canonicalInput = canonical.input;
+
   return rpcResult(
-    input.requestedShopId,
+    canonicalInput.requestedShopId,
     "products.write",
     (context) =>
       createProductAsStaff(context, {
-        ...input,
-        categoryId: cleanUuid(input.categoryId),
-        supplierId: cleanUuid(input.supplierId),
+        barcode: canonicalInput.barcode,
+        categoryId: cleanUuid(canonicalInput.categoryId),
+        itemNumber: canonicalInput.itemNumber,
+        productName: canonicalInput.productName,
+        purchasePrice: canonicalInput.purchasePrice,
+        retailPrice: canonicalInput.retailPrice,
+        secondProductName: canonicalInput.secondProductName,
+        stockQuantity: canonicalInput.stockQuantity,
+        supplierId: cleanUuid(canonicalInput.supplierId),
       }),
     (context) =>
       context.supabase.rpc("shop_catalog_create_product_with_sync", {
         p_actor_kind: context.principalKind,
-        p_barcode: input.barcode,
-        p_category_id: cleanUuid(input.categoryId),
-        p_item_number: input.itemNumber,
-        p_product_name: input.productName,
-        p_purchase_price: input.purchasePrice,
-        p_retail_price: input.retailPrice,
-        p_second_product_name: input.secondProductName,
+        p_barcode: canonicalInput.barcode,
+        p_category_id: cleanUuid(canonicalInput.categoryId),
+        p_item_number: canonicalInput.itemNumber,
+        p_product_name: canonicalInput.productName,
+        p_purchase_price: canonicalInput.purchasePrice,
+        p_retail_price: canonicalInput.retailPrice,
+        p_second_product_name: canonicalInput.secondProductName,
         p_shop_id: context.selectedShop.shopId,
-        p_stock_quantity: input.stockQuantity,
-        p_supplier_id: cleanUuid(input.supplierId),
+        p_stock_quantity: canonicalInput.stockQuantity,
+        p_supplier_id: cleanUuid(canonicalInput.supplierId),
       }),
     { entity: "product", operation: "create" },
   );
@@ -719,52 +855,65 @@ export async function createProduct(
 export async function updateProduct(
   input: ProductUpdateInput,
 ): Promise<ShopAdminActionResult> {
-  const fieldErrors = validateCatalogProductInput(input);
+  const canonical = canonicalCatalogProductInput(input);
+  const { fieldErrors } = canonical;
+  const productId = cleanUuid(input.productId);
 
-  if (!input.productId) {
+  if (!productId) {
     fieldErrors.productId = "Product id is required.";
   }
 
-  if (Object.keys(fieldErrors).length > 0) {
+  if (!productId || Object.keys(fieldErrors).length > 0 || !canonical.input) {
     return shopAdminActionResult("validation_failed", {
       fieldErrors,
       ok: false,
     });
   }
 
+  const canonicalInput = canonical.input;
+
   return rpcResult(
-    input.requestedShopId,
+    canonicalInput.requestedShopId,
     "products.write",
     (context) =>
       updateProductAsStaff(context, {
-        ...input,
-        categoryId: cleanUuid(input.categoryId),
-        supplierId: cleanUuid(input.supplierId),
+        barcode: canonicalInput.barcode,
+        categoryId: cleanUuid(canonicalInput.categoryId),
+        itemNumber: canonicalInput.itemNumber,
+        productId,
+        productName: canonicalInput.productName,
+        purchasePrice: canonicalInput.purchasePrice,
+        retailPrice: canonicalInput.retailPrice,
+        secondProductName: canonicalInput.secondProductName,
+        stockQuantity: canonicalInput.stockQuantity,
+        supplierId: cleanUuid(canonicalInput.supplierId),
       }),
     (context) =>
       context.supabase.rpc("shop_catalog_update_product_with_sync", {
         p_actor_kind: context.principalKind,
-        p_barcode: input.barcode,
-        p_category_id: cleanUuid(input.categoryId),
-        p_item_number: input.itemNumber,
-        p_product_id: input.productId,
-        p_product_name: input.productName,
-        p_purchase_price: input.purchasePrice,
-        p_retail_price: input.retailPrice,
-        p_second_product_name: input.secondProductName,
+        p_barcode: canonicalInput.barcode,
+        p_category_id: cleanUuid(canonicalInput.categoryId),
+        p_item_number: canonicalInput.itemNumber,
+        p_product_id: productId,
+        p_product_name: canonicalInput.productName,
+        p_purchase_price: canonicalInput.purchasePrice,
+        p_retail_price: canonicalInput.retailPrice,
+        p_second_product_name: canonicalInput.secondProductName,
         p_shop_id: context.selectedShop.shopId,
-        p_stock_quantity: input.stockQuantity,
-        p_supplier_id: cleanUuid(input.supplierId),
+        p_stock_quantity: canonicalInput.stockQuantity,
+        p_supplier_id: cleanUuid(canonicalInput.supplierId),
       }),
     { entity: "product", operation: "update" },
-    input.productId,
+    productId,
   );
 }
 
 export async function archiveProduct(
   input: CatalogArchiveInput,
 ): Promise<ShopAdminActionResult> {
-  if (!input.id) {
+  const productId = cleanUuid(input.id);
+
+  if (!productId) {
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
@@ -777,23 +926,25 @@ export async function archiveProduct(
   return rpcResult(
     input.requestedShopId,
     "products.write",
-    (context) => archiveProductAsStaff(context, { id: input.id, reason }),
+    (context) => archiveProductAsStaff(context, { id: productId, reason }),
     (context) =>
       context.supabase.rpc("shop_catalog_archive_product_with_sync", {
         p_actor_kind: context.principalKind,
-        p_product_id: input.id,
+        p_product_id: productId,
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,
       }),
     { entity: "product", operation: "archive" },
-    input.id,
+    productId,
   );
 }
 
 export async function restoreProduct(
   input: CatalogArchiveInput,
 ): Promise<ShopAdminActionResult> {
-  if (!input.id) {
+  const productId = cleanUuid(input.id);
+
+  if (!productId) {
     return shopAdminActionResult("validation_failed", { ok: false });
   }
 
@@ -806,15 +957,15 @@ export async function restoreProduct(
   return rpcResult(
     input.requestedShopId,
     "products.write",
-    (context) => restoreProductAsStaff(context, { id: input.id, reason }),
+    (context) => restoreProductAsStaff(context, { id: productId, reason }),
     (context) =>
       context.supabase.rpc("shop_catalog_restore_product_with_sync", {
         p_actor_kind: context.principalKind,
-        p_product_id: input.id,
+        p_product_id: productId,
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,
       }),
     { entity: "product", operation: "restore" },
-    input.id,
+    productId,
   );
 }

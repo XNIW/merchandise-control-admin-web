@@ -70,6 +70,18 @@ function loadTypeScriptModuleWithPrivateExports(relativePath, exportNames = []) 
       );
     }
 
+    if (id === "@/lib/catalog-text-policy") {
+      return loadTypeScriptModule("src/lib/catalog-text-policy.ts");
+    }
+
+    if (id === "./supplier-import-history-entry-contract") {
+      return {
+        formatMobileHistoryTimestamp(value) {
+          return new Date(value).toISOString();
+        },
+      };
+    }
+
     if (id.startsWith("./") || id.startsWith("@/")) {
       return new Proxy(
         {},
@@ -789,6 +801,205 @@ test("TASK-060 Android parseNumber supplier cases stay exact", () => {
   }
 });
 
+test("TASK-142 workbook analysis reports display normalization and blocks strict controls", () => {
+  const { parseProducts } = loadTypeScriptModuleWithPrivateExports(
+    "src/server/shop-admin/import-export-workbook.ts",
+    ["parseProducts"],
+  );
+  const rowErrors = [];
+  const rowWarnings = [];
+  const result = parseProducts(
+    [
+      [
+        "Barcode",
+        "Item Number",
+        "Product Name",
+        "Second Product Name",
+        "Supplier",
+        "Category",
+      ],
+      [
+        " 1234567890123 ",
+        " ITEM-001 ",
+        "  Cafe\u0301\r\n\tQA  ",
+        "  Second\u00a0name ",
+        "  Sup\tplier  ",
+        "  Cat\u00a0Name  ",
+      ],
+      [
+        "1234567890124\n",
+        "ITEM-002",
+        "Blocked strict identity",
+        "",
+        "",
+        "",
+      ],
+    ],
+    rowErrors,
+    rowWarnings,
+    {},
+    "Products",
+    "supplier",
+  );
+
+  assert.equal(result.products.length, 2);
+  assert.equal(result.products[0].barcode, "1234567890123");
+  assert.equal(result.products[0].itemNumber, "ITEM-001");
+  assert.equal(result.products[0].productName, "Café QA");
+  assert.equal(result.products[0].secondProductName, "Second name");
+  assert.equal(result.products[0].supplier, "Sup plier");
+  assert.equal(result.products[0].category, "Cat Name");
+  assert.ok(
+    rowWarnings.some(
+      (warning) =>
+        warning.code === "catalog_text_normalized" &&
+        warning.field === "productName" &&
+        warning.message === "Spaces or hidden line breaks normalized.",
+    ),
+  );
+  assert.ok(
+    rowErrors.some(
+      (error) =>
+        error.code === "catalog_text_prohibited_control" &&
+        error.field === "barcode" &&
+        error.row === 3,
+    ),
+  );
+});
+
+test("TASK-142 workbook import blocks strict identity collisions after trim", () => {
+  const { parseProducts } = loadTypeScriptModuleWithPrivateExports(
+    "src/server/shop-admin/import-export-workbook.ts",
+    ["parseProducts"],
+  );
+  const { validateCatalogImportRows } = loadTypeScriptModule(
+    "src/server/shop-admin/catalog-import-contract.ts",
+  );
+  const rowErrors = [];
+  const rowWarnings = [];
+  const parsed = parseProducts(
+    [
+      ["Barcode", "Item Number", "Product Name", "Retail Price"],
+      [" 12345678 ", " ITEM-142 ", "First", 10],
+      ["12345678", "ITEM-142", "Second", 20],
+    ],
+    rowErrors,
+    rowWarnings,
+    {},
+    "Products",
+    "supplier",
+  );
+
+  assert.equal(parsed.products[0].rawBarcode, " 12345678 ");
+  assert.equal(parsed.products[0].rawItemNumber, " ITEM-142 ");
+
+  const validation = validateCatalogImportRows(
+    {
+      categories: [],
+      products: parsed.products,
+      suppliers: [],
+    },
+    { categories: [], products: [], suppliers: [] },
+  );
+  const collisions = validation.rowErrors.filter(
+    (error) => error.code === "identity_collision_after_trim",
+  );
+
+  assert.deepEqual(
+    JSON.parse(
+      JSON.stringify(collisions.map((error) => [error.field, error.row])),
+    ),
+    [
+      ["barcode", 2],
+      ["barcode", 3],
+      ["itemNumber", 2],
+      ["itemNumber", 3],
+    ],
+  );
+
+  const caseDistinct = validateCatalogImportRows(
+    {
+      categories: [],
+      products: [
+        {
+          barcode: "Case-142",
+          productName: "Upper",
+          retailPrice: 10,
+          rowNumber: 2,
+        },
+        {
+          barcode: "case-142",
+          productName: "Lower",
+          retailPrice: 20,
+          rowNumber: 3,
+        },
+      ],
+      suppliers: [],
+    },
+    { categories: [], products: [], suppliers: [] },
+  );
+
+  assert.equal(caseDistinct.rowErrors.length, 0);
+  assert.equal(caseDistinct.rowWarnings.length, 0);
+});
+
+test("TASK-142 PriceHistory validates identity fields before normalization", () => {
+  const { parsePriceHistory } = loadTypeScriptModuleWithPrivateExports(
+    "src/server/shop-admin/import-export-workbook.ts",
+    ["parsePriceHistory"],
+  );
+  const rowErrors = [];
+  const rowWarnings = [];
+  const parsed = parsePriceHistory(
+    [
+      [
+        "productBarcode",
+        "type",
+        "newPrice",
+        "effective_at",
+        "source",
+      ],
+      [
+        "BAR\nCODE",
+        "RETAIL",
+        10,
+        "2026-07-27T00:00:00Z",
+        "mobile",
+      ],
+      [
+        "  BAR-142  ",
+        "RETAIL",
+        20,
+        "2026-07-27T00:00:01Z",
+        "  mobile  ",
+      ],
+    ],
+    rowErrors,
+    rowWarnings,
+  );
+
+  assert.equal(parsed.length, 2);
+  assert.equal(parsed[0].productBarcode, undefined);
+  assert.equal(parsed[1].productBarcode, "BAR-142");
+  assert.equal(parsed[1].source, "mobile");
+  assert.ok(
+    rowErrors.some(
+      (error) =>
+        error.code === "catalog_text_prohibited_control" &&
+        error.field === "productBarcode" &&
+        error.row === 2,
+    ),
+  );
+  assert.ok(
+    rowWarnings.some(
+      (warning) =>
+        warning.code === "catalog_text_normalized" &&
+        warning.field === "productBarcode" &&
+        warning.row === 3,
+    ),
+  );
+});
+
 test("TASK-060 canonical Android supplier fixture drives preview validation summary", () => {
   const {
     CATALOG_IMPORT_FIELDS: catalogImportFields,
@@ -966,7 +1177,7 @@ test("TASK-060 canonical Android supplier fixture drives preview validation summ
         {
           barcode: fixture.retailMissingNewProduct.barcode,
           itemNumber: "ART-NO-RETAIL",
-          productName: "",
+          productName: "Named product without retail price",
           purchasePrice: 100,
           quantity: 1,
           rowNumber: 10,
@@ -1052,7 +1263,7 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     'barcode: adjustedBarcode ?? (product.barcode || existing?.barcode || "")',
     "rowErrors = parsed.rowErrors.filter",
     "productId: existing?.productId ?? product.productId",
-    'productName: product.productName || existing?.productName || ""',
+    "adjustment?.productName ||",
     "product.retailPrice ??",
     "product.quantity ??",
     "categories: []",
@@ -1268,6 +1479,95 @@ test("TASK-060 supplier row adjustments can correct or skip missing barcode rows
   assert.equal(adjusted.products[0].barcode, "1234567890123");
   assert.equal(adjusted.products[0].itemNumber, "CORRECT-ME");
   assert.equal(adjusted.rowErrors.length, 0);
+});
+
+test("TASK-142 row adjustments retain raw identity provenance and block trim collisions", () => {
+  const {
+    applyRowAdjustments,
+    catalogImportRowFingerprint,
+    validateRowAdjustments,
+  } = loadTypeScriptModuleWithPrivateExports(
+    "src/server/shop-admin/import-export-workbook.ts",
+    [
+      "applyRowAdjustments",
+      "catalogImportRowFingerprint",
+      "validateRowAdjustments",
+    ],
+  );
+  const { validateCatalogImportRows } = loadTypeScriptModule(
+    "src/server/shop-admin/catalog-import-contract.ts",
+  );
+  const parsed = {
+    categories: [],
+    priceHistory: [],
+    products: [
+      {
+        barcode: "12345678",
+        itemNumber: "ITEM-1",
+        productName: "First",
+        rawBarcode: "12345678",
+        rawItemNumber: "ITEM-1",
+        rowNumber: 2,
+      },
+      {
+        barcode: "87654321",
+        itemNumber: "ITEM-2",
+        productName: "Second",
+        rawBarcode: "87654321",
+        rawItemNumber: "ITEM-2",
+        rowNumber: 3,
+      },
+    ],
+    previewRows: [],
+    rowErrors: [],
+    rowWarnings: [],
+    suppliers: [],
+  };
+  const validation = validateRowAdjustments(
+    parsed,
+    JSON.stringify([
+      {
+        barcode: " 12345678 ",
+        itemNumber: " ITEM-1 ",
+        rowFingerprint: catalogImportRowFingerprint(parsed.products[1]),
+        rowNumber: 3,
+      },
+    ]),
+  );
+
+  assert.equal(validation.valid, true);
+  assert.equal(validation.adjustments[0].barcode, "12345678");
+  assert.equal(validation.adjustments[0].rawBarcode, " 12345678 ");
+  assert.equal(validation.adjustments[0].itemNumber, "ITEM-1");
+  assert.equal(validation.adjustments[0].rawItemNumber, " ITEM-1 ");
+
+  const adjusted = applyRowAdjustments(parsed, validation.adjustments);
+  assert.equal(adjusted.products[1].barcode, "12345678");
+  assert.equal(adjusted.products[1].rawBarcode, " 12345678 ");
+  assert.equal(adjusted.products[1].itemNumber, "ITEM-1");
+  assert.equal(adjusted.products[1].rawItemNumber, " ITEM-1 ");
+
+  const result = validateCatalogImportRows(adjusted, {
+    categories: [],
+    products: [],
+    suppliers: [],
+  });
+  const barcodeCollisionRows = result.rowErrors
+    .filter(
+      (issue) =>
+        issue.code === "identity_collision_after_trim" &&
+        issue.field === "barcode",
+    )
+    .map((issue) => issue.row)
+    .sort((left, right) => left - right);
+  const itemCollisionRows = result.rowErrors
+    .filter((issue) => issue.code === "identity_collision_after_trim")
+    .filter((issue) => issue.field === "itemNumber")
+    .map((issue) => issue.row)
+    .sort((left, right) => left - right);
+
+  assert.equal(barcodeCollisionRows.join(","), "2,3");
+  assert.equal(itemCollisionRows.join(","), "2,3");
 });
 
 test("TASK-090 supplier sync preview treats duplicate final barcodes as warning-only last-wins rows", () => {

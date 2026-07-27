@@ -1365,6 +1365,27 @@ const itExact: Record<string, string> = {
   "None": "Nessuno",
   "Open Products": "Apri Prodotti",
   "Operational warnings": "Warning operativi",
+  "Spaces or hidden line breaks normalized.":
+    "Spazi o interruzioni nascoste normalizzati.",
+  "Text normalized": "Testo normalizzato",
+  "A required catalog text value is empty after normalization.":
+    "Un testo catalogo obbligatorio è vuoto dopo la normalizzazione.",
+  "Two catalog identities would collide after trimming.":
+    "Due identità catalogo entrerebbero in conflitto dopo il trim.",
+  "Catalog text contains invalid Unicode.":
+    "Il testo catalogo contiene Unicode non valido.",
+  "Catalog text contains a prohibited bidirectional control.":
+    "Il testo catalogo contiene un controllo bidirezionale proibito.",
+  "Catalog text contains an embedded byte-order mark.":
+    "Il testo catalogo contiene un byte-order mark incorporato.",
+  "Catalog text contains a prohibited control character.":
+    "Il testo catalogo contiene un carattere di controllo proibito.",
+  "Catalog text contains a prohibited line separator.":
+    "Il testo catalogo contiene un separatore di riga proibito.",
+  "Catalog text contains a prohibited zero-width character.":
+    "Il testo catalogo contiene un carattere zero-width proibito.",
+  "Catalog text exceeds the allowed length after normalization.":
+    "Il testo catalogo supera la lunghezza consentita dopo la normalizzazione.",
   "Optional": "Opzionale",
   "Override": "Override",
   "Parsed": "Parsate",
@@ -2673,6 +2694,27 @@ const esExact: Record<string, string> = {
   "None": "Ninguno",
   "Open Products": "Abrir Productos",
   "Operational warnings": "Advertencias operativas",
+  "Spaces or hidden line breaks normalized.":
+    "Se normalizaron espacios o saltos de línea ocultos.",
+  "Text normalized": "Texto normalizado",
+  "A required catalog text value is empty after normalization.":
+    "Un texto de catálogo obligatorio queda vacío después de normalizarlo.",
+  "Two catalog identities would collide after trimming.":
+    "Dos identidades de catálogo entrarían en conflicto después del recorte.",
+  "Catalog text contains invalid Unicode.":
+    "El texto del catálogo contiene Unicode no válido.",
+  "Catalog text contains a prohibited bidirectional control.":
+    "El texto del catálogo contiene un control bidireccional prohibido.",
+  "Catalog text contains an embedded byte-order mark.":
+    "El texto del catálogo contiene una marca de orden de bytes incrustada.",
+  "Catalog text contains a prohibited control character.":
+    "El texto del catálogo contiene un carácter de control prohibido.",
+  "Catalog text contains a prohibited line separator.":
+    "El texto del catálogo contiene un separador de línea prohibido.",
+  "Catalog text contains a prohibited zero-width character.":
+    "El texto del catálogo contiene un carácter de ancho cero prohibido.",
+  "Catalog text exceeds the allowed length after normalization.":
+    "El texto del catálogo supera la longitud permitida después de normalizarlo.",
   "Optional": "Opcional",
   "Override": "Override",
   "Parsed": "Parseadas",
@@ -3944,6 +3986,25 @@ const zhExact: Record<string, string> = {
   "None": "无",
   "Open Products": "打开商品",
   "Operational warnings": "操作警告",
+  "Spaces or hidden line breaks normalized.": "已规范化空格或隐藏换行符。",
+  "Text normalized": "文本规范化",
+  "A required catalog text value is empty after normalization.":
+    "必填目录文本在规范化后为空。",
+  "Two catalog identities would collide after trimming.":
+    "两个目录标识在去除首尾空白后会发生冲突。",
+  "Catalog text contains invalid Unicode.": "目录文本包含无效 Unicode。",
+  "Catalog text contains a prohibited bidirectional control.":
+    "目录文本包含禁止的双向控制字符。",
+  "Catalog text contains an embedded byte-order mark.":
+    "目录文本包含内嵌字节顺序标记。",
+  "Catalog text contains a prohibited control character.":
+    "目录文本包含禁止的控制字符。",
+  "Catalog text contains a prohibited line separator.":
+    "目录文本包含禁止的行分隔符。",
+  "Catalog text contains a prohibited zero-width character.":
+    "目录文本包含禁止的零宽字符。",
+  "Catalog text exceeds the allowed length after normalization.":
+    "目录文本在规范化后超过允许长度。",
   "Optional": "可选",
   "Override": "覆盖",
   "Parsed": "已解析",

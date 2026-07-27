@@ -1940,7 +1940,7 @@ select set_config(
   '{"sub":"00000000-0000-4000-8000-000000000901","role":"authenticated"}',
   true
 );
-select lives_ok(
+select throws_ok(
   $$ insert into public.inventory_suppliers(
        id,owner_user_id,shop_id,name
      ) values (
@@ -1948,9 +1948,10 @@ select lives_ok(
        '00000000-0000-4000-8000-000000000901',
        '10000000-0000-4000-8000-000000000901',repeat('s',17000)
      ) $$,
-  'legacy direct supplier DML remains backward compatible during expand'
+  '23514', 'catalog_text_policy_v1 rejected over-limit display text',
+  'catalog text policy rejects oversized direct supplier DML'
 );
-select lives_ok(
+select throws_ok(
   $$ insert into public.inventory_categories(
        id,owner_user_id,shop_id,name
      ) values (
@@ -1958,9 +1959,10 @@ select lives_ok(
        '00000000-0000-4000-8000-000000000901',
        '10000000-0000-4000-8000-000000000901',repeat('c',17000)
      ) $$,
-  'legacy direct category DML remains backward compatible during expand'
+  '23514', 'catalog_text_policy_v1 rejected over-limit display text',
+  'catalog text policy rejects oversized direct category DML'
 );
-select lives_ok(
+select throws_ok(
   $$ insert into public.inventory_products(
        id,owner_user_id,shop_id,barcode,product_name
      ) values (
@@ -1969,19 +1971,21 @@ select lives_ok(
        '10000000-0000-4000-8000-000000000901','SYNC-OVERSIZE-979',
        repeat('p',66000)
      ) $$,
-  'legacy direct product DML remains backward compatible during expand'
+  '23514', 'catalog_text_policy_v1 rejected over-limit display text',
+  'catalog text policy rejects oversized direct product DML'
 );
-select lives_ok(
+select throws_ok(
   $$ update public.inventory_suppliers
      set name=repeat('u',17000)
      where id='21000000-0000-4000-8000-000000000901' $$,
-  'legacy direct supplier updates remain backward compatible during expand'
+  '23514', 'catalog_text_policy_v1 rejected over-limit display text',
+  'catalog text policy rejects oversized direct supplier updates'
 );
 select is(
   (select name from public.inventory_suppliers
     where id='21000000-0000-4000-8000-000000000901'),
-  repeat('u',17000),
-  'legacy oversized update is retained for bounded recovery diagnosis'
+  'Shop A supplier',
+  'rejected oversized update preserves the canonical supplier row'
 );
 select lives_ok(
   $$ update public.inventory_products
@@ -4884,6 +4888,8 @@ select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 alter table public.inventory_suppliers
   drop constraint if exists inventory_suppliers_sync_recovery_row_v1;
+alter table public.inventory_suppliers
+  disable trigger catalog_text_00_policy_v1;
 insert into public.inventory_suppliers(
   id,owner_user_id,shop_id,name
 ) values (
@@ -4891,6 +4897,8 @@ insert into public.inventory_suppliers(
   '00000000-0000-4000-8000-000000000901',
   '10000000-0000-4000-8000-000000000901',repeat('h',17000)
 );
+alter table public.inventory_suppliers
+  enable trigger catalog_text_00_policy_v1;
 set local role authenticated;
 select set_config(
   'request.jwt.claims',

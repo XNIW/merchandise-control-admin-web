@@ -3,6 +3,7 @@ export type CatalogImportRowIssueCode =
   | "duplicate_product_barcode"
   | "duplicate_product_sku"
   | "duplicate_supplier_name"
+  | "identity_collision_after_trim"
   | "missing_product_identity"
   | "missing_required_retail_price"
   | "product_barcode_conflict"
@@ -24,6 +25,8 @@ export type CatalogImportProductRow = {
   discount?: number;
   discountedPrice?: number;
   itemNumber?: string;
+  rawBarcode?: string;
+  rawItemNumber?: string;
   productName: string;
   oldPurchasePrice?: number;
   oldRetailPrice?: number;
@@ -1045,6 +1048,10 @@ function normalized(value: string | null | undefined) {
   return (value ?? "").trim().toLowerCase();
 }
 
+function identityKey(value: string | null | undefined) {
+  return (value ?? "").trim();
+}
+
 function issue(
   code: CatalogImportRowIssueCode,
   sheet: string,
@@ -1075,12 +1082,13 @@ function indexBy<T>(
 function duplicateRows<T>(
   rows: readonly T[],
   getKey: (row: T) => string | null | undefined,
+  keyFor = normalized,
 ) {
   const seen = new Set<string>();
   const duplicates = new Set<T>();
 
   for (const row of rows) {
-    const key = normalized(getKey(row));
+    const key = keyFor(getKey(row));
 
     if (!key) {
       continue;
@@ -1099,11 +1107,12 @@ function duplicateRows<T>(
 function duplicateRowGroups<T>(
   rows: readonly T[],
   getKey: (row: T) => string | null | undefined,
+  keyFor = normalized,
 ) {
   const groups = new Map<string, T[]>();
 
   for (const row of rows) {
-    const key = normalized(getKey(row));
+    const key = keyFor(getKey(row));
 
     if (!key) {
       continue;
@@ -1124,7 +1133,7 @@ function effectiveLastProductRows(
   const withoutBarcode: CatalogImportProductRow[] = [];
 
   for (const row of rows) {
-    const key = normalized(row.barcode);
+    const key = identityKey(row.barcode);
     if (!key) {
       withoutBarcode.push(row);
       continue;
@@ -1133,6 +1142,41 @@ function effectiveLastProductRows(
   }
 
   return [...withoutBarcode, ...byBarcode.values()];
+}
+
+function identityCollisionRows(
+  rows: readonly CatalogImportProductRow[],
+  field: "barcode" | "itemNumber",
+) {
+  const firstByCanonical = new Map<
+    string,
+    { raw: string; row: CatalogImportProductRow }
+  >();
+  const collisions = new Set<CatalogImportProductRow>();
+
+  for (const row of rows) {
+    const canonical = identityKey(row[field]);
+    const raw = field === "barcode"
+      ? (row.rawBarcode ?? row.barcode)
+      : (row.rawItemNumber ?? row.itemNumber ?? "");
+
+    if (!canonical) {
+      continue;
+    }
+
+    const first = firstByCanonical.get(canonical);
+    if (!first) {
+      firstByCanonical.set(canonical, { raw, row });
+      continue;
+    }
+
+    if (first.raw !== raw) {
+      collisions.add(first.row);
+      collisions.add(row);
+    }
+  }
+
+  return collisions;
 }
 
 export function validateCatalogImportRows(
@@ -1145,9 +1189,10 @@ export function validateCatalogImportRows(
     existing.products,
     (product) => product.productId,
   );
-  const existingProductsByBarcode = indexBy(
-    existing.products,
-    (product) => product.barcode,
+  const existingProductsByBarcode = new Map(
+    existing.products
+      .map((product) => [identityKey(product.barcode), product] as const)
+      .filter(([barcode]) => barcode.length > 0),
   );
   const existingSuppliersById = indexBy(
     existing.suppliers,
@@ -1176,11 +1221,45 @@ export function validateCatalogImportRows(
   const duplicateProductBarcodeGroups = duplicateRowGroups(
     parsed.products,
     (product) => product.barcode,
+    identityKey,
   );
   const duplicateProductsBySku = duplicateRows(
     parsed.products,
     (product) => product.itemNumber,
+    identityKey,
   );
+  const barcodeCollisionRows = identityCollisionRows(
+    parsed.products,
+    "barcode",
+  );
+  const itemNumberCollisionRows = identityCollisionRows(
+    parsed.products,
+    "itemNumber",
+  );
+
+  for (const product of barcodeCollisionRows) {
+    rowErrors.push(
+      issue(
+        "identity_collision_after_trim",
+        "Products",
+        product.rowNumber,
+        "barcode",
+        "Distinct barcode values become identical after trim; correct or skip the affected rows.",
+      ),
+    );
+  }
+
+  for (const product of itemNumberCollisionRows) {
+    rowErrors.push(
+      issue(
+        "identity_collision_after_trim",
+        "Products",
+        product.rowNumber,
+        "itemNumber",
+        "Distinct item numbers become identical after trim; correct or skip the affected rows.",
+      ),
+    );
+  }
 
   for (const group of duplicateProductBarcodeGroups.values()) {
     const hasExplicitProductId = group.some((product) =>
@@ -1258,7 +1337,7 @@ export function validateCatalogImportRows(
       ? existingProductsById.get(normalized(boundaryProduct.productId))
       : undefined;
     const existingByBarcode = existingProductsByBarcode.get(
-      normalized(product.barcode),
+      identityKey(product.barcode),
     );
 
     if (
@@ -1298,9 +1377,7 @@ export function validateCatalogImportRows(
 
     if (
       !target &&
-      product.retailPrice === undefined &&
-      !product.productName &&
-      !product.secondProductName
+      product.retailPrice === undefined
     ) {
       rowErrors.push(
         issue(
@@ -1395,7 +1472,7 @@ export function validateCatalogImportRows(
       ? existingProductsById.get(normalized(boundaryProduct.productId))
       : undefined;
     const existingByBarcode = existingProductsByBarcode.get(
-      normalized(product.barcode),
+      identityKey(product.barcode),
     );
     const target = existingByBarcode ?? existingById;
     if (target) {

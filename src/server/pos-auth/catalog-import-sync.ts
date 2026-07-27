@@ -7,6 +7,11 @@ import {
   type SupabaseAdminClient,
 } from "@/lib/supabase/admin";
 import type { Json, Tables } from "@/lib/supabase/database.types";
+import {
+  CATALOG_TEXT_LIMITS,
+  canonicalizeCatalogDisplayText,
+  validateCatalogIdentityText,
+} from "@/lib/catalog-text-policy";
 import { isStaffCredentialLockStateUsable } from "@/server/shop-admin/access-principal";
 import {
   buildPosShopPayload,
@@ -275,17 +280,26 @@ function normalizedOptionalText(value: string, maxLength: number) {
 }
 
 function safeIdText(value: string) {
-  const normalized = normalizeText(value, 200);
-  return SAFE_ID_PATTERN.test(normalized) && !SENSITIVE_TEXT_PATTERN.test(normalized)
-    ? normalized
+  const result = validateCatalogIdentityText(value, {
+    maxLength: 200,
+    required: false,
+  });
+  return result.status !== "rejected" &&
+    SAFE_ID_PATTERN.test(result.value) &&
+    !SENSITIVE_TEXT_PATTERN.test(result.value)
+    ? result.value
     : "";
 }
 
 function normalizeHashText(value: string) {
-  const normalized = normalizeText(value, 128);
-  return /^[A-Za-z0-9:_-]{16,128}$/.test(normalized) &&
-    !SENSITIVE_TEXT_PATTERN.test(normalized)
-    ? normalized
+  const result = validateCatalogIdentityText(value, {
+    maxLength: 128,
+    required: false,
+  });
+  return result.status !== "rejected" &&
+    /^[A-Za-z0-9:_-]{16,128}$/.test(result.value) &&
+    !SENSITIVE_TEXT_PATTERN.test(result.value)
+    ? result.value
     : "";
 }
 
@@ -318,6 +332,48 @@ function stableHash(value: unknown) {
 
 function hasDuplicateValues(values: readonly string[]) {
   return new Set(values).size !== values.length;
+}
+
+function hasIdentityCollisionAfterTrim(
+  itemsInput: readonly unknown[],
+  parsedItems: readonly ParsedCatalogImportItem[],
+  field: "barcode" | "itemNumber",
+) {
+  const rawByCanonical = new Map<string, string>();
+
+  for (const [index, parsedItem] of parsedItems.entries()) {
+    if (
+      parsedItem.changeKind !== "new" &&
+      parsedItem.changeKind !== "updated"
+    ) {
+      continue;
+    }
+
+    const input = itemsInput[index];
+    if (!isRecord(input)) {
+      return true;
+    }
+
+    const raw = field === "barcode"
+      ? stringField(input, "barcode")
+      : stringField(input, "itemNumber", "item_number");
+    const canonical = field === "barcode"
+      ? parsedItem.barcode
+      : (parsedItem.itemNumber ?? "");
+
+    if (!canonical) {
+      continue;
+    }
+
+    const previousRaw = rawByCanonical.get(canonical);
+    if (previousRaw !== undefined && previousRaw !== raw) {
+      return true;
+    }
+
+    rawByCanonical.set(canonical, raw);
+  }
+
+  return false;
 }
 
 function failure(
@@ -383,11 +439,31 @@ function parseCatalogImportItem(
   const clientItemId =
     safeIdText(stringField(input, "clientItemId", "client_item_id")) ||
     `row-${index + 1}`;
-  const barcode = normalizeText(stringField(input, "barcode"), 80);
   const rowNumber = integerField(input, "rowNumber", "row_number") ?? index + 1;
-  const productName = normalizedOptionalText(
+  const writesProduct = changeKind === "new" || changeKind === "updated";
+  const barcodeResult = validateCatalogIdentityText(
+    stringField(input, "barcode"),
+    { maxLength: CATALOG_TEXT_LIMITS.barcode, required: writesProduct },
+  );
+  const itemNumberResult = validateCatalogIdentityText(
+    stringField(input, "itemNumber", "item_number"),
+    { maxLength: CATALOG_TEXT_LIMITS.itemNumber, required: false },
+  );
+  const productNameResult = canonicalizeCatalogDisplayText(
     stringField(input, "productName", "product_name"),
-    240,
+    { maxLength: CATALOG_TEXT_LIMITS.productName, required: false },
+  );
+  const secondProductNameResult = canonicalizeCatalogDisplayText(
+    stringField(input, "secondProductName", "second_product_name"),
+    { maxLength: CATALOG_TEXT_LIMITS.secondProductName, required: false },
+  );
+  const categoryResult = canonicalizeCatalogDisplayText(
+    stringField(input, "category"),
+    { maxLength: CATALOG_TEXT_LIMITS.categoryName, required: false },
+  );
+  const supplierResult = canonicalizeCatalogDisplayText(
+    stringField(input, "supplier"),
+    { maxLength: CATALOG_TEXT_LIMITS.supplierName, required: false },
   );
   const purchasePrice = nonNegativeNumber(
     numberField(input, "purchasePrice", "purchase_price"),
@@ -397,14 +473,27 @@ function parseCatalogImportItem(
   );
   const quantity = nonNegativeNumber(numberField(input, "quantity", "stockQuantity"));
 
-  if (!changeKind || !clientItemId || rowNumber <= 0) {
+  if (
+    !changeKind ||
+    !clientItemId ||
+    rowNumber <= 0 ||
+    barcodeResult.status === "rejected" ||
+    itemNumberResult.status === "rejected" ||
+    productNameResult.status === "rejected" ||
+    secondProductNameResult.status === "rejected" ||
+    categoryResult.status === "rejected" ||
+    supplierResult.status === "rejected"
+  ) {
     return null;
   }
 
-  if (
-    (changeKind === "new" || changeKind === "updated") &&
-    (!barcode || !productName)
-  ) {
+  const barcode = barcodeResult.value;
+  const itemNumber = itemNumberResult.value || null;
+  const secondProductName = secondProductNameResult.value || null;
+  const productName =
+    productNameResult.value || secondProductName || itemNumber;
+
+  if (writesProduct && (!barcode || !productName)) {
     return null;
   }
 
@@ -418,24 +507,21 @@ function parseCatalogImportItem(
 
   return {
     barcode,
-    category: normalizedOptionalText(stringField(input, "category"), 120),
+    category: categoryResult.value || null,
     changeKind,
     clientItemId,
     diffSummary: normalizedOptionalText(
       stringField(input, "diffSummary", "diff_summary"),
       500,
     ),
-    itemNumber: normalizedOptionalText(stringField(input, "itemNumber", "item_number"), 120),
+    itemNumber,
     productName,
     purchasePrice,
     quantity,
     retailPrice,
     rowNumber,
-    secondProductName: normalizedOptionalText(
-      stringField(input, "secondProductName", "second_product_name"),
-      240,
-    ),
-    supplier: normalizedOptionalText(stringField(input, "supplier"), 120),
+    secondProductName,
+    supplier: supplierResult.value || null,
   };
 }
 
@@ -500,10 +586,12 @@ function parseCatalogImportInput(input: unknown): ParsedCatalogImportInput | nul
 
   if (
     hasDuplicateValues(parsedItems.map((item) => item.clientItemId)) ||
+    hasIdentityCollisionAfterTrim(itemsInput, parsedItems, "barcode") ||
+    hasIdentityCollisionAfterTrim(itemsInput, parsedItems, "itemNumber") ||
     hasDuplicateValues(
       parsedItems
         .filter((item) => item.changeKind === "new" || item.changeKind === "updated")
-        .map((item) => item.barcode.toUpperCase()),
+        .map((item) => item.barcode),
     )
   ) {
     return null;
@@ -530,9 +618,16 @@ function parseCatalogImportInput(input: unknown): ParsedCatalogImportInput | nul
   const appVersion =
     normalizedOptionalText(stringField(input, "appVersion", "app_version"), 80) ??
     undefined;
-  const shopCode =
-    normalizedOptionalText(stringField(input, "shopCode", "shop_code"), 80) ??
-    undefined;
+  const shopCodeResult = validateCatalogIdentityText(
+    stringField(input, "shopCode", "shop_code"),
+    { maxLength: 80, required: false },
+  );
+
+  if (shopCodeResult.status === "rejected") {
+    return null;
+  }
+
+  const shopCode = shopCodeResult.value || undefined;
   const payloadHash = stableHash({
     appVersion,
     batch: {

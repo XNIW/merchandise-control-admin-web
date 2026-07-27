@@ -10,6 +10,12 @@ import writeXlsxFile, {
 } from "write-excel-file/node";
 import type { Json } from "@/lib/supabase/database.types";
 import {
+  CATALOG_TEXT_LIMITS,
+  canonicalizeCatalogDisplayText,
+  catalogTextReasonMessage,
+  validateCatalogIdentityText,
+} from "@/lib/catalog-text-policy";
+import {
   createCategory,
   createProduct,
   createSupplier,
@@ -333,11 +339,16 @@ export type CatalogWorkbookSheetSummary = {
 export type CatalogWorkbookRowAdjustment = {
   barcode?: string;
   category?: string;
+  itemNumber?: string;
   purchasePrice?: number | null;
+  productName?: string;
   quantity?: number | null;
+  rawBarcode?: string;
+  rawItemNumber?: string;
   retailPrice?: number | null;
   rowFingerprint: string;
   rowNumber: number;
+  secondProductName?: string;
   skip?: boolean;
   supplier?: string;
 };
@@ -433,6 +444,7 @@ export type CatalogWorkbookPreview = ShopAdminActionResult & {
     products: number;
     safetySanitizations?: number;
     suppliers: number;
+    textNormalizations?: number;
     updatedCategories?: number;
     updatedProducts: number;
     updatedSuppliers?: number;
@@ -791,7 +803,7 @@ function productTextValue(
 ) {
   const value = productCellValue(headers, row, field);
 
-  return normalizeWorkbookText(value);
+  return String(value ?? "");
 }
 
 const PRODUCT_BOUNDARY_HEADER_ALIASES = {
@@ -820,7 +832,7 @@ function productBoundaryTextValue(
     aliases.has(normalizeCatalogImportHeader(cell)),
   );
 
-  return columnIndex < 0 ? "" : normalizeWorkbookText(row[columnIndex]);
+  return columnIndex < 0 ? "" : String(row[columnIndex] ?? "");
 }
 
 function productNumberValue(
@@ -945,37 +957,135 @@ function textValue(
     const index = headers.get(normalizeCatalogImportHeader(alias));
 
     if (index !== undefined) {
-      return normalizeWorkbookText(row[index]);
+      return String(row[index] ?? "");
     }
   }
 
   return "";
 }
 
-function parseSuppliers(rows: SheetData, rowErrors: WorkbookRowError[]) {
+const CATALOG_TEXT_NORMALIZED_CODE = "catalog_text_normalized";
+const CATALOG_TEXT_NORMALIZED_MESSAGE =
+  "Spaces or hidden line breaks normalized.";
+
+function catalogWorkbookDisplayText(input: {
+  field: string;
+  maxLength: number;
+  required: boolean;
+  row: number;
+  rowErrors: WorkbookRowError[];
+  rowWarnings: WorkbookRowError[];
+  sheet: string;
+  value: string;
+}) {
+  const result = canonicalizeCatalogDisplayText(input.value, {
+    maxLength: input.maxLength,
+    required: input.required,
+  });
+
+  if (result.status === "rejected") {
+    input.rowErrors.push({
+      code: `catalog_text_${result.reason}`,
+      field: input.field,
+      message: catalogTextReasonMessage(result.reason),
+      row: input.row,
+      sheet: input.sheet,
+    });
+    return "";
+  }
+
+  if (result.status === "normalized") {
+    input.rowWarnings.push({
+      code: CATALOG_TEXT_NORMALIZED_CODE,
+      field: input.field,
+      message: CATALOG_TEXT_NORMALIZED_MESSAGE,
+      row: input.row,
+      sheet: input.sheet,
+    });
+  }
+
+  return result.value;
+}
+
+function catalogWorkbookIdentityText(input: {
+  field: string;
+  maxLength: number;
+  required: boolean;
+  row: number;
+  rowErrors: WorkbookRowError[];
+  rowWarnings: WorkbookRowError[];
+  sheet: string;
+  value: string;
+}) {
+  const result = validateCatalogIdentityText(input.value, {
+    maxLength: input.maxLength,
+    required: input.required,
+  });
+
+  if (result.status === "rejected") {
+    input.rowErrors.push({
+      code: `catalog_text_${result.reason}`,
+      field: input.field,
+      message: catalogTextReasonMessage(result.reason),
+      row: input.row,
+      sheet: input.sheet,
+    });
+    return "";
+  }
+
+  if (result.status === "normalized") {
+    input.rowWarnings.push({
+      code: CATALOG_TEXT_NORMALIZED_CODE,
+      field: input.field,
+      message: CATALOG_TEXT_NORMALIZED_MESSAGE,
+      row: input.row,
+      sheet: input.sheet,
+    });
+  }
+
+  return result.value;
+}
+
+function parseSuppliers(
+  rows: SheetData,
+  rowErrors: WorkbookRowError[],
+  rowWarnings: WorkbookRowError[],
+) {
   const headers = headerMap(rows);
   const parsed: ParsedSupplierRow[] = [];
 
   for (const { row, rowNumber } of nonEmptyRows(rows)) {
-    const name = textValue(headers, row, [
-      "name",
-      "nombre",
-      "supplier_name",
-      "supplier",
-      "proveedor",
-      "fornitore",
-      "vendor",
-      "provider",
-    ]);
-    const supplierId = textValue(headers, row, ["supplier_id", "id"]);
+    const name = catalogWorkbookDisplayText({
+      field: "name",
+      maxLength: CATALOG_TEXT_LIMITS.supplierName,
+      required: true,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet: "Suppliers",
+      value: textValue(headers, row, [
+        "name",
+        "nombre",
+        "supplier_name",
+        "supplier",
+        "proveedor",
+        "fornitore",
+        "vendor",
+        "provider",
+      ]),
+    });
+    const supplierId = catalogWorkbookIdentityText({
+      field: "supplierId",
+      maxLength: 256,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet: "Suppliers",
+      value: textValue(headers, row, ["supplier_id", "id"]),
+    });
 
     if (!name) {
-      rowErrors.push({
-        field: "name",
-        message: "Supplier name is required.",
-        row: rowNumber,
-        sheet: "Suppliers",
-      });
       continue;
     }
 
@@ -985,30 +1095,46 @@ function parseSuppliers(rows: SheetData, rowErrors: WorkbookRowError[]) {
   return parsed;
 }
 
-function parseCategories(rows: SheetData, rowErrors: WorkbookRowError[]) {
+function parseCategories(
+  rows: SheetData,
+  rowErrors: WorkbookRowError[],
+  rowWarnings: WorkbookRowError[],
+) {
   const headers = headerMap(rows);
   const parsed: ParsedCategoryRow[] = [];
 
   for (const { row, rowNumber } of nonEmptyRows(rows)) {
-    const name = textValue(headers, row, [
-      "name",
-      "nombre",
-      "category_name",
-      "category",
-      "categoria",
-      "categoría",
-      "department",
-      "reparto",
-    ]);
-    const categoryId = textValue(headers, row, ["category_id", "id"]);
+    const name = catalogWorkbookDisplayText({
+      field: "name",
+      maxLength: CATALOG_TEXT_LIMITS.categoryName,
+      required: true,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet: "Categories",
+      value: textValue(headers, row, [
+        "name",
+        "nombre",
+        "category_name",
+        "category",
+        "categoria",
+        "categoría",
+        "department",
+        "reparto",
+      ]),
+    });
+    const categoryId = catalogWorkbookIdentityText({
+      field: "categoryId",
+      maxLength: 256,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet: "Categories",
+      value: textValue(headers, row, ["category_id", "id"]),
+    });
 
     if (!name) {
-      rowErrors.push({
-        field: "name",
-        message: "Category name is required.",
-        row: rowNumber,
-        sheet: "Categories",
-      });
       continue;
     }
 
@@ -1176,6 +1302,7 @@ function normalizePriceHistoryType(value: string) {
 function parsePriceHistory(
   rows: SheetData,
   rowErrors: WorkbookRowError[],
+  rowWarnings: WorkbookRowError[],
   sheet = "PriceHistory",
 ) {
   const headers = headerMap(rows);
@@ -1201,27 +1328,69 @@ function parsePriceHistory(
       "fecha",
       "created_at",
     ]);
-    const productId = priceHistoryTextValue(headers, row, [
-      "product_id",
-      "productId",
-    ]);
-    const productBarcode = priceHistoryTextValue(headers, row, [
-      "productBarcode",
-      "product_barcode",
-      "barcode",
-      "codigo_de_barras",
-      "código de barras",
-    ]);
-    const productItemNumber = priceHistoryTextValue(headers, row, [
-      "productItemNumber",
-      "product_item_number",
-      "item_number",
-      "sku",
-      "codigo_del_articulo",
-      "código del artículo",
-    ]);
-    const priceId = priceHistoryTextValue(headers, row, ["price_id", "id"]);
-    const source = priceHistoryTextValue(headers, row, ["source", "fuente"]);
+    const productId = catalogWorkbookIdentityText({
+      field: "productId",
+      maxLength: 256,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: textValue(headers, row, ["product_id", "productId"]),
+    });
+    const productBarcode = catalogWorkbookIdentityText({
+      field: "productBarcode",
+      maxLength: CATALOG_TEXT_LIMITS.barcode,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: textValue(headers, row, [
+        "productBarcode",
+        "product_barcode",
+        "barcode",
+        "codigo_de_barras",
+        "código de barras",
+      ]),
+    });
+    const productItemNumber = catalogWorkbookIdentityText({
+      field: "productItemNumber",
+      maxLength: CATALOG_TEXT_LIMITS.itemNumber,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: textValue(headers, row, [
+        "productItemNumber",
+        "product_item_number",
+        "item_number",
+        "sku",
+        "codigo_del_articulo",
+        "código del artículo",
+      ]),
+    });
+    const priceId = catalogWorkbookIdentityText({
+      field: "priceId",
+      maxLength: 256,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: textValue(headers, row, ["price_id", "id"]),
+    });
+    const source = catalogWorkbookIdentityText({
+      field: "source",
+      maxLength: 256,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: textValue(headers, row, ["source", "fuente"]),
+    });
     const note = priceHistoryTextValue(headers, row, ["note", "nota", "reason"]);
     const oldPrice = priceHistoryTextValue(headers, row, [
       "oldPrice",
@@ -2022,6 +2191,7 @@ function parsedPreviewRows(
 function parseProducts(
   rows: SheetData,
   rowErrors: WorkbookRowError[],
+  rowWarnings: WorkbookRowError[],
   mappingOverride: CatalogWorkbookMappingOverride,
   sheet = "Products",
   importMode: CatalogWorkbookImportMode = "database",
@@ -2101,18 +2271,102 @@ function parseProducts(
       continue;
     }
 
-    const barcode = productTextValue(detection.headers, row, "barcode");
-    const productName = productTextValue(
+    const rawBarcode = productTextValue(detection.headers, row, "barcode");
+    const barcode = catalogWorkbookIdentityText({
+      field: "barcode",
+      maxLength: CATALOG_TEXT_LIMITS.barcode,
+      required: true,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: rawBarcode,
+    });
+    const productName = catalogWorkbookDisplayText({
+      field: "productName",
+      maxLength: CATALOG_TEXT_LIMITS.productName,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: productTextValue(detection.headers, row, "productName"),
+    });
+    const rawItemNumber = productTextValue(
       detection.headers,
       row,
-      "productName",
+      "itemNumber",
     );
-    const itemNumber =
-      productTextValue(detection.headers, row, "itemNumber") || undefined;
-    const categoryName =
-      productTextValue(detection.headers, row, "category") || undefined;
-    const supplierName =
-      productTextValue(detection.headers, row, "supplier") || undefined;
+    const itemNumber = catalogWorkbookIdentityText({
+      field: "itemNumber",
+      maxLength: CATALOG_TEXT_LIMITS.itemNumber,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: rawItemNumber,
+    }) || undefined;
+    const categoryName = catalogWorkbookDisplayText({
+      field: "category",
+      maxLength: CATALOG_TEXT_LIMITS.categoryName,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: productTextValue(detection.headers, row, "category"),
+    }) || undefined;
+    const supplierName = catalogWorkbookDisplayText({
+      field: "supplier",
+      maxLength: CATALOG_TEXT_LIMITS.supplierName,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: productTextValue(detection.headers, row, "supplier"),
+    }) || undefined;
+    const categoryId = catalogWorkbookIdentityText({
+      field: "categoryId",
+      maxLength: 256,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: productBoundaryTextValue(rows, detection, row, "categoryId"),
+    }) || undefined;
+    const productId = catalogWorkbookIdentityText({
+      field: "productId",
+      maxLength: 256,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: productBoundaryTextValue(rows, detection, row, "productId"),
+    }) || undefined;
+    const supplierId = catalogWorkbookIdentityText({
+      field: "supplierId",
+      maxLength: 256,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: productBoundaryTextValue(rows, detection, row, "supplierId"),
+    }) || undefined;
+    const secondProductName = catalogWorkbookDisplayText({
+      field: "secondProductName",
+      maxLength: CATALOG_TEXT_LIMITS.secondProductName,
+      required: false,
+      row: rowNumber,
+      rowErrors,
+      rowWarnings,
+      sheet,
+      value: productTextValue(detection.headers, row, "secondProductName"),
+    }) || undefined;
     const totalPrice = productReferenceNumberValue(
       detection.headers,
       row,
@@ -2137,17 +2391,10 @@ function parseProducts(
       rowErrors,
     );
 
-    if (!barcode) {
-      rowErrors.push({
-        field: "barcode",
-        message: "Barcode is required.",
-        row: rowNumber,
-        sheet,
-      });
-    } else if (
+    if (barcode && (
       options.allowFlexibleBarcode &&
       isAndroidDatabaseBarcodeTooLong(barcode)
-    ) {
+    )) {
       rowErrors.push({
         field: "barcode",
         message:
@@ -2155,7 +2402,11 @@ function parseProducts(
         row: rowNumber,
         sheet,
       });
-    } else if (!options.allowFlexibleBarcode && !isValidProductBarcode(barcode)) {
+    } else if (
+      barcode &&
+      !options.allowFlexibleBarcode &&
+      !isValidProductBarcode(barcode)
+    ) {
       rowErrors.push({
         field: "barcode",
         message: "Barcode must contain 8, 12, or 13 digits.",
@@ -2167,8 +2418,7 @@ function parseProducts(
     parsed.push({
       barcode,
       category: categoryName,
-      categoryId:
-        productBoundaryTextValue(rows, detection, row, "categoryId") || undefined,
+      categoryId,
       categoryName,
       complete:
         productTextValue(detection.headers, row, "complete") || undefined,
@@ -2189,9 +2439,10 @@ function parseProducts(
         row,
         "oldRetailPrice",
       ),
-      productId:
-        productBoundaryTextValue(rows, detection, row, "productId") || undefined,
+      productId,
       productName,
+      rawBarcode,
+      rawItemNumber,
       purchasePrice: productNumberValue(
         detection.headers,
         row,
@@ -2213,13 +2464,10 @@ function parseProducts(
         rowErrors,
       ),
       rowNumber,
-      secondProductName:
-        productTextValue(detection.headers, row, "secondProductName") ||
-        undefined,
+      secondProductName,
       stockQuantity: quantity,
       supplier: supplierName,
-      supplierId:
-        productBoundaryTextValue(rows, detection, row, "supplierId") || undefined,
+      supplierId,
       supplierName,
       totalPrice,
     });
@@ -2234,7 +2482,8 @@ function parseProducts(
     products: parsed,
     recognizedColumnSources: detection.recognizedColumnSources,
     validRows: parsed.filter((product) =>
-      product.barcode && (product.productName || product.itemNumber)
+      product.barcode &&
+      (product.productName || product.secondProductName || product.itemNumber)
     ).length,
   };
 }
@@ -2654,6 +2903,7 @@ async function parseWorkbook(
   const productResult = parseProducts(
     selectedProductSheet.rows,
     rowErrors,
+    rowWarnings,
     mappingOverride,
     selectedProductSheet.sheet,
     importMode,
@@ -2663,9 +2913,13 @@ async function parseWorkbook(
         detectedFormat.kind === "android_database_export",
     },
   );
-  const suppliers = parseSuppliers(supplierRows, rowErrors);
-  const categories = parseCategories(categoryRows, rowErrors);
-  const priceHistory = parsePriceHistory(priceHistoryRows, rowErrors);
+  const suppliers = parseSuppliers(supplierRows, rowErrors, rowWarnings);
+  const categories = parseCategories(categoryRows, rowErrors, rowWarnings);
+  const priceHistory = parsePriceHistory(
+    priceHistoryRows,
+    rowErrors,
+    rowWarnings,
+  );
   const sheetSummaries = importMode === "database"
     ? baseSheetSummaries(sheets, {
         categories,
@@ -3034,6 +3288,7 @@ function syncValue(value: string | number | null | undefined) {
 function syncValuesEqual(
   left: string | number | null | undefined,
   right: string | number | null | undefined,
+  caseSensitive = false,
 ) {
   const normalizedLeft = syncValue(left);
   const normalizedRight = syncValue(right);
@@ -3042,8 +3297,11 @@ function syncValuesEqual(
     return normalizedLeft === normalizedRight;
   }
 
-  return String(normalizedLeft ?? "").toLowerCase() ===
-    String(normalizedRight ?? "").toLowerCase();
+  const leftText = String(normalizedLeft ?? "");
+  const rightText = String(normalizedRight ?? "");
+  return caseSensitive
+    ? leftText === rightText
+    : leftText.toLowerCase() === rightText.toLowerCase();
 }
 
 function supplierCategoryNameMaps(
@@ -3121,7 +3379,7 @@ function addSyncDiff(
   before: string | number | null | undefined,
   after: string | number | null | undefined,
 ) {
-  if (syncValuesEqual(before, after)) {
+  if (syncValuesEqual(before, after, field === "itemNumber")) {
     return;
   }
 
@@ -3292,10 +3550,10 @@ function buildParsedProductReferenceSets(
 
   for (const product of readModel.products) {
     productIds.add(product.productId);
-    barcodes.add(product.barcode.toLowerCase());
+    barcodes.add(product.barcode);
 
     if (product.itemNumber) {
-      itemNumbers.add(product.itemNumber.toLowerCase());
+      itemNumbers.add(product.itemNumber);
     }
   }
 
@@ -3305,11 +3563,11 @@ function buildParsedProductReferenceSets(
     }
 
     if (product.barcode) {
-      barcodes.add(product.barcode.toLowerCase());
+      barcodes.add(product.barcode);
     }
 
     if (product.itemNumber) {
-      itemNumbers.add(product.itemNumber.toLowerCase());
+      itemNumbers.add(product.itemNumber);
     }
   }
 
@@ -3328,10 +3586,10 @@ function validatePriceHistoryRows(
       row.productId && references.productIds.has(row.productId);
     const hasBarcode =
       row.productBarcode &&
-      references.barcodes.has(row.productBarcode.toLowerCase());
+      references.barcodes.has(row.productBarcode);
     const hasItemNumber =
       row.productItemNumber &&
-      references.itemNumbers.has(row.productItemNumber.toLowerCase());
+      references.itemNumbers.has(row.productItemNumber);
 
     if (!hasProductId && !hasBarcode && !hasItemNumber) {
       rowErrors.push({
@@ -3383,7 +3641,7 @@ function decorateCatalogPreviewRows(
     parsed.products.map((product) => [product.rowNumber, product]),
   );
   const existingBarcodes = new Set(
-    readModel.products.map((product) => product.barcode.toLowerCase()),
+    readModel.products.map((product) => product.barcode),
   );
   const errorTextByRow = new Map<number, string>();
 
@@ -3406,7 +3664,7 @@ function decorateCatalogPreviewRows(
       status = errorText.includes("duplicate") ? "Duplicate" : "Blocked";
     } else if (warningsByRow.has(row.rowNumber)) {
       status = "Warning";
-    } else if (existingBarcodes.has(row.barcode.toLowerCase())) {
+    } else if (existingBarcodes.has(row.barcode)) {
       status = "Update";
     } else {
       status = "New";
@@ -3453,7 +3711,13 @@ function parseAdjustmentNumber(
 
 function parseAdjustmentText(
   value: unknown,
-  field: "barcode" | "category" | "supplier",
+  field:
+    | "barcode"
+    | "category"
+    | "itemNumber"
+    | "productName"
+    | "secondProductName"
+    | "supplier",
   rowNumber: number,
 ) {
   if (value === undefined || value === null || value === "") {
@@ -3472,13 +3736,44 @@ function parseAdjustmentText(
     };
   }
 
-  const normalized = normalizeLabel(value);
+  const options =
+    field === "barcode"
+      ? { class: "strict" as const, maxLength: CATALOG_TEXT_LIMITS.barcode }
+      : field === "itemNumber"
+        ? { class: "strict" as const, maxLength: CATALOG_TEXT_LIMITS.itemNumber }
+        : field === "productName"
+          ? { class: "display" as const, maxLength: CATALOG_TEXT_LIMITS.productName }
+          : field === "secondProductName"
+            ? {
+                class: "display" as const,
+                maxLength: CATALOG_TEXT_LIMITS.secondProductName,
+              }
+            : field === "supplier"
+              ? {
+                  class: "display" as const,
+                  maxLength: CATALOG_TEXT_LIMITS.supplierName,
+                }
+              : {
+                  class: "display" as const,
+                  maxLength: CATALOG_TEXT_LIMITS.categoryName,
+                };
+  const result =
+    options.class === "strict"
+      ? validateCatalogIdentityText(value, {
+          maxLength: options.maxLength,
+          required: field === "barcode",
+        })
+      : canonicalizeCatalogDisplayText(value, {
+          maxLength: options.maxLength,
+          required: field === "productName",
+        });
 
-  if (normalized.length > 120) {
+  if (result.status === "rejected") {
     return {
       error: {
+        code: `catalog_text_${result.reason}`,
         field,
-        message: "Adjustment text must be at most 120 characters.",
+        message: catalogTextReasonMessage(result.reason),
         row: rowNumber,
         sheet: "Products",
       } satisfies WorkbookRowError,
@@ -3486,7 +3781,7 @@ function parseAdjustmentText(
     };
   }
 
-  return { ok: true as const, value: normalized || undefined };
+  return { ok: true as const, value: result.value || undefined };
 }
 
 function parseAdjustmentBarcode(value: unknown, rowNumber: number) {
@@ -3511,10 +3806,21 @@ function parseAdjustmentBarcode(value: unknown, rowNumber: number) {
   return parsed;
 }
 
-function normalizeDefaultAssignment(value: string | undefined) {
-  const normalized = normalizeLabel(value);
+function normalizeDefaultAssignment(
+  value: string | undefined,
+  field: "category" | "supplier",
+) {
+  const result = canonicalizeCatalogDisplayText(value ?? "", {
+    maxLength:
+      field === "supplier"
+        ? CATALOG_TEXT_LIMITS.supplierName
+        : CATALOG_TEXT_LIMITS.categoryName,
+    required: false,
+  });
 
-  return normalized && normalized.length <= 120 ? normalized : undefined;
+  return result.status === "rejected" || !result.value
+    ? undefined
+    : result.value;
 }
 
 function validateDefaultAssignments(input: {
@@ -3528,22 +3834,30 @@ function validateDefaultAssignments(input: {
     }
   | (ShopAdminActionResult & { rowErrors: WorkbookRowError[]; valid: false }) {
   const rowErrors: WorkbookRowError[] = [];
-  const defaultSupplierName = normalizeLabel(input.defaultSupplierName);
-  const defaultCategoryName = normalizeLabel(input.defaultCategoryName);
+  const supplierResult = canonicalizeCatalogDisplayText(
+    input.defaultSupplierName ?? "",
+    { maxLength: CATALOG_TEXT_LIMITS.supplierName, required: false },
+  );
+  const categoryResult = canonicalizeCatalogDisplayText(
+    input.defaultCategoryName ?? "",
+    { maxLength: CATALOG_TEXT_LIMITS.categoryName, required: false },
+  );
 
-  if (defaultSupplierName.length > 120) {
+  if (supplierResult.status === "rejected") {
     rowErrors.push({
+      code: `catalog_text_${supplierResult.reason}`,
       field: "defaultSupplierName",
-      message: "Default supplier name must be at most 120 characters.",
+      message: catalogTextReasonMessage(supplierResult.reason),
       row: 0,
       sheet: "Products",
     });
   }
 
-  if (defaultCategoryName.length > 120) {
+  if (categoryResult.status === "rejected") {
     rowErrors.push({
+      code: `catalog_text_${categoryResult.reason}`,
       field: "defaultCategoryName",
-      message: "Default category name must be at most 120 characters.",
+      message: catalogTextReasonMessage(categoryResult.reason),
       row: 0,
       sheet: "Products",
     });
@@ -3558,8 +3872,14 @@ function validateDefaultAssignments(input: {
   }
 
   return {
-    defaultCategoryName: defaultCategoryName || undefined,
-    defaultSupplierName: defaultSupplierName || undefined,
+    defaultCategoryName:
+      categoryResult.status === "rejected" || !categoryResult.value
+        ? undefined
+        : categoryResult.value,
+    defaultSupplierName:
+      supplierResult.status === "rejected" || !supplierResult.value
+        ? undefined
+        : supplierResult.value,
     valid: true,
   };
 }
@@ -3720,6 +4040,21 @@ function validateRowAdjustments(
       "category",
       rowNumber,
     );
+    const itemNumber = parseAdjustmentText(
+      record.itemNumber,
+      "itemNumber",
+      rowNumber,
+    );
+    const productName = parseAdjustmentText(
+      record.productName,
+      "productName",
+      rowNumber,
+    );
+    const secondProductName = parseAdjustmentText(
+      record.secondProductName,
+      "secondProductName",
+      rowNumber,
+    );
 
     if (!barcode.ok) {
       rowErrors.push(barcode.error);
@@ -3745,6 +4080,18 @@ function validateRowAdjustments(
       rowErrors.push(category.error);
     }
 
+    if (!itemNumber.ok) {
+      rowErrors.push(itemNumber.error);
+    }
+
+    if (!productName.ok) {
+      rowErrors.push(productName.error);
+    }
+
+    if (!secondProductName.ok) {
+      rowErrors.push(secondProductName.error);
+    }
+
     if (
       barcode.ok &&
       retailPrice.ok &&
@@ -3752,21 +4099,38 @@ function validateRowAdjustments(
       quantity.ok &&
       supplier.ok &&
       category.ok &&
+      itemNumber.ok &&
+      productName.ok &&
+      secondProductName.ok &&
       (barcode.value !== undefined ||
         retailPrice.value !== undefined ||
         purchasePrice.value !== undefined ||
         quantity.value !== undefined ||
         supplier.value !== undefined ||
-        category.value !== undefined)
+        category.value !== undefined ||
+        itemNumber.value !== undefined ||
+        productName.value !== undefined ||
+        secondProductName.value !== undefined)
     ) {
       adjustments.push({
         barcode: barcode.value,
         category: category.value,
+        itemNumber: itemNumber.value,
         purchasePrice: purchasePrice.value,
+        productName: productName.value,
         quantity: quantity.value,
+        rawBarcode:
+          barcode.value !== undefined && typeof record.barcode === "string"
+            ? record.barcode
+            : undefined,
+        rawItemNumber:
+          itemNumber.value !== undefined && typeof record.itemNumber === "string"
+            ? record.itemNumber
+            : undefined,
         retailPrice: retailPrice.value,
         rowFingerprint,
         rowNumber,
+        secondProductName: secondProductName.value,
         supplier: supplier.value,
       });
     }
@@ -3794,6 +4158,23 @@ function applyRowAdjustments(
   const adjustmentsByRow = new Map(
     adjustments.map((adjustment) => [adjustment.rowNumber, adjustment]),
   );
+  const adjustedFieldsByRow = new Map(
+    adjustments.map((adjustment) => [
+      adjustment.rowNumber,
+      new Set(
+        (
+          [
+            "barcode",
+            "category",
+            "itemNumber",
+            "productName",
+            "secondProductName",
+            "supplier",
+          ] as const
+        ).filter((field) => adjustment[field] !== undefined),
+      ),
+    ]),
+  );
   const products = parsed.products.map((product) => {
     const adjustment = adjustmentsByRow.get(product.rowNumber);
 
@@ -3803,6 +4184,17 @@ function applyRowAdjustments(
 
     return {
       ...product,
+      barcode: adjustment.barcode ?? product.barcode,
+      category: adjustment.category ?? product.category,
+      categoryName: adjustment.category ?? product.categoryName,
+      itemNumber: adjustment.itemNumber ?? product.itemNumber,
+      rawBarcode:
+        adjustment.rawBarcode ?? product.rawBarcode ?? product.barcode,
+      rawItemNumber:
+        adjustment.rawItemNumber ??
+        product.rawItemNumber ??
+        product.itemNumber,
+      productName: adjustment.productName ?? product.productName,
       purchasePrice:
         adjustment.purchasePrice === undefined || adjustment.purchasePrice === null
           ? product.purchasePrice
@@ -3811,6 +4203,10 @@ function applyRowAdjustments(
         adjustment.retailPrice === undefined || adjustment.retailPrice === null
           ? product.retailPrice
           : adjustment.retailPrice,
+      secondProductName:
+        adjustment.secondProductName ?? product.secondProductName,
+      supplier: adjustment.supplier ?? product.supplier,
+      supplierName: adjustment.supplier ?? product.supplierName,
       quantity:
         adjustment.quantity === undefined || adjustment.quantity === null
           ? (product.quantity ?? product.stockQuantity)
@@ -3825,6 +4221,29 @@ function applyRowAdjustments(
   return {
     ...parsed,
     products,
+    previewRows: parsedPreviewRows(products),
+    rowErrors: parsed.rowErrors.filter(
+      (issue) => !adjustedFieldsByRow.get(issue.row)?.has(
+        issue.field as
+          | "barcode"
+          | "category"
+          | "itemNumber"
+          | "productName"
+          | "secondProductName"
+          | "supplier",
+      ),
+    ),
+    rowWarnings: parsed.rowWarnings.filter(
+      (issue) => !adjustedFieldsByRow.get(issue.row)?.has(
+        issue.field as
+          | "barcode"
+          | "category"
+          | "itemNumber"
+          | "productName"
+          | "secondProductName"
+          | "supplier",
+      ),
+    ),
   };
 }
 
@@ -3853,11 +4272,30 @@ function applySupplierWorkbookRows(
       .filter((adjustment) => adjustment.barcode)
       .map((adjustment) => adjustment.rowNumber),
   );
+  const adjustedFieldsByRow = new Map(
+    adjustments.map((adjustment) => [
+      adjustment.rowNumber,
+      new Set(
+        (
+          [
+            "barcode",
+            "category",
+            "itemNumber",
+            "productName",
+            "secondProductName",
+            "supplier",
+          ] as const
+        ).filter((field) => adjustment[field] !== undefined),
+      ),
+    ]),
+  );
   const defaultSupplierName = normalizeDefaultAssignment(
     defaults.defaultSupplierName,
+    "supplier",
   );
   const defaultCategoryName = normalizeDefaultAssignment(
     defaults.defaultCategoryName,
+    "category",
   );
   const products = parsed.products.flatMap((product) => {
     const adjustment = adjustmentsByRow.get(product.rowNumber);
@@ -3904,13 +4342,26 @@ function applySupplierWorkbookRows(
     return [{
       ...product,
       barcode: adjustedBarcode ?? (product.barcode || existing?.barcode || ""),
+      category: adjustment?.category ?? product.category,
       categoryId,
       categoryName: undefined,
       itemNumber:
-        maybeText(product.itemNumber) ?? maybeText(existing?.itemNumber) ??
+        maybeText(adjustment?.itemNumber) ??
+        maybeText(product.itemNumber) ??
+        maybeText(existing?.itemNumber) ??
         undefined,
       productId: existing?.productId ?? product.productId,
-      productName: product.productName || existing?.productName || "",
+      productName:
+        adjustment?.productName ||
+        product.productName ||
+        existing?.productName ||
+        "",
+      rawBarcode:
+        adjustment?.rawBarcode ?? product.rawBarcode ?? product.barcode,
+      rawItemNumber:
+        adjustment?.rawItemNumber ??
+        product.rawItemNumber ??
+        product.itemNumber,
       purchasePrice:
         adjustment?.purchasePrice !== undefined && adjustment.purchasePrice !== null
           ? adjustment.purchasePrice
@@ -3923,6 +4374,7 @@ function applySupplierWorkbookRows(
             (existing ? maybeNumber(existing.retailPrice) : undefined))
           : adjustment.retailPrice,
       secondProductName:
+        maybeText(adjustment?.secondProductName) ??
         maybeText(product.secondProductName) ??
         maybeText(existing?.secondProductName) ??
         undefined,
@@ -3940,19 +4392,41 @@ function applySupplierWorkbookRows(
           : adjustment.quantity,
       supplierId,
       supplierName: undefined,
+      supplier: adjustment?.supplier ?? product.supplier,
     }];
   });
   const rowErrors = parsed.rowErrors.filter((issue) => {
     if (skippedRows.has(issue.row)) {
       return false;
     }
-    if (issue.field === "barcode" && correctedBarcodeRows.has(issue.row)) {
+    if (
+      (issue.field === "barcode" && correctedBarcodeRows.has(issue.row)) ||
+      adjustedFieldsByRow.get(issue.row)?.has(
+        issue.field as
+          | "barcode"
+          | "category"
+          | "itemNumber"
+          | "productName"
+          | "secondProductName"
+          | "supplier",
+      )
+    ) {
       return false;
     }
     return true;
   });
   const rowWarnings = parsed.rowWarnings.filter(
-    (issue) => !skippedRows.has(issue.row),
+    (issue) =>
+      !skippedRows.has(issue.row) &&
+      !adjustedFieldsByRow.get(issue.row)?.has(
+        issue.field as
+          | "barcode"
+          | "category"
+          | "itemNumber"
+          | "productName"
+          | "secondProductName"
+          | "supplier",
+      ),
   );
 
   return {
@@ -3973,13 +4447,13 @@ function buildProductIdMaps(products: readonly ShopInventoryProduct[]) {
       products.map((product) => [product.productId, product.productId]),
     ),
     byBarcode: new Map(
-      products.map((product) => [product.barcode.toLowerCase(), product.productId]),
+      products.map((product) => [product.barcode, product.productId]),
     ),
     byItemNumber: new Map(
       products
         .filter((product) => product.itemNumber)
         .map((product) => [
-          product.itemNumber?.toLowerCase() ?? "",
+          product.itemNumber ?? "",
           product.productId,
         ]),
     ),
@@ -3999,11 +4473,11 @@ function rememberProductId(
   maps.byProductId.add(productId);
 
   if (row.barcode) {
-    maps.byBarcode.set(row.barcode.toLowerCase(), productId);
+    maps.byBarcode.set(row.barcode, productId);
   }
 
   if (row.itemNumber) {
-    maps.byItemNumber.set(row.itemNumber.toLowerCase(), productId);
+    maps.byItemNumber.set(row.itemNumber, productId);
   }
 }
 
@@ -4024,7 +4498,7 @@ function resolvePriceHistoryProductId(
   }
 
   if (row.productBarcode) {
-    const byBarcode = maps.byBarcode.get(row.productBarcode.toLowerCase());
+    const byBarcode = maps.byBarcode.get(row.productBarcode);
 
     if (byBarcode) {
       return byBarcode;
@@ -4032,7 +4506,7 @@ function resolvePriceHistoryProductId(
   }
 
   if (row.productItemNumber) {
-    return maps.byItemNumber.get(row.productItemNumber.toLowerCase());
+    return maps.byItemNumber.get(row.productItemNumber);
   }
 
   return undefined;
@@ -4922,7 +5396,7 @@ function effectiveProductRowsLastWins(
   const withoutBarcode: ParsedProductRow[] = [];
 
   for (const row of rows) {
-    const key = row.barcode.trim().toLowerCase();
+    const key = row.barcode.trim();
     if (!key) {
       withoutBarcode.push(row);
       continue;
@@ -5035,8 +5509,8 @@ function buildProductPayloadReferenceIndex(
   >();
 
   for (const row of payloadRows) {
-    const barcode = row.barcode.trim().toLowerCase();
-    const itemNumber = row.item_number?.trim().toLowerCase() ?? "";
+    const barcode = row.barcode.trim();
+    const itemNumber = row.item_number?.trim() ?? "";
     if (barcode) byBarcode.set(barcode, row);
     if (itemNumber) byItemNumber.set(itemNumber, row);
     if (row.product_id) byRequestedProductId.set(row.product_id, row);
@@ -5054,8 +5528,8 @@ function rememberAppliedProductReference(
     productId: string;
   },
 ) {
-  const barcodeKey = product.barcode?.toLowerCase() ?? "";
-  const itemNumberKey = product.itemNumber?.toLowerCase() ?? "";
+  const barcodeKey = product.barcode ?? "";
+  const itemNumberKey = product.itemNumber ?? "";
   const sourceRow =
     payloadRows.byRequestedProductId.get(product.productId) ??
     (barcodeKey ? payloadRows.byBarcode.get(barcodeKey) : undefined) ??
@@ -5070,11 +5544,11 @@ function rememberAppliedProductReference(
   maps.byProductId.add(product.productId);
 
   if (product.barcode) {
-    maps.byBarcode.set(product.barcode.toLowerCase(), product.productId);
+    maps.byBarcode.set(product.barcode, product.productId);
   }
 
   if (product.itemNumber) {
-    maps.byItemNumber.set(product.itemNumber.toLowerCase(), product.productId);
+    maps.byItemNumber.set(product.itemNumber, product.productId);
   }
 }
 
@@ -5378,19 +5852,7 @@ export async function parseCatalogWorkbookPreview(
   let syncPreview: CatalogWorkbookSyncPreview | undefined;
   let syncAdjustments: CatalogWorkbookRowAdjustment[] = [];
 
-  if (parsed.importMode === "supplier" && input.rowAdjustments !== undefined) {
-    const defaultValidation = validateDefaultAssignments({
-      defaultCategoryName: input.defaultCategoryName,
-      defaultSupplierName: input.defaultSupplierName,
-    });
-
-    if (!defaultValidation.valid) {
-      return {
-        ...defaultValidation,
-        previewDigest: boundPreviewDigest,
-      };
-    }
-
+  if (input.rowAdjustments !== undefined) {
     const adjustmentValidation = validateRowAdjustments(
       parsed,
       input.rowAdjustments,
@@ -5404,15 +5866,31 @@ export async function parseCatalogWorkbookPreview(
     }
 
     syncAdjustments = adjustmentValidation.adjustments;
-    previewParsed = applySupplierWorkbookRows(
-      parsed,
-      syncAdjustments,
-      readModel,
-      {
-        defaultCategoryName: defaultValidation.defaultCategoryName,
-        defaultSupplierName: defaultValidation.defaultSupplierName,
-      },
-    );
+    if (parsed.importMode === "supplier") {
+      const defaultValidation = validateDefaultAssignments({
+        defaultCategoryName: input.defaultCategoryName,
+        defaultSupplierName: input.defaultSupplierName,
+      });
+
+      if (!defaultValidation.valid) {
+        return {
+          ...defaultValidation,
+          previewDigest: boundPreviewDigest,
+        };
+      }
+
+      previewParsed = applySupplierWorkbookRows(
+        parsed,
+        syncAdjustments,
+        readModel,
+        {
+          defaultCategoryName: defaultValidation.defaultCategoryName,
+          defaultSupplierName: defaultValidation.defaultSupplierName,
+        },
+      );
+    } else {
+      previewParsed = applyRowAdjustments(parsed, syncAdjustments);
+    }
   }
 
   const validation = validateCatalogImportRows(
@@ -5462,10 +5940,13 @@ export async function parseCatalogWorkbookPreview(
     (row) => row.type === "RETAIL",
   ).length;
   const blockedRows = uniqueIssueRowCount(rowErrors);
+  const textNormalizations = rowWarnings.filter(
+    (issue) => issue.code === CATALOG_TEXT_NORMALIZED_CODE,
+  ).length;
 
   if (
     parsed.importMode === "database" ||
-    (parsed.importMode === "supplier" && input.rowAdjustments !== undefined)
+    input.rowAdjustments !== undefined
   ) {
     syncPreview = buildSupplierSyncPreview({
       adjustedParsed: previewParsed,
@@ -5498,6 +5979,7 @@ export async function parseCatalogWorkbookPreview(
       "preview.valid": rowErrors.length === 0,
       selectedProductSheet: parsed.selectedProductSheet,
       safetySanitizations: safetyNotes.length,
+      textNormalizations,
       validRows: previewParsed.validRows,
       warnings: rowWarnings.length,
     },
@@ -5544,6 +6026,7 @@ export async function parseCatalogWorkbookPreview(
       priceHistoryPurchase,
       priceHistoryRetail,
       safetySanitizations: safetyNotes.length,
+      textNormalizations,
       updatedCategories: categoryChanges.updatedCategories,
       updatedSuppliers: supplierChanges.updatedSuppliers,
       validRows: previewParsed.validRows,
@@ -5868,6 +6351,14 @@ export async function applyCatalogWorkbookImport(
         productsApplied += 1;
       } else {
         failedRows += 1;
+        applyRowErrors.push({
+          code: result.code,
+          field: "product",
+          message:
+            "Product row was rejected at the authoritative catalog boundary.",
+          row: row.rowNumber,
+          sheet: "Products",
+        });
       }
     }
   }
