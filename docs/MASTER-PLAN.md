@@ -2878,10 +2878,10 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-141/README.md`
 - Stato task: `REVIEW`
 - Fase: `REVIEW`
-- Milestone interna: `CATALOG_TEXT_POLICY_V1_INDEPENDENT_REVIEW`
-- Responsabile: `REVIEWER INDIPENDENTE`
+- Milestone interna: `CATALOG_TEXT_POLICY_V1_STAGING_ACCEPTED`
+- Responsabile: `USER / FINAL CONFIRMATION`
 - Branch/worktree:
-  `codex/catalog-text-integrity-admin-20260727`;
+  `codex/catalog-text-integrity-closeout-admin-20260727`;
   `/Users/minxiang/.codex/worktrees/catalog-text-integrity-20260727/admin`.
 - Apertura TASK-142 2026-07-27: avviato il coordinamento
   `CATALOG-TEXT-001` su Admin Web, Android e iOS. Baseline Admin
@@ -2914,6 +2914,16 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   indipendente finale `APPROVED_PRE_PR`, P0/P1/P2/P3 `0/0/0/0`; focused
   29/29, foundation completa su snapshot Win7POS pulito, verify e cf:build
   `PASS`. La coordinazione attende review mobile prima del push delle tre PR.
+- Closeout TASK-142 2026-07-27: PR Admin #42, Android #3 e iOS #1 con review
+  indipendenti P0/P1/P2/P3 `0/0/0/0`, CI verdi e merge normali verificati.
+  Sul solo staging allowlisted: backup pre-repair verificato; migration remota
+  `20260727084040`; repair atomico esatto `345` con invalidi post-repair `0`
+  e invarianti preservati; Worker staging versione
+  `c5ae7e81-ded9-43ec-996a-199f7cfa540b`; acceptance Admin/Android/iOS
+  bidirezionale `PASS`; paging Win7POS-equivalente completo `PASS`; cleanup
+  fixture/eventi/shop QA a residuo `0`. Production e Win7POS
+  `NOT_MODIFIED`. TASK-142 resta `REVIEW / READY_FOR_USER_CONFIRMATION`, non
+  `DONE`, in attesa della conferma esplicita dell'utente.
 - Apertura TASK-138 2026-07-18: follow-up esplicito TASK-137 per completare
   runtime, UX e parity live non-production su Admin Web, Android e iOS. Prima
   delle modifiche runtime e stata registrata la matrice requisito/stato/test/gap
