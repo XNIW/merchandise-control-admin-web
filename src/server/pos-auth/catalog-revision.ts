@@ -31,6 +31,12 @@ export type CatalogPageV2 = CatalogRevisionDescriptor & {
 };
 
 export type CatalogPageV2Failure = {
+  reason?:
+    | "catalog_rpc_error"
+    | "catalog_rpc_response_invalid"
+    | "catalog_rpc_statement_timeout"
+    | "catalog_v2_page_contract_invalid";
+  stage?: CatalogV2Lane | "manifest";
   status:
     | "db_failure"
     | "denied"
@@ -365,13 +371,39 @@ export async function loadCatalogPageV2(
     p_snapshot_at: input.snapshotAt,
     p_staff_id: input.staffId,
   });
+  const stage = input.includeManifest
+    ? "manifest"
+    : (input.entity ?? "manifest");
 
-  if (error || !isRecord(data)) {
-    return { status: "db_failure" };
+  if (error) {
+    return {
+      reason:
+        error.code === "57014"
+          ? "catalog_rpc_statement_timeout"
+          : "catalog_rpc_error",
+      stage,
+      status: "db_failure",
+    };
+  }
+
+  if (!isRecord(data)) {
+    return {
+      reason: "catalog_rpc_response_invalid",
+      stage,
+      status: "db_failure",
+    };
   }
 
   if (data.status !== "ok") {
-    return { status: parseStatus(data.status) ?? "db_failure" };
+    const status = parseStatus(data.status);
+
+    return status
+      ? { status }
+      : {
+          reason: "catalog_rpc_response_invalid",
+          stage,
+          status: "db_failure",
+        };
   }
 
   const descriptor = parseDescriptor(data);
@@ -427,7 +459,11 @@ export async function loadCatalogPageV2(
     (data.entityHasMore && rows.length !== pageLimit) ||
     (entity === "done" && (rows.length !== 0 || data.entityHasMore))
   ) {
-    return { status: "db_failure" };
+    return {
+      reason: "catalog_v2_page_contract_invalid",
+      stage,
+      status: "db_failure",
+    };
   }
 
   if (entity !== "done") {
@@ -457,7 +493,11 @@ export async function loadCatalogPageV2(
             (parsedRow.updatedAtMicros === previous.updatedAtMicros &&
               parsedRow.id <= previous.id)))
       ) {
-        return { status: "db_failure" };
+        return {
+          reason: "catalog_v2_page_contract_invalid",
+          stage,
+          status: "db_failure",
+        };
       }
       seenIds.add(parsedRow.id);
       previous = parsedRow;

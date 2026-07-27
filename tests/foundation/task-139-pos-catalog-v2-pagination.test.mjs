@@ -563,6 +563,79 @@ test("TASK-139 price page accepts canonical Room timestamps from POS catalog imp
   assert.equal(page.rows.length, 1);
 });
 
+test("TASK-141 page boundary classifies manifest statement timeouts without leaking database detail", async () => {
+  const boundary = loadCatalogRevisionBoundary();
+  const supabase = {
+    async rpc() {
+      return {
+        data: null,
+        error: {
+          code: "57014",
+          details: "sensitive database detail",
+          message: "canceling statement due to statement timeout",
+        },
+      };
+    },
+  };
+  const result = await boundary.loadCatalogPageV2(supabase, {
+    afterId: null,
+    afterUpdatedAt: null,
+    entity: null,
+    expectedRevision: null,
+    expectedScopeKey: null,
+    expectedScopeKind: null,
+    includeManifest: true,
+    limit: 500,
+    lowerBound: null,
+    mode: "full_refresh",
+    posSessionId: "11111111-1111-4111-8111-111111111111",
+    shopDeviceId: "22222222-2222-4222-8222-222222222222",
+    shopId: "33333333-3333-4333-8333-333333333333",
+    snapshotAt: null,
+    staffId: "44444444-4444-4444-8444-444444444444",
+  });
+
+  assert.equal(result.status, "db_failure");
+  assert.equal(result.reason, "catalog_rpc_statement_timeout");
+  assert.equal(result.stage, "manifest");
+  assert.equal("details" in result, false);
+  assert.equal("message" in result, false);
+});
+
+test("TASK-141 page boundary distinguishes a redacted continuation RPC failure", async () => {
+  const boundary = loadCatalogRevisionBoundary();
+  const supabase = {
+    async rpc() {
+      return {
+        data: null,
+        error: { code: "XX000", message: "sensitive database detail" },
+      };
+    },
+  };
+  const result = await boundary.loadCatalogPageV2(supabase, {
+    afterId: null,
+    afterUpdatedAt: null,
+    entity: "prices",
+    expectedRevision: "1",
+    expectedScopeKey: ["a".repeat(16), "b".repeat(16)].join(""),
+    expectedScopeKind: "shop_scoped",
+    includeManifest: false,
+    limit: 120,
+    lowerBound: null,
+    mode: "full_refresh",
+    posSessionId: "11111111-1111-4111-8111-111111111111",
+    shopDeviceId: "22222222-2222-4222-8222-222222222222",
+    shopId: "33333333-3333-4333-8333-333333333333",
+    snapshotAt: "2026-07-26T18:01:00.000000+00:00",
+    staffId: "44444444-4444-4444-8444-444444444444",
+  });
+
+  assert.equal(result.status, "db_failure");
+  assert.equal(result.reason, "catalog_rpc_error");
+  assert.equal(result.stage, "prices");
+  assert.equal("message" in result, false);
+});
+
 test("TASK-139 migration and heartbeat expose only the additive v2 contract", () => {
   const migration = read(
     "supabase/migrations/20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql",

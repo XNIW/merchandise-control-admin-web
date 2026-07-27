@@ -300,7 +300,7 @@ function requestMetadata(meta: PosCatalogPullRequestMeta): JsonRecord {
     ...(meta.clientRequestId ? { client_request_id: meta.clientRequestId } : {}),
     ...(meta.requestId ? { request_id: meta.requestId } : {}),
     ...(meta.route ? { route: meta.route } : {}),
-    source: "TASK-139",
+    source: "TASK-141",
     user_agent_length: meta.userAgent?.length ?? 0,
     user_agent_present: Boolean(meta.userAgent),
   };
@@ -759,10 +759,13 @@ export async function handlePosCatalogPull(
       metadata: {
         ...requestMetadata(meta),
         cursor_fingerprint: cursorFingerprint(parsed.syncRequest.syncCursor),
+        lane: page.stage === "manifest" ? null : (page.stage ?? null),
+        manifest_requested: !continuation,
         reason:
           page.status === "snapshot_changed"
             ? "snapshot_revision_or_scope_changed"
-            : page.status,
+            : (page.reason ?? page.status),
+        stage: page.stage ?? (continuation?.lane ?? "manifest"),
       },
       shopId: session.shop_id,
       status:
@@ -796,7 +799,11 @@ export async function handlePosCatalogPull(
       code: "db_failure",
       metadata: {
         ...requestMetadata(meta),
+        lane: page.entity,
+        manifest_present: Boolean(manifest),
         reason: "catalog_v2_page_contract_invalid",
+        row_count: page.rows.length,
+        stage: continuation?.lane ?? "manifest",
       },
       shopId: session.shop_id,
       status: 500,
