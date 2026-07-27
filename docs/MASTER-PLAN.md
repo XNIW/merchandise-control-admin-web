@@ -2863,14 +2863,14 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Coordination key TASK-142: `CATALOG-TEXT-001`
 - File task TASK-142: `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
 - Evidence TASK-142: `docs/TASKS/EVIDENCE/TASK-142/README.md`
-- Stato TASK-143: `EXECUTION`
-- Fase TASK-143: `EXECUTION / PR_READY`
+- Stato TASK-143: `REVIEW`
+- Fase TASK-143: `REVIEW_READY`
 - Task TASK-143: `TASK-143 - Admin staging catalog pull 503`
 - File task TASK-143: `docs/TASKS/TASK-143-admin-staging-catalog-pull-503.md`
 - Evidence TASK-143: `docs/TASKS/EVIDENCE/TASK-143/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `EXECUTION`
+- Stato globale attuale: `REVIEW`
 - Task attivo: `TASK-143 - Admin staging catalog pull 503`
 - Task precedente: `TASK-142 - Cross-platform catalog text integrity` (`DONE`)
 - Ultimo task chiuso: `TASK-142 - Cross-platform catalog text integrity`
@@ -2881,13 +2881,13 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Ultimo file task: `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
 - Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-143/README.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-142/README.md`
-- Stato task: `EXECUTION`
-- Fase: `EXECUTION / PR_READY`
-- Milestone interna: `STAGING_CATALOG_PULL_503_REVIEW_APPROVED`
-- Responsabile: `CODEX / EXECUTOR`
+- Stato task: `REVIEW`
+- Fase: `REVIEW_READY`
+- Milestone interna: `READY_FOR_ASUS_BOOTSTRAP_ACCEPTANCE`
+- Responsabile: `CLAUDE/CHATGPT / REVIEWER`
 - Branch/worktree:
-  `codex/admin-staging-catalog-pull-503-20260727`;
-  `/Users/minxiang/.codex/worktrees/admin-staging-catalog-pull-503-20260727`.
+  `codex/admin-staging-catalog-pull-503-closeout-20260727`;
+  `/Users/minxiang/Projects/merchandise-control-admin-web`.
 - Apertura TASK-142 2026-07-27: avviato il coordinamento
   `CATALOG-TEXT-001` su Admin Web, Android e iOS. Baseline Admin
   `54889a68a65cec39764bbb5479574e942f4d54f1`, worktree pulito e target
@@ -2965,6 +2965,22 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Review finale TASK-143 2026-07-27: SHA `2d848e7d` approvato pre-merge con
   `P0=0/P1=0/P2=0`; l'unico P3 documentale è stato corretto. Fase
   `EXECUTION / PR_READY`, nessun deploy ancora eseguito.
+- Closeout esecutivo TASK-143 2026-07-27: PR `#45` unita normalmente nello
+  SHA `75113502`; CI run `212` e Cloudflare run `209` verdi; review finale
+  anche sul delta CI `P0/P1/P2/P3=0/0/0/0`. Main locale uguale a
+  `origin/main`; migration staging `94/94`, nessuna migration TASK-143. Un
+  solo deploy staging: deployment `bbdc35a8`, Worker version `66eeda7f`,
+  timestamp `22:14:27.319282Z`.
+- Acceptance server-side TASK-143 2026-07-27: sessione dedicata sullo scope
+  Asus reale e poi revocata; first page `HTTP 200/success` in `4.879,2ms`;
+  drain completo `676/676` in `205.616,7ms`; manifest esatto categorie `71`,
+  fornitori `102`, prodotti `19.763`, prezzi `41.228`; support ID `676`,
+  audit success `676`, failure `0`, validatore testo `PASS`, nessun dato
+  catalogo generato; residui auth attivi del test `0/0/0`. Cloudflare
+  post-deploy: `823` invocazioni tutte success,
+  zero errori/`exceededResources`/exception. Production, Win7POS, Android e
+  iOS `NOT_MODIFIED`. Task passata a `REVIEW_READY`, mai `DONE`; resta una
+  sola acceptance fisica Asus separata.
 - Apertura TASK-138 2026-07-18: follow-up esplicito TASK-137 per completare
   runtime, UX e parity live non-production su Admin Web, Android e iOS. Prima
   delle modifiche runtime e stata registrata la matrice requisito/stato/test/gap

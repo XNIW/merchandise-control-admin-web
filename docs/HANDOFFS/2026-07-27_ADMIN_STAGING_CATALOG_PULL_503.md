@@ -1,6 +1,6 @@
 # Admin staging catalog-pull 503 incident
 
-Status: `PR_READY`.
+Status: `REVIEW_READY`.
 
 ## Incident timeline
 
@@ -46,14 +46,50 @@ initialization crossed the Worker resource boundary; consequently the edge
 returned `503` before the route could emit a server request ID or catalog
 audit.
 
-The local fix replaces that dependency with a compact read-only canonical
+The deployed fix replaces that dependency with a compact read-only canonical
 validator. The production route dependency containing the validation boundary
 drops from `17.986` to `15.101` bytes and no longer includes the write-policy
 module. Golden-policy equivalence, targeted foundation tests, Cloudflare build
 and local Worker smoke pass. Repository gates pass. Findings from the first
-independent review have been remediated and the follow-up has
-`P0=0/P1=0/P2=0`. PR/CI/merge and the single staging deployment remain
-pending.
+independent review and the first CI run have been remediated. Final independent
+review has `P0/P1/P2/P3=0/0/0/0`.
+
+## Delivery
+
+- PR `#45`, normal merge.
+- Feature SHA:
+  `92de5c27d88d640f72a535a7412e535caa3c5b89`.
+- Admin merge SHA:
+  `75113502a824461dce8487c93383fde3122774c1`.
+- CI run `212`: `PASS`, including database migrations and pgTAP.
+- Cloudflare run `209`: `PASS`.
+- Staging migration parity: `94/94`; no TASK-143 migration.
+- Single staging deployment:
+  `bbdc35a8-14b8-4201-8144-c4c6d060bc7c`.
+- Active staging Worker version:
+  `66eeda7f-003b-4b61-9fbd-b4222896c048`.
+- Deploy timestamp: `2026-07-27T22:14:27.319282Z`.
+
+## Server-side acceptance
+
+A dedicated POS session was created through the existing runtime boundary on
+the real shop scope correlated to the Asus incident. The physical Asus and its
+harness were not used. The dedicated session, credential and device were
+revoked after the run.
+
+- First page: `HTTP 200 / success`, `4.879,2ms`.
+- Full drain: `676/676` pages, `205.616,7ms`.
+- Exact manifest and returned unique rows:
+  categories `71`, suppliers `102`, products `19.763`, prices `41.228`.
+- Catalog text validation: `PASS`.
+- Unique bounded support IDs: `676`.
+- Catalog success audit: `676`.
+- Catalog failure audit: `0`.
+- Catalog business data generated or modified: `NO`.
+- Cleanup DB: active dedicated device/credential/session `0/0/0`.
+- Cloudflare after deploy through `2026-07-27T22:24:00.121Z`:
+  `823` invocations, all `success`, zero errors, zero
+  `exceededResources`, zero exceptions.
 
 ## Scope guardrails
 
@@ -65,4 +101,7 @@ pending.
 
 ## Resolution
 
-`PRE_MERGE_REVIEW_APPROVED`.
+`READY_FOR_ASUS_BOOTSTRAP_ACCEPTANCE`.
+
+Production, Win7POS, Android and iOS remain `NOT_MODIFIED`. Authorization is
+requested for exactly one final physical Asus bootstrap acceptance.
