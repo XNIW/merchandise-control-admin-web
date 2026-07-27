@@ -8,10 +8,10 @@ import {
 } from "@/lib/supabase/admin";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import {
-  CATALOG_TEXT_LIMITS,
-  canonicalizeCatalogDisplayText,
-  validateCatalogIdentityText,
-} from "@/lib/catalog-text-policy";
+  isCanonicalCatalogDisplayText,
+  isCanonicalCatalogIdentityText,
+  POS_CATALOG_TEXT_LIMITS,
+} from "./catalog-text-read-validation";
 import { isStaffCredentialLockStateUsable } from "@/server/shop-admin/access-principal";
 import {
   buildPosPolicyPayload,
@@ -101,6 +101,34 @@ type PosCatalogFailureCode =
   | "unmapped"
   | "validation_failed";
 
+type PosCatalogFailureRoot =
+  | "audit_unavailable"
+  | "catalog_cursor"
+  | "catalog_integrity"
+  | "catalog_response_invalid"
+  | "denied"
+  | "publication_denied"
+  | "publication_failure"
+  | "publication_stale"
+  | "rpc_failure"
+  | "statement_timeout"
+  | "unhandled_exception"
+  | "unmapped"
+  | "upstream_unavailable"
+  | "validation"
+  | "worker_binding_unavailable";
+
+type PosCatalogFailureStage =
+  | "audit"
+  | "catalog_pull"
+  | "categories"
+  | "lease"
+  | "manifest"
+  | "prices"
+  | "products"
+  | "publication"
+  | "suppliers";
+
 type CatalogPayload = {
   categories: Array<{
     categoryId: string;
@@ -158,6 +186,8 @@ type PosCatalogEndpointResult =
         code: PosCatalogFailureCode;
         message: string;
         ok: false;
+        root: PosCatalogFailureRoot;
+        stage: PosCatalogFailureStage;
       };
       status: 400 | 401 | 409 | 500 | 503;
     }
@@ -185,6 +215,7 @@ type PosCatalogEndpointResult =
 
 export type PosCatalogPullRequestMeta = {
   clientRequestId?: string;
+  edgeCorrelationHash?: string;
   requestId?: string;
   route?: string;
   userAgent?: string;
@@ -239,7 +270,27 @@ function isAfterTimestamp(left: string | null, right: string) {
 function failure(
   code: PosCatalogFailureCode,
   status: 400 | 401 | 409 | 500 | 503,
+  details: {
+    root?: PosCatalogFailureRoot;
+    stage?: PosCatalogFailureStage;
+  } = {},
 ): PosCatalogEndpointResult {
+  const root: PosCatalogFailureRoot =
+    details.root ??
+    (code === "catalog_integrity_blocked"
+      ? "catalog_integrity"
+      : code === "catalog_cursor_expired" ||
+          code === "catalog_cursor_rejected"
+        ? "catalog_cursor"
+        : code === "denied"
+          ? "denied"
+          : code === "not_configured"
+            ? "worker_binding_unavailable"
+            : code === "unmapped"
+              ? "unmapped"
+              : code === "validation_failed"
+                ? "validation"
+                : "rpc_failure");
   const message =
     code === "catalog_integrity_blocked"
       ? "Catalog integrity requires recovery before POS sync can continue."
@@ -252,13 +303,17 @@ function failure(
           ? "Catalog continuation was rejected."
           : code === "unmapped"
             ? "This shop has a legacy catalog bridge that is not mapped."
-            : "POS catalog pull was denied.";
+            : code === "db_failure"
+              ? "POS catalog pull failed."
+              : "POS catalog pull was denied.";
 
   return {
     body: {
       code,
       message,
       ok: false,
+      root,
+      stage: details.stage ?? "catalog_pull",
     },
     status,
   };
@@ -303,12 +358,36 @@ function parseCatalogPullInput(input: unknown): ParsedCatalogPullInput | null {
 function requestMetadata(meta: PosCatalogPullRequestMeta): JsonRecord {
   return {
     ...(meta.clientRequestId ? { client_request_id: meta.clientRequestId } : {}),
+    ...(meta.edgeCorrelationHash
+      ? { edge_correlation_hash: meta.edgeCorrelationHash }
+      : {}),
     ...(meta.requestId ? { request_id: meta.requestId } : {}),
     ...(meta.route ? { route: meta.route } : {}),
-    source: "TASK-141",
+    source: "TASK-143",
     user_agent_length: meta.userAgent?.length ?? 0,
     user_agent_present: Boolean(meta.userAgent),
   };
+}
+
+function emitPosCatalogFailureLog(input: {
+  code: PosCatalogFailureCode;
+  meta: PosCatalogPullRequestMeta;
+  root: PosCatalogFailureRoot;
+  stage: PosCatalogFailureStage;
+}) {
+  console.error(
+    JSON.stringify({
+      code: input.code,
+      event: "pos.catalog.pull.failure",
+      ...(input.meta.edgeCorrelationHash
+        ? { edgeCorrelationHash: input.meta.edgeCorrelationHash }
+        : {}),
+      ...(input.meta.requestId ? { requestId: input.meta.requestId } : {}),
+      root: input.root,
+      route: input.meta.route ?? "pos.catalog.pull",
+      stage: input.stage,
+    }),
+  );
 }
 
 function cursorFingerprint(syncCursor: string) {
@@ -365,8 +444,10 @@ async function auditedFailure(
   input: {
     code: PosCatalogFailureCode;
     metadata?: JsonRecord;
+    root?: PosCatalogFailureRoot;
     shopId?: string;
-    status: 400 | 401 | 409 | 500;
+    stage?: PosCatalogFailureStage;
+    status: 400 | 401 | 409 | 500 | 503;
     targetId?: string;
     targetType?: string;
   },
@@ -374,18 +455,43 @@ async function auditedFailure(
   const auditOk = await writePosCatalogAudit(supabase, {
     code: input.code,
     metadata: input.metadata,
-    result: input.status === 500 ? "failure" : "blocked",
-    severity: input.status === 500 ? "critical" : "warning",
+    result: input.status >= 500 ? "failure" : "blocked",
+    severity: input.status >= 500 ? "critical" : "warning",
     shopId: input.shopId,
     targetId: input.targetId,
     targetType: input.targetType,
   });
 
   if (!auditOk) {
-    return failure("db_failure", 500);
+    emitPosCatalogFailureLog({
+      code: "db_failure",
+      meta: {
+        edgeCorrelationHash:
+          typeof input.metadata?.edge_correlation_hash === "string"
+            ? input.metadata.edge_correlation_hash
+            : undefined,
+        requestId:
+          typeof input.metadata?.request_id === "string"
+            ? input.metadata.request_id
+            : undefined,
+        route:
+          typeof input.metadata?.route === "string"
+            ? input.metadata.route
+            : undefined,
+      },
+      root: "audit_unavailable",
+      stage: "audit",
+    });
+    return failure("db_failure", 500, {
+      root: "audit_unavailable",
+      stage: "audit",
+    });
   }
 
-  return failure(input.code, input.status);
+  return failure(input.code, input.status, {
+    root: input.root,
+    stage: input.stage,
+  });
 }
 
 function isStaffUsable(staff: StaffAccountRow | null) {
@@ -518,30 +624,26 @@ function emptyCatalog(): CatalogPayload {
   };
 }
 
-function isCanonicalCatalogDisplayText(
-  value: string | null,
-  maxLength: number,
-  required: boolean,
+function hasCatalogRows(
+  manifest: CatalogV2Manifest,
+  mode: "delta" | "full_refresh",
 ) {
-  const result = canonicalizeCatalogDisplayText(value ?? "", {
-    maxLength,
-    required,
-  });
+  const summary = manifest.catalogSummary;
+  const window = manifest.windowCounts;
+  const summaryHasRows =
+    summary.categories > 0 ||
+    summary.suppliers > 0 ||
+    summary.products > 0 ||
+    summary.prices > 0;
 
-  return result.status === "unchanged" && result.value === (value ?? "");
-}
-
-function isCanonicalCatalogIdentityText(
-  value: string | null,
-  maxLength: number,
-  required: boolean,
-) {
-  const result = validateCatalogIdentityText(value ?? "", {
-    maxLength,
-    required,
-  });
-
-  return result.status === "unchanged" && result.value === (value ?? "");
+  return (
+    summaryHasRows ||
+    (mode === "delta" &&
+      (window.categories > 0 ||
+        window.suppliers > 0 ||
+        window.products > 0 ||
+        window.prices > 0))
+  );
 }
 
 function mapCatalogPage(page: CatalogPageV2): CatalogPayload | null {
@@ -560,7 +662,7 @@ function mapCatalogPage(page: CatalogPageV2): CatalogPayload | null {
         isCanonicalCatalogIdentityText(row.id, 256, true) &&
         isCanonicalCatalogDisplayText(
           row.name,
-          CATALOG_TEXT_LIMITS.categoryName,
+          POS_CATALOG_TEXT_LIMITS.categoryName,
           true,
         ),
     ) ||
@@ -569,7 +671,7 @@ function mapCatalogPage(page: CatalogPageV2): CatalogPayload | null {
         isCanonicalCatalogIdentityText(row.id, 256, true) &&
         isCanonicalCatalogDisplayText(
           row.name,
-          CATALOG_TEXT_LIMITS.supplierName,
+          POS_CATALOG_TEXT_LIMITS.supplierName,
           true,
         ),
     ) ||
@@ -578,22 +680,22 @@ function mapCatalogPage(page: CatalogPageV2): CatalogPayload | null {
         isCanonicalCatalogIdentityText(row.id, 256, true) &&
         isCanonicalCatalogIdentityText(
           row.barcode,
-          CATALOG_TEXT_LIMITS.barcode,
+          POS_CATALOG_TEXT_LIMITS.barcode,
           true,
         ) &&
         isCanonicalCatalogIdentityText(
           row.item_number,
-          CATALOG_TEXT_LIMITS.itemNumber,
+          POS_CATALOG_TEXT_LIMITS.itemNumber,
           false,
         ) &&
         isCanonicalCatalogDisplayText(
           row.product_name,
-          CATALOG_TEXT_LIMITS.productName,
+          POS_CATALOG_TEXT_LIMITS.productName,
           false,
         ) &&
         isCanonicalCatalogDisplayText(
           row.second_product_name,
-          CATALOG_TEXT_LIMITS.secondProductName,
+          POS_CATALOG_TEXT_LIMITS.secondProductName,
           false,
         ) &&
         isCanonicalCatalogIdentityText(row.category_id, 256, false) &&
@@ -678,7 +780,16 @@ export async function handlePosCatalogPull(
   const backend = await getSupabaseForPosCatalog();
 
   if (!backend) {
-    return failure("not_configured", 503);
+    emitPosCatalogFailureLog({
+      code: "not_configured",
+      meta,
+      root: "worker_binding_unavailable",
+      stage: "catalog_pull",
+    });
+    return failure("not_configured", 503, {
+      root: "worker_binding_unavailable",
+      stage: "catalog_pull",
+    });
   }
 
   const { cursorSigningKey, supabase } = backend;
@@ -701,6 +812,8 @@ export async function handlePosCatalogPull(
     return auditedFailure(supabase, {
       code: "db_failure",
       metadata: requestMetadata(meta),
+      root: "rpc_failure",
+      stage: "lease",
       status: 500,
     });
   }
@@ -709,6 +822,8 @@ export async function handlePosCatalogPull(
     return auditedFailure(supabase, {
       code: "denied",
       metadata: requestMetadata(meta),
+      root: "denied",
+      stage: "lease",
       status: 401,
     });
   }
@@ -725,7 +840,9 @@ export async function handlePosCatalogPull(
     return auditedFailure(supabase, {
       code: "denied",
       metadata: requestMetadata(meta),
+      root: "denied",
       shopId: session.shop_id,
+      stage: "lease",
       status: 401,
       targetId: session.pos_session_id,
       targetType: "pos_session",
@@ -766,7 +883,9 @@ export async function handlePosCatalogPull(
         shop_resolved: true,
         staff_resolved: true,
       },
+      root: "denied",
       shopId: session.shop_id,
+      stage: "lease",
       status: 401,
       targetId: session.pos_session_id,
       targetType: "pos_session",
@@ -796,7 +915,9 @@ export async function handlePosCatalogPull(
         ...requestMetadata(meta),
         cursor_fingerprint: cursorFingerprint(parsed.syncRequest.syncCursor),
       },
+      root: "catalog_cursor",
       shopId: session.shop_id,
+      stage: "catalog_pull",
       status: cursorFailure ? 409 : 400,
       targetId: session.shop_device_id,
       targetType: "device",
@@ -848,10 +969,28 @@ export async function handlePosCatalogPull(
             : (page.reason ?? page.status),
         stage: page.stage ?? (continuation?.lane ?? "manifest"),
       },
+      root:
+        page.reason === "catalog_rpc_statement_timeout"
+          ? "statement_timeout"
+          : page.reason === "catalog_rpc_upstream_unavailable"
+            ? "upstream_unavailable"
+          : page.reason === "catalog_rpc_response_invalid" ||
+              page.reason === "catalog_v2_page_contract_invalid"
+            ? "catalog_response_invalid"
+            : code === "catalog_integrity_blocked"
+              ? "catalog_integrity"
+              : code === "unmapped"
+                ? "unmapped"
+                : code === "denied"
+                  ? "denied"
+                  : "rpc_failure",
       shopId: session.shop_id,
+      stage: page.stage ?? (continuation?.lane ?? "manifest"),
       status:
         code === "denied"
           ? 401
+          : page.reason === "catalog_rpc_upstream_unavailable"
+            ? 503
           : code === "unmapped" ||
         code === "catalog_integrity_blocked" ||
         code === "catalog_cursor_rejected"
@@ -864,9 +1003,13 @@ export async function handlePosCatalogPull(
 
   const manifest = page.manifest ?? continuation?.manifest ?? null;
   const catalog = mapCatalogPage(page);
+  const manifestHasRows = manifest
+    ? hasCatalogRows(manifest, sync.mode)
+    : false;
 
   if (
     !manifest ||
+    !manifestHasRows ||
     !catalog ||
     (page.entityHasMore && page.rows.length !== page.pageLimit) ||
     (continuation &&
@@ -882,11 +1025,22 @@ export async function handlePosCatalogPull(
         ...requestMetadata(meta),
         lane: page.entity,
         manifest_present: Boolean(manifest),
-        reason: "catalog_v2_page_contract_invalid",
+        reason:
+          manifest && !manifestHasRows
+            ? "catalog_v2_empty_manifest"
+            : "catalog_v2_page_contract_invalid",
         row_count: page.rows.length,
-        stage: continuation?.lane ?? "manifest",
+        stage:
+          manifest && !manifestHasRows
+            ? "manifest"
+            : (continuation?.lane ?? "manifest"),
       },
+      root: "catalog_response_invalid",
       shopId: session.shop_id,
+      stage:
+        manifest && !manifestHasRows
+          ? "manifest"
+          : (continuation?.lane ?? "manifest"),
       status: 500,
       targetId: session.shop_device_id,
       targetType: "device",
@@ -921,7 +1075,9 @@ export async function handlePosCatalogPull(
           ...requestMetadata(meta),
           reason: "catalog_v2_next_cursor_invalid",
         },
+        root: "catalog_response_invalid",
         shopId: session.shop_id,
+        stage: page.entity === "done" ? "catalog_pull" : page.entity,
         status: 500,
         targetId: session.shop_device_id,
         targetType: "device",
@@ -956,7 +1112,9 @@ export async function handlePosCatalogPull(
           ...requestMetadata(meta),
           reason: "catalog_v2_cursor_build_failed",
         },
+        root: "catalog_response_invalid",
         shopId: session.shop_id,
+        stage: "catalog_pull",
         status: 500,
         targetId: session.shop_device_id,
         targetType: "device",
@@ -998,14 +1156,97 @@ export async function handlePosCatalogPull(
     staffId: session.staff_id,
   });
   if (publication.status === "denied") {
-    return failure("denied", 401);
+    return auditedFailure(supabase, {
+      code: "denied",
+      metadata: {
+        ...requestMetadata(meta),
+        reason: "catalog_publication_denied",
+        stage: "publication",
+      },
+      root: "publication_denied",
+      shopId: session.shop_id,
+      stage: "publication",
+      status: 401,
+      targetId: session.shop_device_id,
+      targetType: "device",
+    });
   }
   if (publication.status === "stale_catalog") {
-    return failure("catalog_cursor_rejected", 409);
+    return auditedFailure(supabase, {
+      code: "catalog_cursor_rejected",
+      metadata: {
+        ...requestMetadata(meta),
+        reason: "catalog_publication_stale",
+        stage: "publication",
+      },
+      root: "publication_stale",
+      shopId: session.shop_id,
+      stage: "publication",
+      status: 409,
+      targetId: session.shop_device_id,
+      targetType: "device",
+    });
   }
   if (publication.status !== "ok") {
-    return failure("db_failure", 500);
+    return auditedFailure(supabase, {
+      code: "db_failure",
+      metadata: {
+        ...requestMetadata(meta),
+        reason: "catalog_publication_failure",
+        stage: "publication",
+      },
+      root: "publication_failure",
+      shopId: session.shop_id,
+      stage: "publication",
+      status: 500,
+      targetId: session.shop_device_id,
+      targetType: "device",
+    });
   }
 
   return { body: successBody, status: 200 };
+}
+
+export async function handlePosCatalogRouteFailure(
+  meta: PosCatalogPullRequestMeta,
+): Promise<PosCatalogEndpointResult> {
+  try {
+    const backend = await getSupabaseForPosCatalog();
+
+    if (!backend) {
+      emitPosCatalogFailureLog({
+        code: "not_configured",
+        meta,
+        root: "worker_binding_unavailable",
+        stage: "catalog_pull",
+      });
+      return failure("not_configured", 503, {
+        root: "worker_binding_unavailable",
+        stage: "catalog_pull",
+      });
+    }
+
+    return auditedFailure(backend.supabase, {
+      code: "db_failure",
+      metadata: {
+        ...requestMetadata(meta),
+        reason: "catalog_route_unhandled_exception",
+        stage: "catalog_pull",
+      },
+      root: "unhandled_exception",
+      stage: "catalog_pull",
+      status: 500,
+    });
+  } catch {
+    emitPosCatalogFailureLog({
+      code: "db_failure",
+      meta,
+      root: "unhandled_exception",
+      stage: "catalog_pull",
+    });
+    return failure("db_failure", 500, {
+      root: "unhandled_exception",
+      stage: "catalog_pull",
+    });
+  }
 }
