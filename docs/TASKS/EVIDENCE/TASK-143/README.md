@@ -96,7 +96,9 @@
 
 - `git diff --check`: `PASS`.
 - `node --test tests/foundation/task-143-admin-staging-catalog-pull-503.test.mjs`:
-  `14/14 PASS`.
+  `15/15 PASS` dopo la remediation CI.
+- `npm run test:foundation` nel profilo CI senza repository esterno Win7POS:
+  `PASS`.
 - regressioni TASK-139/TASK-141/TASK-142:
   `34/34 PASS`.
 - regressioni catalog/audit/governance TASK-027/TASK-079:
@@ -106,9 +108,11 @@
   scan e build Next.js `16.2.6`.
 - `npm run cf:build`: `PASS`.
 - `npm run test:cloudflare:local`: `PASS`.
-- reset Supabase isolato e pgTAP: `NOT_APPLICABLE`, nessuna migration o
-  modifica DB.
-- CodeQL manuale: `NOT_RUN`, demandato alla PR come richiesto.
+- reset Supabase isolato locale: `NOT_APPLICABLE`, nessuna migration o
+  modifica DB; job PR `Database migrations and pgTAP`: `PASS`.
+- CodeQL manuale: `NOT_RUN` come richiesto; nessun check CodeQL separato è
+  configurato nella check suite. Security scan automatico: `PASS` nei job
+  Verify e Cloudflare.
 
 ## Review indipendente
 
@@ -166,6 +170,100 @@ Follow-up sullo SHA
 
 Conteggi aperti dopo la correzione documentale: `P0=0/P1=0/P2=0/P3=0`.
 
+La prima esecuzione CI della PR ha rilevato due guard foundation: allowlist
+esatta del log server bounded e marker statici dell'ultimo fallback route.
+Remediation su tre file, con fallback typed aggiuntivo e una nuova regressione.
+Follow-up indipendente sul delta:
+
+- verdict: `APPROVED_PRE_MERGE / PR_READY`;
+- P0/P1/P2/P3: `0/0/0/0`;
+- TASK-068 + TASK-143: `21/21 PASS`;
+- foundation completa profilo CI, typecheck, `verify`, `cf:build` e
+  `git diff --check`: `PASS`.
+
+## PR, CI e merge
+
+- PR: `#45`, non draft, merge normale.
+- Feature SHA remoto finale:
+  `92de5c27d88d640f72a535a7412e535caa3c5b89`.
+- Tree remoto finale, identico byte-per-byte alla tree revisionata:
+  `cc4cd9a7816322f3c443db149aa42a7a6fe8958d`.
+- CI run `212`: `PASS`, inclusi Verify, database migrations e pgTAP.
+- Cloudflare run `209`: `PASS`, incluso OpenNext build e Worker smoke.
+- Merge SHA: `75113502a824461dce8487c93383fde3122774c1`.
+- Admin main locale e `origin/main`:
+  `75113502a824461dce8487c93383fde3122774c1`.
+
+## Staging deploy e migration parity
+
+- Migration TASK-143: nessuna.
+- Staging ledger: `94` migration remote / `94` migration locali.
+- Ultima migration logica: `task_142_catalog_text_policy_v1`; versione locale
+  `20260727055520`, remap remoto già documentato `20260727084040`.
+- Deploy Worker staging eseguiti da TASK-143: `1`.
+- Deployment ID: `bbdc35a8-14b8-4201-8144-c4c6d060bc7c`.
+- Worker version ID: `66eeda7f-003b-4b61-9fbd-b4222896c048`.
+- Timestamp deploy: `2026-07-27T22:14:27.319282Z`.
+- Production: `NOT_MODIFIED`.
+
+## Acceptance server-side staging
+
+Percorso HTTPS reale con sessione dedicata sullo shop Asus correlato
+all'incidente; nessun avvio del dispositivo Asus. La sessione, la credenziale
+e il device dedicati sono stati revocati nel cleanup.
+
+- First page: `HTTP 200`, app code `success`, elapsed `4.879,2ms`.
+- Support ID first page: presente e bounded; hash
+  `sha256:254439bbf7d4`.
+- Full drain: `676/676` pagine, elapsed `205.616,7ms`, massimo pagina
+  `4.879,2ms`, budget `900.000ms`.
+- Conteggi drenati e manifest:
+  - categorie `71`;
+  - fornitori `102`;
+  - prodotti totali/attivi `19.763/19.763`;
+  - prezzi `41.228`.
+- Record duplicati o saltati: `0`.
+- Catalog text validator: `PASS`.
+- Request trace: `676` support ID univoci.
+- Audit `pos.catalog.pull.success`: `676`.
+- Audit `pos.catalog.pull.failure`: `0`.
+- Dati catalogo creati o modificati: `NO`.
+- Cleanup sessione dedicata: `PASS_REVOKED`.
+- Verifica cleanup DB: device/credential/session attivi residui `0/0/0`;
+  device dedicato revocato `1`.
+
+Tre tentativi iniziali di setup della sola sessione sono stati respinti prima
+di creare record con SQLSTATE `22023`: il marker metadata aggiuntivo non era
+ammesso dal trigger canonico. Corretto il setup usando soltanto
+`app_version_present` e `source`; non è stata necessaria alcuna modifica al
+repository o al Worker.
+
+Cloudflare GraphQL dalla timestamp di deploy a
+`2026-07-27T22:24:00.121Z`:
+
+- invocazioni `823`, tutte status `success`;
+- errori `0`;
+- `exceededResources=0`;
+- exception `0`;
+- subrequest `2.627`.
+
+## File modificati
+
+- `docs/MASTER-PLAN.md`
+- `docs/HANDOFFS/2026-07-27_ADMIN_STAGING_CATALOG_PULL_503.md`
+- `docs/TASKS/EVIDENCE/TASK-143/README.md`
+- `docs/TASKS/TASK-143-admin-staging-catalog-pull-503.md`
+- `scripts/security-checks.mjs`
+- `src/app/api/pos/_shared/pos-route-security.ts`
+- `src/app/api/pos/catalog/pull/route.ts`
+- `src/server/pos-auth/catalog-pull.ts`
+- `src/server/pos-auth/catalog-revision.ts`
+- `src/server/pos-auth/catalog-text-read-validation.ts`
+- `tests/foundation/task-068-security-i18n-audit.test.mjs`
+- `tests/foundation/task-079-catalog-pagination-unified.test.mjs`
+- `tests/foundation/task-141-win7pos-catalog-bootstrap.test.mjs`
+- `tests/foundation/task-143-admin-staging-catalog-pull-503.test.mjs`
+
 ## AI_WORKLOG
 
 - `2026-07-27 / INCIDENT_DIAGNOSIS`: correlati handoff Win7POS, deployment
@@ -189,3 +287,13 @@ Conteggi aperti dopo la correzione documentale: `P0=0/P1=0/P2=0/P3=0`.
   empty-catalog, regressioni TASK-143 `14/14 PASS`.
 - `2026-07-27 / REVIEW_APPROVED`: sullo SHA `2d848e7d`
   `P0=0/P1=0/P2=0`, unico P3 documentale corretto; branch pronta per PR.
+- `2026-07-27 / CI_REMEDIATION`: chiusi i due guard foundation della prima
+  esecuzione PR; follow-up indipendente `P0/P1/P2/P3=0/0/0/0`; CI run `212`
+  e Cloudflare run `209` verdi.
+- `2026-07-27 / MERGE_DEPLOY`: PR `#45` unita normalmente, main riconciliata;
+  migration parity `94/94`; un solo deploy Worker staging versione
+  `66eeda7f`.
+- `2026-07-27 / SERVER_ACCEPTANCE`: scope Asus reale con sessione dedicata;
+  first page e drain `676/676` verdi, manifest esatto, audit success `676`,
+  failure `0`, cleanup revocato e zero failure Worker post-deploy. Task
+  consegnata a `REVIEW_READY`, mai `DONE`.

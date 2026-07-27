@@ -3,11 +3,14 @@
 ## Informazioni generali
 
 - ID: `TASK-143`
-- Stato: `EXECUTION`
-- Fase attuale: `EXECUTION / PR_READY`
-- Responsabile attuale: `CODEX / EXECUTOR`
+- Stato: `REVIEW`
+- Fase attuale: `REVIEW_READY`
+- Responsabile attuale: `CLAUDE/CHATGPT / REVIEWER`
 - Data apertura: `2026-07-27`
-- Branch: `codex/admin-staging-catalog-pull-503-20260727`
+- Branch implementazione: `codex/admin-staging-catalog-pull-503-20260727`
+- Branch closeout: `codex/admin-staging-catalog-pull-503-closeout-20260727`
+- Implementation PR: `#45`
+- Admin merge SHA: `75113502a824461dce8487c93383fde3122774c1`
 - Baseline Admin: `96e9dc52e4c558099762d70e93357b33ec17c20c`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-143/README.md`
 - Incident report:
@@ -114,3 +117,28 @@ P3: empty manifest, harness full-drain insufficiente, boundary RPC/POST non
 esercitati, semantica request trace non esplicita e stato gate non aggiornato.
 Le correzioni sono state approvate dal follow-up indipendente:
 `P0=0/P1=0/P2=0`; l'unico P3 documentale è stato corretto prima della PR.
+
+La PR `#45` è stata unita normalmente sullo SHA
+`75113502a824461dce8487c93383fde3122774c1` dopo CI e Cloudflare verdi. La
+main locale è stata avanzata fast-forward e coincide con `origin/main`.
+Migration staging `94/94`; nessuna migration TASK-143. È stato eseguito un
+solo deploy staging: deployment `bbdc35a8-14b8-4201-8144-c4c6d060bc7c`,
+Worker version `66eeda7f-003b-4b61-9fbd-b4222896c048`, timestamp
+`2026-07-27T22:14:27.319282Z`.
+
+L'acceptance server-side, senza Asus, ha usato una sessione dedicata sullo
+scope reale correlato all'incidente e poi l'ha revocata. Risultato:
+
+- first page `HTTP 200 / success`, `4.879,2ms`;
+- drain completo `676/676` pagine, `205.616,7ms`;
+- manifest e righe esatti: categorie `71`, fornitori `102`, prodotti
+  `19.763`, prezzi `41.228`;
+- validatore catalog text `PASS`;
+- support ID univoci `676`;
+- audit catalog success `676`, failure `0`;
+- dati catalogo generati o modificati: `NO`;
+- Cloudflare post-deploy fino a `2026-07-27T22:24:00.121Z`: `823` richieste,
+  tutte `success`, errori `0`, `exceededResources=0`, exception `0`.
+
+La task è consegnata a `REVIEW_READY`, mai `DONE`. Resta soltanto una singola
+acceptance fisica Asus, da autorizzare ed eseguire separatamente.
