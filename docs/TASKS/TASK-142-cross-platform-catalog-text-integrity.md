@@ -8,9 +8,10 @@
 - Titolo: `Cross-platform catalog text integrity`
 - Stato: `REVIEW`
 - Fase attuale: `REVIEW`
-- Responsabile attuale: `REVIEWER INDIPENDENTE`
+- Responsabile attuale: `USER / FINAL CONFIRMATION`
 - Data apertura: `2026-07-27`
-- Branch: `codex/catalog-text-integrity-admin-20260727`
+- Branch implementazione: `codex/catalog-text-integrity-admin-20260727`
+- Branch closeout: `codex/catalog-text-integrity-closeout-admin-20260727`
 - Baseline: `54889a68a65cec39764bbb5479574e942f4d54f1`
 - File Master Plan: `docs/MASTER-PLAN.md`
 - Evidence: `docs/TASKS/EVIDENCE/TASK-142/README.md`
@@ -107,9 +108,9 @@ dominio import esistente; nessun placeholder viene inventato.
 | CA-07 | Warning per riga/campo e conteggi normalizzazioni sono localizzati senza mostrare caratteri invisibili raw. | `PASS` |
 | CA-08 | Migration additiva protegge prodotti, supplier e category senza modificare RLS/grants/lease. | `PASS_LOCAL` |
 | CA-09 | pgTAP, focused tests, TASK-141 regressions, verify, cf:build, Playwright e paging passano realmente. | `PASS_LOCAL` |
-| CA-10 | Audit/backup/repair staging preservano invarianti e portano gli invalidi a zero; production resta intatta. | `NOT_RUN_PRE_MERGE` |
-| CA-11 | Acceptance Admin -> mobile, Android -> Admin/iOS e iOS -> Admin/Android passa con cleanup esatto. | `NOT_RUN_PRE_MERGE` |
-| CA-12 | Review indipendente chiude tutti i P0/P1/P2 prima del merge normale. | `PASS_PRE_PR` |
+| CA-10 | Audit/backup/repair staging preservano invarianti e portano gli invalidi a zero; production resta intatta. | `PASS` |
+| CA-11 | Acceptance Admin -> mobile, Android -> Admin/iOS e iOS -> Admin/Android passa con cleanup esatto. | `PASS` |
+| CA-12 | Review indipendente chiude tutti i P0/P1/P2 prima del merge normale. | `PASS` |
 
 ## Evidence iniziale
 
@@ -178,19 +179,52 @@ dominio import esistente; nessun placeholder viene inventato.
   test funzionali adjustment→validation e parser POS. Rereview finale:
   `APPROVED_PRE_PR`, P0/P1/P2/P3 `0/0/0/0`; 29/29 focused, foundation completa
   contro snapshot Win7POS pulito, typecheck, lint, verify e cf:build `PASS`.
+- `2026-07-27`: PR di implementazione Admin
+  [#42](https://github.com/XNIW/merchandise-control-admin-web/pull/42),
+  Android [#3](https://github.com/XNIW/MerchandiseControlSplitView/pull/3) e
+  iOS [#1](https://github.com/XNIW/iOSMerchandiseControl/pull/1) collegati,
+  revisionati con P0/P1/P2/P3 `0/0/0/0`, CI verdi e integrati con merge
+  normali a due parent rispettivamente in `d52e23da`, `ec858d0b` e
+  `712689dd`.
+- `2026-07-27`: backup staging pre-repair creato in area evidence esterna,
+  compresso, permessi `0600`, verifica gzip e SHA-256
+  `783c9e77d6edd91bf7c5ad46e240ec55b538b4dd94df9da12ce48d332b36ad97`
+  `PASS`. La migration è applicata esclusivamente a
+  `merchandisecontrol-dev` come versione remota `20260727084040`.
+- `2026-07-27`: repair atomico staging completato su esattamente `345`
+  prodotti, revisione `1 -> 2`. Post-verifica: display/strict non canonici
+  `0`; conteggi, ID, prezzi, stock, relazioni e deleted state invariati.
+- `2026-07-27`: Worker staging pubblico distribuito nella versione
+  `c5ae7e81-ded9-43ec-996a-199f7cfa540b`; UI Admin valida preview/apply/readback
+  canonico e blocca quattro classi negative senza scritture parziali.
+- `2026-07-27`: acceptance pubblica cross-platform completata sul solo shop QA:
+  Android write -> iOS/Admin read, iOS write -> Android/Admin read, quattro
+  prezzi per ciascun prodotto e identità strict preservate. Android API 35 e
+  iOS Simulator hanno eseguito i test selezionati con esito `PASS`.
+- `2026-07-27`: gate Win7POS-equivalente read-only completato sull'intero
+  catalogo staging: `71` categorie, `102` supplier, `19.763` prodotti e
+  `41.228` prezzi; snapshot pinned, cursori senza ripetizioni, ID senza
+  duplicati e valori invalidi `0`. Il drain delta/tombstone ha terminato con
+  tombstone validi e conteggi attesi.
+- `2026-07-27`: cleanup fixture esatto completato: `3` prodotti, `8` prezzi,
+  `1` supplier, `1` categoria e `7` eventi registrati rimossi; residue fixture
+  e shop QA `0`. File temporanei di sessione, build e browser eliminati;
+  production e Win7POS restano `NOT_MODIFIED`.
 
 ## Handoff
 
-- Prossima fase: push, PR/CI e merge normale dopo l'approvazione pre-PR dei tre
-  repository.
-- File e gate dettagliati:
-  `docs/TASKS/EVIDENCE/TASK-142/README.md`.
-- Matrice entry point:
+- Risultato: tutti i criteri TASK-142 sono verificati nel perimetro
+  autorizzato; implementazioni integrate, migration/repair staging applicati,
+  acceptance pubblica e cleanup esatto completati.
+- File toccati nel closeout: questo task,
+  `docs/TASKS/EVIDENCE/TASK-142/README.md` e `docs/MASTER-PLAN.md`.
+- Evidence dettagliata:
+  `docs/TASKS/EVIDENCE/TASK-142/README.md`; matrice entry point:
   `docs/TASKS/EVIDENCE/TASK-142/entry-point-matrix.md`.
-- Rischi residui:
-  - migration/repair/deploy sono vietati prima del merge e risultano
-    `NOT_RUN_PRE_MERGE`;
-  - public staging acceptance e cleanup QA risultano
-    `NOT_RUN_PRE_MERGE`;
-  - P0/P1/P2 Admin sono zero; la coordinazione attende gli altri repository;
-  - Win7POS e production restano `NOT_MODIFIED`.
+- Rischi residui: advisor Supabase legacy e warning console del Worker staging
+  già presenti restano note non bloccanti; nessuno coinvolge le funzioni
+  TASK-142 o ha impedito i flussi pubblici verificati.
+- P0/P1/P2/P3 aperti: `0/0/0/0`.
+- Production e Win7POS: `NOT_MODIFIED`.
+- Prossima fase: `REVIEW / READY_FOR_USER_CONFIRMATION`. Codex non marca il
+  task `DONE`; il passaggio finale richiede conferma esplicita dell'utente.
