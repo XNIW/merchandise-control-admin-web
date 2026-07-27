@@ -15,10 +15,17 @@ Regole:
 
 - Repository: `XNIW/merchandise-control-admin-web`
 - Baseline: `54889a68a65cec39764bbb5479574e942f4d54f1`
-- Branch: `codex/catalog-text-integrity-admin-20260727`
+- Branch implementazione: `codex/catalog-text-integrity-admin-20260727`
+- Branch closeout: `codex/catalog-text-integrity-closeout-admin-20260727`
 - Coordination key: `CATALOG-TEXT-001`
-- Android task/PR: `TASK-140` / `PENDING_PRE_REVIEW`
-- iOS task/PR: `TASK-140` / `PENDING_PRE_REVIEW`
+- Admin PR: [#42](https://github.com/XNIW/merchandise-control-admin-web/pull/42),
+  merge normale `d52e23da689a713dc55c9528e06b4c68913ef76a`
+- Android task/PR: `TASK-140` /
+  [#3](https://github.com/XNIW/MerchandiseControlSplitView/pull/3), merge
+  normale `ec858d0bd75b9d06ff7cbabeebcca9b25be21070`
+- iOS task/PR: `TASK-140` /
+  [#1](https://github.com/XNIW/iOSMerchandiseControl/pull/1), merge normale
+  `712689dd917125c9c656b8cc48e7c392c87174fd`
 
 ## Evidence ledger
 
@@ -36,10 +43,13 @@ Regole:
 | Playwright locale | `PASS` | scenario manager Dingli-like 1/1; canonicalizzazione, warning, apply e readback |
 | Supabase reset/lint | `PASS` | reset isolato da zero; lint livello error senza finding |
 | Migration/pgTAP | `PASS_LOCAL` | post-fix 14 file, 975 test, zero failure |
-| Staging backup/repair | `NOT_RUN_PRE_MERGE` | attende review, CI e merge dei tre repository |
-| Cross-platform acceptance | `NOT_RUN_PRE_MERGE` | attende deploy/migration/repair staging |
-| Independent review | `APPROVED_PRE_PR` | SHA finale codice `3f7bedc3`: P0/P1/P2/P3 `0/0/0/0` |
-| PR/CI/merge | `NOT_RUN_PRE_PR` | review Admin verde; attende coordinazione dei tre repository |
+| Staging backup/repair | `PASS` | backup gzip `0600` verificato; migration remota `20260727084040`; repair atomico esatto `345`; invalidi post-repair `0`; invarianti preservati |
+| Cross-platform acceptance | `PASS` | Admin UI pubblica, Android API 35 e iOS Simulator: write/read bidirezionali, prezzi e strict identity verificati; negative Admin 4/4 bloccate senza write |
+| Win7POS-equivalent paging | `PASS` | full refresh read-only `71/102/19.763/41.228`; snapshot pinned, duplicate ID/cursor `0`, policy invalid `0`; drain tombstone valido |
+| Fixture cleanup | `PASS` | rimossi per ID esatti `3` prodotti, `8` prezzi, `1` supplier, `1` categoria, `7` eventi; residue fixture/shop QA `0` |
+| Independent review | `APPROVED` | SHA finali dei tre repository: P0/P1/P2/P3 `0/0/0/0` |
+| PR/CI/merge | `PASS` | PR Admin #42, Android #3 e iOS #1; CI verdi; merge normali a due parent verificati |
+| Production / Win7POS | `NOT_MODIFIED` | nessun deploy/write production; Win7POS soltanto contratto equivalente read-only |
 
 ## File toccati
 
@@ -47,7 +57,6 @@ Regole:
 - `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
 - `docs/TASKS/EVIDENCE/TASK-142/README.md`
 - `docs/TASKS/EVIDENCE/TASK-142/entry-point-matrix.md`
-- `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
 - `docs/contracts/catalog-text-policy-v1.md`
 - `scripts/testing/run-playwright-target.mjs`
 - `scripts/testing/target-guardrails.mjs`
@@ -86,6 +95,44 @@ Regole:
 - Nessun valore catalogo reale o carattere invisibile raw è registrato in
   questa evidence.
 
+## Closeout staging coordinato
+
+- Target allowlisted: `merchandisecontrol-dev`, project ref
+  `jpgoimipbothfgkokyvm`, PostgreSQL 17.6 `ACTIVE_HEALTHY`.
+- Backup pre-repair: area evidence esterna al repository, `30.502` byte,
+  `0600`, gzip verificato, SHA-256
+  `783c9e77d6edd91bf7c5ad46e240ec55b538b4dd94df9da12ce48d332b36ad97`.
+- Migration locale
+  `supabase/migrations/20260727055520_task_142_catalog_text_policy_v1.sql`
+  applicata come versione remota `20260727084040`; una policy trigger per
+  products/suppliers/categories e funzioni private eseguibili soltanto da
+  `postgres`. Test vettori SQL `PASS`.
+- Repair atomico: `345` prodotti, revisione `1 -> 2`; `245` primary name e
+  `111` second name interessati nel preflight. Post-audit display/strict
+  non canonici `0`; conteggi, ID, hash protetti, prezzi, stock, relazioni e
+  deleted state invariati.
+- Worker staging:
+  `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev`,
+  versione `c5ae7e81-ded9-43ec-996a-199f7cfa540b`.
+- Admin public UI: import valido con `2` normalizzazioni preview/apply/readback
+  coerenti. Quattro casi negativi distinti — zero-width, C1, oltre 240 UTF-16
+  e control nel barcode — bloccati in preview; query read-only successiva:
+  fixture negative persistite `0`.
+- Mobile public flow: Android ha scritto un prodotto e quattro prezzi, letti
+  canonicali da iOS/Admin; iOS ha scritto un prodotto e quattro prezzi, letti
+  canonicali da Android/Admin. Owner/shop scope e strict identity verificati.
+- Paging Win7POS-equivalente full refresh: categorie `71` in 1 pagina,
+  supplier `102` in 1, prodotti `19.763` in 330, prezzi `41.228` in 344.
+  Delta/tombstone: categorie `100/29 tombstone`, supplier `131/29`, prodotti
+  `19.823/60`; tutti i conteggi pinned sono esatti, senza duplicati, cursori
+  ripetuti, timeout o valori invalidi.
+- Cleanup transazionale per ID esatti: `3` prodotti, `8` prezzi, `1` supplier,
+  `1` categoria e `7` eventi; post-verifica fixture, eventi, identity residue
+  e catalogo shop QA tutti `0`.
+- Gli artefatti effimeri contenenti sessioni, build o profili browser sono
+  stati eliminati. La loro eliminazione e il cleanup fixture non sono
+  recuperabili; il backup pre-repair durevole resta disponibile e verificato.
+
 ## Review indipendente e fix
 
 Finding sullo SHA `5722b274`:
@@ -114,12 +161,11 @@ Fix applicati e rereviewati:
 
 ## Rischi residui
 
-- Il validator Win7POS attuale è meno severo della policy richiesta per
-  zero-width/BOM/bidi; il contratto v1 deve restare più severo e compatibile.
-- `item_number` contiene gruppi duplicati preesistenti, ma l'audit non rileva
-  valori trim-only: la policy non deve fonderli o trasformarli.
-- Backup, repair e acceptance staging devono attendere migration review e gate
-  locali verdi.
-- Il public staging non è ancora stato mutato; backup, migration, repair,
-  deploy, acceptance e cleanup sono obbligatori dopo i tre merge.
-- P0/P1/P2 Admin aperti: `0/0/0`.
+- Il validator Win7POS resta meno severo su alcune classi Unicode, ma il gate
+  read-only equivalente conferma che il catalogo staging consumabile è valido
+  con la policy v1 più severa.
+- Gli advisor Supabase legacy e alcuni warning console del Worker staging sono
+  preesistenti e non implicano funzioni TASK-142; i flussi pubblici richiesti
+  sono passati.
+- P0/P1/P2/P3 aperti: `0/0/0/0`.
+- Stato finale Codex: `REVIEW / READY_FOR_USER_CONFIRMATION`, non `DONE`.
