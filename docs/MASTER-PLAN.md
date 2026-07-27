@@ -2852,31 +2852,30 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-139: `TASK-139 - POS Catalog v2 Pagination and Snapshot Correctness`
 - File task TASK-139: `docs/TASKS/TASK-139-pos-catalog-v2-pagination-snapshot.md`
 - Evidence TASK-139: `docs/TASKS/EVIDENCE/TASK-139/README.md`
-- Stato TASK-141: `REVIEW`
-- Fase TASK-141: `REVIEW`
+- Stato TASK-141: `DONE`
+- Fase TASK-141: `DONE`
 - Task TASK-141: `TASK-141 - Win7POS catalog bootstrap staging incident`
 - File task TASK-141: `docs/TASKS/TASK-141-win7pos-catalog-bootstrap-staging-incident.md`
 - Evidence TASK-141: `docs/TASKS/EVIDENCE/TASK-141/README.md`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `REVIEW`
-- Task attivo: `TASK-141 - Win7POS catalog bootstrap staging incident`
+- Stato globale attuale: `IDLE`
+- Task attivo: `NESSUNO`
 - Task precedente: `TASK-140 - Staff PIN reset e Shop Code login` (`DONE`)
-- Ultimo task chiuso: `TASK-140 - Staff PIN reset e Shop Code login`
-- Ultimo task completato: `TASK-140 - Staff PIN reset e Shop Code login`
+- Ultimo task chiuso: `TASK-141 - Win7POS catalog bootstrap staging incident`
+- Ultimo task completato: `TASK-141 - Win7POS catalog bootstrap staging incident`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-141-win7pos-catalog-bootstrap-staging-incident.md`
+- File task corrente: `NESSUNO`
 - Ultimo file task: `docs/TASKS/TASK-141-win7pos-catalog-bootstrap-staging-incident.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-141/README.md`
+- Evidence task corrente: `NESSUNO`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-141/README.md`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
-- Milestone interna: `TASK_141_REVIEW_PENDING_CI_AND_STAGING`
-- Responsabile: `CODEX`
-- Branch/worktree:
-  `codex/fix-win7pos-catalog-bootstrap-db-failure-20260726`;
-  baseline `8d7907a22af21b0be52638512549d97faeb6330a`.
+- Stato task: `DONE`
+- Fase: `DONE`
+- Milestone interna: `TASK_141_STAGING_INCIDENT_CLOSED`
+- Responsabile: `USER / FINAL REVIEW APPROVED`
+- Branch/worktree: `main`; merge SHA codice verificata
+  `7f8104e75533b9dc83d5ef5d1aba28ae17617805`.
 - Apertura TASK-138 2026-07-18: follow-up esplicito TASK-137 per completare
   runtime, UX e parity live non-production su Admin Web, Android e iOS. Prima
   delle modifiche runtime e stata registrata la matrice requisito/stato/test/gap

@@ -3,9 +3,9 @@
 ## Informazioni generali
 
 - ID: `TASK-141`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `CODEX`
+- Stato: `DONE`
+- Fase attuale: `DONE`
+- Responsabile attuale: `USER / FINAL REVIEW APPROVED`
 - Data apertura: `2026-07-26`
 - Branch: `codex/fix-win7pos-catalog-bootstrap-db-failure-20260726`
 - Baseline: `8d7907a22af21b0be52638512549d97faeb6330a`
@@ -97,7 +97,8 @@ nascondere corruzione reale.
 
 ## Handoff
 
-Il fix locale e i gate Admin/DB scoped sono in `REVIEW`. L'utente ha già
-autorizzato nello stesso prompt la review finale e la transizione a `DONE`
-soltanto dopo CI, merge, apply/deploy staging e verifica server-side dello
-scope reale.
+TASK-141 è `DONE` dopo autorizzazione esplicita dell'utente e chiusura di
+review, CI, merge, apply/deploy esclusivamente staging e verifica server-side
+dello scope reale. Il retry fisico Asus resta un handoff esterno: eseguire una
+sola apertura/sincronizzazione catalogo e, soltanto in caso di failure,
+registrare timestamp e request ID redatto senza ripetere il tentativo.

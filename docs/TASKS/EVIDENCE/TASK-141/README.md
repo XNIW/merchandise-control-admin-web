@@ -124,11 +124,61 @@
   dall'incidente; lo scan security del repository incluso in `verify` è
   `PASS`.
 
-### Verdict corrente
+### PR, CI e merge
 
-`REVIEW_PENDING_PR_CI_AND_STAGING`.
+- Commit fix: `84f1887f961915aa5e7a8d0319cbacece173fc3a`.
+- PR: `#41`, pronta per review, mergeable `CLEAN`.
+- CI PR:
+  - `Database migrations and pgTAP`: `PASS`, `2m12s`;
+  - `Cloudflare build`: `PASS`, `2m19s`;
+  - `Verify`: `PASS`, `3m05s`;
+  - deploy staging/production: correttamente `SKIPPED` sulla PR.
+- Merge normale, non squash e non force:
+  `7f8104e75533b9dc83d5ef5d1aba28ae17617805`.
+- CI `main` sul merge SHA: `PASS`.
+- Checkout locale `main` riconciliato con `origin/main`.
 
-Restano da acquisire prima di `DONE`: PR/CI verde, merge su `main`, migration
-apply e Worker deploy solo staging, advisor DB post-DDL, smoke e first-page
-server-side sullo scope reale Asus, senza richiedere un nuovo retry fisico in
-questa fase.
+### Apply e deploy staging
+
+- Guardrail target: `PASS`; URL HTTPS Supabase, ref linked allowlisted e
+  dichiarato non-production.
+- Dry-run: una sola migration pending TASK-141.
+- `supabase db push --linked`: migration
+  `20260727002052` applicata con successo.
+- Parity successiva: versione locale e linked entrambe
+  `20260727002052`.
+- Proprietà live del preflight: `STABLE`, `SECURITY DEFINER`,
+  `search_path=public, app_private, pg_temp`.
+- Grant live: `service_role=EXECUTE`; `anon` e `authenticated` negati.
+- Advisor security/performance post-DDL: nessun finding nuovo riferibile a
+  TASK-141; restano warning/info storici fuori scope già presenti.
+- Data API reale lease-bound sullo scope Asus, un solo tentativo server-side:
+  `status=ok`, elapsed `3.704ms`, scope
+  `authorized_shop_plus_legacy`, revisione `1`.
+- Prima lane reale: `categories`, `71` righe, page limit `240`,
+  `entityHasMore=false`.
+- Manifest attivo reale: categorie `71`, fornitori `102`, prodotti
+  `19.763`, prezzi `41.228`, prodotti attivi `19.763`.
+- Worker staging precedente: `aeb4e70d...99be`.
+- Worker staging TASK-141:
+  `87430495-6b28-429d-9f40-40240b5793c4`.
+- `npm run cf:check:staging`: public workers.dev smoke `PASS`.
+- Production apply/deploy: `NOT_RUN`.
+
+### Verdict finale
+
+`DONE`.
+
+Tutti i criteri di accettazione TASK-141 risultano soddisfatti con evidence
+reale. Nessun retry fisico è stato richiesto durante fix/deploy.
+
+### Handoff retry fisico Asus
+
+1. Avviare una sola sincronizzazione catalogo dal dispositivo Asus.
+2. Atteso: flusso HTTP `200/success` e prosecuzione automatica delle lane
+   snapshot-bound; nessun catalogo vuoto.
+3. Se fallisce, non ripetere: annotare timestamp, route, codice HTTP/app e
+   request ID redatto.
+4. Correlare poi quell'unico tentativo con audit `pos.catalog.pull.failure`;
+   i nuovi campi bounded `stage/lane/reason` distinguono timeout RPC,
+   response invalid e contract invalid senza esporre dati sensibili.
