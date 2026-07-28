@@ -5,13 +5,49 @@
 - Contratto Admin: `pos-article-mutation-v1`
 - Endpoint: `POST /api/pos/catalog/article-mutations`
 - Task Admin: `TASK-145`
-- Stato consegna: `EXECUTION` fino a merge, deploy staging e acceptance reale
+- Stato consegna: `READY_FOR_ASUS_ARTICLE_SYNC_AND_FINAL_ACCEPTANCE`
 - Win7POS: non modificato
 - Android/iOS: non modificati
 - Production: non modificata
 
 Questa consegna abilita il successivo lavoro Win7POS. Non costituisce
 accettazione finale e non porta il task a `DONE`.
+
+## Delivery Admin congelata
+
+- PR A `#47`, feature
+  `ffcf96a6c0d8b5c749e953f5fd354f4491a08722`, merge normale
+  `6ae562c83a6ebcecad93bf53141a13fbcdf0a080`, CI/Cloudflare verdi.
+- PR B `#48`, feature
+  `6eb3e1571eab71f5dd6e91abeef3b3b4efbd69e6`, merge normale e main
+  implementativa/deployata
+  `fca4013c7e92f1a9f82968cc8d64946bf2363112`, CI/Cloudflare verdi.
+- Review indipendente finale: `P0/P1/P2/P3 = 0/0/0/0`.
+- Migration repository:
+  `20260728030154_task_144_pos_offline_authorization_attestation.sql`;
+  `20260728064500_task_145_pos_article_mutation_v1.sql`.
+- Migration staging remote:
+  `20260728055123 task_144_pos_offline_authorization_attestation`;
+  `20260728055127 task_145_pos_article_mutation_v1`.
+- Worker staging deployment:
+  `f0129552-d815-49fb-a2a3-f38c61aaa84f`.
+- Worker staging version:
+  `56ec23b1-a5b7-4635-94ff-b2ebaa682d0f`, 100% attiva.
+- È stato eseguito esattamente un deploy Worker dopo entrambi i merge.
+- Production Worker e database: `NOT_MODIFIED`.
+
+## First-login offline authorization
+
+Il first-login di successo restituisce
+`effectiveOfflineAuthorizationExpiresAt` in UTC. Il server calcola il minimo
+fra massimo policy di `43.200s`, session expiry, credential dispositivo e
+credential staff. L'attestazione è persistita su sessione e credential; replay
+non la estende. Revoca, lock, archive, invalidation epoch o cambio credential
+version invalidano l'autorità precedente.
+
+Acceptance reale `STGFE91FF04C`: trusted device/session `PASS`, expiry maggiore
+di `serverTime`, bounded a `43.200s`, uguale ai valori persistiti e non oltre
+la session expiry.
 
 ## Boundary di fiducia
 
@@ -23,6 +59,8 @@ Ogni richiesta deve contenere:
 - `posSessionId`;
 - `deviceToken` e `sessionToken`;
 - da 1 a 25 mutazioni.
+
+La dimensione JSON massima è `256 KiB`.
 
 Il Worker verifica entrambi i token contro il runtime lease. La RPC
 `pos_article_mutation_apply_v1` riacquisisce nello stesso commit:
@@ -213,6 +251,28 @@ conteggi bounded.
 Le fixture contengono esclusivamente identificativi e token sintetici non
 validi.
 
+Win7POS può vendere byte-per-byte:
+
+- `contracts/pos/article-mutation-v1.request.json`;
+- `contracts/pos/article-mutation-v1.response.json`;
+- `contracts/pos/first-login-offline-authorization-v1.response.json`.
+
+## Test e acceptance server
+
+- pgTAP TASK-144: `41/41 PASS`.
+- pgTAP TASK-145: `73/73 PASS`.
+- Suite pgTAP completa: `16` file / `1089` test / `PASS`.
+- Foundation, typecheck, security scan, `npm run verify`, `npm run cf:build`,
+  SQL lint e Worker smoke locale: `PASS`.
+- Acceptance `STGFE91FF04C`: create/replay/mismatch/update, entrambe le price
+  mutation, stock `+5/-2`, stale conflict, duplicate distinto,
+  deactivate/reactivate e pull canonico `PASS`.
+- Prove: receipt `10`, conflict receipt `1`, price history esplicite `2`,
+  stock movement `2`, sales/revenue `0`, ACK replay byte-equivalente.
+- Cleanup esatto: prodotti/prezzi/stock/receipt/conflict/category/supplier/
+  sync sintetici `0`; runtime attivo `0`; baseline preesistente ripristinata;
+  audit immutabile preservato.
+
 ## Indicazioni per Win7POS
 
 1. Conservare durable outbox e `clientProductId`.
@@ -235,3 +295,6 @@ Il via libera arriva solo dopo:
 - un solo deploy Worker staging successivo al merge di entrambe le PR Admin;
 - acceptance sintetica reale con cleanup verificato;
 - handoff finale `READY_FOR_ASUS_ARTICLE_SYNC_AND_FINAL_ACCEPTANCE`.
+
+Tutti i gate sopra sono soddisfatti. Lo stato Admin resta `REVIEW_READY`, non
+`DONE`.

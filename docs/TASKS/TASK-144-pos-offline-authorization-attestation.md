@@ -60,5 +60,6 @@ senza introdurre campi paralleli o allargare l'autorità offline.
 ## Delivery
 
 Review, PR, CI e merge normale sono completati. TASK-144 è consegnata a
-`REVIEW_READY`, mai `DONE`. Migration apply, unico deploy Worker staging e
-acceptance reale sono coordinati dopo il merge di `TASK-145`.
+`REVIEW_READY`, mai `DONE`. Migration staging, unico deploy Worker condiviso
+post-merge e acceptance reale `STGFE91FF04C` sono `PASS`; production,
+Win7POS, Android e iOS restano `NOT_MODIFIED`.

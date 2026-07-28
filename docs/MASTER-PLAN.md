@@ -2873,15 +2873,15 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-144: `TASK-144 - POS offline authorization attestation`
 - File task TASK-144: `docs/TASKS/TASK-144-pos-offline-authorization-attestation.md`
 - Evidence TASK-144: `docs/TASKS/EVIDENCE/TASK-144/README.md`
-- Stato TASK-145: `EXECUTION`
-- Fase TASK-145: `EXECUTION`
+- Stato TASK-145: `REVIEW_READY`
+- Fase TASK-145: `REVIEW_READY`
 - Task TASK-145: `TASK-145 - Versioned POS article mutation contract`
 - File task TASK-145: `docs/TASKS/TASK-145-pos-article-mutation-v1.md`
 - Evidence TASK-145: `docs/TASKS/EVIDENCE/TASK-145/README.md`
 - Branch TASK-145: `codex/admin-pos-article-mutation-v1-20260728`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `EXECUTION`
+- Stato globale attuale: `REVIEW`
 - Task attivo: `TASK-145 - Versioned POS article mutation contract`
 - Task precedente: `TASK-144 - POS offline authorization attestation` (`REVIEW_READY`)
 - Ultimo task chiuso: `TASK-142 - Cross-platform catalog text integrity`
@@ -2892,10 +2892,10 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Ultimo file task: `docs/TASKS/TASK-144-pos-offline-authorization-attestation.md`
 - Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-145/README.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-144/README.md`
-- Stato task: `EXECUTION`
-- Fase: `EXECUTION`
-- Milestone interna: `POS_ARTICLE_MUTATION_IMPLEMENTATION`
-- Responsabile: `CODEX`
+- Stato task: `REVIEW_READY`
+- Fase: `REVIEW_READY`
+- Milestone interna: `READY_FOR_ASUS_ARTICLE_SYNC_AND_FINAL_ACCEPTANCE`
+- Responsabile: `CLAUDE/CHATGPT / REVIEWER`
 - Branch/worktree:
   `codex/admin-pos-offline-authorization-20260728`;
   `/Users/minxiang/.codex/worktrees/admin-pos-contract-20260728/offline-auth`.
@@ -2954,6 +2954,27 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   Reset isolato e suite pgTAP `1089/1089 PASS`. Rereview indipendente finale
   sulla head `58cedd79`: `P0/P1/P2/P3 = 0/0/0/0`, verdict
   `ZERO-GATE PASS`; `npm run verify` e `npm run cf:build` freschi `PASS`.
+- Delivery e acceptance TASK-145 2026-07-28: PR B non-draft `#48`, feature
+  remota `6eb3e157` con tree identica alla head revisionata, CI run `218` e
+  Cloudflare run `215` verdi; merge normale `fca4013c`. Main locale e
+  `origin/main` sono allineati. Sul solo progetto staging allowlisted
+  `jpgoimipbothfgkokyvm` sono state applicate, in ordine, le migration remote
+  `20260728055123` TASK-144 e `20260728055127` TASK-145. È stato eseguito
+  esattamente un deploy Worker post-merge: deployment `f0129552`, version
+  `56ec23b1`, 100% attiva.
+- Acceptance staging TASK-144/TASK-145 2026-07-28: terzo e ultimo tentativo
+  corretto `STGFE91FF04C` `PASS`; first-login trusted con attestazione
+  `effectiveOfflineAuthorizationExpiresAt` persistita e bounded a `43.200s`;
+  create/replay/mismatch/update/retail/purchase/stock +/-/stale conflict/
+  duplicate/deactivate/reactivate e catalog pull completo `PASS`. Prove DB:
+  receipt applicative `10`, conflict receipt `1`, price history dedicate `2`,
+  movement stock `2`, sales/revenue `0`, replay ACK byte-equivalente.
+  Cleanup transazionale esatto: prodotti `2`, prezzi `2`, movement `2`,
+  receipt `10+1`, categorie/fornitori `1+1` ed eventi sync `13` eliminati;
+  residui sintetici e runtime attivi `0`, audit immutabile preservato,
+  baseline preesistente ripristinata. Production, Win7POS, Android e iOS
+  `NOT_MODIFIED`. TASK-144 e TASK-145 restano `REVIEW_READY`, mai `DONE`;
+  handoff operativo `READY_FOR_ASUS_ARTICLE_SYNC_AND_FINAL_ACCEPTANCE`.
 - Apertura TASK-142 2026-07-27: avviato il coordinamento
   `CATALOG-TEXT-001` su Admin Web, Android e iOS. Baseline Admin
   `54889a68a65cec39764bbb5479574e942f4d54f1`, worktree pulito e target

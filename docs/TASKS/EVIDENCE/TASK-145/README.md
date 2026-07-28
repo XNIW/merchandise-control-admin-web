@@ -101,11 +101,59 @@ contro la baseline `6ae562c8`:
 - Gate freschi sulla head finale: `npm run verify` `PASS`,
   `npm run cf:build` `PASS`, worktree pulito.
 
-## Delivery ancora pendente
+## Delivery e acceptance finali
 
-- review indipendente sulla head congelata;
-- PR B non-draft, CI e merge normale;
-- apply delle sole migrazioni pendenti sul progetto staging allowlisted;
-- esattamente un deploy Worker staging successivo a entrambi i merge;
-- acceptance sintetica reale e cleanup fail-closed;
-- stato finale `REVIEW_READY`, mai `DONE`.
+- Head locale revisionata: `302695a8ad6c9651c98b5521c4df2595e4d5abe6`.
+- Feature SHA remoto: `6eb3e1571eab71f5dd6e91abeef3b3b4efbd69e6`;
+  tree `202f7db3503c654d655708f149ad79ab6397dac1`, identica alla tree
+  revisionata.
+- PR B `#48`: non-draft; CI run `218` e Cloudflare run `215` `PASS`.
+- Merge normale: `fca4013c7e92f1a9f82968cc8d64946bf2363112`.
+- Main locale e `origin/main`: allineati prima della riconciliazione
+  documentale post-deploy.
+- Progetto staging: `jpgoimipbothfgkokyvm`,
+  `merchandisecontrol-dev`, `ACTIVE_HEALTHY`, `sa-east-1`.
+- Migration remote, nell'ordine:
+  `20260728055123 task_144_pos_offline_authorization_attestation`;
+  `20260728055127 task_145_pos_article_mutation_v1`.
+- Unico deploy Worker dopo entrambi i merge:
+  deployment `f0129552-d815-49fb-a2a3-f38c61aaa84f`;
+  version `56ec23b1-a5b7-4635-94ff-b2ebaa682d0f`, 100% attiva dal
+  `2026-07-28T05:52:29.417853Z`.
+- Staging URL:
+  `https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev`.
+
+### Acceptance staging
+
+- Tentativo 1 `STGBF87F86D6`: fixture update respinta per ordine hash canonico;
+  cleanup `PASS`, residui `0`, baseline ripristinata.
+- Tentativo 2 `STG97A609110`: fixture stock respinta per enum non canonico;
+  cleanup `PASS`, residui `0`, baseline ripristinata.
+- Tentativo 3 corretto `STGFE91FF04C`: `PASS`.
+- First-login: trusted device/session `PASS`;
+  `effectiveOfflineAuthorizationExpiresAt` persistita in sessione e
+  credential, maggiore di server time e bounded a `43.200s`.
+- Mutazioni: create, replay identico, payload mismatch e relativo replay,
+  update nomi/codice/categoria/fornitore, retail, purchase, stock `+5/-2`,
+  stale conflict, duplicate remoto distinto, deactivate/reactivate: `PASS`.
+- Pull canonico: `4` pagine, entrambi i prodotti e stato finale osservati.
+- Receipt applicative `10`; conflict receipt `1`; replay ACK byte-equivalente.
+- Price history per le due mutation esplicite `2`; stock movement `2`;
+  sales e revenue rows create `0`.
+- Audit article mutation controllati `11`; PIN/password/token/credential
+  esatti assenti dalle metadata.
+
+### Cleanup
+
+- RPC: `pos_article_mutation_cleanup_synthetic_v1`.
+- Eliminati: prodotti `2`, prezzi `2`, stock movement `2`, receipt applicative
+  `10`, conflict receipt `1`, categorie `1`, fornitori `1`, sync event `13`,
+  catalog revision `1`.
+- Residui sintetici in prodotti/prezzi/stock/receipt/conflitti/categorie/
+  fornitori/sync/sales/revenue: `0`.
+- Residui runtime attivi in credential/device/mapping/member/session/shop/
+  staff: `0`.
+- Audit cleanup immutabile preservato: `1`.
+- Conteggi catalogo/accounting preesistenti: ripristinati esattamente.
+- Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
+- Stato finale: `REVIEW_READY`, mai `DONE`.
