@@ -85,7 +85,7 @@ Eseguiti realmente il 2026-07-28:
 
 ## Stato delivery
 
-- Fase corrente: `REVIEW`.
+- Fase corrente: `REVIEW_READY`.
 - Prima review indipendente sulla head `cd11e533`: `P0/P1/P2/P3 =
   0/0/1/0`. Il P2 rilevava che l'accorciamento di `expires_at` invalidava
   correttamente la receipt nel trigger ma veniva poi respinto dal CHECK.
@@ -95,6 +95,10 @@ Eseguiti realmente il 2026-07-28:
   `41/41`, foundation toccata `11/11`.
 - Rereview indipendente sulla head corretta `fa791952`:
   `P0/P1/P2/P3 = 0/0/0/0`; nessun finding residuo.
-- PR/CI/merge: `PENDING`.
+- PR `#47`: non-draft, CI run `216` e Cloudflare run `213` `PASS`.
+- Feature SHA remoto: `ffcf96a6c0d8b5c749e953f5fd354f4491a08722`.
+- Tree remoto, identico byte-per-byte alla tree revisionata:
+  `795bd965d9f773a353f498d724756ef972444e8f`.
+- Merge normale: `6ae562c83a6ebcecad93bf53141a13fbcdf0a080`.
 - Apply staging e Worker deploy: `NOT_RUN_PRE_BOTH_MERGES`.
 - Production: `NOT_MODIFIED`.

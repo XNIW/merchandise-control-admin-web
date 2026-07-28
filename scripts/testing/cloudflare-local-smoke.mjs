@@ -300,6 +300,7 @@ async function main() {
     for (const path of [
       "/api/pos/auth/first-login",
       "/api/pos/session/heartbeat",
+      "/api/pos/catalog/article-mutations",
       "/api/pos/catalog/import-sync",
       "/api/pos/catalog/pull",
       "/api/pos/sales/sync",
@@ -318,6 +319,7 @@ async function main() {
     for (const path of [
       "/api/pos/auth/first-login",
       "/api/pos/session/heartbeat",
+      "/api/pos/catalog/article-mutations",
       "/api/pos/catalog/import-sync",
       "/api/pos/catalog/pull",
       "/api/pos/sales/sync",
