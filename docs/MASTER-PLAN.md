@@ -2879,8 +2879,8 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - File task TASK-145: `docs/TASKS/TASK-145-pos-article-mutation-v1.md`
 - Evidence TASK-145: `docs/TASKS/EVIDENCE/TASK-145/README.md`
 - Branch TASK-145: `codex/admin-pos-article-mutation-v1-20260728`
-- Stato TASK-146: `EXECUTION`
-- Fase TASK-146: `PR_READY`
+- Stato TASK-146: `REVIEW_READY`
+- Fase TASK-146: `REVIEW_READY`
 - Task TASK-146: `TASK-146 - Canonical POS revision timestamps and Asus cleanup`
 - File task TASK-146:
   `docs/TASKS/TASK-146-pos-revision-canonicalization-asus-cleanup.md`
@@ -2889,7 +2889,7 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `codex/admin-pos-revision-canonicalization-20260728`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `EXECUTION`
+- Stato globale attuale: `REVIEW`
 - Task attivo: `TASK-146 - Canonical POS revision timestamps and Asus cleanup`
 - Task precedente: `TASK-145 - Versioned POS article mutation contract` (`REVIEW_READY`)
 - Ultimo task chiuso: `TASK-142 - Cross-platform catalog text integrity`
@@ -2900,10 +2900,10 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Ultimo file task: `docs/TASKS/TASK-145-pos-article-mutation-v1.md`
 - Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-146/README.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-145/README.md`
-- Stato task: `EXECUTION`
-- Fase: `PR_READY`
-- Milestone interna: `POS_REVISION_CANONICALIZATION_ZERO_GATE_PASS`
-- Responsabile: `CODEX / EXECUTOR`
+- Stato task: `REVIEW_READY`
+- Fase: `REVIEW_READY`
+- Milestone interna: `READY_FOR_ASUS_FINAL_ARTICLE_SYNC_ACCEPTANCE`
+- Responsabile: `CLAUDE/CHATGPT / REVIEWER`
 - Branch/worktree:
   `codex/admin-pos-revision-canonicalization-20260728`;
   `/Users/minxiang/.codex/worktrees/admin-pos-revision-canonicalization-20260728`.
@@ -2919,6 +2919,21 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   reviewer: regressioni TASK-139/141/142/143/144/145/146 `54/54`, typecheck,
   security, Cloudflare build/smoke e diff check tutti `PASS`. Nessun file
   modificato dal reviewer; task pronta per PR non-draft.
+- Delivery TASK-146 2026-07-28: PR non-draft `#51`, CI completa verde e merge
+  normale `4bccbb79`. Cleanup transazionale Asus run 2/3: 2 prodotti, 4
+  receipt e 4 sync event esatti rimossi, categorie/fornitori condivisi
+  preservati, audit immutabili conservati e residui target zero. Migration
+  parity `PASS`; nessun SQL TASK-146. Unico deploy staging:
+  deployment `25d2dd12`, version `edd39bb4`, startup `43 ms`.
+- Acceptance TASK-146 2026-07-28: run `T146253DB0D4CE`; first login/offline
+  authority, catalog completo 4 pagine, tutte le 9 mutazioni applicate,
+  equality byte ACK/catalog, stale conflict, replay e mismatch `PASS`.
+  Price/movement `2/2`, sales/revenue `0/0`, nessun 503/exceededResources.
+  Cleanup finale: residui catalogo/business/runtime attivi `0`, audit
+  immutabili preservati. Stato
+  `READY_FOR_ASUS_FINAL_ARTICLE_SYNC_ACCEPTANCE`; TASK-144/TASK-145/TASK-146
+  restano `REVIEW_READY`, mai `DONE`; production/Win7POS/Android/iOS
+  `NOT_MODIFIED`.
 - Apertura TASK-144 2026-07-28: richiesta utente completa ricevuta per i due
   blocker Admin POS. Baseline Admin e Win7POS coincidono con gli SHA attesi;
   entrambi i branch GitHub `main` e gli ultimi 12 commit sono stati verificati.

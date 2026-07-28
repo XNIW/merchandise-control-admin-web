@@ -3,9 +3,9 @@
 ## Informazioni generali
 
 - ID: `TASK-146`
-- Stato: `EXECUTION`
-- Fase attuale: `PR_READY`
-- Responsabile attuale: `CODEX / EXECUTOR`
+- Stato: `REVIEW_READY`
+- Fase attuale: `REVIEW_READY`
+- Responsabile attuale: `CLAUDE/CHATGPT / REVIEWER`
 - Data apertura: `2026-07-28`
 - Branch: `codex/admin-pos-revision-canonicalization-20260728`
 - Baseline Admin: `86713586106dc1e50bc5d846a24a257f521fc109`
@@ -111,3 +111,43 @@ server-side.
 - Verdict: `ZERO-GATE PASS`.
 - Finding: `P0/P1/P2/P3 = 0/0/0/0`.
 - Reviewer read-only; nessun file modificato.
+
+## Delivery e staging
+
+- PR non-draft `#51`, CI Verify, migration audit e Cloudflare build:
+  `PASS`; deploy automatici PR correttamente `SKIPPED`.
+- Feature SHA:
+  `83e71b912a6c27bdc5a2a3e4e6d93d86a776fc12`.
+- Head PR:
+  `9dafba0ba47355ad5145b4ab6c7a04725acead4a`.
+- Merge normale:
+  `4bccbb793391829c2867a27f6a8033224cdeca7e`.
+- Migration repository/staging:
+  `20260728030154`, `20260728064500`; parity `PASS`, nessuna migration TASK-146.
+- Unico deploy Worker staging post-merge:
+  deployment `25d2dd12-e8bd-458d-a985-c94eff7c564f`, version
+  `edd39bb4-3d0c-4f20-b72a-5edec35ec355`, startup `43 ms`.
+
+## Cleanup Asus e acceptance
+
+- Asus run 2/3: 2 prodotti, 4 receipt e 4 sync event rimossi tramite array di
+  ID esatti in transazione guardata; categorie e fornitori condivisi non
+  eliminati. Price/movement/sales/revenue target: `0`; 4 audit mutation
+  immutabili preservati; residui target `0`.
+- Acceptance staging: `T146253DB0D4CE`.
+- First login/offline authority: `PASS`.
+- Catalog iniziale completo: 2 pagine; finale: 4 pagine, 1 categoria,
+  1 fornitore, 2 prodotti, 2 prezzi, 0 tombstone.
+- ACK/catalog byte equality canonica: `PASS` per tutte le mutazioni applicate.
+- Matrice: 9 applied, stale reale `failed_conflict`, replay
+  `duplicate_replay`, mismatch `idempotency_payload_mismatch`.
+- DB proof: 2 price history, 2 stock movement, sales/revenue `0`.
+- Audit: 11 mutation audit prima del cleanup, nessuna chiave vietata, massimo
+  `524 byte`.
+- Cleanup acceptance: 1 categoria, 1 fornitore, 2 prodotti, 2 prezzi,
+  2 movement, 10 receipt, 1 conflict receipt, 13 sync event e 1 revision
+  rimossi; residui catalogo/business/runtime attivi `0`; audit preservati.
+- Nessun HTTP 503 o `exceededResources`.
+- Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
+- Stato operativo:
+  `READY_FOR_ASUS_FINAL_ARTICLE_SYNC_ACCEPTANCE`.
