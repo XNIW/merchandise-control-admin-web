@@ -4060,6 +4060,7 @@ function checkTask019PosAuthFoundationImplementation() {
   const allowedTask021PosRoutes = new Set([
     "src/app/api/pos/_shared/pos-route-security.ts",
     "src/app/api/pos/auth/first-login/route.ts",
+    "src/app/api/pos/catalog/article-mutations/route.ts",
     "src/app/api/pos/catalog/import-sync/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
@@ -4216,6 +4217,7 @@ function checkTask020Win7PosIntegrationPlanning() {
   const allowedTask021PosRoutes = new Set([
     "src/app/api/pos/_shared/pos-route-security.ts",
     "src/app/api/pos/auth/first-login/route.ts",
+    "src/app/api/pos/catalog/article-mutations/route.ts",
     "src/app/api/pos/catalog/import-sync/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
@@ -4326,6 +4328,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const allowedPosRoutes = new Set([
     posRouteSecurityPath,
     firstLoginRoutePath,
+    "src/app/api/pos/catalog/article-mutations/route.ts",
     "src/app/api/pos/catalog/import-sync/route.ts",
     catalogPullRoutePath,
     heartbeatRoutePath,

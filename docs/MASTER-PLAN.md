@@ -2868,29 +2868,33 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-143: `TASK-143 - Admin staging catalog pull 503`
 - File task TASK-143: `docs/TASKS/TASK-143-admin-staging-catalog-pull-503.md`
 - Evidence TASK-143: `docs/TASKS/EVIDENCE/TASK-143/README.md`
-- Stato TASK-144: `REVIEW`
-- Fase TASK-144: `REVIEW`
+- Stato TASK-144: `REVIEW_READY`
+- Fase TASK-144: `REVIEW_READY`
 - Task TASK-144: `TASK-144 - POS offline authorization attestation`
 - File task TASK-144: `docs/TASKS/TASK-144-pos-offline-authorization-attestation.md`
 - Evidence TASK-144: `docs/TASKS/EVIDENCE/TASK-144/README.md`
-- Follow-up autorizzato: `TASK-145 - Versioned POS article mutation contract`
+- Stato TASK-145: `EXECUTION`
+- Fase TASK-145: `EXECUTION`
+- Task TASK-145: `TASK-145 - Versioned POS article mutation contract`
+- File task TASK-145: `docs/TASKS/TASK-145-pos-article-mutation-v1.md`
+- Evidence TASK-145: `docs/TASKS/EVIDENCE/TASK-145/README.md`
 - Branch TASK-145: `codex/admin-pos-article-mutation-v1-20260728`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `REVIEW`
-- Task attivo: `TASK-144 - POS offline authorization attestation`
-- Task precedente: `TASK-143 - Admin staging catalog pull 503` (`REVIEW_READY`)
+- Stato globale attuale: `EXECUTION`
+- Task attivo: `TASK-145 - Versioned POS article mutation contract`
+- Task precedente: `TASK-144 - POS offline authorization attestation` (`REVIEW_READY`)
 - Ultimo task chiuso: `TASK-142 - Cross-platform catalog text integrity`
 - Ultimo task completato: `TASK-142 - Cross-platform catalog text integrity`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-144-pos-offline-authorization-attestation.md`
-- Ultimo file task: `docs/TASKS/TASK-143-admin-staging-catalog-pull-503.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-144/README.md`
-- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-143/README.md`
-- Stato task: `REVIEW`
-- Fase: `REVIEW`
-- Milestone interna: `OFFLINE_AUTHORIZATION_INDEPENDENT_REVIEW`
+- File task corrente: `docs/TASKS/TASK-145-pos-article-mutation-v1.md`
+- Ultimo file task: `docs/TASKS/TASK-144-pos-offline-authorization-attestation.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-145/README.md`
+- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-144/README.md`
+- Stato task: `EXECUTION`
+- Fase: `EXECUTION`
+- Milestone interna: `POS_ARTICLE_MUTATION_IMPLEMENTATION`
 - Responsabile: `CODEX`
 - Branch/worktree:
   `codex/admin-pos-offline-authorization-20260728`;
@@ -2917,6 +2921,39 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   pgTAP per sessione e credential. Reset isolato `PASS`, pgTAP TASK-144
   `41/41`, foundation toccata `11/11`. Rereview indipendente sulla head
   corretta `fa791952`: `P0/P1/P2/P3 = 0/0/0/0`; nessun finding residuo.
+- Delivery TASK-144 2026-07-28: PR non-draft `#47`, feature remota
+  `ffcf96a6`, tree identica alla review, CI `216` e Cloudflare `213` verdi;
+  merge normale `6ae562c8`. TASK-144 passa a `REVIEW_READY`, mai `DONE`;
+  apply/deploy staging restano sospesi fino al merge di TASK-145.
+- Apertura TASK-145 2026-07-28: branch avanzata a `6ae562c8`, capability
+  matrix Win7POS confermata. Unica lane attiva per endpoint versionato, receipt
+  immutabile, concurrency, prezzi, stock e publication atomica. Production,
+  Win7POS, Android e iOS restano `NOT_MODIFIED`.
+- Review iniziale TASK-145 2026-07-28: head congelata `ad992a72`, reviewer
+  indipendente `P0/P1/P2/P3 = 0/1/2/1`. Finding validati: timestamp price
+  history incompatibile col preflight catalogo, mapping terminale erroneamente
+  retryable, cleanup sintetico non percorribile e field mask ignorata fuori da
+  update. Tutti corretti: slot price legacy-canonical e collision-safe, esiti
+  terminali/fence auth tipizzati, cleanup service-role ristretto allo shop QA,
+  mask vuota obbligatoria fuori da update. Reset isolato e pgTAP TASK-145
+  aggiornato `59/59 PASS`. Rereview sulla head `41c132d0`:
+  `P0/P1/P2/P3 = 0/0/1/0`; corretto l'unico P2 residuo introducendo receipt di
+  conflitto append-only separata, ACK stabile su replay, audit redatto
+  one-shot e cleanup QA aggiornato senza alterare la receipt originaria.
+  Reset isolato `PASS`, lint SQL zero errori, TASK-145 `71/71 PASS`, suite
+  pgTAP completa `16` file / `1087` test / `PASS`. Seconda rereview sulla head
+  `83af8358`: `P0/P1/P2/P3 = 0/0/1/0`; corretto il P2 sul fingerprint che
+  includeva `attemptToken`. Il fingerprint ora deriva solo dall'intento
+  immutabile, viene lockato e consultato prima di qualsiasi nuova valutazione
+  o DML; retry con nuovo attempt restituisce l'ACK originario senza duplicare
+  receipt/audit. TASK-145 `73/73 PASS`, suite pgTAP completa `16` file /
+  `1089` test / `PASS`, lint SQL zero errori. Terza rereview sulla head
+  `bd53c083`: `P0/P1/P2/P3 = 0/0/1/0`; corretto il P2 sulla lease fence del
+  replay applicato aggiungendo una rivalidazione finale prima di
+  `duplicate_replay`, con `42501` mappato ad auth failure non retryable.
+  Reset isolato e suite pgTAP `1089/1089 PASS`. Rereview indipendente finale
+  sulla head `58cedd79`: `P0/P1/P2/P3 = 0/0/0/0`, verdict
+  `ZERO-GATE PASS`; `npm run verify` e `npm run cf:build` freschi `PASS`.
 - Apertura TASK-142 2026-07-27: avviato il coordinamento
   `CATALOG-TEXT-001` su Admin Web, Android e iOS. Baseline Admin
   `54889a68a65cec39764bbb5479574e942f4d54f1`, worktree pulito e target

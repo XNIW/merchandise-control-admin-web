@@ -331,6 +331,10 @@ function mapSaleIssue(
 }
 
 function mapStockWarning(row: StockWarningRow): PosRecoveryStockWarning {
+  if (row.pos_sale_id === null) {
+    throw new Error("Sale stock warning is missing its sale identity.");
+  }
+
   return {
     createdAt: row.created_at,
     issueCode: row.issue_code,

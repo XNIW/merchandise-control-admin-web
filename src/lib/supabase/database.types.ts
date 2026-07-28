@@ -840,6 +840,281 @@ export type Database = {
           },
         ]
       }
+      pos_article_mutation_conflict_receipts: {
+        Row: {
+          ack_response: Json
+          app_version: string | null
+          attempt_token: string
+          base_revision: string | null
+          catalog_revision: number
+          client_created_at: string
+          client_product_id: string
+          conflict_fingerprint: string
+          created_at: string
+          field_mask: Json
+          idempotency_key: string
+          local_sequence: number
+          mutation_id: string
+          mutation_kind: string
+          mutation_status: string
+          occurred_at: string
+          payload_hash: string
+          pos_article_mutation_conflict_receipt_id: string
+          pos_session_id: string
+          schema_version: string
+          server_timestamp: string
+          shop_device_id: string
+          shop_id: string
+          staff_credential_version: number
+          staff_id: string
+          target_remote_product_id: string | null
+        }
+        Insert: {
+          ack_response: Json
+          app_version?: string | null
+          attempt_token: string
+          base_revision?: string | null
+          catalog_revision: number
+          client_created_at: string
+          client_product_id: string
+          conflict_fingerprint: string
+          created_at?: string
+          field_mask?: Json
+          idempotency_key: string
+          local_sequence: number
+          mutation_id: string
+          mutation_kind: string
+          mutation_status: string
+          occurred_at: string
+          payload_hash: string
+          pos_article_mutation_conflict_receipt_id?: string
+          pos_session_id: string
+          schema_version?: string
+          server_timestamp: string
+          shop_device_id: string
+          shop_id: string
+          staff_credential_version: number
+          staff_id: string
+          target_remote_product_id?: string | null
+        }
+        Update: {
+          ack_response?: Json
+          app_version?: string | null
+          attempt_token?: string
+          base_revision?: string | null
+          catalog_revision?: number
+          client_created_at?: string
+          client_product_id?: string
+          conflict_fingerprint?: string
+          created_at?: string
+          field_mask?: Json
+          idempotency_key?: string
+          local_sequence?: number
+          mutation_id?: string
+          mutation_kind?: string
+          mutation_status?: string
+          occurred_at?: string
+          payload_hash?: string
+          pos_article_mutation_conflict_receipt_id?: string
+          pos_session_id?: string
+          schema_version?: string
+          server_timestamp?: string
+          shop_device_id?: string
+          shop_id?: string
+          staff_credential_version?: number
+          staff_id?: string
+          target_remote_product_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_article_mutation_conflict_receipts_pos_session_id_fkey"
+            columns: ["pos_session_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sessions"
+            referencedColumns: ["pos_session_id"]
+          },
+          {
+            foreignKeyName: "pos_article_mutation_conflict_receipts_shop_device_id_fkey"
+            columns: ["shop_device_id"]
+            isOneToOne: false
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "pos_article_mutation_conflict_receipts_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "pos_article_mutation_conflict_receipts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pos_article_mutation_conflict_receipts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
+      pos_article_mutation_receipts: {
+        Row: {
+          ack_response: Json
+          app_version: string | null
+          attempt_token: string
+          authoritative_revision: string | null
+          base_revision: string | null
+          catalog_revision: number
+          client_created_at: string
+          client_product_id: string
+          created_at: string
+          field_mask: Json
+          idempotency_key: string
+          local_sequence: number
+          mutation_id: string
+          mutation_kind: string
+          mutation_status: string
+          occurred_at: string
+          payload_hash: string
+          pos_article_mutation_receipt_id: string
+          pos_session_id: string
+          price_history_id: string | null
+          remote_product_id: string | null
+          retryable: boolean
+          schema_version: string
+          server_timestamp: string
+          shop_device_id: string
+          shop_id: string
+          staff_credential_version: number
+          staff_id: string
+          stock_movement_id: string | null
+          target_remote_product_id: string | null
+          terminal: boolean
+        }
+        Insert: {
+          ack_response: Json
+          app_version?: string | null
+          attempt_token: string
+          authoritative_revision?: string | null
+          base_revision?: string | null
+          catalog_revision: number
+          client_created_at: string
+          client_product_id: string
+          created_at?: string
+          field_mask?: Json
+          idempotency_key: string
+          local_sequence: number
+          mutation_id: string
+          mutation_kind: string
+          mutation_status: string
+          occurred_at: string
+          payload_hash: string
+          pos_article_mutation_receipt_id?: string
+          pos_session_id: string
+          price_history_id?: string | null
+          remote_product_id?: string | null
+          retryable: boolean
+          schema_version?: string
+          server_timestamp: string
+          shop_device_id: string
+          shop_id: string
+          staff_credential_version: number
+          staff_id: string
+          stock_movement_id?: string | null
+          target_remote_product_id?: string | null
+          terminal: boolean
+        }
+        Update: {
+          ack_response?: Json
+          app_version?: string | null
+          attempt_token?: string
+          authoritative_revision?: string | null
+          base_revision?: string | null
+          catalog_revision?: number
+          client_created_at?: string
+          client_product_id?: string
+          created_at?: string
+          field_mask?: Json
+          idempotency_key?: string
+          local_sequence?: number
+          mutation_id?: string
+          mutation_kind?: string
+          mutation_status?: string
+          occurred_at?: string
+          payload_hash?: string
+          pos_article_mutation_receipt_id?: string
+          pos_session_id?: string
+          price_history_id?: string | null
+          remote_product_id?: string | null
+          retryable?: boolean
+          schema_version?: string
+          server_timestamp?: string
+          shop_device_id?: string
+          shop_id?: string
+          staff_credential_version?: number
+          staff_id?: string
+          stock_movement_id?: string | null
+          target_remote_product_id?: string | null
+          terminal?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_article_mutation_receipts_pos_session_id_fkey"
+            columns: ["pos_session_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sessions"
+            referencedColumns: ["pos_session_id"]
+          },
+          {
+            foreignKeyName: "pos_article_mutation_receipts_price_history_id_fkey"
+            columns: ["price_history_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_product_prices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_article_mutation_receipts_shop_device_id_fkey"
+            columns: ["shop_device_id"]
+            isOneToOne: false
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "pos_article_mutation_receipts_shop_id_fkey"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "pos_article_mutation_receipts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pos_article_mutation_receipts_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pos_article_mutation_receipts_stock_movement_id_fkey"
+            columns: ["stock_movement_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sale_stock_movements"
+            referencedColumns: ["pos_sale_stock_movement_id"]
+          },
+        ]
+      }
       pos_device_credentials: {
         Row: {
           created_at: string
@@ -1197,7 +1472,8 @@ export type Database = {
           metadata_redacted: Json
           movement_key: string
           movement_kind: string
-          pos_sale_id: string
+          pos_article_mutation_id: string | null
+          pos_sale_id: string | null
           pos_sale_line_id: string | null
           pos_sale_stock_movement_id: string
           product_id: string | null
@@ -1213,7 +1489,8 @@ export type Database = {
           metadata_redacted?: Json
           movement_key: string
           movement_kind: string
-          pos_sale_id: string
+          pos_article_mutation_id?: string | null
+          pos_sale_id?: string | null
           pos_sale_line_id?: string | null
           pos_sale_stock_movement_id?: string
           product_id?: string | null
@@ -1229,7 +1506,8 @@ export type Database = {
           metadata_redacted?: Json
           movement_key?: string
           movement_kind?: string
-          pos_sale_id?: string
+          pos_article_mutation_id?: string | null
+          pos_sale_id?: string | null
           pos_sale_line_id?: string | null
           pos_sale_stock_movement_id?: string
           product_id?: string | null
@@ -3099,6 +3377,27 @@ export type Database = {
           p_session_token_hash: string
         }
         Returns: boolean
+      }
+      pos_article_mutation_apply_v1: {
+        Args: {
+          p_app_version: string
+          p_expected_credential_version: number
+          p_mutation: Json
+          p_payload_hash: string
+          p_pos_session_id: string
+          p_schema_version: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_article_mutation_cleanup_synthetic_v1: {
+        Args: {
+          p_run_id: string
+          p_shop_id: string
+        }
+        Returns: Json
       }
       pos_catalog_import_apply_v1: {
         Args: {
