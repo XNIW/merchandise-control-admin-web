@@ -65,8 +65,9 @@ riutilizzare le semantiche `supplier_excel`.
 - Review indipendente finale: `P0/P1/P2/P3 = 0/0/0/0`.
 - Merge normale: `fca4013c7e92f1a9f82968cc8d64946bf2363112`.
 - Migration staging remote:
-  `20260728055123 task_144_pos_offline_authorization_attestation`,
-  `20260728055127 task_145_pos_article_mutation_v1`.
+  `20260728030154 task_144_pos_offline_authorization_attestation`,
+  `20260728064500 task_145_pos_article_mutation_v1`; migration-history parity
+  finale esatta con il repository.
 - Unico deploy Worker post-merge: deployment
   `f0129552-d815-49fb-a2a3-f38c61aaa84f`, version
   `56ec23b1-a5b7-4635-94ff-b2ebaa682d0f`, 100% attiva.

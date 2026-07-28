@@ -2958,8 +2958,10 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   remota `6eb3e157` con tree identica alla head revisionata, CI run `218` e
   Cloudflare run `215` verdi; merge normale `fca4013c`. Main locale e
   `origin/main` sono allineati. Sul solo progetto staging allowlisted
-  `jpgoimipbothfgkokyvm` sono state applicate, in ordine, le migration remote
-  `20260728055123` TASK-144 e `20260728055127` TASK-145. È stato eseguito
+  `jpgoimipbothfgkokyvm` sono state applicate, in ordine, le migration
+  TASK-144 e TASK-145. La migration history inizialmente generata dal
+  connettore è stata riparata transazionalmente alle versioni repository
+  `20260728030154` e `20260728064500`; parity finale esatta. È stato eseguito
   esattamente un deploy Worker post-merge: deployment `f0129552`, version
   `56ec23b1`, 100% attiva.
 - Acceptance staging TASK-144/TASK-145 2026-07-28: terzo e ultimo tentativo

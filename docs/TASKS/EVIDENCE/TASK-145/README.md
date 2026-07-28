@@ -114,8 +114,12 @@ contro la baseline `6ae562c8`:
 - Progetto staging: `jpgoimipbothfgkokyvm`,
   `merchandisecontrol-dev`, `ACTIVE_HEALTHY`, `sa-east-1`.
 - Migration remote, nell'ordine:
-  `20260728055123 task_144_pos_offline_authorization_attestation`;
-  `20260728055127 task_145_pos_article_mutation_v1`.
+  `20260728030154 task_144_pos_offline_authorization_attestation`;
+  `20260728064500 task_145_pos_article_mutation_v1`.
+- Il connettore aveva inizialmente registrato versioni generate al momento
+  dell'apply; repair transazionale della sola migration history completata con
+  precondizioni esatte, senza rieseguire SQL o modificare schema/dati. Parity
+  finale repository/staging: `PASS`.
 - Unico deploy Worker dopo entrambi i merge:
   deployment `f0129552-d815-49fb-a2a3-f38c61aaa84f`;
   version `56ec23b1-a5b7-4635-94ff-b2ebaa682d0f`, 100% attiva dal
