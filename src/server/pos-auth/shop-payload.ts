@@ -3,6 +3,7 @@ import "server-only";
 import type { Tables } from "@/lib/supabase/database.types";
 import {
   POS_CATALOG_CAPABILITY_VERSION,
+  POS_OFFLINE_AUTHORIZATION_MAX_AGE_SECONDS,
   POS_POLICY_CONTRACT_VERSION,
   POS_POLICY_LIMITATIONS,
   POS_SALES_SCHEMA_VERSION,
@@ -62,6 +63,8 @@ export function buildPosPolicyPayload() {
     contractVersion: POS_POLICY_CONTRACT_VERSION,
     limitations: POS_POLICY_LIMITATIONS,
     offlinePolicy: {
+      authorizationMaxAgeSeconds:
+        POS_OFFLINE_AUTHORIZATION_MAX_AGE_SECONDS,
       firstActivationRequiresOnline: true,
       mode: "offline_first_after_activation",
       pendingSalesRetention: "local_outbox_until_server_ack",

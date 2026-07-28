@@ -206,7 +206,7 @@ test("TASK-021 hardens lockout expiry, audit requirements and token failure hand
   assert.match(service, /publishPosRuntimeLeaseSuccess/);
   assert.match(runtimeBoundary, /pos_runtime_first_login_lookup_v1/);
   assert.match(runtimeBoundary, /pos_runtime_first_login_failure_v1/);
-  assert.match(runtimeBoundary, /pos_runtime_first_login_commit_v2/);
+  assert.match(runtimeBoundary, /pos_runtime_first_login_commit_v3/);
   assert.match(runtimeBoundary, /pos_runtime_lease_v1/);
   assert.match(runtimeBoundary, /pos_runtime_lease_publish_success_v2/);
   assert.match(service, /const sessionTokenValid = verifyPosSecret/);

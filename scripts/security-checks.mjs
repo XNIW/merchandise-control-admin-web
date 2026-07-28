@@ -4478,7 +4478,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     !/staff\.credential_status === "active"[\s\S]*staff\.credential_status === "locked"[\s\S]*isStaffLockoutExpired\(staff\)/.test(
       service,
     ) ||
-    !/pos_runtime_first_login_commit_v2/.test(runtimeBoundary)
+    !/pos_runtime_first_login_commit_v3/.test(runtimeBoundary)
   ) {
     addFailure(
       `${servicePath} must permit only expired lockout recovery through the atomic POS runtime boundary`,
@@ -4488,7 +4488,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   if (
     !/pos_runtime_first_login_lookup_v1/.test(runtimeBoundary) ||
     !/pos_runtime_first_login_failure_v1/.test(runtimeBoundary) ||
-    !/pos_runtime_first_login_commit_v2/.test(runtimeBoundary) ||
+    !/pos_runtime_first_login_commit_v3/.test(runtimeBoundary) ||
     !/pos_runtime_lease_v1/.test(runtimeBoundary) ||
     !/pos_runtime_lease_publish_success_v2/.test(runtimeBoundary)
   ) {

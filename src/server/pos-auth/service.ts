@@ -29,6 +29,10 @@ import {
   touchPosHeartbeat,
   writePosRuntimeAudit,
 } from "./runtime-boundary";
+import {
+  POS_OFFLINE_AUTHORIZATION_MAX_AGE_SECONDS,
+  POS_POLICY_CONTRACT_VERSION,
+} from "./pos-contract";
 
 type StaffAccountRow = Pick<
   Tables<"staff_accounts">,
@@ -63,7 +67,15 @@ type PosSessionRow = Pick<
 
 type JsonRecord = { [key: string]: Json | undefined };
 
-type PosFailureCode = "db_failure" | "denied" | "not_configured" | "validation_failed";
+type PosFailureCode =
+  | "db_failure"
+  | "denied"
+  | "not_configured"
+  | "offline_authorization_expired"
+  | "offline_authorization_not_permitted"
+  | "offline_authorization_persistence_failed"
+  | "offline_authorization_policy_invalid"
+  | "validation_failed";
 type PosFailureStatus = 400 | 401 | 500 | 503;
 
 type PosFailureBody = {
@@ -79,6 +91,7 @@ type PosFirstLoginSuccessBody = {
     status: "active";
     trusted: true;
   };
+  effectiveOfflineAuthorizationExpiresAt: string;
   ok: true;
   policy: PosPolicyPayload;
   serverTime: string;
@@ -209,7 +222,11 @@ function failure(code: PosFailureCode, status: PosFailureStatus): PosEndpointRes
       ? "POS backend is not configured."
       : code === "validation_failed"
         ? "Request payload is invalid."
-        : "POS authentication was denied.";
+        : code === "db_failure" ||
+            code === "offline_authorization_persistence_failed" ||
+            code === "offline_authorization_policy_invalid"
+          ? "POS request failed."
+          : "POS authentication was denied.";
 
   return {
     body: {
@@ -348,6 +365,7 @@ async function auditedDenied(
     code: string;
     eventKey: string;
     metadata?: JsonRecord;
+    responseCode?: PosFailureCode;
     shopId?: string;
     status?: 400 | 401 | 500;
     targetId?: string;
@@ -370,11 +388,12 @@ async function auditedDenied(
   }
 
   return failure(
-    input.status === 400
-      ? "validation_failed"
-      : input.status === 500
-        ? "db_failure"
-        : "denied",
+    input.responseCode ??
+      (input.status === 400
+        ? "validation_failed"
+        : input.status === 500
+          ? "db_failure"
+          : "denied"),
     input.status ?? 401,
   );
 }
@@ -530,8 +549,11 @@ export async function handlePosFirstLogin(
     deviceTtlSeconds: DEVICE_TTL_SECONDS,
     metadata: {
       app_version_present: Boolean(parsed.appVersion),
-      source: "TASK-021",
+      source: "TASK-144",
     },
+    offlineAuthorizationMaxAgeSeconds:
+      POS_OFFLINE_AUTHORIZATION_MAX_AGE_SECONDS,
+    offlineAuthorizationPolicyVersion: POS_POLICY_CONTRACT_VERSION,
     sessionTokenHash: hashPosSecret(sessionToken),
     sessionTtlSeconds: SESSION_TTL_SECONDS,
     shopId: shop.shop_id,
@@ -539,14 +561,24 @@ export async function handlePosFirstLogin(
   });
 
   if (!committed.ok) {
-    const denied = committed.code === "device_denied" || committed.code === "stale_identity";
+    const responseCode: PosFailureCode =
+      committed.code === "offline_authorization_not_permitted" ||
+      committed.code === "offline_authorization_expired" ||
+      committed.code === "offline_authorization_policy_invalid" ||
+      committed.code === "offline_authorization_persistence_failed"
+        ? committed.code
+        : "offline_authorization_persistence_failed";
+    const denied =
+      responseCode === "offline_authorization_not_permitted" ||
+      responseCode === "offline_authorization_expired";
     return auditedDenied(supabase, {
-      code: denied ? "denied" : "db_failure",
+      code: responseCode,
       eventKey: "pos.auth.first_login.failure",
       metadata: {
         ...requestMetadata(meta),
-        reason: committed.code,
+        reason: responseCode,
       },
+      responseCode,
       shopId: shop.shop_id,
       status: denied ? 401 : 500,
     });
@@ -584,9 +616,11 @@ export async function handlePosFirstLogin(
         status: "active",
         trusted: true,
       },
+      effectiveOfflineAuthorizationExpiresAt:
+        committed.effectiveOfflineAuthorizationExpiresAt,
       ok: true,
       policy: buildPosPolicyPayload(),
-      serverTime: nowIso(),
+      serverTime: committed.serverTime,
       session: {
         expiresAt: committed.sessionExpiresAt,
         heartbeatAfterSeconds: HEARTBEAT_AFTER_SECONDS,

@@ -396,8 +396,8 @@ test("TASK-028 Win7POS catalog pull persists cursor diagnostics and applies tomb
     "StoreCatalogFailureAsync",
     "RemoteCatalogBatchRepository",
     "StoreCatalogDiagnosticsAsync",
-    "result.Value.HasMore",
-    "result.Value.CatalogVersion",
+    "response.HasMore",
+    "response.CatalogVersion",
   ]) {
     assertContains(service, required);
   }
