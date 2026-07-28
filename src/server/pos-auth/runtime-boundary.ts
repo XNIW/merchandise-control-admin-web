@@ -67,6 +67,8 @@ const UUID_PATTERN =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const POS_CATALOG_SCOPE_KEY_PATTERN = /^[0-9a-f]{32}$/;
 const POS_CATALOG_REVISION_PATTERN = /^(0|[1-9][0-9]{0,18})$/;
+const STRICT_UTC_FRACTIONAL_TIMESTAMP_PATTERN =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{1,6}Z$/;
 
 function isRecord(value: unknown): value is JsonObject {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -480,13 +482,15 @@ export async function commitPosFirstLogin(
     deviceTokenHash: string;
     deviceTtlSeconds: number;
     metadata: Json;
+    offlineAuthorizationMaxAgeSeconds: number;
+    offlineAuthorizationPolicyVersion: string;
     sessionTokenHash: string;
     sessionTtlSeconds: number;
     shopId: string;
     staffId: string;
   },
 ) {
-  const { data, error } = await supabase.rpc("pos_runtime_first_login_commit_v2", {
+  const { data, error } = await supabase.rpc("pos_runtime_first_login_commit_v3", {
     p_app_version: input.appVersion ?? "",
     p_device_display_name: input.deviceDisplayName,
     p_device_identifier: input.deviceIdentifier,
@@ -494,6 +498,10 @@ export async function commitPosFirstLogin(
     p_device_ttl_seconds: input.deviceTtlSeconds,
     p_expected_credential_version: input.credentialVersion,
     p_metadata_redacted: input.metadata,
+    p_offline_authorization_max_age_seconds:
+      input.offlineAuthorizationMaxAgeSeconds,
+    p_offline_authorization_policy_version:
+      input.offlineAuthorizationPolicyVersion,
     p_session_token_hash: input.sessionTokenHash,
     p_session_ttl_seconds: input.sessionTtlSeconds,
     p_shop_id: input.shopId,
@@ -513,10 +521,24 @@ export async function commitPosFirstLogin(
   const credentialId = requiredString(data, "posDeviceCredentialId");
   const posSessionId = requiredString(data, "posSessionId");
   const sessionExpiresAt = requiredString(data, "sessionExpiresAt");
+  const effectiveOfflineAuthorizationExpiresAt = requiredString(
+    data,
+    "effectiveOfflineAuthorizationExpiresAt",
+  );
+  const offlineAuthorizationPolicyVersion = requiredString(
+    data,
+    "offlineAuthorizationPolicyVersion",
+  );
+  const serverTime = requiredString(data, "serverTime");
   const returnedShopId = requiredString(data, "shopId");
   const returnedStaffId = requiredString(data, "staffId");
   const returnedDeviceIdentifier = requiredString(data, "deviceIdentifier");
   const returnedCredentialVersion = requiredInteger(data, "credentialVersion");
+  const sessionExpiresAtMillis = timestampMillis(sessionExpiresAt);
+  const offlineExpiresAtMillis = timestampMillis(
+    effectiveOfflineAuthorizationExpiresAt,
+  );
+  const serverTimeMillis = timestampMillis(serverTime);
   return code === "success" &&
     shopDeviceId &&
     credentialId &&
@@ -531,8 +553,28 @@ export async function commitPosFirstLogin(
     returnedDeviceIdentifier === input.deviceIdentifier &&
     returnedCredentialVersion === input.credentialVersion &&
     sessionExpiresAt &&
-    (timestampMillis(sessionExpiresAt) ?? 0) > Date.now()
-    ? { ok: true as const, posSessionId, sessionExpiresAt, shopDeviceId }
+    sessionExpiresAtMillis !== null &&
+    sessionExpiresAtMillis > Date.now() &&
+    effectiveOfflineAuthorizationExpiresAt &&
+    STRICT_UTC_FRACTIONAL_TIMESTAMP_PATTERN.test(
+      effectiveOfflineAuthorizationExpiresAt,
+    ) &&
+    offlineExpiresAtMillis !== null &&
+    serverTime &&
+    STRICT_UTC_FRACTIONAL_TIMESTAMP_PATTERN.test(serverTime) &&
+    serverTimeMillis !== null &&
+    offlineExpiresAtMillis > serverTimeMillis &&
+    offlineExpiresAtMillis <= sessionExpiresAtMillis &&
+    offlineAuthorizationPolicyVersion ===
+      input.offlineAuthorizationPolicyVersion
+    ? {
+        effectiveOfflineAuthorizationExpiresAt,
+        ok: true as const,
+        posSessionId,
+        serverTime,
+        sessionExpiresAt,
+        shopDeviceId,
+      }
     : { code: "db_failure", ok: false as const };
 }
 

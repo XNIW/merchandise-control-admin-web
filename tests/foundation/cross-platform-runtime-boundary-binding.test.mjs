@@ -335,6 +335,8 @@ test("POS first-login lookup and commit reject stale response identities", async
       deviceTokenHash: TOKEN_HASH,
       deviceTtlSeconds: 180 * 24 * 60 * 60,
       metadata: {},
+      offlineAuthorizationMaxAgeSeconds: 12 * 60 * 60,
+      offlineAuthorizationPolicyVersion: "pos-policy-v1",
       sessionTokenHash: TOKEN_HASH,
       sessionTtlSeconds: 12 * 60 * 60,
       shopId: SHOP,
@@ -344,9 +346,12 @@ test("POS first-login lookup and commit reject stale response identities", async
       code: "success",
       credentialVersion: 3,
       deviceIdentifier: "device-a",
+      effectiveOfflineAuthorizationExpiresAt: iso(20 * 60_000),
       ok: true,
+      offlineAuthorizationPolicyVersion: "pos-policy-v1",
       posDeviceCredentialId: CREDENTIAL,
       posSessionId: SESSION,
+      serverTime: iso(-60_000),
       sessionExpiresAt: expiresAt,
       shopDeviceId: DEVICE,
       shopId: SHOP,
@@ -367,8 +372,16 @@ test("POS first-login lookup and commit reject stale response identities", async
       ).ok,
       true,
     );
-    assert.equal(commitCalls[0].name, "pos_runtime_first_login_commit_v2");
+    assert.equal(commitCalls[0].name, "pos_runtime_first_login_commit_v3");
     assert.equal(commitCalls[0].args.p_device_ttl_seconds, 180 * 24 * 60 * 60);
+    assert.equal(
+      commitCalls[0].args.p_offline_authorization_max_age_seconds,
+      12 * 60 * 60,
+    );
+    assert.equal(
+      commitCalls[0].args.p_offline_authorization_policy_version,
+      "pos-policy-v1",
+    );
     assert.equal(commitCalls[0].args.p_session_ttl_seconds, 12 * 60 * 60);
     assert.equal("p_device_expires_at" in commitCalls[0].args, false);
     assert.equal("p_session_expires_at" in commitCalls[0].args, false);

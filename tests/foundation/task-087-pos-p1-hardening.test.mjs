@@ -174,8 +174,9 @@ test(
     );
     assertContains(
       catalog,
-      "PosOnlineCompatibilityValidator.ValidateCatalogPull(result.Value)",
+      "PosOnlineCompatibilityValidator.AssessCatalogPull(result.Value)",
     );
+    assertContains(catalog, "compatibilityAssessment.RecoveredResponse ?? result.Value");
     assertContains(
       catalog,
       "PosOnlinePolicySnapshot.SaveAsync(_factory, response?.Policy, generation)",

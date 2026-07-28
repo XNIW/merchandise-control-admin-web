@@ -2868,26 +2868,55 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-143: `TASK-143 - Admin staging catalog pull 503`
 - File task TASK-143: `docs/TASKS/TASK-143-admin-staging-catalog-pull-503.md`
 - Evidence TASK-143: `docs/TASKS/EVIDENCE/TASK-143/README.md`
+- Stato TASK-144: `REVIEW`
+- Fase TASK-144: `REVIEW`
+- Task TASK-144: `TASK-144 - POS offline authorization attestation`
+- File task TASK-144: `docs/TASKS/TASK-144-pos-offline-authorization-attestation.md`
+- Evidence TASK-144: `docs/TASKS/EVIDENCE/TASK-144/README.md`
+- Follow-up autorizzato: `TASK-145 - Versioned POS article mutation contract`
+- Branch TASK-145: `codex/admin-pos-article-mutation-v1-20260728`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
 - Stato globale attuale: `REVIEW`
-- Task attivo: `TASK-143 - Admin staging catalog pull 503`
-- Task precedente: `TASK-142 - Cross-platform catalog text integrity` (`DONE`)
+- Task attivo: `TASK-144 - POS offline authorization attestation`
+- Task precedente: `TASK-143 - Admin staging catalog pull 503` (`REVIEW_READY`)
 - Ultimo task chiuso: `TASK-142 - Cross-platform catalog text integrity`
 - Ultimo task completato: `TASK-142 - Cross-platform catalog text integrity`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-143-admin-staging-catalog-pull-503.md`
-- Ultimo file task: `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-143/README.md`
-- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-142/README.md`
+- File task corrente: `docs/TASKS/TASK-144-pos-offline-authorization-attestation.md`
+- Ultimo file task: `docs/TASKS/TASK-143-admin-staging-catalog-pull-503.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-144/README.md`
+- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-143/README.md`
 - Stato task: `REVIEW`
-- Fase: `REVIEW_READY`
-- Milestone interna: `READY_FOR_ASUS_BOOTSTRAP_ACCEPTANCE`
-- Responsabile: `CLAUDE/CHATGPT / REVIEWER`
+- Fase: `REVIEW`
+- Milestone interna: `OFFLINE_AUTHORIZATION_INDEPENDENT_REVIEW`
+- Responsabile: `CODEX`
 - Branch/worktree:
-  `codex/admin-staging-catalog-pull-503-closeout-20260727`;
-  `/Users/minxiang/Projects/merchandise-control-admin-web`.
+  `codex/admin-pos-offline-authorization-20260728`;
+  `/Users/minxiang/.codex/worktrees/admin-pos-contract-20260728/offline-auth`.
+- Apertura TASK-144 2026-07-28: richiesta utente completa ricevuta per i due
+  blocker Admin POS. Baseline Admin e Win7POS coincidono con gli SHA attesi;
+  entrambi i branch GitHub `main` e gli ultimi 12 commit sono stati verificati.
+  Il checkout Win7POS dirty è stato preservato senza reset/stash e sostituito
+  da un worktree detached read-only. TASK-143 resta `REVIEW_READY`, non viene
+  riaperta né marcata `DONE`. TASK-144 è l'unica lane attiva; TASK-145 sarà
+  aperta dopo l'handoff della prima lane. Production resta `NOT_MODIFIED`.
+- Handoff implementativo TASK-144 2026-07-28: RPC V3 additiva, attestazione
+  `effectiveOfflineAuthorizationExpiresAt`, clamp server-side, replay bounded,
+  invalidazione e errori tipizzati implementati. Reset Supabase isolato,
+  pgTAP TASK-144 `36/36`, foundation completa, security, verify, Cloudflare
+  build, Worker smoke e deserializzazione reale Win7POS passano. La suite
+  pgTAP completa conserva un solo failure prestazionale preesistente TASK-141
+  sulla soglia `<8s` anche in rerun standalone; nessun test è stato saltato o
+  allentato. Head pronta per review indipendente; staging resta
+  `NOT_RUN_PRE_BOTH_MERGES`, production `NOT_MODIFIED`.
+- Review fix TASK-144 2026-07-28: reviewer indipendente sulla head `cd11e533`
+  ha riportato `P0/P1/P2/P3 = 0/0/1/0`. Corretto il P2 che impediva di
+  accorciare `expires_at` sotto una receipt già invalidata; aggiunte prove
+  pgTAP per sessione e credential. Reset isolato `PASS`, pgTAP TASK-144
+  `41/41`, foundation toccata `11/11`. Rereview indipendente sulla head
+  corretta `fa791952`: `P0/P1/P2/P3 = 0/0/0/0`; nessun finding residuo.
 - Apertura TASK-142 2026-07-27: avviato il coordinamento
   `CATALOG-TEXT-001` su Admin Web, Android e iOS. Baseline Admin
   `54889a68a65cec39764bbb5479574e942f4d54f1`, worktree pulito e target

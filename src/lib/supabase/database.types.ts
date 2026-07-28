@@ -847,6 +847,10 @@ export type Database = {
           issued_at: string
           last_used_at: string | null
           metadata_redacted: Json
+          offline_authorization_expires_at: string | null
+          offline_authorization_invalidated_at: string | null
+          offline_authorization_issued_at: string | null
+          offline_authorization_policy_version: string | null
           pos_device_credential_id: string
           revoked_at: string | null
           revoked_reason: string | null
@@ -865,6 +869,10 @@ export type Database = {
           issued_at?: string
           last_used_at?: string | null
           metadata_redacted?: Json
+          offline_authorization_expires_at?: string | null
+          offline_authorization_invalidated_at?: string | null
+          offline_authorization_issued_at?: string | null
+          offline_authorization_policy_version?: string | null
           pos_device_credential_id?: string
           revoked_at?: string | null
           revoked_reason?: string | null
@@ -883,6 +891,10 @@ export type Database = {
           issued_at?: string
           last_used_at?: string | null
           metadata_redacted?: Json
+          offline_authorization_expires_at?: string | null
+          offline_authorization_invalidated_at?: string | null
+          offline_authorization_issued_at?: string | null
+          offline_authorization_policy_version?: string | null
           pos_device_credential_id?: string
           revoked_at?: string | null
           revoked_reason?: string | null
@@ -1646,6 +1658,10 @@ export type Database = {
           last_seen_profile_id: string | null
           last_seen_staff_id: string | null
           metadata_redacted: Json
+          offline_authorization_expires_at: string | null
+          offline_authorization_invalidated_at: string | null
+          offline_authorization_issued_at: string | null
+          offline_authorization_policy_version: string | null
           pos_device_credential_id: string
           pos_session_id: string
           revoked_at: string | null
@@ -1668,6 +1684,10 @@ export type Database = {
           last_seen_profile_id?: string | null
           last_seen_staff_id?: string | null
           metadata_redacted?: Json
+          offline_authorization_expires_at?: string | null
+          offline_authorization_invalidated_at?: string | null
+          offline_authorization_issued_at?: string | null
+          offline_authorization_policy_version?: string | null
           pos_device_credential_id: string
           pos_session_id?: string
           revoked_at?: string | null
@@ -1690,6 +1710,10 @@ export type Database = {
           last_seen_profile_id?: string | null
           last_seen_staff_id?: string | null
           metadata_redacted?: Json
+          offline_authorization_expires_at?: string | null
+          offline_authorization_invalidated_at?: string | null
+          offline_authorization_issued_at?: string | null
+          offline_authorization_policy_version?: string | null
           pos_device_credential_id?: string
           pos_session_id?: string
           revoked_at?: string | null
@@ -3212,6 +3236,24 @@ export type Database = {
           p_device_ttl_seconds: number
           p_expected_credential_version: number
           p_metadata_redacted?: Json
+          p_session_token_hash: string
+          p_session_ttl_seconds: number
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_runtime_first_login_commit_v3: {
+        Args: {
+          p_app_version: string
+          p_device_display_name: string
+          p_device_identifier: string
+          p_device_token_hash: string
+          p_device_ttl_seconds: number
+          p_expected_credential_version: number
+          p_metadata_redacted?: Json
+          p_offline_authorization_max_age_seconds: number
+          p_offline_authorization_policy_version: string
           p_session_token_hash: string
           p_session_ttl_seconds: number
           p_shop_id: string
