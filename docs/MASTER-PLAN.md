@@ -2880,7 +2880,7 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Evidence TASK-145: `docs/TASKS/EVIDENCE/TASK-145/README.md`
 - Branch TASK-145: `codex/admin-pos-article-mutation-v1-20260728`
 - Stato TASK-146: `EXECUTION`
-- Fase TASK-146: `PRE_REVIEW`
+- Fase TASK-146: `PR_READY`
 - Task TASK-146: `TASK-146 - Canonical POS revision timestamps and Asus cleanup`
 - File task TASK-146:
   `docs/TASKS/TASK-146-pos-revision-canonicalization-asus-cleanup.md`
@@ -2901,8 +2901,8 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-146/README.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-145/README.md`
 - Stato task: `EXECUTION`
-- Fase: `PRE_REVIEW`
-- Milestone interna: `POS_REVISION_CANONICALIZATION_FEATURE_COMPLETE`
+- Fase: `PR_READY`
+- Milestone interna: `POS_REVISION_CANONICALIZATION_ZERO_GATE_PASS`
 - Responsabile: `CODEX / EXECUTOR`
 - Branch/worktree:
   `codex/admin-pos-revision-canonicalization-20260728`;
@@ -2914,6 +2914,11 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   canonico `Z` e Data API/catalog `+00:00`, entrambi a sei microsecondi e allo
   stesso istante ma byte-diversi. TASK-144/TASK-145 restano `REVIEW_READY`,
   mai `DONE`; production resta `NOT_MODIFIED`.
+- Review indipendente TASK-146 2026-07-28: feature SHA congelata `83e71b91`;
+  reviewer read-only `ZERO-GATE PASS`, `P0/P1/P2/P3 = 0/0/0/0`. Check freschi
+  reviewer: regressioni TASK-139/141/142/143/144/145/146 `54/54`, typecheck,
+  security, Cloudflare build/smoke e diff check tutti `PASS`. Nessun file
+  modificato dal reviewer; task pronta per PR non-draft.
 - Apertura TASK-144 2026-07-28: richiesta utente completa ricevuta per i due
   blocker Admin POS. Baseline Admin e Win7POS coincidono con gli SHA attesi;
   entrambi i branch GitHub `main` e gli ultimi 12 commit sono stati verificati.

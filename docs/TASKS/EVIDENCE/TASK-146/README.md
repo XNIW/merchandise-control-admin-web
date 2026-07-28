@@ -65,6 +65,18 @@ testuale al boundary Data API/catalogo.
 - Reset Supabase, pgTAP e SQL lint: `NOT_RUN_NOT_APPLICABLE`; nessun SQL
   modificato.
 
+## Review indipendente
+
+- SHA revisionato:
+  `83e71b912a6c27bdc5a2a3e4e6d93d86a776fc12`.
+- Baseline:
+  `86713586106dc1e50bc5d846a24a257f521fc109`.
+- Verdict: `ZERO-GATE PASS`.
+- Finding: `P0/P1/P2/P3 = 0/0/0/0`.
+- Check reviewer: regressioni `54/54`, typecheck, security, cf build,
+  Cloudflare smoke e diff check tutti `PASS`.
+- Nessun file modificato dal reviewer.
+
 ## Cleanup, delivery e staging
 
 - In corso.
