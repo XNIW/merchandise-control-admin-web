@@ -27,8 +27,11 @@ accettazione finale e non porta il task a `DONE`.
   `20260728030154_task_144_pos_offline_authorization_attestation.sql`;
   `20260728064500_task_145_pos_article_mutation_v1.sql`.
 - Migration staging remote:
-  `20260728055123 task_144_pos_offline_authorization_attestation`;
-  `20260728055127 task_145_pos_article_mutation_v1`.
+  `20260728030154 task_144_pos_offline_authorization_attestation`;
+  `20260728064500 task_145_pos_article_mutation_v1`.
+- Migration-history parity repository/staging: `PASS`; le versioni generate
+  inizialmente dal connettore sono state riparate transazionalmente senza
+  rieseguire SQL o modificare schema/dati applicativi.
 - Worker staging deployment:
   `f0129552-d815-49fb-a2a3-f38c61aaa84f`.
 - Worker staging version:

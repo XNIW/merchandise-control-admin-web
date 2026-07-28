@@ -101,8 +101,9 @@ Eseguiti realmente il 2026-07-28:
   `795bd965d9f773a353f498d724756ef972444e8f`.
 - Merge normale: `6ae562c83a6ebcecad93bf53141a13fbcdf0a080`.
 - Migration staging remota:
-  `20260728055123 task_144_pos_offline_authorization_attestation`, applicata
-  dopo entrambi i merge.
+  `20260728030154 task_144_pos_offline_authorization_attestation`, applicata
+  dopo entrambi i merge e allineata alla versione repository tramite repair
+  transazionale della sola migration history.
 - Unico Worker deploy condiviso TASK-144/TASK-145: deployment
   `f0129552-d815-49fb-a2a3-f38c61aaa84f`, version
   `56ec23b1-a5b7-4635-94ff-b2ebaa682d0f`, 100% attiva.
