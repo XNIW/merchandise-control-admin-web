@@ -1,0 +1,25 @@
+{
+  "fixtureVersion": "task-146-canonical-product-revision-v1",
+  "schemaVersion": "pos-catalog-v2",
+  "ack": {
+    "schemaVersion": "pos-article-mutation-v1",
+    "authoritativeRevision": "2026-07-28T21:31:00.654321Z"
+  },
+  "catalog": {
+    "products": [
+      {
+        "barcode": "TASK146-SYNTHETIC",
+        "categoryId": null,
+        "itemNumber": "TASK146-ITEM",
+        "productId": "60000000-0000-4000-8000-000000000146",
+        "productName": "TASK-146 synthetic product",
+        "purchasePrice": 1,
+        "retailPrice": 2,
+        "secondProductName": null,
+        "stockQuantity": 3,
+        "supplierId": null,
+        "updatedAt": "2026-07-28T21:31:00.654321Z"
+      }
+    ]
+  }
+}

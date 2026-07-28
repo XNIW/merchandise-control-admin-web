@@ -42,6 +42,7 @@ import {
   publishPosRuntimeLeaseSuccess,
   writePosRuntimeAudit,
 } from "./runtime-boundary";
+import { canonicalizePosRevisionTimestamp } from "./pos-revision-timestamp";
 
 type StaffAccountRow = Pick<
   Tables<"staff_accounts">,
@@ -93,6 +94,7 @@ type JsonRecord = { [key: string]: Json | undefined };
 
 type PosCatalogFailureCode =
   | "catalog_integrity_blocked"
+  | "catalog_revision_timestamp_invalid"
   | "catalog_cursor_expired"
   | "catalog_cursor_rejected"
   | "db_failure"
@@ -294,6 +296,8 @@ function failure(
   const message =
     code === "catalog_integrity_blocked"
       ? "Catalog integrity requires recovery before POS sync can continue."
+      : code === "catalog_revision_timestamp_invalid"
+        ? "Catalog revision timestamp is invalid."
       : code === "not_configured"
       ? "POS catalog backend is not configured."
       : code === "validation_failed"
@@ -528,7 +532,7 @@ function parseCategoryRows(page: CatalogPageV2) {
       (row) =>
         typeof row.id === "string" &&
         typeof row.name === "string" &&
-        isTimestamp(row.updated_at) &&
+        typeof row.updated_at === "string" &&
         isStringOrNull(row.deleted_at),
     )
   ) {
@@ -548,7 +552,7 @@ function parseSupplierRows(page: CatalogPageV2) {
       (row) =>
         typeof row.id === "string" &&
         typeof row.name === "string" &&
-        isTimestamp(row.updated_at) &&
+        typeof row.updated_at === "string" &&
         isStringOrNull(row.deleted_at),
     )
   ) {
@@ -568,7 +572,7 @@ function parseProductRows(page: CatalogPageV2) {
       (row) =>
         typeof row.id === "string" &&
         typeof row.barcode === "string" &&
-        isTimestamp(row.updated_at) &&
+        typeof row.updated_at === "string" &&
         isStringOrNull(row.deleted_at) &&
         isStringOrNull(row.category_id) &&
         isStringOrNull(row.item_number) &&
@@ -646,14 +650,23 @@ function hasCatalogRows(
   );
 }
 
-function mapCatalogPage(page: CatalogPageV2): CatalogPayload | null {
+type CatalogPageMapping =
+  | { catalog: CatalogPayload; status: "ok" }
+  | {
+      reason:
+        | "catalog_page_content_invalid"
+        | "catalog_revision_timestamp_invalid";
+      status: "invalid";
+    };
+
+function mapCatalogPage(page: CatalogPageV2): CatalogPageMapping {
   const categoryRows = parseCategoryRows(page);
   const supplierRows = parseSupplierRows(page);
   const productRows = parseProductRows(page);
   const priceRows = parsePriceRows(page);
 
   if (!categoryRows || !supplierRows || !productRows || !priceRows) {
-    return null;
+    return { reason: "catalog_page_content_invalid", status: "invalid" };
   }
 
   if (
@@ -703,7 +716,7 @@ function mapCatalogPage(page: CatalogPageV2): CatalogPayload | null {
         Boolean(row.product_name || row.second_product_name || row.item_number),
     )
   ) {
-    return null;
+    return { reason: "catalog_page_content_invalid", status: "invalid" };
   }
 
   const { active: categories, tombstones: categoryTombstones } =
@@ -714,29 +727,56 @@ function mapCatalogPage(page: CatalogPageV2): CatalogPayload | null {
     splitCatalogTombstones(productRows);
   const catalog = emptyCatalog();
 
-  catalog.categories = categories.map((category) => ({
-    categoryId: category.id,
-    name: category.name,
-    updatedAt: category.updated_at,
-  }));
-  catalog.suppliers = suppliers.map((supplier) => ({
-    name: supplier.name,
-    supplierId: supplier.id,
-    updatedAt: supplier.updated_at,
-  }));
-  catalog.products = products.map((product) => ({
-    barcode: product.barcode,
-    categoryId: product.category_id,
-    itemNumber: product.item_number,
-    productId: product.id,
-    productName: product.product_name,
-    purchasePrice: product.purchase_price,
-    retailPrice: product.retail_price,
-    secondProductName: product.second_product_name,
-    stockQuantity: product.stock_quantity,
-    supplierId: product.supplier_id,
-    updatedAt: product.updated_at,
-  }));
+  for (const category of categories) {
+    const updatedAt = canonicalizePosRevisionTimestamp(category.updated_at);
+    if (!updatedAt) {
+      return {
+        reason: "catalog_revision_timestamp_invalid",
+        status: "invalid",
+      };
+    }
+    catalog.categories.push({
+      categoryId: category.id,
+      name: category.name,
+      updatedAt,
+    });
+  }
+  for (const supplier of suppliers) {
+    const updatedAt = canonicalizePosRevisionTimestamp(supplier.updated_at);
+    if (!updatedAt) {
+      return {
+        reason: "catalog_revision_timestamp_invalid",
+        status: "invalid",
+      };
+    }
+    catalog.suppliers.push({
+      name: supplier.name,
+      supplierId: supplier.id,
+      updatedAt,
+    });
+  }
+  for (const product of products) {
+    const updatedAt = canonicalizePosRevisionTimestamp(product.updated_at);
+    if (!updatedAt) {
+      return {
+        reason: "catalog_revision_timestamp_invalid",
+        status: "invalid",
+      };
+    }
+    catalog.products.push({
+      barcode: product.barcode,
+      categoryId: product.category_id,
+      itemNumber: product.item_number,
+      productId: product.id,
+      productName: product.product_name,
+      purchasePrice: product.purchase_price,
+      retailPrice: product.retail_price,
+      secondProductName: product.second_product_name,
+      stockQuantity: product.stock_quantity,
+      supplierId: product.supplier_id,
+      updatedAt,
+    });
+  }
   catalog.prices = priceRows.map((price) => ({
     effectiveAt: price.effective_at,
     price: price.price,
@@ -745,23 +785,59 @@ function mapCatalogPage(page: CatalogPageV2): CatalogPayload | null {
     source: price.source,
     type: price.type,
   }));
-  catalog.tombstones.categories = categoryTombstones.map((category) => ({
-    categoryId: category.id,
-    deletedAt: category.deleted_at ?? category.updated_at,
-    updatedAt: category.updated_at,
-  }));
-  catalog.tombstones.suppliers = supplierTombstones.map((supplier) => ({
-    deletedAt: supplier.deleted_at ?? supplier.updated_at,
-    supplierId: supplier.id,
-    updatedAt: supplier.updated_at,
-  }));
-  catalog.tombstones.products = productTombstones.map((product) => ({
-    deletedAt: product.deleted_at ?? product.updated_at,
-    productId: product.id,
-    updatedAt: product.updated_at,
-  }));
+  for (const category of categoryTombstones) {
+    const deletedAt = canonicalizePosRevisionTimestamp(
+      category.deleted_at ?? category.updated_at,
+    );
+    const updatedAt = canonicalizePosRevisionTimestamp(category.updated_at);
+    if (!deletedAt || !updatedAt) {
+      return {
+        reason: "catalog_revision_timestamp_invalid",
+        status: "invalid",
+      };
+    }
+    catalog.tombstones.categories.push({
+      categoryId: category.id,
+      deletedAt,
+      updatedAt,
+    });
+  }
+  for (const supplier of supplierTombstones) {
+    const deletedAt = canonicalizePosRevisionTimestamp(
+      supplier.deleted_at ?? supplier.updated_at,
+    );
+    const updatedAt = canonicalizePosRevisionTimestamp(supplier.updated_at);
+    if (!deletedAt || !updatedAt) {
+      return {
+        reason: "catalog_revision_timestamp_invalid",
+        status: "invalid",
+      };
+    }
+    catalog.tombstones.suppliers.push({
+      deletedAt,
+      supplierId: supplier.id,
+      updatedAt,
+    });
+  }
+  for (const product of productTombstones) {
+    const deletedAt = canonicalizePosRevisionTimestamp(
+      product.deleted_at ?? product.updated_at,
+    );
+    const updatedAt = canonicalizePosRevisionTimestamp(product.updated_at);
+    if (!deletedAt || !updatedAt) {
+      return {
+        reason: "catalog_revision_timestamp_invalid",
+        status: "invalid",
+      };
+    }
+    catalog.tombstones.products.push({
+      deletedAt,
+      productId: product.id,
+      updatedAt,
+    });
+  }
 
-  return catalog;
+  return { catalog, status: "ok" };
 }
 
 function lastKey(page: CatalogPageV2) {
@@ -1002,7 +1078,9 @@ export async function handlePosCatalogPull(
   }
 
   const manifest = page.manifest ?? continuation?.manifest ?? null;
-  const catalog = mapCatalogPage(page);
+  const catalogMapping = mapCatalogPage(page);
+  const catalog =
+    catalogMapping.status === "ok" ? catalogMapping.catalog : null;
   const manifestHasRows = manifest
     ? hasCatalogRows(manifest, sync.mode)
     : false;
@@ -1019,8 +1097,19 @@ export async function handlePosCatalogPull(
         page.scopeKey !== continuation.scopeKey ||
         page.scopeKind !== continuation.scopeKind))
   ) {
+    const revisionTimestampInvalid =
+      catalogMapping.status === "invalid" &&
+      catalogMapping.reason === "catalog_revision_timestamp_invalid";
+    const mappingFailureStage: PosCatalogFailureStage =
+      revisionTimestampInvalid && page.entity !== "done"
+        ? page.entity
+        : manifest && !manifestHasRows
+          ? "manifest"
+          : (continuation?.lane ?? "manifest");
     return auditedFailure(supabase, {
-      code: "db_failure",
+      code: revisionTimestampInvalid
+        ? "catalog_revision_timestamp_invalid"
+        : "db_failure",
       metadata: {
         ...requestMetadata(meta),
         lane: page.entity,
@@ -1028,19 +1117,15 @@ export async function handlePosCatalogPull(
         reason:
           manifest && !manifestHasRows
             ? "catalog_v2_empty_manifest"
-            : "catalog_v2_page_contract_invalid",
+            : revisionTimestampInvalid
+              ? "catalog_revision_timestamp_invalid"
+              : "catalog_v2_page_contract_invalid",
         row_count: page.rows.length,
-        stage:
-          manifest && !manifestHasRows
-            ? "manifest"
-            : (continuation?.lane ?? "manifest"),
+        stage: mappingFailureStage,
       },
       root: "catalog_response_invalid",
       shopId: session.shop_id,
-      stage:
-        manifest && !manifestHasRows
-          ? "manifest"
-          : (continuation?.lane ?? "manifest"),
+      stage: mappingFailureStage,
       status: 500,
       targetId: session.shop_device_id,
       targetType: "device",

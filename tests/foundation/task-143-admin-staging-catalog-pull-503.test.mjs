@@ -161,6 +161,11 @@ function loadCatalogPull(options = {}) {
   const lease = options.lease ?? defaultLease();
   const page = options.page ?? defaultPage();
   const supabase = {};
+  const revisionTimestamp = transpileCommonJs(
+    "src/server/pos-auth/pos-revision-timestamp.ts",
+    (specifier) =>
+      specifier === "server-only" ? {} : requireForTest(specifier),
+  );
   let cursorSequence = 0;
   const stubs = {
     "@/lib/supabase/admin": {
@@ -250,6 +255,7 @@ function loadCatalogPull(options = {}) {
     "./pos-contract": {
       POS_CATALOG_SCHEMA_VERSION: "pos-catalog-v2",
     },
+    "./pos-revision-timestamp": revisionTimestamp,
     "./runtime-boundary": {
       loadPosRuntimeLease: async () => lease,
       publishPosRuntimeLeaseSuccess: async (_client, input) => {
@@ -523,9 +529,9 @@ test("TASK-143 a tombstone-only delta can converge the catalog to empty", async 
     JSON.parse(JSON.stringify(result.body.catalog.tombstones.products)),
     [
       {
-        deletedAt: "2026-07-27T19:30:00.000Z",
+        deletedAt: "2026-07-27T19:30:00.000000Z",
         productId: deletedProductId,
-        updatedAt: "2026-07-27T19:30:00.000Z",
+        updatedAt: "2026-07-27T19:30:00.000000Z",
       },
     ],
   );
@@ -1126,6 +1132,225 @@ test("TASK-143 full handler drain matches its first-page real-volume manifest", 
     true,
     "the drain must exercise continuation keysets",
   );
+});
+
+test("TASK-146 public revisions are canonical while cursor keysets retain raw microseconds", async () => {
+  const rawTimestamp = "2026-07-28T21:31:00.123456+00:00";
+  const productId = "60000000-0000-4000-8000-000000000146";
+  const harness = loadCatalogPull({
+    page: {
+      ...defaultPage(),
+      entity: "products",
+      entityHasMore: true,
+      manifest: {
+        catalogSummary: {
+          activeProducts: 1,
+          categories: 0,
+          prices: 0,
+          products: 1,
+          suppliers: 0,
+        },
+        windowCounts: {
+          categories: 0,
+          prices: 0,
+          products: 1,
+          suppliers: 0,
+        },
+      },
+      pageLimit: 1,
+      rows: [
+        {
+          barcode: "TASK146-SYNTHETIC",
+          category_id: null,
+          deleted_at: null,
+          id: productId,
+          item_number: null,
+          product_name: "TASK-146 synthetic product",
+          purchase_price: null,
+          retail_price: null,
+          second_product_name: null,
+          stock_quantity: null,
+          supplier_id: null,
+          updated_at: rawTimestamp,
+        },
+      ],
+      snapshotAt: "2026-07-28T21:32:00.000000+00:00",
+    },
+  });
+  const result = await harness.catalogPull.handlePosCatalogPull(validPullInput());
+
+  assert.equal(result.status, 200);
+  assert.equal(
+    result.body.catalog.products[0].updatedAt,
+    "2026-07-28T21:31:00.123456Z",
+  );
+  const cursor = harness.cursorStates.get(result.body.syncCursor);
+  assert.equal(cursor.afterUpdatedAt, rawTimestamp);
+  assert.equal(harness.publicationCalls.length, 1);
+});
+
+test("TASK-146 invalid public revision timestamps fail closed with bounded audit", async () => {
+  const rawTimestamp = "2026-07-28T21:31:00.123456+01:00";
+  const harness = loadCatalogPull({
+    page: {
+      ...defaultPage(),
+      rows: [
+        {
+          ...defaultPage().rows[0],
+          updated_at: rawTimestamp,
+        },
+      ],
+    },
+  });
+  const result = await harness.catalogPull.handlePosCatalogPull(validPullInput());
+
+  assert.equal(result.status, 500);
+  assert.equal(result.body.code, "catalog_revision_timestamp_invalid");
+  assert.equal(result.body.root, "catalog_response_invalid");
+  assert.equal(result.body.stage, "categories");
+  assert.equal(harness.publicationCalls.length, 0);
+  assert.equal(harness.auditCalls.length, 1);
+  assert.equal(
+    harness.auditCalls[0].metadata.reason,
+    "catalog_revision_timestamp_invalid",
+  );
+  assert.equal(JSON.stringify(harness.auditCalls[0]).includes(rawTimestamp), false);
+  assert.equal(JSON.stringify(result).includes(rawTimestamp), false);
+});
+
+test("TASK-146 category, supplier and product tombstones share one canonical format", async () => {
+  const rawUpdatedAt = "2026-07-28T21:31:00.1+00:00";
+  const rawDeletedAt = "2026-07-28T21:31:00.12+0000";
+  const scenarios = [
+    {
+      entity: "categories",
+      expected: {
+        categoryId: "60000000-0000-4000-8000-000000000146",
+        deletedAt: "2026-07-28T21:31:00.120000Z",
+        updatedAt: "2026-07-28T21:31:00.100000Z",
+      },
+      row: {
+        deleted_at: rawDeletedAt,
+        id: "60000000-0000-4000-8000-000000000146",
+        name: "TASK-146 synthetic category",
+        updated_at: rawUpdatedAt,
+      },
+    },
+    {
+      entity: "suppliers",
+      expected: {
+        deletedAt: "2026-07-28T21:31:00.120000Z",
+        supplierId: "70000000-0000-4000-8000-000000000146",
+        updatedAt: "2026-07-28T21:31:00.100000Z",
+      },
+      row: {
+        deleted_at: rawDeletedAt,
+        id: "70000000-0000-4000-8000-000000000146",
+        name: "TASK-146 synthetic supplier",
+        updated_at: rawUpdatedAt,
+      },
+    },
+    {
+      entity: "products",
+      expected: {
+        deletedAt: "2026-07-28T21:31:00.120000Z",
+        productId: "80000000-0000-4000-8000-000000000146",
+        updatedAt: "2026-07-28T21:31:00.100000Z",
+      },
+      row: {
+        barcode: "TASK146-TOMBSTONE",
+        category_id: null,
+        deleted_at: rawDeletedAt,
+        id: "80000000-0000-4000-8000-000000000146",
+        item_number: null,
+        product_name: "TASK-146 synthetic product",
+        purchase_price: null,
+        retail_price: null,
+        second_product_name: null,
+        stock_quantity: null,
+        supplier_id: null,
+        updated_at: rawUpdatedAt,
+      },
+    },
+  ];
+
+  for (const scenario of scenarios) {
+    const counts = {
+      categories: 0,
+      prices: 0,
+      products: 0,
+      suppliers: 0,
+      [scenario.entity]: 1,
+    };
+    const harness = loadCatalogPull({
+      page: {
+        ...defaultPage(),
+        entity: scenario.entity,
+        manifest: {
+          catalogSummary: {
+            activeProducts: 0,
+            categories: counts.categories,
+            prices: counts.prices,
+            products: counts.products,
+            suppliers: counts.suppliers,
+          },
+          windowCounts: counts,
+        },
+        rows: [scenario.row],
+      },
+    });
+    const result = await harness.catalogPull.handlePosCatalogPull(validPullInput());
+
+    assert.equal(result.status, 200, scenario.entity);
+    assert.deepEqual(
+      JSON.parse(
+        JSON.stringify(result.body.catalog.tombstones[scenario.entity][0]),
+      ),
+      scenario.expected,
+      scenario.entity,
+    );
+  }
+});
+
+test("TASK-146 legacy price timestamps remain byte-unchanged", async () => {
+  const legacyTimestamp = "2026-07-28 21:31:00.123456";
+  const harness = loadCatalogPull({
+    page: {
+      ...defaultPage(),
+      entity: "prices",
+      manifest: {
+        catalogSummary: {
+          activeProducts: 1,
+          categories: 0,
+          prices: 1,
+          products: 1,
+          suppliers: 0,
+        },
+        windowCounts: {
+          categories: 0,
+          prices: 1,
+          products: 0,
+          suppliers: 0,
+        },
+      },
+      rows: [
+        {
+          created_at: legacyTimestamp,
+          effective_at: legacyTimestamp,
+          id: "90000000-0000-4000-8000-000000000146",
+          price: 2,
+          product_id: "80000000-0000-4000-8000-000000000146",
+          source: "task-146-test",
+          type: "RETAIL",
+          updated_at: "2026-07-28T21:31:00.123456+00:00",
+        },
+      ],
+    },
+  });
+  const result = await harness.catalogPull.handlePosCatalogPull(validPullInput());
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.catalog.prices[0].effectiveAt, legacyTimestamp);
 });
 
 test("TASK-143 runtime fix removes the heavy write policy and preserves bounded paging", () => {

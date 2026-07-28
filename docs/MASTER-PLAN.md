@@ -2879,26 +2879,46 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - File task TASK-145: `docs/TASKS/TASK-145-pos-article-mutation-v1.md`
 - Evidence TASK-145: `docs/TASKS/EVIDENCE/TASK-145/README.md`
 - Branch TASK-145: `codex/admin-pos-article-mutation-v1-20260728`
+- Stato TASK-146: `EXECUTION`
+- Fase TASK-146: `PR_READY`
+- Task TASK-146: `TASK-146 - Canonical POS revision timestamps and Asus cleanup`
+- File task TASK-146:
+  `docs/TASKS/TASK-146-pos-revision-canonicalization-asus-cleanup.md`
+- Evidence TASK-146: `docs/TASKS/EVIDENCE/TASK-146/README.md`
+- Branch TASK-146:
+  `codex/admin-pos-revision-canonicalization-20260728`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `REVIEW`
-- Task attivo: `TASK-145 - Versioned POS article mutation contract`
-- Task precedente: `TASK-144 - POS offline authorization attestation` (`REVIEW_READY`)
+- Stato globale attuale: `EXECUTION`
+- Task attivo: `TASK-146 - Canonical POS revision timestamps and Asus cleanup`
+- Task precedente: `TASK-145 - Versioned POS article mutation contract` (`REVIEW_READY`)
 - Ultimo task chiuso: `TASK-142 - Cross-platform catalog text integrity`
 - Ultimo task completato: `TASK-142 - Cross-platform catalog text integrity`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-145-pos-article-mutation-v1.md`
-- Ultimo file task: `docs/TASKS/TASK-144-pos-offline-authorization-attestation.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-145/README.md`
-- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-144/README.md`
-- Stato task: `REVIEW_READY`
-- Fase: `REVIEW_READY`
-- Milestone interna: `READY_FOR_ASUS_ARTICLE_SYNC_AND_FINAL_ACCEPTANCE`
-- Responsabile: `CLAUDE/CHATGPT / REVIEWER`
+- File task corrente: `docs/TASKS/TASK-146-pos-revision-canonicalization-asus-cleanup.md`
+- Ultimo file task: `docs/TASKS/TASK-145-pos-article-mutation-v1.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-146/README.md`
+- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-145/README.md`
+- Stato task: `EXECUTION`
+- Fase: `PR_READY`
+- Milestone interna: `POS_REVISION_CANONICALIZATION_ZERO_GATE_PASS`
+- Responsabile: `CODEX / EXECUTOR`
 - Branch/worktree:
-  `codex/admin-pos-offline-authorization-20260728`;
-  `/Users/minxiang/.codex/worktrees/admin-pos-contract-20260728/offline-auth`.
+  `codex/admin-pos-revision-canonicalization-20260728`;
+  `/Users/minxiang/.codex/worktrees/admin-pos-revision-canonicalization-20260728`.
+- Apertura TASK-146 2026-07-28: baseline Admin `86713586` e Win7POS
+  `b6391781` verificate su GitHub; PR Win7POS `#52/#53/#54` merged. Checkout
+  Admin pulito e worktree isolato creato; checkout Win7POS dirty preservato e
+  non modificato. Riproduzione staging read-only su Asus run 2/3: ACK
+  canonico `Z` e Data API/catalog `+00:00`, entrambi a sei microsecondi e allo
+  stesso istante ma byte-diversi. TASK-144/TASK-145 restano `REVIEW_READY`,
+  mai `DONE`; production resta `NOT_MODIFIED`.
+- Review indipendente TASK-146 2026-07-28: feature SHA congelata `83e71b91`;
+  reviewer read-only `ZERO-GATE PASS`, `P0/P1/P2/P3 = 0/0/0/0`. Check freschi
+  reviewer: regressioni TASK-139/141/142/143/144/145/146 `54/54`, typecheck,
+  security, Cloudflare build/smoke e diff check tutti `PASS`. Nessun file
+  modificato dal reviewer; task pronta per PR non-draft.
 - Apertura TASK-144 2026-07-28: richiesta utente completa ricevuta per i due
   blocker Admin POS. Baseline Admin e Win7POS coincidono con gli SHA attesi;
   entrambi i branch GitHub `main` e gli ultimi 12 commit sono stati verificati.
