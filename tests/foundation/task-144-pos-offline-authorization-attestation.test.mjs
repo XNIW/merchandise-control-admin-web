@@ -83,7 +83,7 @@ function identity() {
   };
 }
 
-function loadFirstLogin(commitResult) {
+function loadFirstLogin(commitResult, options = {}) {
   const calls = {
     audit: [],
     commit: [],
@@ -111,7 +111,12 @@ function loadFirstLogin(commitResult) {
   };
   const core = transpileCommonJs("src/server/pos-auth/first-login-core.ts", {
     "@/server/shop-admin/staff-credentials": {
-      verifyStaffCredential: async () => true,
+      verifyStaffCredential: async () => {
+        if (options.credentialVerificationThrows) {
+          throw new Error("test-only credential verification failure");
+        }
+        return true;
+      },
     },
     "./pos-contract": {
       POS_OFFLINE_AUTHORIZATION_MAX_AGE_SECONDS: 43200,
@@ -215,6 +220,29 @@ test("TASK-144 exposes every typed offline-authorization failure", async () => {
     assert.equal(calls.audit.at(-1).code, code, code);
     assert.deepEqual(calls.audit.at(-1).metadata.reason, code, code);
   }
+});
+
+test("TASK-144 credential runtime failures fail closed with a bounded audit", async () => {
+  const { calls, service } = loadFirstLogin(
+    {
+      code: "unused",
+      ok: false,
+    },
+    { credentialVerificationThrows: true },
+  );
+  const result = await service.handlePosFirstLogin(validInput(), {
+    requestId: "posreq_server_task144",
+    route: "pos.auth.first-login",
+  });
+
+  assert.equal(result.status, 500);
+  assert.equal(result.body.code, "db_failure");
+  assert.equal(calls.commit.length, 0);
+  assert.equal(calls.audit.at(-1).code, "credential_verification_failed");
+  assert.equal(
+    calls.audit.at(-1).metadata.stage,
+    "credential_verification",
+  );
 });
 
 test("TASK-144 runtime boundary calls only V3 and rejects malformed authority", async () => {
