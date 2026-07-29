@@ -94,6 +94,10 @@ mutazioni articolo, offline authorization, audit, RLS e fail-closed.
   prima di leggere o rifiutare il body.
 - Correzione:
   - envelope POS compatto, bounded e privo di dipendenze dominio;
+  - validazione leggera di UUID, codici, schema e struttura mutation per
+    trattenere anche i malformed non vuoti sul cold path;
+  - audit operativo strutturato e bounded per ogni rejection anticipata,
+    senza raw body, token o client-supplied identifier;
   - import dinamico dopo il light guard;
   - helper lock credential estratto dal grafo Shop Admin;
   - contratti 400/401/405 e request ID preservati.
@@ -107,7 +111,7 @@ mutazioni articolo, offline authorization, audit, RLS e fail-closed.
 
 ## Check correnti
 
-- focused TASK-147: `8/8 PASS`.
+- focused TASK-147: `9/9 PASS`.
 - focused TASK-143/145/146: `30/30 PASS`.
 - full foundation con Win7POS detached: `PASS`.
 - verify consecutivo 1: `PASS`.
@@ -115,13 +119,33 @@ mutazioni articolo, offline authorization, audit, RLS e fail-closed.
 - typecheck: `PASS`.
 - lint: `PASS`.
 - security scan locale: `PASS`.
-- Codex Security diff scan: `PASS`, coverage runtime `10/10`, finding `0`.
+- Codex Security diff scan sul feature SHA iniziale: `PASS`, coverage runtime
+  `10/10`, finding `0`; rerun finale dopo fix review `PENDING`.
 - Cloudflare/OpenNext build: `PASS`.
 - Worker locale: `PASS`; catalog, first-login e article mutation restituiscono
   `400`, i metodi non supportati `405`, senza `503` sulle route corrette.
 - `git diff --check`: `PASS`.
 - migration parity linked: `PASS` con Supabase CLI `2.109.1`.
 - SQL/pgTAP: `NOT_RUN_NOT_APPLICABLE`; nessuna modifica SQL.
+
+## Review indipendente
+
+- Feature SHA iniziale: `247e3217`.
+- Prima review:
+  - `P0=0`;
+  - `P1=1`: envelope non vuoti ma manifestamente invalidi caricavano ancora
+    il dominio;
+  - `P2=1`: i `400` anticipati non emettevano audit/log;
+  - `P3=0`.
+- Correzioni applicate:
+  - guard strutturali più stretti senza import dominio;
+  - audit operativo bounded sulle rejection anticipate;
+  - allowlist del logger limitata alla singola funzione e protetta dal
+    security scanner contro body, token, client request ID e altri campi
+    sensibili;
+  - regressione esplicita su tre envelope non vuoti invalidi e zero heavy
+    load.
+- Review finale: `PENDING`.
 
 ## Stato operativo
 

@@ -181,6 +181,24 @@ export function posJsonResponse(
   });
 }
 
+export function emitPosRouteRejectionAudit(
+  context: PosRouteRequestContext,
+  stage: string,
+) {
+  console.warn(
+    JSON.stringify({
+      code: "validation_failed",
+      event: "pos.route.rejection",
+      ...(context.edgeCorrelationHash
+        ? { edgeCorrelationHash: context.edgeCorrelationHash }
+        : {}),
+      requestId: context.serverRequestId,
+      route: context.route,
+      stage,
+    }),
+  );
+}
+
 export function posMethodNotAllowedResponse(
   allowedMethods = "POST",
   context?: PosRouteRequestContext,

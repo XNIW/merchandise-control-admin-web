@@ -4,6 +4,7 @@ import {
 } from "@/server/pos-auth/route-envelope";
 import {
   createPosRouteRequestContext,
+  emitPosRouteRejectionAudit,
   posJsonResponse,
   posMethodNotAllowedResponse,
   readPosJsonBody,
@@ -24,6 +25,8 @@ export async function POST(request: Request) {
     });
 
     if (!hasPosArticleMutationEnvelope(body)) {
+      emitPosRouteRejectionAudit(context, "article_mutations");
+
       return posJsonResponse(
         {
           code: "validation_failed",

@@ -13,7 +13,7 @@ function read(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
 }
 
-function transpileCommonJs(relativePath, stubs = {}) {
+function transpileCommonJs(relativePath, stubs = {}, globals = {}) {
   const transpiled = ts.transpileModule(read(relativePath), {
     compilerOptions: {
       esModuleInterop: true,
@@ -32,7 +32,7 @@ function transpileCommonJs(relativePath, stubs = {}) {
       Response,
       TextDecoder,
       Uint8Array,
-      console,
+      console: globals.console ?? console,
       exports: cjsModule.exports,
       module: cjsModule,
       require(specifier) {
@@ -47,8 +47,17 @@ function transpileCommonJs(relativePath, stubs = {}) {
 }
 
 function loadRoute(relativePath, heavySpecifier, heavyModule) {
+  const rejectionAudits = [];
   const security = transpileCommonJs(
     "src/app/api/pos/_shared/pos-route-security.ts",
+    {},
+    {
+      console: {
+        warn(value) {
+          rejectionAudits.push(String(value));
+        },
+      },
+    },
   );
   const envelope = transpileCommonJs(
     "src/server/pos-auth/route-envelope.ts",
@@ -67,6 +76,7 @@ function loadRoute(relativePath, heavySpecifier, heavyModule) {
 
   return {
     heavyLoads: () => heavyLoads,
+    rejectionAudits: () => rejectionAudits,
     route,
   };
 }
@@ -106,6 +116,86 @@ test("TASK-147 catalog guard returns typed 400 without loading catalog domain", 
   assert.equal(body.stage, "catalog_pull");
   assert.match(body.requestId, /^posreq_[0-9a-f-]{36}$/);
   assert.equal(harness.heavyLoads(), 0);
+  assert.deepEqual(
+    JSON.parse(harness.rejectionAudits()[0]),
+    {
+      code: "validation_failed",
+      event: "pos.route.rejection",
+      requestId: body.requestId,
+      route: "pos.catalog.pull",
+      stage: "catalog_pull",
+    },
+  );
+});
+
+test("TASK-147 obviously malformed non-empty envelopes remain on the light path", async () => {
+  const catalog = loadRoute(
+    "src/app/api/pos/catalog/pull/route.ts",
+    "@/server/pos-auth/catalog-pull",
+    {},
+  );
+  const firstLogin = loadRoute(
+    "src/app/api/pos/auth/first-login/route.ts",
+    "@/server/pos-auth/service",
+    {},
+  );
+  const mutation = loadRoute(
+    "src/app/api/pos/catalog/article-mutations/route.ts",
+    "@/server/pos-auth/article-mutations",
+    {},
+  );
+  const responses = await Promise.all([
+    catalog.route.POST(
+      jsonRequest(
+        "/api/pos/catalog/pull",
+        JSON.stringify({
+          deviceToken: "x",
+          posSessionId: "x",
+          sessionToken: "x",
+          shopDeviceId: "x",
+        }),
+      ),
+    ),
+    firstLogin.route.POST(
+      jsonRequest(
+        "/api/pos/auth/first-login",
+        JSON.stringify({
+          credential: "x",
+          device: { deviceIdentifier: "x" },
+          shopCode: "x",
+          staffCode: "x",
+        }),
+      ),
+    ),
+    mutation.route.POST(
+      jsonRequest(
+        "/api/pos/catalog/article-mutations",
+        JSON.stringify({
+          appVersion: "x",
+          deviceToken: "x",
+          mutations: [{}],
+          posSessionId: "x",
+          schemaVersion: "x",
+          sessionToken: "x",
+          shopDeviceId: "x",
+          shopId: "x",
+          staffCredentialVersion: 1,
+          staffId: "x",
+        }),
+      ),
+    ),
+  ]);
+
+  assert.deepEqual(
+    responses.map((response) => response.status),
+    [400, 400, 400],
+  );
+  assert.equal(catalog.heavyLoads(), 0);
+  assert.equal(firstLogin.heavyLoads(), 0);
+  assert.equal(mutation.heavyLoads(), 0);
+  assert.equal(catalog.rejectionAudits().length, 1);
+  assert.equal(firstLogin.rejectionAudits().length, 1);
+  assert.equal(mutation.rejectionAudits().length, 1);
 });
 
 test("TASK-147 unsupported catalog method returns 405 without loading catalog domain", async () => {
@@ -241,13 +331,34 @@ test("TASK-147 valid article mutation envelope reaches only the mutation service
     jsonRequest(
       "/api/pos/catalog/article-mutations",
       JSON.stringify({
+        appVersion: "task-147",
         deviceToken: "test-device-token",
-        mutations: [{}],
+        mutations: [
+          {
+            attemptToken: "task147-attempt",
+            baseRevision: null,
+            changes: {
+              barcode: "TASK147",
+              primaryName: "Task 147",
+            },
+            clientProductId: "task147-product",
+            createdAt: "2026-07-29T00:00:00.000Z",
+            fieldMask: [],
+            idempotencyKey: "task147-idempotency",
+            localSequence: 1,
+            mutationId: "task147-mutation",
+            mutationKind: "product_create",
+            occurredAt: "2026-07-29T00:00:00.000Z",
+            payloadHash: `sha256:${"a".repeat(64)}`,
+            remoteProductId: null,
+          },
+        ],
         posSessionId: "40000000-0000-4000-8000-000000000147",
         schemaVersion: "pos-article-mutation-v1",
         sessionToken: "test-session-token",
         shopDeviceId: "30000000-0000-4000-8000-000000000147",
         shopId: "10000000-0000-4000-8000-000000000147",
+        staffCredentialVersion: 1,
         staffId: "20000000-0000-4000-8000-000000000147",
       }),
     ),
@@ -313,4 +424,8 @@ test("TASK-147 failures never echo raw request bodies or secrets", async () => {
 
   assert.equal(response.status, 400);
   assert.equal(serialized.includes(secretMarker), false);
+  assert.equal(
+    harness.rejectionAudits().some((entry) => entry.includes(secretMarker)),
+    false,
+  );
 });

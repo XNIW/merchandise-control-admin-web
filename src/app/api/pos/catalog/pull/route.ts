@@ -1,6 +1,7 @@
 import { hasPosCatalogPullEnvelope } from "@/server/pos-auth/route-envelope";
 import {
   createPosRouteRequestContext,
+  emitPosRouteRejectionAudit,
   posJsonResponse,
   posMethodNotAllowedResponse,
   readPosJsonBody,
@@ -19,6 +20,8 @@ export async function POST(request: Request) {
     const body = await readPosJsonBody(request);
 
     if (!hasPosCatalogPullEnvelope(body)) {
+      emitPosRouteRejectionAudit(context, "catalog_pull");
+
       return posJsonResponse(
         {
           code: "validation_failed",

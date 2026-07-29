@@ -1,6 +1,7 @@
 import { hasPosFirstLoginEnvelope } from "@/server/pos-auth/route-envelope";
 import {
   createPosRouteRequestContext,
+  emitPosRouteRejectionAudit,
   posJsonResponse,
   posMethodNotAllowedResponse,
   readPosJsonBody,
@@ -16,6 +17,8 @@ export async function POST(request: Request) {
     const body = await readPosJsonBody(request);
 
     if (!hasPosFirstLoginEnvelope(body)) {
+      emitPosRouteRejectionAudit(context, "first_login");
+
       return posJsonResponse(
         {
           code: "validation_failed",

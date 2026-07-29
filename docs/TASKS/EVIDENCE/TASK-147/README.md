@@ -62,7 +62,7 @@
 - `npm run cf:build`: `PASS`.
 - `npm run test:cloudflare:local`: `PASS`; le route catalog pull, first-login
   e article mutation restituiscono i contratti leggeri `400/405`, senza `503`.
-- TASK-147 focused: `8/8 PASS`.
+- TASK-147 focused: `9/9 PASS`.
 - TASK-143/145/146 focused: `30/30 PASS`.
 - foundation completa con
   `WIN7POS_REPO_PATH=<detached-e47981f> REQUIRE_WIN7POS_REPO=1`: `PASS`.
@@ -74,6 +74,10 @@
   - finding: `0`;
   - rinvii: `0`;
   - manifest canonico sigillato e report generato.
+- Security gate dopo il primo logger route: `FAIL` atteso perché il logger non
+  era ancora nel contratto bounded. Correzione: allowlist limitata alla
+  funzione e scanner esplicito contro campi sensibili; rerun
+  `npm run security:scan`: `PASS`.
 - `git diff --check`: `PASS`.
 - `npm run supabase:check`: `PASS`; CLI `2.109.1` e migration list linked
   completata.
@@ -81,7 +85,7 @@
 
 ## Pending
 
-- review indipendente;
+- review indipendente finale dopo fix P1/P2;
 - PR/CI/merge;
 - staging deploy e acceptance completa;
 - handoff finale.
