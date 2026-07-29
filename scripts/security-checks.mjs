@@ -4269,6 +4269,12 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const adminClientPath = "src/lib/supabase/admin.ts";
   const tokenPath = "src/server/pos-auth/tokens.ts";
   const servicePath = "src/server/pos-auth/service.ts";
+  const firstLoginServicePath =
+    "src/server/pos-auth/first-login-service.ts";
+  const firstLoginCorePath =
+    "src/server/pos-auth/first-login-core.ts";
+  const runtimeRpcClientPath =
+    "src/server/pos-auth/runtime-rpc-client.ts";
   const runtimeBoundaryPath = "src/server/pos-auth/runtime-boundary.ts";
   const publicationFenceMigrationPath =
     "supabase/migrations/20260722022500_task_139_pos_catalog_scope_lease.sql";
@@ -4286,6 +4292,9 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     adminClientPath,
     tokenPath,
     servicePath,
+    firstLoginServicePath,
+    firstLoginCorePath,
+    runtimeRpcClientPath,
     runtimeBoundaryPath,
     publicationFenceMigrationPath,
     posRouteSecurityPath,
@@ -4304,6 +4313,9 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   const adminClient = read(adminClientPath);
   const tokens = read(tokenPath);
   const service = read(servicePath);
+  const firstLoginService = read(firstLoginServicePath);
+  const firstLoginCore = read(firstLoginCorePath);
+  const runtimeRpcClient = read(runtimeRpcClientPath);
   const runtimeBoundary = read(runtimeBoundaryPath);
   const publicationFenceMigration = read(publicationFenceMigrationPath);
   const catalogPullService = existsSync(join(root, catalogPullServicePath))
@@ -4346,6 +4358,9 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     adminClient,
     tokens,
     service,
+    firstLoginService,
+    firstLoginCore,
+    runtimeRpcClient,
     runtimeBoundary,
     publicationFenceMigration,
     catalogPullService,
@@ -4470,22 +4485,50 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     addFailure(`${tokenPath} must hash and compare POS secrets safely`);
   }
 
+  if (
+    /createSupabaseAdminClient|resolveSupabaseAdminConfig/.test(
+      firstLoginService,
+    ) ||
+    !/handlePosFirstLoginWithClient/.test(firstLoginService) ||
+    !/handlePosFirstLoginWithClient\(supabase, input, meta\)/.test(service) ||
+    /commitPosFirstLogin|loadPosFirstLoginIdentity|recordPosFirstLoginFailure|verifyStaffCredential|generatePosSecret/.test(
+      service,
+    ) ||
+    /@supabase\/supabase-js/.test(runtimeRpcClient) ||
+    !/MAX_RPC_JSON_RESPONSE_BYTES/.test(runtimeRpcClient) ||
+    !/apikey: serviceRoleKey/.test(runtimeRpcClient) ||
+    !/authorization: `Bearer \$\{serviceRoleKey\}`/.test(runtimeRpcClient) ||
+    !/redirect: "error"/.test(runtimeRpcClient) ||
+    !/url\.protocol === "https:"/.test(runtimeRpcClient)
+  ) {
+    addFailure(
+      "TASK-147 first-login must use the bounded lightweight server-only RPC client",
+    );
+  }
+
   for (const requiredSnippet of [
     "verifyStaffCredential",
     "hashPosSecret",
     "MAX_CREDENTIAL_LENGTH",
-    "MAX_POS_SECRET_LENGTH",
     "isStaffLockoutActive",
     "isStaffLockoutExpired",
-    "sessionTokenValid",
-    "deviceTokenValid",
     "pos.auth.first_login.failure",
-    "pos.session.heartbeat.failure",
     "pos.device.revoked_enforced",
-    "loadPosRuntimeLease",
     "recordPosFirstLoginFailure",
     "commitPosFirstLogin",
     "publishPosRuntimeLeaseSuccess",
+  ]) {
+    if (!firstLoginCore.includes(requiredSnippet)) {
+      addFailure(`${firstLoginCorePath} must include ${requiredSnippet}`);
+    }
+  }
+
+  for (const requiredSnippet of [
+    "MAX_POS_SECRET_LENGTH",
+    "sessionTokenValid",
+    "deviceTokenValid",
+    "pos.session.heartbeat.failure",
+    "loadPosRuntimeLease",
   ]) {
     if (!service.includes(requiredSnippet)) {
       addFailure(`${servicePath} must include ${requiredSnippet}`);
@@ -4505,12 +4548,12 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
 
   if (
     !/staff\.credential_status === "active"[\s\S]*staff\.credential_status === "locked"[\s\S]*isStaffLockoutExpired\(staff\)/.test(
-      service,
+      firstLoginCore,
     ) ||
     !/pos_runtime_first_login_commit_v3/.test(runtimeBoundary)
   ) {
     addFailure(
-      `${servicePath} must permit only expired lockout recovery through the atomic POS runtime boundary`,
+      `${firstLoginCorePath} must permit only expired lockout recovery through the atomic POS runtime boundary`,
     );
   }
 

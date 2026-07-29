@@ -93,6 +93,7 @@ test("TASK-021 POS endpoint modules stay server-side and redact credentials", ()
   const requiredPaths = [
     "src/lib/supabase/admin.ts",
     "src/server/pos-auth/tokens.ts",
+    "src/server/pos-auth/first-login-core.ts",
     "src/server/pos-auth/service.ts",
     "src/app/api/pos/auth/first-login/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
@@ -104,6 +105,9 @@ test("TASK-021 POS endpoint modules stay server-side and redact credentials", ()
 
   const adminClient = readProjectFile("src/lib/supabase/admin.ts");
   const tokens = readProjectFile("src/server/pos-auth/tokens.ts");
+  const firstLoginCore = readProjectFile(
+    "src/server/pos-auth/first-login-core.ts",
+  );
   const service = readProjectFile("src/server/pos-auth/service.ts");
   const runtimeBoundary = readProjectFile(
     "src/server/pos-auth/runtime-boundary.ts",
@@ -122,25 +126,36 @@ test("TASK-021 POS endpoint modules stay server-side and redact credentials", ()
     .map(readProjectFile)
     .join("\n");
 
-  for (const serverOnlyModule of [adminClient, tokens, service, runtimeBoundary]) {
+  for (const serverOnlyModule of [
+    adminClient,
+    tokens,
+    firstLoginCore,
+    service,
+    runtimeBoundary,
+  ]) {
     assert.match(serverOnlyModule, /import "server-only"/);
     assert.doesNotMatch(serverOnlyModule, /console\.(log|debug|info|warn|error)/);
   }
 
   assert.match(adminClient, /SUPABASE_SERVICE_ROLE_KEY/);
-  assert.match(service, /verifyStaffCredential/);
-  assert.match(service, /hashPosSecret/);
-  assert.match(service, /pos\.auth\.first_login\.failure/);
-  assert.match(service, /publishPosRuntimeLeaseSuccess/);
-  assert.match(service, /publicationKind: "first_login"/);
+  assert.match(firstLoginCore, /verifyStaffCredential/);
+  assert.match(firstLoginCore, /hashPosSecret/);
+  assert.match(firstLoginCore, /pos\.auth\.first_login\.failure/);
+  assert.match(firstLoginCore, /publishPosRuntimeLeaseSuccess/);
+  assert.match(firstLoginCore, /publicationKind: "first_login"/);
   assert.match(runtimeBoundary, /pos_runtime_lease_publish_success_v2/);
   assert.match(firstLoginPublicationMigration, /pos\.auth\.first_login\.success/);
   assert.match(firstLoginPublicationMigration, /pos\.device\.trusted/);
   assert.match(service, /pos\.session\.heartbeat\.failure/);
-  assert.match(service, /pos\.device\.revoked_enforced/);
-  assert.doesNotMatch(service, /select\("\*"\)/);
-  assert.doesNotMatch(service, /pin_plain|password_plain|plain_pin|plain_password/i);
-  assert.doesNotMatch(service, /pos_sales|sales_sync|sync_batch/i);
+  assert.match(firstLoginCore, /pos\.device\.revoked_enforced/);
+  for (const source of [firstLoginCore, service]) {
+    assert.doesNotMatch(source, /select\("\*"\)/);
+    assert.doesNotMatch(
+      source,
+      /pin_plain|password_plain|plain_pin|plain_password/i,
+    );
+    assert.doesNotMatch(source, /pos_sales|sales_sync|sync_batch/i);
+  }
 
   for (const route of [firstLoginRoute, heartbeatRoute]) {
     assert.match(route, /export const dynamic = "force-dynamic"/);
@@ -189,21 +204,24 @@ test("TASK-021 updates security scanner and keeps sales sync out of scope", () =
 });
 
 test("TASK-021 hardens lockout expiry, audit requirements and token failure handling", () => {
+  const firstLoginCore = readProjectFile(
+    "src/server/pos-auth/first-login-core.ts",
+  );
   const service = readProjectFile("src/server/pos-auth/service.ts");
   const runtimeBoundary = readProjectFile(
     "src/server/pos-auth/runtime-boundary.ts",
   );
 
-  assert.match(service, /const MAX_CREDENTIAL_LENGTH = \d+/);
+  assert.match(firstLoginCore, /const MAX_CREDENTIAL_LENGTH = \d+/);
   assert.match(service, /const MAX_POS_SECRET_LENGTH = \d+/);
-  assert.match(service, /credential\.length > MAX_CREDENTIAL_LENGTH/);
+  assert.match(firstLoginCore, /credential\.length > MAX_CREDENTIAL_LENGTH/);
   assert.match(service, /deviceToken\.length > MAX_POS_SECRET_LENGTH/);
   assert.match(service, /sessionToken\.length > MAX_POS_SECRET_LENGTH/);
-  assert.match(service, /function isStaffLockoutActive/);
+  assert.match(firstLoginCore, /function isStaffLockoutActive/);
   assert.match(service, /loadPosRuntimeLease/);
-  assert.match(service, /recordPosFirstLoginFailure/);
-  assert.match(service, /commitPosFirstLogin/);
-  assert.match(service, /publishPosRuntimeLeaseSuccess/);
+  assert.match(firstLoginCore, /recordPosFirstLoginFailure/);
+  assert.match(firstLoginCore, /commitPosFirstLogin/);
+  assert.match(firstLoginCore, /publishPosRuntimeLeaseSuccess/);
   assert.match(runtimeBoundary, /pos_runtime_first_login_lookup_v1/);
   assert.match(runtimeBoundary, /pos_runtime_first_login_failure_v1/);
   assert.match(runtimeBoundary, /pos_runtime_first_login_commit_v3/);

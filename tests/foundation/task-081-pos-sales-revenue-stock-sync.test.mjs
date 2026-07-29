@@ -127,7 +127,9 @@ test("TASK-081 Admin Web sales sync stays strict, idempotent and ledger-backed",
 
 test("TASK-081 UX/Product alignment keeps POS payload official and revenue read-only", () => {
   const shopPayload = readProjectFile("src/server/pos-auth/shop-payload.ts");
-  const firstLogin = readProjectFile("src/server/pos-auth/service.ts");
+  const firstLogin = readProjectFile(
+    "src/server/pos-auth/first-login-core.ts",
+  );
   const catalogPull = readProjectFile("src/server/pos-auth/catalog-pull.ts");
   const salesSync = readProjectFile("src/server/pos-auth/sales-sync.ts");
   const revenueRoute = readProjectFile("src/app/api/shop/pos/revenue/route.ts");

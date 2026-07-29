@@ -30,7 +30,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const { handlePosFirstLogin } = await import("@/server/pos-auth/service");
+    const { handlePosFirstLogin } = await import(
+      "@/server/pos-auth/first-login-service"
+    );
     const result = await handlePosFirstLogin(body, {
       clientRequestId: context.clientRequestId,
       requestId: context.serverRequestId,
