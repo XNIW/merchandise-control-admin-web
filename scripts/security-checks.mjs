@@ -4359,9 +4359,28 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
       /function emitPosCatalogFailureLog\([\s\S]*?\n}\n\nfunction cursorFingerprint/,
     )?.[0] ?? "";
   const routeRejectionLogger =
-    posRouteSecurity.match(
-      /export function emitPosRouteRejectionAudit\([\s\S]*?\n}\n\nexport function posMethodNotAllowedResponse/,
-    )?.[0] ?? "";
+    posRouteSecurity
+      .match(
+        /export function emitPosRouteRejectionAudit\([\s\S]*?\n}\n(?=\nexport function posMethodNotAllowedResponse)/,
+      )?.[0]
+      .trimEnd() ?? "";
+  const expectedRouteRejectionLogger = [
+    "export function emitPosRouteRejectionAudit(",
+    "  context: PosRouteRequestContext,",
+    "  stage: string,",
+    ") {",
+    "  console.warn(",
+    "    JSON.stringify({",
+    '      code: "validation_failed",',
+    "      edgeCorrelationHash: context.edgeCorrelationHash,",
+    '      event: "pos.route.rejection",',
+    "      requestId: context.serverRequestId,",
+    "      route: context.route,",
+    "      stage,",
+    "    }),",
+    "  );",
+    "}",
+  ].join("\n");
   const routeRejectionConsoleCalls =
     routeRejectionLogger.match(/console\.(?:log|debug|info|warn|error)\s*\(/g) ??
     [];
@@ -4572,6 +4591,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
 
   if (
     !routeRejectionLogger ||
+    routeRejectionLogger !== expectedRouteRejectionLogger ||
     routeRejectionConsoleCalls.length !== 1 ||
     routeRejectionConsoleCalls[0] !== "console.warn(" ||
     !/console\.warn\(\s*JSON\.stringify\(/.test(routeRejectionLogger) ||

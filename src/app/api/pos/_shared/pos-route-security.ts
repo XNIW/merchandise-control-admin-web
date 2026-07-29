@@ -188,10 +188,8 @@ export function emitPosRouteRejectionAudit(
   console.warn(
     JSON.stringify({
       code: "validation_failed",
+      edgeCorrelationHash: context.edgeCorrelationHash,
       event: "pos.route.rejection",
-      ...(context.edgeCorrelationHash
-        ? { edgeCorrelationHash: context.edgeCorrelationHash }
-        : {}),
       requestId: context.serverRequestId,
       route: context.route,
       stage,

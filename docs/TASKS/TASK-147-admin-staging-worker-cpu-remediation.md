@@ -103,8 +103,8 @@ mutazioni articolo, offline authorization, audit, RLS e fail-closed.
   - contratti 400/401/405 e request ID preservati.
 - Dopo il fix, il catalog cold path emesso carica circa 91 KiB di chunk
   iniziali; il dominio catalogo/Supabase è un chunk dinamico separato.
-- Bundle finale dopo il fix review: upload minificato `9.029.675 byte`,
-  handler OpenNext `9.394.326 byte`, gzip `2.450,42 KiB`.
+- Bundle release dopo il fix review: upload minificato `9.029.480 byte`,
+  handler OpenNext `9.394.140 byte`, gzip `2.450,39 KiB`.
 - Il cold graph catalogo finale resta route-local e misura circa 94 KiB
   iniziali; catalogo/Supabase restano in chunk dinamici separati.
 - Il profilo startup locale Wrangler è stato generato, ma il campionamento
@@ -154,6 +154,15 @@ mutazioni articolo, offline authorization, audit, RLS e fail-closed.
 - Correzione seconda review:
   - scanner vincolato a esattamente un unico `console.warn`;
   - test sorgente dedicato al sink unico e alla shape secret-free.
+- Terza review:
+  - `P0=0`, `P1=0`, `P2=1`, `P3=0`;
+  - il sink era unico, ma uno spread del context poteva ancora eludere
+    l'allowlist nominale.
+- Correzione terza review:
+  - funzione audit vincolata a una shape sorgente canonica esatta;
+  - nessuno spread e solo `code`, hash edge opzionale, event, request ID
+    server-generated, route e stage;
+  - qualunque campo o statement aggiuntivo fa fallire lo scanner.
 - Review finale: `PENDING`.
 
 ## Stato operativo

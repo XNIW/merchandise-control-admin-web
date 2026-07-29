@@ -45,9 +45,9 @@
   - handler OpenNext `9.393.559 byte`;
   - catalog cold graph statico circa 402 KiB.
 - Dopo route isolation:
-  - upload minificato finale `9.029.675 byte`;
-  - handler OpenNext finale `9.394.326 byte`;
-  - upload gzip finale `2.450,42 KiB`;
+  - upload minificato release `9.029.480 byte`;
+  - handler OpenNext release `9.394.140 byte`;
+  - upload gzip release `2.450,39 KiB`;
   - catalog cold graph iniziale finale circa 94 KiB;
   - dominio catalogo/Supabase in chunk dinamici.
 - Profili startup Wrangler generati prima/dopo. Il comando è alpha e i profili
