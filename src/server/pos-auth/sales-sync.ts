@@ -7,7 +7,7 @@ import {
   type SupabaseAdminClient,
 } from "@/lib/supabase/admin";
 import type { Json, Tables } from "@/lib/supabase/database.types";
-import { isStaffCredentialLockStateUsable } from "@/server/shop-admin/access-principal";
+import { isStaffCredentialLockStateUsable } from "./staff-credential-lock-state";
 import {
   buildPosShopPayload,
   type PosShopPayload,

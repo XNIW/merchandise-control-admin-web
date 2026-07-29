@@ -12,7 +12,7 @@ import {
   canonicalizeCatalogDisplayText,
   validateCatalogIdentityText,
 } from "@/lib/catalog-text-policy";
-import { isStaffCredentialLockStateUsable } from "@/server/shop-admin/access-principal";
+import { isStaffCredentialLockStateUsable } from "./staff-credential-lock-state";
 import {
   buildPosShopPayload,
   type PosShopPayload,

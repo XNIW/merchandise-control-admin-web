@@ -168,7 +168,7 @@ function loadSalesSyncService(rpcData) {
       };
     }
 
-    if (id === "@/server/shop-admin/access-principal") {
+    if (id === "./staff-credential-lock-state") {
       return {
         isStaffCredentialLockStateUsable: () => true,
       };

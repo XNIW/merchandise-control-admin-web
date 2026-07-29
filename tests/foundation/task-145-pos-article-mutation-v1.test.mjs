@@ -110,6 +110,9 @@ function loadService(rpcResult, rpcError = null) {
       "./pos-contract": {
         POS_ARTICLE_MUTATION_SCHEMA_VERSION: "pos-article-mutation-v1",
       },
+      "./route-envelope": {
+        MAX_POS_ARTICLE_MUTATION_JSON_BODY_BYTES: 256 * 1024,
+      },
       "./runtime-boundary": {
         loadPosRuntimeLease: async () => runtimeLease(),
         writePosRuntimeAudit: async () => true,

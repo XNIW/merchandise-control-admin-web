@@ -13,6 +13,14 @@ function read(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
 }
 
+function loadRouteEnvelope() {
+  return transpileCommonJs(
+    "src/server/pos-auth/route-envelope.ts",
+    (specifier) =>
+      specifier === "server-only" ? {} : requireForTest(specifier),
+  );
+}
+
 function transpileCommonJs(relativePath, requireFromTest, globals = {}) {
   const source = read(relativePath);
   const transpiled = ts.transpileModule(source, {
@@ -179,7 +187,7 @@ function loadCatalogPull(options = {}) {
               url: "https://example.invalid",
             },
     },
-    "@/server/shop-admin/access-principal": {
+    "./staff-credential-lock-state": {
       isStaffCredentialLockStateUsable: () => true,
     },
     "./catalog-revision": {
@@ -788,6 +796,9 @@ test("TASK-143 POST catches a Worker exception and returns the audited typed bou
           },
         };
       }
+      if (specifier === "@/server/pos-auth/route-envelope") {
+        return loadRouteEnvelope();
+      }
       if (specifier === "../../_shared/pos-route-security") {
         return helper;
       }
@@ -834,6 +845,9 @@ test("TASK-143 POST keeps a typed fallback if the audit boundary itself throws",
             throw new Error("secret-audit-exception");
           },
         };
+      }
+      if (specifier === "@/server/pos-auth/route-envelope") {
+        return loadRouteEnvelope();
       }
       if (specifier === "../../_shared/pos-route-security") {
         return helper;

@@ -1,0 +1,316 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { join } from "node:path";
+import { createContext, Script } from "node:vm";
+import test from "node:test";
+import ts from "typescript";
+
+const root = process.cwd();
+const requireForTest = createRequire(import.meta.url);
+
+function read(relativePath) {
+  return readFileSync(join(root, relativePath), "utf8");
+}
+
+function transpileCommonJs(relativePath, stubs = {}) {
+  const transpiled = ts.transpileModule(read(relativePath), {
+    compilerOptions: {
+      esModuleInterop: true,
+      module: ts.ModuleKind.CommonJS,
+      target: ts.ScriptTarget.ES2022,
+    },
+    fileName: relativePath,
+  });
+  const cjsModule = { exports: {} };
+
+  new Script(transpiled.outputText, { filename: relativePath }).runInContext(
+    createContext({
+      Buffer,
+      Date,
+      Request,
+      Response,
+      TextDecoder,
+      Uint8Array,
+      console,
+      exports: cjsModule.exports,
+      module: cjsModule,
+      require(specifier) {
+        if (specifier === "server-only") return {};
+        if (specifier in stubs) return stubs[specifier];
+        return requireForTest(specifier);
+      },
+    }),
+  );
+
+  return cjsModule.exports;
+}
+
+function loadRoute(relativePath, heavySpecifier, heavyModule) {
+  const security = transpileCommonJs(
+    "src/app/api/pos/_shared/pos-route-security.ts",
+  );
+  const envelope = transpileCommonJs(
+    "src/server/pos-auth/route-envelope.ts",
+  );
+  let heavyLoads = 0;
+  const route = transpileCommonJs(relativePath, {
+    "../../_shared/pos-route-security": security,
+    "@/server/pos-auth/route-envelope": envelope,
+    [heavySpecifier]: new Proxy(heavyModule, {
+      get(target, property, receiver) {
+        heavyLoads += property === "__esModule" ? 0 : 1;
+        return Reflect.get(target, property, receiver);
+      },
+    }),
+  });
+
+  return {
+    heavyLoads: () => heavyLoads,
+    route,
+  };
+}
+
+function jsonRequest(path, body, headers = {}) {
+  return new Request(`https://example.invalid${path}`, {
+    body,
+    headers: {
+      "content-type": "application/json",
+      ...headers,
+    },
+    method: "POST",
+  });
+}
+
+test("TASK-147 catalog guard returns typed 400 without loading catalog domain", async () => {
+  const harness = loadRoute(
+    "src/app/api/pos/catalog/pull/route.ts",
+    "@/server/pos-auth/catalog-pull",
+    {
+      handlePosCatalogPull: async () => {
+        throw new Error("catalog domain must remain unloaded");
+      },
+      handlePosCatalogRouteFailure: async () => {
+        throw new Error("catalog failure domain must remain unloaded");
+      },
+    },
+  );
+  const response = await harness.route.POST(
+    jsonRequest("/api/pos/catalog/pull", ""),
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 400);
+  assert.equal(body.code, "validation_failed");
+  assert.equal(body.root, "validation");
+  assert.equal(body.stage, "catalog_pull");
+  assert.match(body.requestId, /^posreq_[0-9a-f-]{36}$/);
+  assert.equal(harness.heavyLoads(), 0);
+});
+
+test("TASK-147 unsupported catalog method returns 405 without loading catalog domain", async () => {
+  const harness = loadRoute(
+    "src/app/api/pos/catalog/pull/route.ts",
+    "@/server/pos-auth/catalog-pull",
+    {},
+  );
+  const response = await harness.route.GET(
+    new Request("https://example.invalid/api/pos/catalog/pull"),
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 405);
+  assert.equal(response.headers.get("allow"), "POST");
+  assert.equal(body.code, "method_not_allowed");
+  assert.equal(harness.heavyLoads(), 0);
+});
+
+test("TASK-147 structurally valid catalog request preserves typed auth denial", async () => {
+  const harness = loadRoute(
+    "src/app/api/pos/catalog/pull/route.ts",
+    "@/server/pos-auth/catalog-pull",
+    {
+      handlePosCatalogPull: async () => ({
+        body: {
+          code: "denied",
+          message: "POS catalog pull was denied.",
+          ok: false,
+          root: "denied",
+          stage: "lease",
+        },
+        status: 401,
+      }),
+      handlePosCatalogRouteFailure: async () => {
+        throw new Error("unexpected failure boundary");
+      },
+    },
+  );
+  const response = await harness.route.POST(
+    jsonRequest(
+      "/api/pos/catalog/pull",
+      JSON.stringify({
+        deviceToken: "invalid-device-token",
+        posSessionId: "20000000-0000-4000-8000-000000000147",
+        sessionToken: "invalid-session-token",
+        shopDeviceId: "30000000-0000-4000-8000-000000000147",
+      }),
+    ),
+  );
+  const body = await response.json();
+
+  assert.equal(response.status, 401);
+  assert.equal(body.code, "denied");
+  assert.equal(body.root, "denied");
+  assert.ok(harness.heavyLoads() > 0);
+});
+
+test("TASK-147 first-login guard stays light and valid envelope reaches its service", async () => {
+  const malformed = loadRoute(
+    "src/app/api/pos/auth/first-login/route.ts",
+    "@/server/pos-auth/service",
+    {},
+  );
+  const malformedResponse = await malformed.route.POST(
+    jsonRequest("/api/pos/auth/first-login", "{}"),
+  );
+
+  assert.equal(malformedResponse.status, 400);
+  assert.equal((await malformedResponse.json()).code, "validation_failed");
+  assert.equal(malformed.heavyLoads(), 0);
+
+  const valid = loadRoute(
+    "src/app/api/pos/auth/first-login/route.ts",
+    "@/server/pos-auth/service",
+    {
+      handlePosFirstLogin: async () => ({
+        body: { ok: true },
+        status: 200,
+      }),
+    },
+  );
+  const validResponse = await valid.route.POST(
+    jsonRequest(
+      "/api/pos/auth/first-login",
+      JSON.stringify({
+        credential: "test-only",
+        device: { deviceIdentifier: "task-147-device" },
+        shopCode: "QA147",
+        staffCode: "QA147",
+      }),
+    ),
+  );
+
+  assert.equal(validResponse.status, 200);
+  assert.ok(valid.heavyLoads() > 0);
+});
+
+test("TASK-147 article mutation rejects malformed and oversized envelopes before domain load", async () => {
+  const harness = loadRoute(
+    "src/app/api/pos/catalog/article-mutations/route.ts",
+    "@/server/pos-auth/article-mutations",
+    {},
+  );
+  const malformedResponse = await harness.route.POST(
+    jsonRequest("/api/pos/catalog/article-mutations", "{}"),
+  );
+  const oversizedResponse = await harness.route.POST(
+    jsonRequest("/api/pos/catalog/article-mutations", "{}", {
+      "content-length": String(256 * 1024 + 1),
+    }),
+  );
+
+  assert.equal(malformedResponse.status, 400);
+  assert.equal(oversizedResponse.status, 400);
+  assert.equal((await malformedResponse.json()).code, "validation_failed");
+  assert.equal((await oversizedResponse.json()).code, "validation_failed");
+  assert.equal(harness.heavyLoads(), 0);
+});
+
+test("TASK-147 valid article mutation envelope reaches only the mutation service", async () => {
+  const harness = loadRoute(
+    "src/app/api/pos/catalog/article-mutations/route.ts",
+    "@/server/pos-auth/article-mutations",
+    {
+      handlePosArticleMutations: async () => ({
+        body: { ok: true, results: [] },
+        status: 200,
+      }),
+    },
+  );
+  const response = await harness.route.POST(
+    jsonRequest(
+      "/api/pos/catalog/article-mutations",
+      JSON.stringify({
+        deviceToken: "test-device-token",
+        mutations: [{}],
+        posSessionId: "40000000-0000-4000-8000-000000000147",
+        schemaVersion: "pos-article-mutation-v1",
+        sessionToken: "test-session-token",
+        shopDeviceId: "30000000-0000-4000-8000-000000000147",
+        shopId: "10000000-0000-4000-8000-000000000147",
+        staffId: "20000000-0000-4000-8000-000000000147",
+      }),
+    ),
+  );
+
+  assert.equal(response.status, 200);
+  assert.ok(harness.heavyLoads() > 0);
+});
+
+test("TASK-147 source graph keeps read, write and Admin domains isolated", () => {
+  const catalogRoute = read("src/app/api/pos/catalog/pull/route.ts");
+  const mutationRoute = read(
+    "src/app/api/pos/catalog/article-mutations/route.ts",
+  );
+  const firstLoginRoute = read("src/app/api/pos/auth/first-login/route.ts");
+  const catalog = read("src/server/pos-auth/catalog-pull.ts");
+  const envelope = read("src/server/pos-auth/route-envelope.ts");
+
+  assert.match(
+    catalogRoute,
+    /await import\("@\/server\/pos-auth\/catalog-pull"\)/,
+  );
+  assert.match(
+    mutationRoute,
+    /await import\(\s*"@\/server\/pos-auth\/article-mutations"\s*\)/,
+  );
+  assert.match(
+    firstLoginRoute,
+    /await import\("@\/server\/pos-auth\/service"\)/,
+  );
+  assert.doesNotMatch(
+    catalogRoute,
+    /from "@\/server\/pos-auth\/catalog-pull"/,
+  );
+  assert.doesNotMatch(
+    mutationRoute,
+    /from "@\/server\/pos-auth\/article-mutations"/,
+  );
+  assert.doesNotMatch(firstLoginRoute, /from "@\/server\/pos-auth\/service"/);
+  assert.doesNotMatch(catalog, /@\/lib\/catalog-text-policy/);
+  assert.doesNotMatch(catalog, /@\/server\/shop-admin\/access-principal/);
+  assert.doesNotMatch(
+    envelope,
+    /article-mutations|catalog-pull|supabase|platform|shop-admin|ui\//i,
+  );
+});
+
+test("TASK-147 failures never echo raw request bodies or secrets", async () => {
+  const harness = loadRoute(
+    "src/app/api/pos/catalog/pull/route.ts",
+    "@/server/pos-auth/catalog-pull",
+    {},
+  );
+  const secretMarker = "TASK147_SECRET_BODY_MARKER";
+  const response = await harness.route.POST(
+    jsonRequest(
+      "/api/pos/catalog/pull",
+      JSON.stringify({ credential: secretMarker }),
+      { "x-request-id": secretMarker },
+    ),
+  );
+  const serialized = JSON.stringify(await response.json());
+
+  assert.equal(response.status, 400);
+  assert.equal(serialized.includes(secretMarker), false);
+});

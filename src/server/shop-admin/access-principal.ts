@@ -10,6 +10,7 @@ import {
   isShopStaffWebPermission,
   OWNER_ONLY_STAFF_WEB_PERMISSIONS,
 } from "./staff-web-permissions";
+import { isStaffCredentialLockStateUsable as isStaffCredentialLockStateUsableCore } from "@/server/pos-auth/staff-credential-lock-state";
 
 export const POS_STAFF_WEB_REQUIRED_PERMISSION = "shop_admin.full_access" as const;
 export const STAFF_WEB_LOGIN_NOT_IMPLEMENTED =
@@ -111,26 +112,10 @@ function isFutureTimestamp(value: string | null | undefined) {
   return Boolean(value && Date.parse(value) > Date.now());
 }
 
-function isElapsedTimestamp(value: string | null | undefined) {
-  if (!value) {
-    return false;
-  }
-
-  const timestamp = Date.parse(value);
-
-  return Number.isFinite(timestamp) && timestamp <= Date.now();
-}
-
 export function isStaffCredentialLockStateUsable(
   input: Pick<PosStaffWebEligibilityInput, "credentialStatus" | "lockedUntil">,
 ) {
-  const { credentialStatus, lockedUntil } = input;
-
-  if (credentialStatus === "active") {
-    return !lockedUntil || isElapsedTimestamp(lockedUntil);
-  }
-
-  return credentialStatus === "locked" && isElapsedTimestamp(lockedUntil);
+  return isStaffCredentialLockStateUsableCore(input);
 }
 
 function hasFullWebPermission(input: PosStaffWebEligibilityInput) {

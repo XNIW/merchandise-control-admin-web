@@ -16,7 +16,7 @@ import { POS_ARTICLE_MUTATION_SCHEMA_VERSION } from "./pos-contract";
 import { loadPosRuntimeLease, writePosRuntimeAudit } from "./runtime-boundary";
 import { verifyPosSecret } from "./tokens";
 
-export const MAX_POS_ARTICLE_MUTATION_JSON_BODY_BYTES = 256 * 1024;
+export { MAX_POS_ARTICLE_MUTATION_JSON_BODY_BYTES } from "./route-envelope";
 const MAX_MUTATIONS = 25;
 const MAX_POS_SECRET_LENGTH = 512;
 const UUID_PATTERN =

@@ -1,7 +1,7 @@
 import {
-  handlePosArticleMutations,
+  hasPosArticleMutationEnvelope,
   MAX_POS_ARTICLE_MUTATION_JSON_BODY_BYTES,
-} from "@/server/pos-auth/article-mutations";
+} from "@/server/pos-auth/route-envelope";
 import {
   createPosRouteRequestContext,
   posJsonResponse,
@@ -19,18 +19,32 @@ export async function POST(request: Request) {
   );
 
   try {
-    const result = await handlePosArticleMutations(
-      await readPosJsonBody(request, {
-        maxBytes: MAX_POS_ARTICLE_MUTATION_JSON_BODY_BYTES,
-      }),
-      {
-        cfRay: request.headers.get("cf-ray") ?? undefined,
-        clientRequestId: context.clientRequestId,
-        requestId: context.serverRequestId,
-        route: context.route,
-        userAgent: request.headers.get("user-agent") ?? undefined,
-      },
+    const body = await readPosJsonBody(request, {
+      maxBytes: MAX_POS_ARTICLE_MUTATION_JSON_BODY_BYTES,
+    });
+
+    if (!hasPosArticleMutationEnvelope(body)) {
+      return posJsonResponse(
+        {
+          code: "validation_failed",
+          message: "Request payload is invalid.",
+          ok: false,
+        },
+        400,
+        context,
+      );
+    }
+
+    const { handlePosArticleMutations } = await import(
+      "@/server/pos-auth/article-mutations"
     );
+    const result = await handlePosArticleMutations(body, {
+      cfRay: request.headers.get("cf-ray") ?? undefined,
+      clientRequestId: context.clientRequestId,
+      requestId: context.serverRequestId,
+      route: context.route,
+      userAgent: request.headers.get("user-agent") ?? undefined,
+    });
 
     return posJsonResponse(result.body, result.status, context);
   } catch {
