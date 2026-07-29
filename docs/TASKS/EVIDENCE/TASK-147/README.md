@@ -45,10 +45,10 @@
   - handler OpenNext `9.393.559 byte`;
   - catalog cold graph statico circa 402 KiB.
 - Dopo route isolation:
-  - upload minificato `9.021.253 byte`;
-  - handler OpenNext `9.385.765 byte`;
-  - upload gzip `2.448,18 KiB`;
-  - catalog cold graph iniziale circa 91 KiB;
+  - upload minificato finale `9.029.675 byte`;
+  - handler OpenNext finale `9.394.326 byte`;
+  - upload gzip finale `2.450,42 KiB`;
+  - catalog cold graph iniziale finale circa 94 KiB;
   - dominio catalogo/Supabase in chunk dinamici.
 - Profili startup Wrangler generati prima/dopo. Il comando è alpha e i profili
   locali sono troppo sparsi per una lettura causale affidabile.
@@ -62,7 +62,7 @@
 - `npm run cf:build`: `PASS`.
 - `npm run test:cloudflare:local`: `PASS`; le route catalog pull, first-login
   e article mutation restituiscono i contratti leggeri `400/405`, senza `503`.
-- TASK-147 focused: `9/9 PASS`.
+- TASK-147 focused: `10/10 PASS`.
 - TASK-143/145/146 focused: `30/30 PASS`.
 - foundation completa con
   `WIN7POS_REPO_PATH=<detached-e47981f> REQUIRE_WIN7POS_REPO=1`: `PASS`.

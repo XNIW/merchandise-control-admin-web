@@ -406,6 +406,35 @@ test("TASK-147 source graph keeps read, write and Admin domains isolated", () =>
   );
 });
 
+test("TASK-147 bounded audit allowlist permits exactly one secret-free console sink", () => {
+  const scanner = read("scripts/security-checks.mjs");
+  const routeSecurity = read(
+    "src/app/api/pos/_shared/pos-route-security.ts",
+  );
+  const auditLogger = routeSecurity.match(
+    /export function emitPosRouteRejectionAudit\([\s\S]*?\n}\n\nexport function posMethodNotAllowedResponse/,
+  )?.[0];
+
+  assert.ok(auditLogger);
+  assert.equal(
+    (
+      auditLogger.match(
+        /console\.(?:log|debug|info|warn|error)\s*\(/g,
+      ) ?? []
+    ).length,
+    1,
+  );
+  assert.match(scanner, /routeRejectionConsoleCalls\.length !== 1/);
+  assert.match(
+    scanner,
+    /routeRejectionConsoleCalls\[0\] !== "console\.warn\("/,
+  );
+  assert.doesNotMatch(
+    auditLogger.replace(/console\.warn/i, ""),
+    /\b(userAgent|clientRequestId|authorization|cookie|token|body|error)\b/i,
+  );
+});
+
 test("TASK-147 failures never echo raw request bodies or secrets", async () => {
   const harness = loadRoute(
     "src/app/api/pos/catalog/pull/route.ts",

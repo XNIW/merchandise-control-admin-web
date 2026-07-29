@@ -103,15 +103,17 @@ mutazioni articolo, offline authorization, audit, RLS e fail-closed.
   - contratti 400/401/405 e request ID preservati.
 - Dopo il fix, il catalog cold path emesso carica circa 91 KiB di chunk
   iniziali; il dominio catalogo/Supabase è un chunk dinamico separato.
-- Bundle finale dopo il fix: upload minificato `9.021.253 byte`, handler
-  OpenNext `9.385.765 byte`, gzip `2.448,18 KiB`.
+- Bundle finale dopo il fix review: upload minificato `9.029.675 byte`,
+  handler OpenNext `9.394.326 byte`, gzip `2.450,42 KiB`.
+- Il cold graph catalogo finale resta route-local e misura circa 94 KiB
+  iniziali; catalogo/Supabase restano in chunk dinamici separati.
 - Il profilo startup locale Wrangler è stato generato, ma il campionamento
   alpha è troppo sparso e hardware-dependent per attribuire CPU per sorgente;
   resta evidence di supporto, non misura di acceptance.
 
 ## Check correnti
 
-- focused TASK-147: `9/9 PASS`.
+- focused TASK-147: `10/10 PASS`.
 - focused TASK-143/145/146: `30/30 PASS`.
 - full foundation con Win7POS detached: `PASS`.
 - verify consecutivo 1: `PASS`.
@@ -145,6 +147,13 @@ mutazioni articolo, offline authorization, audit, RLS e fail-closed.
     sensibili;
   - regressione esplicita su tre envelope non vuoti invalidi e zero heavy
     load.
+- Seconda review:
+  - `P0=0`, `P1=0`, `P2=1`, `P3=0`;
+  - il runtime era corretto, ma l'allowlist consentiva più di un sink console
+    nella funzione bounded.
+- Correzione seconda review:
+  - scanner vincolato a esattamente un unico `console.warn`;
+  - test sorgente dedicato al sink unico e alla shape secret-free.
 - Review finale: `PENDING`.
 
 ## Stato operativo

@@ -4362,6 +4362,9 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     posRouteSecurity.match(
       /export function emitPosRouteRejectionAudit\([\s\S]*?\n}\n\nexport function posMethodNotAllowedResponse/,
     )?.[0] ?? "";
+  const routeRejectionConsoleCalls =
+    routeRejectionLogger.match(/console\.(?:log|debug|info|warn|error)\s*\(/g) ??
+    [];
   const runtimeSourceWithoutBoundedRuntimeLogs = runtimeSource
     .replace(catalogFailureLogger, "")
     .replace(routeRejectionLogger, "");
@@ -4569,6 +4572,8 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
 
   if (
     !routeRejectionLogger ||
+    routeRejectionConsoleCalls.length !== 1 ||
+    routeRejectionConsoleCalls[0] !== "console.warn(" ||
     !/console\.warn\(\s*JSON\.stringify\(/.test(routeRejectionLogger) ||
     !/event: "pos\.route\.rejection"/.test(routeRejectionLogger) ||
     !/code: "validation_failed"/.test(routeRejectionLogger) ||
