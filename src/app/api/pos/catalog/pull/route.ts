@@ -1,9 +1,7 @@
-import {
-  handlePosCatalogPull,
-  handlePosCatalogRouteFailure,
-} from "@/server/pos-auth/catalog-pull";
+import { hasPosCatalogPullEnvelope } from "@/server/pos-auth/route-envelope";
 import {
   createPosRouteRequestContext,
+  emitPosRouteRejectionAudit,
   posJsonResponse,
   posMethodNotAllowedResponse,
   readPosJsonBody,
@@ -14,9 +12,31 @@ export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   const context = createPosRouteRequestContext(request, "pos.catalog.pull");
+  let catalogPull:
+    | typeof import("@/server/pos-auth/catalog-pull")
+    | undefined;
 
   try {
-    const result = await handlePosCatalogPull(await readPosJsonBody(request), {
+    const body = await readPosJsonBody(request);
+
+    if (!hasPosCatalogPullEnvelope(body)) {
+      emitPosRouteRejectionAudit(context, "catalog_pull");
+
+      return posJsonResponse(
+        {
+          code: "validation_failed",
+          message: "Request payload is invalid.",
+          ok: false,
+          root: "validation",
+          stage: "catalog_pull",
+        },
+        400,
+        context,
+      );
+    }
+
+    catalogPull = await import("@/server/pos-auth/catalog-pull");
+    const result = await catalogPull.handlePosCatalogPull(body, {
       clientRequestId: context.clientRequestId,
       edgeCorrelationHash: context.edgeCorrelationHash,
       requestId: context.serverRequestId,
@@ -27,7 +47,11 @@ export async function POST(request: Request) {
     return posJsonResponse(result.body, result.status, context);
   } catch {
     try {
-      const result = await handlePosCatalogRouteFailure({
+      if (!catalogPull) {
+        throw new Error("catalog route module unavailable");
+      }
+
+      const result = await catalogPull.handlePosCatalogRouteFailure({
         clientRequestId: context.clientRequestId,
         edgeCorrelationHash: context.edgeCorrelationHash,
         requestId: context.serverRequestId,

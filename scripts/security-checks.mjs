@@ -4358,9 +4358,35 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     catalogPullService.match(
       /function emitPosCatalogFailureLog\([\s\S]*?\n}\n\nfunction cursorFingerprint/,
     )?.[0] ?? "";
-  const runtimeSourceWithoutBoundedCatalogFailureLog = catalogFailureLogger
-    ? runtimeSource.replace(catalogFailureLogger, "")
-    : runtimeSource;
+  const routeRejectionLogger =
+    posRouteSecurity
+      .match(
+        /export function emitPosRouteRejectionAudit\([\s\S]*?\n}\n(?=\nexport function posMethodNotAllowedResponse)/,
+      )?.[0]
+      .trimEnd() ?? "";
+  const expectedRouteRejectionLogger = [
+    "export function emitPosRouteRejectionAudit(",
+    "  context: PosRouteRequestContext,",
+    "  stage: string,",
+    ") {",
+    "  console.warn(",
+    "    JSON.stringify({",
+    '      code: "validation_failed",',
+    "      edgeCorrelationHash: context.edgeCorrelationHash,",
+    '      event: "pos.route.rejection",',
+    "      requestId: context.serverRequestId,",
+    "      route: context.route,",
+    "      stage,",
+    "    }),",
+    "  );",
+    "}",
+  ].join("\n");
+  const routeRejectionConsoleCalls =
+    routeRejectionLogger.match(/console\.(?:log|debug|info|warn|error)\s*\(/g) ??
+    [];
+  const runtimeSourceWithoutBoundedRuntimeLogs = runtimeSource
+    .replace(catalogFailureLogger, "")
+    .replace(routeRejectionLogger, "");
 
   for (const requiredSnippet of [
     "Route Handler Next.js",
@@ -4542,7 +4568,7 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
 
   if (
     /console\.(log|debug|info|warn|error)/.test(
-      runtimeSourceWithoutBoundedCatalogFailureLog,
+      runtimeSourceWithoutBoundedRuntimeLogs,
     )
   ) {
     addFailure("TASK-021 runtime source must not log sensitive details");
@@ -4560,6 +4586,26 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   ) {
     addFailure(
       "TASK-143 catalog failure logging must stay structured, bounded and secret-free",
+    );
+  }
+
+  if (
+    !routeRejectionLogger ||
+    routeRejectionLogger !== expectedRouteRejectionLogger ||
+    routeRejectionConsoleCalls.length !== 1 ||
+    routeRejectionConsoleCalls[0] !== "console.warn(" ||
+    !/console\.warn\(\s*JSON\.stringify\(/.test(routeRejectionLogger) ||
+    !/event: "pos\.route\.rejection"/.test(routeRejectionLogger) ||
+    !/code: "validation_failed"/.test(routeRejectionLogger) ||
+    !/requestId: context\.serverRequestId/.test(routeRejectionLogger) ||
+    !/route: context\.route/.test(routeRejectionLogger) ||
+    !/\bstage\b/.test(routeRejectionLogger) ||
+    /\b(userAgent|clientRequestId|authorization|cookie|token|body|error)\b/i.test(
+      routeRejectionLogger.replace(/console\.warn/i, ""),
+    )
+  ) {
+    addFailure(
+      "TASK-147 route rejection audit must stay structured, bounded and secret-free",
     );
   }
 

@@ -2887,26 +2887,43 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Evidence TASK-146: `docs/TASKS/EVIDENCE/TASK-146/README.md`
 - Branch TASK-146:
   `codex/admin-pos-revision-canonicalization-20260728`
+- Stato TASK-147: `EXECUTION`
+- Fase TASK-147: `EXECUTION`
+- Task TASK-147: `TASK-147 - Admin staging Worker CPU remediation`
+- File task TASK-147:
+  `docs/TASKS/TASK-147-admin-staging-worker-cpu-remediation.md`
+- Evidence TASK-147: `docs/TASKS/EVIDENCE/TASK-147/README.md`
+- Branch TASK-147:
+  `codex/admin-staging-worker-cpu-remediation-20260729`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `REVIEW`
-- Task attivo: `TASK-146 - Canonical POS revision timestamps and Asus cleanup`
-- Task precedente: `TASK-145 - Versioned POS article mutation contract` (`REVIEW_READY`)
+- Stato globale attuale: `EXECUTION`
+- Task attivo: `TASK-147 - Admin staging Worker CPU remediation`
+- Task precedente: `TASK-146 - Canonical POS revision timestamps and Asus cleanup` (`REVIEW_READY`)
 - Ultimo task chiuso: `TASK-142 - Cross-platform catalog text integrity`
 - Ultimo task completato: `TASK-142 - Cross-platform catalog text integrity`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-146-pos-revision-canonicalization-asus-cleanup.md`
-- Ultimo file task: `docs/TASKS/TASK-145-pos-article-mutation-v1.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-146/README.md`
-- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-145/README.md`
-- Stato task: `REVIEW_READY`
-- Fase: `REVIEW_READY`
-- Milestone interna: `READY_FOR_ASUS_FINAL_ARTICLE_SYNC_ACCEPTANCE`
-- Responsabile: `CLAUDE/CHATGPT / REVIEWER`
+- File task corrente: `docs/TASKS/TASK-147-admin-staging-worker-cpu-remediation.md`
+- Ultimo file task: `docs/TASKS/TASK-146-pos-revision-canonicalization-asus-cleanup.md`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-147/README.md`
+- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-146/README.md`
+- Stato task: `EXECUTION`
+- Fase: `EXECUTION`
+- Milestone interna: `EXECUTION_IN_PROGRESS`
+- Responsabile: `CODEX / EXECUTOR`
 - Branch/worktree:
-  `codex/admin-pos-revision-canonicalization-20260728`;
-  `/Users/minxiang/.codex/worktrees/admin-pos-revision-canonicalization-20260728`.
+  `codex/admin-staging-worker-cpu-remediation-20260729`;
+  `/Users/minxiang/.codex/worktrees/admin-staging-worker-cpu-remediation-20260729`.
+- Apertura TASK-147 2026-07-29: baseline Admin `293b067f` e Win7POS
+  `e47981f6` verificate; checkout utente Win7POS dirty preservato e worktree
+  detached usato per i test. Piano Cloudflare `UNKNOWN` per permessi OAuth
+  billing insufficienti; `cpu_ms` assente e limite effettivo osservato
+  10 ms. Incident correlation: pagina fisica 135 a 11.993 microsecondi con
+  due subrequest e probe vuote a 10.000 microsecondi con zero subrequest.
+  Il fix in execution separa envelope, catalogo, first-login e mutation in
+  chunk dinamici route-local e rimuove l'access principal Shop Admin dal
+  grafo POS; production e billing restano `NOT_MODIFIED`.
 - Apertura TASK-146 2026-07-28: baseline Admin `86713586` e Win7POS
   `b6391781` verificate su GitHub; PR Win7POS `#52/#53/#54` merged. Checkout
   Admin pulito e worktree isolato creato; checkout Win7POS dirty preservato e

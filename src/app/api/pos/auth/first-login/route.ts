@@ -1,6 +1,7 @@
-import { handlePosFirstLogin } from "@/server/pos-auth/service";
+import { hasPosFirstLoginEnvelope } from "@/server/pos-auth/route-envelope";
 import {
   createPosRouteRequestContext,
+  emitPosRouteRejectionAudit,
   posJsonResponse,
   posMethodNotAllowedResponse,
   readPosJsonBody,
@@ -13,7 +14,24 @@ export async function POST(request: Request) {
   const context = createPosRouteRequestContext(request, "pos.auth.first-login");
 
   try {
-    const result = await handlePosFirstLogin(await readPosJsonBody(request), {
+    const body = await readPosJsonBody(request);
+
+    if (!hasPosFirstLoginEnvelope(body)) {
+      emitPosRouteRejectionAudit(context, "first_login");
+
+      return posJsonResponse(
+        {
+          code: "validation_failed",
+          message: "Request payload is invalid.",
+          ok: false,
+        },
+        400,
+        context,
+      );
+    }
+
+    const { handlePosFirstLogin } = await import("@/server/pos-auth/service");
+    const result = await handlePosFirstLogin(body, {
       clientRequestId: context.clientRequestId,
       requestId: context.serverRequestId,
       route: context.route,

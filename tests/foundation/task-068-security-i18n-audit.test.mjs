@@ -10,6 +10,7 @@ const redirectOnlyPageFiles = new Set([
   "src/app/page.tsx",
 ]);
 const consoleAllowedSourceFiles = new Set([
+  "src/app/api/pos/_shared/pos-route-security.ts",
   "src/server/admin-web-perf.ts",
   "src/server/pos-auth/catalog-pull.ts",
 ]);
