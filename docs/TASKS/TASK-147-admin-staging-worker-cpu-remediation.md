@@ -122,7 +122,11 @@ mutazioni articolo, offline authorization, audit, RLS e fail-closed.
 - lint: `PASS`.
 - security scan locale: `PASS`.
 - Codex Security diff scan sul feature SHA iniziale: `PASS`, coverage runtime
-  `10/10`, finding `0`; rerun finale dopo fix review `PENDING`.
+  `10/10`, finding `0`.
+- Secondo workspace Codex Security sul range finale:
+  `NOT_RUN_NATIVE_SETUP_NOT_STARTED`; la UI nativa non ha avviato una nuova
+  scan. Il delta finale e coperto da `npm run security:scan` PASS, test
+  secret-free dedicati e review indipendente `P0/P1/P2/P3=0`.
 - Cloudflare/OpenNext build: `PASS`.
 - Worker locale: `PASS`; catalog, first-login e article mutation restituiscono
   `400`, i metodi non supportati `405`, senza `503` sulle route corrette.
@@ -163,7 +167,8 @@ mutazioni articolo, offline authorization, audit, RLS e fail-closed.
   - nessuno spread e solo `code`, hash edge opzionale, event, request ID
     server-generated, route e stage;
   - qualunque campo o statement aggiuntivo fa fallire lo scanner.
-- Review finale: `PENDING`.
+- Review finale sul runtime SHA `778e0db2`:
+  `P0=0`, `P1=0`, `P2=0`, `P3=0`.
 
 ## Stato operativo
 

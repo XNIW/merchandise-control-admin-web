@@ -85,7 +85,6 @@
 
 ## Pending
 
-- review indipendente finale dopo fix P1/P2;
 - PR/CI/merge;
 - staging deploy e acceptance completa;
 - handoff finale.
