@@ -185,6 +185,9 @@ test("TASK-072 revoked devices are not reactivated by register or heartbeat path
   const staffAware = readProjectFile(
     "src/server/shop-admin/staff-aware-mutations.ts",
   );
+  const firstLogin = readProjectFile(
+    "src/server/pos-auth/first-login-core.ts",
+  );
   const posAuth = readProjectFile("src/server/pos-auth/service.ts");
   const catalogPull = readProjectFile("src/server/pos-auth/catalog-pull.ts");
   const salesSync = readProjectFile("src/server/pos-auth/sales-sync.ts");
@@ -213,9 +216,9 @@ test("TASK-072 revoked devices are not reactivated by register or heartbeat path
   );
   assert.match(staffAware, /staff_web_lifecycle_mutate_v1/);
 
-  assert.match(posAuth, /existingDevice\?\.status === "revoked"/);
-  assert.match(posAuth, /existingDevice\?\.status === "suspicious"/);
-  assert.match(posAuth, /pos\.device\.revoked_enforced/);
+  assert.match(firstLogin, /existingDevice\?\.status === "revoked"/);
+  assert.match(firstLogin, /existingDevice\?\.status === "suspicious"/);
+  assert.match(firstLogin, /pos\.device\.revoked_enforced/);
   assert.match(posAuth, /loadPosRuntimeLease/);
   assert.match(runtimeBoundary, /staff\.credential_status === "active"/);
   assert.match(runtimeBoundary, /device\.status === "active"/);

@@ -32,9 +32,12 @@ function transpileCommonJs(relativePath, stubs = {}, globals = {}) {
       Response,
       TextDecoder,
       Uint8Array,
+      URL,
       console: globals.console ?? console,
       exports: cjsModule.exports,
+      fetch: globals.fetch ?? fetch,
       module: cjsModule,
+      process: globals.process ?? process,
       require(specifier) {
         if (specifier === "server-only") return {};
         if (specifier in stubs) return stubs[specifier];
@@ -136,7 +139,7 @@ test("TASK-147 obviously malformed non-empty envelopes remain on the light path"
   );
   const firstLogin = loadRoute(
     "src/app/api/pos/auth/first-login/route.ts",
-    "@/server/pos-auth/service",
+    "@/server/pos-auth/first-login-service",
     {},
   );
   const mutation = loadRoute(
@@ -254,10 +257,142 @@ test("TASK-147 structurally valid catalog request preserves typed auth denial", 
   assert.ok(harness.heavyLoads() > 0);
 });
 
+test("TASK-147 lightweight first-login RPC client preserves the bounded PostgREST contract", async () => {
+  const serviceRoleKey = "task147-service-role-test-only";
+  const observed = [];
+  const runtimeRpcClient = transpileCommonJs(
+    "src/server/pos-auth/runtime-rpc-client.ts",
+    {},
+    {
+      fetch: async (url, init) => {
+        observed.push({ init, url: String(url) });
+        return Response.json([{ ok: true }]);
+      },
+      process: {
+        env: {
+          NEXT_PUBLIC_SUPABASE_URL: "https://task147.invalid",
+          SUPABASE_SERVICE_ROLE_KEY: serviceRoleKey,
+        },
+      },
+    },
+  );
+  const client = runtimeRpcClient.createPosRuntimeRpcClient();
+  const result = await client.rpc("pos_task147_probe", {
+    p_marker: "safe-test-only",
+  });
+
+  assert.equal(result.error, null);
+  assert.equal(result.data[0].ok, true);
+  assert.equal(observed.length, 1);
+  assert.equal(
+    observed[0].url,
+    "https://task147.invalid/rest/v1/rpc/pos_task147_probe",
+  );
+  assert.equal(observed[0].init.method, "POST");
+  assert.equal(observed[0].init.redirect, "error");
+  assert.equal(observed[0].init.headers.apikey, serviceRoleKey);
+  assert.equal(
+    observed[0].init.headers.authorization,
+    `Bearer ${serviceRoleKey}`,
+  );
+  assert.equal(
+    observed[0].init.body,
+    JSON.stringify({ p_marker: "safe-test-only" }),
+  );
+});
+
+test("TASK-147 lightweight RPC client rejects invalid names and oversized responses", async () => {
+  let fetchCalls = 0;
+  const runtimeRpcClient = transpileCommonJs(
+    "src/server/pos-auth/runtime-rpc-client.ts",
+    {},
+    {
+      fetch: async () => {
+        fetchCalls += 1;
+        return new Response("x".repeat(64 * 1024 + 1), { status: 200 });
+      },
+      process: {
+        env: {
+          NEXT_PUBLIC_SUPABASE_URL: "https://task147.invalid",
+          SUPABASE_SERVICE_ROLE_KEY: "task147-service-role-test-only",
+        },
+      },
+    },
+  );
+  const client = runtimeRpcClient.createPosRuntimeRpcClient();
+  const invalidName = await client.rpc("../not-allowed", {});
+  const oversized = await client.rpc("pos_task147_probe", {});
+
+  assert.equal(invalidName.error.code, "invalid_rpc_name");
+  assert.equal(fetchCalls, 1);
+  assert.equal(oversized.data, null);
+  assert.equal(oversized.error.code, "http_200");
+});
+
+test("TASK-147 lightweight RPC client refuses redirects and non-local HTTP origins", async () => {
+  let fetchCalls = 0;
+  let observedRedirectMode;
+  const runtimeRpcClient = transpileCommonJs(
+    "src/server/pos-auth/runtime-rpc-client.ts",
+    {},
+    {
+      fetch: async (_url, init) => {
+        fetchCalls += 1;
+        observedRedirectMode = init.redirect;
+        return new Response(null, {
+          headers: { location: "https://redirect-target.invalid" },
+          status: 302,
+        });
+      },
+      process: {
+        env: {
+          NEXT_PUBLIC_SUPABASE_URL: "https://task147.invalid",
+          SUPABASE_SERVICE_ROLE_KEY: "task147-service-role-test-only",
+        },
+      },
+    },
+  );
+  const client = runtimeRpcClient.createPosRuntimeRpcClient();
+  const redirected = await client.rpc("pos_task147_probe", {});
+
+  assert.equal(fetchCalls, 1);
+  assert.equal(observedRedirectMode, "error");
+  assert.equal(redirected.data, null);
+  assert.equal(redirected.error.code, "http_302");
+
+  const insecureClient = transpileCommonJs(
+    "src/server/pos-auth/runtime-rpc-client.ts",
+    {},
+    {
+      process: {
+        env: {
+          NEXT_PUBLIC_SUPABASE_URL: "http://remote-task147.invalid",
+          SUPABASE_SERVICE_ROLE_KEY: "task147-service-role-test-only",
+        },
+      },
+    },
+  ).createPosRuntimeRpcClient();
+  const localClient = transpileCommonJs(
+    "src/server/pos-auth/runtime-rpc-client.ts",
+    {},
+    {
+      process: {
+        env: {
+          NEXT_PUBLIC_SUPABASE_URL: "http://127.0.0.1:54321",
+          SUPABASE_SERVICE_ROLE_KEY: "task147-service-role-test-only",
+        },
+      },
+    },
+  ).createPosRuntimeRpcClient();
+
+  assert.equal(insecureClient, null);
+  assert.ok(localClient);
+});
+
 test("TASK-147 first-login guard stays light and valid envelope reaches its service", async () => {
   const malformed = loadRoute(
     "src/app/api/pos/auth/first-login/route.ts",
-    "@/server/pos-auth/service",
+    "@/server/pos-auth/first-login-service",
     {},
   );
   const malformedResponse = await malformed.route.POST(
@@ -270,7 +405,7 @@ test("TASK-147 first-login guard stays light and valid envelope reaches its serv
 
   const valid = loadRoute(
     "src/app/api/pos/auth/first-login/route.ts",
-    "@/server/pos-auth/service",
+    "@/server/pos-auth/first-login-service",
     {
       handlePosFirstLogin: async () => ({
         body: { ok: true },
@@ -374,6 +509,16 @@ test("TASK-147 source graph keeps read, write and Admin domains isolated", () =>
     "src/app/api/pos/catalog/article-mutations/route.ts",
   );
   const firstLoginRoute = read("src/app/api/pos/auth/first-login/route.ts");
+  const firstLoginService = read(
+    "src/server/pos-auth/first-login-service.ts",
+  );
+  const firstLoginCore = read(
+    "src/server/pos-auth/first-login-core.ts",
+  );
+  const legacyPosService = read("src/server/pos-auth/service.ts");
+  const runtimeRpcClient = read(
+    "src/server/pos-auth/runtime-rpc-client.ts",
+  );
   const catalog = read("src/server/pos-auth/catalog-pull.ts");
   const envelope = read("src/server/pos-auth/route-envelope.ts");
 
@@ -387,7 +532,7 @@ test("TASK-147 source graph keeps read, write and Admin domains isolated", () =>
   );
   assert.match(
     firstLoginRoute,
-    /await import\("@\/server\/pos-auth\/service"\)/,
+    /await import\(\s*"@\/server\/pos-auth\/first-login-service"\s*\)/,
   );
   assert.doesNotMatch(
     catalogRoute,
@@ -397,7 +542,32 @@ test("TASK-147 source graph keeps read, write and Admin domains isolated", () =>
     mutationRoute,
     /from "@\/server\/pos-auth\/article-mutations"/,
   );
-  assert.doesNotMatch(firstLoginRoute, /from "@\/server\/pos-auth\/service"/);
+  assert.doesNotMatch(
+    firstLoginRoute,
+    /from "@\/server\/pos-auth\/first-login-service"/,
+  );
+  assert.doesNotMatch(
+    firstLoginService,
+    /createSupabaseAdminClient|resolveSupabaseAdminConfig/,
+  );
+  assert.match(
+    firstLoginService,
+    /handlePosFirstLoginWithClient\(\s*createPosRuntimeRpcClient\(\)/,
+  );
+  assert.match(firstLoginCore, /commitPosFirstLogin/);
+  assert.match(firstLoginCore, /publishPosRuntimeLeaseSuccess/);
+  assert.match(firstLoginCore, /writePosRuntimeAudit/);
+  assert.match(
+    legacyPosService,
+    /handlePosFirstLoginWithClient\(supabase, input, meta\)/,
+  );
+  assert.doesNotMatch(
+    legacyPosService,
+    /commitPosFirstLogin|loadPosFirstLoginIdentity|recordPosFirstLoginFailure/,
+  );
+  assert.doesNotMatch(runtimeRpcClient, /@supabase\/supabase-js/);
+  assert.match(runtimeRpcClient, /MAX_RPC_JSON_RESPONSE_BYTES/);
+  assert.match(runtimeRpcClient, /redirect: "error"/);
   assert.doesNotMatch(catalog, /@\/lib\/catalog-text-policy/);
   assert.doesNotMatch(catalog, /@\/server\/shop-admin\/access-principal/);
   assert.doesNotMatch(

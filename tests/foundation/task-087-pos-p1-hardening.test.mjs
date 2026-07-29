@@ -65,7 +65,9 @@ test("TASK-087 database types include TASK-081 ledger, stock and RPC contract", 
 test("TASK-087 Admin Web exposes read-only POS Sync Recovery and explicit POS policy", () => {
   const shopPayload = readProjectFile("src/server/pos-auth/shop-payload.ts");
   const posContract = readProjectFile("src/server/pos-auth/pos-contract.ts");
-  const firstLogin = readProjectFile("src/server/pos-auth/service.ts");
+  const firstLogin = readProjectFile(
+    "src/server/pos-auth/first-login-core.ts",
+  );
   const catalogPull = readProjectFile("src/server/pos-auth/catalog-pull.ts");
   const recoveryModel = readProjectFile(
     "src/server/shop-admin/pos-sync-recovery-read-model.ts",

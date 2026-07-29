@@ -96,6 +96,9 @@ test("TASK-089 POS API routes keep server-side no-store JSON boundaries", () => 
 });
 
 test("TASK-089 POS contracts expose explicit version, time and conservative policy", () => {
+  const firstLogin = readProjectFile(
+    "src/server/pos-auth/first-login-core.ts",
+  );
   const service = readProjectFile("src/server/pos-auth/service.ts");
   const posContract = readProjectFile("src/server/pos-auth/pos-contract.ts");
   const shopPayload = readProjectFile("src/server/pos-auth/shop-payload.ts");
@@ -105,12 +108,15 @@ test("TASK-089 POS contracts expose explicit version, time and conservative poli
   );
   const sales = readProjectFile("src/server/pos-auth/sales-sync.ts");
 
-  assertContainsAll(service, [
+  assertContainsAll(firstLogin, [
     "PosFirstLoginSuccessBody",
+    "serverTime: string",
+    "buildPosPolicyPayload()",
+  ]);
+  assertContainsAll(service, [
     "PosHeartbeatSuccessBody",
     "serverTime: string",
     "serverTime: nowIso()",
-    "buildPosPolicyPayload()",
   ]);
   assertContainsAll(shopPayload, [
     "contractVersion: POS_POLICY_CONTRACT_VERSION",

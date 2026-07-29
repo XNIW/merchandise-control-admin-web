@@ -109,22 +109,9 @@ function loadFirstLogin(commitResult) {
       return true;
     },
   };
-  const service = transpileCommonJs("src/server/pos-auth/service.ts", {
-    "@/lib/supabase/admin": {
-      createSupabaseAdminClient: () => supabase,
-      resolveSupabaseAdminConfig: () => ({
-        serviceRoleKey: "redacted",
-        status: "configured",
-        url: "https://example.invalid",
-      }),
-    },
+  const core = transpileCommonJs("src/server/pos-auth/first-login-core.ts", {
     "@/server/shop-admin/staff-credentials": {
       verifyStaffCredential: async () => true,
-    },
-    "./catalog-revision": {
-      buildCatalogRevision: () => "catalog:v2:test",
-      loadCatalogRevisionV2: async () => ({ status: "db_failure" }),
-      normalizeCatalogRevision: () => null,
     },
     "./pos-contract": {
       POS_OFFLINE_AUTHORIZATION_MAX_AGE_SECONDS: 43200,
@@ -145,9 +132,13 @@ function loadFirstLogin(commitResult) {
     "./tokens": {
       generatePosSecret: (kind) => `redacted-${kind}`,
       hashPosSecret: () => `sha256:${"a".repeat(64)}`,
-      verifyPosSecret: () => true,
     },
   });
+  const service = {
+    handlePosFirstLogin(input, meta) {
+      return core.handlePosFirstLoginWithClient(supabase, input, meta);
+    },
+  };
 
   return { calls, service };
 }
@@ -389,10 +380,10 @@ test("TASK-144 fixture matches the exact Win7POS response field", {
 });
 
 test("TASK-144 audit metadata never receives body, credential or authority values", async () => {
-  const service = read("src/server/pos-auth/service.ts");
-  const requestMetadataBody = service.slice(
-    service.indexOf("function requestMetadata"),
-    service.indexOf("async function writePosAudit"),
+  const firstLoginCore = read("src/server/pos-auth/first-login-core.ts");
+  const requestMetadataBody = firstLoginCore.slice(
+    firstLoginCore.indexOf("function requestMetadata"),
+    firstLoginCore.indexOf("async function writePosAudit"),
   );
   const { calls, service: loadedService } = loadFirstLogin({
     code: "offline_authorization_not_permitted",
@@ -412,7 +403,10 @@ test("TASK-144 audit metadata never receives body, credential or authority value
     requestMetadataBody,
     /body|credential|pin|password|token|effectiveOfflineAuthorizationExpiresAt/i,
   );
-  assert.doesNotMatch(service, /console\.(log|info|warn|error)\(/);
+  assert.doesNotMatch(
+    firstLoginCore,
+    /console\.(log|info|warn|error)\(/,
+  );
   assert.doesNotMatch(
     emittedMetadata,
     /"(?:body|credential|pin|password|token|effectiveOfflineAuthorizationExpiresAt)"\s*:/i,
