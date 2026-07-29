@@ -4498,7 +4498,11 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     !/MAX_RPC_JSON_RESPONSE_BYTES/.test(runtimeRpcClient) ||
     !/apikey: serviceRoleKey/.test(runtimeRpcClient) ||
     !/authorization: `Bearer \$\{serviceRoleKey\}`/.test(runtimeRpcClient) ||
-    !/redirect: "error"/.test(runtimeRpcClient) ||
+    !/redirect: "manual"/.test(runtimeRpcClient) ||
+    !/response\.status >= 300 && response\.status < 400/.test(
+      runtimeRpcClient,
+    ) ||
+    !/await response\.body\?\.cancel\(\)/.test(runtimeRpcClient) ||
     !/url\.protocol === "https:"/.test(runtimeRpcClient)
   ) {
     addFailure(

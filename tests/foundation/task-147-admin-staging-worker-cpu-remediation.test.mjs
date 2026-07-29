@@ -289,7 +289,7 @@ test("TASK-147 lightweight first-login RPC client preserves the bounded PostgRES
     "https://task147.invalid/rest/v1/rpc/pos_task147_probe",
   );
   assert.equal(observed[0].init.method, "POST");
-  assert.equal(observed[0].init.redirect, "error");
+  assert.equal(observed[0].init.redirect, "manual");
   assert.equal(observed[0].init.headers.apikey, serviceRoleKey);
   assert.equal(
     observed[0].init.headers.authorization,
@@ -330,6 +330,7 @@ test("TASK-147 lightweight RPC client rejects invalid names and oversized respon
 });
 
 test("TASK-147 lightweight RPC client refuses redirects and non-local HTTP origins", async () => {
+  let bodyCancelCalls = 0;
   let fetchCalls = 0;
   let observedRedirectMode;
   const runtimeRpcClient = transpileCommonJs(
@@ -339,10 +340,20 @@ test("TASK-147 lightweight RPC client refuses redirects and non-local HTTP origi
       fetch: async (_url, init) => {
         fetchCalls += 1;
         observedRedirectMode = init.redirect;
-        return new Response(null, {
+        return new Response(
+          new ReadableStream({
+            cancel() {
+              bodyCancelCalls += 1;
+            },
+            start(controller) {
+              controller.enqueue(new TextEncoder().encode("redirect-body"));
+            },
+          }),
+          {
           headers: { location: "https://redirect-target.invalid" },
           status: 302,
-        });
+          },
+        );
       },
       process: {
         env: {
@@ -356,7 +367,8 @@ test("TASK-147 lightweight RPC client refuses redirects and non-local HTTP origi
   const redirected = await client.rpc("pos_task147_probe", {});
 
   assert.equal(fetchCalls, 1);
-  assert.equal(observedRedirectMode, "error");
+  assert.equal(bodyCancelCalls, 1);
+  assert.equal(observedRedirectMode, "manual");
   assert.equal(redirected.data, null);
   assert.equal(redirected.error.code, "http_302");
 
@@ -567,7 +579,7 @@ test("TASK-147 source graph keeps read, write and Admin domains isolated", () =>
   );
   assert.doesNotMatch(runtimeRpcClient, /@supabase\/supabase-js/);
   assert.match(runtimeRpcClient, /MAX_RPC_JSON_RESPONSE_BYTES/);
-  assert.match(runtimeRpcClient, /redirect: "error"/);
+  assert.match(runtimeRpcClient, /redirect: "manual"/);
   assert.doesNotMatch(catalog, /@\/lib\/catalog-text-policy/);
   assert.doesNotMatch(catalog, /@\/server\/shop-admin\/access-principal/);
   assert.doesNotMatch(

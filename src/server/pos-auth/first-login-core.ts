@@ -391,10 +391,27 @@ export async function handlePosFirstLoginWithClient(
     });
   }
 
-  const credentialOk = await verifyStaffCredential(
-    parsed.credential,
-    staff.credential_hash,
-  );
+  let credentialOk = false;
+
+  try {
+    credentialOk = await verifyStaffCredential(
+      parsed.credential,
+      staff.credential_hash,
+    );
+  } catch {
+    return auditedDenied(supabase, {
+      code: "credential_verification_failed",
+      eventKey: "pos.auth.first_login.failure",
+      metadata: {
+        ...requestMetadata(meta),
+        stage: "credential_verification",
+      },
+      shopId: shop.shop_id,
+      status: 500,
+      targetId: staff.staff_id,
+      targetType: "staff",
+    });
+  }
 
   if (!credentialOk) {
     const failureRecorded = await recordPosFirstLoginFailure(supabase, {

@@ -99,8 +99,17 @@ export function createPosRuntimeRpcClient(): SupabaseAdminClient | null {
           "x-client-info": "merchandise-control-admin-web/pos-runtime-rpc",
         },
         method: "POST",
-        redirect: "error",
+        redirect: "manual",
       });
+
+      if (response.status >= 300 && response.status < 400) {
+        await response.body?.cancel();
+        return {
+          data: null,
+          error: { code: `http_${response.status}` },
+        };
+      }
+
       const data = await readBoundedJson(response);
 
       if (!response.ok || data === null) {
