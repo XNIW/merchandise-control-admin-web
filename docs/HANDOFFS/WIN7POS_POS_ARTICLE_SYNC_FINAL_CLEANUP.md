@@ -143,6 +143,8 @@ Tutte sono pronte per `USER_CONFIRMED_CLOSURE`; Codex non le marca `DONE`.
   `PASS`; il worktree isolato non contiene deliberatamente il project link.
 - Exact-ID, JSON/Markdown, UUID/credential, anti-symlink e Gitleaks `8.30.1`:
   `PASS`, finding `0`.
+- PR `#57` non-draft: Database migrations/pgTAP, Verify e Cloudflare build
+  `PASS`; deploy staging e production `SKIPPED`.
 - Review indipendente del closeout:
   `PASS`, `P0/P1/P2/P3 = 0/0/0/0`.
 
@@ -158,7 +160,7 @@ Tutte sono pronte per `USER_CONFIRMED_CLOSURE`; Codex non le marca `DONE`.
 | 6 | Delete esatte, audit storici preservati, cleanup audit unica | `PASS` |
 | 7 | Residui target zero e baseline non-target invariata | `PASS` |
 | 8 | Privacy e secret scan finali | `PASS` |
-| 9 | Diff docs-only, gate locali e CI | `PENDING_PR_CI` |
+| 9 | Diff docs-only, gate locali e CI | `PENDING_FINAL_HEAD_CI` |
 | 10 | Handoff review-ready, Windows 7 fisico esterno | `PASS_WITH_EXTERNAL_NOTE` |
 
 ## File pubblici toccati

@@ -114,3 +114,6 @@
   finding `0`.
 - Review documentale finale:
   `PASS`, `P0/P1/P2/P3 = 0/0/0/0`.
+- PR `#57` non-draft: Database migrations/pgTAP, Verify e Cloudflare build
+  `PASS`; deploy staging e production `SKIPPED`. Il merge resta subordinato
+  alla CI verde della head finale dopo questo aggiornamento documentale.
