@@ -4,8 +4,9 @@
 
 - ID: `TASK-146`
 - Stato: `REVIEW_READY`
-- Fase attuale: `REVIEW_READY`
+- Fase attuale: `REVIEW`
 - Responsabile attuale: `CLAUDE/CHATGPT / REVIEWER`
+- Risoluzione proposta: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`
 - Data apertura: `2026-07-28`
 - Branch: `codex/admin-pos-revision-canonicalization-20260728`
 - Baseline Admin: `86713586106dc1e50bc5d846a24a257f521fc109`
@@ -149,5 +150,20 @@ server-side.
   rimossi; residui catalogo/business/runtime attivi `0`; audit preservati.
 - Nessun HTTP 503 o `exceededResources`.
 - Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
-- Stato operativo:
+- Stato operativo storico pre-TASK-148:
   `READY_FOR_ASUS_FINAL_ARTICLE_SYNC_ACCEPTANCE`.
+
+## Closeout finale article-sync 2026-07-30
+
+- Win7POS final acceptance e cleanup consolidato staging: `PASS`.
+- Cleanup exact-ID: 18 prodotti, 28 prezzi, 21 movimenti manuali,
+  94 receipt, 4 conflict receipt e 118 sync event.
+- Residui sintetici target: `0`; audit immutabile: `PRESERVED`.
+- Invarianti non-target: `UNCHANGED`.
+- Review tecnica piano/transazione e outcome:
+  `P0/P1/P2/P3 = 0/0/0/0`.
+- Worker deploy aggiunti dal closeout: `0`.
+- Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
+- Windows 7 fisico: `EXTERNAL_PENDING`.
+- Stato governance:
+  `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.

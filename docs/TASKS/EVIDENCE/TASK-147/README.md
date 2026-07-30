@@ -262,5 +262,19 @@ Da `2026-07-29T04:24:52.566733Z` a
 - Review finale: `ZERO-GATE PASS`.
 - Production/client/billing: `NOT_MODIFIED`.
 - Task: `REVIEW_READY`, non `DONE`.
-- Handoff:
+- Handoff storico pre-TASK-148:
   `READY_FOR_ASUS_FINAL_ARTICLE_SYNC_ACCEPTANCE`.
+
+## Closeout consolidato 2026-07-30
+
+- Win7POS final acceptance: `PASS`.
+- Cleanup staging exact-ID: `PASS`; residui sintetici target `0`.
+- Audit immutabile: `PRESERVED`; baseline non-target: `UNCHANGED`.
+- Review tecnica piano/transazione e outcome:
+  `P0/P1/P2/P3 = 0/0/0/0`.
+- Worker deploy aggiunti: `0`; deployment/version staging invariati.
+- Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
+- Windows 7 fisico: `EXTERNAL_PENDING`.
+- Handoff precedente: superseded da
+  `docs/HANDOFFS/WIN7POS_POS_ARTICLE_SYNC_FINAL_CLEANUP.md`.
+- Stato: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.

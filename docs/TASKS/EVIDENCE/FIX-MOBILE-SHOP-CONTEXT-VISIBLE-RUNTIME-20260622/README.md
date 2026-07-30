@@ -74,10 +74,10 @@ iOS:
 Runtime logs:
 
 - Android logcat:
-  - `Shop context: cache business riallineata previous=...:legacy next=...:bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d`
+  - `Shop context: cache business riallineata previous=...:legacy next=...:<staging-shop:sha256:67545716fda89c02>`
   - `Shop device status reason=auth status=active code=success canWrite=true`
 - iOS oslog:
-  - `shop_device_status_for_shop result reason=app_sync_bootstrap scope=bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d status=active code=success can_write=true`
+  - `shop_device_status_for_shop result reason=app_sync_bootstrap scope=<staging-shop:sha256:67545716fda89c02> status=active code=success can_write=true`
 
 ## Verification Commands
 

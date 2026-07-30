@@ -5,14 +5,14 @@
     "hasTask072D": true,
     "index": 3819,
     "title": "Products | MerchandiseControl Admin Web",
-    "url": "http://localhost:3055/shop/products?shop_id=bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d&q=TASK072D_&state=all&pageSize=50"
+    "url": "http://localhost:3055/shop/products?shop_id=<staging-shop:sha256:67545716fda89c02>&q=TASK072D_&state=all&pageSize=50"
   },
   "history": {
     "excerpt": "Entries\n\nReal mobile history entries from shared_sheet_sessions. This table does not include technical sync_events or admin audit_logs.\n\nMobile History Entries read-only table for the selected shop.\nTYPE\tENTRY NAME\tSUPPLIER / CATEGORY\tSTATUS\tPAYLOAD\tOVERLAY\tROWS\tUPDATED\tDETAIL\nDeleted history entry\tTASK072D_ADMIN_20260619T185924Z_HISTORY_CREATE\tTASK072D_ADMIN_20260619T185924Z_SUPPLIER / TASK072D_ADMIN_20260619T185924Z_CATEGORY\tDeleted\tPayload v2\tOverlay OK\t2\tJun 19, 2026, 3:34 PM\tDetail\nDeleted history entry\tTASK072_RT_HISTORY_20260619_20260619155430_UPDATED\tTASK072_RT_SUPPLIER_20260619_20260619155430 / TASK072_RT_CATEGORY_20260619_20260619155430\tDeleted\tPayload v2\tOverlay OK\t2\tJun 19, 2026, 12:08 PM\tDetail\nActive history entry\tTASK135_MATRIX_20260617_192636_RT_20260617T232636Z_IOS_MATRIX_IOS_HISTORY_UPDATE_FINAL\tTASK135_MATRIX_20260617_192636_RT_20260617T232636Z_IOS_MATRIX_SUP_IOS / TASK135_MATRIX_20260617_192636_RT_20260617T232636Z_IOS_MATRIX_CAT_IOS\tActive\tPayload v2\tOverlay OK\t2\tJun 19, 2026, 11:35 AM\tDetail\nActive history entry\t\tBuena / accesorios y peluches\tActive\tPayload v2\tOverlay OK\t63\tJun 19, 2026, 11:35 AM\tDetail\nDeleted history entry\tTASK110_FINAL_ANDROID_OFFLINE_181157",
     "hasTask072D": true,
     "index": 1582,
     "title": "Mobile History | MerchandiseControl Admin Web",
-    "url": "http://localhost:3055/shop/history?shop_id=bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d"
+    "url": "http://localhost:3055/shop/history?shop_id=<staging-shop:sha256:67545716fda89c02>"
   },
   "screenshots": {
     "products": "/Users/minxiang/Projects/merchandise-control-admin-web/docs/TASKS/EVIDENCE/TASK-072/task072d-final-admin-products-filtered.png",

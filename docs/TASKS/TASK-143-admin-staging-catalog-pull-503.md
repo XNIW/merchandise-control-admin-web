@@ -3,9 +3,10 @@
 ## Informazioni generali
 
 - ID: `TASK-143`
-- Stato: `REVIEW`
-- Fase attuale: `REVIEW_READY`
+- Stato: `REVIEW_READY`
+- Fase attuale: `REVIEW`
 - Responsabile attuale: `CLAUDE/CHATGPT / REVIEWER`
+- Risoluzione proposta: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`
 - Data apertura: `2026-07-27`
 - Branch implementazione: `codex/admin-staging-catalog-pull-503-20260727`
 - Branch closeout: `codex/admin-staging-catalog-pull-503-closeout-20260727`
@@ -140,5 +141,22 @@ scope reale correlato all'incidente e poi l'ha revocata. Risultato:
 - Cloudflare post-deploy fino a `2026-07-27T22:24:00.121Z`: `823` richieste,
   tutte `success`, errori `0`, `exceededResources=0`, exception `0`.
 
-La task è consegnata a `REVIEW_READY`, mai `DONE`. Resta soltanto una singola
-acceptance fisica Asus, da autorizzare ed eseguire separatamente.
+La task è consegnata a `REVIEW_READY`; la successiva acceptance article-sync
+ha superato il gate end-to-end e il cleanup consolidato è stato completato.
+Il test su Windows 7 fisico resta `EXTERNAL_PENDING` e non viene dichiarato
+`PASS`.
+
+## Closeout finale article-sync 2026-07-30
+
+- Win7POS final acceptance: `PASS`.
+- Cleanup consolidato staging: `PASS`.
+- Residui sintetici target: `0`.
+- Audit immutabile: `PRESERVED`.
+- Invarianti non-target: `UNCHANGED`.
+- Review tecnica piano/transazione e outcome:
+  `P0/P1/P2/P3 = 0/0/0/0`.
+- Worker deploy aggiunti dal closeout: `0`.
+- Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
+- Windows 7 fisico: `EXTERNAL_PENDING`.
+- Stato governance:
+  `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.

@@ -160,5 +160,19 @@ Tre esecuzioni evidence-backed:
    La verifica DB per chiavi JSON ha confermato `0` chiavi vietate e
    `524 byte` massimi. Nessun quarto run.
 
-Stato:
+Stato storico pre-TASK-148:
 `READY_FOR_ASUS_FINAL_ARTICLE_SYNC_ACCEPTANCE`.
+
+## Closeout consolidato 2026-07-30
+
+- Win7POS final acceptance: `PASS`.
+- Cleanup exact-ID: 18 prodotti, 28 prezzi, 21 movimenti manuali,
+  94 receipt, 4 conflict receipt e 118 sync event.
+- Residui sintetici target: `0`.
+- Audit immutabile: `PRESERVED`; baseline non-target: `UNCHANGED`.
+- Review tecnica piano/transazione e outcome:
+  `P0/P1/P2/P3 = 0/0/0/0`.
+- Worker deploy aggiunti: `0`.
+- Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
+- Windows 7 fisico: `EXTERNAL_PENDING`.
+- Stato: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.
