@@ -13,12 +13,14 @@ import {
 const argv = process.argv.slice(2);
 const args = new Set(argv);
 const execute = args.has("--execute");
-const target = argv
-  .find((argument) => argument.startsWith("--target="))
-  ?.slice("--target=".length) ?? "";
-const shopId = argv
-  .find((argument) => argument.startsWith("--shop-id="))
-  ?.slice("--shop-id=".length) ?? "";
+const target =
+  argv
+    .find((argument) => argument.startsWith("--target="))
+    ?.slice("--target=".length) ?? "";
+const shopId =
+  argv
+    .find((argument) => argument.startsWith("--shop-id="))
+    ?.slice("--shop-id=".length) ?? "";
 const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000);
 const scanLimit = 500;
 const batchLimit = 100;
@@ -46,6 +48,10 @@ function info(message) {
 
 function hashId(value) {
   return createHash("sha256").update(value).digest("hex").slice(0, 12);
+}
+
+function isRecord(value) {
+  return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }
 
 function localEnv() {
@@ -112,7 +118,7 @@ function eligible(row) {
         ? row.superseded_at
         : row.status === "removed"
           ? row.removed_at
-          : row.cleanup_updated_at ?? row.created_at;
+          : (row.cleanup_updated_at ?? row.created_at);
   return Boolean(transition && Date.parse(transition) <= cutoff.getTime());
 }
 
@@ -121,7 +127,8 @@ export function isCanonicalProductImageObjectPath(value, expectedShopId) {
   const match = value.match(canonicalObjectPathPattern);
   return Boolean(
     match &&
-      (!expectedShopId || match[1]?.toLowerCase() === expectedShopId.toLowerCase()),
+    (!expectedShopId ||
+      match[1]?.toLowerCase() === expectedShopId.toLowerCase()),
   );
 }
 
@@ -140,11 +147,55 @@ export function isEligibleProductImageOrphan(
   );
 }
 
+export function isExplicitStorageObjectNotFound(error) {
+  if (!isRecord(error)) return false;
+  const status = Number(error.status);
+  const statusCode = String(error.statusCode ?? "");
+  const message = typeof error.message === "string" ? error.message : "";
+  return (
+    (status === 404 || statusCode === "404") &&
+    /(?:object|resource|key).*(?:not[ _-]?found|does not exist)/i.test(message)
+  );
+}
+
 function parseOrphanPath(path) {
   const match = path.match(canonicalObjectPathPattern);
   return match
     ? { productId: match[2], versionId: match[3], variant: match[4] }
     : null;
+}
+
+async function readLifecycleCandidates(client) {
+  const candidates = [];
+  for (let offset = 0; ; offset += scanLimit) {
+    const result = await client
+      .from("inventory_product_image_versions")
+      .select(
+        "id,shop_id,product_id,status,created_at,expires_at,superseded_at,removed_at,main_path,thumb_path,verified_main_bytes,verified_thumb_bytes,expected_main_bytes,expected_thumb_bytes,cleanup_status,cleanup_updated_at",
+      )
+      .eq("shop_id", shopId)
+      .in("status", ["pending", "failed", "superseded", "removed"])
+      .in("cleanup_status", ["not_due", "pending", "failed"])
+      .order("created_at", { ascending: true })
+      .order("id", { ascending: true })
+      .range(offset, offset + scanLimit - 1);
+    if (result.error) {
+      fail("CANDIDATE_READ_FAILED", "Lifecycle candidates could not be read.");
+    }
+
+    const page = result.data ?? [];
+    for (const row of page) {
+      if (eligible(row)) candidates.push(row);
+      if (candidates.length === batchLimit) return candidates;
+    }
+    if (page.length < scanLimit) return candidates;
+    if (offset + page.length >= maximumLifecycleRows) {
+      fail(
+        "LIFECYCLE_CANDIDATE_LIMIT_EXCEEDED",
+        "Lifecycle candidate scan exceeded its bound.",
+      );
+    }
+  }
 }
 
 async function readLifecyclePaths(client) {
@@ -194,7 +245,10 @@ async function readStorageObjects(bucket) {
         sortBy: { column: "name", order: "asc" },
       });
       if (result.error) {
-        fail("STORAGE_SCAN_FAILED", "Private bucket inventory could not be read.");
+        fail(
+          "STORAGE_SCAN_FAILED",
+          "Private bucket inventory could not be read.",
+        );
       }
       const page = result.data ?? [];
       for (const item of page) {
@@ -225,9 +279,12 @@ async function readStorageObjects(bucket) {
   return objects;
 }
 
-async function removeOne(bucket, path) {
-  const result = await bucket.remove([path]);
-  return !result.error;
+export async function removeOne(bucket, path) {
+  const removal = await bucket.remove([path]);
+  if (removal.error) return false;
+
+  const probe = await bucket.download(path);
+  return !probe.data && isExplicitStorageObjectNotFound(probe.error);
 }
 
 async function main() {
@@ -236,7 +293,10 @@ async function main() {
   }
   const env = resolveEnv();
   if (!env.SUPABASE_SERVICE_ROLE_KEY) {
-    fail("SERVER_KEY_REQUIRED", "A server-only key is required in process memory.");
+    fail(
+      "SERVER_KEY_REQUIRED",
+      "A server-only key is required in process memory.",
+    );
   }
   if (execute && process.env.TASK137_PRODUCT_IMAGE_CLEANUP_ALLOW !== "yes") {
     fail(
@@ -252,34 +312,19 @@ async function main() {
       auth: { autoRefreshToken: false, persistSession: false },
       global: {
         headers: {
-          "X-Client-Info": "merchandise-control-admin-web/task137-image-cleanup",
+          "X-Client-Info":
+            "merchandise-control-admin-web/task137-image-cleanup",
         },
       },
     },
   );
   const bucket = supabase.storage.from("product-images");
-  const [candidatesResult, lifecyclePaths, storageObjects] = await Promise.all([
-    supabase
-      .from("inventory_product_image_versions")
-      .select(
-        "id,shop_id,product_id,status,created_at,expires_at,superseded_at,removed_at,main_path,thumb_path,verified_main_bytes,verified_thumb_bytes,expected_main_bytes,expected_thumb_bytes,cleanup_status,cleanup_updated_at",
-      )
-      .eq("shop_id", shopId)
-      .in("status", ["pending", "failed", "superseded", "removed"])
-      .in("cleanup_status", ["not_due", "pending", "failed"])
-      .order("created_at", { ascending: true })
-      .limit(scanLimit),
+  const [candidates, lifecyclePaths, storageObjects] = await Promise.all([
+    readLifecycleCandidates(supabase),
     readLifecyclePaths(supabase),
     readStorageObjects(bucket),
   ]);
 
-  if (candidatesResult.error) {
-    fail("CANDIDATE_READ_FAILED", "Lifecycle candidates could not be read.");
-  }
-
-  const candidates = (candidatesResult.data ?? [])
-    .filter(eligible)
-    .slice(0, batchLimit);
   const orphanCandidates = storageObjects
     .filter((object) =>
       isEligibleProductImageOrphan(
@@ -325,7 +370,9 @@ async function main() {
   );
 
   if (!execute || (candidates.length === 0 && orphanCandidates.length === 0)) {
-    info(execute ? "PASS no eligible residue" : "PASS dry-run; no objects changed");
+    info(
+      execute ? "PASS no eligible residue" : "PASS dry-run; no objects changed",
+    );
     return;
   }
 
@@ -341,7 +388,17 @@ async function main() {
       p_version_id: row.id,
     });
     const prepared = preparedResult.data;
-    if (preparedResult.error || prepared?.ok !== true) {
+    if (
+      preparedResult.error ||
+      !isRecord(prepared) ||
+      typeof prepared.ok !== "boolean"
+    ) {
+      fail(
+        "LIFECYCLE_PREPARE_FAILED",
+        "Lifecycle candidate recheck could not be completed.",
+      );
+    }
+    if (prepared.ok !== true) {
       skippedAfterRecheck += 1;
       continue;
     }
@@ -371,7 +428,12 @@ async function main() {
       p_version_id: row.id,
     });
 
-    if (success && !recordResult.error && recordResult.data?.ok === true) {
+    if (
+      success &&
+      !recordResult.error &&
+      recordResult.data?.ok === true &&
+      recordResult.data?.cleanup_status === "complete"
+    ) {
       completed += 2;
       completedBytes += Number(prepared.byte_count ?? 0);
     } else {
@@ -392,7 +454,16 @@ async function main() {
     const prepared = preparedResult.data;
     if (
       preparedResult.error ||
-      prepared?.ok !== true ||
+      !isRecord(prepared) ||
+      typeof prepared.ok !== "boolean"
+    ) {
+      fail(
+        "ORPHAN_PREPARE_FAILED",
+        "Orphan candidate recheck could not be completed.",
+      );
+    }
+    if (
+      prepared.ok !== true ||
       prepared.product_id !== parsed.productId ||
       prepared.version_id !== parsed.versionId ||
       prepared.variant !== parsed.variant
@@ -427,7 +498,10 @@ async function main() {
   info(`skipped_after_recheck=${skippedAfterRecheck}`);
   info(`failed=${failed}`);
   if (failed > 0) {
-    fail("PARTIAL_CLEANUP_FAILURE", "One or more scoped candidates remain retryable.");
+    fail(
+      "PARTIAL_CLEANUP_FAILURE",
+      "One or more scoped candidates remain retryable.",
+    );
   }
   info("PASS cleanup batch completed");
 }
@@ -437,6 +511,9 @@ if (
   import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
   main().catch(() => {
-    fail("UNEXPECTED_FAILURE", "Cleanup stopped without exposing internal details.");
+    fail(
+      "UNEXPECTED_FAILURE",
+      "Cleanup stopped without exposing internal details.",
+    );
   });
 }

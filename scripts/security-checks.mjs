@@ -466,6 +466,7 @@ function checkReadOnlyContracts() {
     // deliberately broad mutation heuristic. Supabase writes remain confined
     // to the explicitly allowlisted server-only RPCs above.
     "src/server/shop-admin/product-images/cache-scope.ts",
+    "src/server/shop-admin/product-images/runtime-core.ts",
     "src/server/shop-admin/product-images/service.ts",
   ]);
 
@@ -4062,6 +4063,10 @@ function checkTask019PosAuthFoundationImplementation() {
     "src/app/api/pos/auth/first-login/route.ts",
     "src/app/api/pos/catalog/article-mutations/route.ts",
     "src/app/api/pos/catalog/import-sync/route.ts",
+    "src/app/api/pos/catalog/product-images/finalize/route.ts",
+    "src/app/api/pos/catalog/product-images/intent/route.ts",
+    "src/app/api/pos/catalog/product-images/read-urls/route.ts",
+    "src/app/api/pos/catalog/product-images/remove/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
@@ -4219,6 +4224,10 @@ function checkTask020Win7PosIntegrationPlanning() {
     "src/app/api/pos/auth/first-login/route.ts",
     "src/app/api/pos/catalog/article-mutations/route.ts",
     "src/app/api/pos/catalog/import-sync/route.ts",
+    "src/app/api/pos/catalog/product-images/finalize/route.ts",
+    "src/app/api/pos/catalog/product-images/intent/route.ts",
+    "src/app/api/pos/catalog/product-images/read-urls/route.ts",
+    "src/app/api/pos/catalog/product-images/remove/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
@@ -4342,6 +4351,10 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     firstLoginRoutePath,
     "src/app/api/pos/catalog/article-mutations/route.ts",
     "src/app/api/pos/catalog/import-sync/route.ts",
+    "src/app/api/pos/catalog/product-images/finalize/route.ts",
+    "src/app/api/pos/catalog/product-images/intent/route.ts",
+    "src/app/api/pos/catalog/product-images/read-urls/route.ts",
+    "src/app/api/pos/catalog/product-images/remove/route.ts",
     catalogPullRoutePath,
     heartbeatRoutePath,
   ]);
@@ -8333,6 +8346,272 @@ function checkTask094PosCatalogImportSync() {
   }
 }
 
+function checkTask149TrustedPosProductImages() {
+  const routeDefinitions = [
+    {
+      handler: "handlePosProductImageIntent",
+      label: "pos.catalog.product_images.intent",
+      path: "src/app/api/pos/catalog/product-images/intent/route.ts",
+      stage: "product_image_intent",
+    },
+    {
+      handler: "handlePosProductImageFinalize",
+      label: "pos.catalog.product_images.finalize",
+      path: "src/app/api/pos/catalog/product-images/finalize/route.ts",
+      stage: "product_image_finalize",
+    },
+    {
+      handler: "handlePosProductImageReadUrls",
+      label: "pos.catalog.product_images.read_urls",
+      path: "src/app/api/pos/catalog/product-images/read-urls/route.ts",
+      stage: "product_image_read_urls",
+    },
+    {
+      handler: "handlePosProductImageRemove",
+      label: "pos.catalog.product_images.remove",
+      path: "src/app/api/pos/catalog/product-images/remove/route.ts",
+      stage: "product_image_remove",
+    },
+  ];
+  const authPath = "src/server/pos-auth/product-image-auth.ts";
+  const servicePath = "src/server/pos-auth/product-images.ts";
+  const envelopePath = "src/server/pos-auth/product-image-envelope.ts";
+  const catalogPath = "src/server/pos-auth/catalog-pull.ts";
+  const foundationPath =
+    "tests/foundation/task-149-pos-product-image-v1.test.mjs";
+  const bundleGatePath =
+    "scripts/testing/pos-worker-bundle-graph.mjs";
+  const requiredPaths = [
+    ...routeDefinitions.map(({ path }) => path),
+    authPath,
+    servicePath,
+    envelopePath,
+    catalogPath,
+    foundationPath,
+    bundleGatePath,
+  ];
+  let missing = false;
+
+  for (const path of requiredPaths) {
+    if (!existsSync(join(root, path))) {
+      addFailure(`${path} is missing`);
+      missing = true;
+    }
+  }
+
+  if (missing) {
+    return;
+  }
+
+  const auth = read(authPath);
+  const service = read(servicePath);
+  const envelope = read(envelopePath);
+  const catalog = read(catalogPath);
+  const foundation = read(foundationPath);
+  const bundleGate = read(bundleGatePath);
+  const packageJson = JSON.parse(read("package.json"));
+  const appRoutes = listFiles("src/app");
+  const actualProductImageRoutes = appRoutes
+    .filter((path) =>
+      /^src\/app\/api\/pos\/catalog\/product-images\/.+\/route\.ts$/.test(
+        path,
+      ),
+    )
+    .sort();
+  const expectedProductImageRoutes = routeDefinitions
+    .map(({ path }) => path)
+    .sort();
+
+  if (
+    JSON.stringify(actualProductImageRoutes) !==
+    JSON.stringify(expectedProductImageRoutes)
+  ) {
+    addFailure(
+      `TASK-149 permits exactly four POS product image routes, found: ${actualProductImageRoutes.join(", ")}`,
+    );
+  }
+
+  for (const definition of routeDefinitions) {
+    const route = read(definition.path);
+    const authImport =
+      '"@/server/pos-auth/product-image-auth"';
+    const serviceImport =
+      '"@/server/pos-auth/product-images"';
+    const authImportIndex = route.indexOf(authImport);
+    const serviceImportIndex = route.indexOf(serviceImport);
+    const authorizationCallIndex = route.indexOf(
+      "authorizePosProductImageRequest(",
+      authImportIndex + authImport.length,
+    );
+
+    for (const snippet of [
+      'export const dynamic = "force-dynamic"',
+      'export const runtime = "nodejs"',
+      "MAX_POS_PRODUCT_IMAGE_JSON_BODY_BYTES",
+      "readPosJsonBody",
+      "posJsonResponse",
+      "posMethodNotAllowedResponse",
+      "authorizePosProductImageRequest",
+      definition.handler,
+      `"${definition.label}"`,
+      `"${definition.stage}"`,
+      "methodNotAllowed as DELETE",
+      "methodNotAllowed as GET",
+      "methodNotAllowed as HEAD",
+      "methodNotAllowed as OPTIONS",
+      "methodNotAllowed as PATCH",
+      "methodNotAllowed as PUT",
+    ]) {
+      if (!route.includes(snippet)) {
+        addFailure(`${definition.path} must include ${snippet}`);
+      }
+    }
+
+    if ((route.match(/await import\(/g) ?? []).length !== 2) {
+      addFailure(
+        `${definition.path} must contain exactly two dynamic import stages`,
+      );
+    }
+
+    if (
+      authImportIndex === -1 ||
+      serviceImportIndex === -1 ||
+      authorizationCallIndex === -1 ||
+      authImportIndex >= authorizationCallIndex ||
+      authorizationCallIndex >= serviceImportIndex
+    ) {
+      addFailure(
+        `${definition.path} must load light auth before the heavy image domain`,
+      );
+    }
+
+    if (
+      /from\s+["']@\/server\/pos-auth\/product-image-auth["']|from\s+["']@\/server\/pos-auth\/product-images["']/.test(
+        route,
+      )
+    ) {
+      addFailure(
+        `${definition.path} must not statically import POS product image auth or domain modules`,
+      );
+    }
+
+    if (
+      /@supabase\/supabase-js|createSupabaseAdminClient|SUPABASE_SERVICE_ROLE_KEY|service_role|request\.headers\.get\(\s*["'](?:authorization|cookie)["']|\bBearer\b|access[_-]?token/i.test(
+        route,
+      )
+    ) {
+      addFailure(
+        `${definition.path} must remain a credential-agnostic light route boundary`,
+      );
+    }
+
+    if (/console\.(?:log|debug|info|warn|error)\s*\(/.test(route)) {
+      addFailure(`${definition.path} must not add a route-local console sink`);
+    }
+  }
+
+  if (
+    /@supabase\/supabase-js|@\/lib\/supabase\/admin|@\/server\/shop-admin\/product-images|from\s+["']\.\/product-images["']/i.test(
+      auth,
+    )
+  ) {
+    addFailure(
+      `${authPath} must stay lightweight and must not import Supabase JS or the image domain`,
+    );
+  }
+
+  if (
+    !/import "server-only"/.test(auth) ||
+    !/import "server-only"/.test(service)
+  ) {
+    addFailure("TASK-149 POS product image server modules must be server-only");
+  }
+
+  if (
+    /console\.(?:log|debug|info|warn|error)\s*\(/.test(
+      `${auth}\n${service}`,
+    )
+  ) {
+    addFailure(
+      "TASK-149 POS product image auth/domain must not log tokens, paths, signed URLs or request bodies",
+    );
+  }
+
+  for (const snippet of [
+    "hasPosProductImageIntentEnvelope",
+    "hasPosProductImageFinalizeEnvelope",
+    "hasPosProductImageReadUrlsEnvelope",
+    "hasPosProductImageRemoveEnvelope",
+    "MAX_POS_PRODUCT_IMAGE_JSON_BODY_BYTES",
+    "POS_PRODUCT_IMAGE_SCHEMA_VERSION",
+  ]) {
+    if (!envelope.includes(snippet)) {
+      addFailure(`${envelopePath} must include ${snippet}`);
+    }
+  }
+
+  const productProjection =
+    catalog.match(/catalog\.products\.push\(\{[\s\S]*?\n    }\);/)?.[0] ??
+    "";
+
+  for (const snippet of [
+    "primaryImageUpdatedAt",
+    "primaryImageVersionId",
+  ]) {
+    if (!productProjection.includes(snippet)) {
+      addFailure(`${catalogPath} product projection must include ${snippet}`);
+    }
+  }
+
+  if (
+    /\b(?:signedUrl|url|mainPath|thumbPath|storagePath|sha256|metadata)\b/i.test(
+      productProjection,
+    )
+  ) {
+    addFailure(
+      `${catalogPath} product projection must not expose image URLs, paths, hashes or raw metadata`,
+    );
+  }
+
+  for (const snippet of [
+    "TASK_149_CASES",
+    "TASK_149_EXECUTABLE_GATES",
+    "TASK149_CASE_",
+    "TASK-149 declares all 48 requested server cases",
+    "authLoads",
+    "imageLoads",
+    "primaryImageUpdatedAt",
+    "primaryImageVersionId",
+  ]) {
+    if (!foundation.includes(snippet)) {
+      addFailure(`${foundationPath} must include ${snippet}`);
+    }
+  }
+
+  for (const snippet of [
+    "DEFAULT_PRODUCT_IMAGE_INITIAL_MAX_BYTES",
+    "AUTH_DYNAMIC_PATTERNS",
+    "IMAGE_DYNAMIC_PATTERNS",
+    "api/pos/catalog/product-images/intent",
+    "api/pos/catalog/product-images/finalize",
+    "api/pos/catalog/product-images/read-urls",
+    "api/pos/catalog/product-images/remove",
+  ]) {
+    if (!bundleGate.includes(snippet)) {
+      addFailure(`${bundleGatePath} must include ${snippet}`);
+    }
+  }
+
+  if (
+    packageJson.scripts?.["check:pos-worker-bundle"] !==
+    "node scripts/testing/pos-worker-bundle-graph.mjs --assert"
+  ) {
+    addFailure(
+      "package.json must expose the emitted POS Worker bundle graph gate",
+    );
+  }
+}
+
 checkEnvTemplate();
 checkClientBoundaries();
 checkReadOnlyContracts();
@@ -8383,6 +8662,7 @@ checkTask065GoogleOauthRedirect();
 checkTask064PlatformUsersFoundation();
 checkTask072CrossPlatformSync();
 checkTask094PosCatalogImportSync();
+checkTask149TrustedPosProductImages();
 
 if (failures.length > 0) {
   console.error("Security scan failed:");

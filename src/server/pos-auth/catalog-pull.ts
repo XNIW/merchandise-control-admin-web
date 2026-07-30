@@ -62,6 +62,8 @@ type ProductRow = Pick<
   | "deleted_at"
   | "id"
   | "item_number"
+  | "primary_image_updated_at"
+  | "primary_image_version_id"
   | "product_name"
   | "purchase_price"
   | "retail_price"
@@ -149,6 +151,8 @@ type CatalogPayload = {
     barcode: string;
     categoryId: string | null;
     itemNumber: string | null;
+    primaryImageUpdatedAt: string | null;
+    primaryImageVersionId: string | null;
     productId: string;
     productName: string | null;
     purchasePrice: number | null;
@@ -576,6 +580,11 @@ function parseProductRows(page: CatalogPageV2) {
         isStringOrNull(row.deleted_at) &&
         isStringOrNull(row.category_id) &&
         isStringOrNull(row.item_number) &&
+        isStringOrNull(row.primary_image_updated_at) &&
+        isStringOrNull(row.primary_image_version_id) &&
+        (row.primary_image_version_id === null ||
+          (row.primary_image_updated_at !== null &&
+            isTimestamp(row.primary_image_updated_at))) &&
         isStringOrNull(row.product_name) &&
         isStringOrNull(row.second_product_name) &&
         isStringOrNull(row.supplier_id) &&
@@ -757,7 +766,15 @@ function mapCatalogPage(page: CatalogPageV2): CatalogPageMapping {
   }
   for (const product of products) {
     const updatedAt = canonicalizePosRevisionTimestamp(product.updated_at);
-    if (!updatedAt) {
+    const primaryImageUpdatedAt =
+      product.primary_image_updated_at === null
+        ? null
+        : canonicalizePosRevisionTimestamp(product.primary_image_updated_at);
+    if (
+      !updatedAt ||
+      (product.primary_image_updated_at !== null && !primaryImageUpdatedAt) ||
+      (product.primary_image_version_id !== null && !primaryImageUpdatedAt)
+    ) {
       return {
         reason: "catalog_revision_timestamp_invalid",
         status: "invalid",
@@ -767,6 +784,8 @@ function mapCatalogPage(page: CatalogPageV2): CatalogPageMapping {
       barcode: product.barcode,
       categoryId: product.category_id,
       itemNumber: product.item_number,
+      primaryImageUpdatedAt,
+      primaryImageVersionId: product.primary_image_version_id,
       productId: product.id,
       productName: product.product_name,
       purchasePrice: product.purchase_price,

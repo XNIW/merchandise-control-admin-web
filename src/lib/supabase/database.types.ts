@@ -388,13 +388,20 @@ export type Database = {
           expected_thumb_width: number
           expires_at: string
           finalized_at: string | null
+          finalized_by_pos_session_id: string | null
           finalized_by_profile_id: string | null
+          finalized_by_shop_device_id: string | null
+          finalized_by_staff_id: string | null
           id: string
           main_path: string
           previous_version_id: string | null
+          pos_upload_capability_expires_at: string | null
           product_id: string
           removed_at: string | null
-          requested_by_profile_id: string
+          requested_by_pos_session_id: string | null
+          requested_by_profile_id: string | null
+          requested_by_shop_device_id: string | null
+          requested_by_staff_id: string | null
           shop_id: string
           status: string
           superseded_at: string | null
@@ -429,13 +436,20 @@ export type Database = {
           expected_thumb_width: number
           expires_at?: string
           finalized_at?: string | null
+          finalized_by_pos_session_id?: string | null
           finalized_by_profile_id?: string | null
+          finalized_by_shop_device_id?: string | null
+          finalized_by_staff_id?: string | null
           id?: string
           main_path: string
           previous_version_id?: string | null
+          pos_upload_capability_expires_at?: string | null
           product_id: string
           removed_at?: string | null
-          requested_by_profile_id: string
+          requested_by_pos_session_id?: string | null
+          requested_by_profile_id?: string | null
+          requested_by_shop_device_id?: string | null
+          requested_by_staff_id?: string | null
           shop_id: string
           status?: string
           superseded_at?: string | null
@@ -470,13 +484,20 @@ export type Database = {
           expected_thumb_width?: number
           expires_at?: string
           finalized_at?: string | null
+          finalized_by_pos_session_id?: string | null
           finalized_by_profile_id?: string | null
+          finalized_by_shop_device_id?: string | null
+          finalized_by_staff_id?: string | null
           id?: string
           main_path?: string
           previous_version_id?: string | null
+          pos_upload_capability_expires_at?: string | null
           product_id?: string
           removed_at?: string | null
-          requested_by_profile_id?: string
+          requested_by_pos_session_id?: string | null
+          requested_by_profile_id?: string | null
+          requested_by_shop_device_id?: string | null
+          requested_by_staff_id?: string | null
           shop_id?: string
           status?: string
           superseded_at?: string | null
@@ -501,6 +522,34 @@ export type Database = {
             referencedColumns: ["profile_id"]
           },
           {
+            foreignKeyName: "image_versions_finalized_session_fk"
+            columns: ["finalized_by_pos_session_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sessions"
+            referencedColumns: ["pos_session_id"]
+          },
+          {
+            foreignKeyName: "image_versions_finalized_device_fk"
+            columns: ["finalized_by_shop_device_id"]
+            isOneToOne: false
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "image_versions_finalized_staff_fk"
+            columns: ["finalized_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "image_versions_finalized_staff_fk"
+            columns: ["finalized_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
+          },
+          {
             foreignKeyName: "inventory_product_image_versions_previous_version_id_fkey"
             columns: ["previous_version_id"]
             isOneToOne: false
@@ -520,6 +569,34 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "image_versions_requested_session_fk"
+            columns: ["requested_by_pos_session_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sessions"
+            referencedColumns: ["pos_session_id"]
+          },
+          {
+            foreignKeyName: "image_versions_requested_device_fk"
+            columns: ["requested_by_shop_device_id"]
+            isOneToOne: false
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "image_versions_requested_staff_fk"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "image_versions_requested_staff_fk"
+            columns: ["requested_by_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
           },
           {
             foreignKeyName: "inventory_product_image_versions_shop_id_fkey"
@@ -1112,6 +1189,137 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "pos_sale_stock_movements"
             referencedColumns: ["pos_sale_stock_movement_id"]
+          },
+        ]
+      }
+      pos_product_image_mutation_receipts: {
+        Row: {
+          app_version_class: string
+          authoritative_primary_image_version_id: string | null
+          catalog_revision: number
+          created_at: string
+          expected_current_version_id: string | null
+          idempotency_key: string
+          image_version_id: string | null
+          intent_expires_at: string | null
+          operation: string
+          operation_id: string
+          outcome_code: string
+          outcome_status: string
+          payload_hash: string
+          pos_product_image_mutation_receipt_id: string
+          pos_session_id: string
+          primary_image_updated_at: string | null
+          product_id: string
+          schema_version: string
+          server_timestamp: string
+          shop_device_id: string
+          shop_id: string
+          staff_credential_version: number
+          staff_id: string
+          validation_code: string | null
+        }
+        Insert: {
+          app_version_class?: string
+          authoritative_primary_image_version_id?: string | null
+          catalog_revision: number
+          created_at?: string
+          expected_current_version_id?: string | null
+          idempotency_key: string
+          image_version_id?: string | null
+          intent_expires_at?: string | null
+          operation: string
+          operation_id: string
+          outcome_code: string
+          outcome_status: string
+          payload_hash: string
+          pos_product_image_mutation_receipt_id?: string
+          pos_session_id: string
+          primary_image_updated_at?: string | null
+          product_id: string
+          schema_version?: string
+          server_timestamp: string
+          shop_device_id: string
+          shop_id: string
+          staff_credential_version: number
+          staff_id: string
+          validation_code?: string | null
+        }
+        Update: {
+          app_version_class?: string
+          authoritative_primary_image_version_id?: string | null
+          catalog_revision?: number
+          created_at?: string
+          expected_current_version_id?: string | null
+          idempotency_key?: string
+          image_version_id?: string | null
+          intent_expires_at?: string | null
+          operation?: string
+          operation_id?: string
+          outcome_code?: string
+          outcome_status?: string
+          payload_hash?: string
+          pos_product_image_mutation_receipt_id?: string
+          pos_session_id?: string
+          primary_image_updated_at?: string | null
+          product_id?: string
+          schema_version?: string
+          server_timestamp?: string
+          shop_device_id?: string
+          shop_id?: string
+          staff_credential_version?: number
+          staff_id?: string
+          validation_code?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pos_product_image_receipts_current_version_fk"
+            columns: ["authoritative_primary_image_version_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_product_image_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_product_image_receipts_version_fk"
+            columns: ["image_version_id"]
+            isOneToOne: false
+            referencedRelation: "inventory_product_image_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pos_product_image_receipts_session_fk"
+            columns: ["pos_session_id"]
+            isOneToOne: false
+            referencedRelation: "pos_sessions"
+            referencedColumns: ["pos_session_id"]
+          },
+          {
+            foreignKeyName: "pos_product_image_receipts_device_fk"
+            columns: ["shop_device_id"]
+            isOneToOne: false
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "pos_product_image_receipts_shop_fk"
+            columns: ["shop_id"]
+            isOneToOne: false
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "pos_product_image_receipts_staff_fk"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "pos_product_image_receipts_staff_fk"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
           },
         ]
       }
@@ -3493,6 +3701,159 @@ export type Database = {
           p_source: string
           p_staff_id: string
           p_summary?: Json
+        }
+        Returns: Json
+      }
+      pos_product_image_authorize_v1: {
+        Args: {
+          p_expected_staff_credential_version: number
+          p_permission: string
+          p_pos_session_id: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_product_image_cleanup_result_v1: {
+        Args: {
+          p_app_version: string
+          p_error_code: string | null
+          p_expected_staff_credential_version: number
+          p_idempotency_key: string
+          p_operation: string
+          p_operation_id: string
+          p_payload_hash: string
+          p_pos_session_id: string
+          p_product_id: string
+          p_schema_version: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+          p_success: boolean
+          p_version_id: string
+        }
+        Returns: Json
+      }
+      pos_product_image_finalize_commit_v1: {
+        Args: {
+          p_app_version: string
+          p_expected_current_version_id: string | null
+          p_expected_staff_credential_version: number
+          p_idempotency_key: string
+          p_operation_id: string
+          p_payload_hash: string
+          p_pos_session_id: string
+          p_product_id: string
+          p_schema_version: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+          p_validation_code: string | null
+          p_validation_ok: boolean
+          p_verified_main: Json | null
+          p_verified_thumb: Json | null
+          p_version_id: string
+        }
+        Returns: Json
+      }
+      pos_product_image_finalize_prepare_v1: {
+        Args: {
+          p_app_version: string
+          p_expected_current_version_id: string | null
+          p_expected_staff_credential_version: number
+          p_idempotency_key: string
+          p_operation_id: string
+          p_payload_hash: string
+          p_pos_session_id: string
+          p_product_id: string
+          p_schema_version: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+          p_version_id: string
+        }
+        Returns: Json
+      }
+      pos_product_image_intent_v1: {
+        Args: {
+          p_app_version: string
+          p_expected_current_version_id: string | null
+          p_expected_staff_credential_version: number
+          p_idempotency_key: string
+          p_main_metadata: Json
+          p_operation_id: string
+          p_payload_hash: string
+          p_pos_session_id: string
+          p_product_id: string
+          p_schema_version: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+          p_thumb_metadata: Json
+        }
+        Returns: Json
+      }
+      pos_product_image_node_audit_admit_v1: {
+        Args: {
+          p_expected_staff_credential_version: number
+          p_permission: string
+          p_pos_session_id: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_product_image_read_authorize_v1: {
+        Args: {
+          p_app_version: string
+          p_expected_staff_credential_version: number
+          p_pos_session_id: string
+          p_schema_version: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_product_image_read_resolve_v1: {
+        Args: {
+          p_app_version: string
+          p_expected_staff_credential_version: number
+          p_pos_session_id: string
+          p_refs: Json
+          p_schema_version: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_product_image_remove_v1: {
+        Args: {
+          p_app_version: string
+          p_expected_current_version_id: string
+          p_expected_staff_credential_version: number
+          p_idempotency_key: string
+          p_operation_id: string
+          p_payload_hash: string
+          p_pos_session_id: string
+          p_product_id: string
+          p_schema_version: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      task_149_pos_product_image_fixture_cleanup_v1: {
+        Args: {
+          p_action: string
+          p_operation_ids: string[]
+          p_product_id: string | null
+          p_run_id: string
+          p_shop_id: string | null
         }
         Returns: Json
       }

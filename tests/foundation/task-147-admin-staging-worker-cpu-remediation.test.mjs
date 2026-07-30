@@ -64,6 +64,17 @@ function loadRoute(relativePath, heavySpecifier, heavyModule) {
   );
   const envelope = transpileCommonJs(
     "src/server/pos-auth/route-envelope.ts",
+    {
+      "./pos-contract": {
+        POS_PRODUCT_IMAGE_MAIN_MAX_BYTES: 1024 * 1024,
+        POS_PRODUCT_IMAGE_MAIN_MAX_SIDE: 1600,
+        POS_PRODUCT_IMAGE_MAX_CREDENTIAL_VERSION: 2_147_483_647,
+        POS_PRODUCT_IMAGE_READ_BATCH_LIMIT: 16,
+        POS_PRODUCT_IMAGE_SCHEMA_VERSION: "pos-product-image-v1",
+        POS_PRODUCT_IMAGE_THUMB_MAX_BYTES: 90 * 1024,
+        POS_PRODUCT_IMAGE_THUMB_MAX_SIDE: 384,
+      },
+    },
   );
   let heavyLoads = 0;
   const route = transpileCommonJs(relativePath, {
@@ -586,6 +597,44 @@ test("TASK-147 source graph keeps read, write and Admin domains isolated", () =>
     envelope,
     /article-mutations|catalog-pull|supabase|platform|shop-admin|ui\//i,
   );
+});
+
+test("TASK-147 POS image routes preserve a two-stage cold boundary", () => {
+  const catalogRoute = read("src/app/api/pos/catalog/pull/route.ts");
+  const catalogService = read("src/server/pos-auth/catalog-pull.ts");
+  const imageRoutes = [
+    "src/app/api/pos/catalog/product-images/intent/route.ts",
+    "src/app/api/pos/catalog/product-images/finalize/route.ts",
+    "src/app/api/pos/catalog/product-images/read-urls/route.ts",
+    "src/app/api/pos/catalog/product-images/remove/route.ts",
+  ];
+
+  assert.doesNotMatch(
+    `${catalogRoute}\n${catalogService}`,
+    /pos-auth\/product-image-auth|pos-auth\/product-images|shop-admin\/product-images/,
+  );
+
+  for (const routePath of imageRoutes) {
+    const route = read(routePath);
+    const authIndex = route.indexOf(
+      '"@/server/pos-auth/product-image-auth"',
+    );
+    const imageIndex = route.indexOf(
+      '"@/server/pos-auth/product-images"',
+    );
+
+    assert.equal(
+      (route.match(/await import\(/g) ?? []).length,
+      2,
+      routePath,
+    );
+    assert.ok(authIndex >= 0, routePath);
+    assert.ok(imageIndex > authIndex, routePath);
+    assert.doesNotMatch(
+      route,
+      /from\s+["']@\/server\/pos-auth\/product-image-auth["']|from\s+["']@\/server\/pos-auth\/product-images["']/,
+    );
+  }
 });
 
 test("TASK-147 bounded audit allowlist permits exactly one secret-free console sink", () => {
