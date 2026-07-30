@@ -3,10 +3,10 @@
 ## Informazioni generali
 
 - ID: `TASK-144`
-- Stato: `REVIEW_READY`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `CLAUDE/CHATGPT / REVIEWER`
-- Risoluzione proposta: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`
+- Stato: `DONE`
+- Fase attuale: `DONE / USER_CONFIRMED_CLOSURE`
+- Responsabile attuale: `USER / CONFIRMED CLOSURE`
+- Risoluzione finale: `USER_CONFIRMED_CLOSURE`
 - Data apertura: `2026-07-28`
 - Branch: `codex/admin-pos-offline-authorization-20260728`
 - Baseline Admin: `7ff0f6a0dfd9e1203cd07834f73ecc4269abc714`
@@ -75,5 +75,5 @@ Win7POS, Android e iOS restano `NOT_MODIFIED`.
 - Worker deploy aggiunti dal closeout: `0`.
 - Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
 - Windows 7 fisico: `EXTERNAL_PENDING`.
-- Stato governance:
-  `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.
+- Conferma esplicita finale dell'utente: `RECEIVED`.
+- Stato governance: `DONE / USER_CONFIRMED_CLOSURE`.

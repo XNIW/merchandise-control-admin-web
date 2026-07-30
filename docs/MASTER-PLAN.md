@@ -2863,40 +2863,40 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Coordination key TASK-142: `CATALOG-TEXT-001`
 - File task TASK-142: `docs/TASKS/TASK-142-cross-platform-catalog-text-integrity.md`
 - Evidence TASK-142: `docs/TASKS/EVIDENCE/TASK-142/README.md`
-- Stato TASK-143: `REVIEW_READY`
-- Fase TASK-143: `REVIEW`
+- Stato TASK-143: `DONE`
+- Fase TASK-143: `DONE / USER_CONFIRMED_CLOSURE`
 - Task TASK-143: `TASK-143 - Admin staging catalog pull 503`
 - File task TASK-143: `docs/TASKS/TASK-143-admin-staging-catalog-pull-503.md`
 - Evidence TASK-143: `docs/TASKS/EVIDENCE/TASK-143/README.md`
-- Stato TASK-144: `REVIEW_READY`
-- Fase TASK-144: `REVIEW`
+- Stato TASK-144: `DONE`
+- Fase TASK-144: `DONE / USER_CONFIRMED_CLOSURE`
 - Task TASK-144: `TASK-144 - POS offline authorization attestation`
 - File task TASK-144: `docs/TASKS/TASK-144-pos-offline-authorization-attestation.md`
 - Evidence TASK-144: `docs/TASKS/EVIDENCE/TASK-144/README.md`
-- Stato TASK-145: `REVIEW_READY`
-- Fase TASK-145: `REVIEW`
+- Stato TASK-145: `DONE`
+- Fase TASK-145: `DONE / USER_CONFIRMED_CLOSURE`
 - Task TASK-145: `TASK-145 - Versioned POS article mutation contract`
 - File task TASK-145: `docs/TASKS/TASK-145-pos-article-mutation-v1.md`
 - Evidence TASK-145: `docs/TASKS/EVIDENCE/TASK-145/README.md`
 - Branch TASK-145: `codex/admin-pos-article-mutation-v1-20260728`
-- Stato TASK-146: `REVIEW_READY`
-- Fase TASK-146: `REVIEW`
+- Stato TASK-146: `DONE`
+- Fase TASK-146: `DONE / USER_CONFIRMED_CLOSURE`
 - Task TASK-146: `TASK-146 - Canonical POS revision timestamps and Asus cleanup`
 - File task TASK-146:
   `docs/TASKS/TASK-146-pos-revision-canonicalization-asus-cleanup.md`
 - Evidence TASK-146: `docs/TASKS/EVIDENCE/TASK-146/README.md`
 - Branch TASK-146:
   `codex/admin-pos-revision-canonicalization-20260728`
-- Stato TASK-147: `REVIEW_READY`
-- Fase TASK-147: `REVIEW`
+- Stato TASK-147: `DONE`
+- Fase TASK-147: `DONE / USER_CONFIRMED_CLOSURE`
 - Task TASK-147: `TASK-147 - Admin staging Worker CPU remediation`
 - File task TASK-147:
   `docs/TASKS/TASK-147-admin-staging-worker-cpu-remediation.md`
 - Evidence TASK-147: `docs/TASKS/EVIDENCE/TASK-147/README.md`
 - Branch TASK-147:
   `codex/task-147-closeout-20260729`
-- Stato TASK-148: `REVIEW_READY`
-- Fase TASK-148: `REVIEW`
+- Stato TASK-148: `DONE`
+- Fase TASK-148: `DONE / USER_CONFIRMED_CLOSURE`
 - Task TASK-148: `TASK-148 - Final POS article-sync staging cleanup`
 - File task TASK-148:
   `docs/TASKS/TASK-148-final-pos-article-sync-cleanup.md`
@@ -2905,21 +2905,21 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `codex/final-pos-article-sync-cleanup-20260730`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `REVIEW`
+- Stato globale attuale: `IDLE`
 - Task attivo: `NESSUNO`
-- Task precedente: `TASK-148 - Final POS article-sync staging cleanup` (`REVIEW_READY`)
-- Ultimo task chiuso: `TASK-142 - Cross-platform catalog text integrity`
-- Ultimo task completato: `TASK-142 - Cross-platform catalog text integrity`
+- Task precedente: `TASK-148 - Final POS article-sync staging cleanup` (`DONE`)
+- Ultimo task chiuso: `TASK-148 - Final POS article-sync staging cleanup`
+- Ultimo task completato: `TASK-148 - Final POS article-sync staging cleanup`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - File task corrente: `NESSUNO`
 - Ultimo file task: `docs/TASKS/TASK-148-final-pos-article-sync-cleanup.md`
 - Evidence task corrente: `NESSUNO`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-148/README.md`
-- Stato task: `REVIEW_READY`
-- Fase: `REVIEW`
-- Milestone interna: `FINAL_POS_ARTICLE_SYNC_CLEANUP_REVIEW_READY`
-- Responsabile: `CLAUDE/CHATGPT / REVIEWER`
+- Stato task: `DONE`
+- Fase: `DONE / USER_CONFIRMED_CLOSURE`
+- Milestone interna: `FINAL_POS_ARTICLE_SYNC_USER_CONFIRMED_CLOSURE`
+- Responsabile: `USER / CONFIRMED CLOSURE`
 - Branch/worktree:
   `codex/final-pos-article-sync-cleanup-20260730`.
 - Apertura TASK-148 2026-07-30: ripresa fail-closed della pulizia finale
@@ -2940,9 +2940,16 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   Worker deploy aggiunti `0`; runtime Admin, migration/schema, Worker,
   Win7POS, PR `#72`, produzione, Android, iOS e billing `NOT_MODIFIED`.
   Windows 7 fisico resta `EXTERNAL_PENDING`. TASK-143..TASK-148 sono pronte
-  per `USER_CONFIRMED_CLOSURE`, ma restano in `REVIEW_READY` perché Codex non
-  marca task `DONE`. Handoff:
+  per `USER_CONFIRMED_CLOSURE`. Handoff:
   `docs/HANDOFFS/WIN7POS_POS_ARTICLE_SYNC_FINAL_CLEANUP.md`.
+- Chiusura TASK-143..TASK-148 2026-07-30: conferma esplicita finale
+  dell'utente ricevuta dopo verifica della PR `#57` merged, della CI verde,
+  dell'acceptance Win7POS `PASS`, del cleanup consolidato `PASS`, dei residui
+  sintetici `0`, dell'audit immutabile `PRESERVED` e della review
+  `P0/P1/P2/P3 = 0/0/0/0`. Tutti e sei i task passano a
+  `DONE / USER_CONFIRMED_CLOSURE`; Windows 7 fisico resta
+  `EXTERNAL_PENDING`, production `NOT_MODIFIED` e i Worker deploy aggiunti
+  dalla sola chiusura restano `0`.
 - Closeout TASK-147 2026-07-29: runtime finale `9fb54f50`, PR `#53/#54/#55`
   mergiate normalmente e CI verde. Tre deploy staging distinti completati;
   finale `5ad3652d` / `57af0535`, startup 40 ms. Acceptance pubblica:

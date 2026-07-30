@@ -3,18 +3,16 @@
 ## Stato
 
 - Coordinamento Admin: `TASK-148`.
-- Stato: `REVIEW_READY`.
-- Fase: `REVIEW`.
-- Risoluzione proposta:
-  `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`.
+- Stato: `DONE`.
+- Fase: `DONE / USER_CONFIRMED_CLOSURE`.
+- Risoluzione finale: `USER_CONFIRMED_CLOSURE`.
 - Win7POS final acceptance: `PASS`.
 - Cleanup consolidato staging: `PASS`.
 - Windows 7 fisico: `EXTERNAL_PENDING`.
 
-Il brief utente autorizza il closeout completo. La governance del repository
-richiede però che Codex consegni a `REVIEW` e non registri direttamente
-`DONE`; questo handoff contiene tutte le evidence necessarie alla conferma
-finale del reviewer.
+La conferma esplicita finale dell'utente è stata ricevuta il `2026-07-30`.
+TASK-143..TASK-148 sono quindi chiuse a `DONE / USER_CONFIRMED_CLOSURE` sulla
+base delle evidence consolidate di seguito.
 
 ## Baseline autorevoli
 
@@ -104,14 +102,14 @@ guard transaction-local e raggiunto `COMMIT` il
 
 | Task | Risultato tecnico | Stato governance |
 | --- | --- | --- |
-| TASK-143 | Acceptance finale e cleanup `PASS` | `REVIEW_READY` |
-| TASK-144 | Offline authorization preservata | `REVIEW_READY` |
-| TASK-145 | Article mutation v1 e cleanup `PASS` | `REVIEW_READY` |
-| TASK-146 | Revisioni canoniche e acceptance `PASS` | `REVIEW_READY` |
-| TASK-147 | CPU remediation e acceptance `PASS` | `REVIEW_READY` |
-| TASK-148 | Cleanup consolidato e residui `0` | `REVIEW_READY` |
+| TASK-143 | Acceptance finale e cleanup `PASS` | `DONE / USER_CONFIRMED_CLOSURE` |
+| TASK-144 | Offline authorization preservata | `DONE / USER_CONFIRMED_CLOSURE` |
+| TASK-145 | Article mutation v1 e cleanup `PASS` | `DONE / USER_CONFIRMED_CLOSURE` |
+| TASK-146 | Revisioni canoniche e acceptance `PASS` | `DONE / USER_CONFIRMED_CLOSURE` |
+| TASK-147 | CPU remediation e acceptance `PASS` | `DONE / USER_CONFIRMED_CLOSURE` |
+| TASK-148 | Cleanup consolidato e residui `0` | `DONE / USER_CONFIRMED_CLOSURE` |
 
-Tutte sono pronte per `USER_CONFIRMED_CLOSURE`; Codex non le marca `DONE`.
+Tutte risultano chiuse con conferma esplicita dell'utente.
 
 ## Invarianti di scope
 
@@ -143,10 +141,23 @@ Tutte sono pronte per `USER_CONFIRMED_CLOSURE`; Codex non le marca `DONE`.
   `PASS`; il worktree isolato non contiene deliberatamente il project link.
 - Exact-ID, JSON/Markdown, UUID/credential, anti-symlink e Gitleaks `8.30.1`:
   `PASS`, finding `0`.
-- PR `#57` non-draft: Database migrations/pgTAP, Verify e Cloudflare build
-  `PASS`; deploy staging e production `SKIPPED`.
+- PR `#57` merged normalmente in `34aeddbe`; Database migrations/pgTAP,
+  Verify e Cloudflare build `PASS`; deploy staging e production `SKIPPED`.
 - Review indipendente del closeout:
   `PASS`, `P0/P1/P2/P3 = 0/0/0/0`.
+
+### Gate della chiusura confermata dall'utente
+
+- Baseline Admin: `34aeddbe99b07b415b8a71c8060d708d37b0cd60`.
+- PR `#57` e CI richieste: `PASS / MERGED`.
+- `git diff --check`: `PASS`.
+- `npm run test:foundation` con Win7POS detached su `f34308b2`: `PASS`.
+  Il primo tentativo senza dipendenze installate nel nuovo worktree è
+  `NOT_VALID_ENVIRONMENT` e non è usato come evidence.
+- `npm run security:scan`: `PASS`.
+- `npm run verify`: `PASS`.
+- Diff: `DOCS_ONLY`; runtime, migration, database, Worker e produzione:
+  `NOT_MODIFIED`.
 
 ## Matrice criteri TASK-148
 
@@ -160,7 +171,7 @@ Tutte sono pronte per `USER_CONFIRMED_CLOSURE`; Codex non le marca `DONE`.
 | 6 | Delete esatte, audit storici preservati, cleanup audit unica | `PASS` |
 | 7 | Residui target zero e baseline non-target invariata | `PASS` |
 | 8 | Privacy e secret scan finali | `PASS` |
-| 9 | Diff docs-only, gate locali e CI | `PENDING_FINAL_HEAD_CI` |
+| 9 | Diff docs-only, gate locali e CI | `PASS` |
 | 10 | Handoff review-ready, Windows 7 fisico esterno | `PASS_WITH_EXTERNAL_NOTE` |
 
 ## File pubblici toccati
@@ -191,5 +202,5 @@ Tutte sono pronte per `USER_CONFIRMED_CLOSURE`; Codex non le marca `DONE`.
 - Nessun rischio noto P0/P1/P2/P3 resta aperto sull'outcome staging.
 - Fonte consolidata:
   `docs/TASKS/EVIDENCE/TASK-148/README.md`.
-- Prossima fase: review del closeout, CI PR e conferma esplicita finale
-  dell'utente/reviewer.
+- Prossima fase: nessuna per TASK-143..TASK-148; ogni nuovo gap richiede un
+  task separato.

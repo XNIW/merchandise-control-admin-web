@@ -3,10 +3,10 @@
 ## Informazioni generali
 
 - ID: `TASK-147`
-- Stato: `REVIEW_READY`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `CLAUDE/CHATGPT / REVIEWER`
-- Risoluzione proposta: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`
+- Stato: `DONE`
+- Fase attuale: `DONE / USER_CONFIRMED_CLOSURE`
+- Responsabile attuale: `USER / CONFIRMED CLOSURE`
+- Risoluzione finale: `USER_CONFIRMED_CLOSURE`
 - Data apertura: `2026-07-29`
 - Branch implementative:
   - `codex/admin-staging-worker-cpu-remediation-20260729`;
@@ -300,5 +300,5 @@ reviewer; Windows 7 fisico resta `EXTERNAL_PENDING`.
 - Worker deploy aggiunti dal closeout: `0`; runtime Worker invariato.
 - Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
 - Windows 7 fisico: `EXTERNAL_PENDING`.
-- Stato governance:
-  `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.
+- Conferma esplicita finale dell'utente: `RECEIVED`.
+- Stato governance: `DONE / USER_CONFIRMED_CLOSURE`.

@@ -3,10 +3,10 @@
 ## Informazioni generali
 
 - ID: `TASK-143`
-- Stato: `REVIEW_READY`
-- Fase attuale: `REVIEW`
-- Responsabile attuale: `CLAUDE/CHATGPT / REVIEWER`
-- Risoluzione proposta: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`
+- Stato: `DONE`
+- Fase attuale: `DONE / USER_CONFIRMED_CLOSURE`
+- Responsabile attuale: `USER / CONFIRMED CLOSURE`
+- Risoluzione finale: `USER_CONFIRMED_CLOSURE`
 - Data apertura: `2026-07-27`
 - Branch implementazione: `codex/admin-staging-catalog-pull-503-20260727`
 - Branch closeout: `codex/admin-staging-catalog-pull-503-closeout-20260727`
@@ -158,5 +158,5 @@ Il test su Windows 7 fisico resta `EXTERNAL_PENDING` e non viene dichiarato
 - Worker deploy aggiunti dal closeout: `0`.
 - Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
 - Windows 7 fisico: `EXTERNAL_PENDING`.
-- Stato governance:
-  `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.
+- Conferma esplicita finale dell'utente: `RECEIVED`.
+- Stato governance: `DONE / USER_CONFIRMED_CLOSURE`.
