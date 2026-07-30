@@ -277,4 +277,5 @@ Da `2026-07-29T04:24:52.566733Z` a
 - Windows 7 fisico: `EXTERNAL_PENDING`.
 - Handoff precedente: superseded da
   `docs/HANDOFFS/WIN7POS_POS_ARTICLE_SYNC_FINAL_CLEANUP.md`.
-- Stato: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.
+- Conferma esplicita finale dell'utente: `RECEIVED`.
+- Stato: `DONE / USER_CONFIRMED_CLOSURE`.

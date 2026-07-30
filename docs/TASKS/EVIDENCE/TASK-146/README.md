@@ -175,4 +175,5 @@ Stato storico pre-TASK-148:
 - Worker deploy aggiunti: `0`.
 - Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
 - Windows 7 fisico: `EXTERNAL_PENDING`.
-- Stato: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.
+- Conferma esplicita finale dell'utente: `RECEIVED`.
+- Stato: `DONE / USER_CONFIRMED_CLOSURE`.

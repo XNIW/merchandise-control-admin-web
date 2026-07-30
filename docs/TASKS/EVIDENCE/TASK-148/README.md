@@ -89,8 +89,8 @@
 - Windows 7 fisico: `EXTERNAL_PENDING`.
 - `docs/AI_WORKLOG.md`:
   `NOT_APPLICABLE_FILE_ABSENT`.
-- Closeout:
-  `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.
+- Conferma esplicita finale dell'utente: `RECEIVED`.
+- Closeout: `DONE / USER_CONFIRMED_CLOSURE`.
 
 ## Gate locali e privacy finali
 
