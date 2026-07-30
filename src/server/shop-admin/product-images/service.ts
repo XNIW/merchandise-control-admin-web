@@ -1,11 +1,6 @@
 import "server-only";
 
-import { createHash } from "node:crypto";
-import {
-  createSupabaseAdminClient,
-  resolveSupabaseAdminConfig,
-  type SupabaseAdminClient,
-} from "@/lib/supabase/admin";
+import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import type { Json, Tables } from "@/lib/supabase/database.types";
 import type { ProductImageRequestActor } from "./auth";
 import { createProductImageCacheScope } from "./cache-scope";
@@ -23,7 +18,12 @@ import {
   type ProductImageRemoveInput,
   type ProductImageUploadMetadata,
 } from "./contract";
-import { inspectJpeg } from "./jpeg-validator";
+import {
+  isCanonicalProductImagePath as canonicalProductImagePath,
+  isProductImageStorageObjectMissingError,
+  resolveProductImageAdminClient as resolveAdminClient,
+  verifyDownloadedProductImageJpeg as verifyDownloadedJpeg,
+} from "./runtime-core";
 
 type RpcObject = Record<string, Json | undefined>;
 type ImageVersionRow = Tables<"inventory_product_image_versions">;
@@ -77,26 +77,6 @@ function statusForRpcCode(code: string) {
   if (code === "validation_failed") return 400;
   if (code === "verified_metadata_mismatch") return 422;
   return 503;
-}
-
-function canonicalProductImagePath(input: {
-  path: string | null;
-  productId: string;
-  shopId: string;
-  variant: "main" | "thumb";
-  versionId: string;
-}) {
-  return (
-    input.path ===
-    `shops/${input.shopId}/products/${input.productId}/primary/${input.versionId}/${input.variant}.jpg`
-  );
-}
-
-function resolveAdminClient() {
-  const config = resolveSupabaseAdminConfig();
-  return config.status === "configured"
-    ? createSupabaseAdminClient(config)
-    : null;
 }
 
 async function productImageAccessIsPublishable(
@@ -282,58 +262,6 @@ export async function createProductImageIntent(
   });
 }
 
-function sha256(bytes: Uint8Array) {
-  return createHash("sha256").update(bytes).digest("hex");
-}
-
-function verifyDownloadedJpeg(input: {
-  blobMimeType: string;
-  bytes: Uint8Array;
-  expectedBytes: number;
-  expectedHeight: number;
-  expectedSha256: string;
-  expectedWidth: number;
-  maxBytes: number;
-  maxSide: number;
-}) {
-  const mimeType = input.blobMimeType.split(";")[0]?.trim().toLowerCase();
-  if (mimeType !== "image/jpeg") {
-    return { code: "jpeg_mime_invalid" as const, ok: false as const };
-  }
-  if (
-    input.bytes.byteLength < 1 ||
-    input.bytes.byteLength > input.maxBytes ||
-    input.bytes.byteLength !== input.expectedBytes
-  ) {
-    return { code: "jpeg_byte_count_mismatch" as const, ok: false as const };
-  }
-
-  const inspection = inspectJpeg(input.bytes);
-  if (!inspection.ok) {
-    return inspection;
-  }
-  if (
-    inspection.inspection.width > input.maxSide ||
-    inspection.inspection.height > input.maxSide ||
-    inspection.inspection.width !== input.expectedWidth ||
-    inspection.inspection.height !== input.expectedHeight
-  ) {
-    return { code: "jpeg_dimensions_invalid" as const, ok: false as const };
-  }
-
-  const digest = sha256(input.bytes);
-  if (digest !== input.expectedSha256) {
-    return { code: "jpeg_checksum_mismatch" as const, ok: false as const };
-  }
-
-  return {
-    height: inspection.inspection.height,
-    ok: true as const,
-    sha256: digest,
-    width: inspection.inspection.width,
-  };
-}
-
 async function loadImageVersion(
   admin: SupabaseAdminClient,
   input: ProductImageFinalizeInput,
@@ -451,6 +379,7 @@ export async function finalizeProductImage(
     bucket.download(version.main_path),
     bucket.download(version.thumb_path),
   ]);
+  const downloads = [mainDownload, thumbDownload];
 
   if (
     mainDownload.error ||
@@ -458,6 +387,14 @@ export async function finalizeProductImage(
     !mainDownload.data ||
     !thumbDownload.data
   ) {
+    const hasTransientOrMalformedResult = downloads.some((download) =>
+      download.error
+        ? !isProductImageStorageObjectMissingError(download.error)
+        : !download.data,
+    );
+    if (hasTransientOrMalformedResult) {
+      return safeFailure("storage_unavailable");
+    }
     await markVersionFailed(admin, actor, input, "storage_object_missing");
     return safeFailure("storage_object_missing", 409);
   }
@@ -601,11 +538,8 @@ export async function removeProductImage(
   const storageResult = await admin.storage
     .from(PRODUCT_IMAGE_BUCKET)
     .remove([mainPath, thumbPath]);
-  const cleanupStatus: "complete" | "pending" = storageResult.error
-    ? "pending"
-    : "complete";
 
-  await admin.rpc("product_image_record_cleanup", {
+  const cleanupRecordResult = await admin.rpc("product_image_record_cleanup", {
     p_actor_kind: actor.actorKind,
     p_actor_profile_id: actor.actorProfileId,
     p_error_code: storageResult.error ? "storage_delete_failed" : undefined,
@@ -615,6 +549,14 @@ export async function removeProductImage(
     p_success: !storageResult.error,
     p_version_id: input.expectedVersionId,
   });
+  const cleanupRecord = asObject(cleanupRecordResult.data);
+  const cleanupStatus: "complete" | "pending" =
+    !storageResult.error &&
+    !cleanupRecordResult.error &&
+    booleanField(cleanupRecord.ok) &&
+    textField(cleanupRecord.cleanup_status) === "complete"
+      ? "complete"
+      : "pending";
 
   return serviceResult(200, {
     cleanupStatus,

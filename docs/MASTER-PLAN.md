@@ -2903,25 +2903,55 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Evidence TASK-148: `docs/TASKS/EVIDENCE/TASK-148/README.md`
 - Branch TASK-148:
   `codex/final-pos-article-sync-cleanup-20260730`
+- Stato TASK-149: `EXECUTION`
+- Fase TASK-149: `EXECUTION`
+- Task TASK-149: `TASK-149 - Trusted POS product image v1 server contract`
+- File task TASK-149:
+  `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
+- Evidence TASK-149: `docs/TASKS/EVIDENCE/TASK-149/README.md`
+- Branch TASK-149:
+  `codex/admin-pos-product-image-v1-20260730`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `IDLE`
-- Task attivo: `NESSUNO`
+- Stato globale attuale: `EXECUTION`
+- Task attivo: `TASK-149 - Trusted POS product image v1 server contract`
 - Task precedente: `TASK-148 - Final POS article-sync staging cleanup` (`DONE`)
 - Ultimo task chiuso: `TASK-148 - Final POS article-sync staging cleanup`
 - Ultimo task completato: `TASK-148 - Final POS article-sync staging cleanup`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `NESSUNO`
+- File task corrente: `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
 - Ultimo file task: `docs/TASKS/TASK-148-final-pos-article-sync-cleanup.md`
-- Evidence task corrente: `NESSUNO`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-149/README.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-148/README.md`
-- Stato task: `DONE`
-- Fase: `DONE / USER_CONFIRMED_CLOSURE`
-- Milestone interna: `FINAL_POS_ARTICLE_SYNC_USER_CONFIRMED_CLOSURE`
-- Responsabile: `USER / CONFIRMED CLOSURE`
+- Stato task: `EXECUTION`
+- Fase: `EXECUTION`
+- Milestone interna: `TRUSTED_POS_PRODUCT_IMAGE_V1_IMPLEMENTATION`
+- Responsabile: `CODEX / EXECUTOR`
 - Branch/worktree:
-  `codex/final-pos-article-sync-cleanup-20260730`.
+  `codex/admin-pos-product-image-v1-20260730`.
+- Apertura TASK-149 2026-07-30: ricevuta autorizzazione completa per il
+  contratto server `pos-product-image-v1`, PR/CI/merge, migration e deploy
+  esclusivamente staging, acceptance sintetica exact-ID e cleanup. Baseline
+  Admin `710ff981`, Win7POS main `f34308b2` e PR `#72` draft head
+  `b43473f9` verificate. Contratto portabile Admin/Android/iOS byte-identico,
+  SHA-256 `b6212f36f27a6dc2`; Win7POS Phase A resta read-only e non contiene il
+  JSON portabile. Production, Win7POS, Android e iOS restano
+  `NOT_MODIFIED`.
+- Checkpoint locale TASK-149 2026-07-30: runtime trusted POS immagini,
+  migration additiva, fixture portabili e harness staging/resource live-only
+  implementati. Focused `28/28`, foundation, security, `verify`, `cf:build`,
+  Worker smoke e bundle graph `7/7` PASS; `route-envelope.ts` legacy resta
+  byte-identico alla baseline. Supabase locale PASS con pgTAP TASK-149
+  `162/162`, full `1251/1251` e DB lint senza errori. La matrice 1–48 e
+  l’equivalenza composita CASE24 zero-image sono registrate nell’evidence. Il
+  gate live usa manifest DB indipendente, cleanup Auth recoverable,
+  redazione chiavi/valori/path, ambienti child a allowlist e conversione CPU
+  Tail ms→µs verificata. Recheck indipendenti finali matrice/security:
+  `P0/P1/P2/P3 = 0/0/0/0`.
+  PR/CI/merge, migration e deploy staging, acceptance live, attesa capability
+  e cleanup restano pendenti; stato `EXECUTION`, produzione e PR Win7POS
+  `#72` non modificate.
 - Apertura TASK-148 2026-07-30: ripresa fail-closed della pulizia finale
   articolo POS su staging dopo la scadenza della lease storicamente
   bloccante. Scope limitato agli ID esatti del manifest privato validato,

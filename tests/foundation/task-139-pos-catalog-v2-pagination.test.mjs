@@ -115,6 +115,8 @@ function productBoundaryRows(
     id: `50000000-0000-4000-8000-${String(start + offset).padStart(12, "0")}`,
     item_number: null,
     owner_user_id: "60000000-0000-4000-8000-000000000001",
+    primary_image_updated_at: null,
+    primary_image_version_id: null,
     product_name: `Product ${start + offset}`,
     purchase_price: null,
     retail_price: null,
@@ -482,6 +484,124 @@ test("TASK-139 page boundary honors a server lane cap below the requested limit"
   assert.equal(second.rows.length, 1);
   assert.equal(second.entityHasMore, false);
   assert.equal(calls.length, 2);
+});
+
+test("TASK-149 catalog page boundary enforces the image publication tri-state", async () => {
+  const boundary = loadCatalogRevisionBoundary();
+  const shopId = "33333333-3333-4333-8333-333333333333";
+  const scopeKey = createHash("sha256")
+    .update(`${shopId}:shop_scoped:${shopId}`, "utf8")
+    .digest("hex")
+    .slice(0, 32);
+  const imageVersionId = "70000000-0000-4000-8000-000000000149";
+  const imageUpdatedAt = "2026-07-30T14:01:02.123456+00:00";
+  const scenarios = [
+    {
+      id: "never-had-image",
+      primary_image_updated_at: null,
+      primary_image_version_id: null,
+      valid: true,
+    },
+    {
+      id: "current-image",
+      primary_image_updated_at: imageUpdatedAt,
+      primary_image_version_id: imageVersionId,
+      valid: true,
+    },
+    {
+      id: "removed-image",
+      primary_image_updated_at: imageUpdatedAt,
+      primary_image_version_id: null,
+      valid: true,
+    },
+    {
+      id: "version-without-timestamp",
+      primary_image_updated_at: null,
+      primary_image_version_id: imageVersionId,
+      valid: false,
+    },
+  ];
+  const manifest = {
+    catalogSummary: {
+      activeProducts: 1,
+      categories: 0,
+      prices: 0,
+      products: 1,
+      suppliers: 0,
+    },
+    windowCounts: {
+      categories: 0,
+      prices: 0,
+      products: 1,
+      suppliers: 0,
+    },
+  };
+  const input = {
+    afterId: null,
+    afterUpdatedAt: null,
+    entity: null,
+    expectedRevision: null,
+    expectedScopeKey: null,
+    expectedScopeKind: null,
+    includeManifest: true,
+    limit: 60,
+    lowerBound: null,
+    mode: "full_refresh",
+    posSessionId: "11111111-1111-4111-8111-111111111111",
+    shopDeviceId: "22222222-2222-4222-8222-222222222222",
+    shopId,
+    snapshotAt: null,
+    staffId: "44444444-4444-4444-8444-444444444444",
+  };
+
+  for (const scenario of scenarios) {
+    const row = {
+      ...productBoundaryRows(
+        1,
+        149,
+        "2026-07-30T14:02:00.000001+00:00",
+      )[0],
+      primary_image_updated_at: scenario.primary_image_updated_at,
+      primary_image_version_id: scenario.primary_image_version_id,
+    };
+    const supabase = {
+      async rpc() {
+        return {
+          data: {
+            entity: "products",
+            entityHasMore: false,
+            manifest,
+            pageLimit: 60,
+            revision: "149",
+            rows: [row],
+            scopeKey,
+            scopeKind: "shop_scoped",
+            scopeOwnerId: null,
+            snapshotAt: "2026-07-30T14:03:00.000000+00:00",
+            status: "ok",
+          },
+          error: null,
+        };
+      },
+    };
+    const page = await boundary.loadCatalogPageV2(supabase, input);
+
+    assert.equal(page.status, scenario.valid ? "ok" : "db_failure", scenario.id);
+    if (scenario.valid) {
+      assert.equal(
+        page.rows[0].primary_image_version_id,
+        scenario.primary_image_version_id,
+        scenario.id,
+      );
+      assert.equal(
+        page.rows[0].primary_image_updated_at,
+        scenario.primary_image_updated_at,
+        scenario.id,
+      );
+    } else {
+      assert.equal(page.reason, "catalog_v2_page_contract_invalid", scenario.id);
+    }
+  }
 });
 
 test("TASK-139 price page accepts canonical Room timestamps from POS catalog import", async () => {

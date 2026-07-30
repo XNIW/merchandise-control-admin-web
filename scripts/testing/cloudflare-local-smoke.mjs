@@ -9,6 +9,12 @@ const baseUrl = `http://127.0.0.1:${port}`;
 const workerPath = ".open-next/worker.js";
 const npmBin = process.platform === "win32" ? "npm.cmd" : "npm";
 const npxBin = process.platform === "win32" ? "npx.cmd" : "npx";
+const posProductImagePaths = [
+  "/api/pos/catalog/product-images/intent",
+  "/api/pos/catalog/product-images/finalize",
+  "/api/pos/catalog/product-images/read-urls",
+  "/api/pos/catalog/product-images/remove",
+];
 
 const secretPattern =
   /\b(eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.|service_role|SUPABASE_SERVICE_ROLE_KEY|credential_hash|password_hash|pin_hash|access_token|refresh_token|CLOUDFLARE_API_TOKEN|mcpos_(?:device|session)_[A-Za-z0-9_-]+)\b/i;
@@ -316,6 +322,18 @@ async function main() {
       });
     }
 
+    for (const path of posProductImagePaths) {
+      await probe({
+        body: "{}",
+        expect: [400],
+        headers: { "content-type": "application/json" },
+        method: "POST",
+        name: `POS product image light guard ${path}`,
+        path,
+        requireNoStore: true,
+      });
+    }
+
     for (const path of [
       "/api/pos/auth/first-login",
       "/api/pos/session/heartbeat",
@@ -323,6 +341,7 @@ async function main() {
       "/api/pos/catalog/import-sync",
       "/api/pos/catalog/pull",
       "/api/pos/sales/sync",
+      ...posProductImagePaths,
     ]) {
       await probe({
         expect: [405],

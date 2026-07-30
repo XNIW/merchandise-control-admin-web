@@ -16,8 +16,15 @@ function read(relativePath) {
 function loadRouteEnvelope() {
   return transpileCommonJs(
     "src/server/pos-auth/route-envelope.ts",
-    (specifier) =>
-      specifier === "server-only" ? {} : requireForTest(specifier),
+    (specifier) => {
+      if (specifier === "server-only") {
+        return {};
+      }
+      if (specifier === "./pos-contract") {
+        return { POS_PRODUCT_IMAGE_SCHEMA_VERSION: "pos-product-image-v1" };
+      }
+      return requireForTest(specifier);
+    },
   );
 }
 
@@ -385,6 +392,203 @@ test("TASK-143 first page succeeds with an exact non-empty manifest and one publ
   assert.equal(harness.auditCalls.length, 0);
 });
 
+test("TASK-149 catalog keeps image state additive across full, delta, replacement and remove", async () => {
+  const productId = "60000000-0000-4000-8000-000000000149";
+  const initialVersionId = "70000000-0000-4000-8000-000000000149";
+  const replacementVersionId = "70000000-0000-4000-8000-000000000150";
+  const cases = [
+    {
+      id: "full-never-had-image",
+      mode: "full_refresh",
+      primaryImageUpdatedAt: null,
+      primaryImageVersionId: null,
+      rawImageUpdatedAt: null,
+    },
+    {
+      id: "full-current-image",
+      mode: "full_refresh",
+      primaryImageUpdatedAt: "2026-07-30T14:01:02.123456Z",
+      primaryImageVersionId: initialVersionId,
+      rawImageUpdatedAt: "2026-07-30T14:01:02.123456+00:00",
+    },
+    {
+      id: "delta-replacement",
+      mode: "delta",
+      primaryImageUpdatedAt: "2026-07-30T14:02:03.654321Z",
+      primaryImageVersionId: replacementVersionId,
+      rawImageUpdatedAt: "2026-07-30T14:02:03.654321+00:00",
+    },
+    {
+      id: "delta-remove",
+      mode: "delta",
+      primaryImageUpdatedAt: "2026-07-30T14:03:04.000001Z",
+      primaryImageVersionId: null,
+      rawImageUpdatedAt: "2026-07-30T14:03:04.000001+00:00",
+    },
+  ];
+
+  for (const scenario of cases) {
+    const rawProductUpdatedAt =
+      scenario.rawImageUpdatedAt ?? "2026-07-30T14:00:00.000001+00:00";
+    const harness = loadCatalogPull({
+      page: {
+        ...defaultPage(),
+        entity: "products",
+        manifest: {
+          catalogSummary: {
+            activeProducts: 1,
+            categories: 0,
+            prices: 0,
+            products: 1,
+            suppliers: 0,
+          },
+          windowCounts: {
+            categories: 0,
+            prices: 0,
+            products: 1,
+            suppliers: 0,
+          },
+        },
+        rows: [
+          {
+            barcode: "TASK149-IMAGE",
+            category_id: null,
+            deleted_at: null,
+            id: productId,
+            item_number: "TASK149",
+            owner_user_id: "60000000-0000-4000-8000-000000000001",
+            primary_image_updated_at: scenario.rawImageUpdatedAt,
+            primary_image_version_id: scenario.primaryImageVersionId,
+            product_name: "TASK-149 synthetic image product",
+            purchase_price: 10.25,
+            retail_price: 15.75,
+            second_product_name: null,
+            shop_id: "40000000-0000-4000-8000-000000000001",
+            stock_quantity: 8,
+            supplier_id: null,
+            updated_at: rawProductUpdatedAt,
+          },
+        ],
+      },
+      resolveSyncRequest: () => ({
+        ok: true,
+        request: {
+          continuation: null,
+          limit: 60,
+          lowerBound:
+            scenario.mode === "delta"
+              ? "2026-07-30T13:00:00.000000Z"
+              : null,
+          mode: scenario.mode,
+          snapshotAt: null,
+        },
+      }),
+    });
+    const result = await harness.catalogPull.handlePosCatalogPull(
+      validPullInput(),
+    );
+
+    assert.equal(result.status, 200, scenario.id);
+    assert.equal(result.body.syncMode, scenario.mode, scenario.id);
+    assert.equal(result.body.catalog.products.length, 1, scenario.id);
+
+    const product = JSON.parse(
+      JSON.stringify(result.body.catalog.products[0]),
+    );
+    const {
+      primaryImageUpdatedAt,
+      primaryImageVersionId,
+      ...legacyProduct
+    } = product;
+    assert.equal(
+      primaryImageVersionId,
+      scenario.primaryImageVersionId,
+      scenario.id,
+    );
+    assert.equal(
+      primaryImageUpdatedAt,
+      scenario.primaryImageUpdatedAt,
+      scenario.id,
+    );
+    assert.deepEqual(
+      legacyProduct,
+      {
+        barcode: "TASK149-IMAGE",
+        categoryId: null,
+        itemNumber: "TASK149",
+        productId,
+        productName: "TASK-149 synthetic image product",
+        purchasePrice: 10.25,
+        retailPrice: 15.75,
+        secondProductName: null,
+        stockQuantity: 8,
+        supplierId: null,
+        updatedAt: rawProductUpdatedAt.replace("+00:00", "Z"),
+      },
+      `${scenario.id}: legacy projection`,
+    );
+    assert.equal(
+      Object.keys(product).some((key) =>
+        /url|path|sha|mime|bytes|width|height|metadata/i.test(key),
+      ),
+      false,
+      `${scenario.id}: private image metadata`,
+    );
+    assert.equal(harness.publicationCalls.length, 1, scenario.id);
+    assert.equal(harness.auditCalls.length, 0, scenario.id);
+  }
+});
+
+test("TASK-149 catalog rejects an image UUID without a publication timestamp", async () => {
+  const harness = loadCatalogPull({
+    page: {
+      ...defaultPage(),
+      entity: "products",
+      manifest: {
+        catalogSummary: {
+          activeProducts: 1,
+          categories: 0,
+          prices: 0,
+          products: 1,
+          suppliers: 0,
+        },
+        windowCounts: {
+          categories: 0,
+          prices: 0,
+          products: 1,
+          suppliers: 0,
+        },
+      },
+      rows: [
+        {
+          barcode: "TASK149-INVALID-IMAGE-STATE",
+          category_id: null,
+          deleted_at: null,
+          id: "60000000-0000-4000-8000-000000000150",
+          item_number: null,
+          primary_image_updated_at: null,
+          primary_image_version_id:
+            "70000000-0000-4000-8000-000000000151",
+          product_name: "TASK-149 invalid image state",
+          purchase_price: null,
+          retail_price: null,
+          second_product_name: null,
+          stock_quantity: null,
+          supplier_id: null,
+          updated_at: "2026-07-30T14:04:05.000001+00:00",
+        },
+      ],
+    },
+  });
+  const result = await harness.catalogPull.handlePosCatalogPull(validPullInput());
+
+  assert.equal(result.status, 500);
+  assert.equal(result.body.root, "catalog_response_invalid");
+  assert.equal("catalog" in result.body, false);
+  assert.equal(harness.publicationCalls.length, 0);
+  assert.equal(harness.auditCalls.length, 1);
+});
+
 test("TASK-143 an empty manifest fails closed and never publishes catalog success", async () => {
   const emptyManifest = {
     catalogSummary: {
@@ -503,6 +707,8 @@ test("TASK-143 a tombstone-only delta can converge the catalog to empty", async 
           deleted_at: "2026-07-27T19:30:00.000Z",
           id: deletedProductId,
           item_number: null,
+          primary_image_updated_at: null,
+          primary_image_version_id: null,
           product_name: "Deleted product",
           purchase_price: null,
           retail_price: null,
@@ -970,6 +1176,8 @@ test("TASK-143 full handler drain matches its first-page real-volume manifest", 
         category_id: null,
         deleted_at: null,
         item_number: null,
+        primary_image_updated_at: null,
+        primary_image_version_id: null,
         product_name: `Product ${index}`,
         purchase_price: null,
         retail_price: null,
@@ -1107,6 +1315,11 @@ test("TASK-143 full handler drain matches its first-page real-volume manifest", 
       Math.ceil(manifest.windowCounts[lane] / lanePageLimits[lane]),
     0,
   );
+  assert.equal(
+    expectedPageCount,
+    676,
+    "the additive image fields must not change the 19,763-product drain",
+  );
   assert.deepEqual(firstPageSummary, manifest.catalogSummary);
   assert.equal(pageCount, expectedPageCount);
   for (const lane of lanes) {
@@ -1179,6 +1392,8 @@ test("TASK-146 public revisions are canonical while cursor keysets retain raw mi
           deleted_at: null,
           id: productId,
           item_number: null,
+          primary_image_updated_at: null,
+          primary_image_version_id: null,
           product_name: "TASK-146 synthetic product",
           purchase_price: null,
           retail_price: null,
@@ -1277,6 +1492,8 @@ test("TASK-146 category, supplier and product tombstones share one canonical for
         deleted_at: rawDeletedAt,
         id: "80000000-0000-4000-8000-000000000146",
         item_number: null,
+        primary_image_updated_at: null,
+        primary_image_version_id: null,
         product_name: "TASK-146 synthetic product",
         purchase_price: null,
         retail_price: null,

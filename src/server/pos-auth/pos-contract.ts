@@ -7,6 +7,14 @@ export const POS_CATALOG_CAPABILITY_VERSION = "catalog-v2" as const;
 export const POS_CATALOG_IMPORT_SCHEMA_VERSION = "pos-catalog-import-v1" as const;
 export const POS_ARTICLE_MUTATION_SCHEMA_VERSION =
   "pos-article-mutation-v1" as const;
+export const POS_PRODUCT_IMAGE_SCHEMA_VERSION =
+  "pos-product-image-v1" as const;
+export const POS_PRODUCT_IMAGE_MAIN_MAX_BYTES = 1024 * 1024;
+export const POS_PRODUCT_IMAGE_MAIN_MAX_SIDE = 1600;
+export const POS_PRODUCT_IMAGE_THUMB_MAX_BYTES = 90 * 1024;
+export const POS_PRODUCT_IMAGE_THUMB_MAX_SIDE = 384;
+export const POS_PRODUCT_IMAGE_READ_BATCH_LIMIT = 16;
+export const POS_PRODUCT_IMAGE_MAX_CREDENTIAL_VERSION = 2_147_483_647;
 export const POS_LEGACY_SALES_SCHEMA_VERSION = "pos-sales-v1" as const;
 export const POS_SALES_SCHEMA_VERSION = "pos-sales-ledger-v2" as const;
 

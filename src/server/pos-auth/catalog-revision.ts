@@ -168,6 +168,11 @@ function rowMatchesPageContract(
             typeof row.second_product_name === "string") &&
           optionalUuid(row.supplier_id) &&
           optionalUuid(row.category_id) &&
+          optionalUuid(row.primary_image_version_id) &&
+          (row.primary_image_updated_at === null ||
+            timestampMicros(row.primary_image_updated_at) !== null) &&
+          (row.primary_image_version_id === null ||
+            row.primary_image_updated_at !== null) &&
           finiteNumberOrNull(row.purchase_price) &&
           finiteNumberOrNull(row.retail_price) &&
           finiteNumberOrNull(row.stock_quantity) &&

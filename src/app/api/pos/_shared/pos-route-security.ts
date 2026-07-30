@@ -6,6 +6,7 @@ export const MAX_POS_JSON_BODY_BYTES = 16 * 1024;
 
 const POS_JSON_HEADERS = {
   "Cache-Control": "no-store",
+  "X-Content-Type-Options": "nosniff",
 } as const;
 const REQUEST_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,79}$/;
 const SENSITIVE_REQUEST_ID_PATTERN =
@@ -200,13 +201,14 @@ export function emitPosRouteRejectionAudit(
 export function posMethodNotAllowedResponse(
   allowedMethods = "POST",
   context?: PosRouteRequestContext,
+  body: unknown = {
+    code: "method_not_allowed",
+    message: "Method not allowed.",
+    ok: false,
+  },
 ) {
   return Response.json(
-    withRequestId({
-      code: "method_not_allowed",
-      message: "Method not allowed.",
-      ok: false,
-    }, context),
+    withRequestId(body, context),
     {
       headers: {
         ...requestHeaders(context),

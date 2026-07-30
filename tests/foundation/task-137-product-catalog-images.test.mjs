@@ -7,6 +7,8 @@ import test from "node:test";
 import {
   isCanonicalProductImageObjectPath,
   isEligibleProductImageOrphan,
+  isExplicitStorageObjectNotFound,
+  removeOne,
 } from "../../scripts/admin/task-137-product-image-cleanup.mjs";
 import {
   downloadProductImageWithOneAuthRefresh,
@@ -74,25 +76,8 @@ function jpeg(width, height, options = {}) {
     : [];
   const scanBytes = options.multiScan
     ? [
-        0x01,
-        0x02,
-        0xff,
-        0xd0,
-        0x03,
-        0xff,
-        0xda,
-        0x00,
-        0x08,
-        0x01,
-        0x01,
-        0x00,
-        0x00,
-        0x3f,
-        0x00,
-        0x04,
-        0xff,
-        0x00,
-        0x05,
+        0x01, 0x02, 0xff, 0xd0, 0x03, 0xff, 0xda, 0x00, 0x08, 0x01, 0x01, 0x00,
+        0x00, 0x3f, 0x00, 0x04, 0xff, 0x00, 0x05,
       ]
     : [0x01, 0x02, 0xff, 0x00, 0x03];
   return Uint8Array.from([
@@ -171,24 +156,8 @@ test("TASK-137 JPEG parser rejects APP1 metadata", () => {
 
 test("TASK-137 JPEG parser permits only canonical JFIF APP0 and no metadata carriers", () => {
   const jfif = [
-    0xff,
-    0xe0,
-    0x00,
-    0x10,
-    0x4a,
-    0x46,
-    0x49,
-    0x46,
-    0x00,
-    0x01,
-    0x01,
-    0x00,
-    0x00,
-    0x01,
-    0x00,
-    0x01,
-    0x00,
-    0x00,
+    0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01, 0x00,
+    0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
   ];
   const comment = [0xff, 0xfe, 0x00, 0x04, 0x6f, 0x6b];
   const jfxx = [0xff, 0xe0, 0x00, 0x07, 0x4a, 0x46, 0x58, 0x58, 0x00];
@@ -402,7 +371,11 @@ test("TASK-137 finalize and remove require opaque UUIDs", () => {
 });
 
 test("TASK-137 read contract is bounded to private references", () => {
-  const ref = { productId: PRODUCT_ID, variant: "thumb", versionId: VERSION_ID };
+  const ref = {
+    productId: PRODUCT_ID,
+    variant: "thumb",
+    versionId: VERSION_ID,
+  };
   assert.equal(
     parseProductImageReadInput({
       refs: Array.from({ length: PRODUCT_IMAGE_READ_BATCH_LIMIT }, () => ref),
@@ -412,7 +385,10 @@ test("TASK-137 read contract is bounded to private references", () => {
   );
   assert.equal(
     parseProductImageReadInput({
-      refs: Array.from({ length: PRODUCT_IMAGE_READ_BATCH_LIMIT + 1 }, () => ref),
+      refs: Array.from(
+        { length: PRODUCT_IMAGE_READ_BATCH_LIMIT + 1 },
+        () => ref,
+      ),
       shopId: SHOP_ID,
     }),
     null,
@@ -493,7 +469,10 @@ test("TASK-137 migration keeps Storage private and RPCs service-only", async () 
     cleanupHardening,
     /grant execute on function public\.product_image_prepare_cleanup[^;]+to service_role/,
   );
-  assert.doesNotMatch(cleanupHardening, /signed_url|upload_url|main_path'.*metadata/i);
+  assert.doesNotMatch(
+    cleanupHardening,
+    /signed_url|upload_url|main_path'.*metadata/i,
+  );
   const actorGuard = deniedAuditGuard.indexOf(
     "app_private.product_image_actor_can_read",
   );
@@ -507,7 +486,10 @@ test("TASK-137 migration keeps Storage private and RPCs service-only", async () 
     deniedAuditGuard,
     /security definer[\s\S]*set search_path = public, app_private, pg_temp/,
   );
-  assert.match(deniedAuditGuard, /coalesce\(auth\.role\(\), ''\) <> 'service_role'/);
+  assert.match(
+    deniedAuditGuard,
+    /coalesce\(auth\.role\(\), ''\) <> 'service_role'/,
+  );
   assert.match(
     deniedAuditGuard,
     /grant select on table[\s\S]*public\.profiles,[\s\S]*public\.shops,[\s\S]*public\.shop_members,[\s\S]*public\.platform_admins[\s\S]*to service_role/,
@@ -533,12 +515,17 @@ test("TASK-137 sync payload contains product IDs but no object path or URL", asy
     "utf8",
   );
   const syncFunction = migration.slice(
-    migration.indexOf("create or replace function app_private.emit_product_image_sync_event"),
+    migration.indexOf(
+      "create or replace function app_private.emit_product_image_sync_event",
+    ),
   );
 
   assert.match(syncFunction, /jsonb_build_object\('product_ids'/);
   assert.match(syncFunction, /'catalog_changed'/);
-  assert.doesNotMatch(syncFunction, /main_path|thumb_path|signed_url|upload_url|token/);
+  assert.doesNotMatch(
+    syncFunction,
+    /main_path|thumb_path|signed_url|upload_url|token/,
+  );
 });
 
 test("TASK-137 routes are no-store and never accept image bytes", async () => {
@@ -609,38 +596,43 @@ test("TASK-139 shared image contract fixes batch 16 and nested ready metadata", 
 });
 
 test("TASK-137 and preserved POS reads enforce their requested permission", async () => {
-  const [dataAccess, inventoryReadModel, permissions, posRoute, staffPermissions] =
-    await Promise.all([
-      readFile(
-        new URL("../../src/server/shop-admin/data-access.ts", import.meta.url),
-        "utf8",
+  const [
+    dataAccess,
+    inventoryReadModel,
+    permissions,
+    posRoute,
+    staffPermissions,
+  ] = await Promise.all([
+    readFile(
+      new URL("../../src/server/shop-admin/data-access.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../../src/server/shop-admin/inventory-read-model.ts",
+        import.meta.url,
       ),
-      readFile(
-        new URL(
-          "../../src/server/shop-admin/inventory-read-model.ts",
-          import.meta.url,
-        ),
-        "utf8",
+      "utf8",
+    ),
+    readFile(
+      new URL("../../src/server/shop-admin/permissions.ts", import.meta.url),
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../../src/app/api/shop/pos/revenue/sale-detail/route.ts",
+        import.meta.url,
       ),
-      readFile(
-        new URL("../../src/server/shop-admin/permissions.ts", import.meta.url),
-        "utf8",
+      "utf8",
+    ),
+    readFile(
+      new URL(
+        "../../src/server/shop-admin/staff-web-permissions.ts",
+        import.meta.url,
       ),
-      readFile(
-        new URL(
-          "../../src/app/api/shop/pos/revenue/sale-detail/route.ts",
-          import.meta.url,
-        ),
-        "utf8",
-      ),
-      readFile(
-        new URL(
-          "../../src/server/shop-admin/staff-web-permissions.ts",
-          import.meta.url,
-        ),
-        "utf8",
-      ),
-    ]);
+      "utf8",
+    ),
+  ]);
 
   assert.match(inventoryReadModel, /requiredPermission: "products\.read"/);
   assert.match(posRoute, /requiredPermission: "pos\.dashboard\.read"/);
@@ -669,10 +661,7 @@ test("TASK-137 server never logs signed URLs, tokens or image bytes", async () =
 
 test("TASK-137 browser pipeline freezes preprocessing, direct PUT and account-scoped byte cache", async () => {
   const client = await readFile(
-    new URL(
-      "../../src/lib/product-images/browser-client.ts",
-      import.meta.url,
-    ),
+    new URL("../../src/lib/product-images/browser-client.ts", import.meta.url),
     "utf8",
   );
 
@@ -693,7 +682,10 @@ test("TASK-137 browser pipeline freezes preprocessing, direct PUT and account-sc
     /OUTPUT_SIDE_FACTORS\.map\(\(factor\) =>[\s\S]*Math\.floor\(maximum \* factor\)/,
   );
   assert.match(client, /PRODUCT_IMAGE_PREPROCESS_MEASURE/);
-  assert.match(client, /performance\.measure\(PRODUCT_IMAGE_PREPROCESS_MEASURE/);
+  assert.match(
+    client,
+    /performance\.measure\(PRODUCT_IMAGE_PREPROCESS_MEASURE/,
+  );
   assert.match(client, /context\.fillStyle = "#ffffff"/);
   assert.match(client, /crypto\.subtle\.digest\(\s*"SHA-256"/);
   assert.match(client, /const body = new FormData\(\)/);
@@ -710,20 +702,54 @@ test("TASK-137 browser pipeline freezes preprocessing, direct PUT and account-sc
 test("TASK-139 rejects oversized raster dimensions before browser decode", () => {
   const png = (width, height) =>
     Uint8Array.from([
-      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
-      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
-      (width >>> 24) & 0xff, (width >>> 16) & 0xff,
-      (width >>> 8) & 0xff, width & 0xff,
-      (height >>> 24) & 0xff, (height >>> 16) & 0xff,
-      (height >>> 8) & 0xff, height & 0xff,
+      0x89,
+      0x50,
+      0x4e,
+      0x47,
+      0x0d,
+      0x0a,
+      0x1a,
+      0x0a,
+      0x00,
+      0x00,
+      0x00,
+      0x0d,
+      0x49,
+      0x48,
+      0x44,
+      0x52,
+      (width >>> 24) & 0xff,
+      (width >>> 16) & 0xff,
+      (width >>> 8) & 0xff,
+      width & 0xff,
+      (height >>> 24) & 0xff,
+      (height >>> 16) & 0xff,
+      (height >>> 8) & 0xff,
+      height & 0xff,
     ]);
   const jpeg = (width, height) =>
     Uint8Array.from([
-      0xff, 0xd8,
-      0xff, 0xc0, 0x00, 0x11, 0x08,
-      (height >>> 8) & 0xff, height & 0xff,
-      (width >>> 8) & 0xff, width & 0xff,
-      0x03, 0x01, 0x11, 0x00, 0x02, 0x11, 0x00, 0x03, 0x11, 0x00,
+      0xff,
+      0xd8,
+      0xff,
+      0xc0,
+      0x00,
+      0x11,
+      0x08,
+      (height >>> 8) & 0xff,
+      height & 0xff,
+      (width >>> 8) & 0xff,
+      width & 0xff,
+      0x03,
+      0x01,
+      0x11,
+      0x00,
+      0x02,
+      0x11,
+      0x00,
+      0x03,
+      0x11,
+      0x00,
     ]);
 
   assert.deepEqual(
@@ -1064,6 +1090,83 @@ test("TASK-137 cleanup selects only aged canonical objects without lifecycle row
   );
 });
 
+test("TASK-137 cleanup accepts only explicit Storage not-found as verified absence", async () => {
+  const explicitNotFound = {
+    message: "Object not found",
+    status: 400,
+    statusCode: "404",
+  };
+  assert.equal(isExplicitStorageObjectNotFound(explicitNotFound), true);
+  assert.equal(
+    isExplicitStorageObjectNotFound({
+      message: "Object not found",
+      status: 503,
+      statusCode: "503",
+    }),
+    false,
+  );
+  assert.equal(
+    isExplicitStorageObjectNotFound({
+      message: "upstream timeout",
+      status: 404,
+      statusCode: "404",
+    }),
+    false,
+  );
+
+  const bucket = (probe, removalError = null) => ({
+    download: async () => probe,
+    remove: async () => ({ data: [], error: removalError }),
+  });
+  assert.equal(
+    await removeOne(
+      bucket({ data: null, error: explicitNotFound }),
+      "canonical/object.jpg",
+    ),
+    true,
+  );
+  assert.equal(
+    await removeOne(
+      bucket({
+        data: null,
+        error: {
+          message: "service unavailable",
+          status: 503,
+          statusCode: "503",
+        },
+      }),
+      "canonical/object.jpg",
+    ),
+    false,
+  );
+  assert.equal(
+    await removeOne(
+      bucket({ data: { size: 1 }, error: null }),
+      "canonical/object.jpg",
+    ),
+    false,
+  );
+
+  let probedAfterRemovalError = false;
+  assert.equal(
+    await removeOne(
+      {
+        download: async () => {
+          probedAfterRemovalError = true;
+          return { data: null, error: explicitNotFound };
+        },
+        remove: async () => ({
+          data: null,
+          error: new Error("remove failed"),
+        }),
+      },
+      "canonical/object.jpg",
+    ),
+    false,
+  );
+  assert.equal(probedAfterRemovalError, false);
+});
+
 test("TASK-137 UI keeps image upload separate from product form and cleanup defaults to dry-run", async () => {
   const [controls, cleanup] = await Promise.all([
     readFile(
@@ -1092,6 +1195,36 @@ test("TASK-137 UI keeps image upload separate from product form and cleanup defa
   assert.match(cleanup, /product_image_prepare_cleanup/);
   assert.match(cleanup, /product_image_record_orphan_cleanup/);
   assert.doesNotMatch(cleanup, /console\.log\([^\n]*(main_path|thumb_path)/);
+
+  const candidateScan = cleanup.slice(
+    cleanup.indexOf("async function readLifecycleCandidates"),
+    cleanup.indexOf("async function readLifecyclePaths"),
+  );
+  assert.match(
+    candidateScan,
+    /\.order\("created_at"[\s\S]*\.order\("id"[\s\S]*\.range\(/,
+  );
+  assert.match(candidateScan, /LIFECYCLE_CANDIDATE_LIMIT_EXCEEDED/);
+  assert.doesNotMatch(cleanup, /\.limit\(scanLimit\)/);
+
+  const lifecycleLoop = cleanup.slice(
+    cleanup.indexOf("for (const row of candidates)"),
+    cleanup.indexOf("for (const object of orphanCandidates)"),
+  );
+  assert.ok(
+    lifecycleLoop.indexOf("LIFECYCLE_PREPARE_FAILED") >= 0 &&
+      lifecycleLoop.indexOf("LIFECYCLE_PREPARE_FAILED") <
+        lifecycleLoop.indexOf("prepared.ok !== true"),
+  );
+  const orphanLoop = cleanup.slice(
+    cleanup.indexOf("for (const object of orphanCandidates)"),
+    cleanup.indexOf("info(`completed_object_count="),
+  );
+  assert.ok(
+    orphanLoop.indexOf("ORPHAN_PREPARE_FAILED") >= 0 &&
+      orphanLoop.indexOf("ORPHAN_PREPARE_FAILED") <
+        orphanLoop.indexOf("prepared.ok !== true"),
+  );
 });
 
 test("TASK-137 operational report is bounded, read-only and redacts shop and object paths", async () => {
@@ -1121,8 +1254,5 @@ test("TASK-137 operational report is bounded, read-only and redacts shop and obj
   assert.match(report, /hashShopId/);
   assert.doesNotMatch(report, /info\([^\n]*(main_path|thumb_path|objectPath)/);
   assert.doesNotMatch(report, /\.(insert|delete|upsert|remove)\s*\(/);
-  assert.doesNotMatch(
-    report,
-    /\.from\([^)]*\)[\s\S]{0,160}\.update\s*\(/,
-  );
+  assert.doesNotMatch(report, /\.from\([^)]*\)[\s\S]{0,160}\.update\s*\(/);
 });
