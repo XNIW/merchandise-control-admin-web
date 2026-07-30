@@ -4,8 +4,9 @@
 
 - ID: `TASK-144`
 - Stato: `REVIEW_READY`
-- Fase attuale: `REVIEW_READY`
+- Fase attuale: `REVIEW`
 - Responsabile attuale: `CLAUDE/CHATGPT / REVIEWER`
+- Risoluzione proposta: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`
 - Data apertura: `2026-07-28`
 - Branch: `codex/admin-pos-offline-authorization-20260728`
 - Baseline Admin: `7ff0f6a0dfd9e1203cd07834f73ecc4269abc714`
@@ -60,6 +61,19 @@ senza introdurre campi paralleli o allargare l'autorità offline.
 ## Delivery
 
 Review, PR, CI e merge normale sono completati. TASK-144 è consegnata a
-`REVIEW_READY`, mai `DONE`. Migration staging, unico deploy Worker condiviso
+`REVIEW_READY`. Migration staging, unico deploy Worker condiviso
 post-merge e acceptance reale `STGFE91FF04C` sono `PASS`; production,
 Win7POS, Android e iOS restano `NOT_MODIFIED`.
+
+## Closeout finale article-sync 2026-07-30
+
+- Win7POS final acceptance e cleanup consolidato staging: `PASS`.
+- Residui sintetici target: `0`; audit immutabile: `PRESERVED`.
+- Invarianti non-target: `UNCHANGED`.
+- Review tecnica piano/transazione e outcome:
+  `P0/P1/P2/P3 = 0/0/0/0`.
+- Worker deploy aggiunti dal closeout: `0`.
+- Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
+- Windows 7 fisico: `EXTERNAL_PENDING`.
+- Stato governance:
+  `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.

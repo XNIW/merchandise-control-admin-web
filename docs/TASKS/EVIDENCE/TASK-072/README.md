@@ -32,7 +32,7 @@
   Android/iOS per catalogo e History Entry prima della review finale.
 - Target runtime:
   - Admin Web in-app browser su `http://localhost:3055`, shop
-    `bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d`;
+    `<staging-shop:sha256:67545716fda89c02>`;
   - Supabase cloud dev non-production, stesso owner mobile hash
     `ad3d747e936c`;
   - Android emulator `emulator-5554`, package
@@ -237,7 +237,7 @@ Contract verificato su record reale:
 
 - Target runtime verificato:
   - browser aperto su
-    `http://localhost:3055/shop/devices?shop_id=bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d`;
+    `http://localhost:3055/shop/devices?shop_id=<staging-shop:sha256:67545716fda89c02>`;
   - processo `next-server (v16.2.6)` in ascolto su `127.0.0.1:3055`;
   - `.env.local` e `supabase/.temp/linked-project.json` puntano al cloud dev
     `merchandisecontrol-dev` (`jpgo...yvm`);
@@ -885,7 +885,7 @@ prova sufficiente di cleanup.
 ### Computer Use visual QA
 
 - Safari/Admin Web autenticato su `localhost:3055`:
-  - `/shop/products?shop_id=bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d` caricato;
+  - `/shop/products?shop_id=<staging-shop:sha256:67545716fda89c02>` caricato;
   - albero accessibile e pagina hanno mostrato prodotti
     `TASK072C_IOS_20260619T175420Z_*`,
     `TASK072C_IOS_20260619T174023Z_*` e
@@ -893,7 +893,7 @@ prova sufficiente di cleanup.
   - metriche visibili: `Total products 19,718`, `Filtered rows 19,710`,
     `Archived products 8`, `Legacy mobile bridge`.
 - Safari/Admin Web History:
-  - `/shop/history?shop_id=bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d` caricato;
+  - `/shop/history?shop_id=<staging-shop:sha256:67545716fda89c02>` caricato;
   - pagina visualmente `Mobile History Entries`, `Payload v2 59`,
     `Overlay OK 59`, `Overlay issues 0`;
   - albero accessibile include
@@ -1023,7 +1023,7 @@ prova sufficiente di cleanup.
   - ritorna solo `status`, `can_write` e campi diagnostici redatti.
 - Harness Supabase deterministico:
   - comando:
-    `npm run verify:task072:devices -- --shop-id=bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d --lint-timeout-ms=10000`;
+    `npm run verify:task072:devices -- --shop-id=<staging-shop:sha256:67545716fda89c02> --lint-timeout-ms=10000`;
   - esito: `PASS`;
   - il timeout controllato del lint CLI viene sostituito da controlli SQL
     deterministici su schema, grant, funzione read-only, metadata redaction,
@@ -1033,7 +1033,7 @@ prova sufficiente di cleanup.
 
 - Smoke browser autenticato su `next start` locale:
   - route:
-    `/shop/devices?shop_id=bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d`;
+    `/shop/devices?shop_id=<staging-shop:sha256:67545716fda89c02>`;
   - fixture temporanea shop-manager creata e rimossa a fine test;
   - heading `Devices` visibile;
   - nessun `Read blocked`;
@@ -1319,7 +1319,7 @@ prova sufficiente di cleanup.
 - Admin Products filtered:
   `docs/TASKS/EVIDENCE/TASK-072/task072d-final-admin-products-filtered.png`.
   - URL:
-    `/shop/products?shop_id=bc01ea8e-0ae5-4b7a-abbc-4863a1be5b8d&q=TASK072D_&state=all&pageSize=50`;
+    `/shop/products?shop_id=<staging-shop:sha256:67545716fda89c02>&q=TASK072D_&state=all&pageSize=50`;
   - DOM check: righe `TASK072D_` visibili, stato archived/tombstoned coerente.
 - Admin History context:
   `docs/TASKS/EVIDENCE/TASK-072/task072d-final-admin-history-context.png`.

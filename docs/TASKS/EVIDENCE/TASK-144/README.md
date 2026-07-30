@@ -113,3 +113,15 @@ Eseguiti realmente il 2026-07-28:
 - Cleanup: sessione/credential/device revocati, fixture archiviate, residui
   runtime attivi `0`; audit immutabile preservato.
 - Production: `NOT_MODIFIED`.
+
+## Closeout consolidato 2026-07-30
+
+- Win7POS final acceptance e cleanup staging exact-ID: `PASS`.
+- Residui sintetici target: `0`.
+- Audit immutabile: `PRESERVED`; baseline non-target: `UNCHANGED`.
+- Review tecnica piano/transazione e outcome:
+  `P0/P1/P2/P3 = 0/0/0/0`.
+- Worker deploy aggiunti: `0`.
+- Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
+- Windows 7 fisico: `EXTERNAL_PENDING`.
+- Stato: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.

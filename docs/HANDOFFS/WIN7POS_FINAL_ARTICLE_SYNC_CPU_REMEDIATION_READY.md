@@ -2,17 +2,27 @@
 
 ## Stato
 
+- Superseded il `2026-07-30` da:
+  `docs/HANDOFFS/WIN7POS_POS_ARTICLE_SYNC_FINAL_CLEANUP.md`.
+- Win7POS final acceptance: `PASS`.
+- Cleanup consolidato staging: `PASS`; residui sintetici target `0`.
+- Audit immutabile: `PRESERVED`; invarianti non-target: `UNCHANGED`.
+- Worker deploy aggiunti dal closeout: `0`.
+- Windows 7 fisico: `EXTERNAL_PENDING`.
 - Task Admin: `TASK-147`
 - Stato: `REVIEW_READY`, non `DONE`
 - Handoff:
-  `READY_FOR_ASUS_FINAL_ARTICLE_SYNC_ACCEPTANCE`
+  `SUPERSEDED_BY_FINAL_POS_ARTICLE_SYNC_CLEANUP_PASS`
 - Admin runtime finale:
   `9fb54f50999b8587bc37f5e2040743df20df8f08`
 - Win7POS baseline minima read-only:
   `e47981f6dccbee86150b01f526e0ec6bf484afcc`
 - Win7POS, Android, iOS, production e billing: `NOT_MODIFIED`
 
-Questo handoff sblocca esclusivamente l'accettazione Asus finale già prevista.
+Storicamente questo handoff sbloccava l'accettazione Asus finale. Non è più
+operativo: acceptance e cleanup sono stati completati e il riferimento
+autorevole è
+`docs/HANDOFFS/WIN7POS_POS_ARTICLE_SYNC_FINAL_CLEANUP.md`.
 Non autorizza un deploy production o modifiche ai dati reali non-QA.
 
 ## Delivery Admin
@@ -212,7 +222,10 @@ Cloudflare dal deploy finale al termine acceptance:
 - memoria p99:
   63.839.548 byte, sotto 128 MB.
 
-## Invarianti da preservare su Asus
+## Invarianti storici Asus, superseded
+
+Questa sezione descrive il gate pre-TASK-148 e non contiene istruzioni
+operative correnti.
 
 - Usare il profilo DPAPI esistente; non reinserire o stampare credenziali.
 - Preservare la modifica dialog già presente nel checkout utente.
@@ -252,7 +265,7 @@ Criteri TASK-147:
 - `exceededCpu`, `exceededMemory`, eccezioni e HTTP 503 finali: tutti `0`;
 - cleanup sintetico e baseline reale invariata: `PASS`.
 
-Rischi residui:
+Rischi residui storici pre-TASK-148:
 
 - il nome del piano e i limiti usage/subrequest restano `UNKNOWN` per
   autorizzazione OAuth read-only insufficiente; billing non è necessario per
@@ -262,16 +275,15 @@ Rischi residui:
   di questa acceptance;
 - un singolo run storico ha ricevuto una risposta HTTP 200 non valida a pagina
   295; i drain completi successivi, incluso quello finale, sono passati;
-- resta da eseguire l'accettazione end-to-end sul dispositivo Asus. Questo è
-  il prossimo gate, non un difetto server aperto.
+- l'accettazione end-to-end Asus era il gate successivo; è stata poi
+  completata con `PASS` e superseded dal closeout TASK-148. Resta separato
+  soltanto Windows 7 fisico: `EXTERNAL_PENDING`.
 
-Prossima fase:
+Istruzioni operative storiche:
+`SUPERSEDED_DO_NOT_EXECUTE`.
 
-1. eseguire
-   `/Users/minxiang/Projects/NEXT-CODEX-ASUS-FINAL-ACCEPTANCE.md`;
-2. usare il profilo DPAPI e il dialog esistenti;
-3. completare catalogo, matrice articoli e cleanup;
-4. al PASS restituire `READY_FOR_MAC_FINAL_CLEANUP`.
+Stato finale superseding:
+`FINAL_POS_ARTICLE_SYNC_CLEANUP_PASS`.
 
-Stato finale Admin:
-`READY_FOR_ASUS_FINAL_ARTICLE_SYNC_ACCEPTANCE`.
+Vedere:
+`docs/HANDOFFS/WIN7POS_POS_ARTICLE_SYNC_FINAL_CLEANUP.md`.

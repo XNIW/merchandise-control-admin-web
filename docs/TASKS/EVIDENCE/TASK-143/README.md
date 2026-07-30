@@ -297,3 +297,15 @@ Cloudflare GraphQL dalla timestamp di deploy a
   first page e drain `676/676` verdi, manifest esatto, audit success `676`,
   failure `0`, cleanup revocato e zero failure Worker post-deploy. Task
   consegnata a `REVIEW_READY`, mai `DONE`.
+
+## Closeout consolidato 2026-07-30
+
+- Win7POS final acceptance: `PASS`.
+- Cleanup staging exact-ID: `PASS`; residui sintetici target `0`.
+- Audit immutabile: `PRESERVED`; baseline non-target: `UNCHANGED`.
+- Review tecnica piano/transazione e outcome:
+  `P0/P1/P2/P3 = 0/0/0/0`.
+- Worker deploy aggiunti: `0`.
+- Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
+- Windows 7 fisico: `EXTERNAL_PENDING`.
+- Stato: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.

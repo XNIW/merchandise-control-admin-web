@@ -6,6 +6,7 @@
 - Stato: `REVIEW_READY`
 - Fase attuale: `REVIEW`
 - Responsabile attuale: `CLAUDE/CHATGPT / REVIEWER`
+- Risoluzione proposta: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`
 - Data apertura: `2026-07-29`
 - Branch implementative:
   - `codex/admin-staging-worker-cpu-remediation-20260729`;
@@ -283,7 +284,21 @@ criterio decisivo è l'assenza di outcome `exceededCpu`, verificata.
 
 ## Stato operativo
 
-`READY_FOR_ASUS_FINAL_ARTICLE_SYNC_ACCEPTANCE`
+`SUPERSEDED_BY_FINAL_POS_ARTICLE_SYNC_CLEANUP_PASS`
 
-Il task resta `REVIEW_READY`, non `DONE`, in attesa della review/conferma
-esplicita e dell'accettazione Asus finale.
+L'accettazione article-sync successiva e il cleanup consolidato staging sono
+`PASS`. Il task resta in governance `REVIEW_READY` fino alla conferma del
+reviewer; Windows 7 fisico resta `EXTERNAL_PENDING`.
+
+## Closeout finale article-sync 2026-07-30
+
+- Win7POS final acceptance: `PASS`.
+- Cleanup consolidato exact-ID: `PASS`; residui target `0`.
+- Audit immutabile: `PRESERVED`; invarianti non-target: `UNCHANGED`.
+- Review tecnica piano/transazione e outcome:
+  `P0/P1/P2/P3 = 0/0/0/0`.
+- Worker deploy aggiunti dal closeout: `0`; runtime Worker invariato.
+- Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
+- Windows 7 fisico: `EXTERNAL_PENDING`.
+- Stato governance:
+  `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.

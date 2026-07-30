@@ -161,3 +161,17 @@ contro la baseline `6ae562c8`:
 - Conteggi catalogo/accounting preesistenti: ripristinati esattamente.
 - Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
 - Stato finale: `REVIEW_READY`, mai `DONE`.
+
+## Closeout consolidato 2026-07-30
+
+- Win7POS final acceptance: `PASS`.
+- Cleanup exact-ID: 18 prodotti, 28 prezzi, 21 movimenti manuali,
+  94 receipt, 4 conflict receipt e 118 sync event.
+- Residui sintetici target: `0`.
+- Audit immutabile: `PRESERVED`; baseline non-target: `UNCHANGED`.
+- Review tecnica piano/transazione e outcome:
+  `P0/P1/P2/P3 = 0/0/0/0`.
+- Worker deploy aggiunti: `0`.
+- Production, Win7POS, Android e iOS: `NOT_MODIFIED`.
+- Windows 7 fisico: `EXTERNAL_PENDING`.
+- Stato: `REVIEW_READY_FOR_USER_CONFIRMED_CLOSURE`, non `DONE`.
