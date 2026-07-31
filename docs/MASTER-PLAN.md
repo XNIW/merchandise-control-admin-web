@@ -2919,38 +2919,47 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `docs/TASKS/TASK-150-win7pos-product-image-phase-b-physical-acceptance.md`
 - Evidence TASK-150:
   `docs/TASKS/EVIDENCE/TASK-150/README.md`
-- Stato TASK-150: `DRAFT`
-- Fase TASK-150: `PLANNING`
-- Attivazione TASK-150: `NOT_ACTIVE`
-- Executor previsto TASK-150:
-  `CODEX / ASUS (solo dopo attivazione esplicita)`
+- Stato TASK-150: `ACTIVE`
+- Fase TASK-150: `EXECUTION`
+- Attivazione TASK-150: `ACTIVE`
+- Executor TASK-150: `CODEX / ASUS`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `REVIEW`
-- Task attivo: `NESSUNO`
+- Stato globale attuale: `EXECUTION`
+- Task attivo: `TASK-150 - Win7POS Product Image Phase B / Physical Acceptance`
 - Task precedente:
   `TASK-149 - Trusted POS product image v1 server contract`
   (`REVIEW_READY / REVIEW`)
-- Prossimo task pianificato:
-  `TASK-150 - Win7POS Product Image Phase B / Physical Acceptance`
-  (`DRAFT / PLANNING / NOT_ACTIVE`)
+- Prossimo task pianificato: `DA DEFINIRE DOPO TASK-150`
 - Ultimo task chiuso: `TASK-148 - Final POS article-sync staging cleanup`
 - Ultimo task completato: `TASK-148 - Final POS article-sync staging cleanup`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `NESSUNO`
+- File task corrente: `docs/TASKS/TASK-150-win7pos-product-image-phase-b-physical-acceptance.md`
 - Ultimo file task:
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
-- Evidence task corrente: `NESSUNO`
+- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-150/README.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
-- Stato task: `REVIEW`
+- Stato task: `ACTIVE`
 - Stato task precedente: `REVIEW_READY`
-- Fase: `REVIEW`
+- Fase: `EXECUTION`
 - Milestone interna:
   `READY_FOR_ASUS_PRODUCT_IMAGE_PHASE_B`
-- Responsabile: `CLAUDE / ChatGPT / REVIEWER`
-- Branch/worktree: `codex/task-149-closeout`, baseline runtime/tooling
-  `d3c674ada8aa7abf0179355c09238472b9ff3023`.
+- Responsabile: `CODEX / ASUS`
+- Branch/worktree TASK-150:
+  `codex/task-150-win7pos-image-qa-boundary-20260731`, baseline Admin
+  `d2689f15f0291670bbc2713967368521e3f3a7fe`; Win7POS task
+  `ASUS-W7POS-015`, branch
+  `codex/asus-product-image-phase-b-final-20260731`, Phase A merge
+  `9bc5b757b78fe7b9212bf5fae359a5559e3da7f9`.
+- Checkpoint boundary QA TASK-150 2026-07-31: implementata su branch isolato
+  la boundary staging-only exact-template con project/host pin, capability
+  digest-only, bootstrap-actor binding, rate limit sliding-idle, fencing
+  generation/lease, enrollment closure e receipt terminale HMAC immutabile.
+  Nessuna cancellazione Storage viene eseguita dal route: il commit DB-side
+  resta fail-closed su residui Storage exact-run. Gate locali osservati:
+  foundation focused `12/12`, typecheck/lint `PASS`, pglast `81` statement;
+  pgTAP container, PR/CI/merge e deploy staging restano `NOT_RUN`.
 - Apertura TASK-149 2026-07-30: ricevuta autorizzazione completa per il
   contratto server `pos-product-image-v1`, PR/CI/merge, migration e deploy
   esclusivamente staging, acceptance sintetica exact-ID e cleanup. Baseline

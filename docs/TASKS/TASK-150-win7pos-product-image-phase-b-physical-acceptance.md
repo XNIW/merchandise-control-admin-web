@@ -3,12 +3,11 @@
 ## Informazioni generali
 
 - ID: `TASK-150`
-- Stato: `DRAFT`
-- Fase attuale: `PLANNING`
-- Responsabile attuale: `CLAUDE / ChatGPT / PLANNER`
-- Attivazione: `NOT_ACTIVE`
-- Executor previsto:
-  `CODEX / ASUS (solo dopo attivazione esplicita)`
+- Stato: `ACTIVE`
+- Fase attuale: `EXECUTION`
+- Responsabile attuale: `CODEX / ASUS`
+- Attivazione: `ACTIVE`
+- Executor: `CODEX / ASUS`
 - Data creazione: `2026-07-30`
 - Task precedente:
   `TASK-149 - Trusted POS product image v1 server contract`
@@ -26,10 +25,18 @@
 
 ## Stato di attivazione
 
-Questo task è soltanto parcheggiato come prossimo ID pianificato. Non è il
-task attivo, non autorizza execution e non è `DONE`. Può passare a
-`ACTIVE / EXECUTION` soltanto dopo un nuovo comando esplicito dell'utente nel
-ciclo Asus e dopo il preflight completo del prompt operativo.
+Attivato esplicitamente dall'utente il `2026-07-31`, dopo il merge normale
+della Phase A Win7POS PR `#72` in
+`9bc5b757b78fe7b9212bf5fae359a5559e3da7f9`. È l'unico task Admin attivo.
+L'execution resta limitata alla Phase B Asus e al boundary QA staging-only
+autorizzato; produzione, Android e iOS restano esclusi.
+
+- Win7POS task coordinato: `ASUS-W7POS-015`.
+- Win7POS branch:
+  `codex/asus-product-image-phase-b-final-20260731`.
+- Admin branch:
+  `codex/task-150-win7pos-image-qa-boundary-20260731`.
+- Windows 7 fisico: `NOT_RUN`.
 
 ## Obiettivo
 
@@ -75,6 +82,21 @@ Un mismatch blocca l'attivazione prima di autenticazione o DML.
   post-run devono impedire la cancellazione di righe shared o preesistenti.
 - Service role soltanto server-side/off-device, mai sull'Asus.
 - PR non-draft, CI verde, merge normale, migration/deploy solo staging.
+
+Stato locale corrente: boundary implementato in forma pre-deploy con exact
+staging project pin, route POST-only/no-store, capability digest-only,
+bootstrap-actor binding, enrollment chiuso prima del cleanup, generation/lease
+fencing, capability loss-safe deterministiche, quota cross-run, preflight DB
+anti-scrypt-DoS, owner catalog sintetico isolato e receipt terminale immutabile.
+Il body HTTP è stream-bounded a `16 KiB` anche senza Content-Length. Il route
+non cancella oggetti Storage:
+la transazione di cleanup rifiuta il commit con `storage_cleanup_incomplete`
+finché gli exact oggetti run-owned non risultano già assenti. Foundation
+focused `12/12`, typecheck/lint e parser SQL (`81` statement) sono `PASS`;
+la re-review indipendente finale è `PASS` con `P0/P1/P2/P3 = 0/0/0/0`.
+pgTAP container e staging restano `NOT_RUN` fino a CI e merge: l'installazione
+locale di Docker Desktop non può essere completata dalla sessione non elevata
+e la virtualizzazione firmware risulta disabilitata.
 
 ### Phase B Win7POS
 
