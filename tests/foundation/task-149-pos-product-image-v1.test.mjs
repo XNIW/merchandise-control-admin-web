@@ -3514,6 +3514,52 @@ task149Test(
       stagingHarness,
       /verifyActorCleanup[\s\S]*?\.from\("shops"\)[\s\S]*?\.eq\("shop_code", state\.shopCode\)[\s\S]*?\.neq\("shop_status", "archived"\)/,
     );
+    assert.match(
+      stagingHarness,
+      /process\.on\(HARNESS_COOPERATIVE_ABORT_SIGNAL, handleCooperativeAbort\)/,
+    );
+    assert.match(
+      stagingHarness,
+      /fetch:\s*fetchWithTimeout[\s\S]*?AbortSignal\.any\(signals\)/,
+    );
+    assert.match(
+      stagingHarness,
+      /cleanupInProgress = true;[\s\S]*?cleanup = await cleanupFixture\(/,
+    );
+    assert.match(
+      stagingHarness,
+      /process\.off\(HARNESS_COOPERATIVE_ABORT_SIGNAL, handleCooperativeAbort\)/,
+    );
+    assert.match(
+      stagingHarness,
+      /lifecycleAbortController\.abort\([\s\S]*?BLOCKED_TASK149_COOPERATIVE_ABORT_REQUESTED/,
+    );
+    assert.match(stagingHarness, /await lifecycleDelay\(/);
+
+    const cooperativeAbortSelfTest = spawnSync(
+      process.execPath,
+      [
+        "scripts/testing/task-149-pos-product-image-staging-e2e.mjs",
+        "--self-test-cooperative-abort",
+      ],
+      {
+        cwd: root,
+        encoding: "utf8",
+        env: { PATH: process.env.PATH ?? "" },
+        maxBuffer: 1024 * 1024,
+      },
+    );
+    assert.equal(
+      cooperativeAbortSelfTest.status,
+      0,
+      cooperativeAbortSelfTest.stderr,
+    );
+    assert.equal(cooperativeAbortSelfTest.stderr, "");
+    assert.deepEqual(JSON.parse(cooperativeAbortSelfTest.stdout), {
+      cooperativeAbortObserved: true,
+      guardedFinallyRan: true,
+      status: "PASS_SELF_TEST_NO_LIVE_EVIDENCE",
+    });
 
     const resolverSource = stagingHarness.slice(
       stagingHarness.indexOf("function resolveRecoveredFixtureShopId"),
@@ -3939,6 +3985,83 @@ task149Test(
       /"tail",[\s\S]*?"--header"[\s\S]*?"--version-id"/,
     );
     assert.match(resourceGate, /workersInvocationsAdaptive/);
+    assert.match(resourceGate, /import WebSocket from "ws"/);
+    assert.match(
+      resourceGate,
+      /TAIL_WEBSOCKET_HOSTNAME\s*=\s*"tail\.developers\.workers\.dev"/,
+    );
+    assert.match(
+      resourceGate,
+      /REQUEST_PHASE_TIMEOUT_MILLISECONDS\s*=\s*40 \* 60 \* 1_000/,
+    );
+    assert.match(
+      resourceGate,
+      /HARNESS_TOTAL_TIMEOUT_MILLISECONDS\s*=\s*175 \* 60 \* 1_000/,
+    );
+    assert.match(
+      resourceGate,
+      /TAIL_MINIMUM_REMAINING_MILLISECONDS\s*=\s*\n?\s*REQUEST_PHASE_TIMEOUT_MILLISECONDS \+ 5 \* 60 \* 1_000/,
+    );
+    assert.match(
+      resourceGate,
+      /filters:\s*\[[\s\S]*?header:[\s\S]*?scriptVersion:/,
+    );
+    assert.doesNotMatch(resourceGate, /sampling_rate|samplingRate/);
+    assert.match(resourceGate, /websocket\.protocol === TAIL_PROTOCOL/);
+    assert.match(resourceGate, /maxPayload:\s*MAX_TAIL_EVENT_BYTES/);
+    assert.match(resourceGate, /perMessageDeflate:\s*false/);
+    assert.match(
+      resourceGate,
+      /handshakeTimeout:\s*TAIL_CONNECTION_TIMEOUT_MILLISECONDS/,
+    );
+    assert.match(
+      resourceGate,
+      /binary:\s*false,[\s\S]*?compress:\s*false,[\s\S]*?fin:\s*true,[\s\S]*?mask:\s*false/,
+    );
+    assert.match(
+      resourceGate,
+      /"User-Agent": `wrangler\/\$\{WRANGLER_VERSION\}`/,
+    );
+    assert.match(resourceGate, /await reader\.cancel\(\)/);
+    assert.match(resourceGate, /websocket\.ping\(TAIL_READINESS_PING\)/);
+    assert.match(resourceGate, /websocket\.on\("pong"/);
+    assert.match(
+      resourceGate,
+      /setInterval\([\s\S]*?TAIL_HEARTBEAT_INTERVAL_MILLISECONDS/,
+    );
+    assert.match(resourceGate, /websocket\.terminate\(\)/);
+    assert.match(resourceGate, /tail\.cancelHeartbeat\(\)/);
+    assert.match(resourceGate, /await tail\.deleteTailOnce\(\)/);
+    assert.match(resourceGate, /BLOCKED_TASK149_HARNESS_REQUEST_PHASE_TIMEOUT/);
+    assert.match(resourceGate, /await waitForHarnessCompletion\(harness\)/);
+    assert.match(resourceGate, /requestHarnessCooperativeAbort\(harness\)/);
+    assert.match(
+      resourceGate,
+      /harness\.child\.kill\(HARNESS_COOPERATIVE_ABORT_SIGNAL\)/,
+    );
+    assert.match(
+      resourceGate,
+      /const harnessExecution = await completeHarnessAfterTailTeardown\([\s\S]*?harness,[\s\S]*?tailStopError/,
+    );
+    assert.match(
+      resourceGate,
+      /try \{[\s\S]*?await stopLiveTail\(tail\);[\s\S]*?tailStopError = error/,
+    );
+    const harnessCompletionIndex = resourceGate.indexOf(
+      "const harnessExecution = await waitForHarnessCompletion(harness)",
+    );
+    const harnessLifecycleValidationIndex = resourceGate.indexOf(
+      "harnessExecution.code === 0",
+      harnessCompletionIndex,
+    );
+    const tailStopRethrowIndex = resourceGate.indexOf(
+      "if (tailStopError) throw tailStopError",
+      harnessCompletionIndex,
+    );
+    assert.ok(harnessCompletionIndex >= 0);
+    assert.ok(harnessLifecycleValidationIndex > harnessCompletionIndex);
+    assert.ok(tailStopRethrowIndex > harnessLifecycleValidationIndex);
+    assert.match(resourceGate, /\["SIGINT",\s*"SIGTERM",\s*"SIGKILL"\]/);
     assert.match(
       resourceGate,
       /tail\.aggregator\.events\.size ===\s*phaseSignal\.requestCount/,
@@ -3985,11 +4108,22 @@ task149Test(
     assert.match(resourceGate, /function wranglerEnvironment\(/);
     assert.doesNotMatch(resourceGate, /\.\.\.process\.env|env:\s*process\.env/);
     assert.match(resourceGate, /await queryLiveGraphql\(/);
-    const stopTailIndex = resourceGate.indexOf("await stopTail(tail)");
+    const liveTailReadyIndex = resourceGate.indexOf(
+      "const tail = await createLiveTail(config, beforeDeployment)",
+    );
+    assert.ok(liveTailReadyIndex >= 0);
+    assert.ok(
+      resourceGate.indexOf("harness = startHarness()", liveTailReadyIndex) >
+        liveTailReadyIndex,
+    );
+    const stopTailIndex = resourceGate.indexOf("await stopLiveTail(tail)");
     assert.ok(stopTailIndex >= 0);
     assert.ok(
-      resourceGate.indexOf("!tail.stderrOverflow", stopTailIndex) >
-        stopTailIndex,
+      resourceGate.indexOf("!tail.failureCode", stopTailIndex) > stopTailIndex,
+    );
+    assert.ok(
+      resourceGate.indexOf("const harnessOutput = validateHarnessOutput(") <
+        resourceGate.indexOf("if (phaseError) throw phaseError"),
     );
     assert.ok(
       resourceGate.indexOf("await queryLiveGraphql(") <
@@ -4033,8 +4167,11 @@ task149Test(
       inheritsServiceRole: false,
     });
     assert.deepEqual(selfTestOutput.validators, {
+      controlPlaneFailClosed: true,
       coverageFailClosed: true,
       deploymentFailClosed: true,
+      harnessLifecycleFailClosed: true,
+      heartbeatFailClosed: true,
       logScanFailClosed: true,
       parserFailClosed: true,
     });

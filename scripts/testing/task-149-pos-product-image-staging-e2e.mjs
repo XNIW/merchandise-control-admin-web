@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash, randomBytes, randomUUID, scrypt } from "node:crypto";
+import { setTimeout as delay } from "node:timers/promises";
 import { promisify } from "node:util";
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -34,6 +35,7 @@ const AUTH_USER_MAX_PAGES = 1_000;
 const CATALOG_MANIFEST_PAGE_SIZE = 1_000;
 const CATALOG_MANIFEST_MAX_PAGES = 8;
 const CLEANED_ACTOR_SOURCE = "TASK149_CLEANED";
+const HARNESS_COOPERATIVE_ABORT_SIGNAL = "SIGUSR2";
 const deriveScrypt = promisify(scrypt);
 
 const UUID_PATTERN =
@@ -113,6 +115,21 @@ class HarnessError extends Error {
     this.details = details;
   }
 }
+
+const lifecycleAbortController = new AbortController();
+let cleanupInProgress = false;
+
+function handleCooperativeAbort() {
+  if (cleanupInProgress || lifecycleAbortController.signal.aborted) return;
+  lifecycleAbortController.abort(
+    new HarnessError(
+      "BLOCKED_TASK149_COOPERATIVE_ABORT_REQUESTED",
+      "cooperative_abort",
+    ),
+  );
+}
+
+process.on(HARNESS_COOPERATIVE_ABORT_SIGNAL, handleCooperativeAbort);
 
 function envValue(name) {
   return process.env[name]?.trim() ?? "";
@@ -471,6 +488,7 @@ function buildServiceClient(config) {
       persistSession: false,
     },
     global: {
+      fetch: fetchWithTimeout,
       headers: {
         "X-Client-Info": "merchandise-control-admin-web/task-149-pos-image-e2e",
       },
@@ -1127,10 +1145,67 @@ function recordResponse(
 }
 
 async function fetchWithTimeout(input, init = {}) {
+  const signals = [AbortSignal.timeout(REQUEST_TIMEOUT_MILLISECONDS)];
+  if (init.signal) signals.push(init.signal);
+  if (!cleanupInProgress) signals.push(lifecycleAbortController.signal);
   return fetch(input, {
     ...init,
-    signal: AbortSignal.timeout(REQUEST_TIMEOUT_MILLISECONDS),
+    signal: AbortSignal.any(signals),
   });
+}
+
+function throwIfLifecycleAbortRequested() {
+  if (!lifecycleAbortController.signal.aborted) return;
+  const reason = lifecycleAbortController.signal.reason;
+  throw reason instanceof HarnessError
+    ? reason
+    : new HarnessError(
+        "BLOCKED_TASK149_COOPERATIVE_ABORT_REQUESTED",
+        "cooperative_abort",
+      );
+}
+
+async function lifecycleDelay(milliseconds) {
+  throwIfLifecycleAbortRequested();
+  try {
+    await delay(milliseconds, undefined, {
+      signal: lifecycleAbortController.signal,
+    });
+  } catch (error) {
+    throwIfLifecycleAbortRequested();
+    throw error;
+  }
+}
+
+async function runCooperativeAbortSelfTest() {
+  let cooperativeAbortObserved = false;
+  let guardedFinallyRan = false;
+  const trigger = setTimeout(() => {
+    process.kill(process.pid, HARNESS_COOPERATIVE_ABORT_SIGNAL);
+  }, 0);
+  try {
+    await lifecycleDelay(5_000);
+  } catch (error) {
+    cooperativeAbortObserved =
+      error instanceof HarnessError &&
+      error.code === "BLOCKED_TASK149_COOPERATIVE_ABORT_REQUESTED";
+  } finally {
+    clearTimeout(trigger);
+    cleanupInProgress = true;
+    guardedFinallyRan = true;
+  }
+  assert(
+    cooperativeAbortObserved && guardedFinallyRan,
+    "TASK149_COOPERATIVE_ABORT_SELF_TEST_FAILED",
+    "self_test",
+  );
+  process.stdout.write(
+    `${JSON.stringify({
+      cooperativeAbortObserved,
+      guardedFinallyRan,
+      status: "PASS_SELF_TEST_NO_LIVE_EVIDENCE",
+    })}\n`,
+  );
 }
 
 async function requestJson(tracker, config, path, body, requestLabel) {
@@ -2179,9 +2254,7 @@ async function waitForSignedUrlExpiry(expiresAt) {
       };
       process.stderr.write(`${JSON.stringify(progress)}\n`);
     }
-    await new Promise((resolve) =>
-      setTimeout(resolve, Math.min(15_000, remainingMilliseconds)),
-    );
+    await lifecycleDelay(Math.min(15_000, remainingMilliseconds));
   }
 }
 
@@ -2245,9 +2318,7 @@ async function waitForPreDeadlinePendingCleanup(
     if (performance.now() >= waitDeadline) {
       fail("TASK149_CLEANUP_PENDING_NOT_OBSERVED", stage);
     }
-    await new Promise((resolve) =>
-      setTimeout(resolve, CLEANUP_PENDING_POLL_MILLISECONDS),
-    );
+    await lifecycleDelay(CLEANUP_PENDING_POLL_MILLISECONDS);
   }
 }
 
@@ -3536,6 +3607,13 @@ function buildSafeOutput(config, tracker, cleanup, elapsedMilliseconds) {
 }
 
 async function main() {
+  if (
+    process.argv.length === 3 &&
+    process.argv[2] === "--self-test-cooperative-abort"
+  ) {
+    await runCooperativeAbortSelfTest();
+    return;
+  }
   const startedAt = performance.now();
   const config = validateConfig();
   const dryRun = process.argv.includes("--dry-run");
@@ -3573,11 +3651,17 @@ async function main() {
   let cleanup = null;
 
   try {
+    throwIfLifecycleAbortRequested();
     await assertCleanupPreflight(client, config);
+    throwIfLifecycleAbortRequested();
     await runImageRouteLightProbes(tracker, config);
+    throwIfLifecycleAbortRequested();
     const fixture = await setupFixture(client, config, state);
+    throwIfLifecycleAbortRequested();
     const auth = await firstLogin(tracker, config, state, fixture);
+    throwIfLifecycleAbortRequested();
     await runLifecycle(client, tracker, config, state, auth);
+    throwIfLifecycleAbortRequested();
     process.stderr.write(
       `${JSON.stringify({
         event: "TASK149_REQUEST_PHASE_COMPLETE",
@@ -3591,6 +3675,7 @@ async function main() {
   } catch (error) {
     primaryError = error;
   } finally {
+    cleanupInProgress = true;
     try {
       cleanup = await cleanupFixture(client, config, state);
     } catch (cleanupError) {
@@ -3625,25 +3710,31 @@ async function main() {
   );
 }
 
-main().catch((error) => {
-  const payload = {
-    code:
-      error instanceof HarnessError ? error.code : "TASK149_UNEXPECTED_FAILURE",
-    details: error instanceof HarnessError ? safeDetails(error.details) : {},
-    ok: false,
-    stage: error instanceof HarnessError ? error.stage : "unhandled",
-    status:
-      error instanceof HarnessError && error.code.startsWith("BLOCKED_")
-        ? "BLOCKED"
-        : "FAIL",
-  };
-  const serialized = JSON.stringify(payload, null, 2);
-  if (FORBIDDEN_OUTPUT_PATTERN.test(serialized)) {
-    process.stderr.write(
-      '{"code":"TASK149_REFUSING_SENSITIVE_OUTPUT","ok":false,"status":"FAIL"}\n',
-    );
-  } else {
-    process.stderr.write(`${serialized}\n`);
-  }
-  process.exitCode = 1;
-});
+main()
+  .catch((error) => {
+    const payload = {
+      code:
+        error instanceof HarnessError
+          ? error.code
+          : "TASK149_UNEXPECTED_FAILURE",
+      details: error instanceof HarnessError ? safeDetails(error.details) : {},
+      ok: false,
+      stage: error instanceof HarnessError ? error.stage : "unhandled",
+      status:
+        error instanceof HarnessError && error.code.startsWith("BLOCKED_")
+          ? "BLOCKED"
+          : "FAIL",
+    };
+    const serialized = JSON.stringify(payload, null, 2);
+    if (FORBIDDEN_OUTPUT_PATTERN.test(serialized)) {
+      process.stderr.write(
+        '{"code":"TASK149_REFUSING_SENSITIVE_OUTPUT","ok":false,"status":"FAIL"}\n',
+      );
+    } else {
+      process.stderr.write(`${serialized}\n`);
+    }
+    process.exitCode = 1;
+  })
+  .finally(() => {
+    process.off(HARNESS_COOPERATIVE_ABORT_SIGNAL, handleCooperativeAbort);
+  });
