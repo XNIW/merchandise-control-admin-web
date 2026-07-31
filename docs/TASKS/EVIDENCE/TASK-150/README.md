@@ -121,7 +121,8 @@ preflight blocca l'attivazione prima di autenticazione o mutazioni.
   `service_role` ha accesso diretto `SELECT` soltanto; tutte le mutazioni
   passano dalle funzioni `SECURITY DEFINER` con grant service-role-only.
 - Test statico/foundation mirato:
-  `PASS 12/12`.
+  `PASS 13/13`; il gate aggiuntivo vincola migration workflow exact-delta,
+  staging-only, conferma esplicita e secret HMAC Worker dedicato.
 - TypeScript:
   `next typegen PASS`, `tsc --noEmit PASS`, ESLint focused `PASS`.
 - Parser PostgreSQL:
@@ -136,6 +137,23 @@ preflight blocca l'attivazione prima di autenticazione o mutazioni.
 - Deploy/migration staging:
   `NOT_RUN`; nessuna mutazione staging è autorizzata finché review, PR, CI e
   merge del boundary non risultano verdi.
+- Deploy path predisposto:
+  workflow migration TASK-150 guarded `dry-run/apply`, exact single pending
+  migration e post-verifica schema/grant; deploy Worker `staging` installa la
+  chiave HMAC da GitHub environment secret tramite stdin e verifica il route
+  con una probe non autenticata/non mutativa. Nessun job production è stato
+  aggiunto o modificato.
+- Primo run CI database/pgTAP sul commit boundary:
+  `FAIL` perché l'archiviazione dello shop QA lasciava nullo l'actor richiesto
+  da `shops_archived_actor_required`. Correzione: il bootstrap profile shared,
+  già autorizzato e non mutato, resta soltanto come actor audit obbligatorio;
+  owner Auth sintetico e altri riferimenti lifecycle run-owned continuano a
+  essere rimossi. pgTAP e foundation ora verificano questa shape; il rerun CI
+  sul commit corretto è richiesto prima del merge.
+- Review indipendente incrementale del deploy path:
+  corretti fail-fast HMAC, header probe, stdin Docker, scope step-only dei
+  secret, hard-pin del project ref staging e exact set/grant post-verifica.
+  Esito finale `PASS`, `P0/P1/P2/P3 = 0/0/0/0`.
 
 ## Matrice evidence pianificata
 

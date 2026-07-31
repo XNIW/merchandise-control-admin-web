@@ -2401,7 +2401,10 @@ begin
   update public.shops shop
   set shop_status = 'archived',
       archived_at = clock_timestamp(),
-      archived_by_profile_id = null,
+      -- The schema requires an actor for every archived shop. Preserve the
+      -- already-authorized shared bootstrap actor as the immutable audit
+      -- actor; do not create or retain a synthetic profile solely for this FK.
+      archived_by_profile_id = v_run.bootstrap_profile_id,
       created_by_profile_id = null,
       status_reason_redacted = 'TASK150 exact QA cleanup',
       status_changed_at = clock_timestamp(),
@@ -2491,7 +2494,6 @@ begin
       where shop.shop_id = v_run.run_shop_id
         and (
           shop.created_by_profile_id = v_run.bootstrap_profile_id
-          or shop.archived_by_profile_id = v_run.bootstrap_profile_id
           or shop.status_changed_by_profile_id = v_run.bootstrap_profile_id
         )
     )

@@ -12,6 +12,9 @@ const boundaryPath = "src/server/qa/task-150-win7pos-image-boundary.ts";
 const routePath = "src/app/api/qa/win7pos-product-image/route.ts";
 const migrationPath =
   "supabase/migrations/20260731162000_task_150_win7pos_product_image_qa_boundary.sql";
+const stagingMigrationWorkflowPath =
+  ".github/workflows/task-150-staging-migration.yml";
+const cloudflareWorkflowPath = ".github/workflows/cloudflare.yml";
 
 function read(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
@@ -420,6 +423,14 @@ test("TASK-150 terminal receipt is count-only and retrieval is stable/read-only"
     /bootstrap_source_shop_id uuid not null references|bootstrap_staff_id uuid not null references|bootstrap_profile_id uuid not null references/,
   );
   assert.match(migration, /owner_row\.id = v_run\.run_inventory_owner_id/);
+  assert.match(
+    migration,
+    /archived_by_profile_id = v_run\.bootstrap_profile_id/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /archived_by_profile_id = null/,
+  );
   assert.match(migration, /grant select on table app_private\.task_150_win7pos_image_qa_runs to service_role/);
   assert.doesNotMatch(migration, /grant select, insert, update on table app_private\.task_150_win7pos_image_qa_runs/);
   assert.match(migration, /language plpgsql\s+stable\s+security definer[\s\S]*?task_150_win7pos_image_qa_result_v1|task_150_win7pos_image_qa_result_v1[\s\S]*?language plpgsql\s+stable/);
@@ -427,4 +438,95 @@ test("TASK-150 terminal receipt is count-only and retrieval is stable/read-only"
     migration.indexOf("create or replace function public.task_150_win7pos_image_qa_result_v1"),
   );
   assert.doesNotMatch(resultFunction, /\binsert\s+into\b|\bupdate\s+|\bdelete\s+from\b/i);
+});
+
+test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
+  const migrationWorkflow = read(stagingMigrationWorkflowPath);
+  const cloudflareWorkflow = read(cloudflareWorkflowPath);
+  assert.match(migrationWorkflow, /environment: cloudflare-staging/);
+  assert.match(migrationWorkflow, /mainBranch: process\.env\.GITHUB_REF === "refs\/heads\/main"/);
+  assert.match(migrationWorkflow, /EXPECTED_MIGRATION_VERSION: "20260731162000"/);
+  assert.match(
+    migrationWorkflow,
+    /EXPECTED_STAGING_SUPABASE_PROJECT_REF: jpgoimipbothfgkokyvm/,
+  );
+  assert.match(
+    migrationWorkflow,
+    /ref === process\.env\.EXPECTED_STAGING_SUPABASE_PROJECT_REF/,
+  );
+  assert.match(
+    migrationWorkflow,
+    /EXPECTED_MIGRATION_NAME: task_150_win7pos_product_image_qa_boundary/,
+  );
+  assert.match(migrationWorkflow, /APPLY_TASK150_STAGING/);
+  assert.match(migrationWorkflow, /remoteOnly\.length/);
+  assert.match(migrationWorkflow, /nameMismatches\.length/);
+  assert.match(migrationWorkflow, /JSON\.stringify\(pending\) !== JSON\.stringify\(expected\)/);
+  assert.match(migrationWorkflow, /db push \\\n\s+--dry-run/);
+  assert.match(migrationWorkflow, /Apply single approved migration/);
+  assert.match(migrationWorkflow, /migrationLedgerExact/);
+  for (const name of [
+    "task_150_win7pos_image_qa_begin_v1",
+    "task_150_win7pos_image_qa_provision_admit_v1",
+    "task_150_win7pos_image_qa_provision_v1",
+    "task_150_win7pos_image_qa_prearm_v1",
+    "task_150_win7pos_image_qa_rotation_prepare_v1",
+    "task_150_win7pos_image_qa_rotation_ack_v1",
+    "task_150_win7pos_image_qa_result_issue_v1",
+    "task_150_win7pos_image_qa_cleanup_acquire_v1",
+    "task_150_win7pos_image_qa_cleanup_commit_v1",
+    "task_150_win7pos_image_qa_result_v1",
+    "task_150_win7pos_image_qa_runs",
+    "task_150_win7pos_image_qa_auth_assets",
+    "task_150_win7pos_image_qa_budget_rows",
+  ]) {
+    assert.match(migrationWorkflow, new RegExp(`'${name}'`));
+  }
+  assert.match(migrationWorkflow, /'serviceRoleSelect'/);
+  assert.match(migrationWorkflow, /'truncate'/);
+  assert.equal(
+    (migrationWorkflow.match(/docker run --rm -i --network host/g) ?? []).length,
+    2,
+  );
+  assert.doesNotMatch(migrationWorkflow, /cloudflare-production|deploy-production/);
+  assert.equal(
+    (migrationWorkflow.match(
+      /SUPABASE_DB_PASSWORD: \$\{\{ secrets\.SUPABASE_DB_PASSWORD \}\}/g,
+    ) ?? []).length,
+    2,
+  );
+  const migrationJobHeader = migrationWorkflow.slice(
+    migrationWorkflow.indexOf("  migrate:"),
+    migrationWorkflow.indexOf("    steps:", migrationWorkflow.indexOf("  migrate:")),
+  );
+  assert.doesNotMatch(migrationJobHeader, /SUPABASE_DB_PASSWORD/);
+  assert.match(
+    cloudflareWorkflow,
+    /TASK150_QA_HMAC_KEY: \$\{\{ secrets\.TASK150_QA_HMAC_KEY \}\}/,
+  );
+  assert.equal(
+    (cloudflareWorkflow.match(
+      /TASK150_QA_HMAC_KEY: \$\{\{ secrets\.TASK150_QA_HMAC_KEY \}\}/g,
+    ) ?? []).length,
+    2,
+  );
+  const stagingJobHeader = cloudflareWorkflow.slice(
+    cloudflareWorkflow.indexOf("  deploy-staging:"),
+    cloudflareWorkflow.indexOf("    steps:", cloudflareWorkflow.indexOf("  deploy-staging:")),
+  );
+  assert.doesNotMatch(stagingJobHeader, /TASK150_QA_HMAC_KEY/);
+  assert.match(
+    cloudflareWorkflow,
+    /wrangler secret put TASK150_QA_HMAC_KEY --env staging/,
+  );
+  assert.match(
+    cloudflareWorkflow,
+    /!status\.task150HmacKeyPresent/,
+  );
+  assert.match(cloudflareWorkflow, /Verify TASK-150 staging route is configured/);
+  assert.match(
+    cloudflareWorkflow,
+    /response\.headers\.get\("cache-control"\) === "no-store, max-age=0"/,
+  );
+  assert.match(cloudflareWorkflow, /status\.code !== "validation_failed"/);
 });

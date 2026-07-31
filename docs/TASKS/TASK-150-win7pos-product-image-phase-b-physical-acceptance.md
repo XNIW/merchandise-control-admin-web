@@ -92,11 +92,14 @@ Il body HTTP è stream-bounded a `16 KiB` anche senza Content-Length. Il route
 non cancella oggetti Storage:
 la transazione di cleanup rifiuta il commit con `storage_cleanup_incomplete`
 finché gli exact oggetti run-owned non risultano già assenti. Foundation
-focused `12/12`, typecheck/lint e parser SQL (`81` statement) sono `PASS`;
+focused `13/13`, typecheck/lint e parser SQL (`81` statement) sono `PASS`;
 la re-review indipendente finale è `PASS` con `P0/P1/P2/P3 = 0/0/0/0`.
 pgTAP container e staging restano `NOT_RUN` fino a CI e merge: l'installazione
 locale di Docker Desktop non può essere completata dalla sessione non elevata
 e la virtualizzazione firmware risulta disabilitata.
+Il deploy path resta staging-only: migration exact-delta guarded e Worker
+secret HMAC dedicato dall'environment `cloudflare-staging`, con probe
+non-mutativa post-deploy.
 
 ### Phase B Win7POS
 

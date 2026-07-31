@@ -497,8 +497,18 @@ select ok(
     join public.staff_accounts staff on staff.staff_id = run.run_staff_id
     where run.run_hmac = repeat('a', 64)
       and staff.status <> 'archived'
+  )
+  and exists (
+    select 1
+    from app_private.task_150_win7pos_image_qa_runs run
+    join public.shops shop on shop.shop_id = run.run_shop_id
+    where run.run_hmac = repeat('a', 64)
+      and shop.shop_status = 'archived'
+      and shop.archived_by_profile_id = run.bootstrap_profile_id
+      and shop.created_by_profile_id is null
+      and shop.status_changed_by_profile_id is null
   ),
-  'TASK150_CASE_18 exact product is gone and run-owned staff is inactive'
+  'TASK150_CASE_18 exact product is gone, run-owned staff is inactive, and archive actor is auditable'
 );
 
 select ok(

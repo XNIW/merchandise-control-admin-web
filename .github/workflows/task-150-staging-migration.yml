@@ -1,0 +1,328 @@
+name: TASK-150 Staging Migration
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Validate or apply the single TASK-150 staging migration"
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+      apply_confirmation:
+        description: "For apply, enter APPLY_TASK150_STAGING"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-150-staging-migration
+  cancel-in-progress: false
+
+env:
+  SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+  EXPECTED_STAGING_SUPABASE_PROJECT_REF: jpgoimipbothfgkokyvm
+  EXPECTED_MIGRATION_VERSION: "20260731162000"
+  EXPECTED_MIGRATION_NAME: task_150_win7pos_product_image_qa_boundary
+  EXPECTED_MIGRATION_FILE: 20260731162000_task_150_win7pos_product_image_qa_boundary.sql
+
+jobs:
+  migrate:
+    name: Guarded dry-run and optional apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare-staging
+
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Verify immutable staging inputs
+        env:
+          REQUESTED_MODE: ${{ inputs.mode }}
+          APPLY_CONFIRMATION: ${{ inputs.apply_confirmation }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const mode = process.env.REQUESTED_MODE || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          let urlMatchesProject = false;
+          try {
+            urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
+          } catch {}
+          const status = {
+            mainBranch: process.env.GITHUB_REF === "refs/heads/main",
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            exactProject:
+              ref === process.env.EXPECTED_STAGING_SUPABASE_PROJECT_REF,
+            allowedProject: allowed.includes(ref),
+            urlMatchesProject,
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+            supportedMode: mode === "dry-run" || mode === "apply",
+            applyConfirmationOk:
+              mode !== "apply" ||
+              process.env.APPLY_CONFIRMATION === "APPLY_TASK150_STAGING",
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build protected database URL
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p _task150-migration/evidence
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(
+            `postgresql://postgres.${ref}:${encodeURIComponent(password)}@${host}:5432/postgres?sslmode=require`,
+          );
+          NODE
+          )"
+          echo "::add-mask::$SOURCE_DB_URL"
+          printf '%s' "$SOURCE_DB_URL" > _task150-migration/source-db-url
+          chmod 600 _task150-migration/source-db-url
+
+      - name: Prove exact remote-to-local migration delta
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task150-migration/source-db-url)"
+          docker run --rm -i --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -F $'\t' -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select version, name from supabase_migrations.schema_migrations order by version" \
+              > _task150-migration/evidence/remote-ledger.tsv
+          node <<'NODE'
+          const { readdirSync, readFileSync, writeFileSync } = require("node:fs");
+          const local = readdirSync("supabase/migrations")
+            .map((fileName) => {
+              const match = fileName.match(/^(\d{8}|\d{14})_(.+)\.sql$/);
+              return match
+                ? { version: match[1], name: match[2], fileName }
+                : null;
+            })
+            .filter(Boolean)
+            .sort((a, b) => a.version.localeCompare(b.version));
+          const duplicates = local.filter(
+            (entry, index) =>
+              index > 0 && entry.version === local[index - 1].version,
+          );
+          if (duplicates.length) throw new Error("duplicate_local_versions");
+          const remote = readFileSync(
+            "_task150-migration/evidence/remote-ledger.tsv",
+            "utf8",
+          )
+            .trim()
+            .split(/\r?\n/)
+            .filter(Boolean)
+            .map((line) => {
+              const [version, name] = line.split("\t");
+              return { version, name };
+            });
+          const localByVersion = new Map(local.map((row) => [row.version, row]));
+          const remoteOnly = remote.filter((row) => !localByVersion.has(row.version));
+          const nameMismatches = remote.filter((row) => {
+            const match = localByVersion.get(row.version);
+            return match && match.name !== row.name;
+          });
+          const remoteVersions = new Set(remote.map((row) => row.version));
+          const pending = local.filter((row) => !remoteVersions.has(row.version));
+          const expected = [
+            {
+              version: process.env.EXPECTED_MIGRATION_VERSION,
+              name: process.env.EXPECTED_MIGRATION_NAME,
+              fileName: process.env.EXPECTED_MIGRATION_FILE,
+            },
+          ];
+          const status = {
+            status: "PASS",
+            workflowCommit: process.env.GITHUB_SHA,
+            remoteMigrationCount: remote.length,
+            localMigrationCount: local.length,
+            remoteOnly,
+            nameMismatches,
+            pending,
+          };
+          if (
+            remoteOnly.length ||
+            nameMismatches.length ||
+            JSON.stringify(pending) !== JSON.stringify(expected)
+          ) status.status = "FAIL";
+          writeFileSync(
+            "_task150-migration/evidence/delta.json",
+            `${JSON.stringify(status, null, 2)}\n`,
+          );
+          console.log(JSON.stringify({
+            status: status.status,
+            remoteMigrationCount: status.remoteMigrationCount,
+            localMigrationCount: status.localMigrationCount,
+            pending: status.pending,
+          }));
+          if (status.status !== "PASS") process.exit(1);
+          NODE
+
+      - name: Supabase CLI dry-run
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task150-migration/source-db-url)"
+          npx --yes supabase@2.109.0 \
+            --workdir "$PWD" \
+            db push \
+            --dry-run \
+            --db-url "$SOURCE_DB_URL" \
+            2>&1 | tee _task150-migration/evidence/supabase-dry-run.txt
+          grep -F "$EXPECTED_MIGRATION_VERSION" \
+            _task150-migration/evidence/supabase-dry-run.txt
+
+      - name: Apply single approved migration
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task150-migration/source-db-url)"
+          npx --yes supabase@2.109.0 \
+            --workdir "$PWD" \
+            db push \
+            --db-url "$SOURCE_DB_URL" \
+            --yes \
+            2>&1 | tee _task150-migration/evidence/supabase-apply.txt
+          grep -F "$EXPECTED_MIGRATION_VERSION" \
+            _task150-migration/evidence/supabase-apply.txt
+
+      - name: Verify TASK-150 schema and grants
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task150-migration/source-db-url)"
+          docker run --rm -i --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 "$SOURCE_DB_URL" \
+              > _task150-migration/evidence/post-verify.json <<'SQL'
+          with public_functions as (
+            select p.oid
+            from pg_proc p
+            join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public'
+              and p.proname::text = any(array[
+                'task_150_win7pos_image_qa_begin_v1',
+                'task_150_win7pos_image_qa_provision_admit_v1',
+                'task_150_win7pos_image_qa_provision_v1',
+                'task_150_win7pos_image_qa_prearm_v1',
+                'task_150_win7pos_image_qa_rotation_prepare_v1',
+                'task_150_win7pos_image_qa_rotation_ack_v1',
+                'task_150_win7pos_image_qa_result_issue_v1',
+                'task_150_win7pos_image_qa_cleanup_acquire_v1',
+                'task_150_win7pos_image_qa_cleanup_commit_v1',
+                'task_150_win7pos_image_qa_result_v1'
+              ]::text[])
+          ), private_tables as (
+            select c.oid
+            from pg_class c
+            join pg_namespace n on n.oid = c.relnamespace
+            where n.nspname = 'app_private'
+              and c.relname::text = any(array[
+                'task_150_win7pos_image_qa_runs',
+                'task_150_win7pos_image_qa_auth_assets',
+                'task_150_win7pos_image_qa_budget_rows'
+              ]::text[])
+              and c.relkind = 'r'
+          )
+          select jsonb_build_object(
+            'migrationLedgerExact', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260731162000'
+                and name = 'task_150_win7pos_product_image_qa_boundary'
+            ),
+            'publicFunctionCount', (select count(*) from public_functions),
+            'serviceRoleExecute', (
+              select bool_and(has_function_privilege('service_role', oid, 'execute'))
+              from public_functions
+            ),
+            'anonExecuteDenied', (
+              select bool_and(not has_function_privilege('anon', oid, 'execute'))
+              from public_functions
+            ),
+            'authenticatedExecuteDenied', (
+              select bool_and(not has_function_privilege('authenticated', oid, 'execute'))
+              from public_functions
+            ),
+            'privateTableCount', (select count(*) from private_tables),
+            'serviceRoleSelect', (
+              select bool_and(has_table_privilege('service_role', oid, 'select'))
+              from private_tables
+            ),
+            'serviceRoleDirectMutationDenied', (
+              select bool_and(
+                not has_table_privilege('service_role', oid, 'insert') and
+                not has_table_privilege('service_role', oid, 'update') and
+                not has_table_privilege('service_role', oid, 'delete') and
+                not has_table_privilege('service_role', oid, 'truncate')
+              ) from private_tables
+            ),
+            'anonDirectAccessDenied', (
+              select bool_and(not has_table_privilege('anon', oid, 'select,insert,update,delete,truncate'))
+              from private_tables
+            ),
+            'authenticatedDirectAccessDenied', (
+              select bool_and(not has_table_privilege('authenticated', oid, 'select,insert,update,delete,truncate'))
+              from private_tables
+            )
+          );
+          SQL
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const report = JSON.parse(
+            readFileSync("_task150-migration/evidence/post-verify.json", "utf8"),
+          );
+          console.log(JSON.stringify(report));
+          const requiredTrue = [
+            "migrationLedgerExact",
+            "serviceRoleExecute",
+            "anonExecuteDenied",
+            "authenticatedExecuteDenied",
+            "serviceRoleSelect",
+            "serviceRoleDirectMutationDenied",
+            "anonDirectAccessDenied",
+            "authenticatedDirectAccessDenied",
+          ];
+          if (
+            requiredTrue.some((key) => report[key] !== true) ||
+            Number(report.publicFunctionCount) !== 10 ||
+            Number(report.privateTableCount) !== 3
+          ) process.exit(1);
+          NODE
+
+      - name: Remove protected connection material
+        if: always()
+        run: rm -f _task150-migration/source-db-url
+
+      - name: Upload non-secret migration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-150-staging-migration-${{ github.run_id }}
+          path: _task150-migration/evidence
+          if-no-files-found: error
+          retention-days: 14
