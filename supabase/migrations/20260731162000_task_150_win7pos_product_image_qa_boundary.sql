@@ -2387,12 +2387,15 @@ begin
     raise exception 'TASK-150 inventory owner scope drift' using errcode = '23514';
   end if;
 
+  -- Shop creation seeds the complete permission matrix with the bootstrap
+  -- actor. The run shop is synthetic, so release every one of those actor
+  -- references before removing the membership; limiting this to the two
+  -- catalog grants would retain the seeded rows' shared-profile reference.
   update public.staff_role_permissions permission
   set updated_by_profile_id = null,
       updated_at = clock_timestamp()
   where permission.shop_id = v_run.run_shop_id
-    and permission.role_key = 'pos_admin'
-    and permission.permission_key in ('catalog.read', 'catalog.write');
+    and permission.updated_by_profile_id = v_run.bootstrap_profile_id;
 
   delete from public.shop_members member
   where member.shop_id = v_run.run_shop_id
