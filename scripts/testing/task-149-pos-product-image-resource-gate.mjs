@@ -2,11 +2,16 @@
 
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { createRequire } from "node:module";
 import { join } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import WebSocket from "ws";
 
+const require = createRequire(import.meta.url);
+const WRANGLER_VERSION = require("wrangler/package.json").version;
 const RESULT_SCHEMA_VERSION = "task149-pos-product-image-resource-gate-v2";
 const EXPECTED_WORKER_NAME = "merchandise-control-admin-web-staging";
+const CLOUDFLARE_API_BASE_URL = "https://api.cloudflare.com/client/v4";
 const GRAPHQL_ENDPOINT = "https://api.cloudflare.com/client/v4/graphql";
 const HARNESS_SCRIPT =
   "scripts/testing/task-149-pos-product-image-staging-e2e.mjs";
@@ -17,11 +22,21 @@ const MAX_TAIL_EVENT_BYTES = 512 * 1024;
 const MAX_TAIL_EVENTS = 2_000;
 const MAX_TAIL_CHANNEL_RECORDS = 1_000;
 const MAX_TAIL_CPU_MILLISECONDS = 5 * 60 * 1_000;
+const MAX_TAIL_CONTROL_PLANE_BYTES = 64 * 1024;
 const MAX_TAIL_DIAGNOSTIC_BYTES = 64 * 1024;
 const MAX_TAIL_DIAGNOSTIC_LINE_BYTES = 4 * 1024;
-const TAIL_JSON_STARTUP_DELAY_MILLISECONDS = 2_000;
 const TAIL_CONNECTION_TIMEOUT_MILLISECONDS = 30_000;
 const TAIL_DELIVERY_TIMEOUT_MILLISECONDS = 30_000;
+const TAIL_HEARTBEAT_INTERVAL_MILLISECONDS = 10_000;
+const REQUEST_PHASE_TIMEOUT_MILLISECONDS = 40 * 60 * 1_000;
+const HARNESS_TOTAL_TIMEOUT_MILLISECONDS = 175 * 60 * 1_000;
+const CHILD_STOP_GRACE_MILLISECONDS = 5_000;
+const HARNESS_COOPERATIVE_ABORT_SIGNAL = "SIGUSR2";
+const TAIL_MINIMUM_REMAINING_MILLISECONDS =
+  REQUEST_PHASE_TIMEOUT_MILLISECONDS + 5 * 60 * 1_000;
+const TAIL_READINESS_PING = Buffer.from("task149-tail-readiness-v1");
+const TAIL_PROTOCOL = "trace-v1";
+const TAIL_WEBSOCKET_HOSTNAME = "tail.developers.workers.dev";
 const GRAPHQL_ATTEMPTS = 12;
 const GRAPHQL_RETRY_MILLISECONDS = 10_000;
 const RUN_MARKER_PATTERN = /^TASK149_[A-Z0-9]{6,12}$/;
@@ -795,7 +810,7 @@ async function attestTailConnection(config, deployment) {
         "BLOCKED_TASK149_TAIL_CONNECTION_DIAGNOSTIC_NOT_OBSERVED",
     );
   } finally {
-    await stopTail(attestation);
+    await stopWranglerTail(attestation);
   }
   assertGate(
     !attestation.diagnostics.failureCode &&
@@ -806,63 +821,429 @@ async function attestTailConnection(config, deployment) {
   );
 }
 
-function startTail(config, deployment) {
+async function boundedResponseText(response, maximumBytes, code) {
+  assertGate(
+    response?.body && Number.isSafeInteger(maximumBytes) && maximumBytes > 0,
+    code,
+  );
+  const reader = response.body.getReader();
+  const chunks = [];
+  let bytes = 0;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      assertGate(value instanceof Uint8Array, code);
+      bytes += value.byteLength;
+      assertGate(bytes <= maximumBytes, code);
+      chunks.push(Buffer.from(value));
+    }
+  } catch (error) {
+    try {
+      await reader.cancel();
+    } catch {
+      // The caller still receives the original bounded-read failure.
+    }
+    throw error;
+  } finally {
+    reader.releaseLock();
+  }
+  return Buffer.concat(chunks, bytes).toString("utf8");
+}
+
+function liveTailApiUrl(config, tailId = "") {
+  assertGate(
+    ACCOUNT_ID_PATTERN.test(config.accountId) &&
+      (tailId === "" || OPAQUE_ID_PATTERN.test(tailId)),
+    "TASK149_TAIL_CONTROL_PLANE_INVALID",
+  );
+  const base =
+    `${CLOUDFLARE_API_BASE_URL}/accounts/${config.accountId}` +
+    `/workers/scripts/${EXPECTED_WORKER_NAME}/tails`;
+  return tailId ? `${base}/${encodeURIComponent(tailId)}` : base;
+}
+
+async function liveTailApiRequest(config, url, init, code) {
+  try {
+    const response = await fetch(url, {
+      ...init,
+      headers: {
+        authorization: `Bearer ${config.apiToken}`,
+        ...(init.body ? { "content-type": "application/json" } : {}),
+      },
+      signal: AbortSignal.timeout(TAIL_CONNECTION_TIMEOUT_MILLISECONDS),
+    });
+    if (!response.ok) {
+      await response.body?.cancel();
+      reject(code);
+    }
+    const serialized = await boundedResponseText(
+      response,
+      MAX_TAIL_CONTROL_PLANE_BYTES,
+      code,
+    );
+    const payload = parseJson(serialized, code);
+    assertGate(
+      isRecord(payload) &&
+        payload.success === true &&
+        Array.isArray(payload.errors) &&
+        payload.errors.length === 0,
+      code,
+    );
+    return payload.result;
+  } catch (error) {
+    if (error instanceof GateError) throw error;
+    reject(code);
+  }
+}
+
+function tailMessageChunk(data) {
+  if (typeof data === "string") return Buffer.from(data, "utf8");
+  if (data instanceof ArrayBuffer) return Buffer.from(data);
+  if (ArrayBuffer.isView(data)) {
+    return Buffer.from(data.buffer, data.byteOffset, data.byteLength);
+  }
+  reject("TASK149_TAIL_MESSAGE_INVALID");
+}
+
+function validateLiveTailRecord(result, now = Date.now()) {
+  assertGate(
+    isRecord(result) &&
+      OPAQUE_ID_PATTERN.test(result.id) &&
+      typeof result.url === "string" &&
+      typeof result.expires_at === "string" &&
+      Number.isFinite(now),
+    "TASK149_TAIL_CONTROL_PLANE_INVALID",
+  );
+  let websocketUrl;
+  try {
+    websocketUrl = new URL(result.url);
+  } catch {
+    reject("TASK149_TAIL_CONTROL_PLANE_INVALID");
+  }
+  assertGate(
+    websocketUrl.protocol === "wss:" &&
+      websocketUrl.hostname === TAIL_WEBSOCKET_HOSTNAME &&
+      websocketUrl.port === "" &&
+      !websocketUrl.username &&
+      !websocketUrl.password &&
+      !websocketUrl.hash &&
+      Number.isFinite(Date.parse(result.expires_at)) &&
+      Date.parse(result.expires_at) - now >=
+        TAIL_MINIMUM_REMAINING_MILLISECONDS,
+    "TASK149_TAIL_CONTROL_PLANE_INVALID",
+  );
+  return {
+    id: result.id,
+    websocketUrl,
+  };
+}
+
+function createTailHeartbeatState() {
+  let waitingForPong = false;
+  return {
+    acceptPong(data) {
+      if (
+        !Buffer.isBuffer(data) ||
+        Buffer.compare(data, TAIL_READINESS_PING) !== 0
+      ) {
+        return false;
+      }
+      waitingForPong = false;
+      return true;
+    },
+    beginPing() {
+      if (waitingForPong) return false;
+      waitingForPong = true;
+      return true;
+    },
+    get waitingForPong() {
+      return waitingForPong;
+    },
+  };
+}
+
+async function waitForPromiseWithin(promise, timeoutMilliseconds) {
+  assertGate(
+    promise instanceof Promise &&
+      Number.isSafeInteger(timeoutMilliseconds) &&
+      timeoutMilliseconds >= 0,
+    "TASK149_BOUNDED_WAIT_INVALID",
+  );
+  if (timeoutMilliseconds === 0) {
+    return { completed: false, value: null };
+  }
+  const timeout = new AbortController();
+  try {
+    return await Promise.race([
+      promise.then((value) => ({ completed: true, value })),
+      delay(
+        timeoutMilliseconds,
+        { completed: false, value: null },
+        { signal: timeout.signal },
+      ),
+    ]);
+  } finally {
+    timeout.abort();
+  }
+}
+
+async function createLiveTail(config, deployment) {
+  const result = await liveTailApiRequest(
+    config,
+    liveTailApiUrl(config),
+    {
+      body: JSON.stringify({
+        filters: [
+          {
+            header: {
+              key: RUN_MARKER_HEADER,
+              query: config.runMarker,
+            },
+          },
+          { scriptVersion: deployment.versionId },
+        ],
+      }),
+      method: "POST",
+    },
+    "BLOCKED_TASK149_TAIL_CREATE_FAILED",
+  );
+  const safeTailId =
+    isRecord(result) && OPAQUE_ID_PATTERN.test(result.id) ? result.id : "";
+  let tailRecord;
+  try {
+    tailRecord = validateLiveTailRecord(result);
+  } catch (error) {
+    if (safeTailId) {
+      await liveTailApiRequest(
+        config,
+        liveTailApiUrl(config, safeTailId),
+        { method: "DELETE" },
+        "BLOCKED_TASK149_TAIL_DELETE_FAILED",
+      );
+    }
+    throw error;
+  }
+
   const aggregator = createTailAggregator({
     expectedOrigin: config.baseUrl.origin,
     expectedVersionId: deployment.versionId,
     runMarker: config.runMarker,
   });
-  const diagnostics = createProcessDiagnosticScanner();
-  const child = spawn(WRANGLER_BIN, tailArguments(config, deployment, "json"), {
-    cwd: process.cwd(),
-    env: wranglerEnvironment(config, process.env),
-    stdio: ["ignore", "pipe", "pipe"],
-  });
+  let websocket;
+  try {
+    websocket = new WebSocket(tailRecord.websocketUrl, TAIL_PROTOCOL, {
+      handshakeTimeout: TAIL_CONNECTION_TIMEOUT_MILLISECONDS,
+      headers: {
+        "User-Agent": `wrangler/${WRANGLER_VERSION}`,
+      },
+      maxPayload: MAX_TAIL_EVENT_BYTES,
+      perMessageDeflate: false,
+    });
+  } catch {
+    await liveTailApiRequest(
+      config,
+      liveTailApiUrl(config, tailRecord.id),
+      { method: "DELETE" },
+      "BLOCKED_TASK149_TAIL_DELETE_FAILED",
+    );
+    reject("BLOCKED_TASK149_TAIL_WEBSOCKET_FAILED");
+  }
   let closed = false;
-  child.stdout.on("data", (chunk) => aggregator.acceptChunk(chunk));
-  child.stderr.on("data", (chunk) => diagnostics.acceptChunk("stderr", chunk));
-  const done = new Promise((resolve) => {
-    child.once("error", () => {
-      closed = true;
-      aggregator.finish();
-      diagnostics.finish();
-      resolve({ code: null, signal: null });
-    });
-    child.once("close", (code, signal) => {
-      closed = true;
-      aggregator.finish();
-      diagnostics.finish();
-      resolve({ code, signal });
-    });
+  let failureCode = "";
+  let opened = false;
+  let heartbeat = null;
+  let deletePromise = null;
+  const heartbeatState = createTailHeartbeatState();
+  let resolveReady;
+  const ready = new Promise((resolve) => {
+    resolveReady = resolve;
   });
+
+  function failWebsocket(code) {
+    failureCode ||= code;
+    resolveReady();
+    cancelHeartbeat();
+    try {
+      websocket.terminate();
+    } catch {
+      // The control-plane delete below is the authoritative teardown.
+    }
+  }
+
+  function cancelHeartbeat() {
+    if (heartbeat) clearInterval(heartbeat);
+    heartbeat = null;
+  }
+
+  function deleteTailOnce() {
+    deletePromise ??= liveTailApiRequest(
+      config,
+      liveTailApiUrl(config, tailRecord.id),
+      { method: "DELETE" },
+      "BLOCKED_TASK149_TAIL_DELETE_FAILED",
+    );
+    return deletePromise;
+  }
+
+  function sendHeartbeat() {
+    if (closed || failureCode) return;
+    if (
+      websocket.readyState !== WebSocket.OPEN ||
+      !heartbeatState.beginPing()
+    ) {
+      failWebsocket("BLOCKED_TASK149_TAIL_HEARTBEAT_FAILED");
+      return;
+    }
+    try {
+      websocket.ping(TAIL_READINESS_PING);
+    } catch {
+      failWebsocket("BLOCKED_TASK149_TAIL_HEARTBEAT_FAILED");
+    }
+  }
+
+  websocket.on("open", () => {
+    try {
+      assertGate(
+        websocket.protocol === TAIL_PROTOCOL,
+        "BLOCKED_TASK149_TAIL_PROTOCOL_INVALID",
+      );
+      websocket.send(
+        JSON.stringify({ debug: false }),
+        {
+          binary: false,
+          compress: false,
+          fin: true,
+          mask: false,
+        },
+        (error) => {
+          if (error) {
+            failWebsocket("BLOCKED_TASK149_TAIL_WEBSOCKET_FAILED");
+          }
+        },
+      );
+      sendHeartbeat();
+      heartbeat = setInterval(
+        sendHeartbeat,
+        TAIL_HEARTBEAT_INTERVAL_MILLISECONDS,
+      );
+    } catch (error) {
+      failWebsocket(
+        error instanceof GateError
+          ? error.code
+          : "BLOCKED_TASK149_TAIL_WEBSOCKET_FAILED",
+      );
+    }
+  });
+  websocket.on("pong", (data) => {
+    if (!heartbeatState.acceptPong(data)) return;
+    if (!opened) {
+      opened = true;
+      resolveReady();
+    }
+  });
+  websocket.on("message", (data) => {
+    try {
+      aggregator.acceptChunk(tailMessageChunk(data));
+    } catch (error) {
+      failureCode ||=
+        error instanceof GateError
+          ? error.code
+          : "TASK149_TAIL_MESSAGE_INVALID";
+    }
+  });
+  websocket.on("error", () => {
+    failWebsocket("BLOCKED_TASK149_TAIL_WEBSOCKET_FAILED");
+  });
+  let resolveDone;
+  const done = new Promise((resolve) => {
+    resolveDone = resolve;
+  });
+  websocket.on("close", () => {
+    if (!closed) {
+      if (!opened) {
+        failureCode ||= "BLOCKED_TASK149_TAIL_CLOSED_BEFORE_READY";
+        resolveReady();
+      }
+      closed = true;
+      cancelHeartbeat();
+      aggregator.finish();
+      resolveDone();
+    }
+  });
+
+  async function teardownCreatedTail() {
+    cancelHeartbeat();
+    if (!closed) {
+      try {
+        websocket.terminate();
+      } catch {
+        // The control-plane delete below is the authoritative teardown.
+      }
+    }
+    let completed = (await waitForPromiseWithin(done, 5_000)).completed;
+    await deleteTailOnce();
+    if (!completed) {
+      completed = (await waitForPromiseWithin(done, 5_000)).completed;
+    }
+    return completed && closed;
+  }
+
+  const readiness = await waitForPromiseWithin(
+    ready,
+    TAIL_CONNECTION_TIMEOUT_MILLISECONDS,
+  );
+  if (!readiness.completed || !opened || closed || failureCode) {
+    assertGate(
+      await teardownCreatedTail(),
+      "BLOCKED_TASK149_TAIL_CLOSE_FAILED",
+    );
+    reject(failureCode || "BLOCKED_TASK149_TAIL_CONNECTION_TIMEOUT");
+  }
 
   return {
     aggregator,
-    child,
-    diagnostics,
+    cancelHeartbeat,
+    config,
+    deleteTailOnce,
     done,
+    id: tailRecord.id,
+    websocket,
     get closed() {
       return closed;
     },
-    get stderrOverflow() {
-      return (
-        diagnostics.failureCode ===
-          "TASK149_TAIL_PROCESS_DIAGNOSTIC_OVERFLOW" ||
-        diagnostics.failureCode ===
-          "TASK149_TAIL_PROCESS_DIAGNOSTIC_LINE_TOO_LARGE"
-      );
+    get failureCode() {
+      return failureCode;
     },
   };
 }
 
-async function stopTail(tail) {
-  if (!tail.closed) tail.child.kill("SIGINT");
-  const completed = await Promise.race([
-    tail.done.then(() => true),
-    delay(5_000).then(() => false),
-  ]);
-  if (!completed && !tail.closed) tail.child.kill("SIGTERM");
-  await tail.done;
+async function stopWranglerTail(tail) {
+  if (tail.closed) {
+    await tail.done;
+    return;
+  }
+  await stopChildBoundedly(
+    tail,
+    "BLOCKED_TASK149_TAIL_ATTESTATION_STOP_FAILED",
+  );
+}
+
+async function stopLiveTail(tail) {
+  tail.cancelHeartbeat();
+  if (!tail.closed) {
+    try {
+      tail.websocket.terminate();
+    } catch {
+      // The control-plane delete below is the authoritative teardown.
+    }
+  }
+  let completed = (await waitForPromiseWithin(tail.done, 5_000)).completed;
+  await tail.deleteTailOnce();
+  if (!completed) {
+    completed = (await waitForPromiseWithin(tail.done, 5_000)).completed;
+  }
+  assertGate(completed && tail.closed, "BLOCKED_TASK149_TAIL_CLOSE_FAILED");
 }
 
 async function waitForCondition(predicate, timeoutMilliseconds, code) {
@@ -904,8 +1285,103 @@ function parsePhaseSignal(value) {
   return { ...value, endedAt, startedAt };
 }
 
+async function stopChildBoundedly(
+  execution,
+  failureCode,
+  { graceMilliseconds = CHILD_STOP_GRACE_MILLISECONDS } = {},
+) {
+  assertGate(
+    isRecord(execution) &&
+      isRecord(execution.child) &&
+      execution.done instanceof Promise &&
+      typeof execution.child.kill === "function" &&
+      /^[A-Z][A-Z0-9_]{2,100}$/.test(failureCode) &&
+      Number.isSafeInteger(graceMilliseconds) &&
+      graceMilliseconds > 0,
+    failureCode,
+  );
+  for (const signal of ["SIGINT", "SIGTERM", "SIGKILL"]) {
+    if (
+      execution.child.exitCode === null &&
+      execution.child.signalCode === null
+    ) {
+      try {
+        execution.child.kill(signal);
+      } catch {
+        // The bounded wait and next escalation remain authoritative.
+      }
+    }
+    const stopped = await waitForPromiseWithin(
+      execution.done,
+      graceMilliseconds,
+    );
+    if (stopped.completed) return stopped.value;
+  }
+  reject(failureCode);
+}
+
+async function waitForHarnessCompletion(harness) {
+  assertGate(
+    isRecord(harness) &&
+      Number.isSafeInteger(harness.startedAt) &&
+      harness.startedAt > 0,
+    "BLOCKED_TASK149_HARNESS_TOTAL_TIMEOUT",
+  );
+  const remainingMilliseconds = Math.max(
+    0,
+    harness.startedAt + HARNESS_TOTAL_TIMEOUT_MILLISECONDS - Date.now(),
+  );
+  const completed = await waitForPromiseWithin(
+    harness.done,
+    remainingMilliseconds,
+  );
+  if (completed.completed) return completed.value;
+  await stopChildBoundedly(harness, "BLOCKED_TASK149_HARNESS_STOP_FAILED");
+  reject("BLOCKED_TASK149_HARNESS_TOTAL_TIMEOUT");
+}
+
+async function completeHarnessAfterTailTeardown(harness, tailStopError) {
+  const harnessExecution = await waitForHarnessCompletion(harness);
+  assertGate(
+    isRecord(harnessExecution) &&
+      harnessExecution.code === 0 &&
+      harnessExecution.overflow === false &&
+      (harnessExecution.signal === null ||
+        harnessExecution.signal === undefined),
+    "BLOCKED_TASK149_HARNESS_FAILED",
+  );
+  if (tailStopError) throw tailStopError;
+  return harnessExecution;
+}
+
+function requestHarnessCooperativeAbort(harness) {
+  assertGate(
+    isRecord(harness) &&
+      isRecord(harness.child) &&
+      typeof harness.child.kill === "function",
+    "BLOCKED_TASK149_HARNESS_ABORT_SIGNAL_FAILED",
+  );
+  if (harness.child.exitCode !== null || harness.child.signalCode !== null) {
+    return false;
+  }
+  let signaled = false;
+  try {
+    signaled = harness.child.kill(HARNESS_COOPERATIVE_ABORT_SIGNAL);
+  } catch {
+    // The state check below remains authoritative.
+  }
+  assertGate(
+    signaled ||
+      harness.child.exitCode !== null ||
+      harness.child.signalCode !== null,
+    "BLOCKED_TASK149_HARNESS_ABORT_SIGNAL_FAILED",
+  );
+  return signaled;
+}
+
 function startHarness() {
   const environment = harnessEnvironment(process.env);
+  const startedAt = Date.now();
   let stderrBuffer = "";
   let phaseSignal = null;
   let resolvePhase;
@@ -934,7 +1410,7 @@ function startHarness() {
     },
     spawn: { env: environment },
   });
-  return { ...execution, phase };
+  return { ...execution, phase, startedAt };
 }
 
 function validateHarnessOutput(harness, phaseSignal) {
@@ -1389,7 +1865,7 @@ function syntheticTailEvent({
   };
 }
 
-function runSelfTest() {
+async function runSelfTest() {
   const marker = "TASK149_SELF01";
   const versionId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const origin = "https://task149-staging.example.invalid";
@@ -1849,6 +2325,176 @@ function runSelfTest() {
   const deploymentFailClosed = deploymentRejected;
   assertGate(deploymentFailClosed, "TASK149_SELF_TEST_FAILED");
 
+  const tailRecordNow = Date.parse("2026-07-30T12:00:00.000Z");
+  const validTailRecord = validateLiveTailRecord(
+    {
+      expires_at: new Date(
+        tailRecordNow + TAIL_MINIMUM_REMAINING_MILLISECONDS + 1,
+      ).toISOString(),
+      id: "tail-record-0001",
+      url: `wss://${TAIL_WEBSOCKET_HOSTNAME}/opaque?capability=synthetic`,
+    },
+    tailRecordNow,
+  );
+  let invalidTailHostRejected = false;
+  let insufficientTailExpiryRejected = false;
+  try {
+    validateLiveTailRecord(
+      {
+        expires_at: new Date(
+          tailRecordNow + TAIL_MINIMUM_REMAINING_MILLISECONDS + 1,
+        ).toISOString(),
+        id: "tail-record-0002",
+        url: "wss://example.invalid/opaque?capability=synthetic",
+      },
+      tailRecordNow,
+    );
+  } catch {
+    invalidTailHostRejected = true;
+  }
+  try {
+    validateLiveTailRecord(
+      {
+        expires_at: new Date(
+          tailRecordNow + TAIL_MINIMUM_REMAINING_MILLISECONDS - 1,
+        ).toISOString(),
+        id: "tail-record-0003",
+        url: `wss://${TAIL_WEBSOCKET_HOSTNAME}/opaque?capability=synthetic`,
+      },
+      tailRecordNow,
+    );
+  } catch {
+    insufficientTailExpiryRejected = true;
+  }
+  const controlPlaneFailClosed =
+    validTailRecord.id === "tail-record-0001" &&
+    validTailRecord.websocketUrl.hostname === TAIL_WEBSOCKET_HOSTNAME &&
+    invalidTailHostRejected &&
+    insufficientTailExpiryRejected;
+  assertGate(controlPlaneFailClosed, "TASK149_SELF_TEST_FAILED");
+
+  const heartbeatState = createTailHeartbeatState();
+  const firstPingAccepted = heartbeatState.beginPing();
+  const duplicatePingRejected = !heartbeatState.beginPing();
+  const unrelatedPongIgnored = !heartbeatState.acceptPong(
+    Buffer.from("unrelated-pong"),
+  );
+  const matchingPongAccepted = heartbeatState.acceptPong(TAIL_READINESS_PING);
+  const heartbeatRecovered =
+    !heartbeatState.waitingForPong && heartbeatState.beginPing();
+  const heartbeatFailClosed =
+    firstPingAccepted &&
+    duplicatePingRejected &&
+    unrelatedPongIgnored &&
+    matchingPongAccepted &&
+    heartbeatRecovered;
+  assertGate(heartbeatFailClosed, "TASK149_SELF_TEST_FAILED");
+
+  const cooperativeAbortSignals = [];
+  const cooperativeAbortRequested = requestHarnessCooperativeAbort({
+    child: {
+      exitCode: null,
+      signalCode: null,
+      kill(signal) {
+        cooperativeAbortSignals.push(signal);
+        return true;
+      },
+    },
+  });
+
+  let resolveEscalatedChild;
+  const escalationSignals = [];
+  const escalatedChild = {
+    exitCode: null,
+    signalCode: null,
+    kill(signal) {
+      escalationSignals.push(signal);
+      if (signal === "SIGTERM") {
+        this.signalCode = signal;
+        resolveEscalatedChild({
+          code: null,
+          overflow: false,
+          signal,
+          stdout: "",
+        });
+      }
+      return true;
+    },
+  };
+  const escalatedDone = new Promise((resolve) => {
+    resolveEscalatedChild = resolve;
+  });
+  await stopChildBoundedly(
+    { child: escalatedChild, done: escalatedDone },
+    "TASK149_SELF_TEST_FAILED",
+    { graceMilliseconds: 1 },
+  );
+
+  let resolveTimedOutChild;
+  const timeoutSignals = [];
+  const timedOutChild = {
+    exitCode: null,
+    signalCode: null,
+    kill(signal) {
+      timeoutSignals.push(signal);
+      this.signalCode = signal;
+      resolveTimedOutChild({
+        code: null,
+        overflow: false,
+        signal,
+        stdout: "",
+      });
+      return true;
+    },
+  };
+  const timedOutDone = new Promise((resolve) => {
+    resolveTimedOutChild = resolve;
+  });
+  let harnessTimeoutRejected = false;
+  const syntheticTailStopError = new GateError(
+    "BLOCKED_TASK149_TAIL_CLOSE_FAILED",
+  );
+  try {
+    await completeHarnessAfterTailTeardown(
+      {
+        child: timedOutChild,
+        done: timedOutDone,
+        startedAt: Date.now() - HARNESS_TOTAL_TIMEOUT_MILLISECONDS - 1,
+      },
+      syntheticTailStopError,
+    );
+  } catch (error) {
+    harnessTimeoutRejected =
+      error instanceof GateError &&
+      error.code === "BLOCKED_TASK149_HARNESS_TOTAL_TIMEOUT";
+  }
+  let tailStopErrorPreserved = false;
+  try {
+    await completeHarnessAfterTailTeardown(
+      {
+        child: timedOutChild,
+        done: Promise.resolve({
+          code: 0,
+          overflow: false,
+          signal: null,
+          stdout: "",
+        }),
+        startedAt: Date.now(),
+      },
+      syntheticTailStopError,
+    );
+  } catch (error) {
+    tailStopErrorPreserved = error === syntheticTailStopError;
+  }
+  const harnessLifecycleFailClosed =
+    cooperativeAbortRequested &&
+    cooperativeAbortSignals.join(",") === HARNESS_COOPERATIVE_ABORT_SIGNAL &&
+    escalationSignals.join(",") === "SIGINT,SIGTERM" &&
+    timeoutSignals.join(",") === "SIGINT" &&
+    harnessTimeoutRejected &&
+    tailStopErrorPreserved;
+  assertGate(harnessLifecycleFailClosed, "TASK149_SELF_TEST_FAILED");
+
   return {
     environmentIsolation: {
       harnessUsesExplicitAllowlist,
@@ -1857,8 +2503,11 @@ function runSelfTest() {
     schemaVersion: RESULT_SCHEMA_VERSION,
     status: "PASS_SELF_TEST_NO_LIVE_EVIDENCE",
     validators: {
+      controlPlaneFailClosed,
       coverageFailClosed,
       deploymentFailClosed,
+      harnessLifecycleFailClosed,
+      heartbeatFailClosed,
       logScanFailClosed,
       parserFailClosed,
     },
@@ -1869,24 +2518,44 @@ async function runLiveGate() {
   const config = liveConfiguration();
   const beforeDeployment = await liveDeploymentStatus(config);
   await attestTailConnection(config, beforeDeployment);
-  const tail = startTail(config, beforeDeployment);
+  const tail = await createLiveTail(config, beforeDeployment);
   let harness = null;
   let phaseSignal = null;
   let phaseError = null;
+  let tailStopError = null;
 
   try {
-    await delay(TAIL_JSON_STARTUP_DELAY_MILLISECONDS);
     assertGate(
-      !tail.closed && !tail.stderrOverflow && !tail.diagnostics.failureCode,
+      !tail.closed && !tail.failureCode,
       "BLOCKED_TASK149_TAIL_UNAVAILABLE",
     );
 
     harness = startHarness();
-    const phaseOutcome = await Promise.race([
-      harness.phase.then((value) => ({ type: "phase", value })),
-      harness.done.then((value) => ({ type: "done", value })),
-    ]);
-    if (phaseOutcome.type !== "phase") {
+    const phaseTimeout = new AbortController();
+    let phaseOutcome;
+    try {
+      phaseOutcome = await Promise.race([
+        harness.phase.then((value) => ({ type: "phase", value })),
+        harness.done.then((value) => ({ type: "done", value })),
+        delay(
+          REQUEST_PHASE_TIMEOUT_MILLISECONDS,
+          { type: "timeout", value: null },
+          { signal: phaseTimeout.signal },
+        ),
+      ]);
+    } finally {
+      phaseTimeout.abort();
+    }
+    if (phaseOutcome.type === "timeout") {
+      phaseError = new GateError(
+        "BLOCKED_TASK149_HARNESS_REQUEST_PHASE_TIMEOUT",
+      );
+      try {
+        requestHarnessCooperativeAbort(harness);
+      } catch (error) {
+        phaseError = error;
+      }
+    } else if (phaseOutcome.type !== "phase") {
       phaseError = new GateError(
         "BLOCKED_TASK149_HARNESS_REQUEST_PHASE_INCOMPLETE",
       );
@@ -1897,7 +2566,7 @@ async function runLiveGate() {
           () =>
             tail.aggregator.events.size >= phaseSignal.requestCount ||
             Boolean(tail.aggregator.failureCode) ||
-            Boolean(tail.diagnostics.failureCode) ||
+            Boolean(tail.failureCode) ||
             tail.closed,
           TAIL_DELIVERY_TIMEOUT_MILLISECONDS,
           "BLOCKED_TASK149_TAIL_COVERAGE_INCOMPLETE",
@@ -1905,10 +2574,10 @@ async function runLiveGate() {
         assertGate(
           !tail.closed &&
             !tail.aggregator.failureCode &&
-            !tail.diagnostics.failureCode &&
+            !tail.failureCode &&
             tail.aggregator.events.size === phaseSignal.requestCount,
           tail.aggregator.failureCode ||
-            tail.diagnostics.failureCode ||
+            tail.failureCode ||
             "BLOCKED_TASK149_TAIL_COVERAGE_INCOMPLETE",
         );
       } catch (error) {
@@ -1916,17 +2585,26 @@ async function runLiveGate() {
       }
     }
   } finally {
-    await stopTail(tail);
+    try {
+      await stopLiveTail(tail);
+    } catch (error) {
+      tailStopError = error;
+    }
   }
 
-  assertGate(harness, "BLOCKED_TASK149_HARNESS_NOT_STARTED");
-  const harnessExecution = await harness.done;
-  assertGate(!tail.stderrOverflow, "BLOCKED_TASK149_TAIL_DIAGNOSTIC_OVERFLOW");
-  assertGate(
-    !tail.diagnostics.failureCode,
-    tail.diagnostics.failureCode || "BLOCKED_TASK149_TAIL_DIAGNOSTIC_FAILURE",
+  if (!harness) {
+    if (tailStopError) throw tailStopError;
+    reject("BLOCKED_TASK149_HARNESS_NOT_STARTED");
+  }
+  const harnessExecution = await completeHarnessAfterTailTeardown(
+    harness,
+    tailStopError,
   );
-  if (phaseError) throw phaseError;
+  assertGate(
+    !tail.failureCode,
+    tail.failureCode || "BLOCKED_TASK149_TAIL_WEBSOCKET_FAILED",
+  );
+  if (phaseError && !phaseSignal) throw phaseError;
   assertGate(
     phaseSignal &&
       harnessExecution.code === 0 &&
@@ -1941,6 +2619,7 @@ async function runLiveGate() {
     harnessOutput.runMarker === config.runMarker,
     "TASK149_HARNESS_RUN_MARKER_MISMATCH",
   );
+  if (phaseError) throw phaseError;
   const groups = validateTailCoverage(
     tail.aggregator,
     harnessOutput,
