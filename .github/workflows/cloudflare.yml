@@ -185,37 +185,7 @@ jobs:
           CLOUDFLARE_STAGING_URL: ${{ vars.CLOUDFLARE_STAGING_URL }}
         run: |
           set -euo pipefail
-          node <<'NODE'
-          (async () => {
-            const base = new URL(process.env.CLOUDFLARE_STAGING_URL || "");
-            if (
-              base.origin !==
-              "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev"
-            ) process.exit(1);
-            const response = await fetch(
-              new URL("/api/qa/win7pos-product-image", base),
-              {
-                method: "POST",
-                redirect: "error",
-                headers: { "content-type": "application/json" },
-                body: JSON.stringify({ action: "configuration_probe" }),
-              },
-            );
-            const body = await response.json();
-            const status = {
-              httpStatus: response.status,
-              code: body?.code || null,
-              noStore:
-                response.headers.get("cache-control") === "no-store, max-age=0",
-            };
-            console.log(JSON.stringify(status));
-            if (
-              status.httpStatus !== 400 ||
-              status.code !== "validation_failed" ||
-              !status.noStore
-            ) process.exit(1);
-          })().catch(() => process.exit(1));
-          NODE
+          node scripts/verify-task-150-staging-route.mjs
 
       - name: Install Playwright browsers
         if: >-
