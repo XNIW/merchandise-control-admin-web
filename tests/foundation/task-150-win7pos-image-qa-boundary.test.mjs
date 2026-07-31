@@ -1,10 +1,20 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { createRequire } from "node:module";
-import { join } from "node:path";
+import { tmpdir } from "node:os";
+import { join, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import { pathToFileURL } from "node:url";
 import { createContext, Script } from "node:vm";
 import test from "node:test";
 import ts from "typescript";
+import { reconcileMigrationDelta } from "../../scripts/task-150-reconcile-migration-delta.mjs";
 
 const root = process.cwd();
 const requireForTest = createRequire(import.meta.url);
@@ -14,6 +24,8 @@ const migrationPath =
   "supabase/migrations/20260731162000_task_150_win7pos_product_image_qa_boundary.sql";
 const stagingMigrationWorkflowPath =
   ".github/workflows/task-150-staging-migration.yml";
+const stagingMigrationReconciliationPath =
+  "scripts/task-150-reconcile-migration-delta.mjs";
 const cloudflareWorkflowPath = ".github/workflows/cloudflare.yml";
 
 function read(relativePath) {
@@ -440,8 +452,148 @@ test("TASK-150 terminal receipt is count-only and retrieval is stable/read-only"
   assert.doesNotMatch(resultFunction, /\binsert\s+into\b|\bupdate\s+|\bdelete\s+from\b/i);
 });
 
+test("TASK-150 migration remap reconciliation fails closed for every drift shape", () => {
+  const task142 = {
+    version: "20260727055520",
+    name: "task_142_catalog_text_policy_v1",
+    fileName: "20260727055520_task_142_catalog_text_policy_v1.sql",
+  };
+  const task150 = {
+    version: "20260731162000",
+    name: "task_150_win7pos_product_image_qa_boundary",
+    fileName: "20260731162000_task_150_win7pos_product_image_qa_boundary.sql",
+  };
+  const remap = {
+    localVersion: task142.version,
+    remoteVersion: "20260727084040",
+    name: task142.name,
+  };
+  const exact = {
+    local: [task142, task150],
+    remote: [{ version: remap.remoteVersion, name: remap.name }],
+    expected: [task150],
+    approvedRemoteRemaps: [remap],
+  };
+  assert.equal(reconcileMigrationDelta(exact).status, "PASS");
+
+  const failures = [
+    { ...exact, remote: [] },
+    {
+      ...exact,
+      remote: [{ version: remap.remoteVersion, name: "wrong_name" }],
+    },
+    {
+      ...exact,
+      remote: [
+        { version: remap.remoteVersion, name: remap.name },
+        { version: remap.remoteVersion, name: remap.name },
+      ],
+    },
+    {
+      ...exact,
+      remote: [
+        { version: remap.remoteVersion, name: remap.name },
+        { version: task142.version, name: task142.name },
+      ],
+    },
+    {
+      ...exact,
+      remote: [
+        { version: remap.remoteVersion, name: remap.name },
+        { version: "20260730000000", name: "remote_only" },
+      ],
+    },
+    {
+      ...exact,
+      local: [
+        task142,
+        {
+          version: "20260730000000",
+          name: "extra_pending",
+          fileName: "20260730000000_extra_pending.sql",
+        },
+        task150,
+      ],
+    },
+    { ...exact, local: [task142, { ...task142 }, task150] },
+  ];
+  for (const input of failures) {
+    assert.equal(reconcileMigrationDelta(input).status, "FAIL");
+  }
+});
+
+test("TASK-150 migration reconciliation CLI reports exact success and fails closed", (t) => {
+  const temporaryRoot = mkdtempSync(join(tmpdir(), "task-150-reconcile-"));
+  const migrationDirectory = join(temporaryRoot, "migrations");
+  const remoteLedgerPath = join(temporaryRoot, "remote.tsv");
+  const outputPath = join(temporaryRoot, "report.json");
+  const scriptPath = resolve(root, stagingMigrationReconciliationPath);
+  const task142File = "20260727055520_task_142_catalog_text_policy_v1.sql";
+  const task150File =
+    "20260731162000_task_150_win7pos_product_image_qa_boundary.sql";
+  const environment = {
+    ...process.env,
+    EXPECTED_MIGRATION_VERSION: "20260731162000",
+    EXPECTED_MIGRATION_NAME: "task_150_win7pos_product_image_qa_boundary",
+    EXPECTED_MIGRATION_FILE: task150File,
+    REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520",
+    REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040",
+    REMAPPED_MIGRATION_NAME: "task_142_catalog_text_policy_v1",
+  };
+  t.after(() => rmSync(temporaryRoot, { force: true, recursive: true }));
+  mkdirSync(migrationDirectory);
+  writeFileSync(join(migrationDirectory, task142File), "-- fixture\n");
+  writeFileSync(join(migrationDirectory, task150File), "-- fixture\n");
+  writeFileSync(
+    remoteLedgerPath,
+    "20260727084040\ttask_142_catalog_text_policy_v1\n",
+  );
+
+  function runCli() {
+    return spawnSync(
+      process.execPath,
+      [scriptPath, migrationDirectory, remoteLedgerPath, outputPath],
+      { encoding: "utf8", env: environment },
+    );
+  }
+
+  const exact = runCli();
+  assert.equal(exact.status, 0, exact.stderr || exact.stdout);
+  assert.equal(JSON.parse(readFileSync(outputPath, "utf8")).status, "PASS");
+
+  writeFileSync(
+    join(migrationDirectory, "999999999999999_extra.sql"),
+    "-- invalid 15-digit migration\n",
+  );
+  const invalidFilename = runCli();
+  assert.equal(invalidFilename.status, 1);
+  const invalidFilenameReport = JSON.parse(readFileSync(outputPath, "utf8"));
+  assert.equal(invalidFilenameReport.status, "FAIL");
+  assert.deepEqual(invalidFilenameReport.localFilenameViolations, [
+    "999999999999999_extra.sql",
+  ]);
+  rmSync(join(migrationDirectory, "999999999999999_extra.sql"));
+
+  writeFileSync(remoteLedgerPath, "20260730000000\tremote_only\n");
+  const drift = runCli();
+  assert.equal(drift.status, 1);
+  assert.equal(JSON.parse(readFileSync(outputPath, "utf8")).status, "FAIL");
+
+  const imported = spawnSync(
+    process.execPath,
+    [
+      "--input-type=module",
+      "-e",
+      `await import(${JSON.stringify(pathToFileURL(scriptPath).href)})`,
+    ],
+    { encoding: "utf8" },
+  );
+  assert.equal(imported.status, 0, imported.stderr || imported.stdout);
+});
+
 test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   const migrationWorkflow = read(stagingMigrationWorkflowPath);
+  const reconciliation = read(stagingMigrationReconciliationPath);
   const cloudflareWorkflow = read(cloudflareWorkflowPath);
   assert.match(migrationWorkflow, /environment: cloudflare-staging/);
   assert.match(migrationWorkflow, /mainBranch: process\.env\.GITHUB_REF === "refs\/heads\/main"/);
@@ -459,10 +611,26 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
     /EXPECTED_MIGRATION_NAME: task_150_win7pos_product_image_qa_boundary/,
   );
   assert.match(migrationWorkflow, /APPLY_TASK150_STAGING/);
-  assert.match(migrationWorkflow, /remoteOnly\.length/);
-  assert.match(migrationWorkflow, /nameMismatches\.length/);
-  assert.match(migrationWorkflow, /JSON\.stringify\(pending\) !== JSON\.stringify\(expected\)/);
-  assert.match(migrationWorkflow, /db push \\\n\s+--dry-run/);
+  assert.match(migrationWorkflow, /REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"/);
+  assert.match(migrationWorkflow, /REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"/);
+  assert.match(migrationWorkflow, /REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1/);
+  assert.match(migrationWorkflow, /REMAPPED_LOCAL_MIGRATION_FILE: 20260727055520_task_142_catalog_text_policy_v1\.sql/);
+  assert.match(
+    migrationWorkflow,
+    /node scripts\/task-150-reconcile-migration-delta\.mjs/,
+  );
+  assert.match(reconciliation, /exactRemoteRows\.length !== 1/);
+  assert.match(reconciliation, /remote\.some\(\(row\) => row\.version === remap\.localVersion\)/);
+  assert.match(reconciliation, /remapViolations\.length/);
+  assert.match(reconciliation, /normalizedRemote/);
+  assert.match(migrationWorkflow, /Materialize exact remote remap for the ephemeral CLI projection/);
+  assert.match(migrationWorkflow, /cp -- "\$LOCAL_PATH" "\$REMOTE_PATH"/);
+  assert.match(migrationWorkflow, /Already-applied remapped migration appeared in dry-run/);
+  assert.match(migrationWorkflow, /Already-applied remapped migration appeared in apply output/);
+  assert.match(reconciliation, /remoteOnly\.length === 0/);
+  assert.match(reconciliation, /nameMismatches\.length === 0/);
+  assert.match(reconciliation, /JSON\.stringify\(pending\) === JSON\.stringify\(expected\)/);
+  assert.match(migrationWorkflow, /db push \\\r?\n\s+--dry-run/);
   assert.match(migrationWorkflow, /Apply single approved migration/);
   assert.match(migrationWorkflow, /migrationLedgerExact/);
   for (const name of [
