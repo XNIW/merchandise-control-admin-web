@@ -116,6 +116,7 @@ jobs:
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          TASK150_QA_HMAC_KEY: ${{ secrets.TASK150_QA_HMAC_KEY }}
         run: |
           set -euo pipefail
           node <<'NODE'
@@ -129,9 +130,17 @@ jobs:
             tokenHadNewlines: rawToken !== token,
             accountPresent: account.length > 0,
             accountShapeOk: /^[0-9a-f]{32}$/i.test(account),
+            task150HmacKeyPresent:
+              Buffer.byteLength(process.env.TASK150_QA_HMAC_KEY || "", "utf8") >= 32,
           };
           console.log(JSON.stringify(status));
-          if (!status.tokenPresent || !status.tokenLengthOk || !status.accountPresent || !status.accountShapeOk) {
+          if (
+            !status.tokenPresent ||
+            !status.tokenLengthOk ||
+            !status.accountPresent ||
+            !status.accountShapeOk ||
+            !status.task150HmacKeyPresent
+          ) {
             process.exit(1);
           }
           NODE
@@ -163,9 +172,50 @@ jobs:
           NODE
 
       - name: Deploy Worker staging
+        env:
+          TASK150_QA_HMAC_KEY: ${{ secrets.TASK150_QA_HMAC_KEY }}
         run: |
           export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
+          printf '%s' "$TASK150_QA_HMAC_KEY" |
+            npx wrangler secret put TASK150_QA_HMAC_KEY --env staging
           npx wrangler deploy --env staging --keep-vars --minify
+
+      - name: Verify TASK-150 staging route is configured
+        env:
+          CLOUDFLARE_STAGING_URL: ${{ vars.CLOUDFLARE_STAGING_URL }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          (async () => {
+            const base = new URL(process.env.CLOUDFLARE_STAGING_URL || "");
+            if (
+              base.origin !==
+              "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev"
+            ) process.exit(1);
+            const response = await fetch(
+              new URL("/api/qa/win7pos-product-image", base),
+              {
+                method: "POST",
+                redirect: "error",
+                headers: { "content-type": "application/json" },
+                body: JSON.stringify({ action: "configuration_probe" }),
+              },
+            );
+            const body = await response.json();
+            const status = {
+              httpStatus: response.status,
+              code: body?.code || null,
+              noStore:
+                response.headers.get("cache-control") === "no-store, max-age=0",
+            };
+            console.log(JSON.stringify(status));
+            if (
+              status.httpStatus !== 400 ||
+              status.code !== "validation_failed" ||
+              !status.noStore
+            ) process.exit(1);
+          })().catch(() => process.exit(1));
+          NODE
 
       - name: Install Playwright browsers
         if: >-
