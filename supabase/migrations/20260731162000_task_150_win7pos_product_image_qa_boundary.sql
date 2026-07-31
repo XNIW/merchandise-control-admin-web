@@ -2498,7 +2498,25 @@ begin
         )
     )
     or exists (select 1 from public.shops where shop_id = v_run.run_shop_id and shop_status <> 'archived') then
-    raise exception 'TASK-150 terminal cleanup invariant failed' using errcode = '23514';
+    raise exception 'TASK-150 terminal cleanup invariant failed: %', jsonb_build_object(
+      'products', v_products,
+      'versions', (select count(*) from public.inventory_product_image_versions where product_id = v_run.run_product_id),
+      'receipts', (select count(*) from public.pos_product_image_mutation_receipts where shop_id = v_run.run_shop_id and product_id = v_run.run_product_id),
+      'events', (select count(*) from public.sync_events event where event.shop_id = v_run.run_shop_id and event.entity_ids @> jsonb_build_object('product_ids', jsonb_build_array(v_run.run_product_id))),
+      'budgets', (select count(*) from app_private.pos_product_image_mutation_budgets where shop_id = v_run.run_shop_id),
+      'activeSessions', (select count(*) from public.pos_sessions session_row join app_private.task_150_win7pos_image_qa_auth_assets asset on asset.run_hmac = v_run.run_hmac and asset.asset_kind = 'session' and asset.asset_id = session_row.pos_session_id where session_row.status = 'active'),
+      'activeDevices', (select count(*) from public.shop_devices device join app_private.task_150_win7pos_image_qa_auth_assets asset on asset.run_hmac = v_run.run_hmac and asset.asset_kind = 'device' and asset.asset_id = device.shop_device_id where device.status = 'active'),
+      'activeCredentials', (select count(*) from public.pos_device_credentials credential join app_private.task_150_win7pos_image_qa_auth_assets asset on asset.run_hmac = v_run.run_hmac and asset.asset_kind = 'device_credential' and asset.asset_id = credential.pos_device_credential_id where credential.status = 'active'),
+      'staffWrong', (select count(*) from public.staff_accounts where staff_id = v_run.run_staff_id and status <> 'archived'),
+      'sourceActive', (select count(*) from public.shop_inventory_sources source where source.shop_inventory_source_id = v_run.run_mapping_id and source.disabled_at is null),
+      'owner', (select count(*) from auth.users owner_row where owner_row.id = v_run.run_inventory_owner_id),
+      'member', (select count(*) from public.shop_members member where member.shop_id = v_run.run_shop_id and member.profile_id = v_run.bootstrap_profile_id),
+      'staffRefs', (select count(*) from public.staff_accounts staff where staff.staff_id = v_run.run_staff_id and (staff.created_by_profile_id = v_run.bootstrap_profile_id or staff.updated_by_profile_id = v_run.bootstrap_profile_id)),
+      'sourceRefs', (select count(*) from public.shop_inventory_sources source where source.shop_inventory_source_id = v_run.run_mapping_id and (source.created_by_profile_id = v_run.bootstrap_profile_id or source.verified_by_profile_id = v_run.bootstrap_profile_id or source.disabled_by_profile_id = v_run.bootstrap_profile_id)),
+      'permissionRefs', (select count(*) from public.staff_role_permissions permission where permission.shop_id = v_run.run_shop_id and permission.updated_by_profile_id = v_run.bootstrap_profile_id),
+      'shopRefs', (select count(*) from public.shops shop where shop.shop_id = v_run.run_shop_id and (shop.created_by_profile_id = v_run.bootstrap_profile_id or shop.status_changed_by_profile_id = v_run.bootstrap_profile_id)),
+      'shopWrong', (select count(*) from public.shops where shop_id = v_run.run_shop_id and shop_status <> 'archived')
+    ) using errcode = '23514';
   end if;
 
   v_bootstrap_snapshot_digest := app_private.task_150_qa_bootstrap_snapshot_v1(
