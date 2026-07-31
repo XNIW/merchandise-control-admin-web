@@ -1,0 +1,160 @@
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { pathToFileURL } from "node:url";
+
+const migrationPattern = /^(\d{8}|\d{14})_(.+)\.sql$/;
+
+function duplicateVersions(rows) {
+  const counts = new Map();
+  for (const row of rows) {
+    counts.set(row.version, (counts.get(row.version) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .filter(([, count]) => count !== 1)
+    .map(([version, count]) => ({ version, count }));
+}
+
+export function reconcileMigrationDelta({
+  local,
+  remote,
+  expected,
+  approvedRemoteRemaps,
+  localFilenameViolations = [],
+}) {
+  const localDuplicates = duplicateVersions(local);
+  const remoteDuplicates = duplicateVersions(remote);
+  const localByVersion = new Map(local.map((row) => [row.version, row]));
+  const remapViolations = approvedRemoteRemaps.filter((remap) => {
+    const localRow = localByVersion.get(remap.localVersion);
+    const exactRemoteRows = remote.filter(
+      (row) => row.version === remap.remoteVersion && row.name === remap.name,
+    );
+    const conflictingRemoteRows = remote.filter(
+      (row) => row.version === remap.remoteVersion && row.name !== remap.name,
+    );
+    return (
+      !localRow ||
+      localRow.name !== remap.name ||
+      exactRemoteRows.length !== 1 ||
+      conflictingRemoteRows.length !== 0 ||
+      remote.some((row) => row.version === remap.localVersion)
+    );
+  });
+  const normalizedRemote = remote.map((row) => {
+    const remap = approvedRemoteRemaps.find(
+      (candidate) =>
+        row.version === candidate.remoteVersion && row.name === candidate.name,
+    );
+    return remap ? { version: remap.localVersion, name: row.name } : row;
+  });
+  const remoteOnly = normalizedRemote.filter(
+    (row) => !localByVersion.has(row.version),
+  );
+  const nameMismatches = normalizedRemote.filter((row) => {
+    const match = localByVersion.get(row.version);
+    return match && match.name !== row.name;
+  });
+  const remoteVersions = new Set(normalizedRemote.map((row) => row.version));
+  const pending = local.filter((row) => !remoteVersions.has(row.version));
+  const status =
+    localFilenameViolations.length === 0 &&
+    localDuplicates.length === 0 &&
+    remoteDuplicates.length === 0 &&
+    remapViolations.length === 0 &&
+    remoteOnly.length === 0 &&
+    nameMismatches.length === 0 &&
+    JSON.stringify(pending) === JSON.stringify(expected)
+      ? "PASS"
+      : "FAIL";
+  return {
+    status,
+    localMigrationCount: local.length,
+    remoteMigrationCount: remote.length,
+    approvedRemoteRemaps,
+    localFilenameViolations,
+    localDuplicates,
+    remoteDuplicates,
+    remapViolations,
+    remoteOnly,
+    nameMismatches,
+    pending,
+  };
+}
+
+function requiredEnvironment(name) {
+  const value = process.env[name] ?? "";
+  if (!value) throw new Error(`missing_environment:${name}`);
+  return value;
+}
+
+function runCli() {
+  const [migrationDirectory, remoteLedgerPath, outputPath] =
+    process.argv.slice(2);
+  if (!migrationDirectory || !remoteLedgerPath || !outputPath) {
+    throw new Error("usage:migration-directory remote-ledger output");
+  }
+  const migrationFiles = readdirSync(migrationDirectory).filter((fileName) =>
+    fileName.toLowerCase().endsWith(".sql"),
+  );
+  const localFilenameViolations = migrationFiles.filter(
+    (fileName) => !migrationPattern.test(fileName),
+  );
+  const local = migrationFiles
+    .map((fileName) => {
+      const match = fileName.match(migrationPattern);
+      return match
+        ? { version: match[1], name: match[2], fileName }
+        : null;
+    })
+    .filter(Boolean)
+    .sort((left, right) => left.version.localeCompare(right.version));
+  const remote = readFileSync(remoteLedgerPath, "utf8")
+    .trim()
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map((line) => {
+      const fields = line.split("\t");
+      if (fields.length !== 2 || !fields[0] || !fields[1]) {
+        throw new Error("remote_ledger_shape_invalid");
+      }
+      return { version: fields[0], name: fields[1] };
+    });
+  const expected = [
+    {
+      version: requiredEnvironment("EXPECTED_MIGRATION_VERSION"),
+      name: requiredEnvironment("EXPECTED_MIGRATION_NAME"),
+      fileName: requiredEnvironment("EXPECTED_MIGRATION_FILE"),
+    },
+  ];
+  const approvedRemoteRemaps = [
+    {
+      localVersion: requiredEnvironment("REMAPPED_LOCAL_MIGRATION_VERSION"),
+      remoteVersion: requiredEnvironment("REMAPPED_REMOTE_MIGRATION_VERSION"),
+      name: requiredEnvironment("REMAPPED_MIGRATION_NAME"),
+    },
+  ];
+  const result = reconcileMigrationDelta({
+    local,
+    remote,
+    expected,
+    approvedRemoteRemaps,
+    localFilenameViolations,
+  });
+  const report = { workflowCommit: process.env.GITHUB_SHA ?? "", ...result };
+  writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`);
+  console.log(
+    JSON.stringify({
+      status: report.status,
+      remoteMigrationCount: report.remoteMigrationCount,
+      localMigrationCount: report.localMigrationCount,
+      pending: report.pending,
+    }),
+  );
+  if (report.status !== "PASS") process.exitCode = 1;
+}
+
+if (
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(process.argv[1]).href
+) {
+  runCli();
+}
