@@ -2903,33 +2903,54 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Evidence TASK-148: `docs/TASKS/EVIDENCE/TASK-148/README.md`
 - Branch TASK-148:
   `codex/final-pos-article-sync-cleanup-20260730`
-- Stato TASK-149: `EXECUTION`
-- Fase TASK-149: `EXECUTION`
+- Stato TASK-149: `REVIEW_READY`
+- Fase TASK-149: `REVIEW`
 - Task TASK-149: `TASK-149 - Trusted POS product image v1 server contract`
 - File task TASK-149:
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
 - Evidence TASK-149: `docs/TASKS/EVIDENCE/TASK-149/README.md`
 - Branch TASK-149:
   `codex/admin-pos-product-image-v1-20260730`
+- Risoluzione TASK-149:
+  `READY_FOR_ASUS_PRODUCT_IMAGE_PHASE_B`
+- Task TASK-150:
+  `TASK-150 - Win7POS Product Image Phase B / Physical Acceptance`
+- File task TASK-150:
+  `docs/TASKS/TASK-150-win7pos-product-image-phase-b-physical-acceptance.md`
+- Evidence TASK-150:
+  `docs/TASKS/EVIDENCE/TASK-150/README.md`
+- Stato TASK-150: `DRAFT`
+- Fase TASK-150: `PLANNING`
+- Attivazione TASK-150: `NOT_ACTIVE`
+- Executor previsto TASK-150:
+  `CODEX / ASUS (solo dopo attivazione esplicita)`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `EXECUTION`
-- Task attivo: `TASK-149 - Trusted POS product image v1 server contract`
-- Task precedente: `TASK-148 - Final POS article-sync staging cleanup` (`DONE`)
+- Stato globale attuale: `REVIEW`
+- Task attivo: `NESSUNO`
+- Task precedente:
+  `TASK-149 - Trusted POS product image v1 server contract`
+  (`REVIEW_READY / REVIEW`)
+- Prossimo task pianificato:
+  `TASK-150 - Win7POS Product Image Phase B / Physical Acceptance`
+  (`DRAFT / PLANNING / NOT_ACTIVE`)
 - Ultimo task chiuso: `TASK-148 - Final POS article-sync staging cleanup`
 - Ultimo task completato: `TASK-148 - Final POS article-sync staging cleanup`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
-- Ultimo file task: `docs/TASKS/TASK-148-final-pos-article-sync-cleanup.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-149/README.md`
-- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-148/README.md`
-- Stato task: `EXECUTION`
-- Fase: `EXECUTION`
-- Milestone interna: `TRUSTED_POS_PRODUCT_IMAGE_V1_IMPLEMENTATION`
-- Responsabile: `CODEX / EXECUTOR`
-- Branch/worktree:
-  `codex/admin-pos-product-image-v1-20260730`.
+- File task corrente: `NESSUNO`
+- Ultimo file task:
+  `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
+- Evidence task corrente: `NESSUNO`
+- Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
+- Stato task: `REVIEW`
+- Stato task precedente: `REVIEW_READY`
+- Fase: `REVIEW`
+- Milestone interna:
+  `READY_FOR_ASUS_PRODUCT_IMAGE_PHASE_B`
+- Responsabile: `CLAUDE / ChatGPT / REVIEWER`
+- Branch/worktree: `codex/task-149-closeout`, baseline runtime/tooling
+  `d3c674ada8aa7abf0179355c09238472b9ff3023`.
 - Apertura TASK-149 2026-07-30: ricevuta autorizzazione completa per il
   contratto server `pos-product-image-v1`, PR/CI/merge, migration e deploy
   esclusivamente staging, acceptance sintetica exact-ID e cleanup. Baseline
@@ -2952,6 +2973,33 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   PR/CI/merge, migration e deploy staging, acceptance live, attesa capability
   e cleanup restano pendenti; stato `EXECUTION`, produzione e PR Win7POS
   `#72` non modificate.
+- Closeout TASK-149 2026-07-30: PR runtime `#59` merged normalmente in
+  `1de2912419f6770ff1ef7c6819754f4439ab849f`, required CI verde; migration
+  TASK-149 applicata una sola volta soltanto a staging, parity `97/97` e DB
+  lint linked senza errori; un solo deploy Worker staging, source runtime
+  `1de29124`. Il primo live gate è terminato fail-closed con
+  `BLOCKED_TASK149_TAIL_COVERAGE_INCOMPLETE`: la readiness apparteneva a un
+  Tail pretty separato, mentre il Tail JSON poteva perdere le sequenze
+  iniziali. Nessun conteggio osservato speculativo è promosso a evidence.
+  Il recheck indipendente successivo ha provato una sola fixture completa,
+  due attori Auth sintetici, un solo shop archiviato, zero righe attore/Auth
+  attive e residui prodotto/versione/receipt/eventi/budget/Storage tutti zero;
+  11 audit immutabili preservati e forbidden audit match zero. La PR tooling
+  `#60`, solo acceptance harness, è stata mergiata normalmente in
+  `d3c674ada8aa7abf0179355c09238472b9ff3023`, CI verde e nessun nuovo deploy.
+  Il secondo gate `task149-pos-product-image-resource-gate-v2` è `PASS`:
+  Tail/GraphQL `34/34`, cold/warm/full-drain `1/32/1`, CASE46/CASE48 `2/2`,
+  log records `13`, diagnostics/errori/eccezioni/forbidden match `0`.
+  Il postcheck indipendente prova attori attivi `0`, tutti i residui
+  DB/Storage/budget `0`, audit preservati `11` e forbidden `0`. Il recheck
+  deployment/source/version è `PASS`: Worker source `1de29124`, versione
+  attiva `100%`, nessun deploy dopo PR `#60`, production `NOT_MODIFIED`.
+  Handoff Win7POS SHA-256 `605d400b0074166991c185b0120aea78bc3a2924c447e7112796f680c88d7d87`; prompt Asus SHA-256
+  `f74c569bdba14259a1d7361189b4a6e987919e025c0ca4d97d78e30ec3466b8d`. TASK-149 resta `REVIEW_READY / REVIEW`, mai `DONE`, con
+  risoluzione `READY_FOR_ASUS_PRODUCT_IMAGE_PHASE_B`. TASK-143..TASK-148
+  restano byte/invariant `DONE / USER_CONFIRMED_CLOSURE`. TASK-150 resta
+  `DRAFT / PLANNING / NOT_ACTIVE`; Win7POS PR `#72`, Android e iOS restano
+  `NOT_MODIFIED`.
 - Apertura TASK-148 2026-07-30: ripresa fail-closed della pulizia finale
   articolo POS su staging dopo la scadenza della lease storicamente
   bloccante. Scope limitato agli ID esatti del manifest privato validato,
