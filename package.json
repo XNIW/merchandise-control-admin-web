@@ -53,6 +53,7 @@
     "test:shop:cloud-performance:task077": "node scripts/testing/task-077-shop-cloud-performance.mjs",
     "test:task081:e2e": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-081-pos-revenue-e2e.spec.ts --project=chromium-desktop",
     "test:task081:win7-http": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-081-win7pos-http-e2e.spec.ts --project=chromium-desktop",
+    "test:storefront:projection-concurrency": "bash scripts/testing/storefront-v1-projection-concurrency.sh",
     "check:pos-catalog-paging": "node scripts/check-pos-catalog-paging.mjs",
     "check:pos-worker-bundle": "node scripts/testing/pos-worker-bundle-graph.mjs --assert",
     "check:task149:resource-gate": "node scripts/testing/task-149-pos-product-image-resource-gate.mjs",

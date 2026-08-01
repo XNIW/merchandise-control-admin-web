@@ -43,9 +43,9 @@ concurrency:
 
 env:
   SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
-  EXPECTED_MIGRATION_VERSION: "20260801195852"
-  EXPECTED_MIGRATION_NAME: storefront_v1_schema_rls
-  EXPECTED_MIGRATION_FILE: 20260801195852_storefront_v1_schema_rls.sql
+  EXPECTED_MIGRATION_VERSION: "20260801211500"
+  EXPECTED_MIGRATION_NAME: storefront_v1_catalog_projection
+  EXPECTED_MIGRATION_FILE: 20260801211500_storefront_v1_catalog_projection.sql
   REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
   REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
   REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
@@ -200,7 +200,7 @@ jobs:
             -e "s/$SOURCE_POOLER_HOST/[POOLER_HOST]/g" \
             _storefront-migration/evidence/supabase-apply.txt
 
-      - name: Verify Storefront schema, RLS, grants and safe defaults
+      - name: Verify Storefront projection, RLS, grants and safe defaults
         if: inputs.mode == 'apply'
         run: |
           set -euo pipefail
@@ -210,10 +210,16 @@ jobs:
             'migrationLedgerExact', (
               select count(*) = 1
               from supabase_migrations.schema_migrations
+              where version = '20260801211500'
+                and name = 'storefront_v1_catalog_projection'
+            ),
+            'task005LedgerRetained', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
               where version = '20260801195852'
                 and name = 'storefront_v1_schema_rls'
             ),
-            'authoringTableCount', (
+            'projectionTableCount', (
               select count(*)
               from pg_catalog.pg_class class
               join pg_catalog.pg_namespace namespace
@@ -221,12 +227,8 @@ jobs:
               where namespace.nspname = 'public'
                 and class.relkind = 'r'
                 and class.relname in (
-                  'storefront_settings',
-                  'storefront_categories',
-                  'storefront_image_publications',
-                  'storefront_product_publications',
-                  'storefront_promotions',
-                  'storefront_promotion_products'
+                  'storefront_catalog_items',
+                  'storefront_catalog_versions'
                 )
             ),
             'rlsForcedCount', (
@@ -236,18 +238,14 @@ jobs:
                 on namespace.oid = class.relnamespace
               where namespace.nspname = 'public'
                 and class.relname in (
-                  'storefront_settings',
-                  'storefront_categories',
-                  'storefront_image_publications',
-                  'storefront_product_publications',
-                  'storefront_promotions',
-                  'storefront_promotion_products'
+                  'storefront_catalog_items',
+                  'storefront_catalog_versions'
                 )
                 and class.relkind = 'r'
                 and class.relrowsecurity
                 and class.relforcerowsecurity
             ),
-            'authoringPolicyCount', (
+            'projectionPolicyCount', (
               select count(*)
               from pg_catalog.pg_policy policy
               join pg_catalog.pg_class class on class.oid = policy.polrelid
@@ -255,74 +253,80 @@ jobs:
                 on namespace.oid = class.relnamespace
               where namespace.nspname = 'public'
                 and class.relname in (
-                  'storefront_settings',
-                  'storefront_categories',
-                  'storefront_image_publications',
-                  'storefront_product_publications',
-                  'storefront_promotions',
-                  'storefront_promotion_products'
+                  'storefront_catalog_items',
+                  'storefront_catalog_versions'
                 )
             ),
-            'anonAuthoringDenied',
+            'anonProjectionDenied',
               not has_table_privilege(
                 'anon',
-                'public.storefront_product_publications',
+                'public.storefront_catalog_items',
                 'SELECT,INSERT,UPDATE,DELETE'
               ),
-            'authenticatedAuthoringDenied',
+            'authenticatedProjectionDenied',
               not has_table_privilege(
                 'authenticated',
-                'public.storefront_product_publications',
+                'public.storefront_catalog_items',
                 'SELECT,INSERT,UPDATE,DELETE'
               ),
-            'serviceRoleAuthoringGranted',
+            'serviceRoleProjectionBoundary',
               has_table_privilege(
                 'service_role',
-                'public.storefront_product_publications',
+                'public.storefront_catalog_items',
                 'SELECT'
               )
-              and has_table_privilege(
+              and not has_table_privilege(
                 'service_role',
-                'public.storefront_product_publications',
-                'INSERT'
-              )
-              and has_table_privilege(
-                'service_role',
-                'public.storefront_product_publications',
-                'UPDATE'
-              )
-              and has_table_privilege(
-                'service_role',
-                'public.storefront_product_publications',
-                'DELETE'
+                'public.storefront_catalog_items',
+                'INSERT,UPDATE,DELETE'
               ),
-            'storefrontDefaultsOff', (
-              select count(*) = 4
-              from information_schema.columns
-              where table_schema = 'public'
-                and table_name = 'storefront_settings'
-                and column_name in (
-                  'storefront_enabled',
-                  'pickup_enabled',
-                  'delivery_enabled',
-                  'reservation_enabled'
-                )
-                and column_default = 'false'
-            ),
-            'customerPriceIsBigint', (
+            'projectionPriceIsBigint', (
               select data_type = 'bigint'
               from information_schema.columns
               where table_schema = 'public'
-                and table_name = 'storefront_product_publications'
-                and column_name = 'retail_price_clp'
+                and table_name = 'storefront_catalog_items'
+                and column_name = 'price_clp'
             ),
-            'publicUrlConstraintPresent', exists (
+            'internalColumnsAbsent', not exists (
               select 1
-              from information_schema.table_constraints
-              where constraint_schema = 'public'
-                and table_name = 'storefront_image_publications'
-                and constraint_name = 'storefront_image_publications_public_urls_check'
-                and constraint_type = 'CHECK'
+              from information_schema.columns
+              where table_schema = 'public'
+                and table_name = 'storefront_catalog_items'
+                and column_name in (
+                  'source_product_id',
+                  'owner_user_id',
+                  'supplier_id',
+                  'purchase_price',
+                  'stock_quantity',
+                  'source_image_version_id',
+                  'main_path',
+                  'thumb_path'
+                )
+            ),
+            'projectionFunctionsHardened', (
+              select count(*) = 6
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'app_private'
+                and procedure.proname like 'storefront_catalog_%_v1'
+                and procedure.prosecdef
+                and procedure.proconfig = array['search_path=""']
+            ),
+            'statementTriggerCount', (
+              select count(*) = 18
+              from pg_catalog.pg_trigger trigger
+              join pg_catalog.pg_class class on class.oid = trigger.tgrelid
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = class.relnamespace
+              where namespace.nspname = 'public'
+                and not trigger.tgisinternal
+                and trigger.tgname like 'storefront_%_catalog_%'
+            ),
+            'searchExtensionsPresent', (
+              select count(*) = 2
+              from pg_catalog.pg_extension
+              where extname in ('unaccent', 'pg_trgm')
             )
           ));
           SQL
@@ -344,12 +348,15 @@ jobs:
           );
           const requiredTrue = [
             "migrationLedgerExact",
-            "anonAuthoringDenied",
-            "authenticatedAuthoringDenied",
-            "serviceRoleAuthoringGranted",
-            "storefrontDefaultsOff",
-            "customerPriceIsBigint",
-            "publicUrlConstraintPresent",
+            "task005LedgerRetained",
+            "anonProjectionDenied",
+            "authenticatedProjectionDenied",
+            "serviceRoleProjectionBoundary",
+            "projectionPriceIsBigint",
+            "internalColumnsAbsent",
+            "projectionFunctionsHardened",
+            "statementTriggerCount",
+            "searchExtensionsPresent",
           ];
           const summary = {
             ...report,
@@ -358,9 +365,9 @@ jobs:
           console.log(JSON.stringify(summary));
           if (
             requiredTrue.some((key) => report[key] !== true) ||
-            Number(report.authoringTableCount) !== 6 ||
-            Number(report.rlsForcedCount) !== 6 ||
-            Number(report.authoringPolicyCount) !== 0
+            Number(report.projectionTableCount) !== 2 ||
+            Number(report.rlsForcedCount) !== 2 ||
+            Number(report.projectionPolicyCount) !== 0
           ) process.exit(1);
           NODE
 
