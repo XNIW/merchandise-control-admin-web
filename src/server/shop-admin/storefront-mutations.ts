@@ -1,0 +1,116 @@
+import "server-only";
+
+import type { Json } from "@/lib/supabase/database.types";
+import {
+  mapShopAdminRpcResult,
+  resolveShopActionContext,
+  shopAdminActionResult,
+  type ShopAdminActionResult,
+} from "./action-context";
+import { callStaffWebStorefrontMutation } from "./staff-web-lease-bound-rpc";
+
+type StorefrontPublicationMutationInput = {
+  availabilityMode: string;
+  compareAtPriceClp?: number;
+  deliveryEnabled: boolean;
+  featured: boolean;
+  pickupEnabled: boolean;
+  priceSourceMode: string;
+  promotionEndsAt?: string;
+  promotionStartsAt?: string;
+  publicBrand?: string;
+  publicCategoryId?: string;
+  publicDescription?: string;
+  publicName: string;
+  publicationStatus: string;
+  publishedImageVersionId?: string;
+  requestedShopId?: string;
+  reservationEnabled: boolean;
+  retailPriceClp: number;
+  sortRank: number;
+  sourceProductId: string;
+};
+
+function permissionForPublicationStatus(status: string) {
+  return status === "draft" ? "storefront.edit" as const : "storefront.publish" as const;
+}
+
+function toJsonPayload(input: StorefrontPublicationMutationInput) {
+  return {
+    availabilityMode: input.availabilityMode,
+    compareAtPriceClp: input.compareAtPriceClp,
+    deliveryEnabled: input.deliveryEnabled,
+    featured: input.featured,
+    pickupEnabled: input.pickupEnabled,
+    priceSourceMode: input.priceSourceMode,
+    promotionEndsAt: input.promotionEndsAt,
+    promotionStartsAt: input.promotionStartsAt,
+    publicBrand: input.publicBrand,
+    publicCategoryId: input.publicCategoryId,
+    publicDescription: input.publicDescription,
+    publicName: input.publicName,
+    publicationStatus: input.publicationStatus,
+    publishedImageVersionId: input.publishedImageVersionId,
+    reservationEnabled: input.reservationEnabled,
+    retailPriceClp: input.retailPriceClp,
+    sortRank: input.sortRank,
+    sourceProductId: input.sourceProductId,
+  } satisfies Record<string, Json | undefined>;
+}
+
+async function callMutation(
+  context: Extract<Awaited<ReturnType<typeof resolveShopActionContext>>, { status: "ready" }>,
+  operation: "bulk_pause" | "bulk_publish" | "upsert",
+  payload: Record<string, Json | undefined>,
+): Promise<ShopAdminActionResult> {
+  const rpc = context.principalKind === "personal_account"
+    ? await context.supabase.rpc("admin_storefront_publication_mutate_v1", {
+        p_operation: operation,
+        p_payload: payload,
+        p_shop_id: context.selectedShop.shopId,
+      })
+    : await callStaffWebStorefrontMutation(context, operation, payload);
+
+  if (rpc.error) {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+  const result = mapShopAdminRpcResult(rpc.data);
+  return result.shopId === context.selectedShop.shopId
+    ? result
+    : shopAdminActionResult("db_failure", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
+}
+
+export async function upsertStorefrontPublication(
+  input: StorefrontPublicationMutationInput,
+) {
+  const context = await resolveShopActionContext(
+    input.requestedShopId,
+    permissionForPublicationStatus(input.publicationStatus),
+  );
+  if (context.status !== "ready") return context.result;
+  return callMutation(context, "upsert", toJsonPayload(input));
+}
+
+export async function bulkSetStorefrontPublicationStatus(input: {
+  operation: "bulk_pause" | "bulk_publish";
+  publicationIds: readonly string[];
+  requestedShopId?: string;
+}) {
+  const context = await resolveShopActionContext(
+    input.requestedShopId,
+    "storefront.bulk_publish",
+  );
+  if (context.status !== "ready") return context.result;
+  if (input.publicationIds.length < 1 || input.publicationIds.length > 100) {
+    return shopAdminActionResult("validation_failed", { ok: false });
+  }
+  return callMutation(context, input.operation, {
+    publicationIds: [...input.publicationIds],
+  });
+}

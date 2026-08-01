@@ -4618,6 +4618,37 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_storefront_publications_read_v1: {
+        Args: {
+          p_availability?: string | null
+          p_category_id?: string | null
+          p_discounted?: boolean | null
+          p_expected_credential_version?: number | null
+          p_missing_image?: boolean | null
+          p_page?: number
+          p_page_size?: number
+          p_query?: string | null
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_sort?: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+          p_status?: string | null
+        }
+        Returns: Json
+      }
+      admin_storefront_publication_mutate_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_operation: string
+          p_payload: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
       shop_pos_recovery_action_v1: {
         Args: {
           p_action_type: string

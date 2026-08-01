@@ -422,7 +422,17 @@ function checkReadOnlyContracts() {
         "staff_web_lifecycle_mutate_v1",
         "staff_web_audit_event_v1",
         "staff_web_history_mutate_v1",
+        "admin_storefront_publications_read_v1",
+        "admin_storefront_publication_mutate_v1",
       ]),
+    ],
+    [
+      "src/server/shop-admin/storefront-read-model.ts",
+      new Set(["admin_storefront_publications_read_v1"]),
+    ],
+    [
+      "src/server/shop-admin/storefront-mutations.ts",
+      new Set(["admin_storefront_publication_mutate_v1"]),
     ],
     [
       "src/server/shop-admin/staff-web-runtime-boundary.ts",

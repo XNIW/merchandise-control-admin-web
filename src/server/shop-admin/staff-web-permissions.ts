@@ -7,6 +7,20 @@ export const STAFF_WEB_FULL_ACCESS_PERMISSION = "shop_admin.full_access" as cons
 
 export const SHOP_STAFF_WEB_PERMISSION_TREE = [
   {
+    groupKey: "storefront",
+    label: "Storefront",
+    permissions: [
+      { key: "storefront.view", label: "View Storefront" },
+      { key: "storefront.edit", label: "Edit Storefront products" },
+      { key: "storefront.publish", label: "Publish Storefront products" },
+      { key: "storefront.bulk_publish", label: "Bulk publish Storefront products" },
+      { key: "storefront.promotions.manage", label: "Manage Storefront promotions" },
+      { key: "storefront.images.manage", label: "Manage Storefront images" },
+      { key: "storefront.settings.manage", label: "Manage Storefront settings" },
+      { key: "storefront.audit.view", label: "View Storefront audit" },
+    ],
+  },
+  {
     groupKey: "shop_admin",
     label: "Shop Admin",
     permissions: [
@@ -97,6 +111,14 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "sync.read",
     "sync.write",
     "history.write",
+    "storefront.view",
+    "storefront.edit",
+    "storefront.publish",
+    "storefront.bulk_publish",
+    "storefront.promotions.manage",
+    "storefront.images.manage",
+    "storefront.settings.manage",
+    "storefront.audit.view",
   ],
   catalog_manager: [
     "catalog.read",
@@ -104,6 +126,10 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "catalog.import",
     "catalog.export",
     "sync.read",
+    "storefront.view",
+    "storefront.edit",
+    "storefront.publish",
+    "storefront.bulk_publish",
   ],
   staff_manager: ["staff.read", "staff.write", "audit.read"],
   viewer: [
@@ -114,6 +140,8 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "settings.read",
     "pos.dashboard.read",
     "sync.read",
+    "storefront.view",
+    "storefront.audit.view",
   ],
 } as const satisfies Record<string, readonly ShopStaffWebPermission[]>;
 
@@ -245,6 +273,19 @@ function staffPermissionForShopAdminPermission(
 
   if (permission === "sync.manage") {
     return "sync.write";
+  }
+
+  if (
+    permission === "storefront.view" ||
+    permission === "storefront.edit" ||
+    permission === "storefront.publish" ||
+    permission === "storefront.bulk_publish" ||
+    permission === "storefront.promotions.manage" ||
+    permission === "storefront.images.manage" ||
+    permission === "storefront.settings.manage" ||
+    permission === "storefront.audit.view"
+  ) {
+    return permission;
   }
 
   return null;

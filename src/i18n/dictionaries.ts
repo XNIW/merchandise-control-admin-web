@@ -175,6 +175,7 @@ export type Dictionary = {
 const emptyExact: Record<string, string> = {};
 
 const itExact: Record<string, string> = {
+  Storefront: "Vetrina",
   "Account": "Account",
   "Account identity unavailable": "Identita account non disponibile",
   "Actor provider": "Provider attore",
@@ -1544,6 +1545,7 @@ const itExact: Record<string, string> = {
 };
 
 const esExact: Record<string, string> = {
+  Storefront: "Tienda",
   "Account": "Cuenta",
   "Account identity unavailable": "Identidad de cuenta no disponible",
   "Actor provider": "Proveedor del actor",
@@ -2873,6 +2875,7 @@ const esExact: Record<string, string> = {
 };
 
 const zhExact: Record<string, string> = {
+  Storefront: "店铺前台",
   "Account": "账号",
   "Account identity unavailable": "账号身份不可用",
   "Actor provider": "操作者来源",

@@ -230,6 +230,14 @@ function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
         <path d="M8.5 17a3.5 3.5 0 0 1 7 0" />
       </>
     ),
+    storefront: (
+      <>
+        <path d="M4 9h16l-1-5H5L4 9Z" />
+        <path d="M5 9v11h14V9" />
+        <path d="M9 20v-6h6v6" />
+        <path d="M4 9c0 2 3 2 4 0 1 2 3 2 4 0 1 2 3 2 4 0 1 2 4 2 4 0" />
+      </>
+    ),
     suppliers: (
       <>
         <path d="M3 8h11v8H3z" />
