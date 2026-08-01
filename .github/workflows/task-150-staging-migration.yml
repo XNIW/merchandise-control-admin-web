@@ -186,7 +186,7 @@ jobs:
             psql -X -qAt -v ON_ERROR_STOP=1 "$SOURCE_DB_URL" \
               > _task150-migration/evidence/post-verify.json <<'SQL'
           with public_functions as (
-            select p.oid, p.prosrc
+            select p.oid, p.prosrc, p.prosecdef, p.proconfig
             from pg_proc p
             join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'public'
@@ -241,6 +241,15 @@ jobs:
               )
               from public_functions
             ),
+            'securityDefinerAndSafeSearchPath', (
+              select bool_and(
+                prosecdef
+                and 'search_path=""' = any(
+                  coalesce(proconfig, array[]::text[])
+                )
+              )
+              from public_functions
+            ),
             'serviceRoleExecute', (
               select bool_and(has_function_privilege('service_role', oid, 'execute'))
               from public_functions
@@ -286,6 +295,7 @@ jobs:
             "baseMigrationLedgerExact",
             "compatMigrationLedgerExact",
             "opaqueSecretRoleCompat",
+            "securityDefinerAndSafeSearchPath",
             "serviceRoleExecute",
             "anonExecuteDenied",
             "authenticatedExecuteDenied",

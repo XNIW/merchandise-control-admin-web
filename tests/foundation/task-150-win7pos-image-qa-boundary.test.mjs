@@ -740,6 +740,7 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   assert.match(migrationWorkflow, /baseMigrationLedgerExact/);
   assert.match(migrationWorkflow, /compatMigrationLedgerExact/);
   assert.match(migrationWorkflow, /opaqueSecretRoleCompat/);
+  assert.match(migrationWorkflow, /securityDefinerAndSafeSearchPath/);
   for (const name of [
     "task_150_win7pos_image_qa_begin_v1",
     "task_150_win7pos_image_qa_provision_admit_v1",
