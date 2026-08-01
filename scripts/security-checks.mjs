@@ -6595,7 +6595,7 @@ function checkTask041RuntimeCompletion() {
   }
 
   if (
-    packageJson.devDependencies?.["@opennextjs/cloudflare"] !== "^1.19.11" ||
+    packageJson.devDependencies?.["@opennextjs/cloudflare"] !== "^1.20.2" ||
     !packageJson.devDependencies?.wrangler ||
     !packageJson.scripts?.["cf:build"] ||
     !packageJson.scripts?.["cf:preview"]
