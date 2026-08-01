@@ -26,9 +26,9 @@ concurrency:
 env:
   SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
   EXPECTED_STAGING_SUPABASE_PROJECT_REF: jpgoimipbothfgkokyvm
-  EXPECTED_MIGRATION_VERSION: "20260731162000"
-  EXPECTED_MIGRATION_NAME: task_150_win7pos_product_image_qa_boundary
-  EXPECTED_MIGRATION_FILE: 20260731162000_task_150_win7pos_product_image_qa_boundary.sql
+  EXPECTED_MIGRATION_VERSION: "20260801024000"
+  EXPECTED_MIGRATION_NAME: task_150_opaque_secret_role_compat
+  EXPECTED_MIGRATION_FILE: 20260801024000_task_150_opaque_secret_role_compat.sql
   REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
   REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
   REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
@@ -186,7 +186,7 @@ jobs:
             psql -X -qAt -v ON_ERROR_STOP=1 "$SOURCE_DB_URL" \
               > _task150-migration/evidence/post-verify.json <<'SQL'
           with public_functions as (
-            select p.oid
+            select p.oid, p.prosrc, p.prosecdef, p.proconfig
             from pg_proc p
             join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'public'
@@ -215,13 +215,41 @@ jobs:
               and c.relkind = 'r'
           )
           select jsonb_build_object(
-            'migrationLedgerExact', (
+            'baseMigrationLedgerExact', (
               select count(*) = 1
               from supabase_migrations.schema_migrations
               where version = '20260731162000'
                 and name = 'task_150_win7pos_product_image_qa_boundary'
             ),
+            'compatMigrationLedgerExact', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260801024000'
+                and name = 'task_150_opaque_secret_role_compat'
+            ),
             'publicFunctionCount', (select count(*) from public_functions),
+            'opaqueSecretRoleCompat', (
+              select bool_and(
+                position(
+                  'current_setting(''request.jwt.claim.role'', true)'
+                  in prosrc
+                ) > 0
+                and position(
+                  'current_setting(''role'', true)'
+                  in prosrc
+                ) > 0
+              )
+              from public_functions
+            ),
+            'securityDefinerAndSafeSearchPath', (
+              select bool_and(
+                prosecdef
+                and 'search_path=""' = any(
+                  coalesce(proconfig, array[]::text[])
+                )
+              )
+              from public_functions
+            ),
             'serviceRoleExecute', (
               select bool_and(has_function_privilege('service_role', oid, 'execute'))
               from public_functions
@@ -264,7 +292,10 @@ jobs:
           );
           console.log(JSON.stringify(report));
           const requiredTrue = [
-            "migrationLedgerExact",
+            "baseMigrationLedgerExact",
+            "compatMigrationLedgerExact",
+            "opaqueSecretRoleCompat",
+            "securityDefinerAndSafeSearchPath",
             "serviceRoleExecute",
             "anonExecuteDenied",
             "authenticatedExecuteDenied",
