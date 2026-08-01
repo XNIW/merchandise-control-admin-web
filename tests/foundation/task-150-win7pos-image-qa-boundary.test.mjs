@@ -23,6 +23,8 @@ const boundaryPath = "src/server/qa/task-150-win7pos-image-boundary.ts";
 const routePath = "src/app/api/qa/win7pos-product-image/route.ts";
 const migrationPath =
   "supabase/migrations/20260731162000_task_150_win7pos_product_image_qa_boundary.sql";
+const opaqueSecretCompatMigrationPath =
+  "supabase/migrations/20260801024000_task_150_opaque_secret_role_compat.sql";
 const stagingMigrationWorkflowPath =
   ".github/workflows/task-150-staging-migration.yml";
 const stagingMigrationReconciliationPath =
@@ -213,6 +215,35 @@ test("TASK-150 SQL functions are service-role-only and fence every destructive c
   assert.match(read(boundaryPath), /performs no unfenced external I\/O/);
   assert.match(migration, /pos_upload_capability_expires_at > clock_timestamp\(\)/);
   assert.match(migration, /cleanup_capability_revoked_at = v_completed_at/);
+});
+
+test("TASK-150 RPCs accept opaque server keys without broadening EXECUTE grants", () => {
+  const migration = read(opaqueSecretCompatMigrationPath);
+  const functions = [
+    "task_150_win7pos_image_qa_begin_v1",
+    "task_150_win7pos_image_qa_provision_admit_v1",
+    "task_150_win7pos_image_qa_provision_v1",
+    "task_150_win7pos_image_qa_prearm_v1",
+    "task_150_win7pos_image_qa_rotation_prepare_v1",
+    "task_150_win7pos_image_qa_rotation_ack_v1",
+    "task_150_win7pos_image_qa_result_issue_v1",
+    "task_150_win7pos_image_qa_cleanup_acquire_v1",
+    "task_150_win7pos_image_qa_cleanup_commit_v1",
+    "task_150_win7pos_image_qa_result_v1",
+  ];
+  for (const name of functions) {
+    assert.match(
+      migration,
+      new RegExp(
+        `alter function public\\.${name}\\([\\s\\S]*?\\) set "request\\.jwt\\.claim\\.role" to 'service_role';`,
+      ),
+    );
+  }
+  assert.doesNotMatch(migration, /grant\s+execute|to\s+anon|to\s+authenticated/i);
+  assert.match(
+    read("supabase/tests/task_150_win7pos_image_qa_boundary.sql"),
+    /opaque server secret works without a legacy JWT role claim/,
+  );
 });
 
 test("TASK-150 enrolls exact auth and budget closure before cleanup", () => {
@@ -466,15 +497,23 @@ test("TASK-150 migration remap reconciliation fails closed for every drift shape
     name: "task_150_win7pos_product_image_qa_boundary",
     fileName: "20260731162000_task_150_win7pos_product_image_qa_boundary.sql",
   };
+  const task150Compat = {
+    version: "20260801024000",
+    name: "task_150_opaque_secret_role_compat",
+    fileName: "20260801024000_task_150_opaque_secret_role_compat.sql",
+  };
   const remap = {
     localVersion: task142.version,
     remoteVersion: "20260727084040",
     name: task142.name,
   };
   const exact = {
-    local: [task142, task150],
-    remote: [{ version: remap.remoteVersion, name: remap.name }],
-    expected: [task150],
+    local: [task142, task150, task150Compat],
+    remote: [
+      { version: remap.remoteVersion, name: remap.name },
+      { version: task150.version, name: task150.name },
+    ],
+    expected: [task150Compat],
     approvedRemoteRemaps: [remap],
   };
   assert.equal(reconcileMigrationDelta(exact).status, "PASS");
@@ -518,7 +557,7 @@ test("TASK-150 migration remap reconciliation fails closed for every drift shape
         task150,
       ],
     },
-    { ...exact, local: [task142, { ...task142 }, task150] },
+    { ...exact, local: [task142, { ...task142 }, task150, task150Compat] },
   ];
   for (const input of failures) {
     assert.equal(reconcileMigrationDelta(input).status, "FAIL");
@@ -534,11 +573,13 @@ test("TASK-150 migration reconciliation CLI reports exact success and fails clos
   const task142File = "20260727055520_task_142_catalog_text_policy_v1.sql";
   const task150File =
     "20260731162000_task_150_win7pos_product_image_qa_boundary.sql";
+  const task150CompatFile =
+    "20260801024000_task_150_opaque_secret_role_compat.sql";
   const environment = {
     ...process.env,
-    EXPECTED_MIGRATION_VERSION: "20260731162000",
-    EXPECTED_MIGRATION_NAME: "task_150_win7pos_product_image_qa_boundary",
-    EXPECTED_MIGRATION_FILE: task150File,
+    EXPECTED_MIGRATION_VERSION: "20260801024000",
+    EXPECTED_MIGRATION_NAME: "task_150_opaque_secret_role_compat",
+    EXPECTED_MIGRATION_FILE: task150CompatFile,
     REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520",
     REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040",
     REMAPPED_MIGRATION_NAME: "task_142_catalog_text_policy_v1",
@@ -547,9 +588,11 @@ test("TASK-150 migration reconciliation CLI reports exact success and fails clos
   mkdirSync(migrationDirectory);
   writeFileSync(join(migrationDirectory, task142File), "-- fixture\n");
   writeFileSync(join(migrationDirectory, task150File), "-- fixture\n");
+  writeFileSync(join(migrationDirectory, task150CompatFile), "-- fixture\n");
   writeFileSync(
     remoteLedgerPath,
-    "20260727084040\ttask_142_catalog_text_policy_v1\n",
+    "20260727084040\ttask_142_catalog_text_policy_v1\n" +
+      "20260731162000\ttask_150_win7pos_product_image_qa_boundary\n",
   );
 
   function runCli() {
@@ -651,7 +694,7 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   const cloudflareWorkflow = read(cloudflareWorkflowPath);
   assert.match(migrationWorkflow, /environment: cloudflare-staging/);
   assert.match(migrationWorkflow, /mainBranch: process\.env\.GITHUB_REF === "refs\/heads\/main"/);
-  assert.match(migrationWorkflow, /EXPECTED_MIGRATION_VERSION: "20260731162000"/);
+  assert.match(migrationWorkflow, /EXPECTED_MIGRATION_VERSION: "20260801024000"/);
   assert.match(
     migrationWorkflow,
     /EXPECTED_STAGING_SUPABASE_PROJECT_REF: jpgoimipbothfgkokyvm/,
@@ -662,7 +705,7 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   );
   assert.match(
     migrationWorkflow,
-    /EXPECTED_MIGRATION_NAME: task_150_win7pos_product_image_qa_boundary/,
+    /EXPECTED_MIGRATION_NAME: task_150_opaque_secret_role_compat/,
   );
   assert.match(migrationWorkflow, /APPLY_TASK150_STAGING/);
   assert.match(migrationWorkflow, /REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"/);
@@ -686,7 +729,9 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   assert.match(reconciliation, /JSON\.stringify\(pending\) === JSON\.stringify\(expected\)/);
   assert.match(migrationWorkflow, /db push \\\r?\n\s+--dry-run/);
   assert.match(migrationWorkflow, /Apply single approved migration/);
-  assert.match(migrationWorkflow, /migrationLedgerExact/);
+  assert.match(migrationWorkflow, /baseMigrationLedgerExact/);
+  assert.match(migrationWorkflow, /compatMigrationLedgerExact/);
+  assert.match(migrationWorkflow, /opaqueSecretRoleCompat/);
   for (const name of [
     "task_150_win7pos_image_qa_begin_v1",
     "task_150_win7pos_image_qa_provision_admit_v1",
