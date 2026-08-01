@@ -458,6 +458,42 @@ jobs:
           ) process.exit(1);
           NODE
 
+      - name: Benchmark Storefront contract on staging and clean fixtures
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e STOREFRONT_DATABASE_URL="$SOURCE_DB_URL" \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -e STOREFRONT_LOAD_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_LOAD \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-contract-load.sh \
+            > _storefront-migration/evidence/contract-load.jsonl
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const records = readFileSync(
+            "_storefront-migration/evidence/contract-load.jsonl",
+            "utf8",
+          ).trim().split("\n").map((line) => JSON.parse(line));
+          const report = records[0];
+          const cleanup = records.at(-1);
+          const checks = {
+            products: report.dataset?.products === 20_000,
+            categories: report.dataset?.categories === 100,
+            equivalentRows: report.dataset?.equivalentRows >= 50_000,
+            catalogP95: report.metrics?.catalog_page?.p95Ms <= 500,
+            searchP95: report.metrics?.search?.p95Ms <= 750,
+            detailP95: report.metrics?.product_detail?.p95Ms <= 400,
+            catalogKeysetIndex: report.planSignals?.catalogKeysetIndexUsed === true,
+            cleanup: cleanup?.cleanupVerified === true &&
+              cleanup?.fixtureRowsAfterCleanup === 0,
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
       - name: Remove protected connection material
         if: always()
         run: >-

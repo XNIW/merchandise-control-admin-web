@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-storefront_repo_root="$(git rev-parse --show-toplevel)"
-storefront_database_url="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+storefront_script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+storefront_repo_root="$(cd "${storefront_script_dir}/../.." && pwd)"
+storefront_local_database_url="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
+storefront_database_url="${STOREFRONT_DATABASE_URL:-${storefront_local_database_url}}"
 storefront_sql="${storefront_repo_root}/scripts/testing/storefront-v1-contract-load.sql"
 storefront_cleanup_sql="begin;
 delete from public.storefront_promotion_products where shop_id = '10000000-0000-4000-8000-000000010900';
@@ -24,6 +26,21 @@ storefront_cleanup() {
 }
 
 trap storefront_cleanup EXIT
+
+if [[ "${storefront_database_url}" != "${storefront_local_database_url}" ]]; then
+  if [[ "${STOREFRONT_LOAD_ALLOW_REMOTE:-}" != "APPLY_STOREFRONT_V1_STAGING_LOAD" ]]; then
+    printf 'TASK-010 load remoto negato: manca il guard esplicito.\n' >&2
+    exit 1
+  fi
+  if [[ ! "${STAGING_SUPABASE_PROJECT_REF:-}" =~ ^[a-z0-9]{20}$ ]]; then
+    printf 'TASK-010 load remoto negato: staging project ref non valido.\n' >&2
+    exit 1
+  fi
+  if [[ "${storefront_database_url}" != postgresql://postgres."${STAGING_SUPABASE_PROJECT_REF}":*@*.pooler.supabase.com:5432/postgres\?sslmode=require ]]; then
+    printf 'TASK-010 load remoto negato: il database non coincide con staging.\n' >&2
+    exit 1
+  fi
+fi
 
 if [[ ! -f "${storefront_sql}" ]]; then
   printf 'TASK-010 load SQL assente: %s\n' "${storefront_sql}" >&2
