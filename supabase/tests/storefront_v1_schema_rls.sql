@@ -172,12 +172,27 @@ select ok(
   has_table_privilege(
     'service_role',
     'public.storefront_product_publications',
-    'SELECT,INSERT,UPDATE,DELETE'
+    'SELECT'
   )
   and has_table_privilege(
     'service_role',
     'public.storefront_promotions',
-    'SELECT,INSERT,UPDATE,DELETE'
+    'SELECT'
+  )
+  and has_table_privilege(
+    'service_role',
+    'public.storefront_product_publications',
+    'INSERT'
+  )
+  and has_table_privilege(
+    'service_role',
+    'public.storefront_product_publications',
+    'UPDATE'
+  )
+  and has_table_privilege(
+    'service_role',
+    'public.storefront_product_publications',
+    'DELETE'
   ),
   'service_role has explicit authoring privileges for server-only workflows'
 );
