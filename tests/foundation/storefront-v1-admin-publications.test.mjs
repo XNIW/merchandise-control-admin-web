@@ -22,6 +22,12 @@ const leaseBoundary = read(
 const stagingWorkflow = read(
   ".github/workflows/storefront-v1-staging-migrations.yml",
 );
+const stagingAcceptanceWorkflow = read(
+  ".github/workflows/final-staging-auth-performance.yml",
+);
+const browserAcceptance = read(
+  "tests/e2e/storefront-v1-admin-publications-local.spec.ts",
+);
 
 test("TASK-007 exposes the complete Storefront navigation and authoring controls", () => {
   for (const required of [
@@ -121,4 +127,15 @@ test("TASK-007 staging workflow is pinned to the admin migration and post-verifi
   assert.match(stagingWorkflow, /adminRpcBoundary/);
   assert.match(stagingWorkflow, /adminAuthoringDirectDenied/);
   assert.match(stagingWorkflow, /storefrontPermissionMatrix/);
+});
+
+test("TASK-007 staging acceptance is exact-branch guarded and cleans its synthetic tenant", () => {
+  assert.match(stagingAcceptanceWorkflow, /storefront-v1-admin-acceptance/);
+  assert.match(stagingAcceptanceWorkflow, /integration\/storefront-v1/);
+  assert.match(stagingAcceptanceWorkflow, /STOREFRONT_STAGING_DATABASE_URL/);
+  assert.match(stagingAcceptanceWorkflow, /ALLOW_STAGING_E2E: "yes"/);
+  assert.match(stagingAcceptanceWorkflow, /CONFIRM_STAGING_E2E: "yes"/);
+  assert.match(browserAcceptance, /TEST_TARGET === "staging"/);
+  assert.match(browserAcceptance, /ALLOWED_STAGING_SUPABASE_PROJECT_REFS/);
+  assert.match(browserAcceptance, /fixtureRows|delete from public\.shops/);
 });

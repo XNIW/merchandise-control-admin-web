@@ -27,7 +27,7 @@ const state: {
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-function localRuntime() {
+function testRuntime() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
   const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
@@ -39,8 +39,31 @@ function localRuntime() {
       return false;
     }
   };
-  return process.env.TEST_TARGET === "local" &&
+  if (
+    process.env.TEST_TARGET === "local" &&
     isLoopback(supabaseUrl) &&
+    publishableKey &&
+    serviceRoleKey
+  ) {
+    return { publishableKey, serviceRoleKey, supabaseUrl: supabaseUrl! };
+  }
+  const projectRef = process.env.SUPABASE_PROJECT_REF?.trim();
+  const allowedRefs = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS ?? "")
+    .split(",")
+    .map((value) => value.trim())
+    .filter(Boolean);
+  let stagingUrlMatches = false;
+  try {
+    stagingUrlMatches =
+      Boolean(projectRef) &&
+      new URL(supabaseUrl ?? "").hostname === `${projectRef}.supabase.co`;
+  } catch {}
+  return process.env.TEST_TARGET === "staging" &&
+    process.env.ALLOW_STAGING_E2E === "yes" &&
+    process.env.CONFIRM_STAGING_E2E === "yes" &&
+    Boolean(projectRef) &&
+    allowedRefs.includes(projectRef!) &&
+    stagingUrlMatches &&
     publishableKey &&
     serviceRoleKey
     ? { publishableKey, serviceRoleKey, supabaseUrl: supabaseUrl! }
@@ -56,7 +79,24 @@ async function must<T>(
   return result.data;
 }
 
-function localDatabaseUrl() {
+function fixtureDatabaseUrl() {
+  if (process.env.TEST_TARGET === "staging") {
+    const value = process.env.STOREFRONT_STAGING_DATABASE_URL?.trim();
+    const projectRef = process.env.SUPABASE_PROJECT_REF?.trim();
+    if (!value || !projectRef) {
+      throw new Error("STOREFRONT_ADMIN_E2E_STAGING_DB_REQUIRED");
+    }
+    const parsed = new URL(value);
+    if (
+      parsed.protocol !== "postgresql:" ||
+      parsed.hostname !== "aws-1-sa-east-1.pooler.supabase.com" ||
+      decodeURIComponent(parsed.username) !== `postgres.${projectRef}` ||
+      parsed.searchParams.get("sslmode") !== "require"
+    ) {
+      throw new Error("STOREFRONT_ADMIN_E2E_STAGING_DB_SCOPE_INVALID");
+    }
+    return value;
+  }
   const output = execFileSync("supabase", ["status", "--output", "env"], {
     encoding: "utf8",
     env: { ...process.env, DO_NOT_TRACK: "1", SUPABASE_TELEMETRY_DISABLED: "1" },
@@ -129,7 +169,7 @@ function seedFixture(fixture: Fixture, nonce: string) {
     );
     commit;
   `;
-  execFileSync("psql", [localDatabaseUrl(), "-v", "ON_ERROR_STOP=1", "-f", "-"], {
+  execFileSync("psql", [fixtureDatabaseUrl(), "-v", "ON_ERROR_STOP=1", "-f", "-"], {
     input: sql,
     stdio: ["pipe", "ignore", "ignore"],
   });
@@ -144,7 +184,7 @@ async function cleanup() {
   execFileSync(
     "psql",
     [
-      localDatabaseUrl(),
+      fixtureDatabaseUrl(),
       "-v",
       "ON_ERROR_STOP=1",
       "-c",
@@ -171,8 +211,8 @@ async function cleanup() {
 }
 
 test.beforeAll(async () => {
-  const runtime = localRuntime();
-  test.skip(!runtime, "Local Supabase runtime is required.");
+  const runtime = testRuntime();
+  test.skip(!runtime, "A guarded local or staging Supabase runtime is required.");
   if (!runtime) return;
   state.publishableKey = runtime.publishableKey;
   state.supabaseUrl = runtime.supabaseUrl;
