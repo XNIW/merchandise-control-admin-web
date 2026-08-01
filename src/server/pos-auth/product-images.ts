@@ -29,6 +29,7 @@ import type {
 import { POS_PRODUCT_IMAGE_SCHEMA_VERSION } from "./pos-contract";
 import {
   canonicalPosProductImagePayloadJson,
+  createPosProductImageErrorBody,
   type PosProductImageCanonicalWriteRequest,
   type PosProductImageReadRef,
 } from "./product-image-envelope";
@@ -257,22 +258,21 @@ function safeFailure(
 ) {
   const operation = operationFor(request);
   const retryable = failureIsRetryable(code);
-  const body: Record<string, unknown> = {
-    schemaVersion: POS_PRODUCT_IMAGE_SCHEMA_VERSION,
-    operation,
-    ok: false,
+  const body = createPosProductImageErrorBody({
     code,
+    ...(!("refs" in request)
+      ? {
+          idempotencyKey: request.idempotencyKey,
+          operationId: request.operationId,
+          payloadHash: request.payloadHash,
+        }
+      : {}),
     message: "POS product image operation could not be completed.",
+    operation,
     retryable,
     serverTime: options.serverTime ?? currentCanonicalTimestamp(),
     terminal: !retryable,
-  };
-
-  if (!("refs" in request)) {
-    body.operationId = request.operationId;
-    body.idempotencyKey = request.idempotencyKey;
-    body.payloadHash = request.payloadHash;
-  }
+  });
 
   return result(options.status ?? failureStatus(code), body);
 }
@@ -1634,8 +1634,9 @@ export async function handlePosProductImageReadUrls(
     }
   }
 
+  const expiryBase = Math.min(signedAt, Date.parse(serverTime));
   const expiresAt = new Date(
-    signedAt + PRODUCT_IMAGE_READ_URL_TTL_SECONDS * 1000,
+    expiryBase + PRODUCT_IMAGE_READ_URL_TTL_SECONDS * 1000,
   )
     .toISOString()
     .replace("Z", "000Z");
