@@ -15,6 +15,7 @@ import { createContext, Script } from "node:vm";
 import test from "node:test";
 import ts from "typescript";
 import { reconcileMigrationDelta } from "../../scripts/task-150-reconcile-migration-delta.mjs";
+import { verifyTask150StagingRoute } from "../../scripts/verify-task-150-staging-route.mjs";
 
 const root = process.cwd();
 const requireForTest = createRequire(import.meta.url);
@@ -26,6 +27,8 @@ const stagingMigrationWorkflowPath =
   ".github/workflows/task-150-staging-migration.yml";
 const stagingMigrationReconciliationPath =
   "scripts/task-150-reconcile-migration-delta.mjs";
+const stagingRouteVerificationPath =
+  "scripts/verify-task-150-staging-route.mjs";
 const cloudflareWorkflowPath = ".github/workflows/cloudflare.yml";
 
 function read(relativePath) {
@@ -591,9 +594,60 @@ test("TASK-150 migration reconciliation CLI reports exact success and fails clos
   assert.equal(imported.status, 0, imported.stderr || imported.stdout);
 });
 
+test("TASK-150 staging route verification tolerates bounded propagation only", async () => {
+  const statuses = [];
+  let calls = 0;
+  const result = await verifyTask150StagingRoute({
+    baseUrl:
+      "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev",
+    maximumAttempts: 2,
+    delayMilliseconds: 0,
+    delay: async () => {},
+    log: (status) => statuses.push(status),
+    fetchImpl: async () => {
+      calls += 1;
+      return calls === 1
+        ? new Response("not propagated", {
+            status: 404,
+            headers: { "content-type": "text/html" },
+          })
+        : Response.json(
+            { ok: false, code: "validation_failed" },
+            {
+              status: 400,
+              headers: { "cache-control": "no-store, max-age=0" },
+            },
+          );
+    },
+  });
+  assert.equal(result.attempt, 2);
+  assert.equal(calls, 2);
+  assert.equal(statuses[0].httpStatus, 404);
+  assert.equal(statuses[0].code, null);
+  assert.equal(statuses[1].code, "validation_failed");
+
+  await assert.rejects(
+    verifyTask150StagingRoute({
+      baseUrl:
+        "https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev",
+      maximumAttempts: 2,
+      delayMilliseconds: 0,
+      delay: async () => {},
+      log: () => {},
+      fetchImpl: async () =>
+        new Response("still old", {
+          status: 404,
+          headers: { "content-type": "text/html" },
+        }),
+    }),
+    /task150_staging_route_unavailable/,
+  );
+});
+
 test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   const migrationWorkflow = read(stagingMigrationWorkflowPath);
   const reconciliation = read(stagingMigrationReconciliationPath);
+  const routeVerification = read(stagingRouteVerificationPath);
   const cloudflareWorkflow = read(cloudflareWorkflowPath);
   assert.match(migrationWorkflow, /environment: cloudflare-staging/);
   assert.match(migrationWorkflow, /mainBranch: process\.env\.GITHUB_REF === "refs\/heads\/main"/);
@@ -694,7 +748,15 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   assert.match(cloudflareWorkflow, /Verify TASK-150 staging route is configured/);
   assert.match(
     cloudflareWorkflow,
-    /response\.headers\.get\("cache-control"\) === "no-store, max-age=0"/,
+    /node scripts\/verify-task-150-staging-route\.mjs/,
   );
-  assert.match(cloudflareWorkflow, /status\.code !== "validation_failed"/);
+  assert.match(routeVerification, /maximumAttempts = 18/);
+  assert.match(routeVerification, /requestTimeoutMilliseconds = 10_000/);
+  assert.match(routeVerification, /delayMilliseconds = 5_000/);
+  assert.match(routeVerification, /startsWith\("application\/json"\)/);
+  assert.match(
+    routeVerification,
+    /response\.headers\.get\("cache-control"\)\s*===\s*"no-store, max-age=0"/,
+  );
+  assert.match(routeVerification, /status\.code === "validation_failed"/);
 });
