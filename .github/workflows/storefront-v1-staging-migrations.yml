@@ -43,9 +43,9 @@ concurrency:
 
 env:
   SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
-  EXPECTED_MIGRATION_VERSION: "20260801213500"
-  EXPECTED_MIGRATION_NAME: storefront_v1_catalog_projection_grants
-  EXPECTED_MIGRATION_FILE: 20260801213500_storefront_v1_catalog_projection_grants.sql
+  EXPECTED_MIGRATION_VERSION: "20260801223000"
+  EXPECTED_MIGRATION_NAME: storefront_v1_public_api
+  EXPECTED_MIGRATION_FILE: 20260801223000_storefront_v1_public_api.sql
   REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
   REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
   REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
@@ -200,7 +200,7 @@ jobs:
             -e "s/$SOURCE_POOLER_HOST/[POOLER_HOST]/g" \
             _storefront-migration/evidence/supabase-apply.txt
 
-      - name: Verify Storefront projection, RLS, grants and safe defaults
+      - name: Verify Storefront public API, projection boundary and safe defaults
         if: inputs.mode == 'apply'
         run: |
           set -euo pipefail
@@ -208,6 +208,12 @@ jobs:
           cat > _storefront-migration/post-verify.sql <<'SQL'
           select jsonb_pretty(jsonb_build_object(
             'migrationLedgerExact', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260801223000'
+                and name = 'storefront_v1_public_api'
+            ),
+            'projectionGrantRepairRetained', (
               select count(*) = 1
               from supabase_migrations.schema_migrations
               where version = '20260801213500'
@@ -310,7 +316,7 @@ jobs:
                 )
             ),
             'projectionFunctionsHardened', (
-              select count(*) = 6
+              select count(*) = 7
               from pg_catalog.pg_proc procedure
               join pg_catalog.pg_namespace namespace
                 on namespace.oid = procedure.pronamespace
@@ -318,6 +324,74 @@ jobs:
                 and procedure.proname like 'storefront_catalog_%_v1'
                 and procedure.prosecdef
                 and procedure.proconfig = array['search_path=""']
+            ),
+            'publicApiFunctionCount', (
+              select count(*) = 9
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'public'
+                and procedure.proname in (
+                  'storefront_catalog_version_v1',
+                  'storefront_settings_v1',
+                  'storefront_categories_v1',
+                  'storefront_catalog_v1',
+                  'storefront_search_v1',
+                  'storefront_product_detail_v1',
+                  'storefront_featured_v1',
+                  'storefront_offers_v1',
+                  'storefront_home_v1'
+                )
+                and procedure.prosecdef
+                and procedure.provolatile = 's'
+                and 'search_path=""' = any(procedure.proconfig)
+                and 'statement_timeout=3s' = any(procedure.proconfig)
+            ),
+            'publicApiMobileExecute',
+              has_function_privilege(
+                'anon',
+                'public.storefront_catalog_v1(text,text,integer,text,text,boolean,boolean,text)',
+                'EXECUTE'
+              )
+              and has_function_privilege(
+                'authenticated',
+                'public.storefront_search_v1(text,text,text,integer,text)',
+                'EXECUTE'
+              ),
+            'privateApiHelpersDenied',
+              not has_function_privilege(
+                'anon',
+                'app_private.storefront_public_shop_v1(text)',
+                'EXECUTE'
+              )
+              and not has_function_privilege(
+                'authenticated',
+                'app_private.storefront_cursor_decode_v1(text)',
+                'EXECUTE'
+              ),
+            'publicSearchFieldsPresent', (
+              select count(*) = 4
+              from information_schema.columns
+              where table_schema = 'public'
+                and (
+                  (
+                    table_name = 'storefront_product_publications'
+                    and column_name in ('public_barcode', 'public_search_aliases')
+                  )
+                  or (
+                    table_name = 'storefront_catalog_items'
+                    and column_name in ('public_barcode', 'public_search_aliases')
+                  )
+                )
+            ),
+            'publicKeysetIndexesPresent', (
+              select count(*) = 2
+              from pg_catalog.pg_indexes
+              where schemaname = 'public'
+                and indexname in (
+                  'storefront_catalog_items_shop_catalog_keyset_v1_idx',
+                  'storefront_catalog_items_shop_name_keyset_v1_idx'
+                )
             ),
             'statementTriggerCount', (
               select count(*) = 18
@@ -355,6 +429,7 @@ jobs:
           const requiredTrue = [
             "migrationLedgerExact",
             "projectionLedgerRetained",
+            "projectionGrantRepairRetained",
             "task005LedgerRetained",
             "anonProjectionDenied",
             "authenticatedProjectionDenied",
@@ -362,6 +437,11 @@ jobs:
             "projectionPriceIsBigint",
             "internalColumnsAbsent",
             "projectionFunctionsHardened",
+            "publicApiFunctionCount",
+            "publicApiMobileExecute",
+            "privateApiHelpersDenied",
+            "publicSearchFieldsPresent",
+            "publicKeysetIndexesPresent",
             "statementTriggerCount",
             "searchExtensionsPresent",
           ];
