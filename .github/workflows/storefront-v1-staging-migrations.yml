@@ -46,6 +46,10 @@ env:
   EXPECTED_MIGRATION_VERSION: "20260801195852"
   EXPECTED_MIGRATION_NAME: storefront_v1_schema_rls
   EXPECTED_MIGRATION_FILE: 20260801195852_storefront_v1_schema_rls.sql
+  REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
+  REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
+  REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
+  REMAPPED_LOCAL_MIGRATION_FILE: 20260727055520_task_142_catalog_text_policy_v1.sql
 
 jobs:
   migrate:
@@ -130,86 +134,22 @@ jobs:
               "$SOURCE_DB_URL" \
               -c "select version, name from supabase_migrations.schema_migrations order by version" \
               > _storefront-migration/evidence/remote-ledger.tsv
-          node <<'NODE'
-          const {
-            createHash,
-          } = require("node:crypto");
-          const {
-            readdirSync,
-            readFileSync,
-            writeFileSync,
-          } = require("node:fs");
-          const local = readdirSync("supabase/migrations")
-            .map((fileName) => {
-              const match = fileName.match(/^(\d{8}|\d{14})_(.+)\.sql$/);
-              return match
-                ? { version: match[1], name: match[2], fileName }
-                : null;
-            })
-            .filter(Boolean)
-            .sort((a, b) => a.version.localeCompare(b.version));
-          const duplicates = local.filter(
-            (entry, index) =>
-              index > 0 && entry.version === local[index - 1].version,
-          );
-          if (duplicates.length) {
-            throw new Error(
-              `duplicate_local_versions:${duplicates.map((row) => row.version).join(",")}`,
-            );
-          }
-          const ledger = readFileSync(
-            "_storefront-migration/evidence/remote-ledger.tsv",
-            "utf8",
-          ).trim();
-          const remote = ledger
-            ? ledger.split(/\r?\n/).map((line) => {
-                const [version, name] = line.split("\t");
-                return { version, name };
-              })
-            : [];
-          const localByVersion = new Map(local.map((row) => [row.version, row]));
-          const remoteOnly = remote.filter((row) => !localByVersion.has(row.version));
-          const nameMismatches = remote.filter((row) => {
-            const match = localByVersion.get(row.version);
-            return match && match.name !== row.name;
-          });
-          const remoteVersions = new Set(remote.map((row) => row.version));
-          const pending = local.filter((row) => !remoteVersions.has(row.version));
-          const expected = [{
-            version: process.env.EXPECTED_MIGRATION_VERSION,
-            name: process.env.EXPECTED_MIGRATION_NAME,
-            fileName: process.env.EXPECTED_MIGRATION_FILE,
-          }];
-          const projectRefDigest = createHash("sha256")
-            .update(process.env.STAGING_SUPABASE_PROJECT_REF || "")
-            .digest("hex");
-          const status = {
-            status: "PASS",
-            workflowCommit: process.env.GITHUB_SHA,
-            projectRefSha256: projectRefDigest,
-            remoteMigrationCount: remote.length,
-            localMigrationCount: local.length,
-            remoteOnly,
-            nameMismatches,
-            pending,
-          };
-          if (
-            remoteOnly.length ||
-            nameMismatches.length ||
-            JSON.stringify(pending) !== JSON.stringify(expected)
-          ) status.status = "FAIL";
-          writeFileSync(
-            "_storefront-migration/evidence/delta.json",
-            `${JSON.stringify(status, null, 2)}\n`,
-          );
-          console.log(JSON.stringify({
-            status: status.status,
-            remoteMigrationCount: status.remoteMigrationCount,
-            localMigrationCount: status.localMigrationCount,
-            pending: status.pending,
-          }));
-          if (status.status !== "PASS") process.exit(1);
-          NODE
+          node scripts/task-150-reconcile-migration-delta.mjs \
+            supabase/migrations \
+            _storefront-migration/evidence/remote-ledger.tsv \
+            _storefront-migration/evidence/delta.json
+
+      - name: Materialize approved remote remap for CLI parity
+        run: |
+          set -euo pipefail
+          LOCAL_PATH="supabase/migrations/$REMAPPED_LOCAL_MIGRATION_FILE"
+          REMOTE_PATH="supabase/migrations/${REMAPPED_REMOTE_MIGRATION_VERSION}_${REMAPPED_MIGRATION_NAME}.sql"
+          test -f "$LOCAL_PATH"
+          test ! -e "$REMOTE_PATH"
+          cp -- "$LOCAL_PATH" "$REMOTE_PATH"
+          rm -- "$LOCAL_PATH"
+          test -f "$REMOTE_PATH"
+          test ! -e "$LOCAL_PATH"
 
       - name: Supabase CLI dry-run
         run: |
@@ -223,6 +163,13 @@ jobs:
             2>&1 | tee _storefront-migration/evidence/supabase-dry-run.txt
           grep -F "$EXPECTED_MIGRATION_VERSION" \
             _storefront-migration/evidence/supabase-dry-run.txt
+          if grep -F "$REMAPPED_LOCAL_MIGRATION_VERSION" \
+            _storefront-migration/evidence/supabase-dry-run.txt || \
+            grep -F "$REMAPPED_REMOTE_MIGRATION_VERSION" \
+              _storefront-migration/evidence/supabase-dry-run.txt; then
+            echo "Already-applied remapped migration appeared in dry-run." >&2
+            exit 1
+          fi
           sed -i \
             -e "s/$STAGING_SUPABASE_PROJECT_REF/[STAGING_REF]/g" \
             -e "s/$SOURCE_POOLER_HOST/[POOLER_HOST]/g" \
@@ -241,6 +188,13 @@ jobs:
             2>&1 | tee _storefront-migration/evidence/supabase-apply.txt
           grep -F "$EXPECTED_MIGRATION_VERSION" \
             _storefront-migration/evidence/supabase-apply.txt
+          if grep -F "$REMAPPED_LOCAL_MIGRATION_VERSION" \
+            _storefront-migration/evidence/supabase-apply.txt || \
+            grep -F "$REMAPPED_REMOTE_MIGRATION_VERSION" \
+              _storefront-migration/evidence/supabase-apply.txt; then
+            echo "Already-applied remapped migration appeared in apply." >&2
+            exit 1
+          fi
           sed -i \
             -e "s/$STAGING_SUPABASE_PROJECT_REF/[STAGING_REF]/g" \
             -e "s/$SOURCE_POOLER_HOST/[POOLER_HOST]/g" \
