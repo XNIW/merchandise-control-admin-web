@@ -43,9 +43,9 @@ concurrency:
 
 env:
   SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
-  EXPECTED_MIGRATION_VERSION: "20260801211500"
-  EXPECTED_MIGRATION_NAME: storefront_v1_catalog_projection
-  EXPECTED_MIGRATION_FILE: 20260801211500_storefront_v1_catalog_projection.sql
+  EXPECTED_MIGRATION_VERSION: "20260801213500"
+  EXPECTED_MIGRATION_NAME: storefront_v1_catalog_projection_grants
+  EXPECTED_MIGRATION_FILE: 20260801213500_storefront_v1_catalog_projection_grants.sql
   REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
   REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
   REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
@@ -210,6 +210,12 @@ jobs:
             'migrationLedgerExact', (
               select count(*) = 1
               from supabase_migrations.schema_migrations
+              where version = '20260801213500'
+                and name = 'storefront_v1_catalog_projection_grants'
+            ),
+            'projectionLedgerRetained', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
               where version = '20260801211500'
                 and name = 'storefront_v1_catalog_projection'
             ),
@@ -348,6 +354,7 @@ jobs:
           );
           const requiredTrue = [
             "migrationLedgerExact",
+            "projectionLedgerRetained",
             "task005LedgerRetained",
             "anonProjectionDenied",
             "authenticatedProjectionDenied",
