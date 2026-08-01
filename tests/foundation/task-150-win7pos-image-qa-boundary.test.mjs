@@ -234,11 +234,19 @@ test("TASK-150 RPCs accept opaque server keys without broadening EXECUTE grants"
   for (const name of functions) {
     assert.match(
       migration,
-      new RegExp(
-        `alter function public\\.${name}\\([\\s\\S]*?\\) set "request\\.jwt\\.claim\\.role" to 'service_role';`,
-      ),
+      new RegExp(`public\\.${name}\\(`),
     );
   }
+  assert.match(migration, /pg_catalog\.pg_get_functiondef\(v_function_oid\)/);
+  assert.match(migration, /pg_catalog\.to_regprocedure\(v_signature\)/);
+  assert.match(migration, /current_setting\(''request\.jwt\.claim\.role'', true\)/);
+  assert.match(migration, /current_setting\(''role'', true\)/);
+  assert.match(migration, /function_row\.prosecdef/);
+  assert.match(migration, /'search_path=""' = any/);
+  assert.match(migration, /has_function_privilege\('service_role'/);
+  assert.match(migration, /has_function_privilege\('anon'/);
+  assert.match(migration, /has_function_privilege\('authenticated'/);
+  assert.doesNotMatch(migration, /alter function[\s\S]*?set "request\.jwt\.claim\.role"/i);
   assert.doesNotMatch(migration, /grant\s+execute|to\s+anon|to\s+authenticated/i);
   assert.match(
     read("supabase/tests/task_150_win7pos_image_qa_boundary.sql"),

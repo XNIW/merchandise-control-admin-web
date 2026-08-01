@@ -186,7 +186,7 @@ jobs:
             psql -X -qAt -v ON_ERROR_STOP=1 "$SOURCE_DB_URL" \
               > _task150-migration/evidence/post-verify.json <<'SQL'
           with public_functions as (
-            select p.oid, p.proconfig
+            select p.oid, p.prosrc
             from pg_proc p
             join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'public'
@@ -230,9 +230,14 @@ jobs:
             'publicFunctionCount', (select count(*) from public_functions),
             'opaqueSecretRoleCompat', (
               select bool_and(
-                'request.jwt.claim.role=service_role' = any(
-                  coalesce(proconfig, array[]::text[])
-                )
+                position(
+                  'current_setting(''request.jwt.claim.role'', true)'
+                  in prosrc
+                ) > 0
+                and position(
+                  'current_setting(''role'', true)'
+                  in prosrc
+                ) > 0
               )
               from public_functions
             ),

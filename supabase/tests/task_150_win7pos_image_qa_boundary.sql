@@ -4,7 +4,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(30);
+select plan(31);
 
 select has_table(
   'app_private',
@@ -540,6 +540,25 @@ select throws_ok(
   'TASK150_CASE_21 terminal receipt rejects post-commit tampering'
 );
 
+-- A forged textual claim cannot cross PostgreSQL's EXECUTE boundary.
+select set_config('request.jwt.claim.role', 'service_role', true);
+set local role anon;
+
+select throws_ok(
+  $$select public.task_150_win7pos_image_qa_begin_v1(
+    repeat('2', 64), repeat('3', 64), repeat('4', 64), repeat('5', 64),
+    repeat('6', 64), repeat('7', 64), repeat('8', 64),
+    '10000000-0000-4000-8000-000000000150',
+    '20000000-0000-4000-8000-000000000150',
+    'asus-product-image-phase-b-fixture-v1'
+  )$$,
+  '42501',
+  'permission denied for function task_150_win7pos_image_qa_begin_v1',
+  'TASK150_CASE_22 forged textual service role claim cannot invoke the RPC'
+);
+
+set local role postgres;
+
 -- Opaque sb_secret keys are mapped to the service_role database role by the
 -- Supabase gateway but do not depend on the legacy JWT role claim. The RPC
 -- must therefore continue to work when that request-local claim is absent.
@@ -569,7 +588,7 @@ select is(
    from task150_results
    where result_label = 'opaque_secret_begin'),
   'armed',
-  'TASK150_CASE_22 opaque server secret works without a legacy JWT role claim'
+  'TASK150_CASE_23 opaque server secret works without a legacy JWT role claim'
 );
 
 select * from finish();
