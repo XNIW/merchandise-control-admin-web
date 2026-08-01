@@ -19,6 +19,9 @@ const staffPermissions = read(
 const leaseBoundary = read(
   "src/server/shop-admin/staff-web-lease-bound-rpc.ts",
 );
+const stagingWorkflow = read(
+  ".github/workflows/storefront-v1-staging-migrations.yml",
+);
 
 test("TASK-007 exposes the complete Storefront navigation and authoring controls", () => {
   for (const required of [
@@ -109,4 +112,13 @@ test("TASK-007 preview consumes the public versioned contract", () => {
   assert.match(migration, /v_preview := public\.storefront_home_v1\(v_public_slug\)/);
   assert.match(page, /payload restituito da storefront_home_v1/);
   assert.doesNotMatch(page, /storefront_catalog_items|storefront_product_publications/);
+});
+
+test("TASK-007 staging workflow is pinned to the admin migration and post-verifies its boundary", () => {
+  assert.match(stagingWorkflow, /EXPECTED_MIGRATION_VERSION: "20260802001000"/);
+  assert.match(stagingWorkflow, /EXPECTED_MIGRATION_NAME: storefront_v1_admin_publications/);
+  assert.match(stagingWorkflow, /publicApiPlannerLedgerRetained/);
+  assert.match(stagingWorkflow, /adminRpcBoundary/);
+  assert.match(stagingWorkflow, /adminAuthoringDirectDenied/);
+  assert.match(stagingWorkflow, /storefrontPermissionMatrix/);
 });

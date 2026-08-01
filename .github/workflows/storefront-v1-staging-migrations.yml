@@ -43,9 +43,9 @@ concurrency:
 
 env:
   SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
-  EXPECTED_MIGRATION_VERSION: "20260801230000"
-  EXPECTED_MIGRATION_NAME: storefront_v1_public_api_planner
-  EXPECTED_MIGRATION_FILE: 20260801230000_storefront_v1_public_api_planner.sql
+  EXPECTED_MIGRATION_VERSION: "20260802001000"
+  EXPECTED_MIGRATION_NAME: storefront_v1_admin_publications
+  EXPECTED_MIGRATION_FILE: 20260802001000_storefront_v1_admin_publications.sql
   REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
   REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
   REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
@@ -208,6 +208,12 @@ jobs:
           cat > _storefront-migration/post-verify.sql <<'SQL'
           select jsonb_pretty(jsonb_build_object(
             'migrationLedgerExact', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260802001000'
+                and name = 'storefront_v1_admin_publications'
+            ),
+            'publicApiPlannerLedgerRetained', (
               select count(*) = 1
               from supabase_migrations.schema_migrations
               where version = '20260801230000'
@@ -420,6 +426,42 @@ jobs:
                   'storefront_catalog_items_shop_name_keyset_v1_idx'
                 )
             ),
+            'adminRpcBoundary', (
+              select count(*) = 2
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'public'
+                and procedure.proname in (
+                  'admin_storefront_publications_read_v1',
+                  'admin_storefront_publication_mutate_v1'
+                )
+                and procedure.prosecdef
+                and procedure.provolatile = 'v'
+                and 'search_path=""' = any(procedure.proconfig)
+                and 'statement_timeout=5s' = any(procedure.proconfig)
+                and not has_function_privilege(
+                  'anon',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+                and has_function_privilege(
+                  'authenticated',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+            ),
+            'adminAuthoringDirectDenied',
+              not has_table_privilege(
+                'authenticated',
+                'public.storefront_product_publications',
+                'INSERT,UPDATE,DELETE'
+              ),
+            'storefrontPermissionMatrix', (
+              select count(*) = 8
+              from app_private.mac_admin_w7pos_009_pos_admin_permissions()
+              where permission_key like 'storefront.%'
+            ),
             'statementTriggerCount', (
               select count(*) = 18
               from pg_catalog.pg_trigger trigger
@@ -455,6 +497,7 @@ jobs:
           );
           const requiredTrue = [
             "migrationLedgerExact",
+            "publicApiPlannerLedgerRetained",
             "publicApiLedgerRetained",
             "projectionLedgerRetained",
             "projectionGrantRepairRetained",
@@ -471,6 +514,9 @@ jobs:
             "readResolverPlannerSafe",
             "publicSearchFieldsPresent",
             "publicKeysetIndexesPresent",
+            "adminRpcBoundary",
+            "adminAuthoringDirectDenied",
+            "storefrontPermissionMatrix",
             "statementTriggerCount",
             "searchExtensionsPresent",
           ];
