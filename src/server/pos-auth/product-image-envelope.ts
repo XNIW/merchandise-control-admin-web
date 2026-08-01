@@ -387,20 +387,38 @@ export function canonicalPosProductImagePayloadJson(
 }
 
 export function createPosProductImageErrorBody(input: {
+  clientRequestId?: string;
   code: string;
+  idempotencyKey?: string;
   message: string;
   operation: PosProductImageOperation;
+  operationId?: string;
+  payloadHash?: string;
+  requestId?: string;
   retryable: boolean;
+  serverTime?: string;
   terminal?: boolean;
 }) {
   return {
+    schemaVersion: POS_PRODUCT_IMAGE_SCHEMA_VERSION,
+    operation: input.operation,
+    ...(input.operationId === undefined
+      ? {}
+      : { operationId: input.operationId }),
+    ...(input.idempotencyKey === undefined
+      ? {}
+      : { idempotencyKey: input.idempotencyKey }),
+    ...(input.payloadHash === undefined
+      ? {}
+      : { payloadHash: input.payloadHash }),
+    ok: false as const,
     code: input.code,
     message: input.message,
-    ok: false as const,
-    operation: input.operation,
     retryable: input.retryable,
-    schemaVersion: POS_PRODUCT_IMAGE_SCHEMA_VERSION,
-    serverTime: new Date().toISOString().replace("Z", "000Z"),
+    serverTime:
+      input.serverTime ?? new Date().toISOString().replace("Z", "000Z"),
+    requestId: input.requestId,
+    clientRequestId: input.clientRequestId,
     ...(input.terminal === undefined ? {} : { terminal: input.terminal }),
   };
 }

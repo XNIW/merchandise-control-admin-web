@@ -930,6 +930,8 @@ function loadProductImageService({
     "./product-image-envelope": {
       canonicalPosProductImagePayloadJson:
         envelope.canonicalPosProductImagePayloadJson,
+      createPosProductImageErrorBody:
+        envelope.createPosProductImageErrorBody,
     },
     "./runtime-boundary": {
       async writePosRuntimeAudit(_admin, input) {
@@ -1115,6 +1117,31 @@ function assertErrorBodyMatchesFrozenSchema(
   assert.doesNotMatch(
     JSON.stringify(body),
     /https?:\/\/|\/storage\/|(?:device|session)Token|signedUrl/i,
+  );
+  assertCanonicalErrorKeyOrder(body);
+}
+
+function assertCanonicalErrorKeyOrder(body) {
+  const canonicalOrder = [
+    "schemaVersion",
+    "operation",
+    "operationId",
+    "idempotencyKey",
+    "payloadHash",
+    "ok",
+    "code",
+    "message",
+    "retryable",
+    "serverTime",
+    "requestId",
+    "clientRequestId",
+    "terminal",
+  ];
+
+  assert.deepEqual(
+    Object.keys(body),
+    canonicalOrder.filter((key) => key in body),
+    "error JSON properties must remain in the Win7POS DataContract order",
   );
 }
 
@@ -2020,6 +2047,25 @@ task149Test(
 
     assert.equal(mismatchResult.status, 400);
     assert.equal(mismatchResult.body.code, "payload_hash_mismatch");
+    assertCanonicalErrorKeyOrder(mismatchResult.body);
+    const routeSecurity = transpileCommonJs(
+      "src/app/api/pos/_shared/pos-route-security.ts",
+    );
+    const mismatchResponse = routeSecurity.posJsonResponse(
+      mismatchResult.body,
+      mismatchResult.status,
+      {
+        clientRequestId: "safe-client-id",
+        route: "pos.catalog.product_images.intent",
+        serverRequestId: "safe-server-id",
+      },
+    );
+    const mismatchText = await mismatchResponse.text();
+    const mismatchWireBody = JSON.parse(mismatchText);
+    assert.equal(mismatchText, JSON.stringify(mismatchWireBody));
+    assertCanonicalErrorKeyOrder(mismatchWireBody);
+    assert.equal(mismatchWireBody.requestId, "safe-server-id");
+    assert.equal(mismatchWireBody.clientRequestId, "safe-client-id");
     assert.equal(hashMismatch.rpcCalls.length, 0);
     assert.equal(hashMismatch.auditAdmissionCalls.length, 1);
     assert.deepEqual(hashMismatch.auditTimeline, ["admit", "write"]);
@@ -2565,21 +2611,22 @@ task149Test(
 
 task149Test(
   [24, 25, 26, 29, 30],
-  "TASK-149 heavy reads sign only ready canonical objects for 300 seconds",
+  "TASK-149 heavy reads bind advertised expiry to authoritative server time",
   async () => {
     const readyRequest = trustedReadRequest();
     const readyRef = readyRequest.refs[0];
     const readyItem = resolvedReadItem(readyRef);
-    const before = Date.now();
+    const readyServerTime = canonicalTimestamp(-5_000);
     const ready = loadProductImageService({
       rpc: async (name) => {
         if (name === "pos_product_image_read_resolve_v1") {
+          await new Promise((resolve) => setTimeout(resolve, 25));
           return {
             data: {
               code: "success",
               items: [readyItem],
               ok: true,
-              server_time: canonicalTimestamp(),
+              server_time: readyServerTime,
             },
             error: null,
           };
@@ -2595,9 +2642,9 @@ task149Test(
     });
     const readyResult =
       await ready.service.handlePosProductImageReadUrls(readyRequest);
-    const after = Date.now();
 
     assert.equal(readyResult.status, 200);
+    assert.equal(readyResult.body.serverTime, readyServerTime);
     assert.equal(readyResult.body.items[0].status, "ready");
     assert.equal(
       readyResult.body.items[0].signedUrl,
@@ -2606,9 +2653,12 @@ task149Test(
     assert.equal(ready.signedReadCalls.length, 1);
     assert.deepEqual(ready.signedReadCalls[0].paths, [readyItem.object_path]);
     assert.equal(ready.signedReadCalls[0].ttlSeconds, 300);
-    const expiresAt = Date.parse(readyResult.body.items[0].expiresAt);
-    assert.ok(expiresAt >= before + 300_000);
-    assert.ok(expiresAt <= after + 300_000);
+    assert.equal(
+      readyResult.body.items[0].expiresAt,
+      new Date(Date.parse(readyServerTime) + 300_000)
+        .toISOString()
+        .replace("Z", "000Z"),
+    );
     assert.deepEqual(
       ready.rpcCalls.map(({ name }) => name),
       [
@@ -3096,9 +3146,15 @@ task149Test(
       const malformedResponse = await malformed.route.POST(
         jsonRequest(definition.url, {}),
       );
-      const malformedBody = await malformedResponse.json();
+      const malformedText = await malformedResponse.text();
+      const malformedBody = JSON.parse(malformedText);
 
       assert.equal(malformedResponse.status, 400, definition.path);
+      assert.equal(
+        malformedText,
+        JSON.stringify(malformedBody),
+        definition.path,
+      );
       assert.equal(
         malformedResponse.headers.get("cache-control"),
         "no-store",
