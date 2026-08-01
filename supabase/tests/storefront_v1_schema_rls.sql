@@ -4,7 +4,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(48);
+select plan(49);
 
 select is(
   (
@@ -220,8 +220,8 @@ select is(
 select ok(
   (
     select bool_and(
-      procedure.prosecdef
-      and procedure.proconfig = array['search_path=""']
+      not procedure.prosecdef
+      or procedure.proconfig = array['search_path=""']
     )
     from pg_catalog.pg_proc procedure
     join pg_catalog.pg_namespace namespace
@@ -229,7 +229,21 @@ select ok(
     where namespace.nspname = 'app_private'
       and procedure.proname like 'storefront_%_v1'
   ),
-  'all Storefront helpers are SECURITY DEFINER with an empty search_path'
+  'all Storefront SECURITY DEFINER helpers use an empty search_path'
+);
+
+select ok(
+  (
+    select not procedure.prosecdef and procedure.proconfig is null
+    from pg_catalog.pg_proc procedure
+    join pg_catalog.pg_namespace namespace
+      on namespace.oid = procedure.pronamespace
+    where namespace.nspname = 'app_private'
+      and procedure.proname = 'storefront_public_catalog_rows_v1'
+      and pg_catalog.pg_get_function_identity_arguments(procedure.oid)
+        = 'p_shop_id uuid, p_at timestamp with time zone'
+  ),
+  'the fully-qualified read resolver is SECURITY INVOKER for predicate pushdown'
 );
 
 select ok(
