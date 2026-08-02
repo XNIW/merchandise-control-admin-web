@@ -862,6 +862,176 @@ jobs:
           if (Object.values(checks).some((value) => !value)) process.exit(1);
           NODE
 
+      - name: Verify TASK-022 customer device and push-consent contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260802194500'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_customer_devices.sql \
+              > _storefront-migration/evidence/task-022-pgtap.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260802194500'
+                    and name = 'storefront_v1_customer_devices'
+                ),
+                'tableCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname = 'customer_devices'
+                    and class.relkind = 'r'
+                ),
+                'rlsForced', (
+                  select class.relrowsecurity and class.relforcerowsecurity
+                  from pg_catalog.pg_class class
+                  where class.oid = 'public.customer_devices'::regclass
+                ),
+                'policyCount', (
+                  select count(*)
+                  from pg_catalog.pg_policy policy
+                  where policy.polrelid = 'public.customer_devices'::regclass
+                ),
+                'authenticatedTableDenied',
+                  not has_table_privilege(
+                    'authenticated',
+                    'public.customer_devices',
+                    'SELECT'
+                  )
+                  and not has_table_privilege(
+                    'authenticated',
+                    'public.customer_devices',
+                    'INSERT'
+                  )
+                  and not has_table_privilege(
+                    'authenticated',
+                    'public.customer_devices',
+                    'UPDATE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated',
+                    'public.customer_devices',
+                    'DELETE'
+                  ),
+                'serviceRoleTableBoundary',
+                  has_table_privilege(
+                    'service_role',
+                    'public.customer_devices',
+                    'SELECT'
+                  )
+                  and has_table_privilege(
+                    'service_role',
+                    'public.customer_devices',
+                    'INSERT'
+                  )
+                  and has_table_privilege(
+                    'service_role',
+                    'public.customer_devices',
+                    'UPDATE'
+                  )
+                  and has_table_privilege(
+                    'service_role',
+                    'public.customer_devices',
+                    'DELETE'
+                  ),
+                'rpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_register_device_v1',
+                      'customer_revoke_device_v1',
+                      'customer_device_status_v1'
+                    )
+                ),
+                'rpcHardened', (
+                  select count(*) = 3
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_register_device_v1',
+                      'customer_revoke_device_v1',
+                      'customer_device_status_v1'
+                    )
+                    and procedure.prosecdef
+                    and 'search_path=""' = any(procedure.proconfig)
+                ),
+                'anonRpcDenied',
+                  not has_function_privilege(
+                    'anon',
+                    'public.customer_device_status_v1(uuid)',
+                    'EXECUTE'
+                  ),
+                'authenticatedRpcAllowed',
+                  has_function_privilege(
+                    'authenticated',
+                    'public.customer_device_status_v1(uuid)',
+                    'EXECUTE'
+                  ),
+                'activeDeliveryPermissionFiltered', (
+                  select indexdef ilike '%permission_status%authorized%provisional%'
+                  from pg_catalog.pg_indexes
+                  where schemaname = 'public'
+                    and indexname = 'customer_devices_active_delivery_idx'
+                )
+              )" \
+              > _storefront-migration/evidence/task-022-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-022-pgtap.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-022-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            migrationLedgerExact: report.migrationLedgerExact === true,
+            tableCount: Number(report.tableCount) === 1,
+            rlsForced: report.rlsForced === true,
+            policyCount: Number(report.policyCount) === 4,
+            authenticatedTableDenied:
+              report.authenticatedTableDenied === true,
+            serviceRoleTableBoundary:
+              report.serviceRoleTableBoundary === true,
+            rpcCount: Number(report.rpcCount) === 3,
+            rpcHardened: report.rpcHardened === true,
+            anonRpcDenied: report.anonRpcDenied === true,
+            authenticatedRpcAllowed:
+              report.authenticatedRpcAllowed === true,
+            activeDeliveryPermissionFiltered:
+              report.activeDeliveryPermissionFiltered === true,
+            pgTapPlan: /^1\.\.58$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 58,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
       - name: Benchmark Storefront contract on staging and clean fixtures
         if: inputs.mode == 'apply' && inputs.run_performance_load
         env:
