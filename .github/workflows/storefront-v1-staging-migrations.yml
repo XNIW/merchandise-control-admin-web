@@ -43,9 +43,9 @@ concurrency:
 
 env:
   SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
-  EXPECTED_MIGRATION_VERSION: "20260802023000"
-  EXPECTED_MIGRATION_NAME: storefront_v1_public_images
-  EXPECTED_MIGRATION_FILE: 20260802023000_storefront_v1_public_images.sql
+  EXPECTED_MIGRATION_VERSION: "20260802033000"
+  EXPECTED_MIGRATION_NAME: storefront_v1_catalog_version_contract
+  EXPECTED_MIGRATION_FILE: 20260802033000_storefront_v1_catalog_version_contract.sql
   REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
   REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
   REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
@@ -208,6 +208,12 @@ jobs:
           cat > _storefront-migration/post-verify.sql <<'SQL'
           select jsonb_pretty(jsonb_build_object(
             'migrationLedgerExact', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260802033000'
+                and name = 'storefront_v1_catalog_version_contract'
+            ),
+            'publicImagesLedgerRetained', (
               select count(*) = 1
               from supabase_migrations.schema_migrations
               where version = '20260802023000'
