@@ -542,6 +542,31 @@ select is(
   'Home contains the real featured product'
 );
 
+select ok(
+  not exists (
+    select 1
+    from pg_catalog.jsonb_array_elements(
+      public.storefront_catalog_v1('api-fixture-a') -> 'items'
+    ) item
+    where (item ->> 'catalogVersion')::bigint <>
+      (public.storefront_catalog_v1('api-fixture-a') ->> 'catalogVersion')::bigint
+  ),
+  'every public item exposes the current response catalog version'
+);
+
+select ok(
+  not exists (
+    select 1
+    from pg_catalog.jsonb_array_elements(
+      (public.storefront_home_v1('api-fixture-a') -> 'featured') ||
+      (public.storefront_home_v1('api-fixture-a') -> 'offers')
+    ) item
+    where (item ->> 'catalogVersion')::bigint <>
+      (public.storefront_home_v1('api-fixture-a') ->> 'catalogVersion')::bigint
+  ),
+  'Home items expose the same catalog version as the Home envelope'
+);
+
 select is(
   public.storefront_home_v1('api-fixture-a', 21, 8, 8) ->> 'status',
   'invalid',
