@@ -389,3 +389,15 @@ test("TASK-009 staging migration is exact-SHA guarded and verifies the image bou
     assert.match(stagingMigrationWorkflow, new RegExp(marker));
   }
 });
+
+test("TASK-009 staging acceptance executes the bounded cleanup before handoff", () => {
+  const workflow = read(".github/workflows/final-staging-auth-performance.yml");
+  for (const expected of [
+    'STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}',
+    'STOREFRONT_IMAGE_CLEANUP_ALLOW_STAGING: "yes"',
+    "Verify bounded public image cleanup",
+    "npm run storefront:images:cleanup",
+  ]) {
+    assert.ok(workflow.includes(expected), `missing ${expected}`);
+  }
+});

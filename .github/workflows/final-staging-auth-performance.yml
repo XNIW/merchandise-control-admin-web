@@ -122,6 +122,8 @@ jobs:
       PLAYWRIGHT_BASE_URL: ${{ vars.CLOUDFLARE_STAGING_URL }}
       PLAYWRIGHT_DISABLE_WEB_SERVER: "1"
       SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      STOREFRONT_IMAGE_CLEANUP_ALLOW_STAGING: "yes"
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
       SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
       SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -197,3 +199,6 @@ jobs:
           node scripts/testing/run-playwright-target.mjs staging
           tests/e2e/storefront-v1-admin-publications-local.spec.ts
           --project=chromium-desktop
+
+      - name: Verify bounded public image cleanup
+        run: npm run storefront:images:cleanup
