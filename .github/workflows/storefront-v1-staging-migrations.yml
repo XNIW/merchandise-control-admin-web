@@ -974,7 +974,11 @@ jobs:
                       'customer_device_status_v1'
                     )
                     and procedure.prosecdef
-                    and 'search_path=""' = any(procedure.proconfig)
+                    and (
+                      'search_path='
+                      || pg_catalog.chr(34)
+                      || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
                 ),
                 'anonRpcDenied',
                   not has_function_privilege(
