@@ -1,8 +1,13 @@
 import "server-only";
 
+import type {
+  StorefrontImageCandidate,
+  StorefrontImageOption,
+} from "@/lib/storefront/admin-image-view";
 import type { Json } from "@/lib/supabase/database.types";
 import { resolveShopAdminDataAccess } from "./data-access";
 import {
+  callStaffWebStorefrontImagesRead,
   callStaffWebStorefrontPromotionsRead,
   callStaffWebStorefrontRead,
 } from "./staff-web-lease-bound-rpc";
@@ -50,13 +55,6 @@ export type StorefrontCategoryOption = {
   status: string;
 };
 
-export type StorefrontImageOption = {
-  id: string;
-  sourceProductId: string;
-  status: string;
-  url: string | null;
-};
-
 export type StorefrontPromotionRow = {
   conflictProductCount: number;
   discountType: "fixed_price_clp" | "percentage_bps";
@@ -87,6 +85,7 @@ export type StorefrontPublicationsReadModel = {
   audit: readonly StorefrontAuditRow[];
   categories: readonly StorefrontCategoryOption[];
   images: readonly StorefrontImageOption[];
+  imageCandidates: readonly StorefrontImageCandidate[];
   pagination: {
     page: number;
     pageSize: number;
@@ -96,6 +95,7 @@ export type StorefrontPublicationsReadModel = {
   permissions: {
     canBulkPublish: boolean;
     canEdit: boolean;
+    canManageImages: boolean;
     canManagePromotions: boolean;
     canPublish: boolean;
     canViewAudit: boolean;
@@ -225,7 +225,37 @@ function mapImage(value: Json): StorefrontImageOption | null {
   const sourceProductId = image ? textValue(image.sourceProductId) : null;
   const status = image ? textValue(image.status) : null;
   return id && sourceProductId && status
-    ? { id, sourceProductId, status, url: textValue(image?.url) }
+    ? {
+        cardUrl: textValue(image?.cardUrl) ?? textValue(image?.url),
+        current: booleanValue(image?.current),
+        detailUrl: textValue(image?.detailUrl),
+        id,
+        publishedAt: textValue(image?.publishedAt),
+        sourceImageVersionId: textValue(image?.sourceImageVersionId),
+        sourceProductId,
+        status,
+        thumbUrl: textValue(image?.thumbUrl),
+        updatedAt: textValue(image?.updatedAt),
+        url: textValue(image?.cardUrl) ?? textValue(image?.url),
+      }
+    : null;
+}
+
+function mapImageCandidate(value: Json): StorefrontImageCandidate | null {
+  const item = objectValue(value);
+  const publicationId = item ? textValue(item.publicationId) : null;
+  const sourceProductId = item ? textValue(item.sourceProductId) : null;
+  const sourceImageVersionId = item ? textValue(item.sourceImageVersionId) : null;
+  const name = item ? textValue(item.name) : null;
+  return publicationId && sourceProductId && sourceImageVersionId && name
+    ? {
+        currentPublicImageId: textValue(item?.currentPublicImageId),
+        name,
+        publicationId,
+        sourceImageVersionId,
+        sourceProductId,
+        sourceReady: booleanValue(item?.sourceReady),
+      }
     : null;
 }
 
@@ -336,8 +366,9 @@ export async function getStorefrontPublicationsReadModel(
       audit: [],
       categories: [],
       images: [],
+      imageCandidates: [],
       pagination: { page: 1, pageSize: 25, total: 0, totalPages: 1 },
-      permissions: { canBulkPublish: false, canEdit: false, canManagePromotions: false, canPublish: false, canViewAudit: false },
+      permissions: { canBulkPublish: false, canEdit: false, canManageImages: false, canManagePromotions: false, canPublish: false, canViewAudit: false },
       promotionConflictRule: "unavailable",
       promotionPagination: { page: 1, pageSize: 25, total: 0, totalPages: 1 },
       promotionPublications: [],
@@ -408,20 +439,35 @@ export async function getStorefrontPublicationsReadModel(
           promotionRequest,
         );
   const promotionsPayload = objectValue(promotionsRpc.data);
+  const imagesRpc =
+    access.principalKind === "personal_account"
+      ? await access.supabase.rpc("admin_storefront_images_read_v1", {
+          p_shop_id: access.selectedShop.shopId,
+        })
+      : await callStaffWebStorefrontImagesRead({
+          actorStaffId: access.principal.staff.staffId,
+          selectedShop: access.selectedShop,
+          staffWebSession: access.principal.staffWebSession!,
+        });
+  const imagesPayload = objectValue(imagesRpc.data);
   if (
     rpc.error ||
     !payload ||
     payload.ok !== true ||
     promotionsRpc.error ||
     !promotionsPayload ||
-    promotionsPayload.ok !== true
+    promotionsPayload.ok !== true ||
+    imagesRpc.error ||
+    !imagesPayload ||
+    imagesPayload.ok !== true
   ) {
     return {
       audit: [],
       categories: [],
       images: [],
+      imageCandidates: [],
       pagination: { page: request.page, pageSize: request.pageSize, total: 0, totalPages: 1 },
-      permissions: { canBulkPublish: false, canEdit: false, canManagePromotions: false, canPublish: false, canViewAudit: false },
+      permissions: { canBulkPublish: false, canEdit: false, canManageImages: false, canManagePromotions: false, canPublish: false, canViewAudit: false },
       promotionConflictRule: "unavailable",
       promotionPagination: { page: promotionRequest.page, pageSize: promotionRequest.pageSize, total: 0, totalPages: 1 },
       promotionPublications: [],
@@ -440,8 +486,11 @@ export async function getStorefrontPublicationsReadModel(
   const categories = Array.isArray(payload.categories)
     ? payload.categories.map(mapCategory).filter((row): row is StorefrontCategoryOption => row !== null)
     : [];
-  const images = Array.isArray(payload.images)
-    ? payload.images.map(mapImage).filter((row): row is StorefrontImageOption => row !== null)
+  const images = Array.isArray(imagesPayload.images)
+    ? imagesPayload.images.map(mapImage).filter((row): row is StorefrontImageOption => row !== null)
+    : [];
+  const imageCandidates = Array.isArray(imagesPayload.candidates)
+    ? imagesPayload.candidates.map(mapImageCandidate).filter((row): row is StorefrontImageCandidate => row !== null)
     : [];
   const audit = Array.isArray(payload.audit)
     ? payload.audit.map(mapAudit).filter((row): row is StorefrontAuditRow => row !== null)
@@ -464,6 +513,7 @@ export async function getStorefrontPublicationsReadModel(
     ? {
         canBulkPublish: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canEdit: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
+        canManageImages: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canManagePromotions: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canPublish: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canViewAudit: true,
@@ -471,6 +521,7 @@ export async function getStorefrontPublicationsReadModel(
     : {
         canBulkPublish: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.bulk_publish"),
         canEdit: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.edit"),
+        canManageImages: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.images.manage"),
         canManagePromotions: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.promotions.manage"),
         canPublish: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.publish"),
         canViewAudit: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.audit.view"),
@@ -480,6 +531,7 @@ export async function getStorefrontPublicationsReadModel(
     audit,
     categories,
     images,
+    imageCandidates,
     pagination: {
       page: numberValue(pagination?.page) ?? request.page,
       pageSize: numberValue(pagination?.pageSize) ?? request.pageSize,

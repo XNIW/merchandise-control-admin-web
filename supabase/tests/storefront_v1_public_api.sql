@@ -39,9 +39,19 @@ select ok(
     from pg_catalog.pg_proc procedure
     join pg_catalog.pg_namespace namespace on namespace.oid = procedure.pronamespace
     where namespace.nspname = 'public'
-      and procedure.proname like 'storefront_%_v1'
+      and procedure.proname in (
+        'storefront_catalog_version_v1',
+        'storefront_settings_v1',
+        'storefront_categories_v1',
+        'storefront_catalog_v1',
+        'storefront_search_v1',
+        'storefront_product_detail_v1',
+        'storefront_featured_v1',
+        'storefront_offers_v1',
+        'storefront_home_v1'
+      )
   ),
-  'all public Storefront functions are stable SECURITY DEFINER with closed search path and timeout'
+  'all public mobile Storefront functions are stable SECURITY DEFINER with closed search path and timeout'
 );
 
 select ok(

@@ -35,7 +35,9 @@ function unavailableRpcResult() {
 
 function staffLeaseBoundAdminClient() {
   const config = resolveSupabaseAdminConfig();
-  return config.status === "configured" ? createSupabaseAdminClient(config) : null;
+  return config.status === "configured"
+    ? createSupabaseAdminClient(config)
+    : null;
 }
 
 /**
@@ -250,6 +252,21 @@ export function callStaffWebStorefrontPromotionMutation(
     p_expected_credential_version: context.staffWebSession.credentialVersion,
     p_operation: "upsert",
     p_payload: payload,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}
+
+export function callStaffWebStorefrontImagesRead(
+  context: StaffWebLeaseBoundContext,
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("admin_storefront_images_read_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
     p_session_token_hash: context.staffWebSession.sessionTokenHash,
     p_shop_id: context.selectedShop.shopId,
     p_staff_id: context.actorStaffId,

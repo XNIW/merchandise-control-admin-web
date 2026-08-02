@@ -87,9 +87,10 @@ test("TASK-008 RPC contracts are typed, audited and denied to anon", () => {
   assert.match(migration, /grant execute on function public\.admin_storefront_promotion_mutate_v1[\s\S]*to authenticated, service_role/);
 });
 
-test("TASK-008 staging pipeline is exact-migration guarded and exercises live pricing", () => {
-  assert.match(stagingWorkflow, /EXPECTED_MIGRATION_VERSION: "20260802010000"/);
-  assert.match(stagingWorkflow, /EXPECTED_MIGRATION_NAME: storefront_v1_admin_promotions/);
+test("TASK-008 staging ledger remains guarded while later Storefront migrations advance", () => {
+  assert.match(stagingWorkflow, /adminPromotionsLedgerRetained/);
+  assert.match(stagingWorkflow, /version = '20260802010000'/);
+  assert.match(stagingWorkflow, /name = 'storefront_v1_admin_promotions'/);
   assert.match(stagingWorkflow, /adminPromotionRpcBoundary/);
   assert.match(stagingWorkflow, /promotionCronScheduled/);
   assert.match(stagingAcceptance, /CREATE_PROMOTION|PUBLIC_DETAIL_PROMOTION/);

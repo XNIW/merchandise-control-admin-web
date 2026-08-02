@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ActionResultBanner } from "@/app/shop/_components/ActionResultBanner";
 import { SHOP_ADMIN_CONTENT_FRAME_CLASS } from "@/components/shop/shopLayout";
 import type { Json } from "@/lib/supabase/database.types";
@@ -15,6 +16,7 @@ import {
   saveStorefrontPromotionAction,
   saveStorefrontPublicationAction,
 } from "./actions";
+import { StorefrontImagesControl } from "./StorefrontImagesControl";
 
 export const dynamic = "force-dynamic";
 
@@ -340,7 +342,9 @@ function PreviewCard({ item }: { item: Json }) {
   const value = jsonObject(item);
   const name = typeof value?.name === "string" ? value.name : "Prodotto";
   const price = typeof value?.priceClp === "number" ? value.priceClp : null;
-  return <article className="rounded-lg border border-zinc-200 bg-white p-3"><div className="aspect-square rounded-md bg-zinc-100" /><p className="mt-2 line-clamp-2 text-sm font-medium">{name}</p><p className="mt-1 text-sm font-semibold text-emerald-800">{clp(price)}</p></article>;
+  const images = jsonObject(value?.images);
+  const card = typeof images?.card === "string" ? images.card : null;
+  return <article className="rounded-lg border border-zinc-200 bg-white p-3"><div className="relative aspect-square overflow-hidden rounded-md bg-zinc-100">{card ? <Image alt="" className="object-cover" fill sizes="180px" src={card} unoptimized /> : null}</div><p className="mt-2 line-clamp-2 text-sm font-medium">{name}</p><p className="mt-1 text-sm font-semibold text-emerald-800">{clp(price)}</p></article>;
 }
 
 function dateTimeInZone(value: string | undefined, timeZone: string) {
@@ -525,7 +529,7 @@ export default async function StorefrontPage({ searchParams }: { searchParams: S
         <Metric detail="Bloccano publish se l’immagine è obbligatoria" label="Immagine mancante" value={String(missingImages)} />
       </section>
       <nav aria-label="Sezioni Storefront" className="flex gap-2 overflow-x-auto rounded-md border border-zinc-200 bg-white p-2 shadow-sm">{areas.map(([key, label]) => <Link aria-current={area === key ? "page" : undefined} className={`whitespace-nowrap rounded-md px-3 py-2 text-sm font-semibold ${area === key ? "bg-emerald-800 text-white" : "text-zinc-700 hover:bg-zinc-100"}`} href={buildHref(params, { area: key, page: null })} key={key}>{label}</Link>)}</nav>
-      {model.status !== "ready" ? <section className="rounded-md border border-amber-200 bg-amber-50 p-5"><h2 className="font-semibold text-amber-950">Storefront non disponibile</h2><p className="mt-1 text-sm text-amber-900">{model.reason}</p></section> : area === "catalog" ? <Catalog model={model} params={params} /> : area === "promotions" ? <Promotions model={model} params={params} /> : area === "preview" ? <Preview preview={model.preview} /> : area === "audit" ? <Audit model={model} /> : <PlaceholderArea area={area} model={model} />}
+      {model.status !== "ready" ? <section className="rounded-md border border-amber-200 bg-amber-50 p-5"><h2 className="font-semibold text-amber-950">Storefront non disponibile</h2><p className="mt-1 text-sm text-amber-900">{model.reason}</p></section> : area === "catalog" ? <Catalog model={model} params={params} /> : area === "promotions" ? <Promotions model={model} params={params} /> : area === "images" ? <StorefrontImagesControl canManage={model.permissions.canManageImages} candidates={model.imageCandidates} images={model.images} shopId={model.selectedShopId!} /> : area === "preview" ? <Preview preview={model.preview} /> : area === "audit" ? <Audit model={model} /> : <PlaceholderArea area={area} model={model} />}
     </div>
   );
 }

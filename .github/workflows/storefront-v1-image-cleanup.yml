@@ -1,0 +1,41 @@
+name: Storefront V1 Public Image Cleanup
+
+on:
+  schedule:
+    - cron: "21 5 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: storefront-v1-public-image-cleanup-staging
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Bounded staging orphan cleanup
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: cloudflare-staging
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      STOREFRONT_IMAGE_CLEANUP_ALLOW_STAGING: "yes"
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install frozen dependencies
+        run: npm ci
+
+      - name: Remove expired staging derivatives
+        run: npm run storefront:images:cleanup

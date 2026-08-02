@@ -426,6 +426,7 @@ function checkReadOnlyContracts() {
         "admin_storefront_publication_mutate_v1",
         "admin_storefront_promotions_read_v1",
         "admin_storefront_promotion_mutate_v1",
+        "admin_storefront_images_read_v1",
       ]),
     ],
     [
@@ -433,6 +434,7 @@ function checkReadOnlyContracts() {
       new Set([
         "admin_storefront_publications_read_v1",
         "admin_storefront_promotions_read_v1",
+        "admin_storefront_images_read_v1",
       ]),
     ],
     [
@@ -441,6 +443,10 @@ function checkReadOnlyContracts() {
         "admin_storefront_publication_mutate_v1",
         "admin_storefront_promotion_mutate_v1",
       ]),
+    ],
+    [
+      "src/server/shop-admin/storefront-images/service.ts",
+      new Set(["storefront_image_configure_origin_v1"]),
     ],
     [
       "src/server/shop-admin/staff-web-runtime-boundary.ts",
@@ -486,6 +492,7 @@ function checkReadOnlyContracts() {
     "src/server/shop-admin/product-images/cache-scope.ts",
     "src/server/shop-admin/product-images/runtime-core.ts",
     "src/server/shop-admin/product-images/service.ts",
+    "src/server/shop-admin/storefront-images/webp-validator.ts",
   ]);
 
   for (const file of serverFiles) {

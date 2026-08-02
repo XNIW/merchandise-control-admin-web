@@ -43,9 +43,9 @@ concurrency:
 
 env:
   SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
-  EXPECTED_MIGRATION_VERSION: "20260802010000"
-  EXPECTED_MIGRATION_NAME: storefront_v1_admin_promotions
-  EXPECTED_MIGRATION_FILE: 20260802010000_storefront_v1_admin_promotions.sql
+  EXPECTED_MIGRATION_VERSION: "20260802023000"
+  EXPECTED_MIGRATION_NAME: storefront_v1_public_images
+  EXPECTED_MIGRATION_FILE: 20260802023000_storefront_v1_public_images.sql
   REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
   REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
   REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
@@ -208,6 +208,12 @@ jobs:
           cat > _storefront-migration/post-verify.sql <<'SQL'
           select jsonb_pretty(jsonb_build_object(
             'migrationLedgerExact', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260802023000'
+                and name = 'storefront_v1_public_images'
+            ),
+            'adminPromotionsLedgerRetained', (
               select count(*) = 1
               from supabase_migrations.schema_migrations
               where version = '20260802010000'
@@ -481,6 +487,103 @@ jobs:
                   'EXECUTE'
                 )
             ),
+            'publicImageBucketBoundary', (
+              select count(*) = 1
+              from storage.buckets
+              where id = 'storefront-product-images'
+                and public
+                and file_size_limit = 921600
+                and allowed_mime_types = array['image/webp']::text[]
+            ),
+            'publicImageVariantBoundary', (
+              select class.relrowsecurity
+                and class.relforcerowsecurity
+                and not has_table_privilege(
+                  'anon',
+                  'public.storefront_image_publication_variants',
+                  'SELECT,INSERT,UPDATE,DELETE'
+                )
+                and not has_table_privilege(
+                  'authenticated',
+                  'public.storefront_image_publication_variants',
+                  'SELECT,INSERT,UPDATE,DELETE'
+                )
+                and has_table_privilege(
+                  'service_role',
+                  'public.storefront_image_publication_variants',
+                  'SELECT,INSERT,UPDATE,DELETE'
+                )
+              from pg_catalog.pg_class class
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = class.relnamespace
+              where namespace.nspname = 'public'
+                and class.relname = 'storefront_image_publication_variants'
+            ),
+            'publicImageAdminFunctionsHardened', (
+              select count(*) = 5
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'public'
+                and procedure.proname in (
+                  'admin_storefront_images_read_v1',
+                  'admin_storefront_image_source_read_v1',
+                  'admin_storefront_image_intent_v1',
+                  'admin_storefront_image_finalize_v1',
+                  'admin_storefront_image_rollback_v1'
+                )
+                and procedure.prosecdef
+                and 'search_path=""' = any(procedure.proconfig)
+                and exists (
+                  select 1
+                  from unnest(procedure.proconfig) setting
+                  where setting like 'statement_timeout=%'
+                )
+                and not has_function_privilege(
+                  'anon',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+                and has_function_privilege(
+                  'authenticated',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+            ),
+            'publicImageServiceFunctionsConfined', (
+              select count(*) = 3
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'public'
+                and procedure.proname in (
+                  'storefront_image_configure_origin_v1',
+                  'storefront_image_cleanup_claim_v1',
+                  'storefront_image_cleanup_complete_v1'
+                )
+                and procedure.prosecdef
+                and 'search_path=""' = any(procedure.proconfig)
+                and exists (
+                  select 1
+                  from unnest(procedure.proconfig) setting
+                  where setting like 'statement_timeout=%'
+                )
+                and not has_function_privilege(
+                  'anon',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+                and not has_function_privilege(
+                  'authenticated',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+                and has_function_privilege(
+                  'service_role',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+            ),
             'promotionCronScheduled', (
               select count(*) = 1
               from cron.job
@@ -533,6 +636,7 @@ jobs:
           );
           const requiredTrue = [
             "migrationLedgerExact",
+            "adminPromotionsLedgerRetained",
             "adminPublicationsLedgerRetained",
             "publicApiPlannerLedgerRetained",
             "publicApiLedgerRetained",
@@ -553,6 +657,10 @@ jobs:
             "publicKeysetIndexesPresent",
             "adminRpcBoundary",
             "adminPromotionRpcBoundary",
+            "publicImageBucketBoundary",
+            "publicImageVariantBoundary",
+            "publicImageAdminFunctionsHardened",
+            "publicImageServiceFunctionsConfined",
             "promotionCronScheduled",
             "adminAuthoringDirectDenied",
             "storefrontPermissionMatrix",

@@ -2994,6 +2994,92 @@ export type Database = {
           },
         ]
       }
+      storefront_image_publication_variants: {
+        Row: {
+          cleanup_after: string | null
+          cleanup_attempts: number
+          cleanup_claimed_at: string | null
+          cleanup_last_error: string | null
+          content_type: string
+          created_at: string
+          expected_bytes: number
+          expected_height: number
+          expected_sha256: string
+          expected_width: number
+          id: string
+          image_publication_id: string
+          object_path: string
+          public_url: string | null
+          publication_status: string
+          ready_at: string | null
+          shop_id: string
+          updated_at: string
+          variant: string
+          verified_bytes: number | null
+          verified_height: number | null
+          verified_sha256: string | null
+          verified_width: number | null
+        }
+        Insert: {
+          cleanup_after?: string | null
+          cleanup_attempts?: number
+          cleanup_claimed_at?: string | null
+          cleanup_last_error?: string | null
+          content_type?: string
+          created_at?: string
+          expected_bytes: number
+          expected_height: number
+          expected_sha256: string
+          expected_width: number
+          id?: string
+          image_publication_id: string
+          object_path: string
+          public_url?: string | null
+          publication_status?: string
+          ready_at?: string | null
+          shop_id: string
+          updated_at?: string
+          variant: string
+          verified_bytes?: number | null
+          verified_height?: number | null
+          verified_sha256?: string | null
+          verified_width?: number | null
+        }
+        Update: {
+          cleanup_after?: string | null
+          cleanup_attempts?: number
+          cleanup_claimed_at?: string | null
+          cleanup_last_error?: string | null
+          content_type?: string
+          created_at?: string
+          expected_bytes?: number
+          expected_height?: number
+          expected_sha256?: string
+          expected_width?: number
+          id?: string
+          image_publication_id?: string
+          object_path?: string
+          public_url?: string | null
+          publication_status?: string
+          ready_at?: string | null
+          shop_id?: string
+          updated_at?: string
+          variant?: string
+          verified_bytes?: number | null
+          verified_height?: number | null
+          verified_sha256?: string | null
+          verified_width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_image_variants_image_fkey"
+            columns: ["shop_id", "image_publication_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_image_publications"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
       sync_events: {
         Row: {
           batch_id: string | null
@@ -4615,6 +4701,68 @@ export type Database = {
           p_shop_id: string
           p_staff_id?: string | null
           p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_storefront_image_finalize_v1: {
+        Args: {
+          p_expected_credential_version?: number
+          p_image_publication_id: string
+          p_session_token_hash?: string
+          p_shop_id: string
+          p_staff_id?: string
+          p_staff_web_session_id?: string
+          p_verified_variants: Json
+        }
+        Returns: Json
+      }
+      storefront_image_configure_origin_v1: {
+        Args: { p_origin: string }
+        Returns: Json
+      }
+      admin_storefront_image_intent_v1: {
+        Args: {
+          p_expected_credential_version?: number
+          p_publication_id: string
+          p_session_token_hash?: string
+          p_shop_id: string
+          p_source_image_version_id: string
+          p_staff_id?: string
+          p_staff_web_session_id?: string
+          p_variants: Json
+        }
+        Returns: Json
+      }
+      admin_storefront_image_rollback_v1: {
+        Args: {
+          p_expected_credential_version?: number
+          p_session_token_hash?: string
+          p_shop_id: string
+          p_staff_id?: string
+          p_staff_web_session_id?: string
+          p_target_image_publication_id: string
+        }
+        Returns: Json
+      }
+      admin_storefront_image_source_read_v1: {
+        Args: {
+          p_expected_credential_version?: number
+          p_publication_id: string
+          p_session_token_hash?: string
+          p_shop_id: string
+          p_source_image_version_id: string
+          p_staff_id?: string
+          p_staff_web_session_id?: string
+        }
+        Returns: Json
+      }
+      admin_storefront_images_read_v1: {
+        Args: {
+          p_expected_credential_version?: number
+          p_session_token_hash?: string
+          p_shop_id: string
+          p_staff_id?: string
+          p_staff_web_session_id?: string
         }
         Returns: Json
       }

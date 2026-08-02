@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { execFileSync } from "node:child_process";
-import { randomBytes, randomUUID } from "node:crypto";
+import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 test.use({ screenshot: "off", trace: "off", video: "off" });
 
@@ -14,8 +14,14 @@ type Fixture = {
   promotionName: string;
   publicCategoryId: string;
   publicName: string;
+  replacementSourceImageId: string;
+  replacementSourceMainPath: string;
+  replacementSourceThumbPath: string;
   shopId: string;
   shopSlug: string;
+  sourceImageId: string;
+  sourceMainPath: string;
+  sourceThumbPath: string;
   userId: string;
 };
 
@@ -27,15 +33,23 @@ const state: {
 } = {};
 const uuidPattern =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const sourceJpeg = Buffer.from(
+  "/9j/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAADAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAABv/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AJ9AFA4//9k=",
+  "base64",
+);
+const sourceJpegSha256 = createHash("sha256").update(sourceJpeg).digest("hex");
 
 function testRuntime() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
-  const publishableKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
+  const publishableKey =
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim();
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim();
   const isLoopback = (value: string | undefined) => {
     if (!value) return false;
     try {
-      return ["127.0.0.1", "localhost", "::1"].includes(new URL(value).hostname);
+      return ["127.0.0.1", "localhost", "::1"].includes(
+        new URL(value).hostname,
+      );
     } catch {
       return false;
     }
@@ -74,9 +88,11 @@ function testRuntime() {
 async function must<T>(
   label: string,
   operation: PromiseLike<{ data: T; error: unknown }>,
-) {
+): Promise<NonNullable<T>> {
   const result = await operation;
-  if (result.error) throw new Error(`STOREFRONT_ADMIN_E2E_${label}`);
+  if (result.error || result.data == null) {
+    throw new Error(`STOREFRONT_ADMIN_E2E_${label}`);
+  }
   return result.data;
 }
 
@@ -100,11 +116,18 @@ function fixtureDatabaseUrl() {
   }
   const output = execFileSync("supabase", ["status", "--output", "env"], {
     encoding: "utf8",
-    env: { ...process.env, DO_NOT_TRACK: "1", SUPABASE_TELEMETRY_DISABLED: "1" },
+    env: {
+      ...process.env,
+      DO_NOT_TRACK: "1",
+      SUPABASE_TELEMETRY_DISABLED: "1",
+    },
     stdio: ["ignore", "pipe", "ignore"],
   });
   const value = output.match(/^DB_URL="?([^"\n]+)"?$/m)?.[1];
-  if (!value || !["127.0.0.1", "localhost", "::1"].includes(new URL(value).hostname)) {
+  if (
+    !value ||
+    !["127.0.0.1", "localhost", "::1"].includes(new URL(value).hostname)
+  ) {
     throw new Error("STOREFRONT_ADMIN_E2E_LOCAL_DB_REQUIRED");
   }
   return value;
@@ -115,6 +138,8 @@ function seedFixture(fixture: Fixture, nonce: string) {
     !uuidPattern.test(fixture.categoryId) ||
     !uuidPattern.test(fixture.productId) ||
     !uuidPattern.test(fixture.publicCategoryId) ||
+    !uuidPattern.test(fixture.replacementSourceImageId) ||
+    !uuidPattern.test(fixture.sourceImageId) ||
     !uuidPattern.test(fixture.shopId) ||
     !uuidPattern.test(fixture.userId) ||
     !/^[0-9a-f]{10}$/.test(nonce)
@@ -154,6 +179,28 @@ function seedFixture(fixture: Fixture, nonce: string) {
       '${fixture.shopId}'::uuid, 'SF-${nonce}', 'Prodotto interno ${nonce}',
       '${fixture.categoryId}'::uuid, 100, 1200, 10, now()
     );
+    select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+    insert into public.inventory_product_image_versions (
+      id, shop_id, product_id, status, main_path, thumb_path,
+      expected_main_sha256, expected_main_bytes, expected_main_width, expected_main_height,
+      expected_thumb_sha256, expected_thumb_bytes, expected_thumb_width, expected_thumb_height,
+      verified_main_sha256, verified_main_bytes, verified_main_width, verified_main_height,
+      verified_main_mime_type, verified_thumb_sha256, verified_thumb_bytes,
+      verified_thumb_width, verified_thumb_height, verified_thumb_mime_type,
+      requested_by_profile_id, finalized_by_profile_id, actor_kind, finalized_at
+    ) values (
+      '${fixture.sourceImageId}'::uuid, '${fixture.shopId}'::uuid,
+      '${fixture.productId}'::uuid, 'ready', '${fixture.sourceMainPath}',
+      '${fixture.sourceThumbPath}', '${sourceJpegSha256}', ${sourceJpeg.byteLength}, 2, 3,
+      '${sourceJpegSha256}', ${sourceJpeg.byteLength}, 2, 3,
+      '${sourceJpegSha256}', ${sourceJpeg.byteLength}, 2, 3, 'image/jpeg',
+      '${sourceJpegSha256}', ${sourceJpeg.byteLength}, 2, 3, 'image/jpeg',
+      '${fixture.userId}'::uuid, '${fixture.userId}'::uuid, 'personal_account', now()
+    );
+    update public.inventory_products
+       set primary_image_version_id='${fixture.sourceImageId}'::uuid,
+           primary_image_updated_at=now()
+     where id='${fixture.productId}'::uuid;
     insert into public.storefront_settings (
       shop_id, public_slug, storefront_enabled, pickup_enabled,
       require_product_image
@@ -170,10 +217,64 @@ function seedFixture(fixture: Fixture, nonce: string) {
     );
     commit;
   `;
-  execFileSync("psql", [fixtureDatabaseUrl(), "-v", "ON_ERROR_STOP=1", "-f", "-"], {
-    input: sql,
-    stdio: ["pipe", "ignore", "ignore"],
-  });
+  execFileSync(
+    "psql",
+    [fixtureDatabaseUrl(), "-v", "ON_ERROR_STOP=1", "-f", "-"],
+    {
+      input: sql,
+      stdio: ["pipe", "ignore", "ignore"],
+    },
+  );
+}
+
+function activateReplacementSource(fixture: Fixture) {
+  if (
+    !uuidPattern.test(fixture.shopId) ||
+    !uuidPattern.test(fixture.productId) ||
+    !uuidPattern.test(fixture.sourceImageId) ||
+    !uuidPattern.test(fixture.replacementSourceImageId)
+  )
+    throw new Error("STOREFRONT_ADMIN_E2E_REPLACEMENT_SCOPE_INVALID");
+  const sql = `
+    begin;
+    select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+    select set_config('request.jwt.claim.role', 'service_role', true);
+    update public.inventory_product_image_versions
+       set status='superseded', superseded_at=now()
+     where id='${fixture.sourceImageId}'::uuid
+       and shop_id='${fixture.shopId}'::uuid;
+    insert into public.inventory_product_image_versions (
+      id, shop_id, product_id, previous_version_id, status, main_path, thumb_path,
+      expected_main_sha256, expected_main_bytes, expected_main_width, expected_main_height,
+      expected_thumb_sha256, expected_thumb_bytes, expected_thumb_width, expected_thumb_height,
+      verified_main_sha256, verified_main_bytes, verified_main_width, verified_main_height,
+      verified_main_mime_type, verified_thumb_sha256, verified_thumb_bytes,
+      verified_thumb_width, verified_thumb_height, verified_thumb_mime_type,
+      requested_by_profile_id, finalized_by_profile_id, actor_kind, finalized_at
+    ) values (
+      '${fixture.replacementSourceImageId}'::uuid, '${fixture.shopId}'::uuid,
+      '${fixture.productId}'::uuid, '${fixture.sourceImageId}'::uuid, 'ready',
+      '${fixture.replacementSourceMainPath}', '${fixture.replacementSourceThumbPath}',
+      '${sourceJpegSha256}', ${sourceJpeg.byteLength}, 2, 3,
+      '${sourceJpegSha256}', ${sourceJpeg.byteLength}, 2, 3,
+      '${sourceJpegSha256}', ${sourceJpeg.byteLength}, 2, 3, 'image/jpeg',
+      '${sourceJpegSha256}', ${sourceJpeg.byteLength}, 2, 3, 'image/jpeg',
+      '${fixture.userId}'::uuid, '${fixture.userId}'::uuid, 'personal_account', now()
+    );
+    update public.inventory_products
+       set primary_image_version_id='${fixture.replacementSourceImageId}'::uuid,
+           primary_image_updated_at=now()
+     where id='${fixture.productId}'::uuid;
+    commit;
+  `;
+  execFileSync(
+    "psql",
+    [fixtureDatabaseUrl(), "-v", "ON_ERROR_STOP=1", "-f", "-"],
+    {
+      input: sql,
+      stdio: ["pipe", "ignore", "ignore"],
+    },
+  );
 }
 
 async function cleanup() {
@@ -182,6 +283,24 @@ async function cleanup() {
   if (!uuidPattern.test(fixture.shopId) || !uuidPattern.test(fixture.userId)) {
     throw new Error("STOREFRONT_ADMIN_E2E_CLEANUP_SCOPE_INVALID");
   }
+  const variants = await state.admin
+    ?.from("storefront_image_publication_variants")
+    .select("object_path")
+    .eq("shop_id", fixture.shopId);
+  const publicPaths = variants?.data?.map((item) => item.object_path) ?? [];
+  if (publicPaths.length > 0) {
+    await state.admin?.storage
+      .from("storefront-product-images")
+      .remove(publicPaths);
+  }
+  await state.admin?.storage
+    .from("product-images")
+    .remove([
+      fixture.sourceMainPath,
+      fixture.sourceThumbPath,
+      fixture.replacementSourceMainPath,
+      fixture.replacementSourceThumbPath,
+    ]);
   execFileSync(
     "psql",
     [
@@ -215,7 +334,10 @@ async function cleanup() {
 
 test.beforeAll(async () => {
   const runtime = testRuntime();
-  test.skip(!runtime, "A guarded local or staging Supabase runtime is required.");
+  test.skip(
+    !runtime,
+    "A guarded local or staging Supabase runtime is required.",
+  );
   if (!runtime) return;
   state.publishableKey = runtime.publishableKey;
   state.supabaseUrl = runtime.supabaseUrl;
@@ -239,6 +361,12 @@ test.beforeAll(async () => {
   const categoryId = randomUUID();
   const productId = randomUUID();
   const publicCategoryId = randomUUID();
+  const sourceImageId = randomUUID();
+  const replacementSourceImageId = randomUUID();
+  const sourceMainPath = `shops/${shopId}/products/${productId}/primary/${sourceImageId}/main.jpg`;
+  const sourceThumbPath = `shops/${shopId}/products/${productId}/primary/${sourceImageId}/thumb.jpg`;
+  const replacementSourceMainPath = `shops/${shopId}/products/${productId}/primary/${replacementSourceImageId}/main.jpg`;
+  const replacementSourceThumbPath = `shops/${shopId}/products/${productId}/primary/${replacementSourceImageId}/thumb.jpg`;
   const productName = `Prodotto interno ${nonce}`;
   const publicName = `Caffè cliente ${nonce}`;
   const promotionName = `Sconto cliente ${nonce}`;
@@ -252,12 +380,33 @@ test.beforeAll(async () => {
     promotionName,
     publicCategoryId,
     publicName,
+    replacementSourceImageId,
+    replacementSourceMainPath,
+    replacementSourceThumbPath,
     shopId,
     shopSlug,
+    sourceImageId,
+    sourceMainPath,
+    sourceThumbPath,
     userId,
   };
   try {
     seedFixture(state.fixture, nonce);
+    for (const path of [
+      sourceMainPath,
+      sourceThumbPath,
+      replacementSourceMainPath,
+      replacementSourceThumbPath,
+    ]) {
+      const upload = await admin.storage
+        .from("product-images")
+        .upload(path, sourceJpeg, {
+          cacheControl: "3600",
+          contentType: "image/jpeg",
+          upsert: false,
+        });
+      if (upload.error) throw new Error("STOREFRONT_ADMIN_E2E_SOURCE_UPLOAD");
+    }
   } catch (error) {
     await cleanup();
     throw error;
@@ -266,7 +415,9 @@ test.beforeAll(async () => {
 
 test.afterAll(cleanup);
 
-test("owner publishes, previews, audits and pauses a Storefront product", async ({ page }) => {
+test("owner publishes, previews, audits and pauses a Storefront product", async ({
+  page,
+}) => {
   const fixture = state.fixture;
   if (!fixture || !state.supabaseUrl || !state.publishableKey) test.skip();
   if (!fixture || !state.supabaseUrl || !state.publishableKey) return;
@@ -278,27 +429,41 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
     page.waitForURL((url) => url.pathname === "/shop/storefront"),
     page.getByRole("button", { name: "Sign in" }).click(),
   ]);
-  await expect(page.getByRole("heading", { level: 1, name: "Storefront" })).toBeVisible();
-  const row = page.locator("article").filter({ hasText: fixture.productName }).first();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Storefront" }),
+  ).toBeVisible();
+  const row = page
+    .locator("article")
+    .filter({ hasText: fixture.productName })
+    .first();
   await expect(row).toBeVisible();
   await row.getByText("Modifica pubblicazione").click();
   await row.getByLabel("Nome pubblico").fill(fixture.publicName);
-  await row.getByLabel("Categoria pubblica").selectOption(fixture.publicCategoryId);
+  await row
+    .getByLabel("Categoria pubblica")
+    .selectOption(fixture.publicCategoryId);
   await row.getByLabel("Prezzo cliente CLP").fill("1000");
   await row.getByLabel("Prezzo precedente CLP").fill("1200");
   await row.getByLabel("Modalità prezzo").selectOption("override");
   await row.getByRole("checkbox", { name: "Ritiro", exact: true }).check();
   await row.getByLabel("Stato pubblicazione").selectOption("published");
   await Promise.all([
-    page.waitForURL((url) => url.pathname === "/shop/storefront" && url.searchParams.get("result") === "success"),
+    page.waitForURL(
+      (url) =>
+        url.pathname === "/shop/storefront" &&
+        url.searchParams.get("result") === "success",
+    ),
     row.getByRole("button", { name: "Salva e rivalida server-side" }).click(),
   ]);
   await expect(page.getByText(fixture.publicName).first()).toBeVisible();
-  await expect(page.getByText("published", { exact: true }).first()).toBeVisible();
+  await expect(
+    page.getByText("published", { exact: true }).first(),
+  ).toBeVisible();
 
   const publication = await must(
     "PUBLICATION_READ",
-    state.admin!.from("storefront_product_publications")
+    state
+      .admin!.from("storefront_product_publications")
       .select("id")
       .eq("shop_id", fixture.shopId)
       .eq("source_product_id", fixture.productId)
@@ -319,24 +484,35 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   expect(visible.item.name).toBe(fixture.publicName);
 
   const storefrontSections = page.getByLabel("Sezioni Storefront");
-  await storefrontSections.getByRole("link", { name: "Promozioni", exact: true }).click();
+  await storefrontSections
+    .getByRole("link", { name: "Promozioni", exact: true })
+    .click();
   const createPromotion = page.locator("form").filter({
     has: page.getByRole("button", { name: "Crea promozione" }),
   });
-  await createPromotion.getByLabel("Nome promozione").fill(fixture.promotionName);
+  await createPromotion
+    .getByLabel("Nome promozione")
+    .fill(fixture.promotionName);
   await createPromotion.getByLabel("Stato promozione").selectOption("active");
-  await createPromotion.getByLabel("Tipo sconto").selectOption("percentage_bps");
+  await createPromotion
+    .getByLabel("Tipo sconto")
+    .selectOption("percentage_bps");
   await createPromotion.getByLabel("Sconto percentuale").fill("10");
   await createPromotion.getByLabel("Fuso orario").selectOption("UTC");
-  await createPromotion.getByLabel("Inizio").fill(
-    new Date(Date.now() - 5 * 60_000).toISOString().slice(0, 16),
-  );
-  await createPromotion.getByLabel("Fine").fill(
-    new Date(Date.now() + 60 * 60_000).toISOString().slice(0, 16),
-  );
+  await createPromotion
+    .getByLabel("Inizio")
+    .fill(new Date(Date.now() - 5 * 60_000).toISOString().slice(0, 16));
+  await createPromotion
+    .getByLabel("Fine")
+    .fill(new Date(Date.now() + 60 * 60_000).toISOString().slice(0, 16));
   await createPromotion.getByLabel(`Includi ${fixture.publicName}`).check();
   await Promise.all([
-    page.waitForURL((url) => url.pathname === "/shop/storefront" && url.searchParams.get("area") === "promotions" && url.searchParams.get("result") === "success"),
+    page.waitForURL(
+      (url) =>
+        url.pathname === "/shop/storefront" &&
+        url.searchParams.get("area") === "promotions" &&
+        url.searchParams.get("result") === "success",
+    ),
     createPromotion.getByRole("button", { name: "Crea promozione" }).click(),
   ]);
   await expect(page.getByText(fixture.promotionName).first()).toBeVisible();
@@ -351,11 +527,19 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   expect(promoted.item.priceClp).toBe(900);
 
   await page.goto(`/shop/storefront?area=promotions&shop_id=${fixture.shopId}`);
-  const promotionCard = page.locator("article").filter({ hasText: fixture.promotionName }).first();
+  const promotionCard = page
+    .locator("article")
+    .filter({ hasText: fixture.promotionName })
+    .first();
   await promotionCard.getByText("Modifica promozione").click();
   await promotionCard.getByLabel("Stato promozione").selectOption("paused");
   await Promise.all([
-    page.waitForURL((url) => url.pathname === "/shop/storefront" && url.searchParams.get("area") === "promotions" && url.searchParams.get("result") === "success"),
+    page.waitForURL(
+      (url) =>
+        url.pathname === "/shop/storefront" &&
+        url.searchParams.get("area") === "promotions" &&
+        url.searchParams.get("result") === "success",
+    ),
     promotionCard.getByRole("button", { name: "Aggiorna promozione" }).click(),
   ]);
   const promotionPaused = await must(
@@ -367,16 +551,152 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   );
   expect(promotionPaused.item.priceClp).toBe(1000);
 
-  await storefrontSections.getByRole("link", { name: "Audit", exact: true }).click();
-  await expect(page.getByText("shop.storefront.publication.upsert.success")).toBeVisible();
-  await expect(page.getByText("shop.storefront.promotion.upsert.success").first()).toBeVisible();
-  await storefrontSections.getByRole("link", { name: "Catalogo", exact: true }).click();
-  const publishedRow = page.locator("article").filter({ hasText: fixture.publicName }).first();
+  await storefrontSections
+    .getByRole("link", { name: "Immagini pubbliche", exact: true })
+    .click();
+  const sourceCard = page
+    .locator("article")
+    .filter({ hasText: fixture.publicName })
+    .first();
+  await expect(
+    sourceCard.getByRole("button", { name: "Pubblica immagine" }),
+  ).toBeEnabled();
+  await sourceCard.getByRole("button", { name: "Pubblica immagine" }).click();
+  await expect(page.getByText("Immagine pubblica pronta.")).toBeVisible({
+    timeout: 30_000,
+  });
+
+  const firstPublicImage = await must(
+    "FIRST_PUBLIC_IMAGE",
+    state
+      .admin!.from("storefront_image_publications")
+      .select(
+        "id,publication_status,source_image_version_id,thumb_url,card_url,detail_url",
+      )
+      .eq("shop_id", fixture.shopId)
+      .eq("source_image_version_id", fixture.sourceImageId)
+      .single(),
+  );
+  expect(firstPublicImage.publication_status).toBe("published");
+  expect(firstPublicImage.thumb_url).toContain("/storefront-product-images/");
+  const firstVariants = await must(
+    "FIRST_PUBLIC_VARIANTS",
+    state
+      .admin!.from("storefront_image_publication_variants")
+      .select("variant,publication_status,object_path,content_type")
+      .eq("image_publication_id", firstPublicImage.id)
+      .order("variant"),
+  );
+  expect(firstVariants).toHaveLength(3);
+  expect(firstVariants.map((item) => item.variant).sort()).toEqual([
+    "card",
+    "detail",
+    "thumb",
+  ]);
+  expect(
+    firstVariants.every(
+      (item) =>
+        item.publication_status === "ready" &&
+        item.content_type === "image/webp",
+    ),
+  ).toBe(true);
+  const publicWithImage = await must(
+    "PUBLIC_DETAIL_IMAGE",
+    anon.rpc("storefront_product_detail_v1", {
+      p_publication_id: publication.id,
+      p_shop_slug: fixture.shopSlug,
+    }),
+  );
+  expect(publicWithImage.item.images.thumb).toContain(
+    "/storefront-product-images/",
+  );
+  expect(JSON.stringify(publicWithImage)).not.toContain("/product-images/");
+
+  activateReplacementSource(fixture);
+  await page.goto(`/shop/storefront?area=images&shop_id=${fixture.shopId}`);
+  const replacementCard = page
+    .locator("article")
+    .filter({ hasText: fixture.publicName })
+    .first();
+  await replacementCard
+    .getByRole("button", { name: "Sostituisci immagine" })
+    .click();
+  await expect(page.getByText("Immagine pubblica pronta.")).toBeVisible({
+    timeout: 30_000,
+  });
+  const replacementImage = await must(
+    "REPLACEMENT_PUBLIC_IMAGE",
+    state
+      .admin!.from("storefront_image_publications")
+      .select("id,publication_status")
+      .eq("shop_id", fixture.shopId)
+      .eq("source_image_version_id", fixture.replacementSourceImageId)
+      .single(),
+  );
+  expect(replacementImage.publication_status).toBe("published");
+  const supersededFirst = await must(
+    "SUPERSEDED_FIRST_IMAGE",
+    state
+      .admin!.from("storefront_image_publications")
+      .select("publication_status")
+      .eq("id", firstPublicImage.id)
+      .single(),
+  );
+  expect(supersededFirst.publication_status).toBe("superseded");
+
+  await page.goto(`/shop/storefront?area=images&shop_id=${fixture.shopId}`);
+  const priorVersion = page
+    .locator("article")
+    .filter({ hasText: firstPublicImage.id.slice(0, 8) });
+  await priorVersion.getByRole("button", { name: "Ripristina" }).click();
+  await expect(page.getByText("Rollback completato.")).toBeVisible({
+    timeout: 30_000,
+  });
+  const restoredPublication = await must(
+    "RESTORED_PUBLICATION_IMAGE",
+    state
+      .admin!.from("storefront_product_publications")
+      .select("published_image_version_id")
+      .eq("id", publication.id)
+      .single(),
+  );
+  expect(restoredPublication.published_image_version_id).toBe(
+    firstPublicImage.id,
+  );
+
+  await storefrontSections
+    .getByRole("link", { name: "Audit", exact: true })
+    .click();
+  await expect(
+    page.getByText("shop.storefront.publication.upsert.success"),
+  ).toBeVisible();
+  await expect(
+    page.getByText("shop.storefront.promotion.upsert.success").first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText("shop.storefront.image.publish.success").first(),
+  ).toBeVisible();
+  await expect(
+    page.getByText("shop.storefront.image.rollback.success"),
+  ).toBeVisible();
+  await storefrontSections
+    .getByRole("link", { name: "Catalogo", exact: true })
+    .click();
+  const publishedRow = page
+    .locator("article")
+    .filter({ hasText: fixture.publicName })
+    .first();
   await publishedRow.getByText("Modifica pubblicazione").click();
   await publishedRow.getByLabel("Stato pubblicazione").selectOption("paused");
   await Promise.all([
-    page.waitForURL((url) => url.pathname === "/shop/storefront" && url.searchParams.get("result") === "success"),
-    publishedRow.getByRole("button", { name: "Salva e rivalida server-side" }).click(),
+    page.waitForURL(
+      (url) =>
+        url.pathname === "/shop/storefront" &&
+        url.searchParams.get("result") === "success",
+    ),
+    publishedRow
+      .getByRole("button", { name: "Salva e rivalida server-side" })
+      .click(),
   ]);
   const hidden = await must(
     "PUBLIC_DETAIL_AFTER_PAUSE",
