@@ -141,13 +141,31 @@ export function validateClientFixtureTarget(env = process.env) {
   };
 }
 
-async function fixtureUserId(client) {
-  for (let page = 1; page <= 20; page += 1) {
-    const result = await client.auth.admin.listUsers({ page, perPage: 100 });
-    if (result.error) throw new Error("client_fixture_user_lookup_failed");
-    const match = result.data.users.find((user) => user.email === FIXTURE_EMAIL);
-    if (match) return match.id;
-    if (result.data.users.length < 100) break;
+async function fixtureUserId(client, databaseUrl) {
+  let existing = "";
+  try {
+    existing = execFileSync(
+      "psql",
+      [
+        databaseUrl,
+        "-X",
+        "-qAt",
+        "-v",
+        "ON_ERROR_STOP=1",
+        "-c",
+        `select id from auth.users where email='${FIXTURE_EMAIL}' limit 2`,
+      ],
+      { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+    ).trim();
+  } catch {
+    throw new Error("client_fixture_user_lookup_failed");
+  }
+  if (existing) {
+    const rows = existing.split(/\r?\n/).filter(Boolean);
+    if (rows.length !== 1 || !UUID.test(rows[0])) {
+      throw new Error("client_fixture_user_lookup_invalid");
+    }
+    return rows[0];
   }
   const created = await client.auth.admin.createUser({
     email: FIXTURE_EMAIL,
@@ -424,7 +442,7 @@ export async function runClientFixture(env = process.env) {
     auth: { autoRefreshToken: false, persistSession: false },
     global: { headers: { "X-Client-Info": "storefront-v1-client-fixture-seed" } },
   });
-  const userId = await fixtureUserId(client);
+  const userId = await fixtureUserId(client, target.databaseUrl);
   const assets = await publicAssets(target.supabaseOrigin);
   await uploadAssets(client, assets);
   execFileSync("psql", [target.databaseUrl, "-v", "ON_ERROR_STOP=1", "-f", "-"], {
