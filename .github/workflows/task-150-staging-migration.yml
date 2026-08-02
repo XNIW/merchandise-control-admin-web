@@ -26,9 +26,9 @@ concurrency:
 env:
   SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
   EXPECTED_STAGING_SUPABASE_PROJECT_REF: jpgoimipbothfgkokyvm
-  EXPECTED_MIGRATION_VERSION: "20260801024000"
-  EXPECTED_MIGRATION_NAME: task_150_opaque_secret_role_compat
-  EXPECTED_MIGRATION_FILE: 20260801024000_task_150_opaque_secret_role_compat.sql
+  EXPECTED_MIGRATION_VERSION: "20260802015520"
+  EXPECTED_MIGRATION_NAME: task_150_storage_cleanup_recovery
+  EXPECTED_MIGRATION_FILE: 20260802015520_task_150_storage_cleanup_recovery.sql
   REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
   REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
   REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
@@ -199,9 +199,48 @@ jobs:
                 'task_150_win7pos_image_qa_rotation_ack_v1',
                 'task_150_win7pos_image_qa_result_issue_v1',
                 'task_150_win7pos_image_qa_cleanup_acquire_v1',
+                'task_150_win7pos_image_qa_cleanup_acquire_v2',
                 'task_150_win7pos_image_qa_cleanup_commit_v1',
                 'task_150_win7pos_image_qa_result_v1'
               ]::text[])
+          ), cleanup_acquire_private as (
+            select p.oid, p.prosrc, p.prosecdef, p.proconfig
+            from pg_proc p
+            join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'app_private'
+              and p.proname = 'task_150_win7pos_image_qa_cleanup_acquire_impl'
+              and p.oid = pg_catalog.to_regprocedure(
+                'app_private.task_150_win7pos_image_qa_cleanup_acquire_impl(text,text,text,text,text,boolean)'
+              )::oid
+          ), cleanup_actor_revoke_private as (
+            select p.oid, p.prosrc, p.prosecdef, p.proconfig
+            from pg_proc p
+            join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'app_private'
+              and p.proname = 'task_150_win7pos_image_qa_cleanup_revoke_actors_v1'
+              and p.oid = pg_catalog.to_regprocedure(
+                'app_private.task_150_win7pos_image_qa_cleanup_revoke_actors_v1(text)'
+              )::oid
+          ), storage_terminal_guard as (
+            select
+              p.oid,
+              p.prosrc,
+              p.prosecdef,
+              p.proconfig,
+              t.tgenabled,
+              t.tgtype,
+              pg_get_triggerdef(t.oid) as trigger_definition
+            from pg_trigger t
+            join pg_proc p on p.oid = t.tgfoid
+            join pg_class c on c.oid = t.tgrelid
+            join pg_namespace n on n.oid = c.relnamespace
+            where not t.tgisinternal
+              and t.tgname = 'task_150_qa_require_storage_absent_on_clean_trigger'
+              and n.nspname = 'app_private'
+              and c.relname = 'task_150_win7pos_image_qa_runs'
+              and p.oid = pg_catalog.to_regprocedure(
+                'app_private.task_150_qa_require_storage_absent_on_clean_v2()'
+              )::oid
           ), private_tables as (
             select c.oid
             from pg_class c
@@ -227,6 +266,12 @@ jobs:
               where version = '20260801024000'
                 and name = 'task_150_opaque_secret_role_compat'
             ),
+            'recoveryMigrationLedgerExact', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260802015520'
+                and name = 'task_150_storage_cleanup_recovery'
+            ),
             'publicFunctionCount', (select count(*) from public_functions),
             'opaqueSecretRoleCompat', (
               select bool_and(
@@ -240,6 +285,140 @@ jobs:
                 ) > 0
               )
               from public_functions
+            ),
+            'cleanupAcquireLegacyExact', (
+              select count(*) = 1
+              from public_functions
+              where oid = pg_catalog.to_regprocedure(
+                  'public.task_150_win7pos_image_qa_cleanup_acquire_v1(text,text,text,text,text)'
+                )::oid
+                and position(
+                  'app_private.task_150_win7pos_image_qa_cleanup_acquire_impl'
+                  in prosrc
+                ) > 0
+                and prosrc ~ 'p_owner_digest,[[:space:]]+false[[:space:]]*\)'
+            ) and (
+              select count(*) = 1
+              from cleanup_acquire_private
+              where position(
+                  'cleanup_capability_expires_at + interval ''6 hours'''
+                  in prosrc
+                ) > 0
+                and position(
+                  'not p_allow_storage_paths and exists'
+                  in prosrc
+                ) > 0
+                and position(
+                  '''/products/'' || v_run.run_product_id::text'
+                  in prosrc
+                ) > 0
+                and position('storage_cleanup_incomplete' in prosrc) > 0
+            ),
+            'cleanupAcquireRecoveryExact', (
+              select count(*) = 1
+              from public_functions
+              where oid = pg_catalog.to_regprocedure(
+                  'public.task_150_win7pos_image_qa_cleanup_acquire_v2(text,text,text,text,text)'
+                )::oid
+                and position(
+                  'app_private.task_150_win7pos_image_qa_cleanup_acquire_impl'
+                  in prosrc
+                ) > 0
+                and prosrc ~ 'p_owner_digest,[[:space:]]+true[[:space:]]*\)'
+            ) and (
+              select count(*) = 1
+              from cleanup_acquire_private
+              where position('v_version_count > 2' in prosrc) > 0
+                and position(
+                  'p_allow_storage_paths and jsonb_array_length(v_paths) > 4'
+                  in prosrc
+                ) > 0
+                and position('delete from storage.objects' in lower(prosrc)) = 0
+                and position('update storage.objects' in lower(prosrc)) = 0
+            ),
+            'cleanupAcquirePrivateDenied', (
+              select count(*) = 1
+                and bool_and(prosecdef)
+                and bool_and(
+                  'search_path=""' = any(coalesce(proconfig, array[]::text[]))
+                )
+                and bool_and(
+                  not has_function_privilege('service_role', oid, 'execute')
+                )
+                and bool_and(not has_function_privilege('anon', oid, 'execute'))
+                and bool_and(
+                  not has_function_privilege('authenticated', oid, 'execute')
+                )
+                and bool_and(
+                  position(
+                    'current_setting(''request.jwt.claim.role'', true)'
+                    in prosrc
+                  ) > 0
+                  and position(
+                    'current_setting(''role'', true)'
+                    in prosrc
+                  ) > 0
+                )
+              from cleanup_acquire_private
+            ),
+            'cleanupInvariantActorRevocation', (
+              select count(*) = 1
+                and bool_and(prosecdef)
+                and bool_and(
+                  'search_path=""' = any(coalesce(proconfig, array[]::text[]))
+                )
+                and bool_and(
+                  not has_function_privilege('service_role', oid, 'execute')
+                )
+                and bool_and(not has_function_privilege('anon', oid, 'execute'))
+                and bool_and(
+                  not has_function_privilege('authenticated', oid, 'execute')
+                )
+                and bool_and(position('update public.pos_sessions' in prosrc) > 0)
+                and bool_and(
+                  position('update public.pos_device_credentials' in prosrc) > 0
+                )
+                and bool_and(position('update public.shop_devices' in prosrc) > 0)
+                and bool_and(position('update public.staff_accounts' in prosrc) > 0)
+              from cleanup_actor_revoke_private
+            ) and (
+              select count(*) = 1
+                and bool_and(
+                  position(
+                    'task_150_win7pos_image_qa_cleanup_revoke_actors_v1'
+                    in prosrc
+                  ) > 0
+                )
+              from cleanup_acquire_private
+            ),
+            'cleanupTerminalStorageGuard', (
+              select count(*) = 1
+                and bool_and(tgenabled = 'O')
+                and bool_and(tgtype = 19)
+                and bool_and(
+                  position('BEFORE UPDATE OF status ON' in trigger_definition) > 0
+                )
+                and bool_and(
+                  position('FOR EACH ROW EXECUTE FUNCTION' in trigger_definition) > 0
+                )
+                and bool_and(prosecdef)
+                and bool_and(
+                  'search_path=""' = any(coalesce(proconfig, array[]::text[]))
+                )
+                and bool_and(
+                  not has_function_privilege('service_role', oid, 'execute')
+                )
+                and bool_and(
+                  position('new.status = ''cleaned''' in prosrc) > 0
+                )
+                and bool_and(position('storage.objects' in prosrc) > 0)
+                and bool_and(
+                  position(
+                    '''/products/'' || new.run_product_id::text'
+                    in prosrc
+                  ) > 0
+                )
+              from storage_terminal_guard
             ),
             'securityDefinerAndSafeSearchPath', (
               select bool_and(
@@ -294,7 +473,13 @@ jobs:
           const requiredTrue = [
             "baseMigrationLedgerExact",
             "compatMigrationLedgerExact",
+            "recoveryMigrationLedgerExact",
             "opaqueSecretRoleCompat",
+            "cleanupAcquireLegacyExact",
+            "cleanupAcquireRecoveryExact",
+            "cleanupAcquirePrivateDenied",
+            "cleanupInvariantActorRevocation",
+            "cleanupTerminalStorageGuard",
             "securityDefinerAndSafeSearchPath",
             "serviceRoleExecute",
             "anonExecuteDenied",
@@ -306,7 +491,7 @@ jobs:
           ];
           if (
             requiredTrue.some((key) => report[key] !== true) ||
-            Number(report.publicFunctionCount) !== 10 ||
+            Number(report.publicFunctionCount) !== 11 ||
             Number(report.privateTableCount) !== 3
           ) process.exit(1);
           NODE
