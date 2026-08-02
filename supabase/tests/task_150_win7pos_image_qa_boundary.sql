@@ -555,14 +555,6 @@ insert into task150_results values (
   )
 );
 
-insert into task150_results values (
-  'cleanup_acquire',
-  public.task_150_win7pos_image_qa_cleanup_acquire_v2(
-    repeat('a', 64), repeat('b', 64), repeat('f', 64), repeat('3', 64),
-    repeat('4', 64)
-  )
-);
-
 set local role postgres;
 
 select ok(
@@ -575,6 +567,19 @@ select ok(
        where pos_session_id = '60000000-0000-4000-8000-000000000150'),
   'TASK150_CASE_13C V1 rejects residual Storage before state or actor mutation'
 );
+
+select set_config('request.jwt.claim.role', 'service_role', true);
+set local role service_role;
+
+insert into task150_results values (
+  'cleanup_acquire',
+  public.task_150_win7pos_image_qa_cleanup_acquire_v2(
+    repeat('a', 64), repeat('b', 64), repeat('f', 64), repeat('3', 64),
+    repeat('4', 64)
+  )
+);
+
+set local role postgres;
 
 select ok(
   (select result->>'code' = 'cleanup_acquired'
