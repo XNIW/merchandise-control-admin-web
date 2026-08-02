@@ -418,6 +418,7 @@ test.afterAll(cleanup);
 test("owner publishes, previews, audits and pauses a Storefront product", async ({
   page,
 }) => {
+  test.setTimeout(120_000);
   const fixture = state.fixture;
   if (!fixture || !state.supabaseUrl || !state.publishableKey) test.skip();
   if (!fixture || !state.supabaseUrl || !state.publishableKey) return;

@@ -281,6 +281,8 @@ test("TASK-009 control plane has no file input and uses private-source to immuta
     'form.append("cacheControl", "31536000")',
     'mimeType: "image/webp"',
     'colorSpace: "srgb"',
+    "IMAGE_OPERATION_TIMEOUT_MS",
+    "image_operation_timeout",
     "uploadOrigin",
   ])
     assert.match(

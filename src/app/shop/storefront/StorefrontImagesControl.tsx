@@ -19,6 +19,7 @@ type Metadata = {
 };
 type Prepared = Record<Variant, { blob: Blob; metadata: Metadata }>;
 const VARIANTS = ["thumb", "card", "detail"] as const;
+const IMAGE_OPERATION_TIMEOUT_MS = 60_000;
 const LIMITS = {
   thumb: {
     maxBytes: 120 * 1024,
@@ -275,6 +276,10 @@ export function StorefrontImagesControl({
   async function publish(candidate: StorefrontImageCandidate) {
     if (!UUID.test(shopId) || !candidate.sourceReady || busy) return;
     const controller = new AbortController();
+    const timeout = window.setTimeout(
+      () => controller.abort("image_operation_timeout"),
+      IMAGE_OPERATION_TIMEOUT_MS,
+    );
     setBusy(candidate.publicationId);
     setMessage("Caricamento sorgente privata…");
     try {
@@ -352,10 +357,16 @@ export function StorefrontImagesControl({
       setMessage("Immagine pubblica pronta.");
       router.refresh();
     } catch (error) {
+      const code = controller.signal.aborted
+        ? "image_operation_timeout"
+        : error instanceof Error
+          ? error.message
+          : "image_operation_failed";
       setMessage(
-        `Errore: ${error instanceof Error ? error.message : "image_operation_failed"}`,
+        `Errore: ${code}`,
       );
     } finally {
+      window.clearTimeout(timeout);
       setBusy(null);
     }
   }
