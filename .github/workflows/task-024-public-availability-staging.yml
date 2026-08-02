@@ -1,0 +1,38 @@
+name: TASK-024 Public Availability Staging
+
+on:
+  push:
+    branches:
+      - integration/storefront-v1
+    paths:
+      - .github/workflows/storefront-v1-staging-migrations.yml
+      - .github/workflows/task-024-public-availability-staging.yml
+      - supabase/migrations/20260802220000_storefront_v1_public_availability.sql
+      - supabase/tests/storefront_v1_public_availability.sql
+      - supabase/tests/storefront_v1_public_api.sql
+      - scripts/testing/storefront-v1-availability-concurrency.sh
+      - tests/foundation/storefront-v1-public-availability.test.mjs
+      - src/app/shop/storefront/page.tsx
+      - src/app/shop/storefront/actions.ts
+      - src/server/shop-admin/storefront-mutations.ts
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-024-public-availability-staging
+  cancel-in-progress: false
+
+jobs:
+  staging-public-availability-contract:
+    uses: ./.github/workflows/storefront-v1-staging-migrations.yml
+    with:
+      mode: apply
+      expected_head_sha: ${{ github.sha }}
+      expected_migration_version: "20260802220000"
+      expected_migration_name: storefront_v1_public_availability
+      expected_migration_file: 20260802220000_storefront_v1_public_availability.sql
+      apply_confirmation: APPLY_STOREFRONT_V1_STAGING
+      load_hold_seconds: "0"
+      run_performance_load: false
+    secrets: inherit

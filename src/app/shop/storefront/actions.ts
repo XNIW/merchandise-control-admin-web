@@ -60,7 +60,6 @@ export async function saveStorefrontPublicationAction(formData: FormData) {
   }
 
   const result = await upsertStorefrontPublication({
-    availabilityMode: formString(formData, "availabilityMode"),
     compareAtPriceClp,
     deliveryEnabled: checked(formData, "deliveryEnabled"),
     featured: checked(formData, "featured"),

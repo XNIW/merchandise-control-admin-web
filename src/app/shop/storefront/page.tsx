@@ -196,7 +196,7 @@ function publicationAvailabilityLabel(value: string | null) {
     pickup_only: "Solo ritiro",
     reservation_only: "Solo prenotazione",
     unavailable: "Non disponibile",
-  }[value ?? "available"] ?? "Disponibilità da verificare";
+  }[value ?? "unavailable"] ?? "Disponibilità da verificare";
 }
 
 function PublicationCardPreview({ row }: { row: StorefrontPublicationRow }) {
@@ -308,17 +308,19 @@ function PublicationEditor({ model, row }: { model: StorefrontPublicationsReadMo
             {images.map((image) => <option key={image.id} value={image.id}>{image.status} · {image.id.slice(0, 8)}</option>)}
           </select>
         </label>
-        <label className="grid gap-1 text-xs font-medium text-zinc-700">
-          Disponibilità commerciale
-          <select className={fieldClassName} defaultValue={row.availabilityMode ?? "available"} name="availabilityMode">
-            <option value="available">Disponibile</option>
-            <option value="low_stock">Scorte basse</option>
-            <option value="unavailable">Non disponibile</option>
-            <option value="reservation_only">Solo prenotazione</option>
-            <option value="pickup_only">Solo ritiro</option>
-            <option value="delivery_only">Solo consegna</option>
-          </select>
-        </label>
+        <div
+          aria-label={`Disponibilità commerciale: ${publicationAvailabilityLabel(row.availabilityMode)}`}
+          className="grid gap-1 rounded-md border border-zinc-200 bg-white p-3"
+          role="status"
+        >
+          <span className="text-xs font-medium text-zinc-700">Disponibilità commerciale</span>
+          <span className="text-sm font-semibold text-zinc-950">
+            {publicationAvailabilityLabel(row.availabilityMode)}
+          </span>
+          <span className="text-xs leading-5 text-zinc-500">
+            Derivata server-side dallo stato operativo e dalle modalità abilitate. La quantità resta privata.
+          </span>
+        </div>
         <fieldset className="grid gap-2 rounded-md border border-zinc-200 bg-white p-3 text-sm md:col-span-2">
           <legend className="px-1 text-xs font-semibold text-zinc-700">Fulfillment e visibilità</legend>
           <label><input defaultChecked={row.pickupEnabled} name="pickupEnabled" type="checkbox" /> <span className="ml-2">Ritiro</span></label>

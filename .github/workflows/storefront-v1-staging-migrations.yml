@@ -1259,6 +1259,153 @@ jobs:
           if (Object.values(checks).some((value) => !value)) process.exit(1);
           NODE
 
+      - name: Verify TASK-024 public availability contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260802220000'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_public_availability.sql \
+              > _storefront-migration/evidence/task-024-pgtap.txt
+          docker run --rm --network host \
+            -e STOREFRONT_AVAILABILITY_DB_URL="$SOURCE_DB_URL" \
+            -e STOREFRONT_AVAILABILITY_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_AVAILABILITY \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-availability-concurrency.sh \
+              > _storefront-migration/evidence/task-024-concurrency.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260802220000'
+                    and name = 'storefront_v1_public_availability'
+                ),
+                'privateSignalTable',
+                  to_regclass(
+                    'app_private.storefront_product_availability_signals'
+                  ) is not null,
+                'signalColumnsNoLeak', not exists (
+                  select 1
+                  from information_schema.columns
+                  where table_schema = 'app_private'
+                    and table_name = 'storefront_product_availability_signals'
+                    and column_name in (
+                      'stock_quantity', 'purchase_price', 'supplier_id',
+                      'owner_user_id'
+                    )
+                ),
+                'mobileTableDenied',
+                  not has_table_privilege(
+                    'anon',
+                    'app_private.storefront_product_availability_signals',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated',
+                    'app_private.storefront_product_availability_signals',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'serviceRoleBoundary',
+                  has_table_privilege(
+                    'service_role',
+                    'app_private.storefront_product_availability_signals',
+                    'SELECT'
+                  )
+                  and not has_table_privilege(
+                    'service_role',
+                    'app_private.storefront_product_availability_signals',
+                    'INSERT,UPDATE,DELETE'
+                  )
+                  and has_function_privilege(
+                    'service_role',
+                    'public.storefront_availability_ingest_v1(uuid,uuid,bigint,text,timestamptz,timestamptz,text)',
+                    'EXECUTE'
+                  ),
+                'mobileIngestDenied',
+                  not has_function_privilege(
+                    'anon',
+                    'public.storefront_availability_ingest_v1(uuid,uuid,bigint,text,timestamptz,timestamptz,text)',
+                    'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'authenticated',
+                    'public.storefront_availability_ingest_v1(uuid,uuid,bigint,text,timestamptz,timestamptz,text)',
+                    'EXECUTE'
+                  ),
+                'resolverShared',
+                  pg_get_functiondef(
+                    'app_private.storefront_catalog_source_v1(uuid,uuid,timestamptz)'
+                      ::regprocedure
+                  ) like '%storefront_effective_availability_v1%'
+                  and pg_get_functiondef(
+                    'app_private.storefront_public_catalog_rows_scoped_v1(uuid,timestamptz,uuid[])'
+                      ::regprocedure
+                  ) like '%storefront_effective_availability_v1%',
+                'ingestHardened', (
+                  select procedure.prosecdef
+                    and (
+                      'search_path='
+                      || pg_catalog.chr(34)
+                      || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
+                  from pg_catalog.pg_proc procedure
+                  where procedure.oid =
+                    'public.storefront_availability_ingest_v1(uuid,uuid,bigint,text,timestamptz,timestamptz,text)'
+                      ::regprocedure
+                )
+              )" \
+              > _storefront-migration/evidence/task-024-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-024-pgtap.txt",
+            "utf8",
+          );
+          const concurrency = readFileSync(
+            "_storefront-migration/evidence/task-024-concurrency.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-024-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            migrationLedgerExact: report.migrationLedgerExact === true,
+            privateSignalTable: report.privateSignalTable === true,
+            signalColumnsNoLeak: report.signalColumnsNoLeak === true,
+            mobileTableDenied: report.mobileTableDenied === true,
+            serviceRoleBoundary: report.serviceRoleBoundary === true,
+            mobileIngestDenied: report.mobileIngestDenied === true,
+            resolverShared: report.resolverShared === true,
+            ingestHardened: report.ingestHardened === true,
+            pgTapPlan: /^1\.\.44$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 44,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+            concurrency:
+              /one apply, one duplicate, final version 2, PASS/.test(
+                concurrency,
+              ),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
       - name: Benchmark Storefront contract on staging and clean fixtures
         if: inputs.mode == 'apply' && inputs.run_performance_load
         env:

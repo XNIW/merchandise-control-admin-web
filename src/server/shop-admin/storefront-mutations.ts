@@ -13,7 +13,6 @@ import {
 } from "./staff-web-lease-bound-rpc";
 
 type StorefrontPublicationMutationInput = {
-  availabilityMode: string;
   compareAtPriceClp?: number;
   deliveryEnabled: boolean;
   featured: boolean;
@@ -40,7 +39,6 @@ function permissionForPublicationStatus(status: string) {
 
 function toJsonPayload(input: StorefrontPublicationMutationInput) {
   return {
-    availabilityMode: input.availabilityMode,
     compareAtPriceClp: input.compareAtPriceClp,
     deliveryEnabled: input.deliveryEnabled,
     featured: input.featured,

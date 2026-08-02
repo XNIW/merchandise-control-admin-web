@@ -426,6 +426,18 @@ select pg_catalog.jsonb_build_object(
       where shop_id = '10000000-0000-4000-8000-000000010900'),
     'projectionRows', (select count(*) from public.storefront_catalog_items
       where shop_id = '10000000-0000-4000-8000-000000010900'),
+    'availabilitySignals', (select count(*)
+      from app_private.storefront_product_availability_signals
+      where shop_id = '10000000-0000-4000-8000-000000010900'),
+    'availabilityStateCounts', (
+      select pg_catalog.jsonb_object_agg(signal_state, state_count)
+      from (
+        select signal.signal_state, count(*) as state_count
+        from app_private.storefront_product_availability_signals signal
+        where signal.shop_id = '10000000-0000-4000-8000-000000010900'
+        group by signal.signal_state
+      ) availability_states
+    ),
     'projectionIndexBytes', (
       select sum(pg_catalog.pg_relation_size(index_row.indexrelid))
       from pg_catalog.pg_index index_row
@@ -451,6 +463,9 @@ select pg_catalog.jsonb_build_object(
       + (select count(*) from public.storefront_product_publications
         where shop_id = '10000000-0000-4000-8000-000000010900')
       + (select count(*) from public.storefront_catalog_items
+        where shop_id = '10000000-0000-4000-8000-000000010900')
+      + (select count(*)
+        from app_private.storefront_product_availability_signals
         where shop_id = '10000000-0000-4000-8000-000000010900')
       + (select count(*) from public.storefront_promotion_products
         where shop_id = '10000000-0000-4000-8000-000000010900')

@@ -476,6 +476,15 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   await expect(
     row.getByLabel(`Anteprima cliente ${fixture.productName}`),
   ).toBeVisible();
+  const derivedAvailability = row.getByRole("status", {
+    name: "Disponibilità commerciale: Non disponibile",
+  });
+  await expect(derivedAvailability).toBeVisible();
+  await expect(derivedAvailability).toContainText(
+    "Derivata server-side dallo stato operativo",
+  );
+  await expect(derivedAvailability).toContainText("La quantità resta privata");
+  await expect(row.locator('[name="availabilityMode"]')).toHaveCount(0);
   await attachUiScreenshot(page, testInfo, "admin-storefront-editor");
   await row.getByLabel("Nome pubblico").fill(fixture.publicName);
   await row
@@ -497,6 +506,16 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   await expect(page.getByText(fixture.publicName).first()).toBeVisible();
   await expect(
     page.getByText("published", { exact: true }).first(),
+  ).toBeVisible();
+  const publishedRow = page
+    .locator("article")
+    .filter({ hasText: fixture.publicName })
+    .first();
+  await publishedRow.getByText("Modifica pubblicazione").click();
+  await expect(
+    publishedRow.getByRole("status", {
+      name: "Disponibilità commerciale: Solo ritiro",
+    }),
   ).toBeVisible();
 
   const publication = await must(
@@ -521,6 +540,7 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   );
   expect(visible.status).toBe("ok");
   expect(visible.item.name).toBe(fixture.publicName);
+  expect(visible.item.availability).toBe("pickup_only");
 
   await storefrontSections
     .getByRole("link", { name: "Promozioni", exact: true })
@@ -728,10 +748,6 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   await storefrontSections
     .getByRole("link", { name: "Catalogo", exact: true })
     .click();
-  const publishedRow = page
-    .locator("article")
-    .filter({ hasText: fixture.publicName })
-    .first();
   await publishedRow.getByText("Modifica pubblicazione").click();
   await publishedRow.getByLabel("Stato pubblicazione").selectOption("paused");
   await Promise.all([
