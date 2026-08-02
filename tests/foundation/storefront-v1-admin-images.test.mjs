@@ -374,11 +374,11 @@ test("TASK-009 cleanup accepts only canonical objects on an allowlisted staging 
 test("Storefront staging migration is exact-SHA guarded and retains the image boundary", () => {
   assert.match(
     stagingMigrationWorkflow,
-    /EXPECTED_MIGRATION_VERSION: "20260802033000"/,
+    /EXPECTED_MIGRATION_VERSION: "20260802043000"/,
   );
   assert.match(
     stagingMigrationWorkflow,
-    /EXPECTED_MIGRATION_NAME: storefront_v1_catalog_version_contract/,
+    /EXPECTED_MIGRATION_NAME: storefront_v1_catalog_performance/,
   );
   assert.match(stagingMigrationWorkflow, /publicImagesLedgerRetained/);
   for (const marker of [

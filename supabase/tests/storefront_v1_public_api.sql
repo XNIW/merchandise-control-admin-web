@@ -470,6 +470,27 @@ select is(
   'search includes the approved public brand'
 );
 
+create temp table task019_search_cursor as
+select public.storefront_search_v1(
+  'api-fixture-a', 'casa', null, 1
+) as first_page;
+
+select ok(
+  (select first_page ->> 'nextCursor' from task019_search_cursor) is not null,
+  'search emits a continuation cursor for a bounded first page'
+);
+
+select is(
+  public.storefront_search_v1(
+    'api-fixture-a',
+    'casa',
+    (select first_page ->> 'nextCursor' from task019_search_cursor),
+    1
+  ) -> 'items' -> 0 ->> 'id',
+  '50000000-0000-4000-8000-000000010002',
+  'search continuation is deterministic and does not repeat the first item'
+);
+
 select is(
   public.storefront_search_v1('api-fixture-a', 'cafecito') -> 'items' -> 0 ->> 'id',
   '50000000-0000-4000-8000-000000010001',

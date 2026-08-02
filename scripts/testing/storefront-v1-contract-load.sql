@@ -343,6 +343,19 @@ select pg_catalog.jsonb_build_object(
 
 commit;
 
+\if :storefront_hold_enabled
+\warn TASK019_FIXTURE_READY hold_seconds=:storefront_hold_seconds
+\endif
+
+select pg_catalog.jsonb_build_object(
+  'fixtureReady', true,
+  'holdSeconds', :'storefront_hold_seconds'::integer
+)::text
+where :'storefront_hold_seconds'::integer > 0;
+
+select pg_catalog.pg_sleep(:'storefront_hold_seconds'::double precision)
+where :'storefront_hold_seconds'::integer > 0;
+
 begin;
 set local role postgres;
 delete from public.storefront_promotion_products

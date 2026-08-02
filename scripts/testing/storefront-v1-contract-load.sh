@@ -6,6 +6,8 @@ storefront_repo_root="$(cd "${storefront_script_dir}/../.." && pwd)"
 storefront_local_database_url="postgresql://postgres:postgres@127.0.0.1:54322/postgres"
 storefront_database_url="${STOREFRONT_DATABASE_URL:-${storefront_local_database_url}}"
 storefront_sql="${storefront_repo_root}/scripts/testing/storefront-v1-contract-load.sql"
+storefront_hold_seconds="${STOREFRONT_LOAD_HOLD_SECONDS:-0}"
+storefront_hold_enabled="false"
 storefront_cleanup_sql="begin;
 delete from public.storefront_promotion_products where shop_id = '10000000-0000-4000-8000-000000010900';
 delete from public.storefront_promotions where shop_id = '10000000-0000-4000-8000-000000010900';
@@ -26,6 +28,15 @@ storefront_cleanup() {
 }
 
 trap storefront_cleanup EXIT
+
+if [[ ! "${storefront_hold_seconds}" =~ ^[0-9]+$ ]] \
+  || (( storefront_hold_seconds > 900 )); then
+  printf 'TASK-019 hold non valido: usare un intero tra 0 e 900 secondi.\n' >&2
+  exit 1
+fi
+if (( storefront_hold_seconds > 0 )); then
+  storefront_hold_enabled="true"
+fi
 
 if [[ "${storefront_database_url}" != "${storefront_local_database_url}" ]]; then
   if [[ "${STOREFRONT_LOAD_ALLOW_REMOTE:-}" != "APPLY_STOREFRONT_V1_STAGING_LOAD" ]]; then
@@ -53,6 +64,8 @@ storefront_result="$(
     --tuples-only \
     --no-align \
     --set ON_ERROR_STOP=1 \
+    --set storefront_hold_enabled="${storefront_hold_enabled}" \
+    --set storefront_hold_seconds="${storefront_hold_seconds}" \
     --file "${storefront_sql}"
 )"
 
