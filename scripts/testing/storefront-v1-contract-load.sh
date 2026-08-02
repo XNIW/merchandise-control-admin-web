@@ -73,6 +73,11 @@ storefront_result="$(
 
 printf '%s\n' "${storefront_result}" | sed '/^[[:space:]]*$/d'
 
+if (( storefront_hold_seconds > 0 )); then
+  sleep "${storefront_hold_seconds}"
+  storefront_cleanup
+fi
+
 storefront_residue="$(
   psql "${storefront_database_url}" \
     --quiet \
