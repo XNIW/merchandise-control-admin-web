@@ -1152,7 +1152,7 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
     migrationWorkflow,
     /APPROVED_REMOTE_ONLY_MANIFEST: scripts\/task-150-staging-remote-only-ledger\.json/,
   );
-  assert.equal(approvedRemoteOnly.length, 8);
+  assert.equal(approvedRemoteOnly.length, 9);
   assert.deepEqual(
     approvedRemoteOnly.map((row) => row.version),
     [
@@ -1164,6 +1164,7 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
       "20260802001000",
       "20260802010000",
       "20260802023000",
+      "20260802033000",
     ],
   );
   assert.match(

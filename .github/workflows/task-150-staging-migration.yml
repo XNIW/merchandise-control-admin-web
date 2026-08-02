@@ -142,7 +142,7 @@ jobs:
           const rows = JSON.parse(
             readFileSync(process.env.APPROVED_REMOTE_ONLY_MANIFEST, "utf8"),
           );
-          if (!Array.isArray(rows) || rows.length !== 8) process.exit(1);
+          if (!Array.isArray(rows) || rows.length !== 9) process.exit(1);
           for (const row of rows) {
             if (
               !/^(\d{8}|\d{14})$/.test(row.version ?? "") ||
@@ -478,7 +478,7 @@ jobs:
                 and name = 'task_150_storage_cleanup_recovery'
             ),
             'approvedSharedStagingLedgerRetained', (
-              select count(*) = 8
+              select count(*) = 9
               from supabase_migrations.schema_migrations
               where (version, name) in (
                 values
@@ -489,7 +489,8 @@ jobs:
                   ('20260801230000', 'storefront_v1_public_api_planner'),
                   ('20260802001000', 'storefront_v1_admin_publications'),
                   ('20260802010000', 'storefront_v1_admin_promotions'),
-                  ('20260802023000', 'storefront_v1_public_images')
+                  ('20260802023000', 'storefront_v1_public_images'),
+                  ('20260802033000', 'storefront_v1_catalog_version_contract')
               )
             ),
             'publicFunctionCount', (select count(*) from public_functions),
