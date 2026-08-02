@@ -6,11 +6,13 @@ import { createLocalizedPageMetadata } from "@/i18n/metadata";
 import {
   getStorefrontPublicationsReadModel,
   type StorefrontPublicationRow,
+  type StorefrontPromotionRow,
   type StorefrontPublicationsReadModel,
 } from "@/server/shop-admin/storefront-read-model";
 import {
   bulkPauseStorefrontAction,
   bulkPublishStorefrontAction,
+  saveStorefrontPromotionAction,
   saveStorefrontPublicationAction,
 } from "./actions";
 
@@ -92,7 +94,7 @@ function clp(value: number | null) {
 }
 
 function statusTone(status: string) {
-  if (status === "published") return "border-emerald-200 bg-emerald-50 text-emerald-800";
+  if (status === "published" || status === "active") return "border-emerald-200 bg-emerald-50 text-emerald-800";
   if (status === "paused" || status === "ended") return "border-amber-200 bg-amber-50 text-amber-800";
   return "border-zinc-200 bg-zinc-100 text-zinc-700";
 }
@@ -341,16 +343,145 @@ function PreviewCard({ item }: { item: Json }) {
   return <article className="rounded-lg border border-zinc-200 bg-white p-3"><div className="aspect-square rounded-md bg-zinc-100" /><p className="mt-2 line-clamp-2 text-sm font-medium">{name}</p><p className="mt-1 text-sm font-semibold text-emerald-800">{clp(price)}</p></article>;
 }
 
-function PlaceholderArea({ area, model }: { area: Exclude<StorefrontArea, "catalog" | "preview" | "audit">; model: StorefrontPublicationsReadModel }) {
+function dateTimeInZone(value: string | undefined, timeZone: string) {
+  if (!value) return "";
+  const parts = new Intl.DateTimeFormat("sv-SE", {
+    day: "2-digit",
+    hour: "2-digit",
+    hour12: false,
+    minute: "2-digit",
+    month: "2-digit",
+    timeZone,
+    year: "numeric",
+  }).formatToParts(new Date(value));
+  const part = (type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((candidate) => candidate.type === type)?.value ?? "";
+  return `${part("year")}-${part("month")}-${part("day")}T${part("hour")}:${part("minute")}`;
+}
+
+function PromotionEditor({
+  model,
+  promotion,
+}: {
+  model: StorefrontPublicationsReadModel;
+  promotion?: StorefrontPromotionRow;
+}) {
+  const selected = new Set(promotion?.publicationIds ?? []);
+  const excluded = new Set(promotion?.excludedPublicationIds ?? []);
+  const percentage = promotion?.discountType === "percentage_bps"
+    ? promotion.discountValue / 100
+    : 10;
+  const fixedPrice = promotion?.discountType === "fixed_price_clp"
+    ? promotion.discountValue
+    : 0;
+  return (
+    <form action={saveStorefrontPromotionAction} className="grid gap-4 rounded-md border border-zinc-200 bg-white p-4 shadow-sm">
+      {model.selectedShopId ? <input name="shop_id" type="hidden" value={model.selectedShopId} /> : null}
+      {promotion ? <input name="promotionId" type="hidden" value={promotion.id} /> : null}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <label className="grid gap-1 text-xs font-medium text-zinc-700 md:col-span-2">
+          Nome promozione
+          <input className={fieldClassName} defaultValue={promotion?.publicName ?? ""} maxLength={160} name="publicName" required />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Stato promozione
+          <select className={fieldClassName} defaultValue={promotion?.publicationStatus ?? "draft"} name="publicationStatus">
+            <option value="draft">Bozza</option>
+            <option value="scheduled">Programmata</option>
+            <option value="active">Attiva</option>
+            <option value="paused">In pausa</option>
+            <option value="ended">Terminata</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Priorità
+          <input className={fieldClassName} defaultValue={promotion?.priority ?? 0} max={100000} min={-100000} name="priority" required step={1} type="number" />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700 md:col-span-2 xl:col-span-4">
+          Descrizione pubblica
+          <textarea className="min-h-20 rounded-md border border-zinc-300 bg-white p-3 text-sm outline-none focus:border-emerald-700" defaultValue={promotion?.publicDescription ?? ""} maxLength={2000} name="publicDescription" />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Tipo sconto
+          <select className={fieldClassName} defaultValue={promotion?.discountType ?? "percentage_bps"} name="discountType">
+            <option value="percentage_bps">Percentuale</option>
+            <option value="fixed_price_clp">Prezzo fisso CLP</option>
+          </select>
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Sconto percentuale
+          <input className={fieldClassName} defaultValue={percentage} max={100} min={1} name="discountPercentage" step={1} type="number" />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Prezzo fisso CLP
+          <input className={fieldClassName} defaultValue={fixedPrice} min={0} name="fixedPriceClp" step={1} type="number" />
+        </label>
+        <p className="self-end text-xs leading-5 text-zinc-500">Viene usato solo il valore coerente con il tipo selezionato. Il server rifiuta percentuali o prezzi non realmente scontati.</p>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Inizio
+          <input className={fieldClassName} defaultValue={dateTimeInZone(promotion?.startsAt, "America/Santiago")} name="startsAt" required type="datetime-local" />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Fine
+          <input className={fieldClassName} defaultValue={dateTimeInZone(promotion?.endsAt, "America/Santiago")} name="endsAt" required type="datetime-local" />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Fuso orario
+          <select className={fieldClassName} defaultValue="America/Santiago" name="timeZone"><option value="America/Santiago">America/Santiago</option><option value="UTC">UTC</option></select>
+        </label>
+      </div>
+      <fieldset className="grid max-h-80 gap-2 overflow-auto rounded-md border border-zinc-200 p-3">
+        <legend className="px-1 text-xs font-semibold text-zinc-700">Prodotti e esclusioni</legend>
+        {model.promotionPublications.length === 0 ? <p className="text-sm text-zinc-500">Pubblica almeno un prodotto prima di programmare una promozione.</p> : model.promotionPublications.map((publication) => (
+          <div className="grid gap-2 rounded-md border border-zinc-100 p-2 text-sm sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:items-center" key={publication.id}>
+            <div><p className="font-medium">{publication.name}</p><p className="text-xs text-zinc-500">{clp(publication.retailPriceClp)} · {publication.status}</p></div>
+            <label><input defaultChecked={selected.has(publication.id)} name="publicationIds" type="checkbox" value={publication.id} /> <span className="ml-1">Includi {publication.name}</span></label>
+            <label><input defaultChecked={excluded.has(publication.id)} name="excludedPublicationIds" type="checkbox" value={publication.id} /> <span className="ml-1">Escludi {publication.name}</span></label>
+          </div>
+        ))}
+      </fieldset>
+      <div className="flex flex-wrap items-center gap-3">
+        <button className={buttonClassName} disabled={!model.permissions.canManagePromotions} type="submit">{promotion ? "Aggiorna promozione" : "Crea promozione"}</button>
+        <p className="text-xs text-zinc-500">Riconciliazione automatica ogni minuto; validità ricalcolata anche dal contratto pubblico.</p>
+      </div>
+    </form>
+  );
+}
+
+function Promotions({ model, params }: { model: StorefrontPublicationsReadModel; params: Record<string, string | string[] | undefined> }) {
+  const shopId = param(params, "shop_id");
+  return (
+    <div className="grid gap-5">
+      {!model.permissions.canManagePromotions ? <p className="rounded-md border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">Permesso storefront.promotions.manage richiesto per modificare.</p> : null}
+      <form className="grid gap-3 rounded-md border border-zinc-200 bg-white p-4 shadow-sm md:grid-cols-[minmax(0,1fr)_12rem_auto]" method="get">
+        {shopId ? <input name="shop_id" type="hidden" value={shopId} /> : null}
+        <input name="area" type="hidden" value="promotions" />
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">Cerca promozione<input className={fieldClassName} defaultValue={param(params, "promotion_q")} maxLength={160} name="promotion_q" /></label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">Stato<select className={fieldClassName} defaultValue={param(params, "promotion_status") ?? ""} name="promotion_status"><option value="">Tutti</option><option value="draft">Bozza</option><option value="scheduled">Programmata</option><option value="active">Attiva</option><option value="paused">In pausa</option><option value="ended">Terminata</option></select></label>
+        <div className="flex items-end"><button className={buttonClassName} type="submit">Filtra</button></div>
+      </form>
+      <section className="rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950"><p className="font-semibold">Regola conflitti deterministica</p><p className="mt-1">Vince il prezzo effettivo più basso; a parità, la priorità maggiore e infine l’UUID. Esclusioni e finestre temporali sono rivalidate server-side.</p><p className="mt-1 text-xs">Contratto: {model.promotionConflictRule}</p></section>
+      <details className="rounded-md border border-zinc-200 bg-zinc-50 p-4" open={model.promotions.length === 0}><summary className="cursor-pointer font-semibold">Nuova promozione</summary><div className="mt-4"><PromotionEditor model={model} /></div></details>
+      {model.promotions.length === 0 ? <section className="rounded-md border border-dashed border-zinc-300 bg-white p-8 text-center"><h2 className="font-semibold">Nessuna promozione</h2><p className="mt-1 text-sm text-zinc-500">Crea una promozione programmata per uno o più prodotti.</p></section> : model.promotions.map((promotion) => (
+        <article className="rounded-md border border-zinc-200 bg-white p-4 shadow-sm" key={promotion.id}>
+          <div className="flex flex-wrap items-start justify-between gap-3"><div><h2 className="font-semibold">{promotion.publicName}</h2><p className="mt-1 text-sm text-zinc-500">{promotion.discountType === "percentage_bps" ? `${promotion.discountValue / 100}%` : clp(promotion.discountValue)} · {promotion.productCount} prodotti · {promotion.excludedCount} esclusi</p></div><div className="flex gap-2"><span className={`rounded-md border px-2 py-1 text-xs font-semibold ${statusTone(promotion.effectiveStatus)}`}>{promotion.effectiveStatus}</span>{promotion.conflictProductCount > 0 ? <span className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1 text-xs font-semibold text-amber-900">{promotion.conflictProductCount} conflitti risolti</span> : null}</div></div>
+          <p className="mt-2 text-xs text-zinc-500">{promotion.startsAt} → {promotion.endsAt} · priorità {promotion.priority}</p>
+          <details className="mt-4"><summary className="cursor-pointer text-sm font-semibold text-emerald-800">Modifica promozione</summary><div className="mt-4"><PromotionEditor model={model} promotion={promotion} /></div></details>
+        </article>
+      ))}
+      <nav aria-label="Paginazione promozioni" className="flex items-center justify-between rounded-md border border-zinc-200 bg-white p-3 text-sm"><Link aria-disabled={model.promotionPagination.page <= 1} className={secondaryButtonClassName} href={buildHref(params, { promotion_page: Math.max(1, model.promotionPagination.page - 1) })}>Precedente</Link><span>Pagina {model.promotionPagination.page} di {model.promotionPagination.totalPages} · {model.promotionPagination.total} promozioni</span><Link aria-disabled={model.promotionPagination.page >= model.promotionPagination.totalPages} className={secondaryButtonClassName} href={buildHref(params, { promotion_page: Math.min(model.promotionPagination.totalPages, model.promotionPagination.page + 1) })}>Successiva</Link></nav>
+    </div>
+  );
+}
+
+function PlaceholderArea({ area, model }: { area: Exclude<StorefrontArea, "catalog" | "promotions" | "preview" | "audit">; model: StorefrontPublicationsReadModel }) {
   const descriptions: Record<typeof area, string> = {
     categories: "Le categorie pubbliche disponibili sono già validate e usate dall’editor prodotto. La gestione completa viene attivata in TASK-007/TASK-008 senza esporre la tassonomia interna.",
-    promotions: "Il modello promozioni è disponibile; creazione, conflitti e scheduling completo vengono consegnati in TASK-008.",
     images: "Sono selezionabili solo immagini ready/published. La pipeline pubblica separata e le varianti thumb/card/detail vengono consegnate in TASK-009.",
     settings: "Le impostazioni Storefront restano server-side e feature-flagged. Il control plane completo viene abilitato nei task pertinenti.",
   };
   const counts: Record<typeof area, string> = {
     categories: `${model.categories.length} categorie`,
-    promotions: "Feature flag OFF",
     images: `${model.images.length} immagini pronte`,
     settings: "Produzione OFF",
   };
@@ -371,6 +502,10 @@ export default async function StorefrontPage({ searchParams }: { searchParams: S
     missingImage: booleanParam(param(params, "missing_image")),
     page: integerParam(param(params, "page"), 1),
     pageSize: integerParam(param(params, "pageSize"), 25),
+    promotionPage: integerParam(param(params, "promotion_page"), 1),
+    promotionPageSize: integerParam(param(params, "promotion_page_size"), 25),
+    promotionQuery: param(params, "promotion_q"),
+    promotionStatus: param(params, "promotion_status"),
     query: param(params, "q"),
     requestedShopId: param(params, "shop_id"),
     sort: param(params, "sort"),
@@ -390,7 +525,7 @@ export default async function StorefrontPage({ searchParams }: { searchParams: S
         <Metric detail="Bloccano publish se l’immagine è obbligatoria" label="Immagine mancante" value={String(missingImages)} />
       </section>
       <nav aria-label="Sezioni Storefront" className="flex gap-2 overflow-x-auto rounded-md border border-zinc-200 bg-white p-2 shadow-sm">{areas.map(([key, label]) => <Link aria-current={area === key ? "page" : undefined} className={`whitespace-nowrap rounded-md px-3 py-2 text-sm font-semibold ${area === key ? "bg-emerald-800 text-white" : "text-zinc-700 hover:bg-zinc-100"}`} href={buildHref(params, { area: key, page: null })} key={key}>{label}</Link>)}</nav>
-      {model.status !== "ready" ? <section className="rounded-md border border-amber-200 bg-amber-50 p-5"><h2 className="font-semibold text-amber-950">Storefront non disponibile</h2><p className="mt-1 text-sm text-amber-900">{model.reason}</p></section> : area === "catalog" ? <Catalog model={model} params={params} /> : area === "preview" ? <Preview preview={model.preview} /> : area === "audit" ? <Audit model={model} /> : <PlaceholderArea area={area} model={model} />}
+      {model.status !== "ready" ? <section className="rounded-md border border-amber-200 bg-amber-50 p-5"><h2 className="font-semibold text-amber-950">Storefront non disponibile</h2><p className="mt-1 text-sm text-amber-900">{model.reason}</p></section> : area === "catalog" ? <Catalog model={model} params={params} /> : area === "promotions" ? <Promotions model={model} params={params} /> : area === "preview" ? <Preview preview={model.preview} /> : area === "audit" ? <Audit model={model} /> : <PlaceholderArea area={area} model={model} />}
     </div>
   );
 }

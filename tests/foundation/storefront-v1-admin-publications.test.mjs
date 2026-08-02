@@ -120,9 +120,8 @@ test("TASK-007 preview consumes the public versioned contract", () => {
   assert.doesNotMatch(page, /storefront_catalog_items|storefront_product_publications/);
 });
 
-test("TASK-007 staging workflow is pinned to the admin migration and post-verifies its boundary", () => {
-  assert.match(stagingWorkflow, /EXPECTED_MIGRATION_VERSION: "20260802001000"/);
-  assert.match(stagingWorkflow, /EXPECTED_MIGRATION_NAME: storefront_v1_admin_publications/);
+test("TASK-007 staging workflow retains the publication ledger and post-verifies its boundary", () => {
+  assert.match(stagingWorkflow, /adminPublicationsLedgerRetained/);
   assert.match(stagingWorkflow, /publicApiPlannerLedgerRetained/);
   assert.match(stagingWorkflow, /adminRpcBoundary/);
   assert.match(stagingWorkflow, /adminAuthoringDirectDenied/);

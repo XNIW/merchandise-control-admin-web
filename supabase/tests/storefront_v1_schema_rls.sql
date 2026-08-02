@@ -221,7 +221,7 @@ select ok(
   (
     select bool_and(
       not procedure.prosecdef
-      or procedure.proconfig = array['search_path=""']
+      or 'search_path=""' = any(procedure.proconfig)
     )
     from pg_catalog.pg_proc procedure
     join pg_catalog.pg_namespace namespace

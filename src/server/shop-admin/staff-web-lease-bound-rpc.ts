@@ -213,3 +213,46 @@ export function callStaffWebStorefrontMutation(
     p_staff_web_session_id: context.staffWebSession.sessionId,
   });
 }
+
+export function callStaffWebStorefrontPromotionsRead(
+  context: StaffWebLeaseBoundContext,
+  request: {
+    page: number;
+    pageSize: number;
+    query?: string | null;
+    status?: string | null;
+  },
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("admin_storefront_promotions_read_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_page: request.page,
+    p_page_size: request.pageSize,
+    p_query: request.query,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+    p_status: request.status,
+  });
+}
+
+export function callStaffWebStorefrontPromotionMutation(
+  context: StaffWebLeaseBoundContext,
+  payload: JsonRecord,
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("admin_storefront_promotion_mutate_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_operation: "upsert",
+    p_payload: payload,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}

@@ -106,7 +106,7 @@ jobs:
           retention-days: 30
 
   storefront-v1-admin-acceptance:
-    name: Storefront publish, public projection, audit and pause
+    name: Storefront publish, promotion pricing, audit and pause
     if: github.ref == 'refs/heads/integration/storefront-v1'
     runs-on: ubuntu-latest
     timeout-minutes: 20

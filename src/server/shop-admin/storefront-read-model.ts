@@ -2,7 +2,10 @@ import "server-only";
 
 import type { Json } from "@/lib/supabase/database.types";
 import { resolveShopAdminDataAccess } from "./data-access";
-import { callStaffWebStorefrontRead } from "./staff-web-lease-bound-rpc";
+import {
+  callStaffWebStorefrontPromotionsRead,
+  callStaffWebStorefrontRead,
+} from "./staff-web-lease-bound-rpc";
 
 export type StorefrontPublicationStatus =
   | "unpublished"
@@ -54,6 +57,32 @@ export type StorefrontImageOption = {
   url: string | null;
 };
 
+export type StorefrontPromotionRow = {
+  conflictProductCount: number;
+  discountType: "fixed_price_clp" | "percentage_bps";
+  discountValue: number;
+  effectiveStatus: string;
+  endsAt: string;
+  excludedCount: number;
+  excludedPublicationIds: readonly string[];
+  id: string;
+  priority: number;
+  productCount: number;
+  publicDescription: string | null;
+  publicName: string;
+  publicationIds: readonly string[];
+  publicationStatus: string;
+  startsAt: string;
+  updatedAt: string;
+};
+
+export type StorefrontPromotionPublicationOption = {
+  id: string;
+  name: string;
+  retailPriceClp: number;
+  status: string;
+};
+
 export type StorefrontPublicationsReadModel = {
   audit: readonly StorefrontAuditRow[];
   categories: readonly StorefrontCategoryOption[];
@@ -67,9 +96,19 @@ export type StorefrontPublicationsReadModel = {
   permissions: {
     canBulkPublish: boolean;
     canEdit: boolean;
+    canManagePromotions: boolean;
     canPublish: boolean;
     canViewAudit: boolean;
   };
+  promotionConflictRule: string;
+  promotionPagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+  promotionPublications: readonly StorefrontPromotionPublicationOption[];
+  promotions: readonly StorefrontPromotionRow[];
   preview: Json;
   reason: string;
   rows: readonly StorefrontPublicationRow[];
@@ -96,6 +135,10 @@ export type StorefrontPublicationFilters = {
   missingImage?: boolean | null;
   page?: number;
   pageSize?: number;
+  promotionPage?: number;
+  promotionPageSize?: number;
+  promotionQuery?: string | null;
+  promotionStatus?: string | null;
   query?: string | null;
   requestedShopId?: string | null;
   sort?: string | null;
@@ -208,6 +251,71 @@ function mapAudit(value: Json): StorefrontAuditRow | null {
     : null;
 }
 
+function stringArray(value: Json | undefined) {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function mapPromotion(value: Json): StorefrontPromotionRow | null {
+  const promotion = objectValue(value);
+  const id = promotion ? textValue(promotion.id) : null;
+  const publicName = promotion ? textValue(promotion.publicName) : null;
+  const discountType = promotion ? textValue(promotion.discountType) : null;
+  const startsAt = promotion ? textValue(promotion.startsAt) : null;
+  const endsAt = promotion ? textValue(promotion.endsAt) : null;
+  const updatedAt = promotion ? textValue(promotion.updatedAt) : null;
+  const publicationStatus = promotion
+    ? textValue(promotion.publicationStatus)
+    : null;
+  const effectiveStatus = promotion ? textValue(promotion.effectiveStatus) : null;
+  const discountValue = promotion ? numberValue(promotion.discountValue) : null;
+  if (
+    !id ||
+    !publicName ||
+    !startsAt ||
+    !endsAt ||
+    !updatedAt ||
+    !publicationStatus ||
+    !effectiveStatus ||
+    discountValue === null ||
+    (discountType !== "fixed_price_clp" && discountType !== "percentage_bps")
+  ) return null;
+  return {
+    conflictProductCount: numberValue(promotion?.conflictProductCount) ?? 0,
+    discountType,
+    discountValue,
+    effectiveStatus,
+    endsAt,
+    excludedCount: numberValue(promotion?.excludedCount) ?? 0,
+    excludedPublicationIds: stringArray(promotion?.excludedPublicationIds),
+    id,
+    priority: numberValue(promotion?.priority) ?? 0,
+    productCount: numberValue(promotion?.productCount) ?? 0,
+    publicDescription: textValue(promotion?.publicDescription),
+    publicName,
+    publicationIds: stringArray(promotion?.publicationIds),
+    publicationStatus,
+    startsAt,
+    updatedAt,
+  };
+}
+
+function mapPromotionPublication(
+  value: Json,
+): StorefrontPromotionPublicationOption | null {
+  const publication = objectValue(value);
+  const id = publication ? textValue(publication.id) : null;
+  const name = publication ? textValue(publication.name) : null;
+  const status = publication ? textValue(publication.status) : null;
+  const retailPriceClp = publication
+    ? numberValue(publication.retailPriceClp)
+    : null;
+  return id && name && status && retailPriceClp !== null
+    ? { id, name, retailPriceClp, status }
+    : null;
+}
+
 function boundedInteger(value: number | undefined, fallback: number, maximum: number) {
   return Number.isInteger(value) && value && value > 0
     ? Math.min(value, maximum)
@@ -229,7 +337,11 @@ export async function getStorefrontPublicationsReadModel(
       categories: [],
       images: [],
       pagination: { page: 1, pageSize: 25, total: 0, totalPages: 1 },
-      permissions: { canBulkPublish: false, canEdit: false, canPublish: false, canViewAudit: false },
+      permissions: { canBulkPublish: false, canEdit: false, canManagePromotions: false, canPublish: false, canViewAudit: false },
+      promotionConflictRule: "unavailable",
+      promotionPagination: { page: 1, pageSize: 25, total: 0, totalPages: 1 },
+      promotionPublications: [],
+      promotions: [],
       preview: { status: "unavailable" },
       reason: access.reason,
       rows: [],
@@ -248,6 +360,12 @@ export async function getStorefrontPublicationsReadModel(
     query: filters.query,
     sort: filters.sort ?? "updated_desc",
     status: filters.status,
+  };
+  const promotionRequest = {
+    page: boundedInteger(filters.promotionPage, 1, 10_000),
+    pageSize: boundedInteger(filters.promotionPageSize, 25, 100),
+    query: filters.promotionQuery,
+    status: filters.promotionStatus,
   };
   const rpc =
     access.principalKind === "personal_account"
@@ -272,13 +390,42 @@ export async function getStorefrontPublicationsReadModel(
           request,
         );
   const payload = objectValue(rpc.data);
-  if (rpc.error || !payload || payload.ok !== true) {
+  const promotionsRpc =
+    access.principalKind === "personal_account"
+      ? await access.supabase.rpc("admin_storefront_promotions_read_v1", {
+          p_page: promotionRequest.page,
+          p_page_size: promotionRequest.pageSize,
+          p_query: promotionRequest.query,
+          p_shop_id: access.selectedShop.shopId,
+          p_status: promotionRequest.status,
+        })
+      : await callStaffWebStorefrontPromotionsRead(
+          {
+            actorStaffId: access.principal.staff.staffId,
+            selectedShop: access.selectedShop,
+            staffWebSession: access.principal.staffWebSession!,
+          },
+          promotionRequest,
+        );
+  const promotionsPayload = objectValue(promotionsRpc.data);
+  if (
+    rpc.error ||
+    !payload ||
+    payload.ok !== true ||
+    promotionsRpc.error ||
+    !promotionsPayload ||
+    promotionsPayload.ok !== true
+  ) {
     return {
       audit: [],
       categories: [],
       images: [],
       pagination: { page: request.page, pageSize: request.pageSize, total: 0, totalPages: 1 },
-      permissions: { canBulkPublish: false, canEdit: false, canPublish: false, canViewAudit: false },
+      permissions: { canBulkPublish: false, canEdit: false, canManagePromotions: false, canPublish: false, canViewAudit: false },
+      promotionConflictRule: "unavailable",
+      promotionPagination: { page: promotionRequest.page, pageSize: promotionRequest.pageSize, total: 0, totalPages: 1 },
+      promotionPublications: [],
+      promotions: [],
       preview: { status: "unavailable" },
       reason: "Storefront publication data could not be loaded.",
       rows: [],
@@ -299,17 +446,32 @@ export async function getStorefrontPublicationsReadModel(
   const audit = Array.isArray(payload.audit)
     ? payload.audit.map(mapAudit).filter((row): row is StorefrontAuditRow => row !== null)
     : [];
+  const promotions = Array.isArray(promotionsPayload.rows)
+    ? promotionsPayload.rows
+        .map(mapPromotion)
+        .filter((row): row is StorefrontPromotionRow => row !== null)
+    : [];
+  const promotionPublications = Array.isArray(promotionsPayload.publications)
+    ? promotionsPayload.publications
+        .map(mapPromotionPublication)
+        .filter(
+          (row): row is StorefrontPromotionPublicationOption => row !== null,
+        )
+    : [];
   const pagination = objectValue(payload.pagination);
+  const promotionPagination = objectValue(promotionsPayload.pagination);
   const permissions = access.principalKind === "personal_account"
     ? {
         canBulkPublish: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canEdit: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
+        canManagePromotions: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canPublish: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canViewAudit: true,
       }
     : {
         canBulkPublish: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.bulk_publish"),
         canEdit: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.edit"),
+        canManagePromotions: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.promotions.manage"),
         canPublish: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.publish"),
         canViewAudit: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.audit.view"),
       };
@@ -325,6 +487,17 @@ export async function getStorefrontPublicationsReadModel(
       totalPages: numberValue(pagination?.totalPages) ?? 1,
     },
     permissions,
+    promotionConflictRule:
+      textValue(promotionsPayload.conflictRule) ?? "unavailable",
+    promotionPagination: {
+      page: numberValue(promotionPagination?.page) ?? promotionRequest.page,
+      pageSize:
+        numberValue(promotionPagination?.pageSize) ?? promotionRequest.pageSize,
+      total: numberValue(promotionPagination?.total) ?? promotions.length,
+      totalPages: numberValue(promotionPagination?.totalPages) ?? 1,
+    },
+    promotionPublications,
+    promotions,
     preview: payload.preview ?? { status: "unavailable" },
     reason: "Storefront authoring rows loaded through the shop-scoped RPC boundary.",
     rows,

@@ -11,6 +11,7 @@ type Fixture = {
   password: string;
   productId: string;
   productName: string;
+  promotionName: string;
   publicCategoryId: string;
   publicName: string;
   shopId: string;
@@ -193,6 +194,8 @@ async function cleanup() {
         "alter table public.audit_logs disable trigger user",
         `delete from public.audit_logs where shop_id = '${fixture.shopId}'::uuid`,
         "alter table public.audit_logs enable trigger user",
+        `delete from public.storefront_promotion_products where shop_id = '${fixture.shopId}'::uuid`,
+        `delete from public.storefront_promotions where shop_id = '${fixture.shopId}'::uuid`,
         `delete from public.storefront_product_publications where shop_id = '${fixture.shopId}'::uuid`,
         `delete from public.storefront_categories where shop_id = '${fixture.shopId}'::uuid`,
         `delete from public.storefront_settings where shop_id = '${fixture.shopId}'::uuid`,
@@ -238,6 +241,7 @@ test.beforeAll(async () => {
   const publicCategoryId = randomUUID();
   const productName = `Prodotto interno ${nonce}`;
   const publicName = `Caffè cliente ${nonce}`;
+  const promotionName = `Sconto cliente ${nonce}`;
   const shopSlug = `sf-admin-${nonce}`;
   state.fixture = {
     categoryId,
@@ -245,6 +249,7 @@ test.beforeAll(async () => {
     password,
     productId,
     productName,
+    promotionName,
     publicCategoryId,
     publicName,
     shopId,
@@ -314,8 +319,57 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   expect(visible.item.name).toBe(fixture.publicName);
 
   const storefrontSections = page.getByLabel("Sezioni Storefront");
+  await storefrontSections.getByRole("link", { name: "Promozioni", exact: true }).click();
+  const createPromotion = page.locator("form").filter({
+    has: page.getByRole("button", { name: "Crea promozione" }),
+  });
+  await createPromotion.getByLabel("Nome promozione").fill(fixture.promotionName);
+  await createPromotion.getByLabel("Stato promozione").selectOption("active");
+  await createPromotion.getByLabel("Tipo sconto").selectOption("percentage_bps");
+  await createPromotion.getByLabel("Sconto percentuale").fill("10");
+  await createPromotion.getByLabel("Fuso orario").selectOption("UTC");
+  await createPromotion.getByLabel("Inizio").fill(
+    new Date(Date.now() - 5 * 60_000).toISOString().slice(0, 16),
+  );
+  await createPromotion.getByLabel("Fine").fill(
+    new Date(Date.now() + 60 * 60_000).toISOString().slice(0, 16),
+  );
+  await createPromotion.getByLabel(`Includi ${fixture.publicName}`).check();
+  await Promise.all([
+    page.waitForURL((url) => url.pathname === "/shop/storefront" && url.searchParams.get("area") === "promotions" && url.searchParams.get("result") === "success"),
+    createPromotion.getByRole("button", { name: "Crea promozione" }).click(),
+  ]);
+  await expect(page.getByText(fixture.promotionName).first()).toBeVisible();
+  const promoted = await must(
+    "PUBLIC_DETAIL_PROMOTION",
+    anon.rpc("storefront_product_detail_v1", {
+      p_publication_id: publication.id,
+      p_shop_slug: fixture.shopSlug,
+    }),
+  );
+  expect(promoted.status).toBe("ok");
+  expect(promoted.item.priceClp).toBe(900);
+
+  await page.goto(`/shop/storefront?area=promotions&shop_id=${fixture.shopId}`);
+  const promotionCard = page.locator("article").filter({ hasText: fixture.promotionName }).first();
+  await promotionCard.getByText("Modifica promozione").click();
+  await promotionCard.getByLabel("Stato promozione").selectOption("paused");
+  await Promise.all([
+    page.waitForURL((url) => url.pathname === "/shop/storefront" && url.searchParams.get("area") === "promotions" && url.searchParams.get("result") === "success"),
+    promotionCard.getByRole("button", { name: "Aggiorna promozione" }).click(),
+  ]);
+  const promotionPaused = await must(
+    "PUBLIC_DETAIL_PROMOTION_PAUSED",
+    anon.rpc("storefront_product_detail_v1", {
+      p_publication_id: publication.id,
+      p_shop_slug: fixture.shopSlug,
+    }),
+  );
+  expect(promotionPaused.item.priceClp).toBe(1000);
+
   await storefrontSections.getByRole("link", { name: "Audit", exact: true }).click();
   await expect(page.getByText("shop.storefront.publication.upsert.success")).toBeVisible();
+  await expect(page.getByText("shop.storefront.promotion.upsert.success").first()).toBeVisible();
   await storefrontSections.getByRole("link", { name: "Catalogo", exact: true }).click();
   const publishedRow = page.locator("article").filter({ hasText: fixture.publicName }).first();
   await publishedRow.getByText("Modifica pubblicazione").click();

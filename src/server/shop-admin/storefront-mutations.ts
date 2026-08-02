@@ -7,7 +7,10 @@ import {
   shopAdminActionResult,
   type ShopAdminActionResult,
 } from "./action-context";
-import { callStaffWebStorefrontMutation } from "./staff-web-lease-bound-rpc";
+import {
+  callStaffWebStorefrontMutation,
+  callStaffWebStorefrontPromotionMutation,
+} from "./staff-web-lease-bound-rpc";
 
 type StorefrontPublicationMutationInput = {
   availabilityMode: string;
@@ -113,4 +116,72 @@ export async function bulkSetStorefrontPublicationStatus(input: {
   return callMutation(context, input.operation, {
     publicationIds: [...input.publicationIds],
   });
+}
+
+export type StorefrontPromotionMutationInput = {
+  discountType: "fixed_price_clp" | "percentage_bps";
+  discountValue: number;
+  endsAt: string;
+  excludedPublicationIds: readonly string[];
+  priority: number;
+  promotionId?: string;
+  publicDescription?: string;
+  publicName: string;
+  publicationIds: readonly string[];
+  publicationStatus: string;
+  requestedShopId?: string;
+  startsAt: string;
+  timeZone: "America/Santiago" | "UTC";
+};
+
+export async function upsertStorefrontPromotion(
+  input: StorefrontPromotionMutationInput,
+) {
+  const context = await resolveShopActionContext(
+    input.requestedShopId,
+    "storefront.promotions.manage",
+  );
+  if (context.status !== "ready") return context.result;
+  if (
+    !Number.isSafeInteger(input.discountValue) ||
+    !Number.isSafeInteger(input.priority) ||
+    input.publicationIds.length > 500 ||
+    input.excludedPublicationIds.length > input.publicationIds.length
+  ) {
+    return shopAdminActionResult("validation_failed", { ok: false });
+  }
+  const payload = {
+    discountType: input.discountType,
+    discountValue: input.discountValue,
+    endsAt: input.endsAt,
+    excludedPublicationIds: [...input.excludedPublicationIds],
+    priority: input.priority,
+    promotionId: input.promotionId,
+    publicDescription: input.publicDescription,
+    publicName: input.publicName,
+    publicationIds: [...input.publicationIds],
+    publicationStatus: input.publicationStatus,
+    startsAt: input.startsAt,
+    timeZone: input.timeZone,
+  } satisfies Record<string, Json | undefined>;
+  const rpc = context.principalKind === "personal_account"
+    ? await context.supabase.rpc("admin_storefront_promotion_mutate_v1", {
+        p_operation: "upsert",
+        p_payload: payload,
+        p_shop_id: context.selectedShop.shopId,
+      })
+    : await callStaffWebStorefrontPromotionMutation(context, payload);
+  if (rpc.error) {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+  const result = mapShopAdminRpcResult(rpc.data);
+  return result.shopId === context.selectedShop.shopId
+    ? result
+    : shopAdminActionResult("db_failure", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
 }
