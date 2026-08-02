@@ -51,6 +51,14 @@ values (
   'Cart concurrency fixture',
   'active'
 );
+insert into public.storefront_settings(
+  shop_id, public_slug, storefront_enabled, require_product_image
+) values (
+  '13000000-0000-4000-8000-000000023101',
+  'cart-concurrency-fixture',
+  true,
+  false
+);
 SQL
 
 cart_run_clear() {
@@ -74,7 +82,7 @@ select set_config(
   true
 );
 select public.customer_cart_mutate_v1(
-  '13000000-0000-4000-8000-000000023101',
+  'cart-concurrency-fixture',
   'clear',
   null,
   null,

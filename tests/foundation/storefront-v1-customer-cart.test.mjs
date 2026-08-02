@@ -3,13 +3,21 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-const migration = readFileSync(
+const cartEngineMigration = readFileSync(
   join(
     process.cwd(),
     "supabase/migrations/20260802210000_storefront_v1_customer_cart.sql",
   ),
   "utf8",
 );
+const cartPublicSlugMigration = readFileSync(
+  join(
+    process.cwd(),
+    "supabase/migrations/20260802213000_storefront_v1_customer_cart_public_slug.sql",
+  ),
+  "utf8",
+);
+const migration = `${cartEngineMigration}\n${cartPublicSlugMigration}`;
 const pgTap = readFileSync(
   join(process.cwd(), "supabase/tests/storefront_v1_customer_cart.sql"),
   "utf8",
@@ -49,6 +57,18 @@ test("TASK-023 persists owner carts behind forced RLS and bounded RPCs", () => {
   assert.match(
     migration,
     /grant select, insert, update, delete on table public\.customer_cart_items[\s\S]*to service_role/,
+  );
+  assert.match(
+    cartPublicSlugMigration,
+    /alter function public\.customer_cart_read_v1\(uuid\)[\s\S]*set schema app_private/,
+  );
+  assert.match(
+    cartPublicSlugMigration,
+    /create or replace function public\.customer_cart_read_v1\(p_shop_slug text\)/,
+  );
+  assert.match(
+    cartPublicSlugMigration,
+    /p_payload - 'shopId' - 'cartId'/,
   );
 });
 
@@ -100,9 +120,11 @@ test("TASK-023 merge uses max overlap policy and never exceeds 100 lines", () =>
 });
 
 test("TASK-023 pgTAP covers privacy, persistence, price drift and cleanup", () => {
-  assert.match(pgTap, /select plan\(94\)/);
+  assert.match(pgTap, /select plan\(98\)/);
   for (const expected of [
     "mobile roles cannot bypass bounded cart RPCs",
+    "public cart boundary accepts a Storefront slug",
+    "cart response omits internal shop and cart UUIDs",
     "subtotal is derived from server price",
     "ambiguous merge retry returns the prior ack",
     "price change reports old public snapshot and current server price",
@@ -128,9 +150,9 @@ test("TASK-023 concurrency harness distinguishes replay from version conflict", 
 
 test("TASK-023 staging deploy is exact-SHA guarded and reruns native cart tests", () => {
   for (const expected of [
-    'expected_migration_version: "20260802210000"',
-    "expected_migration_name: storefront_v1_customer_cart",
-    "expected_migration_file: 20260802210000_storefront_v1_customer_cart.sql",
+    'expected_migration_version: "20260802213000"',
+    "expected_migration_name: storefront_v1_customer_cart_public_slug",
+    "expected_migration_file: 20260802213000_storefront_v1_customer_cart_public_slug.sql",
     "expected_head_sha: ${{ github.sha }}",
     "apply_confirmation: APPLY_STOREFRONT_V1_STAGING",
     "run_performance_load: false",
@@ -140,9 +162,9 @@ test("TASK-023 staging deploy is exact-SHA guarded and reruns native cart tests"
   }
   assert.match(
     stagingWorkflow,
-    /inputs\.expected_migration_version == '20260802210000'/,
+    /inputs\.expected_migration_version == '20260802213000'/,
   );
-  assert.match(stagingWorkflow, /storefront_v1_customer_cart\.sql/);
-  assert.match(stagingWorkflow, /pgTapAssertions:[\s\S]*=== 94/);
+  assert.match(stagingWorkflow, /public\.customer_cart_read_v1\(text\)/);
+  assert.match(stagingWorkflow, /pgTapAssertions:[\s\S]*=== 98/);
   assert.match(stagingWorkflow, /serverAuthoritativeArguments/);
 });

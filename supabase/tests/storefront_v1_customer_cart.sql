@@ -4,7 +4,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(94);
+select plan(98);
 
 select ok(
   to_regclass('public.customer_carts') is not null
@@ -90,43 +90,70 @@ select ok(
 );
 
 select ok(
-  has_function_privilege('authenticated', 'public.customer_cart_read_v1(uuid)', 'EXECUTE')
+  has_function_privilege('authenticated', 'public.customer_cart_read_v1(text)', 'EXECUTE')
   and has_function_privilege(
     'authenticated',
-    'public.customer_cart_mutate_v1(uuid,text,uuid,integer,bigint,uuid)',
+    'public.customer_cart_mutate_v1(text,text,uuid,integer,bigint,uuid)',
     'EXECUTE'
   )
   and has_function_privilege(
     'authenticated',
-    'public.customer_cart_merge_guest_v1(uuid,jsonb,bigint,uuid)',
+    'public.customer_cart_merge_guest_v1(text,jsonb,bigint,uuid)',
     'EXECUTE'
   )
   and has_function_privilege(
     'authenticated',
-    'public.customer_cart_revalidate_v1(uuid,bigint,uuid)',
+    'public.customer_cart_revalidate_v1(text,bigint,uuid)',
     'EXECUTE'
   ),
   'authenticated customers receive only the bounded cart RPC surface'
 );
 
 select ok(
-  not has_function_privilege('anon', 'public.customer_cart_read_v1(uuid)', 'EXECUTE')
+  not has_function_privilege('anon', 'public.customer_cart_read_v1(text)', 'EXECUTE')
   and not has_function_privilege(
     'anon',
-    'public.customer_cart_mutate_v1(uuid,text,uuid,integer,bigint,uuid)',
+    'public.customer_cart_mutate_v1(text,text,uuid,integer,bigint,uuid)',
     'EXECUTE'
   )
   and not has_function_privilege(
     'anon',
-    'public.customer_cart_merge_guest_v1(uuid,jsonb,bigint,uuid)',
+    'public.customer_cart_merge_guest_v1(text,jsonb,bigint,uuid)',
     'EXECUTE'
   )
   and not has_function_privilege(
     'anon',
-    'public.customer_cart_revalidate_v1(uuid,bigint,uuid)',
+    'public.customer_cart_revalidate_v1(text,bigint,uuid)',
     'EXECUTE'
   ),
   'anon cannot invoke owner cart RPCs'
+);
+
+select ok(
+  to_regprocedure('public.customer_cart_read_v1(uuid)') is null
+  and to_regprocedure(
+    'public.customer_cart_mutate_v1(uuid,text,uuid,integer,bigint,uuid)'
+  ) is null
+  and to_regprocedure('public.customer_cart_merge_guest_v1(uuid,jsonb,bigint,uuid)') is null
+  and to_regprocedure('public.customer_cart_revalidate_v1(uuid,bigint,uuid)') is null,
+  'public cart boundary accepts a Storefront slug rather than an internal shop UUID'
+);
+
+select ok(
+  to_regprocedure('app_private.customer_cart_read_v1(uuid)') is not null
+  and to_regprocedure(
+    'app_private.customer_cart_mutate_v1(uuid,text,uuid,integer,bigint,uuid)'
+  ) is not null
+  and to_regprocedure(
+    'app_private.customer_cart_merge_guest_v1(uuid,jsonb,bigint,uuid)'
+  ) is not null
+  and to_regprocedure(
+    'app_private.customer_cart_revalidate_v1(uuid,bigint,uuid)'
+  ) is not null
+  and not has_function_privilege(
+    'authenticated', 'app_private.customer_cart_read_v1(uuid)', 'EXECUTE'
+  ),
+  'UUID cart engine remains private and non-executable by mobile roles'
 );
 
 select ok(
@@ -342,7 +369,7 @@ select throws_ok(
 );
 
 select throws_ok(
-  $$select public.customer_cart_read_v1('13000000-0000-4000-8000-000000023001')$$,
+  $$select public.customer_cart_read_v1('cart-fixture-a')$$,
   '42501', null,
   'anon cannot invoke cart read'
 );
@@ -356,7 +383,7 @@ select set_config(
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000023003', true);
 
 select throws_ok(
-  $$select public.customer_cart_read_v1('13000000-0000-4000-8000-000000023001')$$,
+  $$select public.customer_cart_read_v1('cart-fixture-a')$$,
   '28000', null,
   'anonymous Auth identities cannot read carts'
 );
@@ -377,17 +404,22 @@ select is(
 
 create temp table task023_empty as
 select public.customer_cart_read_v1(
-  '13000000-0000-4000-8000-000000023001'
+  'cart-fixture-a'
 ) as payload;
 
 select is((select payload ->> 'status' from task023_empty), 'ok', 'empty cart read succeeds');
 select is((select payload ->> 'cartVersion' from task023_empty), '0', 'empty cart starts at version zero');
 select is((select payload ->> 'itemCount' from task023_empty), '0', 'empty cart has no items');
 select is((select payload ->> 'currencyCode' from task023_empty), 'CLP', 'cart currency is server-fixed CLP');
+select is((select payload ->> 'shopSlug' from task023_empty), 'cart-fixture-a', 'cart response echoes only the public Storefront slug');
+select ok(
+  not ((select payload from task023_empty) ?| array['shopId', 'cartId']),
+  'cart response omits internal shop and cart UUIDs'
+);
 
 create temp table task023_set_first as
 select public.customer_cart_mutate_v1(
-  '13000000-0000-4000-8000-000000023001',
+  'cart-fixture-a',
   'set',
   '53000000-0000-4000-8000-000000023001',
   2,
@@ -447,7 +479,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000023001
 
 select ok(
   (public.customer_cart_mutate_v1(
-    '13000000-0000-4000-8000-000000023001', 'set',
+    'cart-fixture-a', 'set',
     '53000000-0000-4000-8000-000000023001', 2, 0,
     '73000000-0000-4000-8000-000000023001'
   ) ->> 'idempotent')::boolean,
@@ -456,7 +488,7 @@ select ok(
 
 select is(
   public.customer_cart_mutate_v1(
-    '13000000-0000-4000-8000-000000023001', 'set',
+    'cart-fixture-a', 'set',
     '53000000-0000-4000-8000-000000023001', 3, 1,
     '73000000-0000-4000-8000-000000023001'
   ) ->> 'status',
@@ -466,7 +498,7 @@ select is(
 
 create temp table task023_second as
 select public.customer_cart_mutate_v1(
-  '13000000-0000-4000-8000-000000023001', 'set',
+  'cart-fixture-a', 'set',
   '53000000-0000-4000-8000-000000023002', 1, 1,
   '73000000-0000-4000-8000-000000023002'
 ) as payload;
@@ -477,7 +509,7 @@ select is((select payload ->> 'subtotalClp' from task023_second), '4000', 'two s
 
 create temp table task023_update as
 select public.customer_cart_mutate_v1(
-  '13000000-0000-4000-8000-000000023001', 'set',
+  'cart-fixture-a', 'set',
   '53000000-0000-4000-8000-000000023001', 3, 2,
   '73000000-0000-4000-8000-000000023003'
 ) as payload;
@@ -488,7 +520,7 @@ select is((select payload ->> 'totalQuantity' from task023_update), '4', 'update
 
 create temp table task023_conflict as
 select public.customer_cart_mutate_v1(
-  '13000000-0000-4000-8000-000000023001', 'remove',
+  'cart-fixture-a', 'remove',
   '53000000-0000-4000-8000-000000023002', null, 1,
   '73000000-0000-4000-8000-000000023004'
 ) as payload;
@@ -497,7 +529,7 @@ select is((select payload ->> 'status' from task023_conflict), 'version_conflict
 select is((select payload ->> 'cartVersion' from task023_conflict), '3', 'version conflict returns current version');
 select ok(
   (public.customer_cart_mutate_v1(
-    '13000000-0000-4000-8000-000000023001', 'remove',
+    'cart-fixture-a', 'remove',
     '53000000-0000-4000-8000-000000023002', null, 1,
     '73000000-0000-4000-8000-000000023004'
   ) ->> 'idempotent')::boolean,
@@ -506,7 +538,7 @@ select ok(
 
 create temp table task023_remove as
 select public.customer_cart_mutate_v1(
-  '13000000-0000-4000-8000-000000023001', 'remove',
+  'cart-fixture-a', 'remove',
   '53000000-0000-4000-8000-000000023002', null, 3,
   '73000000-0000-4000-8000-000000023005'
 ) as payload;
@@ -516,7 +548,7 @@ select is((select payload ->> 'itemCount' from task023_remove), '1', 'remove del
 
 select is(
   public.customer_cart_mutate_v1(
-    '13000000-0000-4000-8000-000000023001', 'clear',
+    'cart-fixture-a', 'clear',
     null, 1, 4, '73000000-0000-4000-8000-000000023006'
   ) ->> 'status',
   'invalid',
@@ -525,7 +557,7 @@ select is(
 
 create temp table task023_clear as
 select public.customer_cart_mutate_v1(
-  '13000000-0000-4000-8000-000000023001', 'clear',
+  'cart-fixture-a', 'clear',
   null, null, 4, '73000000-0000-4000-8000-000000023007'
 ) as payload;
 
@@ -534,7 +566,7 @@ select is((select payload ->> 'itemCount' from task023_clear), '0', 'clear produ
 
 select is(
   public.customer_cart_mutate_v1(
-    '13000000-0000-4000-8000-000000023001', 'set',
+    'cart-fixture-a', 'set',
     '53000000-0000-4000-8000-000000023001', 2, 5,
     '73000000-0000-4000-8000-000000023008'
   ) ->> 'cartVersion',
@@ -544,7 +576,7 @@ select is(
 
 create temp table task023_merge as
 select public.customer_cart_merge_guest_v1(
-  '13000000-0000-4000-8000-000000023001',
+  'cart-fixture-a',
   '[{"publicationId":"53000000-0000-4000-8000-000000023001","quantity":5},{"publicationId":"53000000-0000-4000-8000-000000023002","quantity":3}]'::jsonb,
   6,
   '73000000-0000-4000-8000-000000023009'
@@ -559,7 +591,7 @@ select is((select payload ->> 'subtotalClp' from task023_merge), '11000', 'merge
 
 select ok(
   (public.customer_cart_merge_guest_v1(
-    '13000000-0000-4000-8000-000000023001',
+    'cart-fixture-a',
     '[{"publicationId":"53000000-0000-4000-8000-000000023001","quantity":5},{"publicationId":"53000000-0000-4000-8000-000000023002","quantity":3}]'::jsonb,
     6,
     '73000000-0000-4000-8000-000000023009'
@@ -569,7 +601,7 @@ select ok(
 
 select is(
   public.customer_cart_merge_guest_v1(
-    '13000000-0000-4000-8000-000000023001',
+    'cart-fixture-a',
     '[{"publicationId":"53000000-0000-4000-8000-000000023001","quantity":6}]'::jsonb,
     7,
     '73000000-0000-4000-8000-000000023009'
@@ -580,7 +612,7 @@ select is(
 
 select is(
   public.customer_cart_merge_guest_v1(
-    '13000000-0000-4000-8000-000000023001',
+    'cart-fixture-a',
     '[{"publicationId":"53000000-0000-4000-8000-000000023001","quantity":6,"totalClp":1}]'::jsonb,
     7,
     '73000000-0000-4000-8000-000000023010'
@@ -591,7 +623,7 @@ select is(
 
 select is(
   public.customer_cart_merge_guest_v1(
-    '13000000-0000-4000-8000-000000023001',
+    'cart-fixture-a',
     '[{"publicationId":"53000000-0000-4000-8000-000000023001","quantity":100}]'::jsonb,
     7,
     '73000000-0000-4000-8000-000000023011'
@@ -602,7 +634,7 @@ select is(
 
 create temp table task023_cross_shop as
 select public.customer_cart_merge_guest_v1(
-  '13000000-0000-4000-8000-000000023001',
+  'cart-fixture-a',
   '[{"publicationId":"53000000-0000-4000-8000-000000023003","quantity":1}]'::jsonb,
   7,
   '73000000-0000-4000-8000-000000023012'
@@ -619,7 +651,7 @@ select ok(
 
 create temp table task023_duplicate_guest as
 select public.customer_cart_merge_guest_v1(
-  '13000000-0000-4000-8000-000000023001',
+  'cart-fixture-a',
   '[{"publicationId":"53000000-0000-4000-8000-000000023001","quantity":2},{"publicationId":"53000000-0000-4000-8000-000000023001","quantity":7}]'::jsonb,
   7,
   '73000000-0000-4000-8000-000000023013'
@@ -636,7 +668,7 @@ select set_config(
 select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000023002', true);
 
 select is(
-  public.customer_cart_read_v1('13000000-0000-4000-8000-000000023001') ->> 'itemCount',
+  public.customer_cart_read_v1('cart-fixture-a') ->> 'itemCount',
   '0',
   'another owner sees an empty independent cart rather than owner A data'
 );
@@ -649,7 +681,7 @@ select throws_ok(
 
 select is(
   public.customer_cart_merge_guest_v1(
-    '13000000-0000-4000-8000-000000023001',
+    'cart-fixture-a',
     '[{"publicationId":"53000000-0000-4000-8000-000000023001","quantity":1}]'::jsonb,
     0,
     '73000000-0000-4000-8000-000000023014'
@@ -700,7 +732,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000023004
 
 create temp table task023_bounded_merge as
 select public.customer_cart_merge_guest_v1(
-  '13000000-0000-4000-8000-000000023001',
+  'cart-fixture-a',
   '[{"publicationId":"53000000-0000-4000-8000-000000023001","quantity":2},{"publicationId":"53000000-0000-4000-8000-000000023002","quantity":3}]'::jsonb,
   0,
   '73000000-0000-4000-8000-000000023022'
@@ -732,7 +764,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000023001
 
 create temp table task023_changed_read as
 select public.customer_cart_read_v1(
-  '13000000-0000-4000-8000-000000023001'
+  'cart-fixture-a'
 ) as payload;
 
 select ok(
@@ -748,7 +780,7 @@ select ok(
 
 create temp table task023_revalidated as
 select public.customer_cart_revalidate_v1(
-  '13000000-0000-4000-8000-000000023001',
+  'cart-fixture-a',
   8,
   '73000000-0000-4000-8000-000000023015'
 ) as payload;
@@ -790,7 +822,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000023001
 
 select ok(
   (public.customer_cart_revalidate_v1(
-    '13000000-0000-4000-8000-000000023001', 8,
+    'cart-fixture-a', 8,
     '73000000-0000-4000-8000-000000023015'
   ) ->> 'idempotent')::boolean,
   'ambiguous revalidation retry returns the exact stored quote'
@@ -798,7 +830,7 @@ select ok(
 
 select is(
   public.customer_cart_revalidate_v1(
-    '13000000-0000-4000-8000-000000023001', 8,
+    'cart-fixture-a', 8,
     '73000000-0000-4000-8000-000000023016'
   ) ->> 'status',
   'version_conflict',
@@ -834,7 +866,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000023001
 
 create temp table task023_promo as
 select public.customer_cart_revalidate_v1(
-  '13000000-0000-4000-8000-000000023001', 9,
+  'cart-fixture-a', 9,
   '73000000-0000-4000-8000-000000023017'
 ) as payload;
 
@@ -860,7 +892,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000023001
 
 select ok(
   public.customer_cart_revalidate_v1(
-    '13000000-0000-4000-8000-000000023001', 10,
+    'cart-fixture-a', 10,
     '73000000-0000-4000-8000-000000023018'
   ) -> 'items'
     @> '[{"publicationId":"53000000-0000-4000-8000-000000023001","priceClp":1200,"changeType":"price_changed"}]'::jsonb,
@@ -882,7 +914,7 @@ select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000023001
 
 create temp table task023_unpublished as
 select public.customer_cart_revalidate_v1(
-  '13000000-0000-4000-8000-000000023001', 11,
+  'cart-fixture-a', 11,
   '73000000-0000-4000-8000-000000023019'
 ) as payload;
 
@@ -896,7 +928,7 @@ select ok(
 
 select is(
   public.customer_cart_mutate_v1(
-    '13000000-0000-4000-8000-000000023001', 'set',
+    'cart-fixture-a', 'set',
     '53000000-0000-4000-8000-000000023002', 4, 12,
     '73000000-0000-4000-8000-000000023020'
   ) ->> 'status',
@@ -906,7 +938,7 @@ select is(
 
 select is(
   public.customer_cart_mutate_v1(
-    '13000000-0000-4000-8000-000000023001', 'remove',
+    'cart-fixture-a', 'remove',
     '53000000-0000-4000-8000-000000023002', null, 12,
     '73000000-0000-4000-8000-000000023021'
   ) ->> 'cartVersion',

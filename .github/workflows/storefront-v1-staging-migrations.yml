@@ -1039,7 +1039,7 @@ jobs:
       - name: Verify TASK-023 persistent customer cart contract
         if: >-
           inputs.mode == 'apply' &&
-          inputs.expected_migration_version == '20260802210000'
+          inputs.expected_migration_version == '20260802213000'
         run: |
           set -euo pipefail
           SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
@@ -1060,8 +1060,8 @@ jobs:
                 'migrationLedgerExact', (
                   select count(*) = 1
                   from supabase_migrations.schema_migrations
-                  where version = '20260802210000'
-                    and name = 'storefront_v1_customer_cart'
+                  where version = '20260802213000'
+                    and name = 'storefront_v1_customer_cart_public_slug'
                 ),
                 'tableCount', (
                   select count(*)
@@ -1153,42 +1153,42 @@ jobs:
                 ),
                 'anonRpcDenied',
                   not has_function_privilege(
-                    'anon', 'public.customer_cart_read_v1(uuid)', 'EXECUTE'
+                    'anon', 'public.customer_cart_read_v1(text)', 'EXECUTE'
                   )
                   and not has_function_privilege(
                     'anon',
-                    'public.customer_cart_mutate_v1(uuid,text,uuid,integer,bigint,uuid)',
+                    'public.customer_cart_mutate_v1(text,text,uuid,integer,bigint,uuid)',
                     'EXECUTE'
                   )
                   and not has_function_privilege(
                     'anon',
-                    'public.customer_cart_merge_guest_v1(uuid,jsonb,bigint,uuid)',
+                    'public.customer_cart_merge_guest_v1(text,jsonb,bigint,uuid)',
                     'EXECUTE'
                   )
                   and not has_function_privilege(
                     'anon',
-                    'public.customer_cart_revalidate_v1(uuid,bigint,uuid)',
+                    'public.customer_cart_revalidate_v1(text,bigint,uuid)',
                     'EXECUTE'
                   ),
                 'authenticatedRpcAllowed',
                   has_function_privilege(
                     'authenticated',
-                    'public.customer_cart_read_v1(uuid)',
+                    'public.customer_cart_read_v1(text)',
                     'EXECUTE'
                   )
                   and has_function_privilege(
                     'authenticated',
-                    'public.customer_cart_mutate_v1(uuid,text,uuid,integer,bigint,uuid)',
+                    'public.customer_cart_mutate_v1(text,text,uuid,integer,bigint,uuid)',
                     'EXECUTE'
                   )
                   and has_function_privilege(
                     'authenticated',
-                    'public.customer_cart_merge_guest_v1(uuid,jsonb,bigint,uuid)',
+                    'public.customer_cart_merge_guest_v1(text,jsonb,bigint,uuid)',
                     'EXECUTE'
                   )
                   and has_function_privilege(
                     'authenticated',
-                    'public.customer_cart_revalidate_v1(uuid,bigint,uuid)',
+                    'public.customer_cart_revalidate_v1(text,bigint,uuid)',
                     'EXECUTE'
                   ),
                 'serverAuthoritativeArguments', not exists (
@@ -1208,9 +1208,17 @@ jobs:
                     and argument.name ~* '(price|total|discount|stock)'
                 ),
                 'boundedMerge', pg_catalog.pg_get_functiondef(
-                  'public.customer_cart_merge_guest_v1(uuid,jsonb,bigint,uuid)'
+                  'app_private.customer_cart_merge_guest_v1(uuid,jsonb,bigint,uuid)'
                     ::regprocedure
-                ) like '%greatest(100 - v_item_count, 0)%'
+                ) like '%greatest(100 - v_item_count, 0)%',
+                'publicSlugBoundary',
+                  to_regprocedure('public.customer_cart_read_v1(uuid)') is null
+                  and to_regprocedure('public.customer_cart_read_v1(text)') is not null
+                  and not has_function_privilege(
+                    'authenticated',
+                    'app_private.customer_cart_read_v1(uuid)',
+                    'EXECUTE'
+                  )
               )" \
               > _storefront-migration/evidence/task-023-post-verify.json
           node <<'NODE'
@@ -1242,8 +1250,9 @@ jobs:
             serverAuthoritativeArguments:
               report.serverAuthoritativeArguments === true,
             boundedMerge: report.boundedMerge === true,
-            pgTapPlan: /^1\.\.94$/m.test(tap),
-            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 94,
+            publicSlugBoundary: report.publicSlugBoundary === true,
+            pgTapPlan: /^1\.\.98$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 98,
             pgTapNoFailures: !/^not ok /m.test(tap),
           };
           console.log(JSON.stringify(checks));
