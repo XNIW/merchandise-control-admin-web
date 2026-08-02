@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -38,6 +38,18 @@ const sourceJpeg = Buffer.from(
   "base64",
 );
 const sourceJpegSha256 = createHash("sha256").update(sourceJpeg).digest("hex");
+
+async function attachUiScreenshot(
+  page: Page,
+  testInfo: TestInfo,
+  name: string,
+) {
+  if (process.env.STOREFRONT_UI_CAPTURE !== "yes") return;
+  await testInfo.attach(name, {
+    body: await page.screenshot({ animations: "disabled", fullPage: true }),
+    contentType: "image/png",
+  });
+}
 
 function testRuntime() {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -417,7 +429,7 @@ test.afterAll(cleanup);
 
 test("owner publishes, previews, audits and pauses a Storefront product", async ({
   page,
-}) => {
+}, testInfo) => {
   test.setTimeout(120_000);
   const fixture = state.fixture;
   if (!fixture || !state.supabaseUrl || !state.publishableKey) test.skip();
@@ -433,12 +445,38 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   await expect(
     page.getByRole("heading", { level: 1, name: "Storefront" }),
   ).toBeVisible();
+  const storefrontSections = page.getByLabel("Sezioni Storefront");
+  const catalogTab = storefrontSections.getByRole("link", {
+    exact: true,
+    name: "Catalogo",
+  });
+  const categoriesTab = storefrontSections.getByRole("link", {
+    exact: true,
+    name: "Categorie pubbliche",
+  });
+  await catalogTab.focus();
+  await page.keyboard.press("Tab");
+  await expect(categoriesTab).toBeFocused();
+  await page.setViewportSize({ height: 1_024, width: 768 });
+  await expect(page.getByLabel("Filtri catalogo Storefront")).toBeVisible();
+  await expect(page.getByLabel("Azioni multiple Storefront")).toBeVisible();
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  await page.setViewportSize({ height: 900, width: 1_440 });
+  await attachUiScreenshot(page, testInfo, "admin-storefront-catalog");
   const row = page
     .locator("article")
     .filter({ hasText: fixture.productName })
     .first();
   await expect(row).toBeVisible();
   await row.getByText("Modifica pubblicazione").click();
+  await expect(
+    row.getByLabel(`Anteprima cliente ${fixture.productName}`),
+  ).toBeVisible();
+  await attachUiScreenshot(page, testInfo, "admin-storefront-editor");
   await row.getByLabel("Nome pubblico").fill(fixture.publicName);
   await row
     .getByLabel("Categoria pubblica")
@@ -484,7 +522,6 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   expect(visible.status).toBe("ok");
   expect(visible.item.name).toBe(fixture.publicName);
 
-  const storefrontSections = page.getByLabel("Sezioni Storefront");
   await storefrontSections
     .getByRole("link", { name: "Promozioni", exact: true })
     .click();
@@ -551,6 +588,13 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
     }),
   );
   expect(promotionPaused.item.priceClp).toBe(1000);
+
+  await storefrontSections
+    .getByRole("link", { name: "Anteprima", exact: true })
+    .click();
+  await expect(page.getByLabel("Anteprima mobile cliente")).toBeVisible();
+  await expect(page.getByText(fixture.publicName).first()).toBeVisible();
+  await attachUiScreenshot(page, testInfo, "admin-storefront-preview");
 
   await storefrontSections
     .getByRole("link", { name: "Immagini pubbliche", exact: true })
@@ -680,6 +724,7 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   await expect(
     page.getByText("shop.storefront.image.rollback.success"),
   ).toBeVisible();
+  await attachUiScreenshot(page, testInfo, "admin-storefront-audit");
   await storefrontSections
     .getByRole("link", { name: "Catalogo", exact: true })
     .click();
