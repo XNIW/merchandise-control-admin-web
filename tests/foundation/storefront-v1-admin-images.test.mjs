@@ -35,6 +35,12 @@ const cleanupWorkflow = read(
 const stagingMigrationWorkflow = read(
   ".github/workflows/storefront-v1-staging-migrations.yml",
 );
+const performanceFixture = read(
+  "scripts/testing/storefront-v1-contract-load.sql",
+);
+const performanceFixtureRunner = read(
+  "scripts/testing/storefront-v1-contract-load.sh",
+);
 const SHOP = "10000000-0000-4000-8000-000000020090";
 const PUBLICATION = "50000000-0000-4000-8000-000000020090";
 const SOURCE = "60000000-0000-4000-8000-000000020090";
@@ -443,6 +449,18 @@ test("Storefront staging rerun accepts only the exact already-applied migration"
   });
   assert.equal(drifted.status, "FAIL");
   assert.equal(drifted.expectedState, "invalid");
+});
+
+test("TASK-019 image fixture exposes a UUID version compatible with the client contract", () => {
+  assert.match(
+    performanceFixture,
+    /'70000000-0000-4000-8000-' \|\| pg_catalog\.lpad\(pg_catalog\.to_hex\(series\.id\), 12, '0'\)/,
+  );
+  assert.doesNotMatch(performanceFixture, /task019-image-/);
+  assert.match(
+    performanceFixtureRunner,
+    /storefront_cleanup_strict >\/dev\/null[\s\S]*storefront_result=/,
+  );
 });
 
 test("TASK-009 staging acceptance executes the bounded cleanup before handoff", () => {

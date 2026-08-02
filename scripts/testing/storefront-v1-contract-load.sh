@@ -22,11 +22,15 @@ delete from public.shops where shop_id = '10000000-0000-4000-8000-000000010900';
 delete from auth.users where id = '00000000-0000-4000-8000-000000010900';
 commit;"
 
-storefront_cleanup() {
+storefront_cleanup_strict() {
   psql "${storefront_database_url}" \
     --quiet \
     --set ON_ERROR_STOP=1 \
-    --command "${storefront_cleanup_sql}" >/dev/null 2>&1 || true
+    --command "${storefront_cleanup_sql}"
+}
+
+storefront_cleanup() {
+  storefront_cleanup_strict >/dev/null 2>&1 || true
 }
 
 trap storefront_cleanup EXIT
@@ -60,6 +64,10 @@ if [[ ! -f "${storefront_sql}" ]]; then
   exit 1
 fi
 
+# The bounded fixture uses a dedicated shop and deterministic identifiers.
+# Clear only that synthetic scope so an interrupted CI run is self-healing.
+storefront_cleanup_strict >/dev/null
+
 storefront_result="$(
   psql "${storefront_database_url}" \
     --quiet \
@@ -75,7 +83,7 @@ printf '%s\n' "${storefront_result}" | sed '/^[[:space:]]*$/d'
 
 if (( storefront_hold_seconds > 0 )); then
   sleep "${storefront_hold_seconds}"
-  storefront_cleanup
+  storefront_cleanup_strict >/dev/null
 fi
 
 storefront_residue="$(

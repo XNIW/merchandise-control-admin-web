@@ -240,7 +240,7 @@ select
   ('20000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))::uuid,
   ('70000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))::uuid,
   'published',
-  'task019-image-' || pg_catalog.lpad(series.id::text, 4, '0'),
+  ('70000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0')),
   template.thumb_url,
   template.card_url,
   template.detail_url,
