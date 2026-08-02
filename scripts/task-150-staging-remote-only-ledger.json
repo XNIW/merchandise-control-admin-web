@@ -30,5 +30,9 @@
   {
     "version": "20260802023000",
     "name": "storefront_v1_public_images"
+  },
+  {
+    "version": "20260802033000",
+    "name": "storefront_v1_catalog_version_contract"
   }
 ]
