@@ -4,9 +4,8 @@ on:
   push:
     branches:
       - integration/storefront-v1
+    # Frozen checkpoint: shared-runner changes are exercised by the active task.
     paths:
-      - .github/workflows/storefront-v1-staging-migrations.yml
-      - .github/workflows/task-019-storefront-performance-staging.yml
       - scripts/testing/storefront-v1-contract-load.sh
       - scripts/testing/storefront-v1-contract-load.sql
       - supabase/migrations/20260802043000_storefront_v1_catalog_performance.sql

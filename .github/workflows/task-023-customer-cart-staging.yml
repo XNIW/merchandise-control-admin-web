@@ -4,9 +4,8 @@ on:
   push:
     branches:
       - integration/storefront-v1
+    # Frozen checkpoint: shared-runner changes are exercised by the active task.
     paths:
-      - .github/workflows/storefront-v1-staging-migrations.yml
-      - .github/workflows/task-023-customer-cart-staging.yml
       - supabase/migrations/20260802210000_storefront_v1_customer_cart.sql
       - supabase/migrations/20260802213000_storefront_v1_customer_cart_public_slug.sql
       - supabase/tests/storefront_v1_customer_cart.sql

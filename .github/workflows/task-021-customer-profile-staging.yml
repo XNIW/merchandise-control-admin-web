@@ -4,9 +4,8 @@ on:
   push:
     branches:
       - integration/storefront-v1
+    # Frozen checkpoint: shared-runner changes are exercised by the active task.
     paths:
-      - .github/workflows/storefront-v1-staging-migrations.yml
-      - .github/workflows/task-021-customer-profile-staging.yml
       - supabase/migrations/20260802181823_storefront_v1_customer_profiles_addresses.sql
       - supabase/tests/storefront_v1_customer_profiles_addresses.sql
       - tests/foundation/storefront-v1-customer-profiles-addresses.test.mjs

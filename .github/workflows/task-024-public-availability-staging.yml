@@ -11,7 +11,10 @@ on:
       - supabase/tests/storefront_v1_public_availability.sql
       - supabase/tests/storefront_v1_public_api.sql
       - scripts/testing/storefront-v1-availability-concurrency.sh
+      - scripts/testing/storefront-v1-contract-load.sql
+      - package.json
       - tests/foundation/storefront-v1-public-availability.test.mjs
+      - tests/e2e/storefront-v1-admin-publications-local.spec.ts
       - src/app/shop/storefront/page.tsx
       - src/app/shop/storefront/actions.ts
       - src/server/shop-admin/storefront-mutations.ts
