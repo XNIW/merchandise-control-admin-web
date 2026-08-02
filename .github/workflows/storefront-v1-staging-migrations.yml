@@ -1036,6 +1036,220 @@ jobs:
           if (Object.values(checks).some((value) => !value)) process.exit(1);
           NODE
 
+      - name: Verify TASK-023 persistent customer cart contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260802210000'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_customer_cart.sql \
+              > _storefront-migration/evidence/task-023-pgtap.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260802210000'
+                    and name = 'storefront_v1_customer_cart'
+                ),
+                'tableCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'customer_carts',
+                      'customer_cart_items',
+                      'customer_cart_mutations'
+                    )
+                    and class.relkind = 'r'
+                ),
+                'rlsForcedCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  where class.oid in (
+                    'public.customer_carts'::regclass,
+                    'public.customer_cart_items'::regclass,
+                    'public.customer_cart_mutations'::regclass
+                  )
+                    and class.relrowsecurity
+                    and class.relforcerowsecurity
+                ),
+                'policyCount', (
+                  select count(*)
+                  from pg_catalog.pg_policy policy
+                  where policy.polrelid in (
+                    'public.customer_carts'::regclass,
+                    'public.customer_cart_items'::regclass,
+                    'public.customer_cart_mutations'::regclass
+                  )
+                ),
+                'authenticatedTableDenied',
+                  not has_table_privilege(
+                    'authenticated', 'public.customer_carts', 'SELECT'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_cart_items', 'INSERT'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_cart_mutations', 'SELECT'
+                  ),
+                'serviceRoleTableBoundary',
+                  has_table_privilege(
+                    'service_role', 'public.customer_carts',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and has_table_privilege(
+                    'service_role', 'public.customer_cart_items',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and has_table_privilege(
+                    'service_role', 'public.customer_cart_mutations',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'rpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_cart_read_v1',
+                      'customer_cart_mutate_v1',
+                      'customer_cart_merge_guest_v1',
+                      'customer_cart_revalidate_v1'
+                    )
+                ),
+                'rpcHardened', (
+                  select count(*) = 4
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_cart_read_v1',
+                      'customer_cart_mutate_v1',
+                      'customer_cart_merge_guest_v1',
+                      'customer_cart_revalidate_v1'
+                    )
+                    and procedure.prosecdef
+                    and (
+                      'search_path='
+                      || pg_catalog.chr(34)
+                      || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
+                ),
+                'anonRpcDenied',
+                  not has_function_privilege(
+                    'anon', 'public.customer_cart_read_v1(uuid)', 'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'anon',
+                    'public.customer_cart_mutate_v1(uuid,text,uuid,integer,bigint,uuid)',
+                    'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'anon',
+                    'public.customer_cart_merge_guest_v1(uuid,jsonb,bigint,uuid)',
+                    'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'anon',
+                    'public.customer_cart_revalidate_v1(uuid,bigint,uuid)',
+                    'EXECUTE'
+                  ),
+                'authenticatedRpcAllowed',
+                  has_function_privilege(
+                    'authenticated',
+                    'public.customer_cart_read_v1(uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_cart_mutate_v1(uuid,text,uuid,integer,bigint,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_cart_merge_guest_v1(uuid,jsonb,bigint,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_cart_revalidate_v1(uuid,bigint,uuid)',
+                    'EXECUTE'
+                  ),
+                'serverAuthoritativeArguments', not exists (
+                  select 1
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  cross join lateral unnest(
+                    coalesce(procedure.proargnames, '{}'::text[])
+                  ) argument(name)
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_cart_mutate_v1',
+                      'customer_cart_merge_guest_v1',
+                      'customer_cart_revalidate_v1'
+                    )
+                    and argument.name ~* '(price|total|discount|stock)'
+                ),
+                'boundedMerge', pg_catalog.pg_get_functiondef(
+                  'public.customer_cart_merge_guest_v1(uuid,jsonb,bigint,uuid)'
+                    ::regprocedure
+                ) like '%greatest(100 - v_item_count, 0)%'
+              )" \
+              > _storefront-migration/evidence/task-023-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-023-pgtap.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-023-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            migrationLedgerExact: report.migrationLedgerExact === true,
+            tableCount: Number(report.tableCount) === 3,
+            rlsForcedCount: Number(report.rlsForcedCount) === 3,
+            policyCount: Number(report.policyCount) === 12,
+            authenticatedTableDenied:
+              report.authenticatedTableDenied === true,
+            serviceRoleTableBoundary:
+              report.serviceRoleTableBoundary === true,
+            rpcCount: Number(report.rpcCount) === 4,
+            rpcHardened: report.rpcHardened === true,
+            anonRpcDenied: report.anonRpcDenied === true,
+            authenticatedRpcAllowed:
+              report.authenticatedRpcAllowed === true,
+            serverAuthoritativeArguments:
+              report.serverAuthoritativeArguments === true,
+            boundedMerge: report.boundedMerge === true,
+            pgTapPlan: /^1\.\.94$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 94,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
       - name: Benchmark Storefront contract on staging and clean fixtures
         if: inputs.mode == 'apply' && inputs.run_performance_load
         env:
