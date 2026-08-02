@@ -605,7 +605,7 @@ select ok(
        where pos_device_credential_id = '50000000-0000-4000-8000-000000000150')
   and (select status = 'revoked' from public.shop_devices
        where shop_device_id = '40000000-0000-4000-8000-000000000150')
-  and (select status = 'archived' from public.staff_accounts staff
+  and (select staff.status = 'archived' from public.staff_accounts staff
        join app_private.task_150_win7pos_image_qa_runs run
          on run.run_staff_id = staff.staff_id
        where run.run_hmac = repeat('a', 64))
