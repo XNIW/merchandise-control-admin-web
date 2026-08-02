@@ -11,6 +11,10 @@ on:
         options:
           - dry-run
           - apply
+      expected_commit_sha:
+        description: "Exact merged main commit authorized for this migration"
+        required: true
+        type: string
       apply_confirmation:
         description: "For apply, enter APPLY_TASK150_STAGING"
         required: false
@@ -29,6 +33,7 @@ env:
   EXPECTED_MIGRATION_VERSION: "20260802015520"
   EXPECTED_MIGRATION_NAME: task_150_storage_cleanup_recovery
   EXPECTED_MIGRATION_FILE: 20260802015520_task_150_storage_cleanup_recovery.sql
+  APPROVED_REMOTE_ONLY_MANIFEST: scripts/task-150-staging-remote-only-ledger.json
   REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
   REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
   REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
@@ -53,6 +58,7 @@ jobs:
       - name: Verify immutable staging inputs
         env:
           REQUESTED_MODE: ${{ inputs.mode }}
+          EXPECTED_COMMIT_SHA: ${{ inputs.expected_commit_sha }}
           APPLY_CONFIRMATION: ${{ inputs.apply_confirmation }}
           SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
@@ -61,6 +67,7 @@ jobs:
           const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
           const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
           const mode = process.env.REQUESTED_MODE || "";
+          const expectedCommit = process.env.EXPECTED_COMMIT_SHA || "";
           const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
             .split(",")
             .map((value) => value.trim())
@@ -71,6 +78,9 @@ jobs:
           } catch {}
           const status = {
             mainBranch: process.env.GITHUB_REF === "refs/heads/main",
+            exactCommit:
+              /^[0-9a-f]{40}$/.test(expectedCommit) &&
+              process.env.GITHUB_SHA === expectedCommit,
             projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
             exactProject:
               ref === process.env.EXPECTED_STAGING_SUPABASE_PROJECT_REF,
@@ -120,19 +130,87 @@ jobs:
           node scripts/task-150-reconcile-migration-delta.mjs \
             supabase/migrations \
             _task150-migration/evidence/remote-ledger.tsv \
-            _task150-migration/evidence/delta.json
+            _task150-migration/evidence/delta.json \
+            "$APPROVED_REMOTE_ONLY_MANIFEST"
 
-      - name: Materialize exact remote remap for the ephemeral CLI projection
+      - name: Materialize fail-closed shared-staging ledger projection
         run: |
           set -euo pipefail
-          LOCAL_PATH="supabase/migrations/$REMAPPED_LOCAL_MIGRATION_FILE"
-          REMOTE_PATH="supabase/migrations/${REMAPPED_REMOTE_MIGRATION_VERSION}_${REMAPPED_MIGRATION_NAME}.sql"
-          test -f "$LOCAL_PATH"
-          test ! -e "$REMOTE_PATH"
-          cp -- "$LOCAL_PATH" "$REMOTE_PATH"
-          rm -- "$LOCAL_PATH"
-          test -f "$REMOTE_PATH"
-          test ! -e "$LOCAL_PATH"
+          node <<'NODE'
+          const { existsSync, readFileSync, writeFileSync } = require("node:fs");
+          const { join } = require("node:path");
+          const rows = JSON.parse(
+            readFileSync(process.env.APPROVED_REMOTE_ONLY_MANIFEST, "utf8"),
+          );
+          if (!Array.isArray(rows) || rows.length !== 8) process.exit(1);
+          for (const row of rows) {
+            if (
+              !/^(\d{8}|\d{14})$/.test(row.version ?? "") ||
+              !/^[a-z0-9][a-z0-9_]*$/.test(row.name ?? "") ||
+              Object.keys(row).sort().join(",") !== "name,version"
+            ) process.exit(1);
+            const path = join(
+              "supabase",
+              "migrations",
+              `${row.version}_${row.name}.sql`,
+            );
+            if (existsSync(path)) throw new Error(`projection_collision:${row.version}`);
+            writeFileSync(
+              path,
+              `do $task150_projection$\nbegin\n  raise exception 'task150_remote_projection_must_never_execute:${row.version}';\nend\n$task150_projection$;\n`,
+              { encoding: "utf8", flag: "wx" },
+            );
+          }
+          NODE
+
+      - name: Materialize fail-closed remote remap for CLI parity
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { existsSync, rmSync, writeFileSync } = require("node:fs");
+          const { join } = require("node:path");
+          const localPath = join(
+            "supabase",
+            "migrations",
+            process.env.REMAPPED_LOCAL_MIGRATION_FILE,
+          );
+          const remotePath = join(
+            "supabase",
+            "migrations",
+            `${process.env.REMAPPED_REMOTE_MIGRATION_VERSION}_${process.env.REMAPPED_MIGRATION_NAME}.sql`,
+          );
+          if (!existsSync(localPath) || existsSync(remotePath)) process.exit(1);
+          rmSync(localPath);
+          writeFileSync(
+            remotePath,
+            `do $task150_remap$\nbegin\n  raise exception 'task150_remote_remap_must_never_execute:${process.env.REMAPPED_REMOTE_MIGRATION_VERSION}';\nend\n$task150_remap$;\n`,
+            { encoding: "utf8", flag: "wx" },
+          );
+          NODE
+
+      - name: Poison every non-target local migration in the CLI projection
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { readdirSync, writeFileSync } = require("node:fs");
+          const { join } = require("node:path");
+          const expected = process.env.EXPECTED_MIGRATION_FILE;
+          const directory = join("supabase", "migrations");
+          const files = readdirSync(directory).filter((fileName) =>
+            fileName.toLowerCase().endsWith(".sql"),
+          );
+          if (!files.includes(expected)) process.exit(1);
+          for (const fileName of files) {
+            if (fileName === expected) continue;
+            const match = fileName.match(/^(\d{8}|\d{14})_(.+)\.sql$/);
+            if (!match) throw new Error(`projection_filename_invalid:${fileName}`);
+            writeFileSync(
+              join(directory, fileName),
+              `do $task150_non_target$\nbegin\n  raise exception 'task150_non_target_migration_must_never_execute:${match[1]}';\nend\n$task150_non_target$;\n`,
+              "utf8",
+            );
+          }
+          NODE
 
       - name: Supabase CLI dry-run
         run: |
@@ -142,6 +220,7 @@ jobs:
             --workdir "$PWD" \
             db push \
             --dry-run \
+            --include-all \
             --db-url "$SOURCE_DB_URL" \
             2>&1 | tee _task150-migration/evidence/supabase-dry-run.txt
           grep -F "$EXPECTED_MIGRATION_VERSION" \
@@ -153,6 +232,52 @@ jobs:
             echo "Already-applied remapped migration appeared in dry-run." >&2
             exit 1
           fi
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const report = JSON.parse(
+            readFileSync("_task150-migration/evidence/delta.json", "utf8"),
+          );
+          const output = readFileSync(
+            "_task150-migration/evidence/supabase-dry-run.txt",
+            "utf8",
+          );
+          const unexpected = report.approvedRemoteOnly.filter(
+            (row) => output.includes(row.version),
+          );
+          if (unexpected.length) {
+            throw new Error(
+              `already_applied_projection_appeared_in_dry_run:${unexpected.map((row) => row.version).join(",")}`,
+            );
+          }
+          const observedVersions = [
+            ...new Set(output.match(/(?<!\d)(?:\d{14}|\d{8})(?!\d)/g) ?? []),
+          ].sort();
+          if (
+            JSON.stringify(observedVersions) !==
+            JSON.stringify([process.env.EXPECTED_MIGRATION_VERSION])
+          ) {
+            throw new Error("dry_run_migration_version_set_not_exact");
+          }
+          NODE
+
+      - name: Re-prove immutable ledger immediately before apply
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task150-migration/source-db-url)"
+          docker run --rm -i --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -F $'\t' -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select version, name from supabase_migrations.schema_migrations order by version" \
+              > _task150-migration/evidence/pre-apply-remote-ledger.tsv
+          cmp --silent \
+            _task150-migration/evidence/remote-ledger.tsv \
+            _task150-migration/evidence/pre-apply-remote-ledger.tsv || {
+              echo "Shared staging migration ledger changed after dry-run." >&2
+              exit 1
+            }
 
       - name: Apply single approved migration
         if: inputs.mode == 'apply'
@@ -162,6 +287,7 @@ jobs:
           npx --yes supabase@2.109.0 \
             --workdir "$PWD" \
             db push \
+            --include-all \
             --db-url "$SOURCE_DB_URL" \
             --yes \
             2>&1 | tee _task150-migration/evidence/supabase-apply.txt
@@ -174,6 +300,85 @@ jobs:
             echo "Already-applied remapped migration appeared in apply output." >&2
             exit 1
           fi
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const report = JSON.parse(
+            readFileSync("_task150-migration/evidence/delta.json", "utf8"),
+          );
+          const output = readFileSync(
+            "_task150-migration/evidence/supabase-apply.txt",
+            "utf8",
+          );
+          const unexpected = report.approvedRemoteOnly.filter(
+            (row) => output.includes(row.version),
+          );
+          if (unexpected.length) {
+            throw new Error(
+              `already_applied_projection_appeared_in_apply:${unexpected.map((row) => row.version).join(",")}`,
+            );
+          }
+          const observedVersions = [
+            ...new Set(output.match(/(?<!\d)(?:\d{14}|\d{8})(?!\d)/g) ?? []),
+          ].sort();
+          if (
+            JSON.stringify(observedVersions) !==
+            JSON.stringify([process.env.EXPECTED_MIGRATION_VERSION])
+          ) {
+            throw new Error("apply_migration_version_set_not_exact");
+          }
+          NODE
+
+      - name: Prove exact post-apply ledger delta
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task150-migration/source-db-url)"
+          docker run --rm -i --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -F $'\t' -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select version, name from supabase_migrations.schema_migrations order by version" \
+              > _task150-migration/evidence/post-apply-remote-ledger.tsv
+          node <<'NODE'
+          const { readFileSync, writeFileSync } = require("node:fs");
+          const parse = (path) =>
+            readFileSync(path, "utf8")
+              .trim()
+              .split(/\r?\n/)
+              .filter(Boolean)
+              .map((line) => {
+                const fields = line.split("\t");
+                if (fields.length !== 2) throw new Error("ledger_shape_invalid");
+                return { version: fields[0], name: fields[1] };
+              });
+          const before = parse(
+            "_task150-migration/evidence/pre-apply-remote-ledger.tsv",
+          );
+          const after = parse(
+            "_task150-migration/evidence/post-apply-remote-ledger.tsv",
+          );
+          const expected = [
+            ...before,
+            {
+              version: process.env.EXPECTED_MIGRATION_VERSION,
+              name: process.env.EXPECTED_MIGRATION_NAME,
+            },
+          ].sort((left, right) => left.version.localeCompare(right.version));
+          const exact = JSON.stringify(after) === JSON.stringify(expected);
+          const verdict = {
+            exact,
+            beforeCount: before.length,
+            afterCount: after.length,
+            expectedAddedVersion: process.env.EXPECTED_MIGRATION_VERSION,
+          };
+          writeFileSync(
+            "_task150-migration/evidence/post-apply-ledger-verdict.json",
+            `${JSON.stringify(verdict, null, 2)}\n`,
+          );
+          console.log(JSON.stringify(verdict));
+          if (!exact) process.exit(1);
+          NODE
 
       - name: Verify TASK-150 schema and grants
         if: inputs.mode == 'apply'
@@ -271,6 +476,21 @@ jobs:
               from supabase_migrations.schema_migrations
               where version = '20260802015520'
                 and name = 'task_150_storage_cleanup_recovery'
+            ),
+            'approvedSharedStagingLedgerRetained', (
+              select count(*) = 8
+              from supabase_migrations.schema_migrations
+              where (version, name) in (
+                values
+                  ('20260801195852', 'storefront_v1_schema_rls'),
+                  ('20260801211500', 'storefront_v1_catalog_projection'),
+                  ('20260801213500', 'storefront_v1_catalog_projection_grants'),
+                  ('20260801223000', 'storefront_v1_public_api'),
+                  ('20260801230000', 'storefront_v1_public_api_planner'),
+                  ('20260802001000', 'storefront_v1_admin_publications'),
+                  ('20260802010000', 'storefront_v1_admin_promotions'),
+                  ('20260802023000', 'storefront_v1_public_images')
+              )
             ),
             'publicFunctionCount', (select count(*) from public_functions),
             'opaqueSecretRoleCompat', (
@@ -474,6 +694,7 @@ jobs:
             "baseMigrationLedgerExact",
             "compatMigrationLedgerExact",
             "recoveryMigrationLedgerExact",
+            "approvedSharedStagingLedgerRetained",
             "opaqueSecretRoleCompat",
             "cleanupAcquireLegacyExact",
             "cleanupAcquireRecoveryExact",

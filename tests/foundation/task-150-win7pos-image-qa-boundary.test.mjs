@@ -31,6 +31,8 @@ const stagingMigrationWorkflowPath =
   ".github/workflows/task-150-staging-migration.yml";
 const stagingMigrationReconciliationPath =
   "scripts/task-150-reconcile-migration-delta.mjs";
+const stagingRemoteOnlyLedgerPath =
+  "scripts/task-150-staging-remote-only-ledger.json";
 const stagingRouteVerificationPath =
   "scripts/verify-task-150-staging-route.mjs";
 const cloudflareWorkflowPath = ".github/workflows/cloudflare.yml";
@@ -859,6 +861,16 @@ test("TASK-150 migration remap reconciliation fails closed for every drift shape
   };
   assert.equal(reconcileMigrationDelta(exact).status, "PASS");
 
+  const approvedRemoteOnly = JSON.parse(read(stagingRemoteOnlyLedgerPath));
+  const exactSharedStaging = {
+    ...exact,
+    remote: [...exact.remote, ...approvedRemoteOnly],
+    approvedRemoteOnly,
+  };
+  const sharedStagingReport = reconcileMigrationDelta(exactSharedStaging);
+  assert.equal(sharedStagingReport.status, "PASS");
+  assert.equal(sharedStagingReport.remoteOnlyMatchesApproved, true);
+
   const failures = [
     { ...exact, remote: [] },
     {
@@ -902,6 +914,22 @@ test("TASK-150 migration remap reconciliation fails closed for every drift shape
       ...exact,
       local: [task142, { ...task142 }, task150, task150Compat, task150Recovery],
     },
+    { ...exactSharedStaging, approvedRemoteOnly: approvedRemoteOnly.slice(1) },
+    {
+      ...exactSharedStaging,
+      approvedRemoteOnly: approvedRemoteOnly.map((row, index) =>
+        index === 0 ? { ...row, name: `${row.name}_drift` } : row,
+      ),
+    },
+    {
+      ...exactSharedStaging,
+      approvedRemoteOnly: [...approvedRemoteOnly].reverse(),
+    },
+    {
+      ...exactSharedStaging,
+      approvedRemoteOnly: [...approvedRemoteOnly, approvedRemoteOnly.at(-1)],
+    },
+    { ...exactSharedStaging, approvedRemoteOnly: null },
   ];
   for (const input of failures) {
     assert.equal(reconcileMigrationDelta(input).status, "FAIL");
@@ -913,6 +941,10 @@ test("TASK-150 migration reconciliation CLI reports exact success and fails clos
   const migrationDirectory = join(temporaryRoot, "migrations");
   const remoteLedgerPath = join(temporaryRoot, "remote.tsv");
   const outputPath = join(temporaryRoot, "report.json");
+  const approvedRemoteOnlyPath = join(
+    temporaryRoot,
+    "approved-remote-only.json",
+  );
   const scriptPath = resolve(root, stagingMigrationReconciliationPath);
   const task142File = "20260727055520_task_142_catalog_text_policy_v1.sql";
   const task150File =
@@ -936,19 +968,24 @@ test("TASK-150 migration reconciliation CLI reports exact success and fails clos
   writeFileSync(join(migrationDirectory, task150File), "-- fixture\n");
   writeFileSync(join(migrationDirectory, task150CompatFile), "-- fixture\n");
   writeFileSync(join(migrationDirectory, task150RecoveryFile), "-- fixture\n");
-  writeFileSync(
-    remoteLedgerPath,
+  const baseRemoteLedger =
     "20260727084040\ttask_142_catalog_text_policy_v1\n" +
-      "20260731162000\ttask_150_win7pos_product_image_qa_boundary\n" +
-      "20260801024000\ttask_150_opaque_secret_role_compat\n",
-  );
+    "20260731162000\ttask_150_win7pos_product_image_qa_boundary\n" +
+    "20260801024000\ttask_150_opaque_secret_role_compat\n";
+  writeFileSync(remoteLedgerPath, baseRemoteLedger);
 
-  function runCli() {
-    return spawnSync(
-      process.execPath,
-      [scriptPath, migrationDirectory, remoteLedgerPath, outputPath],
-      { encoding: "utf8", env: environment },
-    );
+  function runCli(remoteOnlyPath) {
+    const arguments_ = [
+      scriptPath,
+      migrationDirectory,
+      remoteLedgerPath,
+      outputPath,
+    ];
+    if (remoteOnlyPath) arguments_.push(remoteOnlyPath);
+    return spawnSync(process.execPath, arguments_, {
+      encoding: "utf8",
+      env: environment,
+    });
   }
 
   const exact = runCli();
@@ -972,6 +1009,34 @@ test("TASK-150 migration reconciliation CLI reports exact success and fails clos
   const drift = runCli();
   assert.equal(drift.status, 1);
   assert.equal(JSON.parse(readFileSync(outputPath, "utf8")).status, "FAIL");
+
+  const approvedRemoteOnly = [
+    { version: "20260802023000", name: "storefront_v1_public_images" },
+  ];
+  writeFileSync(
+    remoteLedgerPath,
+    `${baseRemoteLedger}20260802023000\tstorefront_v1_public_images\n`,
+  );
+  writeFileSync(
+    approvedRemoteOnlyPath,
+    `${JSON.stringify(approvedRemoteOnly)}\n`,
+  );
+  const approvedDrift = runCli(approvedRemoteOnlyPath);
+  assert.equal(
+    approvedDrift.status,
+    0,
+    approvedDrift.stderr || approvedDrift.stdout,
+  );
+  assert.equal(
+    JSON.parse(readFileSync(outputPath, "utf8")).remoteOnlyMatchesApproved,
+    true,
+  );
+  writeFileSync(
+    approvedRemoteOnlyPath,
+    `${JSON.stringify([{ ...approvedRemoteOnly[0], name: "wrong_name" }])}\n`,
+  );
+  const approvedDriftMismatch = runCli(approvedRemoteOnlyPath);
+  assert.equal(approvedDriftMismatch.status, 1);
 
   const imported = spawnSync(
     process.execPath,
@@ -1038,12 +1103,17 @@ test("TASK-150 staging route verification tolerates bounded propagation only", a
 test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   const migrationWorkflow = read(stagingMigrationWorkflowPath);
   const reconciliation = read(stagingMigrationReconciliationPath);
+  const approvedRemoteOnly = JSON.parse(read(stagingRemoteOnlyLedgerPath));
   const routeVerification = read(stagingRouteVerificationPath);
   const cloudflareWorkflow = read(cloudflareWorkflowPath);
   assert.match(migrationWorkflow, /environment: cloudflare-staging/);
   assert.match(
     migrationWorkflow,
     /mainBranch: process\.env\.GITHUB_REF === "refs\/heads\/main"/,
+  );
+  assert.match(
+    migrationWorkflow,
+    /expected_commit_sha:[\s\S]*?required: true[\s\S]*?exactCommit:[\s\S]*?process\.env\.GITHUB_SHA === expectedCommit/,
   );
   assert.match(
     migrationWorkflow,
@@ -1080,6 +1150,24 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   );
   assert.match(
     migrationWorkflow,
+    /APPROVED_REMOTE_ONLY_MANIFEST: scripts\/task-150-staging-remote-only-ledger\.json/,
+  );
+  assert.equal(approvedRemoteOnly.length, 8);
+  assert.deepEqual(
+    approvedRemoteOnly.map((row) => row.version),
+    [
+      "20260801195852",
+      "20260801211500",
+      "20260801213500",
+      "20260801223000",
+      "20260801230000",
+      "20260802001000",
+      "20260802010000",
+      "20260802023000",
+    ],
+  );
+  assert.match(
+    migrationWorkflow,
     /node scripts\/task-150-reconcile-migration-delta\.mjs/,
   );
   assert.match(reconciliation, /exactRemoteRows\.length !== 1/);
@@ -1089,11 +1177,33 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   );
   assert.match(reconciliation, /remapViolations\.length/);
   assert.match(reconciliation, /normalizedRemote/);
+  assert.match(reconciliation, /remoteOnlyMatchesApproved/);
   assert.match(
     migrationWorkflow,
-    /Materialize exact remote remap for the ephemeral CLI projection/,
+    /Materialize fail-closed shared-staging ledger projection/,
   );
-  assert.match(migrationWorkflow, /cp -- "\$LOCAL_PATH" "\$REMOTE_PATH"/);
+  assert.match(
+    migrationWorkflow,
+    /task150_remote_projection_must_never_execute/,
+  );
+  assert.match(
+    migrationWorkflow,
+    /Materialize fail-closed remote remap for CLI parity/,
+  );
+  assert.match(migrationWorkflow, /task150_remote_remap_must_never_execute/);
+  assert.doesNotMatch(
+    migrationWorkflow,
+    /cp -- "\$LOCAL_PATH" "\$REMOTE_PATH"/,
+  );
+  assert.match(
+    migrationWorkflow,
+    /Poison every non-target local migration in the CLI projection/,
+  );
+  assert.match(migrationWorkflow, /if \(fileName === expected\) continue;/);
+  assert.match(
+    migrationWorkflow,
+    /task150_non_target_migration_must_never_execute/,
+  );
   assert.match(
     migrationWorkflow,
     /Already-applied remapped migration appeared in dry-run/,
@@ -1102,17 +1212,56 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
     migrationWorkflow,
     /Already-applied remapped migration appeared in apply output/,
   );
-  assert.match(reconciliation, /remoteOnly\.length === 0/);
+  assert.match(
+    reconciliation,
+    /migrationRowsMatch\(remoteOnly, approvedRemoteOnlyRows\)/,
+  );
   assert.match(reconciliation, /nameMismatches\.length === 0/);
   assert.match(
     reconciliation,
     /JSON\.stringify\(pending\) === JSON\.stringify\(expected\)/,
   );
   assert.match(migrationWorkflow, /db push \\\r?\n\s+--dry-run/);
+  assert.match(migrationWorkflow, /--include-all/);
+  assert.match(migrationWorkflow, /dry_run_migration_version_set_not_exact/);
+  assert.match(migrationWorkflow, /apply_migration_version_set_not_exact/);
+  const exactTokenExtractor =
+    "output.match(/(?<!\\d)(?:\\d{14}|\\d{8})(?!\\d)/g)";
+  assert.equal(migrationWorkflow.split(exactTokenExtractor).length - 1, 2);
+  const realisticSupabaseOutput =
+    "DRY RUN: migrations will not be pushed\n" +
+    " • 20260802015520_task_150_storage_cleanup_recovery.sql\n";
+  assert.deepEqual(
+    [
+      ...new Set(
+        realisticSupabaseOutput.match(/(?<!\d)(?:\d{14}|\d{8})(?!\d)/g) ?? [],
+      ),
+    ].sort(),
+    ["20260802015520"],
+  );
+  assert.equal(
+    (
+      migrationWorkflow.match(
+        /JSON\.stringify\(\[process\.env\.EXPECTED_MIGRATION_VERSION\]\)/g,
+      ) ?? []
+    ).length,
+    2,
+  );
+  assert.match(
+    migrationWorkflow,
+    /Re-prove immutable ledger immediately before apply/,
+  );
+  assert.match(migrationWorkflow, /cmp --silent/);
+  assert.match(migrationWorkflow, /Prove exact post-apply ledger delta/);
+  assert.match(
+    migrationWorkflow,
+    /JSON\.stringify\(after\) === JSON\.stringify\(expected\)/,
+  );
   assert.match(migrationWorkflow, /Apply single approved migration/);
   assert.match(migrationWorkflow, /baseMigrationLedgerExact/);
   assert.match(migrationWorkflow, /compatMigrationLedgerExact/);
   assert.match(migrationWorkflow, /recoveryMigrationLedgerExact/);
+  assert.match(migrationWorkflow, /approvedSharedStagingLedgerRetained/);
   assert.match(migrationWorkflow, /cleanupAcquireLegacyExact/);
   assert.match(migrationWorkflow, /cleanupAcquireRecoveryExact/);
   assert.match(migrationWorkflow, /cleanupAcquirePrivateDenied/);
@@ -1152,7 +1301,7 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   assert.equal(
     (migrationWorkflow.match(/docker run --rm -i --network host/g) ?? [])
       .length,
-    2,
+    4,
   );
   assert.doesNotMatch(
     migrationWorkflow,
