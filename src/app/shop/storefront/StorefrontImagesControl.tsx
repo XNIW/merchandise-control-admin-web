@@ -196,23 +196,34 @@ async function prepare(source: Blob): Promise<Prepared> {
   }
 }
 
-function safeUploadUrl(value: unknown, objectPath: unknown) {
-  const configured = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+function safeUploadUrl(
+  value: unknown,
+  objectPath: unknown,
+  expectedOrigin: unknown,
+) {
   if (
     typeof value !== "string" ||
     typeof objectPath !== "string" ||
-    !configured
+    typeof expectedOrigin !== "string"
   )
     fail("image_signed_url_invalid");
   const url = new URL(value, window.location.origin);
-  const origin = new URL(configured).origin;
+  const trustedOrigin = new URL(expectedOrigin);
   const marker = "/storage/v1/object/upload/sign/storefront-product-images/";
   const localHttp =
     url.protocol === "http:" &&
     ["localhost", "127.0.0.1"].includes(url.hostname);
+  const trustedLocalHttp =
+    trustedOrigin.protocol === "http:" &&
+    ["localhost", "127.0.0.1"].includes(trustedOrigin.hostname);
+  const trustedSupabase =
+    trustedOrigin.protocol === "https:" &&
+    /^[a-z0-9]{20}\.supabase\.co$/.test(trustedOrigin.hostname);
   if (
     (url.protocol !== "https:" && !localHttp) ||
-    url.origin !== origin ||
+    (!trustedSupabase && !trustedLocalHttp) ||
+    trustedOrigin.origin !== expectedOrigin ||
+    url.origin !== trustedOrigin.origin ||
     url.username ||
     url.password ||
     url.hash ||
@@ -228,13 +239,14 @@ async function upload(
   url: string,
   objectPath: string,
   blob: Blob,
+  expectedOrigin: string,
   variant: Variant,
   signal: AbortSignal,
 ) {
   const form = new FormData();
   form.append("cacheControl", "31536000");
   form.append("", blob, `${variant}.webp`);
-  const response = await fetch(safeUploadUrl(url, objectPath), {
+  const response = await fetch(safeUploadUrl(url, objectPath, expectedOrigin), {
     body: form,
     cache: "no-store",
     credentials: "omit",
@@ -315,6 +327,8 @@ export function StorefrontImagesControl({
       if (intent.status === "upload_required") {
         const uploads = intent.uploads as Record<string, unknown>;
         const paths = intent.paths as Record<string, unknown>;
+        const uploadOrigin = intent.uploadOrigin;
+        if (typeof uploadOrigin !== "string") fail("image_intent_invalid");
         setMessage("Upload immutabile thumb/card/detail…");
         await Promise.all(
           VARIANTS.map((variant) =>
@@ -322,6 +336,7 @@ export function StorefrontImagesControl({
               String(uploads?.[variant] ?? ""),
               String(paths?.[variant] ?? ""),
               prepared[variant].blob,
+              uploadOrigin,
               variant,
               controller.signal,
             ),

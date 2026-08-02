@@ -562,9 +562,9 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
     sourceCard.getByRole("button", { name: "Pubblica immagine" }),
   ).toBeEnabled();
   await sourceCard.getByRole("button", { name: "Pubblica immagine" }).click();
-  await expect(page.getByText("Immagine pubblica pronta.")).toBeVisible({
-    timeout: 30_000,
-  });
+  const firstImageOutcome = page.getByText(/Immagine pubblica pronta\.|Errore:/);
+  await expect(firstImageOutcome).toBeVisible({ timeout: 30_000 });
+  await expect(firstImageOutcome).toHaveText("Immagine pubblica pronta.");
 
   const firstPublicImage = await must(
     "FIRST_PUBLIC_IMAGE",
@@ -621,9 +621,9 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   await replacementCard
     .getByRole("button", { name: "Sostituisci immagine" })
     .click();
-  await expect(page.getByText("Immagine pubblica pronta.")).toBeVisible({
-    timeout: 30_000,
-  });
+  const replacementOutcome = page.getByText(/Immagine pubblica pronta\.|Errore:/);
+  await expect(replacementOutcome).toBeVisible({ timeout: 30_000 });
+  await expect(replacementOutcome).toHaveText("Immagine pubblica pronta.");
   const replacementImage = await must(
     "REPLACEMENT_PUBLIC_IMAGE",
     state

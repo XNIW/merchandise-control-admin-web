@@ -281,6 +281,7 @@ test("TASK-009 control plane has no file input and uses private-source to immuta
     'form.append("cacheControl", "31536000")',
     'mimeType: "image/webp"',
     'colorSpace: "srgb"',
+    "uploadOrigin",
   ])
     assert.match(
       component,
@@ -291,6 +292,8 @@ test("TASK-009 control plane has no file input and uses private-source to immuta
   assert.match(service, /verifyDownloadedProductImageJpeg/);
   assert.match(service, /verifyStorefrontWebp/);
   assert.match(service, /storefront_image_configure_origin_v1/);
+  assert.match(service, /storage_origin_mismatch/);
+  assert.doesNotMatch(component, /NEXT_PUBLIC_SUPABASE_URL/);
 });
 
 test("TASK-009 SQL boundary is isolated, lease-bound, idempotent, audited and cleanup-safe", () => {

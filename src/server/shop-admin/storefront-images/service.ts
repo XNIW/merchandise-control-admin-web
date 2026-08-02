@@ -32,6 +32,15 @@ function adminClient() {
     ? createSupabaseAdminClient(config)
     : null;
 }
+function configuredStorageOrigin() {
+  const config = resolveSupabaseAdminConfig();
+  if (config.status !== "configured") return null;
+  try {
+    return new URL(config.url).origin;
+  } catch {
+    return null;
+  }
+}
 async function ensurePublicAssetOrigin() {
   const config = resolveSupabaseAdminConfig();
   if (config.status !== "configured") return false;
@@ -178,7 +187,9 @@ export async function createStorefrontImageIntent(
   context: ReadyContext,
   input: StorefrontImageIntentInput,
 ): Promise<ServiceResult> {
-  if (!(await ensurePublicAssetOrigin())) return failure("not_configured");
+  const uploadOrigin = configuredStorageOrigin();
+  if (!uploadOrigin || !(await ensurePublicAssetOrigin()))
+    return failure("not_configured");
   const rpc = await contextRpc(context, "admin_storefront_image_intent_v1", {
     p_publication_id: input.publicationId,
     p_shop_id: input.shopId,
@@ -230,10 +241,22 @@ export async function createStorefrontImageIntent(
   if (signed.some(({ result }) => result.error || !result.data?.signedUrl)) {
     return failure("storage_unavailable");
   }
+  if (
+    signed.some(({ result }) => {
+      try {
+        return new URL(result.data!.signedUrl).origin !== uploadOrigin;
+      } catch {
+        return true;
+      }
+    })
+  ) {
+    return failure("storage_origin_mismatch");
+  }
   return {
     body: {
       imagePublicationId,
       ok: true,
+      uploadOrigin,
       paths: Object.fromEntries(paths),
       status,
       uploads: Object.fromEntries(
