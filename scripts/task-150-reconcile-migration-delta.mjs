@@ -13,11 +13,23 @@ function duplicateVersions(rows) {
     .map(([version, count]) => ({ version, count }));
 }
 
+function migrationRowsMatch(left, right) {
+  return (
+    left.length === right.length &&
+    left.every(
+      (row, index) =>
+        row.version === right[index]?.version &&
+        row.name === right[index]?.name,
+    )
+  );
+}
+
 export function reconcileMigrationDelta({
   local,
   remote,
   expected,
   approvedRemoteRemaps,
+  approvedRemoteOnly = [],
   localFilenameViolations = [],
 }) {
   const localDuplicates = duplicateVersions(local);
@@ -49,6 +61,41 @@ export function reconcileMigrationDelta({
   const remoteOnly = normalizedRemote.filter(
     (row) => !localByVersion.has(row.version),
   );
+  const approvedRemoteOnlyShapeValid = Array.isArray(approvedRemoteOnly);
+  const approvedRemoteOnlyRows = approvedRemoteOnlyShapeValid
+    ? approvedRemoteOnly
+    : [];
+  const approvedRemoteOnlyViolations = approvedRemoteOnlyRows
+    .map((row, index) => ({ row, index }))
+    .filter(
+      ({ row }) =>
+        !row ||
+        typeof row !== "object" ||
+        !/^(\d{8}|\d{14})$/.test(row.version ?? "") ||
+        !/^[a-z0-9][a-z0-9_]*$/.test(row.name ?? "") ||
+        Object.keys(row).sort().join(",") !== "name,version",
+    )
+    .map(({ index }) => index);
+  const approvedRemoteOnlyDuplicates = duplicateVersions(
+    approvedRemoteOnlyRows.filter(
+      (row) =>
+        row && typeof row === "object" && typeof row.version === "string",
+    ),
+  );
+  const approvedRemoteOnlyOrderValid =
+    approvedRemoteOnlyViolations.length === 0 &&
+    approvedRemoteOnlyRows.every(
+      (row, index) =>
+        index === 0 ||
+        approvedRemoteOnlyRows[index - 1].version.localeCompare(row.version) <
+          0,
+    );
+  const remoteOnlyMatchesApproved =
+    approvedRemoteOnlyShapeValid &&
+    approvedRemoteOnlyViolations.length === 0 &&
+    approvedRemoteOnlyDuplicates.length === 0 &&
+    approvedRemoteOnlyOrderValid &&
+    migrationRowsMatch(remoteOnly, approvedRemoteOnlyRows);
   const nameMismatches = normalizedRemote.filter((row) => {
     const match = localByVersion.get(row.version);
     return match && match.name !== row.name;
@@ -60,7 +107,7 @@ export function reconcileMigrationDelta({
     localDuplicates.length === 0 &&
     remoteDuplicates.length === 0 &&
     remapViolations.length === 0 &&
-    remoteOnly.length === 0 &&
+    remoteOnlyMatchesApproved &&
     nameMismatches.length === 0 &&
     JSON.stringify(pending) === JSON.stringify(expected)
       ? "PASS"
@@ -74,6 +121,12 @@ export function reconcileMigrationDelta({
     localDuplicates,
     remoteDuplicates,
     remapViolations,
+    approvedRemoteOnly: approvedRemoteOnlyRows,
+    approvedRemoteOnlyShapeValid,
+    approvedRemoteOnlyViolations,
+    approvedRemoteOnlyDuplicates,
+    approvedRemoteOnlyOrderValid,
+    remoteOnlyMatchesApproved,
     remoteOnly,
     nameMismatches,
     pending,
@@ -87,10 +140,16 @@ function requiredEnvironment(name) {
 }
 
 function runCli() {
-  const [migrationDirectory, remoteLedgerPath, outputPath] =
-    process.argv.slice(2);
+  const [
+    migrationDirectory,
+    remoteLedgerPath,
+    outputPath,
+    approvedRemoteOnlyPath,
+  ] = process.argv.slice(2);
   if (!migrationDirectory || !remoteLedgerPath || !outputPath) {
-    throw new Error("usage:migration-directory remote-ledger output");
+    throw new Error(
+      "usage:migration-directory remote-ledger output [approved-remote-only-json]",
+    );
   }
   const migrationFiles = readdirSync(migrationDirectory).filter((fileName) =>
     fileName.toLowerCase().endsWith(".sql"),
@@ -101,9 +160,7 @@ function runCli() {
   const local = migrationFiles
     .map((fileName) => {
       const match = fileName.match(migrationPattern);
-      return match
-        ? { version: match[1], name: match[2], fileName }
-        : null;
+      return match ? { version: match[1], name: match[2], fileName } : null;
     })
     .filter(Boolean)
     .sort((left, right) => left.version.localeCompare(right.version));
@@ -132,11 +189,15 @@ function runCli() {
       name: requiredEnvironment("REMAPPED_MIGRATION_NAME"),
     },
   ];
+  const approvedRemoteOnly = approvedRemoteOnlyPath
+    ? JSON.parse(readFileSync(approvedRemoteOnlyPath, "utf8"))
+    : [];
   const result = reconcileMigrationDelta({
     local,
     remote,
     expected,
     approvedRemoteRemaps,
+    approvedRemoteOnly,
     localFilenameViolations,
   });
   const report = { workflowCommit: process.env.GITHUB_SHA ?? "", ...result };

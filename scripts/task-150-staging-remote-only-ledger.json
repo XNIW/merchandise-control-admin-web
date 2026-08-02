@@ -1,0 +1,38 @@
+[
+  {
+    "version": "20260801195852",
+    "name": "storefront_v1_schema_rls"
+  },
+  {
+    "version": "20260801211500",
+    "name": "storefront_v1_catalog_projection"
+  },
+  {
+    "version": "20260801213500",
+    "name": "storefront_v1_catalog_projection_grants"
+  },
+  {
+    "version": "20260801223000",
+    "name": "storefront_v1_public_api"
+  },
+  {
+    "version": "20260801230000",
+    "name": "storefront_v1_public_api_planner"
+  },
+  {
+    "version": "20260802001000",
+    "name": "storefront_v1_admin_publications"
+  },
+  {
+    "version": "20260802010000",
+    "name": "storefront_v1_admin_promotions"
+  },
+  {
+    "version": "20260802023000",
+    "name": "storefront_v1_public_images"
+  },
+  {
+    "version": "20260802033000",
+    "name": "storefront_v1_catalog_version_contract"
+  }
+]

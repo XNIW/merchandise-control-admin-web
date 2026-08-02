@@ -1,14 +1,12 @@
 import "server-only";
 
-import {
-  createHmac,
-  randomBytes,
-} from "node:crypto";
+import { createHmac, randomBytes } from "node:crypto";
 import type { SupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { loadPosRuntimeLease } from "@/server/pos-auth/runtime-boundary";
 import { createPosRuntimeRpcClient } from "@/server/pos-auth/runtime-rpc-client";
 import { verifyPosSecret } from "@/server/pos-auth/tokens";
+import { PRODUCT_IMAGE_BUCKET } from "@/server/shop-admin/product-images/contract";
 import { hashStaffCredential } from "@/server/shop-admin/staff-credentials";
 
 const FIXTURE_TEMPLATE = "asus-product-image-phase-b-fixture-v1";
@@ -19,8 +17,10 @@ const REQUEST_ID = /^[a-zA-Z0-9][a-zA-Z0-9._-]{7,79}$/;
 const CAPABILITY = /^task150_(provision|cleanup|result)_[A-Za-z0-9_-]{43}$/;
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const CANONICAL_TIMESTAMP =
-  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+const CANONICAL_TIMESTAMP = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{6}Z$/;
+const CANONICAL_CLEANUP_STORAGE_PATH =
+  /^shops\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/products\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/primary\/([0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})\/(main|thumb)\.jpg$/;
+const MAX_CLEANUP_STORAGE_PATHS = 4;
 const MAX_BODY_BYTES = 16 * 1024;
 
 type UnknownRecord = Record<string, unknown>;
@@ -100,7 +100,8 @@ function safeResult(
 }
 
 function safeRpcFailure(data: unknown, fallback = "boundary_unavailable") {
-  const code = isRecord(data) && typeof data.code === "string" ? data.code : fallback;
+  const code =
+    isRecord(data) && typeof data.code === "string" ? data.code : fallback;
   const allowed = new Set([
     "binding_conflict",
     "actor_run_active",
@@ -136,36 +137,36 @@ function safeRpcFailure(data: unknown, fallback = "boundary_unavailable") {
           safeCode === "fixture_scope_conflict" ||
           safeCode === "capability_consumed" ||
           safeCode === "capability_expired" ||
-          safeCode === "cleanup_capability_coverage_insufficient"
-          || safeCode === "actor_run_active"
-          || safeCode === "rotation_pending"
-          || safeCode === "rotation_target_unreachable"
+          safeCode === "cleanup_capability_coverage_insufficient" ||
+          safeCode === "actor_run_active" ||
+          safeCode === "rotation_pending" ||
+          safeCode === "rotation_target_unreachable"
         ? 409
         : safeCode === "rate_limited"
           ? 429
-        : safeCode === "validation_failed"
-          ? 400
-          : 503;
+          : safeCode === "validation_failed"
+            ? 400
+            : 503;
   const extras: Record<string, unknown> = {};
-    if (
-      isRecord(data) &&
-      (safeCode === "cleanup_fence_active" ||
-        safeCode === "provision_in_progress" ||
-        safeCode === "rate_limited") &&
+  if (
+    isRecord(data) &&
+    (safeCode === "cleanup_fence_active" ||
+      safeCode === "provision_in_progress" ||
+      safeCode === "rate_limited") &&
     typeof data.retryAfterAt === "string" &&
     CANONICAL_TIMESTAMP.test(data.retryAfterAt)
-    ) {
-      extras.retryAfterAt = data.retryAfterAt;
-    }
-    if (
-      isRecord(data) &&
-      safeCode === "cleanup_capability_coverage_insufficient" &&
-      typeof data.requiredCoverageUntil === "string" &&
-      CANONICAL_TIMESTAMP.test(data.requiredCoverageUntil)
-    ) {
-      extras.requiredCoverageUntil = data.requiredCoverageUntil;
-    }
-    return safeResult(status, safeCode, extras);
+  ) {
+    extras.retryAfterAt = data.retryAfterAt;
+  }
+  if (
+    isRecord(data) &&
+    safeCode === "cleanup_capability_coverage_insufficient" &&
+    typeof data.requiredCoverageUntil === "string" &&
+    CANONICAL_TIMESTAMP.test(data.requiredCoverageUntil)
+  ) {
+    extras.requiredCoverageUntil = data.requiredCoverageUntil;
+  }
+  return safeResult(status, safeCode, extras);
 }
 
 function hmacKey() {
@@ -197,11 +198,17 @@ function capability(
   return `task150_${kind}_${value}`;
 }
 
-function requestHash(key: string, action: BoundaryAction, values: readonly string[]) {
+function requestHash(
+  key: string,
+  action: BoundaryAction,
+  values: readonly string[],
+) {
   return hmac(key, `request:${action}`, values.join("\0"));
 }
 
-function parseCommonTrustedEnvelope(value: UnknownRecord): CommonTrustedEnvelope | null {
+function parseCommonTrustedEnvelope(
+  value: UnknownRecord,
+): CommonTrustedEnvelope | null {
   const stringKeys = [
     "appVersion",
     "deviceToken",
@@ -237,11 +244,15 @@ async function authorizeBootstrap(
   if (lease.status !== "ok") return null;
   const identityMatches =
     lease.shop.shop_id.toLowerCase() === envelope.shopId.toLowerCase() &&
-    lease.device.shop_device_id.toLowerCase() === envelope.shopDeviceId.toLowerCase() &&
-    lease.session.pos_session_id.toLowerCase() === envelope.posSessionId.toLowerCase() &&
+    lease.device.shop_device_id.toLowerCase() ===
+      envelope.shopDeviceId.toLowerCase() &&
+    lease.session.pos_session_id.toLowerCase() ===
+      envelope.posSessionId.toLowerCase() &&
     lease.staff.staff_id.toLowerCase() === envelope.staffId.toLowerCase() &&
-    lease.session.staff_credential_version === envelope.staffCredentialVersion &&
-    lease.credential.staff_credential_version === envelope.staffCredentialVersion &&
+    lease.session.staff_credential_version ===
+      envelope.staffCredentialVersion &&
+    lease.credential.staff_credential_version ===
+      envelope.staffCredentialVersion &&
     lease.staff.credential_version === envelope.staffCredentialVersion;
   if (
     !identityMatches ||
@@ -250,9 +261,11 @@ async function authorizeBootstrap(
   ) {
     return null;
   }
-  const result = await (rpcClient as unknown as {
-    rpc(name: string, args: Record<string, unknown>): Promise<RpcResult>;
-  }).rpc("pos_product_image_authorize_v1", {
+  const result = await (
+    rpcClient as unknown as {
+      rpc(name: string, args: Record<string, unknown>): Promise<RpcResult>;
+    }
+  ).rpc("pos_product_image_authorize_v1", {
     p_expected_staff_credential_version: envelope.staffCredentialVersion,
     p_permission: "catalog.write",
     p_pos_session_id: envelope.posSessionId,
@@ -276,19 +289,47 @@ async function rpc(
   name: string,
   args: Record<string, unknown>,
 ) {
-  return (admin as unknown as {
-    rpc(functionName: string, parameters: Record<string, unknown>): Promise<RpcResult>;
-  }).rpc(name, args);
+  return (
+    admin as unknown as {
+      rpc(
+        functionName: string,
+        parameters: Record<string, unknown>,
+      ): Promise<RpcResult>;
+    }
+  ).rpc(name, args);
 }
 
 function validSuccess(data: unknown, code: string) {
   return isRecord(data) && data.ok === true && data.code === code;
 }
 
+export function task150CleanupStoragePaths(value: unknown) {
+  if (!Array.isArray(value) || value.length > MAX_CLEANUP_STORAGE_PATHS)
+    return null;
+  const paths: string[] = [];
+  const seenPaths = new Set<string>();
+  const versionIds = new Set<string>();
+  let runScope: string | null = null;
+  for (const candidate of value) {
+    if (typeof candidate !== "string" || seenPaths.has(candidate)) return null;
+    const match = CANONICAL_CLEANUP_STORAGE_PATH.exec(candidate);
+    if (!match) return null;
+    const candidateScope = `${match[1]}\0${match[2]}`;
+    if (runScope !== null && candidateScope !== runScope) return null;
+    runScope = candidateScope;
+    versionIds.add(match[3]);
+    if (versionIds.size > 2) return null;
+    seenPaths.add(candidate);
+    paths.push(candidate);
+  }
+  return paths.sort();
+}
+
 function parseCapabilityBody(
   value: UnknownRecord,
   action: "cleanup" | "provision" | "result",
-  capabilityKey: "cleanupCapability" | "provisionCapability" | "resultCapability",
+  capabilityKey:
+    "cleanupCapability" | "provisionCapability" | "resultCapability",
 ) {
   if (
     !exactKeys(value, [
@@ -398,14 +439,27 @@ async function beginBoundary(
     p_bootstrap_actor_hmac: actorHmac,
     p_bootstrap_source_shop_id: bootstrap.shopId,
     p_bootstrap_staff_id: bootstrap.staffId,
-    p_cleanup_capability_digest: hmac(key, "capability:cleanup", cleanupCapability),
+    p_cleanup_capability_digest: hmac(
+      key,
+      "capability:cleanup",
+      cleanupCapability,
+    ),
     p_fixture_template: FIXTURE_TEMPLATE,
     p_manifest_hmac: manifestHmac,
-    p_provision_capability_digest: hmac(key, "capability:provision", provisionCapability),
-    p_result_capability_digest: hmac(key, "capability:result", resultCapability),
+    p_provision_capability_digest: hmac(
+      key,
+      "capability:provision",
+      provisionCapability,
+    ),
+    p_result_capability_digest: hmac(
+      key,
+      "capability:result",
+      resultCapability,
+    ),
     p_run_hmac: runHmac,
   });
-  if (result.error || !isRecord(result.data)) return safeResult(503, "boundary_unavailable");
+  if (result.error || !isRecord(result.data))
+    return safeResult(503, "boundary_unavailable");
   if (result.data.ok !== true) return safeRpcFailure(result.data);
   if (result.data.code !== "armed" && result.data.code !== "begin_replayed") {
     return safeResult(503, "boundary_contract_invalid");
@@ -445,13 +499,17 @@ async function provisionBoundary(
     "provision-admission",
     `${parsed.runHmac}\0${provisionHash}`,
   );
-  const admitted = await rpc(admin, "task_150_win7pos_image_qa_provision_admit_v1", {
-    p_admission_digest: admissionDigest,
-    p_manifest_hmac: parsed.manifestHmac,
-    p_provision_capability_digest: provisionCapabilityDigest,
-    p_request_hash: provisionHash,
-    p_run_hmac: parsed.runHmac,
-  });
+  const admitted = await rpc(
+    admin,
+    "task_150_win7pos_image_qa_provision_admit_v1",
+    {
+      p_admission_digest: admissionDigest,
+      p_manifest_hmac: parsed.manifestHmac,
+      p_provision_capability_digest: provisionCapabilityDigest,
+      p_request_hash: provisionHash,
+      p_run_hmac: parsed.runHmac,
+    },
+  );
   if (admitted.error || !isRecord(admitted.data)) {
     return safeResult(503, "boundary_unavailable");
   }
@@ -475,7 +533,8 @@ async function provisionBoundary(
     p_request_hash: provisionHash,
     p_run_hmac: parsed.runHmac,
   });
-  if (result.error || !isRecord(result.data)) return safeResult(503, "boundary_unavailable");
+  if (result.error || !isRecord(result.data))
+    return safeResult(503, "boundary_unavailable");
   const data = result.data;
   if (!validSuccess(data, "provisioned")) {
     if (validSuccess(data, "provision_replayed")) {
@@ -487,7 +546,14 @@ async function provisionBoundary(
     }
     return safeRpcFailure(data);
   }
-  const required = ["shopId", "staffId", "productId", "shopCode", "staffCode", "deviceIdentifier"];
+  const required = [
+    "shopId",
+    "staffId",
+    "productId",
+    "shopCode",
+    "staffCode",
+    "deviceIdentifier",
+  ];
   if (required.some((field) => typeof data[field] !== "string")) {
     return safeResult(503, "boundary_contract_invalid");
   }
@@ -557,7 +623,8 @@ async function prearmBoundary(
     p_shop_device_id: parsed.envelope.shopDeviceId,
     p_staff_credential_version: parsed.envelope.staffCredentialVersion,
   });
-  if (result.error || !isRecord(result.data)) return safeResult(503, "boundary_unavailable");
+  if (result.error || !isRecord(result.data))
+    return safeResult(503, "boundary_unavailable");
   if (
     !validSuccess(result.data, "prearmed") &&
     !validSuccess(result.data, "prearmed_rolling") &&
@@ -614,30 +681,36 @@ async function rotationPrepareBoundary(
     "cleanup",
     `${parsed.value.runHmac as string}\0${rotationHash}`,
   );
-  const result = await rpc(admin, "task_150_win7pos_image_qa_rotation_prepare_v1", {
-    p_actor_hmac: actorHmac,
-    p_actor_shop_id: actor.shopId,
-    p_actor_staff_id: actor.staffId,
-    p_cleanup_capability_digest: hmac(
-      key,
-      "capability:cleanup",
-      parsed.value.cleanupCapability,
-    ),
-    p_manifest_hmac: parsed.value.manifestHmac,
-    p_pending_capability_digest: hmac(
-      key,
-      "capability:cleanup",
-      pendingCleanupCapability,
-    ),
-    p_pos_session_id: parsed.envelope.posSessionId,
-    p_request_hash: rotationHash,
-    p_requested_target_expires_at: parsed.value.targetExpiresAt,
-    p_run_hmac: parsed.value.runHmac,
-    p_shop_device_id: parsed.envelope.shopDeviceId,
-    p_staff_credential_version: parsed.envelope.staffCredentialVersion,
-  });
-  if (result.error || !isRecord(result.data)) return safeResult(503, "boundary_unavailable");
-  if (!validSuccess(result.data, "rotation_prepared")) return safeRpcFailure(result.data);
+  const result = await rpc(
+    admin,
+    "task_150_win7pos_image_qa_rotation_prepare_v1",
+    {
+      p_actor_hmac: actorHmac,
+      p_actor_shop_id: actor.shopId,
+      p_actor_staff_id: actor.staffId,
+      p_cleanup_capability_digest: hmac(
+        key,
+        "capability:cleanup",
+        parsed.value.cleanupCapability,
+      ),
+      p_manifest_hmac: parsed.value.manifestHmac,
+      p_pending_capability_digest: hmac(
+        key,
+        "capability:cleanup",
+        pendingCleanupCapability,
+      ),
+      p_pos_session_id: parsed.envelope.posSessionId,
+      p_request_hash: rotationHash,
+      p_requested_target_expires_at: parsed.value.targetExpiresAt,
+      p_run_hmac: parsed.value.runHmac,
+      p_shop_device_id: parsed.envelope.shopDeviceId,
+      p_staff_credential_version: parsed.envelope.staffCredentialVersion,
+    },
+  );
+  if (result.error || !isRecord(result.data))
+    return safeResult(503, "boundary_unavailable");
+  if (!validSuccess(result.data, "rotation_prepared"))
+    return safeRpcFailure(result.data);
   return safeResult(200, "rotation_prepared", {
     coverageComplete: result.data.coverageComplete === true,
     pendingCleanupCapability,
@@ -700,7 +773,8 @@ async function rotationAckBoundary(
     p_shop_device_id: parsed.envelope.shopDeviceId,
     p_staff_credential_version: parsed.envelope.staffCredentialVersion,
   });
-  if (result.error || !isRecord(result.data)) return safeResult(503, "boundary_unavailable");
+  if (result.error || !isRecord(result.data))
+    return safeResult(503, "boundary_unavailable");
   if (
     !validSuccess(result.data, "rotation_acked") &&
     !validSuccess(result.data, "rotation_ack_replayed")
@@ -744,13 +818,19 @@ async function resultIssueBoundary(
     p_manifest_hmac: parsed.value.manifestHmac,
     p_pos_session_id: parsed.envelope.posSessionId,
     p_request_hash: issueHash,
-    p_result_capability_digest: hmac(key, "capability:result", resultCapability),
+    p_result_capability_digest: hmac(
+      key,
+      "capability:result",
+      resultCapability,
+    ),
     p_run_hmac: parsed.value.runHmac,
     p_shop_device_id: parsed.envelope.shopDeviceId,
     p_staff_credential_version: parsed.envelope.staffCredentialVersion,
   });
-  if (result.error || !isRecord(result.data)) return safeResult(503, "boundary_unavailable");
-  if (!validSuccess(result.data, "result_issued")) return safeRpcFailure(result.data);
+  if (result.error || !isRecord(result.data))
+    return safeResult(503, "boundary_unavailable");
+  if (!validSuccess(result.data, "result_issued"))
+    return safeRpcFailure(result.data);
   return safeResult(200, "result_issued", {
     expiresAt: result.data.expiresAt,
     resultCapability,
@@ -771,39 +851,68 @@ async function cleanupBoundary(
   ]);
   const owner = randomBytes(32).toString("base64url");
   const ownerDigest = hmac(key, "cleanup-owner", owner);
-  const cleanupDigest = hmac(key, "capability:cleanup", parsed.cleanupCapability);
-  const acquired = await rpc(admin, "task_150_win7pos_image_qa_cleanup_acquire_v1", {
-    p_cleanup_capability_digest: cleanupDigest,
-    p_cleanup_request_hash: cleanupHash,
-    p_manifest_hmac: parsed.manifestHmac,
-    p_owner_digest: ownerDigest,
-    p_run_hmac: parsed.runHmac,
-  });
-  if (acquired.error || !isRecord(acquired.data)) return safeResult(503, "boundary_unavailable");
-  if (!validSuccess(acquired.data, "cleanup_acquired")) return safeRpcFailure(acquired.data);
+  const cleanupDigest = hmac(
+    key,
+    "capability:cleanup",
+    parsed.cleanupCapability,
+  );
+  const acquired = await rpc(
+    admin,
+    "task_150_win7pos_image_qa_cleanup_acquire_v2",
+    {
+      p_cleanup_capability_digest: cleanupDigest,
+      p_cleanup_request_hash: cleanupHash,
+      p_manifest_hmac: parsed.manifestHmac,
+      p_owner_digest: ownerDigest,
+      p_run_hmac: parsed.runHmac,
+    },
+  );
+  if (acquired.error || !isRecord(acquired.data))
+    return safeResult(503, "boundary_unavailable");
+  if (!validSuccess(acquired.data, "cleanup_acquired"))
+    return safeRpcFailure(acquired.data);
   const generation = acquired.data.generation;
+  const paths = task150CleanupStoragePaths(acquired.data.paths);
   if (
-    !Array.isArray(acquired.data.paths) ||
-    acquired.data.paths.length !== 0 ||
+    !paths ||
     !Number.isSafeInteger(generation) ||
     (generation as number) < 1
   ) {
     return safeResult(503, "boundary_contract_invalid");
   }
-  // Storage bytes must already have been removed through the ordinary trusted
-  // product-image runtime. The QA boundary performs no unfenced external I/O.
-  const committed = await rpc(admin, "task_150_win7pos_image_qa_cleanup_commit_v1", {
-    p_cleanup_capability_digest: cleanupDigest,
-    p_cleanup_request_hash: cleanupHash,
-    p_generation: generation,
-    p_manifest_hmac: parsed.manifestHmac,
-    p_owner_digest: ownerDigest,
-    p_run_hmac: parsed.runHmac,
+  // The acquire RPC has already closed every publication/upload fence, entered
+  // the owner+generation lease and revoked the synthetic actors. Paths remain
+  // server-internal and are deleted only through the Storage API; the commit
+  // RPC independently proves that no canonical object metadata remains.
+  if (paths.length > 0) {
+    const storageResult = await admin.storage
+      .from(PRODUCT_IMAGE_BUCKET)
+      .remove(paths);
+    if (storageResult.error) {
+      return safeResult(503, "storage_cleanup_incomplete");
+    }
+  }
+  const committed = await rpc(
+    admin,
+    "task_150_win7pos_image_qa_cleanup_commit_v1",
+    {
+      p_cleanup_capability_digest: cleanupDigest,
+      p_cleanup_request_hash: cleanupHash,
+      p_generation: generation,
+      p_manifest_hmac: parsed.manifestHmac,
+      p_owner_digest: ownerDigest,
+      p_run_hmac: parsed.runHmac,
+    },
+  );
+  if (committed.error || !isRecord(committed.data))
+    return safeResult(503, "boundary_unavailable");
+  if (!validSuccess(committed.data, "cleanup_complete"))
+    return safeRpcFailure(committed.data);
+  if (!isRecord(committed.data.receipt))
+    return safeResult(503, "boundary_contract_invalid");
+  return safeResult(200, "cleanup_complete", {
+    receipt: committed.data.receipt,
   });
-  if (committed.error || !isRecord(committed.data)) return safeResult(503, "boundary_unavailable");
-  if (!validSuccess(committed.data, "cleanup_complete")) return safeRpcFailure(committed.data);
-  if (!isRecord(committed.data.receipt)) return safeResult(503, "boundary_contract_invalid");
-  return safeResult(200, "cleanup_complete", { receipt: committed.data.receipt });
 }
 
 async function resultBoundary(
@@ -815,22 +924,40 @@ async function resultBoundary(
   if (!parsed) return safeResult(400, "validation_failed");
   const result = await rpc(admin, "task_150_win7pos_image_qa_result_v1", {
     p_manifest_hmac: parsed.manifestHmac,
-    p_result_capability_digest: hmac(key, "capability:result", parsed.resultCapability),
+    p_result_capability_digest: hmac(
+      key,
+      "capability:result",
+      parsed.resultCapability,
+    ),
     p_run_hmac: parsed.runHmac,
   });
-  if (result.error || !isRecord(result.data)) return safeResult(503, "boundary_unavailable");
+  if (result.error || !isRecord(result.data))
+    return safeResult(503, "boundary_unavailable");
   if (result.data.ok !== true) return safeRpcFailure(result.data);
   if (result.data.code === "terminal" && isRecord(result.data.receipt)) {
-    return safeResult(200, "terminal", { receipt: result.data.receipt, state: "terminal" });
+    return safeResult(200, "terminal", {
+      receipt: result.data.receipt,
+      state: "terminal",
+    });
   }
-  const states = new Set(["not_started", "in_progress", "aborted_recoverable", "invariant_blocked"]);
-  if (result.data.code !== "status" || !states.has(result.data.state as string)) {
+  const states = new Set([
+    "not_started",
+    "in_progress",
+    "aborted_recoverable",
+    "invariant_blocked",
+  ]);
+  if (
+    result.data.code !== "status" ||
+    !states.has(result.data.state as string)
+  ) {
     return safeResult(503, "boundary_contract_invalid");
   }
   return safeResult(200, "status", {
     capabilityActive: result.data.capabilityActive === true,
     retryAfterAt:
-      typeof result.data.retryAfterAt === "string" ? result.data.retryAfterAt : null,
+      typeof result.data.retryAfterAt === "string"
+        ? result.data.retryAfterAt
+        : null,
     state: result.data.state,
   });
 }
@@ -872,8 +999,15 @@ export async function handleTask150BoundaryRequest(input: {
   if (!task150QaProjectAllowed(process.env.NEXT_PUBLIC_SUPABASE_URL)) {
     return safeResult(503, "not_configured");
   }
-  if (input.bodyBytes < 2 || input.bodyBytes > MAX_BODY_BYTES || !isRecord(input.body)) {
-    return safeResult(input.bodyBytes > MAX_BODY_BYTES ? 413 : 400, "validation_failed");
+  if (
+    input.bodyBytes < 2 ||
+    input.bodyBytes > MAX_BODY_BYTES ||
+    !isRecord(input.body)
+  ) {
+    return safeResult(
+      input.bodyBytes > MAX_BODY_BYTES ? 413 : 400,
+      "validation_failed",
+    );
   }
   const key = hmacKey();
   const admin = createSupabaseAdminClient();
@@ -881,15 +1015,18 @@ export async function handleTask150BoundaryRequest(input: {
   const action = input.body.action;
   try {
     if (action === "begin") return beginBoundary(admin, key, input.body);
-    if (action === "provision") return provisionBoundary(admin, key, input.body, input.baseUrl);
+    if (action === "provision")
+      return provisionBoundary(admin, key, input.body, input.baseUrl);
     if (action === "prearm") return prearmBoundary(admin, key, input.body);
     if (action === "cleanup") return cleanupBoundary(admin, key, input.body);
     if (action === "result") return resultBoundary(admin, key, input.body);
     if (action === "rotation_prepare") {
       return rotationPrepareBoundary(admin, key, input.body);
     }
-    if (action === "rotation_ack") return rotationAckBoundary(admin, key, input.body);
-    if (action === "result_issue") return resultIssueBoundary(admin, key, input.body);
+    if (action === "rotation_ack")
+      return rotationAckBoundary(admin, key, input.body);
+    if (action === "result_issue")
+      return resultIssueBoundary(admin, key, input.body);
     return safeResult(400, "validation_failed");
   } catch {
     return safeResult(503, "boundary_unavailable");
