@@ -25,6 +25,8 @@ const migrationPath =
   "supabase/migrations/20260731162000_task_150_win7pos_product_image_qa_boundary.sql";
 const opaqueSecretCompatMigrationPath =
   "supabase/migrations/20260801024000_task_150_opaque_secret_role_compat.sql";
+const storageCleanupRecoveryMigrationPath =
+  "supabase/migrations/20260802015520_task_150_storage_cleanup_recovery.sql";
 const stagingMigrationWorkflowPath =
   ".github/workflows/task-150-staging-migration.yml";
 const stagingMigrationReconciliationPath =
@@ -37,7 +39,7 @@ function read(relativePath) {
   return readFileSync(join(root, relativePath), "utf8");
 }
 
-function transpileBoundary() {
+function transpileBoundary(options = {}) {
   const transpiled = ts.transpileModule(read(boundaryPath), {
     compilerOptions: {
       esModuleInterop: true,
@@ -47,10 +49,7 @@ function transpileBoundary() {
     fileName: boundaryPath,
   });
   const cjsModule = { exports: {} };
-  const stub = new Proxy(
-    {},
-    { get: () => () => ({}) },
-  );
+  const stub = new Proxy({}, { get: () => () => ({}) });
   new Script(transpiled.outputText, { filename: boundaryPath }).runInContext(
     createContext({
       AbortSignal,
@@ -68,11 +67,20 @@ function transpileBoundary() {
       process: {
         env: {
           NEXT_PUBLIC_SUPABASE_URL: "https://jpgoimipbothfgkokyvm.supabase.co",
-          TASK150_QA_HMAC_KEY: "foundation-only-task150-hmac-key-0000000000000000",
+          TASK150_QA_HMAC_KEY:
+            "foundation-only-task150-hmac-key-0000000000000000",
         },
       },
       require(specifier) {
         if (specifier === "server-only") return {};
+        if (specifier === "@/lib/supabase/admin") {
+          return {
+            createSupabaseAdminClient: () => options.admin ?? {},
+          };
+        }
+        if (specifier === "@/server/shop-admin/product-images/contract") {
+          return { PRODUCT_IMAGE_BUCKET: "product-images" };
+        }
         if (specifier.startsWith("@/")) return stub;
         return requireForTest(specifier);
       },
@@ -107,14 +115,21 @@ test("TASK-150 boundary is callable only on the exact staging host or local test
   );
   assert.equal(boundary.task150QaHostAllowed("localhost:3000"), true);
   assert.equal(boundary.task150QaHostAllowed("127.0.0.1:8787"), true);
-  assert.equal(boundary.task150QaHostAllowed("merchandise-control-admin-web.workers.dev"), false);
+  assert.equal(
+    boundary.task150QaHostAllowed("merchandise-control-admin-web.workers.dev"),
+    false,
+  );
   assert.equal(boundary.task150QaHostAllowed("example.invalid"), false);
   assert.equal(
-    boundary.task150QaProjectAllowed("https://jpgoimipbothfgkokyvm.supabase.co"),
+    boundary.task150QaProjectAllowed(
+      "https://jpgoimipbothfgkokyvm.supabase.co",
+    ),
     true,
   );
   assert.equal(
-    boundary.task150QaProjectAllowed("https://jpgoimipbothfgkokyvm.supabase.co/extra"),
+    boundary.task150QaProjectAllowed(
+      "https://jpgoimipbothfgkokyvm.supabase.co/extra",
+    ),
     false,
   );
   assert.equal(
@@ -157,6 +172,160 @@ test("TASK-150 boundary rejects unknown actions and extra client-controlled fixt
   assert.equal(extraField.body.code, "validation_failed");
 });
 
+function cleanupRequestBody() {
+  return {
+    action: "cleanup",
+    cleanupCapability: `task150_cleanup_${"A".repeat(43)}`,
+    manifestHmac: "b".repeat(64),
+    requestId: "cleanup-recovery-001",
+    runHmac: "a".repeat(64),
+  };
+}
+
+test("TASK-150 cleanup deletes only bounded canonical server-side paths before commit", async () => {
+  const paths = [
+    "shops/11111111-1111-4111-8111-111111111111/products/22222222-2222-4222-8222-222222222222/primary/33333333-3333-4333-8333-333333333333/main.jpg",
+    "shops/11111111-1111-4111-8111-111111111111/products/22222222-2222-4222-8222-222222222222/primary/33333333-3333-4333-8333-333333333333/thumb.jpg",
+    "shops/11111111-1111-4111-8111-111111111111/products/22222222-2222-4222-8222-222222222222/primary/44444444-4444-4444-8444-444444444444/main.jpg",
+    "shops/11111111-1111-4111-8111-111111111111/products/22222222-2222-4222-8222-222222222222/primary/44444444-4444-4444-8444-444444444444/thumb.jpg",
+  ];
+  const calls = [];
+  const admin = {
+    async rpc(name) {
+      calls.push(name);
+      if (name === "task_150_win7pos_image_qa_cleanup_acquire_v2") {
+        return {
+          data: { code: "cleanup_acquired", generation: 4, ok: true, paths },
+          error: null,
+        };
+      }
+      return {
+        data: {
+          code: "cleanup_complete",
+          ok: true,
+          receipt: {
+            cleanupCapabilityRevoked: true,
+            counts: { storageObjects: 0 },
+            schemaVersion: "task-150-win7pos-image-qa-cleanup-v1",
+          },
+        },
+        error: null,
+      };
+    },
+    storage: {
+      from(bucket) {
+        assert.equal(bucket, "product-images");
+        return {
+          async remove(actualPaths) {
+            calls.push("storage.remove");
+            assert.deepEqual(Array.from(actualPaths), paths);
+            return { data: [], error: null };
+          },
+        };
+      },
+    },
+  };
+  const boundary = transpileBoundary({ admin });
+  const body = cleanupRequestBody();
+  const result = await boundary.handleTask150BoundaryRequest({
+    baseUrl: "http://localhost:3000",
+    body,
+    bodyBytes: JSON.stringify(body).length,
+    host: "localhost:3000",
+  });
+
+  assert.equal(result.status, 200);
+  assert.equal(result.body.code, "cleanup_complete");
+  assert.deepEqual(calls, [
+    "task_150_win7pos_image_qa_cleanup_acquire_v2",
+    "storage.remove",
+    "task_150_win7pos_image_qa_cleanup_commit_v1",
+  ]);
+  assert.doesNotMatch(JSON.stringify(result.body), /shops\/|primary\/|\.jpg/);
+});
+
+test("TASK-150 cleanup storage failure is redacted and never commits", async () => {
+  const path =
+    "shops/11111111-1111-4111-8111-111111111111/products/22222222-2222-4222-8222-222222222222/primary/33333333-3333-4333-8333-333333333333/main.jpg";
+  const calls = [];
+  const admin = {
+    async rpc(name) {
+      calls.push(name);
+      return {
+        data: {
+          code: "cleanup_acquired",
+          generation: 1,
+          ok: true,
+          paths: [path],
+        },
+        error: null,
+      };
+    },
+    storage: {
+      from() {
+        return {
+          async remove() {
+            calls.push("storage.remove");
+            return {
+              data: null,
+              error: { message: `provider leaked ${path}` },
+            };
+          },
+        };
+      },
+    },
+  };
+  const boundary = transpileBoundary({ admin });
+  const body = cleanupRequestBody();
+  const result = await boundary.handleTask150BoundaryRequest({
+    baseUrl: "http://localhost:3000",
+    body,
+    bodyBytes: JSON.stringify(body).length,
+    host: "localhost:3000",
+  });
+
+  assert.equal(result.status, 503);
+  assert.equal(result.body.code, "storage_cleanup_incomplete");
+  assert.equal(result.body.ok, false);
+  assert.deepEqual(Object.keys(result.body).sort(), ["code", "ok"]);
+  assert.deepEqual(calls, [
+    "task_150_win7pos_image_qa_cleanup_acquire_v2",
+    "storage.remove",
+  ]);
+  assert.doesNotMatch(JSON.stringify(result.body), /shops\/|provider|\.jpg/);
+});
+
+test("TASK-150 cleanup rejects malformed, cross-run and over-budget path sets before I/O", () => {
+  const boundary = transpileBoundary();
+  const first =
+    "shops/11111111-1111-4111-8111-111111111111/products/22222222-2222-4222-8222-222222222222/primary/33333333-3333-4333-8333-333333333333/main.jpg";
+  const crossRun =
+    "shops/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/products/22222222-2222-4222-8222-222222222222/primary/33333333-3333-4333-8333-333333333333/thumb.jpg";
+  assert.deepEqual(Array.from(boundary.task150CleanupStoragePaths([])), []);
+  assert.equal(boundary.task150CleanupStoragePaths([first, first]), null);
+  assert.equal(boundary.task150CleanupStoragePaths([first, crossRun]), null);
+  assert.equal(boundary.task150CleanupStoragePaths(["../foreign.jpg"]), null);
+  assert.equal(
+    boundary.task150CleanupStoragePaths([
+      first,
+      first.replace("main.jpg", "thumb.jpg"),
+      first.replace(
+        "33333333-3333-4333-8333-333333333333",
+        "44444444-4444-4444-8444-444444444444",
+      ),
+      first.replace(
+        "33333333-3333-4333-8333-333333333333",
+        "55555555-5555-4555-8555-555555555555",
+      ),
+      first.replace(
+        "33333333-3333-4333-8333-333333333333",
+        "66666666-6666-4666-8666-666666666666",
+      ),
+    ]),
+    null,
+  );
+});
+
 test("TASK-150 migration stores capability digests only and fixes staging/template scope", () => {
   const migration = read(migrationPath);
   for (const column of [
@@ -173,15 +342,26 @@ test("TASK-150 migration stores capability digests only and fixes staging/templa
   }
   assert.match(migration, /environment = 'staging'/);
   assert.match(migration, /asus-product-image-phase-b-fixture-v1/g);
-  assert.match(migration, /safety_fence_until >= created_at \+ interval '2 hours 20 minutes'/);
-  assert.doesNotMatch(migration, /\b(provision|cleanup|result)_capability\s+text\b/);
-  assert.doesNotMatch(migration, /signed_url|session_token|device_token|service_role_key/i);
+  assert.match(
+    migration,
+    /safety_fence_until >= created_at \+ interval '2 hours 20 minutes'/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /\b(provision|cleanup|result)_capability\s+text\b/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /signed_url|session_token|device_token|service_role_key/i,
+  );
   assert.match(migration, /task_150_qa_bootstrap_snapshot_v1/);
   assert.match(migration, /extensions\.digest\(/);
 });
 
 test("TASK-150 SQL functions are service-role-only and fence every destructive commit", () => {
   const migration = read(migrationPath);
+  const recoveryMigration = read(storageCleanupRecoveryMigrationPath);
+  const boundary = read(boundaryPath);
   const functions = [
     "task_150_win7pos_image_qa_begin_v1",
     "task_150_win7pos_image_qa_provision_admit_v1",
@@ -195,25 +375,126 @@ test("TASK-150 SQL functions are service-role-only and fence every destructive c
     "task_150_win7pos_image_qa_result_v1",
   ];
   for (const name of functions) {
-    assert.match(migration, new RegExp(`create or replace function public\\.${name}`));
     assert.match(
       migration,
-      new RegExp(`grant execute on function public\\.${name}[\\s\\S]*?to service_role;`),
+      new RegExp(`create or replace function public\\.${name}`),
     );
     assert.match(
       migration,
-      new RegExp(`revoke all on function public\\.${name}[\\s\\S]*?from public, anon, authenticated;`),
+      new RegExp(
+        `grant execute on function public\\.${name}[\\s\\S]*?to service_role;`,
+      ),
+    );
+    assert.match(
+      migration,
+      new RegExp(
+        `revoke all on function public\\.${name}[\\s\\S]*?from public, anon, authenticated;`,
+      ),
     );
   }
   assert.match(migration, /cleanup_generation = p_generation/);
   assert.match(migration, /cleanup_owner_digest = p_owner_digest/);
   assert.match(migration, /cleanup_lease_expires_at <= clock_timestamp\(\)/);
   assert.match(migration, /status = 'cleanup_invariant_blocked'/);
-  assert.match(migration, /The boundary performs no external mutation/);
   assert.match(migration, /'provisioned', 'cleanup_recoverable'/);
-  assert.doesNotMatch(read(boundaryPath), /\.storage\.from|\.remove\(/);
-  assert.match(read(boundaryPath), /performs no unfenced external I\/O/);
-  assert.match(migration, /pos_upload_capability_expires_at > clock_timestamp\(\)/);
+  assert.match(
+    recoveryMigration,
+    /cleanup_capability_expires_at \+ interval '6 hours'/,
+  );
+  assert.match(
+    recoveryMigration,
+    /v_cleanup_authorized_until < v_required_coverage_until/,
+  );
+  assert.match(recoveryMigration, /v_version_count > 2/);
+  assert.match(
+    recoveryMigration,
+    /p_allow_storage_paths and jsonb_array_length\(v_paths\) > 4/,
+  );
+  assert.match(
+    recoveryMigration,
+    /not p_allow_storage_paths and exists \([\s\S]*?storage\.objects[\s\S]*?'\/products\/' \|\| v_run\.run_product_id::text[\s\S]*?'storage_cleanup_incomplete'/,
+  );
+  assert.match(
+    recoveryMigration,
+    /object\.name like \([\s\S]*?'\/products\/' \|\| v_run\.run_product_id::text[\s\S]*?'\/%'/,
+  );
+  assert.match(
+    recoveryMigration,
+    /version\.main_path is distinct from[\s\S]*?version\.thumb_path is distinct from/,
+  );
+  assert.match(
+    recoveryMigration,
+    /requested_by_staff_id is distinct from v_run\.run_staff_id[\s\S]*?asset_kind = 'device'[\s\S]*?asset_kind = 'session'/,
+  );
+  assert.doesNotMatch(
+    recoveryMigration,
+    /delete\s+from\s+storage\.objects|update\s+storage\.objects|insert\s+into\s+storage\.objects/i,
+  );
+  assert.match(
+    recoveryMigration,
+    /current_setting\('request\.jwt\.claim\.role', true\)[\s\S]*?current_setting\('role', true\)/,
+  );
+  assert.match(
+    recoveryMigration,
+    /revoke all on function public\.task_150_win7pos_image_qa_cleanup_acquire_v1[\s\S]*?from public, anon, authenticated;[\s\S]*?grant execute[\s\S]*?to service_role;/,
+  );
+  assert.match(
+    recoveryMigration,
+    /revoke all on function public\.task_150_win7pos_image_qa_cleanup_acquire_v2[\s\S]*?from public, anon, authenticated;[\s\S]*?grant execute[\s\S]*?to service_role;/,
+  );
+  assert.match(
+    recoveryMigration,
+    /revoke all on function app_private\.task_150_win7pos_image_qa_cleanup_acquire_impl\([\s\S]*?from public, anon, authenticated, service_role;/,
+  );
+  assert.match(
+    recoveryMigration,
+    /task_150_win7pos_image_qa_cleanup_revoke_actors_v1[\s\S]*?update public\.pos_sessions[\s\S]*?update public\.pos_device_credentials[\s\S]*?update public\.shop_devices[\s\S]*?update public\.staff_accounts/,
+  );
+  assert.match(
+    recoveryMigration,
+    /revoke all on function app_private\.task_150_win7pos_image_qa_cleanup_revoke_actors_v1\([\s\S]*?from public, anon, authenticated, service_role;/,
+  );
+  assert.match(
+    recoveryMigration,
+    /task_150_qa_require_storage_absent_on_clean_v2[\s\S]*?new\.status = 'cleaned'[\s\S]*?storage\.objects[\s\S]*?'\/products\/' \|\| new\.run_product_id::text/,
+  );
+  assert.match(
+    recoveryMigration,
+    /create trigger task_150_qa_require_storage_absent_on_clean_trigger[\s\S]*?before update of status/,
+  );
+  const legacyAcquireWrapper = recoveryMigration.slice(
+    recoveryMigration.indexOf(
+      "create or replace function public.task_150_win7pos_image_qa_cleanup_acquire_v1",
+    ),
+    recoveryMigration.indexOf(
+      "create or replace function public.task_150_win7pos_image_qa_cleanup_acquire_v2",
+    ),
+  );
+  const recoveryAcquireWrapper = recoveryMigration.slice(
+    recoveryMigration.indexOf(
+      "create or replace function public.task_150_win7pos_image_qa_cleanup_acquire_v2",
+    ),
+    recoveryMigration.indexOf(
+      "revoke all on function public.task_150_win7pos_image_qa_cleanup_acquire_v1",
+    ),
+  );
+  assert.match(
+    legacyAcquireWrapper,
+    /task_150_win7pos_image_qa_cleanup_acquire_impl\([\s\S]*?p_owner_digest,\s*false\s*\)/,
+  );
+  assert.match(
+    recoveryAcquireWrapper,
+    /task_150_win7pos_image_qa_cleanup_acquire_impl\([\s\S]*?p_owner_digest,\s*true\s*\)/,
+  );
+  assert.match(
+    boundary,
+    /task_150_win7pos_image_qa_cleanup_acquire_v2[\s\S]*?task150CleanupStoragePaths\(acquired\.data\.paths\)[\s\S]*?\.from\(PRODUCT_IMAGE_BUCKET\)[\s\S]*?\.remove\(paths\)[\s\S]*?task_150_win7pos_image_qa_cleanup_commit_v1/,
+  );
+  assert.match(boundary, /MAX_CLEANUP_STORAGE_PATHS = 4/);
+  assert.match(
+    migration,
+    /pos_upload_capability_expires_at > clock_timestamp\(\)/,
+  );
   assert.match(migration, /cleanup_capability_revoked_at = v_completed_at/);
 });
 
@@ -232,22 +513,28 @@ test("TASK-150 RPCs accept opaque server keys without broadening EXECUTE grants"
     "task_150_win7pos_image_qa_result_v1",
   ];
   for (const name of functions) {
-    assert.match(
-      migration,
-      new RegExp(`public\\.${name}\\(`),
-    );
+    assert.match(migration, new RegExp(`public\\.${name}\\(`));
   }
   assert.match(migration, /pg_catalog\.pg_get_functiondef\(v_function_oid\)/);
   assert.match(migration, /pg_catalog\.to_regprocedure\(v_signature\)/);
-  assert.match(migration, /current_setting\(''request\.jwt\.claim\.role'', true\)/);
+  assert.match(
+    migration,
+    /current_setting\(''request\.jwt\.claim\.role'', true\)/,
+  );
   assert.match(migration, /current_setting\(''role'', true\)/);
   assert.match(migration, /function_row\.prosecdef/);
   assert.match(migration, /'search_path=""' = any/);
   assert.match(migration, /has_function_privilege\('service_role'/);
   assert.match(migration, /has_function_privilege\('anon'/);
   assert.match(migration, /has_function_privilege\('authenticated'/);
-  assert.doesNotMatch(migration, /alter function[\s\S]*?set "request\.jwt\.claim\.role"/i);
-  assert.doesNotMatch(migration, /grant\s+execute|to\s+anon|to\s+authenticated/i);
+  assert.doesNotMatch(
+    migration,
+    /alter function[\s\S]*?set "request\.jwt\.claim\.role"/i,
+  );
+  assert.doesNotMatch(
+    migration,
+    /grant\s+execute|to\s+anon|to\s+authenticated/i,
+  );
   assert.match(
     read("supabase/tests/task_150_win7pos_image_qa_boundary.sql"),
     /opaque server secret works without a legacy JWT role claim/,
@@ -318,7 +605,9 @@ test("TASK-150 response-loss replay and throttles do not cross a fixed-window ed
   const admissionReplay = migration.indexOf(
     "v_run.provision_admission_request_hash = p_request_hash",
   );
-  const firstProvisionRateCheck = migration.indexOf("v_run.provision_attempt_count >= 3");
+  const firstProvisionRateCheck = migration.indexOf(
+    "v_run.provision_attempt_count >= 3",
+  );
   assert.ok(admissionReplay > 0 && admissionReplay < firstProvisionRateCheck);
   assert.ok(
     boundary.indexOf("task_150_win7pos_image_qa_provision_admit_v1") <
@@ -340,7 +629,10 @@ test("TASK-150 response-loss replay and throttles do not cross a fixed-window ed
   assert.match(migration, /'retryAfterAt'/);
   assert.match(migration, /task150-actor-quota/);
   assert.doesNotMatch(boundary, /manifestNonce/);
-  assert.match(boundary, /const manifestHmac = hmac\(key, "manifest", `\$\{runHmac\}\\0\$\{beginHash\}`\)/);
+  assert.match(
+    boundary,
+    /const manifestHmac = hmac\(key, "manifest", `\$\{runHmac\}\\0\$\{beginHash\}`\)/,
+  );
   assert.match(
     migration,
     /v_existing\.provision_capability_digest = p_provision_capability_digest[\s\S]*?v_existing\.cleanup_capability_digest = p_cleanup_capability_digest[\s\S]*?v_existing\.result_capability_digest = p_result_capability_digest/,
@@ -351,7 +643,10 @@ test("TASK-150 cleanup capability rotation is two-phase, bounded and loss-safe",
   const migration = read(migrationPath);
   const boundary = read(boundaryPath);
   assert.match(migration, /pending_cleanup_capability_expires_at/);
-  assert.match(migration, /pending_cleanup_prepared_at \+ interval '10 minutes'/);
+  assert.match(
+    migration,
+    /pending_cleanup_prepared_at \+ interval '10 minutes'/,
+  );
   assert.match(migration, /pending_cleanup_prepared_at \+ interval '3 hours'/);
   assert.match(migration, /'code', 'rotation_prepared'/);
   assert.match(migration, /'code', 'rotation_ack_replayed'/);
@@ -361,12 +656,22 @@ test("TASK-150 cleanup capability rotation is two-phase, bounded and loss-safe",
   );
   assert.match(migration, /rotation_attempt_count >= 3/);
   assert.match(migration, /cleanup_attempt_count >= 5/);
-  assert.match(migration, /result_capability_expires_at[\s\S]*interval '60 minutes'/);
-  const prearm = migration.slice(
-    migration.indexOf("create or replace function public.task_150_win7pos_image_qa_prearm_v1"),
-    migration.indexOf("create or replace function public.task_150_win7pos_image_qa_rotation_prepare_v1"),
+  assert.match(
+    migration,
+    /result_capability_expires_at[\s\S]*interval '60 minutes'/,
   );
-  assert.match(prearm, /p_requested_fence_until > v_run\.created_at \+ interval '3 hours'/);
+  const prearm = migration.slice(
+    migration.indexOf(
+      "create or replace function public.task_150_win7pos_image_qa_prearm_v1",
+    ),
+    migration.indexOf(
+      "create or replace function public.task_150_win7pos_image_qa_rotation_prepare_v1",
+    ),
+  );
+  assert.match(
+    prearm,
+    /p_requested_fence_until > v_run\.created_at \+ interval '3 hours'/,
+  );
   assert.ok(
     prearm.indexOf("cleanup_capability_coverage_insufficient") <
       prearm.indexOf("set run_actor_hmac = bootstrap_actor_hmac"),
@@ -408,8 +713,16 @@ test("TASK-150 cleanup capability rotation is two-phase, bounded and loss-safe",
 
 test("TASK-150 staging handler requires fresh trusted auth for prearm and rotations", () => {
   const boundary = read(boundaryPath);
-  for (const action of ["prearm", "rotation_prepare", "rotation_ack", "result_issue"]) {
-    assert.match(boundary, new RegExp(`parseTrustedRunAction\\(body, "${action}"`));
+  for (const action of [
+    "prearm",
+    "rotation_prepare",
+    "rotation_ack",
+    "result_issue",
+  ]) {
+    assert.match(
+      boundary,
+      new RegExp(`parseTrustedRunAction\\(body, "${action}"`),
+    );
   }
   assert.match(boundary, /await authorizeBootstrap\(parsed\.envelope\)/g);
   assert.match(
@@ -440,7 +753,10 @@ test("TASK-150 terminal receipt is count-only and retrieval is stable/read-only"
     /from public\.pos_sale_stock_movements movement[\s\S]*?from public\.pos_sale_lines sale_line[\s\S]*?from public\.pos_revenue_ledger_entries ledger_entry/,
   );
   assert.match(migration, /'activeRunOwnedSessions', 0/);
-  assert.match(migration, /'sharedSnapshotUnchanged', v_shared_snapshot_unchanged/);
+  assert.match(
+    migration,
+    /'sharedSnapshotUnchanged', v_shared_snapshot_unchanged/,
+  );
   assert.match(
     migration,
     /v_bootstrap_snapshot_digest = v_run\.bootstrap_snapshot_digest/,
@@ -481,17 +797,28 @@ test("TASK-150 terminal receipt is count-only and retrieval is stable/read-only"
     migration,
     /archived_by_profile_id = v_run\.bootstrap_profile_id/,
   );
+  assert.doesNotMatch(migration, /archived_by_profile_id = null/);
+  assert.match(
+    migration,
+    /grant select on table app_private\.task_150_win7pos_image_qa_runs to service_role/,
+  );
   assert.doesNotMatch(
     migration,
-    /archived_by_profile_id = null/,
+    /grant select, insert, update on table app_private\.task_150_win7pos_image_qa_runs/,
   );
-  assert.match(migration, /grant select on table app_private\.task_150_win7pos_image_qa_runs to service_role/);
-  assert.doesNotMatch(migration, /grant select, insert, update on table app_private\.task_150_win7pos_image_qa_runs/);
-  assert.match(migration, /language plpgsql\s+stable\s+security definer[\s\S]*?task_150_win7pos_image_qa_result_v1|task_150_win7pos_image_qa_result_v1[\s\S]*?language plpgsql\s+stable/);
+  assert.match(
+    migration,
+    /language plpgsql\s+stable\s+security definer[\s\S]*?task_150_win7pos_image_qa_result_v1|task_150_win7pos_image_qa_result_v1[\s\S]*?language plpgsql\s+stable/,
+  );
   const resultFunction = migration.slice(
-    migration.indexOf("create or replace function public.task_150_win7pos_image_qa_result_v1"),
+    migration.indexOf(
+      "create or replace function public.task_150_win7pos_image_qa_result_v1",
+    ),
   );
-  assert.doesNotMatch(resultFunction, /\binsert\s+into\b|\bupdate\s+|\bdelete\s+from\b/i);
+  assert.doesNotMatch(
+    resultFunction,
+    /\binsert\s+into\b|\bupdate\s+|\bdelete\s+from\b/i,
+  );
 });
 
 test("TASK-150 migration remap reconciliation fails closed for every drift shape", () => {
@@ -510,18 +837,24 @@ test("TASK-150 migration remap reconciliation fails closed for every drift shape
     name: "task_150_opaque_secret_role_compat",
     fileName: "20260801024000_task_150_opaque_secret_role_compat.sql",
   };
+  const task150Recovery = {
+    version: "20260802015520",
+    name: "task_150_storage_cleanup_recovery",
+    fileName: "20260802015520_task_150_storage_cleanup_recovery.sql",
+  };
   const remap = {
     localVersion: task142.version,
     remoteVersion: "20260727084040",
     name: task142.name,
   };
   const exact = {
-    local: [task142, task150, task150Compat],
+    local: [task142, task150, task150Compat, task150Recovery],
     remote: [
       { version: remap.remoteVersion, name: remap.name },
       { version: task150.version, name: task150.name },
+      { version: task150Compat.version, name: task150Compat.name },
     ],
-    expected: [task150Compat],
+    expected: [task150Recovery],
     approvedRemoteRemaps: [remap],
   };
   assert.equal(reconcileMigrationDelta(exact).status, "PASS");
@@ -565,7 +898,10 @@ test("TASK-150 migration remap reconciliation fails closed for every drift shape
         task150,
       ],
     },
-    { ...exact, local: [task142, { ...task142 }, task150, task150Compat] },
+    {
+      ...exact,
+      local: [task142, { ...task142 }, task150, task150Compat, task150Recovery],
+    },
   ];
   for (const input of failures) {
     assert.equal(reconcileMigrationDelta(input).status, "FAIL");
@@ -583,11 +919,13 @@ test("TASK-150 migration reconciliation CLI reports exact success and fails clos
     "20260731162000_task_150_win7pos_product_image_qa_boundary.sql";
   const task150CompatFile =
     "20260801024000_task_150_opaque_secret_role_compat.sql";
+  const task150RecoveryFile =
+    "20260802015520_task_150_storage_cleanup_recovery.sql";
   const environment = {
     ...process.env,
-    EXPECTED_MIGRATION_VERSION: "20260801024000",
-    EXPECTED_MIGRATION_NAME: "task_150_opaque_secret_role_compat",
-    EXPECTED_MIGRATION_FILE: task150CompatFile,
+    EXPECTED_MIGRATION_VERSION: "20260802015520",
+    EXPECTED_MIGRATION_NAME: "task_150_storage_cleanup_recovery",
+    EXPECTED_MIGRATION_FILE: task150RecoveryFile,
     REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520",
     REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040",
     REMAPPED_MIGRATION_NAME: "task_142_catalog_text_policy_v1",
@@ -597,10 +935,12 @@ test("TASK-150 migration reconciliation CLI reports exact success and fails clos
   writeFileSync(join(migrationDirectory, task142File), "-- fixture\n");
   writeFileSync(join(migrationDirectory, task150File), "-- fixture\n");
   writeFileSync(join(migrationDirectory, task150CompatFile), "-- fixture\n");
+  writeFileSync(join(migrationDirectory, task150RecoveryFile), "-- fixture\n");
   writeFileSync(
     remoteLedgerPath,
     "20260727084040\ttask_142_catalog_text_policy_v1\n" +
-      "20260731162000\ttask_150_win7pos_product_image_qa_boundary\n",
+      "20260731162000\ttask_150_win7pos_product_image_qa_boundary\n" +
+      "20260801024000\ttask_150_opaque_secret_role_compat\n",
   );
 
   function runCli() {
@@ -701,8 +1041,14 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   const routeVerification = read(stagingRouteVerificationPath);
   const cloudflareWorkflow = read(cloudflareWorkflowPath);
   assert.match(migrationWorkflow, /environment: cloudflare-staging/);
-  assert.match(migrationWorkflow, /mainBranch: process\.env\.GITHUB_REF === "refs\/heads\/main"/);
-  assert.match(migrationWorkflow, /EXPECTED_MIGRATION_VERSION: "20260801024000"/);
+  assert.match(
+    migrationWorkflow,
+    /mainBranch: process\.env\.GITHUB_REF === "refs\/heads\/main"/,
+  );
+  assert.match(
+    migrationWorkflow,
+    /EXPECTED_MIGRATION_VERSION: "20260802015520"/,
+  );
   assert.match(
     migrationWorkflow,
     /EXPECTED_STAGING_SUPABASE_PROJECT_REF: jpgoimipbothfgkokyvm/,
@@ -713,32 +1059,70 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   );
   assert.match(
     migrationWorkflow,
-    /EXPECTED_MIGRATION_NAME: task_150_opaque_secret_role_compat/,
+    /EXPECTED_MIGRATION_NAME: task_150_storage_cleanup_recovery/,
   );
   assert.match(migrationWorkflow, /APPLY_TASK150_STAGING/);
-  assert.match(migrationWorkflow, /REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"/);
-  assert.match(migrationWorkflow, /REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"/);
-  assert.match(migrationWorkflow, /REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1/);
-  assert.match(migrationWorkflow, /REMAPPED_LOCAL_MIGRATION_FILE: 20260727055520_task_142_catalog_text_policy_v1\.sql/);
+  assert.match(
+    migrationWorkflow,
+    /REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"/,
+  );
+  assert.match(
+    migrationWorkflow,
+    /REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"/,
+  );
+  assert.match(
+    migrationWorkflow,
+    /REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1/,
+  );
+  assert.match(
+    migrationWorkflow,
+    /REMAPPED_LOCAL_MIGRATION_FILE: 20260727055520_task_142_catalog_text_policy_v1\.sql/,
+  );
   assert.match(
     migrationWorkflow,
     /node scripts\/task-150-reconcile-migration-delta\.mjs/,
   );
   assert.match(reconciliation, /exactRemoteRows\.length !== 1/);
-  assert.match(reconciliation, /remote\.some\(\(row\) => row\.version === remap\.localVersion\)/);
+  assert.match(
+    reconciliation,
+    /remote\.some\(\(row\) => row\.version === remap\.localVersion\)/,
+  );
   assert.match(reconciliation, /remapViolations\.length/);
   assert.match(reconciliation, /normalizedRemote/);
-  assert.match(migrationWorkflow, /Materialize exact remote remap for the ephemeral CLI projection/);
+  assert.match(
+    migrationWorkflow,
+    /Materialize exact remote remap for the ephemeral CLI projection/,
+  );
   assert.match(migrationWorkflow, /cp -- "\$LOCAL_PATH" "\$REMOTE_PATH"/);
-  assert.match(migrationWorkflow, /Already-applied remapped migration appeared in dry-run/);
-  assert.match(migrationWorkflow, /Already-applied remapped migration appeared in apply output/);
+  assert.match(
+    migrationWorkflow,
+    /Already-applied remapped migration appeared in dry-run/,
+  );
+  assert.match(
+    migrationWorkflow,
+    /Already-applied remapped migration appeared in apply output/,
+  );
   assert.match(reconciliation, /remoteOnly\.length === 0/);
   assert.match(reconciliation, /nameMismatches\.length === 0/);
-  assert.match(reconciliation, /JSON\.stringify\(pending\) === JSON\.stringify\(expected\)/);
+  assert.match(
+    reconciliation,
+    /JSON\.stringify\(pending\) === JSON\.stringify\(expected\)/,
+  );
   assert.match(migrationWorkflow, /db push \\\r?\n\s+--dry-run/);
   assert.match(migrationWorkflow, /Apply single approved migration/);
   assert.match(migrationWorkflow, /baseMigrationLedgerExact/);
   assert.match(migrationWorkflow, /compatMigrationLedgerExact/);
+  assert.match(migrationWorkflow, /recoveryMigrationLedgerExact/);
+  assert.match(migrationWorkflow, /cleanupAcquireLegacyExact/);
+  assert.match(migrationWorkflow, /cleanupAcquireRecoveryExact/);
+  assert.match(migrationWorkflow, /cleanupAcquirePrivateDenied/);
+  assert.match(migrationWorkflow, /cleanupInvariantActorRevocation/);
+  assert.match(migrationWorkflow, /cleanupTerminalStorageGuard/);
+  assert.match(migrationWorkflow, /bool_and\(tgtype = 19\)/);
+  assert.match(
+    migrationWorkflow,
+    /BEFORE UPDATE OF status ON[\s\S]*?FOR EACH ROW EXECUTE FUNCTION/,
+  );
   assert.match(migrationWorkflow, /opaqueSecretRoleCompat/);
   assert.match(migrationWorkflow, /securityDefinerAndSafeSearchPath/);
   for (const name of [
@@ -750,6 +1134,7 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
     "task_150_win7pos_image_qa_rotation_ack_v1",
     "task_150_win7pos_image_qa_result_issue_v1",
     "task_150_win7pos_image_qa_cleanup_acquire_v1",
+    "task_150_win7pos_image_qa_cleanup_acquire_v2",
     "task_150_win7pos_image_qa_cleanup_commit_v1",
     "task_150_win7pos_image_qa_result_v1",
     "task_150_win7pos_image_qa_runs",
@@ -760,20 +1145,33 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
   }
   assert.match(migrationWorkflow, /'serviceRoleSelect'/);
   assert.match(migrationWorkflow, /'truncate'/);
+  assert.match(
+    migrationWorkflow,
+    /Number\(report\.publicFunctionCount\) !== 11/,
+  );
   assert.equal(
-    (migrationWorkflow.match(/docker run --rm -i --network host/g) ?? []).length,
+    (migrationWorkflow.match(/docker run --rm -i --network host/g) ?? [])
+      .length,
     2,
   );
-  assert.doesNotMatch(migrationWorkflow, /cloudflare-production|deploy-production/);
+  assert.doesNotMatch(
+    migrationWorkflow,
+    /cloudflare-production|deploy-production/,
+  );
   assert.equal(
-    (migrationWorkflow.match(
-      /SUPABASE_DB_PASSWORD: \$\{\{ secrets\.SUPABASE_DB_PASSWORD \}\}/g,
-    ) ?? []).length,
+    (
+      migrationWorkflow.match(
+        /SUPABASE_DB_PASSWORD: \$\{\{ secrets\.SUPABASE_DB_PASSWORD \}\}/g,
+      ) ?? []
+    ).length,
     2,
   );
   const migrationJobHeader = migrationWorkflow.slice(
     migrationWorkflow.indexOf("  migrate:"),
-    migrationWorkflow.indexOf("    steps:", migrationWorkflow.indexOf("  migrate:")),
+    migrationWorkflow.indexOf(
+      "    steps:",
+      migrationWorkflow.indexOf("  migrate:"),
+    ),
   );
   assert.doesNotMatch(migrationJobHeader, /SUPABASE_DB_PASSWORD/);
   assert.match(
@@ -781,25 +1179,30 @@ test("TASK-150 deploy path is exact, staging-only and secret-backed", () => {
     /TASK150_QA_HMAC_KEY: \$\{\{ secrets\.TASK150_QA_HMAC_KEY \}\}/,
   );
   assert.equal(
-    (cloudflareWorkflow.match(
-      /TASK150_QA_HMAC_KEY: \$\{\{ secrets\.TASK150_QA_HMAC_KEY \}\}/g,
-    ) ?? []).length,
+    (
+      cloudflareWorkflow.match(
+        /TASK150_QA_HMAC_KEY: \$\{\{ secrets\.TASK150_QA_HMAC_KEY \}\}/g,
+      ) ?? []
+    ).length,
     2,
   );
   const stagingJobHeader = cloudflareWorkflow.slice(
     cloudflareWorkflow.indexOf("  deploy-staging:"),
-    cloudflareWorkflow.indexOf("    steps:", cloudflareWorkflow.indexOf("  deploy-staging:")),
+    cloudflareWorkflow.indexOf(
+      "    steps:",
+      cloudflareWorkflow.indexOf("  deploy-staging:"),
+    ),
   );
   assert.doesNotMatch(stagingJobHeader, /TASK150_QA_HMAC_KEY/);
   assert.match(
     cloudflareWorkflow,
     /wrangler secret put TASK150_QA_HMAC_KEY --env staging/,
   );
+  assert.match(cloudflareWorkflow, /!status\.task150HmacKeyPresent/);
   assert.match(
     cloudflareWorkflow,
-    /!status\.task150HmacKeyPresent/,
+    /Verify TASK-150 staging route is configured/,
   );
-  assert.match(cloudflareWorkflow, /Verify TASK-150 staging route is configured/);
   assert.match(
     cloudflareWorkflow,
     /node scripts\/verify-task-150-staging-route\.mjs/,

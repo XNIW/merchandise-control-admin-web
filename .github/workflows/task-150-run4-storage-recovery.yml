@@ -1,0 +1,138 @@
+name: TASK-150 Run 4 Storage Recovery
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_commit_sha:
+        description: "Exact main commit containing the reviewed recovery migration/script"
+        required: true
+        type: string
+      confirmation:
+        description: "Enter RECOVER_TASK150_RUN4_STORAGE"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-150-run4-storage-recovery
+  cancel-in-progress: false
+
+env:
+  EXPECTED_STAGING_SUPABASE_PROJECT_REF: jpgoimipbothfgkokyvm
+  EXPECTED_STAGING_SUPABASE_ORIGIN: https://jpgoimipbothfgkokyvm.supabase.co
+
+jobs:
+  recover-storage:
+    name: Acquire and remove exact Run 4 Storage objects
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: cloudflare-staging
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Verify immutable staging and Run 4 inputs
+        env:
+          REQUESTED_CONFIRMATION: ${{ inputs.confirmation }}
+          REQUESTED_COMMIT_SHA: ${{ inputs.expected_commit_sha }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TASK150_QA_HMAC_KEY: ${{ secrets.TASK150_QA_HMAC_KEY }}
+          TASK150_RUN4_CLEANUP_CAPABILITY: ${{ secrets.TASK150_RUN4_CLEANUP_CAPABILITY }}
+          TASK150_RUN4_CLEANUP_REQUEST_ID: ${{ secrets.TASK150_RUN4_CLEANUP_REQUEST_ID }}
+          TASK150_RUN4_MANIFEST_HMAC: ${{ secrets.TASK150_RUN4_MANIFEST_HMAC }}
+          TASK150_RUN4_RUN_HMAC: ${{ secrets.TASK150_RUN4_RUN_HMAC }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          let exactUrl = false;
+          try {
+            const parsed = new URL(url);
+            exactUrl =
+              parsed.origin === process.env.EXPECTED_STAGING_SUPABASE_ORIGIN &&
+              parsed.pathname === "/" &&
+              parsed.search === "" &&
+              parsed.hash === "" &&
+              parsed.username === "" &&
+              parsed.password === "";
+          } catch {}
+          const requestedSha = process.env.REQUESTED_COMMIT_SHA || "";
+          const status = {
+            actorExact: process.env.GITHUB_ACTOR === "XNIW",
+            triggeringActorExact:
+              process.env.GITHUB_TRIGGERING_ACTOR === "XNIW",
+            mainBranch: process.env.GITHUB_REF === "refs/heads/main",
+            exactCheckout:
+              /^[0-9a-f]{40}$/.test(requestedSha) &&
+              requestedSha === process.env.GITHUB_SHA,
+            confirmationOk:
+              process.env.REQUESTED_CONFIRMATION ===
+              "RECOVER_TASK150_RUN4_STORAGE",
+            exactProject:
+              ref === process.env.EXPECTED_STAGING_SUPABASE_PROJECT_REF,
+            allowedProject: allowed.includes(ref),
+            exactUrl,
+            serviceRolePresent:
+              Buffer.byteLength(
+                process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+                "utf8",
+              ) >= 32,
+            hmacKeyPresent:
+              Buffer.byteLength(process.env.TASK150_QA_HMAC_KEY || "", "utf8") >=
+              32,
+            runHmacShape: /^[0-9a-f]{64}$/.test(
+              process.env.TASK150_RUN4_RUN_HMAC || "",
+            ),
+            manifestHmacShape: /^[0-9a-f]{64}$/.test(
+              process.env.TASK150_RUN4_MANIFEST_HMAC || "",
+            ),
+            cleanupCapabilityShape:
+              /^task150_cleanup_[A-Za-z0-9_-]{43}$/.test(
+                process.env.TASK150_RUN4_CLEANUP_CAPABILITY || "",
+              ),
+            cleanupRequestIdShape:
+              /^[a-zA-Z0-9][a-zA-Z0-9._-]{7,79}$/.test(
+                process.env.TASK150_RUN4_CLEANUP_REQUEST_ID || "",
+              ),
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Acquire fenced cleanup and remove exact Storage targets
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          TASK150_QA_HMAC_KEY: ${{ secrets.TASK150_QA_HMAC_KEY }}
+          TASK150_RUN4_CLEANUP_CAPABILITY: ${{ secrets.TASK150_RUN4_CLEANUP_CAPABILITY }}
+          TASK150_RUN4_CLEANUP_REQUEST_ID: ${{ secrets.TASK150_RUN4_CLEANUP_REQUEST_ID }}
+          TASK150_RUN4_MANIFEST_HMAC: ${{ secrets.TASK150_RUN4_MANIFEST_HMAC }}
+          TASK150_RUN4_RUN_HMAC: ${{ secrets.TASK150_RUN4_RUN_HMAC }}
+        run: node scripts/admin/task-150-run4-storage-recovery.mjs
+
+      - name: Record bounded recovery handoff
+        run: |
+          echo "Storage absence verified; no cleanup commit was called."
+          echo "Resume only the existing Run 4 cleanup after the ten-minute lease plus buffer."
