@@ -27,5 +27,5 @@ jobs:
       mode: apply
       expected_head_sha: ${{ github.sha }}
       apply_confirmation: APPLY_STOREFRONT_V1_STAGING
-      load_hold_seconds: "600"
+      load_hold_seconds: "900"
     secrets: inherit

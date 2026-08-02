@@ -30,6 +30,16 @@ insert into auth.users (
   '{}'::jsonb, '{}'::jsonb, now(), now()
 );
 
+insert into public.profiles (profile_id, display_name, profile_status)
+values (
+  '00000000-0000-4000-8000-000000010900',
+  'Storefront load actor',
+  'active'
+)
+on conflict (profile_id) do update
+set display_name = excluded.display_name,
+    profile_status = excluded.profile_status;
+
 insert into public.shops (shop_id, shop_code, shop_name, shop_status)
 values (
   '10000000-0000-4000-8000-000000010900',
@@ -71,9 +81,9 @@ select pg_catalog.format(
     from pg_catalog.generate_series(%s, %s) series(id)
   $batch$,
   batch_start,
-  least(batch_start + 999, 20000)
+  least(batch_start + 999, 22000)
 )
-from pg_catalog.generate_series(1, 20000, 1000) batch(batch_start)
+from pg_catalog.generate_series(1, 22000, 1000) batch(batch_start)
 \gexec
 
 begin;
@@ -114,7 +124,11 @@ select
   ('50000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))::uuid,
   '10000000-0000-4000-8000-000000010900'::uuid,
   ('20000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))::uuid,
-  'published',
+  case
+    when series.id <= 20000 then 'published'
+    when series.id <= 21000 then 'draft'
+    else 'paused'
+  end,
   case when series.id % 7 = 0
     then 'Café 龙茶 producto ' || series.id
     else 'Café producto ' || series.id
@@ -140,8 +154,119 @@ select
   true,
   series.id % 3 = 0,
   case when series.id % 50 = 0 then 'low_stock' else 'available' end,
+  case when series.id <= 20000 then now() else null end
+from pg_catalog.generate_series(1, 22000) series(id);
+
+create temp table task019_image_templates as
+select
+  pg_catalog.row_number() over (order by image_publication.id)::integer as template_number,
+  image_publication.thumb_url,
+  image_publication.card_url,
+  image_publication.detail_url,
+  image_publication.width,
+  image_publication.height,
+  image_publication.content_type,
+  image_publication.content_sha256,
+  true as real_staging_asset
+from public.storefront_image_publications image_publication
+where image_publication.shop_id <> '10000000-0000-4000-8000-000000010900'
+  and image_publication.publication_status = 'published'
+  and image_publication.thumb_url is not null
+  and image_publication.card_url is not null
+  and image_publication.detail_url is not null
+  and image_publication.content_sha256 is not null
+order by image_publication.id
+limit 10;
+
+insert into task019_image_templates (
+  template_number, thumb_url, card_url, detail_url, width, height,
+  content_type, content_sha256, real_staging_asset
+)
+select
+  1,
+  'https://local.supabase.invalid/storage/v1/object/public/storefront-product-images/task019/thumb.webp',
+  'https://local.supabase.invalid/storage/v1/object/public/storefront-product-images/task019/card.webp',
+  'https://local.supabase.invalid/storage/v1/object/public/storefront-product-images/task019/detail.webp',
+  2,
+  3,
+  'image/webp',
+  pg_catalog.repeat('a', 64),
+  false
+where not exists (select 1 from task019_image_templates);
+
+insert into public.inventory_product_image_versions (
+  id, shop_id, product_id, status, main_path, thumb_path,
+  expected_main_sha256, expected_main_bytes, expected_main_width,
+  expected_main_height, expected_thumb_sha256, expected_thumb_bytes,
+  expected_thumb_width, expected_thumb_height, verified_main_sha256,
+  verified_main_bytes, verified_main_width, verified_main_height,
+  verified_main_mime_type, verified_thumb_sha256, verified_thumb_bytes,
+  verified_thumb_width, verified_thumb_height, verified_thumb_mime_type,
+  requested_by_profile_id, finalized_by_profile_id, actor_kind, finalized_at
+)
+select
+  ('70000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))::uuid,
+  '10000000-0000-4000-8000-000000010900'::uuid,
+  ('20000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))::uuid,
+  'ready',
+  'shops/10000000-0000-4000-8000-000000010900/products/'
+    || ('20000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))
+    || '/primary/'
+    || ('70000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))
+    || '/main.jpg',
+  'shops/10000000-0000-4000-8000-000000010900/products/'
+    || ('20000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))
+    || '/primary/'
+    || ('70000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))
+    || '/thumb.jpg',
+  pg_catalog.repeat('b', 64), 100, 2, 3,
+  pg_catalog.repeat('b', 64), 100, 2, 3,
+  pg_catalog.repeat('b', 64), 100, 2, 3, 'image/jpeg',
+  pg_catalog.repeat('b', 64), 100, 2, 3, 'image/jpeg',
+  '00000000-0000-4000-8000-000000010900'::uuid,
+  '00000000-0000-4000-8000-000000010900'::uuid,
+  'personal_account',
   now()
-from pg_catalog.generate_series(1, 20000) series(id);
+from pg_catalog.generate_series(1, 100) series(id);
+
+insert into public.storefront_image_publications (
+  id, shop_id, source_product_id, source_image_version_id,
+  publication_status, version_key, thumb_url, card_url, detail_url,
+  width, height, content_type, content_sha256, published_at
+)
+select
+  ('71000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))::uuid,
+  '10000000-0000-4000-8000-000000010900'::uuid,
+  ('20000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))::uuid,
+  ('70000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))::uuid,
+  'published',
+  'task019-image-' || pg_catalog.lpad(series.id::text, 4, '0'),
+  template.thumb_url,
+  template.card_url,
+  template.detail_url,
+  template.width,
+  template.height,
+  template.content_type,
+  template.content_sha256,
+  now()
+from pg_catalog.generate_series(1, 100) series(id)
+join task019_image_templates template
+  on template.template_number = (
+    ((series.id - 1) % (select count(*) from task019_image_templates)) + 1
+  );
+
+update public.storefront_product_publications publication
+set published_image_version_id = mapping.image_publication_id
+from (
+  select
+    ('50000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))::uuid
+      as publication_id,
+    ('71000000-0000-4000-8000-' || pg_catalog.lpad(pg_catalog.to_hex(series.id), 12, '0'))::uuid
+      as image_publication_id
+  from pg_catalog.generate_series(1, 100) series(id)
+) mapping
+where publication.shop_id = '10000000-0000-4000-8000-000000010900'
+  and publication.id = mapping.publication_id;
 
 insert into task010_timings
 select
@@ -284,8 +409,19 @@ $measure$;
 
 select pg_catalog.jsonb_build_object(
   'dataset', pg_catalog.jsonb_build_object(
-    'products', (select count(*) from public.storefront_product_publications
+    'products', (select count(*) from public.inventory_products
       where shop_id = '10000000-0000-4000-8000-000000010900'),
+    'publications', (select count(*) from public.storefront_product_publications
+      where shop_id = '10000000-0000-4000-8000-000000010900'),
+    'publishedProducts', (select count(*) from public.storefront_product_publications
+      where shop_id = '10000000-0000-4000-8000-000000010900'
+        and publication_status = 'published'),
+    'draftProducts', (select count(*) from public.storefront_product_publications
+      where shop_id = '10000000-0000-4000-8000-000000010900'
+        and publication_status = 'draft'),
+    'pausedProducts', (select count(*) from public.storefront_product_publications
+      where shop_id = '10000000-0000-4000-8000-000000010900'
+        and publication_status = 'paused'),
     'categories', (select count(*) from public.storefront_categories
       where shop_id = '10000000-0000-4000-8000-000000010900'),
     'projectionRows', (select count(*) from public.storefront_catalog_items
@@ -297,6 +433,18 @@ select pg_catalog.jsonb_build_object(
     ),
     'promotionLinks', (select count(*) from public.storefront_promotion_products
       where shop_id = '10000000-0000-4000-8000-000000010900'),
+    'imagePublications', (select count(*) from public.storefront_image_publications
+      where shop_id = '10000000-0000-4000-8000-000000010900'
+        and publication_status = 'published'),
+    'imageBackedProjectionRows', (select count(*) from public.storefront_catalog_items
+      where shop_id = '10000000-0000-4000-8000-000000010900'
+        and image_version_key is not null),
+    'distinctImageUrls', (select count(distinct card_url)
+      from public.storefront_image_publications
+      where shop_id = '10000000-0000-4000-8000-000000010900'
+        and publication_status = 'published'),
+    'realImageTemplate', (select pg_catalog.bool_or(real_staging_asset)
+      from task019_image_templates),
     'equivalentRows',
       (select count(*) from public.inventory_products
         where shop_id = '10000000-0000-4000-8000-000000010900')
@@ -305,6 +453,10 @@ select pg_catalog.jsonb_build_object(
       + (select count(*) from public.storefront_catalog_items
         where shop_id = '10000000-0000-4000-8000-000000010900')
       + (select count(*) from public.storefront_promotion_products
+        where shop_id = '10000000-0000-4000-8000-000000010900')
+      + (select count(*) from public.storefront_image_publications
+        where shop_id = '10000000-0000-4000-8000-000000010900')
+      + (select count(*) from public.inventory_product_image_versions
         where shop_id = '10000000-0000-4000-8000-000000010900')
   ),
   'planSignals', (
@@ -363,6 +515,10 @@ where shop_id = '10000000-0000-4000-8000-000000010900';
 delete from public.storefront_promotions
 where shop_id = '10000000-0000-4000-8000-000000010900';
 delete from public.storefront_product_publications
+where shop_id = '10000000-0000-4000-8000-000000010900';
+delete from public.storefront_image_publications
+where shop_id = '10000000-0000-4000-8000-000000010900';
+delete from public.inventory_product_image_versions
 where shop_id = '10000000-0000-4000-8000-000000010900';
 delete from public.storefront_categories
 where shop_id = '10000000-0000-4000-8000-000000010900';

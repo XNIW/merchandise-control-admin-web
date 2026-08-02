@@ -736,9 +736,18 @@ jobs:
             detailP95Ms: 400,
           };
           const checks = {
-            products: report.dataset?.products === 20_000,
+            products: report.dataset?.products >= 20_000,
+            publications: report.dataset?.publications >= 20_000,
+            publishedMix: report.dataset?.publishedProducts === 20_000,
+            draftMix: report.dataset?.draftProducts >= 1_000,
+            pausedMix: report.dataset?.pausedProducts >= 1_000,
             categories: report.dataset?.categories === 100,
             equivalentRows: report.dataset?.equivalentRows >= 65_000,
+            promotions: report.dataset?.promotionLinks >= 5_000,
+            publicImages: report.dataset?.imagePublications >= 100 &&
+              report.dataset?.imageBackedProjectionRows >= 100 &&
+              report.dataset?.distinctImageUrls >= 1 &&
+              report.dataset?.realImageTemplate === true,
             catalogInitialTarget: initialTargets.catalogP95,
             searchInitialTarget: initialTargets.searchP95,
             detailInitialTarget: initialTargets.detailP95,
