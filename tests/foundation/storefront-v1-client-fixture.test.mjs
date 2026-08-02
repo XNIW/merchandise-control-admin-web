@@ -3,7 +3,10 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
-import { validateClientFixtureTarget } from "../../scripts/admin/storefront-v1-client-fixture.mjs";
+import {
+  buildClientFixtureAssets,
+  validateClientFixtureTarget,
+} from "../../scripts/admin/storefront-v1-client-fixture.mjs";
 
 const projectRef = "abcdefghijklmnopqrst";
 const valid = {
@@ -50,4 +53,20 @@ test("client fixture resolves only its synthetic user through the guarded databa
   assert.match(source, /rows\.length !== 1 \|\| !UUID\.test\(rows\[0\]\)/);
   assert.doesNotMatch(source, /auth\.admin\.listUsers/);
   assert.match(source, /auth\.admin\.createUser/);
+});
+
+test("client fixture generates decodable deterministic WebP variants", async () => {
+  const assets = await buildClientFixtureAssets("https://example.invalid");
+  assert.equal(assets.origin, "https://example.invalid");
+  for (const [variant, size] of Object.entries({
+    thumb: 320,
+    card: 720,
+    detail: 1200,
+  })) {
+    const asset = assets.variants[variant];
+    assert.equal(asset.width, size);
+    assert.equal(asset.height, size);
+    assert.match(asset.sha256, /^[a-f0-9]{64}$/);
+    assert.ok(asset.bytes.length > 0);
+  }
 });

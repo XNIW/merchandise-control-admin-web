@@ -14,10 +14,18 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-
 const PUBLIC_PATH = new RegExp(
   `^shops/${SHOP_ID}/products/[0-9a-f-]{36}/public/[0-9a-f-]{36}/(thumb|card|detail)-[0-9a-f]{16}\\.webp$`,
 );
-const sourceJpeg = Buffer.from(
-  "/9j/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAADAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAABv/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AJ9AFA4//9k=",
-  "base64",
-);
+const SOURCE_WIDTH = 8;
+const SOURCE_HEIGHT = 8;
+const sourceJpeg = await sharp({
+  create: {
+    width: SOURCE_WIDTH,
+    height: SOURCE_HEIGHT,
+    channels: 3,
+    background: { r: 92, g: 55, b: 32 },
+  },
+})
+  .jpeg({ chromaSubsampling: "4:4:4", quality: 90 })
+  .toBuffer();
 const sourceSha256 = createHash("sha256").update(sourceJpeg).digest("hex");
 
 const categories = [
@@ -178,7 +186,7 @@ async function fixtureUserId(client, databaseUrl) {
   return created.data.user.id;
 }
 
-async function publicAssets(origin) {
+export async function buildClientFixtureAssets(origin) {
   const dimensions = { thumb: 320, card: 720, detail: 1200 };
   const result = {};
   for (const [variant, size] of Object.entries(dimensions)) {
@@ -275,7 +283,7 @@ function seedSql(userId, assets) {
   const sourceImageRows = products
     .map((product) => {
       const paths = pathsFor(product, assets);
-      return `('${product.sourceImageId}'::uuid,'${SHOP_ID}'::uuid,'${product.productId}'::uuid,'ready','${paths.main}','${paths.thumb}','${sourceSha256}',${sourceJpeg.length},2,3,'${sourceSha256}',${sourceJpeg.length},2,3,'${sourceSha256}',${sourceJpeg.length},2,3,'image/jpeg','${sourceSha256}',${sourceJpeg.length},2,3,'image/jpeg','${userId}'::uuid,'${userId}'::uuid,'personal_account',statement_timestamp())`;
+      return `('${product.sourceImageId}'::uuid,'${SHOP_ID}'::uuid,'${product.productId}'::uuid,'ready','${paths.main}','${paths.thumb}','${sourceSha256}',${sourceJpeg.length},${SOURCE_WIDTH},${SOURCE_HEIGHT},'${sourceSha256}',${sourceJpeg.length},${SOURCE_WIDTH},${SOURCE_HEIGHT},'${sourceSha256}',${sourceJpeg.length},${SOURCE_WIDTH},${SOURCE_HEIGHT},'image/jpeg','${sourceSha256}',${sourceJpeg.length},${SOURCE_WIDTH},${SOURCE_HEIGHT},'image/jpeg','${userId}'::uuid,'${userId}'::uuid,'personal_account',statement_timestamp())`;
     })
     .join(",\n");
   const imageRows = products
@@ -443,7 +451,7 @@ export async function runClientFixture(env = process.env) {
     global: { headers: { "X-Client-Info": "storefront-v1-client-fixture-seed" } },
   });
   const userId = await fixtureUserId(client, target.databaseUrl);
-  const assets = await publicAssets(target.supabaseOrigin);
+  const assets = await buildClientFixtureAssets(target.supabaseOrigin);
   await uploadAssets(client, assets);
   execFileSync("psql", [target.databaseUrl, "-v", "ON_ERROR_STOP=1", "-f", "-"], {
     input: seedSql(userId, assets),
