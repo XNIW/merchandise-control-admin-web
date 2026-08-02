@@ -19,6 +19,7 @@ import {
   isCanonicalStorefrontImagePath,
   validateStagingTarget,
 } from "../../scripts/admin/storefront-v1-image-cleanup.mjs";
+import { reconcileMigrationDelta } from "../../scripts/task-150-reconcile-migration-delta.mjs";
 
 const root = process.cwd();
 const read = (path) => readFileSync(join(root, path), "utf8");
@@ -381,6 +382,10 @@ test("Storefront staging migration is exact-SHA guarded and retains the image bo
     /EXPECTED_MIGRATION_NAME: storefront_v1_catalog_performance/,
   );
   assert.match(stagingMigrationWorkflow, /publicImagesLedgerRetained/);
+  assert.match(stagingMigrationWorkflow, /ALLOW_EXPECTED_ALREADY_APPLIED: "true"/);
+  assert.match(stagingMigrationWorkflow, /id: migration_delta/);
+  assert.match(stagingMigrationWorkflow, /expected_state == 'pending'/);
+  assert.match(stagingMigrationWorkflow, /catalogVersionLedgerRetained/);
   for (const marker of [
     "publicImageBucketBoundary",
     "publicImageVariantBoundary",
@@ -389,6 +394,55 @@ test("Storefront staging migration is exact-SHA guarded and retains the image bo
   ]) {
     assert.match(stagingMigrationWorkflow, new RegExp(marker));
   }
+});
+
+test("Storefront staging rerun accepts only the exact already-applied migration", () => {
+  const remap = {
+    localVersion: "20260727055520",
+    remoteVersion: "20260727084040",
+    name: "task_142_catalog_text_policy_v1",
+  };
+  const expected = {
+    version: "20260802043000",
+    name: "storefront_v1_catalog_performance",
+    fileName: "20260802043000_storefront_v1_catalog_performance.sql",
+  };
+  const input = {
+    local: [
+      {
+        version: remap.localVersion,
+        name: remap.name,
+        fileName: `${remap.localVersion}_${remap.name}.sql`,
+      },
+      expected,
+    ],
+    remote: [
+      { version: remap.remoteVersion, name: remap.name },
+      { version: expected.version, name: expected.name },
+    ],
+    expected: [expected],
+    approvedRemoteRemaps: [remap],
+  };
+
+  assert.equal(reconcileMigrationDelta(input).status, "FAIL");
+  const applied = reconcileMigrationDelta({
+    ...input,
+    allowExpectedAlreadyApplied: true,
+  });
+  assert.equal(applied.status, "PASS");
+  assert.equal(applied.expectedState, "applied");
+  assert.equal(applied.expectedAlreadyApplied, true);
+
+  const drifted = reconcileMigrationDelta({
+    ...input,
+    remote: [
+      { version: remap.remoteVersion, name: remap.name },
+      { version: expected.version, name: `${expected.name}_drift` },
+    ],
+    allowExpectedAlreadyApplied: true,
+  });
+  assert.equal(drifted.status, "FAIL");
+  assert.equal(drifted.expectedState, "invalid");
 });
 
 test("TASK-009 staging acceptance executes the bounded cleanup before handoff", () => {

@@ -31,6 +31,7 @@ export function reconcileMigrationDelta({
   approvedRemoteRemaps,
   approvedRemoteOnly = [],
   localFilenameViolations = [],
+  allowExpectedAlreadyApplied = false,
 }) {
   const localDuplicates = duplicateVersions(local);
   const remoteDuplicates = duplicateVersions(remote);
@@ -102,6 +103,22 @@ export function reconcileMigrationDelta({
   });
   const remoteVersions = new Set(normalizedRemote.map((row) => row.version));
   const pending = local.filter((row) => !remoteVersions.has(row.version));
+  const expectedPending =
+    JSON.stringify(pending) === JSON.stringify(expected);
+  const expectedAlreadyApplied =
+    pending.length === 0 &&
+    expected.every((expectedRow) =>
+      normalizedRemote.some(
+        (remoteRow) =>
+          remoteRow.version === expectedRow.version &&
+          remoteRow.name === expectedRow.name,
+      ),
+    );
+  const expectedState = expectedPending
+    ? "pending"
+    : expectedAlreadyApplied
+      ? "applied"
+      : "invalid";
   const status =
     localFilenameViolations.length === 0 &&
     localDuplicates.length === 0 &&
@@ -109,7 +126,8 @@ export function reconcileMigrationDelta({
     remapViolations.length === 0 &&
     remoteOnlyMatchesApproved &&
     nameMismatches.length === 0 &&
-    JSON.stringify(pending) === JSON.stringify(expected)
+    (expectedPending ||
+      (allowExpectedAlreadyApplied && expectedAlreadyApplied))
       ? "PASS"
       : "FAIL";
   return {
@@ -130,6 +148,10 @@ export function reconcileMigrationDelta({
     remoteOnly,
     nameMismatches,
     pending,
+    expectedState,
+    expectedPending,
+    expectedAlreadyApplied,
+    allowExpectedAlreadyApplied,
   };
 }
 
@@ -199,6 +221,8 @@ function runCli() {
     approvedRemoteRemaps,
     approvedRemoteOnly,
     localFilenameViolations,
+    allowExpectedAlreadyApplied:
+      process.env.ALLOW_EXPECTED_ALREADY_APPLIED === "true",
   });
   const report = { workflowCommit: process.env.GITHUB_SHA ?? "", ...result };
   writeFileSync(outputPath, `${JSON.stringify(report, null, 2)}\n`);
@@ -208,6 +232,7 @@ function runCli() {
       remoteMigrationCount: report.remoteMigrationCount,
       localMigrationCount: report.localMigrationCount,
       pending: report.pending,
+      expectedState: report.expectedState,
     }),
   );
   if (report.status !== "PASS") process.exitCode = 1;

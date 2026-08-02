@@ -60,6 +60,7 @@ env:
   REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
   REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
   REMAPPED_LOCAL_MIGRATION_FILE: 20260727055520_task_142_catalog_text_policy_v1.sql
+  ALLOW_EXPECTED_ALREADY_APPLIED: "true"
 
 jobs:
   migrate:
@@ -134,6 +135,7 @@ jobs:
           chmod 600 _storefront-migration/source-db-url
 
       - name: Prove exact remote-to-local migration delta
+        id: migration_delta
         run: |
           set -euo pipefail
           SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
@@ -148,6 +150,12 @@ jobs:
             supabase/migrations \
             _storefront-migration/evidence/remote-ledger.tsv \
             _storefront-migration/evidence/delta.json
+          EXPECTED_STATE="$(node -e '
+          const report = require("./_storefront-migration/evidence/delta.json");
+          if (!["pending", "applied"].includes(report.expectedState)) process.exit(1);
+          process.stdout.write(report.expectedState);
+          ')"
+          printf 'expected_state=%s\n' "$EXPECTED_STATE" >> "$GITHUB_OUTPUT"
 
       - name: Materialize approved remote remap for CLI parity
         run: |
@@ -171,8 +179,10 @@ jobs:
             --dry-run \
             --db-url "$SOURCE_DB_URL" \
             2>&1 | tee _storefront-migration/evidence/supabase-dry-run.txt
-          grep -F "$EXPECTED_MIGRATION_VERSION" \
-            _storefront-migration/evidence/supabase-dry-run.txt
+          if [[ "${{ steps.migration_delta.outputs.expected_state }}" == "pending" ]]; then
+            grep -F "$EXPECTED_MIGRATION_VERSION" \
+              _storefront-migration/evidence/supabase-dry-run.txt
+          fi
           if grep -F "$REMAPPED_LOCAL_MIGRATION_VERSION" \
             _storefront-migration/evidence/supabase-dry-run.txt || \
             grep -F "$REMAPPED_REMOTE_MIGRATION_VERSION" \
@@ -186,7 +196,9 @@ jobs:
             _storefront-migration/evidence/supabase-dry-run.txt
 
       - name: Apply approved Storefront migration
-        if: inputs.mode == 'apply'
+        if: >-
+          inputs.mode == 'apply' &&
+          steps.migration_delta.outputs.expected_state == 'pending'
         run: |
           set -euo pipefail
           SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
@@ -218,6 +230,12 @@ jobs:
           cat > _storefront-migration/post-verify.sql <<'SQL'
           select jsonb_pretty(jsonb_build_object(
             'migrationLedgerExact', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260802043000'
+                and name = 'storefront_v1_catalog_performance'
+            ),
+            'catalogVersionLedgerRetained', (
               select count(*) = 1
               from supabase_migrations.schema_migrations
               where version = '20260802033000'
@@ -652,6 +670,7 @@ jobs:
           );
           const requiredTrue = [
             "migrationLedgerExact",
+            "catalogVersionLedgerRetained",
             "adminPromotionsLedgerRetained",
             "adminPublicationsLedgerRetained",
             "publicApiPlannerLedgerRetained",
