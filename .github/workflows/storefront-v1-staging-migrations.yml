@@ -11,6 +11,21 @@ on:
         description: "Exact integration/storefront-v1 commit to deploy"
         required: true
         type: string
+      expected_migration_version:
+        description: "Exact additive migration version expected in the delta"
+        required: false
+        default: "20260802043000"
+        type: string
+      expected_migration_name:
+        description: "Exact additive migration name expected in the delta"
+        required: false
+        default: storefront_v1_catalog_performance
+        type: string
+      expected_migration_file:
+        description: "Exact additive migration filename expected in the delta"
+        required: false
+        default: 20260802043000_storefront_v1_catalog_performance.sql
+        type: string
       apply_confirmation:
         description: "For apply, enter APPLY_STOREFRONT_V1_STAGING"
         required: false
@@ -20,6 +35,11 @@ on:
         required: false
         default: "0"
         type: string
+      run_performance_load:
+        description: "Run the bounded TASK-019 20k-row performance fixture"
+        required: false
+        default: true
+        type: boolean
   workflow_dispatch:
     inputs:
       mode:
@@ -34,6 +54,21 @@ on:
         description: "Exact integration/storefront-v1 commit to deploy"
         required: true
         type: string
+      expected_migration_version:
+        description: "Exact additive migration version expected in the delta"
+        required: true
+        default: "20260802043000"
+        type: string
+      expected_migration_name:
+        description: "Exact additive migration name expected in the delta"
+        required: true
+        default: storefront_v1_catalog_performance
+        type: string
+      expected_migration_file:
+        description: "Exact additive migration filename expected in the delta"
+        required: true
+        default: 20260802043000_storefront_v1_catalog_performance.sql
+        type: string
       apply_confirmation:
         description: "For apply, enter APPLY_STOREFRONT_V1_STAGING"
         required: false
@@ -43,6 +78,11 @@ on:
         required: false
         default: "0"
         type: string
+      run_performance_load:
+        description: "Run the bounded TASK-019 20k-row performance fixture"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read
@@ -53,9 +93,9 @@ concurrency:
 
 env:
   SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
-  EXPECTED_MIGRATION_VERSION: "20260802043000"
-  EXPECTED_MIGRATION_NAME: storefront_v1_catalog_performance
-  EXPECTED_MIGRATION_FILE: 20260802043000_storefront_v1_catalog_performance.sql
+  EXPECTED_MIGRATION_VERSION: ${{ inputs.expected_migration_version }}
+  EXPECTED_MIGRATION_NAME: ${{ inputs.expected_migration_name }}
+  EXPECTED_MIGRATION_FILE: ${{ inputs.expected_migration_file }}
   REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
   REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
   REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
@@ -715,8 +755,115 @@ jobs:
           ) process.exit(1);
           NODE
 
+      - name: Verify TASK-021 customer ownership and privacy contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260802181823'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_customer_profiles_addresses.sql \
+              > _storefront-migration/evidence/task-021-pgtap.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260802181823'
+                    and name = 'storefront_v1_customer_profiles_addresses'
+                ),
+                'tableCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'customer_profiles',
+                      'customer_addresses',
+                      'customer_account_deletion_requests'
+                    )
+                    and class.relkind = 'r'
+                ),
+                'rlsForcedCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'customer_profiles',
+                      'customer_addresses',
+                      'customer_account_deletion_requests'
+                    )
+                    and class.relkind = 'r'
+                    and class.relrowsecurity
+                    and class.relforcerowsecurity
+                ),
+                'policyCount', (
+                  select count(*)
+                  from pg_catalog.pg_policy policy
+                  join pg_catalog.pg_class class on class.oid = policy.polrelid
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'customer_profiles',
+                      'customer_addresses',
+                      'customer_account_deletion_requests'
+                    )
+                ),
+                'sensitiveColumnsAbsent', not exists (
+                  select 1
+                  from information_schema.columns
+                  where table_schema = 'public'
+                    and table_name in (
+                      'customer_profiles',
+                      'customer_addresses',
+                      'customer_account_deletion_requests'
+                    )
+                    and column_name ~* '(email|password|token|oauth|credential|secret)'
+                )
+              )" \
+              > _storefront-migration/evidence/task-021-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-021-pgtap.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-021-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            migrationLedgerExact: report.migrationLedgerExact === true,
+            tableCount: Number(report.tableCount) === 3,
+            rlsForcedCount: Number(report.rlsForcedCount) === 3,
+            policyCount: Number(report.policyCount) === 9,
+            sensitiveColumnsAbsent: report.sensitiveColumnsAbsent === true,
+            pgTapPlan: /^1\.\.64$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 64,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
       - name: Benchmark Storefront contract on staging and clean fixtures
-        if: inputs.mode == 'apply'
+        if: inputs.mode == 'apply' && inputs.run_performance_load
         env:
           STOREFRONT_LOAD_HOLD_SECONDS: ${{ inputs.load_hold_seconds }}
         run: |

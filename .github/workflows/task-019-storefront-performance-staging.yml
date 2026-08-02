@@ -26,6 +26,10 @@ jobs:
     with:
       mode: apply
       expected_head_sha: ${{ github.sha }}
+      expected_migration_version: "20260802043000"
+      expected_migration_name: storefront_v1_catalog_performance
+      expected_migration_file: 20260802043000_storefront_v1_catalog_performance.sql
       apply_confirmation: APPLY_STOREFRONT_V1_STAGING
       load_hold_seconds: "900"
+      run_performance_load: true
     secrets: inherit

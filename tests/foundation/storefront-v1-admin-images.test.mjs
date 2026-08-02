@@ -381,14 +381,25 @@ test("TASK-009 cleanup accepts only canonical objects on an allowlisted staging 
 test("Storefront staging migration is exact-SHA guarded and retains the image boundary", () => {
   assert.match(
     stagingMigrationWorkflow,
-    /EXPECTED_MIGRATION_VERSION: "20260802043000"/,
+    /expected_migration_version:[\s\S]*default: "20260802043000"/,
   );
   assert.match(
     stagingMigrationWorkflow,
-    /EXPECTED_MIGRATION_NAME: storefront_v1_catalog_performance/,
+    /EXPECTED_MIGRATION_VERSION: \$\{\{ inputs\.expected_migration_version \}\}/,
+  );
+  assert.match(
+    stagingMigrationWorkflow,
+    /expected_migration_name:[\s\S]*default: storefront_v1_catalog_performance/,
+  );
+  assert.match(
+    stagingMigrationWorkflow,
+    /EXPECTED_MIGRATION_NAME: \$\{\{ inputs\.expected_migration_name \}\}/,
   );
   assert.match(stagingMigrationWorkflow, /publicImagesLedgerRetained/);
-  assert.match(stagingMigrationWorkflow, /ALLOW_EXPECTED_ALREADY_APPLIED: "true"/);
+  assert.match(
+    stagingMigrationWorkflow,
+    /ALLOW_EXPECTED_ALREADY_APPLIED: "true"/,
+  );
   assert.match(stagingMigrationWorkflow, /id: migration_delta/);
   assert.match(stagingMigrationWorkflow, /expected_state == 'pending'/);
   assert.match(stagingMigrationWorkflow, /catalogVersionLedgerRetained/);
@@ -466,7 +477,7 @@ test("TASK-019 image fixture exposes a UUID version compatible with the client c
 test("TASK-009 staging acceptance executes the bounded cleanup before handoff", () => {
   const workflow = read(".github/workflows/final-staging-auth-performance.yml");
   for (const expected of [
-    'STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}',
+    "STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}",
     'STOREFRONT_IMAGE_CLEANUP_ALLOW_STAGING: "yes"',
     "Verify bounded public image cleanup",
     "npm run storefront:images:cleanup",
