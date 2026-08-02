@@ -621,7 +621,9 @@ select ok(
 );
 
 -- Simulate the one-off Storage API deleting only the server-returned canonical
--- targets. This direct metadata DML is confined to the rollback-only test.
+-- targets. Supabase Storage uses this transaction-local guard internally; the
+-- metadata DML remains confined to this rollback-only test.
+select set_config('storage.allow_delete_query', 'true', true);
 delete from storage.objects object
 using public.inventory_product_image_versions version,
       app_private.task_150_win7pos_image_qa_runs run
@@ -630,6 +632,7 @@ where run.run_hmac = repeat('a', 64)
   and version.product_id = run.run_product_id
   and object.bucket_id = 'product-images'
   and object.name in (version.main_path, version.thumb_path);
+select set_config('storage.allow_delete_query', 'false', true);
 
 insert into storage.objects (bucket_id, name)
 select
@@ -674,6 +677,8 @@ select ok(
   'TASK150_CASE_14C stale V1 recovery rejects a noncanonical product-prefix object'
 );
 
+-- Mirror the same Storage API guard for the orphan metadata fixture.
+select set_config('storage.allow_delete_query', 'true', true);
 delete from storage.objects object
 using app_private.task_150_win7pos_image_qa_runs run
 where run.run_hmac = repeat('a', 64)
@@ -682,6 +687,7 @@ where run.run_hmac = repeat('a', 64)
     'shops/' || run.run_shop_id::text
     || '/products/' || run.run_product_id::text || '/%'
   );
+select set_config('storage.allow_delete_query', 'false', true);
 
 select is(
   (select count(*)::integer
