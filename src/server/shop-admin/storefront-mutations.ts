@@ -9,6 +9,7 @@ import {
 } from "./action-context";
 import {
   callStaffWebStorefrontFulfillmentMutation,
+  callStaffWebStorefrontPaymentMutation,
   callStaffWebStorefrontMutation,
   callStaffWebStorefrontPromotionMutation,
 } from "./staff-web-lease-bound-rpc";
@@ -212,6 +213,36 @@ export async function mutateStorefrontFulfillment(input: {
         input.operation,
         input.payload,
       );
+  if (rpc.error) {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+  const result = mapShopAdminRpcResult(rpc.data);
+  return result.shopId === context.selectedShop.shopId
+    ? result
+    : shopAdminActionResult("db_failure", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
+}
+
+export async function mutateStorefrontPayment(input: {
+  payload: Record<string, Json | undefined>;
+  requestedShopId?: string;
+}) {
+  const context = await resolveShopActionContext(
+    input.requestedShopId,
+    "storefront.settings.manage",
+  );
+  if (context.status !== "ready") return context.result;
+  const rpc = context.principalKind === "personal_account"
+    ? await context.supabase.rpc("admin_storefront_payment_mutate_v1", {
+        p_payload: input.payload,
+        p_shop_id: context.selectedShop.shopId,
+      })
+    : await callStaffWebStorefrontPaymentMutation(context, input.payload);
   if (rpc.error) {
     return shopAdminActionResult("db_failure", {
       ok: false,

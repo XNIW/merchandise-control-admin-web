@@ -20,6 +20,7 @@ import {
   saveStorefrontFulfillmentSettingsAction,
   saveStorefrontFulfillmentSlotAction,
   saveStorefrontPickupPointAction,
+  saveStorefrontPaymentSettingsAction,
   saveStorefrontPromotionAction,
   saveStorefrontPublicationAction,
 } from "./actions";
@@ -40,6 +41,7 @@ const areas = [
   ["images", "Immagini pubbliche"],
   ["preview", "Anteprima"],
   ["settings", "Ritiro e consegna"],
+  ["payments", "Pagamenti"],
   ["audit", "Audit"],
 ] as const;
 
@@ -1099,6 +1101,134 @@ function FulfillmentSettings({ model }: { model: StorefrontPublicationsReadModel
   );
 }
 
+function PaymentSettings({ model }: { model: StorefrontPublicationsReadModel }) {
+  const shopId = model.selectedShopId;
+  const fulfillment = model.fulfillment.settings;
+  const payment = model.payment;
+  if (!shopId || !fulfillment) {
+    return (
+      <section className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+        <h2 className="font-semibold text-amber-950">Pagamenti non disponibili</h2>
+        <p className="mt-1 text-sm text-amber-900">
+          Configura prima il contratto Storefront e le modalità di fulfillment.
+        </p>
+      </section>
+    );
+  }
+  const pickupCompatible =
+    fulfillment.pickupEnabled || fulfillment.reservationEnabled;
+  const deliveryCompatible = fulfillment.deliveryEnabled;
+  return (
+    <div className="grid gap-5">
+      {!model.permissions.canManagePayments ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Permesso storefront.settings.manage richiesto per modificare i metodi di pagamento.
+        </p>
+      ) : null}
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+              Incasso Storefront · CLP
+            </p>
+            <h2 className="mt-1 text-xl font-semibold text-zinc-950">
+              Metodi accettati
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-600">
+              Il totale resta autorevole sul server. La selezione del cliente non crea una vendita fiscale e non marca l’ordine come pagato.
+            </p>
+          </div>
+          <span className="rounded-full bg-zinc-100 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-700">
+            Revisione {payment.revision}
+          </span>
+        </div>
+        <form
+          action={saveStorefrontPaymentSettingsAction}
+          className="mt-5 grid gap-3"
+        >
+          <input name="shop_id" type="hidden" value={shopId} />
+          <input
+            name="expectedRevision"
+            type="hidden"
+            value={payment.revision}
+          />
+          <label className="flex min-h-14 items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900">
+            <span>
+              <span className="block font-semibold">Pagamento al ritiro</span>
+              <span className="mt-0.5 block text-zinc-600">
+                Disponibile per ritiro e prenotazione configurati.
+              </span>
+            </span>
+            <input
+              defaultChecked={payment.payAtPickupEnabled}
+              disabled={!pickupCompatible || !model.permissions.canManagePayments}
+              name="payAtPickupEnabled"
+              type="checkbox"
+            />
+          </label>
+          <label className="flex min-h-14 items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900">
+            <span>
+              <span className="block font-semibold">Contanti alla consegna</span>
+              <span className="mt-0.5 block text-zinc-600">
+                Opt-in e disponibile soltanto per una zona di consegna attiva.
+              </span>
+            </span>
+            <input
+              defaultChecked={payment.cashOnDeliveryEnabled}
+              disabled={!deliveryCompatible || !model.permissions.canManagePayments}
+              name="cashOnDeliveryEnabled"
+              type="checkbox"
+            />
+          </label>
+          <div className="flex min-h-14 items-center justify-between gap-4 rounded-lg border border-zinc-200 bg-zinc-100 px-4 py-3 text-sm text-zinc-700">
+            <span>
+              <span className="block font-semibold text-zinc-900">Pagamento online</span>
+              <span className="mt-0.5 block">
+                Provider e credenziali merchant non configurati.
+              </span>
+            </span>
+            <span className="rounded-full bg-zinc-200 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-zinc-700">
+              OFF
+            </span>
+          </div>
+          {!pickupCompatible && !deliveryCompatible ? (
+            <p className="text-sm text-amber-800">
+              Attiva prima almeno una modalità nella sezione Ritiro e consegna.
+            </p>
+          ) : null}
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            <button
+              className={buttonClassName}
+              disabled={
+                !model.permissions.canManagePayments ||
+                (!pickupCompatible && !deliveryCompatible)
+              }
+              type="submit"
+            >
+              Salva metodi
+            </button>
+            {payment.updatedAt ? (
+              <p className="text-xs text-zinc-500">
+                Ultimo aggiornamento {auditDate(payment.updatedAt)}
+              </p>
+            ) : (
+              <p className="text-xs text-zinc-500">
+                Configurazione iniziale fail-closed.
+              </p>
+            )}
+          </div>
+        </form>
+      </section>
+      <section className="rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+        <h2 className="font-semibold text-emerald-950">Confine di pagamento</h2>
+        <p className="mt-1 max-w-3xl text-sm leading-6 text-emerald-900">
+          Ordine cliente, stato di incasso e vendita fiscale POS sono registri distinti. Un metodo offline resta dovuto fino alla conferma operativa autorizzata.
+        </p>
+      </section>
+    </div>
+  );
+}
+
 function PlaceholderArea({ area, model }: { area: "categories"; model: StorefrontPublicationsReadModel }) {
   const descriptions: Record<typeof area, string> = {
     categories: "Le categorie pubbliche disponibili sono già validate e usate dall’editor prodotto. La gestione completa viene attivata in TASK-007/TASK-008 senza esporre la tassonomia interna.",
@@ -1161,7 +1291,7 @@ export default async function StorefrontPage({ searchParams }: { searchParams: S
         <Metric detail="Bloccano publish se l’immagine è obbligatoria" label="Immagine mancante" value={String(missingImages)} />
       </section>
       <nav aria-label="Sezioni Storefront" className="sticky top-0 z-20 flex gap-2 overflow-x-auto rounded-xl border border-zinc-200 bg-white/95 p-2 shadow-sm backdrop-blur">{areas.map(([key, label]) => <Link aria-current={area === key ? "page" : undefined} className={`min-h-11 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 ${area === key ? "bg-emerald-800 text-white" : "text-zinc-700 hover:bg-zinc-100"}`} href={buildHref(params, { area: key, page: null })} key={key}>{label}</Link>)}</nav>
-      {model.status !== "ready" ? <section className="rounded-md border border-amber-200 bg-amber-50 p-5"><h2 className="font-semibold text-amber-950">Storefront non disponibile</h2><p className="mt-1 text-sm text-amber-900">{model.reason}</p></section> : area === "catalog" ? <Catalog model={model} params={params} /> : area === "promotions" ? <Promotions model={model} params={params} /> : area === "images" ? <StorefrontImagesControl canManage={model.permissions.canManageImages} candidates={model.imageCandidates} images={model.images} shopId={model.selectedShopId!} /> : area === "preview" ? <Preview preview={model.preview} /> : area === "settings" ? <FulfillmentSettings model={model} /> : area === "audit" ? <Audit model={model} /> : <PlaceholderArea area={area} model={model} />}
+      {model.status !== "ready" ? <section className="rounded-md border border-amber-200 bg-amber-50 p-5"><h2 className="font-semibold text-amber-950">Storefront non disponibile</h2><p className="mt-1 text-sm text-amber-900">{model.reason}</p></section> : area === "catalog" ? <Catalog model={model} params={params} /> : area === "promotions" ? <Promotions model={model} params={params} /> : area === "images" ? <StorefrontImagesControl canManage={model.permissions.canManageImages} candidates={model.imageCandidates} images={model.images} shopId={model.selectedShopId!} /> : area === "preview" ? <Preview preview={model.preview} /> : area === "settings" ? <FulfillmentSettings model={model} /> : area === "payments" ? <PaymentSettings model={model} /> : area === "audit" ? <Audit model={model} /> : <PlaceholderArea area={area} model={model} />}
     </div>
   );
 }

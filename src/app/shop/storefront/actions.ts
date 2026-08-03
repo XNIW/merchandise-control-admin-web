@@ -12,6 +12,7 @@ import {
 import {
   bulkSetStorefrontPublicationStatus,
   mutateStorefrontFulfillment,
+  mutateStorefrontPayment,
   upsertStorefrontPromotion,
   upsertStorefrontPublication,
 } from "@/server/shop-admin/storefront-mutations";
@@ -175,6 +176,32 @@ export async function saveStorefrontFulfillmentSettingsAction(
     requestedShopId: shopId,
   });
   resultRedirect(result, shopId, "settings");
+}
+
+export async function saveStorefrontPaymentSettingsAction(
+  formData: FormData,
+) {
+  const shopId = requestedShopId(formData);
+  const expectedRevision = finiteInteger(
+    optionalFormNumber(formData, "expectedRevision"),
+  );
+  if (expectedRevision === undefined || expectedRevision < 0) {
+    resultRedirect(
+      shopAdminActionResult("validation_failed", { ok: false }),
+      shopId,
+      "payments",
+    );
+  }
+  const result = await mutateStorefrontPayment({
+    payload: {
+      cashOnDeliveryEnabled: formData.has("cashOnDeliveryEnabled"),
+      expectedRevision,
+      onlinePaymentEnabled: false,
+      payAtPickupEnabled: formData.has("payAtPickupEnabled"),
+    },
+    requestedShopId: shopId,
+  });
+  resultRedirect(result, shopId, "payments");
 }
 
 export async function saveStorefrontPickupPointAction(formData: FormData) {

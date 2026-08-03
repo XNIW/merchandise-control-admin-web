@@ -250,6 +250,38 @@ export function callStaffWebStorefrontFulfillmentMutation(
   });
 }
 
+export function callStaffWebStorefrontPaymentRead(
+  context: StaffWebLeaseBoundContext,
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("admin_storefront_payment_read_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}
+
+export function callStaffWebStorefrontPaymentMutation(
+  context: StaffWebLeaseBoundContext,
+  payload: JsonRecord,
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("admin_storefront_payment_mutate_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_payload: payload,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}
+
 export function callStaffWebStorefrontPromotionsRead(
   context: StaffWebLeaseBoundContext,
   request: {

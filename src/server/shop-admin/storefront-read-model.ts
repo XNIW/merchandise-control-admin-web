@@ -9,6 +9,7 @@ import { resolveShopAdminDataAccess } from "./data-access";
 import {
   callStaffWebStorefrontFulfillmentRead,
   callStaffWebStorefrontImagesRead,
+  callStaffWebStorefrontPaymentRead,
   callStaffWebStorefrontPromotionsRead,
   callStaffWebStorefrontRead,
 } from "./staff-web-lease-bound-rpc";
@@ -137,6 +138,16 @@ export type StorefrontFulfillmentReadModel = {
   slots: readonly StorefrontFulfillmentSlot[];
 };
 
+export type StorefrontPaymentSettings = {
+  cashOnDeliveryEnabled: boolean;
+  configured: boolean;
+  onlinePaymentEnabled: false;
+  onlineProvider: "none";
+  payAtPickupEnabled: boolean;
+  revision: number;
+  updatedAt: string | null;
+};
+
 export type StorefrontPublicationsReadModel = {
   audit: readonly StorefrontAuditRow[];
   categories: readonly StorefrontCategoryOption[];
@@ -153,6 +164,7 @@ export type StorefrontPublicationsReadModel = {
     canBulkPublish: boolean;
     canEdit: boolean;
     canManageFulfillment: boolean;
+    canManagePayments: boolean;
     canManageImages: boolean;
     canManagePromotions: boolean;
     canPublish: boolean;
@@ -167,6 +179,7 @@ export type StorefrontPublicationsReadModel = {
   };
   promotionPublications: readonly StorefrontPromotionPublicationOption[];
   promotions: readonly StorefrontPromotionRow[];
+  payment: StorefrontPaymentSettings;
   preview: Json;
   reason: string;
   rows: readonly StorefrontPublicationRow[];
@@ -366,6 +379,41 @@ function mapFulfillmentSettings(
     : null;
 }
 
+function emptyPayment(): StorefrontPaymentSettings {
+  return {
+    cashOnDeliveryEnabled: false,
+    configured: false,
+    onlinePaymentEnabled: false,
+    onlineProvider: "none",
+    payAtPickupEnabled: false,
+    revision: 0,
+    updatedAt: null,
+  };
+}
+
+function mapPaymentSettings(value: Json | undefined): StorefrontPaymentSettings {
+  const settings = objectValue(value);
+  if (!settings) return emptyPayment();
+  const revision = numberValue(settings.revision);
+  const provider = textValue(settings.onlineProvider);
+  if (
+    revision === null ||
+    !Number.isSafeInteger(revision) ||
+    revision < 0 ||
+    provider !== "none" ||
+    booleanValue(settings.onlinePaymentEnabled)
+  ) return emptyPayment();
+  return {
+    cashOnDeliveryEnabled: booleanValue(settings.cashOnDeliveryEnabled),
+    configured: booleanValue(settings.configured),
+    onlinePaymentEnabled: false,
+    onlineProvider: "none",
+    payAtPickupEnabled: booleanValue(settings.payAtPickupEnabled),
+    revision,
+    updatedAt: textValue(settings.updatedAt),
+  };
+}
+
 function mapPickupPoint(value: Json): StorefrontPickupPoint | null {
   const point = objectValue(value);
   const id = point ? textValue(point.id) : null;
@@ -560,6 +608,7 @@ export async function getStorefrontPublicationsReadModel(
         canBulkPublish: false,
         canEdit: false,
         canManageFulfillment: false,
+        canManagePayments: false,
         canManageImages: false,
         canManagePromotions: false,
         canPublish: false,
@@ -569,6 +618,7 @@ export async function getStorefrontPublicationsReadModel(
       promotionPagination: { page: 1, pageSize: 25, total: 0, totalPages: 1 },
       promotionPublications: [],
       promotions: [],
+      payment: emptyPayment(),
       preview: { status: "unavailable" },
       reason: access.reason,
       rows: [],
@@ -656,6 +706,16 @@ export async function getStorefrontPublicationsReadModel(
           selectedShop: access.selectedShop,
           staffWebSession: access.principal.staffWebSession!,
         });
+  const paymentRpc = access.principalKind === "personal_account"
+    ? await access.supabase.rpc("admin_storefront_payment_read_v1", {
+        p_shop_id: access.selectedShop.shopId,
+      })
+    : await callStaffWebStorefrontPaymentRead({
+        actorStaffId: access.principal.staff.staffId,
+        selectedShop: access.selectedShop,
+        staffWebSession: access.principal.staffWebSession!,
+      });
+  const paymentPayload = objectValue(paymentRpc.data);
   const expectedFulfillmentTargetId =
     filters.expectedFulfillmentTargetId &&
     uuidPattern.test(filters.expectedFulfillmentTargetId)
@@ -688,7 +748,10 @@ export async function getStorefrontPublicationsReadModel(
     imagesPayload.ok !== true ||
     fulfillmentRpc.error ||
     !fulfillmentPayload ||
-    fulfillmentPayload.ok !== true
+    fulfillmentPayload.ok !== true ||
+    paymentRpc.error ||
+    !paymentPayload ||
+    paymentPayload.ok !== true
   ) {
     return {
       audit: [],
@@ -701,6 +764,7 @@ export async function getStorefrontPublicationsReadModel(
         canBulkPublish: false,
         canEdit: false,
         canManageFulfillment: false,
+        canManagePayments: false,
         canManageImages: false,
         canManagePromotions: false,
         canPublish: false,
@@ -710,6 +774,7 @@ export async function getStorefrontPublicationsReadModel(
       promotionPagination: { page: promotionRequest.page, pageSize: promotionRequest.pageSize, total: 0, totalPages: 1 },
       promotionPublications: [],
       promotions: [],
+      payment: emptyPayment(),
       preview: { status: "unavailable" },
       reason: "Storefront publication data could not be loaded.",
       rows: [],
@@ -735,6 +800,7 @@ export async function getStorefrontPublicationsReadModel(
     ...(Array.isArray(fulfillmentPayload.audit)
       ? fulfillmentPayload.audit
       : []),
+    ...(Array.isArray(paymentPayload.audit) ? paymentPayload.audit : []),
   ]
     .map(mapAudit)
     .filter((row): row is StorefrontAuditRow => row !== null);
@@ -777,6 +843,7 @@ export async function getStorefrontPublicationsReadModel(
         canBulkPublish: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canEdit: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canManageFulfillment: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
+        canManagePayments: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canManageImages: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canManagePromotions: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canPublish: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
@@ -786,6 +853,7 @@ export async function getStorefrontPublicationsReadModel(
         canBulkPublish: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.bulk_publish"),
         canEdit: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.edit"),
         canManageFulfillment: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.settings.manage"),
+        canManagePayments: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.settings.manage"),
         canManageImages: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.images.manage"),
         canManagePromotions: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.promotions.manage"),
         canPublish: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.publish"),
@@ -821,6 +889,7 @@ export async function getStorefrontPublicationsReadModel(
     },
     promotionPublications,
     promotions,
+    payment: mapPaymentSettings(paymentPayload.settings),
     preview: payload.preview ?? { status: "unavailable" },
     reason: "Storefront authoring rows loaded through the shop-scoped RPC boundary.",
     rows,

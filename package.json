@@ -63,6 +63,7 @@
     "test:storefront:pos-order-concurrency": "bash scripts/testing/storefront-v1-pos-order-handoff-concurrency.sh",
     "test:storefront:pos-order-staging-e2e": "node scripts/testing/storefront-v1-pos-order-staging-e2e.mjs",
     "test:storefront:order-notification-concurrency": "bash scripts/testing/storefront-v1-order-notification-concurrency.sh",
+    "test:storefront:customer-payment-concurrency": "bash scripts/testing/storefront-v1-customer-payment-concurrency.sh",
     "test:storefront:order-notification-staging-e2e": "node scripts/testing/storefront-v1-order-notification-staging-e2e.mjs",
     "test:storefront:customer-device-concurrency": "bash scripts/testing/storefront-v1-customer-device-concurrency.sh",
     "test:storefront:customer-cart-concurrency": "bash scripts/testing/storefront-v1-customer-cart-concurrency.sh",
