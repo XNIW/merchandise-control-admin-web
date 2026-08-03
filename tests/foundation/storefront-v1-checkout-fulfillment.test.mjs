@@ -195,8 +195,9 @@ test("TASK-026 browser regression proves persistence and public-capacity redacti
   assert.match(adminE2e, /documentElement\.scrollWidth <= window\.innerWidth/);
   assert.match(adminE2e, /url\.searchParams\.get\("area"\) === "settings"/);
   assert.match(adminE2e, /\{ timeout: 15_000 \}/);
-  assert.match(adminE2e, /submitSettingsMutation/);
+  assert.match(adminE2e, /submitStorefrontMutation/);
   assert.match(adminE2e, /targetId !== previousTargetId/);
+  assert.match(adminE2e, /waitUntil: "commit"/);
   assert.match(adminE2e, /Object\.fromEntries\(new FormData/);
   assert.match(adminE2e, /persistedSlots/);
   assert.match(adminE2e, /persistedSettings/);

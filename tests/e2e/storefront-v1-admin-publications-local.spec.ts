@@ -202,7 +202,11 @@ function deliveryZoneRpcSnapshot(value: unknown, publicName: string) {
     : null;
 }
 
-async function submitSettingsMutation(page: Page, button: Locator) {
+async function submitStorefrontMutation(
+  page: Page,
+  button: Locator,
+  area?: "promotions" | "settings",
+) {
   const previousTargetId = new URL(page.url()).searchParams.get("target_id");
   await Promise.all([
     page.waitForURL(
@@ -210,14 +214,14 @@ async function submitSettingsMutation(page: Page, button: Locator) {
         const targetId = url.searchParams.get("target_id");
         return (
           url.pathname === "/shop/storefront" &&
-          url.searchParams.get("area") === "settings" &&
+          (!area || url.searchParams.get("area") === area) &&
           url.searchParams.get("result") === "success" &&
           targetId !== null &&
           targetId !== previousTargetId &&
           uuidPattern.test(targetId)
         );
       },
-      { timeout: 15_000 },
+      { timeout: 15_000, waitUntil: "commit" },
     ),
     button.click(),
   ]);
@@ -579,15 +583,13 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   await row.getByLabel("Modalità prezzo").selectOption("override");
   await row.getByRole("checkbox", { name: "Ritiro", exact: true }).check();
   await row.getByLabel("Stato pubblicazione").selectOption("published");
-  await Promise.all([
-    page.waitForURL(
-      (url) =>
-        url.pathname === "/shop/storefront" &&
-        url.searchParams.get("result") === "success",
-    ),
-    row.getByRole("button", { name: "Salva e rivalida server-side" }).click(),
-  ]);
-  await expect(page.getByText(fixture.publicName).first()).toBeVisible();
+  await submitStorefrontMutation(
+    page,
+    row.getByRole("button", { name: "Salva e rivalida server-side" }),
+  );
+  await expect(page.getByText(fixture.publicName).first()).toBeVisible({
+    timeout: 15_000,
+  });
   await expect(
     page.getByText("published", { exact: true }).first(),
   ).toBeVisible();
@@ -658,16 +660,14 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
     .getByLabel("Fine")
     .fill(new Date(Date.now() + 60 * 60_000).toISOString().slice(0, 16));
   await createPromotion.getByLabel(`Includi ${fixture.publicName}`).check();
-  await Promise.all([
-    page.waitForURL(
-      (url) =>
-        url.pathname === "/shop/storefront" &&
-        url.searchParams.get("area") === "promotions" &&
-        url.searchParams.get("result") === "success",
-    ),
-    createPromotion.getByRole("button", { name: "Crea promozione" }).click(),
-  ]);
-  await expect(page.getByText(fixture.promotionName).first()).toBeVisible();
+  await submitStorefrontMutation(
+    page,
+    createPromotion.getByRole("button", { name: "Crea promozione" }),
+    "promotions",
+  );
+  await expect(page.getByText(fixture.promotionName).first()).toBeVisible({
+    timeout: 15_000,
+  });
   const promoted = await must(
     "PUBLIC_DETAIL_PROMOTION",
     anon.rpc("storefront_product_detail_v1", {
@@ -685,15 +685,11 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
     .first();
   await promotionCard.getByText("Modifica promozione").click();
   await promotionCard.getByLabel("Stato promozione").selectOption("paused");
-  await Promise.all([
-    page.waitForURL(
-      (url) =>
-        url.pathname === "/shop/storefront" &&
-        url.searchParams.get("area") === "promotions" &&
-        url.searchParams.get("result") === "success",
-    ),
-    promotionCard.getByRole("button", { name: "Aggiorna promozione" }).click(),
-  ]);
+  await submitStorefrontMutation(
+    page,
+    promotionCard.getByRole("button", { name: "Aggiorna promozione" }),
+    "promotions",
+  );
   const promotionPaused = await must(
     "PUBLIC_DETAIL_PROMOTION_PAUSED",
     anon.rpc("storefront_product_detail_v1", {
@@ -713,7 +709,7 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
       (url) =>
         url.pathname === "/shop/storefront" &&
         url.searchParams.get("area") === "settings",
-      { timeout: 15_000 },
+      { timeout: 15_000, waitUntil: "commit" },
     ),
     storefrontSections
       .getByRole("link", { name: "Ritiro e consegna", exact: true })
@@ -742,9 +738,10 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
     .getByLabel("Istruzioni pubbliche")
     .fill("Presenta el número de reserva.");
   await newPickup.getByLabel("Disponibile ai clienti").check();
-  await submitSettingsMutation(
+  await submitStorefrontMutation(
     page,
     newPickup.getByRole("button", { name: "Crea punto di ritiro" }),
+    "settings",
   );
   await expect(page.getByText(pickupName).first()).toBeVisible({
     timeout: 15_000,
@@ -758,9 +755,10 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   await newZone.getByLabel("Tariffa CLP").fill("2500");
   await newZone.getByLabel("Comuni serviti").fill("Ñuñoa\nProvidencia");
   await newZone.getByLabel("Disponibile ai clienti").check();
-  await submitSettingsMutation(
+  await submitStorefrontMutation(
     page,
     newZone.getByRole("button", { name: "Crea zona di consegna" }),
+    "settings",
   );
   await expect.poll(
     async () => {
@@ -822,9 +820,10 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
     await details.getByLabel("Inizio · America/Santiago").fill(startLocal);
     await details.getByLabel("Fine · America/Santiago").fill(endLocal);
     await details.getByLabel("Finestra prenotabile").check();
-    await submitSettingsMutation(
+    await submitStorefrontMutation(
       page,
       details.getByRole("button", { name: "Crea fascia" }),
+      "settings",
     );
     await expect(page.getByText(label).first()).toBeVisible({
       timeout: 15_000,
@@ -865,9 +864,10 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
     pickupEnabled: "on",
     reservationEnabled: "on",
   });
-  await submitSettingsMutation(
+  await submitStorefrontMutation(
     page,
     modeForm.getByRole("button", { name: "Salva modalità" }),
+    "settings",
   );
   await expect(page.getByText("3 fasce")).toBeVisible();
   await attachUiScreenshot(page, testInfo, "admin-storefront-fulfillment");
