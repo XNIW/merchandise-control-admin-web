@@ -24,7 +24,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: task-032-customer-payments-staging
+  group: storefront-v1-staging-order-payment
   cancel-in-progress: false
 
 jobs:

@@ -261,10 +261,19 @@ test("staging workflow applies the exact migration and runs rollback-safe pickup
     ),
     "utf8",
   );
+  const posOrderWorkflow = readFileSync(
+    new URL(
+      "../../.github/workflows/task-030-pos-order-handoff-e2e.yml",
+      import.meta.url,
+    ),
+    "utf8",
+  );
   assert.match(workflow, /expected_head_sha: \$\{\{ github\.sha \}\}/);
   assert.match(workflow, /expected_migration_version: "20260803122644"/);
   assert.match(workflow, /storefront_v1_customer_payments\.sql/);
   assert.match(workflow, /test:storefront:customer-payment-concurrency/);
   assert.match(workflow, /productionWriteRequested', false/);
+  assert.match(workflow, /group: storefront-v1-staging-order-payment/);
+  assert.match(posOrderWorkflow, /group: storefront-v1-staging-order-payment/);
   assert.match(workflow, /Remove protected connection material/);
 });

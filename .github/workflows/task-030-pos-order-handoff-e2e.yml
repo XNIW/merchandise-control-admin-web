@@ -14,7 +14,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: task-030-pos-order-handoff-e2e
+  group: storefront-v1-staging-order-payment
   cancel-in-progress: false
 
 env:
