@@ -8,6 +8,7 @@ import {
   type ShopAdminActionResult,
 } from "./action-context";
 import {
+  callStaffWebStorefrontFulfillmentMutation,
   callStaffWebStorefrontMutation,
   callStaffWebStorefrontPromotionMutation,
 } from "./staff-web-lease-bound-rpc";
@@ -169,6 +170,48 @@ export async function upsertStorefrontPromotion(
         p_shop_id: context.selectedShop.shopId,
       })
     : await callStaffWebStorefrontPromotionMutation(context, payload);
+  if (rpc.error) {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+  const result = mapShopAdminRpcResult(rpc.data);
+  return result.shopId === context.selectedShop.shopId
+    ? result
+    : shopAdminActionResult("db_failure", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
+}
+
+export type StorefrontFulfillmentOperation =
+  | "pickup_upsert"
+  | "settings_upsert"
+  | "slot_upsert"
+  | "zone_upsert";
+
+export async function mutateStorefrontFulfillment(input: {
+  operation: StorefrontFulfillmentOperation;
+  payload: Record<string, Json | undefined>;
+  requestedShopId?: string;
+}) {
+  const context = await resolveShopActionContext(
+    input.requestedShopId,
+    "storefront.settings.manage",
+  );
+  if (context.status !== "ready") return context.result;
+  const rpc = context.principalKind === "personal_account"
+    ? await context.supabase.rpc("admin_storefront_fulfillment_mutate_v1", {
+        p_operation: input.operation,
+        p_payload: input.payload,
+        p_shop_id: context.selectedShop.shopId,
+      })
+    : await callStaffWebStorefrontFulfillmentMutation(
+        context,
+        input.operation,
+        input.payload,
+      );
   if (rpc.error) {
     return shopAdminActionResult("db_failure", {
       ok: false,

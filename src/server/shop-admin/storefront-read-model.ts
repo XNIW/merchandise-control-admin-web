@@ -7,6 +7,7 @@ import type {
 import type { Json } from "@/lib/supabase/database.types";
 import { resolveShopAdminDataAccess } from "./data-access";
 import {
+  callStaffWebStorefrontFulfillmentRead,
   callStaffWebStorefrontImagesRead,
   callStaffWebStorefrontPromotionsRead,
   callStaffWebStorefrontRead,
@@ -81,9 +82,65 @@ export type StorefrontPromotionPublicationOption = {
   status: string;
 };
 
+export type StorefrontFulfillmentSettings = {
+  currencyCode: string;
+  deliveryEnabled: boolean;
+  pickupEnabled: boolean;
+  reservationEnabled: boolean;
+  storefrontEnabled: boolean;
+  timeZone: string;
+  updatedAt: string;
+};
+
+export type StorefrontPickupPoint = {
+  addressLine1: string;
+  addressLine2: string | null;
+  commune: string;
+  enabled: boolean;
+  id: string;
+  publicInstructions: string | null;
+  publicName: string;
+  region: string;
+  sortRank: number;
+  updatedAt: string;
+};
+
+export type StorefrontDeliveryZone = {
+  communes: readonly string[];
+  enabled: boolean;
+  feeClp: number;
+  id: string;
+  publicName: string;
+  region: string;
+  sortRank: number;
+  updatedAt: string;
+};
+
+export type StorefrontFulfillmentSlot = {
+  activeQuoteCount: number;
+  capacity: number;
+  deliveryZoneId: string | null;
+  enabled: boolean;
+  endsAt: string;
+  id: string;
+  mode: "delivery" | "pickup" | "reservation";
+  pickupPointId: string | null;
+  publicLabel: string;
+  startsAt: string;
+  updatedAt: string;
+};
+
+export type StorefrontFulfillmentReadModel = {
+  deliveryZones: readonly StorefrontDeliveryZone[];
+  pickupPoints: readonly StorefrontPickupPoint[];
+  settings: StorefrontFulfillmentSettings | null;
+  slots: readonly StorefrontFulfillmentSlot[];
+};
+
 export type StorefrontPublicationsReadModel = {
   audit: readonly StorefrontAuditRow[];
   categories: readonly StorefrontCategoryOption[];
+  fulfillment: StorefrontFulfillmentReadModel;
   images: readonly StorefrontImageOption[];
   imageCandidates: readonly StorefrontImageCandidate[];
   pagination: {
@@ -95,6 +152,7 @@ export type StorefrontPublicationsReadModel = {
   permissions: {
     canBulkPublish: boolean;
     canEdit: boolean;
+    canManageFulfillment: boolean;
     canManageImages: boolean;
     canManagePromotions: boolean;
     canPublish: boolean;
@@ -287,6 +345,104 @@ function stringArray(value: Json | undefined) {
     : [];
 }
 
+function mapFulfillmentSettings(
+  value: Json | undefined,
+): StorefrontFulfillmentSettings | null {
+  const settings = objectValue(value);
+  const currencyCode = settings ? textValue(settings.currencyCode) : null;
+  const timeZone = settings ? textValue(settings.timeZone) : null;
+  const updatedAt = settings ? textValue(settings.updatedAt) : null;
+  return currencyCode && timeZone && updatedAt
+    ? {
+        currencyCode,
+        deliveryEnabled: booleanValue(settings?.deliveryEnabled),
+        pickupEnabled: booleanValue(settings?.pickupEnabled),
+        reservationEnabled: booleanValue(settings?.reservationEnabled),
+        storefrontEnabled: booleanValue(settings?.storefrontEnabled),
+        timeZone,
+        updatedAt,
+      }
+    : null;
+}
+
+function mapPickupPoint(value: Json): StorefrontPickupPoint | null {
+  const point = objectValue(value);
+  const id = point ? textValue(point.id) : null;
+  const publicName = point ? textValue(point.publicName) : null;
+  const addressLine1 = point ? textValue(point.addressLine1) : null;
+  const commune = point ? textValue(point.commune) : null;
+  const region = point ? textValue(point.region) : null;
+  const updatedAt = point ? textValue(point.updatedAt) : null;
+  return id && publicName && addressLine1 && commune && region && updatedAt
+    ? {
+        addressLine1,
+        addressLine2: textValue(point?.addressLine2),
+        commune,
+        enabled: booleanValue(point?.enabled),
+        id,
+        publicInstructions: textValue(point?.publicInstructions),
+        publicName,
+        region,
+        sortRank: numberValue(point?.sortRank) ?? 0,
+        updatedAt,
+      }
+    : null;
+}
+
+function mapDeliveryZone(value: Json): StorefrontDeliveryZone | null {
+  const zone = objectValue(value);
+  const id = zone ? textValue(zone.id) : null;
+  const publicName = zone ? textValue(zone.publicName) : null;
+  const region = zone ? textValue(zone.region) : null;
+  const feeClp = zone ? numberValue(zone.feeClp) : null;
+  const updatedAt = zone ? textValue(zone.updatedAt) : null;
+  return id && publicName && region && feeClp !== null && updatedAt
+    ? {
+        communes: stringArray(zone?.communes),
+        enabled: booleanValue(zone?.enabled),
+        feeClp,
+        id,
+        publicName,
+        region,
+        sortRank: numberValue(zone?.sortRank) ?? 0,
+        updatedAt,
+      }
+    : null;
+}
+
+function mapFulfillmentSlot(value: Json): StorefrontFulfillmentSlot | null {
+  const slot = objectValue(value);
+  const id = slot ? textValue(slot.id) : null;
+  const mode = slot ? textValue(slot.mode) : null;
+  const publicLabel = slot ? textValue(slot.publicLabel) : null;
+  const startsAt = slot ? textValue(slot.startsAt) : null;
+  const endsAt = slot ? textValue(slot.endsAt) : null;
+  const updatedAt = slot ? textValue(slot.updatedAt) : null;
+  const capacity = slot ? numberValue(slot.capacity) : null;
+  if (
+    !id ||
+    !publicLabel ||
+    !startsAt ||
+    !endsAt ||
+    !updatedAt ||
+    capacity === null ||
+    (mode !== "pickup" && mode !== "reservation" && mode !== "delivery")
+  ) return null;
+  return {
+    activeQuoteCount: numberValue(slot?.activeQuoteCount) ?? 0,
+    capacity,
+    deliveryZoneId: textValue(slot?.deliveryZoneId),
+    enabled: booleanValue(slot?.enabled),
+    endsAt,
+    id,
+    mode,
+    pickupPointId: textValue(slot?.pickupPointId),
+    publicLabel,
+    startsAt,
+    updatedAt,
+  };
+}
+
 function mapPromotion(value: Json): StorefrontPromotionRow | null {
   const promotion = objectValue(value);
   const id = promotion ? textValue(promotion.id) : null;
@@ -352,6 +508,15 @@ function boundedInteger(value: number | undefined, fallback: number, maximum: nu
     : fallback;
 }
 
+function emptyFulfillment(): StorefrontFulfillmentReadModel {
+  return {
+    deliveryZones: [],
+    pickupPoints: [],
+    settings: null,
+    slots: [],
+  };
+}
+
 export async function getStorefrontPublicationsReadModel(
   filters: StorefrontPublicationFilters = {},
 ): Promise<StorefrontPublicationsReadModel> {
@@ -365,10 +530,19 @@ export async function getStorefrontPublicationsReadModel(
     return {
       audit: [],
       categories: [],
+      fulfillment: emptyFulfillment(),
       images: [],
       imageCandidates: [],
       pagination: { page: 1, pageSize: 25, total: 0, totalPages: 1 },
-      permissions: { canBulkPublish: false, canEdit: false, canManageImages: false, canManagePromotions: false, canPublish: false, canViewAudit: false },
+      permissions: {
+        canBulkPublish: false,
+        canEdit: false,
+        canManageFulfillment: false,
+        canManageImages: false,
+        canManagePromotions: false,
+        canPublish: false,
+        canViewAudit: false,
+      },
       promotionConflictRule: "unavailable",
       promotionPagination: { page: 1, pageSize: 25, total: 0, totalPages: 1 },
       promotionPublications: [],
@@ -450,6 +624,17 @@ export async function getStorefrontPublicationsReadModel(
           staffWebSession: access.principal.staffWebSession!,
         });
   const imagesPayload = objectValue(imagesRpc.data);
+  const fulfillmentRpc =
+    access.principalKind === "personal_account"
+      ? await access.supabase.rpc("admin_storefront_fulfillment_read_v1", {
+          p_shop_id: access.selectedShop.shopId,
+        })
+      : await callStaffWebStorefrontFulfillmentRead({
+          actorStaffId: access.principal.staff.staffId,
+          selectedShop: access.selectedShop,
+          staffWebSession: access.principal.staffWebSession!,
+        });
+  const fulfillmentPayload = objectValue(fulfillmentRpc.data);
   if (
     rpc.error ||
     !payload ||
@@ -459,15 +644,27 @@ export async function getStorefrontPublicationsReadModel(
     promotionsPayload.ok !== true ||
     imagesRpc.error ||
     !imagesPayload ||
-    imagesPayload.ok !== true
+    imagesPayload.ok !== true ||
+    fulfillmentRpc.error ||
+    !fulfillmentPayload ||
+    fulfillmentPayload.ok !== true
   ) {
     return {
       audit: [],
       categories: [],
+      fulfillment: emptyFulfillment(),
       images: [],
       imageCandidates: [],
       pagination: { page: request.page, pageSize: request.pageSize, total: 0, totalPages: 1 },
-      permissions: { canBulkPublish: false, canEdit: false, canManageImages: false, canManagePromotions: false, canPublish: false, canViewAudit: false },
+      permissions: {
+        canBulkPublish: false,
+        canEdit: false,
+        canManageFulfillment: false,
+        canManageImages: false,
+        canManagePromotions: false,
+        canPublish: false,
+        canViewAudit: false,
+      },
       promotionConflictRule: "unavailable",
       promotionPagination: { page: promotionRequest.page, pageSize: promotionRequest.pageSize, total: 0, totalPages: 1 },
       promotionPublications: [],
@@ -492,8 +689,33 @@ export async function getStorefrontPublicationsReadModel(
   const imageCandidates = Array.isArray(imagesPayload.candidates)
     ? imagesPayload.candidates.map(mapImageCandidate).filter((row): row is StorefrontImageCandidate => row !== null)
     : [];
-  const audit = Array.isArray(payload.audit)
-    ? payload.audit.map(mapAudit).filter((row): row is StorefrontAuditRow => row !== null)
+  const auditCandidates = [
+    ...(Array.isArray(payload.audit) ? payload.audit : []),
+    ...(Array.isArray(fulfillmentPayload.audit)
+      ? fulfillmentPayload.audit
+      : []),
+  ]
+    .map(mapAudit)
+    .filter((row): row is StorefrontAuditRow => row !== null);
+  const audit = [...new Map(
+    auditCandidates.map((row) => [row.id, row]),
+  ).values()].sort((left, right) =>
+    right.createdAt.localeCompare(left.createdAt)
+  );
+  const pickupPoints = Array.isArray(fulfillmentPayload.pickupPoints)
+    ? fulfillmentPayload.pickupPoints
+        .map(mapPickupPoint)
+        .filter((row): row is StorefrontPickupPoint => row !== null)
+    : [];
+  const deliveryZones = Array.isArray(fulfillmentPayload.deliveryZones)
+    ? fulfillmentPayload.deliveryZones
+        .map(mapDeliveryZone)
+        .filter((row): row is StorefrontDeliveryZone => row !== null)
+    : [];
+  const slots = Array.isArray(fulfillmentPayload.slots)
+    ? fulfillmentPayload.slots
+        .map(mapFulfillmentSlot)
+        .filter((row): row is StorefrontFulfillmentSlot => row !== null)
     : [];
   const promotions = Array.isArray(promotionsPayload.rows)
     ? promotionsPayload.rows
@@ -513,6 +735,7 @@ export async function getStorefrontPublicationsReadModel(
     ? {
         canBulkPublish: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canEdit: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
+        canManageFulfillment: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canManageImages: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canManagePromotions: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canPublish: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
@@ -521,6 +744,7 @@ export async function getStorefrontPublicationsReadModel(
     : {
         canBulkPublish: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.bulk_publish"),
         canEdit: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.edit"),
+        canManageFulfillment: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.settings.manage"),
         canManageImages: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.images.manage"),
         canManagePromotions: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.promotions.manage"),
         canPublish: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.publish"),
@@ -530,6 +754,12 @@ export async function getStorefrontPublicationsReadModel(
   return {
     audit,
     categories,
+    fulfillment: {
+      deliveryZones,
+      pickupPoints,
+      settings: mapFulfillmentSettings(fulfillmentPayload.settings),
+      slots,
+    },
     images,
     imageCandidates,
     pagination: {

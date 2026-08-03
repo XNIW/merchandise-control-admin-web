@@ -11,6 +11,7 @@ import {
 } from "@/server/shop-admin/action-context";
 import {
   bulkSetStorefrontPublicationStatus,
+  mutateStorefrontFulfillment,
   upsertStorefrontPromotion,
   upsertStorefrontPublication,
 } from "@/server/shop-admin/storefront-mutations";
@@ -157,4 +158,129 @@ export async function saveStorefrontPromotionAction(formData: FormData) {
     timeZone,
   });
   resultRedirect(result, shopId, "promotions");
+}
+
+export async function saveStorefrontFulfillmentSettingsAction(
+  formData: FormData,
+) {
+  const shopId = requestedShopId(formData);
+  const result = await mutateStorefrontFulfillment({
+    operation: "settings_upsert",
+    payload: {
+      deliveryEnabled: formData.has("deliveryEnabled"),
+      pickupEnabled: formData.has("pickupEnabled"),
+      reservationEnabled: formData.has("reservationEnabled"),
+    },
+    requestedShopId: shopId,
+  });
+  resultRedirect(result, shopId, "settings");
+}
+
+export async function saveStorefrontPickupPointAction(formData: FormData) {
+  const shopId = requestedShopId(formData);
+  const sortRank = finiteInteger(optionalFormNumber(formData, "sortRank"));
+  if (sortRank === undefined) {
+    resultRedirect(
+      shopAdminActionResult("validation_failed", { ok: false }),
+      shopId,
+      "settings",
+    );
+  }
+  const result = await mutateStorefrontFulfillment({
+    operation: "pickup_upsert",
+    payload: {
+      addressLine1: formString(formData, "addressLine1"),
+      addressLine2: optionalFormString(formData, "addressLine2"),
+      commune: formString(formData, "commune"),
+      enabled: checked(formData, "enabled"),
+      id: optionalFormString(formData, "pickupPointId"),
+      publicInstructions: optionalFormString(formData, "publicInstructions"),
+      publicName: formString(formData, "publicName"),
+      region: formString(formData, "region"),
+      sortRank,
+    },
+    requestedShopId: shopId,
+  });
+  resultRedirect(result, shopId, "settings");
+}
+
+export async function saveStorefrontDeliveryZoneAction(formData: FormData) {
+  const shopId = requestedShopId(formData);
+  const feeClp = finiteInteger(optionalFormNumber(formData, "feeClp"));
+  const sortRank = finiteInteger(optionalFormNumber(formData, "sortRank"));
+  const communes = formString(formData, "communes")
+    .split(/[\n,]/)
+    .map((value) => value.trim().replace(/\s+/g, " "))
+    .filter((value, index, values) =>
+      Boolean(value) &&
+      values.findIndex(
+        (candidate) => candidate.toLocaleLowerCase("es-CL") ===
+          value.toLocaleLowerCase("es-CL"),
+      ) === index
+    );
+  if (
+    feeClp === undefined ||
+    sortRank === undefined ||
+    communes.length < 1 ||
+    communes.length > 100
+  ) {
+    resultRedirect(
+      shopAdminActionResult("validation_failed", { ok: false }),
+      shopId,
+      "settings",
+    );
+  }
+  const result = await mutateStorefrontFulfillment({
+    operation: "zone_upsert",
+    payload: {
+      communes,
+      enabled: checked(formData, "enabled"),
+      feeClp,
+      id: optionalFormString(formData, "deliveryZoneId"),
+      publicName: formString(formData, "publicName"),
+      region: formString(formData, "region"),
+      sortRank,
+    },
+    requestedShopId: shopId,
+  });
+  resultRedirect(result, shopId, "settings");
+}
+
+export async function saveStorefrontFulfillmentSlotAction(formData: FormData) {
+  const shopId = requestedShopId(formData);
+  const mode = formString(formData, "mode");
+  const timeZone = formString(formData, "timeZone");
+  const capacity = finiteInteger(optionalFormNumber(formData, "capacity"));
+  if (
+    (mode !== "pickup" && mode !== "reservation" && mode !== "delivery") ||
+    (timeZone !== "America/Santiago" && timeZone !== "UTC") ||
+    capacity === undefined
+  ) {
+    resultRedirect(
+      shopAdminActionResult("validation_failed", { ok: false }),
+      shopId,
+      "settings",
+    );
+  }
+  const result = await mutateStorefrontFulfillment({
+    operation: "slot_upsert",
+    payload: {
+      capacity,
+      deliveryZoneId: mode === "delivery"
+        ? formString(formData, "deliveryZoneId")
+        : undefined,
+      enabled: checked(formData, "enabled"),
+      endsAt: formString(formData, "endsAt"),
+      id: optionalFormString(formData, "slotId"),
+      mode,
+      pickupPointId: mode === "delivery"
+        ? undefined
+        : formString(formData, "pickupPointId"),
+      publicLabel: formString(formData, "publicLabel"),
+      startsAt: formString(formData, "startsAt"),
+      timeZone,
+    },
+    requestedShopId: shopId,
+  });
+  resultRedirect(result, shopId, "settings");
 }

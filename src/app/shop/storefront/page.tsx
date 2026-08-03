@@ -6,6 +6,9 @@ import type { Json } from "@/lib/supabase/database.types";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
 import {
   getStorefrontPublicationsReadModel,
+  type StorefrontDeliveryZone,
+  type StorefrontFulfillmentSlot,
+  type StorefrontPickupPoint,
   type StorefrontPublicationRow,
   type StorefrontPromotionRow,
   type StorefrontPublicationsReadModel,
@@ -13,6 +16,10 @@ import {
 import {
   bulkPauseStorefrontAction,
   bulkPublishStorefrontAction,
+  saveStorefrontDeliveryZoneAction,
+  saveStorefrontFulfillmentSettingsAction,
+  saveStorefrontFulfillmentSlotAction,
+  saveStorefrontPickupPointAction,
   saveStorefrontPromotionAction,
   saveStorefrontPublicationAction,
 } from "./actions";
@@ -32,7 +39,7 @@ const areas = [
   ["promotions", "Promozioni"],
   ["images", "Immagini pubbliche"],
   ["preview", "Anteprima"],
-  ["settings", "Impostazioni"],
+  ["settings", "Ritiro e consegna"],
   ["audit", "Audit"],
 ] as const;
 
@@ -562,16 +569,537 @@ function Promotions({ model, params }: { model: StorefrontPublicationsReadModel;
   );
 }
 
-function PlaceholderArea({ area, model }: { area: Exclude<StorefrontArea, "catalog" | "promotions" | "preview" | "audit">; model: StorefrontPublicationsReadModel }) {
+function FulfillmentEnabledBadge({ enabled }: { enabled: boolean }) {
+  return (
+    <span
+      className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+        enabled
+          ? "border-emerald-200 bg-emerald-50 text-emerald-800"
+          : "border-zinc-200 bg-zinc-100 text-zinc-600"
+      }`}
+    >
+      {enabled ? "Attivo" : "In pausa"}
+    </span>
+  );
+}
+
+function PickupPointEditor({
+  canManage,
+  point,
+  shopId,
+}: {
+  canManage: boolean;
+  point?: StorefrontPickupPoint;
+  shopId: string;
+}) {
+  return (
+    <form
+      action={saveStorefrontPickupPointAction}
+      className="grid gap-3"
+    >
+      <input name="shop_id" type="hidden" value={shopId} />
+      {point ? (
+        <input name="pickupPointId" type="hidden" value={point.id} />
+      ) : null}
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Nome pubblico
+          <input
+            className={fieldClassName}
+            defaultValue={point?.publicName ?? ""}
+            maxLength={120}
+            name="publicName"
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Indirizzo
+          <input
+            className={fieldClassName}
+            defaultValue={point?.addressLine1 ?? ""}
+            maxLength={200}
+            name="addressLine1"
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Dettaglio indirizzo
+          <input
+            className={fieldClassName}
+            defaultValue={point?.addressLine2 ?? ""}
+            maxLength={200}
+            name="addressLine2"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Comune
+          <input
+            className={fieldClassName}
+            defaultValue={point?.commune ?? ""}
+            maxLength={100}
+            name="commune"
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Regione
+          <input
+            className={fieldClassName}
+            defaultValue={point?.region ?? "Metropolitana"}
+            maxLength={100}
+            name="region"
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Ordine
+          <input
+            className={fieldClassName}
+            defaultValue={point?.sortRank ?? 0}
+            name="sortRank"
+            required
+            step={1}
+            type="number"
+          />
+        </label>
+      </div>
+      <label className="grid gap-1 text-xs font-medium text-zinc-700">
+        Istruzioni pubbliche
+        <textarea
+          className="min-h-20 rounded-lg border border-zinc-300 bg-white p-3 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15"
+          defaultValue={point?.publicInstructions ?? ""}
+          maxLength={500}
+          name="publicInstructions"
+        />
+      </label>
+      <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-zinc-800">
+        <input defaultChecked={point?.enabled ?? false} name="enabled" type="checkbox" />
+        Disponibile ai clienti
+      </label>
+      <div>
+        <button className={buttonClassName} disabled={!canManage} type="submit">
+          {point ? "Salva punto di ritiro" : "Crea punto di ritiro"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function DeliveryZoneEditor({
+  canManage,
+  shopId,
+  zone,
+}: {
+  canManage: boolean;
+  shopId: string;
+  zone?: StorefrontDeliveryZone;
+}) {
+  return (
+    <form action={saveStorefrontDeliveryZoneAction} className="grid gap-3">
+      <input name="shop_id" type="hidden" value={shopId} />
+      {zone ? (
+        <input name="deliveryZoneId" type="hidden" value={zone.id} />
+      ) : null}
+      <div className="grid gap-3 md:grid-cols-2">
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Nome pubblico
+          <input
+            className={fieldClassName}
+            defaultValue={zone?.publicName ?? ""}
+            maxLength={120}
+            name="publicName"
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Regione
+          <input
+            className={fieldClassName}
+            defaultValue={zone?.region ?? "Metropolitana"}
+            maxLength={100}
+            name="region"
+            required
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Tariffa CLP
+          <input
+            className={fieldClassName}
+            defaultValue={zone?.feeClp ?? 0}
+            min={0}
+            name="feeClp"
+            required
+            step={1}
+            type="number"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Ordine
+          <input
+            className={fieldClassName}
+            defaultValue={zone?.sortRank ?? 0}
+            name="sortRank"
+            required
+            step={1}
+            type="number"
+          />
+        </label>
+      </div>
+      <label className="grid gap-1 text-xs font-medium text-zinc-700">
+        Comuni serviti
+        <textarea
+          className="min-h-24 rounded-lg border border-zinc-300 bg-white p-3 text-sm outline-none focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/15"
+          defaultValue={zone?.communes.join("\n") ?? ""}
+          maxLength={10_000}
+          name="communes"
+          placeholder={"Ñuñoa\nProvidencia"}
+          required
+        />
+        <span className="font-normal text-zinc-500">Un comune per riga, massimo 100.</span>
+      </label>
+      <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-zinc-800">
+        <input defaultChecked={zone?.enabled ?? false} name="enabled" type="checkbox" />
+        Disponibile ai clienti
+      </label>
+      <div>
+        <button className={buttonClassName} disabled={!canManage} type="submit">
+          {zone ? "Salva zona di consegna" : "Crea zona di consegna"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function FulfillmentSlotEditor({
+  canManage,
+  deliveryZones,
+  mode,
+  pickupPoints,
+  shopId,
+  slot,
+}: {
+  canManage: boolean;
+  deliveryZones: readonly StorefrontDeliveryZone[];
+  mode: StorefrontFulfillmentSlot["mode"];
+  pickupPoints: readonly StorefrontPickupPoint[];
+  shopId: string;
+  slot?: StorefrontFulfillmentSlot;
+}) {
+  const parentAvailable = mode === "delivery"
+    ? deliveryZones.length > 0
+    : pickupPoints.length > 0;
+  return (
+    <form action={saveStorefrontFulfillmentSlotAction} className="grid gap-3">
+      <input name="shop_id" type="hidden" value={shopId} />
+      <input name="mode" type="hidden" value={mode} />
+      <input name="timeZone" type="hidden" value="America/Santiago" />
+      {slot ? <input name="slotId" type="hidden" value={slot.id} /> : null}
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Etichetta pubblica
+          <input
+            className={fieldClassName}
+            defaultValue={slot?.publicLabel ?? ""}
+            maxLength={120}
+            name="publicLabel"
+            placeholder="Domani 10:00–12:00"
+            required
+          />
+        </label>
+        {mode === "delivery" ? (
+          <label className="grid gap-1 text-xs font-medium text-zinc-700">
+            Zona di consegna
+            <select
+              className={fieldClassName}
+              defaultValue={slot?.deliveryZoneId ?? ""}
+              name="deliveryZoneId"
+              required
+            >
+              <option value="">Seleziona una zona</option>
+              {deliveryZones.map((zone) => (
+                <option key={zone.id} value={zone.id}>{zone.publicName}</option>
+              ))}
+            </select>
+          </label>
+        ) : (
+          <label className="grid gap-1 text-xs font-medium text-zinc-700">
+            Punto di ritiro
+            <select
+              className={fieldClassName}
+              defaultValue={slot?.pickupPointId ?? ""}
+              name="pickupPointId"
+              required
+            >
+              <option value="">Seleziona un punto</option>
+              {pickupPoints.map((point) => (
+                <option key={point.id} value={point.id}>{point.publicName}</option>
+              ))}
+            </select>
+          </label>
+        )}
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Capacità
+          <input
+            className={fieldClassName}
+            defaultValue={slot?.capacity ?? 10}
+            max={1000}
+            min={1}
+            name="capacity"
+            required
+            step={1}
+            type="number"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Inizio · America/Santiago
+          <input
+            className={fieldClassName}
+            defaultValue={dateTimeInZone(slot?.startsAt, "America/Santiago")}
+            name="startsAt"
+            required
+            type="datetime-local"
+          />
+        </label>
+        <label className="grid gap-1 text-xs font-medium text-zinc-700">
+          Fine · America/Santiago
+          <input
+            className={fieldClassName}
+            defaultValue={dateTimeInZone(slot?.endsAt, "America/Santiago")}
+            name="endsAt"
+            required
+            type="datetime-local"
+          />
+        </label>
+      </div>
+      <label className="flex min-h-11 items-center gap-2 text-sm font-medium text-zinc-800">
+        <input defaultChecked={slot?.enabled ?? false} name="enabled" type="checkbox" />
+        Finestra prenotabile
+      </label>
+      {!parentAvailable ? (
+        <p className="text-sm text-amber-800">
+          Crea prima {mode === "delivery" ? "una zona di consegna" : "un punto di ritiro"}.
+        </p>
+      ) : null}
+      <div>
+        <button
+          className={buttonClassName}
+          disabled={!canManage || !parentAvailable}
+          type="submit"
+        >
+          {slot ? "Salva fascia" : "Crea fascia"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function FulfillmentSettings({ model }: { model: StorefrontPublicationsReadModel }) {
+  const { fulfillment } = model;
+  const { settings } = fulfillment;
+  const shopId = model.selectedShopId;
+  if (!settings || !shopId) {
+    return (
+      <section className="rounded-xl border border-amber-200 bg-amber-50 p-5">
+        <h2 className="font-semibold text-amber-950">Configurazione non disponibile</h2>
+        <p className="mt-1 text-sm text-amber-900">
+          Il negozio non ha ancora un contratto Storefront configurabile.
+        </p>
+      </section>
+    );
+  }
+  const modeRows = [
+    ["Ritiro", settings.pickupEnabled],
+    ["Prenotazione", settings.reservationEnabled],
+    ["Consegna", settings.deliveryEnabled],
+  ] as const;
+  return (
+    <div className="grid gap-5">
+      {!model.permissions.canManageFulfillment ? (
+        <p className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          Permesso storefront.settings.manage richiesto per modificare ritiro e consegna.
+        </p>
+      ) : null}
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700">
+              Checkout Storefront · {settings.currencyCode}
+            </p>
+            <h2 className="mt-1 text-xl font-semibold text-zinc-950">Impostazioni · Modalità cliente</h2>
+            <p className="mt-1 max-w-3xl text-sm leading-6 text-zinc-600">
+              Le modalità diventano pubbliche solo quando esistono sedi, zone e fasce attive. Prezzi, tariffa e disponibilità vengono rivalidati dal server.
+            </p>
+          </div>
+          <FulfillmentEnabledBadge enabled={settings.storefrontEnabled} />
+        </div>
+        <form
+          action={saveStorefrontFulfillmentSettingsAction}
+          className="mt-4 grid gap-3 sm:grid-cols-3"
+        >
+          <input name="shop_id" type="hidden" value={shopId} />
+          {modeRows.map(([label, enabled]) => (
+            <label
+              className="flex min-h-12 items-center justify-between gap-3 rounded-lg border border-zinc-200 bg-zinc-50 px-4 text-sm font-medium text-zinc-900"
+              key={label}
+            >
+              {label}
+              <input
+                defaultChecked={enabled}
+                name={`${label === "Ritiro" ? "pickup" : label === "Prenotazione" ? "reservation" : "delivery"}Enabled`}
+                type="checkbox"
+              />
+            </label>
+          ))}
+          <div className="sm:col-span-3">
+            <button
+              className={buttonClassName}
+              disabled={!model.permissions.canManageFulfillment}
+              type="submit"
+            >
+              Salva modalità
+            </button>
+          </div>
+        </form>
+      </section>
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-zinc-950">Punti di ritiro</h2>
+              <p className="text-sm text-zinc-500">Indirizzo e istruzioni visibili nell’app.</p>
+            </div>
+            <span className="text-sm font-semibold text-zinc-700">{fulfillment.pickupPoints.length}</span>
+          </div>
+          <div className="mt-4 grid gap-3">
+            <details className="rounded-lg border border-dashed border-zinc-300 p-4" open={fulfillment.pickupPoints.length === 0}>
+              <summary className="cursor-pointer font-semibold text-emerald-800">Nuovo punto di ritiro</summary>
+              <div className="mt-4"><PickupPointEditor canManage={model.permissions.canManageFulfillment} shopId={shopId} /></div>
+            </details>
+            {fulfillment.pickupPoints.map((point) => (
+              <details className="rounded-lg border border-zinc-200 p-4" key={point.id}>
+                <summary className="cursor-pointer list-none">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-zinc-950">{point.publicName}</p>
+                      <p className="mt-1 text-sm text-zinc-500">{point.addressLine1} · {point.commune}</p>
+                    </div>
+                    <FulfillmentEnabledBadge enabled={point.enabled} />
+                  </div>
+                </summary>
+                <div className="mt-4 border-t border-zinc-100 pt-4">
+                  <PickupPointEditor canManage={model.permissions.canManageFulfillment} point={point} shopId={shopId} />
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
+
+        <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h2 className="font-semibold text-zinc-950">Zone di consegna</h2>
+              <p className="text-sm text-zinc-500">Comuni coperti e tariffa CLP autorevole.</p>
+            </div>
+            <span className="text-sm font-semibold text-zinc-700">{fulfillment.deliveryZones.length}</span>
+          </div>
+          <div className="mt-4 grid gap-3">
+            <details className="rounded-lg border border-dashed border-zinc-300 p-4" open={fulfillment.deliveryZones.length === 0}>
+              <summary className="cursor-pointer font-semibold text-emerald-800">Nuova zona di consegna</summary>
+              <div className="mt-4"><DeliveryZoneEditor canManage={model.permissions.canManageFulfillment} shopId={shopId} /></div>
+            </details>
+            {fulfillment.deliveryZones.map((zone) => (
+              <details className="rounded-lg border border-zinc-200 p-4" key={zone.id}>
+                <summary className="cursor-pointer list-none">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-semibold text-zinc-950">{zone.publicName}</p>
+                      <p className="mt-1 text-sm text-zinc-500">{clp(zone.feeClp)} · {zone.communes.length} comuni</p>
+                    </div>
+                    <FulfillmentEnabledBadge enabled={zone.enabled} />
+                  </div>
+                </summary>
+                <div className="mt-4 border-t border-zinc-100 pt-4">
+                  <DeliveryZoneEditor canManage={model.permissions.canManageFulfillment} shopId={shopId} zone={zone} />
+                </div>
+              </details>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 shadow-sm">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="font-semibold text-zinc-950">Fasce di fulfillment</h2>
+            <p className="mt-1 text-sm text-zinc-500">Capacità privata, finestra pubblica e conflitti protetti durante checkout.</p>
+          </div>
+          <span className="rounded-full bg-zinc-100 px-3 py-1 text-sm font-semibold text-zinc-700">{fulfillment.slots.length} fasce</span>
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-3">
+          {(["pickup", "reservation", "delivery"] as const).map((mode) => (
+            <details className="rounded-lg border border-dashed border-zinc-300 p-4" key={mode}>
+              <summary className="cursor-pointer font-semibold text-emerald-800">
+                Nuova fascia · {mode === "pickup" ? "ritiro" : mode === "reservation" ? "prenotazione" : "consegna"}
+              </summary>
+              <div className="mt-4">
+                <FulfillmentSlotEditor
+                  canManage={model.permissions.canManageFulfillment}
+                  deliveryZones={fulfillment.deliveryZones}
+                  mode={mode}
+                  pickupPoints={fulfillment.pickupPoints}
+                  shopId={shopId}
+                />
+              </div>
+            </details>
+          ))}
+        </div>
+        <div className="mt-4 grid gap-3 lg:grid-cols-2">
+          {fulfillment.slots.map((slot) => (
+            <details className="rounded-lg border border-zinc-200 p-4" key={slot.id}>
+              <summary className="cursor-pointer list-none">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div>
+                    <p className="font-semibold text-zinc-950">{slot.publicLabel}</p>
+                    <p className="mt-1 text-sm text-zinc-500">
+                      {slot.mode} · {auditDate(slot.startsAt)} → {auditDate(slot.endsAt)}
+                    </p>
+                    <p className="mt-1 text-xs text-zinc-500">
+                      {slot.activeQuoteCount} quote attive su {slot.capacity} posti
+                    </p>
+                  </div>
+                  <FulfillmentEnabledBadge enabled={slot.enabled} />
+                </div>
+              </summary>
+              <div className="mt-4 border-t border-zinc-100 pt-4">
+                <FulfillmentSlotEditor
+                  canManage={model.permissions.canManageFulfillment}
+                  deliveryZones={fulfillment.deliveryZones}
+                  mode={slot.mode}
+                  pickupPoints={fulfillment.pickupPoints}
+                  shopId={shopId}
+                  slot={slot}
+                />
+              </div>
+            </details>
+          ))}
+          {fulfillment.slots.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-zinc-300 p-6 text-center text-sm text-zinc-500 lg:col-span-2">
+              Nessuna fascia configurata. Crea prima una sede o una zona, poi apri una finestra.
+            </p>
+          ) : null}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PlaceholderArea({ area, model }: { area: "categories"; model: StorefrontPublicationsReadModel }) {
   const descriptions: Record<typeof area, string> = {
     categories: "Le categorie pubbliche disponibili sono già validate e usate dall’editor prodotto. La gestione completa viene attivata in TASK-007/TASK-008 senza esporre la tassonomia interna.",
-    images: "Sono selezionabili solo immagini ready/published. La pipeline pubblica separata e le varianti thumb/card/detail vengono consegnate in TASK-009.",
-    settings: "Le impostazioni Storefront restano server-side e feature-flagged. Il control plane completo viene abilitato nei task pertinenti.",
   };
   const counts: Record<typeof area, string> = {
     categories: `${model.categories.length} categorie`,
-    images: `${model.images.length} immagini pronte`,
-    settings: "Produzione OFF",
   };
   return <section className="rounded-md border border-zinc-200 bg-white p-6 shadow-sm"><p className="text-xs font-semibold uppercase text-emerald-700">{counts[area]}</p><h2 className="mt-2 text-xl font-semibold">{areas.find(([key]) => key === area)?.[1]}</h2><p className="mt-2 max-w-3xl text-sm leading-6 text-zinc-600">{descriptions[area]}</p></section>;
 }
@@ -623,7 +1151,7 @@ export default async function StorefrontPage({ searchParams }: { searchParams: S
         <Metric detail="Bloccano publish se l’immagine è obbligatoria" label="Immagine mancante" value={String(missingImages)} />
       </section>
       <nav aria-label="Sezioni Storefront" className="sticky top-0 z-20 flex gap-2 overflow-x-auto rounded-xl border border-zinc-200 bg-white/95 p-2 shadow-sm backdrop-blur">{areas.map(([key, label]) => <Link aria-current={area === key ? "page" : undefined} className={`min-h-11 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-semibold outline-none focus-visible:ring-2 focus-visible:ring-emerald-700 focus-visible:ring-offset-2 ${area === key ? "bg-emerald-800 text-white" : "text-zinc-700 hover:bg-zinc-100"}`} href={buildHref(params, { area: key, page: null })} key={key}>{label}</Link>)}</nav>
-      {model.status !== "ready" ? <section className="rounded-md border border-amber-200 bg-amber-50 p-5"><h2 className="font-semibold text-amber-950">Storefront non disponibile</h2><p className="mt-1 text-sm text-amber-900">{model.reason}</p></section> : area === "catalog" ? <Catalog model={model} params={params} /> : area === "promotions" ? <Promotions model={model} params={params} /> : area === "images" ? <StorefrontImagesControl canManage={model.permissions.canManageImages} candidates={model.imageCandidates} images={model.images} shopId={model.selectedShopId!} /> : area === "preview" ? <Preview preview={model.preview} /> : area === "audit" ? <Audit model={model} /> : <PlaceholderArea area={area} model={model} />}
+      {model.status !== "ready" ? <section className="rounded-md border border-amber-200 bg-amber-50 p-5"><h2 className="font-semibold text-amber-950">Storefront non disponibile</h2><p className="mt-1 text-sm text-amber-900">{model.reason}</p></section> : area === "catalog" ? <Catalog model={model} params={params} /> : area === "promotions" ? <Promotions model={model} params={params} /> : area === "images" ? <StorefrontImagesControl canManage={model.permissions.canManageImages} candidates={model.imageCandidates} images={model.images} shopId={model.selectedShopId!} /> : area === "preview" ? <Preview preview={model.preview} /> : area === "settings" ? <FulfillmentSettings model={model} /> : area === "audit" ? <Audit model={model} /> : <PlaceholderArea area={area} model={model} />}
     </div>
   );
 }

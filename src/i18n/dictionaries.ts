@@ -5943,8 +5943,12 @@ const en: Dictionary = {
     userId: "User id",
   },
   actionResults: {
+    active_checkout_conflict:
+      "An active customer checkout prevents this configuration change.",
     conflict: "Duplicate active value blocked.",
     db_failure: "The database action failed without exposing internal details.",
+    delivery_configuration_required:
+      "Create an enabled delivery zone and slot before enabling delivery.",
     duplicate_staff_code: "Duplicate staff code blocked for this shop.",
     invalid_category: "The selected category is not valid for this shop.",
     invalid_state: "The target row is not in the expected state.",
@@ -5952,9 +5956,15 @@ const en: Dictionary = {
     invalid_supplier: "The selected supplier is not valid for this shop.",
     not_configured: "Supabase runtime is not configured.",
     not_found: "The requested row was not found.",
+    parent_configuration_required:
+      "Enable the related pickup point or delivery zone first.",
+    pickup_configuration_required:
+      "Create an enabled pickup point and slot before enabling pickup.",
     preview_mismatch: "The workbook no longer matches the preview digest.",
     preview_required: "Preview and confirm the workbook before applying it.",
     reason_required: "A reason is required for that sensitive action.",
+    reservation_configuration_required:
+      "Create an enabled reservation point and slot before enabling reservation.",
     success: "Action completed.",
     unauthorized: "This account is not authorized for that action.",
     unauthorized_or_unmapped:
@@ -6188,8 +6198,12 @@ const it: Dictionary = {
     userId: "ID utente",
   },
   actionResults: {
+    active_checkout_conflict:
+      "Un checkout cliente attivo impedisce questa modifica.",
     conflict: "Valore attivo duplicato bloccato.",
     db_failure: "Azione database fallita senza esporre dettagli interni.",
+    delivery_configuration_required:
+      "Crea una zona e una fascia di consegna attive prima di abilitare la consegna.",
     duplicate_staff_code: "Codice staff duplicato bloccato per questo shop.",
     invalid_category: "La categoria selezionata non e valida per questo shop.",
     invalid_state: "La riga target non e nello stato atteso.",
@@ -6198,9 +6212,15 @@ const it: Dictionary = {
     invalid_supplier: "Il fornitore selezionato non e valido per questo shop.",
     not_configured: "Runtime Supabase non configurato.",
     not_found: "La riga richiesta non e stata trovata.",
+    parent_configuration_required:
+      "Abilita prima il punto di ritiro o la zona di consegna collegata.",
+    pickup_configuration_required:
+      "Crea un punto e una fascia di ritiro attivi prima di abilitare il ritiro.",
     preview_mismatch: "Il workbook non corrisponde piu al digest preview.",
     preview_required: "Esegui preview e conferma il workbook prima di applicarlo.",
     reason_required: "Serve una motivazione per questa azione sensibile.",
+    reservation_configuration_required:
+      "Crea un punto e una fascia di prenotazione attivi prima di abilitarla.",
     success: "Azione completata.",
     unauthorized: "Questo account non e autorizzato per questa azione.",
     unauthorized_or_unmapped:
@@ -6438,8 +6458,12 @@ const es: Dictionary = {
     userId: "ID usuario",
   },
   actionResults: {
+    active_checkout_conflict:
+      "Un checkout de cliente activo impide este cambio.",
     conflict: "Valor activo duplicado bloqueado.",
     db_failure: "La accion de base de datos fallo sin exponer detalles internos.",
+    delivery_configuration_required:
+      "Crea una zona y una franja de entrega activas antes de habilitar la entrega.",
     duplicate_staff_code: "Codigo staff duplicado bloqueado para este shop.",
     invalid_category: "La categoria seleccionada no es valida para este shop.",
     invalid_state: "La fila objetivo no esta en el estado esperado.",
@@ -6448,9 +6472,15 @@ const es: Dictionary = {
     invalid_supplier: "El proveedor seleccionado no es valido para este shop.",
     not_configured: "Runtime Supabase no configurado.",
     not_found: "La fila solicitada no fue encontrada.",
+    parent_configuration_required:
+      "Habilita primero el punto de retiro o la zona de entrega relacionada.",
+    pickup_configuration_required:
+      "Crea un punto y una franja de retiro activos antes de habilitar el retiro.",
     preview_mismatch: "El workbook ya no coincide con el digest de preview.",
     preview_required: "Haz preview y confirma el workbook antes de aplicarlo.",
     reason_required: "Se requiere una razon para esa accion sensible.",
+    reservation_configuration_required:
+      "Crea un punto y una franja de reserva activos antes de habilitarla.",
     success: "Accion completada.",
     unauthorized: "Esta cuenta no esta autorizada para esa accion.",
     unauthorized_or_unmapped:
@@ -6682,8 +6712,10 @@ const zhCN: Dictionary = {
     userId: "用户 ID",
   },
   actionResults: {
+    active_checkout_conflict: "存在进行中的客户结账，无法修改此配置。",
     conflict: "已阻止重复的启用值。",
     db_failure: "数据库操作失败，未暴露内部详情。",
+    delivery_configuration_required: "请先创建并启用配送区域和配送时段。",
     duplicate_staff_code: "已阻止此店铺的重复员工代码。",
     invalid_category: "所选分类对此店铺无效。",
     invalid_state: "目标行不在预期状态。",
@@ -6691,9 +6723,12 @@ const zhCN: Dictionary = {
     invalid_supplier: "所选供应商对此店铺无效。",
     not_configured: "Supabase 运行时未配置。",
     not_found: "未找到请求的行。",
+    parent_configuration_required: "请先启用关联的自提点或配送区域。",
+    pickup_configuration_required: "请先创建并启用自提点和自提时段。",
     preview_mismatch: "工作簿不再匹配预览 digest。",
     preview_required: "应用前请先预览并确认工作簿。",
     reason_required: "此敏感操作需要填写原因。",
+    reservation_configuration_required: "请先创建并启用预留点和预留时段。",
     success: "操作已完成。",
     unauthorized: "此账号无权执行该操作。",
     unauthorized_or_unmapped: "此店铺未授权或没有映射的 inventory 来源。",

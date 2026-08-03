@@ -4766,6 +4766,28 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_storefront_fulfillment_read_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_storefront_fulfillment_mutate_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_operation: string
+          p_payload: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
       admin_storefront_publications_read_v1: {
         Args: {
           p_availability?: string | null

@@ -427,6 +427,8 @@ function checkReadOnlyContracts() {
         "admin_storefront_promotions_read_v1",
         "admin_storefront_promotion_mutate_v1",
         "admin_storefront_images_read_v1",
+        "admin_storefront_fulfillment_read_v1",
+        "admin_storefront_fulfillment_mutate_v1",
       ]),
     ],
     [
@@ -435,6 +437,7 @@ function checkReadOnlyContracts() {
         "admin_storefront_publications_read_v1",
         "admin_storefront_promotions_read_v1",
         "admin_storefront_images_read_v1",
+        "admin_storefront_fulfillment_read_v1",
       ]),
     ],
     [
@@ -442,6 +445,7 @@ function checkReadOnlyContracts() {
       new Set([
         "admin_storefront_publication_mutate_v1",
         "admin_storefront_promotion_mutate_v1",
+        "admin_storefront_fulfillment_mutate_v1",
       ]),
     ],
     [

@@ -1661,6 +1661,268 @@ jobs:
           if (Object.values(checks).some((value) => !value)) process.exit(1);
           NODE
 
+      - name: Verify TASK-026 server-authoritative checkout contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260803021500'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_checkout_fulfillment.sql \
+              > _storefront-migration/evidence/task-026-pgtap.txt
+          docker run --rm --network host \
+            -e STOREFRONT_CHECKOUT_DB_URL="$SOURCE_DB_URL" \
+            -e STOREFRONT_CHECKOUT_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_CHECKOUT \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-checkout-slot-concurrency.sh \
+              > _storefront-migration/evidence/task-026-concurrency.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'checkoutLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803020000'
+                    and name = 'storefront_v1_checkout_fulfillment'
+                ),
+                'adminLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803021500'
+                    and name = 'storefront_v1_checkout_admin'
+                ),
+                'tableCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'storefront_pickup_points',
+                      'storefront_delivery_zones',
+                      'storefront_delivery_zone_communes',
+                      'storefront_fulfillment_slots',
+                      'customer_checkout_quotes',
+                      'customer_checkout_mutations'
+                    )
+                    and class.relkind = 'r'
+                ),
+                'rlsForcedCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  where class.oid in (
+                    'public.storefront_pickup_points'::regclass,
+                    'public.storefront_delivery_zones'::regclass,
+                    'public.storefront_delivery_zone_communes'::regclass,
+                    'public.storefront_fulfillment_slots'::regclass,
+                    'public.customer_checkout_quotes'::regclass,
+                    'public.customer_checkout_mutations'::regclass
+                  )
+                    and class.relrowsecurity
+                    and class.relforcerowsecurity
+                ),
+                'ownerPolicyCount', (
+                  select count(*)
+                  from pg_catalog.pg_policy policy
+                  where policy.polrelid in (
+                    'public.customer_checkout_quotes'::regclass,
+                    'public.customer_checkout_mutations'::regclass
+                  )
+                ),
+                'mobileTableDenied',
+                  not has_table_privilege(
+                    'anon', 'public.customer_checkout_quotes',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_checkout_quotes',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.storefront_fulfillment_slots',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'serviceRoleTableBoundary',
+                  has_table_privilege(
+                    'service_role', 'public.customer_checkout_quotes',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and has_table_privilege(
+                    'service_role', 'public.storefront_fulfillment_slots',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'customerRpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'storefront_fulfillment_options_v1',
+                      'customer_checkout_quote_create_v1',
+                      'customer_checkout_quote_confirm_v1',
+                      'customer_checkout_quote_read_v1'
+                    )
+                ),
+                'adminRpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'admin_storefront_fulfillment_read_v1',
+                      'admin_storefront_fulfillment_mutate_v1'
+                    )
+                ),
+                'rpcHardened', (
+                  select count(*) = 6
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'storefront_fulfillment_options_v1',
+                      'customer_checkout_quote_create_v1',
+                      'customer_checkout_quote_confirm_v1',
+                      'customer_checkout_quote_read_v1',
+                      'admin_storefront_fulfillment_read_v1',
+                      'admin_storefront_fulfillment_mutate_v1'
+                    )
+                    and procedure.prosecdef
+                    and (
+                      'search_path='
+                      || pg_catalog.chr(34)
+                      || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
+                ),
+                'publicDiscoveryAllowed',
+                  has_function_privilege(
+                    'anon',
+                    'public.storefront_fulfillment_options_v1(text)',
+                    'EXECUTE'
+                  ),
+                'authenticatedCheckoutAllowed',
+                  has_function_privilege(
+                    'authenticated',
+                    'public.customer_checkout_quote_create_v1(text,bigint,text,uuid,uuid,uuid,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_checkout_quote_confirm_v1(uuid,bigint,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_checkout_quote_read_v1(uuid)',
+                    'EXECUTE'
+                  ),
+                'anonCheckoutDenied',
+                  not has_function_privilege(
+                    'anon',
+                    'public.customer_checkout_quote_create_v1(text,bigint,text,uuid,uuid,uuid,uuid)',
+                    'EXECUTE'
+                  ),
+                'adminBoundary',
+                  not has_function_privilege(
+                    'anon',
+                    'public.admin_storefront_fulfillment_mutate_v1(uuid,text,jsonb,uuid,uuid,text,integer)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.admin_storefront_fulfillment_mutate_v1(uuid,text,jsonb,uuid,uuid,text,integer)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'service_role',
+                    'public.admin_storefront_fulfillment_read_v1(uuid,uuid,uuid,text,integer)',
+                    'EXECUTE'
+                  ),
+                'serverAuthoritativeArguments', not exists (
+                  select 1
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  cross join lateral unnest(
+                    coalesce(procedure.proargnames, '{}'::text[])
+                  ) argument(name)
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_checkout_quote_create_v1',
+                      'customer_checkout_quote_confirm_v1'
+                    )
+                    and argument.name ~*
+                      '(user_id|shop_id|price|total|discount|fee|stock)'
+                ),
+                'expiryCronScheduled', exists (
+                  select 1
+                  from cron.job
+                  where jobname = 'storefront-checkout-quote-expire-v1'
+                    and schedule = '* * * * *'
+                )
+              )" \
+              > _storefront-migration/evidence/task-026-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-026-pgtap.txt",
+            "utf8",
+          );
+          const concurrency = readFileSync(
+            "_storefront-migration/evidence/task-026-concurrency.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-026-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            checkoutLedgerExact: report.checkoutLedgerExact === true,
+            adminLedgerExact: report.adminLedgerExact === true,
+            tableCount: Number(report.tableCount) === 6,
+            rlsForcedCount: Number(report.rlsForcedCount) === 6,
+            ownerPolicyCount: Number(report.ownerPolicyCount) === 8,
+            mobileTableDenied: report.mobileTableDenied === true,
+            serviceRoleTableBoundary:
+              report.serviceRoleTableBoundary === true,
+            customerRpcCount: Number(report.customerRpcCount) === 4,
+            adminRpcCount: Number(report.adminRpcCount) === 2,
+            rpcHardened: report.rpcHardened === true,
+            publicDiscoveryAllowed: report.publicDiscoveryAllowed === true,
+            authenticatedCheckoutAllowed:
+              report.authenticatedCheckoutAllowed === true,
+            anonCheckoutDenied: report.anonCheckoutDenied === true,
+            adminBoundary: report.adminBoundary === true,
+            serverAuthoritativeArguments:
+              report.serverAuthoritativeArguments === true,
+            expiryCronScheduled: report.expiryCronScheduled === true,
+            pgTapPlan: /^1\.\.56$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 56,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+            concurrency:
+              /one quoted, one slot_unavailable, one active quote, stock unchanged, public slot closed, PASS/.test(
+                concurrency,
+              ),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
       - name: Benchmark Storefront contract on staging and clean fixtures
         if: inputs.mode == 'apply' && inputs.run_performance_load
         env:

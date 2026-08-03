@@ -327,6 +327,12 @@ async function cleanup() {
         "alter table public.audit_logs enable trigger user",
         `delete from public.storefront_promotion_products where shop_id = '${fixture.shopId}'::uuid`,
         `delete from public.storefront_promotions where shop_id = '${fixture.shopId}'::uuid`,
+        `delete from public.customer_checkout_mutations where shop_id = '${fixture.shopId}'::uuid`,
+        `delete from public.customer_checkout_quotes where shop_id = '${fixture.shopId}'::uuid`,
+        `delete from public.storefront_fulfillment_slots where shop_id = '${fixture.shopId}'::uuid`,
+        `delete from public.storefront_delivery_zone_communes where shop_id = '${fixture.shopId}'::uuid`,
+        `delete from public.storefront_delivery_zones where shop_id = '${fixture.shopId}'::uuid`,
+        `delete from public.storefront_pickup_points where shop_id = '${fixture.shopId}'::uuid`,
         `delete from public.storefront_product_publications where shop_id = '${fixture.shopId}'::uuid`,
         `delete from public.storefront_categories where shop_id = '${fixture.shopId}'::uuid`,
         `delete from public.storefront_settings where shop_id = '${fixture.shopId}'::uuid`,
@@ -609,6 +615,184 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   );
   expect(promotionPaused.item.priceClp).toBe(1000);
 
+  const pickupName = `Retiro ${fixture.shopSlug.slice(-10)}`;
+  const deliveryZoneName = `Zona ${fixture.shopSlug.slice(-10)}`;
+  const pickupSlotLabel = `Retiro mañana ${fixture.shopSlug.slice(-4)}`;
+  const reservationSlotLabel = `Reserva mañana ${fixture.shopSlug.slice(-4)}`;
+  const deliverySlotLabel = `Entrega mañana ${fixture.shopSlug.slice(-4)}`;
+  await storefrontSections
+    .getByRole("link", { name: "Ritiro e consegna", exact: true })
+    .click();
+  await expect(
+    page.getByRole("heading", { name: "Modalità cliente" }),
+  ).toBeVisible();
+  await page.setViewportSize({ height: 1_024, width: 768 });
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+
+  const newPickup = page.locator("details").filter({
+    has: page.getByText("Nuovo punto di ritiro", { exact: true }),
+  }).first();
+  await newPickup.getByLabel("Nome pubblico").fill(pickupName);
+  await newPickup
+    .getByRole("textbox", { name: "Indirizzo", exact: true })
+    .fill("Av. Irarrázaval 1234");
+  await newPickup.getByLabel("Comune").fill("Ñuñoa");
+  await newPickup.getByLabel("Regione").fill("Metropolitana");
+  await newPickup
+    .getByLabel("Istruzioni pubbliche")
+    .fill("Presenta el número de reserva.");
+  await newPickup.getByLabel("Disponibile ai clienti").check();
+  await newPickup
+    .getByRole("button", { name: "Crea punto di ritiro" })
+    .click();
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === "/shop/storefront" &&
+      url.searchParams.get("area") === "settings" &&
+      url.searchParams.get("result") === "success",
+  );
+  await expect(page.getByText(pickupName).first()).toBeVisible();
+
+  const newZone = page.locator("details").filter({
+    has: page.getByText("Nuova zona di consegna", { exact: true }),
+  }).first();
+  await newZone.getByLabel("Nome pubblico").fill(deliveryZoneName);
+  await newZone.getByLabel("Regione").fill("Metropolitana");
+  await newZone.getByLabel("Tariffa CLP").fill("2500");
+  await newZone.getByLabel("Comuni serviti").fill("Ñuñoa\nProvidencia");
+  await newZone.getByLabel("Disponibile ai clienti").check();
+  await newZone
+    .getByRole("button", { name: "Crea zona di consegna" })
+    .click();
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === "/shop/storefront" &&
+      url.searchParams.get("area") === "settings" &&
+      url.searchParams.get("result") === "success",
+  );
+  await expect(page.getByText(deliveryZoneName).first()).toBeVisible();
+
+  const startLocal = new Date(Date.now() + 24 * 60 * 60_000)
+    .toISOString()
+    .slice(0, 16);
+  const endLocal = new Date(Date.now() + 26 * 60 * 60_000)
+    .toISOString()
+    .slice(0, 16);
+  const createSlot = async (
+    summary: string,
+    label: string,
+    parentLabel: "Punto di ritiro" | "Zona di consegna",
+    parentValue: string,
+  ) => {
+    const details = page.locator("details").filter({
+      has: page.getByText(summary, { exact: true }),
+    }).first();
+    await details.getByText(summary, { exact: true }).click();
+    await details.getByLabel("Etichetta pubblica").fill(label);
+    await details.getByLabel(parentLabel).selectOption({ label: parentValue });
+    await details.getByLabel("Capacità").fill("12");
+    await details.getByLabel("Inizio · America/Santiago").fill(startLocal);
+    await details.getByLabel("Fine · America/Santiago").fill(endLocal);
+    await details.getByLabel("Finestra prenotabile").check();
+    await details.getByRole("button", { name: "Crea fascia" }).click();
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === "/shop/storefront" &&
+        url.searchParams.get("area") === "settings" &&
+        url.searchParams.get("result") === "success",
+    );
+    await expect(page.getByText(label).first()).toBeVisible();
+  };
+  await createSlot(
+    "Nuova fascia · ritiro",
+    pickupSlotLabel,
+    "Punto di ritiro",
+    pickupName,
+  );
+  await createSlot(
+    "Nuova fascia · prenotazione",
+    reservationSlotLabel,
+    "Punto di ritiro",
+    pickupName,
+  );
+  await createSlot(
+    "Nuova fascia · consegna",
+    deliverySlotLabel,
+    "Zona di consegna",
+    deliveryZoneName,
+  );
+
+  await page.goto(`/shop/storefront?area=settings&shop_id=${fixture.shopId}`);
+  const modeForm = page.locator("form").filter({
+    has: page.getByRole("button", { name: "Salva modalità" }),
+  });
+  await modeForm.getByLabel("Ritiro").check();
+  await modeForm.getByLabel("Prenotazione").check();
+  await modeForm.getByLabel("Consegna").check();
+  expect(
+    await modeForm.evaluate((form) =>
+      Object.fromEntries(new FormData(form as HTMLFormElement).entries())
+    ),
+  ).toMatchObject({
+    deliveryEnabled: "on",
+    pickupEnabled: "on",
+    reservationEnabled: "on",
+  });
+  await modeForm.getByRole("button", { name: "Salva modalità" }).click();
+  await expect(page).toHaveURL(
+    (url) =>
+      url.pathname === "/shop/storefront" &&
+      url.searchParams.get("area") === "settings" &&
+      url.searchParams.get("result") === "success",
+  );
+  await expect(page.getByText("3 fasce")).toBeVisible();
+  await attachUiScreenshot(page, testInfo, "admin-storefront-fulfillment");
+
+  const persistedSlots = await must(
+    "FULFILLMENT_SLOTS",
+    state
+      .admin!.from("storefront_fulfillment_slots")
+      .select("fulfillment_mode,enabled,capacity")
+      .eq("shop_id", fixture.shopId),
+  );
+  expect(persistedSlots).toHaveLength(3);
+  expect(persistedSlots.every((slot) => slot.enabled && slot.capacity === 12))
+    .toBe(true);
+  const persistedSettings = await must(
+    "FULFILLMENT_SETTINGS",
+    state
+      .admin!.from("storefront_settings")
+      .select("pickup_enabled,reservation_enabled,delivery_enabled")
+      .eq("shop_id", fixture.shopId)
+      .single(),
+  );
+  expect(persistedSettings).toMatchObject({
+    delivery_enabled: true,
+    pickup_enabled: true,
+    reservation_enabled: true,
+  });
+
+  const fulfillment = await must(
+    "PUBLIC_FULFILLMENT",
+    anon.rpc("storefront_fulfillment_options_v1", {
+      p_shop_slug: fixture.shopSlug,
+    }),
+  );
+  expect(fulfillment.status).toBe("ok");
+  expect(fulfillment.slots).toHaveLength(3);
+  expect(fulfillment.modes).toEqual([
+    { enabled: true, mode: "pickup" },
+    { enabled: true, mode: "reservation" },
+    { enabled: true, mode: "delivery" },
+  ]);
+  expect(JSON.stringify(fulfillment)).not.toMatch(
+    /capacity|activeQuoteCount|shopId|stock_quantity/,
+  );
+
   await storefrontSections
     .getByRole("link", { name: "Anteprima", exact: true })
     .click();
@@ -743,6 +927,11 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   ).toBeVisible();
   await expect(
     page.getByText("shop.storefront.image.rollback.success"),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByText("shop.storefront.fulfillment.settings_upsert.success")
+      .first(),
   ).toBeVisible();
   await attachUiScreenshot(page, testInfo, "admin-storefront-audit");
   await storefrontSections
