@@ -68,10 +68,32 @@ test("Milestone 4 workflow runs and counts the exact 629-assertion staging matri
   assert.match(workflow, /integratedSameOrderAssertions: 40/);
   assert.match(workflow, /productionWriteRequested: false/);
   assert.match(workflow, /group: storefront-v1-staging-order-payment/);
+  assert.match(workflow, /expected_migration_version: "20260803143000"/);
+  assert.match(workflow, /storefront_v1_default_address_transition/);
   assert.match(workflow, /integratedFixtureRolledBack/);
   assert.match(workflow, /onlineDefaultsOff/);
   assert.match(workflow, /Remove protected connection material/);
   assert.match(workflow, /steps\.sanitize\.outputs\.safe == 'true'/);
+});
+
+test("default-address hardening avoids partial-unique row-order races", () => {
+  const migration = read(
+    "supabase/migrations/20260803143000_storefront_v1_default_address_transition.sql",
+  );
+  assert.match(migration, /pg_advisory_xact_lock/);
+  assert.match(
+    migration,
+    /set is_default = false[\s\S]*address\.id <> p_address_id[\s\S]*address\.is_default/,
+  );
+  assert.match(
+    migration,
+    /set is_default = true[\s\S]*address\.id = p_address_id[\s\S]*not address\.is_default/,
+  );
+  assert.doesNotMatch(
+    migration,
+    /set is_default = \(address\.id = p_address_id\)/,
+  );
+  assert.match(migration, /to authenticated/);
 });
 
 test("notification regression is fixture-scoped and staging writers serialize", () => {
