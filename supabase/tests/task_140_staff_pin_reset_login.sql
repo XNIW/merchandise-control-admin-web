@@ -498,6 +498,8 @@ select is(
     'db.maintenance',
     'devices.read',
     'devices.write',
+    'orders.manage',
+    'orders.view',
     'pos.dashboard.read',
     'pos.discount',
     'pos.pay',
@@ -528,7 +530,7 @@ select is(
     'users.manage',
     'users.view'
   ]::text[],
-  'POS Admin helper returns the exact canonical set of 41 permissions'
+  'POS Admin helper returns the exact canonical set of 43 permissions'
 );
 select ok(
   position(
@@ -1389,8 +1391,8 @@ select is(
       and role_key = 'pos_admin'
       and enabled
   ),
-  41,
-  'new-shop trigger seeds the complete 41-permission POS Admin matrix'
+  43,
+  'new-shop trigger seeds the complete 43-permission POS Admin matrix'
 );
 select lives_ok(
   $$
@@ -3025,7 +3027,7 @@ select ok(
 );
 select ok(
   (
-    select count(*) = 41
+    select count(*) = 43
       and bool_and(enabled)
       and array_agg(permission_key order by permission_key) = (
         select array_agg(permission_key order by permission_key)
@@ -3035,7 +3037,7 @@ select ok(
     where shop_id = '10000000-0000-4000-8000-000000000140'
       and role_key = 'pos_admin'
   ),
-  'advanced recovery enforces exactly 41 enabled POS Admin permissions'
+  'advanced recovery enforces exactly 43 enabled POS Admin permissions'
 );
 select ok(
   exists (
@@ -3129,7 +3131,7 @@ select ok(
 );
 select ok(
   (
-    select count(*) = 41
+    select count(*) = 43
       and bool_and(enabled)
       and array_agg(permission_key order by permission_key) = (
         select array_agg(permission_key order by permission_key)
@@ -3139,7 +3141,7 @@ select ok(
     where shop_id = '10000000-0000-4000-8000-000000000240'
       and role_key = 'pos_admin'
   ),
-  'initial manager helper grants exactly 41 enabled POS Admin permissions'
+  'initial manager helper grants exactly 43 enabled POS Admin permissions'
 );
 
 set local role authenticated;
