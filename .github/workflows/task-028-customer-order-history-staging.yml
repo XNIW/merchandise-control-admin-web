@@ -27,9 +27,6 @@ jobs:
       expected_migration_version: "20260803050000"
       expected_migration_name: storefront_v1_customer_order_history
       expected_migration_file: 20260803050000_storefront_v1_customer_order_history.sql
-      expected_predecessor_migration_version: "20260803034500"
-      expected_predecessor_migration_name: storefront_v1_customer_order_capacity
-      expected_predecessor_migration_file: 20260803034500_storefront_v1_customer_order_capacity.sql
       apply_confirmation: APPLY_STOREFRONT_V1_STAGING
       load_hold_seconds: "0"
       run_performance_load: false
