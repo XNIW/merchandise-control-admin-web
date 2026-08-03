@@ -1,6 +1,7 @@
 name: TASK-028 Customer Order History Staging
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - integration/storefront-v1
