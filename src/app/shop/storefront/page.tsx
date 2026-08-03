@@ -82,7 +82,12 @@ function buildHref(
   const next = new URLSearchParams();
   for (const [key, raw] of Object.entries(params)) {
     const value = Array.isArray(raw) ? raw[0] : raw;
-    if (value && key !== "action" && key !== "result") next.set(key, value);
+    if (
+      value &&
+      key !== "action" &&
+      key !== "result" &&
+      key !== "target_id"
+    ) next.set(key, value);
   }
   for (const [key, value] of Object.entries(changes)) {
     if (value === null || value === undefined || value === "") next.delete(key);
@@ -1122,9 +1127,14 @@ function Audit({ model }: { model: StorefrontPublicationsReadModel }) {
 export default async function StorefrontPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
   const area = areaParam(param(params, "area"));
+  const expectedFulfillmentTargetId =
+    area === "settings" && param(params, "result") === "success"
+      ? param(params, "target_id")
+      : undefined;
   const model = await getStorefrontPublicationsReadModel({
     availability: param(params, "availability"),
     discounted: booleanParam(param(params, "discounted")),
+    expectedFulfillmentTargetId,
     missingImage: booleanParam(param(params, "missing_image")),
     page: integerParam(param(params, "page"), 1),
     pageSize: integerParam(param(params, "pageSize"), 25),

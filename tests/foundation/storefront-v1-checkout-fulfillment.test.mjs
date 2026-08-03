@@ -155,6 +155,20 @@ test("TASK-026 Admin Console uses lease-bound fulfillment RPCs for both principa
   }
 });
 
+test("TASK-026 successful fulfillment redirects enforce bounded read-your-write", () => {
+  assert.match(adminActions, /result\.ok && result\.targetId/);
+  assert.match(adminActions, /params\.set\("target_id", result\.targetId\)/);
+  assert.match(adminPage, /expectedFulfillmentTargetId/);
+  assert.match(adminReadModel, /fulfillmentPayloadHasTarget/);
+  assert.match(
+    adminReadModel,
+    /fulfillmentReadAfterWriteDelaysMs = \[100, 250, 500, 1_000\]/,
+  );
+  assert.doesNotMatch(adminReadModel, /SUPABASE_SERVICE_ROLE_KEY/);
+  assert.match(adminE2e, /directDeliveryZoneSnapshot/);
+  assert.match(adminE2e, /OWNER_FULFILLMENT_READ/);
+});
+
 test("TASK-026 Admin UI exposes responsive, labeled fulfillment controls", () => {
   for (const label of [
     "Ritiro e consegna",

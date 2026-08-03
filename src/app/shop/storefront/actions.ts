@@ -40,6 +40,7 @@ function resultRedirect(
   });
   const selectedShopId = result.shopId ?? shopId;
   if (selectedShopId) params.set("shop_id", selectedShopId);
+  if (result.ok && result.targetId) params.set("target_id", result.targetId);
   if (area) params.set("area", area);
   redirect(`/shop/storefront?${params.toString()}`);
 }

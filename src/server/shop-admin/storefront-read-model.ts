@@ -190,6 +190,7 @@ export type StorefrontPublicationFilters = {
   availability?: string | null;
   categoryId?: string | null;
   discounted?: boolean | null;
+  expectedFulfillmentTargetId?: string | null;
   missingImage?: boolean | null;
   page?: number;
   pageSize?: number;
@@ -517,6 +518,27 @@ function emptyFulfillment(): StorefrontFulfillmentReadModel {
   };
 }
 
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const fulfillmentReadAfterWriteDelaysMs = [100, 250, 500, 1_000] as const;
+
+function fulfillmentPayloadHasTarget(
+  payload: RpcObject | null,
+  targetId: string | null,
+) {
+  if (!targetId) return true;
+  if (textValue(payload?.shop_id) === targetId) return true;
+  return [payload?.pickupPoints, payload?.deliveryZones, payload?.slots].some(
+    (collection) =>
+      Array.isArray(collection) &&
+      collection.some((value) => textValue(objectValue(value)?.id) === targetId),
+  );
+}
+
+function waitForReadAfterWrite(delayMs: number) {
+  return new Promise<void>((resolve) => setTimeout(resolve, delayMs));
+}
+
 export async function getStorefrontPublicationsReadModel(
   filters: StorefrontPublicationFilters = {},
 ): Promise<StorefrontPublicationsReadModel> {
@@ -624,17 +646,36 @@ export async function getStorefrontPublicationsReadModel(
           staffWebSession: access.principal.staffWebSession!,
         });
   const imagesPayload = objectValue(imagesRpc.data);
-  const fulfillmentRpc =
+  const callFulfillmentRead = async () =>
     access.principalKind === "personal_account"
-      ? await access.supabase.rpc("admin_storefront_fulfillment_read_v1", {
+      ? access.supabase.rpc("admin_storefront_fulfillment_read_v1", {
           p_shop_id: access.selectedShop.shopId,
         })
-      : await callStaffWebStorefrontFulfillmentRead({
+      : callStaffWebStorefrontFulfillmentRead({
           actorStaffId: access.principal.staff.staffId,
           selectedShop: access.selectedShop,
           staffWebSession: access.principal.staffWebSession!,
         });
-  const fulfillmentPayload = objectValue(fulfillmentRpc.data);
+  const expectedFulfillmentTargetId =
+    filters.expectedFulfillmentTargetId &&
+    uuidPattern.test(filters.expectedFulfillmentTargetId)
+      ? filters.expectedFulfillmentTargetId
+      : null;
+  let fulfillmentRpc = await callFulfillmentRead();
+  let fulfillmentPayload = objectValue(fulfillmentRpc.data);
+  for (const delayMs of fulfillmentReadAfterWriteDelaysMs) {
+    if (
+      fulfillmentRpc.error ||
+      fulfillmentPayload?.ok !== true ||
+      fulfillmentPayloadHasTarget(
+        fulfillmentPayload,
+        expectedFulfillmentTargetId,
+      )
+    ) break;
+    await waitForReadAfterWrite(delayMs);
+    fulfillmentRpc = await callFulfillmentRead();
+    fulfillmentPayload = objectValue(fulfillmentRpc.data);
+  }
   if (
     rpc.error ||
     !payload ||

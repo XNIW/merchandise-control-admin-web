@@ -145,6 +145,57 @@ function fixtureDatabaseUrl() {
   return value;
 }
 
+function directDeliveryZoneSnapshot(shopId: string) {
+  if (!uuidPattern.test(shopId)) {
+    throw new Error("STOREFRONT_ADMIN_E2E_DELIVERY_ZONE_SCOPE_INVALID");
+  }
+  return execFileSync(
+    "psql",
+    [
+      fixtureDatabaseUrl(),
+      "-At",
+      "-v",
+      "ON_ERROR_STOP=1",
+      "-c",
+      `select concat(zone.public_name, '|', zone.fee_clp, '|', count(commune.commune))
+         from public.storefront_delivery_zones zone
+         left join public.storefront_delivery_zone_communes commune
+           on commune.shop_id = zone.shop_id and commune.zone_id = zone.id
+        where zone.shop_id = '${shopId}'::uuid
+        group by zone.id, zone.public_name, zone.fee_clp`,
+    ],
+    { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] },
+  ).trim();
+}
+
+function deliveryZoneRpcSnapshot(value: unknown, publicName: string) {
+  const payload =
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  const zones = Array.isArray(payload?.deliveryZones)
+    ? payload.deliveryZones
+    : [];
+  const zone = zones
+    .map((candidate) =>
+      candidate && typeof candidate === "object" && !Array.isArray(candidate)
+        ? (candidate as Record<string, unknown>)
+        : null
+    )
+    .find((candidate) => candidate?.publicName === publicName);
+  const communes = Array.isArray(zone?.communes)
+    ? zone.communes.filter((value): value is string => typeof value === "string")
+    : [];
+  return zone
+    ? {
+        communeCount: communes.length,
+        feeClp: zone.feeClp,
+        publicName: zone.publicName,
+        updatedAtType: typeof zone.updatedAt,
+      }
+    : null;
+}
+
 function seedFixture(fixture: Fixture, nonce: string) {
   if (
     !uuidPattern.test(fixture.categoryId) ||
@@ -537,6 +588,16 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   const anon = createClient(state.supabaseUrl, state.publishableKey, {
     auth: { autoRefreshToken: false, persistSession: false },
   });
+  const owner = createClient(state.supabaseUrl, state.publishableKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+  const ownerSignIn = await owner.auth.signInWithPassword({
+    email: fixture.email,
+    password: fixture.password,
+  });
+  if (ownerSignIn.error || !ownerSignIn.data.session) {
+    throw new Error("STOREFRONT_ADMIN_E2E_OWNER_RPC_SIGN_IN");
+  }
   const visible = await must(
     "PUBLIC_DETAIL",
     anon.rpc("storefront_product_detail_v1", {
@@ -676,23 +737,35 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   );
   await expect.poll(
     async () => {
-      const result = await state.admin!
-        .from("storefront_delivery_zones")
-        .select("public_name")
-        .eq("shop_id", fixture.shopId)
-        .eq("public_name", deliveryZoneName)
-        .maybeSingle();
-      if (result.error) {
-        throw new Error("STOREFRONT_ADMIN_E2E_DELIVERY_ZONE_READ");
-      }
-      return result.data?.public_name ?? null;
+      return directDeliveryZoneSnapshot(fixture.shopId);
     },
     {
       intervals: [250, 500, 1_000, 2_000],
       message: "the successful delivery-zone mutation must be committed",
       timeout: 10_000,
     },
-  ).toBe(deliveryZoneName);
+  ).toBe(`${deliveryZoneName}|2500|2`);
+  await expect.poll(
+    async () => {
+      const result = await owner.rpc("admin_storefront_fulfillment_read_v1", {
+        p_shop_id: fixture.shopId,
+      });
+      if (result.error) {
+        throw new Error("STOREFRONT_ADMIN_E2E_OWNER_FULFILLMENT_READ");
+      }
+      return deliveryZoneRpcSnapshot(result.data, deliveryZoneName);
+    },
+    {
+      intervals: [100, 250, 500, 1_000],
+      message: "the authenticated read model must observe the committed zone",
+      timeout: 10_000,
+    },
+  ).toEqual({
+    communeCount: 2,
+    feeClp: 2500,
+    publicName: deliveryZoneName,
+    updatedAtType: "string",
+  });
   await expect(
     page.getByRole("heading", { name: "Modalità cliente" }),
   ).toBeVisible({ timeout: 15_000 });
