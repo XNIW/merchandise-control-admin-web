@@ -5,9 +5,13 @@ import test from "node:test";
 
 const root = process.cwd();
 const read = (path) => readFileSync(join(root, path), "utf8");
-const migration = read(
+const engineMigration = read(
   "supabase/migrations/20260803000951_storefront_v1_reservation_holds.sql",
 );
+const eligibilityMigration = read(
+  "supabase/migrations/20260803003855_storefront_v1_reservation_hold_eligibility.sql",
+);
+const migration = `${engineMigration}\n${eligibilityMigration}`;
 const pgTap = read("supabase/tests/storefront_v1_reservation_holds.sql");
 const concurrency = read(
   "scripts/testing/storefront-v1-reservation-hold-concurrency.sh",
@@ -52,6 +56,8 @@ test("TASK-025 derives shop, product, expiry and capacity on the server", () => 
   );
   assert.match(migration, /v_now \+ interval '15 minutes'/);
   assert.match(migration, /for update of product/);
+  assert.match(eligibilityMigration, /and setting\.reservation_enabled/);
+  assert.match(eligibilityMigration, /and publication\.reservation_enabled/);
   assert.match(
     migration,
     /storefront_reservation_active_quantity_v1\([\s\S]*v_product\.stock_quantity - v_reserved/,
@@ -105,9 +111,11 @@ test("TASK-025 public payload omits operational inventory and identity fields", 
 });
 
 test("TASK-025 pgTAP covers privacy, idempotency, expiry and terminal states", () => {
-  assert.match(pgTap, /select plan\(52\)/);
+  assert.match(pgTap, /select plan\(54\)/);
   for (const expected of [
     "anonymous Auth identities cannot create holds",
+    "a publication without reservation fulfillment cannot create a hold",
+    "a shop without reservation fulfillment cannot create a hold",
     "first customer reserves the last piece",
     "second customer cannot reserve the last piece",
     "same create key with a different payload is rejected",
@@ -138,9 +146,9 @@ test("TASK-025 concurrency harness runs two real sessions and proves no oversell
 
 test("TASK-025 staging apply is exact-SHA guarded and reruns native contracts", () => {
   for (const expected of [
-    'expected_migration_version: "20260803000951"',
-    "expected_migration_name: storefront_v1_reservation_holds",
-    "expected_migration_file: 20260803000951_storefront_v1_reservation_holds.sql",
+    'expected_migration_version: "20260803003855"',
+    "expected_migration_name: storefront_v1_reservation_hold_eligibility",
+    "expected_migration_file: 20260803003855_storefront_v1_reservation_hold_eligibility.sql",
     "expected_head_sha: ${{ github.sha }}",
     "apply_confirmation: APPLY_STOREFRONT_V1_STAGING",
     "run_performance_load: false",
@@ -150,10 +158,10 @@ test("TASK-025 staging apply is exact-SHA guarded and reruns native contracts", 
   }
   assert.match(
     stagingWorkflow,
-    /inputs\.expected_migration_version == '20260803000951'/,
+    /inputs\.expected_migration_version == '20260803003855'/,
   );
   assert.match(stagingWorkflow, /task-025-pgtap\.txt/);
-  assert.match(stagingWorkflow, /pgTapAssertions:[\s\S]*=== 52/);
+  assert.match(stagingWorkflow, /pgTapAssertions:[\s\S]*=== 54/);
   assert.match(stagingWorkflow, /serverDerivedArguments/);
   assert.match(stagingWorkflow, /inventoryFloorTrigger/);
 });

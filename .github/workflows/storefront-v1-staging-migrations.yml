@@ -1409,7 +1409,7 @@ jobs:
       - name: Verify TASK-025 atomic reservation-hold contract
         if: >-
           inputs.mode == 'apply' &&
-          inputs.expected_migration_version == '20260803000951'
+          inputs.expected_migration_version == '20260803003855'
         run: |
           set -euo pipefail
           SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
@@ -1438,8 +1438,8 @@ jobs:
                 'migrationLedgerExact', (
                   select count(*) = 1
                   from supabase_migrations.schema_migrations
-                  where version = '20260803000951'
-                    and name = 'storefront_v1_reservation_holds'
+                  where version = '20260803003855'
+                    and name = 'storefront_v1_reservation_hold_eligibility'
                 ),
                 'tableCount', (
                   select count(*)
@@ -1623,8 +1623,8 @@ jobs:
               report.serverDerivedArguments === true,
             inventoryFloorTrigger: report.inventoryFloorTrigger === true,
             expiryCronScheduled: report.expiryCronScheduled === true,
-            pgTapPlan: /^1\.\.52$/m.test(tap),
-            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 52,
+            pgTapPlan: /^1\.\.54$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 54,
             pgTapNoFailures: !/^not ok /m.test(tap),
             concurrency:
               /one ok, one unavailable, one active hold, on-hand stock unchanged, PASS/.test(

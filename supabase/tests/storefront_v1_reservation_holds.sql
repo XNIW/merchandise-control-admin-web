@@ -4,7 +4,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(52);
+select plan(54);
 
 select ok(
   to_regclass('public.customer_reservation_holds') is not null
@@ -391,6 +391,50 @@ select is(
   'invalid',
   'invalid create input fails closed'
 );
+
+set local role postgres;
+update public.storefront_product_publications
+set reservation_enabled = false
+where id = '55000000-0000-4000-8000-000000025001';
+
+set local role authenticated;
+select is(
+  public.customer_reservation_hold_create_v1(
+    'hold-fixture-a',
+    '55000000-0000-4000-8000-000000025001',
+    1,
+    '75000000-0000-4000-8000-000000025013'
+  ) ->> 'status',
+  'unavailable',
+  'a publication without reservation fulfillment cannot create a hold'
+);
+
+set local role postgres;
+update public.storefront_product_publications
+set reservation_enabled = true
+where id = '55000000-0000-4000-8000-000000025001';
+update public.storefront_settings
+set reservation_enabled = false
+where shop_id = '15000000-0000-4000-8000-000000025001';
+
+set local role authenticated;
+select is(
+  public.customer_reservation_hold_create_v1(
+    'hold-fixture-a',
+    '55000000-0000-4000-8000-000000025001',
+    1,
+    '75000000-0000-4000-8000-000000025014'
+  ) ->> 'status',
+  'unavailable',
+  'a shop without reservation fulfillment cannot create a hold'
+);
+
+set local role postgres;
+update public.storefront_settings
+set reservation_enabled = true
+where shop_id = '15000000-0000-4000-8000-000000025001';
+
+set local role authenticated;
 
 create temp table task025_first as
 select public.customer_reservation_hold_create_v1(
