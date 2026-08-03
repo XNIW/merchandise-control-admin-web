@@ -260,7 +260,7 @@ async function uploadAssets(client, assets) {
   }
 }
 
-function seedSql(userId, assets) {
+export function seedSql(userId, assets) {
   if (!UUID.test(userId)) throw new Error("client_fixture_user_id_invalid");
   const inventoryCategoryRows = categories
     .map(
@@ -313,21 +313,42 @@ function seedSql(userId, assets) {
 
   return `
 begin;
-alter table public.audit_logs disable trigger user;
-delete from public.audit_logs where shop_id='${SHOP_ID}'::uuid;
-alter table public.audit_logs enable trigger user;
-delete from public.shops where shop_id='${SHOP_ID}'::uuid;
+-- This is a persistent staging tenant. Refresh only fixture-owned rows in
+-- place: orders, holds, POS records and catalog projections may reference it.
 insert into public.profiles(profile_id,display_name,profile_status)
 values ('${userId}'::uuid,'Storefront v1 fixture','active')
 on conflict (profile_id) do update set display_name=excluded.display_name, profile_status='active';
 insert into public.shops(shop_id,shop_code,shop_name,shop_status,created_by_profile_id,status_changed_by_profile_id)
-values ('${SHOP_ID}'::uuid,'SFV1STAGING','Storefront v1 staging','active','${userId}'::uuid,'${userId}'::uuid);
+values ('${SHOP_ID}'::uuid,'SFV1STAGING','Storefront v1 staging','active','${userId}'::uuid,'${userId}'::uuid)
+on conflict (shop_id) do update set
+  shop_code=excluded.shop_code,
+  shop_name=excluded.shop_name,
+  shop_status=excluded.shop_status,
+  status_changed_by_profile_id=excluded.status_changed_by_profile_id;
 insert into public.shop_members(profile_id,shop_id,role_key,membership_status)
-values ('${userId}'::uuid,'${SHOP_ID}'::uuid,'shop_owner','active');
+values ('${userId}'::uuid,'${SHOP_ID}'::uuid,'shop_owner','active')
+on conflict (profile_id,shop_id) do update set
+  role_key=excluded.role_key,
+  membership_status=excluded.membership_status;
 insert into public.inventory_categories(id,owner_user_id,shop_id,name,updated_at) values
-${inventoryCategoryRows};
+${inventoryCategoryRows}
+on conflict (id) do update set
+  owner_user_id=excluded.owner_user_id,
+  shop_id=excluded.shop_id,
+  name=excluded.name,
+  updated_at=excluded.updated_at;
 insert into public.inventory_products(id,owner_user_id,shop_id,barcode,product_name,category_id,purchase_price,retail_price,stock_quantity,updated_at) values
-${inventoryProductRows};
+${inventoryProductRows}
+on conflict (id) do update set
+  owner_user_id=excluded.owner_user_id,
+  shop_id=excluded.shop_id,
+  barcode=excluded.barcode,
+  product_name=excluded.product_name,
+  category_id=excluded.category_id,
+  purchase_price=excluded.purchase_price,
+  retail_price=excluded.retail_price,
+  stock_quantity=excluded.stock_quantity,
+  updated_at=excluded.updated_at;
 select set_config('request.jwt.claims','{"role":"service_role"}',true);
 select set_config('request.jwt.claim.role','service_role',true);
 insert into public.inventory_product_image_versions(
@@ -338,30 +359,98 @@ insert into public.inventory_product_image_versions(
   verified_thumb_sha256,verified_thumb_bytes,verified_thumb_width,verified_thumb_height,verified_thumb_mime_type,
   requested_by_profile_id,finalized_by_profile_id,actor_kind,finalized_at
 ) values
-${sourceImageRows};
+${sourceImageRows}
+on conflict (id) do nothing;
 ${products.map((product) => `update public.inventory_products set primary_image_version_id='${product.sourceImageId}'::uuid, primary_image_updated_at=statement_timestamp() where id='${product.productId}'::uuid;`).join("\n")}
 insert into public.storefront_settings(shop_id,public_slug,storefront_enabled,pickup_enabled,delivery_enabled,reservation_enabled,require_product_image,updated_by_profile_id)
-values ('${SHOP_ID}'::uuid,'${SHOP_SLUG}',true,true,true,false,true,'${userId}'::uuid);
+values ('${SHOP_ID}'::uuid,'${SHOP_SLUG}',true,true,true,false,true,'${userId}'::uuid)
+on conflict (shop_id) do update set
+  public_slug=excluded.public_slug,
+  storefront_enabled=excluded.storefront_enabled,
+  pickup_enabled=excluded.pickup_enabled,
+  delivery_enabled=excluded.delivery_enabled,
+  reservation_enabled=excluded.reservation_enabled,
+  require_product_image=excluded.require_product_image,
+  updated_by_profile_id=excluded.updated_by_profile_id;
 insert into public.storefront_categories(id,shop_id,source_category_id,slug,public_name,publication_status,sort_rank) values
-${publicCategoryRows};
+${publicCategoryRows}
+on conflict (id) do update set
+  shop_id=excluded.shop_id,
+  source_category_id=excluded.source_category_id,
+  slug=excluded.slug,
+  public_name=excluded.public_name,
+  publication_status=excluded.publication_status,
+  sort_rank=excluded.sort_rank;
 insert into public.storefront_image_publications(
   id,shop_id,source_product_id,source_image_version_id,publication_status,version_key,
   thumb_url,card_url,detail_url,width,height,content_type,content_sha256,published_at
 ) values
-${imageRows};
+${imageRows}
+on conflict (id) do update set
+  shop_id=excluded.shop_id,
+  source_product_id=excluded.source_product_id,
+  source_image_version_id=excluded.source_image_version_id,
+  publication_status=excluded.publication_status,
+  version_key=excluded.version_key,
+  thumb_url=excluded.thumb_url,
+  card_url=excluded.card_url,
+  detail_url=excluded.detail_url,
+  width=excluded.width,
+  height=excluded.height,
+  content_type=excluded.content_type,
+  content_sha256=excluded.content_sha256,
+  published_at=excluded.published_at;
 insert into public.storefront_image_publication_variants(
   shop_id,image_publication_id,variant,object_path,public_url,publication_status,
   expected_bytes,expected_width,expected_height,expected_sha256,
   verified_bytes,verified_width,verified_height,verified_sha256,content_type,ready_at
 ) values
-${variantRows};
+${variantRows}
+on conflict (image_publication_id,variant) do update set
+  shop_id=excluded.shop_id,
+  object_path=excluded.object_path,
+  public_url=excluded.public_url,
+  publication_status=excluded.publication_status,
+  expected_bytes=excluded.expected_bytes,
+  expected_width=excluded.expected_width,
+  expected_height=excluded.expected_height,
+  expected_sha256=excluded.expected_sha256,
+  verified_bytes=excluded.verified_bytes,
+  verified_width=excluded.verified_width,
+  verified_height=excluded.verified_height,
+  verified_sha256=excluded.verified_sha256,
+  content_type=excluded.content_type,
+  ready_at=excluded.ready_at,
+  cleanup_after=null,
+  cleanup_claimed_at=null,
+  cleanup_attempts=0,
+  cleanup_last_error=null;
 insert into public.storefront_product_publications(
   id,shop_id,source_product_id,publication_status,public_name,public_description,
   public_category_id,public_brand,retail_price_clp,price_source_mode,featured,sort_rank,
   pickup_enabled,delivery_enabled,reservation_enabled,availability_mode,
   published_image_version_id,published_at,updated_by_profile_id
 ) values
-${publicationRows};
+${publicationRows}
+on conflict (id) do update set
+  shop_id=excluded.shop_id,
+  source_product_id=excluded.source_product_id,
+  publication_status=excluded.publication_status,
+  public_name=excluded.public_name,
+  public_description=excluded.public_description,
+  public_category_id=excluded.public_category_id,
+  public_brand=excluded.public_brand,
+  retail_price_clp=excluded.retail_price_clp,
+  price_source_mode=excluded.price_source_mode,
+  featured=excluded.featured,
+  sort_rank=excluded.sort_rank,
+  pickup_enabled=excluded.pickup_enabled,
+  delivery_enabled=excluded.delivery_enabled,
+  reservation_enabled=excluded.reservation_enabled,
+  availability_mode=excluded.availability_mode,
+  published_image_version_id=excluded.published_image_version_id,
+  published_at=excluded.published_at,
+  updated_by_profile_id=excluded.updated_by_profile_id;
 insert into public.storefront_promotions(
   id,shop_id,public_name,publication_status,discount_type,discount_value,priority,
   starts_at,ends_at,updated_by_profile_id
@@ -369,12 +458,44 @@ insert into public.storefront_promotions(
   '58000000-0000-4000-8000-000000000001'::uuid,'${SHOP_ID}'::uuid,
   'Oferta de bienvenida','active','fixed_price_clp',1490,100,
   statement_timestamp()-interval '1 day',statement_timestamp()+interval '30 days','${userId}'::uuid
-);
+)
+on conflict (id) do update set
+  shop_id=excluded.shop_id,
+  public_name=excluded.public_name,
+  publication_status=excluded.publication_status,
+  discount_type=excluded.discount_type,
+  discount_value=excluded.discount_value,
+  priority=excluded.priority,
+  starts_at=excluded.starts_at,
+  ends_at=excluded.ends_at,
+  updated_by_profile_id=excluded.updated_by_profile_id;
 insert into public.storefront_promotion_products(shop_id,promotion_id,publication_id,created_by_profile_id)
-values ('${SHOP_ID}'::uuid,'58000000-0000-4000-8000-000000000001'::uuid,'${products[1].publicationId}'::uuid,'${userId}'::uuid);
+values ('${SHOP_ID}'::uuid,'58000000-0000-4000-8000-000000000001'::uuid,'${products[1].publicationId}'::uuid,'${userId}'::uuid)
+on conflict (promotion_id,publication_id) do update set
+  shop_id=excluded.shop_id,
+  created_by_profile_id=excluded.created_by_profile_id;
 select app_private.storefront_catalog_rebuild_shop_v1('${SHOP_ID}'::uuid,statement_timestamp());
 commit;
 `;
+}
+
+function seedFailureCode(error) {
+  const stderr =
+    error && typeof error === "object" && "stderr" in error
+      ? error.stderr
+      : null;
+  const detail = Buffer.isBuffer(stderr)
+    ? stderr.toString("utf8")
+    : typeof stderr === "string"
+      ? stderr
+      : "";
+  if (/foreign key constraint/i.test(detail)) return "foreign_key_conflict";
+  if (/duplicate key value/i.test(detail)) return "unique_conflict";
+  if (/check constraint/i.test(detail)) return "check_conflict";
+  if (/permission denied/i.test(detail)) return "permission_denied";
+  if (/statement timeout|canceling statement/i.test(detail)) return "timeout";
+  if (/syntax error/i.test(detail)) return "syntax_error";
+  return "database_error";
 }
 
 async function verifyPublicContract(origin, publishableKey) {
@@ -453,10 +574,18 @@ export async function runClientFixture(env = process.env) {
   const userId = await fixtureUserId(client, target.databaseUrl);
   const assets = await buildClientFixtureAssets(target.supabaseOrigin);
   await uploadAssets(client, assets);
-  execFileSync("psql", [target.databaseUrl, "-v", "ON_ERROR_STOP=1", "-f", "-"], {
-    input: seedSql(userId, assets),
-    stdio: ["pipe", "ignore", "ignore"],
-  });
+  try {
+    execFileSync(
+      "psql",
+      [target.databaseUrl, "-X", "-v", "ON_ERROR_STOP=1", "-f", "-"],
+      {
+        input: seedSql(userId, assets),
+        stdio: ["pipe", "ignore", "pipe"],
+      },
+    );
+  } catch (error) {
+    throw new Error(`client_fixture_seed_${seedFailureCode(error)}`);
+  }
   const result = await verifyPublicContract(target.supabaseOrigin, publishableKey);
   await mkdir("test-results", { recursive: true });
   await writeFile(

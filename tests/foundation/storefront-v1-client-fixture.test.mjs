@@ -55,6 +55,15 @@ test("client fixture resolves only its synthetic user through the guarded databa
   assert.match(source, /auth\.admin\.createUser/);
 });
 
+test("client fixture refresh is idempotent and never deletes the persistent shop", () => {
+  assert.doesNotMatch(source, /delete from public\.shops/);
+  assert.doesNotMatch(source, /delete from public\.audit_logs/);
+  assert.match(source, /on conflict \(shop_id\) do update set/);
+  assert.match(source, /on conflict \(id\) do update set/);
+  assert.match(source, /on conflict \(image_publication_id,variant\) do update set/);
+  assert.match(source, /client_fixture_seed_\$\{seedFailureCode\(error\)\}/);
+});
+
 test("client fixture generates decodable deterministic WebP variants", async () => {
   const assets = await buildClientFixtureAssets("https://example.invalid");
   assert.equal(assets.origin, "https://example.invalid");
