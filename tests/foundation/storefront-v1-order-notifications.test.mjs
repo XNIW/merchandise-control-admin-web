@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import {
@@ -17,6 +18,24 @@ const orderPayload = Object.freeze({
   deepLink:
     "com.xniw.clientmerchandisecontrol://storefront/notification-fixture/notification/" +
     "f1000000-0000-4000-8000-000000031001",
+});
+
+test("staging workflow captures pure JSON without npm banner contamination", () => {
+  const workflow = readFileSync(
+    new URL(
+      "../../.github/workflows/task-031-order-notifications-staging.yml",
+      import.meta.url,
+    ),
+    "utf8",
+  );
+  assert.match(
+    workflow,
+    /node scripts\/testing\/storefront-v1-order-notification-staging-e2e\.mjs \|\s+tee _task031-e2e\/result\.json/,
+  );
+  assert.doesNotMatch(
+    workflow,
+    /npm run test:storefront:order-notification-staging-e2e \|/,
+  );
 });
 
 function delivery(id, platform, token, payload = orderPayload) {

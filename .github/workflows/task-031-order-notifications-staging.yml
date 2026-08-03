@@ -271,7 +271,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p _task031-e2e
-          npm run test:storefront:order-notification-staging-e2e |
+          node scripts/testing/storefront-v1-order-notification-staging-e2e.mjs |
             tee _task031-e2e/result.json
 
       - name: Verify sanitized staging evidence
