@@ -395,7 +395,7 @@ async function setupFixture(client, runtime, runId) {
         pickup_enabled: true,
         price_source_mode: "override",
         public_name: `Producto público TASK030 ${runId}`,
-        publication_status: "published",
+        publication_status: "paused",
         published_at: timestamp,
         retail_price_clp: 1900,
         shop_id: runtime.shopId,
