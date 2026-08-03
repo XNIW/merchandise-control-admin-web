@@ -57,23 +57,54 @@ select ok(
   'anonymous sessions cannot execute Admin order boundaries'
 );
 
+select diag(format(
+  'Admin ledger grants: anon=%s authenticated=%s service_select=%s service_insert=%s service_delete=%s service_update=%s',
+  has_table_privilege(
+    'anon', 'public.customer_order_admin_mutations',
+    'SELECT,INSERT,UPDATE,DELETE'
+  ),
+  has_table_privilege(
+    'authenticated', 'public.customer_order_admin_mutations',
+    'SELECT,INSERT,UPDATE,DELETE'
+  ),
+  has_table_privilege(
+    'service_role', 'public.customer_order_admin_mutations', 'SELECT'
+  ),
+  has_table_privilege(
+    'service_role', 'public.customer_order_admin_mutations', 'INSERT'
+  ),
+  has_table_privilege(
+    'service_role', 'public.customer_order_admin_mutations', 'DELETE'
+  ),
+  has_table_privilege(
+    'service_role', 'public.customer_order_admin_mutations', 'UPDATE'
+  )
+));
+
 select ok(
   (
     select relrowsecurity and relforcerowsecurity
       and not has_table_privilege(
-        'authenticated', 'public.customer_order_admin_mutations', 'SELECT'
-      )
-      and has_table_privilege(
-        'service_role', 'public.customer_order_admin_mutations',
-        'SELECT,INSERT,DELETE'
+        'anon', 'public.customer_order_admin_mutations',
+        'SELECT,INSERT,UPDATE,DELETE'
       )
       and not has_table_privilege(
-        'service_role', 'public.customer_order_admin_mutations', 'UPDATE'
+        'authenticated', 'public.customer_order_admin_mutations',
+        'SELECT,INSERT,UPDATE,DELETE'
+      )
+      and has_table_privilege(
+        'service_role', 'public.customer_order_admin_mutations', 'SELECT'
+      )
+      and has_table_privilege(
+        'service_role', 'public.customer_order_admin_mutations', 'INSERT'
+      )
+      and has_table_privilege(
+        'service_role', 'public.customer_order_admin_mutations', 'DELETE'
       )
     from pg_catalog.pg_class
     where oid = 'public.customer_order_admin_mutations'::regclass
   ),
-  'Admin mutation ledger is private behind forced RLS'
+  'Admin mutation ledger denies untrusted roles and keeps bounded service maintenance access behind forced RLS'
 );
 
 select has_trigger(
