@@ -513,6 +513,7 @@ select is(
   (
     select count(*)::integer
     from public.customer_notification_events
+    where order_id = '88000000-0000-4000-8000-000000031001'
   ),
   1,
   'accepted is intentionally not a customer-notifiable event'

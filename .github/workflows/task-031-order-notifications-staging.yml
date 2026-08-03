@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: task-031-order-notifications-staging
+  group: storefront-v1-staging-order-payment
   cancel-in-progress: false
 
 jobs:
