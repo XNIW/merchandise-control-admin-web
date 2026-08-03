@@ -159,7 +159,6 @@ test("TASK-025 load harness measures bounded cleanup without persistent fixtures
     loadHarness,
     /APPLY_STOREFRONT_V1_STAGING_RESERVATION_HOLD_LOAD/,
   );
-  assert.match(loadHarness, /releaseBudget/);
   assert.match(loadHarness, /load rollback incomplete/);
   assert.match(loadSql, /generate_series\(1, 1200\)/);
   assert.match(loadSql, /expiredEligible', 1000/);
@@ -168,6 +167,8 @@ test("TASK-025 load harness measures bounded cleanup without persistent fixtures
   assert.match(loadSql, /p50Ms/);
   assert.match(loadSql, /p95Ms/);
   assert.match(loadSql, /p99Ms/);
+  assert.match(loadSql, /load_p95_ms > 5000/);
+  assert.match(loadSql, /bounded cleanup load verification failed/);
   assert.match(loadSql, /rollback;/);
 });
 

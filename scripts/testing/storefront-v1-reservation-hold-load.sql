@@ -154,6 +154,68 @@ begin
 end
 $load$;
 
+do $verify$
+declare
+  load_calls integer;
+  load_processed integer;
+  load_expired integer;
+  load_maximum_batch integer;
+  load_p95_ms numeric;
+  load_remaining integer;
+  load_future integer;
+  load_terminal integer;
+  load_stock double precision;
+begin
+  select
+    count(*)::integer,
+    sum((payload ->> 'processed')::integer)::integer,
+    sum((payload ->> 'expired')::integer)::integer,
+    max((payload ->> 'processed')::integer),
+    (percentile_cont(0.95) within group (order by duration_ms))::numeric
+  into
+    load_calls,
+    load_processed,
+    load_expired,
+    load_maximum_batch,
+    load_p95_ms
+  from task025_cleanup_load_metrics;
+
+  select count(*)::integer into load_remaining
+  from public.customer_reservation_holds hold
+  where hold.shop_id = '15250000-0000-4000-8000-000000000001'
+    and hold.status = 'active'
+    and hold.expires_at <= statement_timestamp();
+
+  select count(*)::integer into load_future
+  from public.customer_reservation_holds hold
+  where hold.shop_id = '15250000-0000-4000-8000-000000000001'
+    and hold.status = 'active'
+    and hold.expires_at > statement_timestamp();
+
+  select count(*)::integer into load_terminal
+  from public.customer_reservation_holds hold
+  where hold.shop_id = '15250000-0000-4000-8000-000000000001'
+    and hold.status = 'expired'
+    and hold.terminal_at is not null;
+
+  select product.stock_quantity into load_stock
+  from public.inventory_products product
+  where product.id = '25250000-0000-4000-8000-000000000001';
+
+  if load_calls <> 3
+    or load_processed <> 1000
+    or load_expired <> 1000
+    or load_maximum_batch > 400
+    or load_p95_ms > 5000
+    or load_remaining <> 0
+    or load_future <> 200
+    or load_terminal <> 1000
+    or load_stock <> 5000 then
+    raise exception 'TASK-025 bounded cleanup load verification failed';
+  end if;
+end
+$verify$;
+
 select jsonb_build_object(
   'apiVersion', 'storefront-reservation-hold-load.v1',
   'dataset', jsonb_build_object(
