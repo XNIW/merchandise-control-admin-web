@@ -11,6 +11,8 @@ on:
       - supabase/migrations/20260803003855_storefront_v1_reservation_hold_eligibility.sql
       - supabase/tests/storefront_v1_reservation_holds.sql
       - scripts/testing/storefront-v1-reservation-hold-concurrency.sh
+      - scripts/testing/storefront-v1-reservation-hold-load.sh
+      - scripts/testing/storefront-v1-reservation-hold-load.sql
       - package.json
       - tests/foundation/storefront-v1-reservation-holds.test.mjs
 

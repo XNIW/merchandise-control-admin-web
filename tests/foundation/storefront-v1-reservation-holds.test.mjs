@@ -16,6 +16,12 @@ const pgTap = read("supabase/tests/storefront_v1_reservation_holds.sql");
 const concurrency = read(
   "scripts/testing/storefront-v1-reservation-hold-concurrency.sh",
 );
+const loadHarness = read(
+  "scripts/testing/storefront-v1-reservation-hold-load.sh",
+);
+const loadSql = read(
+  "scripts/testing/storefront-v1-reservation-hold-load.sql",
+);
 const stagingWorkflow = read(
   ".github/workflows/storefront-v1-staging-migrations.yml",
 );
@@ -144,6 +150,27 @@ test("TASK-025 concurrency harness runs two real sessions and proves no oversell
   );
 });
 
+test("TASK-025 load harness measures bounded cleanup without persistent fixtures", () => {
+  assert.match(
+    loadHarness,
+    /refuses an unauthorized non-local database/,
+  );
+  assert.match(
+    loadHarness,
+    /APPLY_STOREFRONT_V1_STAGING_RESERVATION_HOLD_LOAD/,
+  );
+  assert.match(loadHarness, /releaseBudget/);
+  assert.match(loadHarness, /load rollback incomplete/);
+  assert.match(loadSql, /generate_series\(1, 1200\)/);
+  assert.match(loadSql, /expiredEligible', 1000/);
+  assert.match(loadSql, /futureActive', 200/);
+  assert.match(loadSql, /storefront_reservation_holds_expire_v1\(\s*400/);
+  assert.match(loadSql, /p50Ms/);
+  assert.match(loadSql, /p95Ms/);
+  assert.match(loadSql, /p99Ms/);
+  assert.match(loadSql, /rollback;/);
+});
+
 test("TASK-025 staging apply is exact-SHA guarded and reruns native contracts", () => {
   for (const expected of [
     'expected_migration_version: "20260803003855"',
@@ -161,6 +188,8 @@ test("TASK-025 staging apply is exact-SHA guarded and reruns native contracts", 
     /inputs\.expected_migration_version == '20260803003855'/,
   );
   assert.match(stagingWorkflow, /task-025-pgtap\.txt/);
+  assert.match(stagingWorkflow, /task-025-load\.json/);
+  assert.match(stagingWorkflow, /cleanupLoad/);
   assert.match(stagingWorkflow, /pgTapAssertions:[\s\S]*=== 54/);
   assert.match(stagingWorkflow, /serverDerivedArguments/);
   assert.match(stagingWorkflow, /inventoryFloorTrigger/);

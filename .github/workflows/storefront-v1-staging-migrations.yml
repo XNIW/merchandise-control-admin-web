@@ -1430,6 +1430,14 @@ jobs:
             bash /workspace/scripts/testing/storefront-v1-reservation-hold-concurrency.sh \
               > _storefront-migration/evidence/task-025-concurrency.txt
           docker run --rm --network host \
+            -e STOREFRONT_RESERVATION_HOLD_DB_URL="$SOURCE_DB_URL" \
+            -e STOREFRONT_RESERVATION_HOLD_LOAD_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_RESERVATION_HOLD_LOAD \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-reservation-hold-load.sh \
+              > _storefront-migration/evidence/task-025-load.json
+          docker run --rm --network host \
             -e SOURCE_DB_URL="$SOURCE_DB_URL" \
             postgres:17 \
             psql -X -qAt -v ON_ERROR_STOP=1 \
@@ -1600,6 +1608,12 @@ jobs:
             "_storefront-migration/evidence/task-025-concurrency.txt",
             "utf8",
           );
+          const load = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-025-load.json",
+              "utf8",
+            ),
+          );
           const report = JSON.parse(
             readFileSync(
               "_storefront-migration/evidence/task-025-post-verify.json",
@@ -1630,6 +1644,18 @@ jobs:
               /one ok, one unavailable, one active hold, on-hand stock unchanged, PASS/.test(
                 concurrency,
               ),
+            cleanupLoad:
+              load.apiVersion === "storefront-reservation-hold-load.v1" &&
+              load.dataset?.holds === 1200 &&
+              load.metrics?.cleanupCalls === 3 &&
+              load.metrics?.maximumBatch <= 400 &&
+              load.metrics?.processed === 1000 &&
+              load.metrics?.expired === 1000 &&
+              load.metrics?.p95Ms <= 5000 &&
+              load.result?.remainingExpired === 0 &&
+              load.result?.futureActive === 200 &&
+              load.result?.terminalExpired === 1000 &&
+              load.result?.onHandStock === 5000,
           };
           console.log(JSON.stringify(checks));
           if (Object.values(checks).some((value) => !value)) process.exit(1);
