@@ -1,0 +1,38 @@
+name: TASK-025 Reservation Hold Staging
+
+on:
+  push:
+    branches:
+      - integration/storefront-v1
+    paths:
+      - .github/workflows/storefront-v1-staging-migrations.yml
+      - .github/workflows/task-025-reservation-hold-staging.yml
+      - supabase/migrations/20260803000951_storefront_v1_reservation_holds.sql
+      - supabase/migrations/20260803003855_storefront_v1_reservation_hold_eligibility.sql
+      - supabase/tests/storefront_v1_reservation_holds.sql
+      - scripts/testing/storefront-v1-reservation-hold-concurrency.sh
+      - scripts/testing/storefront-v1-reservation-hold-load.sh
+      - scripts/testing/storefront-v1-reservation-hold-load.sql
+      - package.json
+      - tests/foundation/storefront-v1-reservation-holds.test.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-025-reservation-hold-staging
+  cancel-in-progress: false
+
+jobs:
+  staging-reservation-hold-contract:
+    uses: ./.github/workflows/storefront-v1-staging-migrations.yml
+    with:
+      mode: apply
+      expected_head_sha: ${{ github.sha }}
+      expected_migration_version: "20260803003855"
+      expected_migration_name: storefront_v1_reservation_hold_eligibility
+      expected_migration_file: 20260803003855_storefront_v1_reservation_hold_eligibility.sql
+      apply_confirmation: APPLY_STOREFRONT_V1_STAGING
+      load_hold_seconds: "0"
+      run_performance_load: false
+    secrets: inherit

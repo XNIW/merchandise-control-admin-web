@@ -4,6 +4,8 @@ export type ShopSectionKey =
   | "overview"
   | "products"
   | "categories"
+  | "storefront"
+  | "orders"
   | "suppliers"
   | "importExport"
   | "sync"
@@ -81,10 +83,16 @@ export const shopNavigationSections: ShopNavigationSection[] = [
     items: [{ key: "overview", label: "Overview", href: "/shop/overview" }],
   },
   {
+    key: "commerce",
+    label: "Commerce",
+    items: [{ key: "orders", label: "Orders", href: "/shop/orders" }],
+  },
+  {
     key: "catalog",
     label: "Catalog",
     items: [
       { key: "products", label: "Products", href: "/shop/products" },
+      { key: "storefront", label: "Storefront", href: "/shop/storefront" },
       { key: "categories", label: "Categories", href: "/shop/categories" },
       { key: "suppliers", label: "Suppliers", href: "/shop/suppliers" },
       { key: "history", label: "History Entries", href: "/shop/history" },
@@ -208,6 +216,40 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Verify or add shop_categories schema",
       "Render empty/error states before CRUD",
       "Audit future category mutations",
+    ],
+    guardrails: sharedShopGuardrails,
+  },
+  storefront: {
+    key: "storefront",
+    label: "Storefront",
+    href: "/shop/storefront",
+    title: "Storefront",
+    eyebrow: "Customer catalog",
+    description:
+      "Publish customer-safe products, prices, fulfillment and merchandising without exposing internal inventory data.",
+    status: "Live authoring",
+    metrics: shellMetrics,
+    plannedWork: [
+      "Publish approved customer-facing product data",
+      "Preview the versioned public Storefront contract",
+      "Audit every publication transition",
+    ],
+    guardrails: sharedShopGuardrails,
+  },
+  orders: {
+    key: "orders",
+    label: "Orders",
+    href: "/shop/orders",
+    title: "Customer orders",
+    eyebrow: "Commerce",
+    description:
+      "Prepare and advance customer orders from a shop-scoped, audited queue without creating fiscal sales.",
+    status: "Live operations",
+    metrics: shellMetrics,
+    plannedWork: [
+      "Review immutable customer order snapshots",
+      "Advance only server-authorized status transitions",
+      "Monitor POS handoff without treating an order as a fiscal sale",
     ],
     guardrails: sharedShopGuardrails,
   },

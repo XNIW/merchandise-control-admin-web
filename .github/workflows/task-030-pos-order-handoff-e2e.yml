@@ -1,0 +1,107 @@
+name: TASK-030 POS Order Handoff E2E
+
+on:
+  push:
+    branches:
+      - integration/storefront-v1
+    paths:
+      - ".github/workflows/task-030-pos-order-handoff-e2e.yml"
+      - "scripts/testing/storefront-v1-pos-order-staging-e2e.mjs"
+      - "package.json"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: storefront-v1-staging-order-payment
+  cancel-in-progress: false
+
+env:
+  CI: true
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  staging-pos-order-handoff-e2e:
+    name: Staging claim ack replay and fiscal boundary
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare-staging
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF || vars.SUPABASE_PROJECT_REF }}
+      SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF || vars.SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TASK030_POS_E2E_ALLOW_STAGING: "yes"
+      TASK030_POS_E2E_BASE_URL: ${{ vars.CLOUDFLARE_STAGING_URL }}
+      TASK030_POS_E2E_STAGING_HOST_ALLOWLIST: merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev
+      TASK030_POS_E2E_STAGING_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF || vars.SUPABASE_PROJECT_REF }}
+
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Verify immutable staging inputs
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          let urlMatchesProject = false;
+          try {
+            urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
+          } catch {}
+          const status = {
+            exactHead: /^[0-9a-f]{40}$/.test(process.env.GITHUB_SHA || ""),
+            integrationBranch:
+              process.env.GITHUB_REF === "refs/heads/integration/storefront-v1",
+            serviceRolePresent: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+            stagingUrlPresent: Boolean(process.env.TASK030_POS_E2E_BASE_URL),
+            urlMatchesProject,
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Run deployed claim ack replay and fiscal-boundary E2E
+        run: |
+          set -euo pipefail
+          mkdir -p _task030-e2e
+          node scripts/testing/storefront-v1-pos-order-staging-e2e.mjs |
+            tee _task030-e2e/result.json
+
+      - name: Verify sanitized evidence
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const report = JSON.parse(readFileSync("_task030-e2e/result.json", "utf8"));
+          if (
+            report.ok !== true ||
+            report.productionWriteRequested !== false ||
+            report.proof?.orderStatus !== "completed" ||
+            report.proof?.posSaleCount !== 0 ||
+            report.cleanup?.activeRows !== 0 ||
+            report.cleanup?.shopArchived !== true
+          ) {
+            process.exit(1);
+          }
+          NODE
+
+      - name: Upload sanitized TASK-030 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-030-pos-order-staging-e2e-${{ github.run_id }}
+          path: _task030-e2e/result.json
+          if-no-files-found: error
+          retention-days: 14

@@ -13,11 +13,15 @@ const testFiles = readdirSync(foundationDir)
   .sort()
   .map((name) => join(foundationDir, name));
 
-const child = spawn(process.execPath, ["--import", textNormalizer, "--test", ...testFiles], {
-  cwd: root,
-  env: process.env,
-  stdio: ["ignore", "pipe", "pipe"],
-});
+const child = spawn(
+  process.execPath,
+  ["--import", textNormalizer, "--test", ...testFiles],
+  {
+    cwd: root,
+    env: process.env,
+    stdio: ["ignore", "pipe", "pipe"],
+  },
+);
 
 const stdoutChunks = [];
 const stderrChunks = [];
@@ -28,7 +32,9 @@ child.stderr.on("data", (chunk) => stderrChunks.push(chunk));
 function printLine(line) {
   const maxLineLength = 500;
   console.error(
-    line.length > maxLineLength ? `${line.slice(0, maxLineLength)} ...[truncated]` : line,
+    line.length > maxLineLength
+      ? `${line.slice(0, maxLineLength)} ...[truncated]`
+      : line,
   );
 }
 
@@ -38,7 +44,9 @@ child.on("close", (code) => {
   const output = `${stdout}${stderr ? `\n${stderr}` : ""}`;
   const lines = output.split(/\r?\n/);
   const summary = lines.filter((line) =>
-    /^# (tests|suites|pass|fail|cancelled|skipped|todo|duration_ms)\b/.test(line),
+    /^(?:#|ℹ) (tests|suites|pass|fail|cancelled|skipped|todo|duration_ms)\b/.test(
+      line,
+    ),
   );
 
   if (code === 0) {
@@ -65,7 +73,9 @@ child.on("close", (code) => {
     for (let cursor = index + 1; cursor < lines.length; cursor += 1) {
       const line = lines[cursor];
 
-      if (/^(ok \d+ -|not ok \d+ -|# Subtest: |✖ |✔ |﹣ |ℹ |1\.\.)/.test(line)) {
+      if (
+        /^(ok \d+ -|not ok \d+ -|# Subtest: |✖ |✔ |﹣ |ℹ |1\.\.)/.test(line)
+      ) {
         break;
       }
 

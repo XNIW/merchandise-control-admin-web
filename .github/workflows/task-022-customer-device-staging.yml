@@ -1,0 +1,33 @@
+name: TASK-022 Customer Device Staging
+
+on:
+  push:
+    branches:
+      - integration/storefront-v1
+    # Frozen checkpoint: shared-runner changes are exercised by the active task.
+    paths:
+      - supabase/migrations/20260802194500_storefront_v1_customer_devices.sql
+      - supabase/tests/storefront_v1_customer_devices.sql
+      - scripts/testing/storefront-v1-customer-device-concurrency.sh
+      - tests/foundation/storefront-v1-customer-devices.test.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-022-customer-device-staging
+  cancel-in-progress: false
+
+jobs:
+  staging-customer-device-contract:
+    uses: ./.github/workflows/storefront-v1-staging-migrations.yml
+    with:
+      mode: apply
+      expected_head_sha: ${{ github.sha }}
+      expected_migration_version: "20260802194500"
+      expected_migration_name: storefront_v1_customer_devices
+      expected_migration_file: 20260802194500_storefront_v1_customer_devices.sql
+      apply_confirmation: APPLY_STOREFRONT_V1_STAGING
+      load_hold_seconds: "0"
+      run_performance_load: false
+    secrets: inherit

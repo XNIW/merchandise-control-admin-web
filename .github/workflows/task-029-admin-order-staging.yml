@@ -1,0 +1,280 @@
+name: TASK-029 Admin Orders Staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - integration/storefront-v1
+    paths:
+      - .github/workflows/task-029-admin-order-staging.yml
+      - supabase/migrations/20260803053000_storefront_v1_admin_orders.sql
+      - supabase/tests/storefront_v1_admin_orders.sql
+      - scripts/testing/storefront-v1-admin-order-concurrency.sh
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-029-admin-order-staging
+  cancel-in-progress: false
+
+jobs:
+  apply-admin-orders:
+    uses: ./.github/workflows/storefront-v1-staging-migrations.yml
+    with:
+      mode: apply
+      expected_head_sha: ${{ github.sha }}
+      expected_migration_version: "20260803053000"
+      expected_migration_name: storefront_v1_admin_orders
+      expected_migration_file: 20260803053000_storefront_v1_admin_orders.sql
+      apply_confirmation: APPLY_STOREFRONT_V1_STAGING
+      load_hold_seconds: "0"
+      run_performance_load: false
+    secrets: inherit
+
+  verify-admin-orders:
+    needs: apply-admin-orders
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: cloudflare-staging
+    env:
+      SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Verify immutable staging target
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          let urlMatchesProject = false;
+          try {
+            urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
+          } catch {}
+          const status = {
+            integrationBranch:
+              process.env.GITHUB_REF === "refs/heads/integration/storefront-v1",
+            exactHead: /^[0-9a-f]{40}$/.test(process.env.GITHUB_SHA || ""),
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            allowedProject: allowed.includes(ref),
+            urlMatchesProject,
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build protected database URL
+        run: |
+          set -euo pipefail
+          mkdir -p _task029-evidence
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(
+            `postgresql://postgres.${ref}:${encodeURIComponent(password)}`
+              + `@${host}:5432/postgres?sslmode=require`,
+          );
+          NODE
+          )"
+          echo "::add-mask::$SOURCE_DB_URL"
+          printf '%s' "$SOURCE_DB_URL" > _task029-db-url
+          chmod 600 _task029-db-url
+
+      - name: Verify pgTAP and two-operator race
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task029-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_admin_orders.sql \
+              > _task029-evidence/pgtap.txt
+          docker run --rm --network host \
+            -e STOREFRONT_ADMIN_ORDER_DB_URL="$SOURCE_DB_URL" \
+            -e STOREFRONT_ADMIN_ORDER_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_ADMIN_ORDER \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-admin-order-concurrency.sh \
+              > _task029-evidence/concurrency.txt
+
+      - name: Verify deployed Admin order boundary
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task029-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'adminOrderLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803053000'
+                    and name = 'storefront_v1_admin_orders'
+                ),
+                'queueIndexes', (
+                  select count(*) = 2
+                  from pg_catalog.pg_indexes
+                  where schemaname = 'public'
+                    and indexname in (
+                      'customer_orders_shop_queue_idx',
+                      'customer_order_items_public_name_trgm_idx'
+                    )
+                ),
+                'ledgerForcedRls', (
+                  select relrowsecurity and relforcerowsecurity
+                    and not has_table_privilege(
+                      'authenticated',
+                      'public.customer_order_admin_mutations',
+                      'SELECT,INSERT,UPDATE,DELETE'
+                    )
+                  from pg_catalog.pg_class
+                  where oid = 'public.customer_order_admin_mutations'::regclass
+                ),
+                'ledgerImmutable', exists (
+                  select 1
+                  from pg_catalog.pg_trigger
+                  where tgrelid =
+                    'public.customer_order_admin_mutations'::regclass
+                    and tgname =
+                      'customer_order_admin_mutations_guard_immutable'
+                    and not tgisinternal
+                ),
+                'rpcBoundary', (
+                  select count(*) = 2
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'admin_customer_orders_read_v1',
+                      'admin_customer_order_transition_v1'
+                    )
+                    and procedure.prosecdef
+                    and 'search_path=' || pg_catalog.chr(34)
+                      || pg_catalog.chr(34) = any(procedure.proconfig)
+                    and 'statement_timeout=5s' = any(procedure.proconfig)
+                    and has_function_privilege(
+                      'authenticated', procedure.oid, 'EXECUTE'
+                    )
+                    and not has_function_privilege(
+                      'anon', procedure.oid, 'EXECUTE'
+                    )
+                ),
+                'permissionContract', (
+                  select count(*) = 2
+                  from app_private.mac_admin_w7pos_009_pos_admin_permissions()
+                  where permission_key in ('orders.view', 'orders.manage')
+                ),
+                'allPosAdminRolesSeeded', not exists (
+                  select 1
+                  from public.shops shop
+                  cross join (
+                    values ('orders.view'), ('orders.manage')
+                  ) expected(permission_key)
+                  where not exists (
+                    select 1
+                    from public.staff_role_permissions permission
+                    where permission.shop_id = shop.shop_id
+                      and permission.role_key = 'pos_admin'
+                      and permission.permission_key = expected.permission_key
+                      and permission.enabled
+                  )
+                ),
+                'posNeutralTransition', (
+                  select pg_catalog.pg_get_functiondef(procedure.oid)
+                    not ilike '%pos_sales%'
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname =
+                      'admin_customer_order_transition_v1'
+                ),
+                'serverAuthoritativeArguments', not exists (
+                  select 1
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  cross join lateral unnest(
+                    coalesce(procedure.proargnames, '{}'::text[])
+                  ) argument(name)
+                  where namespace.nspname = 'public'
+                    and procedure.proname =
+                      'admin_customer_order_transition_v1'
+                    and argument.name ~*
+                      '(price|total|discount|fee|stock|customer_id)'
+                ),
+                'outboxEvents', (
+                  select pg_catalog.pg_get_constraintdef(oid)
+                    ilike all(array[
+                      '%customer_order.accepted.v1%',
+                      '%customer_order.rejected.v1%',
+                      '%customer_order.preparing.v1%',
+                      '%customer_order.ready.v1%',
+                      '%customer_order.out_for_delivery.v1%',
+                      '%customer_order.completed.v1%',
+                      '%customer_order.cancelled.v1%'
+                    ])
+                  from pg_catalog.pg_constraint
+                  where conrelid = 'public.customer_order_outbox'::regclass
+                    and conname = 'customer_order_outbox_event_check'
+                )
+              )" \
+              > _task029-evidence/post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync("_task029-evidence/pgtap.txt", "utf8");
+          const concurrency = readFileSync(
+            "_task029-evidence/concurrency.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync("_task029-evidence/post-verify.json", "utf8"),
+          );
+          const checks = {
+            ...report,
+            pgTapPlan: /^1\.\.34$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 34,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+            concurrency:
+              /one versioned commit, one stale loser, one exact replay, one event\/audit\/outbox\/receipt, zero fiscal sale: PASS/.test(
+                concurrency,
+              ),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => value !== true)) {
+            process.exit(1);
+          }
+          NODE
+
+      - name: Remove protected connection material
+        if: always()
+        run: rm -f _task029-db-url
+
+      - name: Upload non-secret TASK-029 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-029-admin-orders-${{ github.run_attempt }}
+          path: _task029-evidence/
+          if-no-files-found: error
+          retention-days: 14

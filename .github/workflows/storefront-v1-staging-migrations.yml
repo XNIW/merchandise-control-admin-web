@@ -1,0 +1,2271 @@
+name: Storefront V1 Staging Migrations
+
+on:
+  workflow_call:
+    inputs:
+      mode:
+        description: "Validate only, or apply the approved Storefront migration"
+        required: true
+        type: string
+      expected_head_sha:
+        description: "Exact integration/storefront-v1 commit to deploy"
+        required: true
+        type: string
+      expected_migration_version:
+        description: "Exact additive migration version expected in the delta"
+        required: false
+        default: "20260802043000"
+        type: string
+      expected_migration_name:
+        description: "Exact additive migration name expected in the delta"
+        required: false
+        default: storefront_v1_catalog_performance
+        type: string
+      expected_migration_file:
+        description: "Exact additive migration filename expected in the delta"
+        required: false
+        default: 20260802043000_storefront_v1_catalog_performance.sql
+        type: string
+      expected_predecessor_migration_version:
+        description: "Optional first migration version when one task has an ordered two-migration delta"
+        required: false
+        default: ""
+        type: string
+      expected_predecessor_migration_name:
+        description: "Optional first migration name for an ordered two-migration delta"
+        required: false
+        default: ""
+        type: string
+      expected_predecessor_migration_file:
+        description: "Optional first migration filename for an ordered two-migration delta"
+        required: false
+        default: ""
+        type: string
+      apply_confirmation:
+        description: "For apply, enter APPLY_STOREFRONT_V1_STAGING"
+        required: false
+        type: string
+      load_hold_seconds:
+        description: "Bounded TASK-019 fixture window for headless client profiling"
+        required: false
+        default: "0"
+        type: string
+      run_performance_load:
+        description: "Run the bounded TASK-019 20k-row performance fixture"
+        required: false
+        default: true
+        type: boolean
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Validate only, or apply the approved Storefront migration"
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+      expected_head_sha:
+        description: "Exact integration/storefront-v1 commit to deploy"
+        required: true
+        type: string
+      expected_migration_version:
+        description: "Exact additive migration version expected in the delta"
+        required: true
+        default: "20260802043000"
+        type: string
+      expected_migration_name:
+        description: "Exact additive migration name expected in the delta"
+        required: true
+        default: storefront_v1_catalog_performance
+        type: string
+      expected_migration_file:
+        description: "Exact additive migration filename expected in the delta"
+        required: true
+        default: 20260802043000_storefront_v1_catalog_performance.sql
+        type: string
+      expected_predecessor_migration_version:
+        description: "Optional first migration version when one task has an ordered two-migration delta"
+        required: false
+        default: ""
+        type: string
+      expected_predecessor_migration_name:
+        description: "Optional first migration name for an ordered two-migration delta"
+        required: false
+        default: ""
+        type: string
+      expected_predecessor_migration_file:
+        description: "Optional first migration filename for an ordered two-migration delta"
+        required: false
+        default: ""
+        type: string
+      apply_confirmation:
+        description: "For apply, enter APPLY_STOREFRONT_V1_STAGING"
+        required: false
+        type: string
+      load_hold_seconds:
+        description: "Bounded TASK-019 fixture window in seconds (0..900)"
+        required: false
+        default: "0"
+        type: string
+      run_performance_load:
+        description: "Run the bounded TASK-019 20k-row performance fixture"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: storefront-v1-staging-migrations
+  cancel-in-progress: false
+
+env:
+  SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+  EXPECTED_MIGRATION_VERSION: ${{ inputs.expected_migration_version }}
+  EXPECTED_MIGRATION_NAME: ${{ inputs.expected_migration_name }}
+  EXPECTED_MIGRATION_FILE: ${{ inputs.expected_migration_file }}
+  EXPECTED_PREDECESSOR_MIGRATION_VERSION: ${{ inputs.expected_predecessor_migration_version }}
+  EXPECTED_PREDECESSOR_MIGRATION_NAME: ${{ inputs.expected_predecessor_migration_name }}
+  EXPECTED_PREDECESSOR_MIGRATION_FILE: ${{ inputs.expected_predecessor_migration_file }}
+  REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
+  REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
+  REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
+  REMAPPED_LOCAL_MIGRATION_FILE: 20260727055520_task_142_catalog_text_policy_v1.sql
+  ALLOW_EXPECTED_ALREADY_APPLIED: "true"
+
+jobs:
+  migrate:
+    name: Guarded Storefront dry-run and optional apply
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare-staging
+
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Verify immutable staging inputs
+        env:
+          REQUESTED_MODE: ${{ inputs.mode }}
+          EXPECTED_HEAD_SHA: ${{ inputs.expected_head_sha }}
+          APPLY_CONFIRMATION: ${{ inputs.apply_confirmation }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const mode = process.env.REQUESTED_MODE || "";
+          const expectedHead = process.env.EXPECTED_HEAD_SHA || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          let urlMatchesProject = false;
+          try {
+            urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
+          } catch {}
+          const status = {
+            integrationBranch:
+              process.env.GITHUB_REF === "refs/heads/integration/storefront-v1",
+            exactHead:
+              /^[0-9a-f]{40}$/.test(expectedHead) &&
+              process.env.GITHUB_SHA === expectedHead,
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            allowedProject: allowed.includes(ref),
+            urlMatchesProject,
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+            supportedMode: mode === "dry-run" || mode === "apply",
+            applyConfirmationOk:
+              mode !== "apply" ||
+              process.env.APPLY_CONFIRMATION === "APPLY_STOREFRONT_V1_STAGING",
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build protected database URL
+        run: |
+          set -euo pipefail
+          mkdir -p _storefront-migration/evidence
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(`postgresql://postgres.${ref}:${encodeURIComponent(password)}@${host}:5432/postgres?sslmode=require`);
+          NODE
+          )"
+          echo "::add-mask::$SOURCE_DB_URL"
+          printf '%s' "$SOURCE_DB_URL" > _storefront-migration/source-db-url
+          chmod 600 _storefront-migration/source-db-url
+
+      - name: Prove exact remote-to-local migration delta
+        id: migration_delta
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -F $'\t' -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select version, name from supabase_migrations.schema_migrations order by version" \
+              > _storefront-migration/evidence/remote-ledger.tsv
+          node scripts/task-150-reconcile-migration-delta.mjs \
+            supabase/migrations \
+            _storefront-migration/evidence/remote-ledger.tsv \
+            _storefront-migration/evidence/delta.json
+          EXPECTED_STATE="$(node -e '
+          const report = require("./_storefront-migration/evidence/delta.json");
+          if (!["pending", "applied"].includes(report.expectedState)) process.exit(1);
+          process.stdout.write(report.expectedState);
+          ')"
+          printf 'expected_state=%s\n' "$EXPECTED_STATE" >> "$GITHUB_OUTPUT"
+
+      - name: Materialize approved remote remap for CLI parity
+        run: |
+          set -euo pipefail
+          LOCAL_PATH="supabase/migrations/$REMAPPED_LOCAL_MIGRATION_FILE"
+          REMOTE_PATH="supabase/migrations/${REMAPPED_REMOTE_MIGRATION_VERSION}_${REMAPPED_MIGRATION_NAME}.sql"
+          test -f "$LOCAL_PATH"
+          test ! -e "$REMOTE_PATH"
+          cp -- "$LOCAL_PATH" "$REMOTE_PATH"
+          rm -- "$LOCAL_PATH"
+          test -f "$REMOTE_PATH"
+          test ! -e "$LOCAL_PATH"
+
+      - name: Supabase CLI dry-run
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          npx --yes supabase@2.111.0 \
+            --workdir "$PWD" \
+            db push \
+            --dry-run \
+            --db-url "$SOURCE_DB_URL" \
+            2>&1 | tee _storefront-migration/evidence/supabase-dry-run.txt
+          if [[ "${{ steps.migration_delta.outputs.expected_state }}" == "pending" ]]; then
+            grep -F "$EXPECTED_MIGRATION_VERSION" \
+              _storefront-migration/evidence/supabase-dry-run.txt
+          fi
+          if grep -F "$REMAPPED_LOCAL_MIGRATION_VERSION" \
+            _storefront-migration/evidence/supabase-dry-run.txt || \
+            grep -F "$REMAPPED_REMOTE_MIGRATION_VERSION" \
+              _storefront-migration/evidence/supabase-dry-run.txt; then
+            echo "Already-applied remapped migration appeared in dry-run." >&2
+            exit 1
+          fi
+          sed -i \
+            -e "s/$STAGING_SUPABASE_PROJECT_REF/[STAGING_REF]/g" \
+            -e "s/$SOURCE_POOLER_HOST/[POOLER_HOST]/g" \
+            _storefront-migration/evidence/supabase-dry-run.txt
+
+      - name: Apply approved Storefront migration
+        if: >-
+          inputs.mode == 'apply' &&
+          steps.migration_delta.outputs.expected_state == 'pending'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          npx --yes supabase@2.111.0 \
+            --workdir "$PWD" \
+            db push \
+            --db-url "$SOURCE_DB_URL" \
+            --yes \
+            2>&1 | tee _storefront-migration/evidence/supabase-apply.txt
+          grep -F "$EXPECTED_MIGRATION_VERSION" \
+            _storefront-migration/evidence/supabase-apply.txt
+          if grep -F "$REMAPPED_LOCAL_MIGRATION_VERSION" \
+            _storefront-migration/evidence/supabase-apply.txt || \
+            grep -F "$REMAPPED_REMOTE_MIGRATION_VERSION" \
+              _storefront-migration/evidence/supabase-apply.txt; then
+            echo "Already-applied remapped migration appeared in apply." >&2
+            exit 1
+          fi
+          sed -i \
+            -e "s/$STAGING_SUPABASE_PROJECT_REF/[STAGING_REF]/g" \
+            -e "s/$SOURCE_POOLER_HOST/[POOLER_HOST]/g" \
+            _storefront-migration/evidence/supabase-apply.txt
+
+      - name: Verify Storefront public API, projection boundary and safe defaults
+        if: inputs.mode == 'apply'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          cat > _storefront-migration/post-verify.sql <<'SQL'
+          select jsonb_pretty(jsonb_build_object(
+            'migrationLedgerExact', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260802043000'
+                and name = 'storefront_v1_catalog_performance'
+            ),
+            'catalogVersionLedgerRetained', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260802033000'
+                and name = 'storefront_v1_catalog_version_contract'
+            ),
+            'publicImagesLedgerRetained', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260802023000'
+                and name = 'storefront_v1_public_images'
+            ),
+            'adminPromotionsLedgerRetained', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260802010000'
+                and name = 'storefront_v1_admin_promotions'
+            ),
+            'adminPublicationsLedgerRetained', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260802001000'
+                and name = 'storefront_v1_admin_publications'
+            ),
+            'publicApiPlannerLedgerRetained', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260801230000'
+                and name = 'storefront_v1_public_api_planner'
+            ),
+            'publicApiLedgerRetained', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260801223000'
+                and name = 'storefront_v1_public_api'
+            ),
+            'projectionGrantRepairRetained', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260801213500'
+                and name = 'storefront_v1_catalog_projection_grants'
+            ),
+            'projectionLedgerRetained', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260801211500'
+                and name = 'storefront_v1_catalog_projection'
+            ),
+            'task005LedgerRetained', (
+              select count(*) = 1
+              from supabase_migrations.schema_migrations
+              where version = '20260801195852'
+                and name = 'storefront_v1_schema_rls'
+            ),
+            'projectionTableCount', (
+              select count(*)
+              from pg_catalog.pg_class class
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = class.relnamespace
+              where namespace.nspname = 'public'
+                and class.relkind = 'r'
+                and class.relname in (
+                  'storefront_catalog_items',
+                  'storefront_catalog_versions'
+                )
+            ),
+            'rlsForcedCount', (
+              select count(*)
+              from pg_catalog.pg_class class
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = class.relnamespace
+              where namespace.nspname = 'public'
+                and class.relname in (
+                  'storefront_catalog_items',
+                  'storefront_catalog_versions'
+                )
+                and class.relkind = 'r'
+                and class.relrowsecurity
+                and class.relforcerowsecurity
+            ),
+            'projectionPolicyCount', (
+              select count(*)
+              from pg_catalog.pg_policy policy
+              join pg_catalog.pg_class class on class.oid = policy.polrelid
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = class.relnamespace
+              where namespace.nspname = 'public'
+                and class.relname in (
+                  'storefront_catalog_items',
+                  'storefront_catalog_versions'
+                )
+            ),
+            'anonProjectionDenied',
+              not has_table_privilege(
+                'anon',
+                'public.storefront_catalog_items',
+                'SELECT,INSERT,UPDATE,DELETE'
+              ),
+            'authenticatedProjectionDenied',
+              not has_table_privilege(
+                'authenticated',
+                'public.storefront_catalog_items',
+                'SELECT,INSERT,UPDATE,DELETE'
+              ),
+            'serviceRoleProjectionBoundary',
+              has_table_privilege(
+                'service_role',
+                'public.storefront_catalog_items',
+                'SELECT'
+              )
+              and not has_table_privilege(
+                'service_role',
+                'public.storefront_catalog_items',
+                'INSERT,UPDATE,DELETE'
+              ),
+            'projectionPriceIsBigint', (
+              select data_type = 'bigint'
+              from information_schema.columns
+              where table_schema = 'public'
+                and table_name = 'storefront_catalog_items'
+                and column_name = 'price_clp'
+            ),
+            'internalColumnsAbsent', not exists (
+              select 1
+              from information_schema.columns
+              where table_schema = 'public'
+                and table_name = 'storefront_catalog_items'
+                and column_name in (
+                  'source_product_id',
+                  'owner_user_id',
+                  'supplier_id',
+                  'purchase_price',
+                  'stock_quantity',
+                  'source_image_version_id',
+                  'main_path',
+                  'thumb_path'
+                )
+            ),
+            'projectionFunctionsHardened', (
+              select count(*) = 7
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'app_private'
+                and procedure.proname like 'storefront_catalog_%_v1'
+                and procedure.prosecdef
+                and procedure.proconfig = array['search_path=""']
+            ),
+            'publicApiFunctionCount', (
+              select count(*) = 9
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'public'
+                and procedure.proname in (
+                  'storefront_catalog_version_v1',
+                  'storefront_settings_v1',
+                  'storefront_categories_v1',
+                  'storefront_catalog_v1',
+                  'storefront_search_v1',
+                  'storefront_product_detail_v1',
+                  'storefront_featured_v1',
+                  'storefront_offers_v1',
+                  'storefront_home_v1'
+                )
+                and procedure.prosecdef
+                and procedure.provolatile = 's'
+                and 'search_path=""' = any(procedure.proconfig)
+                and 'statement_timeout=3s' = any(procedure.proconfig)
+            ),
+            'publicApiMobileExecute',
+              has_function_privilege(
+                'anon',
+                'public.storefront_catalog_v1(text,text,integer,text,text,boolean,boolean,text)',
+                'EXECUTE'
+              )
+              and has_function_privilege(
+                'authenticated',
+                'public.storefront_search_v1(text,text,text,integer,text)',
+                'EXECUTE'
+              ),
+            'privateApiHelpersDenied',
+              not has_function_privilege(
+                'anon',
+                'app_private.storefront_public_shop_v1(text)',
+                'EXECUTE'
+              )
+              and not has_function_privilege(
+                'authenticated',
+                'app_private.storefront_cursor_decode_v1(text)',
+                'EXECUTE'
+              ),
+            'readResolverPlannerSafe', (
+              select not procedure.prosecdef
+                and procedure.proconfig is null
+                and not has_function_privilege(
+                  'anon',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+                and not has_function_privilege(
+                  'authenticated',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'app_private'
+                and procedure.proname = 'storefront_public_catalog_rows_v1'
+                and pg_catalog.pg_get_function_identity_arguments(procedure.oid)
+                  = 'p_shop_id uuid, p_at timestamp with time zone'
+            ),
+            'publicSearchFieldsPresent', (
+              select count(*) = 4
+              from information_schema.columns
+              where table_schema = 'public'
+                and (
+                  (
+                    table_name = 'storefront_product_publications'
+                    and column_name in ('public_barcode', 'public_search_aliases')
+                  )
+                  or (
+                    table_name = 'storefront_catalog_items'
+                    and column_name in ('public_barcode', 'public_search_aliases')
+                  )
+                )
+            ),
+            'publicKeysetIndexesPresent', (
+              select count(*) = 2
+              from pg_catalog.pg_indexes
+              where schemaname = 'public'
+                and indexname in (
+                  'storefront_catalog_items_shop_catalog_keyset_v1_idx',
+                  'storefront_catalog_items_shop_name_keyset_v1_idx'
+                )
+            ),
+            'adminRpcBoundary', (
+              select count(*) = 2
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'public'
+                and procedure.proname in (
+                  'admin_storefront_publications_read_v1',
+                  'admin_storefront_publication_mutate_v1'
+                )
+                and procedure.prosecdef
+                and procedure.provolatile = 'v'
+                and 'search_path=""' = any(procedure.proconfig)
+                and 'statement_timeout=5s' = any(procedure.proconfig)
+                and not has_function_privilege(
+                  'anon',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+                and has_function_privilege(
+                  'authenticated',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+            ),
+            'adminPromotionRpcBoundary', (
+              select count(*) = 2
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'public'
+                and procedure.proname in (
+                  'admin_storefront_promotions_read_v1',
+                  'admin_storefront_promotion_mutate_v1'
+                )
+                and procedure.prosecdef
+                and procedure.provolatile = 'v'
+                and 'search_path=""' = any(procedure.proconfig)
+                and not has_function_privilege(
+                  'anon',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+                and has_function_privilege(
+                  'authenticated',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+            ),
+            'publicImageBucketBoundary', (
+              select count(*) = 1
+              from storage.buckets
+              where id = 'storefront-product-images'
+                and public
+                and file_size_limit = 921600
+                and allowed_mime_types = array['image/webp']::text[]
+            ),
+            'publicImageVariantBoundary', (
+              select class.relrowsecurity
+                and class.relforcerowsecurity
+                and not has_table_privilege(
+                  'anon',
+                  'public.storefront_image_publication_variants',
+                  'SELECT,INSERT,UPDATE,DELETE'
+                )
+                and not has_table_privilege(
+                  'authenticated',
+                  'public.storefront_image_publication_variants',
+                  'SELECT,INSERT,UPDATE,DELETE'
+                )
+                and has_table_privilege(
+                  'service_role',
+                  'public.storefront_image_publication_variants',
+                  'SELECT,INSERT,UPDATE,DELETE'
+                )
+              from pg_catalog.pg_class class
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = class.relnamespace
+              where namespace.nspname = 'public'
+                and class.relname = 'storefront_image_publication_variants'
+            ),
+            'publicImageAdminFunctionsHardened', (
+              select count(*) = 5
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'public'
+                and procedure.proname in (
+                  'admin_storefront_images_read_v1',
+                  'admin_storefront_image_source_read_v1',
+                  'admin_storefront_image_intent_v1',
+                  'admin_storefront_image_finalize_v1',
+                  'admin_storefront_image_rollback_v1'
+                )
+                and procedure.prosecdef
+                and 'search_path=""' = any(procedure.proconfig)
+                and exists (
+                  select 1
+                  from unnest(procedure.proconfig) setting
+                  where setting like 'statement_timeout=%'
+                )
+                and not has_function_privilege(
+                  'anon',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+                and has_function_privilege(
+                  'authenticated',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+            ),
+            'publicImageServiceFunctionsConfined', (
+              select count(*) = 3
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'public'
+                and procedure.proname in (
+                  'storefront_image_configure_origin_v1',
+                  'storefront_image_cleanup_claim_v1',
+                  'storefront_image_cleanup_complete_v1'
+                )
+                and procedure.prosecdef
+                and 'search_path=""' = any(procedure.proconfig)
+                and exists (
+                  select 1
+                  from unnest(procedure.proconfig) setting
+                  where setting like 'statement_timeout=%'
+                )
+                and not has_function_privilege(
+                  'anon',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+                and not has_function_privilege(
+                  'authenticated',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+                and has_function_privilege(
+                  'service_role',
+                  procedure.oid,
+                  'EXECUTE'
+                )
+            ),
+            'promotionCronScheduled', (
+              select count(*) = 1
+              from cron.job
+              where jobname = 'storefront-promotion-reconcile-v1'
+                and schedule = '* * * * *'
+            ),
+            'adminAuthoringDirectDenied',
+              not has_table_privilege(
+                'authenticated',
+                'public.storefront_product_publications',
+                'INSERT,UPDATE,DELETE'
+              ),
+            'storefrontPermissionMatrix', (
+              select count(*) = 8
+              from app_private.mac_admin_w7pos_009_pos_admin_permissions()
+              where permission_key like 'storefront.%'
+            ),
+            'statementTriggerCount', (
+              select count(*) = 18
+              from pg_catalog.pg_trigger trigger
+              join pg_catalog.pg_class class on class.oid = trigger.tgrelid
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = class.relnamespace
+              where namespace.nspname = 'public'
+                and not trigger.tgisinternal
+                and trigger.tgname like 'storefront_%_catalog_%'
+            ),
+            'searchExtensionsPresent', (
+              select count(*) = 2
+              from pg_catalog.pg_extension
+              where extname in ('unaccent', 'pg_trgm')
+            )
+          ));
+          SQL
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD/_storefront-migration:/migration" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /migration/post-verify.sql \
+              > _storefront-migration/evidence/post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/post-verify.json",
+              "utf8",
+            ),
+          );
+          const requiredTrue = [
+            "migrationLedgerExact",
+            "catalogVersionLedgerRetained",
+            "adminPromotionsLedgerRetained",
+            "adminPublicationsLedgerRetained",
+            "publicApiPlannerLedgerRetained",
+            "publicApiLedgerRetained",
+            "projectionLedgerRetained",
+            "projectionGrantRepairRetained",
+            "task005LedgerRetained",
+            "anonProjectionDenied",
+            "authenticatedProjectionDenied",
+            "serviceRoleProjectionBoundary",
+            "projectionPriceIsBigint",
+            "internalColumnsAbsent",
+            "projectionFunctionsHardened",
+            "publicApiFunctionCount",
+            "publicApiMobileExecute",
+            "privateApiHelpersDenied",
+            "readResolverPlannerSafe",
+            "publicSearchFieldsPresent",
+            "publicKeysetIndexesPresent",
+            "adminRpcBoundary",
+            "adminPromotionRpcBoundary",
+            "publicImageBucketBoundary",
+            "publicImageVariantBoundary",
+            "publicImageAdminFunctionsHardened",
+            "publicImageServiceFunctionsConfined",
+            "promotionCronScheduled",
+            "adminAuthoringDirectDenied",
+            "storefrontPermissionMatrix",
+            "statementTriggerCount",
+            "searchExtensionsPresent",
+          ];
+          const summary = {
+            ...report,
+            projectRef: "[STAGING_REF]",
+          };
+          console.log(JSON.stringify(summary));
+          if (
+            requiredTrue.some((key) => report[key] !== true) ||
+            Number(report.projectionTableCount) !== 2 ||
+            Number(report.rlsForcedCount) !== 2 ||
+            Number(report.projectionPolicyCount) !== 0
+          ) process.exit(1);
+          NODE
+
+      - name: Verify TASK-021 customer ownership and privacy contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260802181823'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_customer_profiles_addresses.sql \
+              > _storefront-migration/evidence/task-021-pgtap.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260802181823'
+                    and name = 'storefront_v1_customer_profiles_addresses'
+                ),
+                'tableCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'customer_profiles',
+                      'customer_addresses',
+                      'customer_account_deletion_requests'
+                    )
+                    and class.relkind = 'r'
+                ),
+                'rlsForcedCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'customer_profiles',
+                      'customer_addresses',
+                      'customer_account_deletion_requests'
+                    )
+                    and class.relkind = 'r'
+                    and class.relrowsecurity
+                    and class.relforcerowsecurity
+                ),
+                'policyCount', (
+                  select count(*)
+                  from pg_catalog.pg_policy policy
+                  join pg_catalog.pg_class class on class.oid = policy.polrelid
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'customer_profiles',
+                      'customer_addresses',
+                      'customer_account_deletion_requests'
+                    )
+                ),
+                'sensitiveColumnsAbsent', not exists (
+                  select 1
+                  from information_schema.columns
+                  where table_schema = 'public'
+                    and table_name in (
+                      'customer_profiles',
+                      'customer_addresses',
+                      'customer_account_deletion_requests'
+                    )
+                    and column_name ~* '(email|password|token|oauth|credential|secret)'
+                )
+              )" \
+              > _storefront-migration/evidence/task-021-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-021-pgtap.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-021-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            migrationLedgerExact: report.migrationLedgerExact === true,
+            tableCount: Number(report.tableCount) === 3,
+            rlsForcedCount: Number(report.rlsForcedCount) === 3,
+            policyCount: Number(report.policyCount) === 9,
+            sensitiveColumnsAbsent: report.sensitiveColumnsAbsent === true,
+            pgTapPlan: /^1\.\.64$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 64,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Verify TASK-022 customer device and push-consent contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260802194500'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_customer_devices.sql \
+              > _storefront-migration/evidence/task-022-pgtap.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260802194500'
+                    and name = 'storefront_v1_customer_devices'
+                ),
+                'tableCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname = 'customer_devices'
+                    and class.relkind = 'r'
+                ),
+                'rlsForced', (
+                  select class.relrowsecurity and class.relforcerowsecurity
+                  from pg_catalog.pg_class class
+                  where class.oid = 'public.customer_devices'::regclass
+                ),
+                'policyCount', (
+                  select count(*)
+                  from pg_catalog.pg_policy policy
+                  where policy.polrelid = 'public.customer_devices'::regclass
+                ),
+                'authenticatedTableDenied',
+                  not has_table_privilege(
+                    'authenticated',
+                    'public.customer_devices',
+                    'SELECT'
+                  )
+                  and not has_table_privilege(
+                    'authenticated',
+                    'public.customer_devices',
+                    'INSERT'
+                  )
+                  and not has_table_privilege(
+                    'authenticated',
+                    'public.customer_devices',
+                    'UPDATE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated',
+                    'public.customer_devices',
+                    'DELETE'
+                  ),
+                'serviceRoleTableBoundary',
+                  has_table_privilege(
+                    'service_role',
+                    'public.customer_devices',
+                    'SELECT'
+                  )
+                  and has_table_privilege(
+                    'service_role',
+                    'public.customer_devices',
+                    'INSERT'
+                  )
+                  and has_table_privilege(
+                    'service_role',
+                    'public.customer_devices',
+                    'UPDATE'
+                  )
+                  and has_table_privilege(
+                    'service_role',
+                    'public.customer_devices',
+                    'DELETE'
+                  ),
+                'rpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_register_device_v1',
+                      'customer_revoke_device_v1',
+                      'customer_device_status_v1'
+                    )
+                ),
+                'rpcHardened', (
+                  select count(*) = 3
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_register_device_v1',
+                      'customer_revoke_device_v1',
+                      'customer_device_status_v1'
+                    )
+                    and procedure.prosecdef
+                    and (
+                      'search_path='
+                      || pg_catalog.chr(34)
+                      || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
+                ),
+                'anonRpcDenied',
+                  not has_function_privilege(
+                    'anon',
+                    'public.customer_device_status_v1(uuid)',
+                    'EXECUTE'
+                  ),
+                'authenticatedRpcAllowed',
+                  has_function_privilege(
+                    'authenticated',
+                    'public.customer_device_status_v1(uuid)',
+                    'EXECUTE'
+                  ),
+                'activeDeliveryPermissionFiltered', (
+                  select indexdef ilike '%permission_status%authorized%provisional%'
+                  from pg_catalog.pg_indexes
+                  where schemaname = 'public'
+                    and indexname = 'customer_devices_active_delivery_idx'
+                )
+              )" \
+              > _storefront-migration/evidence/task-022-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-022-pgtap.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-022-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            migrationLedgerExact: report.migrationLedgerExact === true,
+            tableCount: Number(report.tableCount) === 1,
+            rlsForced: report.rlsForced === true,
+            policyCount: Number(report.policyCount) === 4,
+            authenticatedTableDenied:
+              report.authenticatedTableDenied === true,
+            serviceRoleTableBoundary:
+              report.serviceRoleTableBoundary === true,
+            rpcCount: Number(report.rpcCount) === 3,
+            rpcHardened: report.rpcHardened === true,
+            anonRpcDenied: report.anonRpcDenied === true,
+            authenticatedRpcAllowed:
+              report.authenticatedRpcAllowed === true,
+            activeDeliveryPermissionFiltered:
+              report.activeDeliveryPermissionFiltered === true,
+            pgTapPlan: /^1\.\.58$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 58,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Verify TASK-023 persistent customer cart contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260802213000'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_customer_cart.sql \
+              > _storefront-migration/evidence/task-023-pgtap.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260802213000'
+                    and name = 'storefront_v1_customer_cart_public_slug'
+                ),
+                'tableCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'customer_carts',
+                      'customer_cart_items',
+                      'customer_cart_mutations'
+                    )
+                    and class.relkind = 'r'
+                ),
+                'rlsForcedCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  where class.oid in (
+                    'public.customer_carts'::regclass,
+                    'public.customer_cart_items'::regclass,
+                    'public.customer_cart_mutations'::regclass
+                  )
+                    and class.relrowsecurity
+                    and class.relforcerowsecurity
+                ),
+                'policyCount', (
+                  select count(*)
+                  from pg_catalog.pg_policy policy
+                  where policy.polrelid in (
+                    'public.customer_carts'::regclass,
+                    'public.customer_cart_items'::regclass,
+                    'public.customer_cart_mutations'::regclass
+                  )
+                ),
+                'authenticatedTableDenied',
+                  not has_table_privilege(
+                    'authenticated', 'public.customer_carts', 'SELECT'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_cart_items', 'INSERT'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_cart_mutations', 'SELECT'
+                  ),
+                'serviceRoleTableBoundary',
+                  has_table_privilege(
+                    'service_role', 'public.customer_carts',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and has_table_privilege(
+                    'service_role', 'public.customer_cart_items',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and has_table_privilege(
+                    'service_role', 'public.customer_cart_mutations',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'rpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_cart_read_v1',
+                      'customer_cart_mutate_v1',
+                      'customer_cart_merge_guest_v1',
+                      'customer_cart_revalidate_v1'
+                    )
+                ),
+                'rpcHardened', (
+                  select count(*) = 4
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_cart_read_v1',
+                      'customer_cart_mutate_v1',
+                      'customer_cart_merge_guest_v1',
+                      'customer_cart_revalidate_v1'
+                    )
+                    and procedure.prosecdef
+                    and (
+                      'search_path='
+                      || pg_catalog.chr(34)
+                      || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
+                ),
+                'anonRpcDenied',
+                  not has_function_privilege(
+                    'anon', 'public.customer_cart_read_v1(text)', 'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'anon',
+                    'public.customer_cart_mutate_v1(text,text,uuid,integer,bigint,uuid)',
+                    'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'anon',
+                    'public.customer_cart_merge_guest_v1(text,jsonb,bigint,uuid)',
+                    'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'anon',
+                    'public.customer_cart_revalidate_v1(text,bigint,uuid)',
+                    'EXECUTE'
+                  ),
+                'authenticatedRpcAllowed',
+                  has_function_privilege(
+                    'authenticated',
+                    'public.customer_cart_read_v1(text)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_cart_mutate_v1(text,text,uuid,integer,bigint,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_cart_merge_guest_v1(text,jsonb,bigint,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_cart_revalidate_v1(text,bigint,uuid)',
+                    'EXECUTE'
+                  ),
+                'serverAuthoritativeArguments', not exists (
+                  select 1
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  cross join lateral unnest(
+                    coalesce(procedure.proargnames, '{}'::text[])
+                  ) argument(name)
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_cart_mutate_v1',
+                      'customer_cart_merge_guest_v1',
+                      'customer_cart_revalidate_v1'
+                    )
+                    and argument.name ~* '(price|total|discount|stock)'
+                ),
+                'boundedMerge', pg_catalog.pg_get_functiondef(
+                  'app_private.customer_cart_merge_guest_v1(uuid,jsonb,bigint,uuid)'
+                    ::regprocedure
+                ) like '%greatest(100 - v_item_count, 0)%',
+                'publicSlugBoundary',
+                  to_regprocedure('public.customer_cart_read_v1(uuid)') is null
+                  and to_regprocedure('public.customer_cart_read_v1(text)') is not null
+                  and not has_function_privilege(
+                    'authenticated',
+                    'app_private.customer_cart_read_v1(uuid)',
+                    'EXECUTE'
+                  )
+              )" \
+              > _storefront-migration/evidence/task-023-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-023-pgtap.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-023-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            migrationLedgerExact: report.migrationLedgerExact === true,
+            tableCount: Number(report.tableCount) === 3,
+            rlsForcedCount: Number(report.rlsForcedCount) === 3,
+            policyCount: Number(report.policyCount) === 12,
+            authenticatedTableDenied:
+              report.authenticatedTableDenied === true,
+            serviceRoleTableBoundary:
+              report.serviceRoleTableBoundary === true,
+            rpcCount: Number(report.rpcCount) === 4,
+            rpcHardened: report.rpcHardened === true,
+            anonRpcDenied: report.anonRpcDenied === true,
+            authenticatedRpcAllowed:
+              report.authenticatedRpcAllowed === true,
+            serverAuthoritativeArguments:
+              report.serverAuthoritativeArguments === true,
+            boundedMerge: report.boundedMerge === true,
+            publicSlugBoundary: report.publicSlugBoundary === true,
+            pgTapPlan: /^1\.\.98$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 98,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Verify TASK-024 public availability contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260802220000'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_public_availability.sql \
+              > _storefront-migration/evidence/task-024-pgtap.txt
+          docker run --rm --network host \
+            -e STOREFRONT_AVAILABILITY_DB_URL="$SOURCE_DB_URL" \
+            -e STOREFRONT_AVAILABILITY_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_AVAILABILITY \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-availability-concurrency.sh \
+              > _storefront-migration/evidence/task-024-concurrency.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260802220000'
+                    and name = 'storefront_v1_public_availability'
+                ),
+                'privateSignalTable',
+                  to_regclass(
+                    'app_private.storefront_product_availability_signals'
+                  ) is not null,
+                'signalColumnsNoLeak', not exists (
+                  select 1
+                  from information_schema.columns
+                  where table_schema = 'app_private'
+                    and table_name = 'storefront_product_availability_signals'
+                    and column_name in (
+                      'stock_quantity', 'purchase_price', 'supplier_id',
+                      'owner_user_id'
+                    )
+                ),
+                'mobileTableDenied',
+                  not has_table_privilege(
+                    'anon',
+                    'app_private.storefront_product_availability_signals',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated',
+                    'app_private.storefront_product_availability_signals',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'serviceRoleBoundary',
+                  has_table_privilege(
+                    'service_role',
+                    'app_private.storefront_product_availability_signals',
+                    'SELECT'
+                  )
+                  and not has_table_privilege(
+                    'service_role',
+                    'app_private.storefront_product_availability_signals',
+                    'INSERT,UPDATE,DELETE'
+                  )
+                  and has_function_privilege(
+                    'service_role',
+                    'public.storefront_availability_ingest_v1(uuid,uuid,bigint,text,timestamptz,timestamptz,text)',
+                    'EXECUTE'
+                  ),
+                'mobileIngestDenied',
+                  not has_function_privilege(
+                    'anon',
+                    'public.storefront_availability_ingest_v1(uuid,uuid,bigint,text,timestamptz,timestamptz,text)',
+                    'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'authenticated',
+                    'public.storefront_availability_ingest_v1(uuid,uuid,bigint,text,timestamptz,timestamptz,text)',
+                    'EXECUTE'
+                  ),
+                'resolverShared',
+                  pg_get_functiondef(
+                    'app_private.storefront_catalog_source_v1(uuid,uuid,timestamptz)'
+                      ::regprocedure
+                  ) like '%storefront_effective_availability_v1%'
+                  and pg_get_functiondef(
+                    'app_private.storefront_public_catalog_rows_scoped_v1(uuid,timestamptz,uuid[])'
+                      ::regprocedure
+                  ) like '%storefront_effective_availability_v1%',
+                'ingestHardened', (
+                  select procedure.prosecdef
+                    and (
+                      'search_path='
+                      || pg_catalog.chr(34)
+                      || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
+                  from pg_catalog.pg_proc procedure
+                  where procedure.oid =
+                    'public.storefront_availability_ingest_v1(uuid,uuid,bigint,text,timestamptz,timestamptz,text)'
+                      ::regprocedure
+                )
+              )" \
+              > _storefront-migration/evidence/task-024-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-024-pgtap.txt",
+            "utf8",
+          );
+          const concurrency = readFileSync(
+            "_storefront-migration/evidence/task-024-concurrency.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-024-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            migrationLedgerExact: report.migrationLedgerExact === true,
+            privateSignalTable: report.privateSignalTable === true,
+            signalColumnsNoLeak: report.signalColumnsNoLeak === true,
+            mobileTableDenied: report.mobileTableDenied === true,
+            serviceRoleBoundary: report.serviceRoleBoundary === true,
+            mobileIngestDenied: report.mobileIngestDenied === true,
+            resolverShared: report.resolverShared === true,
+            ingestHardened: report.ingestHardened === true,
+            pgTapPlan: /^1\.\.44$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 44,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+            concurrency:
+              /one apply, one duplicate, final version 2, PASS/.test(
+                concurrency,
+              ),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Verify TASK-025 atomic reservation-hold contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260803003855'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_reservation_holds.sql \
+              > _storefront-migration/evidence/task-025-pgtap.txt
+          docker run --rm --network host \
+            -e STOREFRONT_RESERVATION_HOLD_DB_URL="$SOURCE_DB_URL" \
+            -e STOREFRONT_RESERVATION_HOLD_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_RESERVATION_HOLD \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-reservation-hold-concurrency.sh \
+              > _storefront-migration/evidence/task-025-concurrency.txt
+          docker run --rm --network host \
+            -e STOREFRONT_RESERVATION_HOLD_DB_URL="$SOURCE_DB_URL" \
+            -e STOREFRONT_RESERVATION_HOLD_LOAD_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_RESERVATION_HOLD_LOAD \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-reservation-hold-load.sh \
+              > _storefront-migration/evidence/task-025-load.json
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803003855'
+                    and name = 'storefront_v1_reservation_hold_eligibility'
+                ),
+                'tableCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'customer_reservation_holds',
+                      'customer_reservation_hold_mutations'
+                    )
+                    and class.relkind = 'r'
+                ),
+                'rlsForcedCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  where class.oid in (
+                    'public.customer_reservation_holds'::regclass,
+                    'public.customer_reservation_hold_mutations'::regclass
+                  )
+                    and class.relrowsecurity
+                    and class.relforcerowsecurity
+                ),
+                'policyCount', (
+                  select count(*)
+                  from pg_catalog.pg_policy policy
+                  where policy.polrelid in (
+                    'public.customer_reservation_holds'::regclass,
+                    'public.customer_reservation_hold_mutations'::regclass
+                  )
+                ),
+                'mobileTableDenied',
+                  not has_table_privilege(
+                    'anon', 'public.customer_reservation_holds',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_reservation_holds',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated',
+                    'public.customer_reservation_hold_mutations',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'serviceRoleTableBoundary',
+                  has_table_privilege(
+                    'service_role', 'public.customer_reservation_holds',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and has_table_privilege(
+                    'service_role',
+                    'public.customer_reservation_hold_mutations',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'rpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_reservation_hold_create_v1',
+                      'customer_reservation_hold_read_v1',
+                      'customer_reservation_hold_release_v1'
+                    )
+                ),
+                'rpcHardened', (
+                  select count(*) = 3
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_reservation_hold_create_v1',
+                      'customer_reservation_hold_read_v1',
+                      'customer_reservation_hold_release_v1'
+                    )
+                    and procedure.prosecdef
+                    and (
+                      'search_path='
+                      || pg_catalog.chr(34)
+                      || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
+                ),
+                'anonRpcDenied',
+                  not has_function_privilege(
+                    'anon',
+                    'public.customer_reservation_hold_create_v1(text,uuid,integer,uuid)',
+                    'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'anon',
+                    'public.customer_reservation_hold_read_v1(uuid)',
+                    'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'anon',
+                    'public.customer_reservation_hold_release_v1(uuid,uuid)',
+                    'EXECUTE'
+                  ),
+                'authenticatedRpcAllowed',
+                  has_function_privilege(
+                    'authenticated',
+                    'public.customer_reservation_hold_create_v1(text,uuid,integer,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_reservation_hold_read_v1(uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_reservation_hold_release_v1(uuid,uuid)',
+                    'EXECUTE'
+                  ),
+                'serverDerivedArguments', not exists (
+                  select 1
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  cross join lateral unnest(
+                    coalesce(procedure.proargnames, '{}'::text[])
+                  ) argument(name)
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_reservation_hold_create_v1',
+                      'customer_reservation_hold_read_v1',
+                      'customer_reservation_hold_release_v1'
+                    )
+                    and argument.name ~*
+                      '(user_id|shop_id|source_product|expires|stock|price|total|discount)'
+                ),
+                'inventoryFloorTrigger', exists (
+                  select 1
+                  from pg_catalog.pg_trigger trigger
+                  where trigger.tgrelid = 'public.inventory_products'::regclass
+                    and trigger.tgname =
+                      'storefront_reservation_inventory_floor_guard'
+                    and trigger.tgenabled = 'O'
+                ),
+                'expiryCronScheduled', exists (
+                  select 1
+                  from cron.job
+                  where jobname = 'storefront-reservation-hold-expire-v1'
+                    and schedule = '* * * * *'
+                )
+              )" \
+              > _storefront-migration/evidence/task-025-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-025-pgtap.txt",
+            "utf8",
+          );
+          const concurrency = readFileSync(
+            "_storefront-migration/evidence/task-025-concurrency.txt",
+            "utf8",
+          );
+          const load = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-025-load.json",
+              "utf8",
+            ),
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-025-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            migrationLedgerExact: report.migrationLedgerExact === true,
+            tableCount: Number(report.tableCount) === 2,
+            rlsForcedCount: Number(report.rlsForcedCount) === 2,
+            policyCount: Number(report.policyCount) === 8,
+            mobileTableDenied: report.mobileTableDenied === true,
+            serviceRoleTableBoundary:
+              report.serviceRoleTableBoundary === true,
+            rpcCount: Number(report.rpcCount) === 3,
+            rpcHardened: report.rpcHardened === true,
+            anonRpcDenied: report.anonRpcDenied === true,
+            authenticatedRpcAllowed:
+              report.authenticatedRpcAllowed === true,
+            serverDerivedArguments:
+              report.serverDerivedArguments === true,
+            inventoryFloorTrigger: report.inventoryFloorTrigger === true,
+            expiryCronScheduled: report.expiryCronScheduled === true,
+            pgTapPlan: /^1\.\.54$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 54,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+            concurrency:
+              /one ok, one unavailable, one active hold, on-hand stock unchanged, PASS/.test(
+                concurrency,
+              ),
+            cleanupLoad:
+              load.apiVersion === "storefront-reservation-hold-load.v1" &&
+              load.dataset?.holds === 1200 &&
+              load.metrics?.cleanupCalls === 3 &&
+              load.metrics?.maximumBatch <= 400 &&
+              load.metrics?.processed === 1000 &&
+              load.metrics?.expired === 1000 &&
+              load.metrics?.p95Ms <= 5000 &&
+              load.result?.remainingExpired === 0 &&
+              load.result?.futureActive === 200 &&
+              load.result?.terminalExpired === 1000 &&
+              load.result?.onHandStock === 5000,
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Verify TASK-026 server-authoritative checkout contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260803021500'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_checkout_fulfillment.sql \
+              > _storefront-migration/evidence/task-026-pgtap.txt
+          docker run --rm --network host \
+            -e STOREFRONT_CHECKOUT_DB_URL="$SOURCE_DB_URL" \
+            -e STOREFRONT_CHECKOUT_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_CHECKOUT \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-checkout-slot-concurrency.sh \
+              > _storefront-migration/evidence/task-026-concurrency.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'checkoutLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803020000'
+                    and name = 'storefront_v1_checkout_fulfillment'
+                ),
+                'adminLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803021500'
+                    and name = 'storefront_v1_checkout_admin'
+                ),
+                'tableCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'storefront_pickup_points',
+                      'storefront_delivery_zones',
+                      'storefront_delivery_zone_communes',
+                      'storefront_fulfillment_slots',
+                      'customer_checkout_quotes',
+                      'customer_checkout_mutations'
+                    )
+                    and class.relkind = 'r'
+                ),
+                'rlsForcedCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  where class.oid in (
+                    'public.storefront_pickup_points'::regclass,
+                    'public.storefront_delivery_zones'::regclass,
+                    'public.storefront_delivery_zone_communes'::regclass,
+                    'public.storefront_fulfillment_slots'::regclass,
+                    'public.customer_checkout_quotes'::regclass,
+                    'public.customer_checkout_mutations'::regclass
+                  )
+                    and class.relrowsecurity
+                    and class.relforcerowsecurity
+                ),
+                'ownerPolicyCount', (
+                  select count(*)
+                  from pg_catalog.pg_policy policy
+                  where policy.polrelid in (
+                    'public.customer_checkout_quotes'::regclass,
+                    'public.customer_checkout_mutations'::regclass
+                  )
+                ),
+                'mobileTableDenied',
+                  not has_table_privilege(
+                    'anon', 'public.customer_checkout_quotes',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_checkout_quotes',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.storefront_fulfillment_slots',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'serviceRoleTableBoundary',
+                  has_table_privilege(
+                    'service_role', 'public.customer_checkout_quotes',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and has_table_privilege(
+                    'service_role', 'public.storefront_fulfillment_slots',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'customerRpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'storefront_fulfillment_options_v1',
+                      'customer_checkout_quote_create_v1',
+                      'customer_checkout_quote_confirm_v1',
+                      'customer_checkout_quote_read_v1'
+                    )
+                ),
+                'adminRpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'admin_storefront_fulfillment_read_v1',
+                      'admin_storefront_fulfillment_mutate_v1'
+                    )
+                ),
+                'rpcHardened', (
+                  select count(*) = 6
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'storefront_fulfillment_options_v1',
+                      'customer_checkout_quote_create_v1',
+                      'customer_checkout_quote_confirm_v1',
+                      'customer_checkout_quote_read_v1',
+                      'admin_storefront_fulfillment_read_v1',
+                      'admin_storefront_fulfillment_mutate_v1'
+                    )
+                    and procedure.prosecdef
+                    and (
+                      'search_path='
+                      || pg_catalog.chr(34)
+                      || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
+                ),
+                'publicDiscoveryAllowed',
+                  has_function_privilege(
+                    'anon',
+                    'public.storefront_fulfillment_options_v1(text)',
+                    'EXECUTE'
+                  ),
+                'authenticatedCheckoutAllowed',
+                  has_function_privilege(
+                    'authenticated',
+                    'public.customer_checkout_quote_create_v1(text,bigint,text,uuid,uuid,uuid,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_checkout_quote_confirm_v1(uuid,bigint,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_checkout_quote_read_v1(uuid)',
+                    'EXECUTE'
+                  ),
+                'anonCheckoutDenied',
+                  not has_function_privilege(
+                    'anon',
+                    'public.customer_checkout_quote_create_v1(text,bigint,text,uuid,uuid,uuid,uuid)',
+                    'EXECUTE'
+                  ),
+                'adminBoundary',
+                  not has_function_privilege(
+                    'anon',
+                    'public.admin_storefront_fulfillment_mutate_v1(uuid,text,jsonb,uuid,uuid,text,integer)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.admin_storefront_fulfillment_mutate_v1(uuid,text,jsonb,uuid,uuid,text,integer)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'service_role',
+                    'public.admin_storefront_fulfillment_read_v1(uuid,uuid,uuid,text,integer)',
+                    'EXECUTE'
+                  ),
+                'serverAuthoritativeArguments', not exists (
+                  select 1
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  cross join lateral unnest(
+                    coalesce(procedure.proargnames, '{}'::text[])
+                  ) argument(name)
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_checkout_quote_create_v1',
+                      'customer_checkout_quote_confirm_v1'
+                    )
+                    and argument.name ~*
+                      '(user_id|shop_id|price|total|discount|fee|stock)'
+                ),
+                'expiryCronScheduled', exists (
+                  select 1
+                  from cron.job
+                  where jobname = 'storefront-checkout-quote-expire-v1'
+                    and schedule = '* * * * *'
+                )
+              )" \
+              > _storefront-migration/evidence/task-026-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-026-pgtap.txt",
+            "utf8",
+          );
+          const concurrency = readFileSync(
+            "_storefront-migration/evidence/task-026-concurrency.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-026-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            checkoutLedgerExact: report.checkoutLedgerExact === true,
+            adminLedgerExact: report.adminLedgerExact === true,
+            tableCount: Number(report.tableCount) === 6,
+            rlsForcedCount: Number(report.rlsForcedCount) === 6,
+            ownerPolicyCount: Number(report.ownerPolicyCount) === 8,
+            mobileTableDenied: report.mobileTableDenied === true,
+            serviceRoleTableBoundary:
+              report.serviceRoleTableBoundary === true,
+            customerRpcCount: Number(report.customerRpcCount) === 4,
+            adminRpcCount: Number(report.adminRpcCount) === 2,
+            rpcHardened: report.rpcHardened === true,
+            publicDiscoveryAllowed: report.publicDiscoveryAllowed === true,
+            authenticatedCheckoutAllowed:
+              report.authenticatedCheckoutAllowed === true,
+            anonCheckoutDenied: report.anonCheckoutDenied === true,
+            adminBoundary: report.adminBoundary === true,
+            serverAuthoritativeArguments:
+              report.serverAuthoritativeArguments === true,
+            expiryCronScheduled: report.expiryCronScheduled === true,
+            pgTapPlan: /^1\.\.56$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 56,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+            concurrency:
+              /one quoted, one slot_unavailable, one active quote, stock unchanged, public slot closed, PASS/.test(
+                concurrency,
+              ),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Verify TASK-027 atomic customer-order contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260803034500'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_customer_orders.sql \
+              > _storefront-migration/evidence/task-027-pgtap.txt
+          docker run --rm --network host \
+            -e STOREFRONT_ORDER_DB_URL="$SOURCE_DB_URL" \
+            -e STOREFRONT_ORDER_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_ORDER \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-customer-order-concurrency.sh \
+              > _storefront-migration/evidence/task-027-concurrency.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'ordersLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803033000'
+                    and name = 'storefront_v1_customer_orders'
+                ),
+                'capacityLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803034500'
+                    and name = 'storefront_v1_customer_order_capacity'
+                ),
+                'tableCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'customer_orders',
+                      'customer_order_items',
+                      'customer_order_status_events',
+                      'customer_order_outbox',
+                      'customer_order_mutations'
+                    )
+                    and class.relkind = 'r'
+                ),
+                'rlsForcedCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  where class.oid in (
+                    'public.customer_orders'::regclass,
+                    'public.customer_order_items'::regclass,
+                    'public.customer_order_status_events'::regclass,
+                    'public.customer_order_outbox'::regclass,
+                    'public.customer_order_mutations'::regclass
+                  )
+                    and class.relrowsecurity
+                    and class.relforcerowsecurity
+                ),
+                'ownerPolicyCount', (
+                  select count(*)
+                  from pg_catalog.pg_policy policy
+                  where policy.polrelid in (
+                    'public.customer_orders'::regclass,
+                    'public.customer_order_items'::regclass,
+                    'public.customer_order_status_events'::regclass,
+                    'public.customer_order_mutations'::regclass
+                  )
+                ),
+                'mobileTableDenied',
+                  not has_table_privilege(
+                    'anon', 'public.customer_orders',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_orders',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_order_outbox',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'serviceRoleTableBoundary',
+                  has_table_privilege(
+                    'service_role', 'public.customer_orders',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and has_table_privilege(
+                    'service_role', 'public.customer_order_outbox',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'rpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_order_create_v1',
+                      'customer_order_read_v1'
+                    )
+                ),
+                'rpcHardened', (
+                  select count(*) = 2
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_order_create_v1',
+                      'customer_order_read_v1'
+                    )
+                    and procedure.prosecdef
+                    and (
+                      'search_path='
+                      || pg_catalog.chr(34)
+                      || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
+                ),
+                'authenticatedRpcAllowed',
+                  has_function_privilege(
+                    'authenticated',
+                    'public.customer_order_create_v1(uuid,bigint,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_order_read_v1(uuid)',
+                    'EXECUTE'
+                  ),
+                'anonRpcDenied',
+                  not has_function_privilege(
+                    'anon',
+                    'public.customer_order_create_v1(uuid,bigint,uuid)',
+                    'EXECUTE'
+                  ),
+                'serverAuthoritativeArguments', not exists (
+                  select 1
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  cross join lateral unnest(
+                    coalesce(procedure.proargnames, '{}'::text[])
+                  ) argument(name)
+                  where namespace.nspname = 'public'
+                    and procedure.proname = 'customer_order_create_v1'
+                    and argument.name ~*
+                      '(user_id|shop_id|price|total|discount|fee|stock)'
+                ),
+                'oneOrderPerQuote', exists (
+                  select 1
+                  from pg_catalog.pg_constraint constraint_row
+                  where constraint_row.conrelid =
+                    'public.customer_orders'::regclass
+                    and constraint_row.contype = 'u'
+                    and pg_catalog.pg_get_constraintdef(constraint_row.oid)
+                      ilike '%quote_id%'
+                ),
+                'posNeutralOutbox', exists (
+                  select 1
+                  from pg_catalog.pg_constraint constraint_row
+                  where constraint_row.conrelid =
+                    'public.customer_order_outbox'::regclass
+                    and pg_catalog.pg_get_constraintdef(constraint_row.oid)
+                      ilike '%customer_order.confirmed.v1%'
+                )
+              )" \
+              > _storefront-migration/evidence/task-027-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-027-pgtap.txt",
+            "utf8",
+          );
+          const concurrency = readFileSync(
+            "_storefront-migration/evidence/task-027-concurrency.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-027-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            ordersLedgerExact: report.ordersLedgerExact === true,
+            capacityLedgerExact: report.capacityLedgerExact === true,
+            tableCount: Number(report.tableCount) === 5,
+            rlsForcedCount: Number(report.rlsForcedCount) === 5,
+            ownerPolicyCount: Number(report.ownerPolicyCount) === 4,
+            mobileTableDenied: report.mobileTableDenied === true,
+            serviceRoleTableBoundary:
+              report.serviceRoleTableBoundary === true,
+            rpcCount: Number(report.rpcCount) === 2,
+            rpcHardened: report.rpcHardened === true,
+            authenticatedRpcAllowed:
+              report.authenticatedRpcAllowed === true,
+            anonRpcDenied: report.anonRpcDenied === true,
+            serverAuthoritativeArguments:
+              report.serverAuthoritativeArguments === true,
+            oneOrderPerQuote: report.oneOrderPerQuote === true,
+            posNeutralOutbox: report.posNeutralOutbox === true,
+            pgTapPlan: /^1\.\.35$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 35,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+            concurrency:
+              /one order\/item\/event\/outbox\/mutation, one idempotent replay, stock unchanged, fiscal sale not created, PASS/.test(
+                concurrency,
+              ),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Benchmark Storefront contract on staging and clean fixtures
+        if: inputs.mode == 'apply' && inputs.run_performance_load
+        env:
+          STOREFRONT_LOAD_HOLD_SECONDS: ${{ inputs.load_hold_seconds }}
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e STOREFRONT_DATABASE_URL="$SOURCE_DB_URL" \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -e STOREFRONT_LOAD_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_LOAD \
+            -e STOREFRONT_LOAD_HOLD_SECONDS="$STOREFRONT_LOAD_HOLD_SECONDS" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-contract-load.sh \
+            | tee _storefront-migration/evidence/contract-load.jsonl
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const records = readFileSync(
+            "_storefront-migration/evidence/contract-load.jsonl",
+            "utf8",
+          ).trim().split("\n").map((line) => JSON.parse(line));
+          const report = records[0];
+          const cleanup = records.at(-1);
+          const initialTargets = {
+            catalogP95: report.metrics?.catalog_page?.p95Ms <= 500,
+            searchP95: report.metrics?.search?.p95Ms <= 750,
+            detailP95: report.metrics?.product_detail?.p95Ms <= 400,
+          };
+          // The staging project is the existing shared NANO runtime. Its
+          // accepted release budget is recorded separately from the initial
+          // target so a constrained-runner deviation is never reported as an
+          // initial-target PASS.
+          const releaseBudget = {
+            profile: "staging-nano-20k-v1",
+            catalogP95Ms: 800,
+            searchP95Ms: 1200,
+            detailP95Ms: 400,
+          };
+          const checks = {
+            products: report.dataset?.products >= 20_000,
+            publications: report.dataset?.publications >= 20_000,
+            publishedMix: report.dataset?.publishedProducts === 20_000,
+            draftMix: report.dataset?.draftProducts >= 1_000,
+            pausedMix: report.dataset?.pausedProducts >= 1_000,
+            categories: report.dataset?.categories === 100,
+            equivalentRows: report.dataset?.equivalentRows >= 65_000,
+            promotions: report.dataset?.promotionLinks >= 5_000,
+            publicImages: report.dataset?.imagePublications >= 100 &&
+              report.dataset?.imageBackedProjectionRows >= 100 &&
+              report.dataset?.distinctImageUrls >= 1 &&
+              report.dataset?.realImageTemplate === true,
+            catalogInitialTarget: initialTargets.catalogP95,
+            searchInitialTarget: initialTargets.searchP95,
+            detailInitialTarget: initialTargets.detailP95,
+            catalogReleaseBudget:
+              report.metrics?.catalog_page?.p95Ms <= releaseBudget.catalogP95Ms,
+            searchReleaseBudget:
+              report.metrics?.search?.p95Ms <= releaseBudget.searchP95Ms,
+            detailReleaseBudget:
+              report.metrics?.product_detail?.p95Ms <= releaseBudget.detailP95Ms,
+            catalogKeysetIndex: report.planSignals?.catalogKeysetIndexUsed === true,
+            cleanup: cleanup?.cleanupVerified === true &&
+              cleanup?.fixtureRowsAfterCleanup === 0,
+          };
+          const verdict = { initialTargets, releaseBudget, checks };
+          require("node:fs").writeFileSync(
+            "_storefront-migration/evidence/contract-load-verdict.json",
+            `${JSON.stringify(verdict, null, 2)}\n`,
+          );
+          console.log(JSON.stringify(verdict));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Remove protected connection material
+        if: always()
+        run: >-
+          rm -f
+          _storefront-migration/source-db-url
+          _storefront-migration/post-verify.sql
+
+      - name: Upload non-secret migration evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-v1-staging-migration-${{ github.run_id }}-${{ github.run_attempt }}
+          path: _storefront-migration/evidence
+          if-no-files-found: error
+          retention-days: 14
