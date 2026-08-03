@@ -103,6 +103,12 @@ test("notification regression is fixture-scoped and staging writers serialize", 
   const notificationWorkflow = read(
     ".github/workflows/task-031-order-notifications-staging.yml",
   );
+  const posStagingWorkflow = read(
+    ".github/workflows/task-030-pos-order-handoff-staging.yml",
+  );
+  const posE2eWorkflow = read(
+    ".github/workflows/task-030-pos-order-handoff-e2e.yml",
+  );
   const paymentWorkflow = read(
     ".github/workflows/task-032-customer-payments-staging.yml",
   );
@@ -114,6 +120,11 @@ test("notification regression is fixture-scoped and staging writers serialize", 
     notificationWorkflow,
     /group: storefront-v1-staging-order-payment/,
   );
+  assert.match(
+    posStagingWorkflow,
+    /group: storefront-v1-staging-order-payment/,
+  );
+  assert.match(posE2eWorkflow, /group: storefront-v1-staging-order-payment/);
   assert.match(paymentWorkflow, /group: storefront-v1-staging-order-payment/);
 });
 
