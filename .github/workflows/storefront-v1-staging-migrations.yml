@@ -1406,6 +1406,235 @@ jobs:
           if (Object.values(checks).some((value) => !value)) process.exit(1);
           NODE
 
+      - name: Verify TASK-025 atomic reservation-hold contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260803000951'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_reservation_holds.sql \
+              > _storefront-migration/evidence/task-025-pgtap.txt
+          docker run --rm --network host \
+            -e STOREFRONT_RESERVATION_HOLD_DB_URL="$SOURCE_DB_URL" \
+            -e STOREFRONT_RESERVATION_HOLD_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_RESERVATION_HOLD \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-reservation-hold-concurrency.sh \
+              > _storefront-migration/evidence/task-025-concurrency.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803000951'
+                    and name = 'storefront_v1_reservation_holds'
+                ),
+                'tableCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'customer_reservation_holds',
+                      'customer_reservation_hold_mutations'
+                    )
+                    and class.relkind = 'r'
+                ),
+                'rlsForcedCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  where class.oid in (
+                    'public.customer_reservation_holds'::regclass,
+                    'public.customer_reservation_hold_mutations'::regclass
+                  )
+                    and class.relrowsecurity
+                    and class.relforcerowsecurity
+                ),
+                'policyCount', (
+                  select count(*)
+                  from pg_catalog.pg_policy policy
+                  where policy.polrelid in (
+                    'public.customer_reservation_holds'::regclass,
+                    'public.customer_reservation_hold_mutations'::regclass
+                  )
+                ),
+                'mobileTableDenied',
+                  not has_table_privilege(
+                    'anon', 'public.customer_reservation_holds',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_reservation_holds',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated',
+                    'public.customer_reservation_hold_mutations',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'serviceRoleTableBoundary',
+                  has_table_privilege(
+                    'service_role', 'public.customer_reservation_holds',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and has_table_privilege(
+                    'service_role',
+                    'public.customer_reservation_hold_mutations',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'rpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_reservation_hold_create_v1',
+                      'customer_reservation_hold_read_v1',
+                      'customer_reservation_hold_release_v1'
+                    )
+                ),
+                'rpcHardened', (
+                  select count(*) = 3
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_reservation_hold_create_v1',
+                      'customer_reservation_hold_read_v1',
+                      'customer_reservation_hold_release_v1'
+                    )
+                    and procedure.prosecdef
+                    and (
+                      'search_path='
+                      || pg_catalog.chr(34)
+                      || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
+                ),
+                'anonRpcDenied',
+                  not has_function_privilege(
+                    'anon',
+                    'public.customer_reservation_hold_create_v1(text,uuid,integer,uuid)',
+                    'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'anon',
+                    'public.customer_reservation_hold_read_v1(uuid)',
+                    'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'anon',
+                    'public.customer_reservation_hold_release_v1(uuid,uuid)',
+                    'EXECUTE'
+                  ),
+                'authenticatedRpcAllowed',
+                  has_function_privilege(
+                    'authenticated',
+                    'public.customer_reservation_hold_create_v1(text,uuid,integer,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_reservation_hold_read_v1(uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_reservation_hold_release_v1(uuid,uuid)',
+                    'EXECUTE'
+                  ),
+                'serverDerivedArguments', not exists (
+                  select 1
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  cross join lateral unnest(
+                    coalesce(procedure.proargnames, '{}'::text[])
+                  ) argument(name)
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_reservation_hold_create_v1',
+                      'customer_reservation_hold_read_v1',
+                      'customer_reservation_hold_release_v1'
+                    )
+                    and argument.name ~*
+                      '(user_id|shop_id|source_product|expires|stock|price|total|discount)'
+                ),
+                'inventoryFloorTrigger', exists (
+                  select 1
+                  from pg_catalog.pg_trigger trigger
+                  where trigger.tgrelid = 'public.inventory_products'::regclass
+                    and trigger.tgname =
+                      'storefront_reservation_inventory_floor_guard'
+                    and trigger.tgenabled = 'O'
+                ),
+                'expiryCronScheduled', exists (
+                  select 1
+                  from cron.job
+                  where jobname = 'storefront-reservation-hold-expire-v1'
+                    and schedule = '* * * * *'
+                )
+              )" \
+              > _storefront-migration/evidence/task-025-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-025-pgtap.txt",
+            "utf8",
+          );
+          const concurrency = readFileSync(
+            "_storefront-migration/evidence/task-025-concurrency.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-025-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            migrationLedgerExact: report.migrationLedgerExact === true,
+            tableCount: Number(report.tableCount) === 2,
+            rlsForcedCount: Number(report.rlsForcedCount) === 2,
+            policyCount: Number(report.policyCount) === 8,
+            mobileTableDenied: report.mobileTableDenied === true,
+            serviceRoleTableBoundary:
+              report.serviceRoleTableBoundary === true,
+            rpcCount: Number(report.rpcCount) === 3,
+            rpcHardened: report.rpcHardened === true,
+            anonRpcDenied: report.anonRpcDenied === true,
+            authenticatedRpcAllowed:
+              report.authenticatedRpcAllowed === true,
+            serverDerivedArguments:
+              report.serverDerivedArguments === true,
+            inventoryFloorTrigger: report.inventoryFloorTrigger === true,
+            expiryCronScheduled: report.expiryCronScheduled === true,
+            pgTapPlan: /^1\.\.52$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 52,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+            concurrency:
+              /one ok, one unavailable, one active hold, on-hand stock unchanged, PASS/.test(
+                concurrency,
+              ),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
       - name: Benchmark Storefront contract on staging and clean fixtures
         if: inputs.mode == 'apply' && inputs.run_performance_load
         env:

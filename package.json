@@ -55,6 +55,7 @@
     "test:task081:win7-http": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-081-win7pos-http-e2e.spec.ts --project=chromium-desktop",
     "test:storefront:projection-concurrency": "bash scripts/testing/storefront-v1-projection-concurrency.sh",
     "test:storefront:availability-concurrency": "bash scripts/testing/storefront-v1-availability-concurrency.sh",
+    "test:storefront:reservation-hold-concurrency": "bash scripts/testing/storefront-v1-reservation-hold-concurrency.sh",
     "test:storefront:customer-device-concurrency": "bash scripts/testing/storefront-v1-customer-device-concurrency.sh",
     "test:storefront:customer-cart-concurrency": "bash scripts/testing/storefront-v1-customer-cart-concurrency.sh",
     "test:storefront:contract-load": "bash scripts/testing/storefront-v1-contract-load.sh",
