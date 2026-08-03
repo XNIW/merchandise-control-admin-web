@@ -202,6 +202,12 @@ jobs:
           tests/e2e/storefront-v1-admin-publications-local.spec.ts
           --project=chromium-desktop
 
+      - name: Run Admin order queue and transition staging acceptance
+        run: >-
+          node scripts/testing/run-playwright-target.mjs staging
+          tests/e2e/storefront-v1-admin-orders-local.spec.ts
+          --project=chromium-desktop
+
       - name: Verify bounded public image cleanup
         run: npm run storefront:images:cleanup
 
