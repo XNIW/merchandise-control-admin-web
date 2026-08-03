@@ -404,7 +404,9 @@ from public.customer_orders customer_order
 where customer_order.shop_id = '19000000-0000-4000-8000-000000029001';
 
 create temp table task029_fiscal_baseline as
-select count(*)::bigint as sale_count from public.pos_sales;
+select count(*)::bigint as sale_count
+from public.pos_sales
+where shop_id = '19000000-0000-4000-8000-000000029001';
 
 set local role authenticated;
 select set_config(
@@ -688,7 +690,11 @@ select throws_ok(
     update public.customer_order_admin_mutations
     set response_payload = response_payload || '{"tampered":true}'::jsonb
     where id = (
-      select id from public.customer_order_admin_mutations order by created_at limit 1
+      select id
+      from public.customer_order_admin_mutations
+      where shop_id = '19000000-0000-4000-8000-000000029001'
+      order by created_at
+      limit 1
     )
   $$,
   '23514',
@@ -817,7 +823,8 @@ select ok(
   not exists (
     select 1
     from public.audit_logs audit
-    where audit.event_key like 'shop.storefront.order.transition.%'
+    where audit.shop_id = '19000000-0000-4000-8000-000000029001'
+      and audit.event_key like 'shop.storefront.order.transition.%'
       and audit.metadata_redacted::text
         ~* '(token|email|address|recipient|customer_request_text|oauth|refresh)'
   )
@@ -842,7 +849,11 @@ select ok(
         or outbox.payload->>'fiscalStatus' <> 'not_created'
       )
   )
-  and (select count(*) from public.pos_sales)
+  and (
+    select count(*)
+    from public.pos_sales
+    where shop_id = '19000000-0000-4000-8000-000000029001'
+  )
     = (select sale_count from task029_fiscal_baseline),
   'all transition outbox envelopes remain POS-neutral and create no fiscal sale'
 );

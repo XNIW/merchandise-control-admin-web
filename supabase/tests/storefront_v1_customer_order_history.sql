@@ -329,7 +329,9 @@ select app_private.storefront_reservation_refresh_availability_v1(
 );
 
 create temp table task028_fiscal_baseline as
-select count(*)::bigint as sale_count from public.pos_sales;
+select count(*)::bigint as sale_count
+from public.pos_sales
+where shop_id = '18000000-0000-4000-8000-000000028101';
 
 set local role authenticated;
 select set_config(
@@ -617,7 +619,11 @@ select ok(
       and outbox.payload ->> 'documentKind' = 'customer_order'
       and outbox.payload ->> 'fiscalStatus' = 'not_created'
   )
-  and (select count(*) from public.pos_sales)
+  and (
+    select count(*)
+    from public.pos_sales
+    where shop_id = '18000000-0000-4000-8000-000000028101'
+  )
       = (select sale_count from task028_fiscal_baseline),
   'cancel outbox remains POS-neutral and creates no fiscal sale'
 );
@@ -672,10 +678,30 @@ select ok(
 
 set local role postgres;
 select ok(
-  (select count(*) from public.customer_orders) = 3
-  and (select count(*) from public.customer_order_items) = 3
-  and (select count(*) from public.customer_order_status_events) = 6
-  and (select count(*) from public.customer_order_outbox) = 2,
+  (
+    select count(*) = 3
+    from public.customer_orders customer_order
+    where customer_order.shop_id = '18000000-0000-4000-8000-000000028101'
+  )
+  and (
+    select count(*) = 3
+    from public.customer_order_items item
+    where item.order_id in (
+      select customer_order.id
+      from public.customer_orders customer_order
+      where customer_order.shop_id = '18000000-0000-4000-8000-000000028101'
+    )
+  )
+  and (
+    select count(*) = 6
+    from public.customer_order_status_events event
+    where event.shop_id = '18000000-0000-4000-8000-000000028101'
+  )
+  and (
+    select count(*) = 2
+    from public.customer_order_outbox outbox
+    where outbox.shop_id = '18000000-0000-4000-8000-000000028101'
+  ),
   'negative and replay requests leave the expected aggregate cardinality'
 );
 

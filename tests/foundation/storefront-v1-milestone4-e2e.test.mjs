@@ -151,3 +151,51 @@ test("POS handoff staging assertions are scoped to the fixture aggregate", () =>
     /receipt\.order_id = '90000000-0000-4000-8000-000000030001'[\s\S]*receipt\.outcome <> 'completed'/,
   );
 });
+
+test("customer-order staging counts are scoped to the created order", () => {
+  const sql = read("supabase/tests/storefront_v1_customer_orders.sql");
+  assert.doesNotMatch(
+    sql,
+    /select count\(\*\) from public\.(customer_orders|customer_order_items|customer_order_status_events|customer_order_outbox)\)/,
+  );
+  for (const table of [
+    "customer_orders customer_order",
+    "customer_order_items item",
+    "customer_order_status_events event",
+    "customer_order_outbox outbox",
+  ]) {
+    assert.match(
+      sql,
+      new RegExp(
+        `from public\\.${table.replace(" ", "\\s+")}[\\s\\S]*task027_order`,
+      ),
+    );
+  }
+});
+
+test("history and Admin acceptance counts are tenant-scoped on populated staging", () => {
+  const history = read(
+    "supabase/tests/storefront_v1_customer_order_history.sql",
+  );
+  const admin = read("supabase/tests/storefront_v1_admin_orders.sql");
+  for (const marker of [
+    /from public\.customer_orders customer_order\s+where customer_order\.shop_id = '18000000-0000-4000-8000-000000028101'/,
+    /from public\.customer_order_status_events event\s+where event\.shop_id = '18000000-0000-4000-8000-000000028101'/,
+    /from public\.customer_order_outbox outbox\s+where outbox\.shop_id = '18000000-0000-4000-8000-000000028101'/,
+    /from public\.pos_sales\s+where shop_id = '18000000-0000-4000-8000-000000028101'/,
+  ]) {
+    assert.match(history, marker);
+  }
+  assert.doesNotMatch(
+    history,
+    /select count\(\*\) from public\.(customer_orders|customer_order_items|customer_order_status_events|customer_order_outbox)\)/,
+  );
+  assert.match(
+    admin,
+    /from public\.pos_sales\s+where shop_id = '19000000-0000-4000-8000-000000029001'/,
+  );
+  assert.match(
+    admin,
+    /from public\.audit_logs audit\s+where audit\.shop_id = '19000000-0000-4000-8000-000000029001'/,
+  );
+});

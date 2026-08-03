@@ -539,8 +539,20 @@ select ok(
       select (payload ->> 'orderId')::uuid from task027_order
     )
   )
-  and (select count(*) from public.customer_orders) = 1
-  and (select count(*) from public.customer_order_outbox) = 1,
+  and (
+    select count(*) = 1
+    from public.customer_orders customer_order
+    where customer_order.id = (
+      select (payload ->> 'orderId')::uuid from task027_order
+    )
+  )
+  and (
+    select count(*) = 1
+    from public.customer_order_outbox outbox
+    where outbox.order_id = (
+      select (payload ->> 'orderId')::uuid from task027_order
+    )
+  ),
   'later catalog changes cannot rewrite the customer order item snapshot'
 );
 
@@ -629,10 +641,34 @@ select is(
 
 set local role postgres;
 select ok(
-  (select count(*) from public.customer_orders) = 1
-  and (select count(*) from public.customer_order_items) = 1
-  and (select count(*) from public.customer_order_status_events) = 1
-  and (select count(*) from public.customer_order_outbox) = 1,
+  (
+    select count(*) = 1
+    from public.customer_orders customer_order
+    where customer_order.id = (
+      select (payload ->> 'orderId')::uuid from task027_order
+    )
+  )
+  and (
+    select count(*) = 1
+    from public.customer_order_items item
+    where item.order_id = (
+      select (payload ->> 'orderId')::uuid from task027_order
+    )
+  )
+  and (
+    select count(*) = 1
+    from public.customer_order_status_events event
+    where event.order_id = (
+      select (payload ->> 'orderId')::uuid from task027_order
+    )
+  )
+  and (
+    select count(*) = 1
+    from public.customer_order_outbox outbox
+    where outbox.order_id = (
+      select (payload ->> 'orderId')::uuid from task027_order
+    )
+  ),
   'negative requests leave the atomic order aggregate unchanged'
 );
 
