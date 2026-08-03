@@ -4073,6 +4073,31 @@ export type Database = {
         }
         Returns: boolean
       }
+      pos_customer_order_ack_v1: {
+        Args: {
+          p_ack_idempotency_key: string
+          p_expected_status_version: number
+          p_handoff_id: string
+          p_lease_token: string
+          p_outcome: string
+          p_pos_sale_id?: string | null
+          p_pos_session_id: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_customer_order_claim_v1: {
+        Args: {
+          p_limit?: number
+          p_pos_session_id: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
       pos_apply_sale_stock_movement: {
         Args: {
           p_metadata_redacted?: Json
