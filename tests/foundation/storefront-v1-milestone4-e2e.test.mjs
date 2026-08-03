@@ -116,3 +116,27 @@ test("notification regression is fixture-scoped and staging writers serialize", 
   );
   assert.match(paymentWorkflow, /group: storefront-v1-staging-order-payment/);
 });
+
+test("POS handoff staging assertions are scoped to the fixture aggregate", () => {
+  const sql = read("supabase/tests/storefront_v1_pos_order_handoff.sql");
+  assert.equal(
+    (
+      sql.match(
+        /from public\.customer_order_pos_receipts\s+where order_id = '90000000-0000-4000-8000-000000030001'/g,
+      ) || []
+    ).length,
+    2,
+  );
+  assert.equal(
+    (
+      sql.match(
+        /from public\.pos_sales\s+where shop_id = '10000000-0000-4000-8000-000000030001'/g,
+      ) || []
+    ).length,
+    2,
+  );
+  assert.match(
+    sql,
+    /receipt\.order_id = '90000000-0000-4000-8000-000000030001'[\s\S]*receipt\.outcome <> 'completed'/,
+  );
+});

@@ -629,7 +629,12 @@ select is(
 );
 
 select is(
-  (select count(*)::integer from public.customer_order_pos_receipts where outcome = 'accepted'),
+  (
+    select count(*)::integer
+    from public.customer_order_pos_receipts
+    where order_id = '90000000-0000-4000-8000-000000030001'
+      and outcome = 'accepted'
+  ),
   1,
   'TASK030_CASE_26 accepted replay creates one durable receipt'
 );
@@ -647,7 +652,11 @@ select is(
 );
 
 select is(
-  (select count(*)::integer from public.pos_sales),
+  (
+    select count(*)::integer
+    from public.pos_sales
+    where shop_id = '10000000-0000-4000-8000-000000030001'
+  ),
   0,
   'TASK030_CASE_29 receiving an order creates no fiscal sale'
 );
@@ -838,14 +847,19 @@ select is(
   (
     select pos_sale_id::text
     from public.customer_order_pos_receipts
-    where outcome = 'completed'
+    where order_id = '90000000-0000-4000-8000-000000030001'
+      and outcome = 'completed'
   ),
   'f0000000-0000-4000-8000-000000030002',
   'TASK030_CASE_38 fiscal reference is stored only after the sale exists'
 );
 
 select is(
-  (select count(*)::integer from public.pos_sales),
+  (
+    select count(*)::integer
+    from public.pos_sales
+    where shop_id = '10000000-0000-4000-8000-000000030001'
+  ),
   1,
   'TASK030_CASE_39 operational outcomes never synthesize an additional sale'
 );
@@ -854,7 +868,9 @@ select ok(
   not exists (
     select 1
     from public.customer_order_pos_receipts receipt
-    where receipt.outcome <> 'completed' and receipt.pos_sale_id is not null
+    where receipt.order_id = '90000000-0000-4000-8000-000000030001'
+      and receipt.outcome <> 'completed'
+      and receipt.pos_sale_id is not null
   ),
   'TASK030_CASE_40 only completion can carry a fiscal reference'
 );
