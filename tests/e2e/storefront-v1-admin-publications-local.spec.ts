@@ -681,12 +681,20 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   const pickupSlotLabel = `Retiro mañana ${fixture.shopSlug.slice(-4)}`;
   const reservationSlotLabel = `Reserva mañana ${fixture.shopSlug.slice(-4)}`;
   const deliverySlotLabel = `Entrega mañana ${fixture.shopSlug.slice(-4)}`;
-  await storefrontSections
-    .getByRole("link", { name: "Ritiro e consegna", exact: true })
-    .click();
+  await Promise.all([
+    page.waitForURL(
+      (url) =>
+        url.pathname === "/shop/storefront" &&
+        url.searchParams.get("area") === "settings",
+      { timeout: 15_000 },
+    ),
+    storefrontSections
+      .getByRole("link", { name: "Ritiro e consegna", exact: true })
+      .click(),
+  ]);
   await expect(
     page.getByRole("heading", { name: "Modalità cliente" }),
-  ).toBeVisible();
+  ).toBeVisible({ timeout: 15_000 });
   await page.setViewportSize({ height: 1_024, width: 768 });
   expect(
     await page.evaluate(
