@@ -5,6 +5,7 @@ export type ShopSectionKey =
   | "products"
   | "categories"
   | "storefront"
+  | "orders"
   | "suppliers"
   | "importExport"
   | "sync"
@@ -80,6 +81,11 @@ export const shopNavigationSections: ShopNavigationSection[] = [
     key: "workspace",
     label: "Workspace",
     items: [{ key: "overview", label: "Overview", href: "/shop/overview" }],
+  },
+  {
+    key: "commerce",
+    label: "Commerce",
+    items: [{ key: "orders", label: "Orders", href: "/shop/orders" }],
   },
   {
     key: "catalog",
@@ -227,6 +233,23 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Publish approved customer-facing product data",
       "Preview the versioned public Storefront contract",
       "Audit every publication transition",
+    ],
+    guardrails: sharedShopGuardrails,
+  },
+  orders: {
+    key: "orders",
+    label: "Orders",
+    href: "/shop/orders",
+    title: "Customer orders",
+    eyebrow: "Commerce",
+    description:
+      "Prepare and advance customer orders from a shop-scoped, audited queue without creating fiscal sales.",
+    status: "Live operations",
+    metrics: shellMetrics,
+    plannedWork: [
+      "Review immutable customer order snapshots",
+      "Advance only server-authorized status transitions",
+      "Monitor POS handoff without treating an order as a fiscal sale",
     ],
     guardrails: sharedShopGuardrails,
   },

@@ -4704,6 +4704,34 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_customer_order_transition_v1: {
+        Args: {
+          p_correlation_id: string
+          p_expected_credential_version?: number | null
+          p_expected_status_version: number
+          p_idempotency_key: string
+          p_operation: string
+          p_order_id: string
+          p_reason_code?: string | null
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_customer_orders_read_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_operation: string
+          p_request?: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
       admin_storefront_image_finalize_v1: {
         Args: {
           p_expected_credential_version?: number

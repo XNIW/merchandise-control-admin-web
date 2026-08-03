@@ -190,6 +190,13 @@ function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
         <path d="M10 20v-6h4v6" />
       </>
     ),
+    orders: (
+      <>
+        <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+        <path d="M4.5 7.5 12 12l7.5-4.5" />
+        <path d="M12 12v9" />
+      </>
+    ),
     pos: (
       <>
         <rect height="12" rx="2" width="16" x="4" y="5" />

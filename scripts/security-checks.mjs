@@ -429,6 +429,8 @@ function checkReadOnlyContracts() {
         "admin_storefront_images_read_v1",
         "admin_storefront_fulfillment_read_v1",
         "admin_storefront_fulfillment_mutate_v1",
+        "admin_customer_orders_read_v1",
+        "admin_customer_order_transition_v1",
       ]),
     ],
     [
@@ -447,6 +449,14 @@ function checkReadOnlyContracts() {
         "admin_storefront_promotion_mutate_v1",
         "admin_storefront_fulfillment_mutate_v1",
       ]),
+    ],
+    [
+      "src/server/shop-admin/order-read-model.ts",
+      new Set(["admin_customer_orders_read_v1"]),
+    ],
+    [
+      "src/server/shop-admin/order-mutations.ts",
+      new Set(["admin_customer_order_transition_v1"]),
     ],
     [
       "src/server/shop-admin/storefront-images/service.ts",

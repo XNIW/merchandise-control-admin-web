@@ -307,3 +307,58 @@ export function callStaffWebStorefrontImagesRead(
     p_staff_web_session_id: context.staffWebSession.sessionId,
   });
 }
+
+export function callStaffWebCustomerOrdersRead(
+  context: StaffWebLeaseBoundContext,
+  operation: "detail" | "queue",
+  request: JsonRecord,
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("admin_customer_orders_read_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_operation: operation,
+    p_request: request,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}
+
+export function callStaffWebCustomerOrderTransition(
+  context: StaffWebLeaseBoundContext,
+  input: {
+    correlationId: string;
+    expectedStatusVersion: number;
+    idempotencyKey: string;
+    operation:
+      | "accept"
+      | "cancel"
+      | "complete"
+      | "out_for_delivery"
+      | "preparing"
+      | "ready"
+      | "reject";
+    orderId: string;
+    reasonCode?: string;
+  },
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("admin_customer_order_transition_v1", {
+    p_correlation_id: input.correlationId,
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_expected_status_version: input.expectedStatusVersion,
+    p_idempotency_key: input.idempotencyKey,
+    p_operation: input.operation,
+    p_order_id: input.orderId,
+    p_reason_code: input.reasonCode,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}

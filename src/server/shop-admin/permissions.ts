@@ -38,7 +38,9 @@ export type ShopAdminPermission =
   | "storefront.promotions.manage"
   | "storefront.images.manage"
   | "storefront.settings.manage"
-  | "storefront.audit.view";
+  | "storefront.audit.view"
+  | "orders.view"
+  | "orders.manage";
 
 export type ShopStaffRole = "cashier" | "manager" | "viewer";
 
@@ -84,7 +86,9 @@ export type ShopStaffPermission =
   | "storefront.promotions.manage"
   | "storefront.images.manage"
   | "storefront.settings.manage"
-  | "storefront.audit.view";
+  | "storefront.audit.view"
+  | "orders.view"
+  | "orders.manage";
 
 export const POS_ADMIN_STAFF_PERMISSION_KEYS = [
   "shop_admin.full_access",
@@ -128,6 +132,8 @@ export const POS_ADMIN_STAFF_PERMISSION_KEYS = [
   "storefront.images.manage",
   "storefront.settings.manage",
   "storefront.audit.view",
+  "orders.view",
+  "orders.manage",
 ] as const satisfies readonly ShopStaffPermission[];
 
 export type BuiltInShopStaffRole = ShopStaffRole | "pos_admin";
@@ -173,6 +179,8 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "storefront.images.manage",
     "storefront.settings.manage",
     "storefront.audit.view",
+    "orders.view",
+    "orders.manage",
   ],
   shop_manager: [
     "catalog.view",
@@ -207,6 +215,8 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "storefront.images.manage",
     "storefront.settings.manage",
     "storefront.audit.view",
+    "orders.view",
+    "orders.manage",
   ],
   viewer: [
     "catalog.view",
@@ -226,6 +236,7 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "audit.read",
     "storefront.view",
     "storefront.audit.view",
+    "orders.view",
   ],
 };
 

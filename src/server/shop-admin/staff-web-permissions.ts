@@ -21,6 +21,14 @@ export const SHOP_STAFF_WEB_PERMISSION_TREE = [
     ],
   },
   {
+    groupKey: "orders",
+    label: "Customer orders",
+    permissions: [
+      { key: "orders.view", label: "View customer orders" },
+      { key: "orders.manage", label: "Manage customer orders" },
+    ],
+  },
+  {
     groupKey: "shop_admin",
     label: "Shop Admin",
     permissions: [
@@ -119,6 +127,8 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "storefront.images.manage",
     "storefront.settings.manage",
     "storefront.audit.view",
+    "orders.view",
+    "orders.manage",
   ],
   catalog_manager: [
     "catalog.read",
@@ -142,6 +152,7 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "sync.read",
     "storefront.view",
     "storefront.audit.view",
+    "orders.view",
   ],
 } as const satisfies Record<string, readonly ShopStaffWebPermission[]>;
 
@@ -273,6 +284,10 @@ function staffPermissionForShopAdminPermission(
 
   if (permission === "sync.manage") {
     return "sync.write";
+  }
+
+  if (permission === "orders.view" || permission === "orders.manage") {
+    return permission;
   }
 
   if (

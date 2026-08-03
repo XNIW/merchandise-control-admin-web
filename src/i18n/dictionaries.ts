@@ -176,6 +176,7 @@ const emptyExact: Record<string, string> = {};
 
 const itExact: Record<string, string> = {
   Storefront: "Vetrina",
+  "Customer orders": "Ordini cliente",
   "Account": "Account",
   "Account identity unavailable": "Identita account non disponibile",
   "Actor provider": "Provider attore",
@@ -1546,6 +1547,7 @@ const itExact: Record<string, string> = {
 
 const esExact: Record<string, string> = {
   Storefront: "Tienda",
+  "Customer orders": "Pedidos de clientes",
   "Account": "Cuenta",
   "Account identity unavailable": "Identidad de cuenta no disponible",
   "Actor provider": "Proveedor del actor",
@@ -2876,6 +2878,7 @@ const esExact: Record<string, string> = {
 
 const zhExact: Record<string, string> = {
   Storefront: "店铺前台",
+  "Customer orders": "客户订单",
   "Account": "账号",
   "Account identity unavailable": "账号身份不可用",
   "Actor provider": "操作者来源",
@@ -5952,6 +5955,8 @@ const en: Dictionary = {
     duplicate_staff_code: "Duplicate staff code blocked for this shop.",
     invalid_category: "The selected category is not valid for this shop.",
     invalid_state: "The target row is not in the expected state.",
+    idempotency_conflict:
+      "This request key was already used for a different transition.",
     invalid_state_or_not_found: "The target row was not found or is not active.",
     invalid_supplier: "The selected supplier is not valid for this shop.",
     not_configured: "Supabase runtime is not configured.",
@@ -5965,6 +5970,8 @@ const en: Dictionary = {
     reason_required: "A reason is required for that sensitive action.",
     reservation_configuration_required:
       "Create an enabled reservation point and slot before enabling reservation.",
+    version_conflict:
+      "The order changed while this page was open. Refresh and review it.",
     success: "Action completed.",
     unauthorized: "This account is not authorized for that action.",
     unauthorized_or_unmapped:
@@ -6207,6 +6214,8 @@ const it: Dictionary = {
     duplicate_staff_code: "Codice staff duplicato bloccato per questo shop.",
     invalid_category: "La categoria selezionata non e valida per questo shop.",
     invalid_state: "La riga target non e nello stato atteso.",
+    idempotency_conflict:
+      "Questa chiave richiesta e gia stata usata per una transizione diversa.",
     invalid_state_or_not_found:
       "La riga target non e stata trovata o non e attiva.",
     invalid_supplier: "Il fornitore selezionato non e valido per questo shop.",
@@ -6221,6 +6230,8 @@ const it: Dictionary = {
     reason_required: "Serve una motivazione per questa azione sensibile.",
     reservation_configuration_required:
       "Crea un punto e una fascia di prenotazione attivi prima di abilitarla.",
+    version_conflict:
+      "L'ordine e cambiato mentre la pagina era aperta. Aggiorna e ricontrolla.",
     success: "Azione completata.",
     unauthorized: "Questo account non e autorizzato per questa azione.",
     unauthorized_or_unmapped:
@@ -6467,6 +6478,8 @@ const es: Dictionary = {
     duplicate_staff_code: "Codigo staff duplicado bloqueado para este shop.",
     invalid_category: "La categoria seleccionada no es valida para este shop.",
     invalid_state: "La fila objetivo no esta en el estado esperado.",
+    idempotency_conflict:
+      "Esta clave de solicitud ya se uso para otra transicion.",
     invalid_state_or_not_found:
       "La fila objetivo no fue encontrada o no esta activa.",
     invalid_supplier: "El proveedor seleccionado no es valido para este shop.",
@@ -6481,6 +6494,8 @@ const es: Dictionary = {
     reason_required: "Se requiere una razon para esa accion sensible.",
     reservation_configuration_required:
       "Crea un punto y una franja de reserva activos antes de habilitarla.",
+    version_conflict:
+      "El pedido cambio mientras la pagina estaba abierta. Actualiza y revisa.",
     success: "Accion completada.",
     unauthorized: "Esta cuenta no esta autorizada para esa accion.",
     unauthorized_or_unmapped:
@@ -6719,6 +6734,7 @@ const zhCN: Dictionary = {
     duplicate_staff_code: "已阻止此店铺的重复员工代码。",
     invalid_category: "所选分类对此店铺无效。",
     invalid_state: "目标行不在预期状态。",
+    idempotency_conflict: "此请求键已用于其他状态转换。",
     invalid_state_or_not_found: "未找到目标行，或目标行未启用。",
     invalid_supplier: "所选供应商对此店铺无效。",
     not_configured: "Supabase 运行时未配置。",
@@ -6729,6 +6745,7 @@ const zhCN: Dictionary = {
     preview_required: "应用前请先预览并确认工作簿。",
     reason_required: "此敏感操作需要填写原因。",
     reservation_configuration_required: "请先创建并启用预留点和预留时段。",
+    version_conflict: "页面打开期间订单已更改，请刷新后复核。",
     success: "操作已完成。",
     unauthorized: "此账号无权执行该操作。",
     unauthorized_or_unmapped: "此店铺未授权或没有映射的 inventory 来源。",

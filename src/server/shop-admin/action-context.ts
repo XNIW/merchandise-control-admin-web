@@ -23,6 +23,8 @@ export type ShopAdminActionCode =
   | "delivery_configuration_required"
   | "duplicate_staff_code"
   | "invalid_state"
+  | "version_conflict"
+  | "idempotency_conflict"
   | "invalid_state_or_not_found"
   | "invalid_supplier"
   | "invalid_category"
@@ -97,6 +99,10 @@ const messages: Record<ShopAdminActionCode, string> = {
     "Create an enabled delivery zone and slot before enabling delivery.",
   duplicate_staff_code: "A staff account with this code already exists.",
   invalid_state: "The target row is not in a valid state for this action.",
+  version_conflict:
+    "The order changed while this page was open. Refresh and review its current status.",
+  idempotency_conflict:
+    "This request key was already used for a different order transition.",
   invalid_state_or_not_found:
     "The target row was not found or is not in a valid state.",
   invalid_supplier: "The selected supplier does not belong to this shop source.",
@@ -193,6 +199,8 @@ function mapRpcCode(value: unknown): ShopAdminActionCode {
     "delivery_configuration_required",
     "duplicate_staff_code",
     "invalid_state",
+    "version_conflict",
+    "idempotency_conflict",
     "invalid_state_or_not_found",
     "invalid_supplier",
     "invalid_category",
