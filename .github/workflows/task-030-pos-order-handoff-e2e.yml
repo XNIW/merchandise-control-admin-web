@@ -1,6 +1,13 @@
 name: TASK-030 POS Order Handoff E2E
 
 on:
+  push:
+    branches:
+      - integration/storefront-v1
+    paths:
+      - ".github/workflows/task-030-pos-order-handoff-e2e.yml"
+      - "scripts/testing/storefront-v1-pos-order-staging-e2e.mjs"
+      - "package.json"
   workflow_dispatch:
 
 permissions:
