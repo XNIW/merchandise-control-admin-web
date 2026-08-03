@@ -59,6 +59,7 @@
     "test:storefront:reservation-hold-load": "bash scripts/testing/storefront-v1-reservation-hold-load.sh",
     "test:storefront:checkout-slot-concurrency": "bash scripts/testing/storefront-v1-checkout-slot-concurrency.sh",
     "test:storefront:customer-order-concurrency": "bash scripts/testing/storefront-v1-customer-order-concurrency.sh",
+    "test:storefront:customer-order-cancel-concurrency": "bash scripts/testing/storefront-v1-customer-order-cancel-concurrency.sh",
     "test:storefront:customer-device-concurrency": "bash scripts/testing/storefront-v1-customer-device-concurrency.sh",
     "test:storefront:customer-cart-concurrency": "bash scripts/testing/storefront-v1-customer-cart-concurrency.sh",
     "test:storefront:contract-load": "bash scripts/testing/storefront-v1-contract-load.sh",
