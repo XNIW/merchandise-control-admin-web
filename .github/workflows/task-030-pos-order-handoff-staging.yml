@@ -168,7 +168,13 @@ jobs:
             readFileSync("_task030-evidence/post-verify.json", "utf8").trim(),
           );
           console.log(JSON.stringify(report));
-          if (Object.values(report).some((value) => !value)) process.exit(1);
+          const { productionWriteRequested, ...requiredProofs } = report;
+          if (
+            productionWriteRequested !== false ||
+            Object.values(requiredProofs).some((value) => value !== true)
+          ) {
+            process.exit(1);
+          }
           NODE
 
       - name: Remove protected connection material
