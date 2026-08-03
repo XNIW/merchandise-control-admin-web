@@ -1,4 +1,10 @@
-import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Locator,
+  type Page,
+  type TestInfo,
+} from "@playwright/test";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { execFileSync } from "node:child_process";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -194,6 +200,27 @@ function deliveryZoneRpcSnapshot(value: unknown, publicName: string) {
         updatedAtType: typeof zone.updatedAt,
       }
     : null;
+}
+
+async function submitSettingsMutation(page: Page, button: Locator) {
+  const previousTargetId = new URL(page.url()).searchParams.get("target_id");
+  await Promise.all([
+    page.waitForURL(
+      (url) => {
+        const targetId = url.searchParams.get("target_id");
+        return (
+          url.pathname === "/shop/storefront" &&
+          url.searchParams.get("area") === "settings" &&
+          url.searchParams.get("result") === "success" &&
+          targetId !== null &&
+          targetId !== previousTargetId &&
+          uuidPattern.test(targetId)
+        );
+      },
+      { timeout: 15_000 },
+    ),
+    button.click(),
+  ]);
 }
 
 function seedFixture(fixture: Fixture, nonce: string) {
@@ -715,16 +742,13 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
     .getByLabel("Istruzioni pubbliche")
     .fill("Presenta el número de reserva.");
   await newPickup.getByLabel("Disponibile ai clienti").check();
-  await newPickup
-    .getByRole("button", { name: "Crea punto di ritiro" })
-    .click();
-  await expect(page).toHaveURL(
-    (url) =>
-      url.pathname === "/shop/storefront" &&
-      url.searchParams.get("area") === "settings" &&
-      url.searchParams.get("result") === "success",
+  await submitSettingsMutation(
+    page,
+    newPickup.getByRole("button", { name: "Crea punto di ritiro" }),
   );
-  await expect(page.getByText(pickupName).first()).toBeVisible();
+  await expect(page.getByText(pickupName).first()).toBeVisible({
+    timeout: 15_000,
+  });
 
   const newZone = page.locator("details").filter({
     has: page.getByText("Nuova zona di consegna", { exact: true }),
@@ -734,14 +758,9 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
   await newZone.getByLabel("Tariffa CLP").fill("2500");
   await newZone.getByLabel("Comuni serviti").fill("Ñuñoa\nProvidencia");
   await newZone.getByLabel("Disponibile ai clienti").check();
-  await newZone
-    .getByRole("button", { name: "Crea zona di consegna" })
-    .click();
-  await expect(page).toHaveURL(
-    (url) =>
-      url.pathname === "/shop/storefront" &&
-      url.searchParams.get("area") === "settings" &&
-      url.searchParams.get("result") === "success",
+  await submitSettingsMutation(
+    page,
+    newZone.getByRole("button", { name: "Crea zona di consegna" }),
   );
   await expect.poll(
     async () => {
@@ -803,14 +822,13 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
     await details.getByLabel("Inizio · America/Santiago").fill(startLocal);
     await details.getByLabel("Fine · America/Santiago").fill(endLocal);
     await details.getByLabel("Finestra prenotabile").check();
-    await details.getByRole("button", { name: "Crea fascia" }).click();
-    await expect(page).toHaveURL(
-      (url) =>
-        url.pathname === "/shop/storefront" &&
-        url.searchParams.get("area") === "settings" &&
-        url.searchParams.get("result") === "success",
+    await submitSettingsMutation(
+      page,
+      details.getByRole("button", { name: "Crea fascia" }),
     );
-    await expect(page.getByText(label).first()).toBeVisible();
+    await expect(page.getByText(label).first()).toBeVisible({
+      timeout: 15_000,
+    });
   };
   await createSlot(
     "Nuova fascia · ritiro",
@@ -847,12 +865,9 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
     pickupEnabled: "on",
     reservationEnabled: "on",
   });
-  await modeForm.getByRole("button", { name: "Salva modalità" }).click();
-  await expect(page).toHaveURL(
-    (url) =>
-      url.pathname === "/shop/storefront" &&
-      url.searchParams.get("area") === "settings" &&
-      url.searchParams.get("result") === "success",
+  await submitSettingsMutation(
+    page,
+    modeForm.getByRole("button", { name: "Salva modalità" }),
   );
   await expect(page.getByText("3 fasce")).toBeVisible();
   await attachUiScreenshot(page, testInfo, "admin-storefront-fulfillment");
