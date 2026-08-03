@@ -927,7 +927,7 @@ async function cleanupProof(client, runtime) {
       .eq("status", "active"),
     client
       .from("pos_device_credentials")
-      .select("credential_id")
+      .select("pos_device_credential_id")
       .eq("shop_id", runtime.shopId)
       .eq("status", "active"),
     client
