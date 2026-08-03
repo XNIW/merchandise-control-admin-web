@@ -30,6 +30,9 @@ jobs:
       expected_migration_version: "20260803021500"
       expected_migration_name: storefront_v1_checkout_admin
       expected_migration_file: 20260803021500_storefront_v1_checkout_admin.sql
+      expected_predecessor_migration_version: "20260803020000"
+      expected_predecessor_migration_name: storefront_v1_checkout_fulfillment
+      expected_predecessor_migration_file: 20260803020000_storefront_v1_checkout_fulfillment.sql
       apply_confirmation: APPLY_STOREFRONT_V1_STAGING
       load_hold_seconds: "0"
       run_performance_load: false

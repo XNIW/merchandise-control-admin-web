@@ -413,7 +413,7 @@ test("Storefront staging migration is exact-SHA guarded and retains the image bo
   }
 });
 
-test("Storefront staging rerun accepts only the exact already-applied migration", () => {
+test("Storefront staging rerun accepts an applied checkpoint with only later pending migrations", () => {
   const remap = {
     localVersion: "20260727055520",
     remoteVersion: "20260727084040",
@@ -449,6 +449,21 @@ test("Storefront staging rerun accepts only the exact already-applied migration"
   assert.equal(applied.status, "PASS");
   assert.equal(applied.expectedState, "applied");
   assert.equal(applied.expectedAlreadyApplied, true);
+
+  const future = {
+    version: "20260803020000",
+    name: "storefront_v1_checkout_fulfillment",
+    fileName: "20260803020000_storefront_v1_checkout_fulfillment.sql",
+  };
+  const appliedWithFuturePending = reconcileMigrationDelta({
+    ...input,
+    local: [...input.local, future],
+    allowExpectedAlreadyApplied: true,
+  });
+  assert.equal(appliedWithFuturePending.status, "PASS");
+  assert.equal(appliedWithFuturePending.expectedState, "applied");
+  assert.equal(appliedWithFuturePending.pendingRowsAreFuture, true);
+  assert.deepEqual(appliedWithFuturePending.pending, [future]);
 
   const drifted = reconcileMigrationDelta({
     ...input,

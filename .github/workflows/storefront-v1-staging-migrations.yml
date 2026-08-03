@@ -26,6 +26,21 @@ on:
         required: false
         default: 20260802043000_storefront_v1_catalog_performance.sql
         type: string
+      expected_predecessor_migration_version:
+        description: "Optional first migration version when one task has an ordered two-migration delta"
+        required: false
+        default: ""
+        type: string
+      expected_predecessor_migration_name:
+        description: "Optional first migration name for an ordered two-migration delta"
+        required: false
+        default: ""
+        type: string
+      expected_predecessor_migration_file:
+        description: "Optional first migration filename for an ordered two-migration delta"
+        required: false
+        default: ""
+        type: string
       apply_confirmation:
         description: "For apply, enter APPLY_STOREFRONT_V1_STAGING"
         required: false
@@ -69,6 +84,21 @@ on:
         required: true
         default: 20260802043000_storefront_v1_catalog_performance.sql
         type: string
+      expected_predecessor_migration_version:
+        description: "Optional first migration version when one task has an ordered two-migration delta"
+        required: false
+        default: ""
+        type: string
+      expected_predecessor_migration_name:
+        description: "Optional first migration name for an ordered two-migration delta"
+        required: false
+        default: ""
+        type: string
+      expected_predecessor_migration_file:
+        description: "Optional first migration filename for an ordered two-migration delta"
+        required: false
+        default: ""
+        type: string
       apply_confirmation:
         description: "For apply, enter APPLY_STOREFRONT_V1_STAGING"
         required: false
@@ -96,6 +126,9 @@ env:
   EXPECTED_MIGRATION_VERSION: ${{ inputs.expected_migration_version }}
   EXPECTED_MIGRATION_NAME: ${{ inputs.expected_migration_name }}
   EXPECTED_MIGRATION_FILE: ${{ inputs.expected_migration_file }}
+  EXPECTED_PREDECESSOR_MIGRATION_VERSION: ${{ inputs.expected_predecessor_migration_version }}
+  EXPECTED_PREDECESSOR_MIGRATION_NAME: ${{ inputs.expected_predecessor_migration_name }}
+  EXPECTED_PREDECESSOR_MIGRATION_FILE: ${{ inputs.expected_predecessor_migration_file }}
   REMAPPED_LOCAL_MIGRATION_VERSION: "20260727055520"
   REMAPPED_REMOTE_MIGRATION_VERSION: "20260727084040"
   REMAPPED_MIGRATION_NAME: task_142_catalog_text_policy_v1
