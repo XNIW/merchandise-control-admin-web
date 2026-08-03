@@ -1956,6 +1956,230 @@ jobs:
           if (Object.values(checks).some((value) => !value)) process.exit(1);
           NODE
 
+      - name: Verify TASK-027 atomic customer-order contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260803034500'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_customer_orders.sql \
+              > _storefront-migration/evidence/task-027-pgtap.txt
+          docker run --rm --network host \
+            -e STOREFRONT_ORDER_DB_URL="$SOURCE_DB_URL" \
+            -e STOREFRONT_ORDER_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_ORDER \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-customer-order-concurrency.sh \
+              > _storefront-migration/evidence/task-027-concurrency.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'ordersLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803033000'
+                    and name = 'storefront_v1_customer_orders'
+                ),
+                'capacityLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803034500'
+                    and name = 'storefront_v1_customer_order_capacity'
+                ),
+                'tableCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = class.relnamespace
+                  where namespace.nspname = 'public'
+                    and class.relname in (
+                      'customer_orders',
+                      'customer_order_items',
+                      'customer_order_status_events',
+                      'customer_order_outbox',
+                      'customer_order_mutations'
+                    )
+                    and class.relkind = 'r'
+                ),
+                'rlsForcedCount', (
+                  select count(*)
+                  from pg_catalog.pg_class class
+                  where class.oid in (
+                    'public.customer_orders'::regclass,
+                    'public.customer_order_items'::regclass,
+                    'public.customer_order_status_events'::regclass,
+                    'public.customer_order_outbox'::regclass,
+                    'public.customer_order_mutations'::regclass
+                  )
+                    and class.relrowsecurity
+                    and class.relforcerowsecurity
+                ),
+                'ownerPolicyCount', (
+                  select count(*)
+                  from pg_catalog.pg_policy policy
+                  where policy.polrelid in (
+                    'public.customer_orders'::regclass,
+                    'public.customer_order_items'::regclass,
+                    'public.customer_order_status_events'::regclass,
+                    'public.customer_order_mutations'::regclass
+                  )
+                ),
+                'mobileTableDenied',
+                  not has_table_privilege(
+                    'anon', 'public.customer_orders',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_orders',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_order_outbox',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'serviceRoleTableBoundary',
+                  has_table_privilege(
+                    'service_role', 'public.customer_orders',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and has_table_privilege(
+                    'service_role', 'public.customer_order_outbox',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'rpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_order_create_v1',
+                      'customer_order_read_v1'
+                    )
+                ),
+                'rpcHardened', (
+                  select count(*) = 2
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_order_create_v1',
+                      'customer_order_read_v1'
+                    )
+                    and procedure.prosecdef
+                    and (
+                      'search_path='
+                      || pg_catalog.chr(34)
+                      || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
+                ),
+                'authenticatedRpcAllowed',
+                  has_function_privilege(
+                    'authenticated',
+                    'public.customer_order_create_v1(uuid,bigint,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'authenticated',
+                    'public.customer_order_read_v1(uuid)',
+                    'EXECUTE'
+                  ),
+                'anonRpcDenied',
+                  not has_function_privilege(
+                    'anon',
+                    'public.customer_order_create_v1(uuid,bigint,uuid)',
+                    'EXECUTE'
+                  ),
+                'serverAuthoritativeArguments', not exists (
+                  select 1
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  cross join lateral unnest(
+                    coalesce(procedure.proargnames, '{}'::text[])
+                  ) argument(name)
+                  where namespace.nspname = 'public'
+                    and procedure.proname = 'customer_order_create_v1'
+                    and argument.name ~*
+                      '(user_id|shop_id|price|total|discount|fee|stock)'
+                ),
+                'oneOrderPerQuote', exists (
+                  select 1
+                  from pg_catalog.pg_constraint constraint_row
+                  where constraint_row.conrelid =
+                    'public.customer_orders'::regclass
+                    and constraint_row.contype = 'u'
+                    and pg_catalog.pg_get_constraintdef(constraint_row.oid)
+                      ilike '%quote_id%'
+                ),
+                'posNeutralOutbox', exists (
+                  select 1
+                  from pg_catalog.pg_constraint constraint_row
+                  where constraint_row.conrelid =
+                    'public.customer_order_outbox'::regclass
+                    and pg_catalog.pg_get_constraintdef(constraint_row.oid)
+                      ilike '%customer_order.confirmed.v1%'
+                )
+              )" \
+              > _storefront-migration/evidence/task-027-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/task-027-pgtap.txt",
+            "utf8",
+          );
+          const concurrency = readFileSync(
+            "_storefront-migration/evidence/task-027-concurrency.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/task-027-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            ordersLedgerExact: report.ordersLedgerExact === true,
+            capacityLedgerExact: report.capacityLedgerExact === true,
+            tableCount: Number(report.tableCount) === 5,
+            rlsForcedCount: Number(report.rlsForcedCount) === 5,
+            ownerPolicyCount: Number(report.ownerPolicyCount) === 4,
+            mobileTableDenied: report.mobileTableDenied === true,
+            serviceRoleTableBoundary:
+              report.serviceRoleTableBoundary === true,
+            rpcCount: Number(report.rpcCount) === 2,
+            rpcHardened: report.rpcHardened === true,
+            authenticatedRpcAllowed:
+              report.authenticatedRpcAllowed === true,
+            anonRpcDenied: report.anonRpcDenied === true,
+            serverAuthoritativeArguments:
+              report.serverAuthoritativeArguments === true,
+            oneOrderPerQuote: report.oneOrderPerQuote === true,
+            posNeutralOutbox: report.posNeutralOutbox === true,
+            pgTapPlan: /^1\.\.35$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 35,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+            concurrency:
+              /one order\/item\/event\/outbox\/mutation, one idempotent replay, stock unchanged, fiscal sale not created, PASS/.test(
+                concurrency,
+              ),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
       - name: Benchmark Storefront contract on staging and clean fixtures
         if: inputs.mode == 'apply' && inputs.run_performance_load
         env:
