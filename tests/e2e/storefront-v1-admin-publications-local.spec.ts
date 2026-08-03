@@ -674,7 +674,31 @@ test("owner publishes, previews, audits and pauses a Storefront product", async 
       url.searchParams.get("area") === "settings" &&
       url.searchParams.get("result") === "success",
   );
-  await expect(page.getByText(deliveryZoneName).first()).toBeVisible();
+  await expect.poll(
+    async () => {
+      const result = await state.admin!
+        .from("storefront_delivery_zones")
+        .select("public_name")
+        .eq("shop_id", fixture.shopId)
+        .eq("public_name", deliveryZoneName)
+        .maybeSingle();
+      if (result.error) {
+        throw new Error("STOREFRONT_ADMIN_E2E_DELIVERY_ZONE_READ");
+      }
+      return result.data?.public_name ?? null;
+    },
+    {
+      intervals: [250, 500, 1_000, 2_000],
+      message: "the successful delivery-zone mutation must be committed",
+      timeout: 10_000,
+    },
+  ).toBe(deliveryZoneName);
+  await expect(
+    page.getByRole("heading", { name: "Modalità cliente" }),
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(deliveryZoneName).first()).toBeVisible({
+    timeout: 15_000,
+  });
 
   const startLocal = new Date(Date.now() + 24 * 60 * 60_000)
     .toISOString()
