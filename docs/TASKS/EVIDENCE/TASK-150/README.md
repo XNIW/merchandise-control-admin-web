@@ -9,11 +9,16 @@
 - Responsabile: `CODEX / ASUS`
 - Executor: `CODEX / ASUS`
 - Runtime/staging/physical run TASK-150:
-  `NOT_RUN`
+  `BLOCKED / NOT_ACCEPTED`
 
 TASK-150 è stato attivato esplicitamente dall'utente il `2026-07-31`. Questo
 file registra solo evidence realmente osservata; l'attivazione non costituisce
 un PASS e non porta TASK-150 a `DONE`.
+
+La riconciliazione read-only del `2026-08-08` è registrata in
+`docs/TASKS/EVIDENCE/TASK-150/2026-08-08-REMOTE-RESIDUAL-RECONCILIATION.md`.
+Corregge i precedenti marker PR/CI/merge/staging ormai obsoleti, ma non promuove
+l'acceptance incompleta.
 
 ## Attivazione 2026-07-31
 
@@ -76,7 +81,7 @@ preflight blocca l'attivazione prima di autenticazione o mutazioni.
 - Production:
   `NOT_MODIFIED`.
 
-## Boundary QA staging-only implementato (pre-deploy)
+## Boundary QA staging-only — checkpoint storico pre-deploy
 
 - Migration additiva:
   `20260731162000_task_150_win7pos_product_image_qa_boundary.sql`.
@@ -133,10 +138,12 @@ preflight blocca l'attivazione prima di autenticazione o mutazioni.
   finale è `PASS`, con `P0/P1/P2/P3 = 0/0/0/0`.
 - pgTAP runtime/container:
   `NOT_RUN`; Docker Desktop non è installabile in questa sessione non elevata
-  e la virtualizzazione firmware della macchina risulta disabilitata.
+  e la virtualizzazione firmware della macchina risulta disabilitata. È il
+  risultato locale storico; il successivo pgTAP CI è `PASS` come registrato
+  nella matrice corrente.
 - Deploy/migration staging:
-  `NOT_RUN`; nessuna mutazione staging è autorizzata finché review, PR, CI e
-  merge del boundary non risultano verdi.
+  questo marker appartiene al checkpoint pre-PR ed è superato dalla
+  riconciliazione del `2026-08-08`; non usarlo come stato corrente.
 - Deploy path predisposto:
   workflow migration TASK-150 guarded `dry-run/apply`, exact single pending
   migration e post-verifica schema/grant; deploy Worker `staging` installa la
@@ -149,36 +156,37 @@ preflight blocca l'attivazione prima di autenticazione o mutazioni.
   già autorizzato e non mutato, resta soltanto come actor audit obbligatorio;
   owner Auth sintetico e altri riferimenti lifecycle run-owned continuano a
   essere rimossi. pgTAP e foundation ora verificano questa shape; il rerun CI
-  sul commit corretto è richiesto prima del merge.
+  sul commit corretto era richiesto prima del merge ed è poi risultato `PASS`
+  nella PR `#62`.
 - Review indipendente incrementale del deploy path:
   corretti fail-fast HMAC, header probe, stdin Docker, scope step-only dei
   secret, hard-pin del project ref staging e exact set/grant post-verifica.
   Esito finale `PASS`, `P0/P1/P2/P3 = 0/0/0/0`.
 
-## Matrice evidence pianificata
+## Matrice evidence corrente — riconciliazione 2026-08-08
 
-| Gate | Stato iniziale |
+| Gate | Stato verificato |
 | --- | --- |
-| Handoff/schema/fixture digest | `PREFLIGHT_IN_PROGRESS` |
+| Handoff/schema/fixture digest | `PASS` |
 | Phase A review/checks/normal merge | `PASS` |
-| Admin QA boundary RED/GREEN | `LOCAL_STATIC_PASS / PGTAP_NOT_RUN` |
-| Admin PR/CI/normal merge | `NOT_RUN` |
-| Admin migration/deploy staging | `NOT_RUN` |
-| Phase B contract/golden | `LOCAL_PASS` |
-| Core/Data/WPF imaging/full build | `843/843; 19/19; BUILD_PASS` |
-| Security/Gitleaks/package | `NOT_RUN` |
-| Phase B PR/CI/normal merge | `NOT_RUN` |
-| Staging acceptance exact-ID | `NOT_RUN` |
-| Fence `2 h 05 min` | `NOT_RUN` |
-| Cleanup/residui run-scoped | `NOT_RUN` |
+| Admin QA boundary RED/GREEN | `PASS` — PR `#62` DB/pgTAP, Verify e build verdi |
+| Admin PR/CI/normal merge | `PASS` — PR `#62`-`#66`, `#68`-`#70` merged |
+| Admin migration/deploy staging | `PASS` per gli artifact registrati; tre deploy consumati |
+| Phase B contract/golden | `PASS` |
+| Core/Data/WPF imaging/full build | `PASS` — evidence più recente `873/873`, `19/19`, build verde |
+| Security/Gitleaks | `PASS` sui PR TASK-150 registrati |
+| Installer/package | `NOT_RUN` |
+| Phase B PR/CI/normal merge | `PASS` — PR Win7POS `#73`-`#83` merged |
+| Staging acceptance exact-ID | `FAIL` — ultima acceptance evidenziata non completa |
+| Fence `2 h 05 min` | `BLOCKED` — manca closure terminale dell'ultima run |
+| Cleanup/residui run-scoped | `BLOCKED` — Run 4 Storage assente, commit/receipt/snapshot non provati |
 | Windows 7 fisico | `NOT_RUN` |
 | Production/Android/iOS | `NOT_MODIFIED` |
 
-La validazione Win7POS locale coordinata comprende inoltre `38/38` test
-cache/scope/catalog mirati, smoke UI e profilo `PASS`, restore locked `PASS`,
-required gates `46/46` e `20` vettori supply-chain fail-closed. Questi risultati
-non promuovono i gate PR/CI, staging o cleanup, che restano `NOT_RUN` fino alla
-loro esecuzione effettiva.
+La validazione Win7POS è proseguita oltre il checkpoint iniziale fino a
+`873/873` Core/Data e alle PR `#73`-`#83` con CI, Supply Chain e CodeQL verdi.
+Questi risultati non promuovono staging, cleanup terminale, package o Windows 7
+fisico. Run 5 e ulteriori deploy non sono autorizzati dal budget registrato.
 
 ## Guardrail evidence
 
@@ -194,6 +202,6 @@ loro esecuzione effettiva.
 
 ## Condizione di attivazione
 
-Soddisfatta dal comando esplicito dell'utente del `2026-07-31`. Il preflight
-digest e boundary prosegue senza mutazioni staging finché tutti i relativi
-gate non sono `PASS`.
+Soddisfatta dal comando esplicito dell'utente del `2026-07-31`. TASK-150 resta
+`ACTIVE / EXECUTION`: la prossima mutazione staging richiede autorizzazione e
+budget espliciti; nessun gate incompleto è rappresentato come `PASS`.
