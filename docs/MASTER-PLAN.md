@@ -2947,19 +2947,36 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `READY_FOR_ASUS_PRODUCT_IMAGE_PHASE_B`
 - Responsabile: `CODEX / ASUS`
 - Branch/worktree TASK-150:
-  `codex/task-150-win7pos-image-qa-boundary-20260731`, baseline Admin
-  `d2689f15f0291670bbc2713967368521e3f3a7fe`; Win7POS task
-  `ASUS-W7POS-015`, branch
+  lineage Admin `codex/task-150-win7pos-image-qa-boundary-20260731`, baseline
+  `d2689f15f0291670bbc2713967368521e3f3a7fe`, integrata su `main` fino a
+  `dfb6e8c179ad50b6e2b103742ee4accf641c43ac`; Win7POS task
+  `ASUS-W7POS-015`, lineage
   `codex/asus-product-image-phase-b-final-20260731`, Phase A merge
-  `9bc5b757b78fe7b9212bf5fae359a5559e3da7f9`.
+  `9bc5b757b78fe7b9212bf5fae359a5559e3da7f9`, ultima merge TASK-150
+  `9986c676b23753381c63c99b363a7d253e356eeb`.
 - Checkpoint boundary QA TASK-150 2026-07-31: implementata su branch isolato
   la boundary staging-only exact-template con project/host pin, capability
   digest-only, bootstrap-actor binding, rate limit sliding-idle, fencing
   generation/lease, enrollment closure e receipt terminale HMAC immutabile.
   Nessuna cancellazione Storage viene eseguita dal route: il commit DB-side
   resta fail-closed su residui Storage exact-run. Gate locali osservati:
-  foundation focused `12/12`, typecheck/lint `PASS`, pglast `81` statement;
-  pgTAP container, PR/CI/merge e deploy staging restano `NOT_RUN`.
+  foundation focused `12/12`, typecheck/lint `PASS`, pglast `81` statement.
+  Questo è un checkpoint storico pre-PR; lo stato corrente è riconciliato nel
+  record del `2026-08-08` seguente.
+- Riconciliazione TASK-150 2026-08-08: le PR Admin `#62`-`#66` e `#68`-`#70`
+  e le PR Win7POS `#73`-`#83` risultano unite normalmente con i rispettivi gate
+  GitHub non skipped verdi. I workflow migration TASK-150 hanno completato
+  dry-run/apply e post-verifica per boundary, compatibilità e recovery; due
+  workflow Cloudflare post-propagation hanno completato deploy staging, route
+  verification e smoke. I tre workflow che hanno raggiunto `Deploy Worker
+  staging` consumano il budget deploy registrato; production è sempre rimasta
+  skipped. L'acceptance resta non verde: Run 4 non ha evidence canonica della
+  failure e la recovery Storage `30732082208` non ha eseguito il cleanup commit.
+  Receipt terminale, full matrix exact-ID, snapshot shared, package e Windows 7
+  fisico restano `BLOCKED`/`NOT_RUN`; Run 5 e nuovi deploy non sono autorizzati.
+  TASK-150 resta `ACTIVE / EXECUTION`, TASK-149 `REVIEW_READY / REVIEW`.
+  Evidence:
+  `docs/TASKS/EVIDENCE/TASK-150/2026-08-08-REMOTE-RESIDUAL-RECONCILIATION.md`.
 - Apertura TASK-149 2026-07-30: ricevuta autorizzazione completa per il
   contratto server `pos-product-image-v1`, PR/CI/merge, migration e deploy
   esclusivamente staging, acceptance sintetica exact-ID e cleanup. Baseline
