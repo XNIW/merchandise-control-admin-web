@@ -761,14 +761,15 @@ test("TASK-089 Win7POS outbox, parser and restore invariants stay aligned", (t) 
   ]);
   assertContainsAll(workflow, [
     "QueueSalesOutboxSyncNoThrow",
-    "CreateDbBackupNoLockAsync",
+    "AllocateDbBackupPath",
+    "SqliteRestoreCoordinator",
     "pos_pre_restore_",
     "KeyRestoreNeedsSyncReview",
     "KeyRestoreLastPreBackupPath",
     "IntegrityCheckAsync",
     "HasUnresolvedSalesSyncOutboxAsync",
     "POS DB restore blocked",
-    "POS DB pre-restore backup created",
+    "POS DB restored; sync review required",
   ]);
   assertContainsAll(logger, ["ProcessFileLog", "LogSanitizer.Sanitize"]);
   assertContainsAll(logSanitizer, [

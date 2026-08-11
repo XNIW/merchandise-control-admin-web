@@ -4,7 +4,7 @@ import {
   readFileSync,
   statSync,
 } from "node:fs";
-import { isAbsolute, join, normalize, relative, resolve } from "node:path";
+import { isAbsolute, join, normalize, relative, resolve, sep } from "node:path";
 
 const DEFAULT_NEXT_ROOT =
   ".open-next/server-functions/default/.next";
@@ -185,9 +185,13 @@ function resolveChunk(nextRoot, reference) {
   }
 
   const absolutePath = resolve(nextRoot, normalizedReference);
-  const normalizedRoot = `${resolve(nextRoot)}/`;
+  const relativeChunkPath = relative(resolve(nextRoot), absolutePath);
 
-  if (!`${absolutePath}/`.startsWith(normalizedRoot)) {
+  if (
+    relativeChunkPath === ".." ||
+    relativeChunkPath.startsWith(`..${sep}`) ||
+    isAbsolute(relativeChunkPath)
+  ) {
     throw new Error(`Chunk reference escapes the emitted build: ${reference}`);
   }
 

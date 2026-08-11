@@ -1181,7 +1181,11 @@ async function runCooperativeAbortSelfTest() {
   let cooperativeAbortObserved = false;
   let guardedFinallyRan = false;
   const trigger = setTimeout(() => {
-    process.kill(process.pid, HARNESS_COOPERATIVE_ABORT_SIGNAL);
+    if (process.platform === "win32") {
+      process.emit(HARNESS_COOPERATIVE_ABORT_SIGNAL);
+    } else {
+      process.kill(process.pid, HARNESS_COOPERATIVE_ABORT_SIGNAL);
+    }
   }, 0);
   try {
     await lifecycleDelay(5_000);

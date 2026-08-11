@@ -4433,12 +4433,12 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   ].join("\n");
   const catalogFailureLogger =
     catalogPullService.match(
-      /function emitPosCatalogFailureLog\([\s\S]*?\n}\n\nfunction cursorFingerprint/,
+      /function emitPosCatalogFailureLog\([\s\S]*?\r?\n}\r?\n\r?\nfunction cursorFingerprint/,
     )?.[0] ?? "";
   const routeRejectionLogger =
     posRouteSecurity
       .match(
-        /export function emitPosRouteRejectionAudit\([\s\S]*?\n}\n(?=\nexport function posMethodNotAllowedResponse)/,
+        /export function emitPosRouteRejectionAudit\([\s\S]*?\r?\n}\r?\n(?=\r?\nexport function posMethodNotAllowedResponse)/,
       )?.[0]
       .trimEnd() ?? "";
   const expectedRouteRejectionLogger = [
@@ -4700,7 +4700,8 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
 
   if (
     !routeRejectionLogger ||
-    routeRejectionLogger !== expectedRouteRejectionLogger ||
+    routeRejectionLogger.replace(/\r\n/g, "\n") !==
+      expectedRouteRejectionLogger ||
     routeRejectionConsoleCalls.length !== 1 ||
     routeRejectionConsoleCalls[0] !== "console.warn(" ||
     !/console\.warn\(\s*JSON\.stringify\(/.test(routeRejectionLogger) ||

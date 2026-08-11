@@ -3434,7 +3434,7 @@ task149Test(
   () => {
     const stagingHarness = read(
       "scripts/testing/task-149-pos-product-image-staging-e2e.mjs",
-    );
+    ).replace(/\r\n/g, "\n");
     const resourceGate = read(
       "scripts/testing/task-149-pos-product-image-resource-gate.mjs",
     );

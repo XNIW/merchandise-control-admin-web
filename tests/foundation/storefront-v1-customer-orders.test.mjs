@@ -55,7 +55,7 @@ test("TASK-027 keeps order aggregate and delivery outbox behind forced RLS", () 
 test("TASK-027 accepts only confirmed quote identity, version and idempotency key", () => {
   const signature =
     capacityMigration.match(
-      /create or replace function public\.customer_order_create_v1\([\s\S]*?\n\)\nreturns jsonb/,
+      /create or replace function public\.customer_order_create_v1\([\s\S]*?\r?\n\)\r?\nreturns jsonb/,
     )?.[0] ?? "";
   assert.notEqual(signature, "");
   assert.doesNotMatch(
