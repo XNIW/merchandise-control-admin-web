@@ -37,6 +37,8 @@ autorizzato; produzione, Android e iOS restano esclusi.
 - Admin branch:
   `codex/task-150-win7pos-image-qa-boundary-20260731`.
 - Windows 7 fisico: `NOT_RUN`.
+- Riconciliazione evidence:
+  `docs/TASKS/EVIDENCE/TASK-150/2026-08-08-REMOTE-RESIDUAL-RECONCILIATION.md`.
 
 ## Obiettivo
 
@@ -83,23 +85,24 @@ Un mismatch blocca l'attivazione prima di autenticazione o DML.
 - Service role soltanto server-side/off-device, mai sull'Asus.
 - PR non-draft, CI verde, merge normale, migration/deploy solo staging.
 
-Stato locale corrente: boundary implementato in forma pre-deploy con exact
-staging project pin, route POST-only/no-store, capability digest-only,
-bootstrap-actor binding, enrollment chiuso prima del cleanup, generation/lease
-fencing, capability loss-safe deterministiche, quota cross-run, preflight DB
-anti-scrypt-DoS, owner catalog sintetico isolato e receipt terminale immutabile.
-Il body HTTP è stream-bounded a `16 KiB` anche senza Content-Length. Il route
-non cancella oggetti Storage:
-la transazione di cleanup rifiuta il commit con `storage_cleanup_incomplete`
-finché gli exact oggetti run-owned non risultano già assenti. Foundation
-focused `13/13`, typecheck/lint e parser SQL (`81` statement) sono `PASS`;
-la re-review indipendente finale è `PASS` con `P0/P1/P2/P3 = 0/0/0/0`.
-pgTAP container e staging restano `NOT_RUN` fino a CI e merge: l'installazione
-locale di Docker Desktop non può essere completata dalla sessione non elevata
-e la virtualizzazione firmware risulta disabilitata.
-Il deploy path resta staging-only: migration exact-delta guarded e Worker
-secret HMAC dedicato dall'environment `cloudflare-staging`, con probe
-non-mutativa post-deploy.
+Stato verificato al `2026-08-08`: boundary e remediation Admin sono presenti su
+`main` fino a `dfb6e8c179ad50b6e2b103742ee4accf641c43ac`; le PR `#62`-`#66` e
+`#68`-`#70` risultano unite normalmente con database/pgTAP, Verify e build
+Cloudflare verdi. I workflow guarded hanno applicato e riverificato le tre
+migration TASK-150 registrate. Tre workflow hanno raggiunto il deploy Worker
+staging: il primo ha fallito solo la probe immediata durante la propagazione,
+i due successivi hanno completato route verification e smoke; production è
+rimasta `SKIPPED`.
+
+La Phase B Win7POS e le remediation limitate sono unite normalmente tramite PR
+`#73`-`#83`, con CI, Supply Chain e CodeQL verdi. L'acceptance non è però
+conclusa: Run 1 è documentata terminal-clean; Run 3 ha prodotto un errore client
+poi corretto; per Run 4 manca l'evidence canonica della failure. Il workflow
+Admin `30732082208` ha provato l'assenza degli Storage object Run 4 ma, per
+design, non ha chiamato il cleanup commit. Mancano quindi receipt terminale,
+matrice exact-ID completa, snapshot shared equivalente, package e Windows 7
+fisico. Run 5 non è stata autorizzata. TASK-150 resta `ACTIVE / EXECUTION`, non
+`REVIEW_READY` e non `DONE`.
 
 ### Phase B Win7POS
 
@@ -145,6 +148,15 @@ Ogni run deve raggiungere cleanup verificato prima del successivo. Fix solo
 client non autorizzano un deploy Admin. Budget, outage, permessi, dipendenza o
 hardware mancanti producono cleanup sicuro e `BLOCKED_EXTERNAL`, non scope
 creep o PASS inventato.
+
+La riconciliazione del `2026-08-08` osserva tre workflow che hanno raggiunto il
+deploy Admin staging, incluso il primo terminato in failure dopo l'upload del
+Worker. Il budget deploy registrato è quindi consumato. Nessun nuovo deploy o
+Run 5 è autorizzato senza una decisione esplicita dell'utente. Le evidence
+pubbliche nominano inoltre una Run 4 mentre il budget registra al massimo tre
+run mutative: non è possibile ricostruire in modo canonico se ogni tentativo
+numerato abbia superato il confine mutativo. L'ambiguità resta fail-closed e
+blocca ulteriori run.
 
 ## Criteri di accettazione
 
