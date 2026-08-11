@@ -17,6 +17,7 @@ import {
 import { sanitizeStorefrontWebp } from "../../src/app/shop/storefront/storefront-webp-sanitizer.ts";
 import {
   isCanonicalStorefrontImagePath,
+  runStorefrontImageCleanup,
   validateStagingTarget,
 } from "../../scripts/admin/storefront-v1-image-cleanup.mjs";
 import { reconcileMigrationDelta } from "../../scripts/task-150-reconcile-migration-delta.mjs";
@@ -26,6 +27,10 @@ const read = (path) => readFileSync(join(root, path), "utf8");
 const migration = read(
   "supabase/migrations/20260802023000_storefront_v1_public_images.sql",
 );
+const fencingMigration = read(
+  "supabase/migrations/20260811230000_storefront_v1_image_finalize_fencing.sql",
+);
+const imageMigrations = `${migration}\n${fencingMigration}`;
 const component = read("src/app/shop/storefront/StorefrontImagesControl.tsx");
 const service = read("src/server/shop-admin/storefront-images/service.ts");
 const page = read("src/app/shop/storefront/page.tsx");
@@ -322,7 +327,7 @@ test("TASK-009 SQL boundary is isolated, lease-bound, idempotent, audited and cl
     "force row level security",
   ])
     assert.match(
-      migration,
+      imageMigrations,
       new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
     );
   assert.doesNotMatch(
@@ -334,8 +339,21 @@ test("TASK-009 SQL boundary is isolated, lease-bound, idempotent, audited and cl
     /revoke all on table public\.storefront_image_publication_variants[\s\S]*from public, anon, authenticated/,
   );
   assert.match(
-    migration,
-    /grant execute on function public\.storefront_image_cleanup_claim_v1[\s\S]*to service_role/,
+    fencingMigration,
+    /grant execute on function public\.storefront_image_cleanup_claim_v2[\s\S]*to service_role/,
+  );
+  assert.match(
+    fencingMigration,
+    /revoke all on function public\.admin_storefront_image_finalize_v1[\s\S]*from authenticated, service_role/,
+  );
+  assert.match(
+    fencingMigration,
+    /admin_storefront_image_finalize_server_v2[\s\S]*cleanup_claim_token[\s\S]*cleanup_fence_active/,
+  );
+  assert.match(service, /verifyStoredVariants[\s\S]*admin_storefront_image_finalize_server_v2/);
+  assert.match(
+    fencingMigration,
+    /storefront_image_cleanup_complete_v2[\s\S]*cleanup_claim_token = p_claim_token/,
   );
 });
 
@@ -376,12 +394,64 @@ test("TASK-009 cleanup accepts only canonical objects on an allowlisted staging 
     cleanupWorkflow,
     /STOREFRONT_IMAGE_CLEANUP_ALLOW_STAGING: "yes"/,
   );
+  assert.match(
+    read("scripts/admin/storefront-v1-image-cleanup.mjs"),
+    /storefront_image_cleanup_claim_v2[\s\S]*cleanup_claim_token[\s\S]*storefront_image_cleanup_complete_v2/,
+  );
+});
+
+test("TASK-009 cleanup forwards the exact v2 claim token to completion", async () => {
+  const variantId = "71000000-0000-4000-8000-000000020090";
+  const claimToken = "72000000-0000-4000-8000-000000020090";
+  const objectPath = `shops/${SHOP}/products/20000000-0000-4000-8000-000000020090/public/${IMAGE}/thumb-${"a".repeat(16)}.webp`;
+  const calls = [];
+  let claimed = false;
+  const client = {
+    rpc: async (name, args) => {
+      calls.push({ args, name });
+      if (name === "storefront_image_cleanup_claim_v2") {
+        if (claimed) return { data: { items: [], ok: true }, error: null };
+        claimed = true;
+        return {
+          data: {
+            items: [
+              {
+                cleanup_claim_token: claimToken,
+                id: variantId,
+                object_path: objectPath,
+              },
+            ],
+            ok: true,
+          },
+          error: null,
+        };
+      }
+      return { data: { ok: true }, error: null };
+    },
+    storage: {
+      from: () => ({ remove: async () => ({ error: null }) }),
+    },
+  };
+
+  assert.deepEqual(
+    await runStorefrontImageCleanup({ client, maxBatches: 2 }),
+    { claimed: 1, failed: 0, removed: 1 },
+  );
+  assert.deepEqual(calls[1], {
+    args: {
+      p_claim_token: claimToken,
+      p_error_code: null,
+      p_removed: true,
+      p_variant_id: variantId,
+    },
+    name: "storefront_image_cleanup_complete_v2",
+  });
 });
 
 test("Storefront staging migration is exact-SHA guarded and retains the image boundary", () => {
   assert.match(
     stagingMigrationWorkflow,
-    /expected_migration_version:[\s\S]*default: "20260802043000"/,
+    /expected_migration_version:[\s\S]*default: "20260811230000"/,
   );
   assert.match(
     stagingMigrationWorkflow,
@@ -389,7 +459,7 @@ test("Storefront staging migration is exact-SHA guarded and retains the image bo
   );
   assert.match(
     stagingMigrationWorkflow,
-    /expected_migration_name:[\s\S]*default: storefront_v1_catalog_performance/,
+    /expected_migration_name:[\s\S]*default: storefront_v1_image_finalize_fencing/,
   );
   assert.match(
     stagingMigrationWorkflow,
@@ -407,6 +477,7 @@ test("Storefront staging migration is exact-SHA guarded and retains the image bo
     "publicImageBucketBoundary",
     "publicImageVariantBoundary",
     "publicImageAdminFunctionsHardened",
+    "publicImageFinalizeServerBoundary",
     "publicImageServiceFunctionsConfined",
   ]) {
     assert.match(stagingMigrationWorkflow, new RegExp(marker));
@@ -420,9 +491,9 @@ test("Storefront staging rerun accepts an applied checkpoint with only later pen
     name: "task_142_catalog_text_policy_v1",
   };
   const expected = {
-    version: "20260802043000",
-    name: "storefront_v1_catalog_performance",
-    fileName: "20260802043000_storefront_v1_catalog_performance.sql",
+    version: "20260811230000",
+    name: "storefront_v1_image_finalize_fencing",
+    fileName: "20260811230000_storefront_v1_image_finalize_fencing.sql",
   };
   const input = {
     local: [
@@ -451,7 +522,7 @@ test("Storefront staging rerun accepts an applied checkpoint with only later pen
   assert.equal(applied.expectedAlreadyApplied, true);
 
   const future = {
-    version: "20260803020000",
+    version: "20260812020000",
     name: "storefront_v1_checkout_fulfillment",
     fileName: "20260803020000_storefront_v1_checkout_fulfillment.sql",
   };

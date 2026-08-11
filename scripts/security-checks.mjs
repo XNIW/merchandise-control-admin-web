@@ -464,7 +464,10 @@ function checkReadOnlyContracts() {
     ],
     [
       "src/server/shop-admin/storefront-images/service.ts",
-      new Set(["storefront_image_configure_origin_v1"]),
+      new Set([
+        "admin_storefront_image_finalize_server_v2",
+        "storefront_image_configure_origin_v1",
+      ]),
     ],
     [
       "src/server/shop-admin/staff-web-runtime-boundary.ts",

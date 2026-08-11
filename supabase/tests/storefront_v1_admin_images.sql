@@ -15,9 +15,9 @@ select has_function(
   'TASK-009 installs the image intent boundary'
 );
 select has_function(
-  'public', 'admin_storefront_image_finalize_v1',
-  array['uuid','uuid','jsonb','uuid','uuid','text','integer'],
-  'TASK-009 installs the transactional verified finalize boundary'
+  'public', 'admin_storefront_image_finalize_server_v2',
+  array['uuid','uuid','jsonb','uuid','uuid','uuid','text','integer'],
+  'TASK-009 installs the server-only verified finalize boundary'
 );
 select has_function(
   'public', 'admin_storefront_image_rollback_v1',
@@ -40,15 +40,21 @@ select ok(
   'variant ledger remains service-only and default-deny to mobile roles'
 );
 select ok(
-  has_function_privilege('authenticated',
+  not has_function_privilege('authenticated',
     'public.admin_storefront_image_finalize_v1(uuid,uuid,jsonb,uuid,uuid,text,integer)', 'EXECUTE')
-  and not has_function_privilege('anon',
+  and not has_function_privilege('service_role',
     'public.admin_storefront_image_finalize_v1(uuid,uuid,jsonb,uuid,uuid,text,integer)', 'EXECUTE')
   and has_function_privilege('service_role',
-    'public.storefront_image_cleanup_claim_v1(integer)', 'EXECUTE')
+    'public.admin_storefront_image_finalize_server_v2(uuid,uuid,jsonb,uuid,uuid,uuid,text,integer)', 'EXECUTE')
   and not has_function_privilege('authenticated',
+    'public.admin_storefront_image_finalize_server_v2(uuid,uuid,jsonb,uuid,uuid,uuid,text,integer)', 'EXECUTE')
+  and has_function_privilege('service_role',
+    'public.storefront_image_cleanup_claim_v2(integer)', 'EXECUTE')
+  and not has_function_privilege('authenticated',
+    'public.storefront_image_cleanup_claim_v2(integer)', 'EXECUTE')
+  and not has_function_privilege('service_role',
     'public.storefront_image_cleanup_claim_v1(integer)', 'EXECUTE'),
-  'Admin RPCs and service-only cleanup expose only their intended roles'
+  'verified finalize and fenced cleanup are confined to the service boundary'
 );
 
 insert into auth.users (
@@ -229,8 +235,8 @@ select is(
     )
   )->>'code', 'stale_conflict', 'same source version cannot be mutated into different public bytes'
 );
-select is(
-  public.admin_storefront_image_finalize_v1(
+select throws_ok(
+  $$ select public.admin_storefront_image_finalize_v1(
     '10000000-0000-4000-8000-000000020090',
     (select value from task009_state where key='first'),
     jsonb_build_array(
@@ -238,17 +244,37 @@ select is(
       jsonb_build_object('variant','card','bytes',2000,'width',600,'height',600,'sha256',repeat('b',64)),
       jsonb_build_object('variant','detail','bytes',3000,'width',1200,'height',1200,'sha256',repeat('c',64))
     )
-  )->>'code', 'verified_metadata_mismatch', 'finalize rejects any unverified byte mismatch'
+  ) $$,
+  '42501', null,
+  'authenticated callers cannot bypass server-side object verification'
+);
+
+set local role service_role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+select set_config('request.jwt.claim.role', 'service_role', true);
+select is(
+  public.admin_storefront_image_finalize_server_v2(
+    '10000000-0000-4000-8000-000000020090',
+    (select value from task009_state where key='first'),
+    jsonb_build_array(
+      jsonb_build_object('variant','thumb','bytes',999,'width',200,'height',200,'sha256',repeat('a',64)),
+      jsonb_build_object('variant','card','bytes',2000,'width',600,'height',600,'sha256',repeat('b',64)),
+      jsonb_build_object('variant','detail','bytes',3000,'width',1200,'height',1200,'sha256',repeat('c',64))
+    ),
+    '00000000-0000-4000-8000-000000020090'
+  )->>'code', 'verified_metadata_mismatch',
+  'server finalize rejects any verified byte mismatch'
 );
 select is(
-  public.admin_storefront_image_finalize_v1(
+  public.admin_storefront_image_finalize_server_v2(
     '10000000-0000-4000-8000-000000020090',
     (select value from task009_state where key='first'),
     jsonb_build_array(
       jsonb_build_object('variant','thumb','bytes',1000,'width',200,'height',200,'sha256',repeat('a',64),'publicUrl','https://attacker.invalid/x'),
       jsonb_build_object('variant','card','bytes',2000,'width',600,'height',600,'sha256',repeat('b',64),'publicUrl','https://attacker.invalid/x'),
       jsonb_build_object('variant','detail','bytes',3000,'width',1200,'height',1200,'sha256',repeat('c',64),'publicUrl','https://attacker.invalid/x')
-    )
+    ),
+    '00000000-0000-4000-8000-000000020090'
   )->>'code', 'success', 'verified variants finalize atomically'
 );
 set local role postgres;
@@ -314,15 +340,19 @@ with response as (
     )
   ) result
 ) insert into task009_state values ('second', (select (result->>'targetId')::uuid from response));
+set local role service_role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+select set_config('request.jwt.claim.role', 'service_role', true);
 select is(
-  public.admin_storefront_image_finalize_v1(
+  public.admin_storefront_image_finalize_server_v2(
     '10000000-0000-4000-8000-000000020090',
     (select value from task009_state where key='second'),
     jsonb_build_array(
       jsonb_build_object('variant','thumb','bytes',1100,'width',200,'height',200,'sha256',repeat('3',64)),
       jsonb_build_object('variant','card','bytes',2100,'width',600,'height',600,'sha256',repeat('4',64)),
       jsonb_build_object('variant','detail','bytes',3100,'width',1200,'height',1200,'sha256',repeat('5',64))
-    )
+    ),
+    '00000000-0000-4000-8000-000000020090'
   )->>'code', 'success', 'replacement source finalizes successfully'
 );
 set local role postgres;
@@ -358,17 +388,64 @@ set local role postgres;
 update public.storefront_image_publication_variants
 set cleanup_after=now()-interval '1 second'
 where image_publication_id=(select value from task009_state where key='second');
+create temporary table task009_cleanup_claims(
+  id uuid primary key,
+  cleanup_claim_token uuid not null
+) on commit drop;
+grant select, insert on task009_cleanup_claims to service_role;
 
 set local role service_role;
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 select set_config('request.jwt.claim.role', 'service_role', true);
+with response as (
+  select public.storefront_image_cleanup_claim_v2(10) result
+), items as (
+  select item
+  from response,
+    jsonb_array_elements(response.result->'items') item
+)
+insert into task009_cleanup_claims(id, cleanup_claim_token)
+select (item->>'id')::uuid, (item->>'cleanup_claim_token')::uuid
+from items;
 select is(
-  jsonb_array_length(public.storefront_image_cleanup_claim_v1(10)->'items'),
+  (select count(*)::integer from task009_cleanup_claims),
   3, 'service cleanup claims all expired superseded variants as one bounded batch'
 );
 select is(
-  jsonb_array_length(public.storefront_image_cleanup_claim_v1(10)->'items'),
+  jsonb_array_length(public.storefront_image_cleanup_claim_v2(10)->'items'),
   0, 'active cleanup leases prevent duplicate concurrent claims'
+);
+select is(
+  public.admin_storefront_image_finalize_server_v2(
+    '10000000-0000-4000-8000-000000020090',
+    (select value from task009_state where key='second'),
+    jsonb_build_array(
+      jsonb_build_object('variant','thumb','bytes',1100,'width',200,'height',200,'sha256',repeat('3',64)),
+      jsonb_build_object('variant','card','bytes',2100,'width',600,'height',600,'sha256',repeat('4',64)),
+      jsonb_build_object('variant','detail','bytes',3100,'width',1200,'height',1200,'sha256',repeat('5',64))
+    ),
+    '00000000-0000-4000-8000-000000020090'
+  )->>'code',
+  'cleanup_fence_active',
+  'a cleanup claim prevents finalize from republishing objects being removed'
+);
+select is(
+  public.storefront_image_cleanup_complete_v2(
+    (select id from task009_cleanup_claims order by id limit 1),
+    gen_random_uuid(),
+    true
+  )->>'code',
+  'cleanup_fence_lost',
+  'cleanup completion rejects a stale or fabricated claim token'
+);
+select is(
+  public.storefront_image_cleanup_complete_v2(
+    (select id from task009_cleanup_claims order by id limit 1),
+    (select cleanup_claim_token from task009_cleanup_claims order by id limit 1),
+    true
+  )->>'code',
+  'success',
+  'cleanup completion accepts only the exact active claim token'
 );
 select is((select count(*)::integer from public.storefront_image_publication_variants
   where image_publication_id=(select value from task009_state where key='first')

@@ -45,7 +45,7 @@ export async function runStorefrontImageCleanup({
   let removed = 0;
   let failed = 0;
   for (let batch = 0; batch < maxBatches; batch += 1) {
-    const claim = await client.rpc("storefront_image_cleanup_claim_v1", {
+    const claim = await client.rpc("storefront_image_cleanup_claim_v2", {
       p_limit: limit,
     });
     if (
@@ -59,18 +59,27 @@ export async function runStorefrontImageCleanup({
     claimed += claim.data.items.length;
     for (const item of claim.data.items) {
       const id = typeof item?.id === "string" ? item.id : "";
+      const claimToken =
+        typeof item?.cleanup_claim_token === "string"
+          ? item.cleanup_claim_token
+          : "";
       const path =
         typeof item?.object_path === "string" ? item.object_path : "";
       let success = false;
       let errorCode = "invalid_object_path";
-      if (/^[0-9a-f-]{36}$/.test(id) && isCanonicalStorefrontImagePath(path)) {
+      if (
+        /^[0-9a-f-]{36}$/.test(id) &&
+        /^[0-9a-f-]{36}$/.test(claimToken) &&
+        isCanonicalStorefrontImagePath(path)
+      ) {
         const deletion = await client.storage.from(BUCKET).remove([path]);
         success = !deletion.error;
         errorCode = success ? "" : "storage_remove_failed";
       }
       const completion = await client.rpc(
-        "storefront_image_cleanup_complete_v1",
+        "storefront_image_cleanup_complete_v2",
         {
+          p_claim_token: claimToken,
           p_error_code: success ? null : errorCode,
           p_removed: success,
           p_variant_id: id,
