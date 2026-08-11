@@ -190,6 +190,13 @@ function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
         <path d="M10 20v-6h4v6" />
       </>
     ),
+    orders: (
+      <>
+        <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
+        <path d="M4.5 7.5 12 12l7.5-4.5" />
+        <path d="M12 12v9" />
+      </>
+    ),
     pos: (
       <>
         <rect height="12" rx="2" width="16" x="4" y="5" />
@@ -228,6 +235,14 @@ function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
         <rect height="16" rx="2" width="14" x="5" y="4" />
         <circle cx="12" cy="10" r="2" />
         <path d="M8.5 17a3.5 3.5 0 0 1 7 0" />
+      </>
+    ),
+    storefront: (
+      <>
+        <path d="M4 9h16l-1-5H5L4 9Z" />
+        <path d="M5 9v11h14V9" />
+        <path d="M9 20v-6h6v6" />
+        <path d="M4 9c0 2 3 2 4 0 1 2 3 2 4 0 1 2 3 2 4 0 1 2 4 2 4 0" />
       </>
     ),
     suppliers: (

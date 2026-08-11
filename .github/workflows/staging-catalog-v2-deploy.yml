@@ -29,8 +29,19 @@ env:
   EXPECTED_MIGRATION_FILE: 20260719170600_task_139_pos_catalog_v2_pagination_snapshot.sql
 
 jobs:
+  storefront-v1:
+    name: Storefront V1 branch bridge
+    if: github.ref == 'refs/heads/integration/storefront-v1'
+    uses: ./.github/workflows/storefront-v1-staging-migrations.yml
+    with:
+      mode: ${{ inputs.mode }}
+      expected_head_sha: ${{ github.sha }}
+      apply_confirmation: ${{ inputs.apply_confirmation }}
+    secrets: inherit
+
   migrate:
     name: Guarded dry-run and optional apply
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: cloudflare-staging

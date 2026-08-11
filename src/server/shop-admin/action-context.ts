@@ -19,8 +19,12 @@ export type ShopAdminActionCode =
   | "unauthorized_or_unmapped"
   | "not_found"
   | "conflict"
+  | "active_checkout_conflict"
+  | "delivery_configuration_required"
   | "duplicate_staff_code"
   | "invalid_state"
+  | "version_conflict"
+  | "idempotency_conflict"
   | "invalid_state_or_not_found"
   | "invalid_supplier"
   | "invalid_category"
@@ -34,6 +38,9 @@ export type ShopAdminActionCode =
   | "invalid_workbook"
   | "preview_required"
   | "preview_mismatch"
+  | "parent_configuration_required"
+  | "pickup_configuration_required"
+  | "reservation_configuration_required"
   | "shop_settings_managed_by_master_console"
   | "db_failure";
 
@@ -86,8 +93,16 @@ const messages: Record<ShopAdminActionCode, string> = {
     "This shop is not authorized or has no mapped inventory source.",
   not_found: "The requested row was not found for this shop.",
   conflict: "A row with the same active unique value already exists.",
+  active_checkout_conflict:
+    "An active customer checkout prevents this configuration change.",
+  delivery_configuration_required:
+    "Create an enabled delivery zone and slot before enabling delivery.",
   duplicate_staff_code: "A staff account with this code already exists.",
   invalid_state: "The target row is not in a valid state for this action.",
+  version_conflict:
+    "The order changed while this page was open. Refresh and review its current status.",
+  idempotency_conflict:
+    "This request key was already used for a different order transition.",
   invalid_state_or_not_found:
     "The target row was not found or is not in a valid state.",
   invalid_supplier: "The selected supplier does not belong to this shop source.",
@@ -102,6 +117,12 @@ const messages: Record<ShopAdminActionCode, string> = {
   invalid_workbook: "The workbook could not be read as a valid .xlsx or .xls file.",
   preview_required: "Preview the workbook and confirm before applying it.",
   preview_mismatch: "The uploaded workbook no longer matches the preview digest.",
+  parent_configuration_required:
+    "Enable the related pickup point or delivery zone before this slot.",
+  pickup_configuration_required:
+    "Create an enabled pickup point and slot before enabling pickup.",
+  reservation_configuration_required:
+    "Create an enabled reservation point and slot before enabling reservation.",
   shop_settings_managed_by_master_console:
     "SHOP_SETTINGS_MANAGED_BY_MASTER_CONSOLE: Shop profile and fiscal identity are managed by Master Console.",
   db_failure: "The database action failed without exposing internal details.",
@@ -174,12 +195,19 @@ function mapRpcCode(value: unknown): ShopAdminActionCode {
     "unauthorized_or_unmapped",
     "not_found",
     "conflict",
+    "active_checkout_conflict",
+    "delivery_configuration_required",
     "duplicate_staff_code",
     "invalid_state",
+    "version_conflict",
+    "idempotency_conflict",
     "invalid_state_or_not_found",
     "invalid_supplier",
     "invalid_category",
     "reason_required",
+    "parent_configuration_required",
+    "pickup_configuration_required",
+    "reservation_configuration_required",
     "shop_settings_managed_by_master_console",
     "db_failure",
   ]);

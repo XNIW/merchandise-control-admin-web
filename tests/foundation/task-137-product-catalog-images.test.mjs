@@ -569,7 +569,9 @@ test("TASK-139 shared image contract fixes batch 16 and nested ready metadata", 
     new URL("../../contracts/product-image-v1.sha256", import.meta.url),
     "utf8",
   );
-  const hash = createHash("sha256").update(contractBytes).digest("hex");
+  const hash = createHash("sha256")
+    .update(contractBytes.toString("utf8").replace(/\r\n/g, "\n"))
+    .digest("hex");
 
   assert.equal(contract.limits.readBatchMaximum, 16);
   assert.deepEqual(contract.api.readUrls.itemRequired, [

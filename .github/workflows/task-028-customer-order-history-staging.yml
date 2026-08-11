@@ -1,0 +1,287 @@
+name: TASK-028 Customer Order History Staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - integration/storefront-v1
+    paths:
+      - .github/workflows/task-028-customer-order-history-staging.yml
+      - supabase/migrations/20260803050000_storefront_v1_customer_order_history.sql
+      - supabase/tests/storefront_v1_customer_order_history.sql
+      - scripts/testing/storefront-v1-customer-order-cancel-concurrency.sh
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-028-customer-order-history-staging
+  cancel-in-progress: false
+
+jobs:
+  apply-customer-order-history:
+    uses: ./.github/workflows/storefront-v1-staging-migrations.yml
+    with:
+      mode: apply
+      expected_head_sha: ${{ github.sha }}
+      expected_migration_version: "20260803050000"
+      expected_migration_name: storefront_v1_customer_order_history
+      expected_migration_file: 20260803050000_storefront_v1_customer_order_history.sql
+      apply_confirmation: APPLY_STOREFRONT_V1_STAGING
+      load_hold_seconds: "0"
+      run_performance_load: false
+    secrets: inherit
+
+  verify-customer-order-history:
+    needs: apply-customer-order-history
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: cloudflare-staging
+    env:
+      SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Verify immutable staging target
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          let urlMatchesProject = false;
+          try {
+            urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
+          } catch {}
+          const status = {
+            integrationBranch:
+              process.env.GITHUB_REF === "refs/heads/integration/storefront-v1",
+            exactHead:
+              /^[0-9a-f]{40}$/.test(process.env.GITHUB_SHA || ""),
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            allowedProject: allowed.includes(ref),
+            urlMatchesProject,
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build protected database URL
+        run: |
+          set -euo pipefail
+          mkdir -p _task028-evidence
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(
+            `postgresql://postgres.${ref}:${encodeURIComponent(password)}`
+              + `@${host}:5432/postgres?sslmode=require`,
+          );
+          NODE
+          )"
+          echo "::add-mask::$SOURCE_DB_URL"
+          printf '%s' "$SOURCE_DB_URL" > _task028-db-url
+          chmod 600 _task028-db-url
+
+      - name: Verify pgTAP and cancellation race
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task028-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_customer_order_history.sql \
+              > _task028-evidence/pgtap.txt
+          docker run --rm --network host \
+            -e STOREFRONT_ORDER_HISTORY_DB_URL="$SOURCE_DB_URL" \
+            -e STOREFRONT_ORDER_HISTORY_ALLOW_REMOTE=APPLY_STOREFRONT_V1_STAGING_ORDER_HISTORY \
+            -e STAGING_SUPABASE_PROJECT_REF="$STAGING_SUPABASE_PROJECT_REF" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            bash /workspace/scripts/testing/storefront-v1-customer-order-cancel-concurrency.sh \
+              > _task028-evidence/concurrency.txt
+
+      - name: Verify deployed contract and safe defaults
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task028-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'historyLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803050000'
+                    and name = 'storefront_v1_customer_order_history'
+                ),
+                'featureDefaultsFailClosed', (
+                  select count(*) = 2
+                  from information_schema.columns
+                  where table_schema = 'public'
+                    and table_name = 'storefront_settings'
+                    and (
+                      (
+                        column_name = 'customer_order_cancellation_enabled'
+                        and column_default = 'false'
+                        and is_nullable = 'NO'
+                      ) or (
+                        column_name = 'customer_order_cancellation_window_minutes'
+                        and column_default = '15'
+                        and is_nullable = 'NO'
+                      )
+                    )
+                ),
+                'allExistingShopsDisabled', not exists (
+                  select 1 from public.storefront_settings
+                  where customer_order_cancellation_enabled
+                ),
+                'windowConstraint', exists (
+                  select 1 from pg_catalog.pg_constraint
+                  where conrelid = 'public.storefront_settings'::regclass
+                    and conname =
+                      'storefront_settings_customer_order_cancellation_window_check'
+                ),
+                'historyIndex',
+                  to_regclass('public.customer_orders_owner_shop_history_idx')
+                    is not null,
+                'rpcCount', (
+                  select count(*)
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_order_list_v1',
+                      'customer_order_detail_v1',
+                      'customer_order_cancel_v1'
+                    )
+                ),
+                'rpcHardened', (
+                  select count(*) = 3
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_order_list_v1',
+                      'customer_order_detail_v1',
+                      'customer_order_cancel_v1'
+                    )
+                    and procedure.prosecdef
+                    and (
+                      'search_path=' || pg_catalog.chr(34) || pg_catalog.chr(34)
+                    ) = any(procedure.proconfig)
+                ),
+                'authenticatedRpcAllowed',
+                  has_function_privilege(
+                    'authenticated',
+                    'public.customer_order_list_v1(text,integer,timestamptz,uuid)',
+                    'EXECUTE'
+                  ) and has_function_privilege(
+                    'authenticated',
+                    'public.customer_order_detail_v1(text,uuid)',
+                    'EXECUTE'
+                  ) and has_function_privilege(
+                    'authenticated',
+                    'public.customer_order_cancel_v1(text,uuid,bigint,uuid)',
+                    'EXECUTE'
+                  ),
+                'anonRpcDenied',
+                  not has_function_privilege(
+                    'anon',
+                    'public.customer_order_list_v1(text,integer,timestamptz,uuid)',
+                    'EXECUTE'
+                  ) and not has_function_privilege(
+                    'anon',
+                    'public.customer_order_cancel_v1(text,uuid,bigint,uuid)',
+                    'EXECUTE'
+                  ),
+                'cancelMutationAllowed', exists (
+                  select 1 from pg_catalog.pg_constraint
+                  where conrelid = 'public.customer_order_mutations'::regclass
+                    and conname = 'customer_order_mutations_operation_check'
+                    and pg_catalog.pg_get_constraintdef(oid)
+                      ilike '%cancel%'
+                ),
+                'cancelEventAllowed', exists (
+                  select 1 from pg_catalog.pg_constraint
+                  where conrelid = 'public.customer_order_outbox'::regclass
+                    and conname = 'customer_order_outbox_event_check'
+                    and pg_catalog.pg_get_constraintdef(oid)
+                      ilike '%customer_order.cancelled.v1%'
+                ),
+                'serverAuthoritativeArguments', not exists (
+                  select 1
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  cross join lateral unnest(
+                    coalesce(procedure.proargnames, '{}'::text[])
+                  ) argument(name)
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'customer_order_list_v1',
+                      'customer_order_detail_v1',
+                      'customer_order_cancel_v1'
+                    )
+                    and argument.name ~*
+                      '(user_id|shop_id|price|total|discount|fee|stock)'
+                )
+              )" \
+              > _task028-evidence/post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync("_task028-evidence/pgtap.txt", "utf8");
+          const concurrency = readFileSync(
+            "_task028-evidence/concurrency.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync("_task028-evidence/post-verify.json", "utf8"),
+          );
+          const checks = {
+            ...report,
+            rpcCount: Number(report.rpcCount) === 3,
+            pgTapPlan: /^1\.\.30$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 30,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+            concurrency:
+              /one transition\/event\/outbox\/mutation, loser fail-closed, ATP and slot released once, stock unchanged, fiscal sale not created, PASS/.test(
+                concurrency,
+              ),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => value !== true)) {
+            process.exit(1);
+          }
+          NODE
+
+      - name: Remove protected connection material
+        if: always()
+        run: rm -f _task028-db-url
+
+      - name: Upload non-secret TASK-028 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-028-customer-order-history-${{ github.run_attempt }}
+          path: _task028-evidence/
+          if-no-files-found: error
+          retention-days: 14

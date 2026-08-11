@@ -643,7 +643,7 @@ test("TASK-147 bounded audit allowlist permits exactly one secret-free console s
     "src/app/api/pos/_shared/pos-route-security.ts",
   );
   const auditLogger = routeSecurity.match(
-    /export function emitPosRouteRejectionAudit\([\s\S]*?\n}\n(?=\nexport function posMethodNotAllowedResponse)/,
+    /export function emitPosRouteRejectionAudit\([\s\S]*?\r?\n}\r?\n(?=\r?\nexport function posMethodNotAllowedResponse)/,
   )?.[0];
 
   assert.ok(auditLogger);
@@ -657,7 +657,7 @@ test("TASK-147 bounded audit allowlist permits exactly one secret-free console s
   );
   assert.match(
     scanner,
-    /routeRejectionLogger !== expectedRouteRejectionLogger/,
+    /routeRejectionLogger\.replace\([\s\S]{0,40}\) !==[\s\S]{0,40}expectedRouteRejectionLogger/,
   );
   assert.match(scanner, /routeRejectionConsoleCalls\.length !== 1/);
   assert.match(

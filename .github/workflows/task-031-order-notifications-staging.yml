@@ -1,0 +1,310 @@
+name: TASK-031 Order Notifications Staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - integration/storefront-v1
+    paths:
+      - .github/workflows/task-031-order-notifications-staging.yml
+      - package.json
+      - scripts/testing/storefront-v1-order-notification-concurrency.sh
+      - scripts/testing/storefront-v1-order-notification-staging-e2e.mjs
+      - src/server/notifications/customer-order-notification-dispatcher.mjs
+      - supabase/migrations/20260803104431_storefront_v1_order_notifications.sql
+      - supabase/tests/storefront_v1_order_notifications.sql
+      - tests/foundation/storefront-v1-order-notifications.test.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: storefront-v1-staging-order-payment
+  cancel-in-progress: false
+
+jobs:
+  apply-order-notifications:
+    uses: ./.github/workflows/storefront-v1-staging-migrations.yml
+    with:
+      mode: apply
+      expected_head_sha: ${{ github.sha }}
+      expected_migration_version: "20260803104431"
+      expected_migration_name: storefront_v1_order_notifications
+      expected_migration_file: 20260803104431_storefront_v1_order_notifications.sql
+      apply_confirmation: APPLY_STOREFRONT_V1_STAGING
+      load_hold_seconds: "0"
+      run_performance_load: false
+    secrets: inherit
+
+  verify-order-notifications:
+    needs: apply-order-notifications
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: cloudflare-staging
+    env:
+      SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Verify immutable staging target
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          let urlMatchesProject = false;
+          try {
+            urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
+          } catch {}
+          const status = {
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+            exactHead: /^[0-9a-f]{40}$/.test(process.env.GITHUB_SHA || ""),
+            integrationBranch:
+              process.env.GITHUB_REF === "refs/heads/integration/storefront-v1",
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            allowedProject: allowed.includes(ref),
+            urlMatchesProject,
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build protected database URL
+        run: |
+          set -euo pipefail
+          mkdir -p _task031-evidence
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(
+            `postgresql://postgres.${ref}:${encodeURIComponent(password)}`
+              + `@${host}:5432/postgres?sslmode=require`,
+          );
+          NODE
+          )"
+          echo "::add-mask::$SOURCE_DB_URL"
+          printf '%s' "$SOURCE_DB_URL" > _task031-db-url
+          chmod 600 _task031-db-url
+
+      - name: Verify pgTAP notification contract
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task031-db-url)"
+          docker run --rm --network host \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_order_notifications.sql \
+              > _task031-evidence/pgtap.txt
+
+      - name: Verify deployed privacy and dispatch boundary
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task031-db-url)"
+          docker run --rm --network host \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803104431'
+                    and name = 'storefront_v1_order_notifications'
+                ),
+                'forcedRls', (
+                  select bool_and(class.relrowsecurity and class.relforcerowsecurity)
+                  from pg_catalog.pg_class class
+                  where class.oid in (
+                    'public.customer_notification_events'::regclass,
+                    'public.customer_notification_deliveries'::regclass,
+                    'public.customer_notification_receipts'::regclass
+                  )
+                ),
+                'clientTablesDenied', (
+                  not has_table_privilege(
+                    'authenticated', 'public.customer_notification_events',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_notification_deliveries',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated', 'public.customer_notification_receipts',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                ),
+                'serviceDispatcherBoundary', (
+                  has_function_privilege(
+                    'service_role',
+                    'public.customer_notification_claim_v1(integer,integer,uuid)',
+                    'EXECUTE'
+                  )
+                  and has_function_privilege(
+                    'service_role',
+                    'public.customer_notification_ack_v1(uuid,uuid,bigint,text,uuid,text,text)',
+                    'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'authenticated',
+                    'public.customer_notification_claim_v1(integer,integer,uuid)',
+                    'EXECUTE'
+                  )
+                ),
+                'ownerRouteBoundary', (
+                  has_function_privilege(
+                    'authenticated',
+                    'public.customer_notification_route_v1(text,uuid)',
+                    'EXECUTE'
+                  )
+                  and not has_function_privilege(
+                    'anon',
+                    'public.customer_notification_route_v1(text,uuid)',
+                    'EXECUTE'
+                  )
+                ),
+                'productionFlagDefaultOff', (
+                  select column_default = 'false'
+                  from information_schema.columns
+                  where table_schema = 'public'
+                    and table_name = 'storefront_settings'
+                    and column_name = 'customer_order_push_enabled'
+                ),
+                'productionWriteRequested', false
+              );" > _task031-evidence/post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const report = JSON.parse(
+            readFileSync("_task031-evidence/post-verify.json", "utf8").trim(),
+          );
+          console.log(JSON.stringify(report));
+          const { productionWriteRequested, ...proofs } = report;
+          if (
+            productionWriteRequested !== false ||
+            Object.values(proofs).some((value) => value !== true)
+          ) process.exit(1);
+          NODE
+
+      - name: Remove protected connection material
+        if: always()
+        run: rm -f _task031-db-url
+
+      - name: Upload non-secret TASK-031 database evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-031-order-notifications-db-${{ github.run_id }}-${{ github.run_attempt }}
+          path: _task031-evidence
+          if-no-files-found: error
+          retention-days: 14
+
+  staging-notification-e2e:
+    needs: verify-order-notifications
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: cloudflare-staging
+    env:
+      CI: true
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TASK031_NOTIFICATION_E2E_ALLOW_STAGING: "yes"
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies and PostgreSQL client
+        run: |
+          set -euo pipefail
+          npm ci
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Prepare protected staging connection
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          if (
+            !/^[a-z0-9]{20}$/.test(ref || "") ||
+            !password ||
+            new URL(url).hostname !== `${ref}.supabase.co`
+          ) process.exit(1);
+          process.stdout.write(
+            `postgresql://postgres.${ref}:${encodeURIComponent(password)}`
+              + `@${host}:5432/postgres?sslmode=require`,
+          );
+          NODE
+          )"
+          echo "::add-mask::$SOURCE_DB_URL"
+          {
+            echo 'STOREFRONT_ORDER_NOTIFICATION_DB_URL<<TASK031_DB_URL'
+            echo "$SOURCE_DB_URL"
+            echo 'TASK031_DB_URL'
+          } >> "$GITHUB_ENV"
+
+      - name: Run exact-SHA notification E2E
+        run: |
+          set -euo pipefail
+          mkdir -p _task031-e2e
+          node scripts/testing/storefront-v1-order-notification-staging-e2e.mjs |
+            tee _task031-e2e/result.json
+
+      - name: Verify sanitized staging evidence
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const report = JSON.parse(readFileSync("_task031-e2e/result.json", "utf8"));
+          const proof = report.proof || {};
+          if (
+            report.ok !== true ||
+            report.target !== "staging" ||
+            report.migrationVersion !== "20260803104431" ||
+            report.productionWriteRequested !== false ||
+            report.cleanup?.activeRows !== 0 ||
+            report.cleanup?.shopArchived !== true ||
+            report.cleanup?.errors?.length !== 0 ||
+            proof.deliveredToRecordingProvider !== 1 ||
+            proof.flagOffClaimed !== 0 ||
+            proof.localizedPayload !== true ||
+            proof.opaqueOwnerRoute !== "ok" ||
+            proof.outOfOrderEvent !== "ready" ||
+            proof.providerCredentialUsed !== false ||
+            proof.revokedClaimed !== 0 ||
+            proof.rotationClaimed !== 0
+          ) process.exit(1);
+          NODE
+
+      - name: Upload sanitized TASK-031 E2E evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-031-order-notifications-e2e-${{ github.run_id }}-${{ github.run_attempt }}
+          path: _task031-e2e/result.json
+          if-no-files-found: error
+          retention-days: 14

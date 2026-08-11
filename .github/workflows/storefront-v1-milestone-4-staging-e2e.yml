@@ -1,0 +1,295 @@
+name: Storefront V1 Milestone 4 Staging E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - integration/storefront-v1
+    paths:
+      - .github/workflows/storefront-v1-milestone-4-staging-e2e.yml
+      - .github/workflows/task-030-pos-order-handoff-staging.yml
+      - .github/workflows/task-031-order-notifications-staging.yml
+      - supabase/migrations/20260803143000_storefront_v1_default_address_transition.sql
+      - supabase/tests/storefront_v1_customer_profiles_addresses.sql
+      - supabase/tests/storefront_v1_customer_devices.sql
+      - supabase/tests/storefront_v1_customer_cart.sql
+      - supabase/tests/storefront_v1_public_availability.sql
+      - supabase/tests/storefront_v1_reservation_holds.sql
+      - supabase/tests/storefront_v1_checkout_fulfillment.sql
+      - supabase/tests/storefront_v1_customer_orders.sql
+      - supabase/tests/storefront_v1_customer_order_history.sql
+      - supabase/tests/storefront_v1_admin_orders.sql
+      - supabase/tests/storefront_v1_pos_order_handoff.sql
+      - supabase/tests/storefront_v1_order_notifications.sql
+      - supabase/tests/storefront_v1_customer_payments.sql
+      - supabase/tests/storefront_v1_milestone4_e2e.sql
+      - tests/foundation/storefront-v1-milestone4-e2e.test.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: storefront-v1-staging-order-payment
+  cancel-in-progress: false
+
+jobs:
+  apply-acceptance-fixes:
+    uses: ./.github/workflows/storefront-v1-staging-migrations.yml
+    with:
+      mode: apply
+      expected_head_sha: ${{ github.sha }}
+      expected_migration_version: "20260803143000"
+      expected_migration_name: storefront_v1_default_address_transition
+      expected_migration_file: 20260803143000_storefront_v1_default_address_transition.sql
+      apply_confirmation: APPLY_STOREFRONT_V1_STAGING
+      load_hold_seconds: "0"
+      run_performance_load: false
+    secrets: inherit
+
+  verify-milestone-4:
+    needs: apply-acceptance-fixes
+    name: Revision-bound customer commerce acceptance
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare-staging
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client
+
+      - name: Verify immutable staging target
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          let urlMatchesProject = false;
+          try {
+            urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
+          } catch {}
+          const status = {
+            allowedProject: allowed.includes(ref),
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+            exactHead: /^[0-9a-f]{40}$/.test(process.env.GITHUB_SHA || ""),
+            integrationBranch:
+              process.env.GITHUB_REF === "refs/heads/integration/storefront-v1",
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            urlMatchesProject,
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build protected database URL
+        run: |
+          set -euo pipefail
+          mkdir -p _milestone4-evidence/logs
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(
+            `postgresql://postgres.${ref}:${encodeURIComponent(password)}`
+              + `@${host}:5432/postgres?sslmode=require`,
+          );
+          NODE
+          )"
+          echo "::add-mask::$SOURCE_DB_URL"
+          printf '%s' "$SOURCE_DB_URL" > _milestone4-db-url
+          chmod 600 _milestone4-db-url
+
+      - name: Run rollback-safe Milestone 4 pgTAP matrix
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _milestone4-db-url)"
+          files=(
+            storefront_v1_customer_profiles_addresses.sql
+            storefront_v1_customer_devices.sql
+            storefront_v1_customer_cart.sql
+            storefront_v1_public_availability.sql
+            storefront_v1_reservation_holds.sql
+            storefront_v1_checkout_fulfillment.sql
+            storefront_v1_customer_orders.sql
+            storefront_v1_customer_order_history.sql
+            storefront_v1_admin_orders.sql
+            storefront_v1_pos_order_handoff.sql
+            storefront_v1_order_notifications.sql
+            storefront_v1_customer_payments.sql
+            storefront_v1_milestone4_e2e.sql
+          )
+          for file in "${files[@]}"; do
+            started_at_ms="$(date +%s%3N)"
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f "supabase/tests/$file" \
+              > "_milestone4-evidence/logs/$file.txt"
+            finished_at_ms="$(date +%s%3N)"
+            printf '%s\n' "$((finished_at_ms - started_at_ms))" \
+              > "_milestone4-evidence/logs/$file.duration-ms"
+          done
+
+      - name: Verify exact assertions and sanitize evidence
+        id: sanitize
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const { readFileSync, writeFileSync } = require("node:fs");
+          const specs = [
+            ["storefront_v1_customer_profiles_addresses.sql", 64],
+            ["storefront_v1_customer_devices.sql", 58],
+            ["storefront_v1_customer_cart.sql", 98],
+            ["storefront_v1_public_availability.sql", 44],
+            ["storefront_v1_reservation_holds.sql", 54],
+            ["storefront_v1_checkout_fulfillment.sql", 56],
+            ["storefront_v1_customer_orders.sql", 35],
+            ["storefront_v1_customer_order_history.sql", 30],
+            ["storefront_v1_admin_orders.sql", 34],
+            ["storefront_v1_pos_order_handoff.sql", 40],
+            ["storefront_v1_order_notifications.sql", 40],
+            ["storefront_v1_customer_payments.sql", 36],
+            ["storefront_v1_milestone4_e2e.sql", 40],
+          ];
+          const suites = {};
+          let passed = 0;
+          for (const [file, expected] of specs) {
+            const log = readFileSync(`_milestone4-evidence/logs/${file}.txt`, "utf8");
+            const assertionCount = (log.match(/^ok \d+ - /gm) || []).length;
+            const failed = /^not ok|^Bail out!|^# Looks like you failed/m.test(log);
+            const planExact = new RegExp(`^1\\.\\.${expected}$`, "m").test(log);
+            const containsProtectedMaterial = [
+              /postgres(?:ql)?:\/\//i,
+              /m4-test-token-/i,
+              /task0\d+-token-/i,
+              /eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}/,
+            ].some((pattern) => pattern.test(log));
+            if (
+              failed ||
+              !planExact ||
+              assertionCount !== expected ||
+              containsProtectedMaterial
+            ) {
+              console.error(JSON.stringify({ assertionCount, expected, failed, file, planExact }));
+              process.exit(1);
+            }
+            const durationMs = Number.parseInt(
+              readFileSync(
+                `_milestone4-evidence/logs/${file}.duration-ms`,
+                "utf8",
+              ).trim(),
+              10,
+            );
+            if (!Number.isSafeInteger(durationMs) || durationMs < 0) process.exit(1);
+            suites[file] = {
+              durationMs,
+              exitCode: 0,
+              passed: assertionCount,
+              planned: expected,
+            };
+            passed += assertionCount;
+          }
+          const summary = {
+            exactHead: process.env.GITHUB_SHA,
+            integratedSameOrderAssertions: 40,
+            ok: passed === 629,
+            productionWriteRequested: false,
+            suites,
+            total: { passed, planned: 629 },
+          };
+          if (!summary.ok) process.exit(1);
+          writeFileSync(
+            "_milestone4-evidence/summary.json",
+            `${JSON.stringify(summary, null, 2)}\n`,
+          );
+          console.log(JSON.stringify(summary));
+          NODE
+          echo "safe=true" >> "$GITHUB_OUTPUT"
+
+      - name: Verify deployed security posture and rollback cleanup
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _milestone4-db-url)"
+          psql -X -qAt -v ON_ERROR_STOP=1 \
+            "$SOURCE_DB_URL" \
+            -c "select jsonb_build_object(
+              'latestMigrationExact', (
+                select count(*) = 1
+                from supabase_migrations.schema_migrations
+                where version = '20260803143000'
+                  and name = 'storefront_v1_default_address_transition'
+              ),
+              'commerceTablesForcedRls', (
+                select bool_and(class.relrowsecurity and class.relforcerowsecurity)
+                from pg_catalog.pg_class class
+                where class.oid in (
+                  'public.customer_profiles'::regclass,
+                  'public.customer_addresses'::regclass,
+                  'public.customer_devices'::regclass,
+                  'public.customer_carts'::regclass,
+                  'public.customer_reservation_holds'::regclass,
+                  'public.customer_checkout_quotes'::regclass,
+                  'public.customer_orders'::regclass,
+                  'public.customer_order_payments'::regclass,
+                  'public.customer_notification_events'::regclass
+                )
+              ),
+              'onlineDefaultsOff', (
+                not exists (
+                  select 1
+                  from public.storefront_payment_settings payment
+                  where payment.online_payment_enabled
+                    or payment.online_provider <> 'none'
+                )
+              ),
+              'integratedFixtureRolledBack', (
+                not exists (
+                  select 1 from public.shops shop
+                  where shop.shop_id = '14000000-0000-4000-8000-000000040001'
+                )
+                and not exists (
+                  select 1 from auth.users auth_user
+                  where auth_user.id = '00000000-0000-4000-8000-000000040002'
+                )
+              ),
+              'productionWriteRequested', false
+            );" > _milestone4-evidence/post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const report = JSON.parse(
+            readFileSync("_milestone4-evidence/post-verify.json", "utf8").trim(),
+          );
+          console.log(JSON.stringify(report));
+          const { productionWriteRequested, ...proofs } = report;
+          if (
+            productionWriteRequested !== false ||
+            Object.values(proofs).some((value) => value !== true)
+          ) process.exit(1);
+          NODE
+
+      - name: Remove protected connection material
+        if: always()
+        run: rm -f _milestone4-db-url
+
+      - name: Upload sanitized Milestone 4 evidence
+        if: always() && steps.sanitize.outputs.safe == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-v1-milestone4-${{ github.run_id }}-${{ github.run_attempt }}
+          path: _milestone4-evidence
+          if-no-files-found: error
+          retention-days: 14
