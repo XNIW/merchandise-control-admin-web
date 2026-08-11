@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 
@@ -20,7 +20,10 @@ import {
   runStorefrontImageCleanup,
   validateStagingTarget,
 } from "../../scripts/admin/storefront-v1-image-cleanup.mjs";
-import { reconcileMigrationDelta } from "../../scripts/task-150-reconcile-migration-delta.mjs";
+import {
+  expectedMigrationsFromEnvironment,
+  reconcileMigrationDelta,
+} from "../../scripts/task-150-reconcile-migration-delta.mjs";
 
 const root = process.cwd();
 const read = (path) => readFileSync(join(root, path), "utf8");
@@ -53,6 +56,22 @@ const SHOP = "10000000-0000-4000-8000-000000020090";
 const PUBLICATION = "50000000-0000-4000-8000-000000020090";
 const SOURCE = "60000000-0000-4000-8000-000000020090";
 const IMAGE = "70000000-0000-4000-8000-000000020090";
+
+function workflowInputDefault(triggerBlock, inputName) {
+  const lines = triggerBlock.split("\n");
+  const inputIndex = lines.findIndex((line) => line === `      ${inputName}:`);
+  assert.notEqual(inputIndex, -1, `missing workflow input ${inputName}`);
+  const nextInputIndex = lines.findIndex(
+    (line, index) => index > inputIndex && /^      [a-z_]+:$/.test(line),
+  );
+  const inputLines = lines.slice(
+    inputIndex + 1,
+    nextInputIndex === -1 ? undefined : nextInputIndex,
+  );
+  const defaultLine = inputLines.find((line) => line.startsWith("        default: "));
+  assert.ok(defaultLine, `missing default for workflow input ${inputName}`);
+  return defaultLine.slice("        default: ".length);
+}
 
 function riff(chunks) {
   const body = [0x57, 0x45, 0x42, 0x50];
@@ -489,9 +508,99 @@ test("Storefront staging migration is exact-SHA guarded and retains the image bo
     stagingMigrationWorkflow,
     /const requiredTrue = \[[\s\S]*"publicImageFinalizeServerBoundary"[\s\S]*\];/,
   );
-  assert.match(
-    stagingMigrationWorkflow,
-    /expected_predecessor_migration_version:[\s\S]*default: "20260811230000"/,
+  const workflowCall = stagingMigrationWorkflow.match(
+    /  workflow_call:\n    inputs:\n([\s\S]*?)  workflow_dispatch:/,
+  )?.[1];
+  const workflowDispatch = stagingMigrationWorkflow.match(
+    /  workflow_dispatch:\n    inputs:\n([\s\S]*?)\npermissions:/,
+  )?.[1];
+  assert.ok(workflowCall, "missing workflow_call inputs");
+  assert.ok(workflowDispatch, "missing workflow_dispatch inputs");
+  assert.deepEqual(
+    [
+      workflowInputDefault(workflowCall, "expected_predecessor_migration_version"),
+      workflowInputDefault(workflowCall, "expected_predecessor_migration_name"),
+      workflowInputDefault(workflowCall, "expected_predecessor_migration_file"),
+    ],
+    ['""', '""', '""'],
+  );
+  assert.deepEqual(
+    [
+      workflowInputDefault(workflowDispatch, "expected_predecessor_migration_version"),
+      workflowInputDefault(workflowDispatch, "expected_predecessor_migration_name"),
+      workflowInputDefault(workflowDispatch, "expected_predecessor_migration_file"),
+    ],
+    [
+      '"20260811230000"',
+      "storefront_v1_image_finalize_fencing",
+      "20260811230000_storefront_v1_image_finalize_fencing.sql",
+    ],
+  );
+});
+
+test("Storefront migration predecessor is an atomic tuple across every caller", () => {
+  const head = {
+    EXPECTED_MIGRATION_VERSION: "20260811234500",
+    EXPECTED_MIGRATION_NAME: "storefront_v1_image_cleanup_lifecycle",
+    EXPECTED_MIGRATION_FILE:
+      "20260811234500_storefront_v1_image_cleanup_lifecycle.sql",
+  };
+  assert.deepEqual(expectedMigrationsFromEnvironment(head), [
+    {
+      version: head.EXPECTED_MIGRATION_VERSION,
+      name: head.EXPECTED_MIGRATION_NAME,
+      fileName: head.EXPECTED_MIGRATION_FILE,
+    },
+  ]);
+  for (const partial of [
+    { EXPECTED_PREDECESSOR_MIGRATION_VERSION: "20260811230000" },
+    { EXPECTED_PREDECESSOR_MIGRATION_NAME: "storefront_v1_image_finalize_fencing" },
+    {
+      EXPECTED_PREDECESSOR_MIGRATION_FILE:
+        "20260811230000_storefront_v1_image_finalize_fencing.sql",
+    },
+  ]) {
+    assert.throws(
+      () => expectedMigrationsFromEnvironment({ ...head, ...partial }),
+      /incomplete_expected_predecessor/,
+    );
+  }
+
+  const workflowFiles = readdirSync(join(root, ".github/workflows"))
+    .filter((fileName) => fileName.endsWith(".yml"))
+    .map((fileName) => ({
+      fileName,
+      source: read(`.github/workflows/${fileName}`),
+    }));
+  const reusableCallers = workflowFiles.filter(({ source }) =>
+    source.includes("uses: ./.github/workflows/storefront-v1-staging-migrations.yml"),
+  );
+  const twoMigrationCallers = reusableCallers.filter(({ source }) =>
+    source.includes("expected_predecessor_migration_version:"),
+  );
+  const defaultBridgeCallers = reusableCallers.filter(
+    ({ source }) => !source.includes("expected_migration_version:"),
+  );
+  assert.equal(reusableCallers.length, 15);
+  assert.deepEqual(
+    twoMigrationCallers.map(({ fileName }) => fileName).sort(),
+    [
+      "task-026-checkout-staging.yml",
+      "task-027-customer-order-staging.yml",
+    ],
+  );
+  for (const { source } of twoMigrationCallers) {
+    for (const field of ["version", "name", "file"]) {
+      assert.match(source, new RegExp(`expected_predecessor_migration_${field}:\\s+\\S+`));
+    }
+  }
+  assert.deepEqual(
+    defaultBridgeCallers.map(({ fileName }) => fileName),
+    ["staging-catalog-v2-deploy.yml"],
+  );
+  assert.equal(
+    reusableCallers.length - twoMigrationCallers.length - defaultBridgeCallers.length,
+    12,
   );
 });
 

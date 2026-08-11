@@ -29,17 +29,17 @@ on:
       expected_predecessor_migration_version:
         description: "Optional first migration version when one task has an ordered two-migration delta"
         required: false
-        default: "20260811230000"
+        default: ""
         type: string
       expected_predecessor_migration_name:
         description: "Optional first migration name for an ordered two-migration delta"
         required: false
-        default: storefront_v1_image_finalize_fencing
+        default: ""
         type: string
       expected_predecessor_migration_file:
         description: "Optional first migration filename for an ordered two-migration delta"
         required: false
-        default: 20260811230000_storefront_v1_image_finalize_fencing.sql
+        default: ""
         type: string
       apply_confirmation:
         description: "For apply, enter APPLY_STOREFRONT_V1_STAGING"
