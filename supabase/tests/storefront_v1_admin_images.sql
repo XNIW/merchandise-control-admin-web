@@ -249,6 +249,50 @@ select throws_ok(
   'authenticated callers cannot bypass server-side object verification'
 );
 
+set local role postgres;
+select throws_ok(
+  $$ update public.storefront_image_publication_variants
+     set publication_status='ready',
+         verified_bytes=expected_bytes,
+         verified_width=expected_width,
+         verified_height=expected_height,
+         verified_sha256=null,
+         public_url='https://local.supabase.invalid/partial.webp',
+         ready_at=now()
+     where image_publication_id=(select value from task009_state where key='first')
+       and variant='thumb' $$,
+  '23514', null,
+  'ready variants reject partially verified metadata tuples'
+);
+select throws_ok(
+  $$ update public.storefront_image_publication_variants
+     set publication_status='cleanup_pending',
+         verified_bytes=expected_bytes,
+         verified_width=expected_width,
+         verified_height=expected_height,
+         verified_sha256=null,
+         public_url='https://local.supabase.invalid/partial.webp',
+         ready_at=now()
+     where image_publication_id=(select value from task009_state where key='first')
+       and variant='thumb' $$,
+  '23514', null,
+  'cleanup-pending variants reject partially verified metadata tuples'
+);
+select throws_ok(
+  $$ update public.storefront_image_publication_variants
+     set publication_status='removed',
+         verified_bytes=expected_bytes,
+         verified_width=expected_width,
+         verified_height=expected_height,
+         verified_sha256=null,
+         public_url='https://local.supabase.invalid/partial.webp',
+         ready_at=now()
+     where image_publication_id=(select value from task009_state where key='first')
+       and variant='thumb' $$,
+  '23514', null,
+  'removed variants reject partially verified metadata tuples'
+);
+
 set local role service_role;
 select set_config('request.jwt.claims', '{"role":"service_role"}', true);
 select set_config('request.jwt.claim.role', 'service_role', true);
@@ -265,6 +309,36 @@ select is(
   )->>'code', 'verified_metadata_mismatch',
   'server finalize rejects any verified byte mismatch'
 );
+select is(
+  public.admin_storefront_image_finalize_server_v2(
+    '10000000-0000-4000-8000-000000020090',
+    (select value from task009_state where key='first'),
+    jsonb_build_array(
+      jsonb_build_object('variant','thumb','width',200,'height',200,'sha256',repeat('a',64)),
+      jsonb_build_object('variant','card','bytes',2000,'width',600,'height',600,'sha256',repeat('b',64)),
+      jsonb_build_object('variant','detail','bytes',3000,'width',1200,'height',1200,'sha256',repeat('c',64))
+    ),
+    '00000000-0000-4000-8000-000000020090'
+  )->>'code', 'verified_metadata_mismatch',
+  'server finalize rejects missing verified metadata instead of accepting SQL null'
+);
+set local role postgres;
+select ok(
+  (select publication_status='draft'
+     from public.storefront_image_publications
+     where id=(select value from task009_state where key='first'))
+  and (select published_image_version_id is null
+         from public.storefront_product_publications
+         where id='50000000-0000-4000-8000-000000020090')
+  and (select count(*)=0
+         from public.audit_logs
+         where event_key='shop.storefront.image.publish.success'
+           and target_id=(select value::text from task009_state where key='first')),
+  'rejected partial metadata leaves publication, pointer and audit unchanged'
+);
+set local role service_role;
+select set_config('request.jwt.claims', '{"role":"service_role"}', true);
+select set_config('request.jwt.claim.role', 'service_role', true);
 select is(
   public.admin_storefront_image_finalize_server_v2(
     '10000000-0000-4000-8000-000000020090',

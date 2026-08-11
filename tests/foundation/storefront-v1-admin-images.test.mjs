@@ -502,7 +502,11 @@ test("cleanup lifecycle accepts complete verified or unverified tuples only", ()
   );
   assert.match(
     cleanupLifecycleMigration,
-    /publication_status in \('ready', 'superseded', 'cleanup_pending', 'removed'\)[\s\S]*verified_bytes = expected_bytes[\s\S]*public_url is not null[\s\S]*ready_at is not null/,
+    /publication_status in \('ready', 'superseded', 'cleanup_pending', 'removed'\)[\s\S]*verified_bytes is not null[\s\S]*verified_sha256 is not null[\s\S]*verified_bytes = expected_bytes[\s\S]*public_url is not null[\s\S]*ready_at is not null/,
+  );
+  assert.match(
+    fencingMigration,
+    /bool_and\([\s\S]*verified\.bytes is not null[\s\S]*verified\.sha256 is not null[\s\S]*stored\.expected_bytes = verified\.bytes/,
   );
 });
 

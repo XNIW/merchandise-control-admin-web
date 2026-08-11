@@ -188,7 +188,12 @@ begin
   select count(*) = 3
       and count(distinct verified.variant) = 3
       and bool_and(
-        stored.expected_bytes = verified.bytes
+        verified.variant is not null
+        and verified.bytes is not null
+        and verified.width is not null
+        and verified.height is not null
+        and verified.sha256 is not null
+        and stored.expected_bytes = verified.bytes
         and stored.expected_width = verified.width
         and stored.expected_height = verified.height
         and stored.expected_sha256 = verified.sha256

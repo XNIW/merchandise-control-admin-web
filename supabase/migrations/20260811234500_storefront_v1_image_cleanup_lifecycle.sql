@@ -17,6 +17,10 @@ alter table public.storefront_image_publication_variants
     or
     (
       publication_status in ('ready', 'superseded', 'cleanup_pending', 'removed')
+      and verified_bytes is not null
+      and verified_width is not null
+      and verified_height is not null
+      and verified_sha256 is not null
       and verified_bytes = expected_bytes
       and verified_width = expected_width
       and verified_height = expected_height
