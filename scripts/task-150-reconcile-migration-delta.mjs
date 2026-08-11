@@ -159,10 +159,47 @@ export function reconcileMigrationDelta({
   };
 }
 
-function requiredEnvironment(name) {
-  const value = process.env[name] ?? "";
+function requiredEnvironment(name, environment = process.env) {
+  const value = environment[name] ?? "";
   if (!value) throw new Error(`missing_environment:${name}`);
   return value;
+}
+
+export function expectedMigrationsFromEnvironment(environment = process.env) {
+  const expectedHead = {
+    version: requiredEnvironment("EXPECTED_MIGRATION_VERSION", environment),
+    name: requiredEnvironment("EXPECTED_MIGRATION_NAME", environment),
+    fileName: requiredEnvironment("EXPECTED_MIGRATION_FILE", environment),
+  };
+  const predecessorValues = [
+    environment.EXPECTED_PREDECESSOR_MIGRATION_VERSION ?? "",
+    environment.EXPECTED_PREDECESSOR_MIGRATION_NAME ?? "",
+    environment.EXPECTED_PREDECESSOR_MIGRATION_FILE ?? "",
+  ];
+  const hasPredecessor = predecessorValues.every(Boolean);
+  if (!hasPredecessor && predecessorValues.some(Boolean)) {
+    throw new Error("incomplete_expected_predecessor");
+  }
+  const expected = hasPredecessor
+    ? [
+        {
+          version: predecessorValues[0],
+          name: predecessorValues[1],
+          fileName: predecessorValues[2],
+        },
+        expectedHead,
+      ]
+    : [expectedHead];
+  if (
+    expected.some(
+      (row, index) =>
+        index > 0 &&
+        expected[index - 1].version.localeCompare(row.version) >= 0,
+    )
+  ) {
+    throw new Error("expected_migrations_not_strictly_ordered");
+  }
+  return expected;
 }
 
 function runCli() {
@@ -201,39 +238,7 @@ function runCli() {
       }
       return { version: fields[0], name: fields[1] };
     });
-  const expectedHead = {
-    version: requiredEnvironment("EXPECTED_MIGRATION_VERSION"),
-    name: requiredEnvironment("EXPECTED_MIGRATION_NAME"),
-    fileName: requiredEnvironment("EXPECTED_MIGRATION_FILE"),
-  };
-  const predecessorValues = [
-    process.env.EXPECTED_PREDECESSOR_MIGRATION_VERSION ?? "",
-    process.env.EXPECTED_PREDECESSOR_MIGRATION_NAME ?? "",
-    process.env.EXPECTED_PREDECESSOR_MIGRATION_FILE ?? "",
-  ];
-  const hasPredecessor = predecessorValues.every(Boolean);
-  if (!hasPredecessor && predecessorValues.some(Boolean)) {
-    throw new Error("incomplete_expected_predecessor");
-  }
-  const expected = hasPredecessor
-    ? [
-        {
-          version: predecessorValues[0],
-          name: predecessorValues[1],
-          fileName: predecessorValues[2],
-        },
-        expectedHead,
-      ]
-    : [expectedHead];
-  if (
-    expected.some(
-      (row, index) =>
-        index > 0 &&
-        expected[index - 1].version.localeCompare(row.version) >= 0,
-    )
-  ) {
-    throw new Error("expected_migrations_not_strictly_ordered");
-  }
+  const expected = expectedMigrationsFromEnvironment();
   const approvedRemoteRemaps = [
     {
       localVersion: requiredEnvironment("REMAPPED_LOCAL_MIGRATION_VERSION"),
