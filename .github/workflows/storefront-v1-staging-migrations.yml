@@ -14,32 +14,32 @@ on:
       expected_migration_version:
         description: "Exact additive migration version expected in the delta"
         required: false
-        default: "20260802043000"
+        default: "20260811234500"
         type: string
       expected_migration_name:
         description: "Exact additive migration name expected in the delta"
         required: false
-        default: storefront_v1_catalog_performance
+        default: storefront_v1_image_cleanup_lifecycle
         type: string
       expected_migration_file:
         description: "Exact additive migration filename expected in the delta"
         required: false
-        default: 20260802043000_storefront_v1_catalog_performance.sql
+        default: 20260811234500_storefront_v1_image_cleanup_lifecycle.sql
         type: string
       expected_predecessor_migration_version:
         description: "Optional first migration version when one task has an ordered two-migration delta"
         required: false
-        default: ""
+        default: "20260811230000"
         type: string
       expected_predecessor_migration_name:
         description: "Optional first migration name for an ordered two-migration delta"
         required: false
-        default: ""
+        default: storefront_v1_image_finalize_fencing
         type: string
       expected_predecessor_migration_file:
         description: "Optional first migration filename for an ordered two-migration delta"
         required: false
-        default: ""
+        default: 20260811230000_storefront_v1_image_finalize_fencing.sql
         type: string
       apply_confirmation:
         description: "For apply, enter APPLY_STOREFRONT_V1_STAGING"
@@ -72,32 +72,32 @@ on:
       expected_migration_version:
         description: "Exact additive migration version expected in the delta"
         required: true
-        default: "20260802043000"
+        default: "20260811234500"
         type: string
       expected_migration_name:
         description: "Exact additive migration name expected in the delta"
         required: true
-        default: storefront_v1_catalog_performance
+        default: storefront_v1_image_cleanup_lifecycle
         type: string
       expected_migration_file:
         description: "Exact additive migration filename expected in the delta"
         required: true
-        default: 20260802043000_storefront_v1_catalog_performance.sql
+        default: 20260811234500_storefront_v1_image_cleanup_lifecycle.sql
         type: string
       expected_predecessor_migration_version:
         description: "Optional first migration version when one task has an ordered two-migration delta"
         required: false
-        default: ""
+        default: "20260811230000"
         type: string
       expected_predecessor_migration_name:
         description: "Optional first migration name for an ordered two-migration delta"
         required: false
-        default: ""
+        default: storefront_v1_image_finalize_fencing
         type: string
       expected_predecessor_migration_file:
         description: "Optional first migration filename for an ordered two-migration delta"
         required: false
-        default: ""
+        default: 20260811230000_storefront_v1_image_finalize_fencing.sql
         type: string
       apply_confirmation:
         description: "For apply, enter APPLY_STOREFRONT_V1_STAGING"
@@ -620,6 +620,24 @@ jobs:
                   'public.storefront_image_publication_variants',
                   'SELECT,INSERT,UPDATE,DELETE'
                 )
+                and exists (
+                  select 1
+                  from information_schema.columns column_info
+                  where column_info.table_schema = 'public'
+                    and column_info.table_name =
+                      'storefront_image_publication_variants'
+                    and column_info.column_name = 'cleanup_claim_token'
+                    and column_info.data_type = 'uuid'
+                )
+                and exists (
+                  select 1
+                  from pg_catalog.pg_constraint constraint_info
+                  where constraint_info.conrelid = class.oid
+                    and constraint_info.conname =
+                      'storefront_image_variants_cleanup_claim_check'
+                    and constraint_info.contype = 'c'
+                    and constraint_info.convalidated
+                )
               from pg_catalog.pg_class class
               join pg_catalog.pg_namespace namespace
                 on namespace.oid = class.relnamespace
@@ -627,7 +645,7 @@ jobs:
                 and class.relname = 'storefront_image_publication_variants'
             ),
             'publicImageAdminFunctionsHardened', (
-              select count(*) = 5
+              select count(*) = 4
               from pg_catalog.pg_proc procedure
               join pg_catalog.pg_namespace namespace
                 on namespace.oid = procedure.pronamespace
@@ -636,7 +654,6 @@ jobs:
                   'admin_storefront_images_read_v1',
                   'admin_storefront_image_source_read_v1',
                   'admin_storefront_image_intent_v1',
-                  'admin_storefront_image_finalize_v1',
                   'admin_storefront_image_rollback_v1'
                 )
                 and procedure.prosecdef
@@ -657,6 +674,28 @@ jobs:
                   'EXECUTE'
                 )
             ),
+            'publicImageFinalizeServerBoundary', (
+              select count(*) = 1
+              from pg_catalog.pg_proc procedure
+              join pg_catalog.pg_namespace namespace
+                on namespace.oid = procedure.pronamespace
+              where namespace.nspname = 'public'
+                and procedure.proname =
+                  'admin_storefront_image_finalize_server_v2'
+                and procedure.prosecdef
+                and procedure.provolatile = 'v'
+                and 'search_path=""' = any(procedure.proconfig)
+                and 'statement_timeout=8s' = any(procedure.proconfig)
+                and not has_function_privilege(
+                  'anon', procedure.oid, 'EXECUTE'
+                )
+                and not has_function_privilege(
+                  'authenticated', procedure.oid, 'EXECUTE'
+                )
+                and has_function_privilege(
+                  'service_role', procedure.oid, 'EXECUTE'
+                )
+            ),
             'publicImageServiceFunctionsConfined', (
               select count(*) = 3
               from pg_catalog.pg_proc procedure
@@ -665,8 +704,8 @@ jobs:
               where namespace.nspname = 'public'
                 and procedure.proname in (
                   'storefront_image_configure_origin_v1',
-                  'storefront_image_cleanup_claim_v1',
-                  'storefront_image_cleanup_complete_v1'
+                  'storefront_image_cleanup_claim_v2',
+                  'storefront_image_cleanup_complete_v2'
                 )
                 and procedure.prosecdef
                 and 'search_path=""' = any(procedure.proconfig)
@@ -768,6 +807,7 @@ jobs:
             "publicImageBucketBoundary",
             "publicImageVariantBoundary",
             "publicImageAdminFunctionsHardened",
+            "publicImageFinalizeServerBoundary",
             "publicImageServiceFunctionsConfined",
             "promotionCronScheduled",
             "adminAuthoringDirectDenied",

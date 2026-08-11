@@ -2999,6 +2999,7 @@ export type Database = {
           cleanup_after: string | null
           cleanup_attempts: number
           cleanup_claimed_at: string | null
+          cleanup_claim_token: string | null
           cleanup_last_error: string | null
           content_type: string
           created_at: string
@@ -3024,6 +3025,7 @@ export type Database = {
           cleanup_after?: string | null
           cleanup_attempts?: number
           cleanup_claimed_at?: string | null
+          cleanup_claim_token?: string | null
           cleanup_last_error?: string | null
           content_type?: string
           created_at?: string
@@ -3049,6 +3051,7 @@ export type Database = {
           cleanup_after?: string | null
           cleanup_attempts?: number
           cleanup_claimed_at?: string | null
+          cleanup_claim_token?: string | null
           cleanup_last_error?: string | null
           content_type?: string
           created_at?: string
@@ -4766,6 +4769,32 @@ export type Database = {
           p_staff_id?: string
           p_staff_web_session_id?: string
           p_verified_variants: Json
+        }
+        Returns: Json
+      }
+      admin_storefront_image_finalize_server_v2: {
+        Args: {
+          p_actor_profile_id?: string | null
+          p_expected_credential_version?: number | null
+          p_image_publication_id: string
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+          p_verified_variants: Json
+        }
+        Returns: Json
+      }
+      storefront_image_cleanup_claim_v2: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
+      storefront_image_cleanup_complete_v2: {
+        Args: {
+          p_claim_token: string
+          p_error_code?: string | null
+          p_removed: boolean
+          p_variant_id: string
         }
         Returns: Json
       }

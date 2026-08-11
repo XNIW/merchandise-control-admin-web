@@ -84,7 +84,12 @@ function failure(code: string, status = 503): ServiceResult {
 function rpcStatus(code: string) {
   if (code === "permission_denied") return 403;
   if (code === "invalid_state_or_not_found" || code === "not_found") return 404;
-  if (code === "stale_conflict" || code === "invalid_state") return 409;
+  if (
+    code === "stale_conflict" ||
+    code === "invalid_state" ||
+    code === "cleanup_fence_active"
+  )
+    return 409;
   if (code === "validation_failed") return 400;
   if (code === "verified_metadata_mismatch") return 422;
   return 503;
@@ -100,10 +105,14 @@ function lease(context: ReadyContext) {
       }
     : {};
 }
+function serverFinalizeIdentity(context: ReadyContext) {
+  return context.principalKind === "personal_account"
+    ? { p_actor_profile_id: context.actorProfileId }
+    : { p_actor_profile_id: null, ...lease(context) };
+}
 function contextRpc(
   context: ReadyContext,
   name:
-    | "admin_storefront_image_finalize_v1"
     | "admin_storefront_image_intent_v1"
     | "admin_storefront_image_rollback_v1"
     | "admin_storefront_image_source_read_v1",
@@ -338,10 +347,13 @@ export async function finalizeStorefrontImage(
   if (!(await ensurePublicAssetOrigin())) return failure("not_configured");
   const verified = await verifyStoredVariants(input);
   if (!verified) return failure("stored_derivative_verification_failed", 422);
-  const rpc = await contextRpc(context, "admin_storefront_image_finalize_v1", {
+  const admin = adminClient();
+  if (!admin) return failure("not_configured");
+  const rpc = await admin.rpc("admin_storefront_image_finalize_server_v2", {
     p_image_publication_id: input.imagePublicationId,
     p_shop_id: input.shopId,
     p_verified_variants: verified,
+    ...serverFinalizeIdentity(context),
   });
   if (rpc.error) return failure("backend_unavailable");
   const payload = object(rpc.data);
