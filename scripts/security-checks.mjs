@@ -358,8 +358,7 @@ function checkReadOnlyContracts() {
       new Set([
         "shop_catalog_create_product_with_sync",
         "shop_catalog_update_product_if_revision_with_sync",
-        "shop_catalog_archive_product_with_sync",
-        "shop_catalog_restore_product_with_sync",
+        "shop_catalog_set_product_archived_if_revision_with_sync",
         "shop_catalog_create_category_with_sync",
         "shop_catalog_update_category_with_sync",
         "shop_catalog_archive_category_with_sync",
@@ -419,6 +418,9 @@ function checkReadOnlyContracts() {
       new Set([
         "staff_web_catalog_mutate_v1",
         "staff_web_catalog_update_product_if_revision_v1",
+        "staff_web_catalog_set_product_archived_if_revision_v1",
+        "admin_catalog_import_receipt_claim_v1",
+        "admin_catalog_import_receipt_complete_v1",
         "shop_catalog_admin_read_v1",
         "staff_web_lifecycle_mutate_v1",
         "staff_web_audit_event_v1",
@@ -2917,7 +2919,7 @@ function checkTask015ShopAdminConsole() {
   for (const requiredSnippet of [
     "shop_catalog_create_product_with_sync",
     "shop_catalog_update_product_if_revision_with_sync",
-    "shop_catalog_archive_product_with_sync",
+    "shop_catalog_set_product_archived_if_revision_with_sync",
     "shop_catalog_create_category_with_sync",
     "shop_catalog_update_category_with_sync",
     "shop_catalog_archive_category_with_sync",

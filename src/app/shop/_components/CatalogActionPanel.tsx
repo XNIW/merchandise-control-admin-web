@@ -1,6 +1,13 @@
 "use client";
 
-import { createContext, useCallback, useContext, useId, useState } from "react";
+import {
+  createContext,
+  type ChangeEventHandler,
+  useCallback,
+  useContext,
+  useId,
+  useState,
+} from "react";
 import {
   CatalogExportPanel,
   DatabaseTransferPanel,
@@ -35,6 +42,7 @@ export type CatalogProductOption = {
   secondProductName: string | null;
   stockQuantity: number | null;
   supplierId: string | null;
+  updatedAt: string;
 };
 
 export type CatalogCategoryOption = {
@@ -211,22 +219,28 @@ function SelectField({
   defaultValue,
   label,
   name,
+  onChange,
   required,
+  value,
 }: {
   children: React.ReactNode;
   defaultValue?: string;
   label: string;
   name: string;
+  onChange?: ChangeEventHandler<HTMLSelectElement>;
   required?: boolean;
+  value?: string;
 }) {
   return (
     <label className="grid min-w-0 gap-1 text-sm font-medium text-zinc-800">
       {label}
       <select
         className={catalogInputClassName}
-        defaultValue={defaultValue}
+        defaultValue={value === undefined ? defaultValue : undefined}
         name={name}
+        onChange={onChange}
         required={required}
+        value={value}
       >
         {children}
       </select>
@@ -343,13 +357,20 @@ function ProductPicker({
 }) {
   const allProducts = [...products, ...archivedProducts];
   const t = useCatalogActionText();
+  const [selectedProductId, setSelectedProductId] = useState(
+    defaultProductId ?? "",
+  );
+  const selectedProduct = allProducts.find(
+    (product) => product.productId === selectedProductId,
+  );
 
   return (
     <>
       <SelectField
-        defaultValue={defaultProductId ?? ""}
         label={t("Product")}
         name="productId"
+        onChange={(event) => setSelectedProductId(event.currentTarget.value)}
+        value={selectedProductId}
       >
         <option value="">{t("Select product")}</option>
         {allProducts.map((product) => (
@@ -361,6 +382,11 @@ function ProductPicker({
           </option>
         ))}
       </SelectField>
+      <input
+        name="expectedUpdatedAt"
+        type="hidden"
+        value={selectedProduct?.updatedAt ?? ""}
+      />
       <TextInput
         description={t("Fallback when the product is not listed.")}
         label={t("Product id / barcode fallback")}
@@ -642,6 +668,11 @@ function ProductsDialogs({
                   type="hidden"
                   value={selectedProduct.productId}
                 />
+                <input
+                  name="expectedUpdatedAt"
+                  type="hidden"
+                  value={selectedProduct.updatedAt}
+                />
                 <SelectedEntitySummary>
                   {t("Archiving")} {selectedProductLabel}
                 </SelectedEntitySummary>
@@ -688,6 +719,11 @@ function ProductsDialogs({
                   name="productId"
                   type="hidden"
                   value={selectedProduct.productId}
+                />
+                <input
+                  name="expectedUpdatedAt"
+                  type="hidden"
+                  value={selectedProduct.updatedAt}
                 />
                 <SelectedEntitySummary>
                   {t("Restoring")} {selectedProductLabel}

@@ -543,13 +543,26 @@ async function runProductFixture(input: {
       supplierId,
     }),
   );
-  await runStep("product_tombstone", input.steps, () =>
-    archiveProduct({
-      id: requireTargetId(productForTombstone, "product_tombstone_seed"),
+  await runStep("product_tombstone", input.steps, async () => {
+    const productId = requireTargetId(
+      productForTombstone,
+      "product_tombstone_seed",
+    );
+    const readModel = await getShopInventoryReadModel({
+      requestedShopId: input.requestedShopId,
+      rowLimit: 200,
+    });
+    const currentProduct = readModel.status === "ready"
+      ? readModel.products.find((product) => product.productId === productId)
+      : null;
+
+    return archiveProduct({
+      expectedUpdatedAt: currentProduct?.updatedAt,
+      id: productId,
       reason: "SYNC_TEST staging QA tombstone",
       requestedShopId: input.requestedShopId,
-    }),
-  );
+    });
+  });
 }
 
 async function runHistoryFixture(input: {
@@ -995,19 +1008,26 @@ async function mutateFinalProduct(
   const existing = observation.records[0];
   const existingProduct = isRecord(existing) ? existing : null;
   const productId = existingRecordId(input, observation);
+  const expectedUpdatedAt = typeof existingProduct?.updatedAt === "string"
+    ? existingProduct.updatedAt
+    : undefined;
   const operation = input.operation === "archive" ? "tombstone" : input.operation;
 
   if (operation === "tombstone") {
-    return productId
+    return productId && expectedUpdatedAt
       ? runFinalCatalogRpc((supabase) =>
-          supabase.rpc("shop_catalog_archive_product_with_sync", {
+          supabase.rpc("shop_catalog_set_product_archived_if_revision_with_sync", {
             p_actor_kind: "personal_account",
+            p_archived: true,
+            p_expected_updated_at: expectedUpdatedAt,
             p_product_id: productId,
             p_reason: "TASK_SYNC_FINAL scoped staging QA tombstone",
             p_shop_id: input.shopId,
           }),
         )
-      : shopAdminActionResult("not_found", { ok: false });
+      : shopAdminActionResult(productId ? "validation_failed" : "not_found", {
+          ok: false,
+        });
   }
 
   if (operation === "create" && productId) {
@@ -1062,13 +1082,14 @@ async function mutateFinalProduct(
     );
   }
 
-  return productId
+  return productId && expectedUpdatedAt
     ? runFinalCatalogRpc((supabase) =>
-        supabase.rpc("shop_catalog_update_product_with_sync", {
+        supabase.rpc("shop_catalog_update_product_if_revision_with_sync", {
           p_actor_kind: "personal_account",
           p_barcode: productInput.barcode,
           p_category_id: productInput.categoryId,
           p_item_number: productInput.itemNumber,
+          p_expected_updated_at: expectedUpdatedAt,
           p_product_id: productId,
           p_product_name: productInput.productName,
           p_purchase_price: productInput.purchasePrice,
@@ -1079,7 +1100,9 @@ async function mutateFinalProduct(
           p_supplier_id: productInput.supplierId,
         }),
       )
-    : shopAdminActionResult("not_found", { ok: false });
+    : shopAdminActionResult(productId ? "validation_failed" : "not_found", {
+        ok: false,
+      });
 }
 
 async function mutateFinalLookup(

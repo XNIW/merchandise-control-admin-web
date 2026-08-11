@@ -65,6 +65,8 @@ test("TASK-015 catalog CRUD is implemented through audited shop-scoped RPCs", ()
     const mutationRpcName =
       rpcName === "shop_catalog_update_product"
         ? "shop_catalog_update_product_if_revision_with_sync"
+        : rpcName === "shop_catalog_archive_product"
+          ? "shop_catalog_set_product_archived_if_revision_with_sync"
         : `${rpcName}_with_sync`;
     assert.match(mutations, new RegExp(`\\.rpc\\("${mutationRpcName}"`));
   }

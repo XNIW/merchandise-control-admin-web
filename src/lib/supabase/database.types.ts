@@ -3611,6 +3611,38 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_catalog_import_receipt_claim_v1: {
+        Args: {
+          p_actor_id: string
+          p_actor_kind: string
+          p_request_fingerprint: string
+          p_request_key: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
+      admin_catalog_import_receipt_complete_v1: {
+        Args: {
+          p_claim_token: string
+          p_receipt_id: string
+          p_request_fingerprint: string
+          p_result: Json
+        }
+        Returns: Json
+      }
+      staff_web_catalog_set_product_archived_if_revision_v1: {
+        Args: {
+          p_archived: boolean
+          p_expected_credential_version: number
+          p_expected_updated_at: string
+          p_payload: Json
+          p_session_token_hash: string
+          p_shop_id: string
+          p_staff_id: string
+          p_staff_web_session_id: string
+        }
+        Returns: Json
+      }
       staff_web_lifecycle_mutate_v1: {
         Args: {
           p_expected_credential_version?: number | null
@@ -4556,6 +4588,17 @@ export type Database = {
           p_shop_id: string
           p_stock_quantity?: number
           p_supplier_id?: string
+        }
+        Returns: Json
+      }
+      shop_catalog_set_product_archived_if_revision_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_archived: boolean
+          p_expected_updated_at: string
+          p_product_id: string
+          p_reason?: string
+          p_shop_id: string
         }
         Returns: Json
       }

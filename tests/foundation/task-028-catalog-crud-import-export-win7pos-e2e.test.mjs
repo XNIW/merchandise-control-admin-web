@@ -240,7 +240,7 @@ test("TASK-028 Admin Web catalog CRUD exposes archived products and controlled r
 
   for (const required of [
     "restoreProduct",
-    "shop_catalog_restore_product",
+    "shop_catalog_set_product_archived_if_revision_with_sync",
     "products.write",
   ]) {
     assertContains(mutationSource, required);

@@ -725,6 +725,7 @@ function ProductOverviewForm({
     >
       {selectedShopId ? <input name="shop_id" type="hidden" value={selectedShopId} /> : null}
       <input name="productId" type="hidden" value={product.productId} />
+      <input name="expectedUpdatedAt" type="hidden" value={product.updatedAt} />
       <input
         name="expectedUpdatedAt"
         type="hidden"

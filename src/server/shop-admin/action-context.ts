@@ -26,6 +26,8 @@ export type ShopAdminActionCode =
   | "invalid_state"
   | "version_conflict"
   | "idempotency_conflict"
+  | "import_in_progress"
+  | "import_indeterminate"
   | "invalid_state_or_not_found"
   | "invalid_supplier"
   | "invalid_category"
@@ -105,7 +107,11 @@ const messages: Record<ShopAdminActionCode, string> = {
   version_conflict:
     "The order changed while this page was open. Refresh and review its current status.",
   idempotency_conflict:
-    "This request key was already used for a different order transition.",
+    "This request key was already used for a different operation.",
+  import_in_progress:
+    "This catalog import is already running. Wait for it to finish before retrying.",
+  import_indeterminate:
+    "The previous catalog import did not finish cleanly. Re-run preview before taking further action.",
   invalid_state_or_not_found:
     "The target row was not found or is not in a valid state.",
   invalid_supplier: "The selected supplier does not belong to this shop source.",
@@ -205,6 +211,8 @@ function mapRpcCode(value: unknown): ShopAdminActionCode {
     "invalid_state",
     "version_conflict",
     "idempotency_conflict",
+    "import_in_progress",
+    "import_indeterminate",
     "invalid_state_or_not_found",
     "invalid_supplier",
     "invalid_category",

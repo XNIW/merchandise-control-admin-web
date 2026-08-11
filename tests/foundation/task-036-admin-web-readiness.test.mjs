@@ -138,8 +138,7 @@ test("TASK-036 destructive catalog actions require operator reasons", () => {
     "maxLength={240}",
     "reason.slice(0, 240)",
     "p_reason: reason",
-    "shop_catalog_archive_product",
-    "shop_catalog_restore_product",
+    "shop_catalog_set_product_archived_if_revision_with_sync",
     "shop_catalog_archive_category",
     "shop_catalog_archive_supplier",
   ]) {
