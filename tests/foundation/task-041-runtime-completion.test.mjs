@@ -186,7 +186,7 @@ test("TASK-041 opens only verified runtime implementation gates", () => {
   assertContains(databaseTypes, "pos_sales");
   assertContains(databaseTypes, "pos_sale_lines");
 
-  assert.equal(pkg.devDependencies?.["@opennextjs/cloudflare"], "^1.19.11");
+  assert.equal(pkg.devDependencies?.["@opennextjs/cloudflare"], "^1.20.2");
   assert.ok(pkg.devDependencies?.wrangler);
   assertContains(pkg.scripts?.["cf:build"] ?? "", "scripts/cloudflare-build.mjs");
   assertContains(pkg.scripts?.["cf:preview"] ?? "", "opennextjs-cloudflare preview");

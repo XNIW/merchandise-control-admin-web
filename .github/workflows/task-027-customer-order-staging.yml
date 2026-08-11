@@ -1,0 +1,39 @@
+name: TASK-027 Customer Order Staging
+
+on:
+  push:
+    branches:
+      - integration/storefront-v1
+    paths:
+      - .github/workflows/storefront-v1-staging-migrations.yml
+      - .github/workflows/task-027-customer-order-staging.yml
+      - supabase/migrations/20260803033000_storefront_v1_customer_orders.sql
+      - supabase/migrations/20260803034500_storefront_v1_customer_order_capacity.sql
+      - supabase/tests/storefront_v1_customer_orders.sql
+      - scripts/testing/storefront-v1-customer-order-concurrency.sh
+      - package.json
+      - tests/foundation/storefront-v1-customer-orders.test.mjs
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-027-customer-order-staging
+  cancel-in-progress: false
+
+jobs:
+  staging-customer-order-contract:
+    uses: ./.github/workflows/storefront-v1-staging-migrations.yml
+    with:
+      mode: apply
+      expected_head_sha: ${{ github.sha }}
+      expected_migration_version: "20260803034500"
+      expected_migration_name: storefront_v1_customer_order_capacity
+      expected_migration_file: 20260803034500_storefront_v1_customer_order_capacity.sql
+      expected_predecessor_migration_version: "20260803033000"
+      expected_predecessor_migration_name: storefront_v1_customer_orders
+      expected_predecessor_migration_file: 20260803033000_storefront_v1_customer_orders.sql
+      apply_confirmation: APPLY_STOREFRONT_V1_STAGING
+      load_hold_seconds: "0"
+      run_performance_load: false
+    secrets: inherit

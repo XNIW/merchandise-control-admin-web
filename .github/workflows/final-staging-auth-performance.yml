@@ -26,6 +26,7 @@ env:
 jobs:
   authenticated-public-routes:
     name: Auth, tenant isolation and public route latency
+    if: github.ref != 'refs/heads/integration/storefront-v1'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     environment: cloudflare-staging
@@ -102,4 +103,124 @@ jobs:
             docs/TASKS/EVIDENCE/TASK-077B/task-077b-shop-performance-real-shop-final-staging.json
             test-results/
           if-no-files-found: error
+          retention-days: 30
+
+  storefront-v1-admin-acceptance:
+    name: Storefront publish, promotion pricing, audit and pause
+    if: github.ref == 'refs/heads/integration/storefront-v1'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare-staging
+
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      ALLOW_STAGING_E2E: "yes"
+      CI: "true"
+      CONFIRM_STAGING_E2E: "yes"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      PLAYWRIGHT_BASE_URL: ${{ vars.CLOUDFLARE_STAGING_URL }}
+      PLAYWRIGHT_DISABLE_WEB_SERVER: "1"
+      SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      STOREFRONT_IMAGE_CLEANUP_ALLOW_STAGING: "yes"
+      STOREFRONT_CLIENT_FIXTURE_ALLOW_STAGING: "yes"
+      STOREFRONT_CLIENT_FIXTURE_SHOP_SLUG: storefront-v1-staging
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_TARGET: staging
+
+    steps:
+      - name: Checkout exact SHA
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Chromium and PostgreSQL client
+        run: |
+          set -euo pipefail
+          npx playwright install --with-deps chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Verify protected staging inputs
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.SUPABASE_PROJECT_REF || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",").map((value) => value.trim()).filter(Boolean);
+          let supabaseMatches = false;
+          let appIsStaging = false;
+          try {
+            supabaseMatches = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL || "").hostname === `${ref}.supabase.co`;
+            const app = new URL(process.env.PLAYWRIGHT_BASE_URL || "");
+            appIsStaging = app.protocol === "https:" && !app.hostname.endsWith("supabase.co");
+          } catch {}
+          const status = {
+            integrationBranch: process.env.GITHUB_REF === "refs/heads/integration/storefront-v1",
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            allowedProject: allowed.includes(ref),
+            supabaseMatches,
+            appIsStaging,
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+            serviceRolePresent: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+            publishableKeyPresent: Boolean(process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY),
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build masked staging database URL
+        run: |
+          set -euo pipefail
+          STOREFRONT_STAGING_DATABASE_URL="$(node <<'NODE'
+          const ref = process.env.SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(`postgresql://postgres.${ref}:${encodeURIComponent(password)}@${host}:5432/postgres?sslmode=require`);
+          NODE
+          )"
+          echo "::add-mask::$STOREFRONT_STAGING_DATABASE_URL"
+          printf 'STOREFRONT_STAGING_DATABASE_URL=%s\n' "$STOREFRONT_STAGING_DATABASE_URL" >> "$GITHUB_ENV"
+
+      - name: Run Storefront Admin staging acceptance
+        run: >-
+          node scripts/testing/run-playwright-target.mjs staging
+          tests/e2e/storefront-v1-admin-publications-local.spec.ts
+          --project=chromium-desktop
+
+      - name: Run Admin order queue and transition staging acceptance
+        run: >-
+          node scripts/testing/run-playwright-target.mjs staging
+          tests/e2e/storefront-v1-admin-orders-local.spec.ts
+          --project=chromium-desktop
+
+      - name: Verify bounded public image cleanup
+        run: npm run storefront:images:cleanup
+
+      - name: Seed and verify persistent Flutter Storefront fixture
+        run: npm run storefront:client-fixture
+
+      - name: Upload sanitized Flutter fixture evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: storefront-v1-client-fixture-${{ github.run_id }}
+          path: |
+            test-results/storefront-v1-client-fixture.json
+            test-results/**/*.md
+          if-no-files-found: warn
           retention-days: 30

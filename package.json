@@ -53,6 +53,21 @@
     "test:shop:cloud-performance:task077": "node scripts/testing/task-077-shop-cloud-performance.mjs",
     "test:task081:e2e": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-081-pos-revenue-e2e.spec.ts --project=chromium-desktop",
     "test:task081:win7-http": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-081-win7pos-http-e2e.spec.ts --project=chromium-desktop",
+    "test:storefront:projection-concurrency": "bash scripts/testing/storefront-v1-projection-concurrency.sh",
+    "test:storefront:availability-concurrency": "bash scripts/testing/storefront-v1-availability-concurrency.sh",
+    "test:storefront:reservation-hold-concurrency": "bash scripts/testing/storefront-v1-reservation-hold-concurrency.sh",
+    "test:storefront:reservation-hold-load": "bash scripts/testing/storefront-v1-reservation-hold-load.sh",
+    "test:storefront:checkout-slot-concurrency": "bash scripts/testing/storefront-v1-checkout-slot-concurrency.sh",
+    "test:storefront:customer-order-concurrency": "bash scripts/testing/storefront-v1-customer-order-concurrency.sh",
+    "test:storefront:admin-order-concurrency": "bash scripts/testing/storefront-v1-admin-order-concurrency.sh",
+    "test:storefront:pos-order-concurrency": "bash scripts/testing/storefront-v1-pos-order-handoff-concurrency.sh",
+    "test:storefront:pos-order-staging-e2e": "node scripts/testing/storefront-v1-pos-order-staging-e2e.mjs",
+    "test:storefront:order-notification-concurrency": "bash scripts/testing/storefront-v1-order-notification-concurrency.sh",
+    "test:storefront:customer-payment-concurrency": "bash scripts/testing/storefront-v1-customer-payment-concurrency.sh",
+    "test:storefront:order-notification-staging-e2e": "node scripts/testing/storefront-v1-order-notification-staging-e2e.mjs",
+    "test:storefront:customer-device-concurrency": "bash scripts/testing/storefront-v1-customer-device-concurrency.sh",
+    "test:storefront:customer-cart-concurrency": "bash scripts/testing/storefront-v1-customer-cart-concurrency.sh",
+    "test:storefront:contract-load": "bash scripts/testing/storefront-v1-contract-load.sh",
     "check:pos-catalog-paging": "node scripts/check-pos-catalog-paging.mjs",
     "check:pos-worker-bundle": "node scripts/testing/pos-worker-bundle-graph.mjs --assert",
     "check:task149:resource-gate": "node scripts/testing/task-149-pos-product-image-resource-gate.mjs",
@@ -65,6 +80,8 @@
     "test:shop-admin-auth-smoke": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-035-shop-admin-authenticated-smoke.spec.ts --project=chromium-desktop",
     "task137:images:cleanup": "node scripts/admin/task-137-product-image-cleanup.mjs",
     "task137:images:report": "node scripts/admin/task-137-product-image-report.mjs",
+    "storefront:images:cleanup": "node scripts/admin/storefront-v1-image-cleanup.mjs",
+    "storefront:client-fixture": "node scripts/admin/storefront-v1-client-fixture.mjs",
     "test:pos-local-harness": "node scripts/pos-local-e2e-harness.mjs",
     "test:pos-staging-harness:dry-run": "node scripts/run-with-env.mjs TASK032_POS_E2E_ENABLE_POSITIVE=yes TASK032_POS_E2E_ALLOW_DATASET_SETUP=yes TASK032_POS_E2E_ALLOW_CLEANUP=yes TASK032_POS_E2E_ALLOW_STAGING=yes TASK032_POS_E2E_STAGING_DRY_RUN=yes TASK032_POS_E2E_REQUIRE_TEST_MARKER=TASK032 -- node scripts/pos-local-e2e-harness.mjs",
     "test:pos-staging-harness": "node scripts/run-with-env.mjs TASK032_POS_E2E_ENABLE_POSITIVE=yes TASK032_POS_E2E_ALLOW_DATASET_SETUP=yes TASK032_POS_E2E_ALLOW_CLEANUP=yes TASK032_POS_E2E_ALLOW_STAGING=yes TASK032_POS_E2E_REQUIRE_STAGING_TARGET=yes TASK032_POS_E2E_REQUIRE_TEST_MARKER=TASK032 -- node scripts/pos-local-e2e-harness.mjs",
@@ -76,7 +93,7 @@
     "@e965/xlsx": "^0.20.3",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.106.2",
-    "next": "16.2.6",
+    "next": "16.2.12",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "read-excel-file": "^9.2.0",
@@ -85,22 +102,25 @@
     "write-excel-file": "^4.1.1"
   },
   "devDependencies": {
-    "@opennextjs/cloudflare": "^1.19.11",
+    "@opennextjs/cloudflare": "^1.20.2",
     "@playwright/test": "^1.61.1",
-    "@tailwindcss/postcss": "^4.3.1",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "axe-core": "4.11.4",
     "eslint": "^9",
-    "eslint-config-next": "16.2.6",
-    "tailwindcss": "^4",
+    "eslint-config-next": "16.2.12",
+    "sharp": "^0.35.3",
+    "tailwindcss": "^4.3.3",
     "typescript": "^5",
-    "wrangler": "^4.105.0",
+    "wrangler": "^4.118.0",
     "ws": "8.21.0"
   },
   "overrides": {
     "next": {
-      "postcss": "8.5.10"
+      "postcss": "8.5.25",
+      "sharp": "0.35.3"
     }
   }
 }

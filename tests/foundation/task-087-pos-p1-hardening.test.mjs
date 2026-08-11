@@ -170,9 +170,9 @@ test(
       bootstrap,
       "PosOnlineCompatibilityValidator.ValidatePolicy(response.Policy)",
     );
-    assertContains(
+    assert.match(
       bootstrap,
-      "response.Policy,\n                                    activatedGeneration",
+      /response\.Policy,\r?\n\s+activatedGeneration/,
     );
     assertContains(
       catalog,
@@ -190,7 +190,8 @@ test(
 
     for (const required of [
       "public async Task<DbRestoreResult> RestoreDbAsync",
-      "CreateDbBackupNoLockAsync(\"pos_pre_restore_\")",
+      "AllocateDbBackupPath(\"pos_pre_restore_\")",
+      "SqliteRestoreCoordinator",
       "KeyRestoreNeedsSyncReview",
       "IntegrityCheckAsync",
       "syncReview",
@@ -207,7 +208,7 @@ test(
     assertContains(rotatingLogSink, "RotateIfNeeded");
     assertContains(rotatingLogSink, "DefaultRetainedLogFiles = 5");
     assertContains(readme, "Admin Web invia anche una `policy` POS versionata");
-    assertContains(readme, "pre-backup `pos_pre_restore_yyyyMMdd_HHmmss.db`");
+    assertContains(checklist, "`pos_pre_restore_yyyyMMdd_HHmmss.db`");
     assertContains(checklist, "Hardware verification remains `EXTERNAL_NOT_RUN`");
 
     assert.doesNotMatch(`${client}\n${transportContracts}`, /pinHash|passwordHash|credentialHash/);

@@ -1,0 +1,34 @@
+name: TASK-019 Storefront Performance Staging
+
+on:
+  push:
+    branches:
+      - integration/storefront-v1
+    # Frozen checkpoint: shared-runner changes are exercised by the active task.
+    paths:
+      - scripts/testing/storefront-v1-contract-load.sh
+      - scripts/testing/storefront-v1-contract-load.sql
+      - supabase/migrations/20260802043000_storefront_v1_catalog_performance.sql
+      - supabase/tests/storefront_v1_catalog_performance.sql
+      - supabase/tests/storefront_v1_public_api.sql
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task-019-storefront-performance-staging
+  cancel-in-progress: false
+
+jobs:
+  staging-performance:
+    uses: ./.github/workflows/storefront-v1-staging-migrations.yml
+    with:
+      mode: apply
+      expected_head_sha: ${{ github.sha }}
+      expected_migration_version: "20260802043000"
+      expected_migration_name: storefront_v1_catalog_performance
+      expected_migration_file: 20260802043000_storefront_v1_catalog_performance.sql
+      apply_confirmation: APPLY_STOREFRONT_V1_STAGING
+      load_hold_seconds: "900"
+      run_performance_load: true
+    secrets: inherit

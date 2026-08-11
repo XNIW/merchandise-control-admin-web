@@ -1,0 +1,191 @@
+name: TASK-030 POS Order Handoff Staging
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - integration/storefront-v1
+    paths:
+      - .github/workflows/task-030-pos-order-handoff-staging.yml
+      - supabase/migrations/20260803060000_storefront_v1_pos_order_handoff.sql
+      - supabase/tests/storefront_v1_pos_order_handoff.sql
+      - scripts/testing/storefront-v1-pos-order-handoff-concurrency.sh
+      - src/app/api/pos/orders/ack/route.ts
+      - src/app/api/pos/orders/claim/route.ts
+      - src/server/pos-auth/customer-order-handoff.ts
+
+permissions:
+  contents: read
+
+concurrency:
+  group: storefront-v1-staging-order-payment
+  cancel-in-progress: false
+
+jobs:
+  apply-pos-order-handoff:
+    uses: ./.github/workflows/storefront-v1-staging-migrations.yml
+    with:
+      mode: apply
+      expected_head_sha: ${{ github.sha }}
+      expected_migration_version: "20260803060000"
+      expected_migration_name: storefront_v1_pos_order_handoff
+      expected_migration_file: 20260803060000_storefront_v1_pos_order_handoff.sql
+      apply_confirmation: APPLY_STOREFRONT_V1_STAGING
+      load_hold_seconds: "0"
+      run_performance_load: false
+    secrets: inherit
+
+  verify-pos-order-handoff:
+    needs: apply-pos-order-handoff
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: cloudflare-staging
+    env:
+      SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+
+      - name: Verify immutable staging target
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",")
+            .map((value) => value.trim())
+            .filter(Boolean);
+          let urlMatchesProject = false;
+          try {
+            urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
+          } catch {}
+          const status = {
+            integrationBranch:
+              process.env.GITHUB_REF === "refs/heads/integration/storefront-v1",
+            exactHead: /^[0-9a-f]{40}$/.test(process.env.GITHUB_SHA || ""),
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            allowedProject: allowed.includes(ref),
+            urlMatchesProject,
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build protected database URL
+        run: |
+          set -euo pipefail
+          mkdir -p _task030-evidence
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(
+            `postgresql://postgres.${ref}:${encodeURIComponent(password)}`
+              + `@${host}:5432/postgres?sslmode=require`,
+          );
+          NODE
+          )"
+          echo "::add-mask::$SOURCE_DB_URL"
+          printf '%s' "$SOURCE_DB_URL" > _task030-db-url
+          chmod 600 _task030-db-url
+
+      - name: Verify pgTAP order handoff contract
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task030-db-url)"
+          docker run --rm --network host \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_pos_order_handoff.sql \
+              > _task030-evidence/pgtap.txt
+
+      - name: Verify deployed boundary and migration ledger
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task030-db-url)"
+          docker run --rm --network host \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260803060000'
+                    and name = 'storefront_v1_pos_order_handoff'
+                ),
+                'receiptForcedRls', (
+                  select relrowsecurity and relforcerowsecurity
+                  from pg_catalog.pg_class
+                  where oid = 'public.customer_order_pos_receipts'::regclass
+                ),
+                'receiptClientDenied', (
+                  not has_table_privilege(
+                    'authenticated',
+                    'public.customer_order_pos_receipts',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                ),
+                'rpcCount', (
+                  select count(*) = 2
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'pos_customer_order_claim_v1',
+                      'pos_customer_order_ack_v1'
+                    )
+                    and procedure.prosecdef
+                    and 'search_path=' || pg_catalog.chr(34)
+                      || pg_catalog.chr(34) = any(procedure.proconfig)
+                    and 'statement_timeout=5s' = any(procedure.proconfig)
+                    and has_function_privilege(
+                      'service_role', procedure.oid, 'EXECUTE'
+                    )
+                    and not has_function_privilege(
+                      'authenticated', procedure.oid, 'EXECUTE'
+                    )
+                    and not has_function_privilege(
+                      'anon', procedure.oid, 'EXECUTE'
+                    )
+                ),
+                'productionWriteRequested', false
+              );" \
+              > _task030-evidence/post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const report = JSON.parse(
+            readFileSync("_task030-evidence/post-verify.json", "utf8").trim(),
+          );
+          console.log(JSON.stringify(report));
+          const { productionWriteRequested, ...requiredProofs } = report;
+          if (
+            productionWriteRequested !== false ||
+            Object.values(requiredProofs).some((value) => value !== true)
+          ) {
+            process.exit(1);
+          }
+          NODE
+
+      - name: Remove protected connection material
+        if: always()
+        run: rm -f _task030-db-url
+
+      - name: Upload non-secret TASK-030 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task-030-pos-order-handoff-${{ github.run_id }}-${{ github.run_attempt }}
+          path: _task030-evidence
+          if-no-files-found: error
+          retention-days: 14

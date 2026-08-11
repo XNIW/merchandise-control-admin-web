@@ -2994,6 +2994,95 @@ export type Database = {
           },
         ]
       }
+      storefront_image_publication_variants: {
+        Row: {
+          cleanup_after: string | null
+          cleanup_attempts: number
+          cleanup_claimed_at: string | null
+          cleanup_claim_token: string | null
+          cleanup_last_error: string | null
+          content_type: string
+          created_at: string
+          expected_bytes: number
+          expected_height: number
+          expected_sha256: string
+          expected_width: number
+          id: string
+          image_publication_id: string
+          object_path: string
+          public_url: string | null
+          publication_status: string
+          ready_at: string | null
+          shop_id: string
+          updated_at: string
+          variant: string
+          verified_bytes: number | null
+          verified_height: number | null
+          verified_sha256: string | null
+          verified_width: number | null
+        }
+        Insert: {
+          cleanup_after?: string | null
+          cleanup_attempts?: number
+          cleanup_claimed_at?: string | null
+          cleanup_claim_token?: string | null
+          cleanup_last_error?: string | null
+          content_type?: string
+          created_at?: string
+          expected_bytes: number
+          expected_height: number
+          expected_sha256: string
+          expected_width: number
+          id?: string
+          image_publication_id: string
+          object_path: string
+          public_url?: string | null
+          publication_status?: string
+          ready_at?: string | null
+          shop_id: string
+          updated_at?: string
+          variant: string
+          verified_bytes?: number | null
+          verified_height?: number | null
+          verified_sha256?: string | null
+          verified_width?: number | null
+        }
+        Update: {
+          cleanup_after?: string | null
+          cleanup_attempts?: number
+          cleanup_claimed_at?: string | null
+          cleanup_claim_token?: string | null
+          cleanup_last_error?: string | null
+          content_type?: string
+          created_at?: string
+          expected_bytes?: number
+          expected_height?: number
+          expected_sha256?: string
+          expected_width?: number
+          id?: string
+          image_publication_id?: string
+          object_path?: string
+          public_url?: string | null
+          publication_status?: string
+          ready_at?: string | null
+          shop_id?: string
+          updated_at?: string
+          variant?: string
+          verified_bytes?: number | null
+          verified_height?: number | null
+          verified_sha256?: string | null
+          verified_width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_image_variants_image_fkey"
+            columns: ["shop_id", "image_publication_id"]
+            isOneToOne: false
+            referencedRelation: "storefront_image_publications"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
       sync_events: {
         Row: {
           batch_id: string | null
@@ -3999,6 +4088,31 @@ export type Database = {
         }
         Returns: boolean
       }
+      pos_customer_order_ack_v1: {
+        Args: {
+          p_ack_idempotency_key: string
+          p_expected_status_version: number
+          p_handoff_id: string
+          p_lease_token: string
+          p_outcome: string
+          p_pos_sale_id?: string | null
+          p_pos_session_id: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
+      pos_customer_order_claim_v1: {
+        Args: {
+          p_limit?: number
+          p_pos_session_id: string
+          p_shop_device_id: string
+          p_shop_id: string
+          p_staff_id: string
+        }
+        Returns: Json
+      }
       pos_apply_sale_stock_movement: {
         Args: {
           p_metadata_redacted?: Json
@@ -4641,6 +4755,222 @@ export type Database = {
           p_expected_credential_version?: number | null
           p_operation: string
           p_request?: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_customer_order_transition_v1: {
+        Args: {
+          p_correlation_id: string
+          p_expected_credential_version?: number | null
+          p_expected_status_version: number
+          p_idempotency_key: string
+          p_operation: string
+          p_order_id: string
+          p_reason_code?: string | null
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_customer_orders_read_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_operation: string
+          p_request?: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_storefront_image_finalize_v1: {
+        Args: {
+          p_expected_credential_version?: number
+          p_image_publication_id: string
+          p_session_token_hash?: string
+          p_shop_id: string
+          p_staff_id?: string
+          p_staff_web_session_id?: string
+          p_verified_variants: Json
+        }
+        Returns: Json
+      }
+      admin_storefront_image_finalize_server_v2: {
+        Args: {
+          p_actor_profile_id?: string | null
+          p_expected_credential_version?: number | null
+          p_image_publication_id: string
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+          p_verified_variants: Json
+        }
+        Returns: Json
+      }
+      storefront_image_cleanup_claim_v2: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
+      storefront_image_cleanup_complete_v2: {
+        Args: {
+          p_claim_token: string
+          p_error_code?: string | null
+          p_removed: boolean
+          p_variant_id: string
+        }
+        Returns: Json
+      }
+      storefront_image_configure_origin_v1: {
+        Args: { p_origin: string }
+        Returns: Json
+      }
+      admin_storefront_image_intent_v1: {
+        Args: {
+          p_expected_credential_version?: number
+          p_publication_id: string
+          p_session_token_hash?: string
+          p_shop_id: string
+          p_source_image_version_id: string
+          p_staff_id?: string
+          p_staff_web_session_id?: string
+          p_variants: Json
+        }
+        Returns: Json
+      }
+      admin_storefront_image_rollback_v1: {
+        Args: {
+          p_expected_credential_version?: number
+          p_session_token_hash?: string
+          p_shop_id: string
+          p_staff_id?: string
+          p_staff_web_session_id?: string
+          p_target_image_publication_id: string
+        }
+        Returns: Json
+      }
+      admin_storefront_image_source_read_v1: {
+        Args: {
+          p_expected_credential_version?: number
+          p_publication_id: string
+          p_session_token_hash?: string
+          p_shop_id: string
+          p_source_image_version_id: string
+          p_staff_id?: string
+          p_staff_web_session_id?: string
+        }
+        Returns: Json
+      }
+      admin_storefront_images_read_v1: {
+        Args: {
+          p_expected_credential_version?: number
+          p_session_token_hash?: string
+          p_shop_id: string
+          p_staff_id?: string
+          p_staff_web_session_id?: string
+        }
+        Returns: Json
+      }
+      admin_storefront_fulfillment_read_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_storefront_fulfillment_mutate_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_operation: string
+          p_payload: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_storefront_payment_read_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_storefront_payment_mutate_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_payload: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_storefront_publications_read_v1: {
+        Args: {
+          p_availability?: string | null
+          p_category_id?: string | null
+          p_discounted?: boolean | null
+          p_expected_credential_version?: number | null
+          p_missing_image?: boolean | null
+          p_page?: number
+          p_page_size?: number
+          p_query?: string | null
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_sort?: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+          p_status?: string | null
+        }
+        Returns: Json
+      }
+      admin_storefront_publication_mutate_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_operation: string
+          p_payload: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_storefront_promotions_read_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_page?: number
+          p_page_size?: number
+          p_query?: string | null
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+          p_status?: string | null
+        }
+        Returns: Json
+      }
+      admin_storefront_promotion_mutate_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_operation: string
+          p_payload: Json
           p_session_token_hash?: string | null
           p_shop_id: string
           p_staff_id?: string | null

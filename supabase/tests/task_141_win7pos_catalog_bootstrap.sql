@@ -175,6 +175,16 @@ from generate_series(1, 41323) series(row_number);
 
 set local session_replication_role = origin;
 
+-- The fixture is created inside this rollback-only pgTAP transaction. On a fresh
+-- database PostgreSQL otherwise still estimates these tables as empty and can pick
+-- an O(n^2) manifest plan. Analyze the transaction-visible incident volume so the
+-- existing 8-second assertion measures the production query rather than stale test
+-- statistics.
+analyze public.inventory_categories;
+analyze public.inventory_suppliers;
+analyze public.inventory_products;
+analyze public.inventory_product_prices;
+
 select is(
   app_private.pos_catalog_integrity_violation_count_v2(
     '10000000-0000-4000-8000-000000001411',
@@ -331,6 +341,29 @@ select ok(
   ),
   'integrity-blocked response leaks neither rows nor a partial manifest'
 );
+
+-- Restore empty-fixture statistics before the outer rollback. ANALYZE is not
+-- transactional, so leaving the incident cardinality behind would make later local
+-- runs order-dependent even though all fixture rows themselves roll back.
+set local session_replication_role = replica;
+delete from public.inventory_product_prices
+where shop_id = '10000000-0000-4000-8000-000000001411';
+delete from public.inventory_products
+where shop_id = '10000000-0000-4000-8000-000000001411';
+delete from public.inventory_categories
+where shop_id = '10000000-0000-4000-8000-000000001411';
+delete from public.inventory_suppliers
+where shop_id = '10000000-0000-4000-8000-000000001411';
+delete from public.shops
+where shop_id = '10000000-0000-4000-8000-000000001411';
+delete from auth.users
+where id = '00000000-0000-4000-8000-000000001411';
+set local session_replication_role = origin;
+
+analyze public.inventory_categories;
+analyze public.inventory_suppliers;
+analyze public.inventory_products;
+analyze public.inventory_product_prices;
 
 select * from finish();
 rollback;

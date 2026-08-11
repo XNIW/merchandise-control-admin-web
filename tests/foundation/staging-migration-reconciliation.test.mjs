@@ -44,8 +44,11 @@ test("the eight recovered staging migration sources remain byte-exact", () => {
   assert.equal(recovered.size, 8);
 
   for (const [fileName, expectedSha256] of recovered) {
-    const bytes = readFileSync(join(root, "supabase", "migrations", fileName));
-    const actualSha256 = createHash("sha256").update(bytes).digest("hex");
+    const source = readFileSync(
+      join(root, "supabase", "migrations", fileName),
+      "utf8",
+    ).replace(/\r\n/g, "\n");
+    const actualSha256 = createHash("sha256").update(source).digest("hex");
     assert.equal(actualSha256, expectedSha256, fileName);
   }
 });

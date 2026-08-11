@@ -423,6 +423,51 @@ function checkReadOnlyContracts() {
         "staff_web_lifecycle_mutate_v1",
         "staff_web_audit_event_v1",
         "staff_web_history_mutate_v1",
+        "admin_storefront_publications_read_v1",
+        "admin_storefront_publication_mutate_v1",
+        "admin_storefront_promotions_read_v1",
+        "admin_storefront_promotion_mutate_v1",
+        "admin_storefront_images_read_v1",
+        "admin_storefront_fulfillment_read_v1",
+        "admin_storefront_fulfillment_mutate_v1",
+        "admin_storefront_payment_read_v1",
+        "admin_storefront_payment_mutate_v1",
+        "admin_customer_orders_read_v1",
+        "admin_customer_order_transition_v1",
+      ]),
+    ],
+    [
+      "src/server/shop-admin/storefront-read-model.ts",
+      new Set([
+        "admin_storefront_publications_read_v1",
+        "admin_storefront_promotions_read_v1",
+        "admin_storefront_images_read_v1",
+        "admin_storefront_fulfillment_read_v1",
+        "admin_storefront_payment_read_v1",
+      ]),
+    ],
+    [
+      "src/server/shop-admin/storefront-mutations.ts",
+      new Set([
+        "admin_storefront_publication_mutate_v1",
+        "admin_storefront_promotion_mutate_v1",
+        "admin_storefront_fulfillment_mutate_v1",
+        "admin_storefront_payment_mutate_v1",
+      ]),
+    ],
+    [
+      "src/server/shop-admin/order-read-model.ts",
+      new Set(["admin_customer_orders_read_v1"]),
+    ],
+    [
+      "src/server/shop-admin/order-mutations.ts",
+      new Set(["admin_customer_order_transition_v1"]),
+    ],
+    [
+      "src/server/shop-admin/storefront-images/service.ts",
+      new Set([
+        "admin_storefront_image_finalize_server_v2",
+        "storefront_image_configure_origin_v1",
       ]),
     ],
     [
@@ -469,6 +514,7 @@ function checkReadOnlyContracts() {
     "src/server/shop-admin/product-images/cache-scope.ts",
     "src/server/shop-admin/product-images/runtime-core.ts",
     "src/server/shop-admin/product-images/service.ts",
+    "src/server/shop-admin/storefront-images/webp-validator.ts",
   ]);
 
   for (const file of serverFiles) {
@@ -4069,6 +4115,8 @@ function checkTask019PosAuthFoundationImplementation() {
     "src/app/api/pos/catalog/product-images/read-urls/route.ts",
     "src/app/api/pos/catalog/product-images/remove/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
+    "src/app/api/pos/orders/ack/route.ts",
+    "src/app/api/pos/orders/claim/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
   if (isTask041RuntimeCompletionActive()) {
@@ -4230,6 +4278,8 @@ function checkTask020Win7PosIntegrationPlanning() {
     "src/app/api/pos/catalog/product-images/read-urls/route.ts",
     "src/app/api/pos/catalog/product-images/remove/route.ts",
     "src/app/api/pos/catalog/pull/route.ts",
+    "src/app/api/pos/orders/ack/route.ts",
+    "src/app/api/pos/orders/claim/route.ts",
     "src/app/api/pos/session/heartbeat/route.ts",
   ]);
   if (isTask041RuntimeCompletionActive()) {
@@ -4357,6 +4407,8 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
     "src/app/api/pos/catalog/product-images/read-urls/route.ts",
     "src/app/api/pos/catalog/product-images/remove/route.ts",
     catalogPullRoutePath,
+    "src/app/api/pos/orders/ack/route.ts",
+    "src/app/api/pos/orders/claim/route.ts",
     heartbeatRoutePath,
   ]);
   if (isTask041RuntimeCompletionActive()) {
@@ -4385,12 +4437,12 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
   ].join("\n");
   const catalogFailureLogger =
     catalogPullService.match(
-      /function emitPosCatalogFailureLog\([\s\S]*?\n}\n\nfunction cursorFingerprint/,
+      /function emitPosCatalogFailureLog\([\s\S]*?\r?\n}\r?\n\r?\nfunction cursorFingerprint/,
     )?.[0] ?? "";
   const routeRejectionLogger =
     posRouteSecurity
       .match(
-        /export function emitPosRouteRejectionAudit\([\s\S]*?\n}\n(?=\nexport function posMethodNotAllowedResponse)/,
+        /export function emitPosRouteRejectionAudit\([\s\S]*?\r?\n}\r?\n(?=\r?\nexport function posMethodNotAllowedResponse)/,
       )?.[0]
       .trimEnd() ?? "";
   const expectedRouteRejectionLogger = [
@@ -4652,7 +4704,8 @@ function checkTask021PosBackendSessionDeviceEndpoints() {
 
   if (
     !routeRejectionLogger ||
-    routeRejectionLogger !== expectedRouteRejectionLogger ||
+    routeRejectionLogger.replace(/\r\n/g, "\n") !==
+      expectedRouteRejectionLogger ||
     routeRejectionConsoleCalls.length !== 1 ||
     routeRejectionConsoleCalls[0] !== "console.warn(" ||
     !/console\.warn\(\s*JSON\.stringify\(/.test(routeRejectionLogger) ||
@@ -6596,7 +6649,7 @@ function checkTask041RuntimeCompletion() {
   }
 
   if (
-    packageJson.devDependencies?.["@opennextjs/cloudflare"] !== "^1.19.11" ||
+    packageJson.devDependencies?.["@opennextjs/cloudflare"] !== "^1.20.2" ||
     !packageJson.devDependencies?.wrangler ||
     !packageJson.scripts?.["cf:build"] ||
     !packageJson.scripts?.["cf:preview"]

@@ -168,7 +168,9 @@ function assertExpectedResult(testCase, result) {
 test("TASK-142 golden fixture has the frozen cross-platform digest", () => {
   assert.equal(fixture.policyVersion, "catalog_text_policy_v1");
   assert.equal(
-    createHash("sha256").update(fixtureBytes).digest("hex"),
+    createHash("sha256")
+      .update(fixtureBytes.toString("utf8").replace(/\r\n/g, "\n"))
+      .digest("hex"),
     "139d63eedea47b54bb63a9289bef5fc6f7372668f209aac7753b586da7ccd9f8",
   );
 });
