@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LatestAbortableRequest } from "@/app/shop/_components/latest-abortable-request";
 import {
   formatDate as formatLocalizedDate,
   formatDateTime as formatLocalizedDateTime,
@@ -339,7 +340,9 @@ export function PosRevenueDashboard({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [expandedSaleId, setExpandedSaleId] = useState<string | null>(null);
   const [saleDetails, setSaleDetails] = useState<Record<string, SaleDetailState>>({});
-  const abortRef = useRef<AbortController | null>(null);
+  // LatestAbortableRequest owns the AbortController and adds generation identity,
+  // so a transport that resolves after abort still cannot publish stale data.
+  const refreshRequestRef = useRef(new LatestAbortableRequest());
   const t = useCallback((value: string) => labels[value] ?? value, [labels]);
 
   const fetchData = useCallback(async () => {
@@ -347,25 +350,31 @@ export function PosRevenueDashboard({
       return;
     }
 
-    abortRef.current?.abort();
-    const controller = new AbortController();
-    abortRef.current = controller;
+    const request = refreshRequestRef.current.start();
     setIsRefreshing(true);
 
     try {
       const response = await fetch(buildRevenueUrl({ month, shopId, year }), {
         cache: "no-store",
-        signal: controller.signal,
+        signal: request.signal,
       });
 
-      if (!response.ok) {
+      if (!request.isLatest() || !response.ok) {
         return;
       }
 
       const nextData = (await response.json()) as ShopPosRevenueReadModel;
+
+      if (!request.isLatest()) {
+        return;
+      }
+
       setData(nextData);
     } catch (error) {
-      if (!(error instanceof DOMException && error.name === "AbortError")) {
+      if (
+        request.isLatest() &&
+        !(error instanceof DOMException && error.name === "AbortError")
+      ) {
         setData((current) => ({
           ...current,
           realtime: {
@@ -375,7 +384,10 @@ export function PosRevenueDashboard({
         }));
       }
     } finally {
-      setIsRefreshing(false);
+      if (request.isLatest()) {
+        setIsRefreshing(false);
+        request.finish();
+      }
     }
   }, [month, shopId, year]);
 
@@ -390,13 +402,14 @@ export function PosRevenueDashboard({
   }, [fetchData]);
 
   useEffect(() => {
+    const refreshRequest = refreshRequestRef.current;
     const id = window.setInterval(() => {
       void fetchData();
     }, 10_000);
 
     return () => {
       window.clearInterval(id);
-      abortRef.current?.abort();
+      refreshRequest.cancel();
     };
   }, [fetchData]);
 

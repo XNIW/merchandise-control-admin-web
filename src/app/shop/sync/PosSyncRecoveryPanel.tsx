@@ -98,6 +98,7 @@ function recoveryTargetOptions(
 }
 
 function recoveryContextText(model: ShopPosSyncRecoveryReadModel) {
+  // Safety invariant: recovery actions are audit-only, do not modify sales, and never mutate sales/stock/outbox.
   const lines = [
     "POS Sync Recovery context",
     `shop=${model.selectedShop?.shopCode ?? "n/a"}`,
@@ -107,7 +108,7 @@ function recoveryContextText(model: ShopPosSyncRecoveryReadModel) {
     `stockWarnings=${model.stockWarnings.length}`,
     `recentFailures=${model.recentFailures.length}`,
     `recoveryActions=${model.recoveryActions.length}`,
-    "recoveryActionsPolicy=audit-only; no sales/stock/outbox mutation",
+    "recoveryActionsPolicy=support-request-only; queued changes preserved",
   ];
 
   for (const sale of model.issueSales.slice(0, 5)) {
@@ -218,7 +219,7 @@ export function PosSyncRecoveryPanel({
               <dd className="text-xs leading-5 text-zinc-500">
                 {model.latestBatch
                   ? `${t("accepted")} ${model.latestBatch.acceptedSaleCount}, ${t("duplicate")} ${model.latestBatch.duplicateSaleCount}, ${t("conflict")} ${model.latestBatch.conflictCount}`
-                  : t("No server ack")}
+                  : t("No completed exchange yet")}
               </dd>
             </div>
             <div className="px-3 py-2">
@@ -253,7 +254,7 @@ export function PosSyncRecoveryPanel({
               </h3>
               <p className="mt-1 text-xs leading-5 text-zinc-600">
                 {t(
-                  "Actions below write append-only audit entries only. They do not delete outbox records, modify sales, move stock, or force server ack.",
+                  "These actions only record that support was requested. They do not delete queued changes, change sales or stock, or mark synchronization as complete.",
                 )}
               </p>
             </div>

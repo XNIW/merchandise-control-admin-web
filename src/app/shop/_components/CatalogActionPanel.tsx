@@ -564,6 +564,7 @@ function ProductsDialogs({
     useState<DialogLeadingAction | null>(null);
   const [supplierImportHeaderFile, setSupplierImportHeaderFile] =
     useState<HeaderFileState | null>(null);
+  const [supplierImportBusy, setSupplierImportBusy] = useState(false);
   const [databaseTransferLeadingAction, setDatabaseTransferLeadingAction] =
     useState<DialogLeadingAction | null>(null);
   const [databaseTransferHeaderFile, setDatabaseTransferHeaderFile] =
@@ -718,6 +719,7 @@ function ProductsDialogs({
       </CatalogDialog>
 
       <CatalogDialog
+        closeDisabled={supplierImportBusy}
         headerAccessory={supplierImportHeaderAccessory}
         leadingAction={supplierImportLeadingAction}
         onClose={() => setOpenDialog(null)}
@@ -730,6 +732,7 @@ function ProductsDialogs({
             authPrincipalKind={authPrincipalKind}
             categories={categories}
             labels={labels}
+            onBusyStateChange={setSupplierImportBusy}
             onHeaderBackStateChange={handleSupplierImportLeadingAction}
             onHeaderFileStateChange={handleSupplierImportHeaderFile}
             selectedShopId={selectedShopId}

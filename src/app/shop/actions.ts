@@ -359,6 +359,7 @@ export async function updateProductAction(formData: FormData) {
       ? resolvedInput
       : await updateProduct({
           ...resolvedInput,
+          expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
           productId,
         }),
   );
@@ -383,6 +384,7 @@ export async function updateProductInlineAction(
       ? resolvedInput
       : await updateProduct({
           ...resolvedInput,
+          expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
           productId,
         });
 

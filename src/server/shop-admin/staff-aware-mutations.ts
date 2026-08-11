@@ -17,6 +17,7 @@ import {
 import {
   callStaffWebAuditEvent,
   callStaffWebCatalogMutation,
+  callStaffWebRevisionGuardedProductUpdate,
   callStaffWebLifecycleMutation,
 } from "./staff-web-lease-bound-rpc";
 
@@ -201,6 +202,7 @@ type ProductMutationInput = {
 };
 
 type ProductUpdateInput = ProductMutationInput & {
+  expectedUpdatedAt: string;
   productId: string;
 };
 
@@ -915,7 +917,32 @@ export async function updateProductAsStaff(
   context: StaffAwareContext,
   input: ProductUpdateInput,
 ) {
-  return staffCatalogMutation(context, "product_update", input);
+  const { expectedUpdatedAt, ...payload } = input;
+  const { data, error } = await callStaffWebRevisionGuardedProductUpdate(
+    context,
+    expectedUpdatedAt,
+    payload,
+  );
+
+  if (error) {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+
+  const result = mapShopAdminRpcResult(data);
+  const resultIsBound =
+    result.shopId === context.selectedShop.shopId &&
+    result.ok === (result.code === "success") &&
+    (!result.ok || result.targetId === input.productId);
+
+  return resultIsBound
+    ? result
+    : shopAdminActionResult("db_failure", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
 }
 
 export async function archiveProductAsStaff(

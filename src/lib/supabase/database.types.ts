@@ -3510,6 +3510,18 @@ export type Database = {
         }
         Returns: Json
       }
+      staff_web_catalog_update_product_if_revision_v1: {
+        Args: {
+          p_expected_credential_version: number
+          p_expected_updated_at: string
+          p_payload: Json
+          p_session_token_hash: string
+          p_shop_id: string
+          p_staff_id: string
+          p_staff_web_session_id: string
+        }
+        Returns: Json
+      }
       staff_web_lifecycle_mutate_v1: {
         Args: {
           p_expected_credential_version?: number | null
@@ -4403,6 +4415,24 @@ export type Database = {
           p_actor_kind?: string
           p_barcode: string
           p_category_id?: string
+          p_item_number?: string
+          p_product_id: string
+          p_product_name?: string
+          p_purchase_price?: number
+          p_retail_price?: number
+          p_second_product_name?: string
+          p_shop_id: string
+          p_stock_quantity?: number
+          p_supplier_id?: string
+        }
+        Returns: Json
+      }
+      shop_catalog_update_product_if_revision_with_sync: {
+        Args: {
+          p_actor_kind?: string
+          p_barcode: string
+          p_category_id?: string
+          p_expected_updated_at: string
           p_item_number?: string
           p_product_id: string
           p_product_name?: string

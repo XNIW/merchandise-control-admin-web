@@ -22,6 +22,7 @@ import type {
 } from "@/app/shop/_components/CatalogActionPanel";
 import { CreatableCatalogCombobox } from "@/app/shop/_components/CreatableCatalogCombobox";
 import { ProductImageEditor } from "@/app/shop/_components/ProductImageControls";
+import { LatestAbortableRequest } from "@/app/shop/_components/latest-abortable-request";
 import { useModalFocusTrap } from "@/app/shop/_components/useModalFocusTrap";
 import type { SupportedLocale } from "@/i18n/locales";
 
@@ -438,7 +439,13 @@ function mobileMappingDescription(
   return translate("Mapping state is not available");
 }
 
-function ActionMessage({ state }: { state: ShopAdminActionState }) {
+function ActionMessage({
+  labels,
+  state,
+}: {
+  labels?: Record<string, string>;
+  state: ShopAdminActionState;
+}) {
   if (!state.message) {
     return null;
   }
@@ -453,7 +460,7 @@ function ActionMessage({ state }: { state: ShopAdminActionState }) {
       ].join(" ")}
       role="status"
     >
-      {state.message}
+      {labels?.[state.message] ?? state.message}
     </p>
   );
 }
@@ -718,6 +725,11 @@ function ProductOverviewForm({
     >
       {selectedShopId ? <input name="shop_id" type="hidden" value={selectedShopId} /> : null}
       <input name="productId" type="hidden" value={product.productId} />
+      <input
+        name="expectedUpdatedAt"
+        type="hidden"
+        value={product.updatedAt}
+      />
       <section className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3">
         <FormSectionHeader icon="id" title={translate("Identity")} />
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -925,18 +937,24 @@ export function ProductDetailModalController({
 }: ProductDetailModalControllerProps) {
   const router = useRouter();
   const lastTriggerRef = useRef<HTMLElement | null>(null);
+  const detailRequestRef = useRef(new LatestAbortableRequest());
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<ProductTab>("overview");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imageBusy, setImageBusy] = useState(false);
+  const [revisionConflict, setRevisionConflict] = useState(false);
   const [readModel, setReadModel] = useState<ProductDetailModalReadModel | null>(null);
   const translate = useCallback((value: string) => labels?.[value] ?? value, [labels]);
   const titleId = "product-detail-modal-title";
   const overviewFormId = "product-detail-overview-form";
   const [draft, setDraft] = useState<ProductDraft>(blankProductDraft);
   const loadProduct = useCallback(
-    async (productId: string) => {
+    async (
+      productId: string,
+      options: { preserveDraft?: boolean } = {},
+    ) => {
+      const request = detailRequestRef.current.start();
       const params = new URLSearchParams({ product_id: productId });
 
       if (requestedShopId) {
@@ -951,25 +969,44 @@ export function ProductDetailModalController({
           cache: "no-store",
           credentials: "same-origin",
           headers: { Accept: "application/json" },
+          signal: request.signal,
         });
         const body = (await response.json()) as ProductDetailModalReadModel;
 
+        if (!request.isLatest()) {
+          return;
+        }
+
         if (!response.ok || body.status !== "ready") {
-          setReadModel(body);
-          setDraft(blankProductDraft());
+          if (!options.preserveDraft) {
+            setReadModel(body);
+            setDraft(blankProductDraft());
+          }
           setError(body.reason || translate("Product detail is not available."));
           return;
         }
 
         setReadModel(body);
-        setDraft(
-          body.product ? productDraftFromProduct(body.product) : blankProductDraft(),
-        );
+        if (!options.preserveDraft) {
+          setDraft(
+            body.product ? productDraftFromProduct(body.product) : blankProductDraft(),
+          );
+        }
+        setRevisionConflict(false);
       } catch {
-        setDraft(blankProductDraft());
+        if (!request.isLatest()) {
+          return;
+        }
+
+        if (!options.preserveDraft) {
+          setDraft(blankProductDraft());
+        }
         setError(translate("Product detail could not be loaded."));
       } finally {
-        setLoading(false);
+        if (request.isLatest()) {
+          setLoading(false);
+          request.finish();
+        }
       }
     },
     [requestedShopId, translate],
@@ -983,6 +1020,9 @@ export function ProductDetailModalController({
     [locale, translate],
   );
   const closeModal = useCallback(() => {
+    detailRequestRef.current.cancel();
+    setLoading(false);
+    setRevisionConflict(false);
     setOpen(false);
     window.setTimeout(() => lastTriggerRef.current?.focus(), 0);
   }, []);
@@ -999,10 +1039,12 @@ export function ProductDetailModalController({
     [loadProduct, router],
   );
   const [updateState, updateAction, updatePending] = useActionState(
-    async (previousState: ShopAdminActionState, formData: FormData) =>
-      refreshProductAfterAction(
-        await updateProductInlineAction(previousState, formData),
-      ),
+    async (previousState: ShopAdminActionState, formData: FormData) => {
+      const result = await updateProductInlineAction(previousState, formData);
+
+      setRevisionConflict(result.code === "stale_revision");
+      return refreshProductAfterAction(result);
+    },
     initialActionState,
   );
   const [archiveState, archiveAction, archivePending] = useActionState(
@@ -1027,6 +1069,7 @@ export function ProductDetailModalController({
     (productId: string) => {
       setOpen(true);
       setTab("overview");
+      setRevisionConflict(false);
       setReadModel(null);
       setDraft(blankProductDraft());
       void loadProduct(productId);
@@ -1063,6 +1106,13 @@ export function ProductDetailModalController({
 
     return () => document.removeEventListener("click", onClick);
   }, [openProduct]);
+
+  useEffect(
+    () => () => {
+      detailRequestRef.current.cancel();
+    },
+    [],
+  );
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1114,8 +1164,12 @@ export function ProductDetailModalController({
       },
     ];
   }, [formatModalDate, product, readModel, translate]);
+  const visibleUpdateState =
+    updateState.code === "stale_revision" && !revisionConflict
+      ? initialActionState
+      : updateState;
   const hasActionMessage =
-    Boolean(updateState.message) ||
+    Boolean(visibleUpdateState.message) ||
     Boolean(archiveState.message) ||
     Boolean(restoreState.message);
   const closeDisabled =
@@ -1250,10 +1304,50 @@ export function ProductDetailModalController({
             ) : null}
             {hasActionMessage ? (
               <div className="mb-4 grid gap-2">
-                <ActionMessage state={updateState} />
-                <ActionMessage state={archiveState} />
-                <ActionMessage state={restoreState} />
+                <ActionMessage labels={labels} state={visibleUpdateState} />
+                <ActionMessage labels={labels} state={archiveState} />
+                <ActionMessage labels={labels} state={restoreState} />
               </div>
+            ) : null}
+            {revisionConflict && product ? (
+              <section
+                className="mb-4 grid gap-3 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"
+                role="alert"
+              >
+                <div>
+                  <h3 className="font-semibold">
+                    {translate("A newer product version is available")}
+                  </h3>
+                  <p className="mt-1 leading-6">
+                    {translate(
+                      "Your draft was not saved. Reload the server version before applying your changes again.",
+                    )}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="inline-flex h-9 items-center justify-center rounded-md bg-amber-950 px-3 font-medium text-white disabled:opacity-60"
+                    disabled={loading}
+                    onClick={() => {
+                      void loadProduct(product.productId, {
+                        preserveDraft: true,
+                      });
+                    }}
+                    type="button"
+                  >
+                    {loading
+                      ? translate("Loading")
+                      : translate("Reload server version")}
+                  </button>
+                  <button
+                    className="inline-flex h-9 items-center justify-center rounded-md border border-amber-400 px-3 font-medium"
+                    onClick={closeModal}
+                    type="button"
+                  >
+                    {translate("Cancel")}
+                  </button>
+                </div>
+              </section>
             ) : null}
             {product ? (
               <div className="grid gap-5">

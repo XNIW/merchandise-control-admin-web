@@ -498,19 +498,38 @@ async function runProductFixture(input: {
       supplierId,
     }),
   );
-  await runStep("product_update", input.steps, () =>
-    updateProduct({
+  await runStep("product_update", input.steps, async () => {
+    const productId = requireTargetId(productForUpdate, "product_update_seed");
+    const revisionReadModel = await getShopInventoryReadModel({
+      requestedShopId: input.requestedShopId,
+    });
+    const currentProduct =
+      revisionReadModel.status === "ready"
+        ? revisionReadModel.products.find(
+            (product) => product.productId === productId,
+          )
+        : null;
+
+    if (!currentProduct) {
+      return shopAdminActionResult("not_found", {
+        ok: false,
+        targetId: productId,
+      });
+    }
+
+    return updateProduct({
       barcode: `${input.prefix}PRODUCT_UPDATE`,
       categoryId,
-      productId: requireTargetId(productForUpdate, "product_update_seed"),
+      expectedUpdatedAt: currentProduct.updatedAt,
+      productId,
       productName: `${input.prefix}PRODUCT_UPDATE_FINAL_NAME`,
       purchasePrice: 22,
       requestedShopId: input.requestedShopId,
       retailPrice: 26,
       stockQuantity: 6,
       supplierId,
-    }),
-  );
+    });
+  });
 
   const productForTombstone = await runStep("product_tombstone_seed", input.steps, () =>
     createProduct({

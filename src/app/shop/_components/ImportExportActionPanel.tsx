@@ -2968,9 +2968,9 @@ function ImportWizard({
   const [syncPreviewStale, setSyncPreviewStale] = useState(false);
   const fileInputId = useId();
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const applyInFlightRef = useRef(false);
   const previewRequestId = useRef(0);
   const isDatabase = mode === "database";
-  const isDatabaseApplying = isDatabase && isApplying;
   const confirmationWord = isDatabase ? "IMPORT DATABASE" : "APPLY";
   const previewButtonLabel = isDatabase
     ? t("Preview database workbook")
@@ -3381,6 +3381,11 @@ function ImportWizard({
 
   async function applyWorkbook(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (applyInFlightRef.current) {
+      return;
+    }
+
     setApplyResult(null);
     setAuthPrompt(null);
     setError("");
@@ -3421,6 +3426,8 @@ function ImportWizard({
       JSON.stringify(rowAdjustments(previewRows, edits, mode)),
     );
     appendShopId(formData, selectedShopId);
+    applyInFlightRef.current = true;
+    onBusyStateChange?.(true);
     setIsApplying(true);
 
     try {
@@ -3444,6 +3451,8 @@ function ImportWizard({
     } catch {
       setError(t("Apply failed before the server returned a response."));
     } finally {
+      applyInFlightRef.current = false;
+      onBusyStateChange?.(false);
       setIsApplying(false);
     }
   }
@@ -3522,16 +3531,29 @@ function ImportWizard({
   }, [goBackFromStep, isApplying, isDatabase, step, t]);
 
   useEffect(() => {
-    if (!onBusyStateChange) {
+    onBusyStateChange?.(isApplying);
+  }, [isApplying, onBusyStateChange]);
+
+  useEffect(
+    () => () => {
+      onBusyStateChange?.(false);
+    },
+    [onBusyStateChange],
+  );
+
+  useEffect(() => {
+    if (!isApplying) {
       return;
     }
 
-    onBusyStateChange(isApplying);
-
-    return () => {
-      onBusyStateChange(false);
+    const preventUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
     };
-  }, [isApplying, onBusyStateChange]);
+
+    window.addEventListener("beforeunload", preventUnload);
+    return () => window.removeEventListener("beforeunload", preventUnload);
+  }, [isApplying]);
 
   useEffect(() => {
     if (!onHeaderBackStateChange) {
@@ -3880,28 +3902,6 @@ function ImportWizard({
           ) : (
             <SummaryGrid mode={mode} preview={preview} />
           )}
-          {isDatabaseApplying ? (
-            <section
-              aria-live="polite"
-              className="flex min-w-0 items-start gap-3 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950"
-              role="status"
-            >
-              <span
-                aria-hidden="true"
-                className="mt-0.5 h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-sky-300 border-t-sky-700"
-              />
-              <span className="min-w-0">
-                <span className="block font-semibold">
-                  {t("Importing Android database export...")}
-                </span>
-                <span className="mt-1 block leading-5">
-                  {t(
-                    "This can take a few minutes. Keep this window open while suppliers, categories, products, and price history are applied.",
-                  )}
-                </span>
-              </span>
-            </section>
-          ) : null}
           {blockedRows === 0 ? (
             <p className="inline-flex w-fit max-w-full rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-medium text-emerald-950">
               {t("No blocking rows detected.")}
@@ -4134,6 +4134,36 @@ function ImportWizard({
               {t("Sync DB preview is stale. Recalculate Sync DB before apply.")}
             </section>
           ) : null}
+          {isApplying ? (
+            <section
+              aria-live="polite"
+              className="flex min-w-0 items-start gap-3 rounded-md border border-sky-200 bg-sky-50 p-3 text-sm text-sky-950"
+              role="status"
+            >
+              <span
+                aria-hidden="true"
+                className="mt-0.5 h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-sky-300 border-t-sky-700"
+              />
+              <span className="min-w-0">
+                <span className="block font-semibold">
+                  {isDatabase
+                    ? t("Importing Android database export...")
+                    : t("Importing supplier workbook...")}
+                </span>
+                <span className="mt-1 block leading-5">
+                  {t("Operation in progress — wait for completion")}
+                  {" "}
+                  {isDatabase
+                    ? t(
+                        "This can take a few minutes. Keep this window open while suppliers, categories, products, and price history are applied.",
+                      )
+                    : t(
+                        "Keep this window open while the supplier import is applied.",
+                      )}
+                </span>
+              </span>
+            </section>
+          ) : null}
           <SupplierSyncPreviewPanel syncPreview={syncPreview} />
           <form
             className="sticky bottom-0 z-30 -mx-3 border-t border-zinc-200 bg-white px-3 py-3"
@@ -4213,6 +4243,7 @@ export function SupplierExcelImportWizard({
   authPrincipalKind,
   categories,
   labels,
+  onBusyStateChange,
   onHeaderBackStateChange,
   onHeaderFileStateChange,
   selectedShopId,
@@ -4221,6 +4252,7 @@ export function SupplierExcelImportWizard({
   authPrincipalKind?: AuthPrincipalKind;
   categories?: readonly CatalogOption[];
   labels?: UiTextMap;
+  onBusyStateChange?: (busy: boolean) => void;
   onHeaderBackStateChange?: (state: HeaderBackState | null) => void;
   onHeaderFileStateChange?: (state: HeaderFileState | null) => void;
   selectedShopId?: string;
@@ -4232,6 +4264,7 @@ export function SupplierExcelImportWizard({
       authPrincipalKind={authPrincipalKind}
       categories={categories}
       mode="supplier"
+      onBusyStateChange={onBusyStateChange}
       onHeaderBackStateChange={onHeaderBackStateChange}
       onHeaderFileStateChange={onHeaderFileStateChange}
       selectedShopId={selectedShopId}

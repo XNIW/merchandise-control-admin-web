@@ -6336,6 +6336,7 @@ export async function applyCatalogWorkbookImport(
       const result = existing
         ? await updateProduct({
             ...productInput,
+            expectedUpdatedAt: existing.updatedAt,
             productId: existing.productId,
           })
         : await createProduct(productInput);

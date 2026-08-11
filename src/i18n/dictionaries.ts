@@ -654,15 +654,15 @@ const itExact: Record<string, string> = {
   "Batch status": "Stato batch",
   "Batch sales": "Vendite batch",
   "lines": "righe",
-  "No server ack": "Nessun ack server",
+  "No completed exchange yet": "Nessuno scambio completato",
   "Server-side rows need review":
     "Sono presenti righe server-side da controllare",
   "No recent server-side anomaly": "Nessuna anomalia server-side recente",
   "No server-side sale in conflict, failed, or needs-attention state, and no recent stock warning for this shop.":
     "Nessuna vendita server-side in conflict/failed/needs attention e nessuno stock warning recente per questa shop.",
   "Safe recovery actions": "Recovery action sicure",
-  "Actions below write append-only audit entries only. They do not delete outbox records, modify sales, move stock, or force server ack.":
-    "Le azioni sotto scrivono solo audit append-only. Non cancellano outbox, non modificano vendite, non muovono stock e non forzano ack server.",
+  "These actions only record that support was requested. They do not delete queued changes, change sales or stock, or mark synchronization as complete.":
+    "Queste azioni registrano solo che e stato richiesto supporto. Non eliminano le modifiche in attesa, non cambiano vendite o scorte e non segnano la sincronizzazione come completata.",
   "general note": "nota generale",
   "Mark as reviewed": "Segna come verificato",
   "Add internal note": "Aggiungi nota interna",
@@ -2005,15 +2005,15 @@ const esExact: Record<string, string> = {
   "Batch status": "Estado del lote",
   "Batch sales": "Ventas del lote",
   "lines": "lineas",
-  "No server ack": "Sin ack del servidor",
+  "No completed exchange yet": "Aún no hay intercambios completados",
   "Server-side rows need review":
     "Hay filas server-side que requieren revision",
   "No recent server-side anomaly": "Sin anomalias server-side recientes",
   "No server-side sale in conflict, failed, or needs-attention state, and no recent stock warning for this shop.":
     "No hay ventas server-side en conflict/failed/needs attention ni alertas de stock recientes para este shop.",
   "Safe recovery actions": "Acciones de recuperacion seguras",
-  "Actions below write append-only audit entries only. They do not delete outbox records, modify sales, move stock, or force server ack.":
-    "Las acciones abajo solo escriben auditoria append-only. No eliminan outbox, no modifican ventas, no mueven stock y no fuerzan ack del servidor.",
+  "These actions only record that support was requested. They do not delete queued changes, change sales or stock, or mark synchronization as complete.":
+    "Estas acciones solo registran que se solicito soporte. No eliminan cambios en espera, no modifican ventas ni stock y no marcan la sincronizacion como completada.",
   "general note": "nota general",
   "Mark as reviewed": "Marcar como revisado",
   "Add internal note": "Agregar nota interna",
@@ -3327,14 +3327,14 @@ const zhExact: Record<string, string> = {
   "Batch status": "批次状态",
   "Batch sales": "批次销售",
   "lines": "行",
-  "No server ack": "无服务器确认",
+  "No completed exchange yet": "尚无已完成的数据交换",
   "Server-side rows need review": "存在需要审核的服务器端行",
   "No recent server-side anomaly": "最近没有服务器端异常",
   "No server-side sale in conflict, failed, or needs-attention state, and no recent stock warning for this shop.":
     "该店铺没有处于 conflict、failed 或 needs-attention 状态的服务器端销售，也没有最近库存警告。",
   "Safe recovery actions": "安全恢复操作",
-  "Actions below write append-only audit entries only. They do not delete outbox records, modify sales, move stock, or force server ack.":
-    "以下操作只写入仅追加审计记录，不会删除 outbox、修改销售、移动库存或强制服务器确认。",
+  "These actions only record that support was requested. They do not delete queued changes, change sales or stock, or mark synchronization as complete.":
+    "这些操作只记录已请求支持。它们不会删除待处理更改、修改销售或库存，也不会将同步标记为已完成。",
   "general note": "一般备注",
   "Mark as reviewed": "标记为已审核",
   "Add internal note": "添加内部备注",
@@ -4325,6 +4325,18 @@ const itRenderedCorrectiveExact: Record<string, string> = {
   "Product detail could not be loaded.":
     "Impossibile caricare il dettaglio prodotto.",
   "Product detail is not available.": "Dettaglio prodotto non disponibile.",
+  "A newer product version is available":
+    "È disponibile una versione più recente del prodotto",
+  "Your draft was not saved. Reload the server version before applying your changes again.":
+    "La bozza non è stata salvata. Ricarica la versione del server prima di applicare di nuovo le modifiche.",
+  "Reload server version": "Ricarica versione server",
+  "This product changed since you opened it. Reload the server version before saving again.":
+    "Questo prodotto è cambiato da quando lo hai aperto. Ricarica la versione del server prima di salvare di nuovo.",
+  "Importing supplier workbook...": "Importazione workbook fornitore...",
+  "Operation in progress — wait for completion":
+    "Operazione in corso — attendere il completamento",
+  "Keep this window open while the supplier import is applied.":
+    "Mantieni aperta questa finestra durante l'applicazione dell'import fornitore.",
   "Product detail tabs": "Tab dettaglio prodotto",
   "Product not resolved from barcode or item code":
     "Prodotto non risolto da codice a barre o codice articolo",
@@ -4892,6 +4904,18 @@ const esRenderedCorrectiveExact: Record<string, string> = {
   "Product detail": "Detalle producto",
   "Product detail could not be loaded.": "No se pudo cargar el detalle producto.",
   "Product detail is not available.": "El detalle producto no esta disponible.",
+  "A newer product version is available":
+    "Hay disponible una versión más reciente del producto",
+  "Your draft was not saved. Reload the server version before applying your changes again.":
+    "El borrador no se guardó. Recarga la versión del servidor antes de volver a aplicar los cambios.",
+  "Reload server version": "Recargar versión del servidor",
+  "This product changed since you opened it. Reload the server version before saving again.":
+    "Este producto cambió desde que lo abriste. Recarga la versión del servidor antes de volver a guardar.",
+  "Importing supplier workbook...": "Importando workbook del proveedor...",
+  "Operation in progress — wait for completion":
+    "Operación en curso — espera a que se complete",
+  "Keep this window open while the supplier import is applied.":
+    "Mantén esta ventana abierta mientras se aplica la importación del proveedor.",
   "Product detail tabs": "Pestanas del detalle producto",
   "Product not resolved from barcode or item code":
     "Producto no resuelto por codigo de barras o codigo articulo",
@@ -5471,6 +5495,16 @@ const zhRenderedCorrectiveExact: Record<string, string> = {
   "Product detail": "商品详情",
   "Product detail could not be loaded.": "无法加载商品详情。",
   "Product detail is not available.": "商品详情不可用。",
+  "A newer product version is available": "有更新的商品版本可用",
+  "Your draft was not saved. Reload the server version before applying your changes again.":
+    "草稿尚未保存。请重新加载服务器版本后再应用更改。",
+  "Reload server version": "重新加载服务器版本",
+  "This product changed since you opened it. Reload the server version before saving again.":
+    "此商品在你打开后已发生更改。请重新加载服务器版本后再保存。",
+  "Importing supplier workbook...": "正在导入供应商工作簿...",
+  "Operation in progress — wait for completion": "操作进行中 — 请等待完成",
+  "Keep this window open while the supplier import is applied.":
+    "应用供应商导入时请保持此窗口打开。",
   "Product detail tabs": "商品详情标签",
   "Product not resolved from barcode or item code": "无法通过条码或商品编码解析商品",
   "Products detected": "检测到的商品",
@@ -5941,6 +5975,8 @@ const en: Dictionary = {
   },
   actionResults: {
     conflict: "Duplicate active value blocked.",
+    stale_revision:
+      "This product changed since you opened it. Reload the server version before saving again.",
     db_failure: "The database action failed without exposing internal details.",
     duplicate_staff_code: "Duplicate staff code blocked for this shop.",
     invalid_category: "The selected category is not valid for this shop.",
@@ -6186,6 +6222,8 @@ const it: Dictionary = {
   },
   actionResults: {
     conflict: "Valore attivo duplicato bloccato.",
+    stale_revision:
+      "Questo prodotto è cambiato da quando lo hai aperto. Ricarica la versione del server prima di salvare di nuovo.",
     db_failure: "Azione database fallita senza esporre dettagli interni.",
     duplicate_staff_code: "Codice staff duplicato bloccato per questo shop.",
     invalid_category: "La categoria selezionata non e valida per questo shop.",
@@ -6436,6 +6474,8 @@ const es: Dictionary = {
   },
   actionResults: {
     conflict: "Valor activo duplicado bloqueado.",
+    stale_revision:
+      "Este producto cambió desde que lo abriste. Recarga la versión del servidor antes de volver a guardar.",
     db_failure: "La accion de base de datos fallo sin exponer detalles internos.",
     duplicate_staff_code: "Codigo staff duplicado bloqueado para este shop.",
     invalid_category: "La categoria seleccionada no es valida para este shop.",
@@ -6680,6 +6720,7 @@ const zhCN: Dictionary = {
   },
   actionResults: {
     conflict: "已阻止重复的启用值。",
+    stale_revision: "此商品在你打开后已发生更改。请重新加载服务器版本后再保存。",
     db_failure: "数据库操作失败，未暴露内部详情。",
     duplicate_staff_code: "已阻止此店铺的重复员工代码。",
     invalid_category: "所选分类对此店铺无效。",

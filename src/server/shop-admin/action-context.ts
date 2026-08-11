@@ -19,6 +19,7 @@ export type ShopAdminActionCode =
   | "unauthorized_or_unmapped"
   | "not_found"
   | "conflict"
+  | "stale_revision"
   | "duplicate_staff_code"
   | "invalid_state"
   | "invalid_state_or_not_found"
@@ -86,6 +87,8 @@ const messages: Record<ShopAdminActionCode, string> = {
     "This shop is not authorized or has no mapped inventory source.",
   not_found: "The requested row was not found for this shop.",
   conflict: "A row with the same active unique value already exists.",
+  stale_revision:
+    "This product changed since you opened it. Reload the server version before saving again.",
   duplicate_staff_code: "A staff account with this code already exists.",
   invalid_state: "The target row is not in a valid state for this action.",
   invalid_state_or_not_found:
@@ -174,6 +177,7 @@ function mapRpcCode(value: unknown): ShopAdminActionCode {
     "unauthorized_or_unmapped",
     "not_found",
     "conflict",
+    "stale_revision",
     "duplicate_staff_code",
     "invalid_state",
     "invalid_state_or_not_found",
