@@ -30,7 +30,10 @@ const migration = read(
 const fencingMigration = read(
   "supabase/migrations/20260811230000_storefront_v1_image_finalize_fencing.sql",
 );
-const imageMigrations = `${migration}\n${fencingMigration}`;
+const cleanupLifecycleMigration = read(
+  "supabase/migrations/20260811234500_storefront_v1_image_cleanup_lifecycle.sql",
+);
+const imageMigrations = `${migration}\n${fencingMigration}\n${cleanupLifecycleMigration}`;
 const component = read("src/app/shop/storefront/StorefrontImagesControl.tsx");
 const service = read("src/server/shop-admin/storefront-images/service.ts");
 const page = read("src/app/shop/storefront/page.tsx");
@@ -451,7 +454,7 @@ test("TASK-009 cleanup forwards the exact v2 claim token to completion", async (
 test("Storefront staging migration is exact-SHA guarded and retains the image boundary", () => {
   assert.match(
     stagingMigrationWorkflow,
-    /expected_migration_version:[\s\S]*default: "20260811230000"/,
+    /expected_migration_version:[\s\S]*default: "20260811234500"/,
   );
   assert.match(
     stagingMigrationWorkflow,
@@ -459,7 +462,7 @@ test("Storefront staging migration is exact-SHA guarded and retains the image bo
   );
   assert.match(
     stagingMigrationWorkflow,
-    /expected_migration_name:[\s\S]*default: storefront_v1_image_finalize_fencing/,
+    /expected_migration_name:[\s\S]*default: storefront_v1_image_cleanup_lifecycle/,
   );
   assert.match(
     stagingMigrationWorkflow,
@@ -482,6 +485,25 @@ test("Storefront staging migration is exact-SHA guarded and retains the image bo
   ]) {
     assert.match(stagingMigrationWorkflow, new RegExp(marker));
   }
+  assert.match(
+    stagingMigrationWorkflow,
+    /const requiredTrue = \[[\s\S]*"publicImageFinalizeServerBoundary"[\s\S]*\];/,
+  );
+  assert.match(
+    stagingMigrationWorkflow,
+    /expected_predecessor_migration_version:[\s\S]*default: "20260811230000"/,
+  );
+});
+
+test("cleanup lifecycle accepts complete verified or unverified tuples only", () => {
+  assert.match(
+    cleanupLifecycleMigration,
+    /publication_status in \('pending', 'failed', 'cleanup_pending', 'removed'\)[\s\S]*verified_bytes is null[\s\S]*public_url is null[\s\S]*ready_at is null/,
+  );
+  assert.match(
+    cleanupLifecycleMigration,
+    /publication_status in \('ready', 'superseded', 'cleanup_pending', 'removed'\)[\s\S]*verified_bytes = expected_bytes[\s\S]*public_url is not null[\s\S]*ready_at is not null/,
+  );
 });
 
 test("Storefront staging rerun accepts an applied checkpoint with only later pending migrations", () => {

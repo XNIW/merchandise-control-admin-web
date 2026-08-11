@@ -14,32 +14,32 @@ on:
       expected_migration_version:
         description: "Exact additive migration version expected in the delta"
         required: false
-        default: "20260811230000"
+        default: "20260811234500"
         type: string
       expected_migration_name:
         description: "Exact additive migration name expected in the delta"
         required: false
-        default: storefront_v1_image_finalize_fencing
+        default: storefront_v1_image_cleanup_lifecycle
         type: string
       expected_migration_file:
         description: "Exact additive migration filename expected in the delta"
         required: false
-        default: 20260811230000_storefront_v1_image_finalize_fencing.sql
+        default: 20260811234500_storefront_v1_image_cleanup_lifecycle.sql
         type: string
       expected_predecessor_migration_version:
         description: "Optional first migration version when one task has an ordered two-migration delta"
         required: false
-        default: ""
+        default: "20260811230000"
         type: string
       expected_predecessor_migration_name:
         description: "Optional first migration name for an ordered two-migration delta"
         required: false
-        default: ""
+        default: storefront_v1_image_finalize_fencing
         type: string
       expected_predecessor_migration_file:
         description: "Optional first migration filename for an ordered two-migration delta"
         required: false
-        default: ""
+        default: 20260811230000_storefront_v1_image_finalize_fencing.sql
         type: string
       apply_confirmation:
         description: "For apply, enter APPLY_STOREFRONT_V1_STAGING"
@@ -72,32 +72,32 @@ on:
       expected_migration_version:
         description: "Exact additive migration version expected in the delta"
         required: true
-        default: "20260811230000"
+        default: "20260811234500"
         type: string
       expected_migration_name:
         description: "Exact additive migration name expected in the delta"
         required: true
-        default: storefront_v1_image_finalize_fencing
+        default: storefront_v1_image_cleanup_lifecycle
         type: string
       expected_migration_file:
         description: "Exact additive migration filename expected in the delta"
         required: true
-        default: 20260811230000_storefront_v1_image_finalize_fencing.sql
+        default: 20260811234500_storefront_v1_image_cleanup_lifecycle.sql
         type: string
       expected_predecessor_migration_version:
         description: "Optional first migration version when one task has an ordered two-migration delta"
         required: false
-        default: ""
+        default: "20260811230000"
         type: string
       expected_predecessor_migration_name:
         description: "Optional first migration name for an ordered two-migration delta"
         required: false
-        default: ""
+        default: storefront_v1_image_finalize_fencing
         type: string
       expected_predecessor_migration_file:
         description: "Optional first migration filename for an ordered two-migration delta"
         required: false
-        default: ""
+        default: 20260811230000_storefront_v1_image_finalize_fencing.sql
         type: string
       apply_confirmation:
         description: "For apply, enter APPLY_STOREFRONT_V1_STAGING"
@@ -807,6 +807,7 @@ jobs:
             "publicImageBucketBoundary",
             "publicImageVariantBoundary",
             "publicImageAdminFunctionsHardened",
+            "publicImageFinalizeServerBoundary",
             "publicImageServiceFunctionsConfined",
             "promotionCronScheduled",
             "adminAuthoringDirectDenied",

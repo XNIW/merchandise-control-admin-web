@@ -388,6 +388,43 @@ set local role postgres;
 update public.storefront_image_publication_variants
 set cleanup_after=now()-interval '1 second'
 where image_publication_id=(select value from task009_state where key='second');
+insert into public.storefront_image_publications(
+  id, shop_id, source_product_id, source_image_version_id,
+  publication_status, version_key, updated_by_profile_id
+) values (
+  '70000000-0000-4000-8000-000000020090',
+  '10000000-0000-4000-8000-000000020090',
+  '20000000-0000-4000-8000-000000020090',
+  '60000000-0000-4000-8000-000000020091',
+  'draft', 'abandoned-upload-000000020090',
+  '00000000-0000-4000-8000-000000020090'
+);
+insert into public.storefront_image_publication_variants(
+  shop_id, image_publication_id, variant, object_path,
+  publication_status, expected_bytes, expected_width, expected_height,
+  expected_sha256
+) values
+  (
+    '10000000-0000-4000-8000-000000020090',
+    '70000000-0000-4000-8000-000000020090', 'thumb',
+    'shops/10000000-0000-4000-8000-000000020090/products/20000000-0000-4000-8000-000000020090/public/70000000-0000-4000-8000-000000020090/thumb-aaaaaaaaaaaaaaaa.webp',
+    'pending', 1000, 200, 200, repeat('a',64)
+  ),
+  (
+    '10000000-0000-4000-8000-000000020090',
+    '70000000-0000-4000-8000-000000020090', 'card',
+    'shops/10000000-0000-4000-8000-000000020090/products/20000000-0000-4000-8000-000000020090/public/70000000-0000-4000-8000-000000020090/card-bbbbbbbbbbbbbbbb.webp',
+    'failed', 2000, 600, 600, repeat('b',64)
+  ),
+  (
+    '10000000-0000-4000-8000-000000020090',
+    '70000000-0000-4000-8000-000000020090', 'detail',
+    'shops/10000000-0000-4000-8000-000000020090/products/20000000-0000-4000-8000-000000020090/public/70000000-0000-4000-8000-000000020090/detail-cccccccccccccccc.webp',
+    'pending', 3000, 1200, 1200, repeat('c',64)
+  );
+update public.storefront_image_publication_variants
+set created_at=now()-interval '2 hours'
+where image_publication_id='70000000-0000-4000-8000-000000020090';
 create temporary table task009_cleanup_claims(
   id uuid primary key,
   cleanup_claim_token uuid not null
@@ -409,8 +446,17 @@ select (item->>'id')::uuid, (item->>'cleanup_claim_token')::uuid
 from items;
 select is(
   (select count(*)::integer from task009_cleanup_claims),
-  3, 'service cleanup claims all expired superseded variants as one bounded batch'
+  6, 'service cleanup atomically claims pending, failed and superseded variants in one mixed batch'
 );
+select is((select count(*)::integer
+  from task009_cleanup_claims claim
+  join public.storefront_image_publication_variants variant on variant.id=claim.id
+  where variant.image_publication_id='70000000-0000-4000-8000-000000020090'
+    and variant.publication_status='cleanup_pending'
+    and variant.verified_bytes is null
+    and variant.public_url is null
+    and variant.ready_at is null),
+  3, 'unverified pending and failed uploads enter cleanup without fabricated verification data');
 select is(
   jsonb_array_length(public.storefront_image_cleanup_claim_v2(10)->'items'),
   0, 'active cleanup leases prevent duplicate concurrent claims'
@@ -438,15 +484,18 @@ select is(
   'cleanup_fence_lost',
   'cleanup completion rejects a stale or fabricated claim token'
 );
-select is(
-  public.storefront_image_cleanup_complete_v2(
-    (select id from task009_cleanup_claims order by id limit 1),
-    (select cleanup_claim_token from task009_cleanup_claims order by id limit 1),
-    true
-  )->>'code',
-  'success',
-  'cleanup completion accepts only the exact active claim token'
-);
+select is((select count(*)::integer
+  from task009_cleanup_claims claim
+  cross join lateral public.storefront_image_cleanup_complete_v2(
+    claim.id, claim.cleanup_claim_token, true
+  ) result
+  where result->>'code'='success'),
+  6, 'cleanup completion removes verified and unverified rows with each exact claim token');
+select is((select count(*)::integer from public.storefront_image_publication_variants
+  where image_publication_id='70000000-0000-4000-8000-000000020090'
+    and publication_status='removed'
+    and verified_bytes is null and public_url is null and ready_at is null),
+  3, 'abandoned pending and failed uploads finish removed as wholly unverified tuples');
 select is((select count(*)::integer from public.storefront_image_publication_variants
   where image_publication_id=(select value from task009_state where key='first')
     and publication_status='ready'),
