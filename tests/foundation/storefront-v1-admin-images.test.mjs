@@ -491,7 +491,11 @@ test("Storefront staging migration is exact-SHA guarded and retains the image bo
   );
   assert.match(
     stagingMigrationWorkflow,
-    /expected_predecessor_migration_version:[\s\S]*default: "20260811230000"/,
+    /workflow_call:[\s\S]*expected_predecessor_migration_version:[\s\S]*default: ""[\s\S]*workflow_dispatch:/,
+  );
+  assert.match(
+    stagingMigrationWorkflow,
+    /workflow_dispatch:[\s\S]*expected_predecessor_migration_version:[\s\S]*default: "20260811230000"/,
   );
 });
 
