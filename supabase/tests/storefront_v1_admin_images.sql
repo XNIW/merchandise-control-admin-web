@@ -257,11 +257,12 @@ select throws_ok(
          verified_width=expected_width,
          verified_height=expected_height,
          verified_sha256=null,
-         public_url='https://local.supabase.invalid/partial.webp',
+         public_url='https://local.supabase.invalid/storage/v1/object/public/storefront-product-images/' || object_path,
          ready_at=now()
      where image_publication_id=(select value from task009_state where key='first')
        and variant='thumb' $$,
-  '23514', null,
+  '23514',
+  'new row for relation "storefront_image_publication_variants" violates check constraint "storefront_image_variants_verified_check"',
   'ready variants reject partially verified metadata tuples'
 );
 select throws_ok(
@@ -271,11 +272,14 @@ select throws_ok(
          verified_width=expected_width,
          verified_height=expected_height,
          verified_sha256=null,
-         public_url='https://local.supabase.invalid/partial.webp',
-         ready_at=now()
+         public_url='https://local.supabase.invalid/storage/v1/object/public/storefront-product-images/' || object_path,
+         ready_at=now(),
+         cleanup_claim_token='90000000-0000-4000-8000-000000020090',
+         cleanup_claimed_at=now()
      where image_publication_id=(select value from task009_state where key='first')
        and variant='thumb' $$,
-  '23514', null,
+  '23514',
+  'new row for relation "storefront_image_publication_variants" violates check constraint "storefront_image_variants_verified_check"',
   'cleanup-pending variants reject partially verified metadata tuples'
 );
 select throws_ok(
@@ -285,11 +289,12 @@ select throws_ok(
          verified_width=expected_width,
          verified_height=expected_height,
          verified_sha256=null,
-         public_url='https://local.supabase.invalid/partial.webp',
+         public_url='https://local.supabase.invalid/storage/v1/object/public/storefront-product-images/' || object_path,
          ready_at=now()
      where image_publication_id=(select value from task009_state where key='first')
        and variant='thumb' $$,
-  '23514', null,
+  '23514',
+  'new row for relation "storefront_image_publication_variants" violates check constraint "storefront_image_variants_verified_check"',
   'removed variants reject partially verified metadata tuples'
 );
 
