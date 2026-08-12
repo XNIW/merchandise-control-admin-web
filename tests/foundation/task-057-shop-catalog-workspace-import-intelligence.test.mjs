@@ -749,8 +749,10 @@ test("TASK-057 keeps catalog writes server-side without service role in browser 
   assertContains(actionContext, "canShopAdmin");
   assertContains(mutations, "shop_catalog_create_product");
   assertContains(mutations, "shop_catalog_update_product");
-  assertContains(mutations, "shop_catalog_archive_product");
-  assertContains(mutations, "shop_catalog_restore_product");
+  assertContains(
+    mutations,
+    "shop_catalog_set_product_archived_if_revision_with_sync",
+  );
 });
 
 test("TASK-057 introduces an additive shop-scoped catalog migration with legacy bridge", () => {

@@ -448,7 +448,7 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   );
   assertContains(workbook, "supplierSyncPreviewFingerprint");
   assertContains(workbook, "input.syncPreviewDigest");
-  assertContains(workbook, "input.syncPreviewDigest !== syncPreview.fingerprint");
+  assertContains(workbook, "syncPreviewDigest !== syncPreview.fingerprint");
   assertContains(workbook, "!syncPreview.canApply");
   assertContains(workbook, "newProducts");
   assertContains(workbook, "updatedProducts");
@@ -1240,15 +1240,16 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     "parsedDigest: parsed.digest",
     "shopId: context.selectedShop.shopId",
     "mappingConfirmed: true",
-    "input.previewDigest !== boundPreviewDigest",
+    "requestPreviewDigest !== boundPreviewDigest",
     "const requiredConfirmation =",
     'importMode === "database" ? "IMPORT DATABASE" : "APPLY"',
     "normalizedConfirmation !== requiredConfirmation",
     "effectiveProductRowsLastWins",
     "const effectiveProductsToApply = effectiveProductRowsLastWins(adjustedParsed.products);",
     "const productsToApply = effectiveProductsToApply.filter((row)",
-    "productsToApply.length >= BULK_PRODUCT_IMPORT_THRESHOLD",
-    "for (const row of productsToApply)",
+    "newProductRows.length >= BULK_PRODUCT_IMPORT_THRESHOLD",
+    "for (const row of individuallyAppliedProductRows)",
+    "expectedUpdatedAt: existing.updatedAt",
     "supplierImportHistoryRows(productsToApply, readModel)",
     "applySupplierWorkbookRows",
     "const products = parsed.products.flatMap((product)",

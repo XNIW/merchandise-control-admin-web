@@ -13,6 +13,7 @@ import {
   SyncAnalysisPanel,
 } from "./SyncAnalysisPanel";
 import { useModalFocusTrap } from "@/app/shop/_components/useModalFocusTrap";
+import { LatestAbortableRequest } from "@/app/shop/_components/latest-abortable-request";
 import type { SupportedLocale } from "@/i18n/locales";
 
 type HistoryDetailField = {
@@ -988,6 +989,9 @@ export function HistoryDetailModalController({
   requestedShopId?: string | null;
 }) {
   const lastTriggerRef = useRef<HTMLElement | null>(null);
+  const detailRequestRef = useRef(new LatestAbortableRequest());
+  const saveRequestRef = useRef(new LatestAbortableRequest());
+  const savingRef = useRef(false);
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<HistoryTab>("rows");
   const [rowFilter, setRowFilter] = useState<HistoryRowFilter>("all");
@@ -1010,6 +1014,7 @@ export function HistoryDetailModalController({
 
   const loadEntry = useCallback(
     async (entryId: string) => {
+      const request = detailRequestRef.current.start();
       const params = new URLSearchParams({ entry_id: entryId });
 
       if (requestedShopId) {
@@ -1024,8 +1029,13 @@ export function HistoryDetailModalController({
           cache: "no-store",
           credentials: "same-origin",
           headers: { Accept: "application/json" },
+          signal: request.signal,
         });
         const body = (await response.json()) as HistoryDetailModalReadModel;
+
+        if (!request.isLatest()) {
+          return;
+        }
 
         if (!response.ok || body.status !== "ready") {
           setReadModel(body);
@@ -1037,9 +1047,16 @@ export function HistoryDetailModalController({
         setReadModel(body);
         setRowEdits(initialRowEdits(body.rows ?? []));
       } catch {
+        if (!request.isLatest()) {
+          return;
+        }
+
         setError(translate("History detail could not be loaded."));
       } finally {
-        setLoading(false);
+        if (request.isLatest()) {
+          setLoading(false);
+          request.finish();
+        }
       }
     },
     [requestedShopId, translate],
@@ -1047,6 +1064,9 @@ export function HistoryDetailModalController({
 
   const openEntry = useCallback(
     (entryId: string) => {
+      if (savingRef.current) {
+        return;
+      }
       setOpen(true);
       setTab("rows");
       setRowFilter("all");
@@ -1058,6 +1078,11 @@ export function HistoryDetailModalController({
     [loadEntry],
   );
   const closeModal = useCallback(() => {
+    if (savingRef.current) {
+      return;
+    }
+    detailRequestRef.current.cancel();
+    setLoading(false);
     setOpen(false);
     window.setTimeout(() => lastTriggerRef.current?.focus(), 0);
   }, []);
@@ -1163,16 +1188,24 @@ export function HistoryDetailModalController({
   }, [readModel?.rows, rowEdits]);
   const hasRowEditChanges = rowEditPatches.length > 0;
   const saveGeneratedRows = useCallback(async () => {
-    if (!detail || !canEditRows || rowEditPatches.length === 0) {
+    if (
+      savingRef.current ||
+      !detail ||
+      !canEditRows ||
+      rowEditPatches.length === 0
+    ) {
       return;
     }
 
-    const params = new URLSearchParams({ entry_id: detail.entryId });
+    const entryId = detail.entryId;
+    const request = saveRequestRef.current.start();
+    const params = new URLSearchParams({ entry_id: entryId });
 
     if (requestedShopId) {
       params.set("shop_id", requestedShopId);
     }
 
+    savingRef.current = true;
     setSaving(true);
     setError(null);
     setSaveMessage(null);
@@ -1190,8 +1223,13 @@ export function HistoryDetailModalController({
           "Content-Type": "application/json",
         },
         method: "PATCH",
+        signal: request.signal,
       });
       const body = (await response.json()) as HistoryDetailPatchResponse;
+
+      if (!request.isLatest()) {
+        return;
+      }
 
       if (!response.ok || body.result?.ok !== true) {
         const fieldError = body.result?.fieldErrors
@@ -1201,12 +1239,23 @@ export function HistoryDetailModalController({
         return;
       }
 
-      await loadEntry(detail.entryId);
+      await loadEntry(entryId);
+
+      if (!request.isLatest()) {
+        return;
+      }
       setSaveMessage(translate("History Entry updated"));
     } catch {
+      if (!request.isLatest()) {
+        return;
+      }
       setError(translate("Save failed"));
     } finally {
-      setSaving(false);
+      if (request.isLatest()) {
+        savingRef.current = false;
+        setSaving(false);
+        request.finish();
+      }
     }
   }, [
     canEditRows,
@@ -1246,6 +1295,15 @@ export function HistoryDetailModalController({
 
     return () => document.removeEventListener("click", onClick);
   }, [openEntry]);
+
+  useEffect(
+    () => () => {
+      detailRequestRef.current.cancel();
+      saveRequestRef.current.cancel();
+      savingRef.current = false;
+    },
+    [],
+  );
 
   const summaryCards = useMemo(() => {
     const rows = readModel?.rows ?? [];

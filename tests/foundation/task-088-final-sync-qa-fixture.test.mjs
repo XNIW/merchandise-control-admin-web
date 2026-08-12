@@ -96,6 +96,10 @@ test("TASK-088 final mutations require a bounded post-mutation observation", () 
     finalRunner,
     /input\.scenario === "duplicate" && Boolean\(input\.entityId\)/,
   );
+  assert.match(
+    finalRunner,
+    /input\.entity === "product" && input\.operation !== "create"/,
+  );
   assert.match(finalRunner, /input\.operation !== "create" && !input\.entityId/);
   assert.match(finalRunner, /emptyFinalSyncObservation\(\)/);
   assert.match(finalRunner, /await observeFinalSyncAfterMutation\(observationInput\)/);
@@ -169,6 +173,10 @@ test("TASK-088 final observation and residue checks use bounded Admin read model
   assert.match(route, /\.eq\("shop_id", input\.shopId\)/);
   assert.match(route, /query\.eq\("barcode", input\.data\.barcode/);
   assert.match(route, /await query\.limit\(2\)/);
+  assert.match(
+    route,
+    /inventory_products"\)[\s\S]*\.select\([\s\S]*updated_at[\s\S]*updatedAt: row\.updated_at/,
+  );
   assert.match(observe, /getShopCategoriesPageReadModel/);
   assert.match(observe, /getShopSuppliersPageReadModel/);
   assert.match(observe, /getShopInventoryReadModel/);

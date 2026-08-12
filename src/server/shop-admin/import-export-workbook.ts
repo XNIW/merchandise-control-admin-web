@@ -31,6 +31,7 @@ import {
   type ShopAdminActionCode,
   type ShopAdminActionResult,
 } from "./action-context";
+import { canonicalCatalogImportRequestPayload } from "./catalog-import-request-fingerprint";
 import {
   EXCEL_WORKBOOK_SHEETS,
   FORMULA_INJECTION_PATTERN,
@@ -64,7 +65,12 @@ import {
   type StaffAwareBulkPriceHistoryImportPayload,
   type StaffAwareBulkProductImportPayload,
 } from "./staff-aware-mutations";
-import { callStaffWebCatalogRead } from "./staff-web-lease-bound-rpc";
+import {
+  callCatalogImportReceiptClaim,
+  callCatalogImportReceiptComplete,
+  callCatalogImportReceiptLookup,
+  callStaffWebCatalogRead,
+} from "./staff-web-lease-bound-rpc";
 import {
   emitCatalogBulkProductImportSyncEvent,
   emitPriceHistoryImportSyncEvent,
@@ -6037,6 +6043,34 @@ export async function parseCatalogWorkbookPreview(
   };
 }
 
+function importReceiptRoot(value: unknown) {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function isCatalogWorkbookApplyResult(
+  value: unknown,
+): value is CatalogWorkbookApplyResult {
+  const root = importReceiptRoot(value);
+
+  return root !== null &&
+    typeof root.ok === "boolean" &&
+    typeof root.code === "string" &&
+    typeof root.message === "string";
+}
+
+function catalogImportRequestFingerprint(input: {
+  importMode: "database" | "supplier";
+  previewDigest: string;
+  rowAdjustments: readonly object[];
+  syncPreviewDigest: string;
+}) {
+  return createHash("sha256")
+    .update(JSON.stringify(canonicalCatalogImportRequestPayload(input)))
+    .digest("hex");
+}
+
 export async function applyCatalogWorkbookImport(
   input: CatalogWorkbookInput & {
     confirmApply: string;
@@ -6084,6 +6118,97 @@ export async function applyCatalogWorkbookImport(
     return parsed;
   }
 
+  const requestPreviewDigest = input.previewDigest;
+
+  if (!requestPreviewDigest) {
+    return shopAdminActionResult("preview_mismatch", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+
+  const adjustmentValidation = validateRowAdjustments(
+    parsed,
+    input.rowAdjustments,
+  );
+
+  if (!adjustmentValidation.valid) {
+    return {
+      ...adjustmentValidation,
+      previewDigest: requestPreviewDigest,
+    };
+  }
+
+  const syncPreviewDigest = input.syncPreviewDigest;
+
+  if (!syncPreviewDigest) {
+    return shopAdminActionResult("preview_required", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+
+  // Look up a prior receipt before rebuilding the state-dependent preview. A
+  // retry can replay (or report an indeterminate prior attempt) after the
+  // first apply changed the catalog, while a miss remains read-only until the
+  // request has passed every preview and row validation.
+  const requestFingerprint = catalogImportRequestFingerprint({
+    importMode,
+    previewDigest: requestPreviewDigest,
+    rowAdjustments: adjustmentValidation.adjustments,
+    syncPreviewDigest,
+  });
+  const actorId = context.principalKind === "personal_account"
+    ? context.actorProfileId
+    : context.actorStaffId;
+  const receiptLookup = await callCatalogImportReceiptLookup({
+    actorId,
+    actorKind: context.principalKind,
+    requestFingerprint,
+    requestKey: requestFingerprint,
+    shopId: context.selectedShop.shopId,
+  });
+  const receiptLookupRoot = importReceiptRoot(receiptLookup.data);
+
+  if (receiptLookup.error || !receiptLookupRoot) {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+
+  if (receiptLookupRoot.ok !== true) {
+    const lookupCode = receiptLookupRoot.code;
+    const code: ShopAdminActionCode =
+      lookupCode === "idempotency_conflict" ||
+      lookupCode === "import_in_progress" ||
+      lookupCode === "import_indeterminate" ||
+      lookupCode === "validation_failed"
+        ? lookupCode
+        : "db_failure";
+
+    return shopAdminActionResult(code, {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+
+  if (receiptLookupRoot.state === "replay") {
+    return isCatalogWorkbookApplyResult(receiptLookupRoot.result)
+      ? receiptLookupRoot.result
+      : shopAdminActionResult("db_failure", {
+          ok: false,
+          shopId: context.selectedShop.shopId,
+        });
+  }
+
+  if (receiptLookupRoot.state !== "miss") {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+
   const readModel = await getCatalogWorkbookReadModel(context);
 
   if (readModel.status !== "ready") {
@@ -6099,23 +6224,11 @@ export async function applyCatalogWorkbookImport(
     shopId: context.selectedShop.shopId,
   });
 
-  if (!input.previewDigest || input.previewDigest !== boundPreviewDigest) {
+  if (requestPreviewDigest !== boundPreviewDigest) {
     return shopAdminActionResult("preview_mismatch", {
       ok: false,
       shopId: context.selectedShop.shopId,
     });
-  }
-
-  const adjustmentValidation = validateRowAdjustments(
-    parsed,
-    input.rowAdjustments,
-  );
-
-  if (!adjustmentValidation.valid) {
-    return {
-      ...adjustmentValidation,
-      previewDigest: boundPreviewDigest,
-    };
   }
 
   const adjustedParsed = parsed.importMode === "supplier"
@@ -6174,14 +6287,7 @@ export async function applyCatalogWorkbookImport(
     sourceParsed: parsed,
   });
 
-  if (!input.syncPreviewDigest) {
-    return shopAdminActionResult("preview_required", {
-      ok: false,
-      shopId: context.selectedShop.shopId,
-    });
-  }
-
-  if (input.syncPreviewDigest !== syncPreview.fingerprint) {
+  if (syncPreviewDigest !== syncPreview.fingerprint) {
     return {
       ...shopAdminActionResult("preview_mismatch", {
         ok: false,
@@ -6213,6 +6319,91 @@ export async function applyCatalogWorkbookImport(
       rowErrors,
     };
   }
+
+  const receiptClaim = await callCatalogImportReceiptClaim({
+    actorId,
+    actorKind: context.principalKind,
+    requestFingerprint,
+    requestKey: requestFingerprint,
+    shopId: context.selectedShop.shopId,
+  });
+  const receiptClaimRoot = importReceiptRoot(receiptClaim.data);
+
+  if (receiptClaim.error || !receiptClaimRoot) {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+
+  if (receiptClaimRoot.ok !== true) {
+    const claimCode = receiptClaimRoot.code;
+    const code: ShopAdminActionCode =
+      claimCode === "idempotency_conflict" ||
+      claimCode === "import_in_progress" ||
+      claimCode === "import_indeterminate" ||
+      claimCode === "validation_failed"
+        ? claimCode
+        : "db_failure";
+
+    return shopAdminActionResult(code, {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+
+  if (receiptClaimRoot.state === "replay") {
+    return isCatalogWorkbookApplyResult(receiptClaimRoot.result)
+      ? receiptClaimRoot.result
+      : shopAdminActionResult("db_failure", {
+          ok: false,
+          shopId: context.selectedShop.shopId,
+        });
+  }
+
+  const receiptId = typeof receiptClaimRoot.receiptId === "string"
+    ? receiptClaimRoot.receiptId
+    : "";
+  const claimToken = typeof receiptClaimRoot.claimToken === "string"
+    ? receiptClaimRoot.claimToken
+    : "";
+
+  if (receiptClaimRoot.state !== "claimed" || !receiptId || !claimToken) {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+
+  const finalizeImportReceipt = async (
+    result: CatalogWorkbookApplyResult,
+  ): Promise<CatalogWorkbookApplyResult> => {
+    const serializedResult = JSON.parse(JSON.stringify(result)) as Record<
+      string,
+      Json
+    >;
+    const completion = await callCatalogImportReceiptComplete({
+      claimToken,
+      receiptId,
+      requestFingerprint,
+      result: serializedResult,
+    });
+    const completionRoot = importReceiptRoot(completion.data);
+
+    if (completion.error || completionRoot?.ok !== true) {
+      return {
+        ...shopAdminActionResult("db_failure", {
+          ok: false,
+          shopId: context.selectedShop.shopId,
+        }),
+        previewDigest: requestPreviewDigest,
+        rowErrors: result.rowErrors,
+        summary: result.summary,
+      };
+    }
+
+    return result;
+  };
 
   const supplierIdsByName = new Map(
     readModel.suppliers.map((supplier) => [
@@ -6287,10 +6478,21 @@ export async function applyCatalogWorkbookImport(
     }
   }
 
-  if (productsToApply.length >= BULK_PRODUCT_IMPORT_THRESHOLD) {
+  // The legacy bulk RPC is intentionally limited to inserts. Existing rows
+  // always traverse updateProduct(), which binds the previewed updated_at and
+  // prevents a 500+ row workbook from bypassing optimistic concurrency.
+  const newProductRows = productsToApply.filter(
+    (row) => !findProduct(readModel.products, row),
+  );
+  const revisionGuardedProductRows = productsToApply.filter((row) =>
+    Boolean(findProduct(readModel.products, row)),
+  );
+  const useBulkInsert = newProductRows.length >= BULK_PRODUCT_IMPORT_THRESHOLD;
+
+  if (useBulkInsert) {
     const productImport = await applyBulkProductImport(
       context,
-      productsToApply,
+      newProductRows,
       readModel.products,
       supplierIdsByName,
       categoryIdsByName,
@@ -6307,7 +6509,7 @@ export async function applyCatalogWorkbookImport(
       : null;
 
     if (syncEventFailure) {
-      return {
+      return finalizeImportReceipt({
         ...shopAdminActionResult(syncEventFailure, {
           ok: false,
           shopId: context.selectedShop.shopId,
@@ -6321,10 +6523,16 @@ export async function applyCatalogWorkbookImport(
           productsApplied,
           suppliersApplied,
         },
-      };
+      });
     }
-  } else {
-    for (const row of productsToApply) {
+  }
+
+  const individuallyAppliedProductRows = useBulkInsert
+    ? revisionGuardedProductRows
+    : productsToApply;
+
+  if (!bulkApplyStopped) {
+    for (const row of individuallyAppliedProductRows) {
       const existing = findProduct(readModel.products, row);
       const productInput: ProductMutationInput = {
         ...mergeProductImportForApply(row, existing, {
@@ -6336,6 +6544,7 @@ export async function applyCatalogWorkbookImport(
       const result = existing
         ? await updateProduct({
             ...productInput,
+            expectedUpdatedAt: existing.updatedAt,
             productId: existing.productId,
           })
         : await createProduct(productInput);
@@ -6411,7 +6620,7 @@ export async function applyCatalogWorkbookImport(
       );
 
       if (syncEventFailure) {
-        return {
+        return finalizeImportReceipt({
           ...shopAdminActionResult(syncEventFailure, {
             ok: false,
             shopId: context.selectedShop.shopId,
@@ -6428,7 +6637,7 @@ export async function applyCatalogWorkbookImport(
             productsApplied,
             suppliersApplied,
           },
-        };
+        });
       }
     } else {
       const priceChunks = Array.from(
@@ -6506,7 +6715,7 @@ export async function applyCatalogWorkbookImport(
           );
 
           if (syncEventFailure) {
-            return {
+            return finalizeImportReceipt({
               ...shopAdminActionResult(syncEventFailure, {
                 ok: false,
                 shopId: context.selectedShop.shopId,
@@ -6523,7 +6732,7 @@ export async function applyCatalogWorkbookImport(
                 productsApplied,
                 suppliersApplied,
               },
-            };
+            });
           }
 
           if (failedCount > 0) {
@@ -6572,11 +6781,11 @@ export async function applyCatalogWorkbookImport(
   };
 
   if (!auditResult.ok) {
-    return {
+    return finalizeImportReceipt({
       ...auditResult,
       previewDigest: boundPreviewDigest,
       summary,
-    };
+    });
   }
 
   let historyEntry: CatalogWorkbookApplyResult["historyEntry"];
@@ -6597,7 +6806,7 @@ export async function applyCatalogWorkbookImport(
     });
 
     if (!historyResult.ok) {
-      return {
+      return finalizeImportReceipt({
         ...shopAdminActionResult("partial_failure", {
           ok: false,
           shopId: context.selectedShop.shopId,
@@ -6616,7 +6825,7 @@ export async function applyCatalogWorkbookImport(
           },
         ],
         summary,
-      };
+      });
     }
 
     historyEntry = {
@@ -6628,7 +6837,7 @@ export async function applyCatalogWorkbookImport(
     };
   }
 
-  return {
+  return finalizeImportReceipt({
     ...shopAdminActionResult(failedRows > 0 ? "partial_failure" : "success", {
       ok: failedRows === 0,
       shopId: context.selectedShop.shopId,
@@ -6637,7 +6846,7 @@ export async function applyCatalogWorkbookImport(
     previewDigest: boundPreviewDigest,
     rowErrors: applyRowErrors,
     summary,
-  };
+  });
 }
 
 function stringCell(value: string | null | undefined) {

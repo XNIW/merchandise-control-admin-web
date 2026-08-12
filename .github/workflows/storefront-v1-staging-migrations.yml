@@ -173,8 +173,10 @@ jobs:
             urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`;
           } catch {}
           const status = {
-            integrationBranch:
-              process.env.GITHUB_REF === "refs/heads/integration/storefront-v1",
+            approvedBranch: [
+              "refs/heads/integration/storefront-v1",
+              "refs/heads/main",
+            ].includes(process.env.GITHUB_REF),
             exactHead:
               /^[0-9a-f]{40}$/.test(expectedHead) &&
               process.env.GITHUB_SHA === expectedHead,

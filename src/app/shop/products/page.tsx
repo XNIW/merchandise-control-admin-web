@@ -364,6 +364,7 @@ function mapProductOptions(
     secondProductName: product.secondProductName,
     stockQuantity: product.stockQuantity,
     supplierId: product.supplierId,
+    updatedAt: product.updatedAt,
   }));
 }
 

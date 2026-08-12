@@ -49,6 +49,7 @@ type CatalogEntityUpdateInput = CatalogEntityInput & {
 };
 
 type CatalogArchiveInput = {
+  expectedUpdatedAt?: string;
   id: string;
   reason?: string;
   requestedShopId?: string;
@@ -101,6 +102,7 @@ export type ProductMutationInput = {
 };
 
 export type ProductUpdateInput = ProductMutationInput & {
+  expectedUpdatedAt: string;
   productId: string;
 };
 
@@ -219,6 +221,17 @@ function cleanUuid(value: string | undefined) {
   return result.status !== "rejected" &&
     CANONICAL_UUID_PATTERN.test(result.value)
     ? result.value
+    : undefined;
+}
+
+function cleanExpectedUpdatedAt(value: string | undefined) {
+  const revision = value?.trim();
+
+  return revision &&
+    revision.length <= 64 &&
+    /(?:z|[+-]\d{2}:\d{2})$/i.test(revision) &&
+    Number.isFinite(Date.parse(revision))
+    ? revision
     : undefined;
 }
 
@@ -858,12 +871,22 @@ export async function updateProduct(
   const canonical = canonicalCatalogProductInput(input);
   const { fieldErrors } = canonical;
   const productId = cleanUuid(input.productId);
+  const expectedUpdatedAt = cleanExpectedUpdatedAt(input.expectedUpdatedAt);
 
   if (!productId) {
     fieldErrors.productId = "Product id is required.";
   }
 
-  if (!productId || Object.keys(fieldErrors).length > 0 || !canonical.input) {
+  if (!expectedUpdatedAt) {
+    fieldErrors.expectedUpdatedAt = "Reload this product before saving it.";
+  }
+
+  if (
+    !productId ||
+    !expectedUpdatedAt ||
+    Object.keys(fieldErrors).length > 0 ||
+    !canonical.input
+  ) {
     return shopAdminActionResult("validation_failed", {
       fieldErrors,
       ok: false,
@@ -879,6 +902,7 @@ export async function updateProduct(
       updateProductAsStaff(context, {
         barcode: canonicalInput.barcode,
         categoryId: cleanUuid(canonicalInput.categoryId),
+        expectedUpdatedAt,
         itemNumber: canonicalInput.itemNumber,
         productId,
         productName: canonicalInput.productName,
@@ -889,10 +913,11 @@ export async function updateProduct(
         supplierId: cleanUuid(canonicalInput.supplierId),
       }),
     (context) =>
-      context.supabase.rpc("shop_catalog_update_product_with_sync", {
+      context.supabase.rpc("shop_catalog_update_product_if_revision_with_sync", {
         p_actor_kind: context.principalKind,
         p_barcode: canonicalInput.barcode,
         p_category_id: cleanUuid(canonicalInput.categoryId),
+        p_expected_updated_at: expectedUpdatedAt,
         p_item_number: canonicalInput.itemNumber,
         p_product_id: productId,
         p_product_name: canonicalInput.productName,
@@ -912,9 +937,18 @@ export async function archiveProduct(
   input: CatalogArchiveInput,
 ): Promise<ShopAdminActionResult> {
   const productId = cleanUuid(input.id);
+  const expectedUpdatedAt = cleanExpectedUpdatedAt(input.expectedUpdatedAt);
 
-  if (!productId) {
-    return shopAdminActionResult("validation_failed", { ok: false });
+  if (!productId || !expectedUpdatedAt) {
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors: {
+        ...(!productId ? { productId: "Product id is required." } : {}),
+        ...(!expectedUpdatedAt
+          ? { expectedUpdatedAt: "Reload this product before archiving it." }
+          : {}),
+      },
+      ok: false,
+    });
   }
 
   const reason = catalogReasonRequired(input);
@@ -926,10 +960,16 @@ export async function archiveProduct(
   return rpcResult(
     input.requestedShopId,
     "products.write",
-    (context) => archiveProductAsStaff(context, { id: productId, reason }),
+    (context) => archiveProductAsStaff(context, {
+      expectedUpdatedAt,
+      id: productId,
+      reason,
+    }),
     (context) =>
-      context.supabase.rpc("shop_catalog_archive_product_with_sync", {
+      context.supabase.rpc("shop_catalog_set_product_archived_if_revision_with_sync", {
         p_actor_kind: context.principalKind,
+        p_archived: true,
+        p_expected_updated_at: expectedUpdatedAt,
         p_product_id: productId,
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,
@@ -943,9 +983,18 @@ export async function restoreProduct(
   input: CatalogArchiveInput,
 ): Promise<ShopAdminActionResult> {
   const productId = cleanUuid(input.id);
+  const expectedUpdatedAt = cleanExpectedUpdatedAt(input.expectedUpdatedAt);
 
-  if (!productId) {
-    return shopAdminActionResult("validation_failed", { ok: false });
+  if (!productId || !expectedUpdatedAt) {
+    return shopAdminActionResult("validation_failed", {
+      fieldErrors: {
+        ...(!productId ? { productId: "Product id is required." } : {}),
+        ...(!expectedUpdatedAt
+          ? { expectedUpdatedAt: "Reload this product before restoring it." }
+          : {}),
+      },
+      ok: false,
+    });
   }
 
   const reason = catalogReasonRequired(input);
@@ -957,10 +1006,16 @@ export async function restoreProduct(
   return rpcResult(
     input.requestedShopId,
     "products.write",
-    (context) => restoreProductAsStaff(context, { id: productId, reason }),
+    (context) => restoreProductAsStaff(context, {
+      expectedUpdatedAt,
+      id: productId,
+      reason,
+    }),
     (context) =>
-      context.supabase.rpc("shop_catalog_restore_product_with_sync", {
+      context.supabase.rpc("shop_catalog_set_product_archived_if_revision_with_sync", {
         p_actor_kind: context.principalKind,
+        p_archived: false,
+        p_expected_updated_at: expectedUpdatedAt,
         p_product_id: productId,
         p_reason: reason,
         p_shop_id: context.selectedShop.shopId,

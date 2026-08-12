@@ -31,9 +31,8 @@ test("TASK-100 Admin catalog mutations use atomic sync-event RPC wrappers", () =
     "shop_catalog_update_category_with_sync",
     "shop_catalog_archive_category_with_sync",
     "shop_catalog_create_product_with_sync",
-    "shop_catalog_update_product_with_sync",
-    "shop_catalog_archive_product_with_sync",
-    "shop_catalog_restore_product_with_sync",
+    "shop_catalog_update_product_if_revision_with_sync",
+    "shop_catalog_set_product_archived_if_revision_with_sync",
     "p_actor_kind: context.principalKind",
   ]);
   assert.doesNotMatch(
@@ -49,9 +48,8 @@ test("TASK-100 Admin catalog mutations use atomic sync-event RPC wrappers", () =
     "shop_catalog_update_category_with_sync: {",
     "shop_catalog_archive_category_with_sync: {",
     "shop_catalog_create_product_with_sync: {",
-    "shop_catalog_update_product_with_sync: {",
-    "shop_catalog_archive_product_with_sync: {",
-    "shop_catalog_restore_product_with_sync: {",
+    "shop_catalog_update_product_if_revision_with_sync: {",
+    "shop_catalog_set_product_archived_if_revision_with_sync: {",
     "p_actor_kind?: string",
   ]);
 });

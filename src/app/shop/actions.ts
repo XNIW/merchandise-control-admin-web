@@ -359,6 +359,7 @@ export async function updateProductAction(formData: FormData) {
       ? resolvedInput
       : await updateProduct({
           ...resolvedInput,
+          expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
           productId,
         }),
   );
@@ -383,6 +384,7 @@ export async function updateProductInlineAction(
       ? resolvedInput
       : await updateProduct({
           ...resolvedInput,
+          expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
           productId,
         });
 
@@ -402,6 +404,7 @@ export async function archiveProductAction(formData: FormData) {
   resultRedirect(
     "/shop/products",
     await archiveProduct({
+      expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
       id: await catalogProductId(formData),
       reason: optionalFormString(formData, "reason"),
       requestedShopId: requestedShopId(formData),
@@ -420,6 +423,7 @@ export async function archiveProductInlineAction(
   }
 
   const result = await archiveProduct({
+    expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
     id: await catalogProductId(formData),
     reason: optionalFormString(formData, "reason"),
     requestedShopId: requestedShopId(formData),
@@ -441,6 +445,7 @@ export async function restoreProductAction(formData: FormData) {
   resultRedirect(
     "/shop/products",
     await restoreProduct({
+      expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
       id: await catalogProductId(formData),
       reason: optionalFormString(formData, "reason"),
       requestedShopId: requestedShopId(formData),
@@ -459,6 +464,7 @@ export async function restoreProductInlineAction(
   }
 
   const result = await restoreProduct({
+    expectedUpdatedAt: formString(formData, "expectedUpdatedAt"),
     id: await catalogProductId(formData),
     reason: optionalFormString(formData, "reason"),
     requestedShopId: requestedShopId(formData),
