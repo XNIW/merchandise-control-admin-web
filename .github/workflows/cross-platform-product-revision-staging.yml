@@ -1,0 +1,38 @@
+name: Cross-platform Product Revision Guard Staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "Validate only, or apply the revision-guard migration"
+        required: true
+        default: dry-run
+        type: choice
+        options:
+          - dry-run
+          - apply
+      apply_confirmation:
+        description: "For apply, enter APPLY_STOREFRONT_V1_STAGING"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cross-platform-product-revision-staging
+  cancel-in-progress: false
+
+jobs:
+  staging-revision-guard:
+    uses: ./.github/workflows/storefront-v1-staging-migrations.yml
+    with:
+      mode: ${{ inputs.mode }}
+      expected_head_sha: ${{ github.sha }}
+      expected_migration_version: "20260812010000"
+      expected_migration_name: cross_platform_product_revision_guard
+      expected_migration_file: 20260812010000_cross_platform_product_revision_guard.sql
+      apply_confirmation: ${{ inputs.apply_confirmation }}
+      load_hold_seconds: "0"
+      run_performance_load: false
+    secrets: inherit
