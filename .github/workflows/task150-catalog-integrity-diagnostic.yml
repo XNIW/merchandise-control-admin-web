@@ -163,29 +163,35 @@ jobs:
                 or (mapped_owner_id is null and not has_shop_rows) as blocked
             from scope_inputs
           ),
+          diagnostic_target as (
+            select scope.*
+            from target scope
+            where scope.blocked is false
+              and (select count(*) from target) = 1
+          ),
           suppliers as (
-            select row.* from public.inventory_suppliers row, target
+            select row.* from public.inventory_suppliers row, diagnostic_target target
             where (target.scope_kind in ('shop_scoped','authorized_shop_plus_legacy')
                 and row.shop_id=target.shop_id)
               or (target.scope_kind in ('legacy_owner_bridge','authorized_shop_plus_legacy')
                 and row.shop_id is null and row.owner_user_id=target.scope_id)
           ),
           categories as (
-            select row.* from public.inventory_categories row, target
+            select row.* from public.inventory_categories row, diagnostic_target target
             where (target.scope_kind in ('shop_scoped','authorized_shop_plus_legacy')
                 and row.shop_id=target.shop_id)
               or (target.scope_kind in ('legacy_owner_bridge','authorized_shop_plus_legacy')
                 and row.shop_id is null and row.owner_user_id=target.scope_id)
           ),
           products as (
-            select row.* from public.inventory_products row, target
+            select row.* from public.inventory_products row, diagnostic_target target
             where (target.scope_kind in ('shop_scoped','authorized_shop_plus_legacy')
                 and row.shop_id=target.shop_id)
               or (target.scope_kind in ('legacy_owner_bridge','authorized_shop_plus_legacy')
                 and row.shop_id is null and row.owner_user_id=target.scope_id)
           ),
           prices as (
-            select row.* from public.inventory_product_prices row, target
+            select row.* from public.inventory_product_prices row, diagnostic_target target
             where (target.scope_kind in ('shop_scoped','authorized_shop_plus_legacy')
                 and row.shop_id=target.shop_id)
               or (target.scope_kind in ('legacy_owner_bridge','authorized_shop_plus_legacy')
@@ -290,7 +296,7 @@ jobs:
             'scopeBlocked', (select blocked from target),
             'integrityViolationCount', (
               select app_private.pos_catalog_integrity_violation_count_v2(
-                shop_id, scope_kind, scope_id) from target
+                shop_id, scope_kind, scope_id) from diagnostic_target
             ),
             'entityCounts', jsonb_build_object(
               'suppliers', (select count(*) from suppliers),
