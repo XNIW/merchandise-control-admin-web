@@ -1,0 +1,242 @@
+name: Admin live product revision conflict staging
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_commit_sha:
+        description: "Exact main commit deployed to the staging Worker"
+        required: true
+        type: string
+      confirmation:
+        description: "Enter RUN_ADMIN_REVISION_CONFLICT_STAGING"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: admin-live-product-revision-conflict-staging
+  cancel-in-progress: false
+
+env:
+  EXPECTED_STAGING_APP_ORIGIN: https://merchandise-control-admin-web-staging.merchandise-control-admin-web.workers.dev
+  EXPECTED_STAGING_SUPABASE_ORIGIN: https://jpgoimipbothfgkokyvm.supabase.co
+  EXPECTED_STAGING_SUPABASE_PROJECT_REF: jpgoimipbothfgkokyvm
+  SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+
+jobs:
+  live-revision-conflict:
+    name: Owner and staff stale revision rejection
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: cloudflare-staging
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      ALLOW_STAGING_E2E: "yes"
+      CI: "true"
+      CONFIRM_STAGING_E2E: "yes"
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: ${{ vars.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      PGDATABASE: postgres
+      PGHOST: aws-1-sa-east-1.pooler.supabase.com
+      PGPASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      PGSSLMODE: require
+      PGUSER: postgres.${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      PLAYWRIGHT_BASE_URL: ${{ vars.CLOUDFLARE_STAGING_URL }}
+      PLAYWRIGHT_DISABLE_WEB_SERVER: "1"
+      SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      TEST_TARGET: staging
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+
+    steps:
+      - name: Checkout exact workflow revision
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+          persist-credentials: false
+          ref: ${{ github.sha }}
+
+      - name: Verify immutable staging authorization
+        env:
+          REQUESTED_COMMIT_SHA: ${{ inputs.expected_commit_sha }}
+          REQUESTED_CONFIRMATION: ${{ inputs.confirmation }}
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const exactUrl = (raw, expected) => {
+            try {
+              const url = new URL(raw);
+              return url.origin === expected && url.pathname === "/" &&
+                url.search === "" && url.hash === "" &&
+                url.username === "" && url.password === "";
+            } catch {
+              return false;
+            }
+          };
+          const projectRef = process.env.SUPABASE_PROJECT_REF || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",").map((value) => value.trim()).filter(Boolean);
+          const status = {
+            actorExact: process.env.GITHUB_ACTOR === "XNIW",
+            triggeringActorExact: process.env.GITHUB_TRIGGERING_ACTOR === "XNIW",
+            mainBranch: process.env.GITHUB_REF === "refs/heads/main",
+            exactCheckout: /^[0-9a-f]{40}$/.test(process.env.GITHUB_SHA || "") &&
+              process.env.REQUESTED_COMMIT_SHA === process.env.GITHUB_SHA,
+            confirmationExact:
+              process.env.REQUESTED_CONFIRMATION ===
+              "RUN_ADMIN_REVISION_CONFLICT_STAGING",
+            projectExact:
+              projectRef === process.env.EXPECTED_STAGING_SUPABASE_PROJECT_REF,
+            projectAllowlisted: allowed.includes(projectRef),
+            supabaseExact: exactUrl(
+              process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+              process.env.EXPECTED_STAGING_SUPABASE_ORIGIN,
+            ),
+            appExact: exactUrl(
+              process.env.PLAYWRIGHT_BASE_URL || "",
+              process.env.EXPECTED_STAGING_APP_ORIGIN,
+            ),
+            poolerExact:
+              process.env.PGHOST === process.env.SOURCE_POOLER_HOST &&
+              process.env.PGUSER === `postgres.${projectRef}` &&
+              process.env.PGDATABASE === "postgres" &&
+              process.env.PGSSLMODE === "require",
+            databasePasswordPresent: Boolean(process.env.PGPASSWORD),
+            publishableKeyPresent: Boolean(
+              process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+            ),
+            serviceRolePresent:
+              Buffer.byteLength(
+                process.env.SUPABASE_SERVICE_ROLE_KEY || "",
+                "utf8",
+              ) >= 32,
+            cloudflareAccountShape:
+              /^[0-9a-f]{32}$/i.test(process.env.CLOUDFLARE_ACCOUNT_ID || ""),
+            cloudflareTokenPresent:
+              Buffer.byteLength(
+                process.env.CLOUDFLARE_API_TOKEN || "",
+                "utf8",
+              ) >= 40,
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Install Chromium and PostgreSQL client
+        run: |
+          set -euo pipefail
+          npx playwright install --with-deps chromium
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends postgresql-client
+
+      - name: Verify revision guard migration is already deployed
+        run: |
+          set -euo pipefail
+          result="$(psql -X -qAt -v ON_ERROR_STOP=1 -c "select
+            (select count(*) = 1 from supabase_migrations.schema_migrations
+              where version = '20260812010000'
+                and name = 'cross_platform_product_revision_guard'),
+            to_regprocedure('public.shop_catalog_update_product_if_revision_with_sync(uuid,uuid,timestamp with time zone,text,text,text,text,double precision,double precision,double precision,uuid,uuid,text)') is not null,
+            to_regprocedure('public.staff_web_catalog_update_product_if_revision_v1(uuid,uuid,uuid,text,integer,timestamp with time zone,jsonb)') is not null;")"
+          test "$result" = "t|t|t"
+
+      - name: Verify active staging Worker is this exact commit
+        id: deployment
+        run: |
+          set -euo pipefail
+          export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
+          npx wrangler deployments status --env staging --json > .admin-revision-deployment-before.json
+          node <<'NODE'
+          const { appendFileSync, readFileSync } = require("node:fs");
+          const { execFileSync } = require("node:child_process");
+          const status = JSON.parse(
+            readFileSync(".admin-revision-deployment-before.json", "utf8"),
+          );
+          if (!status || typeof status.id !== "string" ||
+              !Array.isArray(status.versions) || status.versions.length !== 1 ||
+              typeof status.versions[0]?.version_id !== "string" ||
+              status.versions[0]?.percentage !== 100) {
+            process.exit(1);
+          }
+          const versionId = status.versions[0].version_id;
+          const raw = execFileSync(
+            "npx",
+            ["wrangler", "versions", "view", versionId, "--env", "staging", "--json"],
+            { encoding: "utf8", env: process.env, stdio: ["ignore", "pipe", "ignore"] },
+          );
+          const version = JSON.parse(raw);
+          const tag = version?.annotations?.["workers/tag"] ?? version?.tag;
+          const message =
+            version?.annotations?.["workers/message"] ?? version?.message;
+          if (tag !== process.env.GITHUB_SHA ||
+              message !== `github-sha:${process.env.GITHUB_SHA}`) {
+            process.exit(1);
+          }
+          appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            `deployment_id=${status.id}\nversion_id=${versionId}\n`,
+          );
+          console.log(JSON.stringify({
+            exactCommit: true,
+            singleVersionAtFullTraffic: true,
+          }));
+          NODE
+
+      - name: Run deployed owner and staff revision-conflict harness
+        env:
+          ADMIN_REVISION_DEPLOYED_SHA: ${{ github.sha }}
+          ADMIN_REVISION_DEPLOYMENT_ID: ${{ steps.deployment.outputs.deployment_id }}
+          ADMIN_REVISION_EXPECTED_SHA: ${{ inputs.expected_commit_sha }}
+          ADMIN_REVISION_VERSION_ID: ${{ steps.deployment.outputs.version_id }}
+          CONFIRM_ADMIN_REVISION_CONFLICT_STAGING: ${{ inputs.confirmation }}
+        run: npm run test:admin-revision-conflict:staging
+
+      - name: Verify staging deployment did not change during the run
+        if: always() && steps.deployment.outcome == 'success'
+        env:
+          EXPECTED_DEPLOYMENT_ID: ${{ steps.deployment.outputs.deployment_id }}
+          EXPECTED_VERSION_ID: ${{ steps.deployment.outputs.version_id }}
+        run: |
+          set -euo pipefail
+          export CLOUDFLARE_API_TOKEN="$(printf '%s' "$CLOUDFLARE_API_TOKEN" | tr -d '\r\n')"
+          npx wrangler deployments status --env staging --json > .admin-revision-deployment-after.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const status = JSON.parse(
+            readFileSync(".admin-revision-deployment-after.json", "utf8"),
+          );
+          const exact = status?.id === process.env.EXPECTED_DEPLOYMENT_ID &&
+            Array.isArray(status?.versions) && status.versions.length === 1 &&
+            status.versions[0]?.version_id === process.env.EXPECTED_VERSION_ID &&
+            status.versions[0]?.percentage === 100;
+          console.log(JSON.stringify({ deploymentUnchanged: exact }));
+          if (!exact) process.exit(1);
+          NODE
+
+      - name: Upload redacted live evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: admin-product-revision-conflict-${{ github.run_id }}-${{ github.run_attempt }}
+          path: test-results/admin-live-product-revision-conflict/summary.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Remove ephemeral deployment probes
+        if: always()
+        run: >-
+          rm -f
+          .admin-revision-deployment-before.json
+          .admin-revision-deployment-after.json

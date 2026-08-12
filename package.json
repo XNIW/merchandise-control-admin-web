@@ -42,6 +42,7 @@
     "test:e2e": "playwright test",
     "test:e2e:local": "node scripts/testing/run-playwright-target.mjs local tests/e2e",
     "test:e2e:staging": "node scripts/testing/run-playwright-target.mjs staging tests/e2e/staging",
+    "test:admin-revision-conflict:staging": "node scripts/testing/run-playwright-target.mjs staging tests/e2e/staging/admin-live-product-revision-conflict.spec.ts --project=chromium-desktop --workers=1",
     "test:platform:local": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-045-platform-master-console-final-review.spec.ts --project=chromium-desktop",
     "test:platform:local-shop-profile": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-056-master-console-shop-profile-local.spec.ts --project=chromium-desktop",
     "test:platform:local-users": "node scripts/testing/run-playwright-target.mjs local tests/e2e/task-064-platform-users-auth-profile-parity.spec.ts --project=chromium-desktop",
