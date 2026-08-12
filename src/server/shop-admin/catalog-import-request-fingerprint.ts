@@ -5,30 +5,32 @@ type CatalogImportRequestFingerprintInput = {
   syncPreviewDigest: string;
 };
 
-function canonicalJsonValue(value: unknown): unknown {
-  if (Array.isArray(value)) {
-    return value.map(canonicalJsonValue);
-  }
+function canonicalRowAdjustment(value: object) {
+  const row = value as Record<string, unknown>;
 
-  if (value && typeof value === "object") {
-    return Object.fromEntries(
-      Object.entries(value as Record<string, unknown>)
-        .filter(([, entryValue]) => entryValue !== undefined)
-        .sort(([leftKey], [rightKey]) => leftKey.localeCompare(rightKey))
-        .map(([key, entryValue]) => [key, canonicalJsonValue(entryValue)]),
-    );
-  }
-
-  return value;
+  return {
+    barcode: row.barcode,
+    category: row.category,
+    itemNumber: row.itemNumber,
+    productName: row.productName,
+    purchasePrice: row.purchasePrice,
+    quantity: row.quantity,
+    retailPrice: row.retailPrice,
+    rowFingerprint: row.rowFingerprint,
+    rowNumber: row.rowNumber,
+    secondProductName: row.secondProductName,
+    skip: row.skip,
+    supplier: row.supplier,
+  };
 }
 
 export function canonicalCatalogImportRequestPayload(
   input: CatalogImportRequestFingerprintInput,
 ) {
   const rowAdjustments = [...input.rowAdjustments]
-    .map(canonicalJsonValue)
+    .map(canonicalRowAdjustment)
     .sort((left, right) =>
-      JSON.stringify(left).localeCompare(JSON.stringify(right)),
+      Number(left.rowNumber) - Number(right.rowNumber),
     );
 
   return {

@@ -6117,22 +6117,9 @@ export async function applyCatalogWorkbookImport(
     return parsed;
   }
 
-  const readModel = await getCatalogWorkbookReadModel(context);
+  const requestPreviewDigest = input.previewDigest;
 
-  if (readModel.status !== "ready") {
-    return shopAdminActionResult("unauthorized_or_unmapped", {
-      ok: false,
-      shopId: context.selectedShop.shopId,
-    });
-  }
-
-  const boundPreviewDigest = bindPreviewDigestToShop({
-    mappingId: readModel.mapping?.mappingId ?? null,
-    parsedDigest: parsed.digest,
-    shopId: context.selectedShop.shopId,
-  });
-
-  if (!input.previewDigest || input.previewDigest !== boundPreviewDigest) {
+  if (!requestPreviewDigest) {
     return shopAdminActionResult("preview_mismatch", {
       ok: false,
       shopId: context.selectedShop.shopId,
@@ -6147,7 +6134,7 @@ export async function applyCatalogWorkbookImport(
   if (!adjustmentValidation.valid) {
     return {
       ...adjustmentValidation,
-      previewDigest: boundPreviewDigest,
+      previewDigest: requestPreviewDigest,
     };
   }
 
@@ -6165,7 +6152,7 @@ export async function applyCatalogWorkbookImport(
   // apply has legitimately changed the catalog that produced the preview.
   const requestFingerprint = catalogImportRequestFingerprint({
     importMode,
-    previewDigest: boundPreviewDigest,
+    previewDigest: requestPreviewDigest,
     rowAdjustments: adjustmentValidation.adjustments,
     syncPreviewDigest,
   });
@@ -6248,7 +6235,7 @@ export async function applyCatalogWorkbookImport(
           ok: false,
           shopId: context.selectedShop.shopId,
         }),
-        previewDigest: boundPreviewDigest,
+        previewDigest: requestPreviewDigest,
         rowErrors: result.rowErrors,
         summary: result.summary,
       };
@@ -6256,6 +6243,32 @@ export async function applyCatalogWorkbookImport(
 
     return result;
   };
+
+  const readModel = await getCatalogWorkbookReadModel(context);
+
+  if (readModel.status !== "ready") {
+    return finalizeImportReceipt(
+      shopAdminActionResult("unauthorized_or_unmapped", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      }),
+    );
+  }
+
+  const boundPreviewDigest = bindPreviewDigestToShop({
+    mappingId: readModel.mapping?.mappingId ?? null,
+    parsedDigest: parsed.digest,
+    shopId: context.selectedShop.shopId,
+  });
+
+  if (requestPreviewDigest !== boundPreviewDigest) {
+    return finalizeImportReceipt(
+      shopAdminActionResult("preview_mismatch", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      }),
+    );
+  }
 
   const adjustedParsed = parsed.importMode === "supplier"
     ? applySupplierWorkbookRows(

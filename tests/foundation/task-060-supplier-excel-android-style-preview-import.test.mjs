@@ -1240,7 +1240,7 @@ test("TASK-060 supplier apply creates products and binds digests to shop context
     "parsedDigest: parsed.digest",
     "shopId: context.selectedShop.shopId",
     "mappingConfirmed: true",
-    "input.previewDigest !== boundPreviewDigest",
+    "requestPreviewDigest !== boundPreviewDigest",
     "const requiredConfirmation =",
     'importMode === "database" ? "IMPORT DATABASE" : "APPLY"',
     "normalizedConfirmation !== requiredConfirmation",

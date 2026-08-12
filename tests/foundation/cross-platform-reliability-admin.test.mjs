@@ -234,6 +234,9 @@ test("large imports keep existing products on revision-guarded updates", () => {
 
 test("supplier import claims and completes a durable receipt before replay", async () => {
   const workbook = read("src/server/shop-admin/import-export-workbook.ts");
+  const fingerprintSource = read(
+    "src/server/shop-admin/catalog-import-request-fingerprint.ts",
+  );
   const rpc = read("src/server/shop-admin/staff-web-lease-bound-rpc.ts");
   const { canonicalCatalogImportRequestPayload } = await import(
     "../../src/server/shop-admin/catalog-import-request-fingerprint.ts"
@@ -248,13 +251,25 @@ test("supplier import claims and completes a durable receipt before replay", asy
     ...shared,
     rowAdjustments: [
       { rowFingerprint: "row-8", rowNumber: 8, skip: true },
-      { productName: "Tea", rowFingerprint: "row-7", rowNumber: 7 },
+      {
+        productName: "Tea",
+        rawBarcode: "  BAR-7 ",
+        rawItemNumber: " ITEM-7 ",
+        rowFingerprint: "row-7",
+        rowNumber: 7,
+      },
     ],
   });
   const equivalentPayload = canonicalCatalogImportRequestPayload({
     ...shared,
     rowAdjustments: [
-      { rowNumber: 7, rowFingerprint: "row-7", productName: "Tea" },
+      {
+        rowNumber: 7,
+        rowFingerprint: "row-7",
+        productName: "Tea",
+        rawBarcode: "BAR-7",
+        rawItemNumber: "ITEM-7",
+      },
       { skip: true, rowNumber: 8, rowFingerprint: "row-8" },
     ],
   });
@@ -265,6 +280,7 @@ test("supplier import claims and completes a durable receipt before replay", asy
     /rowAdjustments: adjustmentValidation\.adjustments/,
   );
   assert.deepEqual(firstPayload, equivalentPayload);
+  assert.doesNotMatch(fingerprintSource, /localeCompare|rawBarcode|rawItemNumber/);
   assert.notDeepEqual(
     firstPayload,
     canonicalCatalogImportRequestPayload({
@@ -284,6 +300,15 @@ test("supplier import claims and completes a durable receipt before replay", asy
     applyImport.indexOf("await callCatalogImportReceiptClaim(") <
       applyImport.indexOf("const syncPreview = buildSupplierSyncPreview("),
     "receipt replay/indeterminate must resolve before state-dependent preview rebuild",
+  );
+  assert.ok(
+    applyImport.indexOf("await callCatalogImportReceiptClaim(") <
+      applyImport.indexOf("await getCatalogWorkbookReadModel(context)"),
+    "receipt replay/indeterminate must resolve before current mapping lookup",
+  );
+  assert.match(
+    applyImport,
+    /previewDigest: requestPreviewDigest,[\s\S]*?await callCatalogImportReceiptClaim/,
   );
   assert.match(
     applyImport,
