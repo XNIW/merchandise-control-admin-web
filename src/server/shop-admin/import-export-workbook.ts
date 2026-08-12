@@ -6151,107 +6151,23 @@ export async function applyCatalogWorkbookImport(
     };
   }
 
-  const adjustedParsed = parsed.importMode === "supplier"
-    ? applySupplierWorkbookRows(
-      parsed,
-      adjustmentValidation.adjustments,
-      readModel,
-      {
-        defaultCategoryName: defaultValidation.defaultCategoryName,
-        defaultSupplierName: defaultValidation.defaultSupplierName,
-      },
-    )
-    : applyRowAdjustments(parsed, adjustmentValidation.adjustments);
+  const syncPreviewDigest = input.syncPreviewDigest;
 
-  if (adjustedParsed.rowErrors.length > 0) {
-    return {
-      ...shopAdminActionResult("validation_failed", {
-        ok: false,
-        shopId: context.selectedShop.shopId,
-      }),
-      previewDigest: boundPreviewDigest,
-      rowErrors: adjustedParsed.rowErrors,
-    };
-  }
-
-  const validation = validateCatalogImportRows(
-    adjustedParsed,
-    readModelAsExistingRows(readModel),
-  );
-  const priceHistoryRowErrors = validatePriceHistoryRows(adjustedParsed, readModel);
-  const rawRowErrors = [
-    ...adjustedParsed.rowErrors,
-    ...validation.rowErrors,
-    ...priceHistoryRowErrors,
-  ];
-  const rowErrors = adjustedParsed.importMode === "supplier"
-    ? supplierVisibleRowErrors(rawRowErrors)
-    : rawRowErrors;
-  const rawRowWarnings = [
-    ...adjustedParsed.rowWarnings,
-    ...validation.rowWarnings,
-    ...(adjustedParsed.importMode === "supplier"
-      ? supplierReferenceWarnings(rawRowErrors)
-      : []),
-  ];
-  const rowWarnings = rawRowWarnings.filter(
-    (issue) => !isSafetySanitizationIssue(issue),
-  );
-  const syncPreview = buildSupplierSyncPreview({
-    adjustedParsed,
-    adjustments: adjustmentValidation.adjustments,
-    boundPreviewDigest,
-    readModel,
-    rowErrors,
-    rowWarnings,
-    sourceParsed: parsed,
-  });
-
-  if (!input.syncPreviewDigest) {
+  if (!syncPreviewDigest) {
     return shopAdminActionResult("preview_required", {
       ok: false,
       shopId: context.selectedShop.shopId,
     });
   }
 
-  if (input.syncPreviewDigest !== syncPreview.fingerprint) {
-    return {
-      ...shopAdminActionResult("preview_mismatch", {
-        ok: false,
-        shopId: context.selectedShop.shopId,
-      }),
-      previewDigest: boundPreviewDigest,
-      rowErrors: syncPreview.errors,
-    };
-  }
-
-  if (!syncPreview.canApply) {
-    return {
-      ...shopAdminActionResult("validation_failed", {
-        ok: false,
-        shopId: context.selectedShop.shopId,
-      }),
-      previewDigest: boundPreviewDigest,
-      rowErrors: syncPreview.errors,
-    };
-  }
-
-  if (rowErrors.length > 0) {
-    return {
-      ...shopAdminActionResult("validation_failed", {
-        ok: false,
-        shopId: context.selectedShop.shopId,
-      }),
-      previewDigest: boundPreviewDigest,
-      rowErrors,
-    };
-  }
-
+  // Claim before rebuilding the state-dependent sync preview. A retry must be
+  // able to replay (or report an indeterminate prior attempt) after the first
+  // apply has legitimately changed the catalog that produced the preview.
   const requestFingerprint = catalogImportRequestFingerprint({
     importMode,
     previewDigest: boundPreviewDigest,
     rowAdjustments: adjustmentValidation.adjustments,
-    syncPreviewDigest: input.syncPreviewDigest,
+    syncPreviewDigest,
   });
   const actorId = context.principalKind === "personal_account"
     ? context.actorProfileId
@@ -6340,6 +6256,95 @@ export async function applyCatalogWorkbookImport(
 
     return result;
   };
+
+  const adjustedParsed = parsed.importMode === "supplier"
+    ? applySupplierWorkbookRows(
+      parsed,
+      adjustmentValidation.adjustments,
+      readModel,
+      {
+        defaultCategoryName: defaultValidation.defaultCategoryName,
+        defaultSupplierName: defaultValidation.defaultSupplierName,
+      },
+    )
+    : applyRowAdjustments(parsed, adjustmentValidation.adjustments);
+
+  if (adjustedParsed.rowErrors.length > 0) {
+    return finalizeImportReceipt({
+      ...shopAdminActionResult("validation_failed", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      }),
+      previewDigest: boundPreviewDigest,
+      rowErrors: adjustedParsed.rowErrors,
+    });
+  }
+
+  const validation = validateCatalogImportRows(
+    adjustedParsed,
+    readModelAsExistingRows(readModel),
+  );
+  const priceHistoryRowErrors = validatePriceHistoryRows(adjustedParsed, readModel);
+  const rawRowErrors = [
+    ...adjustedParsed.rowErrors,
+    ...validation.rowErrors,
+    ...priceHistoryRowErrors,
+  ];
+  const rowErrors = adjustedParsed.importMode === "supplier"
+    ? supplierVisibleRowErrors(rawRowErrors)
+    : rawRowErrors;
+  const rawRowWarnings = [
+    ...adjustedParsed.rowWarnings,
+    ...validation.rowWarnings,
+    ...(adjustedParsed.importMode === "supplier"
+      ? supplierReferenceWarnings(rawRowErrors)
+      : []),
+  ];
+  const rowWarnings = rawRowWarnings.filter(
+    (issue) => !isSafetySanitizationIssue(issue),
+  );
+  const syncPreview = buildSupplierSyncPreview({
+    adjustedParsed,
+    adjustments: adjustmentValidation.adjustments,
+    boundPreviewDigest,
+    readModel,
+    rowErrors,
+    rowWarnings,
+    sourceParsed: parsed,
+  });
+
+  if (syncPreviewDigest !== syncPreview.fingerprint) {
+    return finalizeImportReceipt({
+      ...shopAdminActionResult("preview_mismatch", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      }),
+      previewDigest: boundPreviewDigest,
+      rowErrors: syncPreview.errors,
+    });
+  }
+
+  if (!syncPreview.canApply) {
+    return finalizeImportReceipt({
+      ...shopAdminActionResult("validation_failed", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      }),
+      previewDigest: boundPreviewDigest,
+      rowErrors: syncPreview.errors,
+    });
+  }
+
+  if (rowErrors.length > 0) {
+    return finalizeImportReceipt({
+      ...shopAdminActionResult("validation_failed", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      }),
+      previewDigest: boundPreviewDigest,
+      rowErrors,
+    });
+  }
 
   const supplierIdsByName = new Map(
     readModel.suppliers.map((supplier) => [

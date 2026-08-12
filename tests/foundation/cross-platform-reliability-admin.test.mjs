@@ -77,25 +77,6 @@ test("product editor submits its loaded revision and exposes recoverable conflic
   assert.match(controller, /result\.code === "stale_revision"/);
   assert.match(controller, /rebaseDraftFrom: product/);
   assert.match(controller, /rebaseProductDraft\(rebaseDraftFrom, latestProduct/);
-  for (const field of [
-    "barcode",
-    "categoryName",
-    "itemNumber",
-    "productName",
-    "purchasePrice",
-    "retailPrice",
-    "secondProductName",
-    "stockQuantity",
-    "supplierName",
-  ]) {
-    assert.match(
-      controller,
-      new RegExp(
-        `draft\\.${field} === base\\.${field}[\\s\\S]{0,80}latest\\.${field}[\\s\\S]{0,80}draft\\.${field}`,
-      ),
-      `${field} must preserve only the locally dirty value`,
-    );
-  }
   assert.match(controller, /Reload server version/);
   assert.match(actions, /formString\(formData, "expectedUpdatedAt"\)/);
   assert.match(
@@ -103,6 +84,52 @@ test("product editor submits its loaded revision and exposes recoverable conflic
     /shop_catalog_update_product_if_revision_with_sync/,
   );
   assert.match(mutations, /p_expected_updated_at: expectedUpdatedAt/);
+});
+
+test("product conflict rebase uses server-equivalent field canonicalization", async () => {
+  const { productDraftFromProduct, rebaseProductDraft } = await import(
+    "../../src/lib/product-draft-rebase.ts"
+  );
+  const base = {
+    barcode: "BAR-1",
+    categoryName: "Drinks",
+    itemNumber: "ITEM-1",
+    productName: "Caf\u00e9",
+    purchasePrice: 1,
+    retailPrice: 1.2,
+    secondProductName: "Tea",
+    stockQuantity: 1,
+    supplierName: "Supplier One",
+  };
+  const latest = {
+    ...base,
+    productName: "Server name",
+    retailPrice: 1.3,
+    stockQuantity: 2,
+  };
+  const semanticNoOpDraft = {
+    ...productDraftFromProduct(base),
+    categoryName: "  DRINKS ",
+    productName: "Cafe\u0301",
+    retailPrice: "1.20",
+    stockQuantity: "01",
+    supplierName: "Supplier  One",
+  };
+
+  assert.deepEqual(
+    rebaseProductDraft(base, latest, semanticNoOpDraft),
+    productDraftFromProduct(latest),
+  );
+
+  const locallyEdited = {
+    ...semanticNoOpDraft,
+    productName: "Local name",
+  };
+  assert.equal(
+    rebaseProductDraft(base, latest, locallyEdited).productName,
+    "Local name",
+  );
+  assert.equal(rebaseProductDraft(base, latest, locallyEdited).retailPrice, "1.3");
 });
 
 test("supplier apply is non-interruptible, visible and double-submit safe", () => {
@@ -249,6 +276,19 @@ test("supplier import claims and completes a durable receipt before replay", asy
     }),
   );
   assert.match(workbook, /await callCatalogImportReceiptClaim\(/);
+  const applyImport = workbook.slice(
+    workbook.indexOf("export async function applyCatalogWorkbookImport"),
+    workbook.indexOf("function stringCell"),
+  );
+  assert.ok(
+    applyImport.indexOf("await callCatalogImportReceiptClaim(") <
+      applyImport.indexOf("const syncPreview = buildSupplierSyncPreview("),
+    "receipt replay/indeterminate must resolve before state-dependent preview rebuild",
+  );
+  assert.match(
+    applyImport,
+    /if \(syncPreviewDigest !== syncPreview\.fingerprint\) \{[\s\S]*?return finalizeImportReceipt\(/,
+  );
   assert.match(workbook, /receiptClaimRoot\.state === "replay"/);
   assert.match(workbook, /receiptClaimRoot\.state !== "claimed"/);
   assert.match(workbook, /await callCatalogImportReceiptComplete\(/);

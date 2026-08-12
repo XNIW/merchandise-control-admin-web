@@ -25,6 +25,13 @@ import { ProductImageEditor } from "@/app/shop/_components/ProductImageControls"
 import { LatestAbortableRequest } from "@/app/shop/_components/latest-abortable-request";
 import { useModalFocusTrap } from "@/app/shop/_components/useModalFocusTrap";
 import type { SupportedLocale } from "@/i18n/locales";
+import {
+  areProductDraftsEqual,
+  blankProductDraft,
+  productDraftFromProduct,
+  rebaseProductDraft,
+  type ProductDraft,
+} from "@/lib/product-draft-rebase";
 
 type ProductDetailModalProduct = {
   productId: string;
@@ -95,18 +102,6 @@ type ProductTab =
   | "inventory"
   | "history"
   | "advanced";
-
-type ProductDraft = {
-  barcode: string;
-  categoryName: string;
-  itemNumber: string;
-  productName: string;
-  purchasePrice: string;
-  retailPrice: string;
-  secondProductName: string;
-  stockQuantity: string;
-  supplierName: string;
-};
 
 type ProductDetailIconName =
   | "archive"
@@ -341,85 +336,6 @@ const intlLocaleBySupportedLocale: Record<SupportedLocale, string> = {
 
 function intlLocale(locale: SupportedLocale = "en") {
   return intlLocaleBySupportedLocale[locale] ?? intlLocaleBySupportedLocale.en;
-}
-
-function numberInputValue(value: number | null | undefined) {
-  return value === null || value === undefined ? "" : String(value);
-}
-
-function blankProductDraft(): ProductDraft {
-  return {
-    barcode: "",
-    categoryName: "",
-    itemNumber: "",
-    productName: "",
-    purchasePrice: "",
-    retailPrice: "",
-    secondProductName: "",
-    stockQuantity: "",
-    supplierName: "",
-  };
-}
-
-function productDraftFromProduct(
-  product: ProductDetailModalProduct,
-): ProductDraft {
-  return {
-    barcode: product.barcode,
-    categoryName: product.categoryName ?? "",
-    itemNumber: product.itemNumber ?? "",
-    productName: product.productName ?? "",
-    purchasePrice: numberInputValue(product.purchasePrice),
-    retailPrice: numberInputValue(product.retailPrice),
-    secondProductName: product.secondProductName ?? "",
-    stockQuantity: numberInputValue(product.stockQuantity),
-    supplierName: product.supplierName ?? "",
-  };
-}
-
-function rebaseProductDraft(
-  baseProduct: ProductDetailModalProduct,
-  latestProduct: ProductDetailModalProduct,
-  draft: ProductDraft,
-): ProductDraft {
-  const base = productDraftFromProduct(baseProduct);
-  const latest = productDraftFromProduct(latestProduct);
-
-  return {
-    barcode: draft.barcode === base.barcode ? latest.barcode : draft.barcode,
-    categoryName:
-      draft.categoryName === base.categoryName ? latest.categoryName : draft.categoryName,
-    itemNumber:
-      draft.itemNumber === base.itemNumber ? latest.itemNumber : draft.itemNumber,
-    productName:
-      draft.productName === base.productName ? latest.productName : draft.productName,
-    purchasePrice:
-      draft.purchasePrice === base.purchasePrice ? latest.purchasePrice : draft.purchasePrice,
-    retailPrice:
-      draft.retailPrice === base.retailPrice ? latest.retailPrice : draft.retailPrice,
-    secondProductName:
-      draft.secondProductName === base.secondProductName
-        ? latest.secondProductName
-        : draft.secondProductName,
-    stockQuantity:
-      draft.stockQuantity === base.stockQuantity ? latest.stockQuantity : draft.stockQuantity,
-    supplierName:
-      draft.supplierName === base.supplierName ? latest.supplierName : draft.supplierName,
-  };
-}
-
-function areProductDraftsEqual(left: ProductDraft, right: ProductDraft) {
-  return (
-    left.barcode === right.barcode &&
-    left.categoryName === right.categoryName &&
-    left.itemNumber === right.itemNumber &&
-    left.productName === right.productName &&
-    left.purchasePrice === right.purchasePrice &&
-    left.retailPrice === right.retailPrice &&
-    left.secondProductName === right.secondProductName &&
-    left.stockQuantity === right.stockQuantity &&
-    left.supplierName === right.supplierName
-  );
 }
 
 function isProductDraftDirty(
