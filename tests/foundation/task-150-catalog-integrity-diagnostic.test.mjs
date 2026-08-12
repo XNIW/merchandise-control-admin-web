@@ -16,6 +16,9 @@ test("TASK-150 catalog diagnostic is staging-only and read-only", () => {
   assert.doesNotMatch(workflow, /create\s+(?:temporary|temp)\s+table/i);
   assert.doesNotMatch(workflow, /resolve_pos_catalog_scope_v2\s*\(/i);
   assert.doesNotMatch(workflow, /for\s+(?:share|update)/i);
+  assert.match(workflow, /from target scope[\s\S]*?scope\.blocked is false/);
+  assert.match(workflow, /select count\(\*\) from target\) = 1/);
+  assert.match(workflow, /from diagnostic_target/);
   assert.doesNotMatch(workflow, /\b(?:delete|update|insert|truncate)\s+(?:from|into|public\.|app_private\.)/i);
   assert.doesNotMatch(workflow, /production/i);
 });
