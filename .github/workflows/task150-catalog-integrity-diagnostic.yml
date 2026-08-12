@@ -87,19 +87,81 @@ jobs:
           set local statement_timeout = '5min';
 
           with
-          target as (
-            select
-              shop.shop_id,
-              scope.scope_kind,
-              scope.scope_id,
-              scope.blocked
+          matched_shop as (
+            select shop.shop_id
             from public.shops shop
-            cross join lateral app_private.resolve_pos_catalog_scope_v2(
-              shop.shop_id
-            ) scope
             where encode(extensions.digest(
               pg_catalog.convert_to(shop.shop_code, 'UTF8'), 'sha256'
             ), 'hex') = :'shop_digest'
+          ),
+          scope_inputs as (
+            select
+              shop.shop_id,
+              mapping.owner_user_id as mapped_owner_id,
+              exists (
+                select 1 from public.shop_inventory_sources source
+                where source.shop_id=shop.shop_id
+                  and source.disabled_at is null
+                  and (
+                    source.mapping_state <> 'mapped'
+                    or source.owner_user_id is null
+                    or source.verified_at is null
+                    or not pg_catalog.isfinite(source.created_at)
+                    or (source.verified_at is not null and
+                      not pg_catalog.isfinite(source.verified_at))
+                  )
+              ) as has_blocking_mapping,
+              exists (select 1 from public.inventory_products row
+                where row.shop_id=shop.shop_id)
+                or exists (select 1 from public.inventory_categories row
+                  where row.shop_id=shop.shop_id)
+                or exists (select 1 from public.inventory_suppliers row
+                  where row.shop_id=shop.shop_id)
+                or exists (select 1 from public.inventory_product_prices row
+                  where row.shop_id=shop.shop_id) as has_shop_rows,
+              mapping.owner_user_id is not null and (
+                exists (select 1 from public.inventory_products row
+                  where row.shop_id is null and
+                    row.owner_user_id=mapping.owner_user_id)
+                or exists (select 1 from public.inventory_categories row
+                  where row.shop_id is null and
+                    row.owner_user_id=mapping.owner_user_id)
+                or exists (select 1 from public.inventory_suppliers row
+                  where row.shop_id is null and
+                    row.owner_user_id=mapping.owner_user_id)
+                or exists (select 1 from public.inventory_product_prices row
+                  where row.shop_id is null and
+                    row.owner_user_id=mapping.owner_user_id)
+              ) as has_legacy_rows
+            from matched_shop shop
+            left join lateral (
+              select source.owner_user_id
+              from public.shop_inventory_sources source
+              where source.shop_id=shop.shop_id
+                and source.mapping_state='mapped'
+                and source.owner_user_id is not null
+                and source.verified_at is not null
+                and pg_catalog.isfinite(source.created_at)
+                and pg_catalog.isfinite(source.verified_at)
+                and source.disabled_at is null
+              order by source.created_at desc
+              limit 1
+            ) mapping on true
+          ),
+          target as (
+            select
+              shop_id,
+              case
+                when has_shop_rows and has_legacy_rows
+                  then 'authorized_shop_plus_legacy'
+                when has_shop_rows then 'shop_scoped'
+                else 'legacy_owner_bridge'
+              end as scope_kind,
+              case when has_shop_rows and not has_legacy_rows
+                then shop_id else mapped_owner_id end as scope_id,
+              has_blocking_mapping
+                or (mapped_owner_id is null and not has_shop_rows) as blocked
+            from scope_inputs
           ),
           suppliers as (
             select row.* from public.inventory_suppliers row, target
