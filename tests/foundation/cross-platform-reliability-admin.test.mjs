@@ -191,6 +191,18 @@ test("supplier import claims and completes a durable receipt before replay", () 
   assert.match(rpc, /admin_catalog_import_receipt_complete_v1/);
 });
 
+test("guarded staging migration can validate an exact merged main revision", () => {
+  const workflow = read(
+    ".github/workflows/storefront-v1-staging-migrations.yml",
+  );
+
+  assert.match(workflow, /approvedBranch:/);
+  assert.match(workflow, /refs\/heads\/integration\/storefront-v1/);
+  assert.match(workflow, /refs\/heads\/main/);
+  assert.match(workflow, /process\.env\.GITHUB_SHA === expectedHead/);
+  assert.match(workflow, /APPLY_STOREFRONT_V1_STAGING/);
+});
+
 test("QA mutation fixture uses the same revision guards as the product UI", () => {
   const fixture = read("src/app/shop/qa-sync-fixture/route.ts");
 
