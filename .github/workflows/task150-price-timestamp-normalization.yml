@@ -1,0 +1,354 @@
+name: TASK-150 Price Timestamp Normalization
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_commit_sha:
+        description: "Exact main commit containing the reviewed workflow"
+        required: true
+        type: string
+      shop_code_sha256:
+        description: "SHA-256 of the exact uppercase staging QA shop code"
+        required: true
+        type: string
+      expected_invalid_set_sha256:
+        description: "SHA-256 of the exact sorted invalid price ID set"
+        required: true
+        type: string
+      expected_invalid_count:
+        description: "Exact number of invalid staging price rows"
+        required: true
+        type: string
+      mode:
+        description: "Run a guarded dry-run or apply the exact normalization"
+        required: true
+        type: choice
+        options:
+          - dry-run
+          - apply
+      confirmation:
+        description: "DRY_RUN_TASK150_PRICE_TIMESTAMPS or NORMALIZE_TASK150_PRICE_TIMESTAMPS"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task150-price-timestamp-normalization
+  cancel-in-progress: false
+
+env:
+  SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+
+jobs:
+  normalize:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: cloudflare-staging
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      EXPECTED_COMMIT_SHA: ${{ inputs.expected_commit_sha }}
+      EXPECTED_INVALID_COUNT: ${{ inputs.expected_invalid_count }}
+      EXPECTED_INVALID_SET_SHA256: ${{ inputs.expected_invalid_set_sha256 }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      REQUESTED_CONFIRMATION: ${{ inputs.confirmation }}
+      REQUESTED_MODE: ${{ inputs.mode }}
+      SHOP_CODE_SHA256: ${{ inputs.shop_code_sha256 }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+    steps:
+      - name: Checkout exact main workflow revision
+        uses: actions/checkout@v4
+
+      - name: Verify immutable staging and exact-set inputs
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",").map((value) => value.trim()).filter(Boolean);
+          const mode = process.env.REQUESTED_MODE || "";
+          const confirmation = process.env.REQUESTED_CONFIRMATION || "";
+          const expectedConfirmation = mode === "apply"
+            ? "NORMALIZE_TASK150_PRICE_TIMESTAMPS"
+            : "DRY_RUN_TASK150_PRICE_TIMESTAMPS";
+          const expectedCount = Number(process.env.EXPECTED_INVALID_COUNT);
+          let urlMatchesProject = false;
+          try { urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`; }
+          catch {}
+          const status = {
+            actorExact: process.env.GITHUB_ACTOR === "XNIW",
+            triggeringActorExact: process.env.GITHUB_TRIGGERING_ACTOR === "XNIW",
+            exactMain: process.env.GITHUB_REF === "refs/heads/main",
+            exactCheckout:
+              /^[0-9a-f]{40}$/.test(process.env.EXPECTED_COMMIT_SHA || "") &&
+              process.env.EXPECTED_COMMIT_SHA === process.env.GITHUB_SHA,
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            allowedProject: allowed.includes(ref),
+            urlMatchesProject,
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+            shopDigestShapeOk: /^[0-9a-f]{64}$/.test(
+              process.env.SHOP_CODE_SHA256 || "",
+            ),
+            exactSetDigestShapeOk: /^[0-9a-f]{64}$/.test(
+              process.env.EXPECTED_INVALID_SET_SHA256 || "",
+            ),
+            expectedCountBounded:
+              Number.isSafeInteger(expectedCount) &&
+              expectedCount >= 1 && expectedCount <= 100,
+            modeOk: mode === "dry-run" || mode === "apply",
+            confirmationOk: confirmation === expectedConfirmation,
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build protected database URL
+        run: |
+          set -euo pipefail
+          mkdir -p _task150-price-normalization/evidence
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(
+            `postgresql://postgres.${ref}:${encodeURIComponent(password)}` +
+            `@${host}:5432/postgres?sslmode=require`,
+          );
+          NODE
+          )"
+          echo "::add-mask::$SOURCE_DB_URL"
+          printf '%s' "$SOURCE_DB_URL" > _task150-price-normalization/source-db-url
+          chmod 600 _task150-price-normalization/source-db-url
+
+      - name: Guard and normalize only the exact staging price set
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task150-price-normalization/source-db-url)"
+          cat > _task150-price-normalization/normalize.sql <<'SQL'
+          begin;
+          set local lock_timeout = '5s';
+          set local statement_timeout = '5min';
+
+          create temporary table task150_parameters as
+          select
+            :'expected_count'::integer as expected_count,
+            :'expected_set_digest'::text as expected_set_digest,
+            :'requested_mode'::text as requested_mode,
+            0::integer as updated_count;
+
+          create temporary table task150_target as
+          select
+            shop.shop_id,
+            scope.scope_kind,
+            scope.scope_id,
+            scope.blocked
+          from public.shops shop
+          cross join lateral app_private.resolve_pos_catalog_scope_v2(
+            shop.shop_id
+          ) scope
+          where encode(extensions.digest(
+            pg_catalog.convert_to(shop.shop_code, 'UTF8'), 'sha256'
+          ), 'hex') = :'shop_digest';
+
+          create temporary table task150_invalid_prices as
+          select
+            row.id,
+            row.effective_at as old_effective_at,
+            row.created_at as old_created_at,
+            to_char(row.effective_at::timestamptz at time zone 'UTC',
+              'YYYY-MM-DD HH24:MI:SS') as canonical_effective_at,
+            to_char(row.created_at::timestamptz at time zone 'UTC',
+              'YYYY-MM-DD HH24:MI:SS') as canonical_created_at
+          from public.inventory_product_prices row, task150_target target
+          where (
+              (target.scope_kind in ('shop_scoped','authorized_shop_plus_legacy')
+                and row.shop_id=target.shop_id)
+              or (target.scope_kind in ('legacy_owner_bridge','authorized_shop_plus_legacy')
+                and row.shop_id is null and row.owner_user_id=target.scope_id)
+            )
+            and (
+              pg_catalog.isfinite(row.updated_at) is not true
+              or app_private.sync_price_value_is_canonical_v1(row.price)
+                is not true
+              or app_private.sync_legacy_timestamp_is_canonical_v1(
+                row.effective_at) is not true
+              or app_private.sync_legacy_timestamp_is_canonical_v1(
+                row.created_at) is not true
+              or app_private.sync_price_storage_is_bounded_v1(
+                row.type,row.effective_at,row.source,row.note,row.created_at)
+                is not true
+            );
+
+          do $$
+          declare
+            expected_count integer;
+            expected_digest text;
+            actual_count integer;
+            actual_digest text;
+            target_record record;
+            changed integer := 0;
+            post_integrity bigint;
+          begin
+            select parameters.expected_count, parameters.expected_set_digest
+              into expected_count, expected_digest
+            from task150_parameters parameters;
+
+            if (select count(*) from task150_target) <> 1 then
+              raise exception 'task150_target_shop_digest_not_unique';
+            end if;
+            select * into target_record from task150_target;
+            if target_record.blocked then
+              raise exception 'task150_target_catalog_scope_blocked';
+            end if;
+
+            select count(*), coalesce(encode(extensions.digest(
+              pg_catalog.convert_to(string_agg(
+                'price:' || id::text, ',' order by id::text
+              ), 'UTF8'), 'sha256'), 'hex'), encode(extensions.digest(
+                pg_catalog.convert_to('', 'UTF8'), 'sha256'), 'hex'))
+              into actual_count, actual_digest
+            from task150_invalid_prices;
+
+            if actual_count <> expected_count
+              or actual_digest <> expected_digest then
+              raise exception 'task150_invalid_price_exact_set_changed';
+            end if;
+            if exists (
+              select 1
+              from task150_invalid_prices invalid
+              join public.inventory_product_prices row on row.id=invalid.id
+              where row.shop_id is distinct from target_record.shop_id
+                or row.effective_at !~
+                  '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$'
+                or row.created_at !~
+                  '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$'
+                or pg_catalog.isfinite(row.updated_at) is not true
+                or app_private.sync_price_value_is_canonical_v1(row.price)
+                  is not true
+                or app_private.sync_price_storage_is_bounded_v1(
+                  row.type,row.effective_at,row.source,row.note,row.created_at)
+                  is not true
+                or app_private.sync_price_recovery_row_fits_v1(
+                  row.id,row.owner_user_id,row.product_id,row.type,row.price,
+                  row.effective_at,row.source,row.note,row.created_at,
+                  row.shop_id,row.updated_at) is not true
+                or app_private.sync_legacy_timestamp_is_canonical_v1(
+                  invalid.canonical_effective_at) is not true
+                or app_private.sync_legacy_timestamp_is_canonical_v1(
+                  invalid.canonical_created_at) is not true
+            ) then
+              raise exception 'task150_invalid_price_shape_or_scope_changed';
+            end if;
+
+            if (select requested_mode from task150_parameters) = 'apply' then
+              update public.inventory_product_prices row
+              set effective_at=invalid.canonical_effective_at,
+                  created_at=invalid.canonical_created_at
+              from task150_invalid_prices invalid
+              where row.id=invalid.id
+                and row.effective_at=invalid.old_effective_at
+                and row.created_at=invalid.old_created_at;
+              get diagnostics changed = row_count;
+              if changed <> expected_count then
+                raise exception 'task150_price_normalization_update_count_changed';
+              end if;
+            end if;
+            update task150_parameters set updated_count=changed;
+
+            select app_private.pos_catalog_integrity_violation_count_v2(
+              target_record.shop_id,
+              target_record.scope_kind,
+              target_record.scope_id
+            ) into post_integrity;
+            if (select requested_mode from task150_parameters) = 'apply'
+              and post_integrity <> 0 then
+              raise exception 'task150_catalog_integrity_still_blocked';
+            end if;
+            if (select requested_mode from task150_parameters) = 'dry-run'
+              and post_integrity <> 1 then
+              raise exception 'task150_dry_run_precondition_changed';
+            end if;
+          end;
+          $$;
+
+          select jsonb_pretty(jsonb_build_object(
+            'schemaVersion', 'task150-price-timestamp-normalization-v1',
+            'workflowCommit', :'workflow_sha',
+            'project', '[STAGING_REF]',
+            'mode', (select requested_mode from task150_parameters),
+            'targetShopMatches', (select count(*) from task150_target),
+            'invalidPriceCount', (select count(*) from task150_invalid_prices),
+            'invalidPriceSetSha256', (select expected_set_digest
+              from task150_parameters),
+            'updatedCount', (select updated_count from task150_parameters),
+            'remainingExactInvalidCount', (select count(*)
+              from task150_invalid_prices invalid
+              join public.inventory_product_prices row on row.id=invalid.id
+              where app_private.sync_legacy_timestamp_is_canonical_v1(
+                  row.effective_at) is not true
+                or app_private.sync_legacy_timestamp_is_canonical_v1(
+                  row.created_at) is not true),
+            'catalogIntegrityViolationCount', (
+              select app_private.pos_catalog_integrity_violation_count_v2(
+                target.shop_id,target.scope_kind,target.scope_id)
+              from task150_target target)
+          ));
+
+          commit;
+          SQL
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD/_task150-price-normalization:/normalization" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              -v expected_count="$EXPECTED_INVALID_COUNT" \
+              -v expected_set_digest="$EXPECTED_INVALID_SET_SHA256" \
+              -v requested_mode="$REQUESTED_MODE" \
+              -v shop_digest="$SHOP_CODE_SHA256" \
+              -v workflow_sha="$GITHUB_SHA" \
+              "$SOURCE_DB_URL" \
+              -f /normalization/normalize.sql \
+              > _task150-price-normalization/evidence/report.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const report = JSON.parse(readFileSync(
+            "_task150-price-normalization/evidence/report.json", "utf8",
+          ));
+          console.log(JSON.stringify(report));
+          const apply = report.mode === "apply";
+          if (
+            report.targetShopMatches !== 1 ||
+            report.invalidPriceCount !== Number(process.env.EXPECTED_INVALID_COUNT) ||
+            report.invalidPriceSetSha256 !==
+              process.env.EXPECTED_INVALID_SET_SHA256 ||
+            (apply && (
+              report.updatedCount !== Number(process.env.EXPECTED_INVALID_COUNT) ||
+              report.remainingExactInvalidCount !== 0 ||
+              report.catalogIntegrityViolationCount !== 0
+            )) ||
+            (!apply && (
+              report.updatedCount !== 0 ||
+              report.remainingExactInvalidCount !==
+                Number(process.env.EXPECTED_INVALID_COUNT) ||
+              report.catalogIntegrityViolationCount !== 1
+            ))
+          ) process.exit(1);
+          NODE
+
+      - name: Remove protected connection material
+        if: always()
+        run: rm -f _task150-price-normalization/source-db-url _task150-price-normalization/normalize.sql
+
+      - name: Upload non-secret normalization evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task150-price-timestamp-normalization-${{ github.run_id }}
+          path: _task150-price-normalization/evidence
+          if-no-files-found: error
+          retention-days: 14
