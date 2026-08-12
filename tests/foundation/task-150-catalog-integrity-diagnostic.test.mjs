@@ -29,6 +29,8 @@ test("TASK-150 catalog diagnostic accepts only a digest and emits no raw IDs", (
   assert.match(workflow, /exactSetSha256/);
   assert.match(workflow, /priceFailureCounts/);
   assert.match(workflow, /recoveryRowDoesNotFit/);
+  assert.match(workflow, /priceTimestampShapes/);
+  assert.match(workflow, /effectiveIsoUtc/);
   assert.match(workflow, /project', '\[STAGING_REF\]'/);
   assert.match(workflow, /convert_to\(shop\.shop_code, 'UTF8'\)/);
   assert.equal(workflow.match(/\bshop\.shop_code\b/g)?.length, 1);

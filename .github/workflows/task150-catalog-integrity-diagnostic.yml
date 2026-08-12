@@ -364,6 +364,49 @@ jobs:
                   'UTF8'), 'sha256'), 'hex') from exact_invalid_price_ids),
                 encode(extensions.digest(pg_catalog.convert_to('', 'UTF8'),
                   'sha256'), 'hex'))
+            ),
+            'priceTimestampShapes', jsonb_build_object(
+              'effectiveIsoUtc', (select count(*)
+                from invalid_price_rows invalid join prices row on row.id=invalid.id
+                where row.effective_at ~
+                  '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z$'),
+              'effectiveIsoOffset', (select count(*)
+                from invalid_price_rows invalid join prices row on row.id=invalid.id
+                where row.effective_at ~
+                  '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?[+-][0-9]{2}:[0-9]{2}$'),
+              'effectiveSpaceFraction', (select count(*)
+                from invalid_price_rows invalid join prices row on row.id=invalid.id
+                where row.effective_at ~
+                  '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+$'),
+              'effectiveDateOnly', (select count(*)
+                from invalid_price_rows invalid join prices row on row.id=invalid.id
+                where row.effective_at ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'),
+              'createdIsoUtc', (select count(*)
+                from invalid_price_rows invalid join prices row on row.id=invalid.id
+                where row.created_at ~
+                  '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?Z$'),
+              'createdIsoOffset', (select count(*)
+                from invalid_price_rows invalid join prices row on row.id=invalid.id
+                where row.created_at ~
+                  '^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(\.[0-9]+)?[+-][0-9]{2}:[0-9]{2}$'),
+              'createdSpaceFraction', (select count(*)
+                from invalid_price_rows invalid join prices row on row.id=invalid.id
+                where row.created_at ~
+                  '^[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]+$'),
+              'createdDateOnly', (select count(*)
+                from invalid_price_rows invalid join prices row on row.id=invalid.id
+                where row.created_at ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'),
+              'bothEqual', (select count(*)
+                from invalid_price_rows invalid join prices row on row.id=invalid.id
+                where row.effective_at=row.created_at),
+              'effectiveLengthMin', (select min(length(row.effective_at))
+                from invalid_price_rows invalid join prices row on row.id=invalid.id),
+              'effectiveLengthMax', (select max(length(row.effective_at))
+                from invalid_price_rows invalid join prices row on row.id=invalid.id),
+              'createdLengthMin', (select min(length(row.created_at))
+                from invalid_price_rows invalid join prices row on row.id=invalid.id),
+              'createdLengthMax', (select max(length(row.created_at))
+                from invalid_price_rows invalid join prices row on row.id=invalid.id)
             )
           ));
 
@@ -395,6 +438,7 @@ jobs:
             relationshipViolations: report.relationshipViolations,
             invalidRows: report.invalidRows,
             priceFailureCounts: report.priceFailureCounts,
+            priceTimestampShapes: report.priceTimestampShapes,
           };
           console.log(JSON.stringify(safe));
           if (report.targetShopMatches !== 1 || report.scopeBlocked !== false) {
