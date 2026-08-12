@@ -75,7 +75,27 @@ test("product editor submits its loaded revision and exposes recoverable conflic
   assert.match(controller, /name="expectedUpdatedAt"/);
   assert.match(controller, /value=\{product\.updatedAt\}/);
   assert.match(controller, /result\.code === "stale_revision"/);
-  assert.match(controller, /preserveDraft: true/);
+  assert.match(controller, /rebaseDraftFrom: product/);
+  assert.match(controller, /rebaseProductDraft\(rebaseDraftFrom, latestProduct/);
+  for (const field of [
+    "barcode",
+    "categoryName",
+    "itemNumber",
+    "productName",
+    "purchasePrice",
+    "retailPrice",
+    "secondProductName",
+    "stockQuantity",
+    "supplierName",
+  ]) {
+    assert.match(
+      controller,
+      new RegExp(
+        `draft\\.${field} === base\\.${field}[\\s\\S]{0,80}latest\\.${field}[\\s\\S]{0,80}draft\\.${field}`,
+      ),
+      `${field} must preserve only the locally dirty value`,
+    );
+  }
   assert.match(controller, /Reload server version/);
   assert.match(actions, /formString\(formData, "expectedUpdatedAt"\)/);
   assert.match(
@@ -144,10 +164,17 @@ test("archive and restore submit the rendered product revision", () => {
   );
   const actions = read("src/app/shop/actions.ts");
   const mutations = read("src/server/shop-admin/catalog-mutations.ts");
+  const advancedArchiveForm = detail.slice(
+    detail.indexOf("function ProductArchiveForm"),
+    detail.indexOf("export function ProductDetailModalController"),
+  );
 
   assert.match(catalog, /name="expectedUpdatedAt"/);
   assert.match(catalog, /value=\{selectedProduct\.updatedAt\}/);
-  assert.match(detail, /name="expectedUpdatedAt"[\s\S]*value=\{product\.updatedAt\}/);
+  assert.match(
+    advancedArchiveForm,
+    /name="expectedUpdatedAt"[\s\S]*value=\{product\.updatedAt\}/,
+  );
   assert.match(actions, /archiveProductAction[\s\S]*formString\(formData, "expectedUpdatedAt"\)/);
   assert.match(actions, /restoreProductAction[\s\S]*formString\(formData, "expectedUpdatedAt"\)/);
   assert.match(
@@ -178,11 +205,49 @@ test("large imports keep existing products on revision-guarded updates", () => {
   );
 });
 
-test("supplier import claims and completes a durable receipt before replay", () => {
+test("supplier import claims and completes a durable receipt before replay", async () => {
   const workbook = read("src/server/shop-admin/import-export-workbook.ts");
   const rpc = read("src/server/shop-admin/staff-web-lease-bound-rpc.ts");
+  const { canonicalCatalogImportRequestPayload } = await import(
+    "../../src/server/shop-admin/catalog-import-request-fingerprint.ts"
+  );
+
+  const shared = {
+    importMode: "supplier",
+    previewDigest: "preview",
+    syncPreviewDigest: "sync-preview",
+  };
+  const firstPayload = canonicalCatalogImportRequestPayload({
+    ...shared,
+    rowAdjustments: [
+      { rowFingerprint: "row-8", rowNumber: 8, skip: true },
+      { productName: "Tea", rowFingerprint: "row-7", rowNumber: 7 },
+    ],
+  });
+  const equivalentPayload = canonicalCatalogImportRequestPayload({
+    ...shared,
+    rowAdjustments: [
+      { rowNumber: 7, rowFingerprint: "row-7", productName: "Tea" },
+      { skip: true, rowNumber: 8, rowFingerprint: "row-8" },
+    ],
+  });
 
   assert.match(workbook, /catalogImportRequestFingerprint\(/);
+  assert.match(
+    workbook,
+    /rowAdjustments: adjustmentValidation\.adjustments/,
+  );
+  assert.deepEqual(firstPayload, equivalentPayload);
+  assert.notDeepEqual(
+    firstPayload,
+    canonicalCatalogImportRequestPayload({
+      ...shared,
+      rowAdjustments: [
+        { rowFingerprint: "row-8", rowNumber: 8, skip: true },
+        { productName: "Coffee", rowFingerprint: "row-7", rowNumber: 7 },
+      ],
+    }),
+  );
   assert.match(workbook, /await callCatalogImportReceiptClaim\(/);
   assert.match(workbook, /receiptClaimRoot\.state === "replay"/);
   assert.match(workbook, /receiptClaimRoot\.state !== "claimed"/);

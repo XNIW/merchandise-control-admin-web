@@ -377,6 +377,37 @@ function productDraftFromProduct(
   };
 }
 
+function rebaseProductDraft(
+  baseProduct: ProductDetailModalProduct,
+  latestProduct: ProductDetailModalProduct,
+  draft: ProductDraft,
+): ProductDraft {
+  const base = productDraftFromProduct(baseProduct);
+  const latest = productDraftFromProduct(latestProduct);
+
+  return {
+    barcode: draft.barcode === base.barcode ? latest.barcode : draft.barcode,
+    categoryName:
+      draft.categoryName === base.categoryName ? latest.categoryName : draft.categoryName,
+    itemNumber:
+      draft.itemNumber === base.itemNumber ? latest.itemNumber : draft.itemNumber,
+    productName:
+      draft.productName === base.productName ? latest.productName : draft.productName,
+    purchasePrice:
+      draft.purchasePrice === base.purchasePrice ? latest.purchasePrice : draft.purchasePrice,
+    retailPrice:
+      draft.retailPrice === base.retailPrice ? latest.retailPrice : draft.retailPrice,
+    secondProductName:
+      draft.secondProductName === base.secondProductName
+        ? latest.secondProductName
+        : draft.secondProductName,
+    stockQuantity:
+      draft.stockQuantity === base.stockQuantity ? latest.stockQuantity : draft.stockQuantity,
+    supplierName:
+      draft.supplierName === base.supplierName ? latest.supplierName : draft.supplierName,
+  };
+}
+
 function areProductDraftsEqual(left: ProductDraft, right: ProductDraft) {
   return (
     left.barcode === right.barcode &&
@@ -726,11 +757,6 @@ function ProductOverviewForm({
       {selectedShopId ? <input name="shop_id" type="hidden" value={selectedShopId} /> : null}
       <input name="productId" type="hidden" value={product.productId} />
       <input name="expectedUpdatedAt" type="hidden" value={product.updatedAt} />
-      <input
-        name="expectedUpdatedAt"
-        type="hidden"
-        value={product.updatedAt}
-      />
       <section className="grid gap-3 rounded-md border border-zinc-200 bg-white p-3">
         <FormSectionHeader icon="id" title={translate("Identity")} />
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -891,6 +917,7 @@ function ProductArchiveForm({
     >
       {selectedShopId ? <input name="shop_id" type="hidden" value={selectedShopId} /> : null}
       <input name="productId" type="hidden" value={product.productId} />
+      <input name="expectedUpdatedAt" type="hidden" value={product.updatedAt} />
       <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_minmax(12rem,0.5fr)_auto] md:items-end">
         <label className="grid gap-1 text-sm font-medium text-zinc-800">
           {translate("Reason")}
@@ -953,7 +980,7 @@ export function ProductDetailModalController({
   const loadProduct = useCallback(
     async (
       productId: string,
-      options: { preserveDraft?: boolean } = {},
+      options: { rebaseDraftFrom?: ProductDetailModalProduct } = {},
     ) => {
       const request = detailRequestRef.current.start();
       const params = new URLSearchParams({ product_id: productId });
@@ -979,7 +1006,7 @@ export function ProductDetailModalController({
         }
 
         if (!response.ok || body.status !== "ready") {
-          if (!options.preserveDraft) {
+          if (!options.rebaseDraftFrom) {
             setReadModel(body);
             setDraft(blankProductDraft());
           }
@@ -988,7 +1015,13 @@ export function ProductDetailModalController({
         }
 
         setReadModel(body);
-        if (!options.preserveDraft) {
+        const rebaseDraftFrom = options.rebaseDraftFrom;
+        const latestProduct = body.product;
+        if (rebaseDraftFrom && latestProduct) {
+          setDraft((currentDraft) =>
+            rebaseProductDraft(rebaseDraftFrom, latestProduct, currentDraft),
+          );
+        } else {
           setDraft(
             body.product ? productDraftFromProduct(body.product) : blankProductDraft(),
           );
@@ -999,7 +1032,7 @@ export function ProductDetailModalController({
           return;
         }
 
-        if (!options.preserveDraft) {
+        if (!options.rebaseDraftFrom) {
           setDraft(blankProductDraft());
         }
         setError(translate("Product detail could not be loaded."));
@@ -1331,7 +1364,7 @@ export function ProductDetailModalController({
                     disabled={loading}
                     onClick={() => {
                       void loadProduct(product.productId, {
-                        preserveDraft: true,
+                        rebaseDraftFrom: product,
                       });
                     }}
                     type="button"

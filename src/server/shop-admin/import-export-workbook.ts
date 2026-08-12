@@ -31,6 +31,7 @@ import {
   type ShopAdminActionCode,
   type ShopAdminActionResult,
 } from "./action-context";
+import { canonicalCatalogImportRequestPayload } from "./catalog-import-request-fingerprint";
 import {
   EXCEL_WORKBOOK_SHEETS,
   FORMULA_INJECTION_PATTERN,
@@ -6061,16 +6062,11 @@ function isCatalogWorkbookApplyResult(
 function catalogImportRequestFingerprint(input: {
   importMode: "database" | "supplier";
   previewDigest: string;
-  rowAdjustments?: string;
+  rowAdjustments: readonly object[];
   syncPreviewDigest: string;
 }) {
   return createHash("sha256")
-    .update(JSON.stringify({
-      importMode: input.importMode,
-      previewDigest: input.previewDigest,
-      rowAdjustments: input.rowAdjustments ?? "",
-      syncPreviewDigest: input.syncPreviewDigest,
-    }))
+    .update(JSON.stringify(canonicalCatalogImportRequestPayload(input)))
     .digest("hex");
 }
 
@@ -6254,7 +6250,7 @@ export async function applyCatalogWorkbookImport(
   const requestFingerprint = catalogImportRequestFingerprint({
     importMode,
     previewDigest: boundPreviewDigest,
-    rowAdjustments: input.rowAdjustments,
+    rowAdjustments: adjustmentValidation.adjustments,
     syncPreviewDigest: input.syncPreviewDigest,
   });
   const actorId = context.principalKind === "personal_account"

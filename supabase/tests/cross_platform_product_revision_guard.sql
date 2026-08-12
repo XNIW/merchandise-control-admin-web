@@ -480,7 +480,6 @@ select is(
     from public.sync_events
     where shop_id = '10000000-0000-4000-8000-000000000151'
       and domain = 'catalog'
-      and event_type = 'catalog_changed'
       and entity_ids @> '{"product_ids":["23000000-0000-4000-8000-000000000151"]}'::jsonb
   ),
   (select event_count + 2 from personal_archive_revision_before),

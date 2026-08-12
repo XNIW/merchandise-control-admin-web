@@ -736,7 +736,7 @@ async function observeFinalProductExact(input: FinalSyncRequest) {
   let query = supabase
     .from("inventory_products")
     .select(
-      "id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,supplier_id,category_id,stock_quantity,deleted_at,shop_id",
+      "id,barcode,item_number,product_name,second_product_name,purchase_price,retail_price,supplier_id,category_id,stock_quantity,deleted_at,shop_id,updated_at",
     )
     .eq("shop_id", input.shopId);
 
@@ -763,6 +763,7 @@ async function observeFinalProductExact(input: FinalSyncRequest) {
     shopId: row.shop_id,
     stockQuantity: row.stock_quantity,
     supplierId: row.supplier_id,
+    updatedAt: row.updated_at,
   }));
 
   return {
@@ -1436,6 +1437,7 @@ async function runFinalSyncRequest(
   const needsPreMutationRead =
     readOnlyOperation ||
     (input.scenario === "duplicate" && Boolean(input.entityId)) ||
+    (input.entity === "product" && input.operation !== "create") ||
     (input.operation !== "create" && !input.entityId);
   if (readOnlyOperation) {
     const readContext = await resolveShopActionContext(
