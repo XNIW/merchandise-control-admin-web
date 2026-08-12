@@ -274,6 +274,9 @@ jobs:
                 row.type,row.effective_at,row.source,row.note,row.created_at)
                 is not true
           ),
+          exact_invalid_price_ids as (
+            select 'price:' || id::text value from invalid_price_rows
+          ),
           exact_relational_ids as (
             select 'category:' || id::text value from orphan_category_products
             union all
@@ -322,6 +325,39 @@ jobs:
               'categories', (select count(*) from invalid_category_rows),
               'products', (select count(*) from invalid_product_rows),
               'prices', (select count(*) from invalid_price_rows)
+            ),
+            'priceFailureCounts', jsonb_build_object(
+              'updatedAtNonFinite', (select count(*) from prices row
+                where pg_catalog.isfinite(row.updated_at) is not true),
+              'priceNonCanonical', (select count(*) from prices row
+                where app_private.sync_price_value_is_canonical_v1(row.price)
+                  is not true),
+              'effectiveAtNonCanonical', (select count(*) from prices row
+                where app_private.sync_legacy_timestamp_is_canonical_v1(
+                  row.effective_at) is not true),
+              'createdAtNonCanonical', (select count(*) from prices row
+                where app_private.sync_legacy_timestamp_is_canonical_v1(
+                  row.created_at) is not true),
+              'storageUnbounded', (select count(*) from prices row
+                where app_private.sync_price_storage_is_bounded_v1(
+                  row.type,row.effective_at,row.source,row.note,row.created_at)
+                  is not true),
+              'recoveryRowDoesNotFit', (select count(*) from prices row
+                where app_private.sync_price_recovery_row_fits_v1(
+                  row.id,row.owner_user_id,row.product_id,row.type,row.price,
+                  row.effective_at,row.source,row.note,row.created_at,
+                  row.shop_id,row.updated_at) is not true),
+              'shopScoped', (select count(*) from invalid_price_rows invalid
+                join prices row on row.id=invalid.id
+                where row.shop_id is not null),
+              'legacyOwnerScoped', (select count(*) from invalid_price_rows invalid
+                join prices row on row.id=invalid.id
+                where row.shop_id is null),
+              'exactSetSha256', coalesce((select encode(extensions.digest(
+                pg_catalog.convert_to(string_agg(value, ',' order by value),
+                  'UTF8'), 'sha256'), 'hex') from exact_invalid_price_ids),
+                encode(extensions.digest(pg_catalog.convert_to('', 'UTF8'),
+                  'sha256'), 'hex'))
             )
           ));
 
@@ -352,6 +388,7 @@ jobs:
             duplicateGroups: report.duplicateGroups,
             relationshipViolations: report.relationshipViolations,
             invalidRows: report.invalidRows,
+            priceFailureCounts: report.priceFailureCounts,
           };
           console.log(JSON.stringify(safe));
           if (report.targetShopMatches !== 1 || report.scopeBlocked !== false) {
