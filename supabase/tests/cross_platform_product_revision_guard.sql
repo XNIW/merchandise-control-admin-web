@@ -4,7 +4,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select plan(39);
+select plan(44);
 
 select has_function(
   'public',
@@ -42,6 +42,13 @@ select has_function(
     'timestamp with time zone', 'boolean', 'jsonb'
   ],
   'staff archive revision RPC is additive'
+);
+
+select has_function(
+  'public',
+  'admin_catalog_import_receipt_lookup_v1',
+  array['uuid', 'text', 'uuid', 'text', 'text'],
+  'catalog import receipt lookup RPC is additive'
 );
 
 select has_function(
@@ -117,12 +124,22 @@ select ok(
 select ok(
   has_function_privilege(
     'service_role',
+    'public.admin_catalog_import_receipt_lookup_v1(uuid,text,uuid,text,text)',
+    'EXECUTE'
+  )
+  and has_function_privilege(
+    'service_role',
     'public.admin_catalog_import_receipt_claim_v1(uuid,text,uuid,text,text)',
     'EXECUTE'
   )
   and has_function_privilege(
     'service_role',
     'public.admin_catalog_import_receipt_complete_v1(uuid,uuid,text,jsonb)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'authenticated',
+    'public.admin_catalog_import_receipt_lookup_v1(uuid,text,uuid,text,text)',
     'EXECUTE'
   )
   and not has_function_privilege(
@@ -605,6 +622,41 @@ select is(
   public.admin_catalog_import_receipt_claim_v1(
     p_shop_id => '10000000-0000-4000-8000-000000000151',
     p_actor_kind => 'personal_account',
+    p_actor_id => '00000000-0000-4000-8000-000000000152',
+    p_request_key => repeat('a', 64),
+    p_request_fingerprint => repeat('a', 64)
+  )->>'state',
+  'claimed',
+  'different actors independently claim the same payload in one shop'
+);
+
+select is(
+  public.admin_catalog_import_receipt_lookup_v1(
+    p_shop_id => '10000000-0000-4000-8000-000000000151',
+    p_actor_kind => 'personal_account',
+    p_actor_id => '00000000-0000-4000-8000-000000000151',
+    p_request_key => repeat('d', 64),
+    p_request_fingerprint => repeat('d', 64)
+  )->>'state',
+  'miss',
+  'receipt lookup reports a miss without claiming invalid work'
+);
+
+set local role postgres;
+select is(
+  (
+    select count(*)::text
+    from app_private.catalog_import_receipts
+  ),
+  '2',
+  'receipt lookup miss does not create a durable row'
+);
+set local role service_role;
+
+select is(
+  public.admin_catalog_import_receipt_claim_v1(
+    p_shop_id => '10000000-0000-4000-8000-000000000151',
+    p_actor_kind => 'personal_account',
     p_actor_id => '00000000-0000-4000-8000-000000000151',
     p_request_key => repeat('a', 64),
     p_request_fingerprint => repeat('b', 64)
@@ -651,6 +703,18 @@ select is(
   )->'result'->>'code',
   'success',
   'completed catalog import retry replays the recorded result'
+);
+
+select is(
+  public.admin_catalog_import_receipt_lookup_v1(
+    p_shop_id => '10000000-0000-4000-8000-000000000151',
+    p_actor_kind => 'personal_account',
+    p_actor_id => '00000000-0000-4000-8000-000000000151',
+    p_request_key => repeat('a', 64),
+    p_request_fingerprint => repeat('a', 64)
+  )->'result'->>'code',
+  'success',
+  'read-only receipt lookup replays a completed import before revalidation'
 );
 
 create temporary table catalog_import_expired_claim as

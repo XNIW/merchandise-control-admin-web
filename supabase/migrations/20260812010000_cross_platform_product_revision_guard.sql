@@ -546,7 +546,7 @@ create table if not exists app_private.catalog_import_receipts (
   lease_expires_at timestamptz not null default (now() + interval '30 minutes'),
   completed_at timestamptz,
   result jsonb,
-  unique (shop_id, request_key),
+  unique (shop_id, actor_kind, actor_id, request_key),
   check (
     (status = 'applying' and completed_at is null and result is null)
     or
@@ -557,6 +557,85 @@ create table if not exists app_private.catalog_import_receipts (
 alter table app_private.catalog_import_receipts enable row level security;
 revoke all on table app_private.catalog_import_receipts
   from public, anon, authenticated, service_role;
+
+create or replace function public.admin_catalog_import_receipt_lookup_v1(
+  p_shop_id uuid,
+  p_actor_kind text,
+  p_actor_id uuid,
+  p_request_key text,
+  p_request_fingerprint text
+)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public, app_private, pg_temp
+as $$
+declare
+  v_receipt app_private.catalog_import_receipts%rowtype;
+begin
+  if p_shop_id is null
+    or p_actor_id is null
+    or p_actor_kind not in ('personal_account', 'pos_staff_manager')
+    or p_request_key is null
+    or p_request_key !~ '^[0-9a-f]{64}$'
+    or p_request_fingerprint is null
+    or p_request_fingerprint !~ '^[0-9a-f]{64}$' then
+    return jsonb_build_object('ok', false, 'code', 'validation_failed');
+  end if;
+
+  select *
+  into v_receipt
+  from app_private.catalog_import_receipts receipt
+  where receipt.shop_id = p_shop_id
+    and receipt.actor_kind = p_actor_kind
+    and receipt.actor_id = p_actor_id
+    and receipt.request_key = p_request_key;
+
+  if not found then
+    return jsonb_build_object('ok', true, 'code', 'success', 'state', 'miss');
+  end if;
+
+  if v_receipt.request_fingerprint <> p_request_fingerprint then
+    return jsonb_build_object(
+      'ok', false, 'code', 'idempotency_conflict', 'state', 'conflict'
+    );
+  end if;
+
+  if v_receipt.status = 'completed' then
+    return jsonb_build_object(
+      'ok', true,
+      'code', 'success',
+      'state', 'replay',
+      'receiptId', v_receipt.receipt_id,
+      'result', v_receipt.result
+    );
+  end if;
+
+  if v_receipt.lease_expires_at > now() then
+    return jsonb_build_object(
+      'ok', false,
+      'code', 'import_in_progress',
+      'state', 'applying',
+      'receiptId', v_receipt.receipt_id
+    );
+  end if;
+
+  return jsonb_build_object(
+    'ok', false,
+    'code', 'import_indeterminate',
+    'state', 'indeterminate',
+    'receiptId', v_receipt.receipt_id
+  );
+end;
+$$;
+
+revoke all on function public.admin_catalog_import_receipt_lookup_v1(
+  uuid, text, uuid, text, text
+) from public, anon, authenticated, service_role;
+grant execute on function public.admin_catalog_import_receipt_lookup_v1(
+  uuid, text, uuid, text, text
+) to service_role;
 
 create or replace function public.admin_catalog_import_receipt_claim_v1(
   p_shop_id uuid,
@@ -590,7 +669,7 @@ begin
     p_shop_id, p_actor_kind, p_actor_id, p_request_key,
     p_request_fingerprint, 'applying'
   )
-  on conflict (shop_id, request_key) do nothing
+  on conflict (shop_id, actor_kind, actor_id, request_key) do nothing
   returning * into v_receipt;
 
   if found then
@@ -607,12 +686,12 @@ begin
   into v_receipt
   from app_private.catalog_import_receipts receipt
   where receipt.shop_id = p_shop_id
+    and receipt.actor_kind = p_actor_kind
+    and receipt.actor_id = p_actor_id
     and receipt.request_key = p_request_key
   for update;
 
-  if v_receipt.request_fingerprint <> p_request_fingerprint
-    or v_receipt.actor_kind <> p_actor_kind
-    or v_receipt.actor_id <> p_actor_id then
+  if v_receipt.request_fingerprint <> p_request_fingerprint then
     return jsonb_build_object(
       'ok', false, 'code', 'idempotency_conflict', 'state', 'conflict'
     );

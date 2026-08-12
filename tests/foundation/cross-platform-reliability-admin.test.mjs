@@ -103,17 +103,23 @@ test("product conflict rebase uses server-equivalent field canonicalization", as
   };
   const latest = {
     ...base,
+    categoryName: "Server category",
+    itemNumber: "ITEM-2",
     productName: "Server name",
     retailPrice: 1.3,
+    secondProductName: "Server secondary name",
     stockQuantity: 2,
+    supplierName: "Server supplier",
   };
   const semanticNoOpDraft = {
     ...productDraftFromProduct(base),
-    categoryName: "  DRINKS ",
+    categoryName: " \uFEFFDRINKS\uFEFF ",
+    itemNumber: "\uFEFFITEM-1\uFEFF",
     productName: "Cafe\u0301",
     retailPrice: "1.20",
+    secondProductName: "\uFEFFTea\uFEFF",
     stockQuantity: "01",
-    supplierName: "Supplier  One",
+    supplierName: " \uFEFFSupplier  One\uFEFF ",
   };
 
   assert.deepEqual(
@@ -174,8 +180,13 @@ test("revision migration is additive, locked down and non-destructive", () => {
     /staff_web_catalog_set_product_archived_if_revision_v1/,
   );
   assert.match(migration, /app_private\.catalog_import_receipts/);
+  assert.match(migration, /admin_catalog_import_receipt_lookup_v1/);
   assert.match(migration, /admin_catalog_import_receipt_claim_v1/);
   assert.match(migration, /admin_catalog_import_receipt_complete_v1/);
+  assert.match(
+    migration,
+    /unique \(shop_id, actor_kind, actor_id, request_key\)/,
+  );
   assert.match(migration, /v_receipt\.claim_token <> p_claim_token/);
   assert.match(migration, /v_receipt\.request_fingerprint <> p_request_fingerprint/);
   assert.doesNotMatch(
@@ -292,31 +303,45 @@ test("supplier import claims and completes a durable receipt before replay", asy
     }),
   );
   assert.match(workbook, /await callCatalogImportReceiptClaim\(/);
+  assert.match(workbook, /await callCatalogImportReceiptLookup\(/);
   const applyImport = workbook.slice(
     workbook.indexOf("export async function applyCatalogWorkbookImport"),
     workbook.indexOf("function stringCell"),
   );
   assert.ok(
-    applyImport.indexOf("await callCatalogImportReceiptClaim(") <
+    applyImport.indexOf("await callCatalogImportReceiptLookup(") <
       applyImport.indexOf("const syncPreview = buildSupplierSyncPreview("),
     "receipt replay/indeterminate must resolve before state-dependent preview rebuild",
   );
   assert.ok(
-    applyImport.indexOf("await callCatalogImportReceiptClaim(") <
+    applyImport.indexOf("await callCatalogImportReceiptLookup(") <
       applyImport.indexOf("await getCatalogWorkbookReadModel(context)"),
     "receipt replay/indeterminate must resolve before current mapping lookup",
   );
   assert.match(
     applyImport,
-    /previewDigest: requestPreviewDigest,[\s\S]*?await callCatalogImportReceiptClaim/,
+    /previewDigest: requestPreviewDigest,[\s\S]*?await callCatalogImportReceiptLookup/,
   );
-  assert.match(
-    applyImport,
-    /if \(syncPreviewDigest !== syncPreview\.fingerprint\) \{[\s\S]*?return finalizeImportReceipt\(/,
+  const previewMismatchBranch = applyImport.slice(
+    applyImport.indexOf("if (syncPreviewDigest !== syncPreview.fingerprint)"),
+    applyImport.indexOf("if (!syncPreview.canApply)"),
+  );
+  assert.match(previewMismatchBranch, /shopAdminActionResult\("preview_mismatch"/);
+  assert.doesNotMatch(previewMismatchBranch, /finalizeImportReceipt/);
+  assert.ok(
+    applyImport.indexOf("await callCatalogImportReceiptClaim(") >
+      applyImport.indexOf("if (rowErrors.length > 0)"),
+    "invalid previews must not create durable import receipts",
+  );
+  assert.ok(
+    applyImport.indexOf("await callCatalogImportReceiptClaim(") <
+      applyImport.indexOf("const supplierIdsByName = new Map("),
+    "a validated request must claim atomically before its first mutation",
   );
   assert.match(workbook, /receiptClaimRoot\.state === "replay"/);
   assert.match(workbook, /receiptClaimRoot\.state !== "claimed"/);
   assert.match(workbook, /await callCatalogImportReceiptComplete\(/);
+  assert.match(rpc, /admin_catalog_import_receipt_lookup_v1/);
   assert.match(rpc, /admin_catalog_import_receipt_claim_v1/);
   assert.match(rpc, /admin_catalog_import_receipt_complete_v1/);
 });

@@ -124,6 +124,25 @@ export function callCatalogImportReceiptClaim(input: {
   });
 }
 
+export function callCatalogImportReceiptLookup(input: {
+  actorId: string;
+  actorKind: "personal_account" | "pos_staff_manager";
+  requestFingerprint: string;
+  requestKey: string;
+  shopId: string;
+}) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("admin_catalog_import_receipt_lookup_v1", {
+    p_actor_id: input.actorId,
+    p_actor_kind: input.actorKind,
+    p_request_fingerprint: input.requestFingerprint,
+    p_request_key: input.requestKey,
+    p_shop_id: input.shopId,
+  });
+}
+
 export function callCatalogImportReceiptComplete(input: {
   claimToken: string;
   receiptId: string;

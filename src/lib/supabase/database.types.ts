@@ -3621,6 +3621,16 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_catalog_import_receipt_lookup_v1: {
+        Args: {
+          p_actor_id: string
+          p_actor_kind: string
+          p_request_fingerprint: string
+          p_request_key: string
+          p_shop_id: string
+        }
+        Returns: Json
+      }
       admin_catalog_import_receipt_complete_v1: {
         Args: {
           p_claim_token: string

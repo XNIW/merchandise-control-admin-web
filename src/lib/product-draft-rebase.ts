@@ -109,7 +109,7 @@ function canonicalProductDraftField(
         required: true,
       });
     case "itemNumber":
-      return canonicalIdentityValue(value, {
+      return canonicalIdentityValue(value.trim(), {
         maxLength: CATALOG_TEXT_LIMITS.itemNumber,
         required: false,
       });
@@ -119,19 +119,19 @@ function canonicalProductDraftField(
         required: false,
       });
     case "secondProductName":
-      return canonicalTextValue(value, {
+      return canonicalTextValue(value.trim(), {
         maxLength: CATALOG_TEXT_LIMITS.secondProductName,
         required: false,
       });
     case "categoryName":
       return canonicalTextValue(
-        value,
+        value.trim(),
         { maxLength: CATALOG_TEXT_LIMITS.categoryName, required: false },
         true,
       );
     case "supplierName":
       return canonicalTextValue(
-        value,
+        value.trim(),
         { maxLength: CATALOG_TEXT_LIMITS.supplierName, required: false },
         true,
       );
