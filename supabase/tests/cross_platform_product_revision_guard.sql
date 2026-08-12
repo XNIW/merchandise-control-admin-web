@@ -392,6 +392,7 @@ select
   ) as event_count
 from public.inventory_products product
 where product.id = '23000000-0000-4000-8000-000000000151';
+grant select on personal_archive_revision_before to authenticated;
 set local role authenticated;
 
 select is(
@@ -414,6 +415,7 @@ create temporary table personal_archive_revision_after as
 select updated_at
 from public.inventory_products
 where id = '23000000-0000-4000-8000-000000000151';
+grant select on personal_archive_revision_after to authenticated;
 
 select is(
   (
