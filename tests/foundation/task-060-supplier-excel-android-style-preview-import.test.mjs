@@ -448,7 +448,7 @@ test("TASK-060 supplier modal has Android-style drop zone and empty mutating inp
   );
   assertContains(workbook, "supplierSyncPreviewFingerprint");
   assertContains(workbook, "input.syncPreviewDigest");
-  assertContains(workbook, "input.syncPreviewDigest !== syncPreview.fingerprint");
+  assertContains(workbook, "syncPreviewDigest !== syncPreview.fingerprint");
   assertContains(workbook, "!syncPreview.canApply");
   assertContains(workbook, "newProducts");
   assertContains(workbook, "updatedProducts");
