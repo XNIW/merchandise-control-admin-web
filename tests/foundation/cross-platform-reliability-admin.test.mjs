@@ -350,12 +350,30 @@ test("guarded staging migration can validate an exact merged main revision", () 
   const workflow = read(
     ".github/workflows/storefront-v1-staging-migrations.yml",
   );
+  const revisionCaller = read(
+    ".github/workflows/cross-platform-product-revision-staging.yml",
+  );
 
   assert.match(workflow, /approvedBranch:/);
   assert.match(workflow, /refs\/heads\/integration\/storefront-v1/);
   assert.match(workflow, /refs\/heads\/main/);
   assert.match(workflow, /process\.env\.GITHUB_SHA === expectedHead/);
   assert.match(workflow, /APPLY_STOREFRONT_V1_STAGING/);
+  assert.match(
+    revisionCaller,
+    /uses: \.\/\.github\/workflows\/storefront-v1-staging-migrations\.yml/,
+  );
+  assert.match(
+    revisionCaller,
+    /expected_migration_version: "20260812010000"/,
+  );
+  assert.match(
+    revisionCaller,
+    /expected_migration_name: cross_platform_product_revision_guard/,
+  );
+  assert.match(revisionCaller, /expected_head_sha: \$\{\{ github\.sha \}\}/);
+  assert.doesNotMatch(revisionCaller, /expected_predecessor_migration/);
+  assert.match(revisionCaller, /run_performance_load: false/);
 });
 
 test("QA mutation fixture uses the same revision guards as the product UI", () => {

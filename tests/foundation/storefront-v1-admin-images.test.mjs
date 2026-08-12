@@ -581,7 +581,7 @@ test("Storefront migration predecessor is an atomic tuple across every caller", 
   const defaultBridgeCallers = reusableCallers.filter(
     ({ source }) => !source.includes("expected_migration_version:"),
   );
-  assert.equal(reusableCallers.length, 15);
+  assert.equal(reusableCallers.length, 16);
   assert.deepEqual(
     twoMigrationCallers.map(({ fileName }) => fileName).sort(),
     [
@@ -600,7 +600,7 @@ test("Storefront migration predecessor is an atomic tuple across every caller", 
   );
   assert.equal(
     reusableCallers.length - twoMigrationCallers.length - defaultBridgeCallers.length,
-    12,
+    13,
   );
 });
 
