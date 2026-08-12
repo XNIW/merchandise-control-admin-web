@@ -86,33 +86,21 @@ jobs:
           begin transaction read only;
           set local statement_timeout = '5min';
 
-          create temporary table target_scope on commit drop as
-          select
-            shop.shop_id,
-            scope.scope_kind,
-            scope.scope_id,
-            scope.blocked
-          from public.shops shop
-          cross join lateral app_private.resolve_pos_catalog_scope_v2(
-            shop.shop_id
-          ) scope
-          where encode(extensions.digest(
-            pg_catalog.convert_to(shop.shop_code, 'UTF8'), 'sha256'
-          ), 'hex') = :'shop_digest';
-
-          do $$
-          begin
-            if (select count(*) from target_scope) <> 1 then
-              raise exception 'task150_target_shop_digest_not_unique';
-            end if;
-            if (select blocked from target_scope) then
-              raise exception 'task150_target_shop_scope_blocked';
-            end if;
-          end;
-          $$;
-
           with
-          target as (select * from target_scope),
+          target as (
+            select
+              shop.shop_id,
+              scope.scope_kind,
+              scope.scope_id,
+              scope.blocked
+            from public.shops shop
+            cross join lateral app_private.resolve_pos_catalog_scope_v2(
+              shop.shop_id
+            ) scope
+            where encode(extensions.digest(
+              pg_catalog.convert_to(shop.shop_code, 'UTF8'), 'sha256'
+            ), 'hex') = :'shop_digest'
+          ),
           suppliers as (
             select row.* from public.inventory_suppliers row, target
             where (target.scope_kind in ('shop_scoped','authorized_shop_plus_legacy')
@@ -237,6 +225,7 @@ jobs:
             'project', '[STAGING_REF]',
             'targetShopMatches', (select count(*) from target),
             'scopeKind', (select scope_kind from target),
+            'scopeBlocked', (select blocked from target),
             'integrityViolationCount', (
               select app_private.pos_catalog_integrity_violation_count_v2(
                 shop_id, scope_kind, scope_id) from target
@@ -295,6 +284,7 @@ jobs:
             schemaVersion: report.schemaVersion,
             targetShopMatches: report.targetShopMatches,
             scopeKind: report.scopeKind,
+            scopeBlocked: report.scopeBlocked,
             integrityViolationCount: report.integrityViolationCount,
             entityCounts: report.entityCounts,
             duplicateGroups: report.duplicateGroups,
@@ -302,7 +292,9 @@ jobs:
             invalidRows: report.invalidRows,
           };
           console.log(JSON.stringify(safe));
-          if (report.targetShopMatches !== 1) process.exit(1);
+          if (report.targetShopMatches !== 1 || report.scopeBlocked !== false) {
+            process.exit(1);
+          }
           NODE
 
       - name: Remove protected connection material

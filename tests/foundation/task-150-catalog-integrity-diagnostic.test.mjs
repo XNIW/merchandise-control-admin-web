@@ -13,6 +13,7 @@ test("TASK-150 catalog diagnostic is staging-only and read-only", () => {
   assert.match(workflow, /exactMain: process\.env\.GITHUB_REF === "refs\/heads\/main"/);
   assert.match(workflow, /begin transaction read only;/);
   assert.match(workflow, /rollback;/);
+  assert.doesNotMatch(workflow, /create\s+(?:temporary|temp)\s+table/i);
   assert.doesNotMatch(workflow, /\b(?:delete|update|insert|truncate)\s+(?:from|into|public\.|app_private\.)/i);
   assert.doesNotMatch(workflow, /production/i);
 });
@@ -22,6 +23,7 @@ test("TASK-150 catalog diagnostic accepts only a digest and emits no raw IDs", (
   assert.match(workflow, /\^\[0-9a-f\]\{64\}\$/);
   assert.match(workflow, /exactSetSha256/);
   assert.match(workflow, /project', '\[STAGING_REF\]'/);
-  assert.doesNotMatch(workflow, /select\s+[^;]*\bshop_code\b[^;]*from/i);
+  assert.match(workflow, /convert_to\(shop\.shop_code, 'UTF8'\)/);
+  assert.equal(workflow.match(/\bshop\.shop_code\b/g)?.length, 1);
   assert.doesNotMatch(workflow, /jsonb_build_object\([^)]*\b(?:shopId|productId|supplierId|categoryId|priceId)\b/i);
 });
