@@ -1,0 +1,319 @@
+name: TASK-150 Catalog Integrity Diagnostic
+
+on:
+  workflow_dispatch:
+    inputs:
+      shop_code_sha256:
+        description: "SHA-256 of the exact uppercase staging QA shop code"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: task150-catalog-integrity-diagnostic
+  cancel-in-progress: false
+
+env:
+  SOURCE_POOLER_HOST: aws-1-sa-east-1.pooler.supabase.com
+
+jobs:
+  diagnose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    environment: cloudflare-staging
+    env:
+      ALLOWED_STAGING_SUPABASE_PROJECT_REFS: ${{ vars.ALLOWED_STAGING_SUPABASE_PROJECT_REFS }}
+      NEXT_PUBLIC_SUPABASE_URL: ${{ vars.NEXT_PUBLIC_SUPABASE_URL }}
+      SHOP_CODE_SHA256: ${{ inputs.shop_code_sha256 }}
+      STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+
+    steps:
+      - name: Checkout exact main workflow revision
+        uses: actions/checkout@v4
+
+      - name: Verify immutable read-only staging inputs
+        run: |
+          set -euo pipefail
+          node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF || "";
+          const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+          const allowed = (process.env.ALLOWED_STAGING_SUPABASE_PROJECT_REFS || "")
+            .split(",").map((value) => value.trim()).filter(Boolean);
+          let urlMatchesProject = false;
+          try { urlMatchesProject = new URL(url).hostname === `${ref}.supabase.co`; }
+          catch {}
+          const status = {
+            exactMain: process.env.GITHUB_REF === "refs/heads/main",
+            projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
+            allowedProject: allowed.includes(ref),
+            urlMatchesProject,
+            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
+            shopDigestShapeOk: /^[0-9a-f]{64}$/.test(
+              process.env.SHOP_CODE_SHA256 || "",
+            ),
+          };
+          console.log(JSON.stringify(status));
+          if (Object.values(status).some((value) => !value)) process.exit(1);
+          NODE
+
+      - name: Build protected database URL
+        run: |
+          set -euo pipefail
+          mkdir -p _task150-catalog-diagnostic/evidence
+          SOURCE_DB_URL="$(node <<'NODE'
+          const ref = process.env.STAGING_SUPABASE_PROJECT_REF;
+          const password = process.env.SUPABASE_DB_PASSWORD;
+          const host = process.env.SOURCE_POOLER_HOST;
+          if (!ref || !password || !host) process.exit(1);
+          process.stdout.write(
+            `postgresql://postgres.${ref}:${encodeURIComponent(password)}` +
+            `@${host}:5432/postgres?sslmode=require`,
+          );
+          NODE
+          )"
+          echo "::add-mask::$SOURCE_DB_URL"
+          printf '%s' "$SOURCE_DB_URL" > _task150-catalog-diagnostic/source-db-url
+          chmod 600 _task150-catalog-diagnostic/source-db-url
+
+      - name: Diagnose exact QA catalog without mutation
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _task150-catalog-diagnostic/source-db-url)"
+          cat > _task150-catalog-diagnostic/diagnose.sql <<'SQL'
+          begin transaction read only;
+          set local statement_timeout = '5min';
+
+          create temporary table target_scope on commit drop as
+          select
+            shop.shop_id,
+            scope.scope_kind,
+            scope.scope_id,
+            scope.blocked
+          from public.shops shop
+          cross join lateral app_private.resolve_pos_catalog_scope_v2(
+            shop.shop_id
+          ) scope
+          where encode(extensions.digest(
+            pg_catalog.convert_to(shop.shop_code, 'UTF8'), 'sha256'
+          ), 'hex') = :'shop_digest';
+
+          do $$
+          begin
+            if (select count(*) from target_scope) <> 1 then
+              raise exception 'task150_target_shop_digest_not_unique';
+            end if;
+            if (select blocked from target_scope) then
+              raise exception 'task150_target_shop_scope_blocked';
+            end if;
+          end;
+          $$;
+
+          with
+          target as (select * from target_scope),
+          suppliers as (
+            select row.* from public.inventory_suppliers row, target
+            where (target.scope_kind in ('shop_scoped','authorized_shop_plus_legacy')
+                and row.shop_id=target.shop_id)
+              or (target.scope_kind in ('legacy_owner_bridge','authorized_shop_plus_legacy')
+                and row.shop_id is null and row.owner_user_id=target.scope_id)
+          ),
+          categories as (
+            select row.* from public.inventory_categories row, target
+            where (target.scope_kind in ('shop_scoped','authorized_shop_plus_legacy')
+                and row.shop_id=target.shop_id)
+              or (target.scope_kind in ('legacy_owner_bridge','authorized_shop_plus_legacy')
+                and row.shop_id is null and row.owner_user_id=target.scope_id)
+          ),
+          products as (
+            select row.* from public.inventory_products row, target
+            where (target.scope_kind in ('shop_scoped','authorized_shop_plus_legacy')
+                and row.shop_id=target.shop_id)
+              or (target.scope_kind in ('legacy_owner_bridge','authorized_shop_plus_legacy')
+                and row.shop_id is null and row.owner_user_id=target.scope_id)
+          ),
+          prices as (
+            select row.* from public.inventory_product_prices row, target
+            where (target.scope_kind in ('shop_scoped','authorized_shop_plus_legacy')
+                and row.shop_id=target.shop_id)
+              or (target.scope_kind in ('legacy_owner_bridge','authorized_shop_plus_legacy')
+                and row.shop_id is null and row.owner_user_id=target.scope_id)
+          ),
+          duplicate_barcodes as (
+            select barcode from products where deleted_at is null
+            group by barcode having count(*) > 1
+          ),
+          duplicate_suppliers as (
+            select lower(name) name_key from suppliers where deleted_at is null
+            group by lower(name) having count(*) > 1
+          ),
+          duplicate_categories as (
+            select lower(name) name_key from categories where deleted_at is null
+            group by lower(name) having count(*) > 1
+          ),
+          orphan_category_products as (
+            select product.id from products product
+            where product.deleted_at is null and product.category_id is not null
+              and not exists (
+                select 1 from categories category
+                where category.id=product.category_id
+                  and category.deleted_at is null
+              )
+          ),
+          orphan_supplier_products as (
+            select product.id from products product
+            where product.deleted_at is null and product.supplier_id is not null
+              and not exists (
+                select 1 from suppliers supplier
+                where supplier.id=product.supplier_id
+                  and supplier.deleted_at is null
+              )
+          ),
+          missing_product_prices as (
+            select price.id from prices price
+            where not exists (
+              select 1 from products product
+              where product.id=price.product_id
+            )
+          ),
+          invalid_supplier_rows as (
+            select row.id from suppliers row where
+              pg_catalog.isfinite(row.updated_at) is not true
+              or (row.deleted_at is not null and
+                pg_catalog.isfinite(row.deleted_at) is not true)
+              or app_private.sync_supplier_storage_is_bounded_v1(row.name)
+                is not true
+          ),
+          invalid_category_rows as (
+            select row.id from categories row where
+              pg_catalog.isfinite(row.updated_at) is not true
+              or (row.deleted_at is not null and
+                pg_catalog.isfinite(row.deleted_at) is not true)
+              or app_private.sync_category_storage_is_bounded_v1(row.name)
+                is not true
+          ),
+          invalid_product_rows as (
+            select row.id from products row where
+              pg_catalog.isfinite(row.updated_at) is not true
+              or (row.deleted_at is not null and
+                pg_catalog.isfinite(row.deleted_at) is not true)
+              or (row.primary_image_updated_at is not null and
+                pg_catalog.isfinite(row.primary_image_updated_at) is not true)
+              or app_private.sync_product_number_is_materializable_v1(
+                row.purchase_price) is not true
+              or app_private.sync_product_number_is_materializable_v1(
+                row.retail_price) is not true
+              or app_private.sync_product_number_is_materializable_v1(
+                row.stock_quantity) is not true
+              or app_private.sync_product_storage_is_bounded_v1(
+                row.barcode,row.item_number,row.product_name,
+                row.second_product_name) is not true
+          ),
+          invalid_price_rows as (
+            select row.id from prices row where
+              pg_catalog.isfinite(row.updated_at) is not true
+              or app_private.sync_price_value_is_canonical_v1(row.price)
+                is not true
+              or app_private.sync_legacy_timestamp_is_canonical_v1(
+                row.effective_at) is not true
+              or app_private.sync_legacy_timestamp_is_canonical_v1(
+                row.created_at) is not true
+              or app_private.sync_price_storage_is_bounded_v1(
+                row.type,row.effective_at,row.source,row.note,row.created_at)
+                is not true
+          ),
+          exact_relational_ids as (
+            select 'category:' || id::text value from orphan_category_products
+            union all
+            select 'supplier:' || id::text from orphan_supplier_products
+            union all
+            select 'price:' || id::text from missing_product_prices
+          )
+          select jsonb_pretty(jsonb_build_object(
+            'schemaVersion', 'task150-catalog-integrity-diagnostic-v1',
+            'workflowCommit', :'workflow_sha',
+            'project', '[STAGING_REF]',
+            'targetShopMatches', (select count(*) from target),
+            'scopeKind', (select scope_kind from target),
+            'integrityViolationCount', (
+              select app_private.pos_catalog_integrity_violation_count_v2(
+                shop_id, scope_kind, scope_id) from target
+            ),
+            'entityCounts', jsonb_build_object(
+              'suppliers', (select count(*) from suppliers),
+              'categories', (select count(*) from categories),
+              'products', (select count(*) from products),
+              'prices', (select count(*) from prices)
+            ),
+            'duplicateGroups', jsonb_build_object(
+              'barcodes', (select count(*) from duplicate_barcodes),
+              'suppliers', (select count(*) from duplicate_suppliers),
+              'categories', (select count(*) from duplicate_categories)
+            ),
+            'relationshipViolations', jsonb_build_object(
+              'orphanCategoryProducts',
+                (select count(*) from orphan_category_products),
+              'orphanSupplierProducts',
+                (select count(*) from orphan_supplier_products),
+              'missingProductPrices',
+                (select count(*) from missing_product_prices),
+              'exactSetSha256', coalesce((
+                select encode(extensions.digest(pg_catalog.convert_to(
+                  string_agg(value, ',' order by value), 'UTF8'
+                ), 'sha256'), 'hex') from exact_relational_ids
+              ), encode(extensions.digest(pg_catalog.convert_to(
+                '', 'UTF8'), 'sha256'), 'hex'))
+            ),
+            'invalidRows', jsonb_build_object(
+              'suppliers', (select count(*) from invalid_supplier_rows),
+              'categories', (select count(*) from invalid_category_rows),
+              'products', (select count(*) from invalid_product_rows),
+              'prices', (select count(*) from invalid_price_rows)
+            )
+          ));
+
+          rollback;
+          SQL
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD/_task150-catalog-diagnostic:/diagnostic" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              -v shop_digest="$SHOP_CODE_SHA256" \
+              -v workflow_sha="$GITHUB_SHA" \
+              "$SOURCE_DB_URL" \
+              -f /diagnostic/diagnose.sql \
+              > _task150-catalog-diagnostic/evidence/report.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const report = JSON.parse(readFileSync(
+            "_task150-catalog-diagnostic/evidence/report.json", "utf8",
+          ));
+          const safe = {
+            schemaVersion: report.schemaVersion,
+            targetShopMatches: report.targetShopMatches,
+            scopeKind: report.scopeKind,
+            integrityViolationCount: report.integrityViolationCount,
+            entityCounts: report.entityCounts,
+            duplicateGroups: report.duplicateGroups,
+            relationshipViolations: report.relationshipViolations,
+            invalidRows: report.invalidRows,
+          };
+          console.log(JSON.stringify(safe));
+          if (report.targetShopMatches !== 1) process.exit(1);
+          NODE
+
+      - name: Remove protected connection material
+        if: always()
+        run: rm -f _task150-catalog-diagnostic/source-db-url _task150-catalog-diagnostic/diagnose.sql
+
+      - name: Upload non-secret diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: task150-catalog-integrity-diagnostic-${{ github.run_id }}
+          path: _task150-catalog-diagnostic/evidence
+          if-no-files-found: error
+          retention-days: 14
