@@ -56,7 +56,6 @@ jobs:
       REQUESTED_MODE: ${{ inputs.mode }}
       SHOP_CODE_SHA256: ${{ inputs.shop_code_sha256 }}
       STAGING_SUPABASE_PROJECT_REF: ${{ vars.STAGING_SUPABASE_PROJECT_REF }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
 
     steps:
       - name: Checkout exact main workflow revision
@@ -89,7 +88,6 @@ jobs:
             projectRefShapeOk: /^[a-z0-9]{20}$/.test(ref),
             allowedProject: allowed.includes(ref),
             urlMatchesProject,
-            databasePasswordPresent: Boolean(process.env.SUPABASE_DB_PASSWORD),
             shopDigestShapeOk: /^[0-9a-f]{64}$/.test(
               process.env.SHOP_CODE_SHA256 || "",
             ),
@@ -107,6 +105,8 @@ jobs:
           NODE
 
       - name: Build protected database URL
+        env:
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
         run: |
           set -euo pipefail
           mkdir -p _task150-price-normalization/evidence
@@ -246,6 +246,14 @@ jobs:
             end if;
 
             if (select requested_mode from task150_parameters) = 'apply' then
+              -- Pause only the two migration-proven triggers that reject this
+              -- bounded maintenance rewrite or emit artificial sync events.
+              -- ALTER TABLE is transactional, so any later exception restores
+              -- both trigger states together with the row changes.
+              execute 'alter table public.inventory_product_prices '
+                'disable trigger task088_mobile_price_append_only';
+              execute 'alter table public.inventory_product_prices '
+                'disable trigger task088_mobile_sync_event';
               update public.inventory_product_prices row
               set effective_at=invalid.canonical_effective_at,
                   created_at=invalid.canonical_created_at
@@ -257,6 +265,10 @@ jobs:
               if changed <> expected_count then
                 raise exception 'task150_price_normalization_update_count_changed';
               end if;
+              execute 'alter table public.inventory_product_prices '
+                'enable trigger task088_mobile_sync_event';
+              execute 'alter table public.inventory_product_prices '
+                'enable trigger task088_mobile_price_append_only';
             end if;
             update task150_parameters set updated_count=changed;
 

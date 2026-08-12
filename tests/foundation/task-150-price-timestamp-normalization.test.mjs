@@ -25,5 +25,22 @@ test("TASK-150 timestamp normalization updates only proven rows", () => {
   assert.match(workflow, /row\.created_at=invalid\.old_created_at/);
   assert.match(workflow, /get diagnostics changed = row_count/);
   assert.match(workflow, /post_integrity <> 0/);
+  assert.match(
+    workflow,
+    /disable trigger task088_mobile_price_append_only[\s\S]*disable trigger task088_mobile_sync_event[\s\S]*update public\.inventory_product_prices row[\s\S]*enable trigger task088_mobile_sync_event[\s\S]*enable trigger task088_mobile_price_append_only/,
+  );
   assert.doesNotMatch(workflow, /\b(?:delete|truncate|drop\s+table\s+public\.)\b/i);
+});
+
+test("TASK-150 timestamp normalization limits the database secret to URL construction", () => {
+  const jobEnv = workflow.match(/\n    env:\n([\s\S]*?)\n    steps:/)?.[1] || "";
+  const buildUrlStep = workflow.match(
+    /- name: Build protected database URL\n([\s\S]*?)\n      - name: Guard and normalize/,
+  )?.[1] || "";
+
+  assert.doesNotMatch(jobEnv, /SUPABASE_DB_PASSWORD/);
+  assert.match(
+    buildUrlStep,
+    /env:\n\s+SUPABASE_DB_PASSWORD: \$\{\{ secrets\.SUPABASE_DB_PASSWORD \}\}/,
+  );
 });
