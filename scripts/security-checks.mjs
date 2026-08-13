@@ -309,11 +309,20 @@ function checkReadOnlyContracts() {
     ...listFiles("src/server/auth"),
     ...listFiles("src/server/shop-admin"),
     ...listFiles("src/server/platform-admin"),
+    ...listFiles("src/server/wechat"),
     ...listFiles("src/lib/supabase"),
   ];
   const directMutationPattern = /\.(insert|update|delete|upsert)\s*\(/;
   const rpcPattern = /\.rpc\s*\(\s*["']([^"']+)["']/g;
   const allowedRpcsByFile = new Map([
+    [
+      "src/server/auth/wechat-exchange.ts",
+      new Set([
+        "wechat_auth_audit_v1",
+        "wechat_auth_challenge_issue_v1",
+        "wechat_auth_challenge_consume_v1",
+      ]),
+    ],
     [
       "src/server/platform-admin/shop-actions.ts",
       new Set([
@@ -493,6 +502,7 @@ function checkReadOnlyContracts() {
         "product_image_fail_version",
         "product_image_record_denied",
         "product_image_create_intent",
+        "product_image_create_intent_wechat_v1",
         "product_image_finalize",
         "product_image_remove",
         "product_image_record_cleanup",
@@ -518,10 +528,37 @@ function checkReadOnlyContracts() {
     "src/server/shop-admin/product-images/runtime-core.ts",
     "src/server/shop-admin/product-images/service.ts",
     "src/server/shop-admin/storefront-images/webp-validator.ts",
+    "src/server/auth/wechat-exchange.ts",
+    "src/server/auth/wechat-link-saga.ts",
+    "src/server/auth/wechat-mini-session.ts",
+  ]);
+  const postgrestRpcPattern = /\/rest\/v1\/rpc\/([a-z0-9_]+)/g;
+  const postgrestRpcPrefixPattern = /\/rest\/v1\/rpc\//g;
+  const allowedPostgrestRpcsByFile = new Map([
+    [
+      "src/server/auth/wechat-mini-session.ts",
+      new Set([
+        "wechat_link_attempt_begin_v1",
+        "wechat_link_attempt_fail_v1",
+        "wechat_link_attempt_finalize_v1",
+        "wechat_link_attempt_reconcile_v1",
+        "wechat_mini_read_v1",
+        "wechat_mini_session_issue_v1",
+        "wechat_mini_session_resolve_v1",
+        "wechat_mini_session_revoke_v1",
+        "wechat_mini_sync_checkpoint_v1",
+        "wechat_mini_sync_delta_v1",
+      ]),
+    ],
+    [
+      "src/server/wechat/catalog-mutation-gateway.ts",
+      new Set(["wechat_catalog_mutate_v1"]),
+    ],
   ]);
 
   for (const file of serverFiles) {
     const contents = read(file);
+    const approvedPostgrestRpcs = allowedPostgrestRpcsByFile.get(file);
 
     if (
       directMutationPattern.test(contents) &&
@@ -538,6 +575,24 @@ function checkReadOnlyContracts() {
         addFailure(
           `${file} contains an unapproved Supabase RPC call: ${rpcName}`,
         );
+      }
+    }
+
+    for (const match of contents.matchAll(postgrestRpcPattern)) {
+      const rpcName = match[1];
+      if (!approvedPostgrestRpcs?.has(rpcName)) {
+        addFailure(
+          `${file} contains an unapproved PostgREST RPC call: ${rpcName}`,
+        );
+      }
+    }
+
+    if (approvedPostgrestRpcs) {
+      const rpcPrefixCount = [...contents.matchAll(postgrestRpcPrefixPattern)]
+        .length;
+      const literalRpcCount = [...contents.matchAll(postgrestRpcPattern)].length;
+      if (rpcPrefixCount !== literalRpcCount) {
+        addFailure(`${file} contains a dynamic PostgREST RPC call`);
       }
     }
 

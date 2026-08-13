@@ -3476,6 +3476,24 @@ export type Database = {
         }
         Returns: Json
       }
+      product_image_create_intent_wechat_v1: {
+        Args: {
+          p_actor_profile_id: string
+          p_correlation_id: string
+          p_idempotency_key: string
+          p_main_bytes: number
+          p_main_height: number
+          p_main_sha256: string
+          p_main_width: number
+          p_product_id: string
+          p_shop_id: string
+          p_thumb_bytes: number
+          p_thumb_height: number
+          p_thumb_sha256: string
+          p_thumb_width: number
+        }
+        Returns: Json
+      }
       product_image_fail_version: {
         Args: {
           p_actor_kind: string
@@ -5095,6 +5113,185 @@ export type Database = {
           p_shop_id: string
         }
         Returns: Json
+      }
+      wechat_auth_audit_v1: {
+        Args: {
+          p_actor_profile_id?: string
+          p_correlation_id: string
+          p_event_key: string
+          p_metadata_redacted?: Json
+          p_result: string
+          p_subject_hash?: string
+        }
+        Returns: undefined
+      }
+      wechat_auth_challenge_consume_v1: {
+        Args: {
+          p_correlation_id: string
+          p_device_hash: string
+          p_ip_hash: string
+          p_mode: string
+          p_nonce_hash: string
+          p_state_hash: string
+          p_surface: string
+        }
+        Returns: boolean
+      }
+      wechat_auth_challenge_issue_v1: {
+        Args: {
+          p_correlation_id: string
+          p_device_hash: string
+          p_ip_hash: string
+          p_mode: string
+          p_nonce_hash: string
+          p_state_hash: string
+          p_surface: string
+          p_ttl_seconds?: number
+        }
+        Returns: Json
+      }
+      wechat_authorized_shops_v1: {
+        Args: never
+        Returns: {
+          currency_code: string
+          role_key: string
+          server_time: string
+          shop_code: string
+          shop_id: string
+          shop_name: string
+          time_zone: string
+        }[]
+      }
+      wechat_authorized_shops_v2: {
+        Args: never
+        Returns: {
+          can_change_prices: boolean
+          can_manage_images: boolean
+          can_read_catalog: boolean
+          can_read_catalog_history: boolean
+          can_write_categories: boolean
+          can_write_products: boolean
+          can_write_suppliers: boolean
+          currency_code: string
+          role_key: string
+          server_time: string
+          shop_code: string
+          shop_id: string
+          shop_name: string
+          time_zone: string
+        }[]
+      }
+      wechat_catalog_history_page_v1: {
+        Args: {
+          p_before_audit_log_id?: string | null
+          p_before_created_at?: string | null
+          p_entity_id?: string | null
+          p_entity_type?: string | null
+          p_from_at?: string | null
+          p_limit?: number
+          p_operation?: string | null
+          p_shop_id: string
+          p_to_at?: string | null
+        }
+        Returns: {
+          actor_display_name: string
+          actor_kind: string
+          correlation_id_redacted: string | null
+          entity_id_redacted: string | null
+          entity_type: string
+          history_id: string
+          occurred_at: string
+          operation: string
+          result: string
+          shop_id: string
+          summary: string
+          surface: string
+        }[]
+      }
+      wechat_catalog_lifecycle_page_v2: {
+        Args: {
+          p_before_id?: string | null
+          p_before_updated_at?: string | null
+          p_entity_type?: string
+          p_limit?: number
+          p_shop_id: string
+          p_state?: string
+        }
+        Returns: {
+          active_product_count: number
+          barcode: string | null
+          deleted_at: string | null
+          display_name: string
+          entity_id: string
+          entity_type: string
+          state: string
+          updated_at: string
+        }[]
+      }
+      wechat_catalog_mutate_v1: {
+        Args: {
+          p_actor_profile_id: string
+          p_correlation_id: string
+          p_expected_updated_at: string | null
+          p_idempotency_key: string
+          p_operation: string
+          p_payload: Json
+          p_shop_id: string
+          p_target_id: string | null
+        }
+        Returns: Json
+      }
+      wechat_daily_sales_page_v1: {
+        Args: {
+          p_before_occurred_at?: string
+          p_before_sale_id?: string
+          p_business_date?: string
+          p_limit?: number
+          p_shop_id: string
+        }
+        Returns: {
+          business_date: string
+          business_kind: string
+          currency_code: string
+          fiscal_status: string
+          latest_update_at: string
+          net_amount_clp: number
+          occurred_at: string
+          pos_sale_id: string
+          sale_number: string
+          sale_status: string
+          time_zone: string
+        }[]
+      }
+      wechat_daily_sales_summary_v1: {
+        Args: { p_business_date?: string; p_shop_id: string }
+        Returns: {
+          business_date: string
+          currency_code: string
+          discounts_clp: number
+          gross_sales_clp: number
+          latest_ledger_at: string
+          net_revenue_clp: number
+          refund_count: number
+          refunds_clp: number
+          sale_count: number
+          server_time: string
+          shop_id: string
+          time_zone: string
+          transaction_count: number
+          void_count: number
+        }[]
+      }
+      wechat_sale_detail_v1: {
+        Args: { p_pos_sale_id: string; p_shop_id: string }
+        Returns: {
+          entry_type: string
+          line_amount_clp: number
+          line_position: number
+          product_name: string
+          quantity: number
+          unit_amount_clp: number
+        }[]
       }
     }
     Enums: {

@@ -142,15 +142,25 @@ export async function recordProductImageDenied(input: {
 export async function createProductImageIntent(
   actor: ProductImageRequestActor,
   input: ProductImageIntentInput,
+  identifiers?: { correlationId: string; idempotencyKey: string },
 ): Promise<ProductImageServiceResult> {
   const admin = resolveAdminClient();
   if (!admin) {
     return safeFailure("not_configured");
   }
 
-  const rpcResult = await admin.rpc("product_image_create_intent", {
-    p_actor_kind: actor.actorKind,
+  const rpcName = identifiers
+    ? "product_image_create_intent_wechat_v1"
+    : "product_image_create_intent";
+  const rpcParams = {
+    ...(!identifiers ? { p_actor_kind: actor.actorKind } : {}),
     p_actor_profile_id: actor.actorProfileId,
+    ...(identifiers
+      ? {
+          p_correlation_id: identifiers.correlationId,
+          p_idempotency_key: identifiers.idempotencyKey,
+        }
+      : {}),
     p_main_bytes: input.main.bytes,
     p_main_height: input.main.height,
     p_main_sha256: input.main.sha256,
@@ -161,7 +171,8 @@ export async function createProductImageIntent(
     p_thumb_height: input.thumb.height,
     p_thumb_sha256: input.thumb.sha256,
     p_thumb_width: input.thumb.width,
-  });
+  };
+  const rpcResult = await admin.rpc(rpcName as never, rpcParams as never);
 
   if (rpcResult.error) {
     return safeFailure("backend_unavailable");
@@ -190,12 +201,15 @@ export async function createProductImageIntent(
   const mainPath = textField(rpc.main_path);
   const thumbPath = textField(rpc.thumb_path);
   const expiresAt = textField(rpc.expires_at);
+  const expiresAtMs = expiresAt ? Date.parse(expiresAt) : Number.NaN;
 
   if (
     !versionId ||
     !mainPath ||
     !thumbPath ||
     !expiresAt ||
+    !Number.isFinite(expiresAtMs) ||
+    expiresAtMs <= Date.now() ||
     !canonicalProductImagePath({
       path: mainPath,
       productId: input.productId,
