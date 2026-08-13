@@ -4,6 +4,10 @@ import { SectionCard } from "@/components/admin/SectionCard";
 import { formatDateTime } from "@/i18n/format";
 import { getI18n } from "@/i18n/get-locale";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import {
+  isWeChatLinkingReady,
+  resolveWeChatRuntimeConfig,
+} from "@/server/auth/wechat-config";
 import { PasswordResetPanel, type PasswordResetPanelLabels } from "./PasswordResetPanel";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
@@ -19,6 +23,9 @@ export default async function AccountProfilePage() {
   const supabase = await createSupabaseServerClient();
   const authResult = supabase ? await supabase.auth.getUser() : null;
   const user = authResult?.data.user;
+  const weChatLinkingReady = user
+    ? isWeChatLinkingReady(resolveWeChatRuntimeConfig())
+    : false;
   const resetLabels = {
     description: labels.passwordReset.description,
     messages: labels.passwordReset.messages,
@@ -75,6 +82,17 @@ export default async function AccountProfilePage() {
             titleId="account-security-title"
           >
             <PasswordResetPanel labels={resetLabels} />
+            {weChatLinkingReady ? (
+              <div className="mt-5 rounded-md border border-zinc-200 bg-zinc-50 p-3 text-sm">
+                <p className="text-zinc-700">{labels.linkWeChatDescription}</p>
+                <Link
+                  className="mt-2 inline-flex font-medium text-emerald-800 underline"
+                  href="/auth/oauth/wechat/link?next=/account/profile"
+                >
+                  {labels.linkWeChat}
+                </Link>
+              </div>
+            ) : null}
             <div className="mt-5 flex flex-wrap gap-2 text-sm">
               <Link className="font-medium text-zinc-700 underline" href="/">
                 {labels.adminHome}

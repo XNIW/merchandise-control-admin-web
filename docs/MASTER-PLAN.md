@@ -4590,6 +4590,15 @@ Products and full Shop navigation`. Scope: audit/fix performance cloud reale
 
 ## Regole di avanzamento
 
+- WECHAT-004 final integration (2026-08-13): the Admin-owned opaque Mini BFF
+  session, catalog/image service wrappers, delta/watermark/reconcile boundary,
+  identity-link recovery saga and local cross-platform fixture are code-complete
+  and feature-gated. Targeted security coverage is 66/66; all seven snapshot
+  findings are fixed. Merge/CI identifiers and final `DONE_CODE` reconciliation
+  are tracked by the four-repository WECHAT-004 integration PRs. External
+  bridge/AppID/provider/domains/DevTools/device activation remains separate;
+  no staging or production apply is included.
+
 - Un solo task attivo per volta.
 - Codex prepara handoff a `REVIEW`, non marca `DONE`.
 - `DONE` richiede review positiva e conferma esplicita dell'utente.

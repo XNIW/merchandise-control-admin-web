@@ -10,6 +10,10 @@ import type { Dictionary } from "@/i18n/dictionaries";
 import { getI18n } from "@/i18n/get-locale";
 import { translateText } from "@/i18n/translate-sections";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
+import {
+  isWeChatSurfaceReady,
+  resolveWeChatRuntimeConfig,
+} from "@/server/auth/wechat-config";
 
 export function generateMetadata() {
   return createLocalizedPageMetadata("Console Sign In");
@@ -95,6 +99,10 @@ export default async function PlatformAdminLoginPage({
   const isConfigured = Boolean(
     process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() &&
       process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY?.trim(),
+  );
+  const isWeChatConfigured = isWeChatSurfaceReady(
+    "web",
+    resolveWeChatRuntimeConfig(),
   );
   const rendersAccountForm =
     isMasterConsole || activeLoginMode === "admin-account";
@@ -202,6 +210,7 @@ export default async function PlatformAdminLoginPage({
           {rendersAccountForm ? (
             <AuthForm
               isConfigured={isConfigured}
+              isWeChatConfigured={isWeChatConfigured}
               formLabel={content.formLabel}
               labels={dictionary.authForm}
               messages={dictionary.authLogin.messages}
