@@ -2936,7 +2936,7 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
 - Stato globale attuale: `REVIEW`
-- Task corrente: `TASK-151 - WECHAT-006 Shared Public Staging Activation and Closeout`
+- Task attivo: `TASK-151 - WECHAT-006 Shared Public Staging Activation and Closeout`
 - Task precedente:
   `TASK-149 - Trusted POS product image v1 server contract`
   (`REVIEW_READY / REVIEW`)

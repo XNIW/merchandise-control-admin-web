@@ -19,8 +19,11 @@ test("TASK-150 resta incompleto e viene messo in pausa per l'handoff WECHAT-006"
     /- Stato TASK-150: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`/,
   );
   assert.match(masterPlan, /- Fase TASK-150: `EXECUTION \/ PAUSED`/);
-  assert.match(masterPlan, /- Stato TASK-151: `ACTIVE`/);
-  assert.match(masterPlan, /- Fase TASK-151: `EXECUTION`/);
+  assert.match(masterPlan, /- Stato TASK-151: `REVIEW_READY`/);
+  assert.match(
+    masterPlan,
+    /- Fase TASK-151: `REVIEW \/ EXTERNAL_ACTIVATION_PENDING`/,
+  );
   assert.match(task, /- Stato: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`/);
   assert.match(task, /- Fase attuale: `EXECUTION \/ PAUSED`/);
   assert.match(task, /Stato precedente preservato: `ACTIVE \/ EXECUTION`/);
