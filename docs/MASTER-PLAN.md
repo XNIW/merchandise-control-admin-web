@@ -2922,20 +2922,20 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Stato TASK-150: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`
 - Fase TASK-150: `EXECUTION / PAUSED`
 - Attivazione TASK-150: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`
-- Executor TASK-150: `NONE WHILE TASK-151 / WECHAT-006 IS ACTIVE`
+- Executor TASK-150: `NONE WHILE TASK-151 / WECHAT-006 AWAITS REVIEW`
 - Task TASK-151:
   `TASK-151 - WECHAT-006 Shared Public Staging Activation and Closeout`
 - File task TASK-151:
   `docs/TASKS/TASK-151-wechat-006-shared-public-staging-closeout.md`
 - Evidence TASK-151:
   `docs/AUDITS/WECHAT-006-WORKLOG.md` e bundle locale ristretto WECHAT-006
-- Stato TASK-151: `ACTIVE`
-- Fase TASK-151: `EXECUTION`
-- Attivazione TASK-151: `ACTIVE`
-- Executor TASK-151: `CODEX`
+- Stato TASK-151: `REVIEW_READY`
+- Fase TASK-151: `REVIEW / EXTERNAL_ACTIVATION_PENDING`
+- Attivazione TASK-151: `REVIEW_READY`
+- Executor TASK-151: `DESIGNATED_REVIEWER`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `EXECUTION`
+- Stato globale attuale: `REVIEW`
 - Task attivo: `TASK-151 - WECHAT-006 Shared Public Staging Activation and Closeout`
 - Task precedente:
   `TASK-149 - Trusted POS product image v1 server contract`
@@ -2950,15 +2950,16 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
 - Evidence task corrente: `docs/AUDITS/WECHAT-006-WORKLOG.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
-- Stato task: `ACTIVE`
+- Stato task: `REVIEW_READY`
 - Stato task precedente: `REVIEW_READY`
-- Fase: `EXECUTION`
+- Fase: `REVIEW / EXTERNAL_ACTIVATION_PENDING`
 - Milestone interna:
-  `WECHAT_SHARED_PUBLIC_STAGING_ACTIVATION_IN_PROGRESS`
-- Responsabile: `CODEX`
+  `WECHAT_SHARED_PUBLIC_STAGING_BACKEND_DEPLOYED_PROVIDER_PENDING`
+- Responsabile: `DESIGNATED_REVIEWER`
 - Branch/worktree TASK-151:
-  `codex/wechat-006-admin-staging`, baseline corrente `origin/main`
-  `4265272637aa0f96881d3f21929b999f89f45779`.
+  implementazione `codex/wechat-006-admin-staging`, merge commit corrente
+  `728f413d740913145be550e1ffdbf4091dba3676`; closeout documentale
+  `codex/wechat-006-admin-closeout`.
 - Handoff TASK-150 preservato; branch/worktree storici:
   lineage Admin `codex/task-150-win7pos-image-qa-boundary-20260731`, baseline
   `d2689f15f0291670bbc2713967368521e3f3a7fe`, integrata su `main` fino a
@@ -2988,7 +2989,7 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   Receipt terminale, full matrix exact-ID, snapshot shared, package e Windows 7
   fisico restano `BLOCKED`/`NOT_RUN`; Run 5 e nuovi deploy non sono autorizzati.
   Questo era lo stato canonico pre-handoff. Dal 2026-08-13 TASK-150 resta
-  `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`; TASK-151 è il solo writer Admin;
+  `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`; TASK-151 attende review designata;
   TASK-149 resta `REVIEW_READY / REVIEW`.
   Evidence:
   `docs/TASKS/EVIDENCE/TASK-150/2026-08-08-REMOTE-RESIDUAL-RECONCILIATION.md`.

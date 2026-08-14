@@ -4,12 +4,13 @@
 
 - ID: `TASK-151`
 - Coordination key: `WECHAT-006`
-- Stato: `ACTIVE`
-- Fase attuale: `EXECUTION`
-- Responsabile attuale: `CODEX`
-- Attivazione: `ACTIVE`
+- Stato: `REVIEW_READY`
+- Fase attuale: `REVIEW / EXTERNAL_ACTIVATION_PENDING`
+- Responsabile attuale: `DESIGNATED_REVIEWER`
+- Attivazione: `REVIEW_READY`
 - Data creazione: `2026-08-13`
-- Branch/worktree: `codex/wechat-006-admin-staging` / current `origin/main`
+- Branch applicativa/merge: `codex/wechat-006-admin-staging` / `728f413d740913145be550e1ffdbf4091dba3676`
+- Branch documentale corrente: `codex/wechat-006-admin-closeout`
 - Parent coordination: Mini Program `WECHAT-006`, WMP-039…WMP-046
 - Evidence locale non versionata:
   `/Users/minxiang/Projects/_codex-evidence/wechat-006-shared-staging-closeout-20260813T234745Z/`
@@ -55,13 +56,13 @@ pubblicato vivo. La sua evidence resta intatta e il task viene messo in pausa.
 |---|---|---|---|
 | CA-151-01 | Target/ref/region/Worker binding coincidono con lo staging autorizzato | CLI/connector/config | `PASS` |
 | CA-151-02 | Backup ristretto, manifest SHA-256 e restore scratch verificati prima dell'apply | PostgreSQL/Supabase | `PASS` |
-| CA-151-03 | Local reset, pgTAP, lint, RLS/performance e dry-run remoto passano | repository/CLI | `IN_PROGRESS` — local verde, remote dry-run pending |
-| CA-151-04 | Migration canoniche applicate in ordine e history/oggetti/grant/RLS verificati | staging DB | `PLANNED` |
-| CA-151-05 | Admin verify/build/cf:build/readiness/smoke passano | repository gates | `IN_PROGRESS` — local build verde, staging smoke pending |
-| CA-151-06 | Worker staging deployato con Version ID/commit e rollback registrati | Wrangler/smoke | `PLANNED` |
-| CA-151-07 | Provider/flag restano fail-closed e secret server-only | config/security tests | `PLANNED` |
-| CA-151-08 | Fix testati e uniti normalmente; nessun P0/P1 resta | GitHub/review | `PLANNED` |
-| CA-151-09 | Produzione e repository fuori scope restano invariati | final audit | `PLANNED` |
+| CA-151-03 | Local reset, pgTAP, lint, RLS/performance e dry-run remoto passano | repository/CLI | `PASS_WITH_NOTES` — targeted advisor findings nonblocking documented |
+| CA-151-04 | Migration canoniche applicate in ordine e history/oggetti/grant/RLS verificati | staging DB | `PASS` |
+| CA-151-05 | Admin verify/build/cf:build/readiness/smoke passano | repository gates | `PASS` |
+| CA-151-06 | Worker staging deployato con Version ID/commit e rollback registrati | Wrangler/smoke | `PASS` |
+| CA-151-07 | Provider/flag restano fail-closed e secret server-only | config/security tests | `PASS` — tutte le flag OFF, nessun secret WeChat configurato |
+| CA-151-08 | Fix testati e uniti normalmente; nessun P0/P1 resta | GitHub/review | `PASS` |
+| CA-151-09 | Produzione e repository fuori scope restano invariati | final audit | `PASS` |
 
 ## Matrice CA -> evidence
 
@@ -116,12 +117,31 @@ pubblicato vivo. La sua evidence resta intatta e il task viene messo in pausa.
 - Delta auditabile: remote `130`, local `137`, pending esclusivamente le sette
   migration WECHAT checksum-pinned; CLI dry-run locale contro la ricostruzione
   pre-activation elenca esattamente le sette versioni.
-- Nessuna migration/config/flag/deploy remota eseguita prima di backup e gate.
+- Workflow GitHub guardato `31759004095`: apply delle sette migration canoniche
+  sul solo ref autorizzato, remote history `137` con head esatta
+  `20260813160233_wechat_004_identity_link_saga`; pgTAP remoto `260/260`, DB
+  lint e invarianti indipendenti post-apply verdi.
+- PR Admin `#86` unita normalmente con merge commit
+  `728f413d740913145be550e1ffdbf4091dba3676`.
+- Worker staging distribuito dall'albero unito: Version ID
+  `f797c513-f617-4941-acf1-6c2062b40fbd`, deployment
+  `aea2ee57-b6c3-4364-a2ef-0e17b9dd3e7f`, traffico `100%`; rollback pronto alla versione precedente
+  `83ffe585-8cfe-4c64-bccc-47a482b2397d`.
+- Smoke pubblico: status WeChat `200` con tutte le superfici disabilitate;
+  account Mini `503 provider_not_configured` fail-closed; Auth/Google sani e
+  tail Wrangler senza errori osservati.
+- Inventory secret/flag: nessun secret WeChat presente e tutte le flag restano
+  `OFF`. Nessuna configurazione provider persistente è stata improvvisata.
+- I finding dello schema advisor mirato restano registrati come nonblocking;
+  questa esecuzione non dichiara né sostituisce un deep security scan.
+- Produzione reale e repository fuori scope non sono stati modificati.
 
 ## Review
 
-- Decisione: `PENDING`.
-- `DONE` solo per criteri realmente passati e integrati secondo mandato.
+- Decisione: `READY_FOR_DESIGNATED_REVIEW`.
+- I criteri tecnici Admin/staging sono passati; l'attivazione provider e l'E2E
+  reale dipendono ancora da configurazione ufficiale e azioni fisiche esterne.
+- `DONE` richiede conferma esplicita dell'utente o del reviewer designato.
 
 ## Fix
 
@@ -129,5 +149,7 @@ pubblicato vivo. La sua evidence resta intatta e il task viene messo in pausa.
 
 ## Chiusura
 
-- Stato finale: `IN_PROGRESS`.
-- Follow-up: da determinare dopo la matrice live.
+- Stato finale: `REVIEW_READY / EXTERNAL_ACTIVATION_PENDING`.
+- Follow-up: inventario/configurazione ufficiale del portale WeChat, domini e
+  callback; quindi E2E reale progressivo con flag ancora fail-closed fino alla
+  validazione live. Nessuna pubblicazione/review dello store è autorizzata.
