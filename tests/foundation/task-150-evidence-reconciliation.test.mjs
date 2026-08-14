@@ -13,11 +13,18 @@ const reconciliation = readFileSync(
   "utf8",
 );
 
-test("TASK-150 resta ACTIVE/EXECUTION e non promuove l'acceptance incompleta", () => {
-  assert.match(masterPlan, /- Stato TASK-150: `ACTIVE`/);
-  assert.match(masterPlan, /- Fase TASK-150: `EXECUTION`/);
-  assert.match(task, /- Stato: `ACTIVE`/);
-  assert.match(task, /- Fase attuale: `EXECUTION`/);
+test("TASK-150 resta incompleto e viene messo in pausa per l'handoff WECHAT-006", () => {
+  assert.match(
+    masterPlan,
+    /- Stato TASK-150: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`/,
+  );
+  assert.match(masterPlan, /- Fase TASK-150: `EXECUTION \/ PAUSED`/);
+  assert.match(masterPlan, /- Stato TASK-151: `ACTIVE`/);
+  assert.match(masterPlan, /- Fase TASK-151: `EXECUTION`/);
+  assert.match(task, /- Stato: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`/);
+  assert.match(task, /- Fase attuale: `EXECUTION \/ PAUSED`/);
+  assert.match(task, /Stato precedente preservato: `ACTIVE \/ EXECUTION`/);
+  assert.match(task, /La ripresa TASK-150 richiede una decisione successiva esplicita/);
   assert.match(
     evidence,
     /Runtime\/staging\/physical run TASK-150:\n  `BLOCKED \/ NOT_ACCEPTED`/,

@@ -2919,34 +2919,47 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `docs/TASKS/TASK-150-win7pos-product-image-phase-b-physical-acceptance.md`
 - Evidence TASK-150:
   `docs/TASKS/EVIDENCE/TASK-150/README.md`
-- Stato TASK-150: `ACTIVE`
-- Fase TASK-150: `EXECUTION`
-- Attivazione TASK-150: `ACTIVE`
-- Executor TASK-150: `CODEX / ASUS`
+- Stato TASK-150: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`
+- Fase TASK-150: `EXECUTION / PAUSED`
+- Attivazione TASK-150: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`
+- Executor TASK-150: `NONE WHILE TASK-151 / WECHAT-006 IS ACTIVE`
+- Task TASK-151:
+  `TASK-151 - WECHAT-006 Shared Public Staging Activation and Closeout`
+- File task TASK-151:
+  `docs/TASKS/TASK-151-wechat-006-shared-public-staging-closeout.md`
+- Evidence TASK-151:
+  `docs/AUDITS/WECHAT-006-WORKLOG.md` e bundle locale ristretto WECHAT-006
+- Stato TASK-151: `ACTIVE`
+- Fase TASK-151: `EXECUTION`
+- Attivazione TASK-151: `ACTIVE`
+- Executor TASK-151: `CODEX`
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
 - Stato globale attuale: `EXECUTION`
-- Task attivo: `TASK-150 - Win7POS Product Image Phase B / Physical Acceptance`
+- Task attivo: `TASK-151 - WECHAT-006 Shared Public Staging Activation and Closeout`
 - Task precedente:
   `TASK-149 - Trusted POS product image v1 server contract`
   (`REVIEW_READY / REVIEW`)
-- Prossimo task pianificato: `DA DEFINIRE DOPO TASK-150`
+- Prossimo task pianificato: `DA DEFINIRE DOPO TASK-151 / WECHAT-006`
 - Ultimo task chiuso: `TASK-148 - Final POS article-sync staging cleanup`
 - Ultimo task completato: `TASK-148 - Final POS article-sync staging cleanup`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-150-win7pos-product-image-phase-b-physical-acceptance.md`
+- File task corrente: `docs/TASKS/TASK-151-wechat-006-shared-public-staging-closeout.md`
 - Ultimo file task:
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
-- Evidence task corrente: `docs/TASKS/EVIDENCE/TASK-150/README.md`
+- Evidence task corrente: `docs/AUDITS/WECHAT-006-WORKLOG.md`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
 - Stato task: `ACTIVE`
 - Stato task precedente: `REVIEW_READY`
 - Fase: `EXECUTION`
 - Milestone interna:
-  `READY_FOR_ASUS_PRODUCT_IMAGE_PHASE_B`
-- Responsabile: `CODEX / ASUS`
-- Branch/worktree TASK-150:
+  `WECHAT_SHARED_PUBLIC_STAGING_ACTIVATION_IN_PROGRESS`
+- Responsabile: `CODEX`
+- Branch/worktree TASK-151:
+  `codex/wechat-006-admin-staging`, baseline corrente `origin/main`
+  `4265272637aa0f96881d3f21929b999f89f45779`.
+- Handoff TASK-150 preservato; branch/worktree storici:
   lineage Admin `codex/task-150-win7pos-image-qa-boundary-20260731`, baseline
   `d2689f15f0291670bbc2713967368521e3f3a7fe`, integrata su `main` fino a
   `dfb6e8c179ad50b6e2b103742ee4accf641c43ac`; Win7POS task
@@ -2974,7 +2987,9 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   failure e la recovery Storage `30732082208` non ha eseguito il cleanup commit.
   Receipt terminale, full matrix exact-ID, snapshot shared, package e Windows 7
   fisico restano `BLOCKED`/`NOT_RUN`; Run 5 e nuovi deploy non sono autorizzati.
-  TASK-150 resta `ACTIVE / EXECUTION`, TASK-149 `REVIEW_READY / REVIEW`.
+  Questo era lo stato canonico pre-handoff. Dal 2026-08-13 TASK-150 resta
+  `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`; TASK-151 è il solo writer Admin;
+  TASK-149 resta `REVIEW_READY / REVIEW`.
   Evidence:
   `docs/TASKS/EVIDENCE/TASK-150/2026-08-08-REMOTE-RESIDUAL-RECONCILIATION.md`.
 - Apertura TASK-149 2026-07-30: ricevuta autorizzazione completa per il
