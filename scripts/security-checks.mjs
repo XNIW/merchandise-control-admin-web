@@ -446,6 +446,10 @@ function checkReadOnlyContracts() {
         "admin_storefront_payment_mutate_v1",
         "admin_customer_orders_read_v1",
         "admin_customer_order_transition_v1",
+        "admin_delivery_tracking_read_v1",
+        "admin_delivery_tracking_manage_v1",
+        "storefront_courier_tracking_control_v1",
+        "storefront_courier_location_upsert_v1",
       ]),
     ],
     [
@@ -474,6 +478,10 @@ function checkReadOnlyContracts() {
     [
       "src/server/shop-admin/order-mutations.ts",
       new Set(["admin_customer_order_transition_v1"]),
+    ],
+    [
+      "src/server/shop-admin/delivery-tracking.ts",
+      new Set(["admin_delivery_tracking_read_v1"]),
     ],
     [
       "src/server/shop-admin/storefront-images/service.ts",

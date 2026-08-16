@@ -4861,6 +4861,67 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_delivery_tracking_read_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_operation?: string
+          p_request?: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      admin_delivery_tracking_manage_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_idempotency_key: string
+          p_operation: string
+          p_order_id: string
+          p_request: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      storefront_courier_tracking_control_v1: {
+        Args: {
+          p_expected_credential_version: number
+          p_idempotency_key: string
+          p_operation: string
+          p_order_id: string
+          p_session_token_hash: string
+          p_shop_id: string
+          p_staff_id: string
+          p_staff_web_session_id: string
+        }
+        Returns: Json
+      }
+      storefront_courier_location_upsert_v1: {
+        Args: {
+          p_bearing_degrees?: number | null
+          p_expected_credential_version?: number | null
+          p_horizontal_accuracy_meters: number
+          p_idempotency_key: string
+          p_latitude: number
+          p_longitude: number
+          p_observed_at: string
+          p_order_id: string
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_speed_meters_per_second?: number | null
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      storefront_order_tracking_v1: {
+        Args: { p_order_id: string; p_shop_slug: string }
+        Returns: Json
+      }
       admin_storefront_image_finalize_v1: {
         Args: {
           p_expected_credential_version?: number

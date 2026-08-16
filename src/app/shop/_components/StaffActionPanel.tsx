@@ -34,7 +34,12 @@ type StaffActionPanelProps = {
   staffOptions?: readonly StaffActionTargetOption[];
 };
 
-type StaffRoleOptionKey = "cashier" | "manager" | "pos_admin" | "viewer";
+type StaffRoleOptionKey =
+  | "cashier"
+  | "courier"
+  | "manager"
+  | "pos_admin"
+  | "viewer";
 type StaffTemplateKey =
   "catalog_manager" | "shop_manager_full" | "staff_manager" | "viewer";
 
@@ -247,6 +252,7 @@ const defaultStaffActionLabels: StaffActionPanelLabels = {
   rolesAndPermissionsTitle: "Roles and permissions",
   roleOptions: {
     cashier: "Cashier",
+    courier: "Courier",
     manager: "Manager",
     pos_admin: "POS Admin",
     viewer: "Viewer",
@@ -328,12 +334,14 @@ const SHOP_STAFF_WEB_ROLE_TEMPLATES = [
 
 const staffRoleOptionKeys = new Set<string>([
   "cashier",
+  "courier",
   "manager",
   "pos_admin",
   "viewer",
 ]);
 const orderedStaffRoleOptions: readonly StaffRoleOptionKey[] = [
   "pos_admin",
+  "courier",
   "manager",
   "cashier",
   "viewer",
@@ -971,6 +979,7 @@ function StaffRolePermissionsPanel({
   const availableRoleKeys = orderedStaffRoleOptions.filter(
     (candidateRoleKey) =>
       candidateRoleKey !== "pos_admin" &&
+      candidateRoleKey !== "courier" &&
       (canManageOwnerOnlyPermissions ||
         !ownerOnlyRoleKeys.includes(candidateRoleKey)),
   );

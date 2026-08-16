@@ -6,6 +6,7 @@ export type ShopSectionKey =
   | "categories"
   | "storefront"
   | "orders"
+  | "courier"
   | "suppliers"
   | "importExport"
   | "sync"
@@ -85,7 +86,10 @@ export const shopNavigationSections: ShopNavigationSection[] = [
   {
     key: "commerce",
     label: "Commerce",
-    items: [{ key: "orders", label: "Orders", href: "/shop/orders" }],
+    items: [
+      { key: "orders", label: "Orders", href: "/shop/orders" },
+      { key: "courier", label: "Courier Mode", href: "/shop/courier" },
+    ],
   },
   {
     key: "catalog",
@@ -250,6 +254,23 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Review immutable customer order snapshots",
       "Advance only server-authorized status transitions",
       "Monitor POS handoff without treating an order as a fiscal sale",
+    ],
+    guardrails: sharedShopGuardrails,
+  },
+  courier: {
+    key: "courier",
+    label: "Courier Mode",
+    href: "/shop/courier",
+    title: "Courier Mode",
+    eyebrow: "Delivery operations",
+    description:
+      "Start, pause and stop foreground location sharing for assigned customer deliveries.",
+    status: "Live foreground tracking",
+    metrics: shellMetrics,
+    plannedWork: [
+      "Publish only while the assigned delivery is active",
+      "Keep browser suspension and foreground-only limits visible",
+      "Stop sharing automatically when an order completes or is cancelled",
     ],
     guardrails: sharedShopGuardrails,
   },

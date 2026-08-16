@@ -40,9 +40,12 @@ export type ShopAdminPermission =
   | "storefront.settings.manage"
   | "storefront.audit.view"
   | "orders.view"
-  | "orders.manage";
+  | "orders.manage"
+  | "orders.delivery.view"
+  | "orders.delivery.manage"
+  | "orders.delivery.track";
 
-export type ShopStaffRole = "cashier" | "manager" | "viewer";
+export type ShopStaffRole = "cashier" | "courier" | "manager" | "viewer";
 
 export type ShopStaffPermission =
   | "shop_admin.full_access"
@@ -88,7 +91,10 @@ export type ShopStaffPermission =
   | "storefront.settings.manage"
   | "storefront.audit.view"
   | "orders.view"
-  | "orders.manage";
+  | "orders.manage"
+  | "orders.delivery.view"
+  | "orders.delivery.manage"
+  | "orders.delivery.track";
 
 export const POS_ADMIN_STAFF_PERMISSION_KEYS = [
   "shop_admin.full_access",
@@ -134,6 +140,8 @@ export const POS_ADMIN_STAFF_PERMISSION_KEYS = [
   "storefront.audit.view",
   "orders.view",
   "orders.manage",
+  "orders.delivery.view",
+  "orders.delivery.manage",
 ] as const satisfies readonly ShopStaffPermission[];
 
 export type BuiltInShopStaffRole = ShopStaffRole | "pos_admin";
@@ -181,6 +189,8 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "storefront.audit.view",
     "orders.view",
     "orders.manage",
+    "orders.delivery.view",
+    "orders.delivery.manage",
   ],
   shop_manager: [
     "catalog.view",
@@ -217,6 +227,8 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "storefront.audit.view",
     "orders.view",
     "orders.manage",
+    "orders.delivery.view",
+    "orders.delivery.manage",
   ],
   viewer: [
     "catalog.view",
@@ -237,6 +249,7 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "storefront.view",
     "storefront.audit.view",
     "orders.view",
+    "orders.delivery.view",
   ],
 };
 
@@ -245,6 +258,7 @@ export const SHOP_STAFF_PERMISSION_MATRIX: Record<
   readonly ShopStaffPermission[]
 > = {
   cashier: ["pos.sell", "pos.pay", "catalog.view", "register.view"],
+  courier: ["orders.delivery.track"],
   manager: [
     "pos.sell",
     "pos.pay",

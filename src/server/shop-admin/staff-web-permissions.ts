@@ -26,6 +26,9 @@ export const SHOP_STAFF_WEB_PERMISSION_TREE = [
     permissions: [
       { key: "orders.view", label: "View customer orders" },
       { key: "orders.manage", label: "Manage customer orders" },
+      { key: "orders.delivery.view", label: "View delivery tracking" },
+      { key: "orders.delivery.manage", label: "Manage delivery tracking" },
+      { key: "orders.delivery.track", label: "Publish assigned courier location" },
     ],
   },
   {
@@ -97,6 +100,7 @@ export const OWNER_ONLY_STAFF_WEB_PERMISSIONS: ReadonlySet<ShopStaffWebPermissio
 
 export type ShopStaffWebRoleKey =
   | "cashier"
+  | "courier"
   | "manager"
   | "pos_admin"
   | "viewer";
@@ -129,6 +133,8 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "storefront.audit.view",
     "orders.view",
     "orders.manage",
+    "orders.delivery.view",
+    "orders.delivery.manage",
   ],
   catalog_manager: [
     "catalog.read",
@@ -153,7 +159,9 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "storefront.view",
     "storefront.audit.view",
     "orders.view",
+    "orders.delivery.view",
   ],
+  courier_tracking: ["orders.delivery.track"],
 } as const satisfies Record<string, readonly ShopStaffWebPermission[]>;
 
 export type ShopStaffWebRoleTemplateKey =
@@ -287,6 +295,14 @@ function staffPermissionForShopAdminPermission(
   }
 
   if (permission === "orders.view" || permission === "orders.manage") {
+    return permission;
+  }
+
+  if (
+    permission === "orders.delivery.view" ||
+    permission === "orders.delivery.manage" ||
+    permission === "orders.delivery.track"
+  ) {
     return permission;
   }
 

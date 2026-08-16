@@ -17,11 +17,13 @@ export const STAFF_WEB_LOGIN_NOT_IMPLEMENTED =
   "staff_web_login_not_implemented" as const;
 export const POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY = "manager" as const;
 export const POS_STAFF_WEB_POS_ADMIN_ROLE_KEY = "pos_admin" as const;
+export const POS_STAFF_WEB_COURIER_ROLE_KEY = "courier" as const;
 export const POS_STAFF_WEB_FUTURE_ADMIN_ROLE_KEY = "admin" as const;
 
 export type PosStaffWebCurrentRoleKey =
   | typeof POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY
-  | typeof POS_STAFF_WEB_POS_ADMIN_ROLE_KEY;
+  | typeof POS_STAFF_WEB_POS_ADMIN_ROLE_KEY
+  | typeof POS_STAFF_WEB_COURIER_ROLE_KEY;
 export type PosStaffWebTargetRoleKey =
   | PosStaffWebCurrentRoleKey
   | typeof POS_STAFF_WEB_FUTURE_ADMIN_ROLE_KEY;
@@ -146,6 +148,7 @@ function hasMisdelegatedOwnerOnlyPermission(input: PosStaffWebEligibilityInput) 
 const posStaffWebAdminRoleKeys = new Set<string>([
   POS_STAFF_WEB_CURRENT_SCHEMA_ROLE_KEY,
   POS_STAFF_WEB_POS_ADMIN_ROLE_KEY,
+  POS_STAFF_WEB_COURIER_ROLE_KEY,
 ]);
 
 export function isPosStaffWebAdminRoleKey(
@@ -205,7 +208,7 @@ export function resolvePosStaffManagerWebPrincipal(
   if (!isPosStaffEligibleForShopAdminWeb(input)) {
     return {
       reason:
-        "POS staff web access requires an active POS Admin or compatible manager credential and an explicit staff web permission.",
+        "Staff web access requires an active manager, POS Admin or courier credential and an explicit web permission.",
       status: "unauthorized",
     };
   }
