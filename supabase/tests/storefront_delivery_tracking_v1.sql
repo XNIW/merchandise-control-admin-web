@@ -4,7 +4,7 @@ set local role postgres;
 create extension if not exists pgtap with schema extensions;
 set local search_path = public, extensions;
 
-select no_plan();
+select plan(60);
 
 select ok(
   to_regclass('public.delivery_tracking_sessions') is not null
