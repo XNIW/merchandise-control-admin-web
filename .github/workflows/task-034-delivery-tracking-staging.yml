@@ -159,7 +159,7 @@ jobs:
         run: |
           set -euo pipefail
           SOURCE_DB_URL="$(cat _task034-staging/source-db-url)"
-          docker run --rm --network host \
+          docker run --rm -i --network host \
             -e SOURCE_DB_URL="$SOURCE_DB_URL" \
             postgres:17@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449 \
             psql -X -qAt -v ON_ERROR_STOP=1 "$SOURCE_DB_URL" \

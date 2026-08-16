@@ -46,6 +46,7 @@ test("TASK-034 remote tracking smoke is exact-SHA staging-only and rollback-clea
   assert.match(workflow, /Assert exact pgTAP plan and command result/);
   assert.match(workflow, /Files=1,\\s\+Tests=60/);
   assert.match(workflow, /Result:\\s\+PASS/);
+  assert.match(workflow, /docker run --rm -i --network host/);
   assert.match(
     workflow,
     /psql -X -qAt -v ON_ERROR_STOP=1 "\$SOURCE_DB_URL" \\\n\s+> _task034-staging\/evidence\/cleanup\.json <<'SQL'/,
