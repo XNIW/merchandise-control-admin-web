@@ -902,12 +902,13 @@ returns jsonb
 language plpgsql
 volatile
 security definer
-set search_path = ''
+set search_path = public, pg_temp
 as $$
 declare
   v_staff public.staff_accounts%rowtype;
   v_attempt public.staff_web_login_attempts%rowtype;
   v_session_id uuid;
+  v_expired_temporary_lock boolean := false;
 begin
   if p_attempt_key_hash !~ '^sha256:[0-9a-f]{64}$'
     or p_session_token_hash !~ '^sha256:[0-9a-f]{64}$'
@@ -933,10 +934,18 @@ begin
   from public.staff_accounts staff
   where staff.staff_id = p_staff_id and staff.shop_id = p_shop_id
   for update;
+  v_expired_temporary_lock := found
+    and v_staff.credential_status = 'locked'
+    and v_staff.locked_until is not null
+    and v_staff.locked_until <= now();
+
   if not found
     or v_staff.status <> 'active'
     or v_staff.role_key not in ('manager', 'pos_admin', 'courier')
-    or v_staff.credential_status <> 'active'
+    or (
+      v_staff.credential_status <> 'active'
+      and not v_expired_temporary_lock
+    )
     or v_staff.credential_version <> p_expected_credential_version
     or v_staff.must_change_credential
     or v_staff.web_access_revoked_at is not null
@@ -969,8 +978,32 @@ begin
   from public.staff_web_login_attempts attempt
   where attempt.attempt_key_hash = p_attempt_key_hash
   for update;
-  if v_attempt.locked_until is not null and v_attempt.locked_until > now() then
+  if v_attempt.locked_until is not null
+    and v_attempt.locked_until > now()
+    and not (
+      v_staff.credential_status = 'active'
+      and v_staff.locked_until is null
+    ) then
     return jsonb_build_object('ok', false, 'code', 'locked');
+  end if;
+
+  -- Keep TASK-139 lockout recovery atomic: an expired temporary lock is
+  -- normalized only after every final identity, permission and attempt gate.
+  if v_expired_temporary_lock then
+    update public.staff_accounts staff
+    set credential_status = 'active',
+        failed_attempts = 0,
+        locked_until = null,
+        updated_at = now()
+    where staff.staff_id = p_staff_id
+      and staff.shop_id = p_shop_id
+      and staff.credential_status = 'locked'
+      and staff.locked_until is not null
+      and staff.locked_until <= now()
+    returning staff.* into v_staff;
+    if not found then
+      return jsonb_build_object('ok', false, 'code', 'stale_identity');
+    end if;
   end if;
 
   insert into public.staff_web_login_attempts (
@@ -1045,7 +1078,7 @@ create or replace function public.shop_staff_create(
 returns jsonb
 language plpgsql
 security definer
-set search_path = ''
+set search_path = public, app_private, pg_temp
 as $$
 declare
   v_actor_id uuid := auth.uid();
