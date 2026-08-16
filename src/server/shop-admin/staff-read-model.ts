@@ -75,6 +75,7 @@ const emptyRows = {
 
 const builtInStaffRoleKeys = [
   "cashier",
+  "courier",
   "manager",
   "pos_admin",
   "viewer",
@@ -307,13 +308,14 @@ async function ownerOnlyRoleKeysFromAccess(
 
   if (error) {
     return canManagePosAdminRoleFromAccess(access)
-      ? ["pos_admin"]
+      ? ["pos_admin", "courier"]
       : builtInStaffRoleKeys;
   }
 
   return Array.from(
     new Set([
       "pos_admin",
+      "courier",
       ...(data ?? [])
         .map((row) => row.role_key)
         .filter((roleKey): roleKey is string => Boolean(roleKey)),

@@ -489,3 +489,109 @@ export function callStaffWebCustomerOrderTransition(
     p_staff_web_session_id: context.staffWebSession.sessionId,
   });
 }
+
+export function callStaffWebDeliveryTrackingRead(
+  context: StaffWebLeaseBoundContext,
+  operation: "detail" | "queue",
+  request: JsonRecord,
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("admin_delivery_tracking_read_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_operation: operation,
+    p_request: request,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}
+
+export function callStaffWebDeliveryTrackingManage(
+  context: StaffWebLeaseBoundContext,
+  input: {
+    idempotencyKey: string;
+    operation:
+      | "assign"
+      | "configure_external"
+      | "configure_live"
+      | "configure_status"
+      | "start"
+      | "terminate";
+    orderId: string;
+    request: JsonRecord;
+  },
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("admin_delivery_tracking_manage_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_idempotency_key: input.idempotencyKey,
+    p_operation: input.operation,
+    p_order_id: input.orderId,
+    p_request: input.request,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}
+
+export function callStaffWebCourierTrackingControl(
+  context: StaffWebLeaseBoundContext,
+  input: {
+    idempotencyKey: string;
+    operation: "pause" | "start" | "stop";
+    orderId: string;
+  },
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("storefront_courier_tracking_control_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_idempotency_key: input.idempotencyKey,
+    p_operation: input.operation,
+    p_order_id: input.orderId,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}
+
+export function callStaffWebCourierLocationUpsert(
+  context: StaffWebLeaseBoundContext,
+  input: {
+    bearingDegrees?: number;
+    horizontalAccuracyMeters: number;
+    idempotencyKey: string;
+    latitude: number;
+    longitude: number;
+    observedAt: string;
+    orderId: string;
+    speedMetersPerSecond?: number;
+  },
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("storefront_courier_location_upsert_v1", {
+    p_bearing_degrees: input.bearingDegrees,
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_horizontal_accuracy_meters: input.horizontalAccuracyMeters,
+    p_idempotency_key: input.idempotencyKey,
+    p_latitude: input.latitude,
+    p_longitude: input.longitude,
+    p_observed_at: input.observedAt,
+    p_order_id: input.orderId,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_speed_meters_per_second: input.speedMetersPerSecond,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}

@@ -157,6 +157,15 @@ function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
         <path d="M8 13h8" />
       </>
     ),
+    courier: (
+      <>
+        <path d="M4 16h16" />
+        <path d="M6 16V9h8l4 4v3" />
+        <path d="M14 9v4h4" />
+        <circle cx="8" cy="18" r="2" />
+        <circle cx="17" cy="18" r="2" />
+      </>
+    ),
     devices: (
       <>
         <rect height="14" rx="2" width="10" x="7" y="4" />

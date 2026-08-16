@@ -67,6 +67,15 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
     dictionary,
     "Mobile history sessions and sync-related catalog activity.",
   );
+  const visibleNavigationSections =
+    principal.kind === "pos_staff_manager" && principal.roleKey === "courier"
+      ? shopNavigationSections
+          .map((section) => ({
+            ...section,
+            items: section.items.filter((item) => item.key === "courier"),
+          }))
+          .filter((section) => section.items.length > 0)
+      : shopNavigationSections;
 
   return (
     <ShopShell
@@ -78,7 +87,7 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
       logoutLabel={dictionary.common.logout}
       navigationSections={translateShopNavigationSections(
         dictionary,
-        shopNavigationSections,
+        visibleNavigationSections,
       )}
       principalKind={principal.kind}
       sectionDescriptions={sectionDescriptions}

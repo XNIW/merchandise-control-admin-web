@@ -72,6 +72,7 @@ type ResetCredentialInput = StaffTargetInput & {
 
 const BUILT_IN_STAFF_ROLE_KEYS: readonly string[] = [
   "cashier",
+  "courier",
   "manager",
   "pos_admin",
   "viewer",

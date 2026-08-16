@@ -146,6 +146,7 @@ function staffActionLabels(
     rolesAndPermissionsTitle: t("Roles and permissions"),
     roleOptions: {
       cashier: t("Cashier"),
+      courier: t("Courier"),
       manager: t("Manager"),
       pos_admin: t("POS Admin"),
       viewer: t("Viewer"),
