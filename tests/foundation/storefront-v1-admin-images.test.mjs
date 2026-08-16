@@ -530,11 +530,7 @@ test("Storefront staging migration is exact-SHA guarded and retains the image bo
       workflowInputDefault(workflowDispatch, "expected_predecessor_migration_name"),
       workflowInputDefault(workflowDispatch, "expected_predecessor_migration_file"),
     ],
-    [
-      '"20260811230000"',
-      "storefront_v1_image_finalize_fencing",
-      "20260811230000_storefront_v1_image_finalize_fencing.sql",
-    ],
+    ['""', '""', '""'],
   );
 });
 
