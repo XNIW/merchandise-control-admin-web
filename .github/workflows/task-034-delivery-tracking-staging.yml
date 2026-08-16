@@ -149,7 +149,8 @@ jobs:
             "_task034-staging/evidence/remote-pgtap.txt",
             "utf8",
           );
-          if (!/(^|\n)1\.\.60(\r?\n|$)/.test(output)) process.exit(1);
+          if (!/Files=1,\s+Tests=60\b/.test(output)) process.exit(1);
+          if (!/(^|\n)Result:\s+PASS(\r?\n|$)/.test(output)) process.exit(1);
           if (/(^|\n)not ok\b/.test(output)) process.exit(1);
           NODE
 
@@ -161,8 +162,8 @@ jobs:
           docker run --rm --network host \
             -e SOURCE_DB_URL="$SOURCE_DB_URL" \
             postgres:17@sha256:e38411452a464af89e5adadb8d223bf53b898d47d6ef918b2d58c08707350449 \
-            psql -X -qAt -v ON_ERROR_STOP=1 "$SOURCE_DB_URL" <<'SQL' \
-            > _task034-staging/evidence/cleanup.json
+            psql -X -qAt -v ON_ERROR_STOP=1 "$SOURCE_DB_URL" \
+            > _task034-staging/evidence/cleanup.json <<'SQL'
           select jsonb_build_object(
             'migrationApplied', exists (
               select 1

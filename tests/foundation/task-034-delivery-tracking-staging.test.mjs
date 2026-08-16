@@ -44,6 +44,12 @@ test("TASK-034 remote tracking smoke is exact-SHA staging-only and rollback-clea
   assert.match(workflow, /sanitizedEvidence: safe/);
   assert.match(workflow, /PIPESTATUS\[0\]/);
   assert.match(workflow, /Assert exact pgTAP plan and command result/);
+  assert.match(workflow, /Files=1,\\s\+Tests=60/);
+  assert.match(workflow, /Result:\\s\+PASS/);
+  assert.match(
+    workflow,
+    /psql -X -qAt -v ON_ERROR_STOP=1 "\$SOURCE_DB_URL" \\\n\s+> _task034-staging\/evidence\/cleanup\.json <<'SQL'/,
+  );
   assert.match(workflow, /rm -f[\s\S]*_task034-staging\/source-db-url/);
   assert.doesNotMatch(workflow, /service[_-]?role/i);
 });
