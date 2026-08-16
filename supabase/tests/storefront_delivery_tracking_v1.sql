@@ -524,6 +524,30 @@ select is(
     '14000000-0000-4000-8000-000000044001',
     '44000000-0000-4000-8000-000000044002',
     'configure_external',
+    '{"externalCarrier":"Synthetic Carrier","externalTrackingCodeMasked":"****4402","externalTrackingUrl":"https://2130706433/track/4402"}',
+    '74000000-0000-4000-8000-000000044025'
+  )->>'code',
+  'validation_failed',
+  'numeric loopback external tracking URL is rejected at the SQL boundary'
+);
+
+select is(
+  public.admin_delivery_tracking_manage_v1(
+    '14000000-0000-4000-8000-000000044001',
+    '44000000-0000-4000-8000-000000044002',
+    'configure_external',
+    '{"externalCarrier":"Synthetic Carrier","externalTrackingCodeMasked":"****4402","externalTrackingUrl":"https://0x7f000001/track/4402"}',
+    '74000000-0000-4000-8000-000000044026'
+  )->>'code',
+  'validation_failed',
+  'hexadecimal loopback external tracking URL is rejected at the SQL boundary'
+);
+
+select is(
+  public.admin_delivery_tracking_manage_v1(
+    '14000000-0000-4000-8000-000000044001',
+    '44000000-0000-4000-8000-000000044002',
+    'configure_external',
     jsonb_build_object(
       'externalCarrier', 'Synthetic Carrier',
       'externalTrackingCodeMasked', '****4402',
@@ -730,6 +754,21 @@ select is(
   public.storefront_courier_location_upsert_v1(
     '14000000-0000-4000-8000-000000044001',
     '44000000-0000-4000-8000-000000044001',
+    '74000000-0000-4000-8000-000000044027',
+    -33.4000, -70.6000, 12, now(), 90, 4,
+    '54000000-0000-4000-8000-000000044001',
+    '64000000-0000-4000-8000-000000044001',
+    'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+    1
+  )->>'code',
+  'rate_limited',
+  'configured minimum interval is absolute even for a caller-declared large jump'
+);
+
+select is(
+  public.storefront_courier_location_upsert_v1(
+    '14000000-0000-4000-8000-000000044001',
+    '44000000-0000-4000-8000-000000044001',
     '74000000-0000-4000-8000-000000044013',
     -33.4470, -70.6540, 12, now() - interval '2 seconds', 90, 4,
     '54000000-0000-4000-8000-000000044001',
@@ -880,6 +919,30 @@ select is(
    from public.storefront_delivery_tracking_feed),
   1,
   'customer B RLS sees only the owned shop B statusOnly feed'
+);
+
+set local role postgres;
+update public.delivery_courier_latest_locations
+set observed_at = now() - interval '25 hours 1 second',
+    received_at = now() - interval '25 hours',
+    expires_at = now() - interval '1 hour'
+where order_id = '44000000-0000-4000-8000-000000044001';
+
+select is(
+  app_private.delivery_tracking_cleanup_v1(now(), 1000)->>'locationsDeleted',
+  '1',
+  'retention cleanup deletes the expired latest-only courier position'
+);
+
+select ok(
+  (
+    select feed.latitude is null and feed.longitude is null
+      and feed.observed_at is null and feed.received_at is null
+      and feed.freshness = 'unavailable'
+    from public.storefront_delivery_tracking_feed feed
+    where feed.order_id = '44000000-0000-4000-8000-000000044001'
+  ),
+  'retention cleanup atomically redacts the owner-scoped Realtime feed'
 );
 
 set local role authenticated;

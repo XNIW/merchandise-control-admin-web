@@ -76,10 +76,13 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
           }))
           .filter((section) => section.items.length > 0)
       : shopNavigationSections;
+  const courierOnly =
+    principal.kind === "pos_staff_manager" && principal.roleKey === "courier";
 
   return (
     <ShopShell
       availableShops={availableShops}
+      courierOnly={courierOnly}
       labels={dictionary.shopShell}
       languageSwitcherLabel={dictionary.languageSwitcher.label}
       loadingLabel={translateText(dictionary, "Loading...")}
@@ -90,6 +93,9 @@ export default async function ShopLayout({ children }: { children: ReactNode }) 
         visibleNavigationSections,
       )}
       principalKind={principal.kind}
+      principalRoleLabel={
+        courierOnly ? sectionTitles.courier ?? "Courier Mode" : undefined
+      }
       sectionDescriptions={sectionDescriptions}
       sectionEyebrows={sectionEyebrows}
       sectionTitles={sectionTitles}

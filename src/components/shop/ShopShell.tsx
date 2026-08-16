@@ -32,6 +32,7 @@ type ShopShellShop = {
 type ShopShellProps = {
   availableShops: readonly ShopShellShop[];
   children: ReactNode;
+  courierOnly: boolean;
   labels: Dictionary["shopShell"];
   languageSwitcherLabel: string;
   loadingLabel: string;
@@ -39,6 +40,7 @@ type ShopShellProps = {
   logoutLabel: string;
   navigationSections: readonly ShopNavigationSection[];
   principalKind: "personal_account" | "pos_staff_manager";
+  principalRoleLabel?: string;
   sectionDescriptions: Readonly<Partial<Record<ShopSectionKey, string>>>;
   sectionEyebrows: Readonly<Partial<Record<ShopSectionKey, string>>>;
   sectionTitles: Readonly<Partial<Record<ShopSectionKey, string>>>;
@@ -465,6 +467,7 @@ function ShopNavigation({
 export function ShopShell({
   availableShops,
   children,
+  courierOnly,
   labels,
   languageSwitcherLabel,
   loadingLabel,
@@ -472,6 +475,7 @@ export function ShopShell({
   logoutLabel,
   navigationSections,
   principalKind,
+  principalRoleLabel,
   sectionDescriptions,
   sectionEyebrows,
   sectionTitles,
@@ -537,6 +541,8 @@ export function ShopShell({
       : labels.adminConsole;
   const currentPageDescription =
     currentPageKey !== null ? sectionDescriptions[currentPageKey] : null;
+  const courierRouteAllowed =
+    pathname === "/shop/courier" || pathname.startsWith("/shop/courier/");
 
   function buildShopHref(href: string) {
     if (!selectedShop) {
@@ -623,7 +629,7 @@ export function ShopShell({
   }, [scheduleCurrentShopRouteRefresh]);
 
   useEffect(() => {
-    if (!activeShopId) {
+    if (!activeShopId || courierOnly) {
       return;
     }
 
@@ -690,7 +696,15 @@ export function ShopShell({
         window.clearTimeout(timer);
       }
     };
-  }, [activeShopId, scheduleCurrentShopRouteRefresh]);
+  }, [activeShopId, courierOnly, scheduleCurrentShopRouteRefresh]);
+
+  useEffect(() => {
+    if (!courierOnly || courierRouteAllowed) return;
+    const nextSearchParams = new URLSearchParams();
+    if (activeShopId) nextSearchParams.set("shop_id", activeShopId);
+    const query = nextSearchParams.toString();
+    router.replace(`/shop/courier${query ? `?${query}` : ""}`);
+  }, [activeShopId, courierOnly, courierRouteAllowed, router]);
 
   function handleNavigation(input: {
     event: MouseEvent<HTMLAnchorElement>;
@@ -861,9 +875,9 @@ export function ShopShell({
                   tone="emerald"
                 />
                 <span className="rounded-md border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800">
-                  {selectedShop
+                  {principalRoleLabel ?? (selectedShop
                     ? formatRole(selectedShop.role, labels)
-                    : labels.adminConsole}
+                    : labels.adminConsole)}
                 </span>
                 <span className="rounded-md border border-sky-200 bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-800">
                   {labels.serverVerified}
@@ -894,7 +908,13 @@ export function ShopShell({
             data-shop-navigation-pending={visiblePendingNavigation ? "true" : "false"}
             data-shop-navigation-target={visiblePendingNavigation?.key}
           >
-            {visiblePendingNavigation ? (
+            {courierOnly && !courierRouteAllowed ? (
+              <ShopPendingNavigationSkeleton
+                itemKey="courier"
+                label={principalRoleLabel ?? labels.adminConsole}
+                loadingLabel={loadingLabel}
+              />
+            ) : visiblePendingNavigation ? (
               <ShopPendingNavigationSkeleton
                 itemKey={visiblePendingNavigation.key}
                 label={visiblePendingNavigation.label}

@@ -15,6 +15,42 @@ export type ForegroundGeolocationAdapter = {
   stop(watchId: number): void;
 };
 
+export class ForegroundTrackingLifecycle {
+  private generation = 0;
+  private mounted = true;
+
+  activate() {
+    this.mounted = true;
+    this.invalidate();
+  }
+
+  begin() {
+    this.generation += 1;
+    return this.generation;
+  }
+
+  capture() {
+    return this.generation;
+  }
+
+  invalidate() {
+    this.generation += 1;
+  }
+
+  dispose() {
+    this.mounted = false;
+    this.invalidate();
+  }
+
+  isCurrent(generation: number) {
+    return this.mounted && generation === this.generation;
+  }
+
+  isMounted() {
+    return this.mounted;
+  }
+}
+
 export function createBrowserForegroundGeolocationAdapter(): ForegroundGeolocationAdapter | null {
   if (typeof navigator === "undefined" || !navigator.geolocation) return null;
 

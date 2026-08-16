@@ -219,7 +219,7 @@ create table public.delivery_tracking_sessions (
   constraint delivery_tracking_sessions_external_url_check check (
     external_tracking_url is null or (
       length(external_tracking_url) <= 2048
-      and external_tracking_url ~ '^https://[A-Za-z0-9.-]+(?::[0-9]{1,5})?(?:[/?:#][^[:space:]]*)?$'
+      and external_tracking_url ~ '^https://(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,63}(?:/[^#[:space:]]*)?(?:\?[^#[:space:]]*)?$'
       and external_tracking_url !~ '@'
       and external_tracking_url !~ '#'
       and lower(external_tracking_url) !~ '^https://(localhost|[^/]*\.local(?::|/|$)|0\.|10\.|127\.|169\.254\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.)'
@@ -2357,9 +2357,8 @@ begin
     v_distance_meters := app_private.delivery_tracking_distance_meters_v1(
       v_location.latitude, v_location.longitude, p_latitude, p_longitude
     );
-    if v_elapsed_seconds < 1
-      or (v_elapsed_seconds < v_min_interval
-        and v_distance_meters < v_min_distance) then
+    if v_elapsed_seconds < greatest(1, v_min_interval)
+      or v_distance_meters < v_min_distance then
       v_result := jsonb_build_object(
         'ok', false, 'code', 'rate_limited', 'orderId', p_order_id,
         'retryAfterSeconds', greatest(
@@ -2440,6 +2439,7 @@ set search_path = ''
 set statement_timeout = '30s'
 as $$
 declare
+  v_expired_order_ids uuid[] := '{}'::uuid[];
   v_locations integer := 0;
   v_mutations integer := 0;
   v_sessions integer := 0;
@@ -2449,15 +2449,34 @@ begin
       using errcode = '22023';
   end if;
 
-  delete from public.delivery_courier_latest_locations location
-  where location.session_id in (
-    select candidate.session_id
-    from public.delivery_courier_latest_locations candidate
-    where candidate.expires_at <= p_at
-    order by candidate.expires_at, candidate.session_id
-    limit p_limit
-  );
-  get diagnostics v_locations = row_count;
+  with deleted as (
+    delete from public.delivery_courier_latest_locations location
+    where location.session_id in (
+      select candidate.session_id
+      from public.delivery_courier_latest_locations candidate
+      where candidate.expires_at <= p_at
+      order by candidate.expires_at, candidate.session_id
+      limit p_limit
+    )
+    returning location.order_id
+  )
+  select coalesce(array_agg(distinct deleted.order_id), '{}'::uuid[])
+  into v_expired_order_ids
+  from deleted;
+  v_locations := cardinality(v_expired_order_ids);
+
+  update public.storefront_delivery_tracking_feed feed
+  set latitude = null,
+      longitude = null,
+      horizontal_accuracy_meters = null,
+      bearing_degrees = null,
+      speed_meters_per_second = null,
+      observed_at = null,
+      received_at = null,
+      freshness = 'unavailable',
+      server_time = p_at,
+      version = feed.version + 1
+  where feed.order_id = any(v_expired_order_ids);
 
   delete from public.delivery_tracking_mutations mutation
   where mutation.id in (

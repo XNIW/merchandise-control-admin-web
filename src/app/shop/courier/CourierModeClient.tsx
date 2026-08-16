@@ -10,6 +10,7 @@ import {
 } from "./actions";
 import {
   createBrowserForegroundGeolocationAdapter,
+  ForegroundTrackingLifecycle,
   shouldPublishForegroundLocation,
   type ForegroundGeolocationAdapter,
   type ForegroundLocationSample,
@@ -78,6 +79,7 @@ export function CourierModeClient({
   );
   const watchIdRef = useRef<number | null>(null);
   const adapterRef = useRef<ForegroundGeolocationAdapter | null>(adapter);
+  const lifecycleRef = useRef(new ForegroundTrackingLifecycle());
   const lastPublishedRef = useRef<ForegroundLocationSample | null>(null);
   const activeOrderIdRef = useRef<string | null>(null);
   const publishingRef = useRef(false);
@@ -94,7 +96,7 @@ export function CourierModeClient({
   const [lastPublishedAt, setLastPublishedAt] = useState<string | null>(null);
   const [pageVisible, setPageVisible] = useState(true);
 
-  const stopLocalWatch = useCallback(() => {
+  const stopLocalWatch = useCallback((updateState = true) => {
     if (watchIdRef.current !== null && adapterRef.current) {
       adapterRef.current.stop(watchIdRef.current);
     }
@@ -102,19 +104,49 @@ export function CourierModeClient({
     activeOrderIdRef.current = null;
     publishingRef.current = false;
     lastPublishedRef.current = null;
-    setIsSharing(false);
+    if (updateState) setIsSharing(false);
   }, []);
 
   useEffect(() => {
-    const updateVisibility = () => setPageVisible(!document.hidden);
+    const updateVisibility = () => {
+      const visible = !document.hidden;
+      setPageVisible(visible);
+      if (visible) return;
+      lifecycleRef.current.invalidate();
+      const orderId = activeOrderIdRef.current;
+      stopLocalWatch();
+      if (orderId) {
+        void controlCourierTrackingAction({
+          operation: "pause",
+          orderId,
+          shopId,
+        }).catch(() => undefined);
+      }
+    };
     document.addEventListener("visibilitychange", updateVisibility);
     return () => document.removeEventListener("visibilitychange", updateVisibility);
-  }, []);
+  }, [shopId, stopLocalWatch]);
 
-  useEffect(() => stopLocalWatch, [stopLocalWatch]);
+  useEffect(() => {
+    const lifecycle = lifecycleRef.current;
+    lifecycle.activate();
+    return () => {
+      const orderId = activeOrderIdRef.current;
+      lifecycle.dispose();
+      stopLocalWatch(false);
+      if (orderId) {
+        void controlCourierTrackingAction({
+          operation: "pause",
+          orderId,
+          shopId,
+        }).catch(() => undefined);
+      }
+    };
+  }, [shopId, stopLocalWatch]);
 
   const publishSample = useCallback(
     async (sample: ForegroundLocationSample) => {
+      const generation = lifecycleRef.current.capture();
       const orderId = activeOrderIdRef.current;
       if (!orderId || document.hidden || publishingRef.current) return;
       if (
@@ -131,6 +163,7 @@ export function CourierModeClient({
         orderId,
         shopId,
       });
+      if (!lifecycleRef.current.isCurrent(generation)) return;
       publishingRef.current = false;
       setResult(nextResult);
       if (nextResult.ok) {
@@ -157,12 +190,27 @@ export function CourierModeClient({
         });
         return;
       }
+      const generation = lifecycleRef.current.begin();
       setIsPending(true);
       const nextResult = await controlCourierTrackingAction({
         operation: "start",
         orderId,
         shopId,
       });
+      if (
+        !lifecycleRef.current.isCurrent(generation) ||
+        document.hidden
+      ) {
+        if (nextResult.ok) {
+          void controlCourierTrackingAction({
+            operation: "pause",
+            orderId,
+            shopId,
+          }).catch(() => undefined);
+        }
+        if (lifecycleRef.current.isMounted()) setIsPending(false);
+        return;
+      }
       setResult(nextResult);
       setIsPending(false);
       if (!nextResult.ok) return;
@@ -183,6 +231,7 @@ export function CourierModeClient({
     async (operation: "pause" | "stop") => {
       const orderId = activeOrderIdRef.current;
       if (!orderId) return;
+      lifecycleRef.current.invalidate();
       setIsPending(true);
       stopLocalWatch();
       const nextResult = await controlCourierTrackingAction({
@@ -267,9 +316,9 @@ export function CourierModeClient({
             {trackingEnabled ? "Tracking abilitato" : "Tracking disattivato"}
           </span>
         </div>
-        {!pageVisible && isSharing ? (
+        {!pageVisible ? (
           <p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900" role="status">
-            Pagina non visibile: nessun nuovo campione viene inviato finché non torni in foreground.
+            Pagina non visibile: la condivisione è stata messa in pausa. Premi Avvia quando torni in foreground.
           </p>
         ) : null}
         {rows.length === 0 ? (

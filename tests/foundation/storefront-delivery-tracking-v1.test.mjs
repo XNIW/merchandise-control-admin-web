@@ -4,6 +4,7 @@ import test from "node:test";
 
 import {
   FakeForegroundGeolocationAdapter,
+  ForegroundTrackingLifecycle,
   shouldPublishForegroundLocation,
 } from "../../src/app/shop/courier/foreground-geolocation.ts";
 import {
@@ -21,6 +22,10 @@ const courierClientPath = new URL(
 );
 const permissionPath = new URL(
   "../../src/server/shop-admin/permissions.ts",
+  import.meta.url,
+);
+const shopShellPath = new URL(
+  "../../src/components/shop/ShopShell.tsx",
   import.meta.url,
 );
 
@@ -81,6 +86,20 @@ test("client coalescing accepts elapsed time or meaningful distance", () => {
   );
 });
 
+test("foreground lifecycle rejects a delayed Start after unmount", () => {
+  const lifecycle = new ForegroundTrackingLifecycle();
+  lifecycle.activate();
+  const delayedStart = lifecycle.begin();
+  assert.equal(lifecycle.isCurrent(delayedStart), true);
+  lifecycle.dispose();
+  assert.equal(lifecycle.isCurrent(delayedStart), false);
+
+  lifecycle.activate();
+  const resumedStart = lifecycle.begin();
+  assert.equal(lifecycle.isCurrent(resumedStart), true);
+  assert.equal(lifecycle.isCurrent(delayedStart), false);
+});
+
 test("external carrier URL validation blocks injection and private targets", () => {
   assert.equal(
     validatedExternalTrackingUrl("https://carrier.example/track/123"),
@@ -91,6 +110,9 @@ test("external carrier URL validation blocks injection and private targets", () 
     "http://carrier.example/track",
     "https://user:secret@carrier.example/track",
     "https://127.0.0.1/track",
+    "https://2130706433/track",
+    "https://0x7f000001/track",
+    "https://0177.0.0.1/track",
     "https://10.0.0.1/track",
     "https://carrier.local/track",
     "https://carrier.example/track#token",
@@ -150,6 +172,8 @@ test("migration keeps precise location latest-only and removes it at terminal st
   assert.match(migration, /delivery_tracking_mutations_guard_immutable/);
   assert.match(migration, /storefront-delivery-tracking-cleanup-v1/);
   assert.match(migration, /alter publication supabase_realtime/);
+  assert.match(migration, /freshness = 'unavailable'/);
+  assert.match(migration, /v_elapsed_seconds < greatest\(1, v_min_interval\)/);
 });
 
 test("courier role has only the delivery tracking publish capability", async () => {
@@ -166,6 +190,16 @@ test("Courier Mode discloses foreground limits and does not log coordinates", as
   assert.match(source, /capability foreground/);
   assert.match(source, /document\.hidden/);
   assert.match(source, /stopLocalWatch/);
+  assert.match(source, /lifecycleRef\.current\.isCurrent\(generation\)/);
+  assert.match(source, /lifecycle\.dispose\(\)/);
   assert.doesNotMatch(source, /console\.(?:log|info|warn|error)/);
   assert.doesNotMatch(source, /latitude.*role="status"/);
+});
+
+test("courier-only shell suppresses direct routes and unauthorized sync polling", async () => {
+  const source = await readFile(shopShellPath, "utf8");
+  assert.match(source, /courierOnly && !courierRouteAllowed/);
+  assert.match(source, /router\.replace\(`\/shop\/courier/);
+  assert.match(source, /if \(!activeShopId \|\| courierOnly\)/);
+  assert.match(source, /principalRoleLabel \?\?/);
 });
