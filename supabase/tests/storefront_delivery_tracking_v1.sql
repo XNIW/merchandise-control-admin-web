@@ -823,7 +823,7 @@ select ok(
   not exists (
     select 1
     from public.storefront_delivery_tracking_feed feed
-    where feed.shop_id = '14000000-0000-4000-8000-000000044002'
+    where feed.order_id = '44000000-0000-4000-8000-000000044003'
   ),
   'customer A cannot enumerate shop B feed rows'
 );
@@ -845,6 +845,17 @@ select ok(
     where feed.order_id = '44000000-0000-4000-8000-000000044001'
   ) not like '%Calle sintética%',
   'safe Realtime payload excludes courier subject IDs, email and address text'
+);
+
+select ok(
+  not exists (
+    select 1
+    from information_schema.columns column_info
+    where column_info.table_schema = 'public'
+      and column_info.table_name = 'storefront_delivery_tracking_feed'
+      and column_info.column_name = 'shop_id'
+  ),
+  'customer Realtime feed omits the unnecessary internal shop UUID'
 );
 
 select set_config(

@@ -480,7 +480,6 @@ create trigger delivery_tracking_mutations_guard_immutable
 
 create table public.storefront_delivery_tracking_feed (
   order_id uuid primary key references public.customer_orders(id) on delete cascade,
-  shop_id uuid not null,
   order_status text not null,
   order_status_version bigint not null,
   fulfillment_mode text not null,
@@ -509,9 +508,6 @@ create table public.storefront_delivery_tracking_feed (
   contact_capability text not null default 'none',
   server_time timestamptz not null default statement_timestamp(),
   version bigint not null default 1,
-  constraint storefront_delivery_tracking_feed_order_shop_fkey foreign key (
-    shop_id, order_id
-  ) references public.customer_orders(shop_id, id) on delete cascade,
   constraint storefront_delivery_tracking_feed_mode_check check (
     tracking_mode in ('status_only', 'external_carrier', 'live_courier')
   ),
@@ -536,9 +532,9 @@ create table public.storefront_delivery_tracking_feed (
   )
 );
 
-create index storefront_delivery_tracking_feed_shop_state_idx
+create index storefront_delivery_tracking_feed_state_idx
   on public.storefront_delivery_tracking_feed(
-    shop_id, tracking_state, server_time desc, order_id
+    tracking_state, server_time desc, order_id
   );
 
 alter table public.delivery_tracking_sessions enable row level security;
@@ -582,8 +578,7 @@ grant select, insert, update, delete on table public.storefront_delivery_trackin
 grant select on table public.storefront_delivery_tracking_feed to authenticated;
 
 create or replace function app_private.delivery_tracking_order_owned_v1(
-  p_order_id uuid,
-  p_shop_id uuid
+  p_order_id uuid
 )
 returns boolean
 language sql
@@ -597,14 +592,13 @@ as $$
       select 1
       from public.customer_orders customer_order
       where customer_order.id = p_order_id
-        and customer_order.shop_id = p_shop_id
         and customer_order.user_id = auth.uid()
     );
 $$;
 
-revoke all on function app_private.delivery_tracking_order_owned_v1(uuid, uuid)
+revoke all on function app_private.delivery_tracking_order_owned_v1(uuid)
   from public, anon, authenticated, service_role;
-grant execute on function app_private.delivery_tracking_order_owned_v1(uuid, uuid)
+grant execute on function app_private.delivery_tracking_order_owned_v1(uuid)
   to authenticated;
 
 create policy storefront_delivery_tracking_feed_owner_select
@@ -612,7 +606,7 @@ on public.storefront_delivery_tracking_feed
 for select
 to authenticated
 using (
-  app_private.delivery_tracking_order_owned_v1(order_id, shop_id)
+  app_private.delivery_tracking_order_owned_v1(order_id)
 );
 
 do $publication$
@@ -1331,7 +1325,7 @@ begin
   end;
 
   insert into public.storefront_delivery_tracking_feed (
-    order_id, shop_id, order_status, order_status_version,
+    order_id, order_status, order_status_version,
     fulfillment_mode, tracking_mode, tracking_session_id, tracking_state,
     courier_public_label, vehicle_kind, latitude, longitude,
     horizontal_accuracy_meters, bearing_degrees, speed_meters_per_second,
@@ -1340,7 +1334,7 @@ begin
     store_longitude, external_carrier, external_tracking_code_masked,
     external_tracking_url, contact_capability, server_time, version
   ) values (
-    v_order.id, v_order.shop_id, v_order.status, v_order.status_version,
+    v_order.id, v_order.status, v_order.status_version,
     v_order.fulfillment_mode, v_session.tracking_mode,
     v_session.public_tracking_session_id,
     case when v_terminal then
@@ -1367,7 +1361,6 @@ begin
     p_at, 1
   )
   on conflict (order_id) do update set
-    shop_id = excluded.shop_id,
     order_status = excluded.order_status,
     order_status_version = excluded.order_status_version,
     fulfillment_mode = excluded.fulfillment_mode,
