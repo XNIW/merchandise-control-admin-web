@@ -6,7 +6,7 @@
 - Coordination key: `MOBILE_STOREFRONT_PRODUCT_CONTROL`
 - Stato: `ACTIVE`
 - Fase attuale: `REVIEW`
-- Responsabile attuale: `CODEX_RE_REVIEWER`
+- Responsabile attuale: `CODEX_EXECUTOR`
 - Data creazione: `2026-08-21`
 - Branch: `codex/mobile-storefront-product-control-admin-20260821`
 - Planning authority: Client `TASK-046`
@@ -35,7 +35,7 @@ adozione sicura dell'immagine operativa nella pipeline pubblica corrente.
 | CA-152-05 | Audit safe espone source Admin/Android/iOS/System e changed fields | `PASS` |
 | CA-152-06 | Public payload esclude esplicitamente tutti i campi interni vietati | `PASS` |
 | CA-152-07 | Pipeline immagini corrente genera/verifica/finalizza varianti pubbliche | `PASS` |
-| CA-152-08 | Test mirati, suite canonica, review/fix e CI exact-SHA verdi | `NOT_RUN` |
+| CA-152-08 | Test mirati, suite canonica, review/fix e CI exact-SHA verdi | `PASS` |
 
 ## Planning
 
@@ -62,7 +62,11 @@ secondo planning e ne applica architecture map, file map e contract map gia auto
   - `npm run test:foundation`: `PASS`, 984 pass / 0 fail / 2 skip, exit `0`;
   - `npm run verify`: `PASS`, lint/typecheck/security/build, exit `0`;
   - `git diff --check`: `PASS`, exit `0`.
-- CI exact-SHA resta `NOT_RUN` fino alla Pull Request.
+- Pull Request `#94`, implementation SHA
+  `a6d4f94a8cdd01c6de3df2ed4f327b38d8516227`: Verify, Database migrations and
+  pgTAP e Cloudflare build `PASS`; deploy staging/production e TASK-094 staging
+  E2E `SKIPPED` per condizioni di workflow. Le sole annotazioni sono warning
+  GitHub Actions sulla transizione Node 20 -> 24, senza errori del diff.
 
 ## Review / Fix
 
@@ -89,4 +93,8 @@ secondo planning e ne applica architecture map, file map e contract map gia auto
 
 ## Handoff
 
-- `CODEX_REVIEW_APPROVED_AWAITING_CI_AND_AUTHORIZED_MERGE`.
+- `CODEX_REVIEW_APPROVED_USER_AUTHORIZED_CI_GREEN_TO_MERGE`.
+- Il merge normale di PR `#94` avviene soltanto dopo la CI verde anche sul
+  presente commit documentale. TASK-152 resta l'unico task `ACTIVE` durante i
+  gate integrati staging e passa a `DONE` soltanto nel closeout terminale del
+  train. Nessun deploy staging/production e incluso nel merge.

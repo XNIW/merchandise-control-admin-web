@@ -2940,14 +2940,19 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Stato TASK-152: `ACTIVE`
 - Fase TASK-152: `REVIEW`
 - Attivazione TASK-152: `USER_APPROVED_EXECUTION`
-- Executor TASK-152: `CODEX_RE_REVIEWER`
+- Executor TASK-152: `CODEX_EXECUTOR`
 - Checkpoint locale TASK-152 2026-08-21: migration authoring versionata, Admin UI e
   pipeline immagini condivisa implementate; fresh reset `PASS`, pgTAP completo 47
   file/2551 test `PASS`, foundation 984/0 `PASS`, schema lint e `npm run verify`
   `PASS`. Review indipendente diff-scoped e CI exact-SHA ancora in corso/non eseguita.
 - Re-review TASK-152 2026-08-21: `APPROVED` dopo un unico fix batch sui tre P2 e
   sul P3 della review; pgTAP post-fix 47 file/2561 test, foundation 984/0,
-  schema lint e verify `PASS`. PR/CI exact-SHA e merge restano da eseguire.
+  schema lint e verify `PASS`. PR `#94` su implementation SHA
+  `a6d4f94a8cdd01c6de3df2ed4f327b38d8516227`: Verify, Database migrations and
+  pgTAP e Cloudflare build `PASS`; sole annotazioni non bloccanti sul runtime
+  Node delle GitHub Actions. Chiusura e merge normale autorizzati dal mandato del
+  release train, subordinati alla CI verde del commit documentale. TASK-152 resta
+  attivo durante staging e fino al closeout integrato.
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
 - Stato globale attuale: `REVIEW`
@@ -2955,7 +2960,8 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task precedente:
   `TASK-149 - Trusted POS product image v1 server contract`
   (`REVIEW_READY / REVIEW`)
-- Prossimo task pianificato: closeout TASK-152 secondo train coordinator Client
+- Prossimo task pianificato: closeout integrato TASK-152 secondo train coordinator
+  Client
 - Ultimo task chiuso: `TASK-148 - Final POS article-sync staging cleanup`
 - Ultimo task completato: `TASK-148 - Final POS article-sync staging cleanup`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
@@ -2970,7 +2976,7 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Fase: `REVIEW`
 - Milestone interna:
   `WECHAT_SHARED_PUBLIC_STAGING_BACKEND_DEPLOYED_PROVIDER_PENDING`
-- Responsabile: `CODEX_RE_REVIEWER`
+- Responsabile: `CODEX_EXECUTOR`
 - Branch/worktree TASK-151:
   implementazione `codex/wechat-006-admin-staging`, merge commit corrente
   `728f413d740913145be550e1ffdbf4091dba3676`; closeout documentale
