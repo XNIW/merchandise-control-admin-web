@@ -2929,33 +2929,48 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `docs/TASKS/TASK-151-wechat-006-shared-public-staging-closeout.md`
 - Evidence TASK-151:
   `docs/AUDITS/WECHAT-006-WORKLOG.md` e bundle locale ristretto WECHAT-006
-- Stato TASK-151: `REVIEW_READY`
-- Fase TASK-151: `REVIEW / EXTERNAL_ACTIVATION_PENDING`
-- Attivazione TASK-151: `REVIEW_READY`
-- Executor TASK-151: `DESIGNATED_REVIEWER`
+- Stato TASK-151: `PAUSED_FOR_MOBILE_STOREFRONT_PRODUCT_CONTROL`
+- Fase TASK-151: `REVIEW / PAUSED_EXTERNAL_ACTIVATION`
+- Attivazione TASK-151: `PAUSED_FOR_MOBILE_STOREFRONT_PRODUCT_CONTROL`
+- Executor TASK-151: `NONE`
+- Task TASK-152:
+  `TASK-152 - Mobile Storefront Authoring Boundary`
+- File task TASK-152:
+  `docs/TASKS/TASK-152-mobile-storefront-authoring-boundary.md`
+- Stato TASK-152: `ACTIVE`
+- Fase TASK-152: `REVIEW`
+- Attivazione TASK-152: `USER_APPROVED_EXECUTION`
+- Executor TASK-152: `CODEX_RE_REVIEWER`
+- Checkpoint locale TASK-152 2026-08-21: migration authoring versionata, Admin UI e
+  pipeline immagini condivisa implementate; fresh reset `PASS`, pgTAP completo 47
+  file/2551 test `PASS`, foundation 984/0 `PASS`, schema lint e `npm run verify`
+  `PASS`. Review indipendente diff-scoped e CI exact-SHA ancora in corso/non eseguita.
+- Re-review TASK-152 2026-08-21: `APPROVED` dopo un unico fix batch sui tre P2 e
+  sul P3 della review; pgTAP post-fix 47 file/2561 test, foundation 984/0,
+  schema lint e verify `PASS`. PR/CI exact-SHA e merge restano da eseguire.
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
 - Stato globale attuale: `REVIEW`
-- Task attivo: `TASK-151 - WECHAT-006 Shared Public Staging Activation and Closeout`
+- Task attivo: `TASK-152 - Mobile Storefront Authoring Boundary`
 - Task precedente:
   `TASK-149 - Trusted POS product image v1 server contract`
   (`REVIEW_READY / REVIEW`)
-- Prossimo task pianificato: `DA DEFINIRE DOPO TASK-151 / WECHAT-006`
+- Prossimo task pianificato: closeout TASK-152 secondo train coordinator Client
 - Ultimo task chiuso: `TASK-148 - Final POS article-sync staging cleanup`
 - Ultimo task completato: `TASK-148 - Final POS article-sync staging cleanup`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-151-wechat-006-shared-public-staging-closeout.md`
+- File task corrente: `docs/TASKS/TASK-152-mobile-storefront-authoring-boundary.md`
 - Ultimo file task:
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
-- Evidence task corrente: `docs/AUDITS/WECHAT-006-WORKLOG.md`
+- Evidence task corrente: `NESSUNO`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
-- Stato task: `REVIEW_READY`
+- Stato task: `ACTIVE`
 - Stato task precedente: `REVIEW_READY`
-- Fase: `REVIEW / EXTERNAL_ACTIVATION_PENDING`
+- Fase: `REVIEW`
 - Milestone interna:
   `WECHAT_SHARED_PUBLIC_STAGING_BACKEND_DEPLOYED_PROVIDER_PENDING`
-- Responsabile: `DESIGNATED_REVIEWER`
+- Responsabile: `CODEX_RE_REVIEWER`
 - Branch/worktree TASK-151:
   implementazione `codex/wechat-006-admin-staging`, merge commit corrente
   `728f413d740913145be550e1ffdbf4091dba3676`; closeout documentale

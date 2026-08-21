@@ -13,6 +13,7 @@ export const SHOP_STAFF_WEB_PERMISSION_TREE = [
       { key: "storefront.view", label: "View Storefront" },
       { key: "storefront.edit", label: "Edit Storefront products" },
       { key: "storefront.publish", label: "Publish Storefront products" },
+      { key: "storefront.pricing.manage", label: "Manage Storefront prices" },
       { key: "storefront.bulk_publish", label: "Bulk publish Storefront products" },
       { key: "storefront.promotions.manage", label: "Manage Storefront promotions" },
       { key: "storefront.images.manage", label: "Manage Storefront images" },
@@ -126,6 +127,7 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "storefront.view",
     "storefront.edit",
     "storefront.publish",
+    "storefront.pricing.manage",
     "storefront.bulk_publish",
     "storefront.promotions.manage",
     "storefront.images.manage",
@@ -145,6 +147,7 @@ export const SHOP_STAFF_WEB_ROLE_TEMPLATES = {
     "storefront.view",
     "storefront.edit",
     "storefront.publish",
+    "storefront.pricing.manage",
     "storefront.bulk_publish",
   ],
   staff_manager: ["staff.read", "staff.write", "audit.read"],
@@ -310,6 +313,7 @@ function staffPermissionForShopAdminPermission(
     permission === "storefront.view" ||
     permission === "storefront.edit" ||
     permission === "storefront.publish" ||
+    permission === "storefront.pricing.manage" ||
     permission === "storefront.bulk_publish" ||
     permission === "storefront.promotions.manage" ||
     permission === "storefront.images.manage" ||

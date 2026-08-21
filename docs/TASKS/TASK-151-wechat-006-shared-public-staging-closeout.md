@@ -4,10 +4,10 @@
 
 - ID: `TASK-151`
 - Coordination key: `WECHAT-006`
-- Stato: `REVIEW_READY`
-- Fase attuale: `REVIEW / EXTERNAL_ACTIVATION_PENDING`
-- Responsabile attuale: `DESIGNATED_REVIEWER`
-- Attivazione: `REVIEW_READY`
+- Stato: `PAUSED_FOR_MOBILE_STOREFRONT_PRODUCT_CONTROL`
+- Fase attuale: `REVIEW / PAUSED_EXTERNAL_ACTIVATION`
+- Responsabile attuale: `NONE`
+- Attivazione: `PAUSED_FOR_MOBILE_STOREFRONT_PRODUCT_CONTROL`
 - Data creazione: `2026-08-13`
 - Branch applicativa/merge: `codex/wechat-006-admin-staging` / `728f413d740913145be550e1ffdbf4091dba3676`
 - Branch documentale corrente: `codex/wechat-006-admin-closeout`
@@ -150,6 +150,8 @@ pubblicato vivo. La sua evidence resta intatta e il task viene messo in pausa.
 ## Chiusura
 
 - Stato finale: `REVIEW_READY / EXTERNAL_ACTIVATION_PENDING`.
+- Pausa governance 2026-08-21: il mandato USER_APPROVER attiva TASK-152 come unico
+  task writer; evidence, branch e handoff WECHAT-006 restano intatti e non `DONE`.
 - Follow-up: inventario/configurazione ufficiale del portale WeChat, domini e
   callback; quindi E2E reale progressivo con flag ancora fail-closed fino alla
   validazione live. Nessuna pubblicazione/review dello store è autorizzata.

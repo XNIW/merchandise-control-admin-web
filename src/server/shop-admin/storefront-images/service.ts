@@ -1,11 +1,13 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
+import sharp from "sharp";
 import type { Json } from "@/lib/supabase/database.types";
 import {
   createSupabaseAdminClient,
   resolveSupabaseAdminConfig,
 } from "@/lib/supabase/admin";
-import type { ShopAdminActionContext } from "../action-context";
+import type { StorefrontImageServiceContext } from "./route-context";
 import {
   PRODUCT_IMAGE_MAIN_MAX_BYTES,
   PRODUCT_IMAGE_MAIN_MAX_SIDE,
@@ -13,6 +15,7 @@ import {
 import { verifyDownloadedProductImageJpeg } from "../product-images/runtime-core";
 import {
   STOREFRONT_IMAGE_BUCKET,
+  STOREFRONT_IMAGE_LIMITS,
   STOREFRONT_IMAGE_SOURCE_BUCKET,
   type StorefrontImageIntentInput,
   type StorefrontImageMetadata,
@@ -22,9 +25,13 @@ import {
 } from "./contract";
 import { verifyStorefrontWebp } from "./webp-validator";
 
-type ReadyContext = Extract<ShopAdminActionContext, { status: "ready" }>;
+type ReadyContext = StorefrontImageServiceContext;
 type JsonObject = Record<string, Json | undefined>;
 type ServiceResult = { body: Record<string, unknown>; status: number };
+
+function sha256(bytes: Uint8Array) {
+  return createHash("sha256").update(bytes).digest("hex");
+}
 
 function adminClient() {
   const config = resolveSupabaseAdminConfig();
@@ -183,6 +190,113 @@ export async function readStorefrontSourceImage(
   return verified.ok
     ? { bytes, contentType: "image/jpeg", status: 200 }
     : failure(verified.code, 422);
+}
+
+async function createWebpVariant(
+  source: Uint8Array,
+  variant: StorefrontImageVariant,
+) {
+  const limits = STOREFRONT_IMAGE_LIMITS[variant];
+  for (const quality of [82, 68]) {
+    const encoded = await sharp(source, { failOn: "warning" })
+      .rotate()
+      .resize({
+        fit: "inside",
+        height: limits.maxSide,
+        kernel: sharp.kernel.lanczos3,
+        width: limits.maxSide,
+        withoutEnlargement: true,
+      })
+      .webp({ effort: 5, quality, smartSubsample: true })
+      .toBuffer({ resolveWithObject: true });
+    const bytes = new Uint8Array(encoded.data);
+    const width = encoded.info.width;
+    const height = encoded.info.height;
+    const metadata: StorefrontImageMetadata = {
+      bytes: bytes.byteLength,
+      height,
+      mimeType: "image/webp",
+      sha256: sha256(bytes),
+      width,
+    };
+    if (
+      bytes.byteLength <= limits.maxBytes &&
+      verifyStorefrontWebp({ blobMimeType: "image/webp", bytes, expected: metadata }).ok
+    ) {
+      return { bytes, metadata };
+    }
+  }
+  return null;
+}
+
+export async function adoptStorefrontSourceImage(
+  context: ReadyContext,
+  input: StorefrontImageSourceInput,
+): Promise<ServiceResult> {
+  const source = await readStorefrontSourceImage(context, input);
+  if ("body" in source) return source;
+
+  const generatedEntries = await Promise.all(
+    (["thumb", "card", "detail"] as const).map(async (variant) => [
+      variant,
+      await createWebpVariant(source.bytes, variant),
+    ] as const),
+  );
+  if (generatedEntries.some(([, value]) => !value)) {
+    return failure("source_derivative_encoding_failed", 422);
+  }
+  const generated = Object.fromEntries(generatedEntries) as Record<
+    StorefrontImageVariant,
+    NonNullable<Awaited<ReturnType<typeof createWebpVariant>>>
+  >;
+  const intent = await createStorefrontImageIntent(context, {
+    ...input,
+    variants: {
+      card: generated.card.metadata,
+      detail: generated.detail.metadata,
+      thumb: generated.thumb.metadata,
+    },
+  });
+  if (intent.status !== 200 && intent.status !== 201) return intent;
+  const imagePublicationId = intent.body.imagePublicationId;
+  if (typeof imagePublicationId !== "string") {
+    return failure("backend_contract_invalid");
+  }
+  if (intent.body.status === "noop") {
+    return {
+      body: { imagePublicationId, ok: true, status: "noop" },
+      status: 200,
+    };
+  }
+  const paths = object(intent.body.paths as Json | undefined);
+  const admin = adminClient();
+  if (!admin || !paths) return failure("not_configured");
+  const uploaded: string[] = [];
+  for (const variant of ["thumb", "card", "detail"] as const) {
+    const path = text(paths[variant]);
+    if (!path) {
+      await admin.storage.from(STOREFRONT_IMAGE_BUCKET).remove(uploaded);
+      return failure("backend_contract_invalid");
+    }
+    const result = await admin.storage.from(STOREFRONT_IMAGE_BUCKET).upload(
+      path,
+      generated[variant].bytes,
+      {
+        cacheControl: "31536000",
+        contentType: "image/webp",
+        upsert: false,
+      },
+    );
+    if (result.error) {
+      await admin.storage.from(STOREFRONT_IMAGE_BUCKET).remove(uploaded);
+      return failure("storage_unavailable");
+    }
+    uploaded.push(path);
+  }
+  return finalizeStorefrontImage(context, {
+    imagePublicationId,
+    shopId: input.shopId,
+  });
 }
 
 function variantArray(input: StorefrontImageIntentInput) {

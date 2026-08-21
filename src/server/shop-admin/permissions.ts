@@ -34,6 +34,7 @@ export type ShopAdminPermission =
   | "storefront.view"
   | "storefront.edit"
   | "storefront.publish"
+  | "storefront.pricing.manage"
   | "storefront.bulk_publish"
   | "storefront.promotions.manage"
   | "storefront.images.manage"
@@ -85,6 +86,7 @@ export type ShopStaffPermission =
   | "storefront.view"
   | "storefront.edit"
   | "storefront.publish"
+  | "storefront.pricing.manage"
   | "storefront.bulk_publish"
   | "storefront.promotions.manage"
   | "storefront.images.manage"
@@ -133,6 +135,7 @@ export const POS_ADMIN_STAFF_PERMISSION_KEYS = [
   "storefront.view",
   "storefront.edit",
   "storefront.publish",
+  "storefront.pricing.manage",
   "storefront.bulk_publish",
   "storefront.promotions.manage",
   "storefront.images.manage",
@@ -182,6 +185,7 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "storefront.view",
     "storefront.edit",
     "storefront.publish",
+    "storefront.pricing.manage",
     "storefront.bulk_publish",
     "storefront.promotions.manage",
     "storefront.images.manage",
@@ -220,6 +224,7 @@ export const SHOP_ADMIN_PERMISSION_MATRIX: Record<
     "storefront.view",
     "storefront.edit",
     "storefront.publish",
+    "storefront.pricing.manage",
     "storefront.bulk_publish",
     "storefront.promotions.manage",
     "storefront.images.manage",

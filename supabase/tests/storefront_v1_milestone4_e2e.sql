@@ -191,26 +191,27 @@ select set_config(
 select set_config('request.jwt.claim.role', 'authenticated', true);
 
 insert into m4_results(label, payload)
-select 'admin-publish', public.admin_storefront_publication_mutate_v1(
+select 'admin-publish', public.storefront_publication_authoring_mutate_v1(
   '14000000-0000-4000-8000-000000040001',
-  'upsert',
+  'publish',
   jsonb_build_object(
     'sourceProductId', '24000000-0000-4000-8000-000000040001',
-    'publicationStatus', 'published',
     'publicName', 'Producto público Milestone 4',
     'publicDescription', 'Producto de collaudo Storefront v1',
-    'publicCategoryId', '44000000-0000-4000-8000-000000040001',
+    'storefrontCategoryId', '44000000-0000-4000-8000-000000040001',
     'publicBrand', 'Merchandise Control',
-    'retailPriceClp', 1900,
-    'compareAtPriceClp', 2200,
+    'publicPrice', 1900,
+    'compareAtPrice', 2200,
     'priceSourceMode', 'override',
     'featured', true,
-    'sortRank', 1,
+    'homeOrder', 1,
     'pickupEnabled', true,
     'deliveryEnabled', false,
     'reservationEnabled', true,
-    'availabilityMode', 'available'
-  )
+    'availability', 'available'
+  ),
+  '94000000-0000-4000-8000-000000040001',
+  0
 );
 reset role;
 
@@ -230,7 +231,7 @@ select ok(
   and exists (
     select 1 from public.audit_logs audit
     where audit.shop_id = '14000000-0000-4000-8000-000000040001'
-      and audit.event_key = 'shop.storefront.publication.upsert.success'
+      and audit.event_key = 'shop.storefront.authoring.publish.success'
   ),
   'M4-02 publication rebuild and audit commit atomically'
 );

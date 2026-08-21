@@ -948,6 +948,14 @@ select is(
 
 set local role postgres;
 
+update public.storefront_product_publications publication
+set publication_status = 'ended', published_at = null
+where publication.source_product_id in (
+  select product.id
+  from public.inventory_products product
+  where product.owner_user_id = '00000000-0000-4000-8000-000000023002'
+);
+
 delete from auth.users where id = '00000000-0000-4000-8000-000000023002';
 delete from auth.users where id = '00000000-0000-4000-8000-000000023004';
 

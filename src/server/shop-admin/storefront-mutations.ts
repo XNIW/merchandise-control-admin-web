@@ -8,6 +8,7 @@ import {
   type ShopAdminActionResult,
 } from "./action-context";
 import {
+  callStaffWebStorefrontBulkMutation,
   callStaffWebStorefrontFulfillmentMutation,
   callStaffWebStorefrontPaymentMutation,
   callStaffWebStorefrontMutation,
@@ -17,7 +18,9 @@ import {
 type StorefrontPublicationMutationInput = {
   compareAtPriceClp?: number;
   deliveryEnabled: boolean;
+  expectedVersion: number;
   featured: boolean;
+  idempotencyKey: string;
   pickupEnabled: boolean;
   priceSourceMode: string;
   promotionEndsAt?: string;
@@ -41,38 +44,47 @@ function permissionForPublicationStatus(status: string) {
 
 function toJsonPayload(input: StorefrontPublicationMutationInput) {
   return {
-    compareAtPriceClp: input.compareAtPriceClp,
+    compareAtPrice: input.compareAtPriceClp,
     deliveryEnabled: input.deliveryEnabled,
     featured: input.featured,
     pickupEnabled: input.pickupEnabled,
     priceSourceMode: input.priceSourceMode,
+    homeOrder: input.sortRank,
     promotionEndsAt: input.promotionEndsAt,
     promotionStartsAt: input.promotionStartsAt,
     publicBrand: input.publicBrand,
-    publicCategoryId: input.publicCategoryId,
+    storefrontCategoryId: input.publicCategoryId,
     publicDescription: input.publicDescription,
     publicName: input.publicName,
-    publicationStatus: input.publicationStatus,
-    publishedImageVersionId: input.publishedImageVersionId,
+    publicImageId: input.publishedImageVersionId,
     reservationEnabled: input.reservationEnabled,
-    retailPriceClp: input.retailPriceClp,
-    sortRank: input.sortRank,
+    publicPrice: input.retailPriceClp,
     sourceProductId: input.sourceProductId,
   } satisfies Record<string, Json | undefined>;
 }
 
 async function callMutation(
   context: Extract<Awaited<ReturnType<typeof resolveShopActionContext>>, { status: "ready" }>,
-  operation: "bulk_pause" | "bulk_publish" | "upsert",
+  operation: "archive" | "hide" | "publish" | "save_draft" | "schedule",
   payload: Record<string, Json | undefined>,
+  idempotencyKey: string,
+  expectedVersion: number,
 ): Promise<ShopAdminActionResult> {
   const rpc = context.principalKind === "personal_account"
-    ? await context.supabase.rpc("admin_storefront_publication_mutate_v1", {
+    ? await context.supabase.rpc("storefront_publication_authoring_mutate_v1", {
+        p_expected_version: expectedVersion,
+        p_idempotency_key: idempotencyKey,
         p_operation: operation,
         p_payload: payload,
         p_shop_id: context.selectedShop.shopId,
       })
-    : await callStaffWebStorefrontMutation(context, operation, payload);
+    : await callStaffWebStorefrontMutation(
+        context,
+        operation,
+        payload,
+        idempotencyKey,
+        expectedVersion,
+      );
 
   if (rpc.error) {
     return shopAdminActionResult("db_failure", {
@@ -92,17 +104,41 @@ async function callMutation(
 export async function upsertStorefrontPublication(
   input: StorefrontPublicationMutationInput,
 ) {
+  if (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 0) {
+    return shopAdminActionResult("validation_failed", { ok: false });
+  }
   const context = await resolveShopActionContext(
     input.requestedShopId,
     permissionForPublicationStatus(input.publicationStatus),
   );
   if (context.status !== "ready") return context.result;
-  return callMutation(context, "upsert", toJsonPayload(input));
+  const operation =
+    input.publicationStatus === "draft"
+      ? "save_draft"
+      : input.publicationStatus === "scheduled"
+        ? "schedule"
+        : input.publicationStatus === "published"
+          ? "publish"
+          : input.publicationStatus === "paused"
+            ? "hide"
+            : "archive";
+  const payload =
+    operation === "hide" || operation === "archive"
+      ? { sourceProductId: input.sourceProductId }
+      : toJsonPayload(input);
+  return callMutation(
+    context,
+    operation,
+    payload,
+    input.idempotencyKey,
+    input.expectedVersion,
+  );
 }
 
 export async function bulkSetStorefrontPublicationStatus(input: {
-  operation: "bulk_pause" | "bulk_publish";
-  publicationIds: readonly string[];
+  idempotencyKey: string;
+  items: readonly { expectedVersion: number; publicationId: string }[];
+  operation: "bulk_hide" | "bulk_publish";
   requestedShopId?: string;
 }) {
   const context = await resolveShopActionContext(
@@ -110,12 +146,41 @@ export async function bulkSetStorefrontPublicationStatus(input: {
     "storefront.bulk_publish",
   );
   if (context.status !== "ready") return context.result;
-  if (input.publicationIds.length < 1 || input.publicationIds.length > 100) {
+  if (
+    input.items.length < 1 ||
+    input.items.length > 100 ||
+    input.items.some(
+      (item) => !Number.isSafeInteger(item.expectedVersion) || item.expectedVersion < 0,
+    )
+  ) {
     return shopAdminActionResult("validation_failed", { ok: false });
   }
-  return callMutation(context, input.operation, {
-    publicationIds: [...input.publicationIds],
-  });
+  const rpc = context.principalKind === "personal_account"
+    ? await context.supabase.rpc("admin_storefront_publication_bulk_mutate_v2", {
+        p_idempotency_key: input.idempotencyKey,
+        p_items: [...input.items],
+        p_operation: input.operation,
+        p_shop_id: context.selectedShop.shopId,
+      })
+    : await callStaffWebStorefrontBulkMutation(
+        context,
+        input.operation,
+        [...input.items],
+        input.idempotencyKey,
+      );
+  if (rpc.error) {
+    return shopAdminActionResult("db_failure", {
+      ok: false,
+      shopId: context.selectedShop.shopId,
+    });
+  }
+  const result = mapShopAdminRpcResult(rpc.data);
+  return result.shopId === context.selectedShop.shopId
+    ? result
+    : shopAdminActionResult("db_failure", {
+        ok: false,
+        shopId: context.selectedShop.shopId,
+      });
 }
 
 export type StorefrontPromotionMutationInput = {

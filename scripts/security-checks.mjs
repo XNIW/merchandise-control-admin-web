@@ -436,7 +436,9 @@ function checkReadOnlyContracts() {
         "staff_web_audit_event_v1",
         "staff_web_history_mutate_v1",
         "admin_storefront_publications_read_v1",
-        "admin_storefront_publication_mutate_v1",
+        "storefront_publications_authoring_read_v1",
+        "storefront_publication_authoring_mutate_v1",
+        "admin_storefront_publication_bulk_mutate_v2",
         "admin_storefront_promotions_read_v1",
         "admin_storefront_promotion_mutate_v1",
         "admin_storefront_images_read_v1",
@@ -456,6 +458,7 @@ function checkReadOnlyContracts() {
       "src/server/shop-admin/storefront-read-model.ts",
       new Set([
         "admin_storefront_publications_read_v1",
+        "storefront_publications_authoring_read_v1",
         "admin_storefront_promotions_read_v1",
         "admin_storefront_images_read_v1",
         "admin_storefront_fulfillment_read_v1",
@@ -465,7 +468,8 @@ function checkReadOnlyContracts() {
     [
       "src/server/shop-admin/storefront-mutations.ts",
       new Set([
-        "admin_storefront_publication_mutate_v1",
+        "storefront_publication_authoring_mutate_v1",
+        "admin_storefront_publication_bulk_mutate_v2",
         "admin_storefront_promotion_mutate_v1",
         "admin_storefront_fulfillment_mutate_v1",
         "admin_storefront_payment_mutate_v1",
@@ -536,6 +540,9 @@ function checkReadOnlyContracts() {
     "src/server/shop-admin/product-images/runtime-core.ts",
     "src/server/shop-admin/product-images/service.ts",
     "src/server/shop-admin/storefront-images/webp-validator.ts",
+    // Server-only Storefront adoption writes immutable, hash-bound WebP
+    // derivatives after the audited intent RPC and before server finalization.
+    "src/server/shop-admin/storefront-images/service.ts",
     "src/server/auth/wechat-exchange.ts",
     "src/server/auth/wechat-link-saga.ts",
     "src/server/auth/wechat-mini-session.ts",

@@ -522,6 +522,7 @@ select is(
     'storefront.bulk_publish',
     'storefront.edit',
     'storefront.images.manage',
+    'storefront.pricing.manage',
     'storefront.promotions.manage',
     'storefront.publish',
     'storefront.settings.manage',
@@ -532,7 +533,7 @@ select is(
     'users.manage',
     'users.view'
   ]::text[],
-  'POS Admin helper returns the exact canonical set of 45 permissions'
+  'POS Admin helper returns the exact canonical set of 46 permissions'
 );
 select ok(
   position(
@@ -1393,8 +1394,8 @@ select is(
       and role_key = 'pos_admin'
       and enabled
   ),
-  45,
-  'new-shop trigger seeds the complete 45-permission POS Admin matrix'
+  46,
+  'new-shop trigger seeds the complete 46-permission POS Admin matrix'
 );
 select lives_ok(
   $$
@@ -3029,7 +3030,7 @@ select ok(
 );
 select ok(
   (
-    select count(*) = 45
+    select count(*) = 46
       and bool_and(enabled)
       and array_agg(permission_key order by permission_key) = (
         select array_agg(permission_key order by permission_key)
@@ -3039,7 +3040,7 @@ select ok(
     where shop_id = '10000000-0000-4000-8000-000000000140'
       and role_key = 'pos_admin'
   ),
-  'advanced recovery enforces exactly 45 enabled POS Admin permissions'
+  'advanced recovery enforces exactly 46 enabled POS Admin permissions'
 );
 select ok(
   exists (
@@ -3133,7 +3134,7 @@ select ok(
 );
 select ok(
   (
-    select count(*) = 45
+    select count(*) = 46
       and bool_and(enabled)
       and array_agg(permission_key order by permission_key) = (
         select array_agg(permission_key order by permission_key)
@@ -3143,7 +3144,7 @@ select ok(
     where shop_id = '10000000-0000-4000-8000-000000000240'
       and role_key = 'pos_admin'
   ),
-  'initial manager helper grants exactly 45 enabled POS Admin permissions'
+  'initial manager helper grants exactly 46 enabled POS Admin permissions'
 );
 
 set local role authenticated;

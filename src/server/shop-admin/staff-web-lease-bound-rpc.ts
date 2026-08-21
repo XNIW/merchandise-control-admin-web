@@ -294,18 +294,62 @@ export function callStaffWebStorefrontRead(
 
 export function callStaffWebStorefrontMutation(
   context: StaffWebLeaseBoundContext,
-  operation: "bulk_pause" | "bulk_publish" | "upsert",
+  operation: "archive" | "hide" | "publish" | "save_draft" | "schedule",
   payload: JsonRecord,
+  idempotencyKey: string,
+  expectedVersion: number,
 ) {
   const supabase = staffLeaseBoundAdminClient();
   if (!supabase) return unavailableRpcResult();
 
-  return supabase.rpc("admin_storefront_publication_mutate_v1", {
+  return supabase.rpc("storefront_publication_authoring_mutate_v1", {
     p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_expected_version: expectedVersion,
+    p_idempotency_key: idempotencyKey,
     p_operation: operation,
     p_payload: payload,
     p_session_token_hash: context.staffWebSession.sessionTokenHash,
     p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}
+
+export function callStaffWebStorefrontBulkMutation(
+  context: StaffWebLeaseBoundContext,
+  operation: "bulk_hide" | "bulk_publish",
+  items: Json,
+  idempotencyKey: string,
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("admin_storefront_publication_bulk_mutate_v2", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_idempotency_key: idempotencyKey,
+    p_items: items,
+    p_operation: operation,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_staff_id: context.actorStaffId,
+    p_staff_web_session_id: context.staffWebSession.sessionId,
+  });
+}
+
+export function callStaffWebStorefrontAuthoringRead(
+  context: StaffWebLeaseBoundContext,
+  sourceProductIds: readonly string[],
+) {
+  const supabase = staffLeaseBoundAdminClient();
+  if (!supabase) return unavailableRpcResult();
+
+  return supabase.rpc("storefront_publications_authoring_read_v1", {
+    p_expected_credential_version: context.staffWebSession.credentialVersion,
+    p_page: 1,
+    p_page_size: 100,
+    p_session_token_hash: context.staffWebSession.sessionTokenHash,
+    p_shop_id: context.selectedShop.shopId,
+    p_source_product_ids: [...sourceProductIds],
     p_staff_id: context.actorStaffId,
     p_staff_web_session_id: context.staffWebSession.sessionId,
   });
