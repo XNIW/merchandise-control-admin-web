@@ -842,6 +842,137 @@ jobs:
           ) process.exit(1);
           NODE
 
+      - name: Verify mobile Storefront authoring session and summary contract
+        if: >-
+          inputs.mode == 'apply' &&
+          inputs.expected_migration_version == '20260821211500'
+        run: |
+          set -euo pipefail
+          SOURCE_DB_URL="$(cat _storefront-migration/source-db-url)"
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            -v "$PWD:/workspace:ro" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -f /workspace/supabase/tests/storefront_v1_admin_publications.sql \
+              > _storefront-migration/evidence/mobile-authoring-pgtap.txt
+          docker run --rm --network host \
+            -e SOURCE_DB_URL="$SOURCE_DB_URL" \
+            postgres:17 \
+            psql -X -qAt -v ON_ERROR_STOP=1 \
+              "$SOURCE_DB_URL" \
+              -c "select jsonb_build_object(
+                'migrationLedgerExact', (
+                  select count(*) = 1
+                  from supabase_migrations.schema_migrations
+                  where version = '20260821211500'
+                    and name = 'mobile_storefront_authoring_session_summary'
+                ),
+                'sessionTablePrivate',
+                  not has_table_privilege(
+                    'anon',
+                    'app_private.storefront_authoring_client_sessions',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'authenticated',
+                    'app_private.storefront_authoring_client_sessions',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  )
+                  and not has_table_privilege(
+                    'service_role',
+                    'app_private.storefront_authoring_client_sessions',
+                    'SELECT,INSERT,UPDATE,DELETE'
+                  ),
+                'mobileBindBoundary', (
+                  select count(*) = 2
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname in (
+                      'storefront_authoring_bind_android_session_v1',
+                      'storefront_authoring_bind_ios_session_v1'
+                    )
+                    and procedure.prosecdef
+                    and procedure.provolatile = 'v'
+                    and 'search_path=' || pg_catalog.chr(34) ||
+                      pg_catalog.chr(34) = any(procedure.proconfig)
+                    and not has_function_privilege(
+                      'anon', procedure.oid, 'EXECUTE'
+                    )
+                    and has_function_privilege(
+                      'authenticated', procedure.oid, 'EXECUTE'
+                    )
+                    and not has_function_privilege(
+                      'service_role', procedure.oid, 'EXECUTE'
+                    )
+                ),
+                'summaryBoundary', (
+                  select procedure.prosecdef
+                    and procedure.provolatile = 's'
+                    and 'search_path=' || pg_catalog.chr(34) ||
+                      pg_catalog.chr(34) = any(procedure.proconfig)
+                    and 'statement_timeout=5s' = any(procedure.proconfig)
+                    and not has_function_privilege(
+                      'anon', procedure.oid, 'EXECUTE'
+                    )
+                    and has_function_privilege(
+                      'authenticated', procedure.oid, 'EXECUTE'
+                    )
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'public'
+                    and procedure.proname =
+                      'storefront_publications_authoring_summary_v1'
+                ),
+                'privateSourceResolverDenied', (
+                  select not has_function_privilege(
+                    'anon', procedure.oid, 'EXECUTE'
+                  )
+                    and not has_function_privilege(
+                      'authenticated', procedure.oid, 'EXECUTE'
+                    )
+                    and not has_function_privilege(
+                      'service_role', procedure.oid, 'EXECUTE'
+                    )
+                  from pg_catalog.pg_proc procedure
+                  join pg_catalog.pg_namespace namespace
+                    on namespace.oid = procedure.pronamespace
+                  where namespace.nspname = 'app_private'
+                    and procedure.proname = 'storefront_authoring_source_v1'
+                )
+              )" \
+              > _storefront-migration/evidence/mobile-authoring-post-verify.json
+          node <<'NODE'
+          const { readFileSync } = require("node:fs");
+          const tap = readFileSync(
+            "_storefront-migration/evidence/mobile-authoring-pgtap.txt",
+            "utf8",
+          );
+          const report = JSON.parse(
+            readFileSync(
+              "_storefront-migration/evidence/mobile-authoring-post-verify.json",
+              "utf8",
+            ),
+          );
+          const checks = {
+            migrationLedgerExact: report.migrationLedgerExact === true,
+            sessionTablePrivate: report.sessionTablePrivate === true,
+            mobileBindBoundary: report.mobileBindBoundary === true,
+            summaryBoundary: report.summaryBoundary === true,
+            privateSourceResolverDenied:
+              report.privateSourceResolverDenied === true,
+            pgTapPlan: /^1\.\.56$/m.test(tap),
+            pgTapAssertions: (tap.match(/^ok \d+ - /gm) || []).length === 56,
+            pgTapNoFailures: !/^not ok /m.test(tap),
+          };
+          console.log(JSON.stringify(checks));
+          if (Object.values(checks).some((value) => !value)) process.exit(1);
+          NODE
+
       - name: Verify TASK-021 customer ownership and privacy contract
         if: >-
           inputs.mode == 'apply' &&
