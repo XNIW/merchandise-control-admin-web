@@ -1,6 +1,6 @@
 import "server-only";
 
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
   createSupabaseAdminClient,
   resolveSupabaseAdminConfig,
@@ -18,12 +18,14 @@ export type ProductImageActorKind = "personal_account" | "platform_admin";
 
 export type ProductImageActorPolicy =
   | "personal_catalog_member"
+  | "personal_shop_member"
   | "platform_admin_or_personal_catalog_member";
 
 export type ProductImageRequestActor = {
   actorKind: ProductImageActorKind;
   actorProfileId: string;
   shopId: string;
+  supabase: SupabaseClient<Database> | null;
 };
 
 export type ProductImageActorResolution =
@@ -53,13 +55,13 @@ async function resolveAuthenticatedUserId(request: Request) {
   const serverConfig = resolveSupabaseServerConfig();
 
   if (serverConfig.status !== "configured") {
-    return { code: "not_configured" as const, userId: null };
+    return { client: null, code: "not_configured" as const, userId: null };
   }
 
   const bearer = readBearerToken(request.headers.get("authorization"));
 
   if (bearer.present && !bearer.token) {
-    return { code: "unauthorized" as const, userId: null };
+    return { client: null, code: "unauthorized" as const, userId: null };
   }
 
   const client = bearer.token
@@ -79,14 +81,18 @@ async function resolveAuthenticatedUserId(request: Request) {
     : await createSupabaseServerClient(serverConfig);
 
   if (!client) {
-    return { code: "not_configured" as const, userId: null };
+    return { client: null, code: "not_configured" as const, userId: null };
   }
 
   const userResult = await client.auth.getUser();
 
   return userResult.error || !userResult.data.user?.id
-    ? { code: "unauthorized" as const, userId: null }
-    : { code: "authorized" as const, userId: userResult.data.user.id };
+    ? { client: null, code: "unauthorized" as const, userId: null }
+    : {
+        client,
+        code: "authorized" as const,
+        userId: userResult.data.user.id,
+      };
 }
 
 async function resolveBearerAuthenticatedUserId(request: Request) {
@@ -102,15 +108,20 @@ async function resolveBearerAuthenticatedUserId(request: Request) {
           ? ("not_configured" as const)
           : ("unauthorized" as const),
       userId: null,
+      client: null,
     };
   }
-  return { code: "authorized" as const, userId: session.actorProfileId };
+  return {
+    client: null,
+    code: "authorized" as const,
+    userId: session.actorProfileId,
+  };
 }
 
 export async function resolveProductImageRequestActor(
   request: Request,
   shopId: string,
-  permission: Extract<ShopAdminPermission, "products.read" | "products.write">,
+  permission: ShopAdminPermission,
   policy: ProductImageActorPolicy =
     "platform_admin_or_personal_catalog_member",
 ): Promise<ProductImageActorResolution> {
@@ -205,6 +216,7 @@ export async function resolveProductImageRequestActor(
         actorKind: "platform_admin",
         actorProfileId: identity.userId,
         shopId,
+        supabase: identity.client,
       },
       status: "authorized",
     };
@@ -236,6 +248,7 @@ export async function resolveProductImageRequestActor(
       actorKind: "personal_account",
       actorProfileId: identity.userId,
       shopId,
+      supabase: identity.client,
     },
     status: "authorized",
   };

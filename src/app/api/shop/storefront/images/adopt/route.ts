@@ -1,22 +1,23 @@
 import {
-  parseStorefrontImageIntent,
+  parseStorefrontImageSource,
   readStorefrontImageJson,
   storefrontImageJson,
 } from "@/server/shop-admin/storefront-images/contract";
 import { resolveStorefrontImageRouteContext } from "@/server/shop-admin/storefront-images/route-context";
-import { createStorefrontImageIntent } from "@/server/shop-admin/storefront-images/service";
+import { adoptStorefrontSourceImage } from "@/server/shop-admin/storefront-images/service";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  const input = parseStorefrontImageIntent(
+  const input = parseStorefrontImageSource(
     await readStorefrontImageJson(request),
   );
-  if (!input)
+  if (!input) {
     return storefrontImageJson({ code: "validation_failed", ok: false }, 400);
+  }
   const resolved = await resolveStorefrontImageRouteContext(request, input.shopId);
   if (resolved.status === "blocked") return resolved.response;
-  const result = await createStorefrontImageIntent(resolved.context, input);
+  const result = await adoptStorefrontSourceImage(resolved.context, input);
   return storefrontImageJson(result.body, result.status);
 }

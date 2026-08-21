@@ -5084,6 +5084,47 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_storefront_publication_bulk_mutate_v2: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_idempotency_key: string
+          p_items: Json
+          p_operation: string
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      storefront_publication_authoring_mutate_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_expected_version?: number | null
+          p_idempotency_key: string
+          p_operation: string
+          p_payload: Json
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      storefront_publications_authoring_read_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_page?: number
+          p_page_size?: number
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_source_product_ids?: string[] | null
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+          p_status?: string | null
+        }
+        Returns: Json
+      }
       admin_storefront_promotions_read_v1: {
         Args: {
           p_expected_credential_version?: number | null

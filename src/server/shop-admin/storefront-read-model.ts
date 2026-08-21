@@ -7,6 +7,7 @@ import type {
 import type { Json } from "@/lib/supabase/database.types";
 import { resolveShopAdminDataAccess } from "./data-access";
 import {
+  callStaffWebStorefrontAuthoringRead,
   callStaffWebStorefrontFulfillmentRead,
   callStaffWebStorefrontImagesRead,
   callStaffWebStorefrontPaymentRead,
@@ -25,9 +26,12 @@ export type StorefrontPublicationStatus =
 export type StorefrontPublicationRow = {
   availabilityMode: string | null;
   barcode: string;
+  catalogVersion: number;
+  changedFields: readonly string[];
   compareAtPriceClp: number | null;
   deliveryEnabled: boolean;
   featured: boolean;
+  mutationSource: "admin" | "android" | "ios" | "system";
   operationalName: string | null;
   operationalPrice: number | null;
   pickupEnabled: boolean;
@@ -165,6 +169,7 @@ export type StorefrontPublicationsReadModel = {
     canEdit: boolean;
     canManageFulfillment: boolean;
     canManagePayments: boolean;
+    canManagePricing: boolean;
     canManageImages: boolean;
     canManagePromotions: boolean;
     canPublish: boolean;
@@ -195,6 +200,7 @@ export type StorefrontAuditRow = {
   eventKey: string;
   id: string;
   result: string;
+  source: "Admin" | "Android" | "iOS" | "System";
   targetId: string | null;
   updatedCount: number | null;
 };
@@ -256,9 +262,12 @@ function mapRow(value: Json): StorefrontPublicationRow | null {
   return {
     availabilityMode: textValue(row.availability_mode),
     barcode,
+    catalogVersion: 0,
+    changedFields: [],
     compareAtPriceClp: numberValue(row.compare_at_price_clp),
     deliveryEnabled: booleanValue(row.delivery_enabled),
     featured: booleanValue(row.featured),
+    mutationSource: "admin",
     operationalName: textValue(row.operational_name),
     operationalPrice: numberValue(row.operational_price),
     pickupEnabled: booleanValue(row.pickup_enabled),
@@ -280,6 +289,33 @@ function mapRow(value: Json): StorefrontPublicationRow | null {
     sortRank: numberValue(row.sort_rank) ?? 0,
     sourceProductId,
     updatedAt: textValue(row.updated_at),
+  };
+}
+
+type AuthoringSnapshot = {
+  changedFields: readonly string[];
+  mutationSource: "admin" | "android" | "ios" | "system";
+  sourceProductId: string;
+  version: number;
+};
+
+function mapAuthoringSnapshot(value: Json): AuthoringSnapshot | null {
+  const row = objectValue(value);
+  const sourceProductId = row ? textValue(row.sourceProductId) : null;
+  const version = row ? numberValue(row.version) : null;
+  const source = row ? textValue(row.mutationSource) : null;
+  if (
+    !sourceProductId ||
+    version === null ||
+    !Number.isSafeInteger(version) ||
+    version < 0 ||
+    (source !== "admin" && source !== "android" && source !== "ios" && source !== "system")
+  ) return null;
+  return {
+    changedFields: stringArray(row?.changedFields),
+    mutationSource: source,
+    sourceProductId,
+    version,
   };
 }
 
@@ -338,6 +374,15 @@ function mapAudit(value: Json): StorefrontAuditRow | null {
   const result = audit ? textValue(audit.result) : null;
   const actorKind = audit ? textValue(audit.actorKind) : null;
   const createdAt = audit ? textValue(audit.createdAt) : null;
+  const sourceValue = audit ? textValue(audit.source) : null;
+  const source =
+    sourceValue === "android"
+      ? "Android"
+      : sourceValue === "ios"
+        ? "iOS"
+        : sourceValue === "system"
+          ? "System"
+          : "Admin";
   return id && eventKey && result && actorKind && createdAt
     ? {
         actorKind,
@@ -347,6 +392,7 @@ function mapAudit(value: Json): StorefrontAuditRow | null {
         eventKey,
         id,
         result,
+        source,
         targetId: textValue(audit?.targetId),
         updatedCount: numberValue(audit?.updatedCount),
       }
@@ -609,6 +655,7 @@ export async function getStorefrontPublicationsReadModel(
         canEdit: false,
         canManageFulfillment: false,
         canManagePayments: false,
+        canManagePricing: false,
         canManageImages: false,
         canManagePromotions: false,
         canPublish: false,
@@ -667,6 +714,29 @@ export async function getStorefrontPublicationsReadModel(
           request,
         );
   const payload = objectValue(rpc.data);
+  const sourceProductIds = Array.isArray(payload?.rows)
+    ? payload.rows.flatMap((value) => {
+        const row = objectValue(value);
+        const sourceProductId = row ? textValue(row.source_product_id) : null;
+        return sourceProductId ? [sourceProductId] : [];
+      })
+    : [];
+  const authoringRpc = access.principalKind === "personal_account"
+    ? await access.supabase.rpc("storefront_publications_authoring_read_v1", {
+        p_page: 1,
+        p_page_size: 100,
+        p_shop_id: access.selectedShop.shopId,
+        p_source_product_ids: sourceProductIds,
+      })
+    : await callStaffWebStorefrontAuthoringRead(
+        {
+          actorStaffId: access.principal.staff.staffId,
+          selectedShop: access.selectedShop,
+          staffWebSession: access.principal.staffWebSession!,
+        },
+        sourceProductIds,
+      );
+  const authoringPayload = objectValue(authoringRpc.data);
   const promotionsRpc =
     access.principalKind === "personal_account"
       ? await access.supabase.rpc("admin_storefront_promotions_read_v1", {
@@ -740,6 +810,9 @@ export async function getStorefrontPublicationsReadModel(
     rpc.error ||
     !payload ||
     payload.ok !== true ||
+    authoringRpc.error ||
+    !authoringPayload ||
+    authoringPayload.ok !== true ||
     promotionsRpc.error ||
     !promotionsPayload ||
     promotionsPayload.ok !== true ||
@@ -765,6 +838,7 @@ export async function getStorefrontPublicationsReadModel(
         canEdit: false,
         canManageFulfillment: false,
         canManagePayments: false,
+        canManagePricing: false,
         canManageImages: false,
         canManagePromotions: false,
         canPublish: false,
@@ -783,8 +857,25 @@ export async function getStorefrontPublicationsReadModel(
     };
   }
 
+  const authoringSnapshots = new Map(
+    (Array.isArray(authoringPayload.rows) ? authoringPayload.rows : [])
+      .map(mapAuthoringSnapshot)
+      .filter((row): row is AuthoringSnapshot => row !== null)
+      .map((row) => [row.sourceProductId, row]),
+  );
   const rows = Array.isArray(payload.rows)
     ? payload.rows.map(mapRow).filter((row): row is StorefrontPublicationRow => row !== null)
+        .map((row) => {
+          const snapshot = authoringSnapshots.get(row.sourceProductId);
+          return snapshot
+            ? {
+                ...row,
+                catalogVersion: snapshot.version,
+                changedFields: snapshot.changedFields,
+                mutationSource: snapshot.mutationSource,
+              }
+            : row;
+        })
     : [];
   const categories = Array.isArray(payload.categories)
     ? payload.categories.map(mapCategory).filter((row): row is StorefrontCategoryOption => row !== null)
@@ -797,6 +888,7 @@ export async function getStorefrontPublicationsReadModel(
     : [];
   const auditCandidates = [
     ...(Array.isArray(payload.audit) ? payload.audit : []),
+    ...(Array.isArray(authoringPayload.audit) ? authoringPayload.audit : []),
     ...(Array.isArray(fulfillmentPayload.audit)
       ? fulfillmentPayload.audit
       : []),
@@ -844,6 +936,7 @@ export async function getStorefrontPublicationsReadModel(
         canEdit: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canManageFulfillment: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canManagePayments: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
+        canManagePricing: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canManageImages: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canManagePromotions: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
         canPublish: access.selectedShop.role === "shop_owner" || access.selectedShop.role === "shop_manager",
@@ -854,6 +947,7 @@ export async function getStorefrontPublicationsReadModel(
         canEdit: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.edit"),
         canManageFulfillment: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.settings.manage"),
         canManagePayments: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.settings.manage"),
+        canManagePricing: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.pricing.manage"),
         canManageImages: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.images.manage"),
         canManagePromotions: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.promotions.manage"),
         canPublish: access.principal.permissions.includes("shop_admin.full_access") || access.principal.permissions.includes("storefront.publish"),
