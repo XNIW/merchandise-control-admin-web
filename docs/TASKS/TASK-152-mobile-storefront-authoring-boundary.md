@@ -91,6 +91,22 @@ secondo planning e ne applica architecture map, file map e contract map gia auto
   regressione P0/P1/P2 causata dal fix. Verifica reviewer: pgTAP authoring 46/46,
   foundation mirato 8/8 e `git diff --check` `PASS`.
 
+### Correzione d'integrazione mobile P1
+
+La review Android ha riprodotto un limite cross-contract non visibile nella
+review Admin isolata: `app_metadata` e' user-wide e non distingue sessioni Admin,
+Android e iOS dello stesso account. La correzione additiva:
+
+- lega `android`/`ios` in modo immutabile al `session_id` autenticato corrente;
+- lascia `admin` come default fail-closed per sessioni non legate;
+- aggiunge una projection summary filtrata/paginata (massimo 100 righe), senza
+  categorie, audit, payload editor o campi inventory interni;
+- espone nello snapshot authoring soltanto URL pubbliche finalizzate per la
+  thumbnail/detail preview.
+
+Evidence locale: pgTAP authoring 55/55 `PASS`; la re-review conclusiva resta
+coordinata con l'unico ciclo Android autorizzato.
+
 ## Handoff
 
 - `CODEX_REVIEW_APPROVED_USER_AUTHORIZED_CI_GREEN_TO_MERGE`.
