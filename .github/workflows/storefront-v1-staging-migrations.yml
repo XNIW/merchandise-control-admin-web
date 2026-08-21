@@ -554,8 +554,8 @@ jobs:
                 on namespace.oid = procedure.pronamespace
               where namespace.nspname = 'public'
                 and procedure.proname in (
-                  'admin_storefront_publications_read_v1',
-                  'admin_storefront_publication_mutate_v1'
+                  'storefront_publications_authoring_read_v1',
+                  'storefront_publication_authoring_mutate_v1'
                 )
                 and procedure.prosecdef
                 and procedure.provolatile = 'v'
@@ -572,6 +572,17 @@ jobs:
                   'EXECUTE'
                 )
             ),
+            'legacyAuthoringMutationDenied',
+              not has_function_privilege(
+                'authenticated',
+                'public.admin_storefront_publication_mutate_v1(uuid,text,jsonb,uuid,uuid,text,integer)',
+                'EXECUTE'
+              )
+              and not has_function_privilege(
+                'service_role',
+                'public.admin_storefront_publication_mutate_v1(uuid,text,jsonb,uuid,uuid,text,integer)',
+                'EXECUTE'
+              ),
             'adminPromotionRpcBoundary', (
               select count(*) = 2
               from pg_catalog.pg_proc procedure
@@ -745,7 +756,7 @@ jobs:
                 'INSERT,UPDATE,DELETE'
               ),
             'storefrontPermissionMatrix', (
-              select count(*) = 8
+              select count(*) = 9
               from app_private.mac_admin_w7pos_009_pos_admin_permissions()
               where permission_key like 'storefront.%'
             ),
@@ -805,6 +816,7 @@ jobs:
             "publicSearchFieldsPresent",
             "publicKeysetIndexesPresent",
             "adminRpcBoundary",
+            "legacyAuthoringMutationDenied",
             "adminPromotionRpcBoundary",
             "publicImageBucketBoundary",
             "publicImageVariantBoundary",

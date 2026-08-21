@@ -166,8 +166,16 @@ test("TASK-007 staging workflow retains the publication ledger and post-verifies
   assert.match(stagingWorkflow, /adminPublicationsLedgerRetained/);
   assert.match(stagingWorkflow, /publicApiPlannerLedgerRetained/);
   assert.match(stagingWorkflow, /adminRpcBoundary/);
+  assert.match(
+    stagingWorkflow,
+    /storefront_publications_authoring_read_v1[\s\S]*storefront_publication_authoring_mutate_v1/,
+  );
+  assert.match(stagingWorkflow, /legacyAuthoringMutationDenied/);
   assert.match(stagingWorkflow, /adminAuthoringDirectDenied/);
-  assert.match(stagingWorkflow, /storefrontPermissionMatrix/);
+  assert.match(
+    stagingWorkflow,
+    /'storefrontPermissionMatrix',[\s\S]*select count\(\*\) = 9/,
+  );
 });
 
 test("TASK-007 staging acceptance is exact-branch guarded and cleans its synthetic tenant", () => {
