@@ -24,6 +24,27 @@ select has_function(
   ],
   'TASK-152 installs the versioned Storefront authoring mutation boundary'
 );
+select has_function(
+  'public',
+  'storefront_authoring_bind_android_session_v1',
+  array[]::text[],
+  'mobile authoring installs the authenticated Android session source binding'
+);
+select has_function(
+  'public',
+  'storefront_authoring_bind_ios_session_v1',
+  array[]::text[],
+  'mobile authoring installs the authenticated iOS session source binding'
+);
+select has_function(
+  'public',
+  'storefront_publications_authoring_summary_v1',
+  array[
+    'uuid', 'text', 'text', 'uuid[]', 'integer', 'integer', 'uuid',
+    'uuid', 'text', 'integer'
+  ],
+  'mobile authoring installs the bounded list-summary projection'
+);
 select ok(
   has_function_privilege(
     'authenticated',
@@ -468,11 +489,20 @@ select set_config(
   jsonb_build_object(
     'sub', '00000000-0000-4000-8000-000000020007',
     'role', 'authenticated',
-    'app_metadata', jsonb_build_object(
-      'storefront_mutation_source', 'android'
-    )
+    'session_id', '71000000-0000-4000-8000-000000020001',
+    'exp', extract(epoch from statement_timestamp() + interval '1 hour')::bigint
   )::text,
   true
+);
+select is(
+  public.storefront_authoring_bind_android_session_v1()->>'code',
+  'success',
+  'Android attribution binds to the current authenticated session'
+);
+select is(
+  public.storefront_authoring_bind_ios_session_v1()->>'code',
+  'session_source_conflict',
+  'a bound session cannot switch its audit source'
 );
 select is(
   public.storefront_publication_authoring_mutate_v1(
@@ -498,7 +528,7 @@ select is(
     4
   )->>'code',
   'success',
-  'a server-signed Android app_metadata claim controls audit attribution'
+  'a server-bound Android session controls audit attribution'
 );
 select is(
   public.storefront_publication_authoring_mutate_v1(
@@ -588,7 +618,7 @@ select is(
     where publication.source_product_id = '20000000-0000-4000-8000-000000020007'
   ),
   'android',
-  'mutation source is derived from a server-signed platform claim'
+  'mutation source is derived from the immutable authenticated session binding'
 );
 select is(
   (
@@ -685,8 +715,18 @@ insert into public.inventory_products (
 set local role authenticated;
 select set_config(
   'request.jwt.claims',
-  '{"sub":"00000000-0000-4000-8000-000000020007","role":"authenticated"}',
+  jsonb_build_object(
+    'sub', '00000000-0000-4000-8000-000000020007',
+    'role', 'authenticated',
+    'session_id', '71000000-0000-4000-8000-000000020002',
+    'exp', extract(epoch from statement_timestamp() + interval '1 hour')::bigint
+  )::text,
   true
+);
+select is(
+  public.storefront_authoring_bind_ios_session_v1()->>'code',
+  'success',
+  'the same account can bind a distinct iOS session independently'
 );
 select is(
   public.storefront_publication_authoring_mutate_v1(
@@ -717,6 +757,69 @@ select is(
   )->>'code',
   'stale_revision',
   'a second expectedVersion zero writer cannot overwrite version one'
+);
+
+set local role postgres;
+select is(
+  (
+    select publication.last_mutation_source
+    from public.storefront_product_publications publication
+    where publication.source_product_id = '20000000-0000-4000-8000-000000020009'
+  ),
+  'ios',
+  'the iOS session writes iOS attribution without changing the account-wide identity'
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  jsonb_build_object(
+    'sub', '00000000-0000-4000-8000-000000020007',
+    'role', 'authenticated',
+    'session_id', '71000000-0000-4000-8000-000000020002',
+    'exp', extract(epoch from statement_timestamp() + interval '1 hour')::bigint
+  )::text,
+  true
+);
+select ok(
+  public.storefront_publications_authoring_summary_v1(
+    '10000000-0000-4000-8000-000000020007',
+    'draft', null, null, 1, 1
+  )->>'code' = 'success'
+  and jsonb_array_length(
+    public.storefront_publications_authoring_summary_v1(
+      '10000000-0000-4000-8000-000000020007',
+      'draft', null, null, 1, 1
+    )->'rows'
+  ) = 1
+  and (public.storefront_publications_authoring_summary_v1(
+    '10000000-0000-4000-8000-000000020007',
+    'draft', null, null, 1, 1
+  )->'pagination'->>'total')::integer >= 1,
+  'summary projection is server-filtered and page-size bounded'
+);
+select ok(
+  not (
+    public.storefront_publications_authoring_summary_v1(
+      '10000000-0000-4000-8000-000000020007',
+      'all', null,
+      array['20000000-0000-4000-8000-000000020009'::uuid],
+      1, 100
+    )->'rows'->0
+  ) ?| array[
+    'barcode', 'productName', 'purchasePrice', 'cost', 'margin', 'supplier',
+    'stockQuantity', 'internalNotes', 'audit', 'staffIdentity', 'taxData'
+  ],
+  'summary projection exposes no editor payload or prohibited operational fields'
+);
+set local role postgres;
+select ok(
+  position(
+    'publicImageThumbnailUrl' in pg_get_functiondef(
+      'app_private.storefront_publication_snapshot_v1(uuid,uuid)'::regprocedure
+    )
+  ) > 0,
+  'authoring snapshot carries only the finalized public image URLs for preview'
 );
 
 set local role authenticated;

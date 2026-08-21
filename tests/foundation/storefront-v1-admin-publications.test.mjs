@@ -11,6 +11,9 @@ const migration = read(
 const mobileAuthoringMigration = read(
   "supabase/migrations/20260821144753_mobile_storefront_authoring_v1.sql",
 );
+const mobileSessionSummaryMigration = read(
+  "supabase/migrations/20260821211500_mobile_storefront_authoring_session_summary.sql",
+);
 const page = read("src/app/shop/storefront/page.tsx");
 const actions = read("src/app/shop/storefront/actions.ts");
 const mutations = read("src/server/shop-admin/storefront-mutations.ts");
@@ -154,6 +157,43 @@ test("TASK-152 authoring is versioned, idempotent and source-derived", () => {
     /revoke execute on function public\.admin_storefront_publication_mutate_v1[\s\S]*from authenticated, service_role/,
   );
   assert.doesNotMatch(mobileAuthoringMigration, /grant .*storefront_product_publications.*authenticated/i);
+});
+
+test("mobile authoring attribution is session-bound and list reads stay bounded", () => {
+  for (const marker of [
+    "storefront_authoring_client_sessions",
+    "storefront_authoring_bind_android_session_v1",
+    "storefront_authoring_bind_ios_session_v1",
+    "auth_session_id",
+    "session_source_conflict",
+    "storefront_publications_authoring_summary_v1",
+    "p_page_size",
+    "p_source_product_ids",
+    "differsFromOperational",
+    "publicImageThumbnailUrl",
+    "publicImageDetailUrl",
+  ]) {
+    assert.match(
+      mobileSessionSummaryMigration,
+      new RegExp(marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")),
+    );
+  }
+  assert.match(
+    mobileSessionSummaryMigration,
+    /coalesce\(cardinality\(p_source_product_ids\), 0\) > 100/,
+  );
+  assert.match(
+    mobileSessionSummaryMigration,
+    /coalesce\(p_page_size, 0\) not between 1 and 100/,
+  );
+  assert.doesNotMatch(
+    mobileSessionSummaryMigration,
+    /app_metadata[\s\S]*storefront_mutation_source/,
+  );
+  assert.doesNotMatch(
+    mobileSessionSummaryMigration,
+    /request\.headers|x-client-info/,
+  );
 });
 
 test("TASK-007 preview consumes the public versioned contract", () => {
