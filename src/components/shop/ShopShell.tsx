@@ -145,6 +145,14 @@ function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
     viewBox: "0 0 24 24",
   };
   const paths: Record<ShopSectionKey, ReactNode> = {
+    afterSales: (
+      <>
+        <path d="M6 4h12v16H6z" />
+        <path d="M9 9h6" />
+        <path d="M9 13h3" />
+        <path d="m14 16 1.5 1.5L19 14" />
+      </>
+    ),
     audit: (
       <>
         <path d="M9 5h6" />
@@ -220,6 +228,11 @@ function ShopNavigationIcon({ itemKey }: { itemKey: ShopSectionKey }) {
         <path d="m12 3 8 4.5v9L12 21l-8-4.5v-9L12 3Z" />
         <path d="M4.5 7.5 12 12l7.5-4.5" />
         <path d="M12 12v9" />
+      </>
+    ),
+    reviews: (
+      <>
+        <path d="m12 3 2.5 5 5.5.8-4 3.9.9 5.5L12 15.6 7.1 18.2l.9-5.5-4-3.9L9.5 8 12 3Z" />
       </>
     ),
     roles: (
@@ -420,7 +433,7 @@ function ShopNavigation({
         data-prefetch-ready={prefetchedItems.has(item.key)}
         data-shop-nav-item={item.key}
         className={[
-          "inline-flex min-h-11 shrink-0 items-center gap-2 rounded-md border-l-2 px-3 py-2 text-sm font-medium outline-none transition lg:min-h-0 lg:px-2.5 lg:py-1.5",
+          "inline-flex min-h-12 shrink-0 items-center gap-2 rounded-md border-l-2 px-3 py-2 text-sm font-medium outline-none transition lg:px-2.5 lg:py-1.5",
           "whitespace-nowrap",
           "focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-2",
           isActive
@@ -864,7 +877,7 @@ export function ShopShell({
                 ) : null}
 
                 {!canSwitchShops && selectedShop ? (
-                  <p className="inline-flex min-h-11 items-center rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-700 md:min-h-0 md:px-2.5 md:py-1 md:text-xs">
+                  <p className="inline-flex min-h-12 items-center rounded-md border border-zinc-200 bg-zinc-50 px-3 text-sm font-medium text-zinc-700 md:min-h-0 md:px-2.5 md:py-1 md:text-xs">
                     {labels.singleShopWorkspace}
                   </p>
                 ) : null}
@@ -891,7 +904,7 @@ export function ShopShell({
                   method="post"
                 >
                   <button
-                    className="min-h-11 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 md:min-h-0 md:px-2.5 md:py-1 md:text-xs"
+                    className="min-h-12 rounded-md border border-zinc-300 bg-white px-3 text-sm font-semibold text-zinc-700 outline-none transition hover:border-zinc-400 hover:bg-zinc-50 hover:text-zinc-950 focus-visible:ring-2 focus-visible:ring-zinc-950 focus-visible:ring-offset-2 md:min-h-0 md:px-2.5 md:py-1 md:text-xs"
                     type="submit"
                   >
                     {logoutLabel}

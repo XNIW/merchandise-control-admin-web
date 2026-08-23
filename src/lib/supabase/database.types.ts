@@ -4861,6 +4861,86 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_customer_after_sales_read_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_page?: number
+          p_page_size?: number
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+          p_status?: string | null
+        }
+        Returns: Json
+      }
+      admin_customer_after_sales_evidence_read_v1: {
+        Args: {
+          p_evidence_id: string
+          p_expected_credential_version?: number | null
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      service_after_sales_evidence_cleanup_claim_v1: {
+        Args: {
+          p_limit?: number
+          p_orphan_before?: string
+          p_rejected_before?: string
+        }
+        Returns: Json
+      }
+      service_after_sales_evidence_cleanup_ack_v1: {
+        Args: {
+          p_claim_id: string
+          p_storage_deleted: boolean
+        }
+        Returns: Json
+      }
+      admin_customer_after_sales_transition_v1: {
+        Args: {
+          p_case_id: string
+          p_expected_credential_version?: number | null
+          p_expected_version: number
+          p_note_key?: string | null
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+          p_target_status: string
+        }
+        Returns: Json
+      }
+      admin_customer_reviews_read_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_page?: number
+          p_page_size?: number
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+          p_status?: string
+        }
+        Returns: Json
+      }
+      admin_customer_review_moderate_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_expected_version: number
+          p_reason?: string | null
+          p_review_id: string
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+          p_target_status: string
+        }
+        Returns: Json
+      }
       admin_delivery_tracking_read_v1: {
         Args: {
           p_expected_credential_version?: number | null

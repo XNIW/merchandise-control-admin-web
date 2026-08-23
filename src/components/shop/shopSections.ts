@@ -6,6 +6,8 @@ export type ShopSectionKey =
   | "categories"
   | "storefront"
   | "orders"
+  | "afterSales"
+  | "reviews"
   | "courier"
   | "suppliers"
   | "importExport"
@@ -88,6 +90,7 @@ export const shopNavigationSections: ShopNavigationSection[] = [
     label: "Commerce",
     items: [
       { key: "orders", label: "Orders", href: "/shop/orders" },
+      { key: "afterSales", label: "After-sales", href: "/shop/after-sales" },
       { key: "courier", label: "Courier Mode", href: "/shop/courier" },
     ],
   },
@@ -97,6 +100,7 @@ export const shopNavigationSections: ShopNavigationSection[] = [
     items: [
       { key: "products", label: "Products", href: "/shop/products" },
       { key: "storefront", label: "Storefront", href: "/shop/storefront" },
+      { key: "reviews", label: "Verified reviews", href: "/shop/reviews" },
       { key: "categories", label: "Categories", href: "/shop/categories" },
       { key: "suppliers", label: "Suppliers", href: "/shop/suppliers" },
       { key: "history", label: "History Entries", href: "/shop/history" },
@@ -254,6 +258,40 @@ export const shopSections: Record<ShopSectionKey, ShopSection> = {
       "Review immutable customer order snapshots",
       "Advance only server-authorized status transitions",
       "Monitor POS handoff without treating an order as a fiscal sale",
+    ],
+    guardrails: sharedShopGuardrails,
+  },
+  afterSales: {
+    key: "afterSales",
+    label: "After-sales",
+    href: "/shop/after-sales",
+    title: "After-sales",
+    eyebrow: "Commerce",
+    description:
+      "Review customer order problems, returns and refund requests without bypassing payment authority.",
+    status: "Live operations",
+    metrics: shellMetrics,
+    plannedWork: [
+      "Review owner-scoped customer cases",
+      "Advance only allowed lifecycle transitions",
+      "Require payment acknowledgement before refunded",
+    ],
+    guardrails: sharedShopGuardrails,
+  },
+  reviews: {
+    key: "reviews",
+    label: "Verified reviews",
+    href: "/shop/reviews",
+    title: "Verified reviews",
+    eyebrow: "Storefront moderation",
+    description:
+      "Moderate reviews tied to completed customer order lines and publish server-maintained aggregates.",
+    status: "Live moderation",
+    metrics: shellMetrics,
+    plannedWork: [
+      "Review verified purchase submissions",
+      "Publish or reject with bounded audit evidence",
+      "Keep rating aggregates server-authoritative",
     ],
     guardrails: sharedShopGuardrails,
   },

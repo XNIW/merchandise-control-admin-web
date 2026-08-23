@@ -2937,10 +2937,10 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `TASK-152 - Mobile Storefront Authoring Boundary`
 - File task TASK-152:
   `docs/TASKS/TASK-152-mobile-storefront-authoring-boundary.md`
-- Stato TASK-152: `ACTIVE`
+- Stato TASK-152: `DONE`
 - Fase TASK-152: `REVIEW`
-- Attivazione TASK-152: `USER_APPROVED_EXECUTION`
-- Executor TASK-152: `CODEX_EXECUTOR`
+- Attivazione TASK-152: `USER_APPROVED_DONE`
+- Executor TASK-152: `NONE`
 - Checkpoint locale TASK-152 2026-08-21: migration authoring versionata, Admin UI e
   pipeline immagini condivisa implementate; fresh reset `PASS`, pgTAP completo 47
   file/2551 test `PASS`, foundation 984/0 `PASS`, schema lint e `npm run verify`
@@ -2951,31 +2951,46 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `a6d4f94a8cdd01c6de3df2ed4f327b38d8516227`: Verify, Database migrations and
   pgTAP e Cloudflare build `PASS`; sole annotazioni non bloccanti sul runtime
   Node delle GitHub Actions. Chiusura e merge normale autorizzati dal mandato del
-  release train, subordinati alla CI verde del commit documentale. TASK-152 resta
-  attivo durante staging e fino al closeout integrato.
+  release train, subordinati alla CI verde del commit documentale. La condizione e
+  stata soddisfatta; TASK-152 e riconciliato `DONE` dal mandato del 2026-08-22.
 - Stato TASK-062: `DONE`
 - Fase TASK-062: `DONE_RECONCILED`
-- Stato globale attuale: `REVIEW`
-- Task attivo: `TASK-152 - Mobile Storefront Authoring Boundary`
+- Task TASK-153:
+  `TASK-153 - Client Commerce Address, Delivery and Payment Contract`
+- File task TASK-153:
+  `docs/TASKS/TASK-153-client-commerce-address-delivery-payment-contract.md`
+- Stato TASK-153: `DONE`
+- Fase TASK-153: `REVIEW`
+- Task TASK-154: `TASK-154 - Client Commerce Notification Inbox and Reorder Contract`
+- Stato TASK-154: `DONE`
+- Task TASK-155: `TASK-155 - Client Commerce After-sales Contract and Admin Queue`
+- Stato TASK-155: `DONE`
+- Task TASK-156: `TASK-156 - Client Commerce Verified Reviews and Moderation`
+- Stato TASK-156: `DONE`
+- Task TASK-157: `TASK-157 - Client Commerce Staging E2E and Closeout`
+- Stato TASK-157: `ACTIVE`
+- Fase TASK-157: `EXECUTION`
+- Stato globale attuale: `EXECUTION`
+- Task attivo: `TASK-157 - Client Commerce Staging E2E and Closeout`
 - Task precedente:
-  `TASK-149 - Trusted POS product image v1 server contract`
-  (`REVIEW_READY / REVIEW`)
-- Prossimo task pianificato: closeout integrato TASK-152 secondo train coordinator
-  Client
-- Ultimo task chiuso: `TASK-148 - Final POS article-sync staging cleanup`
-- Ultimo task completato: `TASK-148 - Final POS article-sync staging cleanup`
+  `TASK-152 - Mobile Storefront Authoring Boundary` (`DONE / REVIEW`)
+- Prossimo task pianificato: `NESSUNO`; TASK-157 governa PR, staging e closeout
+  integrato del train `CLIENT_COMMERCE_JOURNEY_COMPLETION`.
+- Ultimo task chiuso: `TASK-152 - Mobile Storefront Authoring Boundary`
+- Ultimo task completato: `TASK-152 - Mobile Storefront Authoring Boundary`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente: `docs/TASKS/TASK-152-mobile-storefront-authoring-boundary.md`
+- File task corrente:
+  `docs/TASKS/TASK-157-client-commerce-staging-e2e-closeout.md`
 - Ultimo file task:
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
 - Evidence task corrente: `NESSUNO`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
 - Stato task: `ACTIVE`
 - Stato task precedente: `REVIEW_READY`
-- Fase: `REVIEW`
+- Fase: `EXECUTION`
 - Milestone interna:
-  `WECHAT_SHARED_PUBLIC_STAGING_BACKEND_DEPLOYED_PROVIDER_PENDING`
+  `CLIENT_COMMERCE_ADMIN_PR_CI_STAGING`
 - Responsabile: `CODEX_EXECUTOR`
 - Branch/worktree TASK-151:
   implementazione `codex/wechat-006-admin-staging`, merge commit corrente
