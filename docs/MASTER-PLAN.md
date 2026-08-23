@@ -2968,34 +2968,33 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-156: `TASK-156 - Client Commerce Verified Reviews and Moderation`
 - Stato TASK-156: `DONE`
 - Task TASK-157: `TASK-157 - Client Commerce Staging E2E and Closeout`
-- Stato TASK-157: `ACTIVE`
-- Fase TASK-157: `EXECUTION`
-- Stato globale attuale: `EXECUTION`
-- Task attivo: `TASK-157 - Client Commerce Staging E2E and Closeout`
+- Stato TASK-157: `DONE`
+- Fase TASK-157: `REVIEW`
+- Stato globale attuale: `IDLE`
+- Task attivo: `NESSUNO`
 - Task precedente:
   `TASK-152 - Mobile Storefront Authoring Boundary` (`DONE / REVIEW`)
-- Prossimo task pianificato: `NESSUNO`; TASK-157 governa PR, staging e closeout
-  integrato del train `CLIENT_COMMERCE_JOURNEY_COMPLETION`.
-- Ultimo task chiuso: `TASK-152 - Mobile Storefront Authoring Boundary`
-- Ultimo task completato: `TASK-152 - Mobile Storefront Authoring Boundary`
+- Prossimo task pianificato: `NESSUNO`; il train
+  `CLIENT_COMMERCE_JOURNEY_COMPLETION` è chiuso senza production activation.
+- Ultimo task chiuso: `TASK-157 - Client Commerce Staging E2E and Closeout`
+- Ultimo task completato: `TASK-157 - Client Commerce Staging E2E and Closeout`
 - Marker compatibilità harness storico — Ultimo task chiuso: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
 - Marker compatibilità harness storico — Ultimo task completato: `TASK-081 - Win7POS Sales Sync, Revenue, Stock Sync, Shop Admin Dashboard and UX alignment`
-- File task corrente:
-  `docs/TASKS/TASK-157-client-commerce-staging-e2e-closeout.md`
+- File task corrente: `NESSUNO`
 - Ultimo file task:
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
 - Evidence task corrente: `NESSUNO`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
-- Stato task: `ACTIVE`
-- Stato task precedente: `REVIEW_READY`
-- Fase: `EXECUTION`
+- Stato task: `NESSUNO`
+- Stato task precedente: `DONE`
+- Fase: `REVIEW`
 - Milestone interna:
-  `CLIENT_COMMERCE_ADMIN_SECOND_PR_CI_FIX`
+  `CLIENT_COMMERCE_JOURNEY_COMPLETION_COMPLETE`
 - Correzione P2 riproducibile approvata sul secondo e ultimo PR Admin:
   read model owner-scoped delle righe storiche d'ordine per il post-vendita e
   quantità residua rivalidata dalla mutation; nessuna dipendenza dal catalogo
   corrente o dal dominio reorder.
-- Responsabile: `CODEX_EXECUTOR`
+- Responsabile: `USER_APPROVER`
 - Branch/worktree TASK-151:
   implementazione `codex/wechat-006-admin-staging`, merge commit corrente
   `728f413d740913145be550e1ffdbf4091dba3676`; closeout documentale
