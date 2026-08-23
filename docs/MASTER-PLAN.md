@@ -2985,7 +2985,7 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
 - Evidence task corrente: `NESSUNO`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
-- Stato task: `NESSUNO`
+- Stato task: `IDLE`
 - Stato task precedente: `DONE`
 - Fase: `REVIEW`
 - Milestone interna:
