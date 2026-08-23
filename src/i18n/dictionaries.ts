@@ -189,6 +189,8 @@ const emptyExact: Record<string, string> = {};
 
 const itExact: Record<string, string> = {
   Storefront: "Vetrina",
+  "After-sales": "Post-vendita",
+  "Verified reviews": "Recensioni verificate",
   "Customer orders": "Ordini cliente",
   "Account": "Account",
   "Account identity unavailable": "Identita account non disponibile",
@@ -1563,6 +1565,8 @@ const itExact: Record<string, string> = {
 };
 
 const esExact: Record<string, string> = {
+  "After-sales": "Posventa",
+  "Verified reviews": "Reseñas verificadas",
   Storefront: "Tienda",
   "Customer orders": "Pedidos de clientes",
   "Account": "Cuenta",
@@ -2898,6 +2902,8 @@ const esExact: Record<string, string> = {
 };
 
 const zhExact: Record<string, string> = {
+  "After-sales": "售后服务",
+  "Verified reviews": "已验证评价",
   Storefront: "店铺前台",
   "Customer orders": "客户订单",
   "Account": "账号",

@@ -737,12 +737,14 @@ where shop_id = '17000000-0000-4000-8000-000000032001';
 
 insert into public.customer_addresses(
   id, user_id, label, recipient_name, address_line_1,
-  commune, region, postal_code, country_code, is_default
+  commune, region, postal_code, country_code, is_default,
+  recipient_phone_e164
 ) values (
   '86000000-0000-4000-8000-000000032001',
   '00000000-0000-4000-8000-000000032001',
   'Casa', 'Cliente TASK-032', 'Av. Grecia 320',
-  'Ñuñoa', 'Metropolitana', '7750000', 'CL', true
+  'Ñuñoa', 'Metropolitana', '7750000', 'CL', true,
+  '+56912345678'
 );
 
 insert into public.storefront_delivery_zones(
@@ -848,6 +850,21 @@ select ok(
 );
 
 set local role postgres;
+select ok(
+  exists (
+    select 1
+    from public.customer_orders customer_order
+    where customer_order.id = (
+      select (payload ->> 'orderId')::uuid from task032_delivery_order
+    )
+      and customer_order.fulfillment_snapshot
+        #>> '{address,recipientPhoneE164}' = '+56912345678'
+      and customer_order.fulfillment_snapshot
+        #>> '{address,addressVersion}' = '1'
+  ),
+  'delivery order snapshots the recipient phone and selected address version'
+);
+
 select ok(
   (
     select count(*) = 2

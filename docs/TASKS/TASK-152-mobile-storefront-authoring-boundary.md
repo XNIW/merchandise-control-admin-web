@@ -4,9 +4,9 @@
 
 - ID: `TASK-152`
 - Coordination key: `MOBILE_STOREFRONT_PRODUCT_CONTROL`
-- Stato: `ACTIVE`
+- Stato: `DONE`
 - Fase attuale: `REVIEW`
-- Responsabile attuale: `CODEX_EXECUTOR`
+- Responsabile attuale: `USER_APPROVER`
 - Data creazione: `2026-08-21`
 - Branch: `codex/mobile-storefront-product-control-admin-20260821`
 - Planning authority: Client `TASK-046`
@@ -110,7 +110,16 @@ coordinata con l'unico ciclo Android autorizzato.
 ## Handoff
 
 - `CODEX_REVIEW_APPROVED_USER_AUTHORIZED_CI_GREEN_TO_MERGE`.
-- Il merge normale di PR `#94` avviene soltanto dopo la CI verde anche sul
-  presente commit documentale. TASK-152 resta l'unico task `ACTIVE` durante i
-  gate integrati staging e passa a `DONE` soltanto nel closeout terminale del
-  train. Nessun deploy staging/production e incluso nel merge.
+- Il merge normale di PR `#94` era subordinato alla CI verde anche sul commit
+  documentale. La condizione e stata soddisfatta e la chiusura e registrata sotto;
+  nessun deploy production era incluso nel merge.
+
+## Chiusura riconciliata 2026-08-22
+
+- PR #94 risulta `MERGED` con merge commit
+  `c32c294f7e2831e8a9f4ec4ae224041117f93d31`; Verify, Database/pgTAP e Cloudflare
+  build sono `SUCCESS` sullo head exact-SHA.
+- Il coordinator Client registra `MOBILE_STOREFRONT_PRODUCT_CONTROL=COMPLETE` e il
+  mandato USER_APPROVER del 2026-08-22 conferma il progetto precedente `IDLE`.
+- Stato finale: `DONE / REVIEW / USER_APPROVED_DONE`. Nessuna modifica ai task
+  Win7POS/WeChat sospesi e nessuna activation production.

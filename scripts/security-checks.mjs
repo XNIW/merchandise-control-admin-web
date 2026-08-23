@@ -448,6 +448,11 @@ function checkReadOnlyContracts() {
         "admin_storefront_payment_mutate_v1",
         "admin_customer_orders_read_v1",
         "admin_customer_order_transition_v1",
+        "admin_customer_after_sales_read_v1",
+        "admin_customer_after_sales_evidence_read_v1",
+        "admin_customer_after_sales_transition_v1",
+        "admin_customer_reviews_read_v1",
+        "admin_customer_review_moderate_v1",
         "admin_delivery_tracking_read_v1",
         "admin_delivery_tracking_manage_v1",
         "storefront_courier_tracking_control_v1",
@@ -482,6 +487,28 @@ function checkReadOnlyContracts() {
     [
       "src/server/shop-admin/order-mutations.ts",
       new Set(["admin_customer_order_transition_v1"]),
+    ],
+    [
+      "src/server/shop-admin/customer-commerce-evidence.ts",
+      new Set([
+        "admin_customer_after_sales_evidence_read_v1",
+        "service_after_sales_evidence_cleanup_claim_v1",
+        "service_after_sales_evidence_cleanup_ack_v1",
+      ]),
+    ],
+    [
+      "src/server/shop-admin/customer-commerce-mutations.ts",
+      new Set([
+        "admin_customer_after_sales_transition_v1",
+        "admin_customer_review_moderate_v1",
+      ]),
+    ],
+    [
+      "src/server/shop-admin/customer-commerce-read-model.ts",
+      new Set([
+        "admin_customer_after_sales_read_v1",
+        "admin_customer_reviews_read_v1",
+      ]),
     ],
     [
       "src/server/shop-admin/delivery-tracking.ts",

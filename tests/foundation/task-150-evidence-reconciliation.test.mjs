@@ -27,7 +27,9 @@ test("TASK-150 resta incompleto mentre il writer corrente e assegnato esplicitam
     masterPlan,
     /- Fase TASK-151: `REVIEW \/ (EXTERNAL_ACTIVATION_PENDING|PAUSED_EXTERNAL_ACTIVATION)`/,
   );
-  assert.match(masterPlan, /- Stato TASK-152: `ACTIVE`/);
+  assert.match(masterPlan, /- Stato TASK-152: `DONE`/);
+  assert.match(masterPlan, /- Stato TASK-153: `DONE`/);
+  assert.match(masterPlan, /- Stato TASK-157: `ACTIVE`/);
   assert.match(task, /- Stato: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`/);
   assert.match(task, /- Fase attuale: `EXECUTION \/ PAUSED`/);
   assert.match(task, /Stato precedente preservato: `ACTIVE \/ EXECUTION`/);
