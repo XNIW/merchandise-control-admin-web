@@ -1,9 +1,9 @@
 # TASK-157 - Client Commerce Staging E2E and Closeout
 
 - Release train: `CLIENT_COMMERCE_JOURNEY_COMPLETION`
-- Stato: `DONE`
-- Fase: `REVIEW`
-- Handoff: `CLIENT_COMMERCE_ADMIN_TECHNICALLY_COMPLETE_STAGING_EXTERNAL`
+- Stato: `ACTIVE`
+- Fase: `EXECUTION`
+- Handoff: `ADMIN_SECOND_PR_CI_FIX`
 - Dipende da: `TASK-153`–`TASK-156`
 - Planning authority: Client `TASK-050`
 
@@ -19,7 +19,7 @@ catalogo corrente. Il secondo e ultimo PR Admin introduce il read model additivo
 `customer_after_sales_order_lines_v1`, owner-scoped e basato sugli snapshot storici,
 e applica server-side la quantità residua anche alla mutation di creazione del caso.
 
-## Esito Admin
+## Checkpoint tecnico Admin
 
 - Review indipendente secondo PR: `APPROVED`, `P0=0`, `P1=0`, `P2=0`, `P3=0`.
 - pgTAP mirato: `55/55 PASS`; reset locale, lint DB, verify/build ed ESLint:

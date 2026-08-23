@@ -2968,10 +2968,10 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Task TASK-156: `TASK-156 - Client Commerce Verified Reviews and Moderation`
 - Stato TASK-156: `DONE`
 - Task TASK-157: `TASK-157 - Client Commerce Staging E2E and Closeout`
-- Stato TASK-157: `DONE`
-- Fase TASK-157: `REVIEW`
-- Stato globale attuale: `IDLE`
-- Task attivo: `NESSUNO`
+- Stato TASK-157: `ACTIVE`
+- Fase TASK-157: `EXECUTION`
+- Stato globale attuale: `EXECUTION`
+- Task attivo: `TASK-157 - Client Commerce Staging E2E and Closeout`
 - Task precedente:
   `TASK-152 - Mobile Storefront Authoring Boundary` (`DONE / REVIEW`)
 - Prossimo task pianificato: `NESSUNO`; TASK-157 governa PR, staging e closeout
@@ -2986,11 +2986,11 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
   `docs/TASKS/TASK-149-admin-trusted-pos-product-image-v1.md`
 - Evidence task corrente: `NESSUNO`
 - Ultima evidence task: `docs/TASKS/EVIDENCE/TASK-149/README.md`
-- Stato task: `DONE`
+- Stato task: `ACTIVE`
 - Stato task precedente: `REVIEW_READY`
-- Fase: `REVIEW`
+- Fase: `EXECUTION`
 - Milestone interna:
-  `CLIENT_COMMERCE_ADMIN_TECHNICALLY_COMPLETE_STAGING_EXTERNAL`
+  `CLIENT_COMMERCE_ADMIN_SECOND_PR_CI_FIX`
 - Correzione P2 riproducibile approvata sul secondo e ultimo PR Admin:
   read model owner-scoped delle righe storiche d'ordine per il post-vendita e
   quantità residua rivalidata dalla mutation; nessuna dipendenza dal catalogo
