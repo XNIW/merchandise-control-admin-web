@@ -2990,7 +2990,11 @@ matching rows`. Root cause reale trovata: browser/runtime aperto con
 - Stato task precedente: `REVIEW_READY`
 - Fase: `EXECUTION`
 - Milestone interna:
-  `CLIENT_COMMERCE_ADMIN_PR_CI_STAGING`
+  `CLIENT_COMMERCE_ADMIN_SECOND_PR_CI_FIX`
+- Correzione P2 riproducibile approvata sul secondo e ultimo PR Admin:
+  read model owner-scoped delle righe storiche d'ordine per il post-vendita e
+  quantità residua rivalidata dalla mutation; nessuna dipendenza dal catalogo
+  corrente o dal dominio reorder.
 - Responsabile: `CODEX_EXECUTOR`
 - Branch/worktree TASK-151:
   implementazione `codex/wechat-006-admin-staging`, merge commit corrente

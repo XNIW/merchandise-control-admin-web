@@ -634,6 +634,108 @@ select ok(
 );
 
 select ok(
+  to_regprocedure('public.customer_after_sales_order_lines_v1(uuid)') is not null,
+  'after-sales historical order-line read model is installed'
+);
+select ok(
+  has_function_privilege(
+    'authenticated',
+    'public.customer_after_sales_order_lines_v1(uuid)',
+    'EXECUTE'
+  )
+  and not has_function_privilege(
+    'anon',
+    'public.customer_after_sales_order_lines_v1(uuid)',
+    'EXECUTE'
+  ),
+  'after-sales order-line read model is authenticated-only'
+);
+create temp table task157_after_sales_lines as
+select public.customer_after_sales_order_lines_v1(
+  '95000000-0000-4000-8000-000000050001'
+) as payload;
+select ok(
+  (select payload ->> 'status' from task157_after_sales_lines) = 'ok'
+  and (select payload ->> 'apiVersion' from task157_after_sales_lines)
+    = 'customer-after-sales-order-lines.v1'
+  and jsonb_array_length((select payload -> 'items' from task157_after_sales_lines)) = 2,
+  'owner reads every immutable order line'
+);
+select ok(
+  exists (
+    select 1
+    from task157_after_sales_lines source,
+      jsonb_array_elements(source.payload -> 'items') item
+    where item ->> 'orderItemId' = '96000000-0000-4000-8000-000000050002'
+      and item ->> 'name' = 'Té oculto'
+      and (item ->> 'orderedQuantity')::integer = 1
+  ),
+  'historical hidden products remain available to after-sales intake'
+);
+select ok(
+  not ((select payload from task157_after_sales_lines)::text
+    ~* '(recipientPhone|addressLine|latitude|longitude|email)')
+  and (select payload ->> 'shopSlug' from task157_after_sales_lines)
+    = 'commerce-journey-fixture',
+  'read model contains bounded shop context and no customer PII'
+);
+select ok(
+  exists (
+    select 1
+    from task157_after_sales_lines source,
+      jsonb_array_elements(source.payload -> 'items') item
+    where item ->> 'orderItemId' = '96000000-0000-4000-8000-000000050001'
+      and (item ->> 'existingOpenQuantity')::integer = 1
+      and (item ->> 'maximumRequestQuantity')::integer = 1
+  ),
+  'read model subtracts quantities already claimed by an active case'
+);
+select is(
+  public.customer_after_sales_create_v1(
+    '95000000-0000-4000-8000-000000050001', 'refundRequest', 'damaged',
+    'Second synthetic request above residual quantity',
+    '[{"orderItemId":"96000000-0000-4000-8000-000000050001","quantity":2}]'::jsonb,
+    '98000000-0000-4000-8000-000000050099'
+  ) ->> 'status',
+  'invalid',
+  'mutation rejects a request above the authoritative residual quantity'
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000050002","role":"authenticated","is_anonymous":false}',
+  true
+);
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000050002', true);
+select is(
+  public.customer_after_sales_order_lines_v1(
+    '95000000-0000-4000-8000-000000050001'
+  ) ->> 'status',
+  'not_found',
+  'cross-owner order-line read fails closed'
+);
+
+set local role anon;
+select set_config('request.jwt.claims', '{"role":"anon"}', true);
+select throws_ok(
+  $$select public.customer_after_sales_order_lines_v1(
+    '95000000-0000-4000-8000-000000050001'
+  )$$,
+  '42501',
+  null,
+  'anonymous sessions cannot execute the order-line read model'
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000050001","role":"authenticated","is_anonymous":false}',
+  true
+);
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000050001', true);
+select set_config('request.jwt.claim.role', 'authenticated', true);
+
+select ok(
   (public.customer_after_sales_evidence_upload_ticket_v1(
     (select (payload #>> '{case,id}')::uuid from task050_case), 'jpg'
   ) ->> 'status') = 'ok'
