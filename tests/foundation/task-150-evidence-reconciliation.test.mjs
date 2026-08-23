@@ -13,7 +13,7 @@ const reconciliation = readFileSync(
   "utf8",
 );
 
-test("TASK-150 resta incompleto mentre il writer corrente e assegnato esplicitamente", () => {
+test("TASK-150 resta incompleto dopo il closeout commerce", () => {
   assert.match(
     masterPlan,
     /- Stato TASK-150: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`/,
@@ -29,7 +29,9 @@ test("TASK-150 resta incompleto mentre il writer corrente e assegnato esplicitam
   );
   assert.match(masterPlan, /- Stato TASK-152: `DONE`/);
   assert.match(masterPlan, /- Stato TASK-153: `DONE`/);
-  assert.match(masterPlan, /- Stato TASK-157: `ACTIVE`/);
+  assert.match(masterPlan, /- Stato TASK-157: `DONE`/);
+  assert.match(masterPlan, /- Stato globale attuale: `IDLE`/);
+  assert.match(masterPlan, /- Task attivo: `NESSUNO`/);
   assert.match(task, /- Stato: `PAUSED_FOR_WECHAT_006_STAGING_HANDOFF`/);
   assert.match(task, /- Fase attuale: `EXECUTION \/ PAUSED`/);
   assert.match(task, /Stato precedente preservato: `ACTIVE \/ EXECUTION`/);
