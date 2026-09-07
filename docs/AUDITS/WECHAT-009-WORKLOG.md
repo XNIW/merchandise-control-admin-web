@@ -27,7 +27,11 @@ User authorizes bounded fixes, normal PR/CI/merge, staging only; no DONE.
 - No migration/apply/deploy/provider/flag/production change; zero live fixtures.
   Global main would include later commerce code against remote141/local143:
   defer deploy to a scoped, authenticated staging acceptance with real prerequisites.
-- Normal integration pending; task REVIEW, parent live acceptance external.
+- Implementation commit704efde50baa4a7257ef11f5844573d0b3b0bf4c; normal
+  integration tracked by PR101:
+  https://github.com/XNIW/merchandise-control-admin-web/pull/101
+  Final merge/CI recorded in the consolidated report; task REVIEW, parent live
+  acceptance external.
 
 Consolidated report: Mini `docs/testing/WECHAT-009-REPORT.md`.
 Operator packet reused outside repositories at

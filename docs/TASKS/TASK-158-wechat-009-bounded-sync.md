@@ -17,5 +17,8 @@ Production/native/POS/client/Excel source unchanged; general flags OFF.
 
 ## Execution / handoff
 
-Implementation verified; normal integration pending. WECHAT-009 consolidated report resides in Mini docs/testing.
+Implementation verified in commit `704efde50baa4a7257ef11f5844573d0b3b0bf4c`.
+Normal integration is tracked by [PR #101](https://github.com/XNIW/merchandise-control-admin-web/pull/101).
+The WECHAT-009 consolidated report in Mini `docs/testing/WECHAT-009-REPORT.md`
+records final merge/CI and checkout evidence.
 No DONE without explicit reviewer/user acceptance; live Auth blocked externally.
