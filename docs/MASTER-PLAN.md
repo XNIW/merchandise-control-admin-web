@@ -4693,3 +4693,7 @@ Summary:
 - Browser QA passed for Master provisioning, owner Admin Console, staff manager Shop code login, platform denial, fake shop_id denial, recovery manager 1001, old/new PIN behavior, refresh and logout invalidation.
 - Local cleanup completed with residual synthetic auth/profile/shop counts at zero.
 - No cloud/production apply, no commit, no push, no stage finale, no global production-ready claim.
+
+- WECHAT-009 / TASK-158: bounded sync gateway and focused tests handed to `REVIEW`;
+  bridge qualification proposal appended to ADR-002. External Auth remains OFF.
+  Normal PR/CI/merge closeout is authorized; no application writer remains active.

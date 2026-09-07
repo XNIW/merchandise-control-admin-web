@@ -250,7 +250,8 @@ test("WECHAT-004 sync gateway binds opaque actor, device, shop, snapshot and res
   assert.equal(calls[3].rpc, "wechat_mini_sync_delta_v1");
   assert.equal(calls[3].params.p_expected_event_max_id, "7");
   assert.equal(calls[3].timeout, 6_000);
-  assert.equal(calls[3].responseLimit, 262_144);
+  assert.equal(calls[3].responseLimit, 131_072);
+  assert.equal(calls[3].params.p_limit, 5);
 });
 
 test("WECHAT-004 link saga sends only hashes and stable identifiers to the trusted ledger", async () => {
