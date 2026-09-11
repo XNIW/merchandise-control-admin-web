@@ -2,7 +2,7 @@
 
 ## Current execution — WECHAT-010
 
-`TASK-159`, `REVIEW`, sole writer Codex in isolated worktree; scope and user
+`TASK-159`, `EXECUTION`, sole writer Codex in isolated worktree codex/wechat-010-auth-closure; scope and user
 authority in `docs/TASKS/TASK-159-wechat-010-staging-readiness.md`.
 WeChat readiness source merged via PR102; isolated release `def93402` deployed
 to staging Worker `c39ebe92-0fdf-4596-94a0-16bcd018ebab`, smoke9/9PASS.

@@ -126,3 +126,61 @@ test("WECHAT-010 read gateway passes explicit shop binding and cannot turn missi
   }
   assert.deepEqual(observed, [SHOP, null]);
 });
+
+test("WECHAT-010 public readiness distinguishes enabled flags from admitted surfaces", () => {
+  const subject = load("src/server/auth/wechat-config.ts", {
+    "@/lib/supabase/admin": { resolveSupabaseAdminConfig: () => ({ status: "configured" }) },
+    "@/lib/supabase/server": { resolveSupabaseServerConfig: () => ({ status: "configured", url: "https://project.supabase.co", publishableKey: "test-key" }) },
+  });
+  const env = { WECHAT_AUTH_MINI_PROGRAM_ENABLED: "1", WECHAT_IDENTITY_BRIDGE_EXCHANGE_URL: "https://bridge.example.test/exchange", WECHAT_IDENTITY_BRIDGE_HOST_ALLOWLIST: "bridge.example.test", WECHAT_IDENTITY_BRIDGE_CLIENT_ID: "test", WECHAT_IDENTITY_BRIDGE_CLIENT_SECRET: "test", WECHAT_AUTH_TECHNICAL_HASH_SALT: "test", WECHAT_OIDC_PROVIDER: "custom:wechat" };
+  for (const list of [undefined, "", "*", `${ACTOR},invalid`]) {
+    const config = subject.resolveWeChatRuntimeConfig({ ...env, WECHAT_MINI_PROGRAM_TESTER_PROFILE_ALLOWLIST: list, WECHAT_MINI_PROGRAM_SHOP_ALLOWLIST: SHOP });
+    const status = subject.publicWeChatConfiguration(config);
+    assert.equal(status.activation, "external_activation_required");
+    assert.equal(status.readySurfaces.mini_program, false);
+  }
+  const web = subject.publicWeChatConfiguration(subject.resolveWeChatRuntimeConfig({ ...env, WECHAT_AUTH_WEB_ENABLED: "1" }));
+  assert.equal(web.activation, "ready");
+  assert.equal(web.readySurfaces.web, true);
+  assert.equal(web.readySurfaces.mini_program, false);
+  const mini = subject.publicWeChatConfiguration(subject.resolveWeChatRuntimeConfig({ ...env, WECHAT_MINI_PROGRAM_TESTER_PROFILE_ALLOWLIST: ACTOR, WECHAT_MINI_PROGRAM_SHOP_ALLOWLIST: SHOP }));
+  assert.equal(mini.readySurfaces.mini_program, true);
+  const off = subject.publicWeChatConfiguration(subject.resolveWeChatRuntimeConfig({}));
+  assert.equal(off.activation, "disabled");
+  assert.equal(Object.values(off.readySurfaces).some(Boolean), false);
+});
+
+test("WECHAT-010 uncertain receipt issue rolls back after disposing canonical session", async () => {
+  for (const body of [null, false, {}, { ok: true, session_id: SESSION, account_fingerprint: "wrong", expires_at: "invalid" }]) {
+    const events = [];
+    const subject = load("src/server/auth/wechat-mini-session.ts", {
+      "@/lib/supabase/admin": {
+        resolveSupabaseAdminConfig: () => ({ status: "configured", url: "https://project.supabase.co", serviceRoleKey: "test-only-key" }),
+        createSupabaseAdminClient: () => ({ auth: { admin: { signOut: async () => { events.push("signOut"); return { error: null }; } } } }),
+      },
+    }, async (url) => { events.push(new URL(url).pathname); return Response.json(body); });
+    assert.equal(await subject.issueWeChatMiniSession({ actorProfileId: ACTOR, correlationId: SESSION, deviceId: DEVICE, supabaseAccessToken: "temporary-test-session", config }), null);
+    assert.deepEqual(events, ["signOut", "/rest/v1/rpc/wechat_mini_session_issue_v1", "/rest/v1/rpc/wechat_mini_session_revoke_v1"]);
+  }
+});
+
+test("WECHAT-010 failed canonical revocation cannot issue an opaque session", async () => {
+  for (const throws of [false, true]) {
+    const subject = load("src/server/auth/wechat-mini-session.ts", {
+      "@/lib/supabase/admin": {
+        resolveSupabaseAdminConfig: () => ({ status: "configured" }),
+        createSupabaseAdminClient: () => ({ auth: { admin: { signOut: async () => { if (throws) throw new Error("test"); return { error: { message: "test" } }; } } } }),
+      },
+    });
+    assert.equal(await subject.issueWeChatMiniSession({ actorProfileId: ACTOR, correlationId: SESSION, deviceId: DEVICE, supabaseAccessToken: "temporary-test-session", config }), null);
+  }
+});
+
+test("WECHAT-010 logout reports only an actual SQL true as revoked", async () => {
+  for (const body of [false, null, 0, {}, [], "true", true]) {
+    const subject = load("src/server/auth/wechat-mini-session.ts", {
+      "@/lib/supabase/admin": { resolveSupabaseAdminConfig: () => ({ status: "configured", url: "https://project.supabase.co", serviceRoleKey: "test-only-key" }) },
+    }, async () => Response.json(body));
+    assert.equal(await subject.revokeWeChatMiniSession({ authorization: `Bearer ${"m".repeat(43)}`, deviceId: DEVICE, config }), body === true);
+  }
+});

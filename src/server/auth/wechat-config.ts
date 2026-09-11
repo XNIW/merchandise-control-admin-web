@@ -104,7 +104,9 @@ export function resolveWeChatRuntimeConfig(
   const miniAllowedShopIds = uuidAllowlist(env.WECHAT_MINI_PROGRAM_SHOP_ALLOWLIST);
   const activation: WeChatExternalActivationState = !anySurfaceEnabled
     ? "disabled"
-    : serverReady && adminReady && bridgeReady && providerValid
+    : serverReady && adminReady && bridgeReady && providerValid &&
+      (enabledSurfaces.web || enabledSurfaces.android || enabledSurfaces.ios ||
+        (miniAllowedProfileIds.length > 0 && miniAllowedShopIds.length > 0))
       ? "ready"
       : "external_activation_required";
 
@@ -153,7 +155,14 @@ export function publicWeChatConfiguration(
 ) {
   return {
     activation: config.activation,
+    linkingEnabled: config.linkingEnabled,
+    miniCatalogMutationsEnabled: config.miniCatalogMutationsEnabled,
     enabledSurfaces: config.enabledSurfaces,
+    readySurfaces: Object.fromEntries(
+      (Object.keys(flagNames) as WeChatSurface[]).map((surface) => [
+        surface, isWeChatSurfaceReady(surface, config),
+      ]),
+    ),
     identityContract: "supabase-custom-oidc-bridge-v1" as const,
     pollingIntervalSeconds: 10,
     provider: config.oidcProvider,

@@ -1,5 +1,84 @@
 # ADR-002 — WeChat identity through an approved custom OIDC bridge
 
+## Revisione mirata WECHAT-010 / mandato WECHAT-011 — 2026-09-11
+
+Stato: proposta condizionata, runtime invariato nel protocollo. La qualifica
+indipendente di `review_protocol` non ha selezionato un percorso attivabile.
+La versione Auth staging osservata tramite `/auth/v1/health` è **v2.196.0**,
+tag corrispondente al commit `0204331ca41a5b49f076b6fa3dc6c0d20b996590`.
+
+### A. Requisiti indispensabili
+
+Autenticità dell'identità; correlazione della transazione e dell'istanza Mini;
+resistenza a replay e login CSRF; sessione verificata/revocabile; isolamento
+account/shop. `auth.users` e profilo personale restano canonici. Issuer, audience,
+provider, AppID, OpenID e UnionID sono distinti. OpenID non è globale, UnionID può
+mancare; nessun collegamento tramite attributi di profilo o telefono non verificato.
+Il Mini riceve solo un receipt BFF opaco, mai token vendor, session_key o privilegi.
+
+### B. Realizzazione corrente e limite della prova
+
+Il gateway scambia il codice Mini con il bridge e invia a Supabase il relativo ID
+token. Mantiene **raw nonce → SHA256 esadecimale → nonce firmato**, più ledger
+challenge monouso e consumo atomico. L'hash salato del database è un altro valore.
+La presenza del nonce è un requisito di questo percorso, non un obbligo universale
+imposto da qualunque grant Supabase.
+
+In [GoTrue v2.196.0 token_oidc.go:294–307](https://github.com/supabase/auth/blob/0204331ca41a5b49f076b6fa3dc6c0d20b996590/internal/api/token_oidc.go#L294),
+con skip=false, la presenza asimmetrica fallisce, due nonce presenti richiedono
+SHA256(raw) uguale al claim, mentre due nonce assenti non falliscono quel controllo.
+Non si usa questa possibilità per togliere nonce dal gateway corrente.
+
+### C. Alternativa standard da qualificare, non implementata
+
+OneID documenta authorization-code con state, redirect esatto e PKCE S256.
+GoTrue v2.196.0 implementa PKCE upstream Supabase→provider in
+[external.go:84](https://github.com/supabase/auth/blob/0204331ca41a5b49f076b6fa3dc6c0d20b996590/internal/api/external.go#L84)
+e [external_oauth.go:106](https://github.com/supabase/auth/blob/0204331ca41a5b49f076b6fa3dc6c0d20b996590/internal/api/external_oauth.go#L106).
+È distinto dal PKCE applicazione→Supabase. Il controllo del token nel code flow
+[custom_oauth.go:195](https://github.com/supabase/auth/blob/0204331ca41a5b49f076b6fa3dc6c0d20b996590/internal/api/provider/custom_oauth.go#L195)
+non è il controllo nonce del grant diretto. State, nonce e PKCE hanno proprietà
+diverse; valutarli rispetto al flow completo, non sostituirli per nome.
+
+È ammessa la sola valutazione di questo percorso sul medesimo provider mantenuto:
+vero ingresso WeChat nel Mini, Supabase code flow con i due leg PKCE verificati,
+callback esatte e rientro monouso correlato che consegni solo un receipt opaco.
+Prima di implementarlo occorrono una prova specifica Mini TEST e review favorevole;
+il cambiamento di UX/architettura va presentato esplicitamente all'utente.
+Web QR, OAuth di un account pubblico, Google/email o sessioni iniettate non
+costituiscono prova di login WeChat dal Mini.
+
+| Candidato / contratto | Classificazione | Prova / limite |
+|---|---|---|
+| OneID grant `social/wechat/jscode` | DOCUMENTATO | API Mini ufficiale ritorna ID token da wx.login; nonce non esposto nello schema |
+| Nonce firmato nel grant Mini corrente | NON_VERIFICATO | Necessaria risposta vendor e prova token/negativi; assenza docs non prova incompatibilità |
+| OneID authorization-code / PKCE S256 | DOCUMENTATO | Authorize e token endpoint ufficiali; non prova rientro Mini |
+| Code flow OneID nel Mini TEST | NON_VERIFICATO | Overview separa OIDC Web/SPA/mobile dal SDK/API Mini; mancano handoff e domini qualificati |
+| Consumer Mini web-view corrente | PROVATO_LOCALE | Ispezione statica: pagina generica, nessun callback Auth/correlazione/receipt implementato |
+| Compatibilità live provider→Supabase | NON_VERIFICATO | Metadati tenant/provider effettivo assenti; nessuna exchange autentica |
+
+Nessun candidato è PROVATO_LIVE o INCOMPATIBILITÀ_RIPRODOTTA. Il supporto piattaforma
+Supabase non prova configurazione del progetto. Non si registra custom:wechat con
+placeholder. Nessun nuovo IdP, JWT artigianale, fork Auth o adapter speculativo.
+
+La fonte OneID Mini descrive associazione tramite UnionID/OpenID con priorità UnionID
+e creazione utente: qualifica necessaria per AppID isolation, stable sub, collisioni e
+controllo di entrambi gli account. Verificare anche l'ingresso pubblico id_token di
+Supabase: il ledger BFF non protegge automaticamente token ottenuti fuori dal BFF.
+
+Business domain/privacy web-view, host di ogni redirect, cancel, expiry, callback
+duplicato e rientro alla corretta istanza devono essere provati in DevTools e telefono.
+La precedente dichiarazione NOT_REQUIRED_CURRENTLY vale soltanto per la fase OFF.
+
+Fonti ufficiali verificate dal reviewer:
+[Mini grant](https://cloud.tencent.com/document/product/1441/68677),
+[Authorize PKCE](https://cloud.tencent.com/document/product/1441/64348),
+[Token PKCE](https://cloud.tencent.com/document/product/1441/64396),
+[Overview](https://cloud.tencent.com/document/product/1441/64309),
+[SDK Mini](https://cloud.tencent.com/document/product/1441/60710),
+[OIDC Core](https://openid.net/specs/openid-connect-core-1_0.html#AuthRequest),
+[RFC9700 4.5.3](https://www.rfc-editor.org/rfc/rfc9700.html#section-4.5.3).
+
 ## WECHAT-010 transport clarification (2026-09-11)
 
 For native/Mini `grant_type=id_token`, retain the random challenge nonce locally

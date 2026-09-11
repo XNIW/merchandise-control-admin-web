@@ -1,7 +1,7 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
-- Stato: `REVIEW`
-- Fase: `REVIEW`
+- Stato: `EXECUTION`
+- Fase: `EXECUTION`
 - Writer: Codex, isolated branch from `ffafd55e`.
 - Authority: explicit WECHAT-010 user request, including normal PR/CI/merge and isolated staging deploy.
 
@@ -85,3 +85,22 @@ Canonical task remains REVIEW. Live Auth, catalog/functions and essential-functi
 E2E remain NOT_RUN pending a qualified provider, rotated Test AppSecret and
 operator-designated canonical tester/shop admission. No fixture is advertised
 as a live tester and no feature flag was enabled.
+
+## Emendamento WECHAT-011 — 2026-09-11
+
+Il nuovo mandato continua TASK-159: un writer root nel worktree isolato
+`codex/wechat-010-auth-closure`, due reviewer read-only complessivi.
+Autorizzati review/fix/CI/merge normale e deploy staging senza nuovo prompt di fase.
+Delta: ADR mirato ai requisiti e alla release GoTrue effettiva; cleanup sessioni,
+revoca e readiness verificabili; nessun adapter senza qualifica favorevole.
+Accettazione globale e stato DONE restano subordinati a prove reali e governance.
+Release selezionata dal baseline def93402, senza commerce/migration/dependency delta.
+
+## Execution della continuazione
+
+Review read-only separata ha riprodotto cleanup incompleto, revoca boolean errata
+e readiness pubblica incoerente. Fix: signOut canonico prima della RPC issue,
+rollback opaco su risposta incerta; revoke solo con SQL true; readiness per superficie
+senza esporre allowlist. Test Auth29/29, foundation1006+2skip, UI48/48 e verify PASS.
+ADR aggiornato come proposta condizionata; provider/credenziale live NON_VERIFICATO.
+Review dei commit finali e integrazione registrate nel closeout successivo.

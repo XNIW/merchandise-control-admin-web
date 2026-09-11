@@ -153,6 +153,16 @@ export async function issueWeChatMiniSession(input: {
   supabaseAccessToken: string;
   config: WeChatRuntimeConfig;
 }): Promise<WeChatMiniSessionResult | null> {
+  // Dispose of the canonical handoff on every path, before creating a receipt.
+  // The service-only issue RPC does not require this temporary Auth session.
+  const admin = createSupabaseAdminClient();
+  if (!admin) return null;
+  try {
+    const { error } = await admin.auth.admin.signOut(input.supabaseAccessToken, "local");
+    if (error) return null;
+  } catch {
+    return null;
+  }
   if (
     !uuidPattern.test(input.actorProfileId) ||
     !uuidPattern.test(input.correlationId) ||
@@ -163,9 +173,6 @@ export async function issueWeChatMiniSession(input: {
   }
   if (!input.config.miniAllowedProfileIds?.includes(input.actorProfileId.toLowerCase()) ||
       !input.config.miniAllowedShopIds?.length) {
-    // Admission denial must also dispose of the temporary canonical session.
-    const admin = createSupabaseAdminClient();
-    try { await admin?.auth.admin.signOut(input.supabaseAccessToken, "local"); } catch { /* Fail closed. */ }
     return null;
   }
   const sessionToken = randomBytes(32).toString("base64url");
@@ -188,24 +195,7 @@ export async function issueWeChatMiniSession(input: {
     issued.account_fingerprint !== accountFingerprint ||
     typeof issued.expires_at !== "string"
   ) {
-    return null;
-  }
-
-  const admin = createSupabaseAdminClient();
-  if (!admin) {
-    await revokeByTokenHash(sessionToken, input.deviceId, input.config);
-    return null;
-  }
-  try {
-    const { error } = await admin.auth.admin.signOut(
-      input.supabaseAccessToken,
-      "local",
-    );
-    if (error) {
-      await revokeByTokenHash(sessionToken, input.deviceId, input.config);
-      return null;
-    }
-  } catch {
+    // A timeout or malformed response can follow a committed insert.
     await revokeByTokenHash(sessionToken, input.deviceId, input.config);
     return null;
   }
@@ -289,6 +279,6 @@ export async function revokeWeChatMiniSession(input: {
         token,
         input.deviceId as string,
         input.config,
-      )) !== null,
+      )) === true,
   );
 }
