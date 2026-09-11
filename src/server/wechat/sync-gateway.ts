@@ -26,11 +26,13 @@ function object(value: unknown): value is Record<string, unknown> {
 async function actor(input: {
   authorization: string | null;
   deviceId: string | null;
+  shopId: string;
 }) {
   return resolveWeChatMiniSession({
     authorization: input.authorization,
     config: resolveWeChatRuntimeConfig(),
     deviceId: input.deviceId,
+    shopId: input.shopId,
   });
 }
 
@@ -119,17 +121,21 @@ export async function getWeChatMiniSyncDelta(input: {
       p_device_identifier: input.deviceId,
       p_expected_event_max_id: input.eventMaxId,
       p_expected_scope_key: input.scopeKey,
-      p_limit: input.limit,
+      // Canonical safe projection limits entity_ids to 16 KiB/event.
+      // Five events leave ample room below the Mini's 128 KiB envelope.
+      p_limit: Math.min(input.limit, 5),
       p_shop_id: input.shopId,
     },
     6_000,
-    262_144,
+    131_072,
   );
   if (
     !object(data) ||
     data.schemaVersion !== "wechat-mini-sync-delta-v1" ||
     data.shopId !== input.shopId ||
-    !Array.isArray(data.rows)
+    !Array.isArray(data.rows) ||
+    data.rows.length > Math.min(input.limit, 5) ||
+    Buffer.byteLength(JSON.stringify({ delta: data, ok: true }), "utf8") > 131_072
   ) {
     return { code: "backend_temporary", ok: false, status: 503 };
   }

@@ -1,5 +1,25 @@
 # ADR-002 — WeChat identity through an approved custom OIDC bridge
 
+## WECHAT-010 transport clarification (2026-09-11)
+
+For native/Mini `grant_type=id_token`, retain the random challenge nonce locally
+and submit it unchanged to Supabase. Send its SHA-256 hexadecimal digest as the
+bridge exchange `nonce`; the approved provider must place that exact digest in
+the signed ID-token nonce claim. Supabase performs the hash comparison. This
+clarifies the existing nonce contract; it does not implement or qualify a vendor,
+disable nonce checks, mint a JWT, or change the Web redirect flow.
+Source: [Supabase Auth pinned implementation, lines294–305](https://github.com/supabase/auth/blob/4eee58f296d9698a1c2c0ae14d7a0b379c7622d3/internal/api/token_oidc.go#L294-L305), checked2026-09-11.
+
+Controlled Mini activation additionally requires nonempty server-only
+`WECHAT_MINI_PROGRAM_TESTER_PROFILE_ALLOWLIST` and
+`WECHAT_MINI_PROGRAM_SHOP_ALLOWLIST` (comma-separated canonical UUIDs, at most 100
+entries each; an invalid list denies admission). These intersect canonical
+profile/membership/lifecycle authorization on every request. They never grant a
+membership or authorize a role. Mutation capabilities are the server grants
+intersected with `WECHAT_MINI_PROGRAM_CATALOG_MUTATIONS_ENABLED`.
+Rollback sets `WECHAT_AUTH_MINI_PROGRAM_ENABLED=0`; the independent mutation and
+linking flags remain OFF until their own later live acceptance.
+
 - Status: `CHANGES_REQUIRED`; architecture target retained but bridge is not implemented
 - Date: 2026-08-12
 - Owners: Admin Web server boundary and canonical Supabase project
@@ -162,3 +182,62 @@ This closes the code-side recovery invariant only. The approved bridge,
 official AppIDs, provider configuration, callback domains and live same-profile
 evidence remain `EXTERNAL_ACTIVATION_REQUIRED`; all surface and linking flags
 remain OFF.
+
+## WECHAT-009 feasibility addendum — 2026-09-07 (proposal, not activation)
+
+The current Admin exchange sends Basic-authenticated JSON `{code, surface,
+nonce, correlation_id}` to one allowlisted service and expects `id_token`.
+This is a repository-specific adapter contract, not a standard OIDC token grant.
+Public issuer/discovery/JWKS values belong to the chosen identity service, not
+WeChat's registration console. Supabase remains the canonical session issuer;
+Mini receives only its opaque BFF receipt after the temporary Supabase handoff.
+
+Two maintained, relevant candidates have documented coverage beyond Web QR:
+
+| Candidate | Documented surfaces | Fit / remaining proof | Cost evidence |
+|---|---|---|---|
+| Tencent OneID (formerly CIAM) | Web and mobile code exchange; separate wx.login grant; OIDC discovery/RSA JWKS | Strongest first-party four-surface candidate. Grant bodies differ from Admin Basic JSON; social token parameter tables do not document nonce. Tenant issuer/audience/stable subject/linking and signing rotation require validation. | Official product describes usage billing; an applicable numeric quote was not verifiable. Obtain a quote; no trial/account/purchase started. |
+| Authing | Web OAuth/OIDC; Android/iOS WeChat; V3 `wechat_mini_program_code` returning ID token | Relevant alternative with documented mobile/Mini exchange, but no proven drop-in nonce-bound response for this gateway. Tenant configuration, subject merge rules and key rotation remain unproved. | Official pricing displays Essential RMB139/month and Professional RMB1299/month at 1,000 active users; entitlement for required bridge/security features and final quote unverified. |
+
+Recommendation: request a **technical qualification of Tencent OneID**, subject
+to explicit operator acceptance of its account/cost/contract and successful
+nonce/rotation/linking proof. This is not approval to configure or buy it.
+Authing is a fallback candidate, not a second simultaneous integration.
+Casdoor was considered but its documentation was safety-blocked; no workaround
+or four-surface compatibility claim is made. Direct WeChat OAuth2 remains unproved.
+
+Minimal proposed ADR correction: permit a typed server-only vendor adapter that
+maps the existing challenge-bound surface/code to the selected service's documented
+grant, instead of requiring the vendor to implement our JSON body verbatim. Keep
+issuer/JWKS/audience validation in Supabase, strict nonce validation, server-only
+secrets, stable opaque subject, safe explicit linking and canonical Supabase user.
+Do not set `skip_nonce_check`, synthesize identities, re-sign a token, or infer
+linking from profile similarity. If the vendor cannot bind the challenge nonce
+into its verified ID token, stop for a separate threat-model/ADR decision; this
+proposal does not authorize relaxing that requirement. No runtime Auth changes.
+
+Callback ownership: WeChat → selected provider's WeChat callback (unknown until
+service configuration); provider → Supabase's displayed OAuth callback; Supabase
+→ Admin `/auth/callback` after PKCE. The project-derived Supabase callback is
+`https://jpgoimipbothfgkokyvm.supabase.co/auth/v1/callback`; it is not the WeChat
+portal callback and still requires read-only confirmation in the provider form.
+
+Qualification acceptance: verified HTTPS issuer/discovery/JWKS and asymmetric
+algorithms; overlapping key rotation/revocation; configured client authentication;
+exact acceptable audiences per platform; nonce match and rejection tests; stable
+sub across associated AppIDs and explicit linking without takeover; separate
+real code exchange tests for Website, Android SDK, iOS SDK and wx.login. No vendor
+has passed that matrix in this execution. Android/iOS AppID fields may map to one
+Mobile Application: verify the registration rather than requiring four apps.
+
+Official sources consulted 2026-09-06/07:
+
+- [Supabase custom OAuth/OIDC](https://supabase.com/docs/guides/auth/custom-oauth-providers): custom identifier, discovery/JWKS, acceptable client IDs, email-optional and callback form.
+- [Tencent Web/mobile exchange](https://cloud.tencent.com/document/product/1441/68675) and [Mini API exchange](https://cloud.tencent.com/document/product/1441/68677): distinct grants; documentation updated 2026-08-26.
+- [Tencent discovery](https://cloud.tencent.com/document/product/1441/64402), [JWKS](https://cloud.tencent.com/document/product/1441/64397), [product/billing](https://cloud.tencent.com/product/idsec).
+- [Authing V3 authentication API](https://api.authing.cn/), [native integration](https://docs.authing.com/v2/guides/basics/platform-guide/integrate-with-mobile-app.html), [pricing](https://www.authing.com/pricing).
+- Tencent's linked official WeChat mobile guide at developers.weixin.qq.com
+  could not be opened (non-retryable); original portal restriction is preserved.
+  Authing API page rendered no inspectable body and Tencent Mini page intermittently
+  timed out; indexed official parameter tables support documentation-level findings
+  only. No unauthenticated tenant demo is treated as an approved issuer.

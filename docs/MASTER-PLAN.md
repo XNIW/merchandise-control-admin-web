@@ -1,5 +1,12 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## Current staging release — WECHAT-010
+
+`TASK-159`, `REVIEW`. This release retains deployed baseline `a787331a` and
+selects only reviewed WeChat009/010 source/test/config documents from merge
+`67e360fc` (PR102). No commerce source, dependency or migration is introduced.
+All WeChat flags remain OFF; production is outside the release target.
+
 ## Identita progetto
 
 - Nome progetto: `MerchandiseControl Admin Web`

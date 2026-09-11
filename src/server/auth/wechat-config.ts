@@ -19,6 +19,14 @@ function enabled(value: string | undefined) {
   return value?.trim().toLowerCase() === "true" || value?.trim() === "1";
 }
 
+function uuidAllowlist(value: string | undefined): readonly string[] {
+  const entries = (value ?? "").split(",").map((entry) => entry.trim().toLowerCase());
+  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  return entries.length <= 100 && entries.every((entry) => uuid.test(entry))
+    ? [...new Set(entries)]
+    : [];
+}
+
 function bridgeUrl(value: string | undefined, allowlistValue: string | undefined) {
   const candidate = value?.trim();
   const allowedHosts = new Set(
@@ -56,6 +64,9 @@ export type WeChatRuntimeConfig = {
   enabledSurfaces: Readonly<Record<WeChatSurface, boolean>>;
   hashSalt: string;
   linkingEnabled: boolean;
+  miniAllowedProfileIds: readonly string[];
+  miniAllowedShopIds: readonly string[];
+  miniCatalogMutationsEnabled: boolean;
   oidcProvider: "custom:wechat";
   reason: string;
   supabasePublishableKey: string;
@@ -89,6 +100,8 @@ export function resolveWeChatRuntimeConfig(
     bridgeExchangeUrl && bridgeClientId && bridgeClientSecret && hashSalt,
   );
   const anySurfaceEnabled = Object.values(enabledSurfaces).some(Boolean);
+  const miniAllowedProfileIds = uuidAllowlist(env.WECHAT_MINI_PROGRAM_TESTER_PROFILE_ALLOWLIST);
+  const miniAllowedShopIds = uuidAllowlist(env.WECHAT_MINI_PROGRAM_SHOP_ALLOWLIST);
   const activation: WeChatExternalActivationState = !anySurfaceEnabled
     ? "disabled"
     : serverReady && adminReady && bridgeReady && providerValid
@@ -103,6 +116,10 @@ export function resolveWeChatRuntimeConfig(
     enabledSurfaces,
     hashSalt,
     linkingEnabled: enabled(env.WECHAT_AUTH_LINKING_ENABLED),
+    miniAllowedProfileIds,
+    miniAllowedShopIds,
+    // Match the existing catalog/image mutation gate exactly.
+    miniCatalogMutationsEnabled: env.WECHAT_MINI_PROGRAM_CATALOG_MUTATIONS_ENABLED === "true",
     oidcProvider: "custom:wechat",
     reason:
       activation === "ready"
@@ -120,7 +137,9 @@ export function isWeChatSurfaceReady(
   surface: WeChatSurface,
   config: WeChatRuntimeConfig = resolveWeChatRuntimeConfig(),
 ) {
-  return config.activation === "ready" && config.enabledSurfaces[surface];
+  return config.activation === "ready" && config.enabledSurfaces[surface] &&
+    (surface !== "mini_program" ||
+      (config.miniAllowedProfileIds.length > 0 && config.miniAllowedShopIds.length > 0));
 }
 
 export function isWeChatLinkingReady(

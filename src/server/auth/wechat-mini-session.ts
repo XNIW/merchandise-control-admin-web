@@ -161,6 +161,13 @@ export async function issueWeChatMiniSession(input: {
   ) {
     return null;
   }
+  if (!input.config.miniAllowedProfileIds?.includes(input.actorProfileId.toLowerCase()) ||
+      !input.config.miniAllowedShopIds?.length) {
+    // Admission denial must also dispose of the temporary canonical session.
+    const admin = createSupabaseAdminClient();
+    try { await admin?.auth.admin.signOut(input.supabaseAccessToken, "local"); } catch { /* Fail closed. */ }
+    return null;
+  }
   const sessionToken = randomBytes(32).toString("base64url");
   const accountFingerprint = digest(
     input.config.hashSalt,
@@ -204,7 +211,8 @@ export async function issueWeChatMiniSession(input: {
   }
 
   const expiresAt = Math.floor(Date.parse(issued.expires_at) / 1000);
-  if (!Number.isSafeInteger(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000)) {
+  const now = Math.floor(Date.now() / 1000);
+  if (!Number.isSafeInteger(expiresAt) || expiresAt <= now || expiresAt > now + sessionTtlSeconds + 5) {
     await revokeByTokenHash(sessionToken, input.deviceId, input.config);
     return null;
   }
@@ -225,10 +233,14 @@ export async function resolveWeChatMiniSession(input: {
   authorization: string | null;
   deviceId: string | null;
   config?: WeChatRuntimeConfig;
+  shopId?: unknown;
 }): Promise<MiniSessionResolution> {
   const config = input.config;
   const token = bearerToken(input.authorization);
-  if (!config?.hashSalt || !token || !uuidPattern.test(input.deviceId ?? "")) {
+  if (!config?.hashSalt || !token || !uuidPattern.test(input.deviceId ?? "") ||
+      !config.miniAllowedProfileIds?.length || !config.miniAllowedShopIds?.length ||
+      (input.shopId !== undefined && (typeof input.shopId !== "string" ||
+        !config.miniAllowedShopIds.includes(input.shopId.toLowerCase())))) {
     return { code: "session_expired", ok: false };
   }
   const resolved = (await callTrustedWeChatRpc("wechat_mini_session_resolve_v1", {
@@ -243,9 +255,15 @@ export async function resolveWeChatMiniSession(input: {
     !uuidPattern.test(String(resolved.session_id ?? "")) ||
     !sha256Pattern.test(String(resolved.account_fingerprint ?? "")) ||
     !Number.isSafeInteger(resolved.generation) ||
-    !Number.isSafeInteger(expiresAt)
+    Number(resolved.generation) < 1 ||
+    !Number.isSafeInteger(expiresAt) ||
+    expiresAt > Math.floor(Date.now() / 1000) + sessionTtlSeconds + 5
   ) {
     return { code: "backend_temporary", ok: false };
+  }
+  if (expiresAt <= Math.floor(Date.now() / 1000) ||
+      !config.miniAllowedProfileIds.includes(String(resolved.actor_profile_id).toLowerCase())) {
+    return { code: "session_expired", ok: false };
   }
   return {
     accountFingerprint: String(resolved.account_fingerprint),
