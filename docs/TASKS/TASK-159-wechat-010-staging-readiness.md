@@ -1,8 +1,8 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
-- Stato: `EXECUTION`
-- Fase: `EXECUTION`
-- Writer: Codex, isolated branch from `ffafd55e`.
+- Stato: `REVIEW`
+- Fase: `REVIEW`
+- Writer: nessuno attivo; fix integrati su main dopo review indipendente.
 - Authority: explicit WECHAT-010 user request, including normal PR/CI/merge and isolated staging deploy.
 
 ## Scope
@@ -104,3 +104,47 @@ rollback opaco su risposta incerta; revoke solo con SQL true; readiness per supe
 senza esporre allowlist. Test Auth29/29, foundation1006+2skip, UI48/48 e verify PASS.
 ADR aggiornato come proposta condizionata; provider/credenziale live NON_VERIFICATO.
 Review dei commit finali e integrazione registrate nel closeout successivo.
+
+
+## Closeout tecnico approvato e integrato
+
+Reviewer read-only distinti `review_protocol` e `review_security`: APPROVED per
+Admin `0190f52682de86714bb2e5fc0dd6410948355152`, Mini
+`364b44cb63e553e47a398acc7d71378260c83647`, packet privato e release
+`91f3d8e57f3c47740852974b73a5d66efc4189db`. S1 P1 e S2–S5 P2 chiusi con
+regressioni; nessun finding aperto nel delta. L'ADR è una decisione condizionata,
+non una qualifica provider o un'autorizzazione a omettere nonce.
+
+[PR104](https://github.com/XNIW/merchandise-control-admin-web/pull/104) integrata
+normalmente come `57e6049714252f6a6c1af37ec3f69127f16de902`; main locale/origin
+allineate pulite prima del closeout documentale. CI PR34655768668 e Cloudflare
+34655768662 PASS; main CI34656044040 e Cloudflare34656044041 PASS. Job/step/
+annotation letti: solo warning preesistente runtime Node20 Actions. pgTAP48file/
+2627test PASS; foundationCI995pass+13skip, locale1006pass+2skip; UI48/48 PASS.
+TASK094 staging import E2E non rieseguito, skipped in CI corrente.
+
+La release isolata deriva da def93402 e include solo quattro file identici al
+source approvato/integrato più manifest `docs/AUDITS/WECHAT-010-AUTH-RELEASE.md`.
+Branch `codex/wechat-010-auth-staging` preservato e pushato; non va merged a main.
+Nessun commerce/migration/dependency delta. Release Cloudflare build-only
+34655880432 PASS; verify/Auth29/OpenNext/local Worker29/dry-run PASS.
+Wrangler deploy staging `--keep-vars --minify --autoconfig=false` exit0, metadata
+source91f3d8e e tag wechat-010-auth-91f3d8e. Versione effettiva
+`29d0c715-e3e7-4a23-b9e7-40ade3149414`, rollout100%. Rollback alla precedente
+`c39ebe92-0fdf-4596-94a0-16bcd018ebab` disponibile, non eseguito.
+
+Postdeploy HTTP reale OFF9/9 PASS, nessun redirect; nuovo status activation
+disabled, enabled/readySurfaces tuttefalse, linking/mutationsfalse. Primo probe
+challenge{}:400 e harnessFAIL; body corretto, rerun9/9 exit0, nessun difetto runtime.
+Binding names/types invariati, nessun binding WECHAT/allowlist. Registry141
+identica per versione/nome/statement count/hash, nessuna migration applicata;
+commerce escluso, Google/email e produzione invariati. Nessuna fixture creata.
+
+Execution dei fix conclusa e integrata; review codice APPROVED. Accettazione
+live BLOCKED / EXTERNAL_ACTIVATION_REQUIRED, non DONE. Servono procedura TEST
+supportata e nuova credenziale, qualifica OneID sul Mini TEST e tester/shop canonici
+precisi già usati sulle altre piattaforme. Nessun account arbitrario/iniettato.
+Mini distOFF/verify88 e cinque tab DevTools OFF verificati; privacy web-view
+BLOCKED dal controllo IDE; Auth/telefono/E2E reale NOT_RUN. Report unico Mini
+`docs/testing/WECHAT-010-REPORT.md`; packet privato OPERATOR-ACTIONS aggiornato
+con prove attese e comando di ripresa, senza segreti o messaggi vendor inviati.
