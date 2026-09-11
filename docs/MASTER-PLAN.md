@@ -1,13 +1,15 @@
 # MerchandiseControl Admin Web - Master Plan
 
-## Current execution — WECHAT-010
+## Current review — WECHAT-010
 
-`TASK-159`, `EXECUTION`, sole writer Codex in isolated worktree codex/wechat-010-auth-closure; scope and user
-authority in `docs/TASKS/TASK-159-wechat-010-staging-readiness.md`.
-WeChat readiness source merged via PR102; isolated release `def93402` deployed
-to staging Worker `c39ebe92-0fdf-4596-94a0-16bcd018ebab`, smoke9/9PASS.
-General flags OFF, migration registry unchanged, no production change.
-Live WeChat E2E remains NOT_RUN; TASK159 contains the exact gates and handoff.
+`TASK-159`, `REVIEW / EXTERNAL_ACTIVATION_REQUIRED`; nessun writer applicativo
+attivo. Il mandato WECHAT-011 ha concluso fix/review indipendente e integrazione
+normale PR104 (`57e60497`), con CI e pgTAP2627 verdi. Release isolata `91f3d8e5`
+distribuita in staging come Worker `29d0c715-e3e7-4a23-b9e7-40ade3149414`,100%,
+smoke HTTPS OFF9/9 PASS. Migration141 identiche, flags/allowlist assenti/defaultOFF.
+Auth live NOT_RUN: credenziale TEST, protocollo/tenant OneID e tester/shop da
+qualificare. Nessun DONE o modifica production. Evidence e ripresa in TASK-159 e
+nel report unico Mini `docs/testing/WECHAT-010-REPORT.md`.
 
 ## Identita progetto
 
