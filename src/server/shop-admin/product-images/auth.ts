@@ -95,11 +95,12 @@ async function resolveAuthenticatedUserId(request: Request) {
       };
 }
 
-async function resolveBearerAuthenticatedUserId(request: Request) {
+async function resolveBearerAuthenticatedUserId(request: Request, shopId: string) {
   const session = await resolveWeChatMiniSession({
     authorization: request.headers.get("authorization"),
     config: resolveWeChatRuntimeConfig(),
     deviceId: request.headers.get("x-wechat-device-id"),
+    shopId,
   });
   if (!session.ok) {
     return {
@@ -127,7 +128,7 @@ export async function resolveProductImageRequestActor(
 ): Promise<ProductImageActorResolution> {
   const identity =
     policy === "personal_catalog_member"
-      ? await resolveBearerAuthenticatedUserId(request)
+      ? await resolveBearerAuthenticatedUserId(request, shopId)
       : await resolveAuthenticatedUserId(request);
 
   if (!identity.userId) {

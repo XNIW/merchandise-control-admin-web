@@ -527,6 +527,7 @@ export async function callWeChatCatalogMutation(input: {
     authorization: input.authorization,
     config: resolveWeChatRuntimeConfig(),
     deviceId: input.deviceId,
+    shopId: input.mutation.shopId,
   });
   if (!actor.ok) {
     return failure(

@@ -369,7 +369,9 @@ export async function exchangeWeChatCode(
       body: JSON.stringify({
         code: input.code,
         correlation_id: input.correlationId,
-        nonce: input.nonce,
+        // Supabase verifies SHA-256(raw nonce) against the signed OIDC claim.
+        // The approved bridge must put this digest in the ID token unchanged.
+        nonce: createHash("sha256").update(input.nonce, "utf8").digest("hex"),
         surface: input.surface,
       }),
       headers: {
@@ -494,8 +496,11 @@ export async function exchangeWeChatCode(
   if (
     !isTokenShape(body?.access_token) ||
     !isTokenShape(body?.refresh_token) ||
-    typeof body?.expires_at !== "number" ||
-    typeof body.expires_in !== "number" ||
+    typeof body?.expires_at !== "number" || !Number.isSafeInteger(body.expires_at) ||
+    typeof body.expires_in !== "number" || !Number.isSafeInteger(body.expires_in) ||
+    body.expires_in < 1 || body.expires_in > 86_400 ||
+    body.expires_at <= Math.floor(Date.now() / 1000) ||
+    body.expires_at > Math.floor(Date.now() / 1000) + body.expires_in + 60 ||
     body.token_type !== "bearer" ||
     typeof body.user?.id !== "string"
   ) {
