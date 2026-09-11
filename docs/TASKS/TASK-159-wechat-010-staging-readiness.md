@@ -22,7 +22,7 @@ staging candidate. No live Auth or business E2E PASS from mocked tests.
 
 ## Deployment baseline
 
-Current staging Worker `38272504-ca78-4bcb-8553-ae7463ae1e64` maps exactly to
+Pre-deployment staging Worker `38272504-ca78-4bcb-8553-ae7463ae1e64` mapped exactly to
 `a787331a6e673b2daf93929b507aa18c6dc24e24` through GitHub Cloudflare run
 `32530174055`. Current main contains two unapplied commerce migrations; they are
 not WeChat dependencies and will not be applied or included in the isolated
@@ -42,3 +42,46 @@ Reviewer noted a nonsecurity flag-parser mismatch; capability projection now
 uses the existing exact `true` mutation-gate semantics, with a regression test.
 Normal PR/CI/merge remains authorized; this handoff does not self-approve DONE.
 External live Auth/catalog/functions remain NOT_RUN and flags OFF.
+
+## Staging execution evidence — 2026-09-11
+
+Source PR [102](https://github.com/XNIW/merchandise-control-admin-web/pull/102)
+merged normally as `67e360fcbc5812b2bf8e5471ef17b2323d0f0fd2`, after exact-head
+CI and Cloudflare checks passed. Isolated staging release
+`def934021481d3a309a543b0d4ea186b3fa91733` starts at the proven deployed
+`a787331a` baseline and selects only reviewed WeChat files from PR101/102.
+Its 14 selected files match merged source byte-for-byte; the only other two
+files are release/governance evidence. No commerce, dependency or migration delta.
+
+Exact release [CI34650038825](https://github.com/XNIW/merchandise-control-admin-web/actions/runs/34650038825)
+and [Cloudflare build-only34650041304](https://github.com/XNIW/merchandise-control-admin-web/actions/runs/34650041304)
+passed, including pgTAP and local Worker smoke. Local release verify, foundation
+994PASS/2existing skips, focused59/59, UI48/48, Worker29/29, paging and dry-run
+passed. The required CI workflow also ran its existing TASK094 staging
+catalog-import fixture E2E; that success is not evidence of live WeChat Auth or
+business E2E. No remote migration was applied.
+
+After designated root review, Wrangler deployed staging with `--keep-vars`,
+`--minify` and `--autoconfig=false`, preserving existing variables/secrets.
+The OpenNext automatic-deploy wrapper initially rejected a multiword metadata
+argument before upload; disabling automatic framework delegation resolved it
+without source changes. Version `c39ebe92-0fdf-4596-94a0-16bcd018ebab` is at100%,
+created `2026-09-11T21:40:59Z`, tagged `wechat-010-def93402` with exact source SHA
+in its version message. Production was untouched.
+
+Postdeploy real HTTP smoke9/9PASS: `/privacy`, `/account-deletion` and
+`/api/auth/wechat/status` returned200 over verified TLS without redirects;
+challenge, exchange, shops, catalog, sync delta and mutation gates returned503
+`provider_not_configured`. The POST probes used synthetic OFF-state inputs,
+never a real WeChat code or secret. All six WeChat feature/linking/mutation flags
+remain absent with defaultOFF, public status has every surface disabled, and
+binding names/types match the previous deployment. No secret was supplied or
+rotated. Remote migration registry is unchanged at141 with identical complete
+registry checksum `1b712fb5e807d9e90cc0668cd81df43a`; both pending commerce
+migrations remain excluded.
+
+Rollback target: Worker `38272504-ca78-4bcb-8553-ae7463ae1e64`.
+Canonical task remains REVIEW. Live Auth, catalog/functions and essential-function
+E2E remain NOT_RUN pending a qualified provider, rotated Test AppSecret and
+operator-designated canonical tester/shop admission. No fixture is advertised
+as a live tester and no feature flag was enabled.
