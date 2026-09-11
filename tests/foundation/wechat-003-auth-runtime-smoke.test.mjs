@@ -320,7 +320,7 @@ test("WECHAT-003 native exchange consumes one-time state and performs the bridge
             : new Response(
                 JSON.stringify({
                   access_token: "a".repeat(64),
-                  expires_at: 2_000_000_000,
+                  expires_at: Math.floor(Date.now() / 1000) + 3_600,
                   expires_in: 3_600,
                   refresh_token: "r".repeat(64),
                   token_type: "bearer",
@@ -376,6 +376,9 @@ test("WECHAT-003 native exchange consumes one-time state and performs the bridge
     "https://project.supabase.co/auth/v1/token?grant_type=id_token",
   );
   const tokenBody = JSON.parse(fetchCalls[1].init.body);
+  assert.equal(JSON.parse(fetchCalls[0].init.body).nonce,
+    createHash("sha256").update("n".repeat(43)).digest("hex"));
+  assert.equal(tokenBody.nonce, "n".repeat(43));
   assert.equal(tokenBody.provider, "custom:wechat");
   assert.equal(tokenBody.link_identity, false);
   assert.equal(
@@ -467,7 +470,7 @@ test("WECHAT-003 never returns a native session when the required success audit 
             : new Response(
                 JSON.stringify({
                   access_token: "a".repeat(64),
-                  expires_at: 2_000_000_000,
+                  expires_at: Math.floor(Date.now() / 1000) + 3_600,
                   expires_in: 3_600,
                   refresh_token: "r".repeat(64),
                   token_type: "bearer",

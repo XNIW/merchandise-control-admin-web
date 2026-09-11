@@ -26,11 +26,13 @@ function object(value: unknown): value is Record<string, unknown> {
 async function actor(input: {
   authorization: string | null;
   deviceId: string | null;
+  shopId: string;
 }) {
   return resolveWeChatMiniSession({
     authorization: input.authorization,
     config: resolveWeChatRuntimeConfig(),
     deviceId: input.deviceId,
+    shopId: input.shopId,
   });
 }
 

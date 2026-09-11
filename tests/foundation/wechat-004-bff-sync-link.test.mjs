@@ -111,7 +111,7 @@ test("WECHAT-004 Mini exchange replaces the temporary Supabase session with a ha
 
   const session = await sessionModule.issueWeChatMiniSession({
     actorProfileId: ACTOR_ID,
-    config: { hashSalt: HASH_SALT },
+    config: { hashSalt: HASH_SALT, miniAllowedProfileIds: [ACTOR_ID], miniAllowedShopIds: [SHOP_ID] },
     correlationId: CORRELATION_ID,
     deviceId: DEVICE_ID,
     supabaseAccessToken: "temporary-supabase-access-token",
@@ -171,7 +171,7 @@ test("WECHAT-004 opaque session resolution is device-bound and never forwards it
   );
   const resolved = await sessionModule.resolveWeChatMiniSession({
     authorization: `Bearer ${token}`,
-    config: { hashSalt: HASH_SALT },
+    config: { hashSalt: HASH_SALT, miniAllowedProfileIds: [ACTOR_ID], miniAllowedShopIds: [SHOP_ID] },
     deviceId: DEVICE_ID,
   });
   assert.equal(resolved.ok, true);

@@ -1,5 +1,11 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## Current execution — WECHAT-010
+
+`TASK-159`, `REVIEW`, sole writer Codex in isolated worktree; scope and user
+authority in `docs/TASKS/TASK-159-wechat-010-staging-readiness.md`.
+Only WeChat gateway readiness; general flags OFF, no migration or production change.
+
 ## Identita progetto
 
 - Nome progetto: `MerchandiseControl Admin Web`

@@ -1,5 +1,25 @@
 # ADR-002 — WeChat identity through an approved custom OIDC bridge
 
+## WECHAT-010 transport clarification (2026-09-11)
+
+For native/Mini `grant_type=id_token`, retain the random challenge nonce locally
+and submit it unchanged to Supabase. Send its SHA-256 hexadecimal digest as the
+bridge exchange `nonce`; the approved provider must place that exact digest in
+the signed ID-token nonce claim. Supabase performs the hash comparison. This
+clarifies the existing nonce contract; it does not implement or qualify a vendor,
+disable nonce checks, mint a JWT, or change the Web redirect flow.
+Source: [Supabase Auth pinned implementation, lines294–305](https://github.com/supabase/auth/blob/4eee58f296d9698a1c2c0ae14d7a0b379c7622d3/internal/api/token_oidc.go#L294-L305), checked2026-09-11.
+
+Controlled Mini activation additionally requires nonempty server-only
+`WECHAT_MINI_PROGRAM_TESTER_PROFILE_ALLOWLIST` and
+`WECHAT_MINI_PROGRAM_SHOP_ALLOWLIST` (comma-separated canonical UUIDs, at most 100
+entries each; an invalid list denies admission). These intersect canonical
+profile/membership/lifecycle authorization on every request. They never grant a
+membership or authorize a role. Mutation capabilities are the server grants
+intersected with `WECHAT_MINI_PROGRAM_CATALOG_MUTATIONS_ENABLED`.
+Rollback sets `WECHAT_AUTH_MINI_PROGRAM_ENABLED=0`; the independent mutation and
+linking flags remain OFF until their own later live acceptance.
+
 - Status: `CHANGES_REQUIRED`; architecture target retained but bridge is not implemented
 - Date: 2026-08-12
 - Owners: Admin Web server boundary and canonical Supabase project
