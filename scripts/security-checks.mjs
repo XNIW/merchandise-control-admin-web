@@ -546,6 +546,8 @@ function checkReadOnlyContracts() {
     "src/server/auth/wechat-exchange.ts",
     "src/server/auth/wechat-link-saga.ts",
     "src/server/auth/wechat-mini-session.ts",
+    "src/server/auth/wechat-code2session.ts",
+    "src/server/auth/wechat-mini-direct.ts",
   ]);
   const postgrestRpcPattern = /\/rest\/v1\/rpc\/([a-z0-9_]+)/g;
   const postgrestRpcPrefixPattern = /\/rest\/v1\/rpc\//g;
@@ -563,11 +565,18 @@ function checkReadOnlyContracts() {
         "wechat_mini_session_revoke_v1",
         "wechat_mini_sync_checkpoint_v1",
         "wechat_mini_sync_delta_v1",
+        "wechat_mini_proof_create_v1",
+        "wechat_mini_proof_claim_v1",
+        "wechat_mini_proof_verify_v1",
+        "wechat_mini_pair_claim_v1",
+        "wechat_mini_pair_confirm_v1",
+        "wechat_mini_direct_issue_v1",
+        "wechat_mini_business_v1",
       ]),
     ],
     [
       "src/server/wechat/catalog-mutation-gateway.ts",
-      new Set(["wechat_catalog_mutate_v1"]),
+      new Set(["wechat_catalog_mutate_v1", "wechat_mini_business_v1"]),
     ],
   ]);
 

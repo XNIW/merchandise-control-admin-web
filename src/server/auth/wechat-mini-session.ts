@@ -1,7 +1,10 @@
 import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
-import { createSupabaseAdminClient, resolveSupabaseAdminConfig } from "@/lib/supabase/admin";
+import {
+  createSupabaseAdminClient,
+  resolveSupabaseAdminConfig,
+} from "@/lib/supabase/admin";
 import type { WeChatMiniSessionResult } from "@/lib/auth/wechat-contract";
 import type { WeChatRuntimeConfig } from "./wechat-config";
 
@@ -14,28 +17,35 @@ const uuidPattern =
 const sha256Pattern = /^[0-9a-f]{64}$/;
 
 const trustedWeChatRpcPaths = {
-  wechat_link_attempt_begin_v1:
-    "/rest/v1/rpc/wechat_link_attempt_begin_v1",
-  wechat_link_attempt_fail_v1:
-    "/rest/v1/rpc/wechat_link_attempt_fail_v1",
+  wechat_mini_proof_create_v1: "/rest/v1/rpc/wechat_mini_proof_create_v1",
+  wechat_mini_proof_claim_v1: "/rest/v1/rpc/wechat_mini_proof_claim_v1",
+  wechat_mini_proof_verify_v1: "/rest/v1/rpc/wechat_mini_proof_verify_v1",
+  wechat_mini_pair_claim_v1: "/rest/v1/rpc/wechat_mini_pair_claim_v1",
+  wechat_mini_pair_confirm_v1: "/rest/v1/rpc/wechat_mini_pair_confirm_v1",
+  wechat_mini_direct_issue_v1: "/rest/v1/rpc/wechat_mini_direct_issue_v1",
+  wechat_mini_business_v1: "/rest/v1/rpc/wechat_mini_business_v1",
+  wechat_link_attempt_begin_v1: "/rest/v1/rpc/wechat_link_attempt_begin_v1",
+  wechat_link_attempt_fail_v1: "/rest/v1/rpc/wechat_link_attempt_fail_v1",
   wechat_link_attempt_finalize_v1:
     "/rest/v1/rpc/wechat_link_attempt_finalize_v1",
   wechat_link_attempt_reconcile_v1:
     "/rest/v1/rpc/wechat_link_attempt_reconcile_v1",
   wechat_mini_read_v1: "/rest/v1/rpc/wechat_mini_read_v1",
-  wechat_mini_session_issue_v1:
-    "/rest/v1/rpc/wechat_mini_session_issue_v1",
-  wechat_mini_session_resolve_v1:
-    "/rest/v1/rpc/wechat_mini_session_resolve_v1",
-  wechat_mini_session_revoke_v1:
-    "/rest/v1/rpc/wechat_mini_session_revoke_v1",
-  wechat_mini_sync_checkpoint_v1:
-    "/rest/v1/rpc/wechat_mini_sync_checkpoint_v1",
-  wechat_mini_sync_delta_v1:
-    "/rest/v1/rpc/wechat_mini_sync_delta_v1",
+  wechat_mini_session_issue_v1: "/rest/v1/rpc/wechat_mini_session_issue_v1",
+  wechat_mini_session_resolve_v1: "/rest/v1/rpc/wechat_mini_session_resolve_v1",
+  wechat_mini_session_revoke_v1: "/rest/v1/rpc/wechat_mini_session_revoke_v1",
+  wechat_mini_sync_checkpoint_v1: "/rest/v1/rpc/wechat_mini_sync_checkpoint_v1",
+  wechat_mini_sync_delta_v1: "/rest/v1/rpc/wechat_mini_sync_delta_v1",
 } as const;
 
 export type TrustedWeChatRpcName = keyof typeof trustedWeChatRpcPaths;
+
+export type MiniSessionProof = {
+  p_token_hash: string;
+  p_device_hash: string;
+  p_allowed_profiles: readonly string[];
+  p_allowed_shops: readonly string[];
+};
 
 type MiniSessionResolution =
   | {
@@ -45,6 +55,7 @@ type MiniSessionResolution =
       generation: number;
       ok: true;
       sessionId: string;
+      proof: MiniSessionProof;
     }
   | { code: "backend_temporary" | "session_expired"; ok: false };
 
@@ -57,7 +68,9 @@ function digest(salt: string, namespace: string, value: string) {
 function bearerToken(authorization: string | null) {
   if (!authorization) return null;
   const [scheme, token, extra] = authorization.trim().split(/\s+/);
-  return scheme?.toLowerCase() === "bearer" && tokenPattern.test(token ?? "") && !extra
+  return scheme?.toLowerCase() === "bearer" &&
+    tokenPattern.test(token ?? "") &&
+    !extra
     ? token
     : null;
 }
@@ -113,22 +126,26 @@ export async function callTrustedWeChatRpc(
     !Number.isSafeInteger(responseLimit) ||
     responseLimit < 1 ||
     responseLimit > maximumResponseLimit
-  ) return null;
+  )
+    return null;
   try {
-    const response = await fetch(new URL(trustedWeChatRpcPaths[rpc], config.url), {
-      body: JSON.stringify(params),
-      cache: "no-store",
-      headers: {
-        Accept: "application/json",
-        apikey: config.serviceRoleKey,
-        Authorization: `Bearer ${config.serviceRoleKey}`,
-        "Content-Type": "application/json",
-        "X-Client-Info": "merchandise-control/wechat-mini-bff-v1",
+    const response = await fetch(
+      new URL(trustedWeChatRpcPaths[rpc], config.url),
+      {
+        body: JSON.stringify(params),
+        cache: "no-store",
+        headers: {
+          Accept: "application/json",
+          apikey: config.serviceRoleKey,
+          Authorization: `Bearer ${config.serviceRoleKey}`,
+          "Content-Type": "application/json",
+          "X-Client-Info": "merchandise-control/wechat-mini-bff-v1",
+        },
+        method: "POST",
+        redirect: "error",
+        signal: AbortSignal.timeout(timeoutMs),
       },
-      method: "POST",
-      redirect: "error",
-      signal: AbortSignal.timeout(timeoutMs),
-    });
+    );
     return response.ok ? await readBoundedJson(response, responseLimit) : null;
   } catch {
     return null;
@@ -158,7 +175,10 @@ export async function issueWeChatMiniSession(input: {
   const admin = createSupabaseAdminClient();
   if (!admin) return null;
   try {
-    const { error } = await admin.auth.admin.signOut(input.supabaseAccessToken, "local");
+    const { error } = await admin.auth.admin.signOut(
+      input.supabaseAccessToken,
+      "local",
+    );
     if (error) return null;
   } catch {
     return null;
@@ -171,8 +191,12 @@ export async function issueWeChatMiniSession(input: {
   ) {
     return null;
   }
-  if (!input.config.miniAllowedProfileIds?.includes(input.actorProfileId.toLowerCase()) ||
-      !input.config.miniAllowedShopIds?.length) {
+  if (
+    !input.config.miniAllowedProfileIds?.includes(
+      input.actorProfileId.toLowerCase(),
+    ) ||
+    !input.config.miniAllowedShopIds?.length
+  ) {
     return null;
   }
   const sessionToken = randomBytes(32).toString("base64url");
@@ -202,7 +226,11 @@ export async function issueWeChatMiniSession(input: {
 
   const expiresAt = Math.floor(Date.parse(issued.expires_at) / 1000);
   const now = Math.floor(Date.now() / 1000);
-  if (!Number.isSafeInteger(expiresAt) || expiresAt <= now || expiresAt > now + sessionTtlSeconds + 5) {
+  if (
+    !Number.isSafeInteger(expiresAt) ||
+    expiresAt <= now ||
+    expiresAt > now + sessionTtlSeconds + 5
+  ) {
     await revokeByTokenHash(sessionToken, input.deviceId, input.config);
     return null;
   }
@@ -227,19 +255,40 @@ export async function resolveWeChatMiniSession(input: {
 }): Promise<MiniSessionResolution> {
   const config = input.config;
   const token = bearerToken(input.authorization);
-  if (!config?.hashSalt || !token || !uuidPattern.test(input.deviceId ?? "") ||
-      !config.miniAllowedProfileIds?.length || !config.miniAllowedShopIds?.length ||
-      (input.shopId !== undefined && (typeof input.shopId !== "string" ||
-        !config.miniAllowedShopIds.includes(input.shopId.toLowerCase())))) {
+  if (
+    !config?.hashSalt ||
+    !token ||
+    !uuidPattern.test(input.deviceId ?? "") ||
+    !config.miniAllowedProfileIds?.length ||
+    !config.miniAllowedShopIds?.length ||
+    (input.shopId !== undefined &&
+      (typeof input.shopId !== "string" ||
+        !config.miniAllowedShopIds.includes(input.shopId.toLowerCase())))
+  ) {
     return { code: "session_expired", ok: false };
   }
-  const resolved = (await callTrustedWeChatRpc("wechat_mini_session_resolve_v1", {
-    p_device_hash: digest(config.hashSalt, "device", input.deviceId as string),
-    p_token_hash: digest(config.hashSalt, "session", token),
-  })) as Record<string, unknown> | null;
+  const resolved = (await callTrustedWeChatRpc(
+    "wechat_mini_session_resolve_v1",
+    {
+      p_device_hash: digest(
+        config.hashSalt,
+        "device",
+        input.deviceId as string,
+      ),
+      p_token_hash: digest(config.hashSalt, "session", token),
+    },
+  )) as Record<string, unknown> | null;
   if (!resolved) return { code: "backend_temporary", ok: false };
+  if (
+    (resolved.protocol ?? "mini-id-token-nonce-v1") !==
+    (config.miniProtocol ?? "mini-id-token-nonce-v1")
+  ) {
+    return { code: "session_expired", ok: false };
+  }
   if (resolved.ok !== true) return { code: "session_expired", ok: false };
-  const expiresAt = Math.floor(Date.parse(String(resolved.expires_at ?? "")) / 1000);
+  const expiresAt = Math.floor(
+    Date.parse(String(resolved.expires_at ?? "")) / 1000,
+  );
   if (
     !uuidPattern.test(String(resolved.actor_profile_id ?? "")) ||
     !uuidPattern.test(String(resolved.session_id ?? "")) ||
@@ -251,8 +300,12 @@ export async function resolveWeChatMiniSession(input: {
   ) {
     return { code: "backend_temporary", ok: false };
   }
-  if (expiresAt <= Math.floor(Date.now() / 1000) ||
-      !config.miniAllowedProfileIds.includes(String(resolved.actor_profile_id).toLowerCase())) {
+  if (
+    expiresAt <= Math.floor(Date.now() / 1000) ||
+    !config.miniAllowedProfileIds.includes(
+      String(resolved.actor_profile_id).toLowerCase(),
+    )
+  ) {
     return { code: "session_expired", ok: false };
   }
   return {
@@ -262,6 +315,16 @@ export async function resolveWeChatMiniSession(input: {
     generation: Number(resolved.generation),
     ok: true,
     sessionId: String(resolved.session_id),
+    proof: {
+      p_token_hash: digest(config.hashSalt, "session", token),
+      p_device_hash: digest(
+        config.hashSalt,
+        "device",
+        input.deviceId as string,
+      ),
+      p_allowed_profiles: config.miniAllowedProfileIds,
+      p_allowed_shops: config.miniAllowedShopIds,
+    },
   };
 }
 
@@ -273,12 +336,9 @@ export async function revokeWeChatMiniSession(input: {
   const token = bearerToken(input.authorization);
   return Boolean(
     token &&
-      uuidPattern.test(input.deviceId ?? "") &&
-      input.config.hashSalt &&
-      (await revokeByTokenHash(
-        token,
-        input.deviceId as string,
-        input.config,
-      )) === true,
+    uuidPattern.test(input.deviceId ?? "") &&
+    input.config.hashSalt &&
+    (await revokeByTokenHash(token, input.deviceId as string, input.config)) ===
+      true,
   );
 }

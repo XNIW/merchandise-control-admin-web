@@ -65,7 +65,7 @@ test("WECHAT-001 environment is default-off and keeps every secret server-only",
     assert.match(env, new RegExp(`^${name}=$`, "m"));
   }
   assert.doesNotMatch(env, /NEXT_PUBLIC_WECHAT/);
-  assert.match(config, /activation === "ready" && config\.enabledSurfaces\[surface\]/);
+  assert.match(config, /activation === "ready"\s*&&\s*config\.enabledSurfaces\[surface\]/);
   assert.match(config, /parsed\.protocol !== "https:"/);
   assert.match(config, /allowedHosts\.has/);
   assert.match(config, /providerValid = oidcProvider === "custom:wechat"/);

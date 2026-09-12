@@ -196,6 +196,7 @@ test("WECHAT-004 sync gateway binds opaque actor, device, shop, snapshot and res
           return {
             accountFingerprint: "a".repeat(64),
             actorProfileId: ACTOR_ID,
+            proof: { p_token_hash: "d".repeat(64), p_device_hash: "e".repeat(64), p_allowed_profiles: [ACTOR_ID], p_allowed_shops: [SHOP_ID] },
             expiresAt: 2_000_000_000,
             generation: 1,
             ok: true,
@@ -204,7 +205,7 @@ test("WECHAT-004 sync gateway binds opaque actor, device, shop, snapshot and res
         },
         async callTrustedWeChatRpc(rpc, params, timeout, responseLimit) {
           calls.push({ kind: "rpc", params, responseLimit, rpc, timeout });
-          return rpc.endsWith("checkpoint_v1")
+          return params.p_operation === "wechat_mini_sync_checkpoint_v1"
             ? {
                 eventMaxId: "7",
                 requiresReconcile: false,
@@ -244,14 +245,17 @@ test("WECHAT-004 sync gateway binds opaque actor, device, shop, snapshot and res
   });
   assert.equal(checkpoint.ok, true);
   assert.equal(delta.ok, true);
-  assert.equal(calls[1].rpc, "wechat_mini_sync_checkpoint_v1");
-  assert.equal(calls[1].params.p_actor_profile_id, ACTOR_ID);
-  assert.equal(calls[1].params.p_device_identifier, DEVICE_ID);
-  assert.equal(calls[3].rpc, "wechat_mini_sync_delta_v1");
-  assert.equal(calls[3].params.p_expected_event_max_id, "7");
+  assert.equal(calls[1].rpc, "wechat_mini_business_v1");
+  assert.equal(calls[1].params.p_operation, "wechat_mini_sync_checkpoint_v1");
+  assert.equal(calls[1].params.p_actor_profile_id, undefined);
+  assert.equal(calls[1].params.p_token_hash, "d".repeat(64));
+  assert.equal(calls[1].params.p_params.p_device_identifier, DEVICE_ID);
+  assert.equal(calls[3].rpc, "wechat_mini_business_v1");
+  assert.equal(calls[3].params.p_operation, "wechat_mini_sync_delta_v1");
+  assert.equal(calls[3].params.p_params.p_expected_event_max_id, "7");
   assert.equal(calls[3].timeout, 6_000);
   assert.equal(calls[3].responseLimit, 131_072);
-  assert.equal(calls[3].params.p_limit, 5);
+  assert.equal(calls[3].params.p_params.p_limit, 5);
 });
 
 test("WECHAT-004 link saga sends only hashes and stable identifiers to the trusted ledger", async () => {
@@ -319,7 +323,7 @@ test("WECHAT-004 source closes Mini legacy bypass and leaves activation default 
     /accessToken|refreshToken|user:\s*\{\s*id/,
   );
   assert.match(exchange, /issueWeChatMiniSession\(/);
-  assert.match(readGateway, /wechat_mini_read_v1/);
+  assert.match(readGateway, /wechat_mini_business_v1/);
   assert.doesNotMatch(readGateway, /apikey:\s*config\.publishableKey|Authorization:\s*input\.authorization/);
   assert.match(mutationGateway, /resolveWeChatMiniSession/);
   assert.match(

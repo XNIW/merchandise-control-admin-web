@@ -11,7 +11,10 @@ import {
   resolveSupabaseServerConfig,
 } from "@/lib/supabase/server";
 import { resolveWeChatRuntimeConfig } from "@/server/auth/wechat-config";
-import { resolveWeChatMiniSession } from "@/server/auth/wechat-mini-session";
+import {
+  resolveWeChatMiniSession,
+  type MiniSessionProof,
+} from "@/server/auth/wechat-mini-session";
 import { canShopAdmin, type ShopAdminPermission } from "../permissions";
 
 export type ProductImageActorKind = "personal_account" | "platform_admin";
@@ -26,6 +29,7 @@ export type ProductImageRequestActor = {
   actorProfileId: string;
   shopId: string;
   supabase: SupabaseClient<Database> | null;
+  miniProof?: MiniSessionProof;
 };
 
 export type ProductImageActorResolution =
@@ -95,7 +99,10 @@ async function resolveAuthenticatedUserId(request: Request) {
       };
 }
 
-async function resolveBearerAuthenticatedUserId(request: Request, shopId: string) {
+async function resolveBearerAuthenticatedUserId(
+  request: Request,
+  shopId: string,
+) {
   const session = await resolveWeChatMiniSession({
     authorization: request.headers.get("authorization"),
     config: resolveWeChatRuntimeConfig(),
@@ -116,6 +123,7 @@ async function resolveBearerAuthenticatedUserId(request: Request, shopId: string
     client: null,
     code: "authorized" as const,
     userId: session.actorProfileId,
+    miniProof: session.proof,
   };
 }
 
@@ -123,8 +131,7 @@ export async function resolveProductImageRequestActor(
   request: Request,
   shopId: string,
   permission: ShopAdminPermission,
-  policy: ProductImageActorPolicy =
-    "platform_admin_or_personal_catalog_member",
+  policy: ProductImageActorPolicy = "platform_admin_or_personal_catalog_member",
 ): Promise<ProductImageActorResolution> {
   const identity =
     policy === "personal_catalog_member"
@@ -134,9 +141,7 @@ export async function resolveProductImageRequestActor(
   if (!identity.userId) {
     return {
       code:
-        identity.code === "not_configured"
-          ? "not_configured"
-          : "unauthorized",
+        identity.code === "not_configured" ? "not_configured" : "unauthorized",
       status: "blocked",
     };
   }
@@ -250,6 +255,7 @@ export async function resolveProductImageRequestActor(
       actorProfileId: identity.userId,
       shopId,
       supabase: identity.client,
+      ...("miniProof" in identity ? { miniProof: identity.miniProof } : {}),
     },
     status: "authorized",
   };

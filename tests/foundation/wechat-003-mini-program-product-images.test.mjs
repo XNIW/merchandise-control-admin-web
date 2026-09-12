@@ -543,6 +543,7 @@ test("WECHAT-003 Mini image intent keeps the RPC receiver bound and sends the ex
   const service = loadTypeScriptModule(
     "src/server/shop-admin/product-images/service.ts",
     {
+      "@/server/auth/wechat-mini-session": { callTrustedWeChatRpc: async () => { throw new Error("unexpected Mini RPC"); } },
       "./cache-scope": {
         createProductImageCacheScope: () => "personal:test",
       },
@@ -622,6 +623,7 @@ test("WECHAT-003 image intent never re-signs an expired upload capability", asyn
   const service = loadTypeScriptModule(
     "src/server/shop-admin/product-images/service.ts",
     {
+      "@/server/auth/wechat-mini-session": { callTrustedWeChatRpc: async () => { throw new Error("unexpected Mini RPC"); } },
       "./cache-scope": {
         createProductImageCacheScope: () => "personal:test",
       },

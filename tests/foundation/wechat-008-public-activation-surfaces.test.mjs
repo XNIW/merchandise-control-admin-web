@@ -7,8 +7,9 @@ function source(path) {
 }
 
 test("WECHAT-008 publishes factual privacy and assisted deletion pages", () => {
-  const privacy = source("src/app/privacy/page.tsx");
-  const deletion = source("src/app/account-deletion/page.tsx");
+  const policies = JSON.parse(source("src/lib/legal/policies.json"));
+  const privacy = JSON.stringify(policies.locales.en.privacy);
+  const deletion = JSON.stringify(policies.locales.en.deletion);
   const shared = source("src/app/_components/PublicPolicyPage.tsx");
 
   assert.match(shared, /subject to owner and legal review/i);
@@ -23,10 +24,35 @@ test("WECHAT-008 publishes factual privacy and assisted deletion pages", () => {
     `${privacy}\n${deletion}`,
     /guarantee|legally required within|all data will be deleted/i,
   );
+  for (const locale of ["en", "it", "es", "zh-Hans"]) {
+    for (const kind of ["privacy", "deletion"]) {
+      assert.equal(
+        policies.locales[locale][kind].sections.length,
+        policies.locales.en[kind].sections.length,
+      );
+      policies.locales[locale][kind].sections.forEach((section, index) => {
+        assert.equal(
+          section.blocks.length,
+          policies.locales.en[kind].sections[index].blocks.length,
+        );
+        assert.ok(section.blocks.every((block) => block.text.length > 0));
+      });
+    }
+  }
+  assert.match(
+    source("src/app/privacy/page.tsx"),
+    /CanonicalPolicyDocument kind="privacy"/,
+  );
+  assert.match(
+    source("src/app/account-deletion/page.tsx"),
+    /CanonicalPolicyDocument kind="deletion"/,
+  );
 });
 
 test("WECHAT-008 AASA binds only the verified iOS bundle and staging path", () => {
-  const route = source("src/app/.well-known/apple-app-site-association/route.ts");
+  const route = source(
+    "src/app/.well-known/apple-app-site-association/route.ts",
+  );
   const fallback = source("src/app/wechat/ios/page.tsx");
   const nextConfig = source("next.config.ts");
 
