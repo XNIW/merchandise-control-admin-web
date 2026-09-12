@@ -6,6 +6,7 @@ type PublicPolicyPageProps = Readonly<{
   description: string;
   eyebrow: string;
   title: string;
+  notice?: string;
 }>;
 
 export function PublicPolicyPage({
@@ -13,6 +14,7 @@ export function PublicPolicyPage({
   description,
   eyebrow,
   title,
+  notice,
 }: PublicPolicyPageProps) {
   return (
     <main className="min-h-screen bg-slate-100 px-4 py-8 text-slate-950 sm:px-6 sm:py-12">
@@ -31,14 +33,17 @@ export function PublicPolicyPage({
 
         <div className="space-y-8 px-5 py-7 text-sm leading-7 text-slate-700 sm:px-8 sm:py-10 sm:text-base">
           <aside className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950">
-            <strong>Staging notice:</strong> this factual technical summary is
-            subject to owner and legal review. It is not a final legal policy.
+            {notice ??
+              "Staging notice: this factual technical summary is subject to owner and legal review. It is not a final legal policy."}
           </aside>
           {children}
         </div>
 
         <footer className="flex flex-wrap gap-x-5 gap-y-2 border-t border-slate-200 bg-slate-50 px-5 py-5 text-sm sm:px-8">
-          <Link className="font-medium text-emerald-800 underline" href="/privacy">
+          <Link
+            className="font-medium text-emerald-800 underline"
+            href="/privacy"
+          >
             Privacy
           </Link>
           <Link

@@ -97,6 +97,14 @@ jobs:
       - name: UI smoke
         run: npm run test:ui-smoke:ci
 
+      - name: Mini pairing component regressions
+        env:
+          PLAYWRIGHT_DISABLE_WEB_SERVER: "1"
+        run: npx playwright test tests/e2e/wechat-010-pairing-component.spec.ts --project=chromium-desktop
+
+      - name: Mini Worker HTTPS transport with intercepted upstream
+        run: node scripts/testing/wechat-010-worker-transport.mjs
+
       - name: Diff whitespace check
         run: git diff --check
 

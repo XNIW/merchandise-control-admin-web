@@ -20,14 +20,20 @@ function enabled(value: string | undefined) {
 }
 
 function uuidAllowlist(value: string | undefined): readonly string[] {
-  const entries = (value ?? "").split(",").map((entry) => entry.trim().toLowerCase());
-  const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  const entries = (value ?? "")
+    .split(",")
+    .map((entry) => entry.trim().toLowerCase());
+  const uuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
   return entries.length <= 100 && entries.every((entry) => uuid.test(entry))
     ? [...new Set(entries)]
     : [];
 }
 
-function bridgeUrl(value: string | undefined, allowlistValue: string | undefined) {
+function bridgeUrl(
+  value: string | undefined,
+  allowlistValue: string | undefined,
+) {
   const candidate = value?.trim();
   const allowedHosts = new Set(
     (allowlistValue ?? "")
@@ -67,6 +73,10 @@ export type WeChatRuntimeConfig = {
   miniAllowedProfileIds: readonly string[];
   miniAllowedShopIds: readonly string[];
   miniCatalogMutationsEnabled: boolean;
+  miniProtocol?: string;
+  miniReady?: boolean;
+  miniEnrollmentReady?: boolean;
+  oidcReady?: boolean;
   oidcProvider: "custom:wechat";
   reason: string;
   supabasePublishableKey: string;
@@ -100,13 +110,36 @@ export function resolveWeChatRuntimeConfig(
     bridgeExchangeUrl && bridgeClientId && bridgeClientSecret && hashSalt,
   );
   const anySurfaceEnabled = Object.values(enabledSurfaces).some(Boolean);
-  const miniAllowedProfileIds = uuidAllowlist(env.WECHAT_MINI_PROGRAM_TESTER_PROFILE_ALLOWLIST);
-  const miniAllowedShopIds = uuidAllowlist(env.WECHAT_MINI_PROGRAM_SHOP_ALLOWLIST);
+  const miniAllowedProfileIds = uuidAllowlist(
+    env.WECHAT_MINI_PROGRAM_TESTER_PROFILE_ALLOWLIST,
+  );
+  const miniAllowedShopIds = uuidAllowlist(
+    env.WECHAT_MINI_PROGRAM_SHOP_ALLOWLIST,
+  );
+  const miniProtocol =
+    env.WECHAT_MINI_AUTH_PROTOCOL ?? "mini-id-token-nonce-v1";
+  const oidcReady = serverReady && adminReady && bridgeReady && providerValid;
+  const directReady =
+    miniProtocol === "wechat-mini-code2session-v1" &&
+    serverReady &&
+    adminReady &&
+    env.WECHAT_MINI_UPSTREAM_TRACING_DISABLED === "true" &&
+    env.NEXT_OTEL_FETCH_DISABLED === "1" &&
+    /^wx[0-9a-f]{16}$/.test(env.WECHAT_MINI_PROGRAM_APP_ID ?? "") &&
+    /^[0-9a-f]{32}$/i.test(env.WECHAT_MINI_PROGRAM_APP_SECRET ?? "") &&
+    /^[A-Za-z0-9_-]{43}$/.test(env.WECHAT_MINI_IDENTITY_HMAC_KEY_V1 ?? "") &&
+    hashSalt.length >= 32;
   const activation: WeChatExternalActivationState = !anySurfaceEnabled
     ? "disabled"
-    : serverReady && adminReady && bridgeReady && providerValid &&
-      (enabledSurfaces.web || enabledSurfaces.android || enabledSurfaces.ios ||
-        (miniAllowedProfileIds.length > 0 && miniAllowedShopIds.length > 0))
+    : (oidcReady &&
+          (enabledSurfaces.web ||
+            enabledSurfaces.android ||
+            enabledSurfaces.ios)) ||
+        (enabledSurfaces.mini_program &&
+          miniAllowedProfileIds.length > 0 &&
+          miniAllowedShopIds.length > 0 &&
+          (directReady ||
+            (miniProtocol === "mini-id-token-nonce-v1" && oidcReady)))
       ? "ready"
       : "external_activation_required";
 
@@ -120,8 +153,20 @@ export function resolveWeChatRuntimeConfig(
     linkingEnabled: enabled(env.WECHAT_AUTH_LINKING_ENABLED),
     miniAllowedProfileIds,
     miniAllowedShopIds,
+    miniProtocol,
+    miniReady:
+      miniAllowedProfileIds.length > 0 &&
+      miniAllowedShopIds.length > 0 &&
+      (directReady || (miniProtocol === "mini-id-token-nonce-v1" && oidcReady)),
+    miniEnrollmentReady:
+      directReady &&
+      miniAllowedProfileIds.length > 0 &&
+      miniAllowedShopIds.length > 0 &&
+      env.WECHAT_MINI_ENROLLMENT_ENABLED === "true",
+    oidcReady,
     // Match the existing catalog/image mutation gate exactly.
-    miniCatalogMutationsEnabled: env.WECHAT_MINI_PROGRAM_CATALOG_MUTATIONS_ENABLED === "true",
+    miniCatalogMutationsEnabled:
+      env.WECHAT_MINI_PROGRAM_CATALOG_MUTATIONS_ENABLED === "true",
     oidcProvider: "custom:wechat",
     reason:
       activation === "ready"
@@ -139,9 +184,15 @@ export function isWeChatSurfaceReady(
   surface: WeChatSurface,
   config: WeChatRuntimeConfig = resolveWeChatRuntimeConfig(),
 ) {
-  return config.activation === "ready" && config.enabledSurfaces[surface] &&
+  return (
+    config.activation === "ready" &&
+    config.enabledSurfaces[surface] &&
+    (surface === "mini_program" || config.oidcReady !== false) &&
+    (surface !== "mini_program" || config.miniReady !== false) &&
     (surface !== "mini_program" ||
-      (config.miniAllowedProfileIds.length > 0 && config.miniAllowedShopIds.length > 0));
+      (config.miniAllowedProfileIds.length > 0 &&
+        config.miniAllowedShopIds.length > 0))
+  );
 }
 
 export function isWeChatLinkingReady(
@@ -157,10 +208,17 @@ export function publicWeChatConfiguration(
     activation: config.activation,
     linkingEnabled: config.linkingEnabled,
     miniCatalogMutationsEnabled: config.miniCatalogMutationsEnabled,
+    miniProtocol: config.miniProtocol ?? "mini-id-token-nonce-v1",
+    miniProvider:
+      config.miniProtocol === "wechat-mini-code2session-v1"
+        ? "wechat-mini"
+        : "custom:wechat",
+    miniEnrollmentReady: config.miniEnrollmentReady === true,
     enabledSurfaces: config.enabledSurfaces,
     readySurfaces: Object.fromEntries(
       (Object.keys(flagNames) as WeChatSurface[]).map((surface) => [
-        surface, isWeChatSurfaceReady(surface, config),
+        surface,
+        isWeChatSurfaceReady(surface, config),
       ]),
     ),
     identityContract: "supabase-custom-oidc-bridge-v1" as const,

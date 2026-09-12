@@ -63,13 +63,16 @@ export async function getWeChatMiniSyncCheckpoint(input: {
       status: session.code === "session_expired" ? 401 : 503,
     };
   }
-  const data = await callTrustedWeChatRpc("wechat_mini_sync_checkpoint_v1", {
-    p_actor_profile_id: session.actorProfileId,
-    p_after_id: input.afterId,
-    p_device_identifier: input.deviceId,
-    p_expected_scope_key: input.expectedScopeKey,
-    p_last_reconciled_at: input.lastReconciledAt,
-    p_shop_id: input.shopId,
+  const data = await callTrustedWeChatRpc("wechat_mini_business_v1", {
+    ...session.proof,
+    p_operation: "wechat_mini_sync_checkpoint_v1",
+    p_params: {
+      p_after_id: input.afterId,
+      p_device_identifier: input.deviceId,
+      p_expected_scope_key: input.expectedScopeKey,
+      p_last_reconciled_at: input.lastReconciledAt,
+      p_shop_id: input.shopId,
+    },
   });
   if (
     !object(data) ||
@@ -114,17 +117,20 @@ export async function getWeChatMiniSyncDelta(input: {
     };
   }
   const data = await callTrustedWeChatRpc(
-    "wechat_mini_sync_delta_v1",
+    "wechat_mini_business_v1",
     {
-      p_actor_profile_id: session.actorProfileId,
-      p_after_id: input.afterId,
-      p_device_identifier: input.deviceId,
-      p_expected_event_max_id: input.eventMaxId,
-      p_expected_scope_key: input.scopeKey,
-      // Canonical safe projection limits entity_ids to 16 KiB/event.
-      // Five events leave ample room below the Mini's 128 KiB envelope.
-      p_limit: Math.min(input.limit, 5),
-      p_shop_id: input.shopId,
+      ...session.proof,
+      p_operation: "wechat_mini_sync_delta_v1",
+      p_params: {
+        p_after_id: input.afterId,
+        p_device_identifier: input.deviceId,
+        p_expected_event_max_id: input.eventMaxId,
+        p_expected_scope_key: input.scopeKey,
+        // Canonical safe projection limits entity_ids to 16 KiB/event.
+        // Five events leave ample room below the Mini's 128 KiB envelope.
+        p_limit: Math.min(input.limit, 5),
+        p_shop_id: input.shopId,
+      },
     },
     6_000,
     131_072,
@@ -135,7 +141,8 @@ export async function getWeChatMiniSyncDelta(input: {
     data.shopId !== input.shopId ||
     !Array.isArray(data.rows) ||
     data.rows.length > Math.min(input.limit, 5) ||
-    Buffer.byteLength(JSON.stringify({ delta: data, ok: true }), "utf8") > 131_072
+    Buffer.byteLength(JSON.stringify({ delta: data, ok: true }), "utf8") >
+      131_072
   ) {
     return { code: "backend_temporary", ok: false, status: 503 };
   }

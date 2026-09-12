@@ -98,7 +98,10 @@ function isTimestamp(value: unknown): value is string {
 }
 
 function decimalPlaces(value: number) {
-  const [coefficient = "", exponentText] = value.toString().toLowerCase().split("e");
+  const [coefficient = "", exponentText] = value
+    .toString()
+    .toLowerCase()
+    .split("e");
   const decimalIndex = coefficient.indexOf(".");
   const coefficientPlaces =
     decimalIndex < 0 ? 0 : coefficient.length - decimalIndex - 1;
@@ -106,7 +109,10 @@ function decimalPlaces(value: number) {
   return Math.max(0, coefficientPlaces - exponent);
 }
 
-function isCatalogNumber(value: unknown, enforceScale = false): value is number {
+function isCatalogNumber(
+  value: unknown,
+  enforceScale = false,
+): value is number {
   return (
     typeof value === "number" &&
     Number.isFinite(value) &&
@@ -190,13 +196,12 @@ function validProductPayload(
   if (!hasExactKeys(payload, ["barcode", "productName"], allowedKeys)) {
     return false;
   }
-  if (
-    strictText(payload.barcode, CATALOG_TEXT_LIMITS.barcode, true) === null
-  ) {
+  if (strictText(payload.barcode, CATALOG_TEXT_LIMITS.barcode, true) === null) {
     return false;
   }
   if (
-    displayText(payload.productName, CATALOG_TEXT_LIMITS.productName, true) === null
+    displayText(payload.productName, CATALOG_TEXT_LIMITS.productName, true) ===
+    null
   ) {
     return false;
   }
@@ -296,7 +301,8 @@ export function parseWeChatCatalogMutationInput(
     (create &&
       (Object.hasOwn(value, "expectedUpdatedAt") ||
         (Object.hasOwn(value, "targetId") && !isUuid(value.targetId)))) ||
-    (!create && (!isUuid(value.targetId) || !isTimestamp(value.expectedUpdatedAt))) ||
+    (!create &&
+      (!isUuid(value.targetId) || !isTimestamp(value.expectedUpdatedAt))) ||
     !validPayload(operation, value.payload)
   ) {
     return null;
@@ -503,7 +509,10 @@ function parseRpcResult(
   };
 }
 
-function failure(code: string, status: number): WeChatCatalogMutationGatewayResult {
+function failure(
+  code: string,
+  status: number,
+): WeChatCatalogMutationGatewayResult {
   return { body: { code, ok: false }, status };
 }
 
@@ -542,17 +551,20 @@ export async function callWeChatCatalogMutation(input: {
   let response: Response;
   try {
     response = await fetch(
-      new URL("/rest/v1/rpc/wechat_catalog_mutate_v1", adminConfig.url),
+      new URL("/rest/v1/rpc/wechat_mini_business_v1", adminConfig.url),
       {
         body: JSON.stringify({
-          p_actor_profile_id: actor.actorProfileId,
-          p_correlation_id: input.correlationId,
-          p_expected_updated_at: input.mutation.expectedUpdatedAt,
-          p_idempotency_key: input.idempotencyKey,
-          p_operation: input.mutation.operation,
-          p_payload: input.mutation.payload,
-          p_shop_id: input.mutation.shopId,
-          p_target_id: input.mutation.targetId,
+          ...actor.proof,
+          p_operation: "wechat_catalog_mutate_v1",
+          p_params: {
+            p_correlation_id: input.correlationId,
+            p_expected_updated_at: input.mutation.expectedUpdatedAt,
+            p_idempotency_key: input.idempotencyKey,
+            p_operation: input.mutation.operation,
+            p_payload: input.mutation.payload,
+            p_shop_id: input.mutation.shopId,
+            p_target_id: input.mutation.targetId,
+          },
         }),
         cache: "no-store",
         headers: {
@@ -589,7 +601,8 @@ export async function callWeChatCatalogMutation(input: {
     rpc.code !== "success" ||
     !rpc.targetId ||
     !rpc.updatedAt ||
-    (input.mutation.targetId !== null && rpc.targetId !== input.mutation.targetId)
+    (input.mutation.targetId !== null &&
+      rpc.targetId !== input.mutation.targetId)
   ) {
     return failure("retryable_error", 503);
   }

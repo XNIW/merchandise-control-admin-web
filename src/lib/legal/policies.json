@@ -1,0 +1,635 @@
+{
+  "schemaVersion": 1,
+  "contentVersion": "2026-08-14",
+  "translationRevision": "2026-09-12",
+  "locales": {
+    "en": {
+      "eyebrow": "MerchandiseControl shared staging",
+      "notice": "Staging notice: this factual technical summary is subject to owner and legal review. It is not a final legal policy.",
+      "versionLabel": "Last factual update",
+      "privacyLabel": "Privacy",
+      "deletionLabel": "Account deletion",
+      "backLabel": "Back",
+      "copyProfileLabel": "Copy account profile link",
+      "copiedLabel": "Account profile link copied",
+      "privacy": {
+        "title": "Privacy notice",
+        "description": "How the current MerchandiseControl staging clients handle personal, shop and technical data.",
+        "sections": [
+          {
+            "title": "Data handled in the current integration",
+            "blocks": [
+              {
+                "kind": "item",
+                "text": "Personal-account identity data, including a profile identifier, display name, optional email, authentication providers and the server-side WeChat identity link when WeChat sign-in is enabled."
+              },
+              {
+                "kind": "item",
+                "text": "Authorized shop memberships, shop names and the capabilities needed to decide which shop data and catalog actions are available."
+              },
+              {
+                "kind": "item",
+                "text": "Shop-scoped catalog, price, sales, payment, refund, device, staff attribution, audit and synchronization information. Mini Program sales and staff surfaces are read-only."
+              },
+              {
+                "kind": "item",
+                "text": "Product photos selected from the camera or photo library. The current flow processes bounded image variants and stores private product images behind short-lived signed access URLs."
+              },
+              {
+                "kind": "item",
+                "text": "Security and reliability data such as opaque sessions, challenge state, timestamps, redacted error codes, device-scoped identifiers, rate-limit state and audit records."
+              },
+              {
+                "kind": "item",
+                "text": "Mini Program local data such as locale, active shop, a random device identifier, sync watermarks and pending catalog/image work. The bearer session is designed to remain memory-only."
+              }
+            ]
+          },
+          {
+            "title": "Why this data is used",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "The data is used to authenticate a personal account, enforce shop isolation and permissions, show authorized business information, process approved catalog changes, synchronize clients, protect the service and investigate operational failures."
+              }
+            ]
+          },
+          {
+            "title": "Systems involved",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "The shared staging path uses the MerchandiseControl Admin boundary, Supabase Auth, Postgres and private Storage, and the applicable client platform. WeChat receives the data required for its authorization and platform flows. No client contains a Supabase service-role key, WeChat AppSecret or Mini Program session key."
+              }
+            ]
+          },
+          {
+            "title": "Camera and photo-library access",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Camera or photo-library access is requested only when an authorized user starts a product-image action. Cancelling the picker does not create or change a product image. Exact platform permission wording remains subject to portal and owner review."
+              }
+            ]
+          },
+          {
+            "title": "Retention and user controls",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Logout clears the active client session and scoped UI state. Business, security and audit records can remain subject to operational, integrity and legal requirements; this staging notice does not promise an unsupported retention period or deletion outcome."
+              },
+              {
+                "kind": "paragraph",
+                "text": "For the current deletion-request path, read the account deletion instructions."
+              }
+            ]
+          },
+          {
+            "title": "Personal accounts and POS staff are separate",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "A MerchandiseControl personal account and a shop-scoped POS staff credential are separate authentication systems. Changing or deleting one does not automatically change or delete the other."
+              }
+            ]
+          }
+        ]
+      },
+      "deletion": {
+        "title": "Request account deletion",
+        "description": "The current assisted request path and the limits that apply to personal accounts and shop data.",
+        "sections": [
+          {
+            "title": "Current request path",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "There is no self-service deletion endpoint in the current staging application. This page does not submit or delete an account."
+              },
+              {
+                "kind": "item",
+                "text": "Open the authenticated account profile and confirm which personal account is signed in."
+              },
+              {
+                "kind": "item",
+                "text": "Use the support channel already established with the owner or manager of your authorized shop and ask for a personal-account deletion request to be escalated to the MerchandiseControl platform operator."
+              },
+              {
+                "kind": "item",
+                "text": "The operator verifies the requester, memberships, linked login methods and records that must be retained for security, audit, transaction integrity or legal review before applying any change."
+              },
+              {
+                "kind": "item",
+                "text": "Receive the outcome through that same established support channel."
+              },
+              {
+                "kind": "paragraph",
+                "text": "Do not send a password, WeChat AppSecret, client secret, token, session key, QR/2FA challenge or private signing key with the request."
+              }
+            ]
+          },
+          {
+            "title": "What the request can cover",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "After identity and scope review, the request can cover the personal Auth account, profile and linked identity records. Shop business data, financial records, append-only audit evidence and security records may need to be retained, restricted or de-identified rather than erased. The operator must report the actual outcome instead of promising a deletion that the current system cannot perform safely."
+              }
+            ]
+          },
+          {
+            "title": "POS staff credentials",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "POS staff credentials are shop-scoped and separate from the personal account. Ask the shop owner or manager to suspend or remove a staff credential separately when that is also required."
+              }
+            ]
+          },
+          {
+            "title": "Client data after completion",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Log out on every client. Pending offline catalog or image work should be discarded when requested, and application storage should be cleared or the app removed where appropriate. These client actions do not replace the server-side request."
+              }
+            ]
+          }
+        ]
+      },
+      "profileLabel": "Account profile"
+    },
+    "it": {
+      "eyebrow": "MerchandiseControl staging condiviso",
+      "notice": "Avviso staging: questo riepilogo tecnico fattuale è soggetto alla revisione del titolare e legale. Non è una policy legale definitiva.",
+      "versionLabel": "Ultimo aggiornamento fattuale",
+      "privacyLabel": "Privacy",
+      "deletionLabel": "Cancellazione account",
+      "backLabel": "Indietro",
+      "copyProfileLabel": "Copia link del profilo account",
+      "copiedLabel": "Link del profilo copiato",
+      "privacy": {
+        "title": "Informativa privacy",
+        "description": "Come gli attuali client staging di MerchandiseControl gestiscono dati personali, dello shop e tecnici.",
+        "sections": [
+          {
+            "title": "Dati trattati nell’integrazione attuale",
+            "blocks": [
+              {
+                "kind": "item",
+                "text": "Dati identificativi dell’account personale, tra cui identificatore del profilo, nome visualizzato, email facoltativa, provider di autenticazione e collegamento dell’identità WeChat sul server quando il login WeChat è abilitato."
+              },
+              {
+                "kind": "item",
+                "text": "Membership autorizzate, nomi degli shop e capacità necessarie per determinare quali dati dello shop e operazioni di catalogo sono disponibili."
+              },
+              {
+                "kind": "item",
+                "text": "Informazioni circoscritte allo shop su catalogo, prezzi, vendite, pagamenti, rimborsi, dispositivi, attribuzione allo staff, audit e sincronizzazione. Vendite e staff nel Mini Program sono in sola lettura."
+              },
+              {
+                "kind": "item",
+                "text": "Foto prodotto selezionate dalla fotocamera o libreria foto. Il flusso attuale elabora varianti delle immagini con limiti definiti e conserva immagini prodotto private accessibili tramite URL firmati di breve durata."
+              },
+              {
+                "kind": "item",
+                "text": "Dati di sicurezza e affidabilità quali sessioni opache, stato delle challenge, timestamp, codici errore oscurati, identificatori per dispositivo, stato dei limiti di frequenza e registri di audit."
+              },
+              {
+                "kind": "item",
+                "text": "Dati locali del Mini Program quali lingua, shop attivo, identificatore casuale del dispositivo, watermark di sincronizzazione e operazioni di catalogo/immagini pendenti. La sessione bearer è progettata per restare solo in memoria."
+              }
+            ]
+          },
+          {
+            "title": "Finalità del trattamento",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "I dati sono usati per autenticare un account personale, applicare isolamento e permessi degli shop, mostrare informazioni aziendali autorizzate, elaborare modifiche approvate al catalogo, sincronizzare i client, proteggere il servizio e analizzare guasti operativi."
+              }
+            ]
+          },
+          {
+            "title": "Sistemi coinvolti",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Il percorso staging condiviso usa il confine Admin di MerchandiseControl, Supabase Auth, Postgres e Storage privato, oltre alla piattaforma del client. WeChat riceve i dati necessari ai propri flussi di autorizzazione e piattaforma. Nessun client contiene una chiave service-role Supabase, l’AppSecret WeChat o la session key del Mini Program."
+              }
+            ]
+          },
+          {
+            "title": "Accesso a fotocamera e libreria foto",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "L’accesso a fotocamera o libreria foto è richiesto soltanto quando un utente autorizzato avvia un’operazione sulle immagini prodotto. Annullare il selettore non crea né modifica un’immagine prodotto. Il testo esatto dei permessi di piattaforma resta soggetto alla revisione nel portale e del titolare."
+              }
+            ]
+          },
+          {
+            "title": "Conservazione e controlli dell’utente",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Il logout cancella la sessione client attiva e lo stato UI circoscritto. I registri aziendali, di sicurezza e audit possono essere conservati per esigenze operative, di integrità e legali; questa informativa staging non promette periodi di conservazione o esiti di cancellazione non supportati."
+              },
+              {
+                "kind": "paragraph",
+                "text": "Per il percorso attuale della richiesta, leggi le istruzioni di cancellazione account."
+              }
+            ]
+          },
+          {
+            "title": "Account personali e staff POS sono separati",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "L’account personale MerchandiseControl e le credenziali staff POS dello shop sono sistemi di autenticazione separati. Modificare o cancellare uno non modifica né cancella automaticamente l’altro."
+              }
+            ]
+          }
+        ]
+      },
+      "deletion": {
+        "title": "Richiedi la cancellazione dell’account",
+        "description": "Il percorso attuale di richiesta assistita e i limiti applicabili agli account personali e ai dati dello shop.",
+        "sections": [
+          {
+            "title": "Percorso attuale della richiesta",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Nell’attuale applicazione staging non esiste un endpoint di cancellazione autonoma. Questa pagina non invia richieste e non cancella un account."
+              },
+              {
+                "kind": "item",
+                "text": "Apri il profilo account autenticato e verifica quale account personale ha effettuato l’accesso."
+              },
+              {
+                "kind": "item",
+                "text": "Usa il canale di supporto già stabilito con il proprietario o responsabile del tuo shop autorizzato e chiedi di inoltrare la richiesta di cancellazione dell’account personale all’operatore della piattaforma MerchandiseControl."
+              },
+              {
+                "kind": "item",
+                "text": "Prima di applicare modifiche, l’operatore verifica il richiedente, le membership, i metodi di accesso collegati e i registri da conservare per sicurezza, audit, integrità delle transazioni o revisione legale."
+              },
+              {
+                "kind": "item",
+                "text": "Ricevi l’esito attraverso lo stesso canale di supporto già stabilito."
+              },
+              {
+                "kind": "paragraph",
+                "text": "Non inviare password, AppSecret WeChat, client secret, token, session key, challenge QR/2FA o chiavi di firma private insieme alla richiesta."
+              }
+            ]
+          },
+          {
+            "title": "Ambito della richiesta",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Dopo la verifica dell’identità e dell’ambito, la richiesta può riguardare l’account Auth personale, il profilo e i registri delle identità collegate. Dati aziendali dello shop, registri finanziari, prove di audit append-only e registri di sicurezza potrebbero dover essere conservati, limitati o de-identificati anziché cancellati. L’operatore deve comunicare l’esito effettivo, senza promettere cancellazioni che il sistema attuale non può eseguire in sicurezza."
+              }
+            ]
+          },
+          {
+            "title": "Credenziali staff POS",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Le credenziali staff POS sono circoscritte allo shop e separate dall’account personale. Se necessario, chiedi separatamente al proprietario o responsabile dello shop di sospendere o rimuovere una credenziale staff."
+              }
+            ]
+          },
+          {
+            "title": "Dati client dopo il completamento",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Esci da ogni client. Se richiesto, le operazioni offline pendenti di catalogo o immagini vanno scartate e, dove appropriato, i dati dell’applicazione vanno cancellati o l’app rimossa. Queste azioni sui client non sostituiscono la richiesta sul server."
+              }
+            ]
+          }
+        ]
+      },
+      "profileLabel": "Profilo account"
+    },
+    "es": {
+      "eyebrow": "MerchandiseControl staging compartido",
+      "notice": "Aviso de staging: este resumen técnico factual está sujeto a revisión del titular y revisión legal. No es una política legal definitiva.",
+      "versionLabel": "Última actualización factual",
+      "privacyLabel": "Privacidad",
+      "deletionLabel": "Eliminación de cuenta",
+      "backLabel": "Volver",
+      "copyProfileLabel": "Copiar enlace del perfil",
+      "copiedLabel": "Enlace del perfil copiado",
+      "privacy": {
+        "title": "Aviso de privacidad",
+        "description": "Cómo los clientes actuales de staging de MerchandiseControl gestionan los datos personales, de tienda y técnicos.",
+        "sections": [
+          {
+            "title": "Datos tratados en la integración actual",
+            "blocks": [
+              {
+                "kind": "item",
+                "text": "Datos de identidad de la cuenta personal, como identificador del perfil, nombre visible, correo opcional, proveedores de autenticación y vínculo de identidad WeChat en el servidor cuando se habilita el acceso con WeChat."
+              },
+              {
+                "kind": "item",
+                "text": "Membresías autorizadas, nombres de tiendas y capacidades necesarias para determinar los datos y acciones de catálogo disponibles."
+              },
+              {
+                "kind": "item",
+                "text": "Información limitada a la tienda sobre catálogo, precios, ventas, pagos, reembolsos, dispositivos, atribución al personal, auditoría y sincronización. Las secciones de ventas y personal del Mini Program son de solo lectura."
+              },
+              {
+                "kind": "item",
+                "text": "Fotos de productos seleccionadas desde la cámara o fototeca. El flujo actual procesa variantes de imagen con límites definidos y almacena imágenes privadas mediante enlaces firmados de corta duración."
+              },
+              {
+                "kind": "item",
+                "text": "Datos de seguridad y fiabilidad, como sesiones opacas, estado de desafíos, marcas de tiempo, códigos de error depurados, identificadores por dispositivo, estado de límites de frecuencia y registros de auditoría."
+              },
+              {
+                "kind": "item",
+                "text": "Datos locales del Mini Program, como idioma, tienda activa, identificador aleatorio del dispositivo, marcas de sincronización y tareas pendientes de catálogo o imágenes. La sesión bearer está diseñada para permanecer solo en memoria."
+              }
+            ]
+          },
+          {
+            "title": "Para qué se utilizan estos datos",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Los datos se usan para autenticar una cuenta personal, aplicar aislamiento y permisos por tienda, mostrar información comercial autorizada, procesar cambios de catálogo aprobados, sincronizar clientes, proteger el servicio e investigar fallos operativos."
+              }
+            ]
+          },
+          {
+            "title": "Sistemas involucrados",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "El entorno compartido de staging utiliza el límite Admin de MerchandiseControl, Supabase Auth, Postgres y Storage privado, y la plataforma de cada cliente. WeChat recibe los datos necesarios para sus procesos de autorización y plataforma. Ningún cliente contiene una clave service-role de Supabase, un AppSecret de WeChat o la session key del Mini Program."
+              }
+            ]
+          },
+          {
+            "title": "Acceso a la cámara y fototeca",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "El acceso a la cámara o fototeca se solicita solo cuando un usuario autorizado inicia una acción de imagen de producto. Cancelar el selector no crea ni modifica una imagen. El texto exacto de los permisos de plataforma queda sujeto a revisión en el portal y por el titular."
+              }
+            ]
+          },
+          {
+            "title": "Conservación y controles del usuario",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Cerrar sesión elimina la sesión activa del cliente y el estado de interfaz correspondiente. Los registros comerciales, de seguridad y auditoría pueden conservarse por requisitos operativos, de integridad y legales; este aviso de staging no promete plazos de conservación ni resultados de eliminación no admitidos."
+              },
+              {
+                "kind": "paragraph",
+                "text": "Para el procedimiento actual, consulta las instrucciones de eliminación de cuenta."
+              }
+            ]
+          },
+          {
+            "title": "Las cuentas personales y el personal POS son independientes",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "La cuenta personal de MerchandiseControl y las credenciales del personal POS de una tienda son sistemas de autenticación independientes. Cambiar o eliminar uno no cambia ni elimina automáticamente el otro."
+              }
+            ]
+          }
+        ]
+      },
+      "deletion": {
+        "title": "Solicitar la eliminación de la cuenta",
+        "description": "El procedimiento actual de solicitud asistida y los límites aplicables a las cuentas personales y los datos de tienda.",
+        "sections": [
+          {
+            "title": "Procedimiento actual de solicitud",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "La aplicación actual de staging no dispone de un endpoint de eliminación de autoservicio. Esta página no envía solicitudes ni elimina cuentas."
+              },
+              {
+                "kind": "item",
+                "text": "Abre el perfil de cuenta autenticado y confirma qué cuenta personal tiene la sesión iniciada."
+              },
+              {
+                "kind": "item",
+                "text": "Utiliza el canal de soporte ya establecido con el propietario o encargado de tu tienda autorizada y solicita que la eliminación de la cuenta personal se derive al operador de la plataforma MerchandiseControl."
+              },
+              {
+                "kind": "item",
+                "text": "Antes de efectuar cambios, el operador verifica al solicitante, las membresías, los métodos de acceso vinculados y los registros que deben conservarse por seguridad, auditoría, integridad de las transacciones o revisión legal."
+              },
+              {
+                "kind": "item",
+                "text": "Recibe el resultado por ese mismo canal de soporte ya establecido."
+              },
+              {
+                "kind": "paragraph",
+                "text": "No envíes contraseñas, AppSecret de WeChat, secretos de cliente, tokens, session keys, desafíos QR/2FA ni claves privadas de firma con la solicitud."
+              }
+            ]
+          },
+          {
+            "title": "Qué puede abarcar la solicitud",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Tras revisar la identidad y el alcance, la solicitud puede abarcar la cuenta Auth personal, el perfil y los registros de identidades vinculadas. Los datos comerciales de la tienda, registros financieros, evidencias de auditoría append-only y registros de seguridad pueden requerir conservación, restricción o desidentificación en lugar de borrado. El operador debe informar el resultado real, sin prometer eliminaciones que el sistema actual no pueda realizar con seguridad."
+              }
+            ]
+          },
+          {
+            "title": "Credenciales del personal POS",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Las credenciales del personal POS están limitadas a la tienda y son independientes de la cuenta personal. Si también es necesario, pide por separado al propietario o encargado de la tienda que suspenda o elimine una credencial del personal."
+              }
+            ]
+          },
+          {
+            "title": "Datos del cliente después de completar el proceso",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "Cierra sesión en todos los clientes. Cuando se solicite, descarta las tareas offline pendientes de catálogo o imágenes y, cuando corresponda, borra el almacenamiento de la aplicación o desinstálala. Estas acciones del cliente no sustituyen la solicitud en el servidor."
+              }
+            ]
+          }
+        ]
+      },
+      "profileLabel": "Perfil de cuenta"
+    },
+    "zh-Hans": {
+      "eyebrow": "MerchandiseControl 共享测试环境",
+      "notice": "测试环境说明：本技术事实摘要须经负责人和法律审核，并非最终法律政策。",
+      "versionLabel": "事实内容最后更新",
+      "privacyLabel": "隐私",
+      "deletionLabel": "删除账户",
+      "backLabel": "返回",
+      "copyProfileLabel": "复制账户资料链接",
+      "copiedLabel": "已复制账户资料链接",
+      "privacy": {
+        "title": "隐私说明",
+        "description": "当前 MerchandiseControl 测试环境客户端如何处理个人、店铺及技术数据。",
+        "sections": [
+          {
+            "title": "当前集成处理的数据",
+            "blocks": [
+              {
+                "kind": "item",
+                "text": "个人账户身份数据，包括资料标识符、显示名称、可选邮箱、身份验证提供方，以及启用微信登录时保存在服务器端的微信身份关联。"
+              },
+              {
+                "kind": "item",
+                "text": "已授权的店铺成员关系、店铺名称，以及判断可访问店铺数据和商品目录操作所需的权限能力。"
+              },
+              {
+                "kind": "item",
+                "text": "限定于店铺的商品目录、价格、销售、支付、退款、设备、员工归属、审计和同步信息。小程序的销售和员工页面仅支持读取。"
+              },
+              {
+                "kind": "item",
+                "text": "从相机或相册选择的商品照片。当前流程处理尺寸等受限的图片版本，私有商品图片通过短期签名链接访问。"
+              },
+              {
+                "kind": "item",
+                "text": "安全与可靠性数据，例如不透明会话、验证挑战状态、时间戳、脱敏错误码、设备范围标识符、频率限制状态和审计记录。"
+              },
+              {
+                "kind": "item",
+                "text": "小程序本地数据，例如语言、当前店铺、随机设备标识符、同步水位及待处理商品目录或图片操作。Bearer 会话按设计仅保存在内存中。"
+              }
+            ]
+          },
+          {
+            "title": "数据用途",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "这些数据用于验证个人账户、实施店铺隔离和权限控制、展示已授权的业务信息、处理已批准的商品目录变更、同步客户端、保护服务并调查运行故障。"
+              }
+            ]
+          },
+          {
+            "title": "涉及的系统",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "共享测试环境使用 MerchandiseControl Admin 服务边界、Supabase Auth、Postgres、私有 Storage 及对应客户端平台。微信接收其授权和平台流程所需的数据。任何客户端均不包含 Supabase service-role 密钥、微信 AppSecret 或小程序 session key。"
+              }
+            ]
+          },
+          {
+            "title": "相机与相册权限",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "仅当已授权用户发起商品图片操作时，才请求相机或相册访问。取消选择不会创建或修改商品图片。平台权限的具体措辞仍须经平台后台和负责人审核。"
+              }
+            ]
+          },
+          {
+            "title": "保留及用户控制",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "退出登录会清除当前客户端会话及对应界面状态。业务、安全和审计记录可能因运行、完整性及法律要求而保留；本测试环境说明不承诺尚不支持的保留期限或删除结果。"
+              },
+              {
+                "kind": "paragraph",
+                "text": "当前删除申请流程请参阅账户删除说明。"
+              }
+            ]
+          },
+          {
+            "title": "个人账户与 POS 员工凭证相互独立",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "MerchandiseControl 个人账户与店铺 POS 员工凭证属于不同的身份验证系统。修改或删除其中一项不会自动修改或删除另一项。"
+              }
+            ]
+          }
+        ]
+      },
+      "deletion": {
+        "title": "申请删除账户",
+        "description": "当前人工协助申请流程，以及适用于个人账户和店铺数据的限制。",
+        "sections": [
+          {
+            "title": "当前申请流程",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "当前测试环境应用没有自助删除接口。此页面不会提交申请，也不会删除账户。"
+              },
+              {
+                "kind": "item",
+                "text": "打开已登录的账户资料页面，确认当前登录的个人账户。"
+              },
+              {
+                "kind": "item",
+                "text": "通过与你的授权店铺负责人或管理者已建立的支持渠道，请求将个人账户删除申请转交 MerchandiseControl 平台运营者。"
+              },
+              {
+                "kind": "item",
+                "text": "运营者在进行任何变更前，会核实申请人、店铺成员关系、已关联登录方式，以及因安全、审计、交易完整性或法律审核而必须保留的记录。"
+              },
+              {
+                "kind": "item",
+                "text": "通过同一已建立的支持渠道接收处理结果。"
+              },
+              {
+                "kind": "paragraph",
+                "text": "申请中请勿发送密码、微信 AppSecret、客户端密钥、令牌、session key、二维码或双因素验证挑战，以及私有签名密钥。"
+              }
+            ]
+          },
+          {
+            "title": "申请可涉及的范围",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "在身份和范围审核后，申请可涉及个人 Auth 账户、资料和已关联身份记录。店铺业务数据、财务记录、仅追加的审计证据和安全记录可能需要保留、限制访问或去标识化，而非删除。运营者必须报告实际处理结果，不应承诺当前系统无法安全执行的删除。"
+              }
+            ]
+          },
+          {
+            "title": "POS 员工凭证",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "POS 员工凭证限定于店铺，且独立于个人账户。如果也需要停用或移除员工凭证，请另行联系店铺负责人或管理者。"
+              }
+            ]
+          },
+          {
+            "title": "完成后的客户端数据",
+            "blocks": [
+              {
+                "kind": "paragraph",
+                "text": "在每个客户端退出登录。按要求丢弃待处理的离线商品目录或图片操作，并在适当情况下清除应用存储或移除应用。这些客户端操作不能代替服务器端申请。"
+              }
+            ]
+          }
+        ]
+      },
+      "profileLabel": "账户资料"
+    }
+  }
+}

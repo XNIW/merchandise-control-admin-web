@@ -1,3 +1,11 @@
+# Current Mini amendment - 2026-09-12
+
+The user authorizes the Mini-only direct protocol and native privacy design in
+[WECHAT-010-DIRECT-DESIGN.md](WECHAT-010-DIRECT-DESIGN.md). It supersedes the
+mandatory OIDC bridge only for the reviewed direct Mini path; existing OIDC
+surfaces and guarantees remain unchanged. Design review and rollout gates are
+explicitly pending. Earlier decisions below are historical where superseded.
+
 # ADR-002 — WeChat identity through an approved custom OIDC bridge
 
 ## Revisione mirata WECHAT-010 / mandato WECHAT-011 — 2026-09-11

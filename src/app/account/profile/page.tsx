@@ -8,7 +8,10 @@ import {
   isWeChatLinkingReady,
   resolveWeChatRuntimeConfig,
 } from "@/server/auth/wechat-config";
-import { PasswordResetPanel, type PasswordResetPanelLabels } from "./PasswordResetPanel";
+import {
+  PasswordResetPanel,
+  type PasswordResetPanelLabels,
+} from "./PasswordResetPanel";
 import { createLocalizedPageMetadata } from "@/i18n/metadata";
 
 export function generateMetadata() {
@@ -46,6 +49,14 @@ export default async function AccountProfilePage() {
           titleId="account-profile-title"
         />
 
+        {user && (
+          <Link
+            href="/account/wechat-mini"
+            className="rounded border border-emerald-700 p-3"
+          >
+            WeChat Mini
+          </Link>
+        )}
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px]">
           <SectionCard
             description={labels.sessionDescription}
@@ -98,7 +109,10 @@ export default async function AccountProfilePage() {
                 {labels.adminHome}
               </Link>
               <form action="/auth/logout" method="post">
-                <button className="font-medium text-zinc-700 underline" type="submit">
+                <button
+                  className="font-medium text-zinc-700 underline"
+                  type="submit"
+                >
                   {labels.signOut}
                 </button>
               </form>
