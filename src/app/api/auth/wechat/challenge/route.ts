@@ -117,6 +117,7 @@ export async function POST(request: Request) {
   const config = resolveWeChatRuntimeConfig();
   if (
     !isWeChatSurfaceReady(body.surface, config) ||
+    (body.surface === "mini_program" && config.miniProtocol !== undefined && config.miniProtocol !== "mini-id-token-nonce-v1") ||
     (body.mode === "link" && !config.linkingEnabled)
   ) {
     return NextResponse.json(

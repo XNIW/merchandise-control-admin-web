@@ -60,7 +60,7 @@ function setup(data, sessionOk = true) {
     "server-only": {},
     "@/server/auth/wechat-config": { resolveWeChatRuntimeConfig: () => ({}) },
     "@/server/auth/wechat-mini-session": {
-      resolveWeChatMiniSession: async () => sessionOk ? { ok: true, actorProfileId: "fixture-actor" } : { ok: false, code: "session_expired" },
+      resolveWeChatMiniSession: async () => sessionOk ? { ok: true, actorProfileId: "fixture-actor", proof: { p_token_hash: "d".repeat(64), p_device_hash: "e".repeat(64), p_allowed_profiles: [input.deviceId], p_allowed_shops: [shopId] } } : { ok: false, code: "session_expired" },
       callTrustedWeChatRpc: async (...args) => { calls.push(args); return data; },
     },
   });
@@ -75,10 +75,10 @@ test("WECHAT-009 caps producer at five safe events, retains scope and cursors", 
   const result = await get(input);
   assert.equal(result.ok, true);
   assert.equal(calls.length, 1);
-  assert.equal(calls[0][1].p_limit, 5);
-  assert.equal(calls[0][1].p_shop_id, shopId);
-  assert.equal(calls[0][1].p_expected_event_max_id, "5");
-  assert.equal(calls[0][1].p_expected_scope_key, input.scopeKey);
+  assert.equal(calls[0][1].p_params.p_limit, 5);
+  assert.equal(calls[0][1].p_params.p_shop_id, shopId);
+  assert.equal(calls[0][1].p_params.p_expected_event_max_id, "5");
+  assert.equal(calls[0][1].p_params.p_expected_scope_key, input.scopeKey);
   assert.equal(calls[0][3], 131072);
   assert.equal(result.data, data);
 });

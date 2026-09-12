@@ -255,6 +255,7 @@ test("WECHAT-003 safe read helper forwards only allowlisted bearer RPCs and sani
           return {
             accountFingerprint: "f".repeat(64),
             actorProfileId: ENTITY_ID,
+            proof: { p_token_hash: "d".repeat(64), p_device_hash: "e".repeat(64), p_allowed_profiles: [ENTITY_ID], p_allowed_shops: [SHOP_ID] },
             expiresAt: 2_000_000_000,
             generation: 1,
             ok: true,
@@ -284,13 +285,12 @@ test("WECHAT-003 safe read helper forwards only allowlisted bearer RPCs and sani
   assert.equal(requests.length, 2);
   assert.equal(requests[0].input.authorization, ACCESS_TOKEN);
   assert.equal(requests[0].input.deviceId, "50000000-0000-4000-8000-000000000003");
-  assert.equal(requests[1].rpc, "wechat_mini_read_v1");
+  assert.equal(requests[1].rpc, "wechat_mini_business_v1");
   assert.equal(requests[1].timeout, 5_000);
   assert.equal(requests[1].limit, 131_072);
   assert.deepEqual(plain(requests[1].params), {
-    p_actor_profile_id: ENTITY_ID,
-    p_params: { p_shop_id: SHOP_ID },
-    p_rpc: "wechat_catalog_history_page_v1",
+    p_token_hash: "d".repeat(64), p_device_hash: "e".repeat(64), p_allowed_profiles: [ENTITY_ID], p_allowed_shops: [SHOP_ID],
+    p_operation: "read", p_params: { p_params: { p_shop_id: SHOP_ID }, p_rpc: "wechat_catalog_history_page_v1" },
   });
 
   const legacy = await gateway.callWeChatUserRpc({
@@ -316,6 +316,7 @@ test("WECHAT-003 safe read helper forwards only allowlisted bearer RPCs and sani
           return {
             accountFingerprint: "f".repeat(64),
             actorProfileId: ENTITY_ID,
+            proof: { p_token_hash: "d".repeat(64), p_device_hash: "e".repeat(64), p_allowed_profiles: [ENTITY_ID], p_allowed_shops: [SHOP_ID] },
             expiresAt: 2_000_000_000,
             generation: 1,
             ok: true,

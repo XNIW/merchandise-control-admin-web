@@ -17,6 +17,7 @@ const IDEMPOTENCY_KEY = "50000000-0000-4000-8000-000000000003";
 const CORRELATION_ID = "60000000-0000-4000-8000-000000000003";
 const UPDATED_AT = "2026-08-13T12:34:56.123Z";
 const AUTHORIZATION = `Bearer ${"a".repeat(64)}`;
+const SESSION_PROOF = { p_token_hash: "d".repeat(64), p_device_hash: "e".repeat(64), p_allowed_profiles: [ACTOR_ID], p_allowed_shops: [SHOP_ID] };
 const SERVICE_ROLE_KEY = "service-role-test-key";
 
 function read(relativePath) {
@@ -100,6 +101,7 @@ function loadGateway({
             ? {
                 accountFingerprint: "f".repeat(64),
                 actorProfileId: authResult.data.user.id,
+                proof: SESSION_PROOF,
                 expiresAt: 2_000_000_000,
                 generation: 1,
                 ok: true,
@@ -332,7 +334,7 @@ test("WECHAT-003 gateway verifies the bearer before its trusted RPC", async () =
 
   assert.equal(
     captured.url,
-    "https://project.supabase.co/rest/v1/rpc/wechat_catalog_mutate_v1",
+    "https://project.supabase.co/rest/v1/rpc/wechat_mini_business_v1",
   );
   assert.equal(captured.init.method, "POST");
   assert.equal(captured.init.redirect, "error");
@@ -344,7 +346,7 @@ test("WECHAT-003 gateway verifies the bearer before its trusted RPC", async () =
   assert.equal(captured.init.headers.apikey, SERVICE_ROLE_KEY);
   assert.notEqual(captured.init.headers.Authorization, AUTHORIZATION);
   assert.deepEqual(JSON.parse(captured.init.body), {
-    p_actor_profile_id: ACTOR_ID,
+    ...SESSION_PROOF, p_operation: "wechat_catalog_mutate_v1", p_params: {
     p_correlation_id: CORRELATION_ID,
     p_expected_updated_at: UPDATED_AT,
     p_idempotency_key: IDEMPOTENCY_KEY,
@@ -352,6 +354,7 @@ test("WECHAT-003 gateway verifies the bearer before its trusted RPC", async () =
     p_payload: { name: "Fresh food" },
     p_shop_id: SHOP_ID,
     p_target_id: TARGET_ID,
+    },
   });
   assert.deepEqual(
     events.map((event) => event.type),
@@ -631,10 +634,11 @@ test("WECHAT-003 source pins the only PostgREST write lane and guardrail", () =>
   const security = read("scripts/security-checks.mjs");
   const envExample = read(".env.example");
 
-  assert.match(gateway, /\/rest\/v1\/rpc\/wechat_catalog_mutate_v1/);
+  assert.match(gateway, /\/rest\/v1\/rpc\/wechat_mini_business_v1/);
   assert.match(gateway, /resolveWeChatMiniSession\(\{/);
   assert.match(gateway, /resolveSupabaseAdminConfig\(\)/);
-  assert.match(gateway, /p_actor_profile_id: actor\.actorProfileId/);
+  assert.doesNotMatch(gateway, /p_actor_profile_id: actor\.actorProfileId/);
+  assert.match(gateway, /\.\.\.actor\.proof/);
   assert.match(gateway, /const GATEWAY_TIMEOUT_MS = 8_000/);
   assert.match(gateway, /const RPC_TIMEOUT_MS = 6_000/);
   assert.match(gateway, /redirect: "error"/);
@@ -647,7 +651,7 @@ test("WECHAT-003 source pins the only PostgREST write lane and guardrail", () =>
   assert.match(route, /status: 405/);
   assert.match(security, /\.\.\.listFiles\("src\/server\/wechat"\)/);
   assert.match(security, /allowedPostgrestRpcsByFile/);
-  assert.match(security, /new Set\(\["wechat_catalog_mutate_v1"\]\)/);
+  assert.match(security, /new Set\(\["wechat_catalog_mutate_v1", "wechat_mini_business_v1"\]\)/);
   assert.match(
     envExample,
     /^WECHAT_MINI_PROGRAM_CATALOG_MUTATIONS_ENABLED=$/m,

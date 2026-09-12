@@ -26,9 +26,16 @@ const allowedRpcs = new Set([
   "wechat_sync_history_page_v1",
 ]);
 
-function shopRecord(value: unknown): value is Record<string, unknown> & { shop_id: string } {
-  return Boolean(value && typeof value === "object" && !Array.isArray(value) &&
-    "shop_id" in value && typeof value.shop_id === "string");
+function shopRecord(
+  value: unknown,
+): value is Record<string, unknown> & { shop_id: string } {
+  return Boolean(
+    value &&
+    typeof value === "object" &&
+    !Array.isArray(value) &&
+    "shop_id" in value &&
+    typeof value.shop_id === "string",
+  );
 }
 
 export type WeChatUserRpcResult =
@@ -53,8 +60,11 @@ export async function callWeChatUserRpc(input: {
     authorization: input.authorization,
     config,
     deviceId: input.deviceId,
-    shopId: input.rpc === "wechat_account_profile_v1" || input.rpc === "wechat_authorized_shops_v2"
-      ? undefined : input.params.p_shop_id ?? null,
+    shopId:
+      input.rpc === "wechat_account_profile_v1" ||
+      input.rpc === "wechat_authorized_shops_v2"
+        ? undefined
+        : (input.params.p_shop_id ?? null),
   });
   if (!session.ok) {
     return {
@@ -64,11 +74,11 @@ export async function callWeChatUserRpc(input: {
     };
   }
   const data = await callTrustedWeChatRpc(
-    "wechat_mini_read_v1",
+    "wechat_mini_business_v1",
     {
-      p_actor_profile_id: session.actorProfileId,
-      p_params: input.params,
-      p_rpc: input.rpc,
+      ...session.proof,
+      p_operation: "read",
+      p_params: { p_rpc: input.rpc, p_params: input.params },
     },
     5_000,
     131_072,
@@ -77,13 +87,24 @@ export async function callWeChatUserRpc(input: {
     if (!Array.isArray(data) || !data.every(shopRecord)) {
       return { code: "backend_temporary", ok: false, status: 503 };
     }
-    const shops = data.filter((row) => config.miniAllowedShopIds.includes(row.shop_id.toLowerCase()))
-      .map((row) => ({ ...row,
-        can_write_products: config.miniCatalogMutationsEnabled && row.can_write_products === true,
-        can_write_categories: config.miniCatalogMutationsEnabled && row.can_write_categories === true,
-        can_write_suppliers: config.miniCatalogMutationsEnabled && row.can_write_suppliers === true,
-        can_change_prices: config.miniCatalogMutationsEnabled && row.can_change_prices === true,
-        can_manage_images: config.miniCatalogMutationsEnabled && row.can_manage_images === true,
+    const shops = data
+      .filter((row) =>
+        config.miniAllowedShopIds.includes(row.shop_id.toLowerCase()),
+      )
+      .map((row) => ({
+        ...row,
+        can_write_products:
+          config.miniCatalogMutationsEnabled && row.can_write_products === true,
+        can_write_categories:
+          config.miniCatalogMutationsEnabled &&
+          row.can_write_categories === true,
+        can_write_suppliers:
+          config.miniCatalogMutationsEnabled &&
+          row.can_write_suppliers === true,
+        can_change_prices:
+          config.miniCatalogMutationsEnabled && row.can_change_prices === true,
+        can_manage_images:
+          config.miniCatalogMutationsEnabled && row.can_manage_images === true,
       }));
     return { data: shops, ok: true, status: 200 };
   }

@@ -1,8 +1,8 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
-- Stato: `REVIEW`
+- Stato: `REVIEW / EXTERNAL_ACTIVATION_REQUIRED`
 - Fase: `REVIEW`
-- Writer: nessuno attivo; fix integrati su main dopo review indipendente.
+- Writer: Codex root, unico writer, worktree codex/wechat-010-native-direct.
 - Authority: explicit WECHAT-010 user request, including normal PR/CI/merge and isolated staging deploy.
 
 ## Scope
@@ -148,3 +148,21 @@ Mini distOFF/verify88 e cinque tab DevTools OFF verificati; privacy web-view
 BLOCKED dal controllo IDE; Auth/telefono/E2E reale NOT_RUN. Report unico Mini
 `docs/testing/WECHAT-010-REPORT.md`; packet privato OPERATOR-ACTIONS aggiornato
 con prove attese e comando di ripresa, senza segreti o messaggi vendor inviati.
+
+## 2026-09-12 - Explicit native privacy and direct Mini mandate
+
+WECHAT-010/TASK-159 continues in EXECUTION. The operator designates the existing
+private profile and TASK068E_260618231325 as pilot target; current canonical
+identity, active membership/shop and shop_owner role were rechecked read-only.
+This does not prove native clients use the same shop. No impersonation.
+Authorized: shared/versioned native privacy available without Auth; explicit
+Mini-only code2Session architecture revision, secure initial pairing to the
+existing profile, opaque sessions and restricted authorization, additive reviewed
+migrations if required. OneID remains paused. OIDC guarantees for other surfaces
+remain unchanged. Root sole writer in both existing isolated worktrees; at most
+two independent read-only reviewers. No production or activation before proof.
+Prior narrower scope is superseded only by this explicit amendment.
+
+## 2026-09-12 — Native privacy and Mini direct implementation
+
+User mandate supersedes OneID-only and H5-only dependencies for Mini. Existing designated pilot verified; no further shop choice. Shared native policy, explicit code2Session protocol, two-consent pairing, opaque sessions and session-derived business/Storage RPCs implemented. Root only writer, two reviewers approved the initial design; implementation findings corrected and exact final review pending. Mini 98+3 tests, Admin foundation1013 PASS/2 expected skips, component browser2 PASS, direct SQL53 PASS; isolated staging141 plus additive migration validated, no commerce migration. Worker-local HTTPS uses intercepted upstream, live credential/login NOT_RUN. OneID paused. REVIEW, no DONE. Canonical report lives in Mini docs/testing/WECHAT-010-REPORT.md.
