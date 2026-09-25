@@ -1,5 +1,24 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## Enrollment TEST attivo — 2026-09-25T20:01:41.857Z
+
+Input AppSecret completato personalmente; binding verificato sul Worker cb474c33.
+PATCH revisionata del solo enrollment: Worker f1e2e3ce-557b-42f4-9159-e796dc635c32,
+traffico100%, release selettiva c55f88a3 e runtime/altri binding invariati.
+WECHAT_MINI_ENROLLMENT_ENABLED=true; altri6flag OFF, tracing disabilitato,
+allowlist singleton e target preservati. Nessun DDL, sorgente o deploy main intera.
+Mini verify149PASS, UI pairing DevTools pronta senza sessione/shop o nuove eccezioni;
+readback limitato profilo/AppID0mapping. Accesso Admin completato personalmente; avvio pairing osservato nel browser e nel DB.
+Due tentativi personali Mini falliti al challenge HTTP400 backend_temporary prima di Tencent.
+Causa riprodotta in workerd1.20260811.1: redirect:error genera TypeError prima della rete.
+FIX nei due trasporti Mini RPC/catalogo: redirect manual, response.ok invariato,
+nessun redirect seguito. Regressione sul motore Cloudflare isolato; nessuna credenziale,
+autenticazione simulata live o diagnostica pubblica. Pairing finale e business NOT_RUN.
+Non chiedere di nuovo AppSecret. Rotazione NOT_PERFORMED, rischio ACCEPTED_FOR_TEST_ONLY.
+Fonte unica: [report Mini](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
+FIX sul challenge; nessun DONE/live/telefono attestato.
+Le note successive su binding assente/tutti flag OFF sono storiche.
+
 ## Aggiornamento DevTools — 2026-09-25T19:03:05.409Z
 
 Mac tornato accessibile dopo la ricevuta precedente: build Mini f956680/app08cb400
