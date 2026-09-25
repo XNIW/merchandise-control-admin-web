@@ -575,7 +575,8 @@ export async function callWeChatCatalogMutation(input: {
           "X-Client-Info": "merchandise-control/wechat-catalog-mutation-v1",
         },
         method: "POST",
-        redirect: "error",
+        // Workers rejects "error" before sending; manual preserves no-follow.
+        redirect: "manual",
         signal: AbortSignal.timeout(rpcTimeout),
       },
     );
