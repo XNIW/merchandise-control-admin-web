@@ -364,7 +364,7 @@ function loadTrustedRpcWithResponse(responseFactory) {
     },
     {
       async fetch(_url, init) {
-        assert.equal(init.redirect, "error");
+        assert.equal(init.redirect, "manual");
         assert.ok(init.signal instanceof AbortSignal);
         return responseFactory();
       },
@@ -414,7 +414,7 @@ test("WECHAT-003 safe read helper rejects invalid JSON without leaking upstream 
   assert.doesNotMatch(JSON.stringify(result), /sensitive upstream detail/);
   const source = read("src/server/auth/wechat-mini-session.ts");
   assert.match(source, /AbortSignal\.timeout\(timeoutMs\)/);
-  assert.match(source, /redirect: "error"/);
+  assert.match(source, /redirect: "manual"/);
   assert.doesNotMatch(source, /response\.json\(\)/);
 });
 

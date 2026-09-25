@@ -142,7 +142,8 @@ export async function callTrustedWeChatRpc(
           "X-Client-Info": "merchandise-control/wechat-mini-bff-v1",
         },
         method: "POST",
-        redirect: "error",
+        // Workers rejects "error" before sending; manual preserves no-follow.
+        redirect: "manual",
         signal: AbortSignal.timeout(timeoutMs),
       },
     );
