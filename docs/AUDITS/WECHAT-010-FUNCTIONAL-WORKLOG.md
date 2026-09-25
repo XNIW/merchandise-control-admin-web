@@ -80,3 +80,15 @@ Full A–G acceptance state: [canonical Mini report](https://github.com/XNIW/Mer
 TASK159 REVIEW/BLOCKED_EXTERNAL; no live, phone, public readiness or DONE.
 Final metadata receipt [PR110](https://github.com/XNIW/merchandise-control-admin-web/pull/110)
 contains no second migration application or deployment.
+
+## Aggiornamento DevTools — 2026-09-25T19:03:05.409Z
+
+Mac tornato accessibile dopo la ricevuta precedente: build Mini f956680/app08cb400
+ricompilata e verificata nel DevTools ufficiale,5tab OFF PASS via UI e SDK,
+0nuove eccezioni, nessuna sessione/shop. Primo tentativo SDK rawPath null;
+secondo dopo pagina disponibile PASS, nessuna modifica applicativa/mock.
+Il precedente blocco Mac sotto è storico e risolto. Rimane l'input protetto
+AppSecret, non una nuova richiesta di autorizzazione. Business/telefono NOT_RUN.
+Fonte unica dello stato corrente: [report Mini](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
+Nessun codice, DDL o deployment ulteriore; CI postmerge7753c0ca
+36176894582/36176894608 PASS. Solo ricevuta: [PR111](https://github.com/XNIW/merchandise-control-admin-web/pull/111).
