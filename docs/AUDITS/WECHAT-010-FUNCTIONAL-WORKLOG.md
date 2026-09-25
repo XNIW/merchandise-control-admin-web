@@ -47,4 +47,3 @@ Worker beef7b20 and exact target checked again, secret absent/all7flags OFF at18
 Authentic pilot remains BLOCKED_EXTERNAL: owner user for protected AppSecret input,
 then personal pairing. Canonical full mandate matrix/evidence: [Mini report](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
 No LIVE_VALIDATED, PHONE_VALIDATED, PUBLIC_RELEASE_READY or self-approved DONE.
-
