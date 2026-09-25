@@ -1,5 +1,28 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## 2026-09-25 — Image recovery delta in REVIEW
+
+Single writer, two readonly reviewers under the continuation mandate. Only the
+WeChat service branch changes: reconcile immutable existing JPEG bytes before
+signing missing variants, exact null URLs for verified variants, and retryable503
+for uncertain access revalidation. Explicit false remains403. The additive RPC
+replacement locks product then version and returns noop only for the current
+ready version of an active product; native RPC signatures/ACLs remain unchanged.
+
+Node22 verify PASS; foundation1030PASS/2skip; targeted service25/25; image pgTAP41/41.
+Old replay FAIL then new replay PASS, including a two-session concurrent finalize
+state on a disposable local database clone (not a live Mini interaction). The local
+harness pins a validated Unix Docker socket and drops only its generated database.
+Backup of the remote function/ACL and exact143registry saved0600 before any DDL;
+restore/reapply of the single function tested locally. Deployment/PR receipts follow
+execution. No commerce, ordinary shop data, native or production mutations.
+
+Worker beef7b20 and exact target checked again, secret absent/all7flags OFF at18:40UTC.
+Authentic pilot remains BLOCKED_EXTERNAL: owner user for protected AppSecret input,
+then personal pairing. Canonical full mandate matrix/evidence: [Mini report](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
+No LIVE_VALIDATED, PHONE_VALIDATED, PUBLIC_RELEASE_READY or self-approved DONE.
+
+
 ## 2026-09-25 — Verified integration and staging OFF receipt
 
 Current acceptance report: [Mini WECHAT-010](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md). TASK-159 remains REVIEW; authentic TEST acceptance is BLOCKED_EXTERNAL, owner user for the existing protected installer input and subsequent personal pairing. No DONE or public release. The14September TEST-only credential exception remains valid; rotation NOT_PERFORMED / ACCEPTED_FOR_TEST_ONLY.

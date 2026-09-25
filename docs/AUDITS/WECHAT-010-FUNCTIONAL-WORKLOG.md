@@ -25,3 +25,26 @@ Independent read-only contracts review APPROVED, Admin10-file application/test/m
 Selective staging release must derive from b0e306f1 and include only the six runtime files and this migration, never whole Admin main. Before mutation revalidate142registry entries/zero commerce, active Worker3185ab67, exact target/flags, and preserve both function definitions+ACL for recovery; restore flags OFF/previous Worker if needed. Existing142migration statements remain unchanged. The7WeChat flags remain OFF until authentic activation. Protected input request already sent; AppSecret validity, pairing, login, business/phone/native readback NOT_RUN. Rotation NOT_PERFORMED/ACCEPTED_FOR_TEST_ONLY.
 
 Final Sales formatting regression independently approved1/1; canonical numeric fields remain unchanged. Admin Playwright UI smoke48/48 and pairing component2/2 PASS under Node22 (local/intercepted evidence, not live Tencent). API contract now explicitly distinguishes current direct opaque Mini sessions from historical OIDC/bearer descriptions.
+
+## 2026-09-25 — Image recovery delta in REVIEW
+
+Single writer, two readonly reviewers under the continuation mandate. Only the
+WeChat service branch changes: reconcile immutable existing JPEG bytes before
+signing missing variants, exact null URLs for verified variants, and retryable503
+for uncertain access revalidation. Explicit false remains403. The additive RPC
+replacement locks product then version and returns noop only for the current
+ready version of an active product; native RPC signatures/ACLs remain unchanged.
+
+Node22 verify PASS; foundation1030PASS/2skip; targeted service25/25; image pgTAP41/41.
+Old replay FAIL then new replay PASS, including a two-session concurrent finalize
+state on a disposable local database clone (not a live Mini interaction). The local
+harness pins a validated Unix Docker socket and drops only its generated database.
+Backup of the remote function/ACL and exact143registry saved0600 before any DDL;
+restore/reapply of the single function tested locally. Deployment/PR receipts follow
+execution. No commerce, ordinary shop data, native or production mutations.
+
+Worker beef7b20 and exact target checked again, secret absent/all7flags OFF at18:40UTC.
+Authentic pilot remains BLOCKED_EXTERNAL: owner user for protected AppSecret input,
+then personal pairing. Canonical full mandate matrix/evidence: [Mini report](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
+No LIVE_VALIDATED, PHONE_VALIDATED, PUBLIC_RELEASE_READY or self-approved DONE.
+

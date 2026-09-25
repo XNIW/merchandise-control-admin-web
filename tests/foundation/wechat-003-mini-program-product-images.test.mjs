@@ -4,6 +4,7 @@ import { createRequire } from "node:module";
 import { join } from "node:path";
 import test from "node:test";
 import vm from "node:vm";
+import { createHash } from "node:crypto";
 
 const root = process.cwd();
 const require = createRequire(import.meta.url);
@@ -11,6 +12,38 @@ const ts = require("typescript");
 
 const PROFILE_ID = "10000000-0000-4000-8000-000000000003";
 const SHOP_ID = "20000000-0000-4000-8000-000000000003";
+
+const RECOVERY_JPEG = Buffer.from("/9j/2wBDAAMCAgMCAgMDAwMEAwMEBQgFBQQEBQoHBwYIDAoMDAsKCwsNDhIQDQ4RDgsLEBYQERMUFRUVDA8XGBYUGBIUFRT/2wBDAQMEBAUEBQkFBQkUDQsNFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBT/wAARCAADAAIDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAn/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFAEBAAAAAAAAAAAAAAAAAAAABv/EABQRAQAAAAAAAAAAAAAAAAAAAAD/2gAMAwEAAhEDEQA/AJ9AFA4//9k=", "base64");
+
+function recoveryService(options = {}) {
+  const signed = [], failed = [], access = [];
+  const metadata = {bytes: RECOVERY_JPEG.length, width: 2, height: 3, mimeType: "image/jpeg", sha256: createHash("sha256").update(RECOVERY_JPEG).digest("hex")};
+  const path = variant => `shops/${SHOP_ID}/products/${PROFILE_ID}/primary/${PROFILE_ID}/${variant}.jpg`;
+  const admin = {
+    async rpc(name, params) {
+      if (name === "product_image_revalidate_access_v1") {access.push(params);return options.accessResult ?? {data: !options.revoked, error: null};}
+      if (name === "product_image_fail_version") {failed.push(params);return {data: true,error:null};}
+      return {data: {ok: true, replayed: true, status: options.noop ? "noop" : "upload_required", version_id: PROFILE_ID, main_path:path("main"), thumb_path:path("thumb"), expires_at:new Date(Date.now()+300000).toISOString()},error:null};
+    },
+    storage: {from:()=>({
+      async download(p) {const variant=p.endsWith("/main.jpg")?"main":"thumb";if(options.transient) return {error:{status:503},data:null};if(options.missing?.includes(variant))return {error:{status:404},data:null};return {data:new Blob([RECOVERY_JPEG],{type:"image/jpeg"}),error:null};},
+      async createSignedUploadUrl(p) {signed.push(p);return options.signRace?{error:{status:409},data:null}:{data:{signedUrl:"https://storage.example.test/"+p},error:null};},
+    })},
+  };
+  const core = loadTypeScriptModule("src/server/shop-admin/product-images/runtime-core.ts", {"server-only":{},"@/lib/supabase/admin":{},"./jpeg-validator":loadTypeScriptModule("src/server/shop-admin/product-images/jpeg-validator.ts")});
+  const service=loadTypeScriptModule("src/server/shop-admin/product-images/service.ts",{"server-only":{},"@/server/auth/wechat-mini-session":{},"./cache-scope":{createProductImageCacheScope:()=>"a".repeat(64)},"./contract":loadTypeScriptModule("src/server/shop-admin/product-images/contract.ts", {"../../shared/postgres-uuid.ts": loadTypeScriptModule("src/server/shared/postgres-uuid.ts")}),"./runtime-core":{...core,resolveProductImageAdminClient:()=>admin}});
+  return {signed,failed,access,run:()=>service.createProductImageIntent({actorKind:"personal_account",actorProfileId:PROFILE_ID,shopId:SHOP_ID},{shopId:SHOP_ID,productId:PROFILE_ID,main:options.badChecksum?{...metadata,sha256:"0".repeat(64)}:metadata,thumb:metadata},{correlationId:PROFILE_ID,idempotencyKey:SHOP_ID})};
+}
+
+for (const missing of [[],["main"],["thumb"],["main","thumb"]]) test(`image replay signs only missing variants: ${missing.join() || "none"}`,async()=>{
+  const f=recoveryService({missing}),result=await f.run();assert.equal(result.status,201);assert.equal(f.signed.length,missing.length);assert.equal(f.failed.length,0);assert.equal(f.access.length,1);
+  for(const variant of ["main","thumb"])assert.equal(result.body[variant+"UploadUrl"]===null,!missing.includes(variant));
+});
+test("image replay rejects existing bytes with wrong checksum before publication",async()=>{const f=recoveryService({badChecksum:true}),r=await f.run();assert.equal(r.status,422);assert.equal(r.body.code,"jpeg_checksum_mismatch");assert.equal(f.failed.length,1);assert.equal(f.signed.length,0);});
+for (const scenario of [{transient:true},{missing:["main"],signRace:true}]) test(`image replay retains pending version on recoverable Storage failure ${JSON.stringify(scenario)}`,async()=>{const f=recoveryService(scenario),r=await f.run();assert.equal(r.status,503);assert.equal(r.body.code,"storage_unavailable");assert.equal(f.failed.length,0);});
+for (const noop of [false, true]) for (const accessResult of [{data:null,error:{message:"timeout"}},{data:null,error:null},{data:{ok:true},error:null}]) test(`uncertain image revalidation remains retryable, noop=${noop}, result=${JSON.stringify(accessResult)}`,async()=>{const f=recoveryService({noop,accessResult}),r=await f.run();assert.equal(r.status,503);assert.equal(r.body.code,"backend_unavailable");assert.equal(r.body.mainUploadUrl,undefined);assert.equal(f.failed.length,0);});
+
+for(const noop of [false,true])test(`image replay reauthorizes publication, noop=${noop}`,async()=>{const f=recoveryService({revoked:true,noop}),r=await f.run();assert.equal(r.status,403);assert.equal(r.body.ok,false);assert.equal(f.access.length,1);});
 
 const routes = [
   ["intent", "intent"],
@@ -529,6 +562,7 @@ test("WECHAT-003 Mini image intent keeps the RPC receiver bound and sends the ex
     async rpc(name, params) {
       assert.equal(this, admin);
       calls.push({ name, params });
+      if (name === "product_image_revalidate_access_v1") return {data: true, error: null};
       return {
         data: {
           code: "success",
@@ -587,7 +621,8 @@ test("WECHAT-003 Mini image intent keeps the RPC receiver bound and sends the ex
 
   assert.equal(result.status, 200);
   assert.equal(result.body.status, "noop");
-  assert.equal(calls.length, 1);
+  assert.equal(calls.length, 2);
+  assert.equal(calls[1].name, "product_image_revalidate_access_v1");
   assert.equal(calls[0].name, "product_image_create_intent_wechat_v1");
   assert.equal(calls[0].params.p_actor_profile_id, PROFILE_ID);
   assert.equal(calls[0].params.p_shop_id, SHOP_ID);
