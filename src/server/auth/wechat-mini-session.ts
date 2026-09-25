@@ -57,7 +57,7 @@ type MiniSessionResolution =
       sessionId: string;
       proof: MiniSessionProof;
     }
-  | { code: "backend_temporary" | "session_expired"; ok: false };
+  | { code: "backend_temporary" | "session_expired" | "account_suspended"; ok: false };
 
 function digest(salt: string, namespace: string, value: string) {
   return createHash("sha256")
@@ -285,7 +285,7 @@ export async function resolveWeChatMiniSession(input: {
   ) {
     return { code: "session_expired", ok: false };
   }
-  if (resolved.ok !== true) return { code: "session_expired", ok: false };
+  if (resolved.ok !== true) return { code: resolved.code==="account_suspended"?"account_suspended":"session_expired", ok: false };
   const expiresAt = Math.floor(
     Date.parse(String(resolved.expires_at ?? "")) / 1000,
   );

@@ -131,6 +131,8 @@ set local role postgres;
 update public.shop_members set role_key='shop_owner' where profile_id='00000000-0000-4000-8000-000000001001';
 update auth.users set banned_until=now()+interval '1 hour' where id='00000000-0000-4000-8000-000000001001';
 select is(public.wechat_mini_session_resolve_v1(repeat('e',64),repeat('d',64))->>'ok','false','canonical Auth ban invalidates Mini session');
+select is(public.wechat_mini_session_resolve_v1(repeat('e',64),repeat('d',64))->>'code','account_suspended','own valid session receives typed account suspension');
+select is(public.wechat_mini_session_resolve_v1(repeat('e',64),repeat('f',64))->>'code','session_expired','invalid device does not disclose suspension');
 update auth.users set banned_until=null where id='00000000-0000-4000-8000-000000001001';
 select pg_temp.admin_context();
 insert into results values ('pending_pair',public.wechat_mini_pair_start_v1('wx0000000000000001',repeat('1',64),repeat('2',64),'87654321'));

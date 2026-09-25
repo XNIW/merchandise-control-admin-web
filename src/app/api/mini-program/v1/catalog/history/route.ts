@@ -49,6 +49,9 @@ export async function GET(request: Request) {
   const limit = Number(limitText);
   const entityType = url.searchParams.get("entity_type");
   const operation = url.searchParams.get("operation");
+  const fromDate=url.searchParams.get("from_date");
+  const toDate=url.searchParams.get("to_date");
+  const validDate=(value:string|null)=>value===null || (/^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) && new Date(value).toISOString().slice(0,10)===value);
   const fromAt = url.searchParams.get("from_at");
   const toAt = url.searchParams.get("to_at");
   const entityId = url.searchParams.get("entity_id");
@@ -59,6 +62,9 @@ export async function GET(request: Request) {
   const parsedBeforeCreatedAt = parseTimestamp(beforeCreatedAt);
 
   if (
+    !validDate(fromDate) || !validDate(toDate) ||
+    ((fromDate!==null || toDate!==null) && (fromAt!==null || toAt!==null)) ||
+    (fromDate!==null && toDate!==null && (toDate<fromDate || Date.parse(toDate)-Date.parse(fromDate)>maxHistoryRangeMs)) ||
     !uuidPattern.test(shopId) ||
     !/^[1-9]\d{0,2}$/.test(limitText) ||
     !Number.isInteger(limit) ||
@@ -99,6 +105,7 @@ export async function GET(request: Request) {
       p_entity_id: entityId,
       p_entity_type: entityType,
       p_from_at: fromAt,
+      p_from_date:fromDate, p_to_date:toDate,
       p_limit: limit,
       p_operation: operation,
       p_shop_id: shopId,

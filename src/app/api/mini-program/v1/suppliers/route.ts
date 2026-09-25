@@ -10,10 +10,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const shopId = url.searchParams.get("shop_id") ?? "";
   const limit = Number(url.searchParams.get("limit") ?? "50");
+  const entityId=url.searchParams.get("id");
   const search = url.searchParams.get("search");
   const afterName = url.searchParams.get("after_name");
   const afterId = url.searchParams.get("after_id");
-  if (!uuidPattern.test(shopId) || !Number.isInteger(limit) || limit < 1 || limit > 100 ||
+  if ((entityId!==null && !uuidPattern.test(entityId)) || !uuidPattern.test(shopId) || !Number.isInteger(limit) || limit < 1 || limit > 100 ||
     (search !== null && (search.length < 1 || search.length > 80)) ||
     ((afterName === null) !== (afterId === null)) || (afterName !== null && afterName.length > 200) ||
     (afterId !== null && !uuidPattern.test(afterId))) {
@@ -24,7 +25,7 @@ export async function GET(request: Request) {
   }
   const result = await callWeChatUserRpc({ authorization: request.headers.get("authorization"),
     deviceId: request.headers.get("x-wechat-device-id"),
-    params: { p_after_id: afterId, p_after_name: afterName, p_limit: limit, p_search: search, p_shop_id: shopId },
+    params: {p_entity_id:entityId, p_after_id: afterId, p_after_name: afterName, p_limit: limit, p_search: search, p_shop_id: shopId },
     rpc: "wechat_suppliers_page_v1" });
   return NextResponse.json(result.ok ? { ok: true, suppliers: result.data } : result,
     { headers: { "Cache-Control": "no-store, max-age=0" }, status: result.status });
