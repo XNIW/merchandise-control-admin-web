@@ -125,6 +125,25 @@ async function productImageAccessIsPublishable(
   return !error && data === true;
 }
 
+// An uncertain revalidation must remain retryable without publishing URLs or
+// destroying the client's durable operation identity. Keep legacy callers intact.
+async function weChatImageWriteAccessFailure(
+  admin: SupabaseAdminClient,
+  actor: ProductImageRequestActor,
+): Promise<ProductImageServiceResult | null> {
+  try {
+    const { data, error } = await imageActorRpc(admin, actor,
+      "product_image_revalidate_access_v1", {
+        p_actor_kind: actor.actorKind, p_actor_profile_id: actor.actorProfileId,
+        p_permission: "write", p_shop_id: actor.shopId,
+      });
+    if (error || (data !== true && data !== false)) return safeFailure("backend_unavailable");
+    return data ? null : safeFailure("permission_denied", 403);
+  } catch {
+    return safeFailure("backend_unavailable");
+  }
+}
+
 async function markVersionFailed(
   admin: SupabaseAdminClient,
   actor: ProductImageRequestActor,
@@ -216,6 +235,10 @@ export async function createProductImageIntent(
 
   const versionId = textField(rpc.version_id);
   if (rpc.status === "noop" && versionId) {
+    if (identifiers) {
+      const denied = await weChatImageWriteAccessFailure(admin, actor);
+      if (denied) return denied;
+    }
     return serviceResult(200, {
       cacheScope: createProductImageCacheScope(
         actor.actorKind,
@@ -258,6 +281,46 @@ export async function createProductImageIntent(
   }
 
   const bucket = admin.storage.from(PRODUCT_IMAGE_BUCKET);
+  if (identifiers && rpc.replayed === true) {
+    // Reconcile immutable objects before signing a replay. Supabase can reject
+    // signing/PUT for an existing object; never overwrite it or finalize a probe.
+    const reconcile = async (variant: "main" | "thumb", path: string) => {
+      const metadata = input[variant];
+      const download = await bucket.download(path);
+      if (download.error) {
+        if (!isProductImageStorageObjectMissingError(download.error)) return {error: safeFailure("storage_unavailable")};
+        const signed = await bucket.createSignedUploadUrl(path);
+        // Another in-flight upload may win after the missing-object check. Keep
+        // pending state and let the next exact replay inspect the actual bytes.
+        if (signed.error || !signed.data?.signedUrl) return {error: safeFailure("storage_unavailable")};
+        return {url: signed.data.signedUrl};
+      }
+      if (!download.data) return {error: safeFailure("storage_unavailable")};
+      const verified = verifyDownloadedJpeg({
+        blobMimeType: download.data.type,
+        bytes: new Uint8Array(await download.data.arrayBuffer()),
+        expectedBytes: metadata.bytes, expectedHeight: metadata.height,
+        expectedSha256: metadata.sha256, expectedWidth: metadata.width,
+        maxBytes: variant === "main" ? PRODUCT_IMAGE_MAIN_MAX_BYTES : PRODUCT_IMAGE_THUMB_MAX_BYTES,
+        maxSide: variant === "main" ? PRODUCT_IMAGE_MAIN_MAX_SIDE : PRODUCT_IMAGE_THUMB_MAX_SIDE,
+      });
+      if (!verified.ok) {
+        await markVersionFailed(admin, actor, {productId: input.productId, shopId: input.shopId, versionId}, verified.code);
+        return {error: safeFailure(verified.code, 422)};
+      }
+      return {url: null};
+    };
+    try {
+      const [main, thumb] = await Promise.all([reconcile("main", mainPath), reconcile("thumb", thumbPath)]);
+      if (main.error) return main.error;
+      if (thumb.error) return thumb.error;
+      const denied = await weChatImageWriteAccessFailure(admin, actor);
+      if (denied) return denied;
+      return serviceResult(201, {cacheScope: createProductImageCacheScope(actor.actorKind, actor.actorProfileId), expiresAt, mainUploadUrl: main.url, ok: true, status: "upload_required", thumbUploadUrl: thumb.url, versionId});
+    } catch {
+      return safeFailure("storage_unavailable");
+    }
+  }
   const [mainSigned, thumbSigned] = await Promise.all([
     bucket.createSignedUploadUrl(mainPath),
     bucket.createSignedUploadUrl(thumbPath),
@@ -272,6 +335,7 @@ export async function createProductImageIntent(
     !mainUploadUrl ||
     !thumbUploadUrl
   ) {
+    if (identifiers) return safeFailure("storage_unavailable");
     await markVersionFailed(
       admin,
       actor,
@@ -281,7 +345,12 @@ export async function createProductImageIntent(
     return safeFailure("storage_unavailable");
   }
 
-  if (!(await productImageAccessIsPublishable(admin, actor, "write"))) {
+  const accessFailure = identifiers
+    ? await weChatImageWriteAccessFailure(admin, actor)
+    : !(await productImageAccessIsPublishable(admin, actor, "write"))
+      ? safeFailure("permission_denied", 403) : null;
+  if (accessFailure) {
+    if (accessFailure.status !== 403) return accessFailure;
     await markVersionFailed(
       admin,
       actor,
