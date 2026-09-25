@@ -41,9 +41,9 @@ function shopRecord(
 export type WeChatUserRpcResult =
   | { data: unknown; ok: true; status: 200 }
   | {
-      code: "backend_temporary" | "session_expired";
+      code: "account_suspended" | "backend_temporary" | "session_expired" | "membership_missing" | "permission_denied" | "shop_suspended";
       ok: false;
-      status: 401 | 503;
+      status: 401 | 403 | 503;
     };
 
 export async function callWeChatUserRpc(input: {
@@ -70,7 +70,7 @@ export async function callWeChatUserRpc(input: {
     return {
       code: session.code,
       ok: false,
-      status: session.code === "session_expired" ? 401 : 503,
+      status: session.code === "session_expired" ? 401 : session.code==="account_suspended"?403:503,
     };
   }
   const data = await callTrustedWeChatRpc(
@@ -83,6 +83,10 @@ export async function callWeChatUserRpc(input: {
     5_000,
     131_072,
   );
+  if(data && typeof data==="object" && !Array.isArray(data) && "ok" in data && data.ok===false && "code" in data) {
+    if(data.code==="membership_missing" || data.code==="permission_denied" || data.code==="shop_suspended") return {ok:false,code:data.code,status:403};
+    return {ok:false,code:"backend_temporary",status:503};
+  }
   if (input.rpc === "wechat_authorized_shops_v2" && data !== null) {
     if (!Array.isArray(data) || !data.every(shopRecord)) {
       return { code: "backend_temporary", ok: false, status: 503 };

@@ -222,6 +222,7 @@ test("WECHAT-003 catalog-history route bounds filters and preserves tenant/curso
         p_entity_id: ENTITY_ID,
         p_entity_type: "product",
         p_from_at: "2026-08-01T00:00:00Z",
+        p_from_date:null,p_to_date:null,
         p_limit: 40,
         p_operation: "updated",
         p_shop_id: SHOP_ID,
@@ -415,4 +416,23 @@ test("WECHAT-003 safe read helper rejects invalid JSON without leaking upstream 
   assert.match(source, /AbortSignal\.timeout\(timeoutMs\)/);
   assert.match(source, /redirect: "error"/);
   assert.doesNotMatch(source, /response\.json\(\)/);
+});
+
+test("F06 history accepts shop dates and rejects mixed or impossible calendar input", async()=>{
+  const path="src/app/api/mini-program/v1/catalog/history/route.ts";
+  for(const query of ["from_date=2026-09-06&to_date=2026-09-06","from_date=2026-04-05&to_date=2026-04-05"]){
+    const {route,calls}=loadRoute(path,{ok:true,status:200,data:[]});
+    const response=await route.GET(new Request(`https://admin.example.test/history?shop_id=${SHOP_ID}&${query}`));
+    assert.equal(response.status,200);assert.equal(calls[0].params.p_from_at,null);assert.match(calls[0].params.p_from_date,/^2026-/);
+  }
+  for(const query of ["from_date=2026-02-30","from_date=2026-09-06&from_at=2026-09-06T00:00:00Z","from_date=2026-09-06&to_date=2026-09-05"]){
+    const {route,calls}=loadRoute(path,{ok:true,status:200,data:[]});
+    assert.equal((await route.GET(new Request(`https://admin.example.test/history?shop_id=${SHOP_ID}&${query}`))).status,400);assert.equal(calls.length,0);
+  }
+});
+test("F02 exact relation lookup remains authenticated and shop scoped",async()=>{
+  for(const kind of ["categories","suppliers"]){const {route,calls}=loadRoute(`src/app/api/mini-program/v1/${kind}/route.ts`,{ok:true,status:200,data:[]});
+    assert.equal((await route.GET(new Request(`https://admin.example.test/relations?shop_id=${SHOP_ID}&id=${ENTITY_ID}`,{headers:{Authorization:ACCESS_TOKEN}}))).status,200);
+    assert.equal(calls[0].params.p_entity_id,ENTITY_ID);assert.equal(calls[0].params.p_shop_id,SHOP_ID);
+  }
 });
