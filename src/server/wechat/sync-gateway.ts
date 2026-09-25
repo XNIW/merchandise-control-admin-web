@@ -14,9 +14,9 @@ const scopePattern = /^[0-9a-f]{64}$/;
 type SyncResult =
   | { data: Record<string, unknown>; ok: true; status: 200 }
   | {
-      code: "backend_temporary" | "session_expired" | "validation_failed";
+      code: "account_suspended" | "backend_temporary" | "session_expired" | "validation_failed";
       ok: false;
-      status: 400 | 401 | 503;
+      status: 400 | 401 | 403 | 503;
     };
 
 function object(value: unknown): value is Record<string, unknown> {
@@ -60,7 +60,7 @@ export async function getWeChatMiniSyncCheckpoint(input: {
     return {
       code: session.code,
       ok: false,
-      status: session.code === "session_expired" ? 401 : 503,
+      status: session.code === "session_expired" ? 401 : session.code==="account_suspended"?403:503,
     };
   }
   const data = await callTrustedWeChatRpc("wechat_mini_business_v1", {
