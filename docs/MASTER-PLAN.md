@@ -1,5 +1,39 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## 2026-09-25 — Image recovery integrated and selective staging verified
+
+PR109 head de9b3924669c4df7d4785108e2b121ca190c8ce3 merged as
+beed0a575a1d65ff0d267b7c1ec6ce6ecd9e754f after CI36175280179 and
+Cloudflare36175280178 PASS; postmerge CI36175776026/Cloudflare36175776098 PASS.
+Automatic staging/production deploy SKIPPED. Selective release
+c55f88a36ac89684f25fd503ca7a3bc085c08660 derives from b8a859c2 and changes only
+service.ts plus the new image migration. Actual Worker
+6343d39c-d50a-4c88-89df-676f709697a2 verified100%; binding/runtime hashes unchanged,
+all7flags OFF, AppSecret absent. HTTP OFF12/12 PASS, no authentic business claim.
+
+Applied migration20260925184847_wechat_010_image_recovery once; registry144,
+previous143version/name/hash entries identical, zero commerce. Function MD5
+588c797e1d304291e34b0628f58b6c4e matches isolated tested DB; owner/ACL unchanged,
+anon/authenticated EXECUTE false. Backup0600 and local restore/reapply PASS;
+advisors security/performance0new. Rename source184000 to service-assigned184847
+and remove only one empty EOF line; SQL instructions unchanged. Final file SHA256
+45e84b6070d35daeb4d1a15b32be3e558303cd67f0286e805719f36ea0559f60 (applied input
+4a863559f6cda50fe7c177ed176d6c5fe3d3837a5c28037b2413039dc2e40d4d).
+
+Two independent readonly reviews APPROVED; original recovery7file manifest
+73c0ebefc32910b302e58986d18769f852bbffa1a9fa10dda537ea83e7a14457 before metadata-only
+rename/EOF normalization. No unreviewed application logic. Node22 verify,
+1030foundationPASS/2skip,25targeted,41pgTAP and isolated concurrent SQL recovery
+PASS. No live fixtures. Mini PR20 integrated with149tests; imported project build
+updated, but new DevTools UI smoke NOT_RUN because the Mac locked during execution.
+Protected AppSecret input and Mac unlock requested once each, no reply acquired.
+
+Full A–G acceptance state: [canonical Mini report](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
+TASK159 REVIEW/BLOCKED_EXTERNAL; no live, phone, public readiness or DONE.
+Final metadata receipt [PR110](https://github.com/XNIW/merchandise-control-admin-web/pull/110)
+contains no second migration application or deployment.
+
+
 ## 2026-09-25 — Image recovery delta in REVIEW
 
 Single writer, two readonly reviewers under the continuation mandate. Only the
