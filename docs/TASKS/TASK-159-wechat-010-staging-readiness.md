@@ -1,5 +1,50 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## REVIEW — Mini session sync correction applied to TEST, 2026-09-26
+
+The authentic Mini checkpoint failed with HTTP503 because its session-bound device
+has no native POS device lease. Additive migration `20260926164349` gives the two
+Mini sync wrappers private readers authorized by the real personal profile,
+membership and Mini session. Native recovery/event functions remain byte-identical
+on TEST; no device, session, mapping or business row was fabricated.
+
+Independent review APPROVED migration SHA256
+`1800620a45edbc5e84c4ac8286d124cbbd664161b37effb26a68c7d514a14ad9`.
+Isolated pgTAP: 84 direct pairing, 52 BFF, 22 reads, 365 native contract PASS.
+Node22 verify PASS; foundation1031 PASS/2skip. Saved wrapper restore reproduces the
+old lease rejection; reapplying only the reviewed wrapper bodies restores84PASS.
+The two new private helpers stay inaccessible to PUBLIC/anon/authenticated/service_role.
+
+Applied once at16:43UTC. Registry145 preserves all previous144 version/name/hash
+entries; zero commerce. Four Mini function fingerprints/owners/ACL match the tested
+database; native fingerprints/ACL unchanged. Security/performance advisors unchanged
+after excluding observation timestamps. Source filename reconciled to the service
+timestamp; SQL bytes unchanged. Worker beb94e1e and selective runtime a805d640 unchanged.
+
+Recovery: use the protected pre-apply wrapper definitions in one compensating
+migration, leave the inaccessible helpers unreferenced, and verify native fingerprints,
+ACL and registry again. Never delete migration history or manufacture device leases.
+Backup and rollback/reapply evidence are in the private audit packet.
+
+Actual checkpoint/delta retry after this migration is still NOT_RUN. Mini session
+expired before the image picker; image intent reconciled NO_WRITE. Android and iPhone
+personal Google login and exact TEST scope verified. iPhone real Retry failed decoding
+the native checkpoint envelope (`catalog` missing); native convergence remains unproven.
+No native source edits. Full A–G acceptance remains open; no DONE.
+
+## FIX — autenticazione Mini e scope sync, 2026-09-26
+
+Il collaudo autentico ha completato 16 casi di lettura e 9 casi catalogo
+con readback indipendente. Cinque fixture della run restano tracciate nel packet.
+Mini auth e catalog mutations ON sul solo target TEST autorizzato; enrollment OFF.
+Checkpoint HTTP503 riprodotto: il nuovo device Mini non ha una registrazione
+shop_devices, che il resolver di recovery nativo richiede. FIX circoscritto ai
+reader Mini checkpoint/delta; nessuna registrazione artificiale o modifica POS.
+La sessione personale è scaduta prima del picker immagini, upload non iniziato.
+Stato FIX, prove live successive e accettazione A–G ancora aperte; nessun DONE.
+Le ricevute precedenti sotto sono storiche.
+
+
 ## Pairing TEST verificato, readonly server attivo — 2026-09-26
 
 Il nuovo pairing personale è completato. Readback canonico15:01UTC: un mapping

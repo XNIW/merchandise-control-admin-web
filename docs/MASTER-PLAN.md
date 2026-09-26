@@ -1,5 +1,29 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-159 REVIEW — Mini sync session fix, 2026-09-26
+
+Reviewed additive migration20260926164349 applied once to the authorized TEST target.
+Mini checkpoint/delta now use actual personal session authorization without requiring
+a native POS lease. Registry145, previous144 hashes preserved, zero commerce; native
+function definitions/ACL unchanged. Isolated523pgTAP, verify and1031foundation PASS.
+Wrapper restore/reapply PASS; advisors unchanged. Worker/selective runtime unchanged.
+Live retry and full A–G acceptance pending; simulators authenticated on the exact shop.
+Details and recovery: [TASK-159](TASKS/TASK-159-wechat-010-staging-readiness.md).
+No DONE. The earlier entries below describe prior observations.
+
+## FIX — autenticazione Mini e scope sync, 2026-09-26
+
+Il collaudo autentico ha completato 16 casi di lettura e 9 casi catalogo
+con readback indipendente. Cinque fixture della run restano tracciate nel packet.
+Mini auth e catalog mutations ON sul solo target TEST autorizzato; enrollment OFF.
+Checkpoint HTTP503 riprodotto: il nuovo device Mini non ha una registrazione
+shop_devices, che il resolver di recovery nativo richiede. FIX circoscritto ai
+reader Mini checkpoint/delta; nessuna registrazione artificiale o modifica POS.
+La sessione personale è scaduta prima del picker immagini, upload non iniziato.
+Stato FIX, prove live successive e accettazione A–G ancora aperte; nessun DONE.
+Le ricevute precedenti sotto sono storiche.
+
+
 ## Pairing TEST verificato, readonly server attivo — 2026-09-26
 
 Il nuovo pairing personale è completato. Readback canonico15:01UTC: un mapping
