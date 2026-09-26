@@ -113,3 +113,33 @@ FIX sul challenge; nessun DONE/live/telefono attestato.
 Le note precedenti su binding assente/tutti flag OFF sono storiche.
 
 2026-09-26 — TASK-159: pairing personale verificato da UI e readback canonico (mapping/audit/due prove consumate); readonly server attivo Worker15ad37e9, enrollment e altri5flag OFF, codice/runtime/ambito preservati. Stato pubblico riconciliato dopo propagazione senza retry. Registry144 invariato, zero commerce. Mini verify149PASS; Mac bloccato prima del caricamento, sblocco richiesto. Login distinto/business/telefono NOT_RUN; nessuna fixture o DONE. Dettagli nel report Mini canonico.
+# 2026-09-26 — Authentic Mini sync lease defect
+
+Authentic business execution completed16read cases and9catalog cases with independent
+readback. Five run-owned fixtures remain journaled. Image attempt stopped on session
+expiry before picker/upload; before/after image state identical, NO_WRITE.
+
+Checkpoint503 reproduced: authentic new Mini device has no native POS lease. Reviewed
+additive migration20260926164349 isolates Mini scope/event readers behind the existing
+session wrappers, authorizes the actual viewer/member and preserves mapping locks,
+event projection, cursor bounds and snapshot fences. No native API or ACL weakened.
+Review APPROVED SQL SHA2561800620a45edbc5e84c4ac8286d124cbbd664161b37effb26a68c7d514a14ad9.
+
+Validation: 84direct-pairing +52BFF +22functional-read +365native-contract pgTAP PASS;
+Node22 verify PASS; foundation1031PASS/2skip. Restore script initially lacked a SQL
+statement separator and was corrected before remote use. Local wrapper restore then
+reproduced the expected old lease failure; wrapper-only reapply returned84PASS.
+A full migration reapply was correctly rejected because the new helper already existed;
+no second remote apply occurred. Protected backup and tested compensation retained.
+
+Single remote apply16:43UTC; source filename changed from161920 to service timestamp
+164349 without SQL-byte changes. Registry145 with exact prior144 version/name/hash
+preservation and zero commerce. Four Mini fingerprints/owner/ACL match isolated tested
+DB; two native function fingerprints/owner/ACL equal their remote pre-apply snapshot.
+Advisors unchanged after observation timestamp normalization. Worker beb94e1e and
+runtime source a805d640 unchanged. Live checkpoint/delta retry still NOT_RUN.
+
+Android/iPhone Google authentication completed personally; exact canonical profile,
+shop and TEST project verified. iPhone Retry16:36 failed on missing catalog envelope;
+old July diagnostics were not treated as a current network failure. Native sources
+and ordinary databases unchanged. Convergence and full acceptance remain open.
