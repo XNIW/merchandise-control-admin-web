@@ -1,5 +1,27 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## Pairing TEST verificato, readonly server attivo — 2026-09-26
+
+Il nuovo pairing personale è completato. Readback canonico15:01UTC: un mapping
+attivo, un audit linked e due prove Tencent verificate/consumate, pair_claim e
+pair_confirm successiva all'approvazione Admin; completamento entro scadenza.
+UI Mini Linked osservata, nessun mapping artificiale o sessione iniettata.
+
+Enrollment chiuso; solo WECHAT_AUTH_MINI_PROGRAM_ENABLED ON sul Worker
+15ad37e9-6176-4410-baab-28a67615211f al100%. Codice selettivo a805d640, runtime,
+altri binding, allowlist singleton e tracing OFF preservati; altri6flag OFF.
+Status pubblico ready confermato dopo propagazione, senza ripetere PATCH.
+Registry144 invariato per versione/nome/hash, zero commerce. Profilo canonico,
+shop_owner e shop designati attivi. Nessun DDL, sorgente o deploy main intera.
+Review helper indipendente APPROVED; rotazione NOT_PERFORMED/ACCEPTED_FOR_TEST_ONLY.
+
+Mini readonly verify149/149 PASS, ma runtime ancora sulla precedente build:
+Mac bloccato prima della ricompilazione, sblocco personale richiesto.
+BLOCKED_EXTERNAL owner utente: sblocco, poi caricamento readonly e login Home
+personale distinto. Login/business/telefono NOT_RUN, nessuna fixture o DONE.
+Fonte canonica: [report Mini](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
+Le sezioni successive sono storiche e non descrivono lo stato corrente.
+
 ## Enrollment TEST attivo — 2026-09-25T20:01:41.857Z
 
 Input AppSecret completato personalmente; binding verificato sul Worker cb474c33.

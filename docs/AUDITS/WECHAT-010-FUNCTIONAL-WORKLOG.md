@@ -111,3 +111,5 @@ Non chiedere di nuovo AppSecret. Rotazione NOT_PERFORMED, rischio ACCEPTED_FOR_T
 Fonte unica: [report Mini](https://github.com/XNIW/MerchandiseControlWeChatMiniProgram/blob/main/docs/testing/WECHAT-010-REPORT.md).
 FIX sul challenge; nessun DONE/live/telefono attestato.
 Le note precedenti su binding assente/tutti flag OFF sono storiche.
+
+2026-09-26 — TASK-159: pairing personale verificato da UI e readback canonico (mapping/audit/due prove consumate); readonly server attivo Worker15ad37e9, enrollment e altri5flag OFF, codice/runtime/ambito preservati. Stato pubblico riconciliato dopo propagazione senza retry. Registry144 invariato, zero commerce. Mini verify149PASS; Mac bloccato prima del caricamento, sblocco richiesto. Login distinto/business/telefono NOT_RUN; nessuna fixture o DONE. Dettagli nel report Mini canonico.
