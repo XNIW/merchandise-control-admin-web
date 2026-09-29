@@ -3145,6 +3145,3319 @@ export type Database = {
           },
         ]
       }
+          customer_account_deletion_requests: {
+        Row: {
+          cancelled_at: string | null
+          id: string
+          idempotency_key: string
+          processed_at: string | null
+          requested_at: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          id?: string
+          idempotency_key: string
+          processed_at?: string | null
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          id?: string
+          idempotency_key?: string
+          processed_at?: string | null
+          requested_at?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      customer_addresses: {
+        Row: {
+          address_line_1: string
+          address_line_2: string | null
+          commune: string
+          country_code: string
+          created_at: string
+          delivery_instructions: string | null
+          id: string
+          is_default: boolean
+          label: string
+          last_selected_at: string | null
+          latitude: number | null
+          location_accuracy_meters: number | null
+          location_source: string
+          longitude: number | null
+          postal_code: string | null
+          provider_place_id: string | null
+          recipient_name: string
+          recipient_phone_e164: string | null
+          region: string
+          updated_at: string
+          user_id: string
+          validated_at: string | null
+          version: number
+        }
+        Insert: {
+          address_line_1: string
+          address_line_2?: string | null
+          commune: string
+          country_code?: string
+          created_at?: string
+          delivery_instructions?: string | null
+          id?: string
+          is_default?: boolean
+          label: string
+          last_selected_at?: string | null
+          latitude?: number | null
+          location_accuracy_meters?: number | null
+          location_source?: string
+          longitude?: number | null
+          postal_code?: string | null
+          provider_place_id?: string | null
+          recipient_name: string
+          recipient_phone_e164?: string | null
+          region: string
+          updated_at?: string
+          user_id?: string
+          validated_at?: string | null
+          version?: number
+        }
+        Update: {
+          address_line_1?: string
+          address_line_2?: string | null
+          commune?: string
+          country_code?: string
+          created_at?: string
+          delivery_instructions?: string | null
+          id?: string
+          is_default?: boolean
+          label?: string
+          last_selected_at?: string | null
+          latitude?: number | null
+          location_accuracy_meters?: number | null
+          location_source?: string
+          longitude?: number | null
+          postal_code?: string | null
+          provider_place_id?: string | null
+          recipient_name?: string
+          recipient_phone_e164?: string | null
+          region?: string
+          updated_at?: string
+          user_id?: string
+          validated_at?: string | null
+          version?: number
+        }
+        Relationships: []
+      }
+      customer_cart_items: {
+        Row: {
+          cart_id: string
+          created_at: string
+          id: string
+          publication_id: string
+          quantity: number
+          shop_id: string
+          snapshot_at: string
+          snapshot_compare_at_price_clp: number | null
+          snapshot_image_url: string | null
+          snapshot_price_clp: number
+          snapshot_promotion_ends_at: string | null
+          snapshot_promotion_id: string | null
+          snapshot_public_name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cart_id: string
+          created_at?: string
+          id?: string
+          publication_id: string
+          quantity: number
+          shop_id: string
+          snapshot_at?: string
+          snapshot_compare_at_price_clp?: number | null
+          snapshot_image_url?: string | null
+          snapshot_price_clp: number
+          snapshot_promotion_ends_at?: string | null
+          snapshot_promotion_id?: string | null
+          snapshot_public_name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cart_id?: string
+          created_at?: string
+          id?: string
+          publication_id?: string
+          quantity?: number
+          shop_id?: string
+          snapshot_at?: string
+          snapshot_compare_at_price_clp?: number | null
+          snapshot_image_url?: string | null
+          snapshot_price_clp?: number
+          snapshot_promotion_ends_at?: string | null
+          snapshot_promotion_id?: string | null
+          snapshot_public_name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_cart_items_cart_owner_fkey"
+            columns: ["user_id", "shop_id", "cart_id"]
+            referencedRelation: "customer_carts"
+            referencedColumns: ["user_id", "shop_id", "id"]
+          },
+        ]
+      }
+      customer_cart_mutations: {
+        Row: {
+          cart_id: string
+          created_at: string
+          expires_at: string
+          id: string
+          idempotency_key: string
+          operation: string
+          request_hash: string
+          response_payload: Json
+          shop_id: string
+          user_id: string
+        }
+        Insert: {
+          cart_id: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          idempotency_key: string
+          operation: string
+          request_hash: string
+          response_payload: Json
+          shop_id: string
+          user_id: string
+        }
+        Update: {
+          cart_id?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          idempotency_key?: string
+          operation?: string
+          request_hash?: string
+          response_payload?: Json
+          shop_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_cart_mutations_cart_owner_fkey"
+            columns: ["user_id", "shop_id", "cart_id"]
+            referencedRelation: "customer_carts"
+            referencedColumns: ["user_id", "shop_id", "id"]
+          },
+        ]
+      }
+      customer_carts: {
+        Row: {
+          cart_version: number
+          created_at: string
+          id: string
+          last_revalidated_at: string | null
+          shop_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          cart_version?: number
+          created_at?: string
+          id?: string
+          last_revalidated_at?: string | null
+          shop_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          cart_version?: number
+          created_at?: string
+          id?: string
+          last_revalidated_at?: string | null
+          shop_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_carts_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_checkout_mutations: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          idempotency_key: string
+          operation: string
+          quote_id: string | null
+          request_sha256: string
+          response_payload: Json
+          shop_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          idempotency_key: string
+          operation: string
+          quote_id?: string | null
+          request_sha256: string
+          response_payload: Json
+          shop_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          idempotency_key?: string
+          operation?: string
+          quote_id?: string | null
+          request_sha256?: string
+          response_payload?: Json
+          shop_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_checkout_mutations_quote_id_fkey"
+            columns: ["quote_id"]
+            referencedRelation: "customer_checkout_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_checkout_mutations_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_checkout_quotes: {
+        Row: {
+          address_id: string | null
+          address_snapshot: Json | null
+          cart_id: string
+          cart_version: number
+          changes: Json
+          confirmed_at: string | null
+          consumed_at: string | null
+          currency_code: string
+          delivery_fee_clp: number
+          delivery_zone_id: string | null
+          expires_at: string
+          fulfillment_mode: string
+          id: string
+          items_snapshot: Json
+          pickup_point_id: string | null
+          quote_version: number
+          quoted_at: string
+          shop_id: string
+          slot_id: string
+          status: string
+          subtotal_clp: number
+          total_clp: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address_id?: string | null
+          address_snapshot?: Json | null
+          cart_id: string
+          cart_version: number
+          changes?: Json
+          confirmed_at?: string | null
+          consumed_at?: string | null
+          currency_code?: string
+          delivery_fee_clp?: number
+          delivery_zone_id?: string | null
+          expires_at: string
+          fulfillment_mode: string
+          id?: string
+          items_snapshot: Json
+          pickup_point_id?: string | null
+          quote_version?: number
+          quoted_at?: string
+          shop_id: string
+          slot_id: string
+          status: string
+          subtotal_clp: number
+          total_clp: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address_id?: string | null
+          address_snapshot?: Json | null
+          cart_id?: string
+          cart_version?: number
+          changes?: Json
+          confirmed_at?: string | null
+          consumed_at?: string | null
+          currency_code?: string
+          delivery_fee_clp?: number
+          delivery_zone_id?: string | null
+          expires_at?: string
+          fulfillment_mode?: string
+          id?: string
+          items_snapshot?: Json
+          pickup_point_id?: string | null
+          quote_version?: number
+          quoted_at?: string
+          shop_id?: string
+          slot_id?: string
+          status?: string
+          subtotal_clp?: number
+          total_clp?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_checkout_quotes_address_owner_fkey"
+            columns: ["user_id", "address_id"]
+            referencedRelation: "customer_addresses"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_checkout_quotes_cart_owner_fkey"
+            columns: ["user_id", "shop_id", "cart_id"]
+            referencedRelation: "customer_carts"
+            referencedColumns: ["user_id", "shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_checkout_quotes_pickup_fkey"
+            columns: ["shop_id", "pickup_point_id"]
+            referencedRelation: "storefront_pickup_points"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_checkout_quotes_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "customer_checkout_quotes_slot_fkey"
+            columns: ["shop_id", "slot_id"]
+            referencedRelation: "storefront_fulfillment_slots"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_checkout_quotes_zone_fkey"
+            columns: ["shop_id", "delivery_zone_id"]
+            referencedRelation: "storefront_delivery_zones"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
+      customer_delivery_contexts: {
+        Row: {
+          address_id: string | null
+          delivery_zone_id: string | null
+          earliest_slot_ends_at: string | null
+          earliest_slot_starts_at: string | null
+          estimated_fee_clp: number | null
+          mode: string
+          owner_user_id: string
+          pickup_point_id: string | null
+          selected_at: string
+          server_time: string
+          serviceability_status: string
+          shop_id: string
+          shop_slug: string
+          version: number
+        }
+        Insert: {
+          address_id?: string | null
+          delivery_zone_id?: string | null
+          earliest_slot_ends_at?: string | null
+          earliest_slot_starts_at?: string | null
+          estimated_fee_clp?: number | null
+          mode: string
+          owner_user_id: string
+          pickup_point_id?: string | null
+          selected_at?: string
+          server_time?: string
+          serviceability_status: string
+          shop_id: string
+          shop_slug: string
+          version?: number
+        }
+        Update: {
+          address_id?: string | null
+          delivery_zone_id?: string | null
+          earliest_slot_ends_at?: string | null
+          earliest_slot_starts_at?: string | null
+          estimated_fee_clp?: number | null
+          mode?: string
+          owner_user_id?: string
+          pickup_point_id?: string | null
+          selected_at?: string
+          server_time?: string
+          serviceability_status?: string
+          shop_id?: string
+          shop_slug?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_delivery_context_address_owner_fkey"
+            columns: ["owner_user_id", "address_id"]
+            referencedRelation: "customer_addresses"
+            referencedColumns: ["user_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_delivery_context_pickup_fkey"
+            columns: ["shop_id", "pickup_point_id"]
+            referencedRelation: "storefront_pickup_points"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_delivery_context_zone_fkey"
+            columns: ["shop_id", "delivery_zone_id"]
+            referencedRelation: "storefront_delivery_zones"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_delivery_contexts_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_devices: {
+        Row: {
+          consent_status: string
+          consented_at: string | null
+          created_at: string
+          expires_at: string | null
+          id: string
+          installation_id: string
+          last_idempotency_key: string
+          last_operation: string
+          last_request_hash: string
+          last_seen_at: string
+          locale: string
+          permission_status: string
+          platform: string
+          push_token: string | null
+          push_token_hash: string | null
+          registration_version: number
+          revoked_at: string | null
+          token_updated_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          consent_status?: string
+          consented_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          installation_id: string
+          last_idempotency_key: string
+          last_operation?: string
+          last_request_hash: string
+          last_seen_at?: string
+          locale?: string
+          permission_status?: string
+          platform: string
+          push_token?: string | null
+          push_token_hash?: string | null
+          registration_version?: number
+          revoked_at?: string | null
+          token_updated_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          consent_status?: string
+          consented_at?: string | null
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          installation_id?: string
+          last_idempotency_key?: string
+          last_operation?: string
+          last_request_hash?: string
+          last_seen_at?: string
+          locale?: string
+          permission_status?: string
+          platform?: string
+          push_token?: string | null
+          push_token_hash?: string | null
+          registration_version?: number
+          revoked_at?: string | null
+          token_updated_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      customer_notification_deliveries: {
+        Row: {
+          attempt_count: number
+          available_at: string
+          created_at: string
+          delivered_at: string | null
+          destination_generation: number
+          device_id: string
+          event_id: string
+          id: string
+          last_error_code: string | null
+          lease_expires_at: string | null
+          lease_token: string | null
+          provider_message_id_hash: string | null
+          retained_until: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          available_at?: string
+          created_at?: string
+          delivered_at?: string | null
+          destination_generation: number
+          device_id: string
+          event_id: string
+          id?: string
+          last_error_code?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          provider_message_id_hash?: string | null
+          retained_until?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          available_at?: string
+          created_at?: string
+          delivered_at?: string | null
+          destination_generation?: number
+          device_id?: string
+          event_id?: string
+          id?: string
+          last_error_code?: string | null
+          lease_expires_at?: string | null
+          lease_token?: string | null
+          provider_message_id_hash?: string | null
+          retained_until?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_notification_deliveries_device_id_fkey"
+            columns: ["device_id"]
+            referencedRelation: "customer_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_notification_deliveries_event_id_fkey"
+            columns: ["event_id"]
+            referencedRelation: "customer_notification_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_notification_events: {
+        Row: {
+          body_key: string
+          category: string
+          created_at: string
+          destination_id: string | null
+          destination_type: string
+          event_key: string
+          event_version: number
+          expires_at: string | null
+          id: string
+          occurred_at: string
+          order_id: string | null
+          public_order_code_short: string | null
+          read_at: string | null
+          reservation_hold_id: string | null
+          route_token: string
+          safe_arguments: Json
+          shop_id: string
+          shop_slug: string
+          source_event_id: string | null
+          source_kind: string
+          title_key: string
+          user_id: string
+        }
+        Insert: {
+          body_key?: string
+          category?: string
+          created_at?: string
+          destination_id?: string | null
+          destination_type?: string
+          event_key: string
+          event_version: number
+          expires_at?: string | null
+          id?: string
+          occurred_at: string
+          order_id?: string | null
+          public_order_code_short?: string | null
+          read_at?: string | null
+          reservation_hold_id?: string | null
+          route_token?: string
+          safe_arguments?: Json
+          shop_id: string
+          shop_slug: string
+          source_event_id?: string | null
+          source_kind: string
+          title_key?: string
+          user_id: string
+        }
+        Update: {
+          body_key?: string
+          category?: string
+          created_at?: string
+          destination_id?: string | null
+          destination_type?: string
+          event_key?: string
+          event_version?: number
+          expires_at?: string | null
+          id?: string
+          occurred_at?: string
+          order_id?: string | null
+          public_order_code_short?: string | null
+          read_at?: string | null
+          reservation_hold_id?: string | null
+          route_token?: string
+          safe_arguments?: Json
+          shop_id?: string
+          shop_slug?: string
+          source_event_id?: string | null
+          source_kind?: string
+          title_key?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_notification_events_order_id_fkey"
+            columns: ["order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_notification_events_reservation_hold_id_fkey"
+            columns: ["reservation_hold_id"]
+            referencedRelation: "customer_reservation_holds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_notification_events_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "customer_notification_events_source_event_id_fkey"
+            columns: ["source_event_id"]
+            referencedRelation: "customer_order_status_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_notification_receipts: {
+        Row: {
+          ack_idempotency_key: string
+          created_at: string
+          delivery_id: string
+          id: string
+          request_sha256: string
+          response_payload: Json
+          retained_until: string
+        }
+        Insert: {
+          ack_idempotency_key: string
+          created_at?: string
+          delivery_id: string
+          id?: string
+          request_sha256: string
+          response_payload: Json
+          retained_until?: string
+        }
+        Update: {
+          ack_idempotency_key?: string
+          created_at?: string
+          delivery_id?: string
+          id?: string
+          request_sha256?: string
+          response_payload?: Json
+          retained_until?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_notification_receipts_delivery_id_fkey"
+            columns: ["delivery_id"]
+            referencedRelation: "customer_notification_deliveries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_order_admin_mutations: {
+        Row: {
+          actor_kind: string
+          actor_profile_id: string | null
+          actor_staff_id: string | null
+          created_at: string
+          expected_status_version: number
+          id: string
+          idempotency_key: string
+          operation: string
+          order_id: string
+          request_sha256: string
+          response_payload: Json
+          retained_until: string
+          shop_id: string
+        }
+        Insert: {
+          actor_kind: string
+          actor_profile_id?: string | null
+          actor_staff_id?: string | null
+          created_at?: string
+          expected_status_version: number
+          id?: string
+          idempotency_key: string
+          operation: string
+          order_id: string
+          request_sha256: string
+          response_payload: Json
+          retained_until?: string
+          shop_id: string
+        }
+        Update: {
+          actor_kind?: string
+          actor_profile_id?: string | null
+          actor_staff_id?: string | null
+          created_at?: string
+          expected_status_version?: number
+          id?: string
+          idempotency_key?: string
+          operation?: string
+          order_id?: string
+          request_sha256?: string
+          response_payload?: Json
+          retained_until?: string
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_order_admin_mutations_actor_profile_id_fkey"
+            columns: ["actor_profile_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "customer_order_admin_mutations_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "customer_order_admin_mutations_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "customer_order_admin_mutations_order_shop_fkey"
+            columns: ["shop_id", "order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_order_admin_mutations_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_order_items: {
+        Row: {
+          compare_at_price_clp: number | null
+          created_at: string
+          hold_id: string | null
+          id: string
+          line_position: number
+          line_total_clp: number
+          order_id: string
+          promotion_ends_at: string | null
+          promotion_name: string | null
+          public_name: string
+          publication_id: string
+          quantity: number
+          shop_id: string
+          source_product_id: string
+          unit_price_clp: number
+        }
+        Insert: {
+          compare_at_price_clp?: number | null
+          created_at?: string
+          hold_id?: string | null
+          id?: string
+          line_position: number
+          line_total_clp: number
+          order_id: string
+          promotion_ends_at?: string | null
+          promotion_name?: string | null
+          public_name: string
+          publication_id: string
+          quantity: number
+          shop_id: string
+          source_product_id: string
+          unit_price_clp: number
+        }
+        Update: {
+          compare_at_price_clp?: number | null
+          created_at?: string
+          hold_id?: string | null
+          id?: string
+          line_position?: number
+          line_total_clp?: number
+          order_id?: string
+          promotion_ends_at?: string | null
+          promotion_name?: string | null
+          public_name?: string
+          publication_id?: string
+          quantity?: number
+          shop_id?: string
+          source_product_id?: string
+          unit_price_clp?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_order_items_hold_id_fkey"
+            columns: ["hold_id"]
+            referencedRelation: "customer_reservation_holds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_order_items_order_id_fkey"
+            columns: ["order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_order_items_order_shop_fkey"
+            columns: ["shop_id", "order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_order_items_publication_fkey"
+            columns: ["shop_id", "publication_id"]
+            referencedRelation: "storefront_product_publications"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_order_items_source_product_id_fkey"
+            columns: ["source_product_id"]
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_order_mutations: {
+        Row: {
+          created_at: string
+          id: string
+          idempotency_key: string
+          operation: string
+          order_id: string | null
+          quote_id: string | null
+          request_sha256: string
+          response_payload: Json
+          retained_until: string
+          shop_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          operation?: string
+          order_id?: string | null
+          quote_id?: string | null
+          request_sha256: string
+          response_payload: Json
+          retained_until?: string
+          shop_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          operation?: string
+          order_id?: string | null
+          quote_id?: string | null
+          request_sha256?: string
+          response_payload?: Json
+          retained_until?: string
+          shop_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_order_mutations_order_id_fkey"
+            columns: ["order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_order_mutations_quote_id_fkey"
+            columns: ["quote_id"]
+            referencedRelation: "customer_checkout_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_order_mutations_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_order_outbox: {
+        Row: {
+          attempt_count: number
+          available_at: string
+          created_at: string
+          delivered_at: string | null
+          event_type: string
+          id: string
+          idempotency_key: string
+          last_error_code: string | null
+          lease_expires_at: string | null
+          lease_session_id: string | null
+          lease_token: string | null
+          leased_by_device_id: string | null
+          order_id: string
+          payload: Json
+          shop_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_count?: number
+          available_at?: string
+          created_at?: string
+          delivered_at?: string | null
+          event_type: string
+          id?: string
+          idempotency_key: string
+          last_error_code?: string | null
+          lease_expires_at?: string | null
+          lease_session_id?: string | null
+          lease_token?: string | null
+          leased_by_device_id?: string | null
+          order_id: string
+          payload: Json
+          shop_id: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_count?: number
+          available_at?: string
+          created_at?: string
+          delivered_at?: string | null
+          event_type?: string
+          id?: string
+          idempotency_key?: string
+          last_error_code?: string | null
+          lease_expires_at?: string | null
+          lease_session_id?: string | null
+          lease_token?: string | null
+          leased_by_device_id?: string | null
+          order_id?: string
+          payload?: Json
+          shop_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_order_outbox_lease_session_id_fkey"
+            columns: ["lease_session_id"]
+            referencedRelation: "pos_sessions"
+            referencedColumns: ["pos_session_id"]
+          },
+          {
+            foreignKeyName: "customer_order_outbox_leased_by_device_id_fkey"
+            columns: ["leased_by_device_id"]
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "customer_order_outbox_order_id_fkey"
+            columns: ["order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_order_outbox_order_shop_fkey"
+            columns: ["shop_id", "order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
+      customer_order_payments: {
+        Row: {
+          amount_clp: number
+          created_at: string
+          currency_code: string
+          failure_code: string | null
+          id: string
+          method: string
+          order_id: string
+          provider_key: string
+          provider_reference_sha256: string | null
+          shop_id: string
+          status: string
+          status_version: number
+          terminal_at: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount_clp: number
+          created_at?: string
+          currency_code?: string
+          failure_code?: string | null
+          id?: string
+          method: string
+          order_id: string
+          provider_key?: string
+          provider_reference_sha256?: string | null
+          shop_id: string
+          status: string
+          status_version?: number
+          terminal_at?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount_clp?: number
+          created_at?: string
+          currency_code?: string
+          failure_code?: string | null
+          id?: string
+          method?: string
+          order_id?: string
+          provider_key?: string
+          provider_reference_sha256?: string | null
+          shop_id?: string
+          status?: string
+          status_version?: number
+          terminal_at?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_order_payments_order_id_fkey"
+            columns: ["order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_order_payments_order_shop_fkey"
+            columns: ["shop_id", "order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_order_payments_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_order_pos_receipts: {
+        Row: {
+          ack_idempotency_key: string
+          committed_status_version: number
+          created_at: string
+          expected_status_version: number
+          handoff_id: string
+          id: string
+          lease_token: string
+          order_id: string
+          outcome: string
+          pos_sale_id: string | null
+          pos_session_id: string
+          request_sha256: string
+          response_payload: Json
+          retained_until: string
+          shop_device_id: string
+          shop_id: string
+          staff_id: string
+        }
+        Insert: {
+          ack_idempotency_key: string
+          committed_status_version: number
+          created_at?: string
+          expected_status_version: number
+          handoff_id: string
+          id?: string
+          lease_token: string
+          order_id: string
+          outcome: string
+          pos_sale_id?: string | null
+          pos_session_id: string
+          request_sha256: string
+          response_payload: Json
+          retained_until?: string
+          shop_device_id: string
+          shop_id: string
+          staff_id: string
+        }
+        Update: {
+          ack_idempotency_key?: string
+          committed_status_version?: number
+          created_at?: string
+          expected_status_version?: number
+          handoff_id?: string
+          id?: string
+          lease_token?: string
+          order_id?: string
+          outcome?: string
+          pos_sale_id?: string | null
+          pos_session_id?: string
+          request_sha256?: string
+          response_payload?: Json
+          retained_until?: string
+          shop_device_id?: string
+          shop_id?: string
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_order_pos_receipts_handoff_shop_fkey"
+            columns: ["shop_id", "handoff_id"]
+            referencedRelation: "customer_order_outbox"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_order_pos_receipts_order_shop_fkey"
+            columns: ["shop_id", "order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_order_pos_receipts_pos_sale_id_fkey"
+            columns: ["pos_sale_id"]
+            referencedRelation: "pos_sales"
+            referencedColumns: ["pos_sale_id"]
+          },
+          {
+            foreignKeyName: "customer_order_pos_receipts_pos_session_id_fkey"
+            columns: ["pos_session_id"]
+            referencedRelation: "pos_sessions"
+            referencedColumns: ["pos_session_id"]
+          },
+          {
+            foreignKeyName: "customer_order_pos_receipts_shop_device_id_fkey"
+            columns: ["shop_device_id"]
+            referencedRelation: "shop_devices"
+            referencedColumns: ["shop_device_id"]
+          },
+          {
+            foreignKeyName: "customer_order_pos_receipts_staff_id_fkey"
+            columns: ["staff_id"]
+            referencedRelation: "staff_accounts"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "customer_order_pos_receipts_staff_id_fkey"
+            columns: ["staff_id"]
+            referencedRelation: "staff_accounts_safe"
+            referencedColumns: ["staff_id"]
+          },
+        ]
+      }
+      customer_order_status_events: {
+        Row: {
+          actor_kind: string
+          created_at: string
+          event_version: number
+          id: string
+          metadata_redacted: Json
+          order_id: string
+          shop_id: string
+          status: string
+        }
+        Insert: {
+          actor_kind?: string
+          created_at?: string
+          event_version: number
+          id?: string
+          metadata_redacted?: Json
+          order_id: string
+          shop_id: string
+          status: string
+        }
+        Update: {
+          actor_kind?: string
+          created_at?: string
+          event_version?: number
+          id?: string
+          metadata_redacted?: Json
+          order_id?: string
+          shop_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_order_status_events_order_id_fkey"
+            columns: ["order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_order_status_events_order_shop_fkey"
+            columns: ["shop_id", "order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
+      customer_orders: {
+        Row: {
+          cart_id: string | null
+          currency_code: string
+          delivery_fee_clp: number
+          fulfillment_mode: string
+          fulfillment_snapshot: Json
+          id: string
+          placed_at: string
+          public_order_code: string
+          quote_id: string | null
+          quote_version: number
+          shop_id: string
+          slot_id: string
+          status: string
+          status_version: number
+          subtotal_clp: number
+          total_clp: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          cart_id?: string | null
+          currency_code?: string
+          delivery_fee_clp?: number
+          fulfillment_mode: string
+          fulfillment_snapshot: Json
+          id?: string
+          placed_at?: string
+          public_order_code?: string
+          quote_id?: string | null
+          quote_version: number
+          shop_id: string
+          slot_id: string
+          status?: string
+          status_version?: number
+          subtotal_clp: number
+          total_clp: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          cart_id?: string | null
+          currency_code?: string
+          delivery_fee_clp?: number
+          fulfillment_mode?: string
+          fulfillment_snapshot?: Json
+          id?: string
+          placed_at?: string
+          public_order_code?: string
+          quote_id?: string | null
+          quote_version?: number
+          shop_id?: string
+          slot_id?: string
+          status?: string
+          status_version?: number
+          subtotal_clp?: number
+          total_clp?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_orders_quote_id_fkey"
+            columns: ["quote_id"]
+            referencedRelation: "customer_checkout_quotes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_orders_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "customer_orders_slot_fkey"
+            columns: ["shop_id", "slot_id"]
+            referencedRelation: "storefront_fulfillment_slots"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
+      customer_payment_attempts: {
+        Row: {
+          attempt_number: number
+          created_at: string
+          failure_code: string | null
+          id: string
+          idempotency_key: string
+          payment_id: string
+          provider_attempt_sha256: string | null
+          provider_key: string
+          request_sha256: string
+          shop_id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          attempt_number: number
+          created_at?: string
+          failure_code?: string | null
+          id?: string
+          idempotency_key: string
+          payment_id: string
+          provider_attempt_sha256?: string | null
+          provider_key?: string
+          request_sha256: string
+          shop_id: string
+          status: string
+          updated_at?: string
+        }
+        Update: {
+          attempt_number?: number
+          created_at?: string
+          failure_code?: string | null
+          id?: string
+          idempotency_key?: string
+          payment_id?: string
+          provider_attempt_sha256?: string | null
+          provider_key?: string
+          request_sha256?: string
+          shop_id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_payment_attempts_payment_id_fkey"
+            columns: ["payment_id"]
+            referencedRelation: "customer_order_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_payment_attempts_payment_shop_fkey"
+            columns: ["shop_id", "payment_id"]
+            referencedRelation: "customer_order_payments"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
+      customer_payment_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          event_version: number
+          id: string
+          metadata_redacted: Json
+          occurred_at: string
+          payment_id: string
+          provider_event_id_sha256: string | null
+          provider_key: string
+          shop_id: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          event_version: number
+          id?: string
+          metadata_redacted?: Json
+          occurred_at: string
+          payment_id: string
+          provider_event_id_sha256?: string | null
+          provider_key?: string
+          shop_id: string
+          source: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          event_version?: number
+          id?: string
+          metadata_redacted?: Json
+          occurred_at?: string
+          payment_id?: string
+          provider_event_id_sha256?: string | null
+          provider_key?: string
+          shop_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_payment_events_payment_id_fkey"
+            columns: ["payment_id"]
+            referencedRelation: "customer_order_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_payment_events_payment_shop_fkey"
+            columns: ["shop_id", "payment_id"]
+            referencedRelation: "customer_order_payments"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
+      customer_payment_mutations: {
+        Row: {
+          created_at: string
+          id: string
+          idempotency_key: string
+          operation: string
+          order_id: string | null
+          payment_id: string | null
+          request_sha256: string
+          response_payload: Json
+          retained_until: string
+          shop_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          operation: string
+          order_id?: string | null
+          payment_id?: string | null
+          request_sha256: string
+          response_payload: Json
+          retained_until?: string
+          shop_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          operation?: string
+          order_id?: string | null
+          payment_id?: string | null
+          request_sha256?: string
+          response_payload?: Json
+          retained_until?: string
+          shop_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_payment_mutations_order_id_fkey"
+            columns: ["order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_payment_mutations_payment_id_fkey"
+            columns: ["payment_id"]
+            referencedRelation: "customer_order_payments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_payment_mutations_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_payment_webhook_receipts: {
+        Row: {
+          id: string
+          occurred_at: string
+          payload_sha256: string
+          processed_at: string | null
+          provider_event_id_sha256: string
+          provider_key: string
+          received_at: string
+          signature_validated: boolean
+          status: string
+        }
+        Insert: {
+          id?: string
+          occurred_at: string
+          payload_sha256: string
+          processed_at?: string | null
+          provider_event_id_sha256: string
+          provider_key: string
+          received_at?: string
+          signature_validated: boolean
+          status: string
+        }
+        Update: {
+          id?: string
+          occurred_at?: string
+          payload_sha256?: string
+          processed_at?: string | null
+          provider_event_id_sha256?: string
+          provider_key?: string
+          received_at?: string
+          signature_validated?: boolean
+          status?: string
+        }
+        Relationships: []
+      }
+      customer_product_review_events: {
+        Row: {
+          actor_kind: string
+          created_at: string
+          event_version: number
+          id: string
+          moderation_status: string
+          reason: string | null
+          review_id: string
+          shop_id: string
+        }
+        Insert: {
+          actor_kind: string
+          created_at?: string
+          event_version: number
+          id?: string
+          moderation_status: string
+          reason?: string | null
+          review_id: string
+          shop_id: string
+        }
+        Update: {
+          actor_kind?: string
+          created_at?: string
+          event_version?: number
+          id?: string
+          moderation_status?: string
+          reason?: string | null
+          review_id?: string
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_product_review_events_review_id_fkey"
+            columns: ["review_id"]
+            referencedRelation: "customer_product_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_product_review_events_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_product_reviews: {
+        Row: {
+          comment: string | null
+          id: string
+          moderated_at: string | null
+          moderation_reason: string | null
+          moderation_status: string
+          order_id: string
+          order_item_id: string
+          publication_id: string
+          rating: number
+          shop_id: string
+          submitted_at: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          comment?: string | null
+          id?: string
+          moderated_at?: string | null
+          moderation_reason?: string | null
+          moderation_status?: string
+          order_id: string
+          order_item_id: string
+          publication_id: string
+          rating: number
+          shop_id: string
+          submitted_at?: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          comment?: string | null
+          id?: string
+          moderated_at?: string | null
+          moderation_reason?: string | null
+          moderation_status?: string
+          order_id?: string
+          order_item_id?: string
+          publication_id?: string
+          rating?: number
+          shop_id?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_product_reviews_order_id_fkey"
+            columns: ["order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_product_reviews_order_item_id_fkey"
+            columns: ["order_item_id"]
+            referencedRelation: "customer_order_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_product_reviews_publication_id_fkey"
+            columns: ["publication_id"]
+            referencedRelation: "storefront_product_publications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_product_reviews_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          locale: string
+          privacy_consent_version: string | null
+          privacy_consented_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          locale?: string
+          privacy_consent_version?: string | null
+          privacy_consented_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          locale?: string
+          privacy_consent_version?: string | null
+          privacy_consented_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      customer_reorder_mutations: {
+        Row: {
+          created_at: string
+          id: string
+          idempotency_key: string
+          order_id: string
+          request_sha256: string
+          response_payload: Json
+          retained_until: string
+          shop_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          order_id: string
+          request_sha256: string
+          response_payload: Json
+          retained_until?: string
+          shop_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          order_id?: string
+          request_sha256?: string
+          response_payload?: Json
+          retained_until?: string
+          shop_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_reorder_mutations_order_id_fkey"
+            columns: ["order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_reorder_mutations_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_reservation_hold_mutations: {
+        Row: {
+          created_at: string
+          hold_id: string | null
+          id: string
+          idempotency_key: string
+          operation: string
+          request_sha256: string
+          response_payload: Json
+          retained_until: string
+          shop_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          hold_id?: string | null
+          id?: string
+          idempotency_key: string
+          operation: string
+          request_sha256: string
+          response_payload: Json
+          retained_until?: string
+          shop_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          hold_id?: string | null
+          id?: string
+          idempotency_key?: string
+          operation?: string
+          request_sha256?: string
+          response_payload?: Json
+          retained_until?: string
+          shop_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_reservation_hold_mutations_hold_id_fkey"
+            columns: ["hold_id"]
+            referencedRelation: "customer_reservation_holds"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_reservation_hold_mutations_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_reservation_holds: {
+        Row: {
+          create_idempotency_key: string
+          create_request_sha256: string
+          created_at: string
+          expires_at: string
+          id: string
+          publication_id: string
+          quantity: number
+          shop_id: string
+          source_product_id: string
+          status: string
+          terminal_at: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          create_idempotency_key: string
+          create_request_sha256: string
+          created_at?: string
+          expires_at: string
+          id?: string
+          publication_id: string
+          quantity: number
+          shop_id: string
+          source_product_id: string
+          status?: string
+          terminal_at?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          create_idempotency_key?: string
+          create_request_sha256?: string
+          created_at?: string
+          expires_at?: string
+          id?: string
+          publication_id?: string
+          quantity?: number
+          shop_id?: string
+          source_product_id?: string
+          status?: string
+          terminal_at?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_reservation_holds_publication_fkey"
+            columns: ["shop_id", "publication_id"]
+            referencedRelation: "storefront_product_publications"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_reservation_holds_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "customer_reservation_holds_source_product_id_fkey"
+            columns: ["source_product_id"]
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_service_case_events: {
+        Row: {
+          actor_kind: string
+          case_id: string
+          created_at: string
+          event_version: number
+          id: string
+          metadata_redacted: Json
+          note_key: string | null
+          shop_id: string
+          status: string
+        }
+        Insert: {
+          actor_kind: string
+          case_id: string
+          created_at?: string
+          event_version: number
+          id?: string
+          metadata_redacted?: Json
+          note_key?: string | null
+          shop_id: string
+          status: string
+        }
+        Update: {
+          actor_kind?: string
+          case_id?: string
+          created_at?: string
+          event_version?: number
+          id?: string
+          metadata_redacted?: Json
+          note_key?: string | null
+          shop_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_service_case_events_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "customer_service_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_service_case_events_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_service_case_evidence: {
+        Row: {
+          byte_size: number | null
+          case_id: string
+          cleanup_claim_id: string | null
+          cleanup_claimed_at: string | null
+          created_at: string
+          exif_removed: boolean
+          height: number | null
+          id: string
+          mime_type: string | null
+          object_path: string
+          rejection_code: string | null
+          scan_status: string
+          scanned_at: string | null
+          shop_id: string
+          storage_deleted_at: string | null
+          user_id: string
+          width: number | null
+        }
+        Insert: {
+          byte_size?: number | null
+          case_id: string
+          cleanup_claim_id?: string | null
+          cleanup_claimed_at?: string | null
+          created_at?: string
+          exif_removed?: boolean
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          object_path: string
+          rejection_code?: string | null
+          scan_status?: string
+          scanned_at?: string | null
+          shop_id: string
+          storage_deleted_at?: string | null
+          user_id: string
+          width?: number | null
+        }
+        Update: {
+          byte_size?: number | null
+          case_id?: string
+          cleanup_claim_id?: string | null
+          cleanup_claimed_at?: string | null
+          created_at?: string
+          exif_removed?: boolean
+          height?: number | null
+          id?: string
+          mime_type?: string | null
+          object_path?: string
+          rejection_code?: string | null
+          scan_status?: string
+          scanned_at?: string | null
+          shop_id?: string
+          storage_deleted_at?: string | null
+          user_id?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_service_case_evidence_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "customer_service_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_service_case_evidence_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_service_case_evidence_upload_tickets: {
+        Row: {
+          case_id: string
+          cleanup_claim_id: string | null
+          cleanup_claimed_at: string | null
+          created_at: string
+          expires_at: string
+          extension: string
+          id: string
+          object_path: string
+          shop_id: string
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          case_id: string
+          cleanup_claim_id?: string | null
+          cleanup_claimed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          extension: string
+          id?: string
+          object_path: string
+          shop_id: string
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          case_id?: string
+          cleanup_claim_id?: string | null
+          cleanup_claimed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          extension?: string
+          id?: string
+          object_path?: string
+          shop_id?: string
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_service_case_evidence_upload_ticket_owner_fkey"
+            columns: ["user_id", "shop_id", "case_id"]
+            referencedRelation: "customer_service_cases"
+            referencedColumns: ["user_id", "shop_id", "id"]
+          },
+          {
+            foreignKeyName: "customer_service_case_evidence_upload_tickets_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "customer_service_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_service_case_evidence_upload_tickets_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_service_case_lines: {
+        Row: {
+          case_id: string
+          created_at: string
+          id: string
+          order_item_id: string
+          quantity: number
+        }
+        Insert: {
+          case_id: string
+          created_at?: string
+          id?: string
+          order_item_id: string
+          quantity: number
+        }
+        Update: {
+          case_id?: string
+          created_at?: string
+          id?: string
+          order_item_id?: string
+          quantity?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_service_case_lines_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "customer_service_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_service_case_lines_order_item_id_fkey"
+            columns: ["order_item_id"]
+            referencedRelation: "customer_order_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customer_service_case_mutations: {
+        Row: {
+          case_id: string | null
+          created_at: string
+          id: string
+          idempotency_key: string
+          operation: string
+          request_sha256: string
+          response_payload: Json
+          retained_until: string
+          shop_id: string
+          user_id: string
+        }
+        Insert: {
+          case_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key: string
+          operation: string
+          request_sha256: string
+          response_payload: Json
+          retained_until?: string
+          shop_id: string
+          user_id: string
+        }
+        Update: {
+          case_id?: string | null
+          created_at?: string
+          id?: string
+          idempotency_key?: string
+          operation?: string
+          request_sha256?: string
+          response_payload?: Json
+          retained_until?: string
+          shop_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_service_case_mutations_case_id_fkey"
+            columns: ["case_id"]
+            referencedRelation: "customer_service_cases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_service_case_mutations_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      customer_service_cases: {
+        Row: {
+          case_type: string
+          closed_at: string | null
+          customer_note: string | null
+          id: string
+          order_id: string
+          public_case_code: string
+          reason_key: string
+          shop_id: string
+          status: string
+          submitted_at: string
+          updated_at: string
+          user_id: string
+          version: number
+        }
+        Insert: {
+          case_type: string
+          closed_at?: string | null
+          customer_note?: string | null
+          id?: string
+          order_id: string
+          public_case_code?: string
+          reason_key: string
+          shop_id: string
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id: string
+          version?: number
+        }
+        Update: {
+          case_type?: string
+          closed_at?: string | null
+          customer_note?: string | null
+          id?: string
+          order_id?: string
+          public_case_code?: string
+          reason_key?: string
+          shop_id?: string
+          status?: string
+          submitted_at?: string
+          updated_at?: string
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_service_cases_order_id_fkey"
+            columns: ["order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_service_cases_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      storefront_catalog_items: {
+        Row: {
+          availability_mode: string
+          catalog_version: number
+          category_id: string
+          category_name: string
+          category_slug: string
+          category_sort_rank: number
+          compare_at_price_clp: number | null
+          content_sha256: string
+          delivery_enabled: boolean
+          discount_bps: number | null
+          featured: boolean
+          image_card_url: string | null
+          image_content_sha256: string | null
+          image_detail_url: string | null
+          image_thumb_url: string | null
+          image_version_key: string | null
+          pickup_enabled: boolean
+          price_clp: number
+          projected_at: string
+          promotion_ends_at: string | null
+          promotion_id: string | null
+          promotion_name: string | null
+          promotion_starts_at: string | null
+          public_barcode: string | null
+          public_brand: string | null
+          public_description: string | null
+          public_name: string
+          public_search_aliases: string[]
+          public_updated_at: string
+          publication_id: string
+          published_at: string
+          reservation_enabled: boolean
+          search_document: unknown
+          search_text: string
+          shop_delivery_enabled: boolean
+          shop_id: string
+          shop_pickup_enabled: boolean
+          shop_reservation_enabled: boolean
+          shop_slug: string
+          sort_rank: number
+          storefront_enabled: boolean
+        }
+        Insert: {
+          availability_mode: string
+          catalog_version: number
+          category_id: string
+          category_name: string
+          category_slug: string
+          category_sort_rank: number
+          compare_at_price_clp?: number | null
+          content_sha256: string
+          delivery_enabled: boolean
+          discount_bps?: number | null
+          featured: boolean
+          image_card_url?: string | null
+          image_content_sha256?: string | null
+          image_detail_url?: string | null
+          image_thumb_url?: string | null
+          image_version_key?: string | null
+          pickup_enabled: boolean
+          price_clp: number
+          projected_at?: string
+          promotion_ends_at?: string | null
+          promotion_id?: string | null
+          promotion_name?: string | null
+          promotion_starts_at?: string | null
+          public_barcode?: string | null
+          public_brand?: string | null
+          public_description?: string | null
+          public_name: string
+          public_search_aliases?: string[]
+          public_updated_at: string
+          publication_id: string
+          published_at: string
+          reservation_enabled: boolean
+          search_document: unknown
+          search_text: string
+          shop_delivery_enabled: boolean
+          shop_id: string
+          shop_pickup_enabled: boolean
+          shop_reservation_enabled: boolean
+          shop_slug: string
+          sort_rank: number
+          storefront_enabled: boolean
+        }
+        Update: {
+          availability_mode?: string
+          catalog_version?: number
+          category_id?: string
+          category_name?: string
+          category_slug?: string
+          category_sort_rank?: number
+          compare_at_price_clp?: number | null
+          content_sha256?: string
+          delivery_enabled?: boolean
+          discount_bps?: number | null
+          featured?: boolean
+          image_card_url?: string | null
+          image_content_sha256?: string | null
+          image_detail_url?: string | null
+          image_thumb_url?: string | null
+          image_version_key?: string | null
+          pickup_enabled?: boolean
+          price_clp?: number
+          projected_at?: string
+          promotion_ends_at?: string | null
+          promotion_id?: string | null
+          promotion_name?: string | null
+          promotion_starts_at?: string | null
+          public_barcode?: string | null
+          public_brand?: string | null
+          public_description?: string | null
+          public_name?: string
+          public_search_aliases?: string[]
+          public_updated_at?: string
+          publication_id?: string
+          published_at?: string
+          reservation_enabled?: boolean
+          search_document?: unknown
+          search_text?: string
+          shop_delivery_enabled?: boolean
+          shop_id?: string
+          shop_pickup_enabled?: boolean
+          shop_reservation_enabled?: boolean
+          shop_slug?: string
+          sort_rank?: number
+          storefront_enabled?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_catalog_items_category_fkey"
+            columns: ["shop_id", "category_id"]
+            referencedRelation: "storefront_categories"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "storefront_catalog_items_publication_fkey"
+            columns: ["shop_id", "publication_id"]
+            referencedRelation: "storefront_product_publications"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
+      storefront_catalog_versions: {
+        Row: {
+          catalog_version: number
+          content_sha256: string
+          item_count: number
+          rebuilt_at: string | null
+          shop_id: string
+          updated_at: string
+        }
+        Insert: {
+          catalog_version?: number
+          content_sha256: string
+          item_count?: number
+          rebuilt_at?: string | null
+          shop_id: string
+          updated_at?: string
+        }
+        Update: {
+          catalog_version?: number
+          content_sha256?: string
+          item_count?: number
+          rebuilt_at?: string | null
+          shop_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_catalog_versions_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      storefront_categories: {
+        Row: {
+          created_at: string
+          id: string
+          public_description: string | null
+          public_name: string
+          publication_status: string
+          shop_id: string
+          slug: string
+          sort_rank: number
+          source_category_id: string | null
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          public_description?: string | null
+          public_name: string
+          publication_status?: string
+          shop_id: string
+          slug: string
+          sort_rank?: number
+          source_category_id?: string | null
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          public_description?: string | null
+          public_name?: string
+          publication_status?: string
+          shop_id?: string
+          slug?: string
+          sort_rank?: number
+          source_category_id?: string | null
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_categories_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "storefront_categories_source_category_id_fkey"
+            columns: ["source_category_id"]
+            referencedRelation: "inventory_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storefront_categories_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      storefront_delivery_tracking_feed: {
+        Row: {
+          bearing_degrees: number | null
+          contact_capability: string
+          courier_public_label: string | null
+          destination_latitude: number | null
+          destination_longitude: number | null
+          eta_ends_at: string | null
+          eta_starts_at: string | null
+          external_carrier: string | null
+          external_tracking_code_masked: string | null
+          external_tracking_url: string | null
+          freshness: string
+          fulfillment_mode: string
+          horizontal_accuracy_meters: number | null
+          latitude: number | null
+          longitude: number | null
+          observed_at: string | null
+          order_id: string
+          order_status: string
+          order_status_version: number
+          received_at: string | null
+          server_time: string
+          speed_meters_per_second: number | null
+          store_latitude: number | null
+          store_longitude: number | null
+          tracking_mode: string
+          tracking_session_id: string | null
+          tracking_state: string
+          vehicle_kind: string | null
+          version: number
+        }
+        Insert: {
+          bearing_degrees?: number | null
+          contact_capability?: string
+          courier_public_label?: string | null
+          destination_latitude?: number | null
+          destination_longitude?: number | null
+          eta_ends_at?: string | null
+          eta_starts_at?: string | null
+          external_carrier?: string | null
+          external_tracking_code_masked?: string | null
+          external_tracking_url?: string | null
+          freshness: string
+          fulfillment_mode: string
+          horizontal_accuracy_meters?: number | null
+          latitude?: number | null
+          longitude?: number | null
+          observed_at?: string | null
+          order_id: string
+          order_status: string
+          order_status_version: number
+          received_at?: string | null
+          server_time?: string
+          speed_meters_per_second?: number | null
+          store_latitude?: number | null
+          store_longitude?: number | null
+          tracking_mode: string
+          tracking_session_id?: string | null
+          tracking_state: string
+          vehicle_kind?: string | null
+          version?: number
+        }
+        Update: {
+          bearing_degrees?: number | null
+          contact_capability?: string
+          courier_public_label?: string | null
+          destination_latitude?: number | null
+          destination_longitude?: number | null
+          eta_ends_at?: string | null
+          eta_starts_at?: string | null
+          external_carrier?: string | null
+          external_tracking_code_masked?: string | null
+          external_tracking_url?: string | null
+          freshness?: string
+          fulfillment_mode?: string
+          horizontal_accuracy_meters?: number | null
+          latitude?: number | null
+          longitude?: number | null
+          observed_at?: string | null
+          order_id?: string
+          order_status?: string
+          order_status_version?: number
+          received_at?: string | null
+          server_time?: string
+          speed_meters_per_second?: number | null
+          store_latitude?: number | null
+          store_longitude?: number | null
+          tracking_mode?: string
+          tracking_session_id?: string | null
+          tracking_state?: string
+          vehicle_kind?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_delivery_tracking_feed_order_id_fkey"
+            columns: ["order_id"]
+            referencedRelation: "customer_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      storefront_delivery_zone_communes: {
+        Row: {
+          commune: string
+          created_at: string
+          shop_id: string
+          zone_id: string
+        }
+        Insert: {
+          commune: string
+          created_at?: string
+          shop_id: string
+          zone_id: string
+        }
+        Update: {
+          commune?: string
+          created_at?: string
+          shop_id?: string
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_delivery_zone_communes_zone_fkey"
+            columns: ["shop_id", "zone_id"]
+            referencedRelation: "storefront_delivery_zones"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
+      storefront_delivery_zones: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          fee_clp: number
+          id: string
+          public_name: string
+          region: string
+          shop_id: string
+          sort_rank: number
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          fee_clp?: number
+          id?: string
+          public_name: string
+          region: string
+          shop_id: string
+          sort_rank?: number
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          fee_clp?: number
+          id?: string
+          public_name?: string
+          region?: string
+          shop_id?: string
+          sort_rank?: number
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_delivery_zones_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "storefront_delivery_zones_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      storefront_fulfillment_slots: {
+        Row: {
+          capacity: number
+          created_at: string
+          delivery_zone_id: string | null
+          enabled: boolean
+          ends_at: string
+          fulfillment_mode: string
+          id: string
+          pickup_point_id: string | null
+          public_label: string
+          shop_id: string
+          starts_at: string
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          capacity: number
+          created_at?: string
+          delivery_zone_id?: string | null
+          enabled?: boolean
+          ends_at: string
+          fulfillment_mode: string
+          id?: string
+          pickup_point_id?: string | null
+          public_label: string
+          shop_id: string
+          starts_at: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          capacity?: number
+          created_at?: string
+          delivery_zone_id?: string | null
+          enabled?: boolean
+          ends_at?: string
+          fulfillment_mode?: string
+          id?: string
+          pickup_point_id?: string | null
+          public_label?: string
+          shop_id?: string
+          starts_at?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_fulfillment_slots_pickup_fkey"
+            columns: ["shop_id", "pickup_point_id"]
+            referencedRelation: "storefront_pickup_points"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "storefront_fulfillment_slots_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "storefront_fulfillment_slots_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "storefront_fulfillment_slots_zone_fkey"
+            columns: ["shop_id", "delivery_zone_id"]
+            referencedRelation: "storefront_delivery_zones"
+            referencedColumns: ["shop_id", "id"]
+          },
+        ]
+      }
+      storefront_image_publications: {
+        Row: {
+          card_url: string | null
+          content_sha256: string | null
+          content_type: string | null
+          created_at: string
+          detail_url: string | null
+          height: number | null
+          id: string
+          publication_status: string
+          published_at: string | null
+          shop_id: string
+          source_image_version_id: string | null
+          source_product_id: string
+          thumb_url: string | null
+          updated_at: string
+          updated_by_profile_id: string | null
+          version_key: string
+          width: number | null
+        }
+        Insert: {
+          card_url?: string | null
+          content_sha256?: string | null
+          content_type?: string | null
+          created_at?: string
+          detail_url?: string | null
+          height?: number | null
+          id?: string
+          publication_status?: string
+          published_at?: string | null
+          shop_id: string
+          source_image_version_id?: string | null
+          source_product_id: string
+          thumb_url?: string | null
+          updated_at?: string
+          updated_by_profile_id?: string | null
+          version_key: string
+          width?: number | null
+        }
+        Update: {
+          card_url?: string | null
+          content_sha256?: string | null
+          content_type?: string | null
+          created_at?: string
+          detail_url?: string | null
+          height?: number | null
+          id?: string
+          publication_status?: string
+          published_at?: string | null
+          shop_id?: string
+          source_image_version_id?: string | null
+          source_product_id?: string
+          thumb_url?: string | null
+          updated_at?: string
+          updated_by_profile_id?: string | null
+          version_key?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_image_publications_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "storefront_image_publications_source_image_version_id_fkey"
+            columns: ["source_image_version_id"]
+            referencedRelation: "inventory_product_image_versions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storefront_image_publications_source_product_id_fkey"
+            columns: ["source_product_id"]
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storefront_image_publications_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      storefront_payment_settings: {
+        Row: {
+          cash_on_delivery_enabled: boolean
+          created_at: string
+          online_payment_enabled: boolean
+          online_provider: string
+          pay_at_pickup_enabled: boolean
+          revision: number
+          shop_id: string
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          cash_on_delivery_enabled?: boolean
+          created_at?: string
+          online_payment_enabled?: boolean
+          online_provider?: string
+          pay_at_pickup_enabled?: boolean
+          revision?: number
+          shop_id: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          cash_on_delivery_enabled?: boolean
+          created_at?: string
+          online_payment_enabled?: boolean
+          online_provider?: string
+          pay_at_pickup_enabled?: boolean
+          revision?: number
+          shop_id?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_payment_settings_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "storefront_payment_settings_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      storefront_pickup_points: {
+        Row: {
+          address_line_1: string
+          address_line_2: string | null
+          commune: string
+          created_at: string
+          enabled: boolean
+          id: string
+          public_instructions: string | null
+          public_name: string
+          region: string
+          shop_id: string
+          sort_rank: number
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          address_line_1: string
+          address_line_2?: string | null
+          commune: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          public_instructions?: string | null
+          public_name: string
+          region: string
+          shop_id: string
+          sort_rank?: number
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          address_line_1?: string
+          address_line_2?: string | null
+          commune?: string
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          public_instructions?: string | null
+          public_name?: string
+          region?: string
+          shop_id?: string
+          sort_rank?: number
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_pickup_points_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "storefront_pickup_points_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      storefront_product_publications: {
+        Row: {
+          availability_mode: string
+          catalog_version: number
+          compare_at_price_clp: number | null
+          delivery_enabled: boolean
+          featured: boolean
+          id: string
+          last_changed_fields: string[]
+          last_correlation_id: string | null
+          last_mutation_source: string
+          pickup_enabled: boolean
+          price_source_mode: string
+          promotion_ends_at: string | null
+          promotion_starts_at: string | null
+          public_barcode: string | null
+          public_brand: string | null
+          public_category_id: string | null
+          public_description: string | null
+          public_name: string
+          public_search_aliases: string[]
+          publication_status: string
+          published_at: string | null
+          published_image_version_id: string | null
+          reservation_enabled: boolean
+          retail_price_clp: number
+          shop_id: string
+          sort_rank: number
+          source_product_id: string
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          availability_mode?: string
+          catalog_version?: number
+          compare_at_price_clp?: number | null
+          delivery_enabled?: boolean
+          featured?: boolean
+          id?: string
+          last_changed_fields?: string[]
+          last_correlation_id?: string | null
+          last_mutation_source?: string
+          pickup_enabled?: boolean
+          price_source_mode?: string
+          promotion_ends_at?: string | null
+          promotion_starts_at?: string | null
+          public_barcode?: string | null
+          public_brand?: string | null
+          public_category_id?: string | null
+          public_description?: string | null
+          public_name: string
+          public_search_aliases?: string[]
+          publication_status?: string
+          published_at?: string | null
+          published_image_version_id?: string | null
+          reservation_enabled?: boolean
+          retail_price_clp: number
+          shop_id: string
+          sort_rank?: number
+          source_product_id: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          availability_mode?: string
+          catalog_version?: number
+          compare_at_price_clp?: number | null
+          delivery_enabled?: boolean
+          featured?: boolean
+          id?: string
+          last_changed_fields?: string[]
+          last_correlation_id?: string | null
+          last_mutation_source?: string
+          pickup_enabled?: boolean
+          price_source_mode?: string
+          promotion_ends_at?: string | null
+          promotion_starts_at?: string | null
+          public_barcode?: string | null
+          public_brand?: string | null
+          public_category_id?: string | null
+          public_description?: string | null
+          public_name?: string
+          public_search_aliases?: string[]
+          publication_status?: string
+          published_at?: string | null
+          published_image_version_id?: string | null
+          reservation_enabled?: boolean
+          retail_price_clp?: number
+          shop_id?: string
+          sort_rank?: number
+          source_product_id?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_product_publications_category_fkey"
+            columns: ["shop_id", "public_category_id"]
+            referencedRelation: "storefront_categories"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "storefront_product_publications_image_fkey"
+            columns: ["shop_id", "published_image_version_id"]
+            referencedRelation: "storefront_image_publications"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "storefront_product_publications_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "storefront_product_publications_source_product_id_fkey"
+            columns: ["source_product_id"]
+            referencedRelation: "inventory_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storefront_product_publications_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      storefront_promotion_products: {
+        Row: {
+          created_at: string
+          created_by_profile_id: string | null
+          excluded: boolean
+          promotion_id: string
+          publication_id: string
+          shop_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_profile_id?: string | null
+          excluded?: boolean
+          promotion_id: string
+          publication_id: string
+          shop_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by_profile_id?: string | null
+          excluded?: boolean
+          promotion_id?: string
+          publication_id?: string
+          shop_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_promotion_products_created_by_profile_id_fkey"
+            columns: ["created_by_profile_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+          {
+            foreignKeyName: "storefront_promotion_products_promotion_fkey"
+            columns: ["shop_id", "promotion_id"]
+            referencedRelation: "storefront_promotions"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "storefront_promotion_products_publication_fkey"
+            columns: ["shop_id", "publication_id"]
+            referencedRelation: "storefront_product_publications"
+            referencedColumns: ["shop_id", "id"]
+          },
+          {
+            foreignKeyName: "storefront_promotion_products_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      storefront_promotions: {
+        Row: {
+          created_at: string
+          discount_type: string
+          discount_value: number
+          ends_at: string
+          id: string
+          priority: number
+          public_description: string | null
+          public_name: string
+          publication_status: string
+          shop_id: string
+          starts_at: string
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          discount_type: string
+          discount_value: number
+          ends_at: string
+          id?: string
+          priority?: number
+          public_description?: string | null
+          public_name: string
+          publication_status?: string
+          shop_id: string
+          starts_at: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          discount_type?: string
+          discount_value?: number
+          ends_at?: string
+          id?: string
+          priority?: number
+          public_description?: string | null
+          public_name?: string
+          publication_status?: string
+          shop_id?: string
+          starts_at?: string
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_promotions_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "storefront_promotions_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
+      storefront_review_aggregates: {
+        Row: {
+          average_rating: number
+          distribution: Json
+          publication_id: string
+          published_count: number
+          shop_id: string
+          updated_at: string
+        }
+        Insert: {
+          average_rating?: number
+          distribution?: Json
+          publication_id: string
+          published_count?: number
+          shop_id: string
+          updated_at?: string
+        }
+        Update: {
+          average_rating?: number
+          distribution?: Json
+          publication_id?: string
+          published_count?: number
+          shop_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_review_aggregates_publication_id_fkey"
+            columns: ["publication_id"]
+            referencedRelation: "storefront_product_publications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "storefront_review_aggregates_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+        ]
+      }
+      storefront_settings: {
+        Row: {
+          availability_low_stock_threshold: number
+          catalog_locale: string
+          catalog_time_zone: string
+          currency_code: string
+          customer_order_cancellation_enabled: boolean
+          customer_order_cancellation_window_minutes: number
+          customer_order_push_enabled: boolean
+          customer_review_edit_window_days: number
+          default_page_size: number
+          delivery_enabled: boolean
+          delivery_tracking_enabled: boolean
+          delivery_tracking_freshness_seconds: number
+          delivery_tracking_min_distance_meters: number
+          delivery_tracking_min_interval_seconds: number
+          maximum_page_size: number
+          pickup_enabled: boolean
+          public_slug: string
+          require_product_image: boolean
+          reservation_enabled: boolean
+          shop_id: string
+          storefront_enabled: boolean
+          updated_at: string
+          updated_by_profile_id: string | null
+        }
+        Insert: {
+          availability_low_stock_threshold?: number
+          catalog_locale?: string
+          catalog_time_zone?: string
+          currency_code?: string
+          customer_order_cancellation_enabled?: boolean
+          customer_order_cancellation_window_minutes?: number
+          customer_order_push_enabled?: boolean
+          customer_review_edit_window_days?: number
+          default_page_size?: number
+          delivery_enabled?: boolean
+          delivery_tracking_enabled?: boolean
+          delivery_tracking_freshness_seconds?: number
+          delivery_tracking_min_distance_meters?: number
+          delivery_tracking_min_interval_seconds?: number
+          maximum_page_size?: number
+          pickup_enabled?: boolean
+          public_slug: string
+          require_product_image?: boolean
+          reservation_enabled?: boolean
+          shop_id: string
+          storefront_enabled?: boolean
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Update: {
+          availability_low_stock_threshold?: number
+          catalog_locale?: string
+          catalog_time_zone?: string
+          currency_code?: string
+          customer_order_cancellation_enabled?: boolean
+          customer_order_cancellation_window_minutes?: number
+          customer_order_push_enabled?: boolean
+          customer_review_edit_window_days?: number
+          default_page_size?: number
+          delivery_enabled?: boolean
+          delivery_tracking_enabled?: boolean
+          delivery_tracking_freshness_seconds?: number
+          delivery_tracking_min_distance_meters?: number
+          delivery_tracking_min_interval_seconds?: number
+          maximum_page_size?: number
+          pickup_enabled?: boolean
+          public_slug?: string
+          require_product_image?: boolean
+          reservation_enabled?: boolean
+          shop_id?: string
+          storefront_enabled?: boolean
+          updated_at?: string
+          updated_by_profile_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "storefront_settings_shop_id_fkey"
+            columns: ["shop_id"]
+            referencedRelation: "shops"
+            referencedColumns: ["shop_id"]
+          },
+          {
+            foreignKeyName: "storefront_settings_updated_by_profile_id_fkey"
+            columns: ["updated_by_profile_id"]
+            referencedRelation: "profiles"
+            referencedColumns: ["profile_id"]
+          },
+        ]
+      }
     }
     Views: {
       pos_revenue_daily_summary_v: {
@@ -3451,7 +6764,7 @@ export type Database = {
     Functions: {
       admin_sync_event_read_v1: {
         Args: {
-          p_domains?: string[] | null
+          p_domains?: string | null[] | null
           p_event_id?: string | null
           p_limit?: number
           p_owner_user_id?: string | null
@@ -4424,17 +7737,17 @@ export type Database = {
       }
       record_sync_event_v6: {
         Args: {
-          p_batch_id?: string
+          p_batch_id?: string | null
           p_changed_count?: number
-          p_client_event_id?: string
+          p_client_event_id?: string | null
           p_domain: string
           p_entity_ids?: Json
           p_event_type: string
           p_metadata?: Json
-          p_shop_id?: string
-          p_source?: string
-          p_source_device_id?: string
-          p_store_id?: string
+          p_shop_id?: string | null
+          p_source?: string | null
+          p_source_device_id?: string | null
+          p_store_id?: string | null
         }
         Returns: Json
       }
@@ -5004,12 +8317,12 @@ export type Database = {
       }
       admin_storefront_image_finalize_v1: {
         Args: {
-          p_expected_credential_version?: number
+          p_expected_credential_version?: number | null
           p_image_publication_id: string
-          p_session_token_hash?: string
+          p_session_token_hash?: string | null
           p_shop_id: string
-          p_staff_id?: string
-          p_staff_web_session_id?: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
           p_verified_variants: Json
         }
         Returns: Json
@@ -5046,47 +8359,47 @@ export type Database = {
       }
       admin_storefront_image_intent_v1: {
         Args: {
-          p_expected_credential_version?: number
+          p_expected_credential_version?: number | null
           p_publication_id: string
-          p_session_token_hash?: string
+          p_session_token_hash?: string | null
           p_shop_id: string
           p_source_image_version_id: string
-          p_staff_id?: string
-          p_staff_web_session_id?: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
           p_variants: Json
         }
         Returns: Json
       }
       admin_storefront_image_rollback_v1: {
         Args: {
-          p_expected_credential_version?: number
-          p_session_token_hash?: string
+          p_expected_credential_version?: number | null
+          p_session_token_hash?: string | null
           p_shop_id: string
-          p_staff_id?: string
-          p_staff_web_session_id?: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
           p_target_image_publication_id: string
         }
         Returns: Json
       }
       admin_storefront_image_source_read_v1: {
         Args: {
-          p_expected_credential_version?: number
+          p_expected_credential_version?: number | null
           p_publication_id: string
-          p_session_token_hash?: string
+          p_session_token_hash?: string | null
           p_shop_id: string
           p_source_image_version_id: string
-          p_staff_id?: string
-          p_staff_web_session_id?: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
         }
         Returns: Json
       }
       admin_storefront_images_read_v1: {
         Args: {
-          p_expected_credential_version?: number
-          p_session_token_hash?: string
+          p_expected_credential_version?: number | null
+          p_session_token_hash?: string | null
           p_shop_id: string
-          p_staff_id?: string
-          p_staff_web_session_id?: string
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
         }
         Returns: Json
       }
@@ -5198,7 +8511,7 @@ export type Database = {
           p_page_size?: number
           p_session_token_hash?: string | null
           p_shop_id: string
-          p_source_product_ids?: string[] | null
+          p_source_product_ids?: string | null[] | null
           p_staff_id?: string | null
           p_staff_web_session_id?: string | null
           p_status?: string | null
@@ -5298,12 +8611,12 @@ export type Database = {
       }
       wechat_auth_audit_v1: {
         Args: {
-          p_actor_profile_id?: string
+          p_actor_profile_id?: string | null
           p_correlation_id: string
           p_event_key: string
           p_metadata_redacted?: Json
           p_result: string
-          p_subject_hash?: string
+          p_subject_hash?: string | null
         }
         Returns: undefined
       }
@@ -5425,9 +8738,9 @@ export type Database = {
       }
       wechat_daily_sales_page_v1: {
         Args: {
-          p_before_occurred_at?: string
-          p_before_sale_id?: string
-          p_business_date?: string
+          p_before_occurred_at?: string | null
+          p_before_sale_id?: string | null
+          p_business_date?: string | null
           p_limit?: number
           p_shop_id: string
         }
@@ -5446,7 +8759,7 @@ export type Database = {
         }[]
       }
       wechat_daily_sales_summary_v1: {
-        Args: { p_business_date?: string; p_shop_id: string }
+        Args: { p_business_date?: string | null; p_shop_id: string }
         Returns: {
           business_date: string
           currency_code: string
@@ -5475,6 +8788,468 @@ export type Database = {
           unit_amount_clp: number
         }[]
       }
+          customer_address_delete_v2: {
+        Args: { p_address_id: string; p_expected_version: number }
+        Returns: Json
+      }
+      customer_address_upsert_v2: {
+        Args: {
+          p_address_id: string | null
+          p_expected_version: number | null
+          p_payload: Json
+        }
+        Returns: Json
+      }
+      customer_addresses_read_v2: { Args: never; Returns: Json }
+      customer_after_sales_cancel_v1: {
+        Args: { p_case_id: string; p_expected_version: number }
+        Returns: Json
+      }
+      customer_after_sales_create_v1: {
+        Args: {
+          p_idempotency_key: string
+          p_lines: Json
+          p_note: string | null
+          p_order_id: string
+          p_reason: string
+          p_type: string
+        }
+        Returns: Json
+      }
+      customer_after_sales_evidence_register_v1: {
+        Args: { p_case_id: string; p_object_path: string }
+        Returns: Json
+      }
+      customer_after_sales_evidence_upload_ticket_v1: {
+        Args: { p_case_id: string; p_extension: string }
+        Returns: Json
+      }
+      customer_after_sales_list_v1: {
+        Args: { p_page_size?: number; p_shop_slug: string }
+        Returns: Json
+      }
+      customer_after_sales_order_lines_v1: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
+      customer_cancel_account_deletion_v1: {
+        Args: { p_request_id: string }
+        Returns: Json
+      }
+      customer_cart_merge_guest_v1: {
+        Args: {
+          p_expected_version: number
+          p_guest_items: Json
+          p_idempotency_key: string
+          p_shop_slug: string
+        }
+        Returns: Json
+      }
+      customer_cart_mutate_v1: {
+        Args: {
+          p_expected_version: number
+          p_idempotency_key: string
+          p_operation: string
+          p_publication_id: string
+          p_quantity: number
+          p_shop_slug: string
+        }
+        Returns: Json
+      }
+      customer_cart_read_v1: { Args: { p_shop_slug: string }; Returns: Json }
+      customer_cart_revalidate_v1: {
+        Args: {
+          p_expected_version: number
+          p_idempotency_key: string
+          p_shop_slug: string
+        }
+        Returns: Json
+      }
+      customer_checkout_quote_confirm_v1: {
+        Args: {
+          p_expected_quote_version: number
+          p_idempotency_key: string
+          p_quote_id: string
+        }
+        Returns: Json
+      }
+      customer_checkout_quote_create_v1: {
+        Args: {
+          p_address_id: string | null
+          p_cart_version: number
+          p_fulfillment_mode: string
+          p_idempotency_key: string
+          p_pickup_point_id: string | null
+          p_shop_slug: string
+          p_slot_id: string
+        }
+        Returns: Json
+      }
+      customer_checkout_quote_create_v2: {
+        Args: {
+          p_address_id: string | null
+          p_cart_version: number
+          p_expected_context_version: number
+          p_fulfillment_mode: string
+          p_idempotency_key: string
+          p_pickup_point_id: string | null
+          p_shop_slug: string
+          p_slot_id: string
+        }
+        Returns: Json
+      }
+      customer_checkout_quote_read_v1: {
+        Args: { p_quote_id: string }
+        Returns: Json
+      }
+      customer_data_export_v1: { Args: never; Returns: Json }
+      customer_delivery_context_read_v1: {
+        Args: { p_shop_slug: string }
+        Returns: Json
+      }
+      customer_delivery_context_select_v1: {
+        Args: {
+          p_address_id: string | null
+          p_expected_version?: number | null
+          p_mode: string
+          p_pickup_point_id: string | null
+          p_shop_slug: string
+        }
+        Returns: Json
+      }
+      customer_device_status_v1: {
+        Args: { p_installation_id: string }
+        Returns: Json
+      }
+      customer_notification_ack_v1: {
+        Args: {
+          p_ack_idempotency_key: string
+          p_delivery_id: string
+          p_destination_generation: number
+          p_error_code?: string | null
+          p_lease_token: string
+          p_outcome: string
+          p_provider_message_id?: string | null
+        }
+        Returns: Json
+      }
+      customer_notification_claim_v1: {
+        Args: {
+          p_dispatcher_id: string
+          p_lease_seconds: number
+          p_limit: number
+        }
+        Returns: Json
+      }
+      customer_notification_mark_read_v1: {
+        Args: { p_notification_id: string }
+        Returns: Json
+      }
+      customer_notification_route_v1: {
+        Args: { p_route_token: string; p_shop_slug: string }
+        Returns: Json
+      }
+      customer_notifications_list_v1: {
+        Args: {
+          p_before_created_at?: string | null
+          p_before_id?: string | null
+          p_category?: string | null
+          p_page_size?: number
+          p_shop_slug: string
+        }
+        Returns: Json
+      }
+      customer_notifications_mark_all_read_v1: {
+        Args: { p_shop_slug: string }
+        Returns: Json
+      }
+      customer_order_cancel_v1: {
+        Args: {
+          p_expected_status_version: number
+          p_idempotency_key: string
+          p_order_id: string
+          p_shop_slug: string
+        }
+        Returns: Json
+      }
+      customer_order_create_v1: {
+        Args: {
+          p_expected_quote_version: number
+          p_idempotency_key: string
+          p_quote_id: string
+        }
+        Returns: Json
+      }
+      customer_order_create_v2: {
+        Args: {
+          p_expected_quote_version: number
+          p_idempotency_key: string
+          p_payment_method: string
+          p_quote_id: string
+        }
+        Returns: Json
+      }
+      customer_order_detail_v1: {
+        Args: { p_order_id: string; p_shop_slug: string }
+        Returns: Json
+      }
+      customer_order_list_v1: {
+        Args: {
+          p_before_order_id?: string | null
+          p_before_placed_at?: string | null
+          p_limit?: number
+          p_shop_slug: string
+        }
+        Returns: Json
+      }
+      customer_order_read_v1: { Args: { p_order_id: string }; Returns: Json }
+      customer_order_read_v2: { Args: { p_order_id: string }; Returns: Json }
+      customer_order_reorder_apply_v1: {
+        Args: { p_idempotency_key: string; p_order_id: string }
+        Returns: Json
+      }
+      customer_order_reorder_preview_v1: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
+      customer_payment_recovery_read_v1: {
+        Args: { p_order_id: string }
+        Returns: Json
+      }
+      customer_record_privacy_consent_v1: {
+        Args: { p_accepted: boolean; p_version: string | null }
+        Returns: Json
+      }
+      customer_register_device_v1: {
+        Args: {
+          p_consent_status: string
+          p_idempotency_key: string
+          p_installation_id: string
+          p_locale: string
+          p_permission_status: string
+          p_platform: string
+          p_push_token: string
+        }
+        Returns: Json
+      }
+      customer_request_account_deletion_v1: {
+        Args: { p_idempotency_key: string }
+        Returns: Json
+      }
+      customer_reservation_hold_create_v1: {
+        Args: {
+          p_idempotency_key: string
+          p_publication_id: string
+          p_quantity: number
+          p_shop_slug: string
+        }
+        Returns: Json
+      }
+      customer_reservation_hold_read_v1: {
+        Args: { p_hold_id: string }
+        Returns: Json
+      }
+      customer_reservation_hold_release_v1: {
+        Args: { p_hold_id: string; p_idempotency_key: string }
+        Returns: Json
+      }
+      customer_review_submit_v1: {
+        Args: { p_comment: string; p_order_item_id: string; p_rating: number }
+        Returns: Json
+      }
+      customer_review_update_v1: {
+        Args: {
+          p_comment: string
+          p_expected_version: number
+          p_rating: number
+          p_review_id: string
+          p_withdraw?: boolean
+        }
+        Returns: Json
+      }
+      customer_reviews_list_v1: {
+        Args: { p_pending_only?: boolean; p_shop_slug: string }
+        Returns: Json
+      }
+      customer_revoke_device_v1: {
+        Args: { p_idempotency_key: string; p_installation_id: string }
+        Returns: Json
+      }
+      customer_set_default_address_v1: {
+        Args: { p_address_id: string }
+        Returns: Json
+      }
+      service_after_sales_evidence_scan_ack_v1: {
+        Args: {
+          p_byte_size: number
+          p_evidence_id: string
+          p_exif_removed: boolean
+          p_height: number
+          p_mime_type: string
+          p_rejection_code?: string | null
+          p_scan_outcome: string
+          p_width: number
+        }
+        Returns: Json
+      }
+      service_customer_after_sales_refund_ack_v1: {
+        Args: {
+          p_case_id: string
+          p_manual_attestation_id?: string | null
+          p_provider_event_sha256?: string | null
+        }
+        Returns: Json
+      }
+      service_customer_payment_transition_v1: {
+        Args: {
+          p_failure_code?: string | null
+          p_idempotency_key: string
+          p_payment_id: string
+          p_provider_reference_sha256?: string | null
+          p_source?: string
+          p_target_status: string
+        }
+        Returns: Json
+      }
+      service_customer_payment_webhook_receive_v1: {
+        Args: {
+          p_occurred_at: string
+          p_payload_sha256: string
+          p_provider_event_id_sha256: string
+          p_provider_key: string
+          p_signature_validated: boolean
+        }
+        Returns: Json
+      }
+      storefront_authoring_bind_android_session_v1: {
+        Args: never
+        Returns: Json
+      }
+      storefront_authoring_bind_ios_session_v1: { Args: never; Returns: Json }
+      storefront_availability_ingest_v1: {
+        Args: {
+          p_expires_at: string
+          p_idempotency_key: string
+          p_shop_id: string
+          p_signal_state: string
+          p_source_observed_at: string
+          p_source_product_id: string
+          p_source_version: number
+        }
+        Returns: Json
+      }
+      storefront_catalog_v1: {
+        Args: {
+          p_availability?: string | null
+          p_category_slug?: string | null
+          p_cursor?: string | null
+          p_discounted?: boolean | null
+          p_featured?: boolean | null
+          p_limit?: number | null
+          p_shop_slug: string
+          p_sort?: string
+        }
+        Returns: Json
+      }
+      storefront_catalog_version_v1: {
+        Args: { p_shop_slug: string }
+        Returns: Json
+      }
+      storefront_categories_v1: {
+        Args: { p_cursor?: string | null; p_limit?: number | null; p_shop_slug: string }
+        Returns: Json
+      }
+      storefront_delivery_context_preview_v1: {
+        Args: {
+          p_address_id?: string | null
+          p_commune?: string | null
+          p_mode: string
+          p_pickup_point_id?: string | null
+          p_shop_slug: string
+        }
+        Returns: Json
+      }
+      storefront_featured_v1: {
+        Args: { p_cursor?: string | null; p_limit?: number | null; p_shop_slug: string }
+        Returns: Json
+      }
+      storefront_fulfillment_options_v1: {
+        Args: { p_shop_slug: string }
+        Returns: Json
+      }
+      storefront_home_v1: {
+        Args: {
+          p_category_limit?: number
+          p_featured_limit?: number
+          p_offer_limit?: number
+          p_shop_slug: string
+        }
+        Returns: Json
+      }
+      storefront_image_cleanup_claim_v1: {
+        Args: { p_limit?: number }
+        Returns: Json
+      }
+      storefront_image_cleanup_complete_v1: {
+        Args: {
+          p_error_code?: string | null
+          p_removed: boolean
+          p_variant_id: string
+        }
+        Returns: Json
+      }
+      storefront_offers_v1: {
+        Args: { p_cursor?: string | null; p_limit?: number | null; p_shop_slug: string }
+        Returns: Json
+      }
+      storefront_payment_options_v1: {
+        Args: { p_shop_slug: string }
+        Returns: Json
+      }
+      storefront_product_detail_v1: {
+        Args: { p_publication_id: string; p_shop_slug: string }
+        Returns: Json
+      }
+      storefront_product_reviews_v1: {
+        Args: {
+          p_before_created_at?: string | null
+          p_before_id?: string | null
+          p_page_size?: number
+          p_publication_id: string
+          p_shop_slug: string
+        }
+        Returns: Json
+      }
+      storefront_publications_authoring_summary_v1: {
+        Args: {
+          p_expected_credential_version?: number | null
+          p_filter?: string
+          p_page?: number
+          p_page_size?: number
+          p_query?: string | null
+          p_session_token_hash?: string | null
+          p_shop_id: string
+          p_source_product_ids?: string | null[]
+          p_staff_id?: string | null
+          p_staff_web_session_id?: string | null
+        }
+        Returns: Json
+      }
+      storefront_search_suggestions_v1: {
+        Args: { p_limit?: number; p_query: string; p_shop_slug: string }
+        Returns: Json
+      }
+      storefront_search_v1: {
+        Args: {
+          p_category_slug?: string | null
+          p_cursor?: string | null
+          p_limit?: number | null
+          p_query: string
+          p_shop_slug: string
+        }
+        Returns: Json
+      }
+      storefront_settings_v1: { Args: { p_shop_slug: string }; Returns: Json }
     }
     Enums: {
       [_ in never]: never
