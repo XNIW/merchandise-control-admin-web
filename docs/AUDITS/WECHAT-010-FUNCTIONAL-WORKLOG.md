@@ -143,3 +143,32 @@ Android/iPhone Google authentication completed personally; exact canonical profi
 shop and TEST project verified. iPhone Retry16:36 failed on missing catalog envelope;
 old July diagnostics were not treated as a current network failure. Native sources
 and ordinary databases unchanged. Convergence and full acceptance remain open.
+
+## 2026-09-28 — bounded physical History normalization (local execution)
+
+Delegated writer owns only the Admin delta under the authorized cross-repository
+TEST completion mandate. The demonstrated compressed-History recovery blocker has
+no existing preserving UPDATE route because the canonical trigger rejects OLD
+compressed JSONB. Added a private postgres-only plan/apply contract with explicit
+PGLZ expansion bound, typed validation before serialization, exact manifest,
+transaction/backend/row markers, full-row equality, unchanged timestamps and zero
+sync events. Runtime storage guard, canonical payload validator and event publisher
+are unchanged. No GUC authorization or trigger disable.
+
+Migration generated via Supabase CLI2.118.0 as
+`20260928193505_wechat_010_history_physical_normalization.sql`. Local PostgreSQL17.6
+schema-only template is empty and postgres-owned; no migration registry table is
+present, and no live registry claim is made. Isolated 63 pgTAP and 365 existing
+native recovery contract cases PASS; original trigger restore/reapply then the
+same 63 PASS; actual second-writer row lock gives NOWAIT55P03 with no
+partial work, followed by successful apply after release, zero events. Deployment
+under the wrong role fails atomically. The test-only second-row fault proves
+rollback of the first rewritten row and marker consumption. Private local log:
+`history-normalization-local.log`. Runbook records pinned PostgreSQL sources,
+execution boundaries and compensating DDL. Node22.23.3 verify PASS, including lint,
+typecheck, security/secret scan and build (Node26 verify also PASS). Foundation:
+1023 PASS, 8 skip, 2 ENOENT failures for external Win7POS
+`RemoteCatalogProductWriter.cs` and `SalesSyncOutboxRepository.cs`; no full-suite
+PASS. Logs: `history-normalization-verify-node22.log` and
+`history-normalization-foundation.log`. Diff check PASS. Handoff to independent
+review; no live SQL, commit, push, migration deployment or native acceptance.
