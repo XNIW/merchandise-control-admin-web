@@ -8511,7 +8511,7 @@ export type Database = {
           p_page_size?: number
           p_session_token_hash?: string | null
           p_shop_id: string
-          p_source_product_ids?: string | null[] | null
+          p_source_product_ids?: string[] | null
           p_staff_id?: string | null
           p_staff_web_session_id?: string | null
           p_status?: string | null
@@ -9229,7 +9229,7 @@ export type Database = {
           p_query?: string | null
           p_session_token_hash?: string | null
           p_shop_id: string
-          p_source_product_ids?: string | null[]
+          p_source_product_ids?: string[] | null
           p_staff_id?: string | null
           p_staff_web_session_id?: string | null
         }
