@@ -6764,7 +6764,7 @@ export type Database = {
     Functions: {
       admin_sync_event_read_v1: {
         Args: {
-          p_domains?: string | null[] | null
+          p_domains?: string[] | null
           p_event_id?: string | null
           p_limit?: number
           p_owner_user_id?: string | null
@@ -7737,17 +7737,17 @@ export type Database = {
       }
       record_sync_event_v6: {
         Args: {
-          p_batch_id?: string | null
+          p_batch_id?: string
           p_changed_count?: number
-          p_client_event_id?: string | null
+          p_client_event_id?: string
           p_domain: string
           p_entity_ids?: Json
           p_event_type: string
           p_metadata?: Json
-          p_shop_id?: string | null
-          p_source?: string | null
-          p_source_device_id?: string | null
-          p_store_id?: string | null
+          p_shop_id?: string
+          p_source?: string
+          p_source_device_id?: string
+          p_store_id?: string
         }
         Returns: Json
       }
@@ -8317,12 +8317,12 @@ export type Database = {
       }
       admin_storefront_image_finalize_v1: {
         Args: {
-          p_expected_credential_version?: number | null
+          p_expected_credential_version?: number
           p_image_publication_id: string
-          p_session_token_hash?: string | null
+          p_session_token_hash?: string
           p_shop_id: string
-          p_staff_id?: string | null
-          p_staff_web_session_id?: string | null
+          p_staff_id?: string
+          p_staff_web_session_id?: string
           p_verified_variants: Json
         }
         Returns: Json
@@ -8359,47 +8359,47 @@ export type Database = {
       }
       admin_storefront_image_intent_v1: {
         Args: {
-          p_expected_credential_version?: number | null
+          p_expected_credential_version?: number
           p_publication_id: string
-          p_session_token_hash?: string | null
+          p_session_token_hash?: string
           p_shop_id: string
           p_source_image_version_id: string
-          p_staff_id?: string | null
-          p_staff_web_session_id?: string | null
+          p_staff_id?: string
+          p_staff_web_session_id?: string
           p_variants: Json
         }
         Returns: Json
       }
       admin_storefront_image_rollback_v1: {
         Args: {
-          p_expected_credential_version?: number | null
-          p_session_token_hash?: string | null
+          p_expected_credential_version?: number
+          p_session_token_hash?: string
           p_shop_id: string
-          p_staff_id?: string | null
-          p_staff_web_session_id?: string | null
+          p_staff_id?: string
+          p_staff_web_session_id?: string
           p_target_image_publication_id: string
         }
         Returns: Json
       }
       admin_storefront_image_source_read_v1: {
         Args: {
-          p_expected_credential_version?: number | null
+          p_expected_credential_version?: number
           p_publication_id: string
-          p_session_token_hash?: string | null
+          p_session_token_hash?: string
           p_shop_id: string
           p_source_image_version_id: string
-          p_staff_id?: string | null
-          p_staff_web_session_id?: string | null
+          p_staff_id?: string
+          p_staff_web_session_id?: string
         }
         Returns: Json
       }
       admin_storefront_images_read_v1: {
         Args: {
-          p_expected_credential_version?: number | null
-          p_session_token_hash?: string | null
+          p_expected_credential_version?: number
+          p_session_token_hash?: string
           p_shop_id: string
-          p_staff_id?: string | null
-          p_staff_web_session_id?: string | null
+          p_staff_id?: string
+          p_staff_web_session_id?: string
         }
         Returns: Json
       }
@@ -8611,12 +8611,12 @@ export type Database = {
       }
       wechat_auth_audit_v1: {
         Args: {
-          p_actor_profile_id?: string | null
+          p_actor_profile_id?: string
           p_correlation_id: string
           p_event_key: string
           p_metadata_redacted?: Json
           p_result: string
-          p_subject_hash?: string | null
+          p_subject_hash?: string
         }
         Returns: undefined
       }
@@ -8738,9 +8738,9 @@ export type Database = {
       }
       wechat_daily_sales_page_v1: {
         Args: {
-          p_before_occurred_at?: string | null
-          p_before_sale_id?: string | null
-          p_business_date?: string | null
+          p_before_occurred_at?: string
+          p_before_sale_id?: string
+          p_business_date?: string
           p_limit?: number
           p_shop_id: string
         }
@@ -8759,7 +8759,7 @@ export type Database = {
         }[]
       }
       wechat_daily_sales_summary_v1: {
-        Args: { p_business_date?: string | null; p_shop_id: string }
+        Args: { p_business_date?: string; p_shop_id: string }
         Returns: {
           business_date: string
           currency_code: string
