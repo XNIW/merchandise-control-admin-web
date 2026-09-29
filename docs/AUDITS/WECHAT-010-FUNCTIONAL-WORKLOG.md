@@ -172,3 +172,57 @@ typecheck, security/secret scan and build (Node26 verify also PASS). Foundation:
 PASS. Logs: `history-normalization-verify-node22.log` and
 `history-normalization-foundation.log`. Diff check PASS. Handoff to independent
 review; no live SQL, commit, push, migration deployment or native acceptance.
+
+## 2026-09-29 UTC — reviewed TEST application and catalog runtime receipt
+
+PR115/PR116 merged after required CI PASS. The selective source release from the
+three reviewed build/route files produced Worker bdd42368 at01:31:13UTC. The
+recorded before/after metadata verifies unchanged bindings, runtime and settings
+except deployment annotations; no scope, credential binding or flag changes.
+Mini auth/catalog mutations stay ON, enrollment/other auth surfaces OFF, tracing OFF.
+Public unauthenticated offset-timestamp and240-unit cursor smoke returned401;
+241-unit cursor remained400. These are boundary checks, not business acceptance.
+
+Normal Admin apply_migration assigned20260929013345 to original source20260928193505
+and20260929013437 to original source20260929004159. Source filenames now match the
+registry, with100% identical SQL bytes and the local normalization runner reference
+updated. Registry147 preserves all145 previous entries. Exact snapshots confirm
+unchanged existing owner/ACL, storage and four trigger registrations; only the two
+reviewed existing function bodies changed. No repair or migration-history rewrite.
+
+The private16-row normalization plan was approved by root and recovery reviewers
+and applied once at01:38UTC. Independent postcheck01:39:14UTC:16 identical complete
+row hashes/revisions, both payload compression fields NULL, zero markers, unchanged
+2074 shop events. This removes the physical storage blocker without content edits;
+it does not prove native recovery or cross-client convergence. Protected pre-apply
+schema/ACL/registry and the manifest remain in the private audit packet.
+
+Actual Mini v9 catalog validation: seven pages/350 IDs, exact canonical order and
+microsecond revisions match independent scoped SQL; zero duplicates/omissions
+within the measured window. Six load-more cases PASS, min323/median328/max2321ms,
+n=6, p95=null. The SQL-oracle helper initially rejected a wrong column and timestamp
+parser formats; corrected read-only comparison is explicitly recorded, with old
+runtime failures preserved. No phone, whole-catalog or p95 acceptance is inferred.
+
+Private evidence: `worker-catalog-deployment.json`, protected metadata before/after,
+`history-normalization-live-before-v4-snapshot.json`,
+`history-normalization-after-ddl-snapshot.json`, `history-normalization-live-plan.json`,
+`history-normalization-live-postcheck.json`, and
+`native-completion-20260928/catalog-measure-1790645825389/oracle-reconciliation.json`.
+Repository receipt validation is recorded after the checks below; no further live
+operation or new application logic is part of this source reconciliation.
+
+Post-maintenance actual iOS Retry01:41:42–01:41:51UTC failed with checkpoint HTTP500.
+The scoped server log reports SQLSTATE57014 in the price recovery preflight
+(`sync_checkpoint_json_timestamp` via `sync_price_recovery_row_v1`), with8645ms
+origin latency. This is a newly observed runtime blocker after successful physical
+normalization; no further Retry or native convergence PASS is claimed. A bounded
+Admin performance investigation is the next separate execution step.
+
+Receipt-only checks: both SQL bodies match their pre-service source SHA256 exactly;
+local runner resolves the renamed migration and Node22 syntax check PASS. Four
+existing migration-ledger/workflow regressions PASS, repository security/secret
+scan PASS, diff check PASS. Governance review keeps TASK-159 active, preserves
+historical evidence, and does not mark DONE. Full verify was not repeated for
+filename/documentation-only changes; the reviewed application logic and earlier
+verify results are unchanged.

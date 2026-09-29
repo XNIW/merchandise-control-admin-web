@@ -1,5 +1,24 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-159 REVIEW — TEST normalization and catalog release, 2026-09-29 UTC
+
+Reviewed Admin PR115/PR116 are integrated; the selective TEST Worker release and
+two additive migrations were applied separately. Registry147 preserves all145
+previous entries. The exact reviewed maintenance plan normalized16 History rows
+once: independent postcheck confirms unchanged full-row hashes/revisions,
+compression NULL, zero markers and2074 unchanged shop events. Existing owner/ACL,
+storage settings and four trigger registrations remain unchanged.
+
+Actual Mini catalog validation now passes seven pages/350 identifiers and exact
+microsecond revisions against an independent scoped SQL oracle, without duplicates
+or omissions within that window. Six load-more observations:323–2321ms, median328ms;
+p95 is unmeasured. Source/flags/bindings/runtime remain bounded to the reviewed
+TEST release. Native convergence, phone acceptance and full performance acceptance
+remain unproven; post-maintenance iOS Retry now fails with checkpoint timeout
+SQLSTATE57014 in the price preflight. No DONE. [TASK-159](TASKS/TASK-159-wechat-010-staging-readiness.md)
+records receipts and migration source-to-service mapping. Earlier entries below
+retain their historical implementation/review status.
+
 ## TASK-159 REVIEW — bounded History physical normalization, 2026-09-28
 
 The authorized cross-repository TEST completion mandate includes the demonstrated

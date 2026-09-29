@@ -1,7 +1,18 @@
 # WECHAT-010 catalog pagination and Cloudflare query compatibility
 
-Status: isolated implementation and validation; this delta has not been deployed
-or accepted by authentic runtime testing. History normalization is a separate PR.
+Status: reviewed selective TEST Worker release and catalog migration applied on
+2026-09-29UTC. Actual Mini v9 seven-page/350-row pagination matches an independent
+SQL oracle in identifier order and exact microsecond revisions, with no duplicate
+or omission within that window. Six load-more observations PASS (min323ms,
+median328ms, max2321ms, n=6); p95 remains null and performance acceptance is open.
+History normalization is a separate maintenance contract and execution.
+
+Service version20260929013437 reconciles source20260929004159 with identical SQL
+SHA256 `7354683ba073d9e0423189dce6084d9218bf8db9b5ce38d15095dc62162c289e`.
+Worker bdd42368 preserves exact TEST bindings/runtime/flags/settings except deployment
+annotations. See [TASK-159](../TASKS/TASK-159-wechat-010-staging-readiness.md) for the
+private receipt references; this does not establish every search/sort scenario,
+whole-catalog completion, native convergence or phone acceptance.
 
 ## Demonstrated failures
 
@@ -81,7 +92,7 @@ Foundation: 1030 PASS, 8 skip, 2 ENOENT failures for external Win7POS files; thi
 not a full-suite PASS. Security scan and diff check PASS. No live SQL or Worker
 deployment was performed by this implementation step.
 
-Before release, run Node22 verify and Cloudflare build, confirm package source
+Before a subsequent release, run Node22 verify and Cloudflare build, confirm package source
 restoration and inspect the generated URL assignment. Apply the reviewed SQL
 through the normal migration workflow separately from any Worker release. Then
 repeat authentic catalog pagination/search on the exact authorized TEST target;

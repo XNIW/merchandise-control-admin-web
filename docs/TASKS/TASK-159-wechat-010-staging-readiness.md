@@ -1,5 +1,43 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## REVIEW — applied TEST receipt and source reconciliation, 2026-09-29 UTC
+
+PR115 merged46466364 and PR116 merged53e58013 after required CI PASS. The selective
+Worker bdd42368 was verified at01:31:13UTC with exact existing bindings, runtime,
+settings except deployment annotations, singleton TEST scope and tracing OFF.
+Mini auth/catalog mutations remain ON; enrollment and the other auth surfaces stay
+OFF. The release contained only the three reviewed catalog build/route files.
+
+Supabase assigned versions20260929013345 (History normalization, source
+20260928193505) and20260929013437 (catalog keyset, source20260929004159). This receipt
+renames the files and updates the local runner path; SQL bytes are unchanged:
+normalization SHA256 `5317369f8a5145f87732ead2879a795ab25c63c6853989f5f5a5f36b16f3a1b9`,
+keyset SHA256 `7354683ba073d9e0423189dce6084d9218bf8db9b5ce38d15095dc62162c289e`.
+Registry147 preserves all145 previous version/name/statement hashes. The only
+changed existing function bodies are the reviewed History trigger and catalog
+reader; their owner/ACL and all four trigger registrations/storage settings remain
+unchanged. No migration repair, registry rewrite or trigger disable occurred.
+
+Root and recovery reviewers approved exact plan SHA256
+`ace817b560b3b6bf7dc6c4dc3be1be5fef791880bd84bc14bf51ac88fa1398b5`.
+One apply at01:38UTC; independent SQL postcheck01:39:14UTC confirms16 rows with
+identical full-row hashes/revisions, compression NULL, zero markers and unchanged
+2074 shop events. Private receipts: `history-normalization-live-plan.json`,
+`history-normalization-live-postcheck.json`, and before-v4/after-DDL snapshots.
+
+Actual Mini v9 catalog: seven pages/350 identifiers in exact canonical order and
+microsecond revisions match the independent SQL oracle. Six load-more cases PASS;
+323ms minimum,328ms median,2321ms maximum, n=6 and p95=null. Evidence is scoped to
+that350-row window, not all catalog/search cases or a performance acceptance.
+Private `catalog-measure-1790645825389/oracle-reconciliation.json` records the
+initial oracle-runner failures and corrected comparison; earlier runtime FAILs
+remain preserved. Native recovery/convergence and phone/full acceptance remain
+open. A subsequent authentic iOS Retry01:41:42–01:41:51UTC returned checkpoint
+HTTP500/SQLSTATE57014 in the price recovery preflight,8645ms origin latency. This
+new performance blocker is separate from the verified physical normalization;
+no retry was repeated. This receipt changes no application behavior; earlier
+sections are historical.
+
 ## REVIEW — bounded physical History normalization, 2026-09-28
 
 The actual TEST native recovery preflight reports
