@@ -1,8 +1,15 @@
 # Bounded History physical normalization — TASK-159
 
-Status: local implementation and isolated validation; remote deployment/application
-NOT_RUN. This is database maintenance, not a client API or a business edit. The
-ordinary recovery guard remains fail closed for compressed JSONB.
+Status: reviewed TEST migration and one exact-manifest apply completed on
+2026-09-29UTC. Independent postcheck confirms16 unchanged full-row hashes/revisions,
+compression NULL, zero markers and2074 unchanged events. Native recovery and
+convergence require separate authentic verification. The ordinary recovery guard
+remains fail closed for compressed JSONB; this is maintenance, not a client API.
+
+Service version20260929013345 reconciles source20260928193505 with identical SQL
+SHA256 `5317369f8a5145f87732ead2879a795ab25c63c6853989f5f5a5f36b16f3a1b9`.
+The plan and postcheck remain private; the [TASK-159 receipt](../TASKS/TASK-159-wechat-010-staging-readiness.md)
+records execution and limits. The completed plan cannot be replayed.
 
 ## Why this contract exists
 
@@ -77,8 +84,9 @@ window and re-plan deliberately rather than retrying automatically.
 
 ## Review and execution packet
 
-This implementation step authorizes only local clones. Before a separately
-reviewed TEST execution, the Admin operator must:
+Every subsequent maintenance operation requires a fresh scoped mandate, plan and
+independent review; the completed TEST receipt does not authorize replay. The
+Admin operator must:
 
 1. Pin the code/SQL artifact and target using the current authorized TEST packet.
    Verify the fresh migration registry, source owners/ACL/function fingerprints,
@@ -137,7 +145,8 @@ baseline ordinary preserving UPDATE fails as expected; wrong deployment role is
 atomically rejected. Tests include real PGLZ and LZ4, physical/binary/logical budgets,
 1,000 compact numeric exponents, nested invalid cells, scope/manifest/ACL violations,
 forged transaction/backend markers, content/revision edits, consumed-marker replay,
-and rollback after a test-only failure on the second row. No live apply was run.
+and rollback after a test-only failure on the second row. These isolated runs did
+not change TEST; the later reviewed TEST execution is recorded above.
 
 Repository validation: Node22.23.3 verify PASS (lint, typecheck, security/secret scan
 and build), also PASS under Node26. Foundation has 1023 PASS, 8 skip, and 2 ENOENT

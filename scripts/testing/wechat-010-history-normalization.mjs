@@ -16,7 +16,7 @@ const sql = (input, db = database, role = 'postgres') => execFileSync(docker, co
   input, env, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 120000,
 }).trim();
 const literal = (value) => `'${value.replaceAll("'", "''")}'`;
-const migration = readFileSync('supabase/migrations/20260928193505_wechat_010_history_physical_normalization.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20260929013345_wechat_010_history_physical_normalization.sql', 'utf8');
 const tests = readFileSync('supabase/tests/wechat_010_history_physical_normalization.sql', 'utf8');
 const fixtureStart = tests.indexOf('-- FIXTURE_BEGIN');
 const fixtureEnd = tests.indexOf('-- FIXTURE_END');
