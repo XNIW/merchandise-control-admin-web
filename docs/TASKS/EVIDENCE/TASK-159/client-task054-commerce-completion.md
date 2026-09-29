@@ -31,3 +31,25 @@ Questa PR integra codice di sviluppo e non certifica backend staging, login prov
 commerce E2E o release. I gate/review/CI del revision set congelato e la ricevuta del
 merge saranno collegati qui. Le due migration commerce canoniche precedenti restano
 le uniche dipendenze, più la correttiva nuova. Non eseguire replay globale dello staging.
+
+## Revision set verificato
+
+Admin54e22e9465981f30609bcb1c829bc4da693a75a6 include main53e58013 (PR116)
+con merge ordinario. I cinque file commerce sono byte-identici al freeze fb9546ca.
+Reviewer backend distinto: nessun P0/P1/P2 aperto; AST51tabelle/73funzioni aggiunte,
+nessuna definizione precedente rimossa o cambiata; nullable verificati. Nuovo delta
+WeChat:7test autonomi e tsc strict fixture commerce PASS/exit0 con Node22.23.3.
+
+CI exact SHA [36508452826](https://github.com/XNIW/merchandise-control-admin-web/actions/runs/36508452826):
+Verify e Database migrations/pgTAP PASS; TASK094 staging SKIP.
+[Cloudflare36508452831](https://github.com/XNIW/merchandise-control-admin-web/actions/runs/36508452831):
+build e smoke locale PASS; deploy staging/production SKIP. Job e step ispezionati;
+annotation dei tre job verdi: warning Actions Node20 eseguite dal runner su Node24,
+notice futura migrazione Ubuntu26, nessun errore. Il workflow su push main esegue
+soltanto build: nessun deploy implicito. Approvazione finale e merge sono attestati
+nella PR117 e nel registro canonico Client TASK054, evitando di riscrivere lo stato
+TASK159 concorrente. Il commit documentale successivo non modifica codice o SQL.
+
+Recovery completa resta BLOCKED anche per la history: apply/inverse psql locale
+non prova il recupero delle ricevute prodotte dal runner canonico. Non procedere su
+staging finché Storage API cleanup, history e finestra senza writer non sono provati.
