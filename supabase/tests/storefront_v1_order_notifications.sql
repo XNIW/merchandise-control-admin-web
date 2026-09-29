@@ -1252,5 +1252,25 @@ select ok(
   'durable event and receipt rows contain no token, email, address, item or raw provider ID'
 );
 
+-- TASK-054: due hold distinti nello stesso shop devono produrre due avvisi.
+update public.customer_reservation_holds set status = 'released', terminal_at = now(), updated_at = now()
+where id = '85000000-0000-4000-8000-000000031001';
+insert into public.customer_reservation_holds (
+  id, user_id, shop_id, publication_id, source_product_id, quantity,
+  status, expires_at, create_idempotency_key, create_request_sha256,
+  created_at, updated_at
+)
+select '85000000-0000-4000-8000-000000054001', user_id, shop_id,
+  publication_id, source_product_id, quantity, 'active', now() + interval '10 minutes',
+  'a5000000-0000-4000-8000-000000054001', repeat('b',64), now(), now()
+from public.customer_reservation_holds
+where id = '85000000-0000-4000-8000-000000031001';
+select app_private.customer_notification_enqueue_expiring_v1(now(), 100);
+select app_private.customer_notification_enqueue_expiring_v1(now(), 100);
+select is((select count(*) from public.customer_notification_events
+  where reservation_hold_id in ('85000000-0000-4000-8000-000000031001',
+    '85000000-0000-4000-8000-000000054001') and event_key = 'reservation_expiring'),
+  2::bigint, 'hold distinti producono avvisi distinti; replay resta idempotente');
+
 select * from finish();
 rollback;
