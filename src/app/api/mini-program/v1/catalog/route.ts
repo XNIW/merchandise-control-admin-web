@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { CATALOG_TEXT_LIMITS } from "@/lib/catalog-text-policy";
 import { isWeChatSurfaceReady, resolveWeChatRuntimeConfig } from "@/server/auth/wechat-config";
 import { callWeChatUserRpc } from "@/server/wechat/user-rpc";
 
@@ -28,7 +29,7 @@ export async function GET(request: Request) {
     (hasImageText !== null && !["true", "false"].includes(hasImageText)) ||
     !["updated_desc", "name_asc", "barcode_asc"].includes(sort) ||
     (cursorAt !== null && !timestampPattern.test(cursorAt)) ||
-    (cursorText !== null && cursorText.length > 200) ||
+    (cursorText !== null && cursorText.length > CATALOG_TEXT_LIMITS.productName) ||
     ((cursorAt !== null || cursorText !== null) !== (cursorId !== null)) ||
     (cursorId !== null && !uuidPattern.test(cursorId))
   ) {
