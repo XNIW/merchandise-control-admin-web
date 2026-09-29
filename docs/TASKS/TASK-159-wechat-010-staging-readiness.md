@@ -1,5 +1,38 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## REVIEW — bounded physical History normalization, 2026-09-28
+
+The actual TEST native recovery preflight reports
+`compressed_legacy_history_requires_remediation`. Sixteen active, shop-scoped
+History rows retain physical PGLZ compression. Existing ordinary UPDATE also
+rejects compressed OLD values, so there is no supported normalization route.
+The user-authorized demonstrated Admin fix is assigned to one delegated writer;
+root does not concurrently edit this repository.
+
+Scope: additive private SECURITY INVOKER postgres-only plan/apply contract,
+transaction-bound private authorization markers, bounded PGLZ expansion before any
+JSONB operation, typed canonical validation before serialization, and a narrow
+trigger branch permitting only complete OLD/NEW equality. Preserve all metadata,
+timestamps and events; force only uncompressed EXTERNAL storage. No client ACL,
+request guard weakening, GUC bypass, trigger disable, native or commerce change.
+
+Acceptance: isolated clone only; positive PGLZ and negative method/budget/type,
+manifest/scope/caller/marker tests, a real second-writer lock, atomic rollback,
+unchanged business hashes/revisions and zero events. Add a maintenance runbook with
+official pinned PostgreSQL sources. Freeze the patch for independent root/recovery
+review. No live SQL, commit, push or deployment in this execution step; no DONE or
+authentic recovery PASS is inferred from local tests.
+
+Execution completed locally: 63 new pgTAP and 365 existing native recovery cases
+PASS; protected original trigger restore/reapply followed by the same 63 PASS;
+real second-writer NOWAIT, rollback after the first row, unchanged full-row hashes
+and zero events PASS. Node22.23.3 verify PASS (lint, typecheck, secret/security scan,
+build); Node26 verify also PASS. Foundation: 1023 PASS, 8 skip, 2 ENOENT failures
+for external Win7POS source files. No foundation-wide PASS is claimed. The
+[maintenance runbook](../RUNBOOKS/wechat-history-physical-normalization.md) records
+the proof and local runner. Independent review is pending; live application and
+authentic native recovery remain NOT_RUN for this delta.
+
 ## REVIEW — Mini session sync correction applied to TEST, 2026-09-26
 
 The authentic Mini checkpoint failed with HTTP503 because its session-bound device

@@ -1,5 +1,21 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-159 REVIEW — bounded History physical normalization, 2026-09-28
+
+The authorized cross-repository TEST completion mandate includes the demonstrated
+native recovery blocker: active legacy History JSONB remains physically PGLZ
+compressed, while the canonical recovery/storage guards deliberately reject it.
+One delegated Admin writer prepared an additive, postgres-only maintenance
+contract, isolated tests and a runbook. Content, scope, revisions and sync events
+remain unchanged in isolated tests; request-path guards remain fail closed.
+Validation: 63 new pgTAP plus 365 native contract cases PASS; compensating DDL
+restore/reapply and the same 63 cases PASS; real second-writer NOWAIT and atomic
+rollback PASS. Node22 verify PASS. Foundation: 1023 PASS, 8 skip, 2 failures from
+missing external Win7POS files, not a clean full-suite PASS. No trigger disable,
+flag change or live SQL. Independent review of the immutable patch is pending;
+no commit/deployment or native convergence is attested by this implementation step.
+Details: [TASK-159](TASKS/TASK-159-wechat-010-staging-readiness.md).
+
 ## TASK-159 REVIEW — Mini sync session fix, 2026-09-26
 
 Reviewed additive migration20260926164349 applied once to the authorized TEST target.
