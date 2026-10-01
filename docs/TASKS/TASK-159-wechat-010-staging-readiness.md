@@ -1,5 +1,46 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## REVIEW — bounded History timestamp compatibility, 2026-10-01
+
+Fresh scoped read-only evidence identifies three active History rows with valid
+storage/data/overlay and uncompressed JSONB, rejected solely for their existing
+ISO timestamp spelling. The historical TASK-079B contract explicitly allows ISO
+variants in Android/iOS. The designated cross-repository contract now permits the
+existing legacy format OR exactly `YYYY-MM-DDTHH:mm:ss.SSSZ`, three fractional digits,
+uppercase T/Z, valid Gregorian date, year0001–9999 and ordinary hour/minute/second
+ranges. No offsets, trim, rounding, normalization or general parser relaxation.
+
+Implement a separate History validator and redirect only History validation/digest
+sites. Keep the shared legacy/price validator and price writers unchanged. Preserve
+the original strings in snapshot DTOs and digest inputs; no backfill or data writes.
+The public/native checkpoint guard, owner/ACL, scope, storage/resource limits and
+all other DTO fields stay exact. Use common positive/negative fixture vectors and
+local complete checkpoint/page/rows-by-ID evidence, rollback and the365 contract
+suite. Performance PR119 is separately merged at4532831b with all required CI PASS.
+Performance SQL applied once by the coordinator as service20261001220355,
+registry148;22:04:29UTC postcheck confirms unchanged prior147 entries, OID/ACL,
+other functions/triggers, scoped data hashes and2074 events. Source→service rename
+is byte-identical (SHA54a49cbf529e1019468c9e2708c36f83eea783edca31b0df3c22af43e8fc80d7).
+No authentic Retry or History SQL apply yet. Freeze the next patch for independent
+root/recovery review.
+
+Local History validation PASS:184 new pgTAP assertions from45 shared vectors,
+365 unchanged native assertions, identical metadata and other functions, exactly
+three History predicate substitutions in two existing bodies. The original full
+checkpoint fails resource_exceeded on the same synthetic ISO rows; the candidate
+is ready. Full legacy+ISO-tombstone JSON remains identical. Paginated snapshots,
+bounded rows-by-ID and independently calculated raw-string History digest pass in
+mixed shop/legacy scope, with cross-shop exclusion. Row/event fingerprints remain
+identical through reader replacement, migration and compensating rollback/reapply.
+Existing tombstone DTO fallback remains byte-identical. Source/service performance
+rename has100% SQL byte parity. See the [History contract](../contracts/HISTORY_TIMESTAMP_COMPATIBILITY_V1.md).
+Private evidence: history-timestamp-compatibility-test-final.log; checkpoint SHA256
+3fbae5971a8ea7d97f0b95d11c5f6bb5596448bd059fc7d8933995634be47ee9.
+No cross-language45-vector PASS is asserted before each native repository reports
+its own run. No History remote apply or authentic recovery has occurred in this delta.
+Full Admin `verify` on Node 22.23.3 PASS (lint, route type generation, TypeScript,
+security scan and production build); private log `history-timestamp-verify.log`.
+
 ## REVIEW — recovery checkpoint performance, 2026-10-01
 
 The authentic post-normalization iOS checkpoint failed with HTTP500/SQLSTATE57014
@@ -22,9 +63,9 @@ helper language changes; no RPC, resolver, event guard, storage/shape validator,
 writer, timeout or business row changes. DDL-only limits are5s lock/60s statement.
 The [runbook](../RUNBOOKS/wechat-recovery-checkpoint-performance.md) records the
 reproducible command, measurements, tradeoffs and reviewed release prerequisites.
-Freeze code/tests/evidence for independent root and recovery review before source
-integration. PR118 postmerge CI/Cloudflare PASS at mainf21339bb; this new delta is
-not deployed. Android's newer HTTP200/resource_exceeded maps to three valid-storage
+The exact performance artifact received both independent approvals; PR119 and its
+separate TEST application are now complete as recorded above. Local performance
+results still do not attest live recovery latency. Android's newer HTTP200/resource_exceeded maps to three valid-storage
 History rows with ISO timestamps rejected by the existing legacy validator; keep
 that distinct compatibility fix outside this performance patch.
 

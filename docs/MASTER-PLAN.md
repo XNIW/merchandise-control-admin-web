@@ -1,5 +1,17 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-159 REVIEW — History timestamp compatibility, 2026-10-01
+
+Performance PR119 is merged at4532831b after Verify/Database/Cloudflare PASS;
+the coordinator applied the exact SQL once as service20261001220355 (registry148),
+with unchanged data/events/ACL verified. No authentic Retry yet. The separate Admin delta restores the
+verified History-only legacy-or-exact-UTC-ISO-milliseconds contract in coordination
+with Android/iOS. Preserve original timestamp strings, rows, revisions and events;
+leave price formats, updated/deleted timestamps, scope and storage budgets intact.
+Local184 new pgTAP +365 native assertions and full checkpoint/page/targeted/raw-digest
+regressions PASS. One Admin writer; independent artifact review precedes source
+integration and TEST application of History. [TASK-159](TASKS/TASK-159-wechat-010-staging-readiness.md).
+
 ## TASK-159 REVIEW — bounded checkpoint performance fix, 2026-10-01
 
 The complete synthetic checkpoint now passes the unchanged8s deadline with exact
@@ -8,9 +20,8 @@ old/new JSON and digest parity:61,595 rows /2,074 events in4.584–4.695s, and t
 helper language changes preserve scope, guards, owner/ACL and all RPC bodies.
 The365 native contract assertions and rollback/reapply pass locally. See the
 [performance runbook](RUNBOOKS/wechat-recovery-checkpoint-performance.md) and
-[TASK-159](TASKS/TASK-159-wechat-010-staging-readiness.md). Independent frozen-patch
-review/source integration and TEST application remain pending. No live SQL/deploy
-was performed. A separate authentic History ISO-timestamp compatibility blocker
+[TASK-159](TASKS/TASK-159-wechat-010-staging-readiness.md). Independent frozen-patch reviews approved the performance delta; PR119 and the
+separate TEST application are complete, as recorded above. A separate authentic History ISO-timestamp compatibility blocker
 is diagnosed and remains unchanged; no native convergence or DONE is claimed.
 PR118 postmerge CI/Cloudflare are confirmed PASS.
 

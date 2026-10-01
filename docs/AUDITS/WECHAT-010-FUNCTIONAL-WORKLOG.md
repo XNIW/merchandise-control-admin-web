@@ -259,3 +259,37 @@ could accept a same-source overload. Reproduced in a disposable transaction and
 fixed by exact regprocedure/OID, return type and argument/default metadata guards.
 The new signature-drift regression fails closed before indexes; complete local
 365-suite/benchmark rerun PASS, with the same six scalar expressions and RPC bodies.
+
+
+## 2026-10-01 — performance TEST receipt and History compatibility REVIEW
+
+Performance PR119 head df79d440 merged4532831b after CI36931262840 and CF36931262847
+SUCCESS; postmerge CI36931671476 and CF36931671402 SUCCESS. Deploy jobs SKIPPED.
+The coordinator applied only the exact reviewed SQL once; service20261001220355
+maps source20261001195438, SHA54a49cbf529e1019468c9e2708c36f83eea783edca31b0df3c22af43e8fc80d7.
+Registry148 preserves147 prior entries;22:04:29UTC independent postcheck confirms
+six identical scalar expressions, OID/owner/ACL/attributes, two indexes and unchanged
+other functions/triggers, scoped data hashes and2074 events. Source filename is
+reconciled byte-for-byte; no new authentic Retry is claimed.
+
+The separate History fix adds a private boolean predicate for existing legacy or
+exact UTC ISO milliseconds, replacing only three History predicate calls in two
+existing functions. Shared legacy/price predicates, raw active DTO strings,
+updated/deleted timestamps, tombstone fallback, scope/leases, resource/storage
+limits, OIDs/ACL and other functions remain unchanged. The metadata regression
+caught the checkpoint's later VOLATILE lease attribute; the copied declaration
+now preserves it and the migration rejects volatility drift atomically.
+
+Local184 new pgTAP +365 native assertions PASS.45 shared vectors include valid
+calendar/millisecond bounds and rejection of offsets, trim, casing, year zero,
+extra/missing fractions and invalid dates. Admin legacyAccepted is a server baseline
+expectation, not a claim about pre-existing native price parsers. Integrated checks
+prove unchanged legacy+ISO-tombstone full JSON; old checkpoint resource_exceeded
+versus ready for the same supported ISO rows; paginated/targeted raw DTOs; independently
+computed History SHA chain; mixed shop/legacy scope and cross-shop exclusion;
+unchanged row/event fingerprints and rollback/reapply. All fixture writes use active
+canonical triggers in a disposable local clone. Private log:
+history-timestamp-compatibility-test-final.log. Native oracle runs, independent
+artifact review, source integration and History TEST application remain pending.
+Full Admin `verify` on Node 22.23.3 PASS (lint, route type generation, TypeScript,
+security scan and production build); log `history-timestamp-verify.log`.
