@@ -13,6 +13,10 @@ begin
       ('public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)', '8c9d0add91798f5b88509dde8ba5c7d8', 'jsonb')
     ) expected(signature, source_md5, result_type)
       on pg_catalog.to_regprocedure(expected.signature) = function_row.oid
+    cross join lateral (
+      select pg_catalog.array_agg(acl_item::text order by acl_item::text collate "C") as entries
+      from pg_catalog.unnest(function_row.proacl) acl(acl_item)
+    ) actual_acl
     where pg_catalog.pg_get_userbyid(function_row.proowner) = 'postgres'
       and function_row.prorettype = pg_catalog.to_regtype(expected.result_type)
       and function_row.proretset = false
@@ -28,10 +32,16 @@ begin
       and function_row.proconfig = case when function_row.proname = 'shop_sync_recovery_checkpoint_v1'
         then array['search_path=public, app_private, pg_temp']
         else array['search_path=app_private, pg_catalog, pg_temp'] end
-      and function_row.proacl = case
+      -- Accept only the verified local or TEST privilege sets. Array order is
+      -- irrelevant; complete ACL items retain grantor and grant-option checks.
+      -- CREATE OR REPLACE below preserves whichever exact ACL already exists.
+      and case
         when function_row.proname = 'shop_sync_recovery_checkpoint_v1'
-          then array['postgres=X/postgres','authenticated=X/postgres']::aclitem[]
-        else array['postgres=X/postgres','authenticated=X/postgres','service_role=X/postgres']::aclitem[] end
+          then actual_acl.entries in (
+            array['authenticated=X/postgres','postgres=X/postgres'],
+            array['authenticated=X/postgres','postgres=X/postgres','service_role=X/postgres']
+          )
+        else actual_acl.entries = array['authenticated=X/postgres','postgres=X/postgres','service_role=X/postgres'] end
       and function_row.proargnames = case
         when function_row.proname = 'shop_sync_recovery_checkpoint_v1'
           then array['p_shop_id','p_device_identifier','p_verified_baseline_id','p_expected_baseline_scope_key']

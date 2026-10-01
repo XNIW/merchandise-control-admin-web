@@ -59,6 +59,44 @@ try {
     sql(readFileSync(`supabase/migrations/${file}`, 'utf8'));
   }
   console.log('PASS local-only empty template/owner/activity; reviewed prior migrations applied in disposable clone.');
+  // ACLs are preserved by CREATE OR REPLACE. Recognize only the two observed
+  // checkpoint sets; order is irrelevant, grantor and grant option are not.
+  const checkpointFunction = 'public.shop_sync_recovery_checkpoint_v1(uuid,text,text,text)';
+  const payloadFunction = 'app_private.sync_history_active_payload_is_valid_v1(text,timestamptz,jsonb,jsonb)';
+  const migrationInTransaction = migration.replace('\nbegin;\nset local lock_timeout', '\nset local lock_timeout')
+    .replace(/\ncommit;\s*$/, '\n');
+  const metadataQuery = `select jsonb_agg(to_jsonb(f)-'prosrc' order by proname) from pg_proc f where ${where};`;
+  const baselineDefinitions = definitions(), baselineAttributes = attributes(), baselineOther = unaffected();
+  const aclCases = [
+    ['local canonical', '', true],
+    ['observed TEST order', `revoke execute on function ${checkpointFunction} from authenticated;
+      grant execute on function ${checkpointFunction} to service_role;
+      grant execute on function ${checkpointFunction} to authenticated;`, true],
+    ['local reordered', `revoke execute on function ${checkpointFunction} from postgres;
+      grant execute on function ${checkpointFunction} to postgres;`, true],
+    ['TEST alternate order', `grant execute on function ${checkpointFunction} to service_role;`, true],
+    ['active payload reordered', `revoke execute on function ${payloadFunction} from postgres;
+      grant execute on function ${payloadFunction} to postgres;`, true],
+    ['unexpected grantee', `grant execute on function ${checkpointFunction} to anon;`, false],
+    ['PUBLIC grant', `grant execute on function ${checkpointFunction} to public;`, false],
+    ['authenticated grant option', `grant execute on function ${checkpointFunction} to authenticated with grant option;`, false],
+    ['service grant option', `grant execute on function ${checkpointFunction} to service_role with grant option;`, false],
+    ['missing authenticated', `revoke execute on function ${checkpointFunction} from authenticated;`, false],
+    ['missing payload service', `revoke execute on function ${payloadFunction} from service_role;`, false],
+  ];
+  for (const [label, setup, accepted] of aclCases) {
+    const query = `begin; ${setup} ${metadataQuery} ${migrationInTransaction}
+      ${metadataQuery} rollback;`;
+    if (accepted) {
+      const [before, after] = sql(query).split('\n').map((line) => JSON.parse(line));
+      assert.deepEqual(after, before, `migration changed metadata/ACL: ${label}`);
+    } else assert.throws(() => sql(query), /history_timestamp_compatibility_baseline_mismatch/, label);
+    assert.equal(attributes(), baselineAttributes, `ACL fixture escaped rollback: ${label}`);
+    assert.equal(definitions(), baselineDefinitions, `function change escaped rollback: ${label}`);
+    assert.equal(unaffected(), baselineOther, `unrelated function changed: ${label}`);
+    assert.equal(sql("select to_regprocedure('app_private.sync_history_timestamp_is_canonical_v1(text)') is null;"), 't');
+    console.log(`PASS ACL ${accepted ? 'preserved' : 'rejected atomically'}: ${label}.`);
+  }
   const oldDefinitions = definitions(), oldBodies = bodies(), oldAttributes = attributes(), oldUnaffected = unaffected();
   assert.equal(sql(`select app_private.sync_history_active_payload_is_valid_v1('${stamps[0]}',null,'[["typed"]]'::jsonb,null);`), 'f');
   console.log('PASS RED: current active-History validator rejects a documented valid ISO timestamp.');

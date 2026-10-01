@@ -1,9 +1,10 @@
 # History timestamp compatibility v1 — WECHAT-010
 
-Status: local implementation under REVIEW, coordinated with Android/iOS.
-Source integration, authentic recovery and native convergence for this delta are
-not yet accepted. Performance PR119 and its separate TEST migration are already
-recorded in the performance runbook.
+Status: original implementation integrated by PR120 with head/postmerge CI PASS.
+Its TEST migration attempt was rejected atomically by the ACL baseline guard;
+no History version was registered. A guard-only correction is under REVIEW.
+Authentic recovery and native convergence are not yet accepted. Performance PR119
+and its separate TEST migration are recorded in the performance runbook.
 
 ## Demonstrated incompatibility
 
@@ -55,6 +56,15 @@ atomically. There are no table updates, flag changes, new public grants or endpo
 changes. The new predicate has no anon/authenticated/service-role execute grant;
 existing authorized definer boundaries call it internally.
 
+The checkpoint ACL precondition accepts exactly the canonical local set
+(`postgres`, `authenticated`) or the observed TEST set (the same plus
+`service_role`), each with only EXECUTE granted by postgres. Full ACL items are
+compared after sorting; additional grantees, grant options, different grantors or
+missing grants fail closed. The active-payload helper keeps its one exact existing
+set. No existing grant is added, removed or reordered by the migration; CREATE OR
+REPLACE preserves the actual ACL. The unregistered source migration can therefore
+be corrected without modifying an applied migration or repairing the registry.
+
 ## Shared vectors and local verification
 
 The shared [45 vectors](../../tests/fixtures/history-timestamp-compatibility-v1.json)
@@ -90,6 +100,11 @@ Local result (1 October2026):184/184 new pgTAP and365/365 native contract PASS.
 Complete legacy+ISO-tombstone equality, baseline resource_exceeded→ready,
 paginated/targeted DTOs, raw-string digest, scope exclusion, row/event fingerprints
 and rollback/reapply PASS. New helper remains postgres-only. Native45-vector parity
-is pending each repository's own evidence. No History SQL has been applied remotely.
+is pending each repository's own evidence. The later TEST attempt changed nothing.
 Full Admin `verify` on Node 22.23.3 also passes: lint, route type generation,
 TypeScript, security scan and production build.
+
+Guard follow-up: 11 ACL scenarios PASS with exact metadata preservation and atomic
+rollback, followed by the same 184 + 365 assertions and complete integration checks.
+The original guard reproduces the observed TEST ACL failure. The runtime SQL after
+the guard remains byte-identical; full Node22 verify also passes for the correction.
