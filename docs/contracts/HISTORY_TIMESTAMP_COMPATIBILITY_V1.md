@@ -1,10 +1,11 @@
 # History timestamp compatibility v1 — WECHAT-010
 
-Status: original implementation integrated by PR120 with head/postmerge CI PASS.
-Its TEST migration attempt was rejected atomically by the ACL baseline guard;
-no History version was registered. A guard-only correction is under REVIEW.
-Authentic recovery and native convergence are not yet accepted. Performance PR119
-and its separate TEST migration are recorded in the performance runbook.
+Status: PR120 and its guard-only correction PR121 are integrated with head/postmerge
+CI PASS. The first TEST attempt was rejected atomically; the corrected migration
+was applied once at 23:51:53 UTC on 1 October2026 as service20261001235153.
+Registry149 and the independent postcheck are verified below. Authentic recovery
+and native convergence are not yet accepted. Performance PR119 and its separate
+TEST migration are recorded in the performance runbook.
 
 ## Demonstrated incompatibility
 
@@ -62,8 +63,21 @@ The checkpoint ACL precondition accepts exactly the canonical local set
 compared after sorting; additional grantees, grant options, different grantors or
 missing grants fail closed. The active-payload helper keeps its one exact existing
 set. No existing grant is added, removed or reordered by the migration; CREATE OR
-REPLACE preserves the actual ACL. The unregistered source migration can therefore
-be corrected without modifying an applied migration or repairing the registry.
+REPLACE preserves the actual ACL. The guard correction amended the then-unregistered
+source migration; it did not modify an applied migration or repair the registry.
+
+## TEST application and source-version receipt
+
+Source20261001215458 was assigned service20261001235153. The source file now uses
+that assigned version, with SQL SHA256
+`765a891c7c89f4aff0824384754c5aa8a9dfda4766a6fd77fd4a7a0efd7080d1` unchanged.
+The 23:52:26 UTC postcheck confirms registry149 with all148 prior entries intact,
+exact existing OID/metadata/ACL preservation, and expected source bodies:
+active-payload MD5 `4f64d7bc1ef9118b0e8586c4cbefced1`, checkpoint MD5
+`3327952df5a4051af35948bd1a0bc307`, private helper MD5
+`d7f1ff63f529b4557af495eab698ac84`. The helper has only postgres EXECUTE.
+Scoped data/History/image versions, 2074 events, other functions and triggers are
+unchanged. This is deployment/integrity evidence, not an authentic recovery result.
 
 ## Shared vectors and local verification
 
@@ -100,7 +114,8 @@ Local result (1 October2026):184/184 new pgTAP and365/365 native contract PASS.
 Complete legacy+ISO-tombstone equality, baseline resource_exceeded→ready,
 paginated/targeted DTOs, raw-string digest, scope exclusion, row/event fingerprints
 and rollback/reapply PASS. New helper remains postgres-only. Native45-vector parity
-is pending each repository's own evidence. The later TEST attempt changed nothing.
+is pending each repository's own evidence. The first TEST attempt changed nothing;
+the subsequent corrected application is recorded above.
 Full Admin `verify` on Node 22.23.3 also passes: lint, route type generation,
 TypeScript, security scan and production build.
 

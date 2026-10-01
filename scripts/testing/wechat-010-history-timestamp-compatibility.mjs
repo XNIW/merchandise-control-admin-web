@@ -16,7 +16,7 @@ const sql = (input, db = database, role = 'postgres') => execFileSync(docker, [
   '-v', 'ON_ERROR_STOP=1', '-U', role, '-d', db,
 ], { input, env, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 120000 }).trim();
 const literal = (value) => `'${value.replaceAll("'", "''")}'`;
-const migration = readFileSync('supabase/migrations/20261001215458_wechat_010_history_timestamp_compatibility.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20261001235153_wechat_010_history_timestamp_compatibility.sql', 'utf8');
 const tap = readFileSync('supabase/tests/wechat_010_history_timestamp_compatibility.sql', 'utf8');
 const fixture = JSON.parse(readFileSync('tests/fixtures/history-timestamp-compatibility-v1.json', 'utf8'));
 assert.deepEqual(JSON.parse(tap.split('$vectors$')[1]), fixture, 'pgTAP must use exact shared vectors');

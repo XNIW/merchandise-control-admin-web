@@ -1,6 +1,30 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
-## REVIEW — exact History ACL baseline, 2026-10-01
+## REVIEW — applied History receipt and version reconciliation, 2026-10-01
+
+PR121 head0875e944 merged d1287cab at 23:44:48 UTC after required CI PASS.
+Head CI36942045201/CF36942044782 and postmerge CI36942419923/CF36942419889
+SUCCESS; deploy jobs SKIPPED. The coordinator applied the corrected SQL once at
+23:51:53 UTC. Source20261001215458 maps to service20261001235153, with identical
+SQL SHA256 `765a891c7c89f4aff0824384754c5aa8a9dfda4766a6fd77fd4a7a0efd7080d1`.
+
+Postcheck23:52:26 UTC PASS: registry149 preserves all148 prior entries; the two
+existing functions retain exact OID/full metadata/ACL and have only their expected
+History predicate substitutions. The new helper is postgres-only. Other functions,
+triggers, scoped business data, three original History rows, image versions and
+2074 events remain unchanged. Private receipts: `history-timestamp-v2-apply-intent.json`,
+`history-timestamp-v2-apply-result.json`, `history-timestamp-v2-after.json` and
+`history-timestamp-v2-postcheck.json`. The earlier rejected attempt remains recorded.
+
+This delta only renames the migration file to its assigned service version, changes
+the local runner's path literal, and aligns receipts. No SQL byte or runtime logic
+changes, registry repair or remote action by the writer. Validation uses byte/hash
+parity, path resolution, runner syntax, security scan and diff checks; the unchanged
+11 ACL +184 History +365 native assertions and full verify are not repeated for this
+filename/documentation-only delta. Authentic recovery, latency and native convergence
+remain unverified. The following sections preserve their historical review state.
+
+## Historical REVIEW — exact History ACL baseline, 2026-10-01
 
 PR120 merged b162f23d after all head/postmerge checks passed. The first TEST
 application failed with `history_timestamp_compatibility_baseline_mismatch`:
@@ -31,7 +55,7 @@ The same source migration is amended because its TEST attempt rolled back and no
 registry version was recorded. Applied migrations remain untouched; no registry
 repair, version rewrite or remote action is performed by this delta.
 
-## REVIEW — bounded History timestamp compatibility, 2026-10-01
+## Historical REVIEW — bounded History timestamp compatibility, 2026-10-01
 
 Fresh scoped read-only evidence identifies three active History rows with valid
 storage/data/overlay and uncompressed JSONB, rejected solely for their existing
