@@ -226,3 +226,36 @@ scan PASS, diff check PASS. Governance review keeps TASK-159 active, preserves
 historical evidence, and does not mark DONE. Full verify was not repeated for
 filename/documentation-only changes; the reviewed application logic and earlier
 verify results are unchanged.
+
+
+## 2026-10-01 — complete checkpoint performance, local REVIEW
+
+PR118 postmerge CI36510419025 and Cloudflare36510419084 verified SUCCESS. The sole
+Admin writer reproduced the complete recovery timeout on61,595 synthetic rows in
+an empty local clone. Additive migration20261001195438 introduces two indexes of
+the unchanged lower(UUID::text) predicate and six pure helper SQL→PL/pgSQL RETURN
+changes. Scalar expressions, OIDs/owner/ACL/attributes, every other function, data
+and event fingerprints remain identical; runtime8s and all scope/resource guards
+remain unchanged. DDL uses transaction-local5s lock/60s statement limits.
+
+Final local run: original timeout8s; fixed2,074 events4.695/4.584/4.638s; baseline=max
+3.074s;10,001 event candidates5.959s with unchanged incomplete/full-recovery flags.
+Complete old/new JSON equality includes all digest fields.365pgTAP, scalar vectors,
+actual expression-index plans, rejected role/ACL drift, atomic rollback and
+compensating restore/reapply PASS. Private log: checkpoint-performance-regression-v2.log.
+Runbook: docs/RUNBOOKS/wechat-recovery-checkpoint-performance.md.
+
+No remote SQL, data mutation, migration or deploy by this delta. The newer Android
+HTTP200 resource_exceeded is separately traced to three History ISO timestamps;
+this patch preserves the current validator and makes no native convergence claim.
+Independent artifact review and source integration remain pending.
+
+Full Admin verify with Node22.23.3 PASS: lint, route types, TypeScript, secret/security
+scan and production build. Final diff-check PASS. No dependency or application
+TypeScript file changed.
+
+Independent review identified a DDL baseline-identity gap: matching by name alone
+could accept a same-source overload. Reproduced in a disposable transaction and
+fixed by exact regprocedure/OID, return type and argument/default metadata guards.
+The new signature-drift regression fails closed before indexes; complete local
+365-suite/benchmark rerun PASS, with the same six scalar expressions and RPC bodies.

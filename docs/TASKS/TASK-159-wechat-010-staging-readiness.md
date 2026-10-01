@@ -1,5 +1,36 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## REVIEW — recovery checkpoint performance, 2026-10-01
+
+The authentic post-normalization iOS checkpoint failed with HTTP500/SQLSTATE57014
+inside the canonical recovery preflight. One delegated Admin writer is assigned
+the demonstrated backend defect. Scope is an additive, independently reviewed SQL
+optimization with local synthetic reproduction of the complete checkpoint, exact
+DTO/hash/order parity, unchanged 8-second request deadline, scope/authorization,
+resource limits and fail-closed storage guards. No live migration or deployment
+is authorized in this execution step.
+
+Completed local reproduction on a dedicated empty clone with61,595 synthetic rows.
+The original complete checkpoint times out at8s; the candidate completes2,074
+events in4.584–4.695s and10,001 candidates in5.959s, preserving the10,000 inspection
+limit and full-recovery decision. Full original/candidate JSON and digests match;
+365 native contract assertions, scalar vectors, metadata/ACL parity, real query
+plans, unchanged data/event fingerprints and rollback/reapply all pass.
+
+The additive migration contains only two exact-expression indexes and six pure
+helper language changes; no RPC, resolver, event guard, storage/shape validator,
+writer, timeout or business row changes. DDL-only limits are5s lock/60s statement.
+The [runbook](../RUNBOOKS/wechat-recovery-checkpoint-performance.md) records the
+reproducible command, measurements, tradeoffs and reviewed release prerequisites.
+Freeze code/tests/evidence for independent root and recovery review before source
+integration. PR118 postmerge CI/Cloudflare PASS at mainf21339bb; this new delta is
+not deployed. Android's newer HTTP200/resource_exceeded maps to three valid-storage
+History rows with ISO timestamps rejected by the existing legacy validator; keep
+that distinct compatibility fix outside this performance patch.
+
+Validation: full Admin `verify` on Node22.23.3 PASS (lint, route type generation,
+TypeScript, security scan, production build); `git diff --check` PASS.
+
 ## REVIEW — applied TEST receipt and source reconciliation, 2026-09-29 UTC
 
 PR115 merged46466364 and PR116 merged53e58013 after required CI PASS. The selective
