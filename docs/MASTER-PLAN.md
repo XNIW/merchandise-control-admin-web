@@ -1,5 +1,16 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-159 REVIEW — History migration ACL precondition, 2026-10-01
+
+PR120 is merged with head/postmerge CI PASS. Its TEST application was rejected
+atomically by the baseline ACL guard; registry148, function definitions, data and
+events remain unchanged. The sole guard correction recognizes the exact local or
+observed TEST checkpoint ACL, independent of array order, without adding or
+revoking privileges. The History migration has no remote registry entry. Eleven
+ACL scenarios, 184 History and 365 native assertions, complete checkpoint tests
+and full Node22 verify PASS. Independent review precedes source integration and
+any second application by the coordinator. Runtime SQL remains byte-identical.
+
 ## TASK-159 REVIEW — History timestamp compatibility, 2026-10-01
 
 Performance PR119 is merged at4532831b after Verify/Database/Cloudflare PASS;

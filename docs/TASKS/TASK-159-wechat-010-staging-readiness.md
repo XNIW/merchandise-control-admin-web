@@ -1,5 +1,36 @@
 # TASK-159 — WECHAT-010 controlled Mini staging readiness
 
+## REVIEW — exact History ACL baseline, 2026-10-01
+
+PR120 merged b162f23d after all head/postmerge checks passed. The first TEST
+application failed with `history_timestamp_compatibility_baseline_mismatch`:
+the checkpoint also has an existing service_role EXECUTE grant absent from the
+local template. The independent post-rejection snapshot confirms registry148,
+new helper absent, and unchanged function/data/event fingerprints. No History
+version was registered or partially applied.
+
+Scope: amend only this unapplied migration's ACL precondition to accept the two
+exact verified checkpoint ACL sets, with order-independent comparison. Preserve
+grantors and grant-option distinctions; never grant or revoke existing function
+permissions. Add local proofs for both baselines, reordered ACLs, unexpected
+grantee and grant-option rejection, atomicity and exact metadata/ACL preservation.
+No runtime body, format, fixture contract or business-data change. Freeze for two
+reviews before integration; the Admin writer has no remote apply authority.
+
+Local result: the original guard reproduces the observed TEST rejection. The
+corrected guard passes 11 ACL scenarios: both verified sets, reordered entries,
+unexpected anon/PUBLIC grants, grant options, and missing required grants. Each
+accepted case preserves exact OID/owner/ACL/metadata; rejected cases and fixture
+changes roll back atomically. The 184 History and 365 native assertions, complete
+checkpoint/page/targeted-row/digest tests, and full Admin Node 22.23.3 verify PASS.
+Runtime SQL after the guard is byte-identical; no existing function permission
+changes are introduced. Private logs: `history-timestamp-acl-red.log`,
+`history-timestamp-acl-green.log`, `history-timestamp-acl-verify.log`.
+
+The same source migration is amended because its TEST attempt rolled back and no
+registry version was recorded. Applied migrations remain untouched; no registry
+repair, version rewrite or remote action is performed by this delta.
+
 ## REVIEW — bounded History timestamp compatibility, 2026-10-01
 
 Fresh scoped read-only evidence identifies three active History rows with valid

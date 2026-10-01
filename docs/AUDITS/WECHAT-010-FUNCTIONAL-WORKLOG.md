@@ -293,3 +293,27 @@ history-timestamp-compatibility-test-final.log. Native oracle runs, independent
 artifact review, source integration and History TEST application remain pending.
 Full Admin `verify` on Node 22.23.3 PASS (lint, route type generation, TypeScript,
 security scan and production build); log `history-timestamp-verify.log`.
+
+## 2026-10-01 — History ACL baseline correction REVIEW
+
+PR120 merged b162f23d at 22:37:16 UTC. Head CI36934913127/CF36934913057 and
+postmerge CI36936157036/CF36936157032 PASS; deploy jobs SKIPPED. The coordinator's
+TEST migration attempt failed atomically with baseline_mismatch. A fresh snapshot
+at 22:53:55 UTC confirms registry148, new helper absent, unchanged functions/data
+and 2074 events. The exact source bodies match, but TEST already grants checkpoint
+EXECUTE to service_role in addition to postgres/authenticated.
+
+The guard-only correction compares complete sorted ACL items against precisely
+the two verified checkpoint sets. The active-payload set stays exact. It retains
+grantor/grant-option checks and changes no existing privilege; runtime SQL after
+the guard has SHA256 96af0f4c789ccab7c86e02816066c57cd528e525ae8a61912cd21c5fc0a3fda8
+identical to PR120. This source migration is not registered remotely, so no applied
+migration or registry is altered.
+
+The original SQL reproduces the TEST ACL rejection locally. Eleven positive and
+negative ACL scenarios PASS, preserving exact metadata and rolling back fixtures
+and failures. The 184 History plus 365 native assertions and complete checkpoint,
+DTO/digest/scope/rollback checks PASS again. Full Admin Node22 verify PASS.
+Private logs: history-timestamp-acl-red.log, history-timestamp-acl-green.log,
+history-timestamp-acl-verify.log. No remote SQL/application or authentic Retry by
+this writer; independent review and any second coordinator apply remain pending.
