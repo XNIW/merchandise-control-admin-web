@@ -17,7 +17,7 @@ const sql = (input, db = database, role = 'postgres') => execFileSync(docker, [
   '-v', 'ON_ERROR_STOP=1', '-U', role, '-d', db,
 ], { input, env, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'], timeout: 120000 }).trim();
 const literal = (value) => `'${value.replaceAll("'", "''")}'`;
-const migration = readFileSync('supabase/migrations/20261001195438_wechat_010_recovery_checkpoint_performance.sql', 'utf8');
+const migration = readFileSync('supabase/migrations/20261001220355_wechat_010_recovery_checkpoint_performance.sql', 'utf8');
 const names = ['sync_checkpoint_json_timestamp', 'sync_price_recovery_row_v1', 'sync_checkpoint_timestamp',
   'sync_checkpoint_chain_step_v1', 'sync_checkpoint_sha256', 'sync_product_recovery_row_v1'];
 const where = `pronamespace='app_private'::regnamespace and proname in (${names.map(literal).join(',')})`;

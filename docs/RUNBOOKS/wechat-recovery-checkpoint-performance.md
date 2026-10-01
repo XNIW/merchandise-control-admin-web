@@ -1,8 +1,16 @@
 # WECHAT-010 — prestazioni del checkpoint di recovery
 
-Stato: implementazione locale in REVIEW; nessuna migrazione, modifica dati o
-nuova verifica di convergenza eseguita su TEST/prod da questo delta. Il checkpoint
-canonico, i guard di scope e storage e il limite runtime di 8 secondi restano identici.
+Stato: PR119 integrata in main4532831b con CI/Cloudflare PASS; migrazione TEST
+applicata una sola volta dal coordinatore il1 ottobre2026. Nessun Retry autentico
+è stato eseguito per dichiarare recovery/convergenza. Il checkpoint canonico, i
+guard di scope e storage e il limite runtime di8 secondi restano identici.
+
+Il servizio ha assegnato20261001220355 alla sorgente20261001195438, con SQL SHA256
+`54a49cbf529e1019468c9e2708c36f83eea783edca31b0df3c22af43e8fc80d7` invariato.
+Registry148 mantiene i147 precedenti record/hash. Postcheck22:04:29UTC: sei helper
+con OID/owner/ACL/attributi identici e stesse espressioni PL/pgSQL, due indici;
+altre funzioni/trigger, fingerprint dati scoped e2074 eventi invariati. Backup,
+intent, risultato e postcheck sono ricevute private; nessun secret è pubblicato.
 
 ## Difetto e delta
 
@@ -13,7 +21,7 @@ La scansione eventi ripete ricerche `lower(id::text)` che non possono usare il P
 UUID; i helper SQL scalari vengono inoltre richiamati per ogni riga, più volte
 fra preflight, digest e integrità.
 
-`20261001195438_wechat_010_recovery_checkpoint_performance.sql` aggiunge due indici
+`20261001220355_wechat_010_recovery_checkpoint_performance.sql` aggiunge due indici
 sull'esatta espressione esistente, in `inventory_products` e
 `inventory_product_prices`. Converte sei helper privati da SQL a PL/pgSQL con
 `RETURN` della stessa identica espressione. Non cambia il corpo di alcun RPC,
@@ -84,7 +92,7 @@ entrambe le prove sono rollback-only. Il log integrale resta nella ricevuta priv
 Validation: full Admin `verify` on Node22.23.3 PASS (lint, route type generation,
 TypeScript, security scan, production build); `git diff --check` PASS.
 
-## Procedura TEST successiva alla review
+## Procedura TEST revisionata (applicazione completata)
 
 Prima di un'eventuale applicazione, acquisire un fresh snapshot scoped di registry,
 sorgenti/owner/ACL dei sei helper, definizioni degli RPC/guard invariati, indici,
