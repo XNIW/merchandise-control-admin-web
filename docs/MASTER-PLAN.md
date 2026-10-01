@@ -1,5 +1,19 @@
 # MerchandiseControl Admin Web - Master Plan
 
+## TASK-159 REVIEW — bounded checkpoint performance fix, 2026-10-01
+
+The complete synthetic checkpoint now passes the unchanged8s deadline with exact
+old/new JSON and digest parity:61,595 rows /2,074 events in4.584–4.695s, and the
+10,001-event inspection boundary in5.959s. Two expression indexes and six scalar
+helper language changes preserve scope, guards, owner/ACL and all RPC bodies.
+The365 native contract assertions and rollback/reapply pass locally. See the
+[performance runbook](RUNBOOKS/wechat-recovery-checkpoint-performance.md) and
+[TASK-159](TASKS/TASK-159-wechat-010-staging-readiness.md). Independent frozen-patch
+review/source integration and TEST application remain pending. No live SQL/deploy
+was performed. A separate authentic History ISO-timestamp compatibility blocker
+is diagnosed and remains unchanged; no native convergence or DONE is claimed.
+PR118 postmerge CI/Cloudflare are confirmed PASS.
+
 ## TASK-159 REVIEW — TEST normalization and catalog release, 2026-09-29 UTC
 
 Reviewed Admin PR115/PR116 are integrated; the selective TEST Worker release and
